@@ -97,6 +97,7 @@ class FrameRenderer extends HeadlessAC {
           this.backgroundBufferRestored = true; // Set flag when successfully restored
           const loadTime = Date.now() - startTime;
           console.log(`✅ Background buffer restored (${bufferData.length} bytes in ${loadTime}ms)`);
+          console.log(`🧪 Background buffer preview (first 16 bytes):`, Array.from(this.pixelBuffer.slice(0, 16)));
         } else {
           console.log(`⚠️ Background buffer size mismatch: expected ${this.pixelBuffer.length}, got ${bufferData.length}`);
         }
@@ -110,6 +111,7 @@ class FrameRenderer extends HeadlessAC {
   saveBackgroundBuffer() {
     try {
       const startTime = Date.now();
+      console.log(`🧪 Background buffer sample before save (first 16 bytes):`, Array.from(this.pixelBuffer.slice(0, 16)));
       fs.writeFileSync(this.backgroundBufferFile, this.pixelBuffer);
       const saveTime = Date.now() - startTime;
       console.log(`💾 Background buffer saved for frame continuity (${saveTime}ms)`);
@@ -143,6 +145,9 @@ class FrameRenderer extends HeadlessAC {
     
     // Calculate frame time
     const frameTimeMs = (state.frameIndex / state.fps) * 1000;
+
+    // Keep frame counters synchronized for downstream helpers
+    this.frameCount = state.frameIndex;
     
     // Set the simulation time for timing-based expressions
     this.setSimulationTime(frameTimeMs);
@@ -204,17 +209,19 @@ class FrameRenderer extends HeadlessAC {
       this.api = await this.createAPI(); // Create the API after initialization - screen.pixels will now reference the loaded background buffer
       apiCreateTime = Date.now() - apiStartTime;
         
-      // CRITICAL: Synchronize KidLisp frameCount with current frame index
-      // This ensures timing expressions work correctly across frames
       if (this.kidlispInstance) {
-        this.kidlispInstance.frameCount = state.frameIndex;
-        console.log(`🎯 Synchronized KidLisp frameCount to ${state.frameIndex}`);
+        console.log(`🎯 KidLisp instance established at frame ${state.frameIndex}`);
         
         // CRITICAL: Ensure simulation time is properly set for KidLisp timing calculations
         // Force update the time after API creation to ensure consistent timing
         this.setSimulationTime(frameTimeMs);
         console.log(`🕐 Re-synchronized simulation time after API creation: ${frameTimeMs}ms`);
       }
+    }
+
+    // Keep KidLisp timing counters aligned with renderer frame index
+    if (this.kidlispInstance) {
+      this.kidlispInstance.frameCount = state.frameIndex;
     }
     
     // Load the piece module if not cached

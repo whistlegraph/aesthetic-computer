@@ -440,7 +440,6 @@ async function getCachedCodeMultiLevel(cacheId) {
 
   if (globalScope.teiaKidlispCodes && globalScope.teiaKidlispCodes[cacheId]) {
     const teiaSource = globalScope.teiaKidlispCodes[cacheId];
-    console.log(`🎯 Found TEIA cached code for ${cacheId}`);
     // Cache in RAM for future access
     globalCodeCache.set(cacheId, teiaSource);
     return teiaSource;
@@ -1694,7 +1693,7 @@ class KidLisp {
       colorName = firstItem;
     }
     // Check if it's a single-argument function call like ["red"]
-    else if (Array.isArray(firstItem) && firstItem.length === 1 && typeof firstItem[0] === "string") {
+    else if (Array.isArray(firstItem) && firstItem.length >= 1 && typeof firstItem[0] === "string") {
       colorName = firstItem[0];
     }
 
