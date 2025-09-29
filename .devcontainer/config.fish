@@ -223,6 +223,9 @@ function ac-record
         echo "  --width N       Video width (default: 1024)"
         echo "  --height N      Video height (default: 1024)"
         echo "  --gif           Output as GIF instead of MP4"
+        echo "  --gif-fps N     Override GIF framerate (default: 50, allowed: 100,50,25,20,10,5,4,2,1)"
+        echo "  --gif-25        Convenience flag for 25fps GIF output"
+        echo "  --gif-compress  Ultra-compress GIF for smallest file size"
         echo "  --sixel         Display result in terminal as sixel image"
         return 1
     end
@@ -237,6 +240,8 @@ function ac-record
     set -l gif_flag ""
     set -l sixel_flag ""
     set -l density ""
+    set -l gif_fps ""
+    set -l gif_compress ""
     
     # Process optional arguments
     set -l i 2
@@ -266,6 +271,17 @@ function ac-record
                 set gif_flag "--gif"
             case '--sixel'
                 set sixel_flag "sixel"
+            case '--gif-fps'
+                set i (math $i + 1)
+                if test $i -le (count $argv)
+                    set gif_fps $argv[$i]
+                end
+            case '--gif-25'
+                set gif_fps 25
+            case '--gif25'
+                set gif_fps 25
+            case '--gif-compress'
+                set gif_compress "--gif-compress"
         end
         set i (math $i + 1)
     end
@@ -274,7 +290,11 @@ function ac-record
     echo "🎬 Recording $piece_name from $current_dir"
     echo "📊 Settings: {$duration} frames @ {$width}x{$height}"
     if test -n "$gif_flag"
-        echo "🎞️  Output format: GIF"
+        if test -n "$gif_fps"
+            printf "🎞️  Output format: GIF @ %sfps\n" $gif_fps
+        else
+            echo "🎞️  Output format: GIF @ 50fps (default)"
+        end
     else
         echo "🎞️  Output format: MP4"
     end
@@ -300,6 +320,12 @@ function ac-record
     end
     if test -n "$density"
         set cmd $cmd "--density" $density
+    end
+    if test -n "$gif_fps"
+        set cmd $cmd "--gif-fps" $gif_fps
+    end
+    if test -n "$gif_compress"
+        set cmd $cmd $gif_compress
     end
     
     # Execute the recording
