@@ -10229,14 +10229,26 @@ function isKidlispSource(text) {
     return false; // Definitely JavaScript, not KidLisp
   }
 
+  const trimmedText = text.trim();
+  const loweredTrimmedText = trimmedText.toLowerCase();
+
+  // Never treat share-prefixed snippets as KidLisp; these are share metadata, not source
+  if (loweredTrimmedText.startsWith("share")) {
+    return false;
+  }
+
   // Check if it contains newlines (multi-line input is likely KidLisp)
-  // This check comes after JS detection to avoid false positives
+  // This check comes after JS detection (and share guard) to avoid false positives
   if (text.includes("\n")) {
     return true;
   }
 
   // Check for first-line color indicators (fade strings and color codes)
-  const trimmedText = text.trim();
+
+  // Never treat share-prefixed snippets as KidLisp; these are share metadata, not source
+  if (loweredTrimmedText.startsWith("share")) {
+    return false;
+  }
   if (trimmedText.startsWith("fade:") ||
     trimmedText.match(/^c\d+$/) ||
     cssColors[trimmedText] ||
@@ -10266,29 +10278,36 @@ function isKidlispSource(text) {
     ];
 
     // Split by commas and check if any part contains KidLisp functions or colors
-    const parts = text.split(",").map(part => part.trim());
-    const hasKidlispElements = parts.some(part => {
-      // Check for KidLisp functions
-      if (kidlispFunctions.some(fn => part.includes(fn))) return true;
-      // Check for CSS colors
-      if (cssColors && cssColors[part]) return true;
-      // Check for color codes like c0, c1, etc.
-      if (part.match(/^c\d+$/)) return true;
-      return false;
-    });
+    const parts = text.split(",").map(part => part.trim()).filter(Boolean);
 
-    // Also check if it has a high ratio of KidLisp elements to total parts
-    const kidlispElementCount = parts.filter(part => {
-      return kidlispFunctions.some(fn => part.includes(fn)) ||
-        (cssColors && cssColors[part]) ||
-        part.match(/^c\d+$/) ||
-        part.match(/^\d+(\.\d+)?$/); // Numbers are common in KidLisp
-    }).length;
+    const analyzePart = (part) => {
+      // Remove wrapping braces/parentheses commonly used in share metadata
+      const normalized = part.replace(/^[{\[(]+/, "").replace(/[}\])]+$/, "").trim();
+      if (!normalized) return { isFunction: false, isColor: false, isNumber: false, isRGB: false };
 
-    // Require at least 1 KidLisp function/color AND either multiple KidLisp elements 
-    // or a high ratio of KidLisp elements
-    if (hasKidlispElements && (kidlispElementCount >= 2 || kidlispElementCount / parts.length >= 0.5)) {
-      return true; // Contains comma syntax with KidLisp-like content
+      const firstTokenMatch = normalized.match(/^[^\s]+/);
+      const firstToken = firstTokenMatch ? firstTokenMatch[0].toLowerCase() : "";
+      const firstTokenStripped = firstToken.replace(/^[^a-z0-9]+/i, "");
+      const cleanedToken = firstTokenStripped.replace(/[^a-z0-9:_-]+$/i, "");
+
+      const isFunction = kidlispFunctions.includes(cleanedToken) ||
+        (cleanedToken.startsWith("(") && kidlispFunctions.includes(cleanedToken.slice(1)));
+      const isColor = !!(cssColors && cssColors[cleanedToken]) ||
+        /^c\d+$/.test(cleanedToken) ||
+        cleanedToken.startsWith("fade:");
+      const isNumber = /^-?\d+(\.\d+)?$/.test(cleanedToken);
+      const isRGB = isValidRGBString(cleanedToken.replace(/_/g, " "));
+
+      return { isFunction, isColor, isNumber, isRGB };
+    };
+
+    const analyses = parts.map(analyzePart);
+    const kidParts = analyses.filter(({ isFunction, isColor, isNumber, isRGB }) => isFunction || isColor || isNumber || isRGB);
+    const functionParts = analyses.filter(({ isFunction }) => isFunction);
+
+    // Require at least one recognized KidLisp function or multiple KidLisp-like tokens
+    if (kidParts.length > 0 && (functionParts.length > 0 || kidParts.length >= 2 || (kidParts.length / parts.length) >= 0.75)) {
+      return true;
     }
   }
 
