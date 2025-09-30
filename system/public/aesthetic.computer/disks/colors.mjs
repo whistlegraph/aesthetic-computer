@@ -536,8 +536,8 @@ function paint({ wipe, ink, ui, hud, screen, $api }) {
       entry.button.box.y = y;
     }
     
-    // Update swatch button positions (only for non-dividers)
-    if (entry.type !== "divider") {
+    // Update swatch button positions (only for non-dividers and non-footers)
+    if (entry.type !== "divider" && entry.type !== "footer") {
       swatchButtons[swatchButtonIndex].box.x = 35; // Updated to match
       swatchButtons[swatchButtonIndex].box.y = y + 2;
       swatchButtonIndex++;
@@ -559,17 +559,18 @@ function paint({ wipe, ink, ui, hud, screen, $api }) {
       }
     });
   });  // Paint name buttons with hover states
-  buttons.forEach((button, index) => {
-    const entry = colorEntries[index];
-    button.paint((b) => {
-      if (b.hovered && !b.down) {
-        // Hover state for name buttons
-        const y = scroll + TOP_MARGIN + ROW_HEIGHT * index;
-        if (y > -ROW_HEIGHT && y < screen.height) {
-          ink([32, 32, 32]).box(b.box.x - 2, b.box.y - 2, b.box.w + 4, b.box.h + 4);
+  colorEntries.forEach((entry, index) => {
+    if (entry.button) {
+      entry.button.paint((b) => {
+        if (b.hovered && !b.down) {
+          // Hover state for name buttons
+          const y = scroll + TOP_MARGIN + ROW_HEIGHT * index;
+          if (y > -ROW_HEIGHT && y < screen.height) {
+            ink([32, 32, 32]).box(b.box.x - 2, b.box.y - 2, b.box.w + 4, b.box.h + 4);
+          }
         }
-      }
-    });
+      });
+    }
   });
 
   // Draw chosen color in top right corner if one is selected (drawn last to appear on top)
@@ -693,40 +694,28 @@ function act({ event, store, jump, hud, screen, sound }) {
 
   // Handle button interactions
   let anyDown = false;
-  buttons.forEach((button, index) => {
-    button.act(event, () => {
-      // Copy color name to clipboard and show HUD feedback
-      const entry = colorEntries[index];
-      // For CSS colors with aliases, use the first (primary) alias for copying
-      const primaryName = entry.aliases ? entry.aliases[0] : entry.name;
-      hud.label(primaryName, entry.type === "fade" ? "cyan" : entry.type === "special" ? "lime" : "white");
-      
-      // Play copy sound - cuter lower pitch
-      if (sound) {
-        sound.synth({
-          type: "triangle",
-          tone: 900,
-          attack: 0.005,
-          decay: 0.06,
-          sustain: 0.08,
-          release: 0.12,
-          duration: 0.1,
-        });
-      }
-      
-      // Show usage example in HUD
-      setTimeout(() => {
-        if (entry.type === "fade") {
-          hud.label(`ink("${primaryName}").line(x1, y1, x2, y2)`, "gray");
-        } else if (entry.type === "special") {
-          hud.label(`ink("${primaryName}").box(x, y, w, h)`, "gray");
-        } else {
-          hud.label(`ink("${primaryName}") or ink(${entry.rgb[0]}, ${entry.rgb[1]}, ${entry.rgb[2]})`, "gray");
+  colorEntries.forEach((entry, index) => {
+    if (entry.button) {
+      entry.button.act(event, () => {
+        // Select this color to show in the top-right overlay
+        chosenColor = entry;
+        
+        // Play copy sound - cuter lower pitch
+        if (sound) {
+          sound.synth({
+            type: "triangle",
+            tone: 900,
+            attack: 0.005,
+            decay: 0.06,
+            sustain: 0.08,
+            release: 0.12,
+            duration: 0.1,
+          });
         }
-      }, 1500);
-    });
-    
-    if (button.down) anyDown = true;
+      });
+      
+      if (entry.button.down) anyDown = true;
+    }
   });
 
   // Handle swatch button interactions for color selection
@@ -801,7 +790,7 @@ function leave({ store }) {
 export { boot, paint, act, leave };
 
 // Helper function to draw gradient squares for fade entries
-function drawFadeSquare(ink, entry, x, y, size, $api) {
+function drawFadeSquare(ink, entry, x, y, size, api) {
   // Parse direction from fade name (e.g., "fade:red-blue:vertical" or "fade:fire:45")
   let direction = "horizontal"; // default
   if (entry.name.includes(":")) {
@@ -855,7 +844,7 @@ function drawFadeSquare(ink, entry, x, y, size, $api) {
         if (isReverse) t = 1 - t;
         t = Math.max(0, Math.min(1, t));
         
-        const color = interpolateColors(colors, t, $api, entry);
+        const color = interpolateColors(colors, t, api, entry);
         ink(color).box(x + px, y + py, 1, 1);
       }
     }
@@ -877,7 +866,7 @@ function drawFadeSquare(ink, entry, x, y, size, $api) {
         let t = (projection + size / 2) / size;
         t = Math.max(0, Math.min(1, t));
         
-        const color = interpolateColors(colors, t, $api, entry);
+        const color = interpolateColors(colors, t, api, entry);
         ink(color).box(x + px, y + py, 1, 1);
       }
     }
@@ -887,7 +876,7 @@ function drawFadeSquare(ink, entry, x, y, size, $api) {
       let t = py / (size - 1);
       if (isReverse) t = 1 - t;
       
-      const color = interpolateColors(colors, t, $api, entry);
+      const color = interpolateColors(colors, t, api, entry);
       ink(color).box(x, y + py, size, 1);
     }
   } else {
@@ -896,14 +885,14 @@ function drawFadeSquare(ink, entry, x, y, size, $api) {
       let t = px / (size - 1);
       if (isReverse) t = 1 - t;
       
-      const color = interpolateColors(colors, t, $api, entry);
+      const color = interpolateColors(colors, t, api, entry);
       ink(color).box(x + px, y, 1, size);
     }
   }
 }
 
 // Helper function to interpolate between multiple colors - supports dynamic colors
-function interpolateColors(colors, t, $api, entry) {
+function interpolateColors(colors, t, api, entry) {
   // Convert any dynamic color names to actual colors based on current state
   const resolvedColors = colors.map((color, index) => {
     if (Array.isArray(color)) {
@@ -913,7 +902,7 @@ function interpolateColors(colors, t, $api, entry) {
     // Handle dynamic color string markers
     if (color === "rainbow") {
       // Get current rainbow color state - simulate what rainbow() would return
-      const animFrame = $api?.paintCount ? Number($api.paintCount) : Date.now() / 100;
+      const animFrame = api?.paintCount ? Number(api.paintCount) : Date.now() / 100;
       const rainbowColors = [
         [255, 0, 0],     // Red
         [255, 165, 0],   // Orange  
@@ -929,7 +918,7 @@ function interpolateColors(colors, t, $api, entry) {
       return rainbowColors[colorIdx];
     } else if (color === "zebra") {
       // Get current zebra color state with offset for stripes
-      const animFrame = $api?.paintCount ? Number($api.paintCount) : Date.now() / 100;
+      const animFrame = api?.paintCount ? Number(api.paintCount) : Date.now() / 100;
       const zebraColors = [
         [0, 0, 0],       // Black
         [255, 255, 255], // White
@@ -972,7 +961,7 @@ function interpolateColors(colors, t, $api, entry) {
 }
 
 // Helper function to draw animated rainbow square
-function drawRainbowSquare(ink, x, y, size, $api) {
+function drawRainbowSquare(ink, x, y, size, api) {
   // Rainbow colors sequence
   const rainbowColors = [
     [255, 0, 0],     // Red
@@ -984,7 +973,7 @@ function drawRainbowSquare(ink, x, y, size, $api) {
   ];
   
   // Create animation based on paint count or time
-  const animFrame = Number($api?.paintCount || 0n) || Date.now() / 100;
+  const animFrame = Number(api?.paintCount || 0n) || Date.now() / 100;
   const speed = 0.05; // Slower animation speed
   
   // Calculate which color to show (cycling through the sequence)
@@ -996,7 +985,7 @@ function drawRainbowSquare(ink, x, y, size, $api) {
 }
 
 // Helper function to draw animated zebra square
-function drawZebraSquare(ink, x, y, size, $api) {
+function drawZebraSquare(ink, x, y, size, api) {
   // Zebra colors sequence (black and white)
   const zebraColors = [
     [0, 0, 0],       // Black
@@ -1004,7 +993,7 @@ function drawZebraSquare(ink, x, y, size, $api) {
   ];
   
   // Create animation based on paint count or time
-  const animFrame = Number($api?.paintCount || 0n) || Date.now() / 100;
+  const animFrame = Number(api?.paintCount || 0n) || Date.now() / 100;
   const speed = 0.1; // Faster animation speed for zebra
   
   // Calculate which color to show (cycling between black and white)
