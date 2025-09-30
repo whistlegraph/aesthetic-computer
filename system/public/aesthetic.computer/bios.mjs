@@ -254,11 +254,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   const wrapper = document.createElement("div");
   wrapper.id = "aesthetic-computer";
 
-  const underlayFrame = document.createElement("div");
-  underlayFrame.id = "underlay";
-  underlayFrame.style.display = "none";
-  wrapper.appendChild(underlayFrame);
-
   // 🖥️ Our main display surface. (Software Renderer)
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d", { willReadFrequently: true });
@@ -364,7 +359,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       imageData.data.buffer &&
       imageData.data.buffer.byteLength > 0 &&
       !document.body.contains(freezeFrameCan) &&
-  !tapePlaybackActive // Don't show freeze frame during tape playback
+      !underlayFrame // Don't show freeze frame during tape playback
     ) {
       if (debug && logs.frame) {
         console.log(
@@ -2183,11 +2178,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   let frameCached = false;
   let pixelsDidChange = false; // TODO: Can this whole thing be removed? 2021.11.28.03.50
 
+  
   let contentFrame;
   let ticketWrapper;
-  let tapePlaybackActive = false;
-
-  // const bakedCan = document.createElement("canvas", {
+  let underlayFrame;  // const bakedCan = document.createElement("canvas", {
   //  willReadFrequently: true,
   // });
 
@@ -7705,10 +7699,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       ticketWrapper?.remove();
       ticketWrapper = undefined;
 
-  stopTapePlayback?.();
-  underlayFrame.style.display = "none";
-  underlayFrame.innerHTML = "";
-  tapePlaybackActive = false;
+      underlayFrame?.remove(); // Remove the underlayFrame if it exists.
+      underlayFrame = undefined;
+      stopTapePlayback?.();
 
       // Remove any event listeners added by the content frame.
       window?.acCONTENT_EVENTS.forEach((e) => e());
@@ -8980,6 +8973,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           }
         }
 
+        underlayFrame = document.createElement("div");
+        underlayFrame.id = "underlay";
+
+        const frameCan = document.createElement("canvas");
+        const fctx = frameCan.getContext("2d");
+
+        if (recordedFrames.length > 0) {
+          frameCan.width = recordedFrames[0][1].width;
+          frameCan.height = recordedFrames[0][1].height;
+        }
+
         startTapePlayback = (
           transmitProgress = true,
           doneCb,
@@ -8989,30 +8993,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         ) => {
           if (recordedFrames.length === 0) {
             console.error("🎬 ❌ No recorded frames to play back!");
-            underlayFrame.innerHTML = "";
-            underlayFrame.style.display = "none";
-            tapePlaybackActive = false;
             return;
           }
-
-          underlayFrame.style.display = "flex";
-          underlayFrame.innerHTML = "";
-
-          const frameCan = document.createElement("canvas");
-          const fctx = frameCan.getContext("2d");
-          underlayFrame.appendChild(frameCan);
-
-          frameCan.width = recordedFrames[0][1].width;
-          frameCan.height = recordedFrames[0][1].height;
-
-          tapePlaybackActive = true;
-
-          const firstFrameTimestamp = recordedFrames[0][0];
-          const lastFrameTimestamp = recordedFrames[recordedFrames.length - 1][0];
-          console.log(
-            "🎬 Frame playback summary:",
-            `${recordedFrames.length} frames spanning ${(lastFrameTimestamp - firstFrameTimestamp).toFixed(2)}ms`,
-          );
           
           // Use overrideDurationMs if provided (for MP4 export), otherwise use mediaRecorderDuration
           const playbackDurationMs = overrideDurationMs || mediaRecorderDuration;
@@ -9040,9 +9022,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               }
             });
             console.log("🎵 All tape audio instances stopped");
-            tapePlaybackActive = false;
-            underlayFrame.innerHTML = "";
-            underlayFrame.style.display = "none";
           };
 
           let pauseStart;
@@ -9099,7 +9078,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           };
 
           async function update() {
-            if (!continuePlaying || !tapePlaybackActive) {
+            if (!continuePlaying || !underlayFrame) {
               return;
             }
 
@@ -9318,7 +9297,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           update();
         };
 
-  startTapePlayback();
+        startTapePlayback();
 
         // CRITICAL: Clear freeze frame that would layer above the underlay video (z-index 3 > 0)
         if (freezeFrame || freezeFrameFrozen || wrapper.contains(freezeFrameCan)) {
@@ -9328,6 +9307,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           freezeFrameFrozen = false;
         }
 
+        underlayFrame.appendChild(frameCan);
+        wrapper.appendChild(underlayFrame);
         send({ type: "recorder:presented" });
         send({ type: "recorder:present-playing" });
       } else {
@@ -9341,25 +9322,25 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (type === "recorder:present:play") {
-      if (resumeTapePlayback) resumeTapePlayback?.();
+      if (underlayFrame) resumeTapePlayback?.();
       return;
     }
 
     if (type === "recorder:present:pause") {
-      if (tapePlaybackActive && pauseTapePlayback) {
+      if (underlayFrame && pauseTapePlayback) {
         pauseTapePlayback?.();
       }
       return;
     }
 
     if (type === "recorder:unpresent") {
-      const media = underlayFrame.querySelector("video, audio");
-      if (media?.src) URL.revokeObjectURL(media.src);
-      stopTapePlayback?.();
-      underlayFrame.innerHTML = "";
-      underlayFrame.style.display = "none";
-      tapePlaybackActive = false;
-      send({ type: "recorder:unpresented" });
+      if (underlayFrame) {
+        const media = underlayFrame.querySelector("video, audio");
+        if (media?.src) URL.revokeObjectURL(media.src);
+        underlayFrame?.remove();
+        underlayFrame = undefined;
+        send({ type: "recorder:unpresented" });
+      }
       return;
     }
 
@@ -10817,7 +10798,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           ) {
             if (screen.pixels.length === expectedLength) {
               imageData = new ImageData(screen.pixels, width, height);
-              if (tapePlaybackActive) {
+              if (underlayFrame) {
                 // console.log("🎬 Fallback ImageData created during tape playback");
               }
             }
@@ -11063,46 +11044,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // Only log reframe operations to debug flicker
       const isHudOverlay = name === "label" || name === "qrOverlay" || name === "qrCornerLabel" || name === "qrFullscreenLabel";
 
-      // Apply breathing pattern to tapeProgressBar - hide it when both stamps are off
-      if (name === "tapeProgressBar" && window.currentTapeProgress !== undefined) {
-        // Skip tape progress bar in clean mode
-        if (window.currentRecordingOptions?.cleanMode) {
-          console.log("🎬 📼 Skipping tape progress bar in clean mode");
-          return;
-        }
-        
-        const progress = window.currentTapeProgress;
-        const cyclesPerGif = 2; // Pattern loops 2 times across the full GIF duration
-        const cyclePosition = (progress * cyclesPerGif) % 1.0; // 0-1 within current cycle
-        const isMerryRecording =
-          window.currentRecordingOptions?.pieceName === "merry" ||
-          window.currentRecordingOptions?.originalCommand?.includes(" merry");
-        
-        let showProgressBar = true; // Default to showing
-        
-        if (!isMerryRecording) {
-          if (cyclePosition < 0.2) {
-            // Phase 1 (0-20%): Both stamps off - hide progress bar for breathing
-            showProgressBar = false;
-          } else if (cyclePosition < 0.4) {
-            // Phase 2 (20-40%): Both stamps on - show progress bar
-            showProgressBar = true;
-          } else if (cyclePosition < 0.6) {
-            // Phase 3 (40-60%): Both stamps off - hide progress bar for breathing
-            showProgressBar = false;
-          } else if (cyclePosition < 0.8) {
-            // Phase 4 (60-80%): Left stamp only - show progress bar
-            showProgressBar = true;
-          } else {
-            // Phase 5 (80-100%): Right stamp only - show progress bar
-            showProgressBar = true;
-          }
-        }
-        
-        // Skip building the overlay if it should be hidden
-        if (!showProgressBar) {
-          return;
-        }
+      // Skip tape progress bar in clean mode only
+      if (name === "tapeProgressBar" && window.currentRecordingOptions?.cleanMode) {
+        console.log("🎬 📼 Skipping tape progress bar in clean mode");
+        return;
       }
 
       if (!o || !o.img) {
@@ -11283,9 +11228,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         // Paint overlay to main canvas (ctx is the main canvas context)
         if (name === "tapeProgressBar") {
-          // console.log(`📼 Drawing tape progress bar to main canvas at (${o.x}, ${o.y}) with size ${canvas.width}x${canvas.height}`);
           ctx.drawImage(canvas, o.x, o.y);
-          // console.log(`📼 Finished drawing tape progress bar`);
         } else {
           // Add debug logging for durationTimecode
           if (name === "durationTimecode") {
@@ -11381,10 +11324,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       lastFrameTime = currentTime;
       
       // During tape playback, render main canvas but make it semi-transparent so video shows through
-      if (tapePlaybackActive) {
-        // Ensure the main canvas remains transparent so the underlay video is visible
-        canvas.style.removeProperty("mix-blend-mode");
-        canvas.style.removeProperty("opacity");
+      if (underlayFrame) {
+        // Set canvas to be semi-transparent so the video shows underneath but UI is still visible
+        canvas.style.opacity = 0.95; // Allow video to show through slightly
+        canvas.style.mixBlendMode = "normal"; // Ensure proper blending
       } else {
         // Restore canvas visibility when not playing tape
         canvas.style.removeProperty("opacity");
@@ -11408,11 +11351,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           mediaRecorder?.state === "recording" &&
           mediaRecorderStartTime !== undefined;
         const isPlaybackOnly =
-          tapePlaybackActive && !isRecording && !needs$creenshot;
+          underlayFrame && !isRecording && !needs$creenshot;
 
-        if (isPlaybackOnly) {
-          ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-        } else if (
+        if (
           imageData &&
           imageData.data &&
           imageData.data.buffer &&
@@ -11422,7 +11363,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         ) {
           // Use async rendering for better performance (except during tape playback for immediate UI)
           const forceSynchronousRendering = isRecording || needs$creenshot;
-          if (tapePlaybackActive) {
+          if (underlayFrame) {
             // Force sync rendering during tape playback for immediate UI updates
             ctx.putImageData(imageData, 0, 0);
           } else if (!forceSynchronousRendering && window.pixelOptimizer && window.pixelOptimizer.asyncRenderingSupported) {
@@ -11470,7 +11411,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             if (imageData.data.buffer.byteLength > 0) {
               // Use async rendering for better performance (except during tape playback for immediate UI)
               const forceSynchronousRendering = isRecording || needs$creenshot;
-              if (tapePlaybackActive) {
+              if (underlayFrame) {
                 // Force sync rendering during tape playback for immediate UI updates
                 ctx.putImageData(imageData, 0, 0);
               } else if (!forceSynchronousRendering && window.pixelOptimizer && window.pixelOptimizer.asyncRenderingSupported) {
@@ -11565,10 +11506,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         // Paint tape progress bar immediately (not affected by async skip)
         if (paintOverlays["tapeProgressBar"]) {
-          // console.log("📼 Painting tape progress bar overlay (immediate)");
           paintOverlays["tapeProgressBar"]();
         } else if (content.tapeProgressBar) {
-          // console.log("📼 Rebuilding tape progress bar overlay due to timing issue");
           buildOverlay("tapeProgressBar", content.tapeProgressBar);
           if (paintOverlays["tapeProgressBar"]) {
             paintOverlays["tapeProgressBar"]();
@@ -11601,8 +11540,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           // GIF export will downsample to 30fps, MP4 will use all frames
           mediaRecorderFrameCount = (mediaRecorderFrameCount || 0) + 1;
           
-          // Convert relative timestamp to absolute timestamp (milliseconds since epoch)
+          // Update recording progress for tape progress bar breathing pattern
           const relativeTimestamp = performance.now() - mediaRecorderStartTime;
+          const targetDuration = window.currentRecordingOptions?.duration || 3000; // Default 3 seconds if not set
+          window.currentTapeProgress = Math.min(1, relativeTimestamp / targetDuration);
+          
+          // Convert relative timestamp to absolute timestamp (milliseconds since epoch)
           const absoluteTimestamp =
             (Number.isFinite(window.recordingStartTimestamp)
               ? window.recordingStartTimestamp

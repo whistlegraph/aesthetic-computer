@@ -10311,8 +10311,29 @@ async function makeFrame({ data: { type, content } }) {
 
       // Tack on the tape progress bar pixel buffer if necessary.
       if ($api.rec.tapeProgress || ($api.rec.recording && $api.rec.tapeTimerDuration)) {
-  const progress = $api.rec.tapeProgress || 0;
-  const isMerryRecording = Boolean($api.system.merry?.isTaping);
+        const progress = $api.rec.tapeProgress || 0;
+        const isMerryRecording = Boolean($api.system.merry?.isTaping);
+        
+        // Apply breathing pattern - hide progress bar during certain phases for visual rhythm
+        const cyclesPerGif = 2; // Pattern loops 2 times across the full recording
+        const cyclePosition = (progress * cyclesPerGif) % 1.0; // 0-1 within current cycle
+        
+        let showProgressBar = true;
+        if (!isMerryRecording) {
+          if (cyclePosition < 0.2) {
+            // Phase 1 (0-20%): Hide for breathing
+            showProgressBar = false;
+          } else if (cyclePosition >= 0.4 && cyclePosition < 0.6) {
+            // Phase 3 (40-60%): Hide for breathing
+            showProgressBar = false;
+          }
+          // Phases 2, 4, 5 (20-40%, 60-80%, 80-100%): Show progress bar
+        }
+        
+        // Skip progress bar if in breathing phase
+        if (!showProgressBar) {
+          // Don't create or send tapeProgressBar data during breathing phases
+        } else {
         
         // Determine if we should show progress bar at all
         const isFrameBased = $api.rec.tapeFrameMode && $api.rec.tapeFrameTarget > 0;
@@ -10616,6 +10637,7 @@ async function makeFrame({ data: { type, content } }) {
           });
         }
         } // Close the else block for frame count >= 60
+        } // Close the else block for breathing pattern (showProgressBar)
       }
 
       maybeLeave();
