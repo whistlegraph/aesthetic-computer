@@ -156,6 +156,8 @@ function paint({
   screen,
   paintCount,
 }) {
+  // wipe(128, 64);
+  // return true;
   if (presenting) {
     // Always wipe to prevent UI elements from accumulating
     // During playback, use transparent wipe so tape video shows through

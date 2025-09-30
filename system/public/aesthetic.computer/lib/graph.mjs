@@ -44,6 +44,23 @@ let activeMask; // A box for totally masking the renderer.
 //                 This should work everywhere.
 const skips = [];
 
+let forceReplaceMode = false;
+
+function setForceReplaceMode(enabled = false) {
+  const previous = forceReplaceMode;
+  forceReplaceMode = !!enabled;
+  return previous;
+}
+
+function withForceReplaceMode(callback) {
+  const previous = setForceReplaceMode(true);
+  try {
+    return callback?.();
+  } finally {
+    setForceReplaceMode(previous);
+  }
+}
+
 // Legacy global fade variables (kept for backward compatibility)
 // Note: New code should use local fade system via parseLocalFade/getLocalFadeColor
 let fadeMode = false;
@@ -1113,6 +1130,8 @@ export {
   findColor,
   c, // currentColor
   pixel,
+  setForceReplaceMode,
+  withForceReplaceMode,
 };
 
 // Helper function to evaluate dynamic fade direction
@@ -1377,6 +1396,14 @@ function plot(x, y) {
       // Fallback to solid color if fade parsing fails
       plotColor = [255, 0, 255, alpha]; // Magenta to indicate error
     }
+  }
+
+  if (forceReplaceMode) {
+    pixels[i] = plotColor[0] ?? 0;
+    pixels[i + 1] = plotColor[1] ?? 0;
+    pixels[i + 2] = plotColor[2] ?? 0;
+    pixels[i + 3] = plotColor[3] ?? alpha;
+    return;
   }
 
   // Erasing
@@ -2033,6 +2060,14 @@ function blend(dst, src, si, di, alphaIn = 1) {
   //if (stipple < 4) { return; }
   //stipple = 0;
 
+  if (forceReplaceMode) {
+    for (let i = 0; i < 3; i++) {
+      dst[di + i] = src[si + i];
+    }
+    dst[di + 3] = src[si + 3] * alphaIn;
+    return;
+  }
+
   if (blendingMode === "erase") {
     const normalAlpha = 1 - src[si + 3] / 255;
     dst[di + 3] *= normalAlpha;
@@ -2131,6 +2166,16 @@ function lineh(x0, x1, y) {
   } else {
     startIndex = firstIndex;
     endIndex = secondIndex;
+  }
+
+  if (forceReplaceMode) {
+    for (let i = startIndex; i <= endIndex; i += 4) {
+      pixels[i] = c[0];
+      pixels[i + 1] = c[1];
+      pixels[i + 2] = c[2];
+      pixels[i + 3] = c[3];
+    }
+    return;
   }
 
   // Erasing.
