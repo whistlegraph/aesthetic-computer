@@ -68,9 +68,8 @@ function parse(text, location = self?.location) {
     };
   }
   
-  // 🤖 Early kidlisp detection - ONLY for URL-encoded kidlisp (not regular input)
-  // This catches cases like /(wipe_blue) or /wipe_blue~line from URL refresh
-  // BUT NOT regular multiline kidlisp input from the prompt
+  // 🤖 Early kidlisp detection - check BEFORE space-to-tilde conversion
+  // This catches inline kidlisp including RGB strings like "255 0 0"
   const kidlispCheck = isKidlispSource(text);
   const hasSpecialChars = text.includes("§") ||
     text.includes("~") ||
@@ -80,7 +79,11 @@ function parse(text, location = self?.location) {
     text.startsWith("(") ||
     text.startsWith(";");
   
-  if (kidlispCheck && hasSpecialChars) {
+  // Also check for kidlisp AFTER converting underscores to spaces (for URL-encoded RGB)
+  const textWithSpaces = text.replace(/_/g, " ");
+  const isKidlispAfterDecode = isKidlispSource(textWithSpaces);
+  
+  if ((kidlispCheck && hasSpecialChars) || isKidlispAfterDecode) {
     const decodedSource = decodeKidlispFromUrl(text);
     return {
       host: location.hostname + (location.port ? ":" + location.port : ""),
