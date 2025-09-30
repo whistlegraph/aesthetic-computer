@@ -16,11 +16,13 @@ class Microphone extends AudioWorkletProcessor {
   currentWaveform = [];
   currentRecording; // Store an active sample to record.
   recording = false;
+  enablePitch = true; // Can be disabled for lower latency
 
   constructor(options) {
+    super(); // Must be called before accessing 'this'
+    
     if (options.debug) console.log("🔊 Sound Synthesis Worklet Started");
-
-    super();
+    this.enablePitch = options.processorOptions?.enablePitch ?? true;
 
     this.port.onmessage = (e) => {
       const msg = e.data;
@@ -101,15 +103,16 @@ class Microphone extends AudioWorkletProcessor {
       outputs[0][1][s] = mic[s];
       if (this.recording) this.currentRecording.push(mic[s]);
       amp = abs(mic[s]) > amp ? abs(mic[s]) : amp; // Store maximum amplitude.
-      if (s % 8 === 0) waveform.push(mic[s]); // Only capture every 8th value. (Usually 16)
+      if (s % 8 === 0) waveform.push(mic[s]); // Capture every 8th value for less data
     }
     // this.currentAmplitude = amp / mic.length;
     this.currentAmplitude = amp;
     this.currentWaveform = waveform.slice(0); // Capture a quantized sample.
 
-    // 🟠 TODO: Use more samples for better pitch detection...
-
-    this.currentPitch = pitch(mic, sampleRate); // TODO: Make this conditional?
+    // 🟠 Pitch detection is expensive - only run if enabled
+    if (this.enablePitch) {
+      this.currentPitch = pitch(mic, sampleRate);
+    }
     return true;
   }
 }
