@@ -230,6 +230,146 @@ function writeHudLabelText(
   );
 }
 
+// Helper function to determine if a color is dark (needs light shadow) or light (needs dark shadow)
+function isColorDark(colorStr) {
+  if (!colorStr) return false;
+  
+  let rgb;
+  
+  // Handle RGB comma-separated format like "0,0,0" or "255,0,0"
+  if (typeof colorStr === 'string' && colorStr.includes(',')) {
+    const parts = colorStr.split(',').map(n => parseInt(n.trim(), 10));
+    rgb = parts;
+  } 
+  // Handle named colors
+  else if (typeof colorStr === 'string') {
+    const lower = colorStr.toLowerCase();
+    const resolved = graph.findColor(lower);
+    if (Array.isArray(resolved)) {
+      rgb = resolved;
+    } else {
+      // For unknown colors, assume they're light
+      return false;
+    }
+  }
+  // Handle array format [r, g, b]
+  else if (Array.isArray(colorStr)) {
+    rgb = colorStr;
+  }
+  
+  if (!rgb || rgb.length < 3) return false;
+  
+  // Calculate relative luminance using the formula from WCAG
+  // https://www.w3.org/TR/WCAG20/#relativeluminancedef
+  const [r, g, b] = rgb;
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  
+  // If luminance is less than 0.5, it's a dark color
+  return luminance < 0.5;
+}
+
+// Helper function to get shadow color for a specific text color
+function getShadowColorForText(colorStr) {
+  if (!colorStr) return "64,64,64"; // Default to dark gray shadow
+  
+  let rgb;
+  
+  // Parse the color string to get RGB values
+  if (typeof colorStr === 'string' && colorStr.includes(',')) {
+    const parts = colorStr.split(',').map(n => parseInt(n.trim(), 10));
+    rgb = parts;
+  } 
+  else if (typeof colorStr === 'string') {
+    const lower = colorStr.toLowerCase();
+    const resolved = graph.findColor(lower);
+    if (Array.isArray(resolved)) {
+      rgb = resolved;
+    } else {
+      // Fallback to dark gray for unknown colors
+      return "64,64,64";
+    }
+  }
+  else if (Array.isArray(colorStr)) {
+    rgb = colorStr;
+  }
+  
+  if (!rgb || rgb.length < 3) return "64,64,64";
+  
+  const [r, g, b] = rgb;
+  
+  // 🎨 Special case: Detect RGB channel colors and return channel-tinted shadows
+  // Red channel: R value, zero G and B
+  if (r >= 0 && g === 0 && b === 0) {
+    // Red channel shadow - darker red, stronger and more saturated
+    const shadowR = Math.max(32, Math.round(r * 0.4)); // Keep at least 40% intensity
+    return `${shadowR},0,0`; // Pure red shadow
+  }
+  
+  // Green channel: zero R, G value, zero B
+  if (r === 0 && g >= 0 && b === 0) {
+    // Green channel shadow - darker green
+    const shadowG = Math.max(32, Math.round(g * 0.4));
+    return `0,${shadowG},0`; // Pure green shadow
+  }
+  
+  // Blue channel: zero R, G value (75% of B), B value (deepskyblue pattern: 0, 191, 255)
+  // Detects pattern where g = b * 0.75 (within rounding tolerance)
+  if (r === 0 && b >= 0 && g >= 0) {
+    const expectedG = Math.round(b * 0.75);
+    // Allow 1 pixel tolerance for rounding
+    if (Math.abs(g - expectedG) <= 1) {
+      // Blue/deepskyblue channel shadow - darker blue with cyan tint
+      const shadowG = Math.max(24, Math.round(g * 0.4));
+      const shadowB = Math.max(32, Math.round(b * 0.4));
+      return `0,${shadowG},${shadowB}`; // Cyan-blue shadow
+    }
+  }
+  
+  // Check if the color is dark - if so, lighten it for shadow
+  if (isColorDark(colorStr)) {
+    // Lighten the color by mixing with white (less stark than pure white)
+    const factor = 0.5; // Mix 50% with white for a lighter version
+    const shadowR = Math.round(r + (255 - r) * factor);
+    const shadowG = Math.round(g + (255 - g) * factor);
+    const shadowB = Math.round(b + (255 - b) * factor);
+    return `${shadowR},${shadowG},${shadowB}`;
+  }
+  
+  // For light colors, darken by mixing with dark gray
+  const factor = 0.6; // Mix 60% darker for shadow
+  const shadowR = Math.round(r * (1 - factor));
+  const shadowG = Math.round(g * (1 - factor));
+  const shadowB = Math.round(b * (1 - factor));
+  return `${shadowR},${shadowG},${shadowB}`;
+}
+
+// Helper function to replace color codes in text with shadow colors
+function replaceColorCodesWithShadows(text, defaultTextColor = "white") {
+  if (!text || !textContainsColorCodes(text)) return text;
+  
+  let currentTextColor = defaultTextColor;
+  
+  COLOR_CODE_MATCH_REGEX.lastIndex = 0;
+  return text.replace(COLOR_CODE_MATCH_REGEX, (match, colorStr) => {
+    if (!colorStr) return match;
+    
+    const normalized = colorStr.trim();
+    const lower = normalized.toLowerCase();
+    
+    if (lower === "reset" || lower === "default" || lower === "base") {
+      currentTextColor = defaultTextColor;
+    } else {
+      currentTextColor = normalized;
+    }
+    
+    // Get the appropriate shadow color for this text color
+    const shadowColor = getShadowColorForText(currentTextColor);
+    
+    // Return the shadow color code
+    return `\\${shadowColor}\\`;
+  });
+}
+
 function drawHudLabelText(
   $, 
   text,
@@ -256,13 +396,27 @@ function drawHudLabelText(
   );
 
   if (shouldRenderShadow) {
-    $.ink(shadowColor);
-    writeHudLabelText($, text, {
-      x: x + shadowOffsetX,
-      y: y + shadowOffsetY,
-      typefaceName,
-      preserveColors: false,
-    });
+    // If the text has color codes and we're preserving colors, use dynamic shadows
+    if (shouldPreserveColors && containsColorCodes) {
+      // Replace color codes with appropriate shadow colors
+      const shadowText = replaceColorCodesWithShadows(text, textColor);
+      
+      writeHudLabelText($, shadowText, {
+        x: x + shadowOffsetX,
+        y: y + shadowOffsetY,
+        typefaceName,
+        preserveColors: true, // Keep the shadow color codes
+      });
+    } else {
+      // Original behavior: single shadow color for entire text
+      $.ink(shadowColor);
+      writeHudLabelText($, text, {
+        x: x + shadowOffsetX,
+        y: y + shadowOffsetY,
+        typefaceName,
+        preserveColors: false,
+      });
+    }
   }
 
   if (textColor) {
@@ -761,8 +915,8 @@ if (typeof window !== 'undefined') {
 }
 //currentPromptButton;
 
-const COLOR_CODE_MATCH_REGEX = /\\([a-zA-Z]+(?:\([^)]*\))?|[0-9]+(?:,[0-9]+)*)\\/g;
-const COLOR_CODE_TEST_REGEX = /\\([a-zA-Z]+(?:\([^)]*\))?|[0-9]+(?:,[0-9]+)*)\\/;
+const COLOR_CODE_MATCH_REGEX = /\\([^\\]+)\\/g;
+const COLOR_CODE_TEST_REGEX = /\\[^\\]+\\/;
 
 // Utility function to strip color codes from text
 function stripColorCodes(str) {
@@ -771,6 +925,7 @@ function stripColorCodes(str) {
   // - Named colors: \\red\\, \\blue\\, \\cyan\\
   // - RGB values: \\255,20,147\\, \\192,192,192\\
   // - Complex patterns: \\color(args)\\
+  COLOR_CODE_MATCH_REGEX.lastIndex = 0;
   return str.replace(
     COLOR_CODE_MATCH_REGEX,
     "",
@@ -3576,11 +3731,8 @@ const $paintApi = {
       let currentColor = null;
 
       // Split text by color codes and process each segment
-  const segments = text.split(COLOR_CODE_MATCH_REGEX);
-      
-
-
-
+      COLOR_CODE_MATCH_REGEX.lastIndex = 0;
+      const segments = text.split(COLOR_CODE_MATCH_REGEX);
 
       for (let i = 0; i < segments.length; i++) {
         if (i % 2 === 0) {
@@ -3639,6 +3791,8 @@ const $paintApi = {
 
         }
       }
+
+      COLOR_CODE_MATCH_REGEX.lastIndex = 0;
 
       // Check if we have any actual text to display after removing color codes  
       if (cleanText.trim().length === 0) {
@@ -6106,33 +6260,32 @@ async function load(
   currentHUDLabelBlockHeight = tf.blockHeight;
   currentHUDShareWidth = tf.blockWidth * "share ".length;
 
-  // Initialize MatrixChunky8 font for QR code text rendering
-  // TEMP: Clear MatrixChunky8 cache to force reload with new J advance width
-  if (typefaceCache.has("MatrixChunky8")) {
-    typefaceCache.delete("MatrixChunky8");
-  }
-  
-  if (!typefaceCache.has("MatrixChunky8")) {
-    const matrixFont = new Typeface("MatrixChunky8");
-    
+  // Initialize MatrixChunky8 font for QR code text rendering and keep it warm across pieces
+  let matrixFont = typefaceCache.get("MatrixChunky8");
+
+  if (!matrixFont) {
+    matrixFont = new Typeface("MatrixChunky8");
     await matrixFont.load($commonApi.net.preload); // Important: call load() to initialize the proxy system
-    
+    typefaceCache.set("MatrixChunky8", matrixFont);
+  }
+
+  if (matrixFont && !matrixFont.__preloadedCommonGlyphs) {
     // Pre-load common QR code characters to avoid fallback during rendering
     const commonQRChars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz$";
-    
+
     // Access each character to trigger the Proxy loading mechanism and collect promises
     const glyphPromises = [];
-    
+
     for (const char of commonQRChars) {
       // Accessing the glyph triggers the Proxy to start loading it
       const glyph = matrixFont.glyphs[char];
-      
+
       // If it's a Promise, collect it to wait for loading
-      if (glyph && typeof glyph.then === 'function') {
+      if (glyph && typeof glyph.then === "function") {
         glyphPromises.push(glyph);
       }
     }
-    
+
     // Wait for all common glyphs to finish loading
     if (glyphPromises.length > 0) {
       try {
@@ -6141,15 +6294,8 @@ async function load(
         console.warn("🔤 Some MatrixChunky8 glyphs failed to preload:", e);
       }
     }
-    
-    typefaceCache.set("MatrixChunky8", matrixFont);
-    // console.log("🔤 MatrixChunky8 font loaded:", {
-    //   name: matrixFont.name,
-    //   hasData: !!matrixFont.data,
-    //   hasPrint: typeof matrixFont.print,
-    //   bdfFont: !!matrixFont.data?.bdfFont,
-    //   preloadedChars: commonQRChars.length
-    // });
+
+    matrixFont.__preloadedCommonGlyphs = true;
   }
 
   /**
@@ -6682,6 +6828,13 @@ async function load(
     if (!alias) {
       currentHUDTxt = slug; // Update hud if this is not an alias.
       currentHUDPlainTxt = stripColorCodes(slug);
+      
+      // Hide HUD label for RGB-only kidlisp pieces (e.g., "255 0 0")
+      // since they're just background colors and don't need to be displayed
+      if (sourceCode && lisp?.isValidRGBString && lisp.isValidRGBString(sourceCode.trim())) {
+        currentHUDTxt = undefined;
+        currentHUDPlainTxt = undefined;
+      }
     }
     if (module.nohud || system === "prompt") {
       currentHUDTxt = undefined;
@@ -9571,6 +9724,11 @@ async function makeFrame({ data: { type, content } }) {
           cleanText,
         });
 
+        // 🔤 Font Preloading: Ensure MatrixChunky8 starts loading early if available
+        if (matrixTypeface && !matrixTypeface.__loadPromise) {
+          ensureTypefaceLoaded(matrixTypeface);
+        }
+
         const measureLineWidth = (line, typeface) => {
           if (!line || !line.length || !typeface) return 0;
           const advances = typeface.data?.advances;
@@ -9626,17 +9784,18 @@ async function makeFrame({ data: { type, content } }) {
         const defaultLayout = buildLayout(defaultTypeface);
         let selectedLayout = defaultLayout;
 
-        if (
-          isKidlispPiece &&
-          matrixTypeface &&
-          defaultLayout &&
-          defaultLayout.longestLineWidth > $api.screen.width
-        ) {
-          const matrixLayout = buildLayout(matrixTypeface);
-          if (matrixLayout) {
-            selectedLayout = matrixLayout;
-          }
-        }
+        // Disabled: MatrixChunky8 breakpoint removed per user request
+        // if (
+        //   isKidlispPiece &&
+        //   matrixTypeface &&
+        //   defaultLayout &&
+        //   defaultLayout.longestLineWidth > $api.screen.width
+        // ) {
+        //   const matrixLayout = buildLayout(matrixTypeface);
+        //   if (matrixLayout) {
+        //     selectedLayout = matrixLayout;
+        //   }
+        // }
 
         if (!selectedLayout && matrixTypeface) {
           selectedLayout = buildLayout(matrixTypeface);
@@ -9655,6 +9814,58 @@ async function makeFrame({ data: { type, content } }) {
         const textBoxHeight = selectedLayout?.textBoxHeight ?? 0;
         const longestVisibleLineWidth = selectedLayout?.longestLineWidth ?? 0;
 
+        // 🔤 Font Loading Check: If MatrixChunky8 was selected but not loaded, skip rendering HUD
+        // This prevents pop-in where font_1 renders briefly before MatrixChunky8 glyphs load
+        let skipHudRender = false;
+        if (selectedHudFont === "MatrixChunky8" && matrixTypeface) {
+          // Check if actual glyph data exists (glyphs are loaded on-demand via Proxy)
+          // Test a common character like '$' to verify glyphs are accessible
+          // A real glyph will have properties like dwidth, advance, or resolution
+          // The Proxy returns null for missing glyphs (typeof null === 'object')
+          const dollarGlyph = matrixTypeface.glyphs && matrixTypeface.glyphs['$'];
+          const hasGlyphs = dollarGlyph && dollarGlyph !== null && 
+            (dollarGlyph.dwidth || dollarGlyph.advance !== undefined || dollarGlyph.resolution);
+          
+          console.log('[HUD] MatrixChunky8 check:', {
+            hasGlyphsObject: !!matrixTypeface.glyphs,
+            dollarGlyph: dollarGlyph ? 'exists' : 'missing',
+            dollarGlyphIsNull: dollarGlyph === null,
+            dollarGlyphHasProps: !!(dollarGlyph && (dollarGlyph.dwidth || dollarGlyph.advance !== undefined)),
+            hasGlyphs
+          });
+          
+          if (!hasGlyphs) {
+            console.log('[HUD] Skipping HUD render - glyphs not ready');
+            // Trigger loading if not started
+            if (!matrixTypeface.__loadPromise) {
+              console.log('[HUD] Starting font load...');
+              ensureTypefaceLoaded(matrixTypeface);
+            }
+            
+            // Wait for font to load
+            if (matrixTypeface.__loadPromise) {
+              matrixTypeface.__loadPromise.then(() => {
+                console.log('[HUD] Font load promise resolved');
+                matrixTypeface.__loaded = true;
+                // Trigger repaint once loaded
+                if (typeof window !== "undefined" && window.$activePaintApi?.needsPaint) {
+                  window.$activePaintApi.needsPaint();
+                }
+              }).catch((err) => {
+                console.warn("Failed to load MatrixChunky8:", err);
+                matrixTypeface.__loaded = true; // Mark as loaded to prevent infinite waiting
+              });
+            }
+            // Skip rendering this frame - wait for font to load
+            skipHudRender = true;
+          } else {
+            console.log('[HUD] Rendering with MatrixChunky8 - glyphs ready');
+          }
+        }
+
+        // Only proceed with HUD rendering if font is ready
+        if (!skipHudRender) {
+
         const measuredShareWidth = measureLineWidth("share ", selectedTypeface);
         currentHUDShareWidth = measuredShareWidth > 0
           ? measuredShareWidth
@@ -9669,6 +9880,10 @@ async function makeFrame({ data: { type, content } }) {
         if (!w || w <= 0) {
           w = textBoxWidth;
         }
+        
+        // Add extra padding to buffer width to prevent font_1 character cutoff
+        const bufferWidthPadding = 6; // Extra pixels for wider glyphs
+        w += bufferWidthPadding;
         
         // Final text dimensions: KidLisp width uses visible line metrics, height from text box
         let h = textBoxHeight;
@@ -9725,33 +9940,36 @@ async function makeFrame({ data: { type, content } }) {
           
 
 
-          // HUD Background Highlighting: Add background for kidlisp hud corner labels
+          // HUD Background Box: Always draw background for prompt HUD text
+          // Get the actual text that will be rendered (same logic as below)
+          let text = currentHUDTxt;
+          if (currentHUDTxt.split(" ")[1]?.indexOf("http") !== 0) {
+            text = currentHUDTxt?.replaceAll("~", " ");
+            text = text?.replaceAll("§", " ");
+          }
+          
+          // Strip color codes to get the actual visible text
+          const colorCodeRegex = /\\[^\\]*\\/g;
+          const visibleText = text.replace(colorCodeRegex, '');
+          
+          // Calculate snug dimensions based on visible characters only
+          // Add extra width padding for font_1 characters that may extend beyond measured width
+          const extraWidthPadding = 8; // Extra pixels for font_1 character overflow (increased for wider glyphs)
+          const snugWidth = Math.max(longestVisibleLineWidth || 0, textBoxWidth) + extraWidthPadding;
+          const snugHeight = Math.max(hudBlockHeight, visibleLineCount * hudBlockHeight) + hudDescenderPadding;
+          
+          // Position highlight with 2px padding on all sides around the text
+          const highlightPadding = 2;
+          const leftMargin = HUD_LABEL_TEXT_MARGIN; // Define the left margin for HUD text
+          const bgX = leftMargin - highlightPadding; // Start padding pixels left of text origin
+          const bgY = -highlightPadding; // Start padding above text
+          const bgWidth = snugWidth + highlightPadding * 2; // Text width + padding on each side
+          const bgHeight = snugHeight + highlightPadding * 2; // Text height + padding top and bottom
+          
+          // Use highlight color if in HIGHLIGHT_MODE, otherwise use subtle dark background
+          let bgColor;
           if (HIGHLIGHT_MODE) {
-            // Get the actual text that will be rendered (same logic as below)
-            let text = currentHUDTxt;
-            if (currentHUDTxt.split(" ")[1]?.indexOf("http") !== 0) {
-              text = currentHUDTxt?.replaceAll("~", " ");
-              text = text?.replaceAll("§", " ");
-            }
-            
-            // Strip color codes to get the actual visible text
-            const colorCodeRegex = /\\[^\\]*\\/g;
-            const visibleText = text.replace(colorCodeRegex, '');
-            
-            // Calculate snug dimensions based on visible characters only
-            const snugWidth = Math.max(longestVisibleLineWidth || 0, textBoxWidth);
-            const snugHeight = Math.max(hudBlockHeight, visibleLineCount * hudBlockHeight) + hudDescenderPadding;
-            
-            // Position highlight with 2px padding on all sides around the text
-            const highlightPadding = 2;
-            const leftMargin = HUD_LABEL_TEXT_MARGIN; // Define the left margin for HUD text
-            const bgX = leftMargin - highlightPadding; // Start padding pixels left of text origin
-            const bgY = -highlightPadding; // Start padding above text
-            const bgWidth = snugWidth + highlightPadding * 2; // Text width + padding on each side
-            const bgHeight = snugHeight + highlightPadding * 2; // Text height + padding top and bottom
-            
             // Parse highlight color - support RGB comma format, hex, or named colors
-            let bgColor;
             if (HIGHLIGHT_COLOR.includes(',')) {
               const [r, g, b] = HIGHLIGHT_COLOR.split(',').map(n => parseInt(n.trim()));
               bgColor = [r, g, b, 100]; // Semi-transparent
@@ -9766,10 +9984,13 @@ async function makeFrame({ data: { type, content } }) {
               // Use bright yellow as default for highlight
               bgColor = [255, 255, 0, 100]; // Bright yellow, semi-transparent
             }
-            
-            // Background highlight with configurable color
-            $.ink(...bgColor).box(bgX, bgY, bgWidth, bgHeight);
+          } else {
+            // Subtle dark background for normal mode (very transparent)
+            bgColor = [0, 0, 0, 80]; // Dark, very transparent (~31% opacity)
           }
+          
+          // Background box with configurable color
+          $.ink(...bgColor).box(bgX, bgY, bgWidth, bgHeight);
 
           let c;
           if (currentHUDTextColor) {
@@ -9906,6 +10127,7 @@ async function makeFrame({ data: { type, content } }) {
         //   btn: currentHUDButton,
         // };
       }
+        } // End of skipHudRender check - close the if (!skipHudRender) block
 
       // Return frame data back to the main thread.
       let sendData = { width: screen.width, height: screen.height };
@@ -10319,8 +10541,58 @@ async function makeFrame({ data: { type, content } }) {
             // Get the font and ensure it's properly loaded before proceeding
             const font = typefaceCache.get("MatrixChunky8");
             
-            // Only show QR if MatrixChunky8 font is available
-            const shouldShowQR = !!font;
+            // Check if ALL glyphs in the label text are loaded
+            // The label will be "$" + cachedCode (e.g., "$wipe", "$line", etc.)
+            // We need to verify every character's glyph is loaded to avoid pop-in
+            const labelText = `$${cachedCode}`;
+            let allGlyphsLoaded = false;
+            
+            if (font && font.glyphs) {
+              allGlyphsLoaded = true;
+              const missingGlyphs = [];
+              
+              for (const char of labelText) {
+                const glyph = font.glyphs[char];
+                // A real glyph has properties like dwidth, advance, or resolution
+                // The Proxy returns null for missing glyphs
+                const isRealGlyph = glyph && glyph !== null && 
+                  (glyph.dwidth || glyph.advance !== undefined || glyph.resolution);
+                
+                if (!isRealGlyph) {
+                  allGlyphsLoaded = false;
+                  missingGlyphs.push(char);
+                }
+              }
+              
+              if (!allGlyphsLoaded) {
+                console.log('[QR] MatrixChunky8 glyphs pending:', {
+                  labelText,
+                  missingGlyphs: missingGlyphs.join('') || 'unknown'
+                });
+              }
+            }
+            
+            const shouldShowQR = allGlyphsLoaded;
+            
+            // If font exists but glyphs not loaded yet, trigger loading and request repaint
+            if (font && !shouldShowQR) {
+              if (!font.__loadPromise) {
+                console.log('[QR] Starting font load...');
+                ensureTypefaceLoaded(font);
+              }
+              if (font.__loadPromise) {
+                font.__loadPromise.then(() => {
+                  font.__loaded = true;
+                  // Trigger repaint to show QR once font is ready
+                  if (typeof window !== "undefined" && window.$activePaintApi?.needsPaint) {
+                    window.$activePaintApi.needsPaint();
+                  }
+                }).catch((err) => {
+                  console.warn("Failed to load MatrixChunky8 for QR:", err);
+                  font.__loaded = true; // Mark as loaded to prevent infinite waiting
+                });
+              }
+            }
             
 
             // Check if this QR overlay is already cached (unless caching is disabled or font not loaded)
@@ -10573,17 +10845,15 @@ async function makeFrame({ data: { type, content } }) {
                           ]
                         };
                         
-                        // Ensure glyphs object exists
-                        if (!matrixFont.glyphs) {
-                          matrixFont.glyphs = {};
-                        }
-                        
-                        // Populate common characters used in QR codes
-                        const commonChars = '$rozeabcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-                        for (const char of commonChars) {
-                          if (!matrixFont.glyphs[char]) {
-                            matrixFont.glyphs[char] = fallbackGlyph;
-                            matrixFont[char] = fallbackGlyph; // Also set directly on font object
+                        // DO NOT replace glyphs object - it's a Proxy that loads on-demand
+                        // Just populate common characters if they're missing
+                        if (matrixFont.glyphs) {
+                          const commonChars = '$rozeabcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+                          for (const char of commonChars) {
+                            if (!matrixFont.glyphs[char]) {
+                              matrixFont.glyphs[char] = fallbackGlyph;
+                              matrixFont[char] = fallbackGlyph; // Also set directly on font object
+                            }
                           }
                         }
                       }
