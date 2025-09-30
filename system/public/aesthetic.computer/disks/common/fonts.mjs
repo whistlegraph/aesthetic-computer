@@ -107,7 +107,7 @@ export const font_1 = {
 export const unifont = {
   glyphHeight: 16,
   glyphWidth: 8,
-  proportional: false, // Monospace font - fixed character width
+  proportional: false, // Keep as monospace for Latin characters (primary use case)
   bdfFont: "unifont-16.0.03", // Specify the exact BDF file to use
 };
 
