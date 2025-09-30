@@ -1,5 +1,5 @@
 // Clock, 2025.6.27.12.00
-// Just a standard clock with melody support and UTC sync.
+// Just a standard clock with melody support, UTC sync, and live keyboard playing.
 
 // TODO: - [] Reduce code size.
 //       - [] Adjust swipe syncing and check utc syncing. 
@@ -12,6 +12,16 @@
 
   Base octave is 4 unless first note specifies octave (e.g., 5cdefg uses octave 5)
   Use Up/Down arrow keys to change base octave during playback
+  
+  🎵 NEW: Notepat Keyboard Notation Support!
+  Use notepat keyboard characters for compact sharp and octave notation:
+    v s w r q - Sharp notes (c# d# f# g# a#) in current octave
+    h i j k l m n - White notes (c d e f g a b) in next octave up
+    t y u o p - Sharp notes (c# d# f# g# a#) in next octave up
+  Examples:
+    clock cvd - Plays C, C#, D (using v for C#)
+    clock cdefghijk - Plays full chromatic scale across two octaves
+    clock vswrq - Plays all sharps in current octave
   
   🎵 NEW: Parallel Tracks Support!
   Use spaces to separate groups for parallel playback:
@@ -113,6 +123,117 @@ function pad(num, size = 2) {
   num = num.toString();
   while (num.length < size) num = "0" + num;
   return num;
+}
+
+// Convert notepat keyboard notation to standard notation
+function convertNotepatNotation(melodyString) {
+  if (!melodyString) return melodyString;
+  
+  // Create a character-by-character conversion
+  let result = "";
+  let i = 0;
+  let currentOctave = 4; // Track the current base octave for conversion
+  
+  while (i < melodyString.length) {
+    const char = melodyString[i];
+    
+    // Check if this is an octave number that we should track
+    if (/[0-9]/.test(char)) {
+      currentOctave = parseInt(char);
+      result += char;
+    }
+    // First octave sharps (vswrq → cs ds fs gs as)
+    else if (char === 'v') {
+      result += `${currentOctave}cs`;
+    } else if (char === 's') {
+      result += `${currentOctave}ds`;
+    } else if (char === 'w') {
+      result += `${currentOctave}fs`;
+    } else if (char === 'r') {
+      result += `${currentOctave}gs`;
+    } else if (char === 'q') {
+      result += `${currentOctave}as`;
+    }
+    // Second octave white keys (hijklmn → next octave c d e f g a b)
+    else if (char === 'h') {
+      result += `${currentOctave + 1}c`;
+    } else if (char === 'i') {
+      result += `${currentOctave + 1}d`;
+    } else if (char === 'j') {
+      result += `${currentOctave + 1}e`;
+    } else if (char === 'k') {
+      result += `${currentOctave + 1}f`;
+    } else if (char === 'l') {
+      result += `${currentOctave + 1}g`;
+    } else if (char === 'm') {
+      result += `${currentOctave + 1}a`;
+    } else if (char === 'n') {
+      result += `${currentOctave + 1}b`;
+    }
+    // Second octave sharps (tyuop → next octave cs ds fs gs as)
+    else if (char === 't') {
+      result += `${currentOctave + 1}cs`;
+    } else if (char === 'y') {
+      result += `${currentOctave + 1}ds`;
+    } else if (char === 'u') {
+      result += `${currentOctave + 1}fs`;
+    } else if (char === 'o') {
+      result += `${currentOctave + 1}gs`;
+    } else if (char === 'p') {
+      result += `${currentOctave + 1}as`;
+    }
+    // All other characters pass through unchanged
+    else {
+      result += char;
+    }
+    
+    i++;
+  }
+  
+  return result;
+}
+
+// Convert internal note representation (like 'cs', 'ds') back to notepat notation
+function convertToNotepatDisplay(note, octave, baseOctave = 4) {
+  if (!note || note === 'rest') return '_';
+  
+  note = note.toLowerCase();
+  
+  // Determine if this is in the base octave or one octave higher
+  const isHigherOctave = octave > baseOctave;
+  
+  // Map internal notes to notepat characters
+  const notepatMap = {
+    // Base octave
+    'c': 'c',
+    'cs': 'v',
+    'd': 'd',
+    'ds': 's',
+    'e': 'e',
+    'f': 'f',
+    'fs': 'w',
+    'g': 'g',
+    'gs': 'r',
+    'a': 'a',
+    'as': 'q',
+    'b': 'b',
+    // Higher octave
+    'c+': 'h',
+    'cs+': 't',
+    'd+': 'i',
+    'ds+': 'y',
+    'e+': 'j',
+    'f+': 'k',
+    'fs+': 'u',
+    'g+': 'l',
+    'gs+': 'o',
+    'a+': 'm',
+    'as+': 'p',
+    'b+': 'n',
+  };
+  
+  const key = isHigherOctave ? note + '+' : note;
+  return notepatMap[key] || note; // Fallback to original if not in map
 }
 
 let synced = false;
@@ -626,8 +747,13 @@ function boot({ ui, clock, params, colon, hud, screen, typeface, api, speak, num
     // (ceg) is in params[0] and (dfa) is in params[1]
     originalMelodyString = params.join(" ");
 
+    // Convert notepat notation to standard notation before parsing
+    const convertedMelodyString = convertNotepatNotation(originalMelodyString);
+    console.log(`🎵 Original: "${originalMelodyString}"`);
+    console.log(`🎵 Converted: "${convertedMelodyString}"`);
+    
     // Parse the melody string for simultaneous tracks
-    melodyTracks = parseSimultaneousMelody(originalMelodyString, octave);
+    melodyTracks = parseSimultaneousMelody(convertedMelodyString, octave);
 
     if (melodyTracks.isSingleTrack) {
       // Single track - use existing logic
@@ -1120,10 +1246,11 @@ function paint({
           }
 
           // Handle octave-first notation (5f, 4c#, etc.) - octave number should be part of the note unit
+          // Also handle notepat characters after octave numbers
           if (
             /[0-9]/.test(char) &&
             i + 1 < group.length &&
-            /[a-g]/i.test(group[i + 1])
+            /[a-gvswrqhijklmntyuop]/i.test(group[i + 1])
           ) {
             let noteStart = i; // Start with the octave number
             let noteEnd = i + 1; // Move to the note letter
@@ -1131,7 +1258,7 @@ function paint({
             // Check for sharp modifiers
             if (noteEnd + 1 < group.length) {
               const nextChar = group[noteEnd + 1];
-              if (nextChar === "s" || nextChar === "#") {
+              if (nextChar === "#") {
                 noteEnd++;
               }
             }
@@ -1172,7 +1299,8 @@ function paint({
             i = noteEnd;
           }
           // Handle regular note letters (without octave prefix) or relative octave modifiers (+c, -f, etc.)
-          else if (/[a-g#_+-]/i.test(char)) {
+          // Also include notepat characters: vswrq (sharps), hijklmn (white notes), tyuop (sharps in higher octave)
+          else if (/[a-g#_+-vswrqhijklmntyuop]/i.test(char)) {
             let noteStart = i;
             let noteEnd = i;
 
@@ -1187,7 +1315,7 @@ function paint({
               // Now we should have a note letter
               if (
                 noteEnd + 1 < group.length &&
-                /[a-g]/i.test(group[noteEnd + 1])
+                /[a-gvswrqhijklmntyuop]/i.test(group[noteEnd + 1])
               ) {
                 noteEnd++;
               } else {
@@ -1221,7 +1349,7 @@ function paint({
             // Check for sharp modifiers (for regular notes or after relative modifiers)
             if (noteEnd + 1 < group.length) {
               const nextChar = group[noteEnd + 1];
-              if (nextChar === "s" || nextChar === "#") {
+              if (nextChar === "#") {
                 noteEnd++;
               }
             }
@@ -1999,12 +2127,15 @@ function buildCurrentMelodyString(originalMelodyString, melodyState) {
       if (char === "*" || char === " ") continue;
 
       // Check if this is a note letter (main note character) or underscore rest
-      if (/[a-g_]/i.test(char)) {
+      // Also include notepat characters: vswrq (sharps), hijklmn (white notes), tyuop (sharps in higher octave)
+      if (/[a-g_vswrqhijklmntyuop]/i.test(char)) {
         const trackNote = melodyState.notes[noteIndex];
         if (trackNote && trackNote.isMutation) {
           // This note was mutated, record its position for replacement
-          const displayNote =
-            trackNote.note === "rest" ? "_" : trackNote.note.toLowerCase();
+          // Convert to notepat notation for display
+          const displayNote = trackNote.note === "rest" 
+            ? "_" 
+            : convertToNotepatDisplay(trackNote.note, trackNote.octave, octave);
           notePositions.push({
             stringIndex: i,
             trackIndex: noteIndex,
@@ -2073,12 +2204,15 @@ function buildCurrentMelodyString(originalMelodyString, melodyState) {
         if (char === "*" || char === "x") continue;
 
         // Check if this is a note letter or underscore rest
-        if (/[a-g_]/i.test(char)) {
+        // Also include notepat characters
+        if (/[a-g_vswrqhijklmntyuop]/i.test(char)) {
           const trackNote = track[noteIndexInTrack];
           if (trackNote && trackNote.isMutation) {
             // This note was mutated, record its position for replacement
-            const displayNote =
-              trackNote.note === "rest" ? "_" : trackNote.note.toLowerCase();
+            // Convert to notepat notation for display
+            const displayNote = trackNote.note === "rest"
+              ? "_"
+              : convertToNotepatDisplay(trackNote.note, trackNote.octave, octave);
             notePositions.push({
               stringIndex: absoluteCharIndex,
               trackIndex: groupIdx,
@@ -2154,7 +2288,8 @@ function isNotePlayingInParallelTrack(melodyString, charIndex, trackStates) {
     }
 
     // Count notes, treating duration-modified notes as single units
-    if (/[a-g#_]/i.test(char)) {
+    // Include notepat characters
+    if (/[a-g#_vswrqhijklmntyuop]/i.test(char)) {
       // Skip ahead past any duration modifiers
       let j = i;
       while (j + 1 < melodyString.length) {
@@ -4254,6 +4389,70 @@ function act({ event: e, clock, sound, screen, ui, typeface, api }) {
       }
     },
   });
+
+  // Notepat-style keyboard mapping for live note playing
+  // First octave (base octave): cdefgab + vswrq (sharps)
+  // Second octave (base octave + 1): hijklmn + tyuop (sharps)
+  
+  // Helper function to play a note with current settings
+  const playKeyboardNote = (noteName, noteOctave) => {
+    const noteString = `${noteOctave}${noteName}`;
+    
+    // Use current melody settings if available
+    const currentSettings = melodyState ? {
+      waveform: melodyState.currentWaveform || "sine",
+      volume: melodyState.currentVolume || 0.7,
+      hzShift: melodyState.currentHzShift || 0
+    } : {
+      waveform: "sine", 
+      volume: 0.7,
+      hzShift: 0
+    };
+    
+    // Play the note with current settings
+    sound.synth({
+      type: currentSettings.waveform,
+      tone: noteString,
+      duration: 0.5, // Short duration for live playing
+      volume: currentSettings.volume,
+      attack: 0.01,
+      decay: 0.999
+    });
+    
+    console.log(`🎹 Played: ${noteString} (${currentSettings.waveform})`);
+  };
+
+  // First octave white keys (c d e f g a b)
+  if (e.is("keyboard:down:c") && !e.repeat) playKeyboardNote("c", octave);
+  if (e.is("keyboard:down:d") && !e.repeat) playKeyboardNote("d", octave);
+  if (e.is("keyboard:down:e") && !e.repeat) playKeyboardNote("e", octave);
+  if (e.is("keyboard:down:f") && !e.repeat) playKeyboardNote("f", octave);
+  if (e.is("keyboard:down:g") && !e.repeat) playKeyboardNote("g", octave);
+  if (e.is("keyboard:down:a") && !e.repeat) playKeyboardNote("a", octave);
+  if (e.is("keyboard:down:b") && !e.repeat) playKeyboardNote("b", octave);
+  
+  // First octave black keys (v s w r q → c# d# f# g# a#)
+  if (e.is("keyboard:down:v") && !e.repeat) playKeyboardNote("c#", octave);
+  if (e.is("keyboard:down:s") && !e.repeat) playKeyboardNote("d#", octave);
+  if (e.is("keyboard:down:w") && !e.repeat) playKeyboardNote("f#", octave);
+  if (e.is("keyboard:down:r") && !e.repeat) playKeyboardNote("g#", octave);
+  if (e.is("keyboard:down:q") && !e.repeat) playKeyboardNote("a#", octave);
+  
+  // Second octave white keys (h i j k l m n → c d e f g a b)
+  if (e.is("keyboard:down:h") && !e.repeat) playKeyboardNote("c", octave + 1);
+  if (e.is("keyboard:down:i") && !e.repeat) playKeyboardNote("d", octave + 1);
+  if (e.is("keyboard:down:j") && !e.repeat) playKeyboardNote("e", octave + 1);
+  if (e.is("keyboard:down:k") && !e.repeat) playKeyboardNote("f", octave + 1);
+  if (e.is("keyboard:down:l") && !e.repeat) playKeyboardNote("g", octave + 1);
+  if (e.is("keyboard:down:m") && !e.repeat) playKeyboardNote("a", octave + 1);
+  if (e.is("keyboard:down:n") && !e.repeat) playKeyboardNote("b", octave + 1);
+  
+  // Second octave black keys (t y u o p → c# d# f# g# a#)
+  if (e.is("keyboard:down:t") && !e.repeat) playKeyboardNote("c#", octave + 1);
+  if (e.is("keyboard:down:y") && !e.repeat) playKeyboardNote("d#", octave + 1);
+  if (e.is("keyboard:down:u") && !e.repeat) playKeyboardNote("f#", octave + 1);
+  if (e.is("keyboard:down:o") && !e.repeat) playKeyboardNote("g#", octave + 1);
+  if (e.is("keyboard:down:p") && !e.repeat) playKeyboardNote("a#", octave + 1);
 
   // Respond to user input here.
   if (e.is("touch")) {
