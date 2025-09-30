@@ -10235,6 +10235,8 @@ function parseRGBString(text) {
 // URL encoding/decoding utilities for kidlisp pieces
 function isKidlispSource(text) {
   if (!text) return false;
+  
+  // console.log("🔍 [KidLisp Detection START] text:", text, "has comma:", text.includes(","), "starts with (:", text.startsWith("("));
 
   // Check for $-prefixed cached kidlisp codes (e.g., $abc123XY)
   if (text.startsWith("$") && text.length > 1) {
@@ -10320,6 +10322,7 @@ function isKidlispSource(text) {
   // Check for comma-separated expressions (KidLisp one-liner syntax)
   // Only detect as KidLisp if it contains commas AND looks like KidLisp functions
   if (text.includes(",")) {
+    console.log("🔍 [KidLisp Detection] Comma-separated text:", text);
     // Check if the text contains known KidLisp functions or color names
     const kidlispFunctions = [
       "wipe", "ink", "line", "box", "flood", "circle", "write", "paste", "stamp", "point", "poly",
@@ -10333,6 +10336,7 @@ function isKidlispSource(text) {
 
     // Split by commas and check if any part contains KidLisp functions or colors
     const parts = text.split(",").map(part => part.trim()).filter(Boolean);
+    console.log("🔍 [KidLisp Detection] Parts:", parts);
 
     const analyzePart = (part) => {
       // Remove wrapping braces/parentheses commonly used in share metadata
@@ -10342,7 +10346,9 @@ function isKidlispSource(text) {
       const firstTokenMatch = normalized.match(/^[^\s]+/);
       const firstToken = firstTokenMatch ? firstTokenMatch[0].toLowerCase() : "";
       const firstTokenStripped = firstToken.replace(/^[^a-z0-9]+/i, "");
-      const cleanedToken = firstTokenStripped.replace(/[^a-z0-9:_-]+$/i, "");
+      const cleanedToken = firstTokenStripped.replace(/[^a-z0-9:._-]+$/i, ""); // Preserve decimal points
+      
+      console.log(`🔍 [KidLisp Detection] Analyzing part: "${part}" -> normalized: "${normalized}" -> cleanedToken: "${cleanedToken}"`);
 
       const isFunction = kidlispFunctions.includes(cleanedToken) ||
         (cleanedToken.startsWith("(") && kidlispFunctions.includes(cleanedToken.slice(1)));
@@ -10351,6 +10357,8 @@ function isKidlispSource(text) {
         cleanedToken.startsWith("fade:");
       const isNumber = /^-?\d+(\.\d+)?$/.test(cleanedToken);
       const isRGB = isValidRGBString(cleanedToken.replace(/_/g, " "));
+      
+      console.log(`🔍 [KidLisp Detection] isFunction: ${isFunction}, isColor: ${isColor}, isNumber: ${isNumber}, isRGB: ${isRGB}`);
 
       return { isFunction, isColor, isNumber, isRGB };
     };
@@ -10358,9 +10366,14 @@ function isKidlispSource(text) {
     const analyses = parts.map(analyzePart);
     const kidParts = analyses.filter(({ isFunction, isColor, isNumber, isRGB }) => isFunction || isColor || isNumber || isRGB);
     const functionParts = analyses.filter(({ isFunction }) => isFunction);
+    
+    console.log(`🔍 [KidLisp Detection] kidParts: ${kidParts.length}, functionParts: ${functionParts.length}, total parts: ${parts.length}`);
 
     // Require at least one recognized KidLisp function or multiple KidLisp-like tokens
-    if (kidParts.length > 0 && (functionParts.length > 0 || kidParts.length >= 2 || (kidParts.length / parts.length) >= 0.75)) {
+    const result = kidParts.length > 0 && (functionParts.length > 0 || kidParts.length >= 2 || (kidParts.length / parts.length) >= 0.75);
+    console.log(`🔍 [KidLisp Detection] Final result: ${result}`);
+    
+    if (result) {
       return true;
     }
   }
