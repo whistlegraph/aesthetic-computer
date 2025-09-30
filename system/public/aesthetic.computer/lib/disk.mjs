@@ -168,6 +168,8 @@ const typefaceCache = new Map();
 const DEFAULT_TYPEFACE_BLOCK_WIDTH = 6;
 const DEFAULT_TYPEFACE_BLOCK_HEIGHT = 10;
 const HUD_LABEL_TEXT_MARGIN = 2;
+const KIDLISP_HUD_WRAP_CHARACTER_LIMIT = 28;
+const MIN_HUD_WRAP_WIDTH = 120;
 
 function resolveTypefaceInstance(typefaceRef) {
   if (!typefaceRef) return undefined;
@@ -215,24 +217,35 @@ function getTypefaceForMeasurement(typefaceName) {
 function writeHudLabelText(
   $, 
   text,
-  { x = 0, y = 0, typefaceName, preserveColors = true } = {},
+  {
+    x = 0,
+    y = 0,
+    typefaceName,
+    preserveColors = true,
+    bounds,
+    wordWrap,
+  } = {},
 ) {
   if (text === undefined || text === null || text === "") return;
 
   const content = preserveColors ? text : stripColorCodes(text);
+  const effectiveBounds = typeof bounds === "number" && bounds > 0 ? bounds : undefined;
+  const shouldWrap = wordWrap === undefined ? effectiveBounds !== undefined : wordWrap;
+  
   $.write(
     content,
     { x, y },
     undefined,
-    undefined,
-    false,
+    effectiveBounds,
+    shouldWrap,
     typefaceName,
   );
+
+  return $;
 }
 
 // Helper function to determine if a color is dark (needs light shadow) or light (needs dark shadow)
 function isColorDark(colorStr) {
-  if (!colorStr) return false;
   
   let rgb;
   
@@ -269,10 +282,20 @@ function isColorDark(colorStr) {
 }
 
 // Helper function to get shadow color for a specific text color
+const BRIGHT_SHADOW_RGB = "220,220,220";
+
 function getShadowColorForText(colorStr) {
   if (!colorStr) return "64,64,64"; // Default to dark gray shadow
   
   let rgb;
+  let normalizedCommand = null;
+  if (typeof colorStr === "string") {
+    normalizedCommand = colorStr.trim().toLowerCase();
+    // Treat complex command-based color strings (fade, scroll, random, etc.) as needing bright shadows
+    if (/[:(]/.test(normalizedCommand) || normalizedCommand.includes("?")) {
+      return BRIGHT_SHADOW_RGB;
+    }
+  }
   
   // Parse the color string to get RGB values
   if (typeof colorStr === 'string' && colorStr.includes(',')) {
@@ -296,6 +319,11 @@ function getShadowColorForText(colorStr) {
   if (!rgb || rgb.length < 3) return "64,64,64";
   
   const [r, g, b] = rgb;
+
+  // Handle very dark colors (near black) before channel-specific logic
+  if (r <= 24 && g <= 24 && b <= 24) {
+    return BRIGHT_SHADOW_RGB;
+  }
   
   // 🎨 Special case: Detect RGB channel colors and return channel-tinted shadows
   // Red channel: R value, zero G and B
@@ -327,8 +355,13 @@ function getShadowColorForText(colorStr) {
   
   // Check if the color is dark - if so, lighten it for shadow
   if (isColorDark(colorStr)) {
-    // Lighten the color by mixing with white (less stark than pure white)
-    const factor = 0.5; // Mix 50% with white for a lighter version
+    // Render near-white shadows under very dark text for readability
+    if (r <= 24 && g <= 24 && b <= 24) {
+      return "255,255,255";
+    }
+
+    // Lighten the color by mixing with white (stronger mix for dark colors)
+    const factor = 0.85; // Mix 85% with white for a much lighter shadow
     const shadowR = Math.round(r + (255 - r) * factor);
     const shadowG = Math.round(g + (255 - g) * factor);
     const shadowB = Math.round(b + (255 - b) * factor);
@@ -378,10 +411,12 @@ function drawHudLabelText(
     y = 0,
     typefaceName,
     textColor = "white",
-    shadowColor = "black",
+    shadowColor,
     shadowOffsetX = 1,
     shadowOffsetY = 1,
     preserveColors = true,
+    bounds,
+    wordWrap,
   } = {},
 ) {
   if (!text) return;
@@ -389,8 +424,20 @@ function drawHudLabelText(
   const containsColorCodes = textContainsColorCodes(text);
   const shouldPreserveColors = preserveColors || (typefaceName === "MatrixChunky8" && containsColorCodes);
 
+  const effectiveBounds = typeof bounds === "number" && bounds > 0 ? bounds : undefined;
+  const shouldWrap = wordWrap === undefined ? effectiveBounds !== undefined : wordWrap;
 
-  const shouldRenderShadow = shadowColor && !(
+
+  let effectiveShadowColor = shadowColor;
+  if (!effectiveShadowColor && textColor) {
+    effectiveShadowColor = getShadowColorForText(textColor);
+  }
+  if (!effectiveShadowColor) {
+    effectiveShadowColor = "black";
+  }
+
+
+  const shouldRenderShadow = effectiveShadowColor && !(
     typefaceName === "MatrixChunky8" &&
     matrixDebugEnabled()
   );
@@ -406,15 +453,19 @@ function drawHudLabelText(
         y: y + shadowOffsetY,
         typefaceName,
         preserveColors: true, // Keep the shadow color codes
+        bounds: effectiveBounds,
+        wordWrap: shouldWrap,
       });
     } else {
       // Original behavior: single shadow color for entire text
-      $.ink(shadowColor);
+      $.ink(effectiveShadowColor);
       writeHudLabelText($, text, {
         x: x + shadowOffsetX,
         y: y + shadowOffsetY,
         typefaceName,
         preserveColors: false,
+        bounds: effectiveBounds,
+        wordWrap: shouldWrap,
       });
     }
   }
@@ -423,13 +474,15 @@ function drawHudLabelText(
     $.ink(textColor);
   }
 
-  writeHudLabelText($, text, {
-    x,
-    y,
+  const content = shouldPreserveColors ? text : stripColorCodes(text);
+  $.write(
+    content,
+    { x, y },
+    undefined,
+    effectiveBounds,
+    shouldWrap,
     typefaceName,
-    preserveColors: shouldPreserveColors,
-  });
-
+  );
 }
 
 export const noWorker = { onMessage: undefined, postMessage: undefined };
@@ -9749,14 +9802,16 @@ async function makeFrame({ data: { type, content } }) {
           const blockHeight = typeface.blockHeight || DEFAULT_TYPEFACE_BLOCK_HEIGHT;
           const lineWidths = visibleLines.map((line) => measureLineWidth(line, typeface));
           const longestLineWidth = lineWidths.reduce((max, width) => Math.max(max, width), 0);
-          const bounds = isKidlispPiece ? 10000 : Math.max($api.screen.width * 4, 1000);
+          // 🎨 Use screen width minus padding for KidLisp wrapping
+          // Account for left margin (HUD_LABEL_TEXT_MARGIN) in measurement bounds
+          const bounds = isKidlispPiece ? ($api.screen.width - 6 - HUD_LABEL_TEXT_MARGIN) : Math.max($api.screen.width * 4, 1000);
 
           const naturalBounds = $api.text.box(
             cleanText,
             { x: 0, y: 0 },
             bounds,
             1,
-            !isKidlispPiece,
+            true, // Enable wrapping for proper measurement
             fontIdentifier,
           );
 
@@ -9813,6 +9868,8 @@ async function makeFrame({ data: { type, content } }) {
         const textBoxWidth = selectedLayout?.textBoxWidth ?? 0;
         const textBoxHeight = selectedLayout?.textBoxHeight ?? 0;
         const longestVisibleLineWidth = selectedLayout?.longestLineWidth ?? 0;
+  const wrappedLineCount = textBounds?.lines?.length ?? visibleLineCount;
+  const measuredTextHeight = textBoxHeight || (wrappedLineCount * hudBlockHeight);
 
         // 🔤 Font Loading Check: If MatrixChunky8 was selected but not loaded, skip rendering HUD
         // This prevents pop-in where font_1 renders briefly before MatrixChunky8 glyphs load
@@ -9876,7 +9933,8 @@ async function makeFrame({ data: { type, content } }) {
   currentHUDLabelBlockHeight = hudBlockHeight;
 
         // Prefer visible line width for KidLisp pieces to avoid oversized buffers
-        let w = isKidlispPiece ? longestVisibleLineWidth : textBoxWidth;
+        // When wrapping is enabled, use textBoxWidth (wrapped width) instead
+        let w = isKidlispPiece ? textBoxWidth : textBoxWidth;
         if (!w || w <= 0) {
           w = textBoxWidth;
         }
@@ -9886,7 +9944,7 @@ async function makeFrame({ data: { type, content } }) {
         w += bufferWidthPadding;
         
         // Final text dimensions: KidLisp width uses visible line metrics, height from text box
-        let h = textBoxHeight;
+  let h = measuredTextHeight;
         
         if (piece === "video") w = screen.width;
         
@@ -9895,7 +9953,7 @@ async function makeFrame({ data: { type, content } }) {
         let bufferH = h;
         
         // Ensure minimum buffer size for readability
-        const minBufferW = Math.max(isKidlispPiece ? longestVisibleLineWidth : textBoxWidth, 50);
+        const minBufferW = Math.max(isKidlispPiece ? textBoxWidth : textBoxWidth, 50);
         const minBufferH = Math.max(hudBlockHeight, 20); // At least one line height
         
         if (bufferW < minBufferW) {
@@ -9909,7 +9967,7 @@ async function makeFrame({ data: { type, content } }) {
         if (isKidlispPiece) {
           // When wordWrap=false, text.box doesn't calculate height correctly for multi-line text
           // Calculate proper height based on actual line count
-          const properHeight = visibleLineCount * hudBlockHeight;
+          const properHeight = measuredTextHeight;
           if (properHeight > bufferH) {
             bufferH = properHeight;
           }
@@ -9940,58 +9998,6 @@ async function makeFrame({ data: { type, content } }) {
           
 
 
-          // HUD Background Box: Always draw background for prompt HUD text
-          // Get the actual text that will be rendered (same logic as below)
-          let text = currentHUDTxt;
-          if (currentHUDTxt.split(" ")[1]?.indexOf("http") !== 0) {
-            text = currentHUDTxt?.replaceAll("~", " ");
-            text = text?.replaceAll("§", " ");
-          }
-          
-          // Strip color codes to get the actual visible text
-          const colorCodeRegex = /\\[^\\]*\\/g;
-          const visibleText = text.replace(colorCodeRegex, '');
-          
-          // Calculate snug dimensions based on visible characters only
-          // Add extra width padding for font_1 characters that may extend beyond measured width
-          const extraWidthPadding = 8; // Extra pixels for font_1 character overflow (increased for wider glyphs)
-          const snugWidth = Math.max(longestVisibleLineWidth || 0, textBoxWidth) + extraWidthPadding;
-          const snugHeight = Math.max(hudBlockHeight, visibleLineCount * hudBlockHeight) + hudDescenderPadding;
-          
-          // Position highlight with 2px padding on all sides around the text
-          const highlightPadding = 2;
-          const leftMargin = HUD_LABEL_TEXT_MARGIN; // Define the left margin for HUD text
-          const bgX = leftMargin - highlightPadding; // Start padding pixels left of text origin
-          const bgY = -highlightPadding; // Start padding above text
-          const bgWidth = snugWidth + highlightPadding * 2; // Text width + padding on each side
-          const bgHeight = snugHeight + highlightPadding * 2; // Text height + padding top and bottom
-          
-          // Use highlight color if in HIGHLIGHT_MODE, otherwise use subtle dark background
-          let bgColor;
-          if (HIGHLIGHT_MODE) {
-            // Parse highlight color - support RGB comma format, hex, or named colors
-            if (HIGHLIGHT_COLOR.includes(',')) {
-              const [r, g, b] = HIGHLIGHT_COLOR.split(',').map(n => parseInt(n.trim()));
-              bgColor = [r, g, b, 100]; // Semi-transparent
-            } else if (HIGHLIGHT_COLOR.startsWith('#')) {
-              // Parse hex color like #FFFF00
-              const hex = HIGHLIGHT_COLOR.slice(1); // Remove #
-              const r = parseInt(hex.substring(0, 2), 16);
-              const g = parseInt(hex.substring(2, 4), 16);
-              const b = parseInt(hex.substring(4, 6), 16);
-              bgColor = [r, g, b, 100]; // Semi-transparent
-            } else {
-              // Use bright yellow as default for highlight
-              bgColor = [255, 255, 0, 100]; // Bright yellow, semi-transparent
-            }
-          } else {
-            // Subtle dark background for normal mode (very transparent)
-            bgColor = [0, 0, 0, 80]; // Dark, very transparent (~31% opacity)
-          }
-          
-          // Background box with configurable color
-          $.ink(...bgColor).box(bgX, bgY, bgWidth, bgHeight);
-
           let c;
           if (currentHUDTextColor) {
             c = num.shiftRGB(currentHUDTextColor, [255, 255, 255], 0.75);
@@ -10015,12 +10021,19 @@ async function makeFrame({ data: { type, content } }) {
             const hasColorCodes = textContainsColorCodes(text);
             const baseTextColor = currentHUDTextColor || "white";
 
+            // 🎨 Character wrapping for KidLisp HUD prompts
+            // Wrap based on screen width minus padding (6px total: 2px margin + 4px padding)
+            // Subtract the left margin since text starts at x=HUD_LABEL_TEXT_MARGIN
+            const wrapBounds = isKidlispPiece ? ($api.screen.width - 6 - HUD_LABEL_TEXT_MARGIN) : undefined;
+
             drawHudLabelText($, text, {
               x: hudTextX,
               y: hudTextY,
               typefaceName: typefaceNameForWrite,
               textColor: baseTextColor,
               preserveColors: hasColorCodes,
+              bounds: wrapBounds,
+              // wordWrap defaults to true when bounds is set, enabling character wrapping
             });
 
             if (currentHUDScrub > 0) {
@@ -10564,12 +10577,12 @@ async function makeFrame({ data: { type, content } }) {
                 }
               }
               
-              if (!allGlyphsLoaded) {
-                console.log('[QR] MatrixChunky8 glyphs pending:', {
-                  labelText,
-                  missingGlyphs: missingGlyphs.join('') || 'unknown'
-                });
-              }
+              // if (!allGlyphsLoaded) {
+              //   console.log('[QR] MatrixChunky8 glyphs pending:', {
+              //     labelText,
+              //     missingGlyphs: missingGlyphs.join('') || 'unknown'
+              //   });
+              // }
             }
             
             const shouldShowQR = allGlyphsLoaded;
