@@ -10278,7 +10278,7 @@ function isKidlispSource(text) {
     text.includes("export ") ||
     text.includes(".mjs") ||
     text.includes(".js") ||
-    text.match(/\w+\.\w+/) // Method calls like object.method
+    text.match(/[a-zA-Z_$]\w*\.\w+/) // Method calls like object.method (but not decimal numbers like 0.2)
   ) {
     return false; // Definitely JavaScript, not KidLisp
   }
