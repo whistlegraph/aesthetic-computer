@@ -4305,13 +4305,15 @@ const $paintApiUnwrapped = {
     
     // 🎨 REFRAME FIX: Use explicit canvas fill to ensure extended areas are covered
     // For reframe operations, graph.clear() may not cover new extended areas
-    if (screen && screen.width && screen.height) {
-      // Fill the entire canvas area explicitly to ensure reframe extensions are covered
-      $paintApiUnwrapped.box(0, 0, screen.width, screen.height);
-    } else {
-      // Fallback to standard clear if screen dimensions unavailable
-      graph.clear();
-    }
+    graph.withForceReplaceMode(() => {
+      if (screen && screen.width && screen.height) {
+        // Fill the entire canvas area explicitly to ensure reframe extensions are covered
+        $paintApiUnwrapped.box(0, 0, screen.width, screen.height);
+      } else {
+        // Fallback to standard clear if screen dimensions unavailable
+        graph.clear();
+      }
+    });
     
     twoDCommands.push(["wipe", ...graph.c]);
     ink(...cc);
