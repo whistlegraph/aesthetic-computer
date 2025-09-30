@@ -167,7 +167,7 @@ const typefaceCache = new Map();
 
 const DEFAULT_TYPEFACE_BLOCK_WIDTH = 6;
 const DEFAULT_TYPEFACE_BLOCK_HEIGHT = 10;
-const HUD_LABEL_TEXT_MARGIN = 2;
+const HUD_LABEL_TEXT_MARGIN = 0;
 const KIDLISP_HUD_WRAP_CHARACTER_LIMIT = 28;
 const MIN_HUD_WRAP_WIDTH = 120;
 
@@ -422,7 +422,7 @@ function drawHudLabelText(
   if (!text) return;
 
   const containsColorCodes = textContainsColorCodes(text);
-  const shouldPreserveColors = preserveColors || (typefaceName === "MatrixChunky8" && containsColorCodes);
+  const shouldPreserveColors = preserveColors || ((typefaceName === "MatrixChunky8" || typefaceName === "unifont") && containsColorCodes);
 
   const effectiveBounds = typeof bounds === "number" && bounds > 0 ? bounds : undefined;
   const shouldWrap = wordWrap === undefined ? effectiveBounds !== undefined : wordWrap;
@@ -438,7 +438,7 @@ function drawHudLabelText(
 
 
   const shouldRenderShadow = effectiveShadowColor && !(
-    typefaceName === "MatrixChunky8" &&
+    (typefaceName === "MatrixChunky8" || typefaceName === "unifont") &&
     matrixDebugEnabled()
   );
 
@@ -924,6 +924,7 @@ let currentPath,
   currentHUDLabelBlockHeight = tf?.blockHeight ?? DEFAULT_TYPEFACE_BLOCK_HEIGHT,
   currentHUDShareWidth = (tf?.blockWidth ?? DEFAULT_TYPEFACE_BLOCK_WIDTH) * "share ".length,
   currentHUDLabelMeasuredWidth = 0,
+  currentHUDLeftPad = 0,
   currentHUDOffset,
   qrOverlayCache = new Map(), // Cache for QR overlays to prevent regeneration every frame
   hudLabelCache = null; // Cache for HUD label to prevent regeneration every frame
@@ -2034,11 +2035,16 @@ const $commonApi = {
         );
         
         // Use the actual computed width from text.box instead of character count
-        let w = labelBounds.box.width + currentHUDScrub;
+        const measuredWidth = labelBounds.box.width;
+  const fallbackShareWidth = (currentHUDLabelBlockWidth || DEFAULT_TYPEFACE_BLOCK_WIDTH) * "share ".length;
+  const shareWidth = Math.max(currentHUDShareWidth || 0, fallbackShareWidth);
+        currentHUDLeftPad = shareWidth;
+        const baseLabelWidth = measuredWidth + shareWidth;
+        const scrubExtension = Math.max(0, currentHUDScrub);
         const h = labelBounds.box.height + cachedAPI.typeface.blockHeight;
-        
-        // Store dimensions for animation calculations
-        hudAnimationState.labelWidth = w;
+
+        currentHUDLabelMeasuredWidth = baseLabelWidth;
+        hudAnimationState.labelWidth = baseLabelWidth + scrubExtension;
         hudAnimationState.labelHeight = h;
       }
     },
@@ -3925,7 +3931,7 @@ const $paintApi = {
       }
 
       const typefaceName = typeof customTypeface === "string" ? customTypeface : customTypeface?.name;
-      if (typefaceName === "MatrixChunky8") {
+      if (typefaceName === "MatrixChunky8" || typefaceName === "unifont") {
         const hasColorAssignments = charColors?.some((color) => {
           if (!color) return false;
           if (Array.isArray(color)) {
@@ -6902,6 +6908,7 @@ async function load(
     currentHUDStatusColor = "red"; //undefined;
     currentHUDButton = undefined;
     currentHUDScrub = 0;
+  currentHUDLeftPad = 0;
     // currentPromptButton = undefined;
 
     // Push last piece to a history list, skipping prompt and repeats.
@@ -8943,7 +8950,8 @@ async function makeFrame({ data: { type, content } }) {
                 });
               },
               push: (btn) => {
-                const shareWidth = tf.blockWidth * "share ".length;
+                const fallbackShareWidth = tf.blockWidth * "share ".length;
+                const shareWidth = Math.max(currentHUDShareWidth || 0, fallbackShareWidth);
                 if (currentHUDScrub > 0 && currentHUDScrub <= shareWidth) {
                   btn.actions.cancel?.();
                   return;
@@ -8990,10 +8998,14 @@ async function makeFrame({ data: { type, content } }) {
                   currentHUDScrub += e.delta.x;
                 }
 
-                const shareWidth = currentHUDShareWidth || (currentHUDLabelBlockWidth * "share ".length);
+                const fallbackShareWidth = (currentHUDLabelBlockWidth || DEFAULT_TYPEFACE_BLOCK_WIDTH) * "share ".length;
+                const shareWidth = Math.max(currentHUDShareWidth || 0, fallbackShareWidth);
 
                 if (currentHUDScrub >= 0) {
-                  const baseWidth = hudAnimationState.labelWidth ?? currentHUDLabelMeasuredWidth ?? (currentHUDLabelBlockWidth * (currentHUDPlainTxt?.length || currentHUDTxt.length));
+                  const fallbackWidth = hudAnimationState.labelWidth
+                    ? Math.max(hudAnimationState.labelWidth - currentHUDScrub, 0)
+                    : currentHUDLabelBlockWidth * (currentHUDPlainTxt?.length || currentHUDTxt.length);
+                  const baseWidth = currentHUDLabelMeasuredWidth ?? fallbackWidth;
                   btn.box.w = baseWidth + currentHUDScrub;
                   // console.log(btn.b);
                 }
@@ -9012,11 +9024,14 @@ async function makeFrame({ data: { type, content } }) {
                     currentHUDTextColor = [255, 0, 0];
                   }
                 }
+
+                $api.needsPaint();
               },
               cancel: () => {
                 currentHUDTextColor = originalColor;
 
-                const shareWidth = tf.blockWidth * "share ".length;
+                const fallbackShareWidth = tf.blockWidth * "share ".length;
+                const shareWidth = Math.max(currentHUDShareWidth || 0, fallbackShareWidth);
                 if (currentHUDScrub === shareWidth) {
                   $api.sound.synth({
                     tone: 1800,
@@ -9939,9 +9954,14 @@ async function makeFrame({ data: { type, content } }) {
         if (!skipHudRender) {
 
         const measuredShareWidth = measureLineWidth("share ", selectedTypeface);
-        currentHUDShareWidth = measuredShareWidth > 0
-          ? measuredShareWidth
-          : hudBlockWidth * "share ".length;
+        const fallbackShareWidth = hudBlockWidth * "share ".length;
+        const effectiveShareWidth = measuredShareWidth > 0
+          ? Math.max(measuredShareWidth, fallbackShareWidth)
+          : fallbackShareWidth;
+        currentHUDShareWidth = effectiveShareWidth;
+        const shareWidth = effectiveShareWidth;
+        currentHUDLeftPad = shareWidth;
+        const scrubExtension = Math.max(0, currentHUDScrub);
 
   currentHUDLabelFontName = selectedHudFont;
   currentHUDLabelBlockWidth = hudBlockWidth;
@@ -9963,16 +9983,19 @@ async function makeFrame({ data: { type, content } }) {
         
         if (piece === "video") w = screen.width;
         
+        const baseLabelWidth = w + shareWidth;
+        
         // Use natural text dimensions for buffer - preserve original layout
-        let bufferW = w; // Keep natural width to maintain character positioning
+        let bufferW = baseLabelWidth + scrubExtension;
         let bufferH = h;
         
         // Ensure minimum buffer size for readability
-        const minBufferW = Math.max(isKidlispPiece ? textBoxWidth : textBoxWidth, 50);
+        const minTextWidth = Math.max(isKidlispPiece ? textBoxWidth : textBoxWidth, 50);
+        const minimumAllowedWidth = shareWidth + Math.max(minTextWidth, 0);
         const minBufferH = Math.max(hudBlockHeight, 20); // At least one line height
         
-        if (bufferW < minBufferW) {
-          bufferW = minBufferW;
+        if (bufferW < minimumAllowedWidth + scrubExtension) {
+          bufferW = minimumAllowedWidth + scrubExtension;
         }
         if (bufferH < minBufferH) {
           bufferH = minBufferH;
@@ -10000,8 +10023,8 @@ async function makeFrame({ data: { type, content } }) {
 
         
         // Store actual dimensions for animation calculations
-        currentHUDLabelMeasuredWidth = bufferW;
-        hudAnimationState.labelWidth = bufferW;
+  currentHUDLabelMeasuredWidth = baseLabelWidth;
+  hudAnimationState.labelWidth = bufferW;
         hudAnimationState.labelHeight = bufferH;
         h = bufferH;
         
@@ -10030,7 +10053,8 @@ async function makeFrame({ data: { type, content } }) {
               text = text?.replaceAll("§", " ");
             }
             
-            const hudTextX = HUD_LABEL_TEXT_MARGIN + currentHUDScrub;
+            const baseX = currentHUDLeftPad;
+            const hudTextX = baseX + HUD_LABEL_TEXT_MARGIN + currentHUDScrub;
             const hudTextY = 0;
             const typefaceNameForWrite = selectedHudFont;
             const hasColorCodes = textContainsColorCodes(text);
@@ -10053,7 +10077,7 @@ async function makeFrame({ data: { type, content } }) {
 
             if (currentHUDScrub > 0) {
               const shareWidth = currentHUDShareWidth || (currentHUDLabelBlockWidth * "share ".length);
-              const shareTextX = HUD_LABEL_TEXT_MARGIN + currentHUDScrub - shareWidth;
+              const shareTextX = HUD_LABEL_TEXT_MARGIN + currentHUDScrub;
               const shareTextY = 0;
 
               drawHudLabelText($, "share", {
@@ -10146,7 +10170,7 @@ async function makeFrame({ data: { type, content } }) {
           new $api.ui.Button({
             x: 0,
             y: 0,
-            w: w, // FIXED: Don't add currentHUDOffset.x to button width
+            w: currentHUDLabelMeasuredWidth, // FIXED: Don't add currentHUDOffset.x to button width
             h: h, // Use just the calculated height without extra y-offset
           });
 
@@ -10589,7 +10613,7 @@ async function makeFrame({ data: { type, content } }) {
       // Attach a label buffer if necessary.
       // Hide label when QR is in fullscreen mode
       if (label && !hudAnimationState.qrFullscreen) {
-        const finalX = currentHUDOffset.x + hudAnimationState.slideOffset.x;
+  const finalX = currentHUDOffset.x + hudAnimationState.slideOffset.x - currentHUDLeftPad;
         const finalY = currentHUDOffset.y + hudAnimationState.slideOffset.y;
         
         sendData.label = {
@@ -10614,7 +10638,7 @@ async function makeFrame({ data: { type, content } }) {
           });
           
           sendData.hitboxDebug = {
-            x: currentHUDOffset.x + hudAnimationState.slideOffset.x,
+            x: currentHUDOffset.x + hudAnimationState.slideOffset.x - currentHUDLeftPad,
             y: currentHUDOffset.y + hudAnimationState.slideOffset.y,
             opacity: hudAnimationState.opacity,
             img: (({ width, height, pixels }) => ({ width, height, pixels }))(

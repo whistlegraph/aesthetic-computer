@@ -332,8 +332,19 @@ function renderDateItem(item, y, { ink, text, screen, dark }) {
 }
 
 function renderMoodItem(item, y, isFocal, { ink, text, screen, painting, paste, num, dark }) {
+  // Store original y for logging
+  const originalY = y;
+  
+  // Round y to whole pixels to prevent subpixel rendering flicker
+  y = Math.floor(y);
+  
   const currentScheme = dark ? scheme.dark : scheme.light;
-  const mood = item.mood.trim().replace(/\n/g, ' ').replace(/\r/g, '');
+  // Clean mood text: remove newlines, carriage returns, and multiple spaces
+  const mood = item.mood
+    .trim()
+    .replace(/[\n\r]+/g, ' ')  // Replace newlines/returns with single space
+    .replace(/\s+/g, ' ')      // Collapse multiple spaces into one
+    .trim();
   const timestamp = new Date(item.when).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   
   // Layout calculations
@@ -363,21 +374,22 @@ function renderMoodItem(item, y, isFocal, { ink, text, screen, painting, paste, 
     itemBuffers.set(moodKey, moodBuffer);
   }
   
-  // Calculate marquee animation
-  const mb = text.box(mood, undefined, undefined, scale, "unifont").box.width;
-  let textX = 0;
-  if (mb > moodWidth) {
-    const gap = mb - moodWidth;
-    const osc = (sin(num.radians(bounceCount % 360)) + 1) / 2;
-    textX = -osc * gap;
-  }
-  
-  // Create animated buffer
+  // Simple static text without marquee animation
   const labelPadding = 4 * scale;
   const bufferHeight = (12 * scale) + (6 * scale) + labelPadding;
   
+  // Calculate marquee animation with proper width measurement
+  const mb = text.box(mood, undefined, undefined, scale, "unifont").box.width;
+  let textX = 0;
+  
+  // Always add subtle bounce for visual interest, even on short text
+  const bounceAmount = mb > moodWidth ? (mb - moodWidth) : 4; // At least 4px bounce
+  const osc = (sin(num.radians(bounceCount % 360)) + 1) / 2;
+  textX = Math.floor(-osc * bounceAmount);
+  
   const animatedBuffer = painting(moodWidth, bufferHeight, (api) => {
     const moodColor = isFocal ? currentScheme.moodTextFocal : currentScheme.moodTextDefault;
+    // Marquee text with rounded x position
     api.ink(moodColor).write(mood, { x: textX, y: 2, size: scale }, undefined, undefined, false, "unifont");
   });
   
