@@ -124,7 +124,7 @@ function boot({ wipe, rec, gizmo, jump, notice, store }) {
     jump("prompt");
     return;
   }
-  wipe(0, 0, 0, 0);
+  wipe(0);
   
   // Reset all export states on boot
   isPrinting = false;
@@ -160,10 +160,13 @@ function paint({
   paintCount,
   needsPaint,
 }) {
+
+  //wipe("red");
+  //return true;
+
   if (typeof needsPaint === "function") {
     requestPaint = needsPaint;
   }
-  wipe(0, 0, 0, 0);
 
   const presenting = rec?.presenting ?? false;
   const playing = rec?.playing ?? false;
@@ -193,20 +196,16 @@ function paint({
   }
 
   if (presenting) {
-    // Canvas already cleared above to keep the framebuffer visible beneath
-    // During playback, use minimal HUD hints so overlays stay lightweight
+    // Always wipe to prevent UI elements from accumulating
+    // During playback, use transparent wipe so tape video shows through
+    // BUT prevent video playback during exports to improve performance
     if (playing && !isPrinting) {
+      wipe(0, 0, 0, 0); // Transparent wipe during playback (only when not exporting)
       // Override corner label to show "|" when playing video
       hud.label("|");
     } else {
-      const statusText = isPrinting ? "EXPORTING" : "||";
-      ink(0, 0, 0, 140).box(
-        screen.width / 2 - 48,
-        screen.height / 2 - 10,
-        96,
-        20,
-      );
-      ink(255, 200).write(statusText, { center: "xy " });
+      wipe(0, 100).ink(255, 200).write(isPrinting ? "EXPORTING" : "||", { center: "xy " });
+      ink(255, 75).box(0, 0, screen.width, screen.height, "inline");
     }
 
     // Commented out plain progress bar - now using VHS-style progress bar from disk.mjs
@@ -219,6 +218,23 @@ function paint({
     //     screen.height - 1,
     //   ); // Present a progress bar.
     // }
+    
+    // Show "MP4" and "GIF" buttons side by side
+    if (!btn)
+      btn = new ui.TextButton("MP4", { right: 6, bottom: 6, screen });
+    btn.reposition({ right: 6, bottom: 6, screen });
+    btn.paint(api);
+    
+    if (!gifBtn)
+      gifBtn = new ui.TextButton("GIF", { right: 40, bottom: 6, screen });
+    gifBtn.reposition({ right: 40, bottom: 6, screen });
+    gifBtn.paint(api);
+    
+    // ZIP/Frames export option for high-resolution frames
+    if (!framesBtn)
+      framesBtn = new ui.TextButton("ZIP", { right: 6, bottom: 40, screen });
+    framesBtn.reposition({ right: 6, bottom: 40, screen });
+    framesBtn.paint(api);
   }
 
   // Export progress display (outside of presenting block so it shows during exports)
@@ -362,40 +378,9 @@ function paint({
     }
   }
 
-  // Main video piece content display (always render controls but disable when unavailable)
-  if (!btn)
-    btn = new ui.TextButton("MP4", { right: 6, bottom: 6, screen });
-  btn.reposition({ right: 6, bottom: 6, screen });
-
-  if (!gifBtn)
-    gifBtn = new ui.TextButton("GIF", { right: 40, bottom: 6, screen });
-  gifBtn.reposition({ right: 40, bottom: 6, screen });
-
-  if (!framesBtn)
-    framesBtn = new ui.TextButton("ZIP", { right: 6, bottom: 40, screen });
-  framesBtn.reposition({ right: 6, bottom: 40, screen });
-
-  if (!exportBusy) {
-    const disableExports = !exportAvailable;
-    btn.disabled = disableExports;
-    gifBtn.disabled = disableExports;
-    framesBtn.disabled = disableExports;
-  }
-
-  btn.paint(api);
-  gifBtn.paint(api);
-  framesBtn.paint(api);
-
-  if (!exportAvailable && !exportBusy && paintCount > 16n) {
-    const msg = "NO VIDEO";
-    const padding = 12;
-    const msgWidth = msg.length * 6 + padding * 2;
-    const msgHeight = 20 + padding;
-    const boxX = (screen.width - msgWidth) / 2;
-    const boxY = screen.height / 2 - msgHeight / 2;
-
-    ink(0, 0, 0, 160).box(boxX, boxY, msgWidth, msgHeight);
-    ink(180, 0, 0).write(msg, { center: "xy" });
+  // Show "NO VIDEO" message when there's no video available
+  if (!presenting && paintCount > 16n) {
+    wipe(40, 0, 0).ink(180, 0, 0).write("NO VIDEO", { center: "xy" });
   }
   
   // Show completion message if active
