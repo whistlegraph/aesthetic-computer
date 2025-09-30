@@ -2776,6 +2776,21 @@ class KidLisp {
         .filter((line) => line.length > 0);
 
       const wrappedLines = lines.map((line, index) => {
+        // Handle comma-separated expressions within a single line
+        if (line.includes(",")) {
+          const expressions = line.split(",").map(expr => expr.trim()).filter(expr => expr.length > 0);
+          const wrappedExpressions = expressions.map(expr => {
+            if (expr.startsWith("(") && expr.endsWith(")")) {
+              return expr;
+            }
+            if (/^[a-zA-Z_$]\w*/.test(expr)) {
+              return `(${expr})`;
+            }
+            return expr;
+          });
+          return wrappedExpressions.join(" ");
+        }
+
         // Check if this line is likely a continuation of a multi-line expression
         const isContinuation =
           index > 0 &&
@@ -3514,7 +3529,16 @@ class KidLisp {
           args = args ? [args] : [];
         }
 
-        const processedArgs = processArgStringTypes(args);
+        // Args are already evaluated by the evaluator, so we just need to flatten arrays
+        // If an arg is an array (like [255, 0, 0] from red()), use it directly
+        let processedArgs;
+        if (args.length === 1 && Array.isArray(args[0])) {
+          // Single array argument - use it as-is (RGB values)
+          processedArgs = args[0];
+        } else {
+          // Multiple arguments or non-array - process normally
+          processedArgs = processArgStringTypes(args);
+        }
         // console.log("🖋️ Ink processed args:", processedArgs);
         // console.log("🖋️ Ink api.screen dimensions:", api.screen?.width, "x", api.screen?.height);
 
@@ -3568,8 +3592,8 @@ class KidLisp {
           }
 
           // Called with color arguments - store and apply the new ink state
-          const processedArgs = processArgStringTypes(args);
-          this.inkState = processedArgs;
+          // processedArgs already set above based on argument structure
+          this.inkState = Array.isArray(processedArgs) ? processedArgs : [processedArgs];
           this.inkStateSet = true;
 
           // Check if we should defer this command
@@ -3578,13 +3602,13 @@ class KidLisp {
             this.postEmbedCommands.push({
               name: 'ink',
               func: api.ink,
-              args: processedArgs
+              args: Array.isArray(processedArgs) ? processedArgs : [processedArgs]
             });
             // Ink deferred debug log removed for performance
             return;
           }
 
-          api.ink?.(...processedArgs);
+          api.ink?.(...(Array.isArray(processedArgs) ? processedArgs : [processedArgs]));
           // console.log("🖋️ Ink completed, first pixel now:", api.screen?.pixels?.[0], api.screen?.pixels?.[1], api.screen?.pixels?.[2], api.screen?.pixels?.[3]);
         }
       },
