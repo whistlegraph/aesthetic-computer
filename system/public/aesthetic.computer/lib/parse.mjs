@@ -367,7 +367,9 @@ function metadata(host, slug, pieceMetadata, protocol = "https:", teiaContext = 
     twitterImage = `https://${host}/preview/1800x900/${slug}.png`;
   }
 
-  icon = pieceMetadata?.icon_url || `${protocol}//${host}/icon/128x128/${slug}.png`;
+  // Extract just the piece name (before ~) for icon URL
+  const pieceName = slug.split('~')[0];
+  icon = pieceMetadata?.icon_url || `${protocol}//${host}/icon/128x128/${pieceName}.png`;
 
   const manifest = `https://${host}/manifest.json`;
   return { title, desc, ogImage, twitterImage, icon, manifest };

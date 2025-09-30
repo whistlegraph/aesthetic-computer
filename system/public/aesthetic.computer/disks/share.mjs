@@ -19,6 +19,12 @@ let cells,
   alt = false,
   alt2 = false;
 
+// Helper function to strip color codes from text
+function stripColorCodes(text) {
+  if (!text) return text;
+  return text.replace(/\\[a-z]+\\/gi, '');
+}
+
 function boot({ api, hud, params, net, ui, blink }) {
   hud.labelBack();
 
@@ -43,9 +49,16 @@ function boot({ api, hud, params, net, ui, blink }) {
     } else {
       // For regular pieces, use the normal tilde joining
       slug = params.join("~");
+      // Strip out color codes (syntax highlighting markers like \cyan\, \red\, etc.)
+      // These are visual-only and shouldn't be part of the actual URL
+      slug = stripColorCodes(slug);
     }
     
-    if (slug) url += `/${slug}`;
+    if (slug) {
+      url += `/${slug}`;
+      // Set HUD label with color codes stripped
+      hud.label(`share ${slug}`);
+    }
     if (slug.length === 0) {
       slug = "prompt";
       hud.label(`share prompt`);
