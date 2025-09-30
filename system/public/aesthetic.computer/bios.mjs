@@ -6022,12 +6022,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           tempCanvas.height = frame.height;
           tempCtx.putImageData(imageData, 0, 0);
 
-          // Add stamp to the frame
+          // Add stamp to the frame with proper progress calculation (like GIF export)
+          const progress = (frameIndex + 1) / processedFrames.length;
           await addAestheticComputerStamp(
             tempCtx,
             frame.width,
             frame.height,
-            0,
+            progress,
             frame.data,
             frame,
             frameIndex,
