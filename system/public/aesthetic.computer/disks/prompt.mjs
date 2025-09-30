@@ -1884,52 +1884,55 @@ function paint($) {
       // by other parts of the system (e.g., in halt() or by TextInput updates).
     }
 
-    if (activeCompletions.length === 0) {
-      // History
-      let historyTexts =
-        history.length === 0 ? [] : history.map((h) => h.replaceAll("~", " "));
+    // Hide history and autocomplete when in KidLisp mode
+    if (!inKidlispMode) {
+      if (activeCompletions.length === 0) {
+        // History
+        let historyTexts =
+          history.length === 0 ? [] : history.map((h) => h.replaceAll("~", " "));
 
-      historyTexts.reverse().forEach((t, i) => {
-        const ii = i + 1;
-        ink(140, 90, 235, 80 / ii).write(t, {
-          x: 6,
-          y: 6 + $.system.prompt.input.typeface.blockHeight * ii,
+        historyTexts.reverse().forEach((t, i) => {
+          const ii = i + 1;
+          ink(140, 90, 235, 80 / ii).write(t, {
+            x: 6,
+            y: 6 + $.system.prompt.input.typeface.blockHeight * ii,
+          });
         });
-      });
-    }
+      }
 
-    // Autocompetions
-    if (activeCompletions.length > 0) {
-      activeCompletions.forEach((completion, i) => {
-        $.system.prompt.input.text;
-        const diff =
-          completion.length -
-          (completion.length - $.system.prompt.input.text.length);
-        let text = completion;
-        if (i === 0) {
-          text = completion.replace(
-            $.system.prompt.input.text,
-            " ".repeat(diff),
-          );
-        }
-        ink($.dark ? "white" : "red", 32).write(text, {
-          x: 6,
-          y: 6 + i * $.system.prompt.input.typeface.blockHeight,
+      // Autocompetions
+      if (activeCompletions.length > 0) {
+        activeCompletions.forEach((completion, i) => {
+          $.system.prompt.input.text;
+          const diff =
+            completion.length -
+            (completion.length - $.system.prompt.input.text.length);
+          let text = completion;
+          if (i === 0) {
+            text = completion.replace(
+              $.system.prompt.input.text,
+              " ".repeat(diff),
+            );
+          }
+          ink($.dark ? "white" : "red", 32).write(text, {
+            x: 6,
+            y: 6 + i * $.system.prompt.input.typeface.blockHeight,
+          });
         });
-      });
-    }
+      }
 
-    if (activeCompletions.length === 1) {
-      // console.log("has completions!");
-      ink(
-        $.dark ? "white" : "red",
-        $.system.prompt.input.text !== activeCompletions[0] ? 64 : 255,
-      ).write(
-        autocompletions[activeCompletions[0]].desc,
-        { center: "xy" },
-        null,
-        screen.width - 8,
-      );
+      if (activeCompletions.length === 1) {
+        // console.log("has completions!");
+        ink(
+          $.dark ? "white" : "red",
+          $.system.prompt.input.text !== activeCompletions[0] ? 64 : 255,
+        ).write(
+          autocompletions[activeCompletions[0]].desc,
+          { center: "xy" },
+          null,
+          screen.width - 8,
+        );
+      }
     }
   }
 
