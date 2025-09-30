@@ -8070,7 +8070,7 @@ async function makeFrame({ data: { type, content } }) {
           });
 
           send({ type: "keyboard:unlock" });
-          if (!labelBack || data.key === "Backspace") {
+          if (!labelBack || data.key === "Backspace" || data.key === "Escape") {
             let promptSlug = "prompt";
             if (data.key === "Backspace") {
               const content = currentHUDPlainTxt || currentHUDTxt || currentText;
