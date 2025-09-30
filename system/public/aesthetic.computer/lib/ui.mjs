@@ -342,6 +342,14 @@ class Button {
 
     const t = this.multitouch ? "any" : "1";
 
+    // 🏷️ Block piece button interactions when HUD button is active
+    // This prevents buttons underneath the prompt label from receiving touch events
+    if (e.hudButtonActive && !btn.noEdgeDetection) {
+      // This is a piece button (has edge detection), and the HUD button is active
+      // Don't process any touch/down events for this button
+      return;
+    }
+
     // 1. Down: Enable the button if we touched over it. (Repeatable)
     if (e.is(`touch:${t}`) && btn.box.contains(e) && !btn.down) {
       const wasRecentRollout = wasRecentlyRolledOut(btn.id || "unnamed");
@@ -576,12 +584,11 @@ class Button {
       );
 
       // Only prevent rollover activation if:
-      // 1. We're dragging from another button AND
-      // 2. That other button has sticky scrubbing enabled AND
-      // 3. This button doesn't allow rollover activation
-      const shouldPreventRollover = isDraggingFromOtherButton && 
-        hasStickyButton && 
-        btn.noRolloverActivation;
+      // 1. This button doesn't allow rollover activation AND we're dragging from another button, OR
+      // 2. We're dragging from another button AND that button has sticky scrubbing enabled
+      const shouldPreventRollover = 
+        (btn.noRolloverActivation && isDraggingFromOtherButton) ||
+        (isDraggingFromOtherButton && hasStickyButton && btn.noRolloverActivation);
 
       if (
         isDraggingFromOtherButton &&

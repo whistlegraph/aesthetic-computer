@@ -918,6 +918,8 @@ let currentPath,
   currentHUDTextColor,
   currentHUDStatusColor = "red",
   currentHUDButton,
+  currentHUDButtonActive = false, // Global flag to block other button interactions when HUD is active
+  currentHUDButtonDirectTouch = false, // Track if HUD button was directly tapped (not rolled over)
   currentHUDScrub = 0,
   currentHUDLabelFontName,
   currentHUDLabelBlockWidth = tf?.blockWidth ?? DEFAULT_TYPEFACE_BLOCK_WIDTH,
@@ -8896,6 +8898,7 @@ async function makeFrame({ data: { type, content } }) {
         penEventCount++;
         Object.assign(data, {
           device: data.device,
+          hudButtonActive: currentHUDButtonActive, // Add global HUD button flag
           is: (e) => {
             let [name, pointer] = e.split(":");
             if (pointer) {
@@ -8951,6 +8954,11 @@ async function makeFrame({ data: { type, content } }) {
                 send({ type: "keyboard:unlock" });
                 $api.needsPaint();
 
+                // Set global flag to block other button interactions
+                currentHUDButtonActive = true;
+                // Track that this was a direct touch on the HUD button
+                currentHUDButtonDirectTouch = currentHUDButton.box.contains(e);
+
                 // Mask unless we are in the camera.
                 if ($api.slug !== "camera") masked = true;
 
@@ -8969,6 +8977,10 @@ async function makeFrame({ data: { type, content } }) {
                   btn.actions.cancel?.();
                   return;
                 }
+
+                // Clear global HUD button flags
+                currentHUDButtonActive = false;
+                currentHUDButtonDirectTouch = false;
 
                 $api.sound.synth({
                   tone: 1200,
@@ -9007,6 +9019,9 @@ async function makeFrame({ data: { type, content } }) {
               scrub: (btn) => {
                 if (piece === "share") return; // No need to share scrub while in share.
 
+                // Only allow scrubbing if this was a direct touch on the HUD button
+                if (!currentHUDButtonDirectTouch) return;
+
                 if (btn.over || currentHUDScrub > 0) {
                   currentHUDScrub += e.delta.x;
                 }
@@ -9043,6 +9058,10 @@ async function makeFrame({ data: { type, content } }) {
               cancel: () => {
                 currentHUDTextColor = originalColor;
 
+                // Clear global HUD button flags
+                currentHUDButtonActive = false;
+                currentHUDButtonDirectTouch = false;
+
                 const fallbackShareWidth = tf.blockWidth * "share ".length;
                 const shareWidth = Math.max(currentHUDShareWidth || 0, fallbackShareWidth);
                 if (currentHUDScrub === shareWidth) {
@@ -9065,7 +9084,9 @@ async function makeFrame({ data: { type, content } }) {
                   if (currentOriginalCodeId && currentOriginalCodeId.startsWith("$")) {
                     $api.jump("share~" + currentOriginalCodeId);
                   } else {
-                    $api.jump("share~" + lisp.encodeKidlispForUrl(currentHUDTxt));
+                    // Use plain text version (without color codes) for sharing
+                    const textToShare = currentHUDPlainTxt || currentHUDTxt;
+                    $api.jump("share~" + lisp.encodeKidlispForUrl(textToShare));
                   }
                   return;
                 }
@@ -10186,6 +10207,11 @@ async function makeFrame({ data: { type, content } }) {
             w: currentHUDLabelMeasuredWidth, // FIXED: Don't add currentHUDOffset.x to button width
             h: h, // Use just the calculated height without extra y-offset
           });
+
+        // Mark HUD button to bypass the global HUD active check (it checks itself)
+        currentHUDButton.noEdgeDetection = true;
+        // Prevent HUD button from being activated by dragging from other buttons
+        currentHUDButton.noRolloverActivation = true;
 
         // $commonApi.hud.currentLabel = {
         //   text: currentHUDTxt,
