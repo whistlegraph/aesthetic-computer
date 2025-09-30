@@ -47,12 +47,12 @@ function parse(text, location = self?.location) {
   if (text.startsWith("prompt~")) {
     const promptContent = text.slice(7); // Remove "prompt~" prefix
     
-    // Only decode if it's actually kidlisp, otherwise use as-is
-    let decodedContent;
-    if (isKidlispSource(promptContent)) {
-      decodedContent = decodeKidlispFromUrl(promptContent);
-    } else {
-      // For regular piece names, use as-is (tildes already converted to spaces)
+    // Always try to decode - decodeKidlispFromUrl will return unchanged if not encoded
+    let decodedContent = decodeKidlispFromUrl(promptContent);
+    
+    // Check if the DECODED content is KidLisp
+    if (!isKidlispSource(decodedContent)) {
+      // If decoded version isn't KidLisp, use the original (might be a piece name)
       decodedContent = promptContent;
     }
     
