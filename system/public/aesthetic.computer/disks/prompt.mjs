@@ -3,6 +3,12 @@
 // A language based "access-everything" console with LLM fallback.
 
 /* #region 📚 README
+  🎄 Merry Pipeline System
+  - Chain pieces together with configurable durations
+  - Syntax: `merry piece1 piece2 piece3` (default 5 seconds each)
+  - Custom: `merry tone:3 clock:5 wand:2` (custom durations in seconds)
+  - Stop early: `merry:stop` or `stop`
+  - Example: `merry tone:3 clock:5` plays tone for 3s, then clock for 5s, then returns to prompt
 #endregion */
 
 /* #region 🏁 todo
@@ -332,6 +338,201 @@ async function halt($, text) {
     canShare,
     debug,
   } = $;
+
+  const stopMerryPipeline = ({
+    reason = "manual",
+    jumpAfter = true,
+    jumpTarget = "prompt",
+    cutTape = true,
+  } = {}) => {
+    const merryState = system.merry;
+    if (!merryState) {
+      return { stopped: false, wasTaping: false };
+    }
+
+    console.log(`🎄 Merry stop requested (${reason})`);
+    merryState.running = false;
+
+    if (merryState.paintInterval != null) {
+      clearInterval(merryState.paintInterval);
+      merryState.paintInterval = null;
+    }
+    const wasTaping = merryState.isTaping;
+
+  delete system.merry;
+
+    if (wasTaping && cutTape) {
+      rec.cut(() => {
+        try {
+          rec.present();
+        } catch (err) {
+          console.warn("🎄📼 Unable to present recording after merry stop", err);
+        }
+
+        if (jumpAfter && jumpTarget) {
+          rec.videoOnLeave = false;
+          jump(jumpTarget);
+        }
+      });
+    } else if (jumpAfter && jumpTarget) {
+      jump(jumpTarget);
+    }
+
+    return { stopped: true, wasTaping };
+  };
+
+  system.stopMerryPipeline = stopMerryPipeline;
+
+  const activateMerry = (pieceParams, { markAsTaping = false, flashOnSuccess = true } = {}) => {
+    if (!pieceParams || pieceParams.length === 0) {
+      flashColor = [255, 0, 0];
+      makeFlash($);
+      notice("MERRY NEEDS PIECES", ["yellow", "red"]);
+      return false;
+    }
+
+    stopMerryPipeline({ reason: "restart", jumpAfter: false, cutTape: false });
+
+    const defaultDuration = 5;
+    const pipeline = [];
+
+    pieceParams.forEach((param) => {
+      const parts = param.split(":");
+      const piece = parts[0];
+      const duration = parts[1] ? parseFloat(parts[1]) : defaultDuration;
+
+      if (piece && !isNaN(duration) && duration > 0) {
+        pipeline.push({ piece, duration });
+      }
+    });
+
+    if (pipeline.length === 0) {
+      flashColor = [255, 0, 0];
+      makeFlash($);
+      notice("MERRY NEEDS PIECES", ["yellow", "red"]);
+      return false;
+    }
+
+    const totalDuration = pipeline.reduce((sum, p) => sum + p.duration, 0);
+
+    system.merry = {
+      pipeline,
+      currentIndex: 0,
+      running: true,
+      totalDuration,
+      elapsedTime: 0,
+      progress: 0,
+      pieceProgress: 0,
+      startTime: null,
+      currentPieceStart: null,
+      isTaping: markAsTaping,
+      paintInterval: null,
+    };
+
+    console.log("🎄 Merry pipeline:", pipeline, `total: ${totalDuration}s`);
+
+    const merryToneSequence = [392, 494, 523, 587, 659, 784, 880];
+
+    const startMerryPaintTicker = () => {
+      const merryState = system.merry;
+      if (!merryState || !merryState.running) {
+        return;
+      }
+
+      // Clear any existing ticker to avoid duplicates
+      if (merryState.paintInterval != null) {
+        clearInterval(merryState.paintInterval);
+        merryState.paintInterval = null;
+      }
+
+      const tick = () => {
+        const active = system.merry;
+        if (!active || !active.running) {
+          if (merryState.paintInterval != null) {
+            clearInterval(merryState.paintInterval);
+            merryState.paintInterval = null;
+          }
+          return;
+        }
+        needsPaint();
+      };
+
+      // Trigger an immediate paint so progress appears without delay
+      needsPaint();
+
+      const intervalHandle = setInterval(tick, 1000 / 30); // ~33ms cadence
+      merryState.paintInterval = intervalHandle;
+    };
+
+    const startMerryPiece = (index) => {
+      if (!system.merry || !system.merry.running) {
+        return;
+      }
+
+      if (index >= pipeline.length) {
+        console.log("🎄 Merry pipeline complete!");
+        const wasTaping = system.merry?.isTaping;
+        stopMerryPipeline({
+          reason: "complete",
+          jumpAfter: true,
+          jumpTarget: wasTaping ? "video" : "prompt",
+          cutTape: Boolean(wasTaping),
+        });
+        return;
+      }
+
+      const { piece, duration } = pipeline[index];
+      console.log(`🎄 Merry: Playing ${piece} for ${duration}s (${index + 1}/${pipeline.length})`);
+
+      if (system.merry) {
+        system.merry.currentPieceStart = Date.now();
+        system.merry.pieceProgress = 0;
+        system.merry.currentIndex = index;
+        if (index === 0) {
+          system.merry.startTime = Date.now();
+        }
+      }
+
+      startMerryPaintTicker();
+
+      // 🎵 Add a synth accent whenever the merry advances to a new piece
+      if (sound?.synth) {
+        const tone = merryToneSequence[index % merryToneSequence.length];
+        const sustain = Math.min(0.28, Math.max(0.16, pipeline[index].duration * 0.08));
+        try {
+          sound.synth({
+            type: "triangle",
+            tone,
+            duration: sustain,
+            attack: 0.01,
+            decay: 0.25,
+            release: 0.18,
+            volume: system.merry.isTaping ? 0.25 : 0.18,
+          });
+        } catch (err) {
+          console.warn("🎄🔊 Merry synth trigger failed", err);
+        }
+      }
+
+      setTimeout(() => {
+        if (system.merry && system.merry.running) {
+          system.merry.elapsedTime += duration;
+          startMerryPiece(index + 1);
+        }
+      }, duration * 1000);
+
+      jump(piece);
+    };
+
+    startMerryPiece(0);
+
+    if (flashOnSuccess) {
+      flashColor = [0, 255, 0];
+      makeFlash($);
+    }
+
+    return true;
+  };
   activeCompletions.length = 0; // Reset activeCompletions on every halt.
   motdController?.abort(); // Abort any motd update.
 
@@ -366,6 +567,10 @@ async function halt($, text) {
     jump("/" + params[0]);
   } else if (shop.indexOf(slug) > -1) {
     jump("/" + slug); // Matches a product so jump to a new page / redirect.
+  } else if (slug === "merry") {
+    console.log("🎄 Merry command received with params:", params);
+    activateMerry(params, { markAsTaping: false, flashOnSuccess: true });
+    return true;
   } else if (
     slug === "tape" ||
     slug === "tape:add" ||
@@ -415,6 +620,9 @@ async function halt($, text) {
       await tapePromise;
       let duration = parseFloat(params[0]);
       let frameMode = false;
+  let isTapingMerry = false; // Flag to track if we're recording a merry pipeline
+  let jumpTo;
+  let merryPieceParams = null;
       
       // Check if the first parameter ends with 'f' for frame-based recording
       if (params[0] && typeof params[0] === 'string' && params[0].toLowerCase().endsWith('f')) {
@@ -422,14 +630,52 @@ async function halt($, text) {
         duration = parseFloat(params[0].slice(0, -1)); // Remove the 'f' suffix
         console.log(`🎬 Frame-based recording requested: ${duration} frames`);
       }
+      
+      // 🎄 Check if we're taping a merry pipeline anywhere in the params: "tape merry tone:3 clock:5"
+      const merryTokenIndex = params.findIndex((param) => param === "merry");
+      if (merryTokenIndex !== -1) {
+        isTapingMerry = true;
+        console.log("🎄📼 Taping a merry pipeline detected!");
+        
+        merryPieceParams = params.slice(merryTokenIndex + 1);
+        if (!merryPieceParams.length) {
+          flashColor = [255, 0, 0];
+          makeFlash($);
+          notice("MERRY NEEDS PIECES", ["yellow", "red"]);
+          return true;
+        }
 
-      let jumpTo;
+        const defaultMerryDuration = 5;
+        let totalMerryDuration = 0;
+        merryPieceParams.forEach((param) => {
+          const parts = param.split(":");
+          const pieceDuration = parts[1] ? parseFloat(parts[1]) : defaultMerryDuration;
+          if (!isNaN(pieceDuration) && pieceDuration > 0) {
+            totalMerryDuration += pieceDuration;
+          }
+        });
+
+        if (totalMerryDuration <= 0) {
+          totalMerryDuration = defaultMerryDuration * merryPieceParams.length;
+        }
+
+        console.log(`🎄📼 Calculated merry total duration: ${totalMerryDuration}s`);
+        duration = totalMerryDuration; // Set tape duration to match merry duration
+
+        jumpTo = "merry";
+      }
 
       // Gets picked up on next piece load automatically.
       rec.loadCallback = () => {
         // Capture the KidLisp FPS if available (set by fps function)
         const kidlispFps = (typeof window !== 'undefined' && window.currentKidlispFps) || null;
         console.log(`🎬 Captured KidLisp FPS for recording: ${kidlispFps}`);
+        
+        // 🎄 If we're taping a merry, mark it in the merry system
+        if (isTapingMerry && system.merry) {
+          system.merry.isTaping = true;
+          console.log("🎄📼 Marked merry pipeline as being taped");
+        }
         
         // 😶‍🌫️ Running after the `jump` prevents any flicker and starts
         // the recording at the appropriate time.
@@ -438,10 +684,13 @@ async function halt($, text) {
             type: "video" + (slug === "tape:tt" || jumpTo === "baktok" ? ":tiktok" : ""),
             pieceName: (jumpTo && jumpTo.startsWith("$")) ? "$code" : (jumpTo || "tape"),
             pieceParams: (() => {
+              if (jumpTo === "merry") {
+                return (merryPieceParams || []).join("~");
+              }
+
               // Exclude the piece name from params to avoid duplication in filename
               const startIndex = isNaN(duration) ? 0 : 1;
               const relevantParams = params.slice(startIndex);
-              // If the first param matches jumpTo (the piece name), exclude it
               if (relevantParams.length > 0 && relevantParams[0] === jumpTo) {
                 return relevantParams.slice(1).join("~");
               }
@@ -467,7 +716,16 @@ async function halt($, text) {
         ); // Start recording immediately.
       };
 
-      if ((isNaN(duration) || duration === 0) && params[0]?.length > 0) {
+      if (isTapingMerry && merryPieceParams) {
+        const merryStarted = activateMerry(merryPieceParams, {
+          markAsTaping: true,
+          flashOnSuccess: false,
+        });
+        if (!merryStarted) {
+          return true;
+        }
+        rec.videoOnLeave = true;
+      } else if ((isNaN(duration) || duration === 0) && params[0]?.length > 0) {
         // Handle cases like "tape $code" or "tape f" or "tape 0f"
         if (frameMode && (isNaN(duration) || duration === 0)) {
           duration = 8; // Default to 8 frames for "tape f" or "tape 0f"
@@ -475,8 +733,8 @@ async function halt($, text) {
           duration = defaultDuration; // Default to 7 seconds for "tape $code"
         }
         
-        // Only jump to piece if it's not just a frame count
         if (!frameMode || !params[0].toLowerCase().endsWith('f')) {
+          // Only jump to piece if it's not just a frame count
           // Reconstruct the original kidlisp content without adding tildes
           const originalContent = text.slice(text.indexOf(params[0])); // Get everything after "tape "
           jumpTo = params[0];
@@ -486,7 +744,7 @@ async function halt($, text) {
           // For "tape f" or "tape 0f", just record the prompt
           jump("prompt");
         }
-      } else if (params[1]) {
+      } else if (params[1] && !isTapingMerry) {
         jumpTo = params[1];
         // Reconstruct the original content for kidlisp preservation
         const originalContent = text.slice(text.indexOf(params[1])); // Get everything after duration
@@ -522,6 +780,24 @@ async function halt($, text) {
     }
     makeFlash($);
     // TODO: How can I hold the cursor here...
+    return true;
+  } else if (slug === "merry:stop" || slug === "stop") {
+    // 🎄 Stop the merry pipeline early
+    if (system.merry && system.merry.running) {
+      console.log("🎄 Merry pipeline stopped!");
+      const wasTaping = system.merry.isTaping;
+      stopMerryPipeline({
+        reason: "manual",
+        jumpAfter: true,
+        jumpTarget: wasTaping ? "video" : "prompt",
+        cutTape: wasTaping,
+      });
+      flashColor = [0, 255, 0];
+    } else {
+      flashColor = [255, 0, 0];
+      notice("NO MERRY RUNNING", ["yellow", "red"]);
+    }
+    makeFlash($);
     return true;
   } else if (slug === "me" || slug === "profile") {
     console.log("Logged in?", user);
@@ -981,6 +1257,11 @@ async function halt($, text) {
     flashColor = res && res.status === 202 ? [0, 255, 0] : [255, 0, 0];
     if (res && res.status === 202) {
       notice("MIGRATION STARTED ;)");
+
+      // Optionally, you could automatically jump to the new location if desired
+      // For example, if migrating to a new piece, you might want to jump there directly
+      // const newSlug = "new-piece-slug"; // Replace with actual logic to determine new slug
+      // jump(newSlug);
     }
     makeFlash($);
     return true;
@@ -2075,7 +2356,7 @@ function act({
 
           // Add elastic bounce effect for negative values
           if (newOffset < 0) {
-            // Apply diminishing returns for negative values (elastic effect)
+            // Apply diminishing returns for negative movement (elastic effect)
             // The further negative, the less responsive it becomes
             newOffset = newOffset * 0.3; // Scale down negative movement to 30%
           }
