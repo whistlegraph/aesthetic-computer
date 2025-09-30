@@ -1719,7 +1719,7 @@ class KidLisp {
         }
       }
 
-      // Check if it's a direct color name, fade string, or color code in the global environment
+      // Check if it's a direct color name, fade string, color code, or pattern code in the global environment
       if (globalEnv[colorName] && typeof globalEnv[colorName] === "function") {
         try {
           // Test if this is a color function by calling it
@@ -1745,6 +1745,31 @@ class KidLisp {
           }
         } catch (e) {
           // Not a color function, ignore
+        }
+      }
+      // Check for color codes directly (c0, c1, etc.)
+      else if (colorName.match(/^c\d+$/)) {
+        const colorIndex = parseInt(colorName.substring(1));
+        if (staticColorMap[colorIndex]) {
+          this.firstLineColor = colorName;
+          this.persistentFirstLineColor = colorName;
+          
+          if (typeof window !== 'undefined' && window.setPersistentFirstLineColor) {
+            window.setPersistentFirstLineColor(colorName);
+          }
+        }
+      }
+      // Check for pattern codes directly (p0, p1, etc.)
+      else if (colorName.match(/^p\d+$/)) {
+        const patternIndex = parseInt(colorName.substring(1));
+        // p0 = rainbow, p1 = zebra
+        if (patternIndex === 0 || patternIndex === 1) {
+          this.firstLineColor = colorName;
+          this.persistentFirstLineColor = colorName;
+          
+          if (typeof window !== 'undefined' && window.setPersistentFirstLineColor) {
+            window.setPersistentFirstLineColor(colorName);
+          }
         }
       }
       // Also check if it's a fade string directly (like "fade:c0-c3")
@@ -2776,6 +2801,21 @@ class KidLisp {
         .filter((line) => line.length > 0);
 
       const wrappedLines = lines.map((line, index) => {
+        // Handle comma-separated expressions within a single line
+        if (line.includes(",")) {
+          const expressions = line.split(",").map(expr => expr.trim()).filter(expr => expr.length > 0);
+          const wrappedExpressions = expressions.map(expr => {
+            if (expr.startsWith("(") && expr.endsWith(")")) {
+              return expr;
+            }
+            if (/^[a-zA-Z_$]\w*/.test(expr)) {
+              return `(${expr})`;
+            }
+            return expr;
+          });
+          return wrappedExpressions.join(" ");
+        }
+
         // Check if this line is likely a continuation of a multi-line expression
         const isContinuation =
           index > 0 &&
@@ -3514,7 +3554,16 @@ class KidLisp {
           args = args ? [args] : [];
         }
 
-        const processedArgs = processArgStringTypes(args);
+        // Args are already evaluated by the evaluator, so we just need to flatten arrays
+        // If an arg is an array (like [255, 0, 0] from red()), use it directly
+        let processedArgs;
+        if (args.length === 1 && Array.isArray(args[0])) {
+          // Single array argument - use it as-is (RGB values)
+          processedArgs = args[0];
+        } else {
+          // Multiple arguments or non-array - process normally
+          processedArgs = processArgStringTypes(args);
+        }
         // console.log("🖋️ Ink processed args:", processedArgs);
         // console.log("🖋️ Ink api.screen dimensions:", api.screen?.width, "x", api.screen?.height);
 
@@ -3568,8 +3617,8 @@ class KidLisp {
           }
 
           // Called with color arguments - store and apply the new ink state
-          const processedArgs = processArgStringTypes(args);
-          this.inkState = processedArgs;
+          // processedArgs already set above based on argument structure
+          this.inkState = Array.isArray(processedArgs) ? processedArgs : [processedArgs];
           this.inkStateSet = true;
 
           // Check if we should defer this command
@@ -3578,13 +3627,13 @@ class KidLisp {
             this.postEmbedCommands.push({
               name: 'ink',
               func: api.ink,
-              args: processedArgs
+              args: Array.isArray(processedArgs) ? processedArgs : [processedArgs]
             });
             // Ink deferred debug log removed for performance
             return;
           }
 
-          api.ink?.(...processedArgs);
+          api.ink?.(...(Array.isArray(processedArgs) ? processedArgs : [processedArgs]));
           // console.log("🖋️ Ink completed, first pixel now:", api.screen?.pixels?.[0], api.screen?.pixels?.[1], api.screen?.pixels?.[2], api.screen?.pixels?.[3]);
         }
       },
@@ -6372,6 +6421,21 @@ class KidLisp {
         else if (cssColors && cssColors[colorName]) {
           isValidFirstLineColor = true;
         }
+        // Check if it's a color code (c0, c1, etc.)
+        else if (colorName.match(/^c\d+$/)) {
+          const colorIndex = parseInt(colorName.substring(1));
+          if (staticColorMap[colorIndex]) {
+            isValidFirstLineColor = true;
+          }
+        }
+        // Check if it's a pattern code (p0, p1, etc.)
+        else if (colorName.match(/^p\d+$/)) {
+          const patternIndex = parseInt(colorName.substring(1));
+          // p0 = rainbow, p1 = zebra
+          if (patternIndex === 0 || patternIndex === 1) {
+            isValidFirstLineColor = true;
+          }
+        }
         // Also check if it's a fade string directly (like "fade:initial-atom-background")
         else if (colorName.startsWith("fade:")) {
           // Validate the fade string by trying to parse it
@@ -8162,12 +8226,41 @@ class KidLisp {
       return this.getParenthesesColor(tokens, index);
     }
 
-    // Check if this token is a function name (first token after opening paren)
-    if (index > 0 && tokens[index - 1] === "(") {
-      return this.getFunctionColor(token);
+    // Check for special color markers FIRST (before function check)
+    // Special case for "rainbow" - return special marker for rainbow coloring
+    if (token === "rainbow") {
+      return "RAINBOW";
     }
 
-    // Check if this token is a valid CSS color name or color code
+    // Special case for "zebra" - return special marker for zebra coloring
+    if (token === "zebra") {
+      return "ZEBRA";
+    }
+
+    // Check if this is a color code like "c0", "c1", etc.
+    if (token.match(/^c\d+$/)) {
+      const colorIndex = parseInt(token.substring(1));
+      if (staticColorMap[colorIndex]) {
+        const colorValue = staticColorMap[colorIndex];
+        if (Array.isArray(colorValue) && colorValue.length >= 3) {
+          const rgbColor = `${colorValue[0]},${colorValue[1]},${colorValue[2]}`;
+          return rgbColor;
+        }
+      }
+    }
+
+    // Check if this is a pattern code like "p0", "p1", etc.
+    if (token.match(/^p\d+$/)) {
+      const patternIndex = parseInt(token.substring(1));
+      // p0 = rainbow, p1 = zebra
+      if (patternIndex === 0) {
+        return "RAINBOW";
+      } else if (patternIndex === 1) {
+        return "ZEBRA";
+      }
+    }
+
+    // Check if this is a valid CSS color name
     if (cssColors && cssColors[token]) {
       // Return the actual color value for CSS colors like "red", "blue", etc.
       const colorValue = cssColors[token];
@@ -8178,16 +8271,9 @@ class KidLisp {
       }
     }
 
-    // Check if this is a color code like "c0", "c1", etc.
-    if (token.match(/^c\d+$/)) {
-      const index = parseInt(token.substring(1));
-      if (staticColorMap[index]) {
-        const colorValue = staticColorMap[index];
-        if (Array.isArray(colorValue) && colorValue.length >= 3) {
-          const rgbColor = `${colorValue[0]},${colorValue[1]},${colorValue[2]}`;
-          return rgbColor;
-        }
-      }
+    // Check if this token is a function name (first token after opening paren)
+    if (index > 0 && tokens[index - 1] === "(") {
+      return this.getFunctionColor(token);
     }
 
     // Check if this is a fade expression like "fade:red-blue-yellow"
@@ -8206,22 +8292,12 @@ class KidLisp {
     const knownFunctions = [
       "wipe", "ink", "line", "box", "flood", "circle", "write", "paste", "stamp", "point", "poly", "embed",
       "print", "debug", "random", "sin", "cos", "tan", "floor", "ceil", "round",
-      "noise", "choose", "?", "...", "..", "overtone", "rainbow", "zebra", "mic", "amplitude",
+      "noise", "choose", "?", "...", "..", "overtone", "mic", "amplitude",
       "melody", "speaker", "resolution", "lines", "wiggle", "shape", "scroll",
       "spin", "resetSpin", "smoothspin", "sort", "zoom", "blur", "contrast", "pan", "unpan",
       "mask", "unmask", "steal", "putback", "label", "len", "now", "die",
       "tap", "draw", "not", "range", "mul", "log", "no", "yes", "fade", "jump"
     ];
-
-    // Special case for "rainbow" - return special marker for rainbow coloring
-    if (token === "rainbow") {
-      return "RAINBOW";
-    }
-
-    // Special case for "zebra" - return special marker for zebra coloring
-    if (token === "zebra") {
-      return "ZEBRA";
-    }
 
     // Special case for "fade" function - give it a distinct color
     if (token === "fade") {
@@ -10205,18 +10281,32 @@ function isKidlispSource(text) {
     return false; // Definitely JavaScript, not KidLisp
   }
 
+  const trimmedText = text.trim();
+  const loweredTrimmedText = trimmedText.toLowerCase();
+
+  // Never treat share-prefixed snippets as KidLisp; these are share metadata, not source
+  if (loweredTrimmedText.startsWith("share")) {
+    return false;
+  }
+
   // Check if it contains newlines (multi-line input is likely KidLisp)
-  // This check comes after JS detection to avoid false positives
+  // This check comes after JS detection (and share guard) to avoid false positives
   if (text.includes("\n")) {
     return true;
   }
 
   // Check for first-line color indicators (fade strings and color codes)
-  const trimmedText = text.trim();
+
+  // Never treat share-prefixed snippets as KidLisp; these are share metadata, not source
+  if (loweredTrimmedText.startsWith("share")) {
+    return false;
+  }
   if (trimmedText.startsWith("fade:") ||
     trimmedText.match(/^c\d+$/) ||
+    trimmedText.match(/^p\d+$/) || // Pattern codes like p0, p1, etc.
     cssColors[trimmedText] ||
-    trimmedText === "rainbow") {
+    trimmedText === "rainbow" ||
+    trimmedText === "zebra") {
     return true;
   }
 
@@ -10242,29 +10332,36 @@ function isKidlispSource(text) {
     ];
 
     // Split by commas and check if any part contains KidLisp functions or colors
-    const parts = text.split(",").map(part => part.trim());
-    const hasKidlispElements = parts.some(part => {
-      // Check for KidLisp functions
-      if (kidlispFunctions.some(fn => part.includes(fn))) return true;
-      // Check for CSS colors
-      if (cssColors && cssColors[part]) return true;
-      // Check for color codes like c0, c1, etc.
-      if (part.match(/^c\d+$/)) return true;
-      return false;
-    });
+    const parts = text.split(",").map(part => part.trim()).filter(Boolean);
 
-    // Also check if it has a high ratio of KidLisp elements to total parts
-    const kidlispElementCount = parts.filter(part => {
-      return kidlispFunctions.some(fn => part.includes(fn)) ||
-        (cssColors && cssColors[part]) ||
-        part.match(/^c\d+$/) ||
-        part.match(/^\d+(\.\d+)?$/); // Numbers are common in KidLisp
-    }).length;
+    const analyzePart = (part) => {
+      // Remove wrapping braces/parentheses commonly used in share metadata
+      const normalized = part.replace(/^[{\[(]+/, "").replace(/[}\])]+$/, "").trim();
+      if (!normalized) return { isFunction: false, isColor: false, isNumber: false, isRGB: false };
 
-    // Require at least 1 KidLisp function/color AND either multiple KidLisp elements 
-    // or a high ratio of KidLisp elements
-    if (hasKidlispElements && (kidlispElementCount >= 2 || kidlispElementCount / parts.length >= 0.5)) {
-      return true; // Contains comma syntax with KidLisp-like content
+      const firstTokenMatch = normalized.match(/^[^\s]+/);
+      const firstToken = firstTokenMatch ? firstTokenMatch[0].toLowerCase() : "";
+      const firstTokenStripped = firstToken.replace(/^[^a-z0-9]+/i, "");
+      const cleanedToken = firstTokenStripped.replace(/[^a-z0-9:_-]+$/i, "");
+
+      const isFunction = kidlispFunctions.includes(cleanedToken) ||
+        (cleanedToken.startsWith("(") && kidlispFunctions.includes(cleanedToken.slice(1)));
+      const isColor = !!(cssColors && cssColors[cleanedToken]) ||
+        /^c\d+$/.test(cleanedToken) ||
+        cleanedToken.startsWith("fade:");
+      const isNumber = /^-?\d+(\.\d+)?$/.test(cleanedToken);
+      const isRGB = isValidRGBString(cleanedToken.replace(/_/g, " "));
+
+      return { isFunction, isColor, isNumber, isRGB };
+    };
+
+    const analyses = parts.map(analyzePart);
+    const kidParts = analyses.filter(({ isFunction, isColor, isNumber, isRGB }) => isFunction || isColor || isNumber || isRGB);
+    const functionParts = analyses.filter(({ isFunction }) => isFunction);
+
+    // Require at least one recognized KidLisp function or multiple KidLisp-like tokens
+    if (kidParts.length > 0 && (functionParts.length > 0 || kidParts.length >= 2 || (kidParts.length / parts.length) >= 0.75)) {
+      return true;
     }
   }
 
