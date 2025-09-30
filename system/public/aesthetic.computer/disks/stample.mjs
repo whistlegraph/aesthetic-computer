@@ -499,8 +499,8 @@ function genPats({ screen, ui }) {
       width = screen.width,
       height = strip;
     const button = new ui.Button(x, y, width, height);
-    button.offScreenScrubbing = true; // Enable off-screen scrubbing for stample buttons
-    button.noRolloverActivation = true; // Prevent rollover activation between buttons
+    button.stickyScrubbing = true; // Keep scrubbing on the original button, allow off-screen movement
+    button.noRolloverActivation = true; // Prevent activating other buttons when dragging from a sticky button
     btns.push(button);
   }
 }
