@@ -481,7 +481,8 @@ function boot({
   // fps(4);
   udpServer = net.udp(); // For sending messages to `tv`.
 
-  picture = painting(screen.width, screen.height, ({ wipe }) => {
+  // Create picture buffer at quarter resolution (half width, half height)
+  picture = painting(Math.floor(screen.width / 2), Math.floor(screen.height / 2), ({ wipe }) => {
     wipe("gray");
   });
 
@@ -588,6 +589,8 @@ function paint({
   write,
   screen,
   box,
+  line,
+  plot,
   sound,
   typeface,
   help,
@@ -596,6 +599,10 @@ function paint({
   paste,
   page,
   api,
+  paintCount,
+  zoom,
+  blur,
+  scroll
 }) {
   const active = orderedByCount(sounds);
   let bg;
@@ -612,34 +619,55 @@ function paint({
   }
 
   if (paintPictureOverlay) {
+    // === VISUALIZER MODE: Draw only the visualizer, skip everything else ===
+    wipe(0); // Start with black background
+    
     if (active.length === 0) {
       page(picture);
-      ink(0, 1).box(0, 0, picture.width, picture.height);
+      wipe(0, 0); // Clear to transparent instead of fading
       page(screen);
     }
 
-    pictureLines(api, {
-      amplitude: sound.speaker.amplitudes.left,
-      waveforms: help.resampleArray(sound.speaker.waveforms.left, scope),
-    });
+    pictureLines(
+      { 
+        page, 
+        ink, 
+        wipe,
+        screen,
+        box,
+        blur,
+        line,
+        plot,
+        num, 
+        paintCount,
+        sound
+      },
+      {
+        amplitude: sound.speaker.amplitudes.left,
+        waveforms: help.resampleArray(sound.speaker.waveforms.left, scope),
+      }
+    );
 
     // wipe(0);
+    page(picture);
+    // scroll(20, 0.5);
+    // zoom(0.91)
+    // blur(0.5);
+    page(screen);
+
     paste(picture, 0, 0, { width: screen.width, height: screen.height }); // 🖼️ Picture
-    // paste(
-    //   picture,
-    //   screen.width / 2 - picture.width / 2,
-    //   screen.height / 3 - picture.height / 2,
-    // ); // 🖼️ Picture
-  } else {
-    wipe(bg);
+    
+    // Return early - don't draw any UI elements
+    return;
+  }
+  wipe(bg);
 
-    if (slide) {
-      ink(undefined).write("slide", { right: 4, top: 24 });
-    }
+  if (slide) {
+    ink(undefined).write("slide", { right: 4, top: 24 });
+  }
 
-    if (quickFade) {
-      ink(undefined).write("quick", { left: 6, top: 24 });
-    }
+  if (quickFade) {
+    ink(undefined).write("quick", { left: 6, top: 24 });
   }
 
   // wipe(!projector ? bg : 64);
@@ -981,8 +1009,8 @@ function act({
     setupButtons(api);
     buildWaveButton(api);
     buildOctButton(api);
-    // Resize picture...
-    picture = painting(screen.width, screen.height, ({ wipe }) => {
+    // Resize picture to quarter resolution (half width, half height)
+    picture = painting(Math.floor(screen.width / 2), Math.floor(screen.height / 2), ({ wipe }) => {
       wipe("gray");
     });
   }
@@ -1929,29 +1957,121 @@ function pictureAdd({ page, screen, wipe, write, line, ink, num }, note) {
 }
 
 function pictureLines(
-  { page, ink, wipe, screen, crawl, left, right, up, down, goto, face },
+  { page, ink, wipe, screen, blur, box, line, plot, num, paintCount, sound },
   { amplitude, waveforms },
 ) {
-  // console.log("Amps:", amplitudes, "Waveforms:", waveforms);
   page(picture);
-  // ink("red", 8).box(0, 0, 16);
+  wipe(0);
+  
+  // Get the active notes from the sounds object
+  const activeNotes = Object.keys(sounds).filter(key => sounds[key]?.sound && key);
+  const frequencies = sound.speaker?.frequencies?.left || [];
+  
+  if (activeNotes.length > 0) {
+    activeNotes.forEach((note, index) => {
+      // Skip if note is undefined or invalid
+      if (!note) return;
+      
+      const color = colorFromNote(note, num);
+      
+      // === 1. AUDIO-REACTIVE LINES ===
+      // Draw lines based on waveform data
+      // if (waveforms.length > 0) {
+      //   const sampledWaveform = waveforms.filter((_, i) => i % 8 === 0); // Sample every 8th for subtlety
+      //   sampledWaveform.forEach((wave, i) => {
+      //     const x = (i / sampledWaveform.length) * picture.width;
+      //     const y1 = picture.height / 2;
+      //     const y2 = y1 + wave * picture.height * 0.2;
+      //     
+      //     ink(...color, 60).line(x, y1, x, y2);
+      //   });
+      // }
+      
+      // === 2. CONFETTI PARTICLES ===
+      // Spawn random confetti particles based on amplitude
+      // const confettiCount = Math.floor(amplitude * 80);
+      // for (let i = 0; i < confettiCount; i++) {
+      //   const x = num.randInt(picture.width);
+      //   const y = num.randInt(picture.height);
+      //   const size = 1 + num.randInt(2);
+      //   ink(...color, 150).box(x, y, size, size);
+      // }
+      
+      // === 3. FREQUENCY BARS ===
+      // Draw vertical bars for each frequency band
+      // if (frequencies.length > 0) {
+      //   const barCount = Math.min(frequencies.length, 16);
+      //   const barWidth = picture.width / barCount;
+      //   
+      //   for (let i = 0; i < barCount; i++) {
+      //     const freq = frequencies[i] || { amplitude: 0 };
+      //     const barHeight = freq.amplitude * picture.height;
+      //     const x = i * barWidth;
+      //     const y = picture.height - barHeight;
+      //     
+      //     ink(...color, 50).box(x, y, barWidth - 1, barHeight);
+      //   }
+      // }
+    });
+    
+    // === 4. PIXEL-LEVEL AUDIO GLITCH ===
+    // Direct pixel manipulation based on audio intensity
+    // if (amplitude > 0.5) {
+    //   const pixelCount = Math.floor(amplitude * 40);
+    //   for (let i = 0; i < pixelCount; i++) {
+    //     const x = num.randInt(picture.width);
+    //     const y = num.randInt(picture.height);
+    //     
+    //     // Get random note color for variety
+    //     const noteIndex = num.randInt(activeNotes.length);
+    //     const randomNote = activeNotes[noteIndex];
+    //     
+    //     // Safety check - skip if note is undefined
+    //     if (!randomNote) continue;
+    //     
+    //     const color = colorFromNote(randomNote, num);
+    //     
+    //     // Plot random pixels with intensity based on audio
+    //     ink(...color, 180).plot(x, y);
+    //   }
+    // }
+    
+    // === 5. WAVEFORM TRAIL ===
+    // Draw a continuous waveform across the screen, separated by note
+    if (waveforms.length > 16) {
+      const step = picture.width / waveforms.length;
+      
+      // Divide the screen into horizontal lanes for each note
+      const laneHeight = picture.height / activeNotes.length;
+      
+      activeNotes.forEach((trailNote, noteIndex) => {
+        // Safety check - skip if note is undefined
+        if (!trailNote) return;
+        
+        const color = colorFromNote(trailNote, num);
+        
+        // Calculate the center y position for this note's lane
+        const laneCenterY = (noteIndex + 0.5) * laneHeight;
+        
+        for (let i = 1; i < waveforms.length; i++) {
+          const x1 = (i - 1) * step;
+          const y1 = laneCenterY + waveforms[i - 1] * laneHeight * 0.4;
+          const x2 = i * step;
+          const y2 = laneCenterY + waveforms[i] * laneHeight * 0.4;
+          
+          ink(...color).line(x1, y1, x2, y2);
+        }
+      });
+    }
+    
+  } else {
+    // Clear to transparent when no notes
+    wipe(0, 0);
+  }
 
-  // down();
-  goto(picture.width / 2, picture.height / 2);
-  face(-90);
-  // ink("white", 128);
 
-  // wipe("blue");
-
-  waveforms.forEach((waveform, index) => {
-    left(waveform * 360);
-    down();
-    const alpha = Math.min(255, Math.abs(amplitude) * 255);
-    ink("white", alpha);
-    crawl(Math.max(4, waveform * 12));
-    up();
-  });
-
+  //blur(4);
+  
   page(screen);
 }
 
