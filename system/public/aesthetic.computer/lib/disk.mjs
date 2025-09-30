@@ -422,7 +422,7 @@ function drawHudLabelText(
   if (!text) return;
 
   const containsColorCodes = textContainsColorCodes(text);
-  const shouldPreserveColors = preserveColors || (typefaceName === "MatrixChunky8" && containsColorCodes);
+  const shouldPreserveColors = preserveColors || ((typefaceName === "MatrixChunky8" || typefaceName === "unifont") && containsColorCodes);
 
   const effectiveBounds = typeof bounds === "number" && bounds > 0 ? bounds : undefined;
   const shouldWrap = wordWrap === undefined ? effectiveBounds !== undefined : wordWrap;
@@ -438,7 +438,7 @@ function drawHudLabelText(
 
 
   const shouldRenderShadow = effectiveShadowColor && !(
-    typefaceName === "MatrixChunky8" &&
+    (typefaceName === "MatrixChunky8" || typefaceName === "unifont") &&
     matrixDebugEnabled()
   );
 
@@ -3925,7 +3925,7 @@ const $paintApi = {
       }
 
       const typefaceName = typeof customTypeface === "string" ? customTypeface : customTypeface?.name;
-      if (typefaceName === "MatrixChunky8") {
+      if (typefaceName === "MatrixChunky8" || typefaceName === "unifont") {
         const hasColorAssignments = charColors?.some((color) => {
           if (!color) return false;
           if (Array.isArray(color)) {
