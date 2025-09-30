@@ -563,6 +563,13 @@ class Typeface {
 
   getAdvance(char) {
     if (!char) return this.blockWidth || 4;
+    
+    // Force unifont to always use 8px width for consistency
+    // (prevents marquee jank when glyphs load asynchronously)
+    if (this.name === "unifont" || this.data?.bdfFont === "unifont-16.0.03") {
+      return 8;
+    }
+    
     if (this.advanceCache.has(char)) {
       return this.advanceCache.get(char);
     }
