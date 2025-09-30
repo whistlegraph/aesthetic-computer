@@ -39,7 +39,7 @@
  * - Relative octave modifiers: +c, -b, ++d, --a (relative to base octave)
  * 
  * Modifiers:
- * - Sharp: # or s (4c# or 4cs)
+ * - Sharp: # (4c#)
  * - Flat: b (4db)
  * - Duration dots: . (shorter) .. (even shorter) ... (shortest) - STICKY: applies to following notes until changed
  * - Duration commas: , (longer) ,, (even longer) ,,, (longest) - STICKY: applies to following notes until changed
@@ -351,8 +351,8 @@ export function parseMelody(melodyString, startingOctave = 4) {
           // Check for sharp or flat modifiers
           if (i < melodyString.length) {
             const nextChar = melodyString[i];
-            if (nextChar === 's' || nextChar === '#') {
-              note += 's'; // Convert both 's' and '#' to s internally
+            if (nextChar === '#') {
+              note += 's'; // Convert # to s internally
               i++;
             } else if (nextChar === 'b' && i + 1 < melodyString.length && !/[a-g]/i.test(melodyString[i + 1])) {
               // Only treat 'b' as flat if it's not followed by another note letter
@@ -479,8 +479,8 @@ export function parseMelody(melodyString, startingOctave = 4) {
       // Check for sharp or flat modifiers
       if (i < melodyString.length) {
         const nextChar = melodyString[i];
-        if (nextChar === 's' || nextChar === '#') {
-          note += 's'; // Convert both 's' and '#' to s internally
+        if (nextChar === '#') {
+          note += 's'; // Convert # to s internally
           i++;
         } else if (nextChar === 'b' && i + 1 < melodyString.length && !/[a-g]/i.test(melodyString[i + 1])) {
           // Only treat 'b' as flat if it's not followed by another note letter
