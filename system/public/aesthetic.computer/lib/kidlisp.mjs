@@ -1688,7 +1688,7 @@ class KidLisp {
     const firstItem = Array.isArray(this.ast) && this.ast.length > 0 ? this.ast[0] : this.ast;
     let colorName = null;
 
-    // Check if it's a bare string color name
+    // Check if it's a bare string color name or RGB value
     if (typeof firstItem === "string") {
       colorName = firstItem;
     }
@@ -1699,6 +1699,25 @@ class KidLisp {
 
     if (colorName) {
       const globalEnv = this.getGlobalEnv();
+
+      // Check if it's an RGB string first (e.g., "255 0 0" or "255, 0, 0")
+      if (isValidRGBString(colorName)) {
+        const rgbValues = parseRGBString(colorName);
+        if (rgbValues) {
+          this.firstLineColor = rgbValues; // Store as [r, g, b] array
+
+          // Always store local backup for worker fallback
+          this.persistentFirstLineColor = rgbValues;
+
+          // Store in persistent global storage (main thread only)
+          if (typeof window !== 'undefined' && window.setPersistentFirstLineColor) {
+            window.setPersistentFirstLineColor(rgbValues);
+          } else if (typeof globalThis !== 'undefined' && globalThis.storePersistentFirstLineColor) {
+            globalThis.storePersistentFirstLineColor(rgbValues);
+          }
+          return; // Early return after handling RGB
+        }
+      }
 
       // Check if it's a direct color name, fade string, or color code in the global environment
       if (globalEnv[colorName] && typeof globalEnv[colorName] === "function") {
@@ -6257,6 +6276,54 @@ class KidLisp {
       const firstItem = body[0];
       let colorName = null;
 
+      // Check if the first three or four items are RGB/RGBA values (e.g., 255 0 0 or 255 0 0 128)
+      if (body.length >= 3 && 
+          typeof body[0] === "number" && 
+          typeof body[1] === "number" && 
+          typeof body[2] === "number") {
+        const r = body[0];
+        const g = body[1];
+        const b = body[2];
+        
+        // Check if there's a fourth value for alpha
+        const hasAlpha = body.length >= 4 && typeof body[3] === "number";
+        const a = hasAlpha ? body[3] : 255;
+        
+        // Validate RGB(A) range (0-255)
+        if (r >= 0 && r <= 255 && g >= 0 && g <= 255 && b >= 0 && b <= 255 && a >= 0 && a <= 255) {
+          const colorValues = hasAlpha ? [r, g, b, a] : [r, g, b];
+          
+          // Apply backdrop only once per call location
+          const position = api.kidlispCallPosition || "";
+          const backdropKey = `first_line_backdrop_rgb_${r}_${g}_${b}_${a}_${position}`;
+          if (!this.onceExecuted.has(backdropKey)) {
+            this.onceExecuted.add(backdropKey);
+
+            // Set the background fill color for reframe operations
+            if (api.backgroundFill) {
+              api.backgroundFill(colorValues);
+            }
+
+            // Apply wipe once for first-line RGB/RGBA shorthand
+            if (api.wipe) {
+              api.wipe(...colorValues); // Spread RGB or RGBA values as separate arguments
+            }
+
+            // Remove the processed items (3 for RGB, 4 for RGBA)
+            body = body.slice(hasAlpha ? 4 : 3);
+          } else {
+            // Don't remove the items - let them be processed normally in subsequent frames
+          }
+          // Remove the processed items so they don't get evaluated again
+          body = body.slice(hasAlpha ? 4 : 3);
+          
+          // Skip the rest of the color detection since we handled RGB/RGBA
+          if (body.length === 0) {
+            return undefined; // Nothing left to evaluate
+          }
+        }
+      }
+
       // Check if it's a bare string color name (first-line shorthand)
       if (typeof firstItem === "string") {
         colorName = firstItem;
@@ -6270,8 +6337,39 @@ class KidLisp {
         const globalEnv = this.getGlobalEnv();
         let isValidFirstLineColor = false;
 
+        // Check if it's an RGB string first (e.g., "255 0 0" or "255, 0, 0")
+        if (isValidRGBString(colorName)) {
+          const rgbValues = parseRGBString(colorName);
+          if (rgbValues) {
+            isValidFirstLineColor = true;
+
+            // Apply backdrop only once per call location
+            const position = api.kidlispCallPosition || "";
+            const backdropKey = `first_line_backdrop_${colorName}_${position}`;
+            if (!this.onceExecuted.has(backdropKey)) {
+              this.onceExecuted.add(backdropKey);
+
+              // Set the background fill color for reframe operations
+              if (api.backgroundFill) {
+                api.backgroundFill(rgbValues);
+              }
+
+              // Apply wipe once for first-line RGB shorthand
+              if (api.wipe) {
+                api.wipe(...rgbValues); // Spread RGB values as separate arguments
+              }
+
+              // Remove the first item since we've processed it
+              body = body.slice(1);
+            } else {
+              // Don't remove the first item - let it be processed normally in subsequent frames
+            }
+            // Remove the first item so it doesn't get evaluated again
+            body = body.slice(1);
+          }
+        }
         // Check if it's a color name in cssColors (not just any function)
-        if (cssColors && cssColors[colorName]) {
+        else if (cssColors && cssColors[colorName]) {
           isValidFirstLineColor = true;
         }
         // Also check if it's a fade string directly (like "fade:initial-atom-background")
@@ -8008,9 +8106,40 @@ class KidLisp {
       }
     }
 
-    // Check for all numbers (integers, floats, positive, negative) BEFORE timing patterns
-    // This ensures consistent coloring for all literal numeric values
+    // Check for RGB channel highlighting (e.g., "255 0 0" should show R in red, G in green, B in blue)
+    // This must come BEFORE general number coloring to override pink
     if (/^-?\d+(\.\d+)?$/.test(token)) {
+      // Check if this number is part of a 3-number RGB sequence
+      const prevToken = index > 0 ? tokens[index - 1] : null;
+      const nextToken = index < tokens.length - 1 ? tokens[index + 1] : null;
+      const next2Token = index < tokens.length - 2 ? tokens[index + 2] : null;
+      
+      const isNumeric = (t) => t && /^-?\d+(\.\d+)?$/.test(t);
+      
+      // Check if we're in a 3-number sequence (current is R, G, or B channel)
+      if (isNumeric(nextToken) && isNumeric(next2Token)) {
+        // This is the R (red) channel - first of three numbers
+        // Scale red intensity by the actual value (0-255)
+        const value = Math.max(0, Math.min(255, parseFloat(token)));
+        return `${value},0,0`; // Red channel with scaled intensity
+      } else if (isNumeric(prevToken) && isNumeric(nextToken)) {
+        // This is the G (green) channel - middle of three numbers
+        // Scale green intensity by the actual value (0-255)
+        const value = Math.max(0, Math.min(255, parseFloat(token)));
+        return `0,${value},0`; // Green channel with scaled intensity
+      } else if (isNumeric(prevToken)) {
+        const prev2Token = index > 1 ? tokens[index - 2] : null;
+        if (isNumeric(prev2Token)) {
+          // This is the B (blue) channel - last of three numbers
+          // Scale blue intensity by the actual value (0-255)
+          // Use the deepskyblue ratio: 0,191,255 = 0%, 75%, 100%
+          const value = Math.max(0, Math.min(255, parseFloat(token)));
+          const greenComponent = Math.round(value * 0.75); // 75% of blue value
+          return `0,${greenComponent},${value}`; // Blue channel with deepskyblue hue
+        }
+      }
+      
+      // Not part of RGB sequence, use default pink for numbers
       return "pink";
     }
 
@@ -9981,6 +10110,52 @@ function evaluate(parsed, api = {}) {
   return lisp.evaluate(parsed, api);
 }
 
+// RGB color validation and parsing helpers
+function isValidRGBComponent(value) {
+  const num = parseInt(value, 10);
+  return !isNaN(num) && num >= 0 && num <= 255;
+}
+
+function isValidRGBString(text) {
+  if (!text || typeof text !== "string") return false;
+  
+  const trimmed = text.trim();
+  
+  // Pattern 1: "255 0 0" or "255 0 0 128" (space-separated RGB or RGBA)
+  const spaceSeparated = trimmed.split(/\s+/);
+  if (spaceSeparated.length === 3 || spaceSeparated.length === 4) {
+    return spaceSeparated.every(isValidRGBComponent);
+  }
+  
+  // Pattern 2: "255, 0, 0" or "255, 0, 0, 128" (comma-separated RGB or RGBA)
+  const commaSeparated = trimmed.split(/,\s*/);
+  if (commaSeparated.length === 3 || commaSeparated.length === 4) {
+    return commaSeparated.every(isValidRGBComponent);
+  }
+  
+  return false;
+}
+
+function parseRGBString(text) {
+  if (!isValidRGBString(text)) return null;
+  
+  const trimmed = text.trim();
+  
+  // Try space-separated first (RGB or RGBA)
+  const spaceSeparated = trimmed.split(/\s+/);
+  if ((spaceSeparated.length === 3 || spaceSeparated.length === 4) && spaceSeparated.every(isValidRGBComponent)) {
+    return spaceSeparated.map(v => parseInt(v, 10));
+  }
+  
+  // Try comma-separated (RGB or RGBA)
+  const commaSeparated = trimmed.split(/,\s*/);
+  if ((commaSeparated.length === 3 || commaSeparated.length === 4) && commaSeparated.every(isValidRGBComponent)) {
+    return commaSeparated.map(v => parseInt(v, 10));
+  }
+  
+  return null;
+}
+
 // URL encoding/decoding utilities for kidlisp pieces
 function isKidlispSource(text) {
   if (!text) return false;
@@ -10042,6 +10217,13 @@ function isKidlispSource(text) {
     trimmedText.match(/^c\d+$/) ||
     cssColors[trimmedText] ||
     trimmedText === "rainbow") {
+    return true;
+  }
+
+  // Check for RGB values (e.g., "255 0 0" or "255, 0, 0")
+  // Also handle underscore-separated URLs like "255_0_0" (convert to "255 0 0")
+  const withSpaces = trimmedText.replace(/_/g, " ");
+  if (isValidRGBString(withSpaces)) {
     return true;
   }
 
@@ -10586,6 +10768,7 @@ export {
   evaluate,
   KidLisp,
   isKidlispSource,
+  isValidRGBString,
   encodeKidlispForUrl,
   decodeKidlispFromUrl,
   isPromptInKidlispMode,
