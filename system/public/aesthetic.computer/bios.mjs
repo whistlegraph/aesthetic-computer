@@ -1110,13 +1110,18 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // console.log(`🎵 AUDIO_INIT_START: ${audioStartTimestamp.toFixed(3)}ms`);
 
     // Main audio feed
+    // Try higher sample rate on Chrome desktop for lower latency
+    const isChrome = /Chrome/.test(navigator.userAgent) && !/Edge/.test(navigator.userAgent);
+    const isDesktop = !/Mobile|Android|iPhone|iPad/.test(navigator.userAgent);
+    const tryHighSampleRate = isChrome && isDesktop;
+    
     audioContext = new AudioContext({
-      latencyHint: "interactive",
+      latencyHint: "interactive", // "interactive" = lowest latency, "balanced" = default, "playback" = prioritize battery
       // TODO: Eventually choose a good sample rate and/or make it settable via
       //       the current disk.
       // sampleRate: 44100,
       // sampleRate: 48000,
-      sampleRate: 48000, //iOS || Aesthetic || Android ? 48000 : 192000,
+      sampleRate: tryHighSampleRate ? 192000 : 48000, // Try max sample rate on Chrome desktop (192kHz is highest commonly supported)
     });
 
     // 🎵 AUDIO CONTEXT LOGGING - Track timing characteristics
@@ -1181,13 +1186,28 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       let micStream;
       let reason;
       try {
+        // Allow pieces to configure audio constraints via data parameter
+        const audioConstraints = {
+          echoCancellation: data?.echoCancellation ?? false,
+          noiseSuppression: data?.noiseSuppression ?? false,
+          autoGainControl: data?.autoGainControl ?? false,
+          latency: data?.latency ?? 0,
+        };
+        
+        // Request higher sample rate if on Chrome desktop for lower latency
+        const isChrome = /Chrome/.test(navigator.userAgent) && !/Edge/.test(navigator.userAgent);
+        const isDesktop = !/Mobile|Android|iPhone|iPad/.test(navigator.userAgent);
+        if (isChrome && isDesktop) {
+          // Try multiple sample rates in order of preference
+          audioConstraints.sampleRate = { 
+            ideal: 192000,
+            min: 48000 // Fall back to 48kHz if higher not supported
+          };
+          audioConstraints.sampleSize = { ideal: 24 }; // Request 24-bit if available
+        }
+        
         micStream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            echocancellation: false, // put this behind a flag?
-            latency: 0,
-            noisesuppression: false,
-            autogaincontrol: false,
-          },
+          audio: audioConstraints,
         });
       } catch (err) {
         if (debug) console.warn("🎙 Microphone disabled:", err);
@@ -1204,6 +1224,30 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       const micNode = new MediaStreamAudioSourceNode(audioContext, {
         mediaStream: micStream,
       });
+      
+      // Send latency info to disk for display (when monitoring)
+      if (data?.monitor) {
+        const tracks = micStream.getAudioTracks();
+        const micLatency = tracks[0]?.getSettings()?.latency || 0;
+        const baseLatency = audioContext.baseLatency || 0;
+        const outputLatency = audioContext.outputLatency || 0;
+        const processingLatency = 128 / audioContext.sampleRate; // One quantum
+        
+        const inputMs = Math.round(micLatency * 1000);
+        const processingMs = Math.round(processingLatency * 1000 * 10) / 10; // One decimal
+        const outputMs = Math.round(baseLatency * 1000);
+        const totalMs = inputMs + processingMs + outputMs;
+        
+        send({ 
+          type: "audio:latency-info", 
+          content: {
+            input: inputMs,
+            processing: processingMs,
+            output: outputMs,
+            total: Math.round(totalMs)
+          }
+        });
+      }
 
       // TODO: Why can't there be separate audioWorklet modules?
       await audioContext.audioWorklet.addModule(
@@ -1215,7 +1259,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         "microphone-processor",
         {
           outputChannelCount: [2],
-          processorOptions: { debug },
+          processorOptions: { 
+            debug,
+            enablePitch: data?.enablePitch ?? true // Allow disabling pitch detection for lower CPU usage
+          },
         },
       );
 
@@ -1326,7 +1373,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       // Send a message back to `disk` saying the microphone is connected.
       send({ type: "microphone-connect:success" });
-      if (debug) console.log("🎙 Microphone connected:", data);
     };
 
     // Sound Synthesis Processor
