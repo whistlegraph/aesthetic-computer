@@ -284,15 +284,20 @@ function parseFadeColor(color) {
  * @param {number} t - Position along fade (0-1)
  * @param {number} x - X coordinate for noise (optional)
  * @param {number} y - Y coordinate for noise (optional)
- * @param {Object} fadeInfo - Local fade info from parseFadeColor
+ * @param {Object|Array} fadeInfo - Local fade info from parseFadeColor (object) or parseLocalFade (array)
  * @returns {Array} - RGBA color array
  */
 function getLocalFadeColor(t, x = 0, y = 0, fadeInfo) {
-  if (!fadeInfo || fadeInfo.colors.length < 2) {
+  if (!fadeInfo) {
     return c.slice(); // Return current color if no fade info
   }
   
-  const colors = fadeInfo.colors;
+  // Handle both array (from parseLocalFade) and object (from parseFadeColor) formats
+  const colors = Array.isArray(fadeInfo) ? fadeInfo : fadeInfo.colors;
+  
+  if (!colors || colors.length < 2) {
+    return c.slice(); // Return current color if invalid colors
+  }
   
   // Clamp t to 0-1 range
   t = Math.max(0, Math.min(1, t));
@@ -2222,6 +2227,8 @@ function line() {
 
   // Lerp from primary to secondary color as needed.
   const cachedInk = c.slice(0);
+  const localFadeInfo = parseFadeColor(c);
+  const usingLocalFade = !!localFadeInfo;
 
   // Check if line is perfectly horizontal and no gradient/fade is present, otherwise run bresenham.
   if (y0 === y1 && !c2 && !fadeMode) {
@@ -2236,6 +2243,12 @@ function line() {
         const fadeColor = getFadeColor(t, p.x, p.y);
         setColor(...fadeColor);
         plot(p.x, p.y);
+      } else if (usingLocalFade) {
+        const totalSteps = Math.max(1, points.length - 1);
+        const t = totalSteps === 0 ? 0 : index / totalSteps;
+        const fadeColor = getLocalFadeColor(t, p.x, p.y, localFadeInfo);
+        setColor(...fadeColor);
+        plot(p.x, p.y);
       } else if (c2) {
         const step = sqrt(p.x * p.x + p.y * p.y) / 255; // Gradient step.
         color(...shiftRGB(c, c2, step));
@@ -2244,7 +2257,15 @@ function line() {
         plot(p.x, p.y);
       }
     });
-    if (c2 || fadeMode) setColor(...cachedInk);
+    if (usingLocalFade) {
+      if (typeof cachedInk[0] === "string" && cachedInk[0].startsWith("fade:")) {
+        color(cachedInk);
+      } else {
+        setColor(...cachedInk);
+      }
+    } else if (c2 || fadeMode) {
+      setColor(...cachedInk);
+    }
   }
 
   const out = [x0, y0, x1, y1];
