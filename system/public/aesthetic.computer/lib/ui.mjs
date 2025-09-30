@@ -507,15 +507,6 @@ class Button {
           ((!pens || pens.length === 0) && !btn.box.contains(e))
         )
       ) {
-        console.log("❌ Button cancelled (lift outside):", {
-          buttonId: btn.id || "unnamed",
-          timestamp: performance.now(),
-          pointer: e.pointer,
-          containsE: btn.box.contains(e),
-          containsNonePens: btn.box.containsNone(pens || []),
-          reason: "lifted outside button bounds"
-        });
-        
         btn.down = false;
         btn.over = false;
         // Only remove if still in activeButtons (avoid double removal from force cleanup)
@@ -531,14 +522,6 @@ class Button {
         const isStuckButton = btn.down && !isControllingPointer;
         
         if (isStuckButton) {
-          console.warn("🧹 FORCE CLEANUP - Stuck button detected:", {
-            buttonId: btn.id || "unnamed",
-            timestamp: performance.now(),
-            eventPointer: e.pointer,
-            buttonDownPointer: btn.downPointer,
-            reason: "Force releasing stuck button with phantom pointer"
-          });
-          
           // Force cleanup the stuck button
           btn.down = false;
           btn.over = false;
@@ -584,16 +567,6 @@ class Button {
                            (e.drag && (e.drag.x !== e.x || e.drag.y !== e.y)); // Has actual drag movement
       const isDraggingFromOtherButton = anyButtonDown && !btn.down;
 
-      console.log("🔍 Rollover detection:", {
-        buttonId: btn.id || "unnamed",
-        activeButtonsSize: activeButtons.size,
-        anyButtonDown,
-        isDraggingFromOtherButton,
-        hasDragMovement: e.drag && (e.drag.x !== e.x || e.drag.y !== e.y),
-        btnDown: btn.down,
-        btnOver: btn.over
-      });
-
       // Check if any active button has sticky scrubbing enabled
       const hasStickyButton = Array.from(activeButtons).some(
         (activeBtn) => activeBtn.stickyScrubbing,
@@ -612,27 +585,12 @@ class Button {
         !shouldPreventRollover &&
         (btn.box.contains(e) || horizontallyWithin)
       ) {
-        console.log("🎯 Button rollover activation started:", {
-          buttonId: btn.id || "unnamed",
-          timestamp: performance.now(),
-          pointer: e.pointer,
-          isDraggingFromOther: isDraggingFromOtherButton,
-          shouldPreventRollover,
-          horizontallyWithin,
-          hasStickyButton
-        });
-        
         // Only allow rollover activation if conditions are met
         // In multitouch mode, only deactivate buttons that don't have their own active pointer
         for (const otherBtn of activeButtons) {
           if (otherBtn !== btn && !otherBtn.stickyScrubbing) {
             // In multitouch mode, only deactivate if this is the same pointer or if the other button doesn't have a specific pointer
             if (!this.multitouch || otherBtn.downPointer === e.pointer || otherBtn.downPointer === undefined) {
-              console.log("🔄 Deactivating other button for rollover:", {
-                fromButtonId: otherBtn.id || "unnamed",
-                toButtonId: btn.id || "unnamed",
-                pointer: e.pointer
-              });
               otherBtn.down = false;
               otherBtn.over = false;
               otherBtn.actions?.up?.(otherBtn);
@@ -643,18 +601,7 @@ class Button {
 
         // Only activate this button if no sticky button conflicts
         if (!hasStickyButton || btn.stickyScrubbing) {
-          console.log("🎯 Activating button via rollover:", {
-            buttonId: btn.id || "unnamed",
-            hasStickyButton,
-            stickyScrubbing: btn.stickyScrubbing
-          });
           btn.down = true;
-          console.log("🔧 Setting downPointer on rollover activation:", {
-            buttonId: btn.id || "unnamed",
-            eventPointer: e.pointer,
-            beforeDownPointer: btn.downPointer,
-            afterDownPointer: e.pointer || 0
-          });
           btn.downPointer = e.pointer || 0;
           addActiveButton(btn, "rollover activation", netLog);
           callbacks.down?.(btn);
@@ -717,45 +664,27 @@ class Button {
       !btn.box.contains(e) &&
       btn.box.containsNone(pens)
     ) {
+      // For stickyScrubbing buttons, never trigger rollout - they stay active until pointer is released
       // For offScreenScrubbing buttons, only trigger rollout if we're also outside horizontal bounds
       const shouldRollout =
-        !btn.offScreenScrubbing ||
-        (btn.offScreenScrubbing &&
-          (e.x < btn.box.x || e.x >= btn.box.x + btn.box.w));
+        !btn.stickyScrubbing &&
+        (!btn.offScreenScrubbing ||
+          (btn.offScreenScrubbing &&
+            (e.x < btn.box.x || e.x >= btn.box.x + btn.box.w)));
 
       // In multitouch mode, only trigger rollout if this is the pointer that controls this button
       const isControllingPointer = !this.multitouch || btn.downPointer === e.pointer || btn.downPointer === undefined;
 
       if (shouldRollout && isControllingPointer) {
-        console.log("👻 Rollout (dragged off):", {
-          buttonId: btn.id || "unnamed",
-          timestamp: performance.now(),
-          pointer: e.pointer,
-          wasOver: btn.over,
-          containsE: btn.box.contains(e),
-          shouldRollout,
-          reason: "dragged outside bounds"
-        });
-        
         // Track this rollout for detecting retap issues
         trackRollout(btn.id || "unnamed");
         
         // Call the rollout/out callbacks first
         if (callbacks.rollout) {
-          console.log("🎭 Calling rollout callback:", btn.id || "unnamed");
           callbacks.rollout(btn);
         } else {
-          console.log("🎭 Calling out callback:", btn.id || "unnamed");
           callbacks.out?.(btn);
         }
-        
-        console.log("📊 Button state after rollout callback:", {
-          buttonId: btn.id || "unnamed",
-          down: btn.down,
-          over: btn.over,
-          downPointer: btn.downPointer,
-          inActiveButtons: activeButtons.has(btn)
-        });
         
         // Ensure button state is properly cleaned up after rollout
         btn.over = false;
@@ -768,10 +697,6 @@ class Button {
         
         // If the button is still marked as down after the callback, clean up remaining state
         if (btn.down) {
-          console.log("🧹 Rollout cleanup - button still down after callback:", {
-            buttonId: btn.id || "unnamed",
-            reason: "ensuring consistent state after rollout"
-          });
           btn.down = false;
           btn.downPointer = undefined;
         }
@@ -781,11 +706,7 @@ class Button {
     // Final safety check: if button is not down but still in activeButtons, remove it
     // This catches any edge cases where callbacks modify button state but don't sync with activeButtons
     if (!btn.down && activeButtons.has(btn)) {
-      console.log("🛡️ Safety cleanup - button not down but in activeButtons:", {
-        buttonId: btn.id || "unnamed",
-        reason: "final state consistency check"
-      });
-  removeActiveButton(btn, "safety cleanup - button not down", netLog);
+      removeActiveButton(btn, "safety cleanup - button not down", netLog);
     }
   }
 
