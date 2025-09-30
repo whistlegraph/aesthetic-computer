@@ -7986,6 +7986,11 @@ async function makeFrame({ data: { type, content } }) {
 
     // 🌟 Global Keyboard Shortcuts (these could also be seen via `act`)
     content.keyboard.forEach((data) => {
+      // Log ALL keyboard events to debug Shift
+      if (data.key === "Shift") {
+        console.log("🔑 [Keyboard Event] Shift detected! data:", data);
+      }
+      
       if (currentText && currentText.indexOf("botce") > -1) return; // No global keys on `botce`. 23.11.12.23.38
       if (data.name.indexOf("keyboard:down") === 0) {
         // [Escape] (Deprecated on 23.05.22.19.33)
@@ -8103,18 +8108,22 @@ async function makeFrame({ data: { type, content } }) {
         }
 
         // [Shift] Toggle QR code fullscreen mode for KidLisp pieces
+        if (data.key === "Shift") {
+          console.log("⌨️ [Shift Key] Received! getTeiaMode():", getTeiaMode());
+        }
         if (data.key === "Shift" && !getTeiaMode()) {
           // Only allow QR fullscreen for KidLisp pieces that have QR codes
           const sourceCode = currentText || currentHUDTxt;
+          console.log("🔍 [Shift Debug] sourceCode:", sourceCode, "currentPath:", currentPath);
+          
+          // Use the centralized KidLisp detection from kidlisp.mjs
           const isInlineKidlispPiece = (currentPath && lisp.isKidlispSource(currentPath) && !currentPath.endsWith('.lisp')) ||
                                 currentPath === "(...)" ||
                                 (sourceCode && sourceCode.startsWith("$")) ||
                                 (currentPath && currentPath.includes("/disks/$")) ||
-                                (sourceCode && (
-                                  sourceCode.startsWith("(") || 
-                                  sourceCode.startsWith(";") ||
-                                  /^\s*\(/.test(sourceCode)
-                                ));
+                                (sourceCode && lisp.isKidlispSource(sourceCode));
+          
+          console.log("🔍 [Shift Debug] isInlineKidlispPiece:", isInlineKidlispPiece);
           
           if (isInlineKidlispPiece) {
             if (!hudAnimationState.qrFullscreen) {
@@ -8140,9 +8149,11 @@ async function makeFrame({ data: { type, content } }) {
               }
               
               hudAnimationState.qrFullscreen = true;
+              console.log("✅ [Shift Debug] QR fullscreen mode ENABLED");
             } else {
               // Turning OFF fullscreen QR
               hudAnimationState.qrFullscreen = false;
+              console.log("✅ [Shift Debug] QR fullscreen mode DISABLED");
               
               // Restore corner visibility to what it was before fullscreen QR was activated
               if (hudAnimationState.cornersVisibleBeforeFullscreen && !hudAnimationState.visible) {
@@ -10673,15 +10684,42 @@ async function makeFrame({ data: { type, content } }) {
       
 
       if (isInlineKidlispPiece && sourceCode && !hideLabel && (hudAnimationState.visible || hudAnimationState.animating || hudAnimationState.qrFullscreen)) {
+        console.log("🎨 [QR Debug] Entering QR generation. qrFullscreen:", hudAnimationState.qrFullscreen, "sourceCode:", sourceCode?.substring(0, 50));
         try {
           // For $code pieces, the sourceCode is the code itself, so use it directly
           let cachedCode;
           if (sourceCode.startsWith("$")) {
             // For $code format, the sourceCode IS the cached code (without $)
             cachedCode = sourceCode.substring(1); // Remove the $ prefix
+            console.log("🔑 [QR Debug] Using $code format, cachedCode:", cachedCode);
           } else {
             // For regular KidLisp source, check if it has been cached
             cachedCode = getCachedCode(sourceCode);
+            console.log("🔍 [QR Debug] Checked cache, cachedCode:", cachedCode);
+            
+            // If not cached yet but QR fullscreen is active (shift was pressed),
+            // trigger caching and request a repaint when complete
+            if (!cachedCode && hudAnimationState.qrFullscreen) {
+              console.log("⏳ [QR Debug] Code not cached, triggering caching...");
+              const kidlispInstance = getGlobalKidLisp();
+              if (kidlispInstance) {
+                console.log("✅ [QR Debug] Got KidLisp instance, calling cacheKidlispSource");
+                // Trigger caching asynchronously
+                kidlispInstance.cacheKidlispSource(sourceCode, $commonApi).then(() => {
+                  // Check if code was successfully cached
+                  const newCachedCode = getCachedCode(sourceCode);
+                  if (newCachedCode) {
+                    console.log(`🔄 Code cached after shift press: $${newCachedCode}`);
+                    // Trigger repaint to show the QR code
+                    if (typeof window !== "undefined" && window.$activePaintApi?.needsPaint) {
+                      window.$activePaintApi.needsPaint();
+                    }
+                  }
+                }).catch(err => {
+                  console.warn("Failed to cache KidLisp code:", err);
+                });
+              }
+            }
           }
           
           if (cachedCode) {
