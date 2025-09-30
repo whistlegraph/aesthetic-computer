@@ -1,6 +1,14 @@
 # Rebuilt to run SmartPy on Python 3.11 and avoid 3.13 BrokenPipe
 FROM fedora:latest
 
+# Preconfigure DNF to minimize footprint and avoid unnecessary optional deps
+RUN set -eux; \
+    echo 'fastestmirror=True' >> /etc/dnf/dnf.conf; \
+    echo 'max_parallel_downloads=5' >> /etc/dnf/dnf.conf; \
+    echo 'keepcache=0' >> /etc/dnf/dnf.conf; \
+    echo 'install_weak_deps=False' >> /etc/dnf/dnf.conf; \
+    echo 'tsflags=nodocs' >> /etc/dnf/dnf.conf
+
 ENV NODE_OPTIONS=--max_old_space_size=8192
 ENV DENO_DIR=/home/me/.cache/deno
 ENV NETLIFY_DENO_VERSION=1.45.5
@@ -30,15 +38,15 @@ RUN dnf update -y && \
       libXi libXdamage libXrandr alsa-lib gtk3 \
       xorg-x11-server-Xvfb psmisc lsof chromium \
       sbcl zeromq-devel redhat-rpm-config \
-      caddy \
-    && dnf clean all
+            caddy \
+        && dnf clean all && rm -rf /var/cache/dnf
 
 # --- FFmpeg from RPM Fusion ---------------------------------------------------
 RUN dnf install -y \
       https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm \
       https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm \
     && dnf install -y --allowerasing --skip-unavailable ffmpeg ffmpeg-devel \
-    && dnf clean all
+        && dnf clean all && rm -rf /var/cache/dnf
 
 # --- Python 3.11 venv as default "python" -------------------------------------
 RUN /usr/bin/python3.11 -m venv /opt/py311 && \
