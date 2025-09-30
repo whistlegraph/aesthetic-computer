@@ -1719,7 +1719,7 @@ class KidLisp {
         }
       }
 
-      // Check if it's a direct color name, fade string, or color code in the global environment
+      // Check if it's a direct color name, fade string, color code, or pattern code in the global environment
       if (globalEnv[colorName] && typeof globalEnv[colorName] === "function") {
         try {
           // Test if this is a color function by calling it
@@ -1745,6 +1745,31 @@ class KidLisp {
           }
         } catch (e) {
           // Not a color function, ignore
+        }
+      }
+      // Check for color codes directly (c0, c1, etc.)
+      else if (colorName.match(/^c\d+$/)) {
+        const colorIndex = parseInt(colorName.substring(1));
+        if (staticColorMap[colorIndex]) {
+          this.firstLineColor = colorName;
+          this.persistentFirstLineColor = colorName;
+          
+          if (typeof window !== 'undefined' && window.setPersistentFirstLineColor) {
+            window.setPersistentFirstLineColor(colorName);
+          }
+        }
+      }
+      // Check for pattern codes directly (p0, p1, etc.)
+      else if (colorName.match(/^p\d+$/)) {
+        const patternIndex = parseInt(colorName.substring(1));
+        // p0 = rainbow, p1 = zebra
+        if (patternIndex === 0 || patternIndex === 1) {
+          this.firstLineColor = colorName;
+          this.persistentFirstLineColor = colorName;
+          
+          if (typeof window !== 'undefined' && window.setPersistentFirstLineColor) {
+            window.setPersistentFirstLineColor(colorName);
+          }
         }
       }
       // Also check if it's a fade string directly (like "fade:c0-c3")
@@ -6396,6 +6421,21 @@ class KidLisp {
         else if (cssColors && cssColors[colorName]) {
           isValidFirstLineColor = true;
         }
+        // Check if it's a color code (c0, c1, etc.)
+        else if (colorName.match(/^c\d+$/)) {
+          const colorIndex = parseInt(colorName.substring(1));
+          if (staticColorMap[colorIndex]) {
+            isValidFirstLineColor = true;
+          }
+        }
+        // Check if it's a pattern code (p0, p1, etc.)
+        else if (colorName.match(/^p\d+$/)) {
+          const patternIndex = parseInt(colorName.substring(1));
+          // p0 = rainbow, p1 = zebra
+          if (patternIndex === 0 || patternIndex === 1) {
+            isValidFirstLineColor = true;
+          }
+        }
         // Also check if it's a fade string directly (like "fade:initial-atom-background")
         else if (colorName.startsWith("fade:")) {
           // Validate the fade string by trying to parse it
@@ -8186,12 +8226,41 @@ class KidLisp {
       return this.getParenthesesColor(tokens, index);
     }
 
-    // Check if this token is a function name (first token after opening paren)
-    if (index > 0 && tokens[index - 1] === "(") {
-      return this.getFunctionColor(token);
+    // Check for special color markers FIRST (before function check)
+    // Special case for "rainbow" - return special marker for rainbow coloring
+    if (token === "rainbow") {
+      return "RAINBOW";
     }
 
-    // Check if this token is a valid CSS color name or color code
+    // Special case for "zebra" - return special marker for zebra coloring
+    if (token === "zebra") {
+      return "ZEBRA";
+    }
+
+    // Check if this is a color code like "c0", "c1", etc.
+    if (token.match(/^c\d+$/)) {
+      const colorIndex = parseInt(token.substring(1));
+      if (staticColorMap[colorIndex]) {
+        const colorValue = staticColorMap[colorIndex];
+        if (Array.isArray(colorValue) && colorValue.length >= 3) {
+          const rgbColor = `${colorValue[0]},${colorValue[1]},${colorValue[2]}`;
+          return rgbColor;
+        }
+      }
+    }
+
+    // Check if this is a pattern code like "p0", "p1", etc.
+    if (token.match(/^p\d+$/)) {
+      const patternIndex = parseInt(token.substring(1));
+      // p0 = rainbow, p1 = zebra
+      if (patternIndex === 0) {
+        return "RAINBOW";
+      } else if (patternIndex === 1) {
+        return "ZEBRA";
+      }
+    }
+
+    // Check if this is a valid CSS color name
     if (cssColors && cssColors[token]) {
       // Return the actual color value for CSS colors like "red", "blue", etc.
       const colorValue = cssColors[token];
@@ -8202,16 +8271,9 @@ class KidLisp {
       }
     }
 
-    // Check if this is a color code like "c0", "c1", etc.
-    if (token.match(/^c\d+$/)) {
-      const index = parseInt(token.substring(1));
-      if (staticColorMap[index]) {
-        const colorValue = staticColorMap[index];
-        if (Array.isArray(colorValue) && colorValue.length >= 3) {
-          const rgbColor = `${colorValue[0]},${colorValue[1]},${colorValue[2]}`;
-          return rgbColor;
-        }
-      }
+    // Check if this token is a function name (first token after opening paren)
+    if (index > 0 && tokens[index - 1] === "(") {
+      return this.getFunctionColor(token);
     }
 
     // Check if this is a fade expression like "fade:red-blue-yellow"
@@ -8230,22 +8292,12 @@ class KidLisp {
     const knownFunctions = [
       "wipe", "ink", "line", "box", "flood", "circle", "write", "paste", "stamp", "point", "poly", "embed",
       "print", "debug", "random", "sin", "cos", "tan", "floor", "ceil", "round",
-      "noise", "choose", "?", "...", "..", "overtone", "rainbow", "zebra", "mic", "amplitude",
+      "noise", "choose", "?", "...", "..", "overtone", "mic", "amplitude",
       "melody", "speaker", "resolution", "lines", "wiggle", "shape", "scroll",
       "spin", "resetSpin", "smoothspin", "sort", "zoom", "blur", "contrast", "pan", "unpan",
       "mask", "unmask", "steal", "putback", "label", "len", "now", "die",
       "tap", "draw", "not", "range", "mul", "log", "no", "yes", "fade", "jump"
     ];
-
-    // Special case for "rainbow" - return special marker for rainbow coloring
-    if (token === "rainbow") {
-      return "RAINBOW";
-    }
-
-    // Special case for "zebra" - return special marker for zebra coloring
-    if (token === "zebra") {
-      return "ZEBRA";
-    }
 
     // Special case for "fade" function - give it a distinct color
     if (token === "fade") {
@@ -10235,12 +10287,14 @@ function isKidlispSource(text) {
     return true;
   }
 
-  // Check for first-line color indicators (fade strings and color codes)
+  // Check for first-line color indicators (fade strings, color codes, and pattern codes)
   const trimmedText = text.trim();
   if (trimmedText.startsWith("fade:") ||
     trimmedText.match(/^c\d+$/) ||
+    trimmedText.match(/^p\d+$/) || // Pattern codes like p0, p1, etc.
     cssColors[trimmedText] ||
-    trimmedText === "rainbow") {
+    trimmedText === "rainbow" ||
+    trimmedText === "zebra") {
     return true;
   }
 
@@ -10274,6 +10328,8 @@ function isKidlispSource(text) {
       if (cssColors && cssColors[part]) return true;
       // Check for color codes like c0, c1, etc.
       if (part.match(/^c\d+$/)) return true;
+      // Check for pattern codes like p0, p1, etc.
+      if (part.match(/^p\d+$/)) return true;
       return false;
     });
 
@@ -10282,6 +10338,7 @@ function isKidlispSource(text) {
       return kidlispFunctions.some(fn => part.includes(fn)) ||
         (cssColors && cssColors[part]) ||
         part.match(/^c\d+$/) ||
+        part.match(/^p\d+$/) || // Pattern codes
         part.match(/^\d+(\.\d+)?$/); // Numbers are common in KidLisp
     }).length;
 
