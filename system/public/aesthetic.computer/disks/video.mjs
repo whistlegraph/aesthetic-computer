@@ -60,10 +60,13 @@ let currentStatusAlert = null; // Track current status alert for updates
 let completionMessage = ""; // Message to show when export completes
 let completionMessageTimer = 0; // Timer for how long to show completion message
 
+let canvasTransparencyEnsured = false; // Ensure DOM canvas stays transparent
+let requestPaint = () => {};
+
 // Progress bar mode configuration
 // true = Use native extended progress bar (old mode)
 // false = Use baked-in VHS progress bar (new tape-style mode with disk.mjs rendering)
-const useExtendedProgressBar = true;
+const useExtendedProgressBar = false;
 
 // Request WebP creation from main thread (document not available in worker)
 // Note: Optimized to handle large frame counts without memory issues
@@ -121,7 +124,7 @@ function boot({ wipe, rec, gizmo, jump, notice, store }) {
     jump("prompt");
     return;
   }
-  wipe(0);
+  wipe(0, 0, 0, 0);
   
   // Reset all export states on boot
   isPrinting = false;
@@ -152,23 +155,58 @@ function paint({
   ui,
   help,
   hud,
-  rec: { presenting, playing, printProgress, presentProgress },
+  rec,
   screen,
   paintCount,
+  needsPaint,
 }) {
-  // wipe(128, 64);
-  // return true;
+  if (typeof needsPaint === "function") {
+    requestPaint = needsPaint;
+  }
+  wipe(0, 0, 0, 0);
+
+  const presenting = rec?.presenting ?? false;
+  const playing = rec?.playing ?? false;
+  const recPresentProgress = rec?.presentProgress ?? 0;
+  const hasRecording = rec?.recorded ?? false;
+  const exportAvailable = presenting || hasRecording || recPresentProgress > 0;
+  const exportBusy =
+    isPrinting ||
+    isExportingGIF ||
+    isExportingFrames;
+
+  const shouldKeepPainting =
+    exportBusy ||
+    completionMessageTimer > 0 ||
+    presenting ||
+    playing ||
+    (rec?.recording ?? false) ||
+    ((rec?.tapeProgress ?? 0) > 0 && (rec?.tapeProgress ?? 0) < 1);
+
+  if (shouldKeepPainting) {
+    requestPaint();
+  }
+
+  if (!canvasTransparencyEnsured && api?.canvas) {
+    api.canvas.style.backgroundColor = "transparent";
+    canvasTransparencyEnsured = true;
+  }
+
   if (presenting) {
-    // Always wipe to prevent UI elements from accumulating
-    // During playback, use transparent wipe so tape video shows through
-    // BUT prevent video playback during exports to improve performance
+    // Canvas already cleared above to keep the framebuffer visible beneath
+    // During playback, use minimal HUD hints so overlays stay lightweight
     if (playing && !isPrinting) {
-      wipe(0, 0, 0, 0); // Transparent wipe during playback (only when not exporting)
       // Override corner label to show "|" when playing video
       hud.label("|");
     } else {
-      wipe(0, 100).ink(255, 200).write(isPrinting ? "EXPORTING" : "||", { center: "xy " });
-      ink(255, 75).box(0, 0, screen.width, screen.height, "inline");
+      const statusText = isPrinting ? "EXPORTING" : "||";
+      ink(0, 0, 0, 140).box(
+        screen.width / 2 - 48,
+        screen.height / 2 - 10,
+        96,
+        20,
+      );
+      ink(255, 200).write(statusText, { center: "xy " });
     }
 
     // Commented out plain progress bar - now using VHS-style progress bar from disk.mjs
@@ -267,7 +305,7 @@ function paint({
         text += dots;
       }
 
-      let barWidth = Math.max(1, printProgress * screen.width); // Overall progress
+  let barWidth = Math.max(1, printProgress * screen.width); // Overall progress
       let phaseBarWidth = Math.max(1, phaseProgress * screen.width); // Phase progress
 
       if (printProgress > 0.98 && screen.width - barWidth >= 1) {
@@ -295,10 +333,9 @@ function paint({
       }
 
       // Draw main progress bar (overall progress)
-      wipe(0, 0, 80, 180)
-        .ink(0)
-        .box(0, screen.height / 2 - h / 2, screen.width, h)
-        .ink(0, 0, 255)
+      ink(0, 0, 80, 180)
+        .box(0, screen.height / 2 - h / 2, screen.width, h);
+      ink(0, 0, 255)
         .box(0, screen.height / 2 - h / 2, barWidth, h);
         
       // Draw phase progress indicator (lighter blue on top)
@@ -325,48 +362,40 @@ function paint({
     }
   }
 
-  // Main video piece content display
-  if (presenting) {
-    // Show "MP4" and "GIF" buttons side by side
-    if (!btn)
-      btn = new ui.TextButton("MP4", { right: 6, bottom: 6, screen });
-    btn.reposition({ right: 6, bottom: 6, screen });
-    btn.paint(api);
-    
-    if (!gifBtn)
-      gifBtn = new ui.TextButton("GIF", { right: 40, bottom: 6, screen });
-    gifBtn.reposition({ right: 40, bottom: 6, screen });
-    gifBtn.paint(api);
-    
-    // ZIP/Frames export option for high-resolution frames
-    if (!framesBtn)
-      framesBtn = new ui.TextButton("ZIP", { right: 6, bottom: 40, screen });
-    framesBtn.reposition({ right: 6, bottom: 40, screen });
-    framesBtn.paint(api);
-    
-    // Hidden export options (webpBtn, animWebpBtn, apngBtn, clearBtn) - keeping for future use
-    
-    // if (!webpBtn)
-    //   webpBtn = new ui.TextButton("WebP", { right: 6, bottom: 74, screen });
-    // webpBtn.reposition({ right: 6, bottom: 74, screen });
-    // webpBtn.paint(api);
-    
-    // if (!animWebpBtn)
-    //   animWebpBtn = new ui.TextButton("AnimWebP", { right: 6, bottom: 108, screen });
-    // animWebpBtn.reposition({ right: 6, bottom: 108, screen });
-    // animWebpBtn.paint(api);
-    
-    // if (!apngBtn)
-    //   apngBtn = new ui.TextButton("APNG", { right: 6, bottom: 40, screen });
-    // apngBtn.reposition({ right: 6, bottom: 40, screen });
-    // apngBtn.paint(api);
-    
-    // if (!clearBtn)
-    //   clearBtn = new ui.TextButton("Clear", { right: 6, bottom: 74, screen });
-    // clearBtn.reposition({ right: 6, bottom: 74, screen });
-    // clearBtn.paint(api);
-  } else if (paintCount > 16n) {
-    wipe(40, 0, 0).ink(180, 0, 0).write("NO VIDEO", { center: "xy" });
+  // Main video piece content display (always render controls but disable when unavailable)
+  if (!btn)
+    btn = new ui.TextButton("MP4", { right: 6, bottom: 6, screen });
+  btn.reposition({ right: 6, bottom: 6, screen });
+
+  if (!gifBtn)
+    gifBtn = new ui.TextButton("GIF", { right: 40, bottom: 6, screen });
+  gifBtn.reposition({ right: 40, bottom: 6, screen });
+
+  if (!framesBtn)
+    framesBtn = new ui.TextButton("ZIP", { right: 6, bottom: 40, screen });
+  framesBtn.reposition({ right: 6, bottom: 40, screen });
+
+  if (!exportBusy) {
+    const disableExports = !exportAvailable;
+    btn.disabled = disableExports;
+    gifBtn.disabled = disableExports;
+    framesBtn.disabled = disableExports;
+  }
+
+  btn.paint(api);
+  gifBtn.paint(api);
+  framesBtn.paint(api);
+
+  if (!exportAvailable && !exportBusy && paintCount > 16n) {
+    const msg = "NO VIDEO";
+    const padding = 12;
+    const msgWidth = msg.length * 6 + padding * 2;
+    const msgHeight = 20 + padding;
+    const boxX = (screen.width - msgWidth) / 2;
+    const boxY = screen.height / 2 - msgHeight / 2;
+
+    ink(0, 0, 0, 160).box(boxX, boxY, msgWidth, msgHeight);
+    ink(180, 0, 0).write(msg, { center: "xy" });
   }
   
   // Show completion message if active
@@ -391,16 +420,45 @@ function paint({
   }
 }
 
-function sim() {
+function sim({ needsPaint, rec }) {
   ellipsisTicker?.sim();
+
+  if (typeof needsPaint === "function") {
+    requestPaint = needsPaint;
+    if (
+      isPrinting ||
+      completionMessageTimer > 0 ||
+      (rec?.presenting ?? false) ||
+      (rec?.playing ?? false) ||
+      (rec?.recording ?? false) ||
+      ((rec?.tapeProgress ?? 0) > 0 && (rec?.tapeProgress ?? 0) < 1)
+    ) {
+      needsPaint();
+    }
+  }
 }
 
 let printed = false;
 
 // ✒ Act (Runs once per user interaction)
-function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, store }) {
+function act({
+  event: e,
+  rec,
+  download,
+  num,
+  jump,
+  sound: { synth },
+  zip,
+  send,
+  store,
+  needsPaint,
+}) {
+  if (typeof needsPaint === "function") {
+    requestPaint = needsPaint;
+  }
+  const triggerRender = () => requestPaint();
   // Handle system messages first
-  if (handleSystemMessage({ event: e, rec })) {
+  if (handleSystemMessage({ event: e, rec, needsPaint })) {
     return; // Exit early if a system message was handled
   }
 
@@ -426,6 +484,7 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
         printProgress = 0.01; // Start with minimal progress to trigger display
         exportStatusMessage = "STARTING MP4 EXPORT";
         currentExportPhase = "preparing";
+        triggerRender();
         
         // Initialize tape progress for red overlay mode
         if (!useExtendedProgressBar) {
@@ -480,6 +539,7 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
               // Reset flags if no frames available
               isPrinting = false;
               btn.disabled = false;
+              triggerRender();
             }
           });
         } catch (error) {
@@ -487,6 +547,7 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
           // Reset flags on error
           isPrinting = false;
           btn.disabled = false;
+          triggerRender();
         }
         
         synth({
@@ -517,6 +578,7 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
         isPrinting = true; // Show progress bar
         currentExportType = "frames"; // Set export type
         framesBtn.disabled = true;
+        triggerRender();
         
         // Initialize tape progress for red overlay mode
         if (!useExtendedProgressBar) {
@@ -559,14 +621,17 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
               // Reset flags - download happens asynchronously via main thread
               isPrinting = false;
               currentExportType = "";
+              triggerRender();
             } else {
               // Reset flags if no frames available
               isPrinting = false;
               currentExportType = "";
+              triggerRender();
             }
             
             isExportingFrames = false;
             framesBtn.disabled = false;
+            triggerRender();
           });
         } catch (error) {
           console.error("Error exporting ZIP frames:", error);
@@ -574,6 +639,7 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
           isPrinting = false;
           currentExportType = "";
           framesBtn.disabled = false;
+          triggerRender();
         }
         
         synth({
@@ -876,6 +942,7 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
         printProgress = 0.01; // Start with minimal progress to trigger display
         exportStatusMessage = "STARTING GIF EXPORT";
         currentExportPhase = "analyzing";
+        triggerRender();
         
         // Initialize tape progress for red overlay mode
         if (!useExtendedProgressBar) {
@@ -938,6 +1005,7 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
               isPrinting = false;
               isExportingGIF = false;
               gifBtn.disabled = false;
+              triggerRender();
             }
           });
         } catch (error) {
@@ -946,6 +1014,7 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
           isPrinting = false;
           isExportingGIF = false;
           gifBtn.disabled = false;
+          triggerRender();
         }
         
         synth({
@@ -997,8 +1066,14 @@ function act({ event: e, rec, download, num, jump, sound: { synth }, zip, send, 
     */
 
     if (!btn?.down && !btn?.disabled && !gifBtn?.down && !gifBtn?.disabled && !isPrinting) {
-      if (e.is("touch:1") && !rec.playing) rec.play();
-      if (e.is("touch:1") && rec.playing) rec.pause();
+      if (e.is("touch:1") && !rec.playing) {
+        rec.play();
+        triggerRender();
+      }
+      if (e.is("touch:1") && rec.playing) {
+        rec.pause();
+        triggerRender();
+      }
     }
   }
 }
@@ -1022,11 +1097,15 @@ function signal(content) {
     if (animWebpBtn) animWebpBtn.disabled = false;
     if (apngBtn) apngBtn.disabled = false;
     if (btn) btn.disabled = false;
+    requestPaint();
   }
 }
 
 // 🎯 act (also handles system messages via event.is)
-function handleSystemMessage({ event: e, rec }) {
+function handleSystemMessage({ event: e, rec, needsPaint }) {
+  if (typeof needsPaint === "function") {
+    requestPaint = needsPaint;
+  }
   // Handle detailed export status messages
   if (e.is("recorder:export-status")) {
     console.log("🎯 Video piece received status:", e.content);
@@ -1038,6 +1117,7 @@ function handleSystemMessage({ event: e, rec }) {
     if (e.content?.phase) {
       currentExportPhase = e.content.phase;
     }
+    requestPaint();
     
     return true;
   }
@@ -1095,6 +1175,7 @@ function handleSystemMessage({ event: e, rec }) {
         progressHistory = progressHistory.filter(h => now - h.time < 10000);
         
         console.log(`📊 Export progress: ${Math.floor(progress * 100)}% (${exportType}) - ${exportStatusMessage}`);
+        requestPaint();
       }
     }
     return true;
@@ -1149,6 +1230,7 @@ function handleSystemMessage({ event: e, rec }) {
       if (apngBtn) apngBtn.disabled = false;
       if (framesBtn) framesBtn.disabled = false;
       if (btn) btn.disabled = false;
+      requestPaint();
       
       printProgress = 0;
       
@@ -1159,7 +1241,22 @@ function handleSystemMessage({ event: e, rec }) {
       
       // Present the completed video
       rec.present();
+      requestPaint();
     }
+    return true;
+  }
+
+  if (
+    e.is("recorder:present-progress") ||
+    e.is("recorder:present-playing") ||
+    e.is("recorder:present-paused") ||
+    e.is("recorder:presented") ||
+    e.is("recorder:unpresented") ||
+    e.is("recorder:rolling:ended") ||
+    e.is("recorder:printing:started") ||
+    e.is("recorder:printed")
+  ) {
+    requestPaint();
     return true;
   }
 
