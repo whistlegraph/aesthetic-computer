@@ -401,13 +401,25 @@ class Button {
         //   afterDownPointer: e.pointer || 0
         // });
         btn.downPointer = e.pointer || 0;
-      } else if (btn.down && btn.downPointer !== undefined) {
-        console.warn("⚠️ Button already has downPointer - NOT updating:", {
-          buttonId: btn.id || "unnamed",
-          eventPointer: e.pointer,
-          existingDownPointer: btn.downPointer,
-          reason: "downPointer was not cleaned up properly"
-        });
+      } else if (btn.down && btn.downPointer !== undefined && btn.downPointer !== e.pointer) {
+        // In multitouch mode, allow downPointer to be transferred to the new pointer
+        // This prevents buttons from getting stuck when multiple pointers interact with them
+        if (this.multitouch) {
+          console.log("🔄 Transferring downPointer ownership:", {
+            buttonId: btn.id || "unnamed",
+            fromPointer: btn.downPointer,
+            toPointer: e.pointer,
+            reason: "multitouch pointer transfer"
+          });
+          btn.downPointer = e.pointer || 0;
+        } else {
+          console.warn("⚠️ Button already has downPointer - NOT updating:", {
+            buttonId: btn.id || "unnamed",
+            eventPointer: e.pointer,
+            existingDownPointer: btn.downPointer,
+            reason: "downPointer was not cleaned up properly"
+          });
+        }
       }
       btn.over = btn.down;
       // Add to active buttons set
@@ -465,14 +477,9 @@ class Button {
       // });
 
       // Check if this is a valid button push or should be cancelled
-      const isValidPush = isControllingPointer && (
-        // Multi-touch case: all pens are outside box but lift event is inside
-        (pens.length > 1 &&
-          btn.box.containsNone(pens) &&
-          btn.box.contains(e)) ||
-        // Single touch case: lift event is inside box
-        ((!pens || pens.length <= 1) && btn.box.contains(e))
-      );
+      const isValidPush = isControllingPointer && btn.box.contains(e);
+      // The lift event position (e.x, e.y) contains the position where the pointer was lifted.
+      // If it's inside the button box, it's a valid push regardless of where other pointers are.
 
       // console.log("📤 Button lift condition check:", {
       //   buttonId: btn.id || "unnamed",
@@ -501,12 +508,8 @@ class Button {
         callbacks.push?.(btn);
         
         up();
-      } else if (
-        isControllingPointer && (
-          btn.box.containsNone(pens) ||
-          ((!pens || pens.length === 0) && !btn.box.contains(e))
-        )
-      ) {
+      } else if (isControllingPointer && !btn.box.contains(e)) {
+        // Lift event happened outside the button - cancel the button
         btn.down = false;
         btn.over = false;
         // Only remove if still in activeButtons (avoid double removal from force cleanup)
