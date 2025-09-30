@@ -8039,6 +8039,21 @@ async function makeFrame({ data: { type, content } }) {
           currentText !== "sign" &&
           currentPath !== "aesthetic.computer/disks/prompt"
         ) {
+          if (data.key === "Escape") {
+            const stopMerry = $commonApi.system.stopMerryPipeline;
+            if (typeof stopMerry === "function") {
+              stopMerry({
+                reason: "escape",
+                jumpAfter: false,
+                jumpTarget: null,
+                cutTape: true,
+              });
+            } else if ($commonApi.system.merry) {
+              $commonApi.system.merry.running = false;
+              delete $commonApi.system.merry;
+            }
+          }
+
           $commonApi.sound.synth({
             tone: data.key === "Backspace" ? 800 : 1200,
             beats: 0.1,
@@ -10171,9 +10186,122 @@ async function makeFrame({ data: { type, content } }) {
       // Return frame data back to the main thread.
       let sendData = { width: screen.width, height: screen.height };
 
+      // Tack on the merry progress bar at the TOP if a pipeline is running
+      if ($api.system.merry && $api.system.merry.running) {
+        const merry = $api.system.merry;
+        
+        // Calculate progress based on elapsed time
+        const now = Date.now();
+        if (merry.startTime && merry.currentPieceStart) {
+          const totalElapsed = (now - merry.startTime) / 1000; // in seconds
+          const pieceElapsed = (now - merry.currentPieceStart) / 1000;
+          merry.progress = Math.min(1, totalElapsed / merry.totalDuration);
+          merry.pieceProgress = Math.min(1, pieceElapsed / merry.pipeline[merry.currentIndex].duration);
+        }
+        
+        const mainScreenWidth = screen.width;
+        
+        // Create merry progress bar painting with SEGMENTED colored blocks per piece
+        const merryProgressBarPainting = $api.painting(mainScreenWidth, 1, ($) => {
+          const animFrame = Number($api.paintCount || 0n);
+          
+          // Fill with black backdrop
+          $.ink(0, 0, 0, 255).box(0, 0, mainScreenWidth, 1);
+          
+          // Define colors for each piece (cycle through palette)
+          const pieceColors = [
+            { r: 100, g: 255, b: 100 },  // Bright green
+            { r: 100, g: 200, b: 255 },  // Cyan
+            { r: 255, g: 200, b: 100 },  // Orange
+            { r: 255, g: 100, b: 200 },  // Pink
+            { r: 200, g: 100, b: 255 },  // Purple
+            { r: 255, g: 255, b: 100 },  // Yellow
+          ];
+          
+          // Calculate pixel width for each piece based on duration
+          let xOffset = 0;
+          merry.pipeline.forEach((piece, index) => {
+            const pieceWidthRatio = piece.duration / merry.totalDuration;
+            const pieceWidth = Math.floor(mainScreenWidth * pieceWidthRatio);
+            
+            // Determine if this piece is completed, current, or upcoming
+            const isCompleted = index < merry.currentIndex;
+            const isCurrent = index === merry.currentIndex;
+            const isUpcoming = index > merry.currentIndex;
+            
+            // Get color for this piece
+            const color = pieceColors[index % pieceColors.length];
+            
+            // Draw this piece's segment
+            for (let x = xOffset; x < xOffset + pieceWidth && x < mainScreenWidth; x++) {
+              let baseR, baseG, baseB, alpha;
+              
+              if (isCompleted) {
+                // Completed pieces: Full bright color
+                baseR = color.r;
+                baseG = color.g;
+                baseB = color.b;
+                alpha = 255;
+              } else if (isCurrent) {
+                // Current piece: Show progress within this segment
+                const pieceProgress = merry.pieceProgress || 0;
+                const localX = x - xOffset;
+                const progressPoint = Math.floor(pieceWidth * pieceProgress);
+                
+                if (localX <= progressPoint) {
+                  // Filled part of current piece - bright with pulsing
+                  const pulse = Math.sin(animFrame * 0.3) * 0.2 + 0.8;
+                  baseR = Math.floor(color.r * pulse);
+                  baseG = Math.floor(color.g * pulse);
+                  baseB = Math.floor(color.b * pulse);
+                  alpha = 255;
+                  
+                  // Leader pixel - extra bright white
+                  if (localX === progressPoint) {
+                    const leaderPulse = Math.sin(animFrame * 0.6) * 0.3 + 0.7;
+                    baseR = Math.floor(255 * leaderPulse);
+                    baseG = Math.floor(255 * leaderPulse);
+                    baseB = Math.floor(255 * leaderPulse);
+                  }
+                } else {
+                  // Unfilled part of current piece - dim preview
+                  baseR = Math.floor(color.r * 0.3);
+                  baseG = Math.floor(color.g * 0.3);
+                  baseB = Math.floor(color.b * 0.3);
+                  alpha = 255;
+                }
+              } else if (isUpcoming) {
+                // Upcoming pieces: Very dim preview
+                baseR = Math.floor(color.r * 0.15);
+                baseG = Math.floor(color.g * 0.15);
+                baseB = Math.floor(color.b * 0.15);
+                alpha = 255;
+              }
+              
+              $.ink(baseR, baseG, baseB, alpha).box(x, 0, 1, 1);
+            }
+            
+            xOffset += pieceWidth;
+          });
+        });
+        
+        if (merryProgressBarPainting && merryProgressBarPainting.pixels && merryProgressBarPainting.pixels.length > 0) {
+          sendData.merryProgressBar = {
+            x: 0,
+            y: 0, // Position at TOP of screen (1px tall)
+            img: {
+              width: merryProgressBarPainting.width,
+              height: merryProgressBarPainting.height,
+              pixels: merryProgressBarPainting.pixels
+            }
+          };
+        }
+      }
+
       // Tack on the tape progress bar pixel buffer if necessary.
       if ($api.rec.tapeProgress || ($api.rec.recording && $api.rec.tapeTimerDuration)) {
-        const progress = $api.rec.tapeProgress || 0;
+  const progress = $api.rec.tapeProgress || 0;
+  const isMerryRecording = Boolean($api.system.merry?.isTaping);
         
         // Determine if we should show progress bar at all
         const isFrameBased = $api.rec.tapeFrameMode && $api.rec.tapeFrameTarget > 0;
@@ -10243,24 +10371,10 @@ async function makeFrame({ data: { type, content } }) {
           const isFirstFrame = progress <= 0.01; // First 1% of progress
           const isLastFrame = progress >= 0.99;  // Last 1% of progress
           
-          // Calculate smooth alpha fade - progress bar fades from 25% to 75% for longer clean content viewing
-          // Skip fade animation for short recordings
-          let progressBarAlpha = 1.0; // Default to fully visible
+          // Keep progress bar fully visible during recording for consistent HUD feedback
+          let progressBarAlpha = 1.0;
           
-          if (!isShortRecording) {
-            if (progress >= 0.20 && progress <= 0.30) {
-              // Fade out from 20% to 30% (10% fade-out period)
-              progressBarAlpha = 1.0 - ((progress - 0.20) / 0.10);
-            } else if (progress > 0.30 && progress < 0.70) {
-              // Fully hidden from 30% to 70% (40% hidden period)
-              progressBarAlpha = 0.0;
-            } else if (progress >= 0.70 && progress <= 0.80) {
-              // Fade in from 70% to 80% (10% fade-in period)
-              progressBarAlpha = (progress - 0.70) / 0.10;
-            }
-          }
-          
-          // Fill entire bar with black backdrop using fade alpha
+          // Fill entire bar with black backdrop using consistent alpha
           $.ink(0, 0, 0, Math.floor(progressBarAlpha * 255)).box(0, 0, mainScreenWidth, 2);
           
           if (isFrameBased) {
@@ -11197,6 +11311,12 @@ async function makeFrame({ data: { type, content } }) {
         // 🛡️ Create a copy for transfer to avoid detaching the tape progress bar buffer
         const tapePixelsCopy = new Uint8ClampedArray(sendData.tapeProgressBar.img.pixels);
         transferredObjects.push(tapePixelsCopy.buffer);
+      }
+
+      if (sendData.merryProgressBar) {
+        // 🎄 Create a copy for transfer to avoid detaching the merry progress bar buffer
+        const merryPixelsCopy = new Uint8ClampedArray(sendData.merryProgressBar.img.pixels);
+        transferredObjects.push(merryPixelsCopy.buffer);
       }
 
       // console.log("TO:", transferredObjects);

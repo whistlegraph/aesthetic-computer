@@ -1,0 +1,85 @@
+🎄 MERRY PIPELINE - QUICK REFERENCE
+===================================
+
+## What is Merry?
+A command system for chaining aesthetic.computer pieces together in a sequence,
+with a segmented colored progress bar showing each piece and time remaining.
+
+## Visual Progress Bar
+[===green===][=>cyan......][...orange...]
+ ^completed   ^current      ^upcoming
+
+- Top of screen (1px tall)
+- Each segment = one piece
+- Width = duration proportion
+- Colors cycle through palette
+- Shows time remaining visually
+
+## Syntax
+
+### Basic (Default 5s per piece)
+```
+merry piece1 piece2 piece3
+```
+
+### Custom Durations
+```
+merry piece1:3 piece2:5 piece3:2
+```
+(durations in seconds)
+
+### Mixed
+```
+merry piece1:3 piece2 piece3:7
+```
+(piece2 uses default 5s)
+
+## Your Original Example
+```
+merry tone:3 clock:5
+```
+✓ Plays 'tone' for 3 seconds
+✓ Then plays 'clock' for 5 seconds  
+✓ Returns to prompt
+
+## Stop Command
+```
+stop
+```
+or
+```
+merry:stop
+```
+
+## Record with Tape
+```
+tape merry tone:3 clock:5
+```
+- Records the entire pipeline
+- Auto-calculates duration (8s)
+- Auto-cuts when merry ends
+- Jumps to video for export
+
+## What Happens?
+1. Parses your command
+2. Builds a pipeline queue
+3. Jumps to each piece in sequence
+4. Waits the specified duration
+5. Automatically moves to next piece
+6. Returns to prompt when done
+
+## Default Duration
+5 seconds (as you requested)
+
+## Files Modified
+- /workspaces/aesthetic-computer/system/public/aesthetic.computer/disks/prompt.mjs
+  - Added 'merry' command handler (~line 377)
+  - Added 'merry:stop' command handler (~line 545)
+  - Added documentation in README section (~line 5)
+
+## Try It!
+```
+merry tone clock
+merry tone:3 clock:5
+merry line:2 oval:2 rect:2
+```
