@@ -78,7 +78,15 @@ merry tone:3 clock wand:2
 - Mix custom and default durations
 - Pieces without `:duration` use the 5-second default
 
-### 4. Early Stop Command
+### 4. Merry-O Infinite Loop
+```
+merry-o 0.25-tone
+```
+- Repeats the pipeline from the beginning forever
+- Progress bar cycles continuously
+- Exit with `stop` / `merry:stop`
+
+### 5. Early Stop Command
 ```
 stop
 merry:stop
