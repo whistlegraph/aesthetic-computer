@@ -6,7 +6,8 @@
   🎄 Merry Pipeline System
   - Chain pieces together with configurable durations
   - Syntax: `merry piece1 piece2 piece3` (default 5 seconds each)
-  - Custom: `merry tone:3 clock:5 wand:2` (custom durations in seconds)
+  - Custom: `merry tone:3 clock:5 wand:2` or `merry 3-tone 5-clock 2-wand`
+  - Loop forever: `merry-o 0.25-tone` (use `stop` to exit)
   - Stop early: `merry:stop` or `stop`
   - Example: `merry tone:3 clock:5` plays tone for 3s, then clock for 5s, then returns to prompt
 #endregion */
@@ -383,7 +384,10 @@ async function halt($, text) {
 
   system.stopMerryPipeline = stopMerryPipeline;
 
-  const activateMerry = (pieceParams, { markAsTaping = false, flashOnSuccess = true } = {}) => {
+  const activateMerry = (
+    pieceParams,
+    { markAsTaping = false, flashOnSuccess = true, loop = false } = {}
+  ) => {
     if (!pieceParams || pieceParams.length === 0) {
       flashColor = [255, 0, 0];
       makeFlash($);
@@ -396,10 +400,32 @@ async function halt($, text) {
     const defaultDuration = 5;
     const pipeline = [];
 
-    pieceParams.forEach((param) => {
-      const parts = param.split(":");
-      const piece = parts[0];
-      const duration = parts[1] ? parseFloat(parts[1]) : defaultDuration;
+    pieceParams.forEach((raw) => {
+      const param = raw.trim();
+      if (!param) return;
+
+      let piece = param;
+      let duration = defaultDuration;
+
+      const colonParts = param.split(":");
+      if (colonParts.length > 1) {
+        const parsed = parseFloat(colonParts[1]);
+        if (!isNaN(parsed) && parsed > 0) {
+          duration = parsed;
+        }
+        piece = colonParts[0];
+      } else {
+        const hyphenIndex = param.indexOf("-");
+        if (hyphenIndex > 0) {
+          const prefix = param.slice(0, hyphenIndex);
+          const remainder = param.slice(hyphenIndex + 1);
+          const parsed = parseFloat(prefix);
+          if (!isNaN(parsed) && parsed > 0 && remainder) {
+            duration = parsed;
+            piece = remainder;
+          }
+        }
+      }
 
       if (piece && !isNaN(duration) && duration > 0) {
         pipeline.push({ piece, duration });
@@ -427,6 +453,8 @@ async function halt($, text) {
       currentPieceStart: null,
       isTaping: markAsTaping,
       paintInterval: null,
+      loop,
+      cycleCount: 0,
     };
 
     console.log("🎄 Merry pipeline:", pipeline, `total: ${totalDuration}s`);
@@ -470,8 +498,21 @@ async function halt($, text) {
       }
 
       if (index >= pipeline.length) {
+        const merryState = system.merry;
+        if (merryState?.loop && merryState.running) {
+          merryState.cycleCount = (merryState.cycleCount || 0) + 1;
+          merryState.elapsedTime = 0;
+          merryState.progress = 0;
+          merryState.pieceProgress = 0;
+          merryState.currentPieceStart = null;
+          merryState.startTime = Date.now();
+          needsPaint();
+          startMerryPiece(0);
+          return;
+        }
+
         console.log("🎄 Merry pipeline complete!");
-        const wasTaping = system.merry?.isTaping;
+        const wasTaping = merryState?.isTaping;
         stopMerryPipeline({
           reason: "complete",
           jumpAfter: true,
@@ -567,9 +608,14 @@ async function halt($, text) {
     jump("/" + params[0]);
   } else if (shop.indexOf(slug) > -1) {
     jump("/" + slug); // Matches a product so jump to a new page / redirect.
-  } else if (slug === "merry") {
-    console.log("🎄 Merry command received with params:", params);
-    activateMerry(params, { markAsTaping: false, flashOnSuccess: true });
+  } else if (slug === "merry" || slug === "merry-o") {
+    const loop = slug === "merry-o";
+    console.log(`🎄 ${slug.toUpperCase()} command received with params:`, params);
+    activateMerry(params, {
+      markAsTaping: false,
+      flashOnSuccess: true,
+      loop,
+    });
     return true;
   } else if (
     slug === "tape" ||
@@ -632,11 +678,23 @@ async function halt($, text) {
       }
       
       // 🎄 Check if we're taping a merry pipeline anywhere in the params: "tape merry tone:3 clock:5"
-      const merryTokenIndex = params.findIndex((param) => param === "merry");
+      const merryTokenIndex = params.findIndex(
+        (param) => param === "merry" || param === "merry-o"
+      );
       if (merryTokenIndex !== -1) {
         isTapingMerry = true;
         console.log("🎄📼 Taping a merry pipeline detected!");
         
+        const merryToken = params[merryTokenIndex];
+        const loopRequested = merryToken === "merry-o";
+
+        if (loopRequested) {
+          params[merryTokenIndex] = "merry";
+          flashColor = [255, 165, 0];
+          makeFlash($);
+          notice("MERRY-O DISABLED WHILE TAPING", ["yellow", "red"]);
+        }
+
         merryPieceParams = params.slice(merryTokenIndex + 1);
         if (!merryPieceParams.length) {
           flashColor = [255, 0, 0];
@@ -662,7 +720,7 @@ async function halt($, text) {
         console.log(`🎄📼 Calculated merry total duration: ${totalMerryDuration}s`);
         duration = totalMerryDuration; // Set tape duration to match merry duration
 
-        jumpTo = "merry";
+  jumpTo = "merry";
       }
 
       // Gets picked up on next piece load automatically.
@@ -720,6 +778,7 @@ async function halt($, text) {
         const merryStarted = activateMerry(merryPieceParams, {
           markAsTaping: true,
           flashOnSuccess: false,
+          loop: false,
         });
         if (!merryStarted) {
           return true;
