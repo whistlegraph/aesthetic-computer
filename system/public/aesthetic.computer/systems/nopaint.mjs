@@ -539,7 +539,14 @@ function nopaint_adjust(
         // Detect if we are in light or dark mode...
         // $common
         p.wipe(theme[dark ? "dark" : "light"].wipeNum);
-        p.paste(sys.painting);
+        
+        // Only paste the old painting if we're resizing, not creating a new one
+        // Check if slug indicates this is a "new" operation (which should start fresh)
+        const isNewPainting = slug && (slug === "new" || slug.startsWith("new~"));
+        
+        if (!isNewPainting && sys.painting) {
+          p.paste(sys.painting);
+        }
       }
     });
 
