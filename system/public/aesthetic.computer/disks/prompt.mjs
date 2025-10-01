@@ -1623,7 +1623,12 @@ async function halt($, text) {
       h = parseInt(params[1]) || w;
 
     let size;
-    if (!isNaN(w) && !isNaN(h)) size = { w, h };
+    if (!isNaN(w) && !isNaN(h)) {
+      size = { w, h };
+    } else {
+      // If no params or invalid params, use full screen dimensions
+      size = { w: screen.width, h: screen.height };
+    }
     
     await system.nopaint.noBang(
       // {
