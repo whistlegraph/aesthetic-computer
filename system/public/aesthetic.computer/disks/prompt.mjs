@@ -1630,24 +1630,36 @@ async function halt($, text) {
       size = { w: screen.width, h: screen.height };
     }
     
-    await system.nopaint.noBang(
-      // {
-      // system,
-      // store,
-      // screen,
-      // needsPaint,
-      // painting,
-      api,
-      // },
-      size, // Set a custom resolution to start.
-    );
+    // Clear storage and reset state (without creating a painting yet)
+    await store.delete("painting", "local:db");
+    await store.delete("painting:resolution-lock", "local:db");
+    await store.delete("painting:transform", "local:db");
+    await store.delete("painting:record", "local:db");
+    
+    // Also clear from memory to ensure nopaint_adjust doesn't see stale values
+    delete store["painting"];
+    delete store["painting:resolution-lock"];
+    delete store["painting:transform"];
+    delete store["painting:record"];
+    
+    system.nopaint.undo.paintings.length = 0; // Reset undo stack.
+    system.painting = null;
+    system.nopaint.resetTransform({ system, screen }); // Reset transform.
+    
+    if (system.nopaint.recording) {
+      system.nopaint.recording = false;
+      system.nopaint.record.length = 0;
+    }
     
     let fullText = slug;
     if (params.length > 0) fullText += "~" + params.join("~");
     
+    // Now create the new painting at the specified size
     nopaint_adjust(api, size, fullText);
     
     system.nopaint.startRecord(fullText); // Start recording paintings.
+    
+    needsPaint();
     
     flashColor = [200, 0, 200];
     makeFlash($);
@@ -1867,8 +1879,6 @@ function paint($) {
 
     // 🤖 Check if we're in kidlisp mode
     const inKidlispMode = isPromptInKidlispMode(currentInputText);
-    
-    console.log("🎨 [Cursor Color] text:", currentInputText, "-> inKidlispMode:", inKidlispMode);
 
     // Store kidlisp mode state for other parts of the prompt to use
     $.system.prompt.kidlispMode = inKidlispMode;
