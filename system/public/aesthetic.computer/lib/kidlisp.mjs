@@ -10499,11 +10499,43 @@ function decodeKidlispFromUrl(encoded) {
   return decoded;
 }
 
+// Check if the prompt should use syntax highlighting (includes nopaint brushes)
+// This is separate from isKidlispSource which determines execution mode
+function shouldUseSyntaxHighlighting(promptText) {
+  if (!promptText || typeof promptText !== "string") return false;
+  
+  const trimmed = promptText.trim();
+  
+  // Check if it's actual KidLisp code
+  if (isKidlispSource(promptText)) {
+    return true;
+  }
+  
+  // Check for nopaint brush commands that should be highlighted but NOT executed as KidLisp
+  const nopaintBrushes = [
+    "box", "shape", "line", "rect", "fill", "smear", "spray", 
+    "plot", "oval", "circle", "handprint", "word", "paste", "stamp"
+  ];
+  const firstWord = trimmed.split(/\s+/)[0].toLowerCase();
+  if (nopaintBrushes.includes(firstWord)) {
+    return true;
+  }
+  
+  return false;
+}
+
+// Check if this is actual KidLisp code (not just nopaint with highlighting)
+// Used for UI indicators like green cursor
+function isActualKidLisp(promptText) {
+  if (!promptText || typeof promptText !== "string") return false;
+  return isKidlispSource(promptText);
+}
+
 // Check if the prompt is currently in kidlisp mode based on the input text
 function isPromptInKidlispMode(promptText) {
   if (!promptText || typeof promptText !== "string") return false;
-  // Use the original text (not trimmed) for proper newline detection
-  return isKidlispSource(promptText);
+  // Use the highlighting function which includes both KidLisp and nopaint brushes
+  return shouldUseSyntaxHighlighting(promptText);
 }
 
 // Add result logging to see if detection is working
@@ -10925,6 +10957,7 @@ export {
   encodeKidlispForUrl,
   decodeKidlispFromUrl,
   isPromptInKidlispMode,
+  isActualKidLisp,
   fetchCachedCode,
   fetchMultipleCachedCodes,
   getCachedCode,
