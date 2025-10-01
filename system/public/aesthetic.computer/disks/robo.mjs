@@ -629,8 +629,8 @@ class RoboPathGenerator {
     }
     const directions = ["horizontal", "vertical", "diagonal"];
     const direction = directions[this.randomInt(0, directions.length - 1)];
-    const neat = Math.random() < 0.25;
-    const fadePrefix = neat ? "fade:neat" : "fade";
+    const dirty = Math.random() < 0.25;  // Changed: 25% chance of dirty (75% neat which is default)
+    const fadePrefix = dirty ? "fade:dirty" : "fade";  // Changed: add dirty modifier when not neat
     const fadeString = `${fadePrefix}:${colorA}-${colorB}:${direction}`;
     return [fadeString, 255];
   }

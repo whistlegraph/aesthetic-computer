@@ -57,14 +57,17 @@ function ensureFadeDirectionString(fadeString, angleDegrees) {
   const parts = fadeString.split(":");
   if (parts.length < 2) return fadeString;
 
-  let hasNeat = false;
+  let hasDirty = false;  // Changed: check for dirty instead of neat (neat is now default)
   let type = null;
   let directionExists = false;
 
   for (let i = 1; i < parts.length; i += 1) {
     const segment = parts[i];
-    if (segment === "neat") {
-      hasNeat = true;
+    if (segment === "dirty") {  // Changed: check for dirty
+      hasDirty = true;
+      continue;
+    }
+    if (segment === "neat") {  // Still allow neat keyword (it's just explicit default now)
       continue;
     }
     if (!type) {
@@ -82,7 +85,7 @@ function ensureFadeDirectionString(fadeString, angleDegrees) {
   const angle = formatAngle(angleDegrees);
   if (angle === null) return fadeString;
 
-  return hasNeat ? `fade:neat:${type}:${angle}` : `fade:${type}:${angle}`;
+  return hasDirty ? `fade:dirty:${type}:${angle}` : `fade:${type}:${angle}`;  // Changed: add dirty prefix if needed
 }
 
 function alignFadeColorToLine(color, endpoints) {
