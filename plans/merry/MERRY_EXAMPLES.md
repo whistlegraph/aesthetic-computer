@@ -62,10 +62,29 @@ This will:
 3. Automatically transition to `wand` for 2 seconds
 4. Return to `prompt`
 
+- pieces without an explicit duration default to 5 seconds
+
+### Prefix Durations (Shorthand)
+```
+merry 3-tone 5-clock 2-wand
+```
+- Numbers before the dash indicate seconds
+- Mix and match with suffix syntax if you like
+
+### Infinite Loop (`merry-o`)
+```
+merry-o 0.25-tone
+```
+- Repeats the pipeline forever until you run `stop`
+- Useful for ambient loops or focused practice sessions
+- The progress bar keeps cycling each time it wraps
+
 ## Commands
 
 - **`merry piece1 piece2 ...`** - Start a merry pipeline with default 5-second durations
 - **`merry piece1:duration1 piece2:duration2 ...`** - Start with custom durations (in seconds)
+- **`merry 2-piece1 5-piece2`** - Alternate shorthand using numeric prefixes
+- **`merry-o piece1 piece2`** - Loop the sequence until stopped
 - **`merry:stop`** or **`stop`** - Stop the current merry pipeline early and return to prompt
 - **`tape merry piece1:duration1 piece2:duration2 ...`** - Record the entire pipeline (auto-calculates duration)
 
