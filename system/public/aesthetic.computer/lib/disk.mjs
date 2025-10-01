@@ -2436,7 +2436,6 @@ const $commonApi = {
         if (system.nopaint.recording) {
           system.nopaint.recording = false;
           system.nopaint.record.length = 0;
-          console.log("🖌️🛑 Recording cleared.");
         }
 
         return deleted;
@@ -3299,7 +3298,6 @@ $commonApi.broadcastPaintingUpdate = (action, data = {}) => {
   // Throttle broadcasts to prevent excessive messages
   const now = Date.now();
   if (now - lastBroadcastTime < broadcastThrottleDelay) {
-    console.log(`🎨 THROTTLED: Skipping broadcast of ${action} (too frequent)`);
     return;
   }
   lastBroadcastTime = now;
