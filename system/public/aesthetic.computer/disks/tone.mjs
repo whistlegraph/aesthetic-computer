@@ -10,7 +10,7 @@
         held down.
 #endregion */
 
-let tone, type, sound, d;
+let tone, type, toneSound, d;
 
 function boot({ wipe, slug, params, colon, hud, sound: { synth }, num, help }) {
   wipe(0, 0, 0);
@@ -26,32 +26,74 @@ function boot({ wipe, slug, params, colon, hud, sound: { synth }, num, help }) {
   synth({ type, tone, volume: 1.0, duration: 0.25, attack: 0.1, decay: 0.99 });
 }
 
-function sim({ colon, simCount, jump, leaving, num }) {
+function sim({ colon, simCount, jump, leaving, num, sound }) {
   if (colon[0] === "cycle" && !leaving() && simCount >= 1n)
     jump(`tone:cycle~${num.randIntRange(400, 500)}`, true);
+
+  sound?.speaker?.poll?.();
 }
 
-function paint({ wipe, num }) {
+function paint({ wipe, num, api, sound, screen, help }) {
   // Executes every display frame.
-  if (sound) {
-    wipe(255 * d)
+  if (toneSound) {
+    wipe(255 * d);
   } else {
-    wipe(0)
+    wipe(0);
   }
+
+  const speaker = sound?.speaker;
+  const paintWaveform = sound?.paint?.waveform;
+  if (!speaker || !paintWaveform) return;
+
+  const waveformSource = speaker.waveforms?.left?.length
+    ? speaker.waveforms.left
+    : speaker.waveforms?.right;
+
+  if (!waveformSource?.length) return;
+
+  const amplitudeSource = speaker.amplitudes?.left?.length
+    ? speaker.amplitudes.left
+    : speaker.amplitudes?.right;
+
+  let amplitude = 0;
+  if (Array.isArray(amplitudeSource) && amplitudeSource.length) {
+    amplitude = num?.arrMax ? num.arrMax(amplitudeSource) : 0;
+  } else if (typeof amplitudeSource === "number") {
+    amplitude = amplitudeSource;
+  }
+
+  const scope = Math.min(waveformSource.length, screen.width * 2);
+  const samples =
+    typeof help?.resampleArray === "function"
+      ? help.resampleArray(waveformSource, scope)
+      : waveformSource.slice(0, scope);
+
+  const alpha = toneSound ? 176 : 96;
+  paintWaveform(
+    api,
+    amplitude || 0.1,
+    samples,
+    0,
+    0,
+    screen.width,
+    screen.height,
+    [255, 255, 255, alpha],
+  );
 }
 
 function act({ event: e, sound: { synth }, num, screen }) {
   if (e.is("touch")) {
     // playing
     d = num.map(num.dist(e.x, e.y, screen.width / 2, screen.height / 2), 0, screen.height / 2, 1, 0);
-    sound = synth({ type, tone, volume: d, duration: "🔁", attack: 0.1, decay: 0.99 });
+    toneSound = synth({ type, tone, volume: d, duration: "🔁", attack: 0.1, decay: 0.99 });
   } else if (e.is("lift")) {
     // stop playing
-    sound?.kill(0.25);
-    sound = null;
-  } else if (e.is('draw') && sound) {
+    toneSound?.kill(0.25);
+    toneSound = null;
+    d = 0;
+  } else if (e.is('draw') && toneSound) {
     d = num.map(num.dist(e.x, e.y, screen.width / 2, screen.height / 2), 0, screen.height / 2, 1, 0);
-    sound.update({ volume: d });
+    toneSound.update({ volume: d });
   }
 }
 
