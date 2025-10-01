@@ -7988,11 +7988,6 @@ async function makeFrame({ data: { type, content } }) {
 
     // 🌟 Global Keyboard Shortcuts (these could also be seen via `act`)
     content.keyboard.forEach((data) => {
-      // Log ALL keyboard events to debug Shift
-      if (data.key === "Shift") {
-        console.log("🔑 [Keyboard Event] Shift detected! data:", data);
-      }
-      
       if (currentText && currentText.indexOf("botce") > -1) return; // No global keys on `botce`. 23.11.12.23.38
       if (data.name.indexOf("keyboard:down") === 0) {
         // [Escape] (Deprecated on 23.05.22.19.33)
