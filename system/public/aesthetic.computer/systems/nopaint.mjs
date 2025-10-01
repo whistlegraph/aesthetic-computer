@@ -97,18 +97,15 @@ function nopaint_boot({
     // Parse color centrally for all brushes
     system.nopaint.color = num.parseColor(params);
     
-    // Generate colored HUD label to completely replace the default one
+    // Generate colored HUD label using the full syntax highlighting system
     const modifiers = colon && colon.length > 0 ? `:${colon.join(":")}` : "";
     const brushName = api.slug || "brush";
     
     // Extract just the piece name (without parameters) for the base
     const pieceName = brushName.split('~')[0].split(':')[0];
     
-    let label = `\\cyan\\${pieceName}`;
-    if (modifiers) label += `\\gray\\${modifiers}`;
-    if (params.length > 0) {
-      label += " " + params.map(p => colorizeColorName(p)).join(" ");
-    }
+    // Use generateNopaintHUDLabel for proper color syntax highlighting
+    const label = generateNopaintHUDLabel(pieceName, system.nopaint.color, params, modifiers);
     
     // Completely replace currentHUDTxt directly instead of using hud.label
     if (typeof window !== 'undefined' && window.currentHUDTxt !== undefined) {
