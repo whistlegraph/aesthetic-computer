@@ -10723,32 +10723,32 @@ async function makeFrame({ data: { type, content } }) {
       
 
       if (isInlineKidlispPiece && sourceCode && !hideLabel && (hudAnimationState.visible || hudAnimationState.animating || hudAnimationState.qrFullscreen)) {
-        console.log("🎨 [QR Debug] Entering QR generation. qrFullscreen:", hudAnimationState.qrFullscreen, "sourceCode:", sourceCode?.substring(0, 50));
+        //console.log("🎨 [QR Debug] Entering QR generation. qrFullscreen:", hudAnimationState.qrFullscreen, "sourceCode:", sourceCode?.substring(0, 50));
         try {
           // For $code pieces, the sourceCode is the code itself, so use it directly
           let cachedCode;
           if (sourceCode.startsWith("$")) {
             // For $code format, the sourceCode IS the cached code (without $)
             cachedCode = sourceCode.substring(1); // Remove the $ prefix
-            console.log("🔑 [QR Debug] Using $code format, cachedCode:", cachedCode);
+            // console.log("🔑 [QR Debug] Using $code format, cachedCode:", cachedCode);
           } else {
             // For regular KidLisp source, check if it has been cached
             cachedCode = getCachedCode(sourceCode);
-            console.log("🔍 [QR Debug] Checked cache, cachedCode:", cachedCode);
+            // console.log("🔍 [QR Debug] Checked cache, cachedCode:", cachedCode);
             
             // If not cached yet but QR fullscreen is active (shift was pressed),
             // trigger caching and request a repaint when complete
             if (!cachedCode && hudAnimationState.qrFullscreen) {
-              console.log("⏳ [QR Debug] Code not cached, triggering caching...");
+              //console.log("⏳ [QR Debug] Code not cached, triggering caching...");
               const kidlispInstance = getGlobalKidLisp();
               if (kidlispInstance) {
-                console.log("✅ [QR Debug] Got KidLisp instance, calling cacheKidlispSource");
+                //console.log("✅ [QR Debug] Got KidLisp instance, calling cacheKidlispSource");
                 // Trigger caching asynchronously
                 kidlispInstance.cacheKidlispSource(sourceCode, $commonApi).then(() => {
                   // Check if code was successfully cached
                   const newCachedCode = getCachedCode(sourceCode);
                   if (newCachedCode) {
-                    console.log(`🔄 Code cached after shift press: $${newCachedCode}`);
+                    //console.log(`🔄 Code cached after shift press: $${newCachedCode}`);
                     // Trigger repaint to show the QR code
                     if (typeof window !== "undefined" && window.$activePaintApi?.needsPaint) {
                       window.$activePaintApi.needsPaint();
