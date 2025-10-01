@@ -1336,8 +1336,8 @@ class TextInput {
       }
     } else {
       if (this.cursor === "blink" && this.showBlink && this.canType) {
-        // Use green cursor in kidlisp mode, otherwise use normal color
-        const cursorColor = $.system?.prompt?.kidlispMode
+        // Use green cursor only for actual KidLisp code, not for nopaint brushes
+        const cursorColor = $.system?.prompt?.actualKidlisp
           ? $.dark
             ? [100, 255, 100]
             : [0, 150, 0]

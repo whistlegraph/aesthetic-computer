@@ -80,6 +80,7 @@ import { signed as shop } from "../lib/shop.mjs";
 import { ordfish } from "./ordfish.mjs";
 import {
   isPromptInKidlispMode,
+  isActualKidLisp,
   decodeKidlispFromUrl,
   encodeKidlispForUrl,
   isKidlispSource,
@@ -1936,11 +1937,15 @@ function paint($) {
   if ($.system.prompt.input.canType) {
     const currentInputText = $.system.prompt.input.text;
 
-    // 🤖 Check if we're in kidlisp mode
+    // 🤖 Check if we're in kidlisp mode (for syntax highlighting)
     const inKidlispMode = isPromptInKidlispMode(currentInputText);
+    
+    // 🟢 Check if this is ACTUAL KidLisp code (for cursor color, not just nopaint)
+    const isActualKidLispCode = isActualKidLisp(currentInputText);
 
     // Store kidlisp mode state for other parts of the prompt to use
     $.system.prompt.kidlispMode = inKidlispMode;
+    $.system.prompt.actualKidlisp = isActualKidLispCode;
 
     // If activeCompletions is currently empty, but the input text itself
     // is a valid, non-hidden command, it's likely due to a Tab completion
