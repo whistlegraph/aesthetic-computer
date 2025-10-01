@@ -1265,9 +1265,9 @@ function clear() {
         
         if (!isNaN(numericAngle)) {
           // Use angle-based fade calculation
-          if (x === minX && y === minY) {
-            console.log(`🎯 GRADIENT ROTATION: Using angle ${numericAngle}° for fade at (${x},${y})`);
-          }
+          // if (x === minX && y === minY) {
+          //   console.log(`🎯 GRADIENT ROTATION: Using angle ${numericAngle}° for fade at (${x},${y})`);
+          // }
           t = calculateAngleFadePosition(x, y, minX, minY, maxX - 1, maxY - 1, numericAngle);
         } else {
           // Use named direction
