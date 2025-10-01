@@ -8973,7 +8973,32 @@ async function makeFrame({ data: { type, content } }) {
               push: (btn) => {
                 const fallbackShareWidth = tf.blockWidth * "share ".length;
                 const shareWidth = Math.max(currentHUDShareWidth || 0, fallbackShareWidth);
-                if (currentHUDScrub > 0 && currentHUDScrub <= shareWidth) {
+                
+                // If scrubbed to reveal "share", jump to share piece
+                if (currentHUDScrub >= shareWidth) {
+                  // Clear global HUD button flags
+                  currentHUDButtonActive = false;
+                  currentHUDButtonDirectTouch = false;
+                  
+                  $api.sound.synth({
+                    tone: 1200,
+                    beats: 0.1,
+                    attack: 0.01,
+                    decay: 0.5,
+                    volume: 0.15,
+                  });
+                  
+                  // Build the share URL with current piece as parameter
+                  const content = currentHUDPlainTxt || currentHUDTxt;
+                  jump(`share~${content}`);
+                  $api.needsPaint();
+                  masked = true;
+                  currentHUDScrub = 0;
+                  return;
+                }
+                
+                // If scrubbed but not to max, cancel the push
+                if (currentHUDScrub > 0 && currentHUDScrub < shareWidth) {
                   btn.actions.cancel?.();
                   return;
                 }
