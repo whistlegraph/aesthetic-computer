@@ -6546,14 +6546,16 @@ async function load(
           // 📊 Trigger bake flash effect and beep sound
           nopaint_triggerBakeFlash();
           
-          // 🔊 Microwave-style beep for bake completion
-          $commonApi.sound.synth({
-            tone: 800, // Higher pitched beep like a microwave
-            duration: 0.1,
-            attack: 0.01,
-            decay: 0.5,
-            volume: 0.3,
-          });
+          // 🔊 Microwave-style beep for bake completion (only for robo)
+          if (currentPath?.includes('robo')) {
+            $commonApi.sound.synth({
+              tone: 800, // Higher pitched beep like a microwave
+              duration: 0.1,
+              attack: 0.01,
+              decay: 0.5,
+              volume: 0.3,
+            });
+          }
           
           // 🎨 ELEGANT BRUSH PATTERN: Call brush or lift function for final painting
           if (brush || lift) {
