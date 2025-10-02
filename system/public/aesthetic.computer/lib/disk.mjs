@@ -8324,30 +8324,34 @@ async function makeFrame({ data: { type, content } }) {
         // Return if it's just a number or parses as one.
         if (typeof input === "number") return input;
         if (input === null || input === undefined) return null;
-        if (!isNaN(parseFloat(input)) && isFinite(input)) return Number(input);
 
-        let octave, note;
-        input = input.toLowerCase(); // Downcase everything.
+        const trimmed = String(input).trim();
+        if (trimmed === "") return null;
 
-        // Check if the first character is a digit to determine if an octave is provided at the beginning
-        if (!isNaN(input.charAt(0))) {
-          // The first character is the octave
-          octave = parseInt(input.charAt(0), 10);
-          note = input.substring(1);
-        } else if (!isNaN(input.charAt(input.length - 1))) {
-          // The last character is the octave
-          octave = parseInt(input.charAt(input.length - 1), 10);
-          note = input.substring(0, input.length - 1);
-        } else {
-          // If no octave is provided, default to octave 4
-          octave = 4;
-          note = input;
+        if (!isNaN(parseFloat(trimmed)) && isFinite(trimmed)) return Number(trimmed);
+
+        let octave = 4;
+        let note = trimmed.toLowerCase(); // Downcase everything.
+
+        // Handle special tokens that shouldn't resolve to a frequency
+        if (note === "rest" || note === "pause" || note === "_" || note === "speech") return null;
+
+        const prefixMatch = note.match(/^(-?\d+)([a-z#/+\-]+)$/);
+        const suffixMatch = note.match(/^([a-z#/+\-]+)(-?\d+)$/);
+
+        if (prefixMatch) {
+          octave = parseInt(prefixMatch[1], 10);
+          note = prefixMatch[2];
+        } else if (suffixMatch) {
+          note = suffixMatch[1];
+          octave = parseInt(suffixMatch[2], 10);
         }
 
-        // Replace 's' with '#' and trailing 'f' with 'b', but only for note strings of length 2
-        if (note.length === 2) {
-          note = note.replace("s", "#").replace(/f$/, "b");
-        }
+        // Remove trailing + or - markers and other notation artifacts
+        note = note.replace(/[+\-]+$/g, "");
+
+        // Replace notepat "s"/"f" suffixes with standard accidentals when appropriate
+        note = note.replace(/^([a-g])s$/, "$1#").replace(/^([a-g])f$/, "$1b");
 
         const frequency = noteFrequencies[note]; // Look up freq for the note.
         if (!frequency) throw new Error("Note not found in the list");
