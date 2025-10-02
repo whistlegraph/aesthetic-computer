@@ -4,9 +4,11 @@
 set -gx NETLIFY_CLI_TELEMETRY_DISABLED 1
 set -gx NODE_DISABLE_COMPILE_CACHE 1
 
-if test -d /home/me/envs
+if test -f /home/me/envs/load_envs.fish
     source /home/me/envs/load_envs.fish
-    load_envs # Load devcontainer envs conditionally.
+    if functions -q load_envs
+        load_envs # Load devcontainer envs conditionally.
+    end
 end
 
 # Add Deno to PATH
@@ -481,6 +483,111 @@ function platform
     emacsclient -nw -c --eval '(aesthetic-backend (quote "status"))'
 end
 
+function ensure-emacs-daemon-ready
+    set -l timeout 240
+    set -l silent 0
+    set -l force_restart 0
+    argparse 't/timeout=' 's/silent' 'f/force' -- $argv
+    or return 1
+
+    if set -q _flag_timeout
+        set timeout $_flag_timeout
+    end
+    if set -q _flag_silent
+        set silent 1
+    end
+    if set -q _flag_force
+        set force_restart 1
+    end
+
+    set -l log_file /tmp/emacs-debug.log
+    set -l config_path /home/me/aesthetic-computer/dotfiles/dot_config/emacs.el
+    set -l wait_step 2
+    set -l next_report 10
+
+    if test $force_restart -eq 1
+        if test $silent -ne 1
+            echo "♻️  Forcing emacs daemon restart..."
+        end
+        pkill -f "emacs.*daemon" 2>/dev/null
+        sleep 2
+    else if pgrep -f "emacs.*daemon" >/dev/null
+        if emacsclient -e t >/dev/null 2>&1
+            if test $silent -ne 1
+                echo "✅ Emacs daemon already running"
+            end
+            return 0
+        else
+            if test $silent -ne 1
+                echo "⚠️  Emacs daemon process unresponsive, restarting..."
+            end
+            pkill -f "emacs.*daemon" 2>/dev/null
+            sleep 2
+        end
+    end
+
+    if not test -f $config_path
+        echo "❌ Emacs configuration not found at $config_path"
+        return 1
+    end
+
+    if test $silent -ne 1
+        echo "🚀 Bootstrapping emacs daemon (timeout: $timeout s)"
+        echo "📜 Logs will stream from $log_file"
+    end
+
+    rm -f $log_file
+    command emacs -q --daemon -l $config_path &
+    set -l daemon_pid $last_pid
+    if test -z "$daemon_pid"
+        set daemon_pid (jobs -l | tail -n1 | awk '{print $2}')
+    end
+
+    set -l elapsed 0
+    while test $elapsed -lt $timeout
+        if emacsclient -e t >/dev/null 2>&1
+            if test $silent -ne 1
+                echo "✅ Emacs daemon is ready!"
+            end
+            return 0
+        end
+
+        if test -n "$daemon_pid"
+            if not kill -0 $daemon_pid 2>/dev/null
+                if test $silent -ne 1
+                    echo "❌ Emacs daemon exited unexpectedly. Check $log_file for details."
+                    if test -f $log_file
+                        tail -n 20 $log_file
+                    end
+                end
+                return 1
+            end
+        end
+
+        sleep $wait_step
+        set elapsed (math "$elapsed + $wait_step")
+
+        if test $silent -ne 1
+            if test $elapsed -ge $next_report
+                echo "⏳ Waiting for emacs daemon... ($elapsed/$timeout s)"
+                if test -f $log_file
+                    tail -n 5 $log_file
+                end
+                set next_report (math "$next_report + 10")
+            end
+        end
+    end
+
+    if test $silent -ne 1
+        echo "❌ Emacs daemon did not become ready within $timeout seconds."
+        if test -f $log_file
+            tail -n 20 $log_file
+        end
+    end
+
+    return 1
+end
+
 # ⏲️ Wait on `entry.fish` to touch the `.waiter` file.
 
 function aesthetic
@@ -505,49 +612,7 @@ function aesthetic
         sudo rm /home/me/.waiter
     end
     
-    # Start emacs daemon if not running
-    if not pgrep -f "emacs.*daemon" >/dev/null
-        echo "Starting emacs daemon..."
-        emacs -q --daemon -l ~/aesthetic-computer/dotfiles/dot_config/emacs.el &
-        
-        # Wait for daemon to be ready with timeout and better error handling
-        set -l timeout 30
-        set -l count 0
-        echo "Waiting for emacs daemon to start..."
-        
-        while test $count -lt $timeout
-            if emacsclient -e t >/dev/null 2>&1
-                echo "✅ Emacs daemon is ready!"
-                break
-            end
-            
-            printf "⏳ Waiting for daemon (%d/%d)...\n" (math $count + 1) $timeout
-            sleep 1
-            set count (math $count + 1)
-        end
-        
-        if test $count -eq $timeout
-            echo "❌ Timeout waiting for emacs daemon to start"
-            echo "Trying to start daemon again..."
-            pkill -f "emacs.*daemon" 2>/dev/null
-            sleep 2
-            emacs -q --daemon -l ~/aesthetic-computer/dotfiles/dot_config/emacs.el &
-            sleep 3
-        end
-    else
-        echo "✅ Emacs daemon already running"
-        # Double-check that it's actually responsive
-        if not emacsclient -e t >/dev/null 2>&1
-            echo "⚠️  Daemon found but not responsive, restarting..."
-            pkill -f "emacs.*daemon" 2>/dev/null
-            sleep 2
-            emacs -q --daemon -l ~/aesthetic-computer/dotfiles/dot_config/emacs.el &
-            sleep 3
-        end
-    end
-    
-    # Final check before connecting
-    if not emacsclient -e t >/dev/null 2>&1
+    if not ensure-emacs-daemon-ready --timeout=360
         echo "❌ Cannot connect to emacs daemon. Please check your emacs configuration."
         return 1
     end
@@ -566,30 +631,9 @@ end
 function aesthetic-direct
     echo "🚀 Starting aesthetic directly (no wait)..."
     
-    # Start emacs daemon if not running
-    if not pgrep -f "emacs.*daemon" >/dev/null
-        echo "Starting emacs daemon..."
-        emacs -q --daemon -l ~/aesthetic-computer/dotfiles/dot_config/emacs.el &
-        
-        # Wait with timeout
-        set -l timeout 20
-        set -l count 0
-        while test $count -lt $timeout
-            if emacsclient -e t >/dev/null 2>&1
-                echo "✅ Emacs daemon ready!"
-                break
-            end
-            printf "⏳ Waiting (%d/%d)...\n" (math $count + 1) $timeout
-            sleep 1
-            set count (math $count + 1)
-        end
-        
-        if test $count -eq $timeout
-            echo "❌ Timeout waiting for daemon"
-            return 1
-        end
-    else
-        echo "✅ Emacs daemon already running"
+    if not ensure-emacs-daemon-ready --timeout=300 --silent
+        echo "❌ Cannot connect to emacs daemon."
+        return 1
     end
     
     # Connect to emacs with aesthetic-backend
@@ -615,12 +659,12 @@ end
 # Helper function to restart emacs daemon
 function restart-daemon
     echo "🔄 Restarting emacs daemon..."
-    pkill -f "emacs.*daemon" 2>/dev/null
-    sleep 2
-    echo "🚀 Starting fresh daemon..."
-    emacs -q --daemon -l ~/aesthetic-computer/dotfiles/dot_config/emacs.el &
-    sleep 3
-    check-daemon
+    if ensure-emacs-daemon-ready --force --timeout=360
+        check-daemon
+    else
+        echo "❌ Failed to restart emacs daemon."
+        check-daemon
+    end
 end
 
 function ac-site

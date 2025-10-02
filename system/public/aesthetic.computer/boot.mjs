@@ -280,8 +280,33 @@ if (
 if (window.acSTARTING_PIECE === undefined) window.acSTARTING_PIECE = "prompt";
 
 // In TEIA mode, always use acSTARTING_PIECE instead of URL slug
-const pieceToLoad = window.acTEIA_MODE ? window.acSTARTING_PIECE : (slug(location.href) || window.acSTARTING_PIECE);
+let originalUrl = location.href;
+let sluggedUrl = null;
+
+if (!window.acTEIA_MODE) {
+  sluggedUrl = slug(originalUrl) || window.acSTARTING_PIECE;
+} else {
+  sluggedUrl = window.acSTARTING_PIECE;
+}
+
+if (window.acDEBUG || window.acVSCODE) {
+  console.log("🧭 URL pipeline", {
+    originalUrl,
+    sluggedUrl,
+  });
+}
+
+const pieceToLoad = sluggedUrl;
 const parsed = parse(pieceToLoad);
+
+if (window.acDEBUG || window.acVSCODE) {
+  console.log("🧭 Parsed result", {
+    text: parsed?.text,
+    search: parsed?.search,
+    hash: parsed?.hash,
+    params: parsed?.params,
+  });
+}
 
 // Preserve the original search parameters that were stripped by slug()
 if (location.search) {

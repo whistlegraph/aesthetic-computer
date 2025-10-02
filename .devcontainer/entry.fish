@@ -6,6 +6,7 @@ function ensure_docker_socket_permissions
     if test -S $DOCKER_SOCKET
         set -l DOCKER_GID (stat -c '%g' $DOCKER_SOCKET)
         set -l CURRENT_DOCKER_GROUP_INFO (getent group $DOCKER_GID)
+        set -l TARGET_GROUP ""
 
         if test -z "$CURRENT_DOCKER_GROUP_INFO" # No group with this GID exists
             if getent group docker > /dev/null
@@ -15,35 +16,38 @@ function ensure_docker_socket_permissions
                 echo "Creating new docker group with GID $DOCKER_GID..."
                 sudo groupadd -g $DOCKER_GID docker
             end
+            set TARGET_GROUP docker
         else # A group with this GID already exists, check if it's named 'docker'
             set -l GROUP_NAME (echo $CURRENT_DOCKER_GROUP_INFO | cut -d: -f1)
             if test "$GROUP_NAME" != "docker"
-                echo "Warning: Group with GID $DOCKER_GID exists but is named '$GROUP_NAME', not 'docker'. Manual intervention might be needed."
-                # Optionally, you could decide to add 'me' to this group anyway,
-                # or try to rename it if it's safe, or delete and recreate 'docker' group.
-                # For now, we'll proceed assuming 'docker' is the target group name.
-                if getent group docker > /dev/null
-                    echo "Modifying existing docker group to GID $DOCKER_GID..."
-                    sudo groupmod -g $DOCKER_GID docker
+                if test $DOCKER_GID -eq 0
+                    echo "⚠️  Docker socket belongs to GID 0 (root). Applying ACL for user access instead of modifying groups."
+                    sudo setfacl -m u:me:rw $DOCKER_SOCKET 2>/dev/null
+                    or begin
+                        echo "⚠️  setfacl unavailable; falling back to permissive chmod on docker socket."
+                        sudo chmod 666 $DOCKER_SOCKET
+                    end
+                    set TARGET_GROUP "" # Access handled via ACL/chmod
                 else
-                    echo "Creating new docker group with GID $DOCKER_GID..."
-                    sudo groupadd -g $DOCKER_GID docker
+                    echo "ℹ️  Docker socket group is '$GROUP_NAME'; using existing group."
+                    set TARGET_GROUP $GROUP_NAME
                 end
             else
                 echo "Docker group '$GROUP_NAME' with GID $DOCKER_GID already exists."
+                set TARGET_GROUP docker
             end
         end
 
-        # Ensure 'me' user is in the 'docker' group
-        if not groups me | string match -q -r '\\bdocker\\b'
-            echo "Adding user 'me' to docker group..."
-            sudo usermod -aG docker me
-            # Changes to group membership may require a new login session or `newgrp docker`
-            # to take effect immediately in the current shell.
-            # For a script, subsequent commands in this same script might not see the new group immediately.
-            # However, for processes spawned after this script, it should be fine.
+        if test -n "$TARGET_GROUP"
+            set -l USER_GROUPS (id -Gn me | string split ' ')
+            if not contains $TARGET_GROUP $USER_GROUPS
+                echo "Adding user 'me' to $TARGET_GROUP group..."
+                sudo usermod -aG $TARGET_GROUP me
+            else
+                echo "User 'me' is already in $TARGET_GROUP group."
+            end
         else
-            echo "User 'me' is already in docker group."
+            echo "ℹ️  Skipping group membership update; permissions handled directly on socket."
         end
     else
         echo "Docker socket $DOCKER_SOCKET not found."
@@ -68,10 +72,17 @@ if not test -d /home/me/envs
     ln -sf /workspaces/aesthetic-computer/.devcontainer/envs/* /home/me/envs/
 end
 
-if test -d /home/me/envs
-    source /home/me/envs/load_envs.fish
-    load_envs # Load devcontainer envs conditionally.
-    echo "🔧 Environment variables loaded from devcontainer.env"
+set -l env_loader /home/me/envs/load_envs.fish
+if test -f $env_loader
+    source $env_loader
+    if functions -q load_envs
+        load_envs # Load devcontainer envs conditionally.
+        echo "🔧 Environment variables loaded from devcontainer.env"
+    else
+        echo "⚠️  load_envs function not found in $env_loader"
+    end
+else
+    echo "ℹ️  No env loader found at $env_loader"
 end
 
 # Set environment variables to prevent ETXTBSY errors and disable telemetry
@@ -88,6 +99,15 @@ toilet "Aesthetic Computer" -f future | lolcat -x -r
 
 # Go to the user's directory.
 cd /home/me
+
+# Ensure git config is writable by the current user
+sudo chown me:me /home/me 2>/dev/null
+if test -f /home/me/.gitconfig
+    sudo chown me:me /home/me/.gitconfig 2>/dev/null
+end
+if test -d /home/me/.config/git
+    sudo chown -R me:me /home/me/.config/git 2>/dev/null
+end
 
 # Login to Github.
 if not gh auth status
@@ -119,7 +139,13 @@ gh auth setup-git
 
 # Ensure GPG signing is disabled at both global and local levels (GitHub CLI might re-enable it)
 git config --global commit.gpgsign false
-git config --local commit.gpgsign false
+if test -d /home/me/aesthetic-computer
+    pushd /home/me/aesthetic-computer >/dev/null
+    git config --local commit.gpgsign false 2>/dev/null
+    popd >/dev/null
+else
+    echo "ℹ️  Skipping local git config; repository directory not found"
+end
 
 # Disable Netlify CLI telemetry to prevent ETXTBSY errors
 echo "Disabling Netlify CLI telemetry..."
@@ -286,6 +312,15 @@ echo "✨ Modes directory linked to .github for VSCode chatmodes"
 # Source the devcontainer config to load AC development functions
 source /workspaces/aesthetic-computer/.devcontainer/config.fish
 echo "✨ AC development functions loaded (ac-pack, ac-unpack, etc.)"
+
+if functions -q ensure-emacs-daemon-ready
+    echo "🧠 Priming Emacs daemon for aesthetic launch..."
+    if ensure-emacs-daemon-ready --timeout=480 --silent
+        echo "✅ Emacs daemon primed and ready."
+    else
+        echo "⚠️  Emacs daemon prewarm failed; launch will retry automatically."
+    end
+end
 
 # Note: .waiter file creation is handled by postAttachCommand in devcontainer.json
 

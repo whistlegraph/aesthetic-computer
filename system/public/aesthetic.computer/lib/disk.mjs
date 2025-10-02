@@ -544,6 +544,163 @@ if (typeof window !== "undefined") {
   };
 }
 
+function resolveBackgroundFillSpec(colorLike) {
+  if (colorLike === undefined || colorLike === null) return null;
+
+  let resolved;
+  try {
+    resolved = graph.findColor(colorLike);
+  } catch (err) {
+    return null;
+  }
+
+  if (!Array.isArray(resolved) || resolved.length === 0) {
+    return null;
+  }
+
+  const first = resolved[0];
+  if (typeof first === "string" && first.startsWith("fade:")) {
+    const fadeInfo = graph.parseFadeColor(resolved);
+    if (fadeInfo) {
+      return {
+        type: "fade",
+        fadeInfo,
+      };
+    }
+    return null;
+  }
+
+  const clampChannel = (value, fallback = 0) => {
+    if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
+    return Math.max(0, Math.min(255, Math.round(value)));
+  };
+
+  const r = clampChannel(resolved[0], 0);
+  const g = clampChannel(resolved[1], r);
+  const b = clampChannel(resolved[2], r);
+  const a = clampChannel(resolved[3], 255);
+
+  return {
+    type: "solid",
+    rgba: [r, g, b, a],
+  };
+}
+
+function computeFadePositionForPixel(x, y, width, height, fadeInfo) {
+  if (!fadeInfo || !width || !height) return 0;
+
+  const maxX = Math.max(width - 1, 0);
+  const maxY = Math.max(height - 1, 0);
+  const direction = fadeInfo.direction;
+
+  if (typeof direction === "number" && Number.isFinite(direction)) {
+    return graph.calculateAngleFadePosition(
+      x,
+      y,
+      0,
+      0,
+      maxX,
+      maxY,
+      direction,
+    );
+  }
+
+  const numeric = direction !== undefined ? parseFloat(direction) : NaN;
+  if (!Number.isNaN(numeric) && Number.isFinite(numeric)) {
+    return graph.calculateAngleFadePosition(
+      x,
+      y,
+      0,
+      0,
+      maxX,
+      maxY,
+      numeric,
+    );
+  }
+
+  const safeDiv = (value, denom) => (denom <= 0 ? 0 : value / denom);
+
+  switch (direction) {
+    case "horizontal-reverse":
+      return safeDiv(maxX - x, maxX);
+    case "vertical":
+      return safeDiv(y, maxY);
+    case "vertical-reverse":
+      return safeDiv(maxY - y, maxY);
+    case "diagonal": {
+      const dx = safeDiv(x, maxX);
+      const dy = safeDiv(y, maxY);
+      return (dx + dy) / 2;
+    }
+    case "diagonal-reverse": {
+      const dx = safeDiv(maxX - x, maxX);
+      const dy = safeDiv(maxY - y, maxY);
+      return (dx + dy) / 2;
+    }
+    case "horizontal":
+    default:
+      return safeDiv(x, maxX);
+  }
+}
+
+function fillExpandedWithSolidPixels(screen, width, height, oldWidth, oldHeight, rgba) {
+  const [r, g, b] = rgba;
+
+  const applyPixel = (x, y) => {
+    const i = (y * width + x) * 4;
+    screen.pixels[i] = r;
+    screen.pixels[i + 1] = g;
+    screen.pixels[i + 2] = b;
+    screen.pixels[i + 3] = 255;
+  };
+
+  if (width > oldWidth) {
+    for (let y = 0; y < height; y++) {
+      for (let x = oldWidth; x < width; x++) {
+        applyPixel(x, y);
+      }
+    }
+  }
+
+  if (height > oldHeight) {
+    const bottomLimit = width > oldWidth ? oldWidth : width;
+    for (let y = oldHeight; y < height; y++) {
+      for (let x = 0; x < bottomLimit; x++) {
+        applyPixel(x, y);
+      }
+    }
+  }
+}
+
+function fillExpandedWithFadePixels(screen, width, height, oldWidth, oldHeight, fadeInfo) {
+  const applyPixel = (x, y) => {
+    const t = computeFadePositionForPixel(x, y, width, height, fadeInfo);
+    const [r = 0, g = 0, b = 0, a = 255] = graph.getLocalFadeColor(t, x, y, fadeInfo);
+    const i = (y * width + x) * 4;
+    screen.pixels[i] = Math.max(0, Math.min(255, Math.round(r)));
+    screen.pixels[i + 1] = Math.max(0, Math.min(255, Math.round(g)));
+    screen.pixels[i + 2] = Math.max(0, Math.min(255, Math.round(b)));
+    screen.pixels[i + 3] = Math.max(0, Math.min(255, Math.round(a || 255)));
+  };
+
+  if (width > oldWidth) {
+    for (let y = 0; y < height; y++) {
+      for (let x = oldWidth; x < width; x++) {
+        applyPixel(x, y);
+      }
+    }
+  }
+
+  if (height > oldHeight) {
+    const bottomLimit = width > oldWidth ? oldWidth : width;
+    for (let y = oldHeight; y < height; y++) {
+      for (let x = 0; x < bottomLimit; x++) {
+        applyPixel(x, y);
+      }
+    }
+  }
+}
+
 const projectionMode = location.search.indexOf("nolabel") > -1; // Skip loading noise.
 
 import { setDebug } from "../disks/common/debug.mjs";
@@ -940,10 +1097,9 @@ let lastMatrixChunkyPixelLog = null;
 // Helper functions to safely access window flags in both main thread and worker contexts
 function isQROverlayCacheDisabled() {
   try {
-    return true; // TEMP: Disable QR cache to test new font system
-    // return typeof window !== 'undefined' && window.acDISABLE_QR_OVERLAY_CACHE;
+    return typeof window !== 'undefined' && window.acDISABLE_QR_OVERLAY_CACHE;
   } catch (e) {
-    return true; // Default to disabled for testing
+    return false; // Default to enabled (caching on)
   }
 }
 
@@ -1708,6 +1864,10 @@ const $commonApi = {
         $commonApi.rec.videoOnLeave = false;
         $commonApi.rec.cut(loadLine);
       } else {
+        if (to.split("~")[0] === "prompt" &&
+            globalKidLispInstance?.clearBakedLayers) {
+          globalKidLispInstance.clearBakedLayers();
+        }
         loadLine(); // Or just load normally.
       }
     };
@@ -5135,89 +5295,38 @@ $commonApi.resolution = function (width, height = width, gap = 8) {
     console.log("🎨 Resolution function: Old screen:", oldScreen.width, "x", oldScreen.height);
     console.log("🎨 Resolution function: New screen:", width, "x", height);
     console.log("🎨 Resolution function: Persistent color found:", persistentColor);
-    
-    if (persistentColor) {
-      console.log("🎨 Post-reframe: Filling expanded pixels with:", persistentColor);
-      
-      // Convert color to RGB values for direct pixel manipulation
-      const colorResult = graph.color.coerce(persistentColor);
-      console.log("🎨 Resolution function: Coerced color result:", colorResult);
-      const [r, g, b] = colorResult;
-      console.log("🎨 Resolution function: RGB values:", r, g, b);
-      
-      // Fill right expansion (new columns)
-      if (width > oldScreen.width) {
-        console.log("🎨 Resolution function: Filling right expansion columns");
-        for (let y = 0; y < height; y++) {
-          for (let x = oldScreen.width; x < width; x++) {
-            const i = (y * width + x) * 4;
-            screen.pixels[i] = r;     // Red
-            screen.pixels[i + 1] = g; // Green  
-            screen.pixels[i + 2] = b; // Blue
-            screen.pixels[i + 3] = 255; // Alpha
-          }
-        }
-        console.log("🎨 Resolution function: Completed right expansion fill");
-      }
-      
-      // Fill bottom expansion (new rows)
-      if (height > oldScreen.height) {
-        console.log("🎨 Resolution function: Filling bottom expansion rows");
-        for (let y = oldScreen.height; y < height; y++) {
-          for (let x = 0; x < width; x++) {
-            const i = (y * width + x) * 4;
-            screen.pixels[i] = r;     // Red
-            screen.pixels[i + 1] = g; // Green
-            screen.pixels[i + 2] = b; // Blue
-            screen.pixels[i + 3] = 255; // Alpha
-          }
-        }
-        console.log("🎨 Resolution function: Completed bottom expansion fill");
-      }
-      
-      console.log("🎨 Post-reframe: Filled expanded pixels directly");
-    } else {
-      console.log("🎨 Post-reframe: No persistent color found for expansion");
-      console.log("🎨 Post-reframe: Attempting fallback color retrieval...");
-      
-      // Try to get color from KidLisp instance as fallback
-      if (typeof globalKidLispInstance?.getBackgroundFillColor === 'function') {
-        const fallbackColor = globalKidLispInstance.getBackgroundFillColor();
 
-        
-        if (fallbackColor) {
-          const colorResult = graph.color.coerce(fallbackColor);
-          const [r, g, b] = colorResult;
-          console.log("🎨 Post-reframe: Using fallback RGB:", r, g, b);
-          
-          // Fill expansions with fallback color
-          if (width > oldScreen.width) {
-            for (let y = 0; y < height; y++) {
-              for (let x = oldScreen.width; x < width; x++) {
-                const i = (y * width + x) * 4;
-                screen.pixels[i] = r;
-                screen.pixels[i + 1] = g;
-                screen.pixels[i + 2] = b;
-                screen.pixels[i + 3] = 255;
-              }
-            }
-          }
-          
-          if (height > oldScreen.height) {
-            for (let y = oldScreen.height; y < height; y++) {
-              for (let x = 0; x < width; x++) {
-                const i = (y * width + x) * 4;
-                screen.pixels[i] = r;
-                screen.pixels[i + 1] = g;
-                screen.pixels[i + 2] = b;
-                screen.pixels[i + 3] = 255;
-              }
-            }
-          }
-          
-          console.log("🎨 Post-reframe: Applied fallback color fill");
-        }
+    let fillSpec = resolveBackgroundFillSpec(persistentColor);
+    if (!fillSpec && typeof globalKidLispInstance?.getBackgroundFillColor === "function") {
+      const fallbackColor = globalKidLispInstance.getBackgroundFillColor();
+      console.log("🎨 Post-reframe: Fallback background candidate:", fallbackColor);
+      fillSpec = resolveBackgroundFillSpec(fallbackColor);
+    }
+
+    if (fillSpec) {
+      if (fillSpec.type === "fade") {
+        console.log("🎨 Post-reframe: Applying fade background to expansions");
+        fillExpandedWithFadePixels(
+          screen,
+          width,
+          height,
+          oldScreen.width,
+          oldScreen.height,
+          fillSpec.fadeInfo,
+        );
+      } else {
+        console.log("🎨 Post-reframe: Filling expansions with solid color", fillSpec.rgba);
+        fillExpandedWithSolidPixels(
+          screen,
+          width,
+          height,
+          oldScreen.width,
+          oldScreen.height,
+          fillSpec.rgba,
+        );
       }
+    } else {
+      console.log("🎨 Post-reframe: No background fill spec available for expansion");
     }
   } else {
     console.log("🎨 Resolution function: No screen expansion needed");
@@ -6429,6 +6538,12 @@ async function load(
     $commonApi.rec.loadCallback = null;
 
     module = loadedModule;
+
+    // 🧹 Reset KidLisp baked layers when returning to the prompt to avoid stale flashes
+    if (module?.system?.startsWith("prompt") &&
+        globalKidLispInstance?.clearBakedLayers) {
+      globalKidLispInstance.clearBakedLayers();
+    }
 
     if (!module.system?.startsWith("world"))
       $commonApi.system.world.teleported = false;
@@ -7988,10 +8103,6 @@ async function makeFrame({ data: { type, content } }) {
 
     // 🌟 Global Keyboard Shortcuts (these could also be seen via `act`)
     content.keyboard.forEach((data) => {
-      // Log ALL keyboard events to debug Shift
-      if (data.key === "Shift") {
-        console.log("🔑 [Keyboard Event] Shift detected! data:", data);
-      }
       
       if (currentText && currentText.indexOf("botce") > -1) return; // No global keys on `botce`. 23.11.12.23.38
       if (data.name.indexOf("keyboard:down") === 0) {
@@ -10723,26 +10834,26 @@ async function makeFrame({ data: { type, content } }) {
       
 
       if (isInlineKidlispPiece && sourceCode && !hideLabel && (hudAnimationState.visible || hudAnimationState.animating || hudAnimationState.qrFullscreen)) {
-        console.log("🎨 [QR Debug] Entering QR generation. qrFullscreen:", hudAnimationState.qrFullscreen, "sourceCode:", sourceCode?.substring(0, 50));
+        // console.log("🎨 [QR Debug] Entering QR generation. qrFullscreen:", hudAnimationState.qrFullscreen, "sourceCode:", sourceCode?.substring(0, 50));
         try {
           // For $code pieces, the sourceCode is the code itself, so use it directly
           let cachedCode;
           if (sourceCode.startsWith("$")) {
             // For $code format, the sourceCode IS the cached code (without $)
             cachedCode = sourceCode.substring(1); // Remove the $ prefix
-            console.log("🔑 [QR Debug] Using $code format, cachedCode:", cachedCode);
+            // console.log("🔑 [QR Debug] Using $code format, cachedCode:", cachedCode);
           } else {
             // For regular KidLisp source, check if it has been cached
             cachedCode = getCachedCode(sourceCode);
-            console.log("🔍 [QR Debug] Checked cache, cachedCode:", cachedCode);
+            // console.log("🔍 [QR Debug] Checked cache, cachedCode:", cachedCode);
             
             // If not cached yet but QR fullscreen is active (shift was pressed),
             // trigger caching and request a repaint when complete
             if (!cachedCode && hudAnimationState.qrFullscreen) {
-              console.log("⏳ [QR Debug] Code not cached, triggering caching...");
+              // console.log("⏳ [QR Debug] Code not cached, triggering caching...");
               const kidlispInstance = getGlobalKidLisp();
               if (kidlispInstance) {
-                console.log("✅ [QR Debug] Got KidLisp instance, calling cacheKidlispSource");
+                // console.log("✅ [QR Debug] Got KidLisp instance, calling cacheKidlispSource");
                 // Trigger caching asynchronously
                 kidlispInstance.cacheKidlispSource(sourceCode, $commonApi).then(() => {
                   // Check if code was successfully cached
@@ -10829,14 +10940,11 @@ async function makeFrame({ data: { type, content } }) {
             const isQRCacheDisabled = isQROverlayCacheDisabled();
             const hasQRCache = qrOverlayCache.has(cacheKey);
             
-            // Enable caching for stable QR generation
-            const forceCacheBypass = true; // TEMP: Force cache bypass to test new font
-            
             // Declare variables for QR positioning and sizing (used in both cached and fresh QR paths)
             let overlayWidth, overlayHeight, startX, startY;
             
 
-            if (!isQRCacheDisabled && shouldShowQR && hasQRCache && !forceCacheBypass) {
+            if (!isQRCacheDisabled && shouldShowQR && hasQRCache) {
 
               const cachedQrData = qrOverlayCache.get(cacheKey);
               

@@ -1862,8 +1862,7 @@ function paint($) {
 
     // 🤖 Check if we're in kidlisp mode
     const inKidlispMode = isPromptInKidlispMode(currentInputText);
-    
-    console.log("🎨 [Cursor Color] text:", currentInputText, "-> inKidlispMode:", inKidlispMode);
+    // console.log("🎨 [Cursor Color] text:", currentInputText, "-> inKidlispMode:", inKidlispMode);
 
     // Store kidlisp mode state for other parts of the prompt to use
     $.system.prompt.kidlispMode = inKidlispMode;
