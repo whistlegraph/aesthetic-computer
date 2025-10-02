@@ -253,17 +253,37 @@ function parseFadeColor(color) {
   
   // Parse fade string locally without setting global state
   const parts = fadeString.split(":");
-  if (parts.length < 2 || parts.length > 4 || parts[0] !== "fade") {
+  if (parts.length < 2 || parts.length > 5 || parts[0] !== "fade") {
     return null;
   }
   
-  // Extract direction and neat flag locally
-  let isNeat = false;
+  // Extract direction and neat flag locally (neat is now the default)
+  let isNeat = true;  // Changed: neat is now the default
   let fadeType = parts[1];
   let direction = parts[2] || "horizontal";
   
-  // Handle different neat syntax positions
-  if (parts[1] === "neat" && parts[2]) {
+  // Handle different dirty syntax positions (dirty disables neat)
+  if (parts[1] === "dirty" && parts[2]) {
+    isNeat = false;
+    fadeType = parts[2];
+    direction = parts[3] || "horizontal";
+  } else if (parts[2] === "dirty") {
+    isNeat = false;
+    direction = "horizontal";
+  } else if (parts[3] === "dirty") {
+    isNeat = false;
+    direction = parts[2];
+  } else if (parts.includes("dirty")) {
+    // Handle dirty anywhere in the string
+    isNeat = false;
+    const filteredParts = parts.filter(p => p !== "dirty");
+    if (filteredParts.length >= 2) {
+      fadeType = filteredParts[1];
+      direction = filteredParts[2] || "horizontal";
+    }
+  }
+  // Also still support explicit 'neat' keyword for clarity (though it's the default)
+  else if (parts[1] === "neat" && parts[2]) {
     isNeat = true;
     fadeType = parts[2];
     direction = parts[3] || "horizontal";
@@ -273,7 +293,7 @@ function parseFadeColor(color) {
   } else if (parts[3] === "neat") {
     isNeat = true;
     direction = parts[2];
-  } else if (parts.length > 2 && (parts[2] === "neat" || parts[parts.length - 1] === "neat")) {
+  } else if (parts.includes("neat")) {
     isNeat = true;
     const filteredParts = parts.filter(p => p !== "neat");
     if (filteredParts.length >= 2) {
@@ -288,6 +308,8 @@ function parseFadeColor(color) {
   
   // Evaluate the direction (handles dynamic expressions like frame numbers)
   const evaluatedDirection = evaluateFadeDirection(direction);
+
+  console.log(`🎨 Fade parsed: neat=${isNeat}, fadeType="${fadeType}", direction="${evaluatedDirection}"`);
 
   return {
     colors: fadeColors,
@@ -1270,9 +1292,9 @@ function clear() {
         
         if (!isNaN(numericAngle)) {
           // Use angle-based fade calculation
-          if (x === minX && y === minY) {
-            console.log(`🎯 GRADIENT ROTATION: Using angle ${numericAngle}° for fade at (${x},${y})`);
-          }
+          // if (x === minX && y === minY) {
+          //   console.log(`🎯 GRADIENT ROTATION: Using angle ${numericAngle}° for fade at (${x},${y})`);
+          // }
           t = calculateAngleFadePosition(x, y, minX, minY, maxX - 1, maxY - 1, numericAngle);
         } else {
           // Use named direction

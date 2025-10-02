@@ -97,18 +97,15 @@ function nopaint_boot({
     // Parse color centrally for all brushes
     system.nopaint.color = num.parseColor(params);
     
-    // Generate colored HUD label to completely replace the default one
+    // Generate colored HUD label using the full syntax highlighting system
     const modifiers = colon && colon.length > 0 ? `:${colon.join(":")}` : "";
     const brushName = api.slug || "brush";
     
     // Extract just the piece name (without parameters) for the base
     const pieceName = brushName.split('~')[0].split(':')[0];
     
-    let label = `\\cyan\\${pieceName}`;
-    if (modifiers) label += `\\gray\\${modifiers}`;
-    if (params.length > 0) {
-      label += " " + params.map(p => colorizeColorName(p)).join(" ");
-    }
+    // Use generateNopaintHUDLabel for proper color syntax highlighting
+    const label = generateNopaintHUDLabel(pieceName, system.nopaint.color, params, modifiers);
     
     // Completely replace currentHUDTxt directly instead of using hud.label
     if (typeof window !== 'undefined' && window.currentHUDTxt !== undefined) {
@@ -539,7 +536,14 @@ function nopaint_adjust(
         // Detect if we are in light or dark mode...
         // $common
         p.wipe(theme[dark ? "dark" : "light"].wipeNum);
-        p.paste(sys.painting);
+        
+        // Only paste the old painting if we're resizing, not creating a new one
+        // Check if slug indicates this is a "new" operation (which should start fresh)
+        const isNewPainting = slug && (slug === "new" || slug.startsWith("new~"));
+        
+        if (!isNewPainting && sys.painting) {
+          p.paste(sys.painting);
+        }
       }
     });
 
