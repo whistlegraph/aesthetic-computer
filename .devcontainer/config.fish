@@ -55,6 +55,89 @@ function fish_greeting
     # printf "📋 Clipboard also requires `xhost +local:docker` to be set on the host."
 end
 
+function ac-tv
+    set -l default_base "https://localhost:8888/api/tv"
+    set -l base $default_base
+    set -l preview true
+    set -l query_params
+    set -l script_args
+
+    for arg in $argv
+        switch $arg
+            case '--preview' 'preview'
+                set preview true
+            case '--no-preview' 'no-preview' '--json' 'json'
+                set preview false
+            case '--raw'
+                set preview true
+                set script_args $script_args '--raw'
+            case '--max-width=*' '--maxwidth=*' '--max-height=*' '--maxheight=*' '--pause=*' '--pauseMs=*' '--pausems=*'
+                set preview true
+                set script_args $script_args $arg
+            case '--base=*'
+                set base (string replace -r '^--base=' '' -- $arg)
+            case 'base=*'
+                set base (string replace 'base=' '' -- $arg)
+            case '--limit=*' '--types=*'
+                set query_params $query_params (string replace -r '^--' '' -- $arg)
+                set script_args $script_args $arg
+            case 'limit=*' 'types=*'
+                set query_params $query_params $arg
+                set script_args $script_args $arg
+            case '--*'
+                # Forward unknown long flags to preview script if used
+                set script_args $script_args $arg
+            case '*=*'
+                set query_params $query_params $arg
+                set script_args $script_args $arg
+            case '*'
+                set query_params $query_params $arg
+                set script_args $script_args $arg
+        end
+    end
+
+    set -l url $base
+    if test (count $query_params) -gt 0
+        set -l query (string join '&' $query_params)
+        set url "$base?"$query
+    end
+
+    if test $preview = true
+        set -l script "/workspaces/aesthetic-computer/reference/tools/recording/tv-preview.mjs"
+        if not test -f $script
+            echo "❌ Preview script missing at $script" >&2
+            return 1
+        end
+
+        if test $base != $default_base
+            set script_args $script_args "--base=$base"
+        end
+
+        printf "📺 Preview %s\n" $url
+        node --no-warnings $script $script_args
+        return $status
+    end
+
+    printf "📺 GET %s\n" $url
+
+    set -l response (curl --silent --show-error --insecure $url)
+    set -l curl_status $status
+    if test $curl_status -ne 0
+        echo "❌ Failed to reach $url" >&2
+        return 1
+    end
+
+    set -l body (string join "\n" $response)
+
+    if type -q jq
+        printf '%s\n' $body | jq
+    else if type -q python3
+        printf '%s\n' $body | python3 -m json.tool
+    else
+        printf '%s\n' $body
+    end
+end
+
 # KidLisp Source Tree Tool - allows running source-tree from anywhere
 # Usage: st cow, st $cow, st cow --source, st --test-colors, or st --test-css-colors
 function st

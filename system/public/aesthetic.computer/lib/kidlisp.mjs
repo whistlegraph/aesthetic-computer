@@ -1799,12 +1799,37 @@ class KidLisp {
       return fadeToken; // Invalid fade syntax
     }
 
-    // Check for neat modifier and handle different positions
-    let isNeat = false;
+    // Check for neat/dirty modifier and handle different positions (neat is now default)
+    let isNeat = true;  // Changed: neat is now the default
     let colorPart = parts[1];
     let direction = parts[2];
 
-    if (parts[1] === "neat" && parts[2]) {
+    // Check for dirty modifier (disables neat)
+    if (parts[1] === "dirty" && parts[2]) {
+      // Format: fade:dirty:red-blue or fade:dirty:red-blue:vertical
+      isNeat = false;
+      colorPart = parts[2];
+      direction = parts[3];
+    } else if (parts[2] === "dirty") {
+      // Format: fade:red-blue:dirty
+      isNeat = false;
+      direction = undefined;
+    } else if (parts[3] === "dirty") {
+      // Format: fade:red-blue:vertical:dirty
+      isNeat = false;
+      direction = parts[2];
+    } else if (parts.includes("dirty")) {
+      // Handle dirty anywhere in the string
+      isNeat = false;
+      // Remove dirty from parts and reconstruct
+      const filteredParts = parts.filter(p => p !== "dirty");
+      if (filteredParts.length >= 2) {
+        colorPart = filteredParts[1];
+        direction = filteredParts[2];
+      }
+    }
+    // Also still support explicit 'neat' keyword for clarity (though it's the default)
+    else if (parts[1] === "neat" && parts[2]) {
       // Format: fade:neat:red-blue or fade:neat:red-blue:vertical
       isNeat = true;
       colorPart = parts[2];
@@ -1832,9 +1857,11 @@ class KidLisp {
 
     let result = "\\mediumseagreen\\fade\\lime\\:"; // "fade" in emerald, ":" in green
 
-    // Add neat modifier if present
-    if (isNeat) {
+    // Add neat or dirty modifier if explicitly specified
+    if (isNeat && parts.includes("neat")) {
       result += "\\cyan\\neat\\lime\\:"; // "neat" in cyan, ":" in green
+    } else if (!isNeat) {
+      result += "\\orange\\dirty\\lime\\:"; // "dirty" in orange, ":" in green
     }
 
     for (let i = 0; i < colorNames.length; i++) {
@@ -1929,8 +1956,21 @@ class KidLisp {
     const parts = fadeString.split(":");
     if (parts.length < 2) return null;
 
-    // Extract colors part (skip "fade" and optional direction)
-    const colorPart = parts[1]; // The part after "fade:"
+    // Extract the colors segment, skipping modifiers like "neat" and "dirty"
+    const modifiers = new Set(["neat", "dirty"]);
+    let colorPart = null;
+
+    for (let i = 1; i < parts.length; i += 1) {
+      const segment = parts[i];
+      if (!segment || modifiers.has(segment)) {
+        continue;
+      }
+      colorPart = segment;
+      break;
+    }
+
+    if (!colorPart) return null;
+
     const colorNames = colorPart.split("-");
 
     if (colorNames.length < 2) return null;
@@ -3547,7 +3587,6 @@ class KidLisp {
           return;
         }
 
-        // console.log("🖋️ Ink called with args:", args);
         // Handle different ink invocation patterns
         // Ensure args is always an array
         if (!args || !Array.isArray(args)) {
@@ -5971,6 +6010,10 @@ class KidLisp {
       const globalEnv = this.getGlobalEnv();
       value = globalEnv[expr];
       if (typeof value === "function") {
+        // Don't call functions for fade strings - return them as-is so they can be passed to ink()
+        if (expr.startsWith("fade:")) {
+          return expr; // Return the fade string directly
+        }
         value = value(api, []); // Pass empty args array for functions called as variables
         return value; // Return the function result directly, even if it's undefined
       }
