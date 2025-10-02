@@ -323,12 +323,39 @@ function getCleanPath(fullUrl) {
   cleanPath = cleanPath.replace(/&+/g, '&'); // Collapse multiple &
   cleanPath = cleanPath.replace(/\?$/, ''); // Remove trailing ?
 
+  // Only cut off ? and & if they look like query parameters
+  // Don't cut them off if this is KidLisp code (which can contain ? as a special character)
   const questionIdx = cleanPath.indexOf('?');
   const ampIdx = cleanPath.indexOf('&');
   const cutoffCandidates = [questionIdx, ampIdx].filter((idx) => idx >= 0);
+  
   if (cutoffCandidates.length > 0) {
     const cutoff = Math.min(...cutoffCandidates);
-    cleanPath = cleanPath.slice(0, cutoff);
+    const pathBeforeCutoff = cleanPath.slice(0, cutoff);
+    const remainingPart = cleanPath.slice(cutoff);
+    
+    // Check if the remaining part looks like a query string with legitimate parameters
+    // If it doesn't match any known patterns, it's likely KidLisp code and should be kept
+    let looksLikeQuery = false;
+    
+    // Check if any legitimate or auth0 parameters appear after the ? or &
+    for (const paramName of [...LEGITIMATE_PARAMS, ...AUTH0_PARAMS_TO_STRIP]) {
+      if (remainingPart.match(new RegExp(`[?&]${paramName}(=|&|$)`))) {
+        looksLikeQuery = true;
+        break;
+      }
+    }
+    
+    // Also check for generic key=value patterns
+    if (remainingPart.match(/[?&][a-zA-Z0-9_-]+=/)) {
+      looksLikeQuery = true;
+    }
+    
+    // Only cut off if it looks like a query string
+    if (looksLikeQuery) {
+      cleanPath = pathBeforeCutoff;
+    }
+    // Otherwise keep the full path including ? or & characters (KidLisp code)
   }
   
   // console.log("🐛 getCleanPath() final result:", cleanPath);
