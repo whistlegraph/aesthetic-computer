@@ -66,7 +66,7 @@ function boot({ wipe, screen, colon, params, typeface, ui: { Button } }) {
   scale = parseInt(colon[0]) || 1;
   wipe(0);
   
-  const limit = params[0] ? parseInt(params[0]) : 30;
+  const limit = params[0] ? parseInt(params[0]) : 100;
   let query = `/api/store-kidlisp?recent=true&limit=${limit}`;
   
   fetch(query)

@@ -5,6 +5,91 @@
 import { isKidlispSource, decodeKidlispFromUrl } from "./kidlisp.mjs";
 import { checkTeiaMode } from "./teia-mode.mjs";
 
+// List of legitimate query parameters that should be preserved
+const LEGITIMATE_PARAMS = [
+  "icon",
+  "preview",
+  "signup",
+  "supportSignUp",
+  "success",
+  "code",
+  "supportForgotPassword",
+  "message",
+  "vscode",
+  "nogap",
+  "nolabel",
+  "density",
+  "zoom",
+  "duration",
+  "session-aesthetic",
+  "session-sotce",
+  "notice",
+  "tv",
+  "highlight",
+];
+
+const LEGITIMATE_PARAM_SET = new Set(
+  LEGITIMATE_PARAMS.map((param) => param.toLowerCase()),
+);
+
+// Auth0 parameters that should be stripped from paths
+const AUTH0_PARAMS_TO_STRIP = ["state", "code", "error", "error_description"];
+
+function isInsideParentheses(text, index) {
+  let depth = 0;
+  for (let i = 0; i < index; i++) {
+    if (text[i] === "(") {
+      depth += 1;
+    } else if (text[i] === ")" && depth > 0) {
+      depth -= 1;
+    }
+  }
+  return depth > 0;
+}
+
+function shouldTreatAsQuery(text, questionIndex) {
+  if (questionIndex <= 0 || questionIndex >= text.length) return false;
+
+  const prevChar = text[questionIndex - 1];
+  const nextChar = text[questionIndex + 1];
+
+  // Ignore cases like ~?~ which are positional arguments
+  if (prevChar === "~" || nextChar === "~") return false;
+
+  // Ignore question marks inside parenthetical KidLisp content
+  if (isInsideParentheses(text, questionIndex)) return false;
+
+  const rawCandidate = text.slice(questionIndex + 1);
+  if (!rawCandidate) return false;
+
+  // Strip leading tildes which represent prior spacing
+  const candidate = rawCandidate.replace(/^~+/, "");
+  if (!candidate) return false;
+
+  const firstChunk = candidate.split(/[~&#]/)[0] || "";
+  if (!firstChunk) return false;
+
+  const [key] = firstChunk.split("=");
+  const loweredKey = key.toLowerCase();
+
+  if (
+  LEGITIMATE_PARAM_SET.has(loweredKey) ||
+    AUTH0_PARAMS_TO_STRIP.includes(loweredKey)
+  ) {
+    return true;
+  }
+
+  // Generic key=value patterns should be treated as queries
+  if (firstChunk.includes("=")) return true;
+
+  // Also allow generic boolean flags (letters, numbers, dashes, underscores)
+  if (/^[a-z0-9_-]+$/i.test(firstChunk) && firstChunk.length > 1) {
+    return true;
+  }
+
+  return false;
+}
+
 // TODO:
 // [] This should eventually have tests that run?
 
@@ -115,9 +200,16 @@ function parse(text, location = self?.location) {
     search = text.slice(1);
     text = window?.acSTARTING_PIECE || "prompt";
   } else {
-    // TODO: This does not keep the question marks on this string but it should... https://localhost:8888/line:5~?~?~?
-    let searchIndex = text.search(/[^~]\?[^~]/); // Filter single "?" params.
-    if (searchIndex >= 0) [text, search] = text.split("?");
+  // Smarter handling: keep literal question marks in piece slugs (e.g. line:5~?~?~?)
+    let questionIndex = text.indexOf("?");
+    while (questionIndex >= 0) {
+      if (shouldTreatAsQuery(text, questionIndex)) {
+        search = text.slice(questionIndex + 1);
+        text = text.slice(0, questionIndex);
+        break;
+      }
+      questionIndex = text.indexOf("?", questionIndex + 1);
+    }
   }
 
   // TODO: When to parse the search query string into a URLSearchParams object?
@@ -194,15 +286,6 @@ function parse(text, location = self?.location) {
 }
 
 // List of legitimate query parameters that should be preserved
-const LEGITIMATE_PARAMS = [
-  'icon', 'preview', 'signup', 'supportSignUp', 'success', 'code', 
-  'supportForgotPassword', 'message', 'vscode', 'nogap', 'nolabel', 
-  'density', 'zoom', 'duration', 'session-aesthetic', 'session-sotce', 'notice', 'tv', 'highlight'
-];
-
-// Auth0 parameters that should be stripped from paths
-const AUTH0_PARAMS_TO_STRIP = ['state', 'code', 'error', 'error_description'];
-
 // Get clean path without legitimate query parameters
 function getCleanPath(fullUrl) {
   // console.log("🐛 getCleanPath() input:", fullUrl);
@@ -239,6 +322,14 @@ function getCleanPath(fullUrl) {
   cleanPath = cleanPath.replace(/\?&+/, '?'); // Fix ?& sequences
   cleanPath = cleanPath.replace(/&+/g, '&'); // Collapse multiple &
   cleanPath = cleanPath.replace(/\?$/, ''); // Remove trailing ?
+
+  const questionIdx = cleanPath.indexOf('?');
+  const ampIdx = cleanPath.indexOf('&');
+  const cutoffCandidates = [questionIdx, ampIdx].filter((idx) => idx >= 0);
+  if (cutoffCandidates.length > 0) {
+    const cutoff = Math.min(...cutoffCandidates);
+    cleanPath = cleanPath.slice(0, cutoff);
+  }
   
   // console.log("🐛 getCleanPath() final result:", cleanPath);
   return cleanPath;
