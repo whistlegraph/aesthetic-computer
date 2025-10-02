@@ -408,7 +408,7 @@ const octaveTheme = [
   "black", // 1
   "darkblue", // 2
   "red", // 3
-  "orange", // 4
+  "blue", // 4
   "yellowgreen", // 6
   "yellow", // 5
   "green", // 7
@@ -449,7 +449,8 @@ let song,
   songStops = [],
   songIndex = 0,
   songShift = 0,
-  songShifting = false;
+  songShifting = false,
+  songProgress = 0; // Track progress through current note (0 to 1)
 
 function parseSong(raw) {
   return raw
@@ -465,6 +466,7 @@ let startupSfx;
 let udpServer;
 
 let picture;
+let matrixFont; // MatrixChunky8 font for note letters
 
 function boot({
   params,
@@ -491,6 +493,12 @@ function boot({
     .then((sfx) => (startupSfx = sfx))
     .catch((err) => console.warn(err)); // Load startup
 
+  // Load MatrixChunky8 font for note letters
+  if (api.Typeface) {
+    matrixFont = new api.Typeface("MatrixChunky8");
+    matrixFont.load(net.preload);
+  }
+
   // qrcells = qr("https://prompt.ac/notepat", { errorCorrectLevel: 2 }).modules;
 
   if (params[0] === "piano") {
@@ -498,7 +506,10 @@ function boot({
     hud.label("notepat"); // Clear the label.
   }
 
-  if (params[0] === "twinkle") song = parseSong(rawSong);
+  if (params[0] === "twinkle") {
+    song = parseSong(rawSong);
+    hud.label("notepat"); // Strip "twinkle" from the label
+  }
 
   if (song) {
     let x = 0;
@@ -546,6 +557,17 @@ function sim({ sound, simCount, num }) {
     if (songShift >= songStops[songIndex][1]) {
       songShift = songStops[songIndex][1];
       songShifting = false;
+    }
+    
+    // Calculate progress (0 to 1) through current note
+    if (songIndex > 0) {
+      const currentX = songStops[songIndex][1];
+      const prevX = songStops[songIndex - 1]?.[1] || 0;
+      const distance = currentX - prevX;
+      const traveled = songShift - prevX;
+      songProgress = distance > 0 ? Math.min(1, traveled / distance) : 0;
+    } else {
+      songProgress = songShift / (songStops[0]?.[1] || 1);
     }
   }
 
@@ -694,12 +716,22 @@ function paint({
     const startX = 6 - songShift;
     let i = 0;
 
-    // TODO: How can I scroll the entire song to the left by adjusting the
-    //       x start position
-
-    // ink("cyan", 64).line(0, 21, screen.width, 21);
-    ink(140, 120).box(0, 22, screen.width, 25);
-    // ink("cyan", 64).line(0, 47, screen.width, 47);
+    // Calculate where buttons start (they're laid out from bottom up)
+    const buttonsPerRow = 4;
+    const totalButtons = buttonNotes.length;
+    const totalRows = ceil(totalButtons / buttonsPerRow);
+    let buttonWidth = min(48, ceil((screen.width - 4) / 4));
+    let buttonHeight = buttonWidth;
+    if (totalRows * buttonHeight > screen.height - oscilloscopeBottom) {
+      buttonHeight = ceil((screen.height - oscilloscopeBottom) / totalRows);
+    }
+    
+    // Place track just above the top row of buttons with some padding
+    const topButtonY = screen.height - 2 - totalRows * buttonHeight;
+    const trackY = topButtonY - 30; // 30 pixels above buttons
+    const trackHeight = 25;
+    
+    ink(20, 30, 50).box(0, trackY, screen.width, trackHeight);
 
     while (i < song.length) {
       let word = songStops[i][0];
@@ -708,22 +740,136 @@ function paint({
       if (x > screen.width) break;
 
       const current = i === songIndex;
+      const nextNote = i === songIndex + 1;
 
-      ink(current ? (songNoteDown ? "red" : "yellow") : "gray").write(
-        word,
-        x,
-        25,
-      );
+      // Word color (lyrics) - match the cyan palette from the board
+      if (current) {
+        const wordColor = songNoteDown ? [0, 0, 0, 0] : "white"; // White text like on buttons
+        if (songNoteDown) {
+          // Word disappears when pressed
+        } else {
+          ink(wordColor).write(word, x, trackY + 3);
+        }
+      } else if (nextNote) {
+        const fadeOpacity = Math.floor(songProgress * 255);
+        if (fadeOpacity > 0) {
+          ink(255, 255, 255, fadeOpacity).write(word, x, trackY + 3); // White with fade
+        }
+      } else {
+        ink(120, 140, 150).write(word, x, trackY + 3); // Lighter gray-blue
+      }
 
-      ink(current ? (songNoteDown ? "red" : "lime") : "darkblue").write(
-        song[i][0],
-        x,
-        25 + 10,
-      );
+      // Note color (musical note) - match the cyan boxes
+      if (current) {
+        const noteColor = songNoteDown ? [0, 0, 0, 0] : [0, 180, 200]; // Bright cyan like boxes
+        if (songNoteDown) {
+          // Note disappears when pressed
+        } else {
+          ink(noteColor).write(song[i][0], x, trackY + 13);
+        }
+      } else if (nextNote) {
+        const fadeOpacity = Math.floor(songProgress * 255);
+        if (fadeOpacity > 0) {
+          ink(0, 180, 200, fadeOpacity).write(song[i][0], x, trackY + 13); // Cyan with fade
+        }
+      } else {
+        ink(80, 100, 120).write(song[i][0], x, trackY + 13); // Darker gray-blue
+      }
 
       i += 1;
     }
   }
+  
+  // Draw tiny piano layout (always visible, not just in song mode)
+  // Position it dynamically based on available space
+  const buttonsPerRow = 4;
+  const totalButtons = buttonNotes.length;
+  const totalRows = ceil(totalButtons / buttonsPerRow);
+  let buttonWidth = min(48, ceil((screen.width - 4) / 4));
+  let buttonHeight = buttonWidth;
+  if (totalRows * buttonHeight > screen.height - oscilloscopeBottom) {
+    buttonHeight = ceil((screen.height - oscilloscopeBottom) / totalRows);
+  }
+  const topButtonY = screen.height - 2 - totalRows * buttonHeight;
+  
+  // Position piano below track if in song mode, otherwise higher and left
+  let pianoY, pianoStartX;
+  if (song) {
+    const trackHeight = 25;
+    const trackY = topButtonY - 30;
+    pianoY = trackY + trackHeight + 2; // Just below the track
+  } else {
+    pianoY = 21; // Below HUD label when no track
+  }
+  
+  const whiteKeyWidth = 7;
+  const whiteKeyHeight = 16;
+  const blackKeyWidth = 5;
+  const blackKeyHeight = 10;
+  
+  // Two octaves: 14 white keys total
+  const totalWhiteKeys = 14;
+  const pianoWidth = totalWhiteKeys * whiteKeyWidth;
+  
+  if (song) {
+    pianoStartX = screen.width - pianoWidth - 2; // Align with right edge (2px margin)
+  } else {
+    pianoStartX = 58; // Align with visualizer start when no track
+  }
+  
+  // Two octaves: notes in order
+  const whiteKeys = ['C', 'D', 'E', 'F', 'G', 'A', 'B', '+C', '+D', '+E', '+F', '+G', '+A', '+B'];
+  const blackKeys = [
+    {note: 'C#', afterWhite: 0},
+    {note: 'D#', afterWhite: 1},
+    {note: 'F#', afterWhite: 3},
+    {note: 'G#', afterWhite: 4},
+    {note: 'A#', afterWhite: 5},
+    {note: '+C#', afterWhite: 7},
+    {note: '+D#', afterWhite: 8},
+    {note: '+F#', afterWhite: 10},
+    {note: '+G#', afterWhite: 11},
+    {note: '+A#', afterWhite: 12}
+  ];
+  
+  // Draw white keys
+  whiteKeys.forEach((note, index) => {
+    const x = pianoStartX + index * whiteKeyWidth;
+    const isCurrentNote = song && note === song?.[songIndex][0];
+    const isNextNote = song && note === song?.[songIndex + 1]?.[0];
+    const isActivePlaying = sounds[note.toLowerCase()] !== undefined;
+    
+    if (isCurrentNote) {
+      ink(0, 180, 200).box(x, pianoY, whiteKeyWidth - 1, whiteKeyHeight); // Cyan for current in song mode
+    } else if (isNextNote) {
+      const fadeOpacity = Math.floor(songProgress * 150);
+      ink(0, 180, 200, fadeOpacity).box(x, pianoY, whiteKeyWidth - 1, whiteKeyHeight); // Faded cyan
+    } else if (isActivePlaying) {
+      ink(255, 255, 0).box(x, pianoY, whiteKeyWidth - 1, whiteKeyHeight); // Yellow for active notes
+    } else {
+      ink(200, 200, 200).box(x, pianoY, whiteKeyWidth - 1, whiteKeyHeight); // White
+    }
+    ink(100, 100, 100).box(x, pianoY, whiteKeyWidth - 1, whiteKeyHeight, "outline"); // Border
+  });
+  
+  // Draw black keys on top
+  blackKeys.forEach(({note, afterWhite}) => {
+    const x = pianoStartX + afterWhite * whiteKeyWidth + whiteKeyWidth - blackKeyWidth / 2;
+    const isCurrentNote = song && note === song?.[songIndex][0];
+    const isNextNote = song && note === song?.[songIndex + 1]?.[0];
+    const isActivePlaying = sounds[note.toLowerCase()] !== undefined;
+    
+    if (isCurrentNote) {
+      ink(0, 140, 160).box(x, pianoY, blackKeyWidth, blackKeyHeight); // Darker cyan for current
+    } else if (isNextNote) {
+      const fadeOpacity = Math.floor(songProgress * 150);
+      ink(0, 140, 160, fadeOpacity).box(x, pianoY, blackKeyWidth, blackKeyHeight); // Faded darker cyan
+    } else if (isActivePlaying) {
+      ink(200, 200, 0).box(x, pianoY, blackKeyWidth, blackKeyHeight); // Darker yellow for active
+    } else {
+      ink(40, 40, 40).box(x, pianoY, blackKeyWidth, blackKeyHeight); // Black
+    }
+  });
 
   if (projector) {
     const sy = 33;
@@ -765,6 +911,28 @@ function paint({
       [255, 0, 0, 255],
       { primaryColor, secondaryColor },
     );
+
+    // Draw active notes to the right of the mini piano (not in song mode)
+    if (!song) {
+      const activeNotes = orderedByCount(sounds);
+      if (activeNotes.length > 0) {
+        // Position to the right of the piano (piano is 14 white keys * 7px = 98px wide)
+        const pianoWidth = 98;
+        const pianoStartX = 58;
+        const notesStartX = pianoStartX + pianoWidth + 4; // 4px gap after piano
+        const pianoY = 21;
+        
+        // Draw a subtle dark background for the active notes area
+        const notesWidth = activeNotes.length * 14 + 8;
+        ink(0, 0, 0, 128).box(notesStartX, pianoY, notesWidth, 16);
+        
+        // Draw each active note
+        activeNotes.forEach((note, index) => {
+          const noteX = notesStartX + 4 + index * 14;
+          ink(255, 255, 0).write(note.toUpperCase(), noteX, pianoY + 4);
+        });
+      }
+    }
 
     // ink("yellow").write(scope, 56 + 120 + 2, sy + 3);
     // ink("pink").write(scopeTrim, 6 + 18, sy + sh + 3);
@@ -847,6 +1015,32 @@ function paint({
   }
 
   if (!tap /*&& !projector*/ && !paintPictureOverlay) {
+    // 🎵 Draw connecting line FIRST (behind everything)
+    if (song && songIndex < song.length - 1) {
+      const currentNoteKey = song[songIndex][0];
+      const nextNoteKey = song[songIndex + 1][0];
+      
+      if (currentNoteKey && nextNoteKey) {
+        // Find the button for current and next notes
+        const currentButton = buttons[currentNoteKey.toLowerCase()] || buttons["+" + currentNoteKey.toLowerCase()];
+        const nextButton = buttons[nextNoteKey.toLowerCase()] || buttons["+" + nextNoteKey.toLowerCase()];
+        
+        if (currentButton && nextButton) {
+          // Get center points of both buttons
+          const x1 = currentButton.box.x + currentButton.box.w / 2;
+          const y1 = currentButton.box.y + currentButton.box.h / 2;
+          const x2 = nextButton.box.x + nextButton.box.w / 2;
+          const y2 = nextButton.box.y + nextButton.box.h / 2;
+          
+          // Draw brighter line with fade based on progress
+          const lineOpacity = Math.floor(songProgress * 255);
+          if (lineOpacity > 0) {
+            ink(0, 255, 255, lineOpacity).line(x1, y1, x2, y2);
+          }
+        }
+      }
+    }
+    
     const activeNote = buttonNotes.indexOf(active[0]);
 
     if (activeNote >= 0 && activeNote !== lastActiveNote) {
@@ -854,13 +1048,33 @@ function paint({
       transposeOverlayFade = 0;
     }
 
+    // 🎵 Draw grid outlines for melody notes
+    if (song) {
+      // Collect all unique notes used in the melody
+      const melodyNotes = new Set();
+      song.forEach(([note]) => melodyNotes.add(note.toLowerCase()));
+      
+      // Draw outline for each melody note button
+      buttonNotes.forEach((note) => {
+        if (buttons[note] && melodyNotes.has(note.toUpperCase())) {
+          const btn = buttons[note];
+          ink("cyan", 64).box(btn.box, "outline"); // Subtle cyan outline
+        }
+      });
+    }
+
     // Paint all the keyboard buttons.
     buttonNotes.forEach((note, index) => {
       if (buttons[note]) {
         buttons[note].paint((btn) => {
           let color;
+          let isBlocked = false;
 
-          if ((!slide && btn.down) || (btn.down && slide)) {
+          // In song mode, check if this note is blocked (not the current note)
+          if (song && note.toUpperCase() !== song?.[songIndex][0]) {
+            isBlocked = true;
+            color = "black"; // Blocked notes are black
+          } else if ((!slide && btn.down) || (btn.down && slide)) {
             // If this button is pressed down.
             color = "maroon";
           } else {
@@ -871,13 +1085,11 @@ function paint({
             color = note.indexOf("#") === -1 ? octaveTheme[outOctave] : "gray";
           }
 
-          if (note.toUpperCase() === song?.[songIndex][0]) {
-            layer(1).ink("red").box(btn.box, "inline").layer(0);
-            if (!btn.down) color = "red";
-          }
+          // Remove red highlighting - we just use the boxes now
+          // (keeping this section empty for clarity)
 
           if (!projector) {
-            ink(color, 196).box(btn.box); // One solid colored box per note.
+            ink(color, isBlocked ? 128 : 196).box(btn.box); // Blocked notes are darker
           } else {
             ink(color, 48).box(btn.box); // One solid colored box per note.
             // ink("white", 32).box(btn.box, "inline"); // One solid colored box per note.
@@ -902,9 +1114,107 @@ function paint({
           }
 
           // 🎵 Note label
-          ink("white").write(note.toUpperCase(), btn.box.x + 2, btn.box.y + 1);
           const glyphWidth = typeface.glyphs["0"].resolution[0];
           const glyphHeight = typeface.glyphs["0"].resolution[1];
+          
+          if (song) {
+            // In song mode, only show note labels for current/next notes, centered
+            const isCurrentNote = note.toUpperCase() === song?.[songIndex][0];
+            const isNextNote = note.toUpperCase() === song?.[songIndex + 1]?.[0];
+            
+            if (isCurrentNote || isNextNote) {
+              const noteLabel = note.toUpperCase();
+              const labelWidth = noteLabel.length * glyphWidth;
+              const centerX = btn.box.x + btn.box.w / 2 - labelWidth / 2;
+              const centerY = btn.box.y + btn.box.h / 2 - glyphHeight / 2;
+              
+              // Use darker color that's visible on yellow
+              ink(0, 0, 50).write(noteLabel, centerX, centerY);
+            }
+            // Don't show labels for blocked notes
+          } else {
+            // Normal mode - show label in top-left corner
+            ink("white").write(note.toUpperCase(), btn.box.x + 2, btn.box.y + 1);
+          }
+
+          // � Repeat boxes for current note
+          if (song && note.toUpperCase() === song?.[songIndex][0]) {
+            let repeatCount = 0;
+            let currentNote = song[songIndex][0];
+            // Count consecutive repeats of the same note
+            for (let i = songIndex; i < song.length; i++) {
+              if (song[i][0] === currentNote) {
+                repeatCount++;
+              } else {
+                break;
+              }
+            }
+            // Show solid boxes - one for each tap, stacked inside
+            for (let i = 0; i < repeatCount; i++) {
+              const inset = 6 + i * 3; // Start at 6px margin, each box gets progressively smaller
+              ink(0, 100, 120, 220).box( // Darker cyan for better contrast with white text
+                btn.box.x + inset,
+                btn.box.y + inset,
+                btn.box.w - inset * 2,
+                btn.box.h - inset * 2
+              );
+            }
+          }
+          // Fade in box for next note
+          else if (song && note.toUpperCase() === song?.[songIndex + 1]?.[0]) {
+            // Only show 1 box for the immediate next tap (not all repeats)
+            const inset = 6;
+            const fadeOpacity = Math.floor(songProgress * 100); // Reduced from 200 to 100 for more fade
+            if (fadeOpacity > 0) {
+              ink(0, 100, 120, fadeOpacity).box( // Darker cyan for better contrast
+                btn.box.x + inset,
+                btn.box.y + inset,
+                btn.box.w - inset * 2,
+                btn.box.h - inset * 2
+              );
+            }
+          }
+
+          // 🎵 Paint note label OVER boxes (in song mode only)
+          if (song) {
+            const isCurrentNote = note.toUpperCase() === song?.[songIndex][0];
+            const isNextNote = note.toUpperCase() === song?.[songIndex + 1]?.[0];
+            
+            if (isCurrentNote) {
+              // Show the note letter in top-left using MatrixChunky8
+              const noteLetter = note.toUpperCase();
+              ink("white").write(noteLetter, { x: btn.box.x + 1, y: btn.box.y }, undefined, undefined, false, "MatrixChunky8");
+              
+              // Show the word/syllable to sing for current note (centered)
+              let label = song[songIndex][1];
+              // Remove hyphens for display
+              label = label.replace(/-/g, '');
+              const labelWidth = label.length * glyphWidth;
+              const centerX = btn.box.x + btn.box.w / 2 - labelWidth / 2;
+              const centerY = btn.box.y + btn.box.h / 2 - glyphHeight / 2;
+              
+              // Use white for labels
+              ink("white").write(label, centerX, centerY);
+            } else if (isNextNote) {
+              // Use white with fade based on progress
+              const fadeOpacity = Math.floor(songProgress * 255);
+              if (fadeOpacity > 0) {
+                // Show the note letter in top-left using MatrixChunky8
+                const noteLetter = note.toUpperCase();
+                ink("white", fadeOpacity).write(noteLetter, { x: btn.box.x + 1, y: btn.box.y }, undefined, undefined, false, "MatrixChunky8");
+                
+                // Show the word/syllable to sing for next note (centered)
+                let label = song[songIndex + 1][1];
+                // Remove hyphens for display
+                label = label.replace(/-/g, '');
+                const labelWidth = label.length * glyphWidth;
+                const centerX = btn.box.x + btn.box.w / 2 - labelWidth / 2;
+                const centerY = btn.box.y + btn.box.h / 2 - glyphHeight / 2;
+                
+                ink("white", fadeOpacity).write(label, centerX, centerY);
+              }
+            }
+          }
 
           // 🧮 Transpose label
           if (paintTransposeOverlay && lastActiveNote >= 0) {
@@ -924,67 +1234,70 @@ function paint({
           }
 
           // Paint keyboard shortcuts (if they differ from the note)
-          let keyLabel;
-          switch (note) {
-            case "c#":
-              keyLabel = "v";
-              break;
-            case "d#":
-              keyLabel = "s";
-              break;
-            case "f#":
-              keyLabel = "w";
-              break;
-            case "g#":
-              keyLabel = "r";
-              break;
-            case "a#":
-              keyLabel = "q";
-              break;
-            // Second octave.
-            case "+c":
-              keyLabel = "h";
-              break;
-            case "+d":
-              keyLabel = "i";
-              break;
-            case "+e":
-              keyLabel = "j";
-              break;
-            case "+f":
-              keyLabel = "k";
-              break;
-            case "+g":
-              keyLabel = "l";
-              break;
-            case "+a":
-              keyLabel = "m";
-              break;
-            case "+b":
-              keyLabel = "n";
-              break;
-            case "+c#":
-              keyLabel = "t";
-              break;
-            case "+d#":
-              keyLabel = "y";
-              break;
-            case "+f#":
-              keyLabel = "u";
-              break;
-            case "+g#":
-              keyLabel = "o";
-              break;
-            case "+a#":
-              keyLabel = "p";
-              break;
+          // Hide in song mode
+          if (!song) {
+            let keyLabel;
+            switch (note) {
+              case "c#":
+                keyLabel = "v";
+                break;
+              case "d#":
+                keyLabel = "s";
+                break;
+              case "f#":
+                keyLabel = "w";
+                break;
+              case "g#":
+                keyLabel = "r";
+                break;
+              case "a#":
+                keyLabel = "q";
+                break;
+              // Second octave.
+              case "+c":
+                keyLabel = "h";
+                break;
+              case "+d":
+                keyLabel = "i";
+                break;
+              case "+e":
+                keyLabel = "j";
+                break;
+              case "+f":
+                keyLabel = "k";
+                break;
+              case "+g":
+                keyLabel = "l";
+                break;
+              case "+a":
+                keyLabel = "m";
+                break;
+              case "+b":
+                keyLabel = "n";
+                break;
+              case "+c#":
+                keyLabel = "t";
+                break;
+              case "+d#":
+                keyLabel = "y";
+                break;
+              case "+f#":
+                keyLabel = "u";
+                break;
+              case "+g#":
+                keyLabel = "o";
+                break;
+              case "+a#":
+                keyLabel = "p";
+                break;
+            }
+            if (keyLabel)
+              ink("white", 96).write(
+                keyLabel,
+                btn.box.x + 2, // + note.length * glyphWidth,
+                btn.box.y + 10,
+              );
           }
-          if (keyLabel)
-            ink("white", 96).write(
-              keyLabel,
-              btn.box.x + 2, // + note.length * glyphWidth,
-              btn.box.y + 10,
-            );
         });
       }
     });
@@ -1340,6 +1653,19 @@ function act({
           e,
           {
             down: (btn) => {
+              // In song mode, block all notes except the current one
+              if (song && note.toUpperCase() !== song?.[songIndex][0]) {
+                // Play white noise bump for wrong note
+                synth({
+                  type: "noise-white",
+                  tone: 1000,
+                  duration: 0.05,
+                  volume: 0.3,
+                  attack: 0,
+                });
+                return false; // Block the interaction
+              }
+
               if (downs[note]) return false; // Cancel the down if the key is held.
               anyDown = true;
 
@@ -1399,6 +1725,11 @@ function act({
               if (btn.up && anyDown) {
                 btn.up = false;
                 btn.actions.down(btn);
+                
+                // In song mode, if we drag into the correct note, mark it as pressed
+                if (song && note.toUpperCase() === song?.[songIndex][0]) {
+                  songNoteDown = true;
+                }
               }
             },
             // TODO: The order of over and out will be important...
@@ -1409,6 +1740,11 @@ function act({
               delete tonestack[note]; // Remove from notestack  
               delete sounds[note]; // Remove sound reference
               delete trail[note]; // Clean up trail
+              
+              // If this was the song note, reset the flag so it doesn't advance on wrong note
+              if (song && note.toUpperCase() === song?.[songIndex][0] && songNoteDown) {
+                songNoteDown = false;
+              }
             },
             cancel: (btn) => {
               // Force cleanup when button gets stuck - stop the sound immediately
@@ -1679,6 +2015,19 @@ function act({
 
         // const buttonNote =
         //  (activeOctave === parseInt(octave) ? "" : "+") + note.toLowerCase();
+
+        // 🎵 Block wrong keyboard keys in song mode (melody learning mode)
+        if (song && buttonNote.toUpperCase() !== song?.[songIndex][0]) {
+          // Play white noise bump for wrong key press
+          synth({
+            type: "noise-white",
+            tone: 1000,
+            duration: 0.05,
+            volume: 0.3,
+            attack: 0,
+          });
+          return; // Block this wrong key in melody mode
+        }
 
         if (buttons[buttonNote]) buttons[buttonNote].down = true;
 

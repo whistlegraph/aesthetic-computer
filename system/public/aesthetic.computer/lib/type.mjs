@@ -9,6 +9,8 @@ endregion */
 import * as fonts from "../disks/common/fonts.mjs";
 import { repeat } from "../lib/help.mjs";
 import { checkTeiaMode } from "./teia-mode.mjs";
+import { KidLisp, tokenize } from "./kidlisp.mjs";
+import { cssColors } from "./num.mjs";
 function matrixDebugEnabled() {
   if (typeof window !== "undefined" && window?.acMatrixDebug) return true;
   if (typeof globalThis !== "undefined" && globalThis?.acMatrixDebug) return true;
@@ -1114,7 +1116,73 @@ class TextInput {
     const ti = this;
     const prompt = this.#prompt;
 
-    function paintBlockLetter(char, pos, alt = false) {
+    // Build character-to-color map for KidLisp syntax highlighting
+    let charColorMap = null;
+    if ($.system?.prompt?.kidlispMode && this.text) {
+      try {
+        const tokens = tokenize(this.text);
+        const kidlispInstance = new KidLisp();
+        kidlispInstance.initializeSyntaxHighlighting(this.text);
+        
+        charColorMap = new Map();
+        let sourceIndex = 0;
+        
+        // Process each token
+        for (let i = 0; i < tokens.length; i++) {
+          const token = tokens[i];
+          
+          // Check if this is a fade expression that needs special coloring
+          if (token.startsWith("fade:")) {
+            const colorName = kidlispInstance.getTokenColor(token, tokens, i);
+            
+            // Use colorFadeExpression to get the properly colored string
+            const coloredFadeString = kidlispInstance.colorFadeExpression(token);
+            
+            // Parse the colored string to extract color assignments
+            // Format: \color1\text1\color2\text2...
+            const colorCodeRegex = /\\([^\\]+)\\([^\\]*)/g;
+            let match;
+            let charOffset = 0;
+            const tokenIndex = this.text.indexOf(token, sourceIndex);
+            
+            while ((match = colorCodeRegex.exec(coloredFadeString)) !== null) {
+              const color = match[1];
+              const text = match[2];
+              
+              // Map each character in this text segment to its color
+              for (let j = 0; j < text.length; j++) {
+                if (tokenIndex >= 0 && charOffset < token.length) {
+                  charColorMap.set(tokenIndex + charOffset, color);
+                  charOffset++;
+                }
+              }
+            }
+            
+            if (tokenIndex !== -1) {
+              sourceIndex = tokenIndex + token.length;
+            }
+          } else {
+            // Normal token - get single color
+            const colorName = kidlispInstance.getTokenColor(token, tokens, i);
+            
+            // Find token position in source
+            const tokenIndex = this.text.indexOf(token, sourceIndex);
+            if (tokenIndex !== -1) {
+              // Map each character in the token to its color
+              for (let charOffset = 0; charOffset < token.length; charOffset++) {
+                charColorMap.set(tokenIndex + charOffset, colorName);
+              }
+              sourceIndex = tokenIndex + token.length;
+            }
+          }
+        }
+      } catch (error) {
+        console.warn("Error building KidLisp syntax highlight map:", error);
+        charColorMap = null;
+      }
+    }
+
+    function paintBlockLetter(char, pos, alt = false, charIndex = -1) {
       if (char.charCodeAt(0) === 10 && ti.#renderSpaces) {
         $.ink([255, 0, 0, 127]).box(pos.x, pos.y, 4);
       } else if (char !== " " && char.charCodeAt(0) !== 10) {
@@ -1122,7 +1190,64 @@ class TextInput {
 
         const pic = ti.typeface.glyphs[char] || ti.typeface.glyphs["?"];
 
-        $.ink(!alt ? ti.pal.text : ti.pal.prompt || ti.pal.text).draw(
+        // Use syntax highlighting color if in KidLisp mode and we have a color for this character
+        let drawColor;
+        if (charColorMap && charIndex >= 0 && charColorMap.has(charIndex)) {
+          const colorName = charColorMap.get(charIndex);
+          
+          // Check if it's an RGB string like "255,0,0" or "255,255,255,0"
+          if (colorName && colorName.includes(",")) {
+            const parts = colorName.split(",").map(n => parseInt(n.trim()));
+            drawColor = parts.length >= 3 ? parts : null;
+          }
+          // Check for compound colors (like $codes)
+          else if (colorName && colorName.startsWith("COMPOUND:")) {
+            // For now, just use the first color part
+            const parts = colorName.split(":");
+            const actualColorName = parts[1] || "white";
+            if (cssColors[actualColorName]) {
+              drawColor = cssColors[actualColorName];
+            } else {
+              drawColor = [255, 255, 255];
+            }
+          }
+          // Handle special markers (should not appear in prompt, but just in case)
+          else if (colorName === "RAINBOW" || colorName === "ZEBRA") {
+            drawColor = !alt ? ti.pal.text : ti.pal.prompt || ti.pal.text;
+          }
+          // Convert color name to RGB
+          else if (cssColors[colorName]) {
+            drawColor = cssColors[colorName];
+          } else if (colorName === "gray" || colorName === "grey") {
+            drawColor = [128, 128, 128];
+          } else if (colorName === "orange") {
+            drawColor = [255, 165, 0];
+          } else if (colorName === "lime") {
+            drawColor = [0, 255, 0];
+          } else if (colorName === "pink") {
+            drawColor = [255, 192, 203];
+          } else if (colorName === "darkred") {
+            drawColor = [139, 0, 0];
+          } else if (colorName === "limegreen") {
+            drawColor = [50, 205, 50];
+          } else if (colorName === "hotpink") {
+            drawColor = [255, 105, 180];
+          } else if (colorName === "mediumseagreen") {
+            drawColor = [60, 179, 113];
+          } else {
+            // Fallback to default color
+            drawColor = !alt ? ti.pal.text : ti.pal.prompt || ti.pal.text;
+          }
+          
+          // If we still don't have a valid color, use default
+          if (!drawColor) {
+            drawColor = !alt ? ti.pal.text : ti.pal.prompt || ti.pal.text;
+          }
+        } else {
+          drawColor = !alt ? ti.pal.text : ti.pal.prompt || ti.pal.text;
+        }
+
+        $.ink(drawColor).draw(
           pic,
           pos,
           prompt.scale,
@@ -1147,7 +1272,8 @@ class TextInput {
     let submittedIndex = 0;
     Object.keys(prompt.cursorToTextMap).forEach((key) => {
       const [x, y] = key.split(":").map((c) => parseInt(c));
-      const char = this.text[prompt.cursorToTextMap[key]];
+      const charIndex = prompt.cursorToTextMap[key];
+      const char = this.text[charIndex];
       let fromSubmitted = false;
       if (!this.canType && submittedIndex < this.submittedText.length) {
         if (char === this.submittedText[submittedIndex]) fromSubmitted = true;
@@ -1157,7 +1283,7 @@ class TextInput {
       // console.log(this.submittedText, this.text)
       // if (this.canType || !this.commandSentOnce || (this.lock && this.text === this.submittedText))
       //   fromSubmitted = true;
-      paintBlockLetter(char, prompt.pos({ x, y }), fromSubmitted);
+      paintBlockLetter(char, prompt.pos({ x, y }), fromSubmitted, charIndex);
     });
 
     // Or...
@@ -1210,8 +1336,8 @@ class TextInput {
       }
     } else {
       if (this.cursor === "blink" && this.showBlink && this.canType) {
-        // Use green cursor in kidlisp mode, otherwise use normal color
-        const cursorColor = $.system?.prompt?.kidlispMode
+        // Use green cursor only for actual KidLisp code, not for nopaint brushes
+        const cursorColor = $.system?.prompt?.actualKidlisp
           ? $.dark
             ? [100, 255, 100]
             : [0, 150, 0]
