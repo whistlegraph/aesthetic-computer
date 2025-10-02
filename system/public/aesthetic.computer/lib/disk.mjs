@@ -1850,6 +1850,7 @@ const $commonApi = {
       }
     } else {
       leaving = true;
+      graph.unmask(); // Clear any active mask when leaving a piece
     }
 
     function loadLine() {
@@ -1867,6 +1868,7 @@ const $commonApi = {
         if (to.split("~")[0] === "prompt" &&
             globalKidLispInstance?.clearBakedLayers) {
           globalKidLispInstance.clearBakedLayers();
+          graph.unmask(); // Clear mask when returning to prompt from KidLisp
         }
         loadLine(); // Or just load normally.
       }
@@ -6385,6 +6387,7 @@ async function load(
     // Load a piece, wrapping it in a leave function so a final frame
     // plays back.
     leaving = true;
+    graph.unmask(); // Clear any active mask when leaving a piece
 
     return new Promise((resolve) => {
       leaveLoad = async () => {
@@ -6541,6 +6544,7 @@ async function load(
     if (module?.system?.startsWith("prompt") &&
         globalKidLispInstance?.clearBakedLayers) {
       globalKidLispInstance.clearBakedLayers();
+      graph.unmask(); // Clear mask when returning to prompt from KidLisp
     }
 
     if (!module.system?.startsWith("world"))
@@ -6568,6 +6572,8 @@ async function load(
       boot = async ($) => {
         // Reset scroll state when a new piece boots
         graph.resetScrollState();
+        // Reset mask state to prevent masks from persisting across pieces
+        graph.unmask();
         
         const booter = module.boot || nopaint_boot;
         booter($);
@@ -6881,6 +6887,8 @@ async function load(
       // 🧩 piece
       // Reset scroll state when a piece loads
       graph.resetScrollState();
+      // Reset mask state to prevent masks from persisting across pieces
+      graph.unmask();
       
       boot = module.boot || defaults.boot;
       sim = module.sim || defaults.sim;
@@ -10204,6 +10212,8 @@ async function makeFrame({ data: { type, content } }) {
         label = $api.painting(bufferW, bufferH, ($) => {
           // Ensure label renders with clean pan state
           $.unpan();
+          // Ensure label renders without any active mask from the piece
+          $.unmask();
           
           // Clean rendering - no debug elements
           
@@ -10379,6 +10389,7 @@ async function makeFrame({ data: { type, content } }) {
         
         // Create merry progress bar painting with SEGMENTED colored blocks per piece
         const merryProgressBarPainting = $api.painting(mainScreenWidth, 1, ($) => {
+          $.unmask(); // Ensure progress bar renders without piece mask
           const animFrame = Number($api.paintCount || 0n);
           
           // Fill with black backdrop
@@ -10507,6 +10518,7 @@ async function makeFrame({ data: { type, content } }) {
           
           // Create tape progress bar painting with VHS-style red glow
           const tapeProgressBarPainting = $api.painting(mainScreenWidth, 2, ($) => {
+            $.unmask(); // Ensure tape progress bar renders without piece mask
             // Animation frame for VHS effects - increased speed for more vibes
             const animFrame = Number($api.paintCount || 0n);
             
@@ -10823,6 +10835,7 @@ async function makeFrame({ data: { type, content } }) {
           
           const hitboxOverlay = $api.painting(hitboxWidth, hitboxHeight, ($) => {
             $.unpan();
+            $.unmask(); // Ensure hitbox overlay renders without piece mask
             // Draw a semi-transparent green border to show the hitbox
             $.ink(0, 255, 0, 128).box(0, 0, hitboxWidth, hitboxHeight, "outline");
             $.ink(0, 255, 0, 64).box(1, 1, hitboxWidth - 2, hitboxHeight - 2, "outline");
@@ -11026,6 +11039,7 @@ async function makeFrame({ data: { type, content } }) {
                 
                 // Create scaled QR overlay with styled code text
                 qrOverlay = $api.painting(canvasWidth, canvasHeight, async ($) => {
+                  $.unmask(); // Ensure QR overlay renders without piece mask
                   // Draw scaled QR with integer scaling (centered in canvas)
                   const qrOffsetX = Math.floor((canvasWidth - overlayWidth) / 2);
                   
@@ -11118,6 +11132,7 @@ async function makeFrame({ data: { type, content } }) {
               const qrOffsetY = textAreaHeight; // QR starts right after text area (no gap)
               const canvasHeight = qrOffsetY + qrSize + 2; // Ensure room for bottom shadow
               const generatedQR = $api.painting(qrSize + 1, canvasHeight, async ($) => {
+                $.unmask(); // Ensure QR renders without piece mask
                 // Draw QR code at offset position to make room for text above
                 for (let y = 0; y < cells.length; y++) {
                   for (let x = 0; x < cells.length; x++) {
@@ -11383,6 +11398,7 @@ async function makeFrame({ data: { type, content } }) {
                 
                 // Generate fullscreen canvas with centered QR and top-left text
                 const fullscreenQR = $api.painting(canvasWidth, canvasHeight, ($) => {
+                  $.unmask(); // Ensure fullscreen QR renders without piece mask
                   // Draw QR code centered on screen
                   for (let y = 0; y < cells.length; y++) {
                     for (let x = 0; x < cells.length; x++) {
