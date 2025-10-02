@@ -28,6 +28,18 @@ merry piece1:3 piece2:5 piece3:2
 ```
 (durations in seconds)
 
+### Prefix Durations (new)
+```
+merry 3-piece1 5-piece2 2-piece3
+```
+(numbers before the dash are seconds)
+
+### Infinite Loop
+```
+merry-o 0.25-tone
+```
+(restarts from the first piece until you run `stop`)
+
 ### Mixed
 ```
 merry piece1:3 piece2 piece3:7
