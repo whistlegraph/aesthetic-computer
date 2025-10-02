@@ -224,9 +224,9 @@ function parseLocalFade(fadeType, alpha = 255) {
       const consecutiveOffset = (i > 0 && colorNames[i-1] === "zebra") ? 1 : 0;
       colors.push(["zebra", 255, 255, 255, alpha, zebraBaseOffset + consecutiveOffset]);
       if (consecutiveOffset > 0) zebraBaseOffset++;
-    } else if (colorName.startsWith("c")) {
+    } else if (/^c\d+$/i.test(colorName)) {
       // Color index like c0, c1, etc.
-      const indexColor = parseColorIndex(colorName);
+      const indexColor = parseColorIndex(colorName.toLowerCase());
       if (indexColor) {
         colors.push([...indexColor.slice(0, 3), alpha]);
       }
@@ -1132,6 +1132,11 @@ export {
   pixel,
   setForceReplaceMode,
   withForceReplaceMode,
+  parseFadeColor,
+  parseLocalFade,
+  getLocalFadeColor,
+  evaluateFadeDirection,
+  calculateAngleFadePosition,
 };
 
 // Helper function to evaluate dynamic fade direction
@@ -4135,17 +4140,16 @@ function scroll(dx = 0, dy = 0) {
     maxX = width,
     maxY = height;
   if (activeMask) {
-    // Apply pan translation to mask bounds and ensure they're within screen bounds
-    minX = Math.max(0, Math.min(width, activeMask.x + panTranslation.x));
-    maxX = Math.max(
-      0,
-      Math.min(width, activeMask.x + activeMask.width + panTranslation.x),
-    );
-    minY = Math.max(0, Math.min(height, activeMask.y + panTranslation.y));
-    maxY = Math.max(
-      0,
-      Math.min(height, activeMask.y + activeMask.height + panTranslation.y),
-    );
+    // Mask coordinates are already in screen space; clamp without pan translation so wrapping lines up with other masked ops
+    const maskMinX = Math.floor(activeMask.x);
+    const maskMinY = Math.floor(activeMask.y);
+    const maskMaxX = Math.ceil(activeMask.x + activeMask.width);
+    const maskMaxY = Math.ceil(activeMask.y + activeMask.height);
+
+    minX = Math.max(0, Math.min(width, maskMinX));
+    maxX = Math.max(0, Math.min(width, maskMaxX));
+    minY = Math.max(0, Math.min(height, maskMinY));
+    maxY = Math.max(0, Math.min(height, maskMaxY));
   }
 
   const boundsWidth = maxX - minX;
