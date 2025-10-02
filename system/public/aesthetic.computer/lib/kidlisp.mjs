@@ -96,6 +96,15 @@ import { checkTeiaMode } from "./teia-mode.mjs";
    - `(later cross x y (line (- x 10) (- y 10) (+ x 10) (+ y 10)))`
    - Call with: `(cross 50 50)`
    
+   ### Repetition
+   - `(repeat count expression...)` - Execute expressions multiple times
+   - `(repeat count iterator expression...)` - Repeat with iterator variable
+   - `(bunch count expression...)` - Alias for repeat (shorter, playful)
+   - Examples:
+     - `(repeat 10 (circle (wiggle width) (wiggle height) 5))`
+     - `(repeat height i (ink rainbow) (line 0 i width i))`
+     - `(bunch 100 (plot (wiggle width) (wiggle height)))`
+   
    ## Advanced Features
    
    ### Navigation
@@ -167,6 +176,24 @@ import { checkTeiaMode } from "./teia-mode.mjs";
    1s (ink "red") (circle 100 100 50)
    2s (ink "blue") (box 150 150 40 40)
    3s... (ink (wiggle 255) (wiggle 255) (wiggle 255)) (plot (wiggle width) (wiggle height))
+   ```
+   
+   ### Repetition Patterns
+   ```kidlisp
+   ; Draw many random stars
+   (wipe "black")
+   (ink "white")
+   (bunch 50 (plot (wiggle width) (wiggle height)))
+   
+   ; Rainbow lines with iterator
+   (bunch height i
+     (ink rainbow)
+     (line 0 i width i))
+   
+   ; Repeat also works (bunch is shorter alias)
+   (repeat 100 
+     (ink (choose "red" "blue" "yellow"))
+     (circle (wiggle width) (wiggle height) 5))
    ```
    
    ### Navigation & Jumps
@@ -283,10 +310,11 @@ function setCachedCode(source, code) {
   (+ 1 2 3)
 
   ; Compact one-liner syntax with commas:
-  ; "blue, ink rainbow, repeat 100 line" becomes "(blue) (ink rainbow) (repeat 100 line)"
-  blue, ink rainbow, repeat 100 line
+  ; "blue, ink rainbow, bunch 100 line" becomes "(blue) (ink rainbow) (bunch 100 line)"
+  blue, ink rainbow, bunch 100 line
   wipe black, ink red, box 10 10 50 50
   (wipe blue), ink yellow, circle 64 64 30  ; Mix with parentheses
+  ; Note: 'bunch' is an alias for 'repeat' - both work!
 
   ; Multi-layer example with bake:
   (ink "blue")
@@ -740,6 +768,7 @@ class KidLisp {
 
     // Clear embedded layer cache on initialization/reload (after caches are initialized)
     this.clearEmbeddedLayerCache();
+    this.clearBakedLayers();
 
     // Microphone state tracking
     this.microphoneConnected = false;
@@ -751,6 +780,7 @@ class KidLisp {
       "backdrop",
       "box",
       "repeat",
+      "bunch",
       "bake",
       "+",
       "-",
@@ -867,6 +897,10 @@ class KidLisp {
     // Bake functionality state
     this.bakedLayers = []; // Store baked pixel buffers
     this.bakeCallCount = 0; // Track number of bake calls to prevent duplicates
+    this.hasBakedContent = false; // Track if bake has been called (to enable drawing suppression)
+    this.suppressDrawingBeforeBake = false; // Suppress drawing operations before bake point on subsequent frames
+    this.postBakeLayer = null; // Persistent buffer for post-bake drawing commands
+    this.frameRoutingContext = null; // Tracks screen routing between baked and overlay buffers within a frame
 
     // Performance monitoring
     this.performanceEnabled = false; // Enable/disable performance monitoring
@@ -1376,6 +1410,20 @@ class KidLisp {
     // Clear onceExecuted only when explicitly requested (when source changes)
     if (clearOnceExecuted) {
       this.onceExecuted.clear();
+      // Also clear baked layers when source changes (similar to embedded layers)
+      this.bakedLayers = [];
+      this.bakeCallCount = 0;
+      this.hasBakedContent = false;
+    }
+
+    // 🍞 If we have baked content, suppress drawing operations before we reach the bake point
+    // This allows code before bake to run (for logic) but prevents it from drawing over the baked layer
+    if (this.hasBakedContent && !clearOnceExecuted) {
+      this.suppressDrawingBeforeBake = true;
+      if (VERBOSE) console.log("🍞 Reset: Frame start - suppression ENABLED (have baked content)");
+    } else {
+      this.suppressDrawingBeforeBake = false;
+      if (VERBOSE) console.log("🍞 Reset: Frame start - suppression DISABLED (no baked content or source changed)");
     }
 
     // Reset timing blink tracking
@@ -1387,9 +1435,8 @@ class KidLisp {
     // Reset active timing expressions tracking
     this.activeTimingExpressions.clear();
 
-    // Reset baked layers state
-    this.bakedLayers = [];
-    this.bakeCallCount = 0;
+    // Don't reset baked layers here - they should persist across frames like embedded layers
+    // Baked layers are only cleared when source code changes (handled above in clearOnceExecuted block)
 
     // Reset deferred commands state
     this.postEmbedCommands = [];
@@ -2346,6 +2393,7 @@ class KidLisp {
     // Always clear embedded layer cache when loading a module
     // This ensures fresh state when entering/re-entering a piece
     this.clearEmbeddedLayerCache();
+    this.clearBakedLayers();
 
     // Source logging removed for performance
     // console.log("🟪");
@@ -2604,17 +2652,44 @@ class KidLisp {
 
           const mainEvalStart = performance.now();
           // console.log("🔍 About to evaluate AST for embedded KidLisp");
-          /*const evaluated = */ this.evaluate(this.ast, $, undefined, undefined, true);
+          
+          const restoreRouting = this.beginBakedFrameRouting($);
+          try {
+            /*const evaluated = */ this.evaluate(this.ast, $, undefined, undefined, true);
+          } finally {
+            restoreRouting();
+          }
+          if (VERBOSE) console.log("🎬 Finished evaluation");
           // console.log("✅ Finished evaluating AST for embedded KidLisp");
           const mainEvalTime = performance.now() - mainEvalStart;
 
           // Mark that we're now in the embed rendering phase
           this.inEmbedPhase = true;
 
-          // Then composite baked layers underneath current content
+          // First composite baked layers to establish the background
+          if (this.hasBakedContent && $.screen?.pixels) {
+            $.screen.pixels.fill(0);
+          }
           const bakedStart = performance.now();
           this.renderBakedLayers($);
           const bakedTime = performance.now() - bakedStart;
+
+          // Then restore the persistent post-bake overlay on top
+          if (this.hasBakedContent && this.postBakeLayer?.pixels && $.screen?.pixels) {
+            if (!this.postBakeLayer ||
+              this.postBakeLayer.width !== $.screen.width ||
+              this.postBakeLayer.height !== $.screen.height) {
+              this.postBakeLayer = this.resizePixelBufferPreserve(
+                this.postBakeLayer,
+                $.screen.width,
+                $.screen.height,
+                0,
+              );
+            }
+
+            // Composite the post-bake overlay on top of the baked layer
+            this.compositePostBakeLayer($, this.postBakeLayer);
+          }
 
           // Then render and update embedded layers
 
@@ -3432,12 +3507,18 @@ class KidLisp {
         }
       },
       wipe: (api, args) => {
-        // console.log("🧹 Wipe called with args:", args);
         const processedArgs = processArgStringTypes(args);
-        // console.log("🧹 Wipe processed args:", processedArgs);
-        // console.log("🧹 Wipe api.screen dimensions:", api.screen?.width, "x", api.screen?.height);
-        // console.log("🧹 Wipe api.screen pixels length:", api.screen?.pixels?.length);
-        api.wipe?.(processedArgs);
+
+        const performWipe = () => {
+          api.wipe?.(processedArgs);
+        };
+
+        if (this.suppressDrawingBeforeBake) {
+          this.executePreBakeDraw(api, performWipe);
+          return;
+        }
+
+        performWipe();
         // console.log("🧹 Wipe completed, first pixel now:", api.screen?.pixels?.[0], api.screen?.pixels?.[1], api.screen?.pixels?.[2], api.screen?.pixels?.[3]);
       },
       coat: (api, args, env) => {
@@ -3543,6 +3624,14 @@ class KidLisp {
           args.length >= 3 && typeof args[0] === 'number' && typeof args[1] === 'number' && typeof args[2] === 'number') {
           this.inkState = [args[0], args[1], args[2]];
           this.inkStateSet = true;
+          if (VERBOSE) {
+            const drawingTarget = api.screen;
+            let bakedIndex = -1;
+            if (this.bakedLayers && drawingTarget) {
+              bakedIndex = this.bakedLayers.findIndex((layer) => layer?.buffer === drawingTarget || layer?.buffer?.pixels === drawingTarget?.pixels);
+            }
+            console.log(`🖋️ Ink (fast path) target info: width=${drawingTarget?.width} height=${drawingTarget?.height} bakedIndex=${bakedIndex}`);
+          }
           api.ink?.(args[0], args[1], args[2]);
           return;
         }
@@ -3588,6 +3677,14 @@ class KidLisp {
             return;
           }
 
+          if (VERBOSE) {
+            const drawingTarget = api.screen;
+            let bakedIndex = -1;
+            if (this.bakedLayers && drawingTarget) {
+              bakedIndex = this.bakedLayers.findIndex((layer) => layer?.buffer === drawingTarget || layer?.buffer?.pixels === drawingTarget?.pixels);
+            }
+            console.log(`🖋️ Ink (random) target info: width=${drawingTarget?.width} height=${drawingTarget?.height} bakedIndex=${bakedIndex}`);
+          }
           api.ink?.(...randomColor);
           return;
         } else if (args.length === 1 && (args[0] === null || args[0] === undefined)) {
@@ -3611,7 +3708,6 @@ class KidLisp {
               // Ink deferred debug log removed for performance
               return;
             }
-
             api.ink?.(args[0]);
             return;
           }
@@ -3632,7 +3728,6 @@ class KidLisp {
             // Ink deferred debug log removed for performance
             return;
           }
-
           api.ink?.(...(Array.isArray(processedArgs) ? processedArgs : [processedArgs]));
           // console.log("🖋️ Ink completed, first pixel now:", api.screen?.pixels?.[0], api.screen?.pixels?.[1], api.screen?.pixels?.[2], api.screen?.pixels?.[3]);
         }
@@ -3715,6 +3810,16 @@ class KidLisp {
         console.error("❗ Invalid `delay`. Expected (delay seconds action).");
       },
       line: (api, args = []) => {
+        // 🍞 Suppress drawing if we're before the bake point (after bake has been called)
+        if (this.suppressDrawingBeforeBake) {
+          const routed = this.runWithBakedBuffer(api, () => {
+            api.line(...args);
+          });
+          if (routed) {
+            return;
+          }
+        }
+
         // console.log("📏 Line called with args:", args);
         // console.log("📏 Line context:", {
         //   embeddedLayersCount: this.embeddedLayers?.length || 0,
@@ -3724,7 +3829,6 @@ class KidLisp {
 
         // Check if we should defer this command
         if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase) {
-          console.log("📏 DEFERRING line command");
           this.postEmbedCommands = this.postEmbedCommands || [];
           this.postEmbedCommands.push({
             name: 'line',
@@ -3735,7 +3839,6 @@ class KidLisp {
           return;
         }
 
-        // console.log("📏 EXECUTING line command immediately");
         api.line(...args);
       },
       // Batch line drawing for performance
@@ -3782,6 +3885,15 @@ class KidLisp {
           return arg;
         });
 
+        const drawBox = () => {
+          api.box(...processedArgs);
+        };
+
+        if (this.suppressDrawingBeforeBake) {
+          this.executePreBakeDraw(api, drawBox);
+          return;
+        }
+
         // Check if we should defer this command
         if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase) {
           this.postEmbedCommands = this.postEmbedCommands || [];
@@ -3794,9 +3906,18 @@ class KidLisp {
           return;
         }
 
-        api.box(...processedArgs);
+        drawBox();
       },
       circle: (api, args = []) => {
+        const drawCircle = () => {
+          api.circle(...args);
+        };
+
+        if (this.suppressDrawingBeforeBake) {
+          this.executePreBakeDraw(api, drawCircle);
+          return;
+        }
+
         // Check if we should defer this command
         if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase) {
           this.postEmbedCommands = this.postEmbedCommands || [];
@@ -3808,11 +3929,20 @@ class KidLisp {
           return;
         }
 
-        api.circle(...args);
+        drawCircle();
       },
       tri: (api, args = []) => {
         // Triangle function with 6 coordinates and optional mode
         // Usage: (tri x1 y1 x2 y2 x3 y3) or (tri x1 y1 x2 y2 x3 y3 mode)
+
+        const drawTri = () => {
+          api.tri(...args);
+        };
+
+        if (this.suppressDrawingBeforeBake) {
+          this.executePreBakeDraw(api, drawTri);
+          return;
+        }
 
         // Check if we should defer this command
         if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase) {
@@ -3825,7 +3955,7 @@ class KidLisp {
           return;
         }
 
-        api.tri(...args);
+        drawTri();
       },
       flood: (api, args = []) => {
         // Flood fill at coordinates with optional color
@@ -3835,17 +3965,26 @@ class KidLisp {
           const y = args[1];
           const fillColor = args[2]; // Optional color, defaults to current ink
 
+          const performFlood = () => {
+            if (fillColor !== undefined) {
+              api.flood(x, y, processArgStringTypes(fillColor));
+            } else {
+              api.flood(x, y); // Use current ink color
+            }
+          };
+
+          if (this.suppressDrawingBeforeBake) {
+            this.executePreBakeDraw(api, performFlood);
+            return;
+          }
+
           // Check if we should defer this command
           if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase) {
             this.postEmbedCommands = this.postEmbedCommands || [];
             this.postEmbedCommands.push({
               name: 'flood',
               func: () => {
-                if (fillColor !== undefined) {
-                  api.flood(x, y, processArgStringTypes(fillColor));
-                } else {
-                  api.flood(x, y); // Use current ink color
-                }
+                performFlood();
               },
               args: [x, y, fillColor]
             });
@@ -3853,11 +3992,7 @@ class KidLisp {
             return;
           }
 
-          if (fillColor !== undefined) {
-            api.flood(x, y, processArgStringTypes(fillColor));
-          } else {
-            api.flood(x, y); // Use current ink color
-          }
+          performFlood();
         }
       },
       shape: (api, args = []) => {
@@ -3899,6 +4034,12 @@ class KidLisp {
         api.shape({ points, filled, thickness });
       },
       scroll: (api, args = []) => {
+        // 🍞 Suppress scroll effect if we're before the bake point
+        if (this.suppressDrawingBeforeBake) {
+          if (VERBOSE) console.log("🍞 Scroll: SUPPRESSED (before bake point)");
+          return;
+        }
+
         // console.log(`📜 Scroll function called with args:`, args);
 
         // Handle different scroll argument formats
@@ -4062,6 +4203,18 @@ class KidLisp {
         api.sort(...args);
       },
       zoom: (api, args = []) => {
+        const performZoom = () => {
+          api.zoom(...args);
+        };
+
+        // 🍞 If we're before the bake point, route zoom to the baked buffer instead of skipping
+        if (this.suppressDrawingBeforeBake) {
+          this.executePreBakeDraw(api, () => {
+            performZoom();
+          });
+          return;
+        }
+
         // Only defer zoom execution if we're in the main program with embedded layers
         // BUT allow immediate execution if we're already inside an embedded layer
         if (this.embeddedLayers?.length > 0 && !this.inEmbedPhase && !this.isEmbeddedContext) {
@@ -4076,9 +4229,19 @@ class KidLisp {
         }
 
         // Execute zoom immediately
-        api.zoom(...args);
+        performZoom();
       },
       suck: (api, args = []) => {
+        const performSuck = () => {
+          api.suck(...args);
+        };
+
+        // 🍞 Route suck effect to baked buffer before the bake point
+        if (this.suppressDrawingBeforeBake) {
+          this.executePreBakeDraw(api, performSuck);
+          return;
+        }
+
         // console.log(`🌪️ Suck function called with args:`, args);
         // console.log(`🌪️ Embedded layers length:`, this.embeddedLayers?.length);
         // console.log(`🌪️ In embed phase:`, this.inEmbedPhase);
@@ -4099,20 +4262,41 @@ class KidLisp {
 
         // Execute suck immediately
         // console.log(`🚀 Executing suck immediately with args:`, args);
-        api.suck(...args);
+        performSuck();
       },
       blur: (api, args = []) => {
+        // 🍞 Suppress blur effect if we're before the bake point
+        if (this.suppressDrawingBeforeBake) {
+          const routed = this.runWithBakedBuffer(api, () => {
+            api.blur(...args);
+          });
+          if (routed) {
+            return;
+          }
+          return;
+        }
+
         // Execute blur immediately on the current buffer
         api.blur(...args);
       },
       contrast: (api, args = []) => {
+        const performContrast = () => {
+          api.contrast(...args);
+        };
+
+        // 🍞 Route contrast adjustments to baked buffer before the bake point
+        if (this.suppressDrawingBeforeBake) {
+          this.executePreBakeDraw(api, performContrast);
+          return;
+        }
+
         // Check if we should defer this command to execute after embedded layers are rendered
         if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase) {
           this.postEmbedCommands = this.postEmbedCommands || [];
           this.postEmbedCommands.push({
             name: 'contrast',
             func: () => {
-              api.contrast(...args);
+              performContrast();
             },
             args: args
           });
@@ -4120,7 +4304,7 @@ class KidLisp {
         }
 
         // Apply contrast immediately
-        api.contrast(...args);
+        performContrast();
       },
       pan: (api, args = []) => {
         api.pan(...args);
@@ -4241,7 +4425,17 @@ class KidLisp {
           }
           return arg;
         });
-        api.paste(...processedArgs);
+
+        const performPaste = () => {
+          api.paste(...processedArgs);
+        };
+
+        if (this.suppressDrawingBeforeBake) {
+          this.executePreBakeDraw(api, performPaste);
+          return;
+        }
+
+        performPaste();
       },
       stamp: (api, args = []) => {
         // Process string arguments to remove quotes (e.g., "@handle/timestamp")
@@ -4268,7 +4462,17 @@ class KidLisp {
           // Evaluate expressions for non-string arguments (like math expressions)
           return this.evaluate(arg, api, this.localEnv);
         });
-        api.stamp(...processedArgs);
+
+        const performStamp = () => {
+          api.stamp(...processedArgs);
+        };
+
+        if (this.suppressDrawingBeforeBake) {
+          this.executePreBakeDraw(api, performStamp);
+          return;
+        }
+
+        performStamp();
       },
       // Convert args to string and remove surrounding quotes for text commands
       write: (api, args = []) => {
@@ -4328,12 +4532,20 @@ class KidLisp {
           pos.size = size;
         }
 
-        // Use options-based call if we have options, otherwise simple position call
-        if (Object.keys(options).length > 0) {
-          api.write(content, pos, options);
-        } else {
-          api.write(content, pos);
+        const performWrite = () => {
+          if (Object.keys(options).length > 0) {
+            api.write(content, pos, options);
+          } else {
+            api.write(content, pos);
+          }
+        };
+
+        if (this.suppressDrawingBeforeBake) {
+          this.executePreBakeDraw(api, performWrite);
+          return;
         }
+
+        performWrite();
       },
       // � 3D Form functions
       // 3D Objects - simple global forms
@@ -5034,6 +5246,10 @@ class KidLisp {
       rep: (api, args, env) => {
         return this.getGlobalEnv().repeat(api, args, env);
       },
+      // Alias for repeat - "bunching together" code clods
+      bunch: (api, args, env) => {
+        return this.getGlobalEnv().repeat(api, args, env);
+      },
       // 🎲 Random selection (optimized with caching for performance)
       choose: (api, args = []) => {
         if (args.length === 0) return undefined;
@@ -5348,42 +5564,51 @@ class KidLisp {
 
       // 🎨 Backdrop - shorthand for (once (wipe color)) to set background once
       backdrop: (api, args = []) => {
-        if (args.length === 0) {
-          console.error("❗ Invalid `backdrop`. Requires at least one color argument.");
+        const performBackdrop = () => {
+          if (args.length === 0) {
+            console.error("❗ Invalid `backdrop`. Requires at least one color argument.");
+            return;
+          }
+
+          // Create a unique key for this backdrop call based on its arguments
+          const backdropKey = "backdrop_" + JSON.stringify(args);
+
+          // Only execute if this exact backdrop hasn't been executed before
+          if (!this.onceExecuted.has(backdropKey)) {
+            this.onceExecuted.add(backdropKey);
+
+            // Call wipe with the provided arguments
+            if (api.wipe) {
+              if (args.length === 1) {
+                return api.wipe(this.evaluate(args[0], api, this.localEnv));
+              } else if (args.length === 3) {
+                // RGB values
+                return api.wipe(
+                  this.evaluate(args[0], api, this.localEnv),
+                  this.evaluate(args[1], api, this.localEnv),
+                  this.evaluate(args[2], api, this.localEnv)
+                );
+              } else if (args.length === 4) {
+                // RGBA values
+                return api.wipe(
+                  this.evaluate(args[0], api, this.localEnv),
+                  this.evaluate(args[1], api, this.localEnv),
+                  this.evaluate(args[2], api, this.localEnv),
+                  this.evaluate(args[3], api, this.localEnv)
+                );
+              }
+            }
+          }
+
+          return undefined;
+        };
+
+        if (this.suppressDrawingBeforeBake) {
+          this.executePreBakeDraw(api, performBackdrop);
           return;
         }
 
-        // Create a unique key for this backdrop call based on its arguments
-        const backdropKey = "backdrop_" + JSON.stringify(args);
-
-        // Only execute if this exact backdrop hasn't been executed before
-        if (!this.onceExecuted.has(backdropKey)) {
-          this.onceExecuted.add(backdropKey);
-
-          // Call wipe with the provided arguments
-          if (api.wipe) {
-            if (args.length === 1) {
-              return api.wipe(this.evaluate(args[0], api, this.localEnv));
-            } else if (args.length === 3) {
-              // RGB values
-              return api.wipe(
-                this.evaluate(args[0], api, this.localEnv),
-                this.evaluate(args[1], api, this.localEnv),
-                this.evaluate(args[2], api, this.localEnv)
-              );
-            } else if (args.length === 4) {
-              // RGBA values
-              return api.wipe(
-                this.evaluate(args[0], api, this.localEnv),
-                this.evaluate(args[1], api, this.localEnv),
-                this.evaluate(args[2], api, this.localEnv),
-                this.evaluate(args[3], api, this.localEnv)
-              );
-            }
-          }
-        }
-
-        return undefined;
+        return performBackdrop();
       },
 
       // Programmatically add all CSS color constants to the global environment.
@@ -5402,45 +5627,70 @@ class KidLisp {
       p0: () => "rainbow",
       p1: () => "zebra",
 
-      // 🍞 Bake function - creates a new painting layer by capturing current buffer state
-      // Automatically prevents repeated calls within the same program execution
+      // 🍞 Bake function - creates a persistent animated layer that continues to execute pre-bake code
+      // Similar to embedded layers, maintains its own buffer and AST
       bake: (api, args = []) => {
         // Create a simple key for this bake call (not using counter to avoid unique keys each time)
         const bakeKey = "bake_call";
 
         // Check if bake has already been executed in this program run
         if (this.onceExecuted.has(bakeKey)) {
+          // On subsequent frames, we reach this point - disable drawing suppression from here forward
+          if (VERBOSE) console.log("🍞 Bake: Subsequent frame - resuming post-bake drawing layer");
+          this.suppressDrawingBeforeBake = false;
+
+          // Ensure post-bake buffer matches current screen dimensions even if resolution changed
+          if (api.screen?.width && api.screen?.height) {
+            if (!this.postBakeLayer ||
+              this.postBakeLayer.width !== api.screen.width ||
+              this.postBakeLayer.height !== api.screen.height) {
+              this.postBakeLayer = this.resizePixelBufferPreserve(
+                this.postBakeLayer,
+                api.screen.width,
+                api.screen.height,
+                0,
+              );
+            }
+          }
+
+          this.switchToPostBakeRouting(api);
+
           return this.bakedLayers?.length || 0;
         }
 
         // Mark bake as executed for this program run
         this.onceExecuted.add(bakeKey);
+        this.hasBakedContent = true; // Mark that we have baked content
 
-        console.log("🍞 Baking current layer...");
-
-        // Initialize baked layers if not already done
-        if (!this.bakedLayers) {
-          this.bakedLayers = [];
-        }
+  if (VERBOSE) console.log("🍞 Baking current layer - creating persistent animated buffer...");
 
         // Get current screen buffer dimensions
         const currentWidth = api.screen?.width || 256;
         const currentHeight = api.screen?.height || 256;
 
-        // Create a snapshot of the current buffer state
+        // Create a persistent baked layer with its own buffer (like embedded layers)
         if (api.screen?.pixels) {
-          // Clone the current pixel buffer to preserve the "baked" state
+          // Clone the current state as the initial buffer
           const bakedBuffer = {
             width: currentWidth,
             height: currentHeight,
             pixels: new Uint8ClampedArray(api.screen.pixels)
           };
 
-          // Store this baked layer
-          this.bakedLayers.push(bakedBuffer);
-          this.bakeCallCount = this.bakedLayers.length;
+          const bakedLayer = {
+            buffer: bakedBuffer,
+            width: currentWidth,
+            height: currentHeight
+          };
 
-          console.log(`🍞 Baked layer ${this.bakedLayers.length} (${currentWidth}x${currentHeight})`);
+          this.bakedLayers = [bakedLayer]; // Only support one baked layer for now
+          this.bakeCallCount = 1;
+
+          if (VERBOSE) console.log(`🍞 Baked layer created (${currentWidth}x${currentHeight})`);
+
+          // Initialize the persistent post-bake layer buffer
+          const overlaySize = currentWidth * currentHeight * 4;
+          let overlayPixels = new Uint8ClampedArray(overlaySize);
 
           // Clear the current buffer to start fresh (optional - could be configurable)
           if (args.length === 0 || args[0] !== "keep") {
@@ -5448,10 +5698,23 @@ class KidLisp {
             if (api.screen?.pixels) {
               api.screen.pixels.fill(0); // Fill with transparent black (0,0,0,0)
             }
+
+            // If we're clearing, make sure overlay starts transparent as well
+            overlayPixels.fill(0);
           }
+
+          this.postBakeLayer = {
+            width: currentWidth,
+            height: currentHeight,
+            pixels: overlayPixels
+          };
         } else {
           console.warn("🍞 No screen buffer available to bake");
         }
+
+        // After baking on first frame, allow drawing to continue
+        this.suppressDrawingBeforeBake = false;
+        this.switchToPostBakeRouting(api);
 
         return this.bakedLayers.length;
       },
@@ -8575,18 +8838,210 @@ class KidLisp {
     return str.replace(/\\[a-zA-Z0-9]+\\/g, "");
   }
 
-  // Render baked layers underneath the current drawing
+  // Resize a pixel buffer while preserving overlapping content
+  resizePixelBufferPreserve(bufferObj, targetWidth, targetHeight, fillAlpha = 0) {
+    const width = Math.max(0, Math.floor(targetWidth || 0));
+    const height = Math.max(0, Math.floor(targetHeight || 0));
+    const pixelCount = width * height * 4;
+
+    const newPixels = new Uint8ClampedArray(Math.max(0, pixelCount));
+
+    if (fillAlpha !== 0 && pixelCount > 0) {
+      for (let i = 3; i < pixelCount; i += 4) {
+        newPixels[i] = fillAlpha;
+      }
+    }
+
+    if (bufferObj?.pixels && bufferObj.width && bufferObj.height) {
+      const oldPixels = bufferObj.pixels;
+      const copyWidth = Math.min(bufferObj.width, width);
+      const copyHeight = Math.min(bufferObj.height, height);
+
+      if (copyWidth > 0 && copyHeight > 0) {
+        for (let y = 0; y < copyHeight; y++) {
+          const oldRowStart = (y * bufferObj.width) * 4;
+          const newRowStart = (y * width) * 4;
+          newPixels.set(
+            oldPixels.subarray(oldRowStart, oldRowStart + copyWidth * 4),
+            newRowStart,
+          );
+        }
+      }
+    }
+
+    return {
+      width,
+      height,
+      pixels: newPixels,
+    };
+  }
+
+  ensureBakedLayerSize(bakedLayer, targetWidth, targetHeight) {
+    if (!bakedLayer || !bakedLayer.buffer) return;
+
+    if (
+      bakedLayer.width === targetWidth &&
+      bakedLayer.height === targetHeight &&
+      bakedLayer.buffer.width === targetWidth &&
+      bakedLayer.buffer.height === targetHeight
+    ) {
+      return;
+    }
+
+    const resized = this.resizePixelBufferPreserve(
+      bakedLayer.buffer,
+      targetWidth,
+      targetHeight,
+      0,
+    );
+
+    bakedLayer.buffer = resized;
+    bakedLayer.width = resized.width;
+    bakedLayer.height = resized.height;
+  }
+
+  runWithBakedBuffer(api, callback) {
+    if (!this.bakedLayers || this.bakedLayers.length === 0) {
+      return false;
+    }
+
+    const bakedLayer = this.bakedLayers[0];
+    if (!bakedLayer?.buffer) {
+      return false;
+    }
+
+    if (api.screen?.width && api.screen?.height) {
+      this.ensureBakedLayerSize(bakedLayer, api.screen.width, api.screen.height);
+    }
+
+    const originalScreen = api.screen;
+    api.page(bakedLayer.buffer);
+    try {
+      callback(bakedLayer);
+    } finally {
+      api.page(originalScreen);
+    }
+
+    return true;
+  }
+
+  beginBakedFrameRouting(api) {
+    if (!this.hasBakedContent || !this.bakedLayers || this.bakedLayers.length === 0) {
+      this.frameRoutingContext = null;
+      return () => {};
+    }
+
+    const bakedLayer = this.bakedLayers[0];
+    if (!bakedLayer?.buffer) {
+      this.frameRoutingContext = null;
+      return () => {};
+    }
+
+    if (api.screen?.width && api.screen?.height) {
+      this.ensureBakedLayerSize(bakedLayer, api.screen.width, api.screen.height);
+    }
+
+    const originalScreen = api.screen;
+    this.frameRoutingContext = {
+      originalScreen,
+      bakedLayer,
+      currentTarget: "baked"
+    };
+
+    api.page(bakedLayer.buffer);
+
+    return () => {
+      this.endBakedFrameRouting(api);
+    };
+  }
+
+  switchToPostBakeRouting(api) {
+    if (!this.postBakeLayer) {
+      return false;
+    }
+
+    if (
+      api.screen?.width &&
+      api.screen?.height &&
+      (this.postBakeLayer.width !== api.screen.width || this.postBakeLayer.height !== api.screen.height)
+    ) {
+      this.postBakeLayer = this.resizePixelBufferPreserve(
+        this.postBakeLayer,
+        api.screen.width,
+        api.screen.height,
+        0,
+      );
+    }
+
+    if (!this.frameRoutingContext) {
+      this.frameRoutingContext = {
+        originalScreen: api.screen,
+        bakedLayer: this.bakedLayers?.[0] || null,
+        currentTarget: null
+      };
+    }
+
+    api.page(this.postBakeLayer);
+    this.frameRoutingContext.currentTarget = "postBake";
+    return true;
+  }
+
+  endBakedFrameRouting(api) {
+    if (!this.frameRoutingContext) {
+      return;
+    }
+
+    const { originalScreen } = this.frameRoutingContext;
+    if (originalScreen) {
+      api.page(originalScreen);
+    }
+
+    this.frameRoutingContext = null;
+  }
+
+  executePreBakeDraw(api, drawFn) {
+    if (!this.suppressDrawingBeforeBake) {
+      drawFn();
+      return true;
+    }
+
+    if (this.frameRoutingContext?.currentTarget === "baked") {
+      drawFn();
+      return true;
+    }
+
+    return this.runWithBakedBuffer(api, () => {
+      drawFn();
+    });
+  }
+
+  // Render baked layers - execute pre-bake code and composite the result
   renderBakedLayers(api) {
     if (!this.bakedLayers || this.bakedLayers.length === 0) {
       return;
     }
 
-    // Composite each baked layer onto the current screen in order
+    const screenWidth = api.screen?.width;
+    const screenHeight = api.screen?.height;
+
+    // Process each baked layer
     this.bakedLayers.forEach((bakedLayer, index) => {
-      if (bakedLayer && bakedLayer.pixels) {
-        // Use manual pixel compositing to restore the baked layer
-        this.compositeBakedLayer(api, bakedLayer);
+      if (!bakedLayer || !bakedLayer.buffer) {
+        return;
       }
+
+      if (screenWidth && screenHeight) {
+        this.ensureBakedLayerSize(bakedLayer, screenWidth, screenHeight);
+      }
+
+      if (bakedLayer.buffer.width !== bakedLayer.width || bakedLayer.buffer.height !== bakedLayer.height) {
+        console.warn(`🍞 Buffer size mismatch on layer ${index}: buffer=${bakedLayer.buffer.width}x${bakedLayer.buffer.height} metadata=${bakedLayer.width}x${bakedLayer.height}`);
+      }
+
+      // Baked buffer already updated during AST evaluation; just composite it now
+
+      // Composite the updated baked layer onto the main screen
+      this.compositeBakedLayer(api, bakedLayer.buffer);
     });
   }
 
@@ -8607,27 +9062,93 @@ class KidLisp {
     const width = Math.min(currentWidth, bakedWidth);
     const height = Math.min(currentHeight, bakedHeight);
 
-    // Composite baked pixels underneath current content
+    // Composite baked pixels underneath current content with proper alpha blending
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
         const currentIndex = (y * currentWidth + x) * 4;
         const bakedIndex = (y * bakedWidth + x) * 4;
 
         // Get current pixel (foreground)
-        const currentA = currentPixels[currentIndex + 3];
+        const currentR = currentPixels[currentIndex];
+        const currentG = currentPixels[currentIndex + 1];
+        const currentB = currentPixels[currentIndex + 2];
+        const currentA = currentPixels[currentIndex + 3] / 255;
 
         // Get baked pixel (background)
         const bakedR = bakedPixels[bakedIndex];
         const bakedG = bakedPixels[bakedIndex + 1];
         const bakedB = bakedPixels[bakedIndex + 2];
-        const bakedA = bakedPixels[bakedIndex + 3];
+        const bakedA = bakedPixels[bakedIndex + 3] / 255;
 
-        // Only show baked pixel if current pixel is transparent and baked pixel has content
-        if (currentA === 0 && bakedA > 0) {
-          currentPixels[currentIndex] = bakedR;
-          currentPixels[currentIndex + 1] = bakedG;
-          currentPixels[currentIndex + 2] = bakedB;
-          currentPixels[currentIndex + 3] = bakedA;
+        // Alpha compositing: current over baked
+        // Formula: result = foreground * alpha_f + background * (1 - alpha_f)
+        // But we need to account for both alphas properly
+        const outA = currentA + bakedA * (1 - currentA);
+        
+        if (outA > 0) {
+          const outR = (currentR * currentA + bakedR * bakedA * (1 - currentA)) / outA;
+          const outG = (currentG * currentA + bakedG * bakedA * (1 - currentA)) / outA;
+          const outB = (currentB * currentA + bakedB * bakedA * (1 - currentA)) / outA;
+          
+          currentPixels[currentIndex] = Math.round(outR);
+          currentPixels[currentIndex + 1] = Math.round(outG);
+          currentPixels[currentIndex + 2] = Math.round(outB);
+          currentPixels[currentIndex + 3] = Math.round(outA * 255);
+        }
+      }
+    }
+  }
+
+  // Composite the post-bake overlay on top of the baked background
+  compositePostBakeLayer(api, overlayLayer) {
+    if (!api.screen?.pixels || !overlayLayer.pixels) {
+      return;
+    }
+
+    const currentPixels = api.screen.pixels;
+    const overlayPixels = overlayLayer.pixels;
+    const currentWidth = api.screen.width;
+    const currentHeight = api.screen.height;
+    const overlayWidth = overlayLayer.width;
+    const overlayHeight = overlayLayer.height;
+
+    // Handle different buffer sizes by compositing the overlapping area
+    const width = Math.min(currentWidth, overlayWidth);
+    const height = Math.min(currentHeight, overlayHeight);
+
+    // Composite overlay pixels on top of current content
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const currentIndex = (y * currentWidth + x) * 4;
+        const overlayIndex = (y * overlayWidth + x) * 4;
+
+        // Get overlay pixel (foreground)
+        const overlayR = overlayPixels[overlayIndex];
+        const overlayG = overlayPixels[overlayIndex + 1];
+        const overlayB = overlayPixels[overlayIndex + 2];
+        const overlayA = overlayPixels[overlayIndex + 3] / 255;
+
+        // Skip fully transparent overlay pixels
+        if (overlayA === 0) continue;
+
+        // Get current pixel (background - from baked layer)
+        const currentR = currentPixels[currentIndex];
+        const currentG = currentPixels[currentIndex + 1];
+        const currentB = currentPixels[currentIndex + 2];
+        const currentA = currentPixels[currentIndex + 3] / 255;
+
+        // Alpha compositing: overlay over current
+        const outA = overlayA + currentA * (1 - overlayA);
+        
+        if (outA > 0) {
+          const outR = (overlayR * overlayA + currentR * currentA * (1 - overlayA)) / outA;
+          const outG = (overlayG * overlayA + currentG * currentA * (1 - overlayA)) / outA;
+          const outB = (overlayB * overlayA + currentB * currentA * (1 - overlayA)) / outA;
+          
+          currentPixels[currentIndex] = Math.round(outR);
+          currentPixels[currentIndex + 1] = Math.round(outG);
+          currentPixels[currentIndex + 2] = Math.round(outB);
+          currentPixels[currentIndex + 3] = Math.round(outA * 255);
         }
       }
     }
@@ -8929,6 +9450,20 @@ class KidLisp {
 
     // 🛡️ CLEAN POOLS: Remove any potentially detached buffers from pools
     this.cleanBufferPools();
+  }
+
+  // 🍞 Clear baked layers (similar to embedded layer clearing)
+  clearBakedLayers() {
+    this.bakedLayers = [];
+    this.bakeCallCount = 0;
+    this.hasBakedContent = false;
+    this.suppressDrawingBeforeBake = false;
+    this.postBakeLayer = null;
+    // Only delete from onceExecuted if it exists (it may not be initialized yet in constructor)
+    if (this.onceExecuted) {
+      this.onceExecuted.delete("bake_call");
+    }
+    if (VERBOSE) console.log("🍞 Cleared all baked layers");
   }
 
   // 🔄 RESPONSIVE CACHE: Check if screen dimensions changed and clear responsive entries
@@ -10322,7 +10857,7 @@ function isKidlispSource(text) {
   // Check for comma-separated expressions (KidLisp one-liner syntax)
   // Only detect as KidLisp if it contains commas AND looks like KidLisp functions
   if (text.includes(",")) {
-    console.log("🔍 [KidLisp Detection] Comma-separated text:", text);
+    if (VERBOSE) console.log("🔍 [KidLisp Detection] Comma-separated text:", text);
     // Check if the text contains known KidLisp functions or color names
     const kidlispFunctions = [
       "wipe", "ink", "line", "box", "flood", "circle", "write", "paste", "stamp", "point", "poly",
@@ -10336,7 +10871,7 @@ function isKidlispSource(text) {
 
     // Split by commas and check if any part contains KidLisp functions or colors
     const parts = text.split(",").map(part => part.trim()).filter(Boolean);
-    console.log("🔍 [KidLisp Detection] Parts:", parts);
+    if (VERBOSE) console.log("🔍 [KidLisp Detection] Parts:", parts);
 
     const analyzePart = (part) => {
       // Remove wrapping braces/parentheses commonly used in share metadata
@@ -10347,8 +10882,8 @@ function isKidlispSource(text) {
       const firstToken = firstTokenMatch ? firstTokenMatch[0].toLowerCase() : "";
       const firstTokenStripped = firstToken.replace(/^[^a-z0-9]+/i, "");
       const cleanedToken = firstTokenStripped.replace(/[^a-z0-9:._-]+$/i, ""); // Preserve decimal points
-      
-      console.log(`🔍 [KidLisp Detection] Analyzing part: "${part}" -> normalized: "${normalized}" -> cleanedToken: "${cleanedToken}"`);
+
+      if (VERBOSE) console.log(`🔍 [KidLisp Detection] Analyzing part: "${part}" -> normalized: "${normalized}" -> cleanedToken: "${cleanedToken}"`);
 
       const isFunction = kidlispFunctions.includes(cleanedToken) ||
         (cleanedToken.startsWith("(") && kidlispFunctions.includes(cleanedToken.slice(1)));
@@ -10357,8 +10892,8 @@ function isKidlispSource(text) {
         cleanedToken.startsWith("fade:");
       const isNumber = /^-?\d+(\.\d+)?$/.test(cleanedToken);
       const isRGB = isValidRGBString(cleanedToken.replace(/_/g, " "));
-      
-      console.log(`🔍 [KidLisp Detection] isFunction: ${isFunction}, isColor: ${isColor}, isNumber: ${isNumber}, isRGB: ${isRGB}`);
+
+      if (VERBOSE) console.log(`🔍 [KidLisp Detection] isFunction: ${isFunction}, isColor: ${isColor}, isNumber: ${isNumber}, isRGB: ${isRGB}`);
 
       return { isFunction, isColor, isNumber, isRGB };
     };
@@ -10367,11 +10902,11 @@ function isKidlispSource(text) {
     const kidParts = analyses.filter(({ isFunction, isColor, isNumber, isRGB }) => isFunction || isColor || isNumber || isRGB);
     const functionParts = analyses.filter(({ isFunction }) => isFunction);
     
-    console.log(`🔍 [KidLisp Detection] kidParts: ${kidParts.length}, functionParts: ${functionParts.length}, total parts: ${parts.length}`);
+    if (VERBOSE) console.log(`🔍 [KidLisp Detection] kidParts: ${kidParts.length}, functionParts: ${functionParts.length}, total parts: ${parts.length}`);
 
     // Require at least one recognized KidLisp function or multiple KidLisp-like tokens
     const result = kidParts.length > 0 && (functionParts.length > 0 || kidParts.length >= 2 || (kidParts.length / parts.length) >= 0.75);
-    console.log(`🔍 [KidLisp Detection] Final result: ${result}`);
+    if (VERBOSE) console.log(`🔍 [KidLisp Detection] Final result: ${result}`);
     
     if (result) {
       return true;
@@ -10467,12 +11002,14 @@ function isPromptInKidlispMode(promptText) {
 function logKidlispDetection(source) {
   const result =
     source.includes("\n") || source.includes("wipe") || source.includes("line");
-  console.log(
-    "🔍 MANUAL DETECTION for:",
-    JSON.stringify(source),
-    "result:",
-    result,
-  );
+  if (VERBOSE) {
+    console.log(
+      "🔍 MANUAL DETECTION for:",
+      JSON.stringify(source),
+      "result:",
+      result,
+    );
+  }
   return result;
 }
 
