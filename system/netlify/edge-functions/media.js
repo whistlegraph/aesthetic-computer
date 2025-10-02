@@ -8,9 +8,28 @@ export default async function handleRequest(request) {
   let newUrl;
 
   if (path[1] === "media") {
-    if (path[2].indexOf("@") === -1) {
-      newUrl = `https://art.aesthetic.computer/${path[2]}`;
-      return fetch(encodeURI(newUrl));
+    const resourcePath = path.slice(2).join("/");
+
+    if (!path[2]?.includes("@")) {
+      const extension = resourcePath.split(".").pop()?.toLowerCase();
+      const baseUrl =
+        extension === "mjs"
+          ? "https://user-aesthetic-computer.sfo3.digitaloceanspaces.com"
+          : "https://user.aesthetic.computer";
+
+      newUrl = `${baseUrl}/${resourcePath}`;
+      const response = await fetch(encodeURI(newUrl));
+      const contentType = response.headers.get("Content-Type");
+      const moddedResponse = new Response(response.body, {
+        headers: { ...response.headers },
+        status: response.status,
+        statusText: response.statusText,
+      });
+      moddedResponse.headers.set("Access-Control-Allow-Origin", "*");
+      if (contentType) {
+        moddedResponse.headers.set("Content-Type", contentType);
+      }
+      return moddedResponse;
     } else {
       const userId = await queryUserID(path[2]);
       const newPath = `${userId}/${path.slice(3).join("/")}`;
