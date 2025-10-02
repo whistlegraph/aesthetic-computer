@@ -2596,7 +2596,6 @@ const $commonApi = {
         if (system.nopaint.recording) {
           system.nopaint.recording = false;
           system.nopaint.record.length = 0;
-          console.log("🖌️🛑 Recording cleared.");
         }
 
         return deleted;
@@ -3459,7 +3458,6 @@ $commonApi.broadcastPaintingUpdate = (action, data = {}) => {
   // Throttle broadcasts to prevent excessive messages
   const now = Date.now();
   if (now - lastBroadcastTime < broadcastThrottleDelay) {
-    console.log(`🎨 THROTTLED: Skipping broadcast of ${action} (too frequent)`);
     return;
   }
   lastBroadcastTime = now;
@@ -6661,14 +6659,16 @@ async function load(
           // 📊 Trigger bake flash effect and beep sound
           nopaint_triggerBakeFlash();
           
-          // 🔊 Microwave-style beep for bake completion
-          $commonApi.sound.synth({
-            tone: 800, // Higher pitched beep like a microwave
-            duration: 0.1,
-            attack: 0.01,
-            decay: 0.5,
-            volume: 0.3,
-          });
+          // 🔊 Microwave-style beep for bake completion (only for robo)
+          if (currentPath?.includes('robo')) {
+            $commonApi.sound.synth({
+              tone: 800, // Higher pitched beep like a microwave
+              duration: 0.1,
+              attack: 0.01,
+              decay: 0.5,
+              volume: 0.3,
+            });
+          }
           
           // 🎨 ELEGANT BRUSH PATTERN: Call brush or lift function for final painting
           if (brush || lift) {
@@ -8103,7 +8103,6 @@ async function makeFrame({ data: { type, content } }) {
 
     // 🌟 Global Keyboard Shortcuts (these could also be seen via `act`)
     content.keyboard.forEach((data) => {
-      
       if (currentText && currentText.indexOf("botce") > -1) return; // No global keys on `botce`. 23.11.12.23.38
       if (data.name.indexOf("keyboard:down") === 0) {
         // [Escape] (Deprecated on 23.05.22.19.33)
@@ -8440,30 +8439,34 @@ async function makeFrame({ data: { type, content } }) {
         // Return if it's just a number or parses as one.
         if (typeof input === "number") return input;
         if (input === null || input === undefined) return null;
-        if (!isNaN(parseFloat(input)) && isFinite(input)) return Number(input);
 
-        let octave, note;
-        input = input.toLowerCase(); // Downcase everything.
+        const trimmed = String(input).trim();
+        if (trimmed === "") return null;
 
-        // Check if the first character is a digit to determine if an octave is provided at the beginning
-        if (!isNaN(input.charAt(0))) {
-          // The first character is the octave
-          octave = parseInt(input.charAt(0), 10);
-          note = input.substring(1);
-        } else if (!isNaN(input.charAt(input.length - 1))) {
-          // The last character is the octave
-          octave = parseInt(input.charAt(input.length - 1), 10);
-          note = input.substring(0, input.length - 1);
-        } else {
-          // If no octave is provided, default to octave 4
-          octave = 4;
-          note = input;
+        if (!isNaN(parseFloat(trimmed)) && isFinite(trimmed)) return Number(trimmed);
+
+        let octave = 4;
+        let note = trimmed.toLowerCase(); // Downcase everything.
+
+        // Handle special tokens that shouldn't resolve to a frequency
+        if (note === "rest" || note === "pause" || note === "_" || note === "speech") return null;
+
+        const prefixMatch = note.match(/^(-?\d+)([a-z#/+\-]+)$/);
+        const suffixMatch = note.match(/^([a-z#/+\-]+)(-?\d+)$/);
+
+        if (prefixMatch) {
+          octave = parseInt(prefixMatch[1], 10);
+          note = prefixMatch[2];
+        } else if (suffixMatch) {
+          note = suffixMatch[1];
+          octave = parseInt(suffixMatch[2], 10);
         }
 
-        // Replace 's' with '#' and trailing 'f' with 'b', but only for note strings of length 2
-        if (note.length === 2) {
-          note = note.replace("s", "#").replace(/f$/, "b");
-        }
+        // Remove trailing + or - markers and other notation artifacts
+        note = note.replace(/[+\-]+$/g, "");
+
+        // Replace notepat "s"/"f" suffixes with standard accidentals when appropriate
+        note = note.replace(/^([a-g])s$/, "$1#").replace(/^([a-g])f$/, "$1b");
 
         const frequency = noteFrequencies[note]; // Look up freq for the note.
         if (!frequency) throw new Error("Note not found in the list");
@@ -9084,7 +9087,32 @@ async function makeFrame({ data: { type, content } }) {
               push: (btn) => {
                 const fallbackShareWidth = tf.blockWidth * "share ".length;
                 const shareWidth = Math.max(currentHUDShareWidth || 0, fallbackShareWidth);
-                if (currentHUDScrub > 0 && currentHUDScrub <= shareWidth) {
+                
+                // If scrubbed to reveal "share", jump to share piece
+                if (currentHUDScrub >= shareWidth) {
+                  // Clear global HUD button flags
+                  currentHUDButtonActive = false;
+                  currentHUDButtonDirectTouch = false;
+                  
+                  $api.sound.synth({
+                    tone: 1200,
+                    beats: 0.1,
+                    attack: 0.01,
+                    decay: 0.5,
+                    volume: 0.15,
+                  });
+                  
+                  // Build the share URL with current piece as parameter
+                  const content = currentHUDPlainTxt || currentHUDTxt;
+                  jump(`share~${content}`);
+                  $api.needsPaint();
+                  masked = true;
+                  currentHUDScrub = 0;
+                  return;
+                }
+                
+                // If scrubbed but not to max, cancel the push
+                if (currentHUDScrub > 0 && currentHUDScrub < shareWidth) {
                   btn.actions.cancel?.();
                   return;
                 }
@@ -10859,7 +10887,7 @@ async function makeFrame({ data: { type, content } }) {
                   // Check if code was successfully cached
                   const newCachedCode = getCachedCode(sourceCode);
                   if (newCachedCode) {
-                    console.log(`🔄 Code cached after shift press: $${newCachedCode}`);
+                    //console.log(`🔄 Code cached after shift press: $${newCachedCode}`);
                     // Trigger repaint to show the QR code
                     if (typeof window !== "undefined" && window.$activePaintApi?.needsPaint) {
                       window.$activePaintApi.needsPaint();
