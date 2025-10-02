@@ -31,6 +31,7 @@ import { logs } from "./lib/logs.mjs";
 import { checkTeiaMode } from "./lib/teia-mode.mjs";
 import { soundWhitelist } from "./lib/sound/sound-whitelist.mjs";
 import { timestamp, radians } from "./lib/num.mjs";
+import * as graph from "./lib/graph.mjs";
 
 // import * as TwoD from "./lib/2d.mjs"; // 🆕 2D GPU Renderer.
 const TwoD = undefined;
@@ -38,6 +39,160 @@ const TwoD = undefined;
 const { assign, keys } = Object;
 const { round, floor, min, max } = Math;
 const { isFinite } = Number;
+
+function resolveBackgroundFillSpec(colorLike) {
+  if (colorLike === undefined || colorLike === null) return null;
+
+  let resolved;
+  try {
+    resolved = graph.findColor(colorLike);
+  } catch (err) {
+    return null;
+  }
+
+  if (!Array.isArray(resolved) || resolved.length === 0) {
+    return null;
+  }
+
+  const first = resolved[0];
+  if (typeof first === "string" && first.startsWith("fade:")) {
+    const fadeInfo = graph.parseFadeColor(resolved);
+    if (fadeInfo) {
+      return {
+        type: "fade",
+        fadeInfo,
+      };
+    }
+    return null;
+  }
+
+  const clampChannel = (value, fallback = 0) => {
+    if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
+    return Math.max(0, Math.min(255, Math.round(value)));
+  };
+
+  const r = clampChannel(resolved[0], 0);
+  const g = clampChannel(resolved[1], r);
+  const b = clampChannel(resolved[2], r);
+  const a = clampChannel(resolved[3], 255);
+
+  return {
+    type: "solid",
+    rgba: [r, g, b, a],
+  };
+}
+
+function computeFadePositionForPixel(x, y, width, height, fadeInfo) {
+  if (!fadeInfo || !width || !height) return 0;
+
+  const maxX = Math.max(width - 1, 0);
+  const maxY = Math.max(height - 1, 0);
+  const direction = fadeInfo.direction;
+
+  if (typeof direction === "number" && Number.isFinite(direction)) {
+    return graph.calculateAngleFadePosition(
+      x,
+      y,
+      0,
+      0,
+      maxX,
+      maxY,
+      direction,
+    );
+  }
+
+  const numeric = direction !== undefined ? parseFloat(direction) : NaN;
+  if (!Number.isNaN(numeric) && Number.isFinite(numeric)) {
+    return graph.calculateAngleFadePosition(
+      x,
+      y,
+      0,
+      0,
+      maxX,
+      maxY,
+      numeric,
+    );
+  }
+
+  const safeDiv = (value, denom) => (denom <= 0 ? 0 : value / denom);
+
+  switch (direction) {
+    case "horizontal-reverse":
+      return safeDiv(maxX - x, maxX);
+    case "vertical":
+      return safeDiv(y, maxY);
+    case "vertical-reverse":
+      return safeDiv(maxY - y, maxY);
+    case "diagonal": {
+      const dx = safeDiv(x, maxX);
+      const dy = safeDiv(y, maxY);
+      return (dx + dy) / 2;
+    }
+    case "diagonal-reverse": {
+      const dx = safeDiv(maxX - x, maxX);
+      const dy = safeDiv(maxY - y, maxY);
+      return (dx + dy) / 2;
+    }
+    case "horizontal":
+    default:
+      return safeDiv(x, maxX);
+  }
+}
+
+function fillFadeExpansionsOnCanvas(ctx, width, height, oldWidth, oldHeight, fadeInfo) {
+  const clampChannel = (value) => {
+    if (typeof value !== "number" || !Number.isFinite(value)) return 0;
+    return Math.max(0, Math.min(255, Math.round(value)));
+  };
+
+  if (width > oldWidth) {
+    const rightWidth = width - oldWidth;
+    const imageData = ctx.createImageData(rightWidth, height);
+    const data = imageData.data;
+
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < rightWidth; x += 1) {
+        const globalX = oldWidth + x;
+        const globalY = y;
+        const t = computeFadePositionForPixel(globalX, globalY, width, height, fadeInfo);
+        const [r = 0, g = 0, b = 0, a = 255] = graph.getLocalFadeColor(t, globalX, globalY, fadeInfo);
+        const i = (y * rightWidth + x) * 4;
+        data[i] = clampChannel(r);
+        data[i + 1] = clampChannel(g);
+        data[i + 2] = clampChannel(b);
+        data[i + 3] = clampChannel(a || 255);
+      }
+    }
+
+    ctx.putImageData(imageData, oldWidth, 0);
+  }
+
+  if (height > oldHeight) {
+    const bottomHeight = height - oldHeight;
+    const bottomWidth = width > oldWidth ? oldWidth : width;
+
+    if (bottomWidth > 0 && bottomHeight > 0) {
+      const imageData = ctx.createImageData(bottomWidth, bottomHeight);
+      const data = imageData.data;
+
+      for (let y = 0; y < bottomHeight; y += 1) {
+        for (let x = 0; x < bottomWidth; x += 1) {
+          const globalX = x;
+          const globalY = oldHeight + y;
+          const t = computeFadePositionForPixel(globalX, globalY, width, height, fadeInfo);
+          const [r = 0, g = 0, b = 0, a = 255] = graph.getLocalFadeColor(t, globalX, globalY, fadeInfo);
+          const i = (y * bottomWidth + x) * 4;
+          data[i] = clampChannel(r);
+          data[i + 1] = clampChannel(g);
+          data[i + 2] = clampChannel(b);
+          data[i + 3] = clampChannel(a || 255);
+        }
+      }
+
+      ctx.putImageData(imageData, 0, oldHeight);
+    }
+  }
+}
 
 // 🎬 GIF Encoder Configuration
 // Set to true to use gifenc by default, false for gif.js
@@ -566,49 +721,77 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         return null;
       };
 
-      let fillRGB = null;
-
+      let persistentColor = null;
       try {
-        const persistentColor = typeof globalThis.getPersistentFirstLineColor === "function"
+        persistentColor = typeof globalThis.getPersistentFirstLineColor === "function"
           ? globalThis.getPersistentFirstLineColor()
           : null;
-        fillRGB = coerceToRGB(persistentColor);
       } catch (_) {
-        fillRGB = null;
+        persistentColor = null;
       }
 
-      if (!fillRGB && typeof globalThis.globalKidLispInstance?.getBackgroundFillColor === "function") {
-        fillRGB = coerceToRGB(globalThis.globalKidLispInstance.getBackgroundFillColor());
+      let fillSpec = resolveBackgroundFillSpec(persistentColor);
+      let fallbackColor = null;
+
+      if (!fillSpec && typeof globalThis.globalKidLispInstance?.getBackgroundFillColor === "function") {
+        fallbackColor = globalThis.globalKidLispInstance.getBackgroundFillColor();
+        fillSpec = resolveBackgroundFillSpec(fallbackColor);
       }
 
-      if (!fillRGB && imageData && imageData.data && imageData.data.length >= 4) {
-        const data = imageData.data;
-        for (let i = 0; i < data.length; i += 4) {
-          if (data[i + 3] !== 0) {
-            fillRGB = [data[i], data[i + 1], data[i + 2]];
-            break;
-          }
+      let appliedFade = false;
+      let fillRGB = null;
+
+      if (fillSpec?.type === "fade") {
+        fillFadeExpansionsOnCanvas(
+          ctx,
+          width,
+          height,
+          tempCanvas.width,
+          tempCanvas.height,
+          fillSpec.fadeInfo,
+        );
+        appliedFade = true;
+      } else if (fillSpec?.type === "solid") {
+        fillRGB = fillSpec.rgba.slice(0, 3);
+      }
+
+      if (!fillSpec) {
+        fillRGB = coerceToRGB(persistentColor);
+        if (!fillRGB && fallbackColor !== null) {
+          fillRGB = coerceToRGB(fallbackColor);
         }
       }
 
-      if (!fillRGB) {
-        fillRGB = sampleExistingPixel();
-      }
+      if (!appliedFade) {
+        if (!fillRGB && imageData && imageData.data && imageData.data.length >= 4) {
+          const data = imageData.data;
+          for (let i = 0; i < data.length; i += 4) {
+            if (data[i + 3] !== 0) {
+              fillRGB = [data[i], data[i + 1], data[i + 2]];
+              break;
+            }
+          }
+        }
 
-      if (!fillRGB) {
-        // Fallback to neutral black if everything else fails
-        fillRGB = [0, 0, 0];
-      }
+        if (!fillRGB) {
+          fillRGB = sampleExistingPixel();
+        }
 
-      const [r, g, b] = fillRGB;
-      ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+        if (!fillRGB) {
+          // Fallback to neutral black if everything else fails
+          fillRGB = [0, 0, 0];
+        }
 
-      if (width > tempCanvas.width) {
-        ctx.fillRect(tempCanvas.width, 0, width - tempCanvas.width, height);
-      }
+        const [r, g, b] = fillRGB;
+        ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
 
-      if (height > tempCanvas.height) {
-        ctx.fillRect(0, tempCanvas.height, width, height - tempCanvas.height);
+        if (width > tempCanvas.width) {
+          ctx.fillRect(tempCanvas.width, 0, width - tempCanvas.width, height);
+        }
+
+        if (height > tempCanvas.height) {
+          ctx.fillRect(0, tempCanvas.height, width, height - tempCanvas.height);
+        }
       }
     }
 
