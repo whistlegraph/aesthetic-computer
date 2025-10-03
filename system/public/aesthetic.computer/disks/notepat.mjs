@@ -335,6 +335,7 @@ const midiActiveNotes = new Map();
 
 const MIDI_PITCH_BEND_RANGE = 2; // Semitones up/down for pitch wheel.
 let midiPitchBendValue = 0; // Normalized -1..1 position of the wheel.
+let midiConnected = false;
 
 // red, orange, yellow, green, blue, purple, brown
 //   C,      D,      E, F,     G,    A,      B
@@ -712,6 +713,36 @@ function paint({
   scroll
 }) {
   const active = orderedByCount(sounds);
+  const scopeSamples = Math.max(1, Math.floor(scope || 1));
+  const rawWaveformsLeft = sound.speaker?.waveforms?.left;
+  const waveformsAvailable =
+    rawWaveformsLeft &&
+    typeof rawWaveformsLeft.length === "number" &&
+    rawWaveformsLeft.length > 0;
+  const amplitudeRaw = sound.speaker?.amplitudes?.left;
+  const amplitude =
+    typeof amplitudeRaw === "number" && Number.isFinite(amplitudeRaw)
+      ? amplitudeRaw
+      : 0;
+  const resampledWaveforms = waveformsAvailable
+    ? help.resampleArray(rawWaveformsLeft, scopeSamples)
+    : [];
+  const sanitizedWaveforms =
+    resampledWaveforms.length > 0
+      ? resampledWaveforms.map((value) =>
+          typeof value === "number" && Number.isFinite(value) ? value : 0,
+        )
+      : [];
+  const waveformsForBars =
+    sanitizedWaveforms.length > 0
+      ? sanitizedWaveforms
+      : new Array(scopeSamples).fill(0);
+  const waveformsForOverlay =
+    sanitizedWaveforms.length > 0 ? sanitizedWaveforms : [];
+  const audioReady =
+    waveformsAvailable &&
+    typeof amplitudeRaw === "number" &&
+    Number.isFinite(amplitudeRaw);
   let bg;
 
   if (!tap) {
@@ -751,8 +782,9 @@ function paint({
         scroll
       },
       {
-        amplitude: sound.speaker.amplitudes.left,
-        waveforms: help.resampleArray(sound.speaker.waveforms.left, scope),
+        amplitude,
+        waveforms: waveformsForOverlay,
+        audioReady,
       }
     );
 
@@ -921,8 +953,8 @@ function paint({
 
     sound.paint.bars(
       api,
-      sound.speaker.amplitudes.left,
-      help.resampleArray(sound.speaker.waveforms.left, scope),
+      amplitude,
+      waveformsForBars,
       0,
       sy,
       screen.width, // width
@@ -933,6 +965,44 @@ function paint({
     //ink("yellow").write(scope, 6, sy + sh + 5);
     ink("yellow").write(scope, 50 + 4, 6);
     // ink("pink").write(scopeTrim, 6 + 18, sy + sh + 5);
+    if (!audioReady) {
+      const badgeWidth = 80;
+      const badgeHeight = 12;
+      const badgeX = screen.width - badgeWidth - 10;
+      const badgeY = sy + 4;
+      ink(180, 0, 0, 240).box(badgeX, badgeY, badgeWidth, badgeHeight);
+      ink(255, 255, 0).write("AUDIO OFF", badgeX + 8, badgeY + 4);
+
+      if (midiConnected && matrixFont?.isLoaded?.()) {
+        const midiBadgeWidth = 52;
+        const midiBadgeHeight = badgeHeight;
+        const midiBadgeX = badgeX - midiBadgeWidth - 6;
+        const midiBadgeY = badgeY;
+        ink(0, 0, 0, 200).box(midiBadgeX, midiBadgeY, midiBadgeWidth, midiBadgeHeight);
+        ink(255, 165, 0).write(
+          "USB MIDI",
+          { x: midiBadgeX + 4, y: midiBadgeY + 2 },
+          undefined,
+          undefined,
+          false,
+          "MatrixChunky8",
+        );
+      }
+    } else if (midiConnected && matrixFont?.isLoaded?.()) {
+      const midiBadgeWidth = 52;
+      const midiBadgeHeight = 12;
+      const midiBadgeX = screen.width - midiBadgeWidth - 10;
+      const midiBadgeY = sy + 4;
+      ink(0, 0, 0, 200).box(midiBadgeX, midiBadgeY, midiBadgeWidth, midiBadgeHeight);
+      ink(255, 165, 0).write(
+        "USB MIDI",
+        { x: midiBadgeX + 4, y: midiBadgeY + 2 },
+        undefined,
+        undefined,
+        false,
+        "MatrixChunky8",
+      );
+    }
   } else if (!paintPictureOverlay) {
     const sy = 3;
     const sh = 15; // screen.height - sy;
@@ -943,8 +1013,8 @@ function paint({
 
     sound.paint.bars(
       api,
-      sound.speaker.amplitudes.left,
-      help.resampleArray(sound.speaker.waveforms.left, scope),
+      amplitude,
+      waveformsForBars,
       54, //0,
       sy, //sy,
       availableWidth,
@@ -979,6 +1049,31 @@ function paint({
     // ink("yellow").write(scope, 56 + 120 + 2, sy + 3);
     // ink("pink").write(scopeTrim, 6 + 18, sy + sh + 3);
     // ink("cyan").write(sound.sampleRate, 6 + 18 + 20, sy + sh + 3);
+
+    if (midiConnected && matrixFont?.isLoaded?.()) {
+      ink(0, 0, 0, 180).box(8, sy + 2, 52, sh - 4);
+      ink(255, 165, 0).write(
+        "USB MIDI",
+        { x: 12, y: sy + 4 },
+        undefined,
+        undefined,
+        false,
+        "MatrixChunky8",
+      );
+    }
+
+    if (!audioReady) {
+      const badgeY = sy + 2;
+      const badgeHeight = max(9, sh - 4);
+      const badgeWidth = 66;
+      const rightEdge = waveBtn?.box?.x ?? screen.width - 8;
+      const badgeX = min(
+        max(54, rightEdge - badgeWidth - 4),
+        screen.width - badgeWidth - 8,
+      );
+      ink(180, 0, 0, 240).box(badgeX, badgeY, badgeWidth, badgeHeight);
+      ink(255, 255, 0).write("AUDIO OFF", badgeX + 8, badgeY + 3);
+    }
   }
 
   updateTheme({ num });
@@ -1867,6 +1962,8 @@ function act({
   };
 
   if (e.is("midi:keyboard")) {
+    midiConnected = true;
+
     const status = e.data?.[0] ?? 0;
     const noteNumber = e.data?.[1];
     const velocity = e.data?.[2] ?? 0;
@@ -2675,59 +2772,79 @@ function pictureAdd({ page, screen, wipe, write, line, ink, num }, note) {
 
 function pictureLines(
   { page, ink, wipe, screen, blur, box, line, plot, num, paintCount, sound, scroll },
-  { amplitude, waveforms },
+  { amplitude, waveforms, audioReady },
 ) {
   if (!picture?.pixels) return;
   page(picture);
-  
+
   // Blur instead of clearing for trail effect
   blur(0.5);
-  
+
   // Scroll horizontally to the right
   scroll(1, 0);
-  
+
+  const safeAmplitude =
+    typeof amplitude === "number" && Number.isFinite(amplitude) ? amplitude : 0;
+
+  let waveformArray = [];
+  if (Array.isArray(waveforms)) {
+    waveformArray = waveforms.slice();
+  } else if (waveforms && typeof waveforms.length === "number") {
+    waveformArray = Array.from(waveforms);
+  }
+
+  if (waveformArray.length > 0) {
+    waveformArray = waveformArray.map((value) =>
+      typeof value === "number" && Number.isFinite(value) ? value : 0,
+    );
+  }
+
+  const hasWaveformData = audioReady && waveformArray.length > 0;
+
   // Get the active notes from the sounds object
-  const activeNotes = Object.keys(sounds).filter(key => sounds[key]?.sound && key);
-  
+  const activeNotes = Object.keys(sounds).filter(
+    (key) => sounds[key]?.sound && key,
+  );
+
   if (activeNotes.length > 0) {
     // Get color from the first active note
     const firstNote = activeNotes[0];
     if (firstNote) {
       const color = colorFromNote(firstNote, num);
-      
+
       // === WAVEFORM LINE (BACKGROUND) ===
       // Draw waveform line first in the background
-      if (waveforms.length > 16) {
-        const step = picture.width / waveforms.length;
+      if (hasWaveformData && waveformArray.length > 16) {
+        const step = picture.width / waveformArray.length;
         const centerY = picture.height / 2;
-        
-        for (let i = 1; i < waveforms.length; i++) {
+
+        for (let i = 1; i < waveformArray.length; i++) {
           const x1 = (i - 1) * step;
-          const y1 = centerY + waveforms[i - 1] * picture.height * 0.4;
+          const y1 = centerY + waveformArray[i - 1] * picture.height * 0.4;
           const x2 = i * step;
-          const y2 = centerY + waveforms[i] * picture.height * 0.4;
-          
+          const y2 = centerY + waveformArray[i] * picture.height * 0.4;
+
           // Draw waveform line with slight transparency
           ink(...color, 120).line(x1, y1, x2, y2);
         }
       }
-      
+
       // === WAVEFORM BARS ===
       // Draw vertical bars based on waveform amplitude
-      if (waveforms.length > 16) {
-        const barWidth = picture.width / waveforms.length;
+      if (hasWaveformData && waveformArray.length > 16) {
+        const barWidth = picture.width / waveformArray.length;
         const centerY = picture.height / 2;
-        
-        for (let i = 0; i < waveforms.length; i++) {
+
+        for (let i = 0; i < waveformArray.length; i++) {
           const x = i * barWidth;
-          const barHeight = Math.abs(waveforms[i]) * picture.height * 0.4;
+          const barHeight = Math.abs(waveformArray[i]) * picture.height * 0.4;
           const y = centerY - barHeight / 2;
-          
+
           // Draw vertical bar filling the full width
           ink(...color, 180).box(x, y, Math.ceil(barWidth), barHeight);
         }
       }
-      
+
       // === HORIZONTAL STRIPES FOR EACH NOTE ===
       // Draw colored stripes across the screen for each active note
       const stripeHeight = picture.height / activeNotes.length;
@@ -2735,75 +2852,84 @@ function pictureLines(
         if (!stripeNote) return;
         const stripeColor = colorFromNote(stripeNote, num);
         const stripeY = idx * stripeHeight;
-        
+
         // Oscillate stripe position based on amplitude
-        const oscillation = Math.sin(paintCount * 0.1 + idx) * amplitude * 20;
-        
+        const oscillation = Math.sin(paintCount * 0.1 + idx) * safeAmplitude * 20;
+
         // Draw thin horizontal stripes with gaps, oscillating vertically
         for (let x = 0; x < picture.width; x += 8) {
           ink(...stripeColor, 60).box(x, stripeY + oscillation, 4, stripeHeight);
         }
       });
     }
-    
+
     // === ACTIVE NOTES DISPLAY ===
     // Display each active note as a colored orb/circle
     const orbSize = Math.min(picture.width, picture.height) * 0.3; // Widened from 0.25
     const spacing = picture.width / (activeNotes.length + 1);
-    
+
     activeNotes.forEach((note, index) => {
       if (!note) return;
-      
+
       const color = colorFromNote(note, num);
       const x = spacing * (index + 1);
       const y = picture.height * 0.5; // Centered vertically
-      const pulseSize = orbSize * (0.8 + amplitude * 0.4); // Pulse with audio
-      
+      const pulseSize = orbSize * (0.8 + safeAmplitude * 0.4); // Pulse with audio
+
       // Draw concentric circles for orb effect (wider glow)
-      ink(...color, 100).box(x - pulseSize/2, y - pulseSize/2, pulseSize, pulseSize);
-      ink(...color, 200).box(x - pulseSize*0.6/2, y - pulseSize*0.6/2, pulseSize * 0.6, pulseSize * 0.6);
-      ink(...color, 255).box(x - pulseSize*0.3/2, y - pulseSize*0.3/2, pulseSize * 0.3, pulseSize * 0.3);
-      
+      ink(...color, 100).box(x - pulseSize / 2, y - pulseSize / 2, pulseSize, pulseSize);
+      ink(...color, 200).box(
+        x - (pulseSize * 0.6) / 2,
+        y - (pulseSize * 0.6) / 2,
+        pulseSize * 0.6,
+        pulseSize * 0.6,
+      );
+      ink(...color, 255).box(
+        x - (pulseSize * 0.3) / 2,
+        y - (pulseSize * 0.3) / 2,
+        pulseSize * 0.3,
+        pulseSize * 0.3,
+      );
+
       // Convert note name to keyboard key for display
       // Handle both lower octave (c, d, e...) and upper octave (+c, +d, +e...)
-      let displayKey = '';
-      const isUpperOctave = note.startsWith('+');
+      let displayKey = "";
+      const isUpperOctave = note.startsWith("+");
       const cleanNote = isUpperOctave ? note.slice(1) : note;
-      
+
       // Map notes back to keyboard keys
       const noteToKeyMap = {
-        'c': isUpperOctave ? 'h' : 'c',
-        'c#': isUpperOctave ? 't' : 'v',
-        'd': isUpperOctave ? 'i' : 'd',
-        'd#': isUpperOctave ? 'y' : 's',
-        'e': isUpperOctave ? 'j' : 'e',
-        'f': isUpperOctave ? 'k' : 'f',
-        'f#': isUpperOctave ? 'u' : 'w',
-        'g': isUpperOctave ? 'l' : 'g',
-        'g#': isUpperOctave ? 'o' : 'r',
-        'a': isUpperOctave ? 'm' : 'a',
-        'a#': isUpperOctave ? 'p' : 'q',
-        'b': isUpperOctave ? 'n' : 'b'
+        c: isUpperOctave ? "h" : "c",
+        "c#": isUpperOctave ? "t" : "v",
+        d: isUpperOctave ? "i" : "d",
+        "d#": isUpperOctave ? "y" : "s",
+        e: isUpperOctave ? "j" : "e",
+        f: isUpperOctave ? "k" : "f",
+        "f#": isUpperOctave ? "u" : "w",
+        g: isUpperOctave ? "l" : "g",
+        "g#": isUpperOctave ? "o" : "r",
+        a: isUpperOctave ? "m" : "a",
+        "a#": isUpperOctave ? "p" : "q",
+        b: isUpperOctave ? "n" : "b",
       };
-      
+
       displayKey = noteToKeyMap[cleanNote] || note.toLowerCase();
-      
+
       // Draw shadow (1px offset down and right)
-      ink(0, 0, 0).write(displayKey, { center: 'xy', x: x + 1, y: y });
-      
+      ink(0, 0, 0).write(displayKey, { center: "xy", x: x + 1, y: y });
+
       // Flicker between white and yellow
       const flickerColor = num.rand() > 0.5 ? [255, 255, 255] : [255, 255, 0];
-      ink(...flickerColor).write(displayKey, { center: 'xy', x, y: y - 1 });
+      ink(...flickerColor).write(displayKey, { center: "xy", x, y: y - 1 });
     });
-    
+
     // Apply blur for dreamy effect
     // blur(1.5);
-    
   } else {
     // Clear to transparent when no notes
     wipe(0, 0);
   }
-  
+
   page(screen);
 }
 
