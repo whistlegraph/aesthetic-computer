@@ -808,4 +808,11 @@ try {
 }
 }
 
-if (!previewOrIcon && !sandboxed) initNotifications();
+let notificationsInitialized = false;
+
+window.acRequestNotifications = function requestNotifications() {
+  if (notificationsInitialized) return;
+  if (previewOrIcon || sandboxed) return;
+  notificationsInitialized = true;
+  initNotifications();
+};
