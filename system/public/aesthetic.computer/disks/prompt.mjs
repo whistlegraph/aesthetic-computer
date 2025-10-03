@@ -884,6 +884,7 @@ async function halt($, text) {
       type: "ios:send",
       content: { type: "notifications", body: false },
     });
+    send({ type: "notifications:web", content: { enable: false } });
     flashColor = [0, 0, 255];
     makeFlash($);
     return true;
@@ -892,6 +893,7 @@ async function halt($, text) {
       type: "ios:send",
       content: { type: "notifications", body: true },
     });
+    send({ type: "notifications:web", content: { enable: true } });
     flashColor = [0, 0, 255];
     makeFlash($);
     return true;
