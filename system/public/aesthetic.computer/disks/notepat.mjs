@@ -417,7 +417,7 @@ const octaveTheme = [
 
 const { abs, round, floor, ceil, min, max } = Math;
 
-let scope = 64;
+let scope = 32; // Reduced from 64 for better visualizer performance
 // let scopeTrim = 0;
 
 let projector = false;
@@ -483,8 +483,8 @@ function boot({
   // fps(4);
   udpServer = net.udp(); // For sending messages to `tv`.
 
-  // Create picture buffer at quarter resolution (half width, half height)
-  picture = painting(Math.floor(screen.width / 2), Math.floor(screen.height / 2), ({ wipe }) => {
+  // Create picture buffer at quarter resolution (quarter width, quarter height)
+  picture = painting(Math.floor(screen.width / 4), Math.floor(screen.height / 4), ({ wipe }) => {
     wipe("gray");
   });
 
@@ -662,7 +662,8 @@ function paint({
         plot,
         num, 
         paintCount,
-        sound
+        sound,
+        scroll
       },
       {
         amplitude: sound.speaker.amplitudes.left,
@@ -2306,120 +2307,134 @@ function pictureAdd({ page, screen, wipe, write, line, ink, num }, note) {
 }
 
 function pictureLines(
-  { page, ink, wipe, screen, blur, box, line, plot, num, paintCount, sound },
+  { page, ink, wipe, screen, blur, box, line, plot, num, paintCount, sound, scroll },
   { amplitude, waveforms },
 ) {
   page(picture);
-  wipe(0);
+  
+  // Blur instead of clearing for trail effect
+  blur(0.5);
+  
+  // Scroll horizontally to the right
+  scroll(1, 0);
   
   // Get the active notes from the sounds object
   const activeNotes = Object.keys(sounds).filter(key => sounds[key]?.sound && key);
-  const frequencies = sound.speaker?.frequencies?.left || [];
   
   if (activeNotes.length > 0) {
-    activeNotes.forEach((note, index) => {
-      // Skip if note is undefined or invalid
-      if (!note) return;
+    // Get color from the first active note
+    const firstNote = activeNotes[0];
+    if (firstNote) {
+      const color = colorFromNote(firstNote, num);
       
-      const color = colorFromNote(note, num);
-      
-      // === 1. AUDIO-REACTIVE LINES ===
-      // Draw lines based on waveform data
-      // if (waveforms.length > 0) {
-      //   const sampledWaveform = waveforms.filter((_, i) => i % 8 === 0); // Sample every 8th for subtlety
-      //   sampledWaveform.forEach((wave, i) => {
-      //     const x = (i / sampledWaveform.length) * picture.width;
-      //     const y1 = picture.height / 2;
-      //     const y2 = y1 + wave * picture.height * 0.2;
-      //     
-      //     ink(...color, 60).line(x, y1, x, y2);
-      //   });
-      // }
-      
-      // === 2. CONFETTI PARTICLES ===
-      // Spawn random confetti particles based on amplitude
-      // const confettiCount = Math.floor(amplitude * 80);
-      // for (let i = 0; i < confettiCount; i++) {
-      //   const x = num.randInt(picture.width);
-      //   const y = num.randInt(picture.height);
-      //   const size = 1 + num.randInt(2);
-      //   ink(...color, 150).box(x, y, size, size);
-      // }
-      
-      // === 3. FREQUENCY BARS ===
-      // Draw vertical bars for each frequency band
-      // if (frequencies.length > 0) {
-      //   const barCount = Math.min(frequencies.length, 16);
-      //   const barWidth = picture.width / barCount;
-      //   
-      //   for (let i = 0; i < barCount; i++) {
-      //     const freq = frequencies[i] || { amplitude: 0 };
-      //     const barHeight = freq.amplitude * picture.height;
-      //     const x = i * barWidth;
-      //     const y = picture.height - barHeight;
-      //     
-      //     ink(...color, 50).box(x, y, barWidth - 1, barHeight);
-      //   }
-      // }
-    });
-    
-    // === 4. PIXEL-LEVEL AUDIO GLITCH ===
-    // Direct pixel manipulation based on audio intensity
-    // if (amplitude > 0.5) {
-    //   const pixelCount = Math.floor(amplitude * 40);
-    //   for (let i = 0; i < pixelCount; i++) {
-    //     const x = num.randInt(picture.width);
-    //     const y = num.randInt(picture.height);
-    //     
-    //     // Get random note color for variety
-    //     const noteIndex = num.randInt(activeNotes.length);
-    //     const randomNote = activeNotes[noteIndex];
-    //     
-    //     // Safety check - skip if note is undefined
-    //     if (!randomNote) continue;
-    //     
-    //     const color = colorFromNote(randomNote, num);
-    //     
-    //     // Plot random pixels with intensity based on audio
-    //     ink(...color, 180).plot(x, y);
-    //   }
-    // }
-    
-    // === 5. WAVEFORM TRAIL ===
-    // Draw a continuous waveform across the screen, separated by note
-    if (waveforms.length > 16) {
-      const step = picture.width / waveforms.length;
-      
-      // Divide the screen into horizontal lanes for each note
-      const laneHeight = picture.height / activeNotes.length;
-      
-      activeNotes.forEach((trailNote, noteIndex) => {
-        // Safety check - skip if note is undefined
-        if (!trailNote) return;
-        
-        const color = colorFromNote(trailNote, num);
-        
-        // Calculate the center y position for this note's lane
-        const laneCenterY = (noteIndex + 0.5) * laneHeight;
+      // === WAVEFORM LINE (BACKGROUND) ===
+      // Draw waveform line first in the background
+      if (waveforms.length > 16) {
+        const step = picture.width / waveforms.length;
+        const centerY = picture.height / 2;
         
         for (let i = 1; i < waveforms.length; i++) {
           const x1 = (i - 1) * step;
-          const y1 = laneCenterY + waveforms[i - 1] * laneHeight * 0.4;
+          const y1 = centerY + waveforms[i - 1] * picture.height * 0.4;
           const x2 = i * step;
-          const y2 = laneCenterY + waveforms[i] * laneHeight * 0.4;
+          const y2 = centerY + waveforms[i] * picture.height * 0.4;
           
-          ink(...color).line(x1, y1, x2, y2);
+          // Draw waveform line with slight transparency
+          ink(...color, 120).line(x1, y1, x2, y2);
+        }
+      }
+      
+      // === WAVEFORM BARS ===
+      // Draw vertical bars based on waveform amplitude
+      if (waveforms.length > 16) {
+        const barWidth = picture.width / waveforms.length;
+        const centerY = picture.height / 2;
+        
+        for (let i = 0; i < waveforms.length; i++) {
+          const x = i * barWidth;
+          const barHeight = Math.abs(waveforms[i]) * picture.height * 0.4;
+          const y = centerY - barHeight / 2;
+          
+          // Draw vertical bar filling the full width
+          ink(...color, 180).box(x, y, Math.ceil(barWidth), barHeight);
+        }
+      }
+      
+      // === HORIZONTAL STRIPES FOR EACH NOTE ===
+      // Draw colored stripes across the screen for each active note
+      const stripeHeight = picture.height / activeNotes.length;
+      activeNotes.forEach((stripeNote, idx) => {
+        if (!stripeNote) return;
+        const stripeColor = colorFromNote(stripeNote, num);
+        const stripeY = idx * stripeHeight;
+        
+        // Oscillate stripe position based on amplitude
+        const oscillation = Math.sin(paintCount * 0.1 + idx) * amplitude * 20;
+        
+        // Draw thin horizontal stripes with gaps, oscillating vertically
+        for (let x = 0; x < picture.width; x += 8) {
+          ink(...stripeColor, 60).box(x, stripeY + oscillation, 4, stripeHeight);
         }
       });
     }
+    
+    // === ACTIVE NOTES DISPLAY ===
+    // Display each active note as a colored orb/circle
+    const orbSize = Math.min(picture.width, picture.height) * 0.3; // Widened from 0.25
+    const spacing = picture.width / (activeNotes.length + 1);
+    
+    activeNotes.forEach((note, index) => {
+      if (!note) return;
+      
+      const color = colorFromNote(note, num);
+      const x = spacing * (index + 1);
+      const y = picture.height * 0.5; // Centered vertically
+      const pulseSize = orbSize * (0.8 + amplitude * 0.4); // Pulse with audio
+      
+      // Draw concentric circles for orb effect (wider glow)
+      ink(...color, 100).box(x - pulseSize/2, y - pulseSize/2, pulseSize, pulseSize);
+      ink(...color, 200).box(x - pulseSize*0.6/2, y - pulseSize*0.6/2, pulseSize * 0.6, pulseSize * 0.6);
+      ink(...color, 255).box(x - pulseSize*0.3/2, y - pulseSize*0.3/2, pulseSize * 0.3, pulseSize * 0.3);
+      
+      // Convert note name to keyboard key for display
+      // Handle both lower octave (c, d, e...) and upper octave (+c, +d, +e...)
+      let displayKey = '';
+      const isUpperOctave = note.startsWith('+');
+      const cleanNote = isUpperOctave ? note.slice(1) : note;
+      
+      // Map notes back to keyboard keys
+      const noteToKeyMap = {
+        'c': isUpperOctave ? 'h' : 'c',
+        'c#': isUpperOctave ? 't' : 'v',
+        'd': isUpperOctave ? 'i' : 'd',
+        'd#': isUpperOctave ? 'y' : 's',
+        'e': isUpperOctave ? 'j' : 'e',
+        'f': isUpperOctave ? 'k' : 'f',
+        'f#': isUpperOctave ? 'u' : 'w',
+        'g': isUpperOctave ? 'l' : 'g',
+        'g#': isUpperOctave ? 'o' : 'r',
+        'a': isUpperOctave ? 'm' : 'a',
+        'a#': isUpperOctave ? 'p' : 'q',
+        'b': isUpperOctave ? 'n' : 'b'
+      };
+      
+      displayKey = noteToKeyMap[cleanNote] || note.toLowerCase();
+      
+      // Draw shadow (1px offset down and right)
+      ink(0, 0, 0).write(displayKey, { center: 'xy', x: x + 1, y: y });
+      
+      // Flicker between white and yellow
+      const flickerColor = num.rand() > 0.5 ? [255, 255, 255] : [255, 255, 0];
+      ink(...flickerColor).write(displayKey, { center: 'xy', x, y: y - 1 });
+    });
+    
+    // Apply blur for dreamy effect
+    // blur(1.5);
     
   } else {
     // Clear to transparent when no notes
     wipe(0, 0);
   }
-
-
-  //blur(4);
   
   page(screen);
 }
