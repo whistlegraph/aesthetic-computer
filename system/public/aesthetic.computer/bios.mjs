@@ -8503,6 +8503,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    if (type === "notifications:web") {
+      window.acRequestNotifications?.(content);
+      return;
+    }
+
     if (type === "microphone-record") {
       requestMicrophoneRecordingStart?.();
       return;

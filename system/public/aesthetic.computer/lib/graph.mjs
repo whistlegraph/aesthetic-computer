@@ -1386,6 +1386,7 @@ function clear() {
 function plot(x, y) {
   x = floor(x);
   y = floor(y);
+  if (!pixels) return;
   // Skip pixels that are offscreen and/or found in the `skips` list.
   if (x < 0 || x >= width || y < 0 || y >= height) return;
 
@@ -1407,7 +1408,7 @@ function plot(x, y) {
   const i = (x + y * width) * 4;
   
   // Additional safety check for array bounds
-  if (i < 0 || i >= pixels.length - 3) return;
+  if (i < 0 || i + 3 >= pixels.length) return;
   
   const alpha = c[3];
 
@@ -2160,6 +2161,7 @@ function lineh(x0, x1, y) {
   x0 = floor(x0);
   x1 = floor(x1);
   y = floor(y);
+  if (!pixels) return;
   if (y < 0 || y >= height || x0 >= width || x1 < 0) return; // Check if the entire line is outside the mask
   if (activeMask) {
     // Don't apply pan translation to mask bounds - mask is already set at current pan position
