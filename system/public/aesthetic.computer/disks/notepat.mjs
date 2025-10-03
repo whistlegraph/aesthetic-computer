@@ -257,6 +257,10 @@ const edges = "zx;']"; // below and above the octave
 //                       // or alt on   D E G A B for flats
 // This is a notes -> keys mapping, that uses v for c#
 
+const TOP_BAR_BOTTOM = 21;
+const TRACK_HEIGHT = 25;
+const TRACK_GAP = 6;
+
 let upperOctaveShift = 0, // Set by <(,) or >(.) keys.
   lowerOctaveShift = 0;
 
@@ -461,7 +465,6 @@ function parseSong(raw) {
 
 // song = parseSong(rawSong);
 
-let oscilloscopeBottom = 48;
 let startupSfx;
 let udpServer;
 
@@ -605,6 +608,72 @@ function sim({ sound, simCount, num }) {
   primaryColor = num.shiftRGB(primaryColor, d2, val, "lerp");
 }
 
+function getButtonLayoutMetrics(screen, { songMode = false, pictureOverlay = false } = {}) {
+  const buttonsPerRow = 4;
+  const totalButtons = buttonNotes.length;
+  const totalRows = ceil(totalButtons / buttonsPerRow);
+  const margin = 2;
+  const bottomPadding = 2;
+
+  if (pictureOverlay) {
+    const buttonSize = 24;
+    const buttonsAreaHeight = totalRows * buttonSize;
+    const topButtonY = screen.height - bottomPadding - buttonsAreaHeight;
+
+    return {
+      buttonWidth: buttonSize,
+      buttonHeight: buttonSize,
+      topButtonY,
+      totalRows,
+      buttonsPerRow,
+      margin,
+      bottomPadding,
+      hudReserved: 0,
+      trackHeight: 0,
+      trackSpacing: 0,
+    };
+  }
+
+  const hudReserved = TOP_BAR_BOTTOM;
+  const trackHeight = songMode ? TRACK_HEIGHT : 0;
+  const trackSpacing = songMode ? TRACK_GAP : 0;
+
+  const widthLimit = ceil((screen.width - margin * 2) / buttonsPerRow);
+  const minButtonSize = 20;
+  const maxButtonSize = 48;
+
+  let buttonWidth = min(maxButtonSize, widthLimit);
+  buttonWidth = max(minButtonSize, buttonWidth);
+  buttonWidth = min(buttonWidth, widthLimit);
+  let buttonHeight = buttonWidth;
+
+  const available = screen.height - bottomPadding - hudReserved - (trackHeight + trackSpacing);
+
+  if (available < totalRows * buttonHeight) {
+    const maxPerRow = max(minButtonSize, floor(available / totalRows));
+    buttonHeight = maxPerRow;
+    buttonWidth = min(buttonWidth, maxPerRow, widthLimit);
+  } else {
+    buttonWidth = min(buttonWidth, widthLimit);
+  }
+
+  const buttonsAreaHeight = totalRows * buttonHeight;
+  const topButtonY = screen.height - bottomPadding - buttonsAreaHeight;
+
+  return {
+    buttonWidth,
+    buttonHeight,
+    topButtonY,
+    totalRows,
+    buttonsPerRow,
+    margin,
+    bottomPadding,
+    hudReserved,
+    trackHeight,
+    trackSpacing,
+  };
+}
+
 function paint({
   wipe,
   ink,
@@ -712,26 +781,20 @@ function paint({
 
   // TODO: Precompute the full song length with x stops next to indices.
 
+  const layout = getButtonLayoutMetrics(screen, { songMode: Boolean(song) });
+  const {
+    trackHeight: layoutTrackHeight,
+  } = layout;
+
+  const trackY = song ? TOP_BAR_BOTTOM : null;
+
   if (song) {
     const glyphWidth = typeface.glyphs["0"].resolution[0];
     const startX = 6 - songShift;
     let i = 0;
 
-    // Calculate where buttons start (they're laid out from bottom up)
-    const buttonsPerRow = 4;
-    const totalButtons = buttonNotes.length;
-    const totalRows = ceil(totalButtons / buttonsPerRow);
-    let buttonWidth = min(48, ceil((screen.width - 4) / 4));
-    let buttonHeight = buttonWidth;
-    if (totalRows * buttonHeight > screen.height - oscilloscopeBottom) {
-      buttonHeight = ceil((screen.height - oscilloscopeBottom) / totalRows);
-    }
-    
-    // Place track just above the top row of buttons with some padding
-    const topButtonY = screen.height - 2 - totalRows * buttonHeight;
-    const trackY = topButtonY - 30; // 30 pixels above buttons
-    const trackHeight = 25;
-    
+    const trackHeight = layoutTrackHeight;
+
     ink(20, 30, 50).box(0, trackY, screen.width, trackHeight);
 
     while (i < song.length) {
@@ -740,8 +803,7 @@ function paint({
 
       if (x > screen.width) break;
 
-      const current = i === songIndex;
-      const nextNote = i === songIndex + 1;
+  const current = i === songIndex;
 
       // Word color (lyrics) - match the cyan palette from the board
       if (current) {
@@ -750,11 +812,6 @@ function paint({
           // Word disappears when pressed
         } else {
           ink(wordColor).write(word, x, trackY + 3);
-        }
-      } else if (nextNote) {
-        const fadeOpacity = Math.floor(songProgress * 255);
-        if (fadeOpacity > 0) {
-          ink(255, 255, 255, fadeOpacity).write(word, x, trackY + 3); // White with fade
         }
       } else {
         ink(120, 140, 150).write(word, x, trackY + 3); // Lighter gray-blue
@@ -768,11 +825,6 @@ function paint({
         } else {
           ink(noteColor).write(song[i][0], x, trackY + 13);
         }
-      } else if (nextNote) {
-        const fadeOpacity = Math.floor(songProgress * 255);
-        if (fadeOpacity > 0) {
-          ink(0, 180, 200, fadeOpacity).write(song[i][0], x, trackY + 13); // Cyan with fade
-        }
       } else {
         ink(80, 100, 120).write(song[i][0], x, trackY + 13); // Darker gray-blue
       }
@@ -783,24 +835,13 @@ function paint({
   
   // Draw tiny piano layout (always visible, not just in song mode)
   // Position it dynamically based on available space
-  const buttonsPerRow = 4;
-  const totalButtons = buttonNotes.length;
-  const totalRows = ceil(totalButtons / buttonsPerRow);
-  let buttonWidth = min(48, ceil((screen.width - 4) / 4));
-  let buttonHeight = buttonWidth;
-  if (totalRows * buttonHeight > screen.height - oscilloscopeBottom) {
-    buttonHeight = ceil((screen.height - oscilloscopeBottom) / totalRows);
-  }
-  const topButtonY = screen.height - 2 - totalRows * buttonHeight;
-  
   // Position piano below track if in song mode, otherwise higher and left
   let pianoY, pianoStartX;
   if (song) {
-    const trackHeight = 25;
-    const trackY = topButtonY - 30;
-    pianoY = trackY + trackHeight + 2; // Just below the track
+    const effectiveTrackY = trackY ?? TOP_BAR_BOTTOM;
+    pianoY = effectiveTrackY + layoutTrackHeight + 2; // Just below the track
   } else {
-    pianoY = 21; // Below HUD label when no track
+    pianoY = TOP_BAR_BOTTOM; // Below HUD label when no track
   }
   
   const whiteKeyWidth = 7;
@@ -837,14 +878,10 @@ function paint({
   whiteKeys.forEach((note, index) => {
     const x = pianoStartX + index * whiteKeyWidth;
     const isCurrentNote = song && note === song?.[songIndex][0];
-    const isNextNote = song && note === song?.[songIndex + 1]?.[0];
     const isActivePlaying = sounds[note.toLowerCase()] !== undefined;
     
     if (isCurrentNote) {
       ink(0, 180, 200).box(x, pianoY, whiteKeyWidth - 1, whiteKeyHeight); // Cyan for current in song mode
-    } else if (isNextNote) {
-      const fadeOpacity = Math.floor(songProgress * 150);
-      ink(0, 180, 200, fadeOpacity).box(x, pianoY, whiteKeyWidth - 1, whiteKeyHeight); // Faded cyan
     } else if (isActivePlaying) {
       ink(255, 255, 0).box(x, pianoY, whiteKeyWidth - 1, whiteKeyHeight); // Yellow for active notes
     } else {
@@ -857,14 +894,10 @@ function paint({
   blackKeys.forEach(({note, afterWhite}) => {
     const x = pianoStartX + afterWhite * whiteKeyWidth + whiteKeyWidth - blackKeyWidth / 2;
     const isCurrentNote = song && note === song?.[songIndex][0];
-    const isNextNote = song && note === song?.[songIndex + 1]?.[0];
     const isActivePlaying = sounds[note.toLowerCase()] !== undefined;
     
     if (isCurrentNote) {
       ink(0, 140, 160).box(x, pianoY, blackKeyWidth, blackKeyHeight); // Darker cyan for current
-    } else if (isNextNote) {
-      const fadeOpacity = Math.floor(songProgress * 150);
-      ink(0, 140, 160, fadeOpacity).box(x, pianoY, blackKeyWidth, blackKeyHeight); // Faded darker cyan
     } else if (isActivePlaying) {
       ink(200, 200, 0).box(x, pianoY, blackKeyWidth, blackKeyHeight); // Darker yellow for active
     } else {
@@ -2454,30 +2487,23 @@ function resetModeState() {
 
 // Initialize and/or lay out the UI buttons on the bottom of the display.
 function setupButtons({ ui, screen, geo }) {
-  const margin = 2;
-  const ymargin = 2;
-  const buttonsPerRow = 4;
-  const totalButtons = buttonNotes.length;
-  const totalRows = ceil(totalButtons / buttonsPerRow);
-
-  let buttonWidth = min(48, ceil((screen.width - margin * 2) / 4));
-
-  if (paintPictureOverlay) {
-    buttonWidth = 24;
-  }
-
-  let buttonHeight = buttonWidth;
-
-  if (totalRows * buttonHeight > screen.height - oscilloscopeBottom) {
-    buttonWidth = buttonHeight = ceil(
-      (screen.height - oscilloscopeBottom) / totalRows,
-    );
-  }
+  const layout = getButtonLayoutMetrics(screen, {
+    songMode: Boolean(song),
+    pictureOverlay: paintPictureOverlay,
+  });
+  const {
+    buttonWidth,
+    buttonHeight,
+    topButtonY,
+    buttonsPerRow,
+    totalRows,
+    margin,
+  } = layout;
 
   buttonNotes.forEach((label, i) => {
     const row = floor(i / buttonsPerRow);
     const col = i % buttonsPerRow;
-    const y = screen.height - ymargin - (totalRows - row) * buttonHeight;
+    const y = topButtonY + row * buttonHeight;
     const x = ceil(margin + col * buttonWidth);
     const geometry = [x, y, buttonWidth, buttonHeight];
     if (!buttons[label]) {
