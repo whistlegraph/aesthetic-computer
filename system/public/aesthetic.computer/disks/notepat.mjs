@@ -264,7 +264,7 @@ const TRACK_GAP = 6;
 let upperOctaveShift = 0, // Set by <(,) or >(.) keys.
   lowerOctaveShift = 0;
 
-const attack = 0.0025; // 0.025;
+const attack = 0.001; // Faster onset for responsive play.
 // const attack = 0.005; // 0.025;
 // const decay = 0.9999; // 0.9;
 let toneVolume = 0.95; // 0.9;
@@ -328,6 +328,13 @@ const buttonNotes = [
   "+a#",
   "+b",
 ];
+
+const buttonNoteLookup = new Set(buttonNotes);
+
+const midiActiveNotes = new Map();
+
+const MIDI_PITCH_BEND_RANGE = 2; // Semitones up/down for pitch wheel.
+let midiPitchBendValue = 0; // Normalized -1..1 position of the wheel.
 
 // red, orange, yellow, green, blue, purple, brown
 //   C,      D,      E, F,     G,    A,      B
@@ -482,12 +489,15 @@ function boot({
   hud,
   net,
   painting,
+  sound,
 }) {
   // fps(4);
   udpServer = net.udp(); // For sending messages to `tv`.
 
   // Create picture buffer at quarter resolution (quarter width, quarter height)
-  picture = painting(Math.floor(screen.width / 4), Math.floor(screen.height / 4), ({ wipe }) => {
+  const pictureWidth = Math.max(1, Math.floor(screen.width / 4));
+  const pictureHeight = Math.max(1, Math.floor(screen.height / 4));
+  picture = painting(pictureWidth, pictureHeight, ({ wipe }) => {
     wipe("gray");
   });
 
@@ -495,6 +505,12 @@ function boot({
     .preload("startup") // TODO: Switch this default sample. 24.11.19.22.20
     .then((sfx) => (startupSfx = sfx))
     .catch((err) => console.warn(err)); // Load startup
+
+  try {
+    sound?.midi?.connect?.();
+  } catch (err) {
+    console.warn("🎹 Unable to request MIDI connection", err);
+  }
 
   // Load MatrixChunky8 font for note letters
   if (api.Typeface) {
@@ -807,24 +823,16 @@ function paint({
 
       // Word color (lyrics) - match the cyan palette from the board
       if (current) {
-        const wordColor = songNoteDown ? [0, 0, 0, 0] : "white"; // White text like on buttons
-        if (songNoteDown) {
-          // Word disappears when pressed
-        } else {
-          ink(wordColor).write(word, x, trackY + 3);
-        }
+        const wordColor = songNoteDown ? [180, 200, 210] : "white"; // Soften while holding
+        ink(wordColor).write(word, x, trackY + 3);
       } else {
         ink(120, 140, 150).write(word, x, trackY + 3); // Lighter gray-blue
       }
 
       // Note color (musical note) - match the cyan boxes
       if (current) {
-        const noteColor = songNoteDown ? [0, 0, 0, 0] : [0, 180, 200]; // Bright cyan like boxes
-        if (songNoteDown) {
-          // Note disappears when pressed
-        } else {
-          ink(noteColor).write(song[i][0], x, trackY + 13);
-        }
+        const noteColor = songNoteDown ? [0, 140, 160] : [0, 180, 200]; // Keep visible while acknowledging hold
+        ink(noteColor).write(song[i][0], x, trackY + 13);
       } else {
         ink(80, 100, 120).write(song[i][0], x, trackY + 13); // Darker gray-blue
       }
@@ -1028,7 +1036,7 @@ function paint({
     ink("orange").line(screen.width / 2, 0, screen.width / 2, screen.height);
 
   if (!paintPictureOverlay) {
-    if (!tap) {
+    if (!tap && !song) {
       // Write all the active keys.
       ink("lime");
       write(
@@ -1036,7 +1044,7 @@ function paint({
         6,
         20,
       );
-    } else {
+    } else if (tap) {
       ink("white");
       active.forEach((sound, index) => {
         write(sound, screen.width / 2, screen.height / 2 + 12 + 12 * index);
@@ -1344,7 +1352,7 @@ const percDowns = {};
 
 function act({
   event: e,
-  sound: { synth, speaker, play, freq },
+  sound: { synth, speaker, play, freq, midi: midiUtil },
   num,
   pens,
   hud,
@@ -1357,7 +1365,9 @@ function act({
     buildWaveButton(api);
     buildOctButton(api);
     // Resize picture to quarter resolution (half width, half height)
-    picture = painting(Math.floor(screen.width / 2), Math.floor(screen.height / 2), ({ wipe }) => {
+    const resizedPictureWidth = Math.max(1, Math.floor(screen.width / 2));
+    const resizedPictureHeight = Math.max(1, Math.floor(screen.height / 2));
+    picture = painting(resizedPictureWidth, resizedPictureHeight, ({ wipe }) => {
       wipe("gray");
     });
   }
@@ -1493,7 +1503,14 @@ function act({
     });
   };
 
-  function makeNoteSound(tone) {
+  function makeNoteSound(tone, velocity = 127) {
+    const velocityRatioRaw = velocity === undefined ? 1 : velocity / 127;
+    const velocityRatio = num?.clamp
+      ? num.clamp(velocityRatioRaw, 0, 1)
+      : Math.max(0, Math.min(1, velocityRatioRaw));
+    const minVelocityVolume = 0.05; // Keep a subtle floor so very light taps still play.
+    const volumeScale = minVelocityVolume + (1 - minVelocityVolume) * velocityRatio;
+
     if (wave === "sample") {
       // synth({
       //   type: "sine",
@@ -1504,7 +1521,7 @@ function act({
       // });
 
       return play(startupSfx, {
-        volume: 1,
+        volume: volumeScale,
         pitch: freq(tone),
         // pan: -0.5 + num.randIntRange(0, 100) / 100,
       });
@@ -1532,7 +1549,7 @@ function act({
         // tone: baseFreq + 280 + num.randIntRange(-10, 20),
         // duration: 0.18,
         duration: "🔁",
-        volume: toneVolume,
+        volume: toneVolume * volumeScale,
       });
 
       // TODO: Can't update straight after triggering.
@@ -1547,7 +1564,7 @@ function act({
         // decay,
         tone: baseFreq + 9 + num.randIntRange(-1, 1), //+ 8, //num.randIntRange(-5, 5),
         duration: "🔁",
-        volume: toneVolume / 3, // / 16,
+        volume: (toneVolume / 3) * volumeScale, // / 16,
       });
 
       toneC = synth({
@@ -1556,7 +1573,7 @@ function act({
         decay: 0.9,
         tone: baseFreq + num.randIntRange(-6, 6),
         duration: 0.15 + num.rand() * 0.05,
-        volume: toneVolume / 48, // / 32,
+        volume: (toneVolume / 48) * volumeScale, // / 32,
       });
 
       // TODO: One-shot sounds and samples need to be 'killable'.
@@ -1567,7 +1584,7 @@ function act({
         // decay,
         tone: baseFreq + 8 + num.randIntRange(-5, 5),
         duration: "🔁",
-        volume: toneVolume / 32,
+        volume: (toneVolume / 32) * volumeScale,
       });
 
       toneE = synth({
@@ -1576,7 +1593,7 @@ function act({
         // decay,
         tone: baseFreq + num.randIntRange(-10, 10),
         duration: "🔁",
-        volume: toneVolume / 64,
+        volume: (toneVolume / 64) * volumeScale,
       });
 
       return {
@@ -1596,9 +1613,306 @@ function act({
         // decay,
         tone,
         duration: "🔁",
-        volume: toneVolume,
+        volume: toneVolume * volumeScale,
       });
     }
+  }
+
+  const lowerBaseOctave = () => parseInt(octave) + lowerOctaveShift;
+  const upperBaseOctave = () => parseInt(octave) + 1 + upperOctaveShift;
+
+  const flatToSharp = {
+    DB: "C#",
+    EB: "D#",
+    GB: "F#",
+    AB: "G#",
+    BB: "A#",
+  };
+
+  const MIDI_NOTE_ON = 0x90;
+  const MIDI_NOTE_OFF = 0x80;
+  const MIDI_PITCH_BEND = 0xe0;
+
+  const midiNoteToButton = (noteNumber) => {
+      if (!midiUtil?.note || typeof noteNumber !== "number") return null;
+
+      const raw = midiUtil.note(noteNumber);
+      if (!raw) return null;
+
+      const normalized = raw.toUpperCase();
+      const match = normalized.match(/^([A-G])([#B]?)(-?\d+)$/);
+      if (!match) return null;
+
+      let [, letter, accidental, octaveStr] = match;
+
+      if (accidental === "B") {
+        const enharmonic = flatToSharp[`${letter}${accidental}`];
+        if (!enharmonic) return null;
+        letter = enharmonic[0];
+        accidental = enharmonic[1] || "";
+      }
+
+      const noteName = (letter + accidental).toLowerCase();
+      const noteOctave = parseInt(octaveStr, 10);
+
+      if (Number.isNaN(noteOctave)) return null;
+
+      const lowerOct = lowerBaseOctave();
+      const upperOct = upperBaseOctave();
+
+      if (noteOctave === lowerOct && buttonNoteLookup.has(noteName)) {
+        return noteName;
+      }
+      if (noteOctave === upperOct) {
+        const upperNote = `+${noteName}`;
+        if (buttonNoteLookup.has(upperNote)) {
+          return upperNote;
+        }
+      }
+
+      if (noteOctave < lowerOct) {
+        const offset = (lowerOct - noteOctave) % 2;
+        const baseNote = offset === 0 ? noteName : `+${noteName}`;
+        if (buttonNoteLookup.has(baseNote)) {
+          return baseNote;
+        }
+      }
+
+      if (noteOctave > upperOct) {
+        const offset = (noteOctave - upperOct) % 2;
+        const baseNote = offset === 0 ? `+${noteName}` : noteName;
+        if (buttonNoteLookup.has(baseNote)) {
+          return baseNote;
+        }
+      }
+
+      if (buttonNoteLookup.has(noteName)) {
+        console.warn("🎹 MIDI note folded to base octave:", {
+          noteNumber,
+          raw,
+          mappedTo: noteName,
+        });
+        return noteName;
+      }
+
+      const sharpCandidate = `+${noteName}`;
+      if (buttonNoteLookup.has(sharpCandidate)) {
+        console.warn("🎹 MIDI note folded to upper octave:", {
+          noteNumber,
+          raw,
+          mappedTo: sharpCandidate,
+        });
+        return sharpCandidate;
+      }
+
+      console.warn("🎹 MIDI note unmapped:", { noteNumber, raw, lowerOct, upperOct });
+      return null;
+    };
+
+  const computePitchBendRatio = () => {
+    const semitoneOffset = midiPitchBendValue * MIDI_PITCH_BEND_RANGE;
+    return 2 ** (semitoneOffset / 12);
+  };
+
+  const applyPitchBendToNotes = (noteKeys, { immediate = false } = {}) => {
+    const ratio = computePitchBendRatio();
+    const targets = Array.isArray(noteKeys) && noteKeys.length > 0
+      ? noteKeys
+      : Object.keys(sounds);
+
+    targets.forEach((noteKey) => {
+      const soundEntry = sounds[noteKey];
+      const toneInfo = tonestack[noteKey];
+      if (!soundEntry?.sound?.update || !toneInfo?.tone) return;
+
+      const baseFrequency = freq(toneInfo.tone);
+      if (typeof baseFrequency !== "number" || Number.isNaN(baseFrequency)) return;
+
+      const bentFrequency = baseFrequency * ratio;
+      const payload = immediate ? { tone: bentFrequency } : { tone: bentFrequency, duration: 0.05 };
+      try {
+        soundEntry.sound.update(payload);
+      } catch (err) {
+        console.warn("🎛️ Pitch bend update failed", { noteKey, err });
+      }
+    });
+  };
+
+  const startMidiButtonNote = (buttonNote, velocity = 127) => {
+    if (!buttonNote) return false;
+
+    if (song && buttonNote.toUpperCase() !== song?.[songIndex][0]) {
+      synth({
+        type: "noise-white",
+        tone: 1000,
+        duration: 0.05,
+        volume: 0.3,
+        attack: 0,
+      });
+      return false;
+    }
+
+    anyDown = true;
+
+    let noteName = buttonNote;
+    let targetOctave = lowerBaseOctave();
+    if (buttonNote.startsWith("+")) {
+      noteName = buttonNote.slice(1);
+      targetOctave = upperBaseOctave();
+    }
+
+    const noteUpper = noteName.toUpperCase();
+    const tone = `${targetOctave}${noteUpper}`;
+    const active = orderedByCount(sounds);
+
+    if (slide && active.length > 0) {
+      sounds[active[0]]?.sound?.update({ tone, duration: 0.1 });
+      tonestack[buttonNote] = {
+        count: Object.keys(tonestack).length,
+        tone,
+      };
+      sounds[buttonNote] = sounds[active[0]];
+      if (sounds[buttonNote]) sounds[buttonNote].note = buttonNote;
+      delete sounds[active[0]];
+      applyPitchBendToNotes([buttonNote], { immediate: true });
+    } else {
+      tonestack[buttonNote] = {
+        count: Object.keys(tonestack).length,
+        tone,
+      };
+
+      let soundHandle = makeNoteSound(tone, velocity);
+
+      if (!soundHandle || typeof soundHandle.kill !== "function") {
+        const velocityRatio = velocity === undefined ? 1 : velocity / 127;
+        const clampedRatio = num?.clamp
+          ? num.clamp(velocityRatio, 0, 1)
+          : Math.max(0, Math.min(1, velocityRatio));
+        const minVelocityVolume = 0.05;
+        const fallbackVolume =
+          toneVolume * (minVelocityVolume + (1 - minVelocityVolume) * clampedRatio);
+        soundHandle = synth({
+          type: "sine",
+          tone: freq(tone),
+          attack: quickFade ? 0.0015 : attack,
+          decay: 0.9,
+          duration: 0.4,
+          volume: fallbackVolume,
+        });
+      }
+
+      sounds[buttonNote] = {
+        note: buttonNote,
+        count: active.length + 1,
+        sound: soundHandle,
+      };
+
+      applyPitchBendToNotes([buttonNote], { immediate: true });
+
+      if (buttonNote.toUpperCase() === song?.[songIndex][0]) {
+        songNoteDown = true;
+      }
+
+      delete trail[buttonNote];
+
+      pictureAdd(api, tone);
+      udpServer?.send("tv", { note: buttonNote });
+    }
+
+    if (buttons[buttonNote]) {
+      buttons[buttonNote].down = true;
+      buttons[buttonNote].over = true;
+    }
+
+    return true;
+  };
+
+  const stopMidiButtonNote = (buttonNote) => {
+    if (!buttonNote) return;
+
+    const orderedTones = orderedByCount(tonestack);
+
+    if (slide && orderedTones.length > 1 && sounds[buttonNote]) {
+      const previousKey = orderedTones[orderedTones.length - 2];
+      const previousTone = tonestack[previousKey]?.tone;
+      if (previousTone) {
+        sounds[buttonNote]?.sound?.update({ tone: previousTone, duration: 0.1 });
+        sounds[previousKey] = sounds[buttonNote];
+        if (sounds[previousKey]) sounds[previousKey].note = previousKey;
+        applyPitchBendToNotes([previousKey], { immediate: true });
+      }
+    } else if (sounds[buttonNote]?.sound) {
+      const soundEntry = sounds[buttonNote];
+      const lifespan = soundEntry.sound?.startedAt
+        ? performance.now() / 1000 - soundEntry.sound.startedAt
+        : 0.1;
+      const fade = max(0.075, min(lifespan, 0.15));
+      soundEntry.sound.kill(quickFade ? fastFade : fade);
+    }
+
+    if (buttonNote.toUpperCase() === song?.[songIndex][0]) {
+      songIndex = (songIndex + 1) % song.length;
+      songNoteDown = false;
+      songShifting = true;
+    }
+
+    delete tonestack[buttonNote];
+    delete sounds[buttonNote];
+    trail[buttonNote] = 1;
+
+    if (buttons[buttonNote]) {
+      buttons[buttonNote].down = false;
+      buttons[buttonNote].over = false;
+    }
+  };
+
+  if (e.is("midi:keyboard")) {
+    const status = e.data?.[0] ?? 0;
+    const noteNumber = e.data?.[1];
+    const velocity = e.data?.[2] ?? 0;
+    const command = status & 0xf0;
+
+    if (command === MIDI_PITCH_BEND) {
+      const lsb = e.data?.[1] ?? 0;
+      const msb = e.data?.[2] ?? 0;
+      const rawValue = (msb << 7) | lsb; // 0 - 16383
+      const normalized = (rawValue - 8192) / 8192;
+      const clamped = num?.clamp
+        ? num.clamp(normalized, -1, 1)
+        : Math.max(-1, Math.min(1, normalized));
+
+      if (clamped !== midiPitchBendValue) {
+        midiPitchBendValue = clamped;
+        applyPitchBendToNotes(undefined, { immediate: true });
+        console.log("🎛️ MIDI pitch bend", {
+          rawValue,
+          normalized,
+          clamped,
+          ratio: computePitchBendRatio(),
+        });
+      }
+
+      return;
+    }
+
+    if (typeof noteNumber === "number") {
+      if (command === MIDI_NOTE_ON && velocity > 0) {
+        const buttonNote = midiNoteToButton(noteNumber);
+        if (buttonNote && startMidiButtonNote(buttonNote, velocity)) {
+          console.log("🎹 MIDI note on", { noteNumber, velocity, buttonNote });
+          midiActiveNotes.set(noteNumber, buttonNote);
+        }
+      } else if (command === MIDI_NOTE_OFF || (command === MIDI_NOTE_ON && velocity === 0)) {
+        const mappedNote = midiActiveNotes.get(noteNumber) ?? midiNoteToButton(noteNumber);
+        if (mappedNote) {
+          console.log("🎹 MIDI note off", { noteNumber, buttonNote: mappedNote });
+          stopMidiButtonNote(mappedNote);
+        }
+        midiActiveNotes.delete(noteNumber);
+      }
+    }
+
+    return;
   }
 
   if (!tap) {
@@ -1658,7 +1972,12 @@ function act({
   }
 
   if (!tap) {
-    if (e.is("lift") && pens().length <= 1) anyDown = false;
+    const activePens = pens?.();
+    if (activePens?.length > 0) {
+      anyDown = true;
+    }
+
+    if (e.is("lift") && activePens?.length <= 1) anyDown = false;
 
     octBtn?.act(e, {
       down: () => api.beep(400),
@@ -1687,6 +2006,7 @@ function act({
           e,
           {
             down: (btn) => {
+              anyDown = true;
               // In song mode, block all notes except the current one
               if (song && note.toUpperCase() !== song?.[songIndex][0]) {
                 // Play white noise bump for wrong note
@@ -1701,7 +2021,6 @@ function act({
               }
 
               if (downs[note]) return false; // Cancel the down if the key is held.
-              anyDown = true;
 
               let noteUpper = note.toUpperCase();
               // console.log("Note upper:", noteUpper);
@@ -1732,7 +2051,9 @@ function act({
                   tone,
                 };
                 sounds[note] = sounds[active[0]]; // Switch the note label.
+                if (sounds[note]) sounds[note].note = note;
                 delete sounds[active[0]]; // Swap the sound reference.
+                applyPitchBendToNotes([note], { immediate: true });
               } else {
                 tonestack[note] = {
                   count: Object.keys(tonestack).length,
@@ -1742,8 +2063,10 @@ function act({
                 sounds[note] = {
                   note,
                   count: active.length + 1,
-                  sound: makeNoteSound(tone),
+                  sound: makeNoteSound(tone, 127),
                 };
+
+                applyPitchBendToNotes([note], { immediate: true });
 
                 if (note.toUpperCase() === song?.[songIndex][0]) {
                   songNoteDown = true;
@@ -1799,7 +2122,10 @@ function act({
                   tone: tonestack[orderedTones[orderedTones.length - 2]].tone,
                   duration: 0.1,
                 });
-                sounds[orderedTones[orderedTones.length - 2]] = sounds[note];
+                const previousKey = orderedTones[orderedTones.length - 2];
+                sounds[previousKey] = sounds[note];
+                if (sounds[previousKey]) sounds[previousKey].note = previousKey;
+                applyPitchBendToNotes([previousKey], { immediate: true });
               } else {
                 sounds[note]?.sound.kill(quickFade ? fastFade : killFade);
               }
@@ -1872,7 +2198,7 @@ function act({
 
       const tone = tapped;
       if (tappedOctave) tapped = tappedOctave + tapped;
-      if (!reset) sounds[tapped] = makeNoteSound(octave + tone); // synth({
+  if (!reset) sounds[tapped] = makeNoteSound(octave + tone, 127); // synth({
       // type: wave,
       // tone: octave + tone,
       // attack,
@@ -2080,7 +2406,9 @@ function act({
             tone,
           };
           sounds[buttonNote] = sounds[active[0]]; // Switch the note label.
+          if (sounds[buttonNote]) sounds[buttonNote].note = buttonNote;
           delete sounds[active[0]]; // Swap the sound reference.
+          applyPitchBendToNotes([buttonNote], { immediate: true });
         } else {
           tonestack[buttonNote] = {
             count: Object.keys(tonestack).length,
@@ -2090,7 +2418,7 @@ function act({
           sounds[buttonNote] = {
             note: buttonNote,
             count: active.length + 1,
-            sound: makeNoteSound(tone), // synth({
+            sound: makeNoteSound(tone, 127), // synth({
             // type: wave,
             // attack,
             // decay,
@@ -2099,6 +2427,8 @@ function act({
             // volume: toneVolume,
             // }),
           };
+
+          applyPitchBendToNotes([buttonNote], { immediate: true });
 
           if (buttonNote.toUpperCase() === song?.[songIndex][0]) {
             songNoteDown = true;
@@ -2253,8 +2583,11 @@ function act({
           //   sounds
           // );
 
-          const n = noteFromKey(orderedTones[orderedTones.length - 2]);
+          const previousKeyRaw = orderedTones[orderedTones.length - 2];
+          const n = noteFromKey(previousKeyRaw);
           sounds[n] = sounds[buttonNote];
+          if (sounds[n]) sounds[n].note = n;
+          applyPitchBendToNotes([previousKeyRaw], { immediate: true });
           // console.log("Replaced:", buttonNote, "with:", n);
 
           // delete sounds[buttonNote];
@@ -2293,6 +2626,7 @@ function act({
 // 📚 Library
 
 function pictureAdd({ page, screen, wipe, write, line, ink, num }, note) {
+  if (!picture?.pixels) return;
   note = note.toLowerCase();
 
   const letter = note.slice(1);
@@ -2343,6 +2677,7 @@ function pictureLines(
   { page, ink, wipe, screen, blur, box, line, plot, num, paintCount, sound, scroll },
   { amplitude, waveforms },
 ) {
+  if (!picture?.pixels) return;
   page(picture);
   
   // Blur instead of clearing for trail effect

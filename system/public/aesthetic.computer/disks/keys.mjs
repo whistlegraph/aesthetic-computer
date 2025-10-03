@@ -31,17 +31,23 @@ function paint({ wipe, ink, screen, num, sound }) {
   const hh = screen.height / 2;
   const gap = 12;
 
-  const range = oct1 - low;
+  const range = Math.max(1, high - low + 1);
   const columnWidth = screen.width / range;
-  const noteX = (note - low) * columnWidth;
+  const hasNote = typeof note === "number";
+  const clampedNote = hasNote ? num.clamp(note, low, high) : null;
+  const safePressure = typeof pressure === "number" ? num.clamp(pressure, 0, pressureHigh) : 0;
 
-  // export function map(num, inMin, inMax, outMin, outMax) {
-  ink(255, num.map(note, low, oct1, 0, 255), 0, 128 + pressure).box(
-    noteX - columnWidth / 2,
-    0,
-    columnWidth,
-    screen.height,
-  );
+  if (hasNote && clampedNote !== null) {
+    const noteIndex = clampedNote - low + 0.5; // center the column
+    const noteX = noteIndex * columnWidth;
+    const green = num.map(clampedNote, low, high, 0, 255);
+    ink(255, green, 0, 128 + safePressure).box(
+      noteX - columnWidth / 2,
+      0,
+      columnWidth,
+      screen.height,
+    );
+  }
 
   // ink("red").line(noteX, 0, noteX, screen.height);
 
@@ -56,13 +62,29 @@ function paint({ wipe, ink, screen, num, sound }) {
 function act({ event: e, sound, num: { map }, help }) {
   // Respond to user input here.
   if (e.is("midi:keyboard")) {
-    note = e.data?.[1];
-    pressure = e.data?.[2];
-    console.log("🎹 MIDI Keyboard Data:", e.data);
-    const noteString = sound.midi.note(note);
-    const tone = sound.freq(noteString);
-    console.log("🎵 Note:", noteString, "📊 Frequency:", tone);
-    if (pressure > 0) {
+    const status = e.data?.[0] ?? 0;
+    const receivedNote = e.data?.[1];
+    const velocity = e.data?.[2] ?? 0;
+    const command = status & 0xf0;
+
+    if (command === 0x80 || (command === 0x90 && velocity === 0)) {
+      // Note-off (or note-on with zero velocity)
+      if (note === receivedNote) {
+        pressure = 0;
+        note = undefined;
+      }
+      return;
+    }
+
+    if (command === 0x90) {
+      note = receivedNote;
+      pressure = velocity;
+      console.log("🎹 MIDI Keyboard Data:", e.data);
+
+      const noteString = sound.midi.note(note);
+      const tone = sound.freq(noteString);
+      console.log("🎵 Note:", noteString, "📊 Frequency:", tone);
+
       sound.synth({
         type: help.choose("sine"),
         tone,
