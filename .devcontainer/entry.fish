@@ -54,6 +54,84 @@ function ensure_docker_socket_permissions
     end
 end
 
+function install_and_trust_certificate
+    set -l certificate_path $argv[1]
+    set -l certificate_key_path $argv[2]
+    set -l certificate_dir /etc/pki/ca-trust/source/anchors/
+
+    if test -z "$certificate_path"; or test -z "$certificate_key_path"
+        return
+    end
+
+    if test -f $certificate_path
+        sudo cp $certificate_path $certificate_dir
+    end
+
+    if test -f $certificate_key_path
+        sudo cp $certificate_key_path $certificate_dir
+    end
+
+    sudo update-ca-trust
+end
+
+function ensure_ssl_dev_certs
+    set -l ssl_dir /home/me/aesthetic-computer/ssl-dev
+    set -l nanos_ssl_dir /home/me/aesthetic-computer/nanos/ssl
+
+    if not test -d $ssl_dir
+        return
+    end
+
+    if not type -q mkcert
+        echo "⚠️ mkcert not available; skipping automatic certificate generation."
+        return
+    end
+
+    set -l previous_dir (pwd)
+    cd $ssl_dir
+
+    set -l have_cert 1
+    if not test -f localhost.pem; or not test -f localhost-key.pem
+        set have_cert 0
+    end
+
+    if test $have_cert -eq 0
+        echo "🔐 Generating mkcert certificates for the dev container..."
+        if not test -d /home/me/.local/share/mkcert
+            echo "📥 Installing mkcert local CA..."
+            mkcert -install >/tmp/mkcert-install.log 2>&1
+            if test $status -ne 0
+                echo "⚠️ mkcert CA installation failed. See /tmp/mkcert-install.log for details."
+            end
+            if not type -q certutil
+                echo "📦 Installing nss-tools for certificate trust..."
+                sudo dnf install -y nss-tools >/tmp/nss-tools-install.log 2>&1
+                mkcert -install >/tmp/mkcert-install.log 2>&1
+            end
+        end
+
+        env nogreet=true fish ./ssl-install.fish
+        if test $status -ne 0
+            echo "⚠️ Automatic certificate generation failed using ssl-install.fish."
+            cd $previous_dir
+            return
+        end
+    else
+        env nogreet=true fish ./ssl-install.fish --install-only
+    end
+
+    mkdir -p $nanos_ssl_dir
+    cp localhost.pem $nanos_ssl_dir/localhost.pem
+    cp localhost-key.pem $nanos_ssl_dir/localhost-key.pem
+
+    sudo chown me:me -R $ssl_dir
+    sudo chown me:me -R $nanos_ssl_dir
+
+    install_and_trust_certificate $ssl_dir/localhost.pem $ssl_dir/localhost-key.pem
+
+    cd $previous_dir
+end
+
 # Call the function to set up Docker socket permissions
 ensure_docker_socket_permissions
 
@@ -100,14 +178,7 @@ toilet "Aesthetic Computer" -f future | lolcat -x -r
 # Go to the user's directory.
 cd /home/me
 
-# Ensure git config is writable by the current user
-sudo chown me:me /home/me 2>/dev/null
-if test -f /home/me/.gitconfig
-    sudo chown me:me /home/me/.gitconfig 2>/dev/null
-end
-if test -d /home/me/.config/git
-    sudo chown -R me:me /home/me/.config/git 2>/dev/null
-end
+ensure_ssl_dev_certs
 
 # Login to Github.
 if not gh auth status
@@ -195,57 +266,6 @@ if not test -d /home/me/aesthetic-computer/aesthetic-computer-code
 else
     cd /home/me/aesthetic-computer/aesthetic-computer-vault
     git pull
-end
-
-# generate ssl certificates (if they don't already exist)
-cd /home/me/aesthetic-computer/ssl-dev
-
-# Check if the files exist in ssl-dev directory
-if not test -f localhost.pem; or not test -f localhost-key.pem
-    # Initialize mkcert CA if not already done
-    if not test -d /home/me/.local/share/mkcert
-        mkcert -install
-        # Install nss-tools for browser support if not already installed
-        if not command -v certutil >/dev/null
-            sudo dnf install -y nss-tools
-            mkcert -install
-        end
-    end
-    # Generate SSL certificates (without --install-only flag)
-    env nogreet=true fish ./ssl-install.fish
-else
-    # Install existing certificates
-    env nogreet=true fish ./ssl-install.fish --install-only
-end
-
-# Check if the nanos/ssl directory exists, and transfer the ssl certs over.
-#if not test -f /home/me/aesthetic-computer/nanos/ssl/localhost.pem
-mkdir -p /home/me/aesthetic-computer/nanos/ssl
-cp localhost.pem ../nanos/ssl
-cp localhost-key.pem ../nanos/ssl
-echo "Certificates copied to 'nanos'."
-#end
-
-sudo chown me:me -R /home/me/aesthetic-computer/ssl-dev
-sudo chown me:me -R /home/me/aesthetic-computer/nanos/ssl
-
-# Function to install and trust certificates
-function install_and_trust_certificate
-    set certificate_path $argv[1]
-    set certificate_key_path $argv[2]
-    set certificate_dir /etc/pki/ca-trust/source/anchors/
-
-    # Copy the certificate to the system trust store
-    sudo cp $certificate_path $certificate_dir
-    sudo cp $certificate_key_path $certificate_dir
-
-    # Update the trust store
-    sudo update-ca-trust
-end
-
-# Install and trust certificates if they are in ssl-dev directory
-if test -f /home/me/aesthetic-computer/ssl-dev/localhost.pem; and test -f /home/me/aesthetic-computer/ssl-dev/localhost-key.pem
-    install_and_trust_certificate /home/me/aesthetic-computer/ssl-dev/localhost.pem /home/me/aesthetic-computer/ssl-dev/localhost-key.pem
 end
 
 # Function to check and install npm dependencies in a directory
