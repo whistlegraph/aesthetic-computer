@@ -260,6 +260,8 @@ const edges = "zx;']"; // below and above the octave
 const TOP_BAR_BOTTOM = 21;
 const TRACK_HEIGHT = 25;
 const TRACK_GAP = 6;
+const MINI_KEYBOARD_HEIGHT = 16;
+const MINI_KEYBOARD_SPACING = 6;
 
 let upperOctaveShift = 0, // Set by <(,) or >(.) keys.
   lowerOctaveShift = 0;
@@ -625,7 +627,10 @@ function sim({ sound, simCount, num }) {
   primaryColor = num.shiftRGB(primaryColor, d2, val, "lerp");
 }
 
-function getButtonLayoutMetrics(screen, { songMode = false, pictureOverlay = false } = {}) {
+function getButtonLayoutMetrics(
+  screen,
+  { songMode = false, pictureOverlay = false } = {},
+) {
   const buttonsPerRow = 4;
   const totalButtons = buttonNotes.length;
   const totalRows = ceil(totalButtons / buttonsPerRow);
@@ -654,6 +659,8 @@ function getButtonLayoutMetrics(screen, { songMode = false, pictureOverlay = fal
   const hudReserved = TOP_BAR_BOTTOM;
   const trackHeight = songMode ? TRACK_HEIGHT : 0;
   const trackSpacing = songMode ? TRACK_GAP : 0;
+  const keyboardReserved = MINI_KEYBOARD_HEIGHT + MINI_KEYBOARD_SPACING;
+  const reservedTop = hudReserved + trackHeight + trackSpacing + keyboardReserved;
 
   const widthLimit = ceil((screen.width - margin * 2) / buttonsPerRow);
   const minButtonSize = 20;
@@ -664,7 +671,7 @@ function getButtonLayoutMetrics(screen, { songMode = false, pictureOverlay = fal
   buttonWidth = min(buttonWidth, widthLimit);
   let buttonHeight = buttonWidth;
 
-  const available = screen.height - bottomPadding - hudReserved - (trackHeight + trackSpacing);
+  const available = max(0, screen.height - bottomPadding - reservedTop);
 
   if (available < totalRows * buttonHeight) {
     const maxPerRow = max(minButtonSize, floor(available / totalRows));
@@ -675,7 +682,8 @@ function getButtonLayoutMetrics(screen, { songMode = false, pictureOverlay = fal
   }
 
   const buttonsAreaHeight = totalRows * buttonHeight;
-  const topButtonY = screen.height - bottomPadding - buttonsAreaHeight;
+  let topButtonY = screen.height - bottomPadding - buttonsAreaHeight;
+  topButtonY = max(topButtonY, reservedTop);
 
   return {
     buttonWidth,
@@ -688,6 +696,7 @@ function getButtonLayoutMetrics(screen, { songMode = false, pictureOverlay = fal
     hudReserved,
     trackHeight,
     trackSpacing,
+    reservedTop,
   };
 }
 
@@ -757,47 +766,41 @@ function paint({
   }
 
   if (paintPictureOverlay) {
-    // === VISUALIZER MODE: Draw only the visualizer, skip everything else ===
-    wipe(0); // Start with black background
-    
+    wipe(0);
+
     if (active.length === 0) {
       page(picture);
-      wipe(0, 0); // Clear to transparent instead of fading
+      wipe(0, 0);
       page(screen);
     }
 
     pictureLines(
-      { 
-        page, 
-        ink, 
+      {
+        page,
+        ink,
         wipe,
         screen,
         box,
         blur,
         line,
         plot,
-        num, 
+        num,
         paintCount,
         sound,
-        scroll
+        scroll,
       },
       {
         amplitude,
         waveforms: waveformsForOverlay,
         audioReady,
-      }
+      },
     );
 
-    // wipe(0);
     page(picture);
-    // scroll(20, 0.5);
-    // zoom(0.91)
-    // blur(0.5);
     page(screen);
 
-    paste(picture, 0, 0, { width: screen.width, height: screen.height }); // 🖼️ Picture
-    
-    // Return early - don't draw any UI elements
+    paste(picture, 0, 0, { width: screen.width, height: screen.height });
+
     return;
   }
   wipe(bg);
@@ -829,19 +832,13 @@ function paint({
 
   // TODO: Precompute the full song length with x stops next to indices.
 
-  const layout = getButtonLayoutMetrics(screen, { songMode: Boolean(song) });
-  const {
-    trackHeight: layoutTrackHeight,
-  } = layout;
-
+  const trackHeight = song ? TRACK_HEIGHT : 0;
   const trackY = song ? TOP_BAR_BOTTOM : null;
 
   if (song) {
     const glyphWidth = typeface.glyphs["0"].resolution[0];
     const startX = 6 - songShift;
     let i = 0;
-
-    const trackHeight = layoutTrackHeight;
 
     ink(20, 30, 50).box(0, trackY, screen.width, trackHeight);
 
@@ -851,7 +848,7 @@ function paint({
 
       if (x > screen.width) break;
 
-  const current = i === songIndex;
+      const current = i === songIndex;
 
       // Word color (lyrics) - match the cyan palette from the board
       if (current) {
@@ -879,13 +876,13 @@ function paint({
   let pianoY, pianoStartX;
   if (song) {
     const effectiveTrackY = trackY ?? TOP_BAR_BOTTOM;
-    pianoY = effectiveTrackY + layoutTrackHeight + 2; // Just below the track
+    pianoY = effectiveTrackY + trackHeight + 2; // Just below the track
   } else {
     pianoY = TOP_BAR_BOTTOM; // Below HUD label when no track
   }
   
   const whiteKeyWidth = 7;
-  const whiteKeyHeight = 16;
+  const whiteKeyHeight = MINI_KEYBOARD_HEIGHT;
   const blackKeyWidth = 5;
   const blackKeyHeight = 10;
   
@@ -945,11 +942,50 @@ function paint({
     }
   });
 
+  const layout = getButtonLayoutMetrics(screen, {
+    songMode: Boolean(song),
+    pictureOverlay: paintPictureOverlay,
+  });
+
+  const midiBadgeWidth = 52;
+  const midiBadgeHeight = 12;
+  const midiBadgeMargin = 6;
+  const midiBadgeX = screen.width - midiBadgeWidth - midiBadgeMargin;
+  const midiBadgeY = screen.height - midiBadgeHeight - midiBadgeMargin;
+
+  const drawMidiBadge = (
+    x,
+    y,
+    connected,
+    {
+      connectedBackground = [0, 0, 0, 160],
+      disconnectedBackground = [0, 0, 0, 70],
+      connectedText = [255, 165, 0],
+      disconnectedText = [140, 140, 140, 200],
+    } = {},
+  ) => {
+    const bgColor = connected ? connectedBackground : disconnectedBackground;
+    const textColor = connected ? connectedText : disconnectedText;
+
+    ink(...bgColor).box(x, y, midiBadgeWidth, midiBadgeHeight);
+
+    ink(...textColor).write(
+      "USB MIDI",
+      { x: x + 4, y: y + 2 },
+      undefined,
+      undefined,
+      false,
+      "MatrixChunky8",
+    );
+  };
+
   if (projector) {
     const sy = 33;
     const sh = screen.height - sy;
 
     // console.log(sound.speaker.amplitudes, sound.speaker.waveforms);
+    const midiBadgeXProj = midiBadgeX;
+    const midiBadgeYProj = midiBadgeY;
 
     sound.paint.bars(
       api,
@@ -965,44 +1001,21 @@ function paint({
     //ink("yellow").write(scope, 6, sy + sh + 5);
     ink("yellow").write(scope, 50 + 4, 6);
     // ink("pink").write(scopeTrim, 6 + 18, sy + sh + 5);
-    if (!audioReady) {
-      const badgeWidth = 80;
-      const badgeHeight = 12;
-      const badgeX = screen.width - badgeWidth - 10;
-      const badgeY = sy + 4;
-      ink(180, 0, 0, 240).box(badgeX, badgeY, badgeWidth, badgeHeight);
-      ink(255, 255, 0).write("AUDIO OFF", badgeX + 8, badgeY + 4);
+    const audioBadgeWidth = 80;
+    const audioBadgeHeight = 12;
+    const audioBadgeY = sy + 4;
+    let audioBadgeX;
 
-      if (midiConnected && matrixFont?.isLoaded?.()) {
-        const midiBadgeWidth = 52;
-        const midiBadgeHeight = badgeHeight;
-        const midiBadgeX = badgeX - midiBadgeWidth - 6;
-        const midiBadgeY = badgeY;
-        ink(0, 0, 0, 200).box(midiBadgeX, midiBadgeY, midiBadgeWidth, midiBadgeHeight);
-        ink(255, 165, 0).write(
-          "USB MIDI",
-          { x: midiBadgeX + 4, y: midiBadgeY + 2 },
-          undefined,
-          undefined,
-          false,
-          "MatrixChunky8",
-        );
-      }
-    } else if (midiConnected && matrixFont?.isLoaded?.()) {
-      const midiBadgeWidth = 52;
-      const midiBadgeHeight = 12;
-      const midiBadgeX = screen.width - midiBadgeWidth - 10;
-      const midiBadgeY = sy + 4;
-      ink(0, 0, 0, 200).box(midiBadgeX, midiBadgeY, midiBadgeWidth, midiBadgeHeight);
-      ink(255, 165, 0).write(
-        "USB MIDI",
-        { x: midiBadgeX + 4, y: midiBadgeY + 2 },
-        undefined,
-        undefined,
-        false,
-        "MatrixChunky8",
-      );
+    if (!audioReady) {
+      audioBadgeX = screen.width - audioBadgeWidth - 10;
+      ink(180, 0, 0, 240).box(audioBadgeX, audioBadgeY, audioBadgeWidth, audioBadgeHeight);
+      ink(255, 255, 0).write("AUDIO OFF", audioBadgeX + 8, audioBadgeY + 4);
     }
+
+    drawMidiBadge(midiBadgeXProj, midiBadgeYProj, midiConnected, {
+      connectedBackground: [0, 0, 0, 180],
+      disconnectedBackground: [0, 0, 0, 90],
+    });
   } else if (!paintPictureOverlay) {
     const sy = 3;
     const sh = 15; // screen.height - sy;
@@ -1050,30 +1063,24 @@ function paint({
     // ink("pink").write(scopeTrim, 6 + 18, sy + sh + 3);
     // ink("cyan").write(sound.sampleRate, 6 + 18 + 20, sy + sh + 3);
 
-    if (midiConnected && matrixFont?.isLoaded?.()) {
-      ink(0, 0, 0, 180).box(8, sy + 2, 52, sh - 4);
-      ink(255, 165, 0).write(
-        "USB MIDI",
-        { x: 12, y: sy + 4 },
-        undefined,
-        undefined,
-        false,
-        "MatrixChunky8",
-      );
-    }
+    const rightEdge = waveBtn?.box?.x ?? screen.width - 8;
+    const audioBadgeWidth = 66;
+    const audioBadgeHeight = max(9, sh - 4);
+    const audioBadgeY = sy + 2;
+    let audioBadgeX;
+  const midiBadgeXHud = midiBadgeX;
+  const midiBadgeYHud = midiBadgeY;
 
     if (!audioReady) {
-      const badgeY = sy + 2;
-      const badgeHeight = max(9, sh - 4);
-      const badgeWidth = 66;
-      const rightEdge = waveBtn?.box?.x ?? screen.width - 8;
-      const badgeX = min(
-        max(54, rightEdge - badgeWidth - 4),
-        screen.width - badgeWidth - 8,
+      audioBadgeX = min(
+        max(54, rightEdge - audioBadgeWidth - 4),
+        screen.width - audioBadgeWidth - 8,
       );
-      ink(180, 0, 0, 240).box(badgeX, badgeY, badgeWidth, badgeHeight);
-      ink(255, 255, 0).write("AUDIO OFF", badgeX + 8, badgeY + 3);
+      ink(180, 0, 0, 240).box(audioBadgeX, audioBadgeY, audioBadgeWidth, audioBadgeHeight);
+      ink(255, 255, 0).write("AUDIO OFF", audioBadgeX + 8, audioBadgeY + 3);
     }
+
+    drawMidiBadge(midiBadgeXHud, midiBadgeYHud, midiConnected);
   }
 
   updateTheme({ num });
