@@ -10,6 +10,7 @@ import { font1 } from "../disks/common/fonts.mjs";
 let gl;
 let packed = [];
 let shaders;
+let currentBlendMode = null;
 
 // Starts the renderer.
 async function initialize(wrapper /*, sendToPiece*/) {
@@ -29,7 +30,13 @@ async function initialize(wrapper /*, sendToPiece*/) {
 
   gl.enable(gl.BLEND);
   gl.blendEquation(gl.FUNC_ADD);
-  gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+  gl.blendFuncSeparate(
+    gl.SRC_ALPHA,
+    gl.ONE_MINUS_SRC_ALPHA,
+    gl.SRC_ALPHA,
+    gl.ONE_MINUS_SRC_ALPHA,
+  );
+  currentBlendMode = "draw";
 
   // Load all the shaders for the renderer.
   const sources = await preloadShaders([
@@ -93,8 +100,74 @@ async function initialize(wrapper /*, sendToPiece*/) {
   });
 }
 
-let ink = [0, 0, 0, 1.0]; // Primary color.
+let ink = {
+  color: [0, 0, 0, 1],
+  erase: false,
+};
 let ink2 = null; // Secondary color.
+
+function clamp01(value) {
+  if (value <= 0) return 0;
+  if (value >= 1) return 1;
+  return value;
+}
+
+function channelToUnit(value, fallback) {
+  if (value === undefined) return fallback;
+  const num = Number(value);
+  if (!Number.isFinite(num)) return fallback;
+  return clamp01(num / 255);
+}
+
+function normalizeColor(color) {
+  const array = Array.isArray(color) ? color : [color];
+  if (array.length === 0) {
+    return [0, 0, 0, 1];
+  }
+
+  const r = channelToUnit(array[0], 0);
+  const g = channelToUnit(array.length > 1 ? array[1] : array[0], r);
+  const b = channelToUnit(array.length > 2 ? array[2] : array[0], r);
+  const a = channelToUnit(array.length > 3 ? array[3] : 255, 1);
+
+  return [r, g, b, a];
+}
+
+function parseInk(rawParams) {
+  const array = Array.isArray(rawParams) ? rawParams : [rawParams];
+  const sample = array.slice(0, 3).map((channel) => Number(channel));
+  const hasThreeChannels = sample.length === 3 && sample.every(Number.isFinite);
+  const isErase = hasThreeChannels && sample.every((channel) => channel <= 0);
+
+  return {
+    color: normalizeColor(array),
+    erase: isErase,
+  };
+}
+
+function setBlendMode(mode) {
+  if (!gl || mode === currentBlendMode) {
+    return;
+  }
+
+  if (mode === "erase") {
+    gl.blendFuncSeparate(
+      gl.ZERO,
+      gl.ONE_MINUS_SRC_ALPHA,
+      gl.ZERO,
+      gl.ONE_MINUS_SRC_ALPHA,
+    );
+  } else {
+    gl.blendFuncSeparate(
+      gl.SRC_ALPHA,
+      gl.ONE_MINUS_SRC_ALPHA,
+      gl.SRC_ALPHA,
+      gl.ONE_MINUS_SRC_ALPHA,
+    );
+  }
+
+  currentBlendMode = mode;
+}
 
 // Packs a frame with data.
 // (Interpreting a list of paint commands from a piece, per render frame.)
@@ -107,21 +180,26 @@ function pack(content) {
         wipe: normalizeColor(params),
       });
     } else if (name === "ink") {
-      ink = normalizeColor(params);
+      ink = parseInk(params);
+      if (ink.erase) {
+        ink2 = null;
+      }
     } else if (name === "ink2") {
-      console.log("ink2", params);
       ink2 = normalizeColor(params);
     } else if (name === "line") {
       const p1 = params.slice(0, 2);
       const p2 = params.slice(2, 4);
+      const primaryColor = ink.color;
+      const secondaryColor = !ink.erase && ink2 ? ink2 : primaryColor;
       packed.push({
-        line: new Float32Array([...p1, ...ink, ...p2, ...(ink2 || ink)]),
+        line: new Float32Array([...p1, ...primaryColor, ...p2, ...secondaryColor]),
+        erase: ink.erase,
       });
     } else if (name === "point") {
       const p = params.slice(0, 2);
-      console.log("point...", p);
       packed.push({
-        point: new Float32Array([...p, ...ink]),
+        point: new Float32Array([...p, ...ink.color]),
+        erase: ink.erase,
       });
     } else if (name === "text") {
       const [x, y, text] = params;
@@ -141,27 +219,29 @@ function pack(content) {
 
 // Makes draw calls based on a packed frame.
 function render() {
-  if (!packed || !shaders) return;
+  if (!packed || !shaders || !gl) return;
 
   // Render lines (and points).
   const line = shaders.line;
   gl.useProgram(line.program);
   gl.bindVertexArray(line.other.vao);
 
-  packed.forEach((pack) => {
-    console.log(pack);
-    if (pack.wipe) {
-      gl.clearColor(...pack.wipe);
+  packed.forEach((packItem) => {
+    if (packItem.wipe) {
+      setBlendMode("draw");
+      gl.clearColor(...packItem.wipe);
       gl.clear(gl.COLOR_BUFFER_BIT);
     }
 
     // Lines and Points
-    if (pack.line || pack.point) {
-      const primitive = pack.line || pack.point;
+    if (packItem.line || packItem.point) {
+      setBlendMode(packItem.erase ? "erase" : "draw");
+
+      const primitive = packItem.line || packItem.point;
       gl.bindBuffer(gl.ARRAY_BUFFER, line.buffers.data);
       gl.bufferData(gl.ARRAY_BUFFER, primitive, gl.DYNAMIC_DRAW);
       gl.uniform2f(line.uniforms.res, gl.canvas.width, gl.canvas.height);
-      const primitiveType = pack.line ? gl.LINES : gl.POINTS;
+      const primitiveType = packItem.line ? gl.LINES : gl.POINTS;
       const offset = 0;
       const count = primitive.length / 6;
       gl.drawArrays(primitiveType, offset, count);
@@ -178,6 +258,7 @@ function render() {
   });
 
   packed.length = 0;
+  setBlendMode("draw");
 }
 
 // Resizes the textures & re-initializes the necessary components for a
@@ -192,20 +273,6 @@ function frame(w, h, wrapper) {
   gl.clearColor(0.0, 0.0, 0.0, 0);
   gl.clear(gl.COLOR_BUFFER_BIT);
   if (!wrapper.contains(gl.canvas)) wrapper.append(gl.canvas);
-}
-
-// Normalizes a color from 0->255 to 0->1.
-function normalizeColor(color) {
-  let out;
-  if (Array.isArray(color)) {
-    out = color.map((c) => c / 255);
-    if (out.length === 0) out = null;
-  } else {
-    // Assume a single integer.
-    const c = color / 255;
-    out = [c, c, c, 1];
-  }
-  return out;
 }
 
 export { initialize, frame, pack, render };

@@ -33,6 +33,7 @@ import { Box } from "./geo.mjs";
 import { nanoid } from "../dep/nanoid/nanoid.js";
 
 const { round, sign, abs, ceil, floor, sin, cos, min, max, sqrt, PI } = Math;
+const ERASE_DEBUG = globalThis.__DEBUG_KIDLISP_ERASE__ ?? false;
 
 let width, height, pixels;
 const depthBuffer = [];
@@ -920,12 +921,12 @@ function findColor() {
           args = indexColor; // Handle c0, c1, etc.
         }
       } else if (args[0] === "erase") {
-        // TODO: Add better alpha support here... 23.09.11.22.10
-        //       ^ See `parseColor` in `num`.
-        // let alpha = 255;
-        // if (args[1]) alpha = parseFloat(args[1]);
+        // Preserve optional alpha argument before rewriting the array
+        const eraseAlpha = arguments.length > 1 ? arguments[1] : undefined;
         args = [-1, -1, -1];
-        if (args[1]) args.push(computeAlpha(args[1]));
+        if (eraseAlpha !== undefined) {
+          args.push(computeAlpha(eraseAlpha));
+        }
       } else if (args[0] === "rainbow") {
         args = rainbow(); // Cycle through roygbiv in a linear sequence.
       } else {
@@ -972,6 +973,12 @@ function findColor() {
         const fadeString = args[0];
         const alpha = computeAlpha(args[1] || 255);
         return [fadeString, alpha]; // Return as fade color array for local processing
+      }
+
+      if (args[0] === "erase") {
+        const alphaValue = args.length > 1 && args[1] !== undefined ? computeAlpha(args[1]) : 255;
+        args = [-1, -1, -1, alphaValue];
+        return args;
       }
       
       // Check for color index format with alpha
@@ -1435,7 +1442,8 @@ function plot(x, y) {
 
   // Erasing
   if (c[0] === -1 && c[1] === -1 && c[2] === -1) {
-    erase(pixels, i, 1 - c[3] / 255);
+    const eraseStrength = c[3] < 0 ? 1 : Math.min(1, c[3] / 255);
+    erase(pixels, i, eraseStrength);
   } else if (alpha === 255) {
     // No alpha blending, just copy.
     pixels.set(plotColor, i);
@@ -2152,7 +2160,28 @@ function blend(dst, src, si, di, alphaIn = 1) {
 
 // Blends the alpha channel only / erases pixels.
 function erase(pixels, i, normalizedAlpha) {
-  pixels[i + 3] *= normalizedAlpha;
+  const strength = Math.min(1, Math.max(0, normalizedAlpha));
+  if (strength <= 0) {
+    return;
+  }
+
+  const currentAlpha = pixels[i + 3];
+  if (currentAlpha === 0) {
+    return;
+  }
+
+  const eraseAmount = Math.round(strength * 255);
+  const newAlpha = currentAlpha - eraseAmount;
+
+  if (newAlpha <= 0) {
+    pixels[i] = 0;
+    pixels[i + 1] = 0;
+    pixels[i + 2] = 0;
+    pixels[i + 3] = 0;
+    return;
+  }
+
+  pixels[i + 3] = newAlpha;
 }
 
 // Draws a horizontal line. (Should be very fast...)
@@ -2207,9 +2236,12 @@ function lineh(x0, x1, y) {
 
   // Erasing.
   if (blendMode !== "erase" && c[0] === -1 && c[1] === -1 && c[2] === -1) {
-    const normalAlpha = 1 - c[3] / 255;
+    const eraseStrength = c[3] < 0 ? 1 : Math.min(1, c[3] / 255);
+    if (eraseStrength <= 0) {
+      return;
+    }
     for (let i = startIndex; i <= endIndex; i += 4) {
-      erase(pixels, i, normalAlpha);
+      erase(pixels, i, eraseStrength);
     }
     // No alpha.
   } else if (c[3] === 255) {
@@ -2297,8 +2329,39 @@ function line() {
   x1 += panTranslation.x;
   y1 += panTranslation.y;
 
-  // Lerp from primary to secondary color as needed.
+  const debugLineLength = sqrt((x1 - x0) ** 2 + (y1 - y0) ** 2);
   const cachedInk = c.slice(0);
+  const shouldLogErase = ERASE_DEBUG && (blendingMode === "erase" || (cachedInk[0] === -1 && cachedInk[1] === -1 && cachedInk[2] === -1));
+  const samplePixel = (sx, sy) => {
+    const xi = Math.round(sx);
+    const yi = Math.round(sy);
+    if (!Number.isFinite(xi) || !Number.isFinite(yi)) {
+      return null;
+    }
+    if (xi < 0 || yi < 0 || xi >= width || yi >= height) {
+      return null;
+    }
+    const index = (yi * width + xi) * 4;
+    return {
+      x: xi,
+      y: yi,
+      rgba: [
+        pixels[index],
+        pixels[index + 1],
+        pixels[index + 2],
+        pixels[index + 3]
+      ]
+    };
+  };
+
+  let startSampleBefore;
+  let endSampleBefore;
+  if (shouldLogErase) {
+    startSampleBefore = samplePixel(x0, y0);
+    endSampleBefore = samplePixel(x1, y1);
+  }
+
+  // Lerp from primary to secondary color as needed.
   const localFadeInfo = parseFadeColor(c);
   const usingLocalFade = !!localFadeInfo;
 
@@ -2306,7 +2369,7 @@ function line() {
   if (y0 === y1 && !c2 && !fadeMode) {
     lineh(x0, x1, y0);
   } else {
-    const lineLength = sqrt((x1 - x0) ** 2 + (y1 - y0) ** 2);
+    const lineLength = debugLineLength;
     
     bresenham(x0, y0, x1, y1).forEach((p, index, points) => {
       if (fadeMode) {
@@ -2341,6 +2404,25 @@ function line() {
   }
 
   const out = [x0, y0, x1, y1];
+  if (shouldLogErase) {
+    const startSampleAfter = samplePixel(x0, y0);
+    const endSampleAfter = samplePixel(x1, y1);
+    console.log("🧼 ERASE line", {
+      coords: {
+        x0,
+        y0,
+        x1,
+        y1
+      },
+      length: debugLineLength,
+      blendingMode,
+      ink: cachedInk,
+      samples: {
+        start: { before: startSampleBefore, after: startSampleAfter },
+        end: { before: endSampleBefore, after: endSampleAfter }
+      }
+    });
+  }
   // console.log("Line out:", out);
   twoDCommands?.push(["line", ...out]); // Forward this call to the GPU.
   return out;
