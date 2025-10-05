@@ -1920,13 +1920,16 @@ async function halt($, text) {
 function paint($) {
   if (fetchingUser) fetchUserAPI = $.api;
 
-  // 🅰️ Paint below the prompt || scheme.
+  // Paint below the prompt || scheme.
   if ($.store["painting"]) {
     $.wipe($.dark ? scheme.dark.background : scheme.light.background);
     $.system.nopaint.present($); // Render the painting.
     pal = $.system.prompt.input.pal;
     scheme.dark.background[3] = 176; // Half semi-opaque palette background.
     scheme.light.background[3] = 190;
+  } else if ($.system.kidlisp?.hasBakedContent) {
+    // When kidlisp has baked content, let kidlisp paint the background
+    // Don't wipe - kidlisp will handle compositing baked + overlay layers
   } else {
     $.wipe($.dark ? scheme.dark.background : scheme.light.background);
   }

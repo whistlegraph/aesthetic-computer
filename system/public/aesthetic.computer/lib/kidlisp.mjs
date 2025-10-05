@@ -15,96 +15,124 @@ import { checkTeiaMode } from "./teia-mode.mjs";
    This section provides a structured specification for Large Language Models
    to understand and generate valid KidLisp code for Aesthetic Computer pieces.
    
-   ## KidLisp Language Overview
-   
-   KidLisp is a Lisp-based language for creating interactive visual art and animations.
-   It uses S-expressions (parenthesized lists) where the first element is typically
-   a function name followed by arguments.
-   
-   Basic syntax: (function-name arg1 arg2 arg3)
-   Comments: ; This is a comment
-   Multi-line: Expressions can span multiple lines
-   
-   ## Core Graphics Functions
-   
-   ### Screen Management
-   - `(wipe color)` - Clear entire screen with specified color
-   - `(resolution width height)` - Set canvas resolution
-   - `(scroll)` - Randomly choose and stick to one direction (up/down/left/right) per session
-   - `(scroll dx dy)` - Scroll by dx horizontally and dy vertically
-   - `(scroll dx)` - Scroll by dx horizontally only
-   
-   ### Drawing Primitives  
-   - `(ink color)` - Set drawing color for subsequent operations
-   - `(ink r g b)` - Set RGB color (0-255 each)
-   - `(ink color alpha)` - Set color with transparency (0-255)
-   - `(line x1 y1 x2 y2)` - Draw line from point 1 to point 2
-   - `(box x y width height)` - Draw filled rectangle
-   - `(circle x y radius)` - Draw filled circle
-   - `(tri x1 y1 x2 y2 x3 y3)` - Draw filled triangle from three points
-   - `(tri x1 y1 x2 y2 x3 y3 "outline")` - Draw triangle outline
-   - `(plot x y)` - Set single pixel at coordinates
-   
-   ### Image Functions
-   - `(paste url x y)` - Paste image from URL at coordinates
-   - `(paste url x y scale)` - Paste image with scaling factor
-   - `(stamp url x y)` - Paste image centered at coordinates
-   - URLs can be unquoted: `(paste https://example.com/image.png x y)`
-   - Quoted URLs also work: `(paste "https://example.com/image.png" x y)`
-   - Supports @handle/timestamp format: `(paste @user/123456 x y)`
-   
-   ### Color System
-   Colors can be specified as:
-   - Named colors: "red", "blue", "lime", "orange", "purple", etc.
-   - RGB values: (ink 255 0 0) for red
-   - With transparency: (ink "red" 128) for 50% transparent red
-   
-   ## Animation & Timing
-   
-   ### Timing Expressions
-   - `1s` - Execute after 1 second
-   - `2s...` - Execute every 2 seconds (repeating)
-   - `0.5s!` - Execute once after 0.5 seconds
-   
-   ### Dynamic Values
-   - `(wiggle amount)` - Random variation (±amount/2)
-   - `width` and `height` - Canvas dimensions
-   - Frame-based animation through re-evaluation
-   
-   ## Variables & Logic
-   
-   ### Variable Definition
-   - `(def name value)` - Define a variable
-   - `(def x 10)` - Set x to 10
-   - `(def color "red")` - Set color variable
-   
-   **Identifier Naming Rules:**
-   - Must start with letter (a-z, A-Z) or underscore (_)
-   - Can contain letters, digits (0-9), and underscores
-   - **Cannot contain dashes/hyphens (-)** - these are parsed as subtraction
-   - Examples: `myVar`, `line_width`, `color2` ✅
-   - Invalid: `my-var`, `line-width` ❌ (parsed as subtraction)
-   
-   ### Math Operations
-   - `(+ a b c)` - Addition (can take multiple arguments)
-   - `(- a b)` - Subtraction  
-   - `(* a b c)` - Multiplication
-   - `(/ a b)` - Division
-   
-   ### Function Definition
-   - `(later name param1 param2 body...)` - Define reusable function
-   - `(later cross x y (line (- x 10) (- y 10) (+ x 10) (+ y 10)))`
-   - Call with: `(cross 50 50)`
-   
-   ### Repetition
-   - `(repeat count expression...)` - Execute expressions multiple times
-   - `(repeat count iterator expression...)` - Repeat with iterator variable
-   - `(bunch count expression...)` - Alias for repeat (shorter, playful)
-   - Examples:
-     - `(repeat 10 (circle (wiggle width) (wiggle height) 5))`
-     - `(repeat height i (ink rainbow) (line 0 i width i))`
-     - `(bunch 100 (plot (wiggle width) (wiggle height)))`
-   
+  enablePostBakeEraseMirroring(api) {
+    if (!api) {
+      return;
+    }
+
+    const unwrapped = globalThis.$paintApiUnwrapped ?? null;
+    const desiredTargets = unwrapped && unwrapped !== api ? [unwrapped, api] : [unwrapped ?? api];
+
+    const existingEntries = Array.isArray(this.postBakeMirroringState)
+      ? this.postBakeMirroringState
+      : this.postBakeMirroringState
+        ? [this.postBakeMirroringState]
+        : [];
+
+    const alreadyWrapped = desiredTargets.every((target) =>
+      target && existingEntries.some((entry) => entry?.api === target)
+    );
+
+    if (alreadyWrapped && existingEntries.length === desiredTargets.filter(Boolean).length) {
+      return;
+    }
+
+    if (this.postBakeMirroringState) {
+      this.disablePostBakeEraseMirroring();
+    }
+
+    const commandsToWrap = [
+      "line",
+      "box",
+      "circle",
+      "tri",
+      "poly",
+      "point",
+      "stamp",
+      "flood"
+    ];
+
+    const wrappedEntries = [];
+
+    desiredTargets.forEach((targetApi) => {
+      if (!targetApi) {
+        return;
+      }
+
+      const originals = new Map();
+      const isUnwrappedTarget = targetApi === unwrapped;
+
+      commandsToWrap.forEach((commandName) => {
+        const originalFn = targetApi?.[commandName];
+        if (typeof originalFn !== "function" || originals.has(commandName)) {
+          return;
+        }
+
+        const self = this;
+        const wrappedFn = function (...callArgs) {
+          if (BAKE_TRACE) {
+            self.tracePaintCommand(commandName, callArgs, {
+              target: "postBake",
+              source: "postBakeOverlay",
+              duplicated: true,
+              details: {
+                mirrorTarget: "baked",
+                mirrorMode: "postBakeErase"
+              }
+            });
+          }
+
+          const result = originalFn.apply(this, callArgs);
+          const directInvoker = () => {
+            if (!isUnwrappedTarget) {
+              const liveUnwrapped = globalThis.$paintApiUnwrapped;
+              if (
+                liveUnwrapped &&
+                typeof liveUnwrapped[commandName] === "function" &&
+                liveUnwrapped !== targetApi
+              ) {
+                liveUnwrapped[commandName](...callArgs);
+                return;
+              }
+            }
+            originalFn.apply(targetApi, callArgs);
+          };
+          self.mirrorEraseCommandToBaked(targetApi, commandName, callArgs, directInvoker);
+          return result;
+        };
+
+        originals.set(commandName, originalFn);
+        targetApi[commandName] = wrappedFn;
+      });
+
+      if (originals.size > 0) {
+        wrappedEntries.push({ api: targetApi, originals });
+      }
+    });
+
+    this.postBakeMirroringState = wrappedEntries.length > 0 ? wrappedEntries : null;
+  }
+
+  disablePostBakeEraseMirroring() {
+    const state = this.postBakeMirroringState;
+    if (!state) {
+      return;
+    }
+
+    const entries = Array.isArray(state) ? state : [state];
+    entries.forEach((entry) => {
+      if (!entry?.api || !entry?.originals) {
+        return;
+      }
+      entry.originals.forEach((originalFn, commandName) => {
+        if (typeof originalFn === "function") {
+          entry.api[commandName] = originalFn;
+        }
+      });
+    });
+
+    this.postBakeMirroringState = null;
+  }
    ## Advanced Features
    
    ### Navigation
@@ -402,6 +430,18 @@ function setCachedCode(source, code) {
 #endregion */
 
 const VERBOSE = false;
+const ERASE_DEBUG = globalThis.__DEBUG_KIDLISP_ERASE__ ?? false;
+const ERASE_MIRRORABLE_COMMANDS = new Set([
+  "line",
+  "box",
+  "circle",
+  "tri",
+  "poly",
+  "point",
+  "stamp",
+  "flood"
+]);
+const BAKE_TRACE = globalThis.__DEBUG_KIDLISP_BAKE__ ?? true;
 const PERF_LOG = false; // Enable performance logging
 const { floor, max } = Math;
 
@@ -701,6 +741,731 @@ function getNestedValue(obj, path) {
   return path?.split(".").reduce((acc, part) => acc && acc[part], obj);
 }
 
+class KidLispRoutingState {
+  constructor(owner) {
+    this.owner = owner;
+    this.reset();
+  }
+
+  reset() {
+    this.stack = [];
+    this.activeIndex = -1;
+    this.pending = {
+      retroactiveErase: new Map(),
+    };
+    this.frame = {
+      enteredAt: performance?.now?.() ?? Date.now(),
+      transitions: 0,
+    };
+  }
+
+  resetForModule() {
+    this.reset();
+  }
+
+  beginFrame(screen) {
+    this.reset();
+    const baseLayer = this._createLayer({
+      id: "screen",
+      type: "screen",
+      buffer: screen,
+      metadata: {
+        dimensions: this._dimensionsOf(screen),
+      },
+      persistent: true,
+    });
+    this.stack.push(baseLayer);
+    this.activeIndex = 0;
+  }
+
+  pushBakedLayer(layerBuffer, options = {}) {
+    return this._pushLayer({
+      id: options.id,
+      type: "baked",
+      buffer: layerBuffer,
+      metadata: {
+        dimensions: this._dimensionsOf(layerBuffer),
+        ...options.metadata,
+      },
+      persistent: true,
+      eraseMirroring: false,
+    });
+  }
+
+  pushPostBakeLayer(layerBuffer, options = {}) {
+    const layer = this._pushLayer({
+      id: options.id,
+      type: "postBake",
+      buffer: layerBuffer,
+      metadata: {
+        dimensions: this._dimensionsOf(layerBuffer),
+        ...options.metadata,
+      },
+      persistent: true,
+      eraseMirroring: true,
+    });
+
+    return layer;
+  }
+
+  restoreToScreen() {
+    return this.restoreTo((layer) => layer.type === "screen");
+  }
+
+  restoreTo(predicate) {
+    if (this.stack.length === 0) {
+      return null;
+    }
+    while (this.stack.length > 0 && !predicate(this.stack[this.stack.length - 1])) {
+      this.stack.pop();
+    }
+    this.activeIndex = Math.max(0, this.stack.length - 1);
+    return this.currentLayer();
+  }
+
+  currentLayer() {
+    if (this.activeIndex < 0 || this.activeIndex >= this.stack.length) {
+      return null;
+    }
+    return this.stack[this.activeIndex];
+  }
+
+  currentTarget() {
+    return this.currentLayer()?.type ?? null;
+  }
+
+  toTelemetry(owner) {
+    const snapshot = this.snapshot();
+    if (!snapshot || !owner?.sanitizeTelemetryValue) {
+      return snapshot;
+    }
+
+    return {
+      ...snapshot,
+      stack: snapshot.stack.map((layer) => ({
+        ...layer,
+        metadata: owner.sanitizeTelemetryValue(layer.metadata),
+      })),
+    };
+  }
+
+  recordRetroactiveErase(command) {
+    if (!command) {
+      return;
+    }
+
+    const currentLayer = this.currentLayer();
+    const bucketKey = command.layerId ?? currentLayer?.id ?? "global";
+
+    if (!this.pending.retroactiveErase.has(bucketKey)) {
+      this.pending.retroactiveErase.set(bucketKey, []);
+    }
+
+    const entry = {
+      ...command,
+      layerId: bucketKey,
+    };
+
+    this.pending.retroactiveErase.get(bucketKey).push(entry);
+  }
+
+  drainRetroactiveErase() {
+    const all = [];
+    for (const [, entries] of this.pending.retroactiveErase.entries()) {
+      if (Array.isArray(entries)) {
+        all.push(...entries);
+      }
+    }
+    this.pending.retroactiveErase.clear();
+    return all;
+  }
+
+  drainRetroactiveEraseFor(layerId) {
+    if (!layerId) {
+      return this.drainRetroactiveErase();
+    }
+
+    const bucket = this.pending.retroactiveErase.get(layerId);
+    this.pending.retroactiveErase.delete(layerId);
+    return bucket ? [...bucket] : [];
+  }
+
+  screenLayer() {
+    if (this.stack.length === 0) {
+      return null;
+    }
+    const first = this.stack[0];
+    if (first?.type === "screen") {
+      return first;
+    }
+    return this.findLastLayer("screen");
+  }
+
+  findLastLayer(type) {
+    for (let i = this.stack.length - 1; i >= 0; i -= 1) {
+      if (this.stack[i]?.type === type) {
+        return this.stack[i];
+      }
+    }
+    return null;
+  }
+
+  popLayerIf(predicate) {
+    if (this.stack.length === 0) {
+      return null;
+    }
+
+    const top = this.stack[this.stack.length - 1];
+    if (predicate?.(top)) {
+      this.stack.pop();
+      this.activeIndex = this.stack.length - 1;
+      return top;
+    }
+
+    return null;
+  }
+
+  legacyContextSnapshot() {
+    const currentLayer = this.currentLayer();
+    const screenLayer = this.screenLayer();
+    const bakedLayer = this.findLastLayer("baked");
+
+    return {
+      currentTarget: currentLayer?.type ?? null,
+      originalScreen: screenLayer?.buffer ?? null,
+      bakedLayer,
+    };
+  }
+
+  activateOverlay(layerOrId = null) {
+    if (layerOrId && typeof layerOrId === "object" && layerOrId.type === "postBake") {
+      const index = this.stack.indexOf(layerOrId);
+      if (index >= 0) {
+        this.activeIndex = index;
+        return this.stack[index];
+      }
+    }
+
+    const byId = typeof layerOrId === "string" ? this.stack.findIndex((layer) => layer.id === layerOrId) : -1;
+    if (byId >= 0 && this.stack[byId]?.type === "postBake") {
+      this.activeIndex = byId;
+      return this.stack[byId];
+    }
+
+    for (let i = this.stack.length - 1; i >= 0; i -= 1) {
+      if (this.stack[i]?.type === "postBake") {
+        this.activeIndex = i;
+        return this.stack[i];
+      }
+    }
+
+    return null;
+  }
+
+  activateLayerById(id) {
+    if (!id) {
+      return null;
+    }
+    const index = this.stack.findIndex((layer) => layer.id === id);
+    if (index >= 0) {
+      this.activeIndex = index;
+      return this.stack[index];
+    }
+    return null;
+  }
+
+  withLayer(selector, fn, options = {}) {
+    if (typeof fn !== "function") {
+      return undefined;
+    }
+
+    let targetIndex = -1;
+
+    if (typeof selector === "function") {
+      for (let i = this.stack.length - 1; i >= 0; i -= 1) {
+        if (selector(this.stack[i], i)) {
+          targetIndex = i;
+          break;
+        }
+      }
+    } else if (selector && typeof selector === "object") {
+      targetIndex = this.stack.indexOf(selector);
+    } else if (typeof selector === "string") {
+      for (let i = this.stack.length - 1; i >= 0; i -= 1) {
+        const layer = this.stack[i];
+        if (layer?.id === selector || layer?.type === selector) {
+          targetIndex = i;
+          break;
+        }
+      }
+    }
+
+    const previousIndex = this.activeIndex;
+    const previousLayer = this.currentLayer();
+
+    if (targetIndex >= 0) {
+      this.activeIndex = targetIndex;
+    } else if (options?.fallback === "screen") {
+      this.restoreToScreen();
+    }
+
+    try {
+      return fn(this.currentLayer(), previousLayer);
+    } finally {
+      if (previousIndex >= 0 && previousIndex < this.stack.length) {
+        this.activeIndex = previousIndex;
+      } else if (this.stack.length > 0) {
+        this.activeIndex = this.stack.length - 1;
+      } else {
+        this.activeIndex = -1;
+      }
+    }
+  }
+
+  currentOverlay() {
+    for (let i = this.stack.length - 1; i >= 0; i -= 1) {
+      if (this.stack[i]?.type === "postBake") {
+        return this.stack[i];
+      }
+    }
+    return null;
+  }
+
+  hydrateBakedLayers(layers = []) {
+    const screen = this.screenLayer();
+    this.stack = screen ? [screen] : [];
+    layers.forEach((layer) => {
+      if (!layer) {
+        return;
+      }
+      this.stack.push(this._createLayer({
+        id: layer.id,
+        type: "baked",
+        buffer: layer.buffer,
+        metadata: {
+          dimensions: this._dimensionsOf(layer.buffer),
+          bakedLayerIndex: layer.index ?? null,
+          ...layer.metadata,
+        },
+        persistent: true,
+        eraseMirroring: false,
+      }));
+    });
+    this.activeIndex = this.stack.length - 1;
+  }
+
+  snapshot() {
+    const sanitizer = this.owner?.sanitizeTelemetryValue?.bind(this.owner);
+    return {
+      activeIndex: this.activeIndex,
+      activeLayerId: this.currentLayer()?.id ?? null,
+      stackDepth: this.stack.length,
+      stack: this.stack.map((layer) => ({
+        id: layer.id,
+        type: layer.type,
+        metadata: sanitizer ? sanitizer(layer.metadata) : layer.metadata,
+        eraseMirroring: !!layer.eraseMirroring,
+        persistent: !!layer.persistent,
+      })),
+    };
+  }
+
+  _createLayer(config = {}) {
+    const {
+      id = null,
+      type = "layer",
+      buffer = null,
+      metadata = {},
+      persistent = false,
+      eraseMirroring = false
+    } = config;
+
+    return {
+      id: id ?? `${type}-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      type,
+      buffer,
+      metadata,
+      persistent,
+      eraseMirroring,
+    };
+  }
+
+  _pushLayer(layer) {
+    this.stack.push(layer);
+    this.activeIndex = this.stack.length - 1;
+    this.frame.transitions += 1;
+    return layer;
+  }
+
+  _dimensionsOf(bufferLike) {
+    if (!bufferLike) {
+      return null;
+    }
+    const width = bufferLike.width ?? bufferLike.resizeWidth ?? bufferLike.logicalWidth ?? null;
+    const height = bufferLike.height ?? bufferLike.resizeHeight ?? bufferLike.logicalHeight ?? null;
+    if (width === null && height === null) {
+      return null;
+    }
+    return { width, height };
+  }
+}
+
+class KidLispLayerManager {
+  constructor(owner) {
+    this.owner = owner;
+    this.reset();
+  }
+
+  reset(options = {}) {
+    const { releaseBuffers = false } = options;
+
+    if (releaseBuffers) {
+      this.layers.forEach((layer) => this._releaseLayer(layer));
+      this._releaseLayer(this.overlay);
+    }
+
+    this.layers = [];
+    this.overlay = null;
+    this.sequence = 0;
+    this.dimensions = { width: null, height: null };
+  }
+
+  beginFrame(screenBuffer) {
+    const width = screenBuffer?.width ?? this.dimensions.width;
+    const height = screenBuffer?.height ?? this.dimensions.height;
+
+    if (width && height) {
+      this.dimensions = { width, height };
+      this.layers.forEach((layer) => this._ensureSize(layer, width, height));
+      if (this.overlay) {
+        this._ensureSize(this.overlay, width, height, { clearNewPixels: false });
+      }
+    }
+  }
+
+  bakedLayers() {
+    return this.layers;
+  }
+
+  hasBakedContent() {
+    return this.layers.length > 0;
+  }
+
+  overlayLayer() {
+    return this.overlay;
+  }
+
+  ensureOverlay(dimensions = null, options = {}) {
+    const width = dimensions?.width ?? this.dimensions.width ?? 256;
+    const height = dimensions?.height ?? this.dimensions.height ?? 256;
+    if (!this.overlay) {
+      this.overlay = this._createLayer("overlay", this._makeTransparentBuffer(width, height));
+    }
+
+    this._ensureSize(this.overlay, width, height, { clearNewPixels: options.clearNewPixels ?? false });
+    return this.overlay;
+  }
+
+  commitOverlay(options = {}) {
+    if (!this.overlay) {
+      this.ensureOverlay();
+    }
+
+    const { cloneStrategy = "steal", metadata = {} } = options;
+    const overlayLayer = this.overlay;
+    const width = overlayLayer?.width ?? this.dimensions.width ?? 256;
+    const height = overlayLayer?.height ?? this.dimensions.height ?? 256;
+
+    if (!overlayLayer?.buffer) {
+      return null;
+    }
+
+    const bakedBuffer = cloneStrategy === "copy"
+      ? this._cloneBuffer(overlayLayer.buffer, width, height)
+      : overlayLayer.buffer;
+
+    const bakedLayer = this._createLayer("baked", bakedBuffer, {
+      metadata: {
+        ...metadata,
+        createdAt: performance?.now?.() ?? Date.now(),
+        sourceOverlayId: overlayLayer.id,
+      },
+    });
+
+    this.layers.push(bakedLayer);
+
+    if (cloneStrategy === "copy") {
+      this._releaseBuffer(overlayLayer.buffer);
+    }
+
+    const newOverlayBuffer = this._makeTransparentBuffer(width, height);
+    this.overlay = this._createLayer("overlay", newOverlayBuffer, {
+      metadata: {
+        active: true,
+        previousOverlayId: overlayLayer.id,
+        bakedTargetId: bakedLayer.id,
+      },
+    });
+
+    return {
+      bakedLayer,
+      overlay: this.overlay,
+    };
+  }
+
+  replaceBakedLayers(layers = []) {
+    this.layers.forEach((layer) => this._releaseLayer(layer));
+    this.layers = Array.isArray(layers)
+      ? layers.map((layer) => this._normalizeLayer(layer, "baked"))
+      : [];
+  }
+
+  setOverlay(layer) {
+    this._releaseLayer(this.overlay);
+    this.overlay = layer ? this._normalizeLayer(layer, "overlay") : null;
+  }
+
+  appendBakedLayer(buffer, options = {}) {
+    const rawStrategy = options.strategy ?? options.mode ?? (options.append ? "append" : null) ?? (options.stack ? "append" : null);
+    const normalizedStrategy = (() => {
+      switch (rawStrategy) {
+        case "append":
+        case "stack":
+          return "append";
+        case "replace-index":
+          return "replace-index";
+        case "replace":
+        case "replace-latest":
+        case "update":
+        case "overwrite":
+          return "replace";
+        default:
+          return "replace";
+      }
+    })();
+
+    const targetIndexFromOptions =
+      typeof options.targetIndex === "number" && Number.isInteger(options.targetIndex)
+        ? options.targetIndex
+        : null;
+
+    const metadata = { ...(options.metadata ?? {}) };
+
+    let layer = null;
+    let targetIndex = null;
+    let replacedLayerId = null;
+
+    if (normalizedStrategy === "replace" && this.layers.length > 0) {
+      targetIndex = this.layers.length - 1;
+    } else if (normalizedStrategy === "replace-index" && this.layers.length > 0 && targetIndexFromOptions !== null) {
+      targetIndex = Math.min(Math.max(targetIndexFromOptions, 0), this.layers.length - 1);
+    }
+
+    if (targetIndex !== null && targetIndex >= 0 && targetIndex < this.layers.length) {
+      layer = this.layers[targetIndex];
+      replacedLayerId = layer?.id ?? null;
+
+      if (layer) {
+        this._releaseBuffer(layer.buffer);
+
+        layer.buffer = buffer;
+        layer.width = buffer?.width ?? layer.width ?? this.dimensions.width ?? 256;
+        layer.height = buffer?.height ?? layer.height ?? this.dimensions.height ?? 256;
+        layer.pixels = buffer?.pixels ?? null;
+        layer.metadata = { ...metadata, index: targetIndex };
+      }
+    }
+
+    if (!layer) {
+      const createdLayer = this._createLayer("baked", buffer, { metadata });
+      this.layers.push(createdLayer);
+      layer = createdLayer;
+      layer.metadata = { ...(layer.metadata ?? {}), index: this.layers.length - 1 };
+      targetIndex = this.layers.length - 1;
+    }
+
+    if (BAKE_TRACE) {
+      console.log("🛰️ BAKE LAYERS", {
+        event: "appendBakedLayer",
+        strategy: normalizedStrategy,
+        totalBaked: this.layers.length,
+        replacedLayerId,
+        targetIndex,
+        appended: {
+          id: layer.id ?? null,
+          width: layer.width ?? null,
+          height: layer.height ?? null,
+          metadata: layer.metadata ?? null
+        },
+        overlay: this.overlay
+          ? {
+              id: this.overlay.id ?? null,
+              width: this.overlay.width ?? null,
+              height: this.overlay.height ?? null,
+              metadata: this.overlay.metadata ?? null
+            }
+          : null
+      });
+    }
+
+    return layer;
+  }
+
+  allocateOverlay(width, height, options = {}) {
+    const buffer = this._makeTransparentBuffer(width, height);
+    this.overlay = this._createLayer("overlay", buffer, options);
+    return this.overlay;
+  }
+
+  resizeAll(width, height) {
+    this.layers.forEach((layer) => this._ensureSize(layer, width, height));
+    if (this.overlay) {
+      this._ensureSize(this.overlay, width, height, { clearNewPixels: false });
+    }
+  }
+
+  snapshot() {
+    return {
+      baked: this.layers.map((layer, index) => ({
+        id: layer.id,
+        kind: layer.kind,
+        width: layer.width,
+        height: layer.height,
+        metadata: { ...(layer.metadata ?? {}), index },
+      })),
+      overlay: this.overlay
+        ? {
+            id: this.overlay.id,
+            width: this.overlay.width,
+            height: this.overlay.height,
+            metadata: this.overlay.metadata,
+          }
+        : null,
+    };
+  }
+
+  _createLayer(kind, buffer, options = {}) {
+    const { metadata = {} } = options;
+    const width = buffer?.width ?? this.dimensions.width ?? 256;
+    const height = buffer?.height ?? this.dimensions.height ?? 256;
+    return {
+      id: metadata.id ?? this._nextId(kind),
+      kind,
+      buffer,
+      width,
+      height,
+      pixels: buffer?.pixels ?? null,
+      metadata,
+    };
+  }
+
+  _normalizeLayer(layer, kind) {
+    if (!layer) {
+      return null;
+    }
+
+    if (layer.kind && layer.buffer) {
+      return layer;
+    }
+
+    const normalized = {
+      id: layer.id ?? this._nextId(kind),
+      kind,
+      buffer: layer.buffer ?? null,
+      width: layer.width ?? layer.buffer?.width ?? this.dimensions.width ?? 256,
+      height: layer.height ?? layer.buffer?.height ?? this.dimensions.height ?? 256,
+      pixels: layer.pixels ?? layer.buffer?.pixels ?? null,
+      metadata: layer.metadata ?? {},
+    };
+    if (normalized.buffer) {
+      normalized.buffer.width = normalized.width;
+      normalized.buffer.height = normalized.height;
+      normalized.pixels = normalized.buffer.pixels;
+    }
+    return normalized;
+  }
+
+  _makeTransparentBuffer(width, height) {
+    const buffer = this.owner?.createOrReuseBuffer
+      ? this.owner.createOrReuseBuffer(width, height)
+      : { width, height, pixels: new Uint8ClampedArray(width * height * 4) };
+
+    if (buffer?.pixels) {
+      buffer.pixels.fill(0);
+      buffer.width = width;
+      buffer.height = height;
+    }
+
+    return buffer;
+  }
+
+  _cloneBuffer(buffer, width, height) {
+    if (!buffer?.pixels) {
+      return this._makeTransparentBuffer(width, height);
+    }
+
+    const clone = this._makeTransparentBuffer(width, height);
+    const minWidth = Math.min(width, buffer.width ?? width);
+    const minHeight = Math.min(height, buffer.height ?? height);
+
+    for (let y = 0; y < minHeight; y += 1) {
+      const sourceRowStart = (y * (buffer.width ?? width)) * 4;
+      const targetRowStart = (y * width) * 4;
+      clone.pixels.set(
+        buffer.pixels.subarray(sourceRowStart, sourceRowStart + minWidth * 4),
+        targetRowStart,
+      );
+    }
+
+    return clone;
+  }
+
+  _ensureSize(layer, width, height, options = {}) {
+    if (!layer || !layer.buffer) {
+      return layer;
+    }
+
+    if (layer.width === width && layer.height === height) {
+      return layer;
+    }
+
+    const preserved = this.owner?.resizePixelBufferPreserve
+      ? this.owner.resizePixelBufferPreserve(layer.buffer, width, height, 0)
+      : this._cloneBuffer(layer.buffer, width, height);
+
+    if (options.clearNewPixels && preserved?.pixels) {
+      preserved.pixels.fill(0);
+    }
+
+    layer.buffer = preserved;
+    layer.width = preserved?.width ?? width;
+    layer.height = preserved?.height ?? height;
+    layer.pixels = preserved?.pixels ?? layer.pixels ?? null;
+    return layer;
+  }
+
+  _releaseLayer(layer) {
+    if (!layer) {
+      return;
+    }
+    this._releaseBuffer(layer.buffer);
+  }
+
+  _releaseBuffer(buffer) {
+    if (!buffer) {
+      return;
+    }
+    if (this.owner?.returnBufferToPool) {
+      this.owner.returnBufferToPool(buffer, buffer.width ?? this.dimensions.width ?? 0, buffer.height ?? this.dimensions.height ?? 0);
+    }
+  }
+
+  _nextId(kind) {
+    this.sequence += 1;
+    return `${kind}-${this.sequence}`;
+  }
+}
+
 // KidLisp Environment Class
 class KidLisp {
   constructor() {
@@ -746,6 +1511,9 @@ class KidLisp {
     this.functionCache = new Map(); // Cache function lookups
     this.globalEnvCache = null; // Cache global environment
     this.embeddedApiCache = new Map(); // Cache embedded layer API objects
+
+  // Post-bake drawing mirroring state (wrapped API commands)
+  this.postBakeMirroringState = null;
 
     // Screen dimension tracking for responsive cache invalidation
     this.lastScreenWidth = null;
@@ -894,13 +1662,44 @@ class KidLisp {
     this.inkState = undefined; // Track KidLisp ink color (starts undefined)
     this.inkStateSet = false; // Track if ink has been explicitly set
 
-    // Bake functionality state
-    this.bakedLayers = []; // Store baked pixel buffers
-    this.bakeCallCount = 0; // Track number of bake calls to prevent duplicates
-    this.hasBakedContent = false; // Track if bake has been called (to enable drawing suppression)
-    this.suppressDrawingBeforeBake = false; // Suppress drawing operations before bake point on subsequent frames
-    this.postBakeLayer = null; // Persistent buffer for post-bake drawing commands
-    this.frameRoutingContext = null; // Tracks screen routing between baked and overlay buffers within a frame
+  // Bake functionality state
+    this.layerManager = new KidLispLayerManager(this);
+  this.bakeCallCount = 0; // Track number of bake calls to prevent duplicates
+  this._legacyHasBakedContent = false;
+  this._legacySuppressDrawingBeforeBake = false;
+  this.routingState = new KidLispRoutingState(this); // Stack-aware routing state for frame drawing
+
+    Object.defineProperty(this, "bakedLayers", {
+      get: () => this.layerManager.bakedLayers(),
+      set: (value) => this.layerManager.replaceBakedLayers(value),
+      configurable: true,
+      enumerable: true,
+    });
+
+    Object.defineProperty(this, "postBakeLayer", {
+      get: () => this.layerManager.overlayLayer(),
+      set: (value) => this.layerManager.setOverlay(value),
+      configurable: true,
+      enumerable: true,
+    });
+
+    Object.defineProperty(this, "hasBakedContent", {
+      get: () => this.layerManager.hasBakedContent(),
+      set: (value) => {
+        this._legacyHasBakedContent = !!value;
+      },
+      configurable: true,
+      enumerable: true,
+    });
+
+    Object.defineProperty(this, "suppressDrawingBeforeBake", {
+      get: () => this._legacySuppressDrawingBeforeBake,
+      set: (value) => {
+        this._legacySuppressDrawingBeforeBake = !!value;
+      },
+      configurable: true,
+      enumerable: true,
+    });
 
     // Performance monitoring
     this.performanceEnabled = false; // Enable/disable performance monitoring
@@ -1031,6 +1830,270 @@ class KidLisp {
     }
   }
 
+  getRoutingLogTarget() {
+    const stateTarget = this.routingState?.currentTarget?.();
+    if (stateTarget) {
+      return stateTarget;
+    }
+
+    if (this.suppressDrawingBeforeBake && this.hasBakedContent) {
+      if (this.postBakeLayer) {
+        return "postBake";
+      }
+      return "baked";
+    }
+
+    return "screen";
+  }
+
+  sanitizeTelemetryValue(value) {
+    if (value === undefined) {
+      return undefined;
+    }
+    if (value === null) {
+      return null;
+    }
+    const valueType = typeof value;
+    if (valueType === "string" || valueType === "number" || valueType === "boolean") {
+      return value;
+    }
+    if (Array.isArray(value) || valueType === "object") {
+      try {
+        return JSON.parse(JSON.stringify(value));
+      } catch {
+        return "<unserializable>";
+      }
+    }
+    if (valueType === "function") {
+      return `<function ${value.name || "anonymous"}>`;
+    }
+    return `<${valueType}>`;
+  }
+
+  isNumericInkArgs(ink = this.inkState) {
+    if (ink === undefined || ink === null) {
+      return false;
+    }
+
+    const values = Array.isArray(ink) ? ink : [ink];
+    if (values.length === 0) {
+      return false;
+    }
+
+    return values.every((value) => typeof value === "number");
+  }
+
+  isEraseInkArgs(ink = this.inkState) {
+    if (ink === undefined || ink === null) {
+      return false;
+    }
+
+    const values = Array.isArray(ink) ? ink : [ink];
+    if (values.length === 0) {
+      return false;
+    }
+
+    const [first] = values;
+    return typeof first === "string" && first.toLowerCase?.() === "erase";
+  }
+
+  tracePaintCommand(commandName, args, options = {}) {
+    if (!BAKE_TRACE) return;
+
+  const { target: optionTarget, source: optionSource, metadata, layerIndex: optionLayerIndex, layerLabel: optionLayerLabel, duplicated: optionDuplicated, ...restOptions } = options;
+    const target = optionTarget ?? this.getRoutingLogTarget();
+    const source = optionSource ?? "direct";
+
+    const resolveLayerIndex = () => {
+      if (typeof optionLayerIndex === "number") {
+        return optionLayerIndex;
+      }
+
+      if (!Array.isArray(this.bakedLayers) || this.bakedLayers.length === 0) {
+        return null;
+      }
+
+      if (target === "baked") {
+        const currentLayer = this.routingState?.currentLayer?.() ?? null;
+        const stateLayer = currentLayer?.type === "baked"
+          ? currentLayer
+          : this.routingState?.findLastLayer?.("baked");
+        const stateIndex = stateLayer?.metadata?.bakedLayerIndex;
+        if (typeof stateIndex === "number") {
+          return stateIndex;
+        }
+        const routedLayer = stateLayer ?? null;
+        if (routedLayer) {
+          const byRefIndex = this.bakedLayers.indexOf(routedLayer);
+          if (byRefIndex !== -1) {
+            return byRefIndex;
+          }
+          const byBufferIndex = this.bakedLayers.findIndex((layer) => layer?.buffer === routedLayer?.buffer);
+          if (byBufferIndex !== -1) {
+            return byBufferIndex;
+          }
+        }
+        return 0;
+      }
+
+      return null;
+    };
+
+    const layerIndex = resolveLayerIndex();
+    let layerLabel = optionLayerLabel;
+    if (!layerLabel) {
+      if (target === "baked" && layerIndex !== null) {
+        layerLabel = `baked[${layerIndex}]`;
+      } else if (target === "postBake") {
+        layerLabel = "postBakeOverlay";
+      } else {
+        layerLabel = target ?? "screen";
+      }
+    }
+
+    const payloadArgs = this.sanitizeTelemetryValue(args);
+    const inkSnapshot = this.inkStateSet ? this.sanitizeTelemetryValue(this.inkState) : null;
+
+    const extraDetails = {};
+    Object.entries(restOptions).forEach(([key, value]) => {
+      if (value === undefined) {
+        return;
+      }
+
+      if (key === "details" && value && typeof value === "object") {
+        Object.entries(value).forEach(([detailKey, detailValue]) => {
+          extraDetails[detailKey] = this.sanitizeTelemetryValue(detailValue);
+        });
+        return;
+      }
+
+      extraDetails[key] = this.sanitizeTelemetryValue(value);
+    });
+
+    if (metadata && typeof metadata === "object") {
+      extraDetails.metadata = this.sanitizeTelemetryValue(metadata);
+    }
+
+    const payload = {
+      cmd: commandName,
+      target,
+      source,
+  route: this.routingState?.currentTarget?.() ?? null,
+      hasBakedContent: !!this.hasBakedContent,
+      suppressPreBake: !!this.suppressDrawingBeforeBake,
+      postBakeLayer: !!this.postBakeLayer,
+      bakedLayers: Array.isArray(this.bakedLayers) ? this.bakedLayers.length : 0,
+      nested: !!this.isNestedInstance,
+      layerIndex,
+      layerLabel,
+      duplicated: optionDuplicated ?? false,
+      ink: inkSnapshot,
+      args: payloadArgs
+    };
+
+    if (Object.keys(extraDetails).length > 0) {
+      payload.details = extraDetails;
+    }
+
+    console.log("🛰️ BAKE TRACE", payload);
+  }
+
+  traceRoutingTransition(eventName, options = {}) {
+    if (!BAKE_TRACE) return;
+
+    const {
+      from = null,
+      to = null,
+      reason = null,
+      layerIndex = null,
+      layerLabel = null,
+      details = null,
+      ...rest
+    } = options ?? {};
+
+    const payload = {
+      event: eventName,
+      from: this.sanitizeTelemetryValue(from),
+      to: this.sanitizeTelemetryValue(to),
+      reason: this.sanitizeTelemetryValue(reason),
+      frame: this.frameCount ?? null,
+      hasBakedContent: !!this.hasBakedContent,
+      suppressPreBake: !!this.suppressDrawingBeforeBake,
+      nested: !!this.isNestedInstance,
+      bakedLayers: Array.isArray(this.bakedLayers) ? this.bakedLayers.length : 0,
+      postBakeLayer: !!this.postBakeLayer,
+      layerIndex: layerIndex !== undefined ? layerIndex : null,
+      layerLabel: layerLabel ?? null
+    };
+
+    if (details) {
+      payload.details = this.sanitizeTelemetryValue(details);
+    }
+
+    if (Object.keys(rest).length > 0) {
+      payload.extra = this.sanitizeTelemetryValue(rest);
+    }
+
+    console.log("🛰️ BAKE ROUTE", payload);
+  }
+
+  traceFrameRoutingContext(label, extras = {}) {
+    if (!BAKE_TRACE) return;
+
+    const legacyContext = this.routingState?.legacyContextSnapshot?.() ?? null;
+    let contextSnapshot = null;
+
+    if (legacyContext) {
+      const bakedLayerIndex = Array.isArray(this.bakedLayers)
+        ? this.bakedLayers.findIndex((layer) => layer === legacyContext.bakedLayer)
+        : -1;
+
+      const bakedLayer = legacyContext.bakedLayer ?? null;
+      const originalScreen = legacyContext.originalScreen ?? null;
+
+      contextSnapshot = {
+        currentTarget: legacyContext.currentTarget ?? null,
+        originalScreen: originalScreen
+          ? {
+              width: originalScreen?.width ?? null,
+              height: originalScreen?.height ?? null,
+              hasPixels: !!originalScreen?.pixels
+            }
+          : null,
+        bakedLayer: bakedLayer
+          ? {
+              width: bakedLayer?.buffer?.width ?? bakedLayer?.width ?? null,
+              height: bakedLayer?.buffer?.height ?? bakedLayer?.height ?? null,
+              hasBuffer: !!bakedLayer?.buffer,
+              index: bakedLayerIndex >= 0 ? bakedLayerIndex : null
+            }
+          : null
+      };
+    }
+
+    const routingSnapshot = this.routingState?.toTelemetry?.(this);
+
+    const payload = {
+      label,
+      frame: this.frameCount ?? null,
+      hasBakedContent: !!this.hasBakedContent,
+      suppressPreBake: !!this.suppressDrawingBeforeBake,
+      postBakeLayer: !!this.postBakeLayer,
+      bakedLayers: Array.isArray(this.bakedLayers) ? this.bakedLayers.length : 0,
+      context: contextSnapshot
+    };
+
+    if (routingSnapshot) {
+      payload.routingState = this.sanitizeTelemetryValue(routingSnapshot);
+    }
+
+    if (extras && Object.keys(extras).length > 0) {
+      payload.details = this.sanitizeTelemetryValue(extras);
+    }
+
+    console.log("🛰️ BAKE CTX", payload);
+  }
+
   // 📊 Render performance HUD in top-right corner with tiny matrix font
   renderPerformanceHUD(api) {
     if (!this.perf.showHUD || !api.ink || !api.write || !api.box) return;
@@ -1043,8 +2106,8 @@ class KidLisp {
     }
 
     const screen = api.screen || { width: 256, height: 256 };
-    const hudWidth = 100;
-    const hudHeight = 45; // Reduced for simplified stats display
+  const hudWidth = 120;
+  const hudHeight = 61; // Expanded for layer diagnostics
     const x = screen.width - hudWidth - 2;
     const y = 2;
 
@@ -1083,11 +2146,29 @@ class KidLisp {
     this.drawPerfBar(api, x + 48, lineY, this.perf.avg.render, 6.0, 50, [255, 100, 200]); // 6ms max for painting
     lineY += lineHeight;
 
-    // Memory usage
+  // Memory usage
     const memEstimate = this.estimateMemoryUsage();
     api.ink(150, 150, 255);
     api.write(`MEMORY:${(memEstimate / 1024).toFixed(1)}KB`, { x, y: lineY }, undefined, undefined, false, "MatrixChunky8");
     lineY += lineHeight;
+
+  // Layer diagnostics
+  const bakedLayerCount = Array.isArray(this.bakedLayers) ? this.bakedLayers.length : 0;
+  const overlayActive = this.postBakeLayer ? 1 : 0;
+  const layerLine = `LAYERS:B${bakedLayerCount} O${overlayActive} N${this.isNestedInstance ? 1 : 0}`;
+  api.ink(180, 220, 180);
+  api.write(layerLine, { x, y: lineY }, undefined, undefined, false, "MatrixChunky8");
+  lineY += lineHeight;
+
+  const routingTarget = this.routingState?.currentTarget?.() ?? (this.hasBakedContent ? "baked" : "screen");
+  const suppressFlag = this.suppressDrawingBeforeBake ? "Y" : "N";
+  let routingLabel = String(routingTarget ?? "none");
+  if (routingLabel.length > 6) routingLabel = routingLabel.slice(0, 6);
+  while (routingLabel.length < 6) routingLabel += " ";
+  const routeLine = `ROUTE:${routingLabel} SUP:${suppressFlag}`;
+  api.ink(180, 200, 255);
+  api.write(routeLine, { x, y: lineY }, undefined, undefined, false, "MatrixChunky8");
+  lineY += lineHeight;
 
     // Overall health bar (simplified single indicator)
     api.ink(200, 200, 200);
@@ -1426,6 +2507,8 @@ class KidLisp {
       if (VERBOSE) console.log("🍞 Reset: Frame start - suppression DISABLED (no baked content or source changed)");
     }
 
+  this.routingState.resetForModule();
+
     // Reset timing blink tracking
     this.timingBlinks.clear();
 
@@ -1444,9 +2527,9 @@ class KidLisp {
     // Reset buffer pool state
     this.bufferPool.clear();
 
-    // Don't reset ink state during reset - preserve across frame transitions
-    // this.inkState = undefined;
-    // this.inkStateSet = false;
+    if (clearOnceExecuted || sourceChanged) {
+      this.clearInkState();
+    }
   }
 
   // Register an expression and get its unique ID
@@ -1734,6 +2817,39 @@ class KidLisp {
     // Get the first item from the AST
     const firstItem = Array.isArray(this.ast) && this.ast.length > 0 ? this.ast[0] : this.ast;
     let colorName = null;
+
+    if (Array.isArray(firstItem) && firstItem.length > 0 && firstItem[0] === "ink") {
+      const inkArgs = firstItem.slice(1);
+
+      const deriveRgb = (values) => {
+        if (!Array.isArray(values) || values.length < 3) {
+          return null;
+        }
+        const [r, g, b] = values;
+        if ([r, g, b].every((value) => typeof value === "number")) {
+          return [r, g, b];
+        }
+        return null;
+      };
+
+      let derivedColor = null;
+
+      if (inkArgs.length >= 3) {
+        derivedColor = deriveRgb(inkArgs);
+      } else if (inkArgs.length === 1 && Array.isArray(inkArgs[0])) {
+        derivedColor = deriveRgb(inkArgs[0]);
+      }
+
+      if (derivedColor) {
+        this.firstLineColor = derivedColor;
+        this.persistentFirstLineColor = derivedColor;
+      } else if (inkArgs.length >= 1 && typeof inkArgs[0] === "string") {
+        this.firstLineColor = inkArgs[0];
+        this.persistentFirstLineColor = inkArgs[0];
+      }
+
+      return;
+    }
 
     // Check if it's a bare string color name or RGB value
     if (typeof firstItem === "string") {
@@ -2087,15 +3203,306 @@ class KidLisp {
     return this.firstLineColor;
   }
 
-  // Clear KidLisp ink state (reset to undefined)
+  // Normalize stored background fill values into an [r, g, b, a] array for pixel fills
+  normalizeBackgroundFillColor(colorLike) {
+    if (!colorLike) return null;
+
+    const toRgba = (candidate) => {
+      if (!Array.isArray(candidate)) return null;
+      if (candidate.length >= 4) {
+        return [candidate[0], candidate[1], candidate[2], candidate[3]];
+      }
+      if (candidate.length === 3) {
+        return [candidate[0], candidate[1], candidate[2], 255];
+      }
+      return null;
+    };
+
+    if (Array.isArray(colorLike)) {
+      return toRgba(colorLike);
+    }
+
+    if (typeof colorLike === "string") {
+      const trimmed = colorLike.trim();
+      if (!trimmed) return null;
+
+      if (isValidRGBString(trimmed)) {
+        const rgb = parseRGBString(trimmed);
+        return toRgba(rgb);
+      }
+
+      const lowered = trimmed.toLowerCase();
+
+      if (lowered === "erase") {
+        // Return the special erase marker that the paint API recognizes
+        return [-1, -1, -1, -1];
+      }
+
+      if (cssColors[lowered]) {
+        return toRgba(cssColors[lowered]);
+      }
+
+      if (/^c\d+$/.test(lowered)) {
+        const index = parseInt(lowered.substring(1), 10);
+        const mapped = staticColorMap[index];
+        if (mapped) {
+          return toRgba(mapped);
+        }
+      }
+
+      if (lowered.startsWith("fade:")) {
+        const fadeColors = this.parseFadeString(trimmed);
+        if (fadeColors && fadeColors.length > 0) {
+          return toRgba(fadeColors[0]);
+        }
+      }
+    }
+
+    return null;
+  }
+
+  extractFirstOpaquePixel(pixels) {
+    if (!pixels) return null;
+
+    for (let i = 0; i < pixels.length; i += 4) {
+      const alpha = pixels[i + 3];
+      if (alpha !== 0) {
+        return [pixels[i], pixels[i + 1], pixels[i + 2], alpha];
+      }
+    }
+
+    return null;
+  }
+
+  remapBackdropColor(pixels, sourceColor, targetColor) {
+    if (!pixels || !sourceColor || !targetColor) {
+      return false;
+    }
+
+    const tolerance = 2;
+    let changed = false;
+
+    for (let i = 0; i < pixels.length; i += 4) {
+      const r = pixels[i];
+      const g = pixels[i + 1];
+      const b = pixels[i + 2];
+      const a = pixels[i + 3];
+
+      if (
+        Math.abs(r - sourceColor[0]) <= tolerance &&
+        Math.abs(g - sourceColor[1]) <= tolerance &&
+        Math.abs(b - sourceColor[2]) <= tolerance &&
+        Math.abs(a - sourceColor[3]) <= tolerance
+      ) {
+        pixels[i] = targetColor[0];
+        pixels[i + 1] = targetColor[1];
+        pixels[i + 2] = targetColor[2];
+        pixels[i + 3] = targetColor[3] ?? 255;
+        changed = true;
+      }
+    }
+
+    return changed;
+  }
+
+  isEraseInkActive() {
+    if (!this.inkStateSet) {
+      return false;
+    }
+
+    const ink = this.inkState;
+
+    if (Array.isArray(ink)) {
+      if (ink.length === 0) {
+        return false;
+      }
+
+      const [r, g, b] = ink;
+      if (ink[0] === "erase") {
+        return true;
+      }
+
+      if (typeof r === "number" && typeof g === "number" && typeof b === "number") {
+        const isEraseVector = r === -1 && g === -1 && b === -1;
+        const isClearVector = r === 0 && g === 0 && b === 0 && ink[3] === 0;
+        if (isEraseVector || isClearVector) {
+          return true;
+        }
+      }
+    } else if (typeof ink === "string") {
+      return ink === "erase";
+    }
+
+    return false;
+  }
+
   clearInkState() {
     this.inkState = undefined;
     this.inkStateSet = false;
   }
 
-  // Get current KidLisp ink state
-  getInkState() {
-    return this.inkStateSet ? this.inkState : undefined;
+  // Sample the baked layer to find a visible background color when none is stored
+  getFallbackBakedBackgroundColor() {
+    if (this.bakedBackdropColor) {
+      return this.bakedBackdropColor;
+    }
+
+    const bakedLayer = this.bakedLayers?.[0]?.buffer;
+    if (!bakedLayer?.pixels) {
+      return null;
+    }
+
+    return this.extractFirstOpaquePixel(bakedLayer.pixels);
+  }
+
+  shouldMirrorEraseToBaked() {
+    if (!this.hasBakedContent) {
+      return false;
+    }
+
+    if (!this.isEraseInkActive()) {
+      return false;
+    }
+
+    if (!this.bakedLayers || this.bakedLayers.length === 0) {
+      return false;
+    }
+
+    const currentTarget = this.routingState?.currentTarget?.() ?? null;
+    if (currentTarget !== "postBake") {
+      return false;
+    }
+
+    return true;
+  }
+
+  // Mirror erase-capable drawing commands into the baked buffer when needed
+  mirrorEraseCommandToBaked(api, commandName, args, directInvoker) {
+    if (!this.shouldMirrorEraseToBaked()) {
+      return false;
+    }
+
+    const invoke = () => {
+      if (typeof directInvoker === "function") {
+        directInvoker();
+        return;
+      }
+
+      const paintApi = globalThis.$paintApiUnwrapped ?? api;
+      if (paintApi && typeof paintApi[commandName] === "function") {
+        paintApi[commandName](...(Array.isArray(args) ? args : [args]));
+        return;
+      }
+
+      if (typeof api?.[commandName] === "function") {
+        api[commandName](...(Array.isArray(args) ? args : [args]));
+      }
+    };
+
+    return this.runWithBakedBuffer(api, invoke, {
+      commandName,
+      args,
+      source: "mirrorErase",
+      duplicated: true,
+      details: {
+        mirrorSource: "postBake",
+        mirrorCommand: commandName
+      },
+      metadata: {
+        mirrorStrategy: "erase"
+      }
+    });
+  }
+
+  enablePostBakeEraseMirroring(api) {
+    if (!api) {
+      return;
+    }
+
+    if (this.postBakeMirroringState?.api === api) {
+      return;
+    }
+
+    if (this.postBakeMirroringState) {
+      this.disablePostBakeEraseMirroring();
+    }
+
+    const targetApi = api;
+    const originals = new Map();
+    const commandsToWrap = [
+      "line",
+      "box",
+      "circle",
+      "tri",
+      "poly",
+      "point",
+      "stamp",
+      "flood"
+    ];
+
+    commandsToWrap.forEach((commandName) => {
+      const originalFn = targetApi?.[commandName];
+      if (typeof originalFn !== "function") {
+        return;
+      }
+
+      if (originals.has(commandName)) {
+        return;
+      }
+
+      const self = this;
+      const wrappedFn = function (...callArgs) {
+        if (BAKE_TRACE) {
+          self.tracePaintCommand(commandName, callArgs, {
+            target: "postBake",
+            source: "postBakeOverlay",
+            duplicated: true,
+            details: {
+              mirrorTarget: "baked",
+              mirrorMode: "postBakeErase"
+            }
+          });
+        }
+
+        const result = originalFn.apply(this, callArgs);
+        const directInvoker = () => {
+          const unwrapped = globalThis.$paintApiUnwrapped;
+          if (unwrapped && typeof unwrapped[commandName] === "function") {
+            unwrapped[commandName](...callArgs);
+          } else {
+            originalFn.apply(targetApi, callArgs);
+          }
+        };
+        self.mirrorEraseCommandToBaked(targetApi, commandName, callArgs, directInvoker);
+        return result;
+      };
+
+      originals.set(commandName, originalFn);
+      targetApi[commandName] = wrappedFn;
+    });
+
+    if (originals.size > 0) {
+      this.postBakeMirroringState = {
+        api: targetApi,
+        originals
+      };
+    }
+  }
+
+  disablePostBakeEraseMirroring() {
+    const state = this.postBakeMirroringState;
+    if (!state) {
+      return;
+    }
+
+    const { api, originals } = state;
+    originals.forEach((originalFn, commandName) => {
+      if (api && typeof originalFn === "function") {
+        api[commandName] = originalFn;
+      }
+    });
+
+    this.postBakeMirroringState = null;
   }
 
   // Check if the AST contains microphone-related functions
@@ -2619,6 +4026,14 @@ class KidLisp {
         // 🎯 Start performance frame tracking
         this.startFrame();
 
+        this.routingState.beginFrame($.screen);
+        this.layerManager.beginFrame($.screen);
+
+        this.traceFrameRoutingContext("frame-start", {
+          route: this.getRoutingLogTarget(),
+          inEmbedPhase: !!this.inEmbedPhase
+        });
+
         // console.log("🖌️ Kid Lisp is Painting...", $.paintCount);
         // 🕐 Timing updates moved to sim() for consistent framerate
 
@@ -2698,6 +4113,7 @@ class KidLisp {
             /*const evaluated = */ this.evaluate(this.ast, $, undefined, undefined, true);
           } finally {
             restoreRouting();
+            this.traceFrameRoutingContext("frame-routing-restored");
           }
           if (VERBOSE) console.log("🎬 Finished evaluation");
           // console.log("✅ Finished evaluating AST for embedded KidLisp");
@@ -2708,27 +4124,67 @@ class KidLisp {
 
           // First composite baked layers to establish the background
           if (this.hasBakedContent && $.screen?.pixels) {
-            $.screen.pixels.fill(0);
+            const backgroundFill = this.getBackgroundFillColor();
+            let bgColor = this.normalizeBackgroundFillColor(backgroundFill);
+
+            if (!bgColor) {
+              bgColor = this.getFallbackBakedBackgroundColor();
+            }
+
+            if (bgColor) {
+              // Fill with the background color
+              const pixels = $.screen.pixels;
+              const r = bgColor[0];
+              const g = bgColor[1];
+              const b = bgColor[2];
+              // Preserve baked layer transparency by starting from a fully transparent clear.
+              // Keep the RGB hint so compositing math maintains color semantics while alpha erodes.
+              const a = 0;
+              for (let i = 0; i < pixels.length; i += 4) {
+                pixels[i] = r;
+                pixels[i + 1] = g;
+                pixels[i + 2] = b;
+                pixels[i + 3] = a;
+              }
+            } else {
+              // Fallback to black if no background color is set
+              $.screen.pixels.fill(0);
+            }
           }
           const bakedStart = performance.now();
           this.renderBakedLayers($);
           const bakedTime = performance.now() - bakedStart;
 
           // Then restore the persistent post-bake overlay on top
-          if (this.hasBakedContent && this.postBakeLayer?.pixels && $.screen?.pixels) {
-            if (!this.postBakeLayer ||
-              this.postBakeLayer.width !== $.screen.width ||
-              this.postBakeLayer.height !== $.screen.height) {
-              this.postBakeLayer = this.resizePixelBufferPreserve(
-                this.postBakeLayer,
+          const activeOverlayLayer = this.layerManager.overlayLayer();
+          if (this.hasBakedContent && activeOverlayLayer?.pixels && $.screen?.pixels) {
+            if (
+              !activeOverlayLayer ||
+              activeOverlayLayer.width !== $.screen.width ||
+              activeOverlayLayer.height !== $.screen.height
+            ) {
+              const resizedOverlay = this.resizePixelBufferPreserve(
+                activeOverlayLayer,
                 $.screen.width,
                 $.screen.height,
                 0,
               );
+
+              this.layerManager.setOverlay({
+                id: activeOverlayLayer?.id,
+                buffer: resizedOverlay,
+                width: resizedOverlay?.width ?? $.screen.width,
+                height: resizedOverlay?.height ?? $.screen.height,
+                pixels: resizedOverlay?.pixels ?? null,
+                metadata: activeOverlayLayer?.metadata ?? {},
+              });
             }
 
-            // Composite the post-bake overlay on top of the baked layer
-            this.compositePostBakeLayer($, this.postBakeLayer);
+            const refreshedOverlay = this.layerManager.overlayLayer();
+            if (refreshedOverlay?.pixels) {
+              // Composite the post-bake overlay on top of the baked layer
+              this.compositePostBakeLayer($, refreshedOverlay);
+            }
           }
 
           // Then render and update embedded layers
@@ -2748,11 +4204,77 @@ class KidLisp {
           this.inEmbedPhase = false;
 
           // Execute accumulated post-embed commands
-          this.postEmbedCommands.forEach((cmd, i) => {
+          const pendingPostEmbed = this.postEmbedCommands?.slice() ?? [];
+          const queueLength = pendingPostEmbed.length;
+          pendingPostEmbed.forEach((cmd, i) => {
             try {
-              cmd.func(...cmd.args);
+              const commandArgs = Array.isArray(cmd?.args)
+                ? cmd.args
+                : cmd?.args !== undefined ? [cmd.args] : [];
+              const metadata = cmd?.metadata ?? {};
+              const traceName = metadata.commandName ?? cmd?.name ?? `post-embed-${i}`;
+              const traceTarget = metadata.target ?? this.getRoutingLogTarget();
+              const deferredMeta = {
+                commandName: traceName,
+                args: commandArgs,
+                source: metadata.source ?? "postEmbedQueue",
+                target: traceTarget,
+                phase: "post-embed",
+                duplicated: metadata.duplicated ?? !!cmd?.duplicated,
+                details: {
+                  queueIndex: i,
+                  queueLength,
+                  deferredFromEmbed: metadata.deferredFromEmbed ?? true,
+                  queuedFrame: metadata.queuedFrame ?? null,
+                  originalLayerContext: metadata.layerContext ?? null
+                },
+                metadata
+              };
+              const shouldRetroactiveMirror =
+                metadata.layerContext === "postBake" &&
+                this.hasBakedContent &&
+                this.routingState?.currentTarget?.() !== "postBake" &&
+                ERASE_MIRRORABLE_COMMANDS.has(traceName) &&
+                this.isEraseInkActive();
+
+              if (shouldRetroactiveMirror) {
+                const inkSnapshot = this.inkStateSet
+                  ? (Array.isArray(this.inkState) ? [...this.inkState] : [this.inkState])
+                  : null;
+                this.routingState?.recordRetroactiveErase?.({
+                  commandName: traceName,
+                  args: [...commandArgs],
+                  metadata: {
+                    ...metadata,
+                    queueIndex: i,
+                    queueLength
+                  },
+                  inkSnapshot
+                });
+              }
+
+              this.tracePaintCommand(traceName, commandArgs, deferredMeta);
+
+              const execFn = typeof cmd?.func === "function" ? cmd.func : null;
+              if (execFn) {
+                if (shouldRetroactiveMirror) {
+                  try {
+                    execFn(...commandArgs);
+                  } finally {
+                    this.flushRetroactiveEraseQueue($, {
+                      reason: "post-embed",
+                      queueIndex: i,
+                      queueLength
+                    });
+                  }
+                } else {
+                  execFn(...commandArgs);
+                }
+              } else {
+                console.warn(`⚠️ Post-embed command ${traceName} has no executable func`);
+              }
             } catch (err) {
-              console.error(`Error executing post-embed command ${cmd.name}:`, err);
+              console.error(`Error executing post-embed command ${cmd?.name ?? i}:`, err);
             }
           });
           this.postEmbedCommands = [];
@@ -2787,6 +4309,10 @@ class KidLisp {
 
         // 🎯 End performance frame tracking
         this.endFrame();
+
+        this.traceFrameRoutingContext("frame-end", {
+          route: this.getRoutingLogTarget()
+        });
       },
       sim: ({ sound }) => {
         // 🕐 Handle timing updates in sim (runs at consistent 120fps)
@@ -3548,16 +5074,30 @@ class KidLisp {
       },
       wipe: (api, args) => {
         const processedArgs = processArgStringTypes(args);
+        console.log(`🧹 WIPE | args=${JSON.stringify(args)} | processedArgs=${JSON.stringify(processedArgs)} | hasBakedContent=${this.hasBakedContent} | suppressDrawingBeforeBake=${this.suppressDrawingBeforeBake}`);
 
         const performWipe = () => {
           api.wipe?.(processedArgs);
         };
 
-        if (this.suppressDrawingBeforeBake) {
-          this.executePreBakeDraw(api, performWipe);
+        // Before bake executes (first frame): execute wipe normally so bake captures it
+        // After bake executes: route wipe to baked buffer
+        if (this.suppressDrawingBeforeBake && this.hasBakedContent) {
+          console.log("🧹 WIPE: Routing to baked buffer (post-bake)");
+          this.executePreBakeDraw(api, performWipe, {
+            commandName: "wipe",
+            args: processedArgs,
+            source: "wipe"
+          });
           return;
         }
 
+        if (BAKE_TRACE) {
+          this.tracePaintCommand("wipe", processedArgs, {
+            target: this.getRoutingLogTarget(),
+            source: "wipe" 
+          });
+        }
         performWipe();
         // console.log("🧹 Wipe completed, first pixel now:", api.screen?.pixels?.[0], api.screen?.pixels?.[1], api.screen?.pixels?.[2], api.screen?.pixels?.[3]);
       },
@@ -3688,6 +5228,24 @@ class KidLisp {
         if (args.length === 1 && Array.isArray(args[0])) {
           // Single array argument - use it as-is (RGB values)
           processedArgs = args[0];
+        } else if (args.length === 1 && typeof args[0] === "string" && !args[0].startsWith("fade:")) {
+          // Single string argument that isn't a fade string - might be an unevaluated color name
+          // Try to evaluate it as a color function
+          const colorName = args[0];
+          const globalEnv = this.getGlobalEnv();
+          if (globalEnv[colorName] && typeof globalEnv[colorName] === "function") {
+            // It's a color function, call it to get RGB values
+            const rgbResult = globalEnv[colorName](api, []);
+            if (Array.isArray(rgbResult)) {
+              processedArgs = rgbResult;
+            } else {
+              // Fallback to normal processing
+              processedArgs = processArgStringTypes(args);
+            }
+          } else {
+            // Not a function, process normally
+            processedArgs = processArgStringTypes(args);
+          }
         } else {
           // Multiple arguments or non-array - process normally
           processedArgs = processArgStringTypes(args);
@@ -3707,11 +5265,13 @@ class KidLisp {
 
           // Check if we should defer this command
           if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase) {
-            this.postEmbedCommands = this.postEmbedCommands || [];
-            this.postEmbedCommands.push({
-              name: 'ink',
-              func: api.ink,
+            this.enqueuePostEmbedCommand({
+              name: "ink",
+              func: (...colorArgs) => api.ink?.(...colorArgs),
               args: randomColor
+            }, {
+              source: "ink-random",
+              commandName: "ink"
             });
             return;
           }
@@ -3738,11 +5298,13 @@ class KidLisp {
 
             // Check if we should defer this command
             if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase) {
-              this.postEmbedCommands = this.postEmbedCommands || [];
-              this.postEmbedCommands.push({
-                name: 'ink',
-                func: api.ink,
+              this.enqueuePostEmbedCommand({
+                name: "ink",
+                func: (...colorArgs) => api.ink?.(...colorArgs),
                 args: [args[0]]
+              }, {
+                source: "ink-fade",
+                commandName: "ink"
               });
               // Ink deferred debug log removed for performance
               return;
@@ -3756,19 +5318,22 @@ class KidLisp {
           this.inkState = Array.isArray(processedArgs) ? processedArgs : [processedArgs];
           this.inkStateSet = true;
 
+          console.log(`🖋️ INK SET | args=${JSON.stringify(args)} | processedArgs=${JSON.stringify(processedArgs)} | inkState=${JSON.stringify(this.inkState)} | hasBakedContent=${this.hasBakedContent}`);
+
           // Check if we should defer this command
           if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase) {
-            this.postEmbedCommands = this.postEmbedCommands || [];
-            this.postEmbedCommands.push({
-              name: 'ink',
-              func: api.ink,
+            this.enqueuePostEmbedCommand({
+              name: "ink",
+              func: (...colorArgs) => api.ink?.(...colorArgs),
               args: Array.isArray(processedArgs) ? processedArgs : [processedArgs]
+            }, {
+              source: "ink",
+              commandName: "ink"
             });
             // Ink deferred debug log removed for performance
             return;
           }
           api.ink?.(...(Array.isArray(processedArgs) ? processedArgs : [processedArgs]));
-          // console.log("🖋️ Ink completed, first pixel now:", api.screen?.pixels?.[0], api.screen?.pixels?.[1], api.screen?.pixels?.[2], api.screen?.pixels?.[3]);
         }
       },
       // Fade string constructor - returns a fade string that can be used with ink
@@ -3849,35 +5414,77 @@ class KidLisp {
         console.error("❗ Invalid `delay`. Expected (delay seconds action).");
       },
       line: (api, args = []) => {
-        // 🍞 Suppress drawing if we're before the bake point (after bake has been called)
-        if (this.suppressDrawingBeforeBake) {
+        if (ERASE_DEBUG) {
+          console.log(`📏 LINE | args=${JSON.stringify(args)} | inkState=${JSON.stringify(this.inkState)} | hasBakedContent=${this.hasBakedContent} | suppressDrawingBeforeBake=${this.suppressDrawingBeforeBake}`);
+        }
+        // 🍞 Route to baked buffer if bake has already been executed
+        // 🍞 Route to baked buffer if bake has already been executed
+        if (this.hasBakedContent && this.suppressDrawingBeforeBake) {
+          if (ERASE_DEBUG) {
+            console.log("📏 LINE: Routing to baked buffer (post-bake)");
+          }
           const routed = this.runWithBakedBuffer(api, () => {
-            api.line(...args);
+            // Use unwrapped API to bypass layer queue and draw immediately to baked buffer
+            const unwrappedApi = globalThis.$paintApiUnwrapped;
+            const unwrappedLine = typeof unwrappedApi?.line === "function" ? unwrappedApi.line : null;
+            const prefersUnwrapped = unwrappedLine && unwrappedApi !== api;
+            const needsRoutedFallback = this.isEraseInkArgs();
+
+            let unwrappedSucceeded = false;
+            if (prefersUnwrapped) {
+              try {
+                unwrappedLine(...args);
+                unwrappedSucceeded = true;
+              } catch (err) {
+                if (VERBOSE) {
+                  console.warn("⚠️ Failed to draw line using $paintApiUnwrapped", err);
+                }
+              }
+            }
+
+            if (needsRoutedFallback || !unwrappedSucceeded) {
+              if (typeof api?.line === "function") {
+                api.line(...args);
+              } else if (VERBOSE) {
+                console.warn("⚠️ Unable to draw line using routed paint API", { args });
+              }
+            }
+          }, {
+            commandName: "line",
+            args,
+            source: "line-baked"
           });
           if (routed) {
             return;
           }
         }
-
-        // console.log("📏 Line called with args:", args);
-        // console.log("📏 Line context:", {
-        //   embeddedLayersCount: this.embeddedLayers?.length || 0,
-        //   inEmbedPhase: this.inEmbedPhase,
-        //   screenSize: `${api.screen?.width || 'unknown'}x${api.screen?.height || 'unknown'}`
-        // });
+        
+        // 🍞 Before bake: use normal layer queue so ink commands execute first
+        // The layer queue ensures commands execute in order: ink -> line -> bake
+        // No special handling needed - let it fall through to normal api.line()
 
         // Check if we should defer this command
         if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase) {
-          this.postEmbedCommands = this.postEmbedCommands || [];
-          this.postEmbedCommands.push({
-            name: 'line',
-            func: api.line,
+          this.enqueuePostEmbedCommand({
+            name: "line",
+            func: (...lineArgs) => api.line?.(...lineArgs),
             args: [...args]
+          }, {
+            source: "line",
+            commandName: "line"
           });
-          // Line deferred debug log removed for performance
           return;
         }
 
+        if (ERASE_DEBUG) {
+          console.log("📏 LINE: Executing normally (before bake or no bake)");
+        }
+        if (BAKE_TRACE) {
+          this.tracePaintCommand("line", args, {
+            target: this.getRoutingLogTarget(),
+            source: "line-direct"
+          });
+        }
         api.line(...args);
       },
       // Batch line drawing for performance
@@ -3929,23 +5536,33 @@ class KidLisp {
         };
 
         if (this.suppressDrawingBeforeBake) {
-          this.executePreBakeDraw(api, drawBox);
+          this.executePreBakeDraw(api, drawBox, {
+            commandName: "box",
+            args: processedArgs,
+            source: "box"
+          });
           return;
         }
 
         // Check if we should defer this command
         if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase) {
-          this.postEmbedCommands = this.postEmbedCommands || [];
-          this.postEmbedCommands.push({
-            name: 'box',
-            func: api.box,
+          this.enqueuePostEmbedCommand({
+            name: "box",
+            func: (...boxArgs) => api.box?.(...boxArgs),
             args: [...processedArgs]
+          }, {
+            source: "box",
+            commandName: "box"
           });
           // Box deferred debug log removed for performance
           return;
         }
 
-        drawBox();
+        this.executePreBakeDraw(api, drawBox, {
+          commandName: "box",
+          args: processedArgs,
+          source: "box"
+        });
       },
       circle: (api, args = []) => {
         const drawCircle = () => {
@@ -3953,22 +5570,31 @@ class KidLisp {
         };
 
         if (this.suppressDrawingBeforeBake) {
-          this.executePreBakeDraw(api, drawCircle);
+          this.executePreBakeDraw(api, drawCircle, {
+            commandName: "circle",
+            args,
+            source: "circle"
+          });
           return;
         }
 
         // Check if we should defer this command
         if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase) {
-          this.postEmbedCommands = this.postEmbedCommands || [];
-          this.postEmbedCommands.push({
-            name: 'circle',
-            func: api.circle,
+          this.enqueuePostEmbedCommand({
+            name: "circle",
+            func: (...circleArgs) => api.circle?.(...circleArgs),
             args: [...args]
+          }, {
+            source: "circle",
+            commandName: "circle"
           });
           return;
         }
-
-        drawCircle();
+        this.executePreBakeDraw(api, drawCircle, {
+          commandName: "circle",
+          args,
+          source: "circle"
+        });
       },
       tri: (api, args = []) => {
         // Triangle function with 6 coordinates and optional mode
@@ -3979,22 +5605,31 @@ class KidLisp {
         };
 
         if (this.suppressDrawingBeforeBake) {
-          this.executePreBakeDraw(api, drawTri);
+          this.executePreBakeDraw(api, drawTri, {
+            commandName: "tri",
+            args,
+            source: "tri"
+          });
           return;
         }
 
         // Check if we should defer this command
         if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase) {
-          this.postEmbedCommands = this.postEmbedCommands || [];
-          this.postEmbedCommands.push({
-            name: 'tri',
-            func: api.tri,
+          this.enqueuePostEmbedCommand({
+            name: "tri",
+            func: (...triArgs) => api.tri?.(...triArgs),
             args: [...args]
+          }, {
+            source: "tri",
+            commandName: "tri"
           });
           return;
         }
-
-        drawTri();
+        this.executePreBakeDraw(api, drawTri, {
+          commandName: "tri",
+          args,
+          source: "tri"
+        });
       },
       flood: (api, args = []) => {
         // Flood fill at coordinates with optional color
@@ -4012,26 +5647,38 @@ class KidLisp {
             }
           };
 
+          const floodArgs = [x, y, fillColor];
+
           if (this.suppressDrawingBeforeBake) {
-            this.executePreBakeDraw(api, performFlood);
+            this.executePreBakeDraw(api, performFlood, {
+              commandName: "flood",
+              args: floodArgs,
+              source: "flood"
+            });
             return;
           }
 
           // Check if we should defer this command
           if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase) {
-            this.postEmbedCommands = this.postEmbedCommands || [];
-            this.postEmbedCommands.push({
-              name: 'flood',
+            this.enqueuePostEmbedCommand({
+              name: "flood",
               func: () => {
                 performFlood();
               },
               args: [x, y, fillColor]
+            }, {
+              source: "flood",
+              commandName: "flood"
             });
             // Flood deferred debug log removed for performance
             return;
           }
 
-          performFlood();
+          this.executePreBakeDraw(api, performFlood, {
+            commandName: "flood",
+            args: floodArgs,
+            source: "flood"
+          });
         }
       },
       shape: (api, args = []) => {
@@ -4184,18 +5831,17 @@ class KidLisp {
         // Execute immediately if we're a nested instance or in embed phase
         if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase && !this.isNestedInstance) {
           //console.log(`⏳ SCROLL deferring command until after embedded layers`);
-          this.postEmbedCommands = this.postEmbedCommands || [];
-          this.postEmbedCommands.push({
-            name: 'scroll',
+          this.enqueuePostEmbedCommand({
+            name: "scroll",
             func: () => {
-              //console.log(`🖱️ SCROLL executing deferred command: dx=${dx}, dy=${dy}`);
-              if (typeof api.scroll === 'function') {
+              if (typeof api.scroll === "function") {
                 api.scroll(dx, dy);
-              } else {
-                //console.log(`⚠️ SCROLL deferred execution failed: api.scroll not available`);
               }
             },
             args: [dx, dy]
+          }, {
+            source: "scroll",
+            commandName: "scroll"
           });
           return;
         }
@@ -4213,10 +5859,13 @@ class KidLisp {
         // Defer spin execution if embedded layers exist and we're not in embed phase
         if (this.embeddedLayers?.length > 0 && !this.inEmbedPhase) {
           //console.log("🎡 Deferring spin command until after embedded layers");
-          this.postEmbedCommands.push({
-            name: 'spin',
-            func: () => api.spin(...args),
+          this.enqueuePostEmbedCommand({
+            name: "spin",
+            func: () => api.spin?.(...args),
             args
+          }, {
+            source: "spin",
+            commandName: "spin"
           });
           return;
         }
@@ -4229,10 +5878,13 @@ class KidLisp {
         // Defer smoothspin execution if embedded layers exist and we're not in embed phase
         if (this.embeddedLayers?.length > 0 && !this.inEmbedPhase) {
           console.log("🎡 Deferring smoothspin command until after embedded layers");
-          this.postEmbedCommands.push({
-            name: 'smoothspin',
-            func: () => api.smoothSpin(...args),
+          this.enqueuePostEmbedCommand({
+            name: "smoothspin",
+            func: () => api.smoothSpin?.(...args),
             args
+          }, {
+            source: "smoothspin",
+            commandName: "smoothspin"
           });
           return;
         }
@@ -4248,8 +5900,10 @@ class KidLisp {
 
         // 🍞 If we're before the bake point, route zoom to the baked buffer instead of skipping
         if (this.suppressDrawingBeforeBake) {
-          this.executePreBakeDraw(api, () => {
-            performZoom();
+          this.executePreBakeDraw(api, performZoom, {
+            commandName: "zoom",
+            args,
+            source: "zoom"
           });
           return;
         }
@@ -4257,18 +5911,25 @@ class KidLisp {
         // Only defer zoom execution if we're in the main program with embedded layers
         // BUT allow immediate execution if we're already inside an embedded layer
         if (this.embeddedLayers?.length > 0 && !this.inEmbedPhase && !this.isEmbeddedContext) {
-          this.postEmbedCommands.push({
-            name: 'zoom',
+          this.enqueuePostEmbedCommand({
+            name: "zoom",
             func: () => {
               api.zoom(...args);
             },
             args
+          }, {
+            source: "zoom",
+            commandName: "zoom"
           });
           return;
         }
 
         // Execute zoom immediately
-        performZoom();
+        this.executePreBakeDraw(api, performZoom, {
+          commandName: "zoom",
+          args,
+          source: "zoom"
+        });
       },
       suck: (api, args = []) => {
         const performSuck = () => {
@@ -4277,7 +5938,11 @@ class KidLisp {
 
         // 🍞 Route suck effect to baked buffer before the bake point
         if (this.suppressDrawingBeforeBake) {
-          this.executePreBakeDraw(api, performSuck);
+          this.executePreBakeDraw(api, performSuck, {
+            commandName: "suck",
+            args,
+            source: "suck"
+          });
           return;
         }
 
@@ -4288,35 +5953,67 @@ class KidLisp {
         // Defer suck execution if embedded layers exist and we're not in embed phase
         if (this.embeddedLayers?.length > 0 && !this.inEmbedPhase) {
           // console.log(`⏸️ Deferring suck execution due to embedded layers`);
-          this.postEmbedCommands.push({
-            name: 'suck',
+          this.enqueuePostEmbedCommand({
+            name: "suck",
             func: () => {
-              // console.log(`⏰ Executing deferred suck with args:`, args);
               api.suck(...args);
             },
             args
+          }, {
+            source: "suck",
+            commandName: "suck"
           });
           return;
         }
 
         // Execute suck immediately
         // console.log(`🚀 Executing suck immediately with args:`, args);
-        performSuck();
+        this.executePreBakeDraw(api, performSuck, {
+          commandName: "suck",
+          args,
+          source: "suck"
+        });
       },
       blur: (api, args = []) => {
-        // 🍞 Suppress blur effect if we're before the bake point
-        if (this.suppressDrawingBeforeBake) {
-          const routed = this.runWithBakedBuffer(api, () => {
+        const performBlur = () => {
+          if (globalThis.$paintApiUnwrapped?.blur) {
+            globalThis.$paintApiUnwrapped.blur(...args);
+            return;
+          }
+          if (typeof api.blur === "function") {
             api.blur(...args);
+          }
+        };
+
+        const attemptedReroute = !!this.suppressDrawingBeforeBake;
+
+        if (attemptedReroute) {
+          const routed = this.executePreBakeDraw(api, performBlur, {
+            commandName: "blur",
+            args,
+            source: "blur"
           });
           if (routed) {
             return;
           }
-          return;
         }
 
-        // Execute blur immediately on the current buffer
-        api.blur(...args);
+        if (BAKE_TRACE) {
+          this.tracePaintCommand("blur", args, {
+            target: this.getRoutingLogTarget(),
+            source: "blur",
+            phase: attemptedReroute ? "direct-fallback" : "direct-effect",
+            details: {
+              expensive: true,
+              routeAtCall: this.routingState?.currentTarget?.() ?? this.getRoutingLogTarget(),
+              suppressingPreBake: !!this.suppressDrawingBeforeBake,
+              rerouteAttempted: attemptedReroute,
+              rerouteSucceeded: false
+            }
+          });
+        }
+
+        performBlur();
       },
       contrast: (api, args = []) => {
         const performContrast = () => {
@@ -4325,25 +6022,35 @@ class KidLisp {
 
         // 🍞 Route contrast adjustments to baked buffer before the bake point
         if (this.suppressDrawingBeforeBake) {
-          this.executePreBakeDraw(api, performContrast);
+          this.executePreBakeDraw(api, performContrast, {
+            commandName: "contrast",
+            args,
+            source: "contrast"
+          });
           return;
         }
 
         // Check if we should defer this command to execute after embedded layers are rendered
         if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase) {
-          this.postEmbedCommands = this.postEmbedCommands || [];
-          this.postEmbedCommands.push({
-            name: 'contrast',
+          this.enqueuePostEmbedCommand({
+            name: "contrast",
             func: () => {
               performContrast();
             },
-            args: args
+            args
+          }, {
+            source: "contrast",
+            commandName: "contrast"
           });
           return;
         }
 
         // Apply contrast immediately
-        performContrast();
+        this.executePreBakeDraw(api, performContrast, {
+          commandName: "contrast",
+          args,
+          source: "contrast"
+        });
       },
       pan: (api, args = []) => {
         api.pan(...args);
@@ -4470,11 +6177,27 @@ class KidLisp {
         };
 
         if (this.suppressDrawingBeforeBake) {
-          this.executePreBakeDraw(api, performPaste);
+          this.executePreBakeDraw(api, performPaste, {
+            commandName: "paste",
+            args: processedArgs,
+            source: "paste",
+            details: {
+              expensive: true,
+              asset: processedArgs?.[0] ?? null
+            }
+          });
           return;
         }
 
-        performPaste();
+        this.executePreBakeDraw(api, performPaste, {
+          commandName: "paste",
+          args: processedArgs,
+          source: "paste",
+          details: {
+            expensive: true,
+            asset: processedArgs?.[0] ?? null
+          }
+        });
       },
       stamp: (api, args = []) => {
         // Process string arguments to remove quotes (e.g., "@handle/timestamp")
@@ -4507,11 +6230,27 @@ class KidLisp {
         };
 
         if (this.suppressDrawingBeforeBake) {
-          this.executePreBakeDraw(api, performStamp);
+          this.executePreBakeDraw(api, performStamp, {
+            commandName: "stamp",
+            args: processedArgs,
+            source: "stamp",
+            details: {
+              expensive: true,
+              asset: processedArgs?.[0] ?? null
+            }
+          });
           return;
         }
 
-        performStamp();
+        this.executePreBakeDraw(api, performStamp, {
+          commandName: "stamp",
+          args: processedArgs,
+          source: "stamp",
+          details: {
+            expensive: true,
+            asset: processedArgs?.[0] ?? null
+          }
+        });
       },
       // Convert args to string and remove surrounding quotes for text commands
       write: (api, args = []) => {
@@ -4579,12 +6318,21 @@ class KidLisp {
           }
         };
 
+        const writeArgs = [content, pos, options];
         if (this.suppressDrawingBeforeBake) {
-          this.executePreBakeDraw(api, performWrite);
+          this.executePreBakeDraw(api, performWrite, {
+            commandName: "write",
+            args: writeArgs,
+            source: "write"
+          });
           return;
         }
 
-        performWrite();
+        this.executePreBakeDraw(api, performWrite, {
+          commandName: "write",
+          args: writeArgs,
+          source: "write"
+        });
       },
       // � 3D Form functions
       // 3D Objects - simple global forms
@@ -5642,12 +7390,27 @@ class KidLisp {
           return undefined;
         };
 
+        let backdropResult;
+
+        const invokeBackdrop = () => {
+          backdropResult = performBackdrop();
+        };
+
         if (this.suppressDrawingBeforeBake) {
-          this.executePreBakeDraw(api, performBackdrop);
-          return;
+          this.executePreBakeDraw(api, invokeBackdrop, {
+            commandName: "backdrop",
+            args,
+            source: "backdrop"
+          });
+          return backdropResult;
         }
 
-        return performBackdrop();
+        this.executePreBakeDraw(api, invokeBackdrop, {
+          commandName: "backdrop",
+          args,
+          source: "backdrop"
+        });
+        return backdropResult;
       },
 
       // Programmatically add all CSS color constants to the global environment.
@@ -5669,93 +7432,144 @@ class KidLisp {
       // 🍞 Bake function - creates a persistent animated layer that continues to execute pre-bake code
       // Similar to embedded layers, maintains its own buffer and AST
       bake: (api, args = []) => {
-        // Create a simple key for this bake call (not using counter to avoid unique keys each time)
-        const bakeKey = "bake_call";
-
-        // Check if bake has already been executed in this program run
-        if (this.onceExecuted.has(bakeKey)) {
-          // On subsequent frames, we reach this point - disable drawing suppression from here forward
-          if (VERBOSE) console.log("🍞 Bake: Subsequent frame - resuming post-bake drawing layer");
-          this.suppressDrawingBeforeBake = false;
-
-          // Ensure post-bake buffer matches current screen dimensions even if resolution changed
-          if (api.screen?.width && api.screen?.height) {
-            if (!this.postBakeLayer ||
-              this.postBakeLayer.width !== api.screen.width ||
-              this.postBakeLayer.height !== api.screen.height) {
-              this.postBakeLayer = this.resizePixelBufferPreserve(
-                this.postBakeLayer,
-                api.screen.width,
-                api.screen.height,
-                0,
-              );
-            }
+        const argToken = (arg) => {
+          if (typeof arg === "string") {
+            return arg;
           }
+          if (Array.isArray(arg) && arg.length === 2 && arg[0] === "quote" && typeof arg[1] === "string") {
+            return arg[1];
+          }
+          return null;
+        };
 
-          this.switchToPostBakeRouting(api);
+        const bakeFlags = args.map(argToken).filter(Boolean);
+        const keepScreen = args?.[0] === "keep" || bakeFlags.includes("keep") || bakeFlags.includes("keep-screen");
+        const stackMode = bakeFlags.includes("stack") || bakeFlags.includes("append") || bakeFlags.includes("stacked");
+        const strategy = stackMode ? "append" : "replace";
 
+        const screen = api.screen;
+
+        if (!screen?.pixels) {
+          console.warn("🍞 No screen buffer available to bake");
           return this.bakedLayers?.length || 0;
         }
 
-        // Mark bake as executed for this program run
-        this.onceExecuted.add(bakeKey);
-        this.hasBakedContent = true; // Mark that we have baked content
+        const width = screen?.width || this.layerManager.dimensions.width || 256;
+        const height = screen?.height || this.layerManager.dimensions.height || 256;
 
-  if (VERBOSE) console.log("🍞 Baking current layer - creating persistent animated buffer...");
-
-        // Get current screen buffer dimensions
-        const currentWidth = api.screen?.width || 256;
-        const currentHeight = api.screen?.height || 256;
-
-        // Create a persistent baked layer with its own buffer (like embedded layers)
-        if (api.screen?.pixels) {
-          // Clone the current state as the initial buffer
-          const bakedBuffer = {
-            width: currentWidth,
-            height: currentHeight,
-            pixels: new Uint8ClampedArray(api.screen.pixels)
-          };
-
-          const bakedLayer = {
-            buffer: bakedBuffer,
-            width: currentWidth,
-            height: currentHeight
-          };
-
-          this.bakedLayers = [bakedLayer]; // Only support one baked layer for now
-          this.bakeCallCount = 1;
-
-          if (VERBOSE) console.log(`🍞 Baked layer created (${currentWidth}x${currentHeight})`);
-
-          // Initialize the persistent post-bake layer buffer
-          const overlaySize = currentWidth * currentHeight * 4;
-          let overlayPixels = new Uint8ClampedArray(overlaySize);
-
-          // Clear the current buffer to start fresh (optional - could be configurable)
-          if (args.length === 0 || args[0] !== "keep") {
-            // Manually clear the screen buffer to transparent instead of using wipe
-            if (api.screen?.pixels) {
-              api.screen.pixels.fill(0); // Fill with transparent black (0,0,0,0)
-            }
-
-            // If we're clearing, make sure overlay starts transparent as well
-            overlayPixels.fill(0);
-          }
-
-          this.postBakeLayer = {
-            width: currentWidth,
-            height: currentHeight,
-            pixels: overlayPixels
-          };
-        } else {
-          console.warn("🍞 No screen buffer available to bake");
+        if (VERBOSE) {
+          console.log(`🍞 Baking layer ${this.bakeCallCount + 1} — snapshotting ${width}x${height}`);
         }
 
-        // After baking on first frame, allow drawing to continue
+        const bakedPixels = new Uint8ClampedArray(screen.pixels);
+        const bakedBuffer = {
+          width,
+          height,
+          pixels: bakedPixels,
+        };
+
+        const bakedBackdrop = this.extractFirstOpaquePixel(bakedPixels);
+        const hadFirstLineColor = this.firstLineColor !== undefined && this.firstLineColor !== null;
+        const shouldUpdateBackdrop = !hadFirstLineColor;
+        const desiredBackdropColor =
+          this.normalizeBackgroundFillColor(this.getBackgroundFillColor()) ||
+          this.normalizeBackgroundFillColor(this.firstLineColor) ||
+          null;
+
+        let appliedBackdropColor = bakedBackdrop;
+
+        if (bakedBackdrop && desiredBackdropColor) {
+          const remapped = this.remapBackdropColor(
+            bakedPixels,
+            bakedBackdrop,
+            desiredBackdropColor,
+          );
+
+          if (remapped) {
+            appliedBackdropColor = desiredBackdropColor;
+          }
+        }
+
+        if (appliedBackdropColor) {
+          this.bakedBackdropColor = appliedBackdropColor;
+
+          if (shouldUpdateBackdrop) {
+            this.firstLineColor = appliedBackdropColor;
+            this.persistentFirstLineColor = appliedBackdropColor;
+
+            if (typeof window !== "undefined" && window.setPersistentFirstLineColor) {
+              window.setPersistentFirstLineColor(appliedBackdropColor);
+            } else if (typeof globalThis !== "undefined" && globalThis.storePersistentFirstLineColor) {
+              globalThis.storePersistentFirstLineColor(appliedBackdropColor);
+            }
+          }
+        }
+
+        this.bakeCallCount += 1;
+
+        const layerMetadata = {
+          index: this.layerManager.bakedLayers().length,
+          callIndex: this.bakeCallCount,
+          createdAtFrame: this.frameCount ?? null,
+          capturedAt: performance?.now?.() ?? Date.now(),
+        };
+
+        const appendedLayer = this.layerManager.appendBakedLayer(bakedBuffer, {
+          metadata: layerMetadata,
+          strategy,
+        });
+
+        if (appendedLayer?.metadata) {
+          appendedLayer.metadata.index = this.layerManager.bakedLayers().length - 1;
+        }
+
+        if (BAKE_TRACE) {
+          console.log("🛰️ BAKE LAYERS", {
+            event: "bake:append",
+            bakeCall: this.bakeCallCount,
+            keepScreen,
+            strategy,
+            dimensions: { width, height },
+            appended: {
+              id: appendedLayer?.id ?? null,
+              metadata: appendedLayer?.metadata ?? null
+            },
+            totals: {
+              baked: this.layerManager.bakedLayers().length,
+              overlay: this.layerManager.overlayLayer() ? 1 : 0
+            }
+          });
+        }
+
+        this._legacyHasBakedContent = true;
+
+        const overlayLayer = this.layerManager.ensureOverlay({ width, height }, { clearNewPixels: false });
+
+        if (!keepScreen) {
+          if (screen?.pixels) {
+            screen.pixels.fill(0);
+          }
+          if (overlayLayer?.pixels) {
+            overlayLayer.pixels.fill(0);
+          }
+          if (overlayLayer?.buffer?.pixels && overlayLayer.buffer.pixels !== overlayLayer.pixels) {
+            overlayLayer.buffer.pixels.fill(0);
+          }
+        }
+
         this.suppressDrawingBeforeBake = false;
         this.switchToPostBakeRouting(api);
 
-        return this.bakedLayers.length;
+        if (BAKE_TRACE) {
+          const snapshot = this.layerManager.snapshot();
+          console.log("🛰️ BAKE LAYERS", {
+            event: "bake:state",
+            bakeCall: this.bakeCallCount,
+            snapshot
+          });
+        }
+
+        return this.bakedLayers?.length || 0;
       },
 
       // 🖼️ Embed function - loads cached KidLisp code and creates persistent animated layers
@@ -6625,7 +8439,25 @@ class KidLisp {
     if (VERBOSE) console.log("🏃 Body:", body);
     // console.log("🎯 BODY DEBUG - length:", body.length, "items:", JSON.stringify(body));
 
-    // 🎨 First-line color shorthand: If the first item is just a color name, 
+    // � BAKE LOOKAHEAD: Check if there's a `bake` command coming in this evaluation
+    // If so, enable suppressDrawingBeforeBake early to prevent first-line color shorthand
+    // from drawing before bake captures the initial state
+    const hasBakeInBody = body.some(item => {
+      if (Array.isArray(item) && item.length > 0 && item[0] === "bake") {
+        return true;
+      }
+      if (item === "bake") {
+        return true;
+      }
+      return false;
+    });
+    
+    if (hasBakeInBody && !this.suppressDrawingBeforeBake) {
+      if (VERBOSE) console.log("🍞 BAKE LOOKAHEAD: Detected 'bake' in body, enabling suppressDrawingBeforeBake");
+      this.suppressDrawingBeforeBake = true;
+    }
+
+    // �🎨 First-line color shorthand: If the first item is just a color name, 
     // treat it as (once (wipe <color>)) for easy backdrop setting
     if (body.length > 0 && !parsed.body) {
       const firstItem = body[0];
@@ -6654,14 +8486,17 @@ class KidLisp {
           if (!this.onceExecuted.has(backdropKey)) {
             this.onceExecuted.add(backdropKey);
 
-            // Set the background fill color for reframe operations
-            if (api.backgroundFill) {
-              api.backgroundFill(colorValues);
-            }
+            // 🍞 BAKE FIX: Skip backdrop wipe when bake is active to prevent interference
+            if (!this.suppressDrawingBeforeBake) {
+              // Set the background fill color for reframe operations
+              if (api.backgroundFill) {
+                api.backgroundFill(colorValues);
+              }
 
-            // Apply wipe once for first-line RGB/RGBA shorthand
-            if (api.wipe) {
-              api.wipe(...colorValues); // Spread RGB or RGBA values as separate arguments
+              // Apply wipe once for first-line RGB/RGBA shorthand
+              if (api.wipe) {
+                api.wipe(...colorValues); // Spread RGB or RGBA values as separate arguments
+              }
             }
 
             // Remove the processed items (3 for RGB, 4 for RGBA)
@@ -6704,14 +8539,18 @@ class KidLisp {
             if (!this.onceExecuted.has(backdropKey)) {
               this.onceExecuted.add(backdropKey);
 
-              // Set the background fill color for reframe operations
-              if (api.backgroundFill) {
-                api.backgroundFill(rgbValues);
-              }
+              // 🍞 BAKE FIX: On first frame (before bake executes), apply wipe normally
+              // After bake executes, skip wipe to prevent overwriting baked content
+              if (!this.suppressDrawingBeforeBake || !this.hasBakedContent) {
+                // Set the background fill color for reframe operations
+                if (api.backgroundFill) {
+                  api.backgroundFill(rgbValues);
+                }
 
-              // Apply wipe once for first-line RGB shorthand
-              if (api.wipe) {
-                api.wipe(...rgbValues); // Spread RGB values as separate arguments
+                // Apply wipe once for first-line RGB shorthand
+                if (api.wipe) {
+                  api.wipe(...rgbValues); // Spread RGB values as separate arguments
+                }
               }
 
               // Remove the first item since we've processed it
@@ -6764,14 +8603,24 @@ class KidLisp {
             if (!this.onceExecuted.has(backdropKey)) {
               this.onceExecuted.add(backdropKey);
 
-              // Set the background fill color for reframe operations
-              if (api.backgroundFill) {
-                api.backgroundFill(colorName);
+              // 🍞 BAKE FIX: On first frame (before bake executes), apply wipe normally
+              // After bake executes, skip wipe to prevent overwriting baked content
+              if (ERASE_DEBUG) {
+                console.log(`🎨 FIRST-LINE COLOR | colorName=${colorName} | suppressDrawingBeforeBake=${this.suppressDrawingBeforeBake} | hasBakedContent=${this.hasBakedContent}`);
               }
+              if (!this.suppressDrawingBeforeBake || !this.hasBakedContent) {
+                if (ERASE_DEBUG) {
+                  console.log(`🎨 FIRST-LINE COLOR: Applying wipe with ${colorName}`);
+                }
+                // Set the background fill color for reframe operations
+                if (api.backgroundFill) {
+                  api.backgroundFill(colorName);
+                }
 
-              // Apply wipe once for first-line color shorthand
-              if (api.wipe) {
-                api.wipe(colorName);
+                // Apply wipe once for first-line color shorthand
+                if (api.wipe) {
+                  api.wipe(colorName);
+                }
               }
 
               // Only remove the first item when backdrop is actually applied
@@ -8943,13 +10792,27 @@ class KidLisp {
     bakedLayer.height = resized.height;
   }
 
-  runWithBakedBuffer(api, callback) {
-    if (!this.bakedLayers || this.bakedLayers.length === 0) {
+  runWithBakedBuffer(api, callback, telemetry = null) {
+    const bakedLayers = this.layerManager.bakedLayers();
+    if (!bakedLayers || bakedLayers.length === 0) {
+      if (BAKE_TRACE) {
+        console.log("🛰️ BAKE ROUTE", {
+          event: "runWithBakedBuffer:skip",
+          reason: "no-baked-layers"
+        });
+      }
       return false;
     }
 
-    const bakedLayer = this.bakedLayers[0];
+    const bakedLayer = bakedLayers[bakedLayers.length - 1];
     if (!bakedLayer?.buffer) {
+      if (BAKE_TRACE) {
+        console.log("🛰️ BAKE ROUTE", {
+          event: "runWithBakedBuffer:skip",
+          reason: "missing-buffer",
+          layerIndex: bakedLayers.length - 1
+        });
+      }
       return false;
     }
 
@@ -8957,26 +10820,196 @@ class KidLisp {
       this.ensureBakedLayerSize(bakedLayer, api.screen.width, api.screen.height);
     }
 
-    const originalScreen = api.screen;
+    const captureAlphaSummary = () => {
+      if (!ERASE_DEBUG || !bakedLayer?.buffer?.pixels) {
+        return null;
+      }
+
+      const { pixels, width, height } = bakedLayer.buffer;
+      if (!pixels || !width || !height) {
+        return null;
+      }
+
+      let zeroAlphaCount = 0;
+      const zeroSamples = [];
+      const nonZeroSamples = [];
+      const totalPixels = width * height;
+
+      for (let i = 0; i < pixels.length; i += 4) {
+        const alpha = pixels[i + 3];
+        if (alpha === 0) {
+          zeroAlphaCount++;
+          if (zeroSamples.length < 5) {
+            const pixelIndex = i / 4;
+            zeroSamples.push({
+              x: pixelIndex % width,
+              y: Math.floor(pixelIndex / width)
+            });
+          }
+        } else if (nonZeroSamples.length < 5) {
+          const pixelIndex = i / 4;
+          nonZeroSamples.push({
+            x: pixelIndex % width,
+            y: Math.floor(pixelIndex / width),
+            alpha
+          });
+        }
+      }
+
+      return {
+        totalPixels,
+        zeroAlphaCount,
+        zeroSamples,
+        nonZeroSamples
+      };
+    };
+
+    const restoreLayer = this.routingState?.currentLayer?.() ?? null;
+    const restoreBuffer = restoreLayer?.buffer ?? api.screen;
+    const restoreTargetLabel = restoreLayer?.type ?? this.getRoutingLogTarget() ?? "screen";
+
+    if (BAKE_TRACE) {
+      console.log("🛰️ BAKE ROUTE", {
+        event: "runWithBakedBuffer:start",
+        bakedIndex: bakedLayers.length - 1,
+        bakedId: bakedLayer.id ?? null,
+        restoreTarget: restoreTargetLabel,
+        bakedDimensions: {
+          width: bakedLayer.buffer?.width ?? null,
+          height: bakedLayer.buffer?.height ?? null
+        }
+      });
+    }
+
     api.page(bakedLayer.buffer);
+    if (BAKE_TRACE) {
+      const meta = telemetry ? { ...telemetry } : {};
+      const bakedLayerIndex = bakedLayers.findIndex((layer) => layer === bakedLayer || layer?.buffer === bakedLayer?.buffer);
+
+      meta.commandName = meta.commandName ?? "baked-buffer";
+      meta.args = meta.args ?? [];
+      meta.target = meta.target ?? "baked";
+      meta.source = meta.source ?? "runWithBakedBuffer";
+      meta.phase = meta.phase ?? "baked-buffer";
+      meta.layerIndex = meta.layerIndex ?? (bakedLayerIndex >= 0 ? bakedLayerIndex : null);
+      meta.layerLabel = meta.layerLabel ?? (meta.layerIndex !== null ? `baked[${meta.layerIndex}]` : "baked");
+      meta.duplicated = meta.duplicated ?? false;
+      meta.details = {
+        ...(meta.details || {}),
+        reroutedFrom: restoreTargetLabel
+      };
+      // Preserve explicit metadata bag if provided
+      if (telemetry?.metadata) {
+        meta.metadata = { ...telemetry.metadata };
+      }
+      this.tracePaintCommand(meta.commandName, meta.args, meta);
+    }
+    const alphaSummaryBefore = captureAlphaSummary();
     try {
-      callback(bakedLayer);
+      // 🍞 Reapply ink state in the baked buffer context since api.page() switches buffers
+      // Prefer the unwrapped paint API when available, but gracefully fall back to the routed api
+      if (this.inkStateSet && this.inkState !== undefined) {
+        const inkArgs = Array.isArray(this.inkState)
+          ? [...this.inkState]
+          : [this.inkState];
+        if (inkArgs.length > 0) {
+          const visitedApis = new Set();
+          const appliedLabels = [];
+          const attempts = [];
+
+          const unwrappedApi = globalThis.$paintApiUnwrapped;
+          if (unwrappedApi && typeof unwrappedApi.ink === "function") {
+            attempts.push({ api: unwrappedApi, label: "unwrapped" });
+          }
+
+          if (typeof api?.ink === "function") {
+            attempts.push({ api, label: "routed" });
+          }
+
+          attempts.forEach(({ api: targetApi, label }) => {
+            if (!targetApi || visitedApis.has(targetApi)) {
+              return;
+            }
+            try {
+              targetApi.ink(...inkArgs);
+              visitedApis.add(targetApi);
+              appliedLabels.push(label);
+            } catch (err) {
+              if (VERBOSE) {
+                console.warn(`⚠️ Failed to reapply ink using ${label} paint API`, {
+                  inkArgs,
+                  error: err
+                });
+              }
+            }
+          });
+
+          if (appliedLabels.length === 0 && VERBOSE) {
+            console.warn("⚠️ Unable to reapply ink state in baked buffer context", {
+              inkArgs,
+              hasUnwrapped: !!globalThis.$paintApiUnwrapped?.ink
+            });
+          }
+        }
+      }
+  callback(bakedLayer);
+      const alphaSummaryAfter = captureAlphaSummary();
+      if (
+        ERASE_DEBUG &&
+        alphaSummaryBefore &&
+        alphaSummaryAfter &&
+        alphaSummaryAfter.zeroAlphaCount !== alphaSummaryBefore.zeroAlphaCount
+      ) {
+        console.log("🍞 BAKED α delta", {
+          before: alphaSummaryBefore,
+          after: alphaSummaryAfter
+        });
+      }
     } finally {
-      api.page(originalScreen);
+      api.page(restoreBuffer ?? api.screen);
+    }
+
+    if (BAKE_TRACE) {
+      console.log("🛰️ BAKE ROUTE", {
+        event: "runWithBakedBuffer:end",
+        bakedIndex: bakedLayers.length - 1,
+        restoredTo: restoreTargetLabel
+      });
     }
 
     return true;
   }
 
   beginBakedFrameRouting(api) {
-    if (!this.hasBakedContent || !this.bakedLayers || this.bakedLayers.length === 0) {
-      this.frameRoutingContext = null;
+    const previousTarget = this.routingState?.currentTarget?.() ?? "screen";
+
+    const bakedLayers = this.layerManager.bakedLayers();
+    if (!this.hasBakedContent || !Array.isArray(bakedLayers) || bakedLayers.length === 0) {
+      if (BAKE_TRACE) {
+        this.traceRoutingTransition("beginBakedFrameRouting:skip", {
+          reason: !this.hasBakedContent ? "no-baked-content" : "empty-baked-layers",
+          from: previousTarget
+        });
+        this.traceFrameRoutingContext("beginBakedFrameRouting:skip", {
+          reason: !this.hasBakedContent ? "no-baked-content" : "empty-baked-layers"
+        });
+      }
+      this.routingState.restoreToScreen();
       return () => {};
     }
 
-    const bakedLayer = this.bakedLayers[0];
+    const bakedLayer = bakedLayers[bakedLayers.length - 1];
     if (!bakedLayer?.buffer) {
-      this.frameRoutingContext = null;
+      if (BAKE_TRACE) {
+        this.traceRoutingTransition("beginBakedFrameRouting:skip", {
+          reason: "missing-baked-buffer",
+          from: previousTarget
+        });
+        this.traceFrameRoutingContext("beginBakedFrameRouting:skip", {
+          reason: "missing-baked-buffer"
+        });
+      }
+      this.routingState.restoreToScreen();
       return () => {};
     }
 
@@ -8984,14 +11017,47 @@ class KidLisp {
       this.ensureBakedLayerSize(bakedLayer, api.screen.width, api.screen.height);
     }
 
-    const originalScreen = api.screen;
-    this.frameRoutingContext = {
-      originalScreen,
-      bakedLayer,
-      currentTarget: "baked"
+    const screenLayer = this.routingState.screenLayer();
+    const originalScreen = screenLayer?.buffer ?? api.screen;
+    const originalDimensions = {
+      width: originalScreen?.width ?? null,
+      height: originalScreen?.height ?? null
     };
+    const bakedDimensions = {
+      width: bakedLayer?.buffer?.width ?? null,
+      height: bakedLayer?.buffer?.height ?? null
+    };
+    const bakedLayerIndex = bakedLayers.findIndex((layer) => layer === bakedLayer || layer?.buffer === bakedLayer?.buffer);
+
+    this.routingState.pushBakedLayer(bakedLayer.buffer ?? bakedLayer, {
+      id: bakedLayer.id,
+      metadata: {
+        bakedLayerIndex: bakedLayerIndex >= 0 ? bakedLayerIndex : null,
+        originalDimensions,
+        bakedDimensions,
+        originalScreen
+      }
+    });
 
     api.page(bakedLayer.buffer);
+
+    if (BAKE_TRACE) {
+      this.traceRoutingTransition("beginBakedFrameRouting", {
+        from: previousTarget,
+        to: "baked",
+        layerIndex: bakedLayerIndex >= 0 ? bakedLayerIndex : null,
+        layerLabel: bakedLayerIndex >= 0 ? `baked[${bakedLayerIndex}]` : "baked",
+        details: {
+          originalScreen: originalDimensions,
+          bakedBuffer: bakedDimensions
+        }
+      });
+      this.traceFrameRoutingContext("beginBakedFrameRouting", {
+        originalScreen: originalDimensions,
+        bakedBuffer: bakedDimensions,
+        layerIndex: bakedLayerIndex >= 0 ? bakedLayerIndex : null
+      });
+    }
 
     return () => {
       this.endBakedFrameRouting(api);
@@ -8999,77 +11065,433 @@ class KidLisp {
   }
 
   switchToPostBakeRouting(api) {
-    if (!this.postBakeLayer) {
+    const overlayLayer = this.layerManager.overlayLayer();
+    if (!overlayLayer) {
+      if (BAKE_TRACE) {
+        this.traceRoutingTransition("switchToPostBakeRouting:skip", {
+          reason: "no-post-bake-layer",
+          from: this.routingState?.currentTarget?.() ?? "screen"
+        });
+        this.traceFrameRoutingContext("switchToPostBakeRouting:skip", {
+          reason: "no-post-bake-layer"
+        });
+      }
       return false;
     }
 
     if (
       api.screen?.width &&
       api.screen?.height &&
-      (this.postBakeLayer.width !== api.screen.width || this.postBakeLayer.height !== api.screen.height)
+      (overlayLayer.width !== api.screen.width || overlayLayer.height !== api.screen.height)
     ) {
-      this.postBakeLayer = this.resizePixelBufferPreserve(
-        this.postBakeLayer,
+      const resizedOverlay = this.resizePixelBufferPreserve(
+        overlayLayer,
         api.screen.width,
         api.screen.height,
         0,
       );
+
+      this.layerManager.setOverlay({
+        id: overlayLayer.id,
+        buffer: resizedOverlay,
+        width: resizedOverlay?.width ?? api.screen.width,
+        height: resizedOverlay?.height ?? api.screen.height,
+        pixels: resizedOverlay?.pixels ?? null,
+        metadata: overlayLayer.metadata ?? {},
+      });
     }
 
-    if (!this.frameRoutingContext) {
-      this.frameRoutingContext = {
-        originalScreen: api.screen,
-        bakedLayer: this.bakedLayers?.[0] || null,
-        currentTarget: null
-      };
+    const activeOverlay = this.layerManager.overlayLayer();
+    const previousTarget = this.routingState?.currentTarget?.() ?? "screen";
+    const activeBeforeOverlay = this.routingState?.currentLayer?.();
+    const screenLayerState = this.routingState?.screenLayer?.();
+
+    let pushedLayer = null;
+    if (previousTarget !== "postBake") {
+      pushedLayer = this.routingState.pushPostBakeLayer(activeOverlay?.buffer ?? activeOverlay, {
+        id: activeOverlay?.id,
+        metadata: {
+          overlayDimensions: {
+            width: activeOverlay?.width ?? null,
+            height: activeOverlay?.height ?? null
+          },
+          parentLayer: activeBeforeOverlay?.type ?? null,
+          bakedLayerIndex: activeBeforeOverlay?.metadata?.bakedLayerIndex ?? null
+        }
+      });
     }
 
-    api.page(this.postBakeLayer);
-    this.frameRoutingContext.currentTarget = "postBake";
-    return true;
+    const previousBuffer =
+      activeBeforeOverlay?.type && activeBeforeOverlay.type !== "postBake"
+        ? (activeBeforeOverlay.buffer ?? screenLayerState?.buffer ?? api.screen)
+        : screenLayerState?.buffer ?? api.screen;
+
+    try {
+      api.page(activeOverlay?.buffer ?? activeOverlay);
+      this.enablePostBakeEraseMirroring(api);
+
+      if (BAKE_TRACE) {
+        this.traceRoutingTransition("switchToPostBakeRouting", {
+          from: previousTarget,
+          to: "postBake",
+          layerLabel: "postBakeOverlay",
+          details: {
+            overlaySize: {
+              width: activeOverlay?.width ?? null,
+              height: activeOverlay?.height ?? null
+            }
+          }
+        });
+        this.traceFrameRoutingContext("switchToPostBakeRouting", {
+          previousTarget,
+          overlaySize: {
+            width: activeOverlay?.width ?? null,
+            height: activeOverlay?.height ?? null
+          }
+        });
+      }
+      return true;
+    } catch (err) {
+      this.disablePostBakeEraseMirroring();
+      if (pushedLayer) {
+        this.routingState.popLayerIf(layer => layer === pushedLayer);
+      } else if (this.routingState?.currentTarget?.() === "postBake") {
+        this.routingState.restoreToScreen();
+      }
+      if (previousBuffer) {
+        try {
+          api.page(previousBuffer);
+        } catch (pageError) {
+          if (BAKE_TRACE) {
+            this.traceRoutingTransition("switchToPostBakeRouting:restore-error", {
+              reason: pageError?.message ?? String(pageError)
+            });
+          }
+        }
+      }
+      if (BAKE_TRACE) {
+        this.traceRoutingTransition("switchToPostBakeRouting:error", {
+          from: previousTarget,
+          to: "postBake",
+          error: err?.message ?? String(err)
+        });
+      }
+      throw err;
+    }
   }
 
   endBakedFrameRouting(api) {
-    if (!this.frameRoutingContext) {
+    const previousTarget = this.routingState?.currentTarget?.() ?? null;
+    const bakedLayerState = this.routingState?.findLastLayer?.("baked");
+    const screenLayer = this.routingState.screenLayer();
+
+    if (!bakedLayerState) {
+      if (BAKE_TRACE) {
+        this.traceRoutingTransition("endBakedFrameRouting:skip", {
+          reason: "no-baked-layer",
+          from: previousTarget,
+          to: "screen"
+        });
+        this.traceFrameRoutingContext("endBakedFrameRouting:skip", {
+          reason: "no-baked-layer"
+        });
+      }
+      const fallbackScreen = screenLayer?.buffer ?? api.screen;
+      if (fallbackScreen) {
+        api.page(fallbackScreen);
+      }
+      this.disablePostBakeEraseMirroring();
+      this.routingState.restoreToScreen();
       return;
     }
 
-    const { originalScreen } = this.frameRoutingContext;
+    const bakedLayerBuffer = bakedLayerState.buffer ?? null;
+    let bakedLayerIndex = bakedLayerState.metadata?.bakedLayerIndex ?? null;
+    if (bakedLayerIndex === null && bakedLayerBuffer) {
+      const bakedLayers = this.layerManager.bakedLayers();
+      const idx = bakedLayers.findIndex((layer) => layer?.buffer === bakedLayerBuffer || layer === bakedLayerBuffer);
+      bakedLayerIndex = idx >= 0 ? idx : null;
+    }
+
+    const originalScreen = bakedLayerState.metadata?.originalScreen ?? screenLayer?.buffer ?? api.screen;
     if (originalScreen) {
       api.page(originalScreen);
     }
 
-    this.frameRoutingContext = null;
+    this.disablePostBakeEraseMirroring();
+
+    if (BAKE_TRACE) {
+      this.traceRoutingTransition("endBakedFrameRouting", {
+        from: previousTarget ?? "baked",
+        to: "screen",
+        layerIndex: bakedLayerIndex,
+        layerLabel: previousTarget === "postBake"
+          ? "postBakeOverlay"
+          : bakedLayerIndex !== null ? `baked[${bakedLayerIndex}]` : previousTarget,
+        details: {
+          restoredScreen: {
+            width: originalScreen?.width ?? null,
+            height: originalScreen?.height ?? null
+          }
+        }
+      });
+      this.traceFrameRoutingContext("endBakedFrameRouting:before-reset", {
+        restoredScreen: {
+          width: originalScreen?.width ?? null,
+          height: originalScreen?.height ?? null
+        }
+      });
+    }
+
+    this.routingState.restoreToScreen();
+    this.traceFrameRoutingContext("endBakedFrameRouting", {
+      restored: true
+    });
   }
 
-  executePreBakeDraw(api, drawFn) {
+  executePreBakeDraw(api, drawFn, telemetry = null) {
+    const meta = telemetry ? { ...telemetry } : {};
+
+    const logDraw = (overrides = {}) => {
+      const currentTarget = this.routingState?.currentTarget?.() ?? null;
+      const bakedLayerState = this.routingState?.findLastLayer?.("baked") ?? null;
+      const bakedLayerBuffer = bakedLayerState?.buffer ?? null;
+      let bakedLayerIndex = bakedLayerState?.metadata?.bakedLayerIndex ?? null;
+      if (bakedLayerIndex === null && bakedLayerBuffer) {
+        const bakedLayers = this.layerManager.bakedLayers();
+        const idx = bakedLayers.findIndex((layer) => layer?.buffer === bakedLayerBuffer || layer === bakedLayerBuffer);
+        bakedLayerIndex = idx >= 0 ? idx : null;
+      }
+
+      const payload = {
+        ...meta,
+        ...overrides
+      };
+      payload.commandName = payload.commandName ?? "draw";
+      payload.args = payload.args ?? [];
+      payload.target = payload.target ?? this.getRoutingLogTarget();
+      payload.source = payload.source ?? "direct";
+      payload.phase = payload.phase ?? (this.suppressDrawingBeforeBake ? "pre-bake-reroute" : "direct-pre-bake");
+      if (payload.layerIndex === undefined && currentTarget === "baked" && bakedLayerIndex !== null) {
+        payload.layerIndex = bakedLayerIndex;
+        payload.layerLabel = payload.layerLabel ?? `baked[${bakedLayerIndex}]`;
+      }
+      payload.duplicated = payload.duplicated ?? !!meta.duplicated;
+      this.tracePaintCommand(payload.commandName, payload.args, payload);
+    };
+
     if (!this.suppressDrawingBeforeBake) {
+      logDraw({ phase: "direct-pre-bake" });
       drawFn();
       return true;
     }
 
-    if (this.frameRoutingContext?.currentTarget === "baked") {
+    if (this.routingState?.currentTarget?.() === "baked") {
+      logDraw({ target: "baked", source: meta.source ?? "baked-context", phase: "baked-frame" });
       drawFn();
       return true;
     }
 
     return this.runWithBakedBuffer(api, () => {
       drawFn();
+    }, {
+      ...meta,
+      commandName: meta.commandName ?? "draw",
+      args: meta.args ?? [],
+      target: "baked",
+      source: meta.source ?? "executePreBakeDraw",
+      phase: "baked-buffer",
+      duplicated: meta.duplicated ?? false
     });
+  }
+
+  enqueuePostEmbedCommand(command, metadata = {}) {
+    if (!command) {
+      return;
+    }
+
+    if (!this.postEmbedCommands) {
+      this.postEmbedCommands = [];
+    }
+
+    const commandName = metadata.commandName ?? command.name ?? command?.func?.name ?? "postEmbed";
+    const layerContext = metadata.layerContext ?? this.routingState?.currentTarget?.() ?? null;
+
+    const enriched = {
+      ...command,
+      name: commandName,
+      duplicated: metadata.duplicated ?? false,
+      metadata: {
+        commandName,
+        source: metadata.source ?? "postEmbedQueue",
+        target: metadata.target ?? null,
+        phase: metadata.phase ?? "post-embed",
+        deferredFromEmbed: metadata.deferredFromEmbed ?? !this.inEmbedPhase,
+        queuedFrame: metadata.queuedFrame ?? this.frameCount ?? null,
+        layerContext,
+        duplicated: metadata.duplicated ?? false,
+        ...metadata
+      }
+    };
+
+    this.postEmbedCommands.push(enriched);
+  }
+
+  flushRetroactiveEraseQueue(api, context = {}) {
+    const drain = this.routingState?.drainRetroactiveErase?.bind(this.routingState);
+    if (!drain) {
+      return;
+    }
+
+    const queue = drain();
+    if (!queue || queue.length === 0) {
+      return;
+    }
+
+    const screenLayer = this.routingState?.screenLayer?.();
+    const restoreBuffer = screenLayer?.buffer ?? api.screen;
+
+    queue.forEach((entry, index) => {
+      if (!entry?.commandName) {
+        return;
+      }
+
+      const argsArray = Array.isArray(entry.args) ? [...entry.args] : [];
+      const meta = entry.metadata ?? {};
+      const inkSnapshot = Array.isArray(entry.inkSnapshot) ? [...entry.inkSnapshot] : null;
+
+      const previousInkState = this.inkState;
+      const previousInkSet = this.inkStateSet;
+
+      if (inkSnapshot) {
+        this.inkState = [...inkSnapshot];
+        this.inkStateSet = true;
+      }
+
+      if (this.postBakeLayer?.pixels) {
+        api.page(this.postBakeLayer);
+        this.applyInkSnapshotDirect(api, inkSnapshot);
+        this.tracePaintCommand(entry.commandName, argsArray, {
+          commandName: entry.commandName,
+          args: argsArray,
+          source: "retroactiveOverlay",
+          target: "postBake",
+          phase: "post-embed-retroactive",
+          duplicated: true,
+          details: {
+            retroactive: true,
+            queueIndex: meta.queueIndex ?? index,
+            queueLength: meta.queueLength ?? queue.length,
+            originalLayerContext: meta.layerContext ?? "postBake",
+            reason: context.reason ?? "post-embed"
+          },
+          metadata: meta
+        });
+        this.invokeDirectPaintCommand(api, entry.commandName, argsArray);
+        if (restoreBuffer) {
+          api.page(restoreBuffer);
+        }
+      }
+
+      this.runWithBakedBuffer(api, () => {
+        this.applyInkSnapshotDirect(api, inkSnapshot);
+        this.invokeDirectPaintCommand(api, entry.commandName, argsArray);
+      }, {
+        commandName: entry.commandName,
+        args: argsArray,
+        source: "retroactiveMirror",
+        target: "baked",
+        duplicated: true,
+        phase: "retroactive-baked",
+        details: {
+          retroactive: true,
+          queueIndex: meta.queueIndex ?? index,
+          queueLength: meta.queueLength ?? queue.length,
+          originalLayerContext: meta.layerContext ?? "postBake",
+          reason: context.reason ?? "post-embed"
+        },
+        metadata: meta
+      });
+
+      this.inkState = previousInkState;
+      this.inkStateSet = previousInkSet;
+    });
+
+    if (restoreBuffer) {
+      api.page(restoreBuffer);
+    }
+  }
+
+  applyInkSnapshotDirect(api, inkSnapshot) {
+    const snapshot = Array.isArray(inkSnapshot)
+      ? inkSnapshot
+      : this.inkStateSet && Array.isArray(this.inkState)
+        ? this.inkState
+        : null;
+
+    if (!snapshot || snapshot.length === 0) {
+      return;
+    }
+
+    const targetApi = globalThis.$paintApiUnwrapped ?? api;
+    if (typeof targetApi?.ink === "function") {
+      targetApi.ink(...snapshot);
+    }
+  }
+
+  invokeDirectPaintCommand(api, commandName, args = []) {
+    if (!commandName) {
+      return;
+    }
+
+    const normalizedArgs = Array.isArray(args) ? args : [args];
+    const targetApi = globalThis.$paintApiUnwrapped ?? api;
+    const fn = targetApi?.[commandName];
+    if (typeof fn === "function") {
+      fn(...normalizedArgs);
+    }
   }
 
   // Render baked layers - execute pre-bake code and composite the result
   renderBakedLayers(api) {
     if (!this.bakedLayers || this.bakedLayers.length === 0) {
+      if (BAKE_TRACE) {
+        console.log("🛰️ BAKE RENDER", {
+          event: "renderBakedLayers:skip",
+          reason: "no-baked-layers",
+          screen: {
+            width: api.screen?.width ?? null,
+            height: api.screen?.height ?? null
+          }
+        });
+      }
       return;
     }
 
     const screenWidth = api.screen?.width;
     const screenHeight = api.screen?.height;
 
+    if (BAKE_TRACE) {
+      console.log("🛰️ BAKE RENDER", {
+        event: "renderBakedLayers:start",
+        bakedCount: this.bakedLayers.length,
+        screen: {
+          width: screenWidth ?? null,
+          height: screenHeight ?? null
+        }
+      });
+    }
+
     // Process each baked layer
     this.bakedLayers.forEach((bakedLayer, index) => {
       if (!bakedLayer || !bakedLayer.buffer) {
+        if (BAKE_TRACE) {
+          console.log("🛰️ BAKE RENDER", {
+            event: "renderBakedLayers:skip-layer",
+            index,
+            reason: "missing-buffer"
+          });
+        }
         return;
       }
 
@@ -9081,11 +11503,35 @@ class KidLisp {
         console.warn(`🍞 Buffer size mismatch on layer ${index}: buffer=${bakedLayer.buffer.width}x${bakedLayer.buffer.height} metadata=${bakedLayer.width}x${bakedLayer.height}`);
       }
 
+      if (BAKE_TRACE) {
+        console.log("🛰️ BAKE RENDER", {
+          event: "renderBakedLayers:layer",
+          index,
+          id: bakedLayer.id ?? null,
+          buffer: {
+            width: bakedLayer.buffer?.width ?? null,
+            height: bakedLayer.buffer?.height ?? null
+          },
+          metadata: bakedLayer.metadata ?? null
+        });
+      }
+
       // Baked buffer already updated during AST evaluation; just composite it now
 
       // Composite the updated baked layer onto the main screen
       this.compositeBakedLayer(api, bakedLayer.buffer);
     });
+
+    if (BAKE_TRACE) {
+      console.log("🛰️ BAKE RENDER", {
+        event: "renderBakedLayers:end",
+        bakedCount: this.bakedLayers.length,
+        screen: {
+          width: screenWidth ?? null,
+          height: screenHeight ?? null
+        }
+      });
+    }
   }
 
   // Manual pixel compositing for baked layers
@@ -9095,49 +11541,70 @@ class KidLisp {
     }
 
     const currentPixels = api.screen.pixels;
-    const bakedPixels = bakedLayer.pixels;
-    const currentWidth = api.screen.width;
-    const currentHeight = api.screen.height;
-    const bakedWidth = bakedLayer.width;
-    const bakedHeight = bakedLayer.height;
+  const bakedPixels = bakedLayer.pixels;
+  const currentWidth = api.screen.width;
+  const currentHeight = api.screen.height;
+  const bakedWidth = bakedLayer.width;
+  const bakedHeight = bakedLayer.height;
 
     // Handle different buffer sizes by compositing the overlapping area
     const width = Math.min(currentWidth, bakedWidth);
     const height = Math.min(currentHeight, bakedHeight);
 
     // Composite baked pixels underneath current content with proper alpha blending
+    let eraseLogCount = 0;
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
         const currentIndex = (y * currentWidth + x) * 4;
         const bakedIndex = (y * bakedWidth + x) * 4;
 
-        // Get current pixel (foreground)
-        const currentR = currentPixels[currentIndex];
-        const currentG = currentPixels[currentIndex + 1];
-        const currentB = currentPixels[currentIndex + 2];
-        const currentA = currentPixels[currentIndex + 3] / 255;
+        // Check if baked pixel is the erase marker [-1, -1, -1, -1]
+        const fgR = bakedPixels[bakedIndex];
+        const fgG = bakedPixels[bakedIndex + 1];
+        const fgB = bakedPixels[bakedIndex + 2];
+        const fgAValue = bakedPixels[bakedIndex + 3];
 
-        // Get baked pixel (background)
-        const bakedR = bakedPixels[bakedIndex];
-        const bakedG = bakedPixels[bakedIndex + 1];
-        const bakedB = bakedPixels[bakedIndex + 2];
-        const bakedA = bakedPixels[bakedIndex + 3] / 255;
+        const isAlphaClear = fgAValue === 0 && fgR === 0 && fgG === 0 && fgB === 0;
+        const isLegacyEraseMarker = fgR === 255 && fgG === 255 && fgB === 255 && fgAValue === 255;
 
-        // Alpha compositing: current over baked
-        // Formula: result = foreground * alpha_f + background * (1 - alpha_f)
-        // But we need to account for both alphas properly
-        const outA = currentA + bakedA * (1 - currentA);
-        
-        if (outA > 0) {
-          const outR = (currentR * currentA + bakedR * bakedA * (1 - currentA)) / outA;
-          const outG = (currentG * currentA + bakedG * bakedA * (1 - currentA)) / outA;
-          const outB = (currentB * currentA + bakedB * bakedA * (1 - currentA)) / outA;
-          
-          currentPixels[currentIndex] = Math.round(outR);
-          currentPixels[currentIndex + 1] = Math.round(outG);
-          currentPixels[currentIndex + 2] = Math.round(outB);
-          currentPixels[currentIndex + 3] = Math.round(outA * 255);
+        if (isAlphaClear || isLegacyEraseMarker) {
+          currentPixels[currentIndex] = 0;
+          currentPixels[currentIndex + 1] = 0;
+          currentPixels[currentIndex + 2] = 0;
+          currentPixels[currentIndex + 3] = 0;
+          if (ERASE_DEBUG && eraseLogCount < 10) {
+            console.log("🪞 COMPOSITE ERASE", { x, y, isLegacyEraseMarker });
+            eraseLogCount++;
+          }
+          continue;
         }
+
+        // Treat current pixels as background and baked pixels as foreground
+        const bgR = currentPixels[currentIndex];
+        const bgG = currentPixels[currentIndex + 1];
+        const bgB = currentPixels[currentIndex + 2];
+        const bgA = currentPixels[currentIndex + 3] / 255;
+
+        let fgA = fgAValue / 255;
+
+        const outA = fgA + bgA * (1 - fgA);
+
+        if (outA === 0) {
+          currentPixels[currentIndex] = 0;
+          currentPixels[currentIndex + 1] = 0;
+          currentPixels[currentIndex + 2] = 0;
+          currentPixels[currentIndex + 3] = 0;
+          continue;
+        }
+
+        const outR = (fgR * fgA + bgR * bgA * (1 - fgA)) / outA;
+        const outG = (fgG * fgA + bgG * bgA * (1 - fgA)) / outA;
+        const outB = (fgB * fgA + bgB * bgA * (1 - fgA)) / outA;
+
+        currentPixels[currentIndex] = Math.round(outR);
+        currentPixels[currentIndex + 1] = Math.round(outG);
+        currentPixels[currentIndex + 2] = Math.round(outB);
+        currentPixels[currentIndex + 3] = Math.round(outA * 255);
       }
     }
   }
@@ -9160,6 +11627,7 @@ class KidLisp {
     const height = Math.min(currentHeight, overlayHeight);
 
     // Composite overlay pixels on top of current content
+    let overlayEraseLogCount = 0;
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
         const currentIndex = (y * currentWidth + x) * 4;
@@ -9169,7 +11637,28 @@ class KidLisp {
         const overlayR = overlayPixels[overlayIndex];
         const overlayG = overlayPixels[overlayIndex + 1];
         const overlayB = overlayPixels[overlayIndex + 2];
-        const overlayA = overlayPixels[overlayIndex + 3] / 255;
+        const overlayAValue = overlayPixels[overlayIndex + 3];
+
+        const overlayIsAlphaClear = overlayAValue === 0 && overlayR === 0 && overlayG === 0 && overlayB === 0;
+        const overlayIsLegacyErase = overlayR === 255 && overlayG === 255 && overlayB === 255 && overlayAValue === 255;
+
+        if (overlayIsLegacyErase) {
+          currentPixels[currentIndex] = 0;
+          currentPixels[currentIndex + 1] = 0;
+          currentPixels[currentIndex + 2] = 0;
+          currentPixels[currentIndex + 3] = 0;
+          if (ERASE_DEBUG && overlayEraseLogCount < 10) {
+            console.log("🪞 COMPOSITE ERASE (overlay)", { x, y, overlayIsLegacyErase: true });
+            overlayEraseLogCount++;
+          }
+          continue;
+        }
+
+        if (overlayIsAlphaClear) {
+          continue;
+        }
+
+        const overlayA = overlayAValue / 255;
 
         // Skip fully transparent overlay pixels
         if (overlayA === 0) continue;

@@ -718,14 +718,18 @@ const defaults = {
     cursor("native");
   }, // aka Setup
   sim: () => false, // A framerate independent of rendering.
-  paint: ({ noise16Aesthetic, noise16Sotce, slug, wipe, ink, screen, net }) => {
+  paint: ($) => {
+    const { noise16Aesthetic, noise16Sotce, slug, wipe, ink, screen, net } = $;
     // TODO: Make this a boot choice via the index.html file?
     if (!projectionMode) {
+      // 🍞 Skip noise16 if KidLisp has baked content (it will render its own background)
+      const skipNoise = $.system?.kidlisp?.hasBakedContent;
+      
       if (slug?.indexOf("wipppps") > -1) {
         wipe("black");
       } else if (slug?.indexOf("botce") > -1) {
         noise16Sotce();
-      } else {
+      } else if (!skipNoise) {
         noise16Aesthetic();
         if (net.loadFailureText) {
           ink("white").write(
@@ -3834,7 +3838,6 @@ const LINE = {
 // TODO: Add better hex support via: https://stackoverflow.com/a/53936623/8146077
 
 function ink() {
-  // console.log("🖍️ disk.ink() called with arguments:", [...arguments]);
   const foundColor = graph.findColor(...arguments);
   if (inkFloodLoggingEnabled()) {
     console.log(
