@@ -262,6 +262,66 @@ const TRACK_HEIGHT = 25;
 const TRACK_GAP = 6;
 const MINI_KEYBOARD_HEIGHT = 16;
 const MINI_KEYBOARD_SPACING = 6;
+const QWERTY_MINIMAP_HEIGHT = 28;
+const QWERTY_MINIMAP_SPACING = 6;
+
+const MIDI_BADGE_TEXT = "USB MIDI";
+const MIDI_BADGE_PADDING_X = 4;
+const MIDI_BADGE_PADDING_Y = 2;
+const MIDI_BADGE_MARGIN = 6;
+
+const MELODY_ALIAS_BASE_SIDE = 72;
+const MELODY_ALIAS_MIN_SIDE = 56;
+const MELODY_ALIAS_MARGIN = 6;
+
+const NOTE_TO_KEYBOARD_KEY = {
+  c: "c",
+  "c#": "v",
+  d: "d",
+  "d#": "s",
+  e: "e",
+  f: "f",
+  "f#": "w",
+  g: "g",
+  "g#": "r",
+  a: "a",
+  "a#": "q",
+  b: "b",
+  "+c": "h",
+  "+c#": "t",
+  "+d": "i",
+  "+d#": "y",
+  "+e": "j",
+  "+f": "k",
+  "+f#": "u",
+  "+g": "l",
+  "+g#": "o",
+  "+a": "m",
+  "+a#": "p",
+  "+b": "n",
+};
+
+const KEYBOARD_TO_NOTE = Object.fromEntries(
+  Object.entries(NOTE_TO_KEYBOARD_KEY).map(([note, key]) => [key, note]),
+);
+
+const QWERTY_LAYOUT_ROWS = [
+  ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"],
+  ["a", "s", "d", "f", "g", "h", "j", "k", "l"],
+  ["z", "x", "c", "v", "b", "n", "m"],
+];
+
+function noteToKeyboardKey(note) {
+  if (typeof note !== "string" || note.length === 0) return null;
+  const lower = note.toLowerCase();
+  return NOTE_TO_KEYBOARD_KEY[lower] ?? null;
+}
+
+function keyboardKeyToNote(key) {
+  if (typeof key !== "string" || key.length === 0) return null;
+  const lower = key.toLowerCase();
+  return KEYBOARD_TO_NOTE[lower] ?? null;
+}
 
 let upperOctaveShift = 0, // Set by <(,) or >(.) keys.
   lowerOctaveShift = 0;
@@ -448,6 +508,10 @@ let paintPictureOverlay = false;
 // let qrcells;
 
 let waveBtn, octBtn;
+let melodyAliasBtn;
+let melodyAliasDown = false;
+let melodyAliasActiveNote = null;
+let melodyAliasStartedNote = false;
 
 let rawSong = `
   C:Twin- C:-kle G:twin- G:-kle A:lit- A:-tle G:star,
@@ -627,15 +691,74 @@ function sim({ sound, simCount, num }) {
   primaryColor = num.shiftRGB(primaryColor, d2, val, "lerp");
 }
 
+function resolveMatrixGlyphMetrics(fallbackTypeface) {
+  const glyph =
+    matrixFont?.glyphs?.["0"]?.resolution ??
+    fallbackTypeface?.glyphs?.["0"]?.resolution;
+
+  if (Array.isArray(glyph) && glyph.length >= 2) {
+    return { width: glyph[0], height: glyph[1] };
+  }
+
+  return { width: 6, height: 8 };
+}
+
+function computeMidiBadgeMetrics(screen, glyphMetrics = resolveMatrixGlyphMetrics()) {
+  const textWidth = MIDI_BADGE_TEXT.length * glyphMetrics.width;
+  const width = textWidth + MIDI_BADGE_PADDING_X * 2;
+  const height = glyphMetrics.height + MIDI_BADGE_PADDING_Y * 2;
+  const x = screen.width - width - MIDI_BADGE_MARGIN;
+  const y = screen.height - height - MIDI_BADGE_MARGIN;
+
+  return { x, y, width, height };
+}
+
+function computeMelodyButtonRect(screen, midiMetrics) {
+  if (!midiMetrics) return null;
+
+  const maxWidth = midiMetrics.x - MELODY_ALIAS_MARGIN;
+  if (maxWidth < MELODY_ALIAS_MIN_SIDE) return null;
+
+  const side = max(
+    MELODY_ALIAS_MIN_SIDE,
+    min(MELODY_ALIAS_BASE_SIDE, maxWidth),
+  );
+
+  const height = side;
+  const width = side;
+  const y = midiMetrics.y - MELODY_ALIAS_MARGIN - height;
+  if (y < 0) return null;
+
+  const x = screen.width - width - MIDI_BADGE_MARGIN;
+
+  return { x, y, width, height };
+}
+
 function getButtonLayoutMetrics(
   screen,
-  { songMode = false, pictureOverlay = false } = {},
+  { songMode = false, pictureOverlay = false, midiMetrics } = {},
 ) {
+  const badgeMetrics = midiMetrics ?? computeMidiBadgeMetrics(screen);
+  const melodyButtonRect =
+    songMode && !pictureOverlay
+      ? computeMelodyButtonRect(screen, badgeMetrics)
+      : null;
+
+  const aliasPadding = melodyButtonRect
+    ? melodyButtonRect.height + MELODY_ALIAS_MARGIN
+    : 0;
+
+  const baseBottomPadding = 2;
+  const bottomPadding = pictureOverlay
+    ? baseBottomPadding
+    : songMode
+    ? baseBottomPadding + badgeMetrics.height + MIDI_BADGE_MARGIN + aliasPadding
+    : baseBottomPadding;
+
   const buttonsPerRow = 4;
   const totalButtons = buttonNotes.length;
   const totalRows = ceil(totalButtons / buttonsPerRow);
   const margin = 2;
-  const bottomPadding = 2;
 
   if (pictureOverlay) {
     const buttonSize = 24;
@@ -653,13 +776,19 @@ function getButtonLayoutMetrics(
       hudReserved: 0,
       trackHeight: 0,
       trackSpacing: 0,
+      melodyButtonRect: null,
+      midiBadge: badgeMetrics,
     };
   }
 
   const hudReserved = TOP_BAR_BOTTOM;
   const trackHeight = songMode ? TRACK_HEIGHT : 0;
   const trackSpacing = songMode ? TRACK_GAP : 0;
-  const keyboardReserved = MINI_KEYBOARD_HEIGHT + MINI_KEYBOARD_SPACING;
+  const qwertyReserved = songMode
+    ? QWERTY_MINIMAP_HEIGHT + QWERTY_MINIMAP_SPACING
+    : 0;
+  const keyboardReserved =
+    MINI_KEYBOARD_HEIGHT + MINI_KEYBOARD_SPACING + qwertyReserved;
   const reservedTop = hudReserved + trackHeight + trackSpacing + keyboardReserved;
 
   const widthLimit = ceil((screen.width - margin * 2) / buttonsPerRow);
@@ -697,6 +826,8 @@ function getButtonLayoutMetrics(
     trackHeight,
     trackSpacing,
     reservedTop,
+    melodyButtonRect,
+    midiBadge: badgeMetrics,
   };
 }
 
@@ -752,6 +883,7 @@ function paint({
     waveformsAvailable &&
     typeof amplitudeRaw === "number" &&
     Number.isFinite(amplitudeRaw);
+  const matrixGlyphMetrics = resolveMatrixGlyphMetrics(typeface);
   let bg;
 
   if (!tap) {
@@ -914,15 +1046,20 @@ function paint({
   // Draw white keys
   whiteKeys.forEach((note, index) => {
     const x = pianoStartX + index * whiteKeyWidth;
+    const noteKey = note.toLowerCase();
     const isCurrentNote = song && note === song?.[songIndex][0];
-    const isActivePlaying = sounds[note.toLowerCase()] !== undefined;
-    
-    if (isCurrentNote) {
-      ink(0, 180, 200).box(x, pianoY, whiteKeyWidth - 1, whiteKeyHeight); // Cyan for current in song mode
+    const isActivePlaying = sounds[noteKey] !== undefined;
+    const isCurrentAndPlaying = isCurrentNote && isActivePlaying;
+    const isCurrentAwaiting = isCurrentNote && !isActivePlaying;
+
+    if (isCurrentAndPlaying) {
+      ink(0, 255, 234).box(x, pianoY, whiteKeyWidth - 1, whiteKeyHeight); // Bright cyan for current note sounding
+    } else if (isCurrentAwaiting) {
+      ink(0, 120, 140).box(x, pianoY, whiteKeyWidth - 1, whiteKeyHeight); // Muted teal for expected note
     } else if (isActivePlaying) {
-      ink(255, 255, 0).box(x, pianoY, whiteKeyWidth - 1, whiteKeyHeight); // Yellow for active notes
+      ink(255, 255, 0).box(x, pianoY, whiteKeyWidth - 1, whiteKeyHeight); // Yellow for other active notes
     } else {
-      ink(200, 200, 200).box(x, pianoY, whiteKeyWidth - 1, whiteKeyHeight); // White
+      ink(200, 200, 200).box(x, pianoY, whiteKeyWidth - 1, whiteKeyHeight); // Default white
     }
     ink(100, 100, 100).box(x, pianoY, whiteKeyWidth - 1, whiteKeyHeight, "outline"); // Border
   });
@@ -930,32 +1067,126 @@ function paint({
   // Draw black keys on top
   blackKeys.forEach(({note, afterWhite}) => {
     const x = pianoStartX + afterWhite * whiteKeyWidth + whiteKeyWidth - blackKeyWidth / 2;
+    const noteKey = note.toLowerCase();
     const isCurrentNote = song && note === song?.[songIndex][0];
-    const isActivePlaying = sounds[note.toLowerCase()] !== undefined;
-    
-    if (isCurrentNote) {
-      ink(0, 140, 160).box(x, pianoY, blackKeyWidth, blackKeyHeight); // Darker cyan for current
+    const isActivePlaying = sounds[noteKey] !== undefined;
+    const isCurrentAndPlaying = isCurrentNote && isActivePlaying;
+    const isCurrentAwaiting = isCurrentNote && !isActivePlaying;
+
+    if (isCurrentAndPlaying) {
+      ink(0, 220, 210).box(x, pianoY, blackKeyWidth, blackKeyHeight); // Bright teal for current sounding
+    } else if (isCurrentAwaiting) {
+      ink(0, 100, 110).box(x, pianoY, blackKeyWidth, blackKeyHeight); // Muted teal for expected
     } else if (isActivePlaying) {
-      ink(200, 200, 0).box(x, pianoY, blackKeyWidth, blackKeyHeight); // Darker yellow for active
+      ink(200, 200, 0).box(x, pianoY, blackKeyWidth, blackKeyHeight); // Dark yellow for other actives
     } else {
-      ink(40, 40, 40).box(x, pianoY, blackKeyWidth, blackKeyHeight); // Black
+      ink(40, 40, 40).box(x, pianoY, blackKeyWidth, blackKeyHeight); // Default black
     }
   });
 
+  if (song) {
+    const currentKeyLetter = noteToKeyboardKey(song?.[songIndex]?.[0]);
+    const nextKeyLetter = noteToKeyboardKey(song?.[songIndex + 1]?.[0]);
+    const activeKeyLetters = new Set(
+      Object.keys(sounds)
+        .map((activeNote) => noteToKeyboardKey(activeNote))
+        .filter(Boolean),
+    );
+
+    const qKeyWidth = 9;
+    const qKeyHeight = 8;
+    const qKeySpacing = 1;
+    const qwertyStartX = pianoStartX;
+    const qwertyStartY = pianoY + whiteKeyHeight + QWERTY_MINIMAP_SPACING;
+
+    QWERTY_LAYOUT_ROWS.forEach((row, rowIndex) => {
+      const rowOffset =
+        rowIndex === 0
+          ? 0
+          : rowIndex === 1
+          ? (qKeyWidth + qKeySpacing) / 2
+          : qKeyWidth;
+      const y = qwertyStartY + rowIndex * (qKeyHeight + qKeySpacing);
+
+      row.forEach((keyLetter, keyIndex) => {
+        const x =
+          qwertyStartX +
+          rowOffset +
+          keyIndex * (qKeyWidth + qKeySpacing);
+
+        const mappedNote = keyboardKeyToNote(keyLetter);
+        const isMapped = Boolean(mappedNote);
+        const isCurrentKey = keyLetter === currentKeyLetter;
+        const isActiveKey = activeKeyLetters.has(keyLetter);
+        const isCurrentAndActive = isCurrentKey && isActiveKey;
+        const isNextKey = keyLetter === nextKeyLetter;
+
+        let fillColor;
+        if (isCurrentAndActive) {
+          fillColor = [0, 255, 234, 220];
+        } else if (isCurrentKey) {
+          fillColor = [0, 120, 140, 200];
+        } else if (isActiveKey) {
+          fillColor = [255, 255, 0, 210];
+        } else if (isNextKey) {
+          fillColor = [0, 200, 220, 120];
+        } else if (isMapped) {
+          fillColor = [40, 40, 40, 180];
+        } else {
+          fillColor = [20, 20, 20, 140];
+        }
+
+        ink(...fillColor).box(x, y, qKeyWidth, qKeyHeight);
+        ink(100, 100, 100, 220).box(x, y, qKeyWidth, qKeyHeight, "outline");
+
+        const label = keyLetter.toUpperCase();
+        const glyphWidth = matrixGlyphMetrics.width;
+        const glyphHeight = matrixGlyphMetrics.height;
+        const labelWidth = label.length * glyphWidth;
+        const labelX = x + (qKeyWidth - labelWidth) / 2;
+        const labelY = y + (qKeyHeight - glyphHeight) / 2;
+
+        let textColor;
+        if (isCurrentAndActive || isActiveKey) {
+          textColor = [0, 0, 0, 240];
+        } else if (isMapped) {
+          textColor = [230, 230, 230, 230];
+        } else {
+          textColor = [150, 150, 150, 200];
+        }
+
+        ink(...textColor).write(
+          label,
+          { x: labelX, y: labelY },
+          undefined,
+          undefined,
+          false,
+          "MatrixChunky8",
+        );
+
+      });
+    });
+  }
+
+  const initialBadgeMetrics = computeMidiBadgeMetrics(screen, matrixGlyphMetrics);
   const layout = getButtonLayoutMetrics(screen, {
     songMode: Boolean(song),
     pictureOverlay: paintPictureOverlay,
+    midiMetrics: initialBadgeMetrics,
   });
 
-  const midiBadgeWidth = 52;
-  const midiBadgeHeight = 12;
-  const midiBadgeMargin = 6;
-  const midiBadgeX = screen.width - midiBadgeWidth - midiBadgeMargin;
-  const midiBadgeY = screen.height - midiBadgeHeight - midiBadgeMargin;
+  const midiBadgeMetrics = layout.midiBadge ?? initialBadgeMetrics;
+  const melodyButtonRect = layout.melodyButtonRect;
+
+  if (melodyAliasBtn && melodyButtonRect && melodyAliasBtn.box) {
+    melodyAliasBtn.box.x = melodyButtonRect.x;
+    melodyAliasBtn.box.y = melodyButtonRect.y;
+    melodyAliasBtn.box.w = melodyButtonRect.width;
+    melodyAliasBtn.box.h = melodyButtonRect.height;
+  }
 
   const drawMidiBadge = (
-    x,
-    y,
+    metrics,
     connected,
     {
       connectedBackground = [0, 0, 0, 160],
@@ -964,14 +1195,17 @@ function paint({
       disconnectedText = [140, 140, 140, 200],
     } = {},
   ) => {
+    if (!metrics) return;
+
+    const { x, y, width, height } = metrics;
     const bgColor = connected ? connectedBackground : disconnectedBackground;
     const textColor = connected ? connectedText : disconnectedText;
 
-    ink(...bgColor).box(x, y, midiBadgeWidth, midiBadgeHeight);
+    ink(...bgColor).box(x, y, width, height);
 
     ink(...textColor).write(
-      "USB MIDI",
-      { x: x + 4, y: y + 2 },
+      MIDI_BADGE_TEXT,
+      { x: x + MIDI_BADGE_PADDING_X, y: y + MIDI_BADGE_PADDING_Y },
       undefined,
       undefined,
       false,
@@ -984,9 +1218,6 @@ function paint({
     const sh = screen.height - sy;
 
     // console.log(sound.speaker.amplitudes, sound.speaker.waveforms);
-    const midiBadgeXProj = midiBadgeX;
-    const midiBadgeYProj = midiBadgeY;
-
     sound.paint.bars(
       api,
       amplitude,
@@ -1012,7 +1243,7 @@ function paint({
       ink(255, 255, 0).write("AUDIO OFF", audioBadgeX + 8, audioBadgeY + 4);
     }
 
-    drawMidiBadge(midiBadgeXProj, midiBadgeYProj, midiConnected, {
+    drawMidiBadge(midiBadgeMetrics, midiConnected, {
       connectedBackground: [0, 0, 0, 180],
       disconnectedBackground: [0, 0, 0, 90],
     });
@@ -1068,8 +1299,6 @@ function paint({
     const audioBadgeHeight = max(9, sh - 4);
     const audioBadgeY = sy + 2;
     let audioBadgeX;
-  const midiBadgeXHud = midiBadgeX;
-  const midiBadgeYHud = midiBadgeY;
 
     if (!audioReady) {
       audioBadgeX = min(
@@ -1080,7 +1309,92 @@ function paint({
       ink(255, 255, 0).write("AUDIO OFF", audioBadgeX + 8, audioBadgeY + 3);
     }
 
-    drawMidiBadge(midiBadgeXHud, midiBadgeYHud, midiConnected);
+    if (song && melodyAliasBtn && melodyAliasBtn.box && melodyButtonRect) {
+      const baseGlyphWidth = typeface.glyphs["0"].resolution[0];
+      const baseGlyphHeight = typeface.glyphs["0"].resolution[1];
+
+      melodyAliasBtn.paint((btn) => {
+        const rect = btn.box;
+        const isActive = melodyAliasDown || songNoteDown;
+        const backgroundColor = isActive ? [0, 120, 140, 220] : [0, 0, 0, 150];
+        const borderColor = isActive ? [0, 255, 234, 240] : [0, 200, 220, 180];
+
+        ink(...backgroundColor).box(rect.x, rect.y, rect.w, rect.h);
+        ink(...borderColor).box(rect.x, rect.y, rect.w, rect.h, "outline");
+
+        // Note value intentionally omitted per design request
+
+        const sanitizeLyric = (value) =>
+          typeof value === "string" ? value.replace(/-/g, "") : "";
+
+        const prevLyric = sanitizeLyric(song?.[songIndex - 1]?.[1]);
+        const currentLyric = sanitizeLyric(song?.[songIndex]?.[1]);
+        const nextLyric = sanitizeLyric(song?.[songIndex + 1]?.[1]);
+
+        const glyphWidth = matrixGlyphMetrics.width;
+        const glyphHeight = matrixGlyphMetrics.height;
+        const centerY = rect.y + rect.h / 2;
+
+        if (currentLyric) {
+          const lyricWidth = currentLyric.length * glyphWidth;
+          const lyricX = rect.x + (rect.w - lyricWidth) / 2;
+          const lyricY = centerY - glyphHeight / 2;
+          ink("white").write(
+            currentLyric,
+            { x: lyricX, y: lyricY },
+            undefined,
+            undefined,
+            false,
+            "MatrixChunky8",
+          );
+
+          if (prevLyric) {
+            const prevWidth = prevLyric.length * glyphWidth;
+            const prevX = lyricX - prevWidth - 4;
+            if (prevX > rect.x) {
+              ink(160, 160, 160, 210).write(
+                prevLyric,
+                { x: prevX, y: lyricY },
+                undefined,
+                undefined,
+                false,
+                "MatrixChunky8",
+              );
+            }
+          }
+
+          if (nextLyric) {
+            const nextWidth = nextLyric.length * glyphWidth;
+            const nextX = lyricX + lyricWidth + 4;
+            if (nextX + nextWidth < rect.x + rect.w) {
+              ink(160, 160, 160, 210).write(
+                nextLyric,
+                { x: nextX, y: lyricY },
+                undefined,
+                undefined,
+                false,
+                "MatrixChunky8",
+              );
+            }
+          }
+        }
+
+        const hint = "tap or hold";
+        const hintWidth = hint.length * glyphWidth;
+        const hintX = rect.x + (rect.w - hintWidth) / 2;
+        const hintY = rect.y + rect.h - glyphHeight - 4;
+        ink(200, 200, 200, 200).write(
+          hint,
+          { x: hintX, y: hintY },
+          undefined,
+          undefined,
+          false,
+          "MatrixChunky8",
+        );
+      });
+    }
+
+    drawMidiBadge(midiBadgeMetrics, midiConnected);
   }
 
   updateTheme({ num });
@@ -1380,71 +1694,36 @@ function paint({
           // Paint keyboard shortcuts (if they differ from the note)
           // Hide in song mode
           if (!song) {
-            let keyLabel;
-            switch (note) {
-              case "c#":
-                keyLabel = "v";
-                break;
-              case "d#":
-                keyLabel = "s";
-                break;
-              case "f#":
-                keyLabel = "w";
-                break;
-              case "g#":
-                keyLabel = "r";
-                break;
-              case "a#":
-                keyLabel = "q";
-                break;
-              // Second octave.
-              case "+c":
-                keyLabel = "h";
-                break;
-              case "+d":
-                keyLabel = "i";
-                break;
-              case "+e":
-                keyLabel = "j";
-                break;
-              case "+f":
-                keyLabel = "k";
-                break;
-              case "+g":
-                keyLabel = "l";
-                break;
-              case "+a":
-                keyLabel = "m";
-                break;
-              case "+b":
-                keyLabel = "n";
-                break;
-              case "+c#":
-                keyLabel = "t";
-                break;
-              case "+d#":
-                keyLabel = "y";
-                break;
-              case "+f#":
-                keyLabel = "u";
-                break;
-              case "+g#":
-                keyLabel = "o";
-                break;
-              case "+a#":
-                keyLabel = "p";
-                break;
-            }
-            if (keyLabel)
+            const keyLabel = noteToKeyboardKey(note);
+            if (keyLabel && keyLabel !== note.toLowerCase()) {
               ink("white", 96).write(
                 keyLabel,
-                btn.box.x + 2, // + note.length * glyphWidth,
+                btn.box.x + 2,
                 btn.box.y + 10,
               );
+            }
           }
         });
       }
     });
+
+    if (!projector) {
+      const leftEdge = ceil(layout.margin);
+      const rightEdge = round(leftEdge + layout.buttonWidth * layout.buttonsPerRow);
+      const topEdge = round(layout.topButtonY);
+      const bottomEdge = round(layout.topButtonY + layout.buttonHeight * layout.totalRows);
+      const gridAlpha = 40;
+
+      for (let col = 0; col <= layout.buttonsPerRow; col += 1) {
+        const x = round(layout.margin + col * layout.buttonWidth);
+        ink(255, 255, 255, gridAlpha).line(x, topEdge, x, bottomEdge);
+      }
+
+      for (let row = 0; row <= layout.totalRows; row += 1) {
+        const y = round(layout.topButtonY + row * layout.buttonHeight);
+        ink(255, 255, 255, gridAlpha).line(leftEdge, y, rightEdge, y);
+      }
+    }
   }
 }
 
@@ -1966,6 +2245,12 @@ function act({
       buttons[buttonNote].down = false;
       buttons[buttonNote].over = false;
     }
+
+    if (melodyAliasActiveNote === buttonNote) {
+      melodyAliasDown = false;
+      melodyAliasActiveNote = null;
+      melodyAliasStartedNote = false;
+    }
   };
 
   if (e.is("midi:keyboard")) {
@@ -2103,6 +2388,69 @@ function act({
         buildWaveButton(api);
       },
     });
+
+    const activateMelodyAlias = () => {
+      if (!song || paintPictureOverlay || projector) return false;
+      const currentNote = song?.[songIndex]?.[0];
+      if (!currentNote) return false;
+
+      const targetButtonNote = currentNote.toLowerCase();
+
+      if (melodyAliasDown && melodyAliasActiveNote === targetButtonNote) {
+        return false;
+      }
+
+      if (sounds[targetButtonNote]) {
+        melodyAliasDown = true;
+        melodyAliasActiveNote = targetButtonNote;
+        melodyAliasStartedNote = false;
+        return true;
+      }
+
+      const started = startMidiButtonNote(targetButtonNote, 127);
+      if (started) {
+        melodyAliasDown = true;
+        melodyAliasActiveNote = targetButtonNote;
+        melodyAliasStartedNote = true;
+        return true;
+      }
+
+      return false;
+    };
+
+    const releaseMelodyAlias = () => {
+      if (!melodyAliasDown) return;
+      if (melodyAliasStartedNote && melodyAliasActiveNote) {
+        stopMidiButtonNote(melodyAliasActiveNote);
+      }
+      melodyAliasDown = false;
+      melodyAliasActiveNote = null;
+      melodyAliasStartedNote = false;
+    };
+
+    if (melodyAliasBtn && song && !paintPictureOverlay && !projector) {
+      melodyAliasBtn.act(
+        e,
+        {
+        down: () => {
+          activateMelodyAlias();
+        },
+        push: () => {
+          releaseMelodyAlias();
+        },
+        up: () => {
+          releaseMelodyAlias();
+        },
+        cancel: () => {
+          releaseMelodyAlias();
+        },
+        out: () => {
+          releaseMelodyAlias();
+        },
+        },
+        pens?.(),
+      );
+    }
 
     buttonNotes.forEach((note) => {
       if (buttons[note]) {
@@ -2900,27 +3248,10 @@ function pictureLines(
 
       // Convert note name to keyboard key for display
       // Handle both lower octave (c, d, e...) and upper octave (+c, +d, +e...)
-      let displayKey = "";
-      const isUpperOctave = note.startsWith("+");
-      const cleanNote = isUpperOctave ? note.slice(1) : note;
+  let displayKey = "";
 
-      // Map notes back to keyboard keys
-      const noteToKeyMap = {
-        c: isUpperOctave ? "h" : "c",
-        "c#": isUpperOctave ? "t" : "v",
-        d: isUpperOctave ? "i" : "d",
-        "d#": isUpperOctave ? "y" : "s",
-        e: isUpperOctave ? "j" : "e",
-        f: isUpperOctave ? "k" : "f",
-        "f#": isUpperOctave ? "u" : "w",
-        g: isUpperOctave ? "l" : "g",
-        "g#": isUpperOctave ? "o" : "r",
-        a: isUpperOctave ? "m" : "a",
-        "a#": isUpperOctave ? "p" : "q",
-        b: isUpperOctave ? "n" : "b",
-      };
-
-      displayKey = noteToKeyMap[cleanNote] || note.toLowerCase();
+      const mappedKey = noteToKeyboardKey(note);
+      displayKey = mappedKey || note.toLowerCase();
 
       // Draw shadow (1px offset down and right)
       ink(0, 0, 0).write(displayKey, { center: "xy", x: x + 1, y: y });
@@ -2955,9 +3286,11 @@ function resetModeState() {
 
 // Initialize and/or lay out the UI buttons on the bottom of the display.
 function setupButtons({ ui, screen, geo }) {
+  const midiMetrics = computeMidiBadgeMetrics(screen);
   const layout = getButtonLayoutMetrics(screen, {
     songMode: Boolean(song),
     pictureOverlay: paintPictureOverlay,
+    midiMetrics,
   });
   const {
     buttonWidth,
@@ -2966,6 +3299,7 @@ function setupButtons({ ui, screen, geo }) {
     buttonsPerRow,
     totalRows,
     margin,
+    melodyButtonRect,
   } = layout;
 
   buttonNotes.forEach((label, i) => {
@@ -2981,6 +3315,33 @@ function setupButtons({ ui, screen, geo }) {
       buttons[label].box = new geo.Box(...geometry);
     }
   });
+
+  if (song && !paintPictureOverlay && melodyButtonRect) {
+    if (!melodyAliasBtn) {
+      melodyAliasBtn = new ui.Button(
+        melodyButtonRect.x,
+        melodyButtonRect.y,
+        melodyButtonRect.width,
+        melodyButtonRect.height,
+      );
+      melodyAliasBtn.id = "melody-alias-button";
+    } else {
+      melodyAliasBtn.box = new geo.Box(
+        melodyButtonRect.x,
+        melodyButtonRect.y,
+        melodyButtonRect.width,
+        melodyButtonRect.height,
+      );
+    }
+  } else {
+    melodyAliasBtn = undefined;
+  }
+
+  if (!melodyAliasBtn) {
+    melodyAliasDown = false;
+    melodyAliasActiveNote = null;
+    melodyAliasStartedNote = false;
+  }
 }
 
 function buildWaveButton({ screen, ui, typeface }) {
