@@ -89,8 +89,13 @@ export class CamDoll {
 
     if (this.#UP) this.cam.rotX += 1;
     if (this.#DOWN) this.cam.rotX -= 1;
-    if (this.#LEFT) this.cam.rotY += 1;
-    if (this.#RIGHT) this.cam.rotY -= 1;
+    if (this.#LEFT) this.cam.rotY -= 1;  // Fixed: LEFT now turns left
+    if (this.#RIGHT) this.cam.rotY += 1; // Fixed: RIGHT now turns right
+    
+    // Clamp pitch to prevent looking past straight up/down (prevents gimbal lock)
+    const maxPitch = 89;
+    if (this.cam.rotX > maxPitch) this.cam.rotX = maxPitch;
+    if (this.cam.rotX < -maxPitch) this.cam.rotX = -maxPitch;
 
     this.#dolly.sim();
   }
@@ -136,6 +141,11 @@ export class CamDoll {
       if (this.cam.type === "perspective") {
         this.cam.rotX -= e.delta.y / 3.5;
         this.cam.rotY += e.delta.x / 3.5;
+        
+        // Clamp pitch to prevent looking past straight up/down
+        const maxPitch = 89;
+        if (this.cam.rotX > maxPitch) this.cam.rotX = maxPitch;
+        if (this.cam.rotX < -maxPitch) this.cam.rotX = -maxPitch;
       }
     }
 
