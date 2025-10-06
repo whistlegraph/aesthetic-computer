@@ -153,6 +153,13 @@ RUN mkdir -p /home/me/.config/fish/conf.d && \
     npm i -g prettier typescript typescript-language-server npm-check-updates @anthropic-ai/claude-code @openai/codex netlify-cli wrangler && \
     echo 'fnm use lts-jod' >> /home/me/.config/fish/config.fish
 
+# --- ATProto dependencies for /at directory ------------------------------------
+# Note: These will be available globally for ATProto experiments
+# See /at directory for ATProto/Bluesky exploration tools
+RUN export PATH="/home/me/.fnm:${PATH}" && \
+    eval "$(/home/me/.fnm/fnm env --use-on-cd)" && \
+    npm i -g @atproto/api@^0.17.0 @atproto/xrpc@^0.6.5 @atproto/lexicon@^0.4.2 @atproto/identity@^0.4.3 @atproto/syntax@^0.3.1 dotenv@^16.4.5
+
 # --- SBCL / Quicklisp ---------------------------------------------------------
 RUN curl -fsSLO https://beta.quicklisp.org/quicklisp.lisp && \
     sbcl --non-interactive \
