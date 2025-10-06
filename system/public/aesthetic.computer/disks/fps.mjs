@@ -53,6 +53,7 @@ function boot({ Form, CUBEL, QUAD, penLock }) {
   
   const groundPositions = [];
   const groundColors = [];
+  const groundTexCoords = []; // Explicit UV coordinates
   
   // Generate grid of quads (2 triangles each)
   for (let gz = 0; gz < gridDivisions; gz++) {
@@ -62,18 +63,34 @@ function boot({ Form, CUBEL, QUAD, penLock }) {
       const z1 = -groundSize + gz * cellSize;
       const z2 = -groundSize + (gz + 1) * cellSize;
       
-      // Triangle 1 (facing UP)
+      // Calculate UV coordinates for this cell (0-1 range across whole grid)
+      const u1 = gx / gridDivisions;
+      const u2 = (gx + 1) / gridDivisions;
+      const v1 = gz / gridDivisions;
+      const v2 = (gz + 1) / gridDivisions;
+      
+      // Triangle 1 (counter-clockwise winding when viewed from above)
       groundPositions.push(
         [x1, -1.5, z1, 1], // Back Left
-        [x2, -1.5, z2, 1], // Front Right
-        [x1, -1.5, z2, 1]  // Front Left
+        [x1, -1.5, z2, 1], // Front Left  
+        [x2, -1.5, z2, 1]  // Front Right
+      );
+      groundTexCoords.push(
+        [u1, v1],
+        [u1, v2],
+        [u2, v2]
       );
       
       // Triangle 2
       groundPositions.push(
         [x1, -1.5, z1, 1], // Back Left
-        [x2, -1.5, z1, 1], // Back Right
-        [x2, -1.5, z2, 1]  // Front Right
+        [x2, -1.5, z2, 1], // Front Right
+        [x2, -1.5, z1, 1]  // Back Right
+      );
+      groundTexCoords.push(
+        [u1, v1],
+        [u2, v2],
+        [u2, v1]
       );
       
       // White colors (6 vertices per quad)
@@ -84,7 +101,7 @@ function boot({ Form, CUBEL, QUAD, penLock }) {
   }
   
   groundPlane = new Form(
-    { type: "triangle", positions: groundPositions, colors: groundColors },
+    { type: "triangle", positions: groundPositions, colors: groundColors, texCoords: groundTexCoords },
     { pos: [0, 0, 0], rot: [0, 0, 0], scale: 1 }
   );
   
