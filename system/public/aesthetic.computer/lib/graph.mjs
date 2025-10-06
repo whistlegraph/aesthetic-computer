@@ -3222,6 +3222,18 @@ function drawGradientTriangle(x1, y1, color1, x2, y2, color2, x3, y3, color3) {
   const maxX = ceil(max(x1, x2, x3));
   const minY = floor(min(y1, y2, y3));
   const maxY = ceil(max(y1, y2, y3));
+  
+  // Clip to screen bounds to avoid rendering huge off-screen triangles
+  const screenMinX = max(0, minX);
+  const screenMaxX = min(width - 1, maxX);
+  const screenMinY = max(0, minY);
+  const screenMaxY = min(height - 1, maxY);
+  
+  const clippedWidth = screenMaxX - screenMinX;
+  const clippedHeight = screenMaxY - screenMinY;
+  
+  // Skip if triangle is completely off-screen
+  if (screenMinX > screenMaxX || screenMinY > screenMaxY) return;
 
   // Calculate area of the whole triangle (for barycentric coordinates)
   const areaABC = (x2 - x1) * (y3 - y1) - (x3 - x1) * (y2 - y1);
@@ -3230,8 +3242,8 @@ function drawGradientTriangle(x1, y1, color1, x2, y2, color2, x3, y3, color3) {
   if (abs(areaABC) < 0.0001) return;
 
   // Iterate over bounding box and check if each pixel is inside the triangle
-  for (let y = minY; y <= maxY; y++) {
-    for (let x = minX; x <= maxX; x++) {
+  for (let y = screenMinY; y <= screenMaxY; y++) {
+    for (let x = screenMinX; x <= screenMaxX; x++) {
       // Calculate barycentric coordinates
       const areaPBC = (x2 - x) * (y3 - y) - (x3 - x) * (y2 - y);
       const areaPCA = (x3 - x) * (y1 - y) - (x1 - x) * (y3 - y);
@@ -3249,6 +3261,90 @@ function drawGradientTriangle(x1, y1, color1, x2, y2, color2, x3, y3, color3) {
         const a = floor(u * color1[3] + v * color2[3] + w * color3[3]);
 
         // Set the interpolated color and draw the pixel
+        color(r, g, b, a);
+        point(x, y);
+      }
+    }
+  }
+}
+
+// Draws a filled triangle with texture mapping using barycentric interpolation
+// Each vertex has UV coordinates that map to a texture buffer
+// Uses perspective-correct interpolation with depth values
+function drawTexturedTriangle(x1, y1, uv1, z1, x2, y2, uv2, z2, x3, y3, uv3, z3, texture, alphaMultiplier = 1.0) {
+  // Calculate bounding box
+  const minX = floor(min(x1, x2, x3));
+  const maxX = ceil(max(x1, x2, x3));
+  const minY = floor(min(y1, y2, y3));
+  const maxY = ceil(max(y1, y2, y3));
+  
+  // Clip to screen bounds to avoid rendering huge off-screen triangles
+  const screenMinX = max(0, minX);
+  const screenMaxX = min(width - 1, maxX);
+  const screenMinY = max(0, minY);
+  const screenMaxY = min(height - 1, maxY);
+  
+  const clippedWidth = screenMaxX - screenMinX;
+  const clippedHeight = screenMaxY - screenMinY;
+  
+  // Skip if triangle is completely off-screen
+  if (screenMinX > screenMaxX || screenMinY > screenMaxY) return;
+
+  // Calculate area of the whole triangle (for barycentric coordinates)
+  const areaABC = (x2 - x1) * (y3 - y1) - (x3 - x1) * (y2 - y1);
+
+  // Avoid degenerate triangles
+  if (abs(areaABC) < 0.0001) return;
+
+  const texWidth = texture.width;
+  const texHeight = texture.height;
+  
+  // Perspective-correct texture mapping: interpolate 1/z, u/z, v/z
+  const invZ1 = 1 / z1;
+  const invZ2 = 1 / z2;
+  const invZ3 = 1 / z3;
+  
+  const u1OverZ = uv1[0] * invZ1;
+  const v1OverZ = uv1[1] * invZ1;
+  const u2OverZ = uv2[0] * invZ2;
+  const v2OverZ = uv2[1] * invZ2;
+  const u3OverZ = uv3[0] * invZ3;
+  const v3OverZ = uv3[1] * invZ3;
+
+  // Iterate over bounding box and check if each pixel is inside the triangle
+  for (let y = screenMinY; y <= screenMaxY; y++) {
+    for (let x = screenMinX; x <= screenMaxX; x++) {
+      // Calculate barycentric coordinates
+      const areaPBC = (x2 - x) * (y3 - y) - (x3 - x) * (y2 - y);
+      const areaPCA = (x3 - x) * (y1 - y) - (x1 - x) * (y3 - y);
+      
+      const u = areaPBC / areaABC; // Weight for vertex 1
+      const v = areaPCA / areaABC; // Weight for vertex 2
+      const w = 1 - u - v;          // Weight for vertex 3
+
+      // Check if point is inside triangle
+      if (u >= 0 && v >= 0 && w >= 0) {
+        // Interpolate 1/z and uv/z using barycentric weights
+        const interpInvZ = u * invZ1 + v * invZ2 + w * invZ3;
+        const interpUOverZ = u * u1OverZ + v * u2OverZ + w * u3OverZ;
+        const interpVOverZ = u * v1OverZ + v * v2OverZ + w * v3OverZ;
+        
+        // Recover perspective-correct UV by dividing by interpolated 1/z
+        const texU = interpUOverZ / interpInvZ;
+        const texV = interpVOverZ / interpInvZ;
+
+        // Sample texture at UV coordinates (with wrapping)
+        const texX = floor(texU * texWidth) % texWidth;
+        const texY = floor(texV * texHeight) % texHeight;
+        
+        // Get pixel from texture buffer
+        const pixelIndex = (texY * texWidth + texX) * 4;
+        const r = texture.pixels[pixelIndex];
+        const g = texture.pixels[pixelIndex + 1];
+        const b = texture.pixels[pixelIndex + 2];
+        const a = floor(texture.pixels[pixelIndex + 3] * alphaMultiplier);
+
+        // Draw the textured pixel with alpha fade
         color(r, g, b, a);
         point(x, y);
       }
@@ -6134,6 +6230,7 @@ class Form {
   texture; // = makeBuffer(32, 32);
   color;
   colorModifier;
+  noFade = false; // Set to true to disable near-plane alpha fading
 
   // GPU Specific Params & Buffers
   gpuVerticesSent = 0;
@@ -6438,7 +6535,7 @@ class Form {
       }
     }
 
-    // Render filled triangles with gradient colors
+    // Render filled triangles with gradient colors or textures
     if (this.type === "triangle" && this.vertices.length >= 3) {
       const fullMatrix = mat4.multiply(mat4.create(), cameraMatrix, transformed);
 
@@ -6454,9 +6551,46 @@ class Form {
           const t1 = v1.transform(fullMatrix);
           const t2 = v2.transform(fullMatrix);
 
-          // Skip if any vertex is behind the camera
-          if (t0.pos[2] <= 0 || t1.pos[2] <= 0 || t2.pos[2] <= 0) {
-            continue;
+          // Use a more aggressive near plane for clipping to prevent huge projections
+          const nearPlane = 0.1; // Larger threshold to reject triangles earlier
+          const fadePlane = 0.5; // Start fading when closer than this
+          
+          // Count how many vertices are in front of the near plane
+          const v0InFront = t0.pos[2] >= nearPlane;
+          const v1InFront = t1.pos[2] >= nearPlane;
+          const v2InFront = t2.pos[2] >= nearPlane;
+          const verticesInFront = (v0InFront ? 1 : 0) + (v1InFront ? 1 : 0) + (v2InFront ? 1 : 0);
+          
+          // Forms with noFade (like ground plane) use less aggressive culling
+          if (this.noFade) {
+            // Only skip if all vertices are behind the camera
+            if (t0.pos[2] < nearPlane && t1.pos[2] < nearPlane && t2.pos[2] < nearPlane) {
+              continue;
+            }
+            // Still skip if any vertex is very close (causes huge projections)
+            if (t0.pos[2] < nearPlane || t1.pos[2] < nearPlane || t2.pos[2] < nearPlane) {
+              continue;
+            }
+          } else {
+            // Skip if no vertices are visible (all behind camera)
+            if (verticesInFront === 0) {
+              continue;
+            }
+            
+            // Skip if triangle is partially clipped (for now, to avoid huge projections)
+            // TODO: Implement proper Sutherland-Hodgeman clipping for partially visible triangles
+            if (verticesInFront < 3) {
+              continue;
+            }
+          }
+          
+          // Calculate fade factor based on closest vertex to camera
+          const minZ = min(t0.pos[2], t1.pos[2], t2.pos[2]);
+          let alphaMultiplier = 1.0;
+          if (!this.noFade && minZ < fadePlane) {
+            // Fade from 1.0 at fadePlane to 0.0 at nearPlane
+            alphaMultiplier = (minZ - nearPlane) / (fadePlane - nearPlane);
+            alphaMultiplier = max(0, min(1, alphaMultiplier)); // Clamp 0-1
           }
 
           // Apply perspective divide and screen space transformation
@@ -6473,28 +6607,40 @@ class Form {
           const x1 = s1.pos[0], y1 = s1.pos[1];
           const x2 = s2.pos[0], y2 = s2.pos[1];
 
-          // Get vertex colors (RGBA 0-1 range from vertex, convert to 0-255)
-          const color0 = [
-            floor(v0.color[0] * 255),
-            floor(v0.color[1] * 255),
-            floor(v0.color[2] * 255),
-            floor(v0.color[3] * 255)
-          ];
-          const color1 = [
-            floor(v1.color[0] * 255),
-            floor(v1.color[1] * 255),
-            floor(v1.color[2] * 255),
-            floor(v1.color[3] * 255)
-          ];
-          const color2 = [
-            floor(v2.color[0] * 255),
-            floor(v2.color[1] * 255),
-            floor(v2.color[2] * 255),
-            floor(v2.color[3] * 255)
-          ];
+          // Check if this form has a texture
+          if (this.texture) {
+            // Draw textured triangle using UV coordinates with perspective correction
+            drawTexturedTriangle(
+              x0, y0, v0.texCoords, t0.pos[2],  // x, y, uv, depth
+              x1, y1, v1.texCoords, t1.pos[2],
+              x2, y2, v2.texCoords, t2.pos[2],
+              this.texture,
+              alphaMultiplier
+            );
+          } else {
+            // Get vertex colors (RGBA 0-1 range from vertex, convert to 0-255)
+            const color0 = [
+              floor(v0.color[0] * 255),
+              floor(v0.color[1] * 255),
+              floor(v0.color[2] * 255),
+              floor(v0.color[3] * 255 * alphaMultiplier)
+            ];
+            const color1 = [
+              floor(v1.color[0] * 255),
+              floor(v1.color[1] * 255),
+              floor(v1.color[2] * 255),
+              floor(v1.color[3] * 255 * alphaMultiplier)
+            ];
+            const color2 = [
+              floor(v2.color[0] * 255),
+              floor(v2.color[1] * 255),
+              floor(v2.color[2] * 255),
+              floor(v2.color[3] * 255 * alphaMultiplier)
+            ];
 
-          // Draw filled gradient triangle using barycentric interpolation
-          drawGradientTriangle(x0, y0, color0, x1, y1, color1, x2, y2, color2);
+            // Draw filled gradient triangle using barycentric interpolation
+            drawGradientTriangle(x0, y0, color0, x1, y1, color1, x2, y2, color2);
+          }
         }
       }
     }
