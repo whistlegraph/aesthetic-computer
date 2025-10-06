@@ -21,7 +21,7 @@ external_node_modules = ["he"]
 included_env_vars = []
 [functions.delete-erase-and-forget-me]
 external_node_modules = ["@aws-sdk-client-s3"]
-included_env_vars = ["USER_ENDPOINT", "ART_KEY", "ART_SECRET", "USER_SPACE_NAME", "CONTEXT", "ADMIN_SUB", "SOTCE_ADMIN_SUBS", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "SOTCE_AUTH0_M2M_CLIENT_ID", "SOTCE_AUTH0_M2M_SECRET", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "REDIS_CONNECTION_STRING", "NETLIFY_DEV"]
+included_env_vars = ["USER_ENDPOINT", "ART_KEY", "ART_SECRET", "USER_SPACE_NAME", "CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "REDIS_CONNECTION_STRING", "NETLIFY_DEV"]
 [functions.say]
 external_node_modules = ["@google-cloud/text-to-speech"]
 included_env_vars = ["GCP_EMAIL", "GCP_TTS_KEY_URL", "CONTEXT"]
@@ -31,13 +31,13 @@ included_env_vars = []
 [functions.handle]
 included_files = ["public/aesthetic.computer/lib/text.mjs", "backend/**/*.mjs"]
 external_node_modules = ["got", "mongodb", "obscenity"]
-included_env_vars = ["CONTEXT", "ADMIN_SUB", "SOTCE_ADMIN_SUBS", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "SOTCE_AUTH0_M2M_CLIENT_ID", "SOTCE_AUTH0_M2M_SECRET", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "REDIS_CONNECTION_STRING", "NETLIFY_DEV", "LOGGER_KEY"]
+included_env_vars = ["CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "REDIS_CONNECTION_STRING", "NETLIFY_DEV", "LOGGER_KEY"]
 [functions.logo]
 external_node_modules = ["got"]
 included_env_vars = []
 [functions.email]
 external_node_modules = ["stripe"]
-included_env_vars = ["NETLIFY_DEV", "CONTEXT", "ADMIN_SUB", "SOTCE_ADMIN_SUBS", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "SOTCE_AUTH0_M2M_CLIENT_ID", "SOTCE_AUTH0_M2M_SECRET", "SOTCE_STRIPE_API_PRIV_KEY", "SOTCE_STRIPE_API_PUB_KEY"]
+included_env_vars = ["NETLIFY_DEV", "CONTEXT", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "SOTCE_STRIPE_API_PRIV_KEY", "SOTCE_STRIPE_API_PUB_KEY"]
 [functions.print]
 external_node_modules = ["got", "stripe", "nodemailer"]
 included_env_vars = ["CONTEXT", "PRINTFUL_API_TOKEN", "STRIPE_API_TEST_PRIV_KEY", "STRIPE_API_PRIV_KEY", "STRIPE_ENDPOINT_DEV_SECRET", "STRIPE_ENDPOINT_SECRET"]
@@ -50,7 +50,7 @@ included_env_vars = ["CONTEXT", "SOTCE_SMTP_USER", "SOTCE_SMTP_PASS"]
 [functions.user]
 included_files = ["backend/**/*.mjs"]
 external_node_modules = ["got", "mongodb"]
-included_env_vars = ["CONTEXT", "ADMIN_SUB", "SOTCE_ADMIN_SUBS", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "SOTCE_AUTH0_M2M_CLIENT_ID", "SOTCE_AUTH0_M2M_SECRET"]
+included_env_vars = ["CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET"]
 [functions.presigned-url]
 external_node_modules = [
   "got",
@@ -60,7 +60,7 @@ external_node_modules = [
   "@aws-sdk/s3-request-presigner",
 ]
 included_files = ["backend/**/*.mjs"]
-included_env_vars = ["ART_ENDPOINT", "ART_KEY", "ART_SECRET", "WAND_ENDPOINT", "USER_ENDPOINT", "ART_SPACE_NAME", "USER_SPACE_NAME", "WAND_SPACE_NAME", "CONTEXT", "ADMIN_SUB", "SOTCE_ADMIN_SUBS", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "SOTCE_AUTH0_M2M_CLIENT_ID", "SOTCE_AUTH0_M2M_SECRET"]
+included_env_vars = ["ART_ENDPOINT", "ART_KEY", "ART_SECRET", "WAND_ENDPOINT", "USER_ENDPOINT", "ART_SPACE_NAME", "USER_SPACE_NAME", "WAND_SPACE_NAME", "CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET"]
 [functions.screenshot]
 external_node_modules = ["puppeteer-core"]
 included_env_vars = ["CONTEXT", "BROWSERLESS_API_KEY"]
@@ -91,12 +91,12 @@ included_env_vars = []
 included_env_vars = ["CONTEXT", "ANTHROPIC_API_KEY", "OPENAI_API_KEY"]
 [functions.run]
 included_env_vars = ["NETLIFY_DEV", "REDIS_CONNECTION_STRING"]
-# [functions.admin-background]
-# included_env_vars = []
+[functions.admin-background]
+included_env_vars = ["CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "USER_ENDPOINT", "ART_KEY", "ART_SECRET", "USER_SPACE_NAME"]
 [functions.handles]
-included_env_vars = ["CONTEXT", "ADMIN_SUB", "SOTCE_ADMIN_SUBS", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "SOTCE_AUTH0_M2M_CLIENT_ID", "SOTCE_AUTH0_M2M_SECRET", "MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
+included_env_vars = ["CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
 [functions.track-media]
-included_env_vars = ["CONTEXT", "ADMIN_SUB", "SOTCE_ADMIN_SUBS", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "SOTCE_AUTH0_M2M_CLIENT_ID", "SOTCE_AUTH0_M2M_SECRET", "MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
+included_env_vars = ["CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
 [functions.bdf-glyph]
 included_env_vars = ["NETLIFY_DEV", "NODE_ENV", "ART_ENDPOINT", "ART_KEY", "ART_SECRET", "URL"]
 [functions.subscribe-to-topic]
@@ -106,11 +106,11 @@ included_env_vars = ["AUTH0_LOG_TOKEN"]
 [functions.docs]
 included_env_vars = ["CONTEXT"]
 [functions.media-collection]
-included_env_vars = ["CONTEXT", "ADMIN_SUB", "SOTCE_ADMIN_SUBS", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "SOTCE_AUTH0_M2M_CLIENT_ID", "SOTCE_AUTH0_M2M_SECRET", "MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
+included_env_vars = ["CONTEXT", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
 [functions.authorized]
-included_env_vars = ["CONTEXT", "ADMIN_SUB", "SOTCE_ADMIN_SUBS", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "SOTCE_AUTH0_M2M_CLIENT_ID", "SOTCE_AUTH0_M2M_SECRET"]
+included_env_vars = ["CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET"]
 [functions.profile]
-included_env_vars = ["CONTEXT", "ADMIN_SUB", "SOTCE_ADMIN_SUBS", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "SOTCE_AUTH0_M2M_CLIENT_ID", "SOTCE_AUTH0_M2M_SECRET", "MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
+included_env_vars = ["CONTEXT", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
 [dev]
 NODE_ENV = "development"
 publish = "public/"
@@ -370,11 +370,11 @@ status = 200
 from = "/api/delete-erase-and-forget-me"
 to = "/.netlify/functions/delete-erase-and-forget-me"
 status = 200
-# [[redirects]]
-# from = "/api/admin"
-# to = "/.netlify/functions/admin-background"
-# status = 200
-# force = false
+[[redirects]]
+from = "/api/admin"
+to = "/.netlify/functions/admin-background"
+status = 200
+force = false
 [[redirects]]
 from = "/api/track-media"
 to = "/.netlify/functions/track-media"
