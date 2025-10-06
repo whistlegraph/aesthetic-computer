@@ -9329,11 +9329,11 @@ async function makeFrame({ data: { type, content } }) {
       if (penEventCount > 0) {
         const processingTime = performance.now() - startTime;
         if (processingTime > 5) { // Only log if processing took more than 5ms
-          console.log("🖋️ Pen event processing:", {
-            eventCount: penEventCount,
-            processingTime: processingTime.toFixed(2) + "ms",
-            avgPerEvent: (processingTime / penEventCount).toFixed(2) + "ms"
-          });
+          // console.log("🖋️ Pen event processing:", {
+          //   eventCount: penEventCount,
+          //   processingTime: processingTime.toFixed(2) + "ms",
+          //   avgPerEvent: (processingTime / penEventCount).toFixed(2) + "ms"
+          // });
         }
       }
 
