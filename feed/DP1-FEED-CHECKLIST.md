@@ -17,7 +17,7 @@
 ## 📋 Deployment Steps (To Do)
 
 ### Step 1: Authenticate with Cloudflare
-- [ ] Run: `cd /workspaces/aesthetic-computer/dp1-feed`
+- [ ] Run: `cd /workspaces/aesthetic-computer/feed/dp1-feed`
 - [ ] Run: `wrangler login` (opens browser)
 - [ ] Complete OAuth flow
 - [ ] Verify: Should see "Successfully logged in"
@@ -51,7 +51,7 @@ wrangler whoami
 - [ ] Save file
 
 ### Step 4: Generate and Set Secrets
-- [ ] Run: `cd /workspaces/aesthetic-computer/dp1-feed`
+- [ ] Run: `cd /workspaces/aesthetic-computer/feed/dp1-feed`
 - [ ] Generate API secret:
   ```fish
   set api_secret (openssl rand -hex 32)
@@ -160,7 +160,7 @@ curl https://feed.aesthetic.computer/api/v1/health
 curl https://feed.aesthetic.computer/api/v1/playlists
 
 # Check worker logs
-cd /workspaces/aesthetic-computer/dp1-feed
+cd /workspaces/aesthetic-computer/feed/dp1-feed
 wrangler tail --env production
 
 # List secrets (verify they're set)

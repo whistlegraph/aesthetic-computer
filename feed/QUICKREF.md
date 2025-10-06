@@ -72,7 +72,7 @@ The Cloudflare Worker is in the `dp1-feed` directory (cloned from https://github
 
 ### Deploy Worker
 ```bash
-cd /workspaces/aesthetic-computer/dp1-feed
+cd /workspaces/aesthetic-computer/feed/dp1-feed
 wrangler deploy
 ```
 
