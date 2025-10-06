@@ -43,12 +43,12 @@
   },
   "author": "Jeffrey Alan Scudder",
   "dependencies": {
-    "dotenv": "^16.4.5",
-    "firebase-admin": "^12.1.1",
-    "mongodb": "^6.6.2",
+    "dotenv": "^17.2.3",
+    "firebase-admin": "^13.5.0",
+    "mongodb": "^6.20.0",
     "node-fetch": "^3.3.2",
-    "obscenity": "^0.4.0",
-    "redis": "^4.6.14",
-    "ws": "^8.17.0"
+    "obscenity": "^0.4.5",
+    "redis": "^5.8.3",
+    "ws": "^8.18.3"
   }
 }
