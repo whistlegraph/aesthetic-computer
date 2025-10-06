@@ -1,0 +1,3 @@
+[submodule "feed/dp1-feed"]
+	path = feed/dp1-feed
+	url = https://github.com/feral-file/dp1-feed.git
