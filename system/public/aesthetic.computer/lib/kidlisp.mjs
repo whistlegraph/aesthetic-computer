@@ -606,6 +606,12 @@ function readFromTokens(tokens) {
       throw new Error("Unexpected ')'");
     }
 
+    // Skip commas - they're expression separators, not expressions themselves
+    if (tokens[0] === ",") {
+      tokens.shift();
+      continue;
+    }
+
     // Check if the current token is a timing expression (both simple like "1.5s" and repeating like "2s...")
     const currentToken = tokens[0];
 
@@ -616,6 +622,7 @@ function readFromTokens(tokens) {
       // Collect all following expressions until we hit another timing token or run out
       while (tokens.length > 0 &&
         tokens[0] !== ")" &&
+        tokens[0] !== "," &&  // Stop at commas too
         !/^\d*\.?\d+s\.\.\.?$/.test(tokens[0]) &&
         !/^\d*\.?\d+s!?$/.test(tokens[0])) {
         const nextExpr = readExpression(tokens);
@@ -699,6 +706,126 @@ function existing(item) {
 
 function getNestedValue(obj, path) {
   return path?.split(".").reduce((acc, part) => acc && acc[part], obj);
+}
+
+function readLoggingFlag(value) {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value !== 0;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (!normalized) return undefined;
+    if (["false", "0", "off", "no"].includes(normalized)) return false;
+    if (["true", "1", "on", "yes"].includes(normalized)) return true;
+  }
+  return undefined;
+}
+
+function kidlispInkLoggingEnabled() {
+  try {
+    if (typeof globalThis !== "undefined") {
+      const disable = readLoggingFlag(
+        globalThis.AC_DISABLE_LINE_COLOR_LOGS ?? globalThis.AC_DISABLE_INK_COLOR_LOGS,
+      );
+      if (disable === true) return false;
+
+      const enable = readLoggingFlag(
+        globalThis.AC_LOG_LINE_COLORS ?? globalThis.AC_LOG_INK_COLORS,
+      );
+      if (enable !== undefined) return enable;
+    }
+    if (typeof process !== "undefined" && process?.env) {
+      const { env } = process;
+      const disable = readLoggingFlag(
+        env.AC_DISABLE_LINE_COLOR_LOGS ?? env.AC_DISABLE_INK_COLOR_LOGS,
+      );
+      if (disable === true) return false;
+
+      const enable = readLoggingFlag(
+        env.AC_LOG_LINE_COLORS ?? env.AC_LOG_INK_COLORS,
+      );
+      if (enable !== undefined) return enable;
+    }
+  } catch (err) {
+    // Ignore logging configuration errors
+  }
+  return true;
+}
+
+function kidlispInkLogPrefix() {
+  try {
+    if (typeof process !== "undefined" && process?.env?.AC_LOG_INK_LABEL) {
+      return `[${process.env.AC_LOG_INK_LABEL}] `;
+    }
+    if (typeof globalThis !== "undefined" && globalThis.AC_LOG_INK_LABEL) {
+      return `[${globalThis.AC_LOG_INK_LABEL}] `;
+    }
+  } catch (err) {
+    // Swallow errors and fall through to empty prefix
+  }
+  return "";
+}
+
+function cloneValueForInkLog(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => cloneValueForInkLog(item));
+  }
+  if (value && typeof value === "object") {
+    try {
+      if (typeof structuredClone === "function") {
+        return structuredClone(value);
+      }
+      return JSON.parse(JSON.stringify(value));
+    } catch (err) {
+      return { ...value };
+    }
+  }
+  return value;
+}
+
+function formatInkLogValue(value) {
+  const cloned = cloneValueForInkLog(value);
+
+  const format = (val) => {
+    if (val === undefined || val === null) return val;
+
+    if (Array.isArray(val)) {
+      const numeric = val.every((item) => typeof item === "number");
+      if (numeric) {
+        if (val.length === 4) return `rgba(${val.join(",")})`;
+        if (val.length === 3) return `rgb(${val.join(",")})`;
+        return `[${val.join(",")}]`;
+      }
+      if (val.length === 2 && typeof val[0] === "string" && typeof val[1] === "number") {
+        return `${val[0]} @${val[1]}`;
+      }
+      return `[${val.map((item) => format(item)).join(", " )}]`;
+    }
+
+    if (val && typeof val === "object") {
+      const hasRgb = ["r", "g", "b"].every((key) => typeof val[key] === "number");
+      if (hasRgb) {
+        const { r, g, b } = val;
+        const a = typeof val.a === "number" ? val.a : 255;
+        return `rgba(${r},${g},${b},${a})`;
+      }
+      if (typeof val.color === "string" && typeof val.alpha === "number") {
+        return `${val.color} @${val.alpha}`;
+      }
+      try {
+        const json = JSON.stringify(val);
+        if (json && json.length <= 160) {
+          return json;
+        }
+      } catch (err) {
+        // fall through to default return
+      }
+    }
+
+    return val;
+  };
+
+  return format(cloned);
 }
 
 // KidLisp Environment Class
@@ -2609,11 +2736,9 @@ class KidLisp {
 
         // Set initial ink color to undefined for KidLisp pieces
         // This ensures a clean slate for each piece instead of inheriting system colors
-        if (!this.inkStateSet) {
-          // Don't call ink() as that would set the state - just mark as unset
-          this.inkState = undefined;
-          this.inkStateSet = false;
-        }
+        // Always reset on boot to prevent carrying over system/previous ink state
+        this.inkState = undefined;
+        this.inkStateSet = false;
       },
       paint: ($) => {
         // 🎯 Start performance frame tracking
@@ -3682,6 +3807,23 @@ class KidLisp {
           args = args ? [args] : [];
         }
 
+        // 🎨 Check if "erase" mode is being requested
+        const isEraseMode = args.length >= 1 && args[0] === "erase";
+        
+        // If erase mode, set blend mode to "erase" before processing
+        if (isEraseMode && api.blend) {
+          if (kidlispInkLoggingEnabled()) {
+            console.log('🎨 INK: Setting blend mode to ERASE');
+          }
+          api.blend("erase");
+        } else if (!isEraseMode && api.blend) {
+          // Reset to normal blend mode if not erase
+          if (kidlispInkLoggingEnabled() && args.length > 0) {
+            console.log('🎨 INK: Resetting blend mode to BLEND');
+          }
+          api.blend("blend");
+        }
+
         // Args are already evaluated by the evaluator, so we just need to flatten arrays
         // If an arg is an array (like [255, 0, 0] from red()), use it directly
         let processedArgs;
@@ -3849,6 +3991,87 @@ class KidLisp {
         console.error("❗ Invalid `delay`. Expected (delay seconds action).");
       },
       line: (api, args = []) => {
+        // 🐛 DEBUG: Log AST when line is called without ink state
+        if (!this.inkStateSet && kidlispInkLoggingEnabled()) {
+          console.log(`${kidlispInkLogPrefix()}🐛 line called without ink!`);
+          console.log(`   Current expression:`, this.currentEvaluatingExpression);
+          console.log(`   AST:`, JSON.stringify(this.ast).substring(0, 200));
+        }
+        
+        if (kidlispInkLoggingEnabled()) {
+          let activeInkRaw;
+          try {
+            activeInkRaw = cloneValueForInkLog(api?.inkrn?.());
+          } catch (err) {
+            activeInkRaw = `inkrn-error:${err?.message || err}`;
+          }
+
+          const inkStateRaw = cloneValueForInkLog(this.getInkState());
+          const argsRaw = Array.isArray(args)
+            ? args.map((arg) => cloneValueForInkLog(arg))
+            : cloneValueForInkLog(args);
+
+          const canUseActiveInk =
+            activeInkRaw !== undefined &&
+            activeInkRaw !== null &&
+            typeof activeInkRaw !== "string";
+          const hasInkState = inkStateRaw !== undefined && inkStateRaw !== null;
+          const resolvedInkRaw = hasInkState
+            ? inkStateRaw
+            : canUseActiveInk
+            ? activeInkRaw
+            : inkStateRaw;
+          const resolvedInkSource = hasInkState
+            ? "state"
+            : canUseActiveInk
+            ? "active"
+            : "none";
+
+          console.log(
+            `${kidlispInkLogPrefix()}🖊️ KidLisp line`,
+            {
+              args: formatInkLogValue(argsRaw),
+              rawArgs: argsRaw,
+              inkState: formatInkLogValue(resolvedInkRaw),
+              inkStateRaw,
+              inkResolvedFrom: resolvedInkSource,
+              inkStateSet: this.inkStateSet,
+              activeInk: formatInkLogValue(activeInkRaw),
+              activeInkRaw,
+              frame: this.frameCount,
+              embeddedLayers: this.embeddedLayers?.length || 0,
+              inEmbedPhase: !!this.inEmbedPhase,
+            },
+          );
+        }
+
+        // 🛡️ Skip drawing if KidLisp hasn't explicitly set an ink color yet
+        // This prevents external/system calls from drawing with undefined colors
+        // before the KidLisp program has a chance to set its own ink state
+        if (!this.inkStateSet) {
+          if (kidlispInkLoggingEnabled()) {
+            // Capture detailed stack trace
+            let stackLines = [];
+            try {
+              const stack = new Error().stack?.split('\n') || [];
+              for (let i = 1; i < Math.min(stack.length, 12); i++) {
+                const line = stack[i]?.trim();
+                if (line) {
+                  // Extract function name and file
+                  const match = line.match(/at\s+(\S+)\s+\(([^)]+)\)/);
+                  if (match) {
+                    const [, func, location] = match;
+                    const file = location.split('/').pop().split('?')[0];
+                    stackLines.push(`${func}@${file}`);
+                  }
+                }
+              }
+            } catch (e) {}
+            console.log(`${kidlispInkLogPrefix()}⏭️ KidLisp line SKIPPED (no ink)\nStack: ${stackLines.slice(0, 6).join(' → ')}`);
+          }
+          return;
+        }
+
         // 🍞 Suppress drawing if we're before the bake point (after bake has been called)
         if (this.suppressDrawingBeforeBake) {
           const routed = this.runWithBakedBuffer(api, () => {
@@ -3876,6 +4099,29 @@ class KidLisp {
           });
           // Line deferred debug log removed for performance
           return;
+        }
+
+        // 🎨 Apply the stored ink state before drawing
+        // This ensures that special modes like "erase" work correctly
+        if (this.inkState && api.ink) {
+          if (kidlispInkLoggingEnabled() && this.inkState[0] === "erase") {
+            console.log('🎨 LINE: Applying erase ink before drawing');
+            console.log('🎨 LINE: inkState =', this.inkState);
+          }
+          api.ink(...this.inkState);
+          
+          // Debug: check what the actual color is after applying ink
+          if (kidlispInkLoggingEnabled() && this.inkState[0] === "erase") {
+            // Call ink with no args to get current color
+            const graphColor = api.color ? api.color() : null;
+            if (Array.isArray(graphColor)) {
+              console.log('🎨 LINE: Current graph color = [', graphColor.join(', '), ']');
+            } else if (graphColor) {
+              console.log('🎨 LINE: Graph color:', graphColor);
+            } else {
+              console.log('🎨 LINE: Could not retrieve graph color');
+            }
+          }
         }
 
         api.line(...args);
@@ -6486,6 +6732,14 @@ class KidLisp {
   }
 
   evaluate(parsed, api = {}, env, inArgs, isTopLevel = false, expressionIndex = 0) {
+    // 🐛 Track current expression for debugging
+    const prevExpression = this.currentEvaluatingExpression;
+    if (!this.inkStateSet && kidlispInkLoggingEnabled()) {
+      this.currentEvaluatingExpression = Array.isArray(parsed) ? 
+        `(${parsed[0]} ...)` : 
+        String(parsed).substring(0, 30);
+    }
+    
     const evalStart = this.startTiming('evaluate');
     perfStart("evaluate-total");
     if (VERBOSE) console.log("➗ Evaluating:", parsed);
@@ -6763,6 +7017,10 @@ class KidLisp {
             const backdropKey = `first_line_backdrop_${colorName}_${position}`;
             if (!this.onceExecuted.has(backdropKey)) {
               this.onceExecuted.add(backdropKey);
+              
+              if (kidlispInkLoggingEnabled()) {
+                console.log('🎨 FIRST-LINE COLOR: Applying backdrop', colorName);
+              }
 
               // Set the background fill color for reframe operations
               if (api.backgroundFill) {
