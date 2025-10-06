@@ -2557,10 +2557,14 @@ class KidLisp {
     // Store flag to skip caching for .lisp files
     this.isLispFile = isLispFile;
 
-    // Always clear embedded layer cache when loading a module
-    // This ensures fresh state when entering/re-entering a piece
-    this.clearEmbeddedLayerCache();
-    this.clearBakedLayers();
+    // Clear embedded layer cache when loading a module, UNLESS explicitly preserving them
+    // (e.g., during stateless frame-by-frame rendering where layers are restored from disk)
+    if (!this.preserveEmbeddedLayers) {
+      this.clearEmbeddedLayerCache();
+      this.clearBakedLayers();
+    } else {
+      console.log(`🔒 HEADLESS: Preserving ${this.embeddedLayers?.length || 0} embedded layers (preserveEmbeddedLayers=true)`);
+    }
 
     // Source logging removed for performance
     // console.log("🟪");
@@ -6204,7 +6208,9 @@ class KidLisp {
           // This ensures nested embeds like ($pie ...) and ($febs ...) actually execute
           const shouldRender = this.updateEmbeddedLayer(api, existingLayer);
 
-          // Always paste cached layers that have buffers - they contain valuable content even if they didn't render this frame
+          // In preserve mode (stateless rendering), we still need to paste immediately because
+          // the layer positions might be different on each call. However, renderEmbeddedLayers()
+          // will also render them at the end, so we need to ensure proper compositing.
           if (existingLayer.buffer && api.paste) {
             // console.log(`🔄 embed() calling pasteWithAlpha: buffer=${existingLayer.buffer.width}x${existingLayer.buffer.height}, pos=(${x},${y}), alpha=${existingLayer.alpha}`);
             // Always use alpha blending to properly handle pixels with alpha channels
@@ -10222,7 +10228,10 @@ class KidLisp {
       return;
     }
 
-    console.log(`🎬 HEADLESS DEBUG: Processing ${this.embeddedLayers.length} embedded layers`);
+    console.log(`🎬 RENDER DEBUG: Processing ${this.embeddedLayers.length} embedded layers`);
+    this.embeddedLayers.forEach((layer, index) => {
+      console.log(`  Layer ${index}: ${layer.cacheId || layer.id}, hasBuffer=${!!layer.buffer}, hasInstance=${!!layer.kidlispInstance}, alpha=${layer.alpha}`);
+    });
 
     // 🚀 REFRAME OPTIMIZATION: Skip expensive re-evaluation during reframe operations
     const currentScreenSize = `${api.screen?.width || 0}x${api.screen?.height || 0}`;

@@ -199,7 +199,10 @@ gh auth setup-git
 
 # Ensure GPG signing is disabled at both global and local levels (GitHub CLI might re-enable it)
 git config --global commit.gpgsign false
+cd /home/me/aesthetic-computer
 git config --local commit.gpgsign false
+git config --local user.signingkey ""
+echo "🔓 GPG signing disabled for commits"
 
 # Disable Netlify CLI telemetry to prevent ETXTBSY errors
 echo "Disabling Netlify CLI telemetry..."
@@ -316,7 +319,11 @@ echo "✨ Modes directory linked to .github for VSCode chatmodes"
 source /workspaces/aesthetic-computer/.devcontainer/config.fish
 echo "✨ AC development functions loaded (ac-pack, ac-unpack, etc.)"
 
-# Note: .waiter file creation is handled by postAttachCommand in devcontainer.json
+# Create .waiter file to signal container is ready (moved from postAttachCommand to avoid terminal popup in Codespaces)
+sudo touch /home/me/.waiter
+sudo chmod 777 /home/me/.waiter
+sudo chmod +w /home/me
+echo "✅ Container ready signal created (.waiter)"
 
 # echo "Initializing 📋 Clipboard Service" | lolcat -x -r
 
