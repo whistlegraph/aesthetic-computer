@@ -1025,7 +1025,7 @@ class KidLisp {
     this.bakedLayers = []; // Store baked pixel buffers
     this.bakeCallCount = 0; // Track number of bake calls to prevent duplicates
     this.hasBakedContent = false; // Track if bake has been called (to enable drawing suppression)
-    this.suppressDrawingBeforeBake = false; // Suppress drawing operations before bake point on subsequent frames
+    // this.suppressDrawingBeforeBake = false; // REMOVED: No longer suppressing pre-bake drawing
     this.postBakeLayer = null; // Persistent buffer for post-bake drawing commands
     this.frameRoutingContext = null; // Tracks screen routing between baked and overlay buffers within a frame
 
@@ -1537,20 +1537,12 @@ class KidLisp {
     // Clear onceExecuted only when explicitly requested (when source changes)
     if (clearOnceExecuted) {
       this.onceExecuted.clear();
-      // Also clear baked layers when source changes (similar to embedded layers)
-      this.bakedLayers = [];
-      this.bakeCallCount = 0;
-      this.hasBakedContent = false;
-    }
-
-    // 🍞 If we have baked content, suppress drawing operations before we reach the bake point
-    // This allows code before bake to run (for logic) but prevents it from drawing over the baked layer
-    if (this.hasBakedContent && !clearOnceExecuted) {
-      this.suppressDrawingBeforeBake = true;
-      if (VERBOSE) console.log("🍞 Reset: Frame start - suppression ENABLED (have baked content)");
-    } else {
-      this.suppressDrawingBeforeBake = false;
-      if (VERBOSE) console.log("🍞 Reset: Frame start - suppression DISABLED (no baked content or source changed)");
+      // When source changes, clear all layers to start fresh
+      if (sourceChanged) {
+        this.layer0 = null;
+        this.bakes = [];
+        this.currentBakeIndex = -1;
+      }
     }
 
     // Reset timing blink tracking
@@ -2561,7 +2553,11 @@ class KidLisp {
     // (e.g., during stateless frame-by-frame rendering where layers are restored from disk)
     if (!this.preserveEmbeddedLayers) {
       this.clearEmbeddedLayerCache();
-      this.clearBakedLayers();
+      // Only clear baked layers when source actually changes
+      // This ensures baked layers persist across frames for animations
+      if (sourceChanged) {
+        this.clearBakedLayers();
+      }
     } else {
       console.log(`🔒 HEADLESS: Preserving ${this.embeddedLayers?.length || 0} embedded layers (preserveEmbeddedLayers=true)`);
     }
@@ -2820,47 +2816,48 @@ class KidLisp {
           this.localEnv = this.localEnvStore[this.localEnvLevel];
 
           const mainEvalStart = performance.now();
-          // console.log("🔍 About to evaluate AST for embedded KidLisp");
           
-          const restoreRouting = this.beginBakedFrameRouting($);
-          try {
-            /*const evaluated = */ this.evaluate(this.ast, $, undefined, undefined, true);
-          } finally {
-            restoreRouting();
+          // Save the original screen reference before evaluation
+          const screen = $.screen;
+          
+          // 🍞 LAYER 0: Create or reuse layer 0 for all pre-bake drawing
+          // This ensures KidLisp never draws directly to screen, preventing scroll issues
+          if (!this.layer0) {
+            this.layer0 = {
+              width: screen.width,
+              height: screen.height,
+              pixels: new Uint8ClampedArray(screen.width * screen.height * 4)
+            };
+          } else if (this.layer0.width !== screen.width || this.layer0.height !== screen.height) {
+            // Resize layer 0 if screen dimensions changed
+            this.layer0.width = screen.width;
+            this.layer0.height = screen.height;
+            this.layer0.pixels = new Uint8ClampedArray(screen.width * screen.height * 4);
           }
+          
+          // DON'T clear layer 0 - let it accumulate! Scroll and other operations will modify it.
+          // this.layer0.pixels.fill(0);  // REMOVED - was clearing our drawing!
+          
+          // Reset bake index before evaluation (starts at -1 = drawing to layer 0)
+          if (this.bakes) this.currentBakeIndex = -1;
+          
+          // Switch to layer 0 as initial drawing target
+          $.page(this.layer0);
+          
+          // Evaluate the entire AST - bake() calls will switch to bake buffers
+          /*const evaluated = */ this.evaluate(this.ast, $, undefined, undefined, true);
+          
+          // Always restore screen as drawing target after evaluation
+          // (embedded layers, post-embed commands, and paste operations need the screen)
+          $.page(screen);
+          
           if (VERBOSE) console.log("🎬 Finished evaluation");
-          // console.log("✅ Finished evaluating AST for embedded KidLisp");
           const mainEvalTime = performance.now() - mainEvalStart;
 
           // Mark that we're now in the embed rendering phase
           this.inEmbedPhase = true;
 
-          // First composite baked layers to establish the background
-          if (this.hasBakedContent && $.screen?.pixels) {
-            $.screen.pixels.fill(0);
-          }
-          const bakedStart = performance.now();
-          this.renderBakedLayers($);
-          const bakedTime = performance.now() - bakedStart;
-
-          // Then restore the persistent post-bake overlay on top
-          if (this.hasBakedContent && this.postBakeLayer?.pixels && $.screen?.pixels) {
-            if (!this.postBakeLayer ||
-              this.postBakeLayer.width !== $.screen.width ||
-              this.postBakeLayer.height !== $.screen.height) {
-              this.postBakeLayer = this.resizePixelBufferPreserve(
-                this.postBakeLayer,
-                $.screen.width,
-                $.screen.height,
-                0,
-              );
-            }
-
-            // Composite the post-bake overlay on top of the baked layer
-            this.compositePostBakeLayer($, this.postBakeLayer);
-          }
-
-          // Then render and update embedded layers
+          // Render and update embedded layers first
 
           const embedStart = performance.now();
           this.renderEmbeddedLayers($);
@@ -2870,7 +2867,7 @@ class KidLisp {
           // 🔍 TOTAL FRAME TIMING: Disabled for cleaner console
           const totalFrameTime = performance.now() - totalFrameStart;
           // if (totalFrameTime > 10) { // Only log very slow frames
-          //   console.log(`🔍 TOTAL FRAME: ${totalFrameTime.toFixed(2)}ms | main=${mainEvalTime.toFixed(2)}ms, baked=${bakedTime.toFixed(2)}ms, embed=${embedTime.toFixed(2)}ms`);
+          //   console.log(`🔍 TOTAL FRAME: ${totalFrameTime.toFixed(2)}ms | main=${mainEvalTime.toFixed(2)}ms, embed=${embedTime.toFixed(2)}ms`);
           // }
 
           // Finally execute any drawing commands that should be on top
@@ -2885,6 +2882,30 @@ class KidLisp {
             }
           });
           this.postEmbedCommands = [];
+
+          // 🍞 COMPOSITE: Paste layer 0 first, then all bake buffers on top
+          // This ensures KidLisp content never drawn directly to screen, preventing scroll issues
+          
+          // Paste layer 0 (all drawing before first bake, or all drawing if no bake)
+          if (this.layer0 && this.layer0.pixels) {
+            // Count non-transparent pixels for debugging
+            let nonTransparent = 0;
+            for (let p = 3; p < this.layer0.pixels.length; p += 4) {
+              if (this.layer0.pixels[p] > 0) nonTransparent++;
+            }
+            $.paste(this.layer0, 0, 0);
+          }
+          
+          // Then paste all bake buffers on top
+          if (this.bakes && this.bakes.length > 0) {
+            for (let i = 0; i < this.bakes.length; i++) {
+              const bakeLayer = this.bakes[i];
+              if (bakeLayer && bakeLayer.pixels) {
+                // Use paste to composite this bake layer on top
+                $.paste(bakeLayer, 0, 0);
+              }
+            }
+          }
 
           // 🎯 Render performance HUD overlay (always rendered last)
           if (this.perf.showHUD) {
@@ -4076,23 +4097,6 @@ class KidLisp {
           return;
         }
 
-        // 🍞 Suppress drawing if we're before the bake point (after bake has been called)
-        if (this.suppressDrawingBeforeBake) {
-          const routed = this.runWithBakedBuffer(api, () => {
-            api.line(...args);
-          });
-          if (routed) {
-            return;
-          }
-        }
-
-        // console.log("📏 Line called with args:", args);
-        // console.log("📏 Line context:", {
-        //   embeddedLayersCount: this.embeddedLayers?.length || 0,
-        //   inEmbedPhase: this.inEmbedPhase,
-        //   screenSize: `${api.screen?.width || 'unknown'}x${api.screen?.height || 'unknown'}`
-        // });
-
         // Check if we should defer this command
         if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase) {
           this.postEmbedCommands = this.postEmbedCommands || [];
@@ -4112,6 +4116,7 @@ class KidLisp {
             console.log('🎨 LINE: Applying erase ink before drawing');
             console.log('🎨 LINE: inkState =', this.inkState);
           }
+          
           api.ink(...this.inkState);
           
           // Debug: check what the actual color is after applying ink
@@ -4119,11 +4124,11 @@ class KidLisp {
             // Call ink with no args to get current color
             const graphColor = api.color ? api.color() : null;
             if (Array.isArray(graphColor)) {
-              console.log('🎨 LINE: Current graph color = [', graphColor.join(', '), ']');
+              // console.log('🎨 LINE: Current graph color = [', graphColor.join(', '), ']');
             } else if (graphColor) {
-              console.log('🎨 LINE: Graph color:', graphColor);
+              // console.log('🎨 LINE: Graph color:', graphColor);
             } else {
-              console.log('🎨 LINE: Could not retrieve graph color');
+              // console.log('🎨 LINE: Could not retrieve graph color');
             }
           }
         }
@@ -4432,7 +4437,13 @@ class KidLisp {
 
         // Only defer scroll commands from main code, not from embedded layers
         // Execute immediately if we're a nested instance or in embed phase
-        if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase && !this.isNestedInstance) {
+        // OR if we're drawing to layer 0 (currentBakeIndex === -1), because deferred scroll would affect screen instead
+        const shouldDefer = this.embeddedLayers && this.embeddedLayers.length > 0 && 
+                           !this.inEmbedPhase && 
+                           !this.isNestedInstance &&
+                           this.currentBakeIndex !== -1; // Don't defer if drawing to layer 0
+        
+        if (shouldDefer) {
           //console.log(`⏳ SCROLL deferring command until after embedded layers`);
           this.postEmbedCommands = this.postEmbedCommands || [];
           this.postEmbedCommands.push({
@@ -4450,7 +4461,6 @@ class KidLisp {
           return;
         }
 
-        //console.log(`🖱️ SCROLL executing immediately: dx=${dx}, dy=${dy}`);
         if (typeof api.scroll === 'function') {
           api.scroll(dx, dy);
         } else {
@@ -5916,96 +5926,50 @@ class KidLisp {
       p0: () => "rainbow",
       p1: () => "zebra",
 
-      // 🍞 Bake function - creates a persistent animated layer that continues to execute pre-bake code
-      // Similar to embedded layers, maintains its own buffer and AST
+      // 🍞 Bake function - creates a new painting buffer for subsequent drawing
+      // Like: bakes[index] || painting(screen.width, screen.height, (api) => {...})
       bake: (api, args = []) => {
-        // Create a simple key for this bake call (not using counter to avoid unique keys each time)
-        const bakeKey = "bake_call";
-
-        // Check if bake has already been executed in this program run
-        if (this.onceExecuted.has(bakeKey)) {
-          // On subsequent frames, we reach this point - disable drawing suppression from here forward
-          if (VERBOSE) console.log("🍞 Bake: Subsequent frame - resuming post-bake drawing layer");
-          this.suppressDrawingBeforeBake = false;
-
-          // Ensure post-bake buffer matches current screen dimensions even if resolution changed
-          if (api.screen?.width && api.screen?.height) {
-            if (!this.postBakeLayer ||
-              this.postBakeLayer.width !== api.screen.width ||
-              this.postBakeLayer.height !== api.screen.height) {
-              this.postBakeLayer = this.resizePixelBufferPreserve(
-                this.postBakeLayer,
-                api.screen.width,
-                api.screen.height,
-                0,
-              );
-            }
-          }
-
-          this.switchToPostBakeRouting(api);
-
-          return this.bakedLayers?.length || 0;
+        // Initialize bakes array and index if not present
+        if (!this.bakes) {
+          this.bakes = [];
+          this.currentBakeIndex = -1;
         }
-
-        // Mark bake as executed for this program run
-        this.onceExecuted.add(bakeKey);
-        this.hasBakedContent = true; // Mark that we have baked content
-
-  if (VERBOSE) console.log("🍞 Baking current layer - creating persistent animated buffer...");
-
-        // Get current screen buffer dimensions
-        const currentWidth = api.screen?.width || 256;
-        const currentHeight = api.screen?.height || 256;
-
-        // Create a persistent baked layer with its own buffer (like embedded layers)
-        if (api.screen?.pixels) {
-          // Clone the current state as the initial buffer
-          const bakedBuffer = {
-            width: currentWidth,
-            height: currentHeight,
-            pixels: new Uint8ClampedArray(api.screen.pixels)
-          };
-
-          const bakedLayer = {
-            buffer: bakedBuffer,
-            width: currentWidth,
-            height: currentHeight
-          };
-
-          this.bakedLayers = [bakedLayer]; // Only support one baked layer for now
-          this.bakeCallCount = 1;
-
-          if (VERBOSE) console.log(`🍞 Baked layer created (${currentWidth}x${currentHeight})`);
-
-          // Initialize the persistent post-bake layer buffer
-          const overlaySize = currentWidth * currentHeight * 4;
-          let overlayPixels = new Uint8ClampedArray(overlaySize);
-
-          // Clear the current buffer to start fresh (optional - could be configurable)
-          if (args.length === 0 || args[0] !== "keep") {
-            // Manually clear the screen buffer to transparent instead of using wipe
-            if (api.screen?.pixels) {
-              api.screen.pixels.fill(0); // Fill with transparent black (0,0,0,0)
-            }
-
-            // If we're clearing, make sure overlay starts transparent as well
-            overlayPixels.fill(0);
+        
+        // Increment to next bake layer
+        this.currentBakeIndex++;
+        console.log(`🍞 BAKE called! Switching to bake buffer ${this.currentBakeIndex}`);
+        
+        // Get current screen dimensions
+        const width = api.screen?.width || 256;
+        const height = api.screen?.height || 256;
+        
+        // Reuse existing bake buffer if it exists and matches dimensions
+        if (this.bakes[this.currentBakeIndex]) {
+          const existing = this.bakes[this.currentBakeIndex];
+          if (existing.width === width && existing.height === height) {
+            // Reuse existing buffer, switch to drawing into it
+            api.page(existing);
+            return this.currentBakeIndex;
           }
-
-          this.postBakeLayer = {
-            width: currentWidth,
-            height: currentHeight,
-            pixels: overlayPixels
-          };
-        } else {
-          console.warn("🍞 No screen buffer available to bake");
         }
-
-        // After baking on first frame, allow drawing to continue
-        this.suppressDrawingBeforeBake = false;
-        this.switchToPostBakeRouting(api);
-
-        return this.bakedLayers.length;
+        
+        // Create new painting buffer for this bake layer
+        const bakeBuffer = {
+          width: width,
+          height: height,
+          pixels: new Uint8ClampedArray(width * height * 4)
+        };
+        
+        // Initialize as transparent
+        bakeBuffer.pixels.fill(0);
+        
+        // Store in bakes array
+        this.bakes[this.currentBakeIndex] = bakeBuffer;
+        
+        // Switch drawing to this bake buffer
+        api.page(bakeBuffer);
+        
+        return this.currentBakeIndex;
       },
 
       // 🖼️ Embed function - loads cached KidLisp code and creates persistent animated layers
@@ -9255,7 +9219,19 @@ class KidLisp {
       currentTarget: "baked"
     };
 
+    if (VERBOSE) {
+      const sampleIdx = 0;
+      const sample = Array.from(bakedLayer.buffer.pixels.slice(sampleIdx, sampleIdx + 4));
+      console.log(`🍞 beginBakedFrameRouting: Routing to baked layer, first pixel before routing:`, sample);
+    }
+
     api.page(bakedLayer.buffer);
+
+    if (VERBOSE) {
+      const sampleIdx = 0;
+      const sample = Array.from(api.screen.pixels.slice(sampleIdx, sampleIdx + 4));
+      console.log(`🍞 beginBakedFrameRouting: After routing, api.screen first pixel:`, sample);
+    }
 
     return () => {
       this.endBakedFrameRouting(api);
@@ -9267,6 +9243,7 @@ class KidLisp {
       return false;
     }
 
+    // Resize overlay if needed
     if (
       api.screen?.width &&
       api.screen?.height &&
@@ -9280,16 +9257,25 @@ class KidLisp {
       );
     }
 
+    // Save the original screen buffer on first switch
     if (!this.frameRoutingContext) {
       this.frameRoutingContext = {
         originalScreen: api.screen,
-        bakedLayer: this.bakedLayers?.[0] || null,
-        currentTarget: null
+        currentTarget: "postBake"
       };
     }
 
+    // Switch api.screen to point to the overlay buffer
     api.page(this.postBakeLayer);
     this.frameRoutingContext.currentTarget = "postBake";
+    
+    console.log("🍞 Switched to post-bake overlay buffer - api.screen now points to overlay");
+    console.log("🍞 api.screen.width:", api.screen?.width, "overlay.width:", this.postBakeLayer.width);
+    console.log("🍞 postBakeLayer.pixels identity:", this.postBakeLayer.pixels.slice(0, 4));
+    console.log("🍞 api.screen has pixels?", !!api.screen.pixels);
+    
+    if (VERBOSE) console.log("🍞 Switched to post-bake overlay buffer");
+    
     return true;
   }
 
@@ -9298,9 +9284,28 @@ class KidLisp {
       return;
     }
 
-    const { originalScreen } = this.frameRoutingContext;
+    if (VERBOSE) {
+      const sampleIdx = 0;
+      const sample = Array.from(api.screen.pixels.slice(sampleIdx, sampleIdx + 4));
+      console.log(`🍞 endBakedFrameRouting: Before restoring, api.screen first pixel:`, sample);
+    }
+
+    const { originalScreen, bakedLayer } = this.frameRoutingContext;
+    
+    if (VERBOSE && bakedLayer?.buffer?.pixels) {
+      const sampleIdx = 0;
+      const sample = Array.from(bakedLayer.buffer.pixels.slice(sampleIdx, sampleIdx + 4));
+      console.log(`🍞 endBakedFrameRouting: Baked layer first pixel:`, sample);
+    }
+    
     if (originalScreen) {
       api.page(originalScreen);
+    }
+
+    if (VERBOSE) {
+      const sampleIdx = 0;
+      const sample = Array.from(api.screen.pixels.slice(sampleIdx, sampleIdx + 4));
+      console.log(`🍞 endBakedFrameRouting: After restoring, api.screen first pixel:`, sample);
     }
 
     this.frameRoutingContext = null;
@@ -9325,6 +9330,9 @@ class KidLisp {
   // Render baked layers - execute pre-bake code and composite the result
   renderBakedLayers(api) {
     if (!this.bakedLayers || this.bakedLayers.length === 0) {
+      if (VERBOSE && this.hasBakedContent) {
+        console.log("🍞 renderBakedLayers: No baked layers to render despite hasBakedContent=true");
+      }
       return;
     }
 
@@ -9334,7 +9342,14 @@ class KidLisp {
     // Process each baked layer
     this.bakedLayers.forEach((bakedLayer, index) => {
       if (!bakedLayer || !bakedLayer.buffer) {
+        if (VERBOSE) console.log(`🍞 renderBakedLayers: Layer ${index} has no buffer`);
         return;
+      }
+
+      if (VERBOSE) {
+        const sampleIdx = 0;
+        const sample = bakedLayer.buffer.pixels?.slice(sampleIdx, sampleIdx + 4);
+        console.log(`🍞 renderBakedLayers: Layer ${index} first pixel:`, sample);
       }
 
       if (screenWidth && screenHeight) {
@@ -9409,8 +9424,16 @@ class KidLisp {
   // Composite the post-bake overlay on top of the baked background
   compositePostBakeLayer(api, overlayLayer) {
     if (!api.screen?.pixels || !overlayLayer.pixels) {
+      console.log("🍞 compositePostBakeLayer: Missing buffers!");
       return;
     }
+
+    // Debug: Check if overlay has any non-transparent pixels
+    let nonTransparentCount = 0;
+    for (let i = 3; i < overlayLayer.pixels.length; i += 4) {
+      if (overlayLayer.pixels[i] > 0) nonTransparentCount++;
+    }
+    console.log(`🍞 compositePostBakeLayer: Overlay has ${nonTransparentCount} non-transparent pixels`);
 
     const currentPixels = api.screen.pixels;
     const overlayPixels = overlayLayer.pixels;
