@@ -852,6 +852,14 @@ function normalizeColorInput(value) {
 function findColor() {
   let args = [...arguments];
 
+  // 🍞 Reset blend mode to "blend" for any color EXCEPT "erase"
+  // This ensures erase mode doesn't persist across color changes
+  if (!(args.length === 1 && args[0] === "erase")) {
+    if (blendingMode === "erase") {
+      blendMode("blend");
+    }
+  }
+
   if (args.length === 1 && args[0] !== undefined) {
     const isNumber = () => typeof args[0] === "number";
     const isArray = () => Array.isArray(args[0]);
@@ -929,6 +937,8 @@ function findColor() {
         args = [-1, -1, -1];
         if (originalAlpha !== undefined) args.push(computeAlpha(originalAlpha));
         console.log('🎨 GRAPH.findColor: erase args after initial assignment:', args);
+        // 🍞 Set blend mode to "erase" so drawing operations actually erase pixels
+        blendMode("erase");
       } else if (args[0] === "rainbow") {
         args = rainbow(); // Cycle through roygbiv in a linear sequence.
       } else {
@@ -964,6 +974,10 @@ function findColor() {
     // rainbow, alpha
     if (args[0] === "rainbow") {
       args = [...rainbow(), computeAlpha(args[1])];
+    } else if (args[0] === "erase") {
+      // 🍞 Handle "erase" with alpha: ink("erase", 32)
+      args = [-1, -1, -1, computeAlpha(args[1])];
+      blendMode("erase");
     } else if (typeof args[0] === "string") {
       const normalizedString = normalizeColorInput(args[0]);
       if (typeof normalizedString === "string") {
@@ -1438,9 +1452,16 @@ function plot(x, y) {
     return;
   }
 
-  // Erasing
-  if (c[0] === -1 && c[1] === -1 && c[2] === -1) {
-    erase(pixels, i, 1 - c[3] / 255);
+  // Erasing: Check if blend mode is "erase" OR color is [-1, -1, -1]
+  if (blendingMode === "erase" || (c[0] === -1 && c[1] === -1 && c[2] === -1)) {
+    // Subtractive erase: reduce alpha by the specified amount
+    // c[3] is the amount to subtract from alpha
+    const currentAlpha = pixels[i + 3];
+    const newAlpha = Math.max(0, currentAlpha - c[3]);
+    if (i < 100) { // Only log first few pixels to reduce spam
+      console.log(`🔍 plot ERASE [${i/4}]: ${currentAlpha} - ${c[3]} = ${newAlpha}, buffer width=${width}`);
+    }
+    pixels[i + 3] = newAlpha;
   } else if (alpha === 255) {
     // No alpha blending, just copy.
     pixels.set(plotColor, i);
@@ -2211,11 +2232,12 @@ function lineh(x0, x1, y) {
     return;
   }
 
-  // Erasing.
-  if (blendMode !== "erase" && c[0] === -1 && c[1] === -1 && c[2] === -1) {
-    const normalAlpha = 1 - c[3] / 255;
+  // Erasing: Check if blend mode is "erase" OR color is [-1, -1, -1]
+  if (blendingMode === "erase" || (c[0] === -1 && c[1] === -1 && c[2] === -1)) {
+    // Subtractive erase: reduce alpha by the specified amount
     for (let i = startIndex; i <= endIndex; i += 4) {
-      erase(pixels, i, normalAlpha);
+      const currentAlpha = pixels[i + 3];
+      pixels[i + 3] = Math.max(0, currentAlpha - c[3]);
     }
     // No alpha.
   } else if (c[3] === 255) {
