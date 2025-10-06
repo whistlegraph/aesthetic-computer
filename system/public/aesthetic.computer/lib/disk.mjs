@@ -986,6 +986,99 @@ function toggleHUDVisibility(isDoubleTap = false) {
     });
   }
 }
+
+// Helper function to toggle QR fullscreen mode for KidLisp pieces
+function toggleQRFullscreen() {
+  try {
+    // Only allow QR fullscreen for KidLisp pieces that have QR codes
+    const sourceCode = currentText || currentHUDTxt;
+    console.log("🔍 [QR Toggle] sourceCode:", sourceCode, "currentPath:", currentPath);
+    
+    // Use the centralized KidLisp detection from kidlisp.mjs
+    const isInlineKidlispPiece = (currentPath && lisp.isKidlispSource(currentPath) && !currentPath.endsWith('.lisp')) ||
+                          currentPath === "(...)" ||
+                          (sourceCode && sourceCode.startsWith("$")) ||
+                          (currentPath && currentPath.includes("/disks/$")) ||
+                          (sourceCode && lisp.isKidlispSource(sourceCode));
+    
+    console.log("🔍 [QR Toggle] isInlineKidlispPiece:", isInlineKidlispPiece);
+    
+    if (!isInlineKidlispPiece) {
+      console.log("⚠️ [QR Toggle] Not a KidLisp piece, skipping QR fullscreen toggle");
+      return;
+    }
+    
+    if (!hudAnimationState.qrFullscreen) {
+      // Turning ON fullscreen QR
+      console.log("✅ [QR Toggle] Enabling fullscreen mode");
+      
+      // Remember current corner visibility state
+      hudAnimationState.cornersVisibleBeforeFullscreen = hudAnimationState.visible;
+      
+      // If corners are currently visible, animate them out for fullscreen QR
+      if (hudAnimationState.visible) {
+        // Check if animation is already in progress
+        if (hudAnimationState.animating) {
+          // Animation in progress: reverse it
+          const currentTime = performance.now();
+          const elapsed = currentTime - hudAnimationState.startTime;
+          const remaining = Math.max(0, hudAnimationState.duration - elapsed);
+          hudAnimationState.startTime = currentTime - remaining;
+        } else {
+          // No animation in progress: start new animation
+          hudAnimationState.animating = true;
+          hudAnimationState.startTime = performance.now();
+        }
+        hudAnimationState.visible = false;
+      }
+      
+      hudAnimationState.qrFullscreen = true;
+      
+      // Remove corner QR hitbox when going fullscreen
+      send({ type: "button:hitbox:remove", content: "qr-corner" });
+      
+    } else {
+      // Turning OFF fullscreen QR
+      console.log("✅ [QR Toggle] Disabling fullscreen mode");
+      hudAnimationState.qrFullscreen = false;
+      
+      // Remove fullscreen QR hitbox
+      send({ type: "button:hitbox:remove", content: "qr-fullscreen" });
+      
+      // Restore corner visibility to what it was before fullscreen QR was activated
+      if (hudAnimationState.cornersVisibleBeforeFullscreen && !hudAnimationState.visible) {
+        // Check if animation is already in progress
+        if (hudAnimationState.animating) {
+          // Animation in progress: reverse it
+          const currentTime = performance.now();
+          const elapsed = currentTime - hudAnimationState.startTime;
+          const remaining = Math.max(0, hudAnimationState.duration - elapsed);
+          hudAnimationState.startTime = currentTime - remaining;
+        } else {
+          // No animation in progress: start new animation
+          hudAnimationState.animating = true;
+          hudAnimationState.startTime = performance.now();
+        }
+        hudAnimationState.visible = true;
+      }
+    }
+    
+    // Play sound feedback
+    if ($commonApi?.sound?.synth) {
+      $commonApi.sound.synth({
+        type: "sine",
+        tone: hudAnimationState.qrFullscreen ? 500 : 250,
+        duration: 0.12,
+        attack: 0.1,
+        decay: 0.9,
+        volume: 0.25,
+      });
+    }
+  } catch (err) {
+    console.error("❌ [QR Toggle] Error toggling QR fullscreen:", err);
+  }
+}
+
 let hudAnimationState = {
   visible: !getTeiaMode(), // Hidden by default in TEIA mode, visible otherwise
   animating: false,
@@ -8081,6 +8174,12 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  // Handle QR code fullscreen toggle from hitbox taps
+  if (type === "qr:toggle-fullscreen") {
+    toggleQRFullscreen();
+    return;
+  }
+
   // 1. Beat
   if (type === "beat") {
     if (!sound) return; // Just in case no `frame` has been sent yet.
@@ -8232,77 +8331,7 @@ async function makeFrame({ data: { type, content } }) {
           console.log("⌨️ [Shift Key] Received! getTeiaMode():", getTeiaMode());
         }
         if (data.key === "Shift" && !getTeiaMode()) {
-          // Only allow QR fullscreen for KidLisp pieces that have QR codes
-          const sourceCode = currentText || currentHUDTxt;
-          console.log("🔍 [Shift Debug] sourceCode:", sourceCode, "currentPath:", currentPath);
-          
-          // Use the centralized KidLisp detection from kidlisp.mjs
-          const isInlineKidlispPiece = (currentPath && lisp.isKidlispSource(currentPath) && !currentPath.endsWith('.lisp')) ||
-                                currentPath === "(...)" ||
-                                (sourceCode && sourceCode.startsWith("$")) ||
-                                (currentPath && currentPath.includes("/disks/$")) ||
-                                (sourceCode && lisp.isKidlispSource(sourceCode));
-          
-          console.log("🔍 [Shift Debug] isInlineKidlispPiece:", isInlineKidlispPiece);
-          
-          if (isInlineKidlispPiece) {
-            if (!hudAnimationState.qrFullscreen) {
-              // Turning ON fullscreen QR
-              // Remember current corner visibility state
-              hudAnimationState.cornersVisibleBeforeFullscreen = hudAnimationState.visible;
-              
-              // If corners are currently visible, animate them out for fullscreen QR
-              if (hudAnimationState.visible) {
-                // Check if animation is already in progress
-                if (hudAnimationState.animating) {
-                  // Animation in progress: reverse it
-                  const currentTime = performance.now();
-                  const elapsed = currentTime - hudAnimationState.startTime;
-                  const remaining = Math.max(0, hudAnimationState.duration - elapsed);
-                  hudAnimationState.startTime = currentTime - remaining;
-                } else {
-                  // No animation in progress: start new animation
-                  hudAnimationState.animating = true;
-                  hudAnimationState.startTime = performance.now();
-                }
-                hudAnimationState.visible = false;
-              }
-              
-              hudAnimationState.qrFullscreen = true;
-              console.log("✅ [Shift Debug] QR fullscreen mode ENABLED");
-            } else {
-              // Turning OFF fullscreen QR
-              hudAnimationState.qrFullscreen = false;
-              console.log("✅ [Shift Debug] QR fullscreen mode DISABLED");
-              
-              // Restore corner visibility to what it was before fullscreen QR was activated
-              if (hudAnimationState.cornersVisibleBeforeFullscreen && !hudAnimationState.visible) {
-                // Check if animation is already in progress
-                if (hudAnimationState.animating) {
-                  // Animation in progress: reverse it
-                  const currentTime = performance.now();
-                  const elapsed = currentTime - hudAnimationState.startTime;
-                  const remaining = Math.max(0, hudAnimationState.duration - elapsed);
-                  hudAnimationState.startTime = currentTime - remaining;
-                } else {
-                  // No animation in progress: start new animation
-                  hudAnimationState.animating = true;
-                  hudAnimationState.startTime = performance.now();
-                }
-                hudAnimationState.visible = true;
-              }
-            }
-            
-            // Play sound feedback
-            $commonApi.sound.synth({
-              type: "sine",
-              tone: hudAnimationState.qrFullscreen ? 500 : 250,
-              duration: 0.12,
-              attack: 0.1,
-              decay: 0.9,
-              volume: 0.25,
-            });
-          }
+          toggleQRFullscreen();
         }
 
         // [Ctrl + X]
@@ -11029,19 +11058,22 @@ async function makeFrame({ data: { type, content } }) {
                 const textWidth = actualTextWidth + textPadding * 2; // Add padding
                 const textHeight = fontSize + textPadding * 2;
                 
-                // Expand canvas to include text space
-                const canvasHeight = overlayHeight + textHeight;
-                const canvasWidth = overlayWidth; // Keep QR width only
+                // Use full screen canvas to position QR code (centered) and text
+                const canvasHeight = screen.height;
+                const canvasWidth = screen.width;
                 
-                // Center everything on screen (ensure integer coordinates)
-                startX = Math.floor((screen.width - canvasWidth) / 2);
-                startY = Math.floor((screen.height - canvasHeight) / 2);
+                // Center QR on screen (ensure integer coordinates)
+                const qrX = Math.floor((screen.width - overlayWidth) / 2);
+                const qrY = Math.floor((screen.height - overlayHeight) / 2);
+                
+                // Position starts at top-left of screen since we're using full screen canvas
+                startX = 0;
+                startY = 0;
                 
                 // Create scaled QR overlay with styled code text
                 qrOverlay = $api.painting(canvasWidth, canvasHeight, async ($) => {
                   $.unmask(); // Ensure QR overlay renders without piece mask
                   // Draw scaled QR with integer scaling (centered in canvas)
-                  const qrOffsetX = Math.floor((canvasWidth - overlayWidth) / 2);
                   
                   for (let y = 0; y < originalHeight; y++) {
                     for (let x = 0; x < originalWidth; x++) {
@@ -11054,29 +11086,46 @@ async function makeFrame({ data: { type, content } }) {
                         
                         $.ink(r, g, b);
                         // Draw scale x scale pixel block
-                        $.box(qrOffsetX + x * scale, y * scale, scale, scale);
+                        $.box(qrX + x * scale, qrY + y * scale, scale, scale);
                       }
                     }
                   }
                   
-                  // Add styled code text positioned at bottom-left corner of QR with padding
-                  const textX = qrOffsetX + 4; // Add 4px left padding from QR edge
-                  const textY = overlayHeight + 4; // Add 2px more gap (was 2, now 4) for extra top padding
+                  // Add styled code text positioned at top-left corner of screen
+                  const textX = 10; // Small margin from left edge of screen
+                  const textY = 10; // Small margin from top edge of screen
+                  
+                  // Draw black shadow
+                  $.ink("black");
+                  $.write(codeText, { x: textX + 1, y: textY + 1, size: 2 });
                   
                   // Draw white text on black background - try MatrixChunky8 first, fallback to default
                   $.ink("white");
                   const matrixFont = typefaceCache.get("MatrixChunky8");
                   if (matrixFont && matrixFont.glyphs) {
                     try {
-                      $.write(codeText, { x: textX, y: textY, size: 2 }, "black", undefined, false, "MatrixChunky8");
+                      $.write(codeText, { x: textX, y: textY, size: 2 }, undefined, undefined, false, "MatrixChunky8");
                     } catch (error) {
                       // Fallback to default font if MatrixChunky8 fails
-                      $.write(codeText, { x: textX, y: textY, size: 2 }, "black");
+                      $.write(codeText, { x: textX, y: textY, size: 2 });
                     }
                   } else {
                     // Use default font if MatrixChunky8 not available
-                    $.write(codeText, { x: textX, y: textY, size: 2 }, "black");
+                    $.write(codeText, { x: textX, y: textY, size: 2 });
                   }
+                  
+                  // Add "TAP TO CLOSE" instruction at bottom center of screen
+                  const closeText = "TAP TO CLOSE";
+                  const closeTextY = screen.height - 20; // 20px from bottom
+                  const closeTextX = Math.floor(screen.width / 2) - 30; // Rough center
+                  
+                  // Draw black shadow for close text
+                  $.ink("black");
+                  $.write(closeText, { x: closeTextX + 1, y: closeTextY + 1, size: 1 });
+                  
+                  // Draw white close text
+                  $.ink("white");
+                  $.write(closeText, { x: closeTextX, y: closeTextY, size: 1 });
                 });
               } else {
                 // Normal mode: use original positioning
@@ -11101,6 +11150,39 @@ async function makeFrame({ data: { type, content } }) {
                 opacity: hudAnimationState.opacity,
                 img: qrOverlay
               };
+              
+              // Add clickable hitbox for QR code
+              if (hudAnimationState.qrFullscreen) {
+                // Fullscreen QR: make entire QR tappable to go back
+                send({
+                  type: "button:hitbox:add",
+                  content: {
+                    label: "qr-fullscreen",
+                    box: {
+                      x: startX,
+                      y: startY,
+                      w: overlayWidth,
+                      h: overlayHeight
+                    },
+                    message: "qr-fullscreen-tap"
+                  }
+                });
+              } else {
+                // Corner QR: make it tappable to go fullscreen
+                send({
+                  type: "button:hitbox:add",
+                  content: {
+                    label: "qr-corner",
+                    box: {
+                      x: startX + hudAnimationState.qrSlideOffset.x,
+                      y: startY + hudAnimationState.qrSlideOffset.y,
+                      w: overlayWidth,
+                      h: overlayHeight
+                    },
+                    message: "qr-corner-tap"
+                  }
+                });
+              }
 
             } else {
 
@@ -11337,6 +11419,14 @@ async function makeFrame({ data: { type, content } }) {
                 $.box(qrSize, 1, 1, qrOffsetY + qrSize);
                 // Bottom shadow - offset 1px from left edge like a drop shadow
                 $.box(1, qrOffsetY + qrSize, qrSize, 1);
+                
+                // Add a subtle white highlight to indicate the QR is clickable (corner only)
+                // This creates a "button-like" appearance
+                $.ink("white", 64); // Semi-transparent white
+                // Top highlight line
+                $.line(0, qrOffsetY, qrSize - 1, qrOffsetY);
+                // Left highlight line
+                $.line(0, qrOffsetY, 0, qrOffsetY + qrSize - 1);
               });
               
               // Don't cache QR overlay if font isn't fully loaded yet (text label needs to re-render)
@@ -11424,6 +11514,19 @@ async function makeFrame({ data: { type, content } }) {
                   // Draw white text on top
                   $.ink("white");
                   $.write(codeText, { x: textX, y: textY, size: 2 }); // 2x scale for main text
+                  
+                  // Add "TAP TO CLOSE" instruction at bottom center of screen
+                  const closeText = "TAP TO CLOSE";
+                  const closeTextY = screen.height - 20; // 20px from bottom
+                  const closeTextX = Math.floor(screen.width / 2) - 30; // Rough center (adjust as needed)
+                  
+                  // Draw black shadow for close text
+                  $.ink("black");
+                  $.write(closeText, { x: closeTextX + 1, y: closeTextY + 1, size: 1 });
+                  
+                  // Draw white close text
+                  $.ink("white");
+                  $.write(closeText, { x: closeTextX, y: closeTextY, size: 1 });
                 });
                 
                 // Update qrData for fullscreen
@@ -11464,6 +11567,39 @@ async function makeFrame({ data: { type, content } }) {
                 opacity: hudAnimationState.opacity,
                 img: qrOverlay
               };
+              
+              // Add clickable hitbox for QR code
+              if (hudAnimationState.qrFullscreen) {
+                // Fullscreen QR: make entire QR tappable to go back
+                send({
+                  type: "button:hitbox:add",
+                  content: {
+                    label: "qr-fullscreen",
+                    box: {
+                      x: startX,
+                      y: startY,
+                      w: overlayWidth || qrData.width,
+                      h: overlayHeight || qrData.height
+                    },
+                    message: "qr-fullscreen-tap"
+                  }
+                });
+              } else {
+                // Corner QR: make it tappable to go fullscreen
+                send({
+                  type: "button:hitbox:add",
+                  content: {
+                    label: "qr-corner",
+                    box: {
+                      x: startX + hudAnimationState.qrSlideOffset.x,
+                      y: startY + hudAnimationState.qrSlideOffset.y,
+                      w: overlayWidth || qrData.width,
+                      h: overlayHeight || qrData.height
+                    },
+                    message: "qr-corner-tap"
+                  }
+                });
+              }
 
             }
           } else {
