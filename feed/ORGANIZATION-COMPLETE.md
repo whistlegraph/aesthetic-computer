@@ -86,7 +86,7 @@ cd /workspaces/aesthetic-computer/feed
 
 ### To Deploy Worker
 ```bash
-cd /workspaces/aesthetic-computer/dp1-feed
+cd /workspaces/aesthetic-computer/feed/dp1-feed
 wrangler deploy
 ```
 
@@ -94,7 +94,7 @@ wrangler deploy
 
 The Cloudflare Worker source code remains at:
 ```
-/workspaces/aesthetic-computer/dp1-feed/
+/workspaces/aesthetic-computer/feed/dp1-feed/
 ```
 
 This is the cloned repo from https://github.com/feral-file/dp1-feed

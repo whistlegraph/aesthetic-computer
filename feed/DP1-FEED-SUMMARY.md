@@ -3,7 +3,7 @@
 ## ✅ What's Been Completed
 
 ### 1. Repository Setup
-- ✅ Cloned `feral-file/dp1-feed` into `/workspaces/aesthetic-computer/dp1-feed/`
+- ✅ Cloned `feral-file/dp1-feed` into `/workspaces/aesthetic-computer/feed/dp1-feed/`
 - ✅ Installed dependencies (`npm install`)
 - ✅ Installed `wrangler` CLI globally
 - ✅ Updated `wrangler.toml` for `feed.aesthetic.computer` domain
@@ -110,9 +110,9 @@ Will create these in your Cloudflare account:
 ## 📖 Key Documentation
 
 1. **Start Here**: `/workspaces/aesthetic-computer/DP1-FEED-SETUP.md`
-2. **Technical Details**: `/workspaces/aesthetic-computer/dp1-feed/AESTHETIC-COMPUTER-SETUP.md`
-3. **Original Docs**: `/workspaces/aesthetic-computer/dp1-feed/README.md`
-4. **Development Guide**: `/workspaces/aesthetic-computer/dp1-feed/DEVELOPMENT.md`
+2. **Technical Details**: `/workspaces/aesthetic-computer/feed/dp1-feed/AESTHETIC-COMPUTER-SETUP.md`
+3. **Original Docs**: `/workspaces/aesthetic-computer/feed/dp1-feed/README.md`
+4. **Development Guide**: `/workspaces/aesthetic-computer/feed/dp1-feed/DEVELOPMENT.md`
 
 ## 🎯 Quick Commands Reference
 
