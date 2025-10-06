@@ -14,9 +14,10 @@ import { argv, stdout, exit } from "node:process";
 // ---------- CLI Parsing ----------
 const DEFAULT_BASE = "https://localhost:8888/api/tv";
 const DEFAULT_LIMIT = 8;
-const DEFAULT_MAX_WIDTH = Number.POSITIVE_INFINITY;
-const DEFAULT_MAX_HEIGHT = Number.POSITIVE_INFINITY;
+const DEFAULT_MAX_WIDTH = 800; // Reasonable default to prevent huge images
+const DEFAULT_MAX_HEIGHT = 600; // Reasonable default to prevent huge images
 const DEFAULT_FIT_SIZE = 150;
+const MAX_SIXEL_PARTS = 500000; // Prevent excessive memory usage
 
 function parseArgs(args) {
   const options = {
@@ -148,84 +149,91 @@ function rgbaToRgb(rgbaBuffer, width, height, background = [0, 0, 0]) {
   return rgb;
 }
 
-function generateSixel(rgbBuffer, width, height, maxWidth, maxHeight) {
-  const aspectRatio = height / width;
-  let targetWidth = Math.min(maxWidth, width);
-  let targetHeight = Math.round(targetWidth * aspectRatio);
-
-  if (targetHeight > maxHeight) {
-    targetHeight = maxHeight;
-    targetWidth = Math.round(targetHeight / aspectRatio);
-  }
-
-  const scaledWidth = Math.max(1, targetWidth);
-  const scaledHeight = Math.max(1, targetHeight);
-
-  const scaleX = width / scaledWidth;
-  const scaleY = height / scaledHeight;
-
-  const scaledBuffer = new Uint8Array(scaledWidth * scaledHeight * 3);
-  for (let y = 0; y < scaledHeight; y++) {
-    for (let x = 0; x < scaledWidth; x++) {
-      const srcX = Math.floor(x * scaleX);
-      const srcY = Math.floor(y * scaleY);
-      const srcIdx = (srcY * width + srcX) * 3;
-      const dstIdx = (y * scaledWidth + x) * 3;
-      scaledBuffer[dstIdx] = rgbBuffer[srcIdx];
-      scaledBuffer[dstIdx + 1] = rgbBuffer[srcIdx + 1];
-      scaledBuffer[dstIdx + 2] = rgbBuffer[srcIdx + 2];
+function resizeRgbBuffer(rgbBuffer, srcWidth, srcHeight, targetWidth, targetHeight) {
+  const resized = new Uint8Array(targetWidth * targetHeight * 3);
+  const scaleX = srcWidth / targetWidth;
+  const scaleY = srcHeight / targetHeight;
+  
+  for (let y = 0; y < targetHeight; y++) {
+    for (let x = 0; x < targetWidth; x++) {
+      const srcX = Math.min(Math.floor(x * scaleX), srcWidth - 1);
+      const srcY = Math.min(Math.floor(y * scaleY), srcHeight - 1);
+      const srcIdx = (srcY * srcWidth + srcX) * 3;
+      const dstIdx = (y * targetWidth + x) * 3;
+      
+      resized[dstIdx] = rgbBuffer[srcIdx];
+      resized[dstIdx + 1] = rgbBuffer[srcIdx + 1];
+      resized[dstIdx + 2] = rgbBuffer[srcIdx + 2];
     }
   }
+  
+  return resized;
+}
 
-  let output = "\x1bPq";
+function generateSixel(rgbBuffer, width, height) {
+  // Simple sixel generation - no scaling here, just convert pixels to sixel format
+  // Use array for efficient string building instead of concatenation
+  const outputParts = ["\x1bPq"];
   const colorMap = new Map();
   let nextColorIndex = 0;
 
-  const bands = Math.ceil(scaledHeight / 6);
+  const bands = Math.ceil(height / 6);
   for (let band = 0; band < bands; band++) {
     const bandRows = new Map();
 
-    for (let x = 0; x < scaledWidth; x++) {
+    for (let x = 0; x < width; x++) {
       for (let dy = 0; dy < 6; dy++) {
         const y = band * 6 + dy;
-        if (y >= scaledHeight) break;
+        if (y >= height) break;
 
-        const idx = (y * scaledWidth + x) * 3;
-        const r = scaledBuffer[idx];
-        const g = scaledBuffer[idx + 1];
-        const b = scaledBuffer[idx + 2];
+        const idx = (y * width + x) * 3;
+        
+        // Bounds check to prevent buffer overflow
+        if (idx + 2 >= rgbBuffer.length) {
+          break;
+        }
+        
+        const r = rgbBuffer[idx] ?? 0;
+        const g = rgbBuffer[idx + 1] ?? 0;
+        const b = rgbBuffer[idx + 2] ?? 0;
         const key = (r << 16) | (g << 8) | b;
 
         if (!colorMap.has(key)) {
           const colorIndex = nextColorIndex++;
           colorMap.set(key, colorIndex);
-          output += `#${colorIndex};2;${Math.round((r / 255) * 100)};${Math.round((g / 255) * 100)};${Math.round((b / 255) * 100)}`;
+          outputParts.push(`#${colorIndex};2;${Math.round((r / 255) * 100)};${Math.round((g / 255) * 100)};${Math.round((b / 255) * 100)}`);
         }
 
         const colorIndex = colorMap.get(key);
         if (!bandRows.has(colorIndex)) {
-          bandRows.set(colorIndex, new Array(scaledWidth).fill(0));
+          bandRows.set(colorIndex, new Array(width).fill(0));
         }
         bandRows.get(colorIndex)[x] |= 1 << dy;
       }
     }
 
     for (const [colorIndex, columns] of bandRows) {
-      output += `#${colorIndex}`;
-      for (let x = 0; x < scaledWidth; x++) {
-        output += String.fromCharCode(63 + columns[x]);
+      const rowParts = [`#${colorIndex}`];
+      for (let x = 0; x < width; x++) {
+        rowParts.push(String.fromCharCode(63 + columns[x]));
       }
-      output += "$";
+      rowParts.push("$");
+      outputParts.push(rowParts.join(''));
     }
-    output += "-";
+    outputParts.push("-");
+    
+    // Clear bandRows for this band to free memory
+    bandRows.clear();
+    
+    // Safety check: prevent excessive memory usage
+    if (outputParts.length > MAX_SIXEL_PARTS) {
+      throw new Error(`Image too complex for sixel rendering (exceeds ${MAX_SIXEL_PARTS} parts)`);
+    }
   }
 
-  return {
-    data: output + "\x1b\\",
-    width: scaledWidth,
-    height: scaledHeight,
-    scaled: scaledWidth !== width || scaledHeight !== height,
-  };
+  outputParts.push("\x1b\\");
+
+  return outputParts.join('');
 }
 
 function formatTimestamp(ts) {
@@ -292,16 +300,39 @@ async function pause(ms) {
       try {
         const buffer = await fetchBuffer(url);
         const png = PNG.sync.read(buffer);
-        const rgb = rgbaToRgb(png.data, png.width, png.height);
-        const sixel = generateSixel(rgb, png.width, png.height, options.maxWidth, options.maxHeight);
-
-        stdout.write(`    ${png.width}×${png.height}px`);
-        if (sixel.scaled) {
-          stdout.write(` (rendered ${sixel.width}×${sixel.height}px)`);
+        
+        // Convert RGBA to RGB first
+        let rgb = rgbaToRgb(png.data, png.width, png.height);
+        let finalWidth = png.width;
+        let finalHeight = png.height;
+        
+        // Resize if needed BEFORE sixel conversion
+        if (png.width > options.maxWidth || png.height > options.maxHeight) {
+          const aspectRatio = png.height / png.width;
+          let targetWidth = png.width;
+          let targetHeight = png.height;
+          
+          if (png.width > options.maxWidth) {
+            targetWidth = options.maxWidth;
+            targetHeight = Math.round(options.maxWidth * aspectRatio);
+          }
+          if (targetHeight > options.maxHeight) {
+            targetHeight = options.maxHeight;
+            targetWidth = Math.round(options.maxHeight / aspectRatio);
+          }
+          
+          rgb = resizeRgbBuffer(rgb, png.width, png.height, targetWidth, targetHeight);
+          finalWidth = targetWidth;
+          finalHeight = targetHeight;
+          
+          stdout.write(`    ${png.width}×${png.height}px → ${finalWidth}×${finalHeight}px\n`);
+        } else {
+          stdout.write(`    ${png.width}×${png.height}px\n`);
         }
-        stdout.write("\n");
-
-        stdout.write(sixel.data + "\n");
+        
+        // Generate sixel from the (possibly resized) RGB buffer
+        const sixelData = generateSixel(rgb, finalWidth, finalHeight);
+        stdout.write(sixelData + "\n");
       } catch (error) {
         stdout.write(`    ❌ Failed to render painting: ${error.message}\n`);
       }
