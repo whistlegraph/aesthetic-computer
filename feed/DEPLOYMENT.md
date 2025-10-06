@@ -3,7 +3,7 @@
 The Cloudflare Worker code for the DP-1 Feed API is located in:
 
 ```
-/workspaces/aesthetic-computer/dp1-feed/
+/workspaces/aesthetic-computer/feed/dp1-feed/
 ```
 
 This is the cloned repository from https://github.com/feral-file/dp1-feed
@@ -13,7 +13,7 @@ This is the cloned repository from https://github.com/feral-file/dp1-feed
 Deploy the worker to Cloudflare:
 
 ```bash
-cd /workspaces/aesthetic-computer/dp1-feed
+cd /workspaces/aesthetic-computer/feed/dp1-feed
 wrangler deploy
 ```
 
@@ -33,7 +33,7 @@ Worker configuration is in `wrangler.toml`:
 Worker secrets must be set via wrangler CLI:
 
 ```bash
-cd /workspaces/aesthetic-computer/dp1-feed
+cd /workspaces/aesthetic-computer/feed/dp1-feed
 
 # API Secret for authentication
 wrangler secret put API_SECRET
@@ -63,7 +63,7 @@ Set in wrangler.toml or as secrets.
 Run worker locally:
 
 ```bash
-cd /workspaces/aesthetic-computer/dp1-feed
+cd /workspaces/aesthetic-computer/feed/dp1-feed
 wrangler dev
 ```
 
@@ -71,7 +71,7 @@ This starts a local server at http://localhost:8787
 
 ## Updating the Worker
 
-1. Make changes to TypeScript source in `dp1-feed/src/`
+1. Make changes to TypeScript source in `feed/dp1-feed/src/`
 2. Test locally with `wrangler dev`
 3. Deploy with `wrangler deploy`
 4. Monitor logs: `wrangler tail`
@@ -101,7 +101,7 @@ The worker is built with:
 View worker logs:
 
 ```bash
-cd /workspaces/aesthetic-computer/dp1-feed
+cd /workspaces/aesthetic-computer/feed/dp1-feed
 wrangler tail
 ```
 
