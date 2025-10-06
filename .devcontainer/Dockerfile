@@ -21,7 +21,7 @@ ENV PYTHONUNBUFFERED=1
 # --- Base toolchain & deps ----------------------------------------------------
 RUN dnf update -y && \
     dnf install -y \
-      awk which tree procps-ng coreutils unzip jq bat \
+      awk which tree procps-ng coreutils unzip jq bat ripgrep \
       git gh gcc gcc-c++ clang make cmake \
       python3.11 python3.11-devel python3-pip python3-devel \
       emacs-nox fish util-linux-user \
@@ -150,7 +150,7 @@ RUN mkdir -p /home/me/.config/fish/conf.d && \
     /home/me/.fnm/fnm install 20.5.0 && \
     /home/me/.fnm/fnm default lts-jod && \
     /home/me/.fnm/fnm use lts-jod && \
-    npm i -g prettier typescript typescript-language-server npm-check-updates @anthropic-ai/claude-code @openai/codex netlify-cli && \
+    npm i -g prettier typescript typescript-language-server npm-check-updates @anthropic-ai/claude-code @openai/codex netlify-cli wrangler && \
     echo 'fnm use lts-jod' >> /home/me/.config/fish/config.fish
 
 # --- ATProto dependencies for /at directory ------------------------------------
