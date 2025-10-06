@@ -924,8 +924,11 @@ function findColor() {
         //       ^ See `parseColor` in `num`.
         // let alpha = 255;
         // if (args[1]) alpha = parseFloat(args[1]);
+        console.log('🎨 GRAPH.findColor: Processing "erase", args before:', [...arguments]);
+        const originalAlpha = arguments[1]; // Save before overwriting args
         args = [-1, -1, -1];
-        if (args[1]) args.push(computeAlpha(args[1]));
+        if (originalAlpha !== undefined) args.push(computeAlpha(originalAlpha));
+        console.log('🎨 GRAPH.findColor: erase args after initial assignment:', args);
       } else if (args[0] === "rainbow") {
         args = rainbow(); // Cycle through roygbiv in a linear sequence.
       } else {
@@ -1061,6 +1064,7 @@ function findColor() {
     while (args.length < 4) {
       args.push(args.length === 3 ? 255 : randInt(255));
     }
+    console.log('🎨 GRAPH.findColor: args after ensuring 4 values:', args);
   }
 
   // Randomized any undefined or null values across all 4 arguments.
