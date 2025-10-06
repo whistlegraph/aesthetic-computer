@@ -3927,27 +3927,27 @@ const LINE = {
 // TODO: Add better hex support via: https://stackoverflow.com/a/53936623/8146077
 
 function ink() {
-  console.log("🖍️ disk.ink() called with arguments:", [...arguments]);
+  // console.log("🖍️ disk.ink() called with arguments:", [...arguments]);
   const foundColor = graph.findColor(...arguments);
-  console.log("🖍️ disk.ink() foundColor:", foundColor);
+  // console.log("🖍️ disk.ink() foundColor:", foundColor);
   if (inkFloodLoggingEnabled()) {
-    console.log(
-      `${inkFloodLogPrefix()}🖍️ INK DEBUG`,
-      {
-        args: cloneArgsForLog(arguments),
-        resolved: cloneColorForLog(foundColor)
-      }
-    );
+    //console.log(
+    //  `${inkFloodLogPrefix()}🖍️ INK DEBUG`,
+    //  {
+    //    args: cloneArgsForLog(arguments),
+     //   resolved: cloneColorForLog(foundColor)
+    //  }
+    //);
   }
   const result = graph.color(...foundColor);
-  console.log("🖍️ disk.ink() result:", result);
+  // console.log("🖍️ disk.ink() result:", result);
   if (inkFloodLoggingEnabled()) {
-    console.log(
-      `${inkFloodLogPrefix()}🖍️ INK APPLIED`,
-      {
-        color: cloneColorForLog(result)
-      }
-    );
+    // console.log(
+    //  `${inkFloodLogPrefix()}🖍️ INK APPLIED`,
+    //  {
+     //   color: cloneColorForLog(result)
+      //}
+    //);
   }
   return result;
 }
