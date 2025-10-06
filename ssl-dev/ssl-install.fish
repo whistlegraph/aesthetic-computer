@@ -28,7 +28,26 @@ echo "🔧 Running ssl-install.fish (install only: $INSTALL_ONLY)"
 
 # Generate certs if not install-only
 if test $INSTALL_ONLY -eq 0
-    mkcert --cert-file localhost.pem --key-file localhost-key.pem localhost aesthetic.local sotce.local 127.0.0.1 0.0.0.0 $HOST_IP >/dev/null 2>&1
+    # Build list of domains/IPs to include in certificate
+    set -l domains localhost aesthetic.local sotce.local 127.0.0.1 0.0.0.0
+    
+    # Add HOST_IP if set
+    if test -n "$HOST_IP"
+        set -a domains $HOST_IP
+    end
+    
+    # Add GitHub Codespace URLs if in Codespaces
+    if test -n "$CODESPACE_NAME"; and test -n "$GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN"
+        # Add wildcard for all codespace ports
+        set -a domains "*.$GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN"
+        # Add specific URLs for common ports
+        set -a domains "$CODESPACE_NAME-8888.$GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN"
+        set -a domains "$CODESPACE_NAME-8111.$GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN"
+        set -a domains "$CODESPACE_NAME-8889.$GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN"
+        echo "🌐 Adding GitHub Codespace domains to certificate"
+    end
+    
+    mkcert --cert-file localhost.pem --key-file localhost-key.pem $domains >/dev/null 2>&1
     command cat localhost.pem localhost-key.pem >combined.pem
     openssl x509 -outform der -in combined.pem -out localhost.crt
     cp localhost.crt ../system/public/aesthetic.crt
