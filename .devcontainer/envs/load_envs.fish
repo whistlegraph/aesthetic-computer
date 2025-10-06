@@ -37,9 +37,9 @@ function load_envs
         set loaded (math $loaded + 1)
     end < $env_file
 
-    if test $loaded -gt 0
-        echo "🔧 Loaded $loaded environment variable(s) from devcontainer.env"
-    else
-        echo "ℹ️  devcontainer.env contained no loadable variables"
-    end
+    # if test $loaded -gt 0
+    #     echo "🔧 Loaded $loaded environment variable(s) from devcontainer.env"
+    # else
+    #     echo "ℹ️  devcontainer.env contained no loadable variables"
+    # end
 end
