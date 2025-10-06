@@ -753,7 +753,14 @@ end
 function ac-site
     echo "🐱 Starting online mode..."
     ac
-    cd system && npm run codespaces-dev && env nogreet=true fish
+    # Detect if running in GitHub Codespaces
+    if test -n "$CODESPACES"
+        echo "🌐 Detected GitHub Codespaces - running without SSL..."
+        cd system && npm run codespaces-dev-nossl && env nogreet=true fish
+    else
+        echo "💻 Running on local machine - using SSL..."
+        cd system && npm run codespaces-dev && env nogreet=true fish
+    end
 end
 
 function ac-offline
