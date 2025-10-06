@@ -1055,6 +1055,12 @@ function ac-kidlisp
         npm run test:kidlisp:direct
     end
 end
+
+# Claude Code CLI agent
+function ac-agent
+    claude $argv
+end
+
 # alias ac-shell 'ac; ac-url; ac-tunnel; fish'
 # alias ac-offline 'ac; cd system/public; npx http-server -p 8888 -c-1 -g -b -S -C ../../ssl-dev/localhost.pem -K ../../ssl-dev/localhost-key.pem'
 alias ac-redis 'clear; ac; npm run redis'
