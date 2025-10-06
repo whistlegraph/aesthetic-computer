@@ -1,0 +1,43 @@
+{
+  "channel": {
+    "id": "23b63744-649f-4274-add5-d1b439984e51",
+    "slug": "kidlisp-4212",
+    "title": "KidLisp",
+    "curator": "prompt.ac",
+    "summary": "KidLisp is a TV friendly programming language for kids of all ages! Developed by @jeffrey of Aesthetic Computer.",
+    "created": "2025-10-06T04:32:10.521Z",
+    "url": "https://feed.aesthetic.computer/api/v1/channels/23b63744-649f-4274-add5-d1b439984e51"
+  },
+  "playlists": [
+    {
+      "id": "f60493a2-9e69-4e6b-837e-76047f48438c",
+      "title": "Top 100 as of Monday, October 6, 2025",
+      "description": "Top 100 most-hit KidLisp pieces from MongoDB aesthetic database",
+      "items": 100,
+      "url": "https://feed.aesthetic.computer/api/v1/playlists/f60493a2-9e69-4e6b-837e-76047f48438c",
+      "generator": "create-top-kidlisp-playlist.mjs"
+    },
+    {
+      "id": "2680b102-04ee-47b5-b7d7-f814094695e7",
+      "title": "Colors",
+      "description": "151 CSS color names as solid color displays",
+      "items": 151,
+      "url": "https://feed.aesthetic.computer/api/v1/playlists/2680b102-04ee-47b5-b7d7-f814094695e7",
+      "generator": "create-kidlisp-colors-playlist.mjs"
+    },
+    {
+      "id": "e1bf1aae-2427-4dd0-a39d-f5da89fdf02e",
+      "title": "Chords for `clock`",
+      "description": "31 Western musical chords using the clock piece with notepat notation",
+      "items": 31,
+      "url": "https://feed.aesthetic.computer/api/v1/playlists/e1bf1aae-2427-4dd0-a39d-f5da89fdf02e",
+      "generator": "create-kidlisp-chords-playlist.mjs"
+    }
+  ],
+  "metadata": {
+    "lastUpdated": "2025-10-06",
+    "totalItems": 282,
+    "tvParams": "?tv=true&density=5",
+    "dpVersion": "1.0.0"
+  }
+}
