@@ -289,24 +289,24 @@ if (!window.acTEIA_MODE) {
   sluggedUrl = window.acSTARTING_PIECE;
 }
 
-if (window.acDEBUG || window.acVSCODE) {
-  console.log("🧭 URL pipeline", {
-    originalUrl,
-    sluggedUrl,
-  });
-}
+// if (window.acDEBUG || window.acVSCODE) {
+//   console.log("🧭 URL pipeline", {
+//     originalUrl,
+//     sluggedUrl,
+//   });
+// }
 
 const pieceToLoad = sluggedUrl;
 const parsed = parse(pieceToLoad);
 
-if (window.acDEBUG || window.acVSCODE) {
-  console.log("🧭 Parsed result", {
-    text: parsed?.text,
-    search: parsed?.search,
-    hash: parsed?.hash,
-    params: parsed?.params,
-  });
-}
+// if (window.acDEBUG || window.acVSCODE) {
+//   console.log("🧭 Parsed result", {
+//     text: parsed?.text,
+//     search: parsed?.search,
+//     hash: parsed?.hash,
+//     params: parsed?.params,
+//   });
+// }
 
 // Preserve the original search parameters that were stripped by slug()
 if (location.search) {

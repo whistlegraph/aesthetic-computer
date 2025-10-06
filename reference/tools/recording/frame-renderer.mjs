@@ -276,7 +276,29 @@ export const paint = ($) => {
         if (!piecePath.endsWith('.mjs') && !piecePath.endsWith('.js')) {
           piecePath = `${piecePath}.mjs`;
         }
-        this.pieceModule = await import(path.resolve(piecePath));
+        
+        // If the path is not absolute, try to resolve it relative to the disks directory
+        let resolvedPath = piecePath;
+        if (!path.isAbsolute(piecePath)) {
+          // First, try as an absolute path
+          if (fs.existsSync(path.resolve(piecePath))) {
+            resolvedPath = path.resolve(piecePath);
+          } else {
+            // Otherwise, try in the disks directory
+            const disksDir = path.join(__dirname, '..', '..', '..', 'system', 'public', 'aesthetic.computer', 'disks');
+            const disksPath = path.join(disksDir, piecePath);
+            if (fs.existsSync(disksPath)) {
+              resolvedPath = disksPath;
+              console.log(`🔍 Found piece in disks directory: ${disksPath}`);
+            } else {
+              // Fallback to original resolution
+              resolvedPath = path.resolve(piecePath);
+              console.log(`⚠️ Piece not found in disks directory, using: ${resolvedPath}`);
+            }
+          }
+        }
+        
+        this.pieceModule = await import(resolvedPath);
         console.log(`📦 Loaded piece with functions: ${Object.keys(this.pieceModule).join(', ')}`);
       }
       
@@ -345,10 +367,26 @@ export const paint = ($) => {
       if (this.pieceModule.boot && this.pieceModule.paint) {
         console.log('🔧 AC disk detected - running boot/sim/paint lifecycle...');
         
-        // Only run boot on the first frame
-        if (state.frameIndex === 0) {
-          console.log('🥾 Running boot function...');
-          await this.pieceModule.boot(pieceParams);
+        // Check if this is a KidLisp wrapper piece (has kidlisp() call in paint)
+        // For KidLisp pieces, we DON'T want to call boot on every frame as it may
+        // interfere with embedded layer state restoration
+        const isKidlispWrapper = state.piece.includes('-kidlisp.mjs') || 
+                                 this.pieceModule.paint.toString().includes('api.kidlisp');
+        
+        if (isKidlispWrapper) {
+          // For KidLisp wrappers, only call boot on frame 0
+          // Embedded layer state is managed by the KidLisp system itself
+          if (state.frameIndex === 0) {
+            console.log('🥾 Running boot function (KidLisp wrapper, frame 0 only)...');
+            await this.pieceModule.boot(enhancedAPI);
+          } else {
+            console.log('⏭️ Skipping boot for KidLisp wrapper on frame ${state.frameIndex}');
+          }
+        } else {
+          // For regular AC disks with module-level state, call boot on every frame
+          // This is necessary because each frame runs in a fresh Node.js process
+          console.log('🥾 Running boot function (regular AC disk)...');
+          await this.pieceModule.boot(enhancedAPI);
         }
         
         // Run sim function if it exists
