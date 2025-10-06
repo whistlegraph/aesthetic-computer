@@ -3268,6 +3268,43 @@ function drawGradientTriangle(x1, y1, color1, x2, y2, color2, x3, y3, color3) {
   }
 }
 
+// Helper: Subdivide a triangle if it's too large in screen space
+// Returns an array of smaller triangles (or the original if small enough)
+function subdivideTriangleIfNeeded(x1, y1, uv1, z1, x2, y2, uv2, z2, x3, y3, uv3, z3, maxScreenSize = 300) {
+  const minX = min(x1, x2, x3);
+  const maxX = max(x1, x2, x3);
+  const minY = min(y1, y2, y3);
+  const maxY = max(y1, y2, y3);
+  
+  const screenWidth = maxX - minX;
+  const screenHeight = maxY - minY;
+  
+  // If triangle is small enough, return as-is
+  if (screenWidth <= maxScreenSize && screenHeight <= maxScreenSize) {
+    return [[x1, y1, uv1, z1, x2, y2, uv2, z2, x3, y3, uv3, z3]];
+  }
+  
+  // Subdivide into 4 smaller triangles by finding midpoints
+  const mx12 = (x1 + x2) / 2, my12 = (y1 + y2) / 2;
+  const mx23 = (x2 + x3) / 2, my23 = (y2 + y3) / 2;
+  const mx31 = (x3 + x1) / 2, my31 = (y3 + y1) / 2;
+  
+  const mz12 = (z1 + z2) / 2, mz23 = (z2 + z3) / 2, mz31 = (z3 + z1) / 2;
+  
+  const muv12 = [(uv1[0] + uv2[0]) / 2, (uv1[1] + uv2[1]) / 2];
+  const muv23 = [(uv2[0] + uv3[0]) / 2, (uv2[1] + uv3[1]) / 2];
+  const muv31 = [(uv3[0] + uv1[0]) / 2, (uv3[1] + uv1[1]) / 2];
+  
+  // Recursively subdivide the 4 sub-triangles
+  const result = [];
+  result.push(...subdivideTriangleIfNeeded(x1, y1, uv1, z1, mx12, my12, muv12, mz12, mx31, my31, muv31, mz31, maxScreenSize));
+  result.push(...subdivideTriangleIfNeeded(mx12, my12, muv12, mz12, x2, y2, uv2, z2, mx23, my23, muv23, mz23, maxScreenSize));
+  result.push(...subdivideTriangleIfNeeded(mx31, my31, muv31, mz31, mx23, my23, muv23, mz23, x3, y3, uv3, z3, maxScreenSize));
+  result.push(...subdivideTriangleIfNeeded(mx12, my12, muv12, mz12, mx23, my23, muv23, mz23, mx31, my31, muv31, mz31, maxScreenSize));
+  
+  return result;
+}
+
 // Draws a filled triangle with texture mapping using barycentric interpolation
 // Each vertex has UV coordinates that map to a texture buffer
 // Uses perspective-correct interpolation with depth values
@@ -6609,14 +6646,24 @@ class Form {
 
           // Check if this form has a texture
           if (this.texture) {
-            // Draw textured triangle using UV coordinates with perspective correction
-            drawTexturedTriangle(
-              x0, y0, v0.texCoords, t0.pos[2],  // x, y, uv, depth
+            // Subdivide triangle if it's too large in screen space
+            const subdivided = subdivideTriangleIfNeeded(
+              x0, y0, v0.texCoords, t0.pos[2],
               x1, y1, v1.texCoords, t1.pos[2],
               x2, y2, v2.texCoords, t2.pos[2],
-              this.texture,
-              alphaMultiplier
+              300 // Max screen size before subdividing
             );
+            
+            // Draw each sub-triangle
+            for (const tri of subdivided) {
+              drawTexturedTriangle(
+                tri[0], tri[1], tri[2], tri[3],   // x0, y0, uv0, z0
+                tri[4], tri[5], tri[6], tri[7],   // x1, y1, uv1, z1
+                tri[8], tri[9], tri[10], tri[11], // x2, y2, uv2, z2
+                this.texture,
+                alphaMultiplier
+              );
+            }
           } else {
             // Get vertex colors (RGBA 0-1 range from vertex, convert to 0-255)
             const color0 = [
