@@ -154,6 +154,10 @@ export class HeadlessAC {
 
     console.log(`🎬 HEADLESS DEBUG: Restoring ${this.deferredEmbeddedLayers.length} embedded layer definitions from previous frame`);
     
+    // Set a flag to prevent the KidLisp module() function from clearing embedded layers
+    // This is critical for stateless frame-by-frame rendering
+    this.kidlispInstance.preserveEmbeddedLayers = true;
+    
     // FIXED: Properly restore layers with their rendered content and KidLisp instances
     this.kidlispInstance.embeddedLayers = this.deferredEmbeddedLayers.map(layerMeta => {
       // Restore the pixel buffer from disk if available
@@ -164,6 +168,19 @@ export class HeadlessAC {
           this.loadEmbeddedLayerBuffer(layerMeta.buffer.filename) : 
           new Uint8ClampedArray(layerMeta.buffer.width * layerMeta.buffer.height * 4) // Empty buffer
       } : null;
+      
+      // Debug: Check if buffer has actual pixel data
+      if (buffer && buffer.pixels) {
+        let nonZeroPixels = 0;
+        for (let i = 0; i < Math.min(100, buffer.pixels.length); i += 4) {
+          if (buffer.pixels[i] !== 0 || buffer.pixels[i+1] !== 0 || buffer.pixels[i+2] !== 0) {
+            nonZeroPixels++;
+          }
+        }
+        console.log(`🔍 BUFFER DEBUG: Layer ${layerMeta.cacheId} has ${nonZeroPixels}/25 non-black pixels in first 100 bytes`);
+      } else {
+        console.log(`❌ BUFFER DEBUG: Layer ${layerMeta.cacheId} has NO buffer!`);
+      }
       
       // Create a minimal KidLisp instance for the embedded layer
       // This is required for updateEmbeddedLayer to work properly
@@ -216,6 +233,12 @@ export class HeadlessAC {
         }
       }
     }
+
+    // IMPORTANT: Reset the preservation flag AFTER restoration is complete
+    // This allows the KidLisp code to run normally after the initial restoration
+    // The layers are now in the cache and will be reused via the cache lookup
+    this.kidlispInstance.preserveEmbeddedLayers = false;
+    console.log(`🔓 HEADLESS: Preservation flag reset, layers now managed via cache`);
 
     // Clear deferred layers
     this.deferredEmbeddedLayers = null;
