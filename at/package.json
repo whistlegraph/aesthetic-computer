@@ -1,0 +1,35 @@
+{
+  "name": "@aesthetic/at-experiments",
+  "version": "0.0.1",
+  "type": "module",
+  "description": "ATProto experiments and introspective tools for Aesthetic Computer",
+  "scripts": {
+    "query:profile": "node query-profile.mjs",
+    "query:posts": "node query-posts.mjs",
+    "post": "node post-to-bluesky.mjs",
+    "explore": "node explore-lexicons.mjs",
+    "monitor": "node firehose-monitor.mjs",
+    "test": "node test-all.mjs"
+  },
+  "dependencies": {
+    "@atproto/api": "^0.17.0",
+    "@atproto/xrpc": "^0.6.5",
+    "@atproto/lexicon": "^0.4.2",
+    "@atproto/identity": "^0.4.3",
+    "@atproto/syntax": "^0.3.1",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2"
+  },
+  "keywords": [
+    "atproto",
+    "bluesky",
+    "aesthetic-computer",
+    "pds",
+    "federation"
+  ],
+  "author": "Jeffrey Scudder",
+  "license": "UNLICENSED",
+  "private": true
+}
