@@ -52,7 +52,13 @@
     "server:session:deploy": "cd session-server; npm run deploy",
     "server:session:spawn": "cd session-server; npm run spawn",
     "server:session:logs": "f() { cd session-server; npm run watch-prod $1; };f",
-    "watch": "cd system; npm run watch"
+    "watch": "cd system; npm run watch",
+    "feed:dev": "cd dp1-feed; npm run worker:dev",
+    "feed:setup": "cd dp1-feed; ./setup-resources.fish",
+    "feed:deploy": "cd dp1-feed; ./deploy-feed.fish production",
+    "feed:deploy:dev": "cd dp1-feed; ./deploy-feed.fish dev",
+    "feed:test": "cd dp1-feed; npm run test:api",
+    "feed:logs": "cd dp1-feed; wrangler tail --env production"
   },
   "repository": {
     "type": "git",

@@ -319,6 +319,20 @@ echo "✨ Modes directory linked to .github for VSCode chatmodes"
 source /workspaces/aesthetic-computer/.devcontainer/config.fish
 echo "✨ AC development functions loaded (ac-pack, ac-unpack, etc.)"
 
+# Copy feed secrets from vault to environment (if vault exists)
+if test -f /workspaces/aesthetic-computer/aesthetic-computer-vault/feed/.env
+    echo "🔐 Loading feed system environment variables from vault..."
+    # Copy to devcontainer envs directory for persistence
+    cp /workspaces/aesthetic-computer/aesthetic-computer-vault/feed/.env /home/me/envs/feed.env
+    # Source it globally for the session
+    for line in (cat /workspaces/aesthetic-computer/aesthetic-computer-vault/feed/.env | grep -v '^#' | grep '=')
+        set -gx (string split '=' $line)
+    end
+    echo "✅ Feed environment variables loaded"
+else
+    echo "⚠️  Feed vault not found - skipping feed environment setup"
+end
+
 # Create .waiter file to signal container is ready (moved from postAttachCommand to avoid terminal popup in Codespaces)
 sudo touch /home/me/.waiter
 sudo chmod 777 /home/me/.waiter
