@@ -2541,7 +2541,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (type === "pen:lock") {
-      console.log("🖋️ Request pen lock...");
+      // console.log("🖋️ Request pen lock...");
       wrapper.requestPointerLock();
       return;
     }
@@ -13011,9 +13011,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   
   document.addEventListener("pointerlockchange", () => {
     const isLocked = document.pointerLockElement === wrapper;
-    console.log("🔒 Pointer lock change:", isLocked);
-    console.log("🔒 Pointer lock element:", document.pointerLockElement);
-    console.log("🔒 Wrapper element:", wrapper);
+    // console.log("🔒 Pointer lock change:", isLocked);
+    // console.log("🔒 Pointer lock element:", document.pointerLockElement);
+    // console.log("🔒 Wrapper element:", wrapper);
     
     // Create cursor element if it doesn't exist
     if (!pointerLockCursor) {
@@ -13023,12 +13023,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Show/hide the cursor based on pointer lock state
     if (isLocked) {
       pointerLockCursor.style.setProperty("display", "block", "important");
-      console.log("🎯 Showing pointer lock cursor");
-      console.log("🎯 Cursor element display:", pointerLockCursor.style.display);
-      console.log("🎯 Cursor element in DOM:", document.getElementById("pointer-lock-cursor"));
+      // console.log("🎯 Showing pointer lock cursor");
+      // console.log("🎯 Cursor element display:", pointerLockCursor.style.display);
+      // console.log("🎯 Cursor element in DOM:", document.getElementById("pointer-lock-cursor"));
     } else {
       pointerLockCursor.style.setProperty("display", "none", "important");
-      console.log("🎯 Hiding pointer lock cursor");
+      // console.log("🎯 Hiding pointer lock cursor");
     }
     
     send({
