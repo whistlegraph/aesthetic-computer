@@ -91,8 +91,8 @@ included_env_vars = []
 included_env_vars = ["CONTEXT", "ANTHROPIC_API_KEY", "OPENAI_API_KEY"]
 [functions.run]
 included_env_vars = ["NETLIFY_DEV", "REDIS_CONNECTION_STRING"]
-[functions.admin-background]
-included_env_vars = []
+# [functions.admin-background]
+# included_env_vars = []
 [functions.handles]
 included_env_vars = ["CONTEXT", "ADMIN_SUB", "SOTCE_ADMIN_SUBS", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "SOTCE_AUTH0_M2M_CLIENT_ID", "SOTCE_AUTH0_M2M_SECRET", "MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
 [functions.track-media]
@@ -370,11 +370,11 @@ status = 200
 from = "/api/delete-erase-and-forget-me"
 to = "/.netlify/functions/delete-erase-and-forget-me"
 status = 200
-[[redirects]]
-from = "/api/admin"
-to = "/.netlify/functions/admin-background"
-status = 200
-force = false
+# [[redirects]]
+# from = "/api/admin"
+# to = "/.netlify/functions/admin-background"
+# status = 200
+# force = false
 [[redirects]]
 from = "/api/track-media"
 to = "/.netlify/functions/track-media"
