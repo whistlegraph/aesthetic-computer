@@ -1115,6 +1115,89 @@ function ac-tunnel
     end
 end
 
+# Query the last 3 Netlify builds and show their status
+function ac-builds
+    set -l system_dir /workspaces/aesthetic-computer/system
+    
+    if not test -d $system_dir
+        echo "❌ System directory not found: $system_dir"
+        return 1
+    end
+    
+    set -l original_dir (pwd)
+    cd $system_dir
+    
+    echo "🔍 Fetching last 3 Netlify builds..."
+    echo ""
+    
+    # Get the site ID from netlify status
+    set -l site_id "d1219e54-d4c7-4b6f-8d70-d56375c3cdc2"
+    
+    # Fetch the builds
+    set -l builds_json (netlify api listSiteBuilds --data "{\"site_id\": \"$site_id\"}" 2>/dev/null)
+    
+    if test $status -ne 0
+        echo "❌ Failed to fetch builds from Netlify"
+        cd $original_dir
+        return 1
+    end
+    
+    # Parse and display the first 3 builds using Node.js
+    printf '%s\n' $builds_json | node -e '
+        const builds = JSON.parse(require("fs").readFileSync(0, "utf-8"));
+        const recentBuilds = builds.slice(0, 3);
+        
+        recentBuilds.forEach((build, index) => {
+            const num = index + 1;
+            const date = new Date(build.created_at);
+            const timeStr = date.toLocaleString("en-US", { 
+                month: "short", 
+                day: "numeric", 
+                hour: "2-digit", 
+                minute: "2-digit",
+                hour12: false
+            });
+            const sha = build.sha.substring(0, 7);
+            const state = build.deploy_state;
+            
+            // Color codes and status icons
+            let statusIcon, statusText, statusColor;
+            if (state === "ready") {
+                statusIcon = "✅";
+                statusText = "SUCCESS";
+                statusColor = "\x1b[32m"; // green
+            } else if (state === "error") {
+                statusIcon = "❌";
+                statusText = "FAILED";
+                statusColor = "\x1b[31m"; // red
+            } else if (state === "building") {
+                statusIcon = "🔄";
+                statusText = "BUILDING";
+                statusColor = "\x1b[33m"; // yellow
+            } else {
+                statusIcon = "⚪";
+                statusText = state.toUpperCase();
+                statusColor = "\x1b[37m"; // white
+            }
+            
+            const reset = "\x1b[0m";
+            
+            console.log(`Build #${num} ${statusIcon} ${statusColor}${statusText}${reset}`);
+            console.log(`  Time:   ${timeStr}`);
+            console.log(`  Commit: ${sha}`);
+            
+            if (build.error) {
+                const errorPreview = build.error.split("\n")[0].substring(0, 80);
+                console.log(`  Error:  ${errorPreview}...`);
+            }
+            
+            console.log("");
+        });
+    '
+    
+    cd $original_dir
+end
+
 # a shell-gpt shortcut (must be all lowercase / otherwise quoted)
 
 function umm
