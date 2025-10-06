@@ -1,0 +1,17 @@
+# Environment variables
+.env
+
+# Dependencies
+node_modules/
+
+# Logs
+*.log
+
+# Output
+output/
+*.car
+*.json.out
+
+# OS
+.DS_Store
+Thumbs.db
