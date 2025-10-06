@@ -3214,6 +3214,48 @@ function fillShape(points) {
   }
 }
 
+// Draws a filled triangle with gradient colors using barycentric interpolation
+// Each vertex has its own color that smoothly blends across the triangle
+function drawGradientTriangle(x1, y1, color1, x2, y2, color2, x3, y3, color3) {
+  // Calculate bounding box
+  const minX = floor(min(x1, x2, x3));
+  const maxX = ceil(max(x1, x2, x3));
+  const minY = floor(min(y1, y2, y3));
+  const maxY = ceil(max(y1, y2, y3));
+
+  // Calculate area of the whole triangle (for barycentric coordinates)
+  const areaABC = (x2 - x1) * (y3 - y1) - (x3 - x1) * (y2 - y1);
+
+  // Avoid degenerate triangles
+  if (abs(areaABC) < 0.0001) return;
+
+  // Iterate over bounding box and check if each pixel is inside the triangle
+  for (let y = minY; y <= maxY; y++) {
+    for (let x = minX; x <= maxX; x++) {
+      // Calculate barycentric coordinates
+      const areaPBC = (x2 - x) * (y3 - y) - (x3 - x) * (y2 - y);
+      const areaPCA = (x3 - x) * (y1 - y) - (x1 - x) * (y3 - y);
+      
+      const u = areaPBC / areaABC; // Weight for vertex 1
+      const v = areaPCA / areaABC; // Weight for vertex 2
+      const w = 1 - u - v;          // Weight for vertex 3
+
+      // Check if point is inside triangle
+      if (u >= 0 && v >= 0 && w >= 0) {
+        // Interpolate colors using barycentric weights
+        const r = floor(u * color1[0] + v * color2[0] + w * color3[0]);
+        const g = floor(u * color1[1] + v * color2[1] + w * color3[1]);
+        const b = floor(u * color1[2] + v * color2[2] + w * color3[2]);
+        const a = floor(u * color1[3] + v * color2[3] + w * color3[3]);
+
+        // Set the interpolated color and draw the pixel
+        color(r, g, b, a);
+        point(x, y);
+      }
+    }
+  }
+}
+
 // Draws a triangle from three points, with optional fill mode.
 // Usage: tri(x1, y1, x2, y2, x3, y3, mode = "fill")
 // mode can be "fill", "outline", "out", or "inline", "in"
@@ -6339,27 +6381,36 @@ class Form {
   }
   graph({ matrix: cameraMatrix }) {
     // Build a matrix to represent this form's position, rotation and scale.
+    // CORRECT ORDER: Scale → Rotate → Translate
+    // This makes objects rotate around their local center, then move to world position
+    
+    // 1. Scale
+    const scaled = mat4.scale(mat4.create(), mat4.create(), this.scale);
+    
+    // 2. Rotate (apply rotations to the scaled matrix)
+    const rotX = mat4.fromXRotation(mat4.create(), radians(this.rotation[X]));
+    const rotY = mat4.fromYRotation(mat4.create(), radians(this.rotation[Y]));
+    const rotZ = mat4.fromZRotation(mat4.create(), radians(this.rotation[Z]));
+    
+    const rotatedX = mat4.multiply(mat4.create(), rotX, scaled);
+    const rotatedY = mat4.multiply(mat4.create(), rotY, rotatedX);
+    const rotatedZ = mat4.multiply(mat4.create(), rotZ, rotatedY);
+
+    // 3. Translate (move to world position after rotating)
     const panned = mat4.fromTranslation(mat4.create(), [
       this.position[X] * -1,
       this.position[Y],
       this.position[Z] * -1,
     ]);
+    
+    const transformed = mat4.multiply(mat4.create(), panned, rotatedZ);
 
-    const rotX = mat4.fromXRotation(mat4.create(), radians(this.rotation[X]));
-    const rotY = mat4.fromYRotation(mat4.create(), radians(this.rotation[Y]));
-    const rotZ = mat4.fromZRotation(mat4.create(), radians(this.rotation[Z]));
-
-    const rotatedX = mat4.multiply(mat4.create(), rotX, panned);
-    const rotatedY = mat4.multiply(mat4.create(), rotY, rotatedX);
-    const rotatedZ = mat4.multiply(mat4.create(), rotZ, rotatedY);
-
-    // Scale
-    const scaled = mat4.scale(mat4.create(), rotatedZ, this.scale); // Render wireframe lines for line type forms using untransformed vertices
+    // Render wireframe lines for line type forms using untransformed vertices
     if (this.type === "line" && this.vertices.length > 0) {
       const lineColor = this.color || [255, 0, 0, 255]; // Default to red
 
       // Use the full combined matrix for line3d
-      const fullMatrix = mat4.multiply(mat4.create(), cameraMatrix, scaled);
+      const fullMatrix = mat4.multiply(mat4.create(), cameraMatrix, transformed);
 
       // Render lines between pairs of vertices using original vertices
       for (let i = 0; i < this.vertices.length; i += 2) {
@@ -6387,9 +6438,70 @@ class Form {
       }
     }
 
+    // Render filled triangles with gradient colors
+    if (this.type === "triangle" && this.vertices.length >= 3) {
+      const fullMatrix = mat4.multiply(mat4.create(), cameraMatrix, transformed);
+
+      // Render triangles (groups of 3 vertices)
+      for (let i = 0; i < this.vertices.length; i += 3) {
+        if (i + 2 < this.vertices.length) {
+          const v0 = this.vertices[i];
+          const v1 = this.vertices[i + 1];
+          const v2 = this.vertices[i + 2];
+
+          // Transform all three vertices
+          const t0 = v0.transform(fullMatrix);
+          const t1 = v1.transform(fullMatrix);
+          const t2 = v2.transform(fullMatrix);
+
+          // Skip if any vertex is behind the camera
+          if (t0.pos[2] <= 0 || t1.pos[2] <= 0 || t2.pos[2] <= 0) {
+            continue;
+          }
+
+          // Apply perspective divide and screen space transformation
+          const p0 = perspectiveDivide(t0);
+          const p1 = perspectiveDivide(t1);
+          const p2 = perspectiveDivide(t2);
+          
+          const s0 = toScreenSpace(p0);
+          const s1 = toScreenSpace(p1);
+          const s2 = toScreenSpace(p2);
+
+          // Extract screen coordinates
+          const x0 = s0.pos[0], y0 = s0.pos[1];
+          const x1 = s1.pos[0], y1 = s1.pos[1];
+          const x2 = s2.pos[0], y2 = s2.pos[1];
+
+          // Get vertex colors (RGBA 0-1 range from vertex, convert to 0-255)
+          const color0 = [
+            floor(v0.color[0] * 255),
+            floor(v0.color[1] * 255),
+            floor(v0.color[2] * 255),
+            floor(v0.color[3] * 255)
+          ];
+          const color1 = [
+            floor(v1.color[0] * 255),
+            floor(v1.color[1] * 255),
+            floor(v1.color[2] * 255),
+            floor(v1.color[3] * 255)
+          ];
+          const color2 = [
+            floor(v2.color[0] * 255),
+            floor(v2.color[1] * 255),
+            floor(v2.color[2] * 255),
+            floor(v2.color[3] * 255)
+          ];
+
+          // Draw filled gradient triangle using barycentric interpolation
+          drawGradientTriangle(x0, y0, color0, x1, y1, color1, x2, y2, color2);
+        }
+      }
+    }
+
     // Still return transformed vertices for compatibility
     const transformedVertices = [];
-    const matrix = mat4.multiply(mat4.create(), cameraMatrix, scaled);
+    const matrix = mat4.multiply(mat4.create(), cameraMatrix, transformed);
     this.vertices.forEach((vertex) => {
       transformedVertices.push(vertex.transform(matrix));
     });
