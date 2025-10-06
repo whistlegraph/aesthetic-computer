@@ -7045,6 +7045,18 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           // stuff for now. 23.06.16.15.03
           // console.log("🔘 Button tap label:", content.label);
 
+          // Handle QR corner tap (toggle to fullscreen)
+          if (content.label === "qr-corner") {
+            console.log("🔘 QR corner tapped - toggling to fullscreen");
+            send({ type: "qr:toggle-fullscreen" });
+          }
+
+          // Handle QR fullscreen tap (toggle back to corner)
+          if (content.label === "qr-fullscreen") {
+            console.log("🔘 QR fullscreen tapped - toggling to corner");
+            send({ type: "qr:toggle-fullscreen" });
+          }
+
           if (content.label === "copy") {
             try {
               await navigator.clipboard.writeText(content.message);
