@@ -37,7 +37,7 @@ cd /workspaces/aesthetic-computer/feed/dp1-feed
 
 # API Secret for authentication
 wrangler secret put API_SECRET
-# Enter: 008f7c7ceab429051d18370f5d580fcee453cdf0768c900d71660367feb95436
+# Enter: YOUR_FEED_API_SECRET_HERE
 
 # ED25519 Private Key (if using signed playlists)
 wrangler secret put ED25519_PRIVATE_KEY

@@ -15,7 +15,7 @@
 ### 3. Cloudflare Credentials
 - ✅ Found existing credentials in `dark-window/conductor.env`:
   - Email: `me@jas.life`
-  - API Token: `0346704765b61e560b36592010c98a23bc2c6`
+  - API Token: `YOUR_CLOUDFLARE_API_KEY_HERE`
   - Account/Zone ID: `a23b54e8877a833a1cf8db7765bce3ca`
 
 ### 4. Created Scripts
