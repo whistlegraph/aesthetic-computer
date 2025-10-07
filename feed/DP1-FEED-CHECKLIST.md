@@ -24,7 +24,7 @@
 
 **Alternative (API Token):**
 ```fish
-set -x CLOUDFLARE_API_TOKEN "0346704765b61e560b36592010c98a23bc2c6"
+set -x CLOUDFLARE_API_TOKEN "YOUR_CLOUDFLARE_API_KEY_HERE"
 set -x CLOUDFLARE_EMAIL "me@jas.life"
 wrangler whoami
 ```
