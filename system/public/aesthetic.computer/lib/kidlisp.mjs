@@ -2839,13 +2839,54 @@ class KidLisp {
           // this.layer0.pixels.fill(0);  // REMOVED - was clearing our drawing!
           
           // Reset bake index before evaluation (starts at -1 = drawing to layer 0)
-          if (this.bakes) this.currentBakeIndex = -1;
+          if (this.bakes) {
+            this.currentBakeIndex = -1;
+          }
           
           // Switch to layer 0 as initial drawing target
           $.page(this.layer0);
           
           // Evaluate the entire AST - bake() calls will switch to bake buffers
           /*const evaluated = */ this.evaluate(this.ast, $, undefined, undefined, true);
+          
+          // 🍞 IMPLICIT TRAILING BAKE: If we used bake and ended on a bake buffer,
+          // automatically create one more empty bake buffer to finalize the current one.
+          // This makes the last bake buffer eligible for compositing without requiring
+          // an explicit trailing bake in the syntax.
+          if (this.currentBakeIndex >= 0 && this.bakes) {
+            // console.log(`🍞 AUTO-FINALIZING: Adding implicit trailing bake to finalize buffer ${this.currentBakeIndex}`);
+            const currentPixels = this.bakes[this.currentBakeIndex] ? 
+              Array.from(this.bakes[this.currentBakeIndex].pixels).filter((_, i) => i % 4 === 3 && this.bakes[this.currentBakeIndex].pixels[i] > 0).length : 0;
+            // console.log(`🍞 AUTO-FINALIZING: Current buffer ${this.currentBakeIndex} has ${currentPixels} pixels before implicit bake`);
+            
+            // Call bake to create a new empty buffer
+            // Increment to next bake layer
+            this.currentBakeIndex++;
+            // console.log(`🍞 AUTO-BAKE: Switching to bake buffer ${this.currentBakeIndex}`);
+            
+            // Get current screen dimensions
+            const width = $.screen?.width || 256;
+            const height = $.screen?.height || 256;
+            
+            // Create new empty bake buffer
+            const bakeBuffer = {
+              width: width,
+              height: height,
+              pixels: new Uint8ClampedArray(width * height * 4)
+            };
+            
+            // Initialize as transparent
+            bakeBuffer.pixels.fill(0);
+            
+            // Store in bakes array
+            this.bakes[this.currentBakeIndex] = bakeBuffer;
+            
+            // Switch drawing to this bake buffer
+            $.page(bakeBuffer);
+            $.screen.pixels = bakeBuffer.pixels;
+            
+            // console.log(`🍞 AUTO-FINALIZING: After implicit bake, currentBakeIndex=${this.currentBakeIndex}, total buffers=${this.bakes?.length}`);
+          }
           
           // Always restore screen as drawing target after evaluation
           // (embedded layers, post-embed commands, and paste operations need the screen)
@@ -2898,9 +2939,16 @@ class KidLisp {
           
           // Then paste all bake buffers on top
           if (this.bakes && this.bakes.length > 0) {
+            // console.log(`🍞 COMPOSITE: Pasting ${this.bakes.length} bake layers (currentBakeIndex: ${this.currentBakeIndex})`);
             for (let i = 0; i < this.bakes.length; i++) {
               const bakeLayer = this.bakes[i];
               if (bakeLayer && bakeLayer.pixels) {
+                // Count non-transparent pixels for debugging
+                let nonTransparent = 0;
+                for (let p = 3; p < bakeLayer.pixels.length; p += 4) {
+                  if (bakeLayer.pixels[p] > 0) nonTransparent++;
+                }
+                // console.log(`🍞 COMPOSITE: Pasting bake layer ${i} (${nonTransparent} non-transparent pixels)`);
                 // Use paste to composite this bake layer on top
                 $.paste(bakeLayer, 0, 0);
               }
@@ -3843,9 +3891,9 @@ class KidLisp {
           api.blend("erase");
         } else if (!isEraseMode && api.blend) {
           // Reset to normal blend mode if not erase
-          if (kidlispInkLoggingEnabled() && args.length > 0) {
-            console.log('🎨 INK: Resetting blend mode to BLEND');
-          }
+          // if (kidlispInkLoggingEnabled() && args.length > 0) {
+          //   console.log('🎨 INK: Resetting blend mode to BLEND');
+          // }
           api.blend("blend");
         }
 
@@ -4052,22 +4100,22 @@ class KidLisp {
             ? "active"
             : "none";
 
-          console.log(
-            `${kidlispInkLogPrefix()}🖊️ KidLisp line`,
-            {
-              args: formatInkLogValue(argsRaw),
-              rawArgs: argsRaw,
-              inkState: formatInkLogValue(resolvedInkRaw),
-              inkStateRaw,
-              inkResolvedFrom: resolvedInkSource,
-              inkStateSet: this.inkStateSet,
-              activeInk: formatInkLogValue(activeInkRaw),
-              activeInkRaw,
-              frame: this.frameCount,
-              embeddedLayers: this.embeddedLayers?.length || 0,
-              inEmbedPhase: !!this.inEmbedPhase,
-            },
-          );
+          // console.log(
+          //   `${kidlispInkLogPrefix()}🖊️ KidLisp line`,
+          //   {
+          //     args: formatInkLogValue(argsRaw),
+          //     rawArgs: argsRaw,
+          //     inkState: formatInkLogValue(resolvedInkRaw),
+          //     inkStateRaw,
+          //     inkResolvedFrom: resolvedInkSource,
+          //     inkStateSet: this.inkStateSet,
+          //     activeInk: formatInkLogValue(activeInkRaw),
+          //     activeInkRaw,
+          //     frame: this.frameCount,
+          //     embeddedLayers: this.embeddedLayers?.length || 0,
+          //     inEmbedPhase: !!this.inEmbedPhase,
+          //   },
+          // );
         }
 
         // 🛡️ Skip drawing if KidLisp hasn't explicitly set an ink color yet
@@ -4112,10 +4160,10 @@ class KidLisp {
         // 🎨 Apply the stored ink state before drawing
         // This ensures that special modes like "erase" work correctly
         if (this.inkState && api.ink) {
-          if (kidlispInkLoggingEnabled() && this.inkState[0] === "erase") {
-            console.log('🎨 LINE: Applying erase ink before drawing');
-            console.log('🎨 LINE: inkState =', this.inkState);
-          }
+          // if (kidlispInkLoggingEnabled() && this.inkState[0] === "erase") {
+          //   console.log('🎨 LINE: Applying erase ink before drawing');
+          //   console.log('🎨 LINE: inkState =', this.inkState);
+          // }
           
           api.ink(...this.inkState);
           
@@ -4133,7 +4181,24 @@ class KidLisp {
           }
         }
 
+        // 🐛 DEBUG: Log drawing target before drawing
+        const currentPage = api.screen;
+        // Check if current screen pixels match any bake buffer pixels (page() copies properties, not object refs)
+        const isBakeBuffer = this.bakes?.some(b => b.pixels === currentPage?.pixels);
+        // const pixelsBefore = currentPage?.pixels ? Array.from(currentPage.pixels).filter((_, i) => i % 4 === 3 && currentPage.pixels[i] > 0).length : 0;
+        // console.log(`🖊️ LINE DRAWING: args=${JSON.stringify(args)}, target=${currentPage?.width}x${currentPage?.height}, bakeIndex=${this.currentBakeIndex}, isBakeBuffer=${isBakeBuffer}, pixelsBefore=${pixelsBefore}`);
+        // console.log(`🖊️ PEN/CURSOR STATE: penX=${this.penX}, penY=${this.penY}, cursorX=${this.cursorX}, cursorY=${this.cursorY}`);
+
         api.line(...args);
+        
+        // const pixelsAfter = currentPage?.pixels ? Array.from(currentPage.pixels).filter((_, i) => i % 4 === 3 && currentPage.pixels[i] > 0).length : 0;
+        // console.log(`🖊️ LINE DRAWN: pixelsBefore=${pixelsBefore}, pixelsAfter=${pixelsAfter}, diff=+${pixelsAfter - pixelsBefore}`);
+        
+        // Also log the current buffer's pixel count
+        // if (this.currentBakeIndex >= 0 && this.bakes && this.bakes[this.currentBakeIndex]) {
+        //   const bakePixels = Array.from(this.bakes[this.currentBakeIndex].pixels).filter((_, i) => i % 4 === 3 && this.bakes[this.currentBakeIndex].pixels[i] > 0).length;
+        //   console.log(`🍞 BAKE BUFFER ${this.currentBakeIndex} now has ${bakePixels} non-transparent pixels`);
+        // }
       },
       // Batch line drawing for performance
       lines: (api, args = []) => {
@@ -4435,13 +4500,12 @@ class KidLisp {
 
         //console.log(`🖱️ SCROLL processed args: dx=${dx}, dy=${dy}`);
 
-        // Only defer scroll commands from main code, not from embedded layers
-        // Execute immediately if we're a nested instance or in embed phase
-        // OR if we're drawing to layer 0 (currentBakeIndex === -1), because deferred scroll would affect screen instead
-        const shouldDefer = this.embeddedLayers && this.embeddedLayers.length > 0 && 
-                           !this.inEmbedPhase && 
-                           !this.isNestedInstance &&
-                           this.currentBakeIndex !== -1; // Don't defer if drawing to layer 0
+        // 🍞 Scroll operates on whatever buffer is currently active (layer0 or bake buffer)
+        // Since we've switched api.screen to point to the current buffer via page(),
+        // api.scroll() will naturally operate on the correct buffer
+
+        // Never defer - execute scroll immediately on current buffer
+        const shouldDefer = false;
         
         if (shouldDefer) {
           //console.log(`⏳ SCROLL deferring command until after embedded layers`);
@@ -4462,7 +4526,20 @@ class KidLisp {
         }
 
         if (typeof api.scroll === 'function') {
+          // Log pixel count before scroll
+          // const pixelsBefore = api.screen?.pixels ? Array.from(api.screen.pixels).filter((_, i) => i % 4 === 3 && api.screen.pixels[i] > 0).length : 0;
+          // console.log(`📜 SCROLL EXECUTING: dx=${dx}, dy=${dy}, bakeIndex=${this.currentBakeIndex}, pixelsBefore=${pixelsBefore}`);
+          
           api.scroll(dx, dy);
+          
+          // const pixelsAfter = api.screen?.pixels ? Array.from(api.screen.pixels).filter((_, i) => i % 4 === 3 && api.screen.pixels[i] > 0).length : 0;
+          // console.log(`📜 SCROLL COMPLETE: pixelsAfter=${pixelsAfter}, diff=${pixelsAfter - pixelsBefore}`);
+          
+          // Also check if scroll affected the bake buffer
+          // if (this.currentBakeIndex >= 0 && this.bakes && this.bakes[this.currentBakeIndex]) {
+          //   const bakePixels = Array.from(this.bakes[this.currentBakeIndex].pixels).filter((_, i) => i % 4 === 3 && this.bakes[this.currentBakeIndex].pixels[i] > 0).length;
+          //   console.log(`📜 BAKE BUFFER ${this.currentBakeIndex} after scroll has ${bakePixels} non-transparent pixels`);
+          // }
         } else {
           // For embedded layers, scroll might not be available on the API object
           // In this case, we can skip the scroll operation silently
@@ -5937,7 +6014,7 @@ class KidLisp {
         
         // Increment to next bake layer
         this.currentBakeIndex++;
-        console.log(`🍞 BAKE called! Switching to bake buffer ${this.currentBakeIndex}`);
+        // console.log(`🍞 BAKE called! Switching to bake buffer ${this.currentBakeIndex}`);
         
         // Get current screen dimensions
         const width = api.screen?.width || 256;
@@ -5947,8 +6024,22 @@ class KidLisp {
         if (this.bakes[this.currentBakeIndex]) {
           const existing = this.bakes[this.currentBakeIndex];
           if (existing.width === width && existing.height === height) {
-            // Reuse existing buffer, switch to drawing into it
+            // DON'T clear the buffer - bake layers should accumulate across frames!
+            // existing.pixels.fill(0);  // REMOVED - this was clearing our persistent layers
+            // const pixelsBefore = Array.from(api.screen.pixels).filter((_, i) => i % 4 === 3 && api.screen.pixels[i] > 0).length;
+            // const bakePixels = Array.from(existing.pixels).filter((_, i) => i % 4 === 3 && existing.pixels[i] > 0).length;
+            // console.log(`🍞 REUSING bake buffer ${this.currentBakeIndex}: api.screen has ${pixelsBefore} pixels, bake buffer has ${bakePixels} pixels`);
+            
+            // Switch to drawing into the bake buffer
+            // We call page() to update graph.setBuffer, but then directly assign pixels 
+            // because page() doesn't always preserve the pixels reference correctly
             api.page(existing);
+            api.screen.pixels = existing.pixels; // Force the pixels reference to match
+            
+            // console.log(`🍞 AFTER page(): api.screen.pixels === bakes[${this.currentBakeIndex}].pixels? ${api.screen.pixels === existing.pixels}`);
+            // const pixelsAfter = Array.from(api.screen.pixels).filter((_, i) => i % 4 === 3 && api.screen.pixels[i] > 0).length;
+            // console.log(`🍞 AFTER page(): api.screen now has ${pixelsAfter} pixels (should match bake buffer: ${bakePixels})`);
+            
             return this.currentBakeIndex;
           }
         }
@@ -5967,7 +6058,11 @@ class KidLisp {
         this.bakes[this.currentBakeIndex] = bakeBuffer;
         
         // Switch drawing to this bake buffer
+        // Call page() to update graph.setBuffer, then force pixels reference
         api.page(bakeBuffer);
+        api.screen.pixels = bakeBuffer.pixels; // Force the pixels reference to match
+        
+        console.log(`🍞 NEW bake buffer ${this.currentBakeIndex} created: api.screen.pixels === bakeBuffer.pixels? ${api.screen.pixels === bakeBuffer.pixels}`);
         
         return this.currentBakeIndex;
       },
@@ -10000,6 +10095,7 @@ class KidLisp {
   // 🚀 ULTRA-OPTIMIZED: Pre-cache alpha buffers and use fast paths
   pasteWithAlpha(api, sourceBuffer, x, y, alpha) {
     console.log(`🎬 HEADLESS DEBUG: pasteWithAlpha called with buffer ${sourceBuffer?.width}x${sourceBuffer?.height}, alpha=${alpha}, api.screen=${!!api.screen}, api.paste=${!!api.paste}`);
+    console.log(`🎬 PASTE TARGET: api.screen dimensions=${api.screen?.width}x${api.screen?.height}, is it layer0? ${api.screen?.pixels === this.layer0?.pixels}, is it a bake buffer? ${this.bakes?.some(b => b.pixels === api.screen?.pixels)}`);
     
     if (!sourceBuffer || !sourceBuffer.pixels || !api.screen || !api.screen.pixels) {
       console.warn('⚠️ HEADLESS DEBUG: pasteWithAlpha: Missing required components', {
@@ -10314,12 +10410,8 @@ class KidLisp {
           try {
             this.renderSingleLayer(api, embeddedLayer, frameValue, shouldEvaluate);
           } catch (error) {
-            // Silent error recovery - just ensure we switch back to main screen
-            try {
-              api.page(api.screen);
-            } catch (e) {
-              // Ignore switch errors
-            }
+            // Silent error recovery
+            console.error("Error rendering embedded layer:", error);
           }
         }
       });
@@ -10472,9 +10564,11 @@ class KidLisp {
         this.embeddedLayerCache.set(layerCacheKey, {
           frameCount: embeddedLayer.kidlispInstance.frameCount,
           frameCounter: embeddedLayer.kidlispInstance.frameCounter,
-          lastSecondExecutions: [...embeddedLayer.kidlispInstance.lastSecondExecutions],
-          sequenceCounters: Array.from(embeddedLayer.kidlispInstance.sequenceCounters),
-          timingStates: Array.from(embeddedLayer.kidlispInstance.timingStates),
+          lastSecondExecutions: embeddedLayer.kidlispInstance.lastSecondExecutions 
+            ? Array.from(embeddedLayer.kidlispInstance.lastSecondExecutions) 
+            : [],
+          sequenceCounters: Array.from(embeddedLayer.kidlispInstance.sequenceCounters || []),
+          timingStates: Array.from(embeddedLayer.kidlispInstance.timingStates || []),
           randomState: embeddedLayer.kidlispInstance.randomState
         });
       }
@@ -10483,8 +10577,11 @@ class KidLisp {
       embeddedLayer.lastFrameEvaluated = frameValue;
     }
 
-    // Switch back to main screen
-    api.page(api.screen);
+    // 🍞 CRITICAL: Switch back to layer0 (the main screen buffer)
+    // NOT api.screen which is still pointing to the embedded buffer!
+    api.page(this.layer0);
+    // Manual pixels assignment needed (same reason as bake buffers)
+    api.screen.pixels = this.layer0.pixels;
 
     // Paste with optimized alpha compositing
     this.pasteWithAlpha(api, embeddedLayer.buffer, embeddedLayer.x, embeddedLayer.y, embeddedLayer.alpha);
