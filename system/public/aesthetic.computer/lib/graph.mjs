@@ -308,8 +308,7 @@ function parseFadeColor(color) {
   
   // Evaluate the direction (handles dynamic expressions like frame numbers)
   const evaluatedDirection = evaluateFadeDirection(direction);
-
-  console.log(`🎨 Fade parsed: neat=${isNeat}, fadeType="${fadeType}", direction="${evaluatedDirection}"`);
+  // console.log(`🎨 Fade parsed: neat=${isNeat}, fadeType="${fadeType}", direction="${evaluatedDirection}"`);
 
   return {
     colors: fadeColors,
