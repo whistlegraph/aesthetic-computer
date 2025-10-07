@@ -751,9 +751,29 @@ function restart-daemon
 end
 
 function ac-site
-    echo "🐱 Starting online mode..."
+    echo "🐱 Starting online mode with auto-restart..."
     ac
-    cd system && npm run codespaces-dev && env nogreet=true fish
+    cd system
+    while true
+        echo "🚀 Starting ac-site..."
+        echo "🔍 Cleaning up any stuck processes..."
+        # Kill any stuck netlify or esbuild processes
+        pkill -f "netlify dev" 2>/dev/null
+        pkill -f "esbuild" 2>/dev/null
+        sleep 1
+        
+        # Kill ports before starting
+        kill-port 8880 8888 8889 8080 8000 8111 3333 3000 3001 2>/dev/null
+        
+        # Link and start netlify
+        netlify link --id $NETLIFY_SITE_ID
+        netlify dev
+        
+        set exit_code $status
+        echo "⚠️  ac-site crashed with exit code $exit_code"
+        echo "🔄 Restarting in 3 seconds..."
+        sleep 3
+    end
 end
 
 function ac-offline
@@ -1039,7 +1059,30 @@ function ac-dev-log-simple
     end
 end
 # alias ac-kidlisp 'ac; npm run test:kidlisp'
-alias ac-session 'ac; npm run server:session'
+# Session server with auto-restart on crash
+function ac-session
+    echo "🎮 Starting session server with auto-restart..."
+    ac
+    cd session-server
+    while true
+        echo "🚀 Starting ac-session..."
+        echo "🔍 Cleaning up any stuck nodemon processes..."
+        # Kill any stuck nodemon processes
+        pkill -f "nodemon.*session.mjs" 2>/dev/null
+        sleep 1
+        
+        # Kill the port before starting
+        kill-port 8889 2>/dev/null
+        
+        # Start nodemon directly without the trailing fish command
+        PORT=8889 NODE_ENV=development nodemon -I --watch session.mjs session.mjs
+        
+        set exit_code $status
+        echo "⚠️  ac-session crashed/stopped with exit code $exit_code"
+        echo "🔄 Restarting in 3 seconds..."
+        sleep 3
+    end
+end
 alias ac-stripe-print 'ac; npm run stripe-print-micro'
 alias ac-stripe-ticket 'ac; npm run stripe-ticket-micro'
 alias ac-extension 'ac; cd vscode-extension; npm run build; ac'
