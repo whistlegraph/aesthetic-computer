@@ -2720,18 +2720,15 @@ class KidLisp {
           this.detectFirstLineColor();
         }
 
-        // Skip initial wipe during boot to prevent purple flash
-        // Background fill for reframes is handled in bios.mjs
-        // Only wipe if this is a reframe situation (not initial boot)
-        const isReframe = this.frameCount > 0; // or some other reframe detection
-
-        if (isReframe) {
-          // Use first-line color as default background for reframes, otherwise erase
-          if (this.firstLineColor) {
-            wipe(this.firstLineColor);
-          } else {
-            wipe("erase");
-          }
+        // 🧹 Mark that we need to wipe the screen on first paint
+        this.needsInitialWipe = true;
+        
+        // 🧹 Clear screen on initial boot to remove previous piece's content
+        // Use first-line color as background, or erase to transparent
+        if (this.firstLineColor) {
+          wipe(this.firstLineColor);
+        } else {
+          wipe("erase");
         }
 
         // Set initial ink color to undefined for KidLisp pieces
@@ -2820,7 +2817,20 @@ class KidLisp {
           // Save the original screen reference before evaluation
           const screen = $.screen;
           
-          // 🍞 LAYER 0: Create or reuse layer 0 for all pre-bake drawing
+          // 🧹 Clear screen on first paint frame to remove previous piece's content
+          if (this.needsInitialWipe) {
+            if (this.firstLineColor) {
+              $.wipe(this.firstLineColor);
+            } else {
+              // Clear to transparent by directly filling the pixel buffer
+              if (screen && screen.pixels) {
+                screen.pixels.fill(0);
+              }
+            }
+            this.needsInitialWipe = false;
+          }
+          
+          //  LAYER 0: Create or reuse layer 0 for all pre-bake drawing
           // This ensures KidLisp never draws directly to screen, preventing scroll issues
           if (!this.layer0) {
             this.layer0 = {
@@ -2835,8 +2845,21 @@ class KidLisp {
             this.layer0.pixels = new Uint8ClampedArray(screen.width * screen.height * 4);
           }
           
-          // DON'T clear layer 0 - let it accumulate! Scroll and other operations will modify it.
-          // this.layer0.pixels.fill(0);  // REMOVED - was clearing our drawing!
+          // 🎨 Layer0 persists across frames for accumulation effects
+          // DON'T copy screen to layer0 - layer0 maintains its own state
+          
+          // 🎨 Clear screen every frame before compositing layers
+          // This ensures proper alpha compositing: layer0 content replaces screen
+          // rather than blending with previous frame's screen content
+          if (screen && screen.pixels) {
+            if (this.firstLineColor) {
+              // Fill with first-line color as background
+              $.wipe(this.firstLineColor);
+            } else {
+              // Clear to transparent
+              screen.pixels.fill(0);
+            }
+          }
           
           // Reset bake index before evaluation (starts at -1 = drawing to layer 0)
           if (this.bakes) {
@@ -2925,16 +2948,12 @@ class KidLisp {
           this.postEmbedCommands = [];
 
           // 🍞 COMPOSITE: Paste layer 0 first, then all bake buffers on top
-          // This ensures KidLisp content never drawn directly to screen, preventing scroll issues
+          // Use direct blit (no blending) since layer0 already has the final composited result
+          // Layer0 accumulates with proper alpha blending during drawing, then replaces screen
           
           // Paste layer 0 (all drawing before first bake, or all drawing if no bake)
           if (this.layer0 && this.layer0.pixels) {
-            // Count non-transparent pixels for debugging
-            let nonTransparent = 0;
-            for (let p = 3; p < this.layer0.pixels.length; p += 4) {
-              if (this.layer0.pixels[p] > 0) nonTransparent++;
-            }
-            $.paste(this.layer0, 0, 0);
+            $.paste(this.layer0, 0, 0, 1, true); // true = blit mode, direct copy
           }
           
           // Then paste all bake buffers on top
@@ -4501,49 +4520,11 @@ class KidLisp {
         //console.log(`🖱️ SCROLL processed args: dx=${dx}, dy=${dy}`);
 
         // 🍞 Scroll operates on whatever buffer is currently active (layer0 or bake buffer)
-        // Since we've switched api.screen to point to the current buffer via page(),
-        // api.scroll() will naturally operate on the correct buffer
-
-        // Never defer - execute scroll immediately on current buffer
-        const shouldDefer = false;
+        // Scroll operates on the current drawing buffer (layer0 or bake layer)
+        // This allows effects like scrolling accumulated content
         
-        if (shouldDefer) {
-          //console.log(`⏳ SCROLL deferring command until after embedded layers`);
-          this.postEmbedCommands = this.postEmbedCommands || [];
-          this.postEmbedCommands.push({
-            name: 'scroll',
-            func: () => {
-              //console.log(`🖱️ SCROLL executing deferred command: dx=${dx}, dy=${dy}`);
-              if (typeof api.scroll === 'function') {
-                api.scroll(dx, dy);
-              } else {
-                //console.log(`⚠️ SCROLL deferred execution failed: api.scroll not available`);
-              }
-            },
-            args: [dx, dy]
-          });
-          return;
-        }
-
         if (typeof api.scroll === 'function') {
-          // Log pixel count before scroll
-          // const pixelsBefore = api.screen?.pixels ? Array.from(api.screen.pixels).filter((_, i) => i % 4 === 3 && api.screen.pixels[i] > 0).length : 0;
-          // console.log(`📜 SCROLL EXECUTING: dx=${dx}, dy=${dy}, bakeIndex=${this.currentBakeIndex}, pixelsBefore=${pixelsBefore}`);
-          
           api.scroll(dx, dy);
-          
-          // const pixelsAfter = api.screen?.pixels ? Array.from(api.screen.pixels).filter((_, i) => i % 4 === 3 && api.screen.pixels[i] > 0).length : 0;
-          // console.log(`📜 SCROLL COMPLETE: pixelsAfter=${pixelsAfter}, diff=${pixelsAfter - pixelsBefore}`);
-          
-          // Also check if scroll affected the bake buffer
-          // if (this.currentBakeIndex >= 0 && this.bakes && this.bakes[this.currentBakeIndex]) {
-          //   const bakePixels = Array.from(this.bakes[this.currentBakeIndex].pixels).filter((_, i) => i % 4 === 3 && this.bakes[this.currentBakeIndex].pixels[i] > 0).length;
-          //   console.log(`📜 BAKE BUFFER ${this.currentBakeIndex} after scroll has ${bakePixels} non-transparent pixels`);
-          // }
-        } else {
-          // For embedded layers, scroll might not be available on the API object
-          // In this case, we can skip the scroll operation silently
-          //console.log(`⚠️ SCROLL immediate execution failed: api.scroll not available`);
         }
       },
       spin: (api, args = []) => {
@@ -6982,9 +6963,6 @@ class KidLisp {
             if (api.wipe) {
               api.wipe(...colorValues); // Spread RGB or RGBA values as separate arguments
             }
-
-            // Remove the processed items (3 for RGB, 4 for RGBA)
-            body = body.slice(hasAlpha ? 4 : 3);
           } else {
             // Don't remove the items - let them be processed normally in subsequent frames
           }
@@ -7032,9 +7010,6 @@ class KidLisp {
               if (api.wipe) {
                 api.wipe(...rgbValues); // Spread RGB values as separate arguments
               }
-
-              // Remove the first item since we've processed it
-              body = body.slice(1);
             } else {
               // Don't remove the first item - let it be processed normally in subsequent frames
             }
@@ -7096,9 +7071,6 @@ class KidLisp {
               if (api.wipe) {
                 api.wipe(colorName);
               }
-
-              // Only remove the first item when backdrop is actually applied
-              body = body.slice(1);
             } else {
               // Don't remove the first item - let it be processed normally in subsequent frames
             }
