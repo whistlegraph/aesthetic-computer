@@ -753,7 +753,25 @@ end
 function ac-site
     echo "🐱 Starting online mode..."
     ac
-    cd system && npm run codespaces-dev && env nogreet=true fish
+    # Detect if running in GitHub Codespaces
+    if test -n "$CODESPACES"
+        echo "🌐 Detected GitHub Codespaces - running without SSL..."
+        cd system
+        # Use netlify-nossl.toml temporarily
+        if test -f netlify.toml
+            cp netlify.toml netlify.toml.backup
+        end
+        cp netlify-nossl.toml netlify.toml
+        npm run codespaces-dev
+        # Restore original on exit (user will need to Ctrl+C)
+        if test -f netlify.toml.backup
+            mv netlify.toml.backup netlify.toml
+        end
+        env nogreet=true fish
+    else
+        echo "💻 Running on local machine - using SSL..."
+        cd system && npm run codespaces-dev && env nogreet=true fish
+    end
 end
 
 function ac-offline
