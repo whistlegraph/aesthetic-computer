@@ -2921,10 +2921,17 @@ class KidLisp {
           // Mark that we're now in the embed rendering phase
           this.inEmbedPhase = true;
 
-          // Render and update embedded layers first
-
+          // Update embedded layers (evaluate their code and update buffers)
+          // But DON'T paste them yet - we'll composite them in the right order below
           const embedStart = performance.now();
-          this.renderEmbeddedLayers($);
+          // Update embedded layer buffers without pasting
+          if (this.embeddedLayers && this.embeddedLayers.length > 0) {
+            const frameValue = $.frame || this.frameCount || 0;
+            this.embeddedLayers.forEach(embeddedLayer => {
+              const shouldEvaluate = this.shouldLayerExecuteThisFrame($, embeddedLayer);
+              this.renderSingleLayer($, embeddedLayer, frameValue, shouldEvaluate);
+            });
+          }
           const embedTime = performance.now() - embedStart;
 
 
@@ -2947,27 +2954,39 @@ class KidLisp {
           });
           this.postEmbedCommands = [];
 
-          // 🍞 COMPOSITE: Paste layer 0 first, then all bake buffers on top
-          // Use direct blit (no blending) since layer0 already has the final composited result
-          // Layer0 accumulates with proper alpha blending during drawing, then replaces screen
+          // 🍞 COMPOSITE: Proper layering order
+          // 1. Paste layer0 (background, pre-bake drawing)
+          // 2. Paste embedded layers (middle layer)
+          // 3. Paste bake buffers (foreground, post-bake drawing)
           
-          // Paste layer 0 (all drawing before first bake, or all drawing if no bake)
+          // Step 1: Paste layer 0 (all drawing before first bake, or all drawing if no bake)
           if (this.layer0 && this.layer0.pixels) {
             $.paste(this.layer0, 0, 0, 1, true); // true = blit mode, direct copy
           }
           
-          // Then paste all bake buffers on top
+          // Step 2: Paste embedded layers on top of layer0
+          if (this.embeddedLayers && this.embeddedLayers.length > 0) {
+            this.embeddedLayers.forEach(embeddedLayer => {
+              if (embeddedLayer.buffer && embeddedLayer.buffer.pixels) {
+                this.pasteWithAlpha($, embeddedLayer.buffer, embeddedLayer.x, embeddedLayer.y, embeddedLayer.alpha);
+              }
+            });
+          }
+          
+          // Step 3: Paste all bake buffers on top
           if (this.bakes && this.bakes.length > 0) {
-            // console.log(`🍞 COMPOSITE: Pasting ${this.bakes.length} bake layers (currentBakeIndex: ${this.currentBakeIndex})`);
+            console.log(`🍞 COMPOSITE: Total bake layers: ${this.bakes.length}, currentBakeIndex: ${this.currentBakeIndex}`);
             for (let i = 0; i < this.bakes.length; i++) {
               const bakeLayer = this.bakes[i];
               if (bakeLayer && bakeLayer.pixels) {
-                // Count non-transparent pixels for debugging
-                let nonTransparent = 0;
-                for (let p = 3; p < bakeLayer.pixels.length; p += 4) {
-                  if (bakeLayer.pixels[p] > 0) nonTransparent++;
+                // Sample first 10 pixels with alpha > 0
+                let samples = [];
+                for (let p = 0; p < Math.min(bakeLayer.pixels.length, 400); p += 4) {
+                  if (bakeLayer.pixels[p + 3] > 0 && samples.length < 3) {
+                    samples.push(`[${bakeLayer.pixels[p]},${bakeLayer.pixels[p+1]},${bakeLayer.pixels[p+2]},${bakeLayer.pixels[p+3]}]`);
+                  }
                 }
-                // console.log(`🍞 COMPOSITE: Pasting bake layer ${i} (${nonTransparent} non-transparent pixels)`);
+                console.log(`🍞 COMPOSITE: Bake layer ${i} samples: ${samples.join(', ')}`);
                 // Use paste to composite this bake layer on top
                 $.paste(bakeLayer, 0, 0);
               }
@@ -3905,7 +3924,7 @@ class KidLisp {
         // If erase mode, set blend mode to "erase" before processing
         if (isEraseMode && api.blend) {
           if (kidlispInkLoggingEnabled()) {
-            console.log('🎨 INK: Setting blend mode to ERASE');
+            // console.log('🎨 INK: Setting blend mode to ERASE');
           }
           api.blend("erase");
         } else if (!isEraseMode && api.blend) {
@@ -9706,14 +9725,14 @@ class KidLisp {
 
         // Source changed, clear the buffer and create a new one
         if (persistentLayer.buffer && persistentLayer.buffer.pixels) {
-          // Initialize with opaque black (like main canvas)
+          // Initialize with transparent black for proper alpha accumulation
           for (let i = 0; i < persistentLayer.buffer.pixels.length; i += 4) {
             persistentLayer.buffer.pixels[i] = 0;     // R
             persistentLayer.buffer.pixels[i + 1] = 0; // G
             persistentLayer.buffer.pixels[i + 2] = 0; // B
-            persistentLayer.buffer.pixels[i + 3] = 255; // A - opaque!
+            persistentLayer.buffer.pixels[i + 3] = 0; // A - transparent!
           }
-          console.log(`🎨 EMBEDDED BUFFER CLEAR: Reinitialized buffer with opaque black [0,0,0,255]`);
+          console.log(`🎨 EMBEDDED BUFFER CLEAR: Reinitialized buffer with transparent black [0,0,0,0]`);
         }
         embeddedBuffer = persistentLayer.buffer; // Reuse cleared buffer
 
@@ -9760,15 +9779,15 @@ class KidLisp {
           embeddedBuffer = pooledBuffers.pop();
           // console.log(`🔄 Reused pooled buffer ${bufferSizeKey} (${pooledBuffers.length} remaining)`);
 
-          // Initialize the reused buffer with opaque black (like main canvas)
+          // Initialize the reused buffer with transparent black for proper alpha accumulation
           if (embeddedBuffer.pixels) {
             for (let i = 0; i < embeddedBuffer.pixels.length; i += 4) {
               embeddedBuffer.pixels[i] = 0;     // R
               embeddedBuffer.pixels[i + 1] = 0; // G
               embeddedBuffer.pixels[i + 2] = 0; // B
-              embeddedBuffer.pixels[i + 3] = 255; // A - opaque!
+              embeddedBuffer.pixels[i + 3] = 0; // A - transparent!
             }
-            console.log(`🎨 EMBEDDED BUFFER INIT: Initialized buffer with opaque black [0,0,0,255]`);
+            console.log(`🎨 EMBEDDED BUFFER INIT: Initialized buffer with transparent black [0,0,0,0]`);
           }
         } else {
           // Use optimized buffer creation
@@ -10025,14 +10044,14 @@ class KidLisp {
 
       // 🛡️ SAFETY CHECK: Ensure buffer is not detached
       if (buffer.pixels && buffer.pixels.buffer && !buffer.pixels.buffer.detached) {
-        // Buffer is safe to reuse - initialize with opaque black
+        // Buffer is safe to reuse - initialize with transparent black for proper alpha accumulation
         for (let i = 0; i < buffer.pixels.length; i += 4) {
           buffer.pixels[i] = 0;     // R
           buffer.pixels[i + 1] = 0; // G
           buffer.pixels[i + 2] = 0; // B
-          buffer.pixels[i + 3] = 255; // A - opaque!
+          buffer.pixels[i + 3] = 0; // A - transparent!
         }
-        console.log(`🎨 BUFFER POOL REUSE: Initialized with opaque black [0,0,0,255]`);
+        console.log(`🎨 BUFFER POOL REUSE: Initialized with transparent black [0,0,0,0]`);
         return buffer;
       } else {
         // Buffer is detached or invalid, remove it and create new one
@@ -10040,19 +10059,19 @@ class KidLisp {
       }
     }
 
-    // Create new buffer initialized with opaque black
+    // Create new buffer initialized with transparent black for proper alpha accumulation
     const pixelCount = width * height * 4;
     const pixels = new Uint8ClampedArray(pixelCount);
     
-    // Initialize with opaque black [0,0,0,255]
+    // Initialize with transparent black [0,0,0,0]
     for (let i = 0; i < pixelCount; i += 4) {
       pixels[i] = 0;     // R
       pixels[i + 1] = 0; // G
       pixels[i + 2] = 0; // B
-      pixels[i + 3] = 255; // A - opaque!
+      pixels[i + 3] = 0; // A - transparent!
     }
     
-    console.log(`🎨 NEW BUFFER CREATED: ${width}x${height} initialized with opaque black [0,0,0,255]`);
+    console.log(`🎨 NEW BUFFER CREATED: ${width}x${height} initialized with transparent black [0,0,0,0]`);
     
     return {
       width: width,
@@ -10444,9 +10463,15 @@ class KidLisp {
       // Get optimized API for this layer
       const embeddedApi = this.getOptimizedLayerApi(embeddedLayer, api);
 
+      // Switch to embedded buffer for drawing (embedded buffer already persists like layer0)
+      api.page(embeddedLayer.buffer);
+      api.screen.pixels = embeddedLayer.buffer.pixels;
+
       // Update frame-dependent properties
       embeddedApi.frame = embeddedLayer.localFrameCount;
       embeddedApi.screen.pixels = embeddedLayer.buffer.pixels;
+      embeddedApi.width = embeddedLayer.width;
+      embeddedApi.height = embeddedLayer.height;
 
       // Update environment efficiently
       const localEnv = embeddedLayer.kidlispInstance.localEnv;
