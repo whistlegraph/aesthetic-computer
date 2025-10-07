@@ -9553,8 +9553,6 @@ class KidLisp {
 
   // Helper method to create embedded layer from source code
   createEmbeddedLayerFromSource(source, cacheId, layerKey, width, height, x, y, alpha, api) {
-    console.log(`🎬 HEADLESS DEBUG: createEmbeddedLayerFromSource: ${cacheId} (${width}x${height}) at (${x}, ${y}) alpha=${alpha}`);
-    
     // Check if there's already an existing layer for this key
     const existingLayer = this.embeddedLayerCache.get(layerKey);
     if (existingLayer) {
@@ -10066,25 +10064,9 @@ class KidLisp {
   // Helper function to paste a buffer with alpha blending
   // 🚀 ULTRA-OPTIMIZED: Pre-cache alpha buffers and use fast paths
   pasteWithAlpha(api, sourceBuffer, x, y, alpha) {
-    console.log(`🎬 HEADLESS DEBUG: pasteWithAlpha called with buffer ${sourceBuffer?.width}x${sourceBuffer?.height}, alpha=${alpha}, api.screen=${!!api.screen}, api.paste=${!!api.paste}`);
-    console.log(`🎬 PASTE TARGET: api.screen dimensions=${api.screen?.width}x${api.screen?.height}, is it layer0? ${api.screen?.pixels === this.layer0?.pixels}, is it a bake buffer? ${this.bakes?.some(b => b.pixels === api.screen?.pixels)}`);
-    
     if (!sourceBuffer || !sourceBuffer.pixels || !api.screen || !api.screen.pixels) {
-      console.warn('⚠️ HEADLESS DEBUG: pasteWithAlpha: Missing required components', {
-        sourceBuffer: !!sourceBuffer,
-        sourcePixels: !!sourceBuffer?.pixels,
-        apiScreen: !!api.screen,
-        screenPixels: !!api.screen?.pixels
-      });
       return; // Silent fail for performance
     }
-
-    // Debug: Check what's in the source buffer being pasted
-    const samplePixels = [];
-    for (let i = 0; i < Math.min(20, sourceBuffer.pixels.length); i += 4) {
-      samplePixels.push(`[${sourceBuffer.pixels[i]},${sourceBuffer.pixels[i+1]},${sourceBuffer.pixels[i+2]},${sourceBuffer.pixels[i+3]}]`);
-    }
-    console.log('🔍 HEADLESS DEBUG: Source buffer sample pixels:', samplePixels.slice(0, 5).join(', '));
 
     // 🛡️ SAFETY CHECK: Ensure source buffer is not detached
     if (sourceBuffer.pixels.buffer && sourceBuffer.pixels.buffer.detached) {
@@ -10243,13 +10225,6 @@ class KidLisp {
     const dstWidth = api.screen.width;
     const dstHeight = api.screen.height;
 
-    // Debug: Check destination buffer before blending
-    const dstSamplePixels = [];
-    for (let i = 0; i < Math.min(20, dstPixels.length); i += 4) {
-      dstSamplePixels.push(`[${dstPixels[i]},${dstPixels[i+1]},${dstPixels[i+2]},${dstPixels[i+3]}]`);
-    }
-    console.log(`🎭 BLEND DEBUG: Destination buffer before blending (alpha=${alpha}):`, dstSamplePixels.slice(0, 5).join(', '));
-
     // Normalize alpha to 0-1 range
     const alphaFactor = alpha / 255.0;
 
@@ -10318,11 +10293,6 @@ class KidLisp {
 
       return;
     }
-
-    console.log(`🎬 RENDER DEBUG: Processing ${this.embeddedLayers.length} embedded layers`);
-    this.embeddedLayers.forEach((layer, index) => {
-      console.log(`  Layer ${index}: ${layer.cacheId || layer.id}, hasBuffer=${!!layer.buffer}, hasInstance=${!!layer.kidlispInstance}, alpha=${layer.alpha}`);
-    });
 
     // 🚀 REFRAME OPTIMIZATION: Skip expensive re-evaluation during reframe operations
     const currentScreenSize = `${api.screen?.width || 0}x${api.screen?.height || 0}`;
@@ -10438,8 +10408,6 @@ class KidLisp {
 
   // 🚀 OPTIMIZED: Render single layer with minimal overhead
   renderSingleLayer(api, embeddedLayer, frameValue, shouldEvaluate) {
-    console.log(`🎬 HEADLESS DEBUG: renderSingleLayer: shouldEvaluate=${shouldEvaluate}, layer dimensions=${embeddedLayer.width}x${embeddedLayer.height}, pos=(${embeddedLayer.x},${embeddedLayer.y}), alpha=${embeddedLayer.alpha}`);
-
     // 🔥 REFRAME PERFORMANCE: Skip expensive re-evaluation during rapid screen changes
     const currentScreenSize = `${api.screen?.width || 0}x${api.screen?.height || 0}`;
     const timeSinceLastRender = performance.now() - (embeddedLayer.lastRenderTime || 0);
@@ -10486,9 +10454,7 @@ class KidLisp {
       localEnv.scroll = frameValue % (embeddedLayer.width + embeddedLayer.height);
 
       // Apply fade background only once
-      console.log(`🎨 EMBEDDED FADE DEBUG: firstLineColor=${embeddedLayer.kidlispInstance.firstLineColor}, fadeApplied=${embeddedLayer.fadeApplied}`);
       if (embeddedLayer.kidlispInstance.firstLineColor && !embeddedLayer.fadeApplied) {
-        console.log(`🎨 EMBEDDED FADE: Applying background wipe with ${embeddedLayer.kidlispInstance.firstLineColor}`);
         embeddedApi.wipe(embeddedLayer.kidlispInstance.firstLineColor);
         embeddedLayer.fadeApplied = true;
       }
@@ -11009,10 +10975,6 @@ class KidLisp {
         embeddedApi,
         embeddedEnv
       );
-      
-      // DEBUG: Check embedded layer buffer after execution
-      const bufferSample = embeddedLayer.buffer.pixels.slice(0, 20);
-      console.log(`🔍 EMBEDDED LAYER DEBUG: After execution, buffer sample pixels:`, Array.from(bufferSample));
       
       // console.log(`✅ Embedded layer execution complete: ${embeddedLayer.originalCacheId}`);
 
