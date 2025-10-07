@@ -58,14 +58,14 @@ Created comprehensive documentation:
 
 ```bash
 # Feed API
-FEED_API_SECRET=008f7c7ceab429051d18370f5d580fcee453cdf0768c900d71660367feb95436
+FEED_API_SECRET=YOUR_FEED_API_SECRET_HERE
 
 # MongoDB
-MONGODB_CONNECTION_STRING=mongodb+srv://admin:REDACTED_ATLAS_PASSWORD@aesthetic.qencn.mongodb.net/?retryWrites=true&w=majority
+MONGODB_CONNECTION_STRING=mongodb+srv://admin:YOUR_PASSWORD_HERE@aesthetic.qencn.mongodb.net/?retryWrites=true&w=majority
 MONGODB_NAME=aesthetic
 
 # Cloudflare
-CLOUDFLARE_API_KEY=0346704765b61e560b36592010c98a23bc2c6
+CLOUDFLARE_API_KEY=YOUR_CLOUDFLARE_API_KEY_HERE
 CLOUDFLARE_EMAIL=me@jas.life
 
 # Channel
