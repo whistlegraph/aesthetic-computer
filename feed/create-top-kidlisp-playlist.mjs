@@ -5,7 +5,7 @@
 import { connect } from '../system/backend/database.mjs';
 
 const FEED_API_URL = 'https://feed.aesthetic.computer/api/v1';
-const API_SECRET = '008f7c7ceab429051d18370f5d580fcee453cdf0768c900d71660367feb95436';
+const API_SECRET = 'YOUR_FEED_API_SECRET_HERE';
 
 async function getTop100KidLispPieces() {
   const { db, disconnect } = await connect();
