@@ -17,7 +17,7 @@ I've integrated the DP1 Feed Operator API into your aesthetic-computer repositor
 
 Found in `/workspaces/aesthetic-computer/dark-window/conductor.env`:
 - **Email**: me@jas.life
-- **API Token**: 0346704765b61e560b36592010c98a23bc2c6
+- **API Token**: YOUR_CLOUDFLARE_API_KEY_HERE
 - **Account ID**: a23b54e8877a833a1cf8db7765bce3ca (from your DNS link)
 
 ## 🚀 Deployment Steps
@@ -26,7 +26,7 @@ Found in `/workspaces/aesthetic-computer/dark-window/conductor.env`:
 
 ```fish
 # Set environment variables
-set -x CLOUDFLARE_API_TOKEN "0346704765b61e560b36592010c98a23bc2c6"
+set -x CLOUDFLARE_API_TOKEN "YOUR_CLOUDFLARE_API_KEY_HERE"
 set -x CLOUDFLARE_EMAIL "me@jas.life"
 
 # Authenticate wrangler (choose one method)
