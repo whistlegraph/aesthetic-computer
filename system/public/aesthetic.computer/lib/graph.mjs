@@ -1456,7 +1456,14 @@ function plot(x, y) {
     // No alpha blending, just copy.
     pixels.set(plotColor, i);
   } else if (alpha !== 0) {
+    // Debug alpha blending for yellow
+    if (x === 100 && y === 100 && Math.random() < 0.01) {
+      console.log(`🎨 PLOT BLEND: color=[${plotColor}], dst=[${pixels[i]},${pixels[i+1]},${pixels[i+2]},${pixels[i+3]}]`);
+    }
     blend(pixels, plotColor, 0, i);
+    if (x === 100 && y === 100 && Math.random() < 0.01) {
+      console.log(`🎨 PLOT BLEND AFTER: dst=[${pixels[i]},${pixels[i+1]},${pixels[i+2]},${pixels[i+3]}]`);
+    }
   }
 }
 
