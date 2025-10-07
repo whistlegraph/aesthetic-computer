@@ -930,13 +930,9 @@ function findColor() {
       } else if (args[0] === "erase") {
         // TODO: Add better alpha support here... 23.09.11.22.10
         //       ^ See `parseColor` in `num`.
-        // let alpha = 255;
-        // if (args[1]) alpha = parseFloat(args[1]);
-        console.log('🎨 GRAPH.findColor: Processing "erase", args before:', [...arguments]);
         const originalAlpha = arguments[1]; // Save before overwriting args
         args = [-1, -1, -1];
         if (originalAlpha !== undefined) args.push(computeAlpha(originalAlpha));
-        console.log('🎨 GRAPH.findColor: erase args after initial assignment:', args);
         // 🍞 Set blend mode to "erase" so drawing operations actually erase pixels
         blendMode("erase");
       } else if (args[0] === "rainbow") {
@@ -1078,7 +1074,6 @@ function findColor() {
     while (args.length < 4) {
       args.push(args.length === 3 ? 255 : randInt(255));
     }
-    console.log('🎨 GRAPH.findColor: args after ensuring 4 values:', args);
   }
 
   // Randomized any undefined or null values across all 4 arguments.
@@ -1454,14 +1449,10 @@ function plot(x, y) {
 
   // Erasing: Check if blend mode is "erase" OR color is [-1, -1, -1]
   if (blendingMode === "erase" || (c[0] === -1 && c[1] === -1 && c[2] === -1)) {
-    // Subtractive erase: reduce alpha by the specified amount
-    // c[3] is the amount to subtract from alpha
-    const currentAlpha = pixels[i + 3];
-    const newAlpha = Math.max(0, currentAlpha - c[3]);
-    if (i < 100) { // Only log first few pixels to reduce spam
-      console.log(`🔍 plot ERASE [${i/4}]: ${currentAlpha} - ${c[3]} = ${newAlpha}, buffer width=${width}`);
+    const eraseAmount = Math.min(255, Math.max(0, c[3]));
+    if (eraseAmount > 0) {
+      erase(pixels, i, eraseAmount);
     }
-    pixels[i + 3] = newAlpha;
   } else if (alpha === 255) {
     // No alpha blending, just copy.
     pixels.set(plotColor, i);
@@ -1799,6 +1790,74 @@ function brightness(adjustment = 0) {
 // Notes:
 // Scale can also be a transform object: { scale, angle }
 // Blit only works with a scale of 1.
+
+const PASTE_BLEND_EPSILON = 1e-10;
+
+function blendPixelOntoBuffer(destPixels, srcPixels, destIdx, srcIdx, srcAlpha) {
+  if (srcAlpha <= 0) return;
+
+  if (srcAlpha >= 255) {
+    destPixels[destIdx] = srcPixels[srcIdx];
+    destPixels[destIdx + 1] = srcPixels[srcIdx + 1];
+    destPixels[destIdx + 2] = srcPixels[srcIdx + 2];
+    destPixels[destIdx + 3] = 255;
+    return;
+  }
+
+  const dstAlpha = destPixels[destIdx + 3];
+
+  if (dstAlpha <= 0) {
+    destPixels[destIdx] = srcPixels[srcIdx];
+    destPixels[destIdx + 1] = srcPixels[srcIdx + 1];
+    destPixels[destIdx + 2] = srcPixels[srcIdx + 2];
+    destPixels[destIdx + 3] = srcAlpha;
+    return;
+  }
+
+  if (dstAlpha >= 255) {
+    const alpha = srcAlpha + 1;
+    const invAlpha = 256 - alpha;
+    destPixels[destIdx] = (alpha * srcPixels[srcIdx] + invAlpha * destPixels[destIdx]) >> 8;
+    destPixels[destIdx + 1] = (alpha * srcPixels[srcIdx + 1] + invAlpha * destPixels[destIdx + 1]) >> 8;
+    destPixels[destIdx + 2] = (alpha * srcPixels[srcIdx + 2] + invAlpha * destPixels[destIdx + 2]) >> 8;
+    destPixels[destIdx + 3] = 255;
+    return;
+  }
+
+  const alphaSrc = srcAlpha / 255;
+  const alphaDst = dstAlpha / 255;
+  const oneMinusAlphaSrc = 1 - alphaSrc;
+  const combinedAlpha = alphaSrc + oneMinusAlphaSrc * alphaDst;
+
+  if (combinedAlpha <= PASTE_BLEND_EPSILON) {
+    destPixels[destIdx] = 0;
+    destPixels[destIdx + 1] = 0;
+    destPixels[destIdx + 2] = 0;
+    destPixels[destIdx + 3] = 0;
+    return;
+  }
+
+  const invCombinedAlpha = 1 / combinedAlpha;
+
+  const blendedR =
+    (srcPixels[srcIdx] * alphaSrc +
+      destPixels[destIdx] * alphaDst * oneMinusAlphaSrc) *
+    invCombinedAlpha;
+  const blendedG =
+    (srcPixels[srcIdx + 1] * alphaSrc +
+      destPixels[destIdx + 1] * alphaDst * oneMinusAlphaSrc) *
+    invCombinedAlpha;
+  const blendedB =
+    (srcPixels[srcIdx + 2] * alphaSrc +
+      destPixels[destIdx + 2] * alphaDst * oneMinusAlphaSrc) *
+    invCombinedAlpha;
+
+  destPixels[destIdx] = Math.min(255, Math.max(0, Math.round(blendedR)));
+  destPixels[destIdx + 1] = Math.min(255, Math.max(0, Math.round(blendedG)));
+  destPixels[destIdx + 2] = Math.min(255, Math.max(0, Math.round(blendedB)));
+  destPixels[destIdx + 3] = Math.min(255, Math.max(0, Math.round(combinedAlpha * 255)));
+}
+
 function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
   const pasteStart = performance.now(); // 🚨 PERFORMANCE TRACKING
   
@@ -1945,23 +2004,8 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
           // Skip if source index is out of bounds
           if (srcIdx + 3 < fromPixels.length) {
             const srcAlpha = fromPixels[srcIdx + 3];
-            
             if (srcAlpha > 0) {
-              if (srcAlpha === 255) {
-                // Opaque source - direct copy
-                pixels[destIdx] = fromPixels[srcIdx];
-                pixels[destIdx + 1] = fromPixels[srcIdx + 1];
-                pixels[destIdx + 2] = fromPixels[srcIdx + 2];
-                pixels[destIdx + 3] = fromPixels[srcIdx + 3];
-              } else {
-                // Alpha blending
-                const alpha = srcAlpha + 1;
-                const invAlpha = 256 - alpha;
-                pixels[destIdx] = (alpha * fromPixels[srcIdx] + invAlpha * pixels[destIdx]) >> 8;
-                pixels[destIdx + 1] = (alpha * fromPixels[srcIdx + 1] + invAlpha * pixels[destIdx + 1]) >> 8;
-                pixels[destIdx + 2] = (alpha * fromPixels[srcIdx + 2] + invAlpha * pixels[destIdx + 2]) >> 8;
-                pixels[destIdx + 3] = Math.min(255, pixels[destIdx + 3] + srcAlpha);
-              }
+              blendPixelOntoBuffer(pixels, fromPixels, destIdx, srcIdx, srcAlpha);
             }
           }
         }
@@ -2009,26 +2053,9 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
             const srcIdx = srcRowStart + (x * 4);
             const destIdx = destRowStart + (x * 4);
             
-            // Skip transparent pixels
-            if (srcPixels[srcIdx + 3] > 0) {
-              // Fast alpha blending without function call overhead
-              const srcAlpha = srcPixels[srcIdx + 3];
-              
-              if (srcAlpha === 255) {
-                // Opaque source - direct copy (fastest path)
-                pixels[destIdx] = srcPixels[srcIdx];
-                pixels[destIdx + 1] = srcPixels[srcIdx + 1];
-                pixels[destIdx + 2] = srcPixels[srcIdx + 2];
-                pixels[destIdx + 3] = srcPixels[srcIdx + 3];
-              } else {
-                // Alpha blending (optimized inline version)
-                const alpha = srcAlpha + 1;
-                const invAlpha = 256 - alpha;
-                pixels[destIdx] = (alpha * srcPixels[srcIdx] + invAlpha * pixels[destIdx]) >> 8;
-                pixels[destIdx + 1] = (alpha * srcPixels[srcIdx + 1] + invAlpha * pixels[destIdx + 1]) >> 8;
-                pixels[destIdx + 2] = (alpha * srcPixels[srcIdx + 2] + invAlpha * pixels[destIdx + 2]) >> 8;
-                pixels[destIdx + 3] = Math.min(255, pixels[destIdx + 3] + srcAlpha);
-              }
+            const srcAlpha = srcPixels[srcIdx + 3];
+            if (srcAlpha > 0) {
+              blendPixelOntoBuffer(pixels, srcPixels, destIdx, srcIdx, srcAlpha);
             }
           }
         }
@@ -2177,8 +2204,31 @@ function blend(dst, src, si, di, alphaIn = 1) {
 }
 
 // Blends the alpha channel only / erases pixels.
-function erase(pixels, i, normalizedAlpha) {
-  pixels[i + 3] *= normalizedAlpha;
+function erase(pixels, i, eraseAmount) {
+  if (eraseAmount <= 0) return pixels[i + 3];
+
+  const currentAlpha = pixels[i + 3];
+  if (currentAlpha === 0) return 0;
+
+  let newAlpha = Math.max(0, currentAlpha - eraseAmount);
+  if (newAlpha === currentAlpha) {
+    newAlpha = Math.max(0, currentAlpha - 1);
+  }
+
+  if (newAlpha <= 0) {
+    pixels[i] = 0;
+    pixels[i + 1] = 0;
+    pixels[i + 2] = 0;
+    pixels[i + 3] = 0;
+    return 0;
+  }
+
+  const scale = newAlpha / currentAlpha;
+  pixels[i] = Math.round(pixels[i] * scale);
+  pixels[i + 1] = Math.round(pixels[i + 1] * scale);
+  pixels[i + 2] = Math.round(pixels[i + 2] * scale);
+  pixels[i + 3] = newAlpha;
+  return newAlpha;
 }
 
 // Draws a horizontal line. (Should be very fast...)
@@ -2234,10 +2284,11 @@ function lineh(x0, x1, y) {
 
   // Erasing: Check if blend mode is "erase" OR color is [-1, -1, -1]
   if (blendingMode === "erase" || (c[0] === -1 && c[1] === -1 && c[2] === -1)) {
-    // Subtractive erase: reduce alpha by the specified amount
-    for (let i = startIndex; i <= endIndex; i += 4) {
-      const currentAlpha = pixels[i + 3];
-      pixels[i + 3] = Math.max(0, currentAlpha - c[3]);
+    const eraseAmount = Math.min(255, Math.max(0, c[3]));
+    if (eraseAmount > 0) {
+      for (let i = startIndex; i <= endIndex; i += 4) {
+        erase(pixels, i, eraseAmount);
+      }
     }
     // No alpha.
   } else if (c[3] === 255) {
