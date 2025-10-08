@@ -5790,6 +5790,9 @@ function sharpen(strength = 1) {
   }
   
   try {
+    // 🚀 OPTIMIZATION: Early exit if strength is negligible
+    if (strength < 0.01) return;
+    
     // Create temporary buffer for sharpen operation
     const tempBuffer = new Uint8ClampedArray(pixels.length);
     
@@ -5801,30 +5804,56 @@ function sharpen(strength = 1) {
     const centerWeight = 1 + (4 * strength);
     const edgeWeight = -strength;
     
+    // 🚀 ULTRA-OPTIMIZED: Process with minimal index calculations
+    // Pre-calculate row offsets for better cache performance
+    const widthBytes = width * 4;
+    
     // Apply sharpening convolution
     for (let y = minY + 1; y < maxY - 1; y++) {
+      const rowOffset = y * widthBytes;
+      const prevRowOffset = (y - 1) * widthBytes;
+      const nextRowOffset = (y + 1) * widthBytes;
+      
       for (let x = minX + 1; x < maxX - 1; x++) {
-        const centerIdx = (y * width + x) * 4;
+        const xOffset = x * 4;
+        const centerIdx = rowOffset + xOffset;
         
-        // Skip transparent pixels
+        // 🚀 OPTIMIZATION: Single alpha check at start
         if (tempBuffer[centerIdx + 3] === 0) continue;
         
+        // 🚀 OPTIMIZATION: Pre-calculate neighbor indices (avoid repeated multiplication)
+        const topIdx = prevRowOffset + xOffset;
+        const bottomIdx = nextRowOffset + xOffset;
+        const leftIdx = rowOffset + (x - 1) * 4;
+        const rightIdx = rowOffset + (x + 1) * 4;
+        
         // Apply 3x3 unsharp mask kernel for each color channel
-        for (let channel = 0; channel < 3; channel++) { // RGB only, preserve alpha
-          let sum = 0;
-          
-          // Center pixel (enhanced)
-          sum += tempBuffer[centerIdx + channel] * centerWeight;
-          
-          // Surrounding pixels (subtracted)
-          sum += tempBuffer[((y - 1) * width + x) * 4 + channel] * edgeWeight; // top
-          sum += tempBuffer[((y + 1) * width + x) * 4 + channel] * edgeWeight; // bottom
-          sum += tempBuffer[(y * width + (x - 1)) * 4 + channel] * edgeWeight; // left
-          sum += tempBuffer[(y * width + (x + 1)) * 4 + channel] * edgeWeight; // right
-          
-          // Clamp result to valid range
-          pixels[centerIdx + channel] = Math.max(0, Math.min(255, Math.round(sum)));
-        }
+        // 🚀 OPTIMIZATION: Unroll channel loop for better performance
+        
+        // Red channel
+        let r = tempBuffer[centerIdx] * centerWeight;
+        r += tempBuffer[topIdx] * edgeWeight;
+        r += tempBuffer[bottomIdx] * edgeWeight;
+        r += tempBuffer[leftIdx] * edgeWeight;
+        r += tempBuffer[rightIdx] * edgeWeight;
+        pixels[centerIdx] = r > 255 ? 255 : r < 0 ? 0 : Math.round(r);
+        
+        // Green channel
+        let g = tempBuffer[centerIdx + 1] * centerWeight;
+        g += tempBuffer[topIdx + 1] * edgeWeight;
+        g += tempBuffer[bottomIdx + 1] * edgeWeight;
+        g += tempBuffer[leftIdx + 1] * edgeWeight;
+        g += tempBuffer[rightIdx + 1] * edgeWeight;
+        pixels[centerIdx + 1] = g > 255 ? 255 : g < 0 ? 0 : Math.round(g);
+        
+        // Blue channel
+        let b = tempBuffer[centerIdx + 2] * centerWeight;
+        b += tempBuffer[topIdx + 2] * edgeWeight;
+        b += tempBuffer[bottomIdx + 2] * edgeWeight;
+        b += tempBuffer[leftIdx + 2] * edgeWeight;
+        b += tempBuffer[rightIdx + 2] * edgeWeight;
+        pixels[centerIdx + 2] = b > 255 ? 255 : b < 0 ? 0 : Math.round(b);
+        
         // Alpha channel stays unchanged
       }
     }
@@ -5877,19 +5906,26 @@ function invert() {
   }
   
   try {
-    // Invert each pixel's RGB values (255 - value)
+    // 🚀 ULTRA-OPTIMIZED: Invert RGB values with minimal branching
+    // Process row by row for better cache locality
     for (let y = minY; y < maxY; y++) {
-      for (let x = minX; x < maxX; x++) {
-        const idx = (y * width + x) * 4;
+      const rowStart = y * width * 4;
+      const xStart = minX * 4;
+      const xEnd = maxX * 4;
+      
+      // Process pixels in this row
+      for (let offset = xStart; offset < xEnd; offset += 4) {
+        const idx = rowStart + offset;
         
-        // Skip fully transparent pixels
-        if (pixels[idx + 3] === 0) continue;
+        // 🚀 OPTIMIZATION: Single alpha check, then batch invert RGB
+        const alpha = pixels[idx + 3];
+        if (alpha === 0) continue;
         
-        // Invert RGB channels (alpha stays unchanged)
+        // Invert RGB in one go (compiler can vectorize this)
         pixels[idx] = 255 - pixels[idx];         // Red
         pixels[idx + 1] = 255 - pixels[idx + 1]; // Green
         pixels[idx + 2] = 255 - pixels[idx + 2]; // Blue
-        // pixels[idx + 3] unchanged (Alpha)
+        // Alpha unchanged
       }
     }
     
