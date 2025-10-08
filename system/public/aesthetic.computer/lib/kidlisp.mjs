@@ -2217,6 +2217,44 @@ class KidLisp {
     return this.inkStateSet ? this.inkState : undefined;
   }
 
+  // Resolve a color name/value to RGBA array [r, g, b, a]
+  // Used for safely filling buffers without calling wipe
+  resolveColorToRGBA(color, api) {
+    // If it's already an array, assume it's [r, g, b] or [r, g, b, a]
+    if (Array.isArray(color)) {
+      return color.length === 3 ? [...color, 255] : color;
+    }
+    
+    // If it's a string color name
+    if (typeof color === 'string') {
+      // Check cssColors
+      if (cssColors && cssColors[color]) {
+        const rgb = cssColors[color];
+        return Array.isArray(rgb) ? [...rgb, 255] : [rgb, rgb, rgb, 255];
+      }
+      
+      // Check static color map (c0, c1, etc.)
+      if (color.match(/^c\d+$/)) {
+        const colorIndex = parseInt(color.substring(1));
+        if (staticColorMap[colorIndex]) {
+          const rgb = staticColorMap[colorIndex];
+          return [...rgb, 255];
+        }
+      }
+      
+      // Check if it's an RGB string
+      if (isValidRGBString(color)) {
+        const rgb = parseRGBString(color);
+        if (rgb) {
+          return rgb.length === 3 ? [...rgb, 255] : rgb;
+        }
+      }
+    }
+    
+    // Default to transparent black if we can't resolve it
+    return [0, 0, 0, 0];
+  }
+
   // Check if the AST contains microphone-related functions
   containsMicrophoneFunctions(ast) {
     if (!ast) return false;
@@ -2848,11 +2886,63 @@ class KidLisp {
               height: screen.height,
               pixels: new Uint8ClampedArray(screen.width * screen.height * 4)
             };
+            // Initialize new layer0 with first-line color (first-word principle)
+            if (this.firstLineColor) {
+              // Manually fill the buffer with the color instead of using wipe
+              // to avoid bounds errors before proper API setup
+              const color = this.resolveColorToRGBA(this.firstLineColor, $);
+              if (color) {
+                const pixels = this.layer0.pixels;
+                for (let i = 0; i < pixels.length; i += 4) {
+                  pixels[i] = color[0];     // R
+                  pixels[i + 1] = color[1]; // G
+                  pixels[i + 2] = color[2]; // B
+                  pixels[i + 3] = color[3] !== undefined ? color[3] : 255; // A
+                }
+                console.log(`🎨 Initialized new layer0 with first-line color:`, this.firstLineColor);
+              }
+            }
           } else if (this.layer0.width !== screen.width || this.layer0.height !== screen.height) {
             // Resize layer 0 if screen dimensions changed
+            const oldPixels = this.layer0.pixels;
+            const oldWidth = this.layer0.width;
+            const oldHeight = this.layer0.height;
+            
             this.layer0.width = screen.width;
             this.layer0.height = screen.height;
             this.layer0.pixels = new Uint8ClampedArray(screen.width * screen.height * 4);
+            
+            // Fill resized layer0 with first-line color before copying old content
+            if (this.firstLineColor) {
+              const color = this.resolveColorToRGBA(this.firstLineColor, $);
+              if (color) {
+                const pixels = this.layer0.pixels;
+                for (let i = 0; i < pixels.length; i += 4) {
+                  pixels[i] = color[0];     // R
+                  pixels[i + 1] = color[1]; // G
+                  pixels[i + 2] = color[2]; // B
+                  pixels[i + 3] = color[3] !== undefined ? color[3] : 255; // A
+                }
+                // console.log(`🎨 Resized layer0, filled with first-line color:`, this.firstLineColor);
+              }
+            }
+            
+            // Copy old content on top of the background color
+            if (oldPixels && oldPixels.length > 0 && !(oldPixels.buffer && oldPixels.buffer.detached)) {
+              const copyWidth = Math.min(oldWidth, screen.width);
+              const copyHeight = Math.min(oldHeight, screen.height);
+              
+              for (let y = 0; y < copyHeight; y++) {
+                const srcOffset = y * oldWidth * 4;
+                const destOffset = y * screen.width * 4;
+                const rowLength = copyWidth * 4;
+                
+                if (srcOffset + rowLength <= oldPixels.length && 
+                    destOffset + rowLength <= this.layer0.pixels.length) {
+                  this.layer0.pixels.set(oldPixels.subarray(srcOffset, srcOffset + rowLength), destOffset);
+                }
+              }
+            }
           }
           
           // 🎨 Layer0 persists across frames for accumulation effects
@@ -2883,6 +2973,45 @@ class KidLisp {
           // Reset bake index before evaluation (starts at -1 = drawing to layer 0)
           if (this.bakes) {
             this.currentBakeIndex = -1;
+            
+            // 🔄 RESIZE CHECK: Force resize all bake layers if screen dimensions changed
+            // This prevents dimension mismatches during rapid window resizing
+            for (let i = 0; i < this.bakes.length; i++) {
+              const bakeLayer = this.bakes[i];
+              if (bakeLayer && (bakeLayer.width !== screen.width || bakeLayer.height !== screen.height)) {
+                // console.log(`🔄 Force resizing bake layer ${i} from ${bakeLayer.width}x${bakeLayer.height} to ${screen.width}x${screen.height}`);
+                const oldPixels = bakeLayer.pixels;
+                const oldWidth = bakeLayer.width;
+                const oldHeight = bakeLayer.height;
+                
+                // Create new buffer with screen dimensions
+                const newPixels = new Uint8ClampedArray(screen.width * screen.height * 4);
+                newPixels.fill(0); // Transparent
+                
+                // Copy old content
+                if (oldPixels && oldPixels.length > 0 && !(oldPixels.buffer && oldPixels.buffer.detached)) {
+                  const copyWidth = Math.min(oldWidth, screen.width);
+                  const copyHeight = Math.min(oldHeight, screen.height);
+                  
+                  for (let y = 0; y < copyHeight; y++) {
+                    const srcOffset = y * oldWidth * 4;
+                    const destOffset = y * screen.width * 4;
+                    const rowLength = copyWidth * 4;
+                    
+                    if (srcOffset + rowLength <= oldPixels.length && 
+                        destOffset + rowLength <= newPixels.length) {
+                      newPixels.set(oldPixels.subarray(srcOffset, srcOffset + rowLength), destOffset);
+                    }
+                  }
+                }
+                
+                // Update the layer
+                bakeLayer.width = screen.width;
+                bakeLayer.height = screen.height;
+                bakeLayer.pixels = newPixels;
+                bakeLayer.burned = false; // Unmark as burned after resize
+              }
+            }
           }
           
           // 🔥 CRITICAL: Clear burned buffer at start of frame
@@ -3016,12 +3145,30 @@ class KidLisp {
           
           if (hasBurnedBuffer) {
             // 🚀 FAST PATH: Burn was called - single paste of pre-composited buffer
-            $.paste(this.burnedBuffer, 0, 0, 1, true); // true = blit mode, direct copy
+            // Check dimensions match before pasting to avoid bounds errors
+            if (this.burnedBuffer.width === screen.width && this.burnedBuffer.height === screen.height) {
+              try {
+                $.paste(this.burnedBuffer, 0, 0, 1, true); // true = blit mode, direct copy
+              } catch (error) {
+                console.warn(`⚠️ Error pasting burnedBuffer:`, error.message);
+              }
+            } else {
+              console.warn(`⚠️ Skipping burnedBuffer paste due to dimension mismatch: burned=${this.burnedBuffer.width}x${this.burnedBuffer.height}, screen=${screen.width}x${screen.height}`);
+            }
           } else {
             // 🐌 SLOW PATH: No burn - composite all layers individually
             // Step 1: Paste layer 0 (all drawing before first bake, or all drawing if no bake)
             if (this.layer0 && this.layer0.pixels) {
-              $.paste(this.layer0, 0, 0, 1, true); // true = blit mode, direct copy
+              // Check dimensions match before pasting to avoid bounds errors
+              if (this.layer0.width === screen.width && this.layer0.height === screen.height) {
+                try {
+                  $.paste(this.layer0, 0, 0, 1, true); // true = blit mode, direct copy
+                } catch (error) {
+                  console.warn(`⚠️ Error pasting layer0:`, error.message);
+                }
+              } else {
+                console.warn(`⚠️ Skipping layer0 paste due to dimension mismatch: layer0=${this.layer0.width}x${this.layer0.height}, screen=${screen.width}x${screen.height}`);
+              }
             }
             
             // Step 2: Paste embedded layers on top of layer0
@@ -3030,7 +3177,11 @@ class KidLisp {
               for (let i = 0, len = this.embeddedLayers.length; i < len; i++) {
                 const embeddedLayer = this.embeddedLayers[i];
                 if (embeddedLayer.buffer && embeddedLayer.buffer.pixels) {
-                  this.pasteWithAlpha($, embeddedLayer.buffer, embeddedLayer.x, embeddedLayer.y, embeddedLayer.alpha);
+                  try {
+                    this.pasteWithAlpha($, embeddedLayer.buffer, embeddedLayer.x, embeddedLayer.y, embeddedLayer.alpha);
+                  } catch (error) {
+                    console.warn(`⚠️ Error pasting embedded layer ${i}:`, error.message);
+                  }
                 }
               }
             }
@@ -3042,7 +3193,16 @@ class KidLisp {
                 const bakeLayer = this.bakes[i];
                 // Skip layers marked as "burned" (they've been composited into the burned buffer)
                 if (bakeLayer && bakeLayer.pixels && !bakeLayer.burned) {
-                  $.paste(bakeLayer, 0, 0);
+                  // Check dimensions match before pasting to avoid bounds errors
+                  if (bakeLayer.width === screen.width && bakeLayer.height === screen.height) {
+                    try {
+                      $.paste(bakeLayer, 0, 0);
+                    } catch (error) {
+                      console.warn(`⚠️ Error pasting bake layer ${i}:`, error.message);
+                    }
+                  } else {
+                    console.warn(`⚠️ Skipping bake layer ${i} paste due to dimension mismatch: bake=${bakeLayer.width}x${bakeLayer.height}, screen=${screen.width}x${screen.height}`);
+                  }
                 }
               }
             }
@@ -6111,9 +6271,10 @@ class KidLisp {
         this.currentBakeIndex++;
         // console.log(`🍞 BAKE called! Switching to bake buffer ${this.currentBakeIndex}`);
         
-        // Get current screen dimensions
-        const width = api.screen?.width || 256;
-        const height = api.screen?.height || 256;
+        // Get display screen dimensions (not api.screen which could be pointing to a buffer)
+        // Use the saved displayBuffer dimensions to ensure consistency
+        const width = this.displayBuffer?.width || api.screen?.width || 256;
+        const height = this.displayBuffer?.height || api.screen?.height || 256;
         
         // Reuse existing bake buffer if it exists and matches dimensions
         if (this.bakes[this.currentBakeIndex]) {
@@ -6138,6 +6299,55 @@ class KidLisp {
             }
             
             return this.currentBakeIndex;
+          } else {
+            // 🔄 RESIZE: Dimensions changed - preserve content by copying to new buffer
+            const oldPixels = existing.pixels;
+            const oldWidth = existing.width;
+            const oldHeight = existing.height;
+            
+            // Create new buffer with new dimensions
+            const newPixels = new Uint8ClampedArray(width * height * 4);
+            // Initialize to transparent (bake layers are transparent by default)
+            newPixels.fill(0);
+            
+            // Copy old content to new buffer (paste old buffer centered or top-left)
+            // Only copy if old pixels exist and aren't detached
+            if (oldPixels && oldPixels.length > 0 && !(oldPixels.buffer && oldPixels.buffer.detached)) {
+              const copyWidth = Math.min(oldWidth, width);
+              const copyHeight = Math.min(oldHeight, height);
+              
+              for (let y = 0; y < copyHeight; y++) {
+                const srcOffset = y * oldWidth * 4;
+                const destOffset = y * width * 4;
+                const rowLength = copyWidth * 4;
+                
+                // Safety check: ensure we're not reading/writing out of bounds
+                if (srcOffset + rowLength <= oldPixels.length && 
+                    destOffset + rowLength <= newPixels.length) {
+                  newPixels.set(oldPixels.subarray(srcOffset, srcOffset + rowLength), destOffset);
+                }
+              }
+            }
+            
+            // Update existing buffer with new dimensions and pixels
+            existing.width = width;
+            existing.height = height;
+            existing.pixels = newPixels;
+            existing.burned = false;
+            
+            // Switch drawing to this resized bake layer
+            api.page(existing);
+            
+            // Update api.screen to point to the resized bake buffer
+            if (!api.screen) {
+              api.screen = { width: existing.width, height: existing.height, pixels: existing.pixels };
+            } else {
+              api.screen.width = existing.width;
+              api.screen.height = existing.height;
+              api.screen.pixels = existing.pixels;
+            }
+            
+            return this.currentBakeIndex;
           }
         }
         
@@ -6148,7 +6358,7 @@ class KidLisp {
           pixels: new Uint8ClampedArray(width * height * 4)
         };
         
-        // Initialize as transparent
+        // Initialize as transparent (bake layers don't use first-line color)
         bakeBuffer.pixels.fill(0);
         
         // Store in bakes array
@@ -6174,9 +6384,10 @@ class KidLisp {
       //        (burn zoom 1.5) - zooms all bake layers by 1.5x
       // This lets you apply transformations to the entire bake stack at once
       burn: (api, args = []) => {
-        // Get screen dimensions
-        const width = api.screen?.width || 256;
-        const height = api.screen?.height || 256;
+        // Get display screen dimensions (not api.screen which could be pointing to a buffer)
+        // Use the saved displayBuffer dimensions to ensure consistency
+        const width = this.displayBuffer?.width || api.screen?.width || 256;
+        const height = this.displayBuffer?.height || api.screen?.height || 256;
         
         // 🔥 CRITICAL: Create burned buffer that will be updated in place
         // We need to ensure subsequent operations modify THIS buffer's pixels
@@ -6193,7 +6404,16 @@ class KidLisp {
         
         // Composite layer0 first using optimized paste
         if (this.layer0 && this.layer0.pixels) {
-          api.paste(this.layer0, 0, 0);
+          // Check dimensions match before pasting to avoid bounds errors
+          if (this.layer0.width === width && this.layer0.height === height) {
+            try {
+              api.paste(this.layer0, 0, 0);
+            } catch (error) {
+              console.warn(`⚠️ Burn: Error pasting layer0:`, error.message);
+            }
+          } else {
+            console.warn(`⚠️ Burn: Skipping layer0 paste due to dimension mismatch: layer0=${this.layer0.width}x${this.layer0.height}, burn=${width}x${height}`);
+          }
         }
         
         // 🚀 OPTIMIZATION: Composite all non-burned bake layers on top
@@ -6203,7 +6423,16 @@ class KidLisp {
           for (let i = 0; i < bakesLength; i++) {
             const bakeLayer = this.bakes[i];
             if (bakeLayer && bakeLayer.pixels && !bakeLayer.burned) {
-              api.paste(bakeLayer, 0, 0);
+              // Check dimensions match before pasting to avoid bounds errors
+              if (bakeLayer.width === width && bakeLayer.height === height) {
+                try {
+                  api.paste(bakeLayer, 0, 0);
+                } catch (error) {
+                  console.warn(`⚠️ Burn: Error pasting bake layer ${i}:`, error.message);
+                }
+              } else {
+                console.warn(`⚠️ Burn: Skipping bake layer ${i} paste due to dimension mismatch: bake=${bakeLayer.width}x${bakeLayer.height}, burn=${width}x${height}`);
+              }
             }
           }
           
@@ -10121,19 +10350,35 @@ class KidLisp {
     }
 
     // 🎨 BACKGROUND FILL: Re-apply background color after reframe to cover expanded areas
+    // Following the KidLisp first-word principle: wipe layer0 only (base layer)
 
     // Always try to get the most reliable background color via getBackgroundFillColor
     // This handles all the fallback logic and ensures consistent state
     let bgColor = this.getBackgroundFillColor();
 
     if (bgColor) {
-      // Use globalThis to access the global wipe function
-      if (typeof globalThis.$paintApiUnwrapped?.wipe === 'function') {
-        globalThis.$paintApiUnwrapped.wipe(bgColor);
-      } else if (typeof globalThis.wipe === 'function') {
-        globalThis.wipe(bgColor);
+      console.log(`🎨 Reframe: Wiping layer0 with first-line color:`, bgColor);
+      
+      // 🍞 FIRST-WORD PRINCIPLE: Only wipe layer0 (the base layer)
+      // Bake layers should remain transparent and not be filled with first-line color
+      
+      if (this.layer0 && this.layer0.pixels) {
+        // Manually fill layer0 buffer to avoid bounds errors with wipe
+        const color = this.resolveColorToRGBA(bgColor, globalThis.$paintApiUnwrapped || globalThis.$paintApi);
+        if (color) {
+          const pixels = this.layer0.pixels;
+          for (let i = 0; i < pixels.length; i += 4) {
+            pixels[i] = color[0];     // R
+            pixels[i + 1] = color[1]; // G
+            pixels[i + 2] = color[2]; // B
+            pixels[i + 3] = color[3] !== undefined ? color[3] : 255; // A
+          }
+          console.log(`🎨 Reframe: Filled layer0 buffer directly with`, bgColor);
+        }
       }
-    }    // Update tracked dimensions
+    }
+    
+    // Update tracked dimensions
     this.lastScreenWidth = newWidth;
     this.lastScreenHeight = newHeight;
   }
@@ -10251,6 +10496,13 @@ class KidLisp {
     // 🛡️ SAFETY CHECK: Ensure source buffer is not detached
     if (sourceBuffer.pixels.buffer && sourceBuffer.pixels.buffer.detached) {
       console.warn('🚨 Attempted to paste from detached buffer, skipping');
+      return;
+    }
+
+    // 🛡️ DIMENSION CHECK: Ensure source and destination buffers have compatible dimensions
+    // Only paste if source fits within destination (considering offset)
+    if (x + sourceBuffer.width > api.screen.width || y + sourceBuffer.height > api.screen.height) {
+      // console.warn(`⚠️ pasteWithAlpha: Source buffer extends beyond screen bounds, skipping. Source=${sourceBuffer.width}x${sourceBuffer.height} at (${x},${y}), Screen=${api.screen.width}x${api.screen.height}`);
       return;
     }
 
