@@ -3927,27 +3927,24 @@ const LINE = {
 // TODO: Add better hex support via: https://stackoverflow.com/a/53936623/8146077
 
 function ink() {
-  // console.log("🖍️ disk.ink() called with arguments:", [...arguments]);
   const foundColor = graph.findColor(...arguments);
-  // console.log("🖍️ disk.ink() foundColor:", foundColor);
   if (inkFloodLoggingEnabled()) {
-    //console.log(
-    //  `${inkFloodLogPrefix()}🖍️ INK DEBUG`,
-    //  {
-    //    args: cloneArgsForLog(arguments),
-     //   resolved: cloneColorForLog(foundColor)
-    //  }
-    //);
+    console.log(
+      `${inkFloodLogPrefix()}🖍️ INK DEBUG`,
+      {
+        args: cloneArgsForLog(arguments),
+        resolved: cloneColorForLog(foundColor)
+      }
+    );
   }
   const result = graph.color(...foundColor);
-  // console.log("🖍️ disk.ink() result:", result);
   if (inkFloodLoggingEnabled()) {
-    // console.log(
-    //  `${inkFloodLogPrefix()}🖍️ INK APPLIED`,
-    //  {
-     //   color: cloneColorForLog(result)
-      //}
-    //);
+    console.log(
+      `${inkFloodLogPrefix()}🖍️ INK APPLIED`,
+      {
+        color: cloneColorForLog(result)
+      }
+    );
   }
   return result;
 }
@@ -4519,11 +4516,11 @@ const $paintApiUnwrapped = {
     // console.log(arguments);
 
     // const oldScreen = $activePaintApi.screen;
-    // Mock out the screen here using the arguments.
-    $activePaintApi.screen = {
-      width: arguments[0].width,
-      height: arguments[0].height,
-    };
+    // Update the existing screen object's properties instead of replacing it
+    // This preserves methods like load, save, center that are attached to screen
+    $activePaintApi.screen.width = arguments[0].width;
+    $activePaintApi.screen.height = arguments[0].height;
+    $activePaintApi.screen.pixels = arguments[0].pixels;
     //console.log(
     //  "Updated active paint api:",
     //  $activePaintApi.screen.width,
@@ -4578,6 +4575,12 @@ const $paintApiUnwrapped = {
     // Restore previous preservation state
     if (!preserveFadeAlpha && typeof setPreserveFadeAlpha === 'function') {
       setPreserveFadeAlpha(false);
+    }
+    
+    // 🍞 LAYER 0: Also clear layer 0 if it exists (for KidLisp)
+    // This ensures wipe() clears the persistent layer, not just the screen
+    if (this.kidlispInstance?.layer0) {
+      this.kidlispInstance.layer0.pixels.fill(0);
     }
   },
   // Set background fill color for reframe operations (especially for KidLisp pieces)
@@ -9329,11 +9332,11 @@ async function makeFrame({ data: { type, content } }) {
       if (penEventCount > 0) {
         const processingTime = performance.now() - startTime;
         if (processingTime > 5) { // Only log if processing took more than 5ms
-          // console.log("🖋️ Pen event processing:", {
-          //   eventCount: penEventCount,
-          //   processingTime: processingTime.toFixed(2) + "ms",
-          //   avgPerEvent: (processingTime / penEventCount).toFixed(2) + "ms"
-          // });
+          console.log("🖋️ Pen event processing:", {
+            eventCount: penEventCount,
+            processingTime: processingTime.toFixed(2) + "ms",
+            avgPerEvent: (processingTime / penEventCount).toFixed(2) + "ms"
+          });
         }
       }
 
