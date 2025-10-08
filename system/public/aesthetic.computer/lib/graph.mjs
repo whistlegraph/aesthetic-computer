@@ -308,8 +308,7 @@ function parseFadeColor(color) {
   
   // Evaluate the direction (handles dynamic expressions like frame numbers)
   const evaluatedDirection = evaluateFadeDirection(direction);
-
-  console.log(`🎨 Fade parsed: neat=${isNeat}, fadeType="${fadeType}", direction="${evaluatedDirection}"`);
+  // console.log(`🎨 Fade parsed: neat=${isNeat}, fadeType="${fadeType}", direction="${evaluatedDirection}"`);
 
   return {
     colors: fadeColors,
@@ -852,6 +851,14 @@ function normalizeColorInput(value) {
 function findColor() {
   let args = [...arguments];
 
+  // 🍞 Reset blend mode to "blend" for any color EXCEPT "erase"
+  // This ensures erase mode doesn't persist across color changes
+  if (!(args.length === 1 && args[0] === "erase")) {
+    if (blendingMode === "erase") {
+      blendMode("blend");
+    }
+  }
+
   if (args.length === 1 && args[0] !== undefined) {
     const isNumber = () => typeof args[0] === "number";
     const isArray = () => Array.isArray(args[0]);
@@ -922,13 +929,11 @@ function findColor() {
       } else if (args[0] === "erase") {
         // TODO: Add better alpha support here... 23.09.11.22.10
         //       ^ See `parseColor` in `num`.
-        // let alpha = 255;
-        // if (args[1]) alpha = parseFloat(args[1]);
-        console.log('🎨 GRAPH.findColor: Processing "erase", args before:', [...arguments]);
         const originalAlpha = arguments[1]; // Save before overwriting args
         args = [-1, -1, -1];
         if (originalAlpha !== undefined) args.push(computeAlpha(originalAlpha));
-        console.log('🎨 GRAPH.findColor: erase args after initial assignment:', args);
+        // 🍞 Set blend mode to "erase" so drawing operations actually erase pixels
+        blendMode("erase");
       } else if (args[0] === "rainbow") {
         args = rainbow(); // Cycle through roygbiv in a linear sequence.
       } else {
@@ -964,6 +969,10 @@ function findColor() {
     // rainbow, alpha
     if (args[0] === "rainbow") {
       args = [...rainbow(), computeAlpha(args[1])];
+    } else if (args[0] === "erase") {
+      // 🍞 Handle "erase" with alpha: ink("erase", 32)
+      args = [-1, -1, -1, computeAlpha(args[1])];
+      blendMode("erase");
     } else if (typeof args[0] === "string") {
       const normalizedString = normalizeColorInput(args[0]);
       if (typeof normalizedString === "string") {
@@ -1064,7 +1073,6 @@ function findColor() {
     while (args.length < 4) {
       args.push(args.length === 3 ? 255 : randInt(255));
     }
-    console.log('🎨 GRAPH.findColor: args after ensuring 4 values:', args);
   }
 
   // Randomized any undefined or null values across all 4 arguments.
@@ -1438,14 +1446,24 @@ function plot(x, y) {
     return;
   }
 
-  // Erasing
-  if (c[0] === -1 && c[1] === -1 && c[2] === -1) {
-    erase(pixels, i, 1 - c[3] / 255);
+  // Erasing: Check if blend mode is "erase" OR color is [-1, -1, -1]
+  if (blendingMode === "erase" || (c[0] === -1 && c[1] === -1 && c[2] === -1)) {
+    const eraseAmount = Math.min(255, Math.max(0, c[3]));
+    if (eraseAmount > 0) {
+      erase(pixels, i, eraseAmount);
+    }
   } else if (alpha === 255) {
     // No alpha blending, just copy.
     pixels.set(plotColor, i);
   } else if (alpha !== 0) {
+    // Debug alpha blending for yellow
+    if (x === 100 && y === 100 && Math.random() < 0.01) {
+      console.log(`🎨 PLOT BLEND: color=[${plotColor}], dst=[${pixels[i]},${pixels[i+1]},${pixels[i+2]},${pixels[i+3]}]`);
+    }
     blend(pixels, plotColor, 0, i);
+    if (x === 100 && y === 100 && Math.random() < 0.01) {
+      console.log(`🎨 PLOT BLEND AFTER: dst=[${pixels[i]},${pixels[i+1]},${pixels[i+2]},${pixels[i+3]}]`);
+    }
   }
 }
 
@@ -1778,6 +1796,74 @@ function brightness(adjustment = 0) {
 // Notes:
 // Scale can also be a transform object: { scale, angle }
 // Blit only works with a scale of 1.
+
+const PASTE_BLEND_EPSILON = 1e-10;
+
+function blendPixelOntoBuffer(destPixels, srcPixels, destIdx, srcIdx, srcAlpha) {
+  if (srcAlpha <= 0) return;
+
+  if (srcAlpha >= 255) {
+    destPixels[destIdx] = srcPixels[srcIdx];
+    destPixels[destIdx + 1] = srcPixels[srcIdx + 1];
+    destPixels[destIdx + 2] = srcPixels[srcIdx + 2];
+    destPixels[destIdx + 3] = 255;
+    return;
+  }
+
+  const dstAlpha = destPixels[destIdx + 3];
+
+  if (dstAlpha <= 0) {
+    destPixels[destIdx] = srcPixels[srcIdx];
+    destPixels[destIdx + 1] = srcPixels[srcIdx + 1];
+    destPixels[destIdx + 2] = srcPixels[srcIdx + 2];
+    destPixels[destIdx + 3] = srcAlpha;
+    return;
+  }
+
+  if (dstAlpha >= 255) {
+    const alpha = srcAlpha + 1;
+    const invAlpha = 256 - alpha;
+    destPixels[destIdx] = (alpha * srcPixels[srcIdx] + invAlpha * destPixels[destIdx]) >> 8;
+    destPixels[destIdx + 1] = (alpha * srcPixels[srcIdx + 1] + invAlpha * destPixels[destIdx + 1]) >> 8;
+    destPixels[destIdx + 2] = (alpha * srcPixels[srcIdx + 2] + invAlpha * destPixels[destIdx + 2]) >> 8;
+    destPixels[destIdx + 3] = 255;
+    return;
+  }
+
+  const alphaSrc = srcAlpha / 255;
+  const alphaDst = dstAlpha / 255;
+  const oneMinusAlphaSrc = 1 - alphaSrc;
+  const combinedAlpha = alphaSrc + oneMinusAlphaSrc * alphaDst;
+
+  if (combinedAlpha <= PASTE_BLEND_EPSILON) {
+    destPixels[destIdx] = 0;
+    destPixels[destIdx + 1] = 0;
+    destPixels[destIdx + 2] = 0;
+    destPixels[destIdx + 3] = 0;
+    return;
+  }
+
+  const invCombinedAlpha = 1 / combinedAlpha;
+
+  const blendedR =
+    (srcPixels[srcIdx] * alphaSrc +
+      destPixels[destIdx] * alphaDst * oneMinusAlphaSrc) *
+    invCombinedAlpha;
+  const blendedG =
+    (srcPixels[srcIdx + 1] * alphaSrc +
+      destPixels[destIdx + 1] * alphaDst * oneMinusAlphaSrc) *
+    invCombinedAlpha;
+  const blendedB =
+    (srcPixels[srcIdx + 2] * alphaSrc +
+      destPixels[destIdx + 2] * alphaDst * oneMinusAlphaSrc) *
+    invCombinedAlpha;
+
+  destPixels[destIdx] = Math.min(255, Math.max(0, Math.round(blendedR)));
+  destPixels[destIdx + 1] = Math.min(255, Math.max(0, Math.round(blendedG)));
+  destPixels[destIdx + 2] = Math.min(255, Math.max(0, Math.round(blendedB)));
+  destPixels[destIdx + 3] = Math.min(255, Math.max(0, Math.round(combinedAlpha * 255)));
+}
+
 function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
   const pasteStart = performance.now(); // 🚨 PERFORMANCE TRACKING
   
@@ -1924,23 +2010,8 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
           // Skip if source index is out of bounds
           if (srcIdx + 3 < fromPixels.length) {
             const srcAlpha = fromPixels[srcIdx + 3];
-            
             if (srcAlpha > 0) {
-              if (srcAlpha === 255) {
-                // Opaque source - direct copy
-                pixels[destIdx] = fromPixels[srcIdx];
-                pixels[destIdx + 1] = fromPixels[srcIdx + 1];
-                pixels[destIdx + 2] = fromPixels[srcIdx + 2];
-                pixels[destIdx + 3] = fromPixels[srcIdx + 3];
-              } else {
-                // Alpha blending
-                const alpha = srcAlpha + 1;
-                const invAlpha = 256 - alpha;
-                pixels[destIdx] = (alpha * fromPixels[srcIdx] + invAlpha * pixels[destIdx]) >> 8;
-                pixels[destIdx + 1] = (alpha * fromPixels[srcIdx + 1] + invAlpha * pixels[destIdx + 1]) >> 8;
-                pixels[destIdx + 2] = (alpha * fromPixels[srcIdx + 2] + invAlpha * pixels[destIdx + 2]) >> 8;
-                pixels[destIdx + 3] = Math.min(255, pixels[destIdx + 3] + srcAlpha);
-              }
+              blendPixelOntoBuffer(pixels, fromPixels, destIdx, srcIdx, srcAlpha);
             }
           }
         }
@@ -1988,26 +2059,9 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
             const srcIdx = srcRowStart + (x * 4);
             const destIdx = destRowStart + (x * 4);
             
-            // Skip transparent pixels
-            if (srcPixels[srcIdx + 3] > 0) {
-              // Fast alpha blending without function call overhead
-              const srcAlpha = srcPixels[srcIdx + 3];
-              
-              if (srcAlpha === 255) {
-                // Opaque source - direct copy (fastest path)
-                pixels[destIdx] = srcPixels[srcIdx];
-                pixels[destIdx + 1] = srcPixels[srcIdx + 1];
-                pixels[destIdx + 2] = srcPixels[srcIdx + 2];
-                pixels[destIdx + 3] = srcPixels[srcIdx + 3];
-              } else {
-                // Alpha blending (optimized inline version)
-                const alpha = srcAlpha + 1;
-                const invAlpha = 256 - alpha;
-                pixels[destIdx] = (alpha * srcPixels[srcIdx] + invAlpha * pixels[destIdx]) >> 8;
-                pixels[destIdx + 1] = (alpha * srcPixels[srcIdx + 1] + invAlpha * pixels[destIdx + 1]) >> 8;
-                pixels[destIdx + 2] = (alpha * srcPixels[srcIdx + 2] + invAlpha * pixels[destIdx + 2]) >> 8;
-                pixels[destIdx + 3] = Math.min(255, pixels[destIdx + 3] + srcAlpha);
-              }
+            const srcAlpha = srcPixels[srcIdx + 3];
+            if (srcAlpha > 0) {
+              blendPixelOntoBuffer(pixels, srcPixels, destIdx, srcIdx, srcAlpha);
             }
           }
         }
@@ -2156,8 +2210,31 @@ function blend(dst, src, si, di, alphaIn = 1) {
 }
 
 // Blends the alpha channel only / erases pixels.
-function erase(pixels, i, normalizedAlpha) {
-  pixels[i + 3] *= normalizedAlpha;
+function erase(pixels, i, eraseAmount) {
+  if (eraseAmount <= 0) return pixels[i + 3];
+
+  const currentAlpha = pixels[i + 3];
+  if (currentAlpha === 0) return 0;
+
+  let newAlpha = Math.max(0, currentAlpha - eraseAmount);
+  if (newAlpha === currentAlpha) {
+    newAlpha = Math.max(0, currentAlpha - 1);
+  }
+
+  if (newAlpha <= 0) {
+    pixels[i] = 0;
+    pixels[i + 1] = 0;
+    pixels[i + 2] = 0;
+    pixels[i + 3] = 0;
+    return 0;
+  }
+
+  const scale = newAlpha / currentAlpha;
+  pixels[i] = Math.round(pixels[i] * scale);
+  pixels[i + 1] = Math.round(pixels[i + 1] * scale);
+  pixels[i + 2] = Math.round(pixels[i + 2] * scale);
+  pixels[i + 3] = newAlpha;
+  return newAlpha;
 }
 
 // Draws a horizontal line. (Should be very fast...)
@@ -2211,11 +2288,13 @@ function lineh(x0, x1, y) {
     return;
   }
 
-  // Erasing.
-  if (blendMode !== "erase" && c[0] === -1 && c[1] === -1 && c[2] === -1) {
-    const normalAlpha = 1 - c[3] / 255;
-    for (let i = startIndex; i <= endIndex; i += 4) {
-      erase(pixels, i, normalAlpha);
+  // Erasing: Check if blend mode is "erase" OR color is [-1, -1, -1]
+  if (blendingMode === "erase" || (c[0] === -1 && c[1] === -1 && c[2] === -1)) {
+    const eraseAmount = Math.min(255, Math.max(0, c[3]));
+    if (eraseAmount > 0) {
+      for (let i = startIndex; i <= endIndex; i += 4) {
+        erase(pixels, i, eraseAmount);
+      }
     }
     // No alpha.
   } else if (c[3] === 255) {
@@ -4371,7 +4450,6 @@ function scroll(dx = 0, dy = 0) {
     return; // No effective shift after normalization
   }
 
-  // Create a complete copy of the working area for safe reading
   // 🛡️ SAFETY CHECK: If pixels buffer is detached, recreate it
   if (pixels.buffer && pixels.buffer.detached) {
     console.warn('🚨 Pixels buffer detached in scroll, recreating from screen dimensions');
@@ -4379,7 +4457,16 @@ function scroll(dx = 0, dy = 0) {
     pixels.fill(0); // Fill with transparent black
   }
   
-  const tempPixels = new Uint8ClampedArray(pixels);
+  // Reuse temporary buffer to avoid repeated large allocations
+  const requiredSize = pixels.length;
+  if (!scrollTempBuffer || scrollTempBufferSize !== requiredSize) {
+    // Only allocate new buffer if size changed or buffer doesn't exist
+    scrollTempBuffer = new Uint8ClampedArray(requiredSize);
+    scrollTempBufferSize = requiredSize;
+  }
+  
+  // Copy current pixels to temp buffer
+  scrollTempBuffer.set(pixels);
 
   // General case: pixel-by-pixel with proper bounds checking
   for (let y = 0; y < boundsHeight; y++) {
@@ -4407,10 +4494,10 @@ function scroll(dx = 0, dy = 0) {
         const destOffset = (destY * width + destX) * 4;
 
         // Copy RGBA values
-        pixels[destOffset] = tempPixels[srcOffset];
-        pixels[destOffset + 1] = tempPixels[srcOffset + 1];
-        pixels[destOffset + 2] = tempPixels[srcOffset + 2];
-        pixels[destOffset + 3] = tempPixels[srcOffset + 3];
+        pixels[destOffset] = scrollTempBuffer[srcOffset];
+        pixels[destOffset + 1] = scrollTempBuffer[srcOffset + 1];
+        pixels[destOffset + 2] = scrollTempBuffer[srcOffset + 2];
+        pixels[destOffset + 3] = scrollTempBuffer[srcOffset + 3];
       }
     }
   }
@@ -5422,11 +5509,21 @@ let blurAccumulator = 0.0;
 let blurTempBuffer = null;
 let blurTempBufferSize = 0;
 
+// Reusable temporary buffer for scroll operations to avoid memory allocation on each call
+let scrollTempBuffer = null;
+let scrollTempBufferSize = 0;
+
 // Function to clean up blur buffers and reset state
 function cleanupBlurBuffers() {
   blurTempBuffer = null;
   blurTempBufferSize = 0;
   blurAccumulator = 0.0;
+}
+
+// Function to clean up scroll buffers
+function cleanupScrollBuffers() {
+  scrollTempBuffer = null;
+  scrollTempBufferSize = 0;
 }
 
 // Efficient Gaussian blur using separable filtering with linear sampling optimization
@@ -5571,8 +5668,12 @@ function applyHorizontalBlur(sourcePixels, destPixels, weights, radius, minX, mi
       
       // Apply convolution kernel horizontally
       for (let k = -radius; k <= radius; k++) {
-        // Handle boundary conditions with clamping
-        const srcX = Math.max(minX, Math.min(maxX - 1, x + k));
+        // Handle boundary conditions with wrapping for seamless edges
+        let srcX = x + k;
+        // Wrap around screen edges instead of clamping
+        if (srcX < minX) srcX += (maxX - minX);
+        if (srcX >= maxX) srcX -= (maxX - minX);
+        
         const srcIdx = (rowOffset + srcX) * 4;
         
         // Bounds check for source index
@@ -5617,8 +5718,12 @@ function applyVerticalBlur(sourcePixels, destPixels, weights, radius, minX, minY
       
       // Apply convolution kernel vertically
       for (let k = -radius; k <= radius; k++) {
-        // Handle boundary conditions with clamping
-        const srcY = Math.max(minY, Math.min(maxY - 1, y + k));
+        // Handle boundary conditions with wrapping for seamless edges
+        let srcY = y + k;
+        // Wrap around screen edges instead of clamping
+        if (srcY < minY) srcY += (maxY - minY);
+        if (srcY >= maxY) srcY -= (maxY - minY);
+        
         const srcIdx = (srcY * width + x) * 4;
         
         // Bounds check for source index
@@ -5731,6 +5836,70 @@ function sharpen(strength = 1) {
   // Log timing information for performance monitoring
   const sharpenEndTime = performance.now();
   graphPerf.track('sharpen', sharpenEndTime - sharpenStartTime);
+}
+
+// Invert all colors in the buffer (RGB channels)
+// Alpha channel is preserved
+function invert() {
+  // Start timing for performance monitoring
+  const invertStartTime = performance.now();
+  
+  // Determine the area to process (mask or full screen)
+  let minX = 0,
+    minY = 0,
+    maxX = width,
+    maxY = height;
+  if (activeMask) {
+    // Apply pan translation to mask bounds and ensure they're within screen bounds
+    minX = Math.max(0, Math.min(width, activeMask.x + panTranslation.x));
+    maxX = Math.max(
+      0,
+      Math.min(width, activeMask.x + activeMask.width + panTranslation.x),
+    );
+    minY = Math.max(0, Math.min(height, activeMask.y + panTranslation.y));
+    maxY = Math.max(
+      0,
+      Math.min(height, activeMask.y + activeMask.height + panTranslation.y),
+    );
+  }
+
+  const workingWidth = maxX - minX;
+  const workingHeight = maxY - minY;
+
+  // Early exit if bounds are invalid
+  if (workingWidth <= 0 || workingHeight <= 0) return;
+
+  // 🛡️ SAFETY CHECK: If pixels buffer is detached, recreate it
+  if (pixels.buffer && pixels.buffer.detached) {
+    console.warn('🚨 Pixels buffer detached in invert, recreating from screen dimensions');
+    pixels = new Uint8ClampedArray(width * height * 4);
+    pixels.fill(0); // Fill with transparent black
+  }
+  
+  try {
+    // Invert each pixel's RGB values (255 - value)
+    for (let y = minY; y < maxY; y++) {
+      for (let x = minX; x < maxX; x++) {
+        const idx = (y * width + x) * 4;
+        
+        // Skip fully transparent pixels
+        if (pixels[idx + 3] === 0) continue;
+        
+        // Invert RGB channels (alpha stays unchanged)
+        pixels[idx] = 255 - pixels[idx];         // Red
+        pixels[idx + 1] = 255 - pixels[idx + 1]; // Green
+        pixels[idx + 2] = 255 - pixels[idx + 2]; // Blue
+        // pixels[idx + 3] unchanged (Alpha)
+      }
+    }
+    
+  } catch (error) {
+    console.warn('🚨 Invert operation failed:', error);
+  }
+  
+  // Log timing information for performance monitoring
+  const invertEndTime = performance.now();
+  graphPerf.track('invert', invertEndTime - invertStartTime);
 }
 
 // Sort pixels by color within the masked area (or entire screen if no mask)
@@ -7070,7 +7239,9 @@ export {
   suck,
   blur,
   sharpen,
+  invert,
   cleanupBlurBuffers,
+  cleanupScrollBuffers,
   sort,
   shear,
   setBlockProcessing,
