@@ -1,6 +1,6 @@
 # Teia Package Management - Agent Instructions
 
-This file contains instructions for AI agents working with Teia package creation and testing in the aesthetic.computer project.
+This file contains instructions for AI agents working with OBJKT package creation and testing in the aesthetic.computer project.
 
 ## Overview
 
@@ -10,9 +10,9 @@ The Teia packaging system creates offline-ready packages of aesthetic.computer p
 
 ### 1. Pack Script (`ac-pack.mjs`)
 
-**Purpose**: Creates a complete offline package for a piece, bundling all assets and configuring TEIA mode.
+**Purpose**: Creates a complete offline package for a piece, bundling all assets and configuring PACK mode.
 
-**Location**: `/workspaces/aesthetic-computer/teia/ac-pack.mjs`
+**Location**: `/workspaces/aesthetic-computer/objkt/ac-pack.mjs`
 
 **Usage**:
 ```bash
@@ -39,15 +39,15 @@ node ac-unpack.mjs 'output/$roz-2025.09.22.04.24.38.942.zip'
 - Fetches the piece code (KidLisp or JavaScript)
 - Bundles all system libraries and dependencies
 - Includes font files (font_1 glyphs, webfonts)
-- Sets TEIA mode flags for offline operation
-- Creates a zip file ready for Teia deployment
+- Sets PACK mode flags for offline operation
+- Creates a zip file ready for OBJKT deployment
 - Output goes to: `/workspaces/aesthetic-computer/teia/output/`
 
 **Key Features**:
 - Automatically detects KidLisp vs JavaScript pieces
 - Bundles dependencies and handles imports
 - Configures offline font loading
-- Sets TEIA mode to prevent API calls
+- Sets PACK mode to prevent API calls
 - Creates timestamped zip files
 
 ### 2. Unpack Script (`ac-unpack.mjs`)
@@ -175,7 +175,7 @@ output/
 
 3. **Monitor testing**:
    - Check browser console at http://localhost:8002
-   - Look for TEIA mode debug messages
+   - Look for PACK mode debug messages
    - Verify no API call errors
    - Test font rendering
 
@@ -212,12 +212,12 @@ output/
 
 #### API Call Issues  
 - **Symptom**: Infinite loops, 404s to /api/* endpoints
-- **Check**: Look for TEIA mode detection messages in console
-- **Debug**: Verify `teia-mode.mjs` is loaded and TEIA mode is true
+- **Check**: Look for PACK mode detection messages in console
+- **Debug**: Verify `objkt-mode.mjs` is loaded and PACK mode is true
 
 #### Circular Dependencies
 - **Symptom**: "Cannot access before initialization" errors
-- **Solution**: Use the shared `teia-mode.mjs` module for TEIA detection
+- **Solution**: Use the shared `objkt-mode.mjs` module for OBJKT detection
 
 ## File Structure
 
@@ -244,8 +244,8 @@ teia/
 - Sorts zip files by modification time to find the latest package
 - Eliminates need to copy/paste long timestamp filenames for testing
 
-### TEIA Mode Detection
-- Uses shared module: `system/public/aesthetic.computer/lib/teia-mode.mjs`
+### OBJKT Mode Detection
+- Uses shared module: `system/public/aesthetic.computer/lib/objkt-mode.mjs`
 - Prevents API calls in offline packages
 - Enables local font loading
 - Set during package initialization
@@ -268,25 +268,25 @@ Packages include:
 ### Common Error Messages
 
 1. **"Uncaught ReferenceError: TEIA_MODE is not defined"**
-   - Missing import of `getTeiaMode()` from `teia-mode.mjs`
-   - Update code to use the shared TEIA mode module
+   - Missing import of `getPackMode()` from `objkt-mode.mjs`
+   - Update code to use the shared PACK mode module
 
 2. **"Cannot access 'TextInput' before initialization"**
    - Circular dependency issue
    - Use shared modules instead of cross-imports
 
-3. **"📱 TEIA mode: skipping API call"**
-   - Good! This means TEIA mode detection is working
+3. **"📱 PACK mode: skipping API call"**
+   - Good! This means PACK mode detection is working
 
 4. **Font rendering issues**
    - Check if font files are bundled in the package
-   - Verify TEIA mode detection for offline font loading
+   - Verify PACK mode detection for offline font loading
 
 ### Useful Console Messages
 
 - `🔤 Font glyph lookup` - Font loading debug info
-- `📱 TEIA mode: skipping` - API call prevention
-- `🔍 TEIA check in` - TEIA mode detection status
+- `📱 PACK mode: skipping` - API call prevention
+- `🔍 OBJKT check in` - PACK mode detection status
 
 ## Best Practices
 
@@ -298,7 +298,7 @@ Packages include:
 
 ## Agent Notes
 
-When working with Teia packages:
+When working with OBJKT packages:
 - Run `node ac-unpack.mjs` without arguments to test the latest package automatically
 - The pack script uses `num.timestamp()` for consistent timestamp formatting
 - Timestamp format matches GIF generation and other AC platform features

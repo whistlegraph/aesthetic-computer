@@ -28,7 +28,7 @@ import {
 } from "./lib/platform.mjs";
 import { headers } from "./lib/headers.mjs";
 import { logs } from "./lib/logs.mjs";
-import { checkTeiaMode } from "./lib/teia-mode.mjs";
+import { checkPackMode } from "./lib/pack-mode.mjs";
 import { soundWhitelist } from "./lib/sound/sound-whitelist.mjs";
 import { timestamp, radians } from "./lib/num.mjs";
 import * as graph from "./lib/graph.mjs";
@@ -881,9 +881,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // Use origin-aware font loading
         let fontUrl;
         try {
-          // Check if we're in TEIA mode (sandboxed)
-          if (window.acTEIA_MODE) {
-            // In TEIA mode, use relative paths to bundled fonts
+          // Check if we're in OBJKT mode (sandboxed)
+          if (window.acPACK_MODE) {
+            // In OBJKT mode, use relative paths to bundled fonts
             fontUrl = "./type/webfonts/" + font;
           } else {
             // Check if we're in development environment
@@ -1037,8 +1037,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   //       (Like in `hell_-world` or `freaky-flowers`) 23.10.25.20.32
   function setMetatags(meta) {
     if (meta?.title) {
-      // Don't override title in TEIA mode - let the pack-time title remain
-      if (!checkTeiaMode()) {
+      // Don't override title in OBJKT mode - let the pack-time title remain
+      if (!checkPackMode()) {
         document.title = meta.title;
       }
       const ogTitle = document.querySelector('meta[name="og:title"]');
@@ -1555,12 +1555,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     // Sound Synthesis Processor
     try {
-      // Skip worklet loading in TEIA mode to prevent AbortError
-      const isTeiaMode = (typeof window !== 'undefined' && window.acTEIA_MODE) ||
-                        (typeof globalThis !== 'undefined' && globalThis.acTEIA_MODE);
+      // Skip worklet loading in PACK mode to prevent AbortError
+      const isPackMode = (typeof window !== 'undefined' && window.acPACK_MODE) ||
+                        (typeof globalThis !== 'undefined' && globalThis.acPACK_MODE);
       
-      if (isTeiaMode) {
-        if (debug) console.log("🎭 Skipping audio worklet loading in TEIA mode");
+      if (isPackMode) {
+        if (debug) console.log("🎭 Skipping audio worklet loading in PACK mode");
         return;
       }
       
@@ -1888,13 +1888,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   //  type: "module",
   //});
   const fullPath =
-    (window.acTEIA_MODE ? "./aesthetic.computer/lib/disk.mjs" : "/aesthetic.computer/lib/disk.mjs") +
+    (window.acPACK_MODE ? "./aesthetic.computer/lib/disk.mjs" : "/aesthetic.computer/lib/disk.mjs") +
     window.location.search +
     "#" +
     Date.now(); // bust the cache. This prevents an error related to Safari loading workers from memory.
 
   const sandboxed =
-    (window.origin === "null" || !window.origin || window.acTEIA_MODE) && !window.acVSCODE;
+    (window.origin === "null" || !window.origin || window.acPACK_MODE) && !window.acVSCODE;
 
   const microphonePermission = await checkMicrophonePermission();
 
@@ -1922,8 +1922,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       shareSupported: (iOS || Android) && navigator.share !== undefined,
       previewOrIcon: window.acPREVIEW_OR_ICON,
       vscode: window.acVSCODE,
-      teiaMode: window.acTEIA_MODE || false,
-      teiaKidlispCodes: window.teiaKidlispCodes || globalThis.teiaKidlispCodes || {},
+      objktMode: window.acPACK_MODE || false,
+      objktKidlispCodes: window.objktKidlispCodes || globalThis.objktKidlispCodes || {},
       microphonePermission,
       resolution,
       embeddedSource,
@@ -7763,8 +7763,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           // TODO: Voice.input();
         },
         function (needsRender, updateTimes, now) {
-          // 🖱️ TEIA mode: Hide CSS cursor after 2 seconds of inactivity
-          if (window.acTEIA_MODE && pen?.pointers[1]) {
+          // 🖱️ OBJKT mode: Hide CSS cursor after 2 seconds of inactivity
+          if (window.acPACK_MODE && pen?.pointers[1]) {
             const pointer = pen.pointers[1];
             const timeSinceMove = performance.now() - (pointer.lastMoveTime || 0);
             const shouldShowCursor = timeSinceMove < 2000;
