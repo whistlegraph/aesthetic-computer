@@ -3,7 +3,7 @@
 ## Next Priority: KidLisp Cache Packaging
 
 ### Goal
-Package KidLisp pieces from MongoDB cache as static, runnable Teia packages using the existing pipeline but optimized for minimal size.
+Package KidLisp pieces from MongoDB cache as static, runnable OBJKT packages using the existing pipeline but optimized for minimal size.
 
 ### Requirements
 - [ ] **Source from MongoDB**: Load KidLisp code from the kidlisp cache in the database
@@ -40,5 +40,5 @@ Package KidLisp pieces from MongoDB cache as static, runnable Teia packages usin
 - [ ] Fix remaining auth0 syntax errors in boot.mjs modification
 - [ ] Optimize bundle sizes for different piece types
 - [ ] Add piece-specific dependency analysis
-- [ ] Create automated testing for Teia packages
+- [ ] Create automated testing for OBJKT packages
 - [ ] Support for other piece formats beyond .mjs/.lisp
