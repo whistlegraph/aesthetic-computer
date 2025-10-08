@@ -1723,16 +1723,20 @@ function contrast(level = 1.0) {
     contrastLUT[i] = Math.max(0, Math.min(255, Math.round(adjusted)));
   }
 
-  // Apply contrast adjustment to each pixel using lookup table
+  // 🚀 ULTRA-OPTIMIZED: Row-major processing with minimal branching
   for (let y = minY; y < maxY; y++) {
-    for (let x = minX; x < maxX; x++) {
-      const idx = (y * width + x) * 4;
+    const rowOffset = y * width * 4;
+    const xStart = minX * 4;
+    const xEnd = maxX * 4;
+    
+    for (let offset = xStart; offset < xEnd; offset += 4) {
+      const idx = rowOffset + offset;
       
-      // Skip transparent pixels
+      // Skip transparent pixels (single check)
       if (pixels[idx + 3] === 0) continue;
       
-      // Use lookup table for fast contrast adjustment (RGB channels only)
-      pixels[idx] = contrastLUT[pixels[idx]];     // R
+      // Use lookup table for ultra-fast contrast adjustment (RGB channels only)
+      pixels[idx] = contrastLUT[pixels[idx]];         // R
       pixels[idx + 1] = contrastLUT[pixels[idx + 1]]; // G
       pixels[idx + 2] = contrastLUT[pixels[idx + 2]]; // B
       // Alpha channel stays unchanged
@@ -4468,37 +4472,28 @@ function scroll(dx = 0, dy = 0) {
   // Copy current pixels to temp buffer
   scrollTempBuffer.set(pixels);
 
-  // General case: pixel-by-pixel with proper bounds checking
+  // 🚀 ULTRA-OPTIMIZED: Remove redundant bounds checking inside loop
+  // All coordinates are guaranteed to be in bounds by construction
+  const widthBytes = width * 4;
+  
   for (let y = 0; y < boundsHeight; y++) {
+    const srcRow = minY + ((y + boundsHeight - finalDy) % boundsHeight);
+    const destRow = minY + y;
+    const srcRowOffset = srcRow * widthBytes;
+    const destRowOffset = destRow * widthBytes;
+    
     for (let x = 0; x < boundsWidth; x++) {
-      // Calculate source coordinates with wrapping within bounds
-      const srcX = minX + ((x + boundsWidth - finalDx) % boundsWidth);
-      const srcY = minY + ((y + boundsHeight - finalDy) % boundsHeight);
+      const srcCol = minX + ((x + boundsWidth - finalDx) % boundsWidth);
+      const destCol = minX + x;
+      
+      const srcOffset = srcRowOffset + srcCol * 4;
+      const destOffset = destRowOffset + destCol * 4;
 
-      // Calculate destination coordinates
-      const destX = minX + x;
-      const destY = minY + y;
-
-      // Ensure coordinates are within valid bounds
-      if (
-        srcX >= minX &&
-        srcX < maxX &&
-        srcY >= minY &&
-        srcY < maxY &&
-        destX >= minX &&
-        destX < maxX &&
-        destY >= minY &&
-        destY < maxY
-      ) {
-        const srcOffset = (srcY * width + srcX) * 4;
-        const destOffset = (destY * width + destX) * 4;
-
-        // Copy RGBA values
-        pixels[destOffset] = scrollTempBuffer[srcOffset];
-        pixels[destOffset + 1] = scrollTempBuffer[srcOffset + 1];
-        pixels[destOffset + 2] = scrollTempBuffer[srcOffset + 2];
-        pixels[destOffset + 3] = scrollTempBuffer[srcOffset + 3];
-      }
+      // Copy RGBA values (compiler can vectorize this)
+      pixels[destOffset] = scrollTempBuffer[srcOffset];
+      pixels[destOffset + 1] = scrollTempBuffer[srcOffset + 1];
+      pixels[destOffset + 2] = scrollTempBuffer[srcOffset + 2];
+      pixels[destOffset + 3] = scrollTempBuffer[srcOffset + 3];
     }
   }
 }
