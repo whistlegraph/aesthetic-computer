@@ -13,7 +13,7 @@ This directory contains tools for packaging aesthetic.computer pieces as Teia In
    cd /workspaces/aesthetic-computer/teia
    ```
 
-2. **Pack any AC piece for Teia deployment:**
+2. **Pack any AC piece for OBJKT deployment:**
    ```bash
    ./pack-for-teia.sh PIECE_NAME
    ```
@@ -39,8 +39,8 @@ The `pack-for-teia.sh` script creates a fully self-contained package:
 
 1. **Loads the piece** from `system/public/aesthetic.computer/disks/PIECE_NAME.mjs`
 2. **Bundles AC system** (boot.mjs, bios.mjs, all required libraries)
-3. **Applies TEIA compatibility patches**:
-   - Enables TEIA mode for sandboxed iframe environment
+3. **Applies OBJKT compatibility patches**:
+   - Enables PACK mode for sandboxed iframe environment
    - Disables authentication and session features
    - Patches URL resolution for bundled assets
    - Removes verbose console logging
@@ -52,7 +52,7 @@ The `pack-for-teia.sh` script creates a fully self-contained package:
 Each built package contains:
 ```
 PIECE_NAME/
-├── index.html              # Entry point with TEIA configuration
+├── index.html              # Entry point with OBJKT configuration
 ├── cover.svg              # Auto-generated cover image
 └── aesthetic.computer/     # Complete AC system bundle
     ├── boot.mjs           # TEIA-patched boot loader
@@ -64,7 +64,7 @@ PIECE_NAME/
     └── type/              # Font assets and glyph files
 ```
 
-## TEIA Environment Features
+## OBJKT Environment Features
 
 ### Automatic Configuration
 - **TEIA Mode:** Automatically detected and enabled
@@ -81,8 +81,8 @@ Teia provides these URL parameters to your piece:
 ### Access Parameters in Your Piece
 ```javascript
 // These are automatically available as globals
-const viewer = window.acTEIA_VIEWER;    // tz1abc...
-const creator = window.acTEIA_CREATOR;  // tz1def...
+const viewer = window.acOBJKT_VIEWER;    // tz1abc...
+const creator = window.acOBJKT_CREATOR;  // tz1def...
 ```
 
 ## Development Tips
@@ -98,7 +98,7 @@ TEIA
 After building, test locally:
 ```bash
 # Server automatically starts on port 8001 after build
-# Open http://localhost:8001 with TEIA simulation parameters
+# Open http://localhost:8001 with OBJKT simulation parameters
 ```
 
 ### File Organization
@@ -116,7 +116,7 @@ After building, test locally:
 ### Debugging
 - Review generated HTML in `output/PIECE_NAME/index.html`
 - Check browser console for error messages
-- Test with TEIA URL parameters: `?viewer=tz1abc&creator=tz1def`
+- Test with OBJKT URL parameters: `?viewer=tz1abc&creator=tz1def`
 
 ---
 
