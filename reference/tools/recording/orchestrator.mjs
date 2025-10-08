@@ -197,7 +197,7 @@ class RenderOrchestrator {
       let cacheScript = '';
       if (this.kidlispCache && this.kidlispCache.codesMap) {
         console.log(`🎯 Using provided KidLisp cache with ${this.kidlispCache.codesMap.size} codes`);
-        const { generateCacheCode } = await import('../../../teia/kidlisp-extractor.mjs');
+        const { generateCacheCode } = await import('../../../objkt/kidlisp-extractor.mjs');
         cacheScript = generateCacheCode(this.kidlispCache.codesMap);
       } else {
         console.log(`⚠️ No KidLisp cache provided - dependencies may not render correctly`);
