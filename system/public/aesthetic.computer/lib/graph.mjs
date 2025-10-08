@@ -4275,7 +4275,6 @@ function scroll(dx = 0, dy = 0) {
     return; // No effective shift after normalization
   }
 
-  // Create a complete copy of the working area for safe reading
   // 🛡️ SAFETY CHECK: If pixels buffer is detached, recreate it
   if (pixels.buffer && pixels.buffer.detached) {
     console.warn('🚨 Pixels buffer detached in scroll, recreating from screen dimensions');
@@ -4283,7 +4282,16 @@ function scroll(dx = 0, dy = 0) {
     pixels.fill(0); // Fill with transparent black
   }
   
-  const tempPixels = new Uint8ClampedArray(pixels);
+  // Reuse temporary buffer to avoid repeated large allocations
+  const requiredSize = pixels.length;
+  if (!scrollTempBuffer || scrollTempBufferSize !== requiredSize) {
+    // Only allocate new buffer if size changed or buffer doesn't exist
+    scrollTempBuffer = new Uint8ClampedArray(requiredSize);
+    scrollTempBufferSize = requiredSize;
+  }
+  
+  // Copy current pixels to temp buffer
+  scrollTempBuffer.set(pixels);
 
   // General case: pixel-by-pixel with proper bounds checking
   for (let y = 0; y < boundsHeight; y++) {
@@ -4311,10 +4319,10 @@ function scroll(dx = 0, dy = 0) {
         const destOffset = (destY * width + destX) * 4;
 
         // Copy RGBA values
-        pixels[destOffset] = tempPixels[srcOffset];
-        pixels[destOffset + 1] = tempPixels[srcOffset + 1];
-        pixels[destOffset + 2] = tempPixels[srcOffset + 2];
-        pixels[destOffset + 3] = tempPixels[srcOffset + 3];
+        pixels[destOffset] = scrollTempBuffer[srcOffset];
+        pixels[destOffset + 1] = scrollTempBuffer[srcOffset + 1];
+        pixels[destOffset + 2] = scrollTempBuffer[srcOffset + 2];
+        pixels[destOffset + 3] = scrollTempBuffer[srcOffset + 3];
       }
     }
   }
@@ -5326,11 +5334,21 @@ let blurAccumulator = 0.0;
 let blurTempBuffer = null;
 let blurTempBufferSize = 0;
 
+// Reusable temporary buffer for scroll operations to avoid memory allocation on each call
+let scrollTempBuffer = null;
+let scrollTempBufferSize = 0;
+
 // Function to clean up blur buffers and reset state
 function cleanupBlurBuffers() {
   blurTempBuffer = null;
   blurTempBufferSize = 0;
   blurAccumulator = 0.0;
+}
+
+// Function to clean up scroll buffers
+function cleanupScrollBuffers() {
+  scrollTempBuffer = null;
+  scrollTempBufferSize = 0;
 }
 
 // Efficient Gaussian blur using separable filtering with linear sampling optimization
@@ -5475,8 +5493,12 @@ function applyHorizontalBlur(sourcePixels, destPixels, weights, radius, minX, mi
       
       // Apply convolution kernel horizontally
       for (let k = -radius; k <= radius; k++) {
-        // Handle boundary conditions with clamping
-        const srcX = Math.max(minX, Math.min(maxX - 1, x + k));
+        // Handle boundary conditions with wrapping for seamless edges
+        let srcX = x + k;
+        // Wrap around screen edges instead of clamping
+        if (srcX < minX) srcX += (maxX - minX);
+        if (srcX >= maxX) srcX -= (maxX - minX);
+        
         const srcIdx = (rowOffset + srcX) * 4;
         
         // Bounds check for source index
@@ -5521,8 +5543,12 @@ function applyVerticalBlur(sourcePixels, destPixels, weights, radius, minX, minY
       
       // Apply convolution kernel vertically
       for (let k = -radius; k <= radius; k++) {
-        // Handle boundary conditions with clamping
-        const srcY = Math.max(minY, Math.min(maxY - 1, y + k));
+        // Handle boundary conditions with wrapping for seamless edges
+        let srcY = y + k;
+        // Wrap around screen edges instead of clamping
+        if (srcY < minY) srcY += (maxY - minY);
+        if (srcY >= maxY) srcY -= (maxY - minY);
+        
         const srcIdx = (srcY * width + x) * 4;
         
         // Bounds check for source index
@@ -5635,6 +5661,70 @@ function sharpen(strength = 1) {
   // Log timing information for performance monitoring
   const sharpenEndTime = performance.now();
   graphPerf.track('sharpen', sharpenEndTime - sharpenStartTime);
+}
+
+// Invert all colors in the buffer (RGB channels)
+// Alpha channel is preserved
+function invert() {
+  // Start timing for performance monitoring
+  const invertStartTime = performance.now();
+  
+  // Determine the area to process (mask or full screen)
+  let minX = 0,
+    minY = 0,
+    maxX = width,
+    maxY = height;
+  if (activeMask) {
+    // Apply pan translation to mask bounds and ensure they're within screen bounds
+    minX = Math.max(0, Math.min(width, activeMask.x + panTranslation.x));
+    maxX = Math.max(
+      0,
+      Math.min(width, activeMask.x + activeMask.width + panTranslation.x),
+    );
+    minY = Math.max(0, Math.min(height, activeMask.y + panTranslation.y));
+    maxY = Math.max(
+      0,
+      Math.min(height, activeMask.y + activeMask.height + panTranslation.y),
+    );
+  }
+
+  const workingWidth = maxX - minX;
+  const workingHeight = maxY - minY;
+
+  // Early exit if bounds are invalid
+  if (workingWidth <= 0 || workingHeight <= 0) return;
+
+  // 🛡️ SAFETY CHECK: If pixels buffer is detached, recreate it
+  if (pixels.buffer && pixels.buffer.detached) {
+    console.warn('🚨 Pixels buffer detached in invert, recreating from screen dimensions');
+    pixels = new Uint8ClampedArray(width * height * 4);
+    pixels.fill(0); // Fill with transparent black
+  }
+  
+  try {
+    // Invert each pixel's RGB values (255 - value)
+    for (let y = minY; y < maxY; y++) {
+      for (let x = minX; x < maxX; x++) {
+        const idx = (y * width + x) * 4;
+        
+        // Skip fully transparent pixels
+        if (pixels[idx + 3] === 0) continue;
+        
+        // Invert RGB channels (alpha stays unchanged)
+        pixels[idx] = 255 - pixels[idx];         // Red
+        pixels[idx + 1] = 255 - pixels[idx + 1]; // Green
+        pixels[idx + 2] = 255 - pixels[idx + 2]; // Blue
+        // pixels[idx + 3] unchanged (Alpha)
+      }
+    }
+    
+  } catch (error) {
+    console.warn('🚨 Invert operation failed:', error);
+  }
+  
+  // Log timing information for performance monitoring
+  const invertEndTime = performance.now();
+  graphPerf.track('invert', invertEndTime - invertStartTime);
 }
 
 // Sort pixels by color within the masked area (or entire screen if no mask)
@@ -6844,7 +6934,9 @@ export {
   suck,
   blur,
   sharpen,
+  invert,
   cleanupBlurBuffers,
+  cleanupScrollBuffers,
   sort,
   shear,
   setBlockProcessing,
