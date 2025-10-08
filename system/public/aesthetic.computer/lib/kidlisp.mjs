@@ -6207,32 +6207,27 @@ class KidLisp {
             }
           }
           
-          // 🚀 OPTIMIZATION: Mark all as burned in single pass (no redundant checks)
-          for (let i = 0; i < bakesLength; i++) {
-            const bakeLayer = this.bakes[i];
-            if (bakeLayer) {
-              bakeLayer.burned = true;
-            }
+        // 🚀 OPTIMIZATION: Mark all as burned in single pass (no redundant checks)
+        for (let i = 0; i < bakesLength; i++) {
+          const bakeLayer = this.bakes[i];
+          if (bakeLayer) {
+            bakeLayer.burned = true;
           }
         }
-        
-        // 🔥 CRITICAL FIX: After compositing, get the current pixels from graph module
-        // and update burnedBuffer to point to them. This ensures subsequent operations
-        // (blur, scroll, etc.) that modify the graph module's pixels will be reflected
-        // in burnedBuffer when we paste it later.
-        if (api.screen && api.screen.pixels) {
-          this.burnedBuffer.pixels = api.screen.pixels;
-        }
-        
-        // Note: Reset scroll accumulator after burn to ensure clean state
-        if (api.resetScrollState) {
-          api.resetScrollState();
-        }
-        
-        return 0; // Burned layer is always index 0
-      },
-
-
+      }
+      
+      // Note: api.page() already set the graph module to use burnedBuffer
+      // Subsequent operations (blur, sharpen, scroll) will operate on it
+      // BUT we must leave the graph module pointing to burnedBuffer so those
+      // operations modify the correct buffer!
+      
+      // Note: Reset scroll accumulator after burn to ensure clean state
+      if (api.resetScrollState) {
+        api.resetScrollState();
+      }
+      
+      return 0; // Burned layer is always index 0
+    },
       // 🖼️ Embed function - loads cached KidLisp code and creates persistent animated layers
       // Usage: (embed $pie) - loads cached code in default 256x256 layer (fixed size for cache efficiency)
       //        (embed $pie 128 128) - loads cached code in 128x128 layer  
