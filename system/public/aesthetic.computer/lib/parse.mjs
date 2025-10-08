@@ -3,7 +3,7 @@
 // that appears after `aesthetic.computer/` in the address bar of the browser.
 
 import { isKidlispSource, decodeKidlispFromUrl } from "./kidlisp.mjs";
-import { checkObjktMode } from "./objkt-mode.mjs";
+import { checkPackMode } from "./pack-mode.mjs";
 
 // List of legitimate query parameters that should be preserved
 const LEGITIMATE_PARAMS = [
@@ -428,11 +428,11 @@ function metadata(host, slug, pieceMetadata, protocol = "https:", objktContext =
   
   let title;
   
-  // Check for OBJKT mode and generate custom title format
-  if (checkObjktMode()) {
+  // Check for PACK mode and generate custom title format
+  if (checkPackMode()) {
     try {
-      const colophon = (typeof window !== 'undefined' && window.acOBJKT_COLOPHON) || 
-                      (typeof globalThis !== 'undefined' && globalThis.acOBJKT_COLOPHON);
+      const colophon = (typeof window !== 'undefined' && window.acPACK_COLOPHON) || 
+                      (typeof globalThis !== 'undefined' && globalThis.acPACK_COLOPHON);
       
       if (colophon?.piece?.name && colophon?.build?.author) {
         // Extract timestamp starting with 2025 from zipFilename (format: @author-$piece-2025.09.25.04.22.12.938.zip)
