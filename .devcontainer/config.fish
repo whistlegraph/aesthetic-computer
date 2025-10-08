@@ -751,26 +751,28 @@ function restart-daemon
 end
 
 function ac-site
-    echo "🐱 Starting online mode..."
+    echo "🐱 Starting online mode with auto-restart..."
     ac
-    # Detect if running in GitHub Codespaces
-    if test -n "$CODESPACES"
-        echo "🌐 Detected GitHub Codespaces - running without SSL..."
-        cd system
-        # Use netlify-nossl.toml temporarily
-        if test -f netlify.toml
-            cp netlify.toml netlify.toml.backup
-        end
-        cp netlify-nossl.toml netlify.toml
-        npm run codespaces-dev
-        # Restore original on exit (user will need to Ctrl+C)
-        if test -f netlify.toml.backup
-            mv netlify.toml.backup netlify.toml
-        end
-        env nogreet=true fish
-    else
-        echo "💻 Running on local machine - using SSL..."
-        cd system && npm run codespaces-dev && env nogreet=true fish
+    cd system
+    while true
+        echo "🚀 Starting ac-site..."
+        echo "🔍 Cleaning up any stuck processes..."
+        # Kill any stuck netlify or esbuild processes
+        pkill -f "netlify dev" 2>/dev/null
+        pkill -f "esbuild" 2>/dev/null
+        sleep 1
+        
+        # Kill ports before starting
+        kill-port 8880 8888 8889 8080 8000 8111 3333 3000 3001 2>/dev/null
+        
+        # Link and start netlify
+        netlify link --id $NETLIFY_SITE_ID
+        netlify dev
+        
+        set exit_code $status
+        echo "⚠️  ac-site crashed with exit code $exit_code"
+        echo "🔄 Restarting in 3 seconds..."
+        sleep 3
     end
 end
 
@@ -1057,7 +1059,30 @@ function ac-dev-log-simple
     end
 end
 # alias ac-kidlisp 'ac; npm run test:kidlisp'
-alias ac-session 'ac; npm run server:session'
+# Session server with auto-restart on crash
+function ac-session
+    echo "🎮 Starting session server with auto-restart..."
+    ac
+    cd session-server
+    while true
+        echo "🚀 Starting ac-session..."
+        echo "🔍 Cleaning up any stuck nodemon processes..."
+        # Kill any stuck nodemon processes
+        pkill -f "nodemon.*session.mjs" 2>/dev/null
+        sleep 1
+        
+        # Kill the port before starting
+        kill-port 8889 2>/dev/null
+        
+        # Start nodemon directly without the trailing fish command
+        PORT=8889 NODE_ENV=development nodemon -I --watch session.mjs session.mjs
+        
+        set exit_code $status
+        echo "⚠️  ac-session crashed/stopped with exit code $exit_code"
+        echo "🔄 Restarting in 3 seconds..."
+        sleep 3
+    end
+end
 alias ac-stripe-print 'ac; npm run stripe-print-micro'
 alias ac-stripe-ticket 'ac; npm run stripe-ticket-micro'
 alias ac-extension 'ac; cd vscode-extension; npm run build; ac'
@@ -1131,89 +1156,6 @@ function ac-tunnel
     else
         echo "🚀 tunnel started successfully!"
     end
-end
-
-# Query the last 3 Netlify builds and show their status
-function ac-builds
-    set -l system_dir /workspaces/aesthetic-computer/system
-    
-    if not test -d $system_dir
-        echo "❌ System directory not found: $system_dir"
-        return 1
-    end
-    
-    set -l original_dir (pwd)
-    cd $system_dir
-    
-    echo "🔍 Fetching last 3 Netlify builds..."
-    echo ""
-    
-    # Get the site ID from netlify status
-    set -l site_id "d1219e54-d4c7-4b6f-8d70-d56375c3cdc2"
-    
-    # Fetch the builds
-    set -l builds_json (netlify api listSiteBuilds --data "{\"site_id\": \"$site_id\"}" 2>/dev/null)
-    
-    if test $status -ne 0
-        echo "❌ Failed to fetch builds from Netlify"
-        cd $original_dir
-        return 1
-    end
-    
-    # Parse and display the first 3 builds using Node.js
-    printf '%s\n' $builds_json | node -e '
-        const builds = JSON.parse(require("fs").readFileSync(0, "utf-8"));
-        const recentBuilds = builds.slice(0, 3);
-        
-        recentBuilds.forEach((build, index) => {
-            const num = index + 1;
-            const date = new Date(build.created_at);
-            const timeStr = date.toLocaleString("en-US", { 
-                month: "short", 
-                day: "numeric", 
-                hour: "2-digit", 
-                minute: "2-digit",
-                hour12: false
-            });
-            const sha = build.sha.substring(0, 7);
-            const state = build.deploy_state;
-            
-            // Color codes and status icons
-            let statusIcon, statusText, statusColor;
-            if (state === "ready") {
-                statusIcon = "✅";
-                statusText = "SUCCESS";
-                statusColor = "\x1b[32m"; // green
-            } else if (state === "error") {
-                statusIcon = "❌";
-                statusText = "FAILED";
-                statusColor = "\x1b[31m"; // red
-            } else if (state === "building") {
-                statusIcon = "🔄";
-                statusText = "BUILDING";
-                statusColor = "\x1b[33m"; // yellow
-            } else {
-                statusIcon = "⚪";
-                statusText = state.toUpperCase();
-                statusColor = "\x1b[37m"; // white
-            }
-            
-            const reset = "\x1b[0m";
-            
-            console.log(`Build #${num} ${statusIcon} ${statusColor}${statusText}${reset}`);
-            console.log(`  Time:   ${timeStr}`);
-            console.log(`  Commit: ${sha}`);
-            
-            if (build.error) {
-                const errorPreview = build.error.split("\n")[0].substring(0, 80);
-                console.log(`  Error:  ${errorPreview}...`);
-            }
-            
-            console.log("");
-        });
-    '
-    
-    cd $original_dir
 end
 
 # a shell-gpt shortcut (must be all lowercase / otherwise quoted)
