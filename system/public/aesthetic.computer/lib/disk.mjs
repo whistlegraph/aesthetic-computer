@@ -4728,6 +4728,10 @@ const $paintApiUnwrapped = {
   },
   contrast: graph.contrast,
   shear: graph.shear,
+  resetScrollState: function() {
+    // Reset scroll accumulator - used by burn to ensure clean state
+    return graph.resetScrollState();
+  },
   noise16: graph.noise16,
   noise16DIGITPAIN: graph.noise16DIGITPAIN,
   noise16Aesthetic: graph.noise16Aesthetic,
