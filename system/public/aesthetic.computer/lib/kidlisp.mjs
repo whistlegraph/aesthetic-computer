@@ -2885,6 +2885,11 @@ class KidLisp {
             this.currentBakeIndex = -1;
           }
           
+          // 🔥 CRITICAL: Clear burned buffer at start of frame
+          // This ensures burn only takes effect when explicitly called each frame
+          // Without this, burnedBuffer persists and causes stale compositing
+          this.burnedBuffer = null;
+          
           // Switch to layer 0 as initial drawing target
           $.page(this.layer0);
           
