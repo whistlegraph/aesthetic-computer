@@ -6301,67 +6301,50 @@ class KidLisp {
             return this.currentBakeIndex;
           } else {
             // 🔄 RESIZE: Dimensions changed - preserve content by copying to new buffer
-            const oldPixels = existing.pixels;
-            const oldWidth = existing.width;
-            const oldHeight = existing.height;
-            
-            // Create new buffer with new dimensions
-            const newPixels = new Uint8ClampedArray(width * height * 4);
-            // Initialize to transparent (bake layers are transparent by default)
-            newPixels.fill(0);
-            
-            // Copy old content to new buffer (paste old buffer centered or top-left)
-            // Only copy if old pixels exist and aren't detached
+            const oldLayer = this.bakes[this.currentBakeIndex];
+            const oldPixels = oldLayer.pixels;
+            const oldWidth = oldLayer.width;
+            const oldHeight = oldLayer.height;
+
+            const resizedLayer = this.createOrReuseBuffer(width, height);
+            resizedLayer.burned = false;
+
             if (oldPixels && oldPixels.length > 0 && !(oldPixels.buffer && oldPixels.buffer.detached)) {
               const copyWidth = Math.min(oldWidth, width);
               const copyHeight = Math.min(oldHeight, height);
-              
+
               for (let y = 0; y < copyHeight; y++) {
                 const srcOffset = y * oldWidth * 4;
                 const destOffset = y * width * 4;
                 const rowLength = copyWidth * 4;
-                
-                // Safety check: ensure we're not reading/writing out of bounds
-                if (srcOffset + rowLength <= oldPixels.length && 
-                    destOffset + rowLength <= newPixels.length) {
-                  newPixels.set(oldPixels.subarray(srcOffset, srcOffset + rowLength), destOffset);
+
+                if (srcOffset + rowLength <= oldPixels.length && destOffset + rowLength <= resizedLayer.pixels.length) {
+                  resizedLayer.pixels.set(oldPixels.subarray(srcOffset, srcOffset + rowLength), destOffset);
                 }
               }
             }
-            
-            // Update existing buffer with new dimensions and pixels
-            existing.width = width;
-            existing.height = height;
-            existing.pixels = newPixels;
-            existing.burned = false;
-            
-            // Switch drawing to this resized bake layer
-            api.page(existing);
-            
-            // Update api.screen to point to the resized bake buffer
+
+            this.returnBufferToPool(oldLayer, oldWidth, oldHeight);
+            this.bakes[this.currentBakeIndex] = resizedLayer;
+
+            api.page(resizedLayer);
+
             if (!api.screen) {
-              api.screen = { width: existing.width, height: existing.height, pixels: existing.pixels };
+              api.screen = { width: resizedLayer.width, height: resizedLayer.height, pixels: resizedLayer.pixels };
             } else {
-              api.screen.width = existing.width;
-              api.screen.height = existing.height;
-              api.screen.pixels = existing.pixels;
+              api.screen.width = resizedLayer.width;
+              api.screen.height = resizedLayer.height;
+              api.screen.pixels = resizedLayer.pixels;
             }
-            
+
             return this.currentBakeIndex;
           }
         }
         
-        // Create new painting buffer for this bake layer
-        const bakeBuffer = {
-          width: width,
-          height: height,
-          pixels: new Uint8ClampedArray(width * height * 4)
-        };
-        
-        // Initialize as transparent (bake layers don't use first-line color)
-        bakeBuffer.pixels.fill(0);
-        
-        // Store in bakes array
+        // Create new painting buffer for this bake layer using pool
+        const bakeBuffer = this.createOrReuseBuffer(width, height);
+        bakeBuffer.burned = false;
+
         this.bakes[this.currentBakeIndex] = bakeBuffer;
         
         // Switch drawing to this persistent bake layer (just like layer0)
@@ -6390,13 +6373,15 @@ class KidLisp {
         const height = this.displayBuffer?.height || api.screen?.height || 256;
         
         // 🔥 CRITICAL: Create burned buffer that will be updated in place
-        // We need to ensure subsequent operations modify THIS buffer's pixels
-        const burnedPixels = new Uint8ClampedArray(width * height * 4);
-        this.burnedBuffer = {
-          width: width,
-          height: height,
-          pixels: burnedPixels
-        };
+        // Reuse existing buffer when possible to minimize allocations
+        if (this.burnedBuffer && this.burnedBuffer.width === width && this.burnedBuffer.height === height) {
+          this.burnedBuffer.pixels.fill(0);
+        } else {
+          if (this.burnedBuffer) {
+            this.returnBufferToPool(this.burnedBuffer, this.burnedBuffer.width, this.burnedBuffer.height);
+          }
+          this.burnedBuffer = this.createOrReuseBuffer(width, height);
+        }
         
         // 🔥 CRITICAL: Switch to burned buffer for compositing
         // This sets the graph module buffer to point to our burnedBuffer
@@ -10258,11 +10243,48 @@ class KidLisp {
 
   // 🍞 Clear baked layers (similar to embedded layer clearing)
   clearBakedLayers() {
+    // Return layer0 to the pool so a fresh buffer is created on next paint
+    if (this.layer0 && this.layer0.pixels) {
+      this.returnBufferToPool(this.layer0, this.layer0.width, this.layer0.height);
+    }
+
+    if (this.burnedBuffer && this.burnedBuffer.pixels) {
+      this.returnBufferToPool(
+        this.burnedBuffer,
+        this.burnedBuffer.width,
+        this.burnedBuffer.height
+      );
+    }
+
+    if (this.bakes && this.bakes.length > 0) {
+      for (const bakeLayer of this.bakes) {
+        if (bakeLayer) {
+          this.returnBufferToPool(bakeLayer, bakeLayer.width, bakeLayer.height);
+        }
+      }
+    }
+
+    if (this.bakedLayers && this.bakedLayers.length > 0) {
+      for (const bakedLayer of this.bakedLayers) {
+        if (bakedLayer?.buffer) {
+          this.returnBufferToPool(bakedLayer.buffer, bakedLayer.buffer.width, bakedLayer.buffer.height);
+        }
+      }
+    }
+
+    this.layer0 = null;
+    this.burnedBuffer = null;
+    this.displayBuffer = null;
+
+    this.bakes = [];
     this.bakedLayers = [];
     this.bakeCallCount = 0;
     this.hasBakedContent = false;
     this.suppressDrawingBeforeBake = false;
     this.postBakeLayer = null;
+    this.cachedComposite = null;
+    this.compositeInvalidated = true;
+    this.needsInitialWipe = true;
     // Only delete from onceExecuted if it exists (it may not be initialized yet in constructor)
     if (this.onceExecuted) {
       this.onceExecuted.delete("bake_call");
@@ -10450,39 +10472,19 @@ class KidLisp {
 
       // 🛡️ SAFETY CHECK: Ensure buffer is not detached
       if (buffer.pixels && buffer.pixels.buffer && !buffer.pixels.buffer.detached) {
-        // Buffer is safe to reuse - initialize with transparent black for proper alpha accumulation
-        for (let i = 0; i < buffer.pixels.length; i += 4) {
-          buffer.pixels[i] = 0;     // R
-          buffer.pixels[i + 1] = 0; // G
-          buffer.pixels[i + 2] = 0; // B
-          buffer.pixels[i + 3] = 0; // A - transparent!
-        }
-        console.log(`🎨 BUFFER POOL REUSE: Initialized with transparent black [0,0,0,0]`);
+        buffer.width = width;
+        buffer.height = height;
+        buffer.pixels.fill(0);
         return buffer;
-      } else {
-        // Buffer is detached or invalid, remove it and create new one
-        console.warn('🚨 Discarded detached buffer from pool');
       }
+
+      console.warn('🚨 Discarded detached buffer from pool');
     }
 
-    // Create new buffer initialized with transparent black for proper alpha accumulation
-    const pixelCount = width * height * 4;
-    const pixels = new Uint8ClampedArray(pixelCount);
-    
-    // Initialize with transparent black [0,0,0,0]
-    for (let i = 0; i < pixelCount; i += 4) {
-      pixels[i] = 0;     // R
-      pixels[i + 1] = 0; // G
-      pixels[i + 2] = 0; // B
-      pixels[i + 3] = 0; // A - transparent!
-    }
-    
-    console.log(`🎨 NEW BUFFER CREATED: ${width}x${height} initialized with transparent black [0,0,0,0]`);
-    
     return {
-      width: width,
-      height: height,
-      pixels: pixels
+      width,
+      height,
+      pixels: new Uint8ClampedArray(width * height * 4)
     };
   }
 
