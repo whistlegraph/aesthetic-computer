@@ -2,7 +2,7 @@
 
 // import * as sine from "./sound/sine.js";
 import { volume } from "./sound/volume.mjs";
-import { checkObjktMode } from "./objkt-mode.mjs";
+import { checkPackMode } from "./pack-mode.mjs";
 import Synth from "./sound/synth.mjs";
 import Bubble from "./sound/bubble.mjs";
 import { lerp, within, clamp } from "./num.mjs";
@@ -437,7 +437,7 @@ class SpeakerProcessor extends AudioWorkletProcessor {
         }
         
         // Log buffer sizes and memory usage (skip in OBJKT mode)
-        // if (!checkObjktMode()) {
+        // if (!checkPackMode()) {
         //   console.log(`🧠 Memory Check:
         // FFT Buffer Left: ${this.#fftBufferLeft?.length || 0}
         // FFT Buffer Right: ${this.#fftBufferRight?.length || 0}
