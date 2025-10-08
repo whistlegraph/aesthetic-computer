@@ -6185,19 +6185,17 @@ class KidLisp {
         const width = api.screen?.width || 256;
         const height = api.screen?.height || 256;
         
-        // Create/reuse a single burned buffer that gets cleared each frame
-        if (!this.burnedBuffer) {
-          this.burnedBuffer = {
-            width: width,
-            height: height,
-            pixels: new Uint8ClampedArray(width * height * 4)
-          };
-        }
+        // 🔥 CRITICAL: Create burned buffer that will be updated in place
+        // We need to ensure subsequent operations modify THIS buffer's pixels
+        const burnedPixels = new Uint8ClampedArray(width * height * 4);
+        this.burnedBuffer = {
+          width: width,
+          height: height,
+          pixels: burnedPixels
+        };
         
-        // Clear the burned buffer every frame - it's a fresh composite
-        this.burnedBuffer.pixels.fill(0);
-        
-        // Switch to burned buffer so we can use api.paste
+        // 🔥 CRITICAL: Switch to burned buffer for compositing
+        // This sets the graph module buffer to point to our burnedBuffer
         api.page(this.burnedBuffer);
         
         // Composite layer0 first using optimized paste
@@ -6225,19 +6223,18 @@ class KidLisp {
           }
         }
         
-        // 🔥 CRITICAL: Ensure both api.screen AND graph module buffer point to burned buffer
-        // This makes subsequent operations (blur, sharpen, scroll, etc.) work on the composited result
-        if (!api.screen) {
-          api.screen = { width: this.burnedBuffer.width, height: this.burnedBuffer.height, pixels: this.burnedBuffer.pixels };
-        } else {
-          api.screen.width = this.burnedBuffer.width;
-          api.screen.height = this.burnedBuffer.height;
-          api.screen.pixels = this.burnedBuffer.pixels;
+        // 🔥 CRITICAL FIX: After compositing, get the current pixels from graph module
+        // and update burnedBuffer to point to them. This ensures subsequent operations
+        // (blur, scroll, etc.) that modify the graph module's pixels will be reflected
+        // in burnedBuffer when we paste it later.
+        if (api.screen && api.screen.pixels) {
+          this.burnedBuffer.pixels = api.screen.pixels;
         }
         
-        // 🔥 CRITICAL FIX: Re-call api.page to ensure graph module picks up the burned buffer
-        // Without this, scroll/zoom/spin might operate on stale buffer references
-        api.page(this.burnedBuffer);
+        // Note: Reset scroll accumulator after burn to ensure clean state
+        if (api.resetScrollState) {
+          api.resetScrollState();
+        }
         
         return 0; // Burned layer is always index 0
       },
