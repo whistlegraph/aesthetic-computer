@@ -7770,7 +7770,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             const shouldShowCursor = timeSinceMove < 2000;
             
             if (shouldShowCursor && document.body.style.cursor === 'none') {
-              document.body.style.cursor = "url('cursors/viewpoint.svg') 12 12, auto";
+              document.body.style.cursor = "url('ac/cursors/viewpoint.svg') 12 12, auto";
             } else if (!shouldShowCursor && document.body.style.cursor !== 'none') {
               document.body.style.cursor = 'none';
             }
