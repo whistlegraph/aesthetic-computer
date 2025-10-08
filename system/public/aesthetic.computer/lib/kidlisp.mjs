@@ -6220,7 +6220,8 @@ class KidLisp {
           }
         }
         
-        // Ensure api.screen points to burned buffer for subsequent commands
+        // 🔥 CRITICAL: Ensure both api.screen AND graph module buffer point to burned buffer
+        // This makes subsequent operations (blur, sharpen, scroll, etc.) work on the composited result
         if (!api.screen) {
           api.screen = { width: this.burnedBuffer.width, height: this.burnedBuffer.height, pixels: this.burnedBuffer.pixels };
         } else {
@@ -6228,6 +6229,10 @@ class KidLisp {
           api.screen.height = this.burnedBuffer.height;
           api.screen.pixels = this.burnedBuffer.pixels;
         }
+        
+        // 🔥 CRITICAL FIX: Re-call api.page to ensure graph module picks up the burned buffer
+        // Without this, scroll/zoom/spin might operate on stale buffer references
+        api.page(this.burnedBuffer);
         
         return 0; // Burned layer is always index 0
       },
