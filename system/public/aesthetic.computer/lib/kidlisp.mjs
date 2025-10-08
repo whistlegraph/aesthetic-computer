@@ -9,7 +9,7 @@ import { parseMelody, noteToTone } from "./melody-parser.mjs";
 import { qrcode as qr } from "../dep/@akamfoad/qr/qr.mjs";
 import { cssColors, rainbow, zebra, resetZebraCache, resetRainbowCache, staticColorMap } from "./num.mjs";
 import { setFadeAlpha, clearFadeAlpha } from "./fade-state.mjs";
-import { checkObjktMode } from "./objkt-mode.mjs";
+import { checkPackMode } from "./pack-mode.mjs";
 
 /* #region 🤖 LLM API SPECIFICATION
    This section provides a structured specification for Large Language Models
@@ -2487,7 +2487,7 @@ class KidLisp {
       // console.log("🚀 Starting cache request for:", source.substring(0, 50));
 
       // Skip API calls in OBJKT mode (offline packages)
-      const isObjktMode = checkObjktMode();
+      const isObjktMode = checkPackMode();
 
       // Force console logging to debug OBJKT mode detection
       if (isObjktMode) {
@@ -11854,7 +11854,7 @@ async function fetchMultipleCachedCodes(codeArray, api = null) {
   }
 
   // Skip API calls in OBJKT mode (offline packages)
-  const isObjktMode = checkObjktMode();
+  const isObjktMode = checkPackMode();
 
   if (isObjktMode) {
     return {}; // Return empty results in OBJKT mode
@@ -11908,7 +11908,7 @@ async function fetchMultipleCachedCodes(codeArray, api = null) {
 // Function to fetch cached KidLisp code from nanoid
 async function fetchCachedCode(nanoidCode, api = null) {
   // Skip API calls in OBJKT mode (offline packages)
-  const isObjktMode = checkObjktMode();
+  const isObjktMode = checkPackMode();
 
   if (isObjktMode) {
     return null; // Return null in OBJKT mode
