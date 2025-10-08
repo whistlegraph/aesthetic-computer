@@ -14,9 +14,19 @@
 
 let cube, triangle, filledTriangle, texturedQuad, quadTexture, groundPlane, groundTexture, groundWireframe, penLocked = false;
 let showWireframes = true; // Toggle with 'V' key (start with wireframes ON)
+let graphAPI; // Store graph API reference
+let showDebugPanel = true; // Toggle with 'D' key
 
-function boot({ Form, CUBEL, QUAD, penLock }) {
+function boot({ Form, CUBEL, QUAD, penLock, graph }) {
   penLock();
+  
+  // Store graph API for later use
+  graphAPI = graph;
+  
+  // Enable clipped wireframes by default if available
+  if (graphAPI?.setShowClippedWireframes) {
+    graphAPI.setShowClippedWireframes(showWireframes);
+  }
   
   // Create a gradient quad (6 vertices = 2 triangles)
   const quadPositions = [
@@ -45,60 +55,40 @@ function boot({ Form, CUBEL, QUAD, penLock }) {
     { pos: [-2, 0.5, -6], rot: [0, 0, 0], scale: 1 }
   );
   
-  // Create a ground plane (horizontal, at y = -1.5, below camera)
-  // Subdivide it into a grid to reduce clipping artifacts
-  const groundSize = 16; // Bigger ground (32x32 units total)
-  const gridDivisions = 8; // 8x8 grid = 128 triangles (more subdivision)
-  const cellSize = (groundSize * 2) / gridDivisions;
+  // Create a simple ground plane - just one quad (2 triangles)
+  // Very small size to avoid clipping issues
+  const groundSize = 3; // Very small ground plane (6x6 units total)
   
-  const groundPositions = [];
-  const groundColors = [];
-  const groundTexCoords = []; // Explicit UV coordinates
+  const groundPositions = [
+    // Triangle 1 (counter-clockwise winding when viewed from above)
+    [-groundSize, -1.5, -groundSize, 1], // Back Left
+    [-groundSize, -1.5, groundSize, 1],  // Front Left  
+    [groundSize, -1.5, groundSize, 1],   // Front Right
+    // Triangle 2
+    [-groundSize, -1.5, -groundSize, 1], // Back Left
+    [groundSize, -1.5, groundSize, 1],   // Front Right
+    [groundSize, -1.5, -groundSize, 1],  // Back Right
+  ];
   
-  // Generate grid of quads (2 triangles each)
-  for (let gz = 0; gz < gridDivisions; gz++) {
-    for (let gx = 0; gx < gridDivisions; gx++) {
-      const x1 = -groundSize + gx * cellSize;
-      const x2 = -groundSize + (gx + 1) * cellSize;
-      const z1 = -groundSize + gz * cellSize;
-      const z2 = -groundSize + (gz + 1) * cellSize;
-      
-      // Calculate UV coordinates for this cell (0-1 range across whole grid)
-      const u1 = gx / gridDivisions;
-      const u2 = (gx + 1) / gridDivisions;
-      const v1 = gz / gridDivisions;
-      const v2 = (gz + 1) / gridDivisions;
-      
-      // Triangle 1 (counter-clockwise winding when viewed from above)
-      groundPositions.push(
-        [x1, -1.5, z1, 1], // Back Left
-        [x1, -1.5, z2, 1], // Front Left  
-        [x2, -1.5, z2, 1]  // Front Right
-      );
-      groundTexCoords.push(
-        [u1, v1],
-        [u1, v2],
-        [u2, v2]
-      );
-      
-      // Triangle 2
-      groundPositions.push(
-        [x1, -1.5, z1, 1], // Back Left
-        [x2, -1.5, z2, 1], // Front Right
-        [x2, -1.5, z1, 1]  // Back Right
-      );
-      groundTexCoords.push(
-        [u1, v1],
-        [u2, v2],
-        [u2, v1]
-      );
-      
-      // White colors (6 vertices per quad)
-      for (let i = 0; i < 6; i++) {
-        groundColors.push([1.0, 1.0, 1.0, 1.0]);
-      }
-    }
-  }
+  // UV coordinates tile the texture across the ground
+  const groundTexCoords = [
+    [0, 0],
+    [0, 2],  // Tile 2x in each direction
+    [2, 2],
+    [0, 0],
+    [2, 2],
+    [2, 0]
+  ];
+  
+  // White colors (6 vertices = 2 triangles)
+  const groundColors = [
+    [1.0, 1.0, 1.0, 1.0],
+    [1.0, 1.0, 1.0, 1.0],
+    [1.0, 1.0, 1.0, 1.0],
+    [1.0, 1.0, 1.0, 1.0],
+    [1.0, 1.0, 1.0, 1.0],
+    [1.0, 1.0, 1.0, 1.0]
+  ];
   
   groundPlane = new Form(
     { type: "triangle", positions: groundPositions, colors: groundColors, texCoords: groundTexCoords },
@@ -114,7 +104,7 @@ function boot({ Form, CUBEL, QUAD, penLock }) {
   const wireframePositions = [];
   const wireframeColors = [];
   
-  // Convert each triangle to 3 lines
+  // Convert each triangle to 3 lines (only 2 triangles now)
   for (let i = 0; i < groundPositions.length; i += 3) {
     const v0 = groundPositions[i];
     const v1 = groundPositions[i + 1];
@@ -202,19 +192,42 @@ function sim() {
   texturedQuad.rotation[1] += 0.5; // Spin on Y axis
 }
 
-function paint({ wipe, ink, painting }) {
+function paint({ wipe, ink, painting, screen, line: drawLine, box: drawBox, clearWireframeBuffer, drawBufferedWireframes, getRenderStats, setShowClippedWireframes }) {
+  // FIRST: Set wireframe visibility BEFORE any rendering happens
+  if (setShowClippedWireframes) {
+    setShowClippedWireframes(showWireframes);
+  }
+  
+  // SECOND: Clear wireframe buffer at start of frame
+  if (clearWireframeBuffer) {
+    clearWireframeBuffer();
+  }
+  
+  // Debug: log once per second
+  if (!paint.frameCount) paint.frameCount = 0;
+  paint.frameCount++;
+  if (paint.frameCount % 60 === 1) {
+    console.log(`🔧 FPS Paint Frame ${paint.frameCount}: showWireframes=${showWireframes}`);
+    console.log(`  Direct functions:`, {
+      hasDrawBufferedWireframes: !!drawBufferedWireframes,
+      hasGetRenderStats: !!getRenderStats,
+      hasClearWireframeBuffer: !!clearWireframeBuffer,
+      hasSetShowClippedWireframes: !!setShowClippedWireframes,
+    });
+  }
+  
   // Create ground texture with a checkerboard pattern if it doesn't exist
   if (!groundTexture) {
     const texSize = 64;
     groundTexture = painting(texSize, texSize, (api) => {
       const { wipe, ink, box, line } = api;
       
-      // Fill with white
-      wipe(255, 255, 255); // Pure white
+      // Fill with dark yellow/orange
+      wipe(100, 80, 0); // Darker yellow base
       
-      // Draw black checkerboard squares
+      // Draw dark blue checkerboard squares
       const squareSize = 8;
-      ink(0, 0, 0); // Black ink
+      ink(0, 0, 80); // Dark blue ink
       for (let y = 0; y < texSize / squareSize; y++) {
         for (let x = 0; x < texSize / squareSize; x++) {
           if ((x + y) % 2 === 1) {
@@ -226,6 +239,8 @@ function paint({ wipe, ink, painting }) {
     
     groundPlane.texture = groundTexture;
     console.log("🎨 Ground texture created:", groundTexture?.width, "x", groundTexture?.height, "=", groundTexture?.pixels?.length, "bytes");
+    console.log("🎨 First few pixels:", groundTexture?.pixels?.slice(0, 16));
+    console.log("🎨 Ground plane has texture:", !!groundPlane.texture);
   }
   
   // Create checkerboard texture for quad if it doesn't exist
@@ -258,16 +273,99 @@ function paint({ wipe, ink, painting }) {
     .ink("cyan").form(triangle)
     .ink("yellow").form(filledTriangle);
   
-  // Draw wireframes on top if enabled
+  // Draw wireframes on top AFTER all other forms to ensure they're always visible
   if (showWireframes) {
     ink("yellow").form(groundWireframe); // Ground plane wireframe
-    ink("white").write("WIREFRAME (V to toggle)", 10, 10);
+    
+    // Draw all buffered clipped wireframes
+    if (drawBufferedWireframes) {
+      if (paint.frameCount % 60 === 1) {
+        console.log(`🎨 About to call drawBufferedWireframes()`);
+      }
+      drawBufferedWireframes();
+      if (paint.frameCount % 60 === 1) {
+        const stats = getRenderStats?.() || {};
+        console.log(`📊 After drawing: Total wireframe segments=${stats.wireframeSegmentsTotal}`);
+      }
+    }
+  }
+  
+  const debugFont = "MatrixChunky8";
+
+  // Draw debug panel in top-right corner
+  if (showDebugPanel) {
+    const stats = getRenderStats?.() || {
+      originalTriangles: 0,
+      clippedTriangles: 0,
+      subdividedTriangles: 0,
+      wireframeSegmentsTotal: 0,
+      wireframeSegmentsTextured: 0,
+      wireframeSegmentsGradient: 0,
+      wireframeSegmentsClipped: 0,
+      wireframeSegmentsOther: 0,
+    };
+
+    const charWidth = 4;
+    const lineHeight = 8;
+    const title = "FPS DEBUG";
+    const panelPadding = 6;
+    const spacingAfterTitle = 2;
+    const marginFromEdge = 8;
+
+    const lines = [
+      { color: "yellow", text: `Wireframes: ${showWireframes ? "ON" : "OFF"}` },
+      { color: "cyan", text: `Original Tris: ${stats.originalTriangles}` },
+      { color: "magenta", text: `Clipped Tris: ${stats.clippedTriangles}` },
+      { color: "yellow", text: `Subdivided Tris: ${stats.subdividedTriangles}` },
+      { color: "white", text: `WF Total: ${stats.wireframeSegmentsTotal}` },
+      { color: "white", text: `- Textured: ${stats.wireframeSegmentsTextured}` },
+      { color: "white", text: `- Gradient: ${stats.wireframeSegmentsGradient}` },
+      { color: "white", text: `- Clipped: ${stats.wireframeSegmentsClipped}` },
+      { color: "white", text: `- Other: ${stats.wireframeSegmentsOther}` },
+      { color: "green", text: `Ground: ${(groundPlane?.vertices?.length || 0) / 3} tris` },
+      { color: "orange", text: `Cam: Y:0 Z:0` },
+      { color: "gray", text: "Press V: Wireframe" },
+      { color: "gray", text: "Press D: Panel" },
+    ];
+
+    const measureWidth = (text) => text.length * charWidth;
+    const maxLineWidth = Math.max(measureWidth(title), ...lines.map((line) => measureWidth(line.text)));
+    const minPanelWidth = 120;
+    const panelWidth = Math.max(minPanelWidth, panelPadding * 2 + maxLineWidth);
+    const panelHeight = panelPadding * 2 + lineHeight + spacingAfterTitle + lines.length * lineHeight;
+    const panelX = screen.width - panelWidth - marginFromEdge;
+    const panelY = 10;
+
+    // Semi-transparent background
+    ink(0, 0, 0, 180);
+    drawBox(panelX, panelY, panelWidth, panelHeight);
+
+    // Panel border
+    ink(255, 255, 0, 255);
+    drawLine(panelX, panelY, panelX + panelWidth, panelY);
+    drawLine(panelX + panelWidth, panelY, panelX + panelWidth, panelY + panelHeight);
+    drawLine(panelX + panelWidth, panelY + panelHeight, panelX, panelY + panelHeight);
+    drawLine(panelX, panelY + panelHeight, panelX, panelY);
+
+    // Title
+    let textY = panelY + panelPadding;
+    ink("white").write(title, { x: panelX + panelPadding, y: textY }, undefined, undefined, false, debugFont);
+    textY += lineHeight + spacingAfterTitle;
+
+    // Content lines
+    lines.forEach(({ color, text }) => {
+      ink(color).write(text, { x: panelX + panelPadding, y: textY }, undefined, undefined, false, debugFont);
+      textY += lineHeight;
+    });
+  } else {
+    // Minimal indicator when debug panel is off
+    ink("white").write(`V:Wire D:Debug`, 10, 10, undefined, undefined, false, debugFont);
   }
   
   // Note: Crosshair is now rendered via DOM element in bios.mjs when pointer lock is enabled
 }
 
-function act({ event: e, penLock }) {
+function act({ event: e, penLock, setShowClippedWireframes }) {
   if (e.is("pen:locked")) penLocked = true;
   if (e.is("pen:unlocked")) penLocked = false;
   if (!penLocked && e.is("touch")) penLock();
@@ -275,6 +373,17 @@ function act({ event: e, penLock }) {
   // Toggle wireframe mode with 'V' key
   if (e.is("keyboard:down:v")) {
     showWireframes = !showWireframes;
+    console.log(`🔧 Toggled showWireframes to: ${showWireframes}`);
+    // Toggle clipped triangle wireframes if available
+    if (setShowClippedWireframes) {
+      setShowClippedWireframes(showWireframes);
+      console.log(`🔧 Called setShowClippedWireframes(${showWireframes})`);
+    }
+  }
+  
+  // Toggle debug panel with 'D' key
+  if (e.is("keyboard:down:d")) {
+    showDebugPanel = !showDebugPanel;
   }
 }
 

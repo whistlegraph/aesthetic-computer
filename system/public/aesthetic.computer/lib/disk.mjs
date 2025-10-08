@@ -4690,6 +4690,10 @@ const $paintApiUnwrapped = {
   shape: graph.shape,
   grid: graph.grid,
   draw: graph.draw,
+  setShowClippedWireframes: graph.setShowClippedWireframes,
+  clearWireframeBuffer: graph.clearWireframeBuffer,
+  drawBufferedWireframes: graph.drawBufferedWireframes,
+  getRenderStats: graph.getRenderStats,
   printLine: graph.printLine, // TODO: This is kind of ugly and I need a state machine for type.
   form,
   pan: graph.pan,
