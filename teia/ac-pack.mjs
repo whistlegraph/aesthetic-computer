@@ -11,12 +11,27 @@ import { spawn } from "child_process";
 import { extractCodes, fetchAllCodes, generateCacheCode } from "./kidlisp-extractor.mjs";
 import { execSync } from "child_process";
 import os from "os";
+import { once } from "events";
+import readline from "readline";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const DEFAULT_TIME_ZONE =
   process.env.AC_PACK_TZ || process.env.TZ || "America/Los_Angeles";
+
+// Helper function for interactive prompts
+function askQuestion(query) {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  return new Promise(resolve => rl.question(query, answer => {
+    rl.close();
+    resolve(answer);
+  }));
+}
 
 function getTimestampParts(date = new Date(), timeZone = DEFAULT_TIME_ZONE) {
   const formatter = new Intl.DateTimeFormat("en-CA", {
@@ -136,8 +151,10 @@ class AcPacker {
       coverFrameCount,
       timeZone: this.timeZone,
       packagedSystemDirName: this.packagedSystemDirName,
+      tapePath: options.tapePath ? path.resolve(options.tapePath) : undefined,
     };
     this.bundledFiles = new Set();
+    this.tempDirs = [];
   }
 
   getPackagedDirPath(...segments) {
@@ -154,11 +171,64 @@ class AcPacker {
     }
   }
 
+  async getGifEncoderClass() {
+    if (!this.GIFEncoderClass) {
+      const gifModule = await import("gif-encoder-2");
+      const GIFEncoder = gifModule.default || gifModule.GIFEncoder || gifModule;
+      if (!GIFEncoder) {
+        throw new Error("Failed to load gif-encoder-2 module");
+      }
+      this.GIFEncoderClass = GIFEncoder;
+    }
+    return this.GIFEncoderClass;
+  }
+
+  async getPNGClass() {
+    if (!this.PNGClass) {
+      const pngModule = await import("pngjs");
+      const PNG = pngModule.PNG || (pngModule.default && pngModule.default.PNG) || pngModule.default;
+      if (!PNG || !PNG.sync || !PNG.sync.read || !PNG.sync.write) {
+        throw new Error("Failed to load pngjs PNG reader");
+      }
+      this.PNGClass = PNG;
+    }
+    return this.PNGClass;
+  }
+
+  scaleImageNearest(srcData, srcWidth, srcHeight, targetWidth, targetHeight) {
+    const output = Buffer.alloc(targetWidth * targetHeight * 4);
+
+    for (let y = 0; y < targetHeight; y++) {
+      const srcY = Math.min(srcHeight - 1, Math.floor(((y + 0.5) * srcHeight) / targetHeight));
+      for (let x = 0; x < targetWidth; x++) {
+        const srcX = Math.min(srcWidth - 1, Math.floor(((x + 0.5) * srcWidth) / targetWidth));
+        const srcIndex = (srcY * srcWidth + srcX) * 4;
+        const destIndex = (y * targetWidth + x) * 4;
+
+        output[destIndex] = srcData[srcIndex];
+        output[destIndex + 1] = srcData[srcIndex + 1];
+        output[destIndex + 2] = srcData[srcIndex + 2];
+        output[destIndex + 3] = srcData[srcIndex + 3];
+      }
+    }
+
+    return output;
+  }
+
+  async writePngFromRaw(rawData, width, height, outputPath) {
+    const PNG = await this.getPNGClass();
+    const png = new PNG({ width, height });
+    rawData.copy(png.data);
+    const buffer = PNG.sync.write(png);
+    await fs.writeFile(outputPath, buffer);
+  }
+
   async pack() {
     console.log(`📦 Packing ${this.pieceName} for Teia...`);
     
     try {
       await this.createOutputDir();
+      await this.prepareTapeSource();
       const pieceData = await this.loadPiece();
       
       // Store piece data for dependency analysis
@@ -196,6 +266,8 @@ class AcPacker {
     } catch (error) {
       console.error("❌ Packing failed:", error);
       return { success: false, error };
+    } finally {
+      await this.cleanupTempDirs();
     }
   }
 
@@ -207,6 +279,21 @@ class AcPacker {
         console.log(`🧹 Cleaned up temporary directory: ${this.options.outputDir}`);
       } catch (error) {
         console.warn(`⚠️ Failed to clean up temporary directory: ${error.message}`);
+      }
+    }
+  }
+
+  async cleanupTempDirs() {
+    while (this.tempDirs.length > 0) {
+      const dir = this.tempDirs.pop();
+      if (!dir) {
+        continue;
+      }
+      try {
+        await fs.rm(dir, { recursive: true, force: true });
+        this.logVerbose(`🧹 Removed temporary directory: ${dir}`);
+      } catch (error) {
+        console.warn(`⚠️ Failed to remove temporary directory ${dir}: ${error.message}`);
       }
     }
   }
@@ -1283,7 +1370,575 @@ export function boot({ wipe, ink, help, backgroundFill }) {
     }
   }
 
+  async prepareTapeSource() {
+    if (!this.options.tapePath || this.tapeInfo) {
+      return;
+    }
+
+    const tapePath = this.options.tapePath;
+
+    try {
+      await fs.access(tapePath);
+    } catch (error) {
+      throw new Error(`Tape file not found: ${tapePath}`);
+    }
+
+    console.log(`📼 Using supplied tape archive: ${tapePath}`);
+
+    const { default: JSZip } = await import("jszip");
+    const zipBuffer = await fs.readFile(tapePath);
+    const zip = await JSZip.loadAsync(zipBuffer);
+
+    let timingData = [];
+    const timingEntry = zip.file("timing.json");
+    if (timingEntry) {
+      try {
+        const timingContent = await timingEntry.async("string");
+        timingData = JSON.parse(timingContent);
+      } catch (error) {
+        console.warn("⚠️ Failed to parse timing.json from tape:", error.message);
+      }
+    } else {
+      console.warn("⚠️ No timing.json found in tape archive; falling back to filename ordering");
+    }
+
+    let metadata = null;
+    const metadataEntry = zip.file("metadata.json");
+    if (metadataEntry) {
+      try {
+        const metadataContent = await metadataEntry.async("string");
+        metadata = JSON.parse(metadataContent);
+      } catch (error) {
+        console.warn("⚠️ Failed to parse metadata.json from tape:", error.message);
+      }
+    }
+
+    let frameFilenames = [];
+    if (Array.isArray(timingData) && timingData.length > 0) {
+      frameFilenames = timingData
+        .filter((entry) => entry && entry.filename)
+        .map((entry) => entry.filename);
+    }
+
+    if (frameFilenames.length === 0) {
+      frameFilenames = Object.keys(zip.files).filter((name) => name.endsWith(".png"));
+      frameFilenames.sort();
+    }
+
+    if (frameFilenames.length === 0) {
+      throw new Error("Tape archive did not contain any PNG frames");
+    }
+
+    const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "ac-pack-tape-"));
+    this.tempDirs.push(tempDir);
+
+    const framePaths = [];
+    const frameDurations = [];
+
+    for (let index = 0; index < frameFilenames.length; index++) {
+      const filename = frameFilenames[index];
+      const entry = zip.file(filename);
+      if (!entry) {
+        console.warn(`⚠️ Tape frame missing in archive: ${filename}`);
+        continue;
+      }
+
+      const frameBuffer = await entry.async("nodebuffer");
+      const outputPath = path.join(tempDir, path.basename(filename));
+      await fs.writeFile(outputPath, frameBuffer);
+      framePaths.push(outputPath);
+
+      if (timingData[index]?.duration !== undefined) {
+        const durationValue = Number(timingData[index].duration);
+        frameDurations.push(Number.isFinite(durationValue) ? durationValue : 0);
+      }
+    }
+
+    if (framePaths.length === 0) {
+      throw new Error("No frame data could be extracted from tape");
+    }
+
+    const audioEntries = zip.file(/soundtrack\.(wav|mp3|ogg|flac)$/i) || [];
+    if (audioEntries.length > 0) {
+      console.log("🎵 Tape includes soundtrack (not automatically bundled to keep package size manageable)");
+    }
+
+    let totalDurationMs;
+    if (frameDurations.length === framePaths.length) {
+      totalDurationMs = frameDurations.reduce((sum, value) => sum + value, 0);
+    } else {
+      const fallbackFrameDuration = 1000 / 60;
+      totalDurationMs = framePaths.length * fallbackFrameDuration;
+    }
+
+    const totalDurationSeconds = totalDurationMs / 1000;
+
+    // Override cover duration metadata to reflect the tape recording
+    this.options.coverDurationSeconds = totalDurationSeconds;
+    this.options.coverFrameCount = framePaths.length;
+
+    this.tapeInfo = {
+      tempDir,
+      framePaths,
+      frameDurations,
+      metadata,
+      totalDurationMs,
+      frameCount: framePaths.length,
+      tapeFilename: path.basename(tapePath),
+    };
+
+    console.log(
+      `📼 Extracted ${framePaths.length} frames from tape (${totalDurationSeconds.toFixed(2)}s)`
+    );
+    if (metadata?.scale) {
+      console.log(
+        `📐 Tape metadata: original ${metadata.originalSize?.width || "?"}x${metadata.originalSize?.height || "?"},` +
+        ` scaled ${metadata.scaledSize?.width || "?"}x${metadata.scaledSize?.height || "?"}, scale ${metadata.scale}`
+      );
+    }
+  }
+
+  async generateCoverFromTape() {
+    if (!this.tapeInfo) {
+      throw new Error("Tape information missing; cannot generate cover from tape");
+    }
+
+    const { framePaths, frameDurations, metadata, totalDurationMs, tapeFilename } = this.tapeInfo;
+
+    if (!framePaths || framePaths.length === 0) {
+      throw new Error("Tape extraction yielded no frames");
+    }
+
+    const coverPath = path.join(this.options.outputDir, "cover.gif");
+
+    console.log("🎞️ Generating animated cover from supplied tape...");
+    if (tapeFilename) {
+      console.log(`� Tape source: ${tapeFilename}`);
+    }
+
+    // Create symlinks with sequential numbering for ffmpeg's image2 demuxer
+    const tempFramesDir = path.join(this.tapeInfo.tempDir, "frames-seq");
+    await fs.mkdir(tempFramesDir, { recursive: true });
+    
+    // Calculate start frame based on percentage
+    const tapeStartPercent = this.options.tapeStartPercent || 0;
+    const startFrameIndex = Math.floor((tapeStartPercent / 100) * framePaths.length);
+    const selectedFrames = framePaths.slice(startFrameIndex);
+    
+    if (selectedFrames.length === 0) {
+      throw new Error(`No frames remaining after applying start percentage ${tapeStartPercent}%`);
+    }
+    
+    if (tapeStartPercent > 0) {
+      console.log(`⏩ Starting from ${tapeStartPercent}% (frame ${startFrameIndex + 1}/${framePaths.length})`);
+      console.log(`📊 Using ${selectedFrames.length} frames (${((selectedFrames.length / framePaths.length) * 100).toFixed(1)}% of tape)`);
+    }
+    
+    for (let i = 0; i < selectedFrames.length; i++) {
+      const seqPath = path.join(tempFramesDir, `frame${String(i).padStart(6, '0')}.png`);
+      await fs.symlink(selectedFrames[i], seqPath);
+    }
+
+    // Use 50fps constant framerate for GIF
+    const fps = 50;
+
+    // Use ffmpeg to create GIF from PNG sequence using image2 demuxer
+    // Scale down to 512x512 and optimize palette for smaller file size
+    // Reduce colors to 128 (from default 256) and use bayer dithering for better compression
+    await new Promise((resolve, reject) => {
+      const inputPattern = path.join(tempFramesDir, "frame%06d.png");
+      const ffmpeg = spawn("ffmpeg", [
+        "-framerate", String(fps),
+        "-i", inputPattern,
+        "-vf", `scale=512:512:flags=neighbor,split[s0][s1];[s0]palettegen=max_colors=128:stats_mode=diff[p];[s1][p]paletteuse=dither=bayer:bayer_scale=3`,
+        "-loop", "0",
+        "-y",
+        coverPath
+      ], { stdio: ["pipe", "pipe", "pipe"] });
+
+      let stderr = "";
+      ffmpeg.stderr.on("data", (data) => {
+        stderr += data.toString();
+      });
+
+      ffmpeg.on("close", (code) => {
+        if (code === 0) {
+          resolve();
+        } else {
+          console.error("❌ FFmpeg stderr:", stderr);
+          reject(new Error(`FFmpeg failed with code ${code}`));
+        }
+      });
+
+      ffmpeg.on("error", (err) => {
+        reject(err);
+      });
+    });
+
+    const externalCoverFilename = `${this.options.author}-${this.pieceName}-${this.zipTimestamp}-cover.gif`;
+    const externalCoverPath = path.join(this.options.targetDir, externalCoverFilename);
+    await fs.copyFile(coverPath, externalCoverPath);
+
+    console.log("🎞️ Generated animated cover from tape: cover.gif");
+    console.log(`�️ External cover created: ${externalCoverFilename}`);
+
+    // Generate Twitter/X-optimized version (15MB max)
+    await this.generateTwitterCoverFromTape(tempFramesDir, selectedFrames.length, externalCoverPath);
+
+    // Generate objkt.com-optimized version (2MB max)
+    await this.generateObjktCoverFromTape(tempFramesDir, selectedFrames.length, externalCoverPath);
+
+    this.options.coverImage = "cover.gif";
+    this.bundledFiles.add(`tape cover frames: ${framePaths.length}`);
+
+    const totalSeconds = totalDurationMs / 1000;
+    console.log(`⏱️ Tape duration: ${totalSeconds.toFixed(2)}s`);
+  }
+
+  async generateTwitterCoverFromTape(tempFramesDir, frameCount, fullCoverPath) {
+    // Generate a Twitter/X-optimized version (15MB max)
+    // Twitter recommends 900x900 for square pixel art GIFs for optimal display quality
+    // Limit to 15 seconds at 24fps (360 frames) to keep file size manageable
+    const twitterCoverFilename = `${this.options.author}-${this.pieceName}-${this.zipTimestamp}-x.gif`;
+    const twitterCoverPath = path.join(this.options.targetDir, twitterCoverFilename);
+
+    const targetFps = 24;
+    const maxDurationSeconds = 11;  // 11 seconds for 15MB target
+    const maxFrames = Math.min(frameCount, targetFps * maxDurationSeconds);
+    
+    console.log(`🐦 Generating Twitter/X-optimized version (800x800, ${maxFrames} frames @ ${targetFps}fps, 15MB max)...`);
+
+    // Create a temporary directory with only the frames we want for Twitter
+    const twitterFramesDir = path.join(path.dirname(tempFramesDir), "frames-twitter");
+    await fs.mkdir(twitterFramesDir, { recursive: true });
+    
+    // Copy/symlink only the first maxFrames frames
+    for (let i = 0; i < maxFrames; i++) {
+      const sourceFrame = path.join(tempFramesDir, `frame${String(i).padStart(6, '0')}.png`);
+      const targetFrame = path.join(twitterFramesDir, `frame${String(i).padStart(6, '0')}.png`);
+      await fs.symlink(sourceFrame, targetFrame);
+    }
+
+    const fps = 50;
+    const inputPattern = path.join(twitterFramesDir, "frame%06d.png");
+
+    await new Promise((resolve, reject) => {
+      const ffmpeg = spawn("ffmpeg", [
+        "-framerate", String(fps),
+        "-i", inputPattern,
+        "-frames:v", String(maxFrames),
+        // Twitter version: 800x800, 24fps, 16 colors with bayer dithering for best compression
+        "-vf", `fps=${targetFps},scale=800:800:flags=neighbor,split[s0][s1];[s0]palettegen=max_colors=16:stats_mode=diff[p];[s1][p]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle`,
+        "-loop", "0",
+        "-y",
+        twitterCoverPath
+      ], { stdio: ["pipe", "pipe", "pipe"] });
+
+      let stderr = "";
+      ffmpeg.stderr.on("data", (data) => {
+        stderr += data.toString();
+      });
+
+      ffmpeg.on("close", (code) => {
+        if (code === 0) {
+          resolve();
+        } else {
+          console.error("❌ Twitter cover FFmpeg stderr:", stderr);
+          reject(new Error(`Twitter cover FFmpeg failed with code ${code}`));
+        }
+      });
+
+      ffmpeg.on("error", (err) => {
+        reject(err);
+      });
+    });
+
+    // Check file size and log result
+    const stats = await fs.stat(twitterCoverPath);
+    const sizeMB = (stats.size / (1024 * 1024)).toFixed(2);
+    console.log(`🐦 Twitter/X cover created: ${twitterCoverFilename} (${sizeMB} MB)`);
+    
+    if (stats.size > 15 * 1024 * 1024) {
+      console.warn(`⚠️ Warning: Twitter/X cover is ${sizeMB}MB (exceeds 15MB limit)`);
+    }
+  }
+
+  async generateObjktCoverFromTape(tempFramesDir, frameCount, externalCoverPath) {
+    // Generate an objkt.com-optimized version (2MB max)
+    // Use frame sampling to create an abbreviated version
+    const objktCoverFilename = `${this.options.author}-${this.pieceName}-${this.zipTimestamp}-objkt.gif`;
+    const objktCoverPath = path.join(this.options.targetDir, objktCoverFilename);
+
+    console.log(`📦 Generating objkt.com-optimized version (600x600, full color, slideshow-style)...`);
+
+    // Sample only 6 frames evenly distributed across the animation
+    const targetFrames = 6;
+    const sampleRate = Math.floor(frameCount / targetFrames);
+    const sampledFrameCount = Math.min(targetFrames, frameCount);
+    
+    // Create a temporary directory with only the sampled frames
+    const objktFramesDir = path.join(path.dirname(tempFramesDir), "frames-objkt");
+    await fs.mkdir(objktFramesDir, { recursive: true });
+    
+    // Copy/symlink only the sampled frames, evenly distributed
+    for (let i = 0; i < sampledFrameCount; i++) {
+      const sourceFrameIndex = Math.floor((i * frameCount) / sampledFrameCount);
+      const sourceFrame = path.join(tempFramesDir, `frame${String(sourceFrameIndex).padStart(6, '0')}.png`);
+      const targetFrame = path.join(objktFramesDir, `frame${String(i).padStart(6, '0')}.png`);
+      await fs.symlink(sourceFrame, targetFrame);
+    }
+
+    const inputPattern = path.join(objktFramesDir, "frame%06d.png");
+
+    await new Promise((resolve, reject) => {
+      const ffmpeg = spawn("ffmpeg", [
+        "-framerate", "4", // Input at 4fps (0.25s per frame)
+        "-i", inputPattern,
+        // objkt version: 600x600, 256 colors (full palette) for slideshow quality
+        "-vf", `scale=600:600:flags=neighbor,split[s0][s1];[s0]palettegen=max_colors=256:stats_mode=diff[p];[s1][p]paletteuse=dither=bayer:bayer_scale=2:diff_mode=rectangle`,
+        "-loop", "0",
+        "-y",
+        objktCoverPath
+      ], { stdio: ["pipe", "pipe", "pipe"] });
+
+      let stderr = "";
+      ffmpeg.stderr.on("data", (data) => {
+        stderr += data.toString();
+      });
+
+      ffmpeg.on("close", (code) => {
+        if (code === 0) {
+          resolve();
+        } else {
+          console.error("❌ objkt cover FFmpeg stderr:", stderr);
+          reject(new Error(`objkt cover FFmpeg failed with code ${code}`));
+        }
+      });
+
+      ffmpeg.on("error", (err) => {
+        reject(err);
+      });
+    });
+
+    // Check file size and log result
+    const stats = await fs.stat(objktCoverPath);
+    const sizeMB = (stats.size / (1024 * 1024)).toFixed(2);
+    console.log(`📦 objkt.com cover created: ${objktCoverFilename} (${sizeMB} MB, ${sampledFrameCount} sampled frames)`);
+    
+    if (stats.size > 2 * 1024 * 1024) {
+      console.warn(`⚠️ Warning: objkt cover is ${sizeMB}MB (exceeds 2MB limit)`);
+    }
+  }
+
+  async generateFallbackCoverFromTape() {
+    if (!this.tapeInfo) {
+      throw new Error("Tape information missing; cannot generate fallback cover");
+    }
+
+    const { framePaths, totalDurationMs } = this.tapeInfo;
+    if (!framePaths || framePaths.length === 0) {
+      throw new Error("Tape extraction yielded no frames");
+    }
+
+    console.log("🖼️ Generating fallback cover from tape middle frame...");
+
+    const GIFEncoder = await this.getGifEncoderClass();
+    const PNG = await this.getPNGClass();
+
+    const coverPath = path.join(this.options.outputDir, "cover.gif");
+    const middleIndex = Math.min(framePaths.length - 1, Math.floor(framePaths.length / 2));
+    const buffer = await fs.readFile(framePaths[middleIndex]);
+    const png = PNG.sync.read(buffer);
+
+    const encoder = new GIFEncoder(png.width, png.height, { highWaterMark: 1 << 24 });
+    const writeStream = fsSync.createWriteStream(coverPath);
+    encoder.createReadStream().pipe(writeStream);
+    encoder.start();
+    encoder.setRepeat(0);
+    const averageDuration = totalDurationMs && Number.isFinite(totalDurationMs)
+      ? totalDurationMs / Math.max(1, framePaths.length)
+      : 1000 / 60;
+    const fallbackDelay = Math.round(averageDuration) || Math.round(1000 / 60);
+    encoder.setDelay(Math.max(16, fallbackDelay));
+    encoder.setQuality(10);
+    encoder.addFrame(png.data);
+    encoder.finish();
+
+    await new Promise((resolve, reject) => {
+      writeStream.on("finish", resolve);
+      writeStream.on("error", reject);
+    });
+
+    const externalCoverFilename = `${this.options.author}-${this.pieceName}-${this.zipTimestamp}-cover.gif`;
+    const externalCoverPath = path.join(this.options.targetDir, externalCoverFilename);
+    await fs.copyFile(coverPath, externalCoverPath);
+
+    this.options.coverImage = "cover.gif";
+    this.bundledFiles.add("tape fallback cover");
+    console.log("🖼️ Generated fallback single-frame cover from tape");
+  }
+
+  async generateIconsFromTape(iconDirs) {
+    if (!this.tapeInfo) {
+      throw new Error("Tape information missing; cannot generate icons from tape");
+    }
+
+    const { framePaths, frameDurations, totalDurationMs } = this.tapeInfo;
+    if (!framePaths || framePaths.length === 0) {
+      throw new Error("Tape extraction yielded no frames for icon generation");
+    }
+
+    console.log("🖼️ Generating icons from supplied tape...");
+
+    const PNG = await this.getPNGClass();
+
+    const icon128GifPath = path.join(iconDirs.icon128Dir, `${this.pieceName}.gif`);
+    const icon128PngPath = path.join(iconDirs.icon128Dir, `${this.pieceName}.png`);
+    const icon256PngPath = path.join(iconDirs.icon256Dir, `${this.pieceName}.png`);
+    const icon512PngPath = path.join(iconDirs.icon512Dir, `${this.pieceName}.png`);
+
+    // Create symlinks with sequential numbering for ffmpeg's image2 demuxer
+    const tempIconFramesDir = path.join(this.tapeInfo.tempDir, "icon-frames-seq");
+    await fs.mkdir(tempIconFramesDir, { recursive: true });
+    
+    for (let i = 0; i < framePaths.length; i++) {
+      const seqPath = path.join(tempIconFramesDir, `frame${String(i).padStart(6, '0')}.png`);
+      await fs.symlink(framePaths[i], seqPath);
+    }
+
+    // Use 50fps constant framerate for icon GIF
+    const fps = 50;
+
+    // Generate 128x128 animated GIF using ffmpeg with image2 demuxer
+    // Use reduced colors (64) for smaller icon file size
+    const inputPattern = path.join(tempIconFramesDir, "frame%06d.png");
+    const ffmpegArgs = [
+      "-framerate", String(fps),
+      "-i", inputPattern,
+      "-vf", `scale=128:128:flags=neighbor,split[s0][s1];[s0]palettegen=max_colors=64:stats_mode=diff[p];[s1][p]paletteuse=dither=bayer:bayer_scale=2`,
+      "-loop", "0",
+      "-y",
+      icon128GifPath,
+    ];
+
+    await new Promise((resolve, reject) => {
+      const ffmpeg = spawn("ffmpeg", ffmpegArgs, { stdio: "pipe" });
+      let stderr = "";
+      ffmpeg.stderr.on("data", (data) => { stderr += data.toString(); });
+      ffmpeg.on("close", (code) => {
+        if (code === 0) resolve();
+        else reject(new Error(`FFmpeg failed with code ${code}: ${stderr}`));
+      });
+      ffmpeg.on("error", reject);
+    });
+
+    this.bundledFiles.add(`tape icon animation: ${framePaths.length} frames @128x128`);
+    this.options.faviconImage = `./icon/128x128/${this.pieceName}.gif`;
+
+    // Generate static PNG icons from final frame (most progressed state)
+    const finalIndex = framePaths.length - 1;
+    const finalBuffer = await fs.readFile(framePaths[finalIndex]);
+    const finalPng = PNG.sync.read(finalBuffer);
+
+    const scaled128Raw = this.scaleImageNearest(finalPng.data, finalPng.width, finalPng.height, 128, 128);
+    await this.writePngFromRaw(scaled128Raw, 128, 128, icon128PngPath);
+    this.bundledFiles.add(`tape icon static: icon/128x128/${this.pieceName}.png`);
+
+    const scaled256Raw = this.scaleImageNearest(finalPng.data, finalPng.width, finalPng.height, 256, 256);
+    await this.writePngFromRaw(scaled256Raw, 256, 256, icon256PngPath);
+    this.bundledFiles.add(`tape icon static: icon/256x256/${this.pieceName}.png`);
+
+    const scaled512Raw = this.scaleImageNearest(finalPng.data, finalPng.width, finalPng.height, 512, 512);
+    await this.writePngFromRaw(scaled512Raw, 512, 512, icon512PngPath);
+    this.bundledFiles.add(`tape icon static: icon/512x512/${this.pieceName}.png`);
+
+    console.log("🖼️ Generated icon set from tape frames");
+  }
+
+  async createTransparentFallbackIcons(iconDirs) {
+    const icon128Path = path.join(iconDirs.icon128Dir, `${this.pieceName}.png`);
+    const icon256Path = path.join(iconDirs.icon256Dir, `${this.pieceName}.png`);
+    const icon512Path = path.join(iconDirs.icon512Dir, `${this.pieceName}.png`);
+
+    const transparent128Png = Buffer.from([
+      0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
+      0x00, 0x00, 0x00, 0x0D,
+      0x49, 0x48, 0x44, 0x52,
+      0x00, 0x00, 0x00, 0x80,
+      0x00, 0x00, 0x00, 0x80,
+      0x08, 0x06, 0x00, 0x00, 0x00,
+      0xC3, 0x3E, 0x61, 0xCB,
+      0x00, 0x00, 0x00, 0x17,
+      0x49, 0x44, 0x41, 0x54,
+      0x78, 0x9C, 0xED, 0xC1, 0x01, 0x01, 0x00, 0x00, 0x00, 0x80, 0x90, 0xFE,
+      0xAF, 0x6E, 0x48, 0x40, 0x00, 0x00, 0x00, 0x02, 0x10, 0x00, 0x01,
+      0x8E, 0x0D, 0x71, 0xDA,
+      0x00, 0x00, 0x00, 0x00,
+      0x49, 0x45, 0x4E, 0x44,
+      0xAE, 0x42, 0x60, 0x82
+    ]);
+
+    const transparent256Png = Buffer.from([
+      0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
+      0x00, 0x00, 0x00, 0x0D,
+      0x49, 0x48, 0x44, 0x52,
+      0x00, 0x00, 0x01, 0x00,
+      0x00, 0x00, 0x01, 0x00,
+      0x08, 0x06, 0x00, 0x00, 0x00,
+      0x5C, 0x72, 0x9C, 0x91,
+      0x00, 0x00, 0x00, 0x17,
+      0x49, 0x44, 0x41, 0x54,
+      0x78, 0x9C, 0xED, 0xC1, 0x01, 0x01, 0x00, 0x00, 0x00, 0x80, 0x90, 0xFE,
+      0xAF, 0x6E, 0x48, 0x40, 0x00, 0x00, 0x00, 0x02, 0x10, 0x00, 0x01,
+      0x8E, 0x0D, 0x71, 0xDA,
+      0x00, 0x00, 0x00, 0x00,
+      0x49, 0x45, 0x4E, 0x44,
+      0xAE, 0x42, 0x60, 0x82
+    ]);
+
+    const transparent512Png = Buffer.from([
+      0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
+      0x00, 0x00, 0x00, 0x0D,
+      0x49, 0x48, 0x44, 0x52,
+      0x00, 0x00, 0x02, 0x00,
+      0x00, 0x00, 0x02, 0x00,
+      0x08, 0x06, 0x00, 0x00, 0x00,
+      0xF4, 0x78, 0xD4, 0xFA,
+      0x00, 0x00, 0x00, 0x17,
+      0x49, 0x44, 0x41, 0x54,
+      0x78, 0x9C, 0xED, 0xC1, 0x01, 0x01, 0x00, 0x00, 0x00, 0x80, 0x90, 0xFE,
+      0xAF, 0x6E, 0x48, 0x40, 0x00, 0x00, 0x00, 0x02, 0x10, 0x00, 0x01,
+      0x8E, 0x0D, 0x71, 0xDA,
+      0x00, 0x00, 0x00, 0x00,
+      0x49, 0x45, 0x4E, 0x44,
+      0xAE, 0x42, 0x60, 0x82
+    ]);
+
+    await fs.writeFile(icon128Path, transparent128Png);
+    await fs.writeFile(icon256Path, transparent256Png);
+    await fs.writeFile(icon512Path, transparent512Png);
+    this.logVerbose(`🖼️ Created fallback stub icons: icon/128x128/${this.pieceName}.png, icon/256x256/${this.pieceName}.png and icon/512x512/${this.pieceName}.png`);
+
+    this.options.faviconImage = `./icon/128x128/${this.pieceName}.png`;
+  }
+
   async generateCover() {
+    if (this.tapeInfo) {
+      try {
+        await this.generateCoverFromTape();
+        return;
+      } catch (error) {
+        console.warn("⚠️ Tape-based cover generation failed, falling back to tape fallback cover:", error.message);
+        try {
+          await this.generateFallbackCoverFromTape();
+          return;
+        } catch (fallbackError) {
+          console.error("❌ Both tape-based cover methods failed. Cannot use orchestrator when --tape is specified:", fallbackError.message);
+          throw new Error("Tape-based cover generation failed; orchestrator is disabled when --tape is provided");
+        }
+      }
+    }
+
     // Try to generate an animated GIF cover using the piece
     try {
       const { RenderOrchestrator } = await import("../reference/tools/recording/orchestrator.mjs");
@@ -1400,246 +2055,112 @@ export function boot({ wipe, ink, help, backgroundFill }) {
       console.log("ℹ️ Cursor directory error:", error.message);
     }
     
-    // Generate stub icons (128x128 animated GIF, 256x256 and 512x512 static PNGs)
-    try {
-      const icon128Dir = path.join(this.options.outputDir, "icon", "128x128");
-      const icon256Dir = path.join(this.options.outputDir, "icon", "256x256");
-      const icon512Dir = path.join(this.options.outputDir, "icon", "512x512");
-      await fs.mkdir(icon128Dir, { recursive: true });
-      await fs.mkdir(icon256Dir, { recursive: true });
-      await fs.mkdir(icon512Dir, { recursive: true });
-      
-      const icon128Path = path.join(icon128Dir, `${this.pieceName}.gif`);
-      const icon256Path = path.join(icon256Dir, `${this.pieceName}.png`);
-      const icon512Path = path.join(icon512Dir, `${this.pieceName}.png`);
-      
-  this.logVerbose(`🖼️ Generating stub icons for ${this.pieceName}...`);
-      
-      // Try to generate from the cover GIF if available
-      const coverPath = path.join(this.options.outputDir, "cover.gif");
-      
-      if (fsSync.existsSync(coverPath)) {
-        try {
-          // Generate 128x128 animated icon (for favicon)
-          await new Promise((resolve, reject) => {
-            const ffmpeg = spawn("ffmpeg", [
-              "-i", coverPath,
-              "-vf", "scale=128:128:flags=neighbor",
-              "-y", // Overwrite output file
-              icon128Path
-            ], { stdio: ["pipe", "pipe", "pipe"] });
-            
-            let stderr = "";
-            ffmpeg.stderr.on("data", (data) => {
-              stderr += data.toString();
-            });
-            
-            ffmpeg.on("close", (code) => {
-              if (code === 0) {
-                this.logVerbose(`🪄 Generated 128x128 animated stub icon: icon/128x128/${this.pieceName}.gif`);
-                // Set favicon to use the 128x128 animated icon
-                this.options.faviconImage = `./icon/128x128/${this.pieceName}.gif`;
-                resolve();
-              } else {
-                console.warn("⚠️ 128x128 animated stub icon generation failed with code:", code);
-                console.warn("⚠️ FFmpeg stderr:", stderr);
-                reject(new Error(`FFmpeg failed with code ${code}`));
-              }
-            });
-            
-            ffmpeg.on("error", (err) => {
-              console.warn("⚠️ FFmpeg error:", err.message);
-              reject(err);
-            });
-          });
-          
-          // Generate 128x128 static PNG icon (for PWA manifest)
-          const icon128PngPath = path.join(icon128Dir, `${this.pieceName}.png`);
-          await new Promise((resolve, reject) => {
-            const ffmpeg = spawn("ffmpeg", [
-              "-i", coverPath,
-              "-vf", "scale=128:128:flags=neighbor,select=eq(n\\,90)",
-              "-vframes", "1", // Extract only the middle frame
-              "-y", // Overwrite output file
-              icon128PngPath
-            ], { stdio: ["pipe", "pipe", "pipe"] });
-            
-            let stderr = "";
-            ffmpeg.stderr.on("data", (data) => {
-              stderr += data.toString();
-            });
-            
-            ffmpeg.on("close", (code) => {
-              if (code === 0) {
-                this.logVerbose(`🪄 Generated 128x128 static PNG icon (middle frame): icon/128x128/${this.pieceName}.png`);
-                resolve();
-              } else {
-                console.warn("⚠️ 128x128 static PNG icon generation failed with code:", code);
-                console.warn("⚠️ FFmpeg stderr:", stderr);
-                reject(new Error(`FFmpeg failed with code ${code}`));
-              }
-            });
-            
-            ffmpeg.on("error", (err) => {
-              console.warn("⚠️ FFmpeg error:", err.message);
-              reject(err);
-            });
-          });
-          
-          // Generate 256x256 static PNG icon (from middle frame)
-          await new Promise((resolve, reject) => {
-            const ffmpeg = spawn("ffmpeg", [
-              "-i", coverPath,
-              "-vf", "scale=256:256:flags=neighbor,select=eq(n\\,90)",
-              "-vframes", "1", // Extract only the middle frame
-              "-y", // Overwrite output file
-              icon256Path
-            ], { stdio: ["pipe", "pipe", "pipe"] });
-            
-            let stderr = "";
-            ffmpeg.stderr.on("data", (data) => {
-              stderr += data.toString();
-            });
-            
-            ffmpeg.on("close", (code) => {
-              if (code === 0) {
-                this.logVerbose(`🪄 Generated 256x256 static PNG icon (middle frame): icon/256x256/${this.pieceName}.png`);
-                resolve();
-              } else {
-                console.warn("⚠️ 256x256 static PNG icon generation failed with code:", code);
-                console.warn("⚠️ FFmpeg stderr:", stderr);
-                reject(new Error(`FFmpeg failed with code ${code}`));
-              }
-            });
-            
-            ffmpeg.on("error", (err) => {
-              console.warn("⚠️ FFmpeg error:", err.message);
-              reject(err);
-            });
-          });
-          
-          // Generate 512x512 static PNG icon (from middle frame)
-          await new Promise((resolve, reject) => {
-            const ffmpeg = spawn("ffmpeg", [
-              "-i", coverPath,
-              "-vf", "scale=512:512:flags=neighbor,select=eq(n\\,90)",
-              "-vframes", "1", // Extract only the middle frame
-              "-y", // Overwrite output file
-              icon512Path
-            ], { stdio: ["pipe", "pipe", "pipe"] });
-            
-            let stderr = "";
-            ffmpeg.stderr.on("data", (data) => {
-              stderr += data.toString();
-            });
-            
-            ffmpeg.on("close", (code) => {
-              if (code === 0) {
-                this.logVerbose(`🪄 Generated 512x512 static PNG icon (middle frame): icon/512x512/${this.pieceName}.png`);
-                resolve();
-              } else {
-                console.warn("⚠️ 512x512 static PNG icon generation failed with code:", code);
-                console.warn("⚠️ FFmpeg stderr:", stderr);
-                reject(new Error(`FFmpeg failed with code ${code}`));
-              }
-            });
-            
-            ffmpeg.on("error", (err) => {
-              console.warn("⚠️ FFmpeg error:", err.message);
-              reject(err);
-            });
-          });
-        } catch (ffmpegError) {
-          console.warn('⚠️ Failed to generate stub icons:', ffmpegError.message);
-          throw ffmpegError; // Re-throw to trigger PNG fallback
-        }
-      } else {
-        throw new Error("No cover GIF available for stub icon generation");
-      }
-      
-    } catch (error) {
-      console.log("ℹ️ Stub icon generation failed, creating static PNG fallbacks:", error.message);
-      
-      // Fallback: create static PNGs in all sizes
+    // Generate icons from tape frames or cover GIF
+    const icon128Dir = path.join(this.options.outputDir, "icon", "128x128");
+    const icon256Dir = path.join(this.options.outputDir, "icon", "256x256");
+    const icon512Dir = path.join(this.options.outputDir, "icon", "512x512");
+    await fs.mkdir(icon128Dir, { recursive: true });
+    await fs.mkdir(icon256Dir, { recursive: true });
+    await fs.mkdir(icon512Dir, { recursive: true });
+
+    const iconDirs = { icon128Dir, icon256Dir, icon512Dir };
+
+    if (this.tapeInfo) {
       try {
-        const icon128Dir = path.join(this.options.outputDir, "icon", "128x128");
-        const icon256Dir = path.join(this.options.outputDir, "icon", "256x256");
-        const icon512Dir = path.join(this.options.outputDir, "icon", "512x512");
-        await fs.mkdir(icon128Dir, { recursive: true });
-        await fs.mkdir(icon256Dir, { recursive: true });
-        await fs.mkdir(icon512Dir, { recursive: true });
-        
-        const icon128Path = path.join(icon128Dir, `${this.pieceName}.png`);
-        const icon256Path = path.join(icon256Dir, `${this.pieceName}.png`);
-        const icon512Path = path.join(icon512Dir, `${this.pieceName}.png`);
-        
-        // Create minimal transparent PNG for 128x128
-        const transparent128Png = Buffer.from([
-          0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, // PNG signature
-          0x00, 0x00, 0x00, 0x0D, // IHDR length
-          0x49, 0x48, 0x44, 0x52, // IHDR
-          0x00, 0x00, 0x00, 0x80, // width: 128
-          0x00, 0x00, 0x00, 0x80, // height: 128
-          0x08, 0x06, 0x00, 0x00, 0x00, // 8-bit RGBA
-          0xC3, 0x3E, 0x61, 0xCB, // CRC
-          0x00, 0x00, 0x00, 0x17, // IDAT length
-          0x49, 0x44, 0x41, 0x54, // IDAT
-          0x78, 0x9C, 0xED, 0xC1, 0x01, 0x01, 0x00, 0x00, 0x00, 0x80, 0x90, 0xFE,
-          0xAF, 0x6E, 0x48, 0x40, 0x00, 0x00, 0x00, 0x02, 0x10, 0x00, 0x01,
-          0x8E, 0x0D, 0x71, 0xDA, // IDAT data + CRC
-          0x00, 0x00, 0x00, 0x00, // IEND length
-          0x49, 0x45, 0x4E, 0x44, // IEND
-          0xAE, 0x42, 0x60, 0x82  // IEND CRC
-        ]);
-        
-        // Create minimal transparent PNG for 256x256
-        const transparent256Png = Buffer.from([
-          0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, // PNG signature
-          0x00, 0x00, 0x00, 0x0D, // IHDR length
-          0x49, 0x48, 0x44, 0x52, // IHDR
-          0x00, 0x00, 0x01, 0x00, // width: 256
-          0x00, 0x00, 0x01, 0x00, // height: 256
-          0x08, 0x06, 0x00, 0x00, 0x00, // 8-bit RGBA
-          0x5C, 0x72, 0x9C, 0x91, // CRC
-          0x00, 0x00, 0x00, 0x17, // IDAT length
-          0x49, 0x44, 0x41, 0x54, // IDAT
-          0x78, 0x9C, 0xED, 0xC1, 0x01, 0x01, 0x00, 0x00, 0x00, 0x80, 0x90, 0xFE,
-          0xAF, 0x6E, 0x48, 0x40, 0x00, 0x00, 0x00, 0x02, 0x10, 0x00, 0x01,
-          0x8E, 0x0D, 0x71, 0xDA, // IDAT data + CRC
-          0x00, 0x00, 0x00, 0x00, // IEND length
-          0x49, 0x45, 0x4E, 0x44, // IEND
-          0xAE, 0x42, 0x60, 0x82  // IEND CRC
-        ]);
-        
-        // Create minimal transparent PNG for 512x512
-        const transparent512Png = Buffer.from([
-          0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, // PNG signature
-          0x00, 0x00, 0x00, 0x0D, // IHDR length
-          0x49, 0x48, 0x44, 0x52, // IHDR
-          0x00, 0x00, 0x02, 0x00, // width: 512
-          0x00, 0x00, 0x02, 0x00, // height: 512
-          0x08, 0x06, 0x00, 0x00, 0x00, // 8-bit RGBA
-          0xF4, 0x78, 0xD4, 0xFA, // CRC
-          0x00, 0x00, 0x00, 0x17, // IDAT length
-          0x49, 0x44, 0x41, 0x54, // IDAT
-          0x78, 0x9C, 0xED, 0xC1, 0x01, 0x01, 0x00, 0x00, 0x00, 0x80, 0x90, 0xFE,
-          0xAF, 0x6E, 0x48, 0x40, 0x00, 0x00, 0x00, 0x02, 0x10, 0x00, 0x01,
-          0x8E, 0x0D, 0x71, 0xDA, // IDAT data + CRC
-          0x00, 0x00, 0x00, 0x00, // IEND length
-          0x49, 0x45, 0x4E, 0x44, // IEND
-          0xAE, 0x42, 0x60, 0x82  // IEND CRC
-        ]);
-        
-        await fs.writeFile(icon128Path, transparent128Png);
-        await fs.writeFile(icon256Path, transparent256Png);
-        await fs.writeFile(icon512Path, transparent512Png);
-  this.logVerbose(`🖼️ Created fallback stub icons: icon/128x128/${this.pieceName}.png, icon/256x256/${this.pieceName}.png and icon/512x512/${this.pieceName}.png`);
-        
-        // Set favicon to use the 128x128 PNG icon as fallback
-        this.options.faviconImage = `./icon/128x128/${this.pieceName}.png`;
-        
-      } catch (fallbackError) {
-        console.log("ℹ️ Error creating fallback icon stubs:", fallbackError.message);
+        await this.generateIconsFromTape(iconDirs);
+      } catch (error) {
+        console.warn("⚠️ Tape-based icon generation failed; creating transparent fallbacks:", error.message);
+        try {
+          await this.createTransparentFallbackIcons(iconDirs);
+        } catch (fallbackError) {
+          console.log("ℹ️ Error creating fallback icon stubs:", fallbackError.message);
+        }
+      }
+    } else {
+      try {
+        const coverPath = path.join(this.options.outputDir, "cover.gif");
+        if (!fsSync.existsSync(coverPath)) {
+          throw new Error("No cover GIF available for stub icon generation");
+        }
+
+        this.logVerbose(`🖼️ Generating stub icons for ${this.pieceName} using cover.gif...`);
+
+        await new Promise((resolve, reject) => {
+          const ffmpeg = spawn("ffmpeg", [
+            "-i", coverPath,
+            "-vf", "scale=128:128:flags=neighbor",
+            "-y",
+            path.join(icon128Dir, `${this.pieceName}.gif`)
+          ], { stdio: ["pipe", "pipe", "pipe"] });
+
+          let stderr = "";
+          ffmpeg.stderr.on("data", (data) => {
+            stderr += data.toString();
+          });
+
+          ffmpeg.on("close", (code) => {
+            if (code === 0) {
+              this.logVerbose(`🪄 Generated 128x128 animated stub icon: icon/128x128/${this.pieceName}.gif`);
+              this.options.faviconImage = `./icon/128x128/${this.pieceName}.gif`;
+              resolve();
+            } else {
+              console.warn("⚠️ 128x128 animated stub icon generation failed with code:", code);
+              console.warn("⚠️ FFmpeg stderr:", stderr);
+              reject(new Error(`FFmpeg failed with code ${code}`));
+            }
+          });
+
+          ffmpeg.on("error", (err) => {
+            console.warn("⚠️ FFmpeg error:", err.message);
+            reject(err);
+          });
+        });
+
+        const staticIconConfigs = [
+          { size: 128, output: path.join(icon128Dir, `${this.pieceName}.png`) },
+          { size: 256, output: path.join(icon256Dir, `${this.pieceName}.png`) },
+          { size: 512, output: path.join(icon512Dir, `${this.pieceName}.png`) }
+        ];
+
+        for (const config of staticIconConfigs) {
+          await new Promise((resolve, reject) => {
+            const ffmpeg = spawn("ffmpeg", [
+              "-i", coverPath,
+              `-vf`, `scale=${config.size}:${config.size}:flags=neighbor,select=eq(n\\,90)`,
+              "-vframes", "1",
+              "-y",
+              config.output
+            ], { stdio: ["pipe", "pipe", "pipe"] });
+
+            let stderr = "";
+            ffmpeg.stderr.on("data", (data) => {
+              stderr += data.toString();
+            });
+
+            ffmpeg.on("close", (code) => {
+              if (code === 0) {
+                this.logVerbose(`🪄 Generated ${config.size}x${config.size} static PNG icon: ${path.relative(this.options.outputDir, config.output)}`);
+                resolve();
+              } else {
+                console.warn(`⚠️ ${config.size}x${config.size} static PNG icon generation failed with code:`, code);
+                console.warn("⚠️ FFmpeg stderr:", stderr);
+                reject(new Error(`FFmpeg failed with code ${code}`));
+              }
+            });
+
+            ffmpeg.on("error", (err) => {
+              console.warn("⚠️ FFmpeg error:", err.message);
+              reject(err);
+            });
+          });
+        }
+      } catch (error) {
+        console.log("ℹ️ Stub icon generation failed, creating static PNG fallbacks:", error.message);
+        try {
+          await this.createTransparentFallbackIcons(iconDirs);
+        } catch (fallbackError) {
+          console.log("ℹ️ Error creating fallback icon stubs:", fallbackError.message);
+        }
       }
     }
     
@@ -2084,6 +2605,8 @@ async function main() {
     console.error("  --density <value>       Set GIF output density scaling");
     console.error("  --gif-length <seconds>  Set cover GIF length in seconds (default 3)");
     console.error("  --target-dir <path>     Directory where ZIP and cover should be created");
+    console.error("  --tape <zip>            Use a pre-recorded tape ZIP instead of rendering live");
+    console.error("  --tape-start <percent>  Start cover GIF at this percentage (0-100, default 0)");
     console.error("  --analyze               Show dependency analysis without building");
     console.error("  --verbose               Enable detailed asset/glyph logging");
     console.error("  --quiet                 Suppress detailed asset/glyph logging (default)");
@@ -2093,6 +2616,10 @@ async function main() {
     console.error("  node ac-pack.mjs '$bop' --density 8");
     console.error("  node ac-pack.mjs '$bop' --analyze");
     console.error("  node ac-pack.mjs '$bop' --target-dir /path/to/output");
+    console.error("  node ac-pack.mjs '$4bb' --tape ./tape.zip");
+    console.error("  node ac-pack.mjs '$4bb' --tape ./tape.zip --tape-start 50");
+    console.error("");
+    console.error("💡 Tip: Run without --tape to be asked if you want to record one first!");
     process.exit(1);
   }
 
@@ -2100,6 +2627,7 @@ async function main() {
   const options = {};
   let analyzeOnly = false;
   let autoShip = false;
+  let hasTapeArg = false;
   
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--density' && i + 1 < args.length) {
@@ -2126,6 +2654,19 @@ async function main() {
       options.targetDir = args[i + 1];
       console.log(`🎯 Target directory: ${options.targetDir}`);
       i++; // Skip the next argument since we consumed it
+    } else if (args[i] === '--tape' && i + 1 < args.length) {
+      options.tapePath = args[i + 1];
+      hasTapeArg = true;
+      console.log(`📼 Tape source provided: ${options.tapePath}`);
+      i++;
+    } else if (args[i] === '--tape-start' && i + 1 < args.length) {
+      options.tapeStartPercent = parseFloat(args[i + 1]);
+      if (isNaN(options.tapeStartPercent) || options.tapeStartPercent < 0 || options.tapeStartPercent > 100) {
+        console.error("❌ Invalid tape start percentage. Must be between 0 and 100.");
+        process.exit(1);
+      }
+      console.log(`⏩ Tape start position: ${options.tapeStartPercent}%`);
+      i++;
     } else if (args[i] === '--analyze') {
       analyzeOnly = true;
     } else if (args[i] === '--auto-ship') {
@@ -2137,6 +2678,47 @@ async function main() {
     } else if (args[i] === '--log-ink') {
       options.logInkColors = true;
     }
+  }
+  
+  // Interactive tape recording prompt (only if no --tape provided and not in analyze mode)
+  if (!hasTapeArg && !analyzeOnly && process.stdin.isTTY) {
+    console.log("");
+    console.log("📼 Tape Recording Option");
+    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    console.log("Using a pre-recorded tape gives you:");
+    console.log("  • Full control over the animation recording");
+    console.log("  • 4 optimized covers: main, Twitter/X, objkt.com, icons");
+    console.log("  • Consistent output across all platforms");
+    console.log("");
+    console.log("To record a tape:");
+    console.log(`  1. Visit: https://aesthetic.computer/${pieceName}`);
+    console.log("  2. Press 'r' to start recording");
+    console.log("  3. Let it animate, then press 'r' again to stop");
+    console.log("  4. Download the tape ZIP file");
+    console.log("");
+    
+    const answer = await askQuestion("Would you like to record a tape first? (y/N): ");
+    
+    if (answer.toLowerCase() === 'y' || answer.toLowerCase() === 'yes') {
+      console.log("");
+      console.log("📝 Instructions:");
+      console.log(`  1. Open: https://aesthetic.computer/${pieceName}`);
+      console.log("  2. Press 'r' to start recording");
+      console.log("  3. Wait for your animation to complete");
+      console.log("  4. Press 'r' again to stop");
+      console.log("  5. Download the tape ZIP");
+      console.log("  6. Move it to the teia/output/ directory");
+      console.log("");
+      console.log("When ready, run:");
+      console.log(`  node teia/ac-pack.mjs ${pieceName} --tape ./teia/output/<tape-file>.zip --tape-start 50`);
+      console.log("");
+      console.log("💡 Tip: Use --tape-start to skip initial loading frames (0-100%)");
+      console.log("");
+      process.exit(0);
+    }
+    
+    console.log("▶️  Continuing with live rendering (orchestrator mode)...");
+    console.log("");
   }
   
   // If analyze-only mode, just show dependency analysis
