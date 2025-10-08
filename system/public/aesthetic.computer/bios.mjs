@@ -7763,6 +7763,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           // TODO: Voice.input();
         },
         function (needsRender, updateTimes, now) {
+          // 🖱️ TEIA mode: Hide CSS cursor after 2 seconds of inactivity
+          if (window.acTEIA_MODE && pen?.pointers[1]) {
+            const pointer = pen.pointers[1];
+            const timeSinceMove = performance.now() - (pointer.lastMoveTime || 0);
+            const shouldShowCursor = timeSinceMove < 2000;
+            
+            if (shouldShowCursor && document.body.style.cursor === 'none') {
+              document.body.style.cursor = "url('cursors/viewpoint.svg') 12 12, auto";
+            } else if (!shouldShowCursor && document.body.style.cursor !== 'none') {
+              document.body.style.cursor = 'none';
+            }
+          }
+
           // TODO: How can I get the pen data into the disk and back
           //       to Three.JS as fast as possible? 22.10.26.23.25
           diskSupervisor.requestFrame?.(needsRender, updateTimes, now);
@@ -9782,48 +9795,41 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               const scaledX = (originalX / canvas.width) * width + x;
               const scaledY = (originalY / canvas.height) * height + y;
 
-              // In TEIA mode, hide cursor after 2 seconds of inactivity
-              const hideAfterMs = window.acTEIA_MODE ? 2000 : Infinity;
-              const timeSinceMove = performance.now() - (pointer.lastMoveTime || 0);
-              const shouldShowCursor = timeSinceMove < hideAfterMs;
-
-              if (shouldShowCursor) {
-                if (pointer.device === "mouse") {
-                  sctx.drawImage(
-                    svgCursor,
-                    floor(scaledX - 12),
-                    floor(scaledY - 12),
-                    svgCursor.naturalWidth,
-                    svgCursor.naturalHeight,
-                  );
-                } else {
-                  // Draw cyan crosshair for touch devices
-                  const crosshairSize = 16;
-                  const crosshairThickness = 2;
-                  
-                  sctx.globalAlpha = 0.8;
-                  sctx.strokeStyle = "cyan";
-                  sctx.lineWidth = crosshairThickness;
-                  sctx.lineCap = "round";
-                  
-                  // Draw crosshair lines
-                  sctx.beginPath();
-                  // Horizontal line
-                  sctx.moveTo(scaledX - crosshairSize, scaledY);
-                  sctx.lineTo(scaledX + crosshairSize, scaledY);
-                  // Vertical line
-                  sctx.moveTo(scaledX, scaledY - crosshairSize);
-                  sctx.lineTo(scaledX, scaledY + crosshairSize);
-                  sctx.stroke();
-                  
-                  // Draw center dot
-                  sctx.fillStyle = "cyan";
-                  sctx.beginPath();
-                  sctx.arc(scaledX, scaledY, 2, 0, 2 * Math.PI);
-                  sctx.fill();
-                  
-                  sctx.globalAlpha = 1;
-                }
+              if (pointer.device === "mouse") {
+                sctx.drawImage(
+                  svgCursor,
+                  floor(scaledX - 12),
+                  floor(scaledY - 12),
+                  svgCursor.naturalWidth,
+                  svgCursor.naturalHeight,
+                );
+              } else {
+                // Draw cyan crosshair for touch devices
+                const crosshairSize = 16;
+                const crosshairThickness = 2;
+                
+                sctx.globalAlpha = 0.8;
+                sctx.strokeStyle = "cyan";
+                sctx.lineWidth = crosshairThickness;
+                sctx.lineCap = "round";
+                
+                // Draw crosshair lines
+                sctx.beginPath();
+                // Horizontal line
+                sctx.moveTo(scaledX - crosshairSize, scaledY);
+                sctx.lineTo(scaledX + crosshairSize, scaledY);
+                // Vertical line
+                sctx.moveTo(scaledX, scaledY - crosshairSize);
+                sctx.lineTo(scaledX, scaledY + crosshairSize);
+                sctx.stroke();
+                
+                // Draw center dot
+                sctx.fillStyle = "cyan";
+                sctx.beginPath();
+                sctx.arc(scaledX, scaledY, 2, 0, 2 * Math.PI);
+                sctx.fill();
+                
+                sctx.globalAlpha = 1;
               }
             }
 
