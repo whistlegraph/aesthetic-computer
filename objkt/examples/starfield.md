@@ -57,14 +57,14 @@ starfield/
 
 The piece automatically detects Teia environment via:
 ```javascript
-window.acTEIA_MODE = true;
+window.acOBJKT_MODE = true;
 window.acPIECE_NAME = "starfield";
 ```
 
 Teia URL parameters are accessible:
 ```javascript
-window.acTEIA_VIEWER  // Viewer's Tezos address
-window.acTEIA_CREATOR // Creator's Tezos address  
+window.acOBJKT_VIEWER  // Viewer's Tezos address
+window.acOBJKT_CREATOR // Creator's Tezos address  
 ```
 
 ## Deployment Steps
@@ -80,4 +80,4 @@ Original piece: [`/system/public/aesthetic.computer/disks/starfield.mjs`](../../
 
 ## Live Example
 
-🚀 **Ready for Teia deployment!** This piece demonstrates that aesthetic.computer works beautifully in the Teia Interactive OBJKT environment.
+🚀 **Ready for OBJKT deployment!** This piece demonstrates that aesthetic.computer works beautifully in the Teia Interactive OBJKT environment.

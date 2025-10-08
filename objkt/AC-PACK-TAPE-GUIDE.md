@@ -1,20 +1,20 @@
 # AC-Pack Tape Recording Guide
 
 ## Overview
-`ac-pack` can package Teia OBJKTs using pre-recorded tape archives from the aesthetic.computer client. This method gives you full control over the animation recording and generates multiple optimized GIF covers automatically.
+`ac-pack` can package OBJKTs using pre-recorded tape archives from the aesthetic.computer client. This method gives you full control over the animation recording and generates multiple optimized GIF covers automatically.
 
 ## Quick Start
 
 ### Option 1: Interactive Mode (Recommended)
 ```bash
-node teia/ac-pack.mjs piece-name
+node objkt/ac-pack.mjs piece-name
 ```
 The tool will ask if you want to record a tape first and guide you through the process.
 
 ### Option 2: Direct Tape Usage
 If you already have a tape file:
 ```bash
-node teia/ac-pack.mjs piece-name --tape ./path/to/tape.zip --tape-start 50
+node objkt/ac-pack.mjs piece-name --tape ./path/to/tape.zip --tape-start 50
 ```
 
 ## Recording a Tape
@@ -44,7 +44,7 @@ Path to your tape ZIP file. When provided, ac-pack will:
 
 Example:
 ```bash
-node teia/ac-pack.mjs $4bb --tape ./\$4bb-2025.10.08.14.30.00.123.zip
+node objkt/ac-pack.mjs $4bb --tape ./\$4bb-2025.10.08.14.30.00.123.zip
 ```
 
 ### `--tape-start <percentage>`
@@ -53,7 +53,7 @@ Useful for skipping black/loading frames at the beginning.
 
 Example:
 ```bash
-node teia/ac-pack.mjs $4bb --tape ./tape.zip --tape-start 50
+node objkt/ac-pack.mjs $4bb --tape ./tape.zip --tape-start 50
 ```
 This starts the animation from the middle frame (50% through the tape).
 
@@ -65,7 +65,7 @@ When using `--tape`, ac-pack automatically generates **four optimized GIF versio
 - **Size**: 512x512 pixels
 - **Frame Rate**: 50fps (constant, matches tape)
 - **Colors**: 128 colors with Bayer dithering
-- **Use**: Primary Teia OBJKT cover
+- **Use**: Primary OBJKT cover
 - **Typical Size**: ~46MB (full quality, all frames from tape-start to end)
 
 ### 2. Twitter/X Cover (`-x.gif`)
@@ -98,7 +98,7 @@ When using `--tape`, ac-pack automatically generates **four optimized GIF versio
 # 1. Record your piece in the browser (press 'r' twice)
 # 2. Download the tape ZIP
 # 3. Package with tape, starting from 50%
-node teia/ac-pack.mjs mypiece --tape ./mypiece-2025.10.08.14.30.00.123.zip --tape-start 50
+node objkt/ac-pack.mjs mypiece --tape ./mypiece-2025.10.08.14.30.00.123.zip --tape-start 50
 
 # Output files created:
 # - @author-mypiece-timestamp-cover.gif     (46MB - main)
