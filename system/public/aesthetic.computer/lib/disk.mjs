@@ -4720,6 +4720,12 @@ const $paintApiUnwrapped = {
     // should already have the correct buffer set via setBuffer()
     return graph.sharpen(strength);
   },
+  invert: function() {
+    // Invert RGB colors (255 - value) while preserving alpha
+    // When called from within a painting() context, the graph module
+    // should already have the correct buffer set via setBuffer()
+    return graph.invert();
+  },
   contrast: graph.contrast,
   shear: graph.shear,
   noise16: graph.noise16,
