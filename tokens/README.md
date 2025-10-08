@@ -6,10 +6,10 @@ This directory contains packaged aesthetic.computer pieces ready for upload to [
 
 ```fish
 # From root directory
-./pack-for-teia.fish starfield
+./pack-for-objkt.fish starfield
 
 # Or from tokens directory  
-cd tokens && ./pack-for-teia.fish starfield
+cd tokens && ./pack-for-objkt.fish starfield
 ```
 
 ## About

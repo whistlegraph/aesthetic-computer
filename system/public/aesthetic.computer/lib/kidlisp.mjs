@@ -9,7 +9,7 @@ import { parseMelody, noteToTone } from "./melody-parser.mjs";
 import { qrcode as qr } from "../dep/@akamfoad/qr/qr.mjs";
 import { cssColors, rainbow, zebra, resetZebraCache, resetRainbowCache, staticColorMap } from "./num.mjs";
 import { setFadeAlpha, clearFadeAlpha } from "./fade-state.mjs";
-import { checkTeiaMode } from "./teia-mode.mjs";
+import { checkObjktMode } from "./objkt-mode.mjs";
 
 /* #region 🤖 LLM API SPECIFICATION
    This section provides a structured specification for Large Language Models
@@ -457,7 +457,7 @@ async function getCachedCodeMultiLevel(cacheId) {
     return globalCodeCache.get(cacheId);
   }
 
-  // Level 1.5: Check TEIA pre-cached codes (for offline packages)
+  // Level 1.5: Check OBJKT pre-cached codes (for offline packages)
   const globalScope = (function () {
     if (typeof window !== 'undefined') return window;
     if (typeof globalThis !== 'undefined') return globalThis;
@@ -466,8 +466,8 @@ async function getCachedCodeMultiLevel(cacheId) {
     return {};
   })();
 
-  if (globalScope.teiaKidlispCodes && globalScope.teiaKidlispCodes[cacheId]) {
-    const teiaSource = globalScope.teiaKidlispCodes[cacheId];
+  if (globalScope.objktKidlispCodes && globalScope.objktKidlispCodes[cacheId]) {
+    const teiaSource = globalScope.objktKidlispCodes[cacheId];
     // Cache in RAM for future access
     globalCodeCache.set(cacheId, teiaSource);
     return teiaSource;
@@ -2486,12 +2486,12 @@ class KidLisp {
     try {
       // console.log("🚀 Starting cache request for:", source.substring(0, 50));
 
-      // Skip API calls in TEIA mode (offline packages)
-      const isTeiaMode = checkTeiaMode();
+      // Skip API calls in OBJKT mode (offline packages)
+      const isObjktMode = checkObjktMode();
 
-      // Force console logging to debug TEIA mode detection
-      if (isTeiaMode) {
-        // Generate a simple hash-based code for TEIA mode
+      // Force console logging to debug OBJKT mode detection
+      if (isObjktMode) {
+        // Generate a simple hash-based code for OBJKT mode
         const simpleHash = source.split('').reduce((a, b) => {
           a = ((a << 5) - a) + b.charCodeAt(0);
           return a & a;
@@ -6675,7 +6675,7 @@ class KidLisp {
           return this.createEmbeddedLayerFromSource(cachedSource, cacheId, layerKey, width, height, x, y, alpha, api);
         }
 
-        // 🎯 TEIA CACHE CHECK: Try to get source from global TEIA cache synchronously
+        // 🎯 OBJKT CACHE CHECK: Try to get source from global OBJKT cache synchronously
         const globalScope = (function() {
           if (typeof window !== 'undefined') return window;
           if (typeof globalThis !== 'undefined') return globalThis;
@@ -6684,9 +6684,9 @@ class KidLisp {
           return {};
         })();
 
-        if (globalScope.teiaKidlispCodes && globalScope.teiaKidlispCodes[cacheId]) {
-          const teiaSource = globalScope.teiaKidlispCodes[cacheId];
-          console.log(`🎯 Using TEIA cached code for embedded layer: ${cacheId}`);
+        if (globalScope.objktKidlispCodes && globalScope.objktKidlispCodes[cacheId]) {
+          const teiaSource = globalScope.objktKidlispCodes[cacheId];
+          console.log(`🎯 Using OBJKT cached code for embedded layer: ${cacheId}`);
           // Cache it in embeddedSourceCache for future use
           this.embeddedSourceCache.set(cacheId, teiaSource);
           // Mark as loaded since we have the source
@@ -11853,11 +11853,11 @@ async function fetchMultipleCachedCodes(codeArray, api = null) {
     return {};
   }
 
-  // Skip API calls in TEIA mode (offline packages)
-  const isTeiaMode = checkTeiaMode();
+  // Skip API calls in OBJKT mode (offline packages)
+  const isObjktMode = checkObjktMode();
 
-  if (isTeiaMode) {
-    return {}; // Return empty results in TEIA mode
+  if (isObjktMode) {
+    return {}; // Return empty results in OBJKT mode
   }
 
   console.log("🔧 fetchMultipleCachedCodes called with:", codeArray, "- attempting batch HTTPS fetch");
@@ -11907,11 +11907,11 @@ async function fetchMultipleCachedCodes(codeArray, api = null) {
 
 // Function to fetch cached KidLisp code from nanoid
 async function fetchCachedCode(nanoidCode, api = null) {
-  // Skip API calls in TEIA mode (offline packages)
-  const isTeiaMode = checkTeiaMode();
+  // Skip API calls in OBJKT mode (offline packages)
+  const isObjktMode = checkObjktMode();
 
-  if (isTeiaMode) {
-    return null; // Return null in TEIA mode
+  if (isObjktMode) {
+    return null; // Return null in OBJKT mode
   }
 
   // Helper function to try fetching from a specific URL

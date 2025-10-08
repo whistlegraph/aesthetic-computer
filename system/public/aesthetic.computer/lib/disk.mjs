@@ -705,7 +705,7 @@ const projectionMode = location.search.indexOf("nolabel") > -1; // Skip loading 
 
 import { setDebug } from "../disks/common/debug.mjs";
 import { customAlphabet } from "../dep/nanoid/nanoid.js";
-import { setTeiaMode, getTeiaMode, checkTeiaMode } from "./teia-mode.mjs";
+import { setObjktMode, getObjktMode, checkObjktMode } from "./objkt-mode.mjs";
 // import { update } from "./glaze.mjs";
 const alphabet =
   "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
@@ -1080,7 +1080,7 @@ function toggleQRFullscreen() {
 }
 
 let hudAnimationState = {
-  visible: !getTeiaMode(), // Hidden by default in TEIA mode, visible otherwise
+  visible: !getObjktMode(), // Hidden by default in OBJKT mode, visible otherwise
   animating: false,
   startTime: 0,
   duration: 500, // 500ms animation
@@ -1828,8 +1828,8 @@ const $commonApi = {
     offset: function () {
       if (clockFetching) return;
 
-      // Skip API calls in TEIA mode
-      if (getTeiaMode()) {
+      // Skip API calls in OBJKT mode
+      if (getObjktMode()) {
         clockFetching = false;
         return;
       }
@@ -5644,9 +5644,9 @@ async function load(
     // If we're loading an aesthetic.computer piece, choose the appropriate server
     let baseUrl;
     if (path.startsWith('aesthetic.computer/')) {
-      // Check if we're in TEIA mode - use local bundled files
-      if (getTeiaMode()) {
-        // In TEIA mode, use relative paths to load bundled pieces
+      // Check if we're in OBJKT mode - use local bundled files
+      if (getObjktMode()) {
+        // In OBJKT mode, use relative paths to load bundled pieces
         baseUrl = ".";
       } else {
         // Check if we're in a development environment (localhost with port)
@@ -5670,8 +5670,8 @@ async function load(
     
     // Check if path already includes the hostname to avoid double paths
     let resolvedPath = path;
-    if (getTeiaMode() && path.startsWith('aesthetic.computer/')) {
-      // In TEIA mode, keep the full path since files are bundled with directory structure
+    if (getObjktMode() && path.startsWith('aesthetic.computer/')) {
+      // In OBJKT mode, keep the full path since files are bundled with directory structure
       resolvedPath = path;
     } else if (baseUrl === 'https://aesthetic.computer' && path.startsWith('aesthetic.computer/')) {
       // Only strip "aesthetic.computer/" if we're using the main production domain
@@ -5681,15 +5681,15 @@ async function load(
     // if (debug) console.log("🔍 Debug path resolution:", { originalPath: path, resolvedPath, hostname, baseUrl });
     
     if (path.endsWith('.lisp')) {
-      if (getTeiaMode()) {
-        // In TEIA mode, use absolute path from iframe origin
+      if (getObjktMode()) {
+        // In OBJKT mode, use absolute path from iframe origin
         fullUrl = "/" + resolvedPath + "#" + Date.now();
       } else {
         fullUrl = baseUrl + "/" + resolvedPath + "#" + Date.now();
       }
     } else {
-      if (getTeiaMode()) {
-        // In TEIA mode, navigate up from lib directory to aesthetic.computer root, then to target
+      if (getObjktMode()) {
+        // In OBJKT mode, navigate up from lib directory to aesthetic.computer root, then to target
         const relativePath = resolvedPath.startsWith('aesthetic.computer/') 
           ? resolvedPath.substring('aesthetic.computer/'.length)
           : resolvedPath;
@@ -5772,13 +5772,13 @@ async function load(
           throw new Error(`Failed to load cached code: ${cacheId}`);
         }
       } else if (fullUrl) {
-        // In TEIA mode, try direct import first for .mjs files to avoid CSP issues
+        // In OBJKT mode, try direct import first for .mjs files to avoid CSP issues
         // Extract the filename from URL, handling ./ prefix and hash fragments
         const urlWithoutHash = fullUrl.split('#')[0];
         const filename = urlWithoutHash.split('/').pop();
         
-        if (getTeiaMode() && filename.endsWith('.mjs')) {
-          // In TEIA mode, skip dynamic import and use fetch directly since files are bundled locally
+        if (getObjktMode() && filename.endsWith('.mjs')) {
+          // In OBJKT mode, skip dynamic import and use fetch directly since files are bundled locally
           // Will proceed to fetch() below
         }
         
@@ -6070,8 +6070,8 @@ async function load(
 
   // Requests a session-backend and connects via websockets.
   function startSocket() {
-    // Skip socket connections in TEIA mode
-    if (getTeiaMode()) {
+    // Skip socket connections in OBJKT mode
+    if (getObjktMode()) {
       return;
     }
     
@@ -6202,10 +6202,10 @@ async function load(
   if (alias === false) {
     // Parse any special piece metadata.
     
-    // Check if we're in TEIA mode and have colophon data
-    let teiaContext = null;
-    if (checkTeiaMode() && typeof window !== 'undefined' && window.acTEIA_COLOPHON) {
-      teiaContext = { author: window.acTEIA_COLOPHON.build.author };
+    // Check if we're in OBJKT mode and have colophon data
+    let objktContext = null;
+    if (checkObjktMode() && typeof window !== 'undefined' && window.acOBJKT_COLOPHON) {
+      objktContext = { author: window.acOBJKT_COLOPHON.build.author };
     }
     
     const { title, desc, ogImage, twitterImage, icon } = metadata(
@@ -6217,7 +6217,7 @@ async function load(
         store: $commonApi.store,
       }) || inferTitleDesc(originalCode),
       location.protocol, // Pass the current protocol
-      teiaContext // Pass TEIA context if available
+      objktContext // Pass OBJKT context if available
     );
 
     meta = {
@@ -6694,7 +6694,7 @@ async function load(
             const chatModule = await import("../disks/chat.mjs");
             chatModule.boot($);
           } catch (err) {
-            console.log("💬 Chat disabled in TEIA mode");
+            console.log("💬 Chat disabled in OBJKT mode");
           }
         }
       };
@@ -6760,7 +6760,7 @@ async function load(
             const chatModule = await import("../disks/chat.mjs");
             chatModule.paint($, { embedded: true }); // Render any chat interface necessary.
           } catch (err) {
-            console.log("💬 Chat disabled in TEIA mode");
+            console.log("💬 Chat disabled in OBJKT mode");
           }
         }
       };
@@ -7061,8 +7061,8 @@ async function load(
     hideLabel = searchParams.has("nolabel");
   }
   
-  // Also hide label by default in TEIA mode (like nolabel)
-  if (getTeiaMode()) {
+  // Also hide label by default in OBJKT mode (like nolabel)
+  if (getObjktMode()) {
     hideLabel = true;
   }    currentColon = colon;
     currentParams = params;
@@ -7249,15 +7249,15 @@ async function makeFrame({ data: { type, content } }) {
     SHARE_SUPPORTED = content.shareSupported;
     PREVIEW_OR_ICON = content.previewOrIcon;
   VSCODE = content.vscode;
-  setTeiaMode(content.teiaMode || false);    // Store TEIA KidLisp cache in worker global scope
-    if (content.teiaKidlispCodes) {
+  setObjktMode(content.objktMode || false);    // Store OBJKT KidLisp cache in worker global scope
+    if (content.objktKidlispCodes) {
       const globalScope = (function() {
         if (typeof globalThis !== 'undefined') return globalThis;
         if (typeof self !== 'undefined') return self;
         if (typeof global !== 'undefined') return global;
         return {};
       })();
-      globalScope.teiaKidlispCodes = content.teiaKidlispCodes;
+      globalScope.objktKidlispCodes = content.objktKidlispCodes;
     }
     
     TV_MODE = content.resolution?.tv === true;
@@ -8246,7 +8246,7 @@ async function makeFrame({ data: { type, content } }) {
         //   }
         // }
 
-        if ((data.key === "$" || data.key === "Home") && !getTeiaMode()) {
+        if ((data.key === "$" || data.key === "Home") && !getObjktMode()) {
           if (data.ctrl || data.alt) {
             const sys = $commonApi.system;
             // Make it a painting.
@@ -8270,7 +8270,7 @@ async function makeFrame({ data: { type, content } }) {
 
         // ⛈️ Jump back to the `prompt` from anywhere..
         if (
-          !getTeiaMode() && // Disable navigation keys in TEIA mode
+          !getObjktMode() && // Disable navigation keys in OBJKT mode
           (data.key === "`" ||
             data.key === "Enter" ||
             data.key === "Backspace" ||
@@ -8347,15 +8347,15 @@ async function makeFrame({ data: { type, content } }) {
 
         // [Shift] Toggle QR code fullscreen mode for KidLisp pieces
         if (data.key === "Shift") {
-          console.log("⌨️ [Shift Key] Received! getTeiaMode():", getTeiaMode());
+          console.log("⌨️ [Shift Key] Received! getObjktMode():", getObjktMode());
         }
-        if (data.key === "Shift" && !getTeiaMode()) {
+        if (data.key === "Shift" && !getObjktMode()) {
           toggleQRFullscreen();
         }
 
         // [Ctrl + X]
         // Enter and exit fullscreen mode.
-        if (data.key === "x" && data.ctrl && currentText !== "notepat" && !getTeiaMode()) {
+        if (data.key === "x" && data.ctrl && currentText !== "notepat" && !getObjktMode()) {
           send({ type: "fullscreen-enable" });
         }
       }
@@ -11287,8 +11287,8 @@ async function makeFrame({ data: { type, content } }) {
                   // Render white text (no rotation for now)
                   $.ink("white"); // White text on black background
                   
-                  if (getTeiaMode()) {
-                    // In TEIA mode, try MatrixChunky8 first, fall back to default if not available
+                  if (getObjktMode()) {
+                    // In OBJKT mode, try MatrixChunky8 first, fall back to default if not available
                     let matrixFont = typefaceCache.get("MatrixChunky8");
                     if (matrixFont) {
                       
@@ -11373,8 +11373,8 @@ async function makeFrame({ data: { type, content } }) {
                   // Draw black shadow (1px offset) - no rotation for now
                   $.ink("black");
                   
-                  if (getTeiaMode()) {
-                    // In TEIA mode, try MatrixChunky8 first, fall back to default if not available
+                  if (getObjktMode()) {
+                    // In OBJKT mode, try MatrixChunky8 first, fall back to default if not available
                     const matrixFont = typefaceCache.get("MatrixChunky8");
                     if (matrixFont && matrixFont.glyphs) {
                       const testChar = matrixFont.glyphs['$'] || matrixFont.glyphs['A'] || matrixFont.glyphs['a'];
@@ -11403,8 +11403,8 @@ async function makeFrame({ data: { type, content } }) {
                   
                   // Draw white text on top - no rotation for now
                   $.ink("white");
-                  if (getTeiaMode()) {
-                    // In TEIA mode, try MatrixChunky8 first, fall back to default if not available
+                  if (getObjktMode()) {
+                    // In OBJKT mode, try MatrixChunky8 first, fall back to default if not available
                     const matrixFont = typefaceCache.get("MatrixChunky8");
                     if (matrixFont && matrixFont.glyphs) {
                       const testChar = matrixFont.glyphs['$'] || matrixFont.glyphs['A'] || matrixFont.glyphs['a'];

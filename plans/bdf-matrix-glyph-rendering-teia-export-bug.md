@@ -2,18 +2,18 @@
 
 **Date:** September 22, 2025  
 **Status:** Investigation Complete - Ready for Fix Implementation  
-**Priority:** High - Affects MatrixChunky8 font rendering in Teia packages
+**Priority:** High - Affects MatrixChunky8 font rendering in OBJKT packages
 
 ## Problem Summary
 
-MatrixChunky8 BDF font glyphs are not visually rendering in Teia packages despite all backend systems working correctly. The QR code corner label should display "$roz" using MatrixChunky8 glyphs but appears blank.
+MatrixChunky8 BDF font glyphs are not visually rendering in OBJKT packages despite all backend systems working correctly. The QR code corner label should display "$roz" using MatrixChunky8 glyphs but appears blank.
 
 ## Technical Investigation Results
 
 ### ✅ CONFIRMED WORKING
 - **Font Asset Loading**: 93 MatrixChunky8 glyph files successfully bundled and loaded
 - **Proxy System**: `font.glyphs` Proxy correctly returns glyph data: `{resolution: [6, 9], pixels: Array(9)}`
-- **TEIA Mode Detection**: Centralized teia-mode.mjs prevents API calls correctly
+- **TEIA Mode Detection**: Centralized objkt-mode.mjs prevents API calls correctly
 - **$.write() Execution**: Successfully calls MatrixChunky8 print method
 - **Glyph Data Integrity**: Sample '$' glyph shows correct 6x9 pixel matrix data
 
@@ -40,7 +40,7 @@ The issue is isolated to the **MatrixChunky8.print() method implementation**. Al
 
 ### Font Loading Pipeline (WORKING ✅)
 1. **Asset Bundling**: `ac-pack.mjs` successfully bundles 93 MatrixChunky8 glyph files
-2. **Proxy System**: `type.mjs` loads glyphs via Proxy in TEIA mode instead of fetching
+2. **Proxy System**: `type.mjs` loads glyphs via Proxy in OBJKT mode instead of fetching
 3. **Cache Management**: `disk.mjs` typefaceCache correctly stores MatrixChunky8 font
 4. **Glyph Access**: `font.glyphs['$']` returns correct pixel data
 
@@ -57,7 +57,7 @@ The issue is isolated to the **MatrixChunky8.print() method implementation**. Al
 - **Lines 9983-9985**: Added $.write() debugging around MatrixChunky8 calls
 
 ### `/workspaces/aesthetic-computer/system/public/aesthetic.computer/lib/type.mjs`
-- **Enhanced TEIA mode detection**: Fixed to use Proxy system instead of fetching files
+- **Enhanced OBJKT mode detection**: Fixed to use Proxy system instead of fetching files
 - **Eliminated 404 errors**: All MatrixChunky8 assets now load via bundled Proxy data
 
 ### `/workspaces/aesthetic-computer/teia/ac-unpack.mjs`
@@ -111,12 +111,12 @@ node ac-unpack.mjs      # Unpack and test
 
 ### Working Reference Implementation
 - **font_1 system**: Renders correctly in same Teia environment
-- **Regular AC environment**: MatrixChunky8 likely works in non-Teia mode
+- **Regular AC environment**: MatrixChunky8 likely works in non-OBJKT mode
 - **Asset bundling**: All font systems share same bundling infrastructure
 
 ### Dependency Chain
 1. `ac-pack.mjs` → Bundle MatrixChunky8 assets ✅
-2. `type.mjs` → Load via Proxy in TEIA mode ✅  
+2. `type.mjs` → Load via Proxy in OBJKT mode ✅  
 3. `disk.mjs` → Cache and access font data ✅
 4. `MatrixChunky8.print()` → Render pixels to canvas ❌
 

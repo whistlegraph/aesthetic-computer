@@ -1,4 +1,4 @@
-# $39i TEIA Pack Follow-ups
+# $39i OBJKT Pack Follow-ups
 
 ## 🔧 Next
 - [] The generated GIF / offline headless background color is weird.
@@ -13,7 +13,7 @@
 ## Done
 - [x] Format the KidLisp source block in `headers.mjs` to insert readable newlines and indentation.
   - [!] There are extra new line sbeing added and the original spacing is not respected... (I dont want a 'reformatter')
-- [x] Remove the noisy "Found TEIA cached code" console log from the KidLisp runtime.
+- [x] Remove the noisy "Found OBJKT cached code" console log from the KidLisp runtime.
 - [x] Suppress repetitive MatrixChunky8 glyph load errors in the packaged viewer (console error + window error filters).
 - [x] Ensure all MatrixChunky8 glyph JSON files ship inside the bundle so the viewer never issues 404s.
 - [x] Trim or gate remaining asset/glyph debug logging behind a quiet or verbose flag in `ac-pack`.
