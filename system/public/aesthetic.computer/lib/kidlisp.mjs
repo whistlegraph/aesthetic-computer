@@ -2963,13 +2963,6 @@ class KidLisp {
           if (this.embeddedLayers && this.embeddedLayers.length > 0) {
             const frameValue = $.frame || this.frameCount || 0;
             
-            // DEBUG: Check if embedded layer buffers share pixels with bake buffers
-            console.log(`🔍 BEFORE EMBEDDED RENDERING: Checking pixel array references`);
-            if (this.bakes && this.bakes[0]) {
-              console.log(`🔍 Bake buffer 0 pixels === screenBeforeEmbeds.pixels? ${this.bakes[0].pixels === screenBeforeEmbeds.pixels}`);
-              console.log(`🔍 Bake buffer 0 pixels === display pixels? ${this.bakes[0].pixels === screen.pixels}`);
-            }
-            
             this.embeddedLayers.forEach(embeddedLayer => {
               const shouldEvaluate = this.shouldLayerExecuteThisFrame($, embeddedLayer);
               this.renderSingleLayer($, embeddedLayer, frameValue, shouldEvaluate);
@@ -10862,58 +10855,40 @@ class KidLisp {
 
   // Evaluate a timing expression using the parent's timing state
   evaluateTimingExpression(api, timingExpr) {
-    console.log(`⏰ TIMING EVALUATION called with:`, {
-      timingExpr,
-      inEmbedPhase: this.inEmbedPhase,
-      isNestedInstance: this.isNestedInstance,
-      hasClock: !!api.clock
-    });
-
     // Extract the interval from expressions like "3s..." or "0.25s..."
     const match = timingExpr.match(/^(\d+(?:\.\d+)?)s\.\.\.$/);
     if (!match) {
-      console.log(`⏰ TIMING EVALUATION: Invalid pattern, returning true`);
       return true; // Invalid pattern, default to execute
     }
 
     const interval = parseFloat(match[1]);
     const timingKey = timingExpr + "_1"; // Use same key format as main timing system
 
-    console.log(`⏰ TIMING EVALUATION: Parsed interval=${interval}, timingKey=${timingKey}`);
-
     // Get current time
     const clockResult = api.clock?.time();
     if (!clockResult) {
-      console.log(`⏰ TIMING EVALUATION: No clock available, returning true`);
       return true; // No clock, default to execute
     }
 
     const currentTimeMs = clockResult.getTime ? clockResult.getTime() : Date.now();
     const currentTime = currentTimeMs / 1000;
 
-    console.log(`⏰ TIMING EVALUATION: Current time=${currentTime}`);
-
     // Use the parent KidLisp instance's timing state
     if (!this.lastSecondExecutions.hasOwnProperty(timingKey)) {
       // First execution - always execute and record time
       this.lastSecondExecutions[timingKey] = currentTime;
-      console.log(`⏰ TIMING EVALUATION: First execution, recording time and returning true`);
       return true;
     }
 
     const lastExecution = this.lastSecondExecutions[timingKey];
     const diff = currentTime - lastExecution;
 
-    console.log(`⏰ TIMING EVALUATION: Last execution=${lastExecution}, diff=${diff}, interval=${interval}`);
-
     // Check if enough time has passed for this timing interval
     if (diff >= interval) { // No tolerance - exact timing
       this.lastSecondExecutions[timingKey] = currentTime;
-      console.log(`⏰ TIMING EVALUATION: Time passed, updating and returning true`);
       return true;
     }
 
-    console.log(`⏰ TIMING EVALUATION: Not enough time passed, returning false`);
     return false;
   }
 
