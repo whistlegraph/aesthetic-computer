@@ -2899,7 +2899,7 @@ class KidLisp {
                   pixels[i + 2] = color[2]; // B
                   pixels[i + 3] = color[3] !== undefined ? color[3] : 255; // A
                 }
-                console.log(`🎨 Initialized new layer0 with first-line color:`, this.firstLineColor);
+                // console.log(`🎨 Initialized new layer0 with first-line color:`, this.firstLineColor);
               }
             }
           } else if (this.layer0.width !== screen.width || this.layer0.height !== screen.height) {
