@@ -3014,32 +3014,36 @@ class KidLisp {
           // If burn was called: just use the burned buffer (which already has everything composited)
           // Otherwise: layer0 → embedded layers → bake buffers
           
-          if (this.burnedBuffer && this.burnedBuffer.pixels) {
-            // Burn was called - the burned buffer has everything composited already
+          const hasBurnedBuffer = this.burnedBuffer && this.burnedBuffer.pixels;
+          
+          if (hasBurnedBuffer) {
+            // 🚀 FAST PATH: Burn was called - single paste of pre-composited buffer
             $.paste(this.burnedBuffer, 0, 0, 1, true); // true = blit mode, direct copy
           } else {
-            // No burn - composite layers normally
+            // 🐌 SLOW PATH: No burn - composite all layers individually
             // Step 1: Paste layer 0 (all drawing before first bake, or all drawing if no bake)
             if (this.layer0 && this.layer0.pixels) {
               $.paste(this.layer0, 0, 0, 1, true); // true = blit mode, direct copy
             }
             
             // Step 2: Paste embedded layers on top of layer0
-            if (this.embeddedLayers && this.embeddedLayers.length > 0) {
-              this.embeddedLayers.forEach(embeddedLayer => {
+            // 🚀 OPTIMIZATION: Only iterate if array exists (skip length check, forEach handles empty)
+            if (this.embeddedLayers) {
+              for (let i = 0, len = this.embeddedLayers.length; i < len; i++) {
+                const embeddedLayer = this.embeddedLayers[i];
                 if (embeddedLayer.buffer && embeddedLayer.buffer.pixels) {
                   this.pasteWithAlpha($, embeddedLayer.buffer, embeddedLayer.x, embeddedLayer.y, embeddedLayer.alpha);
                 }
-              });
+              }
             }
             
             // Step 3: Paste all bake buffers on top
-            if (this.bakes && this.bakes.length > 0) {
-              for (let i = 0; i < this.bakes.length; i++) {
+            // 🚀 OPTIMIZATION: Traditional for loop is faster than forEach
+            if (this.bakes) {
+              for (let i = 0, len = this.bakes.length; i < len; i++) {
                 const bakeLayer = this.bakes[i];
                 // Skip layers marked as "burned" (they've been composited into the burned buffer)
                 if (bakeLayer && bakeLayer.pixels && !bakeLayer.burned) {
-                  // Use paste to composite this bake layer on top
                   $.paste(bakeLayer, 0, 0);
                 }
               }
@@ -6196,21 +6200,22 @@ class KidLisp {
           api.paste(this.layer0, 0, 0);
         }
         
-        // Composite all non-burned bake layers on top
-        if (this.bakes && this.bakes.length > 0) {
-          for (let i = 0; i < this.bakes.length; i++) {
+        // 🚀 OPTIMIZATION: Composite all non-burned bake layers on top
+        // Cache length to avoid repeated .length lookups
+        if (this.bakes) {
+          const bakesLength = this.bakes.length;
+          for (let i = 0; i < bakesLength; i++) {
             const bakeLayer = this.bakes[i];
             if (bakeLayer && bakeLayer.pixels && !bakeLayer.burned) {
               api.paste(bakeLayer, 0, 0);
             }
           }
-        }
-        
-        // Mark all bake layers as burned (they've been composited into burnedBuffer)
-        if (this.bakes) {
-          for (let i = 0; i < this.bakes.length; i++) {
-            if (this.bakes[i] && !this.bakes[i].burned) {
-              this.bakes[i].burned = true;
+          
+          // 🚀 OPTIMIZATION: Mark all as burned in single pass (no redundant checks)
+          for (let i = 0; i < bakesLength; i++) {
+            const bakeLayer = this.bakes[i];
+            if (bakeLayer) {
+              bakeLayer.burned = true;
             }
           }
         }
