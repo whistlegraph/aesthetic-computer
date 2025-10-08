@@ -3,7 +3,7 @@
 // that appears after `aesthetic.computer/` in the address bar of the browser.
 
 import { isKidlispSource, decodeKidlispFromUrl } from "./kidlisp.mjs";
-import { checkTeiaMode } from "./teia-mode.mjs";
+import { checkObjktMode } from "./objkt-mode.mjs";
 
 // List of legitimate query parameters that should be preserved
 const LEGITIMATE_PARAMS = [
@@ -416,7 +416,7 @@ function inferTitleDesc(source) {
 }
 
 // Generates some metadata fields that are shared both on the client and server.
-function metadata(host, slug, pieceMetadata, protocol = "https:", teiaContext = null) {
+function metadata(host, slug, pieceMetadata, protocol = "https:", objktContext = null) {
   // Use a default title if there is no override.
   const notAesthetic =
     host.indexOf("sotce") > -1 ||
@@ -428,11 +428,11 @@ function metadata(host, slug, pieceMetadata, protocol = "https:", teiaContext = 
   
   let title;
   
-  // Check for TEIA mode and generate custom title format
-  if (checkTeiaMode()) {
+  // Check for OBJKT mode and generate custom title format
+  if (checkObjktMode()) {
     try {
-      const colophon = (typeof window !== 'undefined' && window.acTEIA_COLOPHON) || 
-                      (typeof globalThis !== 'undefined' && globalThis.acTEIA_COLOPHON);
+      const colophon = (typeof window !== 'undefined' && window.acOBJKT_COLOPHON) || 
+                      (typeof globalThis !== 'undefined' && globalThis.acOBJKT_COLOPHON);
       
       if (colophon?.piece?.name && colophon?.build?.author) {
         // Extract timestamp starting with 2025 from zipFilename (format: @author-$piece-2025.09.25.04.22.12.938.zip)
@@ -448,19 +448,19 @@ function metadata(host, slug, pieceMetadata, protocol = "https:", teiaContext = 
           timestamp = `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}.${String(date.getHours()).padStart(2, '0')}.${String(date.getMinutes()).padStart(2, '0')}.${String(date.getSeconds()).padStart(2, '0')}.${String(date.getMilliseconds()).padStart(3, '0')}`;
         }
         title = `${colophon.piece.name} by ${colophon.build.author}, ${timestamp}`;
-      } else if (teiaContext?.author) {
-        // Use teiaContext if provided (for pack pipeline)  
+      } else if (objktContext?.author) {
+        // Use objktContext if provided (for pack pipeline)  
         const year = new Date().getFullYear();
-        title = `${slug} by ${teiaContext.author}, ${year}`;
+        title = `${slug} by ${objktContext.author}, ${year}`;
       } else {
-        // Fallback for TEIA mode without colophon
+        // Fallback for OBJKT mode without colophon
         title = slug;
       }
     } catch (e) {
-      // Fallback if there's any issue accessing TEIA data
-      if (teiaContext?.author) {
+      // Fallback if there's any issue accessing OBJKT data
+      if (objktContext?.author) {
         const year = new Date().getFullYear();
-        title = `${slug} by ${teiaContext.author}, ${year}`;
+        title = `${slug} by ${objktContext.author}, ${year}`;
       } else {
         title = slug;
       }
