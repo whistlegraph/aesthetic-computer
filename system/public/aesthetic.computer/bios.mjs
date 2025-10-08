@@ -9776,46 +9776,54 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             sctx.drawImage(can, x, y, floor(width), floor(height));
 
             if (pen?.pointers[1]) {
-              const originalX = pen.pointers[1].x;
-              const originalY = pen.pointers[1].y;
+              const pointer = pen.pointers[1];
+              const originalX = pointer.x;
+              const originalY = pointer.y;
               const scaledX = (originalX / canvas.width) * width + x;
               const scaledY = (originalY / canvas.height) * height + y;
 
-              if (pen.pointers[1].device === "mouse") {
-                sctx.drawImage(
-                  svgCursor,
-                  floor(scaledX - 12),
-                  floor(scaledY - 12),
-                  svgCursor.naturalWidth,
-                  svgCursor.naturalHeight,
-                );
-              } else {
-                // Draw cyan crosshair for touch devices
-                const crosshairSize = 16;
-                const crosshairThickness = 2;
-                
-                sctx.globalAlpha = 0.8;
-                sctx.strokeStyle = "cyan";
-                sctx.lineWidth = crosshairThickness;
-                sctx.lineCap = "round";
-                
-                // Draw crosshair lines
-                sctx.beginPath();
-                // Horizontal line
-                sctx.moveTo(scaledX - crosshairSize, scaledY);
-                sctx.lineTo(scaledX + crosshairSize, scaledY);
-                // Vertical line
-                sctx.moveTo(scaledX, scaledY - crosshairSize);
-                sctx.lineTo(scaledX, scaledY + crosshairSize);
-                sctx.stroke();
-                
-                // Draw center dot
-                sctx.fillStyle = "cyan";
-                sctx.beginPath();
-                sctx.arc(scaledX, scaledY, 2, 0, 2 * Math.PI);
-                sctx.fill();
-                
-                sctx.globalAlpha = 1;
+              // In TEIA mode, hide cursor after 2 seconds of inactivity
+              const hideAfterMs = window.acTEIA_MODE ? 2000 : Infinity;
+              const timeSinceMove = performance.now() - (pointer.lastMoveTime || 0);
+              const shouldShowCursor = timeSinceMove < hideAfterMs;
+
+              if (shouldShowCursor) {
+                if (pointer.device === "mouse") {
+                  sctx.drawImage(
+                    svgCursor,
+                    floor(scaledX - 12),
+                    floor(scaledY - 12),
+                    svgCursor.naturalWidth,
+                    svgCursor.naturalHeight,
+                  );
+                } else {
+                  // Draw cyan crosshair for touch devices
+                  const crosshairSize = 16;
+                  const crosshairThickness = 2;
+                  
+                  sctx.globalAlpha = 0.8;
+                  sctx.strokeStyle = "cyan";
+                  sctx.lineWidth = crosshairThickness;
+                  sctx.lineCap = "round";
+                  
+                  // Draw crosshair lines
+                  sctx.beginPath();
+                  // Horizontal line
+                  sctx.moveTo(scaledX - crosshairSize, scaledY);
+                  sctx.lineTo(scaledX + crosshairSize, scaledY);
+                  // Vertical line
+                  sctx.moveTo(scaledX, scaledY - crosshairSize);
+                  sctx.lineTo(scaledX, scaledY + crosshairSize);
+                  sctx.stroke();
+                  
+                  // Draw center dot
+                  sctx.fillStyle = "cyan";
+                  sctx.beginPath();
+                  sctx.arc(scaledX, scaledY, 2, 0, 2 * Math.PI);
+                  sctx.fill();
+                  
+                  sctx.globalAlpha = 1;
+                }
               }
             }
 
