@@ -2038,7 +2038,48 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
     // Check to see if we can perform a full copy here,
     // with no alpha blending.
     if (blit) {
-      pixels.set(from.pixels, 0);
+      const srcPixels = from.pixels;
+      const srcWidth = from.width;
+      const srcHeight = from.height;
+
+      // ✅ FAST PATH: When buffers align perfectly, use bulk copy
+      if (
+        destX === 0 &&
+        destY === 0 &&
+        srcPixels &&
+        srcPixels.length === pixels.length &&
+        srcWidth === width &&
+        srcHeight === height
+      ) {
+        pixels.set(srcPixels, 0);
+      } else {
+        // 🛡️ SAFETY FALLBACK: Clamp copy region to destination bounds to avoid RangeError
+        const maxWidth = Math.min(srcWidth, Math.max(0, width - destX));
+        const maxHeight = Math.min(srcHeight, Math.max(0, height - destY));
+
+        if (maxWidth <= 0 || maxHeight <= 0) {
+          return; // Nothing to copy
+        }
+
+        for (let y = 0; y < maxHeight; y += 1) {
+          const srcRowStart = y * srcWidth * 4;
+          const destRowStart = ((destY + y) * width + destX) * 4;
+
+          for (let x = 0; x < maxWidth; x += 1) {
+            const srcIdx = srcRowStart + x * 4;
+            const destIdx = destRowStart + x * 4;
+
+            if (srcIdx + 3 >= srcPixels.length || destIdx + 3 >= pixels.length) {
+              continue; // Skip out-of-bounds writes
+            }
+
+            pixels[destIdx] = srcPixels[srcIdx];
+            pixels[destIdx + 1] = srcPixels[srcIdx + 1];
+            pixels[destIdx + 2] = srcPixels[srcIdx + 2];
+            pixels[destIdx + 3] = srcPixels[srcIdx + 3];
+          }
+        }
+      }
     } else {
       // 🚀 MAJOR OPTIMIZATION: Bulk pixel copying for better performance
       const srcWidth = from.width;
