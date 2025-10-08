@@ -2814,8 +2814,18 @@ class KidLisp {
 
           const mainEvalStart = performance.now();
           
-          // Save the original screen reference before evaluation
-          const screen = $.screen;
+          // Save the ORIGINAL display buffer at the start of each frame
+          // This is the buffer we need to restore to after drawing to layer0/bake buffers
+          // We create a stable buffer object that won't be mutated by page() calls
+          const displayPixels = $.screen.pixels;  // Save the actual pixels reference
+          const screen = {
+            width: $.screen.width,
+            height: $.screen.height,
+            pixels: displayPixels
+          };
+          
+          // Store for later use in compositing
+          this.displayBuffer = screen;
           
           // 🧹 Clear screen on first paint frame to remove previous piece's content
           if (this.needsInitialWipe) {
@@ -2872,6 +2882,16 @@ class KidLisp {
           // Evaluate the entire AST - bake() calls will switch to bake buffers
           /*const evaluated = */ this.evaluate(this.ast, $, undefined, undefined, true);
           
+          // DEBUG: Check bake buffer contents after evaluation
+          if (this.currentBakeIndex >= 0 && this.bakes && this.bakes[this.currentBakeIndex]) {
+            let nonTransparent = 0;
+            const buf = this.bakes[this.currentBakeIndex];
+            for (let i = 3; i < buf.pixels.length; i += 4) {
+              if (buf.pixels[i] > 0) nonTransparent++;
+            }
+            console.log(`🍞 AFTER EVALUATION: Bake buffer ${this.currentBakeIndex} has ${nonTransparent} non-transparent pixels`);
+          }
+          
           // 🍞 IMPLICIT TRAILING BAKE: If we used bake and ended on a bake buffer,
           // automatically create one more empty bake buffer to finalize the current one.
           // This makes the last bake buffer eligible for compositing without requiring
@@ -2904,16 +2924,11 @@ class KidLisp {
             // Store in bakes array
             this.bakes[this.currentBakeIndex] = bakeBuffer;
             
-            // Switch drawing to this bake buffer
-            $.page(bakeBuffer);
-            $.screen.pixels = bakeBuffer.pixels;
+            // Don't alias screen.pixels - just mark the buffer as active
+            this.activeBakeBuffer = bakeBuffer;
             
             // console.log(`🍞 AUTO-FINALIZING: After implicit bake, currentBakeIndex=${this.currentBakeIndex}, total buffers=${this.bakes?.length}`);
           }
-          
-          // Always restore screen as drawing target after evaluation
-          // (embedded layers, post-embed commands, and paste operations need the screen)
-          $.page(screen);
           
           if (VERBOSE) console.log("🎬 Finished evaluation");
           const mainEvalTime = performance.now() - mainEvalStart;
@@ -2924,6 +2939,9 @@ class KidLisp {
           // Update embedded layers (evaluate their code and update buffers)
           // But DON'T paste them yet - we'll composite them in the right order below
           const embedStart = performance.now();
+          // Save current drawing target before rendering embedded layers
+          // (could be layer0 or a bake layer at this point)
+          const screenBeforeEmbeds = $.screen;
           // Update embedded layer buffers without pasting
           if (this.embeddedLayers && this.embeddedLayers.length > 0) {
             const frameValue = $.frame || this.frameCount || 0;
@@ -2932,6 +2950,8 @@ class KidLisp {
               this.renderSingleLayer($, embeddedLayer, frameValue, shouldEvaluate);
             });
           }
+          // Restore drawing target after embedded layers (could be layer0 or a bake layer)
+          $.page(screenBeforeEmbeds);
           const embedTime = performance.now() - embedStart;
 
 
@@ -2954,7 +2974,12 @@ class KidLisp {
           });
           this.postEmbedCommands = [];
 
-          // 🍞 COMPOSITE: Proper layering order
+          // � CRITICAL: Restore original screen before compositing
+          // During evaluation, $.screen may have been switched to layer0 or bake buffers
+          // We need to composite all layers onto the ORIGINAL screen buffer
+          $.page(screen);
+
+          // �🍞 COMPOSITE: Proper layering order
           // 1. Paste layer0 (background, pre-bake drawing)
           // 2. Paste embedded layers (middle layer)
           // 3. Paste bake buffers (foreground, post-bake drawing)
@@ -6025,20 +6050,16 @@ class KidLisp {
           const existing = this.bakes[this.currentBakeIndex];
           if (existing.width === width && existing.height === height) {
             // DON'T clear the buffer - bake layers should accumulate across frames!
-            // existing.pixels.fill(0);  // REMOVED - this was clearing our persistent layers
-            // const pixelsBefore = Array.from(api.screen.pixels).filter((_, i) => i % 4 === 3 && api.screen.pixels[i] > 0).length;
-            // const bakePixels = Array.from(existing.pixels).filter((_, i) => i % 4 === 3 && existing.pixels[i] > 0).length;
-            // console.log(`🍞 REUSING bake buffer ${this.currentBakeIndex}: api.screen has ${pixelsBefore} pixels, bake buffer has ${bakePixels} pixels`);
             
-            // Switch to drawing into the bake buffer
-            // We call page() to update graph.setBuffer, but then directly assign pixels 
-            // because page() doesn't always preserve the pixels reference correctly
+            // DEBUG: Check if buffer has content before reusing
+            let nonTransparent = 0;
+            for (let i = 3; i < existing.pixels.length; i += 4) {
+              if (existing.pixels[i] > 0) nonTransparent++;
+            }
+            console.log(`🍞 REUSING bake buffer ${this.currentBakeIndex}: ${nonTransparent} non-transparent pixels BEFORE drawing`);
+            
+            // Switch drawing to this persistent bake layer (just like layer0)
             api.page(existing);
-            api.screen.pixels = existing.pixels; // Force the pixels reference to match
-            
-            // console.log(`🍞 AFTER page(): api.screen.pixels === bakes[${this.currentBakeIndex}].pixels? ${api.screen.pixels === existing.pixels}`);
-            // const pixelsAfter = Array.from(api.screen.pixels).filter((_, i) => i % 4 === 3 && api.screen.pixels[i] > 0).length;
-            // console.log(`🍞 AFTER page(): api.screen now has ${pixelsAfter} pixels (should match bake buffer: ${bakePixels})`);
             
             return this.currentBakeIndex;
           }
@@ -6057,12 +6078,10 @@ class KidLisp {
         // Store in bakes array
         this.bakes[this.currentBakeIndex] = bakeBuffer;
         
-        // Switch drawing to this bake buffer
-        // Call page() to update graph.setBuffer, then force pixels reference
+        // Switch drawing to this persistent bake layer (just like layer0)
         api.page(bakeBuffer);
-        api.screen.pixels = bakeBuffer.pixels; // Force the pixels reference to match
         
-        console.log(`🍞 NEW bake buffer ${this.currentBakeIndex} created: api.screen.pixels === bakeBuffer.pixels? ${api.screen.pixels === bakeBuffer.pixels}`);
+        console.log(`🍞 NEW bake buffer ${this.currentBakeIndex} created`);
         
         return this.currentBakeIndex;
       },
