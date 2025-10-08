@@ -2,7 +2,7 @@
 
 /**
  * GIF Renderer for Cover Images
- * Generates a short animated GIF suitable for use as cover images in Teia packages
+ * Generates a short animated GIF suitable for use as cover images in OBJKT packages
  * Based on the orchestrator system but optimized for small file sizes
  * Uses gifenc for high-quality GIF generation
  */

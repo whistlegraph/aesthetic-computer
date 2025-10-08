@@ -1,5 +1,5 @@
 /**
- * Dependency Analyzer for TEIA Packaging
+ * Dependency Analyzer for OBJKT Packaging
  * Analyzes piece code to determine which dependencies are actually needed
  * and which can be safely excluded to reduce package size.
  */
