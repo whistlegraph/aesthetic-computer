@@ -382,16 +382,16 @@ class AcPacker {
   }
 
   async generateIndexHtml(pieceData, hasDependencies = false) {
-    // Set up TEIA mode environment before generating metadata
+    // Set up PACK mode environment before generating metadata
     global.window = global.window || {};
-    global.window.acTEIA_MODE = true;
+    global.window.acPACK_MODE = true;
     global.globalThis = global.globalThis || {};
-    global.globalThis.acTEIA_MODE = true;
+    global.globalThis.acPACK_MODE = true;
     
-    // Import and call metadata with TEIA context
+    // Import and call metadata with OBJKT context
     const { metadata } = await import("../system/public/aesthetic.computer/lib/parse.mjs");
-    const teiaContext = { author: this.options.author };
-    const generatedMetadata = metadata("localhost", this.pieceName, {}, "https:", teiaContext);
+    const objktContext = { author: this.options.author };
+    const generatedMetadata = metadata("localhost", this.pieceName, {}, "https:", objktContext);
     
     // Override metadata URLs to use relative paths for static packaging
     if (generatedMetadata) {
@@ -452,10 +452,10 @@ class AcPacker {
     };
     
     // Set colophon in global context for metadata generation
-    globalThis.acTEIA_COLOPHON = colophonData;
+    globalThis.acPACK_COLOPHON = colophonData;
     
     // Regenerate metadata with complete colophon data (including zipFilename) for proper title
-    const finalMetadata = metadata("localhost", this.pieceName, colophonData, "https:", teiaContext);
+    const finalMetadata = metadata("localhost", this.pieceName, colophonData, "https:", objktContext);
     
     // Override metadata URLs to use relative paths for static packaging
     if (finalMetadata) {
@@ -491,11 +491,11 @@ class AcPacker {
     <meta name="twitter:image" content="${this.options.coverImage}" />
     
     <script type="text/javascript">
-// Teia mode configuration - simple starting piece override
-window.acTEIA_MODE = true;
+// PACK mode configuration - simple starting piece override
+window.acPACK_MODE = true;
 window.acSTARTING_PIECE = "${this.pieceName}"; // Override default "prompt" piece
 
-// Suppress console errors for missing font files in TEIA mode
+// Suppress console errors for missing font files in PACK mode
 (function() {
   const originalError = console.error;
   console.error = function(...args) {
@@ -538,12 +538,12 @@ window.acSTARTING_PIECE = "${this.pieceName}"; // Override default "prompt" piec
 })();
 
 // Colophonic information for provenance and debugging
-window.acTEIA_COLOPHON = ${JSON.stringify(colophonData, null, 2)};
+window.acPACK_COLOPHON = ${JSON.stringify(colophonData, null, 2)};
 
 // Extract Teia URL parameters
 const urlParams = new URLSearchParams(window.location.search);
-window.acTEIA_VIEWER = urlParams.get('viewer') || null;
-window.acTEIA_CREATOR = urlParams.get('creator') || null;
+window.acPACK_VIEWER = urlParams.get('viewer') || null;
+window.acPACK_CREATOR = urlParams.get('creator') || null;
 
 // Add custom density parameter to URL if specified
 ${this.options.density ? `
@@ -564,32 +564,32 @@ if (!urlParams.has('density')) {
 // Force sandbox mode for Teia
 window.acSANDBOX_MODE = true;
 
-// Disable session for teia mode (no need for session in standalone packages)
+// Disable session for pack mode (no need for session in standalone packages)
 window.acDISABLE_SESSION = true;
 
 // Enable nogap mode by default for teia
 window.acNOGAP_MODE = true;
 
-// Set TEIA mode on both window and globalThis for maximum compatibility
-window.acTEIA_MODE = true;
-globalThis.acTEIA_MODE = true;
+// Set PACK mode on both window and globalThis for maximum compatibility
+window.acPACK_MODE = true;
+globalThis.acPACK_MODE = true;
 
-console.log('🎭 Teia mode activated:', {
+console.log('🎭 PACK mode activated:', {
   startingPiece: window.acSTARTING_PIECE,
-  viewer: window.acTEIA_VIEWER,
-  creator: window.acTEIA_CREATOR,
+  viewer: window.acPACK_VIEWER,
+  creator: window.acPACK_CREATOR,
   disableSession: window.acDISABLE_SESSION,
   nogapMode: window.acNOGAP_MODE,
-  teiaMode: window.acTEIA_MODE,
+  objktMode: window.acPACK_MODE,
   customDensity: ${this.options.density ? `'${this.options.density}'` : 'null'}
 });
 
-// Periodically ensure TEIA mode stays enabled
+// Periodically ensure PACK mode stays enabled
 setInterval(() => {
-  if (!window.acTEIA_MODE || !globalThis.acTEIA_MODE) {
-    console.log('� Restoring TEIA mode flags');
-    window.acTEIA_MODE = true;
-    globalThis.acTEIA_MODE = true;
+  if (!window.acPACK_MODE || !globalThis.acPACK_MODE) {
+    console.log('� Restoring PACK mode flags');
+    window.acPACK_MODE = true;
+    globalThis.acPACK_MODE = true;
   }
 }, 100);
     </script>
@@ -598,7 +598,7 @@ setInterval(() => {
   <script src="${this.getPackagedRelativePath('boot.js')}" type="module" defer onerror="handleModuleLoadError()"></script>
   <link rel="stylesheet" href="${this.getPackagedRelativePath('style.css')}" />
     <style>
-      /* Keep transparent background for TEIA mode */
+      /* Keep transparent background for PACK mode */
       body.nogap {
         background-color: transparent !important;
       }
@@ -728,7 +728,7 @@ setInterval(() => {
       <div class="boot-message">booting...</div>
       <div class="error-message" style="display: none;">
         <h3>🚫 Module Loading Error (CORS)</h3>
-        <p>This TEIA package needs to be served from an HTTP server to work properly.</p>
+        <p>This OBJKT package needs to be served from an HTTP server to work properly.</p>
         <p><strong>Quick Solutions:</strong></p>
         <ul>
           <li><strong>Python:</strong> <code>python -m http.server 8000</code></li>
@@ -758,7 +758,7 @@ setInterval(() => {
     <script>
       if (window.self !== window.top) document.body.classList.add("embed");
       
-      // Auto-enable nogap for teia mode or URL parameter
+      // Auto-enable nogap for pack mode or URL parameter
       const params = new URLSearchParams(location.search);
       if (window.acNOGAP_MODE || params.has("nogap") || location.search.includes("nogap")) {
         document.body.classList.add("nogap");
@@ -878,7 +878,7 @@ ${cacheCode}
 
     const serializedGlyphs = JSON.stringify(this.matrixChunkyGlyphMap);
     return `<script type="text/javascript">
-window.acTEIA_MATRIX_CHUNKY_GLYPHS = ${serializedGlyphs};
+window.acPACK_MATRIX_CHUNKY_GLYPHS = ${serializedGlyphs};
 </script>`;
   }
 
@@ -898,28 +898,28 @@ window.acTEIA_MATRIX_CHUNKY_GLYPHS = ${serializedGlyphs};
         
         let content = await fs.readFile(srcPath, "utf8");
         
-        // Patch style.css for better nogap support in teia mode
+        // Patch style.css for better nogap support in pack mode
         if (file === 'style.css') {
-          content = this.patchStyleCssForTeia(content);
+          content = this.patchStyleCssForObjkt(content);
           console.log(`🔧 Patched style.css for enhanced nogap support`);
         }
         
-        // Patch bios.mjs for teia mode - fix webfont URLs
+        // Patch bios.mjs for pack mode - fix webfont URLs
         if (file === 'bios.mjs') {
-          content = await this.patchBiosJsForTeia(content);
-          console.log(`🎨 Patched bios.mjs for teia mode`);
+          content = await this.patchBiosJsForObjkt(content);
+          console.log(`🎨 Patched bios.mjs for pack mode`);
         }
         
-        // Patch boot.mjs for teia mode - fix dependency URLs
+        // Patch boot.mjs for pack mode - fix dependency URLs
         if (file === 'boot.mjs') {
-          content = await this.patchBootJsForTeia(content);
-          console.log(`🎨 Patched boot.mjs for teia mode`);
+          content = await this.patchBootJsForObjkt(content);
+          console.log(`🎨 Patched boot.mjs for pack mode`);
         }
         
-        // Patch parse.mjs for teia mode - handle piece overrides
+        // Patch parse.mjs for pack mode - handle piece overrides
         if (file === 'lib/parse.mjs') {
-          content = await this.patchParseJsForTeia(content);
-          console.log(`🎨 Patched parse.mjs for teia mode`);
+          content = await this.patchParseJsForObjkt(content);
+          console.log(`🎨 Patched parse.mjs for pack mode`);
         }
         
         await fs.writeFile(destPath, content);
@@ -947,34 +947,34 @@ window.acTEIA_MATRIX_CHUNKY_GLYPHS = ${serializedGlyphs};
         const destPath = path.join(libOutputDir, libFile);
         let content = await fs.readFile(srcPath, "utf8");
         
-        // Patch type.mjs for teia mode - prevent API fallback calls
+        // Patch type.mjs for pack mode - prevent API fallback calls
         if (libFile === 'type.mjs') {
-          content = this.patchTypeJsForTeia(content);
-          console.log(`🔧 Patched type.mjs for teia mode`);
+          content = this.patchTypeJsForObjkt(content);
+          console.log(`🔧 Patched type.mjs for pack mode`);
         }
         
-        // Patch kidlisp.mjs for teia mode - reduce verbose logging
+        // Patch kidlisp.mjs for pack mode - reduce verbose logging
         if (libFile === 'kidlisp.mjs') {
-          content = this.patchKidLispJsForTeia(content);
-          console.log(`🔧 Patched kidlisp.mjs for teia mode`);
+          content = this.patchKidLispJsForObjkt(content);
+          console.log(`🔧 Patched kidlisp.mjs for pack mode`);
         }
         
-        // Patch headers.mjs for teia mode - fix import statements
+        // Patch headers.mjs for pack mode - fix import statements
         if (libFile === 'headers.mjs') {
-          content = this.patchHeadersJsForTeia(content);
-          console.log(`🔧 Patched headers.mjs for teia mode`);
+          content = this.patchHeadersJsForObjkt(content);
+          console.log(`🔧 Patched headers.mjs for pack mode`);
         }
         
-        // Patch disk.mjs for teia mode - prevent session connections
+        // Patch disk.mjs for pack mode - prevent session connections
         if (libFile === 'disk.mjs') {
-          content = await this.patchDiskJsForTeia(content);
-          console.log(`🔧 Patched disk.mjs for teia mode`);
+          content = await this.patchDiskJsForObjkt(content);
+          console.log(`🔧 Patched disk.mjs for pack mode`);
         }
         
-        // Patch udp.mjs for teia mode - disable networking functionality
+        // Patch udp.mjs for pack mode - disable networking functionality
         if (libFile === 'udp.mjs') {
-          content = this.patchUdpJsForTeia(content);
-          console.log(`🔧 Patched udp.mjs for teia mode`);
+          content = this.patchUdpJsForObjkt(content);
+          console.log(`🔧 Patched udp.mjs for pack mode`);
         }
         
         await fs.writeFile(destPath, content);
@@ -1009,10 +1009,10 @@ window.acTEIA_MATRIX_CHUNKY_GLYPHS = ${serializedGlyphs};
 
     // Create required stubs
     const stubs = [
-      { name: "uniforms.js", content: "// Uniform stub for Teia mode\nexport default {};" },
-      { name: "vec4.mjs", content: "// Vec4 stub for Teia mode\nexport default {};" },
-      { name: "idb.js", content: "// IndexedDB stub for Teia mode" },
-      { name: "geckos.io-client.2.3.2.min.js", content: "// Geckos stub for Teia mode\nexport default null;\nmodule.exports = null;" }
+      { name: "uniforms.js", content: "// Uniform stub for PACK mode\nexport default {};" },
+      { name: "vec4.mjs", content: "// Vec4 stub for PACK mode\nexport default {};" },
+      { name: "idb.js", content: "// IndexedDB stub for PACK mode" },
+      { name: "geckos.io-client.2.3.2.min.js", content: "// Geckos stub for PACK mode\nexport default null;\nmodule.exports = null;" }
     ];
 
     for (const stub of stubs) {
@@ -1196,7 +1196,7 @@ window.acTEIA_MATRIX_CHUNKY_GLYPHS = ${serializedGlyphs};
 
     // Handle KidLisp $codes - create a stub piece that jumps to the cached code
     if (this.pieceName.startsWith('$')) {
-      const stubContent = `// KidLisp $code stub for Teia mode
+      const stubContent = `// KidLisp $code stub for PACK mode
 export function boot({ wipe, ink, help, backgroundFill }) {
   // Load the cached KidLisp code
   wipe("black");
@@ -1236,7 +1236,7 @@ export function boot({ wipe, ink, help, backgroundFill }) {
     
     // Create essential disk stubs that might be required
     const stubs = [
-      { name: "chat.mjs", content: "// Chat stub for Teia mode\nexport function boot() {}\nexport function paint() {}\nexport function act() {}" }
+      { name: "chat.mjs", content: "// Chat stub for PACK mode\nexport function boot() {}\nexport function paint() {}\nexport function act() {}" }
     ];
 
     for (const stub of stubs) {
@@ -2167,11 +2167,11 @@ export function boot({ wipe, ink, help, backgroundFill }) {
     console.log("📎 Asset copying complete (minimal set)");
   }
 
-  patchStyleCssForTeia(content) {
+  patchStyleCssForObjkt(content) {
     // Enhance nogap mode for full viewport coverage
     console.log("🔧 Patching style.css for enhanced nogap support...");
     
-    // Replace precise.svg cursor with viewpoint.svg for TEIA mode
+    // Replace precise.svg cursor with viewpoint.svg for PACK mode
     let patched = content.replace(
       /cursor:\s*url\(['"]?cursors\/precise\.svg['"]?\)\s*12\s*12,\s*auto;/g,
       "cursor: url('cursors/viewpoint.svg') 12 12, auto;"
@@ -2220,17 +2220,17 @@ export function boot({ wipe, ink, help, backgroundFill }) {
     return patched;
   }
 
-  patchTypeJsForTeia(content) {
-    console.log("🔧 Patching type.mjs for teia mode...");
+  patchTypeJsForObjkt(content) {
+    console.log("🔧 Patching type.mjs for pack mode...");
     
     let patched = content;
     
-    // Suppress fetch errors for missing MatrixChunky8 font files in TEIA mode
+    // Suppress fetch errors for missing MatrixChunky8 font files in PACK mode
     const fetchPattern = /const response = await fetch\(glyphPath\);[\s\S]*?if \(!response\.ok\) \{\s*throw new Error\(`HTTP \$\{response\.status\}: \$\{response\.statusText\}`\);\s*\}/;
     patched = patched.replace(fetchPattern, 
       `const response = await fetch(glyphPath);
             if (!response.ok) {
-              // Silently fail for missing font files in TEIA mode to avoid console errors
+              // Silently fail for missing font files in PACK mode to avoid console errors
               throw new Error(\`HTTP \${response.status}: \${response.statusText}\`);
             }`
     );
@@ -2238,26 +2238,26 @@ export function boot({ wipe, ink, help, backgroundFill }) {
     return patched;
   }
 
-  async patchBootJsForTeia(content) {
+  async patchBootJsForObjkt(content) {
     console.log('🎨 Patching boot.mjs for teia dependency URLs and TV mode...');
     
     let patched = content;
     const packagedAuth0Path = this.getPackagedRelativePath('dep', 'auth0-spa-js.production.js');
     
-    // Force TV mode (non-interactive) when in TEIA mode
+    // Force TV mode (non-interactive) when in PACK mode
     const tvParamPattern = /const tv = tvParam === true \|\| tvParam === "true";/;
     patched = patched.replace(tvParamPattern, 
-      `const tv = tvParam === true || tvParam === "true" || window.acTEIA_MODE;`
+      `const tv = tvParam === true || tvParam === "true" || window.acPACK_MODE;`
     );
     
-    // Fix auth0 script URL to use relative path in teia mode
+    // Fix auth0 script URL to use relative path in pack mode
     const auth0Pattern = /script\.src = "\/aesthetic\.computer\/dep\/auth0-spa-js\.production\.js";/;
     patched = patched.replace(auth0Pattern, 
-      `// Check if we're in teia mode for relative path
-      const isTeiaMode = (typeof window !== 'undefined' && window.acTEIA_MODE) ||
-                       (typeof globalThis !== 'undefined' && globalThis.acTEIA_MODE);
+      `// Check if we're in pack mode for relative path
+      const isObjktMode = (typeof window !== 'undefined' && window.acPACK_MODE) ||
+                       (typeof globalThis !== 'undefined' && globalThis.acPACK_MODE);
       
-      if (isTeiaMode) {
+      if (isObjktMode) {
         script.src = "${packagedAuth0Path}";
       } else {
         script.src = "/aesthetic.computer/dep/auth0-spa-js.production.js";
@@ -2267,60 +2267,60 @@ export function boot({ wipe, ink, help, backgroundFill }) {
     return patched;
   }
 
-  patchKidLispJsForTeia(content) {
-    // kidlisp.mjs now has built-in TEIA support via getCachedCodeMultiLevel
+  patchKidLispJsForObjkt(content) {
+    // kidlisp.mjs now has built-in OBJKT support via getCachedCodeMultiLevel
     // No patching needed anymore
     return content;
-  }  async patchDiskJsForTeia(content) {
-    console.log('🔧 Patching disk.mjs for Teia mode...');
+  }  async patchDiskJsForObjkt(content) {
+    console.log('🔧 Patching disk.mjs for PACK mode...');
     
     let patched = content;
     
-    // Add teia mode check to prevent session connections
+    // Add pack mode check to prevent session connections
     const socketPattern = /if \(\s*\/\/parsed\.search\?\.startsWith\("preview"\) \|\|\s*\/\/parsed\.search\?\.startsWith\("icon"\)\s*previewOrIconMode\s*\) \{/;
     patched = patched.replace(socketPattern, 
       `if (
       //parsed.search?.startsWith("preview") ||
       //parsed.search?.startsWith("icon")
       previewOrIconMode ||
-      (typeof window !== 'undefined' && window.acTEIA_MODE) ||
-      (typeof globalThis !== 'undefined' && globalThis.acTEIA_MODE)
+      (typeof window !== 'undefined' && window.acPACK_MODE) ||
+      (typeof globalThis !== 'undefined' && globalThis.acPACK_MODE)
     ) {`
     );
     
     return patched;
   }
 
-  patchUdpJsForTeia(content) {
-    console.log('🔧 Patching udp.mjs for Teia mode...');
+  patchUdpJsForObjkt(content) {
+    console.log('🔧 Patching udp.mjs for PACK mode...');
     
     // Replace the entire UDP module with a stub that provides the same API
     // but doesn't try to import geckos or establish network connections
-    const teiaStub = `// UDP stub for Teia mode - networking disabled for offline use
+    const teiaStub = `// UDP stub for PACK mode - networking disabled for offline use
 
-const logs = { udp: false }; // Disable UDP logging in Teia mode
+const logs = { udp: false }; // Disable UDP logging in PACK mode
 
 let connected = false;
 
 // Stub functions that match the original UDP API but don't do networking
 function connect(port = 8889, url = undefined, send) {
-  if (logs.udp) console.log("🩰 UDP disabled in Teia mode");
-  connected = false; // Always stay disconnected in Teia mode
+  if (logs.udp) console.log("🩰 UDP disabled in PACK mode");
+  connected = false; // Always stay disconnected in PACK mode
   return;
 }
 
 function disconnect() {
-  if (logs.udp) console.log("🩰 UDP disconnect (Teia mode)");
+  if (logs.udp) console.log("🩰 UDP disconnect (PACK mode)");
   connected = false;
 }
 
 function send(data, options = {}) {
-  if (logs.udp) console.log("🩰 UDP send disabled in Teia mode:", data);
-  // No-op in Teia mode
+  if (logs.udp) console.log("🩰 UDP send disabled in PACK mode:", data);
+  // No-op in PACK mode
 }
 
 function isConnected() {
-  return false; // Always disconnected in Teia mode
+  return false; // Always disconnected in PACK mode
 }
 
 // Create UDP object that matches the expected API structure
@@ -2334,7 +2334,7 @@ export default { connect, disconnect, send, isConnected, UDP };
     return teiaStub;
   }
 
-  patchHeadersJsForTeia(content) {
+  patchHeadersJsForObjkt(content) {
     console.log('🎨 Patching headers.mjs for teia import statements...');
     
     let patched = content;
@@ -2342,9 +2342,9 @@ export default { connect, disconnect, send, isConnected, UDP };
     // Replace the import statement with stub functions that preserve functionality
     // but don't rely on external module loading
     const stubFunctions = `
-// Inlined color-highlighting functions for TEIA mode (to avoid import 404s)
+// Inlined color-highlighting functions for PACK mode (to avoid import 404s)
 function colorizeColorName(colorName) {
-  // Simple colorization - just return the color name for now in TEIA mode
+  // Simple colorization - just return the color name for now in PACK mode
   return colorName;
 }
 
@@ -2370,37 +2370,37 @@ function getColorTokenHighlight(token) {
     // Replace the import statement with the stub functions
     patched = patched.replace(
       /^import\s+\{[^}]+\}\s+from\s+"\.\/color-highlighting\.mjs";?\s*$/m,
-      '// Import replaced with inline functions for TEIA mode' + stubFunctions
+      '// Import replaced with inline functions for PACK mode' + stubFunctions
     );
     
     return patched;
   }
 
-  async patchBiosJsForTeia(content) {
+  async patchBiosJsForObjkt(content) {
     console.log('🎨 Patching bios.mjs for teia webfont URLs...');
     
     let patched = content;
     const packagedCursorPath = this.getPackagedRelativePath('cursors', 'viewpoint.svg');
     const packagedDiskLibPath = this.getPackagedRelativePath('lib', 'disk.mjs');
     
-    // Replace precise.svg cursor references with viewpoint.svg for TEIA mode
+    // Replace precise.svg cursor references with viewpoint.svg for PACK mode
     patched = patched.replace(
       /\/aesthetic\.computer\/cursors\/precise\.svg/g,
       packagedCursorPath
     );
     
-    // Replace the font URL logic to use relative paths in teia mode
+    // Replace the font URL logic to use relative paths in pack mode
     const fontUrlPattern = /\/\/ Use origin-aware font loading\s*let fontUrl;\s*try \{[\s\S]*?link\.href = fontUrl;/;
     patched = patched.replace(fontUrlPattern, 
-      `// Use origin-aware font loading with teia mode support
+      `// Use origin-aware font loading with pack mode support
         let fontUrl;
         try {
-          // Check if we're in teia mode
-          const isTeiaMode = (typeof window !== 'undefined' && window.acTEIA_MODE) ||
-                           (typeof globalThis !== 'undefined' && globalThis.acTEIA_MODE);
+          // Check if we're in pack mode
+          const isObjktMode = (typeof window !== 'undefined' && window.acPACK_MODE) ||
+                           (typeof globalThis !== 'undefined' && globalThis.acPACK_MODE);
           
-          if (isTeiaMode) {
-            // In teia mode, use relative path to bundled webfonts
+          if (isObjktMode) {
+            // In pack mode, use relative path to bundled webfonts
             fontUrl = "./type/webfonts/" + font;
           } else {
             // Check if we're in development environment
@@ -2421,33 +2421,33 @@ function getColorTokenHighlight(token) {
         link.href = fontUrl;`
     );
     
-    // Also patch the worker path to use relative paths in teia mode
+    // Also patch the worker path to use relative paths in pack mode
     const workerPathPattern = /const fullPath =\s*"\/aesthetic\.computer\/lib\/disk\.mjs"\s*\+\s*window\.location\.search\s*\+\s*"#"\s*\+\s*Date\.now\(\);/;
     patched = patched.replace(workerPathPattern, 
-      `const fullPath = (typeof window !== 'undefined' && window.acTEIA_MODE) ? 
+      `const fullPath = (typeof window !== 'undefined' && window.acPACK_MODE) ? 
         "${packagedDiskLibPath}" + "#" + Date.now() : 
         "/aesthetic.computer/lib/disk.mjs" + window.location.search + "#" + Date.now();`
     );
     
-    // Also patch the initial piece parsing to prioritize acSTARTING_PIECE in teia mode
+    // Also patch the initial piece parsing to prioritize acSTARTING_PIECE in pack mode
     const pieceParsingPattern = /const parsed = parse\(sluggy \|\| window\.acSTARTING_PIECE\);/;
     patched = patched.replace(pieceParsingPattern, 
-      `const parsed = parse((typeof window !== 'undefined' && window.acTEIA_MODE && window.acSTARTING_PIECE) ? 
+      `const parsed = parse((typeof window !== 'undefined' && window.acPACK_MODE && window.acSTARTING_PIECE) ? 
         window.acSTARTING_PIECE : 
         (sluggy || window.acSTARTING_PIECE));`
     );
     
-    // Patch the worklet loading to skip in TEIA mode to prevent AbortError
+    // Patch the worklet loading to skip in PACK mode to prevent AbortError
     const workletPattern = /\/\/ Sound Synthesis Processor\s*try \{\s*\(async \(\) => \{/;
     patched = patched.replace(workletPattern, 
       `// Sound Synthesis Processor
     try {
-      // Skip worklet loading in TEIA mode to prevent AbortError
-      const isTeiaMode = (typeof window !== 'undefined' && window.acTEIA_MODE) ||
-                        (typeof globalThis !== 'undefined' && globalThis.acTEIA_MODE);
+      // Skip worklet loading in PACK mode to prevent AbortError
+      const isObjktMode = (typeof window !== 'undefined' && window.acPACK_MODE) ||
+                        (typeof globalThis !== 'undefined' && globalThis.acPACK_MODE);
       
-      if (isTeiaMode) {
-        if (debug) console.log("🎭 Skipping audio worklet loading in TEIA mode");
+      if (isObjktMode) {
+        if (debug) console.log("🎭 Skipping audio worklet loading in PACK mode");
         return;
       }
       
@@ -2455,7 +2455,7 @@ function getColorTokenHighlight(token) {
     );
     
     // Patch worker detection to disable workers in sandboxed environments like OBJKT
-    const workerDetectionPattern = /\/\/ Override: force disable workers only for specific problematic environments\s*if \(sandboxed && window\.origin === "null" && !window\.acTEIA_MODE\) \{\s*\/\/ Only disable for truly sandboxed non-TEIA environments\s*workersEnabled = false;\s*\}/;
+    const workerDetectionPattern = /\/\/ Override: force disable workers only for specific problematic environments\s*if \(sandboxed && window\.origin === "null" && !window\.acPACK_MODE\) \{\s*\/\/ Only disable for truly sandboxed non-TEIA environments\s*workersEnabled = false;\s*\}/;
     patched = patched.replace(workerDetectionPattern,
       `// Override: force disable workers for OBJKT and other sandboxed environments
   if (sandboxed || window.origin === "null") {
@@ -2465,11 +2465,11 @@ function getColorTokenHighlight(token) {
   }`
     );
     
-    // Suppress console errors for missing MatrixChunky8 font files in TEIA mode
+    // Suppress console errors for missing MatrixChunky8 font files in PACK mode
     const consoleInitPattern = /\/\/ Boot\s*let bootTime/;
     patched = patched.replace(consoleInitPattern, 
-      `// Boot - suppress font loading errors in TEIA mode
-    if (typeof window !== 'undefined' && window.acTEIA_MODE) {
+      `// Boot - suppress font loading errors in PACK mode
+    if (typeof window !== 'undefined' && window.acPACK_MODE) {
       const originalError = console.error;
       console.error = function(...args) {
         const message = args.join(' ');
@@ -2492,17 +2492,17 @@ function getColorTokenHighlight(token) {
     return patched;
   }
 
-  async patchParseJsForTeia(content) {
-    console.log('🎨 Patching parse.mjs for teia mode piece override...');
+  async patchParseJsForObjkt(content) {
+    console.log('🎨 Patching parse.mjs for pack mode piece override...');
     
     let patched = content;
     
-    // Override slug function to return acSTARTING_PIECE in teia mode
+    // Override slug function to return acSTARTING_PIECE in pack mode
     const slugFunctionPattern = /function slug\(url\) \{[\s\S]*?return cleanedUrl;\s*\}/;
     patched = patched.replace(slugFunctionPattern, 
       `function slug(url) {
-  // In teia mode, always prioritize acSTARTING_PIECE over URL parsing
-  if ((typeof window !== 'undefined' && window.acTEIA_MODE && window.acSTARTING_PIECE)) {
+  // In pack mode, always prioritize acSTARTING_PIECE over URL parsing
+  if ((typeof window !== 'undefined' && window.acPACK_MODE && window.acSTARTING_PIECE)) {
     return window.acSTARTING_PIECE;
   }
   
@@ -2710,7 +2710,7 @@ async function main() {
       console.log("  6. Move it to the teia/output/ directory");
       console.log("");
       console.log("When ready, run:");
-      console.log(`  node teia/ac-pack.mjs ${pieceName} --tape ./teia/output/<tape-file>.zip --tape-start 50`);
+      console.log(`  node teia/ac-pack.mjs ${pieceName} --tape ./objkt/output/<tape-file>.zip --tape-start 50`);
       console.log("");
       console.log("💡 Tip: Use --tape-start to skip initial loading frames (0-100%)");
       console.log("");
@@ -2759,11 +2759,11 @@ async function main() {
   console.log("");
   
   // Auto-create zip with timestamp
-  console.log("� Package ready for Teia deployment!");
+  console.log("� Package ready for OBJKT deployment!");
   console.log("   • All assets bundled locally");
   console.log("   • Font loading fixed for offline use");
   console.log("   • Session connections disabled");
-  console.log("   • TEIA mode styling enabled");
+  console.log("   • PACK mode styling enabled");
   console.log("");
   
   // Automatically create zip with timestamp
