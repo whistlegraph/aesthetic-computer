@@ -8,7 +8,7 @@ endregion */
 
 import * as fonts from "../disks/common/fonts.mjs";
 import { repeat } from "../lib/help.mjs";
-import { checkObjktMode } from "./objkt-mode.mjs";
+import { checkPackMode } from "./pack-mode.mjs";
 import { KidLisp, tokenize } from "./kidlisp.mjs";
 import { cssColors } from "./num.mjs";
 function matrixDebugEnabled() {
@@ -211,8 +211,8 @@ class Typeface {
       const fontName = this.data.bdfFont || "unifont";
       
       // Check if we're in OBJKT mode and this is MatrixChunky8
-      const { checkObjktMode } = await import("./objkt-mode.mjs");
-      const isObjktMode = checkObjktMode();
+      const { checkPackMode } = await import("./pack-mode.mjs");
+      const isObjktMode = checkPackMode();
       
       if (isObjktMode && this.name === "MatrixChunky8") {
         // Set essential font metadata properties for proportional font detection
@@ -391,7 +391,7 @@ class Typeface {
           // Make API call to load the glyph using code points
           
           // Enhanced OBJKT mode detection using shared teia-mode module
-          const isObjktMode = checkObjktMode();
+          const isObjktMode = checkPackMode();
           
           if (isObjktMode && this.name === "MatrixChunky8") {
             // In OBJKT mode, first check if glyph is directly on target

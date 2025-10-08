@@ -705,7 +705,7 @@ const projectionMode = location.search.indexOf("nolabel") > -1; // Skip loading 
 
 import { setDebug } from "../disks/common/debug.mjs";
 import { customAlphabet } from "../dep/nanoid/nanoid.js";
-import { setObjktMode, getObjktMode, checkObjktMode } from "./objkt-mode.mjs";
+import { setPackMode, getPackMode, checkPackMode } from "./pack-mode.mjs";
 // import { update } from "./glaze.mjs";
 const alphabet =
   "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
@@ -1080,7 +1080,7 @@ function toggleQRFullscreen() {
 }
 
 let hudAnimationState = {
-  visible: !getObjktMode(), // Hidden by default in OBJKT mode, visible otherwise
+  visible: !getPackMode(), // Hidden by default in OBJKT mode, visible otherwise
   animating: false,
   startTime: 0,
   duration: 500, // 500ms animation
@@ -1829,7 +1829,7 @@ const $commonApi = {
       if (clockFetching) return;
 
       // Skip API calls in OBJKT mode
-      if (getObjktMode()) {
+      if (getPackMode()) {
         clockFetching = false;
         return;
       }
@@ -5645,7 +5645,7 @@ async function load(
     let baseUrl;
     if (path.startsWith('aesthetic.computer/')) {
       // Check if we're in OBJKT mode - use local bundled files
-      if (getObjktMode()) {
+      if (getPackMode()) {
         // In OBJKT mode, use relative paths to load bundled pieces
         baseUrl = ".";
       } else {
@@ -5670,7 +5670,7 @@ async function load(
     
     // Check if path already includes the hostname to avoid double paths
     let resolvedPath = path;
-    if (getObjktMode() && path.startsWith('aesthetic.computer/')) {
+    if (getPackMode() && path.startsWith('aesthetic.computer/')) {
       // In OBJKT mode, keep the full path since files are bundled with directory structure
       resolvedPath = path;
     } else if (baseUrl === 'https://aesthetic.computer' && path.startsWith('aesthetic.computer/')) {
@@ -5681,14 +5681,14 @@ async function load(
     // if (debug) console.log("🔍 Debug path resolution:", { originalPath: path, resolvedPath, hostname, baseUrl });
     
     if (path.endsWith('.lisp')) {
-      if (getObjktMode()) {
+      if (getPackMode()) {
         // In OBJKT mode, use absolute path from iframe origin
         fullUrl = "/" + resolvedPath + "#" + Date.now();
       } else {
         fullUrl = baseUrl + "/" + resolvedPath + "#" + Date.now();
       }
     } else {
-      if (getObjktMode()) {
+      if (getPackMode()) {
         // In OBJKT mode, navigate up from lib directory to aesthetic.computer root, then to target
         const relativePath = resolvedPath.startsWith('aesthetic.computer/') 
           ? resolvedPath.substring('aesthetic.computer/'.length)
@@ -5777,7 +5777,7 @@ async function load(
         const urlWithoutHash = fullUrl.split('#')[0];
         const filename = urlWithoutHash.split('/').pop();
         
-        if (getObjktMode() && filename.endsWith('.mjs')) {
+        if (getPackMode() && filename.endsWith('.mjs')) {
           // In OBJKT mode, skip dynamic import and use fetch directly since files are bundled locally
           // Will proceed to fetch() below
         }
@@ -6071,7 +6071,7 @@ async function load(
   // Requests a session-backend and connects via websockets.
   function startSocket() {
     // Skip socket connections in OBJKT mode
-    if (getObjktMode()) {
+    if (getPackMode()) {
       return;
     }
     
@@ -6204,7 +6204,7 @@ async function load(
     
     // Check if we're in OBJKT mode and have colophon data
     let objktContext = null;
-    if (checkObjktMode() && typeof window !== 'undefined' && window.acOBJKT_COLOPHON) {
+    if (checkPackMode() && typeof window !== 'undefined' && window.acOBJKT_COLOPHON) {
       objktContext = { author: window.acOBJKT_COLOPHON.build.author };
     }
     
@@ -7062,7 +7062,7 @@ async function load(
   }
   
   // Also hide label by default in OBJKT mode (like nolabel)
-  if (getObjktMode()) {
+  if (getPackMode()) {
     hideLabel = true;
   }    currentColon = colon;
     currentParams = params;
@@ -7249,7 +7249,7 @@ async function makeFrame({ data: { type, content } }) {
     SHARE_SUPPORTED = content.shareSupported;
     PREVIEW_OR_ICON = content.previewOrIcon;
   VSCODE = content.vscode;
-  setObjktMode(content.objktMode || false);    // Store OBJKT KidLisp cache in worker global scope
+  setPackMode(content.objktMode || false);    // Store OBJKT KidLisp cache in worker global scope
     if (content.objktKidlispCodes) {
       const globalScope = (function() {
         if (typeof globalThis !== 'undefined') return globalThis;
@@ -8246,7 +8246,7 @@ async function makeFrame({ data: { type, content } }) {
         //   }
         // }
 
-        if ((data.key === "$" || data.key === "Home") && !getObjktMode()) {
+        if ((data.key === "$" || data.key === "Home") && !getPackMode()) {
           if (data.ctrl || data.alt) {
             const sys = $commonApi.system;
             // Make it a painting.
@@ -8270,7 +8270,7 @@ async function makeFrame({ data: { type, content } }) {
 
         // ⛈️ Jump back to the `prompt` from anywhere..
         if (
-          !getObjktMode() && // Disable navigation keys in OBJKT mode
+          !getPackMode() && // Disable navigation keys in OBJKT mode
           (data.key === "`" ||
             data.key === "Enter" ||
             data.key === "Backspace" ||
@@ -8347,15 +8347,15 @@ async function makeFrame({ data: { type, content } }) {
 
         // [Shift] Toggle QR code fullscreen mode for KidLisp pieces
         if (data.key === "Shift") {
-          console.log("⌨️ [Shift Key] Received! getObjktMode():", getObjktMode());
+          console.log("⌨️ [Shift Key] Received! getPackMode():", getPackMode());
         }
-        if (data.key === "Shift" && !getObjktMode()) {
+        if (data.key === "Shift" && !getPackMode()) {
           toggleQRFullscreen();
         }
 
         // [Ctrl + X]
         // Enter and exit fullscreen mode.
-        if (data.key === "x" && data.ctrl && currentText !== "notepat" && !getObjktMode()) {
+        if (data.key === "x" && data.ctrl && currentText !== "notepat" && !getPackMode()) {
           send({ type: "fullscreen-enable" });
         }
       }
@@ -11287,7 +11287,7 @@ async function makeFrame({ data: { type, content } }) {
                   // Render white text (no rotation for now)
                   $.ink("white"); // White text on black background
                   
-                  if (getObjktMode()) {
+                  if (getPackMode()) {
                     // In OBJKT mode, try MatrixChunky8 first, fall back to default if not available
                     let matrixFont = typefaceCache.get("MatrixChunky8");
                     if (matrixFont) {
@@ -11373,7 +11373,7 @@ async function makeFrame({ data: { type, content } }) {
                   // Draw black shadow (1px offset) - no rotation for now
                   $.ink("black");
                   
-                  if (getObjktMode()) {
+                  if (getPackMode()) {
                     // In OBJKT mode, try MatrixChunky8 first, fall back to default if not available
                     const matrixFont = typefaceCache.get("MatrixChunky8");
                     if (matrixFont && matrixFont.glyphs) {
@@ -11403,7 +11403,7 @@ async function makeFrame({ data: { type, content } }) {
                   
                   // Draw white text on top - no rotation for now
                   $.ink("white");
-                  if (getObjktMode()) {
+                  if (getPackMode()) {
                     // In OBJKT mode, try MatrixChunky8 first, fall back to default if not available
                     const matrixFont = typefaceCache.get("MatrixChunky8");
                     if (matrixFont && matrixFont.glyphs) {

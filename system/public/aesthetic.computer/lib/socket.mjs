@@ -5,7 +5,7 @@
 /* #region 🏁 todo
 #endregion */
 
-import { checkObjktMode } from "./objkt-mode.mjs";
+import { checkPackMode } from "./pack-mode.mjs";
 
 const logs = { socket: false };
 const { min } = Math;
@@ -52,7 +52,7 @@ export class Socket {
       this.#ws = new WebSocket(`${protocol}://${host}`);
     } catch {
       // Only log and retry if not in OBJKT mode
-      if (!checkObjktMode()) {
+      if (!checkPackMode()) {
         console.log('%cconnection failed, retrying in ' + (this.#reconnectTime / 1000) + 's...', 'color: orange; background: black; padding: 2px;');
       }
       return;
@@ -85,7 +85,7 @@ export class Socket {
 
       socket.connected = false;
       // Only reconnect if we are not killing the socket and not in development mode and not in OBJKT mode.
-      if (socket.#killSocket === false && !checkObjktMode()) {
+      if (socket.#killSocket === false && !checkPackMode()) {
         console.log('%cconnection failed, retrying in ' + (socket.#reconnectTime / 1000) + 's...', 'color: orange; background: black; padding: 2px;');
         this.#reconnectTimeout = setTimeout(() => {
           socket.connect(host, receive, reload, protocol, connectCallback);
@@ -98,7 +98,7 @@ export class Socket {
 
     // Close on error.
     ws.onerror = (err) => {
-      if (checkObjktMode()) {
+      if (checkPackMode()) {
         // In OBJKT mode, just close without retrying
         ws.close();
       } else {
