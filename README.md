@@ -65,39 +65,6 @@ Aesthetic Computer includes KidLisp, a minimal Lisp dialect for creating generat
 
 ---
 
-### ATProto Experiments (`/at`)
-
-The `/at` directory contains experimental tools for exploring ATProto (Authenticated Transfer Protocol) and Bluesky integration.
-
-**Tools available:**
-
-- 🔍 **`query-profile.mjs`** - Query profile info for any ATProto handle or DID
-- 📝 **`query-posts.mjs`** - Fetch and display posts from any account
-- 📤 **`post-to-bluesky.mjs`** - Post to @aesthetic.computer Bluesky account
-- 📋 **`explore-lexicons.mjs`** - Browse Bluesky and proposed AC lexicons
-- 🔐 **`resolve-did.mjs`** - Resolve DIDs and inspect PDS configurations
-- 🧪 **`test-all.mjs`** - Verify all tools are working
-
-**Quick start:**
-```bash
-cd at
-npm install
-node query-profile.mjs aesthetic.computer
-node explore-lexicons.mjs
-```
-
-**Current state:** @aesthetic.computer exists on Bluesky with DID `did:plc:k3k3wknzkcnekbnyde4dbatz`
-
-**Future plans:** See [ATProto PDS Roadmap](plans/atproto-pds-roadmap.md) for full strategy including:
-- Running AC's own Personal Data Server (PDS)
-- Per-user ATProto identities (`user.aesthetic.computer`)
-- Custom lexicons for paintings, pieces, and KidLisp
-- Federation with Bluesky network
-
-See [`/at/README.md`](at/README.md) and [`/at/QUICKSTART.md`](at/QUICKSTART.md) for full documentation.
-
----
-
 [0] No Paint HN discussion from 2020: https://news.ycombinator.com/item?id=23546706
 
 [1] Recent HN discussion on `notepat` here: https://news.ycombinator.com/item?id=41526754
