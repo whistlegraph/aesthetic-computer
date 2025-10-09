@@ -558,7 +558,6 @@ if (!urlParams.has('density')) {
       console.warn('⚠️ Skipped history.replaceState in restricted environment:', error?.message || error);
     }
   }
-  console.log('🔍 Applied custom density: ${this.options.density}');
 }` : '// No custom density specified'}
 
 // Force sandbox mode for Teia
@@ -574,20 +573,9 @@ window.acNOGAP_MODE = true;
 window.acPACK_MODE = true;
 globalThis.acPACK_MODE = true;
 
-console.log('🎭 PACK mode activated:', {
-  startingPiece: window.acSTARTING_PIECE,
-  viewer: window.acPACK_VIEWER,
-  creator: window.acPACK_CREATOR,
-  disableSession: window.acDISABLE_SESSION,
-  nogapMode: window.acNOGAP_MODE,
-  objktMode: window.acPACK_MODE,
-  customDensity: ${this.options.density ? `'${this.options.density}'` : 'null'}
-});
-
 // Periodically ensure PACK mode stays enabled
 setInterval(() => {
   if (!window.acPACK_MODE || !globalThis.acPACK_MODE) {
-    console.log('� Restoring PACK mode flags');
     window.acPACK_MODE = true;
     globalThis.acPACK_MODE = true;
   }
@@ -723,7 +711,7 @@ setInterval(() => {
       }
     </style>
   </head>
-  <body class="native-cursor">
+  <body class="native-cursor nogap">
     <div id="console" class="hidden">
       <div class="boot-message">booting...</div>
       <div class="error-message" style="display: none;">
@@ -2744,10 +2732,10 @@ async function main() {
     }
   }
 
-  // Set default density to 6 for PACK mode if not specified
+  // Set default density to 4 for PACK mode if not specified
   if (!options.density) {
-    options.density = 6;
-    console.log('🔍 Using default density: 6');
+    options.density = 4;
+    console.log('🔍 Using default density: 4');
   }
 
   const packer = new AcPacker(pieceName, options);
