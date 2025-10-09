@@ -121,6 +121,12 @@ autoLaunch = false
 [dev.https]
 certFile = "../ssl-dev/localhost.pem"
 keyFile = "../ssl-dev/localhost-key.pem"
+
+# Context for Codespaces: disable HTTPS since Codespaces handles SSL at proxy level
+[context.codespace.dev]
+# Inherits all [dev] settings but without HTTPS
+# No [dev.https] section = HTTP only
+
 [context.production]
 NODE_ENV = "production"
 [[headers]]
