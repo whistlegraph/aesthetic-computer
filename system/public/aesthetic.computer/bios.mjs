@@ -12093,7 +12093,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               const options = { method: "POST", headers };
               options.body = JSON.stringify({ slug, ext });
               const added = await fetch("api/track-media", options);
-              if (debug) console.log("🗞️ Added to database...", added);
+              const addedData = await added.json();
+              if (debug) console.log("🗞️ Added to database...", addedData);
+              
+              // Extract code from response if present
+              if (addedData.code) {
+                console.log(`🎨 Painting code: #${addedData.code}`);
+                data.code = addedData.code; // Add code to return data
+              }
             }
 
             let data = { slug, url: url.toString(), ext };
