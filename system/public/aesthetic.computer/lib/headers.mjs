@@ -131,8 +131,8 @@ export function headers(isDarkMode) {
     "color: #ff6b9d; font-weight: bold; font-size: 16px;"
   );
   
-  // Show OBJKT mode in OBJKT environments (check for window first)
-  if (typeof window !== 'undefined' && window.acOBJKT_MODE) {
+  // Show PACK mode in PACK environments (check for window first)
+  if (typeof window !== 'undefined' && window.acPACK_MODE) {
     
     // Display minimal colophonic information if available
     if (window.acPACK_COLOPHON) {
@@ -140,7 +140,7 @@ export function headers(isDarkMode) {
       const piece = colophon.piece;
       const build = colophon.build;
       
-      // Override the title with git commit info in OBJKT mode
+      // Override the title with git commit info in PACK mode
       console.clear();
       
       // Get today's color scheme for the title
