@@ -983,7 +983,7 @@ export async function handler(event, context) {
       // Handle recent codes feed (for $.mjs piece)
       if (recent) {
         const limit = parseInt(event.queryStringParameters?.limit) || 50;
-        const maxLimit = 100; // Prevent excessive queries
+        const maxLimit = 100000; // Very high limit for comprehensive searches
         const actualLimit = Math.min(limit, maxLimit);
         
         console.log(`📊 Recent codes request: limit=${actualLimit}`);
