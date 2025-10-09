@@ -2,6 +2,15 @@
 
  🌟 Projects in Progress (PIP) 🌟
 
+ ** annoyances 25.10.08.18.43 **
+   - heic drag and drop?
+   - shift+enter new line bad
+   - write command in kidlisp cant have
+   - 'clear' should be in place for a clear color....
+   - 40*frame vs frame*40 ordering
+   - image has weird color channel issues unless scale parameter is used
+   - export mp3 from a clock
+
  * `prompt` poe mode *
  - Create a 'poe' mode for 'prompt' where we skip painting the TextInput UI
    in favor of a more presentational writing performance tool with effects
