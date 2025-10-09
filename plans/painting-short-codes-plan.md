@@ -5,6 +5,42 @@
 
 **Implementation:** Single comprehensive commit with all components
 
+**Tools:** CLI suite in `/paintings` directory for inspection, migration, and orchestration
+
+---
+
+## CLI Tools & Inspection Suite
+
+**Location:** `/paintings` directory
+
+### Available Tools
+- **`inspect-spaces.mjs`** - Browse Digital Ocean Spaces, list paintings, check sizes
+- **`inspect-mongodb.mjs`** - Query MongoDB, check for codes, get statistics
+- **`inspect-api.mjs`** - Test API endpoints (local or live server)
+
+### Quick Start
+```bash
+cd paintings
+./setup.fish  # Install dependencies and setup .env
+npm run inspect:mongodb -- --stats
+npm run inspect:spaces -- --list
+npm run inspect:api -- --tv
+```
+
+### Environment Configuration
+Tools support both local development and live production:
+```bash
+# Local development
+AC_API=http://localhost:8888
+MONGODB_URI=mongodb://localhost:27017/aesthetic
+
+# Live production
+AC_API=https://aesthetic.computer
+MONGODB_URI=mongodb+srv://...
+```
+
+See [`/paintings/README.md`](/paintings/README.md) for full documentation.
+
 ---
 
 ## Current State Analysis
@@ -202,138 +238,244 @@ Add to existing `paintings` collection:
 
 ---
 
-## Implementation Phases
+## Implementation Components
 
-### Phase 1: Foundation (Week 1)
-**Goal:** Database migration and core API
+**Approach:** Single-commit implementation with all components integrated into existing upload flow
 
-#### Tasks:
-1. **Create Migration Script** (`migrate-paintings-add-codes.mjs`)
-   - Scan all paintings in MongoDB
-   - Generate unique codes for existing paintings
-   - Calculate SHA-256 hash of image data
-   - Update documents with `code` and `hash` fields
-   - Handle collisions gracefully
-   - Dry-run mode for testing
+### Component 1: Code Generator Module
+**File:** `system/backend/painting-code-generator.mjs`
 
-2. **Update `track-media.js` API**
-   - Generate code on POST (new painting upload)
-   - Add `code` field to response
-   - Add hash generation from image data
-   - Implement collision detection
+**Purpose:** Reusable module for generating short codes for paintings
 
-3. **Create Indexes**
-   - Add unique index on `code`
-   - Add unique index on `hash`
-   - Update composite indexes
+**Implementation:**
+- Standalone pure function: `generatePaintingCode(imageBuffer, user, existingCodes)`
+- Smart inference: Extract visual features (colors, dimensions, user handle)
+- Fallback: Random pronounceable codes using nanoid with CVC patterns
+- Collision detection: Check MongoDB before returning
+- Hash generation: SHA-256 of pixel data for deduplication
+- Progressive length: Start at 3 chars, grow to 4, 5, etc. if collisions
 
-4. **Add Code Generator Module** (`painting-code-generator.mjs`)
-   - Standalone module for code generation
-   - Reusable across migration and API
-   - Configurable strategies (smart vs random)
+**Dependencies:**
+- nanoid (for random generation)
+- sharp (for image analysis)
+- crypto (for SHA-256 hashing)
 
-#### Files to Create/Modify:
-```
-system/backend/
-  painting-code-generator.mjs     [NEW]
-  
-system/netlify/functions/
-  track-media.js                   [MODIFY - add code generation]
-  painting-code-lookup.mjs         [NEW - API for #code → painting]
-  
-system/scripts/
-  migrate-paintings-add-codes.mjs  [NEW - migration script]
-  audit-painting-codes.mjs         [NEW - verify uniqueness]
-```
+**Testing:**
+- Unit tests with sample images
+- Collision rate testing (should be < 0.01%)
+- Pronounceability validation
 
-### Phase 2: API Integration (Week 2)
-**Goal:** Make codes accessible and usable
+---
 
-#### Tasks:
-1. **Create Lookup API** (`/api/painting-code/{code}`)
-   - Input: `#waf` or `waf`
-   - Output: painting data (slug, user, URL)
-   - Support for analytics (increment hits)
+### Component 2: Upload Flow Integration
+**File:** `system/netlify/functions/track-media.js` (POST handler)
 
-2. **Update TV API** (`tv.mjs`)
-   - Include `code` in painting responses
-   - Allow filtering by code
-   - Add to metadata
+**Current Flow:**
+1. Client uploads PNG to S3 via presigned URL
+2. Client POSTs `{ slug, ext }` to track-media
+3. Server creates MongoDB record: `{ slug, user, when }`
 
-3. **Update Frontend Pieces**
-   - `painting.mjs` - display code on painting pages
-   - Add QR code generation for `#waf` URLs
-   - Share menu integration
+**Enhanced Flow:**
+1. Client uploads PNG to S3 via presigned URL
+2. **[NEW]** Server downloads PNG from S3 (or receives hash from client)
+3. **[NEW]** Server generates code using `painting-code-generator.mjs`
+4. **[NEW]** Server calculates SHA-256 hash of image data
+5. Server creates MongoDB record: `{ slug, user, when, code, hash, hits: 0 }`
+6. **[NEW]** Server returns `{ slug, code }` to client
+7. **[NEW]** Client can navigate to `painting~#code` or `painting~@handle/slug`
 
-4. **URL Routing**
-   - Add route: `/painting~#waf` → resolve to full painting
-   - Add route: `/#waf` → direct to painting
-   - Maintain backward compatibility with timestamp slugs
+**Implementation Details:**
+- Import code generator module
+- Add collision retry logic (max 10 attempts)
+- Handle hash-based deduplication (same image = reuse code)
+- Update indexes: add `code` (unique), `hash` (unique)
+- Maintain backward compatibility (slug-only still works)
 
-#### Files to Create/Modify:
-```
-system/netlify/functions/
-  painting-code-lookup.mjs         [NEW]
-  tv.mjs                           [MODIFY]
-  
-system/public/aesthetic.computer/disks/
-  painting.mjs                     [MODIFY - show code]
-  prompt.mjs                       [MODIFY - upload flow]
+---
+
+### Component 3: Migration Script
+**File:** `system/scripts/migrate-paintings-add-codes.mjs`
+
+**Purpose:** Add codes and hashes to existing paintings
+
+**Implementation:**
+```bash
+# Dry run (preview only)
+node scripts/migrate-paintings-add-codes.mjs --dry-run
+
+# Execute migration
+node scripts/migrate-paintings-add-codes.mjs --execute
+
+# Migrate specific user
+node scripts/migrate-paintings-add-codes.mjs --user auth0|123 --execute
 ```
 
-### Phase 3: Discovery & Migration (Week 3)
-**Goal:** Find and migrate untracked paintings
+**Algorithm:**
+1. Query MongoDB for paintings without `code` field
+2. For each painting:
+   - Download PNG from Digital Ocean CDN
+   - Generate code using `painting-code-generator.mjs`
+   - Calculate SHA-256 hash
+   - Check for hash duplicates (deduplication)
+   - Update document with `{ code, hash, hits: 0, lastAccessed: Date }`
+3. Log progress: `✅ slug → #code` or `⚠️ Duplicate hash, reusing #code`
+4. Summary: Total migrated, duplicates found, failures
 
-#### Tasks:
-1. **Audit Digital Ocean Spaces**
-   - List all `.png` files in user directories
-   - Compare with MongoDB `paintings` collection
-   - Identify orphaned paintings
-   - Generate codes for untracked paintings
+**Error Handling:**
+- Skip paintings that fail to download (404, network error)
+- Retry up to 3 times on collision
+- Log failures to separate file for manual review
+- Rate limit: 100ms delay between requests to avoid S3 throttling
 
-2. **Bulk Import Script**
-   - Process orphaned paintings
-   - Extract metadata (dimensions, palette)
-   - Generate codes and hashes
-   - Batch insert into MongoDB
+**Reuse Admin Infrastructure:**
+- Extend existing `admin-migrate.mjs` with `--add-codes` flag
+- Use same S3 client and MongoDB connection
+- Add to prompt commands: `admin:migrate-painting-codes`
 
-3. **Deduplication Pass**
-   - Compare hashes across all paintings
-   - Merge duplicates to single code
-   - Update references
+---
 
-#### Files to Create:
+### Component 4: Lookup API
+**File:** `system/netlify/functions/painting-code-lookup.mjs`
+
+**Endpoint:** `GET /api/painting-code/{code}`
+
+**Input:** 
+- `code` parameter: `waf` or `#waf` (strip # if present)
+
+**Output:**
+```json
+{
+  "code": "waf",
+  "slug": "2025.10.09.09.51.18.882",
+  "user": "auth0|...",
+  "handle": "fifi",
+  "when": "2025-10-09T09:51:18.882Z",
+  "url": "https://aesthetic.computer/painting~@fifi/2025.10.09.09.51.18.882",
+  "shortUrl": "https://aesthetic.computer/#waf",
+  "cdnUrl": "https://aesthetic.computer/media/@fifi/painting/2025.10.09.09.51.18.882.png"
+}
 ```
-system/scripts/
-  audit-digital-ocean-paintings.mjs  [NEW]
-  import-orphaned-paintings.mjs      [NEW]
-  deduplicate-paintings.mjs          [NEW]
+
+**Features:**
+- Strip `#` prefix if present
+- Case-insensitive lookup (convert to lowercase)
+- Increment `hits` counter
+- Update `lastAccessed` timestamp
+- Return 404 if code not found
+- Include user handle via join/lookup
+
+**Authorization:** Public endpoint (no auth required)
+
+---
+
+### Component 5: URL Routing
+**File:** `system/public/aesthetic.computer/disks/prompt.mjs`
+
+**Current Routes:**
+- `painting~@handle/slug` → User's specific painting
+- `painting~slug` → Painting by current user
+
+**New Routes:**
+- `painting~#waf` → Painting by code (any user)
+- `#waf` → Direct shortcut to painting by code
+
+**Implementation:**
+1. Update URL parser to detect `#code` pattern
+2. Call `/api/painting-code/waf` to resolve code → slug/user
+3. Load painting with resolved slug
+4. Display code prominently in UI
+5. Generate QR code for `aesthetic.computer/#waf`
+
+**Fragment Routing:**
+- Handle `/#waf` at top level
+- Check if fragment matches `#[a-z0-9]{3,12}` pattern
+- If match, treat as painting code and route to `painting~#waf`
+- Otherwise, handle as normal prompt command
+
+---
+
+### Component 6: TV API Enhancement
+**File:** `system/netlify/functions/tv.mjs`
+
+**Current Response:**
+```json
+{
+  "media": {
+    "paintings": [
+      { "slug": "2025...", "user": "auth0|...", "owner": { "handle": "@fifi" }, ... }
+    ]
+  }
+}
 ```
 
-### Phase 4: Enhanced Features (Week 4)
-**Goal:** Rich metadata and discovery
+**Enhanced Response:**
+```json
+{
+  "media": {
+    "paintings": [
+      { 
+        "slug": "2025...", 
+        "code": "waf",
+        "shortUrl": "https://aesthetic.computer/#waf",
+        "user": "auth0|...", 
+        "owner": { "handle": "@fifi" }, 
+        ...
+      }
+    ]
+  }
+}
+```
 
-#### Tasks:
-1. **Image Analysis**
-   - Extract dominant colors
-   - Calculate palette size
-   - Detect pixel art vs photograph
-   - Auto-tag based on visual features
+**Implementation:**
+- Add `code` field to projection
+- Generate `shortUrl` in response
+- Filter by code: `GET /api/tv?code=waf`
+- Order by hits: `GET /api/tv?sort=popular`
 
-2. **Search & Discovery API**
-   - Search by code, user, tag, color
-   - "Random painting" endpoint
-   - "Similar paintings" (by hash similarity)
+---
 
-3. **Analytics Dashboard**
-   - Most popular painting codes
-   - Code generation analytics
-   - Hit tracking and trends
+### Component 7: Orphan Discovery
+**File:** `system/scripts/audit-digital-ocean-paintings.mjs`
 
-4. **Social Integration**
-   - Update Bluesky posting scripts to use `#codes`
-   - QR code generator API
-   - Short link service (ac.art/#waf redirects)
+**Purpose:** Find paintings in S3 that aren't tracked in MongoDB
+
+**Implementation:**
+1. List all files in Digital Ocean Spaces: `auth0|*/painting/*.png`
+2. Query MongoDB for all painting slugs
+3. Compare lists to find orphans
+4. Generate report: `orphaned-paintings.json`
+5. Optionally auto-import with generated codes
+
+**Integration:**
+- Reuse `listAndSaveMedia()` from `database.mjs`
+- Extend with code generation
+- Add `--import` flag to create records for orphans
+
+---
+
+### Component 8: Frontend Display
+**File:** `system/public/aesthetic.computer/disks/painting.mjs`
+
+**Updates:**
+1. **Display Code:** Show `#waf` prominently on painting page
+2. **Copy Button:** Click to copy short URL to clipboard
+3. **QR Code:** Generate QR for `aesthetic.computer/#waf`
+4. **Share Menu:** Update to use short URL by default
+5. **Legacy Support:** Still show timestamp slug as fallback
+
+**UI Mockup:**
+```
+┌─────────────────────────┐
+│   🎨 Painting #waf      │
+│   by @fifi              │
+│                         │
+│   [📋 Copy Link]        │
+│   [🔗 QR Code]          │
+│   [↗️  Share]           │
+│                         │
+│   aesthetic.computer/#waf
+└─────────────────────────┘
+```
 
 ---
 
