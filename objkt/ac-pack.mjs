@@ -224,7 +224,7 @@ class AcPacker {
   }
 
   async pack() {
-    console.log(`📦 Packing ${this.pieceName} for Teia...`);
+    console.log(`📦 Packing ...`);
     
     try {
       await this.createOutputDir();
@@ -2586,7 +2586,7 @@ function getColorTokenHighlight(token) {
       }
     }
 
-    console.log(`🔁 Converted ${mjsFiles.length} .mjs files to .js for Teia compatibility`);
+    console.log(`🔁 Converted ${mjsFiles.length} .mjs files to .js for platform compatibility`);
   }
 
   updateModuleSpecifierExtensions(content) {
@@ -2771,7 +2771,7 @@ async function main() {
   try {
     const zipResult = await createZipWithTimestamp(packer.options.outputDir, packer.pieceName, packer.zipTimestamp, packer.options.author, packer.options.targetDir);
     console.log("");
-    console.log("🎉 Success! Your package is ready for Teia:");
+    console.log("🎉 Success! Your package is ready:");
     console.log(`📁 Directory: ${packer.options.outputDir}`);
     console.log(`📦 Zip file: ${zipResult.zipPath}`);
     console.log("");
@@ -2792,7 +2792,7 @@ async function main() {
         console.log("🚀 Next steps:");
         console.log("1. Test your desktop app");
         console.log("2. Distribute to users");
-        console.log("3. Also consider uploading to Teia for web access");
+        console.log("3. Also consider uploading to teia.art or objkt.com for web access");
       } catch (error) {
         console.log("❌ Auto-ship failed:", error.message);
       }
