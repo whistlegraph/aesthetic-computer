@@ -765,9 +765,17 @@ function ac-site
         # Kill ports before starting
         kill-port 8880 8888 8889 8080 8000 8111 3333 3000 3001 2>/dev/null
         
-        # Link and start netlify
+        # Link netlify
         netlify link --id $NETLIFY_SITE_ID
-        netlify dev
+        
+        # Detect if running in GitHub Codespaces and use appropriate command
+        if test -n "$CODESPACES"
+            echo "🌐 Detected GitHub Codespaces - running without SSL..."
+            npm run codespaces-dev
+        else
+            echo "💻 Running on local machine - using SSL..."
+            npm run dev
+        end
         
         set exit_code $status
         echo "⚠️  ac-site crashed with exit code $exit_code"
