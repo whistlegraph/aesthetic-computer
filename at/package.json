@@ -7,17 +7,19 @@
     "query:profile": "node query-profile.mjs",
     "query:posts": "node query-posts.mjs",
     "post": "node post-to-bluesky.mjs",
+    "share:painting": "node share-latest-painting.mjs",
     "explore": "node explore-lexicons.mjs",
     "monitor": "node firehose-monitor.mjs",
     "test": "node test-all.mjs"
   },
   "dependencies": {
     "@atproto/api": "^0.17.0",
-    "@atproto/xrpc": "^0.6.5",
-    "@atproto/lexicon": "^0.4.2",
     "@atproto/identity": "^0.4.3",
+    "@atproto/lexicon": "^0.4.2",
     "@atproto/syntax": "^0.3.1",
-    "dotenv": "^16.4.5"
+    "@atproto/xrpc": "^0.6.5",
+    "dotenv": "^16.4.5",
+    "sharp": "^0.34.4"
   },
   "devDependencies": {
     "@types/node": "^22.10.2"
