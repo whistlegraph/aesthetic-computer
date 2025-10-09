@@ -36,6 +36,7 @@ class Pointer {
   drawing = false;
   penDragStartPos;
   dragBox;
+  lastMoveTime = performance.now(); // Track last movement for idle detection
   // These are only used to calculate the liminal event delta.
 
   // Helpers for computing delta.
@@ -224,6 +225,7 @@ export class Pen {
 
       pointer.untransformedPosition = { x: e.x, y: e.y };
       pointer.pressure = reportPressure(e);
+      pointer.lastMoveTime = performance.now(); // Update last movement time
 
       // Check if pointer is close to window edges (within 50px)
       const edgeThreshold = 50;
