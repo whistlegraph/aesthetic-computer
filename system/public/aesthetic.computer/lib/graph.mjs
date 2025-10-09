@@ -308,8 +308,7 @@ function parseFadeColor(color) {
   
   // Evaluate the direction (handles dynamic expressions like frame numbers)
   const evaluatedDirection = evaluateFadeDirection(direction);
-
-  console.log(`🎨 Fade parsed: neat=${isNeat}, fadeType="${fadeType}", direction="${evaluatedDirection}"`);
+  // console.log(`🎨 Fade parsed: neat=${isNeat}, fadeType="${fadeType}", direction="${evaluatedDirection}"`);
 
   return {
     colors: fadeColors,
@@ -852,6 +851,14 @@ function normalizeColorInput(value) {
 function findColor() {
   let args = [...arguments];
 
+  // 🍞 Reset blend mode to "blend" for any color EXCEPT "erase"
+  // This ensures erase mode doesn't persist across color changes
+  if (!(args.length === 1 && args[0] === "erase")) {
+    if (blendingMode === "erase") {
+      blendMode("blend");
+    }
+  }
+
   if (args.length === 1 && args[0] !== undefined) {
     const isNumber = () => typeof args[0] === "number";
     const isArray = () => Array.isArray(args[0]);
@@ -922,13 +929,11 @@ function findColor() {
       } else if (args[0] === "erase") {
         // TODO: Add better alpha support here... 23.09.11.22.10
         //       ^ See `parseColor` in `num`.
-        // let alpha = 255;
-        // if (args[1]) alpha = parseFloat(args[1]);
-        console.log('🎨 GRAPH.findColor: Processing "erase", args before:', [...arguments]);
         const originalAlpha = arguments[1]; // Save before overwriting args
         args = [-1, -1, -1];
         if (originalAlpha !== undefined) args.push(computeAlpha(originalAlpha));
-        console.log('🎨 GRAPH.findColor: erase args after initial assignment:', args);
+        // 🍞 Set blend mode to "erase" so drawing operations actually erase pixels
+        blendMode("erase");
       } else if (args[0] === "rainbow") {
         args = rainbow(); // Cycle through roygbiv in a linear sequence.
       } else {
@@ -964,6 +969,10 @@ function findColor() {
     // rainbow, alpha
     if (args[0] === "rainbow") {
       args = [...rainbow(), computeAlpha(args[1])];
+    } else if (args[0] === "erase") {
+      // 🍞 Handle "erase" with alpha: ink("erase", 32)
+      args = [-1, -1, -1, computeAlpha(args[1])];
+      blendMode("erase");
     } else if (typeof args[0] === "string") {
       const normalizedString = normalizeColorInput(args[0]);
       if (typeof normalizedString === "string") {
@@ -1064,7 +1073,6 @@ function findColor() {
     while (args.length < 4) {
       args.push(args.length === 3 ? 255 : randInt(255));
     }
-    console.log('🎨 GRAPH.findColor: args after ensuring 4 values:', args);
   }
 
   // Randomized any undefined or null values across all 4 arguments.
@@ -1438,14 +1446,24 @@ function plot(x, y) {
     return;
   }
 
-  // Erasing
-  if (c[0] === -1 && c[1] === -1 && c[2] === -1) {
-    erase(pixels, i, 1 - c[3] / 255);
+  // Erasing: Check if blend mode is "erase" OR color is [-1, -1, -1]
+  if (blendingMode === "erase" || (c[0] === -1 && c[1] === -1 && c[2] === -1)) {
+    const eraseAmount = Math.min(255, Math.max(0, c[3]));
+    if (eraseAmount > 0) {
+      erase(pixels, i, eraseAmount);
+    }
   } else if (alpha === 255) {
     // No alpha blending, just copy.
     pixels.set(plotColor, i);
   } else if (alpha !== 0) {
+    // Debug alpha blending for yellow
+    if (x === 100 && y === 100 && Math.random() < 0.01) {
+      console.log(`🎨 PLOT BLEND: color=[${plotColor}], dst=[${pixels[i]},${pixels[i+1]},${pixels[i+2]},${pixels[i+3]}]`);
+    }
     blend(pixels, plotColor, 0, i);
+    if (x === 100 && y === 100 && Math.random() < 0.01) {
+      console.log(`🎨 PLOT BLEND AFTER: dst=[${pixels[i]},${pixels[i+1]},${pixels[i+2]},${pixels[i+3]}]`);
+    }
   }
 }
 
@@ -1705,16 +1723,20 @@ function contrast(level = 1.0) {
     contrastLUT[i] = Math.max(0, Math.min(255, Math.round(adjusted)));
   }
 
-  // Apply contrast adjustment to each pixel using lookup table
+  // 🚀 ULTRA-OPTIMIZED: Row-major processing with minimal branching
   for (let y = minY; y < maxY; y++) {
-    for (let x = minX; x < maxX; x++) {
-      const idx = (y * width + x) * 4;
+    const rowOffset = y * width * 4;
+    const xStart = minX * 4;
+    const xEnd = maxX * 4;
+    
+    for (let offset = xStart; offset < xEnd; offset += 4) {
+      const idx = rowOffset + offset;
       
-      // Skip transparent pixels
+      // Skip transparent pixels (single check)
       if (pixels[idx + 3] === 0) continue;
       
-      // Use lookup table for fast contrast adjustment (RGB channels only)
-      pixels[idx] = contrastLUT[pixels[idx]];     // R
+      // Use lookup table for ultra-fast contrast adjustment (RGB channels only)
+      pixels[idx] = contrastLUT[pixels[idx]];         // R
       pixels[idx + 1] = contrastLUT[pixels[idx + 1]]; // G
       pixels[idx + 2] = contrastLUT[pixels[idx + 2]]; // B
       // Alpha channel stays unchanged
@@ -1778,6 +1800,74 @@ function brightness(adjustment = 0) {
 // Notes:
 // Scale can also be a transform object: { scale, angle }
 // Blit only works with a scale of 1.
+
+const PASTE_BLEND_EPSILON = 1e-10;
+
+function blendPixelOntoBuffer(destPixels, srcPixels, destIdx, srcIdx, srcAlpha) {
+  if (srcAlpha <= 0) return;
+
+  if (srcAlpha >= 255) {
+    destPixels[destIdx] = srcPixels[srcIdx];
+    destPixels[destIdx + 1] = srcPixels[srcIdx + 1];
+    destPixels[destIdx + 2] = srcPixels[srcIdx + 2];
+    destPixels[destIdx + 3] = 255;
+    return;
+  }
+
+  const dstAlpha = destPixels[destIdx + 3];
+
+  if (dstAlpha <= 0) {
+    destPixels[destIdx] = srcPixels[srcIdx];
+    destPixels[destIdx + 1] = srcPixels[srcIdx + 1];
+    destPixels[destIdx + 2] = srcPixels[srcIdx + 2];
+    destPixels[destIdx + 3] = srcAlpha;
+    return;
+  }
+
+  if (dstAlpha >= 255) {
+    const alpha = srcAlpha + 1;
+    const invAlpha = 256 - alpha;
+    destPixels[destIdx] = (alpha * srcPixels[srcIdx] + invAlpha * destPixels[destIdx]) >> 8;
+    destPixels[destIdx + 1] = (alpha * srcPixels[srcIdx + 1] + invAlpha * destPixels[destIdx + 1]) >> 8;
+    destPixels[destIdx + 2] = (alpha * srcPixels[srcIdx + 2] + invAlpha * destPixels[destIdx + 2]) >> 8;
+    destPixels[destIdx + 3] = 255;
+    return;
+  }
+
+  const alphaSrc = srcAlpha / 255;
+  const alphaDst = dstAlpha / 255;
+  const oneMinusAlphaSrc = 1 - alphaSrc;
+  const combinedAlpha = alphaSrc + oneMinusAlphaSrc * alphaDst;
+
+  if (combinedAlpha <= PASTE_BLEND_EPSILON) {
+    destPixels[destIdx] = 0;
+    destPixels[destIdx + 1] = 0;
+    destPixels[destIdx + 2] = 0;
+    destPixels[destIdx + 3] = 0;
+    return;
+  }
+
+  const invCombinedAlpha = 1 / combinedAlpha;
+
+  const blendedR =
+    (srcPixels[srcIdx] * alphaSrc +
+      destPixels[destIdx] * alphaDst * oneMinusAlphaSrc) *
+    invCombinedAlpha;
+  const blendedG =
+    (srcPixels[srcIdx + 1] * alphaSrc +
+      destPixels[destIdx + 1] * alphaDst * oneMinusAlphaSrc) *
+    invCombinedAlpha;
+  const blendedB =
+    (srcPixels[srcIdx + 2] * alphaSrc +
+      destPixels[destIdx + 2] * alphaDst * oneMinusAlphaSrc) *
+    invCombinedAlpha;
+
+  destPixels[destIdx] = Math.min(255, Math.max(0, Math.round(blendedR)));
+  destPixels[destIdx + 1] = Math.min(255, Math.max(0, Math.round(blendedG)));
+  destPixels[destIdx + 2] = Math.min(255, Math.max(0, Math.round(blendedB)));
+  destPixels[destIdx + 3] = Math.min(255, Math.max(0, Math.round(combinedAlpha * 255)));
+}
+
 function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
   const pasteStart = performance.now(); // 🚨 PERFORMANCE TRACKING
   
@@ -1924,23 +2014,8 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
           // Skip if source index is out of bounds
           if (srcIdx + 3 < fromPixels.length) {
             const srcAlpha = fromPixels[srcIdx + 3];
-            
             if (srcAlpha > 0) {
-              if (srcAlpha === 255) {
-                // Opaque source - direct copy
-                pixels[destIdx] = fromPixels[srcIdx];
-                pixels[destIdx + 1] = fromPixels[srcIdx + 1];
-                pixels[destIdx + 2] = fromPixels[srcIdx + 2];
-                pixels[destIdx + 3] = fromPixels[srcIdx + 3];
-              } else {
-                // Alpha blending
-                const alpha = srcAlpha + 1;
-                const invAlpha = 256 - alpha;
-                pixels[destIdx] = (alpha * fromPixels[srcIdx] + invAlpha * pixels[destIdx]) >> 8;
-                pixels[destIdx + 1] = (alpha * fromPixels[srcIdx + 1] + invAlpha * pixels[destIdx + 1]) >> 8;
-                pixels[destIdx + 2] = (alpha * fromPixels[srcIdx + 2] + invAlpha * pixels[destIdx + 2]) >> 8;
-                pixels[destIdx + 3] = Math.min(255, pixels[destIdx + 3] + srcAlpha);
-              }
+              blendPixelOntoBuffer(pixels, fromPixels, destIdx, srcIdx, srcAlpha);
             }
           }
         }
@@ -1963,7 +2038,48 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
     // Check to see if we can perform a full copy here,
     // with no alpha blending.
     if (blit) {
-      pixels.set(from.pixels, 0);
+      const srcPixels = from.pixels;
+      const srcWidth = from.width;
+      const srcHeight = from.height;
+
+      // ✅ FAST PATH: When buffers align perfectly, use bulk copy
+      if (
+        destX === 0 &&
+        destY === 0 &&
+        srcPixels &&
+        srcPixels.length === pixels.length &&
+        srcWidth === width &&
+        srcHeight === height
+      ) {
+        pixels.set(srcPixels, 0);
+      } else {
+        // 🛡️ SAFETY FALLBACK: Clamp copy region to destination bounds to avoid RangeError
+        const maxWidth = Math.min(srcWidth, Math.max(0, width - destX));
+        const maxHeight = Math.min(srcHeight, Math.max(0, height - destY));
+
+        if (maxWidth <= 0 || maxHeight <= 0) {
+          return; // Nothing to copy
+        }
+
+        for (let y = 0; y < maxHeight; y += 1) {
+          const srcRowStart = y * srcWidth * 4;
+          const destRowStart = ((destY + y) * width + destX) * 4;
+
+          for (let x = 0; x < maxWidth; x += 1) {
+            const srcIdx = srcRowStart + x * 4;
+            const destIdx = destRowStart + x * 4;
+
+            if (srcIdx + 3 >= srcPixels.length || destIdx + 3 >= pixels.length) {
+              continue; // Skip out-of-bounds writes
+            }
+
+            pixels[destIdx] = srcPixels[srcIdx];
+            pixels[destIdx + 1] = srcPixels[srcIdx + 1];
+            pixels[destIdx + 2] = srcPixels[srcIdx + 2];
+            pixels[destIdx + 3] = srcPixels[srcIdx + 3];
+          }
+        }
+      }
     } else {
       // 🚀 MAJOR OPTIMIZATION: Bulk pixel copying for better performance
       const srcWidth = from.width;
@@ -1988,26 +2104,9 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
             const srcIdx = srcRowStart + (x * 4);
             const destIdx = destRowStart + (x * 4);
             
-            // Skip transparent pixels
-            if (srcPixels[srcIdx + 3] > 0) {
-              // Fast alpha blending without function call overhead
-              const srcAlpha = srcPixels[srcIdx + 3];
-              
-              if (srcAlpha === 255) {
-                // Opaque source - direct copy (fastest path)
-                pixels[destIdx] = srcPixels[srcIdx];
-                pixels[destIdx + 1] = srcPixels[srcIdx + 1];
-                pixels[destIdx + 2] = srcPixels[srcIdx + 2];
-                pixels[destIdx + 3] = srcPixels[srcIdx + 3];
-              } else {
-                // Alpha blending (optimized inline version)
-                const alpha = srcAlpha + 1;
-                const invAlpha = 256 - alpha;
-                pixels[destIdx] = (alpha * srcPixels[srcIdx] + invAlpha * pixels[destIdx]) >> 8;
-                pixels[destIdx + 1] = (alpha * srcPixels[srcIdx + 1] + invAlpha * pixels[destIdx + 1]) >> 8;
-                pixels[destIdx + 2] = (alpha * srcPixels[srcIdx + 2] + invAlpha * pixels[destIdx + 2]) >> 8;
-                pixels[destIdx + 3] = Math.min(255, pixels[destIdx + 3] + srcAlpha);
-              }
+            const srcAlpha = srcPixels[srcIdx + 3];
+            if (srcAlpha > 0) {
+              blendPixelOntoBuffer(pixels, srcPixels, destIdx, srcIdx, srcAlpha);
             }
           }
         }
@@ -2156,8 +2255,31 @@ function blend(dst, src, si, di, alphaIn = 1) {
 }
 
 // Blends the alpha channel only / erases pixels.
-function erase(pixels, i, normalizedAlpha) {
-  pixels[i + 3] *= normalizedAlpha;
+function erase(pixels, i, eraseAmount) {
+  if (eraseAmount <= 0) return pixels[i + 3];
+
+  const currentAlpha = pixels[i + 3];
+  if (currentAlpha === 0) return 0;
+
+  let newAlpha = Math.max(0, currentAlpha - eraseAmount);
+  if (newAlpha === currentAlpha) {
+    newAlpha = Math.max(0, currentAlpha - 1);
+  }
+
+  if (newAlpha <= 0) {
+    pixels[i] = 0;
+    pixels[i + 1] = 0;
+    pixels[i + 2] = 0;
+    pixels[i + 3] = 0;
+    return 0;
+  }
+
+  const scale = newAlpha / currentAlpha;
+  pixels[i] = Math.round(pixels[i] * scale);
+  pixels[i + 1] = Math.round(pixels[i + 1] * scale);
+  pixels[i + 2] = Math.round(pixels[i + 2] * scale);
+  pixels[i + 3] = newAlpha;
+  return newAlpha;
 }
 
 // Draws a horizontal line. (Should be very fast...)
@@ -2211,11 +2333,13 @@ function lineh(x0, x1, y) {
     return;
   }
 
-  // Erasing.
-  if (blendMode !== "erase" && c[0] === -1 && c[1] === -1 && c[2] === -1) {
-    const normalAlpha = 1 - c[3] / 255;
-    for (let i = startIndex; i <= endIndex; i += 4) {
-      erase(pixels, i, normalAlpha);
+  // Erasing: Check if blend mode is "erase" OR color is [-1, -1, -1]
+  if (blendingMode === "erase" || (c[0] === -1 && c[1] === -1 && c[2] === -1)) {
+    const eraseAmount = Math.min(255, Math.max(0, c[3]));
+    if (eraseAmount > 0) {
+      for (let i = startIndex; i <= endIndex; i += 4) {
+        erase(pixels, i, eraseAmount);
+      }
     }
     // No alpha.
   } else if (c[3] === 255) {
@@ -3224,16 +3348,17 @@ function drawGradientTriangle(x1, y1, color1, x2, y2, color2, x3, y3, color3) {
   const maxY = ceil(max(y1, y2, y3));
   
   // Clip to screen bounds to avoid rendering huge off-screen triangles
+  // Use inclusive bounds to ensure we fill all the way to screen edges
   const screenMinX = max(0, minX);
-  const screenMaxX = min(width - 1, maxX);
+  const screenMaxX = min(width, maxX);
   const screenMinY = max(0, minY);
-  const screenMaxY = min(height - 1, maxY);
+  const screenMaxY = min(height, maxY);
   
   const clippedWidth = screenMaxX - screenMinX;
   const clippedHeight = screenMaxY - screenMinY;
   
   // Skip if triangle is completely off-screen
-  if (screenMinX > screenMaxX || screenMinY > screenMaxY) return;
+  if (screenMinX >= screenMaxX || screenMinY >= screenMaxY) return;
 
   // Calculate area of the whole triangle (for barycentric coordinates)
   const areaABC = (x2 - x1) * (y3 - y1) - (x3 - x1) * (y2 - y1);
@@ -3242,8 +3367,8 @@ function drawGradientTriangle(x1, y1, color1, x2, y2, color2, x3, y3, color3) {
   if (abs(areaABC) < 0.0001) return;
 
   // Iterate over bounding box and check if each pixel is inside the triangle
-  for (let y = screenMinY; y <= screenMaxY; y++) {
-    for (let x = screenMinX; x <= screenMaxX; x++) {
+  for (let y = screenMinY; y < screenMaxY; y++) {
+    for (let x = screenMinX; x < screenMaxX; x++) {
       // Calculate barycentric coordinates
       const areaPBC = (x2 - x) * (y3 - y) - (x3 - x) * (y2 - y);
       const areaPCA = (x3 - x) * (y1 - y) - (x1 - x) * (y3 - y);
@@ -3252,8 +3377,8 @@ function drawGradientTriangle(x1, y1, color1, x2, y2, color2, x3, y3, color3) {
       const v = areaPCA / areaABC; // Weight for vertex 2
       const w = 1 - u - v;          // Weight for vertex 3
 
-      // Check if point is inside triangle
-      if (u >= 0 && v >= 0 && w >= 0) {
+      // Check if point is inside triangle (use small epsilon for edge cases)
+      if (u >= -0.0001 && v >= -0.0001 && w >= -0.0001) {
         // Interpolate colors using barycentric weights
         const r = floor(u * color1[0] + v * color2[0] + w * color3[0]);
         const g = floor(u * color1[1] + v * color2[1] + w * color3[1]);
@@ -3270,7 +3395,12 @@ function drawGradientTriangle(x1, y1, color1, x2, y2, color2, x3, y3, color3) {
 
 // Helper: Subdivide a triangle if it's too large in screen space
 // Returns an array of smaller triangles (or the original if small enough)
-function subdivideTriangleIfNeeded(x1, y1, uv1, z1, x2, y2, uv2, z2, x3, y3, uv3, z3, maxScreenSize = 300) {
+function subdivideTriangleIfNeeded(x1, y1, uv1, z1, w1, x2, y2, uv2, z2, w2, x3, y3, uv3, z3, w3, maxScreenSize = 300, depth = 0) {
+  // Prevent infinite recursion - max depth of 4 (16 triangles max)
+  if (depth > 4) {
+    return [[x1, y1, uv1, w1, x2, y2, uv2, w2, x3, y3, uv3, w3]];
+  }
+  
   const minX = min(x1, x2, x3);
   const maxX = max(x1, x2, x3);
   const minY = min(y1, y2, y3);
@@ -3279,9 +3409,10 @@ function subdivideTriangleIfNeeded(x1, y1, uv1, z1, x2, y2, uv2, z2, x3, y3, uv3
   const screenWidth = maxX - minX;
   const screenHeight = maxY - minY;
   
-  // If triangle is small enough, return as-is
-  if (screenWidth <= maxScreenSize && screenHeight <= maxScreenSize) {
-    return [[x1, y1, uv1, z1, x2, y2, uv2, z2, x3, y3, uv3, z3]];
+  // If triangle is small enough, or has extreme values (off-screen), return as-is
+  if ((screenWidth <= maxScreenSize && screenHeight <= maxScreenSize) ||
+      screenWidth > 10000 || screenHeight > 10000) {
+    return [[x1, y1, uv1, w1, x2, y2, uv2, w2, x3, y3, uv3, w3]];
   }
   
   // Subdivide into 4 smaller triangles by finding midpoints
@@ -3291,24 +3422,40 @@ function subdivideTriangleIfNeeded(x1, y1, uv1, z1, x2, y2, uv2, z2, x3, y3, uv3
   
   const mz12 = (z1 + z2) / 2, mz23 = (z2 + z3) / 2, mz31 = (z3 + z1) / 2;
   
-  const muv12 = [(uv1[0] + uv2[0]) / 2, (uv1[1] + uv2[1]) / 2];
-  const muv23 = [(uv2[0] + uv3[0]) / 2, (uv2[1] + uv3[1]) / 2];
-  const muv31 = [(uv3[0] + uv1[0]) / 2, (uv3[1] + uv1[1]) / 2];
+  // Perspective-correct UV interpolation
+  // Interpolate u/w, v/w, and 1/w, then recover u and v
+  const invW1 = 1.0 / w1, invW2 = 1.0 / w2, invW3 = 1.0 / w3;
+  const u1w = uv1[0] * invW1, v1w = uv1[1] * invW1;
+  const u2w = uv2[0] * invW2, v2w = uv2[1] * invW2;
+  const u3w = uv3[0] * invW3, v3w = uv3[1] * invW3;
+  
+  // Interpolate W values
+  const mw12 = (w1 + w2) / 2, mw23 = (w2 + w3) / 2, mw31 = (w3 + w1) / 2;
+  
+  // Interpolate u/w and v/w
+  const mu12w = (u1w + u2w) / 2, mv12w = (v1w + v2w) / 2;
+  const mu23w = (u2w + u3w) / 2, mv23w = (v2w + v3w) / 2;
+  const mu31w = (u3w + u1w) / 2, mv31w = (v3w + v1w) / 2;
+  
+  // Recover UV coordinates: u = (u/w) * w
+  const muv12 = [mu12w * mw12, mv12w * mw12];
+  const muv23 = [mu23w * mw23, mv23w * mw23];
+  const muv31 = [mu31w * mw31, mv31w * mw31];
   
   // Recursively subdivide the 4 sub-triangles
   const result = [];
-  result.push(...subdivideTriangleIfNeeded(x1, y1, uv1, z1, mx12, my12, muv12, mz12, mx31, my31, muv31, mz31, maxScreenSize));
-  result.push(...subdivideTriangleIfNeeded(mx12, my12, muv12, mz12, x2, y2, uv2, z2, mx23, my23, muv23, mz23, maxScreenSize));
-  result.push(...subdivideTriangleIfNeeded(mx31, my31, muv31, mz31, mx23, my23, muv23, mz23, x3, y3, uv3, z3, maxScreenSize));
-  result.push(...subdivideTriangleIfNeeded(mx12, my12, muv12, mz12, mx23, my23, muv23, mz23, mx31, my31, muv31, mz31, maxScreenSize));
+  result.push(...subdivideTriangleIfNeeded(x1, y1, uv1, z1, w1, mx12, my12, muv12, mz12, mw12, mx31, my31, muv31, mz31, mw31, maxScreenSize, depth + 1));
+  result.push(...subdivideTriangleIfNeeded(mx12, my12, muv12, mz12, mw12, x2, y2, uv2, z2, w2, mx23, my23, muv23, mz23, mw23, maxScreenSize, depth + 1));
+  result.push(...subdivideTriangleIfNeeded(mx31, my31, muv31, mz31, mw31, mx23, my23, muv23, mz23, mw23, x3, y3, uv3, z3, w3, maxScreenSize, depth + 1));
+  result.push(...subdivideTriangleIfNeeded(mx12, my12, muv12, mz12, mw12, mx23, my23, muv23, mz23, mw23, mx31, my31, muv31, mz31, mw31, maxScreenSize, depth + 1));
   
   return result;
 }
 
 // Draws a filled triangle with texture mapping using barycentric interpolation
 // Each vertex has UV coordinates that map to a texture buffer
-// Uses perspective-correct interpolation with depth values
-function drawTexturedTriangle(x1, y1, uv1, z1, x2, y2, uv2, z2, x3, y3, uv3, z3, texture, alphaMultiplier = 1.0) {
+// Uses perspective-correct interpolation with clip-space W values (not NDC Z!)
+function drawTexturedTriangle(x1, y1, uv1, w1, x2, y2, uv2, w2, x3, y3, uv3, w3, texture, alphaMultiplier = 1.0) {
   // Calculate bounding box
   const minX = floor(min(x1, x2, x3));
   const maxX = ceil(max(x1, x2, x3));
@@ -3316,16 +3463,17 @@ function drawTexturedTriangle(x1, y1, uv1, z1, x2, y2, uv2, z2, x3, y3, uv3, z3,
   const maxY = ceil(max(y1, y2, y3));
   
   // Clip to screen bounds to avoid rendering huge off-screen triangles
+  // Use inclusive bounds to ensure we fill all the way to screen edges
   const screenMinX = max(0, minX);
-  const screenMaxX = min(width - 1, maxX);
+  const screenMaxX = min(width, maxX);
   const screenMinY = max(0, minY);
-  const screenMaxY = min(height - 1, maxY);
+  const screenMaxY = min(height, maxY);
   
   const clippedWidth = screenMaxX - screenMinX;
   const clippedHeight = screenMaxY - screenMinY;
   
   // Skip if triangle is completely off-screen
-  if (screenMinX > screenMaxX || screenMinY > screenMaxY) return;
+  if (screenMinX >= screenMaxX || screenMinY >= screenMaxY) return;
 
   // Calculate area of the whole triangle (for barycentric coordinates)
   const areaABC = (x2 - x1) * (y3 - y1) - (x3 - x1) * (y2 - y1);
@@ -3336,21 +3484,27 @@ function drawTexturedTriangle(x1, y1, uv1, z1, x2, y2, uv2, z2, x3, y3, uv3, z3,
   const texWidth = texture.width;
   const texHeight = texture.height;
   
-  // Perspective-correct texture mapping: interpolate 1/z, u/z, v/z
-  const invZ1 = 1 / z1;
-  const invZ2 = 1 / z2;
-  const invZ3 = 1 / z3;
+  // Safety check: avoid division by zero or negative W values
+  if (w1 <= 0.001 || w2 <= 0.001 || w3 <= 0.001) {
+    return; // Skip triangles with invalid depth
+  }
   
-  const u1OverZ = uv1[0] * invZ1;
-  const v1OverZ = uv1[1] * invZ1;
-  const u2OverZ = uv2[0] * invZ2;
-  const v2OverZ = uv2[1] * invZ2;
-  const u3OverZ = uv3[0] * invZ3;
-  const v3OverZ = uv3[1] * invZ3;
+  // Perspective-correct texture mapping: interpolate 1/w, u/w, v/w
+  // Use clip-space W (not NDC Z) for proper perspective correction!
+  const invW1 = 1 / w1;
+  const invW2 = 1 / w2;
+  const invW3 = 1 / w3;
+  
+  const u1OverW = uv1[0] * invW1;
+  const v1OverW = uv1[1] * invW1;
+  const u2OverW = uv2[0] * invW2;
+  const v2OverW = uv2[1] * invW2;
+  const u3OverW = uv3[0] * invW3;
+  const v3OverW = uv3[1] * invW3;
 
   // Iterate over bounding box and check if each pixel is inside the triangle
-  for (let y = screenMinY; y <= screenMaxY; y++) {
-    for (let x = screenMinX; x <= screenMaxX; x++) {
+  for (let y = screenMinY; y < screenMaxY; y++) {
+    for (let x = screenMinX; x < screenMaxX; x++) {
       // Calculate barycentric coordinates
       const areaPBC = (x2 - x) * (y3 - y) - (x3 - x) * (y2 - y);
       const areaPCA = (x3 - x) * (y1 - y) - (x1 - x) * (y3 - y);
@@ -3359,20 +3513,23 @@ function drawTexturedTriangle(x1, y1, uv1, z1, x2, y2, uv2, z2, x3, y3, uv3, z3,
       const v = areaPCA / areaABC; // Weight for vertex 2
       const w = 1 - u - v;          // Weight for vertex 3
 
-      // Check if point is inside triangle
-      if (u >= 0 && v >= 0 && w >= 0) {
-        // Interpolate 1/z and uv/z using barycentric weights
-        const interpInvZ = u * invZ1 + v * invZ2 + w * invZ3;
-        const interpUOverZ = u * u1OverZ + v * u2OverZ + w * u3OverZ;
-        const interpVOverZ = u * v1OverZ + v * v2OverZ + w * v3OverZ;
+      // Check if point is inside triangle (use small epsilon for edge cases)
+      if (u >= -0.0001 && v >= -0.0001 && w >= -0.0001) {
+        // Interpolate 1/w and uv/w using barycentric weights
+        const interpInvW = u * invW1 + v * invW2 + w * invW3;
+        const interpUOverW = u * u1OverW + v * u2OverW + w * u3OverW;
+        const interpVOverW = u * v1OverW + v * v2OverW + w * v3OverW;
         
-        // Recover perspective-correct UV by dividing by interpolated 1/z
-        const texU = interpUOverZ / interpInvZ;
-        const texV = interpVOverZ / interpInvZ;
+        // Recover perspective-correct UV by dividing by interpolated 1/w
+        const texU = interpUOverW / interpInvW;
+        const texV = interpVOverW / interpInvW;
 
         // Sample texture at UV coordinates (with wrapping)
-        const texX = floor(texU * texWidth) % texWidth;
-        const texY = floor(texV * texHeight) % texHeight;
+        // Handle negative UVs properly with modulo
+        let texX = floor(texU * texWidth) % texWidth;
+        let texY = floor(texV * texHeight) % texHeight;
+        if (texX < 0) texX += texWidth;
+        if (texY < 0) texY += texHeight;
         
         // Get pixel from texture buffer
         const pixelIndex = (texY * texWidth + texX) * 4;
@@ -4371,7 +4528,6 @@ function scroll(dx = 0, dy = 0) {
     return; // No effective shift after normalization
   }
 
-  // Create a complete copy of the working area for safe reading
   // 🛡️ SAFETY CHECK: If pixels buffer is detached, recreate it
   if (pixels.buffer && pixels.buffer.detached) {
     console.warn('🚨 Pixels buffer detached in scroll, recreating from screen dimensions');
@@ -4379,39 +4535,39 @@ function scroll(dx = 0, dy = 0) {
     pixels.fill(0); // Fill with transparent black
   }
   
-  const tempPixels = new Uint8ClampedArray(pixels);
+  // Reuse temporary buffer to avoid repeated large allocations
+  const requiredSize = pixels.length;
+  if (!scrollTempBuffer || scrollTempBufferSize !== requiredSize) {
+    // Only allocate new buffer if size changed or buffer doesn't exist
+    scrollTempBuffer = new Uint8ClampedArray(requiredSize);
+    scrollTempBufferSize = requiredSize;
+  }
+  
+  // Copy current pixels to temp buffer
+  scrollTempBuffer.set(pixels);
 
-  // General case: pixel-by-pixel with proper bounds checking
+  // 🚀 ULTRA-OPTIMIZED: Remove redundant bounds checking inside loop
+  // All coordinates are guaranteed to be in bounds by construction
+  const widthBytes = width * 4;
+  
   for (let y = 0; y < boundsHeight; y++) {
+    const srcRow = minY + ((y + boundsHeight - finalDy) % boundsHeight);
+    const destRow = minY + y;
+    const srcRowOffset = srcRow * widthBytes;
+    const destRowOffset = destRow * widthBytes;
+    
     for (let x = 0; x < boundsWidth; x++) {
-      // Calculate source coordinates with wrapping within bounds
-      const srcX = minX + ((x + boundsWidth - finalDx) % boundsWidth);
-      const srcY = minY + ((y + boundsHeight - finalDy) % boundsHeight);
+      const srcCol = minX + ((x + boundsWidth - finalDx) % boundsWidth);
+      const destCol = minX + x;
+      
+      const srcOffset = srcRowOffset + srcCol * 4;
+      const destOffset = destRowOffset + destCol * 4;
 
-      // Calculate destination coordinates
-      const destX = minX + x;
-      const destY = minY + y;
-
-      // Ensure coordinates are within valid bounds
-      if (
-        srcX >= minX &&
-        srcX < maxX &&
-        srcY >= minY &&
-        srcY < maxY &&
-        destX >= minX &&
-        destX < maxX &&
-        destY >= minY &&
-        destY < maxY
-      ) {
-        const srcOffset = (srcY * width + srcX) * 4;
-        const destOffset = (destY * width + destX) * 4;
-
-        // Copy RGBA values
-        pixels[destOffset] = tempPixels[srcOffset];
-        pixels[destOffset + 1] = tempPixels[srcOffset + 1];
-        pixels[destOffset + 2] = tempPixels[srcOffset + 2];
-        pixels[destOffset + 3] = tempPixels[srcOffset + 3];
-      }
+      // Copy RGBA values (compiler can vectorize this)
+      pixels[destOffset] = scrollTempBuffer[srcOffset];
+      pixels[destOffset + 1] = scrollTempBuffer[srcOffset + 1];
+      pixels[destOffset + 2] = scrollTempBuffer[srcOffset + 2];
+      pixels[destOffset + 3] = scrollTempBuffer[srcOffset + 3];
     }
   }
 }
@@ -5422,11 +5578,21 @@ let blurAccumulator = 0.0;
 let blurTempBuffer = null;
 let blurTempBufferSize = 0;
 
+// Reusable temporary buffer for scroll operations to avoid memory allocation on each call
+let scrollTempBuffer = null;
+let scrollTempBufferSize = 0;
+
 // Function to clean up blur buffers and reset state
 function cleanupBlurBuffers() {
   blurTempBuffer = null;
   blurTempBufferSize = 0;
   blurAccumulator = 0.0;
+}
+
+// Function to clean up scroll buffers
+function cleanupScrollBuffers() {
+  scrollTempBuffer = null;
+  scrollTempBufferSize = 0;
 }
 
 // Efficient Gaussian blur using separable filtering with linear sampling optimization
@@ -5571,8 +5737,12 @@ function applyHorizontalBlur(sourcePixels, destPixels, weights, radius, minX, mi
       
       // Apply convolution kernel horizontally
       for (let k = -radius; k <= radius; k++) {
-        // Handle boundary conditions with clamping
-        const srcX = Math.max(minX, Math.min(maxX - 1, x + k));
+        // Handle boundary conditions with wrapping for seamless edges
+        let srcX = x + k;
+        // Wrap around screen edges instead of clamping
+        if (srcX < minX) srcX += (maxX - minX);
+        if (srcX >= maxX) srcX -= (maxX - minX);
+        
         const srcIdx = (rowOffset + srcX) * 4;
         
         // Bounds check for source index
@@ -5617,8 +5787,12 @@ function applyVerticalBlur(sourcePixels, destPixels, weights, radius, minX, minY
       
       // Apply convolution kernel vertically
       for (let k = -radius; k <= radius; k++) {
-        // Handle boundary conditions with clamping
-        const srcY = Math.max(minY, Math.min(maxY - 1, y + k));
+        // Handle boundary conditions with wrapping for seamless edges
+        let srcY = y + k;
+        // Wrap around screen edges instead of clamping
+        if (srcY < minY) srcY += (maxY - minY);
+        if (srcY >= maxY) srcY -= (maxY - minY);
+        
         const srcIdx = (srcY * width + x) * 4;
         
         // Bounds check for source index
@@ -5685,6 +5859,9 @@ function sharpen(strength = 1) {
   }
   
   try {
+    // 🚀 OPTIMIZATION: Early exit if strength is negligible
+    if (strength < 0.01) return;
+    
     // Create temporary buffer for sharpen operation
     const tempBuffer = new Uint8ClampedArray(pixels.length);
     
@@ -5696,30 +5873,56 @@ function sharpen(strength = 1) {
     const centerWeight = 1 + (4 * strength);
     const edgeWeight = -strength;
     
+    // 🚀 ULTRA-OPTIMIZED: Process with minimal index calculations
+    // Pre-calculate row offsets for better cache performance
+    const widthBytes = width * 4;
+    
     // Apply sharpening convolution
     for (let y = minY + 1; y < maxY - 1; y++) {
+      const rowOffset = y * widthBytes;
+      const prevRowOffset = (y - 1) * widthBytes;
+      const nextRowOffset = (y + 1) * widthBytes;
+      
       for (let x = minX + 1; x < maxX - 1; x++) {
-        const centerIdx = (y * width + x) * 4;
+        const xOffset = x * 4;
+        const centerIdx = rowOffset + xOffset;
         
-        // Skip transparent pixels
+        // 🚀 OPTIMIZATION: Single alpha check at start
         if (tempBuffer[centerIdx + 3] === 0) continue;
         
+        // 🚀 OPTIMIZATION: Pre-calculate neighbor indices (avoid repeated multiplication)
+        const topIdx = prevRowOffset + xOffset;
+        const bottomIdx = nextRowOffset + xOffset;
+        const leftIdx = rowOffset + (x - 1) * 4;
+        const rightIdx = rowOffset + (x + 1) * 4;
+        
         // Apply 3x3 unsharp mask kernel for each color channel
-        for (let channel = 0; channel < 3; channel++) { // RGB only, preserve alpha
-          let sum = 0;
-          
-          // Center pixel (enhanced)
-          sum += tempBuffer[centerIdx + channel] * centerWeight;
-          
-          // Surrounding pixels (subtracted)
-          sum += tempBuffer[((y - 1) * width + x) * 4 + channel] * edgeWeight; // top
-          sum += tempBuffer[((y + 1) * width + x) * 4 + channel] * edgeWeight; // bottom
-          sum += tempBuffer[(y * width + (x - 1)) * 4 + channel] * edgeWeight; // left
-          sum += tempBuffer[(y * width + (x + 1)) * 4 + channel] * edgeWeight; // right
-          
-          // Clamp result to valid range
-          pixels[centerIdx + channel] = Math.max(0, Math.min(255, Math.round(sum)));
-        }
+        // 🚀 OPTIMIZATION: Unroll channel loop for better performance
+        
+        // Red channel
+        let r = tempBuffer[centerIdx] * centerWeight;
+        r += tempBuffer[topIdx] * edgeWeight;
+        r += tempBuffer[bottomIdx] * edgeWeight;
+        r += tempBuffer[leftIdx] * edgeWeight;
+        r += tempBuffer[rightIdx] * edgeWeight;
+        pixels[centerIdx] = r > 255 ? 255 : r < 0 ? 0 : Math.round(r);
+        
+        // Green channel
+        let g = tempBuffer[centerIdx + 1] * centerWeight;
+        g += tempBuffer[topIdx + 1] * edgeWeight;
+        g += tempBuffer[bottomIdx + 1] * edgeWeight;
+        g += tempBuffer[leftIdx + 1] * edgeWeight;
+        g += tempBuffer[rightIdx + 1] * edgeWeight;
+        pixels[centerIdx + 1] = g > 255 ? 255 : g < 0 ? 0 : Math.round(g);
+        
+        // Blue channel
+        let b = tempBuffer[centerIdx + 2] * centerWeight;
+        b += tempBuffer[topIdx + 2] * edgeWeight;
+        b += tempBuffer[bottomIdx + 2] * edgeWeight;
+        b += tempBuffer[leftIdx + 2] * edgeWeight;
+        b += tempBuffer[rightIdx + 2] * edgeWeight;
+        pixels[centerIdx + 2] = b > 255 ? 255 : b < 0 ? 0 : Math.round(b);
+        
         // Alpha channel stays unchanged
       }
     }
@@ -5731,6 +5934,77 @@ function sharpen(strength = 1) {
   // Log timing information for performance monitoring
   const sharpenEndTime = performance.now();
   graphPerf.track('sharpen', sharpenEndTime - sharpenStartTime);
+}
+
+// Invert all colors in the buffer (RGB channels)
+// Alpha channel is preserved
+function invert() {
+  // Start timing for performance monitoring
+  const invertStartTime = performance.now();
+  
+  // Determine the area to process (mask or full screen)
+  let minX = 0,
+    minY = 0,
+    maxX = width,
+    maxY = height;
+  if (activeMask) {
+    // Apply pan translation to mask bounds and ensure they're within screen bounds
+    minX = Math.max(0, Math.min(width, activeMask.x + panTranslation.x));
+    maxX = Math.max(
+      0,
+      Math.min(width, activeMask.x + activeMask.width + panTranslation.x),
+    );
+    minY = Math.max(0, Math.min(height, activeMask.y + panTranslation.y));
+    maxY = Math.max(
+      0,
+      Math.min(height, activeMask.y + activeMask.height + panTranslation.y),
+    );
+  }
+
+  const workingWidth = maxX - minX;
+  const workingHeight = maxY - minY;
+
+  // Early exit if bounds are invalid
+  if (workingWidth <= 0 || workingHeight <= 0) return;
+
+  // 🛡️ SAFETY CHECK: If pixels buffer is detached, recreate it
+  if (pixels.buffer && pixels.buffer.detached) {
+    console.warn('🚨 Pixels buffer detached in invert, recreating from screen dimensions');
+    pixels = new Uint8ClampedArray(width * height * 4);
+    pixels.fill(0); // Fill with transparent black
+  }
+  
+  try {
+    // 🚀 ULTRA-OPTIMIZED: Invert RGB values with minimal branching
+    // Process row by row for better cache locality
+    for (let y = minY; y < maxY; y++) {
+      const rowStart = y * width * 4;
+      const xStart = minX * 4;
+      const xEnd = maxX * 4;
+      
+      // Process pixels in this row
+      for (let offset = xStart; offset < xEnd; offset += 4) {
+        const idx = rowStart + offset;
+        
+        // 🚀 OPTIMIZATION: Single alpha check, then batch invert RGB
+        const alpha = pixels[idx + 3];
+        if (alpha === 0) continue;
+        
+        // Invert RGB in one go (compiler can vectorize this)
+        pixels[idx] = 255 - pixels[idx];         // Red
+        pixels[idx + 1] = 255 - pixels[idx + 1]; // Green
+        pixels[idx + 2] = 255 - pixels[idx + 2]; // Blue
+        // Alpha unchanged
+      }
+    }
+    
+  } catch (error) {
+    console.warn('🚨 Invert operation failed:', error);
+  }
+  
+  // Log timing information for performance monitoring
+  const invertEndTime = performance.now();
+  graphPerf.track('invert', invertEndTime - invertStartTime);
 }
 
 // Sort pixels by color within the masked area (or entire screen if no mask)
@@ -6246,6 +6520,213 @@ class Dolly {
 
 let formId = 0;
 
+// Debug flag for showing wireframes
+let showWireframes = false;
+
+// Buffer to store wireframe lines for deferred rendering
+let wireframeLines = [];
+
+// Stats for tracking rendering info
+let renderStats = {
+  originalTriangles: 0,
+  clippedTriangles: 0,
+  subdividedTriangles: 0,
+  wireframeSegmentsTotal: 0,
+  wireframeSegmentsTextured: 0,
+  wireframeSegmentsGradient: 0,
+  wireframeSegmentsClipped: 0,
+  wireframeSegmentsOther: 0,
+};
+
+// Function to toggle wireframe rendering
+function setShowClippedWireframes(enabled) {
+  showWireframes = enabled;
+  console.log("🔲 Wireframes:", enabled ? "ON" : "OFF");
+}
+
+// Function to clear wireframe buffer (called at start of frame)
+function clearWireframeBuffer() {
+  wireframeLines = [];
+  renderStats = {
+    originalTriangles: 0,
+    clippedTriangles: 0,
+    subdividedTriangles: 0,
+    wireframeSegmentsTotal: 0,
+    wireframeSegmentsTextured: 0,
+    wireframeSegmentsGradient: 0,
+    wireframeSegmentsClipped: 0,
+    wireframeSegmentsOther: 0,
+  };
+}
+
+// Function to get current render stats
+function getRenderStats() {
+  return renderStats;
+}
+
+// Cohen-Sutherland line clipping algorithm
+// Clips a line to the screen bounds [0, 0, width, height]
+function clipLineToScreen(x1, y1, x2, y2) {
+  // Region codes
+  const INSIDE = 0; // 0000
+  const LEFT = 1;   // 0001
+  const RIGHT = 2;  // 0010
+  const BOTTOM = 4; // 0100
+  const TOP = 8;    // 1000
+
+  // Compute region code for a point
+  function computeOutCode(x, y) {
+    let code = INSIDE;
+    if (x < 0) code |= LEFT;
+    else if (x >= width) code |= RIGHT;
+    if (y < 0) code |= TOP;
+    else if (y >= height) code |= BOTTOM;
+    return code;
+  }
+
+  let outcode1 = computeOutCode(x1, y1);
+  let outcode2 = computeOutCode(x2, y2);
+  let accept = false;
+
+  while (true) {
+    if (!(outcode1 | outcode2)) {
+      // Both points inside - accept line
+      accept = true;
+      break;
+    } else if (outcode1 & outcode2) {
+      // Both points share an outside region - reject line
+      break;
+    } else {
+      // Line needs clipping
+      let x, y;
+      // Pick point outside rectangle
+      const outcodeOut = outcode1 ? outcode1 : outcode2;
+
+      // Find intersection point using line equation
+      if (outcodeOut & TOP) {
+        x = x1 + (x2 - x1) * (0 - y1) / (y2 - y1);
+        y = 0;
+      } else if (outcodeOut & BOTTOM) {
+        x = x1 + (x2 - x1) * (height - 1 - y1) / (y2 - y1);
+        y = height - 1;
+      } else if (outcodeOut & RIGHT) {
+        y = y1 + (y2 - y1) * (width - 1 - x1) / (x2 - x1);
+        x = width - 1;
+      } else if (outcodeOut & LEFT) {
+        y = y1 + (y2 - y1) * (0 - x1) / (x2 - x1);
+        x = 0;
+      }
+
+      // Replace point outside rectangle with intersection point
+      if (outcodeOut === outcode1) {
+        x1 = x;
+        y1 = y;
+        outcode1 = computeOutCode(x1, y1);
+      } else {
+        x2 = x;
+        y2 = y;
+        outcode2 = computeOutCode(x2, y2);
+      }
+    }
+  }
+
+  if (accept) {
+    return { x1, y1, x2, y2 };
+  } else {
+    return null; // Line is completely outside
+  }
+}
+
+// Function to add wireframe line to buffer
+function addWireframeLine(x1, y1, x2, y2, color, category = "other") {
+  // Enhanced sanity checks
+  const maxCoord = 10000; // Stricter limit
+  
+  // Reject lines with extreme coordinates
+  if (abs(x1) > maxCoord || abs(y1) > maxCoord || abs(x2) > maxCoord || abs(y2) > maxCoord) {
+    return;
+  }
+  
+  // Reject lines with NaN or Infinity
+  if (!isFinite(x1) || !isFinite(y1) || !isFinite(x2) || !isFinite(y2)) {
+    return;
+  }
+  
+  // Reject zero-length lines
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  if (dx === 0 && dy === 0) {
+    return;
+  }
+
+  wireframeLines.push({ x1, y1, x2, y2, color, category });
+  
+  // Debug log first addition only
+  if (!addWireframeLine.hasLogged) {
+    console.log(`📝 First wireframe buffered: color=[${color}], from (${x1.toFixed(1)}, ${y1.toFixed(1)}) to (${x2.toFixed(1)}, ${y2.toFixed(1)}), category=${category}`);
+    addWireframeLine.hasLogged = true;
+  }
+
+  // Update wireframe stats
+  renderStats.wireframeSegmentsTotal++;
+  switch (category) {
+    case "textured":
+      renderStats.wireframeSegmentsTextured++;
+      break;
+    case "gradient":
+      renderStats.wireframeSegmentsGradient++;
+      break;
+    case "clipped":
+      renderStats.wireframeSegmentsClipped++;
+      break;
+    default:
+      renderStats.wireframeSegmentsOther++;
+      break;
+  }
+}
+
+// Function to draw all buffered wireframes (called at end of frame)
+function drawBufferedWireframes() {
+  // Debug counter (only log once per second)
+  if (!drawBufferedWireframes.frameCount) drawBufferedWireframes.frameCount = 0;
+  drawBufferedWireframes.frameCount++;
+  const shouldLog = drawBufferedWireframes.frameCount % 60 === 1;
+  
+  if (wireframeLines.length > 0) {
+    if (shouldLog) {
+      console.log(`🎨 Drawing ${wireframeLines.length} buffered wireframe segments`);
+    }
+    let drawnCount = 0;
+    let clippedOutCount = 0;
+    
+    const savedColor = [c[0], c[1], c[2], c[3]];
+    withForceReplaceMode(() => {
+      for (const wf of wireframeLines) {
+        const clipped = clipLineToScreen(wf.x1, wf.y1, wf.x2, wf.y2);
+        if (!clipped) {
+          clippedOutCount++;
+          continue;
+        }
+        setColor(wf.color[0], wf.color[1], wf.color[2], wf.color[3]);
+        line(clipped.x1, clipped.y1, clipped.x2, clipped.y2);
+        drawnCount++;
+        
+        // Log first segment for debugging (only once per second)
+        if (drawnCount === 1 && shouldLog) {
+          console.log(`  First segment: color=[${wf.color}], from (${clipped.x1.toFixed(1)}, ${clipped.y1.toFixed(1)}) to (${clipped.x2.toFixed(1)}, ${clipped.y2.toFixed(1)}), category=${wf.category}`);
+        }
+      }
+    });
+    if (shouldLog) {
+      console.log(`  ✓ Drew ${drawnCount} segments, ${clippedOutCount} clipped out`);
+    }
+    setColor(...savedColor);
+    wireframeLines = [];
+  } else if (shouldLog) {
+    console.log(`⚠️  drawBufferedWireframes called but wireframeLines is empty`);
+  }
+}
+
 // Mesh
 class Form {
   primitive = "triangle";
@@ -6313,6 +6794,7 @@ class Form {
       uvs = [],
       positions,
       colors,
+      texCoords,
       gradients,
       indices,
       keep = true,
@@ -6357,7 +6839,7 @@ class Form {
 
     // TODO: There is no maxed out notice here.
     if (positions?.length > 0)
-      this.addPoints({ positions, colors }, this.indices);
+      this.addPoints({ positions, colors, texCoords }, this.indices);
 
     // Or just set vertices directly.
     if (vertices?.length > 0) {
@@ -6429,15 +6911,10 @@ class Form {
 
     // Create new vertices from incoming positions.
     for (let i = 0; i < end; i++) {
-      // Generate texCoord from position instead of loading.
-      // (Vertex / 2) + 0.5 // Vertex to UV
-      // See also: (Vertex - 0.5) * 2 // UV to Vertex
-      // TODO: This only works for quads right now.
-      const texCoord = [
+      // Use custom texCoords if provided, otherwise generate from position
+      const texCoord = attributes.texCoords?.[i] || [
         attributes.positions[i][X] / 2 + 0.5,
         attributes.positions[i][Y] / 2 + 0.5,
-        //0, //positions[i][Z] / 2 + 0.5; // TODO: Is this necessary to calculate for UV?
-        //0,
       ];
 
       // 🔥
@@ -6541,35 +7018,61 @@ class Form {
 
     // Render wireframe lines for line type forms using untransformed vertices
     if (this.type === "line" && this.vertices.length > 0) {
-      const lineColor = this.color || [255, 0, 0, 255]; // Default to red
-
-      // Use the full combined matrix for line3d
+      // Use the full combined matrix for screen-space conversion
       const fullMatrix = mat4.multiply(mat4.create(), cameraMatrix, transformed);
 
-      // Render lines between pairs of vertices using original vertices
-      for (let i = 0; i < this.vertices.length; i += 2) {
-        if (i + 1 < this.vertices.length) {
-          const a = this.vertices[i];
-          const b = this.vertices[i + 1];
-          // Create temporary transformed vertices for line3d
-          const transformedA = a.transform(fullMatrix);
-          const transformedB = b.transform(fullMatrix);
+      withForceReplaceMode(() => {
+        const savedColor = [c[0], c[1], c[2], c[3]];
+        const baseColor = this.color;
+        // Render lines between pairs of vertices using original vertices
+        for (let i = 0; i < this.vertices.length; i += 2) {
+          if (i + 1 < this.vertices.length) {
+            const a = this.vertices[i];
+            const b = this.vertices[i + 1];
+            // Create temporary transformed vertices for projection
+            const transformedA = a.transform(fullMatrix);
+            const transformedB = b.transform(fullMatrix);
 
-          // Skip drawing if either vertex is behind the camera (negative Z)
-          if (transformedA.pos[2] <= 0 || transformedB.pos[2] <= 0) {
-            continue;
+            // Skip drawing if either vertex is behind the camera (negative Z)
+            if (transformedA.pos[2] <= 0 || transformedB.pos[2] <= 0) {
+              continue;
+            }
+
+            // Apply perspective divide and screen space transformation
+            const screenA = toScreenSpace(perspectiveDivide(transformedA));
+            const screenB = toScreenSpace(perspectiveDivide(transformedB));
+
+            const clipped = clipLineToScreen(
+              screenA.pos[0],
+              screenA.pos[1],
+              screenB.pos[0],
+              screenB.pos[1],
+            );
+            if (!clipped) continue;
+
+            if (baseColor && baseColor.length >= 3) {
+              setColor(
+                baseColor[0],
+                baseColor[1],
+                baseColor[2],
+                baseColor[3] ?? 255,
+              );
+            } else if (a.color && b.color) {
+              const avg = [
+                floor((a.color[0] + b.color[0]) / 2 * 255),
+                floor((a.color[1] + b.color[1]) / 2 * 255),
+                floor((a.color[2] + b.color[2]) / 2 * 255),
+                floor((a.color[3] + b.color[3]) / 2 * 255),
+              ];
+              setColor(...avg);
+            }
+
+            // Draw simple 2D line guaranteed to overwrite underlying pixels
+            line(clipped.x1, clipped.y1, clipped.x2, clipped.y2);
           }
-
-          // Apply perspective divide and screen space transformation
-          const perspA = perspectiveDivide(transformedA);
-          const perspB = perspectiveDivide(transformedB);
-          const screenA = toScreenSpace(perspA);
-          const screenB = toScreenSpace(perspB);
-
-          // Draw simple 2D line
-          line(screenA.pos[0], screenA.pos[1], screenB.pos[0], screenB.pos[1]);
         }
-      }
+        setColor(...savedColor);
+      });
     }
 
     // Render filled triangles with gradient colors or textures
@@ -6588,41 +7091,30 @@ class Form {
           const t1 = v1.transform(fullMatrix);
           const t2 = v2.transform(fullMatrix);
 
-          // Use a more aggressive near plane for clipping to prevent huge projections
-          const nearPlane = 0.1; // Larger threshold to reject triangles earlier
-          const fadePlane = 0.5; // Start fading when closer than this
+          // Count original triangle
+          renderStats.originalTriangles++;
+
+          // Perform full clip-space clipping against all frustum planes
+          // This handles triangles that extend beyond the screen edges
+          let clippedVertices = [t0, t1, t2];
           
-          // Count how many vertices are in front of the near plane
-          const v0InFront = t0.pos[2] >= nearPlane;
-          const v1InFront = t1.pos[2] >= nearPlane;
-          const v2InFront = t2.pos[2] >= nearPlane;
-          const verticesInFront = (v0InFront ? 1 : 0) + (v1InFront ? 1 : 0) + (v2InFront ? 1 : 0);
+          // Clip against all frustum planes in clip-space (before perspective divide)
+          clippedVertices = clipInClipSpace(clippedVertices, ["near", "left", "right", "bottom", "top"]);
           
-          // Forms with noFade (like ground plane) use less aggressive culling
-          if (this.noFade) {
-            // Only skip if all vertices are behind the camera
-            if (t0.pos[2] < nearPlane && t1.pos[2] < nearPlane && t2.pos[2] < nearPlane) {
-              continue;
-            }
-            // Still skip if any vertex is very close (causes huge projections)
-            if (t0.pos[2] < nearPlane || t1.pos[2] < nearPlane || t2.pos[2] < nearPlane) {
-              continue;
-            }
-          } else {
-            // Skip if no vertices are visible (all behind camera)
-            if (verticesInFront === 0) {
-              continue;
-            }
-            
-            // Skip if triangle is partially clipped (for now, to avoid huge projections)
-            // TODO: Implement proper Sutherland-Hodgeman clipping for partially visible triangles
-            if (verticesInFront < 3) {
-              continue;
-            }
+          // Skip if triangle was completely clipped
+          if (clippedVertices.length < 3) {
+            continue;
+          }
+
+          // Count clipped triangle (only if it resulted in a polygon)
+          if (clippedVertices.length >= 3) {
+            renderStats.clippedTriangles++;
           }
           
-          // Calculate fade factor based on closest vertex to camera
-          const minZ = min(t0.pos[2], t1.pos[2], t2.pos[2]);
+          // Calculate fade factor based on closest vertex to camera (use Z from clip space)
+          const nearPlane = 0.01;
+          const fadePlane = 0.5;
+          const minZ = min(...clippedVertices.map(v => v.pos[2]));
           let alphaMultiplier = 1.0;
           if (!this.noFade && minZ < fadePlane) {
             // Fade from 1.0 at fadePlane to 0.0 at nearPlane
@@ -6630,63 +7122,107 @@ class Form {
             alphaMultiplier = max(0, min(1, alphaMultiplier)); // Clamp 0-1
           }
 
-          // Apply perspective divide and screen space transformation
-          const p0 = perspectiveDivide(t0);
-          const p1 = perspectiveDivide(t1);
-          const p2 = perspectiveDivide(t2);
-          
-          const s0 = toScreenSpace(p0);
-          const s1 = toScreenSpace(p1);
-          const s2 = toScreenSpace(p2);
+          // Apply perspective divide and screen space transformation to all clipped vertices
+          const screenVertices = clippedVertices.map(vertex => {
+            const persp = perspectiveDivide(vertex);
+            return toScreenSpace(persp);
+          });
 
-          // Extract screen coordinates
-          const x0 = s0.pos[0], y0 = s0.pos[1];
-          const x1 = s1.pos[0], y1 = s1.pos[1];
-          const x2 = s2.pos[0], y2 = s2.pos[1];
-
-          // Check if this form has a texture
-          if (this.texture) {
-            // Subdivide triangle if it's too large in screen space
-            const subdivided = subdivideTriangleIfNeeded(
-              x0, y0, v0.texCoords, t0.pos[2],
-              x1, y1, v1.texCoords, t1.pos[2],
-              x2, y2, v2.texCoords, t2.pos[2],
-              300 // Max screen size before subdividing
-            );
+          // Render triangles from clipped vertices (triangulate if we have more than 3 vertices)
+          // After near-plane clipping, we might have 3-6 vertices forming a convex polygon
+          for (let j = 1; j < screenVertices.length - 1; j++) {
+            const s0 = screenVertices[0];
+            const s1 = screenVertices[j];
+            const s2 = screenVertices[j + 1];
             
-            // Draw each sub-triangle
-            for (const tri of subdivided) {
-              drawTexturedTriangle(
-                tri[0], tri[1], tri[2], tri[3],   // x0, y0, uv0, z0
-                tri[4], tri[5], tri[6], tri[7],   // x1, y1, uv1, z1
-                tri[8], tri[9], tri[10], tri[11], // x2, y2, uv2, z2
-                this.texture,
-                alphaMultiplier
-              );
-            }
-          } else {
-            // Get vertex colors (RGBA 0-1 range from vertex, convert to 0-255)
-            const color0 = [
-              floor(v0.color[0] * 255),
-              floor(v0.color[1] * 255),
-              floor(v0.color[2] * 255),
-              floor(v0.color[3] * 255 * alphaMultiplier)
-            ];
-            const color1 = [
-              floor(v1.color[0] * 255),
-              floor(v1.color[1] * 255),
-              floor(v1.color[2] * 255),
-              floor(v1.color[3] * 255 * alphaMultiplier)
-            ];
-            const color2 = [
-              floor(v2.color[0] * 255),
-              floor(v2.color[1] * 255),
-              floor(v2.color[2] * 255),
-              floor(v2.color[3] * 255 * alphaMultiplier)
-            ];
+            const cv0 = clippedVertices[0];
+            const cv1 = clippedVertices[j];
+            const cv2 = clippedVertices[j + 1];
 
-            // Draw filled gradient triangle using barycentric interpolation
-            drawGradientTriangle(x0, y0, color0, x1, y1, color1, x2, y2, color2);
+            // Extract screen coordinates
+            const x0 = s0.pos[0], y0 = s0.pos[1];
+            const x1 = s1.pos[0], y1 = s1.pos[1];
+            const x2 = s2.pos[0], y2 = s2.pos[1];
+
+            // Check if this form has a texture
+            if (this.texture) {
+              // TEMPORARY: Disable subdivision to test if it's causing distortion
+              // Subdivide triangle if it's too large in screen space
+              // Pass W component for perspective-correct UV interpolation
+              const subdivided = subdivideTriangleIfNeeded(
+                x0, y0, cv0.texCoords, cv0.pos[2], cv0.pos[3], // x, y, uv, z, w
+                x1, y1, cv1.texCoords, cv1.pos[2], cv1.pos[3],
+                x2, y2, cv2.texCoords, cv2.pos[2], cv2.pos[3],
+                10000 // TEMP: Large threshold to disable subdivision
+              );
+              
+              // Count subdivided triangles (only count if more than 1 triangle resulted)
+              if (subdivided.length > 1) {
+                renderStats.subdividedTriangles += subdivided.length;
+              }
+              
+              // Draw each sub-triangle
+              for (const tri of subdivided) {
+                // tri structure: [x0, y0, uv0, w0, x1, y1, uv1, w1, x2, y2, uv2, w2]
+                drawTexturedTriangle(
+                  tri[0], tri[1], tri[2], tri[3],   // x0, y0, uv0, w0
+                  tri[4], tri[5], tri[6], tri[7],   // x1, y1, uv1, w1
+                  tri[8], tri[9], tri[10], tri[11], // x2, y2, uv2, w2
+                  this.texture,
+                  alphaMultiplier
+                );
+                
+                // Buffer wireframe overlay for textured triangles
+                if (showWireframes) {
+                  // Yellow for subdivided, white for non-subdivided
+                  const wireColor = subdivided.length > 1 ? [255, 255, 0, 255] : [255, 255, 255, 255];
+                  addWireframeLine(tri[0], tri[1], tri[4], tri[5], wireColor, "textured"); // v0 to v1
+                  addWireframeLine(tri[4], tri[5], tri[8], tri[9], wireColor, "textured"); // v1 to v2
+                  addWireframeLine(tri[8], tri[9], tri[0], tri[1], wireColor, "textured"); // v2 to v0
+                }
+              }
+            } else {
+              // Get vertex colors (RGBA 0-1 range from vertex, convert to 0-255)
+              const color0 = [
+                floor(cv0.color[0] * 255),
+                floor(cv0.color[1] * 255),
+                floor(cv0.color[2] * 255),
+                floor(cv0.color[3] * 255 * alphaMultiplier)
+              ];
+              const color1 = [
+                floor(cv1.color[0] * 255),
+                floor(cv1.color[1] * 255),
+                floor(cv1.color[2] * 255),
+                floor(cv1.color[3] * 255 * alphaMultiplier)
+              ];
+              const color2 = [
+                floor(cv2.color[0] * 255),
+                floor(cv2.color[1] * 255),
+                floor(cv2.color[2] * 255),
+                floor(cv2.color[3] * 255 * alphaMultiplier)
+              ];
+
+              // Draw filled gradient triangle using barycentric interpolation
+              drawGradientTriangle(x0, y0, color0, x1, y1, color1, x2, y2, color2);
+              
+              // Buffer wireframe overlay for gradient triangles
+              if (showWireframes) {
+                const green = [0, 255, 0, 255]; // Green for gradient triangles
+                addWireframeLine(x0, y0, x1, y1, green, "gradient"); // v0 to v1
+                addWireframeLine(x1, y1, x2, y2, green, "gradient"); // v1 to v2
+                addWireframeLine(x2, y2, x0, y0, green, "gradient"); // v2 to v0
+              }
+            }
+          }
+          
+          // Buffer wireframe for the clipped polygon boundary (if clipping created extra vertices)
+          if (showWireframes && clippedVertices.length > 3) {
+            const red = [255, 0, 0, 255];
+            for (let k = 0; k < screenVertices.length; k++) {
+              const vA = screenVertices[k];
+              const vB = screenVertices[(k + 1) % screenVertices.length];
+              addWireframeLine(vA.pos[0], vA.pos[1], vB.pos[0], vB.pos[1], red, "clipped");
+            }
           }
         }
       }
@@ -6767,6 +7303,110 @@ class Vertex {
   }
 }
 
+// Sutherland-Hodgman clipping algorithm for clip-space (before perspective divide)
+// This properly handles near-plane clipping by testing against w component
+function clipInClipSpace(vertices, clippingBoundary) {
+  let clipped = [];
+
+  function inside(vertex, edge) {
+    const p = vertex.pos;
+    const w = p[W];
+    switch (edge) {
+      case "left":
+        return p[X] >= -w;
+      case "right":
+        return p[X] <= w;
+      case "bottom":
+        return p[Y] >= -w;
+      case "top":
+        return p[Y] <= w;
+      case "near":
+        return p[Z] >= 0.01; // Near plane with small epsilon to prevent z-fighting
+      case "far":
+        return p[Z] <= w;
+    }
+  }
+
+  function computeIntersection(v1, v2, edge) {
+    const p1 = v1.pos;
+    const p2 = v2.pos;
+    let t;
+    
+    switch (edge) {
+      case "left":
+        t = (-p1[W] - p1[X]) / ((p2[X] - p1[X]) + (p2[W] - p1[W]));
+        break;
+      case "right":
+        t = (p1[W] - p1[X]) / ((p2[X] - p1[X]) - (p2[W] - p1[W]));
+        break;
+      case "bottom":
+        t = (-p1[W] - p1[Y]) / ((p2[Y] - p1[Y]) + (p2[W] - p1[W]));
+        break;
+      case "top":
+        t = (p1[W] - p1[Y]) / ((p2[Y] - p1[Y]) - (p2[W] - p1[W]));
+        break;
+      case "near":
+        t = (0.01 - p1[Z]) / (p2[Z] - p1[Z]);
+        break;
+      case "far":
+        t = (p1[W] - p1[Z]) / ((p2[Z] - p1[Z]) - (p2[W] - p1[W]));
+        break;
+    }
+
+    // Clamp t to valid range
+    t = max(0, min(1, t));
+    
+    // Interpolate position (all components linear in clip space)
+    const newPos = vec4.lerp(vec4.create(), p1, p2, t);
+    
+    // Interpolate color linearly
+    const newColor = [
+      v1.color[0] + (v2.color[0] - v1.color[0]) * t,
+      v1.color[1] + (v2.color[1] - v1.color[1]) * t,
+      v1.color[2] + (v2.color[2] - v1.color[2]) * t,
+      v1.color[3] + (v2.color[3] - v1.color[3]) * t
+    ];
+    
+    // Interpolate texture coordinates linearly in clip space
+    // Perspective correction will happen during rasterization
+    const newTexCoords = [
+      v1.texCoords[0] + (v2.texCoords[0] - v1.texCoords[0]) * t,
+      v1.texCoords[1] + (v2.texCoords[1] - v1.texCoords[1]) * t
+    ];
+
+    return new Vertex(newPos, newColor, newTexCoords);
+  }
+
+  for (const edge of clippingBoundary) {
+    const input = clipped.length > 0 ? clipped : vertices;
+    clipped = [];
+
+    if (input.length === 0) break;
+
+    let prevVertex = input[input.length - 1];
+
+    for (let i = 0; i < input.length; i++) {
+      const curVertex = input[i];
+
+      if (inside(curVertex, edge)) {
+        if (!inside(prevVertex, edge)) {
+          const intersection = computeIntersection(prevVertex, curVertex, edge);
+          clipped.push(intersection);
+        }
+        clipped.push(curVertex);
+      } else if (inside(prevVertex, edge)) {
+        const intersection = computeIntersection(prevVertex, curVertex, edge);
+        clipped.push(intersection);
+      }
+
+      prevVertex = curVertex;
+    }
+  }
+
+  return clipped;
+}
+
+// Legacy NDC-space clipping function (kept for compatibility)
 // Sutherland-Hodgman clipping algorithm
 function clip(vertices, clippingBoundary) {
   let clipped = [];
@@ -7070,13 +7710,20 @@ export {
   suck,
   blur,
   sharpen,
+  invert,
   cleanupBlurBuffers,
+  cleanupScrollBuffers,
   sort,
   shear,
   setBlockProcessing,
   Camera,
   Form,
   Dolly,
+  clipInClipSpace,
+  setShowClippedWireframes,
+  clearWireframeBuffer,
+  drawBufferedWireframes,
+  getRenderStats,
   setKidLispContext,
   clearKidLispContext,
 };

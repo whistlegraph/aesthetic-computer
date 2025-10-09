@@ -705,7 +705,7 @@ const projectionMode = location.search.indexOf("nolabel") > -1; // Skip loading 
 
 import { setDebug } from "../disks/common/debug.mjs";
 import { customAlphabet } from "../dep/nanoid/nanoid.js";
-import { setTeiaMode, getTeiaMode, checkTeiaMode } from "./teia-mode.mjs";
+import { setPackMode, getPackMode, checkPackMode } from "./pack-mode.mjs";
 // import { update } from "./glaze.mjs";
 const alphabet =
   "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
@@ -1080,7 +1080,7 @@ function toggleQRFullscreen() {
 }
 
 let hudAnimationState = {
-  visible: !getTeiaMode(), // Hidden by default in TEIA mode, visible otherwise
+  visible: !getPackMode(), // Hidden by default in OBJKT mode, visible otherwise
   animating: false,
   startTime: 0,
   duration: 500, // 500ms animation
@@ -1828,8 +1828,8 @@ const $commonApi = {
     offset: function () {
       if (clockFetching) return;
 
-      // Skip API calls in TEIA mode
-      if (getTeiaMode()) {
+      // Skip API calls in OBJKT mode
+      if (getPackMode()) {
         clockFetching = false;
         return;
       }
@@ -3927,27 +3927,24 @@ const LINE = {
 // TODO: Add better hex support via: https://stackoverflow.com/a/53936623/8146077
 
 function ink() {
-  // console.log("🖍️ disk.ink() called with arguments:", [...arguments]);
   const foundColor = graph.findColor(...arguments);
-  // console.log("🖍️ disk.ink() foundColor:", foundColor);
   if (inkFloodLoggingEnabled()) {
-    //console.log(
-    //  `${inkFloodLogPrefix()}🖍️ INK DEBUG`,
-    //  {
-    //    args: cloneArgsForLog(arguments),
-     //   resolved: cloneColorForLog(foundColor)
-    //  }
-    //);
+    console.log(
+      `${inkFloodLogPrefix()}🖍️ INK DEBUG`,
+      {
+        args: cloneArgsForLog(arguments),
+        resolved: cloneColorForLog(foundColor)
+      }
+    );
   }
   const result = graph.color(...foundColor);
-  // console.log("🖍️ disk.ink() result:", result);
   if (inkFloodLoggingEnabled()) {
-    // console.log(
-    //  `${inkFloodLogPrefix()}🖍️ INK APPLIED`,
-    //  {
-     //   color: cloneColorForLog(result)
-      //}
-    //);
+    console.log(
+      `${inkFloodLogPrefix()}🖍️ INK APPLIED`,
+      {
+        color: cloneColorForLog(result)
+      }
+    );
   }
   return result;
 }
@@ -4519,11 +4516,11 @@ const $paintApiUnwrapped = {
     // console.log(arguments);
 
     // const oldScreen = $activePaintApi.screen;
-    // Mock out the screen here using the arguments.
-    $activePaintApi.screen = {
-      width: arguments[0].width,
-      height: arguments[0].height,
-    };
+    // Update the existing screen object's properties instead of replacing it
+    // This preserves methods like load, save, center that are attached to screen
+    $activePaintApi.screen.width = arguments[0].width;
+    $activePaintApi.screen.height = arguments[0].height;
+    $activePaintApi.screen.pixels = arguments[0].pixels;
     //console.log(
     //  "Updated active paint api:",
     //  $activePaintApi.screen.width,
@@ -4578,6 +4575,12 @@ const $paintApiUnwrapped = {
     // Restore previous preservation state
     if (!preserveFadeAlpha && typeof setPreserveFadeAlpha === 'function') {
       setPreserveFadeAlpha(false);
+    }
+    
+    // 🍞 LAYER 0: Also clear layer 0 if it exists (for KidLisp)
+    // This ensures wipe() clears the persistent layer, not just the screen
+    if (this.kidlispInstance?.layer0) {
+      this.kidlispInstance.layer0.pixels.fill(0);
     }
   },
   // Set background fill color for reframe operations (especially for KidLisp pieces)
@@ -4690,6 +4693,10 @@ const $paintApiUnwrapped = {
   shape: graph.shape,
   grid: graph.grid,
   draw: graph.draw,
+  setShowClippedWireframes: graph.setShowClippedWireframes,
+  clearWireframeBuffer: graph.clearWireframeBuffer,
+  drawBufferedWireframes: graph.drawBufferedWireframes,
+  getRenderStats: graph.getRenderStats,
   printLine: graph.printLine, // TODO: This is kind of ugly and I need a state machine for type.
   form,
   pan: graph.pan,
@@ -4717,8 +4724,18 @@ const $paintApiUnwrapped = {
     // should already have the correct buffer set via setBuffer()
     return graph.sharpen(strength);
   },
+  invert: function() {
+    // Invert RGB colors (255 - value) while preserving alpha
+    // When called from within a painting() context, the graph module
+    // should already have the correct buffer set via setBuffer()
+    return graph.invert();
+  },
   contrast: graph.contrast,
   shear: graph.shear,
+  resetScrollState: function() {
+    // Reset scroll accumulator - used by burn to ensure clean state
+    return graph.resetScrollState();
+  },
   noise16: graph.noise16,
   noise16DIGITPAIN: graph.noise16DIGITPAIN,
   noise16Aesthetic: graph.noise16Aesthetic,
@@ -5627,9 +5644,9 @@ async function load(
     // If we're loading an aesthetic.computer piece, choose the appropriate server
     let baseUrl;
     if (path.startsWith('aesthetic.computer/')) {
-      // Check if we're in TEIA mode - use local bundled files
-      if (getTeiaMode()) {
-        // In TEIA mode, use relative paths to load bundled pieces
+      // Check if we're in OBJKT mode - use local bundled files
+      if (getPackMode()) {
+        // In OBJKT mode, use relative paths to load bundled pieces
         baseUrl = ".";
       } else {
         // Check if we're in a development environment (localhost with port)
@@ -5653,8 +5670,8 @@ async function load(
     
     // Check if path already includes the hostname to avoid double paths
     let resolvedPath = path;
-    if (getTeiaMode() && path.startsWith('aesthetic.computer/')) {
-      // In TEIA mode, keep the full path since files are bundled with directory structure
+    if (getPackMode() && path.startsWith('aesthetic.computer/')) {
+      // In OBJKT mode, keep the full path since files are bundled with directory structure
       resolvedPath = path;
     } else if (baseUrl === 'https://aesthetic.computer' && path.startsWith('aesthetic.computer/')) {
       // Only strip "aesthetic.computer/" if we're using the main production domain
@@ -5664,15 +5681,15 @@ async function load(
     // if (debug) console.log("🔍 Debug path resolution:", { originalPath: path, resolvedPath, hostname, baseUrl });
     
     if (path.endsWith('.lisp')) {
-      if (getTeiaMode()) {
-        // In TEIA mode, use absolute path from iframe origin
+      if (getPackMode()) {
+        // In OBJKT mode, use absolute path from iframe origin
         fullUrl = "/" + resolvedPath + "#" + Date.now();
       } else {
         fullUrl = baseUrl + "/" + resolvedPath + "#" + Date.now();
       }
     } else {
-      if (getTeiaMode()) {
-        // In TEIA mode, navigate up from lib directory to aesthetic.computer root, then to target
+      if (getPackMode()) {
+        // In OBJKT mode, navigate up from lib directory to aesthetic.computer root, then to target
         const relativePath = resolvedPath.startsWith('aesthetic.computer/') 
           ? resolvedPath.substring('aesthetic.computer/'.length)
           : resolvedPath;
@@ -5755,13 +5772,13 @@ async function load(
           throw new Error(`Failed to load cached code: ${cacheId}`);
         }
       } else if (fullUrl) {
-        // In TEIA mode, try direct import first for .mjs files to avoid CSP issues
+        // In OBJKT mode, try direct import first for .mjs files to avoid CSP issues
         // Extract the filename from URL, handling ./ prefix and hash fragments
         const urlWithoutHash = fullUrl.split('#')[0];
         const filename = urlWithoutHash.split('/').pop();
         
-        if (getTeiaMode() && filename.endsWith('.mjs')) {
-          // In TEIA mode, skip dynamic import and use fetch directly since files are bundled locally
+        if (getPackMode() && filename.endsWith('.mjs')) {
+          // In OBJKT mode, skip dynamic import and use fetch directly since files are bundled locally
           // Will proceed to fetch() below
         }
         
@@ -6053,8 +6070,8 @@ async function load(
 
   // Requests a session-backend and connects via websockets.
   function startSocket() {
-    // Skip socket connections in TEIA mode
-    if (getTeiaMode()) {
+    // Skip socket connections in OBJKT mode
+    if (getPackMode()) {
       return;
     }
     
@@ -6185,10 +6202,10 @@ async function load(
   if (alias === false) {
     // Parse any special piece metadata.
     
-    // Check if we're in TEIA mode and have colophon data
-    let teiaContext = null;
-    if (checkTeiaMode() && typeof window !== 'undefined' && window.acTEIA_COLOPHON) {
-      teiaContext = { author: window.acTEIA_COLOPHON.build.author };
+    // Check if we're in OBJKT mode and have colophon data
+    let objktContext = null;
+    if (checkPackMode() && typeof window !== 'undefined' && window.acOBJKT_COLOPHON) {
+      objktContext = { author: window.acOBJKT_COLOPHON.build.author };
     }
     
     const { title, desc, ogImage, twitterImage, icon } = metadata(
@@ -6200,7 +6217,7 @@ async function load(
         store: $commonApi.store,
       }) || inferTitleDesc(originalCode),
       location.protocol, // Pass the current protocol
-      teiaContext // Pass TEIA context if available
+      objktContext // Pass OBJKT context if available
     );
 
     meta = {
@@ -6677,7 +6694,7 @@ async function load(
             const chatModule = await import("../disks/chat.mjs");
             chatModule.boot($);
           } catch (err) {
-            console.log("💬 Chat disabled in TEIA mode");
+            console.log("💬 Chat disabled in OBJKT mode");
           }
         }
       };
@@ -6743,7 +6760,7 @@ async function load(
             const chatModule = await import("../disks/chat.mjs");
             chatModule.paint($, { embedded: true }); // Render any chat interface necessary.
           } catch (err) {
-            console.log("💬 Chat disabled in TEIA mode");
+            console.log("💬 Chat disabled in OBJKT mode");
           }
         }
       };
@@ -7044,8 +7061,8 @@ async function load(
     hideLabel = searchParams.has("nolabel");
   }
   
-  // Also hide label by default in TEIA mode (like nolabel)
-  if (getTeiaMode()) {
+  // Also hide label by default in OBJKT mode (like nolabel)
+  if (getPackMode()) {
     hideLabel = true;
   }    currentColon = colon;
     currentParams = params;
@@ -7232,15 +7249,15 @@ async function makeFrame({ data: { type, content } }) {
     SHARE_SUPPORTED = content.shareSupported;
     PREVIEW_OR_ICON = content.previewOrIcon;
   VSCODE = content.vscode;
-  setTeiaMode(content.teiaMode || false);    // Store TEIA KidLisp cache in worker global scope
-    if (content.teiaKidlispCodes) {
+  setPackMode(content.objktMode || false);    // Store OBJKT KidLisp cache in worker global scope
+    if (content.objktKidlispCodes) {
       const globalScope = (function() {
         if (typeof globalThis !== 'undefined') return globalThis;
         if (typeof self !== 'undefined') return self;
         if (typeof global !== 'undefined') return global;
         return {};
       })();
-      globalScope.teiaKidlispCodes = content.teiaKidlispCodes;
+      globalScope.objktKidlispCodes = content.objktKidlispCodes;
     }
     
     TV_MODE = content.resolution?.tv === true;
@@ -7311,6 +7328,8 @@ async function makeFrame({ data: { type, content } }) {
 
     if (PREVIEW_OR_ICON) {
       console.log("💬 Chat disabled, just grabbing screenshots. 😃");
+    } else if (getPackMode()) {
+      // Skip chat connection in PACK mode - offline bundle
     } else {
       chatClient.connect("system"); // Connect to `system` chat.
     }
@@ -8229,7 +8248,7 @@ async function makeFrame({ data: { type, content } }) {
         //   }
         // }
 
-        if ((data.key === "$" || data.key === "Home") && !getTeiaMode()) {
+        if ((data.key === "$" || data.key === "Home") && !getPackMode()) {
           if (data.ctrl || data.alt) {
             const sys = $commonApi.system;
             // Make it a painting.
@@ -8253,7 +8272,7 @@ async function makeFrame({ data: { type, content } }) {
 
         // ⛈️ Jump back to the `prompt` from anywhere..
         if (
-          !getTeiaMode() && // Disable navigation keys in TEIA mode
+          !getPackMode() && // Disable navigation keys in OBJKT mode
           (data.key === "`" ||
             data.key === "Enter" ||
             data.key === "Backspace" ||
@@ -8329,16 +8348,16 @@ async function makeFrame({ data: { type, content } }) {
         }
 
         // [Shift] Toggle QR code fullscreen mode for KidLisp pieces
-        if (data.key === "Shift") {
-          console.log("⌨️ [Shift Key] Received! getTeiaMode():", getTeiaMode());
-        }
-        if (data.key === "Shift" && !getTeiaMode()) {
+        // if (data.key === "Shift") {
+        //   console.log("⌨️ [Shift Key] Received! getPackMode():", getPackMode());
+        // }
+        if (data.key === "Shift" && !getPackMode()) {
           toggleQRFullscreen();
         }
 
         // [Ctrl + X]
         // Enter and exit fullscreen mode.
-        if (data.key === "x" && data.ctrl && currentText !== "notepat" && !getTeiaMode()) {
+        if (data.key === "x" && data.ctrl && currentText !== "notepat" && !getPackMode()) {
           send({ type: "fullscreen-enable" });
         }
       }
@@ -9329,11 +9348,11 @@ async function makeFrame({ data: { type, content } }) {
       if (penEventCount > 0) {
         const processingTime = performance.now() - startTime;
         if (processingTime > 5) { // Only log if processing took more than 5ms
-          // console.log("🖋️ Pen event processing:", {
-          //   eventCount: penEventCount,
-          //   processingTime: processingTime.toFixed(2) + "ms",
-          //   avgPerEvent: (processingTime / penEventCount).toFixed(2) + "ms"
-          // });
+          console.log("🖋️ Pen event processing:", {
+            eventCount: penEventCount,
+            processingTime: processingTime.toFixed(2) + "ms",
+            avgPerEvent: (processingTime / penEventCount).toFixed(2) + "ms"
+          });
         }
       }
 
@@ -11270,8 +11289,8 @@ async function makeFrame({ data: { type, content } }) {
                   // Render white text (no rotation for now)
                   $.ink("white"); // White text on black background
                   
-                  if (getTeiaMode()) {
-                    // In TEIA mode, try MatrixChunky8 first, fall back to default if not available
+                  if (getPackMode()) {
+                    // In OBJKT mode, try MatrixChunky8 first, fall back to default if not available
                     let matrixFont = typefaceCache.get("MatrixChunky8");
                     if (matrixFont) {
                       
@@ -11356,8 +11375,8 @@ async function makeFrame({ data: { type, content } }) {
                   // Draw black shadow (1px offset) - no rotation for now
                   $.ink("black");
                   
-                  if (getTeiaMode()) {
-                    // In TEIA mode, try MatrixChunky8 first, fall back to default if not available
+                  if (getPackMode()) {
+                    // In OBJKT mode, try MatrixChunky8 first, fall back to default if not available
                     const matrixFont = typefaceCache.get("MatrixChunky8");
                     if (matrixFont && matrixFont.glyphs) {
                       const testChar = matrixFont.glyphs['$'] || matrixFont.glyphs['A'] || matrixFont.glyphs['a'];
@@ -11386,8 +11405,8 @@ async function makeFrame({ data: { type, content } }) {
                   
                   // Draw white text on top - no rotation for now
                   $.ink("white");
-                  if (getTeiaMode()) {
-                    // In TEIA mode, try MatrixChunky8 first, fall back to default if not available
+                  if (getPackMode()) {
+                    // In OBJKT mode, try MatrixChunky8 first, fall back to default if not available
                     const matrixFont = typefaceCache.get("MatrixChunky8");
                     if (matrixFont && matrixFont.glyphs) {
                       const testChar = matrixFont.glyphs['$'] || matrixFont.glyphs['A'] || matrixFont.glyphs['a'];

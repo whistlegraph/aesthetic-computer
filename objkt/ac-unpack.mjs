@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-// ac-unpack.mjs - Extract and test TEIA packages locally
+// ac-unpack.mjs - Extract and test OBJKT packages locally
 // Usage: node ac-unpack.mjs <zip-file> [port]
 
 import fs from 'fs/promises';
@@ -347,7 +347,7 @@ class TeiaUnpacker {
 
   async run(zipPath, port = 8080, searchDir = null) {
     try {
-      console.log('🎭 TEIA Package Unpacker\n');
+      console.log('🎭 OBJKT Package Unpacker\n');
 
       // Find zip file if not provided
       if (!zipPath) {

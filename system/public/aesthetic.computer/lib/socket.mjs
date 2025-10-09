@@ -5,7 +5,7 @@
 /* #region 🏁 todo
 #endregion */
 
-import { checkTeiaMode } from "./teia-mode.mjs";
+import { checkPackMode } from "./pack-mode.mjs";
 
 const logs = { socket: false };
 const { min } = Math;
@@ -35,9 +35,9 @@ export class Socket {
     connectCallback,
     disconnectCallback,
   ) {
-    // Don't connect sockets in TEIA mode
-    if (typeof window !== 'undefined' && window.acTEIA_MODE) {
-      if (this.#debug && logs.socket) console.log("🧦 Sockets disabled in TEIA mode.");
+    // Don't connect sockets in OBJKT mode
+    if (typeof window !== 'undefined' && window.acOBJKT_MODE) {
+      if (this.#debug && logs.socket) console.log("🧦 Sockets disabled in OBJKT mode.");
       return;
     }
 
@@ -51,8 +51,8 @@ export class Socket {
     try {
       this.#ws = new WebSocket(`${protocol}://${host}`);
     } catch {
-      // Only log and retry if not in TEIA mode
-      if (!checkTeiaMode()) {
+      // Only log and retry if not in OBJKT mode
+      if (!checkPackMode()) {
         console.log('%cconnection failed, retrying in ' + (this.#reconnectTime / 1000) + 's...', 'color: orange; background: black; padding: 2px;');
       }
       return;
@@ -84,8 +84,8 @@ export class Socket {
       clearTimeout(this.pingTimeout);
 
       socket.connected = false;
-      // Only reconnect if we are not killing the socket and not in development mode and not in TEIA mode.
-      if (socket.#killSocket === false && !checkTeiaMode()) {
+      // Only reconnect if we are not killing the socket and not in development mode and not in OBJKT mode.
+      if (socket.#killSocket === false && !checkPackMode()) {
         console.log('%cconnection failed, retrying in ' + (socket.#reconnectTime / 1000) + 's...', 'color: orange; background: black; padding: 2px;');
         this.#reconnectTimeout = setTimeout(() => {
           socket.connect(host, receive, reload, protocol, connectCallback);
@@ -98,8 +98,8 @@ export class Socket {
 
     // Close on error.
     ws.onerror = (err) => {
-      if (checkTeiaMode()) {
-        // In TEIA mode, just close without retrying
+      if (checkPackMode()) {
+        // In OBJKT mode, just close without retrying
         ws.close();
       } else {
         console.log('%cconnection failed, retrying...', 'color: orange; background: black; padding: 2px;');

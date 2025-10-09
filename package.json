@@ -90,7 +90,9 @@
   },
   "dependencies": {
     "archiver": "^7.0.1",
+  "gif-encoder-2": "^1.0.5",
     "gbasm": "^0.0.21",
+    "jszip": "^3.10.1",
     "ntp-client": "^0.5.3",
     "obscenity": "^0.4.5"
   }
