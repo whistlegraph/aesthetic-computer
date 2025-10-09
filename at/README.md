@@ -43,6 +43,20 @@ Post to the official @aesthetic.computer Bluesky account.
 node post-to-bluesky.mjs "Hello from Aesthetic Computer! 🎨"
 ```
 
+### `share-latest-painting.mjs`
+Fetch a user's latest painting and post it to Bluesky with image.
+
+```bash
+# Preview the painting first
+node share-latest-painting.mjs @jeffrey --preview
+
+# Post to Bluesky
+node share-latest-painting.mjs @jeffrey
+
+# Post with custom message
+node share-latest-painting.mjs @jeffrey --message "Amazing artwork! 🎨"
+```
+
 ### `explore-lexicons.mjs`
 Explore ATProto lexicons and schemas.
 
