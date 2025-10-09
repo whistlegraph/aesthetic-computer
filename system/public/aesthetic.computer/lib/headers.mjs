@@ -131,16 +131,16 @@ export function headers(isDarkMode) {
     "color: #ff6b9d; font-weight: bold; font-size: 16px;"
   );
   
-  // Show TEIA mode in TEIA environments (check for window first)
-  if (typeof window !== 'undefined' && window.acTEIA_MODE) {
+  // Show PACK mode in PACK environments (check for window first)
+  if (typeof window !== 'undefined' && window.acPACK_MODE) {
     
     // Display minimal colophonic information if available
-    if (window.acTEIA_COLOPHON) {
-      const colophon = window.acTEIA_COLOPHON;
+    if (window.acPACK_COLOPHON) {
+      const colophon = window.acPACK_COLOPHON;
       const piece = colophon.piece;
       const build = colophon.build;
       
-      // Override the title with git commit info in TEIA mode
+      // Override the title with git commit info in PACK mode
       console.clear();
       
       // Get today's color scheme for the title
@@ -234,9 +234,7 @@ export function headers(isDarkMode) {
       const gitHash = ` ${build.gitCommit}`;
       const dirtyStatus = build.gitIsDirty ? ' (dirty)' : '';
       
-      console.log(`%cThis copy was packed for %cTEIA%c on %c${formattedDate}%c`, 
-        "color: #6c757d; font-size: 11px;",
-        "background: #2c3e50; color: #ecf0f1; font-weight: bold; font-size: 11px; padding: 1px 3px; border-radius: 2px;",
+      console.log(`%cThis copy was packed on %c${formattedDate}%c`, 
         "color: #6c757d; font-size: 11px;",
         "color: #4ecdc4; font-size: 11px;",
         "color: #6c757d; font-size: 11px;"

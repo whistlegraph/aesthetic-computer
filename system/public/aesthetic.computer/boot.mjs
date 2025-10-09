@@ -245,9 +245,9 @@ if (window.acDEBUG === true || window.acDEBUG === false) {
   window.location.hostname === "aesthetic.computer" ||
   window.location.hostname.endsWith(".ac") ||
   window.location.hostname === "m2w2.whistlegraph.com" ||
-  window.acTEIA_MODE // Disable debug mode in TEIA packages
+  window.acPACK_MODE // Disable debug mode in OBJKT packages
 ) {
-  debug = false; // Turn debugging off by default in production and TEIA mode.
+  debug = false; // Turn debugging off by default in production and OBJKT mode.
   window.production = true;
 } else {
   debug = true; // Turn debuging on by default everywhere else.
@@ -279,11 +279,11 @@ if (
 
 if (window.acSTARTING_PIECE === undefined) window.acSTARTING_PIECE = "prompt";
 
-// In TEIA mode, always use acSTARTING_PIECE instead of URL slug
+// In OBJKT mode, always use acSTARTING_PIECE instead of URL slug
 let originalUrl = location.href;
 let sluggedUrl = null;
 
-if (!window.acTEIA_MODE) {
+if (!window.acPACK_MODE) {
   sluggedUrl = slug(originalUrl) || window.acSTARTING_PIECE;
 } else {
   sluggedUrl = window.acSTARTING_PIECE;
@@ -405,7 +405,7 @@ if (window.acVSCODE) {
 // Pass the parameters directly without stripping them
 boot(parsed, bpm, { gap: nogap ? 0 : undefined, nolabel, density, zoom, duration, tv, highlight }, debug);
 
-let sandboxed = (window.origin === "null" && !window.acVSCODE) || localStorageBlocked || sessionStorageBlocked || window.acTEIA_MODE;
+let sandboxed = (window.origin === "null" && !window.acVSCODE) || localStorageBlocked || sessionStorageBlocked || window.acPACK_MODE;
 
 // #region 🔐 Auth0: Universal Login & Authentication
 function loadAuth0Script() {
@@ -669,7 +669,7 @@ if (!sandboxed) {
     console.error("Failed to load Auth0 script:", error);
   });
 } else {
-  // Auth0 disabled in TEIA mode
+  // Auth0 disabled in OBJKT mode
 }
 // #endregion
 
