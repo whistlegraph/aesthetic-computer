@@ -245,7 +245,7 @@ if (window.acDEBUG === true || window.acDEBUG === false) {
   window.location.hostname === "aesthetic.computer" ||
   window.location.hostname.endsWith(".ac") ||
   window.location.hostname === "m2w2.whistlegraph.com" ||
-  window.acOBJKT_MODE // Disable debug mode in OBJKT packages
+  window.acPACK_MODE // Disable debug mode in OBJKT packages
 ) {
   debug = false; // Turn debugging off by default in production and OBJKT mode.
   window.production = true;
@@ -283,7 +283,7 @@ if (window.acSTARTING_PIECE === undefined) window.acSTARTING_PIECE = "prompt";
 let originalUrl = location.href;
 let sluggedUrl = null;
 
-if (!window.acOBJKT_MODE) {
+if (!window.acPACK_MODE) {
   sluggedUrl = slug(originalUrl) || window.acSTARTING_PIECE;
 } else {
   sluggedUrl = window.acSTARTING_PIECE;
@@ -405,7 +405,7 @@ if (window.acVSCODE) {
 // Pass the parameters directly without stripping them
 boot(parsed, bpm, { gap: nogap ? 0 : undefined, nolabel, density, zoom, duration, tv, highlight }, debug);
 
-let sandboxed = (window.origin === "null" && !window.acVSCODE) || localStorageBlocked || sessionStorageBlocked || window.acOBJKT_MODE;
+let sandboxed = (window.origin === "null" && !window.acVSCODE) || localStorageBlocked || sessionStorageBlocked || window.acPACK_MODE;
 
 // #region 🔐 Auth0: Universal Login & Authentication
 function loadAuth0Script() {
