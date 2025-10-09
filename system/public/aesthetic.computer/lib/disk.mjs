@@ -7328,6 +7328,8 @@ async function makeFrame({ data: { type, content } }) {
 
     if (PREVIEW_OR_ICON) {
       console.log("💬 Chat disabled, just grabbing screenshots. 😃");
+    } else if (getPackMode()) {
+      // Skip chat connection in PACK mode - offline bundle
     } else {
       chatClient.connect("system"); // Connect to `system` chat.
     }
@@ -8346,9 +8348,9 @@ async function makeFrame({ data: { type, content } }) {
         }
 
         // [Shift] Toggle QR code fullscreen mode for KidLisp pieces
-        if (data.key === "Shift") {
-          console.log("⌨️ [Shift Key] Received! getPackMode():", getPackMode());
-        }
+        // if (data.key === "Shift") {
+        //   console.log("⌨️ [Shift Key] Received! getPackMode():", getPackMode());
+        // }
         if (data.key === "Shift" && !getPackMode()) {
           toggleQRFullscreen();
         }
