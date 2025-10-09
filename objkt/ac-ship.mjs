@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-// ac-ship.mjs - Package TEIA packages as Electron desktop apps
+// ac-ship.mjs - Package OBJKT packages as Electron desktop apps
 // Usage: node ac-ship.mjs [zip-file] [--platforms mac,windows,linux]
 
 import fs from 'fs/promises';
