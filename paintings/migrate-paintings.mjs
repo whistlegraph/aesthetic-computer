@@ -131,13 +131,98 @@ async function migrate() {
   if (DRY_RUN) {
     console.log('\n💡 This was a dry run. To execute migration, run:');
     console.log('   npm run migrate\n');
-  } else {
-    console.log('\n⚠️  To execute this migration, we need to:');
-    console.log('   1. Generate unique codes for each painting');
-    console.log('   2. Update existing user paintings with codes');
-    console.log('   3. Create DB records for guest paintings');
-    console.log('\n   Implementation coming in next step...\n');
+    await client.close();
+    return;
   }
+  
+  // ACTUAL MIGRATION
+  console.log('\n🚀 Starting migration...\n');
+  
+  // Track existing codes to avoid collisions
+  const existingCodes = new Set();
+  const existingCodesArray = await paintings.find({ code: { $exists: true } })
+    .project({ code: 1 })
+    .toArray();
+  existingCodesArray.forEach(p => existingCodes.add(p.code));
+  console.log(`📋 Loaded ${existingCodes.size} existing codes for collision detection`);
+  
+  // Phase 3: Update user paintings
+  console.log('\n📝 Phase 3: Adding codes to user paintings...');
+  const userPaintings = await paintings.find({ code: { $exists: false }, user: { $exists: true } })
+    .toArray();
+  
+  let userUpdated = 0;
+  for (const painting of userPaintings) {
+    const code = generateCode(existingCodes);
+    await paintings.updateOne(
+      { _id: painting._id },
+      { 
+        $set: { 
+          code,
+          bucket: "user-aesthetic-computer"
+        } 
+      }
+    );
+    userUpdated++;
+    if (userUpdated % 100 === 0) {
+      console.log(`   ... ${userUpdated}/${userPaintings.length} user paintings updated`);
+    }
+  }
+  console.log(`✅ Updated ${userUpdated} user paintings with codes`);
+  
+  // Phase 4: Import guest paintings
+  console.log('\n📦 Phase 4: Importing guest paintings to database...');
+  
+  let guestImported = 0;
+  let guestSkipped = 0;
+  
+  for (const file of guestFiles) {
+    const slug = file.Key.replace('.png', '');
+    
+    // Check if already exists
+    const existing = await paintings.findOne({ slug, user: { $exists: false } });
+    if (existing) {
+      guestSkipped++;
+      continue;
+    }
+    
+    const code = generateCode(existingCodes);
+    
+    try {
+      await paintings.insertOne({
+        code,
+        slug,
+        // user: undefined,  // Don't set user field for guests
+        when: file.LastModified,
+        nuked: false,
+        bucket: "art-aesthetic-computer"
+      });
+      guestImported++;
+      
+      if (guestImported % 100 === 0) {
+        console.log(`   ... ${guestImported}/${guestFiles.length} guest paintings imported`);
+      }
+    } catch (error) {
+      console.error(`   ⚠️  Failed to import ${slug}:`, error.message);
+    }
+  }
+  
+  console.log(`✅ Imported ${guestImported} guest paintings`);
+  if (guestSkipped > 0) {
+    console.log(`ℹ️  Skipped ${guestSkipped} guest paintings (already in database)`);
+  }
+  
+  // Final summary
+  console.log('\n─────────────────────────────────────────────────────────────────');
+  console.log('\n🎉 Migration Complete!\n');
+  console.log(`  User paintings with codes: ${userUpdated}`);
+  console.log(`  Guest paintings imported: ${guestImported}`);
+  console.log(`  Total codes generated: ${userUpdated + guestImported}`);
+  console.log(`  Total codes in database: ${existingCodes.size + userUpdated + guestImported}`);
+  console.log('\n📊 Verification:');
+  const finalCount = await paintings.countDocuments({ code: { $exists: true } });
+  console.log(`  Paintings with codes: ${finalCount}`);
+  console.log('\n✨ Ready for Component 4: API endpoint implementation\n');
   
   await client.close();
 }
