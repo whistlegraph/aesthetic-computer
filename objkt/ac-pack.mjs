@@ -2215,13 +2215,14 @@ export function boot({ wipe, ink, help, backgroundFill }) {
     
     // Skip font_1 and microtype glyph loading in PACK mode
     // These drawing files are not bundled, so prevent 404 errors
+    // CRITICAL: Must return 'this' to ensure typeface object is properly initialized
     
     // Patch font_1 loading - insert PACK check at start of the block
     const font1Check = `// Skip font_1 loading in PACK mode - glyphs not bundled
       const { checkPackMode } = await import("./pack-mode.mjs");
       const isPackMode = checkPackMode();
       if (isPackMode) {
-        return; // Skip loading in PACK mode
+        return this; // CRITICAL: Return this for proper typeface initialization
       }
       `;
     
@@ -2236,7 +2237,7 @@ export function boot({ wipe, ink, help, backgroundFill }) {
       const { checkPackMode: checkPackMode2 } = await import("./pack-mode.mjs");
       const isPackMode2 = checkPackMode2();
       if (isPackMode2) {
-        return; // Skip loading in PACK mode
+        return this; // CRITICAL: Return this for proper typeface initialization
       }
       `;
     
