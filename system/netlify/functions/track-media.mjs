@@ -14,10 +14,10 @@ import { customAlphabet } from 'nanoid';
 
 const dev = process.env.CONTEXT === "dev";
 
-// Code generator (same as paintings/generate-code.mjs)
-const consonants = 'bcdfghjklmnpqrstvwxyzBCDFGHJKLMNPQRSTVWXYZ';
-const vowels = 'aeiouAEIOU';
-const numbers = '0123456789';
+// Code generator - lowercase preferred (3x) but uppercase included for more space
+const consonants = 'bcdfghjklmnpqrstvwxyz' + 'bcdfghjklmnpqrstvwxyz' + 'BCDFGHJKLMNPQRSTVWXYZ';
+const vowels = 'aeiou' + 'aeiou' + 'AEIOU';
+const numbers = '23456789'; // Exclude 0,1 (look like O,l)
 const alphabet = consonants + vowels + numbers;
 const CODE_LENGTH = 3;
 const nanoid = customAlphabet(alphabet, CODE_LENGTH);
