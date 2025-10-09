@@ -8,7 +8,7 @@ endregion */
 
 import * as fonts from "../disks/common/fonts.mjs";
 import { repeat } from "../lib/help.mjs";
-import { checkTeiaMode } from "./teia-mode.mjs";
+import { checkPackMode } from "./pack-mode.mjs";
 import { KidLisp, tokenize } from "./kidlisp.mjs";
 import { cssColors } from "./num.mjs";
 function matrixDebugEnabled() {
@@ -210,11 +210,11 @@ class Typeface {
       // Determine which font to use - for unifont use the name, for others use bdfFont property
       const fontName = this.data.bdfFont || "unifont";
       
-      // Check if we're in TEIA mode and this is MatrixChunky8
-      const { checkTeiaMode } = await import("./teia-mode.mjs");
-      const isTeiaMode = checkTeiaMode();
+      // Check if we're in OBJKT mode and this is MatrixChunky8
+      const { checkPackMode } = await import("./pack-mode.mjs");
+      const isObjktMode = checkPackMode();
       
-      if (isTeiaMode && this.name === "MatrixChunky8") {
+      if (isObjktMode && this.name === "MatrixChunky8") {
         // Set essential font metadata properties for proportional font detection
         this.data.proportional = true;
         this.data.bdfFont = "MatrixChunky8";
@@ -225,8 +225,8 @@ class Typeface {
         this.data.bdfOverrides = MatrixChunky8.bdfOverrides || {}; // Position overrides from fonts.mjs
 
         const inlineGlyphMap =
-          (typeof globalThis !== "undefined" && globalThis.acTEIA_MATRIX_CHUNKY_GLYPHS) ||
-          (typeof window !== "undefined" && window.acTEIA_MATRIX_CHUNKY_GLYPHS) ||
+          (typeof globalThis !== "undefined" && globalThis.acOBJKT_MATRIX_CHUNKY_GLYPHS) ||
+          (typeof window !== "undefined" && window.acOBJKT_MATRIX_CHUNKY_GLYPHS) ||
           null;
 
         // Stash the inline glyph map for later on-demand lookups
@@ -390,17 +390,17 @@ class Typeface {
 
           // Make API call to load the glyph using code points
           
-          // Enhanced TEIA mode detection using shared teia-mode module
-          const isTeiaMode = checkTeiaMode();
+          // Enhanced OBJKT mode detection using shared teia-mode module
+          const isObjktMode = checkPackMode();
           
-          if (isTeiaMode && this.name === "MatrixChunky8") {
-            // In TEIA mode, first check if glyph is directly on target
+          if (isObjktMode && this.name === "MatrixChunky8") {
+            // In OBJKT mode, first check if glyph is directly on target
             if (target[char] && target[char].pixels && target[char].resolution) {
               loadingGlyphs.delete(char);
               return target[char];
             }
 
-            // In TEIA mode, the bundled data might be in the font object's data
+            // In OBJKT mode, the bundled data might be in the font object's data
             // Access through this.data (the original font data object)
             if (this.data && this.data[char]) {
               // Store it in target for faster access next time
@@ -412,8 +412,8 @@ class Typeface {
             const inlineGlyphMap =
               this.inlineMatrixChunkyGlyphMap ||
               this.data?.inlineMatrixChunkyGlyphMap ||
-              (typeof globalThis !== "undefined" && globalThis.acTEIA_MATRIX_CHUNKY_GLYPHS) ||
-              (typeof window !== "undefined" && window.acTEIA_MATRIX_CHUNKY_GLYPHS) ||
+              (typeof globalThis !== "undefined" && globalThis.acOBJKT_MATRIX_CHUNKY_GLYPHS) ||
+              (typeof window !== "undefined" && window.acOBJKT_MATRIX_CHUNKY_GLYPHS) ||
               null;
 
             if (inlineGlyphMap && codePoints.length === 1) {
@@ -428,14 +428,14 @@ class Typeface {
               }
             }
 
-            // Mark as failed to avoid repeat work and skip network access in TEIA mode
+            // Mark as failed to avoid repeat work and skip network access in OBJKT mode
             loadingGlyphs.delete(char);
             failedGlyphs.add(char);
             return this.getEmojiFallback(char, target);
           }
           
-          // Only make API calls when NOT in TEIA mode
-          if (!isTeiaMode) {
+          // Only make API calls when NOT in OBJKT mode
+          if (!isObjktMode) {
             fetch(`/api/bdf-glyph?char=${codePointStr}&font=${this.name}`)
               .then((response) => {
                 if (!response.ok) {
@@ -496,7 +496,7 @@ class Typeface {
                 }
               });
           } else {
-            // In TEIA mode for non-MatrixChunky8 fonts, create simple fallback
+            // In OBJKT mode for non-MatrixChunky8 fonts, create simple fallback
             const simpleFallback = {
               resolution: [6, 8],
               pixels: [
