@@ -2744,6 +2744,12 @@ async function main() {
     }
   }
 
+  // Set default density to 6 for PACK mode if not specified
+  if (!options.density) {
+    options.density = 6;
+    console.log('🔍 Using default density: 6');
+  }
+
   const packer = new AcPacker(pieceName, options);
   const result = await packer.pack();
   
