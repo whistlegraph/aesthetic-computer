@@ -164,11 +164,16 @@ let workingUrl = null;
 
 function printUsage() {
     console.log("Usage: source-tree.mjs <piece-name>");
+    console.log("       source-tree.mjs @<handle> [limit]");
     console.log("       source-tree.mjs --test-colors");
     console.log("       source-tree.mjs --debug-colors");
     console.log("       source-tree.mjs --test-css-colors");
-    console.log("Example: source-tree.mjs $cow");
-    console.log("         source-tree.mjs cow");
+    console.log("");
+    console.log("Examples:");
+    console.log("  source-tree.mjs $cow          # Show source tree for $cow piece");
+    console.log("  source-tree.mjs cow           # Show source tree ($ prefix optional)");
+    console.log("  source-tree.mjs @fifi         # List all codes by user @fifi");
+    console.log("  source-tree.mjs @fifi 200     # List up to 200 codes by @fifi");
     console.log("");
     console.log("Options:");
     console.log("  --test-colors     Test terminal color capabilities");
@@ -176,6 +181,7 @@ function printUsage() {
     console.log("  --test-css-colors Test CSS color name mappings");
     console.log("");
     console.log("Shows complete source code tree for each piece by default.");
+    console.log("For user handles, displays all codes with syntax highlighting and timestamps.");
 }
 
 // Function to syntax highlight KidLisp code using native KidLisp highlighting
@@ -261,7 +267,8 @@ async function fetchSourceFromEndpoint(url, cleanName, isProduction = false) {
                         return;
                     }
                     
-                    resolve(response.source);
+                    // Return the full response object including metadata
+                    resolve(response);
                 } catch (error) {
                     reject(new Error("Could not parse JSON response"));
                 }
@@ -273,6 +280,116 @@ async function fetchSourceFromEndpoint(url, cleanName, isProduction = false) {
     });
 }
 
+// Fetch all codes by user handle
+async function fetchCodesByHandle(handle, limit = 1000) {
+    const cleanHandle = handle.startsWith('@') ? handle.substring(1) : handle;
+    
+    // Try localhost first (no SSL issues in dev)
+    const localUrl = `https://localhost:8888/.netlify/functions/store-kidlisp?recent=true&limit=${limit}`;
+    
+    try {
+        return await fetchCodesFromEndpoint(localUrl, cleanHandle, limit, false);
+    } catch (localError) {
+        console.log(colors.dim(`  Note: localhost unavailable, trying production...`));
+        // Fallback to production
+        const prodUrl = `https://aesthetic.computer/api/store-kidlisp?recent=true&limit=${limit}`;
+        try {
+            return await fetchCodesFromEndpoint(prodUrl, cleanHandle, limit, true);
+        } catch (prodError) {
+            throw new Error(`Both servers failed: Local: ${localError.message}, Production: ${prodError.message}`);
+        }
+    }
+}
+
+// Helper to fetch codes from an endpoint
+async function fetchCodesFromEndpoint(url, cleanHandle, limit, isProduction) {
+    return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+            reject(new Error('Request timeout'));
+        }, 10000);
+        
+        const options = isProduction ? {} : { rejectUnauthorized: false };
+        
+        https.get(url, options, (res) => {
+            let data = '';
+            
+            res.on('data', (chunk) => {
+                data += chunk;
+            });
+            
+            res.on('end', () => {
+                clearTimeout(timeout);
+                try {
+                    const response = JSON.parse(data);
+                    
+                    if (response.error) {
+                        reject(new Error(`Failed to fetch codes: ${response.error}`));
+                        return;
+                    }
+                    
+                    if (!response.recent) {
+                        reject(new Error("Invalid response format"));
+                        return;
+                    }
+                    
+                    // Filter by handle
+                    const userCodes = response.recent.filter(item => 
+                        item.handle === `@${cleanHandle}`
+                    );
+                    
+                    resolve(userCodes);
+                } catch (error) {
+                    reject(new Error("Could not parse JSON response"));
+                }
+            });
+        }).on('error', (error) => {
+            clearTimeout(timeout);
+            reject(new Error(`Connection failed: ${error.message}`));
+        });
+    });
+}
+
+// Fetch handle from user ID
+async function fetchHandleFromUserId(userId) {
+    if (!userId) return null;
+    
+    // URL encode the userId properly - the pipe | in auth0|xxx needs to be encoded
+    const encodedUserId = encodeURIComponent(userId);
+    const url = `https://aesthetic.computer/.netlify/functions/handle?for=${encodedUserId}`;
+    
+    return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+            resolve(null); // Don't fail, just return null
+        }, 3000);
+        
+        https.get(url, (res) => {
+            let data = '';
+            
+            res.on('data', (chunk) => {
+                data += chunk;
+            });
+            
+            res.on('end', () => {
+                clearTimeout(timeout);
+                try {
+                    const response = JSON.parse(data);
+                    if (response.handle) {
+                        resolve(`@${response.handle}`);
+                    } else {
+                        resolve(null);
+                    }
+                } catch (error) {
+                    console.warn(`Failed to fetch handle for ${userId}:`, error.message);
+                    resolve(null);
+                }
+            });
+        }).on('error', (error) => {
+            clearTimeout(timeout);
+            resolve(null);
+        });
+    });
+}
+
 async function fetchSource(pieceName) {
     const cleanName = pieceName.replace(/^\$/, '');
     
@@ -280,7 +397,12 @@ async function fetchSource(pieceName) {
     if (workingServer && workingUrl) {
         const url = workingUrl.replace(/code=[^&]*/, `code=${cleanName}`);
         try {
-            return await fetchSourceFromEndpoint(url, cleanName, workingServer);
+            const response = await fetchSourceFromEndpoint(url, cleanName, workingServer);
+            // Fetch handle if user ID is present
+            if (response.user) {
+                response.handle = await fetchHandleFromUserId(response.user);
+            }
+            return response;
         } catch (error) {
             // Reset and try both servers again
             workingServer = null;
@@ -292,19 +414,27 @@ async function fetchSource(pieceName) {
     const localUrl = `https://localhost:8888/.netlify/functions/store-kidlisp?code=${cleanName}`;
     
     try {
-        const source = await fetchSourceFromEndpoint(localUrl, cleanName, 'local');
+        const response = await fetchSourceFromEndpoint(localUrl, cleanName, 'local');
         workingServer = 'local';
         workingUrl = localUrl;
-        return source;
+        // Fetch handle if user ID is present
+        if (response.user) {
+            response.handle = await fetchHandleFromUserId(response.user);
+        }
+        return response;
     } catch (localError) {
         // Fallback to production
         const productionUrl = `https://aesthetic.computer/api/store-kidlisp?code=${cleanName}`;
         
         try {
-            const source = await fetchSourceFromEndpoint(productionUrl, cleanName, 'production');
+            const response = await fetchSourceFromEndpoint(productionUrl, cleanName, 'production');
             workingServer = 'production';
             workingUrl = productionUrl;
-            return source;
+            // Fetch handle if user ID is present
+            if (response.user) {
+                response.handle = await fetchHandleFromUserId(response.user);
+            }
+            return response;
         } catch (prodError) {
             throw new Error(`Both servers failed: Local: ${localError.message}, Production: ${prodError.message}`);
         }
@@ -485,9 +615,39 @@ async function printTreeNode(pieceName, depth = 0, prefix = "", showSource = fal
     const indent = "  ".repeat(depth); // 2-character indentation
     
     try {
-        const source = await fetchSource(pieceName);
+        const response = await fetchSource(pieceName);
+        const source = response.source;
         const cleanSource = source.replace(/\\n/g, '\n').replace(/\\"/g, '"');
         const embeddedPieces = extractEmbeddedPieces(source);
+        
+        // Display metadata (handle, timestamp, hits) at the top for root level pieces
+        if (depth === 0 && (response.handle || response.when || response.hits)) {
+            const metadataLine = [];
+            if (response.handle) {
+                metadataLine.push(colors.cyan(`Author: ${response.handle}`));
+            }
+            if (response.when) {
+                const timestamp = new Date(response.when);
+                const localTime = timestamp.toLocaleString('en-US', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: false
+                });
+                metadataLine.push(colors.dim(`Created: ${localTime}`));
+            }
+            if (response.hits) {
+                metadataLine.push(colors.gray(`Hits: ${response.hits}`));
+            }
+            
+            if (metadataLine.length > 0) {
+                console.log(addFullWidthBackground(`  ${metadataLine.join(' • ')}`, '20;20;20', true));
+                console.log(addFullWidthBackground('', '20;20;20', true));
+            }
+        }
         
         // Print current piece with ASCII art for subtree $codes (depth > 0)
         if (depth > 0) {
@@ -648,6 +808,101 @@ function testCSSColorsMapping() {
   console.log('• Consider using background colors for very light/dark text');
 }
 
+// Display all codes by a user handle with syntax highlighting
+async function displayUserCodes(handle, limit = 1000) {
+    const cleanHandle = handle.startsWith('@') ? handle.substring(1) : handle;
+    
+    // Create beautiful ASCII art title
+    const asciiLines = generateAsciiArt(`@${cleanHandle}`);
+    
+    // Add top border
+    addBorder();
+    console.log(addFullWidthBackground('', '20;20;20', true));
+    
+    asciiLines.forEach(line => {
+        console.log(addFullWidthBackground(`  ${line}`, '20;20;20', true));
+    });
+    console.log(addFullWidthBackground('', '20;20;20', true));
+    
+    try {
+        console.log(addFullWidthBackground(colors.cyan(`  Fetching codes by @${cleanHandle}...`), '20;20;20', true));
+        console.log(addFullWidthBackground('', '20;20;20', true));
+        
+        const userCodes = await fetchCodesByHandle(cleanHandle, limit);
+        
+        if (userCodes.length === 0) {
+            console.log(addFullWidthBackground(colors.yellow(`  No codes found for @${cleanHandle} in recent ${limit} codes`), '20;20;20', true));
+            console.log(addFullWidthBackground(colors.dim(`  Note: Only recent codes are searchable (max 100)`), '20;20;20', true));
+            console.log(addFullWidthBackground(colors.dim(`  Try a user with recent activity like @fifi`), '20;20;20', true));
+            console.log(addFullWidthBackground('', '20;20;20', true));
+            addBorder();
+            return;
+        }
+        
+        const header = `  Found ${userCodes.length} code${userCodes.length === 1 ? '' : 's'} by @${cleanHandle}`;
+        console.log(addFullWidthBackground(colors.green(header), '20;20;20', true));
+        console.log(addFullWidthBackground('', '20;20;20', true));
+        
+        // Display each code with syntax highlighting
+        for (let i = 0; i < userCodes.length; i++) {
+            const codeData = userCodes[i];
+            const codeNum = `${i + 1}`.padStart(3, ' ');
+            
+            // Format timestamp to local time
+            const timestamp = new Date(codeData.when);
+            const localTime = timestamp.toLocaleString('en-US', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false
+            });
+            
+            // Code header with piece name
+            const codeName = formatPieceName(codeData.code, true);
+            const codeHeader = `  ${colors.gray(`${codeNum}.`)} ${codeName} ${colors.dim(`• ${localTime}`)} ${colors.gray(`• ${codeData.hits || 0} hits`)}`;
+            console.log(addFullWidthBackground(codeHeader, '20;20;20', true));
+            
+            // URL
+            const url = `     ${colors.dim(`https://aesthetic.computer/$${codeData.code}`)}`;
+            console.log(addFullWidthBackground(url, '20;20;20', true));
+            
+            // Syntax highlighted source
+            const sourceLines = codeData.source.split('\n');
+            
+            for (const line of sourceLines) {
+                if (line.trim() === '') {
+                    console.log(addFullWidthBackground('     ', '20;20;20', true));
+                    continue;
+                }
+                
+                // Apply syntax highlighting
+                const highlighted = syntaxHighlight(line);
+                const indentedLine = `     ${highlighted}`;
+                console.log(addFullWidthBackground(indentedLine, '20;20;20', true));
+            }
+            
+            // Separator between codes
+            if (i < userCodes.length - 1) {
+                console.log(addFullWidthBackground('', '20;20;20', true));
+                const separator = `     ${colors.gray('─'.repeat(60))}`;
+                console.log(addFullWidthBackground(separator, '20;20;20', true));
+                console.log(addFullWidthBackground('', '20;20;20', true));
+            }
+        }
+        
+        console.log(addFullWidthBackground('', '20;20;20', true));
+        
+    } catch (error) {
+        console.log(addFullWidthBackground(colors.red(`  Error: ${error.message}`), '20;20;20', true));
+        console.log(addFullWidthBackground('', '20;20;20', true));
+    } finally {
+        addBorder();
+    }
+}
+
 function testColorConversions() {
   console.log('\n🔍 Color Conversion Debug:');
   
@@ -778,6 +1033,22 @@ async function main() {
     }
     
     const pieceName = args[0];
+    
+    // Check if it's a user handle request (starts with @)
+    if (pieceName.startsWith('@')) {
+        const handle = pieceName;
+        const limit = args[1] ? parseInt(args[1]) : 1000; // Default to 1000 for handle searches
+        
+        try {
+            await displayUserCodes(handle, limit);
+        } catch (error) {
+            console.error(colors.red(`Error: ${error.message}`));
+        } finally {
+            process.exit(0);
+        }
+        return;
+    }
+    
     const showSource = true; // Always show source by default
     
     // Remove $ prefix if present for display
