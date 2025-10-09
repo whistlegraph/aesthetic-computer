@@ -2216,19 +2216,19 @@ export function boot({ wipe, ink, help, backgroundFill }) {
     // Skip font_1 and microtype glyph loading in PACK mode
     // These drawing files are not bundled, so prevent 404 errors
     
-    // Patch font_1 loading
-    if (patched.includes('if (this.name === "font_1")')) {
+    // Patch font_1 loading - insert PACK check before glyphsToLoad
+    if (patched.includes('if (this.name === "font_1") {')) {
       patched = patched.replace(
-        'if (this.name === "font_1") {\n      // 1. Ignore any keys with a "glyph" prefix because these are settings.\n      const glyphsToLoad = entries(this.data).filter(',
-        'if (this.name === "font_1") {\n      // Skip font_1 loading in PACK mode - glyphs not bundled\n      const { checkPackMode } = await import("./pack-mode.mjs");\n      const isPackMode = checkPackMode();\n      if (isPackMode) {\n        return; // Skip loading in PACK mode\n      }\n      // 1. Ignore any keys with a "glyph" prefix because these are settings.\n      const glyphsToLoad = entries(this.data).filter('
+        '    if (this.name === "font_1") {\n      // 1. Ignore any keys with a "glyph" prefix because these are settings.\n      const glyphsToLoad = entries(this.data).filter(',
+        '    if (this.name === "font_1") {\n      // Skip font_1 loading in PACK mode - glyphs not bundled\n      const { checkPackMode } = await import("./pack-mode.mjs");\n      const isPackMode = checkPackMode();\n      if (isPackMode) {\n        return; // Skip loading in PACK mode\n      }\n      // 1. Ignore any keys with a "glyph" prefix because these are settings.\n      const glyphsToLoad = entries(this.data).filter('
       );
     }
     
-    // Patch microtype loading
-    if (patched.includes('else if (this.name === "microtype")')) {
+    // Patch microtype loading - insert PACK check before glyphsToLoad
+    if (patched.includes('else if (this.name === "microtype") {')) {
       patched = patched.replace(
-        'else if (this.name === "microtype") {\n      // Load microtype 3x5 font\n      const glyphsToLoad = entries(this.data).filter(',
-        'else if (this.name === "microtype") {\n      // Skip microtype loading in PACK mode - glyphs not bundled\n      const { checkPackMode: checkPackMode2 } = await import("./pack-mode.mjs");\n      const isPackMode2 = checkPackMode2();\n      if (isPackMode2) {\n        return; // Skip loading in PACK mode\n      }\n      // Load microtype 3x5 font\n      const glyphsToLoad = entries(this.data).filter('
+        '    } else if (this.name === "microtype") {\n      // Load microtype 3x5 font\n      const glyphsToLoad = entries(this.data).filter(',
+        '    } else if (this.name === "microtype") {\n      // Skip microtype loading in PACK mode - glyphs not bundled\n      const { checkPackMode: checkPackMode2 } = await import("./pack-mode.mjs");\n      const isPackMode2 = checkPackMode2();\n      if (isPackMode2) {\n        return; // Skip loading in PACK mode\n      }\n      // Load microtype 3x5 font\n      const glyphsToLoad = entries(this.data).filter('
       );
     }
     
