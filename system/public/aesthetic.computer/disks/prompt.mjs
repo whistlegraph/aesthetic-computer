@@ -1012,10 +1012,17 @@ async function halt($, text) {
         console.log("🪄 Painting uploaded:", filename, data);
         progressTrick = null;
 
+        // Show the short code to the user (important for guests!)
+        if (data.code) {
+          console.log(`🎨 Your painting code: #${data.code}`);
+          // notice(`Saved as #${data.code}`, ["lime"]);
+        }
+
         // Jump to the painting page that gets returned.
         if ((handle() || user?.email) && filename.startsWith("painting")) {
           jump(`painting~${handle() || user?.email}/${data.slug}`); // For a user.
         } else {
+          // For guests, could potentially use code-based URL in the future
           jump(
             `painting~${data.slug}${recordingSlug ? ":" + recordingSlug : ""}`,
           ); // Or for a guest.
