@@ -135,8 +135,8 @@ export function headers(isDarkMode) {
   if (typeof window !== 'undefined' && window.acOBJKT_MODE) {
     
     // Display minimal colophonic information if available
-    if (window.acOBJKT_COLOPHON) {
-      const colophon = window.acOBJKT_COLOPHON;
+    if (window.acPACK_COLOPHON) {
+      const colophon = window.acPACK_COLOPHON;
       const piece = colophon.piece;
       const build = colophon.build;
       
