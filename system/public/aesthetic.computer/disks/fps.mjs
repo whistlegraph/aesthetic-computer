@@ -15,18 +15,119 @@
 let cube, triangle, filledTriangle, texturedQuad, quadTexture, groundPlane, groundTexture, groundWireframe, penLocked = false;
 let showWireframes = true; // Toggle with 'V' key (start with wireframes ON)
 let graphAPI; // Store graph API reference
-let showDebugPanel = true; // Toggle with 'D' key
+let graphInstance; // Store graph instance for camera access
+let systemInstance; // Store system reference for render stats access
+let showDebugPanel = false; // Toggle with 'P' key (start OFF)
+let frameTimes = []; // Track frame times for FPS calculation
+let lastFrameTime = performance.now();
 
-function boot({ Form, CUBEL, QUAD, penLock, graph }) {
+// Function to log detailed scene debug info
+function logSceneDebug() {
+  if (!graphInstance) {
+    console.error("❌ Camera not available");
+    return;
+  }
+  
+  // Access render stats directly from system.fps.renderStats
+  const stats = systemInstance?.fps?.renderStats;
+  const hasStats = stats && typeof stats.originalTriangles === 'number';
+  
+  // Build warning messages
+  let warnings = [];
+  if (hasStats) {
+    if (stats.pixelsDrawn > 50000) {
+      warnings.push("High pixel count - large triangle(s) filling screen");
+    }
+    if (stats.subdividedTriangles > 10) {
+      warnings.push("High subdivision - triangle edge at screen boundary");
+    }
+  }
+  
+  console.log(
+    "%c FPS %c·%c Scene Debug %c\n\n" +
+    
+    "%c Camera \n" +
+    `%c   position %c(${graphInstance.x.toFixed(2)}, ${graphInstance.y.toFixed(2)}, ${graphInstance.z.toFixed(2)})%c\n` +
+    `%c   looking  %cpitch ${graphInstance.rotX.toFixed(1)}° · yaw ${graphInstance.rotY.toFixed(1)}° · roll ${graphInstance.rotZ.toFixed(1)}°%c\n\n` +
+    
+    "%c Objects \n" +
+    `%c   cube      %cat (${cube.position[0]}, ${cube.position[1]}, ${cube.position[2]}) · spinning · wireframe%c\n` +
+    `%c   triangle  %cat (${triangle.position[0]}, ${triangle.position[1]}, ${triangle.position[2]}) · gradient · wireframe%c\n` +
+    `%c   triangle  %cat (${filledTriangle.position[0]}, ${filledTriangle.position[1]}, ${filledTriangle.position[2]}) · filled · gradient%c\n` +
+    `%c   quad      %cat (${texturedQuad.position[0]}, ${texturedQuad.position[1]}, ${texturedQuad.position[2]}) · textured · subdivided%c\n` +
+    `%c   ground    %cat (${groundPlane.position[0]}, ${groundPlane.position[1]}, ${groundPlane.position[2]}) · 6×6 units · textured%c\n\n` +
+    
+    (hasStats 
+      ? "%c Performance \n" +
+        `%c   triangles %c${stats.originalTriangles} original · ${stats.clippedTriangles} clipped · ${stats.subdividedTriangles} subdivided · ${stats.trianglesRejected || 0} rejected%c\n` +
+        `%c   pixels    %c${stats.pixelsDrawn?.toLocaleString() || 0}${stats.pixelsDrawn > 50000 ? " %c⚠%c" : "%c %c"}%c drawn this frame%c\n` +
+        `%c   wireframe %c${stats.wireframeSegmentsTotal} segments%c\n`
+      : "%c Performance \n" +
+        `%c   waiting for first frame to render%c\n`
+    ) +
+    
+    (warnings.length > 0 
+      ? "\n%c ⚠ Warning \n" +
+        `%c   ${warnings.join("\n   ")}%c\n`
+      : ""
+    ),
+    
+    // Title styles - pink and cyan like Aesthetic.Computer
+    "background: rgba(199, 21, 133, 0.8); color: rgb(252, 231, 243); font-weight: bold; font-size: 11px; padding: 2px 6px; border-radius: 3px 0 0 3px;",
+    "color: #4ecdc4; font-weight: bold; font-size: 11px;",
+    "background: rgba(78, 205, 196, 0.8); color: rgb(10, 20, 40); font-weight: bold; font-size: 11px; padding: 2px 6px; border-radius: 0 3px 3px 0;",
+    "",
+    
+    // Camera section - cyan theme
+    "color: #4ecdc4; font-weight: bold; font-size: 12px;",
+    "color: #6c757d; font-size: 10px;", "color: #adb5bd; font-size: 10px;", "",
+    "color: #6c757d; font-size: 10px;", "color: #adb5bd; font-size: 10px;", "",
+    
+    // Objects section - pink theme
+    "color: #ff6b9d; font-weight: bold; font-size: 12px;",
+    "color: #6c757d; font-size: 10px;", "color: #adb5bd; font-size: 10px;", "",
+    "color: #6c757d; font-size: 10px;", "color: #adb5bd; font-size: 10px;", "",
+    "color: #6c757d; font-size: 10px;", "color: #adb5bd; font-size: 10px;", "",
+    "color: #6c757d; font-size: 10px;", "color: #ffc107; font-size: 10px;", "",
+    "color: #6c757d; font-size: 10px;", "color: #adb5bd; font-size: 10px;", "",
+    
+    // Performance section - green/yellow theme
+    ...(hasStats 
+      ? [
+          "color: #6ee7b7; font-weight: bold; font-size: 12px;",
+          "color: #6c757d; font-size: 10px;", "color: #adb5bd; font-size: 10px;", "",
+          "color: #6c757d; font-size: 10px;", "color: #adb5bd; font-size: 10px;",
+          stats.pixelsDrawn > 50000 ? "color: #ffc107; font-weight: bold;" : "", "",
+          "color: #6c757d; font-size: 10px;", "",
+          "color: #6c757d; font-size: 10px;", "color: #adb5bd; font-size: 10px;", ""
+        ]
+      : [
+          "color: #6ee7b7; font-weight: bold; font-size: 12px;",
+          "color: #6c757d; font-size: 10px; font-style: italic;", ""
+        ]
+    ),
+    
+    // Warning section - yellow/red
+    ...(warnings.length > 0 
+      ? [
+          "color: #ffc107; font-weight: bold; font-size: 12px;",
+          "color: #ffb74d; font-size: 10px;", ""
+        ]
+      : []
+    )
+  );
+}
+
+
+function boot({ Form, CUBEL, QUAD, penLock, system }) {
   penLock();
   
-  // Store graph API for later use
-  graphAPI = graph;
+  // Store system and graph instance for camera and stats access
+  systemInstance = system;
+  graphInstance = system?.fps?.doll?.cam;
   
   // Enable clipped wireframes by default if available
-  if (graphAPI?.setShowClippedWireframes) {
-    graphAPI.setShowClippedWireframes(showWireframes);
-  }
+  // Note: graphAPI will be set in paint function
   
   // Create a gradient quad (6 vertices = 2 triangles)
   const quadPositions = [
@@ -193,6 +294,23 @@ function sim() {
 }
 
 function paint({ wipe, ink, painting, screen, line: drawLine, box: drawBox, clearWireframeBuffer, drawBufferedWireframes, getRenderStats, setShowClippedWireframes }) {
+  // Store render stats function for debug logging  
+  if (!graphAPI) {
+    graphAPI = { getRenderStats };
+  }
+  
+  // Calculate FPS
+  const now = performance.now();
+  const deltaTime = now - lastFrameTime;
+  lastFrameTime = now;
+  
+  // Keep last 60 frame times for smoothed FPS
+  frameTimes.push(deltaTime);
+  if (frameTimes.length > 60) frameTimes.shift();
+  
+  const avgFrameTime = frameTimes.reduce((a, b) => a + b, 0) / frameTimes.length;
+  const currentFPS = Math.round(1000 / avgFrameTime);
+  
   // FIRST: Set wireframe visibility BEFORE any rendering happens
   if (setShowClippedWireframes) {
     setShowClippedWireframes(showWireframes);
@@ -203,18 +321,8 @@ function paint({ wipe, ink, painting, screen, line: drawLine, box: drawBox, clea
     clearWireframeBuffer();
   }
   
-  // Debug: log once per second
   if (!paint.frameCount) paint.frameCount = 0;
   paint.frameCount++;
-  if (paint.frameCount % 60 === 1) {
-    console.log(`🔧 FPS Paint Frame ${paint.frameCount}: showWireframes=${showWireframes}`);
-    console.log(`  Direct functions:`, {
-      hasDrawBufferedWireframes: !!drawBufferedWireframes,
-      hasGetRenderStats: !!getRenderStats,
-      hasClearWireframeBuffer: !!clearWireframeBuffer,
-      hasSetShowClippedWireframes: !!setShowClippedWireframes,
-    });
-  }
   
   // Create ground texture with a checkerboard pattern if it doesn't exist
   if (!groundTexture) {
@@ -275,18 +383,12 @@ function paint({ wipe, ink, painting, screen, line: drawLine, box: drawBox, clea
   
   // Draw wireframes on top AFTER all other forms to ensure they're always visible
   if (showWireframes) {
-    ink("yellow").form(groundWireframe); // Ground plane wireframe
+    // Note: Ground plane wireframes are now generated automatically via buffered system
+    // No need to render separate groundWireframe form
     
     // Draw all buffered clipped wireframes
     if (drawBufferedWireframes) {
-      if (paint.frameCount % 60 === 1) {
-        console.log(`🎨 About to call drawBufferedWireframes()`);
-      }
       drawBufferedWireframes();
-      if (paint.frameCount % 60 === 1) {
-        const stats = getRenderStats?.() || {};
-        console.log(`📊 After drawing: Total wireframe segments=${stats.wireframeSegmentsTotal}`);
-      }
     }
   }
   
@@ -294,15 +396,15 @@ function paint({ wipe, ink, painting, screen, line: drawLine, box: drawBox, clea
 
   // Draw debug panel in top-right corner
   if (showDebugPanel) {
-    const stats = getRenderStats?.() || {
+    const stats = system?.fps?.renderStats || {
       originalTriangles: 0,
       clippedTriangles: 0,
       subdividedTriangles: 0,
       wireframeSegmentsTotal: 0,
       wireframeSegmentsTextured: 0,
       wireframeSegmentsGradient: 0,
-      wireframeSegmentsClipped: 0,
-      wireframeSegmentsOther: 0,
+      pixelsDrawn: 0,
+      trianglesRejected: 0,
     };
 
     const charWidth = 4;
@@ -313,19 +415,20 @@ function paint({ wipe, ink, painting, screen, line: drawLine, box: drawBox, clea
     const marginFromEdge = 8;
 
     const lines = [
+      { color: "lime", text: `FPS: ${currentFPS}` },
+      { color: "orange", text: `Frame: ${avgFrameTime.toFixed(2)}ms` },
+      { color: "red", text: `Pixels: ${stats.pixelsDrawn}` },
       { color: "yellow", text: `Wireframes: ${showWireframes ? "ON" : "OFF"}` },
       { color: "cyan", text: `Original Tris: ${stats.originalTriangles}` },
       { color: "magenta", text: `Clipped Tris: ${stats.clippedTriangles}` },
-      { color: "yellow", text: `Subdivided Tris: ${stats.subdividedTriangles}` },
+      { color: "yellow", text: `Subdivided: ${stats.subdividedTriangles}` },
+      { color: "red", text: `Rejected: ${stats.trianglesRejected || 0}` },
       { color: "white", text: `WF Total: ${stats.wireframeSegmentsTotal}` },
       { color: "white", text: `- Textured: ${stats.wireframeSegmentsTextured}` },
       { color: "white", text: `- Gradient: ${stats.wireframeSegmentsGradient}` },
-      { color: "white", text: `- Clipped: ${stats.wireframeSegmentsClipped}` },
-      { color: "white", text: `- Other: ${stats.wireframeSegmentsOther}` },
-      { color: "green", text: `Ground: ${(groundPlane?.vertices?.length || 0) / 3} tris` },
-      { color: "orange", text: `Cam: Y:0 Z:0` },
-      { color: "gray", text: "Press V: Wireframe" },
-      { color: "gray", text: "Press D: Panel" },
+      { color: "gray", text: "V: Wireframe" },
+      { color: "gray", text: "P: Panel" },
+      { color: "gray", text: "L: Log Debug" },
     ];
 
     const measureWidth = (text) => text.length * charWidth;
@@ -359,7 +462,7 @@ function paint({ wipe, ink, painting, screen, line: drawLine, box: drawBox, clea
     });
   } else {
     // Minimal indicator when debug panel is off
-    ink("white").write(`V:Wire D:Debug`, 10, 10, undefined, undefined, false, debugFont);
+    ink("white").write(`V:Wire P:Debug L:Log`, 10, 10, undefined, undefined, false, debugFont);
   }
   
   // Note: Crosshair is now rendered via DOM element in bios.mjs when pointer lock is enabled
@@ -373,17 +476,20 @@ function act({ event: e, penLock, setShowClippedWireframes }) {
   // Toggle wireframe mode with 'V' key
   if (e.is("keyboard:down:v")) {
     showWireframes = !showWireframes;
-    console.log(`🔧 Toggled showWireframes to: ${showWireframes}`);
     // Toggle clipped triangle wireframes if available
     if (setShowClippedWireframes) {
       setShowClippedWireframes(showWireframes);
-      console.log(`🔧 Called setShowClippedWireframes(${showWireframes})`);
     }
   }
   
-  // Toggle debug panel with 'D' key
-  if (e.is("keyboard:down:d")) {
+  // Toggle debug panel with 'P' key
+  if (e.is("keyboard:down:p")) {
     showDebugPanel = !showDebugPanel;
+  }
+  
+  // Log scene debug info with 'L' key
+  if (e.is("keyboard:down:l")) {
+    logSceneDebug();
   }
 }
 
