@@ -5,9 +5,26 @@ This directory contains sensitive configuration for the Aesthetic Computer Feed 
 ## Files
 
 - `.env` - Environment variables for feed scripts and deployment
+- `wrangler.production.toml` - Cloudflare Workers configuration for aesthetic-feed deployment
 - `ed25519-private-key.txt` - ED25519 private key for DP-1 playlist signing (if needed)
 
 ## Usage
+
+### Deploying DP1 Feed Worker
+
+Run the devault script to copy secrets to the working directory:
+
+```fish
+cd /workspaces/aesthetic-computer/aesthetic-computer-vault
+./devault.fish
+```
+
+Then deploy:
+
+```fish
+cd /workspaces/aesthetic-computer/feed/dp1-feed
+npx wrangler deploy -c wrangler.production.toml
+```
 
 ### In DevContainer
 
