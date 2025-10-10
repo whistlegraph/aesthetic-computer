@@ -1107,6 +1107,36 @@ function ac-kidlisp
     end
 end
 
+# ATProto PDS Admin - SSH into PDS server and run pdsadmin
+function ac-at
+    # ASCII art header with colors
+    set_color cyan
+    echo " █████╗ ████████╗██████╗ ██████╗  ██████╗ ████████╗ ██████╗"
+    echo "██╔══██╗╚══██╔══╝██╔══██╗██╔══██╗██╔═══██╗╚══██╔══╝██╔═══██╗"
+    echo "███████║   ██║   ██████╔╝██████╔╝██║   ██║   ██║   ██║   ██║"
+    echo "██╔══██║   ██║   ██╔═══╝ ██╔══██╗██║   ██║   ██║   ██║   ██║"
+    echo "██║  ██║   ██║   ██║     ██║  ██║╚██████╔╝   ██║   ╚██████╔╝"
+    echo "╚═╝  ╚═╝   ╚═╝   ╚═╝     ╚═╝  ╚═╝ ╚═════╝    ╚═╝    ╚═════╝"
+    set_color blue
+    echo "        Personal Data Server - aesthetic.computer"
+    set_color cyan
+    echo "🕷️  at.aesthetic.computer        💾 165.227.120.137"
+    echo "📦 at-blobs-aesthetic-computer   🦋 ATProto Federation"
+    set_color normal
+    echo ""
+    
+    if test (count $argv) -eq 0
+        # No arguments: drop into interactive shell
+        ssh -o StrictHostKeyChecking=no -i ~/.ssh/aesthetic_pds root@165.227.120.137
+    else
+        # With arguments: run pdsadmin command directly
+        ssh -o StrictHostKeyChecking=no -i ~/.ssh/aesthetic_pds root@165.227.120.137 "pdsadmin $argv"
+    end
+end
+
+# Backward compatibility alias
+alias ac-pds='ac-at'
+
 # Claude Code CLI agent
 function ac-agent
     claude $argv
