@@ -1889,11 +1889,40 @@ async function halt($, text) {
     net.hiccup();
     return true;
   } else if (text.startsWith("#")) {
-    // Handle painting short codes like #k3d
+    // Handle painting short codes like #k3d, #WDv
     const code = text.slice(1).trim();
     if (code.length > 0) {
-      console.log(`🎨 Loading painting by code: #${code}`);
-      jump(`painting~#${code}`);
+      console.log(`🎨 Looking up painting by code: #${code}`);
+      
+      // Check cache first
+      const cacheKey = `painting-code:${code}`;
+      const cached = store[cacheKey];
+      
+      if (cached) {
+        console.log(`✅ Found cached painting: ${cached.handle}/painting/${cached.slug}`);
+        jump(`painting~${cached.handle}/painting/${cached.slug}`);
+        return true;
+      }
+      
+      // Fetch from API
+      net.fetch(`/api/painting-code?code=${code}`)
+        .then(response => response.json())
+        .then(data => {
+          if (data.slug && data.handle) {
+            console.log(`✅ Found painting: ${data.handle}/painting/${data.slug}`);
+            // Cache the result
+            store[cacheKey] = { slug: data.slug, handle: data.handle, code: data.code };
+            jump(`painting~${data.handle}/painting/${data.slug}`);
+          } else {
+            console.error(`❌ Painting not found for code: #${code}`);
+            notice(`Painting #${code} not found`, ["red"]);
+          }
+        })
+        .catch(err => {
+          console.error(`❌ Error looking up painting code #${code}:`, err);
+          notice(`Error loading #${code}`, ["red"]);
+        });
+      
       return true;
     }
   } else {
