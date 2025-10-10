@@ -22,6 +22,7 @@ import {
 } from "@aws-sdk/client-s3";
 import * as KeyValue from "../../backend/kv.mjs";
 import { shell } from "../../backend/shell.mjs";
+import { deleteAtprotoAccount } from "../../backend/at.mjs";
 
 const s3User = new S3Client({
   endpoint: "https://" + process.env.USER_ENDPOINT,
@@ -174,6 +175,14 @@ export async function handler(event, context) {
           await database.db.collection("@handles").deleteOne({ _id: sub });
           shell.log("🧔 Deleted user handle for:", sub);
         }
+      }
+
+      const atprotoResult = await deleteAtprotoAccount(database, sub);
+
+      if (atprotoResult.deleted) {
+        console.log("🪦 Deleted PDS account.");
+      } else {
+        console.log("🪦 PDS account not removed:", atprotoResult.reason);
       }
 
       console.log("❌ Deleted database data.");

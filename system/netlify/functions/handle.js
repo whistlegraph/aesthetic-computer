@@ -22,6 +22,7 @@ import * as KeyValue from "../../backend/kv.mjs";
 import { respond } from "../../backend/http.mjs";
 import * as logger from "../../backend/logger.mjs";
 import { shell } from "../../backend/shell.mjs";
+import { updateAtprotoHandle } from "../../backend/at.mjs";
 
 const dev = process.env.CONTEXT === "dev";
 
@@ -302,8 +303,10 @@ export async function handler(event, context) {
         if (existingUser) {
           shell.log("Current user handle:", existingUser.handle);
           // Replace existing handle or fail if the new handle is already taken
-          // by someone else.
-          const existingHandle = await handles.findOne({ handle });
+          // by someone else (case-insensitive).
+          const existingHandle = await handles.findOne({ 
+            handle: { $regex: new RegExp(`^${handle}$`, 'i') }
+          });
 
           if (
             existingHandle &&
@@ -312,7 +315,7 @@ export async function handler(event, context) {
             throw new Error("taken");
           }
 
-          if (existingHandle && existingHandle.handle === handle) {
+          if (existingHandle && existingHandle.handle.toLowerCase() === handle.toLowerCase()) {
             return respond(400, { message: "same" });
           }
 
@@ -326,7 +329,10 @@ export async function handler(event, context) {
             }); // 🪵
           }
         } else {
-          const existingHandle = await handles.findOne({ handle });
+          // Check for handle existence with case-insensitive search
+          const existingHandle = await handles.findOne({ 
+            handle: { $regex: new RegExp(`^${handle}$`, 'i') }
+          });
           if (existingHandle) throw new Error("taken");
 
           // Add a new `@handles` document for this user.
@@ -340,7 +346,7 @@ export async function handler(event, context) {
             }); // 🪵 Log initial handle creation.
           }
         }
-
+        const atprotoSync = await updateAtprotoHandle(database, primarySub, handle);
         // Update the redis handle <-> userID cache...
         if (existingUser?.handle)
           await KeyValue.del("@handles", existingUser.handle);
@@ -351,6 +357,8 @@ export async function handler(event, context) {
         if (otherSub) {
           await KeyValue.set("userIDs", otherSub, handle);
         }
+
+        const atprotoSync = await syncAtprotoHandle(database, primarySub, handle);
 
         // 🔥 Publish the new handle association to redis.
         //  - [-] `world` needs to pick this up somehow.
@@ -370,7 +378,7 @@ export async function handler(event, context) {
         await KeyValue.disconnect();
       }
       // Successful handle change...
-      return respond(200, { handle: body.handle });
+  return respond(200, { handle: body.handle, atproto: atprotoSync });
     } else {
       if (user) {
         return respond(401, { message: "unverified" });

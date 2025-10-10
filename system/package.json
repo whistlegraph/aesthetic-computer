@@ -40,6 +40,7 @@
   },
   "homepage": "https://github.com/whistlegraph/system#readme",
   "dependencies": {
+    "@atproto/api": "^0.17.2",
     "@ffmpeg/core": "^0.12.10",
     "@ffmpeg/ffmpeg": "^0.12.15",
     "@geckos.io/client": "^3.0.2",
