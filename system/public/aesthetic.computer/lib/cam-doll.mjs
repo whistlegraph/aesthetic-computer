@@ -5,6 +5,8 @@
 // TODO: Use key repeat / e.repeat to shorten code if necessary / prevent
 //       unwanted resets of state / ✨ allow disabling of state... ✨ - 24.07.03.02.50
 
+import { GAMEPAD_MAPPINGS } from "./gamepad-mappings.mjs";
+
 const { abs } = Math;
 
 export class CamDoll {
@@ -24,6 +26,19 @@ export class CamDoll {
   #DOWN;
   #LEFT;
   #RIGHT;
+
+  // Gamepad button look controls (8BitDo Micro face buttons)
+  #BTN_LOOK_UP;
+  #BTN_LOOK_DOWN;
+  #BTN_LOOK_LEFT;
+  #BTN_LOOK_RIGHT;
+
+  // Button look velocity for smoothing
+  #buttonLookVelX = 0;
+  #buttonLookVelY = 0;
+  #buttonLookAccel = 0.05;  // Even more subtle acceleration
+  #buttonLookDecel = 0.85;
+  #buttonLookMaxSpeed = 1.0; // Slower max speed
 
   // Stick based controls.
   #ANALOG = {
@@ -55,10 +70,12 @@ export class CamDoll {
     // 🔫 FPS style camera movement.
     let forward = 0,
       updown = 0,
-      strafe = 0;    if (this.#W) forward = -this.sensitivity;
+      strafe = 0;
+
+    if (this.#W) forward = -this.sensitivity;
     if (this.#S) forward = this.sensitivity;
-    if (this.#A) strafe = this.sensitivity;  // Flipped: A now moves right
-    if (this.#D) strafe = -this.sensitivity; // Flipped: D now moves left
+    if (this.#A) strafe = this.sensitivity;  // A moves left (positive in rotated space)
+    if (this.#D) strafe = -this.sensitivity; // D moves right (negative in rotated space)
     if (this.#SPACE) updown = -this.sensitivity;
     if (this.#SHIFT) updown = this.sensitivity;
 
@@ -74,7 +91,7 @@ export class CamDoll {
     }
 
     if (abs(this.#ANALOG.move.z) > 0 || abs(this.#ANALOG.move.x) > 0) {
-      console.log("Over zero:", this.#ANALOG.move.z);
+      // console.log("Over zero:", this.#ANALOG.move.z);
       this.#dolly.push({
         x: this.#ANALOG.move.x,
         y: 0,
@@ -87,10 +104,43 @@ export class CamDoll {
       this.cam.rotY += this.#ANALOG.look.y;
     }
 
+    // Button-based looking with acceleration/deceleration (gamepad face buttons)
+    // Apply acceleration when buttons are held
+    if (this.#BTN_LOOK_UP || this.#BTN_LOOK_DOWN) {
+      if (this.#BTN_LOOK_UP) this.#buttonLookVelY += this.#buttonLookAccel;
+      if (this.#BTN_LOOK_DOWN) this.#buttonLookVelY -= this.#buttonLookAccel;
+      
+      // Clamp to max speed
+      if (this.#buttonLookVelY > this.#buttonLookMaxSpeed) this.#buttonLookVelY = this.#buttonLookMaxSpeed;
+      if (this.#buttonLookVelY < -this.#buttonLookMaxSpeed) this.#buttonLookVelY = -this.#buttonLookMaxSpeed;
+    } else {
+      // Decelerate when no button pressed
+      this.#buttonLookVelY *= this.#buttonLookDecel;
+      if (abs(this.#buttonLookVelY) < 0.01) this.#buttonLookVelY = 0;
+    }
+
+    if (this.#BTN_LOOK_LEFT || this.#BTN_LOOK_RIGHT) {
+      if (this.#BTN_LOOK_RIGHT) this.#buttonLookVelX += this.#buttonLookAccel;
+      if (this.#BTN_LOOK_LEFT) this.#buttonLookVelX -= this.#buttonLookAccel;
+      
+      // Clamp to max speed
+      if (this.#buttonLookVelX > this.#buttonLookMaxSpeed) this.#buttonLookVelX = this.#buttonLookMaxSpeed;
+      if (this.#buttonLookVelX < -this.#buttonLookMaxSpeed) this.#buttonLookVelX = -this.#buttonLookMaxSpeed;
+    } else {
+      // Decelerate when no button pressed
+      this.#buttonLookVelX *= this.#buttonLookDecel;
+      if (abs(this.#buttonLookVelX) < 0.01) this.#buttonLookVelX = 0;
+    }
+
+    // Apply button look velocity to camera
+    this.cam.rotX += this.#buttonLookVelY;
+    this.cam.rotY += this.#buttonLookVelX;
+
+    // Keyboard arrow keys
     if (this.#UP) this.cam.rotX += 1;
     if (this.#DOWN) this.cam.rotX -= 1;
-    if (this.#LEFT) this.cam.rotY -= 1;  // Fixed: LEFT now turns left
-    if (this.#RIGHT) this.cam.rotY += 1; // Fixed: RIGHT now turns right
+    if (this.#LEFT) this.cam.rotY -= 1;
+    if (this.#RIGHT) this.cam.rotY += 1;
     
     // Clamp pitch to prevent looking past straight up/down (prevents gimbal lock)
     const maxPitch = 89;
@@ -165,8 +215,14 @@ export class CamDoll {
       const moveDamp = 0.002;
       const lookDamp = 1;
 
-      // Move Forward and Backward
-      if (e.is("gamepad:0:axis:1:move")) {
+      // Detect controller type
+      const gamepadId = e.gamepadId || "standard";
+      const is8BitDoMicro = gamepadId.includes("8BitDo Micro");
+      const mapping = GAMEPAD_MAPPINGS[gamepadId] || GAMEPAD_MAPPINGS["standard"];
+
+      // 🕹️ D-PAD MOVEMENT (axes 0-1)
+      // Axis 1: Forward/Backward (up/down = W/S)
+      if (e.is("gamepad:0:axis:1")) {
         if (abs(e.value) < deadzone) {
           this.#ANALOG.move.z = 0;
         } else {
@@ -174,32 +230,49 @@ export class CamDoll {
         }
       }
 
-      // Strafe Left and Right
-      if (e.is("gamepad:0:axis:0:move")) {
+      // Axis 0: Strafe Left/Right (A/D)
+      if (e.is("gamepad:0:axis:0")) {
         if (abs(e.value) < deadzone) {
           this.#ANALOG.move.x = 0;
         } else {
-          this.#ANALOG.move.x = e.value * moveDamp;
+          // For 8BitDo Micro: left=-1 should move left (negative x), right=+1 should move right (positive x)
+          this.#ANALOG.move.x = -e.value * moveDamp; // Negated to fix direction
         }
       }
 
-      // Look Up And Down
-      if (e.is("gamepad:0:axis:2:move")) {
-        if (abs(e.value) < deadzone) {
-          this.#ANALOG.look.y = 0;
-        } else {
-          this.#ANALOG.look.y = -e.value * lookDamp;
-          console.log(this.#ANALOG.look.y);
+      // 🎮 Button-based looking (for controllers without right analog stick like 8BitDo Micro)
+      // Check for button events
+      if (e.button !== undefined && e.action) {
+        const btn = e.button;
+        const isPressed = e.action === "push";
+        
+        // For 8BitDo Micro: use face buttons for looking
+        if (is8BitDoMicro) {
+          if (btn === 0) this.#BTN_LOOK_RIGHT = isPressed;  // A (right)
+          if (btn === 1) this.#BTN_LOOK_DOWN = isPressed;   // B (bottom)
+          if (btn === 3) this.#BTN_LOOK_UP = isPressed;     // X (top)
+          if (btn === 4) this.#BTN_LOOK_LEFT = isPressed;   // Y (left)
         }
       }
 
-      // Look Left And Right
-      if (e.is("gamepad:0:axis:3:move")) {
-        if (abs(e.value) < deadzone) {
-          this.#ANALOG.look.x = 0;
-        } else {
-          this.#ANALOG.look.x = -e.value * lookDamp;
-          console.log(this.#ANALOG.look.x);
+      // 🕹️ ANALOG STICK LOOKING (for standard controllers with right analog stick)
+      if (!is8BitDoMicro) {
+        // Axis 3: Look Up/Down (right stick vertical)
+        if (e.is("gamepad:0:axis:3:move")) {
+          if (abs(e.value) < deadzone) {
+            this.#ANALOG.look.y = 0;
+          } else {
+            this.#ANALOG.look.y = -e.value * lookDamp;
+          }
+        }
+
+        // Axis 2: Look Left/Right (right stick horizontal)
+        if (e.is("gamepad:0:axis:2:move")) {
+          if (abs(e.value) < deadzone) {
+            this.#ANALOG.look.x = 0;
+          } else {
+            this.#ANALOG.look.x = -e.value * lookDamp;
+          }
         }
       }
     }
