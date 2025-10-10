@@ -46,7 +46,7 @@ export async function handler(event) {
       const handleDoc = await handles.findOne({ handle });
       
       if (handleDoc) {
-        query.user = handleDoc.userId;
+        query.user = handleDoc._id; // The _id of the handle doc IS the user ID
       }
     } else {
       // For anon, look for paintings without user field

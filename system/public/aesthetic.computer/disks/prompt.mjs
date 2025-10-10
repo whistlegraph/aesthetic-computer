@@ -1893,37 +1893,130 @@ async function halt($, text) {
     const code = text.slice(1).trim();
     if (code.length > 0) {
       console.log(`🎨 Looking up painting by code: #${code}`);
-      
-      // Check cache first
+
+      if (progressTrick) progressTrick = null;
+      const promptInput = system?.prompt?.input;
+      let spinnerActive = true;
+      const spinnerStart = Date.now();
+
+      const enforceSpinnerDelay = (fn, minimum = 160) => {
+        const elapsed = Date.now() - spinnerStart;
+        const wait = Math.max(0, minimum - elapsed);
+        if (wait > 0) {
+          setTimeout(fn, wait);
+        } else {
+          fn();
+        }
+      };
+
+      if (promptInput) {
+        promptInput.lock = true;
+        needsPaint();
+        setTimeout(() => {
+          if (spinnerActive && promptInput && !promptInput.lock) {
+            promptInput.lock = true;
+            needsPaint();
+          }
+        }, 0);
+      }
+
+      const clearLookupSpinner = (delay = 0) => {
+        progressTrick = null;
+        progressBar = -1;
+        if (promptInput) {
+          const unlock = () => {
+            spinnerActive = false;
+            promptInput.lock = false;
+            needsPaint();
+          };
+          if (delay > 0) {
+            setTimeout(unlock, delay);
+          } else {
+            unlock();
+          }
+        }
+      };
+
       const cacheKey = `painting-code:${code}`;
+      const setLocationHash = (displayCode) => {
+        if (typeof window === "undefined") return;
+        const normalizedHash = displayCode.startsWith("#")
+          ? displayCode
+          : `#${displayCode}`;
+        try {
+          if (window.location.hash !== normalizedHash) {
+            window.location.hash = normalizedHash;
+          }
+          window.acSTARTING_HASH = normalizedHash.slice(1);
+        } catch (err) {
+          console.warn("⚠️ Unable to update window hash for painting code", normalizedHash, err);
+        }
+      };
+
+      const routeToPainting = (metadata) => {
+        if (!metadata || !metadata.slug || !metadata.handle) {
+          console.error(`❌ Incomplete metadata for painting code: #${code}`, metadata);
+          notice(`Painting #${code} not found`, ["red"]);
+          clearLookupSpinner();
+          return;
+        }
+
+        const canonicalCode = (metadata.code || code || "").replace(/^#/, "");
+        const normalizedHandle = (metadata.handle || "").replace(/^@+/, "");
+        const record = {
+          slug: metadata.slug,
+          handle: normalizedHandle,
+          code: canonicalCode,
+        };
+
+        // Cache under both the canonical code and the raw code that was requested
+        store[cacheKey] = record;
+        store[`painting-code:${canonicalCode}`] = record;
+        if (normalizedHandle) {
+          store[`painting-slug:${normalizedHandle}/${metadata.slug}`] = canonicalCode;
+        }
+        if (metadata.handle && metadata.handle !== normalizedHandle) {
+          store[`painting-slug:${metadata.handle}/${metadata.slug}`] = canonicalCode;
+        }
+
+        enforceSpinnerDelay(() => {
+          clearLookupSpinner();
+          setLocationHash(canonicalCode);
+          jump(`painting#${canonicalCode}`);
+        });
+      };
+
       const cached = store[cacheKey];
-      
+
       if (cached) {
         console.log(`✅ Found cached painting: ${cached.handle}/painting/${cached.slug}`);
-        jump(`painting~${cached.handle}/${cached.slug}`);
+        routeToPainting(cached);
         return true;
       }
-      
-      // Fetch from API
+
       fetch(`/api/painting-code?code=${code}`)
-        .then(response => response.json())
-        .then(data => {
-          if (data.slug && data.handle) {
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+          return response.json();
+        })
+        .then((data) => {
+          if (data?.slug && data?.handle) {
             console.log(`✅ Found painting: ${data.handle}/painting/${data.slug}`);
-            // Cache the result
-            store[cacheKey] = { slug: data.slug, handle: data.handle, code: data.code };
-            // Jump with handle/slug format (WITHOUT @ - genSlug doesn't need it)
-            jump(`painting~${data.handle}/${data.slug}`);
+            routeToPainting({ ...data, code: data.code || code });
           } else {
             console.error(`❌ Painting not found for code: #${code}`);
             notice(`Painting #${code} not found`, ["red"]);
+            clearLookupSpinner(0);
           }
         })
-        .catch(err => {
+        .catch((err) => {
           console.error(`❌ Error looking up painting code #${code}:`, err);
           notice(`Error loading #${code}`, ["red"]);
+          clearLookupSpinner(0);
         });
-      
+
       return true;
     }
   } else {

@@ -41,9 +41,10 @@ let profile,
   noprofileAction,
   noprofileBtn;
 
-let timestampBtn, prevBtn, nextBtn;
+let timestampBtn, shortCodeBtn, prevBtn, nextBtn;
 let ellipsisTicker;
-let visiting, code, painting, paintings, index;
+let visiting, code, painting, paintings, index, shortCode;
+const paintingMetadataCache = new Map();
 let zoomed = false;
 let zoomLevel = 1;
 
@@ -226,20 +227,71 @@ function paint({ api, geo, wipe, help, ink, pen, screen, ui, text, paste }) {
       );
     }
 
-    const pos = { x: 3, y: screen.height - 13 };
-
-    const box = text.box(code, pos).box;
-    const blockWidth = 6;
-    box.width -= blockWidth * 2;
-
-    if (!timestampBtn) timestampBtn = new ui.Button(box);
-    timestampBtn.paint((btn) => {
-      ink(btn.down ? "orange" : 255).write(code, pos);
-    });
-
-    // Prev & Next Buttons
     const prevNextMarg = 32;
     const prevNextWidth = 32;
+
+    // Timestamp button (bottom-left, clickable)
+    if (code) {
+      const pos = { x: 3, y: screen.height - 13 };
+      const metricsBox = text.box(code, pos).box || {};
+      const textWidth = metricsBox.width ?? metricsBox.w ?? 0;
+      const textHeight = metricsBox.height ?? metricsBox.h ?? 12;
+      const blockWidth = 6;
+      
+      const buttonBox = new geo.Box(
+        pos.x - blockWidth,
+        pos.y,
+        textWidth + blockWidth * 2,
+        textHeight,
+      );
+
+      if (!timestampBtn) timestampBtn = new ui.Button(buttonBox);
+      timestampBtn.box = buttonBox;
+      timestampBtn.paint((btn) => {
+        ink(btn.down ? "orange" : 255).write(code, pos);
+      });
+    }
+
+    // Short code button (bottom-right, clickable)
+    if (shortCode && shortCode.trim().length > 0) {
+      const shortDisplay = `#${shortCode}`;
+      const codeMetrics = text.box(shortDisplay).box || {};
+      const codeWidth = codeMetrics.width ?? codeMetrics.w ?? 0;
+      const codeHeight = codeMetrics.height ?? codeMetrics.h ?? 12;
+      const codePos = {
+        x: screen.width - codeWidth - 3,
+        y: screen.height - 13,
+      };
+      
+      const blockWidth = 6;
+      const shortCodeBox = new geo.Box(
+        codePos.x - blockWidth,
+        codePos.y,
+        codeWidth + blockWidth * 2,
+        codeHeight,
+      );
+
+      if (!shortCodeBtn) shortCodeBtn = new ui.Button(shortCodeBox);
+      shortCodeBtn.box = shortCodeBox;
+      shortCodeBtn.paint((btn) => {
+        ink(btn.down ? "orange" : 255).write(shortDisplay, codePos);
+      });
+    } else if (code && paintings?.length > 0) {
+      // Fallback: show "pending" while waiting for metadata (non-clickable)
+      shortCodeBtn = null; // Clear button if no code
+      const fallbackDisplay = "...";
+      const codeMetrics = text.box(fallbackDisplay).box || {};
+      const codeWidth = codeMetrics.width ?? codeMetrics.w ?? 0;
+      const codePos = {
+        x: screen.width - codeWidth - 3,
+        y: screen.height - 13,
+      };
+      ink(127).write(fallbackDisplay, codePos);
+    } else {
+      shortCodeBtn = null;
+    }
+
+    // Prev & Next Buttons
 
     if (!prevBtn) {
       prevBtn = new ui.Button();
@@ -308,7 +360,20 @@ function act({
     jump(`painting ${visiting}/${code}`);
   }
 
+  function jumpToShortCode() {
+    const trimmedCode = shortCode?.trim();
+    if (!trimmedCode || trimmedCode.length === 0) {
+      console.warn("⚠️ Cannot jump to short code: not available (shortCode:", shortCode, ")");
+      return;
+    }
+    sfx.push(sound);
+    const route = `painting~#${trimmedCode}`;
+    console.log(`🔗 Jumping to painting with short code: ${route}`);
+    jump(route);
+  }
+
   timestampBtn?.act(e, process);
+  shortCodeBtn?.act(e, jumpToShortCode);
 
   function next() {
     if (index === paintings.length - 1) return;
@@ -359,6 +424,7 @@ function act({
   if (
     e.is("touch:1") &&
     !timestampBtn?.down &&
+    !shortCodeBtn?.down &&
     !prevBtn?.down &&
     !nextBtn?.down &&
     e.button === 0
@@ -436,15 +502,130 @@ async function loadPainting(get, index, from) {
   const signal = controller.signal;
 
   try {
-    code = paintings[index].split("/").pop().replace(".png", "");
-    const got = await get.painting(code).by(from, { signal }); // Assuming `get.painting` is based on fetch and can accept a signal
+    shortCode = undefined;
+    const entry = paintings[index];
+    const { slug, code: entryCode } = parsePaintingReference(entry);
+
+    if (!slug) throw new Error("Unable to parse painting reference.");
+
+    code = slug; // Maintain existing semantics where `code` represents the slug/timestamp.
+    if (entryCode) {
+      shortCode = entryCode;
+      console.log(`📌 Short code from entry: ${shortCode}`);
+    }
+
+    const got = await get.painting(slug).by(from, { signal }); // Assuming `get.painting` is based on fetch and can accept a signal
     painting = got.img;
-    controller = null;
+
+    // After painting loads, fetch metadata to get short code
+    if (!shortCode) {
+      try {
+        const normalizedHandle = normalizeHandle(from);
+        const metadata = await fetchPaintingMetadata(slug, normalizedHandle, signal);
+        console.log(`📊 Metadata response:`, metadata);
+        if (metadata?.code) {
+          shortCode = `${metadata.code}`.replace(/^#/, "").trim();
+          console.log(`✅ Loaded painting ${slug}, short code: "${shortCode}" (length: ${shortCode.length})`);
+        } else {
+          console.log(`⚠️ Loaded painting ${slug}, no short code in database (needs migration)`);
+        }
+      } catch (metaErr) {
+        if (metaErr.name === "AbortError") throw metaErr;
+        if (debug) console.warn("Painting metadata lookup failed:", metaErr);
+      }
+    }
   } catch (err) {
     if (err.name === "AbortError") {
       if (debug) console.log("❌ Request was aborted.");
     } else {
       console.error("Painting load failure:", err);
     }
+  } finally {
+    controller = null;
+  }
+}
+
+function parsePaintingReference(entry) {
+  let slug;
+  let code;
+
+  if (typeof entry === "string") {
+    slug = extractSlug(entry);
+  } else if (entry && typeof entry === "object") {
+    if (typeof entry.slug === "string") slug = entry.slug;
+    if (typeof entry.code === "string") code = entry.code;
+    if (!slug && typeof entry.url === "string") slug = extractSlug(entry.url);
+    if (!slug && typeof entry.path === "string") slug = extractSlug(entry.path);
+  }
+
+  if (slug) {
+    slug = slug.split("?")[0];
+    // If the slug already includes an extension, trim it.
+    slug = slug.replace(/\.(png|zip)$/i, "");
+    // Allow embedded codes within the slug (e.g., slug#code).
+    if (slug.includes("#")) {
+      const [slugPart, codePart] = slug.split("#");
+      slug = slugPart;
+      if (!code && codePart) code = codePart;
+    }
+  }
+
+  if (code) code = `${code}`.replace(/^#/, "");
+
+  return { slug, code };
+}
+
+function extractSlug(source) {
+  if (!source) return undefined;
+  const parts = `${source}`.split("/");
+  const last = parts.pop();
+  if (!last) return undefined;
+  const filename = last.split("?")[0];
+  return filename.replace(/\.(png|zip)$/i, "");
+}
+
+function normalizeHandle(handle) {
+  if (!handle) return undefined;
+  const trimmed = `${handle}`.trim();
+  if (!trimmed) return undefined;
+  return trimmed.replace(/^@+/, "");
+}
+
+async function fetchPaintingMetadata(slug, handle, signal) {
+  if (!slug) return null;
+
+  const normalizedHandle = handle && handle !== "anon" ? handle : undefined;
+  const cacheKey = `${normalizedHandle || ""}:${slug}`;
+  if (paintingMetadataCache.has(cacheKey)) {
+    const cached = paintingMetadataCache.get(cacheKey);
+    console.log(`📦 Cache hit for ${cacheKey}:`, cached);
+    return cached;
+  }
+
+  try {
+    const params = new URLSearchParams({ slug });
+    if (normalizedHandle) params.set("handle", normalizedHandle);
+
+    const url = `/api/painting-metadata?${params}`;
+    console.log(`🌐 Fetching metadata from ${url}`);
+    const response = await fetch(url, { signal });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        console.log(`❌ 404: No metadata found for ${cacheKey}`);
+        paintingMetadataCache.set(cacheKey, null);
+        return null;
+      }
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log(`✅ Metadata fetched for ${cacheKey}:`, data);
+    paintingMetadataCache.set(cacheKey, data);
+    return data;
+  } catch (error) {
+    if (error.name === "AbortError") throw error;
+    console.warn("Painting metadata request failed:", error);
+    return null;
   }
 }

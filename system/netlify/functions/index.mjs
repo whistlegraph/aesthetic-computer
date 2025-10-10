@@ -396,6 +396,147 @@ async function fun(event, context) {
         ${dev
           ? ""
           : `<!-- <script crossorigin="anonymous" src="https://js.sentry-cdn.com/ef4704c0df6a410e972bca14d69e1898.min.js"></script> -->`}
+        <script>
+          (function () {
+            try {
+              var rawHash = window.location && window.location.hash
+                ? window.location.hash.slice(1)
+                : "";
+              var hash = rawHash ? rawHash.trim() : "";
+              if (!hash) return;
+
+              if (!/^[A-Za-z0-9]{3,12}$/.test(hash)) return;
+
+              var cacheKey = "ac-painting-meta-" + hash;
+              var cached = null;
+              var storageAvailable = typeof sessionStorage !== "undefined";
+              if (storageAvailable) {
+                try {
+                  cached = sessionStorage.getItem(cacheKey);
+                } catch (_) {
+                  storageAvailable = false;
+                }
+              }
+              function normalizeMeta(raw) {
+                try {
+                  if (!raw) return null;
+                  var code = (raw.code || raw.hash || hash || "").toString().replace(/^#/, "");
+                  var slug = raw.slug || raw.slugCode || "";
+                  if (!code || !slug) return null;
+                  var handle = (raw.handle || "anon").replace(/^@+/, "");
+                  var hasHandle = handle && handle !== "anon";
+                  var displayHandle = hasHandle ? "@" + handle : "Anonymous";
+                  var title = "#" + code + " • Aesthetic Computer";
+                  var desc =
+                    "Painting #" + code + (hasHandle ? " by " + displayHandle : "") +
+                    " on aesthetic.computer";
+                  var imageSlug = (hasHandle ? handle + "/painting/" + slug : slug) + ".png";
+                  var image = "/api/pixel/2048:conform/" + encodeURI(imageSlug);
+                  return {
+                    code: code,
+                    handle: handle,
+                    slug: slug,
+                    title: title,
+                    desc: desc,
+                    description: desc,
+                    image: image,
+                  };
+                } catch (formatErr) {
+                  console.warn("⚠️ Failed to normalize painting meta", formatErr);
+                  return null;
+                }
+              }
+
+              if (cached) {
+                try {
+                  var parsed = JSON.parse(cached);
+                  var normalized = normalizeMeta(parsed);
+                  if (normalized && normalized.code) {
+                    applyMeta(normalized);
+                    return;
+                  }
+                } catch (_) {}
+              }
+
+              fetch("/api/painting-code?code=" + encodeURIComponent(hash), {
+                credentials: "omit",
+              })
+                .then(function (res) {
+                  if (!res.ok) throw new Error("Painting lookup failed");
+                  return res.json();
+                })
+                .then(function (data) {
+                  if (!data || !data.slug) return;
+                  var metaPayload = normalizeMeta({
+                    code: data.code || hash,
+                    handle: data.handle,
+                    slug: data.slug,
+                  });
+                  if (!metaPayload) return;
+                  if (storageAvailable) {
+                    try {
+                      sessionStorage.setItem(cacheKey, JSON.stringify(metaPayload));
+                    } catch (_) {}
+                  }
+                  applyMeta(metaPayload);
+                })
+                .catch(function (err) {
+                  console.warn("⚠️ Unable to hydrate painting metadata", err);
+                });
+
+              function applyMeta(payload) {
+                try {
+                  if (!payload) return;
+                  var normalizedPayload = normalizeMeta(payload) || payload;
+                  var desc = normalizedPayload.desc || normalizedPayload.description;
+                  document.title = normalizedPayload.title;
+                  setMeta('meta[name="description"]', "content", desc);
+                  setMeta('meta[name="og:title"]', "content", normalizedPayload.title);
+                  setMeta('meta[name="og:description"]', "content", desc);
+                  setMeta('meta[name="og:image"]', "content", normalizedPayload.image);
+                  setMeta('meta[name="twitter:title"]', "content", normalizedPayload.title);
+                  setMeta('meta[name="twitter:description"]', "content", desc);
+                  setMeta('meta[name="twitter:image"]', "content", normalizedPayload.image);
+                  if (typeof window !== "undefined") {
+                    window.acSTARTING_PAINTING_META = normalizedPayload;
+                  }
+                } catch (metaErr) {
+                  console.warn("⚠️ Failed applying painting meta", metaErr);
+                }
+              }
+
+              function setMeta(selector, attr, value) {
+                var el = document.querySelector(selector);
+                if (!el || !value) return;
+                el.setAttribute(attr, value);
+              }
+            } catch (outerErr) {
+              console.warn("⚠️ Painting meta bootstrap error", outerErr);
+            }
+          })();
+        </script>
+        <script>
+          (function () {
+            var rawHash = window.location && window.location.hash
+              ? window.location.hash.slice(1)
+              : "";
+            var hash = rawHash ? rawHash.trim() : "";
+            if (!hash) return;
+
+            var lowered = hash.toLowerCase();
+            var looksLikePaintingCode = /^(?:[A-Za-z0-9]{3,12})$/.test(hash) &&
+              lowered !== "debug" &&
+              lowered !== "nodebug";
+
+            if (!looksLikePaintingCode) return;
+
+            if (typeof window.acSTARTING_PIECE === "undefined") {
+              window.acSTARTING_PIECE = "painting";
+            }
+
+            window.acSTARTING_HASH = hash;
+          })();
+        </script>
         <script
           crossorigin="anonymous"
           src="/aesthetic.computer/boot.mjs"

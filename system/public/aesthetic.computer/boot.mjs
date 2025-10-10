@@ -289,6 +289,31 @@ if (!window.acPACK_MODE) {
   sluggedUrl = window.acSTARTING_PIECE;
 }
 
+const rawHashCandidate =
+  typeof window !== "undefined" && window.location && window.location.hash
+    ? window.location.hash.slice(1)
+    : typeof window !== "undefined" && window.acSTARTING_HASH
+      ? window.acSTARTING_HASH
+      : "";
+const hashCandidate = rawHashCandidate ? rawHashCandidate.trim() : "";
+const loweredHashCandidate = hashCandidate.toLowerCase();
+const hashLooksLikePaintingCode =
+  hashCandidate.length > 0 &&
+  /^[A-Za-z0-9]{3,12}$/.test(hashCandidate) &&
+  loweredHashCandidate !== "debug" &&
+  loweredHashCandidate !== "nodebug";
+
+if (
+  hashLooksLikePaintingCode &&
+  (!sluggedUrl || sluggedUrl === "" || sluggedUrl === "prompt")
+) {
+  sluggedUrl = "painting";
+  if (typeof window !== "undefined") {
+    window.acSTARTING_PIECE = window.acSTARTING_PIECE || "painting";
+    window.acSTARTING_HASH = hashCandidate;
+  }
+}
+
 // if (window.acDEBUG || window.acVSCODE) {
 //   console.log("🧭 URL pipeline", {
 //     originalUrl,
@@ -298,6 +323,10 @@ if (!window.acPACK_MODE) {
 
 const pieceToLoad = sluggedUrl;
 const parsed = parse(pieceToLoad);
+
+if (hashLooksLikePaintingCode && hashCandidate && !parsed.hash) {
+  parsed.hash = hashCandidate;
+}
 
 // if (window.acDEBUG || window.acVSCODE) {
 //   console.log("🧭 Parsed result", {
