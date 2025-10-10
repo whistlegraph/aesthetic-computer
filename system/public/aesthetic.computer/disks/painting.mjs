@@ -120,6 +120,7 @@ function boot({
         handle = paintingData.handle || "anon";
         imageCode = paintingData.slug;
         paintingCode = paintingData.code; // Store the short code
+        console.log(`🏷️ Set paintingCode to: ${paintingCode}`);
         
         // Parse the slug to extract recording code if it exists
         // Format: "timestamp" or "code:recording"
