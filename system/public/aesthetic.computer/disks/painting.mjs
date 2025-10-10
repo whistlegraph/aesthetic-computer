@@ -140,6 +140,15 @@ function boot({
         finalPainting = out.img;
         net.preloaded();
         
+        // Update label and title to show the painting code
+        if (paintingCode) {
+          label = `#${paintingCode}`;
+          // Update the page title dynamically
+          if (typeof document !== 'undefined') {
+            document.title = `#${paintingCode} · Aesthetic Computer`;
+          }
+        }
+        
         if (handle === getHandle() && !showMode) {
           console.log("✅ This is your painting!");
           menuBtn = new ui.Button();
