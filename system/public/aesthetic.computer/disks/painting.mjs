@@ -78,6 +78,7 @@ function boot({
   hash,
   handle: getHandle,
   dom: { html },
+  send,
 }) {
   showMode = colon[0] === "show"; // A special lightbox mode with no bottom bar.
 
@@ -145,11 +146,13 @@ function boot({
         // Update label and title to show the painting code
         if (paintingCode) {
           label = `#${paintingCode}`;
-          hud.label(`#${paintingCode}`); // Update the prompt HUD label and extension!
+          hud.label(`#${paintingCode}`); // Update the prompt HUD label and currentPath/currentText
           // Update the page title dynamically
           if (typeof document !== 'undefined') {
             document.title = `#${paintingCode} · Aesthetic Computer`;
           }
+          // Manually send url:updated since we changed it after initial load
+          send({ type: "url:updated", slug: `painting~#${paintingCode}` });
         }
         
         if (handle === getHandle() && !showMode) {
