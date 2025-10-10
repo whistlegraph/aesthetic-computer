@@ -133,6 +133,7 @@ function boot({
         return get.painting(imageCode).by(handle);
       })
       .then((out) => {
+        console.log("🖼️ Painting image loaded:", out);
         finalPainting = out.img;
         net.preloaded();
         
@@ -143,33 +144,36 @@ function boot({
         
         // Load the recording if we have one
         if (recordingCode) {
+          console.log("📹 Loading recording:", recordingCode);
           get
             .painting(recordingCode, { record: true })
             .by(handle)
-            .then((out) => {
+            .then((recordOut) => {
+              console.log("✅ Recording loaded:", recordOut);
               timeout = setTimeout(() => {
                 pastRecord = system.nopaint.record;
-                system.nopaint.record = out;
+                system.nopaint.record = recordOut;
                 advance(system);
                 running = true;
+                console.log("▶️ Playback started");
               }, 500);
             })
             .catch((err) => {
-              console.warn("No recording found for this painting.");
+              console.warn("⚠️ No recording found for this painting:", err);
             });
         }
         
         // Set up download overlay if not in special modes
         if (showMode || "icon" in query || "preview" in query) return;
         
-        const cssWidth = out.img.width * display.subdivisions;
-        const cssHeight = out.img.height * display.subdivisions;
+        const cssWidth = finalPainting.width * display.subdivisions;
+        const cssHeight = finalPainting.height * display.subdivisions;
         const downloadURL = "/api/pixel/2048:conform/" + encodeURI(slug);
         
         html`
           <img
-            width="${out.img.width}"
-            height="${out.img.height}"
+            width="${finalPainting.width}"
+            height="${finalPainting.height}"
             id="hidden-painting"
             crossorigin
             src=${downloadURL}
