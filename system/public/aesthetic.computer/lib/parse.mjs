@@ -190,7 +190,10 @@ function parse(text, location = self?.location) {
   text = decodeURIComponent(text); // Decode any URL encoded characters.
 
   // 0. Pull off any "hash" from text, filtering the edge case for #hex colors.
-  [text, hash] = text.replaceAll("~#", "~0x").split("#");
+  // But preserve painting codes like #k3d (which aren't valid hex colors).
+  // Only convert to 0x if it looks like a valid hex color (3 or 6 hex digits).
+  text = text.replace(/~#([0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?)(?=~|$)/g, "~0x$1");
+  [text, hash] = text.split("#");
 
   // 1. Pull off any "search" from `text`, ignoring any question mark
   //    characters that were part of the piece slug.
