@@ -117,7 +117,7 @@ function boot({
         console.log(`✅ Found painting:`, paintingData);
         
         // Set the painting parameters from the API response
-        handle = paintingData.owner?.handle || "anon";
+        handle = paintingData.handle || "anon";
         imageCode = paintingData.slug;
         
         // Parse the slug to extract recording code if it exists
