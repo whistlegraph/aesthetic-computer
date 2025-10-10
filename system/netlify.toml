@@ -1,4 +1,5 @@
 [build]
+base = "system"
 publish = "public"
 ignore = "bash ./ignore-index.sh"
 command = "rm -f public/index.html" # Remove index.html before build
