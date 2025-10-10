@@ -127,7 +127,11 @@
     // "--network",
     // "host"
   ],
-  "initializeCommand": "mkdir -p .devcontainer/tezos-node .devcontainer/tezos-data .devcontainer/envs .devcontainer/.emacs.d && touch .devcontainer/fish_history",
+  "initializeCommand": [
+    "sh",
+    "-c",
+    ".devcontainer/scripts/prepare-host.sh"
+  ],
   "postStartCommand": "fish /entry.fish"
   // .waiter file is now created inside entry.fish to avoid terminal popup in Codespaces
 }
