@@ -3,12 +3,14 @@
 // And has application-specific queries.
 
 import { MongoClient, ObjectId, ServerApiVersion } from "mongodb";
-const mongoDBConnectionString = process.env.MONGODB_CONNECTION_STRING;
-const mongoDBName = process.env.MONGODB_NAME;
 
 let client;
 
 async function connect() {
+  // Read environment variables at runtime, not at module load time
+  const mongoDBConnectionString = process.env.MONGODB_CONNECTION_STRING;
+  const mongoDBName = process.env.MONGODB_NAME;
+  
   // Validate environment variables
   if (!mongoDBConnectionString) {
     throw new Error('MONGODB_CONNECTION_STRING environment variable is not set');
