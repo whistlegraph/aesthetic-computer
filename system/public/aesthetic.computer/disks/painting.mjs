@@ -81,6 +81,8 @@ function boot({
 }) {
   showMode = colon[0] === "show"; // A special lightbox mode with no bottom bar.
 
+  console.log("🎨 painting.mjs boot() - hash value:", hash, "type:", typeof hash);
+
   ellipsisTicker = new gizmo.EllipsisTicker();
 
   if (showMode) {
