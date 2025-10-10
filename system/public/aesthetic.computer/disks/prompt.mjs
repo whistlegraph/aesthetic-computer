@@ -1905,7 +1905,7 @@ async function halt($, text) {
       }
       
       // Fetch from API
-      net.fetch(`/api/painting-code?code=${code}`)
+      fetch(`/api/painting-code?code=${code}`)
         .then(response => response.json())
         .then(data => {
           if (data.slug && data.handle) {
