@@ -49,6 +49,7 @@ const butSide = 6;
 
 let handle;
 let imageCode, recordingCode;
+let paintingCode; // The short code (e.g., "k3d") for this painting
 let timeout;
 let running;
 let zoomed = false;
@@ -58,6 +59,9 @@ let prevBtn, nextBtn;
 let zoomLevel = 1;
 
 let ellipsisTicker;
+let lastBroadcastedCode;
+let pendingBroadcast;
+let broadcastFocusListenerAttached = false;
 
 //let mintBtn; // A button to mint.
 
@@ -74,11 +78,17 @@ function boot({
   hud,
   gizmo,
   query,
+  hash,
   handle: getHandle,
   dom: { html },
+  send,
+  store,
 }) {
   showMode = colon[0] === "show"; // A special lightbox mode with no bottom bar.
 
+  console.log(`🎨 painting.mjs boot - params:`, params, `params[0]:`, params[0], `hash:`, hash);
+
+  lastBroadcastedCode = undefined;
   ellipsisTicker = new gizmo.EllipsisTicker();
 
   if (showMode) {
@@ -86,31 +96,251 @@ function boot({
     btnBar = 0;
   }
 
-  if (params[0]?.length > 0) {
+  const normalizeCode = (value) =>
+    typeof value === "string" ? value.replace(/^#/, "").trim() : "";
+
+  const updatePaintingMeta = ({ code, handle: rawHandle, slug: slugCode }) => {
+    if (!code || !slugCode || !send) return;
+    const normalizedCode = normalizeCode(code);
+    if (!normalizedCode) return;
+
+    const normalizedHandle = (rawHandle || "anon").replace(/^@+/, "") || "anon";
+    const hasHandle = normalizedHandle !== "anon" && normalizedHandle.length > 0;
+    const displayHandle = hasHandle ? `@${normalizedHandle}` : "Anonymous";
+    const title = `#${normalizedCode} • Aesthetic Computer`;
+    const desc = `Painting #${normalizedCode}${
+      hasHandle ? ` by ${displayHandle}` : ""
+    } on Aesthetic Computer`;
+    const slugPath =
+      normalizedHandle !== "anon"
+        ? `${normalizedHandle}/painting/${slugCode}`
+        : slugCode;
+    const image = `/api/pixel/2048:conform/${encodeURI(`${slugPath}.png`)}`;
+
+    if (typeof window !== "undefined") {
+      window.acSTARTING_PAINTING_META = {
+        code: normalizedCode,
+        handle: normalizedHandle,
+        slug: slugCode,
+        title,
+        desc,
+        description: desc,
+        image,
+      };
+    }
+
+    send({
+      type: "meta",
+      content: {
+        title,
+        desc,
+        img: {
+          og: image,
+          twitter: image,
+        },
+      },
+    });
+  };
+
+  function scheduleBroadcastOnFocus(payload) {
+    pendingBroadcast = payload;
+    if (typeof window === "undefined") return;
+    if (!broadcastFocusListenerAttached) {
+      broadcastFocusListenerAttached = true;
+      window.addEventListener(
+        "focus",
+        () => {
+          broadcastFocusListenerAttached = false;
+          const pending = pendingBroadcast;
+          pendingBroadcast = null;
+          if (pending) {
+            performBroadcast(pending);
+          }
+        },
+        { once: true },
+      );
+    }
+  }
+
+  function performBroadcast({ normalizedCode, codeOnly, targetPath }) {
+    try {
+      lastBroadcastedCode = normalizedCode;
+
+      send({
+        type: "rewrite-url-path",
+        content: {
+          path: targetPath,
+          historical: false,
+        },
+      });
+
+      if (typeof window !== "undefined") {
+        try {
+          if (window.location.hash !== normalizedCode) {
+            window.location.hash = normalizedCode;
+          }
+          window.acSTARTING_HASH = codeOnly;
+        } catch (err) {
+          console.warn(
+            "⚠️ Unable to update window hash for painting code",
+            normalizedCode,
+            err,
+          );
+        }
+      }
+
+      send({
+        type: "post-to-parent",
+        content: { type: "url:updated", slug: normalizedCode },
+      });
+    } catch (err) {
+      console.warn("⚠️ Failed to broadcast painting code", normalizedCode, err);
+    }
+  }
+
+  function broadcastPaintingCode(rawCode) {
+    if (!rawCode) return;
+
+    const normalizedCode = rawCode.startsWith("#") ? rawCode : `#${rawCode}`;
+    if (normalizedCode === lastBroadcastedCode) return;
+
+    const codeOnly = normalizedCode.slice(1);
+    const targetPath = `/#${codeOnly}`;
+
+    if (typeof document !== "undefined" && !document.hasFocus()) {
+      scheduleBroadcastOnFocus({ normalizedCode, codeOnly, targetPath });
+      return;
+    }
+
+    performBroadcast({ normalizedCode, codeOnly, targetPath });
+  }
+
+  function cachePaintingMetadata(record, aliasCodes = []) {
+    if (!record || !record.slug) return;
+
+    const canonicalCode = record.code || paintingCode;
+    const normalizedHandle = (record.handle || "").replace(/^@+/, "");
+
+    if (!canonicalCode) return;
+
+    const entry = {
+      slug: record.slug,
+      handle: normalizedHandle,
+      code: canonicalCode,
+    };
+
+    store[`painting-code:${canonicalCode}`] = entry;
+
+    if (Array.isArray(aliasCodes)) {
+      aliasCodes.forEach((alias) => {
+        if (!alias) return;
+        store[`painting-code:${alias}`] = entry;
+      });
+    }
+
+    if (normalizedHandle) {
+      store[`painting-slug:${normalizedHandle}/${record.slug}`] = canonicalCode;
+    }
+
+    if (record.handle && record.handle !== normalizedHandle) {
+      store[`painting-slug:${record.handle}/${record.slug}`] = canonicalCode;
+    }
+  }
+
+  async function resolvePaintingMetadataByCode(code) {
+    const normalized = normalizeCode(code);
+    if (!normalized) return null;
+
+    const cached = store[`painting-code:${normalized}`];
+    if (cached?.slug && cached?.handle) {
+      const sanitized = {
+        slug: cached.slug,
+        handle: (cached.handle || "").replace(/^@+/, ""),
+        code: cached.code || normalized,
+      };
+      cachePaintingMetadata(sanitized, [normalized, cached.code]);
+      return sanitized;
+    }
+
+    try {
+      const response = await fetch(`/api/painting-code?code=${normalized}`);
+      if (!response.ok) {
+        console.warn(`⚠️ Painting code lookup failed: #${normalized}`, response.status);
+        return null;
+      }
+      const data = await response.json();
+      if (data?.slug && data?.handle) {
+        return {
+          slug: data.slug,
+          handle: (data.handle || "").replace(/^@+/, ""),
+          code: data.code || normalized,
+        };
+      }
+    } catch (err) {
+      console.error(`❌ Error fetching painting metadata for #${normalized}:`, err);
+    }
+
+    return null;
+  }
+
+  async function loadPaintingFromMetadata(record, { aliasCodes = [] } = {}) {
+    if (!record || !record.slug || !record.handle) {
+      console.error("❌ Invalid painting metadata", record);
+      return;
+    }
+
+    const canonicalCode = record.code || normalizeCode(aliasCodes[0]);
+    if (canonicalCode) {
+      paintingCode = canonicalCode;
+      hud.label(`#${paintingCode}`);
+      label = `#${paintingCode}`;
+      broadcastPaintingCode(`#${paintingCode}`);
+    }
+
+    cachePaintingMetadata(record, aliasCodes);
+    updatePaintingMeta({
+      code: canonicalCode,
+      handle: record.handle || "anon",
+      slug: record.slug,
+    });
+
+    handle = record.handle || "anon";
+    imageCode = record.slug;
+    recordingCode = record.slug;
+
+    startLoadingPainting();
+  }
+
+  function startLoadingPainting() {
+    if (!imageCode) {
+      console.warn("⚠️ No imageCode available to load painting.");
+      return;
+    }
+
     interim = "Fetching";
-    genSlug({ params });
     net.waitForPreload();
+
     get
       .painting(imageCode)
       .by(handle)
       .then((out) => {
         finalPainting = out.img;
         net.preloaded();
-        let slug = imageCode + ".png";
-        if (handle && handle !== "anon")
-          slug = handle + "/painting/" + imageCode + ".png";
+        let slugPath = imageCode + ".png";
+        if (handle && handle !== "anon") {
+          slugPath = handle + "/painting/" + imageCode + ".png";
+        }
 
         if (handle === getHandle() && !showMode) {
           console.log("✅ This is your painting!");
           menuBtn = new ui.Button();
         }
 
-        // Skip download overlay in showMode or icon / preview mode (which breaks local).
         if (showMode || "icon" in query || "preview" in query) return;
 
         const cssWidth = out.img.width * display.subdivisions;
         const cssHeight = out.img.width * display.subdivisions;
-        const downloadURL = "/api/pixel/2048:conform/" + encodeURI(slug);
+        const downloadURL = "/api/pixel/2048:conform/" + encodeURI(slugPath);
 
         html`
           <img
@@ -145,8 +375,9 @@ function boot({
         `;
       })
       .catch((err) => {
-        // console.warn("Could not load painting.", err);
+        console.error("⚠️ Could not load painting.", err);
       });
+
     if (recordingCode) {
       get
         .painting(recordingCode, { record: true })
@@ -155,13 +386,12 @@ function boot({
           timeout = setTimeout(() => {
             pastRecord = system.nopaint.record;
             system.nopaint.record = out;
-            // console.log("Record", system.nopaint.record);
             advance(system);
             running = true;
           }, 750);
         })
         .catch((err) => {
-          // console.warn("Could not load recording.", err);
+          console.warn("⚠️ Could not load recording.", err);
           recordingCode = null;
         });
     }
@@ -173,6 +403,75 @@ function boot({
         screen,
       });
     }
+  }
+
+  function bootstrapFromCode(rawCode) {
+    const normalized = normalizeCode(rawCode);
+    if (!normalized) return;
+
+    paintingCode = normalized;
+    hud.label(`#${normalized}`);
+    label = `#${normalized}`;
+    interim = "Fetching";
+    broadcastPaintingCode(`#${normalized}`);
+
+    resolvePaintingMetadataByCode(normalized)
+      .then((metadata) => {
+        if (!metadata) {
+          console.error(`❌ Painting not found for code: #${normalized}`);
+          interim = `Painting #${normalized} not found`;
+          return;
+        }
+        return loadPaintingFromMetadata(metadata, { aliasCodes: [normalized] });
+      })
+      .catch((err) => {
+        console.error(`❌ Error loading painting for code: #${normalized}`, err);
+        interim = `Error loading #${normalized}`;
+      });
+  }
+
+  const initialHashCode = normalizeCode(hash);
+
+  if (initialHashCode) {
+    console.log(`🎨 Loading painting by code from hash: #${initialHashCode}`);
+    bootstrapFromCode(initialHashCode);
+  } else if (params[0]?.length > 0) {
+    genSlug({ params });
+    console.log(`🎨 After genSlug - handle: "${handle}", imageCode: "${imageCode}"`);
+
+    startLoadingPainting();
+
+    const metadataUrl = `/api/painting-metadata?slug=${imageCode}&handle=${handle || "anon"}`;
+    console.log(`📞 Fetching metadata:`, metadataUrl);
+    fetch(metadataUrl)
+      .then((res) => {
+        console.log(`📡 Metadata response:`, res.status, res.ok);
+        return res.ok ? res.json() : null;
+      })
+      .then((data) => {
+        console.log(`📦 Metadata data:`, data);
+        if (data?.code) {
+          paintingCode = data.code;
+          label = `#${paintingCode}`;
+          // Only update HUD label if we didn't load via timestamp route
+          // (timestamp routes should keep their timestamp in the label)
+          const loadedViaTimestamp = imageCode && imageCode.match(/^\d{4}\.\d{2}\.\d{2}\.\d{2}\.\d{2}\.\d{2}/);
+          if (!loadedViaTimestamp) {
+            hud.label(`#${paintingCode}`);
+          }
+          broadcastPaintingCode(`#${paintingCode}`);
+          cachePaintingMetadata(
+            { slug: imageCode, handle: handle || "anon", code: paintingCode },
+            [paintingCode],
+          );
+          updatePaintingMeta({
+            code: paintingCode,
+            handle: handle || "anon",
+            slug: imageCode,
+          });
+        }
+      })
+      .catch((err) => console.log("⚠️ No painting code available:", err));
   } else {
     finalPainting = system.painting;
     timeout = setTimeout(() => {
@@ -286,7 +585,10 @@ function paint({
     (pastRecord && system.nopaint.record?.length > 0) ||
     (system.nopaint.record?.length > 1 && running)
   ) {
-    if (!showMode) ink().write(label, { size: 2 });
+    if (!showMode) {
+      // console.log(`🎨 Rendering label in HUD: "${label}"`);
+      ink().write(label, { size: 2 });
+    }
 
     if (painting) {
       brushPaints.forEach((brushPaint) => {
@@ -600,7 +902,17 @@ function leave({ system }) {
 }
 
 // 📰 Meta
-function meta({ params }) {
+function meta({ params, hash }) {
+  // Handle painting codes (#code)
+  if (hash && hash.length > 0) {
+    const normalized = hash.replace(/^#/, "");
+    return {
+  title: `#${normalized} • Aesthetic Computer`,
+  desc: `Painting #${normalized} on Aesthetic Computer`,
+    };
+  }
+  
+  // Handle regular params (slug/handle)
   if (params[0]) {
     genSlug({ params });
     return {
@@ -715,9 +1027,9 @@ function genSlug({ params }) {
   // User string (@user/timestamp)
   if (params[0].startsWith("@") || params[0].indexOf("@") !== -1) {
     const [user, timestamp] = params[0].split("/");
-    handle = user;
+    handle = user.startsWith("@") ? user.slice(1) : user; // Strip @ from handle
     imageCode = recordingCode = timestamp;
-    slug = handle + "/painting/" + imageCode + ".png";
+    slug = user + "/painting/" + imageCode + ".png"; // slug keeps the @
   } else {
     // Assume a guest painting code.
     // Example: Lw2OYs0H:qVlzDcp6;
