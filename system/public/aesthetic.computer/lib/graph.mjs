@@ -308,7 +308,8 @@ function parseFadeColor(color) {
   
   // Evaluate the direction (handles dynamic expressions like frame numbers)
   const evaluatedDirection = evaluateFadeDirection(direction);
-  // console.log(`🎨 Fade parsed: neat=${isNeat}, fadeType="${fadeType}", direction="${evaluatedDirection}"`);
+
+  console.log(`🎨 Fade parsed: neat=${isNeat}, fadeType="${fadeType}", direction="${evaluatedDirection}"`);
 
   return {
     colors: fadeColors,
@@ -851,14 +852,6 @@ function normalizeColorInput(value) {
 function findColor() {
   let args = [...arguments];
 
-  // 🍞 Reset blend mode to "blend" for any color EXCEPT "erase"
-  // This ensures erase mode doesn't persist across color changes
-  if (!(args.length === 1 && args[0] === "erase")) {
-    if (blendingMode === "erase") {
-      blendMode("blend");
-    }
-  }
-
   if (args.length === 1 && args[0] !== undefined) {
     const isNumber = () => typeof args[0] === "number";
     const isArray = () => Array.isArray(args[0]);
@@ -929,11 +922,13 @@ function findColor() {
       } else if (args[0] === "erase") {
         // TODO: Add better alpha support here... 23.09.11.22.10
         //       ^ See `parseColor` in `num`.
+        // let alpha = 255;
+        // if (args[1]) alpha = parseFloat(args[1]);
+        console.log('🎨 GRAPH.findColor: Processing "erase", args before:', [...arguments]);
         const originalAlpha = arguments[1]; // Save before overwriting args
         args = [-1, -1, -1];
         if (originalAlpha !== undefined) args.push(computeAlpha(originalAlpha));
-        // 🍞 Set blend mode to "erase" so drawing operations actually erase pixels
-        blendMode("erase");
+        console.log('🎨 GRAPH.findColor: erase args after initial assignment:', args);
       } else if (args[0] === "rainbow") {
         args = rainbow(); // Cycle through roygbiv in a linear sequence.
       } else {
@@ -969,10 +964,6 @@ function findColor() {
     // rainbow, alpha
     if (args[0] === "rainbow") {
       args = [...rainbow(), computeAlpha(args[1])];
-    } else if (args[0] === "erase") {
-      // 🍞 Handle "erase" with alpha: ink("erase", 32)
-      args = [-1, -1, -1, computeAlpha(args[1])];
-      blendMode("erase");
     } else if (typeof args[0] === "string") {
       const normalizedString = normalizeColorInput(args[0]);
       if (typeof normalizedString === "string") {
@@ -1073,6 +1064,7 @@ function findColor() {
     while (args.length < 4) {
       args.push(args.length === 3 ? 255 : randInt(255));
     }
+    console.log('🎨 GRAPH.findColor: args after ensuring 4 values:', args);
   }
 
   // Randomized any undefined or null values across all 4 arguments.
@@ -1446,24 +1438,14 @@ function plot(x, y) {
     return;
   }
 
-  // Erasing: Check if blend mode is "erase" OR color is [-1, -1, -1]
-  if (blendingMode === "erase" || (c[0] === -1 && c[1] === -1 && c[2] === -1)) {
-    const eraseAmount = Math.min(255, Math.max(0, c[3]));
-    if (eraseAmount > 0) {
-      erase(pixels, i, eraseAmount);
-    }
+  // Erasing
+  if (c[0] === -1 && c[1] === -1 && c[2] === -1) {
+    erase(pixels, i, 1 - c[3] / 255);
   } else if (alpha === 255) {
     // No alpha blending, just copy.
     pixels.set(plotColor, i);
   } else if (alpha !== 0) {
-    // Debug alpha blending for yellow
-    if (x === 100 && y === 100 && Math.random() < 0.01) {
-      console.log(`🎨 PLOT BLEND: color=[${plotColor}], dst=[${pixels[i]},${pixels[i+1]},${pixels[i+2]},${pixels[i+3]}]`);
-    }
     blend(pixels, plotColor, 0, i);
-    if (x === 100 && y === 100 && Math.random() < 0.01) {
-      console.log(`🎨 PLOT BLEND AFTER: dst=[${pixels[i]},${pixels[i+1]},${pixels[i+2]},${pixels[i+3]}]`);
-    }
   }
 }
 
@@ -1723,20 +1705,16 @@ function contrast(level = 1.0) {
     contrastLUT[i] = Math.max(0, Math.min(255, Math.round(adjusted)));
   }
 
-  // 🚀 ULTRA-OPTIMIZED: Row-major processing with minimal branching
+  // Apply contrast adjustment to each pixel using lookup table
   for (let y = minY; y < maxY; y++) {
-    const rowOffset = y * width * 4;
-    const xStart = minX * 4;
-    const xEnd = maxX * 4;
-    
-    for (let offset = xStart; offset < xEnd; offset += 4) {
-      const idx = rowOffset + offset;
+    for (let x = minX; x < maxX; x++) {
+      const idx = (y * width + x) * 4;
       
-      // Skip transparent pixels (single check)
+      // Skip transparent pixels
       if (pixels[idx + 3] === 0) continue;
       
-      // Use lookup table for ultra-fast contrast adjustment (RGB channels only)
-      pixels[idx] = contrastLUT[pixels[idx]];         // R
+      // Use lookup table for fast contrast adjustment (RGB channels only)
+      pixels[idx] = contrastLUT[pixels[idx]];     // R
       pixels[idx + 1] = contrastLUT[pixels[idx + 1]]; // G
       pixels[idx + 2] = contrastLUT[pixels[idx + 2]]; // B
       // Alpha channel stays unchanged
@@ -1800,74 +1778,6 @@ function brightness(adjustment = 0) {
 // Notes:
 // Scale can also be a transform object: { scale, angle }
 // Blit only works with a scale of 1.
-
-const PASTE_BLEND_EPSILON = 1e-10;
-
-function blendPixelOntoBuffer(destPixels, srcPixels, destIdx, srcIdx, srcAlpha) {
-  if (srcAlpha <= 0) return;
-
-  if (srcAlpha >= 255) {
-    destPixels[destIdx] = srcPixels[srcIdx];
-    destPixels[destIdx + 1] = srcPixels[srcIdx + 1];
-    destPixels[destIdx + 2] = srcPixels[srcIdx + 2];
-    destPixels[destIdx + 3] = 255;
-    return;
-  }
-
-  const dstAlpha = destPixels[destIdx + 3];
-
-  if (dstAlpha <= 0) {
-    destPixels[destIdx] = srcPixels[srcIdx];
-    destPixels[destIdx + 1] = srcPixels[srcIdx + 1];
-    destPixels[destIdx + 2] = srcPixels[srcIdx + 2];
-    destPixels[destIdx + 3] = srcAlpha;
-    return;
-  }
-
-  if (dstAlpha >= 255) {
-    const alpha = srcAlpha + 1;
-    const invAlpha = 256 - alpha;
-    destPixels[destIdx] = (alpha * srcPixels[srcIdx] + invAlpha * destPixels[destIdx]) >> 8;
-    destPixels[destIdx + 1] = (alpha * srcPixels[srcIdx + 1] + invAlpha * destPixels[destIdx + 1]) >> 8;
-    destPixels[destIdx + 2] = (alpha * srcPixels[srcIdx + 2] + invAlpha * destPixels[destIdx + 2]) >> 8;
-    destPixels[destIdx + 3] = 255;
-    return;
-  }
-
-  const alphaSrc = srcAlpha / 255;
-  const alphaDst = dstAlpha / 255;
-  const oneMinusAlphaSrc = 1 - alphaSrc;
-  const combinedAlpha = alphaSrc + oneMinusAlphaSrc * alphaDst;
-
-  if (combinedAlpha <= PASTE_BLEND_EPSILON) {
-    destPixels[destIdx] = 0;
-    destPixels[destIdx + 1] = 0;
-    destPixels[destIdx + 2] = 0;
-    destPixels[destIdx + 3] = 0;
-    return;
-  }
-
-  const invCombinedAlpha = 1 / combinedAlpha;
-
-  const blendedR =
-    (srcPixels[srcIdx] * alphaSrc +
-      destPixels[destIdx] * alphaDst * oneMinusAlphaSrc) *
-    invCombinedAlpha;
-  const blendedG =
-    (srcPixels[srcIdx + 1] * alphaSrc +
-      destPixels[destIdx + 1] * alphaDst * oneMinusAlphaSrc) *
-    invCombinedAlpha;
-  const blendedB =
-    (srcPixels[srcIdx + 2] * alphaSrc +
-      destPixels[destIdx + 2] * alphaDst * oneMinusAlphaSrc) *
-    invCombinedAlpha;
-
-  destPixels[destIdx] = Math.min(255, Math.max(0, Math.round(blendedR)));
-  destPixels[destIdx + 1] = Math.min(255, Math.max(0, Math.round(blendedG)));
-  destPixels[destIdx + 2] = Math.min(255, Math.max(0, Math.round(blendedB)));
-  destPixels[destIdx + 3] = Math.min(255, Math.max(0, Math.round(combinedAlpha * 255)));
-}
-
 function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
   const pasteStart = performance.now(); // 🚨 PERFORMANCE TRACKING
   
@@ -2014,8 +1924,23 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
           // Skip if source index is out of bounds
           if (srcIdx + 3 < fromPixels.length) {
             const srcAlpha = fromPixels[srcIdx + 3];
+            
             if (srcAlpha > 0) {
-              blendPixelOntoBuffer(pixels, fromPixels, destIdx, srcIdx, srcAlpha);
+              if (srcAlpha === 255) {
+                // Opaque source - direct copy
+                pixels[destIdx] = fromPixels[srcIdx];
+                pixels[destIdx + 1] = fromPixels[srcIdx + 1];
+                pixels[destIdx + 2] = fromPixels[srcIdx + 2];
+                pixels[destIdx + 3] = fromPixels[srcIdx + 3];
+              } else {
+                // Alpha blending
+                const alpha = srcAlpha + 1;
+                const invAlpha = 256 - alpha;
+                pixels[destIdx] = (alpha * fromPixels[srcIdx] + invAlpha * pixels[destIdx]) >> 8;
+                pixels[destIdx + 1] = (alpha * fromPixels[srcIdx + 1] + invAlpha * pixels[destIdx + 1]) >> 8;
+                pixels[destIdx + 2] = (alpha * fromPixels[srcIdx + 2] + invAlpha * pixels[destIdx + 2]) >> 8;
+                pixels[destIdx + 3] = Math.min(255, pixels[destIdx + 3] + srcAlpha);
+              }
             }
           }
         }
@@ -2038,48 +1963,7 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
     // Check to see if we can perform a full copy here,
     // with no alpha blending.
     if (blit) {
-      const srcPixels = from.pixels;
-      const srcWidth = from.width;
-      const srcHeight = from.height;
-
-      // ✅ FAST PATH: When buffers align perfectly, use bulk copy
-      if (
-        destX === 0 &&
-        destY === 0 &&
-        srcPixels &&
-        srcPixels.length === pixels.length &&
-        srcWidth === width &&
-        srcHeight === height
-      ) {
-        pixels.set(srcPixels, 0);
-      } else {
-        // 🛡️ SAFETY FALLBACK: Clamp copy region to destination bounds to avoid RangeError
-        const maxWidth = Math.min(srcWidth, Math.max(0, width - destX));
-        const maxHeight = Math.min(srcHeight, Math.max(0, height - destY));
-
-        if (maxWidth <= 0 || maxHeight <= 0) {
-          return; // Nothing to copy
-        }
-
-        for (let y = 0; y < maxHeight; y += 1) {
-          const srcRowStart = y * srcWidth * 4;
-          const destRowStart = ((destY + y) * width + destX) * 4;
-
-          for (let x = 0; x < maxWidth; x += 1) {
-            const srcIdx = srcRowStart + x * 4;
-            const destIdx = destRowStart + x * 4;
-
-            if (srcIdx + 3 >= srcPixels.length || destIdx + 3 >= pixels.length) {
-              continue; // Skip out-of-bounds writes
-            }
-
-            pixels[destIdx] = srcPixels[srcIdx];
-            pixels[destIdx + 1] = srcPixels[srcIdx + 1];
-            pixels[destIdx + 2] = srcPixels[srcIdx + 2];
-            pixels[destIdx + 3] = srcPixels[srcIdx + 3];
-          }
-        }
-      }
+      pixels.set(from.pixels, 0);
     } else {
       // 🚀 MAJOR OPTIMIZATION: Bulk pixel copying for better performance
       const srcWidth = from.width;
@@ -2104,9 +1988,26 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
             const srcIdx = srcRowStart + (x * 4);
             const destIdx = destRowStart + (x * 4);
             
-            const srcAlpha = srcPixels[srcIdx + 3];
-            if (srcAlpha > 0) {
-              blendPixelOntoBuffer(pixels, srcPixels, destIdx, srcIdx, srcAlpha);
+            // Skip transparent pixels
+            if (srcPixels[srcIdx + 3] > 0) {
+              // Fast alpha blending without function call overhead
+              const srcAlpha = srcPixels[srcIdx + 3];
+              
+              if (srcAlpha === 255) {
+                // Opaque source - direct copy (fastest path)
+                pixels[destIdx] = srcPixels[srcIdx];
+                pixels[destIdx + 1] = srcPixels[srcIdx + 1];
+                pixels[destIdx + 2] = srcPixels[srcIdx + 2];
+                pixels[destIdx + 3] = srcPixels[srcIdx + 3];
+              } else {
+                // Alpha blending (optimized inline version)
+                const alpha = srcAlpha + 1;
+                const invAlpha = 256 - alpha;
+                pixels[destIdx] = (alpha * srcPixels[srcIdx] + invAlpha * pixels[destIdx]) >> 8;
+                pixels[destIdx + 1] = (alpha * srcPixels[srcIdx + 1] + invAlpha * pixels[destIdx + 1]) >> 8;
+                pixels[destIdx + 2] = (alpha * srcPixels[srcIdx + 2] + invAlpha * pixels[destIdx + 2]) >> 8;
+                pixels[destIdx + 3] = Math.min(255, pixels[destIdx + 3] + srcAlpha);
+              }
             }
           }
         }
@@ -2255,31 +2156,8 @@ function blend(dst, src, si, di, alphaIn = 1) {
 }
 
 // Blends the alpha channel only / erases pixels.
-function erase(pixels, i, eraseAmount) {
-  if (eraseAmount <= 0) return pixels[i + 3];
-
-  const currentAlpha = pixels[i + 3];
-  if (currentAlpha === 0) return 0;
-
-  let newAlpha = Math.max(0, currentAlpha - eraseAmount);
-  if (newAlpha === currentAlpha) {
-    newAlpha = Math.max(0, currentAlpha - 1);
-  }
-
-  if (newAlpha <= 0) {
-    pixels[i] = 0;
-    pixels[i + 1] = 0;
-    pixels[i + 2] = 0;
-    pixels[i + 3] = 0;
-    return 0;
-  }
-
-  const scale = newAlpha / currentAlpha;
-  pixels[i] = Math.round(pixels[i] * scale);
-  pixels[i + 1] = Math.round(pixels[i + 1] * scale);
-  pixels[i + 2] = Math.round(pixels[i + 2] * scale);
-  pixels[i + 3] = newAlpha;
-  return newAlpha;
+function erase(pixels, i, normalizedAlpha) {
+  pixels[i + 3] *= normalizedAlpha;
 }
 
 // Draws a horizontal line. (Should be very fast...)
@@ -2333,13 +2211,11 @@ function lineh(x0, x1, y) {
     return;
   }
 
-  // Erasing: Check if blend mode is "erase" OR color is [-1, -1, -1]
-  if (blendingMode === "erase" || (c[0] === -1 && c[1] === -1 && c[2] === -1)) {
-    const eraseAmount = Math.min(255, Math.max(0, c[3]));
-    if (eraseAmount > 0) {
-      for (let i = startIndex; i <= endIndex; i += 4) {
-        erase(pixels, i, eraseAmount);
-      }
+  // Erasing.
+  if (blendMode !== "erase" && c[0] === -1 && c[1] === -1 && c[2] === -1) {
+    const normalAlpha = 1 - c[3] / 255;
+    for (let i = startIndex; i <= endIndex; i += 4) {
+      erase(pixels, i, normalAlpha);
     }
     // No alpha.
   } else if (c[3] === 255) {
@@ -3340,7 +3216,9 @@ function fillShape(points) {
 
 // Draws a filled triangle with gradient colors using barycentric interpolation
 // Each vertex has its own color that smoothly blends across the triangle
-function drawGradientTriangle(x1, y1, color1, x2, y2, color2, x3, y3, color3) {
+// Draws a filled triangle with vertex colors using barycentric interpolation for smooth gradients
+// Now includes Z-depth testing for proper occlusion
+function drawGradientTriangle(x1, y1, color1, z1, x2, y2, color2, z2, x3, y3, color3, z3) {
   // Calculate bounding box
   const minX = floor(min(x1, x2, x3));
   const maxX = ceil(max(x1, x2, x3));
@@ -3359,6 +3237,18 @@ function drawGradientTriangle(x1, y1, color1, x2, y2, color2, x3, y3, color3) {
   
   // Skip if triangle is completely off-screen
   if (screenMinX >= screenMaxX || screenMinY >= screenMaxY) return;
+  
+  // Skip if the bounding box is excessively large compared to what's on screen
+  // This happens when huge triangles extend far off-screen
+  const origWidth = maxX - minX;
+  const origHeight = maxY - minY;
+  const onScreenRatio = (clippedWidth * clippedHeight) / (origWidth * origHeight);
+  
+  // If less than 1% of the triangle's bounding box is on screen and it's huge, skip it
+  // This prevents wasting CPU on triangles that are mostly off-screen
+  if (onScreenRatio < 0.01 && (origWidth > width * 2 || origHeight > height * 2)) {
+    return;
+  }
 
   // Calculate area of the whole triangle (for barycentric coordinates)
   const areaABC = (x2 - x1) * (y3 - y1) - (x3 - x1) * (y2 - y1);
@@ -3379,12 +3269,31 @@ function drawGradientTriangle(x1, y1, color1, x2, y2, color2, x3, y3, color3) {
 
       // Check if point is inside triangle (use small epsilon for edge cases)
       if (u >= -0.0001 && v >= -0.0001 && w >= -0.0001) {
+        // Interpolate Z value for depth testing
+        const interpZ = u * z1 + v * z2 + w * z3;
+        const depth = interpZ * -1;
+        
+        // Depth test - skip this pixel if it's behind existing geometry
+        const bufferIndex = x + y * width;
+        if (depthBuffer && depthBuffer.length > 0) {
+          if (depth > depthBuffer[bufferIndex]) {
+            continue; // Skip this pixel - behind existing geometry
+          }
+        }
+        
+        renderStats.pixelsDrawn++;
+        
         // Interpolate colors using barycentric weights
         const r = floor(u * color1[0] + v * color2[0] + w * color3[0]);
         const g = floor(u * color1[1] + v * color2[1] + w * color3[1]);
         const b = floor(u * color1[2] + v * color2[2] + w * color3[2]);
         const a = floor(u * color1[3] + v * color2[3] + w * color3[3]);
 
+        // Update depth buffer
+        if (depthBuffer && depthBuffer.length > 0) {
+          depthBuffer[bufferIndex] = depth;
+        }
+        
         // Set the interpolated color and draw the pixel
         color(r, g, b, a);
         point(x, y);
@@ -3398,7 +3307,7 @@ function drawGradientTriangle(x1, y1, color1, x2, y2, color2, x3, y3, color3) {
 function subdivideTriangleIfNeeded(x1, y1, uv1, z1, w1, x2, y2, uv2, z2, w2, x3, y3, uv3, z3, w3, maxScreenSize = 300, depth = 0) {
   // Prevent infinite recursion - max depth of 4 (16 triangles max)
   if (depth > 4) {
-    return [[x1, y1, uv1, w1, x2, y2, uv2, w2, x3, y3, uv3, w3]];
+    return [[x1, y1, uv1, z1, w1, x2, y2, uv2, z2, w2, x3, y3, uv3, z3, w3]];
   }
   
   const minX = min(x1, x2, x3);
@@ -3409,10 +3318,24 @@ function subdivideTriangleIfNeeded(x1, y1, uv1, z1, w1, x2, y2, uv2, z2, w2, x3,
   const screenWidth = maxX - minX;
   const screenHeight = maxY - minY;
   
-  // If triangle is small enough, or has extreme values (off-screen), return as-is
-  if ((screenWidth <= maxScreenSize && screenHeight <= maxScreenSize) ||
-      screenWidth > 10000 || screenHeight > 10000) {
-    return [[x1, y1, uv1, w1, x2, y2, uv2, w2, x3, y3, uv3, w3]];
+  // Clamp to actual screen bounds to get real on-screen size
+  const clampedMinX = max(0, minX);
+  const clampedMaxX = min(width, maxX);
+  const clampedMinY = max(0, minY);
+  const clampedMaxY = min(height, maxY);
+  
+  const onScreenWidth = clampedMaxX - clampedMinX;
+  const onScreenHeight = clampedMaxY - clampedMinY;
+  
+  // Use ON-SCREEN dimensions for subdivision decision
+  // If the on-screen portion is small enough, don't subdivide
+  if (onScreenWidth <= maxScreenSize && onScreenHeight <= maxScreenSize) {
+    return [[x1, y1, uv1, z1, w1, x2, y2, uv2, z2, w2, x3, y3, uv3, z3, w3]];
+  }
+  
+  // Also skip if triangle is completely off-screen
+  if (onScreenWidth <= 0 || onScreenHeight <= 0) {
+    return [[x1, y1, uv1, z1, w1, x2, y2, uv2, z2, w2, x3, y3, uv3, z3, w3]];
   }
   
   // Subdivide into 4 smaller triangles by finding midpoints
@@ -3455,7 +3378,8 @@ function subdivideTriangleIfNeeded(x1, y1, uv1, z1, w1, x2, y2, uv2, z2, w2, x3,
 // Draws a filled triangle with texture mapping using barycentric interpolation
 // Each vertex has UV coordinates that map to a texture buffer
 // Uses perspective-correct interpolation with clip-space W values (not NDC Z!)
-function drawTexturedTriangle(x1, y1, uv1, w1, x2, y2, uv2, w2, x3, y3, uv3, w3, texture, alphaMultiplier = 1.0) {
+// Also interpolates Z values for depth buffering
+function drawTexturedTriangle(x1, y1, uv1, z1, w1, x2, y2, uv2, z2, w2, x3, y3, uv3, z3, w3, texture, alphaMultiplier = 1.0) {
   // Calculate bounding box
   const minX = floor(min(x1, x2, x3));
   const maxX = ceil(max(x1, x2, x3));
@@ -3474,6 +3398,35 @@ function drawTexturedTriangle(x1, y1, uv1, w1, x2, y2, uv2, w2, x3, y3, uv3, w3,
   
   // Skip if triangle is completely off-screen
   if (screenMinX >= screenMaxX || screenMinY >= screenMaxY) return;
+  
+  // Skip if the bounding box is excessively large compared to what's on screen
+  // This happens when huge triangles extend far off-screen
+  const origWidth = maxX - minX;
+  const origHeight = maxY - minY;
+  const onScreenRatio = (clippedWidth * clippedHeight) / (origWidth * origHeight);
+  
+  // If less than 1% of the triangle's bounding box is on screen and it's huge, skip it
+  // This prevents wasting CPU on triangles that are mostly off-screen
+  if (onScreenRatio < 0.01 && (origWidth > width * 2 || origHeight > height * 2)) {
+    renderStats.trianglesRejected++;
+    if (showBoundingBoxes) {
+      boundingBoxes.push({
+        minX, maxX, minY, maxY,
+        screenMinX, screenMaxX, screenMinY, screenMaxY,
+        rejected: true
+      });
+    }
+    return;
+  }
+  
+  // Store bounding box info for debug visualization
+  if (showBoundingBoxes) {
+    boundingBoxes.push({
+      minX, maxX, minY, maxY,
+      screenMinX, screenMaxX, screenMinY, screenMaxY,
+      rejected: false
+    });
+  }
 
   // Calculate area of the whole triangle (for barycentric coordinates)
   const areaABC = (x2 - x1) * (y3 - y1) - (x3 - x1) * (y2 - y1);
@@ -3515,6 +3468,20 @@ function drawTexturedTriangle(x1, y1, uv1, w1, x2, y2, uv2, w2, x3, y3, uv3, w3,
 
       // Check if point is inside triangle (use small epsilon for edge cases)
       if (u >= -0.0001 && v >= -0.0001 && w >= -0.0001) {
+        // Interpolate Z value for depth testing
+        const interpZ = u * z1 + v * z2 + w * z3;
+        const depth = interpZ * -1;
+        
+        // Depth test - skip this pixel if it's behind existing geometry
+        const bufferIndex = x + y * width;
+        if (depthBuffer && depthBuffer.length > 0) {
+          if (depth > depthBuffer[bufferIndex]) {
+            continue; // Skip this pixel - behind existing geometry
+          }
+        }
+        
+        renderStats.pixelsDrawn++;
+        
         // Interpolate 1/w and uv/w using barycentric weights
         const interpInvW = u * invW1 + v * invW2 + w * invW3;
         const interpUOverW = u * u1OverW + v * u2OverW + w * u3OverW;
@@ -3538,6 +3505,11 @@ function drawTexturedTriangle(x1, y1, uv1, w1, x2, y2, uv2, w2, x3, y3, uv3, w3,
         const b = texture.pixels[pixelIndex + 2];
         const a = floor(texture.pixels[pixelIndex + 3] * alphaMultiplier);
 
+        // Update depth buffer and draw pixel
+        if (depthBuffer && depthBuffer.length > 0) {
+          depthBuffer[bufferIndex] = depth;
+        }
+        
         // Draw the textured pixel with alpha fade
         color(r, g, b, a);
         point(x, y);
@@ -4528,6 +4500,7 @@ function scroll(dx = 0, dy = 0) {
     return; // No effective shift after normalization
   }
 
+  // Create a complete copy of the working area for safe reading
   // 🛡️ SAFETY CHECK: If pixels buffer is detached, recreate it
   if (pixels.buffer && pixels.buffer.detached) {
     console.warn('🚨 Pixels buffer detached in scroll, recreating from screen dimensions');
@@ -4535,39 +4508,39 @@ function scroll(dx = 0, dy = 0) {
     pixels.fill(0); // Fill with transparent black
   }
   
-  // Reuse temporary buffer to avoid repeated large allocations
-  const requiredSize = pixels.length;
-  if (!scrollTempBuffer || scrollTempBufferSize !== requiredSize) {
-    // Only allocate new buffer if size changed or buffer doesn't exist
-    scrollTempBuffer = new Uint8ClampedArray(requiredSize);
-    scrollTempBufferSize = requiredSize;
-  }
-  
-  // Copy current pixels to temp buffer
-  scrollTempBuffer.set(pixels);
+  const tempPixels = new Uint8ClampedArray(pixels);
 
-  // 🚀 ULTRA-OPTIMIZED: Remove redundant bounds checking inside loop
-  // All coordinates are guaranteed to be in bounds by construction
-  const widthBytes = width * 4;
-  
+  // General case: pixel-by-pixel with proper bounds checking
   for (let y = 0; y < boundsHeight; y++) {
-    const srcRow = minY + ((y + boundsHeight - finalDy) % boundsHeight);
-    const destRow = minY + y;
-    const srcRowOffset = srcRow * widthBytes;
-    const destRowOffset = destRow * widthBytes;
-    
     for (let x = 0; x < boundsWidth; x++) {
-      const srcCol = minX + ((x + boundsWidth - finalDx) % boundsWidth);
-      const destCol = minX + x;
-      
-      const srcOffset = srcRowOffset + srcCol * 4;
-      const destOffset = destRowOffset + destCol * 4;
+      // Calculate source coordinates with wrapping within bounds
+      const srcX = minX + ((x + boundsWidth - finalDx) % boundsWidth);
+      const srcY = minY + ((y + boundsHeight - finalDy) % boundsHeight);
 
-      // Copy RGBA values (compiler can vectorize this)
-      pixels[destOffset] = scrollTempBuffer[srcOffset];
-      pixels[destOffset + 1] = scrollTempBuffer[srcOffset + 1];
-      pixels[destOffset + 2] = scrollTempBuffer[srcOffset + 2];
-      pixels[destOffset + 3] = scrollTempBuffer[srcOffset + 3];
+      // Calculate destination coordinates
+      const destX = minX + x;
+      const destY = minY + y;
+
+      // Ensure coordinates are within valid bounds
+      if (
+        srcX >= minX &&
+        srcX < maxX &&
+        srcY >= minY &&
+        srcY < maxY &&
+        destX >= minX &&
+        destX < maxX &&
+        destY >= minY &&
+        destY < maxY
+      ) {
+        const srcOffset = (srcY * width + srcX) * 4;
+        const destOffset = (destY * width + destX) * 4;
+
+        // Copy RGBA values
+        pixels[destOffset] = tempPixels[srcOffset];
+        pixels[destOffset + 1] = tempPixels[srcOffset + 1];
+        pixels[destOffset + 2] = tempPixels[srcOffset + 2];
+        pixels[destOffset + 3] = tempPixels[srcOffset + 3];
+      }
     }
   }
 }
@@ -5578,21 +5551,11 @@ let blurAccumulator = 0.0;
 let blurTempBuffer = null;
 let blurTempBufferSize = 0;
 
-// Reusable temporary buffer for scroll operations to avoid memory allocation on each call
-let scrollTempBuffer = null;
-let scrollTempBufferSize = 0;
-
 // Function to clean up blur buffers and reset state
 function cleanupBlurBuffers() {
   blurTempBuffer = null;
   blurTempBufferSize = 0;
   blurAccumulator = 0.0;
-}
-
-// Function to clean up scroll buffers
-function cleanupScrollBuffers() {
-  scrollTempBuffer = null;
-  scrollTempBufferSize = 0;
 }
 
 // Efficient Gaussian blur using separable filtering with linear sampling optimization
@@ -5737,12 +5700,8 @@ function applyHorizontalBlur(sourcePixels, destPixels, weights, radius, minX, mi
       
       // Apply convolution kernel horizontally
       for (let k = -radius; k <= radius; k++) {
-        // Handle boundary conditions with wrapping for seamless edges
-        let srcX = x + k;
-        // Wrap around screen edges instead of clamping
-        if (srcX < minX) srcX += (maxX - minX);
-        if (srcX >= maxX) srcX -= (maxX - minX);
-        
+        // Handle boundary conditions with clamping
+        const srcX = Math.max(minX, Math.min(maxX - 1, x + k));
         const srcIdx = (rowOffset + srcX) * 4;
         
         // Bounds check for source index
@@ -5787,12 +5746,8 @@ function applyVerticalBlur(sourcePixels, destPixels, weights, radius, minX, minY
       
       // Apply convolution kernel vertically
       for (let k = -radius; k <= radius; k++) {
-        // Handle boundary conditions with wrapping for seamless edges
-        let srcY = y + k;
-        // Wrap around screen edges instead of clamping
-        if (srcY < minY) srcY += (maxY - minY);
-        if (srcY >= maxY) srcY -= (maxY - minY);
-        
+        // Handle boundary conditions with clamping
+        const srcY = Math.max(minY, Math.min(maxY - 1, y + k));
         const srcIdx = (srcY * width + x) * 4;
         
         // Bounds check for source index
@@ -5859,9 +5814,6 @@ function sharpen(strength = 1) {
   }
   
   try {
-    // 🚀 OPTIMIZATION: Early exit if strength is negligible
-    if (strength < 0.01) return;
-    
     // Create temporary buffer for sharpen operation
     const tempBuffer = new Uint8ClampedArray(pixels.length);
     
@@ -5873,56 +5825,30 @@ function sharpen(strength = 1) {
     const centerWeight = 1 + (4 * strength);
     const edgeWeight = -strength;
     
-    // 🚀 ULTRA-OPTIMIZED: Process with minimal index calculations
-    // Pre-calculate row offsets for better cache performance
-    const widthBytes = width * 4;
-    
     // Apply sharpening convolution
     for (let y = minY + 1; y < maxY - 1; y++) {
-      const rowOffset = y * widthBytes;
-      const prevRowOffset = (y - 1) * widthBytes;
-      const nextRowOffset = (y + 1) * widthBytes;
-      
       for (let x = minX + 1; x < maxX - 1; x++) {
-        const xOffset = x * 4;
-        const centerIdx = rowOffset + xOffset;
+        const centerIdx = (y * width + x) * 4;
         
-        // 🚀 OPTIMIZATION: Single alpha check at start
+        // Skip transparent pixels
         if (tempBuffer[centerIdx + 3] === 0) continue;
         
-        // 🚀 OPTIMIZATION: Pre-calculate neighbor indices (avoid repeated multiplication)
-        const topIdx = prevRowOffset + xOffset;
-        const bottomIdx = nextRowOffset + xOffset;
-        const leftIdx = rowOffset + (x - 1) * 4;
-        const rightIdx = rowOffset + (x + 1) * 4;
-        
         // Apply 3x3 unsharp mask kernel for each color channel
-        // 🚀 OPTIMIZATION: Unroll channel loop for better performance
-        
-        // Red channel
-        let r = tempBuffer[centerIdx] * centerWeight;
-        r += tempBuffer[topIdx] * edgeWeight;
-        r += tempBuffer[bottomIdx] * edgeWeight;
-        r += tempBuffer[leftIdx] * edgeWeight;
-        r += tempBuffer[rightIdx] * edgeWeight;
-        pixels[centerIdx] = r > 255 ? 255 : r < 0 ? 0 : Math.round(r);
-        
-        // Green channel
-        let g = tempBuffer[centerIdx + 1] * centerWeight;
-        g += tempBuffer[topIdx + 1] * edgeWeight;
-        g += tempBuffer[bottomIdx + 1] * edgeWeight;
-        g += tempBuffer[leftIdx + 1] * edgeWeight;
-        g += tempBuffer[rightIdx + 1] * edgeWeight;
-        pixels[centerIdx + 1] = g > 255 ? 255 : g < 0 ? 0 : Math.round(g);
-        
-        // Blue channel
-        let b = tempBuffer[centerIdx + 2] * centerWeight;
-        b += tempBuffer[topIdx + 2] * edgeWeight;
-        b += tempBuffer[bottomIdx + 2] * edgeWeight;
-        b += tempBuffer[leftIdx + 2] * edgeWeight;
-        b += tempBuffer[rightIdx + 2] * edgeWeight;
-        pixels[centerIdx + 2] = b > 255 ? 255 : b < 0 ? 0 : Math.round(b);
-        
+        for (let channel = 0; channel < 3; channel++) { // RGB only, preserve alpha
+          let sum = 0;
+          
+          // Center pixel (enhanced)
+          sum += tempBuffer[centerIdx + channel] * centerWeight;
+          
+          // Surrounding pixels (subtracted)
+          sum += tempBuffer[((y - 1) * width + x) * 4 + channel] * edgeWeight; // top
+          sum += tempBuffer[((y + 1) * width + x) * 4 + channel] * edgeWeight; // bottom
+          sum += tempBuffer[(y * width + (x - 1)) * 4 + channel] * edgeWeight; // left
+          sum += tempBuffer[(y * width + (x + 1)) * 4 + channel] * edgeWeight; // right
+          
+          // Clamp result to valid range
+          pixels[centerIdx + channel] = Math.max(0, Math.min(255, Math.round(sum)));
+        }
         // Alpha channel stays unchanged
       }
     }
@@ -5934,77 +5860,6 @@ function sharpen(strength = 1) {
   // Log timing information for performance monitoring
   const sharpenEndTime = performance.now();
   graphPerf.track('sharpen', sharpenEndTime - sharpenStartTime);
-}
-
-// Invert all colors in the buffer (RGB channels)
-// Alpha channel is preserved
-function invert() {
-  // Start timing for performance monitoring
-  const invertStartTime = performance.now();
-  
-  // Determine the area to process (mask or full screen)
-  let minX = 0,
-    minY = 0,
-    maxX = width,
-    maxY = height;
-  if (activeMask) {
-    // Apply pan translation to mask bounds and ensure they're within screen bounds
-    minX = Math.max(0, Math.min(width, activeMask.x + panTranslation.x));
-    maxX = Math.max(
-      0,
-      Math.min(width, activeMask.x + activeMask.width + panTranslation.x),
-    );
-    minY = Math.max(0, Math.min(height, activeMask.y + panTranslation.y));
-    maxY = Math.max(
-      0,
-      Math.min(height, activeMask.y + activeMask.height + panTranslation.y),
-    );
-  }
-
-  const workingWidth = maxX - minX;
-  const workingHeight = maxY - minY;
-
-  // Early exit if bounds are invalid
-  if (workingWidth <= 0 || workingHeight <= 0) return;
-
-  // 🛡️ SAFETY CHECK: If pixels buffer is detached, recreate it
-  if (pixels.buffer && pixels.buffer.detached) {
-    console.warn('🚨 Pixels buffer detached in invert, recreating from screen dimensions');
-    pixels = new Uint8ClampedArray(width * height * 4);
-    pixels.fill(0); // Fill with transparent black
-  }
-  
-  try {
-    // 🚀 ULTRA-OPTIMIZED: Invert RGB values with minimal branching
-    // Process row by row for better cache locality
-    for (let y = minY; y < maxY; y++) {
-      const rowStart = y * width * 4;
-      const xStart = minX * 4;
-      const xEnd = maxX * 4;
-      
-      // Process pixels in this row
-      for (let offset = xStart; offset < xEnd; offset += 4) {
-        const idx = rowStart + offset;
-        
-        // 🚀 OPTIMIZATION: Single alpha check, then batch invert RGB
-        const alpha = pixels[idx + 3];
-        if (alpha === 0) continue;
-        
-        // Invert RGB in one go (compiler can vectorize this)
-        pixels[idx] = 255 - pixels[idx];         // Red
-        pixels[idx + 1] = 255 - pixels[idx + 1]; // Green
-        pixels[idx + 2] = 255 - pixels[idx + 2]; // Blue
-        // Alpha unchanged
-      }
-    }
-    
-  } catch (error) {
-    console.warn('🚨 Invert operation failed:', error);
-  }
-  
-  // Log timing information for performance monitoring
-  const invertEndTime = performance.now();
-  graphPerf.track('invert', invertEndTime - invertStartTime);
 }
 
 // Sort pixels by color within the masked area (or entire screen if no mask)
@@ -6522,9 +6377,13 @@ let formId = 0;
 
 // Debug flag for showing wireframes
 let showWireframes = false;
+let showBoundingBoxes = false;
 
 // Buffer to store wireframe lines for deferred rendering
 let wireframeLines = [];
+
+// Buffer to store bounding box debug info
+let boundingBoxes = [];
 
 // Stats for tracking rendering info
 let renderStats = {
@@ -6536,17 +6395,19 @@ let renderStats = {
   wireframeSegmentsGradient: 0,
   wireframeSegmentsClipped: 0,
   wireframeSegmentsOther: 0,
+  pixelsDrawn: 0,
+  trianglesRejected: 0,
 };
 
 // Function to toggle wireframe rendering
 function setShowClippedWireframes(enabled) {
   showWireframes = enabled;
-  console.log("🔲 Wireframes:", enabled ? "ON" : "OFF");
 }
 
 // Function to clear wireframe buffer (called at start of frame)
 function clearWireframeBuffer() {
   wireframeLines = [];
+  boundingBoxes = [];
   renderStats = {
     originalTriangles: 0,
     clippedTriangles: 0,
@@ -6556,12 +6417,47 @@ function clearWireframeBuffer() {
     wireframeSegmentsGradient: 0,
     wireframeSegmentsClipped: 0,
     wireframeSegmentsOther: 0,
+    pixelsDrawn: 0,
+    trianglesRejected: 0,
   };
 }
 
 // Function to get current render stats
 function getRenderStats() {
   return renderStats;
+}
+
+// Function to toggle bounding box debug visualization
+function setShowBoundingBoxes(enabled) {
+  showBoundingBoxes = enabled;
+}
+
+// Function to draw all buffered bounding boxes (called after main rendering)
+function drawBoundingBoxDebug() {
+  if (!showBoundingBoxes) return;
+  
+  // Draw each bounding box
+  boundingBoxes.forEach(box => {
+    const { minX, maxX, minY, maxY, screenMinX, screenMaxX, screenMinY, screenMaxY, rejected } = box;
+    
+    // Draw original bounding box in blue
+    color(0, 100, 255, 100);
+    line(minX, minY, maxX, minY);
+    line(maxX, minY, maxX, maxY);
+    line(maxX, maxY, minX, maxY);
+    line(minX, maxY, minX, minY);
+    
+    // Draw clipped bounding box in green (accepted) or red (rejected)
+    if (rejected) {
+      color(255, 0, 0, 200);
+    } else {
+      color(0, 255, 0, 200);
+    }
+    line(screenMinX, screenMinY, screenMaxX, screenMinY);
+    line(screenMaxX, screenMinY, screenMaxX, screenMaxY);
+    line(screenMaxX, screenMaxY, screenMinX, screenMaxY);
+    line(screenMinX, screenMaxY, screenMinX, screenMinY);
+  });
 }
 
 // Cohen-Sutherland line clipping algorithm
@@ -6639,15 +6535,7 @@ function clipLineToScreen(x1, y1, x2, y2) {
 
 // Function to add wireframe line to buffer
 function addWireframeLine(x1, y1, x2, y2, color, category = "other") {
-  // Enhanced sanity checks
-  const maxCoord = 10000; // Stricter limit
-  
-  // Reject lines with extreme coordinates
-  if (abs(x1) > maxCoord || abs(y1) > maxCoord || abs(x2) > maxCoord || abs(y2) > maxCoord) {
-    return;
-  }
-  
-  // Reject lines with NaN or Infinity
+  // Reject lines with NaN or Infinity first
   if (!isFinite(x1) || !isFinite(y1) || !isFinite(x2) || !isFinite(y2)) {
     return;
   }
@@ -6658,14 +6546,23 @@ function addWireframeLine(x1, y1, x2, y2, color, category = "other") {
   if (dx === 0 && dy === 0) {
     return;
   }
+  
+  // Very strict bounds check: only allow lines where BOTH endpoints are reasonably close to visible area
+  // This prevents perspective-reversed geometry from creating artifacts
+  const minX = -width * 0.1;
+  const maxX = width * 1.1;
+  const minY = -height * 0.1;
+  const maxY = height * 1.1;
+  
+  const p1Valid = x1 >= minX && x1 <= maxX && y1 >= minY && y1 <= maxY;
+  const p2Valid = x2 >= minX && x2 <= maxX && y2 >= minY && y2 <= maxY;
+  
+  if (!p1Valid || !p2Valid) {
+    // At least one endpoint is outside the acceptable range
+    return;
+  }
 
   wireframeLines.push({ x1, y1, x2, y2, color, category });
-  
-  // Debug log first addition only
-  if (!addWireframeLine.hasLogged) {
-    console.log(`📝 First wireframe buffered: color=[${color}], from (${x1.toFixed(1)}, ${y1.toFixed(1)}) to (${x2.toFixed(1)}, ${y2.toFixed(1)}), category=${category}`);
-    addWireframeLine.hasLogged = true;
-  }
 
   // Update wireframe stats
   renderStats.wireframeSegmentsTotal++;
@@ -6687,43 +6584,28 @@ function addWireframeLine(x1, y1, x2, y2, color, category = "other") {
 
 // Function to draw all buffered wireframes (called at end of frame)
 function drawBufferedWireframes() {
-  // Debug counter (only log once per second)
-  if (!drawBufferedWireframes.frameCount) drawBufferedWireframes.frameCount = 0;
-  drawBufferedWireframes.frameCount++;
-  const shouldLog = drawBufferedWireframes.frameCount % 60 === 1;
-  
   if (wireframeLines.length > 0) {
-    if (shouldLog) {
-      console.log(`🎨 Drawing ${wireframeLines.length} buffered wireframe segments`);
-    }
-    let drawnCount = 0;
-    let clippedOutCount = 0;
-    
     const savedColor = [c[0], c[1], c[2], c[3]];
     withForceReplaceMode(() => {
       for (const wf of wireframeLines) {
-        const clipped = clipLineToScreen(wf.x1, wf.y1, wf.x2, wf.y2);
-        if (!clipped) {
-          clippedOutCount++;
+        // Skip lines that are far off-screen (likely perspective artifacts)
+        const margin = max(width, height) * 0.5;
+        const p1OutOfBounds = abs(wf.x1) > width + margin || abs(wf.y1) > height + margin || wf.x1 < -margin || wf.y1 < -margin;
+        const p2OutOfBounds = abs(wf.x2) > width + margin || abs(wf.y2) > height + margin || wf.x2 < -margin || wf.y2 < -margin;
+        
+        if (p1OutOfBounds || p2OutOfBounds) {
           continue;
         }
+        
+        const clipped = clipLineToScreen(wf.x1, wf.y1, wf.x2, wf.y2);
+        if (!clipped) continue;
+        
         setColor(wf.color[0], wf.color[1], wf.color[2], wf.color[3]);
         line(clipped.x1, clipped.y1, clipped.x2, clipped.y2);
-        drawnCount++;
-        
-        // Log first segment for debugging (only once per second)
-        if (drawnCount === 1 && shouldLog) {
-          console.log(`  First segment: color=[${wf.color}], from (${clipped.x1.toFixed(1)}, ${clipped.y1.toFixed(1)}) to (${clipped.x2.toFixed(1)}, ${clipped.y2.toFixed(1)}), category=${wf.category}`);
-        }
       }
     });
-    if (shouldLog) {
-      console.log(`  ✓ Drew ${drawnCount} segments, ${clippedOutCount} clipped out`);
-    }
     setColor(...savedColor);
     wireframeLines = [];
-  } else if (shouldLog) {
-    console.log(`⚠️  drawBufferedWireframes called but wireframeLines is empty`);
   }
 }
 
@@ -7146,14 +7028,13 @@ class Form {
 
             // Check if this form has a texture
             if (this.texture) {
-              // TEMPORARY: Disable subdivision to test if it's causing distortion
               // Subdivide triangle if it's too large in screen space
               // Pass W component for perspective-correct UV interpolation
               const subdivided = subdivideTriangleIfNeeded(
                 x0, y0, cv0.texCoords, cv0.pos[2], cv0.pos[3], // x, y, uv, z, w
                 x1, y1, cv1.texCoords, cv1.pos[2], cv1.pos[3],
                 x2, y2, cv2.texCoords, cv2.pos[2], cv2.pos[3],
-                10000 // TEMP: Large threshold to disable subdivision
+                300 // Subdivide triangles larger than 300px to reduce overdraw
               );
               
               // Count subdivided triangles (only count if more than 1 triangle resulted)
@@ -7163,22 +7044,29 @@ class Form {
               
               // Draw each sub-triangle
               for (const tri of subdivided) {
-                // tri structure: [x0, y0, uv0, w0, x1, y1, uv1, w1, x2, y2, uv2, w2]
+                // tri structure: [x0, y0, uv0, z0, w0, x1, y1, uv1, z1, w1, x2, y2, uv2, z2, w2]
                 drawTexturedTriangle(
-                  tri[0], tri[1], tri[2], tri[3],   // x0, y0, uv0, w0
-                  tri[4], tri[5], tri[6], tri[7],   // x1, y1, uv1, w1
-                  tri[8], tri[9], tri[10], tri[11], // x2, y2, uv2, w2
+                  tri[0], tri[1], tri[2], tri[3], tri[4],      // x0, y0, uv0, z0, w0
+                  tri[5], tri[6], tri[7], tri[8], tri[9],      // x1, y1, uv1, z1, w1
+                  tri[10], tri[11], tri[12], tri[13], tri[14], // x2, y2, uv2, z2, w2
                   this.texture,
                   alphaMultiplier
                 );
                 
                 // Buffer wireframe overlay for textured triangles
                 if (showWireframes) {
-                  // Yellow for subdivided, white for non-subdivided
-                  const wireColor = subdivided.length > 1 ? [255, 255, 0, 255] : [255, 255, 255, 255];
-                  addWireframeLine(tri[0], tri[1], tri[4], tri[5], wireColor, "textured"); // v0 to v1
-                  addWireframeLine(tri[4], tri[5], tri[8], tri[9], wireColor, "textured"); // v1 to v2
-                  addWireframeLine(tri[8], tri[9], tri[0], tri[1], wireColor, "textured"); // v2 to v0
+                  // Only add wireframes if all vertices have positive W (in front of camera)
+                  const w0 = tri[4];
+                  const w1 = tri[9];
+                  const w2 = tri[14];
+                  
+                  if (w0 > 0.01 && w1 > 0.01 && w2 > 0.01) {
+                    // Yellow for subdivided, white for non-subdivided
+                    const wireColor = subdivided.length > 1 ? [255, 255, 0, 255] : [255, 255, 255, 255];
+                    addWireframeLine(tri[0], tri[1], tri[5], tri[6], wireColor, "textured"); // v0 to v1
+                    addWireframeLine(tri[5], tri[6], tri[10], tri[11], wireColor, "textured"); // v1 to v2
+                    addWireframeLine(tri[10], tri[11], tri[0], tri[1], wireColor, "textured"); // v2 to v0
+                  }
                 }
               }
             } else {
@@ -7202,15 +7090,26 @@ class Form {
                 floor(cv2.color[3] * 255 * alphaMultiplier)
               ];
 
-              // Draw filled gradient triangle using barycentric interpolation
-              drawGradientTriangle(x0, y0, color0, x1, y1, color1, x2, y2, color2);
+              // Draw filled gradient triangle using barycentric interpolation with Z-depth testing
+              drawGradientTriangle(
+                x0, y0, color0, cv0.pos[2],  // x, y, color, z
+                x1, y1, color1, cv1.pos[2],
+                x2, y2, color2, cv2.pos[2]
+              );
               
               // Buffer wireframe overlay for gradient triangles
               if (showWireframes) {
-                const green = [0, 255, 0, 255]; // Green for gradient triangles
-                addWireframeLine(x0, y0, x1, y1, green, "gradient"); // v0 to v1
-                addWireframeLine(x1, y1, x2, y2, green, "gradient"); // v1 to v2
-                addWireframeLine(x2, y2, x0, y0, green, "gradient"); // v2 to v0
+                // Only add wireframes if all vertices have positive W (in front of camera)
+                const w0 = cv0.pos[3];
+                const w1 = cv1.pos[3];
+                const w2 = cv2.pos[3];
+                
+                if (w0 > 0.01 && w1 > 0.01 && w2 > 0.01) {
+                  const green = [0, 255, 0, 255]; // Green for gradient triangles
+                  addWireframeLine(x0, y0, x1, y1, green, "gradient"); // v0 to v1
+                  addWireframeLine(x1, y1, x2, y2, green, "gradient"); // v1 to v2
+                  addWireframeLine(x2, y2, x0, y0, green, "gradient"); // v2 to v0
+                }
               }
             }
           }
@@ -7221,7 +7120,13 @@ class Form {
             for (let k = 0; k < screenVertices.length; k++) {
               const vA = screenVertices[k];
               const vB = screenVertices[(k + 1) % screenVertices.length];
-              addWireframeLine(vA.pos[0], vA.pos[1], vB.pos[0], vB.pos[1], red, "clipped");
+              const cvA = clippedVertices[k];
+              const cvB = clippedVertices[(k + 1) % clippedVertices.length];
+              
+              // Only add wireframe if both vertices are in front of camera
+              if (cvA.pos[3] > 0.01 && cvB.pos[3] > 0.01) {
+                addWireframeLine(vA.pos[0], vA.pos[1], vB.pos[0], vB.pos[1], red, "clipped");
+              }
             }
           }
         }
@@ -7710,9 +7615,7 @@ export {
   suck,
   blur,
   sharpen,
-  invert,
   cleanupBlurBuffers,
-  cleanupScrollBuffers,
   sort,
   shear,
   setBlockProcessing,
@@ -7724,6 +7627,7 @@ export {
   clearWireframeBuffer,
   drawBufferedWireframes,
   getRenderStats,
+  renderStats,
   setKidLispContext,
   clearKidLispContext,
 };
