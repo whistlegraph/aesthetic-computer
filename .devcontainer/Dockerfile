@@ -117,6 +117,21 @@ RUN set -eux; \
     curl -fsSL "https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-${ARCH}.tgz" -o /tmp/ngrok.tgz && \
     tar -xzf /tmp/ngrok.tgz -C /usr/local/bin && rm /tmp/ngrok.tgz
 
+# --- doctl (DigitalOcean CLI, architecture-aware) ----------------------------
+RUN set -eux; \
+    case "$(uname -m)" in \
+        x86_64) ARCH=amd64 ;; \
+        aarch64) ARCH=arm64 ;; \
+        *) echo "Unsupported architecture: $(uname -m)" && exit 1 ;; \
+    esac && \
+    DOCTL_VERSION=1.109.0 && \
+    curl -fsSL "https://github.com/digitalocean/doctl/releases/download/v${DOCTL_VERSION}/doctl-${DOCTL_VERSION}-linux-${ARCH}.tar.gz" -o /tmp/doctl.tar.gz && \
+    tar -xzf /tmp/doctl.tar.gz -C /usr/local/bin && rm /tmp/doctl.tar.gz && \
+    chmod +x /usr/local/bin/doctl
+
+# --- s3cmd (for DigitalOcean Spaces management) -------------------------------
+RUN dnf install -y s3cmd && dnf clean all
+
 # --- Jupyter bits -------------------------------------------------------------
 RUN dnf install -y python3-notebook python3-nbconvert && dnf clean all
 
