@@ -763,7 +763,7 @@ function ac-site
         sleep 1
         
         # Kill ports before starting
-        kill-port 8880 8888 8889 8080 8000 8111 3333 3000 3001 2>/dev/null
+        npx kill-port 8880 8888 8889 8080 8000 8111 3333 3000 3001 2>/dev/null
         
         # Link netlify
         netlify link --id $NETLIFY_SITE_ID
