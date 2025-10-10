@@ -768,6 +768,9 @@ function ac-site
         # Link netlify
         netlify link --id $NETLIFY_SITE_ID
         
+        # Suppress verbose Express debug logs
+        set -e DEBUG
+        
         # Detect if running in GitHub Codespaces and use appropriate command
         if test -n "$CODESPACES"
             echo "🌐 Detected GitHub Codespaces - running without SSL..."
