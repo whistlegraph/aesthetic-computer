@@ -358,8 +358,6 @@ export async function handler(event, context) {
           await KeyValue.set("userIDs", otherSub, handle);
         }
 
-        const atprotoSync = await syncAtprotoHandle(database, primarySub, handle);
-
         // 🔥 Publish the new handle association to redis.
         //  - [-] `world` needs to pick this up somehow.
         //    - [] handle changes from others
