@@ -1,4 +1,5 @@
 [build]
+base = "system"
 publish = "public"
 ignore = "bash ./ignore-index.sh"
 command = "rm -f public/index.html" # Remove index.html before build
@@ -97,6 +98,10 @@ included_env_vars = ["CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_S
 included_env_vars = ["CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
 [functions.track-media]
 included_env_vars = ["CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
+[functions.painting-code]
+included_env_vars = ["MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
+[functions.painting-metadata]
+included_env_vars = ["MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
 [functions.bdf-glyph]
 included_env_vars = ["NETLIFY_DEV", "NODE_ENV", "ART_ENDPOINT", "ART_KEY", "ART_SECRET", "URL"]
 [functions.subscribe-to-topic]
@@ -115,6 +120,7 @@ included_env_vars = ["CONTEXT", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "MONG
 NODE_ENV = "development"
 publish = "public/"
 command = "caddy run --config Caddyfile"
+port = 8888
 targetPort = 8111
 #framework = "#static"
 autoLaunch = false
@@ -384,6 +390,16 @@ force = false
 [[redirects]]
 from = "/api/track-media"
 to = "/.netlify/functions/track-media"
+status = 200
+force = false
+[[redirects]]
+from = "/api/painting-code"
+to = "/.netlify/functions/painting-code"
+status = 200
+force = false
+[[redirects]]
+from = "/api/painting-metadata"
+to = "/.netlify/functions/painting-metadata"
 status = 200
 force = false
 [[redirects]]
