@@ -437,7 +437,10 @@ function paint({
     (pastRecord && system.nopaint.record?.length > 0) ||
     (system.nopaint.record?.length > 1 && running)
   ) {
-    if (!showMode) ink().write(label, { size: 2 });
+    if (!showMode) {
+      console.log(`🎨 Rendering label in HUD: "${label}"`);
+      ink().write(label, { size: 2 });
+    }
 
     if (painting) {
       brushPaints.forEach((brushPaint) => {
@@ -458,15 +461,6 @@ function paint({
       ink(num.map(labelFade, 0, labelFadeSpeed, 0, 255)).write(
         label,
         { y: 32, center: "x" },
-        "black",
-      );
-    }
-    
-    // Display painting code in top-right corner
-    if (paintingCode && !showMode) {
-      ink(200).write(
-        `#${paintingCode}`,
-        { x: screen.width - 6, y: 18, right: true },
         "black",
       );
     }
