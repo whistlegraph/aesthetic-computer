@@ -145,6 +145,7 @@ function boot({
         // Update label and title to show the painting code
         if (paintingCode) {
           label = `#${paintingCode}`;
+          hud.label(`#${paintingCode}`); // Update the prompt HUD label!
           // Update the page title dynamically
           if (typeof document !== 'undefined') {
             document.title = `#${paintingCode} · Aesthetic Computer`;
