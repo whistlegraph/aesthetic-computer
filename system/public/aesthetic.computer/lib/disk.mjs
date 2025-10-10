@@ -2161,10 +2161,13 @@ const $commonApi = {
           } else {
             // Use the same origin-aware URL construction logic as module loading
             const { protocol, hostname } = getSafeUrlParts();
-            
+
             let baseUrl;
             // Check if we're in a development environment (localhost with port)
-            const isDevelopment = hostname === 'localhost' && typeof location !== 'undefined' && location.port;
+            const isDevelopment =
+              hostname === "localhost" &&
+              typeof location !== "undefined" &&
+              location.port;
             if (isDevelopment) {
               // Use the local development server
               baseUrl = `${protocol}//${hostname}:${location.port}`;
@@ -2172,8 +2175,9 @@ const $commonApi = {
               // Use the production server for sandboxed iframes or production
               baseUrl = `https://aesthetic.computer`;
             }
-            
-            const mediaUrl = `${baseUrl}/media/${handle}/painting/${code}.${extension}`;
+
+            const sanitizedHandle = `${handle ?? ""}`.replace(/^@+/, "");
+            const mediaUrl = `${baseUrl}/media/@${sanitizedHandle}/painting/${code}.${extension}`;
             console.log("🖼️ Media URL constructed:", mediaUrl);
             return $commonApi.net.preload(
               mediaUrl,
@@ -2255,6 +2259,12 @@ const $commonApi = {
       currentHUDTxt = text;
       // Use plainTextOverride if provided, otherwise strip color codes from text
       currentHUDPlainTxt = plainTextOverride || stripColorCodes(text);  // Store plain text version
+      
+      // If this is a painting code (#xyz), update currentPath and currentText for extension display
+      if (currentPath === "aesthetic.computer/disks/painting" && text && text.startsWith("#")) {
+        currentPath = `aesthetic.computer/disks/painting~${text}`;
+        currentText = `painting~${text}`;
+      }
       
       if (!color) {
         currentHUDTextColor = currentHUDTextColor || graph.findColor(color);
@@ -3639,10 +3649,10 @@ $commonApi.broadcastPaintingUpdateImmediate = (action, data = {}) => {
       };
       
       channel.postMessage(JSON.stringify(storageCompleteMessage));
-      console.log(`🪝 STORAGE COMPLETE hook fired for ${data.source} ${$commonApi.system.painting.width}x${$commonApi.system.painting.height}`, {
-        timestamp: message.timestamp,
-        tabId: message.tabId.substr(0, 4) + '...'
-      });
+      // console.log(`🪝 STORAGE COMPLETE hook fired for ${data.source} ${$commonApi.system.painting.width}x${$commonApi.system.painting.height}`, {
+      //   timestamp: message.timestamp,
+      //   tabId: message.tabId.substr(0, 4) + '...'
+      // });
     }
     
   }, 0);
@@ -6481,6 +6491,7 @@ async function load(
   $commonApi.query = Object.fromEntries(new URLSearchParams(search));
   $commonApi.params = params || [];
   $commonApi.colon = colon || [];
+  $commonApi.hash = hash;
 
   // Initialize duration tracking from query parameters
   if ($commonApi.query.duration) {
