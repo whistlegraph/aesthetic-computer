@@ -2161,10 +2161,13 @@ const $commonApi = {
           } else {
             // Use the same origin-aware URL construction logic as module loading
             const { protocol, hostname } = getSafeUrlParts();
-            
+
             let baseUrl;
             // Check if we're in a development environment (localhost with port)
-            const isDevelopment = hostname === 'localhost' && typeof location !== 'undefined' && location.port;
+            const isDevelopment =
+              hostname === "localhost" &&
+              typeof location !== "undefined" &&
+              location.port;
             if (isDevelopment) {
               // Use the local development server
               baseUrl = `${protocol}//${hostname}:${location.port}`;
@@ -2172,8 +2175,9 @@ const $commonApi = {
               // Use the production server for sandboxed iframes or production
               baseUrl = `https://aesthetic.computer`;
             }
-            
-            const mediaUrl = `${baseUrl}/media/@${handle}/painting/${code}.${extension}`;
+
+            const sanitizedHandle = `${handle ?? ""}`.replace(/^@+/, "");
+            const mediaUrl = `${baseUrl}/media/@${sanitizedHandle}/painting/${code}.${extension}`;
             console.log("🖼️ Media URL constructed:", mediaUrl);
             return $commonApi.net.preload(
               mediaUrl,
