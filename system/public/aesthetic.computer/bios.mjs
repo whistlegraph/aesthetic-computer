@@ -40,6 +40,18 @@ const { assign, keys } = Object;
 const { round, floor, min, max } = Math;
 const { isFinite } = Number;
 
+let pendingUrlRewrite = null;
+let rewriteFocusListenerAttached = false;
+
+function performHistoryRewrite(path, historical) {
+  if (historical) {
+    console.log("Rewriting to:", path);
+    history.pushState("", document.title, path);
+  } else {
+    history.replaceState("", document.title, path);
+  }
+}
+
 function resolveBackgroundFillSpec(colorLike) {
   if (colorLike === undefined || colorLike === null) return null;
 
@@ -7293,14 +7305,29 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (type === "rewrite-url-path") {
       const newPath = content.path;
-      // if (window.origin !== "null") {
-      if (content.historical) {
-        console.log("Rewriting to:", newPath);
-        history.pushState("", document.title, newPath);
+      const historical = !!content.historical;
+
+      if (typeof document !== "undefined" && !document.hasFocus()) {
+        pendingUrlRewrite = { path: newPath, historical };
+        if (typeof window !== "undefined" && !rewriteFocusListenerAttached) {
+          rewriteFocusListenerAttached = true;
+          window.addEventListener(
+            "focus",
+            () => {
+              rewriteFocusListenerAttached = false;
+              const pending = pendingUrlRewrite;
+              pendingUrlRewrite = null;
+              if (pending) {
+                performHistoryRewrite(pending.path, pending.historical);
+              }
+            },
+            { once: true },
+          );
+        }
       } else {
-        history.replaceState("", document.title, newPath);
+        performHistoryRewrite(newPath, historical);
       }
-      // }
+
       return;
     }
 
@@ -8012,6 +8039,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           if (content.text === "/prompt") {
             urlPath = "/";
           } else if (
+            content.path === "aesthetic.computer/disks/painting" &&
+            content.hash &&
+            /^[A-Za-z0-9]{3,12}$/.test(content.hash)
+          ) {
+            // Preserve short painting codes as a pure hash URL
+            urlPath = "/#" + content.hash;
+          } else if (
             content.path === "aesthetic.computer/disks/prompt" &&
             content.params &&
             content.params.length > 0 &&
@@ -8038,6 +8072,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               slug: (() => {
                 if (content.text?.startsWith("/")) {
                   return content.text.slice(1);
+                } else if (
+                  content.path === "aesthetic.computer/disks/painting" &&
+                  content.hash &&
+                  /^[A-Za-z0-9]{3,12}$/.test(content.hash)
+                ) {
+                  return "#" + content.hash;
                 } else if (
                   content.path === "aesthetic.computer/disks/prompt" &&
                   content.params &&
@@ -8067,6 +8107,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             let urlPath;
             if (content.text === "/prompt") {
               urlPath = "/";
+            } else if (
+              content.path === "aesthetic.computer/disks/painting" &&
+              content.hash &&
+              /^[A-Za-z0-9]{3,12}$/.test(content.hash)
+            ) {
+              urlPath = "/#" + content.hash;
             } else if (
               content.path === "aesthetic.computer/disks/prompt" &&
               content.params &&
@@ -12093,7 +12139,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               const options = { method: "POST", headers };
               options.body = JSON.stringify({ slug, ext });
               const added = await fetch("api/track-media", options);
-              if (debug) console.log("🗞️ Added to database...", added);
+              const addedData = await added.json();
+              if (debug) console.log("🗞️ Added to database...", addedData);
+              
+              // Extract code from response if present
+              if (addedData.code) {
+                console.log(`🎨 Painting code: #${addedData.code}`);
+                data.code = addedData.code; // Add code to return data
+              }
             }
 
             let data = { slug, url: url.toString(), ext };

@@ -1,0 +1,36 @@
+{
+  "name": "@aesthetic/painting-tools",
+  "version": "0.0.1",
+  "type": "module",
+  "description": "CLI tools for managing painting short codes and Digital Ocean storage",
+  "scripts": {
+    "inspect:spaces": "node inspect-spaces.mjs",
+    "inspect:mongodb": "node inspect-mongodb.mjs",
+    "inspect:api": "node inspect-api.mjs",
+    "check:lifecycle": "node check-lifecycle.mjs",
+    "test:generator": "node test-code-generator.mjs",
+    "migrate": "node --env-file=.env migrate-add-codes.mjs",
+    "migrate:dry": "node --env-file=.env migrate-add-codes.mjs --dry-run",
+    "migrate:user": "node --env-file=.env migrate-add-codes.mjs --user-only",
+    "migrate:guest": "node --env-file=.env migrate-add-codes.mjs --guest-only",
+    "stats": "node stats.mjs",
+    "verify": "node verify.mjs"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.600.0",
+    "dotenv": "^16.4.5",
+    "mongodb": "^6.3.0",
+    "nanoid": "^5.0.0",
+    "sharp": "^0.34.4"
+  },
+  "keywords": [
+    "aesthetic-computer",
+    "paintings",
+    "digital-ocean",
+    "mongodb",
+    "cli-tools"
+  ],
+  "author": "Jeffrey Scudder",
+  "license": "UNLICENSED",
+  "private": true
+}
