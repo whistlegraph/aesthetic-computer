@@ -214,6 +214,7 @@
   "workspace": {
     "packageJson": {
       "dependencies": [
+        "npm:@atproto/api@^0.17.2",
         "npm:@aws-sdk/client-s3@^3.896.0",
         "npm:@aws-sdk/s3-request-presigner@^3.896.0",
         "npm:@ffmpeg/core@^0.12.10",
