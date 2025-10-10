@@ -75,158 +75,16 @@ function boot({
   hud,
   gizmo,
   query,
-  hash,
   handle: getHandle,
   dom: { html },
-  send,
 }) {
   showMode = colon[0] === "show"; // A special lightbox mode with no bottom bar.
-
-  console.log("🎨 painting.mjs boot() - hash value:", hash, "type:", typeof hash);
 
   ellipsisTicker = new gizmo.EllipsisTicker();
 
   if (showMode) {
     hud.labelBack();
     btnBar = 0;
-  }
-
-  // Check if we have a painting code in the hash (#code)
-  if (hash && hash.length > 0) {
-    console.log(`🔍 Looking up painting by code: #${hash}`);
-    interim = "Fetching";
-    label = `#${hash}`; // Set label to show the code
-    paintingCode = hash; // Store the code for display
-    net.waitForPreload();
-    
-    // Use production API if local dev doesn't have the function yet
-    const isLocalhost = typeof window !== 'undefined' && window.location.hostname === 'localhost';
-    const apiUrl = isLocalhost
-      ? `https://aesthetic.computer/api/painting-code?code=${hash}`
-      : `/api/painting-code?code=${hash}`;
-    
-    console.log(`📞 Calling API:`, apiUrl);
-    fetch(apiUrl)
-      .then(response => {
-        console.log(`📡 API response status:`, response.status, response.statusText);
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-        return response.json();
-      })
-      .then(paintingData => {
-        console.log(`✅ Found painting:`, paintingData);
-        
-        // Set the painting parameters from the API response
-        handle = paintingData.handle || "anon";
-        imageCode = paintingData.slug;
-        paintingCode = paintingData.code; // Store the short code
-        console.log(`🏷️ Set paintingCode to: ${paintingCode}`);
-        
-        // Parse the slug to extract recording code if it exists
-        // Format: "timestamp" or "code:recording"
-        if (imageCode.includes(":")) {
-          [imageCode, recordingCode] = imageCode.split(":");
-        } else {
-          recordingCode = imageCode; // For user paintings, the timestamp is both
-        }
-        
-        slug = handle && handle !== "anon" 
-          ? `${handle}/painting/${imageCode}.png`
-          : `${imageCode}.png`;
-        
-        // Fetch the actual painting image
-        return get.painting(imageCode).by(handle);
-      })
-      .then((out) => {
-        console.log("🖼️ Painting image loaded:", out);
-        finalPainting = out.img;
-        net.preloaded();
-        
-        // Update label and title to show the painting code
-        if (paintingCode) {
-          label = `#${paintingCode}`;
-          hud.label(`#${paintingCode}`); // Update the prompt HUD label and currentPath/currentText
-          // Update the page title dynamically
-          if (typeof document !== 'undefined') {
-            document.title = `#${paintingCode} · Aesthetic Computer`;
-          }
-          // Manually send url:updated since we changed it after initial load
-          send({ type: "url:updated", slug: `painting~#${paintingCode}` });
-        }
-        
-        if (handle === getHandle() && !showMode) {
-          console.log("✅ This is your painting!");
-          menuBtn = new ui.Button();
-        }
-        
-        // Load the recording if we have one
-        if (recordingCode) {
-          console.log("📹 Loading recording:", recordingCode);
-          get
-            .painting(recordingCode, { record: true })
-            .by(handle)
-            .then((recordOut) => {
-              console.log("✅ Recording loaded:", recordOut);
-              timeout = setTimeout(() => {
-                pastRecord = system.nopaint.record;
-                system.nopaint.record = recordOut;
-                advance(system);
-                running = true;
-                console.log("▶️ Playback started");
-              }, 500);
-            })
-            .catch((err) => {
-              console.warn("⚠️ No recording found for this painting:", err);
-            });
-        }
-        
-        // Set up download overlay if not in special modes
-        if (showMode || "icon" in query || "preview" in query) return;
-        
-        const cssWidth = finalPainting.width * display.subdivisions;
-        const cssHeight = finalPainting.height * display.subdivisions;
-        const downloadURL = "/api/pixel/2048:conform/" + encodeURI(slug);
-        
-        html`
-          <img
-            width="${finalPainting.width}"
-            height="${finalPainting.height}"
-            id="hidden-painting"
-            crossorigin
-            src=${downloadURL}
-          />
-          <style>
-            #content {
-              z-index: 0 !important;
-            }
-            #hidden-painting {
-              position: absolute;
-              top: calc(calc(50% - calc(${cssHeight}px / 2)) - 32px);
-              left: calc(50% - calc(${cssWidth}px / 2));
-              width: ${cssWidth}px;
-              height: ${cssHeight}px;
-              background: yellow;
-              opacity: 0.25;
-              object-fit: contain;
-              image-rendering: pixelated;
-              -webkit-user-select: all;
-              user-select: all;
-            }
-          </style>
-          <script>
-            const hp = document.querySelector("#hidden-painting");
-            hp.onmousedown = (e) => {};
-          </script>
-        `;
-      })
-      .catch((err) => {
-        console.error(`❌ Failed to lookup painting code #${hash}:`, err);
-        console.error(`❌ Error details:`, err.message, err.stack);
-        interim = "Code not found";
-        net.preloaded(); // Release the loading state
-      });
-    return; // Don't process params if we used hash
   }
 
   if (params[0]?.length > 0) {
