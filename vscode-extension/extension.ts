@@ -948,8 +948,22 @@ function getWebViewContent(webview: any, slug: string) {
   // console.log("🟪 Aesthetic:", sessionAesthetic, "🪷 Sotce:", sessionSotce);
 
   // console.log("🪱 Slug:", slug);
-  let param = slug; // || "prompt";
-  param += "?vscode=true"; // Add vscode flag.
+  let hashFragment = "";
+  let pathPart = slug || "";
+
+  if (pathPart.startsWith("#")) {
+    hashFragment = pathPart;
+    pathPart = "";
+  }
+
+  const hasQuery = pathPart.includes("?");
+  let param = pathPart;
+
+  if (param) {
+    param += hasQuery ? "&vscode=true" : "?vscode=true";
+  } else {
+    param = "?vscode=true";
+  }
 
   [sessionAesthetic, sessionSotce].forEach((session, index) => {
     const paramBase = `&session-${index === 0 ? "aesthetic" : "sotce"}=`;
@@ -984,7 +998,7 @@ function getWebViewContent(webview: any, slug: string) {
 			<body>
         <iframe id="aesthetic" credentialless sandbox="allow-scripts allow-same-origin allow-pointer-lock allow-modals allow-popups allow-popups-to-escape-sandbox" allow="clipboard-write; clipboard-read; pointer-lock" src="https://${
           local ? "localhost:8888" : "aesthetic.computer"
-        }/${param}" border="none"></iframe>
+        }/${param}${hashFragment}" border="none"></iframe>
        	<script nonce="${nonce}" src="${scriptUri}"></script>
 			</body>
 			</html>`;
