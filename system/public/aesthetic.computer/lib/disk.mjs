@@ -3639,10 +3639,10 @@ $commonApi.broadcastPaintingUpdateImmediate = (action, data = {}) => {
       };
       
       channel.postMessage(JSON.stringify(storageCompleteMessage));
-      console.log(`🪝 STORAGE COMPLETE hook fired for ${data.source} ${$commonApi.system.painting.width}x${$commonApi.system.painting.height}`, {
-        timestamp: message.timestamp,
-        tabId: message.tabId.substr(0, 4) + '...'
-      });
+      // console.log(`🪝 STORAGE COMPLETE hook fired for ${data.source} ${$commonApi.system.painting.width}x${$commonApi.system.painting.height}`, {
+      //   timestamp: message.timestamp,
+      //   tabId: message.tabId.substr(0, 4) + '...'
+      // });
     }
     
   }, 0);
@@ -6481,6 +6481,7 @@ async function load(
   $commonApi.query = Object.fromEntries(new URLSearchParams(search));
   $commonApi.params = params || [];
   $commonApi.colon = colon || [];
+  $commonApi.hash = hash;
 
   // Initialize duration tracking from query parameters
   if ($commonApi.query.duration) {
