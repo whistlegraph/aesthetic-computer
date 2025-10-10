@@ -1080,10 +1080,10 @@ function ac-session
         sleep 1
         
         # Kill the port before starting
-        kill-port 8889 2>/dev/null
+        npx kill-port 8889 2>/dev/null
         
         # Start nodemon directly without the trailing fish command
-        PORT=8889 NODE_ENV=development nodemon -I --watch session.mjs session.mjs
+        PORT=8889 NODE_ENV=development npx nodemon -I --watch session.mjs session.mjs
         
         set exit_code $status
         echo "⚠️  ac-session crashed/stopped with exit code $exit_code"
