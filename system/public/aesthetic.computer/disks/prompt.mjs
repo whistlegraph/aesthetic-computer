@@ -1888,6 +1888,14 @@ async function halt($, text) {
     // Disconnect from socket server, chat, and udp in 5 seconds...
     net.hiccup();
     return true;
+  } else if (text.startsWith("#")) {
+    // Handle painting short codes like #k3d
+    const code = text.slice(1).trim();
+    if (code.length > 0) {
+      console.log(`🎨 Loading painting by code: #${code}`);
+      jump(`painting~#${code}`);
+      return true;
+    }
   } else {
     // console.log("🟢 Attempting a load!");    // 🟠 Local and remote pieces...
 
