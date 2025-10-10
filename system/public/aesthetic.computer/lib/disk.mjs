@@ -2173,7 +2173,7 @@ const $commonApi = {
               baseUrl = `https://aesthetic.computer`;
             }
             
-            const mediaUrl = `${baseUrl}/media/${handle}/painting/${code}.${extension}`;
+            const mediaUrl = `${baseUrl}/media/@${handle}/painting/${code}.${extension}`;
             console.log("🖼️ Media URL constructed:", mediaUrl);
             return $commonApi.net.preload(
               mediaUrl,
