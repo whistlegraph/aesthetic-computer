@@ -1,10 +1,7 @@
 // Painting Code Lookup API
 // Returns painting slug by short code (e.g., "k3d" or "WDv")
 
-import { MongoClient } from "mongodb";
-
-const client = new MongoClient(process.env.MONGODB_CONNECTION_STRING);
-const dbName = process.env.MONGODB_NAME || "aesthetic";
+import { connect } from "../../backend/database.mjs";
 
 function respond(statusCode, body) {
   return {
@@ -31,10 +28,10 @@ export async function handler(event) {
     return respond(400, { error: "Missing code parameter" });
   }
 
+  let database;
   try {
-    await client.connect();
-    const db = client.db(dbName);
-    const paintings = db.collection("paintings");
+    database = await connect();
+    const paintings = database.db.collection("paintings");
 
     // Look up painting by code
     const painting = await paintings.findOne(
@@ -43,15 +40,16 @@ export async function handler(event) {
     );
 
     if (!painting) {
+      await database.disconnect();
       return respond(404, { error: "Painting not found" });
     }
 
     // Get handle if painting has a user
     let handle = "anon";
     if (painting.user) {
-      const handles = db.collection("@handles");
+      const handles = database.db.collection("@handles");
       const handleDoc = await handles.findOne(
-        { userId: painting.user },
+        { _id: painting.user },
         { projection: { handle: 1, _id: 0 } }
       );
       if (handleDoc) {
@@ -59,6 +57,7 @@ export async function handler(event) {
       }
     }
 
+    await database.disconnect();
     return respond(200, {
       slug: painting.slug,
       code: painting.code,
@@ -67,8 +66,7 @@ export async function handler(event) {
 
   } catch (error) {
     console.error("Error looking up painting code:", error);
+    if (database) await database.disconnect();
     return respond(500, { error: "Internal server error" });
-  } finally {
-    await client.close();
   }
 }
