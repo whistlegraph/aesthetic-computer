@@ -8,6 +8,7 @@ import { shell } from "../../backend/shell.mjs";
 import { handleFor } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
 import * as logger from "../../backend/logger.mjs";
+import { generateUniqueUserCode, ensureUserCodeIndex } from "../../public/aesthetic.computer/lib/user-code.mjs";
 
 const AUTH0_LOG_TOKEN = process.env.AUTH0_LOG_TOKEN;
 
@@ -37,6 +38,25 @@ export async function handler(event, context) {
       // Insert into "verifieds" collection, with verification count 0
       const verifications = database.db.collection("verifications");
       await verifications.insertOne({ _id: aestheticSub, count: 0 });
+
+      // 🎫 Generate unique user code
+      try {
+        await ensureUserCodeIndex(database);
+        const signupDate = new Date(log.data.date); // Use Auth0 event timestamp
+        const code = await generateUniqueUserCode(database, signupDate);
+        
+        const users = database.db.collection("users");
+        await users.insertOne({ 
+          _id: aestheticSub, 
+          code,
+          when: signupDate
+        });
+        
+        shell.log("🎫 Generated user code:", code, "for:", aestheticSub);
+      } catch (error) {
+        shell.log("⚠️ Failed to generate user code:", aestheticSub, error);
+        // Don't block signup on code generation failure
+      }
     }
 
     // 💌 Email verified

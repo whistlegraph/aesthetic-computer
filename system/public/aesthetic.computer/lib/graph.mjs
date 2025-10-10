@@ -5862,6 +5862,69 @@ function sharpen(strength = 1) {
   graphPerf.track('sharpen', sharpenEndTime - sharpenStartTime);
 }
 
+// Invert all colors in the buffer (RGB channels)
+// Alpha channel is preserved
+function invert() {
+  // Start timing for performance monitoring
+  const invertStartTime = performance.now();
+
+  // Determine the area to process (mask or full screen)
+  let minX = 0,
+    minY = 0,
+    maxX = width,
+    maxY = height;
+  if (activeMask) {
+    // Apply pan translation to mask bounds and ensure they're within screen bounds
+    minX = Math.max(0, Math.min(width, activeMask.x + panTranslation.x));
+    maxX = Math.max(
+      0,
+      Math.min(width, activeMask.x + activeMask.width + panTranslation.x),
+    );
+    minY = Math.max(0, Math.min(height, activeMask.y + panTranslation.y));
+    maxY = Math.max(
+      0,
+      Math.min(height, activeMask.y + activeMask.height + panTranslation.y),
+    );
+  }
+
+  const workingWidth = maxX - minX;
+  const workingHeight = maxY - minY;
+
+  // Early exit if bounds are invalid
+  if (workingWidth <= 0 || workingHeight <= 0) return;
+
+  // 🛡️ SAFETY CHECK: If pixels buffer is detached, recreate it
+  if (pixels.buffer && pixels.buffer.detached) {
+    console.warn('🚨 Pixels buffer detached in invert, recreating from screen dimensions');
+    pixels = new Uint8ClampedArray(width * height * 4);
+    pixels.fill(0); // Fill with transparent black
+  }
+
+  try {
+    // Invert each pixel's RGB values (255 - value)
+    for (let y = minY; y < maxY; y++) {
+      for (let x = minX; x < maxX; x++) {
+        const idx = (y * width + x) * 4;
+
+        // Skip fully transparent pixels
+        if (pixels[idx + 3] === 0) continue;
+
+        // Invert RGB channels (alpha stays unchanged)
+        pixels[idx] = 255 - pixels[idx];
+        pixels[idx + 1] = 255 - pixels[idx + 1];
+        pixels[idx + 2] = 255 - pixels[idx + 2];
+        // pixels[idx + 3] unchanged (Alpha)
+      }
+    }
+  } catch (error) {
+    console.warn('🚨 Invert operation failed:', error);
+  }
+
+  // Log timing information for performance monitoring
+  const invertEndTime = performance.now();
+  graphPerf.track('invert', invertEndTime - invertStartTime);
+}
+
 // Sort pixels by color within the masked area (or entire screen if no mask)
 // Sorts by luminance (brightness) - darker pixels first, lighter pixels last
 function sort() {
@@ -7615,6 +7678,7 @@ export {
   suck,
   blur,
   sharpen,
+  invert,
   cleanupBlurBuffers,
   sort,
   shear,

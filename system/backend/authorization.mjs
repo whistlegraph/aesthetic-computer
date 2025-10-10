@@ -495,6 +495,10 @@ async function getAccessToken(got, tenant = "aesthetic") {
     client_secret = process.env.SOTCE_AUTH0_M2M_SECRET;
   }
 
+  shell.log(`🔑 Getting access token for ${tenant}`);
+  shell.log(`   Client ID: ${client_id?.substring(0, 10)}...`);
+  shell.log(`   Secret length: ${client_secret?.length || 0}`);
+
   const tokenResponse = await got(`${baseURI}/oauth/token`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
