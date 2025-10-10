@@ -1900,7 +1900,7 @@ async function halt($, text) {
       
       if (cached) {
         console.log(`✅ Found cached painting: ${cached.handle}/painting/${cached.slug}`);
-        jump(`painting~${cached.handle}/painting/${cached.slug}`);
+        jump(`painting~@${cached.handle}/painting/${cached.slug}`);
         return true;
       }
       
@@ -1912,7 +1912,8 @@ async function halt($, text) {
             console.log(`✅ Found painting: ${data.handle}/painting/${data.slug}`);
             // Cache the result
             store[cacheKey] = { slug: data.slug, handle: data.handle, code: data.code };
-            jump(`painting~${data.handle}/painting/${data.slug}`);
+            // Jump with @handle/painting/slug format for proper parsing
+            jump(`painting~@${data.handle}/painting/${data.slug}`);
           } else {
             console.error(`❌ Painting not found for code: #${code}`);
             notice(`Painting #${code} not found`, ["red"]);
