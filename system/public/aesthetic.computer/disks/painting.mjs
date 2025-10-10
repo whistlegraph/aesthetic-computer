@@ -99,7 +99,8 @@ function boot({
     net.waitForPreload();
     
     // Use production API if local dev doesn't have the function yet
-    const apiUrl = window.location.hostname === 'localhost' 
+    const isLocalhost = typeof window !== 'undefined' && window.location.hostname === 'localhost';
+    const apiUrl = isLocalhost
       ? `https://aesthetic.computer/api/painting-code?code=${hash}`
       : `/api/painting-code?code=${hash}`;
     
