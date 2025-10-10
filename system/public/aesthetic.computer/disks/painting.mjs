@@ -78,6 +78,7 @@ function boot({
   hash,
   handle: getHandle,
   dom: { html },
+  send,
 }) {
   showMode = colon[0] === "show"; // A special lightbox mode with no bottom bar.
 
@@ -150,6 +151,11 @@ function boot({
           if (typeof document !== 'undefined') {
             document.title = `#${paintingCode} · Aesthetic Computer`;
           }
+          // Update the VSCode extension slug
+          send({ 
+            type: "url:updated", 
+            slug: `painting~#${paintingCode}` 
+          });
         }
         
         if (handle === getHandle() && !showMode) {
