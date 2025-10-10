@@ -13017,9 +13017,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     `.replace(/\s+/g, ' ').trim());
     
     document.body.appendChild(cursor);
-    console.log("🎯 Pointer lock cursor element created with inline SVG", cursor);
-    console.log("🎯 Cursor element styles:", cursor.getAttribute("style"));
-    console.log("🎯 Document body children count:", document.body.children.length);
+    // console.log("🎯 Pointer lock cursor element created with inline SVG", cursor);
+    // console.log("🎯 Cursor element styles:", cursor.getAttribute("style"));
+    // console.log("🎯 Document body children count:", document.body.children.length);
     return cursor;
   }
   
