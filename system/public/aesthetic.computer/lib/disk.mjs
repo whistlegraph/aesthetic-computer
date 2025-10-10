@@ -2256,9 +2256,10 @@ const $commonApi = {
       // Use plainTextOverride if provided, otherwise strip color codes from text
       currentHUDPlainTxt = plainTextOverride || stripColorCodes(text);  // Store plain text version
       
-      // If this is a painting code (#xyz), update currentPath for extension display
+      // If this is a painting code (#xyz), update currentPath and currentText for extension display
       if (currentPath === "aesthetic.computer/disks/painting" && text && text.startsWith("#")) {
         currentPath = `aesthetic.computer/disks/painting~${text}`;
+        currentText = `painting~${text}`;
       }
       
       if (!color) {
