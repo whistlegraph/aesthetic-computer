@@ -212,7 +212,8 @@ export async function createAccount(sub, options = {}) {
     
     await users.updateOne(
       { _id: sub },
-      { $set: { atproto: atprotoData } }
+      { $set: { atproto: atprotoData } },
+      { upsert: true }
     );
     
     shell.log(`\n💾 Stored in MongoDB`);
