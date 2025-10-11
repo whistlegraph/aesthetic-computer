@@ -9,6 +9,7 @@ import { handleFor } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
 import * as logger from "../../backend/logger.mjs";
 import { generateUniqueUserCode, ensureUserCodeIndex } from "../../public/aesthetic.computer/lib/user-code.mjs";
+import { createAtprotoAccount } from "../../backend/at.mjs";
 
 const AUTH0_LOG_TOKEN = process.env.AUTH0_LOG_TOKEN;
 
@@ -93,6 +94,22 @@ export async function handler(event, context) {
               action: "handle:inherit",
               value: handle,
             }); // 🪵 Log first cross-over handle creation.
+          }
+
+          // 🦋 Create ATProto account on first verification
+          shell.log("🦋 Creating ATProto account for newly verified user...");
+          const atprotoResult = await createAtprotoAccount(
+            database,
+            aestheticSub,
+          );
+          if (atprotoResult.created) {
+            shell.log(
+              `✅ ATProto account created: ${atprotoResult.did} @${atprotoResult.handle}`,
+            );
+          } else {
+            shell.log(
+              `⚠️  ATProto account creation: ${atprotoResult.reason || "failed"}`,
+            );
           }
         }
       } else {
