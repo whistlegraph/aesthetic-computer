@@ -280,6 +280,7 @@ export async function handler(event, context) {
       shell.log(`💁 Setting a handle on ${tenant}:`, handle);
 
       // Insert or update the handle using the `provider|id` key from auth0.
+      let atprotoSync; // Declare outside try block to avoid ReferenceError
       try {
         let sub = user.sub;
         if (tenant === "sotce") sub = "sotce-" + user.sub;
@@ -346,7 +347,7 @@ export async function handler(event, context) {
             }); // 🪵 Log initial handle creation.
           }
         }
-        const atprotoSync = await updateAtprotoHandle(database, primarySub, handle);
+        atprotoSync = await updateAtprotoHandle(database, primarySub, handle);
         // Update the redis handle <-> userID cache...
         if (existingUser?.handle)
           await KeyValue.del("@handles", existingUser.handle);
