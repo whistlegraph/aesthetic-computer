@@ -107,7 +107,7 @@ included_env_vars = ["NETLIFY_DEV", "NODE_ENV", "ART_ENDPOINT", "ART_KEY", "ART_
 [functions.subscribe-to-topic]
 included_env_vars = ["GCM_FIREBASE_CONFIG_URL"]
 [functions.auth0-events]
-included_env_vars = ["AUTH0_LOG_TOKEN"]
+included_env_vars = ["AUTH0_LOG_TOKEN", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "PDS_URL", "PDS_ADMIN_PASSWORD"]
 [functions.docs]
 included_env_vars = ["CONTEXT"]
 [functions.media-collection]
