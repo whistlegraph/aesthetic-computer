@@ -328,7 +328,7 @@ export async function createAtprotoAccount(database, sub, email) {
       did: finalDid,
       handle: finalHandle,
       password: password,
-      createdAt: new Date().toISOString(),
+      created: new Date().toISOString(),
     };
 
     await users.updateOne(
