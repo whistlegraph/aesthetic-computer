@@ -9,8 +9,6 @@
  * Usage: node create-kidlisp-colors-playlist.mjs
  */
 
-import fetch from 'node-fetch';
-
 // All CSS colors from num.mjs
 const cssColors = {
   aliceblue: [240, 248, 255],
@@ -195,6 +193,13 @@ function generateColorPlaylist() {
       creator: 'Aesthetic Computer',
       duration: 24,
       license: 'open',
+      provenance: {
+        type: 'offChainURI',
+        contract: {
+          chain: 'other',
+          uri: `https://aesthetic.computer/${colorName}`,
+        }
+      },
       url: `/${colorName}`,
     })),
   };
