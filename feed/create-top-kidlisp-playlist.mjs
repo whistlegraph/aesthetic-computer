@@ -77,6 +77,13 @@ function generateDP1Playlist(pieces) {
     source: `https://aesthetic.computer/$${piece.code}?tv=true&density=5`, // TV-friendly URL with HUD and labels
     duration: 24, // KidLisp pieces are interactive/generative, using 24s as placeholder
     license: 'open',
+    provenance: {
+      type: 'offChainURI',
+      contract: {
+        chain: 'other',
+        uri: `https://aesthetic.computer/$${piece.code}`,
+      }
+    },
     content: {
       code: piece.code,
       source: piece.source,
