@@ -9,8 +9,6 @@
  * Usage: node create-kidlisp-chords-playlist.mjs
  */
 
-import fetch from 'node-fetch';
-
 // Common Western chords using notepat notation
 // Format: name, notes (as they appear in clock)
 const chords = [
@@ -79,6 +77,13 @@ function generateChordsPlaylist() {
       creator: 'Aesthetic Computer',
       duration: 24,
       license: 'open',
+      provenance: {
+        type: 'offChainURI',
+        contract: {
+          chain: 'other',
+          uri: `https://aesthetic.computer/clock~^${chord.notes}`,
+        }
+      },
       url: `/clock~^${chord.notes}`,
     })),
   };
