@@ -1279,6 +1279,7 @@ let wavFile = null;
 let preloadedAudio = null;
 let isPlaying = false;
 let audioInitializing = false; // NEW: Track when audio is decoding/worklet loading
+let audioJustStarted = false; // NEW: Track when audio detection just completed - trust audio immediately
 let playingSfx = null;
 let playStartTime = 0;
 let audioStartTime = 0;
@@ -1483,6 +1484,14 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
   
   // Update progress with audio-driven timing (audio is master clock)
   if (isPlaying && playingSfx && actualDuration) {
+    // CRITICAL: During audio initialization, don't calculate progress at all
+    // Wait for audio to actually start before updating timeline
+    if (audioInitializing) {
+      // Keep progress frozen at pausedAt until audio actually starts
+      progress = pausedAt;
+      return; // Don't update anything else during initialization
+    }
+    
     // Use actual audio progress as the master timing source, but validate it first
     if (currentAudioProgress !== null && currentAudioProgress > 0) {
       // Check if audio progress seems reasonable for a resume scenario
@@ -1491,21 +1500,24 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
       
       // Calculate what manual timing says we should be at
       const timeSincePlay = playStartTime ? (performance.now() - playStartTime) / 1000 : 0;
-      const sessionElapsed = (performance.now() - playStartTime) / 1000;
-      const manualProgress = Math.min((pausedAt * actualDuration + sessionElapsed) / actualDuration, 1);
+      const sessionElapsed = playStartTime ? (performance.now() - playStartTime) / 1000 : 0;
+      const manualProgress = playStartTime ? Math.min((pausedAt * actualDuration + sessionElapsed) / actualDuration, 1) : pausedAt;
       const manualAudioDiff = Math.abs(currentAudioProgress - manualProgress);
       
+      // If audio just started after detection, trust it immediately and clear the flag
+      if (audioJustStarted) {
+        progress = currentAudioProgress;
+        audioJustStarted = false; // Clear flag after first sync
+        console.log(`🎵 AUDIO_DETECTION_SYNC: Immediately syncing to audio=${currentAudioProgress.toFixed(6)} after detection complete`);
+      }
       // More aggressive protection: reject audio progress if it's inconsistent
-      const isRecentResume = timeSincePlay < 10.0; // Extended to 10 seconds for more protection
-      const isProgressSuspicious = (pausedAt > 0 && progressDiff > 0.01) || manualAudioDiff > 0.01; // Very tight 1% threshold
-      
-      if (isRecentResume && isProgressSuspicious) {
+      else if (timeSincePlay < 10.0 && ((pausedAt > 0 && Math.abs(currentAudioProgress - pausedAt) > 0.01) || manualAudioDiff > 0.01)) {
         // Audio progress seems wrong - use manual timing to maintain visual continuity
         progress = manualProgress;
         
         // Log the decision to override audio progress
         if (paintCount % 30 === 0) { // More frequent logging during overrides
-          console.log(`🎵 VISUAL_CONTINUITY: Using manual=${manualProgress.toFixed(6)} instead of audio=${currentAudioProgress.toFixed(6)} (pauseDiff=${progressDiff.toFixed(6)}, manualDiff=${manualAudioDiff.toFixed(6)}, timeSincePlay=${timeSincePlay.toFixed(3)}s, pausedAt=${pausedAt.toFixed(6)})`);
+          console.log(`🎵 VISUAL_CONTINUITY: Using manual=${manualProgress.toFixed(6)} instead of audio=${currentAudioProgress.toFixed(6)} (pauseDiff=${Math.abs(currentAudioProgress - pausedAt).toFixed(6)}, manualDiff=${manualAudioDiff.toFixed(6)}, timeSincePlay=${timeSincePlay.toFixed(3)}s, pausedAt=${pausedAt.toFixed(6)})`);
         }
       } else {
         // Audio progress seems trustworthy - transition gradually
@@ -1626,10 +1638,16 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
     pauseStartTime = null;
   }
   
-  // Clear and render to TV bars buffer
-  page(tvBarsBuffer); // Switch to TV bars buffer
+  // TEMPORARILY DISABLED: Clear and render to TV bars buffer
+  // page(tvBarsBuffer); // Switch to TV bars buffer
+  // ... (all TV bars rendering code disabled for debugging)
+  
+  // === SKIP TV BARS RENDERING FOR DEBUG ===
+  // Just go straight to screen rendering
+  page(screen);
 
-  wipe(0, 0, 0, 0); // Clear the buffer with transparent black each frame
+  // DEBUG: Don't wipe at all - let kidlisp handle its own background
+  // wipe(0, 0, 0, 0); // DISABLED - this was wiping before kidlisp could render
   
   // The TV bar is the main visual element that fills the entire screen
   // All other elements are overlays on top of this base composition
@@ -2023,6 +2041,15 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
   // Switch back to main screen and paste the TV bars buffer with blur effect
   page(screen);
   
+  // DEBUG: Try drawing DIRECTLY to screen without painting buffer
+  if (paintCount < 5) {
+    wipe(255, 0, 0); // Red screen - draw DIRECTLY
+    ink(255, 255, 255); // White
+    box(50, 50, 100, 100); // White box - draw DIRECTLY
+    console.log(`🎨 DIRECT_DRAW: Drew red screen with white box DIRECTLY (frame ${paintCount})`);
+    return; // Exit early to see if direct drawing works
+  }
+  
   // === KIDLISP AND TV BARS COMBINATION ===
   if (kidlispMode) {
     // Only show TV bars when playing, not when paused
@@ -2038,6 +2065,9 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
     const { current: currentLocator } = alsProject ? alsProject.getCurrentLocator(currentTimeSeconds, actualDuration) : { current: null };
     const currentPalette = getPaletteForLocator(currentLocator?.name);
     
+    // TEMPORARILY DISABLED: KidLisp rendering causing performance issues
+    // TODO: Re-enable once performance is optimized
+    /*
     // Get the pre-defined KidLisp source for this locator
     let kidlispCode = getKidlispSourceForLocator(currentLocator?.name, isPlaying, audioInitializing, inTapeMode);
     
@@ -2046,11 +2076,29 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
       kidlispCode = ZZZWAP_KIDLISP_SOURCES.START; // Fallback to START
     }
     
+    // DEBUG: Log kidlisp rendering
+    if (paintCount === 1 || paintCount % 120 === 0) {
+      console.log(`🎨 KIDLISP_RENDER: isPlaying=${isPlaying}, code length=${kidlispCode.length}, first 100 chars: ${kidlispCode.substring(0, 100)}`);
+    }
+    
+    // DEBUG TEST: Try drawing directly without kidlisp to test if painting/paste works
+    if (paintCount < 5) {
+      const testPainting = painting(screen.width, screen.height - 3, (testApi) => {
+        testApi.wipe(255, 0, 0); // Red background
+        testApi.ink(255, 255, 255); // White text
+        testApi.box(50, 50, 100, 100); // White box
+      });
+      paste(testPainting, 0, 0);
+      console.log(`🎨 TEST_PAINTING: Drew red screen with white box (frame ${paintCount})`);
+    }
+    
     // Execute the KidLisp theme code (amp is now available as a global variable)
     // Adjust KidLisp dimensions based on pause state
     if (!isPlaying) {
       // When paused: full screen KidLisp, only leave 3px at bottom for 2px progress bar
+      console.log(`🎨 KIDLISP_CALL: rendering at (0, 0, ${screen.width}, ${screen.height - 3})`);
       kidlisp(0, 0, screen.width, screen.height - 3, kidlispCode);
+      console.log(`🎨 KIDLISP_DONE: rendering completed`);
     } else {
       // When playing: normal layout with space for timeline and TV bars
       kidlisp(0, 25, screen.width, screen.height - 24 - 24, kidlispCode);
@@ -2059,6 +2107,7 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
     // CRITICAL: Reset fade mode by calling ink with a non-fade string
     // This clears the global fadeMode, fadeColors, fadeDirection variables
     ink("black"); // Forces findColor to reset fade state
+    */
   } else {
     // Use traditional TV bars buffer (full screen)
     paste(tvBarsBuffer, 0, screen.height - 24);
@@ -2940,14 +2989,17 @@ async function act({ event: e, sound, api }) {
         
         pausedAt = newPausedAt;
         
-        // Set state before killing to prevent race condition in sim()
+        // Set state before pausing
         isPlaying = false;
         audioStarting = false; // Clear any starting state
         audioInitializing = false; // Clear any initialization state
         pauseOverlayVisible = true; // Show pause overlay when paused
         
-        playingSfx.kill();
-        playingSfx = null;
+        // DON'T kill the audio - keep it alive so we can resume from the same position
+        // The audio will continue in the background but we stop updating visuals
+        // playingSfx.kill(); // DISABLED - causes resume to start from 0
+        // playingSfx = null; // DISABLED - we need to keep the reference
+        console.log("🎵 PAUSED (audio kept alive for resume)");
       } else {
         isPlaying = false;
         audioStarting = false;
@@ -3058,6 +3110,23 @@ async function act({ event: e, sound, api }) {
       audioInitializing = true;
       console.log("🎵 AUDIO_INITIALIZING: Set initialization flag for visual feedback");
       
+      // Check if we already have a valid audio instance from a previous pause
+      const hasExistingAudio = playingSfx && !playingSfx.killed;
+      
+      if (hasExistingAudio) {
+        console.log("🎵 RESUMING: Using existing audio instance (no need to create new one)");
+        // Audio is already playing in background, just update our state
+        isPlaying = true;
+        audioInitializing = false;
+        audioJustStarted = true; // Sync immediately to audio
+        playStartTime = performance.now() - (pausedAt * actualDuration * 1000);
+        console.log("🎵 RESUME_COMPLETE: Continuing from existing audio position");
+        return; // Skip the rest of the playback initialization
+      }
+      
+      // Need to create new audio instance (first play or audio was killed)
+      console.log("🎵 NEW_PLAYBACK: Creating new audio instance");
+      
       // Start playing from the paused position
       const playStartTimestamp = performance.now();
       const audioTimeBeforePlay = sound.time;
@@ -3065,20 +3134,46 @@ async function act({ event: e, sound, api }) {
       // 🎵 COMPREHENSIVE AUDIO START LOGGING
       console.log(`🎵 AUDIO_START_ATTEMPT: pausedAt=${pausedAt.toFixed(6)}, duration=${actualDuration?.toFixed(3) || 'unknown'}s, audioTime=${audioTimeBeforePlay?.toFixed(6) || 'unknown'}s`);
       
-      // Start playing from the correct position
+      // Start playing - always start from beginning, then seek if needed
+      // (The 'from' parameter seems to cause issues with resume)
+      playingSfx = sound.play(preloadedAudio, { speed: 1 });
+      
       if (pausedAt > 0) {
-        // Resume from a specific position
-        playingSfx = sound.play(preloadedAudio, { speed: 1, from: pausedAt });
-        console.log(`🎵 AUDIO_PLAY: Resuming from position ${(pausedAt * 100).toFixed(1)}%`);
+        console.log(`🎵 AUDIO_PLAY: Started playback, will seek to ${(pausedAt * actualDuration).toFixed(3)}s (${(pausedAt * 100).toFixed(1)}%)`);
       } else {
-        // Start from beginning - don't use 'from' parameter
-        playingSfx = sound.play(preloadedAudio, { speed: 1 });
         console.log(`🎵 AUDIO_PLAY: Starting from beginning`);
       }
+      
       const playCallDuration = performance.now() - playStartTimestamp;
       const audioTimeAfterPlay = sound.time;
       
       if (playingSfx) {
+        // 🎵 IMMEDIATE SEEK if resuming from a position
+        // Do this BEFORE any other logic to minimize time at wrong position
+        if (pausedAt > 0) {
+          const seekTarget = pausedAt * actualDuration; // Convert to seconds
+          console.log(`🎵 IMMEDIATE_SEEK: Seeking to ${seekTarget.toFixed(3)}s before detection starts`);
+          
+          // Try multiple seek methods
+          if (typeof playingSfx.seek === 'function') {
+            try {
+              await playingSfx.seek(seekTarget);
+              console.log(`🎵 IMMEDIATE_SEEK: Success using seek() method`);
+            } catch (seekError) {
+              console.warn(`🎵 IMMEDIATE_SEEK_FAILED: ${seekError.message}`);
+            }
+          } else if (sound.time !== undefined) {
+            try {
+              sound.time = seekTarget;
+              console.log(`🎵 IMMEDIATE_SEEK: Success using sound.time property`);
+            } catch (timeError) {
+              console.warn(`🎵 IMMEDIATE_SEEK_TIME_FAILED: ${timeError.message}`);
+            }
+          } else {
+            console.warn(`🎵 IMMEDIATE_SEEK: No seek method available - playback will start from beginning`);
+          }
+        }
+        
         // 🎵 DON'T START VISUAL TIMELINE YET - wait for actual audio to begin
         // Set a flag that we're waiting for audio to start
         isPlaying = false; // Keep false until we detect actual audio
@@ -3093,27 +3188,13 @@ async function act({ event: e, sound, api }) {
         // Validate playingSfx object structure for progress tracking
         console.log(`🎵 PLAY_OBJECT: hasProgress=${typeof playingSfx.progress === 'function'}, hasKill=${typeof playingSfx.kill === 'function'}, hasPlayResult=${!!playingSfx.playResult}`);
         
-        // 🎵 FORCE SEEK AFTER PLAY - attempt to correct false starts
-        if (pausedAt > 0 && typeof playingSfx.seek === 'function') {
-          const seekTarget = pausedAt * actualDuration; // Convert to seconds
-          console.log(`🎵 FORCE_SEEK: Attempting to seek to ${seekTarget.toFixed(3)}s (${(pausedAt * 100).toFixed(1)}%)`);
-          try {
-            playingSfx.seek(seekTarget);
-            console.log(`🎵 FORCE_SEEK: Seek completed`);
-          } catch (seekError) {
-            console.warn(`🎵 FORCE_SEEK_FAILED: ${seekError.message}`);
-          }
-        } else if (pausedAt > 0) {
-          console.log(`🎵 FORCE_SEEK: Skipped - seek method not available, but pausedAt=${pausedAt.toFixed(6)}`);
-        } else {
-          console.log(`🎵 FORCE_SEEK: Skipped - starting from beginning, pausedAt=${pausedAt}`);
-        }
+        // Skip the old FORCE_SEEK section since we already did IMMEDIATE_SEEK above
         
         // 🎵 AUDIO START DETECTION LOOP
         // Check for actual audio progress to confirm audio has started
         const checkAudioStart = async () => {
           let attempts = 0;
-          const maxAttempts = 20; // Reduced from 100 to 20 (1 second timeout with 50ms intervals)
+          const maxAttempts = 5; // Reduced to 5 attempts (250ms timeout with 50ms intervals) for faster fallback
           let consecutiveFailures = 0; // Track consecutive progress() failures
           
           console.log(`🎵 DETECTION_START: Beginning audio start detection loop, maxAttempts=${maxAttempts}`);
@@ -3168,6 +3249,7 @@ async function act({ event: e, sound, api }) {
                     audioStartDetected = true;
                     audioStarting = false; // Clear starting flag - this will hide the overlay
                     audioInitializing = false; // Clear initialization flag - audio is fully ready
+                    audioJustStarted = true; // Signal that we should trust audio immediately
                     isPlaying = true;
                     
                     // Initialize visual progress to maintain continuity
@@ -3187,7 +3269,7 @@ async function act({ event: e, sound, api }) {
                     const resumeOffset = pausedAt * actualDuration; // Where we should visually be
                     playStartTime = performance.now() - (resumeOffset * 1000); // Base on where we paused, not current audio
                     console.log(`🎵 VISUAL_TIMELINE_START: playStartTime=${playStartTime}, audioCurrentTime=${audioCurrentTime.toFixed(3)}s, resumeOffset=${resumeOffset.toFixed(3)}s, pausedAt=${pausedAt.toFixed(6)}`);
-                    console.log(`🎵 INITIALIZATION_COMPLETE: audioInitializing=${audioInitializing}, ready for playback`);
+                    console.log(`🎵 INITIALIZATION_COMPLETE: audioInitializing=${audioInitializing}, audioJustStarted=${audioJustStarted}, ready for playback`);
                     break;
                   }
                 } catch (progressError) {
@@ -3195,8 +3277,26 @@ async function act({ event: e, sound, api }) {
                   console.log(`🎵 DETECTION_ATTEMPT_${attempts}: Progress call failed: ${progressError.message} (consecutive failures: ${consecutiveFailures})`);
                   
                   // If we've had too many consecutive progress failures, give up and start anyway
-                  if (consecutiveFailures >= 10) {
+                  if (consecutiveFailures >= 3) {
                     console.warn(`🎵 PROGRESS_FAILURE_LIMIT: Too many consecutive progress failures (${consecutiveFailures}), starting visual timeline anyway`);
+                    audioStartDetected = true;
+                    audioStarting = false;
+                    audioInitializing = false;
+                    isPlaying = true;
+                    
+                    // Initialize visual progress
+                    if (pausedAt > 0) {
+                      progress = pausedAt;
+                      console.log(`🎵 VISUAL_INIT: Starting visual progress from pausedAt=${pausedAt.toFixed(6)} (early failure exit)`);
+                    } else {
+                      progress = 0;
+                      console.log(`🎵 VISUAL_INIT: Starting visual progress from beginning (early failure exit)`);
+                    }
+                    
+                    const resumeOffset = pausedAt * actualDuration;
+                    playStartTime = performance.now() - (resumeOffset * 1000);
+                    console.log(`🎵 VISUAL_TIMELINE_START: playStartTime=${playStartTime} (early failure exit), resumeOffset=${resumeOffset.toFixed(3)}s`);
+                    console.log(`🎵 INITIALIZATION_COMPLETE: audioInitializing=${audioInitializing}, early failure exit`);
                     break; // Exit the loop and start the fallback
                   }
                 }
