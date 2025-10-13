@@ -1155,7 +1155,7 @@ function ac-ff-playlist
     cd ~/aesthetic-computer
     ./rebroadcast.sh
 end
-alias ac-servers 'clear; ac; npm run -s servers; env nogreet=true fish'
+alias ac-servers 'clear; ac; npm run -s servers'
 alias ac-chat-system 'clear; ac; npm run -s chat; cd nanos; npm run chat-system:dev; fish'
 alias ac-chat-sotce 'clear; ac; npm run -s chat; cd nanos; npm run chat-sotce:dev; fish'
 alias ac-chat-clock 'clear; ac; npm run -s chat; cd nanos; npm run chat-clock:dev; fish'
