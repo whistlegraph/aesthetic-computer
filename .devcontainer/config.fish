@@ -777,7 +777,7 @@ function ac-site
             npm run codespaces-dev
         else
             echo "💻 Running on local machine - using SSL..."
-            npm run dev
+            npm run local-dev
         end
         
         set exit_code $status
