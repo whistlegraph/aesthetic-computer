@@ -23,6 +23,11 @@ const { keys } = Object;
 let local: boolean = false;
 let codeChannel: string | undefined;
 
+// Detect if we're in GitHub Codespaces
+const isCodespaces = process?.env.CODESPACES === "true";
+const codespaceName = process?.env.CODESPACE_NAME;
+const codespacesDomain = process?.env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN;
+
 let mergedDocs: any = {};
 let docs: any;
 
@@ -230,6 +235,16 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
 
         const nonce = getNonce();
 
+        // Build CSP frame-src based on environment
+        let cspFrameSrc = "frame-src https://aesthetic.computer https://aesthetic.local:8888 https://localhost:8888";
+        let cspChildSrc = "child-src https://aesthetic.computer https://aesthetic.local:8888 https://localhost:8888";
+        
+        if (isCodespaces && codespaceName && codespacesDomain) {
+          const codespaceUrl = `https://${codespaceName}-8888.${codespacesDomain}`;
+          cspFrameSrc += ` ${codespaceUrl}`;
+          cspChildSrc += ` ${codespaceUrl}`;
+        }
+
         // And set its HTML content
         docsPanel.webview.html = `
         <!DOCTYPE html>
@@ -237,7 +252,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
         <head>
           <meta charset="UTF-8">
           <meta http-equiv="Permissions-Policy" content="midi=*">
-          <meta http-equiv="Content-Security-Policy" content="default-src 'none'; frame-src https://aesthetic.computer https://aesthetic.local:8888 https://localhost:8888; child-src https://aesthetic.computer https://aesthetic.local:8888 https://localhost:8888; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}'; img-src 'self' vscode-resource:;">
+          <meta http-equiv="Content-Security-Policy" content="default-src 'none'; ${cspFrameSrc}; ${cspChildSrc}; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}'; img-src 'self' vscode-resource:;">
           <style nonce="${nonce}">
             body {
               margin: 0;
@@ -982,11 +997,31 @@ function getWebViewContent(webview: any, slug: string) {
 
   // param = "?clearSession=true"; Probably never needed.
 
+  // Determine the iframe URL based on environment
+  let iframeUrl;
+  if (isCodespaces && codespaceName && codespacesDomain) {
+    // In Codespaces, always use the forwarded URL
+    iframeUrl = `https://${codespaceName}-8888.${codespacesDomain}`;
+  } else {
+    // On local laptop, use localhost if local mode is enabled
+    iframeUrl = local ? "localhost:8888" : "aesthetic.computer";
+  }
+
+  // Build CSP frame-src and child-src based on environment
+  let cspFrameSrc = "frame-src https://aesthetic.computer https://hi.aesthetic.computer https://aesthetic.local:8888 https://localhost:8888 https://sotce.net https://hi.sotce.net https://sotce.local:8888";
+  let cspChildSrc = "child-src https://aesthetic.computer https://aesthetic.local:8888 https://sotce.net https://sotce.local:8888 https://localhost:8888";
+  
+  if (isCodespaces && codespaceName && codespacesDomain) {
+    const codespaceUrl = `https://${codespaceName}-8888.${codespacesDomain}`;
+    cspFrameSrc += ` ${codespaceUrl}`;
+    cspChildSrc += ` ${codespaceUrl}`;
+  }
+
   return `<!DOCTYPE html>
 			<html lang="en">
 			<head>
 				<meta charset="UTF-8">
-        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; frame-src https://aesthetic.computer https://hi.aesthetic.computer https://aesthetic.local:8888 https://localhost:8888 https://sotce.net https://hi.sotce.net https://sotce.local:8888; child-src https://aesthetic.computer https://aesthetic.local:8888 https://sotce.net https://sotce.local:8888 https://localhost:8888; style-src ${
+        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; ${cspFrameSrc}; ${cspChildSrc}; style-src ${
           webview.cspSource
         }; script-src 'nonce-${nonce}'; media-src *; img-src 'self' vscode-resource:;">
 				<meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -996,9 +1031,7 @@ function getWebViewContent(webview: any, slug: string) {
 				<title>aesthetic.computer</title>
 			</head>
 			<body>
-        <iframe id="aesthetic" credentialless sandbox="allow-scripts allow-same-origin allow-pointer-lock allow-modals allow-popups allow-popups-to-escape-sandbox" allow="clipboard-write; clipboard-read; pointer-lock" src="https://${
-          local ? "localhost:8888" : "aesthetic.computer"
-        }/${param}${hashFragment}" border="none"></iframe>
+        <iframe id="aesthetic" credentialless sandbox="allow-scripts allow-same-origin allow-pointer-lock allow-modals allow-popups allow-popups-to-escape-sandbox" allow="clipboard-write; clipboard-read; pointer-lock" src="https://${iframeUrl}/${param}${hashFragment}" border="none"></iframe>
        	<script nonce="${nonce}" src="${scriptUri}"></script>
 			</body>
 			</html>`;
