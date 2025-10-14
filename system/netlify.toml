@@ -124,7 +124,11 @@ port = 8888
 targetPort = 8111
 #framework = "#static"
 autoLaunch = false
-[dev.https]
+# No [dev.https] in base config - it's context-specific
+
+# Context for local development: uses HTTPS with local SSL certificates
+[context.local.dev]
+[context.local.dev.https]
 certFile = "../ssl-dev/localhost.pem"
 keyFile = "../ssl-dev/localhost-key.pem"
 
