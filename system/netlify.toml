@@ -281,9 +281,10 @@ from = "https://prompt.ac/*"
 to = "https://aesthetic.computer/:splat"
 status = 301
 force = true
+# Screenshot generation handled by Cloudflare Workers (grab.aesthetic.computer)
 [[redirects]]
 from = "/preview/*"
-to = "/.netlify/functions/screenshot"
+to = "https://grab.aesthetic.computer/preview/:splat"
 status = 200
 [[redirects]]
 from = "/support"
@@ -304,7 +305,7 @@ status = 200
 force = true
 [[redirects]]
 from = "/icon/*"
-to = "/.netlify/functions/screenshot"
+to = "https://grab.aesthetic.computer/icon/:splat"
 status = 200
 [[redirects]]
 from = "/api/print/*"
