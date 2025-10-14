@@ -27,6 +27,7 @@ let progressErrorCount = 0;
 let lastProgressError = null;
 
 // KidLisp mode toggle - when true, use kidlisp() instead of TV bars
+// Re-enabled with workaround for coordinate space issues
 let kidlispMode = true;
 
 // Frequency smoothing - track previous values for smooth transitions
@@ -216,6 +217,52 @@ const ZZZWAP_KIDLISP_SOURCES = {
 
 // Blank KidLisp for tape mode before audio starts
 const DEFAULT_BLANK_KIDLISP = `black`;
+
+// FUNCTION TO STRIP PROBLEMATIC COMMANDS FROM KIDLISP
+function stripProblematicCommands(kidlispCode) {
+  if (!kidlispCode) return kidlispCode;
+  
+  // Remove fade: commands - they affect the full screen
+  let cleaned = kidlispCode.replace(/\(fade:[a-z\-]+\)\s*/g, '');
+  
+  // For screen-wide effects with nested expressions, we need to match balanced parentheses
+  // Use a helper to count and match properly
+  const removeCommand = (code, commandName) => {
+    const regex = new RegExp(`\\(${commandName}\\s+`, 'g');
+    let result = code;
+    let match;
+    
+    while ((match = regex.exec(result)) !== null) {
+      const startIdx = match.index;
+      let depth = 1;
+      let endIdx = startIdx + match[0].length;
+      
+      // Find the matching closing paren
+      while (depth > 0 && endIdx < result.length) {
+        if (result[endIdx] === '(') depth++;
+        else if (result[endIdx] === ')') depth--;
+        endIdx++;
+      }
+      
+      if (depth === 0) {
+        // Remove this command
+        result = result.substring(0, startIdx) + result.substring(endIdx);
+        // Reset regex since we modified the string
+        regex.lastIndex = 0;
+      }
+    }
+    
+    return result;
+  };
+  
+  // Remove each problematic command type
+  cleaned = removeCommand(cleaned, 'spin');
+  cleaned = removeCommand(cleaned, 'zoom');
+  cleaned = removeCommand(cleaned, 'contrast');
+  cleaned = removeCommand(cleaned, 'scroll');
+  
+  return cleaned;
+}
 
 // FUNCTION TO GET PALETTE FOR CURRENT LOCATOR
 function getPaletteForLocator(locatorName) {
@@ -1282,6 +1329,9 @@ let audioInitializing = false; // NEW: Track when audio is decoding/worklet load
 let audioJustStarted = false; // NEW: Track when audio detection just completed - trust audio immediately
 let playingSfx = null;
 let playStartTime = 0;
+let playbackStartProgress = 0; // Progress position when current playback segment began
+let lastResumeTarget = 0; // Where we attempted to resume from
+let resumeRestartDetected = false; // True when audio restarted near 0 on resume
 let audioStartTime = 0;
 let message = "Loading zzzZWAP project...";
 let netAPI = null;
@@ -1289,8 +1339,44 @@ let progress = 0;
 let actualDuration = null;
 let passedLocators = new Set(); // Track which locators we've passed
 let currentAudioProgress = null; // Store the actual audio progress from speaker worklet
+let currentSegmentStart = 0; // Normalized start position (0-1) for current playback request
+let currentSegmentEnd = 1; // Normalized end position (0-1) for current playback request
 let timelineOffset = 2.0; // Look ahead by this many seconds (adjustable with +/-)
 let isBuffering = false; // Track loading state
+
+function segmentProgressToAbsolute(segmentProgress) {
+  const start = Number.isFinite(currentSegmentStart) ? currentSegmentStart : 0;
+  const end = Number.isFinite(currentSegmentEnd) ? currentSegmentEnd : 1;
+  const range = Math.max(0.000001, end - start);
+  const clamped = Math.max(0, Math.min(typeof segmentProgress === "number" ? segmentProgress : 0, 1));
+  return start + clamped * range;
+}
+
+function alignVisualBaselineToAudio(newProgress, reason = "unspecified") {
+  const normalized = Number.isFinite(newProgress) ? Math.max(0, Math.min(newProgress, 1)) : null;
+  if (normalized === null) {
+    return;
+  }
+
+  playbackStartProgress = normalized;
+  progress = normalized;
+  playStartTime = performance.now();
+
+  if (Math.random() < 0.01) {
+    console.log(`🎵 VISUAL_BASELINE_REALIGNED: progress=${normalized.toFixed(6)} reason=${reason}`);
+  }
+}
+
+function startVisualTimeline(baseProgress, reason = "unspecified") {
+  const numericProgress = Number.isFinite(baseProgress) ? baseProgress : 0;
+  const clampedProgress = Math.max(0, Math.min(numericProgress, 1));
+  playbackStartProgress = clampedProgress;
+  progress = clampedProgress;
+  playStartTime = performance.now();
+  const seconds = actualDuration ? (clampedProgress * actualDuration) : 0;
+  const secondsLabel = actualDuration ? `${seconds.toFixed(3)}s` : "unknown";
+  console.log(`🎵 VISUAL_TIMELINE_START: progress=${clampedProgress.toFixed(6)} (${secondsLabel}) reason=${reason}`);
+}
 
 // Boot function to load files over network
 export const boot = async ({ net }) => {
@@ -1401,6 +1487,9 @@ let lastScreenWidth = 0;
 let lastScreenHeight = 0;
 
 function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, typeface, painting, page, paste, blur, zoom, scroll, poly, shape, kidlisp, flood, api }) {
+  // CRITICAL: Fill with a bright baseline color FIRST so the screen is never all black
+  wipe(120, 120, 150); // Light gray-blue baseline
+  
   // Basic debug to confirm piece is running
   if (paintCount === 1) {
     console.log(`🎬 WIPPPPS_PIECE_LOADED: Paint function started for wipppps piece`);
@@ -1411,21 +1500,23 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
   const directRecordingState = api?.rec?.recording === true;
   const inTapeMode = directRecordingState || isCurrentlyRecording || tapeAutoPlayStarted;
 
-  // Debug logging for tape mode detection (only log occasionally to avoid spam)
-  if (paintCount % 60 === 0) { // Log every ~1 second at 60fps
-    console.log(`🎬 TAPE_MODE_DEBUG: inTapeMode=${inTapeMode}, directRecordingState=${directRecordingState}, isCurrentlyRecording=${isCurrentlyRecording}, tapeAutoPlayStarted=${tapeAutoPlayStarted}`);
-  }
+  const tvBarsHeight = 24;
+  const freqDisplayHeight = 12;
+  const timelineHeight = 25;
+  // TV bars at the very top, timeline right below them
+  const tvBarsY = 0; // TV bars at top
+  const timelineY = tvBarsHeight; // Timeline right after TV bars
+  const showTimeline = timelineVisible; // Show timeline always when visible, not just when playing
 
-  // In tape mode before audio starts, show completely black screen
+  // In tape mode before audio starts, we already have the baseline wipe, just return
   if (inTapeMode && !isPlaying) {
-    wipe(0, 0, 0, 255); // Complete black screen
-    return; // Skip all other rendering
+    return; // Skip all other rendering, baseline wipe is already done
   }
 
   // Initialize or recreate TV bars buffer if needed (first time or screen size changed)
   if (!tvBarsBuffer || screen.width !== lastScreenWidth || screen.height !== lastScreenHeight) {
-    // TV bars buffer is now 24px shorter to fit under KidLisp
-    tvBarsBuffer = painting(screen.width, 24, (api) => {
+    // TV bars buffer height stays compact so it can tuck under the timeline
+    tvBarsBuffer = painting(screen.width, tvBarsHeight, (api) => {
       // Initialize with transparent background
       api.wipe(0, 0, 0, 0);
     });
@@ -1470,9 +1561,8 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
     return {r, g, b, name: locator.name};
   }
   
-  // If files aren't loaded yet, show loading message on black background
+  // If files aren't loaded yet, show loading message (baseline wipe already done)
   if (!alsProject || !preloadedAudio) {
-    wipe(0, 0, 0);
     ink(255, 255, 255);
     try {
       write(message, 20, screen.height / 2);
@@ -1488,36 +1578,36 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
     // Wait for audio to actually start before updating timeline
     if (audioInitializing) {
       // Keep progress frozen at pausedAt until audio actually starts
-      progress = pausedAt;
+      progress = playbackStartProgress;
       return; // Don't update anything else during initialization
     }
     
     // Use actual audio progress as the master timing source, but validate it first
     if (currentAudioProgress !== null && currentAudioProgress > 0) {
       // Check if audio progress seems reasonable for a resume scenario
-      const expectedProgress = pausedAt; // Where we should be based on last pause
+      const expectedProgress = playbackStartProgress; // Where the current session began
       const progressDiff = Math.abs(currentAudioProgress - expectedProgress);
       
       // Calculate what manual timing says we should be at
       const timeSincePlay = playStartTime ? (performance.now() - playStartTime) / 1000 : 0;
       const sessionElapsed = playStartTime ? (performance.now() - playStartTime) / 1000 : 0;
-      const manualProgress = playStartTime ? Math.min((pausedAt * actualDuration + sessionElapsed) / actualDuration, 1) : pausedAt;
+      const manualProgress = (playStartTime && actualDuration)
+        ? Math.min(playbackStartProgress + (sessionElapsed / actualDuration), 1)
+        : playbackStartProgress;
       const manualAudioDiff = Math.abs(currentAudioProgress - manualProgress);
       
       // If audio just started after detection, trust it immediately and clear the flag
       if (audioJustStarted) {
-        progress = currentAudioProgress;
+        alignVisualBaselineToAudio(currentAudioProgress, "audio-just-started");
         audioJustStarted = false; // Clear flag after first sync
         console.log(`🎵 AUDIO_DETECTION_SYNC: Immediately syncing to audio=${currentAudioProgress.toFixed(6)} after detection complete`);
       }
-      // More aggressive protection: reject audio progress if it's inconsistent
-      else if (timeSincePlay < 10.0 && ((pausedAt > 0 && Math.abs(currentAudioProgress - pausedAt) > 0.01) || manualAudioDiff > 0.01)) {
-        // Audio progress seems wrong - use manual timing to maintain visual continuity
-        progress = manualProgress;
-        
-        // Log the decision to override audio progress
-        if (paintCount % 30 === 0) { // More frequent logging during overrides
-          console.log(`🎵 VISUAL_CONTINUITY: Using manual=${manualProgress.toFixed(6)} instead of audio=${currentAudioProgress.toFixed(6)} (pauseDiff=${Math.abs(currentAudioProgress - pausedAt).toFixed(6)}, manualDiff=${manualAudioDiff.toFixed(6)}, timeSincePlay=${timeSincePlay.toFixed(3)}s, pausedAt=${pausedAt.toFixed(6)})`);
+      // After resume, only reject audio progress if it's wildly inconsistent with manual timeline
+      // DON'T compare to pausedAt - that's where we TRIED to resume, not where audio actually ended up!
+      else if (!resumeRestartDetected && timeSincePlay < 10.0 && manualAudioDiff > 0.05) { // 5% threshold - realign baseline
+        alignVisualBaselineToAudio(currentAudioProgress, "audio-relock");
+        if (paintCount % 30 === 0) {
+          console.log(`🎵 VISUAL_RELOCK: manual=${manualProgress.toFixed(6)}, audio=${currentAudioProgress.toFixed(6)}, diff=${manualAudioDiff.toFixed(6)}, timeSincePlay=${timeSincePlay.toFixed(3)}s`);
         }
       } else {
         // Audio progress seems trustworthy - transition gradually
@@ -1544,9 +1634,10 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
       }
     } else {
       // Fallback to manual timing if audio progress isn't available yet
-      const sessionElapsed = (performance.now() - playStartTime) / 1000;
-      const currentTime = (pausedAt * actualDuration) + sessionElapsed;
-      const newProgress = Math.min(currentTime / actualDuration, 1);
+      const sessionElapsed = playStartTime ? (performance.now() - playStartTime) / 1000 : 0;
+      const baseSeconds = playbackStartProgress * actualDuration;
+      const currentTime = baseSeconds + sessionElapsed;
+      const newProgress = actualDuration ? Math.min(currentTime / actualDuration, 1) : playbackStartProgress;
       
       // Only use manual timing if we don't have audio progress
       if (currentAudioProgress === null) {
@@ -1561,8 +1652,10 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
     
     // Log sync comparison for debugging
     if (currentAudioProgress !== null && paintCount % 300 === 0) {
-      const sessionElapsed = (performance.now() - playStartTime) / 1000;
-      const manualProgress = Math.min(((pausedAt * actualDuration) + sessionElapsed) / actualDuration, 1);
+      const sessionElapsed = playStartTime ? (performance.now() - playStartTime) / 1000 : 0;
+      const manualProgress = (actualDuration && playStartTime)
+        ? Math.min(playbackStartProgress + (sessionElapsed / actualDuration), 1)
+        : playbackStartProgress;
       const audioProgress = currentAudioProgress;
       const progressDrift = Math.abs(manualProgress - audioProgress);
       
@@ -1638,16 +1731,9 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
     pauseStartTime = null;
   }
   
-  // TEMPORARILY DISABLED: Clear and render to TV bars buffer
-  // page(tvBarsBuffer); // Switch to TV bars buffer
-  // ... (all TV bars rendering code disabled for debugging)
-  
-  // === SKIP TV BARS RENDERING FOR DEBUG ===
-  // Just go straight to screen rendering
-  page(screen);
-
-  // DEBUG: Don't wipe at all - let kidlisp handle its own background
-  // wipe(0, 0, 0, 0); // DISABLED - this was wiping before kidlisp could render
+  // WORKAROUND: Since page() is broken, render TV bars directly to main screen
+  // instead of using an offscreen buffer
+  // Draw TV bars will be rendered AFTER KidLisp so they appear on top
   
   // The TV bar is the main visual element that fills the entire screen
   // All other elements are overlays on top of this base composition
@@ -1911,13 +1997,10 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
         const frequencyBands = sound.speaker?.frequencies?.left || []; // Array of frequency band objects
         
         // Calculate amplitude-based height with frequency band analysis
-        let amplitudeHeight = 24; // Use TV bars buffer height instead of screen.height
-        
-        // Always use TV bars buffer height
-        amplitudeHeight = 24;
+  const amplitudeHeight = tvBarsHeight; // Use TV bars buffer height instead of screen.height
         
         // Center the bar vertically within the TV bars buffer
-        const barHeight = Math.floor(amplitudeHeight);
+  const barHeight = Math.floor(amplitudeHeight);
         const barY = 0; // Start from top of TV bars buffer
         
         // Draw the bar with full height
@@ -1930,7 +2013,7 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
         console.error('Error rendering TV bar:', error);
         // Fallback: render in red to show something went wrong
         ink(255, 0, 0);
-        box(10 + index * 20, 0, 15, 24); // Use TV bars buffer height
+  box(10 + index * 20, 0, 15, tvBarsHeight); // Use TV bars buffer height
       }
     });
     
@@ -1945,17 +2028,20 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
         if (currentLocatorIndex === -1) currentLocatorIndex = 0;
       }
       const colorIndex = currentLocatorIndex % currentPalette.colors.length;
-      const bgColor = currentPalette.colors[colorIndex];
-      ink(bgColor.r, bgColor.g, bgColor.b); // Solid palette color, no pulse
+  const bgColor = currentPalette.colors[colorIndex];
+  const barR = Math.min(255, Math.floor(bgColor.r * 0.75) + 80);
+  const barG = Math.min(255, Math.floor(bgColor.g * 0.75) + 80);
+  const barB = Math.min(255, Math.floor(bgColor.b * 0.75) + 80);
+  ink(barR, barG, barB);
       
       // Always full height for fallback as well
-      box(0, 0, screen.width, 24); // Use TV bars buffer height
+  box(0, 0, screen.width, tvBarsHeight); // Use TV bars buffer height
     } else {
-      // Default background when no content is playing - match timeline fallback
-      ink(50, 50, 50);
+      // Default background when no content is playing - BRIGHT and VISIBLE
+  ink(220, 120, 180); // Bright magenta so we know fallback is rendering
       
       // Always full height for default as well
-      box(0, 0, screen.width, 24); // Use TV bars buffer height
+  box(0, 0, screen.width, tvBarsHeight); // Use TV bars buffer height
     }
   }
 
@@ -1970,9 +2056,9 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
       ? waveform.filter((_, i) => i % Math.ceil(waveform.length / 128) === 0).slice(0, 128)
       : waveform;
     
-    const xStep = screen.width / (resampledWaveform.length - 1);
-    const yMid = 12; // Half of TV bars buffer height (24/2)
-    const yMax = 8; // Amplitude range for the 24px buffer
+  const xStep = screen.width / (resampledWaveform.length - 1);
+  const yMid = tvBarsHeight / 2; // Half of TV bars buffer height
+  const yMax = Math.max(4, tvBarsHeight / 3); // Amplitude range sized for buffer height
     
     // Get weird colors for above and below flood fills
     const currentTime = performance.now();
@@ -2035,39 +2121,21 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
     };
   }
 
-  //oom(1.5).scroll(paintCount, paintCount).spin(3).zoom(0.15).blur(0);
-
   // === END TV BARS RENDERING ===
+  // COMMENTED OUT: page(screen) switching causes black screen  
   // Switch back to main screen and paste the TV bars buffer with blur effect
-  page(screen);
-  
-  // DEBUG: Try drawing DIRECTLY to screen without painting buffer
-  if (paintCount < 5) {
-    wipe(255, 0, 0); // Red screen - draw DIRECTLY
-    ink(255, 255, 255); // White
-    box(50, 50, 100, 100); // White box - draw DIRECTLY
-    console.log(`🎨 DIRECT_DRAW: Drew red screen with white box DIRECTLY (frame ${paintCount})`);
-    return; // Exit early to see if direct drawing works
-  }
+  // page(screen);
+
+  // REMOVED: Ambient background and stripes - not needed since we wipe at the start of paint()
+  // The baseline wipe(120, 120, 150) at the start of paint() handles the background
   
   // === KIDLISP AND TV BARS COMBINATION ===
+  
+  // Render KidLisp - show BEFORE_START (cow image) when paused, patterns when playing
   if (kidlispMode) {
-    // Only show TV bars when playing, not when paused
-    if (isPlaying) {
-      // First paste the TV bars buffer at the bottom (24px tall)
-      paste(tvBarsBuffer, 0, screen.height - 24);
-    }
-    
-    // Then render KidLisp on top, dimensions adjusted based on pause state
-    // Use pre-defined locator-specific KidLisp sources
-    
     // Get current locator for context
     const { current: currentLocator } = alsProject ? alsProject.getCurrentLocator(currentTimeSeconds, actualDuration) : { current: null };
-    const currentPalette = getPaletteForLocator(currentLocator?.name);
     
-    // TEMPORARILY DISABLED: KidLisp rendering causing performance issues
-    // TODO: Re-enable once performance is optimized
-    /*
     // Get the pre-defined KidLisp source for this locator
     let kidlispCode = getKidlispSourceForLocator(currentLocator?.name, isPlaying, audioInitializing, inTapeMode);
     
@@ -2076,42 +2144,36 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
       kidlispCode = ZZZWAP_KIDLISP_SOURCES.START; // Fallback to START
     }
     
-    // DEBUG: Log kidlisp rendering
-    if (paintCount === 1 || paintCount % 120 === 0) {
-      console.log(`🎨 KIDLISP_RENDER: isPlaying=${isPlaying}, code length=${kidlispCode.length}, first 100 chars: ${kidlispCode.substring(0, 100)}`);
+    // Add defensive checks to prevent errors
+    if (!kidlispCode) {
+      kidlispCode = `(ink 128 128 128)`; // Fallback
     }
     
-    // DEBUG TEST: Try drawing directly without kidlisp to test if painting/paste works
-    if (paintCount < 5) {
-      const testPainting = painting(screen.width, screen.height - 3, (testApi) => {
-        testApi.wipe(255, 0, 0); // Red background
-        testApi.ink(255, 255, 255); // White text
-        testApi.box(50, 50, 100, 100); // White box
-      });
-      paste(testPainting, 0, 0);
-      console.log(`🎨 TEST_PAINTING: Drew red screen with white box (frame ${paintCount})`);
-    }
+    // KidLisp renders below timeline
+    // Layout: TV bars (0-24) -> Timeline (24-49) -> KidLisp (49 to screen.height-2) -> Progress bar (last 2px)
+    const kidlispY = timelineY + timelineHeight; // Start after timeline
+    const kidlispHeight = screen.height - kidlispY - 2; // Leave 2px at bottom for progress bar
     
-    // Execute the KidLisp theme code (amp is now available as a global variable)
-    // Adjust KidLisp dimensions based on pause state
-    if (!isPlaying) {
-      // When paused: full screen KidLisp, only leave 3px at bottom for 2px progress bar
-      console.log(`🎨 KIDLISP_CALL: rendering at (0, 0, ${screen.width}, ${screen.height - 3})`);
-      kidlisp(0, 0, screen.width, screen.height - 3, kidlispCode);
-      console.log(`🎨 KIDLISP_DONE: rendering completed`);
-    } else {
-      // When playing: normal layout with space for timeline and TV bars
-      kidlisp(0, 25, screen.width, screen.height - 24 - 24, kidlispCode);
+    if (kidlispHeight > 10) { // Only render if there's enough space
+      try {
+        kidlisp(0, kidlispY, screen.width, kidlispHeight, kidlispCode);
+        
+        // CRITICAL: Reset ink/fade state after KidLisp renders
+        // KidLisp may set fade colors that persist across frames
+        ink("black"); // Reset to solid color to clear fade state
+      } catch (error) {
+        console.error(`🎨 KIDLISP ERROR on frame ${paintCount}:`, error);
+      }
     }
-    
-    // CRITICAL: Reset fade mode by calling ink with a non-fade string
-    // This clears the global fadeMode, fadeColors, fadeDirection variables
-    ink("black"); // Forces findColor to reset fade state
-    */
-  } else {
-    // Use traditional TV bars buffer (full screen)
-    paste(tvBarsBuffer, 0, screen.height - 24);
   }
+  
+  // NOW render TV bars on top of KidLisp so they're always visible
+  // REMOVED: Drawing here gets wiped by KidLisp - moved to end of paint function
+  // ink(220, 120, 180); // Bright magenta
+  // box(0, tvBarsY, screen.width, tvBarsHeight);
+  
+  // Reset ink state after drawing TV bars
+  ink("black");
   
   // blur(1); // Apply blur to the TV bars buffer to test separation
   // zoom(0.5);
@@ -2461,7 +2523,7 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
   // The timeline is now an overlay element that sits on top of the TV bar composition
   // Hide timeline when paused to allow full-screen KidLisp
   
-  if (timelineVisible && isPlaying) {
+  if (showTimeline) {
     // 🎵 TIMELINE RENDER LOGGING - Track when timeline is drawn and its sync status
     if (paintCount % 600 === 0) { // Every ~10 seconds at 60fps
       const locatorInfo = alsProject?.getCurrentLocator(currentTimeSeconds, actualDuration);
@@ -2475,9 +2537,6 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
     }
     
     // Minimal timeline layout parameters
-    const freqDisplayHeight = 12; // Define this here so timeline can reference it
-    const timelineHeight = 25; // Reduced from 50 to 25 - much more minimal
-    const timelineY = frequencyDisplayVisible ? freqDisplayHeight : 0; // Position below frequency display if it's visible
     const leadTimeSeconds = 2.0; // Show 2 seconds of future time
     const timelineWindowSeconds = screen.width / pixelsPerSecond;
     // Calculate current view window - align to start at the red center line
@@ -2535,12 +2594,6 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
         
         // Use normal color cycling for all segments including PAUSE
         const paletteColor = segmentPalette.colors[colorIndex];
-        
-        // DEBUG: Log segment color info for PAUSE segments (now using normal colors)
-        const isPauseSegment = segmentPalette.name && segmentPalette.name.toLowerCase().includes('pause');
-        if (isPauseSegment) {
-          console.log(`🎬 Segment Overlay - Palette: "${segmentPalette.name}", ColorIndex: ${colorIndex}, RGB: (${paletteColor.r}, ${paletteColor.g}, ${paletteColor.b}), Locator: "${locator.name}"`);
-        }
         
         const isCurrentTime = currentTimeSeconds >= segmentStart && currentTimeSeconds < segmentEnd;
         
@@ -2730,7 +2783,202 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
     
   } // Close timeline visibility conditional
   
-  // === PAUSE OVERLAY WITH PLAY BUTTON ===
+  // PAUSE OVERLAY MOVED TO END - will be drawn after TV bars
+  
+  // === PROGRESS BAR AND TRACK INFO ===
+  // Progress bar at the bottom - drawn AFTER all other overlays to appear on top
+  // BUT: Hide progress bar during tape recording mode
+  if (progress !== undefined && actualDuration && !inTapeMode) {
+    const barHeight = 2; // 2px tall progress bar (thinner)
+    const barY = screen.height - barHeight;
+
+    // Background bar (dark) - full width
+    ink(0, 0, 0, 255);
+    box(0, barY, screen.width, barHeight);
+
+    // Progress bar - red when playing or paused
+    const progressWidth = progress * screen.width;
+    if (progressWidth > 0) {
+      ink(255, 0, 0, 255); // Red progress bar
+      box(0, barY, progressWidth, barHeight);
+    }
+  }
+
+  // Draw track timer in bottom right corner - COMMENTED OUT
+  /*
+  if (actualDuration) {
+    // Use the same timing calculation as progress for consistency
+    let currentTime = 0;
+    if (isPlaying) {
+      const sessionElapsed = playStartTime ? (performance.now() - playStartTime) / 1000 : 0;
+      currentTime = (playbackStartProgress * actualDuration) + sessionElapsed;
+    } else {
+      // When paused, show the paused position
+      currentTime = pausedAt * actualDuration;
+    }
+
+    // Format time as MM:SS
+    const formatTime = (seconds) => {
+      const mins = Math.floor(seconds / 60);
+      const secs = Math.floor(seconds % 60);
+      return `${mins}:${secs.toString().padStart(2, "0")}`;
+    };
+
+    const timeText = `${formatTime(currentTime)} / ${formatTime(actualDuration)}`;
+
+    // Position in bottom right, accounting for text width
+    const textX = screen.width - timeText.length * 6 - 6; // Approximate character width
+    const textY = screen.height - 16; // Higher up to be above progress bar
+
+    // Draw shadow (offset by 1px down and right)
+    ink(32, 32, 32); // Set dark gray ink for shadow
+    write(timeText, textX + 1, textY + 1);
+
+    // Draw main text in white
+    ink(255, 255, 255); // Set white ink for main text
+    write(timeText, textX, textY);
+  }
+  */
+
+  // Draw artist and track info in bottom left corner - COMMENTED OUT
+  /*
+  const artistText = "oskie - zzzZWAP";
+  const artistX = 6; // Small margin from left edge
+  const artistY = screen.height - 16; // Same height as timer
+
+  // Draw shadow for artist text
+  ink(32, 32, 32); // Dark gray shadow
+  write(artistText, artistX + 1, artistY + 1);
+
+  // Draw main artist text in white
+  ink(255, 255, 255); // White text
+  write(artistText, artistX, artistY);
+  */
+  
+  // === TV BARS - DRAWN LAST SO KIDLISP DOESN'T WIPE THEM ===
+  // Render TV bars at the very end so they appear on top of everything including KidLisp
+  
+  // Collect currently playing MIDI notes for TV bar colors
+  const tvBarColors = [];
+  if (alsProject && isPlaying && currentTimeSeconds > 0) {
+    alsProject.clips?.forEach((clip, clipIndex) => {
+      if (clip.type === 'midiclip' && clip.notes) {
+        clip.notes.forEach((note, noteIndex) => {
+          const noteStartTime = clip.startSeconds + alsProject.beatsToSeconds(alsProject.alsTimeToBeat(note.time || 0));
+          const noteEndTime = noteStartTime + alsProject.beatsToSeconds(alsProject.alsTimeToBeat(note.duration || 0.25));
+          
+          // Check if note is currently playing
+          if (currentTimeSeconds >= noteStartTime && currentTimeSeconds <= noteEndTime) {
+            const pitch = note.key || 60;
+            const velocity = note.velocity || 100;
+            
+            // Get color from current palette
+            const { current: currentLocator } = alsProject.getCurrentLocator(currentTimeSeconds, actualDuration);
+            const currentPalette = getPaletteForLocator(currentLocator?.name);
+            const colorIndex = (clipIndex * 3 + noteIndex * 5 + pitch * 2) % currentPalette.colors.length;
+            const baseColor = currentPalette.colors[colorIndex];
+            
+            // Apply velocity-based brightness
+            const velocityFactor = 0.7 + (velocity / 127) * 0.3;
+            const color = {
+              r: Math.max(30, Math.floor(baseColor.r * velocityFactor)),
+              g: Math.max(30, Math.floor(baseColor.g * velocityFactor)),
+              b: Math.max(30, Math.floor(baseColor.b * velocityFactor)),
+              colorKey: `${pitch}-${clipIndex}-${noteIndex}-${Math.floor(noteStartTime * 10)}`
+            };
+            tvBarColors.push(color);
+            
+            // Add to color history for decay
+            const existingIndex = colorHistory.findIndex(h => h.colorKey === color.colorKey);
+            if (existingIndex >= 0) {
+              colorHistory[existingIndex].alpha = 1.0;
+              colorHistory[existingIndex].lastSeen = performance.now();
+              colorHistory[existingIndex].isDecaying = false;
+            } else {
+              colorHistory.push({
+                r: color.r,
+                g: color.g,
+                b: color.b,
+                alpha: 1.0,
+                lastSeen: performance.now(),
+                isDecaying: false,
+                colorKey: color.colorKey
+              });
+            }
+          }
+        });
+      }
+    });
+  }
+  
+  // Update decay for colors not currently playing
+  const decayNow = performance.now();
+  const tvBarDecayDuration = 2000; // 2 seconds decay time
+  colorHistory.forEach(color => {
+    const timeSinceLastSeen = decayNow - color.lastSeen;
+    if (timeSinceLastSeen > 50) { // Start decaying after 50ms
+      color.isDecaying = true;
+      color.alpha = Math.max(0, 1.0 - (timeSinceLastSeen - 50) / tvBarDecayDuration);
+    }
+  });
+  
+  // Remove fully decayed colors
+  colorHistory = colorHistory.filter(color => color.alpha > 0.05);
+  
+  // Combine active and decaying colors
+  const tvBarAllColors = [...tvBarColors, ...colorHistory.filter(h => h.isDecaying)];
+  
+  // Draw TV bars - either from active/decaying notes or fallback color
+  if (tvBarAllColors.length > 0) {
+    // Draw each color as a vertical bar
+    const barWidth = Math.max(1, Math.floor(screen.width / tvBarAllColors.length));
+    tvBarAllColors.forEach((color, index) => {
+      const x = index * barWidth;
+      const width = (index === tvBarAllColors.length - 1) ? (screen.width - x) : barWidth;
+      
+      // Apply alpha for decaying colors
+      if (color.alpha !== undefined && color.alpha < 1.0) {
+        const fadedR = Math.floor(color.r * color.alpha);
+        const fadedG = Math.floor(color.g * color.alpha);
+        const fadedB = Math.floor(color.b * color.alpha);
+        ink(fadedR, fadedG, fadedB);
+      } else {
+        ink(color.r, color.g, color.b);
+      }
+      box(x, tvBarsY, width, tvBarsHeight);
+    });
+  } else {
+    // Fallback: solid color bar when no notes playing
+    ink(220, 120, 180); // Bright magenta
+    box(0, tvBarsY, screen.width, tvBarsHeight);
+  }
+  
+  // Draw waveform overlay on top of TV bars
+  const tvBarWaveform = sound.speaker?.waveforms?.left || [];
+  if (tvBarWaveform.length > 0) {
+    // Resample waveform to screen width
+    const resampledWaveform = tvBarWaveform.length > 128 
+      ? tvBarWaveform.filter((_, i) => i % Math.ceil(tvBarWaveform.length / 128) === 0).slice(0, 128)
+      : tvBarWaveform;
+    
+    const xStep = screen.width / (resampledWaveform.length - 1);
+    const yMid = tvBarsY + (tvBarsHeight / 2); // Middle of TV bars
+    const yMax = Math.max(4, tvBarsHeight / 3); // Amplitude range
+    
+    // Draw white waveform line
+    ink(255, 255, 255, 255);
+    poly(
+      resampledWaveform.map((v, i) => [
+        i * xStep,
+        yMid + v * yMax
+      ])
+    );
+  }
+  
+  // Reset ink state
+  ink("black");
+  
+  // === PAUSE OVERLAY WITH PLAY BUTTON - DRAWN LAST ===
   // Show play button overlay when not playing (but not when audio is starting) OR when explicitly shown during playback
   // Also show during initialization for visual feedback
   // BUT: Don't show overlay when recording (tape mode) - just show black
@@ -2748,7 +2996,7 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
     }
     
     // Semi-transparent black overlay - more black and white vibes
-    ink(0, 0, 0, 180); // Darker overlay (was 120, now 180)
+    ink(0, 0, 0, 30); // Minimal overlay so baseline visuals show through
     box(0, 0, screen.width, screen.height);
     
     // Different visual feedback based on state
@@ -2794,85 +3042,12 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
     }
   }
   
-  // === PROGRESS BAR AND TRACK INFO ===
-  // Progress bar at the bottom - drawn AFTER all other overlays to appear on top
-  // BUT: Hide progress bar during tape recording mode
-  if (progress !== undefined && actualDuration && !inTapeMode) {
-    const barHeight = 2; // 2px tall progress bar (thinner)
-    const barY = screen.height - barHeight;
-
-    // Background bar (dark) - full width
-    ink(0, 0, 0, 255);
-    box(0, barY, screen.width, barHeight);
-
-    // Progress bar - red when playing or paused
-    const progressWidth = progress * screen.width;
-    if (progressWidth > 0) {
-      ink(255, 0, 0, 255); // Red progress bar
-      box(0, barY, progressWidth, barHeight);
-    }
-  }
-
-  // Draw track timer in bottom right corner - COMMENTED OUT
-  /*
-  if (actualDuration) {
-    // Use the same timing calculation as progress for consistency
-    let currentTime = 0;
-    if (isPlaying) {
-      const sessionElapsed = (performance.now() - playStartTime) / 1000;
-      currentTime = (pausedAt * actualDuration) + sessionElapsed;
-    } else {
-      // When paused, show the paused position
-      currentTime = pausedAt * actualDuration;
-    }
-
-    // Format time as MM:SS
-    const formatTime = (seconds) => {
-      const mins = Math.floor(seconds / 60);
-      const secs = Math.floor(seconds % 60);
-      return `${mins}:${secs.toString().padStart(2, "0")}`;
-    };
-
-    const timeText = `${formatTime(currentTime)} / ${formatTime(actualDuration)}`;
-
-    // Position in bottom right, accounting for text width
-    const textX = screen.width - timeText.length * 6 - 6; // Approximate character width
-    const textY = screen.height - 16; // Higher up to be above progress bar
-
-    // Draw shadow (offset by 1px down and right)
-    ink(32, 32, 32); // Set dark gray ink for shadow
-    write(timeText, textX + 1, textY + 1);
-
-    // Draw main text in white
-    ink(255, 255, 255); // Set white ink for main text
-    write(timeText, textX, textY);
-  }
-  */
-
-  // Draw artist and track info in bottom left corner - COMMENTED OUT
-  /*
-  const artistText = "oskie - zzzZWAP";
-  const artistX = 6; // Small margin from left edge
-  const artistY = screen.height - 16; // Same height as timer
-
-  // Draw shadow for artist text
-  ink(32, 32, 32); // Dark gray shadow
-  write(artistText, artistX + 1, artistY + 1);
-
-  // Draw main artist text in white
-  ink(255, 255, 255); // White text
-  write(artistText, artistX, artistY);
-  */
-  
 } // Close paint function
 
 async function act({ event: e, sound, api }) {
   // Track recording state for paint function - only use api.rec.recording for actual recording
   const prevIsCurrentlyRecording = isCurrentlyRecording;
   isCurrentlyRecording = api?.rec?.recording === true;
-  
-  // Debug the actual API values
-  console.log(`🎬 ACT_DEBUG: api.rec.recording=${api?.rec?.recording}, api.rec.loadCallback=${api?.rec?.loadCallback}, isCurrentlyRecording=${isCurrentlyRecording}`);
   
   // Debug logging when recording state changes
   if (isCurrentlyRecording !== prevIsCurrentlyRecording) {
@@ -2973,21 +3148,23 @@ async function act({ event: e, sound, api }) {
       // console.log("🎵 PAUSING_PLAYBACK: Touch detected while playing, pausing audio");
       
       if (actualDuration) {
-        // Use the visual progress that we've been maintaining, not the potentially wrong audio progress
-        let newPausedAt;
-        
-        // Always use the visual progress since we've been protecting it from bad audio progress
-        newPausedAt = Math.min(progress, 1.0); // Use our carefully maintained visual progress
+        let newPausedAt = Math.min(progress, 1.0);
         console.log(`⏸️ Using visual progress for pause: ${(newPausedAt * 100).toFixed(1)}% (${(newPausedAt * actualDuration).toFixed(2)}s)`);
         
-        // Log comparison for debugging
         if (currentAudioProgress !== null && currentAudioProgress > 0) {
           const audioPausedAt = Math.min(currentAudioProgress, 1.0);
           const progressDiff = Math.abs(newPausedAt - audioPausedAt);
           console.log(`⏸️ Progress comparison: visual=${(newPausedAt * 100).toFixed(1)}%, audio=${(audioPausedAt * 100).toFixed(1)}%, diff=${(progressDiff * 100).toFixed(1)}%`);
+          if (progressDiff > 0.02) {
+            console.warn(`⏸️ PAUSE_ADJUSTMENT: Using audio progress due to ${(progressDiff * 100).toFixed(1)}% drift`);
+            newPausedAt = audioPausedAt;
+          }
         }
         
         pausedAt = newPausedAt;
+        playbackStartProgress = pausedAt;
+        
+        console.log(`🎵 PAUSE_DEBUG: visual=${progress.toFixed(6)}, audio=${currentAudioProgress?.toFixed(6) || 'unknown'}, stored pausedAt=${pausedAt.toFixed(6)}`);
         
         // Set state before pausing
         isPlaying = false;
@@ -2995,11 +3172,11 @@ async function act({ event: e, sound, api }) {
         audioInitializing = false; // Clear any initialization state
         pauseOverlayVisible = true; // Show pause overlay when paused
         
-        // DON'T kill the audio - keep it alive so we can resume from the same position
-        // The audio will continue in the background but we stop updating visuals
-        // playingSfx.kill(); // DISABLED - causes resume to start from 0
-        // playingSfx = null; // DISABLED - we need to keep the reference
-        console.log("🎵 PAUSED (audio kept alive for resume)");
+        // Kill the audio - we'll create a new one on resume
+        // (Web Audio API doesn't support true pause/resume)
+        playingSfx.kill();
+        playingSfx = null;
+        console.log("🎵 PAUSED (audio killed for clean state)");
       } else {
         isPlaying = false;
         audioStarting = false;
@@ -3032,17 +3209,8 @@ async function act({ event: e, sound, api }) {
           audioInitializing = false;
           isPlaying = true;
           
-          // Initialize visual progress
-          if (pausedAt > 0) {
-            progress = pausedAt;
-          } else {
-            progress = 0;
-          }
-          
-          // Start visual timeline
-          const resumeOffset = pausedAt * actualDuration;
-          playStartTime = performance.now() - (resumeOffset * 1000);
-          
+          const baseProgress = pausedAt > 0 ? pausedAt : 0;
+          startVisualTimeline(baseProgress, "emergency-escape");
           console.log("🎵 EMERGENCY_TIMELINE_START: Force started visual timeline");
           
           // Reset emergency counters
@@ -3102,6 +3270,9 @@ async function act({ event: e, sound, api }) {
       } else {
         console.log(`🎵 Resuming from ${(pausedAt * 100).toFixed(1)}% (${(pausedAt * actualDuration).toFixed(2)}s)`);
       }
+      lastResumeTarget = pausedAt;
+      resumeRestartDetected = false;
+      playbackStartProgress = pausedAt;
       
       // Hide pause overlay immediately when starting playback
       pauseOverlayVisible = false;
@@ -3110,23 +3281,6 @@ async function act({ event: e, sound, api }) {
       audioInitializing = true;
       console.log("🎵 AUDIO_INITIALIZING: Set initialization flag for visual feedback");
       
-      // Check if we already have a valid audio instance from a previous pause
-      const hasExistingAudio = playingSfx && !playingSfx.killed;
-      
-      if (hasExistingAudio) {
-        console.log("🎵 RESUMING: Using existing audio instance (no need to create new one)");
-        // Audio is already playing in background, just update our state
-        isPlaying = true;
-        audioInitializing = false;
-        audioJustStarted = true; // Sync immediately to audio
-        playStartTime = performance.now() - (pausedAt * actualDuration * 1000);
-        console.log("🎵 RESUME_COMPLETE: Continuing from existing audio position");
-        return; // Skip the rest of the playback initialization
-      }
-      
-      // Need to create new audio instance (first play or audio was killed)
-      console.log("🎵 NEW_PLAYBACK: Creating new audio instance");
-      
       // Start playing from the paused position
       const playStartTimestamp = performance.now();
       const audioTimeBeforePlay = sound.time;
@@ -3134,12 +3288,37 @@ async function act({ event: e, sound, api }) {
       // 🎵 COMPREHENSIVE AUDIO START LOGGING
       console.log(`🎵 AUDIO_START_ATTEMPT: pausedAt=${pausedAt.toFixed(6)}, duration=${actualDuration?.toFixed(3) || 'unknown'}s, audioTime=${audioTimeBeforePlay?.toFixed(6) || 'unknown'}s`);
       
-      // Start playing - always start from beginning, then seek if needed
-      // (The 'from' parameter seems to cause issues with resume)
-      playingSfx = sound.play(preloadedAudio, { speed: 1 });
+      // The 'from' parameter expects NORMALIZED progress (0-1), not seconds!
+      console.log(`🎵 RESUME_CALCULATION: Using normalized pausedAt=${pausedAt.toFixed(6)} directly (not converting to seconds)`);
+      
+      // Give a tiny moment for any previous audio to fully stop
+      if (pausedAt > 0) {
+        await new Promise(resolve => setTimeout(resolve, 10));
+      }
+      
+      // Start playback - request resume via the normalized `from` parameter
+      // (Some engines ignore this and still restart from 0, so detection below keeps us honest)
+      const playFrom = Number.isFinite(pausedAt) ? Math.max(0, Math.min(pausedAt, 1)) : 0;
+      const playbackOptions = {
+        speed: 1,
+        volume: 1,
+        from: playFrom,
+        loop: false
+      };
+      playingSfx = sound.play(preloadedAudio, playbackOptions);
+
+      let segmentStart = playFrom;
+      let segmentEnd = Number.isFinite(playbackOptions.to) ? playbackOptions.to : 1;
+      if (segmentEnd < segmentStart) {
+        const swappedStart = segmentEnd;
+        segmentEnd = segmentStart;
+        segmentStart = swappedStart;
+      }
+      currentSegmentStart = Math.max(0, Math.min(segmentStart, 1));
+      currentSegmentEnd = Math.max(0, Math.min(segmentEnd, 1));
       
       if (pausedAt > 0) {
-        console.log(`🎵 AUDIO_PLAY: Started playback, will seek to ${(pausedAt * actualDuration).toFixed(3)}s (${(pausedAt * 100).toFixed(1)}%)`);
+        console.log(`🎵 AUDIO_PLAY: Creating audio from ${(playFrom * 100).toFixed(2)}% (visual timeline will show ${pausedAt.toFixed(6)} / ${(pausedAt * 100).toFixed(1)}%)`);
       } else {
         console.log(`🎵 AUDIO_PLAY: Starting from beginning`);
       }
@@ -3148,31 +3327,7 @@ async function act({ event: e, sound, api }) {
       const audioTimeAfterPlay = sound.time;
       
       if (playingSfx) {
-        // 🎵 IMMEDIATE SEEK if resuming from a position
-        // Do this BEFORE any other logic to minimize time at wrong position
-        if (pausedAt > 0) {
-          const seekTarget = pausedAt * actualDuration; // Convert to seconds
-          console.log(`🎵 IMMEDIATE_SEEK: Seeking to ${seekTarget.toFixed(3)}s before detection starts`);
-          
-          // Try multiple seek methods
-          if (typeof playingSfx.seek === 'function') {
-            try {
-              await playingSfx.seek(seekTarget);
-              console.log(`🎵 IMMEDIATE_SEEK: Success using seek() method`);
-            } catch (seekError) {
-              console.warn(`🎵 IMMEDIATE_SEEK_FAILED: ${seekError.message}`);
-            }
-          } else if (sound.time !== undefined) {
-            try {
-              sound.time = seekTarget;
-              console.log(`🎵 IMMEDIATE_SEEK: Success using sound.time property`);
-            } catch (timeError) {
-              console.warn(`🎵 IMMEDIATE_SEEK_TIME_FAILED: ${timeError.message}`);
-            }
-          } else {
-            console.warn(`🎵 IMMEDIATE_SEEK: No seek method available - playback will start from beginning`);
-          }
-        }
+        // NOTE: Some browsers still ignore `from`, so detection keeps visuals aligned with what actually happens
         
         // 🎵 DON'T START VISUAL TIMELINE YET - wait for actual audio to begin
         // Set a flag that we're waiting for audio to start
@@ -3220,15 +3375,17 @@ async function act({ event: e, sound, api }) {
                   const progressData = await Promise.race([progressPromise, timeoutPromise]);
                   progressCallSucceeded = true;
                   consecutiveFailures = 0; // Reset failure counter
-                  console.log(`🎵 DETECTION_ATTEMPT_${attempts}: progress=${progressData?.progress || 'null'}, killed=${playingSfx.killed}`);
+                  const segmentProgress = typeof progressData?.progress === 'number' ? progressData.progress : null;
+                  const normalizedProgress = segmentProgress !== null ? segmentProgressToAbsolute(segmentProgress) : null;
+                  console.log(`🎵 DETECTION_ATTEMPT_${attempts}: segmentProgress=${segmentProgress !== null ? segmentProgress.toFixed(6) : 'null'}, normalized=${normalizedProgress !== null ? normalizedProgress.toFixed(6) : 'null'}, killed=${playingSfx.killed}`);
                   
-                  if (progressData && typeof progressData.progress === 'number' && progressData.progress >= 0) {
+                  if (normalizedProgress !== null && normalizedProgress >= 0) {
                     // Verify the progress is reasonably close to where we expect it
                     const expectedProgress = pausedAt;
-                    const actualProgress = progressData.progress;
-                    const progressDiff = Math.abs(actualProgress - expectedProgress);
+                    const detectedProgress = normalizedProgress;
+                    const progressDiff = Math.abs(detectedProgress - expectedProgress);
                     
-                    console.log(`🎵 PROGRESS_VERIFICATION: expected=${expectedProgress.toFixed(6)}, actual=${actualProgress.toFixed(6)}, diff=${progressDiff.toFixed(6)}`);
+                    console.log(`🎵 PROGRESS_VERIFICATION: expected=${expectedProgress.toFixed(6)}, actual=${detectedProgress.toFixed(6)}, diff=${progressDiff.toFixed(6)}`);
                     
                     // If progress is too far off, try seeking again
                     if (pausedAt > 0 && progressDiff > 0.05 && typeof playingSfx.seek === 'function') { // 5% tolerance
@@ -3244,31 +3401,29 @@ async function act({ event: e, sound, api }) {
                       }
                     }
                     
-                    // Audio has actually started! (any progress >= 0 means it's running)
-                    console.log(`🎵 AUDIO_START_DETECTED: Audio actually playing after ${attempts * 50}ms, progress=${progressData.progress.toFixed(6)}`);
+                    // Audio has actually started! (any reported progress means it's running)
+                    const rawLogValue = segmentProgress !== null ? segmentProgress.toFixed(6) : "unknown";
+                    console.log(`🎵 AUDIO_START_DETECTED: Audio actually playing after ${attempts * 50}ms, segmentProgress=${rawLogValue}, normalized=${detectedProgress.toFixed(6)}`);
                     audioStartDetected = true;
                     audioStarting = false; // Clear starting flag - this will hide the overlay
                     audioInitializing = false; // Clear initialization flag - audio is fully ready
                     audioJustStarted = true; // Signal that we should trust audio immediately
                     isPlaying = true;
                     
-                    // Initialize visual progress to maintain continuity
-                    if (pausedAt > 0) {
-                      // When resuming, start visual progress from where we paused
-                      progress = pausedAt;
-                      console.log(`🎵 VISUAL_INIT: Starting visual progress from pausedAt=${pausedAt.toFixed(6)}`);
-                    } else {
-                      // Starting fresh from beginning
-                      progress = 0;
-                      console.log(`🎵 VISUAL_INIT: Starting visual progress from beginning`);
+                    let startProgress = pausedAt > 0 ? pausedAt : 0;
+                    let startReason = pausedAt > 0 ? "pausedAt" : "start";
+                    const resumeProgress = detectedProgress;
+                    if (resumeProgress > 0) {
+                      startProgress = resumeProgress;
+                      startReason = pausedAt > 0 ? "audio-resume" : "audio-start";
+                      const attempted = lastResumeTarget || 0;
+                      const diffFromAttempt = Math.abs(resumeProgress - attempted);
+                      if (pausedAt > 0 && diffFromAttempt > 0.02) {
+                        resumeRestartDetected = true;
+                        console.warn(`🎵 AUDIO_RESUME_MISMATCH: attempted=${attempted.toFixed(6)}, actual=${resumeProgress.toFixed(6)}, diff=${diffFromAttempt.toFixed(6)} (audio restarted near beginning)`);
+                      }
                     }
-                    
-                    // More precise timing: account for the detection delay and maintain visual continuity
-                    const audioCurrentTime = progressData.progress * actualDuration;
-                    // When resuming from pause, maintain visual timeline continuity
-                    const resumeOffset = pausedAt * actualDuration; // Where we should visually be
-                    playStartTime = performance.now() - (resumeOffset * 1000); // Base on where we paused, not current audio
-                    console.log(`🎵 VISUAL_TIMELINE_START: playStartTime=${playStartTime}, audioCurrentTime=${audioCurrentTime.toFixed(3)}s, resumeOffset=${resumeOffset.toFixed(3)}s, pausedAt=${pausedAt.toFixed(6)}`);
+                    startVisualTimeline(startProgress, startReason);
                     console.log(`🎵 INITIALIZATION_COMPLETE: audioInitializing=${audioInitializing}, audioJustStarted=${audioJustStarted}, ready for playback`);
                     break;
                   }
@@ -3284,18 +3439,8 @@ async function act({ event: e, sound, api }) {
                     audioInitializing = false;
                     isPlaying = true;
                     
-                    // Initialize visual progress
-                    if (pausedAt > 0) {
-                      progress = pausedAt;
-                      console.log(`🎵 VISUAL_INIT: Starting visual progress from pausedAt=${pausedAt.toFixed(6)} (early failure exit)`);
-                    } else {
-                      progress = 0;
-                      console.log(`🎵 VISUAL_INIT: Starting visual progress from beginning (early failure exit)`);
-                    }
-                    
-                    const resumeOffset = pausedAt * actualDuration;
-                    playStartTime = performance.now() - (resumeOffset * 1000);
-                    console.log(`🎵 VISUAL_TIMELINE_START: playStartTime=${playStartTime} (early failure exit), resumeOffset=${resumeOffset.toFixed(3)}s`);
+                    const baseProgress = pausedAt > 0 ? pausedAt : 0;
+                    startVisualTimeline(baseProgress, "progress-timeout");
                     console.log(`🎵 INITIALIZATION_COMPLETE: audioInitializing=${audioInitializing}, early failure exit`);
                     break; // Exit the loop and start the fallback
                   }
@@ -3317,21 +3462,40 @@ async function act({ event: e, sound, api }) {
                   audioInitializing = false; // Clear initialization flag - audio is fully ready
                   isPlaying = true;
                   
-                  // Initialize visual progress to maintain continuity
-                  if (pausedAt > 0) {
-                    // When resuming, start visual progress from where we paused
-                    progress = pausedAt;
-                    console.log(`🎵 VISUAL_INIT: Starting visual progress from pausedAt=${pausedAt.toFixed(6)}`);
-                  } else {
-                    // Starting fresh from beginning
-                    progress = 0;
-                    console.log(`🎵 VISUAL_INIT: Starting visual progress from beginning`);
+                  // Wait a tiny moment for audio system to stabilize, then sync
+                  await new Promise(resolve => setTimeout(resolve, 20));
+                  
+                  // Initialize visual progress to match ACTUAL audio position
+                  // NOTE: .progress() returns Promise<{progress: number}>
+                  let actualAudioProgress = 0;
+                  try {
+                    const progressData = await playingSfx.progress();
+                    const rawSegmentProgress = typeof progressData?.progress === 'number' ? progressData.progress : null;
+                    actualAudioProgress = rawSegmentProgress !== null ? segmentProgressToAbsolute(rawSegmentProgress) : 0;
+                    console.log(`🎵 ACTUAL_AUDIO_POSITION: segment=${rawSegmentProgress !== null ? rawSegmentProgress.toFixed(6) : 'null'} normalized=${actualAudioProgress.toFixed(6)} (expected ${pausedAt.toFixed(6)})`);
+                  } catch (err) {
+                    console.warn(`🎵 ACTUAL_AUDIO_POSITION: Failed to get progress - ${err.message}`);
                   }
                   
-                  // When resuming from pause, maintain visual timeline continuity
-                  const resumeOffset = pausedAt * actualDuration; // Where we should visually be
-                  playStartTime = performance.now() - (resumeOffset * 1000); // Base on where we paused, not detection delay
-                  console.log(`🎵 VISUAL_TIMELINE_START: playStartTime=${playStartTime} (amplitude-based detection), resumeOffset=${resumeOffset.toFixed(3)}s, pausedAt=${pausedAt.toFixed(6)}`);
+                  let startProgress = 0;
+                  let reason = "amplitude-start";
+                  if (pausedAt > 0 && actualAudioProgress > 0.001) {
+                    startProgress = actualAudioProgress;
+                    reason = "amplitude-audio";
+                    const diffFromAttempt = Math.abs(actualAudioProgress - (lastResumeTarget || 0));
+                    if (lastResumeTarget > 0 && diffFromAttempt > 0.02) {
+                      resumeRestartDetected = true;
+                      console.warn(`🎵 AUDIO_RESUME_MISMATCH: attempted=${lastResumeTarget.toFixed(6)}, actual=${actualAudioProgress.toFixed(6)}, diff=${diffFromAttempt.toFixed(6)} (speaker amplitude)`);
+                    }
+                  } else if (pausedAt > 0) {
+                    startProgress = pausedAt;
+                    reason = "amplitude-fallback";
+                  } else if (actualAudioProgress > 0) {
+                    startProgress = actualAudioProgress;
+                    reason = "amplitude-fresh";
+                  }
+                  startVisualTimeline(startProgress, reason);
+                  
                   console.log(`🎵 INITIALIZATION_COMPLETE: audioInitializing=${audioInitializing}, ready for playback`);
                   break;
                 }
@@ -3356,22 +3520,9 @@ async function act({ event: e, sound, api }) {
             audioInitializing = false; // Clear initialization flag - timeout reached
             isPlaying = true;
             
-            // Initialize visual progress to maintain continuity
-            if (pausedAt > 0) {
-              // When resuming, start visual progress from where we paused
-              progress = pausedAt;
-              console.log(`🎵 VISUAL_INIT: Starting visual progress from pausedAt=${pausedAt.toFixed(6)} (fallback)`);
-            } else {
-              // Starting fresh from beginning
-              progress = 0;
-              console.log(`🎵 VISUAL_INIT: Starting visual progress from beginning (fallback)`);
-            }
-            
-            // When resuming from pause, maintain visual timeline continuity even on timeout
-            const resumeOffset = pausedAt * actualDuration; // Where we should visually be
-            playStartTime = performance.now() - (resumeOffset * 1000); // Base on where we paused
-            console.log(`🎵 VISUAL_TIMELINE_START: playStartTime=${playStartTime} (timeout fallback), resumeOffset=${resumeOffset.toFixed(3)}s, pausedAt=${pausedAt.toFixed(6)}`);
-            console.log(`🎵 INITIALIZATION_COMPLETE: audioInitializing=${audioInitializing}, timeout fallback - forcing start`);
+              const baseProgress = pausedAt > 0 ? pausedAt : 0;
+              startVisualTimeline(baseProgress, "timeout-fallback");
+              console.log(`🎵 INITIALIZATION_COMPLETE: audioInitializing=${audioInitializing}, timeout fallback - forcing start`);
           }
           
           console.log(`🎵 DETECTION_END: audioStartDetected=${audioStartDetected}, isPlaying=${isPlaying}, audioStarting=${audioStarting}`);
@@ -3387,21 +3538,8 @@ async function act({ event: e, sound, api }) {
           audioStarting = false; // Clear starting flag
           isPlaying = true;
           
-          // Initialize visual progress to maintain continuity
-          if (pausedAt > 0) {
-            // When resuming, start visual progress from where we paused
-            progress = pausedAt;
-            console.log(`🎵 VISUAL_INIT: Starting visual progress from pausedAt=${pausedAt.toFixed(6)}`);
-          } else {
-            // Starting fresh from beginning
-            progress = 0;
-            console.log(`🎵 VISUAL_INIT: Starting visual progress from beginning`);
-          }
-          
-          // When resuming from pause, maintain visual timeline continuity even on error
-          const resumeOffset = pausedAt * actualDuration; // Where we should visually be
-          playStartTime = performance.now() - (resumeOffset * 1000); // Base on where we paused
-          console.log(`🎵 VISUAL_TIMELINE_START: playStartTime=${playStartTime} (error fallback), resumeOffset=${resumeOffset.toFixed(3)}s, pausedAt=${pausedAt.toFixed(6)}`);
+          const baseProgress = pausedAt > 0 ? pausedAt : 0;
+          startVisualTimeline(baseProgress, "detection-error");
         });
         
         // Try multiple ways to get duration with enhanced logging
@@ -3439,13 +3577,15 @@ async function act({ event: e, sound, api }) {
         // Test immediate progress to catch false starts
         if (typeof playingSfx.progress === 'function') {
           playingSfx.progress().then((initialProgress) => {
-            console.log(`🎵 INITIAL_PROGRESS: ${initialProgress?.progress?.toFixed(6) || 'N/A'} (should be ~${pausedAt.toFixed(6)})`);
+            const rawSegmentProgress = typeof initialProgress?.progress === 'number' ? initialProgress.progress : null;
+            const normalizedInitial = rawSegmentProgress !== null ? segmentProgressToAbsolute(rawSegmentProgress) : null;
+            console.log(`🎵 INITIAL_PROGRESS: segment=${rawSegmentProgress !== null ? rawSegmentProgress.toFixed(6) : 'N/A'} normalized=${normalizedInitial !== null ? normalizedInitial.toFixed(6) : 'N/A'} (should be ~${pausedAt.toFixed(6)})`);
             
             // Detect false start or sync issues
-            if (initialProgress?.progress !== undefined) {
-              const progressDiff = Math.abs(initialProgress.progress - pausedAt);
+            if (normalizedInitial !== null) {
+              const progressDiff = Math.abs(normalizedInitial - pausedAt);
               if (progressDiff > 0.01) { // 1% tolerance
-                console.warn(`🎵 FALSE_START_DETECTED: expected=${pausedAt.toFixed(6)}, actual=${initialProgress.progress.toFixed(6)}, diff=${progressDiff.toFixed(6)}`);
+                console.warn(`🎵 FALSE_START_DETECTED: expected=${pausedAt.toFixed(6)}, actual=${normalizedInitial.toFixed(6)}, diff=${progressDiff.toFixed(6)}`);
               }
             }
           }).catch(err => {
@@ -3503,6 +3643,11 @@ function sim({ sound, updateKidLispAudio }) {
     isPlaying = false;
     progress = 0;
     pausedAt = 0; // Reset pause position when track ends
+    playbackStartProgress = 0;
+    resumeRestartDetected = false;
+    lastResumeTarget = 0;
+    currentSegmentStart = 0;
+    currentSegmentEnd = 1;
     playingSfx = null;
   }
   
@@ -3511,7 +3656,8 @@ function sim({ sound, updateKidLispAudio }) {
     playingSfx.progress().then((p) => {
       if (p && typeof p.progress === 'number') {
         const previousAudioProgress = currentAudioProgress;
-        currentAudioProgress = p.progress;
+        const rawSegmentProgress = p.progress;
+        currentAudioProgress = segmentProgressToAbsolute(rawSegmentProgress);
         
         // 🎵 COMPREHENSIVE SYNC DRIFT DETECTION
         if (progress > 0 && currentAudioProgress > 0) {
