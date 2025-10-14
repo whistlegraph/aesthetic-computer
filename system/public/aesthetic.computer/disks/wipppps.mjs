@@ -27,7 +27,7 @@ let progressErrorCount = 0;
 let lastProgressError = null;
 
 // KidLisp mode toggle - when true, use kidlisp() instead of TV bars
-// Re-enabled after fixing page() issue
+// Re-enabled with workaround for coordinate space issues
 let kidlispMode = true;
 
 // Frequency smoothing - track previous values for smooth transitions
@@ -217,6 +217,52 @@ const ZZZWAP_KIDLISP_SOURCES = {
 
 // Blank KidLisp for tape mode before audio starts
 const DEFAULT_BLANK_KIDLISP = `black`;
+
+// FUNCTION TO STRIP PROBLEMATIC COMMANDS FROM KIDLISP
+function stripProblematicCommands(kidlispCode) {
+  if (!kidlispCode) return kidlispCode;
+  
+  // Remove fade: commands - they affect the full screen
+  let cleaned = kidlispCode.replace(/\(fade:[a-z\-]+\)\s*/g, '');
+  
+  // For screen-wide effects with nested expressions, we need to match balanced parentheses
+  // Use a helper to count and match properly
+  const removeCommand = (code, commandName) => {
+    const regex = new RegExp(`\\(${commandName}\\s+`, 'g');
+    let result = code;
+    let match;
+    
+    while ((match = regex.exec(result)) !== null) {
+      const startIdx = match.index;
+      let depth = 1;
+      let endIdx = startIdx + match[0].length;
+      
+      // Find the matching closing paren
+      while (depth > 0 && endIdx < result.length) {
+        if (result[endIdx] === '(') depth++;
+        else if (result[endIdx] === ')') depth--;
+        endIdx++;
+      }
+      
+      if (depth === 0) {
+        // Remove this command
+        result = result.substring(0, startIdx) + result.substring(endIdx);
+        // Reset regex since we modified the string
+        regex.lastIndex = 0;
+      }
+    }
+    
+    return result;
+  };
+  
+  // Remove each problematic command type
+  cleaned = removeCommand(cleaned, 'spin');
+  cleaned = removeCommand(cleaned, 'zoom');
+  cleaned = removeCommand(cleaned, 'contrast');
+  cleaned = removeCommand(cleaned, 'scroll');
+  
+  return cleaned;
+}
 
 // FUNCTION TO GET PALETTE FOR CURRENT LOCATOR
 function getPaletteForLocator(locatorName) {
@@ -1687,11 +1733,7 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
   
   // WORKAROUND: Since page() is broken, render TV bars directly to main screen
   // instead of using an offscreen buffer
-  // Draw TV bars directly at the bottom of the screen
-  
-  // Simple fallback: just draw a colored bar at the bottom for now
-  ink(220, 120, 180); // Bright magenta
-  box(0, tvBarsY, screen.width, tvBarsHeight);
+  // Draw TV bars will be rendered AFTER KidLisp so they appear on top
   
   // The TV bar is the main visual element that fills the entire screen
   // All other elements are overlays on top of this base composition
@@ -2088,8 +2130,175 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
   // The baseline wipe(120, 120, 150) at the start of paint() handles the background
   
   // === KIDLISP AND TV BARS COMBINATION ===
-  // REMOVED: No longer using paste since we render TV bars directly above
-  // (kidlispMode is currently disabled anyway)
+  
+  // Render KidLisp if enabled AND playing (pause when stopped so overlay shows)
+  if (kidlispMode && isPlaying) {
+    // Get current locator for context
+    const { current: currentLocator } = alsProject ? alsProject.getCurrentLocator(currentTimeSeconds, actualDuration) : { current: null };
+    
+    // Get more complex pattern based on current locator
+    // Use time-based animation since frame might not work
+    const animTime = (performance.now() / 1000); // Time in seconds
+    const angle1 = animTime * 0.5; // Slow rotation
+    const angle2 = animTime * 0.7; // Different speed
+    const angle3 = animTime * 1.0; // Faster rotation
+    
+    // Calculate positions in JS and inject them
+    const x1 = Math.sin(angle1) * 60;
+    const y1 = Math.cos(angle1) * 60;
+    const x2 = Math.sin(angle2) * 40;
+    const y2 = Math.cos(angle2) * 40;
+    const x3 = Math.cos(angle3) * 80;
+    const y3 = Math.sin(angle3) * 50;
+    
+    // Get kick and amp values from audio analysis
+    // Use actual amplitude from speaker
+    const leftAmp = sound.speaker?.amplitudes?.left || 0;
+    const rightAmp = sound.speaker?.amplitudes?.right || 0;
+    const ampValue = (leftAmp + rightAmp) / 2; // Average both channels
+    
+    // Simulate kick detection from amplitude spikes
+    // If amplitude jumps significantly, treat it as a kick
+    const kickValue = ampValue > 0.5 ? ampValue : 0;
+    
+    // Debug log audio values every second
+    if (paintCount % 60 === 0) {
+      console.log(`🎨 AUDIO_REACTIVE: amp=${ampValue.toFixed(3)}, kick=${kickValue.toFixed(3)}, leftAmp=${leftAmp.toFixed(3)}, rightAmp=${rightAmp.toFixed(3)}`);
+    }
+    
+    // Get locator name for pattern selection
+    const locatorName = currentLocator?.name?.toUpperCase() || 'START';
+    
+    let kidlispCode = '';
+    
+    // Create different patterns for different sections
+    // Prepend audio values as definitions
+    const audioDefsPart = `(def kick ${kickValue.toFixed(3)}) (def amp ${ampValue.toFixed(3)})`;
+    
+    // Debug log the audio defs being injected
+    if (paintCount % 60 === 0) {
+      console.log(`🎨 KIDLISP_AUDIO_DEFS: ${audioDefsPart}`);
+    }
+    
+    if (locatorName.includes('ACT I')) {
+      // ACT_I: Lime/magenta circles with flood
+      kidlispCode = `
+        (def cx (/ width 2)) (def cy (/ height 2))
+        (def beat (* kick 80)) (def pulse (* amp 50))
+        (ink lime (+ 120 (* kick 155))) (ink lime (+ 25 (* (random) 65))) (flood cx cy)
+        (ink magenta (+ 120 (* kick 155))) (circle cx cy (+ 10 beat))
+        (ink lime 180) (circle (+ cx ${x1.toFixed(1)}) (+ cy ${y1.toFixed(1)}) (+ 15 beat))
+        (ink cyan 160) (circle (+ cx ${x2.toFixed(1)}) (+ cy ${y2.toFixed(1)}) (+ 10 pulse))
+      `;
+    } else if (locatorName.includes('ACT II')) {
+      // ACT_II: Lines and gradient
+      kidlispCode = `
+        (def cx (/ width 2)) (def cy (/ height 2))
+        (def beat (* kick 80))
+        (gradient lime magenta 0 0 width height)
+        (ink magenta (+ 130 (* kick 155))) (line cx 0 cx height)
+        (ink lime 200) (line 0 cy width cy)
+        (ink white (+ 80 (* amp 100))) (circle (+ cx ${x3.toFixed(1)}) (+ cy ${y3.toFixed(1)}) (+ 15 beat))
+      `;
+    } else if (locatorName.includes('ACT III')) {
+      // ACT_III: Cross pattern with flood
+      kidlispCode = `
+        (def cx (/ width 2)) (def cy (/ height 2))
+        (def beat (* kick 80)) (def pulse (* amp 60))
+        (ink lime (+ 140 (* kick 155))) (ink lime (+ 35 (* (random) 75))) (flood cx cy)
+        (ink magenta (+ 140 (* kick 155))) (line 0 cy width cy) (line cx 0 cx height)
+        (ink yellow 180) (circle (+ cx ${x1.toFixed(1)}) (+ cy ${y1.toFixed(1)}) (+ 15 beat))
+        (ink cyan 180) (circle (- cx ${x1.toFixed(1)}) (- cy ${y1.toFixed(1)}) (+ 15 pulse))
+      `;
+    } else if (locatorName.includes('ACT V')) {
+      // ACT_V: Boxes and circles combo
+      kidlispCode = `
+        (def cx (/ width 2)) (def cy (/ height 2))
+        (def beat (* kick 100)) (def pulse (* amp 70))
+        (ink lime (+ 160 (* kick 155))) (ink lime (+ 45 (* (random) 85))) (flood cx cy)
+        (ink magenta (+ 160 (* kick 155))) (box cx cy (+ 10 beat) (+ 10 beat)) (circle cx cy (+ 10 beat))
+        (ink yellow 200) (circle (+ cx ${x1.toFixed(1)}) (+ cy ${y1.toFixed(1)}) (+ 20 beat))
+        (ink cyan 180) (box (+ cx ${x2.toFixed(1)}) (+ cy ${y2.toFixed(1)}) (+ 15 pulse) (+ 15 pulse))
+      `;
+    } else if (locatorName.includes('ACT VI')) {
+      // ACT_VI: Gradient and points
+      kidlispCode = `
+        (def cx (/ width 2)) (def cy (/ height 2))
+        (def beat (* kick 90))
+        (gradient lime black cx 0 cx height)
+        (ink magenta (+ 170 (* kick 155))) (point (/ width 3) (/ height 3)) (point (* width 0.66) (* height 0.66))
+        (line cx 0 cx height)
+        (ink lime 200) (circle (+ cx ${x3.toFixed(1)}) (+ cy ${y3.toFixed(1)}) (+ 20 beat))
+        (ink yellow 180) (circle (- cx ${x3.toFixed(1)}) (- cy ${y3.toFixed(1)}) (+ 15 beat))
+      `;
+    } else if (locatorName.includes('SURPRISE')) {
+      // SURPRISE: Multiple shapes, high energy
+      kidlispCode = `
+        (def cx (/ width 2)) (def cy (/ height 2))
+        (def beat (* kick 120)) (def pulse (* amp 80))
+        (ink lime (+ 180 (* kick 175))) (ink lime (+ 60 (* (random) 100))) (flood cx cy)
+        (ink magenta (+ 180 (* kick 175))) (circle cx cy (+ 15 beat))
+        (poly (/ width 4) (/ height 4) (+ 5 beat) 8)
+        (poly (* width 0.75) (* height 0.75) (+ 5 beat) 8)
+        (ink yellow 220) (box cx cy (+ 10 beat) (+ 10 beat))
+        (ink cyan 200) (circle (+ cx ${x1.toFixed(1)}) (+ cy ${y1.toFixed(1)}) (+ 25 pulse))
+      `;
+    } else if (locatorName.includes('PAUSE')) {
+      // PAUSE: Red/white theme
+      kidlispCode = `
+        (def cx (/ width 2)) (def cy (/ height 2))
+        (def beat (* kick 100)) (def pulse (* amp 60))
+        (gradient red black 0 0 width height)
+        (ink white (+ 160 (* kick 155))) (line 0 0 width height) (line width 0 0 height)
+        (ink red 220) (circle (+ cx ${x1.toFixed(1)}) (+ cy ${y1.toFixed(1)}) (+ 20 beat))
+        (ink white 200) (box (+ cx ${x2.toFixed(1)}) (+ cy ${y2.toFixed(1)}) (+ 15 pulse) (+ 15 pulse))
+      `;
+    } else {
+      // START / DEFAULT: Simple animated circles
+      kidlispCode = `
+        (def cx (/ width 2)) (def cy (/ height 2))
+        (def beat (* kick 80)) (def pulse (* amp 50))
+        (ink lime (+ 100 (* kick 155))) (ink lime (+ 20 (* (random) 60))) (flood cx cy)
+        (ink magenta (+ 100 (* kick 155))) (circle cx cy (+ 10 beat))
+        (ink yellow 180) (circle (+ cx ${x1.toFixed(1)}) (+ cy ${y1.toFixed(1)}) (+ 25 beat))
+        (ink cyan 160) (circle (- cx ${x1.toFixed(1)}) (- cy ${y1.toFixed(1)}) (+ 25 pulse))
+        (ink white 140) (circle (+ cx ${x2.toFixed(1)}) (+ cy ${y2.toFixed(1)}) (+ 20 (* kick 20)))
+      `;
+    }
+    
+    // Prepend audio reactive values to the KidLisp code
+    kidlispCode = `${audioDefsPart} ${kidlispCode}`;
+    
+    // Add defensive checks to prevent errors
+    if (!kidlispCode) {
+      kidlispCode = `(ink 128 128 128)`; // Fallback
+    }
+    
+    // KidLisp renders below timeline
+    // Layout: TV bars (0-24) -> Timeline (24-49) -> KidLisp (49 to screen.height-2) -> Progress bar (last 2px)
+    const kidlispY = timelineY + timelineHeight; // Start after timeline
+    const kidlispHeight = screen.height - kidlispY - 2; // Leave 2px at bottom for progress bar
+    
+    if (kidlispHeight > 10) { // Only render if there's enough space
+      try {
+        kidlisp(0, kidlispY, screen.width, kidlispHeight, kidlispCode);
+        
+        // CRITICAL: Reset ink/fade state after KidLisp renders
+        // KidLisp may set fade colors that persist across frames
+        ink("black"); // Reset to solid color to clear fade state
+      } catch (error) {
+        console.error(`🎨 KIDLISP ERROR on frame ${paintCount}:`, error);
+      }
+    }
+  }
+  
+  // NOW render TV bars on top of KidLisp so they're always visible
+  // REMOVED: Drawing here gets wiped by KidLisp - moved to end of paint function
+  // ink(220, 120, 180); // Bright magenta
+  // box(0, tvBarsY, screen.width, tvBarsHeight);
+  
+  // Reset ink state after drawing TV bars
+  ink("black");
   
   // blur(1); // Apply blur to the TV bars buffer to test separation
   // zoom(0.5);
@@ -2699,69 +2908,7 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
     
   } // Close timeline visibility conditional
   
-  // === PAUSE OVERLAY WITH PLAY BUTTON ===
-  // Show play button overlay when not playing (but not when audio is starting) OR when explicitly shown during playback
-  // Also show during initialization for visual feedback
-  // BUT: Don't show overlay when recording (tape mode) - just show black
-  // Check for any indication that we're in tape recording mode
-  const showOverlay = (!inTapeMode) && ((!isPlaying && !audioStarting) || (isPlaying && pauseOverlayVisible) || audioInitializing);
-  
-  if (showOverlay) {
-    const overlayTime = performance.now();
-    
-    // Auto-hide overlay after 3 seconds if playing has started
-    if (isPlaying && pauseOverlayVisible) {
-      if (overlayTime - pauseOverlayStartTime > 3000) {
-        pauseOverlayVisible = false;
-      }
-    }
-    
-    // Semi-transparent black overlay - more black and white vibes
-  ink(0, 0, 0, 30); // Minimal overlay so baseline visuals show through
-    box(0, 0, screen.width, screen.height);
-    
-    // Different visual feedback based on state
-    const centerX = screen.width / 2;
-    const centerY = screen.height / 2;
-    const triangleSize = 14; // Same size as old wipppps
-    
-    if (audioInitializing) {
-      // During initialization, the KidLisp BUFFERING source will handle visuals
-      // Just show a simple loading indicator here as backup
-      ink("orange");
-      const pulsePhase = (overlayTime / 300) % 2; // 300ms cycle
-      const opacity = pulsePhase < 1 ? Math.floor(pulsePhase * 255) : Math.floor((2 - pulsePhase) * 255);
-      ink(255, 165, 0, opacity); // Orange with pulsing opacity
-      box(centerX - 2, centerY - 2, 4, 4);
-      
-    } else {
-      // Show normal play triangle when not initializing
-      
-      // Draw black shadow for play triangle (offset by 1px)
-      ink(0, 0, 0, 255);
-      shape([
-        [centerX - triangleSize / 2 + 1, centerY - triangleSize / 2 + 1],
-        [centerX + triangleSize / 2 + 1, centerY + 1],
-        [centerX - triangleSize / 2 + 1, centerY + triangleSize / 2 + 1],
-      ]);
-
-      // Draw white outline for play triangle (slightly larger)
-      ink(255, 255, 255, 255);
-      shape([
-        [centerX - triangleSize / 2 - 1, centerY - triangleSize / 2 - 1],
-        [centerX + triangleSize / 2 + 1, centerY],
-        [centerX - triangleSize / 2 - 1, centerY + triangleSize / 2 + 1],
-      ]);
-
-      // Draw main white play triangle (black and white vibes - no rainbow)
-      ink(255, 255, 255, 255);
-      shape([
-        [centerX - triangleSize / 2, centerY - triangleSize / 2],
-        [centerX + triangleSize / 2, centerY],
-        [centerX - triangleSize / 2, centerY + triangleSize / 2],
-      ]);
-    }
-  }
+  // PAUSE OVERLAY MOVED TO END - will be drawn after TV bars
   
   // === PROGRESS BAR AND TRACK INFO ===
   // Progress bar at the bottom - drawn AFTER all other overlays to appear on top
@@ -2832,6 +2979,193 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
   ink(255, 255, 255); // White text
   write(artistText, artistX, artistY);
   */
+  
+  // === TV BARS - DRAWN LAST SO KIDLISP DOESN'T WIPE THEM ===
+  // Render TV bars at the very end so they appear on top of everything including KidLisp
+  
+  // Collect currently playing MIDI notes for TV bar colors
+  const tvBarColors = [];
+  if (alsProject && isPlaying && currentTimeSeconds > 0) {
+    alsProject.clips?.forEach((clip, clipIndex) => {
+      if (clip.type === 'midiclip' && clip.notes) {
+        clip.notes.forEach((note, noteIndex) => {
+          const noteStartTime = clip.startSeconds + alsProject.beatsToSeconds(alsProject.alsTimeToBeat(note.time || 0));
+          const noteEndTime = noteStartTime + alsProject.beatsToSeconds(alsProject.alsTimeToBeat(note.duration || 0.25));
+          
+          // Check if note is currently playing
+          if (currentTimeSeconds >= noteStartTime && currentTimeSeconds <= noteEndTime) {
+            const pitch = note.key || 60;
+            const velocity = note.velocity || 100;
+            
+            // Get color from current palette
+            const { current: currentLocator } = alsProject.getCurrentLocator(currentTimeSeconds, actualDuration);
+            const currentPalette = getPaletteForLocator(currentLocator?.name);
+            const colorIndex = (clipIndex * 3 + noteIndex * 5 + pitch * 2) % currentPalette.colors.length;
+            const baseColor = currentPalette.colors[colorIndex];
+            
+            // Apply velocity-based brightness
+            const velocityFactor = 0.7 + (velocity / 127) * 0.3;
+            const color = {
+              r: Math.max(30, Math.floor(baseColor.r * velocityFactor)),
+              g: Math.max(30, Math.floor(baseColor.g * velocityFactor)),
+              b: Math.max(30, Math.floor(baseColor.b * velocityFactor)),
+              colorKey: `${pitch}-${clipIndex}-${noteIndex}-${Math.floor(noteStartTime * 10)}`
+            };
+            tvBarColors.push(color);
+            
+            // Add to color history for decay
+            const existingIndex = colorHistory.findIndex(h => h.colorKey === color.colorKey);
+            if (existingIndex >= 0) {
+              colorHistory[existingIndex].alpha = 1.0;
+              colorHistory[existingIndex].lastSeen = performance.now();
+              colorHistory[existingIndex].isDecaying = false;
+            } else {
+              colorHistory.push({
+                r: color.r,
+                g: color.g,
+                b: color.b,
+                alpha: 1.0,
+                lastSeen: performance.now(),
+                isDecaying: false,
+                colorKey: color.colorKey
+              });
+            }
+          }
+        });
+      }
+    });
+  }
+  
+  // Update decay for colors not currently playing
+  const decayNow = performance.now();
+  const tvBarDecayDuration = 2000; // 2 seconds decay time
+  colorHistory.forEach(color => {
+    const timeSinceLastSeen = decayNow - color.lastSeen;
+    if (timeSinceLastSeen > 50) { // Start decaying after 50ms
+      color.isDecaying = true;
+      color.alpha = Math.max(0, 1.0 - (timeSinceLastSeen - 50) / tvBarDecayDuration);
+    }
+  });
+  
+  // Remove fully decayed colors
+  colorHistory = colorHistory.filter(color => color.alpha > 0.05);
+  
+  // Combine active and decaying colors
+  const tvBarAllColors = [...tvBarColors, ...colorHistory.filter(h => h.isDecaying)];
+  
+  // Draw TV bars - either from active/decaying notes or fallback color
+  if (tvBarAllColors.length > 0) {
+    // Draw each color as a vertical bar
+    const barWidth = Math.max(1, Math.floor(screen.width / tvBarAllColors.length));
+    tvBarAllColors.forEach((color, index) => {
+      const x = index * barWidth;
+      const width = (index === tvBarAllColors.length - 1) ? (screen.width - x) : barWidth;
+      
+      // Apply alpha for decaying colors
+      if (color.alpha !== undefined && color.alpha < 1.0) {
+        const fadedR = Math.floor(color.r * color.alpha);
+        const fadedG = Math.floor(color.g * color.alpha);
+        const fadedB = Math.floor(color.b * color.alpha);
+        ink(fadedR, fadedG, fadedB);
+      } else {
+        ink(color.r, color.g, color.b);
+      }
+      box(x, tvBarsY, width, tvBarsHeight);
+    });
+  } else {
+    // Fallback: solid color bar when no notes playing
+    ink(220, 120, 180); // Bright magenta
+    box(0, tvBarsY, screen.width, tvBarsHeight);
+  }
+  
+  // Draw waveform overlay on top of TV bars
+  const tvBarWaveform = sound.speaker?.waveforms?.left || [];
+  if (tvBarWaveform.length > 0) {
+    // Resample waveform to screen width
+    const resampledWaveform = tvBarWaveform.length > 128 
+      ? tvBarWaveform.filter((_, i) => i % Math.ceil(tvBarWaveform.length / 128) === 0).slice(0, 128)
+      : tvBarWaveform;
+    
+    const xStep = screen.width / (resampledWaveform.length - 1);
+    const yMid = tvBarsY + (tvBarsHeight / 2); // Middle of TV bars
+    const yMax = Math.max(4, tvBarsHeight / 3); // Amplitude range
+    
+    // Draw white waveform line
+    ink(255, 255, 255, 255);
+    poly(
+      resampledWaveform.map((v, i) => [
+        i * xStep,
+        yMid + v * yMax
+      ])
+    );
+  }
+  
+  // Reset ink state
+  ink("black");
+  
+  // === PAUSE OVERLAY WITH PLAY BUTTON - DRAWN LAST ===
+  // Show play button overlay when not playing (but not when audio is starting) OR when explicitly shown during playback
+  // Also show during initialization for visual feedback
+  // BUT: Don't show overlay when recording (tape mode) - just show black
+  // Check for any indication that we're in tape recording mode
+  const showOverlay = (!inTapeMode) && ((!isPlaying && !audioStarting) || (isPlaying && pauseOverlayVisible) || audioInitializing);
+  
+  if (showOverlay) {
+    const overlayTime = performance.now();
+    
+    // Auto-hide overlay after 3 seconds if playing has started
+    if (isPlaying && pauseOverlayVisible) {
+      if (overlayTime - pauseOverlayStartTime > 3000) {
+        pauseOverlayVisible = false;
+      }
+    }
+    
+    // Semi-transparent black overlay - more black and white vibes
+    ink(0, 0, 0, 30); // Minimal overlay so baseline visuals show through
+    box(0, 0, screen.width, screen.height);
+    
+    // Different visual feedback based on state
+    const centerX = screen.width / 2;
+    const centerY = screen.height / 2;
+    const triangleSize = 14; // Same size as old wipppps
+    
+    if (audioInitializing) {
+      // During initialization, the KidLisp BUFFERING source will handle visuals
+      // Just show a simple loading indicator here as backup
+      ink("orange");
+      const pulsePhase = (overlayTime / 300) % 2; // 300ms cycle
+      const opacity = pulsePhase < 1 ? Math.floor(pulsePhase * 255) : Math.floor((2 - pulsePhase) * 255);
+      ink(255, 165, 0, opacity); // Orange with pulsing opacity
+      box(centerX - 2, centerY - 2, 4, 4);
+      
+    } else {
+      // Show normal play triangle when not initializing
+      
+      // Draw black shadow for play triangle (offset by 1px)
+      ink(0, 0, 0, 255);
+      shape([
+        [centerX - triangleSize / 2 + 1, centerY - triangleSize / 2 + 1],
+        [centerX + triangleSize / 2 + 1, centerY + 1],
+        [centerX - triangleSize / 2 + 1, centerY + triangleSize / 2 + 1],
+      ]);
+
+      // Draw white outline for play triangle (slightly larger)
+      ink(255, 255, 255, 255);
+      shape([
+        [centerX - triangleSize / 2 - 1, centerY - triangleSize / 2 - 1],
+        [centerX + triangleSize / 2 + 1, centerY],
+        [centerX - triangleSize / 2 - 1, centerY + triangleSize / 2 + 1],
+      ]);
+
+      // Draw main white play triangle (black and white vibes - no rainbow)
+      ink(255, 255, 255, 255);
+      shape([
+        [centerX - triangleSize / 2, centerY - triangleSize / 2],
+        [centerX + triangleSize / 2, centerY],
+        [centerX - triangleSize / 2, centerY + triangleSize / 2],
+      ]);
+    }
+  }
   
 } // Close paint function
 
