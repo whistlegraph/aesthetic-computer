@@ -58,7 +58,13 @@ function fish_greeting
 end
 
 function ac-tv
-    set -l default_base "https://localhost:8888/api/tv"
+    # Detect Codespaces and construct the appropriate base URL
+    if test -n "$CODESPACES"; and test -n "$CODESPACE_NAME"; and test -n "$GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN"
+        set -l default_base "https://$CODESPACE_NAME-8888.$GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN/api/tv"
+    else
+        set -l default_base "https://localhost:8888/api/tv"
+    end
+    
     set -l base $default_base
     set -l preview true
     set -l query_params

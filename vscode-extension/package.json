@@ -4,10 +4,10 @@
   "displayName": "Aesthetic Computer",
   "icon": "resources/icon.png",
   "author": "Jeffrey Alan Scudder",
-  "version": "1.189.0",
+  "version": "1.190.0",
   "description": "Code, run, and publish your pieces.",
   "engines": {
-    "vscode": "^1.88.0"
+    "vscode": "^1.105.0"
   },
   "scripts": {
     "vscode.dev": "npx serve --cors -l 6000 --ssl-cert ../ssl-dev/localhost.pem --ssl-key ../ssl-dev/localhost-key.pem",
