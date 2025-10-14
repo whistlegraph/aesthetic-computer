@@ -1,267 +1,267 @@
-# Grab Worker
+# Grab Worker - Browser Rendering Service
 
-Screenshot generation service for Aesthetic Computer pieces using Cloudflare Workers and Browser Rendering API.
+Screenshot and preview generation service using Cloudflare Browser Rendering API.
 
-## 🚀 Quick Start
+## Files
 
-**Production URL**: https://grab.aesthetic.computer
+- `.env` - Environment variables for grab worker deployment
+- `wrangler.production.toml` - Cloudflare Workers production configuration
 
-### API Endpoints
+## Usage
 
-#### Icon (Small)
-```bash
-GET /icon/{width}x{height}/{piece}.png
-```
-Example: `https://grab.aesthetic.computer/icon/128x128/prompt.png`
+### Loading Secrets in DevContainer
 
-#### Preview (Large)
-```bash
-GET /preview/{width}x{height}/{piece}.png
-```
-Example: `https://grab.aesthetic.computer/preview/1200x630/prompt.png`
+Secrets are automatically loaded via `/aesthetic-computer-vault/devault.fish` on container start.
 
-#### Health Check
-```bash
-GET /health
-```
-Example: `https://grab.aesthetic.computer/health`
+### Manual Secret Loading
 
-### Common Sizes
-
-| Size | Use Case | Example |
-|------|----------|---------|
-| `128x128` | Favicon, small icons | `/icon/128x128/prompt.png` |
-| `256x256` | App icons | `/icon/256x256/prompt.png` |
-| `512x512` | Large icons | `/icon/512x512/prompt.png` |
-| `1200x630` | Open Graph images | `/preview/1200x630/prompt.png` |
-| `1800x900` | Twitter cards | `/preview/1800x900/prompt.png` |
-
-### Query Parameters
-
-Pass parameters to the piece:
-```bash
-/icon/128x128/prompt.png?text=hello&color=red
+```fish
+# Load environment variables (fish shell)
+set -gx (cat /workspaces/aesthetic-computer/aesthetic-computer-vault/grab/.env | grep -v '^#' | string split '=')
 ```
 
----
+### Deploying Grab Worker
 
-## 📦 Features
+```fish
+# Copy secrets to working directory
+cd /workspaces/aesthetic-computer/aesthetic-computer-vault
+./devault.fish
 
-- ✅ **Fast Screenshots**: 7-15 seconds for first request, <1s cached
-- ✅ **Durable Sessions**: Browser instances reused for efficiency
-- ✅ **Smart Caching**: 1hr browser cache, 24hr CDN cache
-- ✅ **Custom Domains**: Clean URLs via Cloudflare Workers
-- ✅ **Rate Limiting**: Built-in protection
-- ✅ **Error Handling**: Graceful fallbacks and timeouts
-
----
-
-## 🛠️ Development
-
-### Install Dependencies
-```bash
-npm install
+# Deploy
+cd /workspaces/aesthetic-computer/grab
+npm run deploy:production
 ```
 
-### Type Check
-```bash
-npm run type-check
+### Setting Cloudflare Secrets
+
+```fish
+cd /workspaces/aesthetic-computer/grab
+
+# If you have sensitive API keys (not currently needed)
+wrangler secret put BROWSER_API_KEY
 ```
 
-### Deploy
-```bash
-npm run deploy
+## Initial Setup
+
+### 1. Get Cloudflare API Token (for DNS automation)
+
+**Required for automatic DNS configuration during deployment.**
+
+1. Go to: https://dash.cloudflare.com/profile/api-tokens
+2. Click: **"Create Token"**
+3. Use template: **"Edit zone DNS"**
+4. Configure:
+   - **Permissions:** Zone → DNS → Edit
+   - **Zone Resources:** Include → Specific zone → aesthetic.computer
+5. Click: **"Continue to summary"** → **"Create Token"**
+6. Copy the token and add to `.env`:
+   ```bash
+   CLOUDFLARE_API_TOKEN=your-token-here
+   ```
+
+**Note:** This is different from `CLOUDFLARE_API_KEY` (Global API Key). The API Token has scoped permissions for DNS only.
+
+### 2. Create Browser Rendering Binding
+
+```fish
+cd /workspaces/aesthetic-computer/grab
+./scripts/setup-browser-binding.fish
 ```
+
+This will:
+- Enable Browser Rendering in your Cloudflare account
+- Create the binding
+- Output the binding ID
+- Update the `.env` file with the ID
+
+### 3. Create Durable Object Namespace
+
+```fish
+wrangler dispatch-namespace create SCREENSHOT_DO
+```
+
+Copy the namespace ID to `.env`:
+```bash
+DO_NAMESPACE_ID=<paste-id-here>
+```
+
+### 4. Create R2 Bucket (Optional)
+
+```fish
+wrangler r2 bucket create aesthetic-screenshots
+```
+
+Copy the bucket name/ID to `.env`.
+
+### 5. Deploy with Automatic DNS
+
+**One-command deployment with automatic DNS configuration:**
+
+```fish
+cd /workspaces/aesthetic-computer/grab
+./scripts/deploy-with-dns.fish
+```
+
+This script will:
+1. ✅ Deploy the worker to Cloudflare
+2. ✅ Automatically create/update DNS CNAME record
+3. ✅ Wait for DNS propagation
+4. ✅ Verify the deployment is accessible
+
+**Manual deployment (without DNS automation):**
+
+```fish
+cd /workspaces/aesthetic-computer/grab
+npm run deploy:production
+
+# Then manually configure DNS via Dashboard or use:
+./scripts/configure-dns.fish
+```
+
+### 6. Alternative: Manual DNS Configuration
+
+If the automated script doesn't work, you can manually configure DNS:
+
+**Option A: Cloudflare Dashboard (2 minutes)**
+1. Go to: https://dash.cloudflare.com/a23b54e8877a833a1cf8db7765bce3ca/aesthetic.computer/dns/records
+2. Click: "Add record"
+3. Type: CNAME
+4. Name: `grab`
+5. Target: `aesthetic-grab.aesthetic-computer.workers.dev`
+6. Proxy: ✅ Enabled (orange cloud)
+7. Save
+
+**Option B: Workers Dashboard (5 minutes)**
+1. Go to Workers & Pages
+2. Click on `aesthetic-grab`
+3. Go to Settings > Domains & Routes
+4. Click "Add Custom Domain"
+5. Enter: `grab.aesthetic.computer`
+6. Click "Add Domain"
+
+Either method works - automated deployment script is fastest!
+
+## Architecture
+
+```
+Client Request (grab.aesthetic.computer)
+    ↓
+Cloudflare Worker
+    ↓
+Check Cache API (ETag)
+    ↓ (miss)
+Durable Object (per URL)
+    ↓
+Browser Rendering API
+    ↓
+Puppeteer Screenshot
+    ↓
+Store in Cache + R2
+    ↓
+Return PNG
+```
+
+## Endpoints
+
+### Icon Generation
+```
+GET https://grab.aesthetic.computer/icon/128x128/prompt~wipe.png
+GET https://grab.aesthetic.computer/icon/128x128/welcome.png
+```
+
+### Preview Generation (OG Image)
+```
+GET https://grab.aesthetic.computer/preview/1200x630/prompt~wipe.png
+```
+
+### Preview Generation (Twitter Card)
+```
+GET https://grab.aesthetic.computer/preview/1800x900/prompt~wipe.png
+```
+
+## Monitoring
 
 ### View Logs
-```bash
-npm run logs
+```fish
+# Real-time logs
+wrangler tail aesthetic-grab
+
+# Production logs
+wrangler tail aesthetic-grab --env production
 ```
 
-### Local Development
-```bash
-npm run dev
+### Metrics
+
+View in Cloudflare Dashboard:
+- Workers & Pages > aesthetic-grab > Metrics
+- Analytics > Workers
+- Durable Objects > SCREENSHOT_DO
+
+## Troubleshooting
+
+### Browser Rendering Not Working
+
+1. Check browser binding is enabled:
+```fish
+wrangler whoami
+# Ensure Browser Rendering is in enabled features
 ```
 
-Note: Local development uses `wrangler dev` which connects to remote Browser Rendering API.
-
----
-
-## 📚 Documentation
-
-- **[DEPLOY.md](DEPLOY.md)**: Complete deployment guide
-- **[VIDEO-FUTURE.md](VIDEO-FUTURE.md)**: Future video capture infrastructure
-- **[docs/](docs/)**: Detailed technical documentation
-  - `ANIMATED-GIF-STATUS.md`: Video recording research
-  - `INTEGRATION-SUMMARY.md`: System integration details
-  - `DEV-SETUP.md`: Local development guide
-  - `DEPLOYMENT.md`: Legacy deployment docs
-  - `CODE-CHANGES.md`: Change history
-
----
-
-## 🏗️ Architecture
-
-```
-User → grab.aesthetic.computer
-       ↓
-       Cloudflare Workers (aesthetic-grab)
-       ↓
-       Durable Object (Browser session)
-       ↓
-       Browser Rendering API (@cloudflare/puppeteer)
-       ↓
-       Screenshot (PNG) + Cache Headers
-       ↓
-       Cloudflare CDN (24hr cache)
+2. Check DO namespace exists:
+```fish
+wrangler dispatch-namespace list
 ```
 
-### Stack
-- **Cloudflare Workers**: Serverless compute
-- **Browser Rendering API**: Headless Chrome for screenshots
-- **Durable Objects**: Browser session management
-- **TypeScript**: Type-safe code
-- **@cloudflare/puppeteer**: Browser automation
-
----
-
-## ⚙️ Configuration
-
-Environment variables in `wrangler.toml`:
-
-```toml
-[vars]
-ENVIRONMENT = "production"
-DOMAIN = "grab.aesthetic.computer"
-CACHE_TTL_SECONDS = "3600"           # 1 hour
-CDN_CACHE_TTL_SECONDS = "86400"      # 24 hours
-MAX_SCREENSHOT_AGE_MS = "604800000"  # 7 days
-BROWSER_TIMEOUT_MS = "30000"         # 30 seconds
-MAX_VIEWPORT_WIDTH = "1920"
-MAX_VIEWPORT_HEIGHT = "1080"
-MAX_REQUESTS_PER_MINUTE = "60"
-MAX_BROWSER_SESSIONS = "10"
+3. Check logs:
+```fish
+wrangler tail aesthetic-grab
 ```
 
----
+### Caching Issues
 
-## 🧪 Testing
-
-### Health Check
-```bash
-curl "https://grab.aesthetic.computer/health"
+Clear CDN cache:
+```fish
+# Via Cloudflare Dashboard:
+# Caching > Configuration > Purge Cache
+# Or use Cloudflare API
 ```
 
-### Generate Icon
-```bash
-curl "https://grab.aesthetic.computer/icon/128x128/prompt.png" --output test.png
-file test.png
-# Expected: PNG image data, 128 x 128
-```
+### Performance Issues
 
-### Generate Preview
-```bash
-curl "https://grab.aesthetic.computer/preview/1200x630/prompt.png" --output test.png
-file test.png
-# Expected: PNG image data, 1200 x 630
-```
+- Check browser timeout settings
+- Monitor DO session count
+- Check R2 storage limits
+- Review cache hit rates
 
-### Check Cache
-```bash
-curl -I "https://grab.aesthetic.computer/icon/128x128/prompt.png"
-# Look for: CF-Cache-Status: HIT (on second request)
-```
+## Security
 
----
+- All secrets stored in vault (not in repo)
+- API keys managed via wrangler secrets
+- Rate limiting per IP
+- URL validation (aesthetic.computer only)
+- Resource limits enforced
 
-## 🔗 Integration
+## Cost Optimization
 
-This worker replaces the Netlify Edge Function for screenshot generation.
+### Browser Rendering
+- Charged per second of browser time
+- Optimize page load times
+- Cache aggressively
+- Set reasonable timeouts
 
-### parse.mjs
-```javascript
-const iconURL = `https://grab.aesthetic.computer/icon/128x128/${pieceParam}${query}`;
-const previewURL = `https://grab.aesthetic.computer/preview/1200x630/${pieceParam}${query}`;
-```
+### Durable Objects
+- Charged per request and duration
+- Minimize DO calls via caching
+- Batch operations when possible
 
-### netlify.toml
-```toml
-# Icon redirect
-[[redirects]]
-  from = "/aesthetic.computer/api/icon/:piece"
-  to = "https://grab.aesthetic.computer/icon/128x128/:piece.png"
-  status = 200
+### R2 Storage
+- Class A operations (write)
+- Class B operations (read)
+- Storage capacity
+- Monitor usage via dashboard
 
-# Preview redirect  
-[[redirects]]
-  from = "/aesthetic.computer/api/preview/:piece"
-  to = "https://grab.aesthetic.computer/preview/1200x630/:piece.png"
-  status = 200
-```
+## Related Documentation
 
----
-
-## 📊 Monitoring
-
-### Cloudflare Dashboard
-https://dash.cloudflare.com → Workers & Pages → aesthetic-grab
-
-### Key Metrics
-- **Success Rate**: >99%
-- **Response Time**: 7-15s (first), <1s (cached)
-- **Cache Hit Rate**: Increases over time
-- **Error Rate**: Monitor 4xx/5xx
-
-### View Logs
-```bash
-npm run logs
-```
-
-### Recent Deployments
-```bash
-npx wrangler deployments list
-```
-
----
-
-## 🐛 Troubleshooting
-
-### Screenshots are blank/white
-- Piece may not exist on aesthetic.computer
-- Check logs: `npm run logs`
-- Verify Browser Rendering API is active
-
-### Slow response times
-- First request always slower (browser cold start)
-- Check if Durable Object session reuse is working
-- Adjust `BROWSER_TIMEOUT_MS` if needed
-
-### DNS issues
-- Wait 5-10 minutes for propagation
-- Check: `dig grab.aesthetic.computer`
-- Verify `routes` in wrangler.toml
-
-### Deployment failures
-- Ensure Workers Paid plan is active
-- Check Browser Rendering API is enabled
-- Verify account_id in wrangler.toml
-
----
-
-## 🔮 Future: Video Capture
-
-Video/animation capture requires different infrastructure than Cloudflare Workers. See **[VIDEO-FUTURE.md](VIDEO-FUTURE.md)** for the roadmap:
-
-- Digital Ocean VPS with GPU support
-- Real-time video capture (30-60 FPS)
-- FFmpeg with hardware encoding
-- Similar to `/at` PDS deployment model
-
----
-
-## 📝 License
-
-Part of the Aesthetic Computer project.
-
-**Last Updated**: October 14, 2025  
-**Version**: e77346d0-3732-4bd2-b03b-e932dc50fac9
+- Main implementation: `/workspaces/aesthetic-computer/grab/`
+- Deployment plan: `/workspaces/aesthetic-computer/grab/PLAN.md`
+- Migration guide: `/workspaces/aesthetic-computer/grab/DEPLOYMENT.md`
