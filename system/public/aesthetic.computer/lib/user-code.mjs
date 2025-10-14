@@ -91,17 +91,26 @@ export function parseUserCode(text) {
 export async function ensureUserCodeIndex(database) {
   const users = database.db.collection('users');
   
-  // Create unique index on code field
-  await users.createIndex(
-    { code: 1 }, 
-    { 
-      unique: true,
-      sparse: true, // Allow documents without code (during migration)
-      name: 'code_unique'
+  try {
+    // Create unique index on code field
+    await users.createIndex(
+      { code: 1 }, 
+      { 
+        unique: true,
+        sparse: true, // Allow documents without code (during migration)
+        name: 'code_unique'
+      }
+    );
+    
+    console.log('✅ User code unique index ensured');
+  } catch (error) {
+    // Index might already exist with different name (code_1)
+    if (error.message?.includes('already exists') || error.code === 85) {
+      console.log('ℹ️  User code index already exists (ignoring conflict)');
+      return; // Index exists, that's good enough
     }
-  );
-  
-  console.log('✅ User code unique index ensured');
+    throw error; // Re-throw other errors
+  }
 }
 
 /**
