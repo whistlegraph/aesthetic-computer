@@ -2131,143 +2131,18 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
   
   // === KIDLISP AND TV BARS COMBINATION ===
   
-  // Render KidLisp if enabled AND playing (pause when stopped so overlay shows)
-  if (kidlispMode && isPlaying) {
+  // Render KidLisp - show BEFORE_START (cow image) when paused, patterns when playing
+  if (kidlispMode) {
     // Get current locator for context
     const { current: currentLocator } = alsProject ? alsProject.getCurrentLocator(currentTimeSeconds, actualDuration) : { current: null };
     
-    // Get more complex pattern based on current locator
-    // Use time-based animation since frame might not work
-    const animTime = (performance.now() / 1000); // Time in seconds
-    const angle1 = animTime * 0.5; // Slow rotation
-    const angle2 = animTime * 0.7; // Different speed
-    const angle3 = animTime * 1.0; // Faster rotation
+    // Get the pre-defined KidLisp source for this locator
+    let kidlispCode = getKidlispSourceForLocator(currentLocator?.name, isPlaying, audioInitializing, inTapeMode);
     
-    // Calculate positions in JS and inject them
-    const x1 = Math.sin(angle1) * 60;
-    const y1 = Math.cos(angle1) * 60;
-    const x2 = Math.sin(angle2) * 40;
-    const y2 = Math.cos(angle2) * 40;
-    const x3 = Math.cos(angle3) * 80;
-    const y3 = Math.sin(angle3) * 50;
-    
-    // Get kick and amp values from audio analysis
-    // Use actual amplitude from speaker
-    const leftAmp = sound.speaker?.amplitudes?.left || 0;
-    const rightAmp = sound.speaker?.amplitudes?.right || 0;
-    const ampValue = (leftAmp + rightAmp) / 2; // Average both channels
-    
-    // Simulate kick detection from amplitude spikes
-    // If amplitude jumps significantly, treat it as a kick
-    const kickValue = ampValue > 0.5 ? ampValue : 0;
-    
-    // Debug log audio values every second
-    if (paintCount % 60 === 0) {
-      console.log(`🎨 AUDIO_REACTIVE: amp=${ampValue.toFixed(3)}, kick=${kickValue.toFixed(3)}, leftAmp=${leftAmp.toFixed(3)}, rightAmp=${rightAmp.toFixed(3)}`);
+    // Add defensive checks to prevent errors
+    if (!kidlispCode) {
+      kidlispCode = ZZZWAP_KIDLISP_SOURCES.START; // Fallback to START
     }
-    
-    // Get locator name for pattern selection
-    const locatorName = currentLocator?.name?.toUpperCase() || 'START';
-    
-    let kidlispCode = '';
-    
-    // Create different patterns for different sections
-    // Prepend audio values as definitions
-    const audioDefsPart = `(def kick ${kickValue.toFixed(3)}) (def amp ${ampValue.toFixed(3)})`;
-    
-    // Debug log the audio defs being injected
-    if (paintCount % 60 === 0) {
-      console.log(`🎨 KIDLISP_AUDIO_DEFS: ${audioDefsPart}`);
-    }
-    
-    if (locatorName.includes('ACT I')) {
-      // ACT_I: Lime/magenta circles with flood
-      kidlispCode = `
-        (def cx (/ width 2)) (def cy (/ height 2))
-        (def beat (* kick 80)) (def pulse (* amp 50))
-        (ink lime (+ 120 (* kick 155))) (ink lime (+ 25 (* (random) 65))) (flood cx cy)
-        (ink magenta (+ 120 (* kick 155))) (circle cx cy (+ 10 beat))
-        (ink lime 180) (circle (+ cx ${x1.toFixed(1)}) (+ cy ${y1.toFixed(1)}) (+ 15 beat))
-        (ink cyan 160) (circle (+ cx ${x2.toFixed(1)}) (+ cy ${y2.toFixed(1)}) (+ 10 pulse))
-      `;
-    } else if (locatorName.includes('ACT II')) {
-      // ACT_II: Lines and gradient
-      kidlispCode = `
-        (def cx (/ width 2)) (def cy (/ height 2))
-        (def beat (* kick 80))
-        (gradient lime magenta 0 0 width height)
-        (ink magenta (+ 130 (* kick 155))) (line cx 0 cx height)
-        (ink lime 200) (line 0 cy width cy)
-        (ink white (+ 80 (* amp 100))) (circle (+ cx ${x3.toFixed(1)}) (+ cy ${y3.toFixed(1)}) (+ 15 beat))
-      `;
-    } else if (locatorName.includes('ACT III')) {
-      // ACT_III: Cross pattern with flood
-      kidlispCode = `
-        (def cx (/ width 2)) (def cy (/ height 2))
-        (def beat (* kick 80)) (def pulse (* amp 60))
-        (ink lime (+ 140 (* kick 155))) (ink lime (+ 35 (* (random) 75))) (flood cx cy)
-        (ink magenta (+ 140 (* kick 155))) (line 0 cy width cy) (line cx 0 cx height)
-        (ink yellow 180) (circle (+ cx ${x1.toFixed(1)}) (+ cy ${y1.toFixed(1)}) (+ 15 beat))
-        (ink cyan 180) (circle (- cx ${x1.toFixed(1)}) (- cy ${y1.toFixed(1)}) (+ 15 pulse))
-      `;
-    } else if (locatorName.includes('ACT V')) {
-      // ACT_V: Boxes and circles combo
-      kidlispCode = `
-        (def cx (/ width 2)) (def cy (/ height 2))
-        (def beat (* kick 100)) (def pulse (* amp 70))
-        (ink lime (+ 160 (* kick 155))) (ink lime (+ 45 (* (random) 85))) (flood cx cy)
-        (ink magenta (+ 160 (* kick 155))) (box cx cy (+ 10 beat) (+ 10 beat)) (circle cx cy (+ 10 beat))
-        (ink yellow 200) (circle (+ cx ${x1.toFixed(1)}) (+ cy ${y1.toFixed(1)}) (+ 20 beat))
-        (ink cyan 180) (box (+ cx ${x2.toFixed(1)}) (+ cy ${y2.toFixed(1)}) (+ 15 pulse) (+ 15 pulse))
-      `;
-    } else if (locatorName.includes('ACT VI')) {
-      // ACT_VI: Gradient and points
-      kidlispCode = `
-        (def cx (/ width 2)) (def cy (/ height 2))
-        (def beat (* kick 90))
-        (gradient lime black cx 0 cx height)
-        (ink magenta (+ 170 (* kick 155))) (point (/ width 3) (/ height 3)) (point (* width 0.66) (* height 0.66))
-        (line cx 0 cx height)
-        (ink lime 200) (circle (+ cx ${x3.toFixed(1)}) (+ cy ${y3.toFixed(1)}) (+ 20 beat))
-        (ink yellow 180) (circle (- cx ${x3.toFixed(1)}) (- cy ${y3.toFixed(1)}) (+ 15 beat))
-      `;
-    } else if (locatorName.includes('SURPRISE')) {
-      // SURPRISE: Multiple shapes, high energy
-      kidlispCode = `
-        (def cx (/ width 2)) (def cy (/ height 2))
-        (def beat (* kick 120)) (def pulse (* amp 80))
-        (ink lime (+ 180 (* kick 175))) (ink lime (+ 60 (* (random) 100))) (flood cx cy)
-        (ink magenta (+ 180 (* kick 175))) (circle cx cy (+ 15 beat))
-        (poly (/ width 4) (/ height 4) (+ 5 beat) 8)
-        (poly (* width 0.75) (* height 0.75) (+ 5 beat) 8)
-        (ink yellow 220) (box cx cy (+ 10 beat) (+ 10 beat))
-        (ink cyan 200) (circle (+ cx ${x1.toFixed(1)}) (+ cy ${y1.toFixed(1)}) (+ 25 pulse))
-      `;
-    } else if (locatorName.includes('PAUSE')) {
-      // PAUSE: Red/white theme
-      kidlispCode = `
-        (def cx (/ width 2)) (def cy (/ height 2))
-        (def beat (* kick 100)) (def pulse (* amp 60))
-        (gradient red black 0 0 width height)
-        (ink white (+ 160 (* kick 155))) (line 0 0 width height) (line width 0 0 height)
-        (ink red 220) (circle (+ cx ${x1.toFixed(1)}) (+ cy ${y1.toFixed(1)}) (+ 20 beat))
-        (ink white 200) (box (+ cx ${x2.toFixed(1)}) (+ cy ${y2.toFixed(1)}) (+ 15 pulse) (+ 15 pulse))
-      `;
-    } else {
-      // START / DEFAULT: Simple animated circles
-      kidlispCode = `
-        (def cx (/ width 2)) (def cy (/ height 2))
-        (def beat (* kick 80)) (def pulse (* amp 50))
-        (ink lime (+ 100 (* kick 155))) (ink lime (+ 20 (* (random) 60))) (flood cx cy)
-        (ink magenta (+ 100 (* kick 155))) (circle cx cy (+ 10 beat))
-        (ink yellow 180) (circle (+ cx ${x1.toFixed(1)}) (+ cy ${y1.toFixed(1)}) (+ 25 beat))
-        (ink cyan 160) (circle (- cx ${x1.toFixed(1)}) (- cy ${y1.toFixed(1)}) (+ 25 pulse))
-        (ink white 140) (circle (+ cx ${x2.toFixed(1)}) (+ cy ${y2.toFixed(1)}) (+ 20 (* kick 20)))
-      `;
-    }
-    
-    // Prepend audio reactive values to the KidLisp code
-    kidlispCode = `${audioDefsPart} ${kidlispCode}`;
     
     // Add defensive checks to prevent errors
     if (!kidlispCode) {
