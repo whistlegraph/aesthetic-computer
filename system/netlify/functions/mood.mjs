@@ -33,6 +33,7 @@ import {
 } from "../../backend/authorization.mjs";
 import { connect, moodFor, allMoods } from "../../backend/database.mjs";
 import { respond, pathParams } from "../../backend/http.mjs";
+import { createMoodOnAtproto } from "../../backend/mood-atproto.mjs";
 // const dev = process.env.CONTEXT === "dev";
 
 import { initializeApp, cert } from "firebase-admin/app"; // Firebase notifications.
@@ -103,11 +104,38 @@ export async function handler(event, context) {
         );
 
         if (!lastMood || lastMood.mood !== mood) {
-          await collection.insertOne({
+          const insertResult = await collection.insertOne({
             user: user.sub,
             mood,
             when: new Date(),
           });
+
+          // Dual-write: Also create mood on ATProto
+          console.log("🔄 Syncing mood to ATProto...");
+          try {
+            const atprotoResult = await createMoodOnAtproto(
+              database,
+              user.sub,
+              mood,
+              new Date(),
+              insertResult.insertedId.toString(),
+            );
+
+            if (atprotoResult.rkey) {
+              // Update MongoDB with the ATProto rkey
+              await collection.updateOne(
+                { _id: insertResult.insertedId },
+                { $set: { atproto: { rkey: atprotoResult.rkey } } },
+              );
+              console.log(
+                "✅ Mood synced to ATProto with rkey:",
+                atprotoResult.rkey,
+              );
+            }
+          } catch (atprotoError) {
+            // Log the error but don't fail the request - mood is already saved in MongoDB
+            console.error("⚠️  Failed to sync mood to ATProto:", atprotoError);
+          }
 
           const { got } = await import("got");
 
