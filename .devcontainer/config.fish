@@ -768,22 +768,23 @@ function ac-site
         pkill -f "esbuild" 2>/dev/null
         sleep 1
         
-        # Kill ports before starting
-        npx kill-port 8880 8888 8889 8080 8000 8111 3333 3000 3001 2>/dev/null
+        # Kill ports before starting (suppress verbose output)
+        npx kill-port 8880 8888 8889 8080 8000 8111 3333 3000 3001 >/dev/null 2>&1
         
-        # Link netlify
-        netlify link --id $NETLIFY_SITE_ID
+        # Link netlify (suppress output if already linked)
+        netlify link --id $NETLIFY_SITE_ID >/dev/null 2>&1
         
-        # Suppress verbose Express debug logs
+        # Suppress verbose debug logs from Deno and Express
         set -e DEBUG
+        set -x DENO_V8_FLAGS ""
         
         # Detect if running in GitHub Codespaces and use appropriate command
         if test -n "$CODESPACES"
             echo "🌐 Detected GitHub Codespaces - running without SSL..."
-            npm run codespaces-dev
+            env DENO_LOG_LEVEL=info npm run codespaces-dev 2>&1 | grep -v "^DEBUG RS"
         else
             echo "💻 Running on local machine - using SSL..."
-            npm run local-dev
+            env DENO_LOG_LEVEL=info npm run local-dev 2>&1 | grep -v "^DEBUG RS"
         end
         
         set exit_code $status
