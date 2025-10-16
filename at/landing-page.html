@@ -1,0 +1,834 @@
+<!--
+ATProto PDS Landing Page for at.aesthetic.computer
+Created: 2025.10.16
+A custom landing page for the Aesthetic Computer Personal Data Server
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>at · Aesthetic Computer</title>
+  <meta name="description" content="Personal Data Server for the Aesthetic Computer community">
+  <link rel="icon" type="image/png"
+    href="https://pals-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/painting-2023.7.29.20.39.png">
+  
+  <style>
+    ::-webkit-scrollbar {
+      display: none;
+    }
+    
+    body {
+      margin: 0;
+      font-size: 22px;
+      font-family: monospace;
+      -webkit-text-size-adjust: none;
+      overflow-x: hidden;
+    }
+
+    h1 {
+      font-weight: normal;
+      font-size: 22px;
+      margin: 0;
+      position: fixed;
+      top: 12px;
+      left: 16px;
+      z-index: 100;
+    }
+
+    h1 a {
+      color: inherit;
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    h1 a:hover {
+      color: rgb(205, 92, 155);
+    }
+
+    h1:before {
+      content: "";
+      height: 2.5em;
+      width: 100vw;
+      position: absolute;
+      z-index: -1;
+      top: -12px;
+      left: -16px;
+    }
+
+    h2 {
+      font-weight: normal;
+      font-size: 18px;
+      margin-top: 2em;
+    }
+
+    section {
+      margin: 12px 16px;
+      padding-top: 2.5em;
+      font-size: 65%;
+    }
+
+    p {
+      margin-top: 0;
+      line-height: 1.6em;
+    }
+
+    code {
+      color: rgb(205, 92, 155);
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    a:hover {
+      color: rgb(205, 92, 155);
+    }
+
+    ul {
+      padding-left: 1.5em;
+    }
+
+    li {
+      margin: 0.5em 0;
+    }
+
+    pre {
+      font-size: 11px;
+      line-height: 1.3;
+      overflow-x: auto;
+      opacity: 0.8;
+    }
+
+    .stats {
+      margin: 1.5em 0;
+      padding: 1em;
+      background: rgba(205, 92, 155, 0.1);
+    }
+
+    .stats div {
+      margin: 0.5em 0;
+    }
+
+    #gallery {
+      margin-top: 2em;
+    }
+
+    #gallery-controls {
+      margin: 1em 0;
+    }
+
+    #gallery-controls button {
+      font-family: monospace;
+      font-size: 16px;
+      padding: 0.5em 1em;
+      margin-right: 0.5em;
+      margin-bottom: 0.5em;
+      background: white;
+      border: 1px solid black;
+      cursor: pointer;
+    }
+
+    #gallery-controls button:hover {
+      background: rgb(205, 92, 155);
+      color: white;
+      border-color: rgb(205, 92, 155);
+    }
+
+    #gallery-controls button.active {
+      background: rgb(205, 92, 155);
+      color: white;
+      border-color: rgb(205, 92, 155);
+    }
+
+    #gallery-controls label {
+      display: inline-flex;
+      align-items: center;
+      font-size: 16px;
+      margin-right: 0.5em;
+      margin-bottom: 0.5em;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    #gallery-controls input[type="checkbox"] {
+      margin-right: 0.5em;
+      cursor: pointer;
+    }
+
+    #gallery-controls input,
+    #gallery-controls select,
+    #moods-controls input[type="number"],
+    #moods-controls input[type="text"],
+    #paintings-handle-input {
+      font-family: monospace;
+      font-size: 16px;
+      padding: 0.5em;
+      margin-right: 0.5em;
+      margin-bottom: 0.5em;
+    }
+
+    #moods-handle-input,
+    #paintings-handle-input {
+      min-width: 200px;
+    }
+
+    .autocomplete-suggestions {
+      position: absolute;
+      background: white;
+      border: 1px solid black;
+      max-height: 200px;
+      overflow-y: auto;
+      z-index: 1000;
+      font-family: monospace;
+      font-size: 14px;
+    }
+
+    .autocomplete-suggestion {
+      padding: 0.5em;
+      cursor: pointer;
+    }
+
+    .autocomplete-suggestion:hover {
+      background: rgb(205, 92, 155);
+      color: white;
+    }
+
+    #gallery-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 1em;
+      margin-top: 1em;
+    }
+
+    .painting {
+      position: relative;
+      aspect-ratio: 1;
+      background: rgba(0, 0, 0, 0.05);
+      overflow: hidden;
+      cursor: pointer;
+    }
+
+    .painting img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .painting:hover {
+      outline: 2px solid rgb(205, 92, 155);
+    }
+
+    .painting-info {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 0.5em;
+      font-size: 10px;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .painting:hover .painting-info {
+      opacity: 1;
+    }
+
+    #loading {
+      text-align: center;
+      padding: 2em;
+      opacity: 0.5;
+    }
+
+    #moods-gallery {
+      margin-top: 2em;
+    }
+
+    #moods-controls {
+      margin: 1em 0;
+      position: relative;
+    }
+    
+    #gallery-controls {
+      position: relative;
+    }
+
+    #moods-controls button {
+      font-family: monospace;
+      font-size: 16px;
+      padding: 0.5em 1em;
+      margin-right: 0.5em;
+      margin-bottom: 0.5em;
+      background: white;
+      border: 1px solid black;
+      cursor: pointer;
+    }
+
+    #moods-controls button:hover {
+      background: rgb(205, 92, 155);
+      color: white;
+      border-color: rgb(205, 92, 155);
+    }
+
+    #moods-controls label {
+      display: inline-flex;
+      align-items: center;
+      font-size: 16px;
+      margin-right: 0.5em;
+      margin-bottom: 0.5em;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    #moods-controls input[type="number"] {
+      font-family: monospace;
+      font-size: 16px;
+      padding: 0.5em;
+      margin-right: 0.5em;
+      margin-bottom: 0.5em;
+    }
+
+    #moods-controls input[type="checkbox"] {
+      margin-right: 0.5em;
+      cursor: pointer;
+    }
+
+    #moods-list {
+      margin-top: 1em;
+    }
+
+    .mood-item {
+      padding: 1em;
+      margin-bottom: 1em;
+      background: rgba(0, 0, 0, 0.05);
+      border-left: 3px solid rgb(205, 92, 155);
+    }
+
+    .mood-item:hover {
+      background: rgba(205, 92, 155, 0.1);
+    }
+
+    .mood-handle {
+      font-weight: bold;
+      color: rgb(205, 92, 155);
+      margin-bottom: 0.5em;
+    }
+
+    .mood-text {
+      margin: 0.5em 0;
+      line-height: 1.4;
+    }
+
+    .mood-time {
+      font-size: 0.9em;
+      opacity: 0.6;
+      margin-top: 0.5em;
+    }
+
+    #moods-loading {
+      text-align: center;
+      padding: 2em;
+      opacity: 0.5;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      body {
+        background-color: rgb(64, 56, 74);
+        color: rgba(255, 255, 255, 0.85);
+      }
+      h1:before {
+        background: linear-gradient(to bottom, rgb(64, 56, 74) 50%, transparent 100%);
+      }
+      .stats {
+        background: rgba(205, 92, 155, 0.2);
+      }
+      .painting {
+        background: rgba(255, 255, 255, 0.05);
+      }
+      .mood-item {
+        background: rgba(255, 255, 255, 0.05);
+      }
+      .mood-item:hover {
+        background: rgba(205, 92, 155, 0.2);
+      }
+      #gallery-controls button,
+      #moods-controls button {
+        background: rgb(64, 56, 74);
+        color: white;
+        border-color: rgba(255, 255, 255, 0.3);
+      }
+      #gallery-controls button:hover,
+      #moods-controls button:hover {
+        background: rgb(205, 92, 155);
+        border-color: rgb(205, 92, 155);
+      }
+    }
+
+    @media (max-width: 600px) {
+      body {
+        font-size: 18px;
+      }
+      #gallery-grid {
+        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+        gap: 0.5em;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <h1><a href="javascript:goBack()">at</a></h1>
+
+  <section>
+    <h2>ATProto Personal Data Server</h2>
+    
+    <p>
+      This is the <a href="https://atproto.com" target="_blank">ATProto</a> Personal Data Server for 
+      <a href="https://aesthetic.computer">aesthetic.computer</a>. 
+      It hosts decentralized social data for the community, including paintings, moods, and creative content.
+    </p>
+
+    <div class="stats">
+      <div><strong>Active Users:</strong> ~4,198</div>
+      <div><strong>Published Paintings:</strong> ~2,837</div>
+      <div><strong>ATProto Records:</strong> ~3,500+</div>
+      <div><strong>PDS Version:</strong> 0.4.x</div>
+    </div>
+
+    <h2>What is ATProto?</h2>
+    <p>
+      The Authenticated Transfer Protocol is an open, decentralized social networking protocol. 
+      Your data lives on your chosen PDS, your handle can move between servers, and content 
+      federates across the network.
+    </p>
+
+    <h2>API Routes</h2>
+    <p>Most API routes are under <code>/xrpc/</code></p>
+    <ul>
+      <li><a href="/xrpc/_health">/xrpc/_health</a> – health check</li>
+      <li><a href="https://github.com/bluesky-social/atproto" target="_blank">ATProto Protocol Docs</a></li>
+      <li><a href="https://atproto.com/guides/self-hosting" target="_blank">Self-Hosting Guide</a></li>
+    </ul>
+
+    <h2>Resources</h2>
+    <ul>
+      <li><a href="https://atproto.com" target="_blank">atproto.com</a> – protocol documentation</li>
+      <li><a href="https://github.com/bluesky-social/atproto" target="_blank">github.com/bluesky-social/atproto</a> – source code</li>
+      <li><a href="https://bsky.app" target="_blank">bsky.app</a> – bluesky social network</li>
+      <li><a href="https://aesthetic.computer" target="_blank">aesthetic.computer</a> – home</li>
+    </ul>
+
+    <h2>💬 Latest Moods</h2>
+    
+    <div id="moods-gallery">
+      <div id="moods-controls">
+        <input type="text" id="moods-handle-input" placeholder="Filter by @handle" autocomplete="off">
+        <datalist id="moods-handles-list"></datalist>
+        <input type="number" id="moods-limit-input" value="10" min="1" max="50" placeholder="Limit">
+        <button onclick="loadMoods()">Load</button>
+        <label>
+          <input type="checkbox" id="moods-dev-toggle" onchange="updateMoodsDevMode()">
+          DEV API
+        </label>
+      </div>
+      
+      <div id="moods-list"></div>
+      <div id="moods-loading" style="display: none;">Loading...</div>
+    </div>
+
+    <h2>🎨 Latest Paintings</h2>
+    
+    <div id="gallery">
+      <div id="gallery-controls">
+        <input type="text" id="paintings-handle-input" placeholder="Filter by @handle" autocomplete="off">
+        <datalist id="paintings-handles-list"></datalist>
+        <input type="number" id="limit-input" value="20" min="1" max="100" placeholder="Limit">
+        <button onclick="loadGallery()">Load</button>
+        <label>
+          <input type="checkbox" id="dev-toggle" onchange="updateDevMode()">
+          DEV API
+        </label>
+      </div>
+      
+      <div id="gallery-grid"></div>
+      <div id="loading" style="display: none;">Loading...</div>
+    </div>
+
+    <pre style="margin-top: 2em; margin-bottom: 3em;">         __                         __
+        /\ \__                     /\ \__
+    __  \ \ ,_\  _____   _ __   ___\ \ ,_\   ___
+  /'__'\ \ \ \/ /\ '__'\/\''__\/ __'\ \ \/  / __'\
+ /\ \L\.\_\ \ \_\ \ \L\ \ \ \//\ \L\ \ \ \_/\ \L\ \
+ \ \__/.\_\\ \__\\ \ ,__/\ \_\\ \____/\ \__\ \____/
+  \/__/\/_/ \/__/ \ \ \/  \/_/ \/___/  \/__/\/___/
+                   \ \_\
+                    \/_/</pre>
+  </section>
+
+  <script>
+    // Check if we came from aesthetic.computer
+    const referrer = document.referrer;
+    function goBack() {
+      if (referrer && referrer.includes('aesthetic.computer')) {
+        window.location.href = referrer;
+      } else {
+        window.location.href = 'https://aesthetic.computer';
+      }
+    }
+
+    let offset = 0;
+    const paintingsCache = [];
+    let devMode = localStorage.getItem('devMode') === 'true';
+    
+    function getApiUrl() {
+      return devMode ? 'https://local.aesthetic.computer' : 'https://aesthetic.computer';
+    }
+    
+    function updateDevMode() {
+      devMode = document.getElementById('dev-toggle').checked;
+      localStorage.setItem('devMode', devMode);
+      loadGallery();
+    }
+    
+    // Restore dev toggle state
+    window.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('dev-toggle').checked = devMode;
+    });
+
+    async function loadGallery() {
+      const grid = document.getElementById('gallery-grid');
+      const loading = document.getElementById('loading');
+      const limitInput = document.getElementById('limit-input');
+      const handleInput = document.getElementById('paintings-handle-input');
+      
+      const limit = parseInt(limitInput.value) || 20;
+      const handleFilter = handleInput.value.replace('@', '').trim();
+      
+      loading.style.display = 'block';
+      offset = 0;
+      grid.innerHTML = '';
+      paintingsCache.length = 0;
+      
+      try {
+        // Fetch paintings from API
+        const apiUrl = getApiUrl();
+        // If filtering by handle, fetch more results since we'll be filtering client-side
+        const fetchLimit = handleFilter ? Math.max(limit * 10, 200) : limit;
+        const response = await fetch(`${apiUrl}/api/tv?types=painting&limit=${fetchLimit}`);
+        const data = await response.json();
+        
+        if (data && data.media && data.media.paintings) {
+          let paintings = data.media.paintings;
+          
+          // Filter client-side if handle specified
+          // API returns handles with @ prefix, so we need to match with or without it
+          if (handleFilter) {
+            const normalizedFilter = handleFilter.toLowerCase();
+            console.log('Filtering paintings by handle:', normalizedFilter);
+            const beforeCount = paintings.length;
+            paintings = paintings.filter(p => {
+              if (!p.owner?.handle) return false;
+              const normalizedHandle = p.owner.handle.replace('@', '').toLowerCase();
+              return normalizedHandle === normalizedFilter;
+            });
+            console.log(`Filtered ${beforeCount} paintings to ${paintings.length} for handle: ${normalizedFilter}`);
+            // Only take the requested limit after filtering
+            paintings = paintings.slice(0, limit);
+          }
+          
+          paintingsCache.push(...paintings);
+          displayPaintings(paintings);
+        }
+      } catch (error) {
+        console.error('Error loading paintings:', error);
+        grid.innerHTML = '<div style="padding: 2em;">Error loading paintings. Try again later.</div>';
+      } finally {
+        loading.style.display = 'none';
+      }
+    }
+
+    async function loadMore() {
+      const grid = document.getElementById('gallery-grid');
+      const loading = document.getElementById('loading');
+      const limitInput = document.getElementById('limit-input');
+      
+      const limit = parseInt(limitInput.value) || 20;
+      offset += limit;
+      
+      loading.style.display = 'block';
+      
+      try {
+        const apiUrl = getApiUrl();
+        const response = await fetch(`${apiUrl}/api/tv?types=painting&limit=${limit}`);
+        const data = await response.json();
+        
+        if (data && data.media && data.media.paintings) {
+          // Filter out paintings we already have
+          const existingIds = new Set(paintingsCache.map(p => p.id));
+          const newPaintings = data.media.paintings.filter(p => !existingIds.has(p.id));
+          paintingsCache.push(...newPaintings);
+          displayPaintings(newPaintings);
+        }
+      } catch (error) {
+        console.error('Error loading more paintings:', error);
+      } finally {
+        loading.style.display = 'none';
+      }
+    }
+
+    function displayPaintings(paintings) {
+      const grid = document.getElementById('gallery-grid');
+      
+      paintings.forEach(painting => {
+        const div = document.createElement('div');
+        div.className = 'painting';
+        
+        // Extract just the slug (before any colon for recordings)
+        const fullSlug = painting.slug;
+        const slug = fullSlug.split(':')[0]; // Get just the painting slug, not recording code
+        const handleWithAt = painting.owner?.handle;
+        const handle = handleWithAt ? handleWithAt.replace('@', '') : null;
+        const code = painting.code;
+        
+        // Use painting~@handle/slug URL structure if handle available, otherwise use #code
+        let paintingUrl;
+        if (code) {
+          paintingUrl = `https://aesthetic.computer/#${code}`;
+        } else if (handle) {
+          paintingUrl = `https://aesthetic.computer/painting~@${handle}/${slug}`;
+        } else {
+          paintingUrl = `https://aesthetic.computer/painting/${slug}`;
+        }
+        
+        // Use the media URL from the API response (will be ATProto blob URL if available)
+        const thumbnailUrl = painting.media?.url;
+        const apiUrl = getApiUrl();
+        const fallbackUrl = `${apiUrl}/media/${handleWithAt || painting.owner?.userId}/painting/${slug}.png`;
+        
+        // Check if painting has ATProto record - use pdsls.dev for explorer link
+        // pdsls.dev format: https://pdsls.dev/at://did:plc:.../collection/rkey
+        const atprotoLink = painting.atproto?.uri 
+          ? `<br><a href="https://pdsls.dev/${painting.atproto.uri}" target="_blank" onclick="event.stopPropagation()" style="font-size: 0.9em;">🦋 ATProto</a>`
+          : '';
+        
+        // Display code if available
+        const codeInfo = code ? `<br>#${code}` : '';
+        
+        div.innerHTML = `
+          <img src="${thumbnailUrl}" alt="${slug}" loading="lazy" onerror="this.src='${fallbackUrl}'">
+          <div class="painting-info">
+            ${handleWithAt || 'anonymous'}<br>
+            ${new Date(painting.when).toLocaleDateString()}${codeInfo}${atprotoLink}
+          </div>
+        `;
+        
+        div.onclick = () => window.open(paintingUrl, '_blank');
+        grid.appendChild(div);
+      });
+    }
+
+    // Load initial gallery
+    loadGallery();
+    
+    // --- Handle autocomplete functionality ---
+    let handleCache = [];
+    let autocompleteTimeout;
+    
+    async function loadHandles(search = '') {
+      try {
+        const apiUrl = getApiUrl();
+        const searchParam = search ? `?search=${encodeURIComponent(search)}` : '';
+        const response = await fetch(`${apiUrl}/api/handles${searchParam}`);
+        const data = await response.json();
+        
+        // Handle both array and object responses
+        let handles = [];
+        if (Array.isArray(data)) {
+          // Direct array response
+          handles = data.filter(h => typeof h === 'string');
+        } else if (data && Array.isArray(data.handles)) {
+          // Object with handles array
+          handles = data.handles.filter(h => typeof h === 'string');
+        }
+        
+        handleCache = handles;
+        return handles;
+      } catch (error) {
+        console.error('Error loading handles:', error);
+      }
+      return [];
+    }
+    
+    function setupHandleAutocomplete(inputId, suggestionsId) {
+      const input = document.getElementById(inputId);
+      let suggestionsDiv = document.getElementById(suggestionsId);
+      
+      if (!suggestionsDiv) {
+        suggestionsDiv = document.createElement('div');
+        suggestionsDiv.id = suggestionsId;
+        suggestionsDiv.className = 'autocomplete-suggestions';
+        suggestionsDiv.style.display = 'none';
+        input.parentNode.appendChild(suggestionsDiv);
+      }
+      
+      input.addEventListener('input', async (e) => {
+        const value = e.target.value;
+        
+        clearTimeout(autocompleteTimeout);
+        
+        if (value.length < 1) {
+          suggestionsDiv.style.display = 'none';
+          return;
+        }
+        
+        // Remove @ if user typed it
+        const search = value.replace('@', '');
+        
+        autocompleteTimeout = setTimeout(async () => {
+          const handles = await loadHandles(search);
+          
+          if (handles.length === 0) {
+            suggestionsDiv.style.display = 'none';
+            return;
+          }
+          
+          suggestionsDiv.innerHTML = '';
+          handles.slice(0, 10).forEach(handle => {
+            // Ensure handle is a string
+            if (!handle || typeof handle !== 'string') return;
+            
+            const div = document.createElement('div');
+            div.className = 'autocomplete-suggestion';
+            div.textContent = '@' + handle;
+            div.onclick = () => {
+              input.value = '@' + handle;
+              suggestionsDiv.style.display = 'none';
+              // Trigger change event to reload filtered data
+              input.dispatchEvent(new Event('change'));
+            };
+            suggestionsDiv.appendChild(div);
+          });
+          
+          suggestionsDiv.style.display = 'block';
+        }, 300);
+      });
+      
+      // Close suggestions when clicking outside
+      document.addEventListener('click', (e) => {
+        if (e.target !== input) {
+          suggestionsDiv.style.display = 'none';
+        }
+      });
+    }
+    
+    // Setup autocomplete for both inputs
+    setupHandleAutocomplete('moods-handle-input', 'moods-autocomplete');
+    setupHandleAutocomplete('paintings-handle-input', 'paintings-autocomplete');
+    
+    // Add filtering event listeners
+    const moodsInput = document.getElementById('moods-handle-input');
+    const paintingsInput = document.getElementById('paintings-handle-input');
+    
+    moodsInput.addEventListener('change', () => {
+      loadMoods();
+    });
+    
+    moodsInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') loadMoods();
+    });
+    
+    paintingsInput.addEventListener('change', () => {
+      loadGallery();
+    });
+    
+    paintingsInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') loadGallery();
+    });
+    
+    // --- Moods functionality ---
+    let moodsDevMode = localStorage.getItem('moodsDevMode') === 'true';
+    
+    function getMoodsApiUrl() {
+      return moodsDevMode ? 'https://local.aesthetic.computer' : 'https://aesthetic.computer';
+    }
+    
+    function updateMoodsDevMode() {
+      moodsDevMode = document.getElementById('moods-dev-toggle').checked;
+      localStorage.setItem('moodsDevMode', moodsDevMode);
+      loadMoods();
+    }
+    
+    async function loadMoods() {
+      const moodsList = document.getElementById('moods-list');
+      const loading = document.getElementById('moods-loading');
+      const limitInput = document.getElementById('moods-limit-input');
+      const handleInput = document.getElementById('moods-handle-input');
+      
+      const limit = parseInt(limitInput.value) || 10;
+      const handleFilter = handleInput.value.replace('@', '').trim();
+      
+      loading.style.display = 'block';
+      moodsList.innerHTML = '';
+      
+      try {
+        const apiUrl = getMoodsApiUrl();
+        let url = `${apiUrl}/api/mood/all`;
+        const params = [];
+        if (handleFilter) params.push(`for=${encodeURIComponent(handleFilter)}`);
+        if (params.length > 0) url += '?' + params.join('&');
+        
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        if (data && data.moods) {
+          const moods = data.moods.slice(0, limit);
+          displayMoods(moods);
+        }
+      } catch (error) {
+        console.error('Error loading moods:', error);
+        moodsList.innerHTML = '<div style="padding: 2em;">Error loading moods. Try again later.</div>';
+      } finally {
+        loading.style.display = 'none';
+      }
+    }
+    
+    function displayMoods(moods) {
+      const moodsList = document.getElementById('moods-list');
+      
+      moods.forEach(mood => {
+        const div = document.createElement('div');
+        div.className = 'mood-item';
+        
+        const handle = mood.handle || 'anonymous';
+        const when = new Date(mood.when);
+        const timeStr = when.toLocaleString();
+        
+        // Check if mood has ATProto record - use pdsls.dev for explorer link
+        // pdsls.dev format: https://pdsls.dev/at://did:plc:.../collection/rkey
+        const atprotoLink = mood.atproto?.uri 
+          ? `<a href="https://pdsls.dev/${mood.atproto.uri}" target="_blank" style="margin-left: 1em; font-size: 0.9em;">🦋 ATProto</a>`
+          : '';
+        
+        div.innerHTML = `
+          <div class="mood-handle">${handle}${atprotoLink}</div>
+          <div class="mood-text">${mood.mood}</div>
+          <div class="mood-time">${timeStr}</div>
+        `;
+        
+        moodsList.appendChild(div);
+      });
+    }
+    
+    // Restore moods dev toggle state
+    window.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('moods-dev-toggle').checked = moodsDevMode;
+    });
+    
+    // Load moods on page load
+    loadMoods();
+  </script>
+</body>
+</html>
