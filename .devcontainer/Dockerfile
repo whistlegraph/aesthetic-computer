@@ -197,6 +197,7 @@ RUN curl -fsSL https://deno.land/install.sh | DENO_INSTALL=/home/me/.deno sh -s 
 COPY config.fish /home/me/.config/fish/config.fish
 COPY entry.fish /entry.fish
 RUN sudo chown -R me:me /home/me/.config/fish && \
+    sudo chmod -R u+w /home/me/.config/fish && \
     sudo mkdir -p $HOME/.jupyter && sudo chmod -R u+rw $HOME/.jupyter
 
 # --- IPython preload ----------------------------------------------------------
