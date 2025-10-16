@@ -1579,11 +1579,11 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
     if (audioInitializing) {
       // Keep progress frozen at pausedAt until audio actually starts
       progress = playbackStartProgress;
-      return; // Don't update anything else during initialization
+      // DON'T return - continue rendering with frozen progress
     }
-    
-    // Use actual audio progress as the master timing source, but validate it first
-    if (currentAudioProgress !== null && currentAudioProgress > 0) {
+    else {
+      // Use actual audio progress as the master timing source, but validate it first
+      if (currentAudioProgress !== null && currentAudioProgress > 0) {
       // Check if audio progress seems reasonable for a resume scenario
       const expectedProgress = playbackStartProgress; // Where the current session began
       const progressDiff = Math.abs(currentAudioProgress - expectedProgress);
@@ -1648,7 +1648,8 @@ function paint({ wipe, ink, screen, sound, paintCount, clock, write, box, line, 
           console.log(`🎵 MANUAL_TIMING: progress=${progress.toFixed(6)}, elapsed=${sessionElapsed.toFixed(3)}s, waiting for audio progress`);
         }
       }
-    }
+      }
+    } // Close the else block for !audioInitializing
     
     // Log sync comparison for debugging
     if (currentAudioProgress !== null && paintCount % 300 === 0) {
