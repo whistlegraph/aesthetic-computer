@@ -460,9 +460,6 @@ function paint({ wipe, ink, painting, screen, line: drawLine, box: drawBox, clea
       ink(color).write(text, { x: panelX + panelPadding, y: textY }, undefined, undefined, false, debugFont);
       textY += lineHeight;
     });
-  } else {
-    // Minimal indicator when debug panel is off
-    ink("white").write(`V:Wire P:Debug L:Log`, 10, 10, undefined, undefined, false, debugFont);
   }
   
   // Note: Crosshair is now rendered via DOM element in bios.mjs when pointer lock is enabled
