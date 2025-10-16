@@ -18,16 +18,30 @@ export async function handler(event, context) {
   }
 
   const handleOrEmail = event.queryStringParameters.from;
+  const userCode = event.queryStringParameters.code; // NEW: Support user code lookup
   const tenant = event.queryStringParameters.tenant || "aesthetic";
-  if (!handleOrEmail) {
+  
+  if (!handleOrEmail && !userCode) {
     return {
       statusCode: 400,
-      body: JSON.stringify({ error: "Malformed request." }),
+      body: JSON.stringify({ error: "Malformed request. Provide 'from' or 'code' parameter." }),
     };
   }
 
   let user;
-  if (handleOrEmail.startsWith("@")) {
+  
+  if (userCode) {
+    // NEW: Look up user by code (acXXXXX format)
+    const { connect } = await import("../../backend/database.mjs");
+    const db = await connect();
+    const users = db.db.collection("users");
+    const userDoc = await users.findOne({ code: userCode });
+    await db.disconnect();
+    
+    if (userDoc) {
+      user = userDoc._id; // The user ID (sub)
+    }
+  } else if (handleOrEmail.startsWith("@")) {
     // Try and look up `sub` from `handle` in MongoDB.
     user = await userIDFromHandle(
       handleOrEmail.slice(1),
