@@ -23,7 +23,8 @@ const { min } = Math;
 
 const lessons = [
   {
-    title: `Lesson NOT Learnt 01 - The failure of academic identity politics`,
+    title: `Lesson NOT Learnt 01`,
+    subtitle: `The failure of academic identity politics`,
     text: `
     // Right outside the house were I live, > a Celtic churce-settlement has been found only a #few years ago#—§ This changes the whole idea of Faroish identity completly as most modern - inovativ self-brand-building youngsters on the island's now ses a opotunity to make up a new history around themself as: Ancient Celts and by that pushing aside, the Sagas of the Icelanders, there otherwise has been the concept of real Nordic - national - IDEAS OF HOME - now the most clever of us are Celtic and hates on Norway and Black Metal etc. - But this is down-right a fantasy - as most people here is a >>-bio-dna-product-<< of sailors and shipping trafic routes… 'nuff said here.
 
@@ -37,7 +38,8 @@ const lessons = [
     sounds: ["the_prut_is_old_01"],
   },
   {
-    title: "Lesson NOT Learnt 02 - Hang whit the wrong",
+    title: "Lesson NOT Learnt 02",
+    subtitle: "Hang whit the wrong",
     text: `
     Let's go and in ART find the queer·ness of the left-wing >>>> and mash it ..into.. the outsider art of the modern right-wing ___ Here we could include all the social free thinkers dreams like: modular synth's, bright-colours etc. — & —gently blendt it whit things from the right'ers - that could includ re·li·gious heart-to-brush painting technics & nordic sing-a-song writer traditions etc.  — Do not hold back, but please go give it a try - § § § __ The hopefull conclution should be that, the so called right- and left-wing talk is something from the old France Revolution, that is of today, in no way, a good illustrative way to descrip the strugles and political mind-sets the youth is trying to navigate in…
 
@@ -59,8 +61,8 @@ const lessons = [
     sounds: ["carl_signe_is_prut_02"],
   },
   {
-    title:
-      "Lesson NOT Learnt 03 - Purano Sei Diner Kothis & The Guild of the Viking Klokkers",
+    title: "Lesson NOT Learnt 03",
+    subtitle: "Purano Sei Diner Kothis & The Guild of the Viking Klokkers",
     text: `
     I only like words in songs and not _general sytax—> as it is the destroy'er of EMO ideas. << For: Bananskolen I tryed NOT to be: Karin Hansson & Åse Andersson's: _TED (Beta 0.3)__ but was / is still iinternally in the gruppe sean as that person (& as I become of age, I really DO hate being in focus - - - -belive it or not), - - - - But all this brings something interesting to the table, a lot of current intellectualism and Academic discussion's is actually not about the subject but more about hove the gruppe feels internaly.
 
@@ -87,6 +89,7 @@ const lessons = [
   },
   {
     title: "Lesson NOT Learnt 04",
+    subtitle: "",
     text: `
     —————— Fact: ——————	———————————
     Rasmus Sørnes just joined: The Guild of the Viking Klokkers
@@ -123,6 +126,7 @@ const lessons = [
   },
   {
     title: "Lesson NOT Learnt 05",
+    subtitle: "",
     text: `
     Karlheinz - Fucking (Vinyl Rip)
     we painted red paint on politikens boghal————————————————
@@ -138,8 +142,8 @@ const lessons = [
     sounds: ["fuck_politikens_boghandel_05"],
   },
   {
-    title:
-      "Lesson NOT Learnt 06 *Silence is the power of any overclass, anywere*",
+    title: "Lesson NOT Learnt 06",
+    subtitle: "Silence is the power of any overclass, anywere",
     text: `
     & Fansy political ideas is all the same - just power structures waiting to be put into place... — well educated Euro's who jumps on a fashionable idea.. and talk to a lower class in order to highen them to another >>mille plateaux<<- But fails to interact whit the class whit's way of life the well educated Euro's certainly can't stand.. Just Like the fishers living in Vorupør and the bikers who en·gaged in a fight of 300 people around 30 years ago in that little town -  and the white institutional overclass only had silence as a comment - since silence is the way that intelectualisem deals whit ideas it dos not like... = silence is wrong & conceptual high modernism was a dead - NO it is / was not!
 
@@ -150,6 +154,7 @@ const lessons = [
   },
   {
     title: "Lesson NOT Learnt 07",
+    subtitle: "",
     text: `
     ———————————————
     let's stretches the concept if life <Power>
@@ -164,7 +169,8 @@ const lessons = [
     sounds: ["nothing_to_prove_so_Call_Me_Maybe_07"],
   },
   {
-    title: "Lesson NOT Learnt 08 - w/ 02 variation",
+    title: "Lesson NOT Learnt 08",
+    subtitle: "w/ 02 variation",
     text: `
     —do not jump at comclusions
     love is really all that I have, look hove far it took me, maybe love can take you futher
@@ -187,6 +193,7 @@ const lessons = [
   },
   {
     title: "Lesson NOT Learnt 09",
+    subtitle: "",
     text: `
     The modern art-critic of today, has huge problems acepting - reversed signals as a comunication form…'''
     $$$ But no Euro-industiral Culture - could ever had existed whitout possing in Euro facist-left owers and in that way critisising the modern, the new & the global world there was to come…
@@ -203,6 +210,7 @@ const lessons = [
   },
   {
     title: "Lesson NOT Learnt 10",
+    subtitle: "",
     text: `
     When we come to your shores, people start to  see pyramids everywere…
     = The reaosn being that, we bring the paralel universiterium
@@ -216,12 +224,14 @@ const lessons = [
     sounds: ["limerick_you_are_pyramide_lady_10"],
   },
   {
-    title: "Lesson NOT Learnt 11 - what punk is not about",
+    title: "Lesson NOT Learnt 11",
+    subtitle: "what punk is not about",
     text: `[listen 2 the audio...]`,
     sounds: ["what punk is not about"],
   },
   {
     title: "Lesson NOT Learnt 12",
+    subtitle: "",
     text: `
     __Nobody can handle the wistful Goodiepal instrument-collection just like an: Eysturstein'er!__
 
@@ -253,6 +263,7 @@ const lessons = [
   },
   {
     title: "Lesson NOT Learnt 13",
+    subtitle: "",
     text: `
     .. clocks and music and life - is my speciality ..
 
@@ -272,7 +283,8 @@ const lessons = [
     sounds: ["13_keeping_the_tekno_rock_oath"],
   },
   {
-    title: "Lesson NOT Learnt 14 - Distribution",
+    title: "Lesson NOT Learnt 14",
+    subtitle: "Distribution",
     text: `
     Do You Want To Know A Sick-Rat << TORA DALSENG is one of the BEST >>
     yes yes - we have done some kissing in the distant past, but that is of the point, as I would KISS the whole world if it ever gave me the change!
@@ -288,7 +300,8 @@ const lessons = [
     sounds: ["14_let_them_files_fly"],
   },
   {
-    title: "Lesson NOT Learnt 15 - The Drug of WAR destroys EVERYTHING!",
+    title: "Lesson NOT Learnt 15",
+    subtitle: "The Drug of WAR destroys EVERYTHING!",
     text: `
     [under the drugs belvie me]
 
@@ -298,7 +311,8 @@ const lessons = [
     sounds: ["under the drugs belvie me"],
   },
   {
-    title: "Lesson NOT Learnt 16 * a PAST not remembered *",
+    title: "Lesson NOT Learnt 16",
+    subtitle: "a PAST not remembered",
     text: `
     .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. ..
     o0OoO0o Owls & BLACK fanthom helicopters = as replacement memory, Damascus steel & viking hands - for the viking times, when it is just around viking o’ klok — the guild of the Viking klo0OoO0okkers
@@ -309,7 +323,8 @@ const lessons = [
     sounds: ["16_damask_dials_and_replacement_memory"],
   },
   {
-    title: "Lesson NOT Learnt 17 - Das real IRDIAL's",
+    title: "Lesson NOT Learnt 17",
+    subtitle: "Das real IRDIAL's",
     text: `
     Most Euro-crafts is about: avoiding nature - but let me tell you I was painting one of my bicykle's the other day in: Velbastaður - I was using some wild & crazy chemical-paint that I had mixed from leftovers found at an abandoned construction site, and the rain was pouring down & interacting w. the paint - the result was so so so beautiful -
 
@@ -321,7 +336,8 @@ const lessons = [
     sounds: ["17_get_out"],
   },
   {
-    title: "Lesson NOT Learnt 18 __Euro-Bell__",
+    title: "Lesson NOT Learnt 18",
+    subtitle: "Euro-Bell",
     text: `
     ————…………….
     Would you like to hear a a real electro-akustic-contemprary bell struck? - § made by my music-friend: V-Lars - Villads von Possel ?? §
@@ -336,7 +352,8 @@ const lessons = [
     sounds: ["v-lars"],
   },
   {
-    title: "Lesson NOT Learnt 19 - 50 years - Energy & why Aesthetic.computer?",
+    title: "Lesson NOT Learnt 19",
+    subtitle: "50 years - Energy & why Aesthetic.computer?",
     text: `
     [robotic]
     -…————……………..
@@ -358,6 +375,7 @@ const lessons = [
   },
   {
     title: `Lesson NOT Learnt 20`,
+    subtitle: "",
     text: `
     §————————————————§
     …Some Classic Pruttipal -/- Goodiepal Talk…
@@ -372,6 +390,7 @@ const lessons = [
   },
   {
     title: `Lesson NOT Learnt 21`,
+    subtitle: "",
     text: `
     $$——————————————————$$$$
     Best background music for boring lecture videos
@@ -386,6 +405,7 @@ const lessons = [
   },
   {
     title: `Lesson NOT Learnt 22`,
+    subtitle: "",
     text: `
     ——————————————————————————————————
     RAP-music & Roll-play Games
@@ -399,6 +419,7 @@ const lessons = [
   },
   {
     title: `Lesson NOT Learnt 23`,
+    subtitle: "",
     text: `
     ——————————————————————————————————
     Mandolin Cafe
@@ -412,6 +433,7 @@ const lessons = [
   },
   {
     title: `Lesson NOT Learnt 24`,
+    subtitle: "",
     text: `
     ———————————————
     Music From: B-tar for: LIV
@@ -436,6 +458,7 @@ const lessons = [
   },
   {
     title: `Lesson NOT Learnt 25`,
+    subtitle: "",
     text: `
     Narc Beacon - Nag Nag Bacon
 
@@ -447,7 +470,8 @@ const lessons = [
     sounds: ["flap-nipper-main"],
   },
   {
-    title: `Lesson NOT Learnt 26 - Pause`,
+    title: `Lesson NOT Learnt 26`,
+    subtitle: "Pause",
     text: `
     —————————————
     '//**Clip Talk**//'' 2
@@ -457,6 +481,7 @@ const lessons = [
   },
   {
     title: `Lesson NOT Learnt 27`,
+    subtitle: "",
     text: `
     ———————————————
     ANGEL's mandolin-ium bum BuM
@@ -467,6 +492,7 @@ const lessons = [
   },
   {
     title: `Lesson NOT Learnt 28`,
+    subtitle: "",
     text: `
     ———————————————-
     ANGEL EYES for angel's in the sky & angel's under the sea. . .
@@ -477,6 +503,7 @@ const lessons = [
   },
   {
     title: `Lesson NOT Learnt 29`,
+    subtitle: "",
     text: `
     ———————————————-
     THE REAL ANGEL EYE's
@@ -496,6 +523,7 @@ const lessons = [
   },
   {
     title: `Lesson NOT Learnt 30`,
+    subtitle: "",
     text: `
     ———————————————-
     L.O.V.E. RAP-rock : §§§—LOVE-YOU-POP—
@@ -508,6 +536,7 @@ const lessons = [
   },
   {
     title: `Lesson NOT Learnt 31`,
+    subtitle: "",
     text: `
     ———————————————-
     LOVE You dad
@@ -522,6 +551,7 @@ const lessons = [
   },
   {
     title: `Lesson NOT Learnt 32`,
+    subtitle: "",
     text: `
     Everybody would like to play: POPCORN
 
@@ -538,7 +568,8 @@ const lessons = [
     sounds: ["popcorn"],
   },
   {
-    title: `Lesson NOT Learnt 33 - Should I make some pornography?`,
+    title: `Lesson NOT Learnt 33`,
+    subtitle: "Should I make some pornography?",
     text: `
     In cold country's you will typically find coloured poles by the side of the road %%% - * These poles are typically used as markers for: - snow-plow-drivers- * to follow during snowstorms. They help the drivers stay on the road and avoid going too far to the side, where they might hit lets say a ditch or a tree… Additionally, ON-top they can also be used as guides for drivers in low visibility conditions. // //
     —bla. bla. bla. bla. bla. bla. bla.—
@@ -551,7 +582,8 @@ const lessons = [
     sounds: ["33_freaky_ts"],
   },
   {
-    title: "Lesson NOT Learnt 34 - Loin-El Glitchie-Banan",
+    title: "Lesson NOT Learnt 34",
+    subtitle: "Loin-El Glitchie-Banan",
     text: `
     WOW *** Glitch today has started to be  ——enjoyed as some fancy wine uhh uhh - and ALL the NFT losers tell funny refs. to the subject ! — NFT's was a BIG JOKE - do not NFT - BUT but let me share with you the real deal… yOu see ^^Real Glitch* takes the OUTput of malfunctioning technology and crafts it into adventurous new things & bla. bla. bla. bla. or so they say -%%%%% BUT — NO o no NO no -that is not the whole story, you need to live the Glitchie life - §§§§ YES Squelchy & glitshiiii §§§§ - In order to understand it - !!§§§ and some of the best to do so has been my heart-friend's:- Yaloopop, Rosa Menkman & Legacy Russell - there you have words and lives to dive into -WARNING - could be A bumpy ride…but output =  FANTASTIC . . ._:___ Now a days Computer people in the U.S. has a lot to say about acting Glitchie, in gender - and life and YES YES —But —People in: New York S.F. & the tech-valley took years and years to understand us Glitch'ers  ——   :_*:_*:_:*:*: — Well I guess if you are interested in function & composing it takes you years and years to learn to: DE-compose - and DE-function - now Rosa Menkman was very good at that especially in life - she is fantasic you should go and experience hear work . …&”/!&”!/“&! “&/“  All my Beo_Bio_Lystrup Syre-tapes & DAT*s & Mini-disc's was send to mailing lists in Japan -that is hove I got not know wUnders as  Toshiyuki Kobayashi - Timepoco - OHHH those recordings - they were all different renditions of my Glitchy Lystrup set-up . __
 
@@ -564,6 +596,7 @@ const lessons = [
   },
   {
     title: `Lesson NOT Learnt 35`,
+    subtitle: "",
     text: `
     …. & raD & Mandolin'ur
 
@@ -589,6 +622,7 @@ const lessons = [
   },
   {
     title: `Lesson NOT Learnt 36`,
+    subtitle: "",
     text: `
     Mxyzptlk - D0ni or D0ny -
 
@@ -609,6 +643,7 @@ const lessons = [
   },
   {
     title: "Lesson NOT Learnt 37",
+    subtitle: "",
     text: `
     more on distro…
 
@@ -622,6 +657,7 @@ const lessons = [
   },
   {
     title: "Lesson NOT Learnt 38",
+    subtitle: "",
     text: `
     Hygge (Injected With a Poison)
 
@@ -641,7 +677,8 @@ const lessons = [
     sounds: ["dsj"],
   },
   {
-    title: "Lesson NOT Learnt 39 - Cosmic Entities of Pure Energy",
+    title: "Lesson NOT Learnt 39",
+    subtitle: "Cosmic Entities of Pure Energy",
     text: `
     §_§ MAgisKE nisser hates WAR - The Viking Klokker's hates WAR & is down w. monsters, vættur & d.d.dragons = WAR_is_shit_!
 
@@ -657,6 +694,7 @@ const lessons = [
   },
   {
     title: "Lesson NOT Learnt 40",
+    subtitle: "",
     text: `
     Bolle Borgen - via. Lasserne > p.r.u.t.t.i
 
@@ -692,7 +730,8 @@ const lessons = [
     sounds: ["rider_G_las_prut_slip"],
   },
   {
-    title: "Lesson NOT Learnt 41 * Tele *",
+    title: "Lesson NOT Learnt 41",
+    subtitle: "Tele",
     text: `
     §§ The best ideas for performing, might be right at your hand(y) - tele-communix has long been the means of ultra-dimentinal > idea > exchange...§§
 
@@ -702,7 +741,8 @@ const lessons = [
     sounds: ["41_telemeterskive_Soap_Bubble_Fever_birthday"],
   },
   {
-    title: "Lesson NOT Learnt 42 - disfunkta-video-game's & sick prut's",
+    title: "Lesson NOT Learnt 42",
+    subtitle: "disfunkta-video-game's & sick prut's",
     text: `
     Rui Liu made a comput-arixur coded game about the story where the statement “once and once again” comes from. It’s about an old person, a collapsing village, and a sigh of eternal sadness. Everything in this series is an iteration of the sigh.
 
@@ -716,7 +756,8 @@ const lessons = [
     sounds: ["prutti_the_sick"],
   },
   {
-    title: "Lesson NOT Learnt 43 - use HANDS of dvb TIME",
+    title: "Lesson NOT Learnt 43",
+    subtitle: "use HANDS of dvb TIME",
     text: `
     The current Estate of the Viking Klokkers at Pachinko calculated by: the Hands of dvb TIME
 
@@ -770,6 +811,7 @@ const lessons = [
   },
   {
     title: "Lesson NOT Learnt 44",
+    subtitle: "",
     text: `
     14_18 // 14_18 // 14_18 //
     the fall of the fountain of youth, is the beginning of Ye_olde —new— YOU - —— Ye_olde new YOU is a numerical  you —&— the NEW music that they in that timeline of Ye_olde —new— is just traditional trad…
@@ -787,6 +829,7 @@ const lessons = [
   },
   {
     title: "Lesson NOT Learnt 45",
+    subtitle: "",
     text: `
     Pluto existed before modern humans discovered the p-entity in 1930. Pluto exists after 2006 when Rational Thinking humans reclassified it. Pluto does not care BUT Pluto is not in solar system models because it is not a “planet” by the IAU definition. - bla bla bla.. Pluto is still a planet to Alice Pamuk & so it should be to you. PLUTO is a astronomical influencer - a title only a few can take…
     - Here a is a few personal lessons for me send by Pluto via Alice Pamuk.
@@ -809,6 +852,7 @@ const lessons = [
   },
   {
     title: "Lesson NOT Learnt 46",
+    subtitle: "",
     text: `
     All stories is made up by events following each other, the more chaotic the events fall out the better the story, go and find signs in repetitions and intervals in events as your life takes place, they all have hidden code to tell you. And that hidden code is, if not decipherable then at least playable just like a board game.
 
@@ -821,6 +865,7 @@ const lessons = [
   },
   {
     title: "Lesson NOT Learnt 47",
+    subtitle: "",
     text: `
     the true meaning of mastery
 
@@ -838,6 +883,7 @@ const lessons = [
   },
   {
     title: "Lesson NOT Learnt 48",
+    subtitle: "",
     text: `
     the Gunner Waerness aethetic challenge. . .
 
@@ -857,6 +903,7 @@ const lessons = [
   },
   {
     title: "Lesson NOT Learnt 49",
+    subtitle: "",
     text: `
     never just party like a PRUTTIPAL - GO above the bar
 
@@ -872,6 +919,7 @@ const lessons = [
   },
   {
     title: "Lesson NOT Learnt 50",
+    subtitle: "",
     text: `
     50 Ye Olde Kommunal Klon Komputer 04
 
@@ -1066,6 +1114,62 @@ function parseTimeString(timeStr) {
 }
 
 // 🎨 Paint
+// 🎨 Paint
+function paint({ wipe, ink, screen, help, text: txt, painting, paste }) {
+  // Light grey background - web 1.0 NY Times style
+  wipe(192, 192, 192); // #C0C0C0
+  
+  // Get lesson data
+  const { title, subtitle, text } = lessons[lesson];
+  
+  // Align with HUD label - 6px from left, lower down
+  const leftMargin = 6;
+  const rightMargin = 6;
+  const contentWidth = screen.width - leftMargin - rightMargin;
+  const titleY = 24; // Lower position to align better with corner label
+  
+  // Colors
+  const titleColor = [240, 240, 240]; // Light light grey for title
+  const titleShadow = [128, 128, 128]; // Medium grey shadow
+  const subtitleColor = [255, 182, 193]; // Light pink (pinkish)
+  const bodyColor = [60, 60, 60]; // Dark grey for body text
+  const bodyShadow = [255, 255, 255]; // White shadow for better visibility
+  
+  // Render title with 1px drop shadow (normal font)
+  // Shadow first
+  ink(...titleShadow).write(title, { x: leftMargin + 1, y: titleY + 1 }, undefined, contentWidth);
+  // Then main text
+  ink(...titleColor).write(title, { x: leftMargin, y: titleY }, undefined, contentWidth);
+  
+  let currentY = titleY + 16; // Start position for subtitle
+  
+  // If there's a subtitle, render it with unifont in pinkish color with shadow
+  if (subtitle && subtitle.length > 0) {
+    const subtitleBuffer = painting(contentWidth, 50, (api) => {
+      // Shadow first
+      api.ink(128, 128, 128).write(subtitle, { x: 1, y: 1 }, undefined, contentWidth, true, "unifont");
+      // Then main text
+      api.ink(...subtitleColor).write(subtitle, { x: 0, y: 0 }, undefined, contentWidth, true, "unifont");
+    });
+    
+    paste(subtitleBuffer, leftMargin, currentY);
+    currentY += 24; // Space after subtitle
+  } else {
+    currentY += 8; // Less space if no subtitle
+  }
+  
+  // Render body text with default font (to support all characters)
+  if (text && text.trim().length > 0) {
+    // Shadow first
+    ink(...bodyShadow).write(text, { x: leftMargin + 1, y: currentY + 1 }, undefined, contentWidth);
+    // Then main text
+    ink(...bodyColor).write(text, { x: leftMargin, y: currentY }, undefined, contentWidth);
+  }
+  
+  return true; // Keep repainting
+}
+
+/* COMMENTED OUT - Original paint function with rendering issues
 function paint({
   wipe,
   ink,
@@ -1083,6 +1187,13 @@ function paint({
   api,
   painting,
 }) {
+  wipe(0); // Clear the canvas each frame to prevent rendering issues
+  
+  // Define constants used throughout paint function
+  const glyphWidth = 6; // Each glyph is 6 pixels wide (typeface blockWidth)
+  const promptStartX = 6; // Prompt starts at x=6
+  const cornerLabelY = 12; // Corner label is positioned at top: 12px
+  
   let { title, text } = lessons[lesson];
   text = text.trim();
 
@@ -1617,16 +1728,17 @@ function paint({
     }
   }
 
-  // Don't return false when audio is playing, buffering, or scrubbing so progress bar can update
+  // Keep repainting when audio is playing, buffering, or scrubbing so progress bar can update
   if ((isPlaying && playingSfx && !playingSfx.killed) || isBuffering || isScrubbing) {
-    // Keep repainting for progress bar animation, buffering indicator, or scrubbing feedback
     return true;
   }
-
-  return false;
+  
+  // Don't return false - let normal repainting continue so content stays visible
+  // (returning undefined allows the system to handle repainting naturally)
 }
+*/
 
-// 🎪 Act
+// 🎪 Act// 🎪 Act
 function act({ event: e, needsPaint, jump, sound, net, screen, api, ui }) {
   // Handle the scrub button if we have sounds for this lesson
   if (scrubButton && lessons[lesson].sounds?.length > 0) {
