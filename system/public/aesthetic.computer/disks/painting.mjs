@@ -54,6 +54,8 @@ let timeout;
 let running;
 let zoomed = false;
 let showMode = false;
+let isNuked = false; // Track nuked state
+let isNuking = false; // Track nuke operation in progress
 
 let prevBtn, nextBtn;
 let zoomLevel = 1;
@@ -307,6 +309,9 @@ function boot({
     handle = record.handle || "anon";
     imageCode = record.slug;
     recordingCode = record.slug;
+    isNuked = record.nuked || false; // Capture nuked state from metadata
+    
+
 
     startLoadingPainting();
   }
@@ -331,7 +336,11 @@ function boot({
           slugPath = handle + "/painting/" + imageCode + ".png";
         }
 
-        if (handle === getHandle() && !showMode) {
+        // Normalize handles by stripping @ prefix for comparison
+        const normalizedHandle = handle?.replace(/^@/, '');
+        const normalizedGetHandle = getHandle()?.replace(/^@/, '');
+        
+        if (normalizedHandle === normalizedGetHandle && !showMode) {
           console.log("✅ This is your painting!");
           menuBtn = new ui.Button();
         }
@@ -544,8 +553,15 @@ function paint({
       ink(255, 64).line(0, 32, screen.width, 32);
       if (!nukeBtn) nukeBtn = new ui.TextButton();
       nukeBtn.box = new geo.Box(4);
-      nukeBtn.reposition({ left: 6, y: 40, screen }, "Nuke");
-      nukeBtn.paint({ ink }, ["maroon", "red", "red", "maroon"]);
+      
+      // Button label based on state
+      const buttonLabel = isNuking ? "..." : (isNuked ? "Denuke" : "Nuke");
+      const buttonColors = isNuked 
+        ? ["darkgreen", "green", "green", "darkgreen"]
+        : ["maroon", "red", "red", "maroon"];
+      
+      nukeBtn.reposition({ left: 6, y: 40, screen }, buttonLabel);
+      nukeBtn.paint({ ink }, buttonColors);
     }
   }
 
@@ -781,18 +797,27 @@ function act({
     // });
   } else {
     nukeBtn?.act(e, () => {
-      console.log("💣 Nuking painting:", imageCode, user);
+      if (isNuking) return; // Prevent double-clicks
+      
+      const newNukeState = !isNuked; // Toggle
+      console.log(`💣 ${newNukeState ? 'Nuking' : 'Denuking'} painting:`, imageCode, user);
+      
+      isNuking = true; // Start loading state
+      
       net
         .userRequest("PUT", "/api/track-media", {
           slug: imageCode,
-          nuke: true,
+          nuke: newNukeState,
           ext: "png",
         })
         .then((res) => {
           console.log(res);
           if (res.status === 200) {
             console.log("🖌️ Painting record updated:", res);
-            notice("NUKED :>", ["yellow", "red"]);
+            isNuked = newNukeState; // Update local state
+            const message = newNukeState ? "NUKED :>" : "RESTORED :>";
+            const colors = newNukeState ? ["yellow", "red"] : ["yellow", "green"];
+            notice(message, colors);
           } else {
             throw new Error(res.status);
           }
@@ -800,6 +825,9 @@ function act({
         .catch((err) => {
           console.warn("🖌️ Painting record update failure:", err);
           notice(`${err.message} ERROR :(`, ["white", "red"]);
+        })
+        .finally(() => {
+          isNuking = false; // End loading state
         });
     });
   }

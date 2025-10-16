@@ -78,9 +78,9 @@ merry tone:3 clock wand:2
 - Mix custom and default durations
 - Pieces without `:duration` use the 5-second default
 
-### 4. Merry-O Infinite Loop
+### 4. Merryo Infinite Loop
 ```
-merry-o 0.25-tone
+merryo 0.25-tone
 ```
 - Repeats the pipeline from the beginning forever
 - Progress bar cycles continuously

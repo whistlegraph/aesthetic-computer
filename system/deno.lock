@@ -226,6 +226,7 @@
         "npm:@mediapipe/tasks-vision@^20230920.0.0",
         "npm:@netlify/edge-functions@^2.18.1",
         "npm:@netlify/functions@^4.2.6",
+        "npm:auth0@^5.0.0",
         "npm:busboy@^1.6.0",
         "npm:crypto@^1.0.1",
         "npm:discord-interactions@^4.3.0",

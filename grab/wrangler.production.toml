@@ -1,0 +1,56 @@
+name = "aesthetic-grab"
+main = "src/worker.ts"
+compatibility_date = "2024-01-15"
+compatibility_flags = ["nodejs_compat"]
+
+# Production environment for aesthetic.computer
+[vars]
+ENVIRONMENT = "production"
+DOMAIN = "grab.aesthetic.computer"
+
+# Cache Configuration
+CACHE_TTL_SECONDS = "3600"
+CDN_CACHE_TTL_SECONDS = "86400"
+
+# Screenshot Configuration
+MAX_SCREENSHOT_AGE_MS = "604800000"
+BROWSER_TIMEOUT_MS = "30000"
+MAX_VIEWPORT_WIDTH = "1920"
+MAX_VIEWPORT_HEIGHT = "1080"
+
+# Rate Limiting
+MAX_REQUESTS_PER_MINUTE = "60"
+MAX_BROWSER_SESSIONS = "10"
+
+# Browser Rendering Binding
+# Requires Browser Rendering to be enabled in your Cloudflare account
+[browser]
+binding = "BROWSER"
+
+# Durable Object Bindings
+[[durable_objects.bindings]]
+name = "SCREENSHOT_DO"
+class_name = "ScreenshotDO"
+script_name = "aesthetic-grab"
+
+# Durable Object Migrations
+[[migrations]]
+tag = "v1"
+new_classes = ["ScreenshotDO"]
+
+# R2 Bucket Binding (optional - for long-term caching)
+# Uncomment and configure after creating bucket:
+# [[r2_buckets]]
+# binding = "SCREENSHOTS"
+# bucket_name = "aesthetic-screenshots"
+
+# Rate Limiting Configuration
+[limits]
+cpu_ms = 30000
+
+# Build Configuration
+[build]
+command = "npm run type-check"
+
+# Secrets (set via wrangler secret put)
+# BROWSER_API_KEY - Additional API key if needed (optional)

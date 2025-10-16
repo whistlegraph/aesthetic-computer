@@ -10,7 +10,8 @@ export default async function handleRequest(request) {
   if (path[1] === "media") {
     const resourcePath = path.slice(2).join("/");
 
-    if (!path[2]?.includes("@")) {
+    if (!path[2]?.includes("@") && !path[2]?.match(/^ac[a-z0-9]+$/i)) {
+      // No @ prefix and not a user code (acXXXXX format) - treat as direct file path
       const extension = resourcePath.split(".").pop()?.toLowerCase();
       const baseUrl =
         extension === "mjs"
@@ -31,7 +32,14 @@ export default async function handleRequest(request) {
       }
       return moddedResponse;
     } else {
-      const userId = await queryUserID(path[2]);
+      // Handle both @username and acXXXXX user code formats
+      const userIdentifier = path[2];
+      const userId = await queryUserID(userIdentifier);
+      
+      if (!userId) {
+        return new Response(`User not found: ${userIdentifier}`, { status: 404 });
+      }
+      
       const newPath = `${userId}/${path.slice(3).join("/")}`;
 
       if (newPath.split("/").pop().split(".")[1]?.length > 0) {
@@ -68,9 +76,22 @@ export default async function handleRequest(request) {
   }
 }
 
-async function queryUserID(username) {
-  const host = "https://aesthetic.computer";
-  const url = `${host}/user?from=${encodeURIComponent(username)}`;
+async function queryUserID(userIdentifier) {
+  // Use localhost in dev, production URL otherwise
+  const host = Deno.env.get("CONTEXT") === "dev" 
+    ? "https://localhost:8888" 
+    : "https://aesthetic.computer";
+  
+  // Determine if it's a user code (acXXXXX) or handle (@username)
+  let url;
+  if (userIdentifier.match(/^ac[a-z0-9]+$/i)) {
+    // User code format - query by code
+    url = `${host}/user?code=${encodeURIComponent(userIdentifier)}`;
+  } else {
+    // Handle format (with or without @)
+    url = `${host}/user?from=${encodeURIComponent(userIdentifier)}`;
+  }
+  
   try {
     const res = await fetch(url);
     if (res.ok) {
@@ -83,8 +104,10 @@ async function queryUserID(username) {
           Array.from(res.headers.entries()),
         )}`,
       );
+      return null;
     }
   } catch (error) {
     console.error(`Fetch failed: ${error}`);
+    return null;
   }
 }

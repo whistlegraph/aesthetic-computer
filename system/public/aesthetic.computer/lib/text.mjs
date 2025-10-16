@@ -19,7 +19,8 @@ function reverse(str) {
 function validateHandle(handle) {
   if (!/^[a-z0-9]+([._][a-z0-9]+)*$/i.test(handle)) return "invalid";
   if (handle.length > 16) return "too long";
-  if (handle === "sotce") return "reserved";
+  const reserved = ["sotce", "art"]; // Reserved for system accounts
+  if (reserved.includes(handle.toLowerCase())) return "reserved";
   return "valid";
 }
 

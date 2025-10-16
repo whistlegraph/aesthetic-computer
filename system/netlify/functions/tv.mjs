@@ -59,6 +59,8 @@ async function fetchPaintings(db, { limit }) {
         user: 1,
         when: 1,
         handle: 1,
+        atproto: 1,
+        code: 1,
       },
     },
   ];
@@ -70,10 +72,18 @@ async function fetchPaintings(db, { limit }) {
     const ownerSegment = handle ?? record.user;
     const mediaPath = `/media/${ownerSegment}/painting/${record.slug}.png`;
 
+    // Prefer ATProto blob URL if available
+    let thumbnailUrl = `${mediaOrigin}${mediaPath}`;
+    if (record.atproto?.thumbnail?.ref) {
+      const blobCid = record.atproto.thumbnail.ref.$link || record.atproto.thumbnail.ref;
+      thumbnailUrl = `https://at.aesthetic.computer/xrpc/com.atproto.sync.getBlob?did=${record.atproto.did}&cid=${blobCid}`;
+    }
+
     return {
       id: record._id?.toString?.() ?? `${record.user}:${record.slug}`,
       type: "painting",
       slug: record.slug,
+      code: record.code,
       owner: {
         handle,
         userId: record.user,
@@ -81,8 +91,13 @@ async function fetchPaintings(db, { limit }) {
       when: record.when instanceof Date ? record.when.toISOString() : record.when,
       media: {
         path: mediaPath,
-        url: `${mediaOrigin}${mediaPath}`,
+        url: thumbnailUrl,
       },
+      atproto: record.atproto ? {
+        uri: record.atproto.uri,
+        cid: record.atproto.cid,
+        did: record.atproto.did,
+      } : undefined,
       meta: {
         // Placeholder hook for future enrichment (e.g., palette, mood affinity)
       },

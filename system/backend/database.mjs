@@ -81,6 +81,7 @@ async function allMoods(database, handles = null) {
         mood: 1,
         when: 1,
         handle: { $concat: ["@", "$handleInfo.handle"] },
+        atproto: 1,
       },
     },
     { $sort: { when: -1 } },

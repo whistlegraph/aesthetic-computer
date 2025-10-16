@@ -36,7 +36,7 @@ merry 3-piece1 5-piece2 2-piece3
 
 ### Infinite Loop
 ```
-merry-o 0.25-tone
+merryo 0.25-tone
 ```
 (restarts from the first piece until you run `stop`)
 

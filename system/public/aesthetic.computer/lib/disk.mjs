@@ -8295,11 +8295,19 @@ async function makeFrame({ data: { type, content } }) {
           currentText !== "sign" &&
           currentPath !== "aesthetic.computer/disks/prompt"
         ) {
-          if (data.key === "Escape") {
+          // Stop merry pipeline for both Escape and Backspace
+          let merryOriginalCommand = null;
+          if (data.key === "Escape" || data.key === "Backspace") {
             const stopMerry = $commonApi.system.stopMerryPipeline;
             if (typeof stopMerry === "function") {
+              // Capture original command before stopping (for backspace editing)
+              if (data.key === "Backspace" && $commonApi.system.merry?.originalCommand) {
+                merryOriginalCommand = $commonApi.system.merry.originalCommand;
+              }
+              // Reset leaving flag to allow merry stop to jump
+              leaving = false;
               stopMerry({
-                reason: "escape",
+                reason: data.key === "Escape" ? "escape" : "backspace",
                 jumpAfter: false,
                 jumpTarget: null,
                 cutTape: true,
@@ -8322,7 +8330,8 @@ async function makeFrame({ data: { type, content } }) {
           if (!labelBack || data.key === "Backspace" || data.key === "Escape") {
             let promptSlug = "prompt";
             if (data.key === "Backspace") {
-              const content = currentHUDPlainTxt || currentHUDTxt || currentText;
+              // Use merry original command if available, otherwise use current content
+              const content = merryOriginalCommand || currentHUDPlainTxt || currentHUDTxt || currentText;
               // Only encode kidlisp content with kidlisp encoder
               if (lisp.isKidlispSource(content)) {
                 const encodedContent = lisp.encodeKidlispForUrl(content);
@@ -10450,8 +10459,28 @@ async function makeFrame({ data: { type, content } }) {
           $.unmask(); // Ensure progress bar renders without piece mask
           const animFrame = Number($api.paintCount || 0n);
           
-          // Fill with black backdrop
-          $.ink(0, 0, 0, 255).box(0, 0, mainScreenWidth, 1);
+          // Check for transition flash
+          let flashIntensity = 0;
+          if (merry.transitionFlash && merry.transitionFlash.active) {
+            const elapsed = Date.now() - merry.transitionFlash.startTime;
+            if (elapsed < merry.transitionFlash.duration) {
+              // Ease out the flash (starts bright, fades quickly)
+              const progress = elapsed / merry.transitionFlash.duration;
+              flashIntensity = 1 - Math.pow(progress, 2); // Quadratic ease out
+            } else {
+              // Flash complete
+              merry.transitionFlash.active = false;
+              flashIntensity = 0;
+            }
+          }
+          
+          // Fill with black backdrop (or white during flash)
+          if (flashIntensity > 0) {
+            const bgBrightness = Math.floor(255 * flashIntensity);
+            $.ink(bgBrightness, bgBrightness, bgBrightness, 255).box(0, 0, mainScreenWidth, 1);
+          } else {
+            $.ink(0, 0, 0, 255).box(0, 0, mainScreenWidth, 1);
+          }
           
           // Define colors for each piece (cycle through palette)
           const pieceColors = [
@@ -10482,10 +10511,12 @@ async function makeFrame({ data: { type, content } }) {
               let baseR, baseG, baseB, alpha;
               
               if (isCompleted) {
-                // Completed pieces: Full bright color
-                baseR = color.r;
-                baseG = color.g;
-                baseB = color.b;
+                // Completed pieces: Fade out progressively (darker as we move away from them)
+                const completedAge = merry.currentIndex - index; // How many pieces ago
+                const fadeFactor = Math.max(0.1, 1 - (completedAge * 0.2)); // Fade by 20% per step
+                baseR = Math.floor(color.r * fadeFactor * 0.25); // Start at 25% brightness
+                baseG = Math.floor(color.g * fadeFactor * 0.25);
+                baseB = Math.floor(color.b * fadeFactor * 0.25);
                 alpha = 255;
               } else if (isCurrent) {
                 // Current piece: Show progress within this segment
@@ -10516,11 +10547,42 @@ async function makeFrame({ data: { type, content } }) {
                   alpha = 255;
                 }
               } else if (isUpcoming) {
-                // Upcoming pieces: Very dim preview
-                baseR = Math.floor(color.r * 0.15);
-                baseG = Math.floor(color.g * 0.15);
-                baseB = Math.floor(color.b * 0.15);
-                alpha = 255;
+                // Upcoming pieces: Warm up as turn approaches
+                const stepsUntil = index - merry.currentIndex; // How many pieces away
+                const nextIsThis = stepsUntil === 1;
+                
+                if (nextIsThis) {
+                  // Next piece warms up based on current piece progress
+                  const warmup = merry.pieceProgress || 0; // 0 to 1
+                  const baseBrightness = 0.15; // Starting dim
+                  const targetBrightness = 0.5; // Warm up to this
+                  const brightness = baseBrightness + (targetBrightness - baseBrightness) * warmup;
+                  
+                  // Add warm orange/yellow glow as it heats up
+                  const warmGlow = warmup * 0.3;
+                  baseR = Math.floor(color.r * brightness + 255 * warmGlow);
+                  baseG = Math.floor(color.g * brightness + 200 * warmGlow);
+                  baseB = Math.floor(color.b * brightness + 100 * warmGlow * 0.5);
+                  baseR = Math.min(255, baseR);
+                  baseG = Math.min(255, baseG);
+                  baseB = Math.min(255, baseB);
+                  alpha = 255;
+                } else {
+                  // Further away pieces: Very dim, getting dimmer with distance
+                  const distanceFade = Math.max(0.05, 1 - (stepsUntil - 1) * 0.15);
+                  baseR = Math.floor(color.r * 0.15 * distanceFade);
+                  baseG = Math.floor(color.g * 0.15 * distanceFade);
+                  baseB = Math.floor(color.b * 0.15 * distanceFade);
+                  alpha = 255;
+                }
+              }
+              
+              // Apply transition flash boost to current piece
+              if (isCurrent && flashIntensity > 0) {
+                const boost = 1 + flashIntensity * 0.8; // Up to 80% brighter
+                baseR = Math.min(255, Math.floor(baseR * boost));
+                baseG = Math.min(255, Math.floor(baseG * boost));
+                baseB = Math.min(255, Math.floor(baseB * boost));
               }
               
               $.ink(baseR, baseG, baseB, alpha).box(x, 0, 1, 1);

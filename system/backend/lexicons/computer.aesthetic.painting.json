@@ -1,0 +1,55 @@
+{
+  "lexicon": 1,
+  "id": "computer.aesthetic.painting",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "A digital painting created on aesthetic.computer",
+      "key": "tid",
+      "record": {
+        "type": "object",
+        "required": ["slug", "code", "thumbnail", "imageUrl", "when", "ref"],
+        "properties": {
+          "slug": {
+            "type": "string",
+            "description": "Timestamp slug (e.g., '2023.8.24.16.21.09.123')",
+            "maxLength": 64
+          },
+          "code": {
+            "type": "string",
+            "description": "Short code for lookups (e.g., 'a3b', '4Xz')",
+            "maxLength": 10
+          },
+          "thumbnail": {
+            "type": "blob",
+            "accept": ["image/png", "image/jpeg"],
+            "maxSize": 102400,
+            "description": "512x512px thumbnail preview"
+          },
+          "imageUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "URL to full resolution PNG in DO Spaces",
+            "maxLength": 512
+          },
+          "recordingUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "URL to .zip recording file (if available)",
+            "maxLength": 512
+          },
+          "when": {
+            "type": "string",
+            "format": "datetime",
+            "description": "Original creation timestamp (matches MongoDB)"
+          },
+          "ref": {
+            "type": "string",
+            "description": "MongoDB ObjectId reference for bidirectional linking",
+            "maxLength": 24
+          }
+        }
+      }
+    }
+  }
+}
