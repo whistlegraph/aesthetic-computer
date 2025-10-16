@@ -1,5 +1,4 @@
 // import { networkInterfaces } from "os";
-import { spawn } from "child_process";
 import qrcode from "qrcode-terminal";
 import got from "got";
 
@@ -11,30 +10,8 @@ const codespacesDomain = process.env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN;
 let bootUps = 0;
 const bootUpTimer = setInterval(() => {
   process.stdout.write("\x1Bc"); // Clear terminal.
-
   const message = bootUps % 2 === 0 ? "Starting..." : "Starting. . .";
-  
-  const toilet = spawn("toilet", ["-f", "future"], {
-    stdio: ['pipe', 'pipe', 'inherit']
-  });
-  
-  const lolcat = spawn("lolcat", ["-x", "-r"], {
-    stdio: ['pipe', 'inherit', 'inherit']
-  });
-
-  // Handle process cleanup to prevent blocking
-  toilet.on('error', () => {});
-  lolcat.on('error', () => {});
-  
-  toilet.stdout.pipe(lolcat.stdin);
-  toilet.stdin.write(message);
-  toilet.stdin.end();
-  
-  // Ensure processes exit properly
-  toilet.on('close', () => {
-    lolcat.stdin.end();
-  });
-
+  console.log(`\n🚀 ${message}\n`);
   bootUps += 1;
 }, 250);
 
@@ -65,9 +42,11 @@ async function constructUrl() {
           https: { rejectUnauthorized: false },
           timeout: {
             request: 2000 // 2 second timeout per request
-          }
+          },
+          throwHttpErrors: false // Don't throw on 404, we just want to know server is up
         });
-        if (response.statusCode === 200) {
+        // Accept any response code (200, 404, etc.) as proof the server is running
+        if (response.statusCode) {
           clearInterval(bootUpTimer);
           setTimeout(() => {
             process.stdout.write("\x1Bc"); // Clear terminal.
