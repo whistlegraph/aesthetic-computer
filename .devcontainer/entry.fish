@@ -1,5 +1,15 @@
 #!/usr/bin/env fish
 
+# Function to ensure fish config directory has correct permissions
+function ensure_fish_config_permissions
+    set -l fish_config_dir /home/me/.config/fish
+    if test -d $fish_config_dir
+        # Fix ownership and permissions for fish config directory
+        sudo chown -R me:me $fish_config_dir 2>/dev/null
+        sudo chmod -R u+w $fish_config_dir 2>/dev/null
+    end
+end
+
 # Function to ensure correct Docker socket permissions
 function ensure_docker_socket_permissions
     set -l DOCKER_SOCKET /var/run/docker.sock
@@ -127,6 +137,9 @@ function ensure_ssl_dev_certs
 
     cd $previous_dir
 end
+
+# Ensure fish config has correct permissions (fixes "Permission denied" errors)
+ensure_fish_config_permissions
 
 # Call the function to set up Docker socket permissions
 ensure_docker_socket_permissions
