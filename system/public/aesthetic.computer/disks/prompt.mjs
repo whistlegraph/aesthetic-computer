@@ -7,7 +7,7 @@
   - Chain pieces together with configurable durations
   - Syntax: `merry piece1 piece2 piece3` (default 5 seconds each)
   - Custom: `merry tone:3 clock:5 wand:2` or `merry 3-tone 5-clock 2-wand`
-  - Loop forever: `merry-o 0.25-tone` (use `stop` to exit)
+  - Loop forever: `merryo 0.25-tone` (use `stop` to exit)
   - Stop early: `merry:stop` or `stop`
   - Example: `merry tone:3 clock:5` plays tone for 3s, then clock for 5s, then returns to prompt
 #endregion */
@@ -387,7 +387,7 @@ async function halt($, text) {
 
   const activateMerry = (
     pieceParams,
-    { markAsTaping = false, flashOnSuccess = true, loop = false } = {}
+    { markAsTaping = false, flashOnSuccess = true, loop = false, originalCommand = "" } = {}
   ) => {
     if (!pieceParams || pieceParams.length === 0) {
       flashColor = [255, 0, 0];
@@ -456,6 +456,7 @@ async function halt($, text) {
       paintInterval: null,
       loop,
       cycleCount: 0,
+      originalCommand, // Store for backspace editing
     };
 
     console.log("🎄 Merry pipeline:", pipeline, `total: ${totalDuration}s`);
@@ -537,23 +538,13 @@ async function halt($, text) {
 
       startMerryPaintTicker();
 
-      // 🎵 Add a synth accent whenever the merry advances to a new piece
-      if (sound?.synth) {
-        const tone = merryToneSequence[index % merryToneSequence.length];
-        const sustain = Math.min(0.28, Math.max(0.16, pipeline[index].duration * 0.08));
-        try {
-          sound.synth({
-            type: "triangle",
-            tone,
-            duration: sustain,
-            attack: 0.01,
-            decay: 0.25,
-            release: 0.18,
-            volume: system.merry.isTaping ? 0.25 : 0.18,
-          });
-        } catch (err) {
-          console.warn("🎄🔊 Merry synth trigger failed", err);
-        }
+      // � Trigger a visual flash on the progress bar when transitioning (instead of sound)
+      if (system.merry) {
+        system.merry.transitionFlash = {
+          active: true,
+          startTime: Date.now(),
+          duration: 150, // Flash duration in ms
+        };
       }
 
       setTimeout(() => {
@@ -609,13 +600,14 @@ async function halt($, text) {
     jump("/" + params[0]);
   } else if (shop.indexOf(slug) > -1) {
     jump("/" + slug); // Matches a product so jump to a new page / redirect.
-  } else if (slug === "merry" || slug === "merry-o") {
-    const loop = slug === "merry-o";
+  } else if (slug === "merry" || slug === "merryo") {
+    const loop = slug === "merryo";
     console.log(`🎄 ${slug.toUpperCase()} command received with params:`, params);
     activateMerry(params, {
       markAsTaping: false,
       flashOnSuccess: true,
       loop,
+      originalCommand: text, // Store the full original text (already has proper format)
     });
     return true;
   } else if (
@@ -680,20 +672,20 @@ async function halt($, text) {
       
       // 🎄 Check if we're taping a merry pipeline anywhere in the params: "tape merry tone:3 clock:5"
       const merryTokenIndex = params.findIndex(
-        (param) => param === "merry" || param === "merry-o"
+        (param) => param === "merry" || param === "merryo"
       );
       if (merryTokenIndex !== -1) {
         isTapingMerry = true;
         console.log("🎄📼 Taping a merry pipeline detected!");
         
         const merryToken = params[merryTokenIndex];
-        const loopRequested = merryToken === "merry-o";
+        const loopRequested = merryToken === "merryo";
 
         if (loopRequested) {
           params[merryTokenIndex] = "merry";
           flashColor = [255, 165, 0];
           makeFlash($);
-          notice("MERRY-O DISABLED WHILE TAPING", ["yellow", "red"]);
+          notice("MERRYO DISABLED WHILE TAPING", ["yellow", "red"]);
         }
 
         merryPieceParams = params.slice(merryTokenIndex + 1);
@@ -1012,6 +1004,30 @@ async function halt($, text) {
         console.log("🪄 Painting uploaded:", filename, data);
         progressTrick = null;
 
+        // If this is an anonymous painting with a recording, update MongoDB slug to colon format
+        if (recordingSlug && !handle() && !user?.email) {
+          const combinedSlug = `${data.slug}:${recordingSlug}`;
+          console.log(`🔗 Updating anonymous painting slug to: ${combinedSlug}`);
+          try {
+            const updateResponse = await fetch("/api/update-painting-slug", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ 
+                oldSlug: data.slug, 
+                newSlug: combinedSlug 
+              }),
+            });
+            if (updateResponse.ok) {
+              console.log("✅ Painting slug updated with recording");
+              data.slug = combinedSlug; // Update local data for jump URL
+            } else {
+              console.warn("⚠️ Failed to update painting slug:", await updateResponse.text());
+            }
+          } catch (err) {
+            console.error("❌ Error updating painting slug:", err);
+          }
+        }
+
         // Show the short code to the user (important for guests!)
         if (data.code) {
           console.log(`🎨 Your painting code: #${data.code}`);
@@ -1022,10 +1038,8 @@ async function halt($, text) {
         if ((handle() || user?.email) && filename.startsWith("painting")) {
           jump(`painting~${handle() || user?.email}/${data.slug}`); // For a user.
         } else {
-          // For guests, could potentially use code-based URL in the future
-          jump(
-            `painting~${data.slug}${recordingSlug ? ":" + recordingSlug : ""}`,
-          ); // Or for a guest.
+          // For guests, use the combined slug directly
+          jump(`painting~${data.slug}`); // Already includes :recordingSlug if present
         }
 
         flashColor = [0, 255, 0];
