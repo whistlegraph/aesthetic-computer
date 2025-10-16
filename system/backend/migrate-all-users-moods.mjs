@@ -3,6 +3,12 @@
 // 1. Find users with moods first
 // 2. Check if they have ATProto accounts
 // 3. Migrate or flag for later
+//
+// NOTE: 6 users cannot get ATProto accounts and should be skipped:
+// - ac23menap: Unsupported email domain (peterpansen@existiert.net)
+// - ac23juhud: Handle already taken (duplicate?)
+// - ac23sezew, ac23ruhup, ac24zekas, ac24gahoc: Auth0 accounts deleted (404)
+// Their moods remain in MongoDB only.
 
 import { connect } from './database.mjs';
 import { AtpAgent } from '@atproto/api';
@@ -58,7 +64,7 @@ for (let i = 0; i < usersWithMoods.length; i++) {
   
   // Get user details
   const user = await users.findOne({ _id: userSub });
-  const handle = user?.handle || 'unknown';
+  const handle = user?.code || 'unknown';
   
   // Check if should skip
   if (skipUsers.includes(handle)) {
@@ -112,6 +118,10 @@ for (let i = 0; i < usersWithMoods.length; i++) {
     
     for (const mood of userMoods) {
       try {
+        // Show mood preview (first 60 chars)
+        const preview = mood.mood.substring(0, 60) + (mood.mood.length > 60 ? '...' : '');
+        console.log(`      "${preview}"`);
+        
         // Create ATProto record
         const record = await agent.com.atproto.repo.createRecord({
           repo: user.atproto.did,
