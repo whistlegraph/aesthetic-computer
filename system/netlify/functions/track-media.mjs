@@ -136,13 +136,14 @@ export async function handler(event, context) {
           return respond(404, { message: "Media not found." });
         } else if (result.modifiedCount === 1) {
           return respond(200, { message: "Media nuked successfully." });
+        } else {
+          return respond(200, { message: "No effect." });
         }
       } catch (error) {
         console.error(`❌ Failed to nuke media:`, error);
         return respond(500, { message: error.message || String(error) });
       } finally {
         await database.disconnect();
-        return respond(200, { message: "No effect." });
       }
     }
   } catch (error) {
