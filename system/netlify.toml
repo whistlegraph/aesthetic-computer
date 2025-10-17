@@ -155,9 +155,9 @@ Access-Control-Allow-Origin = "*"
 Content-Security-Policy = "script-src 'self' https://www.gstatic.com https://cdn.jsdelivr.net https://aesthetic.computer https://assets.aesthetic.computer blob: 'unsafe-eval';"
 # Cross-Origin-Resource-Policy = "cross-origin"
 Vary = "*"
-# [[edge_functions]]
-# path = "/media/*" 
-# function = "media"
+[[edge_functions]]
+path = "/media/*" 
+function = "media"
 [[redirects]]
 from = "https://botce.ac"
 to = "https://aesthetic.computer/botce"
