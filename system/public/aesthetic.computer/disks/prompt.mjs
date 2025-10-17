@@ -575,31 +575,51 @@ async function halt($, text) {
   const params = tokens.slice(1);
   const input = $.system.prompt.input; // Reference to the TextInput.
 
+  const openExternalFromIframe = (url) => {
+    if (!net.iframe) return false;
+    send({ type: "post-to-parent", content: { type: "openExternal", url } });
+    return true;
+  };
+
+  const siteBase = `https://${debug ? "localhost:8888" : "aesthetic.computer"}`;
+
+  const toAbsoluteSiteUrl = (pathOrUrl) => {
+    if (/^https?:\/\//.test(pathOrUrl)) return pathOrUrl;
+    const normalized = pathOrUrl.startsWith("/") ? pathOrUrl : `/${pathOrUrl}`;
+    return `${siteBase}${normalized}`;
+  };
+
   // 🕸️ Custom URL routing.
   if (slug.startsWith("/")) {
     jump(`https://${debug ? "localhost:8888" : "aesthetic.computer"}${slug}`);
     return true;
   } else if (slug === "shop") {
     console.log(slug);
-    // TODO: Do the mapping here...
 
-    // @jeffrey/help
-    // cart
-    // every timecode
+    const openShopPath = (path) => {
+      if (openExternalFromIframe(toAbsoluteSiteUrl(path))) return;
+      jump(path);
+    };
 
     if (params.length > 0) {
       if (shop.indexOf(params[0]) > -1) {
-        jump("/" + params[0]);
+        openShopPath("/" + params[0]);
       } else {
-        jump("/shop/" + params.join("/"));
+        openShopPath("/shop/" + params.join("/"));
       }
     } else {
-      jump("/shop");
+      openShopPath("/shop");
     }
+    return true;
   } else if (slug.startsWith("shop")) {
-    jump("/" + params[0]);
+    const target = params[0] ? "/" + params[0] : "/shop";
+    if (openExternalFromIframe(toAbsoluteSiteUrl(target))) return true;
+    jump(target);
+    return true;
   } else if (shop.indexOf(slug) > -1) {
+    if (openExternalFromIframe(toAbsoluteSiteUrl("/" + slug))) return true; // Matches a product so jump to a new page / redirect.
     jump("/" + slug); // Matches a product so jump to a new page / redirect.
+    return true;
   } else if (slug === "merry" || slug === "merryo") {
     const loop = slug === "merryo";
     console.log(`🎄 ${slug.toUpperCase()} command received with params:`, params);
@@ -1822,7 +1842,8 @@ async function halt($, text) {
     makeFlash($);
     return true;
   } else if (text.toLowerCase() === "github" || text === "gh") {
-    jump("https://github.com/digitpain/aesthetic.computer");
+    const githubUrl = "https://github.com/digitpain/aesthetic.computer";
+    if (!openExternalFromIframe(githubUrl)) jump(githubUrl);
     makeFlash($);
     return true;
   } else if (text.toLowerCase() === "gmail") {
@@ -1851,6 +1872,16 @@ async function halt($, text) {
         ? prefix + "/aesthetic-direct"
         : prefix + "https://aesthetic.direct",
     );
+    makeFlash($);
+    return true;
+  } else if (text.toLowerCase() === "kidlisp") {
+    const kidlispUrl = debug
+      ? toAbsoluteSiteUrl("/kidlisp-com")
+      : "https://kidlisp.com";
+    if (!openExternalFromIframe(kidlispUrl)) {
+      const prefix = "out:";
+      jump(debug ? prefix + "/kidlisp-com" : prefix + kidlispUrl);
+    }
     makeFlash($);
     return true;
   } else if (text.toLowerCase() === "support") {
