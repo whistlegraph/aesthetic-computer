@@ -34,7 +34,7 @@ export default async function handleRequest(request) {
     } else {
       // Handle both @username and acXXXXX user code formats
       const userIdentifier = path[2];
-      const userId = await queryUserID(userIdentifier);
+      const userId = await queryUserID(userIdentifier, request);
       
       if (!userId) {
         return new Response(`User not found: ${userIdentifier}`, { status: 404 });
@@ -76,11 +76,10 @@ export default async function handleRequest(request) {
   }
 }
 
-async function queryUserID(userIdentifier) {
-  // Use localhost in dev, production URL otherwise
-  const host = Deno.env.get("CONTEXT") === "dev" 
-    ? "https://localhost:8888" 
-    : "https://aesthetic.computer";
+async function queryUserID(userIdentifier, request) {
+  // Use the same host as the incoming request
+  const requestUrl = new URL(request.url);
+  const host = `${requestUrl.protocol}//${requestUrl.host}`;
   
   // Determine if it's a user code (acXXXXX) or handle (@username)
   let url;

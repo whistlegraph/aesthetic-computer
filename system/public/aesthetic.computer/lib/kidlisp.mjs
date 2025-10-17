@@ -39,11 +39,32 @@ import { checkPackMode } from "./pack-mode.mjs";
    - `(ink r g b)` - Set RGB color (0-255 each)
    - `(ink color alpha)` - Set color with transparency (0-255)
    - `(line x1 y1 x2 y2)` - Draw line from point 1 to point 2
-   - `(box x y width height)` - Draw filled rectangle
-   - `(circle x y radius)` - Draw filled circle
-   - `(tri x1 y1 x2 y2 x3 y3)` - Draw filled triangle from three points
-   - `(tri x1 y1 x2 y2 x3 y3 "outline")` - Draw triangle outline
+   - `(box x y width height)` - Draw rectangle (respects fill/outline mode)
+   - `(circle x y radius)` - Draw circle (respects fill/outline mode)
+   - `(tri x1 y1 x2 y2 x3 y3)` - Draw triangle (respects fill/outline mode)
    - `(plot x y)` - Set single pixel at coordinates
+   
+   ### Fill/Outline Mode (Processing-style)
+   - `(fill)` - Set global fill mode (shapes will be filled) - DEFAULT
+   - `(outline)` - Set global outline mode (shapes will be outlined)
+   - `(stroke)` - Alias for outline (Processing compatibility)
+   - `(nofill)` - Alias for outline (Processing compatibility)
+   - `(nostroke)` - Alias for fill (Processing compatibility)
+   - Mode affects circle, box, tri, and shape commands
+   - Explicit mode parameters override global state:
+     - `(circle x y r "fill")` - Always filled, regardless of global mode
+     - `(circle x y r "outline")` - Always outline, regardless of global mode
+     - `(circle x y r "outline:5")` - Outline with 5px thickness
+     - Same pattern works for box and tri
+   - Example workflow:
+     ```lisp
+     ; Default is fill mode (matches box's default)
+     (circle 100 100 50)     ; Filled circle
+     (box 50 50 40 40)       ; Filled box
+     (outline)               ; Switch to outline mode
+     (circle 200 100 50)     ; Outline circle
+     (tri 0 0 50 0 25 50)   ; Outline triangle
+     ```
    
    ### Image Functions
    - `(paste url x y)` - Paste image from URL at coordinates
@@ -52,6 +73,11 @@ import { checkPackMode } from "./pack-mode.mjs";
    - URLs can be unquoted: `(paste https://example.com/image.png x y)`
    - Quoted URLs also work: `(paste "https://example.com/image.png" x y)`
    - Supports @handle/timestamp format: `(paste @user/123456 x y)`
+   
+   ### String Literals
+   - Both double quotes `"text"` and single quotes `'text'` work for strings
+   - Example: `(write "hello" x y)` or `(write 'hello' x y)`
+   - Useful for avoiding escaping when mixing quote types
    
    ### Color System
    Colors can be specified as:
@@ -567,8 +593,8 @@ const validIdentifierRegex = /^[$a-zA-Z_]\w*$/;
 function tokenize(input) {
   if (VERBOSE) console.log("🪙 Tokenizing:", input);
 
-  // Updated regex to treat commas as separate tokens for comma syntax support
-  const regex = /\s*(;.*|[(),]|"(?:[^"\\]|\\.)*"|[^\s()";,]+)/g;
+  // Updated regex to support both double quotes and single quotes for strings
+  const regex = /\s*(;.*|[(),]|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|[^\s()";',]+)/g;
   const tokens = [];
   let match;
   while ((match = regex.exec(input)) !== null) {
@@ -661,7 +687,9 @@ function readExpression(tokens) {
 }
 
 function atom(token) {
-  if (token[0] === '"' && token[token.length - 1] === '"') {
+  // Check for both double quotes and single quotes
+  if ((token[0] === '"' && token[token.length - 1] === '"') ||
+      (token[0] === "'" && token[token.length - 1] === "'")) {
     return token; // Return string with quotes intact for later processing
   } else if (/^\d*\.?\d+s\.\.\.?$/.test(token)) {
     // Preserve tokens like "1s...", "2s...", "1.5s..." as strings for timed iteration
@@ -685,7 +713,10 @@ function processArgStringTypes(args) {
     return args?.toString();
   }
   return args.map((arg) => {
-    if (typeof arg === "string" && arg.startsWith('"') && arg.endsWith('"')) {
+    // Remove both double quotes and single quotes
+    if (typeof arg === "string" && 
+        ((arg.startsWith('"') && arg.endsWith('"')) ||
+         (arg.startsWith("'") && arg.endsWith("'")))) {
       return arg.slice(1, -1); // Remove quotes
     }
     return arg;
@@ -693,7 +724,9 @@ function processArgStringTypes(args) {
 }
 
 function unquoteString(str) {
-  if (str.startsWith('"') && str.endsWith('"')) {
+  // Handle both double quotes and single quotes
+  if ((str.startsWith('"') && str.endsWith('"')) ||
+      (str.startsWith("'") && str.endsWith("'"))) {
     return str.slice(1, -1);
   } else {
     return str;
@@ -947,6 +980,9 @@ class KidLisp {
     this.halfResolutionApplied = false;
     this.thirdResolutionApplied = false;
     this.fourthResolutionApplied = false;
+
+    // Fill/Outline mode state (Processing-style)
+    this.fillMode = true; // Default to fill (matches box's default behavior)
 
     // Once special form state tracking
     this.onceExecuted = new Set(); // Track which once blocks have been executed
@@ -1533,6 +1569,9 @@ class KidLisp {
     this.halfResolutionApplied = false;
     this.thirdResolutionApplied = false;
     this.fourthResolutionApplied = false;
+
+    // Reset fill/outline mode state
+    this.fillMode = true; // Reset to fill (default)
 
     // Clear onceExecuted only when explicitly requested (when source changes)
     if (clearOnceExecuted) {
@@ -3743,6 +3782,37 @@ class KidLisp {
 
         return !evaled;
       },
+      // Fill/Outline mode commands (Processing-style)
+      fill: (api) => {
+        // Set global fill mode - all subsequent shapes will be filled
+        // Usage: (fill)
+        this.fillMode = true;
+        return undefined;
+      },
+      outline: (api) => {
+        // Set global outline mode - all subsequent shapes will be outlined
+        // Usage: (outline)
+        this.fillMode = false;
+        return undefined;
+      },
+      stroke: (api) => {
+        // Alias for outline (Processing compatibility)
+        // Usage: (stroke)
+        this.fillMode = false;
+        return undefined;
+      },
+      nofill: (api) => {
+        // Alias for outline (Processing compatibility)
+        // Usage: (nofill)
+        this.fillMode = false;
+        return undefined;
+      },
+      nostroke: (api) => {
+        // Alias for fill (Processing compatibility - no stroke means filled)
+        // Usage: (nostroke)
+        this.fillMode = true;
+        return undefined;
+      },
       range: (api, args) => {
         // console.log("Range detected:", args);
         if (args.length === 3) {
@@ -4507,6 +4577,11 @@ class KidLisp {
           return arg;
         });
 
+        // If no explicit mode provided and only 4 numeric args, append global fillMode
+        if (processedArgs.length === 4 && processedArgs.every(a => typeof a === 'number')) {
+          processedArgs.push(this.fillMode ? "fill" : "outline");
+        }
+        
         const drawBox = () => {
           api.box(...processedArgs);
         };
@@ -4531,8 +4606,22 @@ class KidLisp {
         drawBox();
       },
       circle: (api, args = []) => {
+        // Circle function with optional mode parameter
+        // Usage: (circle x y radius) - uses global fillMode
+        // Usage: (circle x y radius "fill") - explicit fill
+        // Usage: (circle x y radius "outline") - explicit outline
+        // Usage: (circle x y radius "outline:5") - explicit outline with thickness
+        
+        // If no explicit mode provided and only 3 args, append global fillMode
+        let circleArgs = [...args];
+        if (args.length === 3) {
+          // No explicit mode - use global fillMode state
+          circleArgs.push(this.fillMode);
+        }
+        // If args.length >= 4, explicit mode is provided, use it as-is
+        
         const drawCircle = () => {
-          api.circle(...args);
+          api.circle(...circleArgs);
         };
 
         if (this.suppressDrawingBeforeBake) {
@@ -4546,7 +4635,7 @@ class KidLisp {
           this.postEmbedCommands.push({
             name: 'circle',
             func: api.circle,
-            args: [...args]
+            args: [...circleArgs]
           });
           return;
         }
@@ -4555,10 +4644,17 @@ class KidLisp {
       },
       tri: (api, args = []) => {
         // Triangle function with 6 coordinates and optional mode
-        // Usage: (tri x1 y1 x2 y2 x3 y3) or (tri x1 y1 x2 y2 x3 y3 mode)
+        // Usage: (tri x1 y1 x2 y2 x3 y3) - uses global fillMode
+        // Usage: (tri x1 y1 x2 y2 x3 y3 mode) - explicit mode override
+
+        // If no explicit mode provided and only 6 numeric args, append global fillMode
+        let triArgs = [...args];
+        if (args.length === 6 && args.every(a => typeof a === 'number')) {
+          triArgs.push(this.fillMode ? "fill" : "outline");
+        }
 
         const drawTri = () => {
-          api.tri(...args);
+          api.tri(...triArgs);
         };
 
         if (this.suppressDrawingBeforeBake) {
@@ -4572,7 +4668,7 @@ class KidLisp {
           this.postEmbedCommands.push({
             name: 'tri',
             func: api.tri,
-            args: [...args]
+            args: [...triArgs]
           });
           return;
         }
