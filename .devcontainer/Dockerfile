@@ -117,6 +117,10 @@ RUN set -eux; \
     curl -fsSL "https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-${ARCH}.tgz" -o /tmp/ngrok.tgz && \
     tar -xzf /tmp/ngrok.tgz -C /usr/local/bin && rm /tmp/ngrok.tgz
 
+# --- Ollama (architecture-aware) ---------------------------------------------
+RUN set -eux; \
+    curl -fsSL https://ollama.com/install.sh | sh
+
 # --- doctl (DigitalOcean CLI, architecture-aware) ----------------------------
 RUN set -eux; \
     case "$(uname -m)" in \

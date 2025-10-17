@@ -218,7 +218,7 @@ export const MatrixChunky8 = {
   },
   // BDF overrides for character positioning adjustments
   bdfOverrides: {
-    'y': { y: 0 } // No vertical adjustment needed - perfect baseline alignment
+    'y': { y: 2 } // Push descender down by 2 pixels (positive = lower on screen)
   }
 };
 
