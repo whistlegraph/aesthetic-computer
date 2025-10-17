@@ -2,7 +2,7 @@
 // Returns collections of user data from S3 given an open path.
 // Example: https://aesthetic.computer/media-collection?for={path}
 
-import { getHandleOrEmail } from "../../backend/authorization.mjs";
+import { getHandleOrEmail, userIDFromHandleOrEmail } from "../../backend/authorization.mjs";
 import { respond } from "../../backend/http.mjs";
 import { connect } from "../../backend/database.mjs";
 
@@ -16,13 +16,18 @@ export async function handler(event, context) {
   const splitPath = path.split("/"); // Chop up the path.
   const sub = splitPath[0];
   const mediaType = splitPath[1];
-  const userId = await getHandleOrEmail(sub); // Get human readable id.
-
-  console.log("📕 Media collection query:", path, splitPath, userId);
 
   let files;
   try {
     const { db, disconnect } = await connect();
+
+    // Convert handle/email to actual Auth0 sub for database query
+    const userSub = await userIDFromHandleOrEmail(sub, { db });
+    
+    // Get human readable id (handle or email) for the response URLs
+    const userId = await getHandleOrEmail(userSub);
+
+    console.log("📕 Media collection query:", path, splitPath, sub, "->", userSub, "->", userId);
 
     // const mediaCollection = db.collection(`${mediaType}s`);
     const mediaCollection = db.collection(
@@ -32,15 +37,20 @@ export async function handler(event, context) {
     // Query the media collection for the specific user.
     // (Ignoring the `nuked` flag.)
     const media = await mediaCollection
-      .find({ user: sub, nuked: { $ne: true } })
+      .find({ user: userSub, nuked: { $ne: true } })
       .toArray();
 
     // Only expect `painting` and `piece` for now. 23.10.12.22.32
     const extension = mediaType === "painting" ? "png" : "mjs";
 
+    // Determine the base URL from the request headers
+    const protocol = event.headers["x-forwarded-proto"] || "https";
+    const host = event.headers.host || "aesthetic.computer";
+    const baseUrl = `${protocol}://${host}`;
+
     // Format the response
     files = media.map((file) => {
-      return `https://aesthetic.computer/media/${userId}/${mediaType}/${file.slug}.${extension}`;
+      return `${baseUrl}/media/${userId}/${mediaType}/${file.slug}.${extension}`;
     });
 
     disconnect();

@@ -128,7 +128,7 @@ async function boot({
 
   if (visiting) {
     // Fetch all of a user's paintings...
-    fetch(`/media/${visiting}/painting`)
+    fetch(`/media-collection?for=${visiting}/painting`)
       .then((res) => res.json())
       .then((data) => {
         paintings = data?.files;
