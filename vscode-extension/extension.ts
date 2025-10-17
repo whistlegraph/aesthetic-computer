@@ -239,10 +239,10 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
         let cspFrameSrc = "frame-src https://aesthetic.computer https://aesthetic.local:8888 https://localhost:8888";
         let cspChildSrc = "child-src https://aesthetic.computer https://aesthetic.local:8888 https://localhost:8888";
         
-        if (isCodespaces && codespaceName && codespacesDomain) {
-          const codespaceUrl = `https://${codespaceName}-8888.${codespacesDomain}`;
-          cspFrameSrc += ` ${codespaceUrl}`;
-          cspChildSrc += ` ${codespaceUrl}`;
+        if (isCodespaces && codespacesDomain) {
+          const codespaceWildcard = `https://*.${codespacesDomain}`;
+          cspFrameSrc += ` ${codespaceWildcard}`;
+          cspChildSrc += ` ${codespaceWildcard}`;
         }
 
         // And set its HTML content
@@ -252,7 +252,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
         <head>
           <meta charset="UTF-8">
           <meta http-equiv="Permissions-Policy" content="midi=*">
-          <meta http-equiv="Content-Security-Policy" content="default-src 'none'; ${cspFrameSrc}; ${cspChildSrc}; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}'; img-src 'self' vscode-resource:;">
+          <meta http-equiv="Content-Security-Policy" content="default-src 'none'; ${cspFrameSrc}; ${cspChildSrc}; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}'; img-src https: data:;">
           <style nonce="${nonce}">
             body {
               margin: 0;
@@ -954,6 +954,11 @@ function getWebViewContent(webview: any, slug: string) {
     vscode.Uri.joinPath(extContext.extensionUri, "vscode.css"),
   );
 
+  // Get proper URI for background image
+  const purplePalsUri = webview.asWebviewUri(
+    vscode.Uri.joinPath(extContext.extensionUri, "resources", "purple-pals.svg"),
+  );
+
   const sessionAesthetic = extContext.globalState.get(
     "aesthetic:session",
     undefined,
@@ -999,9 +1004,10 @@ function getWebViewContent(webview: any, slug: string) {
 
   // Determine the iframe URL based on environment
   let iframeUrl;
+  let iframeProtocol = "https://";
   if (isCodespaces && codespaceName && codespacesDomain) {
-    // In Codespaces, always use the forwarded URL
-    iframeUrl = `https://${codespaceName}-8888.${codespacesDomain}`;
+    // In Codespaces, always use the forwarded URL (without protocol, added later)
+    iframeUrl = `${codespaceName}-8888.${codespacesDomain}`;
   } else {
     // On local laptop, use localhost if local mode is enabled
     iframeUrl = local ? "localhost:8888" : "aesthetic.computer";
@@ -1011,10 +1017,11 @@ function getWebViewContent(webview: any, slug: string) {
   let cspFrameSrc = "frame-src https://aesthetic.computer https://hi.aesthetic.computer https://aesthetic.local:8888 https://localhost:8888 https://sotce.net https://hi.sotce.net https://sotce.local:8888";
   let cspChildSrc = "child-src https://aesthetic.computer https://aesthetic.local:8888 https://sotce.net https://sotce.local:8888 https://localhost:8888";
   
-  if (isCodespaces && codespaceName && codespacesDomain) {
-    const codespaceUrl = `https://${codespaceName}-8888.${codespacesDomain}`;
-    cspFrameSrc += ` ${codespaceUrl}`;
-    cspChildSrc += ` ${codespaceUrl}`;
+  if (isCodespaces && codespacesDomain) {
+    // Use wildcard for any codespace in this domain
+    const codespaceWildcard = `https://*.${codespacesDomain}`;
+    cspFrameSrc += ` ${codespaceWildcard}`;
+    cspChildSrc += ` ${codespaceWildcard}`;
   }
 
   return `<!DOCTYPE html>
@@ -1023,15 +1030,20 @@ function getWebViewContent(webview: any, slug: string) {
 				<meta charset="UTF-8">
         <meta http-equiv="Content-Security-Policy" content="default-src 'none'; ${cspFrameSrc}; ${cspChildSrc}; style-src ${
           webview.cspSource
-        }; script-src 'nonce-${nonce}'; media-src *; img-src 'self' vscode-resource:;">
+        } 'unsafe-inline'; script-src 'nonce-${nonce}'; media-src *; img-src ${webview.cspSource} data:;">
 				<meta name="viewport" content="width=device-width, initial-scale=1.0">
 				<link href="${styleUri}" rel="stylesheet">
 				<link href="${resetStyleUri}" rel="stylesheet">
 				<link href="${vscodeStyleUri}" rel="stylesheet">
 				<title>aesthetic.computer</title>
+        <style>
+          iframe#aesthetic {
+            background-image: url('${purplePalsUri}');
+          }
+        </style>
 			</head>
 			<body>
-        <iframe id="aesthetic" credentialless sandbox="allow-scripts allow-same-origin allow-pointer-lock allow-modals allow-popups allow-popups-to-escape-sandbox" allow="clipboard-write; clipboard-read; pointer-lock" src="https://${iframeUrl}/${param}${hashFragment}" border="none"></iframe>
+        <iframe id="aesthetic" credentialless sandbox="allow-scripts allow-same-origin allow-modals allow-popups allow-popups-to-escape-sandbox" allow="clipboard-write; clipboard-read" src="${iframeProtocol}${iframeUrl}/${param}${hashFragment}" border="none"></iframe>
        	<script nonce="${nonce}" src="${scriptUri}"></script>
 			</body>
 			</html>`;
