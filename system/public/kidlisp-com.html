@@ -1,0 +1,126 @@
+<!-- KidLisp, 2025.10.17 -->
+<html>
+
+<head>
+  <title>KidLisp</title>
+  <meta name="description" content="KidLisp is under construction." />
+  <link rel="icon" type="image/png"
+    href="https://pals-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/painting-2023.7.29.20.39.png" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    ::-webkit-scrollbar {
+      display: none;
+    }
+
+    body {
+      margin: 0;
+      font-size: 22px;
+      font-family: monospace;
+      -webkit-text-size-adjust: none;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      background: #f7f7f7;
+      color: #111;
+      cursor: url('https://aesthetic.computer/aesthetic.computer/cursors/precise.svg') 12 12, auto;
+    }
+
+    header {
+      padding: 16px;
+    }
+
+    h1 {
+      font-weight: normal;
+      font-size: 22px;
+      margin: 0;
+    }
+
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 32px 16px 48px;
+      line-height: 1.6;
+    }
+
+    h2 {
+      font-weight: normal;
+      font-size: 18px;
+      margin: 0 0 0.5em;
+    }
+
+    p {
+      margin: 0.5em 0 0;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    a:hover {
+      color: rgb(205, 92, 155);
+    }
+
+    footer {
+      text-align: center;
+      padding: 16px;
+      font-size: 14px;
+      opacity: 0.7;
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <h1>kidlisp</h1>
+  </header>
+
+  <main>
+    <h2>Under construction</h2>
+    <p>KidLisp is getting a new home. Please check back soon.</p>
+    <p>In the meantime, visit <a href="https://aesthetic.computer">aesthetic.computer</a>.</p>
+  </main>
+
+  <footer>
+    &copy; 2025 aesthetic computer
+  </footer>
+
+  <!-- Development reload logic. -->
+  <script>
+    let reconnectInterval = false;
+    function connect() {
+      clearInterval(reconnectInterval);
+      let ws;
+      try {
+        let connectionUrl = "wss://localhost:8889";
+        if (window.location.host === "local.aesthetic.computer") {
+          connectionUrl = "wss://session.local.aesthetic.computer";
+        }
+        ws = new WebSocket(connectionUrl);
+      } catch {
+        return;
+      }
+
+      ws.onmessage = (e) => {
+        const msg = JSON.parse(e.data);
+        if (msg.type === "reload" && msg.content.piece === "*refresh*") {
+          setTimeout(() => {
+            const url = new URL(window.location.href);
+            window.location.href = url.toString();
+          }, 150);
+        }
+      };
+
+      ws.onclose = () => {
+        reconnectInterval = setInterval(connect, 1000);
+      };
+    }
+    connect();
+  </script>
+</body>
+
+</html>

@@ -308,6 +308,20 @@ to = "https://aesthetic.computer/aesthetic-direct"
 status = 200
 force = true
 [[redirects]]
+from = "/kidlisp-com"
+to = "/kidlisp-com.html"
+status = 200
+[[redirects]]
+from = "https://kidlisp.com"
+to = "https://aesthetic.computer/kidlisp-com"
+status = 200
+force = true
+[[redirects]]
+from = "https://www.kidlisp.com"
+to = "https://aesthetic.computer/kidlisp-com"
+status = 200
+force = true
+[[redirects]]
 from = "/icon/*"
 to = "https://grab.aesthetic.computer/icon/:splat"
 status = 200
