@@ -530,11 +530,56 @@ let song,
   songShifting = false,
   songProgress = 0; // Track progress through current note (0 to 1)
 
+// Convert various note notations to notepat keyboard notation
+function convertNoteToKeyboardKey(note) {
+  if (!note || typeof note !== "string") return note;
+  
+  const normalizedNote = note.toLowerCase().trim();
+  
+  // Check if it's already a keyboard key - if so, convert to note name
+  if (KEYBOARD_TO_NOTE[normalizedNote]) {
+    return KEYBOARD_TO_NOTE[normalizedNote]; // e.g., "h" -> "+c"
+  }
+  
+  // Already in note notation (c, c#, +c, etc.) - return as-is
+  if (NOTE_TO_KEYBOARD_KEY[normalizedNote]) {
+    return normalizedNote; // e.g., "c" -> "c", "+c" -> "+c"
+  }
+  
+  // Handle alternative notations
+  // Map flats to sharps (Db -> C#, Eb -> D#, etc.)
+  const flatToSharp = {
+    'db': 'c#',
+    'eb': 'd#',
+    'gb': 'f#',
+    'ab': 'g#',
+    'bb': 'a#',
+    '+db': '+c#',
+    '+eb': '+d#',
+    '+gb': '+f#',
+    '+ab': '+g#',
+    '+bb': '+a#',
+  };
+  
+  if (flatToSharp[normalizedNote]) {
+    return flatToSharp[normalizedNote]; // e.g., "db" -> "c#"
+  }
+  
+  // Return original if no conversion found
+  return normalizedNote;
+}
+
 function parseSong(raw) {
   return raw
     .trim()
     .split(/\s+/)
-    .map((noteword) => noteword.split(":"));
+    .map((noteword) => {
+      const [note, word] = noteword.split(":");
+      // Convert the note to keyboard notation
+      const keyboardNote = convertNoteToKeyboardKey(note);
+      // Store in uppercase to match button comparison logic (note.toUpperCase() === song[i][0])
+      return [keyboardNote.toUpperCase(), word];
+    });
 }
 
 // song = parseSong(rawSong);
@@ -595,6 +640,15 @@ function boot({
   if (params[0] === "twinkle") {
     song = parseSong(rawSong);
     hud.label("notepat"); // Strip "twinkle" from the label
+  }
+
+  // Check if any parameter contains a custom melody using rawSong syntax (note:word)
+  const customMelodyParams = params.filter(param => param.includes(":"));
+  if (customMelodyParams.length > 0) {
+    // Join all custom melody params into a single string
+    const customRawSong = customMelodyParams.join(" ");
+    song = parseSong(customRawSong);
+    hud.label("notepat"); // Clear the label
   }
 
   if (song) {
