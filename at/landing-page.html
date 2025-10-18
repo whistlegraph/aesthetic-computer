@@ -196,28 +196,34 @@ A custom landing page for the Aesthetic Computer Personal Data Server
     }
 
     #gallery-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-      gap: 1em;
-      margin-top: 1em;
+      position: relative;
+      width: 100%;
+      max-width: 600px;
+      aspect-ratio: 1;
+      margin: 1em auto;
+      overflow: hidden;
     }
 
     .painting {
-      position: relative;
-      aspect-ratio: 1;
-      background: rgba(0, 0, 0, 0.05);
-      overflow: hidden;
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      transition: opacity 0.5s ease-in-out;
       cursor: pointer;
+    }
+
+    .painting.active {
+      opacity: 1;
     }
 
     .painting img {
       width: 100%;
       height: 100%;
-      object-fit: cover;
-    }
-
-    .painting:hover {
-      outline: 2px solid rgb(205, 92, 155);
+      object-fit: contain;
+      background: rgba(0, 0, 0, 0.05);
     }
 
     .painting-info {
@@ -227,14 +233,8 @@ A custom landing page for the Aesthetic Computer Personal Data Server
       right: 0;
       background: rgba(0, 0, 0, 0.8);
       color: white;
-      padding: 0.5em;
-      font-size: 10px;
-      opacity: 0;
-      transition: opacity 0.2s;
-    }
-
-    .painting:hover .painting-info {
-      opacity: 1;
+      padding: 1em;
+      font-size: 14px;
     }
 
     #loading {
@@ -247,68 +247,29 @@ A custom landing page for the Aesthetic Computer Personal Data Server
       margin-top: 2em;
     }
 
-    #moods-controls {
-      margin: 1em 0;
-      position: relative;
-    }
-    
-    #gallery-controls {
-      position: relative;
-    }
-
-    #moods-controls button {
-      font-family: monospace;
-      font-size: 16px;
-      padding: 0.5em 1em;
-      margin-right: 0.5em;
-      margin-bottom: 0.5em;
-      background: white;
-      border: 1px solid black;
-      cursor: pointer;
-    }
-
-    #moods-controls button:hover {
-      background: rgb(205, 92, 155);
-      color: white;
-      border-color: rgb(205, 92, 155);
-    }
-
-    #moods-controls label {
-      display: inline-flex;
-      align-items: center;
-      font-size: 16px;
-      margin-right: 0.5em;
-      margin-bottom: 0.5em;
-      cursor: pointer;
-      user-select: none;
-    }
-
-    #moods-controls input[type="number"] {
-      font-family: monospace;
-      font-size: 16px;
-      padding: 0.5em;
-      margin-right: 0.5em;
-      margin-bottom: 0.5em;
-    }
-
-    #moods-controls input[type="checkbox"] {
-      margin-right: 0.5em;
-      cursor: pointer;
-    }
-
     #moods-list {
-      margin-top: 1em;
+      position: relative;
+      width: 100%;
+      max-width: 600px;
+      min-height: 200px;
+      margin: 1em auto;
+      overflow: hidden;
     }
 
     .mood-item {
-      padding: 1em;
-      margin-bottom: 1em;
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      padding: 2em;
       background: rgba(0, 0, 0, 0.05);
       border-left: 3px solid rgb(205, 92, 155);
+      opacity: 0;
+      transition: opacity 0.5s ease-in-out;
     }
 
-    .mood-item:hover {
-      background: rgba(205, 92, 155, 0.1);
+    .mood-item.active {
+      opacity: 1;
     }
 
     .mood-handle {
@@ -334,6 +295,21 @@ A custom landing page for the Aesthetic Computer Personal Data Server
       opacity: 0.5;
     }
 
+    .logo {
+      position: fixed;
+      bottom: 16px;
+      right: 16px;
+      width: 96px;
+      height: 96px;
+      opacity: 0.5;
+      transition: opacity 0.2s;
+      z-index: 1000;
+    }
+
+    .logo:hover {
+      opacity: 1;
+    }
+
     @media (prefers-color-scheme: dark) {
       body {
         background-color: rgb(64, 56, 74);
@@ -341,6 +317,12 @@ A custom landing page for the Aesthetic Computer Personal Data Server
       }
       h1:before {
         background: linear-gradient(to bottom, rgb(64, 56, 74) 50%, transparent 100%);
+      }
+      #moods-list::after {
+        background: linear-gradient(to bottom, transparent, rgb(64, 56, 74));
+      }
+      #gallery-grid::after {
+        background: linear-gradient(to bottom, transparent, rgb(64, 56, 74));
       }
       .stats {
         background: rgba(205, 92, 155, 0.2);
@@ -351,29 +333,11 @@ A custom landing page for the Aesthetic Computer Personal Data Server
       .mood-item {
         background: rgba(255, 255, 255, 0.05);
       }
-      .mood-item:hover {
-        background: rgba(205, 92, 155, 0.2);
-      }
-      #gallery-controls button,
-      #moods-controls button {
-        background: rgb(64, 56, 74);
-        color: white;
-        border-color: rgba(255, 255, 255, 0.3);
-      }
-      #gallery-controls button:hover,
-      #moods-controls button:hover {
-        background: rgb(205, 92, 155);
-        border-color: rgb(205, 92, 155);
-      }
     }
 
     @media (max-width: 600px) {
       body {
         font-size: 18px;
-      }
-      #gallery-grid {
-        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-        gap: 0.5em;
       }
     }
   </style>
@@ -383,19 +347,31 @@ A custom landing page for the Aesthetic Computer Personal Data Server
   <h1><a href="javascript:goBack()">at</a></h1>
 
   <section>
-    <h2>ATProto Personal Data Server</h2>
-    
     <p>
-      This is the <a href="https://atproto.com" target="_blank">ATProto</a> Personal Data Server for 
-      <a href="https://aesthetic.computer">aesthetic.computer</a>. 
-      It hosts decentralized social data for the community, including paintings, moods, and creative content.
+      Welcome to the ATProto server for Aesthetic Inc. network and Aesthetic.Computer.
     </p>
 
+    <h2>💬 Last Mood</h2>
+    
+    <div id="moods-gallery">
+      <div id="moods-list"></div>
+      <div id="moods-loading" style="display: none;">Loading...</div>
+    </div>
+
+    <h2>🎨 Last Painting</h2>
+    
+    <div id="gallery">
+      <div id="gallery-grid"></div>
+      <div id="loading" style="display: none;">Loading...</div>
+    </div>
+
+    <h2>📊 Stats</h2>
+    
     <div class="stats">
-      <div><strong>Active Users:</strong> ~4,198</div>
-      <div><strong>Published Paintings:</strong> ~2,837</div>
-      <div><strong>ATProto Records:</strong> ~3,500+</div>
-      <div><strong>PDS Version:</strong> 0.4.x</div>
+      <div><strong>Active Users:</strong> <span id="stat-users">~4,198</span></div>
+      <div><strong>Published Paintings:</strong> <span id="stat-paintings">~2,837</span></div>
+      <div><strong>ATProto Records:</strong> <span id="stat-records">~3,500+</span></div>
+      <div><strong>PDS Version:</strong> <span id="stat-version">0.4.x</span></div>
     </div>
 
     <h2>What is ATProto?</h2>
@@ -405,67 +381,11 @@ A custom landing page for the Aesthetic Computer Personal Data Server
       federates across the network.
     </p>
 
-    <h2>API Routes</h2>
-    <p>Most API routes are under <code>/xrpc/</code></p>
-    <ul>
-      <li><a href="/xrpc/_health">/xrpc/_health</a> – health check</li>
-      <li><a href="https://github.com/bluesky-social/atproto" target="_blank">ATProto Protocol Docs</a></li>
-      <li><a href="https://atproto.com/guides/self-hosting" target="_blank">Self-Hosting Guide</a></li>
-    </ul>
-
-    <h2>Resources</h2>
-    <ul>
-      <li><a href="https://atproto.com" target="_blank">atproto.com</a> – protocol documentation</li>
-      <li><a href="https://github.com/bluesky-social/atproto" target="_blank">github.com/bluesky-social/atproto</a> – source code</li>
-      <li><a href="https://bsky.app" target="_blank">bsky.app</a> – bluesky social network</li>
-      <li><a href="https://aesthetic.computer" target="_blank">aesthetic.computer</a> – home</li>
-    </ul>
-
-    <h2>💬 Latest Moods</h2>
-    
-    <div id="moods-gallery">
-      <div id="moods-controls">
-        <input type="text" id="moods-handle-input" placeholder="Filter by @handle" autocomplete="off">
-        <datalist id="moods-handles-list"></datalist>
-        <input type="number" id="moods-limit-input" value="10" min="1" max="50" placeholder="Limit">
-        <button onclick="loadMoods()">Load</button>
-        <label>
-          <input type="checkbox" id="moods-dev-toggle" onchange="updateMoodsDevMode()">
-          DEV API
-        </label>
-      </div>
-      
-      <div id="moods-list"></div>
-      <div id="moods-loading" style="display: none;">Loading...</div>
-    </div>
-
-    <h2>🎨 Latest Paintings</h2>
-    
-    <div id="gallery">
-      <div id="gallery-controls">
-        <input type="text" id="paintings-handle-input" placeholder="Filter by @handle" autocomplete="off">
-        <datalist id="paintings-handles-list"></datalist>
-        <input type="number" id="limit-input" value="20" min="1" max="100" placeholder="Limit">
-        <button onclick="loadGallery()">Load</button>
-        <label>
-          <input type="checkbox" id="dev-toggle" onchange="updateDevMode()">
-          DEV API
-        </label>
-      </div>
-      
-      <div id="gallery-grid"></div>
-      <div id="loading" style="display: none;">Loading...</div>
-    </div>
-
-    <pre style="margin-top: 2em; margin-bottom: 3em;">         __                         __
-        /\ \__                     /\ \__
-    __  \ \ ,_\  _____   _ __   ___\ \ ,_\   ___
-  /'__'\ \ \ \/ /\ '__'\/\''__\/ __'\ \ \/  / __'\
- /\ \L\.\_\ \ \_\ \ \L\ \ \ \//\ \L\ \ \ \_/\ \L\ \
- \ \__/.\_\\ \__\\ \ ,__/\ \_\\ \____/\ \__\ \____/
-  \/__/\/_/ \/__/ \ \ \/  \/_/ \/___/  \/__/\/___/
-                   \ \_\
-                    \/_/</pre>
+    <footer>
+      <svg class="logo" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path fill-rule="evenodd" clip-rule="evenodd" d="M14.8982 5.10335C15.5333 4.92226 16.0802 4.97918 16.6196 5.27392L16.6294 5.27925L16.6386 5.28543C16.8852 5.45034 17.0637 5.6336 17.1768 5.8569C17.2893 6.07886 17.3264 6.31921 17.3264 6.57986C17.3264 6.8465 17.3041 7.09444 17.2269 7.3334C17.2091 7.38846 17.1886 7.44241 17.1652 7.4955C17.23 7.47358 17.2711 7.4571 17.2859 7.44936C17.3941 7.3926 17.5907 7.24475 17.8166 7.06782C17.8604 7.03348 17.9051 6.99825 17.9497 6.96304C18.1213 6.82774 18.2924 6.69283 18.4123 6.61077C18.6212 6.46789 18.9896 6.23185 19.3662 6.01043C19.7366 5.79269 20.1374 5.57551 20.4022 5.48361C20.7689 5.35632 21.2081 5.38009 21.5334 5.72086C21.7339 5.93084 21.8023 6.15795 21.7913 6.36941C21.7808 6.57 21.7001 6.73725 21.6399 6.84298L21.6299 6.86056L21.6171 6.87629C21.4157 7.12388 21.1869 7.28577 20.956 7.41907C20.851 7.47973 20.743 7.53584 20.6386 7.59007L20.6124 7.60369C20.4982 7.66307 20.3871 7.72144 20.2759 7.78716C20.0167 7.94039 19.4561 8.36643 19.1861 8.59807C18.854 8.88299 18.5291 9.22697 18.2969 9.64591C18.2562 9.71926 18.2357 9.85967 18.246 10.0459C18.2558 10.2216 18.2902 10.397 18.3192 10.5068C18.3474 10.6137 18.369 10.7073 18.39 10.7987C18.4496 11.0574 18.5052 11.2984 18.696 11.7739C18.8086 12.0543 18.9341 12.2641 19.0783 12.5052C19.1295 12.5907 19.183 12.6802 19.2391 12.7781C19.2555 12.8067 19.2708 12.8346 19.2856 12.8619C19.3428 12.9667 19.3941 13.0606 19.4805 13.1372C19.5653 13.2123 19.6973 13.2788 19.9584 13.218L19.9665 13.2161L19.9748 13.2147C20.347 13.1537 20.6475 13.0147 20.955 12.8725C20.9664 12.8672 20.9778 12.862 20.9891 12.8567C21.298 12.714 21.636 12.5602 22.0258 12.5602C22.3606 12.5602 22.6158 12.7005 22.7802 12.9167C22.9376 13.1238 23 13.384 23 13.6229C23 13.9455 22.7996 14.1926 22.6034 14.3582C22.4028 14.5276 22.1652 14.6481 21.9994 14.718C21.48 14.9369 20.4859 15.2891 19.7384 15.3685C19.7042 15.3721 19.661 15.3789 19.6105 15.3867C19.1991 15.4509 18.3 15.591 17.7518 14.7545C17.6407 14.585 17.4006 14.2594 17.1498 13.9515C17.0248 13.7981 16.8997 13.6521 16.7888 13.5341C16.6729 13.4106 16.5881 13.3346 16.5416 13.305C16.38 13.2022 16.262 13.2217 16.1713 13.2721C16.0628 13.3325 15.9743 13.4514 15.9373 13.5606C15.8308 13.8749 15.691 14.2874 15.5776 14.6879C15.4273 15.2186 15.2045 16.0282 15.0393 16.6782C15.0149 16.7741 14.9905 16.8863 14.963 17.0127C14.957 17.0402 14.9509 17.0685 14.9445 17.0974C14.9098 17.2562 14.8705 17.4305 14.8234 17.6033C14.7321 17.9384 14.6013 18.3097 14.3836 18.556C14.0202 18.9669 13.4846 19.0727 13.0429 18.9548C12.6009 18.8368 12.2125 18.4785 12.2125 17.943C12.2125 17.6301 12.3162 17.124 12.4343 16.6504C12.5535 16.1718 12.6958 15.6946 12.7899 15.416C12.9757 14.749 13.2116 13.8949 13.3866 13.1212C13.3979 13.0613 13.4099 12.9976 13.4226 12.9309C13.4978 12.5343 13.5932 12.031 13.6699 11.5717C13.7149 11.3024 13.7529 11.0514 13.7766 10.8478C13.8015 10.633 13.8065 10.5012 13.7992 10.4515C13.7844 10.3497 13.751 10.315 13.729 10.2987C13.699 10.2766 13.6441 10.2559 13.5426 10.2494C13.4417 10.2429 13.3238 10.2517 13.1852 10.2649C13.1692 10.2664 13.1529 10.268 13.1363 10.2696C13.0172 10.2811 12.8839 10.294 12.7597 10.294C12.6223 10.294 12.472 10.2977 12.3149 10.3015C11.9756 10.3098 11.605 10.3188 11.2661 10.2933C11.1149 10.2819 10.9352 10.258 10.7544 10.2337L10.7295 10.2304C10.5535 10.2067 10.3742 10.1825 10.2029 10.1659C10.0225 10.1485 9.86134 10.1404 9.7317 10.1484C9.59167 10.157 9.53289 10.1823 9.51826 10.1932C9.40563 10.2772 9.36293 10.3344 9.34618 10.3683C9.33318 10.3946 9.32868 10.4202 9.3367 10.4673C9.34595 10.5217 9.36711 10.5816 9.40163 10.6792C9.40461 10.6877 9.40769 10.6964 9.41087 10.7054C9.44816 10.8111 9.49265 10.9424 9.52178 11.0999C9.55533 11.2814 9.5886 11.4647 9.62198 11.6487C9.7153 12.1629 9.80952 12.6821 9.91334 13.1798C9.9259 13.24 9.93878 13.3014 9.95186 13.3637C10.1143 14.1372 10.3081 15.0602 10.3081 15.8244C10.3081 15.9889 10.3121 16.1554 10.3162 16.3235C10.3297 16.8792 10.3436 17.4525 10.2136 18.0277C10.0889 18.5797 9.55124 18.8059 9.10572 18.8008C8.66723 18.7957 8.13248 18.5567 8.08837 17.9935C8.06444 17.6878 8.09368 17.4281 8.12633 17.2004C8.13244 17.1578 8.13853 17.1171 8.1444 17.0777C8.17087 16.9005 8.19298 16.7524 8.19298 16.5993C8.19298 15.8848 8.00978 15.083 7.83775 14.4909C7.75439 14.204 7.63364 14.1146 7.55668 14.0888C7.47435 14.0612 7.35495 14.0767 7.21784 14.1711C7.12371 14.2358 7.02 14.3956 6.91136 14.6516C6.83797 14.8246 6.77436 15.01 6.71076 15.1953C6.68322 15.2755 6.65569 15.3557 6.62737 15.4349C6.44732 15.9385 6.18242 16.5995 5.96374 17.0833C5.90321 17.2173 5.85247 17.3496 5.80243 17.4829C5.79639 17.4991 5.79033 17.5152 5.78426 17.5315C5.74091 17.6474 5.69659 17.7658 5.64795 17.8792C5.53571 18.1408 5.39094 18.3993 5.13767 18.6146L5.12889 18.6221L5.11943 18.6287C4.88967 18.7898 4.54244 18.8806 4.21559 18.8642C3.88604 18.8477 3.51569 18.7163 3.3221 18.3609C3.22342 18.1798 3.20996 17.9754 3.22908 17.7902C3.24839 17.6032 3.3033 17.4128 3.36603 17.2414C3.42919 17.0687 3.50363 16.9062 3.56667 16.7745C3.58947 16.7269 3.60969 16.6854 3.62724 16.6494C3.6617 16.5786 3.68592 16.5289 3.69936 16.495C3.8768 16.0476 4.01924 15.64 4.17636 15.1904C4.26827 14.9274 4.3652 14.65 4.47711 14.3419C4.60715 13.9838 4.95824 12.8655 5.14491 12.0888C5.19511 11.8799 5.24781 11.7216 5.28981 11.5955C5.30443 11.5516 5.31775 11.5115 5.32922 11.4746C5.37289 11.3342 5.40057 11.2104 5.40057 11.0093C5.40057 10.9784 5.3803 10.9448 5.35211 10.9295C5.34057 10.9232 5.32949 10.921 5.31788 10.9221C5.30669 10.9232 5.28313 10.9285 5.24908 10.9554C5.15797 11.0275 5.02885 11.1337 4.88463 11.2523C4.62733 11.4639 4.32194 11.715 4.09846 11.8826C3.78743 12.1158 3.44918 12.4103 3.10959 12.706C2.99451 12.8062 2.87926 12.9066 2.76487 13.0047C2.58673 13.1575 2.3447 13.326 2.06932 13.376C1.92662 13.4019 1.77378 13.3961 1.62075 13.3392C1.46845 13.2826 1.33057 13.1809 1.20826 13.0366C0.991479 12.781 0.95847 12.4944 1.04269 12.2282C1.12188 11.9778 1.30054 11.7539 1.49196 11.5725C1.60625 11.4642 1.75653 11.3228 1.92542 11.164C2.46962 10.6521 3.20715 9.9583 3.55739 9.60275C3.70303 9.4549 3.82293 9.3268 3.93164 9.21066C4.21275 8.91035 4.41901 8.68999 4.80176 8.415C4.86144 8.35575 4.92154 8.30978 4.97317 8.27381C4.96626 8.26895 4.95902 8.26391 4.95145 8.2587C4.53475 7.97188 4.10253 7.21461 4.52248 6.34306C4.68856 5.9984 4.89668 5.74448 5.14374 5.56752C5.39101 5.39041 5.6638 5.30006 5.94419 5.26279C6.4907 5.19016 7.04612 5.30816 7.42088 5.58929C7.72296 5.8159 7.96946 6.15062 8.06084 6.52803C8.16526 6.95934 8.07218 7.30168 7.98025 7.53605C7.96274 7.58069 7.94515 7.6217 7.92956 7.65735C8.38866 7.7876 8.68645 7.8138 9.01858 7.84303C9.0943 7.8497 9.17182 7.85652 9.25343 7.86477C9.31219 7.8707 9.39816 7.87955 9.50086 7.89011C9.89664 7.93083 10.5409 7.99711 10.8338 8.02111C11.262 8.05621 12.0343 8.11934 12.7225 8.02302C13.095 7.96395 13.3919 7.92769 13.6272 7.90177C13.7148 7.89213 13.7918 7.8841 13.8602 7.87697C13.9759 7.86491 14.067 7.85542 14.1427 7.84501C14.088 7.79376 14.027 7.72972 13.9687 7.65108C13.7716 7.38488 13.6315 6.98552 13.759 6.39462C13.8933 5.77205 14.2887 5.27713 14.8982 5.10335ZM14.3079 7.98743C14.3079 7.98742 14.3077 7.98718 14.3072 7.98672C14.3077 7.9872 14.3079 7.98743 14.3079 7.98743ZM16.3689 5.69496C15.9552 5.4716 15.5479 5.42594 15.0363 5.57182C14.6356 5.68607 14.3482 6.01348 14.2442 6.49583C14.1451 6.9551 14.2576 7.21261 14.3697 7.36393C14.4296 7.44486 14.4963 7.50454 14.5562 7.55437C14.562 7.55923 14.5685 7.56462 14.5755 7.57035C14.5985 7.58926 14.6259 7.61178 14.6458 7.63026C14.6596 7.64302 14.6809 7.66378 14.7001 7.69016C14.7164 7.7125 14.7547 7.77006 14.7547 7.85171C14.7547 7.96533 14.7273 8.10948 14.587 8.20991C14.482 8.28514 14.3415 8.30979 14.2213 8.32669C14.1353 8.33878 14.0269 8.3501 13.8989 8.36346C13.8319 8.37045 13.7596 8.37799 13.6824 8.3865C13.4524 8.41184 13.163 8.44719 12.7992 8.50491L12.797 8.50526L12.7948 8.50558C12.0497 8.61026 11.2306 8.5431 10.8053 8.50823L10.7926 8.50719C10.4937 8.48269 9.83874 8.4153 9.4439 8.37468C9.34318 8.36432 9.25938 8.35569 9.20274 8.34997C9.12713 8.34233 9.05328 8.33587 8.97943 8.32941C8.59427 8.29573 8.20917 8.26205 7.57537 8.06072L7.54617 8.05145L7.52016 8.03546C7.41937 7.97351 7.37992 7.87416 7.37749 7.78687C7.37557 7.71796 7.39598 7.6556 7.40927 7.6188C7.4236 7.57911 7.44274 7.5356 7.45971 7.49703L7.46158 7.4928C7.48022 7.45041 7.49907 7.4075 7.5175 7.36051C7.58929 7.1775 7.65106 6.94132 7.57835 6.641C7.51721 6.38847 7.34484 6.14571 7.12007 5.9771C6.8714 5.79055 6.45604 5.68696 6.01061 5.74616C5.79502 5.77481 5.60406 5.84123 5.43573 5.96179C5.26721 6.0825 5.10792 6.26713 4.97069 6.55193C4.67103 7.17382 4.98354 7.68542 5.23585 7.85909C5.34648 7.93524 5.44869 8.01423 5.50733 8.10184C5.54069 8.1517 5.57312 8.22342 5.56708 8.3111C5.56098 8.39945 5.51857 8.46412 5.48267 8.50442C5.44885 8.54238 5.40977 8.57112 5.38263 8.59003C5.36351 8.60336 5.34006 8.61864 5.31952 8.63202C5.31133 8.63736 5.30361 8.64239 5.2968 8.64688C5.24196 8.68306 5.19124 8.71952 5.14493 8.76759L5.12909 8.78404L5.11044 8.79733C4.75876 9.04799 4.5912 9.22704 4.32176 9.51494C4.21003 9.63433 4.08078 9.77243 3.91362 9.94213C3.55595 10.3052 2.80487 11.0117 2.26019 11.5241C2.09389 11.6805 1.94683 11.8188 1.83608 11.9238L1.83607 11.9238C1.67225 12.079 1.56004 12.2347 1.51628 12.373C1.47755 12.4955 1.4895 12.6067 1.58913 12.7242L1.58914 12.7242C1.66719 12.8163 1.73782 12.8613 1.79609 12.8829C1.85363 12.9043 1.91343 12.9083 1.97935 12.8963C2.12123 12.8706 2.28041 12.7731 2.43882 12.6372C2.5461 12.5451 2.6567 12.4488 2.76895 12.3511C3.11216 12.0522 3.47086 11.7398 3.79775 11.4947C4.01563 11.3313 4.29585 11.1007 4.54485 10.8957C4.69383 10.7731 4.83163 10.6597 4.93822 10.5753C5.14798 10.4094 5.39517 10.3956 5.59199 10.5026C5.77395 10.6014 5.89654 10.7962 5.89654 11.0093C5.89654 11.2684 5.85837 11.4408 5.80353 11.6172C5.78813 11.6668 5.77232 11.7142 5.75615 11.7628C5.71555 11.8848 5.67258 12.0138 5.62758 12.201C5.4365 12.9961 5.0801 14.1317 4.94419 14.5059C4.83695 14.8012 4.7417 15.0737 4.65024 15.3353C4.49033 15.7927 4.34202 16.2169 4.16143 16.6723C4.14095 16.7239 4.10332 16.8012 4.06288 16.8842C4.0472 16.9164 4.0311 16.9495 4.01541 16.9823C3.95473 17.109 3.88802 17.2553 3.83273 17.4065C3.77699 17.5588 3.73614 17.7075 3.72252 17.8395C3.7087 17.9733 3.72513 18.0679 3.75929 18.1306C3.84089 18.2804 4.01052 18.3656 4.24086 18.3771C4.46841 18.3885 4.69552 18.3225 4.82254 18.2377C4.98849 18.0935 5.09436 17.9148 5.19099 17.6896C5.23478 17.5875 5.27479 17.4806 5.31861 17.3635C5.3247 17.3472 5.33086 17.3308 5.33712 17.3141C5.38755 17.1797 5.44298 17.0347 5.51051 16.8852C5.72338 16.4142 5.98345 15.7655 6.15948 15.2732C6.18339 15.2063 6.20838 15.1335 6.23446 15.0575C6.30034 14.8656 6.37323 14.6533 6.45363 14.4638C6.56239 14.2075 6.71075 13.9247 6.93342 13.7715C7.15058 13.622 7.43534 13.5329 7.71667 13.6272C8.00337 13.7232 8.20577 13.9822 8.31465 14.3569C8.49077 14.9631 8.68895 15.8166 8.68895 16.5993C8.68895 16.7915 8.66032 16.9819 8.63345 17.1605C8.62795 17.197 8.62253 17.2331 8.61745 17.2685C8.5865 17.4843 8.56307 17.703 8.58288 17.956C8.5982 18.1516 8.79173 18.3094 9.11151 18.313C9.42426 18.3166 9.67486 18.1635 9.72945 17.9218C9.84509 17.4101 9.83345 16.9177 9.82064 16.376C9.81644 16.1982 9.81212 16.0152 9.81212 15.8244C9.81212 15.1129 9.62868 14.2379 9.46366 13.4507C9.45148 13.3926 9.43939 13.3349 9.42748 13.2778C9.32227 12.7734 9.22637 12.245 9.13272 11.7289C9.09957 11.5463 9.0667 11.3651 9.0338 11.1872C9.01181 11.0682 8.97786 10.9661 8.94228 10.8652C8.93868 10.855 8.93495 10.8445 8.93114 10.8339C8.90026 10.7471 8.8642 10.6458 8.84752 10.5478C8.82676 10.4258 8.83197 10.2929 8.90009 10.1551C8.96445 10.0248 9.07427 9.9122 9.21849 9.8046C9.35612 9.70192 9.54184 9.6714 9.70072 9.66162C9.86998 9.6512 10.0621 9.66217 10.2516 9.68053C10.4325 9.69806 10.6203 9.72334 10.7939 9.74672L10.8216 9.75045C11.006 9.77525 11.1703 9.79689 11.3039 9.80695C11.6184 9.83063 11.9425 9.82254 12.2673 9.81444C12.4316 9.81035 12.5961 9.80624 12.7597 9.80624C12.8578 9.80624 12.9647 9.79597 13.0871 9.7842C13.1036 9.78261 13.1205 9.78099 13.1376 9.77937C13.2736 9.76649 13.4288 9.75328 13.5749 9.76267C13.7205 9.77202 13.8865 9.80514 14.0267 9.90866C14.1749 10.0181 14.2609 10.1809 14.2902 10.3825C14.308 10.5047 14.2931 10.6992 14.2693 10.9032C14.2443 11.1184 14.2048 11.3785 14.1593 11.6507C14.0817 12.1157 13.9851 12.625 13.91 13.0213C13.8971 13.0893 13.8848 13.1539 13.8734 13.2144L13.8726 13.2187L13.8717 13.2228C13.693 14.0134 13.4526 14.8832 13.2665 15.5512L13.2647 15.5576L13.2626 15.5639C13.1732 15.8277 13.0333 16.2957 12.916 16.7665C12.7965 17.2461 12.7085 17.6974 12.7085 17.943C12.7085 18.2088 12.894 18.4096 13.1729 18.4841C13.4521 18.5586 13.7844 18.4902 14.0093 18.2359C14.1458 18.0815 14.2541 17.8083 14.3444 17.477C14.3881 17.3167 14.4252 17.1524 14.4596 16.9949C14.4656 16.9678 14.4714 16.9407 14.4773 16.9139C14.5048 16.7873 14.5314 16.6648 14.5581 16.5599C14.7248 15.904 14.9488 15.0899 15.0998 14.557C15.2169 14.1438 15.3601 13.721 15.4661 13.4085L15.4668 13.4064C15.5361 13.202 15.695 12.9767 15.9271 12.8476C16.1771 12.7085 16.4931 12.6932 16.811 12.8955C16.9151 12.9617 17.0368 13.0792 17.1532 13.2032C17.2747 13.3326 17.4078 13.4881 17.5368 13.6466C17.7942 13.9624 18.0454 14.3021 18.1687 14.4903C18.529 15.0401 19.0678 14.9663 19.5043 14.9065C19.567 14.898 19.6276 14.8897 19.6852 14.8836C20.3572 14.8122 21.2962 14.4837 21.8041 14.2697C21.9448 14.2104 22.1323 14.1132 22.2803 13.9882C22.4326 13.8596 22.504 13.7357 22.504 13.6229C22.504 13.4595 22.4602 13.3104 22.3829 13.2087C22.3125 13.1161 22.2047 13.048 22.0258 13.048C21.7624 13.048 21.5204 13.1501 21.2 13.2982C21.1848 13.3052 21.1693 13.3124 21.1538 13.3196C20.8554 13.4578 20.5021 13.6215 20.0644 13.6945C19.6566 13.7872 19.3585 13.6856 19.1484 13.4995C18.9898 13.3588 18.889 13.1701 18.8331 13.0654C18.823 13.0465 18.8143 13.0303 18.8071 13.0176C18.7602 12.9358 18.7123 12.8558 18.6642 12.7754C18.5145 12.5254 18.3627 12.2719 18.2347 11.953C18.0289 11.4402 17.964 11.1584 17.9028 10.8925C17.8827 10.8056 17.8631 10.7204 17.8391 10.6294C17.8037 10.4951 17.7627 10.2871 17.7508 10.0724C17.7395 9.86822 17.7512 9.61118 17.8614 9.41243C18.1313 8.92552 18.5018 8.53787 18.8601 8.23051C19.1397 7.99063 19.7252 7.54356 20.0204 7.3691C20.1445 7.29577 20.2664 7.23185 20.3806 7.1725L20.4049 7.15984C20.5114 7.1045 20.6099 7.05333 20.7049 6.99846C20.9004 6.88556 21.0698 6.76333 21.2168 6.58743C21.2585 6.51101 21.2916 6.42806 21.2959 6.34449C21.3001 6.26538 21.2799 6.16786 21.1719 6.05471C21.0165 5.89202 20.8027 5.86182 20.5672 5.94356C20.3557 6.01698 19.9948 6.20913 19.6207 6.42908C19.2529 6.64535 18.8941 6.87534 18.6955 7.01117C18.5909 7.08275 18.4392 7.20237 18.2698 7.33588C18.2229 7.37287 18.1746 7.41091 18.1256 7.4493C17.9134 7.61561 17.6767 7.79714 17.5193 7.87974C17.4582 7.91177 17.362 7.94576 17.2726 7.97451C17.1769 8.00529 17.0675 8.03675 16.9677 8.06233C16.8714 8.08699 16.7721 8.10934 16.7016 8.11789C16.6834 8.1201 16.6606 8.12222 16.6371 8.12214H16.6358C16.6227 8.12216 16.5634 8.12225 16.5035 8.09117C16.465 8.07123 16.3993 8.02361 16.3756 7.93227C16.3529 7.84493 16.3841 7.77575 16.4022 7.74494C16.4208 7.71319 16.4444 7.6894 16.4629 7.67362C16.613 7.50624 16.7012 7.34969 16.7542 7.18571C16.8097 7.01388 16.8305 6.82185 16.8305 6.57986C16.8305 6.36355 16.7994 6.20559 16.7329 6.07444C16.6682 5.94668 16.5594 5.82392 16.3689 5.69496Z" fill="#cd5c9b"/>
+      </svg>
+    </footer>
   </section>
 
   <script>
@@ -479,32 +399,258 @@ A custom landing page for the Aesthetic Computer Personal Data Server
       }
     }
 
+    // --- Carousel State ---
+    let paintingsCache = [];
+    let moodsCache = [];
+    let currentPaintingIndex = 0;
+    let currentMoodIndex = 0;
+    let paintingInterval = null;
+    let moodInterval = null;
+
+    // --- API Utility ---
+    function getApiUrl() {
+      const urlParams = new URLSearchParams(window.location.search);
+      return urlParams.has('dev') ? 'https://local.aesthetic.computer' : 'https://aesthetic.computer';
+    }
+
+    // --- Paintings Carousel ---
+    async function loadGallery() {
+      const grid = document.getElementById('gallery-grid');
+      const loading = document.getElementById('loading');
+      
+      loading.style.display = 'block';
+      grid.innerHTML = '';
+      paintingsCache = [];
+      currentPaintingIndex = 0;
+      
+      if (paintingInterval) clearInterval(paintingInterval);
+      
+      try {
+        const apiUrl = getApiUrl();
+        const response = await fetch(`${apiUrl}/api/tv?types=painting&limit=50`);
+        const data = await response.json();
+        
+        if (data && data.media && data.media.paintings) {
+          paintingsCache = data.media.paintings;
+          displayPaintings();
+          startPaintingCarousel();
+        }
+      } catch (error) {
+        console.error('Error loading paintings:', error);
+        grid.innerHTML = '<div style="padding: 2em;">Error loading paintings.</div>';
+      } finally {
+        loading.style.display = 'none';
+      }
+    }
+
+    function displayPaintings() {
+      const grid = document.getElementById('gallery-grid');
+      grid.innerHTML = '';
+      
+      paintingsCache.forEach((painting, index) => {
+        const div = document.createElement('div');
+        div.className = 'painting' + (index === 0 ? ' active' : '');
+        
+        // Build proper painting URL
+        const slug = painting.slug;
+        const handle = painting.owner?.handle?.replace('@', '') || 'unknown';
+        const code = painting.code;
+        
+        let paintingUrl;
+        if (code) {
+          paintingUrl = `https://aesthetic.computer/#${code}`;
+        } else if (handle !== 'unknown') {
+          paintingUrl = `https://aesthetic.computer/painting~@${handle}/${slug}`;
+        } else {
+          paintingUrl = `https://aesthetic.computer/painting/${slug}`;
+        }
+        
+        // Get proper image URL from media or construct it
+        const apiUrl = getApiUrl();
+        const handleWithAt = painting.owner?.handle || '';
+        const imageUrl = painting.media?.url || 
+                        `${apiUrl}/media/${handleWithAt || painting.owner?.userId}/painting/${slug}.png`;
+        
+        div.innerHTML = `
+          <img src="${imageUrl}" alt="${slug}" loading="lazy" onerror="this.style.display='none'">
+          <div class="painting-info">
+            <div>${handleWithAt || 'anonymous'}</div>
+            <div>${slug}</div>
+          </div>
+        `;
+        
+        div.onclick = () => window.open(paintingUrl, '_blank');
+        grid.appendChild(div);
+      });
+    }
+
+    function startPaintingCarousel() {
+      if (paintingsCache.length <= 1) return;
+      
+      paintingInterval = setInterval(() => {
+        const paintings = document.querySelectorAll('.painting');
+        paintings[currentPaintingIndex].classList.remove('active');
+        currentPaintingIndex = (currentPaintingIndex + 1) % paintingsCache.length;
+        paintings[currentPaintingIndex].classList.add('active');
+      }, 3000);
+    }
+
+    // --- Moods Carousel ---
+    async function loadMoods() {
+      const container = document.getElementById('moods-list');
+      const loading = document.getElementById('moods-loading');
+      
+      loading.style.display = 'block';
+      container.innerHTML = '';
+      moodsCache = [];
+      currentMoodIndex = 0;
+      
+      if (moodInterval) clearInterval(moodInterval);
+      
+      try {
+        const apiUrl = getApiUrl();
+        const response = await fetch(`${apiUrl}/api/mood/all`);
+        const data = await response.json();
+        
+        // Handle both array and object with moods property
+        let moods = [];
+        if (Array.isArray(data)) {
+          moods = data;
+        } else if (data && data.moods && Array.isArray(data.moods)) {
+          moods = data.moods;
+        }
+        
+        if (moods.length > 0) {
+          moodsCache = moods.slice(0, 50);
+          displayMoods();
+          startMoodCarousel();
+        }
+      } catch (error) {
+        console.error('Error loading moods:', error);
+        container.innerHTML = '<div style="padding: 2em;">Error loading moods.</div>';
+      } finally {
+        loading.style.display = 'none';
+      }
+    }
+
+    function displayMoods() {
+      const container = document.getElementById('moods-list');
+      container.innerHTML = '';
+      
+      moodsCache.forEach((mood, index) => {
+        const div = document.createElement('div');
+        div.className = 'mood-item' + (index === 0 ? ' active' : '');
+        
+        const handle = mood.handle || mood.for || 'anonymous';
+        const moodText = mood.mood || mood.text || '';
+        const timestamp = mood.when ? new Date(mood.when).toLocaleString() : 
+                         (mood.createdAt ? new Date(mood.createdAt).toLocaleString() : '');
+        
+        div.innerHTML = `
+          <div class="mood-handle">@${handle}</div>
+          <div class="mood-text">${moodText}</div>
+          ${timestamp ? `<div class="mood-time">${timestamp}</div>` : ''}
+        `;
+        
+        container.appendChild(div);
+      });
+    }
+
+    function startMoodCarousel() {
+      if (moodsCache.length <= 1) return;
+      
+      moodInterval = setInterval(() => {
+        const moods = document.querySelectorAll('.mood-item');
+        moods[currentMoodIndex].classList.remove('active');
+        currentMoodIndex = (currentMoodIndex + 1) % moodsCache.length;
+        moods[currentMoodIndex].classList.add('active');
+      }, 4000);
+    }
+
+    // --- Stats ---
+    async function loadStats() {
+      try {
+        const apiUrl = getApiUrl();
+        
+        // Get user count
+        const handlesResponse = await fetch(`${apiUrl}/api/handles`);
+        const handlesData = await handlesResponse.json();
+        let userCount = '~4,198';
+        if (Array.isArray(handlesData)) {
+          userCount = handlesData.length.toLocaleString();
+        } else if (handlesData && Array.isArray(handlesData.handles)) {
+          userCount = handlesData.handles.length.toLocaleString();
+        }
+        document.getElementById('stat-users').textContent = userCount;
+        
+        // Get PDS version
+        const healthResponse = await fetch(`${apiUrl}/xrpc/_health`);
+        const healthData = await healthResponse.json();
+        if (healthData && healthData.version) {
+          document.getElementById('stat-version').textContent = healthData.version;
+        }
+      } catch (error) {
+        console.error('Error loading stats:', error);
+      }
+    }
+
+    // --- Initialize ---
+    loadGallery();
+    loadMoods();
+    loadStats();
+  </script>
+</body>
+</html>
+
     let offset = 0;
     const paintingsCache = [];
-    let devMode = localStorage.getItem('devMode') === 'true';
+    let moodsCache = [];
+    let moodsOffset = 0;
+    let paintingsPage = 0;
+    
+    // Check for ?dev query parameter
+    const urlParams = new URLSearchParams(window.location.search);
+    let devMode = urlParams.has('dev');
     
     function getApiUrl() {
       return devMode ? 'https://local.aesthetic.computer' : 'https://aesthetic.computer';
     }
     
-    function updateDevMode() {
-      devMode = document.getElementById('dev-toggle').checked;
-      localStorage.setItem('devMode', devMode);
-      loadGallery();
+    // Load stats from API
+    async function loadStats() {
+      try {
+        const apiUrl = getApiUrl();
+        
+        // Get user count
+        const handlesResponse = await fetch(`${apiUrl}/api/handles`);
+        const handlesData = await handlesResponse.json();
+        const userCount = Array.isArray(handlesData) ? handlesData.length : (handlesData.handles?.length || 4198);
+        document.getElementById('stat-users').textContent = userCount.toLocaleString();
+        
+        // Try to get actual stats from the PDS API
+        try {
+          const healthResponse = await fetch(`${apiUrl}/xrpc/_health`);
+          if (healthResponse.ok) {
+            const healthData = await healthResponse.json();
+            if (healthData.version) {
+              document.getElementById('stat-version').textContent = healthData.version;
+            }
+          }
+        } catch (e) {
+          console.log('Health check not available');
+        }
+        
+      } catch (error) {
+        console.error('Error loading stats:', error);
+      }
     }
-    
-    // Restore dev toggle state
-    window.addEventListener('DOMContentLoaded', () => {
-      document.getElementById('dev-toggle').checked = devMode;
-    });
 
     async function loadGallery() {
       const grid = document.getElementById('gallery-grid');
       const loading = document.getElementById('loading');
-      const limitInput = document.getElementById('limit-input');
       const handleInput = document.getElementById('paintings-handle-input');
       
-      const limit = parseInt(limitInput.value) || 20;
+      const limit = 1;
       const handleFilter = handleInput.value.replace('@', '').trim();
       
       loading.style.display = 'block';
@@ -550,27 +696,41 @@ A custom landing page for the Aesthetic Computer Personal Data Server
       }
     }
 
-    async function loadMore() {
+    async function loadMorePaintings() {
       const grid = document.getElementById('gallery-grid');
       const loading = document.getElementById('loading');
-      const limitInput = document.getElementById('limit-input');
       
-      const limit = parseInt(limitInput.value) || 20;
-      offset += limit;
+      const limit = 10;
+      paintingsPage++;
       
       loading.style.display = 'block';
       
       try {
         const apiUrl = getApiUrl();
-        const response = await fetch(`${apiUrl}/api/tv?types=painting&limit=${limit}`);
+        // Use offset or skip parameter to get different paintings
+        const response = await fetch(`${apiUrl}/api/tv?types=painting&limit=${limit * (paintingsPage + 1)}`);
         const data = await response.json();
         
         if (data && data.media && data.media.paintings) {
-          // Filter out paintings we already have
-          const existingIds = new Set(paintingsCache.map(p => p.id));
-          const newPaintings = data.media.paintings.filter(p => !existingIds.has(p.id));
-          paintingsCache.push(...newPaintings);
-          displayPaintings(newPaintings);
+          // Get only the new paintings we haven't seen
+          const allPaintings = data.media.paintings;
+          const existingIds = new Set(paintingsCache.map(p => p.id || p.slug));
+          const newPaintings = allPaintings.filter(p => !existingIds.has(p.id || p.slug)).slice(0, limit);
+          
+          if (newPaintings.length > 0) {
+            paintingsCache.push(...newPaintings);
+            
+            // Insert new paintings at the top
+            const tempDiv = document.createElement('div');
+            tempDiv.style.display = 'contents';
+            displayPaintingsInContainer(newPaintings, tempDiv);
+            grid.insertBefore(tempDiv, grid.firstChild);
+            
+            // Smooth scroll to top to show new items
+            setTimeout(() => {
+              grid.scrollTo({ top: 0, behavior: 'smooth' });
+            }, 100);
+          }
         }
       } catch (error) {
         console.error('Error loading more paintings:', error);
@@ -579,55 +739,62 @@ A custom landing page for the Aesthetic Computer Personal Data Server
       }
     }
 
+    function displayPaintingsInContainer(paintings, container) {
+      paintings.forEach(painting => {
+        const div = createPaintingElement(painting);
+        container.appendChild(div);
+      });
+    }
+
+    function createPaintingElement(painting) {
+      const div = document.createElement('div');
+      div.className = 'painting';
+      
+      // Extract just the slug (before any colon for recordings)
+      const fullSlug = painting.slug;
+      const slug = fullSlug.split(':')[0];
+      const handleWithAt = painting.owner?.handle;
+      const handle = handleWithAt ? handleWithAt.replace('@', '') : null;
+      const code = painting.code;
+      
+      // Use painting~@handle/slug URL structure if handle available, otherwise use #code
+      let paintingUrl;
+      if (code) {
+        paintingUrl = `https://aesthetic.computer/#${code}`;
+      } else if (handle) {
+        paintingUrl = `https://aesthetic.computer/painting~@${handle}/${slug}`;
+      } else {
+        paintingUrl = `https://aesthetic.computer/painting/${slug}`;
+      }
+      
+      // Use the media URL from the API response
+      const thumbnailUrl = painting.media?.url;
+      const apiUrl = getApiUrl();
+      const fallbackUrl = `${apiUrl}/media/${handleWithAt || painting.owner?.userId}/painting/${slug}.png`;
+      
+      // Check if painting has ATProto record
+      const atprotoLink = painting.atproto?.uri 
+        ? `<br><a href="https://pdsls.dev/${painting.atproto.uri}" target="_blank" onclick="event.stopPropagation()" style="font-size: 0.9em;">🦋 ATProto</a>`
+        : '';
+      
+      // Display code if available
+      const codeInfo = code ? `<br>#${code}` : '';
+      
+      div.innerHTML = `
+        <img src="${thumbnailUrl}" alt="${slug}" loading="lazy" onerror="this.src='${fallbackUrl}'">
+        <div class="painting-info">
+          ${handleWithAt || 'anonymous'}<br>
+          ${new Date(painting.when).toLocaleDateString()}${codeInfo}${atprotoLink}
+        </div>
+      `;
+      
+      div.onclick = () => window.open(paintingUrl, '_blank');
+      return div;
+    }
+
     function displayPaintings(paintings) {
       const grid = document.getElementById('gallery-grid');
-      
-      paintings.forEach(painting => {
-        const div = document.createElement('div');
-        div.className = 'painting';
-        
-        // Extract just the slug (before any colon for recordings)
-        const fullSlug = painting.slug;
-        const slug = fullSlug.split(':')[0]; // Get just the painting slug, not recording code
-        const handleWithAt = painting.owner?.handle;
-        const handle = handleWithAt ? handleWithAt.replace('@', '') : null;
-        const code = painting.code;
-        
-        // Use painting~@handle/slug URL structure if handle available, otherwise use #code
-        let paintingUrl;
-        if (code) {
-          paintingUrl = `https://aesthetic.computer/#${code}`;
-        } else if (handle) {
-          paintingUrl = `https://aesthetic.computer/painting~@${handle}/${slug}`;
-        } else {
-          paintingUrl = `https://aesthetic.computer/painting/${slug}`;
-        }
-        
-        // Use the media URL from the API response (will be ATProto blob URL if available)
-        const thumbnailUrl = painting.media?.url;
-        const apiUrl = getApiUrl();
-        const fallbackUrl = `${apiUrl}/media/${handleWithAt || painting.owner?.userId}/painting/${slug}.png`;
-        
-        // Check if painting has ATProto record - use pdsls.dev for explorer link
-        // pdsls.dev format: https://pdsls.dev/at://did:plc:.../collection/rkey
-        const atprotoLink = painting.atproto?.uri 
-          ? `<br><a href="https://pdsls.dev/${painting.atproto.uri}" target="_blank" onclick="event.stopPropagation()" style="font-size: 0.9em;">🦋 ATProto</a>`
-          : '';
-        
-        // Display code if available
-        const codeInfo = code ? `<br>#${code}` : '';
-        
-        div.innerHTML = `
-          <img src="${thumbnailUrl}" alt="${slug}" loading="lazy" onerror="this.src='${fallbackUrl}'">
-          <div class="painting-info">
-            ${handleWithAt || 'anonymous'}<br>
-            ${new Date(painting.when).toLocaleDateString()}${codeInfo}${atprotoLink}
-          </div>
-        `;
-        
-        div.onclick = () => window.open(paintingUrl, '_blank');
-        grid.appendChild(div);
-      });
+      displayPaintingsInContainer(paintings, grid);
     }
 
     // Load initial gallery
@@ -749,32 +916,21 @@ A custom landing page for the Aesthetic Computer Personal Data Server
     });
     
     // --- Moods functionality ---
-    let moodsDevMode = localStorage.getItem('moodsDevMode') === 'true';
-    
-    function getMoodsApiUrl() {
-      return moodsDevMode ? 'https://local.aesthetic.computer' : 'https://aesthetic.computer';
-    }
-    
-    function updateMoodsDevMode() {
-      moodsDevMode = document.getElementById('moods-dev-toggle').checked;
-      localStorage.setItem('moodsDevMode', moodsDevMode);
-      loadMoods();
-    }
-    
     async function loadMoods() {
       const moodsList = document.getElementById('moods-list');
       const loading = document.getElementById('moods-loading');
-      const limitInput = document.getElementById('moods-limit-input');
       const handleInput = document.getElementById('moods-handle-input');
       
-      const limit = parseInt(limitInput.value) || 10;
+      const limit = 1;
       const handleFilter = handleInput.value.replace('@', '').trim();
       
       loading.style.display = 'block';
       moodsList.innerHTML = '';
+      moodsCache = [];
+      moodsOffset = 0;
       
       try {
-        const apiUrl = getMoodsApiUrl();
+        const apiUrl = getApiUrl();
         let url = `${apiUrl}/api/mood/all`;
         const params = [];
         if (handleFilter) params.push(`for=${encodeURIComponent(handleFilter)}`);
@@ -785,6 +941,8 @@ A custom landing page for the Aesthetic Computer Personal Data Server
         
         if (data && data.moods) {
           const moods = data.moods.slice(0, limit);
+          moodsCache = data.moods;
+          moodsOffset = limit;
           displayMoods(moods);
         }
       } catch (error) {
@@ -795,40 +953,71 @@ A custom landing page for the Aesthetic Computer Personal Data Server
       }
     }
     
-    function displayMoods(moods) {
+    async function loadMoreMoods() {
       const moodsList = document.getElementById('moods-list');
+      const loading = document.getElementById('moods-loading');
       
+      loading.style.display = 'block';
+      
+      try {
+        const moreMoods = moodsCache.slice(moodsOffset, moodsOffset + 10);
+        if (moreMoods.length > 0) {
+          moodsOffset += moreMoods.length;
+          
+          // Insert new moods at the top
+          const tempDiv = document.createElement('div');
+          displayMoodsInContainer(moreMoods, tempDiv);
+          moodsList.insertBefore(tempDiv, moodsList.firstChild);
+          
+          // Smooth scroll to top to show new items
+          setTimeout(() => {
+            moodsList.scrollTo({ top: 0, behavior: 'smooth' });
+          }, 100);
+        }
+      } catch (error) {
+        console.error('Error loading more moods:', error);
+      } finally {
+        loading.style.display = 'none';
+      }
+    }
+    
+    function displayMoodsInContainer(moods, container) {
       moods.forEach(mood => {
-        const div = document.createElement('div');
-        div.className = 'mood-item';
-        
-        const handle = mood.handle || 'anonymous';
-        const when = new Date(mood.when);
-        const timeStr = when.toLocaleString();
-        
-        // Check if mood has ATProto record - use pdsls.dev for explorer link
-        // pdsls.dev format: https://pdsls.dev/at://did:plc:.../collection/rkey
-        const atprotoLink = mood.atproto?.uri 
-          ? `<a href="https://pdsls.dev/${mood.atproto.uri}" target="_blank" style="margin-left: 1em; font-size: 0.9em;">🦋 ATProto</a>`
-          : '';
-        
-        div.innerHTML = `
-          <div class="mood-handle">${handle}${atprotoLink}</div>
-          <div class="mood-text">${mood.mood}</div>
-          <div class="mood-time">${timeStr}</div>
-        `;
-        
-        moodsList.appendChild(div);
+        const div = createMoodElement(mood);
+        container.appendChild(div);
       });
     }
     
-    // Restore moods dev toggle state
-    window.addEventListener('DOMContentLoaded', () => {
-      document.getElementById('moods-dev-toggle').checked = moodsDevMode;
-    });
+    function createMoodElement(mood) {
+      const div = document.createElement('div');
+      div.className = 'mood-item';
+      
+      const handle = mood.handle || 'anonymous';
+      const when = new Date(mood.when);
+      const timeStr = when.toLocaleString();
+      
+      // Check if mood has ATProto record
+      const atprotoLink = mood.atproto?.uri 
+        ? `<a href="https://pdsls.dev/${mood.atproto.uri}" target="_blank" style="margin-left: 1em; font-size: 0.9em;">🦋 ATProto</a>`
+        : '';
+      
+      div.innerHTML = `
+        <div class="mood-handle">${handle}${atprotoLink}</div>
+        <div class="mood-text">${mood.mood}</div>
+        <div class="mood-time">${timeStr}</div>
+      `;
+      
+      return div;
+    }
+
+    function displayMoods(moods) {
+      const moodsList = document.getElementById('moods-list');
+      displayMoodsInContainer(moods, moodsList);
+    }
     
-    // Load moods on page load
+    // Load moods and stats on page load
     loadMoods();
+    loadStats();
   </script>
 </body>
 </html>
