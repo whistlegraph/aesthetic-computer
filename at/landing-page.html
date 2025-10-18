@@ -198,7 +198,7 @@ A custom landing page for the Aesthetic Computer Personal Data Server
     #gallery-grid {
       position: relative;
       width: 100%;
-      max-width: 600px;
+      max-width: 400px;
       aspect-ratio: 1;
       margin: 1em auto;
       overflow: hidden;
@@ -224,6 +224,8 @@ A custom landing page for the Aesthetic Computer Personal Data Server
       height: 100%;
       object-fit: contain;
       background: rgba(0, 0, 0, 0.05);
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
     }
 
     .painting-info {
@@ -250,7 +252,7 @@ A custom landing page for the Aesthetic Computer Personal Data Server
     #moods-list {
       position: relative;
       width: 100%;
-      max-width: 600px;
+      max-width: 400px;
       min-height: 200px;
       margin: 1em auto;
       overflow: hidden;
@@ -601,9 +603,6 @@ A custom landing page for the Aesthetic Computer Personal Data Server
   </script>
 </body>
 </html>
-
-    let offset = 0;
-    const paintingsCache = [];
     let moodsCache = [];
     let moodsOffset = 0;
     let paintingsPage = 0;
