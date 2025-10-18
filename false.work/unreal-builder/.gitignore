@@ -1,0 +1,40 @@
+# Secrets and credentials
+# All secrets should be in aesthetic-computer-vault, not here!
+secrets.env
+*.secrets
+*.credentials
+gcp-vm-connection.txt
+*.rdp
+setup-rdp-fedora.sh
+
+# Docs with specific credentials (keep private for false.work team)
+docs/SETUP-GUIDE-FOR-FALSEWORK.md
+docs/COMPLETE-SUMMARY.md
+docs/quick-reference.md
+
+# Build outputs (if stored locally during testing)
+builds/
+output/
+
+# Logs
+*.log
+logs/
+
+# Windows
+Thumbs.db
+desktop.ini
+
+# Perforce
+.p4config
+
+# Temporary files
+*.tmp
+*.temp
+~*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~

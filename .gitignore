@@ -102,7 +102,5 @@ __pycache__/
 # Ignore lockfile for ac-site
 /tmp/ac-site.lock
 
-# Backup of netlify.toml when using no-SSL version in Codespaces  
+# Backup of netlify.toml when using no-SSL version in Codespaces
 system/netlify.toml.backup
-# Private client project configurations (contains credentials)
-false.work/
