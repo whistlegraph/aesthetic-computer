@@ -208,6 +208,7 @@ A custom landing page for the Aesthetic Computer Personal Data Server
       min-width: 300px;
       max-width: 400px;
       position: relative;
+      min-height: 400px;
     }
 
     .item-label {
@@ -238,6 +239,7 @@ A custom landing page for the Aesthetic Computer Personal Data Server
     #gallery-grid {
       position: relative;
       width: 100%;
+      min-height: 400px;
       margin: 0 auto;
       overflow: hidden;
     }
@@ -468,13 +470,10 @@ A custom landing page for the Aesthetic Computer Personal Data Server
         
         if (data && data.media && data.media.paintings) {
           paintingsCache = data.media.paintings;
-          console.log('Loaded paintings:', paintingsCache.length);
           if (paintingsCache.length > 0) {
             displayPaintings();
             startPaintingCarousel();
           }
-        } else {
-          console.error('No paintings in response:', data);
         }
       } catch (error) {
         console.error('Error loading paintings:', error);
@@ -514,12 +513,10 @@ A custom landing page for the Aesthetic Computer Personal Data Server
         
         const timestamp = painting.when || painting.createdAt;
         
-        console.log('Painting image URL:', imageUrl);
-        
         div.innerHTML = `
           <div class="item-label">🎨</div>
           <div class="item-time">${timeAgo(timestamp)}</div>
-          <img src="${imageUrl}" alt="${slug}" loading="lazy" onerror="console.error('Image failed:', this.src)">
+          <img src="${imageUrl}" alt="${slug}" loading="lazy">
           <div class="painting-info">
             @${handle}<br>
             ${slug}
