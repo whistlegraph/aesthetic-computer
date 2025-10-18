@@ -12,7 +12,7 @@ $LogFile = "C:\bootstrap-log.txt"
 Start-Transcript -Path $LogFile
 
 # Install Chocolatey
-Write-Host "[1/5] Installing Chocolatey..." -ForegroundColor Yellow
+Write-Host "[1/6] Installing Chocolatey..." -ForegroundColor Yellow
 if (!(Get-Command choco -ErrorAction SilentlyContinue)) {
     Write-Host "  Installing Chocolatey package manager..." -ForegroundColor Cyan
     Set-ExecutionPolicy Bypass -Scope Process -Force
@@ -27,7 +27,7 @@ if (!(Get-Command choco -ErrorAction SilentlyContinue)) {
 
 # Install Git
 Write-Host ""
-Write-Host "[2/5] Installing Git..." -ForegroundColor Yellow
+Write-Host "[2/6] Installing Git..." -ForegroundColor Yellow
 if (!(Get-Command git -ErrorAction SilentlyContinue)) {
     Write-Host "  Downloading and installing Git..." -ForegroundColor Cyan
     choco install git -y --no-progress
@@ -40,7 +40,7 @@ if (!(Get-Command git -ErrorAction SilentlyContinue)) {
 
 # Install Perforce CLI
 Write-Host ""
-Write-Host "[3/5] Installing Perforce CLI..." -ForegroundColor Yellow
+Write-Host "[3/6] Installing Perforce CLI..." -ForegroundColor Yellow
 $P4Url = "https://cdist2.perforce.com/perforce/r24.1/bin.ntx64/p4.exe"
 $P4Path = "C:\Windows\System32\p4.exe"
 if (!(Test-Path $P4Path)) {
@@ -53,7 +53,7 @@ if (!(Test-Path $P4Path)) {
 
 # Setup directories and GitHub runner
 Write-Host ""
-Write-Host "[4/5] Setting up directories and GitHub Actions runner..." -ForegroundColor Yellow
+Write-Host "[4/6] Setting up directories and GitHub Actions runner..." -ForegroundColor Yellow
 
 # Create build directories on C: drive (D: may not exist on single-disk VMs)
 Write-Host "  Creating directories..." -ForegroundColor Cyan
@@ -89,7 +89,7 @@ if (!(Test-Path "C:\actions-runner")) {
 
 # Install Epic Games Launcher via Chocolatey
 Write-Host ""
-Write-Host "[5/5] Installing Epic Games Launcher..." -ForegroundColor Yellow
+Write-Host "[5/6] Installing Epic Games Launcher..." -ForegroundColor Yellow
 # Check if Epic is already installed
 $EpicPath = "C:\Program Files (x86)\Epic Games\Launcher\Portal\Binaries\Win64\EpicGamesLauncher.exe"
 if (!(Test-Path $EpicPath)) {
@@ -98,6 +98,19 @@ if (!(Test-Path $EpicPath)) {
     Write-Host "✓ Epic Games Launcher installed" -ForegroundColor Green
 } else {
     Write-Host "✓ Epic Games Launcher already installed, skipping" -ForegroundColor Green
+}
+
+# Install .NET 8.0 SDK (required for UnrealBuildTool)
+Write-Host ""
+Write-Host "[6/6] Installing .NET 8.0 SDK..." -ForegroundColor Yellow
+if (!(Test-Path "C:\Program Files\dotnet\dotnet.exe")) {
+    Write-Host "  Installing .NET 8.0 SDK via Chocolatey (~150MB, 2-3 minutes)..." -ForegroundColor Cyan
+    choco install dotnet-8.0-sdk -y --no-progress
+    Write-Host "  Refreshing environment PATH..." -ForegroundColor Cyan
+    $env:PATH = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+    Write-Host "✓ .NET 8.0 SDK installed" -ForegroundColor Green
+} else {
+    Write-Host "✓ .NET 8.0 SDK already installed, skipping" -ForegroundColor Green
 }
 
 # Optimize Windows
@@ -123,6 +136,7 @@ Write-Host "✅ Installed:" -ForegroundColor Cyan
 Write-Host "  - Git for Windows"
 Write-Host "  - Perforce CLI (P4)"
 Write-Host "  - Epic Games Launcher"
+Write-Host "  - .NET 8.0 SDK"
 Write-Host "  - GitHub Actions runner directory"
 Write-Host "  - Build directories created"
 Write-Host ""
