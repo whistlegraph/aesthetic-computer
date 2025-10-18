@@ -50,8 +50,8 @@ if (!(Test-Path $P4Path)) {
 Write-Host ""
 Write-Host "[4/4] Setting up directories and GitHub Actions runner..." -ForegroundColor Yellow
 
-# Create build directories
-$Dirs = @("D:\Perforce", "D:\Builds", "D:\Builds\Logs")
+# Create build directories on C: drive (D: may not exist on single-disk VMs)
+$Dirs = @("C:\Perforce", "C:\Builds", "C:\Builds\Logs")
 foreach ($Dir in $Dirs) {
     if (!(Test-Path $Dir)) {
         New-Item -ItemType Directory -Path $Dir -Force | Out-Null
