@@ -1,5 +1,11 @@
 #!/usr/bin/env fish
 
+# Fix fish path if needed (Fedora installs to /usr/sbin instead of /usr/bin)
+if not test -f /usr/bin/fish; and test -f /usr/sbin/fish
+    sudo ln -sf /usr/sbin/fish /usr/bin/fish
+    echo "🐟 Created fish symlink: /usr/bin/fish -> /usr/sbin/fish"
+end
+
 # Function to ensure fish config directory has correct permissions
 function ensure_fish_config_permissions
     set -l fish_config_dir /home/me/.config/fish
