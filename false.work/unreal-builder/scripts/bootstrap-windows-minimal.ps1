@@ -12,12 +12,13 @@ $LogFile = "C:\bootstrap-log.txt"
 Start-Transcript -Path $LogFile
 
 # Install Chocolatey
-Write-Host "[1/4] Installing Chocolatey..." -ForegroundColor Yellow
+Write-Host "[1/5] Installing Chocolatey..." -ForegroundColor Yellow
 if (!(Get-Command choco -ErrorAction SilentlyContinue)) {
     Write-Host "  Installing Chocolatey package manager..." -ForegroundColor Cyan
     Set-ExecutionPolicy Bypass -Scope Process -Force
     [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
     Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+    Write-Host "  Refreshing environment PATH..." -ForegroundColor Cyan
     $env:PATH = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
     Write-Host "✓ Chocolatey installed" -ForegroundColor Green
 } else {
@@ -26,10 +27,11 @@ if (!(Get-Command choco -ErrorAction SilentlyContinue)) {
 
 # Install Git
 Write-Host ""
-Write-Host "[2/4] Installing Git..." -ForegroundColor Yellow
+Write-Host "[2/5] Installing Git..." -ForegroundColor Yellow
 if (!(Get-Command git -ErrorAction SilentlyContinue)) {
     Write-Host "  Downloading and installing Git..." -ForegroundColor Cyan
     choco install git -y --no-progress
+    Write-Host "  Refreshing environment PATH..." -ForegroundColor Cyan
     $env:PATH = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
     Write-Host "✓ Git installed" -ForegroundColor Green
 } else {
@@ -38,7 +40,7 @@ if (!(Get-Command git -ErrorAction SilentlyContinue)) {
 
 # Install Perforce CLI
 Write-Host ""
-Write-Host "[3/4] Installing Perforce CLI..." -ForegroundColor Yellow
+Write-Host "[3/5] Installing Perforce CLI..." -ForegroundColor Yellow
 $P4Url = "https://cdist2.perforce.com/perforce/r24.1/bin.ntx64/p4.exe"
 $P4Path = "C:\Windows\System32\p4.exe"
 if (!(Test-Path $P4Path)) {
@@ -51,7 +53,7 @@ if (!(Test-Path $P4Path)) {
 
 # Setup directories and GitHub runner
 Write-Host ""
-Write-Host "[4/4] Setting up directories and GitHub Actions runner..." -ForegroundColor Yellow
+Write-Host "[4/5] Setting up directories and GitHub Actions runner..." -ForegroundColor Yellow
 
 # Create build directories on C: drive (D: may not exist on single-disk VMs)
 Write-Host "  Creating directories..." -ForegroundColor Cyan
@@ -85,17 +87,17 @@ if (!(Test-Path "C:\actions-runner")) {
     Write-Host "  ✓ GitHub Actions runner already exists, skipping" -ForegroundColor Green
 }
 
-# Download Epic Games Launcher
+# Install Epic Games Launcher via Chocolatey
 Write-Host ""
-Write-Host "Downloading Epic Games Launcher..." -ForegroundColor Cyan
-$EpicUrl = "https://launcher-public-service-prod06.ol.epicgames.com/launcher/api/installer/download/EpicGamesLauncherInstaller.msi"
-$EpicInstaller = "C:\EpicGamesLauncherInstaller.msi"
-if (!(Test-Path $EpicInstaller)) {
-    Write-Host "  Downloading installer (~90MB)..." -ForegroundColor Gray
-    Invoke-WebRequest -Uri $EpicUrl -OutFile $EpicInstaller -UseBasicParsing
-    Write-Host "  ✓ Downloaded to C:\EpicGamesLauncherInstaller.msi" -ForegroundColor Gray
+Write-Host "[5/5] Installing Epic Games Launcher..." -ForegroundColor Yellow
+# Check if Epic is already installed
+$EpicPath = "C:\Program Files (x86)\Epic Games\Launcher\Portal\Binaries\Win64\EpicGamesLauncher.exe"
+if (!(Test-Path $EpicPath)) {
+    Write-Host "  Installing Epic Games Launcher via Chocolatey (~90MB, 2-3 minutes)..." -ForegroundColor Cyan
+    choco install epicgameslauncher -y --no-progress
+    Write-Host "✓ Epic Games Launcher installed" -ForegroundColor Green
 } else {
-    Write-Host "  ✓ Epic Games Launcher installer already downloaded, skipping" -ForegroundColor Green
+    Write-Host "✓ Epic Games Launcher already installed, skipping" -ForegroundColor Green
 }
 
 # Optimize Windows
@@ -120,17 +122,16 @@ Write-Host ""
 Write-Host "✅ Installed:" -ForegroundColor Cyan
 Write-Host "  - Git for Windows"
 Write-Host "  - Perforce CLI (P4)"
+Write-Host "  - Epic Games Launcher"
 Write-Host "  - GitHub Actions runner directory"
 Write-Host "  - Build directories created"
 Write-Host ""
-Write-Host "📥 Ready to install:" -ForegroundColor Cyan
-Write-Host "  - Epic Games Launcher: C:\EpicGamesLauncherInstaller.msi"
-Write-Host ""
 Write-Host "⏭️  Next Steps:" -ForegroundColor Yellow
 Write-Host ""
-Write-Host "1. Install Epic Games Launcher and UE5 (~1-2 hours):"
-Write-Host "   msiexec /i C:\EpicGamesLauncherInstaller.msi /quiet"
-Write-Host "   Then sign in and install UE5 from the launcher"
+Write-Host "1. Launch Epic Games Launcher and install UE5 (~1-2 hours):"
+Write-Host "   - Open Start Menu and search for 'Epic Games Launcher'"
+Write-Host "   - Sign in (or create free Epic account)"
+Write-Host "   - Go to 'Unreal Engine' tab → Install Engine"
 Write-Host ""
 Write-Host "2. Clone aesthetic-computer-vault to access secrets:"
 Write-Host "   git clone https://github.com/whistlegraph/aesthetic-computer-vault.git C:\aesthetic-computer-vault"
