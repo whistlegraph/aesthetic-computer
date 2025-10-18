@@ -89,7 +89,7 @@ if (!(Test-Path "C:\actions-runner")) {
 
 # Install Epic Games Launcher via Chocolatey
 Write-Host ""
-Write-Host "[5/6] Installing Epic Games Launcher..." -ForegroundColor Yellow
+Write-Host "[5/8] Installing Epic Games Launcher..." -ForegroundColor Yellow
 # Check if Epic is already installed
 $EpicPath = "C:\Program Files (x86)\Epic Games\Launcher\Portal\Binaries\Win64\EpicGamesLauncher.exe"
 if (!(Test-Path $EpicPath)) {
@@ -102,7 +102,7 @@ if (!(Test-Path $EpicPath)) {
 
 # Install .NET 8.0 SDK (required for UnrealBuildTool)
 Write-Host ""
-Write-Host "[6/6] Installing .NET 8.0 SDK..." -ForegroundColor Yellow
+Write-Host "[6/8] Installing .NET 8.0 SDK..." -ForegroundColor Yellow
 if (!(Test-Path "C:\Program Files\dotnet\dotnet.exe")) {
     Write-Host "  Installing .NET 8.0 SDK via Chocolatey (~150MB, 2-3 minutes)..." -ForegroundColor Cyan
     choco install dotnet-8.0-sdk -y --no-progress
@@ -111,6 +111,33 @@ if (!(Test-Path "C:\Program Files\dotnet\dotnet.exe")) {
     Write-Host "✓ .NET 8.0 SDK installed" -ForegroundColor Green
 } else {
     Write-Host "✓ .NET 8.0 SDK already installed, skipping" -ForegroundColor Green
+}
+
+# Install Windows 10 SDK (required for UE5 builds)
+Write-Host ""
+Write-Host "[7/8] Installing Windows 10 SDK..." -ForegroundColor Yellow
+$WinSdkPath = "C:\Program Files (x86)\Windows Kits\10"
+if (!(Test-Path $WinSdkPath)) {
+    Write-Host "  Installing Windows 10 SDK via Chocolatey (~1.3MB installer, ~5 minutes)..." -ForegroundColor Cyan
+    choco install windows-sdk-10-version-2004-all -y --no-progress
+    Write-Host "✓ Windows 10 SDK installed" -ForegroundColor Green
+} else {
+    Write-Host "✓ Windows 10 SDK already installed, skipping" -ForegroundColor Green
+}
+
+# Install Visual Studio 2022 Build Tools with C++ workload (required for UE5 compilation)
+Write-Host ""
+Write-Host "[8/8] Installing Visual Studio 2022 Build Tools..." -ForegroundColor Yellow
+$VSPath = "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools"
+if (!(Test-Path $VSPath)) {
+    Write-Host "  Installing VS2022 Build Tools with C++ workload (~2GB, 10-20 minutes)..." -ForegroundColor Cyan
+    Write-Host "  This is a large download and may appear to hang - please be patient!" -ForegroundColor Yellow
+    choco install visualstudio2022buildtools -y --package-parameters "--add Microsoft.VisualStudio.Workload.VCTools --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 --add Microsoft.VisualStudio.Component.Windows11SDK.22621" --no-progress
+    Write-Host "  Refreshing environment PATH..." -ForegroundColor Cyan
+    $env:PATH = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+    Write-Host "✓ Visual Studio 2022 Build Tools installed" -ForegroundColor Green
+} else {
+    Write-Host "✓ Visual Studio 2022 Build Tools already installed, skipping" -ForegroundColor Green
 }
 
 # Optimize Windows
@@ -137,6 +164,8 @@ Write-Host "  - Git for Windows"
 Write-Host "  - Perforce CLI (P4)"
 Write-Host "  - Epic Games Launcher"
 Write-Host "  - .NET 8.0 SDK"
+Write-Host "  - Windows 10 SDK"
+Write-Host "  - Visual Studio 2022 Build Tools (C++ workload)"
 Write-Host "  - GitHub Actions runner directory"
 Write-Host "  - Build directories created"
 Write-Host ""
