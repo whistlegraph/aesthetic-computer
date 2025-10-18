@@ -13,7 +13,7 @@ ZONE="us-central1-a"
 MACHINE_NAME="ue5-builder-falsework"
 MACHINE_TYPE="n2-standard-8"  # 8 vCPU, 32GB RAM - Much cheaper!
 BOOT_DISK_SIZE="300GB"  # Smaller disk
-SERVICE_ACCOUN1LAO//dIS89yqq<T_KEY="../../../aesthetic-computer-vault/nanos/gcp-service-key.json"
+SERVICE_ACCOUNT_KEY="../../../aesthetic-computer-vault/nanos/gcp-service-key.json"
 
 echo "Configuration:"
 echo "  Project: $PROJECT_ID"
