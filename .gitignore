@@ -104,3 +104,5 @@ __pycache__/
 
 # Backup of netlify.toml when using no-SSL version in Codespaces  
 system/netlify.toml.backup
+# Private client project configurations (contains credentials)
+false.work/
