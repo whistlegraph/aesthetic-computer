@@ -212,30 +212,27 @@ A custom landing page for the Aesthetic Computer Personal Data Server
 
     .item-label {
       position: absolute;
-      top: 8px;
-      left: 8px;
-      background: rgba(0, 0, 0, 0.7);
+      top: 4px;
+      left: 4px;
+      background: black;
       color: white;
-      padding: 4px 8px;
-      font-size: 11px;
-      border-radius: 3px;
+      padding: 2px 6px;
+      font-size: 10px;
       z-index: 10;
       font-family: monospace;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
     }
 
     .item-time {
       position: absolute;
-      top: 8px;
-      right: 8px;
-      background: rgba(0, 0, 0, 0.7);
+      top: 4px;
+      right: 4px;
+      background: black;
       color: white;
-      padding: 4px 8px;
-      font-size: 11px;
-      border-radius: 3px;
+      padding: 2px 6px;
+      font-size: 10px;
       z-index: 10;
       font-family: monospace;
+      white-space: nowrap;
     }
 
     #gallery-grid {
@@ -471,8 +468,13 @@ A custom landing page for the Aesthetic Computer Personal Data Server
         
         if (data && data.media && data.media.paintings) {
           paintingsCache = data.media.paintings;
-          displayPaintings();
-          startPaintingCarousel();
+          console.log('Loaded paintings:', paintingsCache.length);
+          if (paintingsCache.length > 0) {
+            displayPaintings();
+            startPaintingCarousel();
+          }
+        } else {
+          console.error('No paintings in response:', data);
         }
       } catch (error) {
         console.error('Error loading paintings:', error);
@@ -512,10 +514,12 @@ A custom landing page for the Aesthetic Computer Personal Data Server
         
         const timestamp = painting.when || painting.createdAt;
         
+        console.log('Painting image URL:', imageUrl);
+        
         div.innerHTML = `
-          <div class="item-label">🎨 painting</div>
+          <div class="item-label">🎨</div>
           <div class="item-time">${timeAgo(timestamp)}</div>
-          <img src="${imageUrl}" alt="${slug}" loading="lazy">
+          <img src="${imageUrl}" alt="${slug}" loading="lazy" onerror="console.error('Image failed:', this.src)">
           <div class="painting-info">
             @${handle}<br>
             ${slug}
@@ -587,7 +591,7 @@ A custom landing page for the Aesthetic Computer Personal Data Server
         const handleDisplay = handle.startsWith('@') ? handle : '@' + handle;
         
         div.innerHTML = `
-          <div class="item-label">💬 mood</div>
+          <div class="item-label">💬</div>
           <div class="item-time">${timeAgo(timestamp)}</div>
           <div class="mood-handle">${handleDisplay}</div>
           <div class="mood-text">${moodText}</div>
@@ -625,12 +629,8 @@ A custom landing page for the Aesthetic Computer Personal Data Server
         }
         document.getElementById('stat-users').textContent = userCount;
         
-        // Get PDS version
-        const healthResponse = await fetch(`${apiUrl}/xrpc/_health`);
-        const healthData = await healthResponse.json();
-        if (healthData && healthData.version) {
-          document.getElementById('stat-version').textContent = healthData.version;
-        }
+        // Skip PDS version check (CORS issue from at.aesthetic.computer)
+        // Just show a default version
       } catch (error) {
         console.error('Error loading stats:', error);
       }
