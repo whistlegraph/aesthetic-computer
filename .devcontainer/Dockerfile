@@ -149,6 +149,12 @@ RUN curl -sSL https://sdk.cloud.google.com > /tmp/install_gcloud.sh && \
 
 # --- User ---------------------------------------------------------------------
 RUN useradd -m me && echo "me ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers && chsh -s /usr/bin/fish me
+
+# Fix fish path issue: Fedora installs to /usr/sbin but shebangs expect /usr/bin
+RUN if test ! -f /usr/bin/fish && test -f /usr/sbin/fish; then \
+        ln -s /usr/sbin/fish /usr/bin/fish; \
+    fi
+
 USER me
 WORKDIR /home/me
 
