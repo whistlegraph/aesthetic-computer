@@ -195,12 +195,53 @@ A custom landing page for the Aesthetic Computer Personal Data Server
       color: white;
     }
 
+    .carousel-container {
+      display: flex;
+      gap: 2em;
+      margin: 2em 0;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .carousel-module {
+      flex: 1;
+      min-width: 300px;
+      max-width: 400px;
+      position: relative;
+    }
+
+    .item-label {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      background: rgba(0, 0, 0, 0.7);
+      color: white;
+      padding: 4px 8px;
+      font-size: 11px;
+      border-radius: 3px;
+      z-index: 10;
+      font-family: monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .item-time {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: rgba(0, 0, 0, 0.7);
+      color: white;
+      padding: 4px 8px;
+      font-size: 11px;
+      border-radius: 3px;
+      z-index: 10;
+      font-family: monospace;
+    }
+
     #gallery-grid {
       position: relative;
       width: 100%;
-      max-width: 400px;
-      aspect-ratio: 1;
-      margin: 1em auto;
+      margin: 0 auto;
       overflow: hidden;
     }
 
@@ -209,10 +250,12 @@ A custom landing page for the Aesthetic Computer Personal Data Server
       top: 0;
       left: 0;
       width: 100%;
-      height: 100%;
       opacity: 0;
       transition: opacity 0.5s ease-in-out;
       cursor: pointer;
+      background: white;
+      padding: 12px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     }
 
     .painting.active {
@@ -221,22 +264,19 @@ A custom landing page for the Aesthetic Computer Personal Data Server
 
     .painting img {
       width: 100%;
-      height: 100%;
+      aspect-ratio: 1;
       object-fit: contain;
       background: rgba(0, 0, 0, 0.05);
       image-rendering: pixelated;
       image-rendering: crisp-edges;
+      display: block;
     }
 
     .painting-info {
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      background: rgba(0, 0, 0, 0.8);
-      color: white;
-      padding: 1em;
+      padding: 12px 0 0 0;
       font-size: 14px;
+      color: #333;
+      text-align: center;
     }
 
     #loading {
@@ -245,16 +285,10 @@ A custom landing page for the Aesthetic Computer Personal Data Server
       opacity: 0.5;
     }
 
-    #moods-gallery {
-      margin-top: 2em;
-    }
-
     #moods-list {
       position: relative;
       width: 100%;
-      max-width: 400px;
       min-height: 200px;
-      margin: 1em auto;
       overflow: hidden;
     }
 
@@ -268,6 +302,7 @@ A custom landing page for the Aesthetic Computer Personal Data Server
       border-left: 3px solid rgb(205, 92, 155);
       opacity: 0;
       transition: opacity 0.5s ease-in-out;
+      min-height: 200px;
     }
 
     .mood-item.active {
@@ -283,12 +318,6 @@ A custom landing page for the Aesthetic Computer Personal Data Server
     .mood-text {
       margin: 0.5em 0;
       line-height: 1.4;
-    }
-
-    .mood-time {
-      font-size: 0.9em;
-      opacity: 0.6;
-      margin-top: 0.5em;
     }
 
     #moods-loading {
@@ -353,18 +382,16 @@ A custom landing page for the Aesthetic Computer Personal Data Server
       Welcome to the ATProto server for Aesthetic Inc. network and Aesthetic.Computer.
     </p>
 
-    <h2>💬 Last Mood</h2>
-    
-    <div id="moods-gallery">
-      <div id="moods-list"></div>
-      <div id="moods-loading" style="display: none;">Loading...</div>
-    </div>
-
-    <h2>🎨 Last Painting</h2>
-    
-    <div id="gallery">
-      <div id="gallery-grid"></div>
-      <div id="loading" style="display: none;">Loading...</div>
+    <div class="carousel-container">
+      <div class="carousel-module">
+        <div id="gallery-grid"></div>
+        <div id="loading" style="display: none;">Loading...</div>
+      </div>
+      
+      <div class="carousel-module">
+        <div id="moods-list"></div>
+        <div id="moods-loading" style="display: none;">Loading...</div>
+      </div>
     </div>
 
     <h2>📊 Stats</h2>
@@ -405,14 +432,31 @@ A custom landing page for the Aesthetic Computer Personal Data Server
     let paintingsCache = [];
     let moodsCache = [];
     let currentPaintingIndex = 0;
-    let currentMoodIndex = 0;
     let paintingInterval = null;
-    let moodInterval = null;
 
     // --- API Utility ---
     function getApiUrl() {
       const urlParams = new URLSearchParams(window.location.search);
       return urlParams.has('dev') ? 'https://local.aesthetic.computer' : 'https://aesthetic.computer';
+    }
+
+    // --- Time Ago Helper ---
+    function timeAgo(date) {
+      const seconds = Math.floor((new Date() - new Date(date)) / 1000);
+      
+      if (seconds < 60) return 'just now';
+      const minutes = Math.floor(seconds / 60);
+      if (minutes < 60) return `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
+      const hours = Math.floor(minutes / 60);
+      if (hours < 24) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+      const days = Math.floor(hours / 24);
+      if (days < 7) return `${days} day${days > 1 ? 's' : ''} ago`;
+      const weeks = Math.floor(days / 7);
+      if (weeks < 4) return `${weeks} week${weeks > 1 ? 's' : ''} ago`;
+      const months = Math.floor(days / 30);
+      if (months < 12) return `${months} month${months > 1 ? 's' : ''} ago`;
+      const years = Math.floor(days / 365);
+      return `${years} year${years > 1 ? 's' : ''} ago`;
     }
 
     // --- Paintings Carousel ---
@@ -473,7 +517,17 @@ A custom landing page for the Aesthetic Computer Personal Data Server
         const imageUrl = painting.media?.url || 
                         `${apiUrl}/media/${handleWithAt || painting.owner?.userId}/painting/${slug}.png`;
         
+        const timestamp = painting.when || painting.createdAt;
+        
         div.innerHTML = `
+          <div class="item-label">🎨 painting</div>
+          <div class="item-time">${timeAgo(timestamp)}</div>
+          <img src="${imageUrl}" alt="${slug}" loading="lazy">
+          <div class="painting-info">
+            @${handle}<br>
+            ${slug}
+          </div>
+        `;
           <img src="${imageUrl}" alt="${slug}" loading="lazy" onerror="this.style.display='none'">
           <div class="painting-info">
             <div>${handleWithAt || 'anonymous'}</div>
@@ -497,7 +551,7 @@ A custom landing page for the Aesthetic Computer Personal Data Server
       }, 3000);
     }
 
-    // --- Moods Carousel ---
+    // --- Moods Ticker ---
     async function loadMoods() {
       const container = document.getElementById('moods-list');
       const loading = document.getElementById('moods-loading');
@@ -505,9 +559,6 @@ A custom landing page for the Aesthetic Computer Personal Data Server
       loading.style.display = 'block';
       container.innerHTML = '';
       moodsCache = [];
-      currentMoodIndex = 0;
-      
-      if (moodInterval) clearInterval(moodInterval);
       
       try {
         const apiUrl = getApiUrl();
@@ -545,13 +596,14 @@ A custom landing page for the Aesthetic Computer Personal Data Server
         
         const handle = mood.handle || mood.for || 'anonymous';
         const moodText = mood.mood || mood.text || '';
-        const timestamp = mood.when ? new Date(mood.when).toLocaleString() : 
-                         (mood.createdAt ? new Date(mood.createdAt).toLocaleString() : '');
+        const timestamp = mood.when || mood.createdAt;
+        const handleDisplay = handle.startsWith('@') ? handle : '@' + handle;
         
         div.innerHTML = `
-          <div class="mood-handle">@${handle}</div>
+          <div class="item-label">💬 mood</div>
+          <div class="item-time">${timeAgo(timestamp)}</div>
+          <div class="mood-handle">${handleDisplay}</div>
           <div class="mood-text">${moodText}</div>
-          ${timestamp ? `<div class="mood-time">${timestamp}</div>` : ''}
         `;
         
         container.appendChild(div);
@@ -561,7 +613,8 @@ A custom landing page for the Aesthetic Computer Personal Data Server
     function startMoodCarousel() {
       if (moodsCache.length <= 1) return;
       
-      moodInterval = setInterval(() => {
+      let currentMoodIndex = 0;
+      setInterval(() => {
         const moods = document.querySelectorAll('.mood-item');
         moods[currentMoodIndex].classList.remove('active');
         currentMoodIndex = (currentMoodIndex + 1) % moodsCache.length;
