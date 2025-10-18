@@ -120,7 +120,7 @@ Write-Host ""
 Write-Host "✅ Installed:" -ForegroundColor Cyan
 Write-Host "  - Git for Windows"
 Write-Host "  - Perforce CLI (P4)"
-Write-Host "  - GitHub Actions runner (ready to configure)"
+Write-Host "  - GitHub Actions runner directory"
 Write-Host "  - Build directories created"
 Write-Host ""
 Write-Host "📥 Ready to install:" -ForegroundColor Cyan
