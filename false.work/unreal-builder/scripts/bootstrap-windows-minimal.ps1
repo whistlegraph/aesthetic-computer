@@ -150,6 +150,14 @@ Set-Service WSearch -StartupType Disabled -ErrorAction SilentlyContinue
 Write-Host "  Setting high performance power plan..." -ForegroundColor Gray
 powercfg /setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c -ErrorAction SilentlyContinue
 
+# Add Windows Defender exclusions for UE5 build (prevents file locking during compilation)
+Write-Host "  Adding Windows Defender exclusions for build folders..." -ForegroundColor Gray
+Add-MpPreference -ExclusionPath "C:\Perforce" -ErrorAction SilentlyContinue
+Add-MpPreference -ExclusionPath "C:\Program Files\Epic Games\UE_5.6" -ErrorAction SilentlyContinue
+Add-MpPreference -ExclusionProcess "UnrealBuildTool.exe" -ErrorAction SilentlyContinue
+Add-MpPreference -ExclusionProcess "link.exe" -ErrorAction SilentlyContinue
+Write-Host "  ✓ Windows Defender exclusions configured" -ForegroundColor Gray
+
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Green
 Write-Host "✓ Bootstrap Complete!" -ForegroundColor Green
