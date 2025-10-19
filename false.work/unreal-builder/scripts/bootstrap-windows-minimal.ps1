@@ -132,7 +132,8 @@ $VSPath = "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools"
 if (!(Test-Path $VSPath)) {
     Write-Host "  Installing VS2022 Build Tools with C++ workload (~2GB, 10-20 minutes)..." -ForegroundColor Cyan
     Write-Host "  This is a large download and may appear to hang - please be patient!" -ForegroundColor Yellow
-    choco install visualstudio2022buildtools -y --package-parameters "--add Microsoft.VisualStudio.Workload.VCTools --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 --add Microsoft.VisualStudio.Component.Windows11SDK.22621" --no-progress
+    # UE5.6 requires MSVC 14.38.33130 (VS 2022 17.8) specifically
+    choco install visualstudio2022buildtools -y --package-parameters "--add Microsoft.VisualStudio.Workload.VCTools --add Microsoft.VisualStudio.Component.VC.14.38.17.8.x86.x64 --add Microsoft.VisualStudio.Component.Windows11SDK.22621" --no-progress
     Write-Host "  Refreshing environment PATH..." -ForegroundColor Cyan
     $env:PATH = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
     Write-Host "✓ Visual Studio 2022 Build Tools installed" -ForegroundColor Green
