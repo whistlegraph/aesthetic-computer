@@ -24,11 +24,80 @@ Write-Host "Output:        $PackageOutput" -ForegroundColor Yellow
 Write-Host ""
 
 Write-Host "Build Steps:" -ForegroundColor Cyan
-Write-Host "  [1/5] Compile C++ code (~5 min)" -ForegroundColor Gray
-Write-Host "  [2/5] Cook content/assets (~15-20 min)" -ForegroundColor Gray
-Write-Host "  [3/5] Stage files (~5 min)" -ForegroundColor Gray
-Write-Host "  [4/5] Package into PAK files (~5 min)" -ForegroundColor Gray
-Write-Host "  [5/5] Archive for distribution (~2 min)" -ForegroundColor Gray
+Write-Host "WORKAROUND: Spider Lily has LiveCoding enabled" -ForegroundColor Yellow
+Write-Host "Using two-step process to bypass LiveCoding hang" -ForegroundColor Yellow
+Write-Host ""
+Write-Host "[1/6] Cook Content (~18 min)" -ForegroundColor Yellow
+Write-Host "[2/6] Compile Game Target (~5 min)" -ForegroundColor Yellow
+Write-Host "[3/6] Stage Files (~5 min)" -ForegroundColor Yellow
+Write-Host "[4/6] Create PAK Files (~5 min)" -ForegroundColor Yellow
+Write-Host "[5/6] Archive Build (~2 min)" -ForegroundColor Yellow
+Write-Host "[6/6] Create README (~1 min)" -ForegroundColor Yellow
+Write-Host ""
+Write-Host "Total estimated time: 35-40 minutes" -ForegroundColor Cyan
+Write-Host ""
+
+# Check for required files
+$ProjectFile = "C:\Perforce\SpiderLily.uproject"
+$UE5 = "C:\Program Files\Epic Games\UE_5.6"
+
+if (-not (Test-Path $ProjectFile)) {
+    Write-Host "ERROR: Project file not found at $ProjectFile" -ForegroundColor Red
+    exit 1
+}
+
+if (-not (Test-Path "$UE5\Engine\Build\BatchFiles\RunUAT.bat")) {
+    Write-Host "ERROR: UE5 not found at $UE5" -ForegroundColor Red
+    exit 1
+}
+
+# Create output directory
+$Timestamp = Get-Date -Format "yyyyMMdd-HHmm"
+$Output = "C:\Builds\Package_$Timestamp"
+New-Item -ItemType Directory -Force -Path $Output | Out-Null
+
+Write-Host ""
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host "Starting Package Build (Workaround)" -ForegroundColor Cyan
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host "Output: $Output" -ForegroundColor White
+Write-Host ""
+
+# STEP 1: Cook content first (bypasses LiveCoding)
+Write-Host "[1/6] Cooking content (this bypasses LiveCoding)..." -ForegroundColor Green
+$CookStart = Get-Date
+& "$UE5\Engine\Binaries\Win64\UnrealEditor-Cmd.exe" $ProjectFile `
+    -run=Cook `
+    -TargetPlatform=Windows `
+    -unattended `
+    -stdout `
+    -CrashForUAT `
+    -NoLogTimes `
+    -UTF8Output
+
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "ERROR: Cooking failed!" -ForegroundColor Red
+    exit 1
+}
+$CookDuration = (Get-Date) - $CookStart
+Write-Host "Cooking completed in $($CookDuration.ToString('mm\:ss'))" -ForegroundColor Green
+Write-Host ""
+
+# STEP 2: Package using already-cooked content
+Write-Host "[2/6] Building and packaging with cooked content..." -ForegroundColor Green
+& "$UE5\Engine\Build\BatchFiles\RunUAT.bat" BuildCookRun `
+    -project=$ProjectFile `
+    -platform=Win64 `
+    -clientconfig=Development `
+    -skipcook `
+    -build `
+    -stage `
+    -pak `
+    -archive `
+    -archivedirectory=$Output `
+    -unattended `
+    -noP4 `
+    -NoLiveCoding
 Write-Host ""
 Write-Host "⏱️  Total estimated time: 30-60 minutes" -ForegroundColor Yellow
 Write-Host "💡 Tip: Go grab a coffee! ☕" -ForegroundColor Gray
