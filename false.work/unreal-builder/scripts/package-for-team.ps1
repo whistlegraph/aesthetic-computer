@@ -54,7 +54,8 @@ Write-Host ""
     -archive `
     -archivedirectory="$PackageOutput" `
     -unattended `
-    -noP4
+    -noP4 `
+    -NoLiveCoding
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host ""
