@@ -108,7 +108,8 @@ if ($Package) {
             -archive `
             -archivedirectory="$PackageDir" `
             -clean `
-            -unattended
+            -unattended `
+            -NoLiveCoding
             
         if ($LASTEXITCODE -ne 0) {
             throw "Packaging failed with exit code $LASTEXITCODE"
