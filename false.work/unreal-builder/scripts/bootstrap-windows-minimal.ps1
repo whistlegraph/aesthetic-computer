@@ -53,11 +53,11 @@ if (!(Test-Path $P4Path)) {
 
 # Setup directories and GitHub runner
 Write-Host ""
-Write-Host "[4/6] Setting up directories and GitHub Actions runner..." -ForegroundColor Yellow
+Write-Host "[4/6] Setting up directories and build scripts..." -ForegroundColor Yellow
 
 # Create build directories on C: drive (D: may not exist on single-disk VMs)
 Write-Host "  Creating directories..." -ForegroundColor Cyan
-$Dirs = @("C:\Perforce", "C:\Builds", "C:\Builds\Logs")
+$Dirs = @("C:\Perforce", "C:\Builds", "C:\Builds\Logs", "C:\scripts")
 foreach ($Dir in $Dirs) {
     if (!(Test-Path $Dir)) {
         New-Item -ItemType Directory -Path $Dir -Force | Out-Null
@@ -65,6 +65,29 @@ foreach ($Dir in $Dirs) {
     } else {
         Write-Host "    ✓ $Dir already exists" -ForegroundColor Gray
     }
+}
+
+# Clone the aesthetic-computer repo to get build scripts
+Write-Host "  Cloning aesthetic-computer repo for build scripts..." -ForegroundColor Cyan
+$RepoPath = "C:\aesthetic-computer-repo"
+if (!(Test-Path $RepoPath)) {
+    git clone https://github.com/whistlegraph/aesthetic-computer.git $RepoPath 2>&1 | Out-Null
+    if (Test-Path $RepoPath) {
+        Write-Host "    ✓ Repo cloned" -ForegroundColor Gray
+    } else {
+        Write-Host "    ⚠ Failed to clone repo, build scripts will need manual setup" -ForegroundColor Yellow
+    }
+} else {
+    Write-Host "    ✓ Repo already exists" -ForegroundColor Gray
+}
+
+# Copy build scripts to C:\scripts
+if (Test-Path "$RepoPath\false.work\unreal-builder\scripts") {
+    Write-Host "  Copying build scripts to C:\scripts..." -ForegroundColor Cyan
+    Copy-Item -Path "$RepoPath\false.work\unreal-builder\scripts\daily-build.ps1" -Destination "C:\scripts\" -Force -ErrorAction SilentlyContinue
+    Copy-Item -Path "$RepoPath\false.work\unreal-builder\scripts\package-for-team.ps1" -Destination "C:\scripts\" -Force -ErrorAction SilentlyContinue
+    Copy-Item -Path "$RepoPath\false.work\unreal-builder\scripts\setup-github-runner.ps1" -Destination "C:\scripts\" -Force -ErrorAction SilentlyContinue
+    Write-Host "    ✓ Build scripts copied" -ForegroundColor Gray
 }
 
 # Download GitHub Actions runner
@@ -176,6 +199,7 @@ Write-Host "  - .NET 8.0 SDK"
 Write-Host "  - Windows 10 SDK"
 Write-Host "  - Visual Studio 2022 Build Tools (C++ workload)"
 Write-Host "  - GitHub Actions runner directory"
+Write-Host "  - Build scripts (C:\scripts\)"
 Write-Host "  - Build directories created"
 Write-Host ""
 Write-Host "⏭️  Next Steps:" -ForegroundColor Yellow
