@@ -30,6 +30,22 @@ Write-Host "║     Spider Lily Daily Build - $BuildNumber     ║" -ForegroundC
 Write-Host "╚════════════════════════════════════════════════╝" -ForegroundColor Cyan
 Write-Host ""
 
+# Show build plan
+Write-Host "Build Plan:" -ForegroundColor Cyan
+Write-Host "  [1/4] Sync from Perforce (~2-5 min)" -ForegroundColor Gray
+Write-Host "  [2/4] Clean build artifacts (~1 min)" -ForegroundColor Gray
+Write-Host "  [3/4] Build SpiderLilyEditor (~5-10 min)" -ForegroundColor Gray
+if ($Package) {
+    Write-Host "  [4/4] Package for distribution (~30-60 min)" -ForegroundColor Gray
+    Write-Host ""
+    Write-Host "⏱️  Total estimated time: ~45-75 minutes" -ForegroundColor Yellow
+} else {
+    Write-Host "  [4/4] Copy editor binaries (~1 min)" -ForegroundColor Gray
+    Write-Host ""
+    Write-Host "⏱️  Total estimated time: ~10-15 minutes" -ForegroundColor Yellow
+}
+Write-Host ""
+
 # Step 1: Sync from Perforce
 Write-Host "[1/4] Syncing from Perforce..." -ForegroundColor Yellow
 cd $WorkspaceRoot
