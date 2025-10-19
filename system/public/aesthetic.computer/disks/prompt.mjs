@@ -206,8 +206,6 @@ async function boot({
     .preload("https://shop.aesthetic.computer/cdn/shop/files/IMG-1098.png?v=1760737988&width=600")
     .then((img) => {
       bookImage = img;
-      console.log("📚 Book image loaded:", bookImage);
-      console.log("📚 Book dimensions:", bookImage?.img?.width, "x", bookImage?.img?.height);
       
       // Pre-scale the image for caching
       const bookScale = 0.1;
@@ -218,8 +216,6 @@ async function boot({
       bookImageScaled = api.painting(scaledW, scaledH, (p) => {
         p.paste(img.img, 0, 0, bookScale);
       });
-      
-      console.log("📚 Book image pre-scaled to:", scaledW, "x", scaledH);
     })
     .catch((err) => console.warn("📚 Could not load book image:", err));
 
