@@ -15,7 +15,7 @@ import {
 import { respond } from "../../backend/http.mjs";
 import { defaultTemplateStringProcessor as html } from "../../public/aesthetic.computer/lib/helpers.mjs";
 import { networkInterfaces } from "os";
-const dev = process.env.CONTEXT === "dev";
+const dev = process.env.CONTEXT === "dev" || process.env.NETLIFY_DEV === "true";
 
 async function fun(event, context) {
   // TODO: Return a 500 or 404 for everything that does not exist...
