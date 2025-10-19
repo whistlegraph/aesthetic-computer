@@ -22,7 +22,16 @@ Write-Host ""
 Write-Host "Configuration: $Config" -ForegroundColor Yellow
 Write-Host "Output:        $PackageOutput" -ForegroundColor Yellow
 Write-Host ""
-Write-Host "⚠️  This will take 30-60 minutes!" -ForegroundColor Yellow
+
+Write-Host "Build Steps:" -ForegroundColor Cyan
+Write-Host "  [1/5] Compile C++ code (~5 min)" -ForegroundColor Gray
+Write-Host "  [2/5] Cook content/assets (~15-20 min)" -ForegroundColor Gray
+Write-Host "  [3/5] Stage files (~5 min)" -ForegroundColor Gray
+Write-Host "  [4/5] Package into PAK files (~5 min)" -ForegroundColor Gray
+Write-Host "  [5/5] Archive for distribution (~2 min)" -ForegroundColor Gray
+Write-Host ""
+Write-Host "⏱️  Total estimated time: 30-60 minutes" -ForegroundColor Yellow
+Write-Host "💡 Tip: Go grab a coffee! ☕" -ForegroundColor Gray
 Write-Host ""
 
 $StartTime = Get-Date
