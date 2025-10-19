@@ -1,6 +1,10 @@
 # Minimal Bootstrap Script for UE5 Builder
 # Only installs what's actually needed - UE5 handles the rest!
 
+param(
+    [switch]$EnableLinuxBuilds = $false
+)
+
 $ErrorActionPreference = "Stop"
 
 Write-Host "=== false.work UE5 Builder - Minimal Setup ===" -ForegroundColor Cyan
@@ -201,6 +205,56 @@ Write-Host "  - Visual Studio 2022 Build Tools (C++ workload)"
 Write-Host "  - GitHub Actions runner directory"
 Write-Host "  - Build scripts (C:\scripts\)"
 Write-Host "  - Build directories created"
+
+# [9/9] Configure LiveCoding (Critical Fix)
+Write-Host ""
+Write-Host "[9/9] Configuring LiveCoding disable (prevents build hangs)..." -ForegroundColor Yellow
+$ProjectRoot = "C:\Perforce"
+if (Test-Path $ProjectRoot) {
+    $ConfigFile = "$ProjectRoot\Config\DefaultEditorPerProjectUserSettings.ini"
+    $ConfigDir = Split-Path $ConfigFile -Parent
+    
+    if (!(Test-Path $ConfigDir)) {
+        New-Item -ItemType Directory -Force -Path $ConfigDir | Out-Null
+    }
+    
+    if (Test-Path $ConfigFile) {
+        $content = Get-Content $ConfigFile -Raw
+    } else {
+        $content = ""
+    }
+    
+    if ($content -notmatch "\[/Script/LiveCoding.LiveCodingSettings\]") {
+        $content += "`n[/Script/LiveCoding.LiveCodingSettings]`nbEnabled=False`nStartup=Manual`n"
+        attrib -r $ConfigFile 2>$null
+        Set-Content -Path $ConfigFile -Value $content -NoNewline
+        Write-Host "✓ LiveCoding disabled in DefaultEditorPerProjectUserSettings.ini" -ForegroundColor Green
+    } else {
+        Write-Host "✓ LiveCoding config already exists" -ForegroundColor Green
+    }
+} else {
+    Write-Host "ℹ️  Perforce not synced yet - run this after first sync" -ForegroundColor Cyan
+}
+
+# [10/10] Install Linux Cross-Compile Toolchain (Optional)
+if ($EnableLinuxBuilds) {
+    Write-Host ""
+    Write-Host "[10/10] Installing Linux cross-compile toolchain (~2.5GB)..." -ForegroundColor Yellow
+    $ToolchainURL = "https://cdn.unrealengine.com/CrossToolchain_Linux/v22_clang-16.0.6-centos7.exe"
+    $Installer = "C:\Temp\linux-toolchain.exe"
+    
+    if (!(Test-Path "C:\Program Files\Epic Games\UE_5.6\Engine\Extras\ThirdPartyNotUE\SDKs")) {
+        Write-Host "  Downloading Linux toolchain (this may take 5-10 minutes)..." -ForegroundColor Cyan
+        New-Item -ItemType Directory -Force -Path C:\Temp | Out-Null
+        Invoke-WebRequest -Uri $ToolchainURL -OutFile $Installer -UseBasicParsing
+        Write-Host "  Installing toolchain..." -ForegroundColor Cyan
+        Start-Process -FilePath $Installer -ArgumentList "/S" -Wait
+        Write-Host "✓ Linux toolchain installed" -ForegroundColor Green
+    } else {
+        Write-Host "✓ Linux toolchain already installed" -ForegroundColor Green
+    }
+}
+
 Write-Host ""
 Write-Host "⏭️  Next Steps:" -ForegroundColor Yellow
 Write-Host ""
