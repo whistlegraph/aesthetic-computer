@@ -27,16 +27,23 @@ export async function handler(event, context) {
     const limit = parseInt(event.queryStringParameters?.limit || "100");
     const database = await connect();
 
-    // First, build a map of user codes to actual handles from the users collection
+    // First, build maps of Auth0 IDs and user codes to actual handles from the users collection
     const userCodeToHandle = new Map();
+    const auth0IdToCode = new Map();
+    const auth0IdToHandle = new Map();
     const usersCollection = database.db.collection("users");
     const allUsersData = await usersCollection.find({}, { 
-      projection: { code: 1, handle: 1 } 
+      projection: { _id: 1, code: 1, "atproto.handle": 1 } 
     }).toArray();
     
     for (const userData of allUsersData) {
+      const handle = userData.atproto?.handle || null;
       if (userData.code) {
-        userCodeToHandle.set(userData.code, userData.handle || null);
+        userCodeToHandle.set(userData.code, handle);
+      }
+      if (userData._id) {
+        auth0IdToCode.set(userData._id, userData.code);
+        auth0IdToHandle.set(userData._id, handle);
       }
     }
 
@@ -89,60 +96,84 @@ export async function handler(event, context) {
       stats.totalRecords += count;
     };
 
-    // 1. Count paintings per user
+    // 1. Count paintings per user (paintings have 'user' auth0 ID field)
     const paintingStats = await database.db.collection("paintings").aggregate([
       {
+        $match: { user: { $exists: true, $ne: null } }
+      },
+      {
         $group: {
-          _id: "$owner.handle",
+          _id: "$user",
           count: { $sum: 1 }
         }
       }
     ]).toArray();
 
     for (const stat of paintingStats) {
-      addUserStats(stat._id, "computer.aesthetic.painting", stat.count);
+      const code = auth0IdToCode.get(stat._id);
+      if (code) {
+        addUserStats(code, "computer.aesthetic.painting", stat.count);
+      }
     }
 
-    // 2. Count moods per user
+    // 2. Count moods per user (moods have 'user' auth0 ID field)
     const moodStats = await database.db.collection("moods").aggregate([
       {
+        $match: { user: { $exists: true, $ne: null } }
+      },
+      {
         $group: {
-          _id: "$for",
+          _id: "$user",
           count: { $sum: 1 }
         }
       }
     ]).toArray();
 
     for (const stat of moodStats) {
-      addUserStats(stat._id, "computer.aesthetic.mood", stat.count);
+      const code = auth0IdToCode.get(stat._id);
+      if (code) {
+        addUserStats(code, "computer.aesthetic.mood", stat.count);
+      }
     }
 
-    // 3. Count pieces per user
+    // 3. Count pieces per user (pieces have 'user' auth0 ID field)
     const pieceStats = await database.db.collection("pieces").aggregate([
       {
+        $match: { user: { $exists: true, $ne: null } }
+      },
+      {
         $group: {
-          _id: "$owner.handle",
+          _id: "$user",
           count: { $sum: 1 }
         }
       }
     ]).toArray();
 
     for (const stat of pieceStats) {
-      addUserStats(stat._id, "computer.aesthetic.piece", stat.count);
+      const code = auth0IdToCode.get(stat._id);
+      if (code) {
+        addUserStats(code, "computer.aesthetic.piece", stat.count);
+      }
     }
 
-    // 4. Count kidlisp per user
+    // 4. Count kidlisp per user (kidlisp have 'user' auth0 ID field)
     const kidlispStats = await database.db.collection("kidlisp").aggregate([
       {
+        $match: { user: { $exists: true, $ne: null } }
+      },
+      {
         $group: {
-          _id: "$owner.handle",
+          _id: "$user",
           count: { $sum: 1 }
         }
       }
     ]).toArray();
 
     for (const stat of kidlispStats) {
-      addUserStats(stat._id, "computer.aesthetic.kidlisp", stat.count);
+      const code = auth0IdToCode.get(stat._id);
+      if (code) {
+        addUserStats(code, "computer.aesthetic.kidlisp", stat.count);
+      }
     }
 
     // Convert to array and sort by total records (descending)
