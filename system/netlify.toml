@@ -27,7 +27,7 @@ included_env_vars = ["USER_ENDPOINT", "ART_KEY", "ART_SECRET", "USER_SPACE_NAME"
 external_node_modules = ["@google-cloud/text-to-speech"]
 included_env_vars = ["GCP_EMAIL", "GCP_TTS_KEY_URL", "CONTEXT"]
 [functions.mood]
-external_node_modules = ["got", "firebase-admin", "obscenity", "@atproto/api"]
+external_node_modules = ["got", "firebase-admin", "obscenity", "@atproto/api", "sharp"]
 included_env_vars = ["CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "REDIS_CONNECTION_STRING", "NETLIFY_DEV", "GCM_FIREBASE_CONFIG_URL", "PDS_URL", "PDS_ADMIN_PASSWORD"]
 [functions.handle]
 included_files = ["public/aesthetic.computer/lib/text.mjs", "backend/**/*.mjs"]
