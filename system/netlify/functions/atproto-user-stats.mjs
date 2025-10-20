@@ -6,6 +6,19 @@ import { connect } from "../../backend/database.mjs";
 import { respond } from "../../backend/http.mjs";
 
 export async function handler(event, context) {
+  // Handle CORS preflight
+  if (event.httpMethod === "OPTIONS") {
+    return {
+      statusCode: 200,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Headers": "Content-Type",
+        "Access-Control-Allow-Methods": "GET, OPTIONS"
+      },
+      body: ""
+    };
+  }
+
   if (event.httpMethod !== "GET") {
     return respond(405, { message: "Method Not Allowed" });
   }

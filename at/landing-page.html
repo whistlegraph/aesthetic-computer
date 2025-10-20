@@ -67,19 +67,19 @@ Created: 2025.10.20
 
     .url-demo {
       font-family: monospace;
-      font-size: 1.1em;
-      margin: 1em 0;
-      color: #666;
+      font-size: 2.5em;
+      margin: 0 0 1em 0;
+      font-weight: normal;
     }
 
     .url-demo .user-part {
-      color: rgb(205, 92, 155);
-      font-weight: bold;
+      color: #999;
       transition: opacity 0.3s;
     }
 
     .url-demo .domain-part {
-      opacity: 0.5;
+      color: rgb(205, 92, 155);
+      font-weight: bold;
     }
 
     .intro {
@@ -258,11 +258,10 @@ Created: 2025.10.20
 <body>
   <div class="container">
     <header>
-      <h1>at.aesthetic.computer</h1>
-      <div class="subtitle">Personal Data Server · ATProto Network</div>
       <div class="url-demo">
         <span class="user-part" id="rotating-user">jeffrey</span><span class="domain-part">.at.aesthetic.computer</span>
       </div>
+      <div class="subtitle">Personal Data Server · ATProto Network</div>
     </header>
 
     <div class="intro">
@@ -321,6 +320,27 @@ Created: 2025.10.20
     
     let allUsers = [];
     let displayedUsers = [];
+    let rotatingUserIndex = 0;
+
+    // Rotate through user handles in the header demo
+    function startUserRotation() {
+      if (allUsers.length === 0) return;
+      
+      setInterval(() => {
+        rotatingUserIndex = (rotatingUserIndex + 1) % allUsers.length;
+        const user = allUsers[rotatingUserIndex];
+        const identifier = user.handle || user.code;
+        const shortHandle = identifier.replace('.at.aesthetic.computer', '').replace('@', '');
+        
+        const userElement = document.getElementById('rotating-user');
+        userElement.style.opacity = '0';
+        
+        setTimeout(() => {
+          userElement.textContent = shortHandle;
+          userElement.style.opacity = '1';
+        }, 150);
+      }, 2000); // Change every 2 seconds
+    }
 
     // Fetch user stats from aesthetic.computer API (aggregated from MongoDB)
     async function fetchUsers() {
@@ -334,6 +354,9 @@ Created: 2025.10.20
 
         allUsers = data.users;
         displayedUsers = allUsers;
+        
+        // Start rotating through user handles in header
+        startUserRotation();
         
         // Update stats from API
         if (data.stats) {
