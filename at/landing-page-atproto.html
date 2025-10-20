@@ -65,23 +65,6 @@ Created: 2025.10.20
       margin: 0.5em 0;
     }
 
-    .url-demo {
-      font-family: monospace;
-      font-size: 2.5em;
-      margin: 0 0 1em 0;
-      font-weight: normal;
-    }
-
-    .url-demo .user-part {
-      color: #999;
-      transition: opacity 0.3s;
-    }
-
-    .url-demo .domain-part {
-      color: rgb(205, 92, 155);
-      font-weight: bold;
-    }
-
     .intro {
       text-align: center;
       max-width: 600px;
@@ -258,9 +241,7 @@ Created: 2025.10.20
 <body>
   <div class="container">
     <header>
-      <div class="url-demo">
-        <span class="user-part" id="rotating-user">jeffrey</span><span class="domain-part">.at.aesthetic.computer</span>
-      </div>
+      <h1>at.aesthetic.computer</h1>
       <div class="subtitle">Personal Data Server · ATProto Network</div>
     </header>
 
@@ -316,61 +297,92 @@ Created: 2025.10.20
 
   <script>
     const PDS_URL = 'https://at.aesthetic.computer';
-    const API_URL = 'https://aesthetic.computer';
     
     let allUsers = [];
     let displayedUsers = [];
-    let rotatingUserIndex = 0;
+    let loadingProgress = 0;
 
-    // Rotate through user handles in the header demo
-    function startUserRotation() {
-      if (allUsers.length === 0) return;
-      
-      setInterval(() => {
-        rotatingUserIndex = (rotatingUserIndex + 1) % allUsers.length;
-        const user = allUsers[rotatingUserIndex];
-        const identifier = user.handle || user.code;
-        const shortHandle = identifier.replace('.at.aesthetic.computer', '').replace('@', '');
-        
-        const userElement = document.getElementById('rotating-user');
-        userElement.style.opacity = '0';
-        
-        setTimeout(() => {
-          userElement.textContent = shortHandle;
-          userElement.style.opacity = '1';
-        }, 150);
-      }, 2000); // Change every 2 seconds
-    }
-
-    // Fetch user stats from aesthetic.computer API (aggregated from MongoDB)
+    // Fetch list of repositories (users) from PDS
     async function fetchUsers() {
       try {
-        const response = await fetch(`${API_URL}/api/atproto-user-stats?limit=200`);
+        const response = await fetch(`${PDS_URL}/xrpc/com.atproto.sync.listRepos?limit=1000`);
         const data = await response.json();
         
-        if (!data.users || !Array.isArray(data.users)) {
-          throw new Error('Invalid response from API');
+        if (!data.repos || !Array.isArray(data.repos)) {
+          throw new Error('Invalid response from PDS');
         }
 
-        allUsers = data.users;
+        const totalRepos = Math.min(data.repos.length, 200); // Limit to avoid too many requests
+        
+        // Get details for each repo (with progress)
+        for (let i = 0; i < totalRepos; i++) {
+          const repo = data.repos[i];
+          loadingProgress = Math.round((i / totalRepos) * 100);
+          updateLoadingProgress();
+          
+          try {
+            const detailsResponse = await fetch(
+              `${PDS_URL}/xrpc/com.atproto.repo.describeRepo?repo=${repo.did}`
+            );
+            const details = await detailsResponse.json();
+            
+            if (details.handle) {
+              allUsers.push({
+                did: repo.did,
+                handle: details.handle,
+                collections: details.collections || [],
+                recordCount: details.collections?.length || 0, // Use collection count as proxy
+                lastActive: repo.head
+              });
+            }
+          } catch (e) {
+            // Skip failed repos
+          }
+          
+          // Batch render every 20 users
+          if (i % 20 === 0) {
+            displayedUsers = [...allUsers].sort((a, b) => b.recordCount - a.recordCount);
+            updateStats();
+            renderUsers(displayedUsers);
+          }
+        }
+
+        // Final sort and render
+        allUsers.sort((a, b) => b.recordCount - a.recordCount);
         displayedUsers = allUsers;
         
-        // Start rotating through user handles in header
-        startUserRotation();
-        
-        // Update stats from API
-        if (data.stats) {
-          document.getElementById('total-users').textContent = data.stats.totalUsers.toLocaleString();
-          document.getElementById('total-records').textContent = data.stats.totalRecords.toLocaleString();
-          document.getElementById('active-today').textContent = data.stats.activeUsers.toLocaleString();
-        }
-        
+        updateStats();
         renderUsers(displayedUsers);
       } catch (error) {
         console.error('Error fetching users:', error);
         document.getElementById('users-container').innerHTML = 
-          '<div class="error">Failed to load user stats. Try refreshing the page.</div>';
+          '<div class="error">Failed to load users from PDS. Try refreshing the page.</div>';
       }
+    }
+
+    function updateLoadingProgress() {
+      const container = document.getElementById('users-container');
+      if (allUsers.length === 0) {
+        container.innerHTML = `
+          <div class="loading">
+            <div class="spinner"></div>
+            <p>Loading users from ATProto... ${loadingProgress}%</p>
+          </div>
+        `;
+      }
+    }
+
+    // Update stats display
+    function updateStats() {
+      document.getElementById('total-users').textContent = allUsers.length;
+      
+      const totalRecords = allUsers.reduce((sum, u) => sum + u.recordCount, 0);
+      document.getElementById('total-records').textContent = totalRecords.toLocaleString();
+      
+      // For "active today", we'd need timestamps which requires more API calls
+      // For now, show users with any records
+      const activeUsers = allUsers.filter(u => u.recordCount > 0).length;
+      document.getElementById('active-today').textContent = activeUsers;
     }
 
     // Render user cards
@@ -388,38 +400,27 @@ Created: 2025.10.20
       users.forEach(user => {
         const card = document.createElement('a');
         card.className = 'user-card';
-        
-        // Use the actual handle if available, otherwise use the code
-        const identifier = user.handle || user.code;
-        const shortHandle = identifier.replace('.at.aesthetic.computer', '').replace('@', '');
-        card.href = `https://${shortHandle}.at.aesthetic.computer`;
+        card.href = `https://${user.handle}.${PDS_URL.replace('https://', '')}`;
         card.target = '_blank';
 
         const badges = [];
         if (user.collections.includes('computer.aesthetic.painting')) {
-          const count = user.recordCounts['computer.aesthetic.painting'] || 0;
-          badges.push(`<span class="user-badge">🎨 ${count}</span>`);
+          badges.push('<span class="user-badge">🎨 Paintings</span>');
         }
         if (user.collections.includes('computer.aesthetic.mood')) {
-          const count = user.recordCounts['computer.aesthetic.mood'] || 0;
-          badges.push(`<span class="user-badge">💬 ${count}</span>`);
+          badges.push('<span class="user-badge">💬 Moods</span>');
         }
         if (user.collections.includes('computer.aesthetic.piece')) {
-          const count = user.recordCounts['computer.aesthetic.piece'] || 0;
-          badges.push(`<span class="user-badge">🎵 ${count}</span>`);
+          badges.push('<span class="user-badge">🎵 Pieces</span>');
         }
         if (user.collections.includes('computer.aesthetic.kidlisp')) {
-          const count = user.recordCounts['computer.aesthetic.kidlisp'] || 0;
-          badges.push(`<span class="user-badge">📝 ${count}</span>`);
+          badges.push('<span class="user-badge">📝 Code</span>');
         }
 
-        // User codes (ac##*) don't get @ prefix, real handles do
-        const displayHandle = user.isUserCode ? shortHandle : `@${shortHandle}`;
-
         card.innerHTML = `
-          <div class="user-handle">${displayHandle}</div>
+          <div class="user-handle">@${user.handle.replace('.at.aesthetic.computer', '')}</div>
           <div>${badges.join(' ')}</div>
-          <div class="user-stats">${user.totalRecords} record${user.totalRecords !== 1 ? 's' : ''}</div>
+          <div class="user-stats">${user.recordCount} record${user.recordCount !== 1 ? 's' : ''}</div>
         `;
 
         grid.appendChild(card);
