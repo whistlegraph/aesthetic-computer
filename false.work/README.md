@@ -1,7 +1,5 @@
 <img width="400" src="https://images.squarespace-cdn.com/content/v1/6838f89fea63a32f67c61d96/5bc717b9-7339-42d1-8544-66c19d6d925b/Asset+18.png?format=1500w">
 
----
-
 ### 💌 Howdy
 
 I managed to set up a remote Windows machine to build Spider Lily! Started with a bootstrap script that kept hitting edge cases (C: vs D: drives, reentrant progress, .NET SDK, Windows Defender exclusions). Added Epic Games Launcher via Chocolatey, wrangled MSVC 14.38 for VS2022, disabled LiveCoding for automation, and finally got the whole pipeline working. Cost about $28 so far, should be ~$2-3 per rebuild.
@@ -9,8 +7,6 @@ I managed to set up a remote Windows machine to build Spider Lily! Started with 
 Next up: auto-deploy to your site under a password page!
 
 — @jeffrey on [prompt.ac/chat](https://prompt.ac/chat)
-
----
 
 ### 🔜 Next
 1. Set up automated build system
@@ -30,6 +26,4 @@ Next up: auto-deploy to your site under a password page!
 
 **Per rebuild:** ~$2-3 (estimated spin-up + build time)
 
----
-
-<sub>Engineered by [Aesthetic Inc.](https://aesthetic.direct)</sub>
+Engineered by [Aesthetic Inc.](https://aesthetic.direct)
