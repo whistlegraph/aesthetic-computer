@@ -1,0 +1,642 @@
+<!--
+ATProto User Page for *.at.aesthetic.computer
+Shows all records for a specific user's handle
+Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title id="page-title">Loading...</title>
+  <meta name="description" content="Personal ATProto data page">
+  <link rel="icon" type="image/png"
+    href="https://pals-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/painting-2023.7.29.20.39.png">
+  
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    ::-webkit-scrollbar {
+      display: none;
+    }
+    
+    body {
+      margin: 0;
+      font-size: 14px;
+      font-family: monospace;
+      -webkit-text-size-adjust: none;
+      background: #f5f5f5;
+      color: #000;
+      line-height: 1.4;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 1em 0.5em;
+    }
+
+    header {
+      text-align: center;
+      padding: 1em 0;
+      border-bottom: 2px solid rgb(205, 92, 155);
+      margin-bottom: 1em;
+    }
+
+    h1 {
+      font-size: 1.5em;
+      font-weight: normal;
+      margin: 0 0 0.3em 0;
+      color: rgb(205, 92, 155);
+    }
+
+    .subtitle {
+      font-size: 0.85em;
+      opacity: 0.7;
+      margin: 0.3em 0;
+    }
+
+    .stats {
+      display: flex;
+      gap: 1em;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin: 0.5em 0;
+      font-size: 0.75em;
+    }
+
+    .stat {
+      padding: 0.3em 0.6em;
+      background: rgba(205, 92, 155, 0.1);
+      border-radius: 3px;
+    }
+
+    .stat strong {
+      color: rgb(205, 92, 155);
+    }
+
+    .loading {
+      text-align: center;
+      padding: 4em 2em;
+      font-size: 1.2em;
+      opacity: 0.6;
+    }
+
+    .error {
+      text-align: center;
+      padding: 4em 2em;
+      color: #d32f2f;
+      font-size: 1.1em;
+    }
+
+    .section {
+      margin: 1.5em 0;
+    }
+
+    .section-title {
+      font-size: 1.2em;
+      font-weight: normal;
+      margin: 0 0 0.5em 0;
+      padding-bottom: 0.3em;
+      border-bottom: 1px solid rgba(205, 92, 155, 0.3);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .section-count {
+      font-size: 0.7em;
+      color: rgb(205, 92, 155);
+      font-weight: bold;
+    }
+
+    .records-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 0.5em;
+    }
+
+    .record-card {
+      background: white;
+      padding: 0.75em;
+      border-radius: 4px;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .record-card:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    .record-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: start;
+      margin-bottom: 0.5em;
+      gap: 0.5em;
+    }
+
+    .record-type {
+      font-size: 0.65em;
+      padding: 0.2em 0.5em;
+      background: rgb(205, 92, 155);
+      color: white;
+      border-radius: 2px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .record-date {
+      font-size: 0.7em;
+      opacity: 0.6;
+      white-space: nowrap;
+    }
+
+    .record-content {
+      margin: 0.5em 0;
+    }
+
+    .record-image {
+      width: 100%;
+      max-width: 200px;
+      margin: 0.5em 0;
+      border-radius: 2px;
+      border: 1px solid #e0e0e0;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+
+    .record-text {
+      font-size: 0.85em;
+      line-height: 1.3;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+
+    .record-meta {
+      margin-top: 0.5em;
+      padding-top: 0.5em;
+      border-top: 1px solid #e0e0e0;
+      font-size: 0.7em;
+      opacity: 0.7;
+      display: flex;
+      gap: 0.5em;
+      flex-wrap: wrap;
+    }
+
+    .record-link {
+      color: rgb(205, 92, 155);
+      text-decoration: none;
+      font-size: 0.75em;
+      display: inline-block;
+      margin-top: 0.3em;
+    }
+
+    .record-link:hover {
+      text-decoration: underline;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 2em 1em;
+      opacity: 0.5;
+      font-style: italic;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 0.3em;
+      margin-bottom: 1em;
+      border-bottom: 1px solid #e0e0e0;
+      flex-wrap: wrap;
+    }
+
+    .tab {
+      padding: 0.5em 1em;
+      background: none;
+      border: none;
+      font-family: monospace;
+      font-size: 0.85em;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+      color: #666;
+    }
+
+    .tab:hover {
+      color: rgb(205, 92, 155);
+      background: rgba(205, 92, 155, 0.05);
+    }
+
+    .tab.active {
+      color: rgb(205, 92, 155);
+      border-bottom-color: rgb(205, 92, 155);
+      font-weight: bold;
+    }
+
+    .tab-badge {
+      display: inline-block;
+      margin-left: 0.3em;
+      padding: 0.1em 0.4em;
+      background: rgb(205, 92, 155);
+      color: white;
+      border-radius: 8px;
+      font-size: 0.7em;
+      min-width: 1.2em;
+      text-align: center;
+    }
+
+    footer {
+      text-align: center;
+      padding: 3em 1em 2em;
+      opacity: 0.5;
+      font-size: 0.85em;
+    }
+
+    footer a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    footer a:hover {
+      color: rgb(205, 92, 155);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      body {
+        background: rgb(40, 35, 45);
+        color: rgba(255, 255, 255, 0.9);
+      }
+
+      .record-card {
+        background: rgba(255, 255, 255, 0.05);
+        color: rgba(255, 255, 255, 0.9);
+      }
+
+      .stat {
+        background: rgba(205, 92, 155, 0.2);
+      }
+
+      .tabs {
+        border-bottom-color: rgba(255, 255, 255, 0.1);
+      }
+
+      .tab {
+        color: rgba(255, 255, 255, 0.6);
+      }
+
+      .record-meta {
+        border-top-color: rgba(255, 255, 255, 0.1);
+      }
+    }
+
+    @media (max-width: 600px) {
+      body {
+        font-size: 16px;
+      }
+
+      h1 {
+        font-size: 1.5em;
+      }
+
+      .stats {
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .tab {
+        padding: 0.6em 1em;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <header>
+      <h1 id="handle-display">Loading...</h1>
+      <div class="subtitle" id="did-display"></div>
+      <div class="stats" id="stats"></div>
+    </header>
+
+    <div id="loading" class="loading">
+      🔍 Loading ATProto records...
+    </div>
+
+    <div id="error" class="error" style="display: none;"></div>
+
+    <div id="content" style="display: none;">
+      <div class="tabs" id="tabs"></div>
+      <div id="records-container"></div>
+    </div>
+
+    <footer>
+      <a href="https://at.aesthetic.computer">← Back to at.aesthetic.computer</a>
+      <div style="margin-top: 1em; opacity: 0.5;">
+        Powered by <a href="https://atproto.com" target="_blank">AT Protocol</a>
+      </div>
+    </footer>
+  </div>
+
+  <script>
+    const PDS_URL = 'https://at.aesthetic.computer';
+    
+    // Extract handle from subdomain
+    function getHandleFromSubdomain() {
+      const hostname = window.location.hostname;
+      // Match: handle.at.aesthetic.computer
+      const match = hostname.match(/^([^.]+)\.at\.aesthetic\.computer$/);
+      if (match) {
+        return match[1] + '.at.aesthetic.computer';
+      }
+      return null;
+    }
+
+    // Resolve handle to DID
+    async function resolveDID(handle) {
+      try {
+        const response = await fetch(`${PDS_URL}/xrpc/com.atproto.identity.resolveHandle?handle=${encodeURIComponent(handle)}`);
+        if (!response.ok) throw new Error(`Failed to resolve handle: ${response.status}`);
+        const data = await response.json();
+        return data.did;
+      } catch (error) {
+        console.error('Error resolving DID:', error);
+        throw error;
+      }
+    }
+
+    // List all records for a collection
+    async function listRecords(did, collection, limit = 100) {
+      const records = [];
+      let cursor = undefined;
+
+      try {
+        do {
+          const url = new URL(`${PDS_URL}/xrpc/com.atproto.repo.listRecords`);
+          url.searchParams.append('repo', did);
+          url.searchParams.append('collection', collection);
+          url.searchParams.append('limit', limit);
+          if (cursor) url.searchParams.append('cursor', cursor);
+
+          const response = await fetch(url);
+          if (!response.ok) {
+            if (response.status === 400) {
+              // Collection might not exist for this user
+              return [];
+            }
+            throw new Error(`Failed to list records: ${response.status}`);
+          }
+
+          const data = await response.json();
+          records.push(...(data.records || []));
+          cursor = data.cursor;
+        } while (cursor);
+
+        return records;
+      } catch (error) {
+        console.error(`Error listing ${collection}:`, error);
+        return [];
+      }
+    }
+
+    // Format date
+    function formatDate(dateString) {
+      const date = new Date(dateString);
+      return date.toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    }
+
+    // Get record key from URI
+    function getRkey(uri) {
+      return uri.split('/').pop();
+    }
+
+    // Render a painting record
+    function renderPainting(record) {
+      const { value, uri } = record;
+      const rkey = getRkey(uri);
+      
+      const card = document.createElement('div');
+      card.className = 'record-card';
+      
+      let imageHtml = '';
+      if (value.thumbnail?.ref) {
+        const did = uri.split('/')[2];
+        const thumbnailUrl = `${PDS_URL}/xrpc/com.atproto.sync.getBlob?did=${did}&cid=${value.thumbnail.ref.$link}`;
+        imageHtml = `<img src="${thumbnailUrl}" alt="Painting thumbnail" class="record-image">`;
+      }
+
+      card.innerHTML = `
+        <div class="record-header">
+          <span class="record-type">Painting</span>
+          <span class="record-date">${formatDate(value.createdAt || value.when)}</span>
+        </div>
+        <div class="record-content">
+          ${imageHtml}
+          ${value.slug ? `<div style="font-size: 0.9em; opacity: 0.7;">Slug: ${value.slug}</div>` : ''}
+          ${value.code ? `<div style="font-size: 0.9em; opacity: 0.7;">Code: #${value.code}</div>` : ''}
+        </div>
+        <div class="record-meta">
+          <span>rkey: ${rkey}</span>
+        </div>
+        <a href="https://pdsls.dev/at://${uri.split('//')[1]}" target="_blank" class="record-link">
+          View on pdsls.dev →
+        </a>
+      `;
+      
+      return card;
+    }
+
+    // Render a mood record
+    function renderMood(record) {
+      const { value, uri } = record;
+      const rkey = getRkey(uri);
+      
+      const card = document.createElement('div');
+      card.className = 'record-card';
+      
+      card.innerHTML = `
+        <div class="record-header">
+          <span class="record-type">Mood</span>
+          <span class="record-date">${formatDate(value.when || value.createdAt)}</span>
+        </div>
+        <div class="record-content">
+          <div class="record-text">${value.mood || value.text || ''}</div>
+        </div>
+        <div class="record-meta">
+          <span>rkey: ${rkey}</span>
+        </div>
+        <a href="https://pdsls.dev/at://${uri.split('//')[1]}" target="_blank" class="record-link">
+          View on pdsls.dev →
+        </a>
+      `;
+      
+      return card;
+    }
+
+    // Render a generic record
+    function renderGenericRecord(record, typeName) {
+      const { value, uri } = record;
+      const rkey = getRkey(uri);
+      
+      const card = document.createElement('div');
+      card.className = 'record-card';
+      
+      card.innerHTML = `
+        <div class="record-header">
+          <span class="record-type">${typeName}</span>
+          <span class="record-date">${formatDate(value.createdAt || value.when || new Date().toISOString())}</span>
+        </div>
+        <div class="record-content">
+          <pre class="record-text" style="font-size: 0.85em; overflow-x: auto;">${JSON.stringify(value, null, 2)}</pre>
+        </div>
+        <div class="record-meta">
+          <span>rkey: ${rkey}</span>
+        </div>
+        <a href="https://pdsls.dev/at://${uri.split('//')[1]}" target="_blank" class="record-link">
+          View on pdsls.dev →
+        </a>
+      `;
+      
+      return card;
+    }
+
+    // Render records for a collection
+    function renderRecords(records, collection) {
+      const container = document.getElementById('records-container');
+      container.innerHTML = '';
+
+      if (records.length === 0) {
+        container.innerHTML = '<div class="empty-state">No records found</div>';
+        return;
+      }
+
+      const grid = document.createElement('div');
+      grid.className = 'records-grid';
+
+      // Sort by date (newest first)
+      const sorted = [...records].sort((a, b) => {
+        const dateA = new Date(a.value.createdAt || a.value.when || 0);
+        const dateB = new Date(b.value.createdAt || b.value.when || 0);
+        return dateB - dateA;
+      });
+
+      sorted.forEach(record => {
+        let card;
+        if (collection.includes('painting')) {
+          card = renderPainting(record);
+        } else if (collection.includes('mood')) {
+          card = renderMood(record);
+        } else {
+          card = renderGenericRecord(record, collection.split('.').pop());
+        }
+        grid.appendChild(card);
+      });
+
+      container.appendChild(grid);
+    }
+
+    // Initialize the page
+    async function init() {
+      try {
+        const handle = getHandleFromSubdomain();
+        if (!handle) {
+          throw new Error('Invalid subdomain format. Expected: handle.at.aesthetic.computer');
+        }
+
+        document.getElementById('handle-display').textContent = `@${handle}`;
+        document.title = `@${handle} · ATProto`;
+
+        // Resolve DID
+        const did = await resolveDID(handle);
+        document.getElementById('did-display').textContent = did;
+
+        // Fetch all collections
+        const collections = [
+          'computer.aesthetic.painting',
+          'computer.aesthetic.mood',
+          'computer.aesthetic.piece',
+          'computer.aesthetic.kidlisp'
+        ];
+
+        const recordsByCollection = {};
+        let totalRecords = 0;
+
+        for (const collection of collections) {
+          const records = await listRecords(did, collection);
+          recordsByCollection[collection] = records;
+          totalRecords += records.length;
+        }
+
+        // Update stats
+        const statsHtml = collections.map(col => {
+          const count = recordsByCollection[col].length;
+          const name = col.split('.').pop();
+          return `<div class="stat"><strong>${count}</strong> ${name}${count !== 1 ? 's' : ''}</div>`;
+        }).join('');
+        
+        document.getElementById('stats').innerHTML = `
+          <div class="stat"><strong>${totalRecords}</strong> total records</div>
+          ${statsHtml}
+        `;
+
+        // Create tabs
+        const tabsContainer = document.getElementById('tabs');
+        const allRecords = Object.values(recordsByCollection).flat();
+        
+        // All tab
+        const allTab = document.createElement('button');
+        allTab.className = 'tab active';
+        allTab.innerHTML = `All<span class="tab-badge">${totalRecords}</span>`;
+        allTab.onclick = () => {
+          document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+          allTab.classList.add('active');
+          renderRecords(allRecords, 'all');
+        };
+        tabsContainer.appendChild(allTab);
+
+        // Collection tabs
+        collections.forEach(collection => {
+          const records = recordsByCollection[collection];
+          if (records.length > 0) {
+            const name = collection.split('.').pop();
+            const tab = document.createElement('button');
+            tab.className = 'tab';
+            tab.innerHTML = `${name.charAt(0).toUpperCase() + name.slice(1)}<span class="tab-badge">${records.length}</span>`;
+            tab.onclick = () => {
+              document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+              tab.classList.add('active');
+              renderRecords(records, collection);
+            };
+            tabsContainer.appendChild(tab);
+          }
+        });
+
+        // Show all records by default
+        renderRecords(allRecords, 'all');
+
+        // Hide loading, show content
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('content').style.display = 'block';
+
+      } catch (error) {
+        console.error('Error loading page:', error);
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('error').style.display = 'block';
+        document.getElementById('error').textContent = `❌ Error: ${error.message}`;
+      }
+    }
+
+    // Start
+    init();
+  </script>
+</body>
+</html>
