@@ -1,49 +1,35 @@
-# false.work Studio
+<img width="400" src="https://images.squarespace-cdn.com/content/v1/6838f89fea63a32f67c61d96/5bc717b9-7339-42d1-8544-66c19d6d925b/Asset+18.png?format=1500w">
 
-Automation tools and build scripts for false.work studio projects.
+---
 
-## Contents
+### 💌 Howdy
 
-- **unreal-builder/** - GitHub Actions workflow for building Unreal Engine 5 projects from Perforce
+I managed to set up a remote Windows machine to build Spider Lily! Started with a bootstrap script that kept hitting edge cases (C: vs D: drives, reentrant progress, .NET SDK, Windows Defender exclusions). Added Epic Games Launcher via Chocolatey, wrangled MSVC 14.38 for VS2022, disabled LiveCoding for automation, and finally got the whole pipeline working. Cost about $28 so far, should be ~$2-3 per rebuild.
 
-## Current Status (October 18, 2025)
+Next up: auto-deploy to your site under a password page!
 
-### Spider Lily UE5 Build Automation - In Progress
+— @jeffrey on [prompt.ac/chat](https://prompt.ac/chat)
 
-**VM Setup:**
-- ✅ GCP VM created (n2-standard-8: 8 vCPU, 32GB RAM, 300GB SSD)
-- ✅ Bootstrap script completed
-  - ✅ Chocolatey installed
-  - ✅ Git for Windows installed
-  - ✅ Perforce CLI (p4.exe) installed
-  - ✅ Epic Games Launcher installed via Chocolatey
-  - ✅ GitHub Actions runner downloaded
-- ✅ aesthetic-computer-vault cloned
-- ✅ Perforce SSL certificate trusted
-- 🔄 **UE5.6 installing** (1-2 hours, in progress)
+---
 
-**Perforce Integration:**
-- ✅ Can connect to Helix Core server (ssl:falsework.helixcore.io:1666)
-- ⏳ **Waiting for "machine" user credentials to propagate** 
-  - User just created in false.work's Helix Core Cloud
-  - Need to verify password and access permissions
-- ⏸️ Workspace creation pending (after login works)
-- ⏸️ Project sync pending (30-60 min download after workspace created)
+### 🔜 Next
+1. Set up automated build system
+2. Auto-post builds to false.work website under password-protected page
 
-**Next Steps:**
-1. Verify Perforce "machine" user login works
-2. Create Perforce workspace pointing to //depot/SpiderLily/SL_main
-3. Sync Spider Lily project (~50-100GB)
-4. Configure GitHub Actions runner
-5. Test first build
-6. Document build workflow
+### ✅ Status (October 20, 2025)
+- ✅ GCP VM us-central1 (n2-standard-8: 8 vCPU, 32GB RAM, 300GB SSD)
+- ✅ UE5.6 + Perforce + GitHub Actions runner
+- ✅ Connected to Helix Core (ssl:falsework.helixcore.io:1666)
+- ✅ **Spider Lily built and deployed for Windows**
 
-**Timeline Estimate:**
-- UE5 install: ~1-2 hours remaining
-- Perforce sync: ~30-60 minutes (after credentials verified)
-- First build test: ~30-60 minutes
-- Total: ~3-5 hours to fully operational
+### 💰 Costs
+**Setup so far:** ~$28
+- Windows Server license: $14.46 (314.26 hours)
+- N2 Instance Core: $8.81 (278.83 hours)
+- N2 Instance RAM: $4.73 (1,115.31 GiB hours)
 
-## Setup
+**Per rebuild:** ~$2-3 (estimated spin-up + build time)
 
-See individual subdirectories for specific setup instructions.
+---
+
+<sub>Engineered by [Aesthetic Inc.](https://aesthetic.direct)</sub>
