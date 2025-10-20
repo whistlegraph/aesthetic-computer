@@ -345,7 +345,7 @@ Created: 2025.10.20
     // Fetch user stats from aesthetic.computer API (aggregated from MongoDB)
     async function fetchUsers() {
       try {
-        const response = await fetch(`${API_URL}/api/atproto-user-stats?limit=200`);
+        const response = await fetch(`${API_URL}/.netlify/functions/atproto-user-stats?limit=200`);
         const data = await response.json();
         
         if (!data.users || !Array.isArray(data.users)) {
