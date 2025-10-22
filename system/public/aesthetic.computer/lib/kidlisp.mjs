@@ -971,7 +971,10 @@ class KidLisp {
     this.expressionRegistry = new Map(); // Map AST expressions to unique IDs
     this.nextExpressionId = 0; // Counter for expression IDs
 
-    // 🎯 Performance monitoring system
+    // � Default FPS for KidLisp pieces
+    this.targetFps = 60; // Default to 60fps unless overridden by (fps N) command
+
+    // �🎯 Performance monitoring system
     this.perf = {
       enabled: false, // Toggle for performance monitoring
       showHUD: false, // Toggle for performance HUD overlay
@@ -2707,15 +2710,22 @@ class KidLisp {
 
     // 🧩 Piece API
     return {
-      boot: ({ wipe, params, clock, screen, sound, delay, pieceCount, net, backgroundFill }) => {
+      boot: ({ wipe, params, clock, screen, sound, delay, pieceCount, net, backgroundFill, fps }) => {
         // Store API reference for reframe operations
-        this.lastUsedApi = { wipe, params, clock, screen, sound, delay, pieceCount, net, backgroundFill };
+        this.lastUsedApi = { wipe, params, clock, screen, sound, delay, pieceCount, net, backgroundFill, fps };
 
         // Resync clock for accurate timing (like clock.mjs does)
         clock?.resync?.();
 
         // Preload MatrixChunky8 font for QR code generation in KidLisp pieces
         net?.preloadTypeface?.("MatrixChunky8");
+
+        // 🎬 Set default FPS to 60 for KidLisp pieces
+        // This can be overridden later by calling (fps N) in the KidLisp code
+        if (fps && typeof fps === "function") {
+          fps(this.targetFps);
+          console.log(`🎬 KidLisp piece default FPS set to: ${this.targetFps}`);
+        }
 
         // ...existing boot code...
 
@@ -5930,6 +5940,7 @@ class KidLisp {
 
         // If no arguments, return undefined (like JavaScript undefined)
         // Functions can detect this and apply their own contextual logic
+        console.log("🎲 ? called with no arguments, returning undefined");
         return undefined;
       },
       // 🔄 Sequential selection (cycles through arguments in order)
@@ -5981,10 +5992,10 @@ class KidLisp {
         });
       },
       rainbow: (api) => {
-        return api.num?.rainbow() || [255, 0, 0]; // Fallback to red if not available
+        return "rainbow"; // Return string marker for rainbow pattern (not the color array)
       },
       zebra: (api) => {
-        return api.num?.zebra() || [0, 0, 0]; // Fallback to black if not available
+        return "zebra"; // Return string marker for zebra pattern (not the color array)
       },
       // 🎨 Noise generation
       noise: (api, args = []) => {
@@ -8530,7 +8541,35 @@ class KidLisp {
       let lastColor = null;
 
       for (let i = 0; i < tokens.length; i++) {
-        const token = tokens[i];
+        let token = tokens[i];
+        
+        // Check if this token is a fastmath expression like "frame*3"
+        const fastMathMatch = token.match(/^(\w+)\s*([+\-*/%])\s*(\w+|\d+(?:\.\d+)?)$/);
+        if (fastMathMatch) {
+          const [, left, op, right] = fastMathMatch;
+          
+          // Find the full token in the original source
+          const tokenIndex = this.syntaxHighlightSource.indexOf(token, sourceIndex);
+          if (tokenIndex !== -1) {
+            // Add any whitespace before the token
+            const whitespace = this.syntaxHighlightSource.substring(sourceIndex, tokenIndex);
+            result += whitespace;
+            
+            // Color each part of the fastmath expression
+            const leftColor = this.getTokenColor(left, [left, op, right], 0);
+            const opColor = this.getTokenColor(op, [left, op, right], 1);
+            const rightColor = this.getTokenColor(right, [left, op, right], 2);
+            
+            result += `\\${leftColor}\\${left}`;
+            result += `\\${opColor}\\${op}`;
+            result += `\\${rightColor}\\${right}`;
+            
+            lastColor = rightColor;
+            sourceIndex = tokenIndex + token.length;
+          }
+          continue; // Skip normal token processing
+        }
+        
         const color = this.getTokenColor(token, tokens, i);
 
         // Safety check: ensure color is defined

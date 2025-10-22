@@ -98,6 +98,14 @@ included_env_vars = ["CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_S
 included_env_vars = ["CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
 [functions.track-media]
 included_env_vars = ["CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
+[functions.track-tape]
+included_env_vars = ["CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "ART_KEY", "ART_SECRET", "ART_ENDPOINT", "ART_SPACE_NAME", "USER_SPACE_NAME", "DO_SPACES_KEY", "DO_SPACES_SECRET", "MP4_SERVICE_URL", "MP4_SERVICE_TOKEN", "URL"]
+[functions.get-tape]
+included_env_vars = ["MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
+[functions.get-tape-status]
+included_env_vars = ["MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
+[functions.get-painting]
+included_env_vars = ["MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
 [functions.painting-code]
 included_env_vars = ["MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
 [functions.painting-metadata]
@@ -395,6 +403,21 @@ force = false
 [[redirects]]
 from = "/api/track-media"
 to = "/.netlify/functions/track-media"
+status = 200
+force = false
+[[redirects]]
+from = "/api/track-tape"
+to = "/.netlify/functions/track-tape"
+status = 200
+force = false
+[[redirects]]
+from = "/api/get-tape"
+to = "/.netlify/functions/get-tape"
+status = 200
+force = false
+[[redirects]]
+from = "/api/get-tape-status"
+to = "/.netlify/functions/get-tape-status"
 status = 200
 force = false
 [[redirects]]
