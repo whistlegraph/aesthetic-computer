@@ -10,9 +10,24 @@ export default async function handleRequest(request) {
   if (path[1] === "media") {
     const resourcePath = path.slice(2).join("/");
 
+    // Handle /media/tapes/CODE or /media/paintings/CODE routes
+    if (path[2] === "tapes" && path[3]) {
+      return await handleTapeCodeRequest(path[3]);
+    }
+    
+    if (path[2] === "paintings" && path[3]) {
+      return await handlePaintingCodeRequest(path[3]);
+    }
+
     if (!path[2]?.includes("@") && !path[2]?.match(/^ac[a-z0-9]+$/i)) {
       // No @ prefix and not a user code (acXXXXX format) - treat as direct file path
       const extension = resourcePath.split(".").pop()?.toLowerCase();
+      
+      // Special handling for .mp4 tape files
+      if (extension === "mp4" && resourcePath.match(/^[^/]+\/[^/]+-\d+\.mp4$/)) {
+        return await handleTapeMp4Request(resourcePath);
+      }
+      
       const baseUrl =
         extension === "mjs"
           ? "https://user-aesthetic-computer.sfo3.digitaloceanspaces.com"
@@ -109,5 +124,206 @@ async function queryUserID(userIdentifier) {
   } catch (error) {
     console.error(`Fetch failed: ${error}`);
     return null;
+  }
+}
+
+/**
+ * Handle tape code requests like /media/tapes/A6LwKTML
+ * @param {string} code - Tape code
+ * @returns {Response}
+ */
+async function handleTapeCodeRequest(code) {
+  const host = Deno.env.get("CONTEXT") === "dev" 
+    ? "https://localhost:8888" 
+    : "https://aesthetic.computer";
+  
+  try {
+    // Query tape by code
+    const res = await fetch(`${host}/.netlify/functions/get-tape?code=${encodeURIComponent(code)}`);
+    
+    if (!res.ok) {
+      return new Response(`Tape not found: ${code}`, { status: 404 });
+    }
+    
+    const tape = await res.json();
+    
+    // Redirect to the ZIP file
+    const bucket = tape.bucket || "art-aesthetic-computer";
+    const key = tape.user ? `${tape.user}/${tape.slug}.zip` : `${tape.slug}.zip`;
+    const zipUrl = `https://${bucket}.sfo3.digitaloceanspaces.com/${key}`;
+    
+    return Response.redirect(zipUrl, 302);
+    
+  } catch (error) {
+    console.error(`Error fetching tape by code:`, error);
+    return new Response("Error fetching tape", { status: 500 });
+  }
+}
+
+/**
+ * Handle painting code requests like /media/paintings/ABC123
+ * @param {string} code - Painting code
+ * @returns {Response}
+ */
+async function handlePaintingCodeRequest(code) {
+  const host = Deno.env.get("CONTEXT") === "dev" 
+    ? "https://localhost:8888" 
+    : "https://aesthetic.computer";
+  
+  try {
+    // Query painting by code
+    const res = await fetch(`${host}/.netlify/functions/get-painting?code=${encodeURIComponent(code)}`);
+    
+    if (!res.ok) {
+      return new Response(`Painting not found: ${code}`, { status: 404 });
+    }
+    
+    const painting = await res.json();
+    
+    // Redirect to the PNG file
+    const bucket = painting.bucket || "user-aesthetic-computer";
+    const key = painting.user ? `${painting.user}/${painting.slug}.png` : `${painting.slug}.png`;
+    const pngUrl = `https://${bucket}.sfo3.digitaloceanspaces.com/${key}`;
+    
+    return Response.redirect(pngUrl, 302);
+    
+  } catch (error) {
+    console.error(`Error fetching painting by code:`, error);
+    return new Response("Error fetching painting", { status: 500 });
+  }
+}
+
+/**
+ * Handle tape MP4 requests with conversion status checking
+ * @param {string} resourcePath - Path like "userId/tape-slug.mp4"
+ * @returns {Response}
+ */
+async function handleTapeMp4Request(resourcePath) {
+  // Extract slug from path (remove .mp4 extension)
+  const pathParts = resourcePath.split("/");
+  const filename = pathParts[pathParts.length - 1];
+  const slug = filename.replace(/\.mp4$/, "");
+  
+  // Query MongoDB for tape status
+  const host = Deno.env.get("CONTEXT") === "dev" 
+    ? "https://localhost:8888" 
+    : "https://aesthetic.computer";
+  
+  try {
+    const res = await fetch(`${host}/.netlify/functions/get-tape-status?slug=${encodeURIComponent(slug)}`);
+    
+    if (!res.ok) {
+      return new Response("Tape not found", { status: 404 });
+    }
+    
+    const tape = await res.json();
+    
+    // Check MP4 conversion status
+    if (tape.mp4Status === "complete" && tape.mp4) {
+      // MP4 is ready - redirect to actual file
+      return Response.redirect(tape.mp4, 302);
+    } else if (tape.mp4Status === "processing") {
+      // MP4 is still processing - return JSON status
+      const acceptHeader = Deno.env.get("HTTP_ACCEPT") || "";
+      
+      if (acceptHeader.includes("application/json")) {
+        return new Response(JSON.stringify({
+          status: "processing",
+          message: "MP4 conversion in progress",
+          slug: tape.slug,
+          code: tape.code,
+        }), {
+          status: 202,
+          headers: {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+          },
+        });
+      } else {
+        // Return HTML for browser requests
+        return new Response(`
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Converting Tape...</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      background: #0a0a0a;
+      color: #fff;
+    }
+    .container {
+      text-align: center;
+      padding: 2rem;
+    }
+    .spinner {
+      width: 50px;
+      height: 50px;
+      border: 4px solid rgba(255,255,255,0.1);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 1rem;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    h1 { margin: 0 0 0.5rem; font-size: 1.5rem; }
+    p { margin: 0; opacity: 0.7; }
+    code { 
+      background: rgba(255,255,255,0.1);
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      font-family: 'Monaco', monospace;
+    }
+  </style>
+  <script>
+    // Auto-refresh every 5 seconds
+    setTimeout(() => location.reload(), 5000);
+  </script>
+</head>
+<body>
+  <div class="container">
+    <div class="spinner"></div>
+    <h1>🎬 Converting Tape to MP4</h1>
+    <p>Tape <code>${tape.code}</code> is being processed...</p>
+    <p style="margin-top: 1rem; font-size: 0.9rem;">This page will auto-refresh.</p>
+  </div>
+</body>
+</html>
+        `, {
+          status: 202,
+          headers: {
+            "Content-Type": "text/html; charset=utf-8",
+            "Access-Control-Allow-Origin": "*",
+            "Refresh": "5", // Auto-refresh header as backup
+          },
+        });
+      }
+    } else {
+      // MP4 not started yet - return pending status
+      return new Response(JSON.stringify({
+        status: "pending",
+        message: "MP4 conversion not started",
+        slug: tape.slug,
+        code: tape.code,
+      }), {
+        status: 202,
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        },
+      });
+    }
+  } catch (error) {
+    console.error(`Error checking tape status:`, error);
+    return new Response("Error checking tape status", { status: 500 });
   }
 }

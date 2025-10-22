@@ -9,37 +9,39 @@
 */
 
 function paint({ api, wipe, ink, line, screen, box, circle, pen, write, paste, kidlisp }) {
-  wipe("navy"); // Clear the background.
+  wipe(0, 0, 0, 0); // Clear the background.
+
+  ink("red").line();
   
   // ✨ Test the new tri function!
-  kidlisp(0, 0, screen.width, screen.height, `
-    ; Test the new triangle function
-    (ink "red")
-    (tri 50 50 100 50 75 100)
-    
-    ; Test triangle outline  
-    (ink "lime")
-    (tri 150 50 200 50 175 100 "outline")
-    
-    ; Test play button triangle (similar to the one mentioned)
-    (ink "yellow")
-    (tri 100 150 120 160 100 170)
-  `);
+  // kidlisp(0, 0, screen.width, screen.height, `
+  //   ; Test the new triangle function
+  //   (ink "red")
+  //   (tri 50 50 100 50 75 100)
+  //   
+  //   ; Test triangle outline  
+  //   (ink "lime")
+  //   (tri 150 50 200 50 175 100 "outline")
+  //   
+  //   ; Test play button triangle (similar to the one mentioned)
+  //   (ink "yellow")
+  //   (tri 100 150 120 160 100 170)
+  // `);
   
-  // Regular JavaScript paste still works with quoted URLs
-  paste("https://assets.aesthetic.computer/wipppps/cow.png", 0, 0, 0.05);
+  // // Regular JavaScript paste still works with quoted URLs
+  // paste("https://assets.aesthetic.computer/wipppps/cow.png", 0, 0, 0.05);
   
-  ink("lime"); // Paint some decoration
-  line(0, 0, screen.width, screen.height);
-  line(screen.width, 0, 0, screen.height);
+  // ink("lime"); // Paint some decoration
+  // line(0, 0, screen.width, screen.height);
+  // line(screen.width, 0, 0, screen.height);
 
-  ink("white");
-  write("� Testing tri function in KidLisp!", 5, screen.height - 20);
+  // ink("white");
+  // write("� Testing tri function in KidLisp!", 5, screen.height - 20);
 
-  if (pen) {
-    ink("yellow").circle(pen.x, pen.y, 8);
-    ink("white").write("Cursor!", { x: pen.x, y: pen.y + 15, center: "x" });
-  }
+  // if (pen) {
+  //   ink("yellow").circle(pen.x, pen.y, 8);
+  //   ink("white").write("Cursor!", { x: pen.x, y: pen.y + 15, center: "x" });
+  // }
 }
 
 // 📚 Library
