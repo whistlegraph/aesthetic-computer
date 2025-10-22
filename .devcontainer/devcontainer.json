@@ -95,9 +95,9 @@
         "ms-toolsai.vscode-jupyter-cell-tags",
         "ms-toolsai.jupyter-keymap",
         "ms-toolsai.jupyter-renderers",
-        // "rust-lang.rust-analyzer", // Temporarily disabled to reduce startup load
         "jinxdash.prettier-rust",
-        "ms-python.black-formatter"
+        "ms-python.black-formatter",
+        "github.vscode-github-actions"
       ]
     }
   },

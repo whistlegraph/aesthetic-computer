@@ -112,6 +112,15 @@ let firstActivation = true; // 🏳️ Used to trigger a startup 🔊🎆
 
 let startupSfx, keyboardSfx;
 
+// 📚 Book button
+let bookButton;
+let bookImage;
+let bookImageScaled; // Cached scaled version of the book image
+let bookRotation = 0; // Rotation angle for oscillation
+
+// 🎆 Corner particles
+let cornerParticles = [];
+
 let tapePromiseResolve, tapePromiseReject;
 
 let handles; // Keep track of total handles set.
@@ -191,6 +200,24 @@ async function boot({
     .preload("compkey")
     .then((sfx) => (keyboardSfx = sfx))
     .catch((err) => console.warn(err)); // and key sounds.
+
+  // Load book cover image
+  net
+    .preload("https://shop.aesthetic.computer/cdn/shop/files/IMG-1098.png?v=1760737988&width=600")
+    .then((img) => {
+      bookImage = img;
+      
+      // Pre-scale the image for caching
+      const bookScale = 0.1;
+      const scaledW = Math.floor(img.img.width * bookScale);
+      const scaledH = Math.floor(img.img.height * bookScale);
+      
+      // Create a scaled bitmap using painting API from api object
+      bookImageScaled = api.painting(scaledW, scaledH, (p) => {
+        p.paste(img.img, 0, 0, bookScale);
+      });
+    })
+    .catch((err) => console.warn("📚 Could not load book image:", err));
 
   // Create login & signup buttons.
   if (!user) {
@@ -575,31 +602,51 @@ async function halt($, text) {
   const params = tokens.slice(1);
   const input = $.system.prompt.input; // Reference to the TextInput.
 
+  const openExternalFromIframe = (url) => {
+    if (!net.iframe) return false;
+    send({ type: "post-to-parent", content: { type: "openExternal", url } });
+    return true;
+  };
+
+  const siteBase = `https://${debug ? "localhost:8888" : "aesthetic.computer"}`;
+
+  const toAbsoluteSiteUrl = (pathOrUrl) => {
+    if (/^https?:\/\//.test(pathOrUrl)) return pathOrUrl;
+    const normalized = pathOrUrl.startsWith("/") ? pathOrUrl : `/${pathOrUrl}`;
+    return `${siteBase}${normalized}`;
+  };
+
   // 🕸️ Custom URL routing.
   if (slug.startsWith("/")) {
     jump(`https://${debug ? "localhost:8888" : "aesthetic.computer"}${slug}`);
     return true;
   } else if (slug === "shop") {
     console.log(slug);
-    // TODO: Do the mapping here...
 
-    // @jeffrey/help
-    // cart
-    // every timecode
+    const openShopPath = (path) => {
+      if (openExternalFromIframe(toAbsoluteSiteUrl(path))) return;
+      jump(path);
+    };
 
     if (params.length > 0) {
       if (shop.indexOf(params[0]) > -1) {
-        jump("/" + params[0]);
+        openShopPath("/" + params[0]);
       } else {
-        jump("/shop/" + params.join("/"));
+        openShopPath("/shop/" + params.join("/"));
       }
     } else {
-      jump("/shop");
+      openShopPath("/shop");
     }
+    return true;
   } else if (slug.startsWith("shop")) {
-    jump("/" + params[0]);
+    const target = params[0] ? "/" + params[0] : "/shop";
+    if (openExternalFromIframe(toAbsoluteSiteUrl(target))) return true;
+    jump(target);
+    return true;
   } else if (shop.indexOf(slug) > -1) {
+    if (openExternalFromIframe(toAbsoluteSiteUrl("/" + slug))) return true; // Matches a product so jump to a new page / redirect.
     jump("/" + slug); // Matches a product so jump to a new page / redirect.
+    return true;
   } else if (slug === "merry" || slug === "merryo") {
     const loop = slug === "merryo";
     console.log(`🎄 ${slug.toUpperCase()} command received with params:`, params);
@@ -1838,7 +1885,8 @@ async function halt($, text) {
     makeFlash($);
     return true;
   } else if (text.toLowerCase() === "github" || text === "gh") {
-    jump("https://github.com/digitpain/aesthetic.computer");
+    const githubUrl = "https://github.com/digitpain/aesthetic.computer";
+    if (!openExternalFromIframe(githubUrl)) jump(githubUrl);
     makeFlash($);
     return true;
   } else if (text.toLowerCase() === "gmail") {
@@ -1867,6 +1915,16 @@ async function halt($, text) {
         ? prefix + "/aesthetic-direct"
         : prefix + "https://aesthetic.direct",
     );
+    makeFlash($);
+    return true;
+  } else if (text.toLowerCase() === "kidlisp") {
+    const kidlispUrl = debug
+      ? toAbsoluteSiteUrl("/kidlisp-com")
+      : "https://kidlisp.com";
+    if (!openExternalFromIframe(kidlispUrl)) {
+      const prefix = "out:";
+      jump(debug ? prefix + "/kidlisp-com" : prefix + kidlispUrl);
+    }
     makeFlash($);
     return true;
   } else if (text.toLowerCase() === "support") {
@@ -2104,6 +2162,17 @@ function paint($) {
   $.layer(1); // 🅱️ And above it...
 
   const { screen, ink, history, net, help } = $;
+  
+  // Make prompt text semi-transparent when curtain is up
+  const showLoginCurtain = (!login?.btn.disabled && !profile) || (!login && !profile?.btn.disabled);
+  if (showLoginCurtain && $.system.prompt.input.canType) {
+    // Add opacity to text colors when curtain is up
+    const originalDarkText = [...scheme.dark.text];
+    const originalLightText = [...scheme.light.text];
+    scheme.dark.text = [...originalDarkText.slice(0, 3), 128]; // 50% opacity
+    scheme.light.text = [...originalLightText.slice(0, 3), 128];
+  }
+  
   if ($.system.prompt.input.canType) {
     const currentInputText = $.system.prompt.input.text;
 
@@ -2190,6 +2259,363 @@ function paint($) {
     ink(0).box(1, 1, screen.width - 2, screen.height - 2);
     if (progressBar > 0) {
       ink(scheme.dark.block).box(1, 1, (screen.width - 2) * progressBar, 1);
+    }
+  }
+
+  // 📚 Paint book button (only on login curtain, in top-right area)
+  if (showLoginCurtain && bookImageScaled) {
+    // Use pre-scaled cached image
+    const bookW = bookImageScaled.width;
+    const bookH = bookImageScaled.height;
+    const titleText = "The Art of Seeing";
+    const authorText = "by Aldous Huxley";
+    const priceText = "$60 USD";
+    const titleW = titleText.length * 4; // 4px per char for MatrixChunky8
+    const authorW = authorText.length * 4; // 4px per char for MatrixChunky8
+    const textH = 8; // 8px height for MatrixChunky8
+    const lineSpacing = 1; // Tighter spacing between lines
+    
+    // Position book image in top-right with tight corner layout
+    const rightEdge = screen.width - 6; // Right edge position
+    
+    // Title above the book image
+    const titleX = rightEdge - titleW;
+    const titleY = 6; // Start at top
+    
+    // Book below title
+    const bookX = rightEdge - bookW;
+    const bookY = titleY + textH + lineSpacing + 2; // Small gap after title
+    
+    // Author text below book image
+    const authorX = rightEdge - authorW;
+    const authorY = bookY + bookH + lineSpacing + 2;
+    
+    // Price below author
+    const priceW = priceText.length * 4;
+    const priceY = authorY + textH + lineSpacing + 2;
+    
+    // Calculate book ad bounding box (with some drift padding)
+    const bookAdBox = {
+      x: Math.min(titleX, bookX, authorX) - 10, // Left edge with padding
+      y: titleY - 4, // Top edge with padding
+      w: Math.max(titleW, bookW, authorW) + 14, // Width with padding
+      h: priceY + textH + 4 - titleY // Height from title top to price bottom
+    };
+    
+    // Check for actual geometric overlap with login/signup buttons
+    let wouldOverlap = false;
+    
+    // Check overlap with login button
+    if (login && !login.btn.disabled && login.btn.box) {
+      const loginBox = login.btn.box;
+      wouldOverlap = wouldOverlap || (
+        bookAdBox.x < loginBox.x + loginBox.w &&
+        bookAdBox.x + bookAdBox.w > loginBox.x &&
+        bookAdBox.y < loginBox.y + loginBox.h &&
+        bookAdBox.y + bookAdBox.h > loginBox.y
+      );
+    }
+    
+    // Check overlap with signup button
+    if (signup && !signup.btn.disabled && signup.btn.box) {
+      const signupBox = signup.btn.box;
+      wouldOverlap = wouldOverlap || (
+        bookAdBox.x < signupBox.x + signupBox.w &&
+        bookAdBox.x + bookAdBox.w > signupBox.x &&
+        bookAdBox.y < signupBox.y + signupBox.h &&
+        bookAdBox.y + bookAdBox.h > signupBox.y
+      );
+    }
+    
+    // Check overlap with enter button
+    if ($.system.prompt.input?.enter && !$.system.prompt.input.enter.btn.disabled && $.system.prompt.input.enter.btn.box) {
+      const enterBox = $.system.prompt.input.enter.btn.box;
+      wouldOverlap = wouldOverlap || (
+        bookAdBox.x < enterBox.x + enterBox.w &&
+        bookAdBox.x + bookAdBox.w > enterBox.x &&
+        bookAdBox.y < enterBox.y + enterBox.h &&
+        bookAdBox.y + bookAdBox.h > enterBox.y
+      );
+    }
+    
+    // Check overlap with paste button
+    if ($.system.prompt.input?.paste && !$.system.prompt.input.paste.btn.disabled && $.system.prompt.input.paste.btn.box) {
+      const pasteBox = $.system.prompt.input.paste.btn.box;
+      wouldOverlap = wouldOverlap || (
+        bookAdBox.x < pasteBox.x + pasteBox.w &&
+        bookAdBox.x + bookAdBox.w > pasteBox.x &&
+        bookAdBox.y < pasteBox.y + pasteBox.h &&
+        bookAdBox.y + bookAdBox.h > pasteBox.y
+      );
+    }
+    
+    // Only show book if it won't overlap with buttons
+    const shouldShowBook = !wouldOverlap;
+    
+    if (shouldShowBook) {
+    
+    // Theme-sensitive colors
+    const isDark = $.dark;
+    const textColor = isDark ? [255, 255, 255] : [0, 0, 0]; // White in dark, black in light
+    const titleColor = isDark ? [255, 200, 150] : [200, 100, 50]; // Orange/warm tint for title
+    const titleHighlightColor = isDark ? [255, 255, 100] : [255, 200, 0]; // Yellow tint when highlighted
+    const shadowColor = isDark ? [0, 0, 0] : [255, 255, 255]; // Black shadow in dark, white in light
+    const authorColor = isDark ? [200, 200, 255] : [80, 80, 140]; // Tinted byline (blue-ish)
+    const authorHighlightColor = [255, 255, 0]; // Yellow highlight for byline when pressed
+    const priceNormalColor = isDark ? [0, 255, 0] : [0, 180, 0]; // Bright green in dark, darker in light
+    const priceHoverColor = isDark ? [100, 255, 100] : [0, 255, 0]; // Brighter greens
+    const priceDownColor = [255, 255, 0]; // Yellow when pressed (same for both)
+    
+    // Calculate drift/shake offset (a few pixels in x and y) - faster shaking
+    const driftX = Math.floor(Math.sin(bookRotation * 0.06) * 2); // Faster drift, 2px range
+    const driftY = Math.floor(Math.cos(bookRotation * 0.08) * 2); // Faster speed for more active feel
+    
+    // Text sway (subtle side-to-side movement)
+    const textSwayX = Math.floor(Math.sin(bookRotation * 0.03) * 1.5); // Gentle sway, 1.5px range
+    
+    // Make button box around the image area (adjusted for drift)
+    const totalW = bookW + 4; // Add padding for drift
+    const totalH = bookH + 4;
+    
+    // Create or update button
+    if (!bookButton) {
+      bookButton = new $.ui.Button(bookX - 2, bookY - 2, totalW, totalH);
+      bookButton.stickyScrubbing = true;
+    } else {
+      bookButton.disabled = false; // Re-enable when curtain is shown
+      bookButton.box.x = bookX - 2;
+      bookButton.box.y = bookY - 2;
+      bookButton.box.w = totalW;
+      bookButton.box.h = totalH;
+    }
+    
+    // Determine highlight state (hover or down)
+    const isHighlighted = bookButton.over || bookButton.down;
+    
+    // Scale effect when pressing down
+    const imageScale = bookButton.down ? 1.1 : 1;
+    const scaledBookW = Math.floor(bookW * imageScale);
+    const scaledBookH = Math.floor(bookH * imageScale);
+    const scaleOffsetX = Math.floor((scaledBookW - bookW) / 2);
+    const scaleOffsetY = Math.floor((scaledBookH - bookH) / 2);
+    
+    // Draw shadow behind book (offset to bottom-right, scaled)
+    $.ink(0, 0, 0, isDark ? 80 : 40) // Darker shadow in dark mode
+      .box(Math.floor(bookX + driftX + 2 - scaleOffsetX), Math.floor(bookY + driftY + 2 - scaleOffsetY), scaledBookW, scaledBookH);
+    
+    // Draw book cover with drift/shake using paste (no rotation), with scale
+    if (bookButton.down && imageScale !== 1) {
+      // Use paste with scale object for custom dimensions
+      $.paste(
+        bookImageScaled, 
+        Math.floor(bookX + driftX - scaleOffsetX), 
+        Math.floor(bookY + driftY - scaleOffsetY),
+        { scale: imageScale, width: scaledBookW, height: scaledBookH }
+      );
+    } else {
+      $.paste(bookImageScaled, Math.floor(bookX + driftX), Math.floor(bookY + driftY));
+    }
+    
+    // Apply brightness overlay when highlighted (always use scaled dimensions)
+    if (isHighlighted) {
+      const overlayX = bookButton.down ? Math.floor(bookX + driftX - scaleOffsetX) : Math.floor(bookX + driftX);
+      const overlayY = bookButton.down ? Math.floor(bookY + driftY - scaleOffsetY) : Math.floor(bookY + driftY);
+      const overlayW = bookButton.down ? scaledBookW : bookW;
+      const overlayH = bookButton.down ? scaledBookH : bookH;
+      $.ink(255, 255, 255, bookButton.down ? 60 : 30) // Brighter when down
+        .box(overlayX, overlayY, overlayW, overlayH);
+    }
+    
+  // Determine text colors based on state - faster blinking when down
+  const blinkSpeed = bookButton.down ? 0.3 : 0.15; // Faster blink when pressed
+  const blinkPhase = Math.sin(bookRotation * blinkSpeed) > 0; // Boolean blink
+  const shouldBlink = bookButton.down && blinkPhase;
+  const finalTitleColor = shouldBlink ? titleHighlightColor : (isHighlighted ? titleHighlightColor : titleColor);
+  
+    // Draw title text (with sway effect and highlight)
+    ink(...shadowColor) // Shadow (black in dark mode, white in light)
+      .write(titleText, { x: titleX + textSwayX + 1, y: titleY + 1 }, undefined, undefined, false, "MatrixChunky8");
+    ink(...finalTitleColor) // Orange/warm title color
+      .write(titleText, { x: titleX + textSwayX, y: titleY }, undefined, undefined, false, "MatrixChunky8");
+
+    // Draw author text (with sway effect, tinted and slightly different color, with blink on down)
+    const finalAuthorColor = shouldBlink ? authorHighlightColor : (bookButton.down ? authorHighlightColor : authorColor);
+    ink(...shadowColor)
+      .write(authorText, { x: authorX + textSwayX + 1, y: authorY + 1 }, undefined, undefined, false, "MatrixChunky8");
+    ink(...finalAuthorColor)
+      .write(authorText, { x: authorX + textSwayX, y: authorY }, undefined, undefined, false, "MatrixChunky8");
+    
+    // Price text below author byline, scale 1 with solid background and drift
+    const priceFont = 'MatrixChunky8';
+
+    // Price drift (side-to-side only, slower)
+    const priceDriftX = Math.floor(Math.sin(bookRotation * 0.05) * 3); // Slower, 3px horizontal range only
+
+    // Price position: below author, with horizontal drift only
+    const priceScale = 1; // Normal size
+    const priceW = priceText.length * 4 * priceScale;
+    const priceH = 8 * priceScale;
+    const padding = 2;
+    const priceTextX = rightEdge - priceW - padding * 2 + priceDriftX;
+    const priceTextY = authorY + textH + lineSpacing + 2; // Below author (no vertical drift)
+
+    // Solid background box for price (theme-sensitive)
+    const priceBg = isDark ? [0, 0, 0, 255] : [255, 255, 255, 255];
+    ink(...priceBg).box(priceTextX - padding, priceTextY - padding, priceW + padding * 2, priceH + padding * 2);
+
+    // Subtle dark shadow (not blinking) - tighter offset
+    ink(0, 0, 0, isDark ? 80 : 50).write(priceText, { x: priceTextX + 0.5, y: priceTextY + 0.5, size: priceScale }, undefined, undefined, false, priceFont);
+
+    // Price text (green or highlighted)
+    const priceColor = bookButton.down ? priceDownColor : (isHighlighted ? priceHoverColor : priceNormalColor);
+    ink(...priceColor).write(priceText, { x: priceTextX, y: priceTextY, size: priceScale }, undefined, undefined, false, priceFont);
+    } else if (bookButton) {
+      // Hide book button if screen too small or would overlap
+      bookButton.disabled = true;
+    }
+  } else if (bookButton) {
+    // Disable button when not on login curtain
+    bookButton.disabled = true;
+  }
+  
+  // 🎰 Polychrome border effect pointing to top-left corner (on login curtain)
+  if (showLoginCurtain) {
+    // Cycle through pink, purple, green phases
+    const colorPhase = (bookRotation * 0.08) % 3;
+    let primaryColor, secondaryColor, tertiaryColor;
+    
+    if (colorPhase < 1) {
+      primaryColor = [255, 100, 200]; // Pink
+      secondaryColor = [200, 100, 255]; // Purple
+      tertiaryColor = [100, 255, 150]; // Green
+    } else if (colorPhase < 2) {
+      primaryColor = [200, 100, 255]; // Purple
+      secondaryColor = [100, 255, 150]; // Green
+      tertiaryColor = [255, 100, 200]; // Pink
+    } else {
+      primaryColor = [100, 255, 150]; // Green
+      secondaryColor = [255, 100, 200]; // Pink
+      tertiaryColor = [200, 100, 255]; // Purple
+    }
+    
+    // Pulsing effect for base intensity
+    const pulseBase = Math.sin(bookRotation * 0.15);
+    
+    // Border extends to 2/3rds of screen
+    const borderWidth = (screen.width / 3) * 2;
+    const borderHeight = (screen.height / 3) * 2;
+    const borderThickness = 1; // Fixed 1 pixel wide
+    
+    // Draw top border with dithered/striped pattern (1 pixel tall)
+    for (let x = 0; x < borderWidth; x++) {
+      // Intensity increases as we get closer to the corner (left edge)
+      const intensityRatio = 1 - (x / borderWidth); // 1.0 at corner, 0.0 at edge
+      const alpha = Math.floor(intensityRatio * 100 + 30 + pulseBase * 30); // 30-160 range
+      
+      // Dither pattern: show pixels based on intensity ratio
+      const patternValue = (x + Math.floor(bookRotation / 4)) % 4; // 0-3 pattern
+      const threshold = (1 - intensityRatio) * 4; // 0-4 threshold
+      
+      if (patternValue >= threshold) {
+        ink(...primaryColor, alpha).box(x, 0, 1, borderThickness);
+      }
+    }
+    
+    // Draw left border with dithered/striped pattern (1 pixel wide)
+    for (let y = 0; y < borderHeight; y++) {
+      // Intensity increases as we get closer to the corner (top edge)
+      const intensityRatio = 1 - (y / borderHeight); // 1.0 at corner, 0.0 at edge
+      const alpha = Math.floor(intensityRatio * 100 + 30 + pulseBase * 30); // 30-160 range
+      
+      // Dither pattern: show pixels based on intensity ratio
+      const patternValue = (y + Math.floor(bookRotation / 4)) % 4; // 0-3 pattern
+      const threshold = (1 - intensityRatio) * 4; // 0-4 threshold
+      
+      if (patternValue >= threshold) {
+        ink(...primaryColor, alpha).box(0, y, borderThickness, 1);
+      }
+    }
+    
+    // 🎆 Spawn particles from the cursor position and draw cursor overlay
+    const input = $.system.prompt.input;
+    if (input?.prompt) {
+      const cursorPos = input.prompt.pos(undefined, true);
+      
+      if (cursorPos && cursorPos.x !== undefined && cursorPos.y !== undefined) {
+        // Spawn particles 30% of the time
+        if (Math.random() < 0.3) {
+          // Match cursor color - green for kidlisp, theme color otherwise
+          const isDark = $.dark;
+          const isKidlisp = $.system?.prompt?.actualKidlisp;
+          let particleColor;
+          
+          if (isKidlisp) {
+            // Green for kidlisp
+            particleColor = isDark ? [100, 255, 100] : [0, 150, 0];
+          } else {
+            // Use palette block color or fallback to theme text color
+            const blockColor = input.pal?.block || (isDark ? [255, 255, 255] : [0, 0, 0]);
+            particleColor = Array.isArray(blockColor) ? blockColor.slice(0, 3) : (isDark ? [255, 255, 255] : [0, 0, 0]);
+          }
+          
+          cornerParticles.push({
+            x: cursorPos.x + Math.random() * cursorPos.w, // Spawn across bottom of cursor box
+            y: cursorPos.y + cursorPos.h, // Start at bottom of cursor
+            vx: (Math.random() - 0.5) * 0.5, // Minimal horizontal drift
+            vy: Math.random() * 1.5 + 0.5, // Longer vertical fall (0.5-2 pixels per frame)
+            life: 1.0, // Full life
+            color: particleColor,
+            size: 1, // Always 1 pixel
+          });
+        }
+      }
+    }
+    
+    // Update and draw particles
+    cornerParticles = cornerParticles.filter(p => {
+      // Update position
+      p.x += p.vx;
+      p.y += p.vy;
+      p.life -= 0.02; // Fade out
+      
+      // Draw particle
+      if (p.life > 0) {
+        const alpha = Math.floor(p.life * 200);
+        ink(...p.color, alpha).box(p.x, p.y, p.size, p.size);
+      }
+      
+      // Keep particle if still alive
+      return p.life > 0;
+    });
+    
+    // 💡 Draw semi-transparent ghost cursor when curtain is up
+    if (input?.prompt) {
+      const cursorPos = input.prompt.pos(undefined, true);
+      
+      if (cursorPos && cursorPos.x !== undefined && cursorPos.y !== undefined) {
+        const isDark = $.dark;
+        // Match the actual cursor color but with reduced opacity
+        const isKidlisp = $.system?.prompt?.actualKidlisp;
+        let fillColor;
+        
+        if (isKidlisp) {
+          // Green for kidlisp (matching the actual cursor)
+          fillColor = isDark ? [100, 255, 100, 100] : [0, 150, 0, 100];
+        } else {
+          // Use the palette block color (default cursor color)
+          const blockColor = input.pal?.block || (isDark ? [255, 255, 255] : [0, 0, 0]);
+          fillColor = [...blockColor, 100]; // Add alpha 100 for subtle transparency
+        }
+        
+        // Draw on layer 3 to ensure it's above everything else on the curtain
+        $.layer(3);
+        
+        // Draw filled cursor box with subtle transparency (no outline)
+        ink(...fillColor).box(cursorPos.x, cursorPos.y, cursorPos.w, cursorPos.h);
+        
+        // Reset to default layer
+        $.layer(1);
+      }
     }
   }
 
@@ -2437,6 +2863,15 @@ function sim($) {
     starfield.sim($);
     $.needsPaint();
   }
+  
+  // Oscillate book rotation for drift animation
+  const showLoginCurtain = 
+    (!login?.btn.disabled && !profile) || 
+    (!login && !profile?.btn.disabled);
+  if (showLoginCurtain && bookImage) {
+    bookRotation += 1.0; // Faster oscillation for more active shaking
+    $.needsPaint();
+  }
 
   if ($.store["handle:received"]) {
     profile = new $.ui.TextButton($.handle(), {
@@ -2584,6 +3019,36 @@ function act({
     }
   }
 
+  // 📚 Book button interaction (only on login curtain, same as login/signup buttons)
+  const showLoginCurtainAct = 
+    (!login?.btn.disabled && !profile) || 
+    (!login && !profile?.btn.disabled);
+    
+  if (bookButton && showLoginCurtainAct && !bookButton.disabled) {
+    bookButton.disabled = false; // Re-enable if on login curtain
+    bookButton.act(e, {
+      over: () => {
+        // Rollover/hover effect - trigger repaint for visual feedback
+        $.needsPaint();
+      },
+      down: () => downSound(),
+      push: () => {
+        pushSound();
+        const bookUrl = "https://shop.aesthetic.computer/products/books_the-art-of-seeing-by-aldous-huxley_25-4-8-21-0";
+        if (net.iframe) {
+          send({ type: "post-to-parent", content: { type: "openExternal", url: bookUrl } });
+        } else {
+          jump(bookUrl);
+        }
+        flashColor = [0, 255, 0];
+        makeFlash({ api, needsPaint, net, screen, num, jump, system, user, store, send, handle, glaze, canShare, notice, ui });
+      },
+      cancel: () => cancelSound(),
+    });
+  } else if (bookButton && !showLoginCurtainAct) {
+    bookButton.disabled = true;
+  }
+
   // Chat ticker button (invisible, just for click interaction)
   if (chatTickerButton && !chatTickerButton.disabled) {
     chatTickerButton.act(e, {
@@ -2677,6 +3142,7 @@ function act({
     (e.is("touch") || e.is("lift")) &&
     ((login?.btn.disabled === false && login?.btn.box.contains(e)) ||
       (signup?.btn.disabled === false && signup?.btn.box.contains(e)) ||
+      (bookButton?.disabled === false && bookButton?.box.contains(e)) ||
       (profile?.btn.disabled === false &&
         profile?.btn.box.contains(e) &&
         profileAction === "profile"))
