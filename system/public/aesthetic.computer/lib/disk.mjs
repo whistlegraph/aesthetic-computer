@@ -8303,6 +8303,34 @@ async function makeFrame({ data: { type, content } }) {
   // Resolve a server uploaded file.
   if (type === "upload" && serverUpload) {
     if (content.result === "success") {
+      // 🗄️ After S3 upload succeeds, create MongoDB record with short code
+      // Extract extension from filename to determine media type
+      const filename = content.data.filename || "";
+      const ext = filename.split(".").pop();
+      
+      // Only track paintings and pieces in database
+      if (ext === "png" || ext === "mjs") {
+        try {
+          // Call track-media POST to create database record with short code
+          const trackResponse = await $commonApi.net.userRequest("POST", "/api/track-media", {
+            slug: content.data.slug,
+            ext: ext,
+          });
+          
+          if (trackResponse.status === 200) {
+            const trackData = await trackResponse.json();
+            // Add the short code to the response data
+            content.data.code = trackData.code;
+            console.log(`✅ ${ext === "png" ? "Painting" : "Piece"} tracked: ${content.data.slug} → #${trackData.code}`);
+          } else {
+            console.warn(`⚠️ Failed to track media in database:`, trackResponse.status);
+          }
+        } catch (err) {
+          console.error("❌ Error tracking media in database:", err);
+          // Don't fail the upload if database tracking fails
+        }
+      }
+      
       serverUpload?.resolve(content.data);
     } else if (content.result === "error") {
       console.error("File failed to load:", content);
