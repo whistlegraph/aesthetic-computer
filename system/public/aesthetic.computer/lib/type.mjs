@@ -1131,6 +1131,35 @@ class TextInput {
         for (let i = 0; i < tokens.length; i++) {
           const token = tokens[i];
           
+          // Check if this token is a fastmath expression like "frame*3"
+          const fastMathMatch = token.match(/^(\w+)\s*([+\-*/%])\s*(\w+|\d+(?:\.\d+)?)$/);
+          if (fastMathMatch) {
+            const [, left, op, right] = fastMathMatch;
+            
+            // Find the full token in the source
+            const tokenIndex = this.text.indexOf(token, sourceIndex);
+            if (tokenIndex !== -1) {
+              // Color each part of the fastmath expression
+              const leftColor = kidlispInstance.getTokenColor(left, [left, op, right], 0);
+              const opColor = kidlispInstance.getTokenColor(op, [left, op, right], 1);
+              const rightColor = kidlispInstance.getTokenColor(right, [left, op, right], 2);
+              
+              // Map characters for left part
+              for (let j = 0; j < left.length; j++) {
+                charColorMap.set(tokenIndex + j, leftColor);
+              }
+              // Map operator
+              charColorMap.set(tokenIndex + left.length, opColor);
+              // Map characters for right part
+              for (let j = 0; j < right.length; j++) {
+                charColorMap.set(tokenIndex + left.length + 1 + j, rightColor);
+              }
+              
+              sourceIndex = tokenIndex + token.length;
+            }
+            continue; // Skip normal token processing
+          }
+          
           // Check if this is a fade expression that needs special coloring
           if (token.startsWith("fade:")) {
             const colorName = kidlispInstance.getTokenColor(token, tokens, i);
