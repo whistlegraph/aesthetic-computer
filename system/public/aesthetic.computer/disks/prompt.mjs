@@ -610,6 +610,11 @@ async function halt($, text) {
       originalCommand: text, // Store the full original text (already has proper format)
     });
     return true;
+  } else if (slug.startsWith("!") && slug.length > 1) {
+    console.log("📼 Tape code detected:", slug, "params:", params);
+    // Route to video piece to handle tape playback
+    jump("video " + text);
+    return true;
   } else if (
     slug === "tape" ||
     slug === "tape:add" ||
@@ -620,7 +625,18 @@ async function halt($, text) {
     slug === "tapem"
   ) {
     console.log("🐛 TAPE COMMAND DETECTED:", slug, "params:", params);
-    // 📼 Start taping.
+    console.log("🐛 params[0]:", params[0], "type:", typeof params[0], "startsWith !:", params[0]?.startsWith?.('!'));
+    
+    const playbackParam = params[0];
+
+    // 📼 Check if this is a playback command (e.g., "tape !JyK")
+    if (playbackParam && playbackParam.startsWith('!')) {
+      console.log("📼 Tape playback mode detected, routing to video piece");
+      jump("video " + params.join(' '));
+      return true;
+    }
+    
+    // 📼 Start taping (recording mode).
     // Note: Right now, tapes get saved on refresh but can't be concatenated to,
     // and they start over when using `tape`.
     // This could eventually be replaced by a system that makes a new
