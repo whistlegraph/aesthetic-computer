@@ -117,6 +117,10 @@ RUN set -eux; \
     curl -fsSL "https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-${ARCH}.tgz" -o /tmp/ngrok.tgz && \
     tar -xzf /tmp/ngrok.tgz -C /usr/local/bin && rm /tmp/ngrok.tgz
 
+# --- Ollama (architecture-aware) ---------------------------------------------
+RUN set -eux; \
+    curl -fsSL https://ollama.com/install.sh | sh
+
 # --- doctl (DigitalOcean CLI, architecture-aware) ----------------------------
 RUN set -eux; \
     case "$(uname -m)" in \
@@ -145,6 +149,12 @@ RUN curl -sSL https://sdk.cloud.google.com > /tmp/install_gcloud.sh && \
 
 # --- User ---------------------------------------------------------------------
 RUN useradd -m me && echo "me ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers && chsh -s /usr/bin/fish me
+
+# Fix fish path issue: Fedora installs to /usr/sbin but shebangs expect /usr/bin
+RUN if test ! -f /usr/bin/fish && test -f /usr/sbin/fish; then \
+        ln -s /usr/sbin/fish /usr/bin/fish; \
+    fi
+
 USER me
 WORKDIR /home/me
 

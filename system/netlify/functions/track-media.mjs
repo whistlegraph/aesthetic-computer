@@ -7,10 +7,11 @@
   - [] Eventually add metadata to paintings... like titles.
 #endregion */
 
-import { authorize } from "../../backend/authorization.mjs";
+import { authorize, getHandleOrEmail } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
 import { respond } from "../../backend/http.mjs";
 import { customAlphabet } from 'nanoid';
+import { createPaintingOnAtproto, deletePaintingFromAtproto } from "../../backend/painting-atproto.mjs";
 
 const dev = process.env.CONTEXT === "dev";
 
@@ -89,10 +90,11 @@ export async function handler(event, context) {
       const code = await generateUniqueCode(collection);
       
       try {
+        const paintingDate = new Date();
         const record = {
           code,          // NEW: short code for #abc lookups
           slug,
-          when: new Date(),
+          when: paintingDate,
           bucket: user ? "user-aesthetic-computer" : "art-aesthetic-computer",
         };
         
@@ -101,10 +103,49 @@ export async function handler(event, context) {
           record.user = user.sub;
         }
         
-        await collection.insertOne(record);
+        const insertResult = await collection.insertOne(record);
         
         const logType = user ? "user" : "guest";
         console.log(`✅ Created ${logType} painting: slug=${slug}, code=${code}`);
+        
+        // Dual-write: Also create painting on ATProto (only for authenticated users)
+        if (user && type === "paintings") {
+          console.log("🔄 Syncing painting to ATProto...");
+          try {
+            // Get the user's handle for constructing the image URL
+            const handle = await getHandleOrEmail(user.sub);
+            const cleanHandle = handle?.replace('@', '') || user.sub;
+            
+            // Construct the image URL
+            const imageUrl = `https://aesthetic.computer/media/@${cleanHandle}/painting/${slug}.png`;
+            
+            const atprotoResult = await createPaintingOnAtproto(
+              database,
+              user.sub,
+              slug,
+              code,
+              imageUrl,
+              paintingDate,
+              insertResult.insertedId.toString(),
+              record.bucket
+            );
+
+            if (atprotoResult.rkey) {
+              // Update MongoDB with the ATProto rkey
+              await collection.updateOne(
+                { _id: insertResult.insertedId },
+                { $set: { atproto: { rkey: atprotoResult.rkey } } },
+              );
+              console.log(
+                "✅ Painting synced to ATProto with rkey:",
+                atprotoResult.rkey,
+              );
+            }
+          } catch (atprotoError) {
+            // Log the error but don't fail the request - painting is already saved in MongoDB
+            console.error("⚠️  Failed to sync painting to ATProto:", atprotoError);
+          }
+        }
         
         return respond(200, { slug, code }); // Return code to client!
       } catch (error) {
@@ -127,14 +168,36 @@ export async function handler(event, context) {
       }
 
       try {
+        // First, get the painting to check if it has an atproto rkey
+        const painting = await collection.findOne({ slug, user: user.sub });
+        
+        if (!painting) {
+          return respond(404, { message: "Media not found." });
+        }
+
+        // Update the nuked status in MongoDB
         const result = await collection.updateOne(
           { slug, user: user.sub },
           { $set: { nuked: nuke } },
         );
 
-        if (result.matchedCount === 0) {
-          return respond(404, { message: "Media not found." });
-        } else if (result.modifiedCount === 1) {
+        // If nuking (not un-nuking) and painting has ATProto record, delete it
+        if (nuke && painting.atproto?.rkey && type === "paintings") {
+          console.log("🔄 Deleting painting from ATProto...");
+          try {
+            await deletePaintingFromAtproto(
+              database,
+              user.sub,
+              painting.atproto.rkey
+            );
+            console.log("✅ Painting deleted from ATProto");
+          } catch (atprotoError) {
+            console.error("⚠️  Failed to delete painting from ATProto:", atprotoError);
+            // Continue anyway - MongoDB is already updated
+          }
+        }
+
+        if (result.modifiedCount === 1) {
           return respond(200, { message: "Media nuked successfully." });
         } else {
           return respond(200, { message: "No effect." });
