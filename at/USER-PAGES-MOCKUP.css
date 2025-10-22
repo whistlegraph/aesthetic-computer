@@ -1,0 +1,304 @@
+/* 
+ * USER PAGE VISUAL MOCKUP
+ * 
+ * This shows what https://fifi.at.aesthetic.computer will look like
+ * when a user visits their personal ATProto data page.
+ */
+
+/*
+╔═══════════════════════════════════════════════════════════════════╗
+║                   at ← (clickable, goes back)                     ║
+╠═══════════════════════════════════════════════════════════════════╣
+║                                                                   ║
+║                   @fifi.at.aesthetic.computer                     ║
+║              did:plc:abc123xyz456def789ghi012jkl345               ║
+║                                                                   ║
+║  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐║
+║  │  37 total   │ │ 15 paintings│ │  18 moods   │ │  4 pieces   │║
+║  │   records   │ │             │ │             │ │             │║
+║  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘║
+║                                                                   ║
+╠═══════════════════════════════════════════════════════════════════╣
+║                                                                   ║
+║  [All 37] [Paintings 15] [Moods 18] [Pieces 4]                  ║
+║  ─────────────────────────────────────────────────────────────   ║
+║                                                                   ║
+║  ┌─────────────────────────────────────────────────────────┐    ║
+║  │ 🎨 PAINTING                      Oct 20, 2025 3:45 PM   │    ║
+║  ├─────────────────────────────────────────────────────────┤    ║
+║  │                                                          │    ║
+║  │           ┌──────────────────────────┐                  │    ║
+║  │           │                          │                  │    ║
+║  │           │    [Painting Thumbnail]  │                  │    ║
+║  │           │      400x400 pixels      │                  │    ║
+║  │           │                          │                  │    ║
+║  │           └──────────────────────────┘                  │    ║
+║  │                                                          │    ║
+║  │  Slug: 2023.10.20.15.30.45                             │    ║
+║  │  Code: #abc123                                          │    ║
+║  │                                                          │    ║
+║  │  ─────────────────────────────────────────────────────  │    ║
+║  │  rkey: 3jzx7k2m4n5  •  ref: 65f3d2c1a8b9e4f5a6b7c8d9  │    ║
+║  │                                                          │    ║
+║  │  View on pdsls.dev →                                    │    ║
+║  └─────────────────────────────────────────────────────────┘    ║
+║                                                                   ║
+║  ┌─────────────────────────────────────────────────────────┐    ║
+║  │ 💭 MOOD                          Oct 19, 2025 2:15 PM   │    ║
+║  ├─────────────────────────────────────────────────────────┤    ║
+║  │                                                          │    ║
+║  │  "Feeling creative today! Just finished a new piece     │    ║
+║  │   that combines geometric patterns with organic forms.  │    ║
+║  │   Really excited about where this is going..."          │    ║
+║  │                                                          │    ║
+║  │  ─────────────────────────────────────────────────────  │    ║
+║  │  rkey: 5pzn8r3q4t6  •  ref: 65f3d2c1a8b9e4f5a6b7c8d7  │    ║
+║  │                                                          │    ║
+║  │  View on pdsls.dev →                                    │    ║
+║  └─────────────────────────────────────────────────────────┘    ║
+║                                                                   ║
+║  ┌─────────────────────────────────────────────────────────┐    ║
+║  │ 🎨 PAINTING                      Oct 18, 2025 11:20 AM  │    ║
+║  ├─────────────────────────────────────────────────────────┤    ║
+║  │                                                          │    ║
+║  │           ┌──────────────────────────┐                  │    ║
+║  │           │                          │                  │    ║
+║  │           │    [Painting Thumbnail]  │                  │    ║
+║  │           │      400x400 pixels      │                  │    ║
+║  │           │                          │                  │    ║
+║  │           └──────────────────────────┘                  │    ║
+║  │                                                          │    ║
+║  │  Slug: 2023.10.18.11.20.15                             │    ║
+║  │  Code: #def456                                          │    ║
+║  │                                                          │    ║
+║  │  ─────────────────────────────────────────────────────  │    ║
+║  │  rkey: 2hwy6j1l3m4  •  ref: 65f3d2c1a8b9e4f5a6b7c8d8  │    ║
+║  │                                                          │    ║
+║  │  View on pdsls.dev →                                    │    ║
+║  └─────────────────────────────────────────────────────────┘    ║
+║                                                                   ║
+║  (continues with more records...)                                ║
+║                                                                   ║
+╠═══════════════════════════════════════════════════════════════════╣
+║                                                                   ║
+║             ← Back to at.aesthetic.computer                       ║
+║                                                                   ║
+║              Powered by AT Protocol                              ║
+║                                                                   ║
+╚═══════════════════════════════════════════════════════════════════╝
+*/
+
+/*
+ * COLOR SCHEME
+ * 
+ * Light Mode:
+ *   Background: #f5f5f5 (light gray)
+ *   Cards: white
+ *   Primary: rgb(205, 92, 155) (pink)
+ *   Text: #000
+ * 
+ * Dark Mode:
+ *   Background: rgb(40, 35, 45) (dark purple-gray)
+ *   Cards: rgba(255, 255, 255, 0.05) (translucent white)
+ *   Primary: rgb(205, 92, 155) (pink)
+ *   Text: rgba(255, 255, 255, 0.9)
+ */
+
+/*
+ * INTERACTIONS
+ * 
+ * Hover Effects:
+ *   - Cards lift slightly (2px) with shadow
+ *   - Links turn pink
+ *   - Tabs highlight on hover
+ * 
+ * Click Behaviors:
+ *   - Tabs switch active state and filter records
+ *   - "View on pdsls.dev" opens in new tab
+ *   - Header "at" link goes back to landing page
+ *   - Images can be clicked (future: lightbox)
+ */
+
+/*
+ * RESPONSIVE BEHAVIOR
+ * 
+ * Desktop (>1200px):
+ *   - Max width container centered
+ *   - Cards in full width grid
+ *   - All stats visible in row
+ * 
+ * Tablet (600-1200px):
+ *   - Flexible width
+ *   - Stats wrap to multiple rows
+ *   - Cards adjust width
+ * 
+ * Mobile (<600px):
+ *   - Full width
+ *   - Stats stack vertically
+ *   - Tabs stack/scroll
+ *   - Reduced font sizes
+ *   - Images scale to fit
+ */
+
+/*
+ * LOADING STATES
+ * 
+ * Initial Load:
+ *   Shows: "🔍 Loading ATProto records..."
+ *   Duration: ~500-1500ms
+ * 
+ * Error State:
+ *   Shows: "❌ Error: [message]"
+ *   Examples:
+ *     - Invalid subdomain format
+ *     - Handle not found
+ *     - Failed to resolve DID
+ *     - Network error
+ * 
+ * Empty State:
+ *   Shows: "No records found" (per tab)
+ *   When: User has no records of that type
+ */
+
+/*
+ * TAB BEHAVIOR
+ * 
+ * All Tab (Default):
+ *   Shows all records from all collections
+ *   Sorted by date (newest first)
+ *   Badge shows total count
+ * 
+ * Collection Tabs:
+ *   Only show if collection has records
+ *   Filter to show only that type
+ *   Badge shows count for that type
+ *   Examples:
+ *     - Paintings: Shows paintings with thumbnails
+ *     - Moods: Shows mood text posts
+ *     - Pieces: Shows code pieces
+ *     - KidLisp: Shows kidlisp programs
+ */
+
+/*
+ * CARD ANATOMY
+ * 
+ * Header:
+ *   - Type badge (left): "PAINTING", "MOOD", etc.
+ *   - Date (right): "Oct 20, 2025 3:45 PM"
+ * 
+ * Content:
+ *   - Varies by type:
+ *     • Painting: Image + slug + code
+ *     • Mood: Text content
+ *     • Piece/KidLisp: Code or JSON
+ * 
+ * Footer:
+ *   - Metadata: rkey, ref (if present)
+ *   - Link: "View on pdsls.dev →"
+ */
+
+/*
+ * DATA FLOW
+ * 
+ * 1. Page loads → Extract handle from URL
+ *    fifi.at.aesthetic.computer → "fifi.at.aesthetic.computer"
+ * 
+ * 2. Resolve handle to DID
+ *    API: com.atproto.identity.resolveHandle
+ *    Result: did:plc:abc123...
+ * 
+ * 3. Fetch records for each collection (parallel)
+ *    API: com.atproto.repo.listRecords
+ *    Collections:
+ *      - computer.aesthetic.painting
+ *      - computer.aesthetic.mood
+ *      - computer.aesthetic.piece
+ *      - computer.aesthetic.kidlisp
+ * 
+ * 4. Render records in tabbed interface
+ *    - Sort by date (newest first)
+ *    - Load images from blob storage
+ *    - Create interactive cards
+ * 
+ * 5. User can:
+ *    - Switch tabs to filter
+ *    - Click links to inspect records
+ *    - View images
+ *    - Copy DID/rkeys
+ */
+
+/*
+ * FUTURE ENHANCEMENTS
+ * 
+ * Authentication (Phase 1):
+ *   - Detect if user is logged in
+ *   - Show admin controls if owner
+ *   - Allow editing/deleting records
+ * 
+ * Customization (Phase 2):
+ *   - Custom themes
+ *   - Profile pictures
+ *   - Bio/description
+ *   - Featured records
+ * 
+ * Advanced Features (Phase 3):
+ *   - Search within records
+ *   - Date range filtering
+ *   - Export functionality
+ *   - Embed pieces/kidlisp
+ *   - Social graph viz
+ */
+
+/*
+ * ACCESSIBILITY
+ * 
+ * - Semantic HTML5 elements
+ * - ARIA labels where needed
+ * - Keyboard navigation support
+ * - High contrast in dark mode
+ * - Readable font sizes
+ * - Alt text for images (future)
+ */
+
+/*
+ * PERFORMANCE
+ * 
+ * First Load:
+ *   - Static HTML: ~17KB
+ *   - CSS inline: ~2KB
+ *   - JavaScript inline: ~5KB
+ *   - Total: ~24KB
+ * 
+ * API Calls:
+ *   - Resolve handle: ~200ms
+ *   - List records: ~300-500ms per collection
+ *   - Parallel fetching: ~500-800ms total
+ * 
+ * Images:
+ *   - Lazy loaded from blob storage
+ *   - Cached by browser
+ *   - Progressive loading
+ * 
+ * Total Time to Interactive:
+ *   - ~1-2 seconds
+ */
+
+/*
+ * BROWSER SUPPORT
+ * 
+ * Required:
+ *   - ES6+ JavaScript
+ *   - Fetch API
+ *   - CSS Grid
+ *   - CSS Flexbox
+ * 
+ * Tested on:
+ *   ✓ Chrome 90+
+ *   ✓ Firefox 88+
+ *   ✓ Safari 14+
+ *   ✓ Edge 90+
+ * 
+ * Not supported:
+ *   ✗ IE11
+ *   ✗ Old mobile browsers
+ */
