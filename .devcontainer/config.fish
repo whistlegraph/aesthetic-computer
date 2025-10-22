@@ -788,8 +788,16 @@ function ac-site
         end
         
         set exit_code $status
+        
+        # If the exit code is 130 (Ctrl+C), jump back to fish to keep shell alive
+        if test $exit_code -eq 130
+            echo "🛑 Stopped by user (Ctrl+C)"
+            fish
+            return
+        end
+        
         echo "⚠️  ac-site crashed with exit code $exit_code"
-        echo "🔄 Restarting in 3 seconds..."
+        echo "🔄 Restarting in 3 seconds... (Ctrl+C to stop)"
         sleep 3
     end
 end
@@ -1096,8 +1104,16 @@ function ac-session
         PORT=8889 NODE_ENV=development npx nodemon -I --watch session.mjs session.mjs
         
         set exit_code $status
+        
+        # If the exit code is 130 (Ctrl+C), jump back to fish to keep shell alive
+        if test $exit_code -eq 130
+            echo "🛑 Stopped by user (Ctrl+C)"
+            fish
+            return
+        end
+        
         echo "⚠️  ac-session crashed/stopped with exit code $exit_code"
-        echo "🔄 Restarting in 3 seconds..."
+        echo "🔄 Restarting in 3 seconds... (Ctrl+C to stop)"
         sleep 3
     end
 end
@@ -1162,7 +1178,7 @@ function ac-ff-playlist
     cd ~/aesthetic-computer
     ./rebroadcast.sh
 end
-alias ac-servers 'clear; ac; npm run -s servers'
+alias ac-servers 'clear; ac; npm run -s servers; env nogreet=true fish'
 alias ac-chat-system 'clear; ac; npm run -s chat; cd nanos; npm run chat-system:dev; fish'
 alias ac-chat-sotce 'clear; ac; npm run -s chat; cd nanos; npm run chat-sotce:dev; fish'
 alias ac-chat-clock 'clear; ac; npm run -s chat; cd nanos; npm run chat-clock:dev; fish'
