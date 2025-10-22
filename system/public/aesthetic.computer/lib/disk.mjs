@@ -2178,7 +2178,9 @@ const $commonApi = {
               baseUrl = `https://aesthetic.computer`;
             }
             
-            const mediaUrl = `${baseUrl}/media/${handle}/painting/${code}.${extension}`;
+            // Ensure handle has @ prefix for the media URL
+            const handleWithAt = handle.startsWith('@') ? handle : `@${handle}`;
+            const mediaUrl = `${baseUrl}/media/${handleWithAt}/painting/${code}.${extension}`;
             console.log("🖼️ Media URL constructed:", mediaUrl);
             return $commonApi.net.preload(
               mediaUrl,
@@ -6486,6 +6488,7 @@ async function load(
   $commonApi.query = Object.fromEntries(new URLSearchParams(search));
   $commonApi.params = params || [];
   $commonApi.colon = colon || [];
+  $commonApi.hash = hash; // Add hash support for painting codes like #2ug
 
   // Initialize duration tracking from query parameters
   if ($commonApi.query.duration) {

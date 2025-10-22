@@ -1,0 +1,452 @@
+<!--
+ATProto PDS Landing Page for at.aesthetic.computer
+Uses ONLY AT Protocol APIs - no aesthetic.computer backend dependencies
+Created: 2025.10.20
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>at · Aesthetic Computer</title>
+  <meta name="description" content="Personal Data Server for the Aesthetic Computer community">
+  <link rel="icon" type="image/png"
+    href="https://pals-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/painting-2023.7.29.20.39.png">
+  
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    ::-webkit-scrollbar {
+      display: none;
+    }
+    
+    body {
+      margin: 0;
+      font-size: 16px;
+      font-family: monospace;
+      -webkit-text-size-adjust: none;
+      background: #f5f5f5;
+      color: #000;
+      line-height: 1.5;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2em 1em;
+    }
+
+    header {
+      text-align: center;
+      padding: 2em 0;
+      border-bottom: 3px solid rgb(205, 92, 155);
+      margin-bottom: 2em;
+    }
+
+    h1 {
+      font-size: 2.5em;
+      font-weight: normal;
+      margin: 0 0 0.3em 0;
+      color: rgb(205, 92, 155);
+    }
+
+    h2 {
+      font-size: 1.5em;
+      font-weight: normal;
+      margin: 2em 0 1em 0;
+      color: rgb(205, 92, 155);
+    }
+
+    .subtitle {
+      font-size: 0.9em;
+      opacity: 0.7;
+      margin: 0.5em 0;
+    }
+
+    .intro {
+      text-align: center;
+      max-width: 600px;
+      margin: 0 auto 2em;
+      line-height: 1.6;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1em;
+      margin: 2em 0;
+    }
+
+    .stat-card {
+      background: white;
+      padding: 1.5em;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 2em;
+      font-weight: bold;
+      color: rgb(205, 92, 155);
+      margin: 0.2em 0;
+    }
+
+    .stat-label {
+      font-size: 0.85em;
+      opacity: 0.7;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .user-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 0.75em;
+      margin: 2em 0;
+    }
+
+    .user-card {
+      background: white;
+      padding: 1em;
+      border-radius: 6px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      text-decoration: none;
+      color: inherit;
+      transition: all 0.2s;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+    }
+
+    .user-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(205, 92, 155, 0.2);
+      border: 2px solid rgb(205, 92, 155);
+      padding: calc(1em - 2px);
+    }
+
+    .user-handle {
+      font-weight: bold;
+      color: rgb(205, 92, 155);
+      margin-bottom: 0.5em;
+      word-break: break-word;
+    }
+
+    .user-stats {
+      font-size: 0.75em;
+      opacity: 0.6;
+      margin-top: 0.5em;
+    }
+
+    .user-badge {
+      display: inline-block;
+      padding: 0.2em 0.5em;
+      background: rgba(205, 92, 155, 0.1);
+      border-radius: 3px;
+      font-size: 0.7em;
+      margin: 0.2em;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 3em;
+      opacity: 0.5;
+    }
+
+    .error {
+      text-align: center;
+      padding: 3em;
+      color: #d32f2f;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(205, 92, 155, 0.3);
+      border-radius: 50%;
+      border-top-color: rgb(205, 92, 155);
+      animation: spin 1s ease-in-out infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .search-box {
+      margin: 2em 0;
+      text-align: center;
+    }
+
+    .search-box input {
+      font-family: monospace;
+      font-size: 1em;
+      padding: 0.75em 1em;
+      width: 100%;
+      max-width: 400px;
+      border: 2px solid #e0e0e0;
+      border-radius: 6px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .search-box input:focus {
+      border-color: rgb(205, 92, 155);
+    }
+
+    footer {
+      text-align: center;
+      padding: 3em 1em 1em;
+      opacity: 0.5;
+      font-size: 0.85em;
+    }
+
+    footer a {
+      color: rgb(205, 92, 155);
+      text-decoration: none;
+    }
+
+    footer a:hover {
+      text-decoration: underline;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      body {
+        background: rgb(64, 56, 74);
+        color: rgba(255, 255, 255, 0.85);
+      }
+
+      .stat-card, .user-card {
+        background: rgba(255, 255, 255, 0.05);
+        color: rgba(255, 255, 255, 0.85);
+      }
+
+      .search-box input {
+        background: rgba(255, 255, 255, 0.05);
+        border-color: rgba(255, 255, 255, 0.2);
+        color: rgba(255, 255, 255, 0.85);
+      }
+
+      .search-box input:focus {
+        border-color: rgb(205, 92, 155);
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <header>
+      <h1>at.aesthetic.computer</h1>
+      <div class="subtitle">Personal Data Server · ATProto Network</div>
+    </header>
+
+    <div class="intro">
+      <p>
+        Welcome to the <strong>Aesthetic Computer</strong> Personal Data Server (PDS).
+        This server hosts ATProto records for the community, including paintings, moods, pieces, and kidlisp code.
+      </p>
+      <p>
+        Browse user pages below to explore their creative work! 🎨
+      </p>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-value" id="total-users">...</div>
+        <div class="stat-label">Total Users</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="total-records">...</div>
+        <div class="stat-label">Total Records</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="active-today">...</div>
+        <div class="stat-label">Active Today</div>
+      </div>
+    </div>
+
+    <h2>🌟 Top Active Users</h2>
+    <div class="search-box">
+      <input 
+        type="text" 
+        id="search" 
+        placeholder="Search users by handle..."
+        autocomplete="off"
+      >
+    </div>
+
+    <div id="users-container">
+      <div class="loading">
+        <div class="spinner"></div>
+        <p>Loading users from ATProto...</p>
+      </div>
+    </div>
+
+    <footer>
+      <p>
+        Powered by <a href="https://atproto.com" target="_blank">AT Protocol</a> · 
+        Part of the <a href="https://aesthetic.computer" target="_blank">Aesthetic Computer</a> network
+      </p>
+    </footer>
+  </div>
+
+  <script>
+    const PDS_URL = 'https://at.aesthetic.computer';
+    
+    let allUsers = [];
+    let displayedUsers = [];
+    let loadingProgress = 0;
+
+    // Fetch list of repositories (users) from PDS
+    async function fetchUsers() {
+      try {
+        const response = await fetch(`${PDS_URL}/xrpc/com.atproto.sync.listRepos?limit=1000`);
+        const data = await response.json();
+        
+        if (!data.repos || !Array.isArray(data.repos)) {
+          throw new Error('Invalid response from PDS');
+        }
+
+        const totalRepos = Math.min(data.repos.length, 200); // Limit to avoid too many requests
+        
+        // Get details for each repo (with progress)
+        for (let i = 0; i < totalRepos; i++) {
+          const repo = data.repos[i];
+          loadingProgress = Math.round((i / totalRepos) * 100);
+          updateLoadingProgress();
+          
+          try {
+            const detailsResponse = await fetch(
+              `${PDS_URL}/xrpc/com.atproto.repo.describeRepo?repo=${repo.did}`
+            );
+            const details = await detailsResponse.json();
+            
+            if (details.handle) {
+              allUsers.push({
+                did: repo.did,
+                handle: details.handle,
+                collections: details.collections || [],
+                recordCount: details.collections?.length || 0, // Use collection count as proxy
+                lastActive: repo.head
+              });
+            }
+          } catch (e) {
+            // Skip failed repos
+          }
+          
+          // Batch render every 20 users
+          if (i % 20 === 0) {
+            displayedUsers = [...allUsers].sort((a, b) => b.recordCount - a.recordCount);
+            updateStats();
+            renderUsers(displayedUsers);
+          }
+        }
+
+        // Final sort and render
+        allUsers.sort((a, b) => b.recordCount - a.recordCount);
+        displayedUsers = allUsers;
+        
+        updateStats();
+        renderUsers(displayedUsers);
+      } catch (error) {
+        console.error('Error fetching users:', error);
+        document.getElementById('users-container').innerHTML = 
+          '<div class="error">Failed to load users from PDS. Try refreshing the page.</div>';
+      }
+    }
+
+    function updateLoadingProgress() {
+      const container = document.getElementById('users-container');
+      if (allUsers.length === 0) {
+        container.innerHTML = `
+          <div class="loading">
+            <div class="spinner"></div>
+            <p>Loading users from ATProto... ${loadingProgress}%</p>
+          </div>
+        `;
+      }
+    }
+
+    // Update stats display
+    function updateStats() {
+      document.getElementById('total-users').textContent = allUsers.length;
+      
+      const totalRecords = allUsers.reduce((sum, u) => sum + u.recordCount, 0);
+      document.getElementById('total-records').textContent = totalRecords.toLocaleString();
+      
+      // For "active today", we'd need timestamps which requires more API calls
+      // For now, show users with any records
+      const activeUsers = allUsers.filter(u => u.recordCount > 0).length;
+      document.getElementById('active-today').textContent = activeUsers;
+    }
+
+    // Render user cards
+    function renderUsers(users) {
+      const container = document.getElementById('users-container');
+      
+      if (users.length === 0) {
+        container.innerHTML = '<div class="loading">No users found</div>';
+        return;
+      }
+
+      const grid = document.createElement('div');
+      grid.className = 'user-grid';
+
+      users.forEach(user => {
+        const card = document.createElement('a');
+        card.className = 'user-card';
+        card.href = `https://${user.handle}.${PDS_URL.replace('https://', '')}`;
+        card.target = '_blank';
+
+        const badges = [];
+        if (user.collections.includes('computer.aesthetic.painting')) {
+          badges.push('<span class="user-badge">🎨 Paintings</span>');
+        }
+        if (user.collections.includes('computer.aesthetic.mood')) {
+          badges.push('<span class="user-badge">💬 Moods</span>');
+        }
+        if (user.collections.includes('computer.aesthetic.piece')) {
+          badges.push('<span class="user-badge">🎵 Pieces</span>');
+        }
+        if (user.collections.includes('computer.aesthetic.kidlisp')) {
+          badges.push('<span class="user-badge">📝 Code</span>');
+        }
+
+        card.innerHTML = `
+          <div class="user-handle">@${user.handle.replace('.at.aesthetic.computer', '')}</div>
+          <div>${badges.join(' ')}</div>
+          <div class="user-stats">${user.recordCount} record${user.recordCount !== 1 ? 's' : ''}</div>
+        `;
+
+        grid.appendChild(card);
+      });
+
+      container.innerHTML = '';
+      container.appendChild(grid);
+    }
+
+    // Search functionality
+    document.getElementById('search').addEventListener('input', (e) => {
+      const query = e.target.value.toLowerCase();
+      
+      if (!query) {
+        displayedUsers = allUsers;
+      } else {
+        displayedUsers = allUsers.filter(user => 
+          user.handle.toLowerCase().includes(query)
+        );
+      }
+      
+      renderUsers(displayedUsers);
+    });
+
+    // Initialize
+    fetchUsers();
+  </script>
+</body>
+</html>

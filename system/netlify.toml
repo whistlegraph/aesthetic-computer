@@ -27,12 +27,16 @@ included_env_vars = ["USER_ENDPOINT", "ART_KEY", "ART_SECRET", "USER_SPACE_NAME"
 external_node_modules = ["@google-cloud/text-to-speech"]
 included_env_vars = ["GCP_EMAIL", "GCP_TTS_KEY_URL", "CONTEXT"]
 [functions.mood]
-external_node_modules = ["got", "firebase-admin", "obscenity"]
-included_env_vars = []
+external_node_modules = ["got", "firebase-admin", "obscenity", "@atproto/api", "sharp"]
+included_env_vars = ["CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "REDIS_CONNECTION_STRING", "NETLIFY_DEV", "GCM_FIREBASE_CONFIG_URL", "PDS_URL", "PDS_ADMIN_PASSWORD"]
 [functions.handle]
 included_files = ["public/aesthetic.computer/lib/text.mjs", "backend/**/*.mjs"]
-external_node_modules = ["got", "mongodb", "obscenity", "@atproto/api"]
+external_node_modules = ["got", "mongodb", "obscenity", "@atproto/api", "sharp"]
 included_env_vars = ["CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "REDIS_CONNECTION_STRING", "NETLIFY_DEV", "LOGGER_KEY", "PDS_URL", "PDS_ADMIN_PASSWORD"]
+[functions.atproto-user-stats]
+external_node_modules = ["mongodb"]
+included_files = ["backend/**/*.mjs"]
+included_env_vars = ["MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
 [functions.logo]
 external_node_modules = ["got"]
 included_env_vars = []
@@ -97,7 +101,8 @@ included_env_vars = ["CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_S
 [functions.handles]
 included_env_vars = ["CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
 [functions.track-media]
-included_env_vars = ["CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
+external_node_modules = ["@atproto/api", "nanoid", "sharp", "got"]
+included_env_vars = ["CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "NETLIFY_DEV", "PDS_URL", "PDS_ADMIN_PASSWORD"]
 [functions.track-tape]
 included_env_vars = ["CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "ART_KEY", "ART_SECRET", "ART_ENDPOINT", "ART_SPACE_NAME", "USER_SPACE_NAME", "DO_SPACES_KEY", "DO_SPACES_SECRET", "MP4_SERVICE_URL", "MP4_SERVICE_TOKEN", "URL"]
 [functions.get-tape]
@@ -163,9 +168,9 @@ Access-Control-Allow-Origin = "*"
 Content-Security-Policy = "script-src 'self' https://www.gstatic.com https://cdn.jsdelivr.net https://aesthetic.computer https://assets.aesthetic.computer blob: 'unsafe-eval';"
 # Cross-Origin-Resource-Policy = "cross-origin"
 Vary = "*"
-# [[edge_functions]]
-# path = "/media/*" 
-# function = "media"
+[[edge_functions]]
+path = "/media/*" 
+function = "media"
 [[redirects]]
 from = "https://botce.ac"
 to = "https://aesthetic.computer/botce"
@@ -316,6 +321,20 @@ to = "https://aesthetic.computer/aesthetic-direct"
 status = 200
 force = true
 [[redirects]]
+from = "/kidlisp-com"
+to = "/kidlisp-com.html"
+status = 200
+[[redirects]]
+from = "https://kidlisp.com"
+to = "https://aesthetic.computer/kidlisp-com"
+status = 200
+force = true
+[[redirects]]
+from = "https://www.kidlisp.com"
+to = "https://aesthetic.computer/kidlisp-com"
+status = 200
+force = true
+[[redirects]]
 from = "/icon/*"
 to = "https://grab.aesthetic.computer/icon/:splat"
 status = 200
@@ -386,6 +405,10 @@ status = 200
 [[redirects]]
 from = "/api/mood/*"
 to = "/.netlify/functions/mood"
+status = 200
+[[redirects]]
+from = "/api/atproto-user-stats"
+to = "/.netlify/functions/atproto-user-stats"
 status = 200
 [[redirects]]
 from = "/api/store-kidlisp"

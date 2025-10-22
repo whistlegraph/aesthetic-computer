@@ -1,5 +1,11 @@
 #!/usr/bin/env fish
 
+# Fix fish path if needed (Fedora installs to /usr/sbin instead of /usr/bin)
+if not test -f /usr/bin/fish; and test -f /usr/sbin/fish
+    sudo ln -sf /usr/sbin/fish /usr/bin/fish
+    echo "🐟 Created fish symlink: /usr/bin/fish -> /usr/sbin/fish"
+end
+
 # Function to ensure fish config directory has correct permissions
 function ensure_fish_config_permissions
     set -l fish_config_dir /home/me/.config/fish
@@ -150,6 +156,18 @@ if not pgrep -x dockerd >/dev/null
     sudo dockerd >/tmp/dockerd.log 2>&1 &
 else
     echo "Docker daemon already running."
+end
+
+# Start Ollama daemon in the background if available and not already running
+if type -q ollama
+    if not pgrep -x ollama >/dev/null
+        echo "Starting Ollama daemon..."
+        ollama serve >/tmp/ollama.log 2>&1 &
+    else
+        echo "Ollama daemon already running."
+    end
+else
+    echo "Ollama not found; skipping. Install via Dockerfile to enable." >&2
 end
 
 # Ensure the envs directory exists and is accessible (fallback if mount fails)
