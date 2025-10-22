@@ -34,7 +34,8 @@ export default async function handleRequest(request) {
           : "https://user.aesthetic.computer";
 
       newUrl = `${baseUrl}/${resourcePath}`;
-      const response = await fetch(encodeURI(newUrl));
+      // Properly encode the URL, especially the pipe character in Auth0 user IDs
+      const response = await fetch(newUrl.split('/').map((part, i) => i < 3 ? part : encodeURIComponent(part)).join('/'));
       const contentType = response.headers.get("Content-Type");
       const moddedResponse = new Response(response.body, {
         headers: { ...response.headers },
@@ -64,7 +65,8 @@ export default async function handleRequest(request) {
           newUrl = `https://user.aesthetic.computer/${newPath}`;
         }
         // TODO: How can I ensure that Allow-Origin * can be here?
-        const response = await fetch(encodeURI(newUrl));
+        // Properly encode the URL, especially the pipe character in Auth0 user IDs
+        const response = await fetch(newUrl.split('/').map((part, i) => i < 3 ? part : encodeURIComponent(part)).join('/'));
         // Create a new Response object using the fetched response's body
 
         const contentType = response.headers.get("Content-Type");

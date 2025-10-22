@@ -207,15 +207,9 @@ export async function handler(event, context) {
     Bucket: client.bucket,
     Key: fileName,
     ContentType: mimeType,
-    // Note: ACL is included for ZIP uploads (tapes) to ensure public read access
-    // For other file types, ACL can be set via separate API call if needed
     ContentDisposition,
+    ACL: "public-read", // All media should be publicly readable
   };
-  
-  // For ZIP files (tapes), include ACL in the presigned URL to ensure public access
-  if (extension === "zip") {
-    putObjectParams.ACL = "public-read";
-  }
   
   // if (tagging) putObjectParams.Tagging = tagging; // Add object tags if they exist.
 
