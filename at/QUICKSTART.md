@@ -1,5 +1,7 @@
 # ATProto Experiments - Quick Start
 
+> 🆕 **NEW:** User-specific subdomain pages! Visit `https://[handle].at.aesthetic.computer` to see any user's ATProto records. See [USER-PAGES.md](USER-PAGES.md) for details.
+
 ## What We Just Set Up
 
 Created `/at` directory with ATProto exploration tools for Aesthetic Computer.
