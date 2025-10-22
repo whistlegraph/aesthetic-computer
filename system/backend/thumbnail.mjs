@@ -82,14 +82,14 @@ export async function getThumbnailFromSlug(slug, handleOrCode = null, options = 
   
   if (handleOrCode) {
     // User painting
-    if (isDev && options.bucket && options.userId) {
+    if ((isDev || options.forceSpaces) && options.bucket && options.userId) {
       // Dev mode: bypass /media endpoint and go directly to DO Spaces
       // This avoids SSL certificate issues with localhost fetch calls
       imageUrl = `https://${options.bucket}.sfo3.digitaloceanspaces.com/${options.userId}/painting/${cleanSlug}.png`;
     } else {
       // Production: use /media endpoint which handles both @handle and acXXXXX
       const cleanIdentifier = handleOrCode.replace(/^@/, "");
-      imageUrl = `https://aesthetic.computer/media/${cleanIdentifier}/painting/${cleanSlug}.png`;
+      imageUrl = `https://aesthetic.computer/media/@${cleanIdentifier}/painting/${cleanSlug}.png`;
     }
   } else {
     // Anonymous/guest painting: Direct DO Spaces URL (public bucket)

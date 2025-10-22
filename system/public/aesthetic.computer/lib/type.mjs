@@ -137,7 +137,7 @@ class Typeface {
           '~': 4
         },
         bdfOverrides: {
-          'y': { y: 2 }
+          'y': { y: 2 } // Push descender down by 2 pixels (positive = lower on screen)
         }
       };
     } else {
