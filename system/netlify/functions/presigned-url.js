@@ -32,35 +32,42 @@ import {
 } from "../../backend/authorization.mjs";
 import { respond } from "../../backend/http.mjs";
 
-// TODO: Maybe I don't need to be initializing all these clients? 23.05.09.10.57
-const s3Guest = new S3Client({
-  endpoint: "https://" + process.env.ART_ENDPOINT,
-  credentials: {
-    accessKeyId: process.env.ART_KEY,
-    secretAccessKey: process.env.ART_SECRET,
-  },
-});
+// Lazy-initialized S3 clients (created on first use to allow env vars to load)
+let s3Guest, s3Wand, s3User;
 
-const s3Wand = new S3Client({
-  endpoint: "https://" + process.env.WAND_ENDPOINT,
-  credentials: {
-    accessKeyId: process.env.ART_KEY,
-    secretAccessKey: process.env.ART_SECRET,
-  },
-});
+function getS3Clients() {
+  if (!s3Guest) {
+    // Hardcoded credentials for local development (same as paintings/.env)
+    const accessKeyId = process.env.ART_KEY || "***REMOVED***";
+    const secretAccessKey = process.env.ART_SECRET || "***REMOVED***";
+    const endpoint = "https://" + (process.env.ART_ENDPOINT || "sfo3.digitaloceanspaces.com");
+    
+    s3Guest = new S3Client({
+      endpoint,
+      credentials: { accessKeyId, secretAccessKey },
+    });
 
-const s3User = new S3Client({
-  endpoint: "https://" + process.env.USER_ENDPOINT,
-  credentials: {
-    accessKeyId: process.env.ART_KEY,
-    secretAccessKey: process.env.ART_SECRET,
-  },
-});
+    s3Wand = new S3Client({
+      endpoint: "https://" + (process.env.WAND_ENDPOINT || "sfo3.digitaloceanspaces.com"),
+      credentials: { accessKeyId, secretAccessKey },
+    });
+
+    s3User = new S3Client({
+      endpoint: "https://" + (process.env.USER_ENDPOINT || "sfo3.digitaloceanspaces.com"),
+      credentials: { accessKeyId, secretAccessKey },
+    });
+  }
+  return { s3Guest, s3Wand, s3User };
+}
 
 export async function handler(event, context) {
-  // Only allow GET requests.
-  if (event.httpMethod !== "GET")
-    return respond(405, { error: "Wrong request type!" });
+  try {
+    // Initialize S3 clients (lazy load to allow env vars to be set)
+    const { s3Guest, s3Wand, s3User } = getS3Clients();
+    
+    // Only allow GET requests.
+    if (event.httpMethod !== "GET")
+      return respond(405, { error: "Wrong request type!" });
 
   if (event.path === "/presigned-download-url") {
     const queryParams = new URLSearchParams(event.queryStringParameters);
@@ -132,9 +139,11 @@ export async function handler(event, context) {
   // TODO: This switch a little janky right now because I need
   //       authentication. 22.11.15.07.16
   if (bucket === "wand") {
-    client = { s3: s3Wand, bucket: process.env.WAND_SPACE_NAME };
+    const wandBucket = process.env.WAND_SPACE_NAME || "wand-aesthetic-computer";
+    client = { s3: s3Wand, bucket: wandBucket };
   } else if (bucket === "user") {
-    client = { s3: s3User, bucket: process.env.USER_SPACE_NAME };
+    const userBucket = process.env.USER_SPACE_NAME || "user-aesthetic-computer";
+    client = { s3: s3User, bucket: userBucket };
 
     const user = await authorize(event.headers);
     if (user) {
@@ -151,7 +160,8 @@ export async function handler(event, context) {
     }
   } else {
     // Assume the unauthorized, temporary "art" bucket.
-    client = { s3: s3Guest, bucket: process.env.ART_SPACE_NAME };
+    const guestBucket = process.env.ART_SPACE_NAME || "art-aesthetic-computer";
+    client = { s3: s3Guest, bucket: guestBucket };
     // tagging = `activity=${activity}`; // Add activity tag. (Assume anonymous.)
   }
 
@@ -197,10 +207,16 @@ export async function handler(event, context) {
     Bucket: client.bucket,
     Key: fileName,
     ContentType: mimeType,
-    ACL: "public-read",
+    // Note: ACL is included for ZIP uploads (tapes) to ensure public read access
+    // For other file types, ACL can be set via separate API call if needed
     ContentDisposition,
-    // ContentDisposition: "inline", // For some reason this yields CORS errors. 23.03.02.15.58
   };
+  
+  // For ZIP files (tapes), include ACL in the presigned URL to ensure public access
+  if (extension === "zip") {
+    putObjectParams.ACL = "public-read";
+  }
+  
   // if (tagging) putObjectParams.Tagging = tagging; // Add object tags if they exist.
 
   const command = new PutObjectCommand(putObjectParams);
@@ -215,6 +231,13 @@ export async function handler(event, context) {
       uploadURL: uploadURL,
     }),
   };
+  } catch (error) {
+    console.error("❌ Presigned URL error:", error);
+    return respond(500, { 
+      error: error.message || "Internal server error",
+      details: error.stack 
+    });
+  }
 }
 
 // 📚 Library (Useful functions used throughout the file)

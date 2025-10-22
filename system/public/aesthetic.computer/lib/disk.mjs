@@ -47,6 +47,11 @@ import * as lisp from "./kidlisp.mjs";
 import { isKidlispSource, fetchCachedCode, getCachedCode, initPersistentCache, getCachedCodeMultiLevel } from "./kidlisp.mjs"; // Add lisp evaluator.
 import { qrcode as qr, ErrorCorrectLevel } from "../dep/@akamfoad/qr/qr.mjs";
 import { microtype, MatrixChunky8 } from "../disks/common/fonts.mjs";
+import { 
+  calculateVHSEffects,
+  getLeaderPixelColor,
+  blendColorWithVHS
+} from "../disks/common/tape-player.mjs";
 
 function matrixDebugEnabled() {
   if (typeof window !== "undefined" && window?.acMatrixDebug) return true;
@@ -7222,6 +7227,9 @@ function send(data, shared = []) {
 // Used to subscribe to live coding / development reloads.
 let codeChannel, codeChannelAutoLoader;
 
+// Queue for export events that arrive when actEvents isn't available
+let pendingExportEvents = [];
+
 // 4. ✔ Respond to incoming messages, and probably produce a frame.
 // Boot procedure:
 // First `paint` happens after `boot`, then any `act` and `sim`s each frame
@@ -7661,6 +7669,21 @@ async function makeFrame({ data: { type, content } }) {
 
   if (type === "upload:progress") {
     serverUploadProgressReporter?.(content); // Report file upload progress if needed.
+    
+    // Also forward to current piece (especially video.mjs for tape uploads)
+    if (cachedAPI?.piece?.receive) {
+      console.log(`📤 Forwarding upload:progress to piece: ${content}`);
+      try {
+        cachedAPI.piece.receive({
+          type: "upload:progress",
+          content,
+          is: (name) => name === "upload:progress"
+        });
+      } catch (error) {
+        console.warn("📤 Error forwarding upload:progress to piece:", error);
+      }
+    }
+    
     return;
   }
 
@@ -7766,14 +7789,15 @@ async function makeFrame({ data: { type, content } }) {
   // Media Recorder Events
 
   if (type === "recorder:transcode-progress") {
-    if (debug) console.log("📼 Recorder: Transcoding", content);
+    console.log("📼 🚨 DISK.MJS caught transcode-progress EARLY - updating rec.printProgress:", content);
     $commonApi.rec.printProgress = content;
     if (content === 1) {
       send({ type: "signal", content: "recorder:transcoding-done" });
       // TODO: Is this the best place for this signal to be sent?
       //       Maybe it should go back in the BIOS? 22.08.19.13.44
     }
-    return;
+    // DON'T return here - let it continue to the piece forwarding logic below!
+    // return; // ❌ REMOVED - this was preventing messages from reaching the piece
   }
 
   // Forward recorder export events to the current piece, but only when not in export mode
@@ -7782,26 +7806,60 @@ async function makeFrame({ data: { type, content } }) {
     type === "recorder:export-status" ||
     type === "recorder:export-progress" ||
     type === "recorder:transcode-progress" ||
-    type === "recorder:export-complete"
+    type === "recorder:export-complete" ||
+    type === "tape:posted" ||
+    type === "tape:post-error" ||
+    type === "tape:download-progress" ||
+    type === "tape:load-progress"
   ) {
-    // If actEvents is available, route to the piece as normal
-    if (typeof actEvents !== 'undefined' && actEvents && Array.isArray(actEvents)) {
+    // Check if actEvents exists without causing ReferenceError
+    try {
+      const hasActEvents = typeof actEvents !== 'undefined' && actEvents && Array.isArray(actEvents);
+      
+      // If actEvents is available, route to the piece as normal
+      if (hasActEvents) {
+        const event = {
+          is: (eventType) => eventType === type,
+          type: type,
+          content: content,
+          progress: type === "recorder:transcode-progress" ? content : undefined
+        };
+        
+        actEvents.push(event);
+        if (debug) console.log("📼 ✅ Used actEvents for export event:", type);
+        return; // Don't let it pass through to main thread
+      }
+    } catch (e) {
+      // actEvents doesn't exist - that's fine, we'll call receive directly
+    }
+    
+    // If actEvents isn't available, try calling the piece's receive function directly
+    if (typeof receive === "function") {
       const event = {
         is: (eventType) => eventType === type,
         type: type,
         content: content,
         progress: type === "recorder:transcode-progress" ? content : undefined
       };
-      
-      actEvents.push(event);
-      if (debug) console.log("📼 ✅ Used actEvents for export event:", type);
-      return; // Don't let it pass through to main thread
-    } else {
-      // During export, actEvents is undefined - let the event pass through directly
-      // to main thread without trying to route it through the piece system
-      // (Silent mode - no debug logging to avoid console spam)
-      // Don't return here - let it fall through to normal send() handling
+      try {
+        console.log("📼 ✅ Calling receive directly for export event:", type);
+        receive(event);
+        return; // Successfully delivered to piece
+      } catch (e) {
+        console.warn("📼 ❌ Error calling receive:", e);
+      }
     }
+    
+    // If we can't deliver it, queue it for later
+    const event = {
+      is: (eventType) => eventType === type,
+      type: type,
+      content: content,
+      progress: type === "recorder:transcode-progress" ? content : undefined
+    };
+    pendingExportEvents.push(event);
+    console.log("📼 📥 Queued export event for later delivery:", type, "queue size:", pendingExportEvents.length);
+    return;
   }
 
   if (
@@ -7846,16 +7904,58 @@ async function makeFrame({ data: { type, content } }) {
 
   if (type === "recorder:presented") {
     $commonApi.rec.presenting = true;
+    $commonApi.rec.presentProgress = 0;
+    $commonApi.rec.tapeProgress = 0;
     return;
   }
 
   if (type === "recorder:presented:failure") {
     $commonApi.rec.presenting = false;
+    $commonApi.rec.presentProgress = 0;
+    $commonApi.rec.tapeProgress = 0;
     return;
   }
 
   if (type === "recorder:frames-response") {
-    $commonApi.rec.framesCallback?.(content);
+    // First chunk - initialize accumulation
+    if (content.totalChunks > 1) {
+      console.log(`📦 Receiving chunked frames: chunk 1/${content.totalChunks}`);
+      $commonApi.rec.frameChunks = [content.frames];
+      $commonApi.rec.totalChunks = content.totalChunks;
+      $commonApi.rec.receivedChunks = 1;
+      $commonApi.rec.rawAudio = content.rawAudio;
+    } else {
+      // Single chunk, call callback immediately
+      $commonApi.rec.framesCallback?.(content);
+    }
+    return;
+  }
+
+  if (type === "recorder:frames-chunk") {
+    // Subsequent chunks - accumulate
+    if ($commonApi.rec.frameChunks) {
+      $commonApi.rec.frameChunks.push(content.frames);
+      $commonApi.rec.receivedChunks++;
+      
+      console.log(`📦 Received chunk ${$commonApi.rec.receivedChunks}/${$commonApi.rec.totalChunks}`);
+      
+      // All chunks received - combine and call callback
+      if ($commonApi.rec.receivedChunks === $commonApi.rec.totalChunks) {
+        const allFrames = $commonApi.rec.frameChunks.flat();
+        console.log(`✅ All ${$commonApi.rec.totalChunks} chunks received, total frames: ${allFrames.length}`);
+        
+        $commonApi.rec.framesCallback?.({
+          frames: allFrames,
+          rawAudio: $commonApi.rec.rawAudio
+        });
+        
+        // Clean up
+        delete $commonApi.rec.frameChunks;
+        delete $commonApi.rec.totalChunks;
+        delete $commonApi.rec.receivedChunks;
+        delete $commonApi.rec.rawAudio;
+      }
+    }
     return;
   }
 
@@ -7876,11 +7976,29 @@ async function makeFrame({ data: { type, content } }) {
 
   if (type === "recorder:unpresented") {
     $commonApi.rec.presenting = false;
+    $commonApi.rec.presentProgress = 0;
+    $commonApi.rec.tapeProgress = 0;
     return;
   }
 
   if (type === "signal") {
     signals.push(content);
+    return;
+  }
+
+  if (type === "piece:act-alert") {
+    if (content !== undefined && content !== null) {
+      if (typeof content === "string") {
+        actAlerts.push(content);
+      } else if (typeof content.name === "string" && content.name.length > 0) {
+        const { name, ...extra } = content;
+        if (keys(extra).length > 0) {
+          actAlerts.push({ name, ...extra });
+        } else {
+          actAlerts.push(name);
+        }
+      }
+    }
     return;
   }
 
@@ -8186,6 +8304,23 @@ async function makeFrame({ data: { type, content } }) {
     };
     $commonApi.display = currentDisplay;
 
+    // IMPORTANT: Update screen dimensions immediately so the next paint uses correct size
+    if (content.width !== undefined && content.height !== undefined && screen) {
+      const oldWidth = screen.width;
+      const oldHeight = screen.height;
+      const oldBufferSize = screen.pixels.length;
+      
+      screen.width = content.width;
+      screen.height = content.height;
+      // Recreate the pixel buffer with new dimensions
+      screen.pixels = new Uint8ClampedArray(content.width * content.height * 4);
+      
+      if ($commonApi.rec.presenting && (oldWidth !== content.width || oldHeight !== content.height)) {
+        console.log('📐 REFRAME: Worker dimensions updated', oldWidth, 'x', oldHeight, '→', content.width, 'x', content.height);
+        console.log('   Buffer:', oldBufferSize, '→', screen.pixels.length, '| Expected:', content.width * content.height * 4);
+      }
+    }
+
     // Only trigger a reframe event if we have already passed `boot` (painted
     // at least once)
     if (booted) {
@@ -8224,14 +8359,80 @@ async function makeFrame({ data: { type, content } }) {
     // Take hold of a previously worker transferrable screen buffer
     // and re-assign it.
     let pixels;
-    if (content.pixels) {
+    if (content.pixels && screen) {
       pixels = new Uint8ClampedArray(content.pixels);
-      if (screen) screen.pixels = pixels;
+      // Only use the transferred buffer if it matches current screen dimensions
+      // After a reframe, the buffer from bios may have old dimensions
+      const expectedLength = screen.width * screen.height * 4;
+      if (pixels.length === expectedLength) {
+        screen.pixels = pixels;
+      } else {
+        if ($commonApi.rec.presenting) {
+          console.log('⚠️ FRAME: Ignoring mismatched buffer from bios. Got:', pixels.length, '| Expected:', expectedLength, '| Keeping reframed buffer');
+        }
+        // Keep the current screen.pixels buffer (from reframe)
+      }
     }
 
     // 🌟 Global Keyboard Shortcuts (these could also be seen via `act`)
     content.keyboard.forEach((data) => {
       if (currentText && currentText.indexOf("botce") > -1) return; // No global keys on `botce`. 23.11.12.23.38
+      
+      // 📼 [Ctrl+R+R] Quick tape - start recording without leaving the piece
+      // Handle this BEFORE the keyboard:down check since it's a special event
+      if (data.name === "keyboard:quick-tape" && !getPackMode()) {
+        console.log("📼 Quick tape: Handler triggered!");
+        console.log("📼 Quick tape: currentText =", currentText);
+        console.log("📼 Quick tape: currentParams =", currentParams);
+        console.log("📼 Quick tape: $commonApi.rec =", $commonApi.rec);
+        
+        // Play a sound to indicate recording started
+        $commonApi.sound.synth({
+          tone: 2000,
+          duration: 0.05,
+          attack: 0.01,
+          decay: 0.5,
+          volume: 0.25,
+        });
+        
+        // Set up the recording with default 7 second duration
+        const defaultDuration = 7;
+        const kidlispFps = (typeof window !== 'undefined' && window.currentKidlispFps) || null;
+        
+        console.log("📼 Quick tape: About to call rec.rolling()...");
+        
+        // Set up recording options and callback
+        $commonApi.rec.rolling(
+          {
+            type: "video",
+            pieceName: currentText || "quick-tape",
+            pieceParams: currentParams ? currentParams.join("~") : "",
+            originalCommand: currentText,
+            intendedDuration: defaultDuration,
+            frameMode: false,
+            frameCount: null,
+            kidlispFps: kidlispFps,
+            cleanMode: false,
+            showTezosStamp: false,
+            mystery: false
+          },
+          (time) => {
+            // This callback is invoked after recording starts
+            console.log(`📼 Quick tape: Timer callback invoked! time=${time}`);
+            $commonApi.rec.tapeTimerSet(defaultDuration, time, false);
+            console.log(`📼 Quick tape: Timer set complete`);
+          },
+        );
+        
+        console.log("📼 Quick tape: rec.rolling() called");
+        
+        // Mark as recording
+        $commonApi.rec.recording = true;
+        
+        console.log(`📼 Quick tape: Recording initiated! Duration=${defaultDuration}s`);
+        return; // Don't process this event further
+      }
+      
       if (data.name.indexOf("keyboard:down") === 0) {
         // [Escape] (Deprecated on 23.05.22.19.33)
         // If not on prompt, then move backwards through the history of
@@ -8284,6 +8485,26 @@ async function makeFrame({ data: { type, content } }) {
           currentText !== "sign" &&
           currentPath !== "aesthetic.computer/disks/prompt"
         ) {
+          // If recording, Escape should stop the tape instead of jumping to prompt
+          if (data.key === "Escape" && $commonApi.rec.recording) {
+            console.log("🎬 Escape pressed during recording - stopping tape");
+            
+            // Cut the recording first
+            $commonApi.rec.cut();
+            
+            // Play the sound AFTER a brief delay so it doesn't get recorded
+            setTimeout(() => {
+              $commonApi.sound.synth({
+                tone: 600,
+                duration: 0.15,
+                attack: 0.01,
+                decay: 0.8,
+                volume: 0.2,
+              });
+            }, 100); // 100ms delay to ensure recording has stopped
+            
+            return; // Don't proceed with navigation
+          }
           // Stop merry pipeline for both Escape and Backspace
           let merryOriginalCommand = null;
           if (data.key === "Escape" || data.key === "Backspace") {
@@ -8942,9 +9163,11 @@ async function makeFrame({ data: { type, content } }) {
 
       $api.inFocus = inFocus;
 
+      // Use screen.width/height instead of content.width/height to get the most up-to-date dimensions
+      // content.width/height can be stale if a reframe just happened
       $api.screen = {
-        width: content.width,
-        height: content.height,
+        width: screen.width,
+        height: screen.height,
         pixels: screen.pixels,
       };
 
@@ -9819,6 +10042,8 @@ async function makeFrame({ data: { type, content } }) {
           
           // Only call paint() if timing allows or no FPS limit is set
           if (shouldPaint) {
+            // Reset zebra cache at the start of each frame so it can advance once per frame
+            $api.num.resetZebraCache();
             paintOut = paint($api); // Returns `undefined`, `false`, or `DirtyBox`.
             // Increment piece frame counter only when we actually paint
             pieceFrameCount++;
@@ -9847,6 +10072,8 @@ async function makeFrame({ data: { type, content } }) {
         // `DirtyBox` and `undefined` always set `noPaint` to `true`.
         noPaint =
           paintOut === false || (paintOut !== undefined && paintOut !== true);
+
+        if (system === "video") console.log('📝 DISK: paintOut =', paintOut, '→ noPaint =', noPaint);
 
         // Run everything that was queued to be painted, then devour paintLayers.
         //await painting.paint();
@@ -9949,6 +10176,7 @@ async function makeFrame({ data: { type, content } }) {
 
         painting.paint(true);
         painted = true;
+        if (system === "video") console.log('🟢 DISK: painted set to TRUE, paintCount:', paintCount);
         paintCount = paintCount + 1n;
 
         // Check for frame-based recording completion (runs on every painted frame)
@@ -9992,6 +10220,10 @@ async function makeFrame({ data: { type, content } }) {
 
         //console.log("bake")
         //send({ type: "3d-bake" });
+      } else {
+        if (system === "video") {
+          console.log('❌ DISK: PAINT BLOCK SKIPPED - previewMode:', previewMode, 'iconMode:', iconMode, 'noPaint:', noPaint, 'booted:', booted);
+        }
       }
 
       // 🏷️ corner-label: Draw any Global UI / HUD in an overlay buffer that will get
@@ -10653,15 +10885,6 @@ async function makeFrame({ data: { type, content } }) {
               // Fallback to black if can't sample
               return { r: 0, g: 0, b: 0 };
             };
-            
-            // Helper function to blend sampled color with VHS red
-            const blendWithVHS = (sampledColor, vhsR, vhsG, vhsB, blendFactor = 0.3) => {
-              return {
-                r: Math.floor(sampledColor.r * blendFactor + vhsR * (1 - blendFactor)),
-                g: Math.floor(sampledColor.g * blendFactor + vhsG * (1 - blendFactor)),
-                b: Math.floor(sampledColor.b * blendFactor + vhsB * (1 - blendFactor))
-              };
-            };
           
           // Special color override for first and last frames
           const isFirstFrame = progress <= 0.01; // First 1% of progress
@@ -10727,29 +10950,19 @@ async function makeFrame({ data: { type, content } }) {
                   // Base VHS red intensity - reduced to let more color through
                   let redIntensity = 200; // Reduced from 255 for more color mixing
                   
-                  // Enhanced VHS scan line effect with more movement
-                  const scanLine = Math.sin(animFrame * 0.5 + x * 0.6) * 0.15 + 0.85;
-                  
-                  // Intensified analog glow effect - more pronounced waves
-                  const glowPhase = (animFrame * 0.15 + x * 0.12) % (Math.PI * 2);
-                  const analogGlow = Math.sin(glowPhase) * 0.2 + 0.8;
-                  
-                  // Enhanced VHS tracking distortion with more character
-                  const tracking = Math.sin(animFrame * 0.08 + x * 0.03) * 0.1 + 0.9;
-                  
-                  // Secondary glow wave for more complexity
-                  const secondaryGlow = Math.sin(animFrame * 0.25 + x * 0.2) * 0.1 + 0.9;
+                  // Use shared VHS effects calculation
+                  const effects = calculateVHSEffects(x, animFrame);
                   
                   // Combine all VHS effects with brighter base
-                  redIntensity = Math.floor(redIntensity * scanLine * analogGlow * tracking * secondaryGlow);
+                  redIntensity = Math.floor(redIntensity * effects.scanLine * effects.analogGlow * effects.tracking * effects.secondaryGlow);
                   
                   // Create VHS red color
                   const vhsR = Math.max(180, Math.min(255, redIntensity)); // Reduced min from 200
                   const vhsG = Math.floor(vhsR * 0.05); // Very minimal green
                   const vhsB = Math.floor(vhsR * 0.02); // Very minimal blue
                   
-                  // Blend mixed sampled color with VHS red (55% sampled, 45% VHS red for more color influence)
-                  const blended = blendWithVHS(mixedColor, vhsR, vhsG, vhsB, 0.55);
+                  // Use shared blending function (55% sampled, 45% VHS red for more color influence)
+                  const blended = blendColorWithVHS(mixedColor, vhsR, vhsG, vhsB, 0.55);
                   baseR = blended.r;
                   baseG = blended.g;
                   baseB = blended.b;
@@ -10800,29 +11013,19 @@ async function makeFrame({ data: { type, content } }) {
                   // Base VHS red intensity - reduced to let more color through
                   let redIntensity = 200; // Reduced from 255 for more color mixing
                   
-                  // Enhanced VHS scan line effect with more movement
-                  const scanLine = Math.sin(animFrame * 0.5 + x * 0.6) * 0.15 + 0.85;
-                  
-                  // Intensified analog glow effect - more pronounced waves
-                  const glowPhase = (animFrame * 0.15 + x * 0.12) % (Math.PI * 2);
-                  const analogGlow = Math.sin(glowPhase) * 0.2 + 0.8;
-                  
-                  // Enhanced VHS tracking distortion with more character
-                  const tracking = Math.sin(animFrame * 0.08 + x * 0.03) * 0.1 + 0.9;
-                  
-                  // Secondary glow wave for more complexity
-                  const secondaryGlow = Math.sin(animFrame * 0.25 + x * 0.2) * 0.1 + 0.9;
+                  // Use shared VHS effects calculation
+                  const effects = calculateVHSEffects(x, animFrame);
                   
                   // Combine all VHS effects with brighter base
-                  redIntensity = Math.floor(redIntensity * scanLine * analogGlow * tracking * secondaryGlow);
+                  redIntensity = Math.floor(redIntensity * effects.scanLine * effects.analogGlow * effects.tracking * effects.secondaryGlow);
                   
                   // Create VHS red color
                   const vhsR = Math.max(180, Math.min(255, redIntensity)); // Reduced min from 200
                   const vhsG = Math.floor(vhsR * 0.05); // Very minimal green
                   const vhsB = Math.floor(vhsR * 0.02); // Very minimal blue
                   
-                  // Blend mixed sampled color with VHS red (55% sampled, 45% VHS red for more color influence)
-                  const blended = blendWithVHS(mixedColor, vhsR, vhsG, vhsB, 0.55);
+                  // Use shared blending function (55% sampled, 45% VHS red for more color influence)
+                  const blended = blendColorWithVHS(mixedColor, vhsR, vhsG, vhsB, 0.55);
                   baseR = blended.r;
                   baseG = blended.g;
                   baseB = blended.b;
@@ -11699,12 +11902,18 @@ async function makeFrame({ data: { type, content } }) {
         transferredPixels = dirtyBox.crop(screen);
         sendData.pixels = transferredPixels;
         sendData.dirtyBox = croppedBox;
+        if ($commonApi.rec.presenting) {
+          // Log dirtyBox usage during tape playback
+        }
       } else if (painted === true) {
         // TODO: Toggling this causes a flicker in `line`... but helps prompt. 2022.01.29.13.21
         // Otherwise render everything if we drew anything!
         transferredPixels = screen.pixels;
         sendData.pixels = transferredPixels;
+      } else {
+        // Painted is false, skip pixel transfer
       }
+
 
       // Optional messages to send.
       if (painted === true) sendData.paintChanged = true;
