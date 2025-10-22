@@ -336,11 +336,11 @@ function boot({
           slugPath = handle + "/painting/" + imageCode + ".png";
         }
 
-        // Normalize handles by stripping @ prefix for comparison
-        const normalizedHandle = handle?.replace(/^@/, '');
-        const normalizedGetHandle = getHandle()?.replace(/^@/, '');
+        const currentHandle = getHandle();
+        const normalizedCurrentHandle = currentHandle?.startsWith("@") ? currentHandle.slice(1) : currentHandle;
+        console.log(`🔍 Checking ownership: handle="${handle}", currentHandle="${currentHandle}", normalized="${normalizedCurrentHandle}"`);
         
-        if (normalizedHandle === normalizedGetHandle && !showMode) {
+        if (handle === normalizedCurrentHandle && !showMode) {
           console.log("✅ This is your painting!");
           menuBtn = new ui.Button();
         }
@@ -439,7 +439,17 @@ function boot({
       });
   }
 
-  const initialHashCode = normalizeCode(hash);
+  // Try to get hash code from either hash param or params[0] if it's a short code
+  let initialHashCode = normalizeCode(hash);
+  
+  // If no hash but params[0] exists and looks like a short code (not a timestamp or @handle)
+  if (!initialHashCode && params[0]?.length > 0) {
+    const param = params[0];
+    // Check if it's a short code: doesn't start with @ and isn't a timestamp format
+    if (!param.startsWith('@') && !param.match(/^\d{4}\.\d{1,2}\.\d{1,2}/)) {
+      initialHashCode = normalizeCode(param);
+    }
+  }
 
   if (initialHashCode) {
     console.log(`🎨 Loading painting by code from hash: #${initialHashCode}`);
@@ -461,14 +471,22 @@ function boot({
         console.log(`📦 Metadata data:`, data);
         if (data?.code) {
           paintingCode = data.code;
-          label = `#${paintingCode}`;
-          // Only update HUD label if we didn't load via timestamp route
-          // (timestamp routes should keep their timestamp in the label)
-          const loadedViaTimestamp = imageCode && imageCode.match(/^\d{4}\.\d{2}\.\d{2}\.\d{2}\.\d{2}\.\d{2}/);
-          if (!loadedViaTimestamp) {
+          // Check if we loaded via timestamp route (e.g., @handle/2025.07.28...)
+          const loadedViaTimestamp = imageCode && imageCode.match(/^\d{4}\.\d{1,2}\.\d{1,2}\.\d{1,2}\.\d{1,2}\.\d{1,2}/);
+          console.log(`🔍 Label decision: imageCode="${imageCode}", loadedViaTimestamp=${loadedViaTimestamp}, handle="${handle}"`);
+          if (loadedViaTimestamp) {
+            // Keep the @handle/timestamp format in the label
+            const displayHandle = handle && handle !== "anon" ? `@${handle}` : "";
+            label = displayHandle ? `${displayHandle}/${imageCode}` : imageCode;
+            console.log(`✅ Keeping timestamp format, label="${label}"`);
+            hud.label(label);
+          } else {
+            // Show the short code for non-timestamp routes
+            label = `#${paintingCode}`;
+            console.log(`✅ Using short code format, label="${label}"`);
             hud.label(`#${paintingCode}`);
+            broadcastPaintingCode(`#${paintingCode}`);
           }
-          broadcastPaintingCode(`#${paintingCode}`);
           cachePaintingMetadata(
             { slug: imageCode, handle: handle || "anon", code: paintingCode },
             [paintingCode],
