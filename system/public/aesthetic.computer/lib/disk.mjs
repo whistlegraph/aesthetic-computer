@@ -102,6 +102,20 @@ if (typeof globalThis !== "undefined") {
   if (typeof window !== "undefined" && window.acMatrixDebug === undefined) {
     window.acMatrixDebug = globalThis.acMatrixDebug;
   }
+  
+  // 🖼️ Expose image cache utilities for debugging
+  if (typeof window !== "undefined") {
+    window.acClearImageCache = () => {
+      imageCache.clear();
+      console.log("🗑️ Image cache cleared");
+    };
+    window.acImageCacheStats = () => {
+      console.log("🖼️ Image cache stats:", {
+        memorySize: imageCache.memory.size,
+        urls: Array.from(imageCache.memory.keys())
+      });
+    };
+  }
 }
 
 // Helper function to safely check for sandboxed environments in both main thread and worker contexts
@@ -1303,6 +1317,107 @@ let reframed = false;
 let formReframing = false; // Just for 3D camera updates.
 
 let paintings = {}; // Cached bitmaps from a piece.
+
+// 🖼️ Image cache system for paste/stamp - persists across refreshes
+// Similar to $kidlisp code cache but for image data
+const imageCache = {
+  // In-memory cache for fast access (RAM)
+  memory: new Map(), // url -> ImageBitmap
+  
+  // IndexedDB persistence reference (set during boot)
+  store: null,
+  
+  // Initialize with store reference for persistent caching
+  init(storeRef) {
+    this.store = storeRef;
+  },
+  
+  // Get from memory cache
+  get(url) {
+    return this.memory.get(url);
+  },
+  
+  // Check if image is cached in memory
+  has(url) {
+    return this.memory.has(url);
+  },
+  
+  // Save to both memory and persistent storage
+  async set(url, imageBitmap) {
+    // Save to memory
+    this.memory.set(url, imageBitmap);
+    
+    // Save to IndexedDB for persistence across refreshes
+    if (this.store && imageBitmap) {
+      try {
+        // Convert ImageBitmap to ImageData for storage
+        const canvas = document.createElement('canvas');
+        canvas.width = imageBitmap.width;
+        canvas.height = imageBitmap.height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(imageBitmap, 0, 0);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        
+        // Store the ImageData along with metadata
+        this.store[`image-cache:${url}`] = {
+          width: imageData.width,
+          height: imageData.height,
+          data: Array.from(imageData.data), // Convert Uint8ClampedArray to regular array for storage
+          cached: Date.now(),
+          version: 1
+        };
+        this.store.persist(`image-cache:${url}`, "local:db");
+      } catch (error) {
+        console.warn(`Failed to save image to persistent cache: ${url}`, error);
+      }
+    }
+  },
+  
+  // Load from persistent storage (IndexedDB)
+  async loadFromPersistent(url) {
+    if (!this.store) return null;
+    
+    try {
+      const data = await this.store.retrieve(`image-cache:${url}`, "local:db");
+      if (data && data.data && data.width && data.height) {
+        // Reconstruct ImageData from stored array
+        const imageData = new ImageData(
+          new Uint8ClampedArray(data.data),
+          data.width,
+          data.height
+        );
+        
+        // Convert ImageData back to ImageBitmap
+        const imageBitmap = await createImageBitmap(imageData);
+        
+        // Cache in memory for future access
+        this.memory.set(url, imageBitmap);
+        
+        return imageBitmap;
+      }
+    } catch (error) {
+      console.warn(`Failed to load image from persistent cache: ${url}`, error);
+    }
+    return null;
+  },
+  
+  // Clear all caches
+  clear() {
+    this.memory.clear();
+  },
+  
+  // Check if URL is from aesthetic.computer media backend (safe to cache)
+  isCacheable(url) {
+    if (!url) return false;
+    const urlStr = url.toString().toLowerCase();
+    return (
+      urlStr.includes('aesthetic.computer') ||
+      urlStr.includes('art.aesthetic.computer') ||
+      urlStr.includes('/media/@') || // User paintings
+      urlStr.match(/\/@[\w-]+\/\d+/) // @handle/timestamp format
+    );
+  }
+};
 
 let screen;
 let currentDisplay; // TODO: Remove this? 22.09.29.11.38
@@ -4440,23 +4555,54 @@ function form(
 
 // Used by `paste` and `stamp` to prefetch bitmaps of the network as needed.
 // Occurs also when loading a piece's source code.
-function prefetchPicture(code) {
+async function prefetchPicture(code) {
   if (paintings[code] === "fetching") return;
 
-  console.log("🖼️ Prefetching...", code);
+  // 🖼️ Check multi-level cache first
+  // Level 1: Check if already in paintings cache
+  if (paintings[code] && paintings[code] !== "fetching") {
+    return;
+  }
+  
+  // Level 2: Check in-memory image cache
+  if (imageCache.has(code)) {
+    paintings[code] = imageCache.get(code);
+    return;
+  }
+  
+  // Level 3: Check persistent storage (IndexedDB)
+  if (imageCache.isCacheable(code)) {
+    const cachedImage = await imageCache.loadFromPersistent(code);
+    if (cachedImage) {
+      // console.log("🖼️ Loaded from cache:", code);
+      paintings[code] = cachedImage;
+      return;
+    }
+  }
+
+  // Level 4: Fetch from network
+  // console.log("🖼️ Prefetching from network...", code);
   paintings[code] = "fetching";
+
+  const cacheAndStore = async (img) => {
+    paintings[code] = img;
+    // Only cache images from aesthetic.computer media backend
+    if (imageCache.isCacheable(code)) {
+      await imageCache.set(code, img);
+    }
+  };
 
   if (code.startsWith("http")) {
     $commonApi.get
       .picture(code)
-      .then(({ img }) => (paintings[code] = img))
+      .then(({ img }) => cacheAndStore(img))
       .catch(() => delete paintings[code]);
   } else {
     const [author, timestamp] = code.split("/");
     $commonApi.get
       .painting(timestamp)
       .by(author)
-      .then(({ img }) => (paintings[code] = img))
+      .then(({ img }) => cacheAndStore(img))
       .catch(() => delete paintings[code]);
   }
 }
@@ -5852,6 +5998,9 @@ async function load(
         // Initialize persistent cache for $codes (only needs to be done once)
         initPersistentCache(store);
         
+        // Initialize persistent image cache for paste/stamp (only needs to be done once)
+        imageCache.init(store);
+        
         loadedModule = lisp.module(sourceToRun, path && path.endsWith(".lisp"));
 
         if (devReload) {
@@ -5869,6 +6018,9 @@ async function load(
           if (logs.loading)
             console.log("💌 Publishable:", store["publishable-piece"].slug);
         }
+
+        // Initialize persistent image cache for paste/stamp (also for .mjs pieces)
+        imageCache.init(store);
 
         originalCode = sourceToRun;
         const updatedCode = updateCode(sourceToRun, host, debug);
