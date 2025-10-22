@@ -805,8 +805,7 @@ export function zebra(offset = 0) {
   
   // Calculate the final index with offset from the current frame's base
   const finalIndex = (currentZebraIndex + offset) % zebraColors.length;
-  const result = zebraColors[finalIndex];
-  return result.slice();
+  return zebraColors[finalIndex].slice();
 }
 
 // Reset zebra frame cache - should be called once per frame/execution

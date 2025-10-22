@@ -775,8 +775,8 @@ function ac-site
         netlify link --id $NETLIFY_SITE_ID >/dev/null 2>&1
         
         # Suppress verbose debug logs from Deno and Express
-        set -e DEBUG
-        set -x DENO_V8_FLAGS ""
+    set -e DEBUG
+    set -e DENO_V8_FLAGS
         
         # Detect if running in GitHub Codespaces and use appropriate command
         if test -n "$CODESPACES"

@@ -1,0 +1,39 @@
+{
+  "lexicon": 1,
+  "id": "computer.aesthetic.tape",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "tid",
+      "record": {
+        "type": "object",
+        "required": ["slug", "code", "when", "video"],
+        "properties": {
+          "slug": {
+            "type": "string",
+            "description": "The unique slug identifier for this tape (e.g., wand-1729177200000)"
+          },
+          "code": {
+            "type": "string",
+            "description": "Short alphanumeric code for easy lookup (e.g., 'a3x')"
+          },
+          "when": {
+            "type": "string",
+            "format": "datetime",
+            "description": "ISO 8601 timestamp when the tape was created"
+          },
+          "video": {
+            "type": "blob",
+            "accept": ["video/mp4"],
+            "maxSize": 52428800,
+            "description": "MP4 video blob (max 50MB)"
+          },
+          "ref": {
+            "type": "string",
+            "description": "MongoDB ObjectId reference for bi-directional sync"
+          }
+        }
+      }
+    }
+  }
+}
