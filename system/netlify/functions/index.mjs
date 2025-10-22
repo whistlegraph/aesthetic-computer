@@ -15,19 +15,20 @@ import {
 import { respond } from "../../backend/http.mjs";
 import { defaultTemplateStringProcessor as html } from "../../public/aesthetic.computer/lib/helpers.mjs";
 import { networkInterfaces } from "os";
-const dev = process.env.CONTEXT === "dev";
+const dev = process.env.CONTEXT === "dev" || process.env.NETLIFY_DEV === "true";
 
 async function fun(event, context) {
-  // TODO: Return a 500 or 404 for everything that does not exist...
-  //       - [] Like for example if the below import fails...
-  console.log("📁 index ➡️", event.path);
+  try {
+    // TODO: Return a 500 or 404 for everything that does not exist...
+    //       - [] Like for example if the below import fails...
+    console.log("📁 index ➡️", event.path);
 
-  if (
-    event.path === "/favicon.ico" ||
-    event.path === "/requestProvider.js.map"
-  ) {
-    return { statusCode: 500 };
-  }
+    if (
+      event.path === "/favicon.ico" ||
+      event.path === "/requestProvider.js.map"
+    ) {
+      return { statusCode: 500 };
+    }
 
   if (event.headers["host"] === "sotce.local:8888") {
     return respond(
@@ -71,8 +72,9 @@ async function fun(event, context) {
   try {
     slug = decodeURIComponent(slug);
   } catch (error) {
-    console.log("⚠️ Failed to decode URL slug:", slug, "Error:", error.message);
-    // If decoding fails, fall back to simple Unicode character decoding
+    console.log("⚠️ Failed to decode URL slug (likely contains literal % or # symbols):", slug);
+  // If decoding fails, leave slug as-is for legacy % symbols (e.g., old tape %code links)
+    // But still handle common escape sequences manually
     slug = slug
       .replace(/%C2%A7/g, "\n") // UTF-8 encoded § to newline
       .replace(/%C2%A4/g, "%") // UTF-8 encoded ¤ to percent
@@ -80,10 +82,11 @@ async function fun(event, context) {
       .replace(/§/g, "\n") // Direct § to newline (in case not URL-encoded)
       .replace(/¤/g, "%") // Direct ¤ to percent (in case not URL-encoded)
       .replace(/¨/g, ";") // Direct ¨ to semicolon (in case not URL-encoded)
-      // Standard URL decoding
+      // Standard URL decoding (safe ones only)
       .replace(/%28/g, "(")
       .replace(/%29/g, ")")
       .replace(/%20/g, " ");
+  // Note: Legacy % symbols (like in "tape %JyK") are left as-is
   }
 
   // console.log("Path:", event.path, "Host:", event.headers["host"]);
@@ -586,6 +589,17 @@ async function fun(event, context) {
     body,
     ttl: 60,
   };
+  } catch (error) {
+    console.error("❌ Error in index.mjs handler:", error);
+    console.error("   Path:", event.path);
+    console.error("   Stack:", error.stack);
+    
+    return {
+      statusCode: 500,
+      headers: { "Content-Type": "text/plain" },
+      body: `Server Error: ${error.message}\n\nPath: ${event.path}\n\nPlease check the server logs.`,
+    };
+  }
 }
 
 async function getPage(url) {

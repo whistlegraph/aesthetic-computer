@@ -309,8 +309,6 @@ function parseFadeColor(color) {
   // Evaluate the direction (handles dynamic expressions like frame numbers)
   const evaluatedDirection = evaluateFadeDirection(direction);
 
-  console.log(`🎨 Fade parsed: neat=${isNeat}, fadeType="${fadeType}", direction="${evaluatedDirection}"`);
-
   return {
     colors: fadeColors,
     direction: evaluatedDirection,  // Use evaluated direction (can be numeric angle)
@@ -775,7 +773,9 @@ function resetRainbowCache() {
   currentZebraColor = null;
   // Also reset the num.mjs frame caches
   numResetRainbowCache();
-  numResetZebraCache();
+  // Note: Don't reset zebra cache here - zebra needs to maintain its color
+  //       within the same frame, while rainbow can reset on every call.
+  // numResetZebraCache();
 }
 
 // Legacy getFadeColor function (for backward compatibility)
@@ -924,13 +924,13 @@ function findColor() {
         //       ^ See `parseColor` in `num`.
         // let alpha = 255;
         // if (args[1]) alpha = parseFloat(args[1]);
-        console.log('🎨 GRAPH.findColor: Processing "erase", args before:', [...arguments]);
         const originalAlpha = arguments[1]; // Save before overwriting args
         args = [-1, -1, -1];
         if (originalAlpha !== undefined) args.push(computeAlpha(originalAlpha));
-        console.log('🎨 GRAPH.findColor: erase args after initial assignment:', args);
       } else if (args[0] === "rainbow") {
         args = rainbow(); // Cycle through roygbiv in a linear sequence.
+      } else if (args[0] === "zebra") {
+        args = zebra(); // Cycle through black/white in alternating sequence.
       } else {
         // See if it's a hex.
         const cleanedHex = args[0]
@@ -961,9 +961,11 @@ function findColor() {
       // TODO: Add an error message here. 22.08.29.13.03
     }
   } else if (args.length === 2) {
-    // rainbow, alpha
+    // rainbow, alpha or zebra, alpha
     if (args[0] === "rainbow") {
       args = [...rainbow(), computeAlpha(args[1])];
+    } else if (args[0] === "zebra") {
+      args = [...zebra(), computeAlpha(args[1])];
     } else if (typeof args[0] === "string") {
       const normalizedString = normalizeColorInput(args[0]);
       if (typeof normalizedString === "string") {
@@ -4510,36 +4512,39 @@ function scroll(dx = 0, dy = 0) {
   
   const tempPixels = new Uint8ClampedArray(pixels);
 
-  // General case: pixel-by-pixel with proper bounds checking
+  // 🚀 OPTIMIZED: Bulk row-based copying for maximum performance
+  // Process each row separately with intelligent chunking
   for (let y = 0; y < boundsHeight; y++) {
-    for (let x = 0; x < boundsWidth; x++) {
-      // Calculate source coordinates with wrapping within bounds
-      const srcX = minX + ((x + boundsWidth - finalDx) % boundsWidth);
-      const srcY = minY + ((y + boundsHeight - finalDy) % boundsHeight);
-
-      // Calculate destination coordinates
-      const destX = minX + x;
-      const destY = minY + y;
-
-      // Ensure coordinates are within valid bounds
-      if (
-        srcX >= minX &&
-        srcX < maxX &&
-        srcY >= minY &&
-        srcY < maxY &&
-        destX >= minX &&
-        destX < maxX &&
-        destY >= minY &&
-        destY < maxY
-      ) {
-        const srcOffset = (srcY * width + srcX) * 4;
-        const destOffset = (destY * width + destX) * 4;
-
-        // Copy RGBA values
-        pixels[destOffset] = tempPixels[srcOffset];
-        pixels[destOffset + 1] = tempPixels[srcOffset + 1];
-        pixels[destOffset + 2] = tempPixels[srcOffset + 2];
-        pixels[destOffset + 3] = tempPixels[srcOffset + 3];
+    const srcY = minY + ((y + boundsHeight - finalDy) % boundsHeight);
+    const destY = minY + y;
+    
+    if (finalDx === 0) {
+      // 🚀 FASTEST PATH: No horizontal scroll - single bulk copy per row
+      const srcRowStart = (srcY * width + minX) * 4;
+      const destRowStart = (destY * width + minX) * 4;
+      const rowBytes = boundsWidth * 4;
+      pixels.set(tempPixels.subarray(srcRowStart, srcRowStart + rowBytes), destRowStart);
+    } else {
+      // 🚀 FAST PATH: Horizontal scroll with wrapping - copy in 2 chunks per row
+      // Calculate where the wrap happens
+      const srcStartX = minX + finalDx;
+      
+      // Chunk 1: From scroll offset to end of bounds
+      const chunk1Width = boundsWidth - finalDx;
+      if (chunk1Width > 0) {
+        const srcStart = (srcY * width + srcStartX) * 4;
+        const destStart = (destY * width + minX) * 4;
+        const chunk1Bytes = chunk1Width * 4;
+        pixels.set(tempPixels.subarray(srcStart, srcStart + chunk1Bytes), destStart);
+      }
+      
+      // Chunk 2: From start of bounds to scroll offset (wrapped portion)
+      const chunk2Width = finalDx;
+      if (chunk2Width > 0) {
+        const srcStart = (srcY * width + minX) * 4;
+        const destStart = (destY * width + minX + chunk1Width) * 4;
+        const chunk2Bytes = chunk2Width * 4;
+        pixels.set(tempPixels.subarray(srcStart, srcStart + chunk2Bytes), destStart);
       }
     }
   }

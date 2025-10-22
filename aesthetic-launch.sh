@@ -3,6 +3,19 @@
 # Ensure ~/.local/bin is in PATH
 export PATH="$HOME/.local/bin:$PATH"
 
+# Use a writable XDG config root so fish can create its state files
+if [ -z "$XDG_CONFIG_HOME" ]; then
+    export XDG_CONFIG_HOME="/workspaces/aesthetic-computer/.xdg"
+fi
+mkdir -p "$XDG_CONFIG_HOME/fish/functions"
+
+FISH_CONFIG_FILE="$XDG_CONFIG_HOME/fish/config.fish"
+if [ ! -f "$FISH_CONFIG_FILE" ]; then
+    cat <<'EOF' > "$FISH_CONFIG_FILE"
+source /workspaces/aesthetic-computer/.devcontainer/config.fish
+EOF
+fi
+
 echo "→ \$0 is: $0"
 echo "→ SHELL is: $SHELL"
 echo "→ USER is: $USER"

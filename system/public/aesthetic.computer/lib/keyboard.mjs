@@ -10,6 +10,8 @@ export class Keyboard {
   input;
   focusHandler;
   #held = new Set();
+  #rebootSequence = []; // Track Ctrl+R+B sequence for reboot, Ctrl+R+R for quick tape
+  #sequenceTimeout = null;
   needsImmediateOpen = false;
 
   constructor() {
@@ -21,6 +23,42 @@ export class Keyboard {
       // some redundancy. 22.07.29.17.43
       const repeat = e.code === this.#lastKeyCodeDown;
       this.#lastKeyCodeDown = e.code;
+
+      // 🔄 Global Ctrl+R sequences: Ctrl+R+B (reboot), Ctrl+R+R (quick tape)
+      if (e.ctrlKey && e.key.toLowerCase() === "r") {
+        e.preventDefault(); // Prevent browser reload
+        this.#rebootSequence = ["r"];
+        // Clear sequence after 1 second if no follow-up
+        clearTimeout(this.#sequenceTimeout);
+        this.#sequenceTimeout = setTimeout(() => {
+          this.#rebootSequence = [];
+        }, 1000);
+        return; // Don't process this event further
+      } else if (this.#rebootSequence.length === 1 && this.#rebootSequence[0] === "r" && e.key.toLowerCase() === "b") {
+        e.preventDefault();
+        clearTimeout(this.#sequenceTimeout);
+        this.#rebootSequence = [];
+        console.log("🔄 Reboot sequence triggered: Ctrl+R+B");
+        location.reload(); // Reload the page
+        return; // Don't process this event further
+      } else if (this.#rebootSequence.length === 1 && this.#rebootSequence[0] === "r" && e.key.toLowerCase() === "r") {
+        // 📼 Quick tape sequence: Ctrl+R+R
+        e.preventDefault();
+        clearTimeout(this.#sequenceTimeout);
+        this.#rebootSequence = [];
+        console.log("📼 Quick tape sequence triggered: Ctrl+R+R");
+        // Send a keyboard event that disk.mjs can listen for
+        this.events.push({
+          name: "keyboard:quick-tape",
+          key: "QuickTape",
+          ctrl: true,
+        });
+        return; // Don't process this event further
+      } else if (this.#rebootSequence.length > 0 && e.key.toLowerCase() !== "control") {
+        // Any other key cancels the sequence (except holding Ctrl)
+        clearTimeout(this.#sequenceTimeout);
+        this.#rebootSequence = [];
+      }
 
       // Send a parent message to defocus the ac extension.
       if (e.key === "a" && e.ctrlKey && e.altKey) {

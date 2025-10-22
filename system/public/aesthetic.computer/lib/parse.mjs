@@ -187,7 +187,15 @@ function parse(text, location = self?.location) {
   // Squish any spaces inside of colon parameters.
   text = text.replace(/\s*:\s*/g, ":"); // Squash space before & after colons.
   text = text.replace(/ /g, "~"); // Replace all spaces with "~".
-  text = decodeURIComponent(text); // Decode any URL encoded characters.
+  
+  // Decode any URL encoded characters, but handle malformed URIs gracefully
+  // (e.g., legacy tape %code where % is not a valid escape sequence)
+  try {
+    text = decodeURIComponent(text);
+  } catch (e) {
+    // If decoding fails, leave text as-is (% symbols used literally, not as escape)
+  console.log("⚠️  URI decode skipped (literal legacy % or # symbols):", text);
+  }
 
   // 0. Pull off any "hash" from text, filtering the edge case for #hex colors.
   // But preserve painting codes like #k3d (which aren't valid hex colors).
@@ -224,6 +232,11 @@ function parse(text, location = self?.location) {
 
   // 2. Tokenize on " " or "~".
   const tokens = text.split("~");
+
+  // Map shorthand tape codes like !abc to the tape piece with params preserved
+  if (tokens[0] && tokens[0].startsWith("!") && tokens[0].length > 1) {
+    tokens.unshift("replay");
+  }
 
   // 🤖 Check if this is a standalone kidlisp source (no piece name prefix)
   if (tokens.length === 1 && isKidlispSource(tokens[0])) {
