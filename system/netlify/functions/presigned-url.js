@@ -37,9 +37,9 @@ let s3Guest, s3Wand, s3User;
 
 function getS3Clients() {
   if (!s3Guest) {
-    // Hardcoded credentials for local development (same as paintings/.env)
-    const accessKeyId = process.env.ART_KEY || "***REMOVED***";
-    const secretAccessKey = process.env.ART_SECRET || "***REMOVED***";
+    // Credentials must be provided via environment variables
+    const accessKeyId = process.env.ART_KEY;
+    const secretAccessKey = process.env.ART_SECRET;
     const endpoint = "https://" + (process.env.ART_ENDPOINT || "sfo3.digitaloceanspaces.com");
     
     s3Guest = new S3Client({
