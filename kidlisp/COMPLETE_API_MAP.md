@@ -1,6 +1,15 @@
 # 🎯 KidLisp Complete API Reference Map
 
-Generated from `kidlisp.mjs` on 2025-09-06
+Generated from `kidlisp.mjs` on 2025-10-17
+
+## 💬 String Literals
+
+Both **double quotes** and **single quotes** work for string literals:
+- `"text"` - Double quotes (traditional)
+- `'text'` - Single quotes (new!)
+- Example: `(write "hello" x y)` or `(write 'hello' x y)`
+- Useful for avoiding escaping when mixing quote types
+- Works everywhere: colors, text, mode parameters, etc.
 
 ## 📖 Core System Functions
 
@@ -50,12 +59,44 @@ Generated from `kidlisp.mjs` on 2025-09-06
 | `ink` | `(ink color)` | Set drawing color |
 | `line` | `(line x1 y1 x2 y2)` | Draw line |
 | `lines` | `(lines points...)` | Draw connected lines |
-| `box` | `(box x y w h)` | Draw filled rectangle |
-| `circle` | `(circle x y radius)` | Draw filled circle |
-| `tri` | `(tri x1 y1 x2 y2 x3 y3)` | Draw triangle |
+| `box` | `(box x y w h)` | Draw rectangle (respects fill/outline mode) |
+| `box` | `(box x y w h "fill")` | Explicitly filled rectangle |
+| `box` | `(box x y w h "outline")` | Explicitly outlined rectangle |
+| `circle` | `(circle x y radius)` | Draw circle (respects fill/outline mode) |
+| `circle` | `(circle x y r "fill")` | Explicitly filled circle |
+| `circle` | `(circle x y r "outline")` | Explicitly outlined circle |
+| `circle` | `(circle x y r "outline:N")` | Outlined circle with thickness N |
+| `tri` | `(tri x1 y1 x2 y2 x3 y3)` | Draw triangle (respects fill/outline mode) |
+| `tri` | `(tri ... "fill")` | Explicitly filled triangle |
+| `tri` | `(tri ... "outline")` | Explicitly outlined triangle |
 | `plot` | `(plot x y)` | Draw single pixel |
 | `flood` | `(flood x y color)` | Flood fill area |
 | `shape` | `(shape points filled)` | Draw custom polygon |
+
+### **Fill/Outline Modes** 🆕
+| Function | Usage | Description |
+|----------|-------|-------------|
+| `fill` | `(fill)` | Set global fill mode for all shapes (default) |
+| `outline` | `(outline)` | Set global outline mode |
+| `stroke` | `(stroke)` | Alias for outline (Processing) |
+| `nofill` | `(nofill)` | Alias for outline (Processing) |
+| `nostroke` | `(nostroke)` | Alias for fill (Processing) |
+
+**Examples:**
+```lisp
+; Default is fill mode (matches box's default)
+(circle 100 100 50)  ; Filled
+(box 50 50 40 40)    ; Also filled
+
+(outline)
+(circle 200 100 50)  ; Outline
+
+; Explicit mode overrides global
+(fill)
+(circle 100 100 50)           ; Filled (global)
+(circle 200 100 50 "outline") ; Override to outline
+(circle 300 100 50)           ; Filled (back to global)
+```
 
 ### **Color & Effects**
 | Function | Usage | Description |
