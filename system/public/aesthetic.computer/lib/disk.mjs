@@ -4105,8 +4105,11 @@ function getGlobalKidLisp() {
 
 function resetGlobalKidLisp() {
   if (globalKidLispInstance && globalKidLispInstance.clearBakedLayers) {
+    console.log("🧹 Clearing KidLisp baked layers before boot");
     globalKidLispInstance.clearBakedLayers();
-    // console.log("🧹 Cleared KidLisp baked layers on piece leave");
+    console.log("🧹 Cleared KidLisp baked layers successfully");
+  } else {
+    console.log("🧹 No KidLisp instance or clearBakedLayers method found");
   }
 }
 
