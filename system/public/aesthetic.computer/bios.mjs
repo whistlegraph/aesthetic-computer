@@ -9559,7 +9559,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (type === "preload-ready") {
       window.preloaded = true;
-      if (debug) console.log("⏳ Preloaded: ✅️");
       return;
     }
 
