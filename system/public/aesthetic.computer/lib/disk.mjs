@@ -4103,6 +4103,13 @@ function getGlobalKidLisp() {
   return globalKidLispInstance;
 }
 
+function resetGlobalKidLisp() {
+  if (globalKidLispInstance && globalKidLispInstance.clearBakedLayers) {
+    globalKidLispInstance.clearBakedLayers();
+    // console.log("🧹 Cleared KidLisp baked layers on piece leave");
+  }
+}
+
 // 🎵 Update KidLisp audio globals (safe for worker contexts)
 function updateKidLispAudio(audioData) {
   if (globalKidLispInstance && globalKidLispInstance.updateAudioGlobals) {
@@ -10168,6 +10175,9 @@ async function makeFrame({ data: { type, content } }) {
         try {
           // Reset zebra cache at the beginning of boot to ensure consistent state
           $api.num.resetZebraCache();
+          
+          // Reset KidLisp baked layers before booting new piece to prevent state persistence
+          resetGlobalKidLisp();
           
           if (system === "nopaint") nopaint_boot({ ...$api, params: $api.params, colon: $api.colon });
           await boot($api);
