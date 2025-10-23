@@ -2311,7 +2311,7 @@ const $commonApi = {
   // ***Actually*** upload a file to the server.
   // 📓 The file name can have `media-` which will sort it on the server into
   // a directory via `presigned-url.js`.
-  upload: async (filename, data, progress, bucket) => {
+  upload: async (filename, data, progress, bucketOrRecordingSlug, recordingSlug) => {
     const prom = new Promise((resolve, reject) => {
       serverUpload = { resolve, reject };
     });
@@ -2319,8 +2319,19 @@ const $commonApi = {
     serverUploadProgressReporter?.(0);
 
     console.log("Painting data:", data);
+    
+    // Handle parameter overloading: if 4th param is a string and 5th param is undefined,
+    // treat 4th as recordingSlug (not bucket)
+    let bucket = bucketOrRecordingSlug;
+    if (!recordingSlug && typeof bucketOrRecordingSlug === 'string') {
+      // 4th parameter is a recording slug (timestamp or random)
+      recordingSlug = bucketOrRecordingSlug;
+      bucket = undefined;
+    }
+    
+    console.log("🔍 DISK.MJS upload: bucket=", bucket, "recordingSlug=", recordingSlug);
 
-    send({ type: "upload", content: { filename, data, bucket } });
+    send({ type: "upload", content: { filename, data, bucket, recordingSlug } });
     return prom;
   },
   code: {
@@ -4553,9 +4564,74 @@ function form(
   }
 }
 
+// 🔑 Code resolution cache for #code -> @handle/slug lookups
+const codeCache = {
+  memory: new Map(), // code -> @handle/slug resolution cache
+  
+  async resolve(code) {
+    // Return cached resolution if available
+    if (this.memory.has(code)) {
+      return this.memory.get(code);
+    }
+    
+    // Query painting-code API which returns slug and handle
+    const response = await fetch(`/api/painting-code?code=${code}`);
+    if (!response.ok) {
+      throw new Error(`Code #${code} not found`);
+    }
+    
+    const data = await response.json();
+    
+    // Build the path format: @handle/slug or just slug for anonymous
+    let path;
+    if (data.handle && data.handle !== 'anon') {
+      path = `@${data.handle}/${data.slug}`;
+    } else {
+      path = data.slug;
+    }
+    
+    this.memory.set(code, path);
+    return path;
+  }
+};
+
+// 🔑 Expose code cache debug utility
+if (typeof window !== "undefined") {
+  window.acCodeCacheStats = () => {
+    console.log("🔑 Code resolution cache stats:", {
+      cacheSize: codeCache.memory.size,
+      codes: Array.from(codeCache.memory.entries()).map(([code, path]) => ({
+        code: `#${code}`,
+        resolvedTo: path
+      }))
+    });
+  };
+}
+
 // Used by `paste` and `stamp` to prefetch bitmaps of the network as needed.
 // Occurs also when loading a piece's source code.
 async function prefetchPicture(code) {
+  // 🔑 Handle #code format by resolving to full painting path
+  const originalCode = code;
+  if (code.startsWith('#')) {
+    const shortCode = code.slice(1);
+    try {
+      code = await codeCache.resolve(shortCode);
+      
+      // console.log(`🔑 Resolved #${shortCode} -> ${code}`);
+      
+      // If the resolved path is already in cache, alias the original #code to it
+      if (paintings[code] && paintings[code] !== "fetching") {
+        paintings[originalCode] = paintings[code];
+        return;
+      }
+    } catch (err) {
+      console.error(`Failed to resolve code #${shortCode}:`, err);
+      delete paintings[originalCode];
+      return;
+    }
+  }
+  
   if (paintings[code] === "fetching") return;
 
   // 🖼️ Check multi-level cache first
@@ -4567,6 +4643,8 @@ async function prefetchPicture(code) {
   // Level 2: Check in-memory image cache
   if (imageCache.has(code)) {
     paintings[code] = imageCache.get(code);
+    // Also cache under original #code if that's what was requested
+    if (originalCode !== code) paintings[originalCode] = paintings[code];
     return;
   }
   
@@ -4576,6 +4654,8 @@ async function prefetchPicture(code) {
     if (cachedImage) {
       // console.log("🖼️ Loaded from cache:", code);
       paintings[code] = cachedImage;
+      // Also cache under original #code if that's what was requested
+      if (originalCode !== code) paintings[originalCode] = paintings[code];
       return;
     }
   }
@@ -4583,9 +4663,12 @@ async function prefetchPicture(code) {
   // Level 4: Fetch from network
   // console.log("🖼️ Prefetching from network...", code);
   paintings[code] = "fetching";
+  if (originalCode !== code) paintings[originalCode] = "fetching";
 
   const cacheAndStore = async (img) => {
     paintings[code] = img;
+    // Also cache under original #code if that's what was requested
+    if (originalCode !== code) paintings[originalCode] = img;
     // Only cache images from aesthetic.computer media backend
     if (imageCache.isCacheable(code)) {
       await imageCache.set(code, img);
@@ -4596,14 +4679,20 @@ async function prefetchPicture(code) {
     $commonApi.get
       .picture(code)
       .then(({ img }) => cacheAndStore(img))
-      .catch(() => delete paintings[code]);
+      .catch(() => {
+        delete paintings[code];
+        if (originalCode !== code) delete paintings[originalCode];
+      });
   } else {
     const [author, timestamp] = code.split("/");
     $commonApi.get
       .painting(timestamp)
       .by(author)
       .then(({ img }) => cacheAndStore(img))
-      .catch(() => delete paintings[code]);
+      .catch(() => {
+        delete paintings[code];
+        if (originalCode !== code) delete paintings[originalCode];
+      });
   }
 }
 
@@ -8322,6 +8411,22 @@ async function makeFrame({ data: { type, content } }) {
             // Add the short code to the response data
             content.data.code = trackData.code;
             console.log(`✅ ${ext === "png" ? "Painting" : "Piece"} tracked: ${content.data.slug} → #${trackData.code}`);
+            
+            // Fire off ATProto sync (don't await - let it happen in background)
+            if (ext === "png") {
+              $commonApi.net.userRequest("POST", "/api/sync-painting-atproto", {
+                slug: content.data.slug,
+                code: trackData.code,
+                paintingId: trackData.paintingId,
+                bucket: content.data.bucket || "user-aesthetic-computer",
+              }).then(response => {
+                if (response.status === 200) {
+                  console.log("✅ ATProto sync initiated for", content.data.slug);
+                }
+              }).catch(err => {
+                console.warn("⚠️ ATProto sync failed (non-critical):", err);
+              });
+            }
           } else {
             console.warn(`⚠️ Failed to track media in database:`, trackResponse.status);
           }
