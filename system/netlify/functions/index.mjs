@@ -208,7 +208,15 @@ async function fun(event, context) {
     } else {
       // Locally hosted piece.
       try {
-        let path = parsed.path.replace("aesthetic.computer/disks/", "");
+        // Strip the "aesthetic.computer/disks/" prefix from parsed.path
+        // Handle cases where it might be duplicated
+        let path = parsed.path;
+        
+        // Remove all occurrences of "aesthetic.computer/disks/" 
+        while (path.startsWith("aesthetic.computer/disks/")) {
+          path = path.substring("aesthetic.computer/disks/".length);
+        }
+        
         if (path.startsWith("@")) path = "profile";
 
         // Handle special kidlisp path case

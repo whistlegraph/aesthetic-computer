@@ -6378,7 +6378,6 @@ class KidLisp {
         
         // Increment to next bake layer
         this.currentBakeIndex++;
-        // console.log(`🍞 BAKE called! Switching to bake buffer ${this.currentBakeIndex}`);
         
         // Get display screen dimensions (not api.screen which could be pointing to a buffer)
         // Use the saved displayBuffer dimensions to ensure consistency
@@ -10381,41 +10380,83 @@ class KidLisp {
   // 🍞 Clear baked layers (similar to embedded layer clearing)
   clearBakedLayers() {
     console.log("🍞 clearBakedLayers called - clearing all baked state");
-    // Return layer0 to the pool so a fresh buffer is created on next paint
+    console.log("  📊 Before clear:", {
+      layer0: !!this.layer0,
+      burnedBuffer: !!this.burnedBuffer,
+      bakesCount: this.bakes?.length || 0,
+      bakedLayersCount: this.bakedLayers?.length || 0,
+      bakeCallCount: this.bakeCallCount,
+      hasBakedContent: this.hasBakedContent
+    });
+    
+    // DON'T return buffers to pool - just explicitly clear them and discard
+    // This ensures no dirty data persists
     if (this.layer0 && this.layer0.pixels) {
-      this.returnBufferToPool(this.layer0, this.layer0.width, this.layer0.height);
+      try {
+        const hasData = this.layer0.pixels.some(p => p !== 0);
+        console.log(`  🧹 Clearing layer0 (${this.layer0.width}x${this.layer0.height}, had data: ${hasData})`);
+        this.layer0.pixels.fill(0);
+      } catch (e) {
+        console.warn("Failed to clear layer0 pixels:", e);
+      }
     }
 
     if (this.burnedBuffer && this.burnedBuffer.pixels) {
-      this.returnBufferToPool(
-        this.burnedBuffer,
-        this.burnedBuffer.width,
-        this.burnedBuffer.height
-      );
+      try {
+        const hasData = this.burnedBuffer.pixels.some(p => p !== 0);
+        console.log(`  🧹 Clearing burnedBuffer (had data: ${hasData})`);
+        this.burnedBuffer.pixels.fill(0);
+      } catch (e) {
+        console.warn("Failed to clear burnedBuffer pixels:", e);
+      }
     }
 
     if (this.bakes && this.bakes.length > 0) {
+      console.log(`  🧹 Clearing ${this.bakes.length} bake layers`);
       for (const bakeLayer of this.bakes) {
-        if (bakeLayer) {
-          this.returnBufferToPool(bakeLayer, bakeLayer.width, bakeLayer.height);
+        if (bakeLayer && bakeLayer.pixels) {
+          try {
+            bakeLayer.pixels.fill(0);
+          } catch (e) {
+            console.warn("Failed to clear bake layer pixels:", e);
+          }
         }
       }
     }
 
     if (this.bakedLayers && this.bakedLayers.length > 0) {
+      console.log(`  🧹 Clearing ${this.bakedLayers.length} bakedLayers`);
       for (const bakedLayer of this.bakedLayers) {
-        if (bakedLayer?.buffer) {
-          this.returnBufferToPool(bakedLayer.buffer, bakedLayer.buffer.width, bakedLayer.buffer.height);
+        if (bakedLayer?.buffer && bakedLayer.buffer.pixels) {
+          try {
+            bakedLayer.buffer.pixels.fill(0);
+          } catch (e) {
+            console.warn("Failed to clear bakedLayer buffer pixels:", e);
+          }
         }
       }
     }
 
+    // Null out all references
     this.layer0 = null;
     this.burnedBuffer = null;
     this.displayBuffer = null;
 
-    this.bakes = [];
-    this.bakedLayers = [];
+    // CRITICAL: Clear the arrays by setting length to 0, not replacing with new arrays
+    // This ensures any existing references to these arrays see the cleared state
+    if (this.bakes) {
+      this.bakes.length = 0;
+    } else {
+      this.bakes = [];
+    }
+    
+    if (this.bakedLayers) {
+      this.bakedLayers.length = 0;
+    } else {
+      this.bakedLayers = [];
+    }
+    
+    this.currentBakeIndex = -1; // Reset bake index
     this.bakeCallCount = 0;
     this.hasBakedContent = false;
     this.suppressDrawingBeforeBake = false;
@@ -10423,11 +10464,25 @@ class KidLisp {
     this.cachedComposite = null;
     this.compositeInvalidated = true;
     this.needsInitialWipe = true;
+    
+    console.log("  ✅ After clear:", {
+      bakesLength: this.bakes?.length || 0,
+      bakedLayersLength: this.bakedLayers?.length || 0,
+      currentBakeIndex: this.currentBakeIndex
+    });
+    
+    // Clear the entire buffer pool to ensure no dirty buffers are reused
+    if (this.bufferPool) {
+      console.log("🧹 Clearing entire buffer pool to prevent dirty buffer reuse");
+      this.bufferPool.clear();
+    }
+    
     // Only delete from onceExecuted if it exists (it may not be initialized yet in constructor)
     if (this.onceExecuted) {
       this.onceExecuted.delete("bake_call");
     }
-    if (VERBOSE) console.log("🍞 Cleared all baked layers");
+    
+    console.log("🍞 Cleared all baked layers and buffer pool");
   }
 
   // 🔄 RESPONSIVE CACHE: Check if screen dimensions changed and clear responsive entries
