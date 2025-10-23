@@ -312,26 +312,26 @@ function paint({
       postBtn = undefined;
     }
 
-    if (!mp4Btn) {
-      mp4Btn = new ui.TextButton("MP4", { right: 44, bottom: 6, screen });
+    if (!zipBtn) {
+      zipBtn = new ui.TextButton("ZIP", { left: 6, bottom: 6, screen });
     }
-    mp4Btn.reposition({ right: 44, bottom: 6, screen });
-    mp4Btn.disabled = disableExports;
-    mp4Btn.paint(api);
+    zipBtn.reposition({ left: 6, bottom: 6, screen });
+    zipBtn.disabled = disableExports;
+    zipBtn.paint(api);
 
     if (!gifBtn) {
-      gifBtn = new ui.TextButton("GIF", { right: 76, bottom: 6, screen });
+      gifBtn = new ui.TextButton("GIF", { left: 38, bottom: 6, screen });
     }
-    gifBtn.reposition({ right: 76, bottom: 6, screen });
+    gifBtn.reposition({ left: 38, bottom: 6, screen });
     gifBtn.disabled = disableExports;
     gifBtn.paint(api);
 
-    if (!zipBtn) {
-      zipBtn = new ui.TextButton("ZIP", { right: 108, bottom: 6, screen });
+    if (!mp4Btn) {
+      mp4Btn = new ui.TextButton("MP4", { left: 70, bottom: 6, screen });
     }
-    zipBtn.reposition({ right: 108, bottom: 6, screen });
-    zipBtn.disabled = disableExports;
-    zipBtn.paint(api);
+    mp4Btn.reposition({ left: 70, bottom: 6, screen });
+    mp4Btn.disabled = disableExports;
+    mp4Btn.paint(api);
   } else {
     postBtn = undefined;
     gifBtn = undefined;
