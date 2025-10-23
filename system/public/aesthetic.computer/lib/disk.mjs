@@ -8532,7 +8532,6 @@ async function makeFrame({ data: { type, content } }) {
 
   // 1d. Loading Bitmaps
   if (type === "loaded-bitmap-success") {
-    if (debug) console.log("🖼️ Bitmap loaded:", content);
     preloadPromises[content.url]?.resolve(content);
     delete preloadPromises[content];
     return;
@@ -8562,7 +8561,6 @@ async function makeFrame({ data: { type, content } }) {
 
   // 1f. Loading ZIP files.
   if (type === "loaded-zip-success") {
-    if (debug) console.log("🤐 Zip load success:", content.url);
     preloadPromises[content.url]?.resolve(content.data);
     delete preloadPromises[content.url];
     return;
