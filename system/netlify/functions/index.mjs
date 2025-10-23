@@ -79,6 +79,7 @@ async function fun(event, context) {
       .replace(/%C2%A7/g, "\n") // UTF-8 encoded § to newline
       .replace(/%C2%A4/g, "%") // UTF-8 encoded ¤ to percent
       .replace(/%C2%A8/g, ";") // UTF-8 encoded ¨ to semicolon
+      .replace(/%23/g, "#") // URL-encoded hash to #
       .replace(/§/g, "\n") // Direct § to newline (in case not URL-encoded)
       .replace(/¤/g, "%") // Direct ¤ to percent (in case not URL-encoded)
       .replace(/¨/g, ";") // Direct ¨ to semicolon (in case not URL-encoded)

@@ -386,8 +386,7 @@ function slug(url) {
   let cleanedUrl = url
     .replace(/^http(s?):\/\//i, "")
     .replace(window.location.hostname + ":" + window.location.port + "/", "")
-    .replace(window.location.hostname + "/", "")
-    .split("#")[0]; // Remove any hash.
+    .replace(window.location.hostname + "/", "");
 
   //console.log("🐛 slug() after host removal:", cleanedUrl);
 
@@ -406,6 +405,10 @@ function slug(url) {
     //console.log("🐛 slug() detected as KidLisp, decoding...");
     return decodeKidlispFromUrl(cleanedUrl);
   }
+  
+  // Remove hash fragment ONLY if it's not kidlisp (kidlisp # is encoded as ◆)
+  // This preserves painting codes like /#abc while removing actual URL fragments
+  cleanedUrl = cleanedUrl.split("#")[0];
   
   //console.log("🐛 slug() final result:", cleanedUrl);
   return cleanedUrl;
