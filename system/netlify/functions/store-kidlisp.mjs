@@ -7,8 +7,8 @@ import { respond } from "../../backend/http.mjs";
 import { generateUniqueCode } from "../../backend/generate-short-code.mjs";
 import crypto from 'crypto';
 
-// Feature flag for Tezos integration
-const TEZOS_ENABLED = process.env.TEZOS_ENABLED !== 'false';
+// Feature flag for Tezos integration (disabled by default until integration file exists)
+const TEZOS_ENABLED = process.env.TEZOS_ENABLED === 'true';
 
 // Dynamically extract KidLisp function names from kidlisp.mjs
 async function getKidLispFunctionNames() {
