@@ -1758,6 +1758,7 @@ class Recorder {
     $commonApi.rec.recorded = false; //
     $commonApi.rec.printed = false; // "
     $commonApi.rec.printProgress = 0; // "
+    $commonApi.rec.cleanMode = false; // Reset clean mode flag
     this.tapeFrameMode = false;
     this.tapeFrameStart = 0;
     this.tapeFrameTarget = 0;
@@ -2296,6 +2297,7 @@ const $commonApi = {
             // Ensure handle has @ prefix for the media URL
             const handleWithAt = handle.startsWith('@') ? handle : `@${handle}`;
             const mediaUrl = `${baseUrl}/media/${handleWithAt}/painting/${code}.${extension}`;
+            console.log("🖼️ Media URL constructed:", mediaUrl);
             return $commonApi.net.preload(
               mediaUrl,
               true,
@@ -2310,7 +2312,7 @@ const $commonApi = {
   // ***Actually*** upload a file to the server.
   // 📓 The file name can have `media-` which will sort it on the server into
   // a directory via `presigned-url.js`.
-  upload: async (filename, data, progress, bucketOrRecordingSlug, recordingSlug) => {
+  upload: async (filename, data, progress, bucket) => {
     const prom = new Promise((resolve, reject) => {
       serverUpload = { resolve, reject };
     });
@@ -2318,19 +2320,8 @@ const $commonApi = {
     serverUploadProgressReporter?.(0);
 
     console.log("Painting data:", data);
-    
-    // Handle parameter overloading: if 4th param is a string and 5th param is undefined,
-    // treat 4th as recordingSlug (not bucket)
-    let bucket = bucketOrRecordingSlug;
-    if (!recordingSlug && typeof bucketOrRecordingSlug === 'string') {
-      // 4th parameter is a recording slug (timestamp or random)
-      recordingSlug = bucketOrRecordingSlug;
-      bucket = undefined;
-    }
-    
-    console.log("🔍 DISK.MJS upload: bucket=", bucket, "recordingSlug=", recordingSlug);
 
-    send({ type: "upload", content: { filename, data, bucket, recordingSlug } });
+    send({ type: "upload", content: { filename, data, bucket } });
     return prom;
   },
   code: {
@@ -4101,16 +4092,6 @@ function initializeGlobalKidLisp(api) {
 
 function getGlobalKidLisp() {
   return globalKidLispInstance;
-}
-
-function resetGlobalKidLisp() {
-  if (globalKidLispInstance && globalKidLispInstance.clearBakedLayers) {
-    console.log("🧹 Clearing KidLisp baked layers before boot");
-    globalKidLispInstance.clearBakedLayers();
-    console.log("🧹 Cleared KidLisp baked layers successfully");
-  } else {
-    console.log("🧹 No KidLisp instance or clearBakedLayers method found");
-  }
 }
 
 // 🎵 Update KidLisp audio globals (safe for worker contexts)
@@ -8120,6 +8101,7 @@ async function makeFrame({ data: { type, content } }) {
     type === "recorder:rolling:resumed"
   ) {
     $commonApi.rec.recording = true;
+    $commonApi.rec.cleanMode = content.cleanMode || false;
     $commonApi.rec.rollingCallback?.(content.time);
     return;
   }
@@ -8127,6 +8109,7 @@ async function makeFrame({ data: { type, content } }) {
   if (type === "recorder:rolling:ended") {
     $commonApi.rec.recording = false;
     $commonApi.rec.recorded = true; // Also cleared when a recording "slates".
+    // Don't reset cleanMode here - it's needed during GIF export/playback
     
     if ($commonApi.rec.cutCallback) {
       try {
@@ -8542,6 +8525,7 @@ async function makeFrame({ data: { type, content } }) {
 
   // 1d. Loading Bitmaps
   if (type === "loaded-bitmap-success") {
+    if (debug) console.log("🖼️ Bitmap loaded:", content);
     preloadPromises[content.url]?.resolve(content);
     delete preloadPromises[content];
     return;
@@ -8571,6 +8555,7 @@ async function makeFrame({ data: { type, content } }) {
 
   // 1f. Loading ZIP files.
   if (type === "loaded-zip-success") {
+    if (debug) console.log("🤐 Zip load success:", content.url);
     preloadPromises[content.url]?.resolve(content.data);
     delete preloadPromises[content.url];
     return;
@@ -10179,9 +10164,6 @@ async function makeFrame({ data: { type, content } }) {
           // Reset zebra cache at the beginning of boot to ensure consistent state
           $api.num.resetZebraCache();
           
-          // Reset KidLisp baked layers before booting new piece to prevent state persistence
-          resetGlobalKidLisp();
-          
           if (system === "nopaint") nopaint_boot({ ...$api, params: $api.params, colon: $api.colon });
           await boot($api);
           booted = true;
@@ -11125,19 +11107,16 @@ async function makeFrame({ data: { type, content } }) {
       }
 
       // Tack on the tape progress bar pixel buffer if necessary.
-      if ($api.rec.tapeProgress || ($api.rec.recording && $api.rec.tapeTimerDuration)) {
+      if (!$api.rec.cleanMode && ($api.rec.tapeProgress || ($api.rec.recording && $api.rec.tapeTimerDuration))) {
         const progress = $api.rec.tapeProgress || 0;
         
         // Determine if we should show progress bar at all
         const isFrameBased = $api.rec.tapeFrameMode && $api.rec.tapeFrameTarget > 0;
         const frameCount = $api.rec.tapeFrameTarget || 1;
         
-        // Check if we're in clean mode (tape:neat) - no progress bar or overlays
-        const isCleanMode = typeof window !== 'undefined' && window.currentRecordingOptions?.cleanMode;
-        
-        // Hide progress bar for ALL frame-based recordings OR clean mode recordings (tape:neat)
-        if (isFrameBased || isCleanMode) {
-          // Skip creating progress bar entirely for frame recordings or clean mode
+        // Hide progress bar for ALL frame-based recordings
+        if (isFrameBased) {
+          // Skip creating progress bar entirely for frame recordings
         } else {
           // IMPORTANT: Access the main screen buffer OUTSIDE the painting context
           // because inside painting(), $api.screen refers to the painting's own buffer, not the main screen
