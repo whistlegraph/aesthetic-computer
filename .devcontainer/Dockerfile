@@ -164,11 +164,18 @@ RUN curl https://sh.rustup.rs -sSf | sh -s -- -y && \
     git clone https://github.com/vi/websocat.git && \
     cd websocat && cargo build --release && sudo cp target/release/websocat /usr/local/bin/
 
-# --- fnm / Node toolchain -----------------------------------------------------
+# --- fnm / Node toolchain (PART 1: Create directories with correct ownership FIRST) ---
+RUN mkdir -p /home/me/.config/fish/conf.d /home/me/.config/fish/functions && \
+    mkdir -p /home/me/.local/share/fish && \
+    chown -R me:me /home/me/.config && \
+    chown -R me:me /home/me/.local && \
+    chmod -R 755 /home/me/.config && \
+    chmod -R 755 /home/me/.local
+
+# --- fnm / Node toolchain (PART 2: Now install fnm and node) ------------------
 RUN curl -fsSL https://fnm.vercel.app/install | bash -s -- --install-dir "$HOME/.fnm" --skip-shell
 ENV PATH="/home/me/.fnm:${PATH}"
-RUN mkdir -p /home/me/.config/fish/conf.d && \
-    echo 'fnm env --use-on-cd --shell fish | source' > /home/me/.config/fish/conf.d/fnm.fish && \
+RUN echo 'fnm env --use-on-cd --shell fish | source' > /home/me/.config/fish/conf.d/fnm.fish && \
     export PATH="/home/me/.fnm:${PATH}" && \
     eval "$(/home/me/.fnm/fnm env --use-on-cd)" && \
     /home/me/.fnm/fnm install lts-jod && \
@@ -176,7 +183,8 @@ RUN mkdir -p /home/me/.config/fish/conf.d && \
     /home/me/.fnm/fnm default lts-jod && \
     /home/me/.fnm/fnm use lts-jod && \
     npm i -g prettier typescript typescript-language-server npm-check-updates @anthropic-ai/claude-code @openai/codex netlify-cli wrangler && \
-    echo 'fnm use lts-jod' >> /home/me/.config/fish/config.fish
+    echo 'fnm use lts-jod' >> /home/me/.config/fish/config.fish && \
+    chown -R me:me /home/me/.config/fish
 
 # --- ATProto dependencies for /at directory ------------------------------------
 # Note: These will be available globally for ATProto experiments
@@ -204,15 +212,14 @@ RUN curl -fsSL https://deno.land/install.sh | DENO_INSTALL=/home/me/.deno sh -s 
     /home/me/.deno/bin/deno cache https://v2-13-0--edge.netlify.com/bootstrap/server.ts 2>/dev/null || true
 
 # --- Fish config / entry ------------------------------------------------------
-# Create directories first with proper ownership BEFORE any other operations
-RUN mkdir -p /home/me/.config/fish/conf.d /home/me/.config/fish/functions && \
-    mkdir -p /home/me/.local/share/fish && \
-    chmod -R u+w /home/me/.config && \
-    chmod -R u+w /home/me/.local
-
-# Now copy files - they'll inherit the correct ownership since we're USER me
+# Directories were already created above during fnm setup, now just copy files
 COPY --chown=me:me config.fish /home/me/.config/fish/config.fish
 COPY --chown=me:me entry.fish /entry.fish
+
+# Ensure fish doesn't try to use universal variable daemon (causes permission issues)
+RUN echo "set -U fish_greeting ''" >> /home/me/.config/fish/config.fish && \
+    chown -R me:me /home/me/.config/fish && \
+    chmod -R 755 /home/me/.config/fish
 
 # Ensure jupyter directory exists with correct permissions
 RUN mkdir -p /home/me/.jupyter && \

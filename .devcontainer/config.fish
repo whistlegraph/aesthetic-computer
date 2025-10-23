@@ -757,11 +757,39 @@ function restart-daemon
 end
 
 function ac-site
-    echo "🐱 Starting online mode with auto-restart..."
+    # Check if running inside Emacs to avoid infinite loops
+    if test -n "$INSIDE_EMACS"
+        echo "🌐 Starting ac-site (non-blocking mode for Emacs)..."
+        ac
+        cd system
+        # Start in background without auto-restart loop
+        echo "🔍 Cleaning up any stuck processes..."
+        pkill -f "netlify dev" 2>/dev/null
+        pkill -f "esbuild" 2>/dev/null
+        sleep 1
+        npx kill-port 8880 8888 8889 8080 8000 8111 3333 3000 3001 >/dev/null 2>&1
+        netlify link --id $NETLIFY_SITE_ID >/dev/null 2>&1
+        set -e DEBUG
+        set -e DENO_V8_FLAGS
+        if test -n "$CODESPACES"
+            echo "🌐 Starting in Codespaces mode..."
+            env DENO_LOG_LEVEL=info npm run codespaces-dev 2>&1 | grep -v "^DEBUG RS" &
+        else
+            echo "� Starting in local mode..."
+            env DENO_LOG_LEVEL=info npm run local-dev 2>&1 | grep -v "^DEBUG RS" &
+        end
+        disown
+        echo "✅ Site started in background"
+        return
+    end
+    
+    echo "�🐱 Starting online mode with auto-restart..."
     ac
     cd system
-    while true
-        echo "🚀 Starting ac-site..."
+    set restart_count 0
+    set max_restarts 10  # Prevent infinite restart loops
+    while test $restart_count -lt $max_restarts
+        echo "🚀 Starting ac-site... (attempt "(math $restart_count + 1)"/$max_restarts)"
         echo "🔍 Cleaning up any stuck processes..."
         # Kill any stuck netlify or esbuild processes
         pkill -f "netlify dev" 2>/dev/null
@@ -795,10 +823,12 @@ function ac-site
             return
         end
         
+        set restart_count (math $restart_count + 1)
         echo "⚠️  ac-site crashed with exit code $exit_code"
         echo "🔄 Restarting in 3 seconds... (Ctrl+C to stop)"
         sleep 3
     end
+    echo "❌ Maximum restart attempts reached ($max_restarts). Exiting to prevent infinite loop."
 end
 
 function ac-offline
@@ -1085,11 +1115,28 @@ end
 # alias ac-kidlisp 'ac; npm run test:kidlisp'
 # Session server with auto-restart on crash
 function ac-session
+    # Check if running inside Emacs to avoid infinite loops
+    if test -n "$INSIDE_EMACS"
+        echo "📋 Starting session server (non-blocking mode for Emacs)..."
+        ac
+        cd session-server
+        echo "🔍 Cleaning up any stuck nodemon processes..."
+        pkill -f "nodemon.*session.mjs" 2>/dev/null
+        sleep 1
+        npx kill-port 8889 2>/dev/null
+        PORT=8889 NODE_ENV=development npx nodemon -I --watch session.mjs session.mjs >/dev/null 2>&1 &
+        disown
+        echo "✅ Session server started in background"
+        return
+    end
+    
     echo "🎮 Starting session server with auto-restart..."
     ac
     cd session-server
-    while true
-        echo "🚀 Starting ac-session..."
+    set restart_count 0
+    set max_restarts 10  # Prevent infinite restart loops
+    while test $restart_count -lt $max_restarts
+        echo "🚀 Starting ac-session... (attempt "(math $restart_count + 1)"/$max_restarts)"
         echo "🔍 Cleaning up any stuck nodemon processes..."
         # Kill any stuck nodemon processes
         pkill -f "nodemon.*session.mjs" 2>/dev/null
@@ -1109,10 +1156,12 @@ function ac-session
             return
         end
         
+        set restart_count (math $restart_count + 1)
         echo "⚠️  ac-session crashed/stopped with exit code $exit_code"
         echo "🔄 Restarting in 3 seconds... (Ctrl+C to stop)"
         sleep 3
     end
+    echo "❌ Maximum restart attempts reached ($max_restarts). Exiting to prevent infinite loop."
 end
 alias ac-stripe-print 'ac; npm run stripe-print-micro'
 alias ac-stripe-ticket 'ac; npm run stripe-ticket-micro'
@@ -1186,9 +1235,76 @@ alias acw 'cd ~/aesthetic-computer/system; npm run watch'
 
 alias cat 'bat -p' # use bat for syntax highlighting instead of the `cat` default
 
+# 🧟 Zombie process monitor and cleanup
+function ac-zombie-monitor
+    echo "🧟 Starting zombie process monitor..."
+    echo "📊 Checking every 30 seconds for zombie accumulation"
+    echo "🔪 Will clean up if zombies > 100"
+    echo "Press Ctrl+C to stop monitoring"
+    
+    while true
+        set zombie_count (ps aux | grep -c defunct)
+        set timestamp (date '+%H:%M:%S')
+        
+        if test $zombie_count -gt 100
+            echo "[$timestamp] ⚠️  Found $zombie_count zombies - cleaning up..."
+            # Find parent processes with zombie children and log them
+            ps aux | grep defunct | awk '{print $2}' | while read zpid
+                set parent_pid (ps -o ppid= -p $zpid 2>/dev/null | string trim)
+                if test -n "$parent_pid"
+                    set parent_cmd (ps -o cmd= -p $parent_pid 2>/dev/null | string trim)
+                    echo "  🧟 Zombie $zpid has parent $parent_pid: $parent_cmd"
+                end
+            end
+            echo "  🧹 Attempting cleanup by reaping zombies..."
+            # Signal parent processes to reap their zombie children
+            ps aux | grep defunct | awk '{print $2}' | while read zpid
+                set parent_pid (ps -o ppid= -p $zpid 2>/dev/null | string trim)
+                if test -n "$parent_pid"; and test "$parent_pid" != "1"
+                    # Send SIGCHLD to parent to trigger reaping
+                    kill -CHLD $parent_pid 2>/dev/null
+                end
+            end
+            sleep 2
+            set new_zombie_count (ps aux | grep -c defunct)
+            echo "  📊 Zombies after cleanup: $new_zombie_count (was $zombie_count)"
+        else
+            echo "[$timestamp] ✅ System healthy: $zombie_count zombies"
+        end
+        
+        sleep 30
+    end
+end
+
+# Quick zombie status check
+function ac-zombie-status
+    set zombie_count (ps aux | grep -c defunct)
+    echo "🧟 Current zombie count: $zombie_count"
+    
+    if test $zombie_count -gt 10
+        echo "📊 Top zombie-producing parents:"
+        ps aux | grep defunct | awk '{print $2}' | while read zpid
+            set parent_pid (ps -o ppid= -p $zpid 2>/dev/null | string trim)
+            if test -n "$parent_pid"
+                ps -o pid,cmd= -p $parent_pid 2>/dev/null
+            end
+        end | sort | uniq -c | sort -rn | head -5
+    end
+end
+
 # set up an ngrok tunnel
 
 function ac-tunnel
+    # Check if running inside Emacs to avoid infinite loops
+    if test -n "$INSIDE_EMACS"
+        echo "🚇 Starting tunnel (non-blocking mode for Emacs)..."
+        ac
+        npm run tunnel >/dev/null 2>&1 &
+        disown
+        echo "✅ Tunnel process started in background"
+        return
+    end
+    
     set tmp (mktemp)
     ngrok start --config ngrok.yml --all 2>$tmp
     set ngrok_exit $status
@@ -1199,8 +1315,12 @@ function ac-tunnel
         if string match -q '*ERR_NGROK_334*' $err
             clear
             echo "🟢 tunnel already online — watching..."
-            while true
+            # Add timeout to prevent infinite loops (5 minutes max)
+            set timeout_count 0
+            set max_timeout 60  # 60 * 5 seconds = 5 minutes
+            while test $timeout_count -lt $max_timeout
                 sleep 5
+                set timeout_count (math $timeout_count + 1)
                 if not curl --silent --max-time 2 --output /dev/null https://local.aesthetic.computer
                     echo "🔁 tunnel down, restarting..."
                     # Kill any existing ngrok processes to ensure clean restart
@@ -1210,6 +1330,8 @@ function ac-tunnel
                     return
                 end
             end
+            echo "⏱️  Tunnel monitoring timeout reached (5 minutes)"
+            return
         else
             echo "❌ ngrok error:"
             echo $err
