@@ -9,10 +9,27 @@ end
 # Function to ensure fish config directory has correct permissions
 function ensure_fish_config_permissions
     set -l fish_config_dir /home/me/.config/fish
+    set -l fish_data_dir /home/me/.local/share/fish
+    
     if test -d $fish_config_dir
         # Fix ownership and permissions for fish config directory
         sudo chown -R me:me $fish_config_dir 2>/dev/null
         sudo chmod -R u+w $fish_config_dir 2>/dev/null
+        echo "✅ Fixed permissions for $fish_config_dir"
+    end
+    
+    if test -d $fish_data_dir
+        # Fix ownership and permissions for fish data directory
+        sudo chown -R me:me $fish_data_dir 2>/dev/null
+        sudo chmod -R u+w $fish_data_dir 2>/dev/null
+        echo "✅ Fixed permissions for $fish_data_dir"
+    end
+    
+    # Also fix the parent .config directory to be safe
+    if test -d /home/me/.config
+        sudo chown -R me:me /home/me/.config 2>/dev/null
+        sudo chmod -R u+w /home/me/.config 2>/dev/null
+        echo "✅ Fixed permissions for /home/me/.config"
     end
 end
 

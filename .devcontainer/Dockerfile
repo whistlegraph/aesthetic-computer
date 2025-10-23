@@ -204,11 +204,19 @@ RUN curl -fsSL https://deno.land/install.sh | DENO_INSTALL=/home/me/.deno sh -s 
     /home/me/.deno/bin/deno cache https://v2-13-0--edge.netlify.com/bootstrap/server.ts 2>/dev/null || true
 
 # --- Fish config / entry ------------------------------------------------------
-COPY config.fish /home/me/.config/fish/config.fish
-COPY entry.fish /entry.fish
-RUN sudo chown -R me:me /home/me/.config/fish && \
-    sudo chmod -R u+w /home/me/.config/fish && \
-    sudo mkdir -p $HOME/.jupyter && sudo chmod -R u+rw $HOME/.jupyter
+# Create directories first with proper ownership BEFORE any other operations
+RUN mkdir -p /home/me/.config/fish/conf.d /home/me/.config/fish/functions && \
+    mkdir -p /home/me/.local/share/fish && \
+    chmod -R u+w /home/me/.config && \
+    chmod -R u+w /home/me/.local
+
+# Now copy files - they'll inherit the correct ownership since we're USER me
+COPY --chown=me:me config.fish /home/me/.config/fish/config.fish
+COPY --chown=me:me entry.fish /entry.fish
+
+# Ensure jupyter directory exists with correct permissions
+RUN mkdir -p /home/me/.jupyter && \
+    chmod -R u+rw /home/me/.jupyter
 
 # --- IPython preload ----------------------------------------------------------
 RUN mkdir -p /home/me/.ipython/profile_default/startup && \
@@ -216,8 +224,9 @@ RUN mkdir -p /home/me/.ipython/profile_default/startup && \
     sudo chown -R me:me /home/me/.ipython
 
 # --- GYP shim (legacy consumers) ---------------------------------------------
-RUN sudo mkdir -p /home/me/.local/lib/python3.10/site-packages && \
-    git clone https://chromium.googlesource.com/external/gyp.git /home/me/.local/lib/python3.10/site-packages/gyp || true
+RUN mkdir -p /home/me/.local/lib/python3.10/site-packages && \
+    git clone https://chromium.googlesource.com/external/gyp.git /home/me/.local/lib/python3.10/site-packages/gyp || true && \
+    chown -R me:me /home/me/.local
 
 # Optional: default shell session
 # ENTRYPOINT ["/usr/bin/fish", "/entry.fish"]
