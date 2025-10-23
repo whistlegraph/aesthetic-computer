@@ -10,39 +10,9 @@
 import { authorize, getHandleOrEmail } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
 import { respond } from "../../backend/http.mjs";
-import { customAlphabet } from 'nanoid';
-import { createPaintingOnAtproto, deletePaintingFromAtproto } from "../../backend/painting-atproto.mjs";
+import { generateUniqueCode } from "../../backend/generate-short-code.mjs";
 
 const dev = process.env.CONTEXT === "dev";
-
-// Code generator - lowercase preferred (3x) but uppercase included for more space
-const consonants = 'bcdfghjklmnpqrstvwxyz' + 'bcdfghjklmnpqrstvwxyz' + 'BCDFGHJKLMNPQRSTVWXYZ';
-const vowels = 'aeiou' + 'aeiou' + 'AEIOU';
-const numbers = '23456789'; // Exclude 0,1 (look like O,l)
-const alphabet = consonants + vowels + numbers;
-const CODE_LENGTH = 3;
-const nanoid = customAlphabet(alphabet, CODE_LENGTH);
-const MAX_COLLISION_ATTEMPTS = 100;
-
-async function generateUniqueCode(collection) {
-  for (let attempt = 0; attempt < MAX_COLLISION_ATTEMPTS; attempt++) {
-    const code = nanoid();
-    
-    // Check if code already exists
-    const existing = await collection.findOne({ code });
-    if (!existing) {
-      return code;
-    }
-    
-    console.log(`⚠️  Code collision detected: ${code}, retrying...`);
-  }
-  
-  // If we hit max attempts, use a longer code
-  const longerNanoid = customAlphabet(alphabet, CODE_LENGTH + 1);
-  const longerCode = longerNanoid();
-  console.log(`⚠️  Max collisions reached, using longer code: ${longerCode}`);
-  return longerCode;
-}
 
 export async function handler(event, context) {
   if (!["POST", "PUT"].includes(event.httpMethod))
@@ -77,17 +47,31 @@ export async function handler(event, context) {
       // POST logic for creating a new database record
       const slug = body.slug;
       
-      // Create indexes (safe to call multiple times)
-      await collection.createIndex({ code: 1 }, { unique: true });
-      await collection.createIndex({ user: 1 }, { sparse: true }); // sparse: only index docs with user field
-      await collection.createIndex({ when: 1 });
-      await collection.createIndex({ slug: 1 });
-      if (user) {
+      // Ensure indexes exist
+      const existingIndexes = await collection.indexes();
+      const indexNames = existingIndexes.map(idx => idx.name);
+      
+      if (!indexNames.includes('code_1')) {
+        await collection.createIndex({ code: 1 }, { unique: true, sparse: true });
+      }
+      if (!indexNames.includes('user_1')) {
+        await collection.createIndex({ user: 1 }, { sparse: true });
+      }
+      if (!indexNames.includes('when_1')) {
+        await collection.createIndex({ when: 1 });
+      }
+      if (!indexNames.includes('slug_1')) {
+        await collection.createIndex({ slug: 1 });
+      }
+      if (user && !indexNames.includes('slug_1_user_1')) {
         await collection.createIndex({ slug: 1, user: 1 }, { unique: true });
       }
-
-      // Generate unique short code
-      const code = await generateUniqueCode(collection);
+      
+      // Generate unique short code (random mode for paintings/pieces)
+      const code = await generateUniqueCode(collection, { 
+        mode: 'random',
+        type: type === 'paintings' ? 'painting' : 'piece'
+      });
       
       try {
         const paintingDate = new Date();
@@ -106,50 +90,63 @@ export async function handler(event, context) {
         const insertResult = await collection.insertOne(record);
         
         const logType = user ? "user" : "guest";
-        console.log(`✅ Created ${logType} painting: slug=${slug}, code=${code}`);
+        console.log(`✅ Created ${logType} ${type.slice(0, -1)}: slug=${slug}, code=${code}`);
         
-        // Dual-write: Also create painting on ATProto (only for authenticated users)
-        if (user && type === "paintings") {
-          console.log("🔄 Syncing painting to ATProto...");
+        // Automatically sync to ATProto for ALL paintings (paintings only)
+        // Guest paintings use the system art.at.aesthetic.computer account
+        if (type === "paintings") {
           try {
-            // Get the user's handle for constructing the image URL
-            const handle = await getHandleOrEmail(user.sub);
-            const cleanHandle = handle?.replace('@', '') || user.sub;
+            const { createPaintingOnAtproto } = await import("../../backend/painting-atproto.mjs");
+            const atprotoType = user ? "user" : "guest";
+            console.log(`🔄 Auto-syncing ${atprotoType} painting to ATProto: ${slug}`);
             
-            // Construct the image URL
-            const imageUrl = `https://aesthetic.computer/media/@${cleanHandle}/painting/${slug}.png`;
+            // Use /media/paintings/{code} for all paintings
+            // This endpoint handles code lookup and redirects to the actual file
+            const imageUrl = `https://aesthetic.computer/media/paintings/${code}.png`;
+            
+            // For recordings, use /media/paintings/{code}.zip
+            // The endpoint will look up the code and return the associated recording ZIP
+            let recordingUrl = null;
+            if (slug.includes(":")) {
+              recordingUrl = `https://aesthetic.computer/media/paintings/${code}.zip`;
+            }
             
             const atprotoResult = await createPaintingOnAtproto(
-              database,
-              user.sub,
+              database, // Pass full database object, not database.db
+              user?.sub, // undefined for guest paintings
               slug,
               code,
               imageUrl,
+              recordingUrl,
               paintingDate,
               insertResult.insertedId.toString(),
               record.bucket
             );
-
+            
             if (atprotoResult.rkey) {
-              // Update MongoDB with the ATProto rkey
+              // Update the painting record with ATProto info
               await collection.updateOne(
                 { _id: insertResult.insertedId },
-                { $set: { atproto: { rkey: atprotoResult.rkey } } },
+                { $set: { atproto: { rkey: atprotoResult.rkey, uri: atprotoResult.uri } } }
               );
-              console.log(
-                "✅ Painting synced to ATProto with rkey:",
-                atprotoResult.rkey,
-              );
+              console.log(`✅ ATProto sync successful: ${atprotoResult.rkey}`);
+            } else if (atprotoResult.error) {
+              console.warn(`⚠️  ATProto sync failed: ${atprotoResult.error}`);
             }
           } catch (atprotoError) {
-            // Log the error but don't fail the request - painting is already saved in MongoDB
-            console.error("⚠️  Failed to sync painting to ATProto:", atprotoError);
+            console.error(`⚠️  ATProto sync error: ${atprotoError.message}`);
+            // Don't fail the request if ATProto sync fails
           }
         }
         
-        return respond(200, { slug, code }); // Return code to client!
+        // Return code and paintingId to client
+        return respond(200, { 
+          slug, 
+          code,
+          paintingId: insertResult.insertedId.toString()
+        });
       } catch (error) {
-        console.error(`❌ Failed to insert painting:`, error);
+        console.error(`❌ Failed to insert ${type.slice(0, -1)}:`, error);
         return respond(500, { message: error.message || String(error) });
       } finally {
         await database.disconnect();
@@ -181,19 +178,62 @@ export async function handler(event, context) {
           { $set: { nuked: nuke } },
         );
 
-        // If nuking (not un-nuking) and painting has ATProto record, delete it
-        if (nuke && painting.atproto?.rkey && type === "paintings") {
-          console.log("🔄 Deleting painting from ATProto...");
-          try {
-            await deletePaintingFromAtproto(
-              database,
-              user.sub,
-              painting.atproto.rkey
-            );
-            console.log("✅ Painting deleted from ATProto");
-          } catch (atprotoError) {
-            console.error("⚠️  Failed to delete painting from ATProto:", atprotoError);
-            // Continue anyway - MongoDB is already updated
+        // Handle ATProto sync for paintings
+        if (type === "paintings") {
+          if (nuke && painting.atproto?.rkey) {
+            // Nuking: delete from ATProto
+            console.log("🔄 Deleting painting from ATProto...");
+            try {
+              const { deletePaintingFromAtproto } = await import("../../backend/painting-atproto.mjs");
+              await deletePaintingFromAtproto(
+                database,
+                user.sub,
+                painting.atproto.rkey
+              );
+              console.log("✅ Painting deleted from ATProto");
+            } catch (atprotoError) {
+              console.error("⚠️  Failed to delete painting from ATProto:", atprotoError);
+              // Continue anyway - MongoDB is already updated
+            }
+          } else if (!nuke && !painting.atproto?.rkey) {
+            // Denuking: re-add to ATProto if it doesn't exist
+            console.log("🔄 Re-adding painting to ATProto after denuke...");
+            try {
+              const { createPaintingOnAtproto } = await import("../../backend/painting-atproto.mjs");
+              
+              // Use /media/paintings/{code} for images
+              const imageUrl = `https://aesthetic.computer/media/paintings/${painting.code}.png`;
+              
+              // For recordings, use /media/paintings/{code}.zip
+              let recordingUrl = null;
+              if (painting.slug.includes(":")) {
+                recordingUrl = `https://aesthetic.computer/media/paintings/${painting.code}.zip`;
+              }
+              
+              const atprotoResult = await createPaintingOnAtproto(
+                database,
+                user.sub,
+                painting.slug,
+                painting.code,
+                imageUrl,
+                recordingUrl,
+                painting.when,
+                painting._id.toString(),
+                painting.bucket
+              );
+              
+              if (atprotoResult.rkey) {
+                // Update MongoDB with new ATProto info
+                await collection.updateOne(
+                  { _id: painting._id },
+                  { $set: { atproto: { rkey: atprotoResult.rkey, uri: atprotoResult.uri } } }
+                );
+                console.log(`✅ Re-added to ATProto: ${atprotoResult.rkey}`);
+              }
+            } catch (atprotoError) {
+              console.error("⚠️  Failed to re-add painting to ATProto:", atprotoError);
+              // Continue anyway - MongoDB is already updated
+            }
           }
         }
 

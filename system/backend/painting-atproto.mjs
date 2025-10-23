@@ -13,7 +13,8 @@ const PDS_URL = process.env.PDS_URL || "https://at.aesthetic.computer";
  * @param {string} sub - User sub (auth0|...) - undefined for guest paintings
  * @param {string} slug - Painting slug (timestamp)
  * @param {string} code - Short code (e.g., 'a3b')
- * @param {string} imageUrl - Full URL to painting PNG
+ * @param {string} imageUrl - Full URL to painting PNG (/media or /api/pixel)
+ * @param {string} recordingUrl - Optional URL to recording ZIP
  * @param {Date} paintingDate - Painting creation timestamp
  * @param {string} refId - Database record _id as string
  * @param {string} bucket - Bucket name where painting is stored
@@ -25,43 +26,82 @@ export async function createPaintingOnAtproto(
   slug,
   code,
   imageUrl,
+  recordingUrl,
   paintingDate,
   refId,
   bucket
 ) {
-  // Guest paintings can't be synced to ATProto (no user account)
-  if (!sub) {
-    shell.log(`ℹ️  Guest painting, skipping ATProto sync: ${slug}`);
-    return { error: "Guest painting - no user account" };
-  }
-
   const users = database.db.collection("users");
   const handles = database.db.collection("@handles");
 
-  // 1. Check if user has ATProto account
-  const user = await users.findOne({ _id: sub });
+  let atprotoDid, atprotoPassword, handle;
 
-  if (!user?.atproto?.did || !user?.atproto?.password) {
-    shell.log(`ℹ️  User ${sub} has no ATProto account, skipping painting sync`);
-    return { error: "No ATProto account" };
+  // Guest paintings use the system art.at.aesthetic.computer account
+  if (!sub) {
+    atprotoDid = "did:plc:tliuubv7lyv2uiknsjbf4ppw"; // art.at.aesthetic.computer
+    
+    // Look up the art user account in MongoDB by DID
+    const artUser = await users.findOne({ "atproto.did": atprotoDid });
+    
+    if (!artUser?.atproto?.password) {
+      shell.log(`⚠️  Art user account not found in MongoDB: ${atprotoDid}`);
+      return { error: "Art user account not configured" };
+    }
+    
+    atprotoPassword = artUser.atproto.password;
+    
+    // Get handle from the art user account or from @handles collection
+    const handleDoc = await handles.findOne({ _id: artUser._id });
+    handle = handleDoc?.handle || "art";
+    
+    shell.log(`🎨 Syncing guest painting to art.at.aesthetic.computer (${handle}): ${slug}`);
+  } else {
+    // User paintings use their own ATProto account
+    // 1. Check if user has ATProto account
+    const user = await users.findOne({ _id: sub });
+
+    if (!user?.atproto?.did || !user?.atproto?.password) {
+      shell.log(`ℹ️  User ${sub} has no ATProto account, skipping painting sync`);
+      return { error: "No ATProto account" };
+    }
+    
+    atprotoDid = user.atproto.did;
+    atprotoPassword = user.atproto.password;
+    
+    // 2. Determine handle (for thumbnail generation)
+    const handleDoc = await handles.findOne({ _id: sub });
+    handle = handleDoc?.handle;
   }
 
   try {
-    // 2. Determine handle (for thumbnail generation)
-    const handleDoc = await handles.findOne({ _id: sub });
-    const handle = handleDoc?.handle;
 
     let thumbnailBuffer = null;
 
-    if (handle) {
+    // Extract just the image slug for thumbnail generation
+    // For combined slugs (imageSlug:recordingSlug), we only want the image part
+    const imageSlug = slug.includes(':') ? slug.split(':')[0] : slug;
+
+    if (handle && handle !== "art") {
+      // User paintings: use /api/pixel with handle
       try {
-        thumbnailBuffer = await getThumbnailFromSlug(slug, handle, {
+        thumbnailBuffer = await getThumbnailFromSlug(imageSlug, handle, {
           bucket,
           userId: sub,
         });
       } catch (thumbError) {
         shell.warn(
           `⚠️  Failed to generate thumbnail via getThumbnailFromSlug: ${thumbError.message}`
+        );
+      }
+    } else if (!sub) {
+      // Guest paintings: use direct DigitalOcean URL (no handle)
+      try {
+        thumbnailBuffer = await getThumbnailFromSlug(imageSlug, null, {
+          bucket,
+        });
+      } catch (thumbError) {
+        shell.warn(
+          `⚠️  Failed to generate thumbnail for guest painting: ${thumbError.message}`
         );
       }
     }
@@ -86,8 +126,8 @@ export async function createPaintingOnAtproto(
     // 3. Login to ATProto
     const agent = new AtpAgent({ service: PDS_URL });
     await agent.login({
-      identifier: user.atproto.did,
-      password: user.atproto.password,
+      identifier: atprotoDid,
+      password: atprotoPassword,
     });
 
     // 4. Upload thumbnail as blob (when available)
@@ -134,9 +174,13 @@ export async function createPaintingOnAtproto(
     if (thumbnailBlob) {
       record.thumbnail = thumbnailBlob;
     }
+    
+    if (recordingUrl) {
+      record.recordingUrl = recordingUrl;
+    }
 
     const atprotoRecord = await agent.com.atproto.repo.createRecord({
-      repo: user.atproto.did,
+      repo: atprotoDid,
       collection: "computer.aesthetic.painting",
       record,
     });
