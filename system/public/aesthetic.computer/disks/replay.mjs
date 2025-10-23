@@ -272,10 +272,15 @@ async function loadTapeByCode(code) {
       throw new Error(`Tape !${code} has been deleted`);
     }
     
-    // Construct ZIP URL based on bucket and slug
-    const zipUrl = tapeMetadata.bucket === 'user-aesthetic-computer'
-      ? `https://user-aesthetic-computer.sfo3.digitaloceanspaces.com/${tapeMetadata.slug}.zip`
-      : `https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/${tapeMetadata.slug}.zip`;
+    // Construct ZIP URL based on bucket and user
+    let zipUrl;
+    if (tapeMetadata.bucket === 'user-aesthetic-computer' && tapeMetadata.user) {
+      // User tape: include user ID and /video/ subdirectory
+      zipUrl = `https://user-aesthetic-computer.sfo3.digitaloceanspaces.com/${encodeURIComponent(tapeMetadata.user)}/video/${tapeMetadata.slug}.zip`;
+    } else {
+      // Guest tape: direct slug
+      zipUrl = `https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/${tapeMetadata.slug}.zip`;
+    }
     
     console.log(`📦 Requesting tape playback from bios: ${zipUrl}`);
     
