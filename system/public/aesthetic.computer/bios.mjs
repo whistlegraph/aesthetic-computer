@@ -10360,10 +10360,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           };
 
           let pauseStart;
+          let pausedAtPosition; // Store the position when paused
 
           pauseTapePlayback = () => {
             continuePlaying = false;
             pauseStart = performance.now();
+            // Store current playback position
+            pausedAtPosition = (pauseStart - playbackStart) / (mediaRecorderDuration * 1000);
             // Kill all tape audio instances since pause is not available
             Object.keys(sfxPlaying).forEach(id => {
               if (id.startsWith("tape:audio_")) {
@@ -10382,16 +10385,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             continuePlaying = true;
             window.requestAnimationFrame(update);
 
-            // Calculate audio position when paused
+            // Calculate how long we were paused and adjust playback start time
             const pauseDuration = performance.now() - pauseStart;
             playbackStart += pauseDuration;
 
-            // Restart the audio from the correct position if it was killed during pause
+            // Restart the audio from the paused position
             if (!render && !sfxPlaying[tapeSoundId] && mediaRecorderDuration > 0) {
-              const audioPosition =
-                (performance.now() - playbackStart) /
-                (mediaRecorderDuration * 1000);
-              const clampedPosition = Math.max(0, Math.min(1, audioPosition));
+              const clampedPosition = Math.max(0, Math.min(1, pausedAtPosition || 0));
 
               // Kill any existing tape audio before starting new one
               Object.keys(sfxPlaying).forEach(id => {
