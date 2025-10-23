@@ -2296,7 +2296,6 @@ const $commonApi = {
             // Ensure handle has @ prefix for the media URL
             const handleWithAt = handle.startsWith('@') ? handle : `@${handle}`;
             const mediaUrl = `${baseUrl}/media/${handleWithAt}/painting/${code}.${extension}`;
-            console.log("🖼️ Media URL constructed:", mediaUrl);
             return $commonApi.net.preload(
               mediaUrl,
               true,

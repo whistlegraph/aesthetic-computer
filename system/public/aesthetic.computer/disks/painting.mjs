@@ -92,8 +92,6 @@ function boot({
 }) {
   showMode = colon[0] === "show"; // A special lightbox mode with no bottom bar.
 
-  console.log(`🎨 painting.mjs boot - params:`, params, `params[0]:`, params[0], `hash:`, hash);
-
   lastBroadcastedCode = undefined;
   ellipsisTicker = new gizmo.EllipsisTicker();
 
@@ -355,10 +353,8 @@ function boot({
 
         const currentHandle = getHandle();
         const normalizedCurrentHandle = currentHandle?.startsWith("@") ? currentHandle.slice(1) : currentHandle;
-        console.log(`🔍 Checking ownership: handle="${handle}", currentHandle="${currentHandle}", normalized="${normalizedCurrentHandle}"`);
         
         if (handle === normalizedCurrentHandle && !showMode) {
-          console.log("✅ This is your painting!");
           menuBtn = new ui.Button();
         }
 
@@ -473,34 +469,27 @@ function boot({
   }
 
   if (initialHashCode) {
-    console.log(`🎨 Loading painting by code from hash: #${initialHashCode}`);
     bootstrapFromCode(initialHashCode);
   } else if (params[0]?.length > 0) {
     genSlug({ params });
-    console.log(`🎨 After genSlug - handle: "${handle}", imageCode: "${imageCode}"`);
 
     startLoadingPainting();
 
     const metadataUrl = `/api/painting-metadata?slug=${imageCode}&handle=${handle || "anon"}`;
-    console.log(`📞 Fetching metadata:`, metadataUrl);
     metadataAbortController = new AbortController();
     fetch(metadataUrl, { signal: metadataAbortController.signal })
       .then((res) => {
-        console.log(`📡 Metadata response:`, res.status, res.ok);
         return res.ok ? res.json() : null;
       })
       .then((data) => {
-        console.log(`📦 Metadata data:`, data);
         if (data?.code) {
           paintingCode = data.code;
           // Check if we loaded via timestamp route (e.g., @handle/2025.07.28...)
           const loadedViaTimestamp = imageCode && imageCode.match(/^\d{4}\.\d{1,2}\.\d{1,2}\.\d{1,2}\.\d{1,2}\.\d{1,2}/);
-          console.log(`🔍 Label decision: imageCode="${imageCode}", loadedViaTimestamp=${loadedViaTimestamp}, handle="${handle}"`);
           if (loadedViaTimestamp) {
             // Keep the @handle/timestamp format in the label
             const displayHandle = handle && handle !== "anon" ? `@${handle}` : "";
             label = displayHandle ? `${displayHandle}/${imageCode}` : imageCode;
-            console.log(`✅ Keeping timestamp format, label="${label}"`);
             hud.label(label);
           } else {
             // Show the short code for non-timestamp routes
