@@ -11,26 +11,54 @@ function ensure_fish_config_permissions
     set -l fish_config_dir /home/me/.config/fish
     set -l fish_data_dir /home/me/.local/share/fish
     
+    echo "🔧 Fixing permissions for fish and SSH directories..."
+    
+    # Fix SSH directory permissions (critical for security)
+    if test -d /home/me/.ssh
+        sudo chown -R me:me /home/me/.ssh 2>/dev/null
+        sudo chmod 700 /home/me/.ssh 2>/dev/null
+        sudo chmod 600 /home/me/.ssh/* 2>/dev/null
+        echo "✅ Fixed permissions for /home/me/.ssh"
+    end
+    
+    # Fix the parent .config directory first (most important)
+    if test -d /home/me/.config
+        sudo chown -R me:me /home/me/.config 2>/dev/null
+        sudo chmod -R 755 /home/me/.config 2>/dev/null
+        echo "✅ Fixed permissions for /home/me/.config"
+    end
+    
     if test -d $fish_config_dir
-        # Fix ownership and permissions for fish config directory
+        # Fix ownership and permissions for fish config directory - be VERY aggressive
         sudo chown -R me:me $fish_config_dir 2>/dev/null
-        sudo chmod -R u+w $fish_config_dir 2>/dev/null
+        sudo chmod -R 755 $fish_config_dir 2>/dev/null
+        sudo chmod 644 $fish_config_dir/*.fish 2>/dev/null
+        # Also fix individual subdirectories explicitly
+        sudo chown -R me:me $fish_config_dir/conf.d 2>/dev/null
+        sudo chown -R me:me $fish_config_dir/functions 2>/dev/null
+        sudo chown -R me:me $fish_config_dir/completions 2>/dev/null
         echo "✅ Fixed permissions for $fish_config_dir"
     end
     
     if test -d $fish_data_dir
         # Fix ownership and permissions for fish data directory
         sudo chown -R me:me $fish_data_dir 2>/dev/null
-        sudo chmod -R u+w $fish_data_dir 2>/dev/null
+        sudo chmod -R 755 $fish_data_dir 2>/dev/null
         echo "✅ Fixed permissions for $fish_data_dir"
     end
     
-    # Also fix the parent .config directory to be safe
-    if test -d /home/me/.config
-        sudo chown -R me:me /home/me/.config 2>/dev/null
-        sudo chmod -R u+w /home/me/.config 2>/dev/null
-        echo "✅ Fixed permissions for /home/me/.config"
+    # Fix /home/me/.local directory too
+    if test -d /home/me/.local
+        sudo chown -R me:me /home/me/.local 2>/dev/null
+        sudo chmod -R 755 /home/me/.local 2>/dev/null
+        echo "✅ Fixed permissions for /home/me/.local"
     end
+    
+    # Disable fish's universal variable file daemon (fishd) which causes permission issues
+    # We'll use fish_variables instead which is simpler and doesn't create temp files
+    set -U fish_greeting ""  # Suppress greeting while we're at it
+    
+    echo "✨ All permissions fixed!"
 end
 
 # Function to ensure correct Docker socket permissions
