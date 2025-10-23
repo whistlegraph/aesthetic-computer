@@ -230,7 +230,7 @@ async function handlePaintingCodeRequest(codeWithExtension) {
       }
       
       const key = painting.user ? `${painting.user}/${recordingSlug}.zip` : `${recordingSlug}.zip`;
-      const zipUrl = `https://${bucket}.sfo3.digitaloceanspaces.com/${key}`;
+      const zipUrl = `https://${bucket}.sfo3.digitaloceanspaces.com/${encodeURIComponent(painting.user)}/${recordingSlug}.zip`;
       
       // Let DigitalOcean Spaces return 404 if the file doesn't exist
       return Response.redirect(zipUrl, 302);
@@ -239,7 +239,7 @@ async function handlePaintingCodeRequest(codeWithExtension) {
       // Extract image slug from combined slug if present (imageSlug:recordingSlug)
       const imageSlug = painting.slug.includes(':') ? painting.slug.split(':')[0] : painting.slug;
       const bucket = painting.bucket || (painting.user ? "user-aesthetic-computer" : "art-aesthetic-computer");
-      const key = painting.user ? `${painting.user}/${imageSlug}.png` : `${imageSlug}.png`;
+      const key = painting.user ? `${encodeURIComponent(painting.user)}/${imageSlug}.png` : `${imageSlug}.png`;
       const pngUrl = `https://${bucket}.sfo3.digitaloceanspaces.com/${key}`;
       
       return Response.redirect(pngUrl, 302);
