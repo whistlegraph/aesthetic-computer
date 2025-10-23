@@ -9595,7 +9595,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (type === "upload") {
-      receivedUpload(content);
+      // Extract recordingSlug if present in content
+      const { recordingSlug, ...uploadData } = content;
+      console.log("🔍 UPLOAD MESSAGE HANDLER: recordingSlug=", recordingSlug, "content keys=", Object.keys(content));
+      receivedUpload(uploadData, "upload", null, recordingSlug);
       return;
     }
 
@@ -13240,6 +13243,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     { filename, data, bucket },
     callbackMessage = "upload",
     metadata = null,
+    recordingSlug = null,  // Optional recording slug for anonymous paintings
   ) {
     console.log("📤 Uploading file:", filename, typeof data || "...");
     const ext = extension(filename);
@@ -13343,12 +13347,27 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   xhr.open("PUT", presignedUrl, true);
   // The presigned URL already encodes the required signed headers.
   // Set headers that match what's in the signature.
+  
+  // Set Content-Type based on extension to match server's presigned URL
+  let mimeType;
+  if (ext === "png") mimeType = "image/png";
+  else if (ext === "zip") mimeType = "application/zip";
+  else if (ext === "mjs") mimeType = "application/javascript; charset=utf-8";
+  else if (ext === "lisp") mimeType = "text/x-lisp; charset=utf-8";
+  else if (ext === "mp4") mimeType = "video/mp4";
+  else if (ext === "json") mimeType = "application/json";
+  else if (ext === "gltf") mimeType = "model/gltf+json";
+  else if (ext === "glb") mimeType = "model/gltf-binary";
+  else if (ext === "obj") mimeType = "application/object";
+  
+  if (mimeType) {
+    xhr.setRequestHeader("Content-Type", mimeType);
+  }
+  
   xhr.setRequestHeader("Content-Disposition", "inline");
   
-  // For ZIP files (tapes), include ACL header to match presigned URL signature
-  if (ext === "zip") {
-    xhr.setRequestHeader("x-amz-acl", "public-read");
-  }
+  // Include ACL header to match presigned URL signature (all files should be public-read)
+  xhr.setRequestHeader("x-amz-acl", "public-read");
 
   // Create the blob without specifying a MIME so the browser typically won't
   // add a Content-Type header that wasn't included in the signature.
@@ -13456,11 +13475,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               }
             }
             
-            // Handle regular media (paintings, pieces)
+            // Handle regular media (paintings, pieces, kidlisp - both authenticated and anonymous)
             if (
-              (userMedia && token && ext === "png") ||
-              ext === "mjs" ||
-              ext === "lisp"
+              ext === "png" ||  // All paintings (user and anonymous)
+              ext === "mjs" ||  // Pieces
+              ext === "lisp"    // KidLisp
             ) {
               // TODO: Go ahead and add this media to the database.
               if (debug) {
@@ -13480,29 +13499,62 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               };
 
               const options = { method: "POST", headers };
-              options.body = JSON.stringify({ slug, ext });
+              const body = { slug, ext };
+              
+              console.log(`🔍 PRE-CHECK: recordingSlug=${recordingSlug}, userMedia=${userMedia}, ext=${ext}`);
+              
+              // If this is an anonymous painting with a recording, send the combined slug
+              console.log(`🔍 Checking combined slug: recordingSlug=${recordingSlug}, userMedia=${userMedia}, ext=${ext}`);
+              if (recordingSlug && !userMedia && ext === "png") {
+                body.slug = `${slug}:${recordingSlug}`;
+                console.log(`🔗 Creating anonymous painting with combined slug: ${body.slug}`);
+              } else {
+                console.log(`⚠️  Not creating combined slug - one of these is false:`, {
+                  hasRecordingSlug: !!recordingSlug,
+                  isAnonymous: !userMedia,
+                  isPNG: ext === "png"
+                });
+              }
+              
+              options.body = JSON.stringify(body);
               const added = await fetch("api/track-media", options);
               const addedData = await added.json();
-              if (debug) console.log("🗞️ Added to database...", addedData);
+              console.log("🗞️ track-media response:", addedData);
+              
+              // Create data object first
+              let data = { slug, url: url.toString(), ext };
               
               // Extract code from response if present
               if (addedData.code) {
                 console.log(`🎨 Painting code: #${addedData.code}`);
                 data.code = addedData.code; // Add code to return data
+              } else {
+                console.warn("⚠️  No code received from track-media!");
               }
+
+              if (!userMedia && (ext === "mjs" || ext === "lisp")) {
+                data.url =
+                  "https://art.aesthetic.computer/" + data.slug + "." + data.ext;
+              }
+
+              send({
+                type: callbackMessage,
+                content: { result: "success", data },
+              });
+            } else {
+              // For non-painting files or when not logged in
+              let data = { slug, url: url.toString(), ext };
+
+              if (!userMedia && (ext === "mjs" || ext === "lisp")) {
+                data.url =
+                  "https://art.aesthetic.computer/" + data.slug + "." + data.ext;
+              }
+
+              send({
+                type: callbackMessage,
+                content: { result: "success", data },
+              });
             }
-
-            let data = { slug, url: url.toString(), ext };
-
-            if (!userMedia && (ext === "mjs" || ext === "lisp")) {
-              data.url =
-                "https://art.aesthetic.computer/" + data.slug + "." + data.ext;
-            }
-
-            send({
-              type: callbackMessage,
-              content: { result: "success", data },
-            });
 
             if (debug) console.log("✔️ File uploaded:", xhr.responseURL);
           }

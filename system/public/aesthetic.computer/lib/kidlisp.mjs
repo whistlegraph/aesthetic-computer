@@ -5140,7 +5140,7 @@ class KidLisp {
       },
       paste: (api, args = []) => {
         // Process string arguments to remove quotes (e.g., "@handle/timestamp")
-        // Special handling for first argument - support unquoted URLs
+        // Special handling for first argument - support unquoted URLs and #codes
         const processedArgs = args.map((arg, index) => {
           if (
             typeof arg === "string" &&
@@ -5153,11 +5153,12 @@ class KidLisp {
           if (typeof arg === "string" && arg === "painting") {
             return api.system?.painting;
           }
-          // For the first argument (image source), support unquoted URLs and paths
+          // For the first argument (image source), support unquoted URLs, paths, #codes, and @handles
           if (index === 0 && typeof arg === "string" && arg) {
-            // If it's a URL (http/https) or a path, treat it as unquoted
-            if (arg.startsWith("http://") || arg.startsWith("https://") || arg.includes("/") || arg.includes("@")) {
-              return arg; // Return as-is for URLs, paths, and @handle/timestamp patterns
+            // If it's a URL (http/https), path, #code, or @handle, treat it as unquoted
+            if (arg.startsWith("http://") || arg.startsWith("https://") || 
+                arg.includes("/") || arg.includes("@") || arg.startsWith("#")) {
+              return arg; // Return as-is for URLs, paths, #codes, and @handle/timestamp patterns
             }
           }
           return arg;
@@ -5176,7 +5177,7 @@ class KidLisp {
       },
       stamp: (api, args = []) => {
         // Process string arguments to remove quotes (e.g., "@handle/timestamp")
-        // Special handling for first argument - support unquoted URLs
+        // Special handling for first argument - support unquoted URLs and #codes
         const processedArgs = args.map((arg, index) => {
           if (
             typeof arg === "string" &&
@@ -5189,11 +5190,12 @@ class KidLisp {
           if (typeof arg === "string" && arg === "painting") {
             return api.system?.painting;
           }
-          // For the first argument (image source), support unquoted URLs and paths
+          // For the first argument (image source), support unquoted URLs, paths, #codes, and @handles
           if (index === 0 && typeof arg === "string" && arg) {
-            // If it's a URL (http/https) or a path, treat it as unquoted
-            if (arg.startsWith("http://") || arg.startsWith("https://") || arg.includes("/") || arg.includes("@")) {
-              return arg; // Return as-is for URLs, paths, and @handle/timestamp patterns
+            // If it's a URL (http/https), path, #code, or @handle, treat it as unquoted
+            if (arg.startsWith("http://") || arg.startsWith("https://") || 
+                arg.includes("/") || arg.includes("@") || arg.startsWith("#")) {
+              return arg; // Return as-is for URLs, paths, #codes, and @handle/timestamp patterns
             }
           }
           // Evaluate expressions for non-string arguments (like math expressions)
@@ -11882,7 +11884,8 @@ function encodeKidlispForUrl(source) {
     .replace(/ /g, "_") // Space to underscore (already safe)
     .replace(/\n/g, "§") // Use § for newlines - displays fine in browsers
     .replace(/%/g, "¤") // Use ¤ for percent - displays fine in browsers
-    .replace(/;/g, "¨"); // Use ¨ for semicolon - displays fine in browsers
+    .replace(/;/g, "¨") // Use ¨ for semicolon - displays fine in browsers
+    .replace(/#/g, "%23"); // Use %23 for hash - prevents URL fragment interpretation
 
   return encoded;
 }
@@ -11894,6 +11897,7 @@ function decodeKidlispFromUrl(encoded) {
     .replace(/%C2%A7/g, "\n") // UTF-8 encoded § to newline
     .replace(/%C2%A4/g, "%") // UTF-8 encoded ¤ to percent
     .replace(/%C2%A8/g, ";") // UTF-8 encoded ¨ to semicolon
+    .replace(/%23/g, "#") // URL-encoded hash to #
     .replace(/§/g, "\n") // Direct § to newline (fallback)
     .replace(/¤/g, "%") // Direct ¤ to percent (fallback)
     .replace(/¨/g, ";") // Direct ¨ to semicolon (fallback)
