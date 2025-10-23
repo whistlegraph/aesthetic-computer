@@ -102,6 +102,7 @@ included_env_vars = ["CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_S
 included_env_vars = ["CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
 [functions.track-media]
 external_node_modules = ["@atproto/api", "nanoid", "sharp", "got", "mongodb"]
+included_files = ["backend/**/*.mjs"]
 included_env_vars = ["CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "NETLIFY_DEV", "PDS_URL", "PDS_ADMIN_PASSWORD", "SOTCE_AUTH0_M2M_CLIENT_ID", "SOTCE_AUTH0_M2M_SECRET"]
 [functions.track-tape]
 included_env_vars = ["CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "ART_KEY", "ART_SECRET", "ART_ENDPOINT", "ART_SPACE_NAME", "USER_SPACE_NAME", "DO_SPACES_KEY", "DO_SPACES_SECRET", "MP4_SERVICE_URL", "MP4_SERVICE_TOKEN", "URL"]
