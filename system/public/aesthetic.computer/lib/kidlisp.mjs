@@ -10380,6 +10380,7 @@ class KidLisp {
 
   // 🍞 Clear baked layers (similar to embedded layer clearing)
   clearBakedLayers() {
+    console.log("🍞 clearBakedLayers called - clearing all baked state");
     // Return layer0 to the pool so a fresh buffer is created on next paint
     if (this.layer0 && this.layer0.pixels) {
       this.returnBufferToPool(this.layer0, this.layer0.width, this.layer0.height);
