@@ -36,16 +36,27 @@ export default async function handleRequest(request) {
       newUrl = `${baseUrl}/${resourcePath}`;
       // Properly encode the URL, especially the pipe character in Auth0 user IDs
       const response = await fetch(newUrl.split('/').map((part, i) => i < 3 ? part : encodeURIComponent(part)).join('/'));
-      const contentType = response.headers.get("Content-Type");
+      
+      // Determine Content-Type based on file extension
+      let contentType = response.headers.get("Content-Type");
+      
+      // Override Content-Type based on extension if needed
+      if (extension === "png") contentType = "image/png";
+      else if (extension === "jpg" || extension === "jpeg") contentType = "image/jpeg";
+      else if (extension === "gif") contentType = "image/gif";
+      else if (extension === "webp") contentType = "image/webp";
+      else if (extension === "zip") contentType = "application/zip";
+      else if (extension === "mp4") contentType = "video/mp4";
+      else if (extension === "json") contentType = "application/json";
+      
       const moddedResponse = new Response(response.body, {
         headers: { ...response.headers },
         status: response.status,
         statusText: response.statusText,
       });
       moddedResponse.headers.set("Access-Control-Allow-Origin", "*");
-      if (contentType) {
-        moddedResponse.headers.set("Content-Type", contentType);
-      }
+      moddedResponse.headers.set("Content-Type", contentType);
+      moddedResponse.headers.set("Content-Disposition", "inline");
       return moddedResponse;
     } else {
       // Handle both @username and acXXXXX user code formats
@@ -69,7 +80,18 @@ export default async function handleRequest(request) {
         const response = await fetch(newUrl.split('/').map((part, i) => i < 3 ? part : encodeURIComponent(part)).join('/'));
         // Create a new Response object using the fetched response's body
 
-        const contentType = response.headers.get("Content-Type");
+        // Determine Content-Type based on file extension
+        const extension = newPath.split(".").pop()?.toLowerCase();
+        let contentType = response.headers.get("Content-Type");
+        
+        // Override Content-Type based on extension if needed
+        if (extension === "png") contentType = "image/png";
+        else if (extension === "jpg" || extension === "jpeg") contentType = "image/jpeg";
+        else if (extension === "gif") contentType = "image/gif";
+        else if (extension === "webp") contentType = "image/webp";
+        else if (extension === "zip") contentType = "application/zip";
+        else if (extension === "mp4") contentType = "video/mp4";
+        else if (extension === "json") contentType = "application/json";
 
         const moddedResponse = new Response(response.body, {
           // Copy all the fetched response's headers
@@ -80,6 +102,7 @@ export default async function handleRequest(request) {
         // // Set the Access-Control-Allow-Origin header to *
         moddedResponse.headers.set("Access-Control-Allow-Origin", "*");
         moddedResponse.headers.set("Content-Type", contentType);
+        moddedResponse.headers.set("Content-Disposition", "inline");
         return moddedResponse;
         // return fetch(encodeURI(newUrl));
       } else {
@@ -162,14 +185,26 @@ async function handleTapeCodeRequest(code) {
 }
 
 /**
- * Handle painting code requests like /media/paintings/ABC123
- * @param {string} code - Painting code
+ * Handle painting code requests like /media/paintings/ABC123, /media/paintings/ABC123.png, or /media/paintings/ABC123.zip
+ * @param {string} codeWithExtension - Painting code with optional .png or .zip extension
  * @returns {Response}
  */
-async function handlePaintingCodeRequest(code) {
+async function handlePaintingCodeRequest(codeWithExtension) {
   const host = Deno.env.get("CONTEXT") === "dev" 
     ? "https://localhost:8888" 
     : "https://aesthetic.computer";
+  
+  // Check if requesting the recording ZIP or image PNG
+  const isZipRequest = codeWithExtension.endsWith('.zip');
+  const isPngRequest = codeWithExtension.endsWith('.png');
+  
+  // Strip extension to get the code
+  let code = codeWithExtension;
+  if (isZipRequest) {
+    code = codeWithExtension.slice(0, -4); // Remove .zip
+  } else if (isPngRequest) {
+    code = codeWithExtension.slice(0, -4); // Remove .png
+  }
   
   try {
     // Query painting by code
@@ -181,12 +216,34 @@ async function handlePaintingCodeRequest(code) {
     
     const painting = await res.json();
     
-    // Redirect to the PNG file
-    const bucket = painting.bucket || "user-aesthetic-computer";
-    const key = painting.user ? `${painting.user}/${painting.slug}.png` : `${painting.slug}.png`;
-    const pngUrl = `https://${bucket}.sfo3.digitaloceanspaces.com/${key}`;
-    
-    return Response.redirect(pngUrl, 302);
+    if (isZipRequest) {
+      // Return the recording ZIP
+      const bucket = painting.bucket || (painting.user ? "user-aesthetic-computer" : "art-aesthetic-computer");
+      let recordingSlug;
+      
+      if (painting.slug.includes(':')) {
+        // Anonymous painting: combined slug format (imageSlug:recordingSlug)
+        [, recordingSlug] = painting.slug.split(':');
+      } else {
+        // User painting: same slug as image, just different extension
+        recordingSlug = painting.slug;
+      }
+      
+      const key = painting.user ? `${painting.user}/${recordingSlug}.zip` : `${recordingSlug}.zip`;
+      const zipUrl = `https://${bucket}.sfo3.digitaloceanspaces.com/${key}`;
+      
+      // Let DigitalOcean Spaces return 404 if the file doesn't exist
+      return Response.redirect(zipUrl, 302);
+    } else {
+      // Return the PNG file (whether .png extension was provided or not)
+      // Extract image slug from combined slug if present (imageSlug:recordingSlug)
+      const imageSlug = painting.slug.includes(':') ? painting.slug.split(':')[0] : painting.slug;
+      const bucket = painting.bucket || (painting.user ? "user-aesthetic-computer" : "art-aesthetic-computer");
+      const key = painting.user ? `${painting.user}/${imageSlug}.png` : `${imageSlug}.png`;
+      const pngUrl = `https://${bucket}.sfo3.digitaloceanspaces.com/${key}`;
+      
+      return Response.redirect(pngUrl, 302);
+    }
     
   } catch (error) {
     console.error(`Error fetching painting by code:`, error);

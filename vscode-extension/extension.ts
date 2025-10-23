@@ -971,6 +971,13 @@ function getWebViewContent(webview: any, slug: string) {
   let hashFragment = "";
   let pathPart = slug || "";
 
+  // Encode # as %23 in kidlisp code to prevent URL fragment interpretation
+  // This handles cases like "(stamp #wNb 0 0)" in the path
+  if (pathPart && !pathPart.startsWith("#")) {
+    // Only encode # if it's not already a hash fragment (painting code)
+    pathPart = pathPart.replace(/#/g, "%23");
+  }
+
   if (pathPart.startsWith("#")) {
     hashFragment = pathPart;
     pathPart = "";
