@@ -10361,6 +10361,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
           let pauseStart;
           let pausedAtPosition; // Store the position when paused
+          let isResuming = false; // Track if we're resuming from pause
 
           pauseTapePlayback = () => {
             continuePlaying = false;
@@ -10383,6 +10384,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               return startTapePlayback(true);
             }
             continuePlaying = true;
+            isResuming = true; // Flag that we're resuming to prevent audio restart
             window.requestAnimationFrame(update);
 
             // Calculate how long we were paused and adjust playback start time
@@ -10439,8 +10441,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               window.tapePlaybackPaused = false;
               window.tapePlaybackPauseTime = 0;
               
-              // Only play audio if not rendering video export
-              if (!render) {
+              // Only play audio if not rendering video export and not resuming from pause
+              if (!render && !isResuming) {
                 // Kill any existing tape audio before starting new one
                 Object.keys(sfxPlaying).forEach(id => {
                   if (id.startsWith("tape:audio_")) {
@@ -10452,11 +10454,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 tapeSoundId = "tape:audio_" + performance.now();
                 await playSfx(tapeSoundId, "tape:audio");
               } else {
-                // Skip audio during video export
+                // Skip audio during video export or resume
               }
               // Will be silent if stream is here. ^
-              playbackStart = performance.now();
-              playbackProgress = 0;
+              if (!isResuming) {
+                playbackStart = performance.now();
+                playbackProgress = 0;
+              }
+              // Clear resume flag after handling frame 0
+              isResuming = false;
             }
 
             // Resize fctx here if the width and
@@ -10529,6 +10535,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               // Reset playback timing for the loop
               playbackStart = performance.now();
               playbackProgress = 0;
+              // Clear resume flag when looping
+              isResuming = false;
               
               // Restart audio for the loop (only during normal playback)
               if (!render) {
