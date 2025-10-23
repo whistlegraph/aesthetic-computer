@@ -196,10 +196,15 @@ function boot({ wipe, rec, gizmo, jump, notice, store, params, send, hud }) {
         tapeLoadProgress = 0;
         tapeLoadMessage = "DOWNLOADING ZIP";
         
-        // Construct ZIP URL based on bucket and slug
-        const zipUrl = metadata.bucket === 'user-aesthetic-computer'
-          ? `https://user-aesthetic-computer.sfo3.digitaloceanspaces.com/${metadata.slug}.zip`
-          : `https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/${metadata.slug}.zip`;
+        // Construct ZIP URL based on bucket and user
+        let zipUrl;
+        if (metadata.bucket === 'user-aesthetic-computer' && metadata.user) {
+          // User tape: include user ID and /video/ subdirectory
+          zipUrl = `https://user-aesthetic-computer.sfo3.digitaloceanspaces.com/${encodeURIComponent(metadata.user)}/video/${metadata.slug}.zip`;
+        } else {
+          // Guest tape: direct slug
+          zipUrl = `https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/${metadata.slug}.zip`;
+        }
         
         console.log("📦 Requesting tape playback from bios:", zipUrl);
         
