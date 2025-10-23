@@ -388,6 +388,15 @@
   (interactive)
   (ac-debug-log (format "Starting aesthetic-backend with target-tab: %s" target-tab))
   
+  ;; Set environment variable to tell fish it's running inside Emacs
+  (setenv "INSIDE_EMACS" "t")
+  
+  ;; Set up a watchdog timer to detect hangs (30 seconds)
+  (run-with-timer 30 nil
+                  (lambda ()
+                    (ac-debug-log "WARNING: aesthetic-backend has been running for 30+ seconds")
+                    (message "⚠️ Backend initialization taking longer than expected. Check /tmp/emacs-debug.log")))
+  
   (let ((directory-path "~/aesthetic-computer")
         (emoji-for-command
          '(("code" . "📂") ("status" . "📡") ("url" . "⚡") 

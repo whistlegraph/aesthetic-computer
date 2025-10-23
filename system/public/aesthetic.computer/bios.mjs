@@ -6137,17 +6137,20 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             tempCtx.putImageData(tempImageData, 0, 0);
             
             // Add 2px VHS-style progress bar at the bottom (before scaling) with transparency buildup
-            const barProgress = (index + 1) / processedFrames.length;
-            
-            // Use shared VHS progress bar renderer
-            renderVHSProgressBar({
-              ctx: tempCtx,
-              width: originalWidth,
-              height: originalHeight,
-              imageData: originalImageData,
-              progress: barProgress,
-              animFrame: index,
-            });
+            // Skip progress bar in clean mode (tape:neat recordings)
+            if (!window.currentRecordingOptions?.cleanMode) {
+              const barProgress = (index + 1) / processedFrames.length;
+              
+              // Use shared VHS progress bar renderer
+              renderVHSProgressBar({
+                ctx: tempCtx,
+                width: originalWidth,
+                height: originalHeight,
+                imageData: originalImageData,
+                progress: barProgress,
+                animFrame: index,
+              });
+            }
             
             // Get the frame data with progress bar for scaling
             const frameWithProgressBar = tempCtx.getImageData(0, 0, originalWidth, originalHeight);
@@ -6769,17 +6772,20 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           tempCtx.putImageData(tempImageData, 0, 0);
           
           // Add 2px VHS-style progress bar at the bottom (before scaling)
-          const barProgress = (frameIndex + 1) / processedFrames.length;
-          
-          // Use shared VHS progress bar renderer
-          renderVHSProgressBar({
-            ctx: tempCtx,
-            width: frame.width,
-            height: frame.height,
-            imageData: originalImageData,
-            progress: barProgress,
-            animFrame: frameIndex,
-          });
+          // Skip progress bar in clean mode (tape:neat recordings)
+          if (!window.currentRecordingOptions?.cleanMode) {
+            const barProgress = (frameIndex + 1) / processedFrames.length;
+            
+            // Use shared VHS progress bar renderer
+            renderVHSProgressBar({
+              ctx: tempCtx,
+              width: frame.width,
+              height: frame.height,
+              imageData: originalImageData,
+              progress: barProgress,
+              animFrame: frameIndex,
+            });
+          }
           
           // Get the frame data with progress bar for scaling
           const frameWithProgressBar = tempCtx.getImageData(0, 0, frame.width, frame.height);
@@ -10042,6 +10048,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             content: {
               mime: mediaRecorder.mimeType,
               time: audioContext?.currentTime,
+              cleanMode: recordingOptions.cleanMode,
             },
           });
           if (debug && logs.recorder)
@@ -11048,6 +11055,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               typeSize,
               progress, // Export progress for the progress bar
             ) {
+              // Skip all timestamp and progress bar overlays in clean mode (tape:neat)
+              if (window.currentRecordingOptions?.cleanMode) {
+                return; // Exit early, don't draw any overlays
+              }
+              
               // Always show timestamp and progress bar for the full duration of the work (no breathing pattern)
               let showTimecodeAndProgressBar = true; // Always visible throughout the entire duration
               
@@ -12870,7 +12882,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 if (paintOverlays["qrOverlay"]) paintOverlays["qrOverlay"]();
                 if (paintOverlays["qrCornerLabel"]) paintOverlays["qrCornerLabel"]();
                 if (paintOverlays["qrFullscreenLabel"]) paintOverlays["qrFullscreenLabel"]();
-                if (paintOverlays["tapeProgressBar"]) paintOverlays["tapeProgressBar"]();
+                if (paintOverlays["tapeProgressBar"] && !window.currentRecordingOptions?.cleanMode) paintOverlays["tapeProgressBar"]();
                 if (paintOverlays["durationProgressBar"]) paintOverlays["durationProgressBar"]();
                 if (paintOverlays["hitboxDebug"]) paintOverlays["hitboxDebug"](); // Debug overlay
               }).catch(err => {
@@ -12924,7 +12936,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                       if (paintOverlays["qrOverlay"]) paintOverlays["qrOverlay"]();
                       if (paintOverlays["qrCornerLabel"]) paintOverlays["qrCornerLabel"]();
                       if (paintOverlays["qrFullscreenLabel"]) paintOverlays["qrFullscreenLabel"]();
-                      if (paintOverlays["tapeProgressBar"]) paintOverlays["tapeProgressBar"]();
+                      if (paintOverlays["tapeProgressBar"] && !window.currentRecordingOptions?.cleanMode) paintOverlays["tapeProgressBar"]();
                       if (paintOverlays["durationProgressBar"]) paintOverlays["durationProgressBar"]();
                       if (paintOverlays["hitboxDebug"]) paintOverlays["hitboxDebug"]();
                     }).catch(err => {
@@ -13016,7 +13028,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         }
 
         // Paint tape progress bar immediately (not affected by async skip)
-        if (tapeProgressPainter) {
+        // Skip in clean mode (neat tapes)
+        if (tapeProgressPainter && !window.currentRecordingOptions?.cleanMode) {
           if (isRecording) {
             paintTapeProgressAfterCapture = true;
           } else {
@@ -13120,7 +13133,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           needs$creenshot = null;
         }
 
-        if (paintTapeProgressAfterCapture && tapeProgressPainter) {
+        // Paint tape progress bar after capture (but skip in clean mode for neat tapes)
+        if (paintTapeProgressAfterCapture && tapeProgressPainter && !window.currentRecordingOptions?.cleanMode) {
           tapeProgressPainter();
         }
 

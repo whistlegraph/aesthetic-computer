@@ -675,9 +675,6 @@ async function halt($, text) {
     slug === "tape:neat" ||
     slug === "tapem"
   ) {
-    console.log("🐛 TAPE COMMAND DETECTED:", slug, "params:", params);
-    console.log("🐛 params[0]:", params[0], "type:", typeof params[0], "startsWith !:", params[0]?.startsWith?.('!'));
-    
     const playbackParam = params[0];
 
     // 📼 Check if this is a playback command (e.g., "tape !JyK")
@@ -863,11 +860,17 @@ async function halt($, text) {
           // For "tape f" or "tape 0f", just record the prompt
           jump("prompt");
         }
-      } else if (params[1] && !isTapingMerry) {
-        jumpTo = params[1];
-        // Reconstruct the original content for kidlisp preservation
-        const originalContent = text.slice(text.indexOf(params[1])); // Get everything after duration
-        jump(originalContent);
+      } else if (!isTapingMerry) {
+        // Find the first non-empty param after duration (params[0])
+        const pieceParam = params.slice(1).find(p => p && p.length > 0);
+        if (pieceParam) {
+          jumpTo = pieceParam;
+          // Reconstruct the original content for kidlisp preservation
+          const originalContent = text.slice(text.indexOf(pieceParam)); // Get everything after duration
+          jump(originalContent);
+        } else {
+          jump("prompt");
+        }
       } else {
         jump("prompt");
       }
@@ -877,7 +880,6 @@ async function halt($, text) {
       flashColor = [255, 0, 0];
     }
     makeFlash($);
-    console.log("🐛 TAPE COMMAND COMPLETED, returning true");
     return true;
     // 📼 Cut a tape early.
   } else if (slug === "tape:cut" || slug === "cut") {
