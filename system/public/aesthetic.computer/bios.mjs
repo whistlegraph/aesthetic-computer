@@ -7945,6 +7945,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    // 📼 Stop tape playback (when leaving video disk)
+    if (type === "tape:stop") {
+      console.log("📼 Stopping tape playback");
+      stopTapePlayback?.();
+      return;
+    }
+
     // 📼 Load and parse tape ZIP from URL (for replay piece)
     if (type === "tape:load-zip") {
       console.log("📼 Loading tape ZIP from:", content);

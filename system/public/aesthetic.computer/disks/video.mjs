@@ -2064,7 +2064,15 @@ function receive(e) {
   return false;
 }
 
-export { boot, paint, sim, act, signal, receive };
+// Called when leaving the video disk (e.g., pressing escape to go back to prompt)
+function leave({ send }) {
+  console.log("📼 Leaving video disk - stopping tape playback");
+  
+  // Stop any playing tape audio/video
+  send({ type: "tape:stop" });
+}
+
+export { boot, paint, sim, act, signal, receive, leave };
 
 // 📚 Library (Useful functions used throughout the piece)
 // ...
