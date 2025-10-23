@@ -64,17 +64,8 @@ async function fun(event, context) {
           [imageSlug] = imageSlug.split(':');
         }
         
-        if (painting.user) {
-          // User painting - need to get handle
-          const user = await database.db.collection('users').findOne({ sub: painting.user });
-          const handle = user?.handle || 'unknown';
-          slug = `@${handle}/painting/${imageSlug}.png`;
-          imageUrl = `https://${event.headers["host"]}/media/${slug}`;
-        } else {
-          // Anonymous painting - use direct DigitalOcean Spaces URL
-          const bucket = painting.bucket || 'art-aesthetic-computer';
-          imageUrl = `https://${bucket}.sfo3.digitaloceanspaces.com/${imageSlug}.png`;
-        }
+        // Use /media/paintings/{code}.png which handles auth and redirects
+        imageUrl = `https://${event.headers["host"]}/media/paintings/${code}.png`;
         
         await database.disconnect();
         console.log(`✅ Resolved code ${code} to URL: ${imageUrl}`);
