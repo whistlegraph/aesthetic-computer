@@ -4,24 +4,13 @@
 (defvar ac-debug-log-file "/tmp/emacs-debug.log")
 (defun ac-debug-log (message)
   (with-temp-buffer
-    (insert (format "[%s] %s\n" (current-time-string) message))
+    (insert (format "[%s] %s\n" (format-time-string "%Y-%m-%d %H:%M:%S.%3N") message))
     (append-to-file (point-min) (point-max) ac-debug-log-file)))
 
 (ac-debug-log "=== Starting Emacs Configuration Load ===")
 
 ;; Performance settings
-;; Aesthetic Computer Emacs Configuration, 2024.3.13.12.51
-
-;; Debug logging for race condition detection
-(defun aesthetic-debug-log (message)
-  (with-temp-buffer
-    (insert (format "[%s] %s\n" (format-time-string "%Y-%m-%d %H:%M:%S.%3N") message))
-    (append-to-file (point-min) (point-max) "/tmp/emacs-debug.log")))
-
-(aesthetic-debug-log "=== EMACS CONFIG START ===")
-
-;; Performance settings
-(aesthetic-debug-log "Setting performance options...")
+(ac-debug-log "Setting performance options...")
 (setq native-comp-async-report-warnings-errors nil
       native-comp-deferred-compilation nil
       x-gtk-use-system-tooltips nil

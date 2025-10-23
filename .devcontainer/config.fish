@@ -792,7 +792,6 @@ function ac-site
         # If the exit code is 130 (Ctrl+C), jump back to fish to keep shell alive
         if test $exit_code -eq 130
             echo "🛑 Stopped by user (Ctrl+C)"
-            fish
             return
         end
         
@@ -814,7 +813,6 @@ function ac-url
     clear
     ac
     npm run -s url $argv
-    fish
 end
 
 alias ac 'cd ~/aesthetic-computer'
@@ -1108,7 +1106,6 @@ function ac-session
         # If the exit code is 130 (Ctrl+C), jump back to fish to keep shell alive
         if test $exit_code -eq 130
             echo "🛑 Stopped by user (Ctrl+C)"
-            fish
             return
         end
         
