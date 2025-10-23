@@ -49,6 +49,10 @@ const butSide = 6;
 
 let handle;
 let imageCode, recordingCode;
+
+// AbortControllers for cancelling fetch requests on leave
+let codeAbortController;
+let metadataAbortController;
 let paintingCode; // The short code (e.g., "k3d") for this painting
 let timeout;
 let running;
@@ -113,11 +117,9 @@ function boot({
     const desc = `Painting #${normalizedCode}${
       hasHandle ? ` by ${displayHandle}` : ""
     } on Aesthetic Computer`;
-    const slugPath =
-      normalizedHandle !== "anon"
-        ? `${normalizedHandle}/painting/${slugCode}`
-        : slugCode;
-    const image = `/api/pixel/2048:conform/${encodeURI(`${slugPath}.png`)}`;
+    
+    // Use painting code for uniform URLs
+    const image = `/api/pixel/2048:conform/${normalizedCode}.png`;
 
     if (typeof window !== "undefined") {
       window.acSTARTING_PAINTING_META = {
@@ -265,7 +267,10 @@ function boot({
     }
 
     try {
-      const response = await fetch(`/api/painting-code?code=${normalized}`);
+      codeAbortController = new AbortController();
+      const response = await fetch(`/api/painting-code?code=${normalized}`, {
+        signal: codeAbortController.signal
+      });
       if (!response.ok) {
         console.warn(`⚠️ Painting code lookup failed: #${normalized}`, response.status);
         return null;
@@ -279,7 +284,11 @@ function boot({
         };
       }
     } catch (err) {
-      console.error(`❌ Error fetching painting metadata for #${normalized}:`, err);
+      if (err.name === 'AbortError') {
+        console.log(`🚫 Code lookup cancelled for #${normalized}`);
+      } else {
+        console.error(`❌ Error fetching painting metadata for #${normalized}:`, err);
+      }
     }
 
     return null;
@@ -307,8 +316,16 @@ function boot({
     });
 
     handle = record.handle || "anon";
-    imageCode = record.slug;
-    recordingCode = record.slug;
+    
+    // Split combined slug if present (anonymous paintings with recordings)
+    if (record.slug && record.slug.includes(':')) {
+      [imageCode, recordingCode] = record.slug.split(':');
+      console.log(`🎨 Split combined slug: imageCode=${imageCode}, recordingCode=${recordingCode}`);
+    } else {
+      imageCode = record.slug;
+      recordingCode = record.slug;
+    }
+    
     isNuked = record.nuked || false; // Capture nuked state from metadata
     
 
@@ -333,7 +350,7 @@ function boot({
         net.preloaded();
         let slugPath = imageCode + ".png";
         if (handle && handle !== "anon") {
-          slugPath = handle + "/painting/" + imageCode + ".png";
+          slugPath = "@" + handle + "/painting/" + imageCode + ".png";
         }
 
         const currentHandle = getHandle();
@@ -349,7 +366,11 @@ function boot({
 
         const cssWidth = out.img.width * display.subdivisions;
         const cssHeight = out.img.width * display.subdivisions;
-        const downloadURL = "/api/pixel/2048:conform/" + encodeURI(slugPath);
+        
+        // Use painting code instead of slug for uniform URLs
+        const downloadURL = paintingCode 
+          ? `/api/pixel/2048:conform/${paintingCode}.png`
+          : `/api/pixel/2048:conform/${encodeURI(slugPath)}`;
 
         html`
           <img
@@ -462,7 +483,8 @@ function boot({
 
     const metadataUrl = `/api/painting-metadata?slug=${imageCode}&handle=${handle || "anon"}`;
     console.log(`📞 Fetching metadata:`, metadataUrl);
-    fetch(metadataUrl)
+    metadataAbortController = new AbortController();
+    fetch(metadataUrl, { signal: metadataAbortController.signal })
       .then((res) => {
         console.log(`📡 Metadata response:`, res.status, res.ok);
         return res.ok ? res.json() : null;
@@ -498,7 +520,13 @@ function boot({
           });
         }
       })
-      .catch((err) => console.log("⚠️ No painting code available:", err));
+      .catch((err) => {
+        if (err.name === 'AbortError') {
+          console.log("🚫 Metadata fetch cancelled");
+        } else {
+          console.log("⚠️ No painting code available:", err);
+        }
+      });
   } else {
     finalPainting = system.painting;
     timeout = setTimeout(() => {
@@ -945,6 +973,16 @@ function leave({ system }) {
   noadvance = true;
   if (pastRecord) system.nopaint.record = pastRecord;
   clearTimeout(timeout);
+  
+  // Cancel any pending fetch requests
+  if (codeAbortController) {
+    codeAbortController.abort();
+    codeAbortController = null;
+  }
+  if (metadataAbortController) {
+    metadataAbortController.abort();
+    metadataAbortController = null;
+  }
 }
 
 // 📰 Meta

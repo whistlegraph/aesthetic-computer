@@ -10,7 +10,7 @@
 import { authorize } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
 import { respond } from "../../backend/http.mjs";
-import { customAlphabet } from 'nanoid';
+import { generateUniqueCode } from "../../backend/generate-short-code.mjs";
 import { S3Client, PutObjectAclCommand } from "@aws-sdk/client-s3";
 
 const dev = process.env.CONTEXT === "dev";
@@ -66,35 +66,6 @@ async function queueMP4Conversion({ mongoId, bucket, slug, zipUrl, callbackUrl, 
   }
 }
 
-// Code generator - lowercase preferred (3x) but uppercase included for more space
-const consonants = 'bcdfghjklmnpqrstvwxyz' + 'bcdfghjklmnpqrstvwxyz' + 'BCDFGHJKLMNPQRSTVWXYZ';
-const vowels = 'aeiou' + 'aeiou' + 'AEIOU';
-const numbers = '23456789'; // Exclude 0,1 (look like O,l)
-const alphabet = consonants + vowels + numbers;
-const CODE_LENGTH = 3;
-const nanoid = customAlphabet(alphabet, CODE_LENGTH);
-const MAX_COLLISION_ATTEMPTS = 100;
-
-async function generateUniqueCode(collection) {
-  for (let attempt = 0; attempt < MAX_COLLISION_ATTEMPTS; attempt++) {
-    const code = nanoid();
-    
-    // Check if code already exists
-    const existing = await collection.findOne({ code });
-    if (!existing) {
-      return code;
-    }
-    
-    console.log(`⚠️  Code collision detected: ${code}, retrying...`);
-  }
-  
-  // If we hit max attempts, use a longer code
-  const longerNanoid = customAlphabet(alphabet, CODE_LENGTH + 1);
-  const longerCode = longerNanoid();
-  console.log(`⚠️  Max collisions reached, using longer code: ${longerCode}`);
-  return longerCode;
-}
-
 export async function handler(event, context) {
   if (!["POST", "PUT"].includes(event.httpMethod))
     return respond(405, { message: "Method Not Allowed" });
@@ -128,8 +99,11 @@ export async function handler(event, context) {
         await tapes.createIndex({ slug: 1, user: 1 }, { unique: true });
       }
 
-      // Generate unique short code
-      const code = await generateUniqueCode(tapes);
+      // Generate unique short code (random mode for tapes)
+      const code = await generateUniqueCode(tapes, { 
+        mode: 'random',
+        type: 'tape'
+      });
       
       try {
         const record = {

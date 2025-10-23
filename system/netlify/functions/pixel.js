@@ -34,8 +34,60 @@ async function fun(event, context) {
     // TODO: Eventually use a  "-clear" option to keep the backdrop transparent.
     //       23.09.06.02.27
     const resolution = pre.split("x").map((n) => parseInt(n));
-    const slug = params.slice(1).join("/");
-    const imageUrl = `https://${event.headers["host"]}/media/${slug}`;
+    let slug = params.slice(1).join("/");
+    let imageUrl; // Declare imageUrl at function scope
+    
+    // Check if slug is a code (short alphanumeric without path separators)
+    // Examples: "mgy.png", "abc", "t84.png"
+    const codePattern = /^([a-zA-Z0-9]{2,6})(\.png)?$/;
+    const codeMatch = slug.match(codePattern);
+    
+    if (codeMatch) {
+      const code = codeMatch[1]; // Extract code without extension
+      console.log(`🔍 Looking up painting by code: ${code}`);
+      
+      try {
+        const { connect } = await import("../../backend/database.mjs");
+        const database = await connect();
+        const painting = await database.db.collection('paintings').findOne({ code });
+        
+        if (!painting) {
+          await database.disconnect();
+          console.error(`❌ Painting not found for code: ${code}`);
+          return respond(404, { message: `Painting not found for code: ${code}` });
+        }
+        
+        // Build slug from painting data
+        // Handle combined slugs (split to get image slug only)
+        let imageSlug = painting.slug;
+        if (imageSlug.includes(':')) {
+          [imageSlug] = imageSlug.split(':');
+        }
+        
+        if (painting.user) {
+          // User painting - need to get handle
+          const user = await database.db.collection('users').findOne({ sub: painting.user });
+          const handle = user?.handle || 'unknown';
+          slug = `@${handle}/painting/${imageSlug}.png`;
+          imageUrl = `https://${event.headers["host"]}/media/${slug}`;
+        } else {
+          // Anonymous painting - use direct DigitalOcean Spaces URL
+          const bucket = painting.bucket || 'art-aesthetic-computer';
+          imageUrl = `https://${bucket}.sfo3.digitaloceanspaces.com/${imageSlug}.png`;
+        }
+        
+        await database.disconnect();
+        console.log(`✅ Resolved code ${code} to URL: ${imageUrl}`);
+      } catch (error) {
+        console.error(`❌ Error looking up painting code: ${error.message}`);
+        return respond(500, { message: "Error looking up painting", error: error.message });
+      }
+    }
+    
+    // Fall back to constructing URL from slug if not set by code lookup
+    if (!imageUrl) {
+      imageUrl = `https://${event.headers["host"]}/media/${slug}`;
+    }
 
     if (!imageUrl) return respond(400, { message: "Image URL not provided." });
 

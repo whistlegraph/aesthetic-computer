@@ -96,6 +96,9 @@ let flashPresent = false;
 
 let progressBar = -1; // If not zero, then draw a progress bar.
 let progressTrick; // A faux growth period on the progress bar.
+let cachedGizmo; // Reference to gizmo for use in act() function
+let progressPhase = ""; // Current phase of upload (e.g., "ZIPPING", "UPLOADING IMAGE")
+let progressPercentage = 0; // 0-100
 
 let login, // A login button in the center of the display.
   signup, // A Sign-up button.
@@ -160,6 +163,7 @@ async function boot({
   net: { socket },
   vscode,
 }) {
+  cachedGizmo = gizmo; // Cache gizmo for use in act() function
   if (dark) glaze({ on: true });
   // if (vscode) console.log("🟣 Running `prompt` in the VSCode extension.");
 
@@ -1023,6 +1027,143 @@ async function halt($, text) {
 
       if (destination === "upload") {
         progressBar = 0;
+        progressPhase = "PREPARING";
+        progressPercentage = 0;
+        progressTrick = new gizmo.Hourglass(24, {
+          completed: () => (progressBar += min(0.5, progressBar + 0.1)),
+          autoFlip: true,
+        });
+      }
+
+      progressPhase = "ZIPPING RECORDING";
+      const zipped = await zip({ destination, painting: { record } }, (p) => {
+        console.log("🤐 Zip progress:", p);
+        progressBar = p * 0.3; // Zip is 0-30% of total progress
+        progressPercentage = Math.floor(p * 30);
+      });
+
+      progressTrick = null;
+
+      console.log("🤐 Zipped:", zipped);
+      recordingSlug = zipped.slug;
+
+      // TODO: Don't delete painting record unless `new` is entered. 23.10.03.01.51
+      // system.nopaint.recording = false;
+      // system.nopaint.record = [];
+      // await store.delete("painting:record", "local:db");
+
+      flashColor = [0, 255, 0];
+    } else {
+      filename = `painting-${num.timestamp()}.png`;
+      flashColor = [255, 0, 0];
+      console.warn("🖌️ No recording to save!");
+    }
+
+    // Always upload a PNG.
+    if (destination === "upload") {
+      console.log("🖼️ Uploading painting...");
+      
+      try {
+        progressPhase = "FINISHING...";
+        console.log(`📞 Calling upload with recordingSlug: ${recordingSlug}`);
+        const data = await upload(filename, store["painting"], (p) => {
+          console.log("🖌️ Painting progress:", p);
+          if (p < 1.0) {
+            // During S3 upload: 30-80%
+            progressBar = 0.3 + (p * 0.5);
+            progressPercentage = Math.floor(30 + (p * 50));
+          } else {
+            // S3 complete, database processing: show indeterminate state
+            progressPhase = "PROCESSING...";
+            progressBar = -2; // Special value for pulsing animation
+            progressPercentage = -1; // Hide percentage
+          }
+          needsPaint(); // Update display during upload
+        }, recordingSlug); // Pass recording slug to upload function
+        console.log("🪄 Painting uploaded:", filename, data);
+        
+        // The upload function includes the database call, so this happens after everything
+        progressPhase = "COMPLETE";
+        progressBar = 1.0; // 100%
+        progressPercentage = 100;
+        needsPaint(); // Force paint to show completion
+        
+        // Brief delay to show completed state
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
+        progressBar = -1; // Hide progress bar
+        progressPhase = "";
+        progressPercentage = 0;
+
+        // For anonymous paintings with recordings, the slug is already combined in MongoDB
+        // No need to update it separately
+        
+        // Jump to the painting using its code
+        if (data.code) {
+          console.log(`🎨 Your painting code: #${data.code}`);
+          jump(`painting#${data.code}`);
+        } else {
+          // Fallback if no code (shouldn't happen but be safe)
+          notice(`Saved!`, ["lime"]);
+        }
+
+        flashColor = [0, 255, 0];
+        makeFlash($);
+        return true; // Prevent default - we handled the upload
+      } catch (err) {
+        console.error("🪄 Painting upload failed:", err);
+        flashColor = [255, 0, 0];
+        progressBar = -1;
+        progressPhase = "";
+        progressPercentage = 0;
+        makeFlash($);
+        return true;
+      }
+    } else {
+      makeFlash($);
+      return true;
+    }
+
+    /*
+    // 🧪 DEBUG: Simple spinner test with dummy await
+    console.log("🧪 Testing spinner for 'done' command");
+    
+    progressBar = 0; // Show spinner
+    progressTrick = new gizmo.Hourglass(24, {
+      completed: () => (progressBar += min(0.5, progressBar + 0.1)),
+      autoFlip: true,
+    });
+    needsPaint(); // Request paint
+    
+    // Dummy async work to test spinner visibility
+    await new Promise(resolve => setTimeout(resolve, 2000)); // 2 second delay
+    
+    progressBar = 1.0; // Complete
+    needsPaint();
+    await new Promise(resolve => setTimeout(resolve, 300)); // Show completion
+    
+    progressBar = -1; // Hide
+    progressTrick = null;
+    
+    console.log("🧪 Spinner test complete");
+    makeFlash($, false);
+    return true;
+    
+    /*
+    let destination = params[0] || "upload"; // or "upload"
+    if (destination === "u" || slug === "yes!") destination = "upload";
+    //                                  ^ "yes!" is always an upload.
+    let filename; // Used in painting upload.
+    let recordingSlug;
+
+    if (system.nopaint.recording) {
+      console.log("🖌️ Saving recording:", destination);
+      const record = system.nopaint.record;
+      filename = `painting-${record[record.length - 1].timestamp}.png`;
+      // ^ For below, because the record will be cleared.
+
+      if (destination === "upload") {
+        progressBar = 0;
         progressTrick = new gizmo.Hourglass(24, {
           completed: () => (progressBar += min(0.5, progressBar + 0.1)),
           autoFlip: true,
@@ -1054,68 +1195,67 @@ async function halt($, text) {
     // Always upload a PNG.
     if (destination === "upload") {
       console.log("🖼️ Uploading painting...");
-      progressBar = 0; // Trigger progress bar rendering.
-      progressTrick = new gizmo.Hourglass(24, {
-        completed: () => (progressBar += min(0.5, progressBar + 0.1)),
-        autoFlip: true,
-      });
+      
+      // Only initialize progress bar if not already started (by act() pre-emptively)
+      if (progressBar < 0) {
+        progressBar = 0; // Trigger progress bar rendering.
+        progressTrick = new gizmo.Hourglass(24, {
+          completed: () => (progressBar += min(0.5, progressBar + 0.1)),
+          autoFlip: true,
+        });
+        needsPaint(); // Force a repaint to show the progress bar
+        
+        // Yield to the event loop so the progress bar can render
+        await new Promise(resolve => setTimeout(resolve, 0));
+      }
+      
       try {
+        console.log(`📞 Calling upload with recordingSlug: ${recordingSlug}`);
         const data = await upload(filename, store["painting"], (p) => {
           console.log("🖌️ Painting progress:", p);
           progressBar = p;
-        });
+        }, recordingSlug); // Pass recording slug to upload function
         console.log("🪄 Painting uploaded:", filename, data);
+        
+        // Show completed progress bar briefly before jumping
+        progressBar = 1.0; // Full bar
+        needsPaint(); // Force paint
+        progressTrick?.stop?.(); // Stop the hourglass animation
         progressTrick = null;
+        
+        // Brief delay to show completed state
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
+        progressBar = -1; // Hide progress bar
 
-        // If this is an anonymous painting with a recording, update MongoDB slug to colon format
-        if (recordingSlug && !handle() && !user?.email) {
-          const combinedSlug = `${data.slug}:${recordingSlug}`;
-          console.log(`🔗 Updating anonymous painting slug to: ${combinedSlug}`);
-          try {
-            const updateResponse = await fetch("/api/update-painting-slug", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ 
-                oldSlug: data.slug, 
-                newSlug: combinedSlug 
-              }),
-            });
-            if (updateResponse.ok) {
-              console.log("✅ Painting slug updated with recording");
-              data.slug = combinedSlug; // Update local data for jump URL
-            } else {
-              console.warn("⚠️ Failed to update painting slug:", await updateResponse.text());
-            }
-          } catch (err) {
-            console.error("❌ Error updating painting slug:", err);
-          }
-        }
-
-        // Show the short code to the user (important for guests!)
+        // For anonymous paintings with recordings, the slug is already combined in MongoDB
+        // No need to update it separately
+        
+        // Jump to the painting using its code
         if (data.code) {
           console.log(`🎨 Your painting code: #${data.code}`);
-          // notice(`Saved as #${data.code}`, ["lime"]);
-        }
-
-        // Jump to the painting page that gets returned.
-        if ((handle() || user?.email) && filename.startsWith("painting")) {
-          jump(`painting~${handle() || user?.email}/${data.slug}`); // For a user.
+          jump(`painting#${data.code}`);
         } else {
-          // For guests, use the combined slug directly
-          jump(`painting~${data.slug}`); // Already includes :recordingSlug if present
+          // Fallback if no code (shouldn't happen but be safe)
+          notice(`Saved!`, ["lime"]);
         }
 
         flashColor = [0, 255, 0];
+        makeFlash($);
+        return true; // Prevent default - we handled the upload
       } catch (err) {
         console.error("🪄 Painting upload failed:", err);
         flashColor = [255, 0, 0];
+        progressBar = -1;
+        makeFlash($);
+        return true;
       }
-      makeFlash($);
     } else {
       makeFlash($);
+      return true;
     }
-    progressBar = -1;
-    return true;
+    */
+
   } else if (slug === "flower") {
     jump("lmn-flower");
     return true;
@@ -2254,11 +2394,49 @@ function paint($) {
     }
   }
 
-  if (progressBar >= 0) {
+  if (progressBar >= 0 || progressBar === -2) {
+    // Draw orange semi-transparent overlay
     ink(255, 180, 0, 120).box(0, 0, screen.width, screen.height, "inline");
-    ink(0).box(1, 1, screen.width - 2, screen.height - 2);
-    if (progressBar > 0) {
-      ink(scheme.dark.block).box(1, 1, (screen.width - 2) * progressBar, 1);
+    
+    // Draw progress bar line at the top
+    if (progressBar > 0 && progressBar <= 1) {
+      // Normal progress bar (0-100%)
+      const barWidth = Math.floor((screen.width - 2) * progressBar);
+      ink(255, 180, 0).box(1, 1, barWidth, 1);
+    } else if (progressBar === -2) {
+      // Pulsing indeterminate progress (for backend processing)
+      const pulse = (Math.sin(Date.now() / 200) + 1) / 2; // 0-1 sine wave
+      const barWidth = Math.floor((screen.width - 2) * (0.3 + pulse * 0.4)); // 30-70% width
+      const alpha = Math.floor(150 + pulse * 105); // 150-255 alpha
+      ink(255, 180, 0, alpha).box(1, 1, barWidth, 1);
+      $.system.nopaint.needsRender = true; // Keep animating
+    }
+    
+    // Show progress text in center
+    if (progressPhase) {
+      // Animated dots
+      const dots = Math.floor((Date.now() / 250) % 4);
+      const text = progressPhase + ".".repeat(dots);
+      
+      // Background for text
+      const textWidth = text.length * 6 + 16;
+      const textHeight = 20;
+      const x = (screen.width - textWidth) / 2;
+      const y = screen.height / 2 - 10;
+      
+      ink(0, 200).box(x, y, textWidth, textHeight);
+      ink(255, 180, 0).box(x, y, textWidth, textHeight, "outline");
+      
+      // Progress text
+      ink(255, 255, 255).write(text, { center: "x", y: y + 6 });
+      
+      // Percentage below (only show if not in indeterminate state)
+      if (progressPercentage > 0) {
+        ink(255, 255, 255).write(`${progressPercentage}%`, { 
+          center: "x", 
+          y: y + textHeight + 8 
+        });
+      }
     }
   }
 
