@@ -11129,9 +11129,12 @@ async function makeFrame({ data: { type, content } }) {
         const isFrameBased = $api.rec.tapeFrameMode && $api.rec.tapeFrameTarget > 0;
         const frameCount = $api.rec.tapeFrameTarget || 1;
         
-        // Hide progress bar for ALL frame-based recordings
-        if (isFrameBased) {
-          // Skip creating progress bar entirely for frame recordings
+        // Check if we're in clean mode (tape:neat) - no progress bar or overlays
+        const isCleanMode = typeof window !== 'undefined' && window.currentRecordingOptions?.cleanMode;
+        
+        // Hide progress bar for ALL frame-based recordings OR clean mode recordings (tape:neat)
+        if (isFrameBased || isCleanMode) {
+          // Skip creating progress bar entirely for frame recordings or clean mode
         } else {
           // IMPORTANT: Access the main screen buffer OUTSIDE the painting context
           // because inside painting(), $api.screen refers to the painting's own buffer, not the main screen
