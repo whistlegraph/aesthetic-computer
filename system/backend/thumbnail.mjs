@@ -75,21 +75,31 @@ export async function generateThumbnail(source, options = {}) {
  * @returns {Promise<Buffer>} Thumbnail buffer
  */
 export async function getThumbnailFromSlug(slug, handleOrCode = null, options = {}) {
-  // Use the /media endpoint which handles authentication and CDN routing
-  let imageUrl;
+  const size = options.size || 512;
   const cleanSlug = slug.replace(/\.(png|zip)$/i, "");
   const isDev = process.env.CONTEXT === "dev";
   
+  let imageUrl;
+  
   if (handleOrCode) {
-    // User painting
-    if ((isDev || options.forceSpaces) && options.bucket && options.userId) {
-      // Dev mode: bypass /media endpoint and go directly to DO Spaces
-      // This avoids SSL certificate issues with localhost fetch calls
-      imageUrl = `https://${options.bucket}.sfo3.digitaloceanspaces.com/${options.userId}/painting/${cleanSlug}.png`;
-    } else {
-      // Production: use /media endpoint which handles both @handle and acXXXXX
-      const cleanIdentifier = handleOrCode.replace(/^@/, "");
-      imageUrl = `https://aesthetic.computer/media/@${cleanIdentifier}/painting/${cleanSlug}.png`;
+    // User painting: use /api/pixel endpoint which already resizes with Sharp
+    const cleanIdentifier = handleOrCode.replace(/^@/, "");
+    const host = isDev ? "https://localhost:8888" : "https://aesthetic.computer";
+    imageUrl = `${host}/api/pixel/${size}:contain/@${cleanIdentifier}/painting/${cleanSlug}.png`;
+    
+    // Fetch the pre-resized image from /api/pixel
+    try {
+      const { got } = await import("got");
+      const response = await got(imageUrl, {
+        responseType: "buffer",
+        https: { rejectUnauthorized: !isDev },
+      });
+      console.log(`🖼️  Fetched via /api/pixel: ${imageUrl}`);
+      return response.body;
+    } catch (error) {
+      console.warn(`⚠️  Failed to fetch from /api/pixel: ${error.message}`);
+      // Fall back to manual resize from /media endpoint
+      imageUrl = `${host}/media/@${cleanIdentifier}/painting/${cleanSlug}.png`;
     }
   } else {
     // Anonymous/guest painting: Direct DO Spaces URL (public bucket)
@@ -116,37 +126,40 @@ export async function getThumbnailStats(thumbnail) {
 }
 
 // CLI usage: node thumbnail.mjs <slug> [handle]
-if (import.meta.url === `file://${process.argv[1]}`) {
-  const slug = process.argv[2];
-  const handle = process.argv[3];
+// Note: Wrapped in try-catch to prevent esbuild bundling issues
+if (typeof import.meta !== 'undefined' && import.meta.url === `file://${process.argv[1]}`) {
+  (async () => {
+    const slug = process.argv[2];
+    const handle = process.argv[3];
 
-  if (!slug) {
-    console.error("Usage: node thumbnail.mjs <slug> [handle]");
-    console.error("Examples:");
-    console.error("  node thumbnail.mjs 2023.8.24.16.21.09.123 jeffrey");
-    console.error("  node thumbnail.mjs Lw2OYs0H");
-    process.exit(1);
-  }
+    if (!slug) {
+      console.error("Usage: node thumbnail.mjs <slug> [handle]");
+      console.error("Examples:");
+      console.error("  node thumbnail.mjs 2023.8.24.16.21.09.123 jeffrey");
+      console.error("  node thumbnail.mjs Lw2OYs0H");
+      process.exit(1);
+    }
 
-  try {
-    console.log(`\n🎨 Generating thumbnail for: ${slug}`);
-    if (handle) console.log(`   Handle: @${handle.replace(/^@/, "")}`);
+    try {
+      console.log(`\n🎨 Generating thumbnail for: ${slug}`);
+      if (handle) console.log(`   Handle: @${handle.replace(/^@/, "")}`);
 
-    const thumbnail = await getThumbnailFromSlug(slug, handle);
-    const stats = await getThumbnailStats(thumbnail);
+      const thumbnail = await getThumbnailFromSlug(slug, handle);
+      const stats = await getThumbnailStats(thumbnail);
 
-    console.log(`\n✅ Thumbnail generated!`);
-    console.log(`   Size: ${(stats.size / 1024).toFixed(2)} KB`);
-    console.log(`   Dimensions: ${stats.width}x${stats.height}`);
-    console.log(`   Format: ${stats.format}`);
+      console.log(`\n✅ Thumbnail generated!`);
+      console.log(`   Size: ${(stats.size / 1024).toFixed(2)} KB`);
+      console.log(`   Dimensions: ${stats.width}x${stats.height}`);
+      console.log(`   Format: ${stats.format}`);
 
-    // Save to file
-    const outputFile = `thumbnail-${slug.replace(/[/@:.]/g, "-")}.png`;
-    const fs = await import("fs/promises");
-    await fs.writeFile(outputFile, thumbnail);
-    console.log(`   Saved to: ${outputFile}\n`);
-  } catch (error) {
-    console.error(`\n❌ Error: ${error.message}\n`);
-    process.exit(1);
-  }
+      // Save to file
+      const outputFile = `thumbnail-${slug.replace(/[/@:.]/g, "-")}.png`;
+      const fs = await import("fs/promises");
+      await fs.writeFile(outputFile, thumbnail);
+      console.log(`   Saved to: ${outputFile}\n`);
+    } catch (error) {
+      console.error(`\n❌ Error: ${error.message}\n`);
+      process.exit(1);
+    }
+  })();
 }
