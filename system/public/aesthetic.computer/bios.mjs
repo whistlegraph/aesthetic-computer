@@ -7567,7 +7567,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     // Load a zip from a URL and return its unpacked contents to the piece.
     if (type === "zip:load") {
-      console.log("Load zip remotely...", content);
       fetch(decodeURI(content))
         .then((response) => {
           // console.log("Response", response);
@@ -15372,14 +15371,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     try {
       const zip = await window.JSZip.loadAsync(data);
 
-      console.log("🤐 Zip opened...");
       // Detect type of media based on presence of "steps" file...
       const steps = JSON.parse(await zip.file("painting.json")?.async("text"));
       const record = [];
 
       if (steps) {
-        console.log("🖼️⌛ Painting record detected.");
-
         // TODO: Parse the JSON from steps.
         const lines = steps; // Remove timestamp.
 
@@ -15396,7 +15392,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           }
           record.push(step);
         }
-        console.log("🖼️⌛ Loaded record:", record);
 
         return record;
       } else {
