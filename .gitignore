@@ -104,3 +104,6 @@ __pycache__/
 
 # Backup of netlify.toml when using no-SSL version in Codespaces
 system/netlify.toml.backup
+
+# XDG runtime/cache directories (dev container auto-generated)
+.xdg/
