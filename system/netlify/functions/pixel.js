@@ -64,11 +64,17 @@ async function fun(event, context) {
           [imageSlug] = imageSlug.split(':');
         }
         
-        // Use /media/paintings/{code}.png which handles auth and redirects
-        imageUrl = `https://${event.headers["host"]}/media/paintings/${code}.png`;
+        // Construct DO Spaces URL directly (same logic as media.js edge function)
+        const bucket = painting.user 
+          ? "user-aesthetic-computer" 
+          : "art-aesthetic-computer";
+        const key = painting.user 
+          ? `${encodeURIComponent(painting.user)}/painting/${imageSlug}.png`
+          : `${imageSlug}.png`;
+        imageUrl = `https://${bucket}.sfo3.digitaloceanspaces.com/${key}`;
         
         await database.disconnect();
-        console.log(`✅ Resolved code ${code} to URL: ${imageUrl}`);
+        console.log(`✅ Resolved code ${code} to DO Spaces URL: ${imageUrl}`);
       } catch (error) {
         console.error(`❌ Error looking up painting code: ${error.message}`);
         return respond(500, { message: "Error looking up painting", error: error.message });
