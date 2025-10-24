@@ -142,9 +142,9 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
     .lexicon-badge {
       font-size: 0.65em;
       padding: 0.3em 0.6em;
-      background: rgba(100, 150, 200, 0.1);
-      border: 1px solid rgb(100, 150, 200);
-      color: rgb(100, 150, 200);
+      background: transparent;
+      border: none;
+      color: rgb(150, 150, 150);
       border-radius: 3px;
       cursor: pointer;
       transition: all 0.2s;
@@ -152,8 +152,8 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
     }
 
     .lexicon-badge:hover {
-      background: rgba(100, 150, 200, 0.2);
-      border-color: rgb(80, 130, 180);
+      color: rgb(200, 200, 200);
+      text-decoration: underline;
     }
 
     .color-cycle-a {
@@ -626,6 +626,11 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
       return parts[1]; // computer.aesthetic.painting
     }
 
+    function getLexiconTypeName(lexicon) {
+      // Get just the type name (e.g., "painting" from "computer.aesthetic.painting")
+      return lexicon.split('.').pop();
+    }
+
     async function openLexiconModal(lexicon) {
       // Load the lexicon JSON file
       const lexiconPath = lexicon.replace(/\./g, '/');
@@ -712,11 +717,65 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
         });
     }
 
+    function openSourceModal(uri, source, slug) {
+      // Create a formatted HTML view of the source code
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body {
+              margin: 0;
+              padding: 2em;
+              background: black;
+              color: rgb(200, 200, 200);
+              font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+              font-size: 11px;
+              line-height: 1.4;
+            }
+            h1 {
+              color: rgb(205, 92, 155);
+              font-size: 1.2em;
+              margin-bottom: 0.8em;
+              font-weight: normal;
+            }
+            pre {
+              margin: 0;
+              white-space: pre-wrap;
+              word-break: break-word;
+            }
+            a {
+              color: rgb(205, 92, 155);
+              text-decoration: none;
+            }
+            a:hover {
+              text-decoration: underline;
+            }
+          </style>
+        </head>
+        <body>
+          <h1>${slug ? `piece: ${slug}` : 'piece source'}</h1>
+          ${slug ? `<p><a href="https://aesthetic.computer/${slug}" target="_blank">→ open on aesthetic.computer</a></p>` : ''}
+          <pre>${source.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+        </body>
+        </html>
+      `;
+      
+      // Create blob URL and open in modal
+      const blob = new Blob([htmlContent], { type: 'text/html' });
+      const blobUrl = URL.createObjectURL(blob);
+      openModal(blobUrl);
+      
+      // Clean up blob URL after modal opens
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+    }
+
     // Render a painting record
     function renderPainting(record) {
       const { value, uri } = record;
       const rkey = getRkey(uri);
       const lexicon = getLexicon(uri);
+      const typeName = getLexiconTypeName(lexicon);
       
       const card = document.createElement('div');
       card.className = 'record-card';
@@ -731,7 +790,7 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
       card.innerHTML = `
         <div class="record-header">
           <span class="record-date">${formatDate(value.createdAt || value.when)}</span>
-          <span class="lexicon-badge" onclick="openLexiconModal('${lexicon}')">${lexicon}</span>
+          <span class="lexicon-badge" onclick="openLexiconModal('${lexicon}')">${typeName}</span>
         </div>
         <div class="record-content">
           ${imageHtml}
@@ -750,6 +809,7 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
       const { value, uri } = record;
       const rkey = getRkey(uri);
       const lexicon = getLexicon(uri);
+      const typeName = getLexiconTypeName(lexicon);
       
       const card = document.createElement('div');
       card.className = 'record-card';
@@ -757,7 +817,7 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
       card.innerHTML = `
         <div class="record-header">
           <span class="record-date">${formatDate(value.when || value.createdAt)}</span>
-          <span class="lexicon-badge" onclick="openLexiconModal('${lexicon}')">${lexicon}</span>
+          <span class="lexicon-badge" onclick="openLexiconModal('${lexicon}')">${typeName}</span>
         </div>
         <div class="record-content">
           <div class="record-text">${value.mood || value.text || ''}</div>
@@ -772,6 +832,7 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
       const { value, uri } = record;
       const rkey = getRkey(uri);
       const lexicon = getLexicon(uri);
+      const typeName = getLexiconTypeName(lexicon);
       
       const card = document.createElement('div');
       card.className = 'record-card';
@@ -789,7 +850,7 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
       card.innerHTML = `
         <div class="record-header">
           <span class="record-date">${formatDate(value.when || value.createdAt)}</span>
-          <span class="lexicon-badge" onclick="openLexiconModal('${lexicon}')">${lexicon}</span>
+          <span class="lexicon-badge" onclick="openLexiconModal('${lexicon}')">${typeName}</span>
         </div>
         <div class="record-content">
           ${videoHtml}
@@ -808,6 +869,7 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
       const { value, uri } = record;
       const rkey = getRkey(uri);
       const lexicon = getLexicon(uri);
+      const typeName = getLexiconTypeName(lexicon);
       
       const card = document.createElement('div');
       card.className = 'record-card';
@@ -815,7 +877,7 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
       card.innerHTML = `
         <div class="record-header">
           <span class="record-date">${formatDate(value.when || value.createdAt)}</span>
-          <span class="lexicon-badge" onclick="openLexiconModal('${lexicon}')">${lexicon}</span>
+          <span class="lexicon-badge" onclick="openLexiconModal('${lexicon}')">${typeName}</span>
         </div>
         <div class="record-content">
           <pre class="record-text" style="font-size: 0.85em; overflow-x: auto; background: rgba(0,0,0,0.05); padding: 0.5em; border-radius: 2px;">${value.source || ''}</pre>
@@ -830,26 +892,71 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
     }
 
     // Render a piece record
-    function renderPiece(record) {
+    async function renderPiece(record, handle) {
       const { value, uri } = record;
       const rkey = getRkey(uri);
       const lexicon = getLexicon(uri);
+      const typeName = getLexiconTypeName(lexicon);
       
       const card = document.createElement('div');
       card.className = 'record-card';
       
+      // Create initial card HTML
       card.innerHTML = `
         <div class="record-header">
           <span class="record-date">${formatDate(value.when || value.createdAt)}</span>
-          <span class="lexicon-badge" onclick="openLexiconModal('${lexicon}')">${lexicon}</span>
+          <span class="lexicon-badge" onclick="openLexiconModal('${lexicon}')">${typeName}</span>
         </div>
         <div class="record-content">
+          <div class="source-preview-container" style="margin: 0.5em 0;">
+            <div style="font-size: 0.75em; color: rgb(150, 150, 150);">loading source...</div>
+          </div>
           <div style="margin-top: 0.5em; display: flex; gap: 0.5em; flex-wrap: wrap;">
             ${value.slug ? `<a href="https://aesthetic.computer/${value.slug}" class="record-link" style="display: inline-block; padding: 0.4em 0.8em; background: rgba(205, 92, 155, 0.1); border: 1px solid rgb(205, 92, 155); border-radius: 3px; font-size: 0.85em;">█ prompt.ac/<strong>${value.slug}</strong></a>` : ''}
             <a href="https://pdsls.dev/at://${uri.split('//')[1]}" class="record-link" style="display: inline-block; padding: 0.4em 0.8em; background: rgba(100, 150, 200, 0.1); border: 1px solid rgb(100, 150, 200); border-radius: 3px; font-size: 0.85em; color: rgb(100, 150, 200);">${rkey}</a>
           </div>
         </div>
       `;
+      
+      // Fetch source code from media URL if available
+      if (value.slug && handle) {
+        try {
+          let sourceUrl;
+          // Anonymous pieces use /media/pieces/slug, user pieces use /media/@handle/piece/slug.mjs
+          if (handle === 'art.at.aesthetic.computer') {
+            sourceUrl = `https://aesthetic.computer/media/pieces/${value.slug}.mjs`;
+          } else {
+            sourceUrl = `https://aesthetic.computer/media/@${handle}/piece/${value.slug}.mjs`;
+          }
+          
+          const response = await fetch(sourceUrl);
+          if (response.ok) {
+            const source = await response.text();
+            const previewText = source.length > 200 ? source.substring(0, 200) + '...' : source;
+            
+            const previewContainer = card.querySelector('.source-preview-container');
+            if (previewContainer) {
+              previewContainer.innerHTML = `
+                <div class="source-preview" onclick="openSourceModal('${uri.replace(/'/g, "\\'")}', ${JSON.stringify(source).replace(/'/g, "\\'")}, '${value.slug}')" 
+                     style="padding: 0.5em; background: rgba(0,0,0,0.05); border-radius: 2px; cursor: pointer; font-family: monospace; font-size: 0.75em; color: rgb(100, 100, 100); overflow: hidden; white-space: pre-wrap; word-break: break-all;">
+                  ${previewText.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
+                </div>
+                <div style="font-size: 0.75em; color: rgb(150, 150, 150); margin-top: 0.25em;">↑ click to view full source</div>
+              `;
+            }
+          } else {
+            const previewContainer = card.querySelector('.source-preview-container');
+            if (previewContainer) previewContainer.innerHTML = '';
+          }
+        } catch (error) {
+          console.error('Failed to fetch piece source:', error);
+          const previewContainer = card.querySelector('.source-preview-container');
+          if (previewContainer) previewContainer.innerHTML = '';
+        }
+      } else {
+        const previewContainer = card.querySelector('.source-preview-container');
+        if (previewContainer) previewContainer.innerHTML = '';
+      }
       
       return card;
     }
@@ -882,7 +989,7 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
     }
 
     // Render records for a collection
-    function renderRecords(records, collection) {
+    async function renderRecords(records, collection, handle) {
       const container = document.getElementById('records-container');
       container.innerHTML = '';
 
@@ -901,7 +1008,8 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
         return dateB - dateA;
       });
 
-      sorted.forEach(record => {
+      // Use async forEach to handle piece rendering
+      for (const record of sorted) {
         let card;
         if (collection.includes('painting')) {
           card = renderPainting(record);
@@ -912,12 +1020,12 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
         } else if (collection.includes('kidlisp')) {
           card = renderKidlisp(record);
         } else if (collection.includes('piece')) {
-          card = renderPiece(record);
+          card = await renderPiece(record, handle);
         } else {
           card = renderGenericRecord(record, collection.split('.').pop());
         }
         grid.appendChild(card);
-      });
+      }
 
       container.appendChild(grid);
     }
@@ -991,10 +1099,10 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
             tab.classList.add('disabled');
             tab.disabled = true;
           } else {
-            tab.onclick = () => {
+            tab.onclick = async () => {
               document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
               tab.classList.add('active');
-              renderRecords(records, collection);
+              await renderRecords(records, collection, handle);
             };
             
             // Remember first non-empty tab for default view
@@ -1011,7 +1119,7 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
         // Show first available collection by default
         if (firstTab) {
           firstTab.classList.add('active');
-          renderRecords(firstRecords, firstCollection);
+          await renderRecords(firstRecords, firstCollection, handle);
         }
 
         // Hide loading, show content
