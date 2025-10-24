@@ -663,6 +663,10 @@ async function halt($, text) {
     if (openExternalFromIframe(toAbsoluteSiteUrl("/" + slug))) return true; // Matches a product so jump to a new page / redirect.
     jump("/" + slug); // Matches a product so jump to a new page / redirect.
     return true;
+  } else if (slug === "at") {
+    // Jump to ATProto user pages landing
+    jump(`https://at.aesthetic.computer`);
+    return true;
   } else if (slug === "merry" || slug === "merryo") {
     const loop = slug === "merryo";
     console.log(`🎄 ${slug.toUpperCase()} command received with params:`, params);
