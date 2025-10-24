@@ -198,6 +198,21 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
       100% { color: rgb(255, 200, 100); }
     }
 
+    /* Generic color cycle for handle characters */
+    .color-cycle {
+      animation: colorCycleGeneric 1.8s steps(1) infinite;
+    }
+
+    @keyframes colorCycleGeneric {
+      0% { color: rgb(205, 92, 155); }
+      16.6% { color: rgb(255, 120, 100); }
+      33.3% { color: rgb(255, 200, 100); }
+      50% { color: rgb(150, 230, 150); }
+      66.6% { color: rgb(100, 180, 255); }
+      83.3% { color: rgb(180, 130, 230); }
+      100% { color: rgb(205, 92, 155); }
+    }
+
     .record-type {
       font-size: 0.65em;
       padding: 0.2em 0.5em;
@@ -264,11 +279,12 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
     a {
       color: rgb(205, 92, 155);
       text-decoration: none;
-      transition: color 0.2s;
+      transition: all 0.2s;
     }
 
     a:hover {
       color: rgb(255, 120, 200);
+      text-decoration: underline;
     }
 
     a:visited {
@@ -1152,7 +1168,64 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
       return card;
     }
 
-    // Render records for a collection
+    // Global state for lazy loading
+    let currentRecords = [];
+    let currentCollection = '';
+    let currentHandle = '';
+    let currentIndex = 0;
+    const BATCH_SIZE = 50; // Load 50 records at a time
+    let isLoading = false;
+    let loadingSentinel = null;
+
+    // Render a batch of records
+    async function renderBatch(startIndex, endIndex) {
+      if (isLoading || startIndex >= currentRecords.length) return;
+      
+      isLoading = true;
+      const grid = document.querySelector('.records-grid');
+      if (!grid) return;
+
+      const batch = currentRecords.slice(startIndex, endIndex);
+      
+      for (const record of batch) {
+        let card;
+        if (currentCollection.includes('painting')) {
+          card = renderPainting(record);
+        } else if (currentCollection.includes('mood')) {
+          card = renderMood(record);
+        } else if (currentCollection.includes('tape')) {
+          card = renderTape(record);
+        } else if (currentCollection.includes('kidlisp')) {
+          card = await renderKidlisp(record);
+        } else if (currentCollection.includes('piece')) {
+          card = await renderPiece(record, currentHandle);
+        } else {
+          card = renderGenericRecord(record, currentCollection.split('.').pop());
+        }
+        
+        // Insert before the sentinel
+        if (loadingSentinel && loadingSentinel.parentNode) {
+          grid.insertBefore(card, loadingSentinel);
+        } else {
+          grid.appendChild(card);
+        }
+      }
+
+      currentIndex = endIndex;
+      isLoading = false;
+
+      // Update sentinel text
+      if (loadingSentinel) {
+        if (currentIndex >= currentRecords.length) {
+          loadingSentinel.textContent = `✓ All ${currentRecords.length} records loaded`;
+          loadingSentinel.style.opacity = '0.5';
+        } else {
+          loadingSentinel.textContent = `Loaded ${currentIndex} of ${currentRecords.length} records... (scroll to load more)`;
+        }
+      }
+    }
+
+    // Render records for a collection with lazy loading
     async function renderRecords(records, collection, handle) {
       const container = document.getElementById('records-container');
       container.innerHTML = '';
@@ -1162,9 +1235,6 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
         return;
       }
 
-      const grid = document.createElement('div');
-      grid.className = 'records-grid';
-
       // Sort by date (newest first)
       const sorted = [...records].sort((a, b) => {
         const dateA = new Date(a.value.createdAt || a.value.when || 0);
@@ -1172,26 +1242,44 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
         return dateB - dateA;
       });
 
-      // Use async forEach to handle piece and kidlisp rendering
-      for (const record of sorted) {
-        let card;
-        if (collection.includes('painting')) {
-          card = renderPainting(record);
-        } else if (collection.includes('mood')) {
-          card = renderMood(record);
-        } else if (collection.includes('tape')) {
-          card = renderTape(record);
-        } else if (collection.includes('kidlisp')) {
-          card = await renderKidlisp(record);
-        } else if (collection.includes('piece')) {
-          card = await renderPiece(record, handle);
-        } else {
-          card = renderGenericRecord(record, collection.split('.').pop());
-        }
-        grid.appendChild(card);
-      }
+      // Update global state
+      currentRecords = sorted;
+      currentCollection = collection;
+      currentHandle = handle;
+      currentIndex = 0;
+      isLoading = false;
+
+      // Create grid
+      const grid = document.createElement('div');
+      grid.className = 'records-grid';
+
+      // Create loading sentinel
+      loadingSentinel = document.createElement('div');
+      loadingSentinel.className = 'loading-sentinel';
+      loadingSentinel.style.cssText = 'text-align: center; padding: 2em 1em; opacity: 0.6; font-size: 0.9em; grid-column: 1 / -1;';
+      loadingSentinel.textContent = `Loading records...`;
+      grid.appendChild(loadingSentinel);
 
       container.appendChild(grid);
+
+      // Set up Intersection Observer for lazy loading
+      const observer = new IntersectionObserver(
+        async (entries) => {
+          const entry = entries[0];
+          if (entry.isIntersecting && !isLoading && currentIndex < currentRecords.length) {
+            await renderBatch(currentIndex, currentIndex + BATCH_SIZE);
+          }
+        },
+        {
+          rootMargin: '400px', // Start loading 400px before sentinel is visible
+          threshold: 0.1
+        }
+      );
+
+      observer.observe(loadingSentinel);
+
+      // Load initial batch
+      await renderBatch(0, BATCH_SIZE);
     }
 
     // Initialize the page
@@ -1214,21 +1302,28 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
           const handleDisplay = document.getElementById('handle-display');
           handleDisplay.innerHTML = '<a href="https://at.aesthetic.computer" style="color: inherit; text-decoration: none;"><span class="color-cycle-a">a</span><span class="color-cycle-r">r</span><span class="color-cycle-t">t</span>.at.aesthetic.computer</a>';
           handleDisplay.style.cursor = 'pointer';
+        } else {
+          // For user pages, show "User records for @handle" subtitle with color cycling
+          const handleParts = handle.split('');
+          const colorCycledHandle = handleParts.map((char, index) => {
+            // Stagger the animation by adjusting the animation delay
+            const delay = (index * 0.3).toFixed(1);
+            return `<span class="color-cycle" style="animation-delay: -${delay}s">${char}</span>`;
+          }).join('');
+          
+          didDisplay.innerHTML = `<div style="font-size: 0.9em; margin-top: 0.5em; opacity: 0.8; line-height: 1.5; max-width: 600px; margin-left: auto; margin-right: auto;">User records for <span style="font-weight: bold;">@${colorCycledHandle}</span> on <a href="https://aesthetic.computer" style="color: rgb(205, 92, 155); text-decoration: none;">Aesthetic Computer</a></div>`;
         }
 
-        // Resolve DID
+        // Resolve DID (but don't display it - we're showing subtitles instead)
         const did = await resolveDID(handle);
-        if (handle !== 'art.at.aesthetic.computer') {
-          didDisplay.textContent = did;
-        }
 
-        // Fetch all collections
+        // Fetch all collections (tapes first)
         const collections = [
+          'computer.aesthetic.tape',
           'computer.aesthetic.painting',
           'computer.aesthetic.mood',
           'computer.aesthetic.piece',
-          'computer.aesthetic.kidlisp',
-          'computer.aesthetic.tape'
+          'computer.aesthetic.kidlisp'
         ];
 
         const recordsByCollection = {};
@@ -1250,14 +1345,25 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
         let firstRecords = null;
         let firstCollection = null;
 
+        // Helper to get display name for collection
+        function getDisplayName(collection) {
+          const name = collection.split('.').pop();
+          if (name === 'kidlisp') return 'KidLisp';
+          if (name === 'painting') return 'Paintings';
+          if (name === 'mood') return 'Moods';
+          if (name === 'piece') return 'Pieces';
+          if (name === 'tape') return 'Tapes';
+          return name.charAt(0).toUpperCase() + name.slice(1);
+        }
+
         // Collection tabs (show all, disable empty ones)
         collections.forEach(collection => {
           const records = recordsByCollection[collection];
           const count = records.length;
-          const name = collection.split('.').pop();
+          const displayName = getDisplayName(collection);
           const tab = document.createElement('button');
           tab.className = 'tab';
-          tab.innerHTML = `${name.charAt(0).toUpperCase() + name.slice(1)} (${count})`;
+          tab.innerHTML = `${displayName} (${count})`;
           
           if (count === 0) {
             tab.classList.add('disabled');
