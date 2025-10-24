@@ -325,8 +325,8 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
 
     .modal-close {
       position: absolute;
-      top: 10px;
-      right: 10px;
+      top: -50px;
+      right: 0;
       background: rgb(205, 92, 155);
       color: white;
       border: none;
@@ -1298,7 +1298,7 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
         const handleDisplay = document.getElementById('handle-display');
         
         if (handle === 'art.at.aesthetic.computer') {
-          didDisplay.innerHTML = '<div style="font-size: 0.9em; margin-top: 0.5em; opacity: 0.8; line-height: 1.5; max-width: 600px; margin-left: auto; margin-right: auto;">All anonymous media on <a href="https://aesthetic.computer" style="color: rgb(205, 92, 155); text-decoration: none;">Aesthetic Computer</a>, synced to <a href="https://atproto.com" style="color: rgb(205, 92, 155); text-decoration: none;">ATProto</a> for open syndication via the <a href="https://at.aesthetic.computer" style="color: rgb(205, 92, 155); text-decoration: none;">at.aesthetic.computer</a> PDS instance.</div>';
+          didDisplay.innerHTML = '<div style="font-size: 0.9em; margin-top: 0.5em; opacity: 0.8; line-height: 1.5; max-width: 600px; margin-left: auto; margin-right: auto;">Anonymously recorded tapes and other media on <a href="https://aesthetic.computer" target="_blank" style="color: rgb(205, 92, 155); text-decoration: none;">Aesthetic Computer</a>, synced to <a href="https://atproto.com" target="_blank" style="color: rgb(205, 92, 155); text-decoration: none;">ATProto</a> for open syndication via the <a href="https://at.aesthetic.computer" target="_blank" style="color: rgb(205, 92, 155); text-decoration: none;">at.aesthetic.computer</a> PDS instance.</div>';
           
           // Make handle clickable and add color cycling to "art"
           handleDisplay.innerHTML = '<a href="https://at.aesthetic.computer" style="color: inherit; text-decoration: none;"><span class="color-cycle-a">a</span><span class="color-cycle-r">r</span><span class="color-cycle-t">t</span>.at.aesthetic.computer</a>';
@@ -1317,7 +1317,7 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
           handleDisplay.innerHTML = `${colorCycledUsername}.at.aesthetic.computer`;
           
           // Simple subtitle with just username
-          didDisplay.innerHTML = `<div style="font-size: 0.9em; margin-top: 0.5em; opacity: 0.8; line-height: 1.5; max-width: 600px; margin-left: auto; margin-right: auto;">All media by <span style="font-weight: bold;">@${username}</span>, synced to <a href="https://atproto.com" style="color: rgb(205, 92, 155); text-decoration: none;">ATProto</a> for open syndication via the <a href="https://at.aesthetic.computer" style="color: rgb(205, 92, 155); text-decoration: none;">at.aesthetic.computer</a> PDS instance.</div>`;
+          didDisplay.innerHTML = `<div style="font-size: 0.9em; margin-top: 0.5em; opacity: 0.8; line-height: 1.5; max-width: 600px; margin-left: auto; margin-right: auto;">All media by <span style="font-weight: bold;">@${username}</span>, synced to <a href="https://atproto.com" target="_blank" style="color: rgb(205, 92, 155); text-decoration: none;">ATProto</a> for open syndication via the <a href="https://at.aesthetic.computer" target="_blank" style="color: rgb(205, 92, 155); text-decoration: none;">at.aesthetic.computer</a> PDS instance.</div>`;
         }
 
         // Resolve DID (but don't display it - we're showing subtitles instead)
