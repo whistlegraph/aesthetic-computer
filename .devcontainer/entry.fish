@@ -11,15 +11,7 @@ function ensure_fish_config_permissions
     set -l fish_config_dir /home/me/.config/fish
     set -l fish_data_dir /home/me/.local/share/fish
     
-    echo "🔧 Fixing permissions for fish and SSH directories..."
-    
-    # Fix SSH directory permissions (critical for security)
-    if test -d /home/me/.ssh
-        sudo chown -R me:me /home/me/.ssh 2>/dev/null
-        sudo chmod 700 /home/me/.ssh 2>/dev/null
-        sudo chmod 600 /home/me/.ssh/* 2>/dev/null
-        echo "✅ Fixed permissions for /home/me/.ssh"
-    end
+    echo "🔧 Fixing permissions for fish directories..."
     
     # Fix the parent .config directory first (most important)
     if test -d /home/me/.config
@@ -189,9 +181,6 @@ function ensure_ssl_dev_certs
     cd $previous_dir
 end
 
-# Ensure fish config has correct permissions (fixes "Permission denied" errors)
-ensure_fish_config_permissions
-
 # Call the function to set up Docker socket permissions
 ensure_docker_socket_permissions
 
@@ -321,6 +310,20 @@ if test -d /home/me/aesthetic-computer
     end
 else
     echo "⚠️🔒 Vault unmounted!"
+end
+
+# Fix all permissions AFTER vault setup (vault copies files as root with sudo)
+echo "🔧 Fixing permissions after vault setup..."
+
+# Fix fish config permissions (vault may have overwritten with root-owned files)
+ensure_fish_config_permissions
+
+# Fix SSH directory permissions
+if test -d /home/me/.ssh
+    sudo chown -R me:me /home/me/.ssh 2>/dev/null
+    sudo chmod 700 /home/me/.ssh 2>/dev/null
+    sudo chmod 600 /home/me/.ssh/* 2>/dev/null
+    echo "✅ Fixed permissions for /home/me/.ssh (after vault setup)"
 end
 
 if not test -d /home/me/aesthetic-computer/aesthetic-computer-code
