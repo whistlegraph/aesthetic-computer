@@ -105,6 +105,119 @@ async function fetchPaintings(db, { limit }) {
   });
 }
 
+async function fetchKidlisp(db, { limit }) {
+  const collection = db.collection("kidlisp");
+  const pipeline = [
+    { $match: { nuked: { $ne: true } } },
+    { $sort: { when: -1 } },
+    { $limit: limit },
+    {
+      $lookup: {
+        from: "@handles",
+        localField: "user",
+        foreignField: "_id",
+        as: "handleInfo",
+      },
+    },
+    {
+      $addFields: {
+        handle: { $arrayElemAt: ["$handleInfo.handle", 0] },
+      },
+    },
+    {
+      $project: {
+        _id: 1,
+        code: 1,
+        user: 1,
+        when: 1,
+        handle: 1,
+        hits: 1,
+        source: 1,
+      },
+    },
+  ];
+
+  const records = await collection.aggregate(pipeline).toArray();
+
+  return records.map((record) => {
+    const handle = record.handle ? `@${record.handle}` : null;
+    
+    return {
+      id: record._id?.toString?.() ?? `${record.user}:${record.code}`,
+      type: "kidlisp",
+      code: record.code,
+      owner: {
+        handle,
+        userId: record.user,
+      },
+      when: record.when instanceof Date ? record.when.toISOString() : record.when,
+      hits: record.hits || 0,
+      acUrl: `https://aesthetic.computer/#${record.code}`,
+      meta: {
+        sourceLength: record.source?.length || 0,
+      },
+    };
+  });
+}
+
+async function fetchTapes(db, { limit }) {
+  const collection = db.collection("tapes");
+  const pipeline = [
+    { $match: { nuked: { $ne: true } } },
+    { $sort: { when: -1 } },
+    { $limit: limit },
+    {
+      $lookup: {
+        from: "@handles",
+        localField: "user",
+        foreignField: "_id",
+        as: "handleInfo",
+      },
+    },
+    {
+      $addFields: {
+        handle: { $arrayElemAt: ["$handleInfo.handle", 0] },
+      },
+    },
+    {
+      $project: {
+        _id: 1,
+        code: 1,
+        slug: 1,
+        user: 1,
+        when: 1,
+        handle: 1,
+        bucket: 1,
+      },
+    },
+  ];
+
+  const records = await collection.aggregate(pipeline).toArray();
+
+  return records.map((record) => {
+    const handle = record.handle ? `@${record.handle}` : null;
+    const ownerSegment = handle ?? record.user ?? "anonymous";
+    
+    return {
+      id: record._id?.toString?.() ?? `${ownerSegment}:${record.slug}`,
+      type: "tape",
+      code: record.code,
+      slug: record.slug,
+      owner: {
+        handle,
+        userId: record.user ?? null, // null for anonymous tapes
+      },
+      when: record.when instanceof Date ? record.when.toISOString() : record.when,
+      acUrl: `https://aesthetic.computer/!${record.code}`,
+      media: {
+        bucket: record.bucket,
+        // Video URL pattern (MP4 is served from S3)
+        videoUrl: record.bucket ? `https://acrecordings.s3.us-east-1.amazonaws.com/${record.bucket}/${record.slug}.mp4` : null,
+      },
+    };
+  });
+}
+
 export async function handler(event) {
   if (event.httpMethod !== "GET") {
     return respond(405, { error: "Method not allowed" });
@@ -126,6 +239,10 @@ export async function handler(event) {
     for (const type of requestedTypes) {
       if (type === "painting") {
         media.paintings = await fetchPaintings(database.db, { limit });
+      } else if (type === "kidlisp") {
+        media.kidlisp = await fetchKidlisp(database.db, { limit });
+      } else if (type === "tape") {
+        media.tapes = await fetchTapes(database.db, { limit });
       } else if (["mood", "scream", "chat"].includes(type)) {
         // Reserve keys for upcoming media types so clients can experiment early.
         media[`${type}s`] = [];
