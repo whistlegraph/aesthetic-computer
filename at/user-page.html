@@ -999,7 +999,7 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
       if (value.video?.ref) {
         const did = uri.split('/')[2];
         const videoUrl = `${PDS_URL}/xrpc/com.atproto.sync.getBlob?did=${did}&cid=${value.video.ref.$link}`;
-        videoHtml = `<video controls loop autoplay muted class="record-image" style="max-width: 100%; height: auto; border: none;">
+        videoHtml = `<video controls loop autoplay muted playsinline webkit-playsinline class="record-image" style="max-width: 100%; height: auto; border: none;">
           <source src="${videoUrl}" type="video/mp4">
           Your browser does not support the video tag.
         </video>`;
@@ -1295,23 +1295,29 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
 
         // Add subtitle for art.at.aesthetic.computer
         const didDisplay = document.getElementById('did-display');
+        const handleDisplay = document.getElementById('handle-display');
+        
         if (handle === 'art.at.aesthetic.computer') {
           didDisplay.innerHTML = '<div style="font-size: 0.9em; margin-top: 0.5em; opacity: 0.8; line-height: 1.5; max-width: 600px; margin-left: auto; margin-right: auto;">All anonymous media on <a href="https://aesthetic.computer" style="color: rgb(205, 92, 155); text-decoration: none;">Aesthetic Computer</a>, synced to <a href="https://atproto.com" style="color: rgb(205, 92, 155); text-decoration: none;">ATProto</a> for open syndication via the <a href="https://at.aesthetic.computer" style="color: rgb(205, 92, 155); text-decoration: none;">at.aesthetic.computer</a> PDS instance.</div>';
           
           // Make handle clickable and add color cycling to "art"
-          const handleDisplay = document.getElementById('handle-display');
           handleDisplay.innerHTML = '<a href="https://at.aesthetic.computer" style="color: inherit; text-decoration: none;"><span class="color-cycle-a">a</span><span class="color-cycle-r">r</span><span class="color-cycle-t">t</span>.at.aesthetic.computer</a>';
           handleDisplay.style.cursor = 'pointer';
         } else {
-          // For user pages, show "User records for @handle" subtitle with color cycling
-          const handleParts = handle.split('');
-          const colorCycledHandle = handleParts.map((char, index) => {
-            // Stagger the animation by adjusting the animation delay
+          // For user pages, extract username part (before .at.aesthetic.computer)
+          const username = handle.split('.at.aesthetic.computer')[0];
+          
+          // Add color cycling only to username part
+          const usernameParts = username.split('');
+          const colorCycledUsername = usernameParts.map((char, index) => {
             const delay = (index * 0.3).toFixed(1);
             return `<span class="color-cycle" style="animation-delay: -${delay}s">${char}</span>`;
           }).join('');
           
-          didDisplay.innerHTML = `<div style="font-size: 0.9em; margin-top: 0.5em; opacity: 0.8; line-height: 1.5; max-width: 600px; margin-left: auto; margin-right: auto;">User records for <span style="font-weight: bold;">@${colorCycledHandle}</span> on <a href="https://aesthetic.computer" style="color: rgb(205, 92, 155); text-decoration: none;">Aesthetic Computer</a></div>`;
+          handleDisplay.innerHTML = `${colorCycledUsername}.at.aesthetic.computer`;
+          
+          // Simple subtitle with just username
+          didDisplay.innerHTML = `<div style="font-size: 0.9em; margin-top: 0.5em; opacity: 0.8; line-height: 1.5; max-width: 600px; margin-left: auto; margin-right: auto;">All media by <span style="font-weight: bold;">@${username}</span>, synced to <a href="https://atproto.com" style="color: rgb(205, 92, 155); text-decoration: none;">ATProto</a> for open syndication via the <a href="https://at.aesthetic.computer" style="color: rgb(205, 92, 155); text-decoration: none;">at.aesthetic.computer</a> PDS instance.</div>`;
         }
 
         // Resolve DID (but don't display it - we're showing subtitles instead)
