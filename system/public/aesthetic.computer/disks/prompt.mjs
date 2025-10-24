@@ -108,6 +108,9 @@ let resendVerificationText;
 let ellipsisTicker;
 let chatTicker; // Ticker instance for chat messages
 let chatTickerButton; // Button for chat ticker hover interaction
+let contentTicker; // Ticker instance for mixed $kidlisp, #painting, !tape content
+let contentTickerButton; // Button for content ticker hover interaction
+let contentItems = []; // Store fetched content: {type: 'kidlisp'|'painting'|'tape', code: string}
 let ruler = false; // Paint a line down the center of the display.
 //                   (for measuring the login / signup centering).
 // let firstCommandSent = false; // 🏳️
@@ -127,6 +130,9 @@ let cornerParticles = [];
 let tapePromiseResolve, tapePromiseReject;
 
 let handles; // Keep track of total handles set.
+let motd; // Store the mood of the day text
+let motdFrame = 0; // Animation frame counter for MOTD effects
+let previousKidlispMode = false; // Track previous KidLisp mode state for sound triggers
 
 let defaultDownloadScale = 6;
 
@@ -264,10 +270,16 @@ async function boot({
       (pieceCount > 0 && !store["prompt:splash"] && !net.devReload) ||
       (vscode && pieceCount === 0);
 
+    // Fetch the MOTD to display above login/signup buttons
+    if (!params[0]) makeMotd({ ...api, notice });
+    
+    // Fetch all content (kidlisp, painting, tape) for content ticker
+    if (!params[0]) {
+      fetchContentItems(api);
+    }
+
     if (pieceCount === 0 || store["prompt:splash"] === true) {
-      // system.prompt.input.print("aesthetic.computer"); // Set a default empty motd.
-      // Only show MOTD if we won't be activating the prompt (which means it's not focused)
-      if (!params[0] && !willActivate) makeMotd(api);
+      // Initial boot setup
     } else {
       firstActivation = false; // Assume we've activated if returning from
       //                          elsewhere.
@@ -2328,6 +2340,58 @@ function paint($) {
     $.system.prompt.kidlispMode = inKidlispMode;
     $.system.prompt.actualKidlisp = isActualKidLispCode;
 
+    // 🔊 Play sound when entering or leaving KidLisp mode
+    if (isActualKidLispCode !== previousKidlispMode) {
+      if (isActualKidLispCode) {
+        // Entering KidLisp mode - ascending synth sound
+        $.sound.synth({
+          type: "sine",
+          tone: 440, // A4
+          duration: 0.08,
+          volume: 0.15,
+          attack: 0.02,
+          decay: 0.03,
+          release: 0.03,
+        });
+        // Add a second harmonic for richness
+        setTimeout(() => {
+          $.sound.synth({
+            type: "sine",
+            tone: 660, // E5 (perfect fifth above)
+            duration: 0.06,
+            volume: 0.1,
+            attack: 0.01,
+            decay: 0.02,
+            release: 0.03,
+          });
+        }, 40);
+      } else {
+        // Leaving KidLisp mode - descending synth sound
+        $.sound.synth({
+          type: "sine",
+          tone: 440, // A4
+          duration: 0.08,
+          volume: 0.15,
+          attack: 0.02,
+          decay: 0.03,
+          release: 0.03,
+        });
+        // Add a lower harmonic for contrast
+        setTimeout(() => {
+          $.sound.synth({
+            type: "sine",
+            tone: 293.66, // D4 (perfect fifth below)
+            duration: 0.06,
+            volume: 0.1,
+            attack: 0.01,
+            decay: 0.02,
+            release: 0.03,
+          });
+        }, 40);
+      }
+      previousKidlispMode = isActualKidLispCode;
+    }
+
     // If activeCompletions is currently empty, but the input text itself
     // is a valid, non-hidden command, it's likely due to a Tab completion
     // that cleared the active suggestions. In this case, we want to treat
@@ -2529,6 +2593,17 @@ function paint($) {
       );
     }
     
+    // Check overlap with chat ticker
+    if (chatTickerButton && !chatTickerButton.disabled && chatTickerButton.box) {
+      const tickerBox = chatTickerButton.box;
+      wouldOverlap = wouldOverlap || (
+        bookAdBox.x < tickerBox.x + tickerBox.w &&
+        bookAdBox.x + bookAdBox.w > tickerBox.x &&
+        bookAdBox.y < tickerBox.y + tickerBox.h &&
+        bookAdBox.y + bookAdBox.h > tickerBox.y
+      );
+    }
+    
     // Only show book if it won't overlap with buttons
     const shouldShowBook = !wouldOverlap;
     
@@ -2657,7 +2732,69 @@ function paint($) {
     // Disable button when not on login curtain
     bookButton.disabled = true;
   }
-  
+
+  // 🟢 KidLisp mode border effect (full window border with scrolling dots)
+  // Only show when prompt is focused (canType is true)
+  const isKidlispMode = $.system?.prompt?.actualKidlisp;
+  if (isKidlispMode && $.system.prompt.input.canType) {
+    // Animated offset for scrolling effect
+    const scrollOffset = Math.floor(bookRotation * 0.5) % 4; // Scroll 4 pixel cycle (matches spacing)
+    
+    // Cycle through vibrant colors
+    const colorPhase = (bookRotation * 0.1) % 6;
+    const colors = [
+      [100, 255, 100], // Bright green (primary for kidlisp)
+      [100, 255, 255], // Cyan
+      [100, 200, 255], // Sky blue
+      [200, 100, 255], // Purple
+      [255, 100, 200], // Pink
+      [255, 255, 100], // Yellow
+    ];
+    
+    const currentColorIndex = Math.floor(colorPhase);
+    const nextColorIndex = (currentColorIndex + 1) % colors.length;
+    const blend = colorPhase - currentColorIndex;
+    
+    // Blend between current and next color
+    const currentColor = colors[currentColorIndex];
+    const nextColor = colors[nextColorIndex];
+    const blendedColor = [
+      Math.floor(currentColor[0] * (1 - blend) + nextColor[0] * blend),
+      Math.floor(currentColor[1] * (1 - blend) + nextColor[1] * blend),
+      Math.floor(currentColor[2] * (1 - blend) + nextColor[2] * blend),
+    ];
+    
+    // Pulsing alpha
+    const pulseAlpha = Math.floor(Math.sin(bookRotation * 0.12) * 60 + 140); // 80-200 range
+    
+    // Draw solid dotted border around entire screen (all dots filled)
+    const dotSpacing = 4; // Pixels between dots
+    const dotSize = 1; // 1 pixel dots
+    
+    // Top border
+    for (let x = 0; x < screen.width; x += dotSpacing) {
+      ink(...blendedColor, pulseAlpha).box((x + scrollOffset) % screen.width, 0, dotSize, dotSize);
+    }
+    
+    // Bottom border
+    for (let x = 0; x < screen.width; x += dotSpacing) {
+      ink(...blendedColor, pulseAlpha).box((x + scrollOffset) % screen.width, screen.height - dotSize, dotSize, dotSize);
+    }
+    
+    // Left border
+    for (let y = 0; y < screen.height; y += dotSpacing) {
+      ink(...blendedColor, pulseAlpha).box(0, (y + scrollOffset) % screen.height, dotSize, dotSize);
+    }
+    
+    // Right border
+    for (let y = 0; y < screen.height; y += dotSpacing) {
+      ink(...blendedColor, pulseAlpha).box(screen.width - dotSize, (y + scrollOffset) % screen.height, dotSize, dotSize);
+    }
+    
+    // Keep animating
+    $.needsPaint();
+  }
+
   // 🎰 Polychrome border effect pointing to top-left corner (on login curtain)
   if (showLoginCurtain) {
     // Cycle through pink, purple, green phases
@@ -2810,151 +2947,260 @@ function paint($) {
       color: $.hud.currentStatusColor() || [255, 0, 200],
     });
 
-    // 📊 Stats / Analytics
-
-    // Last 'chat-system' message.
-    if ($.chat.messages.length > 0) {
+    // 📊 Stats / Analytics - Unified Ticker System
+    
+    const loginY = screen.height / 2;
+    
+    // Calculate dynamic positioning to prevent overlap
+    const tickerHeight = 14; // Text height plus padding
+    const tickerSpacing = 0; // No space between tickers for tight stripes
+    const tickerPadding = 3; // Padding around text
+    
+    let currentTickerY = loginY + 30; // Start 30px below login
+    
+    // 1. CHAT TICKER (top priority)
+    if ($.chat.messages.length > 0 && screen.height >= 180) {
       const msg = $.chat.messages[$.chat.messages.length - 1];
       const fullText = msg.from + ": " + msg.text;
-
-      // Position midway between login button (screen center) and handles text
-      const loginY = screen.height / 2; // Login button is centered vertically
-      const handlesY = screen.height / 2 + screen.height / 3.25 - 11 + 15; // Handles text position
+      const chatTickerY = currentTickerY;
       
-      // Calculate text input area height - typically positioned at bottom with buttons
-      // Use a more conservative estimate that scales with screen height
-      const inputAreaHeight = Math.min(60, screen.height * 0.15); // 15% of screen or 60px max
-      const inputAreaTop = screen.height - inputAreaHeight;
-      
-      // Position ticker midway between login and handles, but ensure it doesn't overlap input area
-      let tickerY = (loginY + handlesY) / 2; // Midway point
-      
-      // Ensure ticker stays above input area with at least 12px clearance
-      const maxTickerY = inputAreaTop - 12;
-      
-      // Also ensure minimum distance from screen bottom (fallback safety)
-      const absoluteMaxY = screen.height - 80;
-      
-      // Apply constraints but ensure ticker stays below login button
-      const minTickerY = loginY + 20; // 20 pixels below login button
-      
-      if (tickerY > maxTickerY) {
-        tickerY = maxTickerY;
-      }
-      if (tickerY > absoluteMaxY) {
-        tickerY = absoluteMaxY;
-      }
-      
-      // If constraints push ticker too high, position it at minimum safe distance from login
-      if (tickerY < minTickerY) {
-        tickerY = minTickerY;
-      }
-
-      // Check if there's enough vertical space for the ticker
-      // Don't show ticker if screen height is less than 130 pixels
-      // We need at least 24px between login button and handles text to show ticker
-      // AND the ticker must not overlap with input area
-      const minSpacingRequired = 24;
-      const availableSpace = handlesY - loginY;
-      const tickerBelowLogin = tickerY >= loginY + 20;
-      const tickerAboveInput = tickerY <= inputAreaTop - 12;
-      const screenTallEnough = screen.height >= 130;
-      
-      const showTicker =
-        screenTallEnough &&
-        availableSpace >= minSpacingRequired &&
-        tickerBelowLogin &&
-        tickerAboveInput;
-
-      if (showTicker) {
-        // Create or update ticker instance
-        if (!chatTicker) {
-          chatTicker = new $.gizmo.Ticker(fullText, {
-            speed: 1,
-            separator: " - ",
-          });
-          chatTicker.paused = false;
-          chatTicker.offset = 0;
-        } else {
-          chatTicker.setText(fullText);
-        }
-
-        // Update ticker animation only if not paused
-        if (!chatTicker.paused) {
-          chatTicker.update($);
-        }
-
-        // Create or update invisible button over ticker area
-        if (!chatTickerButton) {
-          chatTickerButton = new $.ui.Button({
-            x: 0,
-            y: tickerY - 6, // Give some padding above text
-            w: screen.width,
-            h: 20, // Height to cover text plus padding
-          });
-          chatTickerButton.noEdgeDetection = true; // Prevent interference from Enter button edge detection
-          chatTickerButton.noRolloverActivation = true; // Prevent activation via rollover from other buttons
-          chatTickerButton.stickyScrubbing = true; // Prevent drag-between-button behavior
-        } else {
-          // Update button position in case screen size changed
-          chatTickerButton.box.x = 0;
-          chatTickerButton.box.y = tickerY - 6;
-          chatTickerButton.box.w = screen.width;
-          chatTickerButton.box.h = 20;
-        }
-
-        // Paint the ticker with alpha based on button state
-        const tickerAlpha = chatTickerButton.down ? 200 : 128;
-
-        // Only paint ticker if button is not disabled
-        if (!chatTickerButton.disabled) {
-          chatTicker.paint($, 0, tickerY, {
-            color: "teal",
-            alpha: tickerAlpha,
-            width: screen.width,
-          });
-        }
+      // Create or update ticker instance
+      if (!chatTicker) {
+        chatTicker = new $.gizmo.Ticker(fullText, {
+          speed: 1, // 1px per frame
+          separator: " - ",
+          reverse: false, // Left to right
+        });
+        chatTicker.paused = false;
+        chatTicker.offset = 0; // No offset for chat
       } else {
-        // Hide ticker when there's not enough space
-        chatTicker = null;
-        chatTickerButton = null;
+        chatTicker.setText(fullText);
       }
+
+      // Update ticker animation only if not paused
+      if (!chatTicker.paused) {
+        chatTicker.update($);
+      }
+
+      // Create or update invisible button over ticker area
+      if (!chatTickerButton) {
+        chatTickerButton = new $.ui.Button({
+          x: 0,
+          y: chatTickerY - tickerPadding,
+          w: screen.width,
+          h: tickerHeight + (tickerPadding * 2),
+        });
+        chatTickerButton.noEdgeDetection = true;
+        chatTickerButton.noRolloverActivation = true;
+        chatTickerButton.stickyScrubbing = true;
+      } else {
+        chatTickerButton.box.x = 0;
+        chatTickerButton.box.y = chatTickerY - tickerPadding;
+        chatTickerButton.box.w = screen.width;
+        chatTickerButton.box.h = tickerHeight + (tickerPadding * 2);
+      }
+
+      // Paint background and borders
+      if (!chatTickerButton.disabled) {
+        const boxHeight = tickerHeight + (tickerPadding * 2);
+        const boxY = chatTickerY - tickerPadding;
+        
+        // Dark background for high contrast
+        const bgAlpha = chatTickerButton.down ? 120 : 80;
+        ink([0, 80, 80, bgAlpha]).box(0, boxY, screen.width, boxHeight - 1);
+        
+        // Top border (1px)
+        ink([0, 200, 200, 255]).line(0, boxY, screen.width, boxY);
+        
+        // Bottom border (1px, non-overlapping)
+        ink([0, 200, 200, 255]).line(0, boxY + boxHeight - 1, screen.width, boxY + boxHeight - 1);
+        
+        // Bright text for high contrast - adjusted for vertical centering
+        const tickerAlpha = chatTickerButton.down ? 255 : 220;
+        const textY = chatTickerY + 1; // Add 1px to center text better
+        chatTicker.paint($, 0, textY, {
+          color: [0, 255, 255], // Bright cyan
+          alpha: tickerAlpha,
+          width: screen.width,
+        });
+      }
+      
+      // Move down for next ticker
+      currentTickerY += tickerHeight + (tickerPadding * 2) + tickerSpacing;
+    } else {
+      chatTicker = null;
+      chatTickerButton = null;
+    }
+    
+    // 2. CONTENT TICKER (combined $kidlisp, #painting, !tape)
+    if (contentItems.length > 0 && screen.height >= 220) {
+      const contentTickerY = currentTickerY;
+      
+      // Build text with prefixes: $ for kidlisp, # for painting, ! for tape
+      const fullText = contentItems.map(item => {
+        const prefix = item.type === 'kidlisp' ? '$' : item.type === 'painting' ? '#' : '!';
+        return `${prefix}${item.code}`;
+      }).join(" · ");
+      
+      // Create or update content ticker instance
+      if (!contentTicker) {
+        contentTicker = new $.gizmo.Ticker(fullText, {
+          speed: 1, // 1px per frame
+          separator: " · ",
+          reverse: true, // Right to left (opposite of chat)
+        });
+        contentTicker.paused = false;
+        contentTicker.offset = 100; // Offset by 100px for stagger
+      } else {
+        contentTicker.setText(fullText);
+      }
+      
+      // Update ticker animation
+      if (!contentTicker.paused) {
+        contentTicker.update($);
+      }
+      
+      // Create or update invisible button over ticker area
+      if (!contentTickerButton) {
+        contentTickerButton = new $.ui.Button({
+          x: 0,
+          y: contentTickerY - tickerPadding,
+          w: screen.width,
+          h: tickerHeight + (tickerPadding * 2),
+        });
+        contentTickerButton.noEdgeDetection = true;
+        contentTickerButton.noRolloverActivation = true;
+        contentTickerButton.stickyScrubbing = true;
+      } else {
+        contentTickerButton.box.x = 0;
+        contentTickerButton.box.y = contentTickerY - tickerPadding;
+        contentTickerButton.box.w = screen.width;
+        contentTickerButton.box.h = tickerHeight + (tickerPadding * 2);
+      }
+      
+      // Paint background and border
+      if (!contentTickerButton.disabled) {
+        const boxHeight = tickerHeight + (tickerPadding * 2);
+        const boxY = contentTickerY - tickerPadding;
+        
+        // Dark background for high contrast
+        const bgAlpha = contentTickerButton.down ? 120 : 80;
+        ink([30, 30, 30, bgAlpha]).box(0, boxY, screen.width, boxHeight - 1);
+        
+        // Bottom border (1px, non-overlapping)
+        ink([200, 200, 200, 255]).line(0, boxY + boxHeight - 1, screen.width, boxY + boxHeight - 1);
+        
+        // Now render the text with color-coded prefixes
+        // We need to manually render each item with its own color
+        const textY = contentTickerY + 1;
+        const contentTickerAlpha = contentTickerButton.down ? 255 : 220;
+        
+        // Calculate positions for each item manually
+        let currentX = -contentTicker.getOffset();
+        const displayWidth = screen.width;
+        const separator = " · ";
+        
+        // Render items multiple times to fill the screen (cycling)
+        const cycleWidth = contentTicker.getCycleWidth();
+        const numCycles = Math.ceil((displayWidth + cycleWidth) / cycleWidth) + 1;
+        
+        for (let cycle = 0; cycle < numCycles; cycle++) {
+          contentItems.forEach((item, idx) => {
+            const prefix = item.type === 'kidlisp' ? '$' : item.type === 'painting' ? '#' : '!';
+            const text = `${prefix}${item.code}`;
+            
+            // Color-code by type
+            let color;
+            if (item.type === 'kidlisp') {
+              color = [150, 255, 150]; // Bright lime green
+            } else if (item.type === 'painting') {
+              color = [255, 150, 255]; // Bright magenta
+            } else { // tape
+              color = [255, 200, 100]; // Bright orange/yellow
+            }
+            
+            // Only render if visible
+            if (currentX > -100 && currentX < displayWidth + 100) {
+              ink(color, contentTickerAlpha).write(text, { x: currentX, y: textY });
+            }
+            
+            // Move to next position
+            const textWidth = $.text.box(text).box.width;
+            currentX += textWidth;
+            
+            // Add separator after each item (except potentially the last in a cycle)
+            if (idx < contentItems.length - 1 || cycle < numCycles - 1) {
+              if (currentX > -100 && currentX < displayWidth + 100) {
+                ink([150, 150, 150], contentTickerAlpha).write(separator, { x: currentX, y: textY });
+              }
+              const sepWidth = $.text.box(separator).box.width;
+              currentX += sepWidth;
+            }
+          });
+        }
+      }
+      
+      // Move down for next ticker (if we add more)
+      currentTickerY += tickerHeight + (tickerPadding * 2) + tickerSpacing;
+    } else {
+      contentTicker = null;
+      contentTickerButton = null;
     }
 
-    // Handle Stats
-    if (handles && screen.height >= 180) {
-      // Position handles text 20 pixels below ticker if ticker is shown,
-      // otherwise use original positioning
-      let handlesY;
-      if (chatTicker && $.chat.messages.length > 0) {
-        // Get the ticker Y position from the ticker logic above
-        const loginY = screen.height / 2;
-        const originalHandlesY = screen.height / 2 + screen.height / 3.25 - 11 + 15;
-        const inputAreaHeight = Math.min(60, screen.height * 0.15);
-        const inputAreaTop = screen.height - inputAreaHeight;
-        const maxTickerY = inputAreaTop - 12;
-        const absoluteMaxY = screen.height - 80;
-        const minTickerY = loginY + 20;
-        
-        let tickerY = (loginY + originalHandlesY) / 2;
-        if (tickerY > maxTickerY) tickerY = maxTickerY;
-        if (tickerY > absoluteMaxY) tickerY = absoluteMaxY;
-        if (tickerY < minTickerY) tickerY = minTickerY;
-        
-        handlesY = tickerY + 20; // 20 pixels below ticker
-      } else {
-        handlesY = screen.height / 2 + screen.height / 3.25 - 11 + 15; // Original position
+    // Handle Stats - moved to bottom left, to the right of paste button
+    if (handles && screen.height >= 100) {
+      // Position in bottom left, accounting for paste button
+      const pasteBtn = $.system.prompt.input?.paste?.btn;
+      let handlesX = 6; // Default left padding
+      
+      if (pasteBtn && !pasteBtn.disabled) {
+        // Position to the right of paste button
+        handlesX = pasteBtn.box.x + pasteBtn.box.w + 6;
       }
+      
+      const handlesY = screen.height - 16; // 16 pixels from bottom
       
       ink(pal.handleColor).write(
         `${handles.toLocaleString()} HANDLES SET`,
         {
-          center: "x",
+          x: handlesX,
           y: handlesY,
+        },
+        [255, 50, 200, 24],
+        screen.width - handlesX - 6,
+      );
+    }
+
+    // MOTD (Mood of the Day) - show above login/signup buttons with animation
+    if (motd && screen.height >= 180) {
+      motdFrame += 1; // Increment animation frame
+      
+      // Subtle sway (up and down)
+      const swayY = Math.sin(motdFrame * 0.05) * 2; // 2 pixel sway range
+      const motdY = screen.height / 2 - 48 + swayY; // Above the login button with sway
+      
+      // Create colorful blinking letters
+      let coloredText = "";
+      const colors = ["pink", "cyan", "yellow", "lime", "orange", "magenta"];
+      
+      for (let i = 0; i < motd.length; i++) {
+        // Each letter gets a color that changes over time based on its position
+        const colorIndex = Math.floor((i + motdFrame * 0.1) % colors.length);
+        const color = colors[colorIndex];
+        coloredText += `\\${color}\\${motd[i]}`;
+      }
+      
+      ink(pal.handleColor).write(
+        coloredText,
+        {
+          center: "x",
+          y: Math.floor(motdY),
         },
         [255, 50, 200, 24],
         screen.width - 18,
       );
+      
+      $.needsPaint(); // Keep animating
     }
   }
 
@@ -3306,6 +3552,68 @@ function act({
     });
   }
 
+  // Content ticker button (invisible, just for click interaction)
+  if (contentTickerButton && !contentTickerButton.disabled) {
+    contentTickerButton.act(e, {
+      down: () => {
+        downSound();
+        if (contentTicker) {
+          contentTicker.paused = true;
+          contentTickerButton.scrubStartX = e.x;
+          contentTickerButton.scrubInitialOffset = contentTicker.getOffset();
+          contentTickerButton.hasScrubbed = false;
+        }
+        needsPaint();
+      },
+      scrub: (btn) => {
+        if (contentTicker && e.x !== undefined && e.y !== undefined) {
+          const scrubDelta = e.x - contentTickerButton.scrubStartX;
+          let newOffset = contentTickerButton.scrubInitialOffset - scrubDelta;
+          
+          if (newOffset < 0) {
+            newOffset = newOffset * 0.3; // Elastic effect
+          }
+          
+          contentTicker.setOffset(newOffset);
+          contentTickerButton.hasScrubbed = Math.abs(scrubDelta) > 5;
+          
+          synth({
+            type: "sine",
+            tone: 1200 + Math.abs(scrubDelta) * 2,
+            attack: 0.005,
+            decay: 0.9,
+            volume: 0.08,
+            duration: 0.01,
+          });
+          
+          needsPaint();
+        }
+      },
+      push: () => {
+        if (!contentTickerButton.hasScrubbed) {
+          pushSound();
+        }
+        
+        if (!contentTickerButton.hasScrubbed && contentItems.length > 0) {
+          // Jump to first content item
+          const item = contentItems[0];
+          const prefix = item.type === 'kidlisp' ? '$' : item.type === 'painting' ? '#' : '!';
+          jump(`${prefix}${item.code}`);
+        } else {
+          if (contentTicker) {
+            contentTicker.paused = false;
+          }
+        }
+      },
+      cancel: () => {
+        cancelSound();
+        if (contentTicker) {
+          contentTicker.paused = false;
+        }
+      },
+    });
+  }
+
   // Rollover keyboard locking.
   // TODO: ^ Move the below events, above to rollover events.
   if (
@@ -3585,8 +3893,8 @@ export const scheme = {
 
 let motdController;
 
-async function makeMotd({ system, needsPaint, handle, user, net, api }) {
-  let motd = "aesthetic.computer"; // Fallback motd.
+async function makeMotd({ system, needsPaint, handle, user, net, api, notice }) {
+  motd = "aesthetic.computer"; // Fallback motd.
   motdController = new AbortController();
   try {
     const res = await fetch("/api/mood/@jeffrey", {
@@ -3594,13 +3902,57 @@ async function makeMotd({ system, needsPaint, handle, user, net, api }) {
     });
     if (res.status === 200) {
       motd = (await res.json()).mood;
-      system.prompt.input.latentFirstPrint(motd);
       needsPaint();
     } else {
       console.warn("😢 No mood found.");
     }
   } catch (err) {
     // console.warn("🙁 System `mood` fetch aborted.");
+  }
+}
+
+// Fetch all content (kidlisp, painting, tape) and combine into a single shuffled array
+async function fetchContentItems(api) {
+  try {
+    // Fetch all types in one request
+    const res = await fetch("/api/tv?types=kidlisp,painting,tape&limit=60");
+    if (res.status === 200) {
+      const data = await res.json();
+      const items = [];
+      
+      // Collect kidlisp items
+      if (data.media?.kidlisp && Array.isArray(data.media.kidlisp)) {
+        data.media.kidlisp.forEach(item => {
+          if (item.code) items.push({ type: 'kidlisp', code: item.code });
+        });
+      }
+      
+      // Collect painting items
+      if (data.media?.paintings && Array.isArray(data.media.paintings)) {
+        data.media.paintings.forEach(item => {
+          if (item.code) items.push({ type: 'painting', code: item.code });
+        });
+      }
+      
+      // Collect tape items
+      if (data.media?.tapes && Array.isArray(data.media.tapes)) {
+        data.media.tapes.forEach(item => {
+          if (item.code) items.push({ type: 'tape', code: item.code });
+        });
+      }
+      
+      // Shuffle the combined array for variety
+      contentItems = items.sort(() => Math.random() - 0.5);
+      console.log("✅ Content items loaded:", contentItems.length, 
+                  `(${items.filter(i => i.type === 'kidlisp').length} kidlisp, ` +
+                  `${items.filter(i => i.type === 'painting').length} paintings, ` +
+                  `${items.filter(i => i.type === 'tape').length} tapes)`);
+      api.needsPaint();
+    } else {
+      console.warn("⚠️ Could not fetch content items. Status:", res.status);
+    }
+  } catch (err) {
+    console.warn("⚠️ Content fetch error:", err);
   }
 }
 
