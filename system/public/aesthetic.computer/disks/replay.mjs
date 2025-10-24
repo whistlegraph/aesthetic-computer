@@ -761,30 +761,23 @@ function act({ event: e, sound }) {
   
   // Touch/tap controls
   if (e.is("touch") || e.is("pen:down")) {
-    // Resume audio context if suspended (requires user gesture)
-    if (sound?.bios?.audioContext?.state === "suspended") {
-      console.log("🎵 Resuming audio context from user gesture");
-      sound.bios.audioContext.resume().then(() => {
-        console.log("🎵 Audio context resumed, state:", sound.bios.audioContext.state);
-      }).catch(err => {
-        console.warn("🎵 Failed to resume audio context:", err);
-      });
-    }
-    
-    // Toggle play/pause on tap
+    // Always use async togglePlayback to handle audio context properly
     togglePlayback(sound);
     return false; // Prevent default
   }
 }
 
 // Toggle play/pause
-function togglePlayback(sound) {
-  // Resume audio context if needed
+async function togglePlayback(sound) {
+  // Resume audio context if needed and wait for it
   if (sound?.bios?.audioContext?.state === "suspended") {
     console.log("🎵 Resuming audio context before playback toggle");
-    sound.bios.audioContext.resume().catch(err => {
+    try {
+      await sound.bios.audioContext.resume();
+      console.log("🎵 Audio context resumed successfully before playback");
+    } catch (err) {
       console.warn("🎵 Failed to resume audio context:", err);
-    });
+    }
   }
   
   if (playing) {
