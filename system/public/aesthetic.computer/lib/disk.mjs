@@ -10925,10 +10925,21 @@ async function makeFrame({ data: { type, content } }) {
             h: h, // Use just the calculated height without extra y-offset
           });
 
+        // Update button position to match label position (with slide offset)
+        const finalX = currentHUDOffset.x + hudAnimationState.slideOffset.x - currentHUDLeftPad;
+        const finalY = currentHUDOffset.y + hudAnimationState.slideOffset.y;
+        currentHUDButton.box.x = finalX;
+        currentHUDButton.box.y = finalY;
+        currentHUDButton.box.w = currentHUDLabelMeasuredWidth;
+        currentHUDButton.box.h = h;
+
         // Mark HUD button to bypass the global HUD active check (it checks itself)
         currentHUDButton.noEdgeDetection = true;
         // Prevent HUD button from being activated by dragging from other buttons
         currentHUDButton.noRolloverActivation = true;
+        
+        // Disable button when HUD is not visible (hidden with Tab key)
+        currentHUDButton.disabled = !hudAnimationState.visible && !hudAnimationState.animating;
 
         // $commonApi.hud.currentLabel = {
         //   text: currentHUDTxt,
