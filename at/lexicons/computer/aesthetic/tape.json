@@ -7,7 +7,7 @@
       "key": "tid",
       "record": {
         "type": "object",
-        "required": ["slug", "code", "when", "video"],
+        "required": ["slug", "code", "when"],
         "properties": {
           "slug": {
             "type": "string",
@@ -22,11 +22,25 @@
             "format": "datetime",
             "description": "ISO 8601 timestamp when the tape was created"
           },
+          "zipUrl": {
+            "type": "string",
+            "description": "Direct URL to download the original ZIP file with frames and audio"
+          },
+          "acUrl": {
+            "type": "string",
+            "description": "Permanent link to view on aesthetic.computer (e.g., https://aesthetic.computer/!a3x)"
+          },
+          "thumbnail": {
+            "type": "blob",
+            "accept": ["image/jpeg", "image/png"],
+            "maxSize": 1048576,
+            "description": "Thumbnail image from midpoint frame, 3x scaled with nearest neighbor (max 1MB)"
+          },
           "video": {
             "type": "blob",
             "accept": ["video/mp4"],
             "maxSize": 52428800,
-            "description": "MP4 video blob (max 50MB)"
+            "description": "MP4 video with 3x pixel scaling and audio soundtrack (max 50MB)"
           },
           "ref": {
             "type": "string",
