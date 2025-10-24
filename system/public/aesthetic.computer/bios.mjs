@@ -449,6 +449,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     pauseTapePlayback,
     resumeTapePlayback;
 
+  let audioContextResuming = false; // Flag to track when AudioContext resume is in progress
+  let audioContextResumeTimestamps = {}; // Store resume timestamps separately
+  let tapeSyncPosition = null; // Position to sync tape audio to (0-1), set by video piece
+  let currentTapePosition = 0; // Current tape playback position (0-1), updated by main loop
+  
+  // Make resume timestamps accessible globally
+  window.audioContextResumeTimestamps = audioContextResumeTimestamps;
+
   let shareFile, shareFileCallback; // A temporary storage container for a pre-prepped
   // file download to use on a user interaction.
 
@@ -1355,6 +1363,18 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       content: audioContext.sampleRate,
     });
 
+    // Notify pieces of initial AudioContext state
+    console.log("🎵 BIOS sending initial AudioContext state:", { state: audioContext.state, hasAudio: true });
+    acDISK_SEND({ 
+      type: "tape:audio-context-state", 
+      content: { 
+        state: audioContext.state,
+        hasAudio: true
+      } 
+    });
+
+
+
     // Process any queued sounds now that audioContext is available
     processPendingSfx();
 
@@ -1609,14 +1629,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
       
       (async () => {
-        const baseUrl = "/aesthetic.computer/lib/speaker.mjs";
-        const cacheBuster = /*debug ?*/ `?time=${new Date().getTime()}`; // : "";
-        
-        // 🎵 WORKLET LOADING LOGGING
-        const workletLoadStart = performance.now();
-        // console.log(`🎵 WORKLET_LOAD_START: Loading ${baseUrl}${cacheBuster}`);
-        
-        await audioContext.audioWorklet.addModule(baseUrl + cacheBuster);
+        try {
+          const baseUrl = "/aesthetic.computer/lib/speaker.mjs";
+          const cacheBuster = /*debug ?*/ `?time=${new Date().getTime()}`; // : "";
+          
+          // 🎵 WORKLET LOADING LOGGING
+          const workletLoadStart = performance.now();
+          // console.log(`🎵 WORKLET_LOAD_START: Loading ${baseUrl}${cacheBuster}`);
+          
+          await audioContext.audioWorklet.addModule(baseUrl + cacheBuster);
         
         const workletLoadTime = performance.now() - workletLoadStart;
         // console.log(`🎵 WORKLET_LOADED: Took ${workletLoadTime.toFixed(3)}ms`);
@@ -1666,6 +1687,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             },
           };
         };
+
+        // Set flag to indicate worklet is ready
+        window.audioWorkletReady = true;
 
         updateBubble = function (bubble) {
           speakerProcessor.port.postMessage({ type: "bubble", data: bubble });
@@ -1760,9 +1784,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         processPendingSfx();
 
         modal.classList.remove("on");
+        } catch (workletError) {
+          console.error("🎵 BIOS: Audio worklet setup failed:", workletError);
+        }
       })();
     } catch (e) {
-      console.log("Sound failed to initialize:", e);
+      console.error("🎵 BIOS: Sound failed to initialize:", e);
     }
 
     function enableAudioPlayback(skip = false) {
@@ -1796,16 +1823,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   //          decoding all the sounds after an initial tap.
 
   async function playSfx(id, soundData, options, completed) {
-    // console.log("🎵 BIOS playSfx called:", {
-    //   id,
-    //   soundData,
-    //   options,
-    //   audioContextAvailable: !!audioContext,
-    //   sfxExists: !!sfx[soundData],
-    //   sfxType: sfx[soundData] ? typeof sfx[soundData] : "undefined"
-    // });
     
     if (audioContext) {
+      
       if (sfxCancel.includes(id)) {
         // console.log("🎵 BIOS playSfx cancelled for:", id);
         sfxCancel.length = 0;
@@ -1835,6 +1855,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
 
       if (!sfx[soundData]) {
+        // console.log("🎵 BIOS sfx not found after decode, queuing:", soundData);
         // `console.log("🎵 BIOS sfx not found, queuing:", soundData);
         // Queue the sound effect to be played once it's loaded
         pendingSfxQueue.push({
@@ -2598,6 +2619,48 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       MIDI.initialize(); // Start 🎹 Detection.
       return;
     }
+
+    // Handle audio context resume request from video piece
+    if (type === "audio-context:resume-request") {
+      console.log("🎵 BIOS received audio context resume request:", content);
+      if (audioContext && audioContext.state === "suspended") {
+        console.log("🎵 BIOS resuming audio context from user gesture");
+        const resumeStartTime = performance.now();
+        audioContext.resume().then(() => {
+          const resumeEndTime = performance.now();
+          window.audioContextResumeTimestamps.requestedAt = resumeStartTime;
+          window.audioContextResumeTimestamps.completedAt = resumeEndTime;
+          console.log("🎵 BIOS audio context resumed, new state:", audioContext.state);
+          
+          // Notify video piece of successful resume
+          console.log("🎵 BIOS sending updated AudioContext state after resume:", { state: audioContext.state, hasAudio: true });
+          send({ 
+            type: "tape:audio-context-state", 
+            content: { 
+              state: audioContext.state,
+              hasAudio: true
+            } 
+          });
+        }).catch(error => {
+          console.warn("🎵 BIOS audio context resume failed:", error.message);
+        });
+      } else if (audioContext) {
+        console.log("🎵 BIOS audio context already running:", audioContext.state);
+        // Send current state back to video piece
+        send({ 
+          type: "tape:audio-context-state", 
+          content: { 
+            state: audioContext.state,
+            hasAudio: true
+          } 
+        });
+      } else {
+        console.log("🎵 BIOS no audio context available");
+      }
+      return;
+    }
+
+
 
     // Respond to a request to send a message through to the iMessage extension.
     if (type === "imessage-extension:send") {
@@ -7320,7 +7383,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             try {
               // Resume audio context if suspended
               if (audioSource.context.state === 'suspended') {
+                const resumeStartTime = performance.now();
                 audioSource.context.resume().then(() => {
+                  const resumeEndTime = performance.now();
+                  window.audioContextResumeTimestamps.requestedAt = resumeStartTime;
+                  window.audioContextResumeTimestamps.completedAt = resumeEndTime;
                   audioSource.start(0);
                   audioStarted = true;
                 }).catch((resumeError) => {
@@ -7907,6 +7974,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 // Video will play silently, audio will start when user interacts
               }
               
+              // Store raw audio data for potential re-decoding when AudioContext becomes running
+              window.tapeAudioArrayBuffer = audioArrayBuffer.slice();
+              
               const audioBuffer = await ctx.decodeAudioData(audioArrayBuffer);
               sfx["tape:audio"] = audioBuffer;
               console.log(`📼 Audio loaded: ${audioBuffer.duration.toFixed(2)}s, ${audioBuffer.numberOfChannels} channels, ${audioBuffer.sampleRate}Hz`);
@@ -7935,6 +8005,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           });
           
           console.log("📼 Tape loaded and ready to play");
+          
+          // Send AudioContext state to video piece so it knows about audio
+          console.log("📼 🎵 Sending AudioContext state to video piece:", { state: audioContext?.state, hasAudio: !!audioContext });
+          send({ 
+            type: "tape:audio-context-state", 
+            content: { 
+              state: audioContext?.state,
+              hasAudio: !!audioContext
+            } 
+          });
           
           // Now trigger presentation by calling the same logic as recorder:present
           // We'll use a setTimeout to allow the tape:loaded message to be processed first
@@ -9957,15 +10037,42 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           // This is critical for pieces like wipppps that need to auto-play during recording
           if (audioContext && audioContext.state !== 'running') {
             console.log("🎵 TAPE_START: Activating audio context for programmatic playback, current state:", audioContext.state);
+            const resumeStartTime = performance.now();
             audioContext.resume().then(() => {
+              const resumeEndTime = performance.now();
+              window.audioContextResumeTimestamps.requestedAt = resumeStartTime;
+              window.audioContextResumeTimestamps.completedAt = resumeEndTime;
               console.log("🎵 TAPE_START: Audio context resumed, new state:", audioContext.state);
+              
+              // Notify video piece of AudioContext state change
+              send({ 
+                type: "tape:audio-context-state", 
+                content: { 
+                  state: audioContext.state,
+                  hasAudio: true
+                } 
+              });
             }).catch(error => {
               console.warn("🎵 TAPE_START: Audio context resume failed:", error.message);
             });
           } else if (audioContext) {
             console.log("🎵 TAPE_START: Audio context already running, state:", audioContext.state);
             // Even if running, explicitly call resume to ensure user gesture activation
-            audioContext.resume().catch(error => {
+            const resumeStartTime = performance.now();
+            audioContext.resume().then(() => {
+              const resumeEndTime = performance.now();
+              window.audioContextResumeTimestamps.requestedAt = resumeStartTime;
+              window.audioContextResumeTimestamps.completedAt = resumeEndTime;
+              
+              // Notify video piece of AudioContext state change
+              send({ 
+                type: "tape:audio-context-state", 
+                content: { 
+                  state: audioContext.state,
+                  hasAudio: true
+                } 
+              });
+            }).catch(error => {
               console.log("🎵 TAPE_START: Audio context re-resume (user gesture activation):", error.message);
             });
           }
@@ -10381,7 +10488,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             continuePlaying = false;
             pauseStart = performance.now();
             // Store current playback position
-            pausedAtPosition = (pauseStart - playbackStart) / (mediaRecorderDuration * 1000);
+            pausedAtPosition = (pauseStart - playbackStart) / mediaRecorderDuration;
+            
             // Kill all tape audio instances since pause is not available
             Object.keys(sfxPlaying).forEach(id => {
               if (id.startsWith("tape:audio_")) {
@@ -10399,14 +10507,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             }
             continuePlaying = true;
             isResuming = true; // Flag that we're resuming to prevent audio restart
-            window.requestAnimationFrame(update);
 
-            // Calculate how long we were paused and adjust playback start time
-            const pauseDuration = performance.now() - pauseStart;
+            // Mark the resume time to prevent timing adjustment compensation
+            const resumeTime = performance.now();
+            window.tapeResumeTimestamp = resumeTime;
+
+            // Calculate how long we were paused and adjust playback start time FIRST
+            const pauseDuration = resumeTime - pauseStart;
             playbackStart += pauseDuration;
 
             // Restart the audio from the paused position
-            if (!render && !sfxPlaying[tapeSoundId] && mediaRecorderDuration > 0) {
+            const workletReady = window.audioWorkletReady === true;
+            const audioContextReady = audioContext?.state === "running";
+            if (!render && workletReady && audioContextReady && mediaRecorderDuration > 0) {
               const clampedPosition = Math.max(0, Math.min(1, pausedAtPosition || 0));
 
               // Kill any existing tape audio before starting new one
@@ -10423,6 +10536,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               });
             }
 
+            window.requestAnimationFrame(update);
             send({ type: "recorder:present-playing" });
           };
 
@@ -10455,28 +10569,56 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               window.tapePlaybackPaused = false;
               window.tapePlaybackPauseTime = 0;
               
-              // Only play audio if not rendering video export and not resuming from pause
-              if (!render && !isResuming) {
-                // Kill any existing tape audio before starting new one
-                Object.keys(sfxPlaying).forEach(id => {
-                  if (id.startsWith("tape:audio_")) {
-                    sfxPlaying[id]?.kill();
-                    delete sfxPlaying[id];
-                  }
-                });
-                
-                tapeSoundId = "tape:audio_" + performance.now();
-                await playSfx(tapeSoundId, "tape:audio");
-              } else {
-                // Skip audio during video export or resume
-              }
-              // Will be silent if stream is here. ^
+              // Set playback timing BEFORE starting audio to ensure sync
               if (!isResuming) {
                 playbackStart = performance.now();
                 playbackProgress = 0;
               }
+              
               // Clear resume flag after handling frame 0
               isResuming = false;
+            }
+
+            // Handle audio playback - check if audio should be playing but isn't
+            const shouldHaveAudio = !render && mediaRecorderDuration > 0;
+            const hasAudioPlaying = Object.keys(sfxPlaying).some(id => id.startsWith("tape:audio_"));
+            const audioContextReady = audioContext?.state === "running";
+            const workletReady = window.audioWorkletReady === true;
+            
+            if (shouldHaveAudio && !hasAudioPlaying && audioContextReady && workletReady) {
+              // Calculate CURRENT position BEFORE any decoding
+              const currentPlaybackProgress = performance.now() - playbackStart; // ms
+              const currentAudioPosition = mediaRecorderDuration > 0
+                ? Math.max(0, Math.min(1, currentPlaybackProgress / mediaRecorderDuration))
+                : 0;
+              
+              // Check if we need to re-decode with running AudioContext
+              if (window.tapeAudioArrayBuffer && !window.tapeAudioDecodedWithRunningContext) {
+                try {
+                  const freshAudioBuffer = await audioContext.decodeAudioData(window.tapeAudioArrayBuffer.slice());
+                  sfx["tape:audio"] = freshAudioBuffer;
+                  window.tapeAudioDecodedWithRunningContext = true;
+                } catch (error) {
+                  console.error("🎵 Fresh decode failed:", error);
+                }
+              }
+              
+              // Use the position we calculated BEFORE decoding
+              const audioPosition = currentAudioPosition;
+              
+              // Update global tape position for auto-start sync
+              currentTapePosition = audioPosition;
+              
+              // Kill any existing tape audio before starting new one
+              Object.keys(sfxPlaying).forEach(id => {
+                if (id.startsWith("tape:audio_")) {
+                  sfxPlaying[id]?.kill();
+                  delete sfxPlaying[id];
+                }
+              });
+              
+              tapeSoundId = "tape:audio_" + performance.now();
+              await playSfx(tapeSoundId, "tape:audio", { from: audioPosition });
             }
 
             // Resize fctx here if the width and
@@ -10510,6 +10652,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             
             // Check for hang in critical 40% zone
             const currentProgress = f / (recordedFrames.length - 1);
+            
+            // Update global tape position for auto-start sync
+            currentTapePosition = currentProgress;
+            
             if (currentProgress > 0.35 && currentProgress < 0.45 && frameProcessingTime > 200) {
               console.warn(`CRITICAL ZONE SLOW PROCESSING: ${frameProcessingTime.toFixed(2)}ms at ${(currentProgress * 100).toFixed(2)}% (frame ${f})`);
             }
@@ -10586,10 +10732,30 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               const clampedTimeSinceUpdate = Math.min(timeSinceLastUpdate, maxRealisticFrameTime);
               
               if (timeSinceLastUpdate > maxRealisticFrameTime) {
-                console.log(`⏰ Large time gap detected: ${timeSinceLastUpdate.toFixed(0)}ms, clamped to ${maxRealisticFrameTime}ms to prevent fast-forward`);
-                // Adjust playbackStart to compensate for the suspended time
-                const suspendedTime = timeSinceLastUpdate - maxRealisticFrameTime;
-                playbackStart += suspendedTime;
+                // Large gap detected. Normally this indicates tab suspension and we
+                // compensate by advancing playbackStart. However, if the gap was
+                // caused by a user-gesture AudioContext resume or manual pause/resume,
+                // we should NOT perform that compensation.
+                const resumeCompletedAt = window.audioContextResumeTimestamps?.completedAt;
+                const tapeResumeAt = window.tapeResumeTimestamp;
+                const resumeGraceMs = 1000; // If resume completed within the last 1s, treat gap as resume
+                
+                const skipCompensation = 
+                  (resumeCompletedAt && (updateStartTime - resumeCompletedAt) < resumeGraceMs) ||
+                  (tapeResumeAt && (updateStartTime - tapeResumeAt) < resumeGraceMs);
+                
+                if (skipCompensation) {
+                  // Clear the timestamp after using it
+                  if (tapeResumeAt && (updateStartTime - tapeResumeAt) < resumeGraceMs) {
+                    window.tapeResumeTimestamp = null;
+                  }
+                } else {
+                  console.log(`⏰ Large time gap detected: ${timeSinceLastUpdate.toFixed(0)}ms, clamped to ${maxRealisticFrameTime}ms to prevent fast-forward`);
+                  // Adjust playbackStart to compensate for the suspended time
+                  const suspendedTime = timeSinceLastUpdate - maxRealisticFrameTime;
+                  playbackStart += suspendedTime;
+                  console.log(`⏰ Adjusted playback timing by ${suspendedTime.toFixed(0)}ms`);
+                }
               }
               
               // Recalculate playback progress after potential adjustment
