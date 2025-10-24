@@ -10,13 +10,17 @@ export default async function handleRequest(request) {
   if (path[1] === "media") {
     const resourcePath = path.slice(2).join("/");
 
-    // Handle /media/tapes/CODE or /media/paintings/CODE routes
+    // Handle /media/tapes/CODE, /media/paintings/CODE, or /media/pieces/SLUG routes
     if (path[2] === "tapes" && path[3]) {
       return await handleTapeCodeRequest(path[3]);
     }
     
     if (path[2] === "paintings" && path[3]) {
       return await handlePaintingCodeRequest(path[3]);
+    }
+    
+    if (path[2] === "pieces" && path[3]) {
+      return await handlePieceSlugRequest(path[3]);
     }
 
     if (!path[2]?.includes("@") && !path[2]?.match(/^ac[a-z0-9]+$/i)) {
@@ -248,6 +252,46 @@ async function handlePaintingCodeRequest(codeWithExtension) {
   } catch (error) {
     console.error(`Error fetching painting by code:`, error);
     return new Response("Error fetching painting", { status: 500 });
+  }
+}
+
+/**
+ * Handle piece slug requests like /media/pieces/SLUG or /media/pieces/SLUG.mjs
+ * @param {string} slugWithExtension - Piece slug with optional .mjs extension
+ * @returns {Response}
+ */
+async function handlePieceSlugRequest(slugWithExtension) {
+  // Strip .mjs extension if present
+  const slug = slugWithExtension.endsWith('.mjs') 
+    ? slugWithExtension.slice(0, -4) 
+    : slugWithExtension;
+  
+  // Pieces are stored in art-aesthetic-computer bucket (anonymous) or user bucket
+  // For now, try art bucket first (anonymous pieces)
+  const artBucket = "art-aesthetic-computer";
+  const mjsUrl = `https://${artBucket}.sfo3.digitaloceanspaces.com/${slug}.mjs`;
+  
+  try {
+    // Try to fetch the piece from DigitalOcean Spaces
+    const response = await fetch(mjsUrl);
+    
+    if (response.ok) {
+      // Return the .mjs file with proper headers
+      const moddedResponse = new Response(response.body, {
+        headers: { ...response.headers },
+        status: response.status,
+        statusText: response.statusText,
+      });
+      moddedResponse.headers.set("Access-Control-Allow-Origin", "*");
+      moddedResponse.headers.set("Content-Type", "application/javascript");
+      moddedResponse.headers.set("Content-Disposition", "inline");
+      return moddedResponse;
+    } else {
+      return new Response(`Piece not found: ${slug}`, { status: 404 });
+    }
+  } catch (error) {
+    console.error(`Error fetching piece by slug:`, error);
+    return new Response("Error fetching piece", { status: 500 });
   }
 }
 
