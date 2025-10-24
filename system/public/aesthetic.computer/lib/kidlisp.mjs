@@ -874,6 +874,7 @@ class KidLisp {
     this.globalDef.rightAmp = 0; // Right channel amplitude (0-10 scale)
     this.globalDef.beat = 0; // Beat detection (0 or 1)
     this.globalDef.kick = 0; // Kick drum / beat detected (0 or 1)
+    this.globalDef.mic = 0; // Microphone amplitude (0-1 scale, fun default when disconnected)
 
     this.localEnvStore = [{}];
     this.localEnv = this.localEnvStore[0];
@@ -933,6 +934,9 @@ class KidLisp {
     // Microphone state tracking
     this.microphoneConnected = false;
     this.microphoneApi = null;
+    this.micPermissionRequested = false; // Track if we've logged permission request
+    this.micDefaultMode = "sine"; // Default animation when disconnected: "sine", "noise", "pulse", or "static"
+    
     this.fastPathFunctions = new Set([
       "line",
       "ink",
@@ -1502,6 +1506,7 @@ class KidLisp {
     this.globalDef.rightAmp = 0; // Right channel amplitude (0-10 scale)
     this.globalDef.beat = 0; // Beat detection (0 or 1)
     this.globalDef.kick = 0; // Kick drum / beat detected (0 or 1)
+    this.globalDef.mic = 0; // Microphone amplitude (0-1 scale, fun default when disconnected)
 
     this.localEnvStore = [{}];
     this.localEnv = this.localEnvStore[0];
@@ -1525,6 +1530,7 @@ class KidLisp {
     // Reset microphone state
     this.microphoneConnected = false;
     this.microphoneApi = null;
+    this.micPermissionRequested = false;
 
     // Reset performance caches
     this.functionCache.clear();
@@ -3320,6 +3326,28 @@ class KidLisp {
             this.microphoneConnected = true;
             console.log("🎤 Microphone connected in kidlisp");
           }
+          
+          // 🎤 Update mic global variable
+          if (this.microphoneApi.connected) {
+            // Use real microphone amplitude when connected
+            this.globalDef.mic = this.microphoneApi.amplitude || 0;
+          } else {
+            // Fun default animation when not connected
+            this.globalDef.mic = this.getMicDefaultValue();
+          }
+        } else {
+          // No microphone API available - use fun default
+          this.globalDef.mic = this.getMicDefaultValue();
+        }
+        
+        // 🎤 DEBUG: Log mic value occasionally
+        if (this.frameCount % 120 === 0) {
+          console.log("🎤 Mic global:", {
+            value: this.globalDef.mic.toFixed(3),
+            connected: this.microphoneConnected,
+            hasApi: !!this.microphoneApi,
+            mode: this.microphoneConnected ? "live" : this.micDefaultMode
+          });
         }
 
         // Debug: Log mic data occasionally
@@ -3375,6 +3403,56 @@ class KidLisp {
         }
       },
     };
+  }
+
+  // 🎤 Get fun default mic value when microphone is not connected
+  // Returns a value from 0 to 1 based on the selected animation mode
+  getMicDefaultValue() {
+    const { frameCount } = this;
+    
+    switch (this.micDefaultMode) {
+      case "sine":
+        // Gentle sine wave oscillation (0.1 to 0.3 range for subtlety)
+        return 0.2 + Math.sin(frameCount * 0.05) * 0.1;
+      
+      case "noise":
+        // Fuzzy static/noise effect
+        return Math.random() * 0.15; // Low amplitude noise
+      
+      case "pulse":
+        // Rhythmic pulse (every ~2 seconds at 120fps)
+        const pulseFreq = 240; // frames between pulses
+        const pulsePhase = frameCount % pulseFreq;
+        return pulsePhase < 30 ? Math.sin((pulsePhase / 30) * Math.PI) * 0.4 : 0;
+      
+      case "static":
+        // Just return 0 (boring but predictable)
+        return 0;
+      
+      default:
+        // Default to sine wave
+        return 0.2 + Math.sin(frameCount * 0.05) * 0.1;
+    }
+  }
+
+  // 🎤 Request microphone connection (called when mic is accessed)
+  requestMicrophoneConnection(api) {
+    if (this.microphoneApi && !this.microphoneApi.connected) {
+      if (
+        this.microphoneApi.permission === "granted" &&
+        api?.sound?.enabled?.()
+      ) {
+        console.log("🎤 Auto-connecting microphone (mic accessed)");
+        this.microphoneApi.connect();
+      } else if (this.microphoneApi.permission !== "granted") {
+        // Log request for permission (one-time)
+        if (!this.micPermissionRequested) {
+          console.log("🎤 Microphone permission needed for 'mic' global - please grant access");
+          this.micPermissionRequested = true;
+          // Future: Could trigger UI prompt here
+        }
+      }
+    }
   }
 
   // Seeded random number generator for isolated state per instance
@@ -6168,43 +6246,13 @@ class KidLisp {
         if (args.length === 0) return undefined;
         return this.evaluate(args[0], api, this.localEnv);
       },
-      // 🎤 Microphone
+      // 🎤 Microphone (function version for backward compatibility and explicit control)
       mic: (api, args = []) => {
-        // Lazy connection: try to connect microphone if not already connected
-        if (this.microphoneApi && !this.microphoneApi.connected) {
-          if (
-            this.microphoneApi.permission === "granted" &&
-            api.sound?.enabled?.()
-          ) {
-            console.log("🎤 Lazy connecting microphone (mic function called)");
-            this.microphoneApi.connect();
-          } else if (this.microphoneApi.permission !== "granted") {
-            // Only log this occasionally to avoid spam
-            if (this.frameCount % 120 === 0) {
-              console.log(
-                "🎤 Microphone permission not granted, cannot connect",
-              );
-            }
-          }
-        }
-
-        // Debug: Log the current state (less frequently)
-        if (this.frameCount % 120 === 0 && this.microphoneApi) {
-          console.log(
-            "🎤 Mic function called - Connected:",
-            this.microphoneApi.connected,
-            "Amplitude:",
-            this.microphoneApi.amplitude,
-          );
-        }
-
-        // Return current amplitude if microphone is available and connected
-        if (this.microphoneApi && this.microphoneApi.connected) {
-          return this.microphoneApi.amplitude || 0;
-        }
-
-        // If not connected yet, return 0
-        return 0;
+        // Trigger connection attempt when function is called
+        this.requestMicrophoneConnection(api);
+        
+        // Return the current mic global value (updated in sim())
+        return this.globalDef.mic;
       },
       // 🔊 Real-time audio amplitude from speakers/system audio
       amplitude: (api, args = []) => {
@@ -7057,6 +7105,12 @@ class KidLisp {
         value = env[expr];
       } else if (Object.prototype.hasOwnProperty.call(this.globalDef, expr)) {
         value = this.globalDef[expr];
+        
+        // 🎤 Special case: Trigger mic connection on first access
+        if (expr === "mic") {
+          console.log("🎤 Mic global accessed! Current value:", this.globalDef.mic.toFixed(3));
+          this.requestMicrophoneConnection(api);
+        }
       }
 
       if (value !== undefined) {
