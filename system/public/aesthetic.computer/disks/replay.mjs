@@ -500,7 +500,7 @@ function receive(e) {
 }
 
 // 🎨 Paint
-function paint({ wipe, ink, write, screen, ui, help, rec, num, text, needsPaint }) {
+function paint({ wipe, ink, write, screen, ui, help, rec, num, text, needsPaint, sound }) {
   const centerX = floor(screen.width / 2);
   const centerY = floor(screen.height / 2);
   const now = Date.now();
@@ -512,6 +512,9 @@ function paint({ wipe, ink, write, screen, ui, help, rec, num, text, needsPaint 
   // Get playback state from rec object (provided by bios)
   const presenting = rec?.presenting ?? false;
   const isPlaying = rec?.playing ?? false;
+  
+  // Check if audio context needs user interaction
+  const audioSuspended = sound?.bios?.audioContext?.state === "suspended";
 
   const recPresentProgress = rec?.presentProgress ?? null;
   let progressState = progressActive ? deriveProgressState({
@@ -695,6 +698,35 @@ function paint({ wipe, ink, write, screen, ui, help, rec, num, text, needsPaint 
       loadedFramesCount,
       totalFramesCount,
     });
+    
+    // Show "TAP TO ENABLE AUDIO" prompt if audio context is suspended
+    if (audioSuspended) {
+      const pulse = Math.abs(Math.sin(time * 2)); // Pulse effect
+      const alpha = 128 + Math.floor(pulse * 127); // Fade between 128-255
+      
+      // Semi-transparent dark overlay
+      ink(0, 0, 0, 160).box(0, 0, screen.width, screen.height);
+      
+      // Pulsing prompt text
+      ink(255, 200, 100, alpha);
+      write("TAP TO ENABLE AUDIO", {
+        x: centerX,
+        y: centerY,
+        size: 1,
+        center: "xy",
+      });
+      
+      // Smaller instruction text
+      ink(200, 200, 200, alpha * 0.8);
+      write("Audio requires user interaction", {
+        x: centerX,
+        y: centerY + 20,
+        size: 0.5,
+        center: "xy",
+      });
+      
+      requestPaint(); // Keep animating the pulse
+    }
 
     return;
   }
@@ -717,19 +749,44 @@ function sim({ clock } = {}) {
 }
 
 // 🎪 Act
-function act({ event: e }) {
+function act({ event: e, sound }) {
   // Keyboard controls
   if (e.is("keyboard:down")) {
     if (e.key === " ") {
       // Spacebar: toggle play/pause
-      togglePlayback();
+      togglePlayback(sound);
       return false; // Prevent default
     }
+  }
+  
+  // Touch/tap controls
+  if (e.is("touch") || e.is("pen:down")) {
+    // Resume audio context if suspended (requires user gesture)
+    if (sound?.bios?.audioContext?.state === "suspended") {
+      console.log("🎵 Resuming audio context from user gesture");
+      sound.bios.audioContext.resume().then(() => {
+        console.log("🎵 Audio context resumed, state:", sound.bios.audioContext.state);
+      }).catch(err => {
+        console.warn("🎵 Failed to resume audio context:", err);
+      });
+    }
+    
+    // Toggle play/pause on tap
+    togglePlayback(sound);
+    return false; // Prevent default
   }
 }
 
 // Toggle play/pause
-function togglePlayback() {
+function togglePlayback(sound) {
+  // Resume audio context if needed
+  if (sound?.bios?.audioContext?.state === "suspended") {
+    console.log("🎵 Resuming audio context before playback toggle");
+    sound.bios.audioContext.resume().catch(err => {
+      console.warn("🎵 Failed to resume audio context:", err);
+    });
+  }
+  
   if (playing) {
     $send({ type: "recorder:present:pause" });
   } else {
