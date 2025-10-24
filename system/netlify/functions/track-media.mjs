@@ -11,6 +11,7 @@ import { authorize, getHandleOrEmail } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
 import { respond } from "../../backend/http.mjs";
 import { customAlphabet } from 'nanoid';
+import { createMediaRecord, deleteMediaRecord, MediaTypes } from "../../backend/media-atproto.mjs";
 
 const dev = process.env.CONTEXT === "dev";
 
@@ -107,12 +108,37 @@ export async function handler(event, context) {
         const logType = user ? "user" : "guest";
         console.log(`✅ Created ${logType} ${type.slice(0, -1)}: slug=${slug}, code=${code}`);
         
-        // Return code and paintingId to client
-        // ATProto sync happens separately via /api/sync-painting-atproto
+        // Sync to ATProto in background (don't wait for it)
+        const mediaType = type === "paintings" ? MediaTypes.PAINTING : MediaTypes.PIECE;
+        const paintingId = insertResult.insertedId;
+        
+        // Fetch the full record for ATProto sync
+        const savedRecord = await collection.findOne({ _id: paintingId });
+        
+        if (savedRecord) {
+          createMediaRecord(database, mediaType, savedRecord, { 
+            userSub: user?.sub 
+          })
+          .then(result => {
+            if (result.error) {
+              console.error(`⚠️  ATProto sync failed: ${result.error}`);
+            } else {
+              console.log(`✅ Synced to ATProto: ${result.rkey}`);
+              // Update MongoDB with rkey (fire and forget)
+              collection.updateOne(
+                { _id: paintingId },
+                { $set: { "atproto.rkey": result.rkey } }
+              ).catch(err => console.error(`⚠️  Failed to update rkey: ${err.message}`));
+            }
+          })
+          .catch(err => console.error(`⚠️  ATProto sync error: ${err.message}`));
+        }
+        
+        // Return code and paintingId to client immediately
         return respond(200, { 
           slug, 
           code,
-          paintingId: insertResult.insertedId.toString()
+          paintingId: paintingId.toString()
         });
       } catch (error) {
         console.error(`❌ Failed to insert ${type.slice(0, -1)}:`, error);
@@ -147,20 +173,20 @@ export async function handler(event, context) {
           { $set: { nuked: nuke } },
         );
 
-        // If nuking (not un-nuking) and painting has ATProto record, delete it
-        if (nuke && painting.atproto?.rkey && type === "paintings") {
-          console.log("🔄 Deleting painting from ATProto...");
+        // If nuking (not un-nuking) and has ATProto record, delete it
+        if (nuke && painting.atproto?.rkey) {
+          console.log("🔄 Deleting from ATProto...");
           try {
-            // Dynamic import to avoid ESM/require issues with sharp
-            const { deletePaintingFromAtproto } = await import("../../backend/painting-atproto.mjs");
-            await deletePaintingFromAtproto(
+            const mediaType = type === "paintings" ? MediaTypes.PAINTING : MediaTypes.PIECE;
+            await deleteMediaRecord(
               database,
+              mediaType,
               user.sub,
               painting.atproto.rkey
             );
-            console.log("✅ Painting deleted from ATProto");
+            console.log("✅ Deleted from ATProto");
           } catch (atprotoError) {
-            console.error("⚠️  Failed to delete painting from ATProto:", atprotoError);
+            console.error("⚠️  Failed to delete from ATProto:", atprotoError);
             // Continue anyway - MongoDB is already updated
           }
         }

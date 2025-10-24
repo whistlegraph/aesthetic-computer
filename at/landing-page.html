@@ -412,6 +412,10 @@ Created: 2025.10.20
           const count = user.recordCounts['computer.aesthetic.kidlisp'] || 0;
           badges.push(`<span class="user-badge">📝 ${count}</span>`);
         }
+        if (user.collections.includes('computer.aesthetic.tape')) {
+          const count = user.recordCounts['computer.aesthetic.tape'] || 0;
+          badges.push(`<span class="user-badge">📼 ${count}</span>`);
+        }
 
         // User codes (ac##*) don't get @ prefix, real handles do
         const displayHandle = user.isUserCode ? shortHandle : `@${shortHandle}`;
