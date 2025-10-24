@@ -78,6 +78,7 @@ export async function createTapeOnAtproto(database, mongoId, mp4Url) {
         $type: "computer.aesthetic.tape",
         slug: tape.slug,
         code: tape.code,
+        acUrl: `https://aesthetic.computer/!${tape.code}`,
         when: tape.when.toISOString(),
         video: blob,
         ref: mongoId,
