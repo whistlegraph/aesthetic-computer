@@ -279,11 +279,12 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
     a {
       color: rgb(205, 92, 155);
       text-decoration: none;
-      transition: color 0.2s;
+      transition: all 0.2s;
     }
 
     a:hover {
       color: rgb(255, 120, 200);
+      text-decoration: underline;
     }
 
     a:visited {
@@ -1316,13 +1317,13 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
         // Resolve DID (but don't display it - we're showing subtitles instead)
         const did = await resolveDID(handle);
 
-        // Fetch all collections
+        // Fetch all collections (tapes first)
         const collections = [
+          'computer.aesthetic.tape',
           'computer.aesthetic.painting',
           'computer.aesthetic.mood',
           'computer.aesthetic.piece',
-          'computer.aesthetic.kidlisp',
-          'computer.aesthetic.tape'
+          'computer.aesthetic.kidlisp'
         ];
 
         const recordsByCollection = {};
@@ -1344,14 +1345,25 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
         let firstRecords = null;
         let firstCollection = null;
 
+        // Helper to get display name for collection
+        function getDisplayName(collection) {
+          const name = collection.split('.').pop();
+          if (name === 'kidlisp') return 'KidLisp';
+          if (name === 'painting') return 'Paintings';
+          if (name === 'mood') return 'Moods';
+          if (name === 'piece') return 'Pieces';
+          if (name === 'tape') return 'Tapes';
+          return name.charAt(0).toUpperCase() + name.slice(1);
+        }
+
         // Collection tabs (show all, disable empty ones)
         collections.forEach(collection => {
           const records = recordsByCollection[collection];
           const count = records.length;
-          const name = collection.split('.').pop();
+          const displayName = getDisplayName(collection);
           const tab = document.createElement('button');
           tab.className = 'tab';
-          tab.innerHTML = `${name.charAt(0).toUpperCase() + name.slice(1)} (${count})`;
+          tab.innerHTML = `${displayName} (${count})`;
           
           if (count === 0) {
             tab.classList.add('disabled');
