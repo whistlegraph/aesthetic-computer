@@ -216,7 +216,6 @@ const LEXICONS = {
         $type: "computer.aesthetic.tape",
         slug,
         code,
-        zipUrl, // Direct link to download the ZIP
         acUrl: `https://aesthetic.computer/!${code}`,
         when: tapeDate.toISOString(),
         ref: refId
