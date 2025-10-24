@@ -416,6 +416,9 @@ Created: 2025.10.20
         if (user.collections.includes('computer.aesthetic.kidlisp')) {
           badges.push('<span class="user-badge">📝 Code</span>');
         }
+        if (user.collections.includes('computer.aesthetic.tape')) {
+          badges.push('<span class="user-badge">📼 Tapes</span>');
+        }
 
         card.innerHTML = `
           <div class="user-handle">@${user.handle.replace('.at.aesthetic.computer', '')}</div>
