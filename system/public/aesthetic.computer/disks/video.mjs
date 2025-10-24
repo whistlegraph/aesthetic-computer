@@ -60,12 +60,40 @@ let tapeLoadMessage = ""; // Status message
 
 // API references needed by receive() function
 let apiJump = null; // Stored from boot() for use in receive()
+let apiSend = null; // Stored from boot() for sending messages to BIOS
+
+// AudioContext state from BIOS (since sound.bios is false for video piece)
+let audioContextState = "suspended"; // suspended, running, closed
+let hasAudioContext = false;
+let audioManuallyActivated = false; // Track if user has manually activated audio
 
 const buttonBottom = 6;
 const buttonLeft = 6;
 const buttonSpacing = 6;
 
 const debug = false; // Toggle verbose logging for tape export flow
+
+// Handle audio context resume - BIOS will automatically start audio when context becomes available
+async function handleAudioContextAndPlay(sound, rec, triggerRender) {
+  console.log("🎵 Requesting BIOS to resume audio context - BIOS will auto-start tape audio");
+  
+  // Send resume request - BIOS will automatically detect tape playing and start audio
+  if (apiSend) {
+    apiSend({
+      type: "audio-context:resume-request",
+      content: {
+        userGesture: true,
+        source: "video-piece-first-tap",
+        forceResume: true // Force resume even if state appears to be running
+      }
+    });
+  } else {
+    console.warn("🎵 No apiSend available - cannot request audio context resume");
+  }
+  
+  console.log("🎵 Audio context resume requested - BIOS will handle the rest");
+  triggerRender();
+}
 
 // Enhanced progress tracking
 let exportStartTime = 0; // When export started
@@ -139,6 +167,7 @@ async function createAnimatedWebP(frames, send) {
 function boot({ wipe, rec, gizmo, jump, notice, store, params, send, hud }) {
   // Store API references for use in receive() function
   apiJump = jump;
+  apiSend = send;
   
   if (rec.recording) {
     notice("TAPING", ["yellow", "red"]);
@@ -252,6 +281,7 @@ function paint({
   screen,
   paintCount,
   needsPaint,
+  sound,
 }) {
   if (typeof needsPaint === "function") {
     requestPaint = needsPaint;
@@ -342,6 +372,36 @@ function paint({
   // Update HUD label to show tape code after posting
   if (postedTapeCode) {
     hud.label(`!${postedTapeCode}`);
+  }
+
+  // Show "TAP TO ENABLE AUDIO" prompt if audio context is suspended
+  const audioSuspended = !audioManuallyActivated && hasAudioContext && presenting;
+  
+  
+  if (audioSuspended && !isPrinting) {
+    const pulse = Math.abs(Math.sin(paintCount * 0.1)); // Pulse effect
+    const alpha = Math.floor(128 + pulse * 127); // Fade between 128-255
+    const centerX = screen.width / 2;
+    const centerY = screen.height / 2;
+    
+    // Semi-transparent dark overlay
+    ink(0, 0, 0, 160).box(0, 0, screen.width, screen.height);
+    
+    // Pulsing prompt text
+    ink(255, 200, 100, alpha).write("TAP TO ENABLE AUDIO", {
+      x: centerX,
+      y: centerY,
+      center: "xy",
+    });
+    
+    // Smaller instruction text
+    ink(200, 200, 200, alpha * 0.8).write("Audio requires user interaction", {
+      x: centerX,
+      y: centerY + 16,
+      center: "xy",
+    });
+    
+    requestPaint?.(); // Keep animating the pulse
   }
 
   // Export progress display (outside of presenting block so it shows during exports)
@@ -578,7 +638,7 @@ function act({
   download,
   num,
   jump,
-  sound: { synth },
+  sound,
   zip,
   send,
   store,
@@ -586,6 +646,8 @@ function act({
   screen,
   geo,
 }) {
+  // Extract synth from sound object for backward compatibility
+  const { synth } = sound;
   if (typeof needsPaint === "function") {
     requestPaint = needsPaint;
   }
@@ -1524,13 +1586,23 @@ function act({
       zipBtn?.down;
     
     if (!anyButtonDown && !isPrinting && !isPostingTape) {
-      if (e.is("touch:1") && !rec.playing) {
-        rec.play();
-        triggerRender();
-      }
-      if (e.is("touch:1") && rec.playing) {
-        rec.pause();
-        triggerRender();
+      if (e.is("touch:1")) {
+        // IMPORTANT: Check if user needs to manually activate audio FIRST
+        // When AudioContext needs user gesture, video plays silently (rec.playing = true)
+        // but we want the first tap to enable audio, not pause the video
+        if (!audioManuallyActivated && hasAudioContext && rec.playing) {
+          audioManuallyActivated = true;
+          handleAudioContextAndPlay(sound, rec, triggerRender);
+          return; // Exit early to prevent further touch handling
+        } else if (!rec.playing) {
+          // Normal play when audio is ready and video is not playing
+          rec.play();
+          triggerRender();
+        } else {
+          // Pause when already playing and audio context is ready
+          rec.pause();
+          triggerRender();
+        }
       }
     }
   }
@@ -1817,6 +1889,20 @@ function receive(e) {
   if (!e || typeof e.is !== "function") {
     console.warn("🎯 Event missing or e.is() not a function");
     return false;
+  }
+
+  // Handle AudioContext state updates from BIOS
+  if (e.is("tape:audio-context-state")) {
+    console.log("🎵 ✅ Video piece received AudioContext state:", e.content);
+    audioContextState = e.content?.state || "suspended";
+    hasAudioContext = !!e.content?.hasAudio;
+    console.log(`🎵 ✅ AudioContext state updated: ${audioContextState}, hasAudio: ${hasAudioContext}`);
+    return true;
+  }
+
+  // Debug: Log all message types to see what we're missing
+  if (e.type && e.type.includes("audio") || e.type && e.type.includes("tape")) {
+    console.log("🎯 🎵 AUDIO/TAPE MESSAGE:", e.type, e);
   }
 
   // Helper function to complete export and reset UI
