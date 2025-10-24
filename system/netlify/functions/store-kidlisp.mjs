@@ -5,6 +5,7 @@ import { authorize } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
 import { respond } from "../../backend/http.mjs";
 import { generateUniqueCode } from "../../backend/generate-short-code.mjs";
+import { createMediaRecord, MediaTypes } from "../../backend/media-atproto.mjs";
 import crypto from 'crypto';
 
 // Feature flag for Tezos integration (disabled by default until integration file exists)
@@ -181,8 +182,31 @@ export async function handler(event, context) {
       }
 
       try {
-        await collection.insertOne(doc);
+        const insertResult = await collection.insertOne(doc);
         console.log(`💾 Cached new source: ${code}`);
+        
+        // Sync to ATProto in background (don't wait for it)
+        const kidlispId = insertResult.insertedId;
+        const savedRecord = await collection.findOne({ _id: kidlispId });
+        
+        if (savedRecord) {
+          createMediaRecord(database, MediaTypes.KIDLISP, savedRecord, { 
+            userSub: user?.sub 
+          })
+          .then(result => {
+            if (result.error) {
+              console.error(`⚠️  ATProto sync failed: ${result.error}`);
+            } else {
+              console.log(`✅ Synced kidlisp to ATProto: ${result.rkey}`);
+              // Update MongoDB with rkey (fire and forget)
+              collection.updateOne(
+                { _id: kidlispId },
+                { $set: { "atproto.rkey": result.rkey } }
+              ).catch(err => console.error(`⚠️  Failed to update rkey: ${err.message}`));
+            }
+          })
+          .catch(err => console.error(`⚠️  ATProto sync error: ${err.message}`));
+        }
 
         // 🪙 Tezos Integration: Attempt to mint KidLisp meme coin
         let tezosResult = null;
