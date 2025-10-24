@@ -27,21 +27,28 @@ if not test -f $USER_PAGE_LOCAL
     exit 1
 end
 
-echo "📤 Uploading pages to PDS server..."
+echo "📤 Uploading pages to /tmp on PDS server..."
 
-# SSH into server and create web root if it doesn't exist
-ssh -i $SSH_KEY $PDS_SERVER "mkdir -p $WEB_ROOT"
-
-# Upload both pages
-scp -i $SSH_KEY $LANDING_PAGE_LOCAL "$PDS_SERVER:$WEB_ROOT/index.html"
-scp -i $SSH_KEY $USER_PAGE_LOCAL "$PDS_SERVER:$WEB_ROOT/user.html"
+# Upload to /tmp directory (temporary staging)
+scp -i $SSH_KEY $LANDING_PAGE_LOCAL "$PDS_SERVER:/tmp/index.html"
+scp -i $SSH_KEY $USER_PAGE_LOCAL "$PDS_SERVER:/tmp/user.html"
 
 if test $status -ne 0
     echo "❌ Failed to upload pages"
     exit 1
 end
 
-echo "✅ Pages uploaded successfully"
+echo "✅ Pages uploaded to /tmp"
+
+echo "📦 Copying files into Caddy container..."
+ssh -i $SSH_KEY $PDS_SERVER 'docker cp /tmp/index.html caddy:/data/www/index.html && docker cp /tmp/user.html caddy:/data/www/user.html'
+
+if test $status -ne 0
+    echo "❌ Failed to copy files into container"
+    exit 1
+end
+
+echo "✅ Files copied into container at /data/www"
 echo ""
 echo "🔧 Configuring Caddy to serve custom user pages..."
 
