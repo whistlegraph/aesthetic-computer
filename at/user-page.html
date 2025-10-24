@@ -494,7 +494,24 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
   </div>
 
   <script>
+    // Determine base URLs based on current environment
+    function getBaseURL() {
+      const hostname = window.location.hostname;
+      
+      // Dev mode: localhost or 127.0.0.1
+      if (hostname === '127.0.0.1' || hostname === 'localhost') {
+        // Always use localhost:8888 for dev (not 127.0.0.1 due to SSL cert)
+        return 'https://localhost:8888';
+      }
+      
+      // Production
+      return 'https://aesthetic.computer';
+    }
+    
+    const API_BASE_URL = getBaseURL();
     const PDS_URL = 'https://at.aesthetic.computer';
+    
+    console.log('🌐 API Base URL:', API_BASE_URL);
     
     // Modal functions
     function openModal(url) {
@@ -629,6 +646,131 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
     function getLexiconTypeName(lexicon) {
       // Get just the type name (e.g., "painting" from "computer.aesthetic.painting")
       return lexicon.split('.').pop();
+    }
+
+    // Parse kidlisp color escape codes (like \red\, \blue\, etc.) and convert to HTML
+    function parseColoredKidlisp(coloredString) {
+      if (!coloredString) return '';
+      
+      const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      
+      // Color mapping from kidlisp names to CSS colors
+      const colorMap = {
+        'red': '#ff0000',
+        'darkred': '#8b0000',
+        'orange': '#ff6600',
+        'yellow': isDark ? '#ffff00' : '#d4a000', // Darker yellow for light mode
+        'lime': isDark ? '#00ff00' : '#00a000', // Darker lime for light mode
+        'limegreen': '#32cd32',
+        'green': '#008000',
+        'cyan': isDark ? '#00ffff' : '#008b8b', // Darker cyan for light mode
+        'blue': '#0000ff',
+        'purple': '#800080',
+        'magenta': '#ff00ff',
+        'hotpink': '#ff69b4',
+        'white': isDark ? '#ffffff' : '#333333', // Dark gray for light mode
+        'black': isDark ? '#000000' : '#ffffff', // Invert for light mode
+        'gray': '#808080',
+        'grey': '#808080',
+        'mediumseagreen': '#3cb371',
+        'pink': '#ffc0cb',
+        'brown': '#a52a2a',
+        'violet': '#ee82ee',
+        '192,192,192': isDark ? 'rgb(192,192,192)' : 'rgb(100,100,100)' // Gray values
+      };
+      
+      const result = [];
+      let i = 0;
+      let currentColor = isDark ? '#ffffff' : '#333333'; // Default color based on theme
+      
+      while (i < coloredString.length) {
+        if (coloredString[i] === '\\' && i + 1 < coloredString.length) {
+          // Find the closing \
+          let j = i + 1;
+          while (j < coloredString.length && coloredString[j] !== '\\') {
+            j++;
+          }
+          if (j < coloredString.length) {
+            const colorName = coloredString.substring(i + 1, j);
+            // Check if it's a color code
+            if (colorMap[colorName.toLowerCase()]) {
+              currentColor = colorMap[colorName.toLowerCase()];
+            } else if (/^\d+,\d+,\d+(,\d+)?$/.test(colorName)) {
+              // RGB or RGBA value like "255,20,147" or "255,255,255,0"
+              currentColor = `rgb(${colorName})`;
+            }
+            i = j + 1;
+            continue;
+          }
+        }
+        
+        // Regular character - add with current color
+        const char = coloredString[i];
+        if (char === '<') {
+          result.push(`<span style="color: ${currentColor}">&lt;</span>`);
+        } else if (char === '>') {
+          result.push(`<span style="color: ${currentColor}">&gt;</span>`);
+        } else if (char === '&') {
+          result.push(`<span style="color: ${currentColor}">&amp;</span>`);
+        } else {
+          result.push(`<span style="color: ${currentColor}">${char}</span>`);
+        }
+        i++;
+      }
+      
+      return result.join('');
+    }
+    
+    // Load kidlisp.mjs and generate colored string
+    let kidlispModule = null;
+    let highlightCache = new Map(); // Cache highlighted results
+    
+    async function loadKidlispModule() {
+      if (kidlispModule) return kidlispModule;
+      try {
+        // Load from the correct path: /aesthetic.computer/lib/kidlisp.mjs
+        kidlispModule = await import('https://aesthetic.computer/aesthetic.computer/lib/kidlisp.mjs');
+        console.log('✅ Kidlisp module loaded successfully');
+        return kidlispModule;
+      } catch (error) {
+        console.error('❌ Failed to load kidlisp module:', error);
+        return null;
+      }
+    }
+    
+    async function highlightKidlisp(source) {
+      if (!source) return '';
+      
+      // Check cache first
+      if (highlightCache.has(source)) {
+        return highlightCache.get(source);
+      }
+      
+      try {
+        const module = await loadKidlispModule();
+        if (module && module.KidLisp) {
+          // Create a kidlisp instance for syntax highlighting
+          const kid = new module.KidLisp();
+          kid.syntaxHighlightSource = source;
+          const coloredString = kid.buildColoredKidlispString();
+          const result = parseColoredKidlisp(coloredString);
+          
+          // Cache the result
+          highlightCache.set(source, result);
+          return result;
+        } else {
+          console.warn('⚠️ Kidlisp module or KidLisp class not found');
+        }
+      } catch (error) {
+        console.error('❌ Syntax highlighting failed:', error);
+      }
+      
+      // Fallback: just escape and return plain
+      const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const color = isDark ? '#ffffff' : '#333333';
+      const fallback = `<span style="color: ${color}">${source.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span>`;
+      highlightCache.set(source, fallback);
+      return fallback;
     }
 
     async function openLexiconModal(lexicon) {
@@ -865,7 +1007,7 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
     }
 
     // Render a kidlisp record
-    function renderKidlisp(record) {
+    async function renderKidlisp(record) {
       const { value, uri } = record;
       const rkey = getRkey(uri);
       const lexicon = getLexicon(uri);
@@ -874,19 +1016,41 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
       const card = document.createElement('div');
       card.className = 'record-card';
       
+      const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const bgColor = isDark ? 'rgba(0,0,0,0.8)' : 'rgba(0,0,0,0.05)';
+      
+      // Create card with loading state
       card.innerHTML = `
         <div class="record-header">
           <span class="record-date">${formatDate(value.when || value.createdAt)}</span>
           <span class="lexicon-badge" onclick="openLexiconModal('${lexicon}')">${typeName}</span>
         </div>
         <div class="record-content">
-          <pre class="record-text" style="font-size: 0.85em; overflow-x: auto; background: rgba(0,0,0,0.05); padding: 0.5em; border-radius: 2px;">${value.source || ''}</pre>
+          <pre class="record-text" style="font-size: 0.85em; overflow-x: auto; background: ${bgColor}; padding: 0.5em; border-radius: 2px; color: #808080;">Loading syntax highlighting...</pre>
           <div style="margin-top: 0.5em; display: flex; gap: 0.5em; flex-wrap: wrap;">
             ${value.code ? `<a href="${value.acUrl || `https://aesthetic.computer/$${value.code}`}" class="record-link" style="display: inline-block; padding: 0.4em 0.8em; background: rgba(205, 92, 155, 0.1); border: 1px solid rgb(205, 92, 155); border-radius: 3px; font-size: 0.85em;">█ prompt.ac/<strong>$</strong><strong>${value.code}</strong></a>` : ''}
             <a href="https://pdsls.dev/at://${uri.split('//')[1]}" class="record-link" style="display: inline-block; padding: 0.4em 0.8em; background: rgba(100, 150, 200, 0.1); border: 1px solid rgb(100, 150, 200); border-radius: 3px; font-size: 0.85em; color: rgb(100, 150, 200);">${rkey}</a>
           </div>
         </div>
       `;
+      
+      // Highlight the source code asynchronously
+      if (value.source) {
+        highlightKidlisp(value.source).then(highlighted => {
+          const preElement = card.querySelector('.record-text');
+          if (preElement) {
+            preElement.innerHTML = highlighted;
+          }
+        }).catch(error => {
+          console.error('Highlighting error:', error);
+          // Fallback to plain text
+          const preElement = card.querySelector('.record-text');
+          if (preElement) {
+            preElement.textContent = value.source;
+            preElement.style.color = isDark ? '#ffffff' : '#333333';
+          }
+        });
+      }
       
       return card;
     }
@@ -924,9 +1088,9 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
           let sourceUrl;
           // Anonymous pieces use /media/pieces/slug, user pieces use /media/@handle/piece/slug.mjs
           if (handle === 'art.at.aesthetic.computer') {
-            sourceUrl = `https://aesthetic.computer/media/pieces/${value.slug}.mjs`;
+            sourceUrl = `${API_BASE_URL}/media/pieces/${value.slug}.mjs`;
           } else {
-            sourceUrl = `https://aesthetic.computer/media/@${handle}/piece/${value.slug}.mjs`;
+            sourceUrl = `${API_BASE_URL}/media/@${handle}/piece/${value.slug}.mjs`;
           }
           
           const response = await fetch(sourceUrl);
@@ -1008,7 +1172,7 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
         return dateB - dateA;
       });
 
-      // Use async forEach to handle piece rendering
+      // Use async forEach to handle piece and kidlisp rendering
       for (const record of sorted) {
         let card;
         if (collection.includes('painting')) {
@@ -1018,7 +1182,7 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
         } else if (collection.includes('tape')) {
           card = renderTape(record);
         } else if (collection.includes('kidlisp')) {
-          card = renderKidlisp(record);
+          card = await renderKidlisp(record);
         } else if (collection.includes('piece')) {
           card = await renderPiece(record, handle);
         } else {
