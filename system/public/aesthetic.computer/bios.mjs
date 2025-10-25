@@ -447,7 +447,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   let startTapePlayback,
     stopTapePlayback,
     pauseTapePlayback,
-    resumeTapePlayback;
+    resumeTapePlayback,
+    seekTapePlayback;
 
   let audioContextResuming = false; // Flag to track when AudioContext resume is in progress
   let audioContextResumeTimestamps = {}; // Store resume timestamps separately
@@ -10540,6 +10541,60 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             send({ type: "recorder:present-playing" });
           };
 
+          seekTapePlayback = (progress) => {
+            // Seek to a specific position in the tape (0.0 to 1.0)
+            const wasPlaying = continuePlaying;
+            continuePlaying = false; // Pause during seek
+            
+            // Clamp progress to valid range
+            progress = Math.max(0, Math.min(1, progress));
+            
+            // Calculate target frame
+            const targetFrame = Math.floor(progress * recordedFrames.length);
+            f = Math.max(0, Math.min(recordedFrames.length - 1, targetFrame));
+            
+            // Update playback progress
+            playbackProgress = progress;
+            pausedAtPosition = progress;
+            
+            // Adjust playback start time to match new position
+            const currentTime = performance.now();
+            playbackStart = currentTime - (progress * playbackDurationMs);
+            
+            // Update display with new frame
+            if (recordedFrames[f]) {
+              frameCtx.putImageData(recordedFrames[f][1], 0, 0);
+              send({ type: "recorder:present-progress", content: progress });
+            }
+            
+            // Resume if was playing, otherwise stay paused
+            if (wasPlaying) {
+              continuePlaying = true;
+              window.requestAnimationFrame(update);
+            }
+            
+            // Sync audio if available
+            const workletReady = window.audioWorkletReady === true;
+            const audioContextReady = audioContext?.state === "running";
+            if (!render && workletReady && audioContextReady && mediaRecorderDuration > 0) {
+              // Kill existing audio
+              Object.keys(sfxPlaying).forEach(id => {
+                if (id.startsWith("tape:audio_")) {
+                  sfxPlaying[id]?.kill();
+                  delete sfxPlaying[id];
+                }
+              });
+              
+              // Start audio from new position if playing
+              if (wasPlaying) {
+                tapeSoundId = "tape:audio_" + performance.now();
+                playSfx(tapeSoundId, "tape:audio", {
+                  from: progress,
+                });
+              }
+            }
+          };
+
           async function update() {
             if (!continuePlaying || !underlayFrame) {
               return;
@@ -10881,6 +10936,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (type === "recorder:present:pause") {
       if (underlayFrame && pauseTapePlayback) {
         pauseTapePlayback?.();
+      }
+      return;
+    }
+
+    if (type === "recorder:present:seek") {
+      if (underlayFrame && seekTapePlayback) {
+        const progress = content; // 0.0 to 1.0
+        seekTapePlayback?.(progress);
       }
       return;
     }
