@@ -1579,6 +1579,7 @@ function act({
     */
 
     // Toggle play/pause when tapping on video (not on buttons)
+    // Add scrubbing support: drag to seek, tap to play/pause
     const anyButtonDown = 
       postBtn?.down || 
       mp4Btn?.down || 
@@ -1586,7 +1587,32 @@ function act({
       zipBtn?.down;
     
     if (!anyButtonDown && !isPrinting && !isPostingTape) {
-      if (e.is("touch:1")) {
+      // Track touch start for tap vs drag detection
+      if (e.is("touch") || e.is("pen:down")) {
+        e.scrubStartX = e.x;
+        e.scrubbing = false;
+      }
+      
+      // Detect drag/scrub movement
+      if ((e.is("draw") || e.is("pen")) && e.drag && rec.presenting) {
+        const dragDistance = Math.abs(e.x - (e.scrubStartX || e.x));
+        
+        // Consider it scrubbing if dragged more than 10 pixels
+        if (dragDistance > 10) {
+          e.scrubbing = true;
+          
+          // Calculate seek position based on horizontal drag
+          // Map screen width to 0.0-1.0 progress
+          const progress = Math.max(0, Math.min(1, e.x / screen.width));
+          
+          // Send seek message to bios
+          send({ type: "recorder:present:seek", content: progress });
+          triggerRender();
+        }
+      }
+      
+      // Handle touch end - only toggle play/pause if it was a tap (not a scrub)
+      if (e.is("touch:1") && !e.scrubbing) {
         // IMPORTANT: Check if user needs to manually activate audio FIRST
         // When AudioContext needs user gesture, video plays silently (rec.playing = true)
         // but we want the first tap to enable audio, not pause the video
