@@ -233,9 +233,9 @@ function parse(text, location = self?.location) {
   // 2. Tokenize on " " or "~".
   const tokens = text.split("~");
 
-  // Map shorthand tape codes like !abc to the tape piece with params preserved
+  // Map shorthand tape codes like !abc to the video piece with params preserved
   if (tokens[0] && tokens[0].startsWith("!") && tokens[0].length > 1) {
-    tokens.unshift("replay");
+    tokens.unshift("video");
   }
 
   // 🤖 Check if this is a standalone kidlisp source (no piece name prefix)
