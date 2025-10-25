@@ -1316,8 +1316,8 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
           
           handleDisplay.innerHTML = `${colorCycledUsername}.at.aesthetic.computer`;
           
-          // Simple subtitle with just username
-          didDisplay.innerHTML = `<div style="font-size: 0.9em; margin-top: 0.5em; opacity: 0.8; line-height: 1.5; max-width: 600px; margin-left: auto; margin-right: auto;">All media by <span style="font-weight: bold;">@${username}</span>, synced to <a href="https://atproto.com" target="_blank" style="color: rgb(205, 92, 155); text-decoration: none;">ATProto</a> for open syndication via the <a href="https://at.aesthetic.computer" target="_blank" style="color: rgb(205, 92, 155); text-decoration: none;">at.aesthetic.computer</a> PDS instance.</div>`;
+          // Simple subtitle with username and Aesthetic Computer link
+          didDisplay.innerHTML = `<div style="font-size: 0.9em; margin-top: 0.5em; opacity: 0.8; line-height: 1.5; max-width: 600px; margin-left: auto; margin-right: auto;">All media by <span style="font-weight: bold;">@${username}</span> on <a href="https://aesthetic.computer" target="_blank" style="color: rgb(205, 92, 155); text-decoration: none;">Aesthetic Computer</a>, synced to <a href="https://atproto.com" target="_blank" style="color: rgb(205, 92, 155); text-decoration: none;">ATProto</a> for open syndication via the <a href="https://at.aesthetic.computer" target="_blank" style="color: rgb(205, 92, 155); text-decoration: none;">at.aesthetic.computer</a> PDS instance.</div>`;
         }
 
         // Resolve DID (but don't display it - we're showing subtitles instead)
