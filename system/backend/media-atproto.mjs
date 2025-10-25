@@ -123,7 +123,7 @@ const LEXICONS = {
       return {
         record: {
           $type: "computer.aesthetic.mood",
-          text: item.text,
+          mood: item.mood,  // Fixed: use 'mood' not 'text'
           when: item.when.toISOString(),
           ref: item._id.toString()
         }
