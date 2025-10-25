@@ -3164,10 +3164,7 @@ function paint($) {
       
       const handlesY = screen.height - 16; // 16 pixels from bottom
       
-      // Use palette if available, otherwise fallback to scheme
-      const handleColor = pal?.handleColor || ($.dark ? scheme.dark.handleColor : scheme.light.handleColor);
-      
-      ink(handleColor).write(
+      ink(pal.handleColor).write(
         `${handles.toLocaleString()} HANDLES SET`,
         {
           x: handlesX,
@@ -3197,10 +3194,7 @@ function paint($) {
         coloredText += `\\${color}\\${motd[i]}`;
       }
       
-      // Use palette if available, otherwise fallback to scheme
-      const handleColor = pal?.handleColor || ($.dark ? scheme.dark.handleColor : scheme.light.handleColor);
-      
-      ink(handleColor).write(
+      ink(pal.handleColor).write(
         coloredText,
         {
           center: "x",
