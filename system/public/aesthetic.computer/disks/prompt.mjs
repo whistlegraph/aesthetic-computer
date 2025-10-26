@@ -2306,11 +2306,17 @@ async function halt($, text) {
 function paint($) {
   if (fetchingUser) fetchUserAPI = $.api;
 
+  // Ensure pal is always defined with a fallback
+  pal = $.dark ? scheme.dark : scheme.light;
+
   // 🅰️ Paint below the prompt || scheme.
   if ($.store["painting"]) {
     $.wipe($.dark ? scheme.dark.background : scheme.light.background);
     $.system.nopaint.present($); // Render the painting.
-    pal = $.system.prompt.input.pal;
+    // Override pal if available from nopaint
+    if ($.system.prompt.input.pal) {
+      pal = $.system.prompt.input.pal;
+    }
     scheme.dark.background[3] = 176; // Half semi-opaque palette background.
     scheme.light.background[3] = 190;
   } else {
@@ -2510,6 +2516,9 @@ function paint($) {
     }
   }
 
+  // Calculate MOTD offset (do this before book rendering so it's always available)
+  let motdXOffset = 0;
+  
   // 📚 Paint book button (only on login curtain, in top-right area)
   if (showLoginCurtain && bookImageScaled) {
     // Use pre-scaled cached image
@@ -2608,8 +2617,88 @@ function paint($) {
       );
     }
     
-    // Only show book if it won't overlap with buttons
-    const shouldShowBook = !wouldOverlap;
+    // Check overlap with MOTD (if present) and calculate offset if needed
+    if (motd && screen.height >= 180) {
+      // Calculate approximate MOTD bounding box with more aggressive wrapping
+      const motdMaxWidth = Math.min(screen.width - 18, 150); // Cap at 150px for much tighter wrapping
+      const motdY = screen.height / 2 - 48;
+      const motdCharWidth = 6; // Default font char width
+      const motdLineHeight = 10; // Default font line height
+      const motdLines = Math.ceil((motd.length * motdCharWidth) / motdMaxWidth);
+      const motdHeight = motdLines * motdLineHeight;
+      const motdWidth = Math.min(motd.length * motdCharWidth, motdMaxWidth);
+      
+      // First, check if centered MOTD would overlap with book
+      const centeredMotdBox = {
+        x: (screen.width - motdWidth) / 2,
+        y: motdY - 4,
+        w: motdWidth,
+        h: motdHeight + 8
+      };
+      
+      const motdWouldOverlap = (
+        bookAdBox.x < centeredMotdBox.x + centeredMotdBox.w &&
+        bookAdBox.x + bookAdBox.w > centeredMotdBox.x &&
+        bookAdBox.y < centeredMotdBox.y + centeredMotdBox.h &&
+        bookAdBox.y + bookAdBox.h > centeredMotdBox.y
+      );
+      
+      // Apply offset if there would be overlap with centered MOTD
+      if (motdWouldOverlap) {
+        // Apply graduated offset based on screen width
+        if (screen.width >= 400) {
+          motdXOffset = -60;
+        } else if (screen.width >= 280) {
+          // For smaller screens, shift more aggressively
+          motdXOffset = -80;
+        } else {
+          // Very small screens - shift even more
+          motdXOffset = -100;
+        }
+        
+        // Recalculate MOTD box based on how it will ACTUALLY be positioned
+        let actualMotdBox;
+        const leftMargin = 9;
+        
+        if (screen.width < 400) {
+          // Will be left-aligned on narrow screens
+          actualMotdBox = {
+            x: leftMargin,
+            y: motdY - 4,
+            w: motdWidth,
+            h: motdHeight + 8
+          };
+        } else {
+          // Will be offset from center on wider screens
+          const offsetMotdCenterX = screen.width / 2 + motdXOffset;
+          actualMotdBox = {
+            x: offsetMotdCenterX - (motdWidth / 2),
+            y: motdY - 4,
+            w: motdWidth,
+            h: motdHeight + 8
+          };
+        }
+        
+        // Check if actual position still overlaps with book
+        const stillOverlaps = (
+          bookAdBox.x < actualMotdBox.x + actualMotdBox.w &&
+          bookAdBox.x + actualMotdBox.w > actualMotdBox.x &&
+          bookAdBox.y < actualMotdBox.y + actualMotdBox.h &&
+          bookAdBox.y + actualMotdBox.h > actualMotdBox.y
+        );
+        
+        // Only mark as overlapping if the shift didn't help
+        if (stillOverlaps) {
+          wouldOverlap = true;
+        }
+      }
+    }
+    
+    // Hide book if screen is too narrow (less than 220px wide to allow more room)
+    const screenTooNarrow = screen.width < 220;
+    
+    // Only show book if it won't overlap with buttons/MOTD and screen is wide enough
+    const shouldShowBook = !wouldOverlap && !screenTooNarrow;
     
     if (shouldShowBook) {
     
@@ -2725,9 +2814,32 @@ function paint($) {
     // Subtle dark shadow (not blinking) - tighter offset
     ink(0, 0, 0, isDark ? 80 : 50).write(priceText, { x: priceTextX + 0.5, y: priceTextY + 0.5, size: priceScale }, undefined, undefined, false, priceFont);
 
-    // Price text (green or highlighted)
-    const priceColor = bookButton.down ? priceDownColor : (isHighlighted ? priceHoverColor : priceNormalColor);
-    ink(...priceColor).write(priceText, { x: priceTextX, y: priceTextY, size: priceScale }, undefined, undefined, false, priceFont);
+    // Price text - dimmed (gray instead of green)
+    const dimmedPriceColor = isDark ? [100, 100, 100] : [150, 150, 150]; // Gray color
+    ink(...dimmedPriceColor).write(priceText, { x: priceTextX, y: priceTextY, size: priceScale }, undefined, undefined, false, priceFont);
+    
+    // Draw "SOLD" banner centered on the book with unique animation
+    const soldText = "SOLD";
+    const soldTextWidth = soldText.length * 6; // Default font is 6px wide per character
+    const soldTextHeight = 8; // Default font height
+    const soldPadding = 4;
+    
+    // Center position on book (with slower side-to-side sway)
+    const soldSway = Math.sin(bookRotation * 0.05) * 2; // Slower side-to-side, 2px range
+    const soldX = bookX + (bookW / 2) - (soldTextWidth / 2) + driftX + soldSway;
+    const soldY = bookY + (bookH / 2) - (soldTextHeight / 2) + driftY;
+    
+    // Red banner background with pulsing opacity
+    const soldBgAlpha = Math.abs(Math.sin(bookRotation * 0.08)) * 80 + 160; // Pulse between 160-240
+    ink(200, 0, 0, soldBgAlpha).box(soldX - soldPadding, soldY - soldPadding, soldTextWidth + soldPadding * 2, soldTextHeight + soldPadding * 2);
+    
+    // SOLD text blinking between yellow and red
+    const soldBlink = Math.sin(bookRotation * 0.12) > 0; // Boolean blink
+    const soldColor = soldBlink ? [255, 255, 0] : [255, 50, 50]; // Yellow or bright red
+    
+    // Shadow for SOLD text
+    ink(0, 0, 0, 180).write(soldText, { x: soldX + 1, y: soldY + 1 });
+    ink(...soldColor).write(soldText, { x: soldX, y: soldY });
     } else if (bookButton) {
       // Hide book button if screen too small or would overlap
       bookButton.disabled = true;
@@ -2960,7 +3072,7 @@ function paint($) {
     const tickerSpacing = 0; // No space between tickers for tight stripes
     const tickerPadding = 3; // Padding around text
     
-    let currentTickerY = loginY + 30; // Start 30px below login
+    let currentTickerY = loginY + 44; // Start 44px below login (moved down from 30px)
     
     // 1. CHAT TICKER (top priority)
     if ($.chat.messages.length > 0 && screen.height >= 180) {
@@ -3151,27 +3263,63 @@ function paint($) {
       contentTickerButton = null;
     }
 
-    // Handle Stats - moved to bottom left, to the right of paste button
+    // Handle Stats - positioned directly under login button
     if (handles && screen.height >= 100) {
-      // Position in bottom left, accounting for paste button
-      const pasteBtn = $.system.prompt.input?.paste?.btn;
-      let handlesX = 6; // Default left padding
+      // Position directly under the login button
+      let handlesY = screen.height - 16; // Default bottom position
       
-      if (pasteBtn && !pasteBtn.disabled) {
-        // Position to the right of paste button
-        handlesX = pasteBtn.box.x + pasteBtn.box.w + 6;
+      if (login && !login.btn.disabled && login.btn.box) {
+        // Position directly under login button with extra spacing
+        handlesY = login.btn.box.y + login.btn.box.h + 8; // 8px gap below button (moved down)
       }
       
-      const handlesY = screen.height - 16; // 16 pixels from bottom
+      // Use MatrixChunky8 font for more compact display, centered
+      const handlesText = `${handles.toLocaleString()} HANDLES SET`;
       
-      ink(pal.handleColor).write(
-        `${handles.toLocaleString()} HANDLES SET`,
+      // Shadow color (black in dark mode, white in light mode)
+      const handlesShadowColor = $.dark ? [0, 0, 0] : [255, 255, 255];
+      
+      // Draw shadow first (offset by 1px)
+      ink(...handlesShadowColor).write(
+        handlesText,
         {
-          x: handlesX,
+          center: "x",
+          y: handlesY + 1,
+        },
+        undefined,
+        undefined,
+        false,
+        "MatrixChunky8"
+      );
+      
+      // Cyberpunk-style flicker effect - build colored text string with per-character colors
+      const baseHandleColor = pal.handleColor;
+      let coloredHandlesText = "";
+      
+      // Build text with individual character colors for flicker effect
+      for (let i = 0; i < handlesText.length; i++) {
+        const char = handlesText[i];
+        
+        // Each character has a chance to flicker independently
+        const flickerIntensity = Math.random() < 0.15 ? Math.random() * 0.6 : 0; // 15% chance of flicker
+        const r = Math.floor(Math.max(0, baseHandleColor[0] * (1 - flickerIntensity)));
+        const g = Math.floor(Math.max(0, baseHandleColor[1] * (1 - flickerIntensity * 0.8)));
+        const b = Math.floor(Math.max(0, baseHandleColor[2] * (1 - flickerIntensity * 0.5)));
+        
+        coloredHandlesText += `\\${r},${g},${b}\\${char}`;
+      }
+      
+      // Draw main text with per-character flicker
+      ink(pal.handleColor).write(
+        coloredHandlesText,
+        {
+          center: "x",
           y: handlesY,
         },
-        [255, 50, 200, 24],
-        screen.width - handlesX - 6,
+        undefined,
+        undefined,
+        false,
+        "MatrixChunky8"
       );
     }
 
@@ -3194,17 +3342,29 @@ function paint($) {
         coloredText += `\\${color}\\${motd[i]}`;
       }
       
+      // Use more aggressive text wrapping (max 150px) to keep MOTD compact
+      const motdMaxWidth = Math.min(screen.width - 18, 150);
+      
+      // Determine alignment: left-align when book needs room on narrow screens
+      let writePos;
+      const leftMargin = 9;
+      
+      if (motdXOffset < 0 && screen.width < 400) {
+        // Left-align on narrow screens when overlapping with book
+        writePos = { x: leftMargin, y: Math.floor(motdY) };
+      } else {
+        // Center by default
+        writePos = { center: "x", y: Math.floor(motdY) };
+      }
+      
       ink(pal.handleColor).write(
         coloredText,
-        {
-          center: "x",
-          y: Math.floor(motdY),
-        },
+        writePos,
         [255, 50, 200, 24],
-        screen.width - 18,
+        motdMaxWidth,
       );
       
-      $.needsPaint(); // Keep animating
+      $.needsPaint();
     }
   }
 
