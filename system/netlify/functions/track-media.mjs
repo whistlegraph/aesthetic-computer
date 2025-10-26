@@ -85,9 +85,9 @@ export async function handler(event, context) {
       const slug = body.slug;
       
       // Create indexes (safe to call multiple times)
-      // Use sparse: true for code index to match existing index
+      // Note: Match existing index specs exactly to avoid conflicts
       await collection.createIndex({ code: 1 }, { unique: true, sparse: true });
-      await collection.createIndex({ user: 1 }, { sparse: true }); // sparse: only index docs with user field
+      await collection.createIndex({ user: 1 }); // No sparse - matches existing index
       await collection.createIndex({ when: 1 });
       await collection.createIndex({ slug: 1 });
       if (user) {
