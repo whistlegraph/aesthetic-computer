@@ -8399,6 +8399,17 @@ async function makeFrame({ data: { type, content } }) {
             ext: ext,
           });
           
+          if (trackResponse.status === 401) {
+            // Session expired - trigger logout
+            const errorData = await trackResponse.json();
+            if (errorData.code === "SESSION_EXPIRED") {
+              console.warn("🔒 Session expired, logging out...");
+              await $commonApi.net.logout();
+              console.log("✅ Logged out due to expired session");
+            }
+            return; // Stop processing this upload
+          }
+          
           if (trackResponse.status === 200) {
             const trackData = await trackResponse.json();
             // Add the short code to the response data
