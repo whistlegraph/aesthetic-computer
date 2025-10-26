@@ -308,25 +308,34 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
       display: flex;
       align-items: center;
       justify-content: center;
+      padding: 60px 20px 20px;
     }
 
     .modal-content {
-      width: 85vw;
-      height: 85vh;
+      width: min(90vw, calc((100vh - 100px) * 4 / 3));
       max-width: 1200px;
-      max-height: 800px;
+      aspect-ratio: 4 / 3;
       background: black;
       border: 2px solid rgb(205, 92, 155);
       border-radius: 8px;
       position: relative;
       overflow: hidden;
       animation: scaleIn 0.3s ease-out;
+      display: flex;
+      flex-direction: column;
+    }
+
+    @media (max-width: 768px) {
+      .modal-content {
+        width: min(95vw, calc((100vh - 80px) * 4 / 3));
+      }
     }
 
     .modal-close {
-      position: absolute;
-      top: -50px;
-      right: 0;
+      position: fixed;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
       background: rgb(205, 92, 155);
       color: white;
       border: none;
@@ -344,8 +353,8 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
     }
 
     .modal-iframe {
-      width: 85vw;
-      height: 85vh;
+      width: 100%;
+      height: 100%;
       border: none;
       border-radius: 8px;
       box-shadow: 0 8px 24px rgba(0,0,0,0.5);
