@@ -1,7 +1,7 @@
 <!--
 ATProto PDS Landing Page for at.aesthetic.computer
-Uses ONLY AT Protocol APIs - no aesthetic.computer backend dependencies
-Created: 2025.10.20
+Top 100 Users - Simple flat list design
+Created: 2025.10.25
 -->
 <!DOCTYPE html>
 <html lang="en">
@@ -24,167 +24,192 @@ Created: 2025.10.20
     
     body {
       margin: 0;
-      font-size: 16px;
+      font-size: 14px;
       font-family: monospace;
       -webkit-text-size-adjust: none;
       background: #f5f5f5;
       color: #000;
-      line-height: 1.5;
+      line-height: 1.4;
     }
 
     .container {
-      max-width: 1200px;
+      max-width: 900px;
       margin: 0 auto;
-      padding: 2em 1em;
+      padding: 1em 0.5em;
     }
 
     header {
       text-align: center;
-      padding: 2em 0;
-      border-bottom: 3px solid rgb(205, 92, 155);
-      margin-bottom: 2em;
+      padding: 1em 0;
+      border-bottom: 2px solid rgb(205, 92, 155);
+      margin-bottom: 1em;
     }
 
     h1 {
-      font-size: 2.5em;
+      font-size: 1.5em;
       font-weight: normal;
       margin: 0 0 0.3em 0;
       color: rgb(205, 92, 155);
     }
 
-    h2 {
-      font-size: 1.5em;
-      font-weight: normal;
-      margin: 2em 0 1em 0;
-      color: rgb(205, 92, 155);
-    }
-
     .subtitle {
-      font-size: 0.9em;
-      opacity: 0.7;
-      margin: 0.5em 0;
-    }
-
-    .url-demo {
-      font-family: monospace;
-      font-size: 2.5em;
-      margin: 0 0 1em 0;
-      font-weight: normal;
-    }
-
-    .url-demo .user-part {
-      color: #999;
-      transition: opacity 0.3s;
-    }
-
-    .url-demo .domain-part {
-      color: rgb(205, 92, 155);
-      font-weight: bold;
-    }
-
-    .intro {
-      text-align: center;
-      max-width: 600px;
-      margin: 0 auto 2em;
-      line-height: 1.6;
-    }
-
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 1em;
-      margin: 2em 0;
-    }
-
-    .stat-card {
-      background: white;
-      padding: 1.5em;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-      text-align: center;
-    }
-
-    .stat-value {
-      font-size: 2em;
-      font-weight: bold;
-      color: rgb(205, 92, 155);
-      margin: 0.2em 0;
-    }
-
-    .stat-label {
       font-size: 0.85em;
       opacity: 0.7;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
+      margin: 0.3em 0;
     }
 
-    .user-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-      gap: 0.75em;
-      margin: 2em 0;
+    .stats {
+      display: flex;
+      gap: 1em;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin: 0.5em 0;
+      font-size: 0.75em;
     }
 
-    .user-card {
+    .stat {
+      padding: 0.3em 0.6em;
+      background: rgba(205, 92, 155, 0.1);
+      border-radius: 3px;
+    }
+
+    .stat strong {
+      color: rgb(205, 92, 155);
+    }
+
+    .section-title {
+      font-size: 1.2em;
+      font-weight: normal;
+      margin: 1em 0 0.5em 0;
+      padding-bottom: 0.3em;
+      border-bottom: 1px solid rgba(205, 92, 155, 0.3);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .section-count {
+      font-size: 0.7em;
+      color: rgb(205, 92, 155);
+      font-weight: bold;
+    }
+
+    .search-box {
+      margin: 1em 0;
+    }
+
+    .search-box input {
+      font-family: monospace;
+      font-size: 0.9em;
+      padding: 0.6em 0.8em;
+      width: 100%;
+      border: 1px solid rgba(205, 92, 155, 0.3);
+      border-radius: 3px;
+      outline: none;
       background: white;
-      padding: 1em;
-      border-radius: 6px;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      transition: border-color 0.2s;
+    }
+
+    .search-box input:focus {
+      border-color: rgb(205, 92, 155);
+    }
+
+    .user-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .user-row {
+      background: white;
+      padding: 0.75em;
+      border-bottom: 1px solid rgba(205, 92, 155, 0.1);
       text-decoration: none;
       color: inherit;
       transition: all 0.2s;
       display: flex;
-      flex-direction: column;
+      justify-content: space-between;
       align-items: center;
-      text-align: center;
+      gap: 1em;
     }
 
-    .user-card:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(205, 92, 155, 0.2);
-      border: 2px solid rgb(205, 92, 155);
-      padding: calc(1em - 2px);
+    .user-row:first-child {
+      border-radius: 4px 4px 0 0;
+    }
+
+    .user-row:last-child {
+      border-radius: 0 0 4px 4px;
+      border-bottom: none;
+    }
+
+    .user-row:hover {
+      background: rgba(205, 92, 155, 0.05);
+      padding-left: 1em;
+    }
+
+    .user-left {
+      display: flex;
+      align-items: center;
+      gap: 0.75em;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .user-rank {
+      font-size: 0.75em;
+      color: rgba(205, 92, 155, 0.5);
+      font-weight: bold;
+      min-width: 2.5em;
+      text-align: right;
     }
 
     .user-handle {
       font-weight: bold;
       color: rgb(205, 92, 155);
-      margin-bottom: 0.5em;
-      word-break: break-word;
+      word-break: break-all;
     }
 
-    .user-stats {
-      font-size: 0.75em;
-      opacity: 0.6;
-      margin-top: 0.5em;
+    .user-right {
+      display: flex;
+      gap: 0.5em;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: flex-end;
     }
 
     .user-badge {
-      display: inline-block;
-      padding: 0.2em 0.5em;
+      font-size: 0.7em;
+      padding: 0.3em 0.5em;
       background: rgba(205, 92, 155, 0.1);
       border-radius: 3px;
-      font-size: 0.7em;
-      margin: 0.2em;
+      white-space: nowrap;
+    }
+
+    .user-total {
+      font-size: 0.75em;
+      color: rgba(0, 0, 0, 0.5);
+      font-weight: bold;
+      min-width: 3em;
+      text-align: right;
     }
 
     .loading {
       text-align: center;
-      padding: 3em;
-      opacity: 0.5;
+      padding: 3em 2em;
+      opacity: 0.6;
     }
 
     .error {
       text-align: center;
-      padding: 3em;
+      padding: 3em 2em;
       color: #d32f2f;
     }
 
     .spinner {
       display: inline-block;
-      width: 20px;
-      height: 20px;
-      border: 3px solid rgba(205, 92, 155, 0.3);
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(205, 92, 155, 0.3);
       border-radius: 50%;
       border-top-color: rgb(205, 92, 155);
       animation: spin 1s ease-in-out infinite;
@@ -194,32 +219,11 @@ Created: 2025.10.20
       to { transform: rotate(360deg); }
     }
 
-    .search-box {
-      margin: 2em 0;
-      text-align: center;
-    }
-
-    .search-box input {
-      font-family: monospace;
-      font-size: 1em;
-      padding: 0.75em 1em;
-      width: 100%;
-      max-width: 400px;
-      border: 2px solid #e0e0e0;
-      border-radius: 6px;
-      outline: none;
-      transition: border-color 0.2s;
-    }
-
-    .search-box input:focus {
-      border-color: rgb(205, 92, 155);
-    }
-
     footer {
       text-align: center;
-      padding: 3em 1em 1em;
+      padding: 2em 1em 1em;
       opacity: 0.5;
-      font-size: 0.85em;
+      font-size: 0.75em;
     }
 
     footer a {
@@ -231,15 +235,33 @@ Created: 2025.10.20
       text-decoration: underline;
     }
 
+    @media (max-width: 768px) {
+      .user-right {
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 0.3em;
+      }
+
+      .user-badges {
+        display: flex;
+        gap: 0.3em;
+        flex-wrap: wrap;
+      }
+    }
+
     @media (prefers-color-scheme: dark) {
       body {
         background: rgb(64, 56, 74);
         color: rgba(255, 255, 255, 0.85);
       }
 
-      .stat-card, .user-card {
+      .user-row {
         background: rgba(255, 255, 255, 0.05);
-        color: rgba(255, 255, 255, 0.85);
+        border-bottom-color: rgba(205, 92, 155, 0.2);
+      }
+
+      .user-row:hover {
+        background: rgba(205, 92, 155, 0.1);
       }
 
       .search-box input {
@@ -251,6 +273,10 @@ Created: 2025.10.20
       .search-box input:focus {
         border-color: rgb(205, 92, 155);
       }
+
+      .user-total {
+        color: rgba(255, 255, 255, 0.5);
+      }
     }
   </style>
 </head>
@@ -258,43 +284,25 @@ Created: 2025.10.20
 <body>
   <div class="container">
     <header>
-      <div class="url-demo">
-        <span class="user-part" id="rotating-user">jeffrey</span><span class="domain-part">.at.aesthetic.computer</span>
-      </div>
+      <h1>at.aesthetic.computer</h1>
       <div class="subtitle">Personal Data Server · ATProto Network</div>
+      <div class="stats">
+        <div class="stat"><strong id="total-users">...</strong> users</div>
+        <div class="stat"><strong id="total-records">...</strong> records</div>
+        <div class="stat"><strong id="active-today">...</strong> active today</div>
+      </div>
     </header>
 
-    <div class="intro">
-      <p>
-        Welcome to the <strong>Aesthetic Computer</strong> Personal Data Server (PDS).
-        This server hosts ATProto records for the community, including paintings, moods, pieces, and kidlisp code.
-      </p>
-      <p>
-        Browse user pages below to explore their creative work! 🎨
-      </p>
+    <div class="section-title">
+      <span>🌟 Top Users</span>
+      <span class="section-count" id="showing-count">...</span>
     </div>
 
-    <div class="stats-grid">
-      <div class="stat-card">
-        <div class="stat-value" id="total-users">...</div>
-        <div class="stat-label">Total Users</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value" id="total-records">...</div>
-        <div class="stat-label">Total Records</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value" id="active-today">...</div>
-        <div class="stat-label">Active Today</div>
-      </div>
-    </div>
-
-    <h2>🌟 Top Active Users</h2>
     <div class="search-box">
       <input 
         type="text" 
         id="search" 
-        placeholder="Search users by handle..."
+        placeholder="Search by handle..."
         autocomplete="off"
       >
     </div>
@@ -302,7 +310,7 @@ Created: 2025.10.20
     <div id="users-container">
       <div class="loading">
         <div class="spinner"></div>
-        <p>Loading users from ATProto...</p>
+        <p>Loading users...</p>
       </div>
     </div>
 
@@ -315,37 +323,15 @@ Created: 2025.10.20
   </div>
 
   <script>
-    const PDS_URL = 'https://at.aesthetic.computer';
     const API_URL = 'https://aesthetic.computer';
     
     let allUsers = [];
     let displayedUsers = [];
-    let rotatingUserIndex = 0;
-
-    // Rotate through user handles in the header demo
-    function startUserRotation() {
-      if (allUsers.length === 0) return;
-      
-      setInterval(() => {
-        rotatingUserIndex = (rotatingUserIndex + 1) % allUsers.length;
-        const user = allUsers[rotatingUserIndex];
-        const identifier = user.handle || user.code;
-        const shortHandle = identifier.replace('.at.aesthetic.computer', '').replace('@', '');
-        
-        const userElement = document.getElementById('rotating-user');
-        userElement.style.opacity = '0';
-        
-        setTimeout(() => {
-          userElement.textContent = shortHandle;
-          userElement.style.opacity = '1';
-        }, 150);
-      }, 2000); // Change every 2 seconds
-    }
 
     // Fetch user stats from aesthetic.computer API (aggregated from MongoDB)
     async function fetchUsers() {
       try {
-        const response = await fetch(`${API_URL}/.netlify/functions/atproto-user-stats?limit=200`);
+        const response = await fetch(`${API_URL}/.netlify/functions/atproto-user-stats?limit=100`);
         const data = await response.json();
         
         if (!data.users || !Array.isArray(data.users)) {
@@ -354,9 +340,6 @@ Created: 2025.10.20
 
         allUsers = data.users;
         displayedUsers = allUsers;
-        
-        // Start rotating through user handles in header
-        startUserRotation();
         
         // Update stats from API
         if (data.stats) {
@@ -369,32 +352,36 @@ Created: 2025.10.20
       } catch (error) {
         console.error('Error fetching users:', error);
         document.getElementById('users-container').innerHTML = 
-          '<div class="error">Failed to load user stats. Try refreshing the page.</div>';
+          '<div class="error">Failed to load users. Try refreshing the page.</div>';
       }
     }
 
-    // Render user cards
+    // Render user list (flat, top 100 style)
     function renderUsers(users) {
       const container = document.getElementById('users-container');
       
       if (users.length === 0) {
         container.innerHTML = '<div class="loading">No users found</div>';
+        document.getElementById('showing-count').textContent = '0 users';
         return;
       }
 
-      const grid = document.createElement('div');
-      grid.className = 'user-grid';
+      document.getElementById('showing-count').textContent = `${users.length} user${users.length !== 1 ? 's' : ''}`;
 
-      users.forEach(user => {
-        const card = document.createElement('a');
-        card.className = 'user-card';
+      const list = document.createElement('div');
+      list.className = 'user-list';
+
+      users.forEach((user, index) => {
+        const row = document.createElement('a');
+        row.className = 'user-row';
         
         // Use the actual handle if available, otherwise use the code
         const identifier = user.handle || user.code;
         const shortHandle = identifier.replace('.at.aesthetic.computer', '').replace('@', '');
-        card.href = `https://${shortHandle}.at.aesthetic.computer`;
-        card.target = '_blank';
+        row.href = `https://${shortHandle}.at.aesthetic.computer`;
+        row.target = '_blank';
 
+        // Build badges
         const badges = [];
         if (user.collections.includes('computer.aesthetic.painting')) {
           const count = user.recordCounts['computer.aesthetic.painting'] || 0;
@@ -420,17 +407,22 @@ Created: 2025.10.20
         // User codes (ac##*) don't get @ prefix, real handles do
         const displayHandle = user.isUserCode ? shortHandle : `@${shortHandle}`;
 
-        card.innerHTML = `
-          <div class="user-handle">${displayHandle}</div>
-          <div>${badges.join(' ')}</div>
-          <div class="user-stats">${user.totalRecords} record${user.totalRecords !== 1 ? 's' : ''}</div>
+        row.innerHTML = `
+          <div class="user-left">
+            <div class="user-rank">#${index + 1}</div>
+            <div class="user-handle">${displayHandle}</div>
+          </div>
+          <div class="user-right">
+            <div class="user-badges">${badges.join('')}</div>
+            <div class="user-total">${user.totalRecords}</div>
+          </div>
         `;
 
-        grid.appendChild(card);
+        list.appendChild(row);
       });
 
       container.innerHTML = '';
-      container.appendChild(grid);
+      container.appendChild(list);
     }
 
     // Search functionality
@@ -440,9 +432,10 @@ Created: 2025.10.20
       if (!query) {
         displayedUsers = allUsers;
       } else {
-        displayedUsers = allUsers.filter(user => 
-          user.handle.toLowerCase().includes(query)
-        );
+        displayedUsers = allUsers.filter(user => {
+          const handle = (user.handle || user.code).toLowerCase();
+          return handle.includes(query);
+        });
       }
       
       renderUsers(displayedUsers);
