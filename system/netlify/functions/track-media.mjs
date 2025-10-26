@@ -54,18 +54,24 @@ export async function handler(event, context) {
     
     // Try to authorize user (but don't require it for guest uploads)
     let user;
-    if (event.headers.authorization) {
+    // Netlify normalizes headers to lowercase
+    const authHeader = event.headers.authorization || event.headers.Authorization;
+    console.log(`🔍 Auth header check:`, { 
+      hasLowercase: !!event.headers.authorization, 
+      hasUppercase: !!event.headers.Authorization,
+      headerKeys: Object.keys(event.headers).filter(k => k.toLowerCase().includes('auth'))
+    });
+    
+    if (authHeader) {
+      console.log(`🔑 Authorization header present, attempting to authorize...`);
       user = await authorize(event.headers);
       if (!user) {
-        // User sent an auth token but it's invalid/expired
-        // They think they're logged in but they're not
-        console.log(`❌ Authorization header present but invalid/expired`);
-        return respond(401, { 
-          message: "Your session has expired. Please log in again.",
-          code: "SESSION_EXPIRED"
-        });
+        // Token validation failed - could be expired or invalid
+        // For now, log warning and continue as guest rather than blocking
+        console.warn(`⚠️  Authorization failed but allowing guest upload. User should refresh their token.`);
+      } else {
+        console.log(`✅ Authorized user: ${user.sub}`);
       }
-      console.log(`✅ Authorized user: ${user.sub}`);
     } else {
       console.log(`🔓 No authorization header, treating as guest upload`);
     }
