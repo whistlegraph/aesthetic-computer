@@ -524,7 +524,7 @@ end
 # alias reload 'exit 70'
 
 # reload fish config
-alias reload 'source ~/.config/fish/config.fish'
+alias reload 'source /workspaces/aesthetic-computer/.devcontainer/config.fish'
 alias refish 'source ~/.config/fish/config.fish'
 
 # set default editor to emacs
@@ -846,7 +846,6 @@ function ac-url
 end
 
 alias ac 'cd ~/aesthetic-computer'
-alias watch 'ac; npm run watch' # check for new deployments
 alias ac-watch 'ac; npm run watch'
 
 # 📱 Dev log monitoring function with dynamic file detection
@@ -1338,6 +1337,19 @@ function ac-tunnel
         end
     else
         echo "🚀 tunnel started successfully!"
+    end
+end
+
+function ac-function
+    # Watch Netlify function logs
+    # Usage: ac-function [function-name]
+    # If no function name is provided, lists all functions
+    if test (count $argv) -eq 0
+        echo "📋 Watching all Netlify function logs..."
+        npx netlify logs:function
+    else
+        echo "📋 Watching logs for function: $argv[1]"
+        npx netlify logs:function $argv[1]
     end
 end
 
