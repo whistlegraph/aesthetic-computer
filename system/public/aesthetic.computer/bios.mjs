@@ -10543,8 +10543,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
           seekTapePlayback = (progress) => {
             // Seek to a specific position in the tape (0.0 to 1.0)
+            console.log(`📼 🎯 Seeking to ${(progress * 100).toFixed(1)}%`);
             const wasPlaying = continuePlaying;
-            continuePlaying = false; // Pause during seek
+            // DON'T pause - maintain playback state during scrub
             
             // Clamp progress to valid range
             progress = Math.max(0, Math.min(1, progress));
@@ -10552,6 +10553,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             // Calculate target frame
             const targetFrame = Math.floor(progress * recordedFrames.length);
             f = Math.max(0, Math.min(recordedFrames.length - 1, targetFrame));
+            
+            console.log(`📼 🎯 Seeking to frame ${f}/${recordedFrames.length}`);
             
             // Update playback progress
             playbackProgress = progress;
@@ -10563,15 +10566,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             
             // Update display with new frame
             if (recordedFrames[f]) {
-              frameCtx.putImageData(recordedFrames[f][1], 0, 0);
+              fctx.putImageData(recordedFrames[f][1], 0, 0);
               send({ type: "recorder:present-progress", content: progress });
             }
             
-            // Resume if was playing, otherwise stay paused
-            if (wasPlaying) {
-              continuePlaying = true;
-              window.requestAnimationFrame(update);
-            }
+            // Maintain playback state - don't need to restart if already playing
+            // The update loop will continue naturally if continuePlaying is true
             
             // Sync audio if available
             const workletReady = window.audioWorkletReady === true;
@@ -10585,8 +10585,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 }
               });
               
-              // Start audio from new position if playing
-              if (wasPlaying) {
+              // Restart audio from new position if currently playing
+              if (continuePlaying) {
                 tapeSoundId = "tape:audio_" + performance.now();
                 playSfx(tapeSoundId, "tape:audio", {
                   from: progress,
