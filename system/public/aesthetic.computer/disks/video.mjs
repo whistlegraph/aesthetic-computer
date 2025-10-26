@@ -67,6 +67,11 @@ let audioContextState = "suspended"; // suspended, running, closed
 let hasAudioContext = false;
 let audioManuallyActivated = false; // Track if user has manually activated audio
 
+// Scrubbing state
+let isScrubbing = false;
+let scrubProgress = 0;
+let wasPlayingBeforeScrub = false;
+
 const buttonBottom = 6;
 const buttonLeft = 6;
 const buttonSpacing = 6;
@@ -1586,48 +1591,57 @@ function act({
       gifBtn?.down || 
       zipBtn?.down;
     
-    if (!anyButtonDown && !isPrinting && !isPostingTape) {
-      // Track touch start for tap vs drag detection
-      if (e.is("touch") || e.is("pen:down")) {
-        e.scrubStartX = e.x;
-        e.scrubbing = false;
-      }
-      
+    if (!anyButtonDown && !isPrinting && !isPostingTape && rec.presenting) {
       // Detect drag/scrub movement
-      if ((e.is("draw") || e.is("pen")) && e.drag && rec.presenting) {
-        const dragDistance = Math.abs(e.x - (e.scrubStartX || e.x));
-        
-        // Consider it scrubbing if dragged more than 10 pixels
-        if (dragDistance > 10) {
+      if (e.is("move") && e.delta && (Math.abs(e.delta.x) > 2 || e.drag)) {
+        // Mark as scrubbing if there's significant movement
+        if (!e.scrubbing && Math.abs(e.delta.x) > 5) {
           e.scrubbing = true;
-          
-          // Calculate seek position based on horizontal drag
+          isScrubbing = true;
+          wasPlayingBeforeScrub = rec.playing; // Remember playback state
+          console.log(`📼 🎯 SCRUB MODE ACTIVATED (was ${wasPlayingBeforeScrub ? 'playing' : 'paused'})`);
+        }
+        
+        if (e.scrubbing) {
+          // Calculate seek position based on horizontal position
           // Map screen width to 0.0-1.0 progress
           const progress = Math.max(0, Math.min(1, e.x / screen.width));
+          scrubProgress = progress;
           
-          // Send seek message to bios
+          console.log(`📼 🎯 Scrubbing: x=${e.x}, progress=${(progress * 100).toFixed(1)}%`);
+          
+          // Send seek message to bios (don't pause - let it scrub while playing)
           send({ type: "recorder:present:seek", content: progress });
           triggerRender();
         }
       }
       
       // Handle touch end - only toggle play/pause if it was a tap (not a scrub)
-      if (e.is("touch:1") && !e.scrubbing) {
-        // IMPORTANT: Check if user needs to manually activate audio FIRST
-        // When AudioContext needs user gesture, video plays silently (rec.playing = true)
-        // but we want the first tap to enable audio, not pause the video
-        if (!audioManuallyActivated && hasAudioContext && rec.playing) {
-          audioManuallyActivated = true;
-          handleAudioContextAndPlay(sound, rec, triggerRender);
-          return; // Exit early to prevent further touch handling
-        } else if (!rec.playing) {
-          // Normal play when audio is ready and video is not playing
-          rec.play();
-          triggerRender();
+      if (e.is("touch:1")) {
+        if (e.scrubbing) {
+          // Scrub ended - don't change play/pause state, just exit scrub mode
+          console.log("📼 🎯 SCRUB MODE ENDED (maintaining playback state)");
+          e.scrubbing = false;
+          isScrubbing = false;
         } else {
-          // Pause when already playing and audio context is ready
-          rec.pause();
-          triggerRender();
+          // Regular tap - toggle play/pause
+          console.log("📼 👆 TAP detected (not scrub)");
+          // IMPORTANT: Check if user needs to manually activate audio FIRST
+          // When AudioContext needs user gesture, video plays silently (rec.playing = true)
+          // but we want the first tap to enable audio, not pause the video
+          if (!audioManuallyActivated && hasAudioContext && rec.playing) {
+            audioManuallyActivated = true;
+            handleAudioContextAndPlay(sound, rec, triggerRender);
+            return; // Exit early to prevent further touch handling
+          } else if (!rec.playing) {
+            // Normal play when audio is ready and video is not playing
+            rec.play();
+            triggerRender();
+          } else {
+            // Pause when already playing and audio context is ready
+            rec.pause();
+            triggerRender();
+          }
         }
       }
     }
