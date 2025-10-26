@@ -55,14 +55,17 @@ export async function handler(event, context) {
     // Try to authorize user (but don't require it for guest uploads)
     let user;
     if (event.headers.authorization) {
-      try {
-        user = await authorize(event.headers);
-        if (!user) {
-          console.log(`🔓 Authorization failed, treating as guest upload`);
-        }
-      } catch (authError) {
-        console.log(`🔓 Guest upload (no authorization): ${authError.message}`);
+      user = await authorize(event.headers);
+      if (!user) {
+        // User sent an auth token but it's invalid/expired
+        // They think they're logged in but they're not
+        console.log(`❌ Authorization header present but invalid/expired`);
+        return respond(401, { 
+          message: "Your session has expired. Please log in again.",
+          code: "SESSION_EXPIRED"
+        });
       }
+      console.log(`✅ Authorized user: ${user.sub}`);
     } else {
       console.log(`🔓 No authorization header, treating as guest upload`);
     }
