@@ -182,9 +182,9 @@ export async function handler(event, context) {
       .slice(0, limit);
 
     // Calculate totals
-    const totalUsers = userStats.size;
-    const totalRecords = users.reduce((sum, u) => sum + u.totalRecords, 0);
-    const activeUsers = users.filter(u => u.totalRecords > 0).length;
+    const totalUsers = allUsersData.length; // Total users in the users collection
+    const totalRecordsAll = Array.from(userStats.values()).reduce((sum, u) => sum + u.totalRecords, 0);
+    const activeUsers = userStats.size; // Users with at least one record
 
     await database.disconnect();
 
@@ -192,7 +192,7 @@ export async function handler(event, context) {
       users,
       stats: {
         totalUsers,
-        totalRecords,
+        totalRecords: totalRecordsAll,
         activeUsers
       }
     });
