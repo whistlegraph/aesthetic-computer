@@ -54,10 +54,17 @@ export async function handler(event, context) {
     
     // Try to authorize user (but don't require it for guest uploads)
     let user;
-    try {
-      user = await authorize(event.headers);
-    } catch (authError) {
-      console.log(`🔓 Guest upload (no authorization): ${authError.message}`);
+    if (event.headers.authorization) {
+      try {
+        user = await authorize(event.headers);
+        if (!user) {
+          console.log(`🔓 Authorization failed, treating as guest upload`);
+        }
+      } catch (authError) {
+        console.log(`🔓 Guest upload (no authorization): ${authError.message}`);
+      }
+    } else {
+      console.log(`🔓 No authorization header, treating as guest upload`);
     }
 
     const database = await connect();
@@ -78,7 +85,8 @@ export async function handler(event, context) {
       const slug = body.slug;
       
       // Create indexes (safe to call multiple times)
-      await collection.createIndex({ code: 1 }, { unique: true });
+      // Use sparse: true for code index to match existing index
+      await collection.createIndex({ code: 1 }, { unique: true, sparse: true });
       await collection.createIndex({ user: 1 }, { sparse: true }); // sparse: only index docs with user field
       await collection.createIndex({ when: 1 });
       await collection.createIndex({ slug: 1 });
