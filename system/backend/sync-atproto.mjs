@@ -529,15 +529,18 @@ async function syncAll(options = {}) {
   }
   
   // STEP 2: Sync user content
-  console.log(`\n👥 Step 2: Syncing user content...`);
+  if (anonymousOnly) {
+    console.log(`\n👥 Step 2: Skipping user content (--anonymous-only flag)\n`);
+  } else {
+    console.log(`\n👥 Step 2: Syncing user content...`);
   
-  const query = { "atproto.did": { $exists: true }, _id: { $ne: "art-guest" } };
-  if (userFilter) {
-    query["atproto.handle"] = new RegExp(userFilter, "i");
-  }
+    const query = { "atproto.did": { $exists: true }, _id: { $ne: "art-guest" } };
+    if (userFilter) {
+      query["atproto.handle"] = new RegExp(userFilter, "i");
+    }
   
-  const users = await database.db.collection("users").find(query).toArray();
-  console.log(`📋 Found ${users.length} users with ATProto accounts\n`);
+    const users = await database.db.collection("users").find(query).toArray();
+    console.log(`📋 Found ${users.length} users with ATProto accounts\n`);
   
   // Process users one at a time to avoid ATProto PDS rate limiting
   const USER_BATCH_SIZE = 1;
@@ -596,6 +599,7 @@ async function syncAll(options = {}) {
   }
   
   console.log('\n');
+  } // End of if (!anonymousOnly) block
   
   // STEP 3: Print summary
   console.log(`\n📊 SUMMARY BY CONTENT TYPE`);
@@ -676,6 +680,7 @@ const verbose = args.includes('--verbose') || args.includes('-v');
 const userFilter = args.find(a => a.startsWith('--user='))?.split('=')[1];
 const wipeUser = args.find(a => a.startsWith('--wipe='))?.split('=')[1];
 const restoreUser = args.find(a => a.startsWith('--restore='))?.split('=')[1];
+const anonymousOnly = args.includes('--anonymous-only');
 
 // Parse content types
 let contentTypes = ['paintings', 'moods', 'pieces', 'kidlisp', 'tapes'];
@@ -707,6 +712,7 @@ Modes:
 Options:
   --verbose, -v              Show detailed progress
   --user=PATTERN            Only sync users matching pattern
+  --anonymous-only          Only sync anonymous content (skip all users)
   --wipe=HANDLE             Wipe all ATProto data for user (e.g., --wipe=jeffrey.at.aesthetic.computer)
   --restore=HANDLE          Restore ATProto data for user from MongoDB (e.g., --restore=jeffrey.at.aesthetic.computer)
   --types=TYPE1,TYPE2       Only sync specific types (paintings,moods,pieces,kidlisp,tapes)
@@ -721,6 +727,7 @@ Examples:
   node sync-atproto.mjs                          # Dry run all content types
   node sync-atproto.mjs live                     # Sync all content types
   node sync-atproto.mjs live --paintings-only    # Only sync paintings
+  node sync-atproto.mjs live --anonymous-only --tapes-only  # Only sync anonymous tapes
   node sync-atproto.mjs live --user=jeffrey      # Only sync jeffrey's content
   node sync-atproto.mjs live --types=paintings,moods  # Only paintings and moods
   node sync-atproto.mjs dry-run --verbose        # See detailed dry run
