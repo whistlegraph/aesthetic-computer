@@ -224,7 +224,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
             "aestheticDoc", // Identifies the type of the webview. Used internally
             "📚 " + title.replace("/", "") + " · Aesthetic Computer", // Title of the panel displayed to the user
             vscode.ViewColumn.Beside, // Editor column to show the new webview panel in.
-            { enableScripts: true }, // Webview options.
+            { enableScripts: true, enableForms: true }, // Webview options.
           );
 
           // Reset when the current panel is closed
@@ -434,6 +434,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
         vscode.ViewColumn.One, // Editor column to show the new webview panel in.
         {
           enableScripts: true,
+          enableForms: true,
           localResourceRoots: [extContext.extensionUri],
         }, // Webview options.
       );
@@ -748,6 +749,7 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
     // Set retainContextWhenHidden to true
     this._view.webview.options = {
       enableScripts: true,
+      enableForms: true,
       localResourceRoots: [extContext.extensionUri],
     };
 
