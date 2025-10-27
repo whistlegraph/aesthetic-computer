@@ -5,6 +5,10 @@
 import { MongoClient, ObjectId, ServerApiVersion } from "mongodb";
 
 let client;
+let cachedDb;
+let connectionAttempts = 0;
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 1000; // ms
 
 async function connect() {
   // Read environment variables at runtime, not at module load time
@@ -19,19 +23,70 @@ async function connect() {
     throw new Error('MONGODB_NAME environment variable is not set');
   }
 
-  client = await MongoClient.connect(mongoDBConnectionString, {
-    serverApi: {
-      version: ServerApiVersion.v1,
-      strict: true,
-      deprecationErrors: true,
-    },
-  });
-  const db = client.db(mongoDBName);
-  return { db, disconnect };
+  // Reuse existing connection if available and healthy
+  if (client && cachedDb) {
+    try {
+      // Quick health check - ping the database
+      await client.db(mongoDBName).admin().ping();
+      return { db: cachedDb, disconnect };
+    } catch (error) {
+      // Connection is stale, close it and reconnect
+      console.warn('⚠️  Stale MongoDB connection detected, reconnecting...');
+      try {
+        await client.close();
+      } catch (closeError) {
+        // Ignore close errors
+      }
+      client = null;
+      cachedDb = null;
+    }
+  }
+
+  // Create new connection with retries
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      client = await MongoClient.connect(mongoDBConnectionString, {
+        serverApi: {
+          version: ServerApiVersion.v1,
+          strict: true,
+          deprecationErrors: true,
+        },
+        maxPoolSize: 10, // Limit connection pool size
+        minPoolSize: 2,
+        maxIdleTimeMS: 30000, // Close idle connections after 30s
+        serverSelectionTimeoutMS: 5000, // Fail fast if no server available
+        socketTimeoutMS: 45000,
+      });
+      cachedDb = client.db(mongoDBName);
+      connectionAttempts = 0;
+      return { db: cachedDb, disconnect };
+    } catch (error) {
+      console.error(`❌ MongoDB connection attempt ${attempt}/${MAX_RETRIES} failed:`, error.message);
+      
+      if (attempt < MAX_RETRIES) {
+        // Wait before retrying with exponential backoff
+        const delay = RETRY_DELAY * Math.pow(2, attempt - 1);
+        console.log(`⏳ Retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      } else {
+        // All retries exhausted
+        throw error;
+      }
+    }
+  }
 }
 
 async function disconnect() {
-  if (client) await client.close?.();
+  if (client) {
+    try {
+      await client.close();
+    } catch (error) {
+      console.warn('⚠️  Error closing MongoDB connection:', error.message);
+    } finally {
+      client = null;
+      cachedDb = null;
+    }
+  }
 }
 
 // Re-usable calls to the application.
