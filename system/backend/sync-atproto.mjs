@@ -539,8 +539,8 @@ async function syncAll(options = {}) {
   const users = await database.db.collection("users").find(query).toArray();
   console.log(`📋 Found ${users.length} users with ATProto accounts\n`);
   
-  // Process users in batches of 10 concurrently (reduced to avoid connection pool exhaustion)
-  const USER_BATCH_SIZE = 10;
+  // Process users one at a time to avoid ATProto PDS rate limiting
+  const USER_BATCH_SIZE = 1;
   let completedUsers = 0;
   const startTime = Date.now();
   
