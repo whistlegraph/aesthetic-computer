@@ -64,6 +64,7 @@ export async function handler(event, context) {
     
     if (authHeader) {
       console.log(`🔑 Authorization header present, attempting to authorize...`);
+      console.log(`🔑 Token preview: ${authHeader.substring(0, 50)}...`);
       user = await authorize(event.headers);
       if (!user) {
         // Token validation failed - could be expired or invalid
@@ -127,35 +128,33 @@ export async function handler(event, context) {
         
         const paintingId = insertResult.insertedId;
         
-        // Sync to ATProto (only for authenticated users)
-        if (user) {
-          console.log("🔄 Syncing to ATProto...");
-          try {
-            const mediaType = type === "paintings" ? MediaTypes.PAINTING : MediaTypes.PIECE;
+        // Sync to ATProto (authenticated users use their account, guests use art account)
+        console.log("🔄 Syncing to ATProto...");
+        try {
+          const mediaType = type === "paintings" ? MediaTypes.PAINTING : MediaTypes.PIECE;
+          
+          // Fetch the full record for ATProto sync
+          const savedRecord = await collection.findOne({ _id: paintingId });
+          
+          if (savedRecord) {
+            const atprotoResult = await createMediaRecord(database, mediaType, savedRecord, { 
+              userSub: user?.sub || null  // null for anonymous -> uses art-guest account
+            });
             
-            // Fetch the full record for ATProto sync
-            const savedRecord = await collection.findOne({ _id: paintingId });
-            
-            if (savedRecord) {
-              const atprotoResult = await createMediaRecord(database, mediaType, savedRecord, { 
-                userSub: user.sub 
-              });
-              
-              if (atprotoResult.error) {
-                console.error(`⚠️  ATProto sync failed: ${atprotoResult.error}`);
-              } else if (atprotoResult.rkey) {
-                // Update MongoDB with rkey
-                await collection.updateOne(
-                  { _id: paintingId },
-                  { $set: { "atproto.rkey": atprotoResult.rkey } }
-                );
-                console.log(`✅ Synced to ATProto: ${atprotoResult.rkey}`);
-              }
+            if (atprotoResult.error) {
+              console.error(`⚠️  ATProto sync failed: ${atprotoResult.error}`);
+            } else if (atprotoResult.rkey) {
+              // Update MongoDB with rkey
+              await collection.updateOne(
+                { _id: paintingId },
+                { $set: { "atproto.rkey": atprotoResult.rkey } }
+              );
+              console.log(`✅ Synced to ATProto: ${atprotoResult.rkey}`);
             }
-          } catch (atprotoError) {
-            // Log the error but don't fail the request - painting is already saved
-            console.error(`⚠️  Failed to sync to ATProto:`, atprotoError);
           }
+        } catch (atprotoError) {
+          // Log the error but don't fail the request - painting is already saved
+          console.error(`⚠️  Failed to sync to ATProto:`, atprotoError);
         }
         
         // Return code and paintingId to client
