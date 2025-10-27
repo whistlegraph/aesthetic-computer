@@ -2312,7 +2312,7 @@ const $commonApi = {
   // ***Actually*** upload a file to the server.
   // 📓 The file name can have `media-` which will sort it on the server into
   // a directory via `presigned-url.js`.
-  upload: async (filename, data, progress, bucket) => {
+  upload: async (filename, data, progress, bucket, recordingSlug) => {
     const prom = new Promise((resolve, reject) => {
       serverUpload = { resolve, reject };
     });
@@ -2321,7 +2321,7 @@ const $commonApi = {
 
     console.log("Painting data:", data);
 
-    send({ type: "upload", content: { filename, data, bucket } });
+    send({ type: "upload", content: { filename, data, bucket, recordingSlug } });
     return prom;
   },
   code: {
