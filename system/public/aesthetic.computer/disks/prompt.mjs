@@ -1097,7 +1097,7 @@ async function halt($, text) {
             progressPercentage = -1; // Hide percentage
           }
           needsPaint(); // Update display during upload
-        }, recordingSlug); // Pass recording slug to upload function
+        }, undefined, recordingSlug); // Pass bucket as undefined (use auth), recordingSlug as 5th param
         console.log("🪄 Painting uploaded:", filename, data);
         
         // The upload function includes the database call, so this happens after everything
@@ -1232,7 +1232,7 @@ async function halt($, text) {
         const data = await upload(filename, store["painting"], (p) => {
           console.log("🖌️ Painting progress:", p);
           progressBar = p;
-        }, recordingSlug); // Pass recording slug to upload function
+        }, undefined, recordingSlug); // Pass bucket as undefined (use auth), recordingSlug as 5th param
         console.log("🪄 Painting uploaded:", filename, data);
         
         // Show completed progress bar briefly before jumping
