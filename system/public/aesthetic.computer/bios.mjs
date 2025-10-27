@@ -13551,7 +13551,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     let userMedia = false,
       token;
     if (!bucket) {
+      console.log(`🔐 receivedUpload: Calling authorize() for ${filename}`);
       token = await authorize();
+      console.log(`🔐 receivedUpload: authorize() returned token=${token ? 'valid' : 'null/undefined'}`);
       if (token) {
         userMedia = true;
         bucket = "user";
@@ -13562,6 +13564,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // slug with an extension and an identifier gets generated via nanoid on
         // the server.
         prefetchURL += "/" + filename + "/" + bucket; // Add filename info.
+      } else {
+        console.log(`🔓 receivedUpload: No token, uploading as guest`);
       }
     }
 
@@ -13750,9 +13754,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               // TODO: Write an authorized POST request that contains the slug
               //       to "api/track-media"
               const headers = {
-                Authorization: `Bearer ${token}`,
                 "Content-Type": "application/json",
               };
+              
+              // Only add Authorization header if we have a valid token
+              if (token) {
+                headers.Authorization = `Bearer ${token}`;
+              }
 
               const options = { method: "POST", headers };
               const body = { slug, ext };
@@ -13878,6 +13886,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     let token;
     try {
       token = window.acTOKEN;
+      console.log(`🔐 authorize(): window.acTOKEN=${token ? token.substring(0, 20) + '...' : 'undefined'}`);
 
       if (token) {
         // console.log("🔐 Hosted token found...");
@@ -13886,15 +13895,24 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           // Attempt to fetch user info using the token
           window.auth0Client.token = token;
           await window.auth0Client.getUser();
-          // console.log("✅🔐 Token is valid!");
+          console.log("✅🔐 Token validation succeeded!");
         } catch (error) {
-          console.error("🔴🔐 Token is invalid or expired:", token);
-          if (window.parent) window.parent.postMessage({ type: "logout" }, "*");
+          console.error("🔴🔐 Token is invalid or expired - triggering logout");
+          // Trigger logout to clear the invalid session
+          if (window.parent) {
+            window.parent.postMessage({ type: "logout" }, "*");
+          } else {
+            // If not in iframe, reload to clear session
+            window.location.reload();
+          }
+          // Return null immediately - don't continue with invalid token
+          return null;
         }
       } else {
         // If acTOKEN is not available, get a new one
-        // console.log("🔐 Retrieving auth token...");
+        console.log("🔐 No acTOKEN, calling getTokenSilently...");
         token = await window.auth0Client.getTokenSilently();
+        console.log(`🔐 getTokenSilently returned: ${token ? 'token received' : 'null'}`);
         // await window.auth0Client.getUser();
         // console.log("✅ Token is valid");
       }
@@ -13902,6 +13920,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // console.log("🔐 Authorized");
     } catch (err) {
       // console.log("🔐️ ❌ Unauthorized", err);
+      token = null; // Ensure token is null on any error
     }
     return token;
   }
