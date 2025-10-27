@@ -16,8 +16,10 @@ Located in `/at/lexicons/computer/aesthetic/`:
 ### Authority & Identity
 - **Authority Domain**: `aesthetic.computer`
 - **Reversed Authority**: `computer.aesthetic`
-- **DID**: `did:plc:tliuubv7lyv2uiknsjbf4ppw` (art.at.aesthetic.computer)
-- **PDS URL**: `https://at.aesthetic.computer`
+- **Main Account DID**: `did:plc:k3k3wknzkcnekbnyde4dbatz` (aesthetic.computer) ← **Use for lexicons**
+- **Art Account DID**: `did:plc:tliuubv7lyv2uiknsjbf4ppw` (art.at.aesthetic.computer)
+- **Main PDS**: `https://bsky.social` (Bluesky)
+- **Custom PDS**: `https://at.aesthetic.computer` (for user accounts)
 
 ## ATProto Lexicon Publication Requirements
 
@@ -29,7 +31,7 @@ _lexicon.aesthetic.computer
 
 **Value**:
 ```
-did=did:plc:tliuubv7lyv2uiknsjbf4ppw
+did=did:plc:k3k3wknzkcnekbnyde4dbatz
 ```
 
 **Purpose**: Links the authority domain to the DID hosting the lexicon schemas
@@ -53,7 +55,7 @@ For each lexicon, publish a `com.atproto.lexicon.schema` record to the repositor
 
 **AT-URI Format**:
 ```
-at://did:plc:tliuubv7lyv2uiknsjbf4ppw/com.atproto.lexicon.schema/computer.aesthetic.painting
+at://did:plc:k3k3wknzkcnekbnyde4dbatz/com.atproto.lexicon.schema/computer.aesthetic.painting
 ```
 
 ### 3. Authority at "Group" Level
@@ -67,7 +69,7 @@ All NSIDs with the same authority (`computer.aesthetic.*`) are published to a si
 1. Access Cloudflare DNS for aesthetic.computer domain
 2. Create TXT record:
    - **Name**: `_lexicon.aesthetic.computer`
-   - **Value**: `did=did:plc:tliuubv7lyv2uiknsjbf4ppw`
+   - **Value**: `did=did:plc:k3k3wknzkcnekbnyde4dbatz`
    - **TTL**: Auto (or 300 for testing)
 3. Verify DNS propagation:
    ```fish
@@ -83,13 +85,14 @@ All NSIDs with the same authority (`computer.aesthetic.*`) are published to a si
   - Load schema definitions
   - Create `com.atproto.lexicon.schema` record
   - Use NSID as record key
-  - Publish to PDS repository
+  - Publish to Bluesky PDS repository
 - Support dry-run mode
 - Provide detailed logging
 
 **Dependencies**:
 - `@atproto/api` (already in package.json)
 - Use existing `.env` credentials (BSKY_IDENTIFIER, BSKY_APP_PASSWORD)
+- **Important**: Uses https://bsky.social (not custom PDS) for lexicon publication
 
 ### Phase 3: Publish Schemas
 1. Run script in dry-run mode to verify
@@ -175,9 +178,9 @@ node /workspaces/aesthetic-computer/at/scripts/publish-lexicons.mjs
 # Query a specific schema
 node -e "
 import('@atproto/api').then(({BskyAgent}) => {
-  const agent = new BskyAgent({service: 'https://at.aesthetic.computer'});
+  const agent = new BskyAgent({service: 'https://bsky.social'});
   agent.api.com.atproto.repo.getRecord({
-    repo: 'did:plc:tliuubv7lyv2uiknsjbf4ppw',
+    repo: 'did:plc:k3k3wknzkcnekbnyde4dbatz',
     collection: 'com.atproto.lexicon.schema',
     rkey: 'computer.aesthetic.painting'
   }).then(res => console.log(JSON.stringify(res.data, null, 2)));
