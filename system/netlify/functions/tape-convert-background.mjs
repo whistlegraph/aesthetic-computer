@@ -9,7 +9,27 @@ import { createTapeOnAtproto } from "../../backend/tape-atproto.mjs";
 const MAX_DURATION_SECONDS = 30; // Only process tapes up to 30 seconds
 
 export async function handler(event, context) {
-  const { mongoId, slug, zipUrl, metadata } = JSON.parse(event.body);
+  // Check if body exists and is not empty
+  if (!event.body || event.body.trim() === '') {
+    console.error('❌ Empty request body received');
+    console.error('📦 Event:', JSON.stringify(event, null, 2));
+    return {
+      statusCode: 400,
+      body: JSON.stringify({ error: "Empty request body" })
+    };
+  }
+
+  let mongoId, slug, zipUrl, metadata;
+  try {
+    ({ mongoId, slug, zipUrl, metadata } = JSON.parse(event.body));
+  } catch (error) {
+    console.error('❌ JSON parse error:', error.message);
+    console.error('📦 Raw body:', event.body);
+    return {
+      statusCode: 400,
+      body: JSON.stringify({ error: "Invalid JSON body: " + error.message })
+    };
+  }
   
   console.log(`🎬 Background conversion started for tape: ${slug} (${mongoId})`);
   console.log(`📹 ZIP URL: ${zipUrl}`);
