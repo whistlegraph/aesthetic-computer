@@ -59,6 +59,7 @@
     "eventsource-parser": "^3.0.6",
     "express-oauth2-jwt-bearer": "^1.7.1",
     "ffmpeg-static": "^5.2.0",
+    "ffprobe-static": "^3.1.0",
     "firebase-admin": "^13.5.0",
     "gl-matrix": "^3.4.4",
     "got": "^14.4.9",
