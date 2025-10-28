@@ -10,10 +10,11 @@ const PDS_URL = process.env.PDS_URL || "https://at.aesthetic.computer";
  * Sync a MongoDB tape to ATProto after MP4 conversion completes
  * @param {Object} database - MongoDB connection
  * @param {string} mongoId - Tape MongoDB _id as string
- * @param {string} mp4Url - Full URL to the MP4 file
+ * @param {Buffer} mp4Buffer - MP4 video data as Buffer
+ * @param {Buffer} thumbnailBuffer - Thumbnail image data as Buffer (optional)
  * @returns {Promise<Object>} { rkey, uri, cid } or { error }
  */
-export async function createTapeOnAtproto(database, mongoId, mp4Url) {
+export async function createTapeOnAtproto(database, mongoId, mp4Buffer, thumbnailBuffer) {
   const tapes = database.db.collection("tapes");
   const users = database.db.collection("users");
 
@@ -26,39 +27,37 @@ export async function createTapeOnAtproto(database, mongoId, mp4Url) {
     return { error: "Tape not found" };
   }
 
-  // Guest tapes don't sync to ATProto (no user account)
+  // 2. Get user account (or art-guest for anonymous tapes)
+  let user;
   if (!tape.user) {
-    shell.log(`ℹ️  Guest tape ${tape.code}, skipping ATProto sync`);
-    return { error: "Guest tape" };
-  }
+    // Guest/anonymous content uses art.at.aesthetic.computer
+    shell.log(`ℹ️  Guest tape ${tape.code}, using art-guest account`);
+    user = await users.findOne({ _id: "art-guest" });
+    
+    if (!user?.atproto?.did || !user?.atproto?.password) {
+      shell.error(`❌ Art account not configured`);
+      return { error: "Art account not configured" };
+    }
+  } else {
+    // Regular user tape
+    user = await users.findOne({ _id: tape.user });
 
-  // 2. Check if user has ATProto account
-  const user = await users.findOne({ _id: tape.user });
-
-  if (!user?.atproto?.did || !user?.atproto?.password) {
-    shell.log(`ℹ️  User ${tape.user} has no ATProto account, skipping sync`);
-    return { error: "No ATProto account" };
+    if (!user?.atproto?.did || !user?.atproto?.password) {
+      shell.log(`ℹ️  User ${tape.user} has no ATProto account, skipping sync`);
+      return { error: "No ATProto account" };
+    }
   }
 
   try {
-    // 3. Download MP4 file
-    shell.log(`📥 Downloading MP4: ${mp4Url}`);
-    const mp4Response = await fetch(mp4Url);
-    if (!mp4Response.ok) {
-      throw new Error(`Failed to download MP4: ${mp4Response.statusText}`);
-    }
-    const mp4Blob = await mp4Response.blob();
-    const mp4Buffer = await mp4Blob.arrayBuffer();
-
-    // 4. Login to ATProto
+    // 3. Login to ATProto
     const agent = new AtpAgent({ service: PDS_URL });
     await agent.login({
       identifier: user.atproto.did,
       password: user.atproto.password,
     });
 
-    // 5. Upload MP4 as blob
-    shell.log(`📤 Uploading MP4 to ATProto (${(mp4Buffer.byteLength / 1024 / 1024).toFixed(2)}MB)`);
+    // 4. Upload MP4 as blob directly to PDS
+    shell.log(`📤 Uploading MP4 to ATProto PDS (${(mp4Buffer.length / 1024 / 1024).toFixed(2)}MB)`);
     const blobResponse = await agent.uploadBlob(mp4Buffer, {
       encoding: "video/mp4",
     });
@@ -68,9 +67,9 @@ export async function createTapeOnAtproto(database, mongoId, mp4Url) {
     }
 
     const blob = blobResponse.data.blob;
-    shell.log(`✅ Blob uploaded: ${blob.ref.$link}`);
+    shell.log(`✅ Blob uploaded to PDS: ${blob.ref.$link}`);
 
-    // 6. Create ATProto record
+    // 5. Create ATProto record
     const atprotoRecord = await agent.com.atproto.repo.createRecord({
       repo: user.atproto.did,
       collection: "computer.aesthetic.tape",
@@ -98,7 +97,7 @@ export async function createTapeOnAtproto(database, mongoId, mp4Url) {
     const rkey = uri.split("/").pop();
     shell.log(`🦋 Created ATProto tape: ${rkey}`);
 
-    // 7. Update MongoDB with ATProto references
+    // 6. Update MongoDB with ATProto references
     await tapes.updateOne(
       { _id: new ObjectId(mongoId) },
       {

@@ -1,47 +1,82 @@
 // Track Media, 25.10.09
 // Formerly `Painting`
-// POST: Create a new record in the database for a user uploaded painting or piece.
-// Now generates short codes for ALL paintings (user and guest)
+// POST: Create a new record in the database for user uploaded media (paintings, pieces, tapes).
+// Now generates short codes for ALL media (user and guest)
 
 /* #region 🏁 TODO 
   - [] Eventually add metadata to paintings... like titles.
+  + [x] Merged track-tape into track-media for code reuse
 #endregion */
 
 import { authorize, getHandleOrEmail } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
 import { respond } from "../../backend/http.mjs";
-import { customAlphabet } from 'nanoid';
+import { generateUniqueCode } from "../../backend/generate-short-code.mjs";
 import { createMediaRecord, deleteMediaRecord, MediaTypes } from "../../backend/media-atproto.mjs";
+import { S3Client, PutObjectAclCommand } from "@aws-sdk/client-s3";
 
 const dev = process.env.CONTEXT === "dev";
 
-// Code generator - lowercase preferred (3x) but uppercase included for more space
-const consonants = 'bcdfghjklmnpqrstvwxyz' + 'bcdfghjklmnpqrstvwxyz' + 'BCDFGHJKLMNPQRSTVWXYZ';
-const vowels = 'aeiou' + 'aeiou' + 'AEIOU';
-const numbers = '23456789'; // Exclude 0,1 (look like O,l)
-const alphabet = consonants + vowels + numbers;
-const CODE_LENGTH = 3;
-const nanoid = customAlphabet(alphabet, CODE_LENGTH);
-const MAX_COLLISION_ATTEMPTS = 100;
+// Duration limit for tape background processing (in seconds)
+const MAX_TAPE_DURATION = 30;
 
-async function generateUniqueCode(collection) {
-  for (let attempt = 0; attempt < MAX_COLLISION_ATTEMPTS; attempt++) {
-    const code = nanoid();
+/**
+ * Invoke Netlify Background Function for MP4 conversion (tapes only)
+ * @param {Object} options - Conversion job parameters
+ * @returns {Promise<void>}
+ */
+async function invokeBackgroundConversion({ mongoId, slug, zipUrl, metadata }) {
+  console.log(`🎬 Invoking background conversion for tape ${slug} (${mongoId})`);
+  
+  try {
+    // Netlify background functions are invoked by calling them via /api/ route
+    let baseUrl = process.env.URL || 'https://localhost:8888';
+    const backgroundUrl = `${baseUrl}/api/tape-convert-background`;
     
-    // Check if code already exists
-    const existing = await collection.findOne({ code });
-    if (!existing) {
-      return code;
+    console.log(`🎬 Background function URL: ${backgroundUrl}`);
+    
+    // For local dev with self-signed certs, we need to disable SSL verification
+    const isLocalhost = baseUrl.includes('localhost');
+    const originalRejectUnauthorized = process.env.NODE_TLS_REJECT_UNAUTHORIZED;
+    
+    if (isLocalhost) {
+      process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
     }
     
-    console.log(`⚠️  Code collision detected: ${code}, retrying...`);
+    const response = await fetch(backgroundUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Netlify-Event": "background-function",
+      },
+      body: JSON.stringify({
+        mongoId,
+        slug,
+        zipUrl,
+        metadata,
+      }),
+    });
+    
+    // Restore original setting
+    if (isLocalhost) {
+      if (originalRejectUnauthorized === undefined) {
+        delete process.env.NODE_TLS_REJECT_UNAUTHORIZED;
+      } else {
+        process.env.NODE_TLS_REJECT_UNAUTHORIZED = originalRejectUnauthorized;
+      }
+    }
+    
+    if (!response.ok) {
+      throw new Error(`Background function returned ${response.status}: ${await response.text()}`);
+    }
+    
+    console.log(`✅ Background conversion invoked`);
+    
+  } catch (error) {
+    console.error(`❌ Failed to invoke background conversion:`, error.message);
+    // Don't throw - let the request succeed anyway
+    // Conversion can be retried via sync-atproto script
   }
-  
-  // If we hit max attempts, use a longer code
-  const longerNanoid = customAlphabet(alphabet, CODE_LENGTH + 1);
-  const longerCode = longerNanoid();
-  console.log(`⚠️  Max collisions reached, using longer code: ${longerCode}`);
-  return longerCode;
 }
 
 export async function handler(event, context) {
@@ -79,11 +114,25 @@ export async function handler(event, context) {
 
     const database = await connect();
 
-    let type;
+    let type, metadata;
     if (body.ext === "png") {
       type = "paintings";
     } else if (body.ext === "mjs") {
       type = "pieces";
+    } else if (body.ext === "zip") {
+      type = "tapes";
+      metadata = body.metadata || {};
+      
+      // Validate tape duration
+      const duration = metadata.totalDuration || 0;
+      console.log(`⏱️  Tape duration: ${duration}s, Max: ${MAX_TAPE_DURATION}s`);
+      if (duration > MAX_TAPE_DURATION) {
+        return respond(400, { 
+          error: "TAPE_TOO_LONG",
+          message: `Tape duration ${duration}s exceeds maximum ${MAX_TAPE_DURATION}s`,
+          maxDuration: MAX_TAPE_DURATION
+        });
+      }
     } else {
       throw new Error(`Unsupported media type via extension: ${body.ext}`);
     }
@@ -95,26 +144,46 @@ export async function handler(event, context) {
       const slug = body.slug;
       
       // Create indexes (safe to call multiple times)
-      // Note: Match existing index specs exactly to avoid conflicts
-      await collection.createIndex({ code: 1 }, { unique: true, sparse: true });
-      await collection.createIndex({ user: 1 }); // No sparse - matches existing index
-      await collection.createIndex({ when: 1 });
-      await collection.createIndex({ slug: 1 });
-      if (user) {
-        await collection.createIndex({ slug: 1, user: 1 }, { unique: true });
+      // Note: Tapes already have code_1 index without sparse, so skip for tapes
+      try {
+        if (type !== 'tapes') {
+          await collection.createIndex({ code: 1 }, { unique: true, sparse: true });
+        } else {
+          // Tapes collection already has { code: 1 } unique index (not sparse)
+          // Just ensure it exists without sparse option
+          await collection.createIndex({ code: 1 }, { unique: true });
+        }
+        await collection.createIndex({ user: 1 }); // No sparse - matches existing index
+        await collection.createIndex({ when: 1 });
+        await collection.createIndex({ slug: 1 });
+        if (user) {
+          await collection.createIndex({ slug: 1, user: 1 }, { unique: true });
+        }
+      } catch (indexError) {
+        // Index already exists with different options - that's okay
+        console.log(`ℹ️  Index creation skipped (already exists): ${indexError.message}`);
       }
 
-      // Generate unique short code
-      const code = await generateUniqueCode(collection);
+      // Generate unique short code (random mode for tapes)
+      const code = await generateUniqueCode(collection, { 
+        mode: type === 'tapes' ? 'random' : undefined,
+        type: type === 'tapes' ? 'tape' : undefined
+      });
       
       try {
         const paintingDate = new Date();
         const record = {
-          code,          // NEW: short code for #abc lookups
+          code,
           slug,
           when: paintingDate,
           bucket: user ? "user-aesthetic-computer" : "art-aesthetic-computer",
         };
+        
+        // Tape-specific fields
+        if (type === 'tapes') {
+          record.nuked = false;
+          record.mp4Status = "pending"; // Track conversion status
+        }
         
         // Only add user field if authenticated (keep undefined for guests)
         if (user) {
@@ -126,15 +195,58 @@ export async function handler(event, context) {
         const logType = user ? "user" : "guest";
         console.log(`✅ Created ${logType} ${type.slice(0, -1)}: slug=${slug}, code=${code}`);
         
-        const paintingId = insertResult.insertedId;
+        const mediaId = insertResult.insertedId;
         
-        // Sync to ATProto (authenticated users use their account, guests use art account)
+        // Handle tapes differently - background MP4 conversion
+        if (type === 'tapes') {
+          // Make the uploaded ZIP publicly readable
+          try {
+            const s3Client = new S3Client({
+              endpoint: `https://sfo3.digitaloceanspaces.com`,
+              credentials: {
+                accessKeyId: process.env.ART_KEY || process.env.DO_SPACES_KEY,
+                secretAccessKey: process.env.ART_SECRET || process.env.DO_SPACES_SECRET,
+              },
+            });
+            
+            const key = user ? `${user.sub}/${slug}.zip` : `${slug}.zip`;
+            
+            const aclCommand = new PutObjectAclCommand({
+              Bucket: record.bucket,
+              Key: key,
+              ACL: "public-read",
+            });
+            
+            await s3Client.send(aclCommand);
+            console.log(`✅ Set public-read ACL for ${record.bucket}/${key}`);
+          } catch (aclError) {
+            console.error(`⚠️  Failed to set ACL:`, aclError.message);
+          }
+          
+          // Invoke background function for MP4 conversion (fire-and-forget)
+          invokeBackgroundConversion({
+            mongoId: mediaId.toString(),
+            slug: record.slug,
+            zipUrl: `https://${record.bucket}.sfo3.digitaloceanspaces.com/${user ? user.sub + '/' : ''}${slug}.zip`,
+            metadata: metadata,
+          }).catch(err => {
+            console.error('❌ Background conversion invocation error:', err);
+          });
+          
+          return respond(200, { 
+            slug, 
+            code,
+            maxDuration: MAX_TAPE_DURATION
+          });
+        }
+        
+        // Paintings/Pieces: Sync to ATProto immediately
         console.log("🔄 Syncing to ATProto...");
         try {
           const mediaType = type === "paintings" ? MediaTypes.PAINTING : MediaTypes.PIECE;
           
           // Fetch the full record for ATProto sync
-          const savedRecord = await collection.findOne({ _id: paintingId });
+          const savedRecord = await collection.findOne({ _id: mediaId });
           
           if (savedRecord) {
             const atprotoResult = await createMediaRecord(database, mediaType, savedRecord, { 
@@ -146,22 +258,22 @@ export async function handler(event, context) {
             } else if (atprotoResult.rkey) {
               // Update MongoDB with rkey
               await collection.updateOne(
-                { _id: paintingId },
+                { _id: mediaId },
                 { $set: { "atproto.rkey": atprotoResult.rkey } }
               );
               console.log(`✅ Synced to ATProto: ${atprotoResult.rkey}`);
             }
           }
         } catch (atprotoError) {
-          // Log the error but don't fail the request - painting is already saved
+          // Log the error but don't fail the request - media is already saved
           console.error(`⚠️  Failed to sync to ATProto:`, atprotoError);
         }
         
-        // Return code and paintingId to client
+        // Return code and mediaId to client
         return respond(200, { 
           slug, 
           code,
-          paintingId: paintingId.toString()
+          paintingId: mediaId.toString()
         });
       } catch (error) {
         console.error(`❌ Failed to insert ${type.slice(0, -1)}:`, error);
