@@ -243,6 +243,7 @@ async function restoreUserAtprotoData(userHandle, options = {}) {
     
     console.log(`      MongoDB: ${stats.mongoTotal}, ATProto: ${stats.atprotoTotal}`);
     console.log(`      Duplicates cleaned: ${stats.duplicatesDeleted}`);
+    console.log(`      Missing blobs fixed: ${stats.blobsFixed}`);
     console.log(`      Records ${dryRun ? 'to create' : 'created'}: ${stats.created}`);
     
     if (stats.errors.length > 0) {
@@ -254,11 +255,13 @@ async function restoreUserAtprotoData(userHandle, options = {}) {
   // Summary
   const totalCreated = allStats.reduce((sum, s) => sum + s.created, 0);
   const totalDuplicates = allStats.reduce((sum, s) => sum + s.duplicatesDeleted, 0);
+  const totalBlobsFixed = allStats.reduce((sum, s) => sum + s.blobsFixed, 0);
   const totalErrors = allStats.reduce((sum, s) => sum + s.errors.length, 0);
   
   console.log(`\n✨ RESTORE SUMMARY:`);
   console.log(`   Records ${dryRun ? 'to create' : 'created'}: ${totalCreated}`);
   console.log(`   Duplicates cleaned: ${totalDuplicates}`);
+  console.log(`   Missing blobs fixed: ${totalBlobsFixed}`);
   
   if (totalErrors > 0) {
     console.log(`   Errors: ${totalErrors}`);
@@ -286,6 +289,8 @@ async function syncContentForUser(contentType, user, options = {}) {
     atprotoTotal: 0,
     duplicatesFound: 0,
     duplicatesDeleted: 0,
+    missingBlobs: 0,
+    blobsFixed: 0,
     missingInAtproto: 0,
     created: 0,
     errors: []
@@ -335,12 +340,28 @@ async function syncContentForUser(contentType, user, options = {}) {
     const atprotoByRef = new Map();
     const atprotoByRkey = new Map();
     const duplicateRefs = new Set();
+    const recordsWithoutBlobs = [];
     
     for (const record of atprotoRecords) {
       const ref = record.value.ref;
       const rkey = record.uri.split("/").pop();
       
       atprotoByRkey.set(rkey, record);
+      
+      // Check if record has a thumbnail blob (for media types that should have one)
+      // Note: thumbnail is optional in lexicon, but we want to ensure it exists if the painting exists
+      // The @atproto/api library deserializes blobs, so thumbnail.ref will be a CID object, not {$link: "..."}
+      if (config.mediaType === MediaTypes.PAINTING || config.mediaType === MediaTypes.MOOD) {
+        const hasThumbnail = record.value.thumbnail && 
+                           record.value.thumbnail.ref &&
+                           typeof record.value.thumbnail.ref !== 'undefined';
+        
+        // Only flag as missing blob if the MongoDB record exists
+        // We'll validate this after fetching MongoDB records
+        if (!hasThumbnail && ref) {
+          recordsWithoutBlobs.push({ record, rkey, ref });
+        }
+      }
       
       if (ref) {
         if (atprotoByRef.has(ref)) {
@@ -390,7 +411,74 @@ async function syncContentForUser(contentType, user, options = {}) {
       }
     }
     
-    // 5. Find MongoDB items that don't exist in ATProto
+    // 5. Fix records with missing blobs (delete and mark for recreation)
+    // First, validate which records actually exist in MongoDB
+    const { ObjectId } = await import('mongodb');
+    const validRecordsWithoutBlobs = [];
+    
+    for (const item of recordsWithoutBlobs) {
+      try {
+        const painting = await collection.findOne({ _id: new ObjectId(item.ref) });
+        if (painting) {
+          validRecordsWithoutBlobs.push(item);
+        }
+      } catch (error) {
+        // ref might not be a valid ObjectId - skip it
+      }
+    }
+    
+    stats.missingBlobs = validRecordsWithoutBlobs.length;
+    
+    if (validRecordsWithoutBlobs.length > 0) {
+      if (verbose) {
+        console.log(`      Found ${validRecordsWithoutBlobs.length} records with missing blobs`);
+      }
+      
+      // Delete the incomplete ATProto records
+      const DELETE_BATCH_SIZE = 50;
+      for (let i = 0; i < validRecordsWithoutBlobs.length; i += DELETE_BATCH_SIZE) {
+        const batch = validRecordsWithoutBlobs.slice(i, i + DELETE_BATCH_SIZE);
+        
+        if (!dryRun) {
+          await Promise.all(batch.map(async ({ rkey, ref }) => {
+            try {
+              await agent.com.atproto.repo.deleteRecord({
+                repo: user.atproto.did,
+                collection: config.atprotoCollection,
+                rkey
+              });
+              
+              // Remove from atprotoByRef map so it will be recreated
+              if (ref) {
+                atprotoByRef.delete(ref);
+              }
+              
+              // Clear the rkey from MongoDB so it will be updated
+              try {
+                await collection.updateOne(
+                  { _id: new ObjectId(ref) },
+                  { $unset: { "atproto.rkey": "" } }
+                );
+              } catch (mongoError) {
+                // ref might not be a valid ObjectId or record doesn't exist
+              }
+              
+              stats.blobsFixed++;
+            } catch (error) {
+              stats.errors.push(`${user.atproto?.handle || 'anonymous'}: Failed to delete incomplete record ${rkey}: ${error.message}`);
+            }
+          }));
+        } else {
+          stats.blobsFixed += batch.length;
+          // In dry run, also remove from map to show what would be recreated
+          batch.forEach(({ ref }) => {
+            if (ref) atprotoByRef.delete(ref);
+          });
+        }
+      }
+    }
+    
+    // 6. Find MongoDB items that don't exist in ATProto
     const missingInAtproto = [];
     
     for (const item of mongoItems) {
@@ -409,7 +497,7 @@ async function syncContentForUser(contentType, user, options = {}) {
       }
     }
     
-    // 6. Create missing items in ATProto
+    // 7. Create missing items in ATProto (includes items with deleted incomplete records)
     if (missingInAtproto.length > 0) {
       const mongoUpdates = [];
       
