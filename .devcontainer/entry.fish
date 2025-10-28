@@ -412,6 +412,11 @@ else
     echo "⚠️  Feed vault not found - skipping feed environment setup"
 end
 
+# Set port 8888 to public in Codespaces (if applicable)
+if test -f /workspaces/aesthetic-computer/.devcontainer/scripts/set-port-public.fish
+    fish /workspaces/aesthetic-computer/.devcontainer/scripts/set-port-public.fish
+end
+
 # Create .waiter file to signal container is ready (moved from postAttachCommand to avoid terminal popup in Codespaces)
 sudo touch /home/me/.waiter
 sudo chmod 777 /home/me/.waiter
