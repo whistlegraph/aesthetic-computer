@@ -348,7 +348,7 @@ async function syncContentForUser(contentType, user, options = {}) {
       
       atprotoByRkey.set(rkey, record);
       
-      // Check if record has a thumbnail blob (for media types that should have one)
+      // Check if record has required blobs (thumbnail for paintings/moods, video for tapes)
       // Note: thumbnail is optional in lexicon, but we want to ensure it exists if the painting exists
       // The @atproto/api library deserializes blobs, so thumbnail.ref will be a CID object, not {$link: "..."}
       if (config.mediaType === MediaTypes.PAINTING || config.mediaType === MediaTypes.MOOD) {
@@ -359,6 +359,17 @@ async function syncContentForUser(contentType, user, options = {}) {
         // Only flag as missing blob if the MongoDB record exists
         // We'll validate this after fetching MongoDB records
         if (!hasThumbnail && ref) {
+          recordsWithoutBlobs.push({ record, rkey, ref });
+        }
+      }
+      
+      // Check for missing video blob on tapes
+      if (config.mediaType === MediaTypes.TAPE) {
+        const hasVideo = record.value.video && 
+                        record.value.video.ref &&
+                        typeof record.value.video.ref !== 'undefined';
+        
+        if (!hasVideo && ref) {
           recordsWithoutBlobs.push({ record, rkey, ref });
         }
       }
@@ -699,6 +710,8 @@ async function syncAll(options = {}) {
     const totalMongo = typeStats.reduce((sum, s) => sum + s.mongoTotal, 0);
     const totalAtproto = typeStats.reduce((sum, s) => sum + s.atprotoTotal, 0);
     const totalDuplicates = typeStats.reduce((sum, s) => sum + s.duplicatesDeleted, 0);
+    const totalMissingBlobs = typeStats.reduce((sum, s) => sum + s.missingBlobs, 0);
+    const totalBlobsFixed = typeStats.reduce((sum, s) => sum + s.blobsFixed, 0);
     const totalCreated = typeStats.reduce((sum, s) => sum + s.created, 0);
     const totalErrors = typeStats.reduce((sum, s) => sum + s.errors.length, 0);
     
@@ -706,6 +719,7 @@ async function syncAll(options = {}) {
     console.log(`   MongoDB records: ${totalMongo}`);
     console.log(`   ATProto records: ${totalAtproto}`);
     console.log(`   Duplicates to delete: ${totalDuplicates}`);
+    console.log(`   Missing blobs to fix: ${totalMissingBlobs} (will delete & recreate: ${totalBlobsFixed})`);
     console.log(`   Records to create: ${totalCreated}`);
     if (totalErrors > 0) {
       console.log(`   Errors: ${totalErrors}`);

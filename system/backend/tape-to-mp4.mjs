@@ -9,15 +9,40 @@ import { randomBytes } from 'crypto';
 import AdmZip from 'adm-zip';
 import { shell } from './shell.mjs';
 
+// Initialize ffmpeg path lazily to avoid top-level await
+let ffmpegPath = null;
+let ffmpegInitialized = false;
+
+/**
+ * Initialize ffmpeg path (tries bundled, falls back to system)
+ * @returns {Promise<string>}
+ */
+async function initFfmpegPath() {
+  if (ffmpegInitialized) return ffmpegPath;
+  
+  try {
+    const ffmpegInstaller = await import('@ffmpeg-installer/ffmpeg');
+    ffmpegPath = ffmpegInstaller.path;
+    shell.log(`📦 Using bundled ffmpeg: ${ffmpegPath}`);
+  } catch (e) {
+    ffmpegPath = 'ffmpeg';
+    shell.log(`📦 Using system ffmpeg`);
+  }
+  
+  ffmpegInitialized = true;
+  return ffmpegPath;
+}
+
 /**
  * Check if ffmpeg is available
  * @returns {Promise<boolean>}
  */
 export async function checkFfmpegAvailable() {
+  const ffmpeg = await initFfmpegPath();
   return new Promise((resolve) => {
-    const ffmpeg = spawn('ffmpeg', ['-version']);
-    ffmpeg.on('error', () => resolve(false));
-    ffmpeg.on('close', (code) => resolve(code === 0));
+    const proc = spawn(ffmpeg, ['-version']);
+    proc.on('error', () => resolve(false));
+    proc.on('close', (code) => resolve(code === 0));
   });
 }
 
@@ -156,7 +181,7 @@ async function framesToMp4(tempDir, timing) {
     shell.log(`🎬 Running ffmpeg at ${frameRate}fps`);
     
     return new Promise((resolve, reject) => {
-      const ffmpeg = spawn('ffmpeg', ffmpegArgs);
+      const ffmpeg = spawn(ffmpegPath, ffmpegArgs);
       
       let stderr = '';
       ffmpeg.stderr.on('data', (data) => {
@@ -265,6 +290,9 @@ export async function convertTapeToMp4(zipUrl) {
   let tempDir = null;
   
   try {
+    // 0. Initialize ffmpeg path
+    await initFfmpegPath();
+    
     // 1. Check ffmpeg availability
     const ffmpegAvailable = await checkFfmpegAvailable();
     if (!ffmpegAvailable) {
