@@ -375,6 +375,65 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
       to { transform: scale(1); opacity: 1; }
     }
 
+    /* Preview box scrolling animation */
+    .source-preview {
+      position: relative;
+      max-height: 120px;
+      overflow: hidden;
+      background: linear-gradient(135deg, rgba(205, 92, 155, 0.05), rgba(100, 180, 255, 0.05));
+      border: 1px solid rgba(205, 92, 155, 0.2);
+    }
+    
+    .source-preview:hover .preview-scroll-container {
+      animation-play-state: paused !important;
+    }
+    
+    .preview-scroll-container {
+      display: flex;
+      animation: previewScrollLoop 40s linear infinite;
+      will-change: transform;
+    }
+    
+    .line-numbers {
+      flex-shrink: 0;
+      width: 3em;
+      text-align: right;
+      padding-right: 0.5em;
+      user-select: none;
+      font-size: 0.9em;
+      line-height: inherit;
+      background: rgba(0, 0, 0, 0.1);
+      border-right: 1px solid rgba(0, 0, 0, 0.15);
+    }
+    
+    .line-numbers div {
+      padding: 0.1em 0;
+    }
+    
+    /* Striped color palette for line numbers */
+    .line-numbers div:nth-child(6n+1) { color: rgb(205, 92, 155); opacity: 0.8; }
+    .line-numbers div:nth-child(6n+2) { color: rgb(255, 120, 100); opacity: 0.8; }
+    .line-numbers div:nth-child(6n+3) { color: rgb(255, 200, 100); opacity: 0.8; }
+    .line-numbers div:nth-child(6n+4) { color: rgb(150, 230, 150); opacity: 0.8; }
+    .line-numbers div:nth-child(6n+5) { color: rgb(100, 180, 255); opacity: 0.8; }
+    .line-numbers div:nth-child(6n+6) { color: rgb(180, 130, 230); opacity: 0.8; }
+    
+    .preview-content {
+      display: block;
+      flex: 1;
+      padding-left: 0.5em;
+    }
+    
+    /* Infinite scroll - content is duplicated so it wraps seamlessly */
+    @keyframes previewScrollLoop {
+      0% {
+        transform: translateY(0);
+      }
+      100% {
+        transform: translateY(-50%);
+      }
+    }
+
     .empty-state {
       text-align: center;
       padding: 2em 1em;
@@ -684,29 +743,45 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
         'red': '#ff0000',
         'darkred': '#8b0000',
         'orange': '#ff6600',
-        'yellow': isDark ? '#ffff00' : '#d4a000', // Darker yellow for light mode
-        'lime': isDark ? '#00ff00' : '#00a000', // Darker lime for light mode
+        'yellow': isDark ? '#ffff00' : '#d4a000',
+        'lime': isDark ? '#00ff00' : '#00a000',
         'limegreen': '#32cd32',
         'green': '#008000',
-        'cyan': isDark ? '#00ffff' : '#008b8b', // Darker cyan for light mode
+        'cyan': isDark ? '#00ffff' : '#008b8b',
         'blue': '#0000ff',
         'purple': '#800080',
         'magenta': '#ff00ff',
         'hotpink': '#ff69b4',
-        'white': isDark ? '#ffffff' : '#333333', // Dark gray for light mode
-        'black': isDark ? '#000000' : '#ffffff', // Invert for light mode
+        'white': isDark ? '#ffffff' : '#333333',
+        'black': isDark ? '#000000' : '#ffffff',
         'gray': '#808080',
         'grey': '#808080',
         'mediumseagreen': '#3cb371',
         'pink': '#ffc0cb',
         'brown': '#a52a2a',
         'violet': '#ee82ee',
-        '192,192,192': isDark ? 'rgb(192,192,192)' : 'rgb(100,100,100)' // Gray values
+        'teal': '#008080',
+        'navy': '#000080',
+        'maroon': '#800000',
+        'olive': '#808000',
+        'silver': '#c0c0c0'
       };
       
       const result = [];
       let i = 0;
-      let currentColor = isDark ? '#ffffff' : '#333333'; // Default color based on theme
+      let currentColor = isDark ? '#ffffff' : '#333333';
+      let textBuffer = '';
+      
+      function flushBuffer() {
+        if (textBuffer) {
+          const escaped = textBuffer
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+          result.push(`<span style="color: ${currentColor}">${escaped}</span>`);
+          textBuffer = '';
+        }
+      }
       
       while (i < coloredString.length) {
         if (coloredString[i] === '\\' && i + 1 < coloredString.length) {
@@ -716,32 +791,33 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
             j++;
           }
           if (j < coloredString.length) {
-            const colorName = coloredString.substring(i + 1, j);
-            // Check if it's a color code
-            if (colorMap[colorName.toLowerCase()]) {
-              currentColor = colorMap[colorName.toLowerCase()];
-            } else if (/^\d+,\d+,\d+(,\d+)?$/.test(colorName)) {
-              // RGB or RGBA value like "255,20,147" or "255,255,255,0"
-              currentColor = `rgb(${colorName})`;
+            const colorCode = coloredString.substring(i + 1, j);
+            
+            // Flush any buffered text before changing color
+            flushBuffer();
+            
+            // Parse the color code
+            if (colorMap[colorCode.toLowerCase()]) {
+              currentColor = colorMap[colorCode.toLowerCase()];
+            } else if (/^\d+,\d+,\d+(,[\d.]+)?$/.test(colorCode)) {
+              // RGB or RGBA value like "255,20,147" or "255,255,255,0.5"
+              currentColor = `rgb(${colorCode})`;
+            } else {
+              // Unknown color code - try as CSS color name
+              currentColor = colorCode;
             }
             i = j + 1;
             continue;
           }
         }
         
-        // Regular character - add with current color
-        const char = coloredString[i];
-        if (char === '<') {
-          result.push(`<span style="color: ${currentColor}">&lt;</span>`);
-        } else if (char === '>') {
-          result.push(`<span style="color: ${currentColor}">&gt;</span>`);
-        } else if (char === '&') {
-          result.push(`<span style="color: ${currentColor}">&amp;</span>`);
-        } else {
-          result.push(`<span style="color: ${currentColor}">${char}</span>`);
-        }
+        // Regular character - add to buffer
+        textBuffer += coloredString[i];
         i++;
       }
+      
+      // Flush any remaining text
+      flushBuffer();
       
       return result.join('');
     }
@@ -776,8 +852,11 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
         if (module && module.KidLisp) {
           // Create a kidlisp instance for syntax highlighting
           const kid = new module.KidLisp();
-          kid.syntaxHighlightSource = source;
+          kid.initializeSyntaxHighlighting(source);
           const coloredString = kid.buildColoredKidlispString();
+          
+          console.log('🎨 KidLisp colored string sample:', coloredString.substring(0, 100));
+          
           const result = parseColoredKidlisp(coloredString);
           
           // Cache the result
@@ -884,32 +963,209 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
         });
     }
 
-    function openSourceModal(uri, source, slug) {
-      // Create a formatted HTML view of the source code
+    // Simple JavaScript syntax highlighter
+    function highlightJavaScript(code) {
+      // Escape HTML first
+      const escaped = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      
+      // Parse and highlight in order of precedence to avoid conflicts
+      let result = '';
+      let i = 0;
+      
+      while (i < escaped.length) {
+        let matched = false;
+        
+        // Multi-line comments
+        if (escaped.substr(i, 2) === '/*') {
+          let end = escaped.indexOf('*/', i + 2);
+          if (end === -1) end = escaped.length;
+          else end += 2;
+          result += '<span style="color: rgb(120, 120, 120);">' + escaped.substring(i, end) + '</span>';
+          i = end;
+          continue;
+        }
+        
+        // Single-line comments
+        if (escaped.substr(i, 2) === '//') {
+          let end = escaped.indexOf('\n', i);
+          if (end === -1) end = escaped.length;
+          else end += 1;
+          result += '<span style="color: rgb(120, 120, 120);">' + escaped.substring(i, end) + '</span>';
+          i = end;
+          continue;
+        }
+        
+        // Strings
+        if (escaped[i] === '"' || escaped[i] === "'" || escaped[i] === '`') {
+          const quote = escaped[i];
+          let end = i + 1;
+          while (end < escaped.length && escaped[end] !== quote) {
+            if (escaped[end] === '\\') end += 2;
+            else end++;
+          }
+          end++; // Include closing quote
+          result += '<span style="color: rgb(150, 255, 150);">' + escaped.substring(i, end) + '</span>';
+          i = end;
+          continue;
+        }
+        
+        // Numbers
+        if (/\d/.test(escaped[i])) {
+          let end = i;
+          while (end < escaped.length && /[\d.]/.test(escaped[end])) end++;
+          result += '<span style="color: rgb(255, 200, 100);">' + escaped.substring(i, end) + '</span>';
+          i = end;
+          continue;
+        }
+        
+        // Keywords and identifiers
+        if (/[a-zA-Z_$]/.test(escaped[i])) {
+          let end = i;
+          while (end < escaped.length && /[a-zA-Z0-9_$]/.test(escaped[end])) end++;
+          const word = escaped.substring(i, end);
+          
+          const keywords = ['const', 'let', 'var', 'function', 'return', 'if', 'else', 'for', 'while', 'do', 'switch', 'case', 'break', 'continue', 'async', 'await', 'class', 'extends', 'import', 'export', 'from', 'default', 'new', 'try', 'catch', 'finally', 'throw', 'typeof', 'instanceof', 'delete', 'in', 'of', 'void', 'yield', 'static', 'get', 'set', 'super', 'this'];
+          
+          if (keywords.includes(word)) {
+            result += '<span style="color: rgb(100, 150, 255);">' + word + '</span>';
+          } else {
+            // Check if it's a function call (followed by opening paren)
+            let j = end;
+            while (j < escaped.length && /\s/.test(escaped[j])) j++;
+            if (escaped[j] === '(') {
+              result += '<span style="color: rgb(255, 220, 100);">' + word + '</span>';
+            } else {
+              result += word;
+            }
+          }
+          i = end;
+          continue;
+        }
+        
+        // Default: just add the character
+        result += escaped[i];
+        i++;
+      }
+      
+      return result;
+    }
+
+    // KidLisp syntax highlighter - simple fallback
+    function highlightKidLispSimple(code) {
+      // Escape HTML first
+      code = code.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      
+      // Comments (semicolons)
+      code = code.replace(/(;.*$)/gm, 
+        '<span style="color: rgb(120, 120, 120);">$1</span>');
+      
+      // Strings
+      code = code.replace(/("(?:\\.|[^"\\])*")/g, 
+        '<span style="color: rgb(150, 255, 150);">$1</span>');
+      
+      // Numbers
+      code = code.replace(/\b(-?\d+\.?\d*)\b/g, 
+        '<span style="color: rgb(255, 200, 100);">$1</span>');
+      
+      // Common KidLisp forms/functions (after opening paren)
+      code = code.replace(/\(([a-zA-Z_][a-zA-Z0-9_-]*)/g, 
+        '(<span style="color: rgb(147, 51, 234);">$1</span>');
+      
+      // Parentheses
+      code = code.replace(/([()])/g, 
+        '<span style="color: rgb(200, 200, 200);">$1</span>');
+      
+      return code;
+    }
+
+    async function openSourceModal(uri, source, slug) {
+      // Detect file type from slug
+      const isJavaScript = slug && slug.endsWith('.mjs');
+      const isKidLisp = slug && slug.endsWith('.lisp');
+      
+      // Apply syntax highlighting
+      let highlightedSource;
+      if (isJavaScript) {
+        highlightedSource = highlightJavaScript(source);
+      } else if (isKidLisp) {
+        // Use the proper KidLisp highlighter with color codes
+        highlightedSource = await highlightKidlisp(source);
+        if (!highlightedSource || highlightedSource.trim() === '') {
+          // Fallback to simple highlighter if the full one fails
+          highlightedSource = highlightKidLispSimple(source);
+        }
+      } else {
+        highlightedSource = source.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      }
+      
+      // Create a formatted HTML view of the source code with animated scrolling
       const htmlContent = `
         <!DOCTYPE html>
         <html>
         <head>
           <style>
+            * {
+              box-sizing: border-box;
+            }
             body {
               margin: 0;
-              padding: 2em;
+              padding: 0;
               background: black;
               color: rgb(200, 200, 200);
               font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
               font-size: 11px;
               line-height: 1.4;
+              overflow: hidden;
+              height: 100vh;
+              display: flex;
+              flex-direction: column;
+            }
+            .header {
+              padding: 1.5em 2em;
+              background: rgba(0, 0, 0, 0.8);
+              border-bottom: 1px solid rgb(205, 92, 155);
+              flex-shrink: 0;
             }
             h1 {
               color: rgb(205, 92, 155);
               font-size: 1.2em;
-              margin-bottom: 0.8em;
+              margin: 0 0 0.5em 0;
               font-weight: normal;
             }
-            pre {
-              margin: 0;
-              white-space: pre-wrap;
-              word-break: break-word;
+            .controls {
+              display: flex;
+              gap: 1em;
+              align-items: center;
+              margin-top: 0.8em;
+            }
+            button {
+              background: rgba(205, 92, 155, 0.2);
+              border: 1px solid rgb(205, 92, 155);
+              color: rgb(205, 92, 155);
+              padding: 0.4em 0.8em;
+              cursor: pointer;
+              font-family: inherit;
+              font-size: 0.9em;
+              border-radius: 3px;
+            }
+            button:hover {
+              background: rgba(205, 92, 155, 0.3);
+            }
+            button.active {
+              background: rgb(205, 92, 155);
+              color: black;
+            }
+            .scroll-speed {
+              display: flex;
+              gap: 0.5em;
+              align-items: center;
+            }
+            .scroll-speed label {
+              font-size: 0.85em;
+              color: rgb(150, 150, 150);
+            }
+            .scroll-speed input {
+              width: 80px;
             }
             a {
               color: rgb(205, 92, 155);
@@ -918,12 +1174,132 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
             a:hover {
               text-decoration: underline;
             }
+            .code-container {
+              flex: 1;
+              overflow: hidden;
+              position: relative;
+            }
+            .code-scroll {
+              padding: 2em;
+              overflow-y: auto;
+              height: 100%;
+              position: relative;
+            }
+            .code-scroll.auto-scrolling {
+              overflow-y: hidden; /* Hide scrollbar during animation */
+              animation: autoScroll var(--scroll-duration, 60s) linear infinite;
+            }
+            .code-scroll.auto-scrolling pre {
+              animation: smoothScroll var(--scroll-duration, 60s) linear infinite;
+            }
+            pre {
+              margin: 0;
+              white-space: pre-wrap;
+              word-break: break-word;
+            }
+            @keyframes autoScroll {
+              0% {
+                scroll-behavior: smooth;
+              }
+              100% {
+                scroll-behavior: smooth;
+              }
+            }
+            @keyframes smoothScroll {
+              from {
+                transform: translateY(0);
+              }
+              to {
+                transform: translateY(calc(-100% + 100vh - 250px));
+              }
+            }
+            .badge {
+              display: inline-block;
+              padding: 0.2em 0.6em;
+              background: rgba(100, 150, 255, 0.2);
+              border: 1px solid rgb(100, 150, 255);
+              color: rgb(100, 150, 255);
+              border-radius: 3px;
+              font-size: 0.75em;
+              margin-left: 0.5em;
+            }
           </style>
         </head>
         <body>
-          <h1>${slug ? `piece: ${slug}` : 'piece source'}</h1>
-          ${slug ? `<p><a href="https://aesthetic.computer/${slug}" target="_blank">→ open on aesthetic.computer</a></p>` : ''}
-          <pre>${source.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+          <div class="header">
+            <h1>
+              ${slug ? `piece: ${slug}` : 'piece source'}
+              ${isJavaScript ? '<span class="badge">.mjs</span>' : ''}
+              ${isKidLisp ? '<span class="badge">.lisp</span>' : ''}
+              <span class="badge" style="background: rgba(100, 100, 100, 0.2); border-color: rgb(150, 150, 150); color: rgb(150, 150, 150);">${source.split('\\n').length} lines</span>
+            </h1>
+            ${slug ? `<p style="margin: 0;"><a href="https://aesthetic.computer/${slug}" target="_blank">→ open on aesthetic.computer</a></p>` : ''}
+            <div class="controls">
+              <button id="scrollBtn" onclick="toggleScroll()">▶ Auto-scroll</button>
+              <div class="scroll-speed">
+                <label for="speedRange">Speed:</label>
+                <input type="range" id="speedRange" min="10" max="120" value="60" 
+                       oninput="updateSpeed(this.value)">
+                <span id="speedLabel">60s</span>
+              </div>
+            </div>
+          </div>
+          <div class="code-container">
+            <div class="code-scroll" id="codeScroll">
+              <pre>${highlightedSource}</pre>
+            </div>
+          </div>
+          <script>
+            let isScrolling = true; // Start with auto-scroll enabled
+            const scrollContainer = document.getElementById('codeScroll');
+            const scrollBtn = document.getElementById('scrollBtn');
+            const speedLabel = document.getElementById('speedLabel');
+            
+            // Initialize auto-scroll on load
+            window.addEventListener('load', () => {
+              scrollContainer.classList.add('auto-scrolling');
+              scrollBtn.classList.add('active');
+              scrollBtn.textContent = '⏸ Pause';
+            });
+            
+            function toggleScroll() {
+              isScrolling = !isScrolling;
+              if (isScrolling) {
+                scrollContainer.classList.add('auto-scrolling');
+                scrollBtn.classList.add('active');
+                scrollBtn.textContent = '⏸ Pause';
+              } else {
+                scrollContainer.classList.remove('auto-scrolling');
+                scrollBtn.classList.remove('active');
+                scrollBtn.textContent = '▶ Auto-scroll';
+              }
+            }
+            
+            function updateSpeed(seconds) {
+              document.documentElement.style.setProperty('--scroll-duration', seconds + 's');
+              speedLabel.textContent = seconds + 's';
+            }
+            
+            // Pause on hover
+            scrollContainer.addEventListener('mouseenter', () => {
+              if (isScrolling) {
+                scrollContainer.style.animationPlayState = 'paused';
+              }
+            });
+            
+            scrollContainer.addEventListener('mouseleave', () => {
+              if (isScrolling) {
+                scrollContainer.style.animationPlayState = 'running';
+              }
+            });
+            
+            // Manual scroll disables auto-scroll
+            scrollContainer.addEventListener('wheel', () => {
+              if (isScrolling) {
+                toggleScroll();
+              }
+            });
+          <\/script>
         </body>
         </html>
       `;
@@ -935,6 +1311,24 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
       
       // Clean up blob URL after modal opens
       setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+    }
+
+    // Helper function to open source modal from DOM element
+    async function openSourceModalFromElement(element) {
+      const sourceId = element.dataset.sourceId;
+      const uri = element.dataset.uri;
+      const slug = element.dataset.slug;
+      const language = element.dataset.language || 'mjs';
+      
+      const sourceHolder = document.getElementById(sourceId);
+      if (sourceHolder) {
+        const source = sourceHolder.textContent;
+        // Add language extension to slug for proper detection
+        const slugWithExtension = slug.includes('.') ? slug : `${slug}.${language}`;
+        await openSourceModal(uri, source, slugWithExtension);
+      } else {
+        console.error('Source not found for ID:', sourceId);
+      }
     }
 
     // Render a painting record
@@ -1041,17 +1435,16 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
       const card = document.createElement('div');
       card.className = 'record-card';
       
-      const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-      const bgColor = isDark ? 'rgba(0,0,0,0.8)' : 'rgba(0,0,0,0.05)';
-      
-      // Create card with loading state
+      // Create initial card HTML with preview container
       card.innerHTML = `
         <div class="record-header">
           <span class="record-date">${formatDate(value.when || value.createdAt)}</span>
           <span class="lexicon-badge" onclick="openLexiconModal('${lexicon}')">${typeName}</span>
         </div>
         <div class="record-content">
-          <pre class="record-text" style="font-size: 0.85em; overflow-x: auto; background: ${bgColor}; padding: 0.5em; border-radius: 2px; color: #808080;">Loading syntax highlighting...</pre>
+          <div class="source-preview-container" style="margin: 0.5em 0;">
+            <div style="font-size: 0.75em; color: rgb(150, 150, 150);">loading source...</div>
+          </div>
           <div style="margin-top: 0.5em; display: flex; gap: 0.5em; flex-wrap: wrap;">
             ${value.code ? `<a href="${value.acUrl || `https://aesthetic.computer/$${value.code}`}" class="record-link" style="display: inline-block; padding: 0.4em 0.8em; background: rgba(205, 92, 155, 0.1); border: 1px solid rgb(205, 92, 155); border-radius: 3px; font-size: 0.85em;">█ prompt.ac/<strong>$</strong><strong>${value.code}</strong></a>` : ''}
             <a href="https://pdsls.dev/at://${uri.split('//')[1]}" class="record-link" style="display: inline-block; padding: 0.4em 0.8em; background: rgba(100, 150, 200, 0.1); border: 1px solid rgb(100, 150, 200); border-radius: 3px; font-size: 0.85em; color: rgb(100, 150, 200);">${rkey}</a>
@@ -1059,20 +1452,53 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
         </div>
       `;
       
-      // Highlight the source code asynchronously
+      // Highlight and animate the source code asynchronously
       if (value.source) {
-        highlightKidlisp(value.source).then(highlighted => {
-          const preElement = card.querySelector('.record-text');
-          if (preElement) {
-            preElement.innerHTML = highlighted;
-          }
+        highlightKidlisp(value.source).then(highlightedSource => {
+          const previewContainer = card.querySelector('.source-preview-container');
+          if (!previewContainer) return;
+          
+          // Store source for modal
+          const sourceId = `kidlisp-${rkey}`;
+          sourceMap[sourceId] = value.source;
+          
+          // Language badge
+          const languageBadge = '<span style="display: inline-block; padding: 0.15em 0.4em; background: rgba(147, 51, 234, 0.1); color: rgb(147, 51, 234); border-radius: 3px; font-size: 0.85em; font-weight: 600; margin-left: 0.5em;">KidLisp</span>';
+          
+          // Calculate dynamic font size and animation speed based on content
+          const lineCount = value.source.split('\n').length;
+          const fontSize = lineCount > 50 ? '0.55em' : lineCount > 30 ? '0.6em' : lineCount > 15 ? '0.7em' : '0.8em';
+          
+          // Shorter programs scroll faster - scale duration based on line count
+          const animationDuration = Math.max(15, Math.min(60, lineCount * 0.8));
+          
+          // Generate line numbers (doubled for the duplicated content)
+          const lineNumbers = Array.from({length: lineCount * 2}, (_, i) => 
+            `<div>${(i % lineCount) + 1}</div>`
+          ).join('');
+          
+          previewContainer.innerHTML = `
+            <div class="source-preview" 
+                 data-source-id="${sourceId}"
+                 data-uri="${uri.replace(/"/g, '&quot;')}"
+                 data-language="lisp"
+                 onclick="openSourceModalFromElement(this)" 
+                 style="padding: 0.5em; border-radius: 2px; cursor: pointer; font-family: monospace; font-size: ${fontSize}; color: rgb(100, 100, 100);">
+              <div class="preview-scroll-container" style="animation: previewScrollLoop ${animationDuration}s linear infinite;">
+                <div class="line-numbers">${lineNumbers}</div>
+                <div class="preview-content" style="white-space: pre; overflow-wrap: normal;">
+                  ${highlightedSource}
+                  <div style="margin: 2em 0; border-top: 1px dashed rgba(100,100,100,0.3); padding-top: 2em;"></div>
+                  ${highlightedSource}
+                </div>
+              </div>
+            </div>
+          `;
         }).catch(error => {
           console.error('Highlighting error:', error);
-          // Fallback to plain text
-          const preElement = card.querySelector('.record-text');
-          if (preElement) {
-            preElement.textContent = value.source;
-            preElement.style.color = isDark ? '#ffffff' : '#333333';
+          const previewContainer = card.querySelector('.source-preview-container');
+          if (previewContainer) {
+            previewContainer.innerHTML = `<pre style="font-size: 0.85em; color: rgb(150, 150, 150);">${value.source}</pre>`;
           }
         });
       }
@@ -1110,27 +1536,111 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
       // Fetch source code from media URL if available
       if (value.slug && handle) {
         try {
-          let sourceUrl;
-          // Anonymous pieces use /media/pieces/slug, user pieces use /media/@handle/piece/slug.mjs
+          let source = null;
+          let language = 'mjs'; // Default to JavaScript
+          
+          // Anonymous pieces: try art.aesthetic.computer with both .lisp and .mjs
           if (handle === 'art.at.aesthetic.computer') {
-            sourceUrl = `${API_BASE_URL}/media/pieces/${value.slug}.mjs`;
+            // Try .lisp first, then .mjs
+            const lispUrl = `https://art.aesthetic.computer/${value.slug}.lisp`;
+            let response = await fetch(lispUrl);
+            
+            if (response.ok) {
+              source = await response.text();
+              language = 'lisp';
+            } else {
+              // Try .mjs
+              const mjsUrl = `https://art.aesthetic.computer/${value.slug}.mjs`;
+              response = await fetch(mjsUrl);
+              if (response.ok) {
+                source = await response.text();
+                language = 'mjs';
+              }
+            }
           } else {
-            sourceUrl = `${API_BASE_URL}/media/@${handle}/piece/${value.slug}.mjs`;
+            // User pieces use /media/@handle/piece/slug.mjs
+            const sourceUrl = `${API_BASE_URL}/media/@${handle}/piece/${value.slug}.mjs`;
+            const response = await fetch(sourceUrl);
+            if (response.ok) {
+              source = await response.text();
+              language = 'mjs';
+            }
           }
           
-          const response = await fetch(sourceUrl);
-          if (response.ok) {
-            const source = await response.text();
-            const previewText = source.length > 200 ? source.substring(0, 200) + '...' : source;
-            
+          // Render source if found
+          if (source) {
             const previewContainer = card.querySelector('.source-preview-container');
             if (previewContainer) {
+              // Create a unique ID for this source
+              const sourceId = `source-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+              
+              // Store source in a hidden element to avoid escaping issues
+              const sourceHolder = document.createElement('div');
+              sourceHolder.id = sourceId;
+              sourceHolder.style.display = 'none';
+              sourceHolder.textContent = source;
+              sourceHolder.dataset.language = language;
+              document.body.appendChild(sourceHolder);
+              
+              // Apply syntax highlighting to full source (not just preview)
+              let highlightedSource;
+              if (language === 'lisp') {
+                // Use async highlighter for KidLisp
+                highlightKidlisp(source).then(highlighted => {
+                  if (highlighted && highlighted.trim()) {
+                    // Update the preview with highlighted code (duplicated for seamless loop)
+                    const previewContent = previewContainer.querySelector('.preview-content');
+                    if (previewContent) {
+                      previewContent.innerHTML = `
+                        ${highlighted}
+                        <div style="margin: 2em 0; border-top: 1px dashed rgba(100,100,100,0.3); padding-top: 2em;"></div>
+                        ${highlighted}
+                      `;
+                    }
+                  }
+                });
+                // Start with plain text while loading
+                highlightedSource = source.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+              } else if (language === 'mjs') {
+                highlightedSource = highlightJavaScript(source);
+              } else {
+                highlightedSource = source.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+              }
+              
+              // Language badge colors
+              const languageBadge = language === 'lisp' 
+                ? '<span style="display: inline-block; padding: 0.15em 0.4em; background: rgba(147, 51, 234, 0.1); color: rgb(147, 51, 234); border-radius: 3px; font-size: 0.85em; font-weight: 600; margin-left: 0.5em;">KidLisp</span>'
+                : '<span style="display: inline-block; padding: 0.15em 0.4em; background: rgba(234, 179, 8, 0.1); color: rgb(234, 179, 8); border-radius: 3px; font-size: 0.85em; font-weight: 600; margin-left: 0.5em;">JavaScript</span>';
+              
+              // Calculate dynamic font size and animation speed based on content
+              const lineCount = source.split('\n').length;
+              const fontSize = lineCount > 50 ? '0.55em' : lineCount > 30 ? '0.6em' : lineCount > 15 ? '0.7em' : '0.8em';
+              
+              // Shorter programs scroll faster - scale duration based on line count
+              const animationDuration = Math.max(15, Math.min(60, lineCount * 0.8));
+              
+              // Generate line numbers (doubled for the duplicated content)
+              const lineNumbers = Array.from({length: lineCount * 2}, (_, i) => 
+                `<div>${(i % lineCount) + 1}</div>`
+              ).join('');
+              
               previewContainer.innerHTML = `
-                <div class="source-preview" onclick="openSourceModal('${uri.replace(/'/g, "\\'")}', ${JSON.stringify(source).replace(/'/g, "\\'")}, '${value.slug}')" 
-                     style="padding: 0.5em; background: rgba(0,0,0,0.05); border-radius: 2px; cursor: pointer; font-family: monospace; font-size: 0.75em; color: rgb(100, 100, 100); overflow: hidden; white-space: pre-wrap; word-break: break-all;">
-                  ${previewText.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
+                <div class="source-preview" 
+                     data-source-id="${sourceId}"
+                     data-uri="${uri.replace(/"/g, '&quot;')}"
+                     data-slug="${value.slug}"
+                     data-language="${language}"
+                     onclick="openSourceModalFromElement(this)" 
+                     style="padding: 0.5em; border-radius: 2px; cursor: pointer; font-family: monospace; font-size: ${fontSize}; color: rgb(100, 100, 100);">
+                  <div class="preview-scroll-container" style="animation: previewScrollLoop ${animationDuration}s linear infinite;">
+                    <div class="line-numbers">${lineNumbers}</div>
+                    <div class="preview-content" style="white-space: pre; overflow-wrap: normal;">
+                      ${highlightedSource}
+                      <div style="margin: 2em 0; border-top: 1px dashed rgba(100,100,100,0.3); padding-top: 2em;"></div>
+                      ${highlightedSource}
+                    </div>
+                  </div>
                 </div>
-                <div style="font-size: 0.75em; color: rgb(150, 150, 150); margin-top: 0.25em;">↑ click to view full source</div>
               `;
             }
           } else {

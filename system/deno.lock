@@ -217,6 +217,7 @@
         "npm:@atproto/api@^0.17.2",
         "npm:@aws-sdk/client-s3@^3.896.0",
         "npm:@aws-sdk/s3-request-presigner@^3.896.0",
+        "npm:@ffmpeg-installer/ffmpeg@^1.1.0",
         "npm:@ffmpeg/core@^0.12.10",
         "npm:@ffmpeg/ffmpeg@^0.12.15",
         "npm:@geckos.io/client@^3.0.2",
