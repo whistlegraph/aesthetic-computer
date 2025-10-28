@@ -5598,7 +5598,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         const metadata = {
           resolution: { width: originalWidth, height: originalHeight },
           frameCount: content.frames.length,
-          totalDuration: totalDuration,
+          totalDuration: totalDuration / 1000, // Convert from milliseconds to seconds
           piece: content.piece || "video",
           exportedAt: new Date().toISOString(),
           audioSampleRate: content.rawAudio?.sampleRate || null, // Store original audio sample rate
@@ -8029,6 +8029,26 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         }
       })();
       
+      return;
+    }
+
+    // 📼 Get tape information (duration, frame count, etc.)
+    if (type === "tape:get-info") {
+      const info = {
+        frameCount: recordedFrames.length,
+        totalDuration: 0,
+        hasAudio: !!window.tapeAudioArrayBuffer,
+      };
+      
+      // Calculate total duration from frame timestamps
+      if (recordedFrames.length > 1) {
+        const firstTimestamp = recordedFrames[0][0];
+        const lastTimestamp = recordedFrames[recordedFrames.length - 1][0];
+        info.totalDuration = (lastTimestamp - firstTimestamp) / 1000; // Convert to seconds
+      }
+      
+      // Reply back to the disk
+      send({ type: "tape:info-reply", content: info });
       return;
     }
 
