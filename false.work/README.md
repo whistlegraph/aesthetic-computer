@@ -11,12 +11,22 @@ Next up: auto-deploy to your site under a password page!
 ### 🔜 Next
 1. Set up automated build system
 2. Auto-post builds to false.work website under password-protected page
+3. **🆕 Mac Builder Setup** - Configure Mac Mini for Mac builds
 
-### ✅ Status (October 20, 2025)
-- ✅ GCP VM us-central1 (n2-standard-8: 8 vCPU, 32GB RAM, 300GB SSD)
-- ✅ UE5.6 + Perforce + GitHub Actions runner
-- ✅ Connected to Helix Core (ssl:falsework.helixcore.io:1666)
-- ✅ **Spider Lily built and deployed for Windows**
+### ✅ Status (October 28, 2025)
+- ✅ **Windows Builder** - GCP VM us-central1 (n2-standard-8: 8 vCPU, 32GB RAM, 300GB SSD)
+  - ✅ UE5.6 + Perforce + GitHub Actions runner
+  - ✅ Connected to Helix Core (ssl:falsework.helixcore.io:1666)
+  - ✅ **Spider Lily built and deployed for Windows**
+- ✅ **Mac Builder** - M4 Mac Mini with UE5.6 + Perforce
+  - ✅ SSH access configured from dev container
+  - ✅ FMOD Mac binaries installed
+  - ✅ .NET 8 SDK installed
+  - ✅ Xcode 26 compatibility patched
+  - ✅ **Mac builds working!** (~1GB .app bundle)
+  - ⚠️ iOS builds blocked by code signing (Team ID configured, needs Xcode GUI setup)
+  - 🔜 P4 CLI setup needed
+  - 🔜 Automated deployment to false.work
 
 ### 💰 Costs
 **Setup so far:** ~$28
