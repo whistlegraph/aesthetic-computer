@@ -9,9 +9,11 @@ import { randomBytes } from 'crypto';
 import AdmZip from 'adm-zip';
 import { shell } from './shell.mjs';
 
-// Initialize ffmpeg path lazily to avoid top-level await
+// Initialize ffmpeg and ffprobe paths lazily to avoid top-level await
 let ffmpegPath = null;
 let ffmpegInitialized = false;
+let ffprobePath = null;
+let ffprobeInitialized = false;
 
 /**
  * Initialize ffmpeg path (tries static binary, falls back to system)
@@ -48,22 +50,45 @@ async function initFfmpegPath() {
 }
 
 /**
- * Check if ffmpeg is available and make it executable if needed
+ * Initialize ffprobe path (tries static binary, falls back to system)
+ * @returns {Promise<string>}
+ */
+async function initFfprobePath() {
+  if (ffprobeInitialized) return ffprobePath;
+  
+  try {
+    // Use ffprobe-static which provides statically-linked binaries
+    const ffprobeStatic = await import('ffprobe-static');
+    ffprobePath = ffprobeStatic.path;
+    
+    // Debug: Check if file exists
+    const { access } = await import('fs/promises');
+    const { constants } = await import('fs');
+    try {
+      await access(ffprobePath, constants.F_OK);
+      shell.log(`📦 Using ffprobe-static: ${ffprobePath}`);
+    } catch (accessError) {
+      shell.error(`❌ ffprobe-static binary not found at: ${ffprobePath}`);
+      shell.error(`   Error: ${accessError.message}`);
+      // Fall back to system ffprobe
+      ffprobePath = 'ffprobe';
+      shell.log(`📦 Falling back to system ffprobe`);
+    }
+  } catch (e) {
+    ffprobePath = 'ffprobe';
+    shell.log(`📦 Using system ffprobe (import failed: ${e.message})`);
+  }
+  
+  ffprobeInitialized = true;
+  return ffprobePath;
+}
+
+/**
+ * Check if ffmpeg is available (no chmod needed - binaries already executable)
  * @returns {Promise<boolean>}
  */
 export async function checkFfmpegAvailable() {
   const ffmpeg = await initFfmpegPath();
-  
-  // For static binaries in Lambda, ensure execute permissions
-  if (ffmpeg !== 'ffmpeg') {
-    try {
-      const { chmod } = await import('fs/promises');
-      await chmod(ffmpeg, 0o755);
-      shell.log(`✅ Set execute permissions on ffmpeg binary`);
-    } catch (chmodError) {
-      shell.warn(`⚠️  Could not set execute permissions: ${chmodError.message}`);
-    }
-  }
   
   return new Promise((resolve) => {
     const proc = spawn(ffmpeg, ['-version']);
@@ -146,8 +171,9 @@ async function framesToMp4(tempDir, timing) {
   
   if (hasSoundtrack && timing && Array.isArray(timing) && timing.length > 0) {
     // Probe audio file to get duration
-    const audioDuration = await new Promise((resolve, reject) => {
-      const ffprobe = spawn('ffprobe', [
+    const audioDuration = await new Promise(async (resolve, reject) => {
+      const ffprobeCmd = await initFfprobePath();
+      const ffprobe = spawn(ffprobeCmd, [
         '-v', 'error',
         '-show_entries', 'format=duration',
         '-of', 'default=noprint_wrappers=1:nokey=1',
@@ -156,6 +182,10 @@ async function framesToMp4(tempDir, timing) {
       
       let output = '';
       ffprobe.stdout.on('data', (data) => output += data.toString());
+      ffprobe.on('error', (err) => {
+        shell.error(`❌ ffprobe spawn error: ${err.message}`);
+        reject(err);
+      });
       ffprobe.on('close', (code) => {
         if (code === 0) {
           const duration = parseFloat(output.trim());
