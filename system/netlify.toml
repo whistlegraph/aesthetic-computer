@@ -12,7 +12,7 @@ directory = "netlify/functions"
 
 [functions."tape-convert-background"]
 node_bundler = "esbuild"
-external_node_modules = ["@atproto/api", "adm-zip", "@ffmpeg-installer/ffmpeg"]
+external_node_modules = ["@atproto/api", "adm-zip", "ffmpeg-static", "sharp"]
 included_files = ["backend/**/*.mjs"]
 included_env_vars = ["MONGODB_CONNECTION_STRING", "MONGODB_NAME", "PDS_URL", "CONTEXT"]
 

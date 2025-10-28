@@ -14,16 +14,17 @@ let ffmpegPath = null;
 let ffmpegInitialized = false;
 
 /**
- * Initialize ffmpeg path (tries bundled, falls back to system)
+ * Initialize ffmpeg path (tries static binary, falls back to system)
  * @returns {Promise<string>}
  */
 async function initFfmpegPath() {
   if (ffmpegInitialized) return ffmpegPath;
   
   try {
-    const ffmpegInstaller = await import('@ffmpeg-installer/ffmpeg');
-    ffmpegPath = ffmpegInstaller.path;
-    shell.log(`📦 Using bundled ffmpeg: ${ffmpegPath}`);
+    // Use ffmpeg-static which provides statically-linked binaries that work in Lambda
+    const ffmpegStatic = await import('ffmpeg-static');
+    ffmpegPath = ffmpegStatic.default;
+    shell.log(`📦 Using ffmpeg-static: ${ffmpegPath}`);
   } catch (e) {
     ffmpegPath = 'ffmpeg';
     shell.log(`📦 Using system ffmpeg`);
