@@ -13,14 +13,23 @@ export async function handler(event, context) {
 
   let body;
   try {
+    // Check if body exists and is not empty
+    if (!event.body || event.body.trim() === '') {
+      console.error('❌ Empty request body received');
+      return respond(400, { message: "Empty request body" });
+    }
+    
     body = JSON.parse(event.body);
   } catch (error) {
-    return respond(400, { message: "Invalid JSON body" });
+    console.error('❌ JSON parse error:', error.message);
+    console.error('📦 Raw body:', event.body);
+    return respond(400, { message: "Invalid JSON body: " + error.message });
   }
 
   const { mongoId, mp4Url, status } = body;
 
   if (!mongoId || !mp4Url) {
+    console.error('❌ Missing required fields. Body:', JSON.stringify(body));
     return respond(400, { message: "Missing required fields: mongoId, mp4Url" });
   }
 
