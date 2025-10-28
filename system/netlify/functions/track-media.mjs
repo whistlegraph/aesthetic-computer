@@ -20,72 +20,6 @@ const dev = process.env.CONTEXT === "dev";
 // Duration limit for tape background processing (in seconds)
 const MAX_TAPE_DURATION = 30;
 
-/**
- * Invoke Netlify Background Function for MP4 conversion (tapes only)
- * @param {Object} options - Conversion job parameters
- * @returns {Promise<void>}
- */
-async function invokeBackgroundConversion({ mongoId, slug, zipUrl, metadata }) {
-  console.log(`🎬 Invoking background conversion for tape ${slug} (${mongoId})`);
-  
-  try {
-    // Netlify background functions are invoked by calling them via /api/ route
-    let baseUrl = process.env.URL || 'https://localhost:8888';
-    const backgroundUrl = `${baseUrl}/api/tape-convert-background`;
-    
-    console.log(`🎬 Background function URL: ${backgroundUrl}`);
-    
-    // For local dev with self-signed certs, we need to disable SSL verification
-    const isLocalhost = baseUrl.includes('localhost');
-    const originalRejectUnauthorized = process.env.NODE_TLS_REJECT_UNAUTHORIZED;
-    
-    if (isLocalhost) {
-      process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-    }
-    
-    const response = await fetch(backgroundUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        mongoId,
-        slug,
-        zipUrl,
-        metadata,
-      }),
-    });
-    
-    // Restore original setting
-    if (isLocalhost) {
-      if (originalRejectUnauthorized === undefined) {
-        delete process.env.NODE_TLS_REJECT_UNAUTHORIZED;
-      } else {
-        process.env.NODE_TLS_REJECT_UNAUTHORIZED = originalRejectUnauthorized;
-      }
-    }
-    
-    console.log(`📡 Background function response: ${response.status} ${response.statusText}`);
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Background function returned ${response.status}: ${errorText}`);
-    }
-    
-    // Background functions return 202 Accepted when successfully queued
-    if (response.status === 202) {
-      console.log(`✅ Background conversion queued successfully (202)`);
-    } else {
-      console.log(`✅ Background conversion invoked (${response.status})`);
-    }
-    
-  } catch (error) {
-    console.error(`❌ Failed to invoke background conversion:`, error.message);
-    // Don't throw - let the request succeed anyway
-    // Conversion can be retried via sync-atproto script
-  }
-}
-
 export async function handler(event, context) {
   if (!["POST", "PUT"].includes(event.httpMethod))
     return respond(405, { message: "Method Not Allowed" });
@@ -204,7 +138,7 @@ export async function handler(event, context) {
         
         const mediaId = insertResult.insertedId;
         
-        // Handle tapes differently - background MP4 conversion
+        // Handle tapes differently - try inline MP4 conversion (with 30s function limit)
         if (type === 'tapes') {
           // Make the uploaded ZIP publicly readable
           try {
@@ -230,15 +164,68 @@ export async function handler(event, context) {
             console.error(`⚠️  Failed to set ACL:`, aclError.message);
           }
           
-          // Invoke background function for MP4 conversion (fire-and-forget)
-          invokeBackgroundConversion({
-            mongoId: mediaId.toString(),
-            slug: record.slug,
-            zipUrl: `https://${record.bucket}.sfo3.digitaloceanspaces.com/${user ? user.sub + '/' : ''}${slug}.zip`,
-            metadata: metadata,
-          }).catch(err => {
-            console.error('❌ Background conversion invocation error:', err);
-          });
+          // Try inline MP4 conversion and ATProto sync
+          const zipUrl = `https://${record.bucket}.sfo3.digitaloceanspaces.com/${user ? user.sub + '/' : ''}${slug}.zip`;
+          
+          try {
+            console.log(`🎬 Starting inline MP4 conversion for tape ${slug}`);
+            const startTime = Date.now();
+            
+            // Import conversion functions
+            const { convertTapeToMp4 } = await import('../../backend/tape-to-mp4.mjs');
+            const { createTapeOnAtproto } = await import('../../backend/tape-atproto.mjs');
+            
+            // Convert to MP4
+            const result = await convertTapeToMp4(zipUrl);
+            const conversionTime = ((Date.now() - startTime) / 1000).toFixed(2);
+            console.log(`✅ MP4 conversion completed in ${conversionTime}s`);
+            
+            // Update MongoDB with MP4 status
+            const tapes = database.db.collection("tapes");
+            const { ObjectId } = await import("mongodb");
+            await tapes.updateOne(
+              { _id: new ObjectId(mediaId) },
+              { 
+                $set: { 
+                  mp4Status: "complete",
+                  mp4CompletedAt: new Date(),
+                  mp4Size: result.video.length,
+                  conversionTime: parseFloat(conversionTime)
+                } 
+              }
+            );
+            
+            // Sync to ATProto
+            console.log(`🦋 Syncing tape to ATProto...`);
+            const atprotoResult = await createTapeOnAtproto(database, mediaId.toString(), result.video, result.thumbnail);
+            
+            if (atprotoResult.error) {
+              console.log(`ℹ️  ATProto sync skipped: ${atprotoResult.error}`);
+            } else {
+              console.log(`✅ ATProto sync complete: ${atprotoResult.rkey}`);
+            }
+            
+            const totalTime = ((Date.now() - startTime) / 1000).toFixed(2);
+            console.log(`✅ Total tape processing time: ${totalTime}s`);
+            
+          } catch (conversionError) {
+            console.error(`❌ Inline conversion failed:`, conversionError.message);
+            console.log(`ℹ️  Tape saved, but conversion failed - can retry via sync script`);
+            
+            // Update MongoDB with error status
+            const tapes = database.db.collection("tapes");
+            const { ObjectId } = await import("mongodb");
+            await tapes.updateOne(
+              { _id: new ObjectId(mediaId) },
+              { 
+                $set: { 
+                  mp4Status: "failed",
+                  mp4Error: conversionError.message,
+                  mp4FailedAt: new Date()
+                } 
+              }
+            );
+          }
           
           return respond(200, { 
             slug, 
