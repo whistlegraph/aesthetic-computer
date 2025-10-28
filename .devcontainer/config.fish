@@ -527,6 +527,9 @@ end
 alias reload 'source /workspaces/aesthetic-computer/.devcontainer/config.fish'
 alias refish 'source ~/.config/fish/config.fish'
 
+# Port visibility helper - sets port 8888 to public in Codespaces
+alias port-public 'fish /workspaces/aesthetic-computer/.devcontainer/scripts/set-port-public.fish'
+
 # set default editor to emacs
 set -gx TERM xterm-256color
 set -gx EDITOR emacs
