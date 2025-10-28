@@ -3875,61 +3875,9 @@ async function session(slug, forceProduction = false, service) {
 
   if (typeof session === "string") return session;
 
-  //if (debug && logs.session) {
-  // console.log(
-  //   `🐕‍🦺 Session: ${slug} - ${session.backend || session.name || session.url}`,
-  // );
-  //}
-  // Return the active session if the server knows it's "Ready", otherwise
-  // wait for the one we requested to spin up.
-  // (And in debug mode we just get a local url from "/session" so no need
-  // to check that.)
-  if (session.state === "Ready" || (debug && !forceProduction)) {
-    return session;
-  } else {
-    let eventSource = new EventSource(
-      `https://api.jamsocket.com/backend/${session.name}/status/stream`,
-      // See also: https://docs.jamsocket.com/api-docs/#get-a-backends-status-stream
-    );
-
-    return new Promise((resolve, reject) => {
-      eventSource.onmessage = (event) => {
-        const update = JSON.parse(event.data);
-        const colors = {
-          Ready: "🟢",
-          Loading: "🟠",
-          Starting: "🟡",
-        };
-        const color = colors[update.state] || "🔵";
-
-        if (update.state === "Ready") {
-          if (logs.session)
-            console.log(color + `\`${slug}\` Backend:`, update.state);
-        }
-
-        if (update.state === "Loading") {
-          currentHUDStatusColor = "red";
-        } else if (update.state === "Ready") {
-          currentHUDStatusColor = "yellow";
-        } else if (update.state === "Starting") {
-          currentHUDStatusColor = "orange";
-        } else {
-          currentHUDStatusColor = "brown";
-        }
-
-        $commonApi.needsPaint(); // Make sure the label gets updated.
-
-        if (update.state === "Ready") {
-          eventSource.close(); // Close the event stream handler.
-          resolve(session);
-        } else {
-          if (update.state !== "Loading" && update.state !== "Starting") {
-            eventSource.close(); // Close the event stream handler.
-          }
-        }
-      };
-    });
-  }
+  // Session server is always ready (no Jamsocket polling needed)
+  // Just return the session object with URLs
+  return session;
 }
 
 // Just for "update".
