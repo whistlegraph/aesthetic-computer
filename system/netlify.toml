@@ -12,7 +12,7 @@ directory = "netlify/functions"
 
 [functions."tape-convert-background"]
 node_bundler = "esbuild"
-external_node_modules = ["@atproto/api", "adm-zip", "ffmpeg-static", "sharp"]
+external_node_modules = ["@atproto/api", "adm-zip", "ffmpeg-static", "ffprobe-static", "sharp"]
 included_files = ["backend/**/*.mjs"]
 included_env_vars = ["MONGODB_CONNECTION_STRING", "MONGODB_NAME", "PDS_URL", "CONTEXT"]
 
@@ -110,7 +110,7 @@ included_env_vars = ["CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_S
 [functions.handles]
 included_env_vars = ["CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
 [functions.track-media]
-external_node_modules = ["sharp", "mongodb", "adm-zip", "ffmpeg-static"]
+external_node_modules = ["sharp", "mongodb", "adm-zip", "ffmpeg-static", "ffprobe-static"]
 included_files = ["backend/**/*.mjs"]
 included_env_vars = ["CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "NETLIFY_DEV", "PDS_URL", "PDS_ADMIN_PASSWORD", "SOTCE_AUTH0_M2M_CLIENT_ID", "SOTCE_AUTH0_M2M_SECRET", "ART_KEY", "ART_SECRET", "ART_ENDPOINT", "ART_SPACE_NAME", "USER_SPACE_NAME", "USER_ENDPOINT"]
 [functions.track-tape]
