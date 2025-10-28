@@ -47,7 +47,6 @@ async function invokeBackgroundConversion({ mongoId, slug, zipUrl, metadata }) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-Netlify-Event": "background-function",
       },
       body: JSON.stringify({
         mongoId,
@@ -66,11 +65,19 @@ async function invokeBackgroundConversion({ mongoId, slug, zipUrl, metadata }) {
       }
     }
     
+    console.log(`📡 Background function response: ${response.status} ${response.statusText}`);
+    
     if (!response.ok) {
-      throw new Error(`Background function returned ${response.status}: ${await response.text()}`);
+      const errorText = await response.text();
+      throw new Error(`Background function returned ${response.status}: ${errorText}`);
     }
     
-    console.log(`✅ Background conversion invoked`);
+    // Background functions return 202 Accepted when successfully queued
+    if (response.status === 202) {
+      console.log(`✅ Background conversion queued successfully (202)`);
+    } else {
+      console.log(`✅ Background conversion invoked (${response.status})`);
+    }
     
   } catch (error) {
     console.error(`❌ Failed to invoke background conversion:`, error.message);
