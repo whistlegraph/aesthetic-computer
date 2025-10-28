@@ -35,14 +35,29 @@ async function initFfmpegPath() {
 }
 
 /**
- * Check if ffmpeg is available
+ * Check if ffmpeg is available and make it executable if needed
  * @returns {Promise<boolean>}
  */
 export async function checkFfmpegAvailable() {
   const ffmpeg = await initFfmpegPath();
+  
+  // For static binaries in Lambda, ensure execute permissions
+  if (ffmpeg !== 'ffmpeg') {
+    try {
+      const { chmod } = await import('fs/promises');
+      await chmod(ffmpeg, 0o755);
+      shell.log(`✅ Set execute permissions on ffmpeg binary`);
+    } catch (chmodError) {
+      shell.warn(`⚠️  Could not set execute permissions: ${chmodError.message}`);
+    }
+  }
+  
   return new Promise((resolve) => {
     const proc = spawn(ffmpeg, ['-version']);
-    proc.on('error', () => resolve(false));
+    proc.on('error', (err) => {
+      shell.error(`❌ ffmpeg spawn error: ${err.message}`);
+      resolve(false);
+    });
     proc.on('close', (code) => resolve(code === 0));
   });
 }
