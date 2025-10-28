@@ -3,52 +3,136 @@
 
 /* #region todo 📓 
 + Done
-- [x] Simplified to unified session server (removed Jamsocket)
-- [x] Production points to session-server.aesthetic.computer for both WS and UDP
+- [x] Fix simultaneous joins in this implementation and also
+       implement jamsocket's locks function.
+- [x] Add a "local" redis database also, once it's actually necessary...
+  (It should work, just gotta make sure Redis is runnin')
+  - https://redis.io/docs/getting-started
+  - https://github.com/redis/node-redis follow these and setup a local server
+- [x] Add a SAAS cache to replace "backends" maybe redis? 
+  - [x] How to set a grouping / hashmap for "backends" so that they contain an
+        association between the jamsocket URLs and a slug?
+  - [x] How to view all keys in redis database / connect via terminal?
+- [x] Produce a local URL when in development.
 #endregion */
 
+// import { createClient } from "redis";
+
 const dev = process.env.NETLIFY_DEV;
+// const redisConnectionString = process.env.REDIS_CONNECTION_STRING;
+
+const udpUrl = `https://udp.aesthetic.computer`;
 
 async function fun(event, context) {
-  const forceProd = parseInt(event.queryStringParameters.forceProduction) === 1;
+  let out,
+    status = 200,
+    forceProd = parseInt(event.queryStringParameters.forceProduction) === 1;
 
   if (dev && !forceProd) {
-    // Local development
     let host = event.headers.host.split(":")[0];
-    
-    if (host === "local.aesthetic.computer") {
-      return {
-        statusCode: 200,
-        body: JSON.stringify({ 
-          url: `https://session.${host}`, 
-          udp: `https://session.${host}`,
-          state: "Ready"
-        }),
-        headers: { "Access-Control-Allow-Origin": "*" },
-      };
+
+    // Check if we're in GitHub Codespaces
+    if (host.includes('github.dev') || host.includes('app.github.dev')) {
+      // Extract the codespace name and construct the port-forwarded URL
+      const codespaceUrlParts = host.split('.');
+      const codespaceBase = codespaceUrlParts[0]; // e.g., "cautious-waffle-ppwqx5vgv5hgwj-8888"
+      // Remove the port from the base and add 8889
+      const baseWithoutPort = codespaceBase.replace(/-\d+$/, ''); // Remove trailing port
+      const sessionUrl = `https://${baseWithoutPort}-8889.${codespaceUrlParts.slice(1).join('.')}`;
+      out = { url: sessionUrl, udp: sessionUrl };
+    } else if (host === "local.aesthetic.computer") {
+      out = { url: `https://session.${host}`, udp: `https://session.${host}` };
     } else {
-      return {
-        statusCode: 200,
-        body: JSON.stringify({ 
-          url: `http://${host}:8889`, 
-          udp: `http://${host}:8889`,
-          state: "Ready"
-        }),
-        headers: { "Access-Control-Allow-Origin": "*" },
-      };
+      out = { url: `http://${host}:8889`, udp: `http://${host}:8889` };
     }
-  } else {
-    // Production - unified session server (both WebSocket and UDP)
-    return {
-      statusCode: 200,
-      body: JSON.stringify({
-        url: `https://session-server.aesthetic.computer`,
-        udp: `https://session-server.aesthetic.computer`,
-        state: "Ready"
-      }),
-      headers: { "Access-Control-Allow-Origin": "*" },
+
+  } else if (event.queryStringParameters.service === "monolith") {
+    out = {
+      url: `https://session-server.aesthetic.computer`,
+      udp: udpUrl,
+      state: "Ready",
     };
+  } else {
+    const { got } = await import("got");
+    const slug = event.path.replace("/session/", ""); // Take everything after the path.
+    const jamSocketToken = process.env.JAMSOCKET_ACCESS_TOKEN;
+    out = {};
+
+    // rep.header("Access-Control-Allow-Origin", corsOrigin);
+
+    // 1. Check to see if we actually should make a backend.
+    if (slug.length === 1) {
+      status = 500;
+      out = { msg: "😇 Sorry. No backend could be spawned!" };
+    }
+
+    // Check to see if an "existing" backend for this slug is still alive.
+
+    // Connect to redis...
+    // const client = !dev
+    // ? createClient({ url: redisConnectionString })
+    // : createClient();
+    // client.on("error", (err) => console.log("🔴 Redis client error!", err));
+    // await client.connect();
+
+    // Check to see if a backend is already available...
+    // const currentBackend = await client.HGET("backends", slug);
+
+    // console.log("🫂  Current backend:", currentBackend);
+
+    // if (currentBackend) {
+    // try {
+    //   out = await got(
+    //     `https://api.jamsocket.com/backend/${currentBackend}/status`,
+    //   ).json();
+    //   out.url = `https://${currentBackend}.jamsocket.run`; // Add URL for client.
+    //   out.udp = udpUrl;
+    //   // console.log("Out:", out);
+    // } catch (err) {
+    //   console.error("🔴 Error:", err);
+    //   status = 500;
+    //   out = err;
+    // }
+    // }
+
+    // if (out?.state !== "Ready") {
+    // Make a new session backend if one doesn't already exist.
+    try {
+      console.log("🟡 Spawning a new session for:", slug);
+      const session = await got
+        .post({
+          url: "https://api.jamsocket.com/user/jas/service/session-server/spawn",
+          json: { grace_period_seconds: 60, lock: slug }, // jamsocket api settings
+          headers: { Authorization: `Bearer ${jamSocketToken}` },
+        })
+        .json(); // Note: A failure will yield a 500 code here to the client.
+
+      // console.log("🫂 Session:", session);
+      // await client.HSET("backends", slug, session.name); // Store the session name in redis using the 'slug' key.
+
+      console.log("Session:", session);
+      out = session;
+      out.udp = udpUrl;
+    } catch (err) {
+      // console.error("🔴 Error:", err);
+      status = 500;
+      out = err;
+    }
+    // }
+
+    // await client.quit(); // Disconnect from redis client.
   }
+
+  return {
+    statusCode: status,
+    body: JSON.stringify(out),
+    headers: { 
+      "Access-Control-Allow-Origin": "*",
+      "Cache-Control": "no-cache, no-store, must-revalidate",
+      "Pragma": "no-cache",
+      "Expires": "0"
+    },
+  };
 }
 
 export const handler = fun;
