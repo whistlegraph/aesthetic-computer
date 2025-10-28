@@ -58,6 +58,10 @@ let tapeLoadPhase = ""; // download, frames, audio
 let tapeLoadProgress = 0; // 0-1
 let tapeLoadMessage = ""; // Status message
 
+// Tape info from bios
+let tapeInfo = null; // { frameCount, totalDuration, hasAudio }
+const MAX_TAPE_DURATION = 30; // Must match server limit
+
 // API references needed by receive() function
 let apiJump = null; // Stored from boot() for use in receive()
 let apiSend = null; // Stored from boot() for sending messages to BIOS
@@ -187,6 +191,7 @@ function boot({ wipe, rec, gizmo, jump, notice, store, params, send, hud }) {
   currentExportType = "";
   printed = false;
   postedTapeCode = null; // Reset tape code from previous session
+  tapeInfo = null; // Reset tape info for new recording
   
   // Check if a tape code was passed (e.g., "video !abc")
   if (params[0] && params[0].startsWith("!")) {
@@ -287,6 +292,7 @@ function paint({
   paintCount,
   needsPaint,
   sound,
+  send,
 }) {
   if (typeof needsPaint === "function") {
     requestPaint = needsPaint;
@@ -330,8 +336,15 @@ function paint({
   if (exportAvailable) {
     const disableExports = isPrinting || isPostingTape;
 
-    // Only show POST button if tape hasn't been posted yet
-    if (!postedTapeCode) {
+    // Request tape info if we don't have it yet
+    if (tapeInfo === null) {
+      send({ type: "tape:get-info" });
+    }
+
+    // Only show POST button if tape hasn't been posted yet AND duration is within limit
+    const tapeWithinDurationLimit = !tapeInfo || (tapeInfo.totalDuration <= MAX_TAPE_DURATION);
+    
+    if (!postedTapeCode && tapeWithinDurationLimit) {
       if (!postBtn) {
         postBtn = new ui.TextButton("POST", { right: 6, bottom: 6, screen });
       }
@@ -343,8 +356,16 @@ function paint({
       postBtn.disabled = disableExports;
       postBtn.paint(api);
     } else {
-      // Hide POST button after posting (set to undefined so it's not painted)
+      // Hide POST button if already posted or tape too long
       postBtn = undefined;
+      
+      // Show warning if tape is too long
+      if (tapeInfo && tapeInfo.totalDuration > MAX_TAPE_DURATION && !postedTapeCode) {
+        ink(255, 200, 100, 200).write(
+          `Tape too long: ${tapeInfo.totalDuration.toFixed(1)}s (max ${MAX_TAPE_DURATION}s)`,
+          { right: 6, bottom: 6, size: 0.75 }
+        );
+      }
     }
 
     if (!zipBtn) {
@@ -1929,6 +1950,13 @@ function receive(e) {
   if (!e || typeof e.is !== "function") {
     console.warn("🎯 Event missing or e.is() not a function");
     return false;
+  }
+
+  // Handle tape info reply from BIOS
+  if (e.is("tape:info-reply")) {
+    console.log("📼 Received tape info:", e.content);
+    tapeInfo = e.content;
+    return true;
   }
 
   // Handle AudioContext state updates from BIOS

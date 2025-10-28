@@ -5,8 +5,17 @@ ignore = "bash ./ignore-index.sh"
 command = "rm -f public/index.html" # Remove index.html before build
 # command = "bash ./github-discord.sh"
 # command = "echo 'Building...'"
+
 [functions]
 node_bundler = "esbuild"
+directory = "netlify/functions"
+
+[functions."tape-convert-background"]
+node_bundler = "esbuild"
+external_node_modules = ["@atproto/api", "adm-zip", "@ffmpeg-installer/ffmpeg"]
+included_files = ["backend/**/*.mjs"]
+included_env_vars = ["MONGODB_CONNECTION_STRING", "MONGODB_NAME", "PDS_URL", "CONTEXT"]
+
 [functions.apple-developer-merchantid-domain-association]
 included_files = ["public/.well-known/*"]
 included_env_vars = []
@@ -435,7 +444,12 @@ status = 200
 force = false
 [[redirects]]
 from = "/api/track-tape"
-to = "/.netlify/functions/track-tape"
+to = "/.netlify/functions/track-media"
+status = 200
+force = false
+[[redirects]]
+from = "/api/tape-convert-background"
+to = "/.netlify/functions/tape-convert-background"
 status = 200
 force = false
 [[redirects]]
