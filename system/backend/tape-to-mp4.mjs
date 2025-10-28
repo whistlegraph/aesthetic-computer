@@ -24,10 +24,23 @@ async function initFfmpegPath() {
     // Use ffmpeg-static which provides statically-linked binaries that work in Lambda
     const ffmpegStatic = await import('ffmpeg-static');
     ffmpegPath = ffmpegStatic.default;
-    shell.log(`📦 Using ffmpeg-static: ${ffmpegPath}`);
+    
+    // Debug: Check if file exists
+    const { access } = await import('fs/promises');
+    const { constants } = await import('fs');
+    try {
+      await access(ffmpegPath, constants.F_OK);
+      shell.log(`📦 Using ffmpeg-static: ${ffmpegPath}`);
+    } catch (accessError) {
+      shell.error(`❌ ffmpeg-static binary not found at: ${ffmpegPath}`);
+      shell.error(`   Error: ${accessError.message}`);
+      // Fall back to system ffmpeg
+      ffmpegPath = 'ffmpeg';
+      shell.log(`📦 Falling back to system ffmpeg`);
+    }
   } catch (e) {
     ffmpegPath = 'ffmpeg';
-    shell.log(`📦 Using system ffmpeg`);
+    shell.log(`📦 Using system ffmpeg (import failed: ${e.message})`);
   }
   
   ffmpegInitialized = true;
