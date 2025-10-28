@@ -1112,55 +1112,19 @@ function ac-dev-log-simple
     end
 end
 # alias ac-kidlisp 'ac; npm run test:kidlisp'
-# Session server with auto-restart on crash
+# Session server (simplified - no Emacs special handling)
 function ac-session
-    # Check if running inside Emacs to avoid infinite loops
-    if test -n "$INSIDE_EMACS"
-        echo "📋 Starting session server (non-blocking mode for Emacs)..."
-        ac
-        cd session-server
-        echo "🔍 Cleaning up any stuck nodemon processes..."
-        pkill -f "nodemon.*session.mjs" 2>/dev/null
-        sleep 1
-        npx kill-port 8889 2>/dev/null
-        PORT=8889 NODE_ENV=development npx nodemon -I --watch session.mjs session.mjs >/dev/null 2>&1 &
-        disown
-        echo "✅ Session server started in background"
-        return
-    end
-    
-    echo "🎮 Starting session server with auto-restart..."
+    echo "🎮 Starting session server..."
     ac
     cd session-server
-    set restart_count 0
-    set max_restarts 10  # Prevent infinite restart loops
-    while test $restart_count -lt $max_restarts
-        echo "🚀 Starting ac-session... (attempt "(math $restart_count + 1)"/$max_restarts)"
-        echo "🔍 Cleaning up any stuck nodemon processes..."
-        # Kill any stuck nodemon processes
-        pkill -f "nodemon.*session.mjs" 2>/dev/null
-        sleep 1
-        
-        # Kill the port before starting
-        npx kill-port 8889 2>/dev/null
-        
-        # Start nodemon directly without the trailing fish command
-        PORT=8889 NODE_ENV=development npx nodemon -I --watch session.mjs session.mjs
-        
-        set exit_code $status
-        
-        # If the exit code is 130 (Ctrl+C), jump back to fish to keep shell alive
-        if test $exit_code -eq 130
-            echo "🛑 Stopped by user (Ctrl+C)"
-            return
-        end
-        
-        set restart_count (math $restart_count + 1)
-        echo "⚠️  ac-session crashed/stopped with exit code $exit_code"
-        echo "🔄 Restarting in 3 seconds... (Ctrl+C to stop)"
-        sleep 3
-    end
-    echo "❌ Maximum restart attempts reached ($max_restarts). Exiting to prevent infinite loop."
+    
+    echo "🔍 Cleaning up any stuck processes..."
+    pkill -f "nodemon.*session.mjs" 2>/dev/null
+    sleep 1
+    npx kill-port 8889 2>/dev/null
+    
+    echo "🚀 Starting session server on port 8889..."
+    PORT=8889 NODE_ENV=development npx nodemon -I --watch session.mjs session.mjs
 end
 alias ac-stripe-print 'ac; npm run stripe-print-micro'
 alias ac-stripe-ticket 'ac; npm run stripe-ticket-micro'

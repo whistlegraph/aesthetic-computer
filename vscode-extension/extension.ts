@@ -910,6 +910,8 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
         webviewView.webview.html = getWebViewContent(webviewView.webview, slug);
       } else {
         // console.log("🟢 Panel open.");
+        // Send focus event to webview so prompt can be activated
+        webviewView.webview.postMessage({ type: "aesthetic-parent:focused" });
       }
     });
   }
