@@ -212,10 +212,17 @@ async function boot({
     .catch((err) => console.warn(err)); // and key sounds.
 
   // Load book cover image
+  // 📚 Second Product (Current)
   net
-    .preload("https://shop.aesthetic.computer/cdn/shop/files/IMG-1098.png?v=1760737988&width=600")
+    .preload("https://shop.aesthetic.computer/cdn/shop/files/IMG-1176.png?v=1761673860&width=1646")
     .then((img) => {
       bookImage = img;
+    
+  // 📚 First Product (Deprecated - SOLD)
+  // net
+  //   .preload("https://shop.aesthetic.computer/cdn/shop/files/IMG-1098.png?v=1760737988&width=600")
+  //   .then((img) => {
+  //     bookImage = img;
       
       // Pre-scale the image for caching
       const bookScale = 0.1;
@@ -2524,9 +2531,17 @@ function paint($) {
     // Use pre-scaled cached image
     const bookW = bookImageScaled.width;
     const bookH = bookImageScaled.height;
-    const titleText = "The Art of Seeing";
-    const authorText = "by Aldous Huxley";
+    
+    // 📚 Second Product (Current)
+    const titleText = "What is Landscape?";
+    const authorText = "by John R. Stilgoe";
     const priceText = "$60 USD";
+    
+    // 📚 First Product (Deprecated - SOLD)
+    // const titleText = "The Art of Seeing";
+    // const authorText = "by Aldous Huxley";
+    // const priceText = "$60 USD";
+    
     const titleW = titleText.length * 4; // 4px per char for MatrixChunky8
     const authorW = authorText.length * 4; // 4px per char for MatrixChunky8
     const textH = 8; // 8px height for MatrixChunky8
@@ -2705,11 +2720,20 @@ function paint($) {
     // Theme-sensitive colors
     const isDark = $.dark;
     const textColor = isDark ? [255, 255, 255] : [0, 0, 0]; // White in dark, black in light
-    const titleColor = isDark ? [255, 200, 150] : [200, 100, 50]; // Orange/warm tint for title
-    const titleHighlightColor = isDark ? [255, 255, 100] : [255, 200, 0]; // Yellow tint when highlighted
-    const shadowColor = isDark ? [0, 0, 0] : [255, 255, 255]; // Black shadow in dark, white in light
-    const authorColor = isDark ? [200, 200, 255] : [80, 80, 140]; // Tinted byline (blue-ish)
+    
+    // 📚 Second Product (Current) - New colors
+    const titleColor = isDark ? [150, 200, 255] : [50, 100, 200]; // Blue-ish tint for title
+    const titleHighlightColor = isDark ? [100, 200, 255] : [0, 150, 255]; // Brighter blue when highlighted
+    const authorColor = isDark ? [255, 200, 150] : [140, 80, 50]; // Warm/orange-ish byline
     const authorHighlightColor = [255, 255, 0]; // Yellow highlight for byline when pressed
+    
+    // 📚 First Product (Deprecated - SOLD) - Old colors
+    // const titleColor = isDark ? [255, 200, 150] : [200, 100, 50]; // Orange/warm tint for title
+    // const titleHighlightColor = isDark ? [255, 255, 100] : [255, 200, 0]; // Yellow tint when highlighted
+    // const authorColor = isDark ? [200, 200, 255] : [80, 80, 140]; // Tinted byline (blue-ish)
+    // const authorHighlightColor = [255, 255, 0]; // Yellow highlight for byline when pressed
+    
+    const shadowColor = isDark ? [0, 0, 0] : [255, 255, 255]; // Black shadow in dark, white in light
     const priceNormalColor = isDark ? [0, 255, 0] : [0, 180, 0]; // Bright green in dark, darker in light
     const priceHoverColor = isDark ? [100, 255, 100] : [0, 255, 0]; // Brighter greens
     const priceDownColor = [255, 255, 0]; // Yellow when pressed (same for both)
@@ -2814,32 +2838,33 @@ function paint($) {
     // Subtle dark shadow (not blinking) - tighter offset
     ink(0, 0, 0, isDark ? 80 : 50).write(priceText, { x: priceTextX + 0.5, y: priceTextY + 0.5, size: priceScale }, undefined, undefined, false, priceFont);
 
-    // Price text - dimmed (gray instead of green)
-    const dimmedPriceColor = isDark ? [100, 100, 100] : [150, 150, 150]; // Gray color
-    ink(...dimmedPriceColor).write(priceText, { x: priceTextX, y: priceTextY, size: priceScale }, undefined, undefined, false, priceFont);
+    // Price text - normal green (not dimmed, since this product is available)
+    const priceFinalColor = bookButton.down ? priceDownColor : (bookButton.over ? priceHoverColor : priceNormalColor);
+    ink(...priceFinalColor).write(priceText, { x: priceTextX, y: priceTextY, size: priceScale }, undefined, undefined, false, priceFont);
     
-    // Draw "SOLD" banner centered on the book with unique animation
-    const soldText = "SOLD";
-    const soldTextWidth = soldText.length * 6; // Default font is 6px wide per character
-    const soldTextHeight = 8; // Default font height
-    const soldPadding = 4;
-    
-    // Center position on book (with slower side-to-side sway)
-    const soldSway = Math.sin(bookRotation * 0.05) * 2; // Slower side-to-side, 2px range
-    const soldX = bookX + (bookW / 2) - (soldTextWidth / 2) + driftX + soldSway;
-    const soldY = bookY + (bookH / 2) - (soldTextHeight / 2) + driftY;
-    
-    // Red banner background with pulsing opacity
-    const soldBgAlpha = Math.abs(Math.sin(bookRotation * 0.08)) * 80 + 160; // Pulse between 160-240
-    ink(200, 0, 0, soldBgAlpha).box(soldX - soldPadding, soldY - soldPadding, soldTextWidth + soldPadding * 2, soldTextHeight + soldPadding * 2);
-    
-    // SOLD text blinking between yellow and red
-    const soldBlink = Math.sin(bookRotation * 0.12) > 0; // Boolean blink
-    const soldColor = soldBlink ? [255, 255, 0] : [255, 50, 50]; // Yellow or bright red
-    
-    // Shadow for SOLD text
-    ink(0, 0, 0, 180).write(soldText, { x: soldX + 1, y: soldY + 1 });
-    ink(...soldColor).write(soldText, { x: soldX, y: soldY });
+    // 📚 First Product (Deprecated - SOLD) - SOLD banner removed for second product
+    // // Draw "SOLD" banner centered on the book with unique animation
+    // const soldText = "SOLD";
+    // const soldTextWidth = soldText.length * 6; // Default font is 6px wide per character
+    // const soldTextHeight = 8; // Default font height
+    // const soldPadding = 4;
+    // 
+    // // Center position on book (with slower side-to-side sway)
+    // const soldSway = Math.sin(bookRotation * 0.05) * 2; // Slower side-to-side, 2px range
+    // const soldX = bookX + (bookW / 2) - (soldTextWidth / 2) + driftX + soldSway;
+    // const soldY = bookY + (bookH / 2) - (soldTextHeight / 2) + driftY;
+    // 
+    // // Red banner background with pulsing opacity
+    // const soldBgAlpha = Math.abs(Math.sin(bookRotation * 0.08)) * 80 + 160; // Pulse between 160-240
+    // ink(200, 0, 0, soldBgAlpha).box(soldX - soldPadding, soldY - soldPadding, soldTextWidth + soldPadding * 2, soldTextHeight + soldPadding * 2);
+    // 
+    // // SOLD text blinking between yellow and red
+    // const soldBlink = Math.sin(bookRotation * 0.12) > 0; // Boolean blink
+    // const soldColor = soldBlink ? [255, 255, 0] : [255, 50, 50]; // Yellow or bright red
+    // 
+    // // Shadow for SOLD text
+    // ink(0, 0, 0, 180).write(soldText, { x: soldX + 1, y: soldY + 1 });
+    // ink(...soldColor).write(soldText, { x: soldX, y: soldY });
     } else if (bookButton) {
       // Hide book button if screen too small or would overlap
       bookButton.disabled = true;
@@ -3624,7 +3649,10 @@ function act({
       down: () => downSound(),
       push: () => {
         pushSound();
-        const bookUrl = "https://shop.aesthetic.computer/products/books_the-art-of-seeing-by-aldous-huxley_25-4-8-21-0";
+        // 📚 Second Product (Current)
+        const bookUrl = "https://shop.aesthetic.computer/products/books_what-is-landscape-by-john-r-stilgoe_25-4-8-21-08";
+        // 📚 First Product (Deprecated - SOLD)
+        // const bookUrl = "https://shop.aesthetic.computer/products/books_the-art-of-seeing-by-aldous-huxley_25-4-8-21-0";
         if (net.iframe) {
           send({ type: "post-to-parent", content: { type: "openExternal", url: bookUrl } });
         } else {
