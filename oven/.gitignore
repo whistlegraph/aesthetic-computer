@@ -1,0 +1,13 @@
+# Ignore node modules
+node_modules/
+
+# Ignore environment files (use vault)
+.env
+
+# Ignore logs
+*.log
+npm-debug.log*
+
+# Ignore temp files
+.DS_Store
+*.tmp
