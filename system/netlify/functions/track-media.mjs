@@ -138,7 +138,7 @@ export async function handler(event, context) {
         
         const mediaId = insertResult.insertedId;
         
-        // Handle tapes differently - try inline MP4 conversion (with 30s function limit)
+        // Handle tapes differently - send to oven for async processing
         if (type === 'tapes') {
           // Make the uploaded ZIP publicly readable
           try {
@@ -150,7 +150,8 @@ export async function handler(event, context) {
               },
             });
             
-            const key = user ? `${user.sub}/${slug}.zip` : `${slug}.zip`;
+            // Use the actual upload key (slug-based, not code-based)
+            const key = user ? `${user}/${slug}.zip` : `${slug}.zip`;
             
             const aclCommand = new PutObjectAclCommand({
               Bucket: record.bucket,
@@ -164,53 +165,81 @@ export async function handler(event, context) {
             console.error(`⚠️  Failed to set ACL:`, aclError.message);
           }
           
-          // Try inline MP4 conversion and ATProto sync
-          const zipUrl = `https://${record.bucket}.sfo3.digitaloceanspaces.com/${user ? user.sub + '/' : ''}${slug}.zip`;
+          // Send to oven for async MP4 conversion
+          const isDev = process.env.CONTEXT === 'dev' || process.env.NODE_ENV === 'development';
+          const baseUrl = isDev ? 'https://localhost:8888' : (process.env.URL || 'https://aesthetic.computer');
+          const zipUrl = `${baseUrl}/media/tapes/${code}.zip`;
+          const ovenUrl = isDev ? 'https://localhost:3002' : (process.env.OVEN_URL || 'https://oven.aesthetic.computer');
+          const callbackUrl = `${baseUrl}/api/oven-complete`;
+          const callbackSecret = process.env.OVEN_CALLBACK_SECRET;
           
           try {
-            console.log(`🎬 Starting inline MP4 conversion for tape ${slug}`);
-            const startTime = Date.now();
+            console.log(`🔥 Sending tape ${code} to oven for processing...`);
+            console.log(`   Oven URL: ${ovenUrl}/bake`);
+            console.log(`   Callback URL: ${callbackUrl}`);
+            console.log(`   Callback Secret: ${callbackSecret ? callbackSecret.substring(0, 10) + '...' : 'MISSING!'}`);
             
-            // Import conversion functions
-            const { convertTapeToMp4 } = await import('../../backend/tape-to-mp4.mjs');
-            const { createTapeOnAtproto } = await import('../../backend/tape-atproto.mjs');
+            const payload = JSON.stringify({
+              mongoId: mediaId.toString(),
+              slug,
+              code,
+              zipUrl,
+              callbackUrl,
+              callbackSecret
+            });
             
-            // Convert to MP4
-            const result = await convertTapeToMp4(zipUrl);
-            const conversionTime = ((Date.now() - startTime) / 1000).toFixed(2);
-            console.log(`✅ MP4 conversion completed in ${conversionTime}s`);
-            
-            // Update MongoDB with MP4 status
-            const tapes = database.db.collection("tapes");
-            const { ObjectId } = await import("mongodb");
-            await tapes.updateOne(
-              { _id: new ObjectId(mediaId) },
-              { 
-                $set: { 
-                  mp4Status: "complete",
-                  mp4CompletedAt: new Date(),
-                  mp4Size: result.video.length,
-                  conversionTime: parseFloat(conversionTime)
-                } 
-              }
-            );
-            
-            // Sync to ATProto
-            console.log(`🦋 Syncing tape to ATProto...`);
-            const atprotoResult = await createTapeOnAtproto(database, mediaId.toString(), result.video, result.thumbnail);
-            
-            if (atprotoResult.error) {
-              console.log(`ℹ️  ATProto sync skipped: ${atprotoResult.error}`);
+            // For localhost in dev, use https.request to bypass SSL verification
+            if (isDev && ovenUrl.includes('localhost')) {
+              const https = await import('https');
+              const url = new URL(`${ovenUrl}/bake`);
+              
+              const ovenResult = await new Promise((resolve, reject) => {
+                const req = https.request({
+                  hostname: url.hostname,
+                  port: url.port,
+                  path: url.pathname,
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Content-Length': Buffer.byteLength(payload)
+                  },
+                  rejectUnauthorized: false
+                }, (res) => {
+                  let data = '';
+                  res.on('data', chunk => data += chunk);
+                  res.on('end', () => {
+                    if (res.statusCode >= 200 && res.statusCode < 300) {
+                      resolve(JSON.parse(data));
+                    } else {
+                      reject(new Error(`Oven request failed: ${res.statusCode} ${res.statusMessage}`));
+                    }
+                  });
+                });
+                
+                req.on('error', reject);
+                req.write(payload);
+                req.end();
+              });
+              
+              console.log(`✅ Tape sent to oven: ${ovenResult.message}`);
             } else {
-              console.log(`✅ ATProto sync complete: ${atprotoResult.rkey}`);
+              // Production: use regular fetch
+              const ovenResponse = await fetch(`${ovenUrl}/bake`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: payload
+              });
+              
+              if (!ovenResponse.ok) {
+                throw new Error(`Oven request failed: ${ovenResponse.statusText}`);
+              }
+              
+              const ovenResult = await ovenResponse.json();
+              console.log(`✅ Tape sent to oven: ${ovenResult.message}`);
             }
             
-            const totalTime = ((Date.now() - startTime) / 1000).toFixed(2);
-            console.log(`✅ Total tape processing time: ${totalTime}s`);
-            
-          } catch (conversionError) {
-            console.error(`❌ Inline conversion failed:`, conversionError.message);
-            console.log(`ℹ️  Tape saved, but conversion failed - can retry via sync script`);
+          } catch (ovenError) {
+            console.error(`❌ Failed to send tape to oven:`, ovenError.message);
             
             // Update MongoDB with error status
             const tapes = database.db.collection("tapes");
@@ -219,8 +248,8 @@ export async function handler(event, context) {
               { _id: new ObjectId(mediaId) },
               { 
                 $set: { 
-                  mp4Status: "failed",
-                  mp4Error: conversionError.message,
+                  mp4Status: "oven-failed",
+                  mp4Error: ovenError.message,
                   mp4FailedAt: new Date()
                 } 
               }
@@ -230,7 +259,8 @@ export async function handler(event, context) {
           return respond(200, { 
             slug, 
             code,
-            maxDuration: MAX_TAPE_DURATION
+            maxDuration: MAX_TAPE_DURATION,
+            processing: "oven"
           });
         }
         
