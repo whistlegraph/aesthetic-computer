@@ -1129,6 +1129,22 @@ function ac-session
     echo "🚀 Starting session server on port 8889..."
     PORT=8889 NODE_ENV=development npx nodemon -I --watch session.mjs session.mjs
 end
+
+# Oven service (tape video processing)
+function ac-oven
+    echo "🔥 Starting oven service..."
+    ac
+    cd oven
+    
+    echo "🔍 Cleaning up any stuck processes..."
+    pkill -f "node.*server.mjs" 2>/dev/null
+    sleep 1
+    npx kill-port 3002 2>/dev/null
+    
+    echo "🚀 Starting oven server on https://localhost:3002..."
+    npm run dev
+end
+
 alias ac-stripe-print 'ac; npm run stripe-print-micro'
 alias ac-stripe-ticket 'ac; npm run stripe-ticket-micro'
 alias ac-extension 'ac; cd vscode-extension; npm run build; ac'
