@@ -168,7 +168,12 @@ export async function handler(event, context) {
           // Send to oven for async MP4 conversion
           const isDev = process.env.CONTEXT === 'dev' || process.env.NODE_ENV === 'development';
           const baseUrl = isDev ? 'https://localhost:8888' : (process.env.URL || 'https://aesthetic.computer');
-          const zipUrl = `${baseUrl}/media/tapes/${code}.zip`;
+          
+          // Generate direct S3 URL instead of going through /media redirect
+          // Since we set public-read ACL, the file should be directly accessible
+          const key = user ? `${user.sub}/${slug}.zip` : `${slug}.zip`;
+          const zipUrl = `https://${record.bucket}.sfo3.digitaloceanspaces.com/${encodeURIComponent(key)}`;
+          
           const ovenUrl = isDev ? 'https://localhost:3002' : (process.env.OVEN_URL || 'https://oven.aesthetic.computer');
           const callbackUrl = `${baseUrl}/api/oven-complete`;
           const callbackSecret = process.env.OVEN_CALLBACK_SECRET;
