@@ -11498,6 +11498,7 @@ async function makeFrame({ data: { type, content } }) {
               
               for (const char of labelText) {
                 const glyph = font.glyphs[char];
+                console.log('[MatrixChunky8] Glyph check:', { char, charCode: char.charCodeAt(0), glyph: glyph ? 'exists' : 'missing', glyphType: typeof glyph });
                 // A real glyph has properties like dwidth, advance, or resolution
                 // The Proxy returns null for missing glyphs
                 const isRealGlyph = glyph && glyph !== null && 
@@ -11506,6 +11507,7 @@ async function makeFrame({ data: { type, content } }) {
                 if (!isRealGlyph) {
                   allGlyphsLoaded = false;
                   missingGlyphs.push(char);
+                  console.log('[MatrixChunky8] Missing glyph:', char, 'charCode:', char.charCodeAt(0));
                 }
               }
               
