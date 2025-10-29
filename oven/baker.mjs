@@ -407,25 +407,58 @@ async function downloadZip(zipUrl) {
       rejectUnauthorized: false, // Accept self-signed certs in dev
     };
 
+    // Set timeout for both connection and idle
+    const timeoutMs = 120000; // 2 minutes
+    let timeoutId;
+
     const req = client.request(options, (res) => {
+      // Clear connection timeout, set idle timeout
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        req.destroy();
+        reject(new Error('Download timeout: no data received for 2 minutes'));
+      }, timeoutMs);
+
       // Follow redirects
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
         console.log(`   Following redirect to: ${res.headers.location}`);
+        clearTimeout(timeoutId);
         downloadZip(res.headers.location).then(resolve).catch(reject);
         return;
       }
 
       if (res.statusCode !== 200) {
+        clearTimeout(timeoutId);
         reject(new Error(`Failed to download ZIP: ${res.statusCode} ${res.statusMessage}`));
         return;
       }
 
       const chunks = [];
-      res.on('data', (chunk) => chunks.push(chunk));
-      res.on('end', () => resolve(Buffer.concat(chunks)));
+      res.on('data', (chunk) => {
+        chunks.push(chunk);
+        // Reset timeout on each data chunk
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+          req.destroy();
+          reject(new Error('Download timeout: no data received for 2 minutes'));
+        }, timeoutMs);
+      });
+      res.on('end', () => {
+        clearTimeout(timeoutId);
+        resolve(Buffer.concat(chunks));
+      });
     });
 
-    req.on('error', reject);
+    // Initial connection timeout
+    timeoutId = setTimeout(() => {
+      req.destroy();
+      reject(new Error('Connection timeout: failed to connect within 2 minutes'));
+    }, timeoutMs);
+
+    req.on('error', (err) => {
+      clearTimeout(timeoutId);
+      reject(err);
+    });
     req.end();
   });
 }
