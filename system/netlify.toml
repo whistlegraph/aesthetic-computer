@@ -112,17 +112,17 @@ included_env_vars = ["CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_S
 [functions.track-media]
 external_node_modules = ["sharp", "mongodb", "adm-zip", "ffmpeg-static", "ffprobe-static"]
 included_files = ["backend/**/*.mjs"]
-included_env_vars = ["CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "NETLIFY_DEV", "PDS_URL", "PDS_ADMIN_PASSWORD", "SOTCE_AUTH0_M2M_CLIENT_ID", "SOTCE_AUTH0_M2M_SECRET", "ART_KEY", "ART_SECRET", "ART_ENDPOINT", "ART_SPACE_NAME", "USER_SPACE_NAME", "USER_ENDPOINT"]
+included_env_vars = ["CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "NETLIFY_DEV", "PDS_URL", "PDS_ADMIN_PASSWORD", "SOTCE_AUTH0_M2M_CLIENT_ID", "SOTCE_AUTH0_M2M_SECRET", "ART_KEY", "ART_SECRET", "ART_ENDPOINT", "ART_SPACE_NAME", "USER_SPACE_NAME", "USER_ENDPOINT", "OVEN_CALLBACK_SECRET", "OVEN_URL", "URL"]
 [functions.track-tape]
 included_env_vars = ["CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "ART_KEY", "ART_SECRET", "ART_ENDPOINT", "ART_SPACE_NAME", "USER_SPACE_NAME", "DO_SPACES_KEY", "DO_SPACES_SECRET", "MP4_SERVICE_URL", "MP4_SERVICE_TOKEN", "URL"]
 [functions.get-tape]
 included_env_vars = ["MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
 [functions.get-tape-status]
 included_env_vars = ["MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
-[functions.tape-mp4-complete]
+[functions.oven-complete]
 external_node_modules = ["mongodb", "adm-zip"]
 included_files = ["backend/**/*.mjs"]
-included_env_vars = ["MONGODB_CONNECTION_STRING", "MONGODB_NAME", "PDS_URL", "PDS_ADMIN_PASSWORD"]
+included_env_vars = ["MONGODB_CONNECTION_STRING", "MONGODB_NAME", "PDS_URL", "PDS_ADMIN_PASSWORD", "OVEN_CALLBACK_SECRET"]
 [functions.get-painting]
 included_env_vars = ["MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
 [functions.painting-code]
@@ -460,6 +460,11 @@ force = false
 [[redirects]]
 from = "/api/get-tape-status"
 to = "/.netlify/functions/get-tape-status"
+status = 200
+force = false
+[[redirects]]
+from = "/api/oven-complete"
+to = "/.netlify/functions/oven-complete"
 status = 200
 force = false
 [[redirects]]
