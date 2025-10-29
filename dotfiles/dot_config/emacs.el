@@ -403,7 +403,8 @@
            ("tunnel" . "🚇") ("agent" . "⚡") ("stripe-print" . "💳")
            ("stripe-ticket" . "🎫") ("chat-system" . "🤖") ("chat-sotce" . "🧠")
            ("chat-clock" . "⏰") ("site" . "🌐") ("session" . "📋")
-           ("redis" . "🔴") ("bookmarks" . "🔖") ("kidlisp" . "🧪"))))
+           ("redis" . "🔴") ("bookmarks" . "🔖") ("kidlisp" . "🧪")
+           ("oven" . "🔥"))))
 
     ;; Clean up unwanted buffers before starting (with error handling)
     (condition-case nil
@@ -488,7 +489,7 @@
     (create-split-tab "stripe"   '("stripe-print" "stripe-ticket"))
     (create-split-tab "chat"     '("chat-system" "chat-sotce" "chat-clock"))
     (create-split-tab "web 1/2"  '("site" "session"))
-    (create-split-tab "web 2/2"  '("redis" "bookmarks"))
+    (create-split-tab "web 2/2"  '("redis" "bookmarks" "oven"))
     (create-split-tab "tests"    '("kidlisp"))
 
     ;; Switch to the requested tab if it exists
