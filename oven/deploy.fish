@@ -1,6 +1,40 @@
 #!/usr/bin/env fish
 # Oven Deployment Script
+#!/usr/bin/env fish
+# Oven Deployment Script
 # Provisions and deploys the Oven video processing service to DigitalOcean
+
+# Colors for output
+set RED '\033[0;31m'
+set GREEN '\033[0;32m'
+set YELLOW '\033[1;33m'
+set NC '\033[0m' # No Color
+
+# Paths
+set SCRIPT_DIR (dirname (status --current-filename))
+set VAULT_DIR "$SCRIPT_DIR/../aesthetic-computer-vault/oven"
+set DEPLOY_ENV "$VAULT_DIR/deploy.env"
+set SERVICE_ENV "$VAULT_DIR/.env"
+
+# Check for required files
+if not test -f $DEPLOY_ENV
+    echo -e "$RED❌ Deployment config not found: $DEPLOY_ENV$NC"
+    exit 1
+end
+
+if not test -f $SERVICE_ENV
+    echo -e "$RED❌ Service config not found: $SERVICE_ENV$NC"
+    exit 1
+end
+
+# Load deployment configuration (parse bash-style env file)
+echo -e "$GREEN🔧 Loading deployment configuration...$NC"
+for line in (cat $DEPLOY_ENV | grep -v '^#' | grep -v '^$' | grep '=')
+    set -l parts (string split '=' $line)
+    if test (count $parts) -ge 2
+        set -gx $parts[1] (string join '=' $parts[2..-1])
+    end
+end
 
 set -e
 
