@@ -12,7 +12,9 @@ export default async function handleRequest(request) {
 
     // Handle /media/tapes/CODE, /media/paintings/CODE, or /media/pieces/SLUG routes
     if (path[2] === "tapes" && path[3]) {
-      return await handleTapeCodeRequest(path[3]);
+      // Strip .zip extension if present
+      const code = path[3].replace(/\.zip$/, '');
+      return await handleTapeCodeRequest(code);
     }
     
     if (path[2] === "paintings" && path[3]) {
