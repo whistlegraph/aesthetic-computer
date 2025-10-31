@@ -266,19 +266,22 @@ class Typeface {
         await Promise.all(promises);
       }
       
-      // Add a basic placeholder glyph for "?" character
+      // Add MatrixChunky8 question mark glyph (from BDF: ENCODING 63)
+      // BBX 3 7 0 1 = 3px wide, 7px tall, xOffset=0, yOffset=1
+      // DWIDTH 4 0 = advance width 4px
       this.glyphs["?"] = {
-        resolution: [6, 9],
+        resolution: [3, 7],
+        offset: [0, 1],
+        baselineOffset: [0, 0],
+        advance: 4,
         pixels: [
-          [0, 1, 1, 1, 0],
-          [1, 0, 0, 0, 1],
-          [0, 0, 0, 1, 0],
-          [0, 0, 1, 0, 0],
-          [0, 1, 0, 0, 0],
-          [0, 1, 0, 0, 0],
-          [0, 0, 0, 0, 0],
-          [0, 1, 0, 0, 0],
-          [0, 0, 0, 0, 0],
+          [1, 1, 1], // E0 = 11100000
+          [1, 0, 1], // A0 = 10100000
+          [0, 0, 1], // 20 = 00100000
+          [0, 1, 1], // 60 = 01100000
+          [0, 1, 0], // 40 = 01000000
+          [0, 0, 0], // 00 = 00000000
+          [0, 1, 0], // 40 = 01000000
         ],
       };
 
@@ -324,9 +327,9 @@ class Typeface {
             return this.getEmojiFallback(char, target);
           }
 
-          // If it's a special character we shouldn't load, return fallback
-          if (char === "?" || typeof char !== "string" || char.length === 0) {
-            return target["?"] || null;
+          // Skip invalid characters (but allow "?" to load normally)
+          if (typeof char !== "string" || char.length === 0) {
+            return null;
           }
 
           // Start loading the glyph asynchronously
@@ -389,8 +392,6 @@ class Typeface {
           const codePointStr = codePoints.join("_");
 
           // Make API call to load the glyph using code points
-          
-          // Enhanced OBJKT mode detection using shared teia-mode module
           const isObjktMode = checkPackMode();
           
           if (isObjktMode && this.name === "MatrixChunky8") {
@@ -457,21 +458,6 @@ class Typeface {
                 target[char] = glyphData;
                 this.invalidateAdvance(char);
                 
-                // Trigger a re-render if this is for QR text
-                if (this.name === "MatrixChunky8") {
-                  
-                  // Invalidate QR cache so it regenerates with new characters
-                  if (typeof window !== 'undefined' && window.qrOverlayCache) {
-                    window.qrOverlayCache.clear();
-                  }
-                  
-                  // Force a repaint by calling needsPaint if available
-                  if (typeof needsPaint === 'function') {
-                    needsPaint();
-                  } else if (typeof window !== 'undefined' && window.$activePaintApi?.needsPaint) {
-                    window.$activePaintApi.needsPaint();
-                  }
-                }
                 loadingGlyphs.delete(char);
 
                 // Trigger a repaint to show the newly loaded glyph
@@ -533,7 +519,8 @@ class Typeface {
     }
 
     // For MatrixChunky8, don't show fallback glyphs to avoid "?" characters
-    if (this.name === "MatrixChunky8") {
+    // Also prevent infinite recursion if "?" itself is the character being loaded
+    if (this.name === "MatrixChunky8" || char === "?") {
       return null;
     }
 
