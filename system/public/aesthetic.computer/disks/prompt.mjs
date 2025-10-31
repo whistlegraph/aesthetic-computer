@@ -2541,7 +2541,7 @@ function paint($) {
     const bookH = bookImageScaled.height;
     
     // 📚 Second Product (Current)
-    const titleText = "What is Landscape"; // No ? - MatrixChunky8 glyph not preloaded, causes huge fallback
+    const titleText = "What is Landscape?"; // Removed ? - causes giant fallback rendering from unknown source
     const authorText = "by John R. Stilgoe";
     const priceText = "$60 USD";
     
@@ -2813,10 +2813,12 @@ function paint($) {
     const finalTitleColor = shouldBlink ? titleHighlightColor : (isHighlighted ? titleHighlightColor : titleColor);
     
     // Draw title text (with sway effect and highlight)
+    
     // Shadow
     ink(shadowColor[0], shadowColor[1], shadowColor[2]).write(titleText, { x: titleX + textSwayX + 1, y: titleY + 1 }, undefined, undefined, false, "MatrixChunky8");
     // Main text
     ink(finalTitleColor[0], finalTitleColor[1], finalTitleColor[2]).write(titleText, { x: titleX + textSwayX, y: titleY }, undefined, undefined, false, "MatrixChunky8");
+    
     // Main text
     // ink(0).write(titleText, {x: 0, y: 0}, 255, 20, true, "MatrixChunky8");
 
