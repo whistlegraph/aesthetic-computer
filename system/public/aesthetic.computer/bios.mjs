@@ -5604,6 +5604,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             .toISOString()
             .replace(/[-:]/g, ".")
             .replace("T", ".")
+            .replace("Z", "") // Remove trailing Z
             .split(".").slice(0, 7).join("."); // Include milliseconds: YYYY.MM.DD.HH.MM.SS.mmm
         } else {
           // Guest upload: server will generate nanoid slug
