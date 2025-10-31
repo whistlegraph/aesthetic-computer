@@ -2558,21 +2558,29 @@ function paint($) {
     // Position book image in top-right with tight corner layout
     const rightEdge = screen.width - 6; // Right edge position
     
+    // Calculate actual width based on character advances for MatrixChunky8
+    // Most characters are 4px, but let's be precise: $=4, 6=4, 0=4, space=2, U=4, S=4, D=4
+    const priceActualW = 4 + 4 + 4 + 2 + 4 + 4 + 4; // "$60 USD" = 26px
+    
     // Book position (moved up 8px more)
     const bookX = rightEdge - bookW;
     const bookY = 8; // Moved up from 16 to 8
     
-    // Title overlaid ON the book image, centered horizontally, moved up 16px from center
-    const titleX = bookX + (bookW / 2) - (titleW / 2); // Center horizontally on book
-    const titleY = bookY + (bookH / 2) - (textH / 2) - 16; // Center vertically, then move up 16px
+    // Title overlaid ON the book image - moved up 4px more and left 4px from previous
+    const titleX = bookX + (bookW / 2) - (titleW / 2) - 4; // Center horizontally, then left 4px
+    const titleY = bookY + (bookH / 2) - (textH / 2) - 20; // Center, up 16px, then up 4px more = -20
     
-    // Author text below book (much closer)
-    const authorX = rightEdge - authorW;
-    const authorY = bookY + bookH + lineSpacing; // Right after book
+    // Author text positioned right below the title
+    const authorX = rightEdge - authorW + 3; // Right 3px
+    const authorY = titleY + textH + 6; // Just below title with small gap (moved down 4px)
     
-    // Price below author
-    const priceW = priceText.length * 4;
-    const priceY = authorY + textH + lineSpacing + 2;
+    // Price positioned much lower, toward the bottom
+    // Ensure price doesn't overlap with author by adding extra space if needed
+    const minPriceY = bookY + bookH + 35; // Even lower, toward bottom
+    const authorMaxY = authorY + 3.5; // Max Y with sway (authorY + authorSwayY max range)
+    const safeGap = 2; // Extra gap to prevent overlap
+    const priceY = Math.max(minPriceY, authorMaxY + textH + safeGap);
+    const priceX = bookX + (bookW / 2) - (priceActualW / 2);
     
     // Calculate book ad bounding box (with some drift padding)
     const bookAdBox = {
@@ -2750,8 +2758,14 @@ function paint($) {
     const driftX = Math.floor(Math.sin(bookRotation * 0.06) * 2); // Faster drift, 2px range
     const driftY = Math.floor(Math.cos(bookRotation * 0.08) * 2); // Faster speed for more active feel
     
-    // Text sway (subtle side-to-side movement)
-    const textSwayX = Math.floor(Math.sin(bookRotation * 0.03) * 1.5); // Gentle sway, 1.5px range
+    // Independent text sway animations for title and author
+    // Title shake (landscape)
+    const titleSwayX = Math.floor(Math.sin(bookRotation * 0.06) * 3); // 3px range, faster
+    const titleSwayY = Math.floor(Math.cos(bookRotation * 0.05) * 2.5); // 2.5px range
+    
+    // Author shake (independent movement)
+    const authorSwayX = Math.floor(Math.sin(bookRotation * 0.08) * 3.5); // Different speed and range
+    const authorSwayY = Math.floor(Math.cos(bookRotation * 0.07) * 3); // Different vertical pattern
     
     // Make button box around the image area (adjusted for drift)
     const totalW = bookW + 4; // Add padding for drift
@@ -2779,9 +2793,9 @@ function paint($) {
     const scaleOffsetX = Math.floor((scaledBookW - bookW) / 2);
     const scaleOffsetY = Math.floor((scaledBookH - bookH) / 2);
     
-    // Draw shadow behind book (offset to bottom-right, scaled)
-    $.ink(0, 0, 0, isDark ? 80 : 40) // Darker shadow in dark mode
-      .box(Math.floor(bookX + driftX + 2 - scaleOffsetX), Math.floor(bookY + driftY + 2 - scaleOffsetY), scaledBookW, scaledBookH);
+    // Draw shadow behind book (offset to bottom-right, scaled) - REMOVED
+    // $.ink(0, 0, 0, isDark ? 80 : 40) // Darker shadow in dark mode
+    //   .box(Math.floor(bookX + driftX + 2 - scaleOffsetX), Math.floor(bookY + driftY + 2 - scaleOffsetY), scaledBookW, scaledBookH);
     
     // Draw book cover with drift/shake using paste (no rotation), with scale
     if (bookButton.down && imageScale !== 1) {
@@ -2796,34 +2810,66 @@ function paint($) {
       $.paste(bookImageScaled, Math.floor(bookX + driftX), Math.floor(bookY + driftY));
     }
     
-    // Apply brightness overlay when highlighted (always use scaled dimensions)
-    if (isHighlighted) {
-      const overlayX = bookButton.down ? Math.floor(bookX + driftX - scaleOffsetX) : Math.floor(bookX + driftX);
-      const overlayY = bookButton.down ? Math.floor(bookY + driftY - scaleOffsetY) : Math.floor(bookY + driftY);
-      const overlayW = bookButton.down ? scaledBookW : bookW;
-      const overlayH = bookButton.down ? scaledBookH : bookH;
-      $.ink(255, 255, 255, bookButton.down ? 60 : 30) // Brighter when down
-        .box(overlayX, overlayY, overlayW, overlayH);
-    }
+    // Apply brightness overlay when highlighted (always use scaled dimensions) - REMOVED
+    // if (isHighlighted) {
+    //   const overlayX = bookButton.down ? Math.floor(bookX + driftX - scaleOffsetX) : Math.floor(bookX + driftX);
+    //   const overlayY = bookButton.down ? Math.floor(bookY + driftY - scaleOffsetY) : Math.floor(bookY + driftY);
+    //   const overlayW = bookButton.down ? scaledBookW : bookW;
+    //   const overlayH = bookButton.down ? scaledBookH : bookH;
+    //   $.ink(255, 255, 255, bookButton.down ? 60 : 30) // Brighter when down
+    //     .box(overlayX, overlayY, overlayW, overlayH);
+    // }
     
     // Determine text colors based on state - faster blinking when down
     const blinkSpeed = bookButton.down ? 0.3 : 0.15; // Faster blink when pressed
     const blinkPhase = Math.sin(bookRotation * blinkSpeed) > 0; // Boolean blink
     const shouldBlink = bookButton.down && blinkPhase;
-    const finalTitleColor = shouldBlink ? titleHighlightColor : (isHighlighted ? titleHighlightColor : titleColor);
+    
+    // Title color cycling (smooth fade between bright neon colors)
+    const titleBlinkSpeed = 0.05; // Much slower for smoother transitions
+    const titleColorCycle = [
+      [0, 255, 255],     // Bright cyan
+      [255, 0, 255],     // Bright magenta
+      [255, 255, 0],     // Bright yellow
+      [0, 255, 128],     // Bright green-cyan
+    ];
+    const titlePhase = (Math.sin(bookRotation * titleBlinkSpeed) * 0.5 + 0.5) * titleColorCycle.length;
+    const titleIndex1 = Math.floor(titlePhase) % titleColorCycle.length;
+    const titleIndex2 = (titleIndex1 + 1) % titleColorCycle.length;
+    const titleMix = titlePhase - Math.floor(titlePhase);
+    const finalTitleColor = [
+      Math.floor(titleColorCycle[titleIndex1][0] * (1 - titleMix) + titleColorCycle[titleIndex2][0] * titleMix),
+      Math.floor(titleColorCycle[titleIndex1][1] * (1 - titleMix) + titleColorCycle[titleIndex2][1] * titleMix),
+      Math.floor(titleColorCycle[titleIndex1][2] * (1 - titleMix) + titleColorCycle[titleIndex2][2] * titleMix)
+    ];
     
     // Draw title text (with sway effect and highlight)
     // Shadow
-    ink(shadowColor[0], shadowColor[1], shadowColor[2]).write(titleText, { x: titleX + textSwayX + 1, y: titleY + 1 }, undefined, undefined, false, "MatrixChunky8");
+    ink(shadowColor[0], shadowColor[1], shadowColor[2]).write(titleText, { x: titleX + titleSwayX + 1, y: titleY + titleSwayY + 1 }, undefined, undefined, false, "MatrixChunky8");
     // Main text
-    ink(finalTitleColor[0], finalTitleColor[1], finalTitleColor[2]).write(titleText, { x: titleX + textSwayX, y: titleY }, undefined, undefined, false, "MatrixChunky8");
+    ink(finalTitleColor[0], finalTitleColor[1], finalTitleColor[2]).write(titleText, { x: titleX + titleSwayX, y: titleY + titleSwayY }, undefined, undefined, false, "MatrixChunky8");
 
-    // Draw author text (with sway effect, tinted and slightly different color, with blink on down)
-    const finalAuthorColor = shouldBlink ? authorHighlightColor : (bookButton.down ? authorHighlightColor : authorColor);
+    // Draw author text (with sway effect, bright neon colors with smooth fading)
+    const authorBlinkSpeed = 0.04; // Much slower and slightly different speed than title
+    const authorColorCycle = [
+      [255, 100, 255],   // Bright pink/magenta
+      [100, 255, 255],   // Bright cyan
+      [255, 255, 100],   // Bright yellow
+      [100, 255, 100],   // Bright green
+    ];
+    const authorPhase = (Math.sin(bookRotation * authorBlinkSpeed) * 0.5 + 0.5) * authorColorCycle.length;
+    const authorIndex1 = Math.floor(authorPhase) % authorColorCycle.length;
+    const authorIndex2 = (authorIndex1 + 1) % authorColorCycle.length;
+    const authorMix = authorPhase - Math.floor(authorPhase);
+    const finalAuthorColor = [
+      Math.floor(authorColorCycle[authorIndex1][0] * (1 - authorMix) + authorColorCycle[authorIndex2][0] * authorMix),
+      Math.floor(authorColorCycle[authorIndex1][1] * (1 - authorMix) + authorColorCycle[authorIndex2][1] * authorMix),
+      Math.floor(authorColorCycle[authorIndex1][2] * (1 - authorMix) + authorColorCycle[authorIndex2][2] * authorMix)
+    ];
     ink(...shadowColor)
-      .write(authorText, { x: authorX + textSwayX + 1, y: authorY + 1 }, undefined, undefined, false, "MatrixChunky8");
+      .write(authorText, { x: authorX + authorSwayX + 1, y: authorY + authorSwayY + 1 }, undefined, undefined, false, "MatrixChunky8");
     ink(...finalAuthorColor)
-      .write(authorText, { x: authorX + textSwayX, y: authorY }, undefined, undefined, false, "MatrixChunky8");
+      .write(authorText, { x: authorX + authorSwayX, y: authorY + authorSwayY }, undefined, undefined, false, "MatrixChunky8");
     
     // Price text below author byline, scale 1 with solid background and drift
     const priceFont = 'MatrixChunky8';
@@ -2833,14 +2879,11 @@ function paint($) {
 
     // Price position: below author, with horizontal drift only
     const priceScale = 1; // Normal size
-    // Calculate actual width based on character advances for MatrixChunky8
-    // Most characters are 4px, but let's be precise: $=4, 6=4, 0=4, space=2, U=4, S=4, D=4
-    const priceActualW = 4 + 4 + 4 + 2 + 4 + 4 + 4; // "$60 USD" = 26px
     const priceW = priceActualW * priceScale;
     const priceH = 8 * priceScale;
     const padding = 2;
     const priceTextX = rightEdge - priceW - padding * 2 + priceDriftX;
-    const priceTextY = authorY + textH + lineSpacing; // Closer to author, removed +2
+    const priceTextY = bookY + bookH - 8; // Moved up 16px from previous (8 - 16 = -8)
 
     // Solid background box for price (theme-sensitive)
     const priceBg = isDark ? [0, 0, 0, 255] : [255, 255, 255, 255];
@@ -2849,8 +2892,15 @@ function paint($) {
     // Subtle dark shadow (not blinking) - tighter offset
     ink(0, 0, 0, isDark ? 80 : 50).write(priceText, { x: priceTextX + 0.5, y: priceTextY + 0.5, size: priceScale }, undefined, undefined, false, priceFont);
 
-    // Price text - normal green (not dimmed, since this product is available)
-    const priceFinalColor = bookButton.down ? priceDownColor : (bookButton.over ? priceHoverColor : priceNormalColor);
+    // Price text - color cycling (always blinking)
+    const priceBlinkSpeed = 0.18; // Slightly different speed than title
+    const priceColorCycle = [
+      priceNormalColor,
+      priceHoverColor,
+      [priceNormalColor[0] * 0.7, priceNormalColor[1] * 0.7, priceNormalColor[2] * 0.7], // Dimmed
+    ];
+    const priceColorIndex = Math.floor((Math.sin(bookRotation * priceBlinkSpeed) * 0.5 + 0.5) * priceColorCycle.length) % priceColorCycle.length;
+    const priceFinalColor = priceColorCycle[priceColorIndex];
     ink(...priceFinalColor).write(priceText, { x: priceTextX, y: priceTextY, size: priceScale }, undefined, undefined, false, priceFont);
     
     // 📚 First Product (Deprecated - SOLD) - SOLD banner removed for second product
