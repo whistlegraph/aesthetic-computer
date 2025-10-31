@@ -2558,13 +2558,13 @@ function paint($) {
     // Position book image in top-right with tight corner layout
     const rightEdge = screen.width - 6; // Right edge position
     
-    // Book position (moved up)
+    // Book position (moved up 8px more)
     const bookX = rightEdge - bookW;
-    const bookY = 16; // Start higher up
+    const bookY = 8; // Moved up from 16 to 8
     
-    // Title overlaid ON the book image, centered
+    // Title overlaid ON the book image, centered horizontally, moved up 16px from center
     const titleX = bookX + (bookW / 2) - (titleW / 2); // Center horizontally on book
-    const titleY = bookY + (bookH / 2) - (textH / 2); // Center vertically on book
+    const titleY = bookY + (bookH / 2) - (textH / 2) - 16; // Center vertically, then move up 16px
     
     // Author text below book (much closer)
     const authorX = rightEdge - authorW;
