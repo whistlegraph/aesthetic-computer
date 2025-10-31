@@ -2732,8 +2732,8 @@ function paint($) {
     // 📚 Second Product (Current) - New colors
     const titleColor = isDark ? [150, 200, 255] : [50, 100, 200]; // Blue-ish tint for title
     const titleHighlightColor = isDark ? [100, 200, 255] : [0, 150, 255]; // Brighter blue when highlighted
-    // const authorColor = isDark ? [255, 200, 150] : [140, 80, 50]; // Warm/orange-ish byline
-    // const authorHighlightColor = [255, 255, 0]; // Yellow highlight for byline when pressed
+    const authorColor = isDark ? [255, 200, 150] : [140, 80, 50]; // Warm/orange-ish byline
+    const authorHighlightColor = [255, 255, 0]; // Yellow highlight for byline when pressed
     
     // 📚 First Product (Deprecated - SOLD) - Old colors
     // const titleColor = isDark ? [255, 200, 150] : [200, 100, 50]; // Orange/warm tint for title
@@ -2742,9 +2742,9 @@ function paint($) {
     // const authorHighlightColor = [255, 255, 0]; // Yellow highlight for byline when pressed
     
     const shadowColor = isDark ? [0, 0, 0] : [255, 255, 255]; // Black shadow in dark, white in light
-    // const priceNormalColor = isDark ? [0, 255, 0] : [0, 180, 0]; // Bright green in dark, darker in light
-    // const priceHoverColor = isDark ? [100, 255, 100] : [0, 255, 0]; // Brighter greens
-    // const priceDownColor = [255, 255, 0]; // Yellow when pressed (same for both)
+    const priceNormalColor = isDark ? [0, 255, 0] : [0, 180, 0]; // Bright green in dark, darker in light
+    const priceHoverColor = isDark ? [100, 255, 100] : [0, 255, 0]; // Brighter greens
+    const priceDownColor = [255, 255, 0]; // Yellow when pressed (same for both)
     
     // Calculate drift/shake offset (a few pixels in x and y) - faster shaking
     const driftX = Math.floor(Math.sin(bookRotation * 0.06) * 2); // Faster drift, 2px range
@@ -2813,46 +2813,42 @@ function paint($) {
     const finalTitleColor = shouldBlink ? titleHighlightColor : (isHighlighted ? titleHighlightColor : titleColor);
     
     // Draw title text (with sway effect and highlight)
-    
     // Shadow
     ink(shadowColor[0], shadowColor[1], shadowColor[2]).write(titleText, { x: titleX + textSwayX + 1, y: titleY + 1 }, undefined, undefined, false, "MatrixChunky8");
     // Main text
     ink(finalTitleColor[0], finalTitleColor[1], finalTitleColor[2]).write(titleText, { x: titleX + textSwayX, y: titleY }, undefined, undefined, false, "MatrixChunky8");
+
+    // Draw author text (with sway effect, tinted and slightly different color, with blink on down)
+    const finalAuthorColor = shouldBlink ? authorHighlightColor : (bookButton.down ? authorHighlightColor : authorColor);
+    ink(...shadowColor)
+      .write(authorText, { x: authorX + textSwayX + 1, y: authorY + 1 }, undefined, undefined, false, "MatrixChunky8");
+    ink(...finalAuthorColor)
+      .write(authorText, { x: authorX + textSwayX, y: authorY }, undefined, undefined, false, "MatrixChunky8");
     
-    // Main text
-    // ink(0).write(titleText, {x: 0, y: 0}, 255, 20, true, "MatrixChunky8");
+    // Price text below author byline, scale 1 with solid background and drift
+    const priceFont = 'MatrixChunky8';
 
-    // // Draw author text (with sway effect, tinted and slightly different color, with blink on down)
-    // const finalAuthorColor = shouldBlink ? authorHighlightColor : (bookButton.down ? authorHighlightColor : authorColor);
-    // ink(...shadowColor)
-    //   .write(authorText, { x: authorX + textSwayX + 1, y: authorY + 1 }, undefined, undefined, false, "MatrixChunky8");
-    // ink(...finalAuthorColor)
-    //   .write(authorText, { x: authorX + textSwayX, y: authorY }, undefined, undefined, false, "MatrixChunky8");
-    
-    // // Price text below author byline, scale 1 with solid background and drift
-    // const priceFont = 'MatrixChunky8';
+    // Price drift (side-to-side only, slower)
+    const priceDriftX = Math.floor(Math.sin(bookRotation * 0.05) * 3); // Slower, 3px horizontal range only
 
-    // // Price drift (side-to-side only, slower)
-    // const priceDriftX = Math.floor(Math.sin(bookRotation * 0.05) * 3); // Slower, 3px horizontal range only
+    // Price position: below author, with horizontal drift only
+    const priceScale = 1; // Normal size
+    const priceW = priceText.length * 4 * priceScale;
+    const priceH = 8 * priceScale;
+    const padding = 2;
+    const priceTextX = rightEdge - priceW - padding * 2 + priceDriftX;
+    const priceTextY = authorY + textH + lineSpacing + 2; // Below author (no vertical drift)
 
-    // // Price position: below author, with horizontal drift only
-    // const priceScale = 1; // Normal size
-    // const priceW = priceText.length * 4 * priceScale;
-    // const priceH = 8 * priceScale;
-    // const padding = 2;
-    // const priceTextX = rightEdge - priceW - padding * 2 + priceDriftX;
-    // const priceTextY = authorY + textH + lineSpacing + 2; // Below author (no vertical drift)
+    // Solid background box for price (theme-sensitive)
+    const priceBg = isDark ? [0, 0, 0, 255] : [255, 255, 255, 255];
+    ink(...priceBg).box(priceTextX - padding, priceTextY - padding, priceW + padding * 2, priceH + padding * 2);
 
-    // // Solid background box for price (theme-sensitive)
-    // const priceBg = isDark ? [0, 0, 0, 255] : [255, 255, 255, 255];
-    // ink(...priceBg).box(priceTextX - padding, priceTextY - padding, priceW + padding * 2, priceH + padding * 2);
+    // Subtle dark shadow (not blinking) - tighter offset
+    ink(0, 0, 0, isDark ? 80 : 50).write(priceText, { x: priceTextX + 0.5, y: priceTextY + 0.5, size: priceScale }, undefined, undefined, false, priceFont);
 
-    // // Subtle dark shadow (not blinking) - tighter offset
-    // ink(0, 0, 0, isDark ? 80 : 50).write(priceText, { x: priceTextX + 0.5, y: priceTextY + 0.5, size: priceScale }, undefined, undefined, false, priceFont);
-
-    // // Price text - normal green (not dimmed, since this product is available)
-    // const priceFinalColor = bookButton.down ? priceDownColor : (bookButton.over ? priceHoverColor : priceNormalColor);
-    // ink(...priceFinalColor).write(priceText, { x: priceTextX, y: priceTextY, size: priceScale }, undefined, undefined, false, priceFont);
+    // Price text - normal green (not dimmed, since this product is available)
+    const priceFinalColor = bookButton.down ? priceDownColor : (bookButton.over ? priceHoverColor : priceNormalColor);
+    ink(...priceFinalColor).write(priceText, { x: priceTextX, y: priceTextY, size: priceScale }, undefined, undefined, false, priceFont);
     
     // 📚 First Product (Deprecated - SOLD) - SOLD banner removed for second product
     // // Draw "SOLD" banner centered on the book with unique animation
