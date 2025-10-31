@@ -4030,6 +4030,7 @@ function draw() {
 
   // 🖼️ Handle BDF pixel-based fonts (MatrixChunky8, etc.)
   if (drawing.pixels && drawing.resolution && !drawing.commands) {
+    pan(x, y); // Apply pan offset for BDF rendering
     const [charWidth, charHeight] = drawing.resolution;
     
     // 🐛 Debug BDF rendering
@@ -4040,8 +4041,9 @@ function draw() {
       
       for (let col = 0; col < pixelRow.length; col++) {
         if (pixelRow[col] === 1) { // Only render "on" pixels
-          const pixelX = x + (col * scale);
-          const pixelY = y + (row * scale);
+          // Use relative coordinates since pan(x, y) already shifted the coordinate system
+          const pixelX = col * scale;
+          const pixelY = row * scale;
           const isMatrixChunky = drawing?.fontName === "MatrixChunky8";
 
           const matrixDebugActive = matrixDebugEnabled();
@@ -4239,7 +4241,7 @@ function printLine(
     let currentX = startX + xOffset;
     
     [...text.toString()].forEach((char, i) => {
-      const charX = currentX;
+      let charX = currentX;
       let charY = startY;
       
       // Apply BDF overrides if they exist for this character
