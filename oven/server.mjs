@@ -281,8 +281,8 @@ app.get('/', (req, res) => {
         ? '<p class="empty">No recent bakes</p>'
         : recentBakes.map(bake => {
           const code = bake.code || bake.slug || 'unknown';
-          const atprotoLink = bake.at?.rkey 
-            ? \`<a href="https://at.aesthetic.computer/at/post/\${bake.at.rkey}" target="_blank" style="color: #66f; text-decoration: none;">🦋 ATProto</a>\`
+          const atprotoLink = bake.atprotoRkey 
+            ? \`<a href="https://at.aesthetic.computer/at/post/\${bake.atprotoRkey}" target="_blank" style="color: #66f; text-decoration: none;">🦋 ATProto</a>\`
             : '';
           
           return \`
