@@ -138,12 +138,28 @@ async function loadRecentBakes() {
   if (!database) return;
   
   try {
-    const collection = database.collection('oven-bakes');
-    const bakes = await collection
+    const ovenBakes = database.collection('oven-bakes');
+    const tapes = database.collection('tapes');
+    const handles = database.collection('@handles');
+    
+    const bakes = await ovenBakes
       .find({})
       .sort({ completedAt: -1 })
       .limit(20)
       .toArray();
+    
+    // Enrich each bake with user handle for ATProto links
+    for (const bake of bakes) {
+      // Get tape to find user ID
+      const tape = await tapes.findOne({ code: bake.code });
+      if (tape && tape.user) {
+        // Get handle for user
+        const handleDoc = await handles.findOne({ _id: tape.user });
+        if (handleDoc) {
+          bake.userHandle = handleDoc.handle;
+        }
+      }
+    }
     
     recentBakes.length = 0; // Clear existing
     recentBakes.push(...bakes);
