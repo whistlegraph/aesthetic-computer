@@ -250,7 +250,7 @@ app.get('/', (req, res) => {
         ? '<p class="empty">No incoming tapes</p>'
         : incomingBakes.map(bake => \`
           <div class="bake-card active">
-            <div class="slug">!<a href="https://aesthetic.computer/tape/!\${bake.code}" target="_blank">\${bake.code}</a></div>
+            <div class="slug">!<a href="https://aesthetic.computer/!\${bake.code}" target="_blank">\${bake.code}</a></div>
             <div class="status-badge status-incoming"><span class="spinner"></span>\${bake.details || 'Waiting...'}</div>
             <div class="meta">Detected \${formatDuration(Date.now() - bake.detectedAt)} ago</div>
           </div>
@@ -266,7 +266,7 @@ app.get('/', (req, res) => {
           const statusText = bake.details || bake.status;
           return \`
           <div class="bake-card active">
-            <div class="slug">!<a href="https://aesthetic.computer/tape/!\${bake.code || bake.slug}" target="_blank">\${bake.code || bake.slug}</a></div>
+            <div class="slug">!<a href="https://aesthetic.computer/!\${bake.code || bake.slug}" target="_blank">\${bake.code || bake.slug}</a></div>
             <div class="status-badge status-\${bake.status}"><span class="spinner"></span>\${statusText}</div>
             <div class="meta">Duration: \${formatDuration(Date.now() - bake.startTime)}</div>
           </div>
@@ -281,13 +281,13 @@ app.get('/', (req, res) => {
         ? '<p class="empty">No recent bakes</p>'
         : recentBakes.map(bake => {
           const code = bake.code || bake.slug || 'unknown';
-          const atprotoLink = bake.atprotoRkey 
-            ? \`<a href="https://at.aesthetic.computer/at/post/\${bake.atprotoRkey}" target="_blank" style="color: #66f; text-decoration: none;">🦋 ATProto</a>\`
+          const atprotoLink = bake.at?.rkey 
+            ? \`<a href="https://at.aesthetic.computer/at/post/\${bake.at.rkey}" target="_blank" style="color: #66f; text-decoration: none;">🦋 ATProto</a>\`
             : '';
           
           return \`
           <div class="bake-card">
-            <div class="slug">!<a href="https://aesthetic.computer/tape/!\${code}" target="_blank">\${code}</a> \${atprotoLink}</div>
+            <div class="slug">!<a href="https://aesthetic.computer/!\${code}" target="_blank">\${code}</a> \${atprotoLink}</div>
             \${bake.mp4Url && bake.thumbnailUrl ? \`
               <div class="media-preview">
                 <video autoplay loop muted playsinline>
