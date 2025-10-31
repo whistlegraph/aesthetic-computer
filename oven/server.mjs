@@ -281,8 +281,11 @@ app.get('/', (req, res) => {
         ? '<p class="empty">No recent bakes</p>'
         : recentBakes.map(bake => {
           const code = bake.code || bake.slug || 'unknown';
+          // Build ATProto link using pdsls.dev format for proper record viewing
+          // Anonymous tapes: art.at.aesthetic.computer
+          // User tapes: jeffrey.at.aesthetic.computer (based on user)
           const atprotoLink = bake.atprotoRkey 
-            ? \`<a href="https://at.aesthetic.computer/at/post/\${bake.atprotoRkey}" target="_blank" style="color: #66f; text-decoration: none;">🦋 ATProto</a>\`
+            ? \`<a href="https://pdsls.dev/at://art.at.aesthetic.computer/computer.aesthetic.tape/\${bake.atprotoRkey}" target="_blank" style="color: #66f; text-decoration: none;">🦋 ATProto</a>\`
             : '';
           
           return \`
