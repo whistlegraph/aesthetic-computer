@@ -195,24 +195,7 @@ function addRecentBake(bake) {
   recentBakes.unshift(bake);
   if (recentBakes.length > 20) recentBakes.pop();
   
-  // Persist to MongoDB
-  saveBakeToMongo(bake);
-}
-
-async function saveBakeToMongo(bake) {
-  const database = await connectMongo();
-  if (!database) return;
-  
-  try {
-    const collection = database.collection('oven-bakes');
-    await collection.insertOne({
-      ...bake,
-      _id: undefined, // Let MongoDB generate ID
-      createdAt: new Date()
-    });
-  } catch (error) {
-    console.error('❌ Failed to save bake to MongoDB:', error.message);
-  }
+  // Note: MongoDB persistence is handled by oven-complete webhook
 }
 
 function startBake(code, data) {
