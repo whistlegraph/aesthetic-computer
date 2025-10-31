@@ -283,10 +283,14 @@ app.get('/', (req, res) => {
           const code = bake.code || bake.slug || 'unknown';
           // Build ATProto link using pdsls.dev format for proper record viewing
           // Anonymous tapes: art.at.aesthetic.computer
-          // User tapes: jeffrey.at.aesthetic.computer (based on user)
-          const atprotoLink = bake.atprotoRkey 
-            ? \`<a href="https://pdsls.dev/at://art.at.aesthetic.computer/computer.aesthetic.tape/\${bake.atprotoRkey}" target="_blank" style="color: #66f; text-decoration: none;">🦋 ATProto</a>\`
-            : '';
+          // User tapes: {handle}.at.aesthetic.computer (based on user)
+          let atprotoLink = '';
+          if (bake.atprotoRkey) {
+            const pdsHandle = bake.userHandle 
+              ? \`\${bake.userHandle}.at.aesthetic.computer\`
+              : 'art.at.aesthetic.computer';
+            atprotoLink = \`<a href="https://pdsls.dev/at://\${pdsHandle}/computer.aesthetic.tape/\${bake.atprotoRkey}" target="_blank" style="color: #66f; text-decoration: none;">🦋 ATProto</a>\`;
+          }
           
           return \`
           <div class="bake-card">
