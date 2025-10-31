@@ -740,16 +740,16 @@ export async function statusHandler(req, res) {
  * Called by oven-complete webhook to notify oven that processing finished
  */
 export function bakeCompleteHandler(req, res) {
-  const { slug, code, success, mp4Url, thumbnailUrl, error } = req.body;
+  const { slug, code, success, mp4Url, thumbnailUrl, error, atprotoRkey } = req.body;
   
   if (!code) {
     return res.status(400).json({ error: 'Missing code' });
   }
   
-  console.log(`🎬 Bake completion notification: ${slug} (${code}) - ${success ? 'success' : 'failed'}`);
+  console.log(`🎬 Bake completion notification: ${slug} (${code}) - ${success ? 'success' : 'failed'}${atprotoRkey ? ' 🦋' : ''}`);
   
   // Move from active to recent (keyed by code)
-  completeBake(code, success, { slug, code, mp4Url, thumbnailUrl, error });
+  completeBake(code, success, { slug, code, mp4Url, thumbnailUrl, error, atprotoRkey });
   notifySubscribers();
   
   res.json({ status: 'ok' });
