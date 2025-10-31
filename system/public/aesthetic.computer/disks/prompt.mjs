@@ -2558,17 +2558,17 @@ function paint($) {
     // Position book image in top-right with tight corner layout
     const rightEdge = screen.width - 6; // Right edge position
     
-    // Title above the book image
-    const titleX = rightEdge - titleW;
-    const titleY = 6; // Start at top
-    
-    // Book below title
+    // Book position (moved up)
     const bookX = rightEdge - bookW;
-    const bookY = titleY + textH + lineSpacing + 2; // Small gap after title
+    const bookY = 16; // Start higher up
     
-    // Author text below book image
+    // Title overlaid ON the book image, centered
+    const titleX = bookX + (bookW / 2) - (titleW / 2); // Center horizontally on book
+    const titleY = bookY + (bookH / 2) - (textH / 2); // Center vertically on book
+    
+    // Author text below book (much closer)
     const authorX = rightEdge - authorW;
-    const authorY = bookY + bookH + lineSpacing + 2;
+    const authorY = bookY + bookH + lineSpacing; // Right after book
     
     // Price below author
     const priceW = priceText.length * 4;
@@ -2833,11 +2833,14 @@ function paint($) {
 
     // Price position: below author, with horizontal drift only
     const priceScale = 1; // Normal size
-    const priceW = priceText.length * 4 * priceScale;
+    // Calculate actual width based on character advances for MatrixChunky8
+    // Most characters are 4px, but let's be precise: $=4, 6=4, 0=4, space=2, U=4, S=4, D=4
+    const priceActualW = 4 + 4 + 4 + 2 + 4 + 4 + 4; // "$60 USD" = 26px
+    const priceW = priceActualW * priceScale;
     const priceH = 8 * priceScale;
     const padding = 2;
     const priceTextX = rightEdge - priceW - padding * 2 + priceDriftX;
-    const priceTextY = authorY + textH + lineSpacing + 2; // Below author (no vertical drift)
+    const priceTextY = authorY + textH + lineSpacing; // Closer to author, removed +2
 
     // Solid background box for price (theme-sensitive)
     const priceBg = isDark ? [0, 0, 0, 255] : [255, 255, 255, 255];
