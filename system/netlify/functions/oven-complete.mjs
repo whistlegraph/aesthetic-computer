@@ -135,7 +135,8 @@ export async function handler(event, context) {
         code,
         success: true,
         mp4Url,
-        thumbnailUrl
+        thumbnailUrl,
+        atprotoRkey: result.rkey || null
       });
       console.log(`🔥 Notified oven of completion`);
     } catch (notifyError) {
