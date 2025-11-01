@@ -151,7 +151,7 @@ export async function handler(event, context) {
             });
             
             // Use the actual upload key (slug-based, not code-based)
-            const key = user ? `${user}/${slug}.zip` : `${slug}.zip`;
+            const key = user ? `${user.sub}/${slug}.zip` : `${slug}.zip`;
             
             const aclCommand = new PutObjectAclCommand({
               Bucket: record.bucket,
@@ -172,7 +172,8 @@ export async function handler(event, context) {
           // Generate direct S3 URL instead of going through /media redirect
           // Since we set public-read ACL, the file should be directly accessible
           const key = user ? `${user.sub}/${slug}.zip` : `${slug}.zip`;
-          const zipUrl = `https://${record.bucket}.sfo3.digitaloceanspaces.com/${encodeURIComponent(key)}`;
+          // Don't encodeURIComponent - S3 keys with | chars are valid and Spaces rejects %7C encoding
+          const zipUrl = `https://${record.bucket}.sfo3.digitaloceanspaces.com/${key}`;
           
           const ovenUrl = isDev ? 'https://localhost:3002' : (process.env.OVEN_URL || 'https://oven.aesthetic.computer');
           const callbackUrl = `${baseUrl}/api/oven-complete`;

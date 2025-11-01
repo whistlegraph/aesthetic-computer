@@ -4075,7 +4075,7 @@ const $paintApi = {
       typeof text === "object" && text !== null
         ? JSON.stringify(text)
         : text.toString();
-
+    
     // Assume: text, x, y, options, wordWrap, customTypeface
     if (typeof arguments[1] === "number") {
       pos = { x: arguments[1], y: arguments[2] };
