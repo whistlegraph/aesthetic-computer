@@ -25,13 +25,15 @@ export const checkPackMode = () => {
     if (typeof globalThis !== 'undefined' && globalThis.acPACK_MODE) return true;
     
     // Check for PACK-specific patterns as last resort
-    if (typeof window !== 'undefined' && window.location) {
-      const urlHasPackIndicator = window.location.hostname === 'localhost';
-      const titleHasPackIndicator = typeof document !== 'undefined' && 
-                          document.title && 
-                          document.title.startsWith('$');
-      if (urlHasPackIndicator && titleHasPackIndicator) return true;
-    }
+    // Note: Disabled localhost detection to allow API calls in dev mode
+    // PACK mode must be explicitly set via setPackMode() during build
+    // if (typeof window !== 'undefined' && window.location) {
+    //   const urlHasPackIndicator = window.location.hostname === 'localhost';
+    //   const titleHasPackIndicator = typeof document !== 'undefined' && 
+    //                       document.title && 
+    //                       document.title.startsWith('$');
+    //   if (urlHasPackIndicator && titleHasPackIndicator) return true;
+    // }
   } catch (e) {
     // Ignore errors in worker context where window/document aren't available
   }
