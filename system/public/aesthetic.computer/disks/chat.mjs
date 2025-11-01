@@ -584,6 +584,9 @@ function act(
                 const innerPrompt = element.text.slice(1, -1); // Unquote prompt text.
                 if (innerPrompt.startsWith(">")) {
                   jump("prompt " + innerPrompt.slice(1));
+                } else if (innerPrompt.startsWith("#")) {
+                  // If it's a painting code in quotes, strip the # and use painting format
+                  jump("painting#" + innerPrompt.slice(1));
                 } else {
                   jump(innerPrompt);
                 }
@@ -591,6 +594,12 @@ function act(
               } else if (element.type === "url") {
                 beep();
                 jump("out:" + element.text);
+                break;
+              } else if (element.type === "painting") {
+                beep();
+                hud.labelBack();
+                // Navigate to the painting using its code (e.g., #k3d -> painting#k3d)
+                jump("painting" + element.text);
                 break;
               }
             }
@@ -1023,6 +1032,18 @@ function parseMessageElements(message) {
     });
   }
 
+  // Parse #painting codes (hashtags followed by alphanumeric characters)
+  // Painting codes are typically 3 characters but can vary (e.g., #k3d, #WDv, #abc)
+  const hashtagRegex = /#[a-z0-9]+/gi;
+  while ((match = hashtagRegex.exec(message)) !== null) {
+    elements.push({
+      type: "painting",
+      text: match[0],
+      start: match.index,
+      end: match.index + match[0].length,
+    });
+  }
+
   // Sort elements by start position to ensure proper ordering
   elements.sort((a, b) => a.start - b.start);
 
@@ -1102,6 +1123,9 @@ function generateDynamicColorMessage(message) {
       colorCodedText = `\\${color}\\${elementText}\\white\\`;
     } else if (element.type === "prompt") {
       const color = isHovered ? "yellow" : "lime";
+      colorCodedText = `\\${color}\\${elementText}\\white\\`;
+    } else if (element.type === "painting") {
+      const color = isHovered ? "yellow" : "orange";
       colorCodedText = `\\${color}\\${elementText}\\white\\`;
     }
     
