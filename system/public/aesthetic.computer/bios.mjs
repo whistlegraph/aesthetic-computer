@@ -5595,6 +5595,22 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           content: 0.8,
         });
         
+        // Generate full timestamp slug (for authenticated users)
+        const token = await authorize().catch(() => null);
+        let slug;
+        if (token) {
+          // User upload: use full timestamp format like paintings
+          slug = new Date()
+            .toISOString()
+            .replace(/[-:]/g, ".")
+            .replace("T", ".")
+            .replace("Z", "") // Remove trailing Z
+            .split(".").slice(0, 7).join("."); // Include milliseconds: YYYY.MM.DD.HH.MM.SS.mmm
+        } else {
+          // Guest upload: server will generate nanoid slug
+          slug = null;
+        }
+        
         const metadata = {
           resolution: { width: originalWidth, height: originalHeight },
           frameCount: content.frames.length,
@@ -5603,6 +5619,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           exportedAt: new Date().toISOString(),
           audioSampleRate: content.rawAudio?.sampleRate || null, // Store original audio sample rate
           pieceChanges: recordedPieceChanges, // Track piece changes during recording
+          slug: slug, // Include slug for backend to use for filename
         };
         
         console.log(`🎬 📍 Piece changes included in metadata: ${metadata.pieceChanges.length} changes`);
@@ -5655,23 +5672,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         console.log("🗜️ Generating ZIP file...");
         const zipBlob = await zip.generateAsync({ type: "blob" });
         
-        // Generate filename
-        // For user uploads: piece/timestamp format for organization
-        // For guest uploads: let server generate nanoid-based slug
+        // Generate filename using slug (already generated above for metadata)
         let filename;
         
-        // Check if user is authenticated
-        const token = await authorize().catch(() => null);
-        
-        if (token) {
-          // User upload: use piece-timestamp format
-          const timestamp = new Date()
-            .toISOString()
-            .replace(/[-:]/g, ".")
-            .replace("T", ".")
-            .split(".")[0] + "." + (Date.now() % 1000);
-          const piece = content.piece || "video";
-          filename = `${piece}-${timestamp}.zip`;
+        if (slug) {
+          // User upload: use slug.zip format (slug already contains full timestamp)
+          filename = `${slug}.zip`;
         } else {
           // Guest upload: use generic name, server will generate nanoid
           filename = "tape.zip";
