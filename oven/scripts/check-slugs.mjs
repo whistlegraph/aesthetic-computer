@@ -1,0 +1,11 @@
+import pkg from 'mongodb';
+const {MongoClient} = pkg;
+const client = await MongoClient.connect(process.env.MONGODB_CONNECTION_STRING);
+const db = client.db('aesthetic');
+const paintings = await db.collection('paintings').find().sort({_id: -1}).limit(5).toArray();
+console.log('Recent paintings:');
+paintings.forEach(p => console.log('Code:', p.code, 'Slug:', p.slug));
+const tapes = await db.collection('tapes').find().sort({_id: -1}).limit(5).toArray();
+console.log('\nRecent tapes:');
+tapes.forEach(t => console.log('Code:', t.code, 'Slug:', t.slug));
+await client.close();

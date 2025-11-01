@@ -138,12 +138,28 @@ async function loadRecentBakes() {
   if (!database) return;
   
   try {
-    const collection = database.collection('oven-bakes');
-    const bakes = await collection
+    const ovenBakes = database.collection('oven-bakes');
+    const tapes = database.collection('tapes');
+    const handles = database.collection('@handles');
+    
+    const bakes = await ovenBakes
       .find({})
       .sort({ completedAt: -1 })
       .limit(20)
       .toArray();
+    
+    // Enrich each bake with user handle for ATProto links
+    for (const bake of bakes) {
+      // Get tape to find user ID
+      const tape = await tapes.findOne({ code: bake.code });
+      if (tape && tape.user) {
+        // Get handle for user
+        const handleDoc = await handles.findOne({ _id: tape.user });
+        if (handleDoc) {
+          bake.userHandle = handleDoc.handle;
+        }
+      }
+    }
     
     recentBakes.length = 0; // Clear existing
     recentBakes.push(...bakes);
@@ -195,24 +211,7 @@ function addRecentBake(bake) {
   recentBakes.unshift(bake);
   if (recentBakes.length > 20) recentBakes.pop();
   
-  // Persist to MongoDB
-  saveBakeToMongo(bake);
-}
-
-async function saveBakeToMongo(bake) {
-  const database = await connectMongo();
-  if (!database) return;
-  
-  try {
-    const collection = database.collection('oven-bakes');
-    await collection.insertOne({
-      ...bake,
-      _id: undefined, // Let MongoDB generate ID
-      createdAt: new Date()
-    });
-  } catch (error) {
-    console.error('❌ Failed to save bake to MongoDB:', error.message);
-  }
+  // Note: MongoDB persistence is handled by oven-complete webhook
 }
 
 function startBake(code, data) {
@@ -757,16 +756,16 @@ export async function statusHandler(req, res) {
  * Called by oven-complete webhook to notify oven that processing finished
  */
 export function bakeCompleteHandler(req, res) {
-  const { slug, code, success, mp4Url, thumbnailUrl, error } = req.body;
+  const { slug, code, success, mp4Url, thumbnailUrl, error, atprotoRkey } = req.body;
   
   if (!code) {
     return res.status(400).json({ error: 'Missing code' });
   }
   
-  console.log(`🎬 Bake completion notification: ${slug} (${code}) - ${success ? 'success' : 'failed'}`);
+  console.log(`🎬 Bake completion notification: ${slug} (${code}) - ${success ? 'success' : 'failed'}${atprotoRkey ? ' 🦋' : ''}`);
   
   // Move from active to recent (keyed by code)
-  completeBake(code, success, { slug, code, mp4Url, thumbnailUrl, error });
+  completeBake(code, success, { slug, code, mp4Url, thumbnailUrl, error, atprotoRkey });
   notifySubscribers();
   
   res.json({ status: 'ok' });
