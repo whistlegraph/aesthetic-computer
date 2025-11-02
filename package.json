@@ -91,10 +91,15 @@
   },
   "dependencies": {
     "archiver": "^7.0.1",
-  "gif-encoder-2": "^1.0.5",
+    "gif-encoder-2": "^1.0.5",
     "gbasm": "^0.0.21",
     "jszip": "^3.10.1",
     "ntp-client": "^0.5.3",
-    "obscenity": "^0.4.5"
+    "obscenity": "^0.4.5",
+    "@atproto/api": "^0.17.2",
+    "@aws-sdk/client-s3": "^3.896.0",
+    "mongodb": "^6.20.0",
+    "dotenv": "^16.4.7",
+    "node-fetch": "^3.3.2"
   }
 }
