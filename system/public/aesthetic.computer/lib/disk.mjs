@@ -2355,8 +2355,7 @@ const $commonApi = {
     },
   },
   encode: async (file) => {
-  // File should be { type, data } where type is "png", "webp", "jef", etc.
-  encode: async (file) => {
+    // File should be { type, data } where type is "png", "webp", "jef", etc.
     const prom = new Promise((resolve, reject) => {
       fileEncodeRequest = { resolve, reject };
     });
