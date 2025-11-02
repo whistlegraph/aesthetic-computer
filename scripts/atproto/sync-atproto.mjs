@@ -11,7 +11,7 @@
 // 5. Handles anonymous content → art account
 // 6. Handles user content → personal accounts
 
-import { connect } from "./database.mjs";
+import { connect } from "../../system/backend/database.mjs";
 import { AtpAgent } from "@atproto/api";
 import { 
   MediaTypes, 
@@ -19,7 +19,7 @@ import {
   deleteMediaRecord,
   getCollection,
   supportsAnonymous 
-} from "./media-atproto.mjs";
+} from "../../system/backend/media-atproto.mjs";
 
 const PDS_URL = process.env.PDS_URL || "https://at.aesthetic.computer";
 
