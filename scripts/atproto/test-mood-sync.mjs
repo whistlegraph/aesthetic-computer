@@ -1,5 +1,5 @@
-import { createMediaRecord } from './media-atproto.mjs';
-import { connect } from './database.mjs';
+import { createMediaRecord } from '../system/backend/media-atproto.mjs';
+import { connect } from '../system/backend/database.mjs';
 
 const database = await connect();
 const users = database.db.collection('users');
