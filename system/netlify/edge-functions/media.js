@@ -222,6 +222,16 @@ async function handlePaintingCodeRequest(codeWithExtension) {
     
     const painting = await res.json();
     
+    // If user painting, we need the handle to construct the authenticated URL
+    let userHandle = null;
+    if (painting.user) {
+      const userRes = await fetch(`${host}/user?sub=${encodeURIComponent(painting.user)}`);
+      if (userRes.ok) {
+        const userData = await userRes.json();
+        userHandle = userData.handle || userData.username;
+      }
+    }
+    
     if (isZipRequest) {
       // Return the recording ZIP
       const bucket = painting.bucket || (painting.user ? "user-aesthetic-computer" : "art-aesthetic-computer");
@@ -245,10 +255,18 @@ async function handlePaintingCodeRequest(codeWithExtension) {
       // Extract image slug from combined slug if present (imageSlug:recordingSlug)
       const imageSlug = painting.slug.includes(':') ? painting.slug.split(':')[0] : painting.slug;
       const bucket = painting.bucket || (painting.user ? "user-aesthetic-computer" : "art-aesthetic-computer");
-      const key = painting.user ? `${encodeURIComponent(painting.user)}/${imageSlug}.png` : `${imageSlug}.png`;
-      const pngUrl = `https://${bucket}.sfo3.digitaloceanspaces.com/${key}`;
       
-      return Response.redirect(pngUrl, 302);
+      if (painting.user && userHandle) {
+        // User painting - redirect to authenticated endpoint which handles private buckets
+        const redirectUrl = `${host}/media/@${userHandle}/painting/${imageSlug}.png`;
+        return Response.redirect(redirectUrl, 302);
+      } else if (painting.user && !userHandle) {
+        return new Response(`User not found for painting: ${code}`, { status: 404 });
+      } else {
+        // Anonymous painting - direct redirect to public bucket
+        const pngUrl = `https://${bucket}.sfo3.digitaloceanspaces.com/${imageSlug}.png`;
+        return Response.redirect(pngUrl, 302);
+      }
     }
     
   } catch (error) {
