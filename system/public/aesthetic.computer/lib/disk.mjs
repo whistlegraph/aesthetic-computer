@@ -2270,8 +2270,6 @@ const $commonApi = {
     painting: (code, opts) => {
       return {
         by: async function (handle = "anon", byOpts) {
-          // Use the /media/paintings/CODE endpoint which handles both
-          // anonymous and user paintings automatically
           const extension = opts?.record ? "zip" : "png";
           
           // Use the same origin-aware URL construction logic as module loading
@@ -2288,7 +2286,19 @@ const $commonApi = {
             baseUrl = `https://aesthetic.computer`;
           }
           
-          const mediaUrl = `${baseUrl}/media/paintings/${code}.${extension}`;
+          // Detect timestamp format (YYYY.MM.DD.HH.MM.SS.mmm)
+          const isTimestamp = code.match(/^\d{4}\.\d{2}\.\d{2}\.\d{2}\.\d{2}\.\d{2}\.\d{3}$/);
+          
+          let mediaUrl;
+          if (isTimestamp && handle !== "anon") {
+            // Legacy user painting with timestamp - use old format
+            const handleWithAt = handle.startsWith('@') ? handle : `@${handle}`;
+            mediaUrl = `${baseUrl}/media/${handleWithAt}/painting/${code}.${extension}`;
+          } else {
+            // 3-letter code or anonymous painting - use new endpoint
+            mediaUrl = `${baseUrl}/media/paintings/${code}.${extension}`;
+          }
+          
           return $commonApi.net.preload(
             mediaUrl,
             true,
@@ -4591,7 +4601,7 @@ async function prefetchPicture(code) {
         delete paintings[code];
       });
   } else if (actualCode.includes("/")) {
-    // Legacy format: @handle/slug or handle/slug
+    // Format: @handle/timestamp or handle/timestamp
     const [author, paintingSlug] = actualCode.split("/");
     $commonApi.get
       .painting(paintingSlug)
@@ -4600,8 +4610,13 @@ async function prefetchPicture(code) {
       .catch(() => {
         delete paintings[code];
       });
+  } else if (actualCode.match(/^\d{4}\.\d{2}\.\d{2}\.\d{2}\.\d{2}\.\d{2}\.\d{3}$/)) {
+    // Timestamp format without handle (e.g., "2025.11.01.23.55.14.266")
+    // This shouldn't happen - timestamps need a handle
+    console.warn(`⚠️ Painting timestamp without handle: ${actualCode}`);
+    delete paintings[code];
   } else {
-    // New format: just the 3-letter code (e.g., "mzc" or "#mzc")
+    // 3-letter code format (e.g., "mzc")
     // The /media/paintings/CODE endpoint handles everything
     $commonApi.get
       .painting(actualCode)
