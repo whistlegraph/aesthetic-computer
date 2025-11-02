@@ -2270,41 +2270,31 @@ const $commonApi = {
     painting: (code, opts) => {
       return {
         by: async function (handle = "anon", byOpts) {
-          // Add support for pulling paintings from the `art` bucket...
+          // Use the /media/paintings/CODE endpoint which handles both
+          // anonymous and user paintings automatically
           const extension = opts?.record ? "zip" : "png";
-          if (handle === "anon") {
-            return $commonApi.net.preload(
-              encodeURI(`https://art.aesthetic.computer/${code}.${extension}`),
-              true,
-              undefined,
-              byOpts,
-            );
+          
+          // Use the same origin-aware URL construction logic as module loading
+          const { protocol, hostname } = getSafeUrlParts();
+          
+          let baseUrl;
+          // Check if we're in a development environment (localhost with port)
+          const isDevelopment = hostname === 'localhost' && typeof location !== 'undefined' && location.port;
+          if (isDevelopment) {
+            // Use the local development server
+            baseUrl = `${protocol}//${hostname}:${location.port}`;
           } else {
-            // Use the same origin-aware URL construction logic as module loading
-            const { protocol, hostname } = getSafeUrlParts();
-            
-            let baseUrl;
-            // Check if we're in a development environment (localhost with port)
-            const isDevelopment = hostname === 'localhost' && typeof location !== 'undefined' && location.port;
-            if (isDevelopment) {
-              // Use the local development server
-              baseUrl = `${protocol}//${hostname}:${location.port}`;
-            } else {
-              // Use the production server for sandboxed iframes or production
-              baseUrl = `https://aesthetic.computer`;
-            }
-            
-            // Ensure handle has @ prefix for the media URL
-            const handleWithAt = handle.startsWith('@') ? handle : `@${handle}`;
-            const mediaUrl = `${baseUrl}/media/${handleWithAt}/painting/${code}.${extension}`;
-            console.log("🖼️ Media URL constructed:", mediaUrl);
-            return $commonApi.net.preload(
-              mediaUrl,
-              true,
-              undefined,
-              byOpts,
-            );
+            // Use the production server for sandboxed iframes or production
+            baseUrl = `https://aesthetic.computer`;
           }
+          
+          const mediaUrl = `${baseUrl}/media/paintings/${code}.${extension}`;
+          return $commonApi.net.preload(
+            mediaUrl,
+            true,
+            undefined,
+            byOpts,
+          );
         },
       };
     },
@@ -4549,25 +4539,12 @@ if (typeof window !== "undefined") {
 // Used by `paste` and `stamp` to prefetch bitmaps of the network as needed.
 // Occurs also when loading a piece's source code.
 async function prefetchPicture(code) {
-  // 🔑 Handle #code format by resolving to full painting path
   const originalCode = code;
+  
+  // Strip # prefix if present to get the actual code
+  let actualCode = code;
   if (code.startsWith('#')) {
-    const shortCode = code.slice(1);
-    try {
-      code = await codeCache.resolve(shortCode);
-      
-      // console.log(`🔑 Resolved #${shortCode} -> ${code}`);
-      
-      // If the resolved path is already in cache, alias the original #code to it
-      if (paintings[code] && paintings[code] !== "fetching") {
-        paintings[originalCode] = paintings[code];
-        return;
-      }
-    } catch (err) {
-      console.error(`Failed to resolve code #${shortCode}:`, err);
-      delete paintings[originalCode];
-      return;
-    }
+    actualCode = code.slice(1);
   }
   
   if (paintings[code] === "fetching") return;
@@ -4581,8 +4558,6 @@ async function prefetchPicture(code) {
   // Level 2: Check in-memory image cache
   if (imageCache.has(code)) {
     paintings[code] = imageCache.get(code);
-    // Also cache under original #code if that's what was requested
-    if (originalCode !== code) paintings[originalCode] = paintings[code];
     return;
   }
   
@@ -4592,8 +4567,6 @@ async function prefetchPicture(code) {
     if (cachedImage) {
       // console.log("🖼️ Loaded from cache:", code);
       paintings[code] = cachedImage;
-      // Also cache under original #code if that's what was requested
-      if (originalCode !== code) paintings[originalCode] = paintings[code];
       return;
     }
   }
@@ -4601,35 +4574,41 @@ async function prefetchPicture(code) {
   // Level 4: Fetch from network
   // console.log("🖼️ Prefetching from network...", code);
   paintings[code] = "fetching";
-  if (originalCode !== code) paintings[originalCode] = "fetching";
 
   const cacheAndStore = async (img) => {
     paintings[code] = img;
-    // Also cache under original #code if that's what was requested
-    if (originalCode !== code) paintings[originalCode] = img;
     // Only cache images from aesthetic.computer media backend
     if (imageCache.isCacheable(code)) {
       await imageCache.set(code, img);
     }
   };
 
-  if (code.startsWith("http")) {
+  if (actualCode.startsWith("http")) {
     $commonApi.get
-      .picture(code)
+      .picture(actualCode)
       .then(({ img }) => cacheAndStore(img))
       .catch(() => {
         delete paintings[code];
-        if (originalCode !== code) delete paintings[originalCode];
       });
-  } else {
-    const [author, timestamp] = code.split("/");
+  } else if (actualCode.includes("/")) {
+    // Legacy format: @handle/slug or handle/slug
+    const [author, paintingSlug] = actualCode.split("/");
     $commonApi.get
-      .painting(timestamp)
+      .painting(paintingSlug)
       .by(author)
       .then(({ img }) => cacheAndStore(img))
       .catch(() => {
         delete paintings[code];
-        if (originalCode !== code) delete paintings[originalCode];
+      });
+  } else {
+    // New format: just the 3-letter code (e.g., "mzc" or "#mzc")
+    // The /media/paintings/CODE endpoint handles everything
+    $commonApi.get
+      .painting(actualCode)
+      .by() // No author needed - endpoint resolves it
+      .then(({ img }) => cacheAndStore(img))
+      .catch(() => {
+        delete paintings[code];
       });
   }
 }
@@ -11498,7 +11477,7 @@ async function makeFrame({ data: { type, content } }) {
               
               for (const char of labelText) {
                 const glyph = font.glyphs[char];
-                console.log('[MatrixChunky8] Glyph check:', { char, charCode: char.charCodeAt(0), glyph: glyph ? 'exists' : 'missing', glyphType: typeof glyph });
+                // console.log('[MatrixChunky8] Glyph check:', { char, charCode: char.charCodeAt(0), glyph: glyph ? 'exists' : 'missing', glyphType: typeof glyph });
                 // A real glyph has properties like dwidth, advance, or resolution
                 // The Proxy returns null for missing glyphs
                 const isRealGlyph = glyph && glyph !== null && 
@@ -11507,7 +11486,7 @@ async function makeFrame({ data: { type, content } }) {
                 if (!isRealGlyph) {
                   allGlyphsLoaded = false;
                   missingGlyphs.push(char);
-                  console.log('[MatrixChunky8] Missing glyph:', char, 'charCode:', char.charCodeAt(0));
+                  // console.log('[MatrixChunky8] Missing glyph:', char, 'charCode:', char.charCodeAt(0));
                 }
               }
               
