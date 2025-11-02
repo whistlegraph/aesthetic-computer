@@ -4645,9 +4645,31 @@ async function prefetchPicture(code) {
     // This shouldn't happen - timestamps need a handle
     console.warn(`⚠️ Painting timestamp without handle: ${actualCode}`);
     delete paintings[code];
+  } else if (actualCode.length === 3 && actualCode.match(/^[a-zA-Z0-9]{3}$/)) {
+    // 3-letter code format (e.g., "mzc", "qkm")
+    // Need to look up the handle/slug first via the painting-code API
+    try {
+      const response = await fetch(`/api/painting-code?code=${actualCode}`);
+      if (!response.ok) {
+        throw new Error(`Painting code not found: ${actualCode}`);
+      }
+      const data = await response.json();
+      
+      // Now load using handle/slug
+      const handle = data.handle || 'anon';
+      $commonApi.get
+        .painting(data.slug)
+        .by(handle)
+        .then(({ img }) => cacheAndStore(img))
+        .catch(() => {
+          delete paintings[code];
+        });
+    } catch (err) {
+      console.error(`Failed to lookup painting code ${actualCode}:`, err);
+      delete paintings[code];
+    }
   } else {
-    // 3-letter code format (e.g., "mzc")
-    // The /media/paintings/CODE endpoint handles everything
+    // Unknown format - try as direct code anyway
     $commonApi.get
       .painting(actualCode)
       .by() // No author needed - endpoint resolves it
