@@ -4,7 +4,7 @@
 
 import { ObjectId } from "mongodb";
 import { AtpAgent } from "@atproto/api";
-import { connect } from "./database.mjs";
+import { connect } from "../../system/backend/database.mjs";
 import { userIDFromHandle } from "./authorization.mjs";
 
 const PDS_URL = process.env.PDS_URL || "https://at.aesthetic.computer";
