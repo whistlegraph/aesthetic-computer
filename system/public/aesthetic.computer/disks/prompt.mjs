@@ -2582,12 +2582,12 @@ function paint($) {
     const priceY = Math.max(minPriceY, authorMaxY + textH + safeGap);
     const priceX = bookX + (bookW / 2) - (priceActualW / 2);
     
-    // Calculate book ad bounding box (with some drift padding)
+    // Calculate book ad bounding box (with minimal padding for tighter overlap detection)
     const bookAdBox = {
-      x: Math.min(titleX, bookX, authorX) - 10, // Left edge with padding
-      y: titleY - 4, // Top edge with padding
-      w: Math.max(titleW, bookW, authorW) + 14, // Width with padding
-      h: priceY + textH + 4 - titleY // Height from title top to price bottom
+      x: Math.min(titleX, bookX, authorX) - 6, // Left edge with reduced padding
+      y: titleY - 2, // Top edge with minimal padding
+      w: Math.max(titleW, bookW, authorW) + 10, // Width with reduced padding
+      h: priceY + textH - titleY // Height from title top to price bottom (no bottom padding)
     };
     
     // Check for actual geometric overlap with login/signup buttons
@@ -2770,21 +2770,21 @@ function paint($) {
     // On narrow screens (like iPhone), allow book if screen is tall enough to show it above buttons
     // On wider screens, enforce overlap detection
     const isNarrowScreen = screen.width < 300;
-    const isTallEnough = screen.height >= 300; // Need some height to avoid bad overlap
+    const isTallEnough = screen.height >= 250; // Reduced from 300 to 250 for shorter screens
     const shouldShowBook = !screenTooNarrow && (!wouldOverlap || (isNarrowScreen && isTallEnough));
     
     // 📚 Log book visibility details
-    // console.log('📚 Book visibility:', {
-    //   shouldShowBook,
-    //   screenWidth: screen.width,
-    //   screenHeight: screen.height,
-    //   screenTooNarrow,
-    //   isNarrowScreen,
-    //   isTallEnough,
-    //   wouldOverlap,
-    //   overlapReasons,
-    //   bookAdBox
-    // });
+    console.log('📚 Book visibility:', {
+      shouldShowBook,
+      screenWidth: screen.width,
+      screenHeight: screen.height,
+      screenTooNarrow,
+      isNarrowScreen,
+      isTallEnough,
+      wouldOverlap,
+      overlapReasons,
+      bookAdBox
+    });
     
     if (shouldShowBook) {
     
