@@ -526,6 +526,8 @@ async function loadPainting(get, index, from) {
         if (metadata?.code) {
           shortCode = `${metadata.code}`.replace(/^#/, "").trim();
           console.log(`✅ Loaded painting ${slug}, short code: "${shortCode}" (length: ${shortCode.length})`);
+          // Store the code mapping globally so other parts of the system can use it
+          api.code.store(slug, normalizedHandle, shortCode);
         } else {
           console.log(`⚠️ Loaded painting ${slug}, no short code in database (needs migration)`);
         }
@@ -533,6 +535,10 @@ async function loadPainting(get, index, from) {
         if (metaErr.name === "AbortError") throw metaErr;
         if (debug) console.warn("Painting metadata lookup failed:", metaErr);
       }
+    } else {
+      // If we already have the code from the entry, store it globally
+      const normalizedHandle = normalizeHandle(from);
+      api.code.store(slug, normalizedHandle, shortCode);
     }
   } catch (err) {
     if (err.name === "AbortError") {

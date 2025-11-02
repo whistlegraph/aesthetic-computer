@@ -2345,7 +2345,16 @@ const $commonApi = {
       //       event, that way users get better confirmation if the socket
       //       doesn't go through / there is a server issue. 23.07.04.18.01
     },
+    // Store a painting code mapping (timestamp/slug -> 3-letter code)
+    store: (slug, handle, code) => {
+      codeCache.storeCode(slug, handle, code);
+    },
+    // Get a painting code from timestamp/slug
+    get: (slug, handle) => {
+      return codeCache.getCode(slug, handle);
+    },
   },
+  encode: async (file) => {
   // File should be { type, data } where type is "png", "webp", "jef", etc.
   encode: async (file) => {
     const prom = new Promise((resolve, reject) => {
@@ -4505,6 +4514,7 @@ function form(
 // 🔑 Code resolution cache for #code -> @handle/slug lookups
 const codeCache = {
   memory: new Map(), // code -> @handle/slug resolution cache
+  reverseMemory: new Map(), // @handle/slug -> code reverse lookup cache
   
   async resolve(code) {
     // Return cached resolution if available
@@ -4529,9 +4539,30 @@ const codeCache = {
     }
     
     this.memory.set(code, path);
+    this.reverseMemory.set(path, code);
     return path;
+  },
+  
+  // Store a mapping from timestamp to code (called by profile.mjs and other pieces)
+  storeCode(slug, handle, code) {
+    if (!slug || !code) return;
+    
+    // Normalize the key format to match what we use elsewhere
+    const normalizedHandle = handle?.replace(/^@+/, '');
+    const key = normalizedHandle ? `@${normalizedHandle}/${slug}` : slug;
+    
+    this.reverseMemory.set(key, code);
+    this.memory.set(code, key);
+  },
+  
+  // Get code from timestamp+handle
+  getCode(slug, handle) {
+    const normalizedHandle = handle?.replace(/^@+/, '');
+    const key = normalizedHandle ? `@${normalizedHandle}/${slug}` : slug;
+    return this.reverseMemory.get(key);
   }
 };
+
 
 // 🔑 Expose code cache debug utility
 if (typeof window !== "undefined") {
