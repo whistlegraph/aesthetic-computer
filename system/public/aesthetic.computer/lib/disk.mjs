@@ -4074,7 +4074,8 @@ const $paintApi = {
       bg,
       bounds,
       wordWrap = true,
-      customTypeface = null;
+      customTypeface = null,
+      rotation = 0;
     
     if (text === undefined || text === null || text === "" || !tf)
       return $activePaintApi; // Fail silently if no text.
@@ -4092,12 +4093,15 @@ const $paintApi = {
       bounds = options?.bounds;
       wordWrap = options?.wordWrap === undefined ? wordWrap : options.wordWrap;
       customTypeface = options?.typeface;
+      rotation = options?.rotation ?? options?.angle ?? 0;
     } else {
       pos = arguments[1];
       bg = arguments[2];
       bounds = arguments[3];
       wordWrap = arguments[4] === undefined ? wordWrap : arguments[4];
       customTypeface = arguments[5];
+      // Extract rotation from pos object if it exists
+      rotation = pos?.rotation ?? pos?.angle ?? 0;
     }
 
     if (customTypeface) {
@@ -4222,9 +4226,12 @@ const $paintApi = {
             }
           }
 
+          // Add rotation to tb.pos
+          const posWithRotation = { ...tb.pos, rotation };
+
           (customTypeface || tf)?.print(
             $activePaintApi,
-            tb.pos,
+            posWithRotation,
             index,
             renderedLine,
             bg,
@@ -4250,6 +4257,7 @@ const $paintApi = {
                 y: pos
                   ? pos.y + index * (customTypeface || tf).blockHeight + lineHeightGap
                   : undefined,
+                rotation,
               },
               0,
               line,
@@ -4259,7 +4267,9 @@ const $paintApi = {
             charIndex += line.length + 1; // +1 for the newline character
           });
         } else {
-          (customTypeface || tf)?.print($activePaintApi, pos, 0, cleanText, bg, charColors);
+          // Add rotation to pos
+          const posWithRotation = { ...pos, rotation };
+          (customTypeface || tf)?.print($activePaintApi, posWithRotation, 0, cleanText, bg, charColors);
         }
       }
 
@@ -4304,7 +4314,9 @@ const $paintApi = {
       //       23.10.12.22.04
       tb.lines.forEach((lineText, index) => {
         const renderedLine = typeof lineText === "string" ? lineText : lineText?.join?.(" ") || "";
-        (customTypeface || tf)?.print($activePaintApi, tb.pos, index, renderedLine, bg);
+        // Add rotation to tb.pos
+        const posWithRotation = { ...tb.pos, rotation };
+        (customTypeface || tf)?.print($activePaintApi, posWithRotation, index, renderedLine, bg);
       });
     } else {
       // Break on `\n` and handle separate lines
@@ -4319,6 +4331,7 @@ const $paintApi = {
               y: pos
                 ? pos.y + index * (customTypeface || tf).blockHeight + lineHeightGap
                 : undefined,
+              rotation,
             },
             0,
             line,
@@ -4330,7 +4343,9 @@ const $paintApi = {
         //if (text === "POW") console.log($activePaintApi.screen); 24.12.10.07.26 - Get write working with deferred rendering and page.
         
         const actualFont = customTypeface || tf;
-        actualFont?.print($activePaintApi, pos, 0, text, bg); // Or print a single line.
+        // Add rotation to pos
+        const posWithRotation = { ...pos, rotation };
+        actualFont?.print($activePaintApi, posWithRotation, 0, text, bg); // Or print a single line.
       }
     }
 
