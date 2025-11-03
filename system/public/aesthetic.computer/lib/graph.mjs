@@ -1797,6 +1797,10 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
 
   destX += panTranslation.x;
   destY += panTranslation.y;
+  
+  // 🔧 FIX: Floor coordinates to prevent fractional pixel indices that cause color channel misalignment
+  destX = Math.floor(destX);
+  destY = Math.floor(destY);
 
   // 🚀 OPTIMIZATION: Skip paste operations for tiny scales
   if (typeof scale === "number" && Math.abs(scale) < 0.01) {
@@ -1989,6 +1993,9 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
           for (let x = 0; x < srcWidth; x += 1) {
             const srcIdx = srcRowStart + (x * 4);
             const destIdx = destRowStart + (x * 4);
+            
+            // Bounds check to prevent reading beyond buffer
+            if (srcIdx + 3 >= srcPixels.length || destIdx + 3 >= pixels.length) continue;
             
             // Skip transparent pixels
             if (srcPixels[srcIdx + 3] > 0) {
