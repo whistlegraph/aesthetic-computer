@@ -2582,70 +2582,109 @@ function paint($) {
     const priceY = Math.max(minPriceY, authorMaxY + textH + safeGap);
     const priceX = bookX + (bookW / 2) - (priceActualW / 2);
     
-    // Calculate book ad bounding box (with some drift padding)
+    // Calculate book ad bounding box (with minimal padding for tighter overlap detection)
     const bookAdBox = {
-      x: Math.min(titleX, bookX, authorX) - 10, // Left edge with padding
-      y: titleY - 4, // Top edge with padding
-      w: Math.max(titleW, bookW, authorW) + 14, // Width with padding
-      h: priceY + textH + 4 - titleY // Height from title top to price bottom
+      x: Math.min(titleX, bookX, authorX) - 6, // Left edge with reduced padding
+      y: titleY - 2, // Top edge with minimal padding
+      w: Math.max(titleW, bookW, authorW) + 10, // Width with reduced padding
+      h: priceY + textH - titleY // Height from title top to price bottom (no bottom padding)
     };
     
     // Check for actual geometric overlap with login/signup buttons
     let wouldOverlap = false;
+    const overlapReasons = [];
     
     // Check overlap with login button
     if (login && !login.btn.disabled && login.btn.box) {
       const loginBox = login.btn.box;
-      wouldOverlap = wouldOverlap || (
-        bookAdBox.x < loginBox.x + loginBox.w &&
-        bookAdBox.x + bookAdBox.w > loginBox.x &&
-        bookAdBox.y < loginBox.y + loginBox.h &&
-        bookAdBox.y + bookAdBox.h > loginBox.y
+      // Only check overlap if login button is actually visible on screen
+      const isOnScreen = (
+        loginBox.x + loginBox.w >= 0 &&
+        loginBox.x <= screen.width &&
+        loginBox.y + loginBox.h >= 0 &&
+        loginBox.y <= screen.height
       );
+      if (isOnScreen) {
+        const overlaps = (
+          bookAdBox.x < loginBox.x + loginBox.w &&
+          bookAdBox.x + bookAdBox.w > loginBox.x &&
+          bookAdBox.y < loginBox.y + loginBox.h &&
+          bookAdBox.y + bookAdBox.h > loginBox.y
+        );
+        if (overlaps) {
+          overlapReasons.push({ element: 'login', box: loginBox, isOnScreen });
+          wouldOverlap = true;
+        }
+      }
     }
     
-    // Check overlap with signup button
-    if (signup && !signup.btn.disabled && signup.btn.box) {
+    // Check overlap with signup button (only if it will actually be painted)
+    if (!$.net.iframe && signup && !signup.btn.disabled && signup.btn.box) {
       const signupBox = signup.btn.box;
-      wouldOverlap = wouldOverlap || (
-        bookAdBox.x < signupBox.x + signupBox.w &&
-        bookAdBox.x + bookAdBox.w > signupBox.x &&
-        bookAdBox.y < signupBox.y + signupBox.h &&
-        bookAdBox.y + bookAdBox.h > signupBox.y
+      // Only check overlap if signup button is actually visible on screen
+      const isOnScreen = (
+        signupBox.x + signupBox.w >= 0 &&
+        signupBox.x <= screen.width &&
+        signupBox.y + signupBox.h >= 0 &&
+        signupBox.y <= screen.height
       );
+      if (isOnScreen) {
+        const overlaps = (
+          bookAdBox.x < signupBox.x + signupBox.w &&
+          bookAdBox.x + bookAdBox.w > signupBox.x &&
+          bookAdBox.y < signupBox.y + signupBox.h &&
+          bookAdBox.y + bookAdBox.h > signupBox.y
+        );
+        if (overlaps) {
+          overlapReasons.push({ element: 'signup', box: signupBox, isOnScreen });
+          wouldOverlap = true;
+        }
+      }
     }
     
     // Check overlap with enter button
     if ($.system.prompt.input?.enter && !$.system.prompt.input.enter.btn.disabled && $.system.prompt.input.enter.btn.box) {
       const enterBox = $.system.prompt.input.enter.btn.box;
-      wouldOverlap = wouldOverlap || (
+      const overlaps = (
         bookAdBox.x < enterBox.x + enterBox.w &&
         bookAdBox.x + bookAdBox.w > enterBox.x &&
         bookAdBox.y < enterBox.y + enterBox.h &&
         bookAdBox.y + bookAdBox.h > enterBox.y
       );
+      if (overlaps) {
+        overlapReasons.push({ element: 'enter', box: enterBox });
+        wouldOverlap = true;
+      }
     }
     
     // Check overlap with paste button
     if ($.system.prompt.input?.paste && !$.system.prompt.input.paste.btn.disabled && $.system.prompt.input.paste.btn.box) {
       const pasteBox = $.system.prompt.input.paste.btn.box;
-      wouldOverlap = wouldOverlap || (
+      const overlaps = (
         bookAdBox.x < pasteBox.x + pasteBox.w &&
         bookAdBox.x + bookAdBox.w > pasteBox.x &&
         bookAdBox.y < pasteBox.y + pasteBox.h &&
         bookAdBox.y + bookAdBox.h > pasteBox.y
       );
+      if (overlaps) {
+        overlapReasons.push({ element: 'paste', box: pasteBox });
+        wouldOverlap = true;
+      }
     }
     
     // Check overlap with chat ticker
     if (chatTickerButton && !chatTickerButton.disabled && chatTickerButton.box) {
       const tickerBox = chatTickerButton.box;
-      wouldOverlap = wouldOverlap || (
+      const overlaps = (
         bookAdBox.x < tickerBox.x + tickerBox.w &&
         bookAdBox.x + bookAdBox.w > tickerBox.x &&
         bookAdBox.y < tickerBox.y + tickerBox.h &&
         bookAdBox.y + bookAdBox.h > tickerBox.y
       );
+      if (overlaps) {
+        overlapReasons.push({ element: 'chatTicker', box: tickerBox });
+        wouldOverlap = true;
+      }
     }
     
     // Check overlap with MOTD (if present) and calculate offset if needed
@@ -2725,11 +2764,27 @@ function paint($) {
       }
     }
     
-    // Hide book if screen is too narrow (less than 220px wide to allow more room)
-    const screenTooNarrow = screen.width < 220;
+    // Hide book if screen is too narrow (decreased to 75px to allow visibility on nearly all screens)
+    const screenTooNarrow = screen.width < 75;
     
-    // Only show book if it won't overlap with buttons/MOTD and screen is wide enough
-    const shouldShowBook = !wouldOverlap && !screenTooNarrow;
+    // On narrow screens (like iPhone), allow book if screen is tall enough to show it above buttons
+    // On wider screens, enforce overlap detection
+    const isNarrowScreen = screen.width < 300;
+    const isTallEnough = screen.height >= 250; // Reduced from 300 to 250 for shorter screens
+    const shouldShowBook = !screenTooNarrow && (!wouldOverlap || (isNarrowScreen && isTallEnough));
+    
+    // 📚 Log book visibility details
+    console.log('📚 Book visibility:', {
+      shouldShowBook,
+      screenWidth: screen.width,
+      screenHeight: screen.height,
+      screenTooNarrow,
+      isNarrowScreen,
+      isTallEnough,
+      wouldOverlap,
+      overlapReasons,
+      bookAdBox
+    });
     
     if (shouldShowBook) {
     
