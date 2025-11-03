@@ -360,6 +360,22 @@ export function getColorTokenHighlight(token) {
     ? token.slice(1, -1) 
     : token;
 
+  // Check for #codes (painting references) - but NOT hex colors
+  // Hex colors are 3, 4, 6, or 8 hex digits (like #fff, #f0f0, #ff00ff, #ff00ff80)
+  // Painting codes have mixed alphanumeric (at least one non-hex char)
+  if (cleanToken.startsWith("#") && cleanToken.length > 1) {
+    const codepart = cleanToken.substring(1);
+    // Check if it's a valid painting code pattern (1-8 alphanumeric)
+    if (/^[0-9A-Za-z]{1,8}$/.test(codepart)) {
+      // Check if it's NOT a pure hex color (3, 4, 6, or 8 hex digits)
+      const isHexColor = /^[0-9A-Fa-f]{3}$|^[0-9A-Fa-f]{4}$|^[0-9A-Fa-f]{6}$|^[0-9A-Fa-f]{8}$/.test(codepart);
+      if (!isHexColor) {
+        // This is a painting code, not a hex color
+        return "COMPOUND:magenta:orange";
+      }
+    }
+  }
+
   // Check for valid CSS color name
   if (cssColors && cssColors[cleanToken]) {
     // Return the actual color value for CSS colors like "red", "blue", etc.
