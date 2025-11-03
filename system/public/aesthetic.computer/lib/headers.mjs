@@ -335,6 +335,26 @@ function formatKidLispForConsole(code) {
 
       const highlight = getColorTokenHighlight(token);
       if (highlight && highlight !== 'orange') {
+        // Handle COMPOUND colors (like #codes with separate prefix/identifier colors)
+        if (highlight.startsWith('COMPOUND:')) {
+          const parts = highlight.split(':');
+          const prefixColor = parts[1]; // Color for prefix symbol (# or $)
+          const identifierColor = parts[2]; // Color for identifier part
+          
+          // Get the actual prefix character from the token
+          const prefixChar = token.charAt(0); // Could be $ or #
+          const identifierPart = token.substring(1);
+          
+          // Convert color names to CSS colors if needed
+          const prefixCss = prefixColor.includes(',') ? `rgb(${prefixColor})` : prefixColor;
+          const identifierCss = identifierColor.includes(',') ? `rgb(${identifierColor})` : identifierColor;
+          
+          // Apply colors to each part
+          pushSegment(prefixChar, applyStyle(`color: ${prefixCss}; font-weight: bold;`));
+          pushSegment(identifierPart, applyStyle(`color: ${identifierCss}; font-weight: bold;`));
+          return;
+        }
+
         if (highlight === 'RAINBOW') {
           for (let i = 0; i < token.length; i++) {
             const ch = token[i];

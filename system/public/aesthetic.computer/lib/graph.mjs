@@ -2036,8 +2036,8 @@ function stamp(from, x, y, scale, angle) {
   const stampStart = performance.now(); // 🚨 PERFORMANCE TRACKING
   
   // Set all untruthy values like null, or undefined to a random value.
-  if (x == null) x = randIntRange(0, width);
-  if (y == null) y = randIntRange(0, height);
+  if (x == null) x = randIntRange(0, width - 1);
+  if (y == null) y = randIntRange(0, height - 1);
   
   // � DEBUG: Log stamp calls
   // console.log(`🎯 STAMP called: from=${from?.constructor?.name || typeof from}, scale=${scale}, angle=${angle}`);

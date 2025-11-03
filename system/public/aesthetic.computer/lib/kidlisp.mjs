@@ -8192,7 +8192,7 @@ class KidLisp {
           args[0] = `"${args[0]}"`; // Pre-wrap the first arg as a string.
 
         // 🎨 Handle #code as shorthand for (stamp #code ...)
-        if (typeof head === "string" && head.startsWith("#")) {
+        if (typeof head === "string" && head.startsWith("#") && /^#[0-9A-Za-z]{1,8}$/.test(head)) {
           // Transform (#code x y scale) into (stamp #code x y scale)
           args = [head, ...args]; // Move #code to args
           head = "stamp"; // Change function to stamp
@@ -8505,6 +8505,24 @@ class KidLisp {
       // console.log("🤖 Attempting JavaScript expression evaluation:", expression);
     }
 
+    // Auto-handle painting short-code atoms (e.g., `#qkm`) as implicit stamps
+    // so that bare `#qkm` in a KidLisp body is equivalent to (stamp #qkm).
+    if (typeof expression === 'string' && expression.startsWith('#')) {
+      // Validate it looks like a short painting code (1-8 alnum chars after #)
+      if (/^#[0-9A-Za-z]{1,8}$/.test(expression)) {
+        const globalEnv = this.getGlobalEnv();
+        if (globalEnv && typeof globalEnv.stamp === 'function') {
+          try {
+            // Call stamp with just the code; stamp/graph will handle undefined x/y defaults
+            return globalEnv.stamp(api, [expression], env);
+          } catch (err) {
+            console.warn('⚠️ auto-stamp failed for', expression, err);
+            // fall through to normal handling
+          }
+        }
+      }
+    }
+
     // Check if this is a timing expression like "1.5s" or "2s..." before processing as identifier
     if (/^\d*\.?\d+s\.\.\.?$/.test(expression)) {
       // This is a timing expression, evaluate it properly as an array
@@ -8744,14 +8762,17 @@ class KidLisp {
           const whitespace = this.syntaxHighlightSource.substring(sourceIndex, tokenIndex);
           result += whitespace;
 
-          // Special handling for compound colors (like $codes)
+          // Special handling for compound colors (like $codes and #codes)
           if (color.startsWith("COMPOUND:")) {
             const parts = color.split(":");
-            const prefixColor = parts[1]; // Color for $ symbol
+            const prefixColor = parts[1]; // Color for prefix symbol ($ or #)
             const identifierColor = parts[2]; // Color for identifier part
 
-            // Apply prefix color to $ symbol
-            result += `\\${prefixColor}\\$`;
+            // Get the actual prefix character from the token
+            const prefixChar = token.charAt(0); // Could be $ or #
+            
+            // Apply prefix color to the symbol
+            result += `\\${prefixColor}\\${prefixChar}`;
             // Apply identifier color to rest of token
             result += `\\${identifierColor}\\${token.substring(1)}`;
             lastColor = identifierColor; // Set last color to the identifier color
@@ -9360,6 +9381,12 @@ class KidLisp {
         // Default brighter $ with lime identifier for unprocessed $codes
         return "COMPOUND:limegreen:lime"; // $ is bright lime green, identifier is lime
       }
+    }
+
+    // Check for #codes (painting references) - colorful highlighting
+    if (token.startsWith("#") && token.length > 1 && /^[#][0-9A-Za-z]{1,8}$/.test(token)) {
+      // Static colorful # symbol with solid code color
+      return `COMPOUND:magenta:orange`; // # is magenta, code is orange
     }
 
     // Check for RGB channel highlighting (e.g., "255 0 0" should show R in red, G in green, B in blue)
@@ -11932,14 +11959,22 @@ function isKidlispSource(text) {
         cleanedToken.startsWith("fade:");
       const isNumber = /^-?\d+(\.\d+)?$/.test(cleanedToken);
       const isRGB = isValidRGBString(cleanedToken.replace(/_/g, " "));
+      
+      // Check for #painting codes (not hex colors)
+      const isPaintingCode = normalized.startsWith("#") && /^#[0-9A-Za-z]{1,8}$/.test(normalized) && (() => {
+        const codepart = normalized.substring(1);
+        // Check if it's NOT a pure hex color (3, 4, 6, or 8 hex digits)
+        const isHexColor = /^[0-9A-Fa-f]{3}$|^[0-9A-Fa-f]{4}$|^[0-9A-Fa-f]{6}$|^[0-9A-Fa-f]{8}$/.test(codepart);
+        return !isHexColor;
+      })();
 
-      if (VERBOSE) console.log(`🔍 [KidLisp Detection] isFunction: ${isFunction}, isColor: ${isColor}, isNumber: ${isNumber}, isRGB: ${isRGB}`);
+      if (VERBOSE) console.log(`🔍 [KidLisp Detection] isFunction: ${isFunction}, isColor: ${isColor}, isNumber: ${isNumber}, isRGB: ${isRGB}, isPaintingCode: ${isPaintingCode}`);
 
-      return { isFunction, isColor, isNumber, isRGB };
+      return { isFunction, isColor, isNumber, isRGB, isPaintingCode };
     };
 
     const analyses = parts.map(analyzePart);
-    const kidParts = analyses.filter(({ isFunction, isColor, isNumber, isRGB }) => isFunction || isColor || isNumber || isRGB);
+    const kidParts = analyses.filter(({ isFunction, isColor, isNumber, isRGB, isPaintingCode }) => isFunction || isColor || isNumber || isRGB || isPaintingCode);
     const functionParts = analyses.filter(({ isFunction }) => isFunction);
     
     if (VERBOSE) console.log(`🔍 [KidLisp Detection] kidParts: ${kidParts.length}, functionParts: ${functionParts.length}, total parts: ${parts.length}`);
