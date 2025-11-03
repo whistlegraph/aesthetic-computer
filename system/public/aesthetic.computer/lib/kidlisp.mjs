@@ -8191,6 +8191,13 @@ class KidLisp {
         if (head === "now" || head === "def" || head === "die")
           args[0] = `"${args[0]}"`; // Pre-wrap the first arg as a string.
 
+        // 🎨 Handle #code as shorthand for (stamp #code ...)
+        if (typeof head === "string" && head.startsWith("#")) {
+          // Transform (#code x y scale) into (stamp #code x y scale)
+          args = [head, ...args]; // Move #code to args
+          head = "stamp"; // Change function to stamp
+        }
+
         // Use optimized function resolution
         const resolved = this.resolveFunction(head, api, env);
 
