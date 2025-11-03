@@ -4030,19 +4030,37 @@ function draw() {
 
   if (drawing === undefined || drawing === null) return;
 
-  // Apply BDF offset if present (for proper baseline positioning)
+  // Store offset for later application (after rotation setup)
+  let xOffset = 0;
+  let yOffset = 0;
   if (drawing.offset) {
-    x += drawing.offset[0] * scale; // xOffset
-    
+    xOffset = drawing.offset[0] * scale;
     // Use baseline-corrected offset if available, otherwise fall back to original
-    const yOffset = drawing.baselineOffset ? drawing.baselineOffset[1] : drawing.offset[1];
-    y += yOffset * scale; // Use baseline-relative positioning
+    yOffset = drawing.baselineOffset ? drawing.baselineOffset[1] * scale : drawing.offset[1] * scale;
   }
 
   // 🖼️ Handle BDF pixel-based fonts (MatrixChunky8, etc.)
   if (drawing.pixels && drawing.resolution && !drawing.commands) {
-    pan(x, y); // Apply pan offset for BDF rendering
     const [charWidth, charHeight] = drawing.resolution;
+    
+    // Apply rotation if needed
+    const angleRad = radians(angle);
+    const sinA = sin(angleRad);
+    const cosA = cos(angleRad);
+    const hasRotation = angle !== 0;
+    
+    // Calculate glyph center for rotation origin
+    const centerX = charWidth / 2;
+    const centerY = charHeight / 2;
+    
+    // Apply offset (for BDF fonts, apply directly without rotation)
+    x += xOffset;
+    y += yOffset;
+    
+    // Apply pan like vector fonts do
+    x = floor(x);
+    y = floor(y);
+    pan(x, y);
     
     // 🐛 Debug BDF rendering
     // Convert BDF pixel data to screen coordinates and render
@@ -4052,9 +4070,30 @@ function draw() {
       
       for (let col = 0; col < pixelRow.length; col++) {
         if (pixelRow[col] === 1) { // Only render "on" pixels
-          // Use relative coordinates since pan(x, y) already shifted the coordinate system
-          const pixelX = col * scale;
-          const pixelY = row * scale;
+          // Start with pixel position relative to glyph center
+          let pixelX = col - centerX;
+          let pixelY = row - centerY;
+          
+          // Apply rotation around center
+          if (hasRotation) {
+            const rotatedX = pixelX * cosA - pixelY * sinA;
+            const rotatedY = pixelX * sinA + pixelY * cosA;
+            pixelX = rotatedX;
+            pixelY = rotatedY;
+          }
+          
+          // Translate back from center
+          pixelX += centerX;
+          pixelY += centerY;
+          
+          // Apply scale
+          pixelX *= scale;
+          pixelY *= scale;
+          
+          // Round for final pixel position (relative to pan origin)
+          const finalX = Math.round(pixelX);
+          const finalY = Math.round(pixelY);
+          
           const isMatrixChunky = drawing?.fontName === "MatrixChunky8";
 
           const matrixDebugActive = matrixDebugEnabled();
@@ -4071,8 +4110,9 @@ function draw() {
               char: drawing?.char || drawing?.code || "?",
               row,
               col,
-              pixelX,
-              pixelY,
+              finalX,
+              finalY,
+              scale,
               currentColor: c.slice(0, 4),
               skip: skips.length,
               mask: activeMask
@@ -4093,31 +4133,31 @@ function draw() {
             matrixDebugActive &&
             matrixChunkyDebugCount < 20
           ) {
-            beforePixel = pixel(pixelX, pixelY);
+            beforePixel = pixel(finalX, finalY);
             logged = true;
           }
 
-          // Render pixel as a small rectangle scaled appropriately
+          // Render pixel (or scaled block if scale > 1)
           if (scale === 1) {
-            point(pixelX, pixelY);
+            point(finalX, finalY);
           } else {
-            // For larger scales, render as a filled rectangle
+            // For scaled pixels, fill in the entire scaled block
             for (let sy = 0; sy < scale; sy++) {
               for (let sx = 0; sx < scale; sx++) {
-                point(pixelX + sx, pixelY + sy);
+                point(finalX + sx, finalY + sy);
               }
             }
           }
 
           if (logged) {
-            const afterPixel = pixel(pixelX, pixelY);
+            const afterPixel = pixel(finalX, finalY);
             matrixChunkyDebugCount += 1;
             console.log("🪄 MatrixChunky8 point write", {
               char: drawing?.char || drawing?.code || "?",
               row,
               col,
-              pixelX,
-              pixelY,
+              finalX,
+              finalY,
               color: c.slice(0, 4),
               before: beforePixel,
               after: afterPixel,
@@ -4127,7 +4167,7 @@ function draw() {
       }
     }
     
-    pan(-x, -y); // Restore pan offset
+    pan(-x, -y); // Restore pan offset like vector fonts
     return; // Exit early for BDF fonts
   }
 
@@ -4135,6 +4175,16 @@ function draw() {
   angle = radians(angle);
   const s = sin(angle);
   const c = cos(angle);
+
+  // Apply rotated offset for vector fonts
+  // When rotated, offset needs to be transformed by the rotation matrix
+  if (xOffset !== 0 || yOffset !== 0) {
+    const rotatedXOffset = xOffset * c - yOffset * s;
+    const rotatedYOffset = xOffset * s + yOffset * c;
+    // Round the offset to avoid fractional positioning that causes glyph corruption
+    x += Math.round(rotatedXOffset);
+    y += Math.round(rotatedYOffset);
+  }
 
   x = floor(x);
   y = floor(y);
@@ -4161,10 +4211,11 @@ function draw() {
       let y1 = args[1]; // y1
       let x2 = args[2]; // x2
       let y2 = args[3]; // y2
-      let nx1 = x1 * c - y1 * s;
-      let ny1 = x1 * s + y1 * c;
-      let nx2 = x2 * c - y2 * s;
-      let ny2 = x2 * s + y2 * c;
+      // Round rotated coordinates to avoid sub-pixel positioning artifacts
+      let nx1 = Math.round(x1 * c - y1 * s);
+      let ny1 = Math.round(x1 * s + y1 * c);
+      let nx2 = Math.round(x2 * c - y2 * s);
+      let ny2 = Math.round(x2 * s + y2 * c);
 
       if (nx1 !== nx2 || ny1 !== ny2) {
         if (thickness === 1) {
@@ -4189,10 +4240,16 @@ function draw() {
         paintGesture();
       }
     } else if (name === "point") {
+      // Apply scale and rotation to point coordinates
+      let px = args[0];
+      let py = args[1];
+      // Round rotated coordinates to avoid sub-pixel positioning artifacts
+      let npx = Math.round(px * c - py * s);
+      let npy = Math.round(px * s + py * c);
 
       thickness === 1
-        ? point(...args)
-        : circle(args[0], args[1], thickness / 2, true);
+        ? point(npx, npy)
+        : circle(npx, npy, thickness / 2, true);
     }
   });
 
