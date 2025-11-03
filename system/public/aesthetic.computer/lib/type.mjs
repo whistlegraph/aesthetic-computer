@@ -515,6 +515,10 @@ class Typeface {
       if (this.name === "MatrixChunky8") {
         return null;
       }
+      // For unifont, show colored block placeholder
+      if (this.name === "unifont" || this.data?.bdfFont === "unifont-16.0.03") {
+        return this.createColoredBlockPlaceholder();
+      }
       return target["?"] || null;
     }
 
@@ -522,6 +526,11 @@ class Typeface {
     // Also prevent infinite recursion if "?" itself is the character being loaded
     if (this.name === "MatrixChunky8" || char === "?") {
       return null;
+    }
+    
+    // For unifont, show colored block placeholder instead of "?"
+    if (this.name === "unifont" || this.data?.bdfFont === "unifont-16.0.03") {
+      return this.createColoredBlockPlaceholder();
     }
 
     const codePoint = char.codePointAt(0);
@@ -545,6 +554,36 @@ class Typeface {
     }
   }
   
+  // Create a colored block placeholder for unifont characters that haven't loaded yet
+  createColoredBlockPlaceholder() {
+    // Generate random colors for the block (excluding pure black to ensure visibility)
+    const colors = [];
+    const numColors = Math.floor(Math.random() * 3) + 2; // 2-4 colors
+    for (let i = 0; i < numColors; i++) {
+      colors.push([
+        Math.floor(Math.random() * 200) + 55, // R: 55-255
+        Math.floor(Math.random() * 200) + 55, // G: 55-255
+        Math.floor(Math.random() * 200) + 55, // B: 55-255
+      ]);
+    }
+    
+    return {
+      resolution: [8, 16], // Standard unifont size
+      pixels: [], // Empty pixels - will be drawn as box command
+      commands: [
+        // Fill the entire 8x16 block with random colored pixels
+        ...Array.from({ length: 16 }, (_, y) =>
+          Array.from({ length: 8 }, (_, x) => ({
+            name: "point",
+            args: [x, y],
+            color: colors[Math.floor(Math.random() * colors.length)]
+          }))
+        ).flat()
+      ],
+      advance: 8, // Standard unifont advance width
+    };
+  }
+  
   // Get a glyph for a specific character
   getGlyph(char) {
     return this.glyphs[char];
@@ -553,9 +592,15 @@ class Typeface {
   getAdvance(char) {
     if (!char) return this.blockWidth || 4;
     
-    // Force unifont to always use 8px width for consistency
-    // (prevents marquee jank when glyphs load asynchronously)
+    // For unifont, prefer actual BDF advance widths when glyphs are loaded
+    // Fall back to 8px default only if glyph data isn't available yet
     if (this.name === "unifont" || this.data?.bdfFont === "unifont-16.0.03") {
+      // Check if we have a loaded glyph with advance width
+      const glyph = this.glyphs?.[char];
+      if (glyph && typeof glyph.advance === "number") {
+        return glyph.advance; // Use actual BDF DWIDTH value
+      }
+      // Fall back to 8px (prevents layout jank during async glyph loading)
       return 8;
     }
     
@@ -682,8 +727,9 @@ class Typeface {
     }
 
     // Set x, y position and override if centering is specified.
-    let x = pos.x || 0,
-      y = pos.y || 0;
+    // Floor coordinates to ensure pixel-aligned rendering, especially important for rotation
+    let x = Math.floor(pos.x || 0),
+      y = Math.floor(pos.y || 0);
 
     pos.center = pos.center || "";
 
@@ -724,9 +770,14 @@ class Typeface {
     const baselineAdjustment = this.data.baseline || 0;
     y += baselineAdjustment;
 
+    // Convert rotation to radians for calculations
+    const rotRad = (rotation * Math.PI) / 180;
+    const cosR = Math.cos(rotRad);
+    const sinR = Math.sin(rotRad);
+
     if (charColors && charColors.length > 0) {
       // Render each character with its own color
-      let currentX = x;
+      let currentX = 0; // Start at 0, we'll rotate relative to origin
       for (let i = 0; i < text.length; i++) {
         const char = text[i];
         const charColor = charColors[i];
@@ -744,7 +795,10 @@ class Typeface {
               } else {
                 $.ink(charColor.background);
               }
-              $.box(currentX, y, charWidth, blockHeight);
+              // Rotate background position
+              const rotatedX = x + (currentX * cosR - 0 * sinR);
+              const rotatedY = y + (currentX * sinR + 0 * cosR);
+              $.box(rotatedX, rotatedY, charWidth, blockHeight);
             }
             
             // Set foreground color
@@ -766,12 +820,16 @@ class Typeface {
           $.ink(...rn); // Use original color if no specific color
         }
 
-        // Render single character
+        // Calculate rotated position for this character
+        const rotatedX = Math.round(x + (currentX * cosR - 0 * sinR));
+        const rotatedY = Math.round(y + (currentX * sinR + 0 * cosR));
+
+        // Render single character with rotation
         $.printLine(
           char,
           font,
-          currentX,
-          y,
+          rotatedX,
+          rotatedY,
           blockWidth,
           size,
           0,
@@ -785,19 +843,49 @@ class Typeface {
         currentX += charAdvance * size;
       }
     } else {
-      // Original single-color rendering
-      $.ink(...rn).printLine(
-        text,
-        font,
-        x,
-        y,
-        blockWidth,
-        size,
-        0,
-        thickness,
-        rotation,
-        this.data, // Pass font metadata to avoid BDF proxy issues
-      ); // Text
+      // Original single-color rendering with rotation applied to each character position
+      if (rotation !== 0) {
+        // For rotated text, render character by character with position transforms
+        let currentX = 0;
+        for (let i = 0; i < text.length; i++) {
+          const char = text[i];
+          
+          // Calculate rotated position for this character
+          const rotatedX = Math.round(x + (currentX * cosR - 0 * sinR));
+          const rotatedY = Math.round(y + (currentX * sinR + 0 * cosR));
+          
+          $.ink(...rn).printLine(
+            char,
+            font,
+            rotatedX,
+            rotatedY,
+            blockWidth,
+            size,
+            0,
+            thickness,
+            rotation,
+            this.data,
+          );
+          
+          // Move to next character position
+          const charAdvance = this.getAdvance(char);
+          currentX += charAdvance * size;
+        }
+      } else {
+        // No rotation - use original fast path
+        $.ink(...rn).printLine(
+          text,
+          font,
+          x,
+          y,
+          blockWidth,
+          size,
+          0,
+          thickness,
+          rotation,
+          this.data, // Pass font metadata to avoid BDF proxy issues
+        ); // Text
+      }
     }
   }
 }
