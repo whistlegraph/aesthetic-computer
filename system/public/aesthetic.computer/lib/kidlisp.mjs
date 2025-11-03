@@ -3341,14 +3341,14 @@ class KidLisp {
         }
         
         // 🎤 DEBUG: Log mic value occasionally
-        if (this.frameCount % 120 === 0) {
-          console.log("🎤 Mic global:", {
-            value: this.globalDef.mic.toFixed(3),
-            connected: this.microphoneConnected,
-            hasApi: !!this.microphoneApi,
-            mode: this.microphoneConnected ? "live" : this.micDefaultMode
-          });
-        }
+        // if (this.frameCount % 120 === 0) {
+        //   console.log("🎤 Mic global:", {
+        //     value: this.globalDef.mic.toFixed(3),
+        //     connected: this.microphoneConnected,
+        //     hasApi: !!this.microphoneApi,
+        //     mode: this.microphoneConnected ? "live" : this.micDefaultMode
+        //   });
+        // }
 
         // Debug: Log mic data occasionally
         if (this.frameCount % 60 === 0 && this.microphoneApi?.connected) {
