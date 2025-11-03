@@ -134,6 +134,57 @@ let motd; // Store the mood of the day text
 let motdFrame = 0; // Animation frame counter for MOTD effects
 let previousKidlispMode = false; // Track previous KidLisp mode state for sound triggers
 
+// Multilingual "Prompt" translations cycling
+const promptTranslations = [
+  "Prompt",    // English
+  "Indtast",   // Danish - "Enter/Input"
+  "Apunta",    // Spanish - "Aim/Point" (call to action)
+  "提示",      // Chinese (Simplified) - 2 chars
+  "プロンプト", // Japanese - 6 chars
+  "프롬프트",  // Korean - 4 chars (Hangul double-width)
+  "संकेत",     // Hindi/Devanagari - 4 chars (note: unifont may not shape ligatures perfectly)
+  "Eingabe",   // German - "Input/Entry"
+  "Saisie",    // French - "Input/Entry"  
+  "Inserir",   // Portuguese - "Insert/Enter"
+  "Inserisci", // Italian - "Insert"
+  "Ввод",      // Russian - "Input" (Cyrillic)
+  "إدخال",     // Arabic - "Input" (RTL script)
+  "Giriş",     // Turkish - "Input/Entry"
+  "Εισαγωγή",  // Greek - "Input" (Ancient Greek alphabet)
+  "קלט",       // Hebrew - "Input" (RTL script)
+  "พรอมต์",    // Thai - "Prompt" (Thai script with curves)
+  "Nhập",      // Vietnamese - "Input" (Latin with tone marks)
+  "ইনপুট",     // Bengali - "Input" (Bengali/Bangla script)
+  "Wprowadź",  // Polish - "Enter/Input" (Slavic with diacritics)
+];
+
+// Language names to display under the prompt text
+const promptLanguageNames = [
+  "English",
+  "Danish",
+  "Spanish",
+  "Chinese",
+  "Japanese",
+  "Korean",
+  "Hindi",
+  "German",
+  "French",
+  "Portuguese",
+  "Italian",
+  "Russian",
+  "Arabic",
+  "Turkish",
+  "Greek",
+  "Hebrew",
+  "Thai",
+  "Vietnamese",
+  "Bengali",
+  "Polish",
+];
+let promptLanguageIndex = 0;
+let promptLanguageChangeFrame = 0;
+const promptLanguageChangeInterval = 90; // Change language every 90 frames (~1.5 seconds at 60fps)
+
 let defaultDownloadScale = 6;
 
 import * as starfield from "./starfield.mjs";
@@ -2319,6 +2370,9 @@ async function halt($, text) {
 
 // 🎨 Paint
 function paint($) {
+  // Increment global animation frame counter (used by both MOTD and ghost hint)
+  motdFrame += 1;
+  
   if (fetchingUser) fetchUserAPI = $.api;
 
   // Ensure pal is always defined with a fallback
@@ -2774,17 +2828,17 @@ function paint($) {
     const shouldShowBook = !screenTooNarrow && (!wouldOverlap || (isNarrowScreen && isTallEnough));
     
     // 📚 Log book visibility details
-    console.log('📚 Book visibility:', {
-      shouldShowBook,
-      screenWidth: screen.width,
-      screenHeight: screen.height,
-      screenTooNarrow,
-      isNarrowScreen,
-      isTallEnough,
-      wouldOverlap,
-      overlapReasons,
-      bookAdBox
-    });
+    // console.log('📚 Book visibility:', {
+    //   shouldShowBook,
+    //   screenWidth: screen.width,
+    //   screenHeight: screen.height,
+    //   screenTooNarrow,
+    //   isNarrowScreen,
+    //   isTallEnough,
+    //   wouldOverlap,
+    //   overlapReasons,
+    //   bookAdBox
+    // });
     
     if (shouldShowBook) {
     
@@ -3123,13 +3177,30 @@ function paint($) {
           const isKidlisp = $.system?.prompt?.actualKidlisp;
           let particleColor;
           
-          if (isKidlisp) {
-            // Green for kidlisp
-            particleColor = isDark ? [100, 255, 100] : [0, 150, 0];
+          // Every few particles (20% chance), use a bright primary color
+          if (Math.random() < 0.2) {
+            const brightColors = [
+              [255, 0, 0],     // Red
+              [255, 255, 0],   // Yellow
+              [0, 255, 0],     // Green
+              [0, 255, 255],   // Cyan
+              [0, 0, 255],     // Blue
+              [255, 0, 255],   // Magenta
+            ];
+            particleColor = brightColors[Math.floor(Math.random() * brightColors.length)];
+          } else if (isKidlisp) {
+            // Green for kidlisp - brighter in light mode
+            particleColor = isDark ? [100, 255, 100] : [0, 200, 0];
           } else {
             // Use palette block color or fallback to theme text color
+            // In light mode, make particles more vibrant
             const blockColor = input.pal?.block || (isDark ? [255, 255, 255] : [0, 0, 0]);
-            particleColor = Array.isArray(blockColor) ? blockColor.slice(0, 3) : (isDark ? [255, 255, 255] : [0, 0, 0]);
+            if (isDark) {
+              particleColor = Array.isArray(blockColor) ? blockColor.slice(0, 3) : [255, 255, 255];
+            } else {
+              // Light mode: boost saturation for more vibrant particles
+              particleColor = Array.isArray(blockColor) ? blockColor.slice(0, 3).map(c => Math.min(255, c * 1.5)) : [255, 0, 255];
+            }
           }
           
           cornerParticles.push({
@@ -3184,8 +3255,349 @@ function paint($) {
         // Draw on layer 3 to ensure it's above everything else on the curtain
         $.layer(3);
         
+        // Draw animated primary color gradient outline (smooth wave pattern)
+        const waveOffset = motdFrame * 0.05; // Slow smooth animation
+        // Oscillate opacity for blinking effect
+        const opacityOscillation = Math.sin(motdFrame * 0.08) * 20 + 40; // 20-60 range
+        const primaryColors = [
+          [255, 0, 0],     // Red
+          [255, 255, 0],   // Yellow
+          [0, 255, 0],     // Green
+          [0, 255, 255],   // Cyan
+          [0, 0, 255],     // Blue
+          [255, 0, 255],   // Magenta
+        ];
+        
+        // Top edge
+        for (let x = cursorPos.x - 1; x < cursorPos.x + cursorPos.w + 1; x++) {
+          const wave = (x + waveOffset) * 0.3;
+          const colorIndex = Math.floor(wave) % primaryColors.length;
+          const nextColorIndex = (colorIndex + 1) % primaryColors.length;
+          const blend = wave - Math.floor(wave);
+          
+          const color = primaryColors[colorIndex];
+          const nextColor = primaryColors[nextColorIndex];
+          const r = Math.floor(color[0] * (1 - blend) + nextColor[0] * blend);
+          const g = Math.floor(color[1] * (1 - blend) + nextColor[1] * blend);
+          const b = Math.floor(color[2] * (1 - blend) + nextColor[2] * blend);
+          
+          ink(r, g, b, opacityOscillation).box(x, cursorPos.y - 1, 1, 1);
+        }
+        
+        // Bottom edge
+        for (let x = cursorPos.x - 1; x < cursorPos.x + cursorPos.w + 1; x++) {
+          const wave = (x + waveOffset) * 0.3;
+          const colorIndex = Math.floor(wave) % primaryColors.length;
+          const nextColorIndex = (colorIndex + 1) % primaryColors.length;
+          const blend = wave - Math.floor(wave);
+          
+          const color = primaryColors[colorIndex];
+          const nextColor = primaryColors[nextColorIndex];
+          const r = Math.floor(color[0] * (1 - blend) + nextColor[0] * blend);
+          const g = Math.floor(color[1] * (1 - blend) + nextColor[1] * blend);
+          const b = Math.floor(color[2] * (1 - blend) + nextColor[2] * blend);
+          
+          ink(r, g, b, opacityOscillation).box(x, cursorPos.y + cursorPos.h, 1, 1);
+        }
+        
+        // Left edge
+        for (let y = cursorPos.y - 1; y < cursorPos.y + cursorPos.h + 1; y++) {
+          const wave = (y + waveOffset) * 0.3;
+          const colorIndex = Math.floor(wave) % primaryColors.length;
+          const nextColorIndex = (colorIndex + 1) % primaryColors.length;
+          const blend = wave - Math.floor(wave);
+          
+          const color = primaryColors[colorIndex];
+          const nextColor = primaryColors[nextColorIndex];
+          const r = Math.floor(color[0] * (1 - blend) + nextColor[0] * blend);
+          const g = Math.floor(color[1] * (1 - blend) + nextColor[1] * blend);
+          const b = Math.floor(color[2] * (1 - blend) + nextColor[2] * blend);
+          
+          ink(r, g, b, opacityOscillation).box(cursorPos.x - 1, y, 1, 1);
+        }
+        
+        // Right edge
+        for (let y = cursorPos.y - 1; y < cursorPos.y + cursorPos.h + 1; y++) {
+          const wave = (y + waveOffset) * 0.3;
+          const colorIndex = Math.floor(wave) % primaryColors.length;
+          const nextColorIndex = (colorIndex + 1) % primaryColors.length;
+          const blend = wave - Math.floor(wave);
+          
+          const color = primaryColors[colorIndex];
+          const nextColor = primaryColors[nextColorIndex];
+          const r = Math.floor(color[0] * (1 - blend) + nextColor[0] * blend);
+          const g = Math.floor(color[1] * (1 - blend) + nextColor[1] * blend);
+          const b = Math.floor(color[2] * (1 - blend) + nextColor[2] * blend);
+          
+          ink(r, g, b, opacityOscillation).box(cursorPos.x + cursorPos.w, y, 1, 1);
+        }
+        
         // Draw filled cursor box with subtle transparency (no outline)
         ink(...fillColor).box(cursorPos.x, cursorPos.y, cursorPos.w, cursorPos.h);
+        
+        // 👻 Draw "Prompt" ghost text when prompt is empty and curtain is up (can't type)
+        if (input.text === "" && !input.canType) {
+          // Check dark mode once for all color decisions
+          const isDark = $.dark;
+          
+          // Cycle through languages
+          promptLanguageChangeFrame += 1;
+          if (promptLanguageChangeFrame >= promptLanguageChangeInterval) {
+            promptLanguageChangeFrame = 0;
+            promptLanguageIndex = (promptLanguageIndex + 1) % promptTranslations.length;
+          }
+          
+          const ghostText = promptTranslations[promptLanguageIndex];
+          
+          // Replace unsupported characters with spaces to avoid question marks
+          // Support: Latin (+ Extended & Vietnamese), Greek, Cyrillic, Hebrew, Arabic, Thai, Devanagari, Bengali, CJK
+          const cleanGhostText = ghostText.replace(/[^\u0020-\u007E\u00A0-\u024F\u1E00-\u1EFF\u0370-\u03FF\u0400-\u04FF\u0590-\u05FF\u0600-\u06FF\u0E00-\u0E7F\u0900-\u097F\u0980-\u09FF\u4E00-\u9FFF\u3040-\u309F\u30A0-\u30FF\uAC00-\uD7AF]/g, ' ');
+          
+          // High contrast polychrome colors - cycle through vibrant colors at different speeds
+          // In light mode, use much brighter, more saturated colors
+          const textColorCycle = isDark ? [
+            [255, 100, 255], // Bright magenta
+            [100, 255, 255], // Bright cyan
+            [255, 255, 100], // Bright yellow
+            [100, 255, 100], // Bright green
+            [255, 150, 100], // Bright orange
+            [255, 100, 150], // Bright pink
+          ] : [
+            [255, 0, 255],   // Pure magenta
+            [0, 255, 255],   // Pure cyan
+            [255, 255, 0],   // Pure yellow
+            [0, 255, 0],     // Pure green
+            [255, 128, 0],   // Pure orange
+            [255, 0, 128],   // Pure pink
+          ];
+          const textColorIndex = Math.floor(motdFrame * 0.08) % textColorCycle.length;
+          const baseColor = textColorCycle[textColorIndex];
+          
+          // Background cycles at a different speed for more animation
+          // In light mode, use much darker, more saturated backgrounds for contrast
+          const bgColorCycle = isDark ? [
+            [100, 0, 100],   // Dark magenta
+            [0, 100, 100],   // Dark cyan
+            [100, 100, 0],   // Dark yellow
+            [0, 100, 0],     // Dark green
+            [100, 50, 0],    // Dark orange
+            [100, 0, 50],    // Dark pink
+          ] : [
+            [150, 0, 150],   // Deeper magenta
+            [0, 150, 150],   // Deeper cyan
+            [150, 150, 0],   // Deeper yellow
+            [0, 150, 0],     // Deeper green
+            [150, 75, 0],    // Deeper orange
+            [150, 0, 75],    // Deeper pink
+          ];
+          const bgColorIndex = Math.floor(motdFrame * 0.05) % bgColorCycle.length; // Slower cycle
+          const bgColor = [...bgColorCycle[bgColorIndex], 255]; // Full opacity for vibrant effect
+          
+          // Oscillate alpha for pulsing effect (from 180 to 255 for high visibility)
+          const alphaOscillation = 180 + (Math.sin(motdFrame * 0.1) + 1) * 37.5; // Ranges from 180 to 255
+          const ghostColor = [...baseColor, alphaOscillation];
+          
+          // Animate text moving left and right with more movement
+          const textSway = Math.sin(motdFrame * 0.08) * 6; // Increased from 3 to 6 pixel sway range
+          
+          // Position "Prompt" text to the right of cursor
+          const textX = cursorPos.x + cursorPos.w + 34 + textSway;
+          const textY = cursorPos.y + cursorPos.h + 10; // Below cursor with some spacing
+          
+          // Use text.box() API to get accurate text width based on actual BDF glyph widths
+          const textMeasurement = $.text.box(cleanGhostText, { x: 0, y: 0 }, undefined, 1, false, "unifont");
+          const textWidth = textMeasurement?.box?.width || (cleanGhostText.length * 8); // Fallback to 8px/char
+          const textHeight = 16; // Unifont height at scale 1
+          
+          // Add padding for background box
+          const bgWidth = textWidth + 4; // Consistent 4px padding for all languages
+          
+          // Draw drop shadow for background box
+          ink(0, 0, 0, 100).box(textX - 1, textY - 1, bgWidth, textHeight + 4);
+          
+          // Draw polychrome background box with high contrast
+          ink(...bgColor).box(textX - 2, textY - 2, bgWidth, textHeight + 4);
+          
+          // Draw text with per-character color cycling for rainbow effect
+          // We need to track actual rendered widths, so measure each character individually
+          let charX = textX;
+          for (let i = 0; i < cleanGhostText.length; i++) {
+            const char = cleanGhostText[i];
+            // Each character gets a different color from the cycle
+            const charColorIndex = (textColorIndex + i) % textColorCycle.length;
+            const charColor = [...textColorCycle[charColorIndex], alphaOscillation];
+            
+            ink(...charColor).write(
+              char,
+              { x: charX, y: textY },
+              undefined,
+              undefined,
+              false,
+              "unifont"
+            );
+            
+            // Get accurate character width from text.box API (uses actual BDF advance widths)
+            const charMeasurement = $.text.box(char, { x: 0, y: 0 }, undefined, 1, false, "unifont");
+            const charWidth = charMeasurement?.box?.width || 8; // Fallback to 8px if measurement fails
+            charX += charWidth;
+          }
+          
+          // Draw language name label below the prompt text in small font
+          const languageName = promptLanguageNames[promptLanguageIndex];
+          const labelY = textY + textHeight + 4; // 4px below the prompt text (closer)
+          // Right-align with the actual rendered text's right edge (use charX which is final position)
+          const labelWidth = languageName.length * 4; // 4px per char for MatrixChunky8
+          const actualTextRightEdge = charX; // charX is the final x position after all characters
+          const labelX = actualTextRightEdge - labelWidth;
+          
+          // Invert colors based on light/dark mode (isDark already declared above)
+          const labelTextColor = isDark ? [150, 150, 150, 120] : [100, 100, 100, 150];
+          const labelShadowColor = isDark ? [0, 0, 0, 50] : [255, 255, 255, 80];
+          
+          // Draw shadow for language label
+          ink(...labelShadowColor).write(languageName, { x: labelX + 1, y: labelY + 1 }, undefined, undefined, false, "MatrixChunky8");
+          // Draw language label
+          ink(...labelTextColor).write(languageName, { x: labelX, y: labelY }, undefined, undefined, false, "MatrixChunky8");
+          
+          // Vertical action text on LEFT side of screen - ROTATED
+          const actionVerbs = ["TOUCH", "TAP", "TYPE"];
+          const actionIndex = Math.floor(motdFrame / 60) % actionVerbs.length; // Change every 60 frames
+          const actionText = actionVerbs[actionIndex];
+          
+          // Bounce animation - subtle up and down movement
+          const bounceOffset = Math.sin(motdFrame * 0.1) * 3; // 3 pixel bounce range
+          
+          // Calculate text dimensions for background
+          const verticalTextWidth = actionText.length * 4; // MatrixChunky8 width per char
+          const verticalTextHeight = 8; // MatrixChunky8 height
+          
+          // Position flush to left side, next to the ghost hint
+          const leftMargin = 5; // Moved 1px closer to left (was 6)
+          const verticalTextX = leftMargin; // No horizontal sway
+          
+          // Calculate fixed arrow position first
+          const arrowHeight = 10; // Even sharper/longer arrow (was 7)
+          const arrowTipY = textY - 1; // 4px lower (was -5)
+          const bgY = arrowTipY + arrowHeight; // Box starts where arrow ends
+          
+          // Position text inside the box (accounting for rotation)
+          const verticalTextY = bgY + verticalTextWidth + 1 + bounceOffset; // Text at bottom of box content area, with bounce
+          
+          // Calculate arrow dimensions first (needed for shadow rendering order)
+          const arrowStartX = textX - 1;
+          const arrowStartY = textY - 3;
+          const arrowTargetX = cursorPos.x + (cursorPos.w / 2);
+          const arrowTargetY = cursorPos.y + (cursorPos.h / 2);
+          const verticalOscillation = Math.abs(Math.sin(motdFrame * 0.05) * 2);
+          const minVerticalLength = 2 + verticalOscillation;
+          const arrowElbowY = Math.min(arrowTargetY, arrowStartY - minVerticalLength);
+          const horizontalOscillation = Math.abs(Math.sin(motdFrame * 0.06) * 4);
+          const minHorizontalLength = 18 + horizontalOscillation; // Longer: 18-22px (was 10-14px)
+          const minArrowEnd = arrowStartX - minHorizontalLength;
+          const arrowEndX = Math.max(arrowTargetX, minArrowEnd);
+          
+          // Draw background box with integrated arrow using shape
+          const bgX = leftMargin - 1; // No sway
+          const arrowTipYWithBounce = arrowTipY + bounceOffset; // Arrow tip bounces
+          const bgYWithBounce = arrowTipYWithBounce + arrowHeight; // Box starts where arrow ends
+          const verticalBgWidth = verticalTextHeight + 1; // 2px narrower
+          const verticalBgHeight = verticalTextWidth + 4; // More space at bottom (1 top + 3 bottom)
+          const arrowCenterX = bgX + verticalBgWidth / 2;
+          
+          // Draw arrow drop shadows FIRST (behind sign)
+          ink(0, 0, 0, 80).line(arrowStartX + 1, arrowStartY + 1, arrowStartX + 1, arrowElbowY + 1);
+          ink(0, 0, 0, 80).line(arrowStartX + 1, arrowElbowY + 1, arrowEndX + 1, arrowElbowY + 1);
+          ink(0, 0, 0, 80).line(arrowEndX + 1, arrowElbowY + 1, arrowEndX + 3, arrowElbowY - 1);
+          ink(0, 0, 0, 80).line(arrowEndX + 1, arrowElbowY + 1, arrowEndX + 3, arrowElbowY + 3);
+          
+          // Use consistent dark background with less opaque white text
+          ink(0, 0, 0, 200).shape([
+            [bgX, bgYWithBounce],                          // Top left of box
+            [bgX, arrowTipYWithBounce],                    // Arrow tip at left edge (right triangle style)
+            [bgX + verticalBgWidth, bgYWithBounce],        // Top right of box
+            [bgX + verticalBgWidth, bgYWithBounce + verticalBgHeight], // Bottom right
+            [bgX, bgYWithBounce + verticalBgHeight],       // Bottom left
+            [bgX, bgYWithBounce]                           // Close the shape
+          ]);
+          
+          // Draw white text with flickering per-character brightness
+          let flickeringText = "";
+          for (let i = 0; i < actionText.length; i++) {
+            const char = actionText[i];
+            // Each character flickers independently based on frame and position
+            const flickerSeed = Math.sin((motdFrame * 0.15) + (i * 0.5));
+            const brightness = Math.floor(200 + flickerSeed * 55); // Range: 145-255
+            flickeringText += `\\${brightness},${brightness},${brightness}\\${char}`;
+          }
+          
+          ink(255, 255, 255, 150).write(flickeringText, { 
+            x: verticalTextX, 
+            y: verticalTextY, 
+            rotation: 270 
+          }, undefined, undefined, false, "MatrixChunky8");
+          
+          // Color cycling for arrow segments - each part gets a different color
+          const verticalColorIndex = Math.floor(motdFrame * 0.07) % textColorCycle.length;
+          const horizontalColorIndex = (verticalColorIndex + 2) % textColorCycle.length;
+          const arrowHeadColorIndex = (verticalColorIndex + 4) % textColorCycle.length;
+          
+          const verticalColor = [...textColorCycle[verticalColorIndex], alphaOscillation];
+          const horizontalColor = [...textColorCycle[horizontalColorIndex], alphaOscillation];
+          const arrowHeadColor = [...textColorCycle[arrowHeadColorIndex], alphaOscillation];
+          
+          // Draw vertical line going up from text (1px wide) - colored
+          ink(...verticalColor).line(arrowStartX, arrowStartY, arrowStartX, arrowElbowY);
+          // Draw horizontal line going left with minimum length (1px wide) - colored
+          ink(...horizontalColor).line(arrowStartX, arrowElbowY, arrowEndX, arrowElbowY);
+          // Draw arrow head pointing left - colored
+          ink(...arrowHeadColor).line(arrowEndX, arrowElbowY, arrowEndX + 2, arrowElbowY - 2);
+          ink(...arrowHeadColor).line(arrowEndX, arrowElbowY, arrowEndX + 2, arrowElbowY + 2);
+          
+          // Blinking overlay on the cursor block itself - magic jewel/gem effect
+          // Always show checkerboard, but blink the overall alpha
+          const blinkSpeed = Math.sin(motdFrame * 0.08); // Slower blink (reduced from 0.15)
+          // In light mode, use higher alpha range for more vibrant effect
+          const blinkAlpha = isDark 
+            ? Math.floor((blinkSpeed + 1) * 60 + 60)   // Dark: 60-180
+            : Math.floor((blinkSpeed + 1) * 80 + 100); // Light: 100-260 (clamped to 255)
+          // Fun color cycle for the blink overlay - slower
+          const blinkColorIndex = Math.floor(motdFrame * 0.05) % textColorCycle.length; // Slower (reduced from 0.1)
+          
+          // Rhythmic subdivision pattern - changes every 30 frames for more punctual feel
+          const patternPhase = Math.floor(motdFrame / 30) % 4; // 4 different patterns, change every 30 frames
+          let cols, rows;
+          
+          // Define 4 distinct rhythmic subdivision patterns
+          if (patternPhase === 0) {
+            cols = 2; rows = 2; // 2x2 grid (large blocks)
+          } else if (patternPhase === 1) {
+            cols = 4; rows = 2; // 4x2 grid (horizontal stripes)
+          } else if (patternPhase === 2) {
+            cols = 2; rows = 4; // 2x4 grid (vertical stripes)
+          } else {
+            cols = 3; rows = 3; // 3x3 grid (medium blocks)
+          }
+          
+          const cellWidth = cursorPos.w / cols;
+          const cellHeight = cursorPos.h / rows;
+          
+          for (let row = 0; row < rows; row++) {
+            for (let col = 0; col < cols; col++) {
+              // Create checkerboard pattern with slower rhythm
+              const isCheckerSquare = ((col + row + Math.floor(motdFrame / 20)) % 2 === 0);
+              if (isCheckerSquare) {
+                // Vary color per square for gem facets
+                const squareColorIndex = (blinkColorIndex + col + row) % textColorCycle.length;
+                const squareColor = [...textColorCycle[squareColorIndex], blinkAlpha];
+                const cellX = cursorPos.x + Math.floor(col * cellWidth);
+                const cellY = cursorPos.y + Math.floor(row * cellHeight);
+                const cellW = Math.floor(cellWidth);
+                const cellH = Math.floor(cellHeight);
+                ink(...squareColor).box(cellX, cellY, cellW, cellH);
+              }
+            }
+          }
+        }
         
         // Reset to default layer
         $.layer(1);
@@ -3466,11 +3878,9 @@ function paint($) {
 
     // MOTD (Mood of the Day) - show above login/signup buttons with animation
     if (motd && screen.height >= 180) {
-      motdFrame += 1; // Increment animation frame
-      
       // Subtle sway (up and down)
       const swayY = Math.sin(motdFrame * 0.05) * 2; // 2 pixel sway range
-      const motdY = screen.height / 2 - 48 + swayY; // Above the login button with sway
+      const motdY = screen.height / 2 - 36 + swayY; // 12px closer to login button (changed from -48 to -36)
       
       // Create colorful blinking letters
       let coloredText = "";
