@@ -354,23 +354,39 @@ async function boot({
     (pieceCount > 0 && !store["prompt:splash"] && !net.devReload) ||
     (vscode && pieceCount === 0)
   ) {
-    if (vscode && pieceCount === 0) firstActivation = false;
-    // system.prompt.input.enter.btn.disabled = true; // Disable button.
-    // system.prompt.input.inputStarted = true;
-    // 🍫 Create a pleasurable blinking cursor delay.
-    // system.prompt.input.showBlink = false;
-    // setTimeout(() => (system.prompt.input.showBlink = true), 100);
-
-    // Clear any latent text before activating to prevent MOTD showing when focused
-    // but only if we don't have params (which means we're not coming from backspace navigation)
-    if (!params[0]) {
-      system.prompt.input.text = "";
+    // Check if we're coming from chat via labelBack - if so, don't activate
+    const labelBackSource = 
+      typeof window !== "undefined" && window.safeSessionStorageGet 
+        ? window.safeSessionStorageGet("aesthetic-labelBack-source")
+        : null;
+    const isFromChatLabelBack = labelBackSource === "chat";
+    
+    // Clear the labelBack source since we've checked it
+    if (labelBackSource && typeof window !== "undefined" && window.safeSessionStorageRemove) {
+      window.safeSessionStorageRemove("aesthetic-labelBack-source");
     }
+    
+    if (vscode && pieceCount === 0) firstActivation = false;
+    
+    // Only activate if NOT coming from chat via labelBack
+    if (!isFromChatLabelBack) {
+      // system.prompt.input.enter.btn.disabled = true; // Disable button.
+      // system.prompt.input.inputStarted = true;
+      // 🍫 Create a pleasurable blinking cursor delay.
+      // system.prompt.input.showBlink = false;
+      // setTimeout(() => (system.prompt.input.showBlink = true), 100);
 
-    activated({ ...api, params }, true);
-    system.prompt.input.canType = true;
-    send({ type: "keyboard:unlock" });
-    send({ type: "keyboard:open" }); // Necessary for desktop.
+      // Clear any latent text before activating to prevent MOTD showing when focused
+      // but only if we don't have params (which means we're not coming from backspace navigation)
+      if (!params[0]) {
+        system.prompt.input.text = "";
+      }
+
+      activated({ ...api, params }, true);
+      system.prompt.input.canType = true;
+      send({ type: "keyboard:unlock" });
+      send({ type: "keyboard:open" }); // Necessary for desktop.
+    }
   }
 
   delete store["prompt:splash"];
