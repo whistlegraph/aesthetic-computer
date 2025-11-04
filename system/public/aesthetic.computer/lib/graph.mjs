@@ -3933,7 +3933,10 @@ function grid(
                   }
                 }
               } else {
-                // Rotation path - preserve existing pixel-by-pixel approach for accuracy
+                // Rotation path - draw larger boxes to fill gaps during rotation
+                // The gaps occur because rotated pixels don't align perfectly on the grid
+                const boxSize = Math.max(2, Math.ceil(Math.max(pixelWidth, pixelHeight) * 1.2));
+                
                 for (let dy = 0; dy < pixelHeight; dy += 1) {
                   for (let dx = 0; dx < pixelWidth; dx += 1) {
                     const px = destStartX + dx;
@@ -3945,7 +3948,8 @@ function grid(
                     const rotX = relX * cosValue - relY * sinValue + centerX;
                     const rotY = relX * sinValue + relY * cosValue + centerY;
 
-                    plot(~~rotX, ~~rotY); // Fast floor conversion
+                    // Draw overlapping boxes to prevent gaps
+                    box(~~rotX, ~~rotY, boxSize, boxSize, "fill");
                   }
                 }
               }

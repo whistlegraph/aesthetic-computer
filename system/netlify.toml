@@ -634,6 +634,15 @@ status = 301
 from = "/shop~25.4.8.21.13"
 to = "https://shop.aesthetic.computer/products/books_musical-gestures-sound-movement-and-meaning_25-4-8-21-13"
 status = 301
+#  Music
+[[redirects]]
+from = "/25.11.3.14.17"
+to = "https://shop.aesthetic.computer/products/music_baktok-7-inch_25-11-3-14-17"
+status = 301
+[[redirects]]
+from = "/shop~25.11.3.14.17"
+to = "https://shop.aesthetic.computer/products/music_baktok-7-inch_25-11-3-14-17"
+status = 301
 # 🖍️ Pictures
 [[redirects]]
 from = "/25.4.13.17.47"
