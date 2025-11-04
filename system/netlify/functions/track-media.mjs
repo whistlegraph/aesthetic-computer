@@ -144,25 +144,36 @@ export async function handler(event, context) {
           try {
             const s3Client = new S3Client({
               endpoint: `https://sfo3.digitaloceanspaces.com`,
+              region: 'us-east-1', // Required for DigitalOcean Spaces
               credentials: {
                 accessKeyId: process.env.ART_KEY || process.env.DO_SPACES_KEY,
                 secretAccessKey: process.env.ART_SECRET || process.env.DO_SPACES_SECRET,
               },
             });
             
-            // Use the actual upload key with /video/ subdirectory for user tapes
-            const key = user ? `${user.sub}/video/${slug}.zip` : `${slug}.zip`;
+            // Use the actual upload key (NO /video/ subdirectory for tapes)
+            // The presigned-url endpoint converts "video-slug" to "video/slug" via name.replace("-", "/")
+            // But we upload as just "{sub}/{slug}.zip" without video subdirectory
+            const aclKey = user ? `${user.sub}/${slug}.zip` : `${slug}.zip`;
             
             const aclCommand = new PutObjectAclCommand({
               Bucket: record.bucket,
-              Key: key,
+              Key: aclKey,
               ACL: "public-read",
             });
             
             await s3Client.send(aclCommand);
-            console.log(`✅ Set public-read ACL for ${record.bucket}/${key}`);
+            console.log(`✅ Set public-read ACL for ${record.bucket}/${aclKey}`);
+            
+            // Small delay to allow ACL propagation
+            await new Promise(resolve => setTimeout(resolve, 500));
           } catch (aclError) {
-            console.error(`⚠️  Failed to set ACL:`, aclError.message);
+            console.error(`⚠️  Failed to set ACL:`, aclError);
+            console.error(`   ACL Error details:`, {
+              message: aclError.message,
+              code: aclError.code,
+              statusCode: aclError.$metadata?.httpStatusCode
+            });
           }
           
           // Send to oven for async MP4 conversion
@@ -171,10 +182,25 @@ export async function handler(event, context) {
           
           // Generate direct S3 URL instead of going through /media redirect
           // Since we set public-read ACL, the file should be directly accessible
-          // Include /video/ subdirectory for user tapes
-          const key = user ? `${user.sub}/video/${slug}.zip` : `${slug}.zip`;
+          // Note: Files are uploaded as {sub}/{slug}.zip (NO /video/ subdirectory)
+          const key = user ? `${user.sub}/${slug}.zip` : `${slug}.zip`;
           // Don't encodeURIComponent - S3 keys with | chars are valid and Spaces rejects %7C encoding
           const zipUrl = `https://${record.bucket}.sfo3.digitaloceanspaces.com/${key}`;
+          
+          // Verify the ZIP is publicly accessible before sending to oven
+          try {
+            console.log(`🔍 Verifying ZIP is publicly accessible: ${zipUrl}`);
+            const testResponse = await fetch(zipUrl, { method: 'HEAD' });
+            if (!testResponse.ok) {
+              console.error(`⚠️  ZIP not accessible: ${testResponse.status} ${testResponse.statusText}`);
+              console.error(`   This likely means the ACL wasn't set properly`);
+              // Continue anyway - let the oven deal with it and report the error
+            } else {
+              console.log(`✅ ZIP is publicly accessible`);
+            }
+          } catch (testError) {
+            console.error(`⚠️  Failed to verify ZIP accessibility:`, testError.message);
+          }
           
           // Always use production oven so tapes are synced across dev/prod
           // Can override with OVEN_URL env var if needed for local oven testing
