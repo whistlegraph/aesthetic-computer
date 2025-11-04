@@ -437,50 +437,60 @@ class Typeface {
           
           // Only make API calls when NOT in OBJKT mode
           if (!isObjktMode) {
-            fetch(`/api/bdf-glyph?char=${codePointStr}&font=${this.name}`)
-              .then((response) => {
-                if (!response.ok) {
-                  if (response.status === 404) {
-                    console.info(
-                      `Glyph "${char}" (${codePointStr}) not available in ${this.name}`,
-                    );
-                  } else {
+            try {
+              fetch(`/api/bdf-glyph?char=${codePointStr}&font=${this.name}`)
+                .then((response) => {
+                  if (!response.ok) {
+                    if (response.status === 404) {
+                      console.info(
+                        `Glyph "${char}" (${codePointStr}) not available in ${this.name}`,
+                      );
+                    } else {
+                      console.warn(
+                        `Failed to load glyph "${char}" (${codePointStr}): HTTP ${response.status}`,
+                      );
+                    }
+                    throw new Error(`Failed to load glyph: ${response.status}`);
+                  }
+                  return response.json();
+                })
+                .then((glyphData) => {
+                  // Store the loaded glyph
+                  target[char] = glyphData;
+                  this.invalidateAdvance(char);
+                  
+                  loadingGlyphs.delete(char);
+
+                  // Trigger a repaint to show the newly loaded glyph
+                  if (
+                    needsPaintCallback &&
+                    typeof needsPaintCallback === "function"
+                  ) {
+                    needsPaintCallback();
+                  }
+                })
+                .catch((err) => {
+                  // Mark this glyph as failed to avoid future requests
+                  failedGlyphs.add(char);
+                  loadingGlyphs.delete(char);
+
+                  // Don't log as error for 404s, just info
+                  if (!err.message.includes("404")) {
                     console.warn(
-                      `Failed to load glyph "${char}" (${codePointStr}): HTTP ${response.status}`,
+                      `Failed to load glyph "${char}" (${codePointStr}):`,
+                      err,
                     );
                   }
-                  throw new Error(`Failed to load glyph: ${response.status}`);
-                }
-                return response.json();
-              })
-              .then((glyphData) => {
-                // Store the loaded glyph
-                target[char] = glyphData;
-                this.invalidateAdvance(char);
-                
-                loadingGlyphs.delete(char);
-
-                // Trigger a repaint to show the newly loaded glyph
-                if (
-                  needsPaintCallback &&
-                  typeof needsPaintCallback === "function"
-                ) {
-                  needsPaintCallback();
-                }
-              })
-              .catch((err) => {
-                // Mark this glyph as failed to avoid future requests
-                failedGlyphs.add(char);
-                loadingGlyphs.delete(char);
-
-                // Don't log as error for 404s, just info
-                if (!err.message.includes("404")) {
-                  console.warn(
-                    `Failed to load glyph "${char}" (${codePointStr}):`,
-                    err,
-                  );
-                }
-              });
+                });
+            } catch (err) {
+              // Handle synchronous fetch errors (e.g., network issues, security errors)
+              failedGlyphs.add(char);
+              loadingGlyphs.delete(char);
+              console.warn(
+                `Failed to initiate glyph fetch "${char}" (${codePointStr}):`,
+                err,
+              );
+            }
           } else {
             // In OBJKT mode for non-MatrixChunky8 fonts, create simple fallback
             const simpleFallback = {
@@ -586,7 +596,13 @@ class Typeface {
   
   // Get a glyph for a specific character
   getGlyph(char) {
-    return this.glyphs[char];
+    try {
+      return this.glyphs[char];
+    } catch (err) {
+      // Silently handle glyph access errors (e.g., fetch failures)
+      console.warn(`Failed to get glyph for "${char}":`, err.message);
+      return null;
+    }
   }
 
   getAdvance(char) {
@@ -596,9 +612,14 @@ class Typeface {
     // Fall back to 8px default only if glyph data isn't available yet
     if (this.name === "unifont" || this.data?.bdfFont === "unifont-16.0.03") {
       // Check if we have a loaded glyph with advance width
-      const glyph = this.glyphs?.[char];
-      if (glyph && typeof glyph.advance === "number") {
-        return glyph.advance; // Use actual BDF DWIDTH value
+      try {
+        const glyph = this.glyphs?.[char];
+        if (glyph && typeof glyph.advance === "number") {
+          return glyph.advance; // Use actual BDF DWIDTH value
+        }
+      } catch (err) {
+        // Silently handle glyph access errors (e.g., fetch failures)
+        // Will fall through to default 8px width
       }
       // Fall back to 8px (prevents layout jank during async glyph loading)
       return 8;
@@ -609,10 +630,17 @@ class Typeface {
     }
 
     let advance;
+    let glyph;
 
-    const glyph = this.glyphs?.[char];
-    if (glyph && typeof glyph.advance === "number") {
-      advance = glyph.advance;
+    // Safely access glyph (may trigger Proxy fetch which could fail)
+    try {
+      glyph = this.glyphs?.[char];
+      if (glyph && typeof glyph.advance === "number") {
+        advance = glyph.advance;
+      }
+    } catch (err) {
+      // Silently handle glyph access errors
+      // Will fall through to other fallback methods
     }
 
     if (advance === undefined) {
