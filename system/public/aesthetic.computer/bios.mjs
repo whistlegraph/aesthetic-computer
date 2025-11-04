@@ -2870,9 +2870,20 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    if (type === "labelBack:source") {
+      // Store the source piece when labelBack is activated
+      const sourcePiece = content?.sourcePiece;
+      if (sourcePiece) {
+        window.safeSessionStorageSet("aesthetic-labelBack-source", sourcePiece);
+        console.log(`🔗 Main thread: Stored labelBack source: ${sourcePiece}`);
+      }
+      return;
+    }
+
     if (type === "labelBack:clear") {
       mainThreadLabelBack = false;
       window.safeSessionStorageRemove("aesthetic-labelBack");
+      window.safeSessionStorageRemove("aesthetic-labelBack-source");
       console.log("🔗 Main thread: Cleared labelBack from sessionStorage");
       return;
     }
