@@ -296,7 +296,13 @@ class Product {
 
   // Paint the product based on its type
   paint($, screen, showLoginCurtain) {
-    if (!showLoginCurtain || !this.imageScaled) return;
+    if (!showLoginCurtain) return;
+    
+    // Show loading animation if image isn't loaded yet
+    if (!this.imageScaled) {
+      this.paintLoading($, screen);
+      return;
+    }
     
     // Dispatch to type-specific painter
     if (this.type === 'book') {
@@ -304,6 +310,55 @@ class Product {
     } else if (this.type === 'record') {
       this.paintRecord($, screen);
     }
+  }
+  
+  // Paint loading animation (sine wave pattern)
+  paintLoading($, screen) {
+    const rightEdge = screen.width - 6;
+    const loadingW = 60; // Width of loading area
+    const loadingH = 80; // Height of loading area
+    const loadingX = rightEdge - loadingW;
+    const loadingY = 8;
+    
+    // Pulsing sine wave
+    const pulse = (sin(Date.now() / 200) + 1) / 2; // 0-1 sine wave
+    const alpha = floor(100 + pulse * 155); // 100-255 alpha
+    
+    // Draw multiple sine wave lines
+    const numWaves = 5;
+    for (let i = 0; i < numWaves; i++) {
+      const yOffset = loadingY + 20 + i * 12;
+      const phase = Date.now() / 300 + i * 0.5; // Offset each wave
+      
+      // Color cycling
+      const colorPhase = (pulse + i * 0.2) % 1;
+      const r = floor(100 + sin(colorPhase * Math.PI * 2) * 155);
+      const g = floor(100 + sin((colorPhase + 0.33) * Math.PI * 2) * 155);
+      const b = floor(100 + sin((colorPhase + 0.66) * Math.PI * 2) * 155);
+      
+      $.ink(r, g, b, alpha);
+      
+      // Draw sine wave as connected line segments
+      for (let x = 0; x < loadingW - 1; x++) {
+        const amplitude = 6;
+        const y1 = yOffset + sin((x / 10) + phase) * amplitude;
+        const y2 = yOffset + sin(((x + 1) / 10) + phase) * amplitude;
+        $.line(loadingX + x, floor(y1), loadingX + x + 1, floor(y2));
+      }
+    }
+    
+    // Loading text with pulsing color
+    const textY = loadingY + loadingH - 16;
+    const colorPhase = pulse;
+    const textR = floor(100 + sin(colorPhase * Math.PI * 2) * 155);
+    const textG = floor(100 + sin((colorPhase + 0.33) * Math.PI * 2) * 155);
+    const textB = floor(100 + sin((colorPhase + 0.66) * Math.PI * 2) * 155);
+    
+    $.ink(textR, textG, textB, alpha)
+      .write("Loading", { center: "xy", x: loadingX + loadingW / 2, y: textY }, undefined, undefined, false, "MatrixChunky8");
+    
+    // Keep animating
+    $.needsPaint?.();
   }
 
   // Paint book product

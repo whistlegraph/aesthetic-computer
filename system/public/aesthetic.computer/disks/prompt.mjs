@@ -306,9 +306,8 @@ async function boot({
     if (!params[0]) makeMotd({ ...api, notice });
     
     // Fetch all content (kidlisp, painting, tape) for content ticker
-    if (!params[0]) {
-      fetchContentItems(api);
-    }
+    // Always fetch content items, even when params exist (prefilled text)
+    fetchContentItems(api);
 
     if (pieceCount === 0 || store["prompt:splash"] === true) {
       // Initial boot setup
@@ -4010,17 +4009,95 @@ function paint($) {
   // what we actually want for login and signup is pal.signup / pal.login
   // currently gives an error, I think because of paint (works fine with ink)
   if (!net.sandboxed) {
-    if (!login?.btn.disabled) {
-      login?.paint($, $.dark ? scheme.dark.login : scheme.light.login);
+    if (login && !login.btn.disabled) {
+      // Draw waveform visualization behind login button
+      if ($.sound.speaker?.waveforms?.left && $.sound.speaker?.amplitudes?.left !== undefined) {
+        const hasSignal = $.sound.speaker.amplitudes.left > 0.001;
+        
+        if (hasSignal) {
+          const waveX = login.btn.box.x;
+          const waveY = login.btn.box.y;
+          const waveW = login.btn.box.w;
+          const waveH = login.btn.box.h;
+          
+          // Draw waveform with subtle transparency
+          $.sound.paint.waveform(
+            $,
+            $.sound.speaker.amplitudes.left,
+            $.sound.speaker.waveforms.left,
+            waveX,
+            waveY,
+            waveW,
+            waveH,
+            $.dark ? [0, 255, 200, 32] : [255, 100, 200, 32], // Cyan in dark mode, pink in light mode
+            { center: true }
+          );
+        }
+      }
+      
+      login.paint($, $.dark ? scheme.dark.login : scheme.light.login);
     }
   }
 
   if (!net.iframe) {
-    if (!signup?.btn.disabled) {
-      signup?.paint($, $.dark ? scheme.dark.signup : scheme.light.signup);
+    if (signup && !signup.btn.disabled) {
+      // Draw waveform visualization behind signup button too
+      if ($.sound.speaker?.waveforms?.left && $.sound.speaker?.amplitudes?.left !== undefined) {
+        const hasSignal = $.sound.speaker.amplitudes.left > 0.001;
+        
+        if (hasSignal) {
+          const waveX = signup.btn.box.x;
+          const waveY = signup.btn.box.y;
+          const waveW = signup.btn.box.w;
+          const waveH = signup.btn.box.h;
+          
+          // Draw waveform with subtle transparency
+          $.sound.paint.waveform(
+            $,
+            $.sound.speaker.amplitudes.left,
+            $.sound.speaker.waveforms.left,
+            waveX,
+            waveY,
+            waveW,
+            waveH,
+            $.dark ? [255, 150, 0, 32] : [255, 200, 0, 32], // Orange tones
+            { center: true }
+          );
+        }
+      }
+      
+      signup.paint($, $.dark ? scheme.dark.signup : scheme.light.signup);
     }
   }
-  if (!profile?.btn.disabled) {
+  if (profile && !profile.btn.disabled) {
+    // Draw full-width waveform visualization behind profile button
+    if ($.sound.speaker?.waveforms?.left && $.sound.speaker?.amplitudes?.left !== undefined) {
+      const hasSignal = $.sound.speaker.amplitudes.left > 0.001;
+      
+      if (hasSignal) {
+        // Full screen width, positioned at button's Y location
+        const waveX = 0;
+        const waveY = profile.btn.box.y;
+        const waveW = $.screen.width;
+        const waveH = profile.btn.box.h;
+        
+        // console.log(`🎵 Drawing full-width waveform behind @${$.handle()} button - amplitude: ${$.sound.speaker.amplitudes.left.toFixed(3)}`);
+        
+        // Draw waveform with subtle transparency
+        $.sound.paint.waveform(
+          $,
+          $.sound.speaker.amplitudes.left,
+          $.sound.speaker.waveforms.left,
+          waveX,
+          waveY,
+          waveW,
+          waveH,
+          $.dark ? [0, 255, 200, 32] : [255, 100, 200, 32], // Cyan in dark mode, pink in light mode
+          { center: true }
+        );
+      }
+    }
+    
     if (
       profileAction === "resend-verification" ||
       profileAction === "set-handle"
@@ -4085,6 +4162,12 @@ function paint($) {
 function sim($) {
   ellipsisTicker?.sim();
   progressTrick?.step();
+  
+  // Poll audio speaker for waveform visualization
+  if ($.sound.speaker) {
+    $.sound.speaker.poll();
+  }
+  
   if (!login?.btn.disabled || !profile?.btn.disabled) {
     starfield.sim($);
     $.needsPaint();
