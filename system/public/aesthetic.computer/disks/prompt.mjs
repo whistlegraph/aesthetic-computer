@@ -4406,6 +4406,9 @@ function act({
           // Set prompt input text to show what's loading (like typing and pressing enter)
           system.prompt.input.text = destination;
           
+          // Move cursor to end of input (like after typing)
+          system.prompt.input.snap();
+          
           // Jump to the destination
           jump(destination);
         } else {
