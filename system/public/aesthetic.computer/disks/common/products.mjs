@@ -140,81 +140,15 @@ class Product {
 
   // Handle button interactions with events
   act($, event, callbacks = {}) {
-    // Update main button (record or book image)
-    if (this.button && event) {
-      this.button.act(event, {
-        over: () => {
-          if (callbacks.over) callbacks.over();
-          $.needsPaint?.();
-        },
-        down: () => {
-          if (callbacks.down) callbacks.down();
-        },
-        push: () => {
-          // Special behavior for records with audio: play/pause toggle
-          if (this.type === 'record' && this.audio) {
-            console.log('🎵 Record clicked - audio available:', !!this.audio, 'sound API:', !!$.sound, 'isPlaying:', this.isPlaying);
-            
-            if (!$.sound) {
-              console.warn('🎵 No sound API available - cannot play audio');
-              return;
-            }
-            
-            if (this.isPlaying) {
-              // Pause playback
-              this.isPlaying = false;
-              this.isBuffering = false;
-              if (this.audioSfx) {
-                this.audioSfx.kill?.(0.2);
-                this.audioSfx = null;
-              }
-              console.log(`⏸️ Paused ${this.title}`);
-            } else {
-              // Start playback
-              this.isBuffering = true;
-              this.isPlaying = true;
-              
-              this.audioSfx = $.sound.play(this.audio, { loop: true, volume: 0.7 });
-              console.log(`▶️ Playing ${this.title}`);
-              
-              // Clear buffering state after a short delay
-              setTimeout(() => {
-                this.isBuffering = false;
-              }, 500);
-            }
-            return;
-          }
-          
-          // For non-audio products, just open the shop URL (skip flash callback to avoid gizmo error)
-          // The flash effect requires $.gizmo which isn't available in the products module
-          
-          // Default behavior for books or records without audio: open shop URL
-          if (this.shopUrl) {
-            if ($.net?.iframe) {
-              $.send?.({
-                type: "post-to-parent",
-                content: {
-                  type: "openExternal",
-                  url: this.shopUrl
-                }
-              });
-            } else {
-              if ($.jump) {
-                $.jump(this.shopUrl);
-              } else {
-                window.open(this.shopUrl, "_blank");
-              }
-            }
-          }
-        },
-        cancel: () => {
-          if (callbacks.cancel) callbacks.cancel();
-        }
-      });
-    }
+    // Check if buy button should handle this event (buy button takes precedence)
+    const buyButtonHandlesEvent = this.buyButton && 
+                                   !this.buyButton.disabled && 
+                                   this.buyButton.box && 
+                                   event && 
+                                   this.buyButton.box.contains(event);
     
-    // Update BUY button if it exists (for records when playing)
-    if (this.buyButton && event) {
+    // BUY button takes precedence - process it first if it's the target
+    if (buyButtonHandlesEvent) {
       this.buyButton.act(event, {
         over: () => {
           $.needsPaint?.();
@@ -243,13 +177,114 @@ class Product {
           }
         },
         cancel: () => {
-          // Dragged off button - don't trigger, but close curtain
-          if (callbacks.cancel) callbacks.cancel();
+          // Dragged off button - just update display, don't close curtain
           $.needsPaint?.();
         },
         out: () => {
-          // Mouse left button area - don't trigger, but close curtain
-          if (callbacks.out) callbacks.out();
+          // Mouse left button - just update display, don't close curtain
+          $.needsPaint?.();
+        }
+      });
+      return; // Don't process record button if buy button handled the event
+    }
+    
+    // Update main button (record or book image) - only if buy button didn't handle the event
+    if (this.button && event && !this.button.disabled) {
+      // Skip if buy button is already down (buy button takes precedence)
+      if (this.buyButton?.down) return;
+      
+      this.button.act(event, {
+        over: () => {
+          if (callbacks.over) callbacks.over();
+          $.needsPaint?.();
+        },
+        down: () => {
+          if (callbacks.down) callbacks.down();
+        },
+        push: () => {
+          // Special behavior for records with audio: play/pause toggle
+          if (this.type === 'record' && this.audio) {
+            console.log('🎵 Record clicked - audio available:', !!this.audio, 'sound API:', !!$.sound, 'isPlaying:', this.isPlaying);
+            
+            if (!$.sound) {
+              console.warn('🎵 No sound API available - cannot play audio');
+              return;
+            }
+            
+            if (this.isPlaying) {
+              // Pause playback
+              this.isPlaying = false;
+              this.isBuffering = false;
+              if (this.audioSfx) {
+                this.audioSfx.kill?.(0.2);
+                this.audioSfx = null;
+              }
+              console.log(`⏸️ Paused ${this.title}`);
+              
+              // Pause sound - simple click
+              $.sound.synth({
+                type: "sine",
+                tone: 330, // E4
+                duration: 0.04,
+                volume: 0.15,
+                attack: 0.01,
+                decay: 0.01,
+              });
+            } else {
+              // Start playback
+              this.isBuffering = true;
+              this.isPlaying = true;
+              
+              // Start 1 second into the track to skip silence
+              this.audioSfx = $.sound.play(this.audio, { 
+                loop: true, 
+                volume: 0.7,
+                start: 1.0 // Skip first second
+              });
+              console.log(`▶️ Playing ${this.title}`);
+              
+              // Play sound - ascending synth
+              $.sound.synth({
+                type: "sine",
+                tone: 440, // A4
+                duration: 0.08,
+                volume: 0.15,
+                attack: 0.02,
+                decay: 0.03,
+              });
+              
+              // Clear buffering state quickly
+              setTimeout(() => {
+                this.isBuffering = false;
+              }, 100); // Reduced from 500ms to 100ms
+            }
+            return;
+          }
+          
+          // For non-audio products, just open the shop URL (skip flash callback to avoid gizmo error)
+          // The flash effect requires $.gizmo which isn't available in the products module
+          
+          // Default behavior for books or records without audio: open shop URL
+          if (this.shopUrl) {
+            if ($.net?.iframe) {
+              $.send?.({
+                type: "post-to-parent",
+                content: {
+                  type: "openExternal",
+                  url: this.shopUrl
+                }
+              });
+            } else {
+              if ($.jump) {
+                $.jump(this.shopUrl);
+              } else {
+                window.open(this.shopUrl, "_blank");
+              }
+            }
+          }
+        },
+        cancel: () => {
+          // Dragged off button - just update display, don't close curtain
           $.needsPaint?.();
         }
       });
@@ -517,6 +552,79 @@ class Product {
       center: true // Ensure center-based transformation
     });
     
+    // Draw waveform behind login button when record is playing (full screen width)
+    if ((this.isPlaying || this.isBuffering) && $.login && $.login.btn && $.login.btn.box) {
+      const loginBox = $.login.btn.box;
+      const yMid = loginBox.y + loginBox.h / 2;
+      
+      // Get real audio data from speaker
+      const amplitude = $.sound?.speaker?.amplitudes?.left;
+      const waveform = $.sound?.speaker?.waveforms?.left;
+      
+      // Check if waveform has actual data (not all zeros)
+      const hasSignal = amplitude !== undefined && 
+                        waveform && 
+                        waveform.length > 0 && 
+                        waveform.some(v => Math.abs(v) > 0.01);
+      
+      // Color cycling: pink -> magenta -> cyan -> pink
+      const colorPhase = (this.rotation * 0.05) % 3;
+      let r, g, b;
+      
+      if (colorPhase < 1) {
+        // Pink to Magenta
+        const mix = colorPhase;
+        r = 255;
+        g = floor(192 * (1 - mix));
+        b = floor(203 + 52 * mix);
+      } else if (colorPhase < 2) {
+        // Magenta to Cyan
+        const mix = colorPhase - 1;
+        r = floor(255 * (1 - mix));
+        g = floor(255 * mix);
+        b = 255;
+      } else {
+        // Cyan to Pink
+        const mix = colorPhase - 2;
+        r = floor(255 * mix);
+        g = floor(255 * (1 - mix) + 192 * mix);
+        b = floor(255 * (1 - mix) + 203 * mix);
+      }
+      
+      if (hasSignal) {
+        // Real audio waveform: bigger amplitude, more transparent
+        const xStep = screen.width / (waveform.length - 1);
+        
+        // Boost amplitude by 2.5x for more visible waves
+        const amplitudeBoost = 2.5;
+        const yMax = (loginBox.h / 2) * amplitudeBoost;
+        
+        // Draw with transparency (alpha 80)
+        const points = waveform.map((v, i) => [
+          floor(i * xStep),
+          floor(yMid + (v || 0) * yMax)
+        ]);
+        
+        $.ink(r, g, b, 80).poly(points);
+      } else {
+        // Animated placeholder while buffering/loading
+        const numBars = 40;
+        const barWidth = screen.width / numBars;
+        const time = this.rotation * 0.1;
+        
+        for (let i = 0; i < numBars; i++) {
+          const phase = (i / numBars) * Math.PI * 2 + time;
+          const amplitude = (Math.sin(phase) + Math.sin(phase * 2.3) + Math.sin(phase * 0.7)) / 3;
+          const barHeight = Math.abs(amplitude) * (loginBox.h * 0.6);
+          const y = yMid - barHeight / 2;
+          
+          // Pulsing alpha for loading effect
+          const pulseAlpha = floor(60 + 40 * (Math.sin(time * 2) * 0.5 + 0.5));
+          $.ink(r, g, b, pulseAlpha).line(floor(i * barWidth), floor(y), floor(i * barWidth), floor(y + barHeight));
+        }
+      }
+    }
+    
     // Center control: play triangle / pause / streaming
     const isShowingTriangle = !this.isPlaying && !this.isBuffering;
     
@@ -645,6 +753,7 @@ class Product {
     // Create or update BUY button
     if (!this.buyButton) {
       this.buyButton = new $.ui.Button(buyX, buyY, buyW + buyPaddingLeft + buyPaddingRight, buyH + buyPaddingTop + buyPaddingBottom);
+      this.buyButton.stickyScrubbing = true; // Prevent drag-off from closing curtain
     } else {
       this.buyButton.disabled = false;
       this.buyButton.box.x = buyX;
@@ -877,7 +986,7 @@ products.book = new Product({
 // Record Product
 products.record = new Product({
   type: 'record',
-  title: 'BakTok 7"',
+  title: 'BakTok 7" Vinyl',
   byline: 'by @prutti',
   price: '$50 USD',
   imageUrl: 'https://assets.aesthetic.computer/pruttipal/laer-klokken/baktok-record.png',
@@ -911,9 +1020,12 @@ export function getActiveProduct() {
   return products[activeProductKey];
 }
 
-export function sim() {
+export function sim($) {
   const product = getActiveProduct();
   if (product) product.sim();
+  
+  // Poll speaker for audio data (amplitude and waveform)
+  $.sound?.speaker?.poll();
 }
 
 export function act($, event, callbacks) {
@@ -925,18 +1037,25 @@ export function paint($, screen, showLoginCurtain) {
   const product = getActiveProduct();
   
   // 🎚️ Volume ducking: Adjust audio volume when curtain state changes
-  if (product && product.audioSfx && product.isPlaying) {
+  if (product && product.audioSfx && product.isPlaying && !product.audioSfx.killed) {
     if (previousCurtainState !== null && previousCurtainState !== showLoginCurtain) {
-      // Curtain state changed - dip or restore volume
+      // Curtain state changed - restart with new volume
       const targetVolume = showLoginCurtain ? 0.7 : 0.3; // Full volume on curtain, ducked when not
-      console.log(`🎚️ Curtain changed (${previousCurtainState} → ${showLoginCurtain}), adjusting volume to ${targetVolume}`);
+      console.log(`🎚️ Curtain changed (${previousCurtainState} → ${showLoginCurtain}), restarting with volume ${targetVolume}`);
       
-      // Use update method if available (like synth), otherwise set volume property
-      if (typeof product.audioSfx.update === 'function') {
-        product.audioSfx.update({ volume: targetVolume, duration: 0.3 });
-      } else if (product.audioSfx.volume !== undefined) {
-        product.audioSfx.volume = targetVolume;
-      }
+      // Kill current sound with quick fade and restart with new volume
+      product.audioSfx.kill(0.1); // 0.1 second fade out
+      
+      // Restart with new volume after a brief delay
+      setTimeout(() => {
+        if (product.isPlaying && product.audio) {
+          product.audioSfx = $.sound.play(product.audio, { 
+            loop: true, 
+            volume: targetVolume,
+            start: 1.0 // Skip first second
+          });
+        }
+      }, 100); // 100ms delay to allow fade out
     }
   }
   
