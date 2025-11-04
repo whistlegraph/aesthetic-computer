@@ -73,8 +73,9 @@ let audioManuallyActivated = false; // Track if user has manually activated audi
 
 // Scrubbing state
 let isScrubbing = false;
-let scrubProgress = 0;
-let wasPlayingBeforeScrub = false;
+let scrubSpeed = 1.0; // Playback speed multiplier
+let scrubVelocity = 0; // Track scrub velocity for inertia
+let inertiaActive = false;
 
 const buttonBottom = 6;
 const buttonLeft = 6;
@@ -235,15 +236,8 @@ function boot({ wipe, rec, gizmo, jump, notice, store, params, send, hud }) {
         tapeLoadProgress = 0;
         tapeLoadMessage = "DOWNLOADING ZIP";
         
-        // Construct ZIP URL based on bucket and user
-        let zipUrl;
-        if (metadata.bucket === 'user-aesthetic-computer' && metadata.user) {
-          // User tape: include user ID and /video/ subdirectory
-          zipUrl = `https://user-aesthetic-computer.sfo3.digitaloceanspaces.com/${encodeURIComponent(metadata.user)}/video/${metadata.slug}.zip`;
-        } else {
-          // Guest tape: direct slug
-          zipUrl = `https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/${metadata.slug}.zip`;
-        }
+        // Use /media endpoint which handles tape resolution via code
+        const zipUrl = `${location.origin}/media/tapes/${tapeCode}`;
         
         console.log("📦 Requesting tape playback from bios:", zipUrl);
         
@@ -1613,36 +1607,41 @@ function act({
       zipBtn?.down;
     
     if (!anyButtonDown && !isPrinting && !isPostingTape && rec.presenting) {
-      // Detect drag/scrub movement
-      if (e.is("move") && e.delta && (Math.abs(e.delta.x) > 2 || e.drag)) {
-        // Mark as scrubbing if there's significant movement
-        if (!e.scrubbing && Math.abs(e.delta.x) > 5) {
-          e.scrubbing = true;
+      // Scrub when dragging (adjust playback speed based on drag velocity)
+      if (e.drag && Math.abs(e.delta.x) > 0) {
+        if (!isScrubbing) {
           isScrubbing = true;
-          wasPlayingBeforeScrub = rec.playing; // Remember playback state
-          console.log(`📼 🎯 SCRUB MODE ACTIVATED (was ${wasPlayingBeforeScrub ? 'playing' : 'paused'})`);
+          console.log(`📼 🎯 SCRUB MODE ACTIVATED`);
         }
         
-        if (e.scrubbing) {
-          // Calculate seek position based on horizontal position
-          // Map screen width to 0.0-1.0 progress
-          const progress = Math.max(0, Math.min(1, e.x / screen.width));
-          scrubProgress = progress;
-          
-          console.log(`📼 🎯 Scrubbing: x=${e.x}, progress=${(progress * 100).toFixed(1)}%`);
-          
-          // Send seek message to bios (don't pause - let it scrub while playing)
-          send({ type: "recorder:present:seek", content: progress });
-          triggerRender();
-        }
+        // Calculate speed based on drag velocity (like stample's pitch shift)
+        // Positive delta.x = scrub forward, negative = scrub backward
+        const speedAdjustment = e.delta.x * 0.02; // Sensitivity factor
+        scrubVelocity = speedAdjustment;
+        scrubSpeed = Math.max(-2, Math.min(2, 1.0 + speedAdjustment));
+        
+        console.log(`📼 🎯 Scrubbing: delta=${e.delta.x}, speed=${scrubSpeed.toFixed(2)}x`);
+        
+        // Send speed adjustment to bios
+        send({ type: "recorder:present:speed", content: scrubSpeed });
+        triggerRender();
       }
       
       // Handle touch end - only toggle play/pause if it was a tap (not a scrub)
-      if (e.is("touch:1")) {
-        if (e.scrubbing) {
-          // Scrub ended - don't change play/pause state, just exit scrub mode
-          console.log("📼 🎯 SCRUB MODE ENDED (maintaining playback state)");
-          e.scrubbing = false;
+      if (e.is("lift")) {
+        if (isScrubbing) {
+          // Scrub ended - apply inertia
+          console.log("📼 🎯 SCRUB MODE ENDED");
+          
+          if (Math.abs(scrubVelocity) > 0.01) {
+            inertiaActive = true;
+            console.log(`📼 💨 Starting inertia with velocity: ${scrubVelocity.toFixed(3)}`);
+          } else {
+            // Reset to normal speed if velocity is low
+            scrubSpeed = 1.0;
+            send({ type: "recorder:present:speed", content: 1.0 });
+          }
+          
           isScrubbing = false;
         } else {
           // Regular tap - toggle play/pause
@@ -1665,6 +1664,29 @@ function act({
           }
         }
       }
+    }
+    
+    // Apply inertia after scrub ends
+    if (inertiaActive && !isScrubbing && rec.presenting) {
+      // Apply velocity to speed
+      scrubSpeed = Math.max(-2, Math.min(2, scrubSpeed + scrubVelocity));
+      
+      // Send speed with inertia
+      send({ type: "recorder:present:speed", content: scrubSpeed });
+      
+      // Apply friction
+      scrubVelocity *= 0.92;
+      
+      // Stop inertia when velocity is very small and return to normal speed
+      if (Math.abs(scrubVelocity) < 0.005) {
+        inertiaActive = false;
+        scrubVelocity = 0;
+        scrubSpeed = 1.0;
+        send({ type: "recorder:present:speed", content: 1.0 });
+        console.log("📼 💤 Inertia stopped - back to normal speed");
+      }
+      
+      triggerRender();
     }
   }
 }
