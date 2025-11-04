@@ -87,6 +87,7 @@ import {
 } from "../lib/kidlisp.mjs";
 import * as products from "./common/products.mjs";
 const { abs, max, min } = Math;
+const { floor } = Math;
 const { keys } = Object;
 
 // Error / feedback flash on command entry.
@@ -2728,7 +2729,7 @@ function paint($) {
     if (motd && screen.height >= 180) {
       // Calculate approximate MOTD bounding box with more aggressive wrapping
       const motdMaxWidth = Math.min(screen.width - 18, 150); // Cap at 150px for much tighter wrapping
-      const motdY = screen.height / 2 - 48;
+      const motdY = screen.height / 2 - 64; // Moved up closer to top
       const motdCharWidth = 6; // Default font char width
       const motdLineHeight = 10; // Default font line height
       const motdLines = Math.ceil((motd.length * motdCharWidth) / motdMaxWidth);
@@ -3690,17 +3691,22 @@ function paint($) {
     }
     
     // 2. CONTENT TICKER (combined $kidlisp, #painting, !tape)
-    if (contentItems.length > 0 && screen.height >= 220) {
+    const showContentTicker = screen.height >= 220;
+    const contentIsLoading = contentItems.length === 0;
+    
+    if (showContentTicker && (contentItems.length > 0 || contentIsLoading)) {
       const contentTickerY = currentTickerY;
       
       // Build text with prefixes: $ for kidlisp, # for painting, ! for tape
-      const fullText = contentItems.map(item => {
-        const prefix = item.type === 'kidlisp' ? '$' : item.type === 'painting' ? '#' : '!';
-        return `${prefix}${item.code}`;
-      }).join(" · ");
+      const fullText = contentItems.length > 0 
+        ? contentItems.map(item => {
+            const prefix = item.type === 'kidlisp' ? '$' : item.type === 'painting' ? '#' : '!';
+            return `${prefix}${item.code}`;
+          }).join(" · ")
+        : ""; // Empty when loading
       
       // Create or update content ticker instance
-      if (!contentTicker) {
+      if (!contentTicker && contentItems.length > 0) {
         contentTicker = new $.gizmo.Ticker(fullText, {
           speed: 1, // 1px per frame
           separator: " · ",
@@ -3708,12 +3714,12 @@ function paint($) {
         });
         contentTicker.paused = false;
         contentTicker.offset = 100; // Offset by 100px for stagger
-      } else {
+      } else if (contentTicker && contentItems.length > 0) {
         contentTicker.setText(fullText);
       }
       
-      // Update ticker animation
-      if (!contentTicker.paused) {
+      // Update ticker animation (only if content is loaded)
+      if (contentTicker && !contentTicker.paused && contentItems.length > 0) {
         contentTicker.update($);
       }
       
@@ -3747,53 +3753,144 @@ function paint($) {
         // Bottom border (1px, non-overlapping)
         ink([200, 200, 200, 255]).line(0, boxY + boxHeight - 1, screen.width, boxY + boxHeight - 1);
         
-        // Now render the text with color-coded prefixes
-        // We need to manually render each item with its own color
-        const textY = contentTickerY + 1;
-        const contentTickerAlpha = contentTickerButton.down ? 255 : 220;
-        
-        // Calculate positions for each item manually
-        let currentX = -contentTicker.getOffset();
-        const displayWidth = screen.width;
-        const separator = " · ";
-        
-        // Render items multiple times to fill the screen (cycling)
-        const cycleWidth = contentTicker.getCycleWidth();
-        const numCycles = Math.ceil((displayWidth + cycleWidth) / cycleWidth) + 1;
-        
-        for (let cycle = 0; cycle < numCycles; cycle++) {
-          contentItems.forEach((item, idx) => {
-            const prefix = item.type === 'kidlisp' ? '$' : item.type === 'painting' ? '#' : '!';
-            const text = `${prefix}${item.code}`;
+        // If loading (no content yet), show Matrix-style characters instead of text
+        if (contentItems.length === 0) {
+          const yMid = boxY + boxHeight / 2;
+          const textY = contentTickerY + 1;
+          
+          // Matrix-style random characters - use a variety of colorful symbols
+          const chars = "!@#$%^&*()_+-=[]{}|;:,.<>?~/\\`'\"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+          const charWidth = 5; // MatrixChunky8 character width + 1px spacing
+          const numChars = floor(screen.width / charWidth);
+          
+          // Shift every frame (60fps)
+          const framePhase = motdFrame;
+          
+          for (let i = 0; i < numChars; i++) {
+            // Create stable character per position that changes every frame
+            const baseCharIndex = (i * 7919) % chars.length;
+            const shiftOffset = (framePhase + i * 13) % chars.length;
+            const charIndex = (baseCharIndex + shiftOffset) % chars.length;
+            const char = chars[charIndex];
+            const x = i * charWidth;
             
-            // Color-code by type
-            let color;
-            if (item.type === 'kidlisp') {
-              color = [150, 255, 150]; // Bright lime green
-            } else if (item.type === 'painting') {
-              color = [255, 150, 255]; // Bright magenta
-            } else { // tape
-              color = [255, 200, 100]; // Bright orange/yellow
+            // Mostly greens and reds - weighted color selection
+            const colorSeed = (i * 17 + framePhase) % 10;
+            let r, g, b;
+            
+            if (colorSeed < 4) {
+              // Green variants (40%)
+              r = 50 + (colorSeed * 30);
+              g = 200 + (colorSeed * 13);
+              b = 50 + (colorSeed * 20);
+            } else if (colorSeed < 8) {
+              // Red variants (40%)
+              r = 200 + ((colorSeed - 4) * 13);
+              g = 50 + ((colorSeed - 4) * 30);
+              b = 50 + ((colorSeed - 4) * 20);
+            } else {
+              // Yellow/orange accent (20%)
+              r = 220 + (colorSeed * 5);
+              g = 200 + (colorSeed * 5);
+              b = 50;
             }
             
-            // Only render if visible
-            if (currentX > -100 && currentX < displayWidth + 100) {
-              ink(color, contentTickerAlpha).write(text, { x: currentX, y: textY });
-            }
+            // Gentle alpha pulsing
+            const pulse = Math.sin(motdFrame * 0.05 + i * 0.3) * 20;
+            const alpha = 180 + pulse;
             
-            // Move to next position
-            const textWidth = $.text.box(text).box.width;
-            currentX += textWidth;
-            
-            // Add separator after each item (except potentially the last in a cycle)
-            if (idx < contentItems.length - 1 || cycle < numCycles - 1) {
-              if (currentX > -100 && currentX < displayWidth + 100) {
-                ink([150, 150, 150], contentTickerAlpha).write(separator, { x: currentX, y: textY });
+            ink([r, g, b, alpha]).write(char, { x, y: textY });
+          }
+        } else if (contentTicker) {
+          // Show ticker content when loaded (only if ticker exists)
+          // Now render the text with color-coded prefixes
+          // We need to manually render each item with its own color
+          const textY = contentTickerY + 1;
+          const contentTickerAlpha = contentTickerButton.down ? 255 : 220;
+          
+          // Calculate positions for each item manually and track for hover detection
+          let currentX = -contentTicker.getOffset();
+          const displayWidth = screen.width;
+          const separator = " · ";
+          
+          // Track item positions for hover detection
+          const itemPositions = [];
+          let hoveredItemIndex = -1;
+          
+          // Render items multiple times to fill the screen (cycling)
+          const cycleWidth = contentTicker.getCycleWidth();
+          const numCycles = Math.ceil((displayWidth + cycleWidth) / cycleWidth) + 1;
+          
+          for (let cycle = 0; cycle < numCycles; cycle++) {
+            contentItems.forEach((item, idx) => {
+              const prefix = item.type === 'kidlisp' ? '$' : item.type === 'painting' ? '#' : '!';
+              const text = `${prefix}${item.code}`;
+              
+              // Color-code by type
+              let color;
+              if (item.type === 'kidlisp') {
+                color = [150, 255, 150]; // Bright lime green
+              } else if (item.type === 'painting') {
+                color = [255, 150, 255]; // Bright magenta
+              } else { // tape
+                color = [255, 200, 100]; // Bright orange/yellow
               }
-              const sepWidth = $.text.box(separator).box.width;
-              currentX += sepWidth;
-            }
-          });
+              
+              const textWidth = $.text.box(text).box.width;
+              
+              // Check if mouse is hovering over this item (only check first cycle)
+              // Use $.pen for mouse position (available in paint context)
+              const mouseX = $.pen?.x ?? -1;
+              const mouseY = $.pen?.y ?? -1;
+              const isHovered = cycle === 0 && 
+                               mouseX >= currentX && 
+                               mouseX < currentX + textWidth &&
+                               mouseY >= boxY &&
+                               mouseY < boxY + boxHeight;
+              
+              if (isHovered && cycle === 0) {
+                hoveredItemIndex = idx;
+              }
+              
+              // Only render if visible
+              if (currentX > -100 && currentX < displayWidth + 100) {
+                // Brighter and add background if hovered
+                if (isHovered && !contentTickerButton.down) {
+                  // Bright hover background
+                  ink([255, 255, 255, 40]).box(currentX, boxY, textWidth, boxHeight - 1);
+                  // Brighter text when hovered
+                  ink(color, 255).write(text, { x: currentX, y: textY });
+                } else {
+                  ink(color, contentTickerAlpha).write(text, { x: currentX, y: textY });
+                }
+              }
+              
+              // Store position for click detection (only first cycle)
+              if (cycle === 0) {
+                itemPositions.push({
+                  x: currentX,
+                  width: textWidth,
+                  item: item,
+                  index: idx
+                });
+              }
+              
+              // Move to next position
+              currentX += textWidth;
+              
+              // Add separator after each item (except potentially the last in a cycle)
+              if (idx < contentItems.length - 1 || cycle < numCycles - 1) {
+                if (currentX > -100 && currentX < displayWidth + 100) {
+                  ink([150, 150, 150], contentTickerAlpha).write(separator, { x: currentX, y: textY });
+                }
+                const sepWidth = $.text.box(separator).box.width;
+                currentX += sepWidth;
+              }
+            });
+          }
+          
+          // Store hovered item for click handler
+          contentTickerButton.hoveredItemIndex = hoveredItemIndex;
         }
       }
       
@@ -3868,7 +3965,7 @@ function paint($) {
     if (motd && screen.height >= 180) {
       // Subtle sway (up and down)
       const swayY = Math.sin(motdFrame * 0.05) * 2; // 2 pixel sway range
-      const motdY = screen.height / 2 - 36 + swayY; // 12px closer to login button (changed from -48 to -36)
+      const motdY = screen.height / 2 - 48 + swayY; // Moved up 12px closer to top (changed from -36 back to -48)
       
       // Create colorful blinking letters
       let coloredText = "";
@@ -4000,7 +4097,7 @@ function sim($) {
   if (showLoginCurtain) {
     const product = products.getActiveProduct();
     if (product && product.imageScaled) {
-      products.sim();
+      products.sim($);
       $.needsPaint();
     }
   }
@@ -4299,10 +4396,18 @@ function act({
         }
         
         if (!contentTickerButton.hasScrubbed && contentItems.length > 0) {
-          // Jump to first content item
-          const item = contentItems[0];
+          // Jump to hovered item if one was hovered, otherwise first item
+          const targetIndex = contentTickerButton.hoveredItemIndex >= 0 ? 
+                              contentTickerButton.hoveredItemIndex : 0;
+          const item = contentItems[targetIndex];
           const prefix = item.type === 'kidlisp' ? '$' : item.type === 'painting' ? '#' : '!';
-          jump(`${prefix}${item.code}`);
+          const destination = `${prefix}${item.code}`;
+          
+          // Set prompt input text to show what's loading (like typing and pressing enter)
+          system.prompt.input.text = destination;
+          
+          // Jump to the destination
+          jump(destination);
         } else {
           if (contentTicker) {
             contentTicker.paused = false;
@@ -4335,6 +4440,9 @@ function act({
     ((login?.btn.disabled === false && login?.btn.box.contains(e)) ||
       (signup?.btn.disabled === false && signup?.btn.box.contains(e)) ||
       (products.getActiveProduct()?.button?.disabled === false && products.getActiveProduct()?.button?.box.contains(e)) ||
+      (products.getActiveProduct()?.buyButton?.disabled === false && products.getActiveProduct()?.buyButton?.box.contains(e)) ||
+      (chatTickerButton?.disabled === false && chatTickerButton?.box.contains(e)) ||
+      (contentTickerButton?.disabled === false && contentTickerButton?.box.contains(e)) ||
       (profile?.btn.disabled === false &&
         profile?.btn.box.contains(e) &&
         profileAction === "profile"))
@@ -4645,8 +4753,8 @@ async function fetchContentItems(api) {
         });
       }
       
-      // Shuffle the combined array for variety
-      contentItems = items.sort(() => Math.random() - 0.5);
+      // Keep items in original order (most recent first from API)
+      contentItems = items;
       console.log("✅ Content items loaded:", contentItems.length, 
                   `(${items.filter(i => i.type === 'kidlisp').length} kidlisp, ` +
                   `${items.filter(i => i.type === 'painting').length} paintings, ` +
