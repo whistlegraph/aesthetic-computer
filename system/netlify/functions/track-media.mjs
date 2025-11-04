@@ -175,7 +175,9 @@ export async function handler(event, context) {
           // Don't encodeURIComponent - S3 keys with | chars are valid and Spaces rejects %7C encoding
           const zipUrl = `https://${record.bucket}.sfo3.digitaloceanspaces.com/${key}`;
           
-          const ovenUrl = isDev ? 'https://localhost:3002' : (process.env.OVEN_URL || 'https://oven.aesthetic.computer');
+          // Always use production oven so tapes are synced across dev/prod
+          // Can override with OVEN_URL env var if needed for local oven testing
+          const ovenUrl = process.env.OVEN_URL || 'https://oven.aesthetic.computer';
           const callbackUrl = `${baseUrl}/api/oven-complete`;
           const callbackSecret = process.env.OVEN_CALLBACK_SECRET;
           
