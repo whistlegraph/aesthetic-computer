@@ -1612,6 +1612,14 @@ async function halt($, text) {
     }
     makeFlash($, clear);
     return true;
+  } else if (slug === "admin:shop") {
+    jump("https://admin.shopify.com");
+    makeFlash($);
+    return true;
+  } else if (slug === "admin:shop-editor") {
+    jump("https://admin.shopify.com/store/aesthetic-computer/themes/141869547701");
+    makeFlash($);
+    return true;
   } else if (slug.startsWith("admin:migrate-")) {
     // Usage: `admin:migrate-painting`
     //        `admin:migrate-piece`
