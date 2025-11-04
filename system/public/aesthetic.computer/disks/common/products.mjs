@@ -58,12 +58,15 @@ class Product {
       if (this.type === 'record' && this.audioUrl) {
         try {
           // Detect platform for audio format (Safari uses m4a, others use ogg)
-          const ext = api.platform?.Safari ? 'm4a' : 'ogg';
+          const isSafari = api.platform?.Safari || false;
+          const ext = isSafari ? 'm4a' : 'ogg';
           const audioUrlWithExt = this.audioUrl.replace(/\.(ogg|m4a)$/, `.${ext}`);
+          console.log(`🎵 Loading audio for ${this.title} (Safari: ${isSafari}, ext: ${ext})`);
+          console.log(`🎵 Audio URL: ${audioUrlWithExt}`);
           this.audio = await net.preload(audioUrlWithExt);
-          console.log(`🎵 Loaded audio for ${this.title}`);
+          console.log(`🎵 ✅ Loaded audio for ${this.title}`);
         } catch (err) {
-          console.warn(`🎵 Could not load audio for ${this.title}:`, err);
+          console.warn(`🎵 ❌ Could not load audio for ${this.title}:`, err);
         }
       }
       
@@ -1039,23 +1042,17 @@ export function paint($, screen, showLoginCurtain) {
   // 🎚️ Volume ducking: Adjust audio volume when curtain state changes
   if (product && product.audioSfx && product.isPlaying && !product.audioSfx.killed) {
     if (previousCurtainState !== null && previousCurtainState !== showLoginCurtain) {
-      // Curtain state changed - restart with new volume
+      // Curtain state changed - adjust volume smoothly
       const targetVolume = showLoginCurtain ? 0.7 : 0.3; // Full volume on curtain, ducked when not
-      console.log(`🎚️ Curtain changed (${previousCurtainState} → ${showLoginCurtain}), restarting with volume ${targetVolume}`);
+      console.log(`🎚️ Curtain changed (${previousCurtainState} → ${showLoginCurtain}), adjusting volume to ${targetVolume}`);
       
-      // Kill current sound with quick fade and restart with new volume
-      product.audioSfx.kill(0.1); // 0.1 second fade out
-      
-      // Restart with new volume after a brief delay
-      setTimeout(() => {
-        if (product.isPlaying && product.audio) {
-          product.audioSfx = $.sound.play(product.audio, { 
-            loop: true, 
-            volume: targetVolume,
-            start: 1.0 // Skip first second
-          });
-        }
-      }, 100); // 100ms delay to allow fade out
+      // Smoothly adjust volume instead of restarting
+      if (product.audioSfx.fade) {
+        product.audioSfx.fade(targetVolume, 0.2); // Fade to target volume over 0.2 seconds
+      } else {
+        // Fallback if fade not available: set volume directly
+        product.audioSfx.volume = targetVolume;
+      }
     }
   }
   
