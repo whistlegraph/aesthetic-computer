@@ -5,7 +5,7 @@
 /* #region 📚 README
   🎄 Merry Pipeline System
   - Chain pieces together with configurable durations
-  - Syntax: `merry piece1 piece2 piece3` (default 5 seconds each)
+  - Syntax: `merry piece1 piece2 piece3` (dA great conversation starteroefault 5 seconds each)
   - Custom: `merry tone:3 clock:5 wand:2` or `merry 3-tone 5-clock 2-wand`
   - Loop forever: `merryo 0.25-tone` (use `stop` to exit)
   - Stop early: `merry:stop` or `stop`
@@ -85,6 +85,7 @@ import {
   encodeKidlispForUrl,
   isKidlispSource,
 } from "../lib/kidlisp.mjs";
+import * as products from "./common/products.mjs";
 const { abs, max, min } = Math;
 const { keys } = Object;
 
@@ -118,13 +119,7 @@ let firstActivation = true; // 🏳️ Used to trigger a startup 🔊🎆
 
 let startupSfx, keyboardSfx;
 
-// 📚 Book button
-let bookButton;
-let bookImage;
-let bookImageScaled; // Cached scaled version of the book image
-let bookRotation = 0; // Rotation angle for oscillation
-
-// 🎆 Corner particles
+// 🎆 Corner particles (for cursor effect)
 let cornerParticles = [];
 
 let tapePromiseResolve, tapePromiseReject;
@@ -262,38 +257,8 @@ async function boot({
     .then((sfx) => (keyboardSfx = sfx))
     .catch((err) => console.warn(err)); // and key sounds.
 
-  // Load book cover image
-  // 📚 Second Product (Current)
-  net
-    .preload("https://shop.aesthetic.computer/cdn/shop/files/IMG-1176.png?v=1761673860&width=1646")
-    .then((img) => {
-      bookImage = img;
-      
-      // Pre-scale the image for caching
-      const bookScale = 0.05; // Bigger for better visibility
-      const scaledW = Math.floor(img.img.width * bookScale);
-      const scaledH = Math.floor(img.img.height * bookScale);
-      
-      // Create a scaled bitmap using painting API from api object
-      bookImageScaled = api.painting(scaledW, scaledH, (p) => {
-        p.paste(img.img, 0, 0, bookScale);
-      });
-    })
-    .catch((err) => console.warn("📚 Could not load book image:", err));
-    
-  // 📚 First Product (Deprecated - SOLD)
-  // net
-  //   .preload("https://shop.aesthetic.computer/cdn/shop/files/IMG-1098.png?v=1760737988&width=600")
-  //   .then((img) => {
-  //     bookImage = img;
-  //     const bookScale = 0.1;
-  //     const scaledW = Math.floor(img.img.width * bookScale);
-  //     const scaledH = Math.floor(img.img.height * bookScale);
-  //     bookImageScaled = api.painting(scaledW, scaledH, (p) => {
-  //       p.paste(img.img, 0, 0, bookScale);
-  //     });
-  //   })
-  //   .catch((err) => console.warn("📚 Could not load book image:", err));
+  // 📦 Load product images
+  await products.boot(api);
 
   // Create login & signup buttons.
   if (!user) {
@@ -1345,6 +1310,20 @@ async function halt($, text) {
     return true;
   } else if (slug === "petal") {
     jump("lmn-petal");
+    return true;
+  } else if (slug === "product") {
+    // Switch active product: product book, product record
+    const productKey = params[0];
+    if (productKey) {
+      products.setActiveProduct(productKey);
+      flashColor = [0, 255, 0];
+      notice(`PRODUCT: ${productKey.toUpperCase()}`, ["lime"]);
+    } else {
+      const current = products.getActiveProduct();
+      notice(`CURRENT: ${current ? current.type.toUpperCase() : 'NONE'}`, ["cyan"]);
+      flashColor = [0, 255, 255];
+    }
+    makeFlash($);
     return true;
   } else if (slug === "bro") {
     jump("brother");
@@ -2588,7 +2567,11 @@ function paint($) {
   // Calculate MOTD offset (do this before book rendering so it's always available)
   let motdXOffset = 0;
   
-  // 📚 Paint book button (only on login curtain, in top-right area)
+  // � Paint product (book or record) in top-right corner (only on login curtain)
+  // 📦 Paint product (book or record) in top-right corner (only on login curtain)
+  products.paint({ ...$, login, signup }, $.screen, showLoginCurtain);
+  // Old book code removed - now using products system
+  /*
   if (showLoginCurtain && bookImageScaled) {
     // Use pre-scaled cached image
     const bookW = bookImageScaled.width;
@@ -3031,8 +3014,6 @@ function paint($) {
     // // SOLD text blinking between yellow and red
     // const soldBlink = Math.sin(bookRotation * 0.12) > 0; // Boolean blink
     // const soldColor = soldBlink ? [255, 255, 0] : [255, 50, 50]; // Yellow or bright red
-    // 
-    // // Shadow for SOLD text
     // ink(0, 0, 0, 180).write(soldText, { x: soldX + 1, y: soldY + 1 });
     // ink(...soldColor).write(soldText, { x: soldX, y: soldY });
     } else if (bookButton) {
@@ -3043,16 +3024,20 @@ function paint($) {
     // Disable button when not on login curtain
     bookButton.disabled = true;
   }
+  */
 
   // 🟢 KidLisp mode border effect (full window border with scrolling dots)
   // Only show when prompt is focused (canType is true)
   const isKidlispMode = $.system?.prompt?.actualKidlisp;
   if (isKidlispMode && $.system.prompt.input.canType) {
+    const activeProduct = products.getActiveProduct();
+    const rotation = activeProduct ? activeProduct.rotation : 0;
+    
     // Animated offset for scrolling effect
-    const scrollOffset = Math.floor(bookRotation * 0.5) % 4; // Scroll 4 pixel cycle (matches spacing)
+    const scrollOffset = Math.floor(rotation * 0.5) % 4; // Scroll 4 pixel cycle (matches spacing)
     
     // Cycle through vibrant colors
-    const colorPhase = (bookRotation * 0.1) % 6;
+    const colorPhase = (rotation * 0.1) % 6;
     const colors = [
       [100, 255, 100], // Bright green (primary for kidlisp)
       [100, 255, 255], // Cyan
@@ -3076,7 +3061,7 @@ function paint($) {
     ];
     
     // Pulsing alpha
-    const pulseAlpha = Math.floor(Math.sin(bookRotation * 0.12) * 60 + 140); // 80-200 range
+    const pulseAlpha = Math.floor(Math.sin(rotation * 0.12) * 60 + 140); // 80-200 range
     
     // Draw solid dotted border around entire screen (all dots filled)
     const dotSpacing = 4; // Pixels between dots
@@ -3108,8 +3093,11 @@ function paint($) {
 
   // 🎰 Polychrome border effect pointing to top-left corner (on login curtain)
   if (showLoginCurtain) {
+    const activeProduct = products.getActiveProduct();
+    const rotation = activeProduct ? activeProduct.rotation : 0;
+    
     // Cycle through pink, purple, green phases
-    const colorPhase = (bookRotation * 0.08) % 3;
+    const colorPhase = (rotation * 0.08) % 3;
     let primaryColor, secondaryColor, tertiaryColor;
     
     if (colorPhase < 1) {
@@ -3127,7 +3115,7 @@ function paint($) {
     }
     
     // Pulsing effect for base intensity
-    const pulseBase = Math.sin(bookRotation * 0.15);
+    const pulseBase = Math.sin(rotation * 0.15);
     
     // Border extends to 2/3rds of screen
     const borderWidth = (screen.width / 3) * 2;
@@ -3141,7 +3129,7 @@ function paint($) {
       const alpha = Math.floor(intensityRatio * 100 + 30 + pulseBase * 30); // 30-160 range
       
       // Dither pattern: show pixels based on intensity ratio
-      const patternValue = (x + Math.floor(bookRotation / 4)) % 4; // 0-3 pattern
+      const patternValue = (x + Math.floor(rotation / 4)) % 4; // 0-3 pattern
       const threshold = (1 - intensityRatio) * 4; // 0-4 threshold
       
       if (patternValue >= threshold) {
@@ -3156,7 +3144,7 @@ function paint($) {
       const alpha = Math.floor(intensityRatio * 100 + 30 + pulseBase * 30); // 30-160 range
       
       // Dither pattern: show pixels based on intensity ratio
-      const patternValue = (y + Math.floor(bookRotation / 4)) % 4; // 0-3 pattern
+      const patternValue = (y + Math.floor(rotation / 4)) % 4; // 0-3 pattern
       const threshold = (1 - intensityRatio) * 4; // 0-4 threshold
       
       if (patternValue >= threshold) {
@@ -4005,13 +3993,16 @@ function sim($) {
     $.needsPaint();
   }
   
-  // Oscillate book rotation for drift animation
+  // 📦 Update product animations
   const showLoginCurtain = 
     (!login?.btn.disabled && !profile) || 
     (!login && !profile?.btn.disabled);
-  if (showLoginCurtain && bookImage) {
-    bookRotation += 1.0; // Faster oscillation for more active shaking
-    $.needsPaint();
+  if (showLoginCurtain) {
+    const product = products.getActiveProduct();
+    if (product && product.imageScaled) {
+      products.sim();
+      $.needsPaint();
+    }
   }
 
   if ($.store["handle:received"]) {
@@ -4160,37 +4151,32 @@ function act({
     }
   }
 
-  // 📚 Book button interaction (only on login curtain, same as login/signup buttons)
+  // � Product button interaction (only on login curtain, same as login/signup buttons)
   const showLoginCurtainAct = 
     (!login?.btn.disabled && !profile) || 
     (!login && !profile?.btn.disabled);
-    
-  if (bookButton && showLoginCurtainAct && !bookButton.disabled) {
-    bookButton.disabled = false; // Re-enable if on login curtain
-    bookButton.act(e, {
-      over: () => {
-        // Rollover/hover effect - trigger repaint for visual feedback
-        $.needsPaint();
-      },
-      down: () => downSound(),
-      push: () => {
-        pushSound();
-        // 📚 Second Product (Current)
-        const bookUrl = "https://shop.aesthetic.computer/products/books_what-is-landscape-by-john-r-stilgoe_25-4-8-21-08";
-        // 📚 First Product (Deprecated - SOLD)
-        // const bookUrl = "https://shop.aesthetic.computer/products/books_the-art-of-seeing-by-aldous-huxley_25-4-8-21-0";
-        if (net.iframe) {
-          send({ type: "post-to-parent", content: { type: "openExternal", url: bookUrl } });
-        } else {
-          jump(bookUrl);
-        }
-        flashColor = [0, 255, 0];
-        makeFlash({ api, needsPaint, net, screen, num, jump, system, user, store, send, handle, glaze, canShare, notice, ui });
-      },
-      cancel: () => cancelSound(),
-    });
-  } else if (bookButton && !showLoginCurtainAct) {
-    bookButton.disabled = true;
+
+  // Use products.act() to handle button interaction with callbacks
+  if (showLoginCurtainAct) {
+    products.act(
+      { api, needsPaint, net, screen, num, jump, system, user, store, send, handle, glaze, canShare, notice, ui, sound: { play, synth } },
+      e,
+      {
+        over: () => needsPaint(),
+        down: () => downSound(),
+        push: () => {
+          pushSound();
+          flashColor = [0, 255, 0];
+          makeFlash({ api, needsPaint, net, screen, num, jump, system, user, store, send, handle, glaze, canShare, notice, ui });
+        },
+        cancel: () => cancelSound(),
+      }
+    );
+  } else {
+    const activeProduct = products.getActiveProduct();
+    if (activeProduct && activeProduct.button) {
+      activeProduct.button.disabled = true;
+    }
   }
 
   // Chat ticker button (invisible, just for click interaction)
@@ -4348,7 +4334,7 @@ function act({
     (e.is("touch") || e.is("lift")) &&
     ((login?.btn.disabled === false && login?.btn.box.contains(e)) ||
       (signup?.btn.disabled === false && signup?.btn.box.contains(e)) ||
-      (bookButton?.disabled === false && bookButton?.box.contains(e)) ||
+      (products.getActiveProduct()?.button?.disabled === false && products.getActiveProduct()?.button?.box.contains(e)) ||
       (profile?.btn.disabled === false &&
         profile?.btn.box.contains(e) &&
         profileAction === "profile"))
