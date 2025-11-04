@@ -468,10 +468,22 @@ class Product {
       return;
     }
     
-    // Only spin when playing, but always wobble
+    // Only spin when playing, shake/zoom when previewing, wobble otherwise
     const spinAngle = this.isPlaying ? (this.rotation * 0.5) % 360 : 0;
     const wobbleAngle = sin(this.rotation * 0.03) * 2; // Always wobble slightly
     const totalAngle = spinAngle + wobbleAngle;
+    
+    // Shake and zoom effects during previewing, gentle wiggle when stopped
+    let shakeX = 0, shakeY = 0, zoomScale = 1;
+    if (this.isBuffering) {
+      shakeX = floor(sin(this.rotation * 0.3) * 2);
+      shakeY = floor(cos(this.rotation * 0.25) * 2);
+      zoomScale = 1 + (sin(this.rotation * 0.15) * 0.03); // Subtle zoom in/out
+    } else if (!this.isPlaying) {
+      // Gentle wiggle when not playing
+      shakeX = floor(sin(this.rotation * 0.05) * 1);
+      shakeY = floor(cos(this.rotation * 0.04) * 1);
+    }
     
     // Title and artist sway (always active)
     const titleSwayX = floor(sin(this.rotation * 0.06) * 3);
@@ -494,13 +506,15 @@ class Product {
       this.button.box.h = totalH;
     }
     
-    const imageScale = this.button.down ? 1.05 : 1;
+    const imageScale = this.button.down ? 1.05 : (zoomScale || 1);
     
-    // Draw spinning/wobbling record
-    $.paste(this.imageScaled, recordX, recordY, {
+    // Draw spinning/wobbling/shaking record
+    // Apply shake to the position, but anchor ensures scaling happens from center
+    $.paste(this.imageScaled, recordX + shakeX, recordY + shakeY, {
       scale: imageScale,
       angle: totalAngle,
-      anchor: { x: recordW / 2, y: recordH / 2 }
+      anchor: { x: recordW / 2, y: recordH / 2 }, // Scale and rotate from center
+      center: true // Ensure center-based transformation
     });
     
     // Center control: play triangle / pause / streaming
@@ -523,27 +537,45 @@ class Product {
       const triX = centerX - triangleSize / 3 + centerWobbleX; // Offset to visually center
       const triY = centerY - triangleSize / 2 + centerWobbleY;
       
-      // Color cycle for play button
-      const playColors = [[150, 220, 255], [180, 200, 255], [150, 255, 255]]; // Brighter blue
-      const colorPhase = (this.rotation * 0.05) % playColors.length;
-      const colorIndex = floor(colorPhase);
-      const nextColorIndex = (colorIndex + 1) % playColors.length;
-      const mix = colorPhase - colorIndex;
-      const playColor = [
-        floor(playColors[colorIndex][0] * (1 - mix) + playColors[nextColorIndex][0] * mix),
-        floor(playColors[colorIndex][1] * (1 - mix) + playColors[nextColorIndex][1] * mix),
-        floor(playColors[colorIndex][2] * (1 - mix) + playColors[nextColorIndex][2] * mix)
+      // Oscillating green fill - dark to bright
+      const greenOscillation = (sin(this.rotation * 0.1) * 0.5 + 0.5); // 0 to 1
+      const darkGreen = 40;
+      const brightGreen = 200;
+      const greenValue = floor(darkGreen + (brightGreen - darkGreen) * greenOscillation);
+      const playFillColor = [0, greenValue, 0];
+      
+      // Border color cycle - red, lime, blue
+      const borderColors = [
+        [255, 0, 0],    // Red
+        [0, 255, 0],    // Lime
+        [0, 0, 255]     // Blue
+      ];
+      const borderPhase = (this.rotation * 0.2) % borderColors.length;
+      const borderIndex = floor(borderPhase);
+      const borderNextIndex = (borderIndex + 1) % borderColors.length;
+      const borderMix = borderPhase - borderIndex;
+      const borderColor = [
+        floor(borderColors[borderIndex][0] * (1 - borderMix) + borderColors[borderNextIndex][0] * borderMix),
+        floor(borderColors[borderIndex][1] * (1 - borderMix) + borderColors[borderNextIndex][1] * borderMix),
+        floor(borderColors[borderIndex][2] * (1 - borderMix) + borderColors[borderNextIndex][2] * borderMix)
       ];
       
-      // Draw shadow triangle (1px offset)
-      $.ink(0, 0, 0, 180).line(triX + 1, triY + 1, triX + triangleSize + 1, triY + triangleSize / 2 + 1);
-      $.ink(0, 0, 0, 180).line(triX + triangleSize + 1, triY + triangleSize / 2 + 1, triX + 1, triY + triangleSize + 1);
-      $.ink(0, 0, 0, 180).line(triX + 1, triY + 1, triX + 1, triY + triangleSize + 1);
+      // Triangle points
+      const p1x = triX;
+      const p1y = triY;
+      const p2x = triX + triangleSize;
+      const p2y = triY + triangleSize / 2;
+      const p3x = triX;
+      const p3y = triY + triangleSize;
       
-      // Draw play triangle
-      $.ink(...playColor).line(triX, triY, triX + triangleSize, triY + triangleSize / 2);
-      $.ink(...playColor).line(triX + triangleSize, triY + triangleSize / 2, triX, triY + triangleSize);
-      $.ink(...playColor).line(triX, triY, triX, triY + triangleSize);
+      // Draw shadow triangle (1px offset) filled
+      $.ink(0, 0, 0, 100).tri(p1x + 1, p1y + 1, p2x + 1, p2y + 1, p3x + 1, p3y + 1);
+      
+      // Draw filled triangle with oscillating green
+      $.ink(...playFillColor, 200).tri(p1x, p1y, p2x, p2y, p3x, p3y);
+      
+      // Draw triangle outline with cycling red/lime/blue on top
+      $.ink(...borderColor, 255).tri(p1x, p1y, p2x, p2y, p3x, p3y, "outline");
       
     } else if (this.isBuffering) {
       // Previewing text
@@ -851,7 +883,7 @@ products.record = new Product({
   imageUrl: 'https://assets.aesthetic.computer/pruttipal/laer-klokken/baktok-record.png',
   imageScale: 0.065, // Bigger record
   audioUrl: 'https://assets.aesthetic.computer/pruttipal/laer-klokken/baktok-single-no24-instrumental.ogg', // Audio file
-  shopUrl: 'https://shop.aesthetic.computer/products/baktok-laer-klokken-by-goodiepal'
+  shopUrl: 'https://shop.aesthetic.computer/products/music_baktok-7-inch_25-11-3-14-17'
 });
 
 // 🎯 Active product (can be switched)
