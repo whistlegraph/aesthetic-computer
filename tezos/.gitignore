@@ -71,3 +71,18 @@ smartpy-cli.zip
 *.tz
 *.tzkt
 octez-node/
+
+# Wallet files and keys (NEVER COMMIT)
+*_wallet.json
+*_mnemonic.txt
+*_private_key.txt
+wallet_*.json
+mnemonic_*.txt
+private_key_*.txt
+*.wallet
+*.mnemonic
+tz1*.json
+tz2*.json
+tz3*.json
+tz4*.json
+KT1*.json

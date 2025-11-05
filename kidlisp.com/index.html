@@ -2,8 +2,8 @@
 <html>
 
 <head>
-  <title>KidLisp</title>
-  <meta name="description" content="KidLisp is under construction." />
+  <title>KidLisp - Friendly pattern programming for all</title>
+  <meta name="description" content="KidLisp is a simple, expressive language for creating visual patterns and animations. Try it on aesthetic.computer." />
   <link rel="icon" type="image/png"
     href="https://pals-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/painting-2023.7.29.20.39.png" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -12,9 +12,13 @@
       display: none;
     }
 
+    * {
+      box-sizing: border-box;
+    }
+
     body {
       margin: 0;
-      font-size: 22px;
+      font-size: 18px;
       font-family: monospace;
       -webkit-text-size-adjust: none;
       display: flex;
@@ -31,7 +35,7 @@
 
     h1 {
       font-weight: normal;
-      font-size: 22px;
+      font-size: 20px;
       margin: 0;
     }
 
@@ -42,18 +46,92 @@
       justify-content: center;
       align-items: center;
       text-align: center;
-      padding: 32px 16px 48px;
+      padding: 24px 16px 32px;
       line-height: 1.6;
+      max-width: 100%;
     }
 
     h2 {
       font-weight: normal;
       font-size: 18px;
       margin: 0 0 0.5em;
+      padding: 0 16px;
     }
 
     p {
       margin: 0.5em 0 0;
+      padding: 0 16px;
+    }
+
+    .intro {
+      margin: 1.5em 0;
+      max-width: 600px;
+      width: 100%;
+    }
+
+    .examples {
+      text-align: left;
+      max-width: 600px;
+      width: 100%;
+      margin: 2em auto;
+      padding: 0 16px;
+    }
+
+    .example-container {
+      margin: 2em 0;
+    }
+
+    .example-iframe {
+      width: 100%;
+      height: 300px;
+      border: 2px solid #ddd;
+      border-radius: 6px;
+      background: #000;
+      display: block;
+      margin-bottom: 0.5em;
+    }
+
+    .code-block {
+      display: block;
+      margin: 0;
+      padding: 12px 16px;
+      background: #2d2d2d;
+      color: #f8f8f2;
+      border-radius: 6px;
+      overflow-x: auto;
+      font-size: 14px;
+      line-height: 1.5;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      white-space: pre;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    /* Syntax highlighting */
+    .paren { color: #f8f8f2; }
+    .function { color: #66d9ef; font-weight: bold; }
+    .string { color: #e6db74; }
+    .number { color: #ae81ff; }
+    .symbol { color: #a6e22e; }
+
+    .cta {
+      margin: 2em 0;
+      padding: 0 16px;
+    }
+
+    .button {
+      display: inline-block;
+      padding: 0.75em 1.5em;
+      background: rgb(205, 92, 155);
+      color: white;
+      border-radius: 6px;
+      text-decoration: none;
+      transition: background 0.2s;
+      font-size: 16px;
+    }
+
+    .button:hover {
+      background: rgb(185, 72, 135);
+      color: white;
     }
 
     a {
@@ -70,6 +148,59 @@
       padding: 16px;
       font-size: 14px;
       opacity: 0.7;
+      display: none;
+    }
+
+    /* Mobile optimization */
+    @media (max-width: 640px) {
+      body {
+        font-size: 16px;
+      }
+
+      h1 {
+        font-size: 18px;
+      }
+
+      h2 {
+        font-size: 16px;
+      }
+
+      .example-iframe {
+        height: 240px;
+      }
+
+      .code-block {
+        font-size: 13px;
+        padding: 10px 12px;
+      }
+
+      .button {
+        font-size: 15px;
+        padding: 0.65em 1.25em;
+      }
+
+      main {
+        padding: 16px 8px 24px;
+      }
+
+      .examples {
+        padding: 0 8px;
+      }
+
+      .example-container {
+        margin: 1.5em 0;
+      }
+    }
+
+    @media (max-width: 400px) {
+      .example-iframe {
+        height: 200px;
+      }
+
+      .code-block {
+        font-size: 12px;
+        padding: 8px 10px;
+      }
     }
   </style>
 </head>
@@ -80,9 +211,38 @@
   </header>
 
   <main>
-    <h2>Under construction</h2>
-    <p>KidLisp is getting a new home. Please check back soon.</p>
-    <p>In the meantime, visit <a href="https://aesthetic.computer">aesthetic.computer</a>.</p>
+    <h2>Friendly pattern programming for all</h2>
+    
+    <p class="intro">
+      KidLisp is a simple, expressive language for creating visual patterns and animations.
+      Try these examples on <a href="https://aesthetic.computer">aesthetic.computer</a>:
+    </p>
+    
+    <div class="examples">
+      <div class="example-container">
+        <iframe class="example-iframe" src="https://aesthetic.computer/wipe%20navy,%20ink%20yellow,%20circle%20100%20100%2050?nogap=true" frameborder="0"></iframe>
+        <code class="code-block"><span class="function">wipe</span> <span class="string">navy</span><span class="paren">,</span> <span class="function">ink</span> <span class="string">yellow</span><span class="paren">,</span> <span class="function">circle</span> <span class="number">100</span> <span class="number">100</span> <span class="number">50</span></code>
+      </div>
+      
+      <div class="example-container">
+        <iframe class="example-iframe" src="https://aesthetic.computer/wipe%20black,%20ink%20lime,%20line%200%200%20200%20200?nogap=true" frameborder="0"></iframe>
+        <code class="code-block"><span class="function">wipe</span> <span class="string">black</span><span class="paren">,</span> <span class="function">ink</span> <span class="string">lime</span><span class="paren">,</span> <span class="function">line</span> <span class="number">0</span> <span class="number">0</span> <span class="number">200</span> <span class="number">200</span></code>
+      </div>
+      
+      <div class="example-container">
+        <iframe class="example-iframe" src="https://aesthetic.computer/wipe%20red,%20scroll%205%200,%20blur%201?nogap=true" frameborder="0"></iframe>
+        <code class="code-block"><span class="function">wipe</span> <span class="string">red</span><span class="paren">,</span> <span class="function">scroll</span> <span class="number">5</span> <span class="number">0</span><span class="paren">,</span> <span class="function">blur</span> <span class="number">1</span></code>
+      </div>
+      
+      <div class="example-container">
+        <iframe class="example-iframe" src="https://aesthetic.computer/ink%20cyan,%20box%2050%2050%20100%20100,%20spin%201?nogap=true" frameborder="0"></iframe>
+        <code class="code-block"><span class="function">ink</span> <span class="string">cyan</span><span class="paren">,</span> <span class="function">box</span> <span class="number">50</span> <span class="number">50</span> <span class="number">100</span> <span class="number">100</span><span class="paren">,</span> <span class="function">spin</span> <span class="number">1</span></code>
+      </div>
+    </div>
+    
+    <p class="cta">
+      <a href="https://aesthetic.computer" class="button">Try KidLisp Now</a>
+    </p>
   </main>
 
   <footer>
@@ -91,35 +251,23 @@
 
   <!-- Development reload logic. -->
   <script>
-    let reconnectInterval = false;
-    function connect() {
-      clearInterval(reconnectInterval);
-      let ws;
-      try {
-        let connectionUrl = "wss://localhost:8889";
-        if (window.location.host === "local.aesthetic.computer") {
-          connectionUrl = "wss://session.local.aesthetic.computer";
-        }
-        ws = new WebSocket(connectionUrl);
-      } catch {
-        return;
-      }
-
-      ws.onmessage = (e) => {
-        const msg = JSON.parse(e.data);
-        if (msg.type === "reload" && msg.content.piece === "*refresh*") {
-          setTimeout(() => {
-            const url = new URL(window.location.href);
-            window.location.href = url.toString();
-          }, 150);
-        }
-      };
-
-      ws.onclose = () => {
-        reconnectInterval = setInterval(connect, 1000);
-      };
-    }
-    connect();
+    // Simple reload on manual file changes only
+    let lastModified = null;
+    
+    setInterval(() => {
+      fetch(window.location.href, { method: 'HEAD', cache: 'no-cache' })
+        .then(response => {
+          const modified = response.headers.get('last-modified');
+          if (lastModified === null) {
+            lastModified = modified;
+          } else if (modified && modified !== lastModified) {
+            console.log('📝 File changed, reloading...');
+            lastModified = modified;
+            window.location.reload();
+          }
+        })
+        .catch(() => {});
+    }, 2000); // Check every 2 seconds instead of 1
   </script>
 </body>
 
