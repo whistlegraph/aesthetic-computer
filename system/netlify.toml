@@ -234,6 +234,31 @@ to = "https://trio.whistlegraph.com/:splat"
 status = 301
 force = true
 [[redirects]]
+from = "https://jas.life/*"
+to = "/digitpain.com/:splat"
+status = 200
+force = true
+[[redirects]]
+from = "https://www.jas.life/*"
+to = "https://jas.life/:splat"
+status = 301
+force = true
+[[redirects]]
+from = "https://digitpain.com/*"
+to = "/digitpain.com/:splat"
+status = 200
+force = true
+[[redirects]]
+from = "https://www.digitpain.com/*"
+to = "https://digitpain.com/:splat"
+status = 301
+force = true
+[[redirects]]
+from = "https://builds.false.work/*"
+to = "/builds.false.work/:splat"
+status = 200
+force = true
+[[redirects]]
 from = "/media-collection/*"
 to = "/.netlify/functions/media-collection"
 status = 200
