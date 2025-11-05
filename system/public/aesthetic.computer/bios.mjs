@@ -8076,6 +8076,18 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    // 📼 🎵 Adjust tape audio pitch (for scrubbing)
+    if (type === "tape:audio-shift") {
+      // Find the currently playing tape audio
+      const tapeAudioId = Object.keys(sfxPlaying).find(id => id.startsWith("tape:audio_"));
+      if (tapeAudioId && sfxPlaying[tapeAudioId]) {
+        const shift = typeof content === "number" ? content : 0;
+        // console.log(`📼 🎵 Shifting tape audio pitch: ${shift.toFixed(3)}`);
+        sfxPlaying[tapeAudioId].update({ shift });
+      }
+      return;
+    }
+
     // 📼 Load and parse tape ZIP from URL (for replay piece)
     if (type === "tape:load-zip") {
       console.log("📼 Loading tape ZIP from:", content);

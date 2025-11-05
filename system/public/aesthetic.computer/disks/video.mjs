@@ -71,11 +71,23 @@ let audioContextState = "suspended"; // suspended, running, closed
 let hasAudioContext = false;
 let audioManuallyActivated = false; // Track if user has manually activated audio
 
-// Scrubbing state
+// Scrubbing state (STAMPLE-style lazy following)
 let isScrubbing = false;
 let scrubSpeed = 1.0; // Playback speed multiplier
-let scrubVelocity = 0; // Track scrub velocity for inertia
+let scrubVelocity = 0; // Track scrub velocity for inertia (in progress units per frame, -1 to 1)
 let inertiaActive = false;
+let scrubStartY = 0; // Y position where scrub started
+let lastDragX = 0; // Track last drag position for velocity calculation
+let tapeAudioSound = null; // Reference to the playing tape audio sound for pitch shifting
+let scrubStartProgress = 0; // Progress when scrub started (0-1)
+let scrubAccumulatedDelta = 0; // Accumulated horizontal movement during scrub
+let wasPlayingBeforeScrub = false; // Track if video was playing when scrub started
+let tapeWaveform = null; // Audio waveform data for visualization
+
+// STAMPLE-style lazy needle that follows the drag with lag
+let targetProgress = 0; // Where the user is dragging (yellow line)
+let needleProgress = 0; // Where video is actually playing (cyan line - lags behind)
+let needleVelocity = 0; // Velocity of the needle (for smooth motion and inertia)
 
 const buttonBottom = 6;
 const buttonLeft = 6;
@@ -287,6 +299,7 @@ function paint({
   needsPaint,
   sound,
   send,
+  num,
 }) {
   if (typeof needsPaint === "function") {
     requestPaint = needsPaint;
@@ -604,6 +617,141 @@ function paint({
     wipe(40, 0, 0).ink(180, 0, 0).write("NO VIDEO", { center: "xy" });
   }
   
+  // Draw full waveform visualization and scrub overlay
+  if ((isScrubbing || inertiaActive) && rec?.presenting) {
+    // Calculate current progress position for vertical playhead indicator
+    const currentProgress = isScrubbing 
+      ? Math.max(0, Math.min(1, scrubStartProgress + (scrubAccumulatedDelta / screen.width)))
+      : (rec.presentProgress || 0);
+    const progressX = Math.floor(currentProgress * screen.width);
+    
+    // ALWAYS draw background to show scrub is active
+    ink(40, 40, 40, 150).box(0, screen.height * 0.25, screen.width, screen.height * 0.5);
+    
+    // Check if sound.paint.waveform exists
+    if (!sound?.paint?.waveform) {
+      ink(255, 100, 100, 255).write("sound.paint.waveform missing", { center: "xy" });
+    } else {
+      // Try to get the tape audio waveform data
+      let audioWaveform = tapeWaveform; // Use cached if available
+      
+      // If we don't have cached waveform yet, try to get it
+      // Tape audio is stored at "tape:audio" in BIOS, not "tape:audio_<code>"
+      if (!audioWaveform && postedTapeCode && sound.getSampleData && !tapeWaveform) {
+        const tapeAudioId = "tape:audio"; // Tape audio is stored with this fixed ID
+        
+        // Call getSampleData asynchronously (only once)
+        sound.getSampleData(tapeAudioId).then((data) => {
+          if (data && data.length > 0) {
+            tapeWaveform = data; // Cache it
+          }
+        }).catch(err => {
+          console.log("🌊 ❌ getSampleData error:", err);
+        });
+      }
+      
+      // Fallback to live speaker waveform if nothing else available
+      if (!audioWaveform && sound?.speaker?.waveforms?.left && sound.speaker.waveforms.left.length > 0) {
+        audioWaveform = sound.speaker.waveforms.left;
+      }
+      
+      // Draw full tape waveform if we have the audio buffer data
+      if (audioWaveform && audioWaveform.length > 0) {
+        // Compress waveform to ~128 points for cleaner visualization
+        // arrCompress keeps every Nth element, so calculate N to get ~128 final points
+        const targetPoints = 128;
+        const skipN = Math.max(1, Math.floor(audioWaveform.length / targetPoints));
+        const compressedWaveform = num.arrCompress(audioWaveform, skipN);
+        
+        // Draw waveform across full screen width, horizontally
+        const waveformHeight = screen.height * 0.3; // Smaller height for horizontal layout
+        const waveformY = (screen.height - waveformHeight) / 2;
+        
+        try {
+          sound.paint.waveform(
+            api,
+            num.arrMax(compressedWaveform), // Max of compressed data
+            compressedWaveform, // Already compressed
+            0,
+            waveformY,
+            screen.width,
+            waveformHeight,
+            [255, 200, 0, 64], // Semi-transparent yellow
+            { direction: "left-to-right" }, // Horizontal waveform
+          );
+        } catch (e) {
+          console.error(`🌊 ❌ Error drawing waveform:`, e);
+          ink(255, 100, 100, 255).write(`Error: ${e.message}`, { center: "xy" });
+        }
+      } else if (tapeWaveform && tapeWaveform.length > 0) {
+        const targetPoints = 128;
+        const skipN = Math.max(1, Math.floor(tapeWaveform.length / targetPoints));
+        const compressedWaveform = num.arrCompress(tapeWaveform, skipN);
+        
+        const waveformHeight = screen.height * 0.3;
+        const waveformY = (screen.height - waveformHeight) / 2;
+        
+        try {
+          sound.paint.waveform(
+            api,
+            num.arrMax(compressedWaveform),
+            compressedWaveform,
+            0,
+            waveformY,
+            screen.width,
+            waveformHeight,
+            [255, 200, 0, 64],
+            { direction: "left-to-right" },
+          );
+        } catch (e) {
+          console.error(`🌊 ❌ Error drawing cached waveform:`, e);
+          ink(255, 100, 100, 255).write(`Error: ${e.message}`, { center: "xy", y: screen.height / 2 + 20 });
+        }
+      }
+    }
+    
+    // Draw vertical lines for scrub and playback positions (STAMPLE-style)
+    
+    // Calculate positions for both lines
+    const scrubLineWidth = 1;
+    
+    // 1. YELLOW LINE: Shows where you're dragging (target position)
+    const targetX = Math.floor(targetProgress * screen.width);
+    const scrubColor = [255, 255, 0, 255]; // Bright yellow
+    console.log(`📍 Drawing TARGET line (yellow): x=${targetX}, progress=${targetProgress.toFixed(3)}`);
+    ink(...scrubColor).box(targetX, 0, scrubLineWidth, screen.height);
+    
+    // 2. CYAN LINE: Shows where video is actually playing (needle - lags behind target)
+    const needleX = Math.floor(needleProgress * screen.width);
+    const needleColor = [0, 255, 255, 255]; // Bright cyan
+    console.log(`📍 Drawing NEEDLE line (cyan): x=${needleX}, progress=${needleProgress.toFixed(3)}, lag=${(targetProgress - needleProgress).toFixed(3)}`);
+    ink(...needleColor).box(needleX, 0, scrubLineWidth, screen.height);
+    
+    // 3. Optional: Draw a line connecting them to show the "pull" distance
+    if (isScrubbing && Math.abs(targetX - needleX) > 2) {
+      ink(255, 255, 255, 128).line(targetX, screen.height / 2, needleX, screen.height / 2);
+    }
+    
+    
+    // Draw progress info at top corners (no center label)
+    if (isScrubbing) {
+      const speedText = `${scrubSpeed > 0 ? "+" : ""}${(scrubSpeed - 1).toFixed(2)}x`;
+      const progressText = `${Math.floor(targetProgress * 100)}%`;
+      
+      ink(255, 200, 0, 255).write(speedText, { x: 8, y: 8 });
+      ink(255, 200, 0, 255).write(progressText, { x: screen.width - 8, y: 8, right: true });
+    } else if (inertiaActive) {
+      const speedText = `${scrubSpeed.toFixed(2)}x`;
+      const progressText = `${Math.floor(needleProgress * 100)}%`;
+      
+      ink(100, 200, 255, 200).write(speedText, { x: 8, y: 8 });
+      ink(100, 200, 255, 200).write(progressText, { x: screen.width - 8, y: 8, right: true });
+    }
+    
+    // Override rec.presentProgress for VHS bar to show needle position (where video is playing)
+    rec.tapeProgress = needleProgress;
+  }
+  
   // Show completion message if active
   if (completionMessage && completionMessageTimer > 0) {
     // Create a box for the completion message
@@ -628,7 +776,7 @@ function paint({
   return true; // Always keep painting
 }
 
-function sim({ needsPaint, rec }) {
+function sim({ needsPaint, rec, send }) {
   ellipsisTicker?.sim();
   frameCount++; // Increment frame counter for animations
 
@@ -642,10 +790,93 @@ function sim({ needsPaint, rec }) {
       (rec?.playing ?? false) ||
       (rec?.recording ?? false) ||
       ((rec?.tapeProgress ?? 0) > 0 && (rec?.tapeProgress ?? 0) < 1) ||
-      postedTapeCode // Keep painting when button shows tape code
+      postedTapeCode || // Keep painting when button shows tape code
+      isScrubbing || // Keep painting during scrubbing
+      inertiaActive // Keep painting during inertia
     ) {
       needsPaint();
     }
+  }
+  
+  // STAMPLE-style lazy needle following during scrubbing AND inertia
+  // This runs every frame for super smooth physics
+  if ((isScrubbing || inertiaActive) && rec?.presenting) {
+    console.log(`🎯 Physics tick: scrubbing=${isScrubbing}, inertia=${inertiaActive}, target=${targetProgress.toFixed(3)}, needle=${needleProgress.toFixed(3)}, velocity=${needleVelocity.toFixed(4)}`);
+    
+    // Calculate the "pull" force from target to needle (EXPONENTIAL rubber band effect)
+    const lag = targetProgress - needleProgress;
+    
+    // Exponential spring force - gets stronger the further you pull
+    // This creates that super springy, rubber band feel
+    const lagSquared = lag * Math.abs(lag); // Square but keep sign (exponential force)
+    const springStrength = 0.08; // Base spring strength (MUCH weaker for slower motion)
+    const targetVelocity = lagSquared * springStrength;
+    
+    // Smoothly blend current velocity toward target velocity (very responsive to build momentum)
+    const acceleration = 0.6; // How quickly velocity changes (higher = snappier response)
+    needleVelocity += (targetVelocity - needleVelocity) * acceleration;
+    
+    // Apply velocity to position (scale down for slower scrubbing speed)
+    const oldNeedle = needleProgress;
+    const velocityScale = 0.3; // SLOW DOWN the scrubbing motion (0.3 = 30% speed)
+    needleProgress += needleVelocity * velocityScale;
+    
+    // Apply friction/dampening (less friction = more drift)
+    let friction;
+    if (isScrubbing) {
+      friction = 0.88; // While dragging, moderate friction for springy feel
+    } else {
+      friction = 0.98; // During inertia, very little friction for LONG drift
+    }
+    needleVelocity *= friction;
+    
+    // Clamp needle to valid range but allow slight overshoot for bounce
+    const overshootLimit = 0.08; // Allow more overshoot for bouncier feel
+    needleProgress = Math.max(-overshootLimit, Math.min(1 + overshootLimit, needleProgress));
+    
+    // Bounce back from edges with damping
+    if (needleProgress < 0) {
+      needleProgress = 0;
+      needleVelocity *= -0.5; // Stronger bounce back
+    } else if (needleProgress > 1) {
+      needleProgress = 1;
+      needleVelocity *= -0.5; // Stronger bounce back
+    }
+    
+    console.log(`🎯 Physics: lag=${lag.toFixed(3)}, lagSquared=${lagSquared.toFixed(4)}, targetVel=${targetVelocity.toFixed(4)}, needleVel=${needleVelocity.toFixed(4)}, delta=${(needleProgress - oldNeedle).toFixed(5)}`);
+    
+    // Seek video to needle position
+    if (send) {
+      send({ type: "recorder:present:seek", content: Math.max(0, Math.min(1, needleProgress)) });
+    }
+    
+    // Calculate and send audio pitch shift based on needle velocity
+    const pitchShift = needleVelocity * velocityScale * 300; // Scale velocity to pitch
+    if (send && Math.abs(pitchShift) > 0.01) {
+      send({ type: "tape:audio-shift", content: pitchShift });
+    }
+    
+    // Stop inertia when velocity becomes very small AND close to target
+    if (!isScrubbing && inertiaActive) {
+      if (Math.abs(needleVelocity) < 0.0003 && Math.abs(lag) < 0.01) {
+        console.log(`💨 Stopping inertia - velocity: ${needleVelocity.toFixed(5)}, lag: ${lag.toFixed(4)}`);
+        inertiaActive = false;
+        needleVelocity = 0;
+        targetProgress = needleProgress; // Snap target to needle to avoid drift
+        
+        if (send) {
+          send({ type: "tape:audio-shift", content: 0 }); // Reset pitch
+        }
+        
+        // Make sure playback continues at normal speed
+        if (!rec.playing) {
+          rec.play();
+        }
+        wasPlayingBeforeScrub = false;
+      }
+    }
+    
+    requestPaint();
   }
 }
 
@@ -1607,42 +1838,72 @@ function act({
       zipBtn?.down;
     
     if (!anyButtonDown && !isPrinting && !isPostingTape && rec.presenting) {
+      // Start scrubbing on drag start
+      if (e.is("draw") && !isScrubbing) {
+        isScrubbing = true;
+        scrubStartY = e.y;
+        lastDragX = e.x;
+        scrubVelocity = 0;
+        inertiaActive = false;
+        scrubStartProgress = rec.presentProgress || 0; // Capture current progress
+        scrubAccumulatedDelta = 0;
+        wasPlayingBeforeScrub = rec.playing; // Remember if it was playing
+        
+        // Initialize STAMPLE-style positions
+        targetProgress = scrubStartProgress; // Where you're dragging
+        needleProgress = scrubStartProgress; // Where video is playing
+        needleVelocity = 0; // Reset velocity for fresh scrub
+        
+        // DON'T pause playback - let audio continue with pitch shifting
+        // if (rec.playing) {
+        //   rec.pause();
+        // }
+        
+        console.log(`📼 🎯 SCRUB MODE ACTIVATED at y=${scrubStartY}, progress=${scrubStartProgress.toFixed(3)}, wasPlaying=${wasPlayingBeforeScrub}, audioPlaying=${rec.playing}`);
+      }
+      
       // Scrub when dragging (adjust playback speed based on drag velocity)
-      if (e.drag && Math.abs(e.delta.x) > 0) {
-        if (!isScrubbing) {
-          isScrubbing = true;
-          console.log(`📼 🎯 SCRUB MODE ACTIVATED`);
-        }
+      if (e.drag && isScrubbing) {
+        // Calculate velocity from frame-to-frame movement
+        const deltaX = e.x - lastDragX;
+        lastDragX = e.x;
         
-        // Calculate speed based on drag velocity (like stample's pitch shift)
-        // Positive delta.x = scrub forward, negative = scrub backward
-        const speedAdjustment = e.delta.x * 0.02; // Sensitivity factor
-        scrubVelocity = speedAdjustment;
-        scrubSpeed = Math.max(-2, Math.min(2, 1.0 + speedAdjustment));
+        // Accumulate delta for seeking
+        scrubAccumulatedDelta += deltaX;
         
-        console.log(`📼 🎯 Scrubbing: delta=${e.delta.x}, speed=${scrubSpeed.toFixed(2)}x`);
+        // Calculate new TARGET progress based on accumulated movement (where you're dragging)
+        // Scale: screen width = full video duration
+        const progressDelta = scrubAccumulatedDelta / screen.width;
+        targetProgress = scrubStartProgress + progressDelta;
+        targetProgress = Math.max(0, Math.min(1, targetProgress)); // Clamp to 0-1
         
-        // Send speed adjustment to bios
-        send({ type: "recorder:present:speed", content: scrubSpeed });
+        // Just update target - let sim() handle the physics
+        console.log(`📼 🎯 Scrubbing: delta=${deltaX}, target=${targetProgress.toFixed(3)}, needle=${needleProgress.toFixed(3)}, lag=${(targetProgress - needleProgress).toFixed(3)}`);
+        
         triggerRender();
       }
       
-      // Handle touch end - only toggle play/pause if it was a tap (not a scrub)
+      // Handle touch end - detect if it was a tap or a scrub
       if (e.is("lift")) {
         if (isScrubbing) {
-          // Scrub ended - apply inertia
-          console.log("📼 🎯 SCRUB MODE ENDED");
+          // Scrub ended - activate inertia to let it drift with physics
+          const lag = Math.abs(targetProgress - needleProgress);
+          const hasVelocity = Math.abs(needleVelocity) > 0.001;
+          console.log(`📼 🎯 SCRUB MODE ENDED - needleVelocity: ${needleVelocity.toFixed(4)}, lag: ${lag.toFixed(4)}`);
           
-          if (Math.abs(scrubVelocity) > 0.01) {
+          // Always start inertia when releasing - let the physics system handle the drift
+          if (hasVelocity || lag > 0.01) {
             inertiaActive = true;
-            console.log(`📼 💨 Starting inertia with velocity: ${scrubVelocity.toFixed(3)}`);
+            console.log(`📼 💨 ✅ INERTIA ACTIVATED! velocity: ${needleVelocity.toFixed(4)}, will drift...`);
           } else {
-            // Reset to normal speed if velocity is low
-            scrubSpeed = 1.0;
-            send({ type: "recorder:present:speed", content: 1.0 });
+            console.log(`📼 💨 ❌ No inertia - no movement detected`);
+            needleVelocity = 0;
+            targetProgress = needleProgress; // Snap together
           }
           
           isScrubbing = false;
+          scrubStartY = 0;
+          scrubAccumulatedDelta = 0;
         } else {
           // Regular tap - toggle play/pause
           console.log("📼 👆 TAP detected (not scrub)");
@@ -1664,29 +1925,6 @@ function act({
           }
         }
       }
-    }
-    
-    // Apply inertia after scrub ends
-    if (inertiaActive && !isScrubbing && rec.presenting) {
-      // Apply velocity to speed
-      scrubSpeed = Math.max(-2, Math.min(2, scrubSpeed + scrubVelocity));
-      
-      // Send speed with inertia
-      send({ type: "recorder:present:speed", content: scrubSpeed });
-      
-      // Apply friction
-      scrubVelocity *= 0.92;
-      
-      // Stop inertia when velocity is very small and return to normal speed
-      if (Math.abs(scrubVelocity) < 0.005) {
-        inertiaActive = false;
-        scrubVelocity = 0;
-        scrubSpeed = 1.0;
-        send({ type: "recorder:present:speed", content: 1.0 });
-        console.log("📼 💤 Inertia stopped - back to normal speed");
-      }
-      
-      triggerRender();
     }
   }
 }
@@ -2174,6 +2412,10 @@ function receive(e) {
           tapeLoadPhase = "";
           tapeLoadProgress = 0;
           tapeLoadMessage = "";
+          
+          // Request waveform data from the loaded tape audio
+          apiSend({ type: "tape:get-waveform" });
+          
           requestPaint();
         }, 500); // Brief delay to show 100% completion
       }
@@ -2214,6 +2456,14 @@ function receive(e) {
     
     requestPaint();
     
+    return true;
+  }
+  
+  // Handle waveform data response from tape audio
+  if (e.is("tape:waveform")) {
+    console.log("🌊 Received tape waveform data:", e.content?.length, "samples");
+    tapeWaveform = e.content;
+    requestPaint();
     return true;
   }
   
