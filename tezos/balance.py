@@ -1,26 +1,48 @@
 #!/usr/bin/env python3
 """
-Check aesthetic.tez wallet balance on Ghostnet
-Simple utility for the minimal tezos system
+Check Tezos wallet balances on Ghostnet
+Supports both aesthetic.tez (personal) and kidlisp (project) wallets
 """
 
+import sys
 from pytezos import pytezos
 
-def check_balance():
-    """Check aesthetic.tez wallet balance"""
+WALLETS = {
+    'aesthetic': {
+        'address': 'tz1gkf8EexComFBJvjtT1zdsisdah791KwBE',
+        'name': 'aesthetic.tez',
+        'description': 'Personal AC wallet'
+    },
+    'kidlisp': {
+        'address': 'tz1Lc2DzTjDPyWFj1iuAVGGZWNjK67Wun2dC',
+        'name': 'KidLisp',
+        'description': 'KidLisp project wallet'
+    }
+}
+
+def check_balance(wallet_key='aesthetic'):
+    """Check wallet balance for specified wallet"""
+    
+    if wallet_key not in WALLETS:
+        print(f"❌ Unknown wallet: {wallet_key}")
+        print(f"Available wallets: {', '.join(WALLETS.keys())}")
+        return False
+    
+    wallet = WALLETS[wallet_key]
     
     try:
         # Connect to Ghostnet
         client = pytezos.using(shell='https://ghostnet.ecadinfra.com')
-        address = 'tz1gkf8EexComFBJvjtT1zdsisdah791KwBE'
+        address = wallet['address']
         
         # Get account info
         account_info = client.account(address)
         balance = int(account_info['balance'])
         
         # Display results
-        print("💰 aesthetic.tez wallet status:")
-        print("=" * 35)
+        print(f"💰 {wallet['name']} wallet status:")
+        print(f"   {wallet['description']}")
+        print("=" * 50)
         print(f"Address: {address}")
         print(f"Balance: {balance / 1000000:.6f} XTZ")
         print(f"Mutez:   {balance:,}")
@@ -34,6 +56,7 @@ def check_balance():
             print("⚠️  Low funds - consider adding more XTZ")
         else:
             print("❌ Insufficient funds - need more XTZ")
+            print(f"💡 Get funds: https://faucet.ghostnet.teztnets.com/")
             
         return True
         
@@ -42,5 +65,16 @@ def check_balance():
         print("💡 Check internet connection and try again")
         return False
 
+def check_all_wallets():
+    """Check all configured wallets"""
+    for wallet_key in WALLETS:
+        check_balance(wallet_key)
+        print()
+
 if __name__ == "__main__":
-    check_balance()
+    if len(sys.argv) > 1:
+        wallet = sys.argv[1]
+        check_balance(wallet)
+    else:
+        # Default: show all wallets
+        check_all_wallets()
