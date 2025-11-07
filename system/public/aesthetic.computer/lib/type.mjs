@@ -525,9 +525,9 @@ class Typeface {
       if (this.name === "MatrixChunky8") {
         return null;
       }
-      // For unifont, show colored block placeholder
+      // For unifont, don't show placeholder - return null to avoid black boxes
       if (this.name === "unifont" || this.data?.bdfFont === "unifont-16.0.03") {
-        return this.createColoredBlockPlaceholder();
+        return null;
       }
       return target["?"] || null;
     }
@@ -538,9 +538,9 @@ class Typeface {
       return null;
     }
     
-    // For unifont, show colored block placeholder instead of "?"
+    // For unifont, don't show placeholder - return null to avoid black boxes
     if (this.name === "unifont" || this.data?.bdfFont === "unifont-16.0.03") {
-      return this.createColoredBlockPlaceholder();
+      return null;
     }
 
     const codePoint = char.codePointAt(0);
@@ -791,7 +791,7 @@ class Typeface {
     const rn = $.inkrn(); // Remember the current ink color.
 
     // Background
-    if (bg !== null) $.ink(bg).box(x, y, fullWidth, blockHeight);
+    if (bg !== null && bg !== false) $.ink(bg).box(x, y, fullWidth, blockHeight);
 
     // if (text === "POW") console.log("POW PRINT 😫", x, y, width, height);    // Check if we have per-character colors
     // Apply baseline adjustment for fonts that need bottom alignment
@@ -1476,9 +1476,12 @@ class TextInput {
           : this.pal.block;
         $.ink(cursorColor).box(prompt.pos(undefined, true)); // Draw blinking cursor.
         const char = this.text[this.#prompt.textPos()];
-        const pic = this.typeface.glyphs[char];
-        if (pic)
-          $.ink(this.pal.highlight).draw(pic, prompt.pos(undefined, true));
+        // Only draw inverted character if there's actually a character there
+        if (char !== undefined && char !== "") {
+          const pic = this.typeface.glyphs[char];
+          if (pic)
+            $.ink(this.pal.highlight).draw(pic, prompt.pos(undefined, true));
+        }
       }
     }
 
