@@ -105,6 +105,13 @@
     // 📋 Clipboard also requires `xhost +local:docker` to be set on the host.
     "-v",
     "/tmp/.X11-unix:/tmp/.X11-unix",
+    // WSL interop support
+    "-v",
+    "/usr/bin/wsl.exe:/usr/bin/wsl.exe:ro",
+    "-v", 
+    "/usr/bin/wslpath:/usr/bin/wslpath:ro",
+    "-v",
+    "/run/WSL:/run/WSL:ro",
     "-q",
     "--cap-add=SYS_PTRACE",
     "--security-opt=apparmor=unconfined",
