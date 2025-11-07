@@ -56,27 +56,32 @@ async function log(text, data, from = "log") {
   await logs.createIndex({ when: 1 }); // Index for `when`.
   await logs.insertOne({ ...msg }); // Add to database,
 
-  // Alert the AC `chat-system` instance directly through an HTTP call with `LOGGER_KEY`.
-  // Make a post request to https://localhost:8083 if dev is true
-  // otherwise make a post request to https://chat-system.aesthetic.computer
+  // Alert all chat instances directly through HTTP calls with `LOGGER_KEY`.
+  // For mute/unmute actions, we need to notify all chat servers
+  const isMuteAction = msg.action && msg.action.match(/chat-system:(mute|unmute)/);
+  
+  const chatServers = isMuteAction ? [
+    { name: "chat-system", url: dev ? "https://localhost:8083/log" : "https://chat-system.aesthetic.computer/log" },
+    { name: "chat-clock", url: dev ? "https://localhost:8085/log" : "https://chat-clock.aesthetic.computer/log" },
+    { name: "chat-sotce", url: dev ? "https://localhost:8084/log" : "https://chat.sotce.net/log" },
+  ] : [
+    { name: "chat-system", url: dev ? "https://localhost:8083/log" : "https://chat-system.aesthetic.computer/log" }
+  ];
 
-  // This request should include the msg object.
-  const url = dev
-    ? "https://localhost:8083/log"
-    : "https://chat-system.aesthetic.computer/log";
-
-  try {
-    const response = await got.post(url, {
-      json: msg,
-      headers: {
-        Authorization: `Bearer ${process.env.LOGGER_KEY}`,
-      },
-      https: { rejectUnauthorized: !dev },
-      timeout: { request: 10000 }, // 10 seconds
-    });
-    console.log("Log to `chat-system` successful:", response.body);
-  } catch (error) {
-    console.error("Log to `chat-system` failed:", error.message);
+  for (const server of chatServers) {
+    try {
+      const response = await got.post(server.url, {
+        json: msg,
+        headers: {
+          Authorization: `Bearer ${process.env.LOGGER_KEY}`,
+        },
+        https: { rejectUnauthorized: !dev },
+        timeout: { request: 10000 }, // 10 seconds
+      });
+      console.log(`Log to \`${server.name}\` successful:`, response.body);
+    } catch (error) {
+      console.error(`Log to \`${server.name}\` failed:`, error.message);
+    }
   }
 
   // await KeyValue.pub("log", JSON.stringify(msg)); // & send to subs.
