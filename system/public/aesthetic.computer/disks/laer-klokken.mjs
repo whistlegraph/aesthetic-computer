@@ -10,20 +10,39 @@ import * as chat from "./chat.mjs"; // Import chat everywhere.
 let client;
 
 function boot({ api, wipe, debug, send }) {
-  // api.setTypeface("unifont"); // Use unifont for Danish character support /
-  wipe("blue");
   client = new Chat(debug, send);
   client.connect("clock"); // Connect to 'clock' chat.
-  chat.boot(api, client.system);
+  chat.boot(api, client.system, { typeface: "unifont" });
 }
 
 function paint($) {
-  chat.paint($, { otherChat: client.system });
+  // Custom warm color theme for laer-klokken chat with GNU Unifont
+  chat.paint($, { 
+    otherChat: client.system,
+    typeface: "unifont", // Use GNU Unifont for Danish character support
+    theme: {
+      background: [180, 100, 60], // Warm terracotta/rust background
+      lines: [220, 150, 100, 64], // Soft peach lines
+      scrollbar: [255, 180, 100], // Warm orange scrollbar
+      messageText: [255, 255, 240], // Brighter cream/off-white text for better contrast
+      messageBox: [255, 220, 180], // Warm beige for message boxes
+      handle: [255, 160, 120], // Brighter coral for handles
+      handleHover: [255, 240, 120], // Bright golden yellow on hover
+      url: [120, 220, 255], // Brighter light blue for contrast
+      urlHover: [255, 240, 120], // Bright golden yellow on hover
+      prompt: [200, 255, 180], // Brighter soft green for prompts
+      promptHover: [255, 240, 120], // Bright golden yellow on hover
+      painting: [255, 200, 140], // Brighter peachy orange for paintings
+      paintingHover: [255, 240, 120], // Bright golden yellow on hover
+      timestamp: [220, 180, 150], // Much brighter/lighter brown for timestamps
+      timestampHover: [255, 240, 120], // Bright golden yellow on hover
+    }
+  });
   // $.ink("yellow").line();
 }
 
 function act($) {
-  chat.act($, client.system);
+  chat.act($, client.system, { typeface: "unifont" });
 }
 
 function sim($) {
