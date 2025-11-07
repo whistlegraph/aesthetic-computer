@@ -1,152 +1,96 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>SpiderLily Builds - false.work</title>
+  <title>Builds - false.work</title>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
     body {
       font-family: 'Courier New', monospace;
-      margin: 0;
-      padding: 2rem;
-      background: #0a0a0a;
-      color: #00ff00;
+      background: #000;
+      color: #0f0;
       line-height: 1.6;
+      padding: 2rem;
     }
     .container {
-      max-width: 1200px;
+      max-width: 800px;
       margin: 0 auto;
     }
     h1 {
-      border-bottom: 2px solid #00ff00;
-      padding-bottom: 0.5rem;
+      font-size: 1.5rem;
       margin-bottom: 1rem;
-      font-size: 2rem;
+      color: #0f0;
     }
     h2 {
-      color: #00cc00;
-      margin-top: 2rem;
-      border-bottom: 1px solid #00cc00;
-      padding-bottom: 0.3rem;
+      font-size: 1.2rem;
+      margin: 2rem 0 0.5rem;
+      color: #0d0;
     }
-    .status {
-      background: #111;
-      border: 1px solid #00ff00;
-      padding: 1rem;
-      margin: 1rem 0;
-      border-radius: 4px;
-    }
-    .status-item {
-      margin: 0.5rem 0;
-    }
-    .status-ok { color: #00ff00; }
-    .status-warn { color: #ffff00; }
     ul {
       list-style: none;
-      padding: 0;
     }
     li {
-      padding: 0.5rem;
+      padding: 0.75rem;
       margin: 0.5rem 0;
-      background: #111;
-      border-left: 3px solid #00ff00;
-      padding-left: 1rem;
+      background: #0a0a0a;
+      border-left: 2px solid #0f0;
     }
     a {
-      color: #00ff00;
+      color: #0f0;
       text-decoration: none;
-      border-bottom: 1px dotted #00ff00;
     }
     a:hover {
-      color: #00ff00;
-      border-bottom: 1px solid #00ff00;
-      background: #112211;
+      text-decoration: underline;
     }
-    .latest {
-      background: #0a2a0a;
-      border-left-color: #00ff00;
-      border-left-width: 5px;
-    }
-    .info {
-      color: #888;
+    .meta {
+      color: #080;
       font-size: 0.9rem;
-      margin: 2rem 0;
+      margin-top: 0.25rem;
     }
-    code {
-      background: #111;
-      padding: 0.2rem 0.4rem;
-      border-radius: 2px;
+    .empty {
+      color: #555;
+      font-style: italic;
+    }
+    footer {
+      margin-top: 3rem;
+      padding-top: 1rem;
+      border-top: 1px solid #222;
+      text-align: center;
+      color: #555;
+      font-size: 0.85rem;
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>🕷️ SpiderLily Builds</h1>
+    <h1>builds.false.work</h1>
     
-    <div class="status">
-      <div class="status-item status-ok">✅ Mac Builder: Online (M4 Mac Mini)</div>
-      <div class="status-item status-ok">✅ Windows Builder: Online (GCP n2-standard-8)</div>
-      <div class="status-item status-warn">⚠️  iOS Builder: Pending code signing</div>
-      <div class="status-item status-ok">✅ Storage: DigitalOcean Spaces (SFO3)</div>
-    </div>
-
-    <h2>🍎 Mac Builds</h2>
-    <ul>
-      <!-- BUILD_LIST_mac -->
-      <li class="latest">
-        <a href="#">Latest Mac Build</a> - Available after first build
-      </li>
-    </ul>
-
-    <h2>🪟 Windows Builds</h2>
-    <ul>
+    <h2>🪟 Windows</h2>
+    <ul id="windows-builds">
       <!-- BUILD_LIST_windows -->
-      <li class="latest">
-        <a href="#">Latest Windows Build</a> - Available after first build
-      </li>
+      <li class="empty">No builds available yet</li>
     </ul>
 
-    <h2>📱 iOS Builds</h2>
-    <ul>
+    <h2>🍎 Mac</h2>
+    <ul id="mac-builds">
+      <!-- BUILD_LIST_mac -->
+      <li class="empty">No builds available yet</li>
+    </ul>
+
+    <h2>📱 iOS</h2>
+    <ul id="ios-builds">
       <!-- BUILD_LIST_ios -->
-      <li class="latest">
-        <a href="#">Latest iOS Build</a> - Pending code signing setup
-      </li>
+      <li class="empty">No builds available yet</li>
     </ul>
 
-    <div class="info">
-      <h2>ℹ️ Build Information</h2>
-      <p><strong>Spider Lily</strong> - UE5.6 Game Project by false.work</p>
-      <p>
-        <strong>Automated Builds:</strong><br>
-        • Mac: M4 Mac Mini (local, zero cloud cost)<br>
-        • Windows: GCP VM (on-demand, ~$3/build)<br>
-        • iOS: M4 Mac Mini (awaiting code signing)
-      </p>
-      <p>
-        <strong>Trigger Build:</strong><br>
-        <code>fish schedule-builds.fish nightly all</code><br>
-        <code>fish schedule-builds.fish release mac</code>
-      </p>
-      <p>
-        <strong>Build Pipeline:</strong><br>
-        1. Sync from Perforce (ssl:falsework.helixcore.io:1666)<br>
-        2. Compile + Cook + Package via UnrealBuildTool<br>
-        3. Compress (tar.gz/zip)<br>
-        4. Upload to DigitalOcean Spaces<br>
-        5. Update this index automatically
-      </p>
-      <p>
-        Builds are stored for 30 days. Latest builds are always available.
-      </p>
-    </div>
-
-    <div class="info">
-      <p style="text-align: center; margin-top: 3rem; opacity: 0.5;">
-        Engineered by <a href="https://aesthetic.direct">Aesthetic Inc.</a> | 
-        Questions? <a href="https://prompt.ac/chat">@jeffrey</a>
-      </p>
-    </div>
+    <footer>
+      <a href="https://false.work">false.work</a>
+    </footer>
   </div>
 </body>
 </html>

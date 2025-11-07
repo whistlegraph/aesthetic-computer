@@ -942,7 +942,9 @@ function computeMessagesHeight({ text, screen }, chat, typefaceName, currentRowH
   // Iterate through the messages array.
   for (let i = 0; i < chat.messages.length; i += 1) {
     const message = chat.messages[i];
-    const fullMessage = message.from + " " + message.text;
+    // Add count multiplier if message was repeated
+    const countSuffix = message.count > 1 ? ` x${message.count}` : "";
+    const fullMessage = message.from + " " + message.text + countSuffix;
     const tb = text.box(
       fullMessage,
       { x: leftMargin, y: 0 },
