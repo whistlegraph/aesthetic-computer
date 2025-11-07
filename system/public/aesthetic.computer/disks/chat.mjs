@@ -35,6 +35,7 @@ const { max, floor, ceil } = Math;
 let input, inputBtn, handleBtn, token;
 let messagesNeedLayout = true;
 let tapState = null;
+let inputTypefaceName; // Store the typeface name for text input
 
 let rowHeight;
 const lineGap = 1,
@@ -67,10 +68,16 @@ async function boot(
     typeface,
   },
   otherChat,
+  options,
 ) {
   rowHeight = typeface.blockHeight + 1;
 
   const client = otherChat || chat;
+  
+  // Store typeface name from options if provided
+  if (options?.typeface) {
+    inputTypefaceName = options.typeface;
+  }
 
   // console.log("💬 Chat booting...");
   scroll = store["chat:scroll"] || 0; // Memoize scroll.
@@ -159,6 +166,7 @@ async function boot(
     {
       // autolock: false,
       // wrap,
+      font: inputTypefaceName || "font_1",
       scheme: {
         text: 255,
         background: [0, 180],
@@ -219,7 +227,44 @@ function paint(
   options,
 ) {
   const client = options?.otherChat || chat;
-  if (!options?.embedded) wipe(100, 100, 145);
+  
+  // Extract typeface name option (defaults to undefined for normal typeface)
+  const typefaceName = options?.typeface;
+  
+  // Calculate rowHeight based on the typeface being used
+  // For unifont, use 16 (standard unifont height at scale 1)
+  // For default typeface, use the blockHeight + 1
+  const currentRowHeight = typefaceName === "unifont" ? 17 : (typeface.blockHeight + 1);
+  
+  // Default theme
+  const defaultTheme = {
+    background: [100, 100, 145],
+    lines: [90, 200, 150, 48],
+    scrollbar: "pink",
+    messageText: "white",
+    messageBox: [255, 32], // white with alpha for hover
+    handle: "pink",
+    handleHover: "yellow",
+    url: "cyan",
+    urlHover: "yellow",
+    prompt: "lime",
+    promptHover: "yellow",
+    painting: "orange",
+    paintingHover: "yellow",
+    timestamp: [100 / 1.3, 100 / 1.3, 145 / 1.3],
+    timestampHover: "yellow",
+  };
+  
+  // Merge custom theme with defaults
+  const theme = { ...defaultTheme, ...options?.theme };
+  
+  if (!options?.embedded) {
+    if (Array.isArray(theme.background)) {
+      wipe(...theme.background);
+    } else {
+      wipe(theme.background);
+    }
+  }
 
   // Interface
   {
@@ -236,19 +281,31 @@ function paint(
     }
   }
 
-  ink(90, 200, 150, 48)
-    .line(0, topMargin, screen.width, topMargin)
-    .line(
-      0,
-      screen.height - bottomMargin + 2,
-      screen.width,
-      screen.height - bottomMargin + 2,
-    );
+  // Use theme line color
+  if (Array.isArray(theme.lines)) {
+    ink(...theme.lines)
+      .line(0, topMargin, screen.width, topMargin)
+      .line(
+        0,
+        screen.height - bottomMargin + 2,
+        screen.width,
+        screen.height - bottomMargin + 2,
+      );
+  } else {
+    ink(theme.lines)
+      .line(0, topMargin, screen.width, topMargin)
+      .line(
+        0,
+        screen.height - bottomMargin + 2,
+        screen.width,
+        screen.height - bottomMargin + 2,
+      );
+  }
 
   if (client.connecting) {
     ink("pink").write("Connecting" + ellipsisTicker?.text(help.repeat), {
       center: "xy",
-    });
+    }, undefined, undefined, false, typefaceName);
     return;
   }
 
@@ -256,8 +313,8 @@ function paint(
   // Start from the bottom of the screen
   // if (!client.connecting) {
   if (messagesNeedLayout) {
-    totalScrollHeight = computeMessagesHeight(api, client);
-    computeMessagesLayout(api, client);
+    totalScrollHeight = computeMessagesHeight(api, client, typefaceName, currentRowHeight);
+    computeMessagesLayout(api, client, typefaceName, currentRowHeight);
     chatHeight = computeScrollbarHeight(api, client);
     messagesNeedLayout = false;
   }
@@ -290,29 +347,111 @@ function paint(
     const layout = message.layout;
     const y = layout.y;
 
-    // 🪧 Paint the message and its contents.
-    ink("white", layout.inBox ? 64 : 32).box(x, y, tb.box.width, tb.box.height);
+    // 🪧 Paint the message box background (skip for unifont to keep it clean)
+    if (!typefaceName || typefaceName !== "unifont") {
+      if (Array.isArray(theme.messageBox)) {
+        ink(...theme.messageBox, layout.inBox ? 64 : 32).box(x, y, tb.box.width, layout.height);
+      } else {
+        ink(theme.messageBox, layout.inBox ? 64 : 32).box(x, y, tb.box.width, layout.height);
+      }
+    }
     
-    // Generate dynamic color-coded message with hover states
-    const dynamicColorMessage = generateDynamicColorMessage(message);
+    // Render each line of the message separately for proper multi-line display
+    // Parse elements once for this message
+    const parsedElements = parseMessageElements(message.fullMessage);
+    const hoveredElements = layout.hoveredElements || new Set();
     
-    // Render the color-coded message using the modern color system
-    ink(layout.msgColor).write(
-      dynamicColorMessage,
-      { x, y },
-      undefined,
-      screen.width - x,
-    );
+    let charPos = 0; // Track position in the full message
+    let lastLineRenderedWidthForThisMessage = 0; // Track actual rendered width of last line for THIS message
+    
+    for (let lineIdx = 0; lineIdx < tb.lines.length; lineIdx++) {
+      const line = tb.lines[lineIdx];
+      const lineY = y + lineIdx * currentRowHeight;
+      const lineStart = charPos;
+      const lineEnd = charPos + line.length;
+      
+      // Build color-coded version of this line
+      let colorCodedLine = line;
+      
+      // Find elements that overlap with this line and apply colors (in reverse order)
+      const lineElements = parsedElements
+        .filter(el => el.start < lineEnd && el.end > lineStart)
+        .sort((a, b) => b.start - a.start);
+      
+      for (const element of lineElements) {
+        // Calculate element's position within this line
+        const elemStartInLine = Math.max(0, element.start - lineStart);
+        const elemEndInLine = Math.min(line.length, element.end - lineStart);
+        
+        if (elemStartInLine < elemEndInLine) {
+          const elementText = line.substring(elemStartInLine, elemEndInLine);
+          
+          // Check if hovered
+          const isHovered = Array.from(hoveredElements).some(hoveredEl => 
+            hoveredEl.start === element.start && 
+            hoveredEl.end === element.end && 
+            hoveredEl.type === element.type
+          );
+          
+          // Get color based on type and hover state
+          let color;
+          if (element.type === "handle") {
+            color = isHovered ? theme.handleHover : theme.handle;
+          } else if (element.type === "url") {
+            color = isHovered ? theme.urlHover : theme.url;
+          } else if (element.type === "prompt") {
+            color = isHovered ? theme.promptHover : theme.prompt;
+          } else if (element.type === "painting") {
+            color = isHovered ? theme.paintingHover : theme.painting;
+          }
+          
+          if (color) {
+            const colorStr = Array.isArray(color) ? color.join(',') : color;
+            const textColorStr = Array.isArray(theme.messageText) ? theme.messageText.join(',') : theme.messageText;
+            const colorCodedText = `\\${colorStr}\\${elementText}\\${textColorStr}\\`;
+            
+            colorCodedLine = 
+              colorCodedLine.substring(0, elemStartInLine) + 
+              colorCodedText + 
+              colorCodedLine.substring(elemEndInLine);
+          }
+        }
+      }
+      
+      // Render this line with color codes
+      // Note: For unifont, we don't want a background box per character
+      ink(theme.messageText).write(
+        colorCodedLine,
+        { x, y: lineY },
+        false, // bg - no background
+        undefined, // bounds - no width limit (line is already wrapped)
+        false, // wordWrap - off since line is pre-wrapped
+        typefaceName // typeface
+      );
+      
+      // Track width of last line (plain text, not color-coded)
+      if (lineIdx === tb.lines.length - 1) {
+        lastLineRenderedWidthForThisMessage = text.width(line, typefaceName);
+      }
+      
+      charPos += line.length + 1; // +1 for space between lines in text.box
+    }
 
     const ago = timeAgo(message.when);
     let overTimestamp = false;
 
     if (ago !== lastAgo || layout.timestamp.over || layout.inBox) {
-      ink(layout.timestamp.over ? "yellow" : layout.timestampColor).write(
-        ago,
-        x + layout.timestamp.x,
-        layout.timestamp.y,
-      );
+      const tsColor = layout.timestamp.over ? theme.timestampHover : theme.timestamp;
+      const timestampWidth = text.width(ago, typefaceName);
+      const timestampGap = 6; // Gap from right edge
+      const timestampX = screen.width - timestampWidth - timestampGap;
+      const timestampY = layout.timestamp.y;
+      
+      if (Array.isArray(tsColor)) {
+        ink(...tsColor).write(ago, timestampX, timestampY, false, undefined, false, typefaceName);
+      } else {
+        ink(tsColor).write(ago, timestampX, timestampY, false, undefined, false, typefaceName);
+      }
     }
 
     lastAgo = ago;
@@ -366,43 +505,49 @@ function paint(
         (scroll / totalScrollHeight) * chatHeight,
     ) || 0;
 
-  ink("pink").box(0, boxY, 3, segHeight); // Backdrop.
+  // Use theme scrollbar color
+  if (Array.isArray(theme.scrollbar)) {
+    ink(...theme.scrollbar).box(0, boxY, 3, segHeight);
+  } else {
+    ink(theme.scrollbar).box(0, boxY, 3, segHeight);
+  }
   // }
 
   const currentHandle = handle();
   const msg = currentHandle || "nohandle";
-
-  ink(0).write(msg, { bottom: 10 - 1, left: leftMargin - 1 });
 
   const color = currentHandle ? "lime" : "red";
 
   ink(handleBtn.down ? "white" : color).write(msg, {
     bottom: 10,
     left: leftMargin,
-  });
+  }, false, undefined, false, typefaceName);
 
-  const charW = typeface.glyphs[0].resolution[0];
-  const handleWidth = msg.length * charW;
+  // Calculate character width based on the actual typeface being used
+  const charW = typefaceName ? text.width("M", typefaceName) : typeface.glyphs[0].resolution[0];
+  const handleWidth = typefaceName ? text.width(msg, typefaceName) : text.width(msg);
+  const gapWidth = charW * 4; // Four character widths for better spacing with unifont
 
   ink(inputBtn.down ? "yellow" : 220).write(
     "Enter message" + ellipsisTicker.text(help.repeat),
     {
-      left: leftMargin + handleWidth + charW,
+      left: leftMargin + handleWidth + gapWidth,
       bottom: 10,
     },
+    false, undefined, false, typefaceName
   );
 
   handleBtn.btn.box = new Box(
     0,
     screen.height - bottomMargin + 2,
-    handleWidth + charW - 1,
+    leftMargin + handleWidth + Math.floor(gapWidth / 2),
     bottomMargin - 2,
   );
 
   inputBtn.btn.box = new Box(
-    leftMargin + handleWidth,
+    leftMargin + handleWidth + gapWidth,
     screen.height - bottomMargin + 2,
-    screen.width - leftMargin - handleWidth,
+    screen.width - leftMargin - handleWidth - gapWidth,
     bottomMargin - 2,
   );
 
@@ -410,7 +555,7 @@ function paint(
     ink(160).write("Online: " + client.chatterCount, {
       right: leftMargin,
       top: 6,
-    });
+    }); // Use default font for online count
   }
 
   if (input.canType && !leaving()) {
@@ -425,8 +570,8 @@ function paint(
     const len = 128;
     ink(input.text.length > len ? "red" : "gray").write(
       `${input.text.length}/${len}`,
-      { right: 6, top: 6 },
-    );
+      { right: 6, top: 6 }
+    ); // Use default font for character count
   }
 }
 
@@ -444,10 +589,17 @@ function act(
     beep,
     text,
     jump,
+    typeface,
   },
   otherChat,
+  options,
 ) {
   const client = otherChat || chat;
+  const typefaceName = options?.typeface;
+  
+  // Calculate rowHeight based on the typeface being used
+  const currentRowHeight = typefaceName === "unifont" ? 17 : (typeface.blockHeight + 1);
+  
   // if (e.is("viewport-height:changed")) {
   // console.log("✨ New keyboard cutoff would be:", e.y, "?");
   // notice(e.y);
@@ -457,8 +609,8 @@ function act(
     const lastScrollHeight = totalScrollHeight;
     const lastScroll = scroll;
 
-    totalScrollHeight = computeMessagesHeight(api, client);
-    computeMessagesLayout(api, client);
+    totalScrollHeight = computeMessagesHeight(api, client, typefaceName, currentRowHeight);
+    computeMessagesLayout(api, client, typefaceName, currentRowHeight);
     chatHeight = computeScrollbarHeight(api);
 
     scroll = (lastScroll / lastScrollHeight) * totalScrollHeight;
@@ -525,7 +677,9 @@ function act(
               element, 
               message.fullMessage, 
               message.tb.lines, 
-              text
+              text,
+              currentRowHeight,
+              typefaceName
             );
             
             if (elementPosition && isClickInsideElement(relativeX, relativeY, elementPosition)) {
@@ -569,7 +723,9 @@ function act(
               element, 
               message.fullMessage, 
               message.tb.lines, 
-              text
+              text,
+              currentRowHeight,
+              typefaceName
             );
             
             if (elementPosition && isClickInsideElement(relativeX, relativeY, elementPosition)) {
@@ -761,7 +917,7 @@ function act(
 }
 
 function sim({ api }) {
-  input.sim(api); // 💬 Chat
+  if (input) input.sim(api); // 💬 Chat
   ellipsisTicker?.update(api.clock?.time());
 }
 
@@ -781,7 +937,7 @@ function boundScroll() {
   }
 }
 
-function computeMessagesHeight({ text, screen }, chat) {
+function computeMessagesHeight({ text, screen }, chat, typefaceName, currentRowHeight) {
   let height = 0;
   // Iterate through the messages array.
   for (let i = 0; i < chat.messages.length; i += 1) {
@@ -793,18 +949,22 @@ function computeMessagesHeight({ text, screen }, chat) {
       screen.width - leftMargin,
       1,
       true,
+      typefaceName
     );
     message.tb = tb;
     message.fullMessage = fullMessage;
-    height += tb.lines.length * rowHeight + lineGap;
+    // Add height for all lines in the message
+    // Each line is currentRowHeight tall
+    // Plus add lineGap between lines within the message and after the message
+    height += tb.lines.length * currentRowHeight + lineGap;
   }
   return height;
 }
 
 // Build a display graph for the messages.
 // (From the bottom to the top.)
-function computeMessagesLayout({ screen, text }, chat) {
-  let y = screen.height - rowHeight - bottomMargin + scroll;
+function computeMessagesLayout({ screen, text }, chat, typefaceName, currentRowHeight) {
+  let y = screen.height - currentRowHeight - bottomMargin + scroll;
 
   // Delete all layouts.
   for (let i = chat.messages.length - 1; i >= 0; i--) {
@@ -816,8 +976,8 @@ function computeMessagesLayout({ screen, text }, chat) {
   for (let i = chat.messages.length - 1; i >= 0; i--) {
     const msg = chat.messages[i];
 
-    y -= rowHeight * (msg.tb.lines.length - 1) + lineGap;    if (y > screen.height - bottomMargin) {
-      y -= rowHeight;
+    y -= currentRowHeight * (msg.tb.lines.length - 1) + lineGap;    if (y > screen.height - bottomMargin) {
+      y -= currentRowHeight;
       continue;
     }
       // Create a modern color-coded message using \color\ syntax like KidLisp
@@ -852,19 +1012,24 @@ function computeMessagesLayout({ screen, text }, chat) {
     }
 
     // Create layout using the color-coded message
+    const lastLineWidth = text.width(msg.tb.lines[msg.tb.lines.length - 1], typefaceName);
+    const timestampGap = typefaceName === "unifont" ? 16 : 6; // More space for unifont
     const timestamp = {
-      x: text.width(msg.tb.lines[msg.tb.lines.length - 1]) + 6,
-      y: y + (msg.tb.lines.length - 1) * rowHeight,
-      height: rowHeight,
-      width: text.width(timeAgo(msg.when)),
+      x: lastLineWidth + timestampGap,
+      y: y + (msg.tb.lines.length - 1) * currentRowHeight,
+      height: currentRowHeight,
+      width: text.width(timeAgo(msg.when), typefaceName),
     };
     let timestampColor = [100 / 1.3, 100 / 1.3, 145 / 1.3];
+    
+    // Calculate box dimensions based on our rowHeight
+    const boxHeight = msg.tb.lines.length * currentRowHeight;
     
     msg.layout = {
       x: leftMargin,
       y,
       width: msg.tb.box.width,
-      height: msg.tb.box.height,
+      height: boxHeight, // Use our calculated height instead of tb.box.height
       timestamp,
       timestampColor,
       msgColor,
@@ -877,8 +1042,8 @@ function computeMessagesLayout({ screen, text }, chat) {
 
     delete msg.lastLayout;
 
-    y -= rowHeight; // Move up one line for the next message.
-    if (y < topMargin - rowHeight) {
+    y -= currentRowHeight; // Move up one line for the next message.
+    if (y < topMargin - currentRowHeight) {
       break; // Break if y is below top line.
     }
   }
@@ -1051,7 +1216,7 @@ function parseMessageElements(message) {
 }
 
 // Calculate the rendered position of an interactive element in the text layout
-function calculateElementPosition(element, fullMessage, textLines, text) {
+function calculateElementPosition(element, fullMessage, textLines, text, currentRowHeight, typefaceName) {
   // Find which line(s) and character positions this element spans
   let charCount = 0;
   
@@ -1066,14 +1231,14 @@ function calculateElementPosition(element, fullMessage, textLines, text) {
       const endInLine = Math.min(element.end - lineStart, lineText.length);
       
       // Calculate pixel position
-      const startX = text.width(lineText.substring(0, startInLine));
-      const width = text.width(lineText.substring(startInLine, endInLine));
+      const startX = text.width(lineText.substring(0, startInLine), typefaceName);
+      const width = text.width(lineText.substring(startInLine, endInLine), typefaceName);
       
       return {
         x: startX,
-        y: lineIndex * rowHeight,
+        y: lineIndex * currentRowHeight,
         width: width,
-        height: rowHeight,
+        height: currentRowHeight,
         lineIndex: lineIndex
       };
     }
@@ -1095,13 +1260,21 @@ function isClickInsideElement(clickX, clickY, elementPosition) {
 }
 
 // Generate a color-coded message with dynamic hover states
-function generateDynamicColorMessage(message) {
+function generateDynamicColorMessage(message, theme) {
   let colorCodedMessage = message.fullMessage;
   const parsedElements = parseMessageElements(message.fullMessage);
   const hoveredElements = message.layout.hoveredElements || new Set();
   
   // Sort elements by start position (reverse order for safe replacement)
   parsedElements.sort((a, b) => b.start - a.start);
+  
+  // Helper to get color string for ink() calls
+  const getColorString = (color) => {
+    if (Array.isArray(color)) {
+      return color.map(c => c.toString()).join(',');
+    }
+    return color;
+  };
   
   // Replace each element with color-coded version
   for (const element of parsedElements) {
@@ -1116,17 +1289,17 @@ function generateDynamicColorMessage(message) {
     );
     
     if (element.type === "handle") {
-      const color = isHovered ? "yellow" : "pink";
-      colorCodedText = `\\${color}\\${elementText}\\white\\`;
+      const color = isHovered ? theme.handleHover : theme.handle;
+      colorCodedText = `\\${getColorString(color)}\\${elementText}\\${getColorString(theme.messageText)}\\`;
     } else if (element.type === "url") {
-      const color = isHovered ? "yellow" : "cyan";
-      colorCodedText = `\\${color}\\${elementText}\\white\\`;
+      const color = isHovered ? theme.urlHover : theme.url;
+      colorCodedText = `\\${getColorString(color)}\\${elementText}\\${getColorString(theme.messageText)}\\`;
     } else if (element.type === "prompt") {
-      const color = isHovered ? "yellow" : "lime";
-      colorCodedText = `\\${color}\\${elementText}\\white\\`;
+      const color = isHovered ? theme.promptHover : theme.prompt;
+      colorCodedText = `\\${getColorString(color)}\\${elementText}\\${getColorString(theme.messageText)}\\`;
     } else if (element.type === "painting") {
-      const color = isHovered ? "yellow" : "orange";
-      colorCodedText = `\\${color}\\${elementText}\\white\\`;
+      const color = isHovered ? theme.paintingHover : theme.painting;
+      colorCodedText = `\\${getColorString(color)}\\${elementText}\\${getColorString(theme.messageText)}\\`;
     }
     
     // Replace the original text with the color-coded version
