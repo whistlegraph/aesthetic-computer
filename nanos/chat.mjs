@@ -35,6 +35,8 @@ dotenv.config({ path: "chat.env" });
 import { initializeApp, cert } from "firebase-admin/app"; // Firebase notifications.
 import { getMessaging } from "firebase-admin/messaging";
 
+const MAX_MESSAGES = 500; // Maximum messages to keep in memory
+
 const instances = {
   "chat-system": {
     name: "chat-system",
@@ -170,7 +172,7 @@ const request = async (req, res) => {
 
         messages.push(parsed);
 
-        if (messages.length > 100) messages.shift();
+        if (messages.length > MAX_MESSAGES) messages.shift();
 
         // ⚠️
         // Look through the message buffer and update any handles
@@ -637,8 +639,9 @@ async function startChatServer() {
           const message = msg.content;
           const fromSub = message.sub;
           let filteredText;
+          const userIsMuted = await isMuted(fromSub);
 
-          if (instance.name === "chat-system" && (await isMuted(fromSub))) {
+          if (userIsMuted) {
             redact(message);
             filteredText = message.text;
           } else {
@@ -672,7 +675,8 @@ async function startChatServer() {
           }
 
           // Don't store any actual messages to the MongoDB in development.
-          if (!dev) {
+          // Also don't store messages from muted users.
+          if (!dev && !userIsMuted) {
             console.log("🟡 Storing message...");
             const dbmsg = {
               user: message.sub,
@@ -686,7 +690,7 @@ async function startChatServer() {
 
             console.log("🟢 Message stored:", dbmsg);
           } else {
-            console.log("🟡 Message not stored:", "Development");
+            console.log("🟡 Message not stored:", userIsMuted ? "User muted" : "Development");
           }
 
           // Retrieve handle either from cache or MongoDB
@@ -701,42 +705,57 @@ async function startChatServer() {
             //               `chat-sotce` then the subs will be local
             //               to that tenant and not prefixed. 24.10.31.21.35
           };
-          messages.push(out);
-          if (messages.length > 100) messages.shift();
+          
+          // Check if this is a duplicate of the last message from the same user
+          const lastMsg = messages[messages.length - 1];
+          if (lastMsg && 
+              lastMsg.sub === out.sub && 
+              lastMsg.text === out.text &&
+              !lastMsg.count) {
+            // Increment or initialize the count
+            lastMsg.count = (lastMsg.count || 1) + 1;
+            // Don't add a new message, just update the existing one
+            everyone(pack(`message:update`, { index: messages.length - 1, count: lastMsg.count }));
+          } else {
+            messages.push(out);
+            if (messages.length > MAX_MESSAGES) messages.shift();
+            everyone(pack(`message`, out)); // Send to clients.
+          }
 
-          everyone(pack(`message`, out)); // Send to clients.
+          // Don't send push notifications for muted users
+          if (!userIsMuted) {
+            if (instance.name === "chat-system")
+              notify(handle + " 💬", filteredText); // Push notification.
 
-          if (instance.name === "chat-system")
-            notify(handle + " 💬", filteredText); // Push notification.
+            if (instance.name === "chat-clock") {
+              const getClockEmoji = (date) => {
+                let hour = date.getHours(); // 0-23
+                const minutes = date.getMinutes(); // 0-59
 
-          if (instance.name === "chat-clock") {
-            const getClockEmoji = (date) => {
-              let hour = date.getHours(); // 0-23
-              const minutes = date.getMinutes(); // 0-59
+                // Convert to 12-hour format for emoji indexing (1-12)
+                let hour12 = hour % 12;
+                if (hour12 === 0) {
+                  hour12 = 12; // Midnight or noon is 12
+                }
 
-              // Convert to 12-hour format for emoji indexing (1-12)
-              let hour12 = hour % 12;
-              if (hour12 === 0) {
-                hour12 = 12; // Midnight or noon is 12
-              }
+                let emojiCode;
+                if (minutes < 30) {
+                  // Use o'clock emoji for minutes 0-29
+                  // 🕐 (0x1F550) to 🕛 (0x1F55B)
+                  emojiCode = 0x1f550 + hour12 - 1;
+                } else {
+                  // Use half-past emoji for minutes 30-59
+                  // 🕜 (0x1F55C) to 🕧 (0x1F567)
+                  emojiCode = 0x1f55c + hour12 - 1;
+                }
+                return String.fromCodePoint(emojiCode);
+              };
 
-              let emojiCode;
-              if (minutes < 30) {
-                // Use o'clock emoji for minutes 0-29
-                // 🕐 (0x1F550) to 🕛 (0x1F55B)
-                emojiCode = 0x1f550 + hour12 - 1;
-              } else {
-                // Use half-past emoji for minutes 30-59
-                // 🕜 (0x1F55C) to 🕧 (0x1F567)
-                emojiCode = 0x1f55c + hour12 - 1;
-              }
-              return String.fromCodePoint(emojiCode);
-            };
-
-            // 'when' is the timestamp of the current message, defined a few lines above
-            const clockEmoji = getClockEmoji(when);
-            // console.log("The clock emoji is...!", clockEmoji);
-            notify(handle + " " + clockEmoji, filteredText); // Push notification.
+              // 'when' is the timestamp of the current message, defined a few lines above
+              const clockEmoji = getClockEmoji(when);
+              // console.log("The clock emoji is...!", clockEmoji);
+              notify(handle + " " + clockEmoji, filteredText); // Push notification.
+            }
           }
 
           // 3. Send a confirmation back to the user.
@@ -859,7 +878,7 @@ async function makeMongoConnection() {
 }
 
 async function getLast100MessagesfromMongo() {
-  console.log("🟡 Retrieving last 100 combined messages...");
+  console.log(`🟡 Retrieving last ${MAX_MESSAGES} combined messages...`);
   const chatCollection = db.collection(instance.name);
   let combinedMessages;
 
@@ -868,14 +887,14 @@ async function getLast100MessagesfromMongo() {
     combinedMessages = await chatCollection
       .find({})
       .sort({ when: -1 })
-      .limit(100)
+      .limit(MAX_MESSAGES)
       .toArray();
   } else if (instance.name !== "chat-system") {
     // 🕰️ Don't include logs.
     combinedMessages = (await chatCollection
       .find({})
       .sort({ when: -1 })
-      .limit(100)
+      .limit(MAX_MESSAGES)
       .toArray()).reverse();
   } else {
     // chat-system
@@ -891,7 +910,7 @@ async function getLast100MessagesfromMongo() {
             },
           },
           { $sort: { when: -1 } },
-          { $limit: 100 },
+          { $limit: MAX_MESSAGES },
         ])
         .toArray()
     ).reverse();
