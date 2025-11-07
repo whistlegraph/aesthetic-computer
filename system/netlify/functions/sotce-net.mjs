@@ -1893,7 +1893,7 @@ export const handler = async (event, context) => {
               second: "numeric",
             });
 
-            function chatAddMessage(text, handle, when) {
+            function chatAddMessage(text, handle, when, count) {
               const msg = cel("div");
               msg.classList.add("message");
               const by = cel("div");
@@ -1902,15 +1902,19 @@ export const handler = async (event, context) => {
               txt.classList.add("message-content");
               const date = cel("div");
               date.classList.add("message-when");
-              txt.innerText = text;
+              // Add count multiplier if message was repeated
+              const displayText = count > 1 ? text + " x" + count : text;
+              txt.innerText = displayText;
               by.innerText = handle;
               date.innerText = chatWhenFormatter.format(new Date(when));
               msg.appendChild(by);
               msg.appendChild(txt);
               msg.appendChild(date);
               chatMessages.prepend(msg);
-              // If there are more than 100 children, remove the last message.
-              while (chatMessages.children.length > 100) {
+              // Store message ID for potential updates
+              msg.dataset.messageId = chatMessages.children.length - 1;
+              // If there are more than 500 children, remove the last message.
+              while (chatMessages.children.length > 500) {
                 chatMessages.removeChild(chatMessages.lastChild);
               }
             }
@@ -2035,7 +2039,7 @@ export const handler = async (event, context) => {
                 // Insert messages if necessary...
                 clearChatMessages();
                 chat.system.messages.forEach((message) => {
-                  chatAddMessage(message.text, message.from, message.when);
+                  chatAddMessage(message.text, message.from, message.when, message.count);
                 });
 
                 if (chat.system.messages.length === 0) chatAddEmpty();
@@ -2072,9 +2076,23 @@ export const handler = async (event, context) => {
                 if (chat.system.messages.length === 1) {
                   document.getElementById("chat-message-empty")?.remove();
                 }
-                chatAddMessage(msg.text, msg.from, msg.when);
+                chatAddMessage(msg.text, msg.from, msg.when, msg.count);
                 chatScrollToBottom({ always: false });
                 // sound.play(messageSfx);
+                return;
+              }
+
+              if (type === "message:update") {
+                // Update the count on the most recent message
+                const updateData = content;
+                const lastMessageEl = chatMessages.firstChild;
+                if (lastMessageEl && lastMessageEl.querySelector) {
+                  const txtEl = lastMessageEl.querySelector(".message-content");
+                  if (txtEl && chat.system.messages[updateData.index]) {
+                    const msg = chat.system.messages[updateData.index];
+                    txtEl.innerText = msg.text + " x" + updateData.count;
+                  }
+                }
                 return;
               }
 
@@ -2091,7 +2109,7 @@ export const handler = async (event, context) => {
                 if (layoutChanged) {
                   clearChatMessages();
                   chat.system.messages.forEach((message) => {
-                    chatAddMessage(message.text, message.from, message.when);
+                    chatAddMessage(message.text, message.from, message.when, message.count);
                   });
                 }
 

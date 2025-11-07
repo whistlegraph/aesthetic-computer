@@ -101,10 +101,20 @@ export class Chat {
           if (logs.chat) console.log("💬 Chat message received:", msg);
           this.system.messages.push(msg);
           // console.log(this.system.messages);
-          // Only keep the last 100 messages in this array.
-          if (this.system.messages.length > 100) this.system.messages.shift();
+          // Only keep the last 500 messages in this array.
+          if (this.system.messages.length > 500) this.system.messages.shift();
           content = msg; // Pass the transformed message.
           extra.layoutChanged = true;
+        }
+
+        if (type === "message:update") {
+          const updateData = JSON.parse(content);
+          if (logs.chat) console.log("💬 Chat message updated:", updateData);
+          // Update the count on the existing message
+          if (this.system.messages[updateData.index]) {
+            this.system.messages[updateData.index].count = updateData.count;
+            extra.layoutChanged = true;
+          }
         }
 
         // Auto parse handle updates.
