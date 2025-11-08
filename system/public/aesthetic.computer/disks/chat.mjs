@@ -241,7 +241,7 @@ function paint(
     background: [100, 100, 145],
     lines: [90, 200, 150, 48],
     scrollbar: "pink",
-    messageText: "white",
+    messageText: [255, 255, 255], // Changed from "white" to explicit RGB
     messageBox: [255, 32], // white with alpha for hover
     handle: "pink",
     handleHover: "yellow",
