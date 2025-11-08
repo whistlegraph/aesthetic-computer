@@ -530,6 +530,9 @@ alias refish 'source ~/.config/fish/config.fish'
 # Port visibility helper - sets port 8888 to public in Codespaces
 alias port-public 'fish /workspaces/aesthetic-computer/.devcontainer/scripts/set-port-public.fish'
 
+# SSH to Windows host
+alias win 'ssh me@host.docker.internal'
+
 # set default editor to emacs
 set -gx TERM xterm-256color
 set -gx EDITOR emacs
