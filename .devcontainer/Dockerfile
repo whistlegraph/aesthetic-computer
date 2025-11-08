@@ -17,6 +17,11 @@ ENV NODE_DISABLE_COMPILE_CACHE=1
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+# Prevent paging for LLM/agentic use
+ENV PAGER=cat
+ENV GIT_PAGER=cat
+ENV SYSTEMD_PAGER=cat
+ENV MANPAGER=cat
 
 # --- Base toolchain & deps ----------------------------------------------------
 RUN dnf update -y && \
