@@ -308,6 +308,16 @@ if test -d /home/me/aesthetic-computer
         load_envs # Reload envs after vault mount
         echo "🔧 Environment variables reloaded after vault mount"
     end
+    
+    # Setup SSH keys from vault
+    if test -d /home/me/aesthetic-computer/aesthetic-computer-vault/home/.ssh
+        mkdir -p /home/me/.ssh
+        cp -f /home/me/aesthetic-computer/aesthetic-computer-vault/home/.ssh/* /home/me/.ssh/
+        chmod 700 /home/me/.ssh
+        chmod 600 /home/me/.ssh/id_rsa 2>/dev/null
+        chmod 644 /home/me/.ssh/id_rsa.pub 2>/dev/null
+        echo "🔑 SSH keys restored from vault"
+    end
 else
     echo "⚠️🔒 Vault unmounted!"
 end

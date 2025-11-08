@@ -21,21 +21,27 @@ Both environments can compile, cook, and package Spider Lily from Perforce. Mac 
 ## 🎯 Current Status
 
 ### ✅ Windows Builder (Production)
-**Platform:** GCP VM (n2-standard-8: 8 vCPU, 32GB RAM, 300GB SSD)  
-**Location:** us-central1  
+**Platform:** Local Windows PC (via Docker host)  
+**Location:** host.docker.internal (accessible from dev container)  
 **Status:** **Fully operational**
 
-- ✅ UE5.6 + Perforce + GitHub Actions runner
+- ✅ UE5.6 installed with Perforce workspace at `C:\Perforce\SpiderLily\SL_main`
 - ✅ Connected to Helix Core (ssl:falsework.helixcore.io:1666)
 - ✅ **Spider Lily built and deployed for Windows**
-- ✅ Automated build pipeline via GitHub Actions
-- ✅ ~$2-3 per rebuild cost
+- ✅ Fully automated build pipeline (`remote-update-and-build.fish`)
+- ✅ Builds automatically uploaded to builds.false.work
+- ✅ Zero cloud costs (local machine)
 
-**Key Wins:**
-- Bootstrap script handles C:/D: drive edge cases
-- MSVC 14.38 configured for VS2022
-- LiveCoding disabled for automation
-- Windows Defender exclusions for UE5 builds
+**Build Configuration:**
+- Start Map: `L_VerticalSlice_MainMenu` (main menu level)
+- Excluded Assets: `/Game/Developers`, `/Game/LIB/Characters/Player/Animations/OLD`
+- Deleted Assets: `M_PP_Sky.uasset` (shader deadlock prevention)
+- Build Flags: `-buildmachine -forcelogflush -MaxParallelShaderCompileJobs=6`
+- PowerShell Script: `build-false-work.ps1` (automated, no prompts)
+
+**SSH Access:**
+- From dev container: Use `win` alias (shortcut for `ssh me@host.docker.internal`)
+- Example: `win "dir C:\Perforce"`
 
 ---
 
@@ -123,6 +129,25 @@ Both environments can compile, cook, and package Spider Lily from Perforce. Mac 
 ./ssh-mac.fish                       # Quick SSH access
 ```
 
+### Windows Scripts (in `windows/`)
+```bash
+# Full automated build & deployment pipeline
+./remote-update-and-build.fish       # Perforce sync → build → compress → upload → deploy
+
+# Local Windows scripts (C:\Perforce\SpiderLily\SL_main\)
+build-false-work.ps1                 # PowerShell build script (automated, no prompts)
+```
+
+### Quick SSH Access
+```bash
+# From dev container:
+win                                   # SSH to Windows host (alias for ssh me@host.docker.internal)
+win "dir C:\Perforce"                # Run Windows command
+win "powershell -Command 'Get-Process'" # Run PowerShell command
+
+ssh-mac                               # SSH to Mac Mini (if configured)
+```
+
 ### Credentials
 - **Storage:** `aesthetic-computer-vault/false.work/mac-builder-credentials.env`
 - **Access:** Scripts auto-load from vault (not committed to main repo)
@@ -133,9 +158,10 @@ Both environments can compile, cook, and package Spider Lily from Perforce. Mac 
 ## 📦 Build Outputs
 
 ### Windows
-- **Format:** `.exe` installer
-- **Location:** Packaged via GitHub Actions artifacts
-- **Deployment:** false.work (password-protected page)
+- **Format:** `.zip` archive containing Windows build
+- **Location:** Uploaded to DigitalOcean Spaces
+- **Deployment:** https://builds.false.work (password-protected, Netlify auth)
+- **Features:** Relative timestamps, automatic build list updates, falsework logo
 
 ### Mac
 - **Format:** `.app` bundle (~1GB)
@@ -177,14 +203,14 @@ Both environments can compile, cook, and package Spider Lily from Perforce. Mac 
 ### Current Costs
 | Platform | Setup Cost | Per Build | Monthly (10 builds) | Notes |
 |----------|-----------|-----------|---------------------|-------|
-| **Windows (GCP)** | ~$28 | $2-3 | $30-40 | On-demand, auto-scales |
-| **Mac (Local)** | $0 | $0 | $0 | Already owned, zero cloud costs |
+| **Windows (Local)** | $0 | $0 | $0 | Local PC, zero cloud costs |
+| **Mac (Local)** | $0 | $0 | $0 | M4 Mac Mini, zero cloud costs |
 | **iOS (Local)** | $0 | $0 | $0 | Same Mac, shares infrastructure |
 
 ### Projected Savings
-- **Before:** $800+/month (AWS EC2 Mac instances)
-- **After:** $30-40/month (GCP Windows only)
-- **Savings:** ~$760/month (95% reduction)
+- **Before:** $800+/month (AWS EC2 Mac instances + GCP Windows VM)
+- **After:** $0/month (all local infrastructure)
+- **Savings:** ~$800/month (100% reduction)
 
 ---
 
