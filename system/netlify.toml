@@ -101,6 +101,10 @@ included_files = ["public/aesthetic.computer/lib/kidlisp.mjs", "backend/**/*.mjs
 included_env_vars = ["CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "NETLIFY_DEV", "SOTCE_AUTH0_M2M_CLIENT_ID", "SOTCE_AUTH0_M2M_SECRET", "TEZOS_ENABLED", "PDS_URL", "PDS_ADMIN_PASSWORD"]
 [functions.ask]
 included_env_vars = ["CONTEXT", "ANTHROPIC_API_KEY", "OPENAI_API_KEY"]
+
+[functions.admin-background]
+included_env_vars = ["CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "SOTCE_AUTH0_M2M_CLIENT_ID", "SOTCE_ADMIN_SUBS", "SOTCE_AUTH0_M2M_SECRET", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "USER_ENDPOINT", "ART_KEY", "ART_SECRET", "USER_SPACE_NAME"]
+
 [functions.run]
 included_env_vars = ["NETLIFY_DEV", "REDIS_CONNECTION_STRING"]
 
@@ -455,11 +459,6 @@ status = 200
 from = "/api/delete-erase-and-forget-me"
 to = "/.netlify/functions/delete-erase-and-forget-me"
 status = 200
-[[redirects]]
-from = "/api/admin"
-to = "/.netlify/functions/admin-background"
-status = 200
-force = false
 [[redirects]]
 from = "/api/track-media"
 to = "/.netlify/functions/track-media"
