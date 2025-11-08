@@ -347,14 +347,7 @@ function paint(
     const layout = message.layout;
     const y = layout.y;
 
-    // 🪧 Paint the message box background (skip for unifont to keep it clean)
-    if (!typefaceName || typefaceName !== "unifont") {
-      if (Array.isArray(theme.messageBox)) {
-        ink(...theme.messageBox, layout.inBox ? 64 : 32).box(x, y, tb.box.width, layout.height);
-      } else {
-        ink(theme.messageBox, layout.inBox ? 64 : 32).box(x, y, tb.box.width, layout.height);
-      }
-    }
+    // 🪧 Paint the message (no background box for cleaner appearance)
     
     // Render each line of the message separately for proper multi-line display
     // Parse elements once for this message
