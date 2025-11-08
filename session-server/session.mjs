@@ -215,6 +215,18 @@ if (dev) {
     everyone(pack("reload", req.body, "pieces"));
     return { msg: "Reload request sent!", body: req.body };
   });
+
+  // *** Build Stream - pipe terminal output to WebSocket clients ***
+  fastify.post("/build-stream", async (req) => {
+    const line = typeof req.body === 'string' ? req.body : req.body.line || '';
+    everyone(pack("build:log", { line, timestamp: Date.now() }));
+    return { status: "ok" };
+  });
+
+  fastify.post("/build-status", async (req) => {
+    everyone(pack("build:status", { ...req.body, timestamp: Date.now() }));
+    return { status: "ok" };
+  });
 }
 
 // *** HTTP Server Initialization ***
