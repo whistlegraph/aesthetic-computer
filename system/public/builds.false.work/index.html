@@ -123,7 +123,10 @@
 
   <div id="content">
     <div class="container">
-      <img src="https://assets.aesthetic.computer/false.work/falsework-logo.png" alt="false.work" style="width: 120px; margin-bottom: 1rem;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <img src="https://assets.aesthetic.computer/false.work/falsework-logo.png" alt="false.work" style="width: 120px;">
+        <button onclick="logout()" style="padding: 0.5rem 1rem; font-size: 0.85rem;">🔓 Logout</button>
+      </div>
       <h1>builds.false.work</h1>
       
       <h2>🪟 Windows</h2>
@@ -211,6 +214,11 @@
         
         el.textContent = timeAgo;
       });
+    }
+
+    function logout() {
+      localStorage.removeItem('builds_auth');
+      location.reload();
     }
 
     // Check if already authenticated
