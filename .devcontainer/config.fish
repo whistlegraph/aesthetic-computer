@@ -1168,9 +1168,9 @@ end
 # Usage: some-command | ac-pipe
 function ac-pipe
     while read -l line
-        curl -s -X POST http://localhost:8889/build-stream \
-             -H "Content-Type: text/plain" \
-             -d "$line" > /dev/null 2>&1
+        # Escape double quotes in the line for JSON
+        set escaped_line (string replace -a '"' '\"' -- $line)
+        /usr/bin/curl -k -s -X POST https://localhost:8889/build-stream --header "Content-Type: application/json" --data "{\"line\": \"$escaped_line\"}" > /dev/null 2>&1
         echo $line  # Also echo to terminal
     end
 end
