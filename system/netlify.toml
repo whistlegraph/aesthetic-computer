@@ -10,12 +10,6 @@ command = "rm -f public/index.html" # Remove index.html before build
 node_bundler = "esbuild"
 directory = "netlify/functions"
 
-[functions."tape-convert-background"]
-node_bundler = "esbuild"
-external_node_modules = ["@atproto/api", "adm-zip", "sharp"]
-included_files = ["backend/**/*.mjs"]
-included_env_vars = ["MONGODB_CONNECTION_STRING", "MONGODB_NAME", "PDS_URL", "CONTEXT"]
-
 [functions.apple-developer-merchantid-domain-association]
 included_files = ["public/.well-known/*"]
 included_env_vars = []
@@ -109,8 +103,7 @@ included_env_vars = ["CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_S
 included_env_vars = ["CONTEXT", "ANTHROPIC_API_KEY", "OPENAI_API_KEY"]
 [functions.run]
 included_env_vars = ["NETLIFY_DEV", "REDIS_CONNECTION_STRING"]
-[functions.admin-background]
-included_env_vars = ["CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "USER_ENDPOINT", "ART_KEY", "ART_SECRET", "USER_SPACE_NAME"]
+
 [functions.handles]
 included_env_vars = ["CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
 [functions.track-media]
