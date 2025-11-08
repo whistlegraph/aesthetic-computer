@@ -107,17 +107,18 @@ system/netlify.toml.backup
 
 # XDG runtime/cache directories (dev container auto-generated)
 .xdg/
-# kidlisp-n64 build artifacts and dependencies
-kidlisp-n64/*.z64
-kidlisp-n64/*.n64
-kidlisp-n64/*.v64
-kidlisp-n64/*.o
-kidlisp-n64/*.bin
-kidlisp-n64/*.log
-kidlisp-n64/*-header-dump.txt
-kidlisp-n64/build/
-kidlisp-n64/build-*/
-kidlisp-n64/*-build/
+
+# kidlisp-n64 build artifacts and dependencies (recursive patterns)
+kidlisp-n64/**/*.z64
+kidlisp-n64/**/*.n64
+kidlisp-n64/**/*.v64
+kidlisp-n64/**/*.o
+kidlisp-n64/**/*.bin
+kidlisp-n64/**/*.log
+kidlisp-n64/**/*-header-dump.txt
+kidlisp-n64/**/build/
+kidlisp-n64/**/build-*/
+kidlisp-n64/**/*-build/
 kidlisp-n64/test-build/
 kidlisp-n64/swamp-rebuild/
 kidlisp-n64/libdragon-build/
@@ -127,3 +128,9 @@ kidlisp-n64/n64-sdk/
 kidlisp-n64/spicy-patched
 kidlisp-n64/spicy-source/
 kidlisp-n64/node_modules/
+kidlisp-n64/package-lock.json
+# External git repositories
+kidlisp-n64/Swamp-Hero-64/
+kidlisp-n64/emulator/
+kidlisp-n64/libdragon/
+kidlisp-n64/peter-lemon-n64/
