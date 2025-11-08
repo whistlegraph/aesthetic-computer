@@ -60,15 +60,19 @@ set iso_timestamp (date -Iseconds | cut -d'+' -f1)
 # Extract start level from remote DefaultEngine.ini
 set start_level (ssh me@host.docker.internal "powershell -NoProfile -Command \"(Get-Content 'C:\\Perforce\\SpiderLily\\SL_main\\Config\\DefaultEngine.ini' | Select-String -Pattern 'GameDefaultMap=').ToString().Split('/')[-1].Replace('.umap','')\"")
 
-# Create new build list item
-set new_build "        <li>
-          <a href=\"$download_url\">$build_version</a>
-          <div class=\"meta\">$file_size MB | $start_level | <span class=\"build-time\" data-date=\"$iso_timestamp\">just now</span></div>
-        </li>"
-
-# Insert new build after the <!-- BUILD_LIST_windows --> comment
-sed -i "/<!-- BUILD_LIST_windows -->/a\\
-$new_build" /workspaces/aesthetic-computer/system/public/builds.false.work/index.html
+# Use awk to insert new build entry (more reliable than sed with multiline)
+awk -v version="$build_version" -v url="$download_url" -v size="$file_size" -v level="$start_level" -v timestamp="$iso_timestamp" '
+  /<!-- BUILD_LIST_windows -->/ {
+    print
+    print "        <li>"
+    print "          <a href=\"" url "\">" version "</a>"
+    print "          <div class=\"meta\">" size " MB | " level " | <span class=\"build-time\" data-date=\"" timestamp "\">just now</span></div>"
+    print "        </li>"
+    next
+  }
+  { print }
+' /workspaces/aesthetic-computer/system/public/builds.false.work/index.html > /tmp/builds-temp.html
+mv /tmp/builds-temp.html /workspaces/aesthetic-computer/system/public/builds.false.work/index.html
 
 echo ""
 echo "========================================="
