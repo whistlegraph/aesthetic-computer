@@ -1164,6 +1164,17 @@ function ac-kidlisp
     end
 end
 
+# Pipe command output to session server build stream (for live build progress)
+# Usage: some-command | ac-pipe
+function ac-pipe
+    while read -l line
+        curl -s -X POST http://localhost:8889/build-stream \
+             -H "Content-Type: text/plain" \
+             -d "$line" > /dev/null 2>&1
+        echo $line  # Also echo to terminal
+    end
+end
+
 # ATProto PDS Admin - SSH into PDS server and run pdsadmin
 function ac-at
     # ASCII art header with colors
