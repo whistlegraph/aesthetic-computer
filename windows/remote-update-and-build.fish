@@ -57,10 +57,13 @@ set file_size (math (stat -c%s /workspaces/aesthetic-computer/system/public/asse
 set download_url "https://assets.aesthetic.computer/false.work/spiderlily-windows-$build_version.zip"
 set iso_timestamp (date -Iseconds | cut -d'+' -f1)
 
+# Extract start level from remote DefaultEngine.ini
+set start_level (ssh me@host.docker.internal "powershell -NoProfile -Command \"(Get-Content 'C:\\Perforce\\SpiderLily\\SL_main\\Config\\DefaultEngine.ini' | Select-String -Pattern 'GameDefaultMap=').ToString().Split('/')[-1].Replace('.umap','')\"")
+
 # Create new build list item
 set new_build "        <li>
           <a href=\"$download_url\">$build_version</a>
-          <div class=\"meta\">$file_size MB | <span class=\"build-time\" data-date=\"$iso_timestamp\">just now</span></div>
+          <div class=\"meta\">$file_size MB | $start_level | <span class=\"build-time\" data-date=\"$iso_timestamp\">just now</span></div>
         </li>"
 
 # Insert new build after the <!-- BUILD_LIST_windows --> comment
