@@ -12,14 +12,13 @@ let client;
 function boot({ api, wipe, debug, send }) {
   client = new Chat(debug, send);
   client.connect("clock"); // Connect to 'clock' chat.
-  chat.boot(api, client.system, { typeface: "unifont" });
+  chat.boot(api, client.system); // Use default font
 }
 
 function paint($) {
-  // Custom warm color theme for laer-klokken chat with GNU Unifont
+  // Custom warm color theme for laer-klokken chat
   chat.paint($, { 
     otherChat: client.system,
-    typeface: "unifont", // Use GNU Unifont for Danish character support
     theme: {
       background: [180, 100, 60], // Warm terracotta/rust background
       lines: [220, 150, 100, 64], // Soft peach lines
@@ -42,7 +41,7 @@ function paint($) {
 }
 
 function act($) {
-  chat.act($, client.system, { typeface: "unifont" });
+  chat.act($, client.system);
 }
 
 function sim($) {
