@@ -129,12 +129,12 @@
       <ul id="windows-builds">
         <!-- BUILD_LIST_windows -->
         <li>
-          <a href="https://assets.aesthetic.computer/false.work/spiderlily-windows-2025.11.08-1255.zip">SpiderLily Windows Build</a>
-          <div class="meta">Version: 2025.11.08-1255 | Size: 845 MB | Date: November 8, 2025</div>
+          <a href="https://assets.aesthetic.computer/false.work/spiderlily-windows-2025.11.08-1255.zip">2025.11.08-1255</a>
+          <div class="meta">845 MB | <span class="build-time" data-date="2025-11-08T12:55:00">November 8, 2025</span></div>
         </li>
         <li>
-          <a href="https://assets.aesthetic.computer/false.work/spiderlily-windows-2025.11.07-0207.zip">SpiderLily Windows Build</a>
-          <div class="meta">Version: 2025.11.07-0207 | Size: 446 MB | Date: November 7, 2025</div>
+          <a href="https://assets.aesthetic.computer/false.work/spiderlily-windows-2025.11.07-0207.zip">2025.11.07-0207</a>
+          <div class="meta">446 MB | <span class="build-time" data-date="2025-11-07T02:07:00">November 7, 2025</span></div>
         </li>
       </ul>
 
@@ -159,22 +159,62 @@
   <script>
     function checkPassword() {
       const password = document.getElementById('password').value;
-      const correctPassword = 'BuildM@chine1@';
       
-      if (password === correctPassword) {
-        document.getElementById('auth-container').style.display = 'none';
-        document.getElementById('content').style.display = 'block';
-        localStorage.setItem('builds_auth', 'true');
-      } else {
-        document.getElementById('error').textContent = 'Incorrect password';
-        document.getElementById('password').value = '';
-      }
+      // Call Netlify function to verify password
+      fetch('/.netlify/functions/verify-builds-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          document.getElementById('auth-container').style.display = 'none';
+          document.getElementById('content').style.display = 'block';
+          localStorage.setItem('builds_auth', 'true');
+          updateBuildTimes();
+        } else {
+          document.getElementById('error').textContent = 'Incorrect password';
+          document.getElementById('password').value = '';
+        }
+      })
+      .catch(() => {
+        document.getElementById('error').textContent = 'Authentication error';
+      });
+    }
+
+    function updateBuildTimes() {
+      const timeElements = document.querySelectorAll('.build-time');
+      timeElements.forEach(el => {
+        const buildDate = new Date(el.dataset.date);
+        const now = new Date();
+        const diffMs = now - buildDate;
+        const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+        const diffDays = Math.floor(diffHours / 24);
+        
+        let timeAgo;
+        if (diffHours < 1) {
+          const diffMins = Math.floor(diffMs / (1000 * 60));
+          timeAgo = diffMins < 1 ? 'just now' : `${diffMins} minute${diffMins === 1 ? '' : 's'} ago`;
+        } else if (diffHours < 24) {
+          timeAgo = `${diffHours} hour${diffHours === 1 ? '' : 's'} ago`;
+        } else if (diffDays < 7) {
+          timeAgo = `${diffDays} day${diffDays === 1 ? '' : 's'} ago`;
+        } else {
+          timeAgo = buildDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+        
+        el.textContent = timeAgo;
+      });
     }
 
     // Check if already authenticated
     if (localStorage.getItem('builds_auth') === 'true') {
       document.getElementById('auth-container').style.display = 'none';
       document.getElementById('content').style.display = 'block';
+      updateBuildTimes();
+      // Update times every minute
+      setInterval(updateBuildTimes, 60000);
     }
 
     // Allow Enter key to submit

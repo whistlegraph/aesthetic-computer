@@ -55,12 +55,12 @@ echo "========================================="
 # Get file size in MB
 set file_size (math (stat -c%s /workspaces/aesthetic-computer/system/public/assets/false.work/spiderlily-windows-$build_version.zip) / 1000000)
 set download_url "https://assets.aesthetic.computer/false.work/spiderlily-windows-$build_version.zip"
-set date_display (date "+%B %d, %Y")
+set iso_timestamp (date -Iseconds | cut -d'+' -f1)
 
 # Create new build list item
 set new_build "        <li>
-          <a href=\"$download_url\">SpiderLily Windows Build</a>
-          <div class=\"meta\">Version: $build_version | Size: $file_size MB | Date: $date_display</div>
+          <a href=\"$download_url\">$build_version</a>
+          <div class=\"meta\">$file_size MB | <span class=\"build-time\" data-date=\"$iso_timestamp\">just now</span></div>
         </li>"
 
 # Insert new build after the <!-- BUILD_LIST_windows --> comment
