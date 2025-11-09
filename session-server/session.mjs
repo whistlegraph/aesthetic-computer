@@ -209,23 +209,24 @@ fastify.get("/", async () => {
   };
 });
 
+// *** Build Stream - pipe terminal output to WebSocket clients ***
+// Available in both dev and production for build progress streaming
+fastify.post("/build-stream", async (req) => {
+  const line = typeof req.body === 'string' ? req.body : req.body.line || '';
+  everyone(pack("build:log", { line, timestamp: Date.now() }));
+  return { status: "ok" };
+});
+
+fastify.post("/build-status", async (req) => {
+  everyone(pack("build:status", { ...req.body, timestamp: Date.now() }));
+  return { status: "ok" };
+});
+
 // *** Live Reload of Pieces in Development ***
 if (dev) {
   fastify.post("/reload", async (req) => {
     everyone(pack("reload", req.body, "pieces"));
     return { msg: "Reload request sent!", body: req.body };
-  });
-
-  // *** Build Stream - pipe terminal output to WebSocket clients ***
-  fastify.post("/build-stream", async (req) => {
-    const line = typeof req.body === 'string' ? req.body : req.body.line || '';
-    everyone(pack("build:log", { line, timestamp: Date.now() }));
-    return { status: "ok" };
-  });
-
-  fastify.post("/build-status", async (req) => {
-    everyone(pack("build:status", { ...req.body, timestamp: Date.now() }));
-    return { status: "ok" };
   });
 }
 
