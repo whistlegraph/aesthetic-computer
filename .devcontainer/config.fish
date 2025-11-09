@@ -1164,6 +1164,17 @@ function ac-kidlisp
     end
 end
 
+# Pipe command output to session server build stream (for live build progress)
+# Usage: some-command | ac-pipe
+function ac-pipe
+    while read -l line
+        # Escape double quotes in the line for JSON
+        set escaped_line (string replace -a '"' '\"' -- $line)
+        /usr/bin/curl -k -s -X POST https://localhost:8889/build-stream --header "Content-Type: application/json" --data "{\"line\": \"$escaped_line\"}" > /dev/null 2>&1
+        echo $line  # Also echo to terminal
+    end
+end
+
 # ATProto PDS Admin - SSH into PDS server and run pdsadmin
 function ac-at
     # ASCII art header with colors
