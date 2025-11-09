@@ -30,9 +30,13 @@ function paint($) {
       url: [120, 220, 255], // Brighter light blue for contrast
       urlHover: [255, 240, 120], // Bright golden yellow on hover
       prompt: [200, 255, 180], // Brighter soft green for prompts
+      promptContent: [120, 220, 255], // Light blue like urls
       promptHover: [255, 240, 120], // Bright golden yellow on hover
+      promptContentHover: [255, 240, 120], // Bright golden yellow on hover
       painting: [255, 200, 140], // Brighter peachy orange for paintings
       paintingHover: [255, 240, 120], // Bright golden yellow on hover
+      kidlisp: [255, 140, 200], // Warm pink/magenta for kidlisp
+      kidlispHover: [255, 240, 120], // Bright golden yellow on hover
       timestamp: [220, 180, 150], // Much brighter/lighter brown for timestamps
       timestampHover: [255, 240, 120], // Bright golden yellow on hover
     }
