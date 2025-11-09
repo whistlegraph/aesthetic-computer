@@ -10467,22 +10467,10 @@ class KidLisp {
 
   // 🍞 Clear baked layers (similar to embedded layer clearing)
   clearBakedLayers() {
-    console.log("🍞 clearBakedLayers called - clearing all baked state");
-    console.log("  📊 Before clear:", {
-      layer0: !!this.layer0,
-      burnedBuffer: !!this.burnedBuffer,
-      bakesCount: this.bakes?.length || 0,
-      bakedLayersCount: this.bakedLayers?.length || 0,
-      bakeCallCount: this.bakeCallCount,
-      hasBakedContent: this.hasBakedContent
-    });
-    
     // DON'T return buffers to pool - just explicitly clear them and discard
     // This ensures no dirty data persists
     if (this.layer0 && this.layer0.pixels) {
       try {
-        const hasData = this.layer0.pixels.some(p => p !== 0);
-        console.log(`  🧹 Clearing layer0 (${this.layer0.width}x${this.layer0.height}, had data: ${hasData})`);
         this.layer0.pixels.fill(0);
       } catch (e) {
         console.warn("Failed to clear layer0 pixels:", e);
@@ -10491,8 +10479,6 @@ class KidLisp {
 
     if (this.burnedBuffer && this.burnedBuffer.pixels) {
       try {
-        const hasData = this.burnedBuffer.pixels.some(p => p !== 0);
-        console.log(`  🧹 Clearing burnedBuffer (had data: ${hasData})`);
         this.burnedBuffer.pixels.fill(0);
       } catch (e) {
         console.warn("Failed to clear burnedBuffer pixels:", e);
@@ -10500,7 +10486,6 @@ class KidLisp {
     }
 
     if (this.bakes && this.bakes.length > 0) {
-      console.log(`  🧹 Clearing ${this.bakes.length} bake layers`);
       for (const bakeLayer of this.bakes) {
         if (bakeLayer && bakeLayer.pixels) {
           try {
@@ -10513,7 +10498,6 @@ class KidLisp {
     }
 
     if (this.bakedLayers && this.bakedLayers.length > 0) {
-      console.log(`  🧹 Clearing ${this.bakedLayers.length} bakedLayers`);
       for (const bakedLayer of this.bakedLayers) {
         if (bakedLayer?.buffer && bakedLayer.buffer.pixels) {
           try {
@@ -10553,15 +10537,8 @@ class KidLisp {
     this.compositeInvalidated = true;
     this.needsInitialWipe = true;
     
-    console.log("  ✅ After clear:", {
-      bakesLength: this.bakes?.length || 0,
-      bakedLayersLength: this.bakedLayers?.length || 0,
-      currentBakeIndex: this.currentBakeIndex
-    });
-    
     // Clear the entire buffer pool to ensure no dirty buffers are reused
     if (this.bufferPool) {
-      console.log("🧹 Clearing entire buffer pool to prevent dirty buffer reuse");
       this.bufferPool.clear();
     }
     
@@ -10569,8 +10546,6 @@ class KidLisp {
     if (this.onceExecuted) {
       this.onceExecuted.delete("bake_call");
     }
-    
-    console.log("🍞 Cleared all baked layers and buffer pool");
   }
 
   // 🔄 RESPONSIVE CACHE: Check if screen dimensions changed and clear responsive entries
