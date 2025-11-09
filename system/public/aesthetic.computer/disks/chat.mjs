@@ -91,7 +91,13 @@ async function boot(
     .then((sfx) => (messageSfx = sfx))
     .catch((err) => console.warn("Could not preload:", err)); // and key sounds.
 
-  // 🗨️ Chat Networking
+  // � Load MatrixChunky8 font for timestamps
+  if (api.Typeface) {
+    const matrixFont = new api.Typeface("MatrixChunky8");
+    await matrixFont.load(net.preload);
+  }
+
+  // �🗨️ Chat Networking
 
   // Get the user token for sending authorized messages.
   try {
@@ -433,18 +439,30 @@ function paint(
     const ago = timeAgo(message.when);
     let overTimestamp = false;
 
-    if (ago !== lastAgo || layout.timestamp.over || layout.inBox) {
-      const tsColor = layout.timestamp.over ? theme.timestampHover : theme.timestamp;
-      const timestampWidth = text.width(ago, typefaceName);
-      const timestampGap = 6; // Gap from right edge
-      const timestampX = screen.width - timestampWidth - timestampGap;
-      const timestampY = layout.timestamp.y;
-      
-      if (Array.isArray(tsColor)) {
-        ink(...tsColor).write(ago, timestampX, timestampY, false, undefined, false, typefaceName);
-      } else {
-        ink(tsColor).write(ago, timestampX, timestampY, false, undefined, false, typefaceName);
-      }
+    // Show all timestamps (not just unique ones), with fading for older messages
+    const tsColor = layout.timestamp.over ? theme.timestampHover : theme.timestamp;
+    
+    // Use MatrixChunky8 for compact timestamps tacked onto the end of messages
+    const timestampWidth = text.width(ago, "MatrixChunky8");
+    const timestampGap = 4; // Small gap between message and timestamp
+    
+    // Position timestamp right after the last line of the message
+    const lastLineText = message.tb.lines[message.tb.lines.length - 1];
+    const lastLineWidth = text.width(lastLineText, typefaceName);
+    const timestampX = x + lastLineWidth + timestampGap;
+    
+    // Bottom-align timestamp with the message text by offsetting from the baseline
+    // The timestamp should sit on the same baseline as the last line of text
+    const timestampY = layout.timestamp.y + currentRowHeight - 10; // Align to bottom of text line (raised 2px)
+    
+    // Calculate fade based on message index (newer = more opaque, older = more faded)
+    const messageIndex = client.messages.length - 1 - i;
+    const fadeAlpha = Math.max(80, 255 - (messageIndex * 8)); // Min 80, decrease by 8 per message
+    
+    if (Array.isArray(tsColor)) {
+      ink(...tsColor, fadeAlpha).write(ago, { x: timestampX, y: timestampY }, undefined, undefined, false, "MatrixChunky8");
+    } else {
+      ink(tsColor, fadeAlpha).write(ago, { x: timestampX, y: timestampY }, undefined, undefined, false, "MatrixChunky8");
     }
 
     lastAgo = ago;
@@ -507,22 +525,48 @@ function paint(
   // }
 
   const currentHandle = handle();
-  const msg = currentHandle || "nohandle";
+  const msg = currentHandle || "Log In";
 
   const color = currentHandle ? "lime" : "red";
 
-  ink(handleBtn.down ? "white" : color).write(msg, {
+  // Draw background box for Log In / handle button
+  const handleWidth = typefaceName ? text.width(msg, typefaceName) : text.width(msg);
+  const charW = typefaceName ? text.width("M", typefaceName) : typeface.glyphs[0].resolution[0];
+  const handleBoxPadding = 2;
+  
+  if (handleBtn.over || handleBtn.down) {
+    ink(handleBtn.down ? "white" : color, 32).box(
+      leftMargin - handleBoxPadding,
+      screen.height - bottomMargin + 2,
+      handleWidth + handleBoxPadding * 2,
+      bottomMargin - 4
+    );
+  }
+
+  ink(handleBtn.down ? "black" : (handleBtn.over ? "white" : color)).write(msg, {
     bottom: 10,
     left: leftMargin,
   }, false, undefined, false, typefaceName);
 
   // Calculate character width based on the actual typeface being used
-  const charW = typefaceName ? text.width("M", typefaceName) : typeface.glyphs[0].resolution[0];
-  const handleWidth = typefaceName ? text.width(msg, typefaceName) : text.width(msg);
   const gapWidth = charW * 4; // Four character widths for better spacing with unifont
 
-  ink(inputBtn.down ? "yellow" : 220).write(
-    "Enter message" + ellipsisTicker.text(help.repeat),
+  // Draw background box for Enter message button
+  const enterMsg = "Enter message" + ellipsisTicker.text(help.repeat);
+  const enterWidth = typefaceName ? text.width(enterMsg, typefaceName) : text.width(enterMsg);
+  const enterBoxPadding = 2;
+  
+  if (inputBtn.over || inputBtn.down) {
+    ink(inputBtn.down ? "yellow" : 220, 32).box(
+      leftMargin + handleWidth + gapWidth - enterBoxPadding,
+      screen.height - bottomMargin + 2,
+      enterWidth + enterBoxPadding * 2,
+      bottomMargin - 4
+    );
+  }
+
+  ink(inputBtn.down ? "black" : (inputBtn.over ? "white" : 220)).write(
+    enterMsg,
     {
       left: leftMargin + handleWidth + gapWidth,
       bottom: 10,
@@ -1008,12 +1052,12 @@ function computeMessagesLayout({ screen, text }, chat, typefaceName, currentRowH
 
     // Create layout using the color-coded message
     const lastLineWidth = text.width(msg.tb.lines[msg.tb.lines.length - 1], typefaceName);
-    const timestampGap = typefaceName === "unifont" ? 16 : 6; // More space for unifont
+    const timestampGap = 4; // Small gap for MatrixChunky8 timestamps
     const timestamp = {
       x: lastLineWidth + timestampGap,
       y: y + (msg.tb.lines.length - 1) * currentRowHeight,
-      height: currentRowHeight,
-      width: text.width(timeAgo(msg.when), typefaceName),
+      height: 8, // MatrixChunky8 height
+      width: text.width(timeAgo(msg.when), "MatrixChunky8"),
     };
     let timestampColor = [100 / 1.3, 100 / 1.3, 145 / 1.3];
     
