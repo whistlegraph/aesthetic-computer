@@ -1,9 +1,6 @@
 #!/usr/bin/env fish
 # Update Perforce and build SpiderLily from the dev container
 
-# Source config to get ac-pipe function
-source /workspaces/aesthetic-computer/.devcontainer/config.fish
-
 set build_version (date +%Y.%m.%d-%H%M)
 
 echo "========================================="
@@ -14,7 +11,7 @@ echo "Version: $build_version"
 echo ""
 
 # Run build on Windows via SSH (streaming output to build stream)
-ssh -t me@host.docker.internal "powershell -NoProfile -ExecutionPolicy Bypass -Command \"cd C:\\Perforce\\SpiderLily\\SL_main; p4 sync ...; p4 changes -m 5 ...; .\\build-false-work.ps1 -Version $build_version\"" 2>&1 | ac-pipe
+ssh -t me@host.docker.internal "powershell -NoProfile -ExecutionPolicy Bypass -Command \"cd C:\\Perforce\\SpiderLily\\SL_main; p4 sync ...; p4 changes -m 5 ...; .\\build-false-work.ps1 -Version $build_version\"" 2>&1 | /workspaces/aesthetic-computer/windows/ac-pipe.sh
 
 # Note: We verify success by checking the build output size below, not the exit code
 
