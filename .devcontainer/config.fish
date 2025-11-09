@@ -1170,7 +1170,7 @@ function ac-pipe
     while read -l line
         # Escape double quotes in the line for JSON
         set escaped_line (string replace -a '"' '\"' -- $line)
-        /usr/bin/curl -s -X POST http://157.245.134.225/build-stream --header "Content-Type: application/json" --data "{\"line\": \"$escaped_line\"}" > /dev/null 2>&1
+        /usr/bin/curl -s -X POST https://session-server.aesthetic.computer/build-stream --header "Content-Type: application/json" --data "{\"line\": \"$escaped_line\"}" > /dev/null 2>&1
         echo $line  # Also echo to terminal
     end
 end
