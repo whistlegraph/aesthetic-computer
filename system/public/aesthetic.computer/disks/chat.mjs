@@ -32,6 +32,8 @@
 
 const { max, floor, ceil } = Math;
 
+import { isKidlispSource, tokenize, KidLisp } from "../lib/kidlisp.mjs";
+
 let input, inputBtn, handleBtn, token;
 let messagesNeedLayout = true;
 let tapState = null;
@@ -254,9 +256,13 @@ function paint(
     url: "cyan",
     urlHover: "yellow",
     prompt: "lime",
+    promptContent: "cyan",
     promptHover: "yellow",
+    promptContentHover: "yellow",
     painting: "orange",
     paintingHover: "yellow",
+    kidlisp: "magenta",
+    kidlispHover: "yellow",
     timestamp: [100 / 1.3, 100 / 1.3, 145 / 1.3],
     timestampHover: "yellow",
   };
@@ -363,6 +369,42 @@ function paint(
     let charPos = 0; // Track position in the full message
     let lastLineRenderedWidthForThisMessage = 0; // Track actual rendered width of last line for THIS message
     
+    // First pass: draw background box for entire kidlisp code block
+    const hasKidlisp = parsedElements.some(el => el.type === "kidlisp-token");
+    if (hasKidlisp) {
+      // Find the full range of kidlisp content (from first to last token)
+      const kidlispTokens = parsedElements.filter(el => el.type === "kidlisp-token");
+      const firstToken = kidlispTokens[0];
+      const lastToken = kidlispTokens[kidlispTokens.length - 1];
+      
+      // Draw background for each line that contains kidlisp
+      let tempCharPos = 0;
+      for (let lineIdx = 0; lineIdx < tb.lines.length; lineIdx++) {
+        const line = tb.lines[lineIdx];
+        const lineY = y + lineIdx * currentRowHeight;
+        const lineStart = tempCharPos;
+        const lineEnd = tempCharPos + line.length;
+        
+        // Check if this line contains any kidlisp content
+        if (lineEnd > firstToken.start && lineStart < lastToken.end) {
+          // Calculate the start and end of kidlisp content in this line
+          const kidlispStartInLine = Math.max(0, firstToken.start - lineStart);
+          const kidlispEndInLine = Math.min(line.length, lastToken.end - lineStart);
+          
+          const startX = text.width(line.substring(0, kidlispStartInLine), typefaceName);
+          const kidlispText = line.substring(kidlispStartInLine, kidlispEndInLine);
+          const kidlispWidth = text.width(kidlispText, typefaceName);
+          
+          // Draw dark background for entire kidlisp section (including spaces)
+          ink(0, 0, 0, 80).box(x + startX, lineY, kidlispWidth, currentRowHeight);
+        }
+        
+        tempCharPos += line.length;
+      }
+    }
+    
+    // Second pass: render text with syntax colors
+    charPos = 0;
     for (let lineIdx = 0; lineIdx < tb.lines.length; lineIdx++) {
       const line = tb.lines[lineIdx];
       const lineY = y + lineIdx * currentRowHeight;
@@ -394,14 +436,21 @@ function paint(
           
           // Get color based on type and hover state
           let color;
-          if (element.type === "handle") {
+          if (element.type === "kidlisp-token") {
+            // Use yellow on hover, otherwise use the token's specific syntax color
+            color = isHovered ? theme.kidlispHover : element.color;
+          } else if (element.type === "handle") {
             color = isHovered ? theme.handleHover : theme.handle;
           } else if (element.type === "url") {
             color = isHovered ? theme.urlHover : theme.url;
           } else if (element.type === "prompt") {
             color = isHovered ? theme.promptHover : theme.prompt;
+          } else if (element.type === "prompt-content") {
+            color = isHovered ? theme.promptContentHover : theme.promptContent;
           } else if (element.type === "painting") {
             color = isHovered ? theme.paintingHover : theme.painting;
+          } else if (element.type === "kidlisp") {
+            color = isHovered ? theme.kidlispHover : theme.kidlisp;
           }
           
           if (color) {
@@ -433,7 +482,7 @@ function paint(
         lastLineRenderedWidthForThisMessage = text.width(line, typefaceName);
       }
       
-      charPos += line.length + 1; // +1 for space between lines in text.box
+      charPos += line.length; // Don't add +1 - text.box wraps without adding spaces
     }
 
     const ago = timeAgo(message.when);
@@ -529,17 +578,37 @@ function paint(
 
   const color = currentHandle ? "lime" : "red";
 
-  // Draw background box for Log In / handle button
+  // Calculate dimensions
   const handleWidth = typefaceName ? text.width(msg, typefaceName) : text.width(msg);
   const charW = typefaceName ? text.width("M", typefaceName) : typeface.glyphs[0].resolution[0];
-  const handleBoxPadding = 2;
+  const gapWidth = charW * 4; // Four character widths for better spacing with unifont
   
+  // Define button boxes first so they match the visual boxes
+  const handleBtnWidth = leftMargin + handleWidth + Math.floor(gapWidth / 2);
+  const inputBtnX = leftMargin + handleWidth + gapWidth;
+  const inputBtnWidth = screen.width - inputBtnX;
+  
+  handleBtn.btn.box = new Box(
+    0,
+    screen.height - bottomMargin + 2,
+    handleBtnWidth,
+    bottomMargin - 2,
+  );
+
+  inputBtn.btn.box = new Box(
+    inputBtnX,
+    screen.height - bottomMargin + 2,
+    inputBtnWidth,
+    bottomMargin - 2,
+  );
+  
+  // Draw background box for Log In / handle button
   if (handleBtn.over || handleBtn.down) {
     ink(handleBtn.down ? "white" : color, 32).box(
-      leftMargin - handleBoxPadding,
-      screen.height - bottomMargin + 2,
-      handleWidth + handleBoxPadding * 2,
-      bottomMargin - 4
+      handleBtn.btn.box.x,
+      handleBtn.btn.box.y,
+      handleBtn.btn.box.w,
+      handleBtn.btn.box.h
     );
   }
 
@@ -548,20 +617,15 @@ function paint(
     left: leftMargin,
   }, false, undefined, false, typefaceName);
 
-  // Calculate character width based on the actual typeface being used
-  const gapWidth = charW * 4; // Four character widths for better spacing with unifont
-
   // Draw background box for Enter message button
   const enterMsg = "Enter message" + ellipsisTicker.text(help.repeat);
-  const enterWidth = typefaceName ? text.width(enterMsg, typefaceName) : text.width(enterMsg);
-  const enterBoxPadding = 2;
   
   if (inputBtn.over || inputBtn.down) {
     ink(inputBtn.down ? "yellow" : 220, 32).box(
-      leftMargin + handleWidth + gapWidth - enterBoxPadding,
-      screen.height - bottomMargin + 2,
-      enterWidth + enterBoxPadding * 2,
-      bottomMargin - 4
+      inputBtn.btn.box.x,
+      inputBtn.btn.box.y,
+      inputBtn.btn.box.w,
+      inputBtn.btn.box.h
     );
   }
 
@@ -572,20 +636,6 @@ function paint(
       bottom: 10,
     },
     false, undefined, false, typefaceName
-  );
-
-  handleBtn.btn.box = new Box(
-    0,
-    screen.height - bottomMargin + 2,
-    leftMargin + handleWidth + Math.floor(gapWidth / 2),
-    bottomMargin - 2,
-  );
-
-  inputBtn.btn.box = new Box(
-    leftMargin + handleWidth + gapWidth,
-    screen.height - bottomMargin + 2,
-    screen.width - leftMargin - handleWidth - gapWidth,
-    bottomMargin - 2,
   );
 
   if (!input.canType) {
@@ -768,12 +818,15 @@ function act(
             if (elementPosition && isClickInsideElement(relativeX, relativeY, elementPosition)) {
               if (element.type === "handle") {
                 beep();
-                hud.labelBack();
+                hud.label(piece); // Set back label to current piece
                 jump(element.text);
                 break;
               } else if (element.type === "prompt") {
+                // Skip individual quote marks - only handle full prompts
+                if (element.text === "'") continue;
+                
                 beep();
-                hud.labelBack();
+                hud.label(piece); // Set back label to current piece
                 const innerPrompt = element.text.slice(1, -1); // Unquote prompt text.
                 if (innerPrompt.startsWith(">")) {
                   jump("prompt " + innerPrompt.slice(1));
@@ -784,15 +837,49 @@ function act(
                   jump(innerPrompt);
                 }
                 break;
+              } else if (element.type === "prompt-content") {
+                // Click on content inside quotes - treat as prompt
+                beep();
+                hud.label(piece); // Set back label to current piece
+                const innerPrompt = element.text;
+                if (innerPrompt.startsWith(">")) {
+                  jump("prompt " + innerPrompt.slice(1));
+                } else if (innerPrompt.startsWith("#")) {
+                  jump("painting#" + innerPrompt.slice(1));
+                } else {
+                  jump(innerPrompt);
+                }
+                break;
+              } else if (element.type === "kidlisp-token") {
+                // Find the full kidlisp code block (all tokens between the quotes)
+                const kidlispTokens = parsedElements.filter(el => el.type === "kidlisp-token");
+                if (kidlispTokens.length > 0) {
+                  // Get the full range from first to last token
+                  const firstToken = kidlispTokens[0];
+                  const lastToken = kidlispTokens[kidlispTokens.length - 1];
+                  const fullKidlispCode = message.fullMessage.substring(firstToken.start, lastToken.end);
+                  
+                  beep();
+                  hud.label(piece); // Set back label to current piece
+                  jump(fullKidlispCode);
+                }
+                break;
               } else if (element.type === "url") {
                 beep();
+                hud.label(piece); // Set back label to current piece
                 jump("out:" + element.text);
                 break;
               } else if (element.type === "painting") {
                 beep();
-                hud.labelBack();
+                hud.label(piece); // Set back label to current piece
                 // Navigate to the painting using its code (e.g., #k3d -> painting#k3d)
                 jump("painting" + element.text);
+                break;
+              } else if (element.type === "kidlisp") {
+                beep();
+                hud.label(piece); // Set back label to current piece
+                // Navigate to kidlisp reference - keep the $ for proper kidlisp piece syntax
+                jump(element.text); // Keep the $ (e.g., $ceo)
                 break;
               }
             }
@@ -843,6 +930,88 @@ function act(
       boundScroll();
       // computeMessagesLayout(api);
       messagesNeedLayout = true;
+    }
+
+    // Track hover state for button visual feedback
+    if (e.is("move")) {
+      handleBtn.over = handleBtn.box.contains(e);
+      inputBtn.over = inputBtn.box.contains(e);
+      
+      let hoveredAnyElement = false;
+      
+      // Also track hover on message elements (handles, links, etc.)
+      for (let i = client.messages.length - 1; i >= 0; i--) {
+        const message = client.messages[i];
+        if (!message.tb || !message.layout) {
+          continue;
+        }
+        
+        // Check if hovering over this message
+        if (
+          e.x > message.layout.x &&
+          e.x < message.layout.x + message.layout.width &&
+          e.y > message.layout.y &&
+          e.y < message.layout.y + message.layout.height
+        ) {
+          // Check for hover on interactive elements
+          const parsedElements = parseMessageElements(message.fullMessage);
+          const relativeX = e.x - message.layout.x;
+          const relativeY = e.y - message.layout.y;
+          
+          // Reset hover states
+          if (!message.layout.hoveredElements) {
+            message.layout.hoveredElements = new Set();
+          }
+          message.layout.hoveredElements.clear();
+          
+          // Check each interactive element for hover
+          for (const element of parsedElements) {
+            const elementPosition = calculateElementPosition(
+              element, 
+              message.fullMessage, 
+              message.tb.lines, 
+              text,
+              currentRowHeight,
+              typefaceName
+            );
+            
+            if (elementPosition && isClickInsideElement(relativeX, relativeY, elementPosition, text, typefaceName)) {
+              message.layout.hoveredElements.add(element);
+              hoveredAnyElement = true;
+              break; // Only hover one element at a time
+            }
+          }
+          
+          // Check timestamp hover
+          const timestamp = message.layout.timestamp;
+          const startX = message.layout.x + timestamp.x;
+          if (
+            e.x > startX &&
+            e.x < startX + timestamp.width &&
+            e.y > timestamp.y &&
+            e.y < timestamp.y + timestamp.height
+          ) {
+            timestamp.over = true;
+          } else {
+            timestamp.over = false;
+          }
+        } else {
+          // Clear hover states when not over message
+          if (message.layout.hoveredElements) {
+            message.layout.hoveredElements.clear();
+          }
+          if (message.layout.timestamp) {
+            message.layout.timestamp.over = false;
+          }
+        }
+      }
+      
+      // Change cursor to pointer when hovering over interactive elements
+      if (hoveredAnyElement || handleBtn.over || inputBtn.over) {
+        send({ type: "cursor", cursor: "pointer" });
+      } else {
+        send({ type: "cursor", cursor: "default" });
+      }
     }
 
     // 🖥️ Keyboard / Text Input
@@ -1200,16 +1369,80 @@ function buildWordPositionMap(originalMessage, textBoxLines) {
 function parseMessageElements(message) {
   const elements = [];
 
-  // Parse prompts (text within single quotes)
-  const promptRegex = /'[^']*'/g;
+  // Parse prompts (text within single quotes) - ignore contractions like "I'll" or "you'll"
+  // Require word boundary or whitespace before the opening quote
+  const promptRegex = /(?:^|[\s\(\[\{])'([^']*)'/g;
   let match;
   while ((match = promptRegex.exec(message)) !== null) {
-    elements.push({
-      type: "prompt",
-      text: match[0],
-      start: match.index,
-      end: match.index + match[0].length,
-    });
+    // Adjust index if we matched a preceding whitespace/boundary character
+    const actualStart = match[0].startsWith("'") ? match.index : match.index + 1;
+    const promptText = match[1]; // Captured group without quotes
+    
+    // Check if this prompt is kidlisp code
+    if (isKidlispSource(promptText)) {
+      // Add green opening quote
+      elements.push({
+        type: "prompt",
+        text: "'",
+        start: actualStart,
+        end: actualStart + 1,
+      });
+      
+      // Parse as kidlisp and create elements for each token with syntax highlighting
+      const tokens = tokenize(promptText);
+      const kidlispInstance = new KidLisp();
+      
+      let charOffset = actualStart + 1; // +1 to skip opening quote
+      
+      for (let i = 0; i < tokens.length; i++) {
+        const token = tokens[i];
+        const tokenStart = promptText.indexOf(token, charOffset - (actualStart + 1));
+        
+        if (tokenStart >= 0) {
+          elements.push({
+            type: "kidlisp-token",
+            text: token,
+            start: actualStart + 1 + tokenStart,
+            end: actualStart + 1 + tokenStart + token.length,
+            color: kidlispInstance.getTokenColor(token, tokens, i),
+          });
+          charOffset = actualStart + 1 + tokenStart + token.length;
+        }
+      }
+      
+      // Add green closing quote
+      elements.push({
+        type: "prompt",
+        text: "'",
+        start: actualStart + 1 + promptText.length,
+        end: actualStart + 1 + promptText.length + 1,
+      });
+    } else {
+      // Not kidlisp, regular prompt - separate quotes from content
+      // Opening quote
+      elements.push({
+        type: "prompt",
+        text: "'",
+        start: actualStart,
+        end: actualStart + 1,
+      });
+      
+      // Inner content (different color)
+      elements.push({
+        type: "prompt-content",
+        text: promptText,
+        start: actualStart + 1,
+        end: actualStart + 1 + promptText.length,
+      });
+      
+      // Closing quote
+      elements.push({
+        type: "prompt",
+        text: "'",
+        start: actualStart + 1 + promptText.length,
+        end: actualStart + 1 + promptText.length + 1,
+      });
+    }
   }
 
   // Parse URLs (starting with http://, https://, or www.)
@@ -1248,53 +1481,123 @@ function parseMessageElements(message) {
     });
   }
 
+  // Parse $kidlisp inline references (dollar sign followed by alphanumeric)
+  const kidlispRefRegex = /\$[a-z0-9]+/gi;
+  while ((match = kidlispRefRegex.exec(message)) !== null) {
+    elements.push({
+      type: "kidlisp",
+      text: match[0],
+      start: match.index,
+      end: match.index + match[0].length,
+    });
+  }
+
+  // Parse !tape URLs (exclamation followed by alphanumeric)
+  const tapeRegex = /![a-z0-9]+/gi;
+  while ((match = tapeRegex.exec(message)) !== null) {
+    elements.push({
+      type: "url",
+      text: match[0],
+      start: match.index,
+      end: match.index + match[0].length,
+    });
+  }
+
   // Sort elements by start position to ensure proper ordering
   elements.sort((a, b) => a.start - b.start);
 
-  return elements;
+  // Remove elements that are completely inside quoted sections
+  // (to avoid double-highlighting things like '#abc' when it's inside 'run #abc')
+  const quotedRanges = elements
+    .filter(el => el.type === "prompt" || el.type === "kidlisp-token" || el.type === "prompt-content")
+    .map(el => ({ start: el.start, end: el.end }));
+  
+  // Merge overlapping quoted ranges
+  const mergedQuotedRanges = [];
+  for (const range of quotedRanges) {
+    if (mergedQuotedRanges.length === 0) {
+      mergedQuotedRanges.push(range);
+    } else {
+      const last = mergedQuotedRanges[mergedQuotedRanges.length - 1];
+      if (range.start <= last.end) {
+        last.end = Math.max(last.end, range.end);
+      } else {
+        mergedQuotedRanges.push(range);
+      }
+    }
+  }
+  
+  // Filter out elements that are inside quotes (except quote-related elements)
+  const filteredElements = elements.filter(el => {
+    if (el.type === "prompt" || el.type === "kidlisp-token" || el.type === "prompt-content") {
+      return true; // Keep quote-related elements
+    }
+    
+    // Check if this element is inside any quoted range
+    for (const range of mergedQuotedRanges) {
+      if (el.start >= range.start && el.end <= range.end) {
+        return false; // Remove it - it's inside quotes
+      }
+    }
+    return true; // Keep it
+  });
+
+  return filteredElements;
 }
 
 // Calculate the rendered position of an interactive element in the text layout
 function calculateElementPosition(element, fullMessage, textLines, text, currentRowHeight, typefaceName) {
   // Find which line(s) and character positions this element spans
   let charCount = 0;
+  const linePositions = []; // Track all lines this element spans
   
   for (let lineIndex = 0; lineIndex < textLines.length; lineIndex++) {
-    const lineText = textLines[lineIndex]; // This is already a string
+    const lineText = textLines[lineIndex];
     const lineStart = charCount;
     const lineEnd = charCount + lineText.length;
     
-    // Check if element starts in this line
-    if (element.start >= lineStart && element.start <= lineEnd) {
-      const startInLine = element.start - lineStart;
+    // Check if element overlaps with this line
+    if (element.start < lineEnd && element.end > lineStart) {
+      const startInLine = Math.max(0, element.start - lineStart);
       const endInLine = Math.min(element.end - lineStart, lineText.length);
       
-      // Calculate pixel position
+      // Calculate pixel position for this line segment
       const startX = text.width(lineText.substring(0, startInLine), typefaceName);
-      const width = text.width(lineText.substring(startInLine, endInLine), typefaceName);
+      const elementTextInLine = lineText.substring(startInLine, endInLine);
+      const width = text.width(elementTextInLine, typefaceName);
       
-      return {
+      linePositions.push({
         x: startX,
         y: lineIndex * currentRowHeight,
         width: width,
         height: currentRowHeight,
         lineIndex: lineIndex
-      };
+      });
     }
     
-    charCount += lineText.length + 1; // +1 for space between lines
+    // Don't add +1 for space - text.box wraps without adding spaces
+    charCount += lineText.length;
   }
   
-  return null; // Element not found in layout
+  // Return array of line positions for multi-line elements, or single position
+  return linePositions.length > 0 ? linePositions : null;
 }
 
-// Check if a click position is inside an element's bounds
-function isClickInsideElement(clickX, clickY, elementPosition) {
-  return (
-    clickX >= elementPosition.x &&
-    clickX <= elementPosition.x + elementPosition.width &&
-    clickY >= elementPosition.y &&
-    clickY <= elementPosition.y + elementPosition.height
+// Check if a click position is inside an element's bounds (handles multi-line elements)
+function isClickInsideElement(clickX, clickY, elementPositions, text, typefaceName) {
+  if (!elementPositions) return false;
+  
+  // Handle array of positions for multi-line elements
+  const positions = Array.isArray(elementPositions) ? elementPositions : [elementPositions];
+  
+  // Get average character width for tolerance
+  const charWidth = text ? text.width("M", typefaceName) : 8;
+  
+  return positions.some(pos => 
+    clickX >= pos.x &&
+    clickX <= pos.x + pos.width + charWidth && // Add one character width tolerance
+    clickY >= pos.y &&
+    clickY < pos.y + pos.height
   );
 }
 
