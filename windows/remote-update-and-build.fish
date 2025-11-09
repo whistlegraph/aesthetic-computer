@@ -1,6 +1,9 @@
 #!/usr/bin/env fish
 # Update Perforce and build SpiderLily from the dev container
 
+# Source config to get ac-pipe function
+source /workspaces/aesthetic-computer/.devcontainer/config.fish
+
 set build_version (date +%Y.%m.%d-%H%M)
 
 echo "========================================="
