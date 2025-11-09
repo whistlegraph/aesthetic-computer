@@ -250,8 +250,8 @@
     let buildStreamWs = null;
     async function connectBuildStream() {
       try {
-        // Get session server URL from Netlify function (same as aesthetic.computer)
-        const sessionResponse = await fetch('/session/build-stream?service=monolith');
+        // Get session server URL from Netlify function (use aesthetic.computer domain)
+        const sessionResponse = await fetch('https://aesthetic.computer/session/build-stream?service=monolith');
         const sessionData = await sessionResponse.json();
         
         // Parse URL and connect via WSS (same pattern as disk.mjs)
