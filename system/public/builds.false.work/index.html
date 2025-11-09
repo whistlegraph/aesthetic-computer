@@ -164,8 +164,8 @@
       </ul>
 
       <h2>🔴 Live Build Stream</h2>
-      <div id="build-stream" style="background: #1a1a1a; padding: 1rem; border-left: 2px solid #444; font-family: 'Courier New', monospace; font-size: 0.85rem; max-height: 400px; overflow-y: auto; display: none;">
-        <div id="stream-status" style="color: #888; margin-bottom: 0.5rem;">Connecting...</div>
+      <div id="build-stream" style="background: #1a1a1a; padding: 1rem; border-left: 2px solid #444; font-family: 'Courier New', monospace; font-size: 0.85rem; max-height: 400px; overflow-y: auto;">
+        <div id="stream-status" style="color: #fa0; margin-bottom: 0.5rem; font-weight: bold;">⏳ Connecting to build stream...</div>
         <pre id="stream-log" style="margin: 0; color: #0f0; white-space: pre-wrap; word-wrap: break-word;"></pre>
       </div>
 
@@ -249,41 +249,46 @@
     // Build stream WebSocket connection
     let buildStreamWs = null;
     function connectBuildStream() {
+      // Connect directly to session server IP on port 80
       const wsUrl = window.location.hostname === 'localhost' 
         ? 'ws://localhost:8889'
-        : 'wss://session.aesthetic.computer';
+        : 'ws://157.245.134.225:80';
       
+      console.log('Connecting to build stream:', wsUrl);
       buildStreamWs = new WebSocket(wsUrl);
       const streamContainer = document.getElementById('build-stream');
       const streamStatus = document.getElementById('stream-status');
       const streamLog = document.getElementById('stream-log');
       
       buildStreamWs.onopen = () => {
-        streamStatus.textContent = '🟢 Connected to build stream';
+        streamStatus.textContent = '🟢 Connected to build stream server - Ready for builds!';
         streamStatus.style.color = '#0f0';
+        streamStatus.style.fontWeight = 'bold';
       };
       
       buildStreamWs.onmessage = (event) => {
         const msg = JSON.parse(event.data);
         if (msg.type === 'build:log') {
-          streamContainer.style.display = 'block';
           streamLog.textContent += msg.content.line + '\n';
           streamLog.scrollTop = streamLog.scrollHeight;
         } else if (msg.type === 'build:status') {
           streamStatus.textContent = `🔵 ${msg.content.status || 'Building...'}`;
+          streamStatus.style.color = '#09f';
         }
       };
       
       buildStreamWs.onclose = () => {
-        streamStatus.textContent = '🔴 Disconnected';
+        streamStatus.textContent = '🔴 Disconnected from build stream - Reconnecting...';
         streamStatus.style.color = '#f66';
+        streamStatus.style.fontWeight = 'bold';
         setTimeout(connectBuildStream, 3000); // Reconnect after 3s
       };
       
       buildStreamWs.onerror = (error) => {
         console.error('Build stream error:', error);
-        streamStatus.textContent = '⚠️ Connection error';
+        streamStatus.textContent = '⚠️ Connection error - Will retry...';
         streamStatus.style.color = '#fa0';
+        streamStatus.style.fontWeight = 'bold';
       };
     }
 
