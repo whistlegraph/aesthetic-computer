@@ -248,17 +248,21 @@
 
     // Build stream WebSocket connection
     let buildStreamWs = null;
-    function connectBuildStream() {
-      // Connect directly to session server IP on port 80
-      const wsUrl = window.location.hostname === 'localhost' 
-        ? 'ws://localhost:8889'
-        : 'ws://157.245.134.225:80';
-      
-      console.log('Connecting to build stream:', wsUrl);
-      buildStreamWs = new WebSocket(wsUrl);
-      const streamContainer = document.getElementById('build-stream');
-      const streamStatus = document.getElementById('stream-status');
-      const streamLog = document.getElementById('stream-log');
+    async function connectBuildStream() {
+      try {
+        // Get session server URL from Netlify function (same as aesthetic.computer)
+        const sessionResponse = await fetch('/session/build-stream?service=monolith');
+        const sessionData = await sessionResponse.json();
+        
+        // Parse URL and connect via WSS (same pattern as disk.mjs)
+        const url = new URL(sessionData.url);
+        const wsUrl = `wss://${url.host}`;
+        
+        console.log('Connecting to build stream:', wsUrl);
+        buildStreamWs = new WebSocket(wsUrl);
+        const streamContainer = document.getElementById('build-stream');
+        const streamStatus = document.getElementById('stream-status');
+        const streamLog = document.getElementById('stream-log');
       
       buildStreamWs.onopen = () => {
         streamStatus.textContent = '🟢 Connected to build stream server - Ready for builds!';
@@ -290,6 +294,24 @@
         streamStatus.style.color = '#fa0';
         streamStatus.style.fontWeight = 'bold';
       };
+      } catch (error) {
+        console.error('Failed to connect to build stream:', error);
+        const streamStatus = document.getElementById('stream-status');
+        streamStatus.textContent = '❌ Failed to get session URL - Will retry...';
+        streamStatus.style.color = '#f00';
+        streamStatus.style.fontWeight = 'bold';
+        setTimeout(connectBuildStream, 5000); // Retry after 5s
+      }
+    }
+
+    // Connect to build stream when authenticated
+    if (localStorage.getItem('builds_auth') === 'true') {
+      connectBuildStream();
+    }
+  </script>
+</body>
+</html>
+```
     }
 
     // Connect to build stream when authenticated
