@@ -555,18 +555,37 @@ async function fun(event, context) {
           type="module"
           defer
         ></script>
-        <!-- Google tag (gtag.js) -->
-        <script
-          async
-          src="https://www.googletagmanager.com/gtag/js?id=G-B4TLVYKXVF"
-        ></script>
+        <!-- Google tag (gtag.js) - Skip if in sandboxed iframe -->
         <script>
-          window.dataLayer = window.dataLayer || [];
-          function gtag() {
-            dataLayer.push(arguments);
-          }
-          gtag("js", new Date());
-          gtag("config", "G-B4TLVYKXVF");
+          (function() {
+            // Detect if we're in a sandboxed iframe (like objkt.com, OpenSea, etc.)
+            try {
+              // Test if we can access parent
+              var inIframe = window.self !== window.top;
+              // Test localStorage access (blocked in sandboxed iframes)
+              if (inIframe) {
+                localStorage.setItem('__sandbox_test', '1');
+                localStorage.removeItem('__sandbox_test');
+              }
+              
+              // If we're not sandboxed, load analytics
+              if (!inIframe || window.self === window.top) {
+                var script = document.createElement('script');
+                script.async = true;
+                script.src = 'https://www.googletagmanager.com/gtag/js?id=G-B4TLVYKXVF';
+                document.head.appendChild(script);
+                
+                window.dataLayer = window.dataLayer || [];
+                function gtag() { dataLayer.push(arguments); }
+                gtag('js', new Date());
+                gtag('config', 'G-B4TLVYKXVF');
+                window.gtag = gtag;
+              }
+            } catch (err) {
+              // Sandboxed - skip analytics
+              console.log('🏜️ Sandboxed environment detected, skipping analytics');
+            }
+          })();
         </script>
         <link
           rel="stylesheet"
