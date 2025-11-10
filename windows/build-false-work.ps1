@@ -16,6 +16,7 @@ Write-Host "=========================================" -ForegroundColor Cyan
 Write-Host "Platform: $Platform"
 Write-Host "Config: $Config"
 Write-Host "Version: $Version"
+Write-Host "AutoPackage: $AutoPackage"
 Write-Host ""
 
 # Configuration - Update these paths for your local setup
@@ -53,15 +54,29 @@ Write-Host ""
 
 # Optional: Sync from Perforce if configured
 if (Get-Command p4 -ErrorAction SilentlyContinue) {
-    $response = Read-Host "Sync from Perforce? (y/N)"
-    if ($response -eq "y" -or $response -eq "Y") {
-        Write-Host "Syncing from Perforce..." -ForegroundColor Yellow
+    if ($AutoPackage) {
+        # Auto mode: sync without prompting
+        Write-Host "Auto: Syncing from Perforce..." -ForegroundColor Yellow
         Set-Location $ProjectRoot
         p4 sync
         if ($LASTEXITCODE -ne 0) {
             Write-Warning "Perforce sync failed, continuing with existing files..."
         }
+        # Show recent changes
+        p4 changes -m 5 ...
         Write-Host ""
+    } else {
+        # Interactive mode: prompt user
+        $response = Read-Host "Sync from Perforce? (y/N)"
+        if ($response -eq "y" -or $response -eq "Y") {
+            Write-Host "Syncing from Perforce..." -ForegroundColor Yellow
+            Set-Location $ProjectRoot
+            p4 sync
+            if ($LASTEXITCODE -ne 0) {
+                Write-Warning "Perforce sync failed, continuing with existing files..."
+            }
+            Write-Host ""
+        }
     }
 }
 
