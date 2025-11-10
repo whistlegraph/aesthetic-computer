@@ -1917,15 +1917,32 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
     ) {
       const fromWidth = from.painting?.width || from.width;
       
+      // Apply pan translation to mask bounds for proper clipping
+      const maskX = activeMask ? activeMask.x + panTranslation.x : 0;
+      const maskY = activeMask ? activeMask.y + panTranslation.y : 0;
+      const maskW = activeMask ? activeMask.width : width;
+      const maskH = activeMask ? activeMask.height : height;
+      
       for (let y = 0; y < cropH; y += 1) {
         const srcY = from.crop.y + y;
         const destRowY = destY + y;
         
         // Process entire row for better cache performance
         for (let x = 0; x < cropW; x += 1) {
+          const dx = destX + x;
+          const dy = destRowY;
+          
+          // Check if destination pixel is within mask
+          if (activeMask) {
+            if (dx < maskX || dx >= maskX + maskW ||
+                dy < maskY || dy >= maskY + maskH) {
+              continue; // Skip pixels outside mask
+            }
+          }
+          
           const srcX = from.crop.x + x;
           const srcIdx = (srcY * fromWidth + srcX) * 4;
-          const destIdx = (destRowY * width + (destX + x)) * 4;
+          const destIdx = (destRowY * width + dx) * 4;
           
           // Skip if source index is out of bounds
           if (srcIdx + 3 < fromPixels.length) {
@@ -1985,12 +2002,29 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
         srcPixels
       ) {
         // Ultra-fast bulk pixel blending
+        // Apply pan translation to mask bounds for proper clipping
+        const maskX = activeMask ? activeMask.x + panTranslation.x : 0;
+        const maskY = activeMask ? activeMask.y + panTranslation.y : 0;
+        const maskW = activeMask ? activeMask.width : width;
+        const maskH = activeMask ? activeMask.height : height;
+        
         for (let y = 0; y < srcHeight; y += 1) {
           const srcRowStart = y * srcWidth * 4;
           const destRowStart = ((destY + y) * width + destX) * 4;
           
           // Process entire row at once for better cache performance
           for (let x = 0; x < srcWidth; x += 1) {
+            const dx = destX + x;
+            const dy = destY + y;
+            
+            // Check if destination pixel is within mask
+            if (activeMask) {
+              if (dx < maskX || dx >= maskX + maskW ||
+                  dy < maskY || dy >= maskY + maskH) {
+                continue; // Skip pixels outside mask
+              }
+            }
+            
             const srcIdx = srcRowStart + (x * 4);
             const destIdx = destRowStart + (x * 4);
             
@@ -2024,7 +2058,25 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
         // Fallback to copy() function for edge cases
         for (let y = 0; y < srcHeight; y += 1) {
           for (let x = 0; x < srcWidth; x += 1) {
-            copy(destX + x, destY + y, x, y, from);
+            const destPixelX = destX + x;
+            const destPixelY = destY + y;
+            
+            // Check if pixel is within the active mask (if one exists)
+            if (activeMask) {
+              const maskX = destPixelX - activeMask.x - panTranslation.x;
+              const maskY = destPixelY - activeMask.y - panTranslation.y;
+              
+              if (
+                maskX < 0 ||
+                maskY < 0 ||
+                maskX >= activeMask.width ||
+                maskY >= activeMask.height
+              ) {
+                continue; // Skip pixels outside the mask
+              }
+            }
+            
+            copy(destPixelX, destPixelY, x, y, from);
           }
         }
       }
