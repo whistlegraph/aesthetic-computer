@@ -207,8 +207,6 @@ class Product {
         push: () => {
           // Special behavior for records with audio: play/pause toggle
           if (this.type === 'record' && this.audio) {
-            console.log('🎵 Record clicked - audio available:', !!this.audio, 'sound API:', !!$.sound, 'isPlaying:', this.isPlaying);
-            
             if (!$.sound) {
               console.warn('🎵 No sound API available - cannot play audio');
               return;
@@ -222,7 +220,6 @@ class Product {
                 this.audioSfx.kill?.(0.2);
                 this.audioSfx = null;
               }
-              console.log(`⏸️ Paused ${this.title}`);
               
               // Pause sound - simple click
               $.sound.synth({
@@ -244,7 +241,6 @@ class Product {
                 volume: 0.7,
                 start: 1.0 // Skip first second
               });
-              console.log(`▶️ Playing ${this.title}`);
               
               // Play sound - ascending synth
               $.sound.synth({
