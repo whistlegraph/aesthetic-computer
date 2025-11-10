@@ -12,7 +12,8 @@ echo ""
 
 # Run build on Windows via SSH (streaming output to build stream)
 # Note: removed -t flag to allow proper piping
-ssh me@host.docker.internal "powershell -NoProfile -ExecutionPolicy Bypass -Command \"cd C:\\Perforce\\SpiderLily\\SL_main; p4 sync ...; p4 changes -m 5 ...; .\\build-false-work.ps1 -Version $build_version -AutoPackage\"" 2>&1 | /workspaces/aesthetic-computer/windows/ac-pipe.sh
+# Note: Using -File instead of -Command to properly pass switch parameters
+ssh me@host.docker.internal "cd C:\\Perforce\\SpiderLily\\SL_main && p4 sync ... && p4 changes -m 5 ... && powershell -NoProfile -ExecutionPolicy Bypass -File .\\build-false-work.ps1 -Version $build_version -AutoPackage" 2>&1 | /workspaces/aesthetic-computer/windows/ac-pipe.sh
 
 # Note: We verify success by checking the build output size below, not the exit code
 
@@ -50,13 +51,14 @@ echo "========================================="
 echo "Updating builds.false.work page..."
 echo "========================================="
 
-# Get file size in MB
-set file_size (math (stat -c%s /workspaces/aesthetic-computer/system/public/assets/false.work/spiderlily-windows-$build_version.zip) / 1000000)
+# Get file size in MB (rounded to whole number)
+set file_size (math -s0 (stat -c%s /workspaces/aesthetic-computer/system/public/assets/false.work/spiderlily-windows-$build_version.zip) / 1048576)
 set download_url "https://assets.aesthetic.computer/false.work/spiderlily-windows-$build_version.zip"
 set iso_timestamp (date -Iseconds | cut -d'+' -f1)
 
-# Extract start level from remote DefaultEngine.ini
-set start_level (ssh me@host.docker.internal "powershell -NoProfile -Command \"(Get-Content 'C:\\Perforce\\SpiderLily\\SL_main\\Config\\DefaultEngine.ini' | Select-String -Pattern 'GameDefaultMap=').ToString().Split('/')[-1].Replace('.umap','')\"")
+# Extract start level from remote DefaultEngine.ini (get last part after dot)
+set full_map (ssh me@host.docker.internal "powershell -NoProfile -Command \"(Get-Content 'C:\\Perforce\\SpiderLily\\SL_main\\Config\\DefaultEngine.ini' | Select-String -Pattern 'GameDefaultMap=').ToString().Split('=')[1]\"")
+set start_level (echo $full_map | awk -F'.' '{print $NF}')
 
 # Use awk to insert new build entry (more reliable than sed with multiline)
 awk -v version="$build_version" -v url="$download_url" -v size="$file_size" -v level="$start_level" -v timestamp="$iso_timestamp" '
