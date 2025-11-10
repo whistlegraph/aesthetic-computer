@@ -213,8 +213,13 @@ async function handlePaintingCodeRequest(codeWithExtension) {
   }
   
   try {
-    // Query painting by code
-    const res = await fetch(`${host}/.netlify/functions/get-painting?code=${encodeURIComponent(code)}`);
+    // Query painting by code (try code first, then slug if it looks like a timestamp)
+    let res = await fetch(`${host}/.netlify/functions/get-painting?code=${encodeURIComponent(code)}`);
+    
+    // If not found and looks like a timestamp, try querying by slug
+    if (!res.ok && code.match(/^\d{4}\.\d{1,2}\.\d{1,2}\.\d{1,2}\.\d{1,2}\.\d{1,2}\.\d{1,3}$/)) {
+      res = await fetch(`${host}/.netlify/functions/get-painting?slug=${encodeURIComponent(code)}`);
+    }
     
     if (!res.ok) {
       return new Response(`Painting not found: ${code}`, { status: 404 });
@@ -225,10 +230,11 @@ async function handlePaintingCodeRequest(codeWithExtension) {
     // If user painting, we need the handle to construct the authenticated URL
     let userHandle = null;
     if (painting.user) {
-      const userRes = await fetch(`${host}/user?sub=${encodeURIComponent(painting.user)}`);
-      if (userRes.ok) {
-        const userData = await userRes.json();
-        userHandle = userData.handle || userData.username;
+      // Look up handle from @handles collection via existing handle endpoint
+      const handleRes = await fetch(`${host}/.netlify/functions/handle?for=${encodeURIComponent(painting.user)}`);
+      if (handleRes.ok) {
+        const handleData = await handleRes.json();
+        userHandle = handleData.handle;
       }
     }
     
