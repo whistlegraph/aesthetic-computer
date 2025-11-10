@@ -249,6 +249,256 @@ const start = async () => {
 
 await start();
 
+// *** Status Page Data Collection ***
+// Track UDP channels manually (geckos.io doesn't expose this)
+const udpChannels = {};
+
+function getWebSocketStatus() {
+  const connectionsList = [];
+  
+  // Map connection IDs to their websocket objects
+  const idToWs = {};
+  Object.keys(connections).forEach(id => {
+    idToWs[id] = connections[id];
+  });
+  
+  Object.keys(connections).forEach((id) => {
+    const ws = connections[id];
+    const connection = {
+      id: parseInt(id),
+      alive: ws.isAlive || false,
+      readyState: ws.readyState,
+      user: users[id] || null,
+      codeChannel: findCodeChannel(parseInt(id)),
+      worlds: getWorldMemberships(parseInt(id)),
+    };
+    
+    connectionsList.push(connection);
+  });
+  
+  return connectionsList;
+}
+
+function getUDPStatus() {
+  return Object.keys(udpChannels).map(id => ({
+    id,
+    connectedAt: udpChannels[id].connectedAt,
+    state: udpChannels[id].state || 'unknown'
+  }));
+}
+
+function getWorldMemberships(connectionId) {
+  const worlds = [];
+  Object.keys(worldClients).forEach(piece => {
+    if (worldClients[piece][connectionId]) {
+      worlds.push({
+        piece,
+        handle: worldClients[piece][connectionId].handle,
+        showing: worldClients[piece][connectionId].showing,
+        ghost: worldClients[piece][connectionId].ghost || false,
+      });
+    }
+  });
+  return worlds;
+}
+
+function findCodeChannel(connectionId) {
+  for (const [channel, subscribers] of Object.entries(codeChannels)) {
+    if (subscribers.has(connectionId)) return channel;
+  }
+  return null;
+}
+
+function getFullStatus() {
+  return {
+    timestamp: Date.now(),
+    server: {
+      uptime: process.uptime(),
+      environment: dev ? "development" : "production",
+      port: info.port,
+    },
+    websocket: {
+      total: wss.clients.size,
+      connections: getWebSocketStatus(),
+    },
+    udp: {
+      total: Object.keys(udpChannels).length,
+      channels: getUDPStatus(),
+    },
+  };
+}
+
+// Status JSON endpoint
+fastify.get("/status", async (request, reply) => {
+  return getFullStatus();
+});
+
+// Status dashboard HTML at root
+fastify.get("/", async (request, reply) => {
+  reply.type("text/html");
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>🧩 session-server</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    ::-webkit-scrollbar { display: none; }
+    body {
+      font-size: 14px;
+      font-family: monospace;
+      -webkit-text-size-adjust: none;
+      background: #000;
+      color: #fff;
+      line-height: 1.4;
+      padding: 1rem;
+    }
+    .corner-word {
+      position: fixed;
+      top: 0.5em;
+      left: 0.5em;
+      font-size: 2em;
+      color: yellow;
+      text-decoration: none;
+      z-index: 1000;
+    }
+    .status {
+      position: fixed;
+      top: 0.5em;
+      right: 0.5em;
+      font-size: 1em;
+      z-index: 1000;
+    }
+    .container {
+      max-width: 1400px;
+      margin: 3rem auto 0;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+    }
+    h2 {
+      color: yellow;
+      margin-bottom: 0.5rem;
+      font-size: 1.2em;
+    }
+    .section {
+      background: #111;
+      padding: 1rem;
+      border-left: 2px solid #444;
+    }
+    .connection {
+      background: #1a1a1a;
+      padding: 0.75rem;
+      margin: 0.5rem 0;
+      border-left: 2px solid #444;
+    }
+    .alive { border-left-color: #0f0; }
+    .dead { border-left-color: #f00; }
+    .ghost { border-left-color: #888; }
+    .id { color: #0ff; }
+    .user { color: #0f0; }
+    .meta { color: #888; font-size: 0.9em; margin-top: 0.25rem; }
+    .count { color: yellow; }
+    .empty { color: #555; font-style: italic; }
+  </style>
+</head>
+<body>
+  <div class="corner-word">🧩</div>
+  <div class="status">
+    <span id="ws-status">🔴 Disconnected</span> | 
+    Uptime: <span id="uptime">--</span>
+  </div>
+  
+  <div class="container">
+    <div class="section">
+      <h2>WebSocket (<span class="count" id="ws-count">0</span>)</h2>
+      <div id="ws-connections"></div>
+    </div>
+    
+    <div class="section">
+      <h2>UDP (<span class="count" id="udp-count">0</span>)</h2>
+      <div id="udp-channels"></div>
+    </div>
+  </div>
+
+  <script>
+    const ws = new WebSocket(\`\${window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+
+}//\${window.location.host}/status-stream\`);
+    
+    ws.onopen = () => {
+      document.getElementById('ws-status').innerHTML = '🟢 Connected';
+    };
+    
+    ws.onclose = () => {
+      document.getElementById('ws-status').innerHTML = '🔴 Disconnected';
+      setTimeout(() => window.location.reload(), 2000);
+    };
+    
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      if (data.type === 'status') {
+        updateDashboard(data.data);
+      }
+    };
+    
+    function updateDashboard(status) {
+      // Update uptime
+      const hours = Math.floor(status.server.uptime / 3600);
+      const minutes = Math.floor((status.server.uptime % 3600) / 60);
+      document.getElementById('uptime').textContent = \`\${hours}h \${minutes}m\`;
+      
+      // Update WebSocket connections
+      document.getElementById('ws-count').textContent = status.websocket.total;
+      const wsHtml = status.websocket.connections.length === 0 
+        ? '<div class="empty">No connections</div>'
+        : status.websocket.connections.map(conn => {
+            const status = conn.alive ? 'alive' : 'dead';
+            const ghost = conn.worlds.some(w => w.ghost);
+            const className = ghost ? 'ghost' : status;
+            
+            let display = \`<div class="connection \${className}">\`;
+            display += \`<div><span class="id">#\${conn.id}</span>\`;
+            if (conn.user) display += \` <span class="user">@user</span>\`;
+            display += \`</div>\`;
+            
+            if (conn.worlds.length > 0) {
+              const world = conn.worlds[0];
+              display += \`<div class="meta">World: \${world.piece}\`;
+              if (world.handle) display += \` | \${world.handle}\`;
+              if (world.showing) display += \` | showing: \${world.showing}\`;
+              display += \`</div>\`;
+            }
+            
+            if (conn.codeChannel) {
+              display += \`<div class="meta">Code: \${conn.codeChannel}</div>\`;
+            }
+            
+            display += \`</div>\`;
+            return display;
+          }).join('');
+      
+      document.getElementById('ws-connections').innerHTML = wsHtml;
+      
+      // Update UDP channels
+      document.getElementById('udp-count').textContent = status.udp.total;
+      const udpHtml = status.udp.channels.length === 0
+        ? '<div class="empty">No channels</div>'
+        : status.udp.channels.map(ch => \`
+            <div class="connection alive">
+              <div><span class="id">\${ch.id}</span></div>
+              <div class="meta">State: \${ch.state}</div>
+            </div>
+          \`).join('');
+      
+      document.getElementById('udp-channels').innerHTML = udpHtml;
+    }
+  </script>
+</body>
+</html>`;
+});
+
 // *** Socket Server Initialization ***
 // #region socket
 let wss;
@@ -745,8 +995,54 @@ function subscribers(subs, msg) {
 }
 // #endregion
 
+// *** Status WebSocket Stream ***
+// Separate WebSocket server for status dashboard updates
+const statusWSS = new WebSocketServer({ 
+  server, 
+  path: '/status-stream' 
+});
+
+const statusClients = new Set();
+
+statusWSS.on('connection', (ws) => {
+  log('📊 Status dashboard connected');
+  statusClients.add(ws);
+  
+  // Send initial state
+  ws.send(JSON.stringify({
+    type: 'status',
+    data: getFullStatus(),
+  }));
+  
+  ws.on('close', () => {
+    log('📊 Status dashboard disconnected');
+    statusClients.delete(ws);
+  });
+  
+  ws.on('error', (err) => {
+    error('📊 Status dashboard error:', err);
+    statusClients.delete(ws);
+  });
+});
+
+// Broadcast status updates every 2 seconds
+setInterval(() => {
+  if (statusClients.size > 0) {
+    const status = getFullStatus();
+    statusClients.forEach(client => {
+      if (client.readyState === WebSocket.OPEN) {
+        try {
+          client.send(JSON.stringify({ type: 'status', data: status }));
+        } catch (err) {
+          error('📊 Failed to send status update:', err);
+        }
+      }
+    });
+  }
+}, 2000);
+
 // 🧚 UDP Server (using Twilio ICE servers)
-// #region udp
+// #endregion udp
 
 // Note: This currently works off of a monolith via `udp.aesthetic.computer`
 //       as the ports are blocked on jamsocket.
@@ -759,8 +1055,17 @@ io.addServer(server); // Hook up to the HTTP Server.
 // io.listen(9208); // default port is 9208
 
 io.onConnection((channel) => {
+  // Track this UDP channel
+  udpChannels[channel.id] = {
+    connectedAt: Date.now(),
+    state: channel.webrtcConnection.state
+  };
+  
+  log(`🩰 ${channel.id} connected`);
+  
   channel.onDisconnect(() => {
     log(`🩰 ${channel.id} got disconnected`);
+    delete udpChannels[channel.id];
     channel.close();
   });
 
