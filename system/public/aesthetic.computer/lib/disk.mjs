@@ -2286,11 +2286,11 @@ const $commonApi = {
             baseUrl = `https://aesthetic.computer`;
           }
           
-          // Detect timestamp format (YYYY.MM.DD.HH.MM.SS.mmm)
-          const isTimestamp = code.match(/^\d{4}\.\d{2}\.\d{2}\.\d{2}\.\d{2}\.\d{2}\.\d{3}$/);
+          // Detect timestamp format (YYYY.M.D.H.M.S.mmm or YYYY.MM.DD.HH.MM.SS.mmm)
+          const isTimestamp = code.match(/^\d{4}\.\d{1,2}\.\d{1,2}\.\d{1,2}\.\d{1,2}\.\d{1,2}\.\d{1,3}$/);
           
           let mediaUrl;
-          if (isTimestamp && handle !== "anon") {
+          if (isTimestamp && handle && handle !== "anon") {
             // Legacy user painting with timestamp - use old format
             const handleWithAt = handle.startsWith('@') ? handle : `@${handle}`;
             mediaUrl = `${baseUrl}/media/${handleWithAt}/painting/${code}.${extension}`;
