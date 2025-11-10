@@ -8412,6 +8412,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         try {
           const { tapeId, code, zipUrl, metadata: tapeMeta } = content;
           
+          // Create underlayFrame if needed
+          if (!underlayFrame) {
+            underlayFrame = document.createElement("div");
+            underlayFrame.id = "underlay";
+            const frameCan = document.createElement("canvas");
+            frameCan.width = 1920;
+            frameCan.height = 1080;
+            underlayFrame.appendChild(frameCan);
+            underlayFrame.style.cssText = "position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none;";
+            document.body.insertBefore(underlayFrame, document.body.firstChild);
+            console.log("📼 Created underlayFrame for TapeManager");
+          }
+          
           // Initialize tape manager if needed
           if (!tapeManager && underlayFrame) {
             const frameCan = underlayFrame.querySelector("canvas");
@@ -8430,6 +8443,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           const tape = tapeManager.getTape(tapeId);
           if (tape.frames.length > 0) {
             console.log(`📼 Tape ${tapeId} already loaded`);
+            send({
+              type: "tape:preloaded",
+              content: { tapeId, frameCount: tape.frames.length }
+            });
             return;
           }
           
@@ -8437,7 +8454,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           tape.code = code;
           tape.metadata = tapeMeta;
           
-          // Fetch ZIP (simplified - no progress for preload)
+          // Send initial load progress
+          send({
+            type: "tape:load-progress",
+            content: { code, phase: "downloading", progress: 0 }
+          });
+          
+          // Fetch ZIP
           const response = await fetch(decodeURI(zipUrl));
           if (!response.ok) {
             throw new Error(`Tape ZIP not found. Status: ${response.status}`);
@@ -8446,9 +8469,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           const arrayBuffer = await response.arrayBuffer();
           console.log(`📼 Preload ZIP downloaded: ${(arrayBuffer.byteLength / 1024 / 1024).toFixed(2)} MB`);
           
+          send({
+            type: "tape:load-progress",
+            content: { code, phase: "unpacking", progress: 0.3 }
+          });
+          
           // Parse ZIP
           if (!window.JSZip) await loadJSZip();
           const zip = await window.JSZip.loadAsync(arrayBuffer);
+          
+          send({
+            type: "tape:load-progress",
+            content: { code, phase: "frames", progress: 0.5 }
+          });
           
           // Extract frames
           const frameFiles = Object.keys(zip.files)
@@ -8459,11 +8492,27 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               return aNum - bNum;
             });
           
+          let loadedFrames = 0;
           for (const filename of frameFiles) {
             const frameFile = zip.file(filename);
             const blob = await frameFile.async("blob");
             const bitmap = await createImageBitmap(blob);
             tape.frames.push(bitmap);
+            loadedFrames++;
+            
+            // Send progress every 50 frames
+            if (loadedFrames % 50 === 0 || loadedFrames === frameFiles.length) {
+              send({
+                type: "tape:load-progress",
+                content: {
+                  code,
+                  phase: "frames",
+                  progress: 0.5 + (loadedFrames / frameFiles.length) * 0.3,
+                  loadedFrames,
+                  totalFrames: frameFiles.length
+                }
+              });
+            }
           }
           
           // Extract timing
@@ -8472,6 +8521,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             const timingText = await timingFile.async("text");
             tape.timingData = JSON.parse(timingText);
           }
+          
+          send({
+            type: "tape:load-progress",
+            content: { code, phase: "audio", progress: 0.9 }
+          });
           
           // Extract audio
           const audioFile = zip.file("soundtrack.wav");
@@ -8484,6 +8538,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           
           tape.isLoading = false;
           console.log(`📼 Preloaded tape ${tapeId}: ${tape.frames.length} frames`);
+          
+          send({
+            type: "tape:load-progress",
+            content: { code, phase: "complete", progress: 1 }
+          });
           
           send({
             type: "tape:preloaded",

@@ -16,6 +16,11 @@ let currentIndex = 0;
 let loadingFeed = false;
 let feedLoadError = null;
 
+// Loading state
+let isLoadingTape = false;
+let loadProgress = 0;
+let loadPhase = "";
+
 // Gesture state
 let gestureMode = null; // null, "scrub", or "scroll"
 let gestureStartX = 0;
@@ -121,7 +126,7 @@ function paint({ wipe, ink, screen, rec, line }) {
   
   // Transparent wipe when tape is playing to show video
   const fadeAmount = Math.abs(slideOffset / screen.height);
-  if (rec && rec.presenting && rec.playing) {
+  if (rec && rec.presenting && rec.playing && !isLoadingTape) {
     wipe(0, 0, 0, 0); // Transparent
     
     // Fade overlay during transition
@@ -141,6 +146,31 @@ function paint({ wipe, ink, screen, rec, line }) {
   if (feedLoadError) {
     ink("red").write("FEED ERROR", { center: "xy", size: 2 });
     ink("white").write(feedLoadError, { center: "xy", y: screen.height / 2 + 20 });
+    return;
+  }
+  
+  // Show loading progress for current tape
+  if (isLoadingTape) {
+    const phaseText = loadPhase.toUpperCase() || "LOADING";
+    ink("white").write(phaseText, { center: "x", y: screen.height / 2 - 40 });
+    
+    const barWidth = screen.width * 0.6;
+    const barHeight = 20;
+    const barX = (screen.width - barWidth) / 2;
+    const barY = screen.height / 2;
+    
+    ink(0, 50).box(barX, barY, barWidth, barHeight);
+    
+    const fillWidth = Math.floor(barWidth * loadProgress);
+    if (fillWidth > 0) {
+      ink(255, 200, 0).box(barX, barY, fillWidth, barHeight, "fill");
+    }
+    
+    ink(255, 200, 0).box(barX, barY, barWidth, barHeight, "outline");
+    
+    const progressPercent = Math.floor(loadProgress * 100);
+    ink("white").write(`${progressPercent}%`, { center: "x", y: barY + barHeight + 15 });
+    
     return;
   }
   
@@ -323,6 +353,10 @@ function loadTapeAtIndex(index, send) {
   
   console.log("📼 Loading tape:", tapeCode);
   
+  isLoadingTape = true;
+  loadProgress = 0;
+  loadPhase = "fetching";
+  
   fetch(`/api/get-tape?code=${tapeCode}`)
     .then(res => {
       if (!res.ok) throw new Error(`Failed to load tape: ${res.status}`);
@@ -335,20 +369,24 @@ function loadTapeAtIndex(index, send) {
       
       const zipUrl = `${location.origin}/media/tapes/${tapeCode}`;
       
+      loadPhase = "downloading";
+      
+      // Use preload to load through TapeManager
       send({
-        type: "tape:play",
+        type: "tape:preload",
         content: {
+          tapeId: tapeId,
           code: tapeCode,
           zipUrl: zipUrl,
           metadata: metadata
         }
       });
-      
-      // Mark as active once loaded
-      send({ type: "tape:set-active", content: { tapeId } });
     })
     .catch(err => {
       console.error("❌ Failed to load tape:", err);
+      isLoadingTape = false;
+      loadProgress = 0;
+      loadPhase = "";
     });
 }
 
@@ -411,6 +449,16 @@ function tapeIdForIndex(index) {
 function receive({ content, type, send }) {
   console.log("📺 TV receive:", type, content);
   
+  if (type === "tape:load-progress") {
+    // Update loading progress UI
+    if (content.phase) {
+      loadPhase = content.phase;
+    }
+    if (typeof content.progress === "number") {
+      loadProgress = content.progress;
+    }
+  }
+  
   if (type === "tape:progress-reply") {
     // Store progress for scrubbing
     if (content.tapeId === tapeIdForIndex(currentIndex)) {
@@ -420,6 +468,17 @@ function receive({ content, type, send }) {
   
   if (type === "tape:preloaded") {
     console.log(`📼 Preloaded ${content.tapeId}: ${content.frameCount} frames`);
+    
+    // If this is the current index, set it as active and start playing
+    const preloadedIndex = parseInt(content.tapeId.split('-').pop());
+    if (preloadedIndex === currentIndex) {
+      isLoadingTape = false;
+      loadProgress = 0;
+      loadPhase = "";
+      
+      send({ type: "tape:set-active", content: { tapeId: content.tapeId } });
+      console.log(`📼 Set active and playing: ${content.tapeId}`);
+    }
   }
 }
 
