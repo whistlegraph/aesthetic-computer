@@ -32,12 +32,15 @@ const swipeThreshold = 30;
 const gestureThreshold = 10; // Pixels before committing to scrub or scroll mode
 
 // Preloading state
-const maxPreloadDistance = window.innerWidth > 768 ? 6 : 3; // Desktop: ±6, Mobile: ±3
+let maxPreloadDistance = 3; // Will be set in boot based on screen size
 let preloadedTapeIds = new Set();
 
-function boot({ wipe, send, notice, hud }) {
+function boot({ wipe, send, notice, hud, screen }) {
   wipe(0);
   loadingFeed = true;
+  
+  // Set preload distance based on screen size
+  maxPreloadDistance = screen.width > 768 ? 6 : 3; // Desktop: ±6, Mobile: ±3
   
   fetch("/api/tv?types=tape&limit=50")
     .then(res => {
