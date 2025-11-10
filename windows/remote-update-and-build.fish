@@ -12,8 +12,7 @@ echo ""
 
 # Run build on Windows via SSH (streaming output to build stream)
 # Note: removed -t flag to allow proper piping
-# Note: Using -File instead of -Command to properly pass switch parameters
-ssh me@host.docker.internal "cd C:\\Perforce\\SpiderLily\\SL_main && p4 sync ... && p4 changes -m 5 ... && powershell -NoProfile -ExecutionPolicy Bypass -File .\\build-false-work.ps1 -Version $build_version -AutoPackage" 2>&1 | /workspaces/aesthetic-computer/windows/ac-pipe.sh
+ssh me@host.docker.internal "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\Perforce\\SpiderLily\\SL_main\\build-false-work.ps1 -Version $build_version -AutoPackage" 2>&1 | /workspaces/aesthetic-computer/windows/ac-pipe.sh
 
 # Note: We verify success by checking the build output size below, not the exit code
 
