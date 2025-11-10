@@ -55,6 +55,7 @@ let scroll = 0,
 // 🎨 Painting preview system
 let paintingPreviewCache = new Map(); // Store loaded painting previews
 let paintingLoadQueue = new Set(); // Track which paintings are being loaded
+let paintingLoadProgress = new Map(); // Track loading progress (0-1) for each painting
 
 async function boot(
   {
@@ -557,7 +558,7 @@ function paint(
     const message = client.messages[i];
     if (!message.layout?.paintingCodes) continue;
     
-    const previewY = message.layout.y + message.layout.height + 6; // 6px gap below message
+    const previewY = message.layout.y + message.layout.height + 4; // 4px gap above image
     const previewHeight = 68; // 64px + 4px padding (top/bottom)
     
     // Only process if the PREVIEW is visible (not just the message)
@@ -597,48 +598,96 @@ function paint(
         const isHovered = message.layout.hoveredPainting === code && 
                           message.layout.hoveredPaintingIndex === codeIdx;
         
-        // Draw subtle background box
-        ink(50, 50, 80, 128).box(
-          previewX, 
-          previewY, 
-          scaledW + 4, 
-          scaledH + 4
-        );
+        // Paste the painting directly (no background, no border, no padding)
+        paste(painting, previewX, previewY, scale);
         
-        // Paste the painting
-        paste(painting, previewX + 2, previewY + 2, scale);
-        
-        // Draw border (use hover color if hovered, otherwise painting color from theme)
-        const borderColor = isHovered ? theme.paintingHover : theme.painting;
-        if (Array.isArray(borderColor)) {
-          ink(...borderColor).box(
-            previewX, 
-            previewY, 
-            scaledW + 4, 
-            scaledH + 4, 
-            "outline"
-          );
-        } else {
-          ink(borderColor).box(
-            previewX, 
-            previewY, 
-            scaledW + 4, 
-            scaledH + 4, 
-            "outline"
-          );
+        // Only draw border on hover
+        if (isHovered) {
+          const borderColor = theme.paintingHover;
+          if (Array.isArray(borderColor)) {
+            ink(...borderColor).box(
+              previewX, 
+              previewY, 
+              scaledW, 
+              scaledH, 
+              "outline"
+            );
+          } else {
+            ink(borderColor).box(
+              previewX, 
+              previewY, 
+              scaledW, 
+              scaledH, 
+              "outline"
+            );
+          }
         }
         
-        // Move X position for next preview (add gap between previews)
-        previewX += scaledW + 4 + 4; // width + padding + gap
+        // Move X position for next preview (no gap, flush against each other)
+        previewX += scaledW;
       } else {
-        // Show loading indicator
-        ink(100, 100, 100, 128).write("Loading...", { 
-          x: previewX, 
-          y: previewY 
-        }, undefined, undefined, false, typefaceName);
+        // Show loading indicator with background and animation
+        const loadingW = 64; // Max preview size (no padding)
+        const loadingH = 64;
         
-        // Reserve space for loading preview
-        previewX += 72; // Assume max size + padding
+        // Get loading progress (0-1)
+        const progress = paintingLoadProgress.get(code) || 0;
+        
+        // Pulsing animation based on time
+        const pulse = (Math.sin(help.repeat * 0.1) + 1) / 2; // 0 to 1
+        const bgAlpha = Math.floor(140 + pulse * 60); // 140-200
+        
+        // Draw background box with pulsing alpha
+        ink(50, 50, 80, bgAlpha).box(
+          previewX, 
+          previewY, 
+          loadingW, 
+          loadingH
+        );
+        
+        // Draw progress bar
+        const progressBarH = 4;
+        const progressBarY = previewY + loadingH - 10;
+        const progressBarW = loadingW - 8;
+        const progressBarX = previewX + 4;
+        
+        // Progress bar background
+        ink(40, 40, 60, 200).box(progressBarX, progressBarY, progressBarW, progressBarH);
+        
+        // Progress bar fill
+        const fillW = Math.floor(progressBarW * progress);
+        if (fillW > 0) {
+          ink(100, 150, 200, 255).box(progressBarX, progressBarY, fillW, progressBarH);
+        }
+        
+        // Draw border with pulsing color
+        const borderBrightness = Math.floor(80 + pulse * 60);
+        ink(borderBrightness, borderBrightness, borderBrightness + 40, 200).box(
+          previewX, 
+          previewY, 
+          loadingW, 
+          loadingH, 
+          "outline"
+        );
+        
+        // Spinning dots in center
+        const centerX = previewX + loadingW / 2;
+        const centerY = previewY + loadingH / 2 - 4;
+        const dotRadius = 12;
+        const numDots = 8;
+        
+        for (let i = 0; i < numDots; i++) {
+          const angle = (help.repeat * 0.05 + (i / numDots) * Math.PI * 2);
+          const dotX = Math.floor(centerX + Math.cos(angle) * dotRadius);
+          const dotY = Math.floor(centerY + Math.sin(angle) * dotRadius);
+          
+          // Fade dots based on position in circle
+          const dotAlpha = Math.floor(100 + ((i / numDots) * 155));
+          ink(150, 150, 180, dotAlpha).box(dotX - 1, dotY - 1, 2, 2);
+        }
+        
+        // Reserve space for loading preview (no gap)
+        previewX += 64;
       }
     }
   }
@@ -874,7 +923,7 @@ function act(
           
           // 🎨 Check for hover on painting previews
           if (message.layout.paintingCodes) {
-            const previewY = message.layout.y + message.layout.height + 6;
+            const previewY = message.layout.y + message.layout.height + 4;
             let previewX = message.layout.x;
             
             message.layout.hoveredPainting = null;
@@ -892,18 +941,18 @@ function act(
                 
                 if (
                   e.x >= previewX &&
-                  e.x < previewX + scaledW + 4 &&
+                  e.x < previewX + scaledW &&
                   e.y >= previewY &&
-                  e.y < previewY + scaledH + 4
+                  e.y < previewY + scaledH
                 ) {
                   message.layout.hoveredPainting = code;
                   message.layout.hoveredPaintingIndex = codeIdx;
                   break;
                 }
                 
-                previewX += scaledW + 4 + 4; // Move to next preview position
+                previewX += scaledW; // Move to next preview position (no gap)
               } else {
-                previewX += 72; // Reserve space for loading preview
+                previewX += 64; // Reserve space for loading preview (no gap)
               }
             }
           }
@@ -1020,7 +1069,7 @@ function act(
           
           // 🎨 Check if click was on a painting preview
           if (message.layout.paintingCodes) {
-            const previewY = message.layout.y + message.layout.height + 6;
+            const previewY = message.layout.y + message.layout.height + 4;
             let previewX = message.layout.x;
             
             for (const code of message.layout.paintingCodes) {
@@ -1041,9 +1090,9 @@ function act(
                 // Check if click is inside this preview
                 if (
                   e.x >= previewX &&
-                  e.x < previewX + scaledW + 4 &&
+                  e.x < previewX + scaledW &&
                   e.y >= previewY &&
-                  e.y < previewY + scaledH + 4
+                  e.y < previewY + scaledH
                 ) {
                   beep();
                   hud.label(piece); // Set back label to current piece
@@ -1051,9 +1100,9 @@ function act(
                   break;
                 }
                 
-                previewX += scaledW + 4 + 4; // Move to next preview position
+                previewX += scaledW; // Move to next preview position (no gap)
               } else {
-                previewX += 72; // Reserve space for loading preview
+                previewX += 64; // Reserve space for loading preview (no gap)
               }
             }
           }
@@ -1171,7 +1220,7 @@ function act(
           
           // 🎨 Check for hover on painting previews
           if (message.layout.paintingCodes) {
-            const previewY = message.layout.y + message.layout.height + 6;
+            const previewY = message.layout.y + message.layout.height + 4;
             let previewX = message.layout.x;
             message.layout.hoveredPainting = null;
             message.layout.hoveredPaintingIndex = null;
@@ -1188,9 +1237,9 @@ function act(
                 
                 if (
                   e.x >= previewX &&
-                  e.x < previewX + scaledW + 4 &&
+                  e.x < previewX + scaledW &&
                   e.y >= previewY &&
-                  e.y < previewY + scaledH + 4
+                  e.y < previewY + scaledH
                 ) {
                   message.layout.hoveredPainting = code;
                   message.layout.hoveredPaintingIndex = codeIdx;
@@ -1198,9 +1247,9 @@ function act(
                   break;
                 }
                 
-                previewX += scaledW + 4 + 4; // Move to next preview position
+                previewX += scaledW; // Move to next preview position (no gap)
               } else {
-                previewX += 72; // Reserve space for loading preview
+                previewX += 64; // Reserve space for loading preview (no gap)
               }
             }
           }
@@ -1365,22 +1414,28 @@ async function loadPaintingPreview(code, get, store) {
   }
   
   paintingLoadQueue.add(code);
+  paintingLoadProgress.set(code, 0); // Start at 0%
   
   try {
     // Resolve metadata (same approach as painting.mjs)
     const normalized = code.replace(/^#/, '');
     const cached = store[`painting-code:${normalized}`];
     
+    paintingLoadProgress.set(code, 0.2); // 20% - starting metadata fetch
+    
     let metadata;
     if (cached?.slug && cached?.handle) {
       metadata = cached;
+      paintingLoadProgress.set(code, 0.4); // 40% - metadata from cache
     } else {
       const response = await fetch(`/api/painting-code?code=${normalized}`);
       if (!response.ok) {
         paintingLoadQueue.delete(code);
+        paintingLoadProgress.delete(code);
         return null;
       }
       metadata = await response.json();
+      paintingLoadProgress.set(code, 0.4); // 40% - metadata fetched
       
       // Cache the metadata
       if (metadata?.slug && metadata?.handle) {
@@ -1390,22 +1445,29 @@ async function loadPaintingPreview(code, get, store) {
     
     if (!metadata?.slug || !metadata?.handle) {
       paintingLoadQueue.delete(code);
+      paintingLoadProgress.delete(code);
       return null;
     }
+    
+    paintingLoadProgress.set(code, 0.6); // 60% - starting image load
     
     // Load the painting
     const got = await get.painting(metadata.slug).by(metadata.handle);
     const painting = got.img;
     
+    paintingLoadProgress.set(code, 0.9); // 90% - image loaded
+    
     // Cache it
     const result = { painting, metadata, code: normalized };
     paintingPreviewCache.set(code, result);
     paintingLoadQueue.delete(code);
+    paintingLoadProgress.delete(code);
     
     return result;
   } catch (err) {
     console.warn(`Failed to load painting preview #${code}:`, err);
     paintingLoadQueue.delete(code);
+    paintingLoadProgress.delete(code);
     return null;
   }
 }
@@ -1436,9 +1498,8 @@ function computeMessagesHeight({ text, screen }, chat, typefaceName, currentRowH
     // 🎨 Add space for painting previews (if any)
     const paintingElements = parseMessageElements(fullMessage).filter(el => el.type === "painting");
     if (paintingElements.length > 0) {
-      // 6px gap + 64px image + 4px padding top/bottom = 74px per preview
-      // Don't add extra lineGap since we already added it above
-      const previewHeight = 74; // 6px gap + 64px + 4px padding
+      // 4px gap above + 64px image + 4px padding + 2px gap below = 74px
+      const previewHeight = 74;
       height += previewHeight;
     }
   }
@@ -1467,7 +1528,7 @@ function computeMessagesLayout({ screen, text }, chat, typefaceName, currentRowH
     
     // 🎨 Move up for painting previews FIRST (before positioning this message)
     if (paintingCodes.length > 0) {
-      // 6px gap + 64px image + 4px padding top/bottom = 74px
+      // 4px gap above + 64px image + 4px padding + 2px gap below = 74px
       const previewHeight = 74;
       y -= previewHeight;
     }
