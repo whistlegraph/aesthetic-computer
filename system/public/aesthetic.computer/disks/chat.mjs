@@ -52,6 +52,10 @@ let scroll = 0,
   totalScrollHeight,
   chatHeight;
 
+// 🎨 Painting preview system
+let paintingPreviewCache = new Map(); // Store loaded painting previews
+let paintingLoadQueue = new Set(); // Track which paintings are being loaded
+
 async function boot(
   {
     api,
@@ -231,6 +235,8 @@ function paint(
     pen,
     num,
     piece,
+    store,
+    paste,
   },
   options,
 ) {
@@ -546,6 +552,97 @@ function paint(
     */
   }
 
+  // 🎨 Render painting previews and trigger loading
+  for (let i = client.messages.length - 1; i >= 0; i--) {
+    const message = client.messages[i];
+    if (!message.layout?.paintingCodes) continue;
+    
+    const previewY = message.layout.y + message.layout.height + 6; // 6px gap below message
+    const previewHeight = 68; // 64px + 4px padding (top/bottom)
+    
+    // Only process if the PREVIEW is visible (not just the message)
+    if (previewY + previewHeight < topMargin) continue; // Preview is above visible area
+    if (previewY > screen.height - bottomMargin) continue; // Preview is below visible area
+    
+    let previewX = message.layout.x; // Start from left margin
+    
+    for (let codeIdx = 0; codeIdx < message.layout.paintingCodes.length; codeIdx++) {
+      const code = message.layout.paintingCodes[codeIdx];
+      const cached = paintingPreviewCache.get(code);
+      
+      if (!cached && !paintingLoadQueue.has(code)) {
+        // Trigger async loading
+        loadPaintingPreview(code, api.get, store).then(result => {
+          if (result) {
+            help.repeat(); // Trigger repaint when preview loads
+          }
+        });
+      }
+      
+      if (cached) {
+        const { painting } = cached;
+        
+        // Calculate scaling to fit 64x64 max
+        const targetSize = 64;
+        const scale = Math.min(
+          targetSize / painting.width,
+          targetSize / painting.height,
+          1 // Don't scale up, only down
+        );
+        
+        const scaledW = floor(painting.width * scale);
+        const scaledH = floor(painting.height * scale);
+        
+        // Check if this preview is being hovered
+        const isHovered = message.layout.hoveredPainting === code && 
+                          message.layout.hoveredPaintingIndex === codeIdx;
+        
+        // Draw subtle background box
+        ink(50, 50, 80, 128).box(
+          previewX, 
+          previewY, 
+          scaledW + 4, 
+          scaledH + 4
+        );
+        
+        // Paste the painting
+        paste(painting, previewX + 2, previewY + 2, scale);
+        
+        // Draw border (use hover color if hovered, otherwise painting color from theme)
+        const borderColor = isHovered ? theme.paintingHover : theme.painting;
+        if (Array.isArray(borderColor)) {
+          ink(...borderColor).box(
+            previewX, 
+            previewY, 
+            scaledW + 4, 
+            scaledH + 4, 
+            "outline"
+          );
+        } else {
+          ink(borderColor).box(
+            previewX, 
+            previewY, 
+            scaledW + 4, 
+            scaledH + 4, 
+            "outline"
+          );
+        }
+        
+        // Move X position for next preview (add gap between previews)
+        previewX += scaledW + 4 + 4; // width + padding + gap
+      } else {
+        // Show loading indicator
+        ink(100, 100, 100, 128).write("Loading...", { 
+          x: previewX, 
+          y: previewY 
+        }, undefined, undefined, false, typefaceName);
+        
+        // Reserve space for loading preview
+        previewX += 72; // Assume max size + padding
+      }
+    }
+  }
+
   unmask();
 
   // 📜 Scroll bar.
@@ -774,6 +871,42 @@ function act(
               break; // Only hover one element at a time
             }
           }
+          
+          // 🎨 Check for hover on painting previews
+          if (message.layout.paintingCodes) {
+            const previewY = message.layout.y + message.layout.height + 6;
+            let previewX = message.layout.x;
+            
+            message.layout.hoveredPainting = null;
+            message.layout.hoveredPaintingIndex = null;
+            
+            for (let codeIdx = 0; codeIdx < message.layout.paintingCodes.length; codeIdx++) {
+              const code = message.layout.paintingCodes[codeIdx];
+              const cached = paintingPreviewCache.get(code);
+              if (cached) {
+                const { painting } = cached;
+                const targetSize = 64;
+                const scale = Math.min(targetSize / painting.width, targetSize / painting.height, 1);
+                const scaledW = floor(painting.width * scale);
+                const scaledH = floor(painting.height * scale);
+                
+                if (
+                  e.x >= previewX &&
+                  e.x < previewX + scaledW + 4 &&
+                  e.y >= previewY &&
+                  e.y < previewY + scaledH + 4
+                ) {
+                  message.layout.hoveredPainting = code;
+                  message.layout.hoveredPaintingIndex = codeIdx;
+                  break;
+                }
+                
+                previewX += scaledW + 4 + 4; // Move to next preview position
+              } else {
+                previewX += 72; // Reserve space for loading preview
+              }
+            }
+          }
 
           // Store the clicked message for potential interaction
           message.clicked = true;
@@ -881,6 +1014,46 @@ function act(
                 // Navigate to kidlisp reference - keep the $ for proper kidlisp piece syntax
                 jump(element.text); // Keep the $ (e.g., $ceo)
                 break;
+              }
+            }
+          }
+          
+          // 🎨 Check if click was on a painting preview
+          if (message.layout.paintingCodes) {
+            const previewY = message.layout.y + message.layout.height + 6;
+            let previewX = message.layout.x;
+            
+            for (const code of message.layout.paintingCodes) {
+              const cached = paintingPreviewCache.get(code);
+              if (cached) {
+                const { painting } = cached;
+                
+                // Calculate the preview dimensions
+                const targetSize = 64;
+                const scale = Math.min(
+                  targetSize / painting.width,
+                  targetSize / painting.height,
+                  1
+                );
+                const scaledW = floor(painting.width * scale);
+                const scaledH = floor(painting.height * scale);
+                
+                // Check if click is inside this preview
+                if (
+                  e.x >= previewX &&
+                  e.x < previewX + scaledW + 4 &&
+                  e.y >= previewY &&
+                  e.y < previewY + scaledH + 4
+                ) {
+                  beep();
+                  hud.label(piece); // Set back label to current piece
+                  jump(`painting#${code}`);
+                  break;
+                }
+                
+                previewX += scaledW + 4 + 4; // Move to next preview position
+              } else {
+                previewX += 72; // Reserve space for loading preview
               }
             }
           }
@@ -994,6 +1167,42 @@ function act(
             timestamp.over = true;
           } else {
             timestamp.over = false;
+          }
+          
+          // 🎨 Check for hover on painting previews
+          if (message.layout.paintingCodes) {
+            const previewY = message.layout.y + message.layout.height + 6;
+            let previewX = message.layout.x;
+            message.layout.hoveredPainting = null;
+            message.layout.hoveredPaintingIndex = null;
+            
+            for (let codeIdx = 0; codeIdx < message.layout.paintingCodes.length; codeIdx++) {
+              const code = message.layout.paintingCodes[codeIdx];
+              const cached = paintingPreviewCache.get(code);
+              if (cached) {
+                const { painting } = cached;
+                const targetSize = 64;
+                const scale = Math.min(targetSize / painting.width, targetSize / painting.height, 1);
+                const scaledW = floor(painting.width * scale);
+                const scaledH = floor(painting.height * scale);
+                
+                if (
+                  e.x >= previewX &&
+                  e.x < previewX + scaledW + 4 &&
+                  e.y >= previewY &&
+                  e.y < previewY + scaledH + 4
+                ) {
+                  message.layout.hoveredPainting = code;
+                  message.layout.hoveredPaintingIndex = codeIdx;
+                  hoveredAnyElement = true;
+                  break;
+                }
+                
+                previewX += scaledW + 4 + 4; // Move to next preview position
+              } else {
+                previewX += 72; // Reserve space for loading preview
+              }
+            }
           }
         } else {
           // Clear hover states when not over message
@@ -1143,6 +1352,64 @@ function boundScroll() {
   }
 }
 
+// 🎨 Load painting preview by code
+async function loadPaintingPreview(code, get, store) {
+  // Check cache first
+  if (paintingPreviewCache.has(code)) {
+    return paintingPreviewCache.get(code);
+  }
+  
+  // Check if already loading
+  if (paintingLoadQueue.has(code)) {
+    return null; // Still loading
+  }
+  
+  paintingLoadQueue.add(code);
+  
+  try {
+    // Resolve metadata (same approach as painting.mjs)
+    const normalized = code.replace(/^#/, '');
+    const cached = store[`painting-code:${normalized}`];
+    
+    let metadata;
+    if (cached?.slug && cached?.handle) {
+      metadata = cached;
+    } else {
+      const response = await fetch(`/api/painting-code?code=${normalized}`);
+      if (!response.ok) {
+        paintingLoadQueue.delete(code);
+        return null;
+      }
+      metadata = await response.json();
+      
+      // Cache the metadata
+      if (metadata?.slug && metadata?.handle) {
+        store[`painting-code:${normalized}`] = metadata;
+      }
+    }
+    
+    if (!metadata?.slug || !metadata?.handle) {
+      paintingLoadQueue.delete(code);
+      return null;
+    }
+    
+    // Load the painting
+    const got = await get.painting(metadata.slug).by(metadata.handle);
+    const painting = got.img;
+    
+    // Cache it
+    const result = { painting, metadata, code: normalized };
+    paintingPreviewCache.set(code, result);
+    paintingLoadQueue.delete(code);
+    
+    return result;
+  } catch (err) {
+    console.warn(`Failed to load painting preview #${code}:`, err);
+    paintingLoadQueue.delete(code);
+    return null;
+  }
+}
+
 function computeMessagesHeight({ text, screen }, chat, typefaceName, currentRowHeight) {
   let height = 0;
   // Iterate through the messages array.
@@ -1165,6 +1432,15 @@ function computeMessagesHeight({ text, screen }, chat, typefaceName, currentRowH
     // Each line is currentRowHeight tall
     // Plus add lineGap between lines within the message and after the message
     height += tb.lines.length * currentRowHeight + lineGap;
+    
+    // 🎨 Add space for painting previews (if any)
+    const paintingElements = parseMessageElements(fullMessage).filter(el => el.type === "painting");
+    if (paintingElements.length > 0) {
+      // 6px gap + 64px image + 4px padding top/bottom = 74px per preview
+      // Don't add extra lineGap since we already added it above
+      const previewHeight = 74; // 6px gap + 64px + 4px padding
+      height += previewHeight;
+    }
   }
   return height;
 }
@@ -1183,6 +1459,18 @@ function computeMessagesLayout({ screen, text }, chat, typefaceName, currentRowH
 
   for (let i = chat.messages.length - 1; i >= 0; i--) {
     const msg = chat.messages[i];
+    
+    // Parse elements first to know if we have painting previews
+    const parsedElements = parseMessageElements(msg.fullMessage);
+    const paintingElements = parsedElements.filter(el => el.type === "painting");
+    const paintingCodes = paintingElements.map(el => el.text.replace(/^#/, ''));
+    
+    // 🎨 Move up for painting previews FIRST (before positioning this message)
+    if (paintingCodes.length > 0) {
+      // 6px gap + 64px image + 4px padding top/bottom = 74px
+      const previewHeight = 74;
+      y -= previewHeight;
+    }
 
     y -= currentRowHeight * (msg.tb.lines.length - 1) + lineGap;    if (y > screen.height - bottomMargin) {
       y -= currentRowHeight;
@@ -1193,9 +1481,6 @@ function computeMessagesLayout({ screen, text }, chat, typefaceName, currentRowH
     let msgColor = "white";
     let inBox = msg.lastLayout?.inBox || false;
 
-    // Parse elements from the message  
-    const parsedElements = parseMessageElements(msg.fullMessage);
-    
     // Sort elements by start position (reverse order for safe replacement)
     parsedElements.sort((a, b) => b.start - a.start);
     
@@ -1233,6 +1518,8 @@ function computeMessagesLayout({ screen, text }, chat, typefaceName, currentRowH
     // Calculate box dimensions based on our rowHeight
     const boxHeight = msg.tb.lines.length * currentRowHeight;
     
+    // paintingElements and paintingCodes already extracted at the top of the loop
+    
     msg.layout = {
       x: leftMargin,
       y,
@@ -1246,11 +1533,14 @@ function computeMessagesLayout({ screen, text }, chat, typefaceName, currentRowH
       prompts: [], // No longer needed with color codes  
       urls: [], // No longer needed with color codes
       paintableMessage: colorCodedMessage,
+      paintingCodes: paintingCodes.length > 0 ? paintingCodes : undefined, // Store painting codes
+      paintingPreviews: paintingCodes.length > 0 ? [] : undefined, // Will store loaded previews
     };
 
     delete msg.lastLayout;
 
     y -= currentRowHeight; // Move up one line for the next message.
+    
     if (y < topMargin - currentRowHeight) {
       break; // Break if y is below top line.
     }
