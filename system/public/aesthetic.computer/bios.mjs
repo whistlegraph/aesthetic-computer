@@ -46,6 +46,311 @@ const { assign, keys } = Object;
 const { round, floor, min, max } = Math;
 const { isFinite } = Number;
 
+// 📼 Tape Playback Classes (for multi-tape transitions)
+
+class Tape {
+  constructor(id) {
+    this.id = id;
+    this.code = null;
+    this.metadata = null;
+    
+    // Frame data
+    this.frames = []; // Array of ImageBitmap objects
+    this.timingData = []; // [{ frame, filename, duration, timestamp }, ...]
+    this.frameIndex = 0;
+    this.lastFrameTime = 0;
+    
+    // Audio data
+    this.audioBuffer = null; // Web Audio AudioBuffer
+    this.audioSource = null; // AudioBufferSourceNode
+    this.audioGainNode = null; // GainNode for volume control
+    this.audioStartTime = 0;
+    this.audioStartedAtFrame = 0;
+    
+    // Playback state (persistent across scroll)
+    this.isLoading = false;
+    this.isPlaying = false;
+    this.isPaused = false;
+    this.wasPlayingBeforeScroll = false; // Remember state when scrolling away
+    this.savedProgress = 0; // Save progress when pausing/scrolling away
+    this.loadProgress = 0;
+    this.loadPhase = ""; // download, unpack, frames, audio
+    
+    // Rendering state (managed by TapeManager)
+    this.yOffset = 0; // Vertical offset in pixels (for scrolling)
+    this.alpha = 0; // Opacity 0-1
+    this.volume = 0; // Audio volume 0-1
+  }
+
+  // Start playback (audio only - frames rendered by TapeManager)
+  play(audioContext) {
+    if (this.isPlaying || !this.audioBuffer) return;
+    
+    this.isPlaying = true;
+    this.isPaused = false;
+    this.wasPlayingBeforeScroll = true; // Remember we were playing
+    this.lastFrameTime = performance.now();
+    
+    // Create audio source
+    this.audioSource = audioContext.createBufferSource();
+    this.audioSource.buffer = this.audioBuffer;
+    
+    // Create gain node for volume control (for crossfade)
+    this.audioGainNode = audioContext.createGain();
+    this.audioGainNode.gain.value = this.volume;
+    
+    this.audioSource.connect(this.audioGainNode);
+    this.audioGainNode.connect(audioContext.destination);
+    
+    // Start audio from saved progress (for resume after scroll)
+    const startOffset = (this.frameIndex / this.frames.length) * this.audioBuffer.duration;
+    this.audioStartTime = audioContext.currentTime - startOffset;
+    this.audioStartedAtFrame = this.frameIndex;
+    this.audioSource.start(0, startOffset);
+    
+    // Loop audio when it ends
+    this.audioSource.onended = () => {
+      if (this.isPlaying && !this.isPaused) {
+        this.frameIndex = 0; // Reset to beginning
+        this.play(audioContext); // Restart
+      }
+    };
+  }
+
+  pause() {
+    this.isPaused = true;
+    this.wasPlayingBeforeScroll = false; // Manually paused
+    this.savedProgress = this.getProgress();
+    this.audioSource?.stop();
+  }
+
+  stop() {
+    this.isPlaying = false;
+    this.isPaused = false;
+    this.audioSource?.stop();
+    this.audioSource = null;
+    // Don't reset frameIndex - keep position for resume
+    this.savedProgress = this.getProgress();
+  }
+
+  // Pause when scrolling away (but remember we were playing)
+  pauseForScroll() {
+    if (this.isPlaying) {
+      this.wasPlayingBeforeScroll = true;
+      this.savedProgress = this.getProgress();
+      this.audioSource?.stop();
+      this.isPlaying = false;
+    }
+  }
+
+  // Resume when scrolling back
+  resumeFromScroll(audioContext) {
+    if (this.wasPlayingBeforeScroll && !this.isPlaying) {
+      // Restore saved position
+      if (this.savedProgress > 0) {
+        this.setProgress(this.savedProgress);
+      }
+      this.play(audioContext);
+    }
+  }
+
+  // Seek to specific frame (for scrubbing)
+  seekToFrame(frameIndex, audioContext) {
+    if (frameIndex < 0 || frameIndex >= this.frames.length) return;
+    
+    this.frameIndex = frameIndex;
+    
+    // If playing, restart audio from new position
+    if (this.isPlaying && this.audioBuffer && audioContext) {
+      this.audioSource?.stop();
+      
+      const progress = frameIndex / this.frames.length;
+      const audioOffset = progress * this.audioBuffer.duration;
+      
+      this.audioSource = audioContext.createBufferSource();
+      this.audioSource.buffer = this.audioBuffer;
+      this.audioSource.connect(this.audioGainNode);
+      this.audioStartTime = audioContext.currentTime - audioOffset;
+      this.audioStartedAtFrame = frameIndex;
+      this.audioSource.start(0, audioOffset);
+    }
+  }
+
+  // Set playback progress (0-1)
+  setProgress(progress) {
+    const clampedProgress = Math.max(0, Math.min(1, progress));
+    const targetFrame = Math.floor(clampedProgress * this.frames.length);
+    this.frameIndex = Math.min(targetFrame, this.frames.length - 1);
+    this.savedProgress = clampedProgress;
+  }
+
+  // Get current progress (0-1)
+  getProgress() {
+    if (this.frames.length === 0) return 0;
+    return this.frameIndex / this.frames.length;
+  }
+
+  // Set volume (for crossfade)
+  setVolume(volume) {
+    this.volume = Math.max(0, Math.min(1, volume));
+    if (this.audioGainNode) {
+      this.audioGainNode.gain.value = this.volume;
+    }
+  }
+
+  // Update to next frame (called by TapeManager)
+  updateFrame(now) {
+    if (!this.isPlaying || this.frames.length === 0) return;
+    
+    const timeSinceLastFrame = now - this.lastFrameTime;
+    if (this.timingData[this.frameIndex]) {
+      const frameDuration = this.timingData[this.frameIndex].duration || 33.33; // Default 30fps
+      
+      if (timeSinceLastFrame >= frameDuration) {
+        this.frameIndex = (this.frameIndex + 1) % this.frames.length;
+        this.lastFrameTime = now;
+      }
+    }
+  }
+
+  cleanup() {
+    this.audioSource?.stop();
+    this.audioSource = null;
+    this.audioGainNode = null;
+    this.frames = [];
+    this.timingData = [];
+  }
+}
+
+class TapeManager {
+  constructor(canvas, audioContext, maxTapes = 6) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext("2d");
+    this.audioContext = audioContext;
+    this.tapes = new Map(); // Map<id, Tape>
+    this.maxTapes = maxTapes;
+    this.activeId = null;
+    this.preloadQueue = []; // Array of tape IDs to load
+    this.isPreloading = false;
+  }
+
+  // Create or get tape
+  getTape(id) {
+    if (!this.tapes.has(id)) {
+      this.tapes.set(id, new Tape(id));
+    }
+    return this.tapes.get(id);
+  }
+
+  // Set active tape and start playback
+  setActive(id) {
+    // Pause previous active (but keep state)
+    if (this.activeId && this.tapes.has(this.activeId)) {
+      const prevTape = this.tapes.get(this.activeId);
+      prevTape.pauseForScroll(); // Pause but remember we were playing
+      prevTape.volume = 0;
+    }
+    
+    this.activeId = id;
+    const activeTape = this.tapes.get(id);
+    
+    if (activeTape && !activeTape.isLoading) {
+      // Resume playback if it was playing before we scrolled away
+      activeTape.resumeFromScroll(this.audioContext);
+      activeTape.volume = 1;
+      activeTape.yOffset = 0;
+      activeTape.alpha = 1;
+    }
+  }
+
+  // Render frame for single tape (compositing on main canvas)
+  renderFrame(now) {
+    if (!this.canvas || !this.ctx) return;
+    
+    // Update all playing tapes
+    for (const tape of this.tapes.values()) {
+      if (tape.isPlaying) {
+        tape.updateFrame(now);
+      }
+    }
+    
+    // Composite all visible tapes onto canvas
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    
+    for (const tape of this.tapes.values()) {
+      if (tape.alpha > 0 && tape.frames.length > 0) {
+        const frame = tape.frames[tape.frameIndex];
+        if (frame) {
+          this.ctx.globalAlpha = tape.alpha;
+          this.ctx.drawImage(
+            frame,
+            0,
+            tape.yOffset,
+            this.canvas.width,
+            this.canvas.height
+          );
+        }
+      }
+    }
+    
+    this.ctx.globalAlpha = 1;
+  }
+
+  // Update audio crossfade based on tape positions
+  updateAudioCrossfade(tapePositions) {
+    // tapePositions = [{ id, yOffset, alpha }, ...]
+    const centerY = this.canvas.height / 2;
+    const fadeDistance = this.canvas.height;
+    
+    for (const pos of tapePositions) {
+      const tape = this.tapes.get(pos.id);
+      if (!tape) continue;
+      
+      // Calculate volume based on distance from center
+      const distanceFromCenter = Math.abs(pos.yOffset + this.canvas.height / 2 - centerY);
+      const volume = Math.max(0, 1 - (distanceFromCenter / fadeDistance));
+      
+      tape.yOffset = pos.yOffset;
+      tape.alpha = pos.alpha;
+      tape.setVolume(volume);
+    }
+  }
+
+  // Evict furthest tape from cache
+  evictFurthestTape(currentIndex, tapeIndices) {
+    if (this.tapes.size <= this.maxTapes) return;
+    
+    let furthestId = null;
+    let furthestDistance = -1;
+    
+    for (const [id, tape] of this.tapes) {
+      const tapeIndex = tapeIndices.findIndex(t => t.id === id);
+      if (tapeIndex === -1) continue;
+      
+      const distance = Math.abs(tapeIndex - currentIndex);
+      if (distance > furthestDistance) {
+        furthestDistance = distance;
+        furthestId = id;
+      }
+    }
+    
+    if (furthestId) {
+      const tape = this.tapes.get(furthestId);
+      tape?.cleanup();
+      this.tapes.delete(furthestId);
+      console.log(`📼 Evicted tape ${furthestId} (distance: ${furthestDistance})`);
+    }
+  }
+
+  cleanup() {
+    for (const tape of this.tapes.values()) {
+      tape.cleanup();
+    }
+    this.tapes.clear();
+    this.activeId = null;
+  }
+}
+
 let pendingUrlRewrite = null;
 let rewriteFocusListenerAttached = false;
 
@@ -2431,6 +2736,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   let underlayFrame;  // const bakedCan = document.createElement("canvas", {
   //  willReadFrequently: true,
   // });
+  let tapeManager; // Multi-tape manager for smooth transitions (tv.mjs)
 
   // *** Received Frame ***
   async function receivedChange({ data: { type, content } }) {
@@ -8073,6 +8379,181 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (type === "tape:stop") {
       console.log("📼 Stopping tape playback");
       stopTapePlayback?.();
+      tapeManager?.cleanup();
+      tapeManager = null;
+      return;
+    }
+
+    // 📼 Toggle play/pause for a tape (for tv.mjs tap gesture)
+    if (type === "tape:toggle-play") {
+      if (!tapeManager) return;
+      
+      const { tapeId } = content;
+      const tape = tapeManager.tapes.get(tapeId);
+      
+      if (tape && !tape.isLoading) {
+        if (tape.isPlaying) {
+          tape.pause();
+          console.log(`⏸️ Paused tape ${tapeId}`);
+        } else {
+          tape.play(tapeManager.audioContext);
+          console.log(`▶️ Playing tape ${tapeId}`);
+        }
+      }
+      
+      return;
+    }
+
+    // 📼 Preload a tape into cache (for tv.mjs smart preloading)
+    if (type === "tape:preload") {
+      console.log("📼 Preloading tape:", content);
+      
+      (async () => {
+        try {
+          const { tapeId, code, zipUrl, metadata: tapeMeta } = content;
+          
+          // Initialize tape manager if needed
+          if (!tapeManager && underlayFrame) {
+            const frameCan = underlayFrame.querySelector("canvas");
+            if (frameCan && audioContext) {
+              const maxTapes = window.innerWidth > 768 ? 12 : 6;
+              tapeManager = new TapeManager(frameCan, audioContext, maxTapes);
+              console.log(`📼 Initialized TapeManager (max ${maxTapes} tapes)`);
+            }
+          }
+          
+          if (!tapeManager) {
+            console.warn("📼 Cannot preload - TapeManager not initialized");
+            return;
+          }
+          
+          const tape = tapeManager.getTape(tapeId);
+          if (tape.frames.length > 0) {
+            console.log(`📼 Tape ${tapeId} already loaded`);
+            return;
+          }
+          
+          tape.isLoading = true;
+          tape.code = code;
+          tape.metadata = tapeMeta;
+          
+          // Fetch ZIP (simplified - no progress for preload)
+          const response = await fetch(decodeURI(zipUrl));
+          if (!response.ok) {
+            throw new Error(`Tape ZIP not found. Status: ${response.status}`);
+          }
+          
+          const arrayBuffer = await response.arrayBuffer();
+          console.log(`📼 Preload ZIP downloaded: ${(arrayBuffer.byteLength / 1024 / 1024).toFixed(2)} MB`);
+          
+          // Parse ZIP
+          if (!window.JSZip) await loadJSZip();
+          const zip = await window.JSZip.loadAsync(arrayBuffer);
+          
+          // Extract frames
+          const frameFiles = Object.keys(zip.files)
+            .filter(name => name.startsWith('frame-') && name.endsWith('.png'))
+            .sort((a, b) => {
+              const aNum = parseInt(a.match(/frame-(\d+)/)[1]);
+              const bNum = parseInt(b.match(/frame-(\d+)/)[1]);
+              return aNum - bNum;
+            });
+          
+          for (const filename of frameFiles) {
+            const frameFile = zip.file(filename);
+            const blob = await frameFile.async("blob");
+            const bitmap = await createImageBitmap(blob);
+            tape.frames.push(bitmap);
+          }
+          
+          // Extract timing
+          const timingFile = zip.file("timing.json");
+          if (timingFile) {
+            const timingText = await timingFile.async("text");
+            tape.timingData = JSON.parse(timingText);
+          }
+          
+          // Extract audio
+          const audioFile = zip.file("soundtrack.wav");
+          if (audioFile && audioContext) {
+            const audioBlob = await audioFile.async("blob");
+            const audioArrayBuffer = await audioBlob.arrayBuffer();
+            tape.audioBuffer = await audioContext.decodeAudioData(audioArrayBuffer);
+            console.log(`📼 Preloaded audio: ${tape.audioBuffer.duration.toFixed(2)}s`);
+          }
+          
+          tape.isLoading = false;
+          console.log(`📼 Preloaded tape ${tapeId}: ${tape.frames.length} frames`);
+          
+          send({
+            type: "tape:preloaded",
+            content: { tapeId, frameCount: tape.frames.length }
+          });
+        } catch (error) {
+          console.error("📼 Error preloading tape:", error);
+          send({ type: "tape:preload-error", content: { tapeId: content.tapeId, error: error.message } });
+        }
+      })();
+      
+      return;
+    }
+
+    // 📼 Update tape scroll offsets and alpha (for tv.mjs smooth transitions)
+    if (type === "tape:scroll-offset") {
+      if (!tapeManager) return;
+      
+      const { tapePositions } = content; // [{ id, yOffset, alpha }, ...]
+      tapeManager.updateAudioCrossfade(tapePositions);
+      
+      return;
+    }
+
+    // 📼 Scrub to specific progress within tape (for tv.mjs horizontal gestures)
+    if (type === "tape:scrub") {
+      if (!tapeManager) return;
+      
+      const { tapeId, progress } = content;
+      const tape = tapeManager.tapes.get(tapeId);
+      
+      if (tape && !tape.isLoading) {
+        const targetFrame = Math.floor(progress * tape.frames.length);
+        tape.seekToFrame(targetFrame, tapeManager.audioContext);
+        console.log(`📼 Scrubbed tape ${tapeId} to ${(progress * 100).toFixed(1)}%`);
+      }
+      
+      return;
+    }
+
+    // 📼 Get current playback progress (for tv.mjs UI)
+    if (type === "tape:get-progress") {
+      if (!tapeManager) return;
+      
+      const { tapeId } = content;
+      const tape = tapeManager.tapes.get(tapeId);
+      
+      if (tape) {
+        send({
+          type: "tape:progress-reply",
+          content: {
+            tapeId,
+            progress: tape.getProgress(),
+            isPlaying: tape.isPlaying,
+            isPaused: tape.isPaused
+          }
+        });
+      }
+      
+      return;
+    }
+
+    // 📼 Set active tape (for tv.mjs when transitioning)
+    if (type === "tape:set-active") {
+      if (!tapeManager) return;
+      
+      const { tapeId } = content;
+      tapeManager.setActive(tapeId);
+      console.log(`📼 Set active tape: ${tapeId}`);
+      
       return;
     }
 
@@ -10737,6 +11218,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             }
 
             fctx.putImageData(recordedFrames[f][1], 0, 0);
+
+            // 📼 Render multi-tape manager frames (for tv.mjs smooth transitions)
+            if (tapeManager) {
+              tapeManager.renderFrame(performance.now());
+            }
 
               const renderStartTime = performance.now();
             
