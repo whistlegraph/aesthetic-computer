@@ -4,7 +4,8 @@
 param(
     [string]$Platform = "Win64",
     [string]$Config = "Shipping",
-    [string]$Version = (Get-Date -Format "yyyy.MM.dd-HHmm")
+    [string]$Version = (Get-Date -Format "yyyy.MM.dd-HHmm"),
+    [switch]$AutoPackage
 )
 
 $ErrorActionPreference = "Stop"
@@ -101,32 +102,55 @@ Write-Host "Output location:" -ForegroundColor Cyan
 Write-Host "   $OutputDir"
 Write-Host ""
 
-# Optionally compress
-$response = Read-Host "Compress build to ZIP? (y/N)"
-if ($response -eq "y" -or $response -eq "Y") {
+# Optionally or automatically compress
+if ($AutoPackage) {
     Write-Host ""
-    Write-Host "Compressing..." -ForegroundColor Yellow
-    
-    $ArchiveName = "SpiderLily-$Platform-$Version.zip"
-    $BuildsDir = "$ProjectRoot\Builds"
-    
-    # Create Builds directory if it doesn't exist
-    if (!(Test-Path $BuildsDir)) {
-        New-Item -ItemType Directory -Path $BuildsDir -Force | Out-Null
-    }
-    
-    $ArchivePath = "$BuildsDir\$ArchiveName"
-    
+    Write-Host "Auto: Compressing build to ZIP..." -ForegroundColor Yellow
+    $ArchiveName = "spiderlily-windows-$Version.zip"
+    $ArchivePath = "$env:USERPROFILE\Desktop\$ArchiveName"
+
     if (Test-Path "C:\Program Files\7-Zip\7z.exe") {
-        & "C:\Program Files\7-Zip\7z.exe" a -tzip "$ArchivePath" "$OutputDir\*"
+        & "C:\Program Files\7-Zip\7z.exe" a -tzip "$ArchivePath" "$OutputDir\Windows\*" | Out-Default
     } else {
-        Compress-Archive -Path "$OutputDir\*" -DestinationPath "$ArchivePath" -CompressionLevel Optimal -Force
+        Compress-Archive -Path "$OutputDir\Windows\*" -DestinationPath "$ArchivePath" -CompressionLevel Optimal -Force
     }
-    
-    $ArchiveSize = (Get-Item $ArchivePath).Length / 1MB
-    $SizeRounded = [math]::Round($ArchiveSize, 2)
-    Write-Host "Created: $ArchiveName ($SizeRounded MB)" -ForegroundColor Green
-    Write-Host "   $ArchivePath"
+
+    if (Test-Path $ArchivePath) {
+        $ArchiveSize = (Get-Item $ArchivePath).Length / 1MB
+        $SizeRounded = [math]::Round($ArchiveSize, 2)
+        Write-Host "Created: $ArchiveName ($SizeRounded MB)" -ForegroundColor Green
+        Write-Host "   $ArchivePath"
+    } else {
+        Write-Host "Failed to create archive: $ArchivePath" -ForegroundColor Red
+        exit 1
+    }
+} else {
+    $response = Read-Host "Compress build to ZIP? (y/N)"
+    if ($response -eq "y" -or $response -eq "Y") {
+        Write-Host ""
+        Write-Host "Compressing..." -ForegroundColor Yellow
+        
+        $ArchiveName = "SpiderLily-$Platform-$Version.zip"
+        $BuildsDir = "$ProjectRoot\Builds"
+        
+        # Create Builds directory if it doesn't exist
+        if (!(Test-Path $BuildsDir)) {
+            New-Item -ItemType Directory -Path $BuildsDir -Force | Out-Null
+        }
+        
+        $ArchivePath = "$BuildsDir\$ArchiveName"
+        
+        if (Test-Path "C:\Program Files\7-Zip\7z.exe") {
+            & "C:\Program Files\7-Zip\7z.exe" a -tzip "$ArchivePath" "$OutputDir\*"
+        } else {
+            Compress-Archive -Path "$OutputDir\*" -DestinationPath "$ArchivePath" -CompressionLevel Optimal -Force
+        }
+        
+        $ArchiveSize = (Get-Item $ArchivePath).Length / 1MB
+        $SizeRounded = [math]::Round($ArchiveSize, 2)
+        Write-Host "Created: $ArchiveName ($SizeRounded MB)" -ForegroundColor Green
+        Write-Host "   $ArchivePath"
+    }
 }
 
 Write-Host ""
