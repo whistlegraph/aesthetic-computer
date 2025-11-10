@@ -8425,13 +8425,22 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             console.log("📼 Created underlayFrame for TapeManager");
           }
           
+          // Ensure audioContext exists
+          if (!audioContext) {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            console.log("📼 Created AudioContext for TapeManager");
+          }
+          
           // Initialize tape manager if needed
-          if (!tapeManager && underlayFrame) {
+          if (!tapeManager) {
             const frameCan = underlayFrame.querySelector("canvas");
-            if (frameCan && audioContext) {
+            if (frameCan) {
               const maxTapes = window.innerWidth > 768 ? 12 : 6;
               tapeManager = new TapeManager(frameCan, audioContext, maxTapes);
               console.log(`📼 Initialized TapeManager (max ${maxTapes} tapes)`);
+            } else {
+              console.error("📼 Cannot initialize TapeManager - no canvas found");
+              return;
             }
           }
           
