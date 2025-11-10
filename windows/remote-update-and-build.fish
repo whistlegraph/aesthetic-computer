@@ -12,7 +12,7 @@ echo ""
 
 # Run build on Windows via SSH (streaming output to build stream)
 # Note: removed -t flag to allow proper piping
-ssh me@host.docker.internal "powershell -NoProfile -ExecutionPolicy Bypass -Command \"cd C:\\Perforce\\SpiderLily\\SL_main; p4 sync ...; p4 changes -m 5 ...; .\\build-false-work.ps1 -Version $build_version\"" 2>&1 | /workspaces/aesthetic-computer/windows/ac-pipe.sh
+ssh me@host.docker.internal "powershell -NoProfile -ExecutionPolicy Bypass -Command \"cd C:\\Perforce\\SpiderLily\\SL_main; p4 sync ...; p4 changes -m 5 ...; .\\build-false-work.ps1 -Version $build_version -AutoPackage\"" 2>&1 | /workspaces/aesthetic-computer/windows/ac-pipe.sh
 
 # Note: We verify success by checking the build output size below, not the exit code
 
@@ -34,10 +34,7 @@ echo "========================================="
 echo "Copying build to assets..."
 echo "========================================="
 
-# Compress build on Windows
-ssh me@host.docker.internal "powershell -NoProfile -Command \"cd C:\\Users\\me\\Desktop; if (Test-Path 'SpiderLily-$build_version\\Windows') { Compress-Archive -Path 'SpiderLily-$build_version\\Windows\\*' -DestinationPath 'spiderlily-windows-$build_version.zip' -Force; echo 'Compressed successfully' }\""
-
-# Copy ZIP file using SCP
+# Copy ZIP file (already created by PowerShell with -AutoPackage)
 scp me@host.docker.internal:"C:/Users/me/Desktop/spiderlily-windows-$build_version.zip" /workspaces/aesthetic-computer/system/public/assets/false.work/
 
 echo ""
