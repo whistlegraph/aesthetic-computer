@@ -1034,7 +1034,6 @@ function findColor() {
   if (args.some(val => val === undefined || 
                       (isNaN(val) && !(typeof val === 'string' && val.startsWith('fade:'))) || 
                       (typeof val === 'string' && val.match(/^\d*\.?\d+s\.\.\.?$/)))) {
-    console.log("WARNING: Invalid color values detected:", args);
     
     // Check if this contains a fade string that got passed incorrectly
     const fadeString = args.find(val => typeof val === 'string' && val.startsWith('fade:'));
@@ -1066,7 +1065,6 @@ function findColor() {
     while (args.length < 4) {
       args.push(args.length === 3 ? 255 : randInt(255));
     }
-    console.log('🎨 GRAPH.findColor: args after ensuring 4 values:', args);
   }
 
   // Randomized any undefined or null values across all 4 arguments.
