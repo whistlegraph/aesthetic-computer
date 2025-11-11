@@ -861,32 +861,17 @@ wss.on("connection", (ws, req) => {
       // Store handle and location for this client
       if (!clients[id]) clients[id] = { websocket: true };
       
-      // Validate and store handle if provided
-      if (msg.content.handle) {
-        // If we have a user.sub, verify the handle matches
-        if (clients[id].user) {
-          const userSub = clients[id].user;
-          fetch(`https://aesthetic.computer/handle/${encodeURIComponent(userSub)}`)
-            .then(response => response.json())
-            .then(data => {
-              if (data.handle === msg.content.handle) {
-                clients[id].handle = msg.content.handle;
-                log("✅ Handle verified:", msg.content.handle, "for user:", userSub.substring(0, 12), "...");
-              } else {
-                log("⚠️  Handle mismatch! Client sent:", msg.content.handle, "but API says:", data.handle);
-              }
-            })
-            .catch(err => {
-              log("⚠️  Failed to verify handle:", err.message);
-              // Still store it, but log the warning
-              clients[id].handle = msg.content.handle;
-            });
-        } else {
-          // No user.sub yet, just store the handle
-          clients[id].handle = msg.content.handle;
-        }
+      // Extract user identity from message
+      if (msg.content?.user?.sub) {
+        clients[id].user = msg.content.user.sub;
       }
       
+      // Extract handle directly from message
+      if (msg.content.handle) {
+        clients[id].handle = msg.content.handle;
+      }
+      
+      // Extract and store location
       if (msg.content.slug) {
         // Don't overwrite location with keep-alive
         if (msg.content.slug !== "*keep-alive*") {
