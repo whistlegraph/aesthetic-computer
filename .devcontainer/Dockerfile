@@ -72,6 +72,8 @@ RUN set -eux; \
     fi
 
 # --- Octez (best-effort binary) ----------------------------------------------
+# Note: v20.3 doesn't support current Ghostnet protocol (PtSeouLouXkxhg39...)
+# Use Docker method instead: deploy-via-docker.py
 RUN set -eux; \
     if curl -fsSL -o /usr/local/bin/octez-client \
          https://github.com/serokell/tezos-packaging/releases/download/v20.3-1/octez-client && \
@@ -81,6 +83,16 @@ RUN set -eux; \
     else \
       echo "Octez binaries unavailable, skipping"; \
     fi
+
+# --- Docker CLI (for running latest Octez via Docker) ------------------------
+# This allows us to use tezos/tezos:master which supports current Ghostnet protocol
+RUN dnf install -y docker && dnf clean all && rm -rf /var/cache/dnf
+
+# Pre-pull Octez Docker image during build (saves time later)
+# Note: This requires BuildKit and may fail in some build environments
+# If it fails, the image will be pulled on first use instead
+RUN --mount=type=cache,target=/var/cache/buildkit \
+    docker pull tezos/tezos:master 2>/dev/null || echo "Octez image will be pulled on first use"
 
 # --- Stripe CLI (architecture-aware) -----------------------------------------
 RUN set -eux; \
