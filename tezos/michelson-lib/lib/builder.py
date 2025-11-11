@@ -9,29 +9,23 @@ from .types import STORAGE_TYPE
 
 def compact_michelson_type(type_str: str) -> str:
     """
-    Compact Michelson type definition to single line.
+    Compact Michelson type to single line with proper annotation placement.
     
-    Removes unnecessary whitespace while preserving required spaces.
-    Required for compatibility with new Octez parser which rejects
-    annotations on separate lines.
-    
-    Args:
-        type_str: Multi-line Michelson type definition
-    
-    Returns:
-        Single-line compacted version
+    In Michelson's compact syntax:
+    - Annotations come AFTER type constructors: (pair %name ...)  
+    - Remove unnecessary spacing around parentheses
+    - Keep tokens space-separated
     """
-    # Remove leading/trailing whitespace from each line
+    # Join all lines, preserving spaces between tokens
     lines = [line.strip() for line in type_str.strip().split('\n')]
-    # Join with single space
     compacted = ' '.join(lines)
-    # Clean up multiple spaces
+    
+    # Normalize spacing: single space between tokens
     compacted = re.sub(r'\s+', ' ', compacted)
-    # Ensure space after opening paren and before annotations
-    # But don't add space between closing paren and annotation
-    compacted = re.sub(r'\(\s*', '( ', compacted)  # "(" -> "( "
-    compacted = re.sub(r'\s*\)', ' )', compacted)  # ")" -> " )"
-    compacted = re.sub(r'\s+', ' ', compacted)  # Clean up again
+    
+    # Remove spaces around parentheses
+    compacted = re.sub(r'\(\s+', '(', compacted)
+    compacted = re.sub(r'\s+\)', ')', compacted)
     
     return compacted.strip()
 
@@ -79,15 +73,18 @@ class ContractBuilder:
         if len(self.entrypoints) == 1:
             ep = self.entrypoints[0]
             compacted = compact_michelson_type(ep.param_type)
-            return f"({compacted} %{ep.name})"
+            # Single entrypoint: just return the type (no wrapping, no annotation)
+            return compacted
         
         # Build nested or-tree for multiple entrypoints
+        # Note: Entrypoint names are NOT included in the parameter type.
+        # They are derived from the or-tree structure and used via --entrypoint when calling.
         param_parts = []
         for ep in self.entrypoints:
             compacted = compact_michelson_type(ep.param_type)
-            param_parts.append(f"({compacted} %{ep.name})")
+            param_parts.append(compacted)
         
-        # For now, simple left-biased or-tree
+        # Build left-biased or-tree
         # TODO: Balance the tree for efficiency
         result = param_parts[0]
         for part in param_parts[1:]:
