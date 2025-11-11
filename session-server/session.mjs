@@ -543,6 +543,8 @@ wss.on("close", function close() {
 
 // Construct the server.
 wss.on("connection", (ws, req) => {
+  log('🔌 WebSocket connection attempt, URL:', req.url);
+  
   // Route status dashboard WebSocket connections separately
   if (req.url === '/status-stream') {
     log('📊 Status dashboard connected');
