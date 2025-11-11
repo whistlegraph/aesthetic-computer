@@ -250,51 +250,68 @@ const udpChannels = {};
 
 // Get unified client status - user-centric view
 function getClientStatus() {
-  const clientsList = [];
+  const clientsMap = new Map(); // Map by handle (or user, or connectionId as fallback)
   
-  // Collect all unique client IDs from both websocket and UDP
-  const allClientIds = new Set([
-    ...Object.keys(connections),
-    ...Object.keys(udpChannels)
-  ]);
-  
-  allClientIds.forEach((id) => {
+  // Process all WebSocket connections
+  Object.keys(connections).forEach((id) => {
     const client = clients[id] || {};
     const ws = connections[id];
-    const udp = udpChannels[id];
+    const key = client.handle || client.user || id; // Use handle as primary key
     
-    const clientInfo = {
-      id: parseInt(id),
-      handle: client.handle || null,
-      location: client.location || null,
-      protocols: {
-        websocket: !!ws,
-        udp: !!udp
-      }
+    if (!clientsMap.has(key)) {
+      clientsMap.set(key, {
+        handle: client.handle || null,
+        location: client.location || null,
+        ids: { websocket: [], udp: [] },
+        protocols: { websocket: false, udp: false },
+        websocket: null,
+        udp: null
+      });
+    }
+    
+    const clientInfo = clientsMap.get(key);
+    clientInfo.ids.websocket.push(parseInt(id));
+    clientInfo.protocols.websocket = true;
+    clientInfo.websocket = {
+      alive: ws.isAlive || false,
+      readyState: ws.readyState,
+      codeChannel: findCodeChannel(parseInt(id)),
+      worlds: getWorldMemberships(parseInt(id))
     };
-    
-    // Add websocket-specific info if connected
-    if (ws) {
-      clientInfo.websocket = {
-        alive: ws.isAlive || false,
-        readyState: ws.readyState,
-        codeChannel: findCodeChannel(parseInt(id)),
-        worlds: getWorldMemberships(parseInt(id))
-      };
-    }
-    
-    // Add UDP-specific info if connected
-    if (udp) {
-      clientInfo.udp = {
-        connectedAt: udp.connectedAt,
-        state: udp.state || 'unknown'
-      };
-    }
-    
-    clientsList.push(clientInfo);
   });
   
-  return clientsList;
+  // Process all UDP connections
+  Object.keys(udpChannels).forEach((id) => {
+    const client = clients[id] || {};
+    const udp = udpChannels[id];
+    const key = client.handle || client.user || id;
+    
+    if (!clientsMap.has(key)) {
+      clientsMap.set(key, {
+        handle: client.handle || null,
+        location: client.location || null,
+        ids: { websocket: [], udp: [] },
+        protocols: { websocket: false, udp: false },
+        websocket: null,
+        udp: null
+      });
+    }
+    
+    const clientInfo = clientsMap.get(key);
+    clientInfo.ids.udp.push(id);
+    clientInfo.protocols.udp = true;
+    clientInfo.udp = {
+      connectedAt: udp.connectedAt,
+      state: udp.state || 'unknown'
+    };
+    
+    // Update location if we have it from UDP but not WS
+    if (client.location && !clientInfo.location) {
+      clientInfo.location = client.location;
+    }
+  });
+  
+  return Array.from(clientsMap.values());
 }
 
 function getWorldMemberships(connectionId) {
@@ -320,6 +337,7 @@ function findCodeChannel(connectionId) {
 }
 
 function getFullStatus() {
+  const clients = getClientStatus();
   return {
     timestamp: Date.now(),
     server: {
@@ -330,9 +348,9 @@ function getFullStatus() {
     totals: {
       websocket: wss.clients.size,
       udp: Object.keys(udpChannels).length,
-      unique_clients: new Set([...Object.keys(connections), ...Object.keys(udpChannels)]).size
+      unique_clients: clients.length
     },
-    clients: getClientStatus(),
+    clients: clients,
   };
 }
 
@@ -491,8 +509,9 @@ fastify.get("/", async (request, reply) => {
             const protocolBadge = protocols.join(' + ');
             
             let display = \`<div class="connection alive">\`;
-            display += \`<div><span class="id">#\${client.id}</span> \${protocolBadge}\`;
+            display += \`<div>\${protocolBadge}\`;
             if (client.handle) display += \` <span class="user">\${client.handle}</span>\`;
+            else display += \` <span class="meta">(anonymous)</span>\`;
             display += \`</div>\`;
             
             if (client.location && client.location !== '*keep-alive*') {
