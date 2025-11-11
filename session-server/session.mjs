@@ -757,7 +757,22 @@ wss.on("connection", (ws, req) => {
       if (msg.content?.user?.sub) {
         if (!clients[id]) clients[id] = { websocket: true };
         clients[id].user = msg.content.user.sub;
-        log("🔑 User logged in, handle:", clients[id].handle || '(none yet)', "connection:", id);
+        
+        // Fetch the user's handle from the API
+        const userSub = msg.content.user.sub;
+        fetch(`https://aesthetic.computer/handle/${encodeURIComponent(userSub)}`)
+          .then(response => response.json())
+          .then(data => {
+            if (data.handle) {
+              clients[id].handle = data.handle;
+              log("🔑 User logged in:", data.handle, `(${userSub.substring(0, 12)}...)`, "connection:", id);
+            } else {
+              log("🔑 User logged in (no handle):", userSub.substring(0, 12), "..., connection:", id);
+            }
+          })
+          .catch(err => {
+            log("⚠️  Failed to fetch handle for:", userSub, err.message);
+          });
       }
     } else if (msg.type === "location:broadcast") {      /*
       sub
@@ -795,9 +810,33 @@ wss.on("connection", (ws, req) => {
       
       // Store handle and location for this client
       if (!clients[id]) clients[id] = { websocket: true };
+      
+      // Validate and store handle if provided
       if (msg.content.handle) {
-        clients[id].handle = msg.content.handle;
+        // If we have a user.sub, verify the handle matches
+        if (clients[id].user) {
+          const userSub = clients[id].user;
+          fetch(`https://aesthetic.computer/handle/${encodeURIComponent(userSub)}`)
+            .then(response => response.json())
+            .then(data => {
+              if (data.handle === msg.content.handle) {
+                clients[id].handle = msg.content.handle;
+                log("✅ Handle verified:", msg.content.handle, "for user:", userSub.substring(0, 12), "...");
+              } else {
+                log("⚠️  Handle mismatch! Client sent:", msg.content.handle, "but API says:", data.handle);
+              }
+            })
+            .catch(err => {
+              log("⚠️  Failed to verify handle:", err.message);
+              // Still store it, but log the warning
+              clients[id].handle = msg.content.handle;
+            });
+        } else {
+          // No user.sub yet, just store the handle
+          clients[id].handle = msg.content.handle;
+        }
       }
+      
       if (msg.content.slug) {
         clients[id].location = msg.content.slug;
       }
@@ -1157,11 +1196,27 @@ io.onConnection((channel) => {
       
       if (identity.user?.sub) {
         clients[channel.id].user = identity.user.sub;
-      }
-      if (identity.handle) {
+        
+        // Fetch the actual handle from the API
+        const userSub = identity.user.sub;
+        fetch(`https://aesthetic.computer/handle/${encodeURIComponent(userSub)}`)
+          .then(response => response.json())
+          .then(data => {
+            if (data.handle) {
+              clients[channel.id].handle = data.handle;
+              log(`🩰 ${channel.id} handle verified from API: "${data.handle}"`);
+            } else {
+              log(`🩰 ${channel.id} user has no handle in API`);
+            }
+          })
+          .catch(err => {
+            log(`⚠️  Failed to fetch handle for UDP ${channel.id}:`, err.message);
+          });
+      } else if (identity.handle) {
+        // If they send a handle but no user.sub, store it but don't verify
         clients[channel.id].handle = identity.handle;
+        log(`🩰 ${channel.id} handle set (unverified): "${identity.handle}"`);
       }
-      log(`🩰 ${channel.id} identity set - Handle: "${clients[channel.id].handle || '(none)'}", Location: "${clients[channel.id].location || '(none)'}"`);
     } catch (e) {
       error(`🩰 Failed to parse identity for ${channel.id}:`, e);
     }
