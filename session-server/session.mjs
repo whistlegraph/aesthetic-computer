@@ -328,6 +328,24 @@ function getFullStatus() {
   };
 }
 
+
+// *** Socket Server Initialization ***
+// #region socket
+let wss;
+let connections = {}; // All active WebSocket connections.
+const worldClients = {}; // All connected 🧒 to a space like `field`.
+
+let connectionId = 0; // TODO: Eventually replace with a username arrived at through
+//                             a client <-> server authentication function.
+
+wss = new WebSocketServer({ server });
+log(
+  `🤖 session.aesthetic.computer (${
+    dev ? "Development" : "Production"
+  }) socket: wss://${ip.address()}:${info.port}`,
+);
+
+// *** Status Page Routes (defined after wss initialization) ***
 // Status JSON endpoint
 fastify.get("/status", async (request, reply) => {
   return getFullStatus();
@@ -423,9 +441,7 @@ fastify.get("/", async (request, reply) => {
   </div>
 
   <script>
-    const ws = new WebSocket(\`\${window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-
-}//\${window.location.host}/status-stream\`);
+    const ws = new WebSocket(\`\${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//\${window.location.host}/status-stream\`);
     
     ws.onopen = () => {
       document.getElementById('ws-status').innerHTML = '🟢 Connected';
@@ -498,22 +514,6 @@ fastify.get("/", async (request, reply) => {
 </body>
 </html>`;
 });
-
-// *** Socket Server Initialization ***
-// #region socket
-let wss;
-let connections = {}; // All active WebSocket connections.
-const worldClients = {}; // All connected 🧒 to a space like `field`.
-
-let connectionId = 0; // TODO: Eventually replace with a username arrived at through
-//                             a client <-> server authentication function.
-
-wss = new WebSocketServer({ server });
-log(
-  `🤖 session.aesthetic.computer (${
-    dev ? "Development" : "Production"
-  }) socket: wss://${ip.address()}:${info.port}`,
-);
 
 // Pack messages into a simple object protocol of `{type, content}`.
 function pack(type, content, id) {
