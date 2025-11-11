@@ -8069,7 +8069,8 @@ async function makeFrame({ data: { type, content } }) {
     type === "tape:post-error" ||
     type === "tape:download-progress" ||
     type === "tape:load-progress" ||
-    type === "tape:audio-context-state"
+    type === "tape:audio-context-state" ||
+    type === "tape:playback-progress"
   ) {
     // Check if actEvents exists without causing ReferenceError
     try {
