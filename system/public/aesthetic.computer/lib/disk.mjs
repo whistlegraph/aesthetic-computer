@@ -6385,11 +6385,13 @@ async function load(
               socket?.send("location:broadcast", {
                 handle: HANDLE,
                 slug: currentText,
+                user: USER,  // Include user for identity resolution
               });
               slugBroadcastInterval = setInterval(() => {
                 socket?.send("location:broadcast", {
                   handle: HANDLE,
                   slug: "*keep-alive*",
+                  user: USER,  // Include user for identity resolution
                 });
               }, 2500);
             }
