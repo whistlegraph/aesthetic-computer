@@ -3,6 +3,9 @@
 // GameBoy button state
 let gameboyButtons = {};
 
+// Track previous state to avoid redundant sends
+let previousButtonState = {};
+
 // UI Buttons for GameBoy controls
 let uiButtons = {};
 let inputInterval = null; // For sustaining input while buttons are held
@@ -18,17 +21,33 @@ function createGameBoyButtons({ screen, ui }) {
   const dpadX = 0; // Flush to left edge
   const dpadY = screen.height - buttonSize * 3; // Flush to bottom edge
   
-  uiButtons.up = new ui.Button(dpadX + buttonSize, dpadY, buttonSize, buttonSize);
-  uiButtons.down = new ui.Button(dpadX + buttonSize, dpadY + buttonSize * 2, buttonSize, buttonSize);
-  uiButtons.left = new ui.Button(dpadX, dpadY + buttonSize, buttonSize, buttonSize);
-  uiButtons.right = new ui.Button(dpadX + buttonSize * 2, dpadY + buttonSize, buttonSize, buttonSize);
+  const upBtn = new ui.Button(dpadX + buttonSize, dpadY, buttonSize, buttonSize);
+  upBtn.id = "gameboy-up";
+  uiButtons.up = upBtn;
+  
+  const downBtn = new ui.Button(dpadX + buttonSize, dpadY + buttonSize * 2, buttonSize, buttonSize);
+  downBtn.id = "gameboy-down";
+  uiButtons.down = downBtn;
+  
+  const leftBtn = new ui.Button(dpadX, dpadY + buttonSize, buttonSize, buttonSize);
+  leftBtn.id = "gameboy-left";
+  uiButtons.left = leftBtn;
+  
+  const rightBtn = new ui.Button(dpadX + buttonSize * 2, dpadY + buttonSize, buttonSize, buttonSize);
+  rightBtn.id = "gameboy-right";
+  uiButtons.right = rightBtn;
   
   // A/B buttons together (flush to bottom right corner)
   const actionX = screen.width - buttonSize * 2; // No padding from right edge
   const actionY = screen.height - buttonSize; // No padding from bottom edge
   
-  uiButtons.b = new ui.Button(actionX, actionY, buttonSize, buttonSize);
-  uiButtons.a = new ui.Button(actionX + buttonSize, actionY, buttonSize, buttonSize); // Flush next to B
+  const bBtn = new ui.Button(actionX, actionY, buttonSize, buttonSize);
+  bBtn.id = "gameboy-b";
+  uiButtons.b = bBtn;
+  
+  const aBtn = new ui.Button(actionX + buttonSize, actionY, buttonSize, buttonSize); // Flush next to B
+  aBtn.id = "gameboy-a";
+  uiButtons.a = aBtn;
   
   // Start/Select (top right corner, flush, shorter rectangles)
   const selectStartWidth = buttonSize * 1.5; // Wider to fit full text
@@ -36,21 +55,25 @@ function createGameBoyButtons({ screen, ui }) {
   const topRightX = screen.width - selectStartWidth * 2; // Flush to right edge
   const topRightY = 0; // Flush to top edge
   
-  uiButtons.select = new ui.Button(topRightX, topRightY, selectStartWidth, selectStartHeight);
-  uiButtons.start = new ui.Button(topRightX + selectStartWidth, topRightY, selectStartWidth, selectStartHeight);
+  const selectBtn = new ui.Button(topRightX, topRightY, selectStartWidth, selectStartHeight);
+  selectBtn.id = "gameboy-select";
+  uiButtons.select = selectBtn;
+  
+  const startBtn = new ui.Button(topRightX + selectStartWidth, topRightY, selectStartWidth, selectStartHeight);
+  startBtn.id = "gameboy-start";
+  uiButtons.start = startBtn;
 }
 
 function sendGameBoyInput(send) {
-  // Send joypad state to bios.mjs which forwards to WasmBoy
   const joypadState = {
-    UP: gameboyButtons.up || false,
-    RIGHT: gameboyButtons.right || false, 
-    DOWN: gameboyButtons.down || false,
-    LEFT: gameboyButtons.left || false,
-    A: gameboyButtons.a || false,
-    B: gameboyButtons.b || false,
-    SELECT: gameboyButtons.select || false,
-    START: gameboyButtons.start || false
+    up: gameboyButtons.up || false,
+    right: gameboyButtons.right || false, 
+    down: gameboyButtons.down || false,
+    left: gameboyButtons.left || false,
+    a: gameboyButtons.a || false,
+    b: gameboyButtons.b || false,
+    select: gameboyButtons.select || false,
+    start: gameboyButtons.start || false
   };
   
   console.log("🎮 Sending GameBoy input:", joypadState);
@@ -61,26 +84,38 @@ function sendGameBoyInput(send) {
   });
 }
 
-// Start continuous input sending when any button is held
-function startContinuousInput(send) {
-  // Remove continuous sending - GameBoy emulator should maintain state, not receive repeated events
-  // The emulator will handle the held state until we send a new state change
-}
-
-// Stop continuous input if no buttons are held
-function checkStopContinuousInput() {
-  // Remove continuous input checking since we're no longer using intervals
-  console.log("🎮 Button state updated, buttons pressed:", Object.values(gameboyButtons).some(pressed => pressed));
-}
-
-export function boot() { 
+export function boot({ ui, screen }) { 
   // GameBoy piece loaded - emulator managed by bios.mjs
+  // Reset all button states
+  gameboyButtons = {};
+  previousButtonState = {};
+  
+  // Create buttons immediately in boot
+  createGameBoyButtons({ screen, ui });
 }
 
 // Called when leaving this piece
-export function leave() {
+export function leave({ send }) {
+  // Clear all button states and send final "all released" state
+  gameboyButtons = {};
+  previousButtonState = {};
+  
+  // Send all-buttons-released state to emulator
+  send({
+    type: "gameboy:input",
+    content: {
+      up: false,
+      right: false,
+      down: false,
+      left: false,
+      a: false,
+      b: false,
+      select: false,
+      start: false
+    }
+  });
+  
   // The bios.mjs handles pausing the emulator based on piece changes
-  // Clear any continuous input intervals
   if (inputInterval) {
     clearInterval(inputInterval);
     inputInterval = null;
@@ -88,31 +123,31 @@ export function leave() {
 }
 
 export function paint({ ink, wipe, screen, paste, sound, num, hud, ui }) {
-  // Create buttons on first paint or when screen size changes
-  if (!uiButtons.up || uiButtons.up.box.w !== 30) { // Updated to match new button size
-    createGameBoyButtons({ screen, ui });
-  }
-  
   // Show GameBoy emulator label with metadata and color coding
   const gameboy = sound?.gameboy;
   let label = "gameboy";
   
   if (gameboy) {
-    // Use title if available, otherwise fall back to ROM name
-    const gameName = gameboy.title || gameboy.romName || "unknown";
-    
-    // Clean up the name (remove file extension and extra characters)
-    const cleanName = gameName
-      .replace(/\.(gb|gbc)$/i, "") // Remove file extensions
-      .replace(/\s*\([^)]*\)/g, "") // Remove parentheses content like (JU) (V1.1) [S][!]
-      .replace(/\s*\[[^\]]*\]/g, "") // Remove bracket content
-      .trim();
-    
-    // Add color coding based on Game Boy Color support
-    if (gameboy.isGameBoyColor) {
-      label = `gameboy \\yellow\\${cleanName}`;
+    // Check for custom label override (e.g., from slgb piece)
+    if (gameboy.customLabel) {
+      label = gameboy.customLabel;
     } else {
-      label = `gameboy \\lime\\${cleanName}`;
+      // Use title if available, otherwise fall back to ROM name
+      const gameName = gameboy.title || gameboy.romName || "unknown";
+      
+      // Clean up the name (remove file extension and extra characters)
+      const cleanName = gameName
+        .replace(/\.(gb|gbc)$/i, "") // Remove file extensions
+        .replace(/\s*\([^)]*\)/g, "") // Remove parentheses content like (JU) (V1.1) [S][!]
+        .replace(/\s*\[[^\]]*\]/g, "") // Remove bracket content
+        .trim();
+      
+      // Add color coding based on Game Boy Color support
+      if (gameboy.isGameBoyColor) {
+        label = `gameboy \\yellow\\${cleanName}`;
+      } else {
+        label = `gameboy \\lime\\${cleanName}`;
+      }
     }
   }
   
@@ -241,45 +276,42 @@ function drawGameBoyButtons({ ink, screen }) {
 }
 
 // Handle user input and button interactions
-export function act({ event: e, send }) {
+export function act({ event: e, send, pens, ui, screen }) {
   // Recreate buttons if screen size changed
   if (e.is("reframed")) {
-    uiButtons = {}; // Clear buttons to force recreation
+    createGameBoyButtons({ screen, ui });
     needsReframe = true; // Flag that we need to clear background
   }
 
-  // Handle UI button interactions
+  // Handle UI button interactions - directly update state and send to emulator
   Object.keys(uiButtons).forEach(buttonName => {
     const button = uiButtons[buttonName];
     
     button.act(e, {
-      down: () => {
-        console.log("🎮 Button down:", buttonName);
+      down: (btn) => {
+        console.log("🎮 Touch DOWN:", buttonName);
         gameboyButtons[buttonName] = true;
-        sendGameBoyInput(send); // Send state change only
+        sendGameBoyInput(send);
       },
-      up: () => {
-        console.log("🎮 Button up:", buttonName);
+      up: (btn) => {
+        console.log("🎮 Touch UP:", buttonName);
         gameboyButtons[buttonName] = false;
-        sendGameBoyInput(send); // Send state change only
-        checkStopContinuousInput(); // Just for logging now
+        sendGameBoyInput(send);
       },
-      cancel: () => {
-        console.log("🎮 Button cancel:", buttonName);
+      cancel: (btn) => {
+        console.log("🎮 Touch CANCEL:", buttonName);
         gameboyButtons[buttonName] = false;
-        sendGameBoyInput(send); // Send state change only
-        checkStopContinuousInput(); // Just for logging now
+        sendGameBoyInput(send);
       },
-      out: () => {
-        console.log("🎮 Button out (drag off):", buttonName);
+      out: (btn) => {
+        console.log("🎮 Touch OUT:", buttonName);
         gameboyButtons[buttonName] = false;
-        sendGameBoyInput(send); // Send state change only
-        checkStopContinuousInput(); // Just for logging now
+        sendGameBoyInput(send);
       }
-    });
+    }, pens?.());
   });
 
-  // Also handle keyboard input as backup
+  // Also handle keyboard input
   if (e.is("keyboard:down")) {
     const keyMappings = {
       "ArrowUp": "up",
@@ -296,7 +328,6 @@ export function act({ event: e, send }) {
     if (gamepadButton) {
       gameboyButtons[gamepadButton] = true;
       sendGameBoyInput(send);
-      startContinuousInput(send); // Start sustaining keyboard input too
     }
   }
 
@@ -316,24 +347,6 @@ export function act({ event: e, send }) {
     if (gamepadButton) {
       gameboyButtons[gamepadButton] = false;
       sendGameBoyInput(send);
-      checkStopContinuousInput(); // Stop if no buttons/keys held
-    }
-  }
-
-  // Safety mechanism: clear all buttons on touch/pointer release globally
-  if (e.is("touch:cancel") || e.is("touch:end") || e.is("pointer:up") || e.is("draw:end")) {
-    let anyCleared = false;
-    Object.keys(gameboyButtons).forEach(buttonName => {
-      if (gameboyButtons[buttonName]) {
-        gameboyButtons[buttonName] = false;
-        anyCleared = true;
-      }
-    });
-    
-    if (anyCleared) {
-      console.log("🎮 Safety clearing all buttons on global touch/pointer release");
-      sendGameBoyInput(send);
-      checkStopContinuousInput();
     }
   }
 }
