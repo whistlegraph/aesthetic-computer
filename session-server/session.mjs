@@ -250,73 +250,112 @@ const udpChannels = {};
 
 // Get unified client status - user-centric view
 function getClientStatus() {
-  const clientsMap = new Map(); // Map by handle (or user, or connectionId as fallback)
+  const identityMap = new Map(); // Map by identity (handle or user or IP)
+  
+  // Helper to get identity key for a client
+  const getIdentityKey = (client) => {
+    // Priority: handle > user > IP (for grouping same person)
+    if (client.handle) return `handle:${client.handle}`;
+    if (client.user) return `user:${client.user}`;
+    if (client.ip) return `ip:${client.ip}`;
+    return null;
+  };
   
   // Process all WebSocket connections
   Object.keys(connections).forEach((id) => {
     const client = clients[id] || {};
     const ws = connections[id];
-    const key = client.handle || client.user || id; // Use handle as primary key
+    const identityKey = getIdentityKey(client);
     
-    if (!clientsMap.has(key)) {
-      clientsMap.set(key, {
+    if (!identityKey) return; // Skip if no identity info
+    
+    if (!identityMap.has(identityKey)) {
+      identityMap.set(identityKey, {
         handle: client.handle || null,
         location: client.location || null,
         ip: client.ip || null,
-        ids: { websocket: [], udp: [] },
+        connectionIds: { websocket: [], udp: [] },
         protocols: { websocket: false, udp: false },
-        websocket: null,
-        udp: null
+        connections: { websocket: [], udp: [] }
       });
     }
     
-    const clientInfo = clientsMap.get(key);
-    if (client.ip && !clientInfo.ip) clientInfo.ip = client.ip;
-    clientInfo.ids.websocket.push(parseInt(id));
-    clientInfo.protocols.websocket = true;
-    clientInfo.websocket = {
+    const identity = identityMap.get(identityKey);
+    
+    // Update with latest info
+    if (client.handle && !identity.handle) identity.handle = client.handle;
+    if (client.location) identity.location = client.location;
+    if (client.ip && !identity.ip) identity.ip = client.ip;
+    
+    identity.connectionIds.websocket.push(parseInt(id));
+    identity.protocols.websocket = true;
+    identity.connections.websocket.push({
+      id: parseInt(id),
       alive: ws.isAlive || false,
       readyState: ws.readyState,
       ping: ws.lastPing || null,
       codeChannel: findCodeChannel(parseInt(id)),
       worlds: getWorldMemberships(parseInt(id))
-    };
+    });
   });
   
   // Process all UDP connections
   Object.keys(udpChannels).forEach((id) => {
     const client = clients[id] || {};
     const udp = udpChannels[id];
-    const key = client.handle || client.user || id;
+    const identityKey = getIdentityKey(client);
     
-    if (!clientsMap.has(key)) {
-      clientsMap.set(key, {
+    if (!identityKey) return; // Skip if no identity info
+    
+    if (!identityMap.has(identityKey)) {
+      identityMap.set(identityKey, {
         handle: client.handle || null,
         location: client.location || null,
         ip: client.ip || null,
-        ids: { websocket: [], udp: [] },
+        connectionIds: { websocket: [], udp: [] },
         protocols: { websocket: false, udp: false },
-        websocket: null,
-        udp: null
+        connections: { websocket: [], udp: [] }
       });
     }
     
-    const clientInfo = clientsMap.get(key);
-    if (client.ip && !clientInfo.ip) clientInfo.ip = client.ip;
-    clientInfo.ids.udp.push(id);
-    clientInfo.protocols.udp = true;
-    clientInfo.udp = {
+    const identity = identityMap.get(identityKey);
+    
+    // Update with latest info
+    if (client.handle && !identity.handle) identity.handle = client.handle;
+    if (client.location) identity.location = client.location;
+    if (client.ip && !identity.ip) identity.ip = client.ip;
+    
+    identity.connectionIds.udp.push(id);
+    identity.protocols.udp = true;
+    identity.connections.udp.push({
+      id: id,
       connectedAt: udp.connectedAt,
       state: udp.state || 'unknown'
-    };
-    
-    // Update location if we have it from UDP but not WS
-    if (client.location && !clientInfo.location) {
-      clientInfo.location = client.location;
-    }
+    });
   });
   
-  return Array.from(clientsMap.values());
+  // Convert to array and add summary info
+  return Array.from(identityMap.values()).map(identity => {
+    const wsCount = identity.connectionIds.websocket.length;
+    const udpCount = identity.connectionIds.udp.length;
+    const totalConnections = wsCount + udpCount;
+    
+    return {
+      handle: identity.handle,
+      location: identity.location,
+      ip: identity.ip,
+      protocols: identity.protocols,
+      connectionCount: {
+        websocket: wsCount,
+        udp: udpCount,
+        total: totalConnections
+      },
+      // Simplified connection info - just take first of each type for display
+      websocket: identity.connections.websocket.length > 0 ? identity.connections.websocket[0] : null,
+      udp: identity.connections.udp.length > 0 ? identity.connections.udp[0] : null,
+      multipleTabs: totalConnections > 1
+    };
+  });
 }
 
 function getWorldMemberships(connectionId) {
@@ -507,6 +546,11 @@ fastify.get("/", async (request, reply) => {
               display += \`<div><span class="meta">(anonymous)</span>\`;
             }
             
+            // Multiple tabs indicator
+            if (client.multipleTabs && client.connectionCount.total > 1) {
+              display += \` <span class="meta">(×\${client.connectionCount.total} tabs)</span>\`;
+            }
+            
             // Ping if available
             if (client.websocket?.ping) {
               display += \` <span class="meta">(\${client.websocket.ping}ms)</span>\`;
@@ -533,10 +577,16 @@ fastify.get("/", async (request, reply) => {
               display += \`</div>\`;
             }
             
-            // Connection method (subtle)
+            // Connection method with counts (subtle)
             const protocols = [];
-            if (client.protocols.websocket) protocols.push('ws');
-            if (client.protocols.udp) protocols.push('udp');
+            if (client.protocols.websocket) {
+              const wsCount = client.connectionCount.websocket;
+              protocols.push(wsCount > 1 ? \`ws×\${wsCount}\` : 'ws');
+            }
+            if (client.protocols.udp) {
+              const udpCount = client.connectionCount.udp;
+              protocols.push(udpCount > 1 ? \`udp×\${udpCount}\` : 'udp');
+            }
             if (protocols.length > 0) {
               display += \`<div class="meta" style="opacity: 0.4; margin-top: 0.5rem;">\${protocols.join(' + ')}</div>\`;
             }
