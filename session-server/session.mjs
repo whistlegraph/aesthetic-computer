@@ -543,11 +543,20 @@ wss.on("close", function close() {
 
 // Construct the server.
 wss.on("connection", (ws, req) => {
-  log('🔌 WebSocket connection, URL:', req.url, 'Headers:', req.headers.host);
+  const connectionInfo = {
+    url: req.url,
+    host: req.headers.host,
+    origin: req.headers.origin,
+    userAgent: req.headers['user-agent'],
+    remoteAddress: req.socket.remoteAddress,
+  };
+  log('🔌 WebSocket connection received:', JSON.stringify(connectionInfo, null, 2));
+  log('🔌 Total wss.clients.size:', wss.clients.size);
+  log('🔌 Current connections count:', Object.keys(connections).length);
   
   // Route status dashboard WebSocket connections separately
   if (req.url === '/status-stream') {
-    log('📊 Status dashboard connected');
+    log('📊 Status dashboard connected, returning early (not adding to game clients)');
     statusClients.add(ws);
     
     // Send initial state
@@ -569,7 +578,7 @@ wss.on("connection", (ws, req) => {
     return; // Don't process as a game client
   }
   
-  log('🎮 Game client connection, adding to connections');
+  log('🎮 Game client connection detected, adding to connections');
   
   // Regular game client connection handling below
   const ip = req.socket.remoteAddress || "localhost"; // beautify ip
@@ -585,6 +594,7 @@ wss.on("connection", (ws, req) => {
   let codeChannel; // Used to subscribe to incoming piece code.
 
   log("🧏 Someone joined:", `${id}:${ip}`, "Online:", wss.clients.size, "🫂");
+  log("🎮 Added to connections. Total game clients:", Object.keys(connections).length);
 
   const content = { id, playerCount: wss.clients.size };
 
