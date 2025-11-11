@@ -75,16 +75,17 @@ Cannot deploy contract to Ghostnet due to octez-client protocol mismatch:
 3. ❌ Binary download - Architecture mismatch (system is aarch64, binaries are x86-64)
 
 ### Working Solutions
-**Option 1: Docker-in-Docker with Latest Octez** (Recommended - Works in devcontainer!)
+**Option 1: Docker-in-Docker with Latest Octez** (Recommended - Built into devcontainer!)
 ```bash
-# Install Docker CLI in devcontainer
-sudo dnf install -y docker
+# Docker CLI is pre-installed in devcontainer!
+# Socket permissions set automatically in postCreateCommand
 
 # Deploy using latest Octez via Docker
 cd /workspaces/aesthetic-computer/tezos
 python3 deploy-via-docker.py
 ```
-This uses the latest Octez Docker image (v21.1) which supports current Ghostnet protocol.
+This uses the latest Octez Docker image (master) which supports current Ghostnet protocol.
+The tezos/tezos:master image may already be cached from the devcontainer build.
 
 **Option 2: Better Call Dev** (Web-based)
 1. Go to https://better-call.dev/deploy
