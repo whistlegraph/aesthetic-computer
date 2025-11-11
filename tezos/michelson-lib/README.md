@@ -62,6 +62,14 @@ cd /workspaces/aesthetic-computer/tezos/michelson-lib
 pytest -v
 ```
 
+**Test Coverage:**
+- 63 passing tests (unit + Docker integration)
+- FA2 standard compliance validation
+- Docker-based Octez integration tests
+- Real contract parsing and validation
+
+See [TESTING.md](TESTING.md) for detailed test documentation.
+
 ## Current Status
 
 - [x] Project structure
