@@ -135,8 +135,8 @@ const info = {
 const codeChannels = {}; // Used to filter `code` updates from redis to
 //                          clients who explicitly have the channel set.
 
-const users = {}; // A map of connection ids to user subs.
-const handles = {}; // A map of connection ids to handles (from location:broadcast).
+// Unified client tracking: each client has handle, user, location, and connection types
+const clients = {}; // Map of connection ID to { handle, user, location, websocket: true/false, udp: true/false }
 
 // *** Start up two `redis` clients. (One for subscribing, and for publishing)
 const sub = !dev
@@ -248,41 +248,75 @@ await start();
 // Track UDP channels manually (geckos.io doesn't expose this)
 const udpChannels = {};
 
-function getWebSocketStatus() {
-  const connectionsList = [];
+// Get unified client status - user-centric view
+function getClientStatus() {
+  const clientsMap = new Map(); // Map by handle (or user, or connectionId as fallback)
   
-  // Map connection IDs to their websocket objects
-  const idToWs = {};
-  Object.keys(connections).forEach(id => {
-    idToWs[id] = connections[id];
-  });
-  
+  // Process all WebSocket connections
   Object.keys(connections).forEach((id) => {
+    const client = clients[id] || {};
     const ws = connections[id];
-    const connection = {
-      id: parseInt(id),
+    const key = client.handle || client.user || id; // Use handle as primary key
+    
+    if (!clientsMap.has(key)) {
+      clientsMap.set(key, {
+        handle: client.handle || null,
+        location: client.location || null,
+        ip: client.ip || null,
+        ids: { websocket: [], udp: [] },
+        protocols: { websocket: false, udp: false },
+        websocket: null,
+        udp: null
+      });
+    }
+    
+    const clientInfo = clientsMap.get(key);
+    if (client.ip && !clientInfo.ip) clientInfo.ip = client.ip;
+    clientInfo.ids.websocket.push(parseInt(id));
+    clientInfo.protocols.websocket = true;
+    clientInfo.websocket = {
       alive: ws.isAlive || false,
       readyState: ws.readyState,
-      user: users[id] || null,
-      handle: handles[id] || null,
+      ping: ws.lastPing || null,
       codeChannel: findCodeChannel(parseInt(id)),
-      worlds: getWorldMemberships(parseInt(id)),
+      worlds: getWorldMemberships(parseInt(id))
     };
-    
-    connectionsList.push(connection);
   });
   
-  return connectionsList;
-}
-
-function getUDPStatus() {
-  return Object.keys(udpChannels).map(id => ({
-    id,
-    connectedAt: udpChannels[id].connectedAt,
-    state: udpChannels[id].state || 'unknown',
-    user: udpChannels[id].user || null,
-    handle: udpChannels[id].handle || null
-  }));
+  // Process all UDP connections
+  Object.keys(udpChannels).forEach((id) => {
+    const client = clients[id] || {};
+    const udp = udpChannels[id];
+    const key = client.handle || client.user || id;
+    
+    if (!clientsMap.has(key)) {
+      clientsMap.set(key, {
+        handle: client.handle || null,
+        location: client.location || null,
+        ip: client.ip || null,
+        ids: { websocket: [], udp: [] },
+        protocols: { websocket: false, udp: false },
+        websocket: null,
+        udp: null
+      });
+    }
+    
+    const clientInfo = clientsMap.get(key);
+    if (client.ip && !clientInfo.ip) clientInfo.ip = client.ip;
+    clientInfo.ids.udp.push(id);
+    clientInfo.protocols.udp = true;
+    clientInfo.udp = {
+      connectedAt: udp.connectedAt,
+      state: udp.state || 'unknown'
+    };
+    
+    // Update location if we have it from UDP but not WS
+    if (client.location && !clientInfo.location) {
+      clientInfo.location = client.location;
+    }
+  });
+  
+  return Array.from(clientsMap.values());
 }
 
 function getWorldMemberships(connectionId) {
@@ -308,6 +342,7 @@ function findCodeChannel(connectionId) {
 }
 
 function getFullStatus() {
+  const clients = getClientStatus();
   return {
     timestamp: Date.now(),
     server: {
@@ -315,14 +350,12 @@ function getFullStatus() {
       environment: dev ? "development" : "production",
       port: info.port,
     },
-    websocket: {
-      total: wss.clients.size,
-      connections: getWebSocketStatus(),
+    totals: {
+      websocket: wss.clients.size,
+      udp: Object.keys(udpChannels).length,
+      unique_clients: clients.length
     },
-    udp: {
-      total: Object.keys(udpChannels).length,
-      channels: getUDPStatus(),
-    },
+    clients: clients,
   };
 }
 
@@ -423,18 +456,14 @@ fastify.get("/", async (request, reply) => {
   <div class="corner-word">🧩</div>
   <div class="status">
     <span id="ws-status">🔴 Disconnected</span> | 
-    Uptime: <span id="uptime">--</span>
+    Uptime: <span id="uptime">--</span> | 
+    Online: <span class="count" id="client-count">0</span>
   </div>
   
   <div class="container">
     <div class="section">
-      <h2>WebSocket (<span class="count" id="ws-count">0</span>)</h2>
-      <div id="ws-connections"></div>
-    </div>
-    
-    <div class="section">
-      <h2>UDP (<span class="count" id="udp-count">0</span>)</h2>
-      <div id="udp-channels"></div>
+      <h2>Who's Online</h2>
+      <div id="clients"></div>
     </div>
   </div>
 
@@ -463,55 +492,60 @@ fastify.get("/", async (request, reply) => {
       const minutes = Math.floor((status.server.uptime % 3600) / 60);
       document.getElementById('uptime').textContent = \`\${hours}h \${minutes}m\`;
       
-      // Update WebSocket connections
-      document.getElementById('ws-count').textContent = status.websocket.total;
-      const wsHtml = status.websocket.connections.length === 0 
-        ? '<div class="empty">No connections</div>'
-        : status.websocket.connections.map(conn => {
-            const status = conn.alive ? 'alive' : 'dead';
-            const ghost = conn.worlds.some(w => w.ghost);
-            const className = ghost ? 'ghost' : status;
+      document.getElementById('client-count').textContent = status.totals.unique_clients;
+      
+      // Update client list - focus on who and where
+      const clientsHtml = status.clients.length === 0 
+        ? '<div class="empty">Nobody online</div>'
+        : status.clients.map(client => {
+            let display = \`<div class="connection alive">\`;
             
-            let display = \`<div class="connection \${className}">\`;
-            display += \`<div><span class="id">#\${conn.id}</span>\`;
-            if (conn.handle) display += \` <span class="user">\${conn.handle}</span>\`;
-            if (conn.user) display += \` <span class="meta">(\${conn.user.substring(0, 8)}...)</span>\`;
+            // Name/handle
+            if (client.handle) {
+              display += \`<div><span class="user">\${client.handle}</span>\`;
+            } else {
+              display += \`<div><span class="meta">(anonymous)</span>\`;
+            }
+            
+            // Ping if available
+            if (client.websocket?.ping) {
+              display += \` <span class="meta">(\${client.websocket.ping}ms)</span>\`;
+            }
             display += \`</div>\`;
             
-            if (conn.worlds.length > 0) {
-              const world = conn.worlds[0];
-              display += \`<div class="meta">World: \${world.piece}\`;
-              if (world.handle) display += \` | \${world.handle}\`;
-              if (world.showing) display += \` | showing: \${world.showing}\`;
+            // Location/command
+            if (client.location && client.location !== '*keep-alive*') {
+              display += \`<div class="meta">📍 in \${client.location}</div>\`;
+            }
+            
+            // IP address
+            if (client.ip) {
+              const cleanIp = client.ip.replace('::ffff:', '');
+              display += \`<div class="meta">🌐 \${cleanIp}</div>\`;
+            }
+            
+            // Show world if they're in one
+            if (client.websocket?.worlds && client.websocket.worlds.length > 0) {
+              const world = client.websocket.worlds[0];
+              display += \`<div class="meta">🌍 \${world.piece}\`;
+              if (world.showing) display += \` (viewing \${world.showing})\`;
+              if (world.ghost) display += \` 👻\`;
               display += \`</div>\`;
             }
             
-            if (conn.codeChannel) {
-              display += \`<div class="meta">Code: \${conn.codeChannel}</div>\`;
+            // Connection method (subtle)
+            const protocols = [];
+            if (client.protocols.websocket) protocols.push('ws');
+            if (client.protocols.udp) protocols.push('udp');
+            if (protocols.length > 0) {
+              display += \`<div class="meta" style="opacity: 0.4; margin-top: 0.5rem;">\${protocols.join(' + ')}</div>\`;
             }
             
             display += \`</div>\`;
             return display;
           }).join('');
       
-      document.getElementById('ws-connections').innerHTML = wsHtml;
-      
-      // Update UDP channels
-      document.getElementById('udp-count').textContent = status.udp.total;
-      const udpHtml = status.udp.channels.length === 0
-        ? '<div class="empty">No channels</div>'
-        : status.udp.channels.map(ch => {
-            let display = \`<div class="connection alive">\`;
-            display += \`<div><span class="id">\${ch.id}</span>\`;
-            if (ch.handle) display += \` <span class="user">\${ch.handle}</span>\`;
-            if (ch.user) display += \` <span class="meta">(\${ch.user.substring(0, 8)}...)</span>\`;
-            display += \`</div>\`;
-            display += \`<div class="meta">State: \${ch.state}</div>\`;
-            display += \`</div>\`;
-            return display;
-          }).join('');
-      
-      document.getElementById('udp-channels').innerHTML = udpHtml;
+      document.getElementById('clients').innerHTML = clientsHtml;
     }
   </script>
 </body>
@@ -532,6 +566,7 @@ const interval = setInterval(function ping() {
       return client.terminate();
     }
     client.isAlive = false;
+    client.pingStart = Date.now(); // Start ping timer
     client.ping();
   });
 }, 15000); // 15 second pings from server before termination.
@@ -543,11 +578,20 @@ wss.on("close", function close() {
 
 // Construct the server.
 wss.on("connection", (ws, req) => {
-  log('🔌 WebSocket connection, URL:', req.url, 'Headers:', req.headers.host);
+  const connectionInfo = {
+    url: req.url,
+    host: req.headers.host,
+    origin: req.headers.origin,
+    userAgent: req.headers['user-agent'],
+    remoteAddress: req.socket.remoteAddress,
+  };
+  log('🔌 WebSocket connection received:', JSON.stringify(connectionInfo, null, 2));
+  log('🔌 Total wss.clients.size:', wss.clients.size);
+  log('🔌 Current connections count:', Object.keys(connections).length);
   
   // Route status dashboard WebSocket connections separately
   if (req.url === '/status-stream') {
-    log('📊 Status dashboard connected');
+    log('📊 Status dashboard connected, returning early (not adding to game clients)');
     statusClients.add(ws);
     
     // Send initial state
@@ -569,22 +613,34 @@ wss.on("connection", (ws, req) => {
     return; // Don't process as a game client
   }
   
-  log('🎮 Game client connection, adding to connections');
+  log('🎮 Game client connection detected, adding to connections');
   
   // Regular game client connection handling below
   const ip = req.socket.remoteAddress || "localhost"; // beautify ip
   ws.isAlive = true; // For checking persistence between ping-pong messages.
+  ws.pingStart = null; // Track ping timing
+  ws.lastPing = null; // Store last measured ping
 
   ws.on("pong", () => {
     ws.isAlive = true;
+    if (ws.pingStart) {
+      ws.lastPing = Date.now() - ws.pingStart;
+      ws.pingStart = null;
+    }
   }); // Receive a pong and stay alive!
 
   // Assign the conection a unique id.
   connections[connectionId] = ws;
   const id = connectionId;
   let codeChannel; // Used to subscribe to incoming piece code.
+  
+  // Initialize client record with IP
+  if (!clients[id]) clients[id] = {};
+  clients[id].websocket = true;
+  clients[id].ip = ip;
 
   log("🧏 Someone joined:", `${id}:${ip}`, "Online:", wss.clients.size, "🫂");
+  log("🎮 Added to connections. Total game clients:", Object.keys(connections).length);
 
   const content = { id, playerCount: wss.clients.size };
 
@@ -698,12 +754,27 @@ wss.on("connection", (ws, req) => {
       if (!codeChannels[codeChannel]) codeChannels[codeChannel] = new Set();
       codeChannels[codeChannel].add(id);
     } else if (msg.type === "login") {
-      if (users[id]) return;
       if (msg.content?.user?.sub) {
-        users[id] = msg.content.user.sub;
-        log("🔑 User logged in:", msg.content.user.sub, "connection:", id);
+        if (!clients[id]) clients[id] = { websocket: true };
+        clients[id].user = msg.content.user.sub;
+        
+        // Fetch the user's handle from the API
+        const userSub = msg.content.user.sub;
+        fetch(`https://aesthetic.computer/handle/${encodeURIComponent(userSub)}`)
+          .then(response => response.json())
+          .then(data => {
+            if (data.handle) {
+              clients[id].handle = data.handle;
+              log("🔑 User logged in:", data.handle, `(${userSub.substring(0, 12)}...)`, "connection:", id);
+            } else {
+              log("🔑 User logged in (no handle):", userSub.substring(0, 12), "..., connection:", id);
+            }
+          })
+          .catch(err => {
+            log("⚠️  Failed to fetch handle for:", userSub, err.message);
+          });
       }
-      /*
+    } else if (msg.type === "location:broadcast") {      /*
       sub
         .subscribe(`logout:broadcast:${msg.content.user.sub}`, () => {
           ws.send(pack(`logout:broadcast:${msg.content.user.sub}`, true, id));
@@ -734,12 +805,40 @@ wss.on("connection", (ws, req) => {
     } else if (msg.type === "location:broadcast") {
       // Receive a slug location for this handle.
       if (msg.content.slug !== "*keep-alive*") {
-        log("🗼 Slug:", msg.content.slug, "from:", msg.content.handle);
+        log("🗼 Location:", msg.content.slug, "Handle:", msg.content.handle, "ID:", id);
       }
       
-      // Store handle for this connection
+      // Store handle and location for this client
+      if (!clients[id]) clients[id] = { websocket: true };
+      
+      // Validate and store handle if provided
       if (msg.content.handle) {
-        handles[id] = msg.content.handle;
+        // If we have a user.sub, verify the handle matches
+        if (clients[id].user) {
+          const userSub = clients[id].user;
+          fetch(`https://aesthetic.computer/handle/${encodeURIComponent(userSub)}`)
+            .then(response => response.json())
+            .then(data => {
+              if (data.handle === msg.content.handle) {
+                clients[id].handle = msg.content.handle;
+                log("✅ Handle verified:", msg.content.handle, "for user:", userSub.substring(0, 12), "...");
+              } else {
+                log("⚠️  Handle mismatch! Client sent:", msg.content.handle, "but API says:", data.handle);
+              }
+            })
+            .catch(err => {
+              log("⚠️  Failed to verify handle:", err.message);
+              // Still store it, but log the warning
+              clients[id].handle = msg.content.handle;
+            });
+        } else {
+          // No user.sub yet, just store the handle
+          clients[id].handle = msg.content.handle;
+        }
+      }
+      
+      if (msg.content.slug) {
+        clients[id].location = msg.content.slug;
       }
 
       // Publish to redis...
@@ -909,8 +1008,8 @@ wss.on("connection", (ws, req) => {
     //     delete worldClients[piece];
     // });
 
-    if (users[id]) {
-      const userSub = users[id];
+    if (clients[id]?.user) {
+      const userSub = clients[id].user;
       sub
         .unsubscribe("logout:broadcast:" + userSub)
         .then(() => {
@@ -923,7 +1022,6 @@ wss.on("connection", (ws, req) => {
             err,
           );
         });
-      delete users[id];
     }
 
     // Send a message to everyone else on the server that this client left.
@@ -1008,7 +1106,15 @@ wss.on("connection", (ws, req) => {
 
     // Delete from the connection index.
     delete connections[id];
-    delete handles[id];
+    
+    // Clean up client record if no longer connected via any protocol
+    if (clients[id]) {
+      clients[id].websocket = false;
+      // If also not connected via UDP, delete the client record entirely
+      if (!udpChannels[id]) {
+        delete clients[id];
+      }
+    }
 
     // Clear out the codeChannel if the last user disconnects from it.
     if (codeChannel !== undefined) {
@@ -1084,13 +1190,33 @@ io.onConnection((channel) => {
   channel.on("udp:identity", (data) => {
     try {
       const identity = JSON.parse(data);
+      
+      // Initialize client record if needed
+      if (!clients[channel.id]) clients[channel.id] = { udp: true };
+      
       if (identity.user?.sub) {
-        udpChannels[channel.id].user = identity.user.sub;
+        clients[channel.id].user = identity.user.sub;
+        
+        // Fetch the actual handle from the API
+        const userSub = identity.user.sub;
+        fetch(`https://aesthetic.computer/handle/${encodeURIComponent(userSub)}`)
+          .then(response => response.json())
+          .then(data => {
+            if (data.handle) {
+              clients[channel.id].handle = data.handle;
+              log(`🩰 ${channel.id} handle verified from API: "${data.handle}"`);
+            } else {
+              log(`🩰 ${channel.id} user has no handle in API`);
+            }
+          })
+          .catch(err => {
+            log(`⚠️  Failed to fetch handle for UDP ${channel.id}:`, err.message);
+          });
+      } else if (identity.handle) {
+        // If they send a handle but no user.sub, store it but don't verify
+        clients[channel.id].handle = identity.handle;
+        log(`🩰 ${channel.id} handle set (unverified): "${identity.handle}"`);
       }
-      if (identity.handle) {
-        udpChannels[channel.id].handle = identity.handle;
-      }
-      log(`🩰 ${channel.id} identity:`, identity.handle || identity.user?.sub || 'anonymous');
     } catch (e) {
       error(`🩰 Failed to parse identity for ${channel.id}:`, e);
     }
@@ -1099,6 +1225,16 @@ io.onConnection((channel) => {
   channel.onDisconnect(() => {
     log(`🩰 ${channel.id} got disconnected`);
     delete udpChannels[channel.id];
+    
+    // Clean up client record if no longer connected via any protocol
+    if (clients[channel.id]) {
+      clients[channel.id].udp = false;
+      // If also not connected via WebSocket, delete the client record entirely
+      if (!connections[channel.id]) {
+        delete clients[channel.id];
+      }
+    }
+    
     channel.close();
   });
 
