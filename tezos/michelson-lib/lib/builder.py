@@ -144,10 +144,17 @@ class ContractBuilder:
 }}"""
         
         # Build dispatch tree for multiple entrypoints
-        # Pattern: IF_LEFT { ep1 } { IF_LEFT { ep2 } { ep3 } }
+        # Pattern matches left-associative OR structure:
+        # (or (or (or ep1 ep2) ep3) ep4)
+        # Dispatch: IF_LEFT { IF_LEFT { IF_LEFT { ep1 } { ep2 } } { ep3 } } { ep4 }
         
         def build_dispatch_tree(eps: list) -> list:
-            """Recursively build IF_LEFT dispatch tree"""
+            """
+            Recursively build IF_LEFT dispatch tree matching left-associative OR.
+            
+            For parameter type: (or (or ep1 ep2) ep3)
+            Generates dispatch: IF_LEFT { IF_LEFT { ep1 } { ep2 } } { ep3 }
+            """
             if len(eps) == 1:
                 # Base case: single entrypoint
                 ep_code = eps[0].michelson().strip()
@@ -156,21 +163,24 @@ class ContractBuilder:
                     lines.append(f"    {line}")
                 return lines
             
-            # Recursive case: IF_LEFT with left branch and right subtree
-            left_ep = eps[0]
-            right_eps = eps[1:]
+            # Recursive case for left-associative structure
+            # (or (or ... (or (or ep[0] ep[1]) ep[2]) ...) ep[n-1])
+            # Last entrypoint goes in right branch (unwrapped)
+            # All others recursively in left branch (still OR-wrapped)
+            
+            *left_eps, right_ep = eps  # Split: all-but-last, last
             
             lines = ["  IF_LEFT"]
             lines.append("    {")
-            # Left branch
-            left_code = left_ep.michelson().strip()
-            for line in left_code.split('\n'):
-                lines.append(f"      {line}")
+            # Left branch: recursive for all-but-last entrypoints
+            left_lines = build_dispatch_tree(left_eps)
+            lines.extend([f"  {line}" for line in left_lines])
             lines.append("    }")
             lines.append("    {")
-            # Right branch (recursive)
-            right_lines = build_dispatch_tree(right_eps)
-            lines.extend([f"  {line}" for line in right_lines])
+            # Right branch: last entrypoint (unwrapped)
+            right_code = right_ep.michelson().strip()
+            for line in right_code.split('\n'):
+                lines.append(f"      {line}")
             lines.append("    }")
             
             return lines

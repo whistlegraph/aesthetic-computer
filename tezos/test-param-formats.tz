@@ -1,0 +1,4 @@
+# Test 1: Single entrypoint with annotation
+parameter (pair nat string) %test;
+storage unit;
+code { CDR; NIL operation; PAIR };
