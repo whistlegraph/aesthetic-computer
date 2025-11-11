@@ -51,6 +51,14 @@ function connect(port = 8889, url = undefined, send) {
     reconnectTime = reconnectIn;
     send({ type: "udp:connected" });
     connected = true;
+    
+    // Send user/handle info if available
+    if (window.acUSER || window.acHANDLE) {
+      channel.emit("udp:identity", JSON.stringify({
+        user: window.acUSER,
+        handle: window.acHANDLE
+      }));
+    }
 
     function respond(name, content) {
       content = JSON.parse(content);

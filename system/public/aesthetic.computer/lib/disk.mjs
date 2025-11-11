@@ -6376,7 +6376,7 @@ async function load(
           "wss",
           () => {
             // 🔩 Connected! (Post-connection logic.)
-            // if (USER) socket?.send("login", { user: USER });
+            if (USER) socket?.send("login", { user: USER });
 
             // Broadcast current location.
             if (HANDLE) {
