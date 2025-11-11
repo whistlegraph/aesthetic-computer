@@ -192,6 +192,57 @@ class TestContractDeployment:
     """Test contract origination (deployment)"""
     
     @pytest.mark.slow
+    def test_minimal_contract_origination(self, docker_container, tmp_path):
+        """Test if a minimal contract can originate to understand the issue"""
+        
+        minimal_contract = """parameter (or nat string);
+storage (pair address nat);
+code {UNPAIR; IF_LEFT {DROP; NIL operation; PAIR} {DROP; NIL operation; PAIR}};"""
+        
+        # Write minimal contract
+        test_file = tmp_path / "minimal.tz"
+        test_file.write_text(minimal_contract)
+        
+        # Copy to container
+        subprocess.run([
+            "docker", "cp",
+            str(test_file),
+            f"{docker_container}:/minimal.tz"
+        ], check=True, capture_output=True)
+        
+        # Create mockup
+        subprocess.run([
+            "docker", "exec", docker_container,
+            "/usr/local/bin/octez-client",
+            "--mode", "mockup",
+            "--base-dir", "/tmp/minimal_orig",
+            "create", "mockup"
+        ], capture_output=True, check=True)
+        
+        # Try to originate
+        admin_address = "tz1KqTpEZ7Yob7QbPE4Hy4Wo8fHG8LhKxZSx"
+        initial_storage = f'(Pair "{admin_address}" 0)'
+        
+        stdout, stderr, code = run_octez_command(docker_container, [
+            "--mode", "mockup",
+            "--base-dir", "/tmp/minimal_orig",
+            "originate", "contract", "minimal_test",
+            "transferring", "0", "from", "bootstrap1",
+            "running", "/minimal.tz",
+            "--init", initial_storage,
+            "--burn-cap", "1",
+            "--force"
+        ])
+        
+        print(f"\n🧪 Minimal contract origination (code {code}):")
+        if code == 0:
+            print("✅ SUCCESS! Minimal contract originated.")
+            print(f"Output: {stdout[:200]}")
+        else:
+            print(f"❌ FAILED")
+            print(f"STDERR:\n{stderr[:500]}")
+    
+    @pytest.mark.slow
     def test_code_formatting(self, docker_container, tmp_path):
         """Test different code formatting styles to find what Octez accepts"""
         
