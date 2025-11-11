@@ -534,6 +534,31 @@ wss.on("close", function close() {
 
 // Construct the server.
 wss.on("connection", (ws, req) => {
+  // Route status dashboard WebSocket connections separately
+  if (req.url === '/status-stream') {
+    log('📊 Status dashboard connected');
+    statusClients.add(ws);
+    
+    // Send initial state
+    ws.send(JSON.stringify({
+      type: 'status',
+      data: getFullStatus(),
+    }));
+    
+    ws.on('close', () => {
+      log('📊 Status dashboard disconnected');
+      statusClients.delete(ws);
+    });
+    
+    ws.on('error', (err) => {
+      error('📊 Status dashboard error:', err);
+      statusClients.delete(ws);
+    });
+    
+    return; // Don't process as a game client
+  }
+  
+  // Regular game client connection handling below
   const ip = req.socket.remoteAddress || "localhost"; // beautify ip
   ws.isAlive = true; // For checking persistence between ping-pong messages.
 
@@ -990,34 +1015,8 @@ function subscribers(subs, msg) {
 // #endregion
 
 // *** Status WebSocket Stream ***
-// Separate WebSocket server for status dashboard updates
-const statusWSS = new WebSocketServer({ 
-  server, 
-  path: '/status-stream' 
-});
-
+// Track status dashboard clients (separate from game clients)
 const statusClients = new Set();
-
-statusWSS.on('connection', (ws) => {
-  log('📊 Status dashboard connected');
-  statusClients.add(ws);
-  
-  // Send initial state
-  ws.send(JSON.stringify({
-    type: 'status',
-    data: getFullStatus(),
-  }));
-  
-  ws.on('close', () => {
-    log('📊 Status dashboard disconnected');
-    statusClients.delete(ws);
-  });
-  
-  ws.on('error', (err) => {
-    error('📊 Status dashboard error:', err);
-    statusClients.delete(ws);
-  });
-});
 
 // Broadcast status updates every 2 seconds
 setInterval(() => {
