@@ -71,12 +71,14 @@ def check_docker():
         result = subprocess.run(["docker", "--version"], capture_output=True, text=True)
         if result.returncode != 0:
             print("❌ Error: Docker not available")
-            print("Install Docker CLI: sudo dnf install -y docker")
+            print("Docker should be pre-installed in the devcontainer.")
+            print("If missing, run: sudo dnf install -y docker")
             sys.exit(1)
         print(f"✓ {result.stdout.strip()}")
     except FileNotFoundError:
         print("❌ Error: Docker not installed")
-        print("Install Docker CLI: sudo dnf install -y docker")
+        print("Docker should be pre-installed in the devcontainer.")
+        print("If missing, run: sudo dnf install -y docker")
         sys.exit(1)
 
 
