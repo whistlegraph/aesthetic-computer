@@ -62,11 +62,11 @@ gitguardian-secret-security.gitguardian,nolindnaidoo.secrets-le,aquasecurityoffi
 
 ## ✅ Testing the Protection
 
-Test that the pre-commit hook works:
+Test that the pre-commit hook works by creating a test file with a dummy secret:
 
 ```bash
-# This should be blocked
-echo "password='secret123'" > test-secret.txt
+# This should be blocked by the pre-commit hook
+echo "api_key='sk-test-12345'" > test-secret.txt
 git add test-secret.txt
 git commit -m "test"  # Should fail with warning
 rm test-secret.txt
