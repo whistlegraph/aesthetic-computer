@@ -134,3 +134,110 @@ kidlisp-n64/Swamp-Hero-64/
 kidlisp-n64/emulator/
 kidlisp-n64/libdragon/
 kidlisp-n64/peter-lemon-n64/
+
+# ============================================================================
+# SECURITY: Private Keys, Secrets, and Credentials
+# ============================================================================
+
+# SSH Private Keys (all common types)
+**/id_rsa
+**/id_rsa.*
+**/id_dsa
+**/id_dsa.*
+**/id_ecdsa
+**/id_ecdsa.*
+**/id_ed25519
+**/id_ed25519.*
+**/*_rsa
+**/*_dsa
+**/*_ecdsa
+**/*_ed25519
+
+# SSL/TLS Certificates and Keys
+*.pem
+*.key
+*.crt
+*.cer
+*.p12
+*.pfx
+*.p7b
+*.p7c
+*.der
+
+# AWS Credentials
+**/.aws/credentials
+**/.aws/config
+**/aws-credentials*
+**/aws-config*
+
+# GCP Service Account Keys
+**/*-service-account*.json
+**/*-firebase-adminsdk*.json
+**/gcp-key*.json
+**/gcloud-key*.json
+
+# API Keys and Tokens
+**/*api-key*
+**/*api_key*
+**/*apikey*
+**/token.json
+**/tokens.json
+**/*-token.json
+**/.token
+**/.tokens
+
+# Environment Files with Secrets
+.env.local
+.env.*.local
+.env.secret
+.env.secrets
+.env.production
+.env.staging
+**/*.env.local
+**/*.env.secret
+
+# OAuth and Auth Tokens
+**/.oauth
+**/oauth_token*
+**/.netrc
+
+# Docker secrets
+**/docker-secret*
+**/.docker/config.json
+
+# Kubernetes secrets
+**/k8s-secret*
+**/kube-secret*
+
+# Database connection strings and credentials
+**/database.yml
+**/db-config*.json
+
+# Password files
+**/passwords.txt
+**/.password
+**/.passwords
+**/credentials.txt
+
+# Keychain and credential stores
+**/.keychain
+**/.gnupg/private-keys*
+**/.ssh/known_hosts
+
+# Terraform state files (may contain secrets)
+**/*.tfstate
+**/*.tfstate.backup
+
+# Session server specific (this repo)
+session-server/session_server
+session-server/session_server.pub
+aesthetic-computer-vault/session-server/session_server
+aesthetic-computer-vault/session-server/session_server.pub
+
+# Secret directories
+secret/
+secrets/
+**/secret/
+**/secrets/
+.secret/
+.secrets/
