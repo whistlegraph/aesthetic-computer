@@ -596,8 +596,11 @@ wss.on("connection", (ws, req) => {
   
   // Route status dashboard WebSocket connections separately
   if (req.url === '/status-stream') {
-    log('📊 Status dashboard connected, returning early (not adding to game clients)');
+    log('📊 Status dashboard viewer connected from:', req.socket.remoteAddress);
     statusClients.add(ws);
+    
+    // Mark as dashboard viewer (don't add to game clients)
+    ws.isDashboardViewer = true;
     
     // Send initial state
     ws.send(JSON.stringify({
@@ -606,7 +609,7 @@ wss.on("connection", (ws, req) => {
     }));
     
     ws.on('close', () => {
-      log('📊 Status dashboard disconnected');
+      log('📊 Status dashboard viewer disconnected');
       statusClients.delete(ws);
     });
     
@@ -782,18 +785,24 @@ wss.on("connection", (ws, req) => {
         
         // Fetch the user's handle from the API
         const userSub = msg.content.user.sub;
+        log("🔑 Login attempt for user:", userSub.substring(0, 20) + "...", "connection:", id);
+        
         fetch(`https://aesthetic.computer/handle/${encodeURIComponent(userSub)}`)
-          .then(response => response.json())
+          .then(response => {
+            log("📡 Handle API response status:", response.status, "for", userSub.substring(0, 20) + "...");
+            return response.json();
+          })
           .then(data => {
+            log("📦 Handle API data:", JSON.stringify(data), "for connection:", id);
             if (data.handle) {
               clients[id].handle = data.handle;
-              log("🔑 User logged in:", data.handle, `(${userSub.substring(0, 12)}...)`, "connection:", id);
+              log("✅ User logged in:", data.handle, `(${userSub.substring(0, 12)}...)`, "connection:", id);
             } else {
-              log("🔑 User logged in (no handle):", userSub.substring(0, 12), "..., connection:", id);
+              log("⚠️  User logged in (no handle in response):", userSub.substring(0, 12), "..., connection:", id);
             }
           })
           .catch(err => {
-            log("⚠️  Failed to fetch handle for:", userSub, err.message);
+            log("❌ Failed to fetch handle for:", userSub.substring(0, 20) + "...", "Error:", err.message);
           });
       }
     } else if (msg.type === "location:broadcast") {      /*
@@ -1206,38 +1215,51 @@ io.onConnection((channel) => {
     handle: null
   };
   
-  log(`🩰 ${channel.id} connected`);
+  log(`🩰 UDP ${channel.id} connected from:`, channel.userData?.address || 'unknown');
+  
+  // Set a timeout to warn about missing identity
+  setTimeout(() => {
+    if (!clients[channel.id]?.user && !clients[channel.id]?.handle) {
+      log(`⚠️  UDP ${channel.id} has been connected for 10s but hasn't sent identity message`);
+    }
+  }, 10000);
   
   // Handle identity message
   channel.on("udp:identity", (data) => {
     try {
       const identity = JSON.parse(data);
+      log(`🩰 UDP ${channel.id} sent identity:`, JSON.stringify(identity).substring(0, 100));
       
       // Initialize client record if needed
       if (!clients[channel.id]) clients[channel.id] = { udp: true };
       
       if (identity.user?.sub) {
         clients[channel.id].user = identity.user.sub;
+        log(`🩰 UDP ${channel.id} user:`, identity.user.sub.substring(0, 20) + "...");
         
         // Fetch the actual handle from the API
         const userSub = identity.user.sub;
         fetch(`https://aesthetic.computer/handle/${encodeURIComponent(userSub)}`)
-          .then(response => response.json())
+          .then(response => {
+            log(`📡 Handle API for UDP ${channel.id}, status:`, response.status);
+            return response.json();
+          })
           .then(data => {
+            log(`📦 Handle API data for UDP ${channel.id}:`, JSON.stringify(data));
             if (data.handle) {
               clients[channel.id].handle = data.handle;
-              log(`🩰 ${channel.id} handle verified from API: "${data.handle}"`);
+              log(`✅ UDP ${channel.id} handle verified from API: "${data.handle}"`);
             } else {
-              log(`🩰 ${channel.id} user has no handle in API`);
+              log(`⚠️  UDP ${channel.id} user has no handle in API`);
             }
           })
           .catch(err => {
-            log(`⚠️  Failed to fetch handle for UDP ${channel.id}:`, err.message);
+            log(`❌ Failed to fetch handle for UDP ${channel.id}:`, err.message);
           });
       } else if (identity.handle) {
         // If they send a handle but no user.sub, store it but don't verify
         clients[channel.id].handle = identity.handle;
-        log(`🩰 ${channel.id} handle set (unverified): "${identity.handle}"`);
+        log(`🩰 UDP ${channel.id} handle set (unverified): "${identity.handle}"`);
       }
     } catch (e) {
       error(`🩰 Failed to parse identity for ${channel.id}:`, e);
