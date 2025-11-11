@@ -262,6 +262,7 @@ function getClientStatus() {
       clientsMap.set(key, {
         handle: client.handle || null,
         location: client.location || null,
+        ip: client.ip || null,
         ids: { websocket: [], udp: [] },
         protocols: { websocket: false, udp: false },
         websocket: null,
@@ -270,11 +271,13 @@ function getClientStatus() {
     }
     
     const clientInfo = clientsMap.get(key);
+    if (client.ip && !clientInfo.ip) clientInfo.ip = client.ip;
     clientInfo.ids.websocket.push(parseInt(id));
     clientInfo.protocols.websocket = true;
     clientInfo.websocket = {
       alive: ws.isAlive || false,
       readyState: ws.readyState,
+      ping: ws.lastPing || null,
       codeChannel: findCodeChannel(parseInt(id)),
       worlds: getWorldMemberships(parseInt(id))
     };
@@ -290,6 +293,7 @@ function getClientStatus() {
       clientsMap.set(key, {
         handle: client.handle || null,
         location: client.location || null,
+        ip: client.ip || null,
         ids: { websocket: [], udp: [] },
         protocols: { websocket: false, udp: false },
         websocket: null,
@@ -298,6 +302,7 @@ function getClientStatus() {
     }
     
     const clientInfo = clientsMap.get(key);
+    if (client.ip && !clientInfo.ip) clientInfo.ip = client.ip;
     clientInfo.ids.udp.push(id);
     clientInfo.protocols.udp = true;
     clientInfo.udp = {
@@ -497,14 +502,26 @@ fastify.get("/", async (request, reply) => {
             
             // Name/handle
             if (client.handle) {
-              display += \`<div><span class="user">\${client.handle}</span></div>\`;
+              display += \`<div><span class="user">\${client.handle}</span>\`;
             } else {
-              display += \`<div><span class="meta">(anonymous)</span></div>\`;
+              display += \`<div><span class="meta">(anonymous)</span>\`;
             }
+            
+            // Ping if available
+            if (client.websocket?.ping) {
+              display += \` <span class="meta">(\${client.websocket.ping}ms)</span>\`;
+            }
+            display += \`</div>\`;
             
             // Location/command
             if (client.location && client.location !== '*keep-alive*') {
               display += \`<div class="meta">📍 in \${client.location}</div>\`;
+            }
+            
+            // IP address
+            if (client.ip) {
+              const cleanIp = client.ip.replace('::ffff:', '');
+              display += \`<div class="meta">🌐 \${cleanIp}</div>\`;
             }
             
             // Show world if they're in one
@@ -549,6 +566,7 @@ const interval = setInterval(function ping() {
       return client.terminate();
     }
     client.isAlive = false;
+    client.pingStart = Date.now(); // Start ping timer
     client.ping();
   });
 }, 15000); // 15 second pings from server before termination.
@@ -600,15 +618,26 @@ wss.on("connection", (ws, req) => {
   // Regular game client connection handling below
   const ip = req.socket.remoteAddress || "localhost"; // beautify ip
   ws.isAlive = true; // For checking persistence between ping-pong messages.
+  ws.pingStart = null; // Track ping timing
+  ws.lastPing = null; // Store last measured ping
 
   ws.on("pong", () => {
     ws.isAlive = true;
+    if (ws.pingStart) {
+      ws.lastPing = Date.now() - ws.pingStart;
+      ws.pingStart = null;
+    }
   }); // Receive a pong and stay alive!
 
   // Assign the conection a unique id.
   connections[connectionId] = ws;
   const id = connectionId;
   let codeChannel; // Used to subscribe to incoming piece code.
+  
+  // Initialize client record with IP
+  if (!clients[id]) clients[id] = {};
+  clients[id].websocket = true;
+  clients[id].ip = ip;
 
   log("🧏 Someone joined:", `${id}:${ip}`, "Online:", wss.clients.size, "🫂");
   log("🎮 Added to connections. Total game clients:", Object.keys(connections).length);
