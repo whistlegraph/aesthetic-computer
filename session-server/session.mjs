@@ -891,7 +891,9 @@ wss.on("connection", (ws, req) => {
         // Don't overwrite location with keep-alive
         if (msg.content.slug !== "*keep-alive*") {
           clients[id].location = msg.content.slug;
-          log("📍 Location updated to:", msg.content.slug, "for conn:", id);
+          log(`📍 Location updated for ${clients[id].handle || id}: "${msg.content.slug}"`);
+        } else {
+          log(`💓 Keep-alive from ${clients[id].handle || id}, location unchanged`);
         }
       }
 
@@ -1279,33 +1281,16 @@ io.onConnection((channel) => {
       // Initialize client record if needed
       if (!clients[channel.id]) clients[channel.id] = { udp: true };
       
+      // Extract user identity
       if (identity.user?.sub) {
         clients[channel.id].user = identity.user.sub;
         log(`🩰 UDP ${channel.id} user:`, identity.user.sub.substring(0, 20) + "...");
-        
-        // Fetch the actual handle from the API
-        const userSub = identity.user.sub;
-        fetch(`https://aesthetic.computer/handle/${encodeURIComponent(userSub)}`)
-          .then(response => {
-            log(`📡 Handle API for UDP ${channel.id}, status:`, response.status);
-            return response.json();
-          })
-          .then(data => {
-            log(`📦 Handle API data for UDP ${channel.id}:`, JSON.stringify(data));
-            if (data.handle) {
-              clients[channel.id].handle = data.handle;
-              log(`✅ UDP ${channel.id} handle verified from API: "${data.handle}"`);
-            } else {
-              log(`⚠️  UDP ${channel.id} user has no handle in API`);
-            }
-          })
-          .catch(err => {
-            log(`❌ Failed to fetch handle for UDP ${channel.id}:`, err.message);
-          });
-      } else if (identity.handle) {
-        // If they send a handle but no user.sub, store it but don't verify
+      }
+      
+      // Extract handle directly from identity message
+      if (identity.handle) {
         clients[channel.id].handle = identity.handle;
-        log(`🩰 UDP ${channel.id} handle set (unverified): "${identity.handle}"`);
+        log(`✅ UDP ${channel.id} handle: "${identity.handle}"`);
       }
     } catch (e) {
       error(`🩰 Failed to parse identity for ${channel.id}:`, e);
