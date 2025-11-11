@@ -3448,6 +3448,7 @@ async function processMessage(msg) {
     // 👰‍♀️ Update the user handle if it changed.
     const newHandle = msg.split(":").pop();
     HANDLE = "@" + newHandle;
+    window.acHANDLE = HANDLE; // Expose for UDP identity
     send({ type: "handle", content: HANDLE });
     store["handle:received"] = true;
     store["handle"] = newHandle;
@@ -12376,6 +12377,7 @@ async function handle() {
       const newHandle = "@" + storedHandle;
       if (HANDLE === newHandle) return;
       HANDLE = "@" + storedHandle;
+      window.acHANDLE = HANDLE; // Expose for UDP identity
       send({ type: "handle", content: HANDLE });
       store["handle:received"] = true;
       // console.log("Retrieved handle from store:", storedHandle);
@@ -12389,6 +12391,7 @@ async function handle() {
         const newHandle = "@" + data.handle;
         if (newHandle === HANDLE) return;
         HANDLE = newHandle;
+        window.acHANDLE = HANDLE; // Expose for UDP identity
         send({ type: "handle", content: HANDLE });
         store["handle:received"] = true;
         store["handle"] = data.handle;
