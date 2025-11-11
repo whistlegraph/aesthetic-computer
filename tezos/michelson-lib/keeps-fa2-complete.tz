@@ -1,0 +1,669 @@
+parameter (or (or (or (or (or (
+(pair 
+  (pair 
+    (string %ac_url) 
+    (string %content_hash)
+  )
+  (pair 
+    (string %content_type) 
+    (pair 
+      (string %metadata_uri) 
+      (address %owner)
+    )
+  )
+)
+ %keep) (
+(pair 
+  (nat %token_id) 
+  (map %metadata string bytes)
+)
+ %update_metadata)) (nat %freeze_metadata)) (
+(list 
+  (pair 
+    (address %from_) 
+    (list %txs 
+      (pair 
+        (address %to_) 
+        (pair 
+          (nat %token_id) 
+          (nat %amount)
+        )
+      )
+    )
+  )
+)
+ %transfer)) (
+(pair 
+  (list %requests 
+    (pair 
+      (address %owner) 
+      (nat %token_id)
+    )
+  ) 
+  (contract %callback 
+    (list 
+      (pair 
+        (pair %request 
+          (address %owner) 
+          (nat %token_id)
+        ) 
+        (nat %balance)
+      )
+    )
+  )
+)
+ %balance_of)) (
+(list 
+  (or 
+    (pair %add_operator 
+      (address %owner) 
+      (pair 
+        (address %operator) 
+        (nat %token_id)
+      )
+    )
+    (pair %remove_operator 
+      (address %owner) 
+      (pair 
+        (address %operator) 
+        (nat %token_id)
+      )
+    )
+  )
+)
+ %update_operators));
+storage 
+(pair 
+  (pair 
+    (address %administrator) 
+    (big_map %ledger nat address)
+  )
+  (pair 
+    (nat %next_token_id)
+    (pair 
+      (big_map %operators 
+        (pair 
+          (address %owner) 
+          (pair (address %operator) (nat %token_id))
+        ) 
+        unit
+      )
+      (big_map %token_metadata 
+        nat 
+        (pair 
+          (nat %token_id) 
+          (map %token_info string bytes)
+        )
+      )
+    )
+  )
+)
+;
+code { UNPAIR;
+  IF_LEFT
+    {
+      # Keep entrypoint - Mint new NFT
+      # Parameter: (pair (pair ac_url content_hash) (pair content_type (pair metadata_uri owner)))
+      
+      # Verify content_type is valid (kidlisp, tape, or painting)
+      DUP;
+      GET 3;  # content_type
+      DUP;
+      PUSH string "kidlisp";
+      COMPARE;
+      EQ;
+      SWAP;
+      DUP;
+      PUSH string "tape";
+      COMPARE;
+      EQ;
+      OR;
+      SWAP;
+      PUSH string "painting";
+      COMPARE;
+      EQ;
+      OR;
+      IF
+        {}
+        {
+          PUSH string "INVALID_CONTENT_TYPE";
+          FAILWITH;
+        };
+      
+      # Verify sender is admin or owner
+      SENDER;
+      DUP 3;  # storage
+      CAR;
+      CAR;  # administrator
+      DUP;
+      DIG 2;
+      COMPARE;
+      EQ;  # sender == admin
+      SWAP;
+      DUP 3;  # parameter
+      GET 4;
+      CDR;  # owner
+      SENDER;
+      COMPARE;
+      EQ;  # sender == owner
+      OR;
+      IF
+        {}
+        {
+          PUSH string "FA2_NOT_ADMIN";
+          FAILWITH;
+        };
+      
+      # Get next_token_id
+      DUP 2;  # storage
+      GET 3;  # next_token_id
+      
+      # Build token_info map
+      EMPTY_MAP string bytes;
+      
+      # name
+      PUSH string "Keep";
+      PACK;
+      SOME;
+      PUSH string "name";
+      UPDATE;
+      
+      # description
+      PUSH string "Permanent reference to aesthetic.computer piece";
+      PACK;
+      SOME;
+      PUSH string "description";
+      UPDATE;
+      
+      # artifactUri (ac_url)
+      DUP 3;  # parameter
+      CAR;
+      CAR;  # ac_url
+      PACK;
+      SOME;
+      PUSH string "artifactUri";
+      UPDATE;
+      
+      # displayUri (same as artifactUri)
+      DUP 3;
+      CAR;
+      CAR;
+      PACK;
+      SOME;
+      PUSH string "displayUri";
+      UPDATE;
+      
+      # thumbnailUri (same as artifactUri)
+      DUP 3;
+      CAR;
+      CAR;
+      PACK;
+      SOME;
+      PUSH string "thumbnailUri";
+      UPDATE;
+      
+      # content_hash
+      DUP 3;
+      CAR;
+      CDR;  # content_hash
+      PACK;
+      SOME;
+      PUSH string "content_hash";
+      UPDATE;
+      
+      # content_type
+      DUP 3;
+      GET 3;  # content_type
+      PACK;
+      SOME;
+      PUSH string "content_type";
+      UPDATE;
+      
+      # Create metadata record: (pair token_id token_info)
+      DUP 2;  # token_id
+      PAIR;
+      
+      # Update token_metadata big_map
+      SOME;
+      DUP 2;  # token_id
+      DUP 4;  # storage
+      GET 6;  # token_metadata big_map
+      DIG 2;  # token_id
+      DIG 2;  # metadata record
+      UPDATE;
+      UPDATE 6;
+      
+      # Update ledger: token_id -> owner
+      DIG 2;  # storage
+      DUP;
+      GET 4;  # ledger
+      DIG 3;  # parameter
+      GET 4;
+      CDR;  # owner
+      SOME;
+      DIG 3;  # token_id
+      UPDATE;
+      UPDATE 4;
+      
+      # Increment next_token_id
+      DUP;
+      GET 3;
+      PUSH nat 1;
+      ADD;
+      UPDATE 3;
+      
+      # Return (list operation, storage)
+      NIL operation;
+      PAIR;
+    }
+  IF_LEFT
+    {
+      # Update Metadata entrypoint
+      # Parameter: (pair token_id (map string bytes))
+      
+      # Verify sender is administrator
+      SENDER;
+      DUP 3;  # storage
+      CAR;
+      CAR;  # administrator
+      COMPARE;
+      EQ;
+      IF
+        {}
+        {
+          PUSH string "FA2_NOT_ADMIN";
+          FAILWITH;
+        };
+      
+      # Verify token exists
+      DUP 2;  # storage
+      GET 6;  # token_metadata big_map
+      DUP 2;  # parameter
+      CAR;  # token_id
+      MEM;
+      IF
+        {}
+        {
+          PUSH string "FA2_TOKEN_UNDEFINED";
+          FAILWITH;
+        };
+      
+      # Get current token metadata
+      DUP 2;  # storage
+      GET 6;  # token_metadata big_map
+      DUP 2;  # parameter
+      CAR;  # token_id
+      GET;
+      IF_NONE
+        {
+          PUSH string "FA2_TOKEN_UNDEFINED";
+          FAILWITH;
+        }
+        {};  # (pair token_id (map string bytes))
+      
+      # Update the token_info map with new values
+      DUP;
+      CDR;  # current token_info map
+      DIG 2;  # parameter
+      CDR;  # new metadata map
+      # Merge maps: iterate over new entries and update current map
+      ITER {
+        UNPAIR;  # key : value : current_map
+        SOME;
+        DIG 2;
+        SWAP;
+        UPDATE;  # updated_map
+      };
+      
+      # Create updated metadata record
+      DIG 2;  # parameter
+      CAR;  # token_id
+      PAIR;  # (pair token_id updated_token_info)
+      
+      # Update token_metadata big_map
+      SOME;
+      DIG 2;  # parameter
+      CAR;  # token_id
+      DIG 2;  # storage
+      DUP;
+      GET 6;  # token_metadata big_map
+      DIG 2;  # token_id
+      DIG 2;  # updated metadata
+      UPDATE;
+      UPDATE 6;
+      
+      # Return (list operation, storage)
+      NIL operation;
+      PAIR;
+    }
+  IF_LEFT
+    {
+      # Freeze Metadata entrypoint
+      # Parameter: nat (token_id)
+      
+      # Verify sender is administrator
+      SENDER;
+      DUP 3;  # storage
+      CAR;
+      CAR;  # administrator
+      COMPARE;
+      EQ;
+      IF
+        {}
+        {
+          PUSH string "FA2_NOT_ADMIN";
+          FAILWITH;
+        };
+      
+      # Verify token exists
+      DUP 2;  # storage
+      GET 6;  # token_metadata big_map
+      DUP 2;  # token_id
+      MEM;
+      IF
+        {}
+        {
+          PUSH string "FA2_TOKEN_UNDEFINED";
+          FAILWITH;
+        };
+      
+      # Get current token metadata
+      DUP 2;  # storage
+      GET 6;  # token_metadata big_map
+      DUP 2;  # token_id
+      GET;
+      IF_NONE
+        {
+          PUSH string "FA2_TOKEN_UNDEFINED";
+          FAILWITH;
+        }
+        {};  # (pair token_id (map string bytes))
+      
+      # Add frozen flag to token_info
+      DUP;
+      CDR;  # token_info map
+      PUSH bytes 0x01;  # true in bytes
+      SOME;
+      PUSH string "__frozen";
+      UPDATE;  # updated token_info with frozen flag
+      
+      # Rebuild metadata record
+      DIG 2;  # token_id
+      PAIR;  # (pair token_id updated_token_info)
+      
+      # Update token_metadata big_map
+      SOME;
+      DIG 2;  # token_id
+      DIG 2;  # storage
+      DUP;
+      GET 6;  # token_metadata big_map
+      DIG 2;  # token_id
+      DIG 2;  # updated metadata
+      UPDATE;
+      UPDATE 6;
+      
+      # Return (list operation, storage)
+      NIL operation;
+      PAIR;
+    }
+  IF_LEFT
+    {
+      # FA2 Transfer Entrypoint
+              # Parameter: list (pair address (list (pair address (pair nat nat))))
+              # Each transfer: (from, [(to, (token_id, amount))])
+              
+              # Unpack storage
+              UNPAIR ;           # (transfers, storage)
+              SWAP ;             # (storage, transfers)
+              
+              # Get sender for operator checks
+              SENDER ;           # (sender, storage, transfers)
+              
+              # Process each transfer in the batch
+              DIG 2 ;            # (transfers, sender, storage)
+              ITER {
+                  # Each transfer: (from_address, [(to, (token_id, amount))])
+                  UNPAIR ;       # (from, txs, sender, storage)
+                  
+                  # Check authorization: sender == from OR sender is operator
+                  DUP 3 ;        # (sender, from, txs, sender, storage)
+                  DUP 2 ;        # (from, sender, from, txs, sender, storage)
+                  COMPARE ;
+                  EQ ;           # (sender==from, from, txs, sender, storage)
+                  
+                  IF {} {
+                      # Check if sender is operator for from
+                      DUP 4 ;    # (storage, from, txs, sender, storage)
+                      GET 8 ;    # (operators, from, txs, sender, storage)
+                      DUP 4 ;    # (sender, operators, from, txs, sender, storage)
+                      DUP 3 ;    # (from, sender, operators, from, txs, sender, storage)
+                      PAIR ;     # ((from, sender), operators, from, txs, sender, storage)
+                      MEM ;      # (is_operator, from, txs, sender, storage)
+                      
+                      IF {} {
+                          PUSH string "FA2_NOT_OPERATOR" ;
+                          FAILWITH ;
+                      } ;
+                  } ;
+                  
+                  # Process each token transfer
+                  SWAP ;         # (txs, from, sender, storage)
+                  ITER {
+                      # Each tx: (to, (token_id, amount))
+                      UNPAIR ;   # (to, (token_id, amount), from, sender, storage)
+                      UNPAIR ;   # (token_id, amount, to, from, sender, storage)
+                      
+                      # Check amount is 1 (NFT semantics)
+                      PUSH nat 1 ;
+                      SWAP ;
+                      COMPARE ;
+                      EQ ;
+                      IF {} {
+                          PUSH string "FA2_INSUFFICIENT_BALANCE" ;
+                          FAILWITH ;
+                      } ;
+                      
+                      # Check token exists and from owns it
+                      DUP 5 ;    # (storage, token_id, to, from, sender, storage)
+                      GET 3 ;    # (ledger, token_id, to, from, sender, storage)
+                      SWAP ;     # (token_id, ledger, to, from, sender, storage)
+                      DUP 4 ;    # (from, token_id, ledger, to, from, sender, storage)
+                      PAIR ;     # ((from, token_id), ledger, to, from, sender, storage)
+                      GET ;      # (Some unit OR None, to, from, sender, storage)
+                      
+                      IF_NONE {
+                          PUSH string "FA2_INSUFFICIENT_BALANCE" ;
+                          FAILWITH ;
+                      } {
+                          DROP ;  # (to, from, sender, storage)
+                      } ;
+                      
+                      # Remove from from ledger
+                      DUP 4 ;    # (storage, to, from, sender, storage)
+                      UNPAIR ;   # (administrator, storage', to, from, sender, storage)
+                      UNPAIR ;   # (last_token_id, storage'', administrator, to, from, sender, storage)
+                      UNPAIR ;   # (ledger, storage''', last_token_id, administrator, to, from, sender, storage)
+                      
+                      DUP 4 ;    # (from, ledger, storage''', last_token_id, administrator, to, from, sender, storage)
+                      DUP 6 ;    # (token_id, from, ledger, storage''', last_token_id, administrator, to, from, sender, storage)
+                      PAIR ;     # ((from, token_id), ledger, storage''', last_token_id, administrator, to, from, sender, storage)
+                      NONE unit ;
+                      SWAP ;
+                      UPDATE ;   # (ledger', storage''', last_token_id, administrator, to, from, sender, storage)
+                      
+                      # Add to to ledger
+                      DUP 5 ;    # (to, ledger', storage''', last_token_id, administrator, to, from, sender, storage)
+                      DUP 7 ;    # (token_id, to, ledger', storage''', last_token_id, administrator, to, from, sender, storage)
+                      PAIR ;     # ((to, token_id), ledger', storage''', last_token_id, administrator, to, from, sender, storage)
+                      PUSH unit Unit ;
+                      SOME ;
+                      SWAP ;
+                      UPDATE ;   # (ledger'', storage''', last_token_id, administrator, to, from, sender, storage)
+                      
+                      # Rebuild storage
+                      PAIR ;     # ((ledger'', storage'''), last_token_id, administrator, to, from, sender, storage)
+                      PAIR ;     # (((ledger'', storage'''), last_token_id), administrator, to, from, sender, storage)
+                      PAIR ;     # ((((ledger'', storage'''), last_token_id), administrator), to, from, sender, storage)
+                      
+                      # Update storage
+                      DIP { DROP 4 } ;  # (storage', sender)
+                      SWAP ;            # (sender, storage')
+                      DIP { DUP } ;     # (sender, storage', storage')
+                  } ;
+                  
+                  DROP ;         # (sender, storage)
+              } ;
+              
+              DROP ;             # (storage)
+              NIL operation ;    # ([], storage)
+              PAIR ;             # ([], storage)
+    }
+  IF_LEFT
+    {
+      # FA2 Balance Of Entrypoint
+              # Parameter: (pair (list (pair address nat)) (contract (list (pair (pair address nat) nat))))
+              
+              # Unpack parameter
+              UNPAIR ;           # (requests, callback, storage)
+              SWAP ;             # (callback, requests, storage)
+              DIG 2 ;            # (storage, callback, requests)
+              
+              # Process each balance request
+              SWAP ;             # (requests, storage, callback)
+              MAP {
+                  # Each request: (owner, token_id)
+                  DUP 2 ;        # (storage, (owner, token_id), storage, callback)
+                  GET 3 ;        # (ledger, (owner, token_id), storage, callback)
+                  SWAP ;         # ((owner, token_id), ledger, storage, callback)
+                  
+                  # Look up balance
+                  DUP ;          # ((owner, token_id), (owner, token_id), ledger, storage, callback)
+                  DIG 2 ;        # (ledger, (owner, token_id), (owner, token_id), storage, callback)
+                  GET ;          # (Some unit OR None, (owner, token_id), storage, callback)
+                  
+                  # Convert to balance (1 if owner has token, 0 otherwise)
+                  IF_SOME {
+                      DROP ;
+                      PUSH nat 1 ;
+                  } {
+                      PUSH nat 0 ;
+                  } ;            # (balance, (owner, token_id), storage, callback)
+                  
+                  # Build response: ((owner, token_id), balance)
+                  SWAP ;
+                  PAIR ;
+              } ;                # (responses, storage, callback)
+              
+              # Send responses to callback
+              DIG 2 ;            # (callback, responses, storage)
+              PUSH mutez 0 ;     # (0tz, callback, responses, storage)
+              DIG 2 ;            # (responses, 0tz, callback, storage)
+              TRANSFER_TOKENS ;  # (operation, storage)
+              
+              # Return operation and storage
+              NIL operation ;
+              SWAP ;
+              CONS ;             # ([operation], storage)
+              PAIR ;             # ([operation], storage)
+    }
+    {
+      # FA2 Update Operators Entrypoint
+              # Parameter: list (or (pair address (pair address nat)) (pair address (pair address nat)))
+              
+              # Unpack storage
+              UNPAIR ;           # (updates, storage)
+              SWAP ;             # (storage, updates)
+              
+              # Get sender
+              SENDER ;           # (sender, storage, updates)
+              
+              # Process each update
+              DIG 2 ;            # (updates, sender, storage)
+              ITER {
+                  # Each update: (or add_operator remove_operator)
+                  IF_LEFT {
+                      # Add operator: (owner, (operator, token_id))
+                      UNPAIR ;   # (owner, (operator, token_id), sender, storage)
+                      
+                      # Check sender is owner
+                      DUP 3 ;    # (sender, owner, (operator, token_id), sender, storage)
+                      DUP 2 ;    # (owner, sender, owner, (operator, token_id), sender, storage)
+                      COMPARE ;
+                      EQ ;
+                      IF {} {
+                          PUSH string "FA2_NOT_OWNER" ;
+                          FAILWITH ;
+                      } ;
+                      
+                      # Add to operators map
+                      DUP 4 ;    # (storage, owner, (operator, token_id), sender, storage)
+                      GET 8 ;    # (operators, owner, (operator, token_id), sender, storage)
+                      DIG 2 ;    # ((operator, token_id), owner, operators, sender, storage)
+                      DIG 2 ;    # (owner, (operator, token_id), operators, sender, storage)
+                      PAIR ;     # ((owner, (operator, token_id)), operators, sender, storage)
+                      PUSH unit Unit ;
+                      SOME ;
+                      SWAP ;
+                      UPDATE ;   # (operators', sender, storage)
+                      
+                      # Update storage
+                      DIG 2 ;    # (storage, operators', sender)
+                      UNPAIR ;   # (admin_ledger, storage', operators', sender)
+                      UNPAIR ;   # (next_id, storage'', admin_ledger, operators', sender)
+                      DROP ;     # (storage'', admin_ledger, operators', sender)
+                      PAIR ;     # ((admin_ledger, operators'), storage'', sender)
+                      DIG 2 ;    # (storage'', (admin_ledger, operators'), sender)
+                      CAR ;      # (next_id, (admin_ledger, operators'), sender)
+                      PAIR ;     # ((next_id, (admin_ledger, operators')), sender)
+                      PAIR ;     # (((next_id, (admin_ledger, operators'))), sender)
+                      
+                      SWAP ;     # (sender, storage)
+                  } {
+                      # Remove operator: (owner, (operator, token_id))
+                      UNPAIR ;   # (owner, (operator, token_id), sender, storage)
+                      
+                      # Check sender is owner
+                      DUP 3 ;    # (sender, owner, (operator, token_id), sender, storage)
+                      DUP 2 ;    # (owner, sender, owner, (operator, token_id), sender, storage)
+                      COMPARE ;
+                      EQ ;
+                      IF {} {
+                          PUSH string "FA2_NOT_OWNER" ;
+                          FAILWITH ;
+                      } ;
+                      
+                      # Remove from operators map
+                      DUP 4 ;    # (storage, owner, (operator, token_id), sender, storage)
+                      GET 8 ;    # (operators, owner, (operator, token_id), sender, storage)
+                      DIG 2 ;    # ((operator, token_id), owner, operators, sender, storage)
+                      DIG 2 ;    # (owner, (operator, token_id), operators, sender, storage)
+                      PAIR ;     # ((owner, (operator, token_id)), operators, sender, storage)
+                      NONE unit ;
+                      SWAP ;
+                      UPDATE ;   # (operators', sender, storage)
+                      
+                      # Update storage
+                      DIG 2 ;    # (storage, operators', sender)
+                      UNPAIR ;   # (admin_ledger, storage', operators', sender)
+                      UNPAIR ;   # (next_id, storage'', admin_ledger, operators', sender)
+                      DROP ;     # (storage'', admin_ledger, operators', sender)
+                      PAIR ;     # ((admin_ledger, operators'), storage'', sender)
+                      DIG 2 ;    # (storage'', (admin_ledger, operators'), sender)
+                      CAR ;      # (next_id, (admin_ledger, operators'), sender)
+                      PAIR ;     # ((next_id, (admin_ledger, operators')), sender)
+                      PAIR ;     # (((next_id, (admin_ledger, operators'))), sender)
+                      
+                      SWAP ;     # (sender, storage)
+                  } ;
+              } ;
+              
+              DROP ;             # (storage)
+              NIL operation ;    # ([], storage)
+              PAIR ;             # ([], storage)
+    }
+  ;
+  ;
+  ;
+  ;
+  ;
+};

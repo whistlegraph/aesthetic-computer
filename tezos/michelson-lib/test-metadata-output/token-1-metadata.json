@@ -1,0 +1,45 @@
+{
+  "name": "Drawing Session #42",
+  "description": "Recorded drawing session from November 2024",
+  "decimals": 0,
+  "isBooleanAmount": true,
+  "shouldPreferSymbol": false,
+  "artifactUri": "https://aesthetic.computer/tape~session-2024",
+  "displayUri": "https://aesthetic.computer/tape~session-2024",
+  "thumbnailUri": "https://aesthetic.computer/tape~session-2024?thumbnail=true",
+  "tags": [
+    "tape",
+    "recording",
+    "drawing",
+    "aesthetic.computer"
+  ],
+  "attributes": [
+    {
+      "name": "content_type",
+      "value": "tape"
+    },
+    {
+      "name": "content_hash",
+      "value": "QmTapeHash456"
+    },
+    {
+      "name": "created",
+      "value": "2025-11-11T01:18:03.079946"
+    }
+  ],
+  "formats": [
+    {
+      "uri": "https://aesthetic.computer/tape~session-2024",
+      "mimeType": "text/html",
+      "dimensions": {
+        "value": "responsive",
+        "unit": "viewport"
+      }
+    }
+  ],
+  "creators": [
+    "tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"
+  ],
+  "rights": "\u00a9 All rights reserved",
+  "rightUri": "https://aesthetic.computer/tape~session-2024"
+}
