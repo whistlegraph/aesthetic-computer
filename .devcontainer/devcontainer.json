@@ -139,7 +139,7 @@
     "-c",
     ".devcontainer/scripts/prepare-host.sh"
   ],
-  "postCreateCommand": "chmod -R u+w /home/me/.config/fish /home/me/.local/share/fish 2>/dev/null || true",
+  "postCreateCommand": "chmod -R u+w /home/me/.config/fish /home/me/.local/share/fish 2>/dev/null || true && sudo chmod 666 /var/run/docker.sock 2>/dev/null || true",
   "postStartCommand": "fish /entry.fish"
   // .waiter file is now created inside entry.fish to avoid terminal popup in Codespaces
 }
