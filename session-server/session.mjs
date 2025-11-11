@@ -711,34 +711,22 @@ wss.on("connection", (ws, req) => {
 
     msg.id = id; // TODO: When sending a server generated message, use a special id.
 
-    // Extract user identity from ANY message that contains it
+    // Extract user identity and handle from ANY message that contains it
     if (msg.content?.user?.sub) {
       if (!clients[id]) clients[id] = { websocket: true };
       
-      // Only fetch handle if we don't have it yet
-      if (!clients[id].user || clients[id].user !== msg.content.user.sub) {
-        clients[id].user = msg.content.user.sub;
-        const userSub = msg.content.user.sub;
-        
-        log("🔑 User identity from message type:", msg.type, "user:", userSub.substring(0, 20) + "...", "conn:", id);
-        
-        fetch(`https://aesthetic.computer/handle/${encodeURIComponent(userSub)}`)
-          .then(response => {
-            log("📡 Handle API status:", response.status, "for", userSub.substring(0, 20) + "...");
-            return response.json();
-          })
-          .then(data => {
-            log("📦 Handle API data:", JSON.stringify(data));
-            if (data.handle) {
-              clients[id].handle = data.handle;
-              log("✅ Handle resolved:", data.handle, `(${userSub.substring(0, 12)}...)`, "conn:", id);
-            } else {
-              log("⚠️  No handle in API response for:", userSub.substring(0, 12) + "...");
-            }
-          })
-          .catch(err => {
-            log("❌ Handle fetch failed:", userSub.substring(0, 20) + "...", err.message);
-          });
+      const userSub = msg.content.user.sub;
+      const userChanged = !clients[id].user || clients[id].user !== userSub;
+      
+      if (userChanged) {
+        clients[id].user = userSub;
+        log("🔑 User identity from", msg.type + ":", userSub.substring(0, 20) + "...", "conn:", id);
+      }
+      
+      // Extract handle from message if present (e.g., location:broadcast includes it)
+      if (msg.content.handle && (!clients[id].handle || clients[id].handle !== msg.content.handle)) {
+        clients[id].handle = msg.content.handle;
+        log("✅ Handle from message:", msg.content.handle, "conn:", id);
       }
     }
 
