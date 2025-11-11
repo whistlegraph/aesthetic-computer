@@ -543,7 +543,7 @@ wss.on("close", function close() {
 
 // Construct the server.
 wss.on("connection", (ws, req) => {
-  log('🔌 WebSocket connection attempt, URL:', req.url);
+  log('🔌 WebSocket connection, URL:', req.url, 'Headers:', req.headers.host);
   
   // Route status dashboard WebSocket connections separately
   if (req.url === '/status-stream') {
@@ -568,6 +568,8 @@ wss.on("connection", (ws, req) => {
     
     return; // Don't process as a game client
   }
+  
+  log('🎮 Game client connection, adding to connections');
   
   // Regular game client connection handling below
   const ip = req.socket.remoteAddress || "localhost"; // beautify ip
