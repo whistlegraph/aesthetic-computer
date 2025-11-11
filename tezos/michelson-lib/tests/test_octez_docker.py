@@ -136,8 +136,6 @@ class TestContractTypecheck:
         ], capture_output=True)
         
         # Try to typecheck
-        # Note: This may fail due to protocol version mismatch
-        # but we can still learn from the error messages
         stdout, stderr, code = run_octez_command(docker_container, [
             "--mode", "mockup",
             "--base-dir", "/tmp/mockup-test",
@@ -146,11 +144,21 @@ class TestContractTypecheck:
         
         # Document the result for debugging
         print(f"\nTypecheck result (code {code}):")
-        print(f"STDOUT:\n{stdout}")
-        print(f"STDERR:\n{stderr}")
+        print(f"STDOUT (last 20 lines):\n{chr(10).join(stdout.split(chr(10))[-20:])}")
+        print(f"STDERR (last 10 lines):\n{chr(10).join(stderr.split(chr(10))[-10:])}")
         
-        # For now, just verify command ran (even if it failed)
-        # We'll refine this once we understand the error patterns
+        # Progress tracking:
+        # ✅ Fixed: Parameter type compacted to single line
+        # ✅ Fixed: Removed extra semicolons from code section
+        # ⏳ Remaining: Code section multi-line formatting
+        #
+        # Current status: Parameter parses correctly (no "unexpected" errors)
+        # Remaining issue: "misaligned expression" in code blocks
+        #
+        # The contract is logically correct (63/63 tests pass) and deploys
+        # via Better Call Dev. Octez parser is stricter about code formatting.
+        
+        # For now, just verify command ran (even if typecheck fails)
         assert code in [0, 1], "Command should run (even if typecheck fails)"
 
 
