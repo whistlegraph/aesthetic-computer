@@ -34,7 +34,7 @@ end
 # Step 3: Restart service
 echo ""
 echo "🔄 Step 3/4: Restarting session server..."
-ssh -i $SSH_KEY $SERVER "export PATH=$NODE_PATH:\$PATH && pkill -f 'node.*session.mjs' && sleep 2 && cd $REPO_PATH/session-server && nohup node session.mjs > /var/log/session-server.log 2>&1 &"
+ssh -i $SSH_KEY $SERVER "pkill -f 'node.*session.mjs' && sleep 2 && cd $REPO_PATH/session-server && nohup $NODE_PATH/node session.mjs > /var/log/session-server.log 2>&1 &"
 
 if test $status -ne 0
     echo ""
