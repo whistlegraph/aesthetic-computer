@@ -136,6 +136,7 @@ const codeChannels = {}; // Used to filter `code` updates from redis to
 //                          clients who explicitly have the channel set.
 
 const users = {}; // A map of connection ids to user subs.
+const handles = {}; // A map of connection ids to handles (from location:broadcast).
 
 // *** Start up two `redis` clients. (One for subscribing, and for publishing)
 const sub = !dev
@@ -263,6 +264,7 @@ function getWebSocketStatus() {
       alive: ws.isAlive || false,
       readyState: ws.readyState,
       user: users[id] || null,
+      handle: handles[id] || null,
       codeChannel: findCodeChannel(parseInt(id)),
       worlds: getWorldMemberships(parseInt(id)),
     };
@@ -277,7 +279,9 @@ function getUDPStatus() {
   return Object.keys(udpChannels).map(id => ({
     id,
     connectedAt: udpChannels[id].connectedAt,
-    state: udpChannels[id].state || 'unknown'
+    state: udpChannels[id].state || 'unknown',
+    user: udpChannels[id].user || null,
+    handle: udpChannels[id].handle || null
   }));
 }
 
@@ -470,7 +474,8 @@ fastify.get("/", async (request, reply) => {
             
             let display = \`<div class="connection \${className}">\`;
             display += \`<div><span class="id">#\${conn.id}</span>\`;
-            if (conn.user) display += \` <span class="user">@user</span>\`;
+            if (conn.handle) display += \` <span class="user">\${conn.handle}</span>\`;
+            if (conn.user) display += \` <span class="meta">(\${conn.user.substring(0, 8)}...)</span>\`;
             display += \`</div>\`;
             
             if (conn.worlds.length > 0) {
@@ -495,12 +500,16 @@ fastify.get("/", async (request, reply) => {
       document.getElementById('udp-count').textContent = status.udp.total;
       const udpHtml = status.udp.channels.length === 0
         ? '<div class="empty">No channels</div>'
-        : status.udp.channels.map(ch => \`
-            <div class="connection alive">
-              <div><span class="id">\${ch.id}</span></div>
-              <div class="meta">State: \${ch.state}</div>
-            </div>
-          \`).join('');
+        : status.udp.channels.map(ch => {
+            let display = \`<div class="connection alive">\`;
+            display += \`<div><span class="id">\${ch.id}</span>\`;
+            if (ch.handle) display += \` <span class="user">\${ch.handle}</span>\`;
+            if (ch.user) display += \` <span class="meta">(\${ch.user.substring(0, 8)}...)</span>\`;
+            display += \`</div>\`;
+            display += \`<div class="meta">State: \${ch.state}</div>\`;
+            display += \`</div>\`;
+            return display;
+          }).join('');
       
       document.getElementById('udp-channels').innerHTML = udpHtml;
     }
@@ -685,9 +694,12 @@ wss.on("connection", (ws, req) => {
       if (!codeChannels[codeChannel]) codeChannels[codeChannel] = new Set();
       codeChannels[codeChannel].add(id);
     } else if (msg.type === "login") {
-      /*
       if (users[id]) return;
-      users[id] = msg.content.user.sub;
+      if (msg.content?.user?.sub) {
+        users[id] = msg.content.user.sub;
+        log("🔑 User logged in:", msg.content.user.sub, "connection:", id);
+      }
+      /*
       sub
         .subscribe(`logout:broadcast:${msg.content.user.sub}`, () => {
           ws.send(pack(`logout:broadcast:${msg.content.user.sub}`, true, id));
@@ -697,7 +709,7 @@ wss.on("connection", (ws, req) => {
         })
         .catch((err) =>
           error(
-            "🏃 Could not subscribe to logouts for:",
+            "🏃 Could not unsubscribe from logout:broadcast for:",
             msg.content.user.sub,
             err,
           ),
@@ -719,6 +731,11 @@ wss.on("connection", (ws, req) => {
       // Receive a slug location for this handle.
       if (msg.content.slug !== "*keep-alive*") {
         log("🗼 Slug:", msg.content.slug, "from:", msg.content.handle);
+      }
+      
+      // Store handle for this connection
+      if (msg.content.handle) {
+        handles[id] = msg.content.handle;
       }
 
       // Publish to redis...
@@ -987,6 +1004,7 @@ wss.on("connection", (ws, req) => {
 
     // Delete from the connection index.
     delete connections[id];
+    delete handles[id];
 
     // Clear out the codeChannel if the last user disconnects from it.
     if (codeChannel !== undefined) {
@@ -1051,10 +1069,28 @@ io.onConnection((channel) => {
   // Track this UDP channel
   udpChannels[channel.id] = {
     connectedAt: Date.now(),
-    state: channel.webrtcConnection.state
+    state: channel.webrtcConnection.state,
+    user: null,
+    handle: null
   };
   
   log(`🩰 ${channel.id} connected`);
+  
+  // Handle identity message
+  channel.on("udp:identity", (data) => {
+    try {
+      const identity = JSON.parse(data);
+      if (identity.user?.sub) {
+        udpChannels[channel.id].user = identity.user.sub;
+      }
+      if (identity.handle) {
+        udpChannels[channel.id].handle = identity.handle;
+      }
+      log(`🩰 ${channel.id} identity:`, identity.handle || identity.user?.sub || 'anonymous');
+    } catch (e) {
+      error(`🩰 Failed to parse identity for ${channel.id}:`, e);
+    }
+  });
   
   channel.onDisconnect(() => {
     log(`🩰 ${channel.id} got disconnected`);
