@@ -192,6 +192,71 @@ class TestContractDeployment:
     """Test contract origination (deployment)"""
     
     @pytest.mark.slow
+    def test_code_formatting(self, docker_container, tmp_path):
+        """Test different code formatting styles to find what Octez accepts"""
+        
+        test_cases = [
+            ("multi_line", """parameter (or nat string);
+storage unit;
+code { UNPAIR;
+  IF_LEFT
+    { DROP; NIL operation; PAIR }
+    { DROP; NIL operation; PAIR }
+};"""),
+            ("compact_oneline", """parameter (or nat string);
+storage unit;
+code { UNPAIR; IF_LEFT { DROP; NIL operation; PAIR } { DROP; NIL operation; PAIR } };"""),
+            ("semi_compact", """parameter (or nat string);
+storage unit;
+code {
+  UNPAIR;
+  IF_LEFT { DROP; NIL operation; PAIR } { DROP; NIL operation; PAIR }
+};"""),
+            ("braces_on_same_line", """parameter (or nat string);
+storage unit;
+code { UNPAIR; IF_LEFT {
+  DROP; NIL operation; PAIR
+} {
+  DROP; NIL operation; PAIR
+} };"""),
+        ]
+        
+        for name, contract in test_cases:
+            # Write test contract to temp file
+            test_file = tmp_path / f"test_{name}.tz"
+            test_file.write_text(contract)
+            
+            # Copy to container
+            subprocess.run([
+                "docker", "cp",
+                str(test_file),
+                f"{docker_container}:/test_{name}.tz"
+            ], check=True, capture_output=True)
+            
+            # Create mockup (suppress output)
+            subprocess.run([
+                "docker", "exec", docker_container,
+                "/usr/local/bin/octez-client",
+                "--mode", "mockup",
+                "--base-dir", f"/tmp/test_{name}",
+                "create", "mockup"
+            ], capture_output=True)
+            
+            # Try to typecheck
+            stdout, stderr, code = run_octez_command(docker_container, [
+                "--mode", "mockup",
+                "--base-dir", f"/tmp/test_{name}",
+                "typecheck", "script", f"/test_{name}.tz"
+            ])
+            
+            result = "✅ WORKS" if code == 0 else "❌ FAILS"
+            print(f"\n{result} - {name}:")
+            if code != 0:
+                for line in stderr.strip().split('\n')[:5]:
+                    if line.strip() and not line.startswith('  '):  # Skip indented details
+                        print(f"  {line.strip()}")
+    
+    @pytest.mark.slow
     def test_parameter_annotation_formats(self, docker_container, tmp_path):
         """Test different ways of annotating parameters to find correct format"""
         
