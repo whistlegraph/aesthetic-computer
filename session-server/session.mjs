@@ -451,21 +451,14 @@ fastify.get("/", async (request, reply) => {
   <div class="corner-word">🧩</div>
   <div class="status">
     <span id="ws-status">🔴 Disconnected</span> | 
-    Uptime: <span id="uptime">--</span>
+    Uptime: <span id="uptime">--</span> | 
+    Online: <span class="count" id="client-count">0</span>
   </div>
   
   <div class="container">
     <div class="section">
-      <h2>Connected Clients (<span class="count" id="client-count">0</span>)</h2>
+      <h2>Who's Online</h2>
       <div id="clients"></div>
-    </div>
-    
-    <div class="section">
-      <h2>Protocol Totals</h2>
-      <div style="font-family: monospace;">
-        WebSocket: <span class="count" id="ws-count">0</span><br>
-        UDP: <span class="count" id="udp-count">0</span>
-      </div>
     </div>
   </div>
 
@@ -494,42 +487,41 @@ fastify.get("/", async (request, reply) => {
       const minutes = Math.floor((status.server.uptime % 3600) / 60);
       document.getElementById('uptime').textContent = \`\${hours}h \${minutes}m\`;
       
-      // Update protocol counts
-      document.getElementById('ws-count').textContent = status.totals.websocket;
-      document.getElementById('udp-count').textContent = status.totals.udp;
       document.getElementById('client-count').textContent = status.totals.unique_clients;
       
-      // Update client list
+      // Update client list - focus on who and where
       const clientsHtml = status.clients.length === 0 
-        ? '<div class="empty">No clients</div>'
+        ? '<div class="empty">Nobody online</div>'
         : status.clients.map(client => {
-            const protocols = [];
-            if (client.protocols.websocket) protocols.push('🔌 WS');
-            if (client.protocols.udp) protocols.push('🩰 UDP');
-            const protocolBadge = protocols.join(' + ');
-            
             let display = \`<div class="connection alive">\`;
-            display += \`<div>\${protocolBadge}\`;
-            if (client.handle) display += \` <span class="user">\${client.handle}</span>\`;
-            else display += \` <span class="meta">(anonymous)</span>\`;
-            display += \`</div>\`;
             
-            if (client.location && client.location !== '*keep-alive*') {
-              display += \`<div class="meta">📍 \${client.location}</div>\`;
+            // Name/handle
+            if (client.handle) {
+              display += \`<div><span class="user">\${client.handle}</span></div>\`;
+            } else {
+              display += \`<div><span class="meta">(anonymous)</span></div>\`;
             }
             
-            // Show WebSocket-specific details if connected
-            if (client.websocket) {
-              if (client.websocket.worlds && client.websocket.worlds.length > 0) {
-                const world = client.websocket.worlds[0];
-                display += \`<div class="meta">🌍 \${world.piece}\`;
-                if (world.showing) display += \` | showing: \${world.showing}\`;
-                if (world.ghost) display += \` | 👻 ghost\`;
-                display += \`</div>\`;
-              }
-              if (client.websocket.codeChannel) {
-                display += \`<div class="meta">💻 \${client.websocket.codeChannel}</div>\`;
-              }
+            // Location/command
+            if (client.location && client.location !== '*keep-alive*') {
+              display += \`<div class="meta">📍 in \${client.location}</div>\`;
+            }
+            
+            // Show world if they're in one
+            if (client.websocket?.worlds && client.websocket.worlds.length > 0) {
+              const world = client.websocket.worlds[0];
+              display += \`<div class="meta">🌍 \${world.piece}\`;
+              if (world.showing) display += \` (viewing \${world.showing})\`;
+              if (world.ghost) display += \` 👻\`;
+              display += \`</div>\`;
+            }
+            
+            // Connection method (subtle)
+            const protocols = [];
+            if (client.protocols.websocket) protocols.push('ws');
+            if (client.protocols.udp) protocols.push('udp');
+            if (protocols.length > 0) {
+              display += \`<div class="meta" style="opacity: 0.4; margin-top: 0.5rem;">\${protocols.join(' + ')}</div>\`;
             }
             
             display += \`</div>\`;
@@ -1140,7 +1132,7 @@ io.onConnection((channel) => {
       if (identity.handle) {
         clients[channel.id].handle = identity.handle;
       }
-      log(`🩰 ${channel.id} identity:`, clients[channel.id].handle || '(no handle)', 'location:', clients[channel.id].location || '(no location)');
+      log(`🩰 ${channel.id} identity set - Handle: "${clients[channel.id].handle || '(none)'}", Location: "${clients[channel.id].location || '(none)'}"`);
     } catch (e) {
       error(`🩰 Failed to parse identity for ${channel.id}:`, e);
     }
