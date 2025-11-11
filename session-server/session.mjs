@@ -28,6 +28,7 @@
 // Add redis pub/sub here...
 
 import Fastify from "fastify";
+import geoip from "geoip-lite";
 import { WebSocket, WebSocketServer } from "ws";
 import ip from "ip";
 import chokidar from "chokidar";
@@ -274,6 +275,7 @@ function getClientStatus() {
         handle: client.handle || null,
         location: client.location || null,
         ip: client.ip || null,
+        geo: client.geo || null,
         connectionIds: { websocket: [], udp: [] },
         protocols: { websocket: false, udp: false },
         connections: { websocket: [], udp: [] }
@@ -286,6 +288,7 @@ function getClientStatus() {
     if (client.handle && !identity.handle) identity.handle = client.handle;
     if (client.location) identity.location = client.location;
     if (client.ip && !identity.ip) identity.ip = client.ip;
+    if (client.geo && !identity.geo) identity.geo = client.geo;
     
     identity.connectionIds.websocket.push(parseInt(id));
     identity.protocols.websocket = true;
@@ -312,6 +315,7 @@ function getClientStatus() {
         handle: client.handle || null,
         location: client.location || null,
         ip: client.ip || null,
+        geo: client.geo || null,
         connectionIds: { websocket: [], udp: [] },
         protocols: { websocket: false, udp: false },
         connections: { websocket: [], udp: [] }
@@ -324,6 +328,7 @@ function getClientStatus() {
     if (client.handle && !identity.handle) identity.handle = client.handle;
     if (client.location) identity.location = client.location;
     if (client.ip && !identity.ip) identity.ip = client.ip;
+    if (client.geo && !identity.geo) identity.geo = client.geo;
     
     identity.connectionIds.udp.push(id);
     identity.protocols.udp = true;
@@ -344,6 +349,7 @@ function getClientStatus() {
       handle: identity.handle,
       location: identity.location,
       ip: identity.ip,
+      geo: identity.geo,
       protocols: identity.protocols,
       connectionCount: {
         websocket: wsCount,
@@ -516,7 +522,19 @@ fastify.get("/", async (request, reply) => {
             if (c.websocket?.ping) out += \` <span class="ping">(\${c.websocket.ping}ms)</span>\`;
             out += '</div>';
             if (c.location && c.location !== '*keep-alive*') out += \`<div class="detail">📍 \${c.location}</div>\`;
-            if (c.ip) out += \`<div class="detail">🌐 \${c.ip.replace('::ffff:', '')}</div>\`;
+            
+            // Show geolocation if available
+            if (c.geo) {
+              let geo = '🗺️ ';
+              if (c.geo.city) geo += c.geo.city + ', ';
+              if (c.geo.region) geo += c.geo.region + ', ';
+              geo += c.geo.country;
+              if (c.geo.timezone) geo += \` (\${c.geo.timezone})\`;
+              out += \`<div class="detail">\${geo}</div>\`;
+            } else if (c.ip) {
+              out += \`<div class="detail">🌐 \${c.ip}</div>\`;
+            }
+            
             if (c.websocket?.worlds?.length > 0) {
               const w = c.websocket.worlds[0];
               out += \`<div class="detail">🌍 \${w.piece}\`;
@@ -621,10 +639,27 @@ wss.on("connection", (ws, req) => {
   const id = connectionId;
   let codeChannel; // Used to subscribe to incoming piece code.
   
-  // Initialize client record with IP
+  // Initialize client record with IP and geolocation
   if (!clients[id]) clients[id] = {};
   clients[id].websocket = true;
-  clients[id].ip = ip;
+  
+  // Clean IP and get geolocation
+  const cleanIp = ip.replace('::ffff:', '');
+  clients[id].ip = cleanIp;
+  
+  const geo = geoip.lookup(cleanIp);
+  if (geo) {
+    clients[id].geo = {
+      country: geo.country,
+      region: geo.region,
+      city: geo.city,
+      timezone: geo.timezone,
+      ll: geo.ll // [latitude, longitude]
+    };
+    log(`🌍 Geolocation for ${cleanIp}:`, geo.country, geo.region, geo.city);
+  } else {
+    log(`🌍 No geolocation data for ${cleanIp}`);
+  }
 
   log("🧏 Someone joined:", `${id}:${ip}`, "Online:", wss.clients.size, "🫂");
   log("🎮 Added to connections. Total game clients:", Object.keys(connections).length);
