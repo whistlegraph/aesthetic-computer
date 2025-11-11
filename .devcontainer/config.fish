@@ -1413,6 +1413,16 @@ alias nvm forget
 
 bind \t complete-select-first
 
+function ac-deploy-session
+    set script_path ~/aesthetic-computer/session-server/deploy.fish
+    if test -f $script_path
+        fish $script_path $argv
+    else
+        echo "❌ Deploy script not found at $script_path"
+        return 1
+    end
+end
+
 function clipboard
     set content $argv
     set -l hosts host.docker.internal $HOST_IP 172.17.0.1
