@@ -95,12 +95,16 @@ class Tape {
     this.audioSource = audioContext.createBufferSource();
     this.audioSource.buffer = this.audioBuffer;
     
-    // Create gain node for volume control (for crossfade)
-    this.audioGainNode = audioContext.createGain();
-    this.audioGainNode.gain.value = this.volume;
+    // Create gain node for volume control (for crossfade) - only if it doesn't exist
+    if (!this.audioGainNode) {
+      this.audioGainNode = audioContext.createGain();
+      this.audioGainNode.gain.value = this.volume;
+      this.audioGainNode.connect(audioContext.destination);
+    } else {
+      this.audioGainNode.gain.value = this.volume;
+    }
     
     this.audioSource.connect(this.audioGainNode);
-    this.audioGainNode.connect(audioContext.destination);
     
     // Start audio from saved progress (for resume after scroll)
     const startOffset = (this.frameIndex / this.frames.length) * this.audioBuffer.duration;
@@ -118,6 +122,7 @@ class Tape {
   }
 
   pause() {
+    this.isPlaying = false;
     this.isPaused = true;
     this.wasPlayingBeforeScroll = false; // Manually paused
     this.savedProgress = this.getProgress();
@@ -232,6 +237,7 @@ class TapeManager {
     this.activeId = null;
     this.preloadQueue = []; // Array of tape IDs to load
     this.isPreloading = false;
+    this.activeProgress = 0; // Current progress of active tape (exposed to disk)
   }
 
   // Create or get tape
@@ -264,13 +270,34 @@ class TapeManager {
   }
 
   // Render frame for single tape (compositing on main canvas)
-  renderFrame(now) {
+  renderFrame(now, send) {
     if (!this.canvas || !this.ctx) return;
     
     // Update all playing tapes
     for (const tape of this.tapes.values()) {
       if (tape.isPlaying) {
         tape.updateFrame(now);
+      }
+    }
+    
+    // Update active progress and send to disk (for tv.mjs progress bar)
+    if (this.activeId && send) {
+      const activeTape = this.tapes.get(this.activeId);
+      if (activeTape) {
+        this.activeProgress = activeTape.getProgress();
+        
+        // Send progress update to disk every frame
+        send({
+          type: "tape:playback-progress",
+          content: {
+            tapeId: this.activeId,
+            progress: this.activeProgress,
+            frameIndex: activeTape.frameIndex,
+            totalFrames: activeTape.frames.length,
+            isPlaying: activeTape.isPlaying,
+            isPaused: activeTape.isPaused
+          }
+        });
       }
     }
     
@@ -282,12 +309,33 @@ class TapeManager {
         const frame = tape.frames[tape.frameIndex];
         if (frame) {
           this.ctx.globalAlpha = tape.alpha;
+          
+          // Calculate aspect-ratio-preserving dimensions (object-fit: contain)
+          const canvasAspect = this.canvas.width / this.canvas.height;
+          const frameAspect = frame.width / frame.height;
+          
+          let drawWidth, drawHeight, drawX, drawY;
+          
+          if (frameAspect > canvasAspect) {
+            // Frame is wider - fit to width
+            drawWidth = this.canvas.width;
+            drawHeight = this.canvas.width / frameAspect;
+            drawX = 0;
+            drawY = (this.canvas.height - drawHeight) / 2 + tape.yOffset;
+          } else {
+            // Frame is taller - fit to height
+            drawHeight = this.canvas.height;
+            drawWidth = this.canvas.height * frameAspect;
+            drawX = (this.canvas.width - drawWidth) / 2;
+            drawY = tape.yOffset;
+          }
+          
           this.ctx.drawImage(
             frame,
-            0,
-            tape.yOffset,
-            this.canvas.width,
-            this.canvas.height
+            drawX,
+            drawY,
+            drawWidth,
+            drawHeight
           );
         }
       }
@@ -8428,6 +8476,22 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    // 📼 Seek tape to specific progress (for tv.mjs scrubbing)
+    if (type === "tape:seek") {
+      if (!tapeManager) return;
+      
+      const { tapeId, progress } = content;
+      const tape = tapeManager.tapes.get(tapeId);
+      
+      if (tape && !tape.isLoading) {
+        const frameIndex = Math.floor(progress * tape.frames.length);
+        tape.seekToFrame(frameIndex, tapeManager.audioContext);
+        console.log(`⏩ Seeked tape ${tapeId} to ${(progress * 100).toFixed(1)}% (frame ${frameIndex})`);
+      }
+      
+      return;
+    }
+
     // 📼 Preload a tape into cache (for tv.mjs smart preloading)
     if (type === "tape:preload") {
       console.log("📼 Preloading tape:", content);
@@ -8461,7 +8525,18 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             if (frameCan) {
               const maxTapes = window.innerWidth > 768 ? 12 : 6;
               tapeManager = new TapeManager(frameCan, audioContext, maxTapes);
+              globalThis.tapeManager = tapeManager; // Expose to disks for progress access (globalThis works in workers)
               console.log(`📼 Initialized TapeManager (max ${maxTapes} tapes)`);
+              
+              // Start independent render loop for TapeManager
+              function renderTapeManager() {
+                if (tapeManager) {
+                  tapeManager.renderFrame(performance.now(), send);
+                  requestAnimationFrame(renderTapeManager);
+                }
+              }
+              requestAnimationFrame(renderTapeManager);
+              console.log("📼 Started TapeManager render loop");
             } else {
               console.error("📼 Cannot initialize TapeManager - no canvas found");
               return;
