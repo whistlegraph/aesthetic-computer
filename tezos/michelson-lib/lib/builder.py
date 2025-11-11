@@ -7,6 +7,44 @@ import re
 from .types import STORAGE_TYPE
 
 
+def compact_michelson_code(code_str: str) -> str:
+    """
+    Compact Michelson code to single line for Octez compatibility.
+    
+    The strict Octez parser requires code to be on a single line or have
+    very specific formatting. Compacting to one line is the most reliable.
+    """
+    lines = code_str.strip().split('\n')
+    code_parts = []
+    
+    for line in lines:
+        stripped = line.strip()
+        # Skip empty lines
+        if not stripped:
+            continue
+        # Remove comments
+        if '#' in stripped:
+            code_part = stripped.split('#')[0].strip()
+            if code_part:
+                code_parts.append(code_part)
+        else:
+            code_parts.append(stripped)
+    
+    # Join all parts with spaces
+    result = ' '.join(code_parts)
+    
+    # Normalize spacing
+    result = result.replace(' ;', ';')
+    result = result.replace('  ', ' ')  # Remove double spaces
+    
+    # Ensure proper spacing around braces
+    result = result.replace('{ ', '{')
+    result = result.replace(' }', '}')
+    result = result.replace('}{', '} {')  # Space between consecutive braces
+    
+    return '{' + result[1:-1] + '}'  # Preserve outer braces
+
+
 def compact_michelson_type(type_str: str) -> str:
     """
     Compact Michelson type to single line with proper annotation placement.
@@ -143,11 +181,23 @@ class ContractBuilder:
         
         return '\n'.join(code_lines)
     
-    def build(self) -> str:
-        """Build complete Michelson contract"""
+    def build(self, compact_code: bool = True) -> str:
+        """
+        Build complete Michelson contract
+        
+        Args:
+            compact_code: If True, compact code section for Octez compatibility
+        """
         param_type = self.build_parameter_type()
         storage_type = self.storage_type
         code = self.build_code()
+        
+        # Compact storage type for strict Octez parser
+        storage_type = compact_michelson_type(storage_type)
+        
+        # Optionally compact code for strict Octez parser
+        if compact_code:
+            code = compact_michelson_code(code)
         
         contract = f"""parameter {param_type};
 storage {storage_type};
