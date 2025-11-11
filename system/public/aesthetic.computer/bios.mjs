@@ -2461,7 +2461,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 pixels: imageDataArray,
                 romName: currentGameboyROM?.originalName || "unknown",
                 title: currentGameboyROM?.title || currentGameboyROM?.name || "unknown",
-                isGameBoyColor: currentGameboyROM?.isGameBoyColor || false
+                isGameBoyColor: currentGameboyROM?.isGameBoyColor || false,
+                customLabel: currentGameboyROM?.customLabel // Pass through custom label if provided
               }
             });
           }
@@ -2484,6 +2485,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           return audioBufferSourceNode;
         }
       }, hiddenCanvas); // Pass the hidden canvas to setCanvas during config
+      
+      // Disable WasmBoy's default joypad handling so we can use our custom controls
+      gameboyEmulator.disableDefaultJoypad();
+      console.log("🎮 Disabled default joypad - using AC custom controls");
       
       console.log("🎮 Game Boy emulator initialized");
     }
@@ -2544,8 +2549,20 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     console.log("🎮 currentGameboyROM exists:", !!currentGameboyROM);
     
     if (gameboyEmulator && currentGameboyROM) {
-      console.log("🎮 Calling setJoypadState with:", joypadState);
-      gameboyEmulator.setJoypadState(joypadState);
+      // WasmBoy.setJoypadState expects an object with UPPERCASE keys
+      // It internally converts them to the format the core needs
+      const wasmBoyJoypadState = {
+        UP: joypadState.up || false,
+        RIGHT: joypadState.right || false,
+        DOWN: joypadState.down || false,
+        LEFT: joypadState.left || false,
+        A: joypadState.a || false,
+        B: joypadState.b || false,
+        SELECT: joypadState.select || false,
+        START: joypadState.start || false
+      };
+      console.log("🎮 Calling setJoypadState with:", wasmBoyJoypadState);
+      gameboyEmulator.setJoypadState(wasmBoyJoypadState);
     } else {
       console.warn("🎮 Cannot set joypad state - emulator or ROM not ready");
     }
@@ -2919,6 +2936,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // 🎮 Handle Game Boy input from worker
     if (type === "gameboy:input") {
       handleGameboyInput(content);
+      return;
+    }
+
+    // 🎮 Handle ROM loading request from disk (e.g., slgb piece)
+    if (type === "gameboy:load-rom") {
+      console.log("🎮 BIOS received ROM load request:", content);
+      loadGameboyROM(content);
       return;
     }
 
