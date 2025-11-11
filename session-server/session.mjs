@@ -428,174 +428,111 @@ fastify.get("/", async (request, reply) => {
 <html>
 <head>
   <meta charset="utf-8">
-  <title>🧩 session-server</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>session-server</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    ::-webkit-scrollbar { display: none; }
     body {
-      font-size: 14px;
       font-family: monospace;
-      -webkit-text-size-adjust: none;
       background: #000;
-      color: #fff;
-      line-height: 1.4;
-      padding: 1rem;
+      color: #0f0;
+      padding: 2rem;
+      line-height: 1.6;
     }
-    .corner-word {
-      position: fixed;
-      top: 0.5em;
-      left: 0.5em;
-      font-size: 2em;
-      color: yellow;
-      text-decoration: none;
-      z-index: 1000;
+    .header {
+      border-bottom: 1px solid #333;
+      padding-bottom: 1rem;
+      margin-bottom: 2rem;
     }
-    .status {
-      position: fixed;
-      top: 0.5em;
-      right: 0.5em;
-      font-size: 1em;
-      z-index: 1000;
+    .header h1 {
+      color: #0ff;
+      font-size: 1.2rem;
     }
-    .container {
-      max-width: 1400px;
-      margin: 3rem auto 0;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 2rem;
+    .header .status {
+      color: #888;
+      font-size: 0.9rem;
+      margin-top: 0.5rem;
     }
-    h2 {
-      color: yellow;
-      margin-bottom: 0.5rem;
-      font-size: 1.2em;
-    }
-    .section {
+    .client {
       background: #111;
+      border-left: 3px solid #0f0;
       padding: 1rem;
-      border-left: 2px solid #444;
+      margin-bottom: 1rem;
     }
-    .connection {
-      background: #1a1a1a;
-      padding: 0.75rem;
-      margin: 0.5rem 0;
-      border-left: 2px solid #444;
+    .name {
+      color: #0ff;
+      font-weight: bold;
     }
-    .alive { border-left-color: #0f0; }
-    .dead { border-left-color: #f00; }
-    .ghost { border-left-color: #888; }
-    .id { color: #0ff; }
-    .user { color: #0f0; }
-    .meta { color: #888; font-size: 0.9em; margin-top: 0.25rem; }
-    .count { color: yellow; }
+    .ping { color: yellow; }
+    .detail {
+      color: #888;
+      margin-top: 0.3rem;
+      font-size: 0.9rem;
+    }
     .empty { color: #555; font-style: italic; }
   </style>
 </head>
 <body>
-  <div class="corner-word">🧩</div>
-  <div class="status">
-    <span id="ws-status">🔴 Disconnected</span> | 
-    Uptime: <span id="uptime">--</span> | 
-    Online: <span class="count" id="client-count">0</span>
-  </div>
-  
-  <div class="container">
-    <div class="section">
-      <h2>Who's Online</h2>
-      <div id="clients"></div>
+  <div class="header">
+    <h1>🧩 session-server</h1>
+    <div class="status">
+      <span id="ws-status">🔴</span> | 
+      Uptime: <span id="uptime">--</span> | 
+      Online: <span id="client-count">0</span>
     </div>
   </div>
+  
+  <div id="clients"></div>
 
   <script>
-    const ws = new WebSocket(\`\${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//\${window.location.host}/status-stream\`);
+    const ws = new WebSocket(\`\${location.protocol === 'https:' ? 'wss:' : 'ws:'}//\${location.host}/status-stream\`);
     
     ws.onopen = () => {
-      document.getElementById('ws-status').innerHTML = '🟢 Connected';
+      document.getElementById('ws-status').innerHTML = '🟢';
     };
     
     ws.onclose = () => {
-      document.getElementById('ws-status').innerHTML = '🔴 Disconnected';
-      setTimeout(() => window.location.reload(), 2000);
+      document.getElementById('ws-status').innerHTML = '🔴';
+      setTimeout(() => location.reload(), 2000);
     };
     
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
-      if (data.type === 'status') {
-        updateDashboard(data.data);
-      }
+      if (data.type === 'status') update(data.data);
     };
     
-    function updateDashboard(status) {
-      // Update uptime
-      const hours = Math.floor(status.server.uptime / 3600);
-      const minutes = Math.floor((status.server.uptime % 3600) / 60);
-      document.getElementById('uptime').textContent = \`\${hours}h \${minutes}m\`;
+    function update(s) {
+      const hrs = Math.floor(s.server.uptime / 3600);
+      const min = Math.floor((s.server.uptime % 3600) / 60);
+      document.getElementById('uptime').textContent = \`\${hrs}h \${min}m\`;
+      document.getElementById('client-count').textContent = s.totals.unique_clients;
       
-      document.getElementById('client-count').textContent = status.totals.unique_clients;
-      
-      // Update client list - focus on who and where
-      const clientsHtml = status.clients.length === 0 
+      const html = s.clients.length === 0 
         ? '<div class="empty">Nobody online</div>'
-        : status.clients.map(client => {
-            let display = \`<div class="connection alive">\`;
-            
-            // Name/handle
-            if (client.handle) {
-              display += \`<div><span class="user">\${client.handle}</span>\`;
-            } else {
-              display += \`<div><span class="meta">(anonymous)</span>\`;
+        : s.clients.map(c => {
+            let out = '<div class="client">';
+            out += '<div class="name">';
+            out += c.handle || '(anonymous)';
+            if (c.multipleTabs && c.connectionCount.total > 1) out += \` (×\${c.connectionCount.total})\`;
+            if (c.websocket?.ping) out += \` <span class="ping">(\${c.websocket.ping}ms)</span>\`;
+            out += '</div>';
+            if (c.location && c.location !== '*keep-alive*') out += \`<div class="detail">📍 \${c.location}</div>\`;
+            if (c.ip) out += \`<div class="detail">🌐 \${c.ip.replace('::ffff:', '')}</div>\`;
+            if (c.websocket?.worlds?.length > 0) {
+              const w = c.websocket.worlds[0];
+              out += \`<div class="detail">🌍 \${w.piece}\`;
+              if (w.showing) out += \` (viewing \${w.showing})\`;
+              if (w.ghost) out += ' 👻';
+              out += '</div>';
             }
-            
-            // Multiple tabs indicator
-            if (client.multipleTabs && client.connectionCount.total > 1) {
-              display += \` <span class="meta">(×\${client.connectionCount.total} tabs)</span>\`;
-            }
-            
-            // Ping if available
-            if (client.websocket?.ping) {
-              display += \` <span class="meta">(\${client.websocket.ping}ms)</span>\`;
-            }
-            display += \`</div>\`;
-            
-            // Location/command
-            if (client.location && client.location !== '*keep-alive*') {
-              display += \`<div class="meta">📍 in \${client.location}</div>\`;
-            }
-            
-            // IP address
-            if (client.ip) {
-              const cleanIp = client.ip.replace('::ffff:', '');
-              display += \`<div class="meta">🌐 \${cleanIp}</div>\`;
-            }
-            
-            // Show world if they're in one
-            if (client.websocket?.worlds && client.websocket.worlds.length > 0) {
-              const world = client.websocket.worlds[0];
-              display += \`<div class="meta">🌍 \${world.piece}\`;
-              if (world.showing) display += \` (viewing \${world.showing})\`;
-              if (world.ghost) display += \` 👻\`;
-              display += \`</div>\`;
-            }
-            
-            // Connection method with counts (subtle)
-            const protocols = [];
-            if (client.protocols.websocket) {
-              const wsCount = client.connectionCount.websocket;
-              protocols.push(wsCount > 1 ? \`ws×\${wsCount}\` : 'ws');
-            }
-            if (client.protocols.udp) {
-              const udpCount = client.connectionCount.udp;
-              protocols.push(udpCount > 1 ? \`udp×\${udpCount}\` : 'udp');
-            }
-            if (protocols.length > 0) {
-              display += \`<div class="meta" style="opacity: 0.4; margin-top: 0.5rem;">\${protocols.join(' + ')}</div>\`;
-            }
-            
-            display += \`</div>\`;
-            return display;
+            const p = [];
+            if (c.protocols.websocket) p.push(c.connectionCount.websocket > 1 ? \`ws×\${c.connectionCount.websocket}\` : 'ws');
+            if (c.protocols.udp) p.push(c.connectionCount.udp > 1 ? \`udp×\${c.connectionCount.udp}\` : 'udp');
+            if (p.length) out += \`<div class="detail" style="opacity:0.5">\${p.join(' + ')}</div>\`;
+            out += '</div>';
+            return out;
           }).join('');
       
-      document.getElementById('clients').innerHTML = clientsHtml;
+      document.getElementById('clients').innerHTML = html;
     }
   </script>
 </body>
