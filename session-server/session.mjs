@@ -203,12 +203,6 @@ fastify.post("/update", (request, reply) => {
   reply.send({ status: "ok" });
 });
 
-fastify.get("/", async () => {
-  return {
-    msg: "Hello, and welcome to an aesthetic.computer session... server instance!?",
-  };
-});
-
 // *** Build Stream - pipe terminal output to WebSocket clients ***
 // Available in both dev and production for build progress streaming
 fastify.post("/build-stream", async (req) => {
