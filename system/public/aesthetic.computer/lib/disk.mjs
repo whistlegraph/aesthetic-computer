@@ -7416,6 +7416,15 @@ async function load(
     currentText = slug;
     currentCode = sourceCode;
 
+    // Broadcast location change to session server
+    if (HANDLE && socket && slug !== "*keep-alive*") {
+      socket.send("location:broadcast", {
+        handle: HANDLE,
+        slug: slug,
+        user: USER,
+      });
+    }
+
     if (screen) screen.created = true; // Reset screen to created if it exists.
 
     cursorCode = "precise"; // Set default cursor.
