@@ -28,6 +28,7 @@
 // Add redis pub/sub here...
 
 import Fastify from "fastify";
+import geoip from "geoip-lite";
 import { WebSocket, WebSocketServer } from "ws";
 import ip from "ip";
 import chokidar from "chokidar";
@@ -274,6 +275,7 @@ function getClientStatus() {
         handle: client.handle || null,
         location: client.location || null,
         ip: client.ip || null,
+        geo: client.geo || null,
         connectionIds: { websocket: [], udp: [] },
         protocols: { websocket: false, udp: false },
         connections: { websocket: [], udp: [] }
@@ -286,6 +288,7 @@ function getClientStatus() {
     if (client.handle && !identity.handle) identity.handle = client.handle;
     if (client.location) identity.location = client.location;
     if (client.ip && !identity.ip) identity.ip = client.ip;
+    if (client.geo && !identity.geo) identity.geo = client.geo;
     
     identity.connectionIds.websocket.push(parseInt(id));
     identity.protocols.websocket = true;
@@ -312,6 +315,7 @@ function getClientStatus() {
         handle: client.handle || null,
         location: client.location || null,
         ip: client.ip || null,
+        geo: client.geo || null,
         connectionIds: { websocket: [], udp: [] },
         protocols: { websocket: false, udp: false },
         connections: { websocket: [], udp: [] }
@@ -324,6 +328,7 @@ function getClientStatus() {
     if (client.handle && !identity.handle) identity.handle = client.handle;
     if (client.location) identity.location = client.location;
     if (client.ip && !identity.ip) identity.ip = client.ip;
+    if (client.geo && !identity.geo) identity.geo = client.geo;
     
     identity.connectionIds.udp.push(id);
     identity.protocols.udp = true;
@@ -344,6 +349,7 @@ function getClientStatus() {
       handle: identity.handle,
       location: identity.location,
       ip: identity.ip,
+      geo: identity.geo,
       protocols: identity.protocols,
       connectionCount: {
         websocket: wsCount,
@@ -516,7 +522,19 @@ fastify.get("/", async (request, reply) => {
             if (c.websocket?.ping) out += \` <span class="ping">(\${c.websocket.ping}ms)</span>\`;
             out += '</div>';
             if (c.location && c.location !== '*keep-alive*') out += \`<div class="detail">📍 \${c.location}</div>\`;
-            if (c.ip) out += \`<div class="detail">🌐 \${c.ip.replace('::ffff:', '')}</div>\`;
+            
+            // Show geolocation if available
+            if (c.geo) {
+              let geo = '🗺️ ';
+              if (c.geo.city) geo += c.geo.city + ', ';
+              if (c.geo.region) geo += c.geo.region + ', ';
+              geo += c.geo.country;
+              if (c.geo.timezone) geo += \` (\${c.geo.timezone})\`;
+              out += \`<div class="detail">\${geo}</div>\`;
+            } else if (c.ip) {
+              out += \`<div class="detail">🌐 \${c.ip}</div>\`;
+            }
+            
             if (c.websocket?.worlds?.length > 0) {
               const w = c.websocket.worlds[0];
               out += \`<div class="detail">🌍 \${w.piece}\`;
@@ -578,8 +596,11 @@ wss.on("connection", (ws, req) => {
   
   // Route status dashboard WebSocket connections separately
   if (req.url === '/status-stream') {
-    log('📊 Status dashboard connected, returning early (not adding to game clients)');
+    log('📊 Status dashboard viewer connected from:', req.socket.remoteAddress);
     statusClients.add(ws);
+    
+    // Mark as dashboard viewer (don't add to game clients)
+    ws.isDashboardViewer = true;
     
     // Send initial state
     ws.send(JSON.stringify({
@@ -588,7 +609,7 @@ wss.on("connection", (ws, req) => {
     }));
     
     ws.on('close', () => {
-      log('📊 Status dashboard disconnected');
+      log('📊 Status dashboard viewer disconnected');
       statusClients.delete(ws);
     });
     
@@ -621,10 +642,27 @@ wss.on("connection", (ws, req) => {
   const id = connectionId;
   let codeChannel; // Used to subscribe to incoming piece code.
   
-  // Initialize client record with IP
+  // Initialize client record with IP and geolocation
   if (!clients[id]) clients[id] = {};
   clients[id].websocket = true;
-  clients[id].ip = ip;
+  
+  // Clean IP and get geolocation
+  const cleanIp = ip.replace('::ffff:', '');
+  clients[id].ip = cleanIp;
+  
+  const geo = geoip.lookup(cleanIp);
+  if (geo) {
+    clients[id].geo = {
+      country: geo.country,
+      region: geo.region,
+      city: geo.city,
+      timezone: geo.timezone,
+      ll: geo.ll // [latitude, longitude]
+    };
+    log(`🌍 Geolocation for ${cleanIp}:`, geo.country, geo.region, geo.city);
+  } else {
+    log(`🌍 No geolocation data for ${cleanIp}`);
+  }
 
   log("🧏 Someone joined:", `${id}:${ip}`, "Online:", wss.clients.size, "🫂");
   log("🎮 Added to connections. Total game clients:", Object.keys(connections).length);
@@ -672,6 +710,25 @@ wss.on("connection", (ws, req) => {
     }
 
     msg.id = id; // TODO: When sending a server generated message, use a special id.
+
+    // Extract user identity and handle from ANY message that contains it
+    if (msg.content?.user?.sub) {
+      if (!clients[id]) clients[id] = { websocket: true };
+      
+      const userSub = msg.content.user.sub;
+      const userChanged = !clients[id].user || clients[id].user !== userSub;
+      
+      if (userChanged) {
+        clients[id].user = userSub;
+        log("🔑 User identity from", msg.type + ":", userSub.substring(0, 20) + "...", "conn:", id);
+      }
+      
+      // Extract handle from message if present (e.g., location:broadcast includes it)
+      if (msg.content.handle && (!clients[id].handle || clients[id].handle !== msg.content.handle)) {
+        clients[id].handle = msg.content.handle;
+        log("✅ Handle from message:", msg.content.handle, "conn:", id);
+      }
+    }
 
     if (msg.type === "scream") {
       // Alert all connected users via redis pub/sub to the scream.
@@ -747,18 +804,24 @@ wss.on("connection", (ws, req) => {
         
         // Fetch the user's handle from the API
         const userSub = msg.content.user.sub;
+        log("🔑 Login attempt for user:", userSub.substring(0, 20) + "...", "connection:", id);
+        
         fetch(`https://aesthetic.computer/handle/${encodeURIComponent(userSub)}`)
-          .then(response => response.json())
+          .then(response => {
+            log("📡 Handle API response status:", response.status, "for", userSub.substring(0, 20) + "...");
+            return response.json();
+          })
           .then(data => {
+            log("📦 Handle API data:", JSON.stringify(data), "for connection:", id);
             if (data.handle) {
               clients[id].handle = data.handle;
-              log("🔑 User logged in:", data.handle, `(${userSub.substring(0, 12)}...)`, "connection:", id);
+              log("✅ User logged in:", data.handle, `(${userSub.substring(0, 12)}...)`, "connection:", id);
             } else {
-              log("🔑 User logged in (no handle):", userSub.substring(0, 12), "..., connection:", id);
+              log("⚠️  User logged in (no handle in response):", userSub.substring(0, 12), "..., connection:", id);
             }
           })
           .catch(err => {
-            log("⚠️  Failed to fetch handle for:", userSub, err.message);
+            log("❌ Failed to fetch handle for:", userSub.substring(0, 20) + "...", "Error:", err.message);
           });
       }
     } else if (msg.type === "location:broadcast") {      /*
@@ -1171,38 +1234,51 @@ io.onConnection((channel) => {
     handle: null
   };
   
-  log(`🩰 ${channel.id} connected`);
+  log(`🩰 UDP ${channel.id} connected from:`, channel.userData?.address || 'unknown');
+  
+  // Set a timeout to warn about missing identity
+  setTimeout(() => {
+    if (!clients[channel.id]?.user && !clients[channel.id]?.handle) {
+      log(`⚠️  UDP ${channel.id} has been connected for 10s but hasn't sent identity message`);
+    }
+  }, 10000);
   
   // Handle identity message
   channel.on("udp:identity", (data) => {
     try {
       const identity = JSON.parse(data);
+      log(`🩰 UDP ${channel.id} sent identity:`, JSON.stringify(identity).substring(0, 100));
       
       // Initialize client record if needed
       if (!clients[channel.id]) clients[channel.id] = { udp: true };
       
       if (identity.user?.sub) {
         clients[channel.id].user = identity.user.sub;
+        log(`🩰 UDP ${channel.id} user:`, identity.user.sub.substring(0, 20) + "...");
         
         // Fetch the actual handle from the API
         const userSub = identity.user.sub;
         fetch(`https://aesthetic.computer/handle/${encodeURIComponent(userSub)}`)
-          .then(response => response.json())
+          .then(response => {
+            log(`📡 Handle API for UDP ${channel.id}, status:`, response.status);
+            return response.json();
+          })
           .then(data => {
+            log(`📦 Handle API data for UDP ${channel.id}:`, JSON.stringify(data));
             if (data.handle) {
               clients[channel.id].handle = data.handle;
-              log(`🩰 ${channel.id} handle verified from API: "${data.handle}"`);
+              log(`✅ UDP ${channel.id} handle verified from API: "${data.handle}"`);
             } else {
-              log(`🩰 ${channel.id} user has no handle in API`);
+              log(`⚠️  UDP ${channel.id} user has no handle in API`);
             }
           })
           .catch(err => {
-            log(`⚠️  Failed to fetch handle for UDP ${channel.id}:`, err.message);
+            log(`❌ Failed to fetch handle for UDP ${channel.id}:`, err.message);
           });
       } else if (identity.handle) {
         // If they send a handle but no user.sub, store it but don't verify
         clients[channel.id].handle = identity.handle;
-        log(`🩰 ${channel.id} handle set (unverified): "${identity.handle}"`);
+        log(`🩰 UDP ${channel.id} handle set (unverified): "${identity.handle}"`);
       }
     } catch (e) {
       error(`🩰 Failed to parse identity for ${channel.id}:`, e);
