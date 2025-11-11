@@ -75,7 +75,18 @@ Cannot deploy contract to Ghostnet due to octez-client protocol mismatch:
 3. ❌ Binary download - Architecture mismatch (system is aarch64, binaries are x86-64)
 
 ### Working Solutions
-**Option 1: Better Call Dev** (Recommended)
+**Option 1: Docker-in-Docker with Latest Octez** (Recommended - Works in devcontainer!)
+```bash
+# Install Docker CLI in devcontainer
+sudo dnf install -y docker
+
+# Deploy using latest Octez via Docker
+cd /workspaces/aesthetic-computer/tezos
+python3 deploy-via-docker.py
+```
+This uses the latest Octez Docker image (v21.1) which supports current Ghostnet protocol.
+
+**Option 2: Better Call Dev** (Web-based)
 1. Go to https://better-call.dev/deploy
 2. Network: Ghostnet
 3. Upload: `michelson-lib/keeps-fa2-complete.tz`
@@ -83,13 +94,11 @@ Cannot deploy contract to Ghostnet due to octez-client protocol mismatch:
 5. Connect wallet with kidlisp key
 6. Deploy
 
-**Option 2: Machine with octez-client v21+**
+**Option 3: Machine with octez-client v21+**
 ```bash
 cd /workspaces/aesthetic-computer/tezos
 python3 deploy-to-ghostnet.py
 ```
-
-**Option 3: Docker deployment** (not yet implemented)
 
 ---
 
