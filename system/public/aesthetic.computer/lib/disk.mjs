@@ -7417,12 +7417,13 @@ async function load(
     currentCode = sourceCode;
 
     // Broadcast location change to session server
-    if (HANDLE && socket && slug !== "*keep-alive*") {
+    if (HANDLE && socket?.connected && slug !== "*keep-alive*") {
       socket.send("location:broadcast", {
         handle: HANDLE,
         slug: slug,
         user: USER,
       });
+      if (logs.socket) console.log("📍 Broadcasting location:", slug);
     }
 
     if (screen) screen.created = true; // Reset screen to created if it exists.
