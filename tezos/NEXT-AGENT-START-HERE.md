@@ -4,22 +4,19 @@
 
 All FA2 NFT contract work is **complete and tested** (47/47 tests passing). The ONLY remaining task is **deploying to Ghostnet**.
 
-## 🐳 **RECOMMENDED: Docker-in-Docker Solution (NOW WORKING!)**
+## 🐳 **RECOMMENDED: Docker-in-Docker Solution (BUILT-IN!)**
 
-We just set up Docker-in-Docker in your devcontainer. This lets you use the latest Octez client which supports the current Ghostnet protocol.
+Docker CLI is **already installed** in your devcontainer and configured automatically. This lets you use the latest Octez client which supports the current Ghostnet protocol.
 
-### Quick Start (5 minutes)
+### Quick Start (2 minutes)
 
 ```bash
 cd /workspaces/aesthetic-computer/tezos
 
-# Install Docker CLI (if not already installed)
-sudo dnf install -y docker
-
-# Give yourself Docker socket access
+# Docker socket should already have permissions, but if needed:
 sudo chmod 666 /var/run/docker.sock
 
-# Pull the latest Octez image (may take a few minutes)
+# Pull the latest Octez image (may already be cached from build)
 docker pull tezos/tezos:master
 
 # Deploy the contract!
@@ -87,11 +84,11 @@ All secrets are in the vault (NOT in git):
 
 ## ⏱️ Estimated Time
 
-- Docker setup: ~5 minutes (if needed)
+- Docker already installed in devcontainer: ✅
 - Contract deployment: ~2 minutes
 - First token mint: ~1 minute
 
-**Total: ~8 minutes to production!**
+**Total: ~3 minutes to production!**
 
 ---
 
