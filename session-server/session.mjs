@@ -861,34 +861,25 @@ wss.on("connection", (ws, req) => {
       // Store handle and location for this client
       if (!clients[id]) clients[id] = { websocket: true };
       
-      // Validate and store handle if provided
-      if (msg.content.handle) {
-        // If we have a user.sub, verify the handle matches
-        if (clients[id].user) {
-          const userSub = clients[id].user;
-          fetch(`https://aesthetic.computer/handle/${encodeURIComponent(userSub)}`)
-            .then(response => response.json())
-            .then(data => {
-              if (data.handle === msg.content.handle) {
-                clients[id].handle = msg.content.handle;
-                log("✅ Handle verified:", msg.content.handle, "for user:", userSub.substring(0, 12), "...");
-              } else {
-                log("⚠️  Handle mismatch! Client sent:", msg.content.handle, "but API says:", data.handle);
-              }
-            })
-            .catch(err => {
-              log("⚠️  Failed to verify handle:", err.message);
-              // Still store it, but log the warning
-              clients[id].handle = msg.content.handle;
-            });
-        } else {
-          // No user.sub yet, just store the handle
-          clients[id].handle = msg.content.handle;
-        }
+      // Extract user identity from message
+      if (msg.content?.user?.sub) {
+        clients[id].user = msg.content.user.sub;
       }
       
+      // Extract handle directly from message
+      if (msg.content.handle) {
+        clients[id].handle = msg.content.handle;
+      }
+      
+      // Extract and store location
       if (msg.content.slug) {
-        clients[id].location = msg.content.slug;
+        // Don't overwrite location with keep-alive
+        if (msg.content.slug !== "*keep-alive*") {
+          clients[id].location = msg.content.slug;
+          log(`📍 Location updated for ${clients[id].handle || id}: "${msg.content.slug}"`);
+        } else {
+          log(`💓 Keep-alive from ${clients[id].handle || id}, location unchanged`);
+        }
       }
 
       // Publish to redis...
@@ -1234,7 +1225,30 @@ io.onConnection((channel) => {
     handle: null
   };
   
-  log(`🩰 UDP ${channel.id} connected from:`, channel.userData?.address || 'unknown');
+  // Get IP address from channel
+  const udpIp = channel.userData?.address || channel.remoteAddress || null;
+  
+  log(`🩰 UDP ${channel.id} connected from:`, udpIp || 'unknown');
+  
+  // Initialize client record with IP
+  if (!clients[channel.id]) clients[channel.id] = { udp: true };
+  if (udpIp) {
+    const cleanIp = udpIp.replace('::ffff:', '');
+    clients[channel.id].ip = cleanIp;
+    
+    // Get geolocation for UDP client
+    const geo = geoip.lookup(cleanIp);
+    if (geo) {
+      clients[channel.id].geo = {
+        country: geo.country,
+        region: geo.region,
+        city: geo.city,
+        timezone: geo.timezone,
+        ll: geo.ll
+      };
+      log(`🌍 UDP ${channel.id} geolocation:`, geo.city || geo.country);
+    }
+  }
   
   // Set a timeout to warn about missing identity
   setTimeout(() => {
@@ -1252,33 +1266,16 @@ io.onConnection((channel) => {
       // Initialize client record if needed
       if (!clients[channel.id]) clients[channel.id] = { udp: true };
       
+      // Extract user identity
       if (identity.user?.sub) {
         clients[channel.id].user = identity.user.sub;
         log(`🩰 UDP ${channel.id} user:`, identity.user.sub.substring(0, 20) + "...");
-        
-        // Fetch the actual handle from the API
-        const userSub = identity.user.sub;
-        fetch(`https://aesthetic.computer/handle/${encodeURIComponent(userSub)}`)
-          .then(response => {
-            log(`📡 Handle API for UDP ${channel.id}, status:`, response.status);
-            return response.json();
-          })
-          .then(data => {
-            log(`📦 Handle API data for UDP ${channel.id}:`, JSON.stringify(data));
-            if (data.handle) {
-              clients[channel.id].handle = data.handle;
-              log(`✅ UDP ${channel.id} handle verified from API: "${data.handle}"`);
-            } else {
-              log(`⚠️  UDP ${channel.id} user has no handle in API`);
-            }
-          })
-          .catch(err => {
-            log(`❌ Failed to fetch handle for UDP ${channel.id}:`, err.message);
-          });
-      } else if (identity.handle) {
-        // If they send a handle but no user.sub, store it but don't verify
+      }
+      
+      // Extract handle directly from identity message
+      if (identity.handle) {
         clients[channel.id].handle = identity.handle;
-        log(`🩰 UDP ${channel.id} handle set (unverified): "${identity.handle}"`);
+        log(`✅ UDP ${channel.id} handle: "${identity.handle}"`);
       }
     } catch (e) {
       error(`🩰 Failed to parse identity for ${channel.id}:`, e);
