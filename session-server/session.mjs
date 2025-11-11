@@ -888,7 +888,11 @@ wss.on("connection", (ws, req) => {
       }
       
       if (msg.content.slug) {
-        clients[id].location = msg.content.slug;
+        // Don't overwrite location with keep-alive
+        if (msg.content.slug !== "*keep-alive*") {
+          clients[id].location = msg.content.slug;
+          log("📍 Location updated to:", msg.content.slug, "for conn:", id);
+        }
       }
 
       // Publish to redis...
@@ -1234,7 +1238,30 @@ io.onConnection((channel) => {
     handle: null
   };
   
-  log(`🩰 UDP ${channel.id} connected from:`, channel.userData?.address || 'unknown');
+  // Get IP address from channel
+  const udpIp = channel.userData?.address || channel.remoteAddress || null;
+  
+  log(`🩰 UDP ${channel.id} connected from:`, udpIp || 'unknown');
+  
+  // Initialize client record with IP
+  if (!clients[channel.id]) clients[channel.id] = { udp: true };
+  if (udpIp) {
+    const cleanIp = udpIp.replace('::ffff:', '');
+    clients[channel.id].ip = cleanIp;
+    
+    // Get geolocation for UDP client
+    const geo = geoip.lookup(cleanIp);
+    if (geo) {
+      clients[channel.id].geo = {
+        country: geo.country,
+        region: geo.region,
+        city: geo.city,
+        timezone: geo.timezone,
+        ll: geo.ll
+      };
+      log(`🌍 UDP ${channel.id} geolocation:`, geo.city || geo.country);
+    }
+  }
   
   // Set a timeout to warn about missing identity
   setTimeout(() => {
