@@ -1,94 +1,21 @@
-# Dependencies
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Build outputs
-lib/
-output/
-*.js.map
-*.d.ts
-
-# Environment and secrets
+# Secrets
 .env
-.env.local
-.env.production
 *.key
-*.pem
+*_key.json
+DEPLOYED_CONTRACT.txt
 
-# Deployment artifacts
-deployment-*.json
-deployments/
+# Node
+node_modules/
+package-lock.json
 
-# IDE and editor files
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# OS generated files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-
-# Logs
-logs/
-*.log
-
-# Runtime data
-pids/
-*.pid
-*.seed
-*.pid.lock
-
-# Coverage directory used by tools like istanbul
-coverage/
-*.lcov
-
-# nyc test coverage
-.nyc_output
+# Compiled outputs
+output/
+output_v23/
+*.pyc
+__pycache__/
 
 # Temporary files
-tmp/
-temp/
-
-# SmartPy output
-contracts/__pycache__/
-contracts/*.py[cod]
-contracts/*$py.class
-
-# SmartPy local installation
-smartpy_local/
-smartpy-cli.zip
-
-# Tezos specific
-# Allow production contracts in michelson-lib/
-!michelson-lib/*.tz
-*.tzkt
-octez-node/
-.tezos-client/
-
-# IPFS temporary files
-ipfs-temp/*.zip
-ipfs-temp/*.json
-
-# Wallet files and keys (NEVER COMMIT)
-*_wallet.json
-*_mnemonic.txt
-*_private_key.txt
-wallet_*.json
-mnemonic_*.txt
-private_key_*.txt
-*.wallet
-*.mnemonic
-tz1*.json
-tz2*.json
-tz3*.json
-tz4*.json
-KT1*.json
+*.tmp
+*.log
+deployment_log.txt
+official_deploy_log.txt
