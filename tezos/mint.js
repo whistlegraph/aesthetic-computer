@@ -4,7 +4,7 @@ require('dotenv').config({ path: '../aesthetic-computer-vault/tezos/kidlisp/.env
 
 const GHOSTNET_RPC = "https://ghostnet.ecadinfra.com";
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
-const CONTRACT_ADDRESS = "KT1S1sXpFiV4GGxLM3zWX4cDLVEhVp9yuD7b";
+const CONTRACT_ADDRESS = "KT1SFyh9C9qqZCC2izMj3BJMs3gUuur4Hy8K"; // CORRECTED FA2 with proper ledger v4
 
 async function mint() {
   try {
