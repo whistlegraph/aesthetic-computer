@@ -6,7 +6,7 @@ def main():
     class KeepsFA2(sp.Contract):
         def __init__(self, administrator):
             self.data.administrator = administrator
-            self.data.ledger = sp.cast(sp.big_map(), sp.big_map[sp.nat, sp.address])
+            self.data.ledger = sp.cast(sp.big_map(), sp.big_map[sp.pair[sp.address, sp.nat], sp.nat])
             self.data.metadata = sp.cast(sp.big_map({
                 "": sp.bytes("0x74657a6f732d73746f726167653a636f6e74656e74"),
                 "content": sp.bytes("0x7b226e616d65223a202241657374686574696320436f6d7075746572204b65657073222c20226465736372697074696f6e223a2022464132204e465420636f6e747261637420666f72206165737468657469632e636f6d7075746572222c202276657273696f6e223a2022312e302e30222c2022696e7465726661636573223a205b22545a49502d303132225d2c2022617574686f7273223a205b226165737468657469632e636f6d7075746572225d2c2022686f6d6570616765223a202268747470733a2f2f6165737468657469632e636f6d7075746572227d")
@@ -51,7 +51,7 @@ def main():
                 token_id=token_id,
                 token_info=token_info
             )
-            self.data.ledger[token_id] = params.owner
+            self.data.ledger[(params.owner, token_id)] = sp.nat(1)
             self.data.next_token_id += 1
         
         @sp.entrypoint
@@ -79,11 +79,21 @@ def main():
                         )
                     ), "FA2_NOT_OWNER_OR_OPERATOR"
                     
-                    # Check owner
-                    assert self.data.ledger[tx.token_id] == transfer_item.from_, "FA2_INSUFFICIENT_BALANCE"
+                    # Check balance and transfer
+                    from_key = (transfer_item.from_, tx.token_id)
+                    from_balance = sp.nat(0)
+                    if self.data.ledger.contains(from_key):
+                        from_balance = self.data.ledger[from_key]
+                    assert from_balance >= tx.amount, "FA2_INSUFFICIENT_BALANCE"
                     
-                    # Transfer
-                    self.data.ledger[tx.token_id] = tx.to_
+                    # Update balances
+                    self.data.ledger[from_key] = sp.as_nat(from_balance - tx.amount)
+                    
+                    to_key = (tx.to_, tx.token_id)
+                    to_balance = sp.nat(0)
+                    if self.data.ledger.contains(to_key):
+                        to_balance = self.data.ledger[to_key]
+                    self.data.ledger[to_key] = to_balance + tx.amount
         
         @sp.entrypoint
         def balance_of(self, params):
@@ -103,10 +113,9 @@ def main():
             
             for req in params.requests:
                 bal = sp.nat(0)
-                # Check if token exists and matches owner
-                if self.data.ledger.contains(req.token_id):
-                    if self.data.ledger[req.token_id] == req.owner:
-                        bal = sp.nat(1)
+                key = (req.owner, req.token_id)
+                if self.data.ledger.contains(key):
+                    bal = self.data.ledger[key]
                 
                 # Append to responses
                 responses = sp.cons(
