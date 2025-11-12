@@ -88,12 +88,36 @@ def main():
                 )]]
             ))
             
-            responses = []
-            for req in params.requests:
-                balance = sp.nat(1) if self.data.ledger.get(req.token_id, sp.address("tz1Ke2h7sDdakHJQh8WX4Z372du1KChsksyU")) == req.owner else sp.nat(0)
-                responses.append(sp.record(request=req, balance=balance))
+            # Simple implementation - returns 1 if owner matches, 0 otherwise
+            # Note: SmartPy v0.23.1 has limited support for list operations in contracts
+            # This can be enhanced post-compilation if needed
+            sp.cast(sp.list([
+                sp.record(
+                    request=req,
+                    balance=sp.eif(
+                        self.data.ledger.contains(req.token_id) & (self.data.ledger[req.token_id] == req.owner),
+                        sp.nat(1),
+                        sp.nat(0)
+                    )
+                )
+                for req in params.requests
+            ]), sp.list[sp.record(request=sp.record(owner=sp.address, token_id=sp.nat), balance=sp.nat)])
             
-            sp.transfer(responses, sp.mutez(0), params.callback)
+            sp.transfer(
+                sp.list([
+                    sp.record(
+                        request=req,
+                        balance=sp.eif(
+                            self.data.ledger.contains(req.token_id) & (self.data.ledger[req.token_id] == req.owner),
+                            sp.nat(1),
+                            sp.nat(0)
+                        )
+                    )
+                    for req in params.requests
+                ]),
+                sp.mutez(0),
+                params.callback
+            )
         
         @sp.entrypoint
         def update_operators(self, params):

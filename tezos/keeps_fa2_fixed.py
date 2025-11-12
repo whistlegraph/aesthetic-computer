@@ -1,14 +1,14 @@
+#!/usr/bin/env python3
 import smartpy as sp
 
 @sp.module
 def main():
     class KeepsFA2(sp.Contract):
         def __init__(self, administrator):
-            # TZIP-16 contract metadata
             self.data.administrator = administrator
             self.data.ledger = sp.cast(sp.big_map(), sp.big_map[sp.nat, sp.address])
             self.data.metadata = sp.cast(sp.big_map({
-                "": sp.bytes("0x74657a6f732d73746f726167653a636f6e74656e74"),  # "tezos-storage:content"
+                "": sp.bytes("0x74657a6f732d73746f726167653a636f6e74656e74"),
                 "content": sp.bytes("0x7b226e616d65223a202241657374686574696320436f6d7075746572204b65657073222c20226465736372697074696f6e223a2022464132204e465420636f6e747261637420666f72206165737468657469632e636f6d7075746572222c202276657273696f6e223a2022312e302e30222c2022696e7465726661636573223a205b22545a49502d303132222c2022545a49502d303136225d2c2022617574686f7273223a205b226165737468657469632e636f6d7075746572225d2c2022686f6d6570616765223a202268747470733a2f2f6165737468657469632e636f6d7075746572227d")
             }), sp.big_map[sp.string, sp.bytes])
             self.data.operators = sp.cast(sp.big_map(), sp.big_map[
@@ -33,18 +33,16 @@ def main():
             
             token_id = self.data.next_token_id
             
-            # Build TZIP-21 metadata
-            token_info = {
-                "": sp.pack({
-                    "name": "Keep",
-                    "artifactUri": params.ac_url,
-                    "displayUri": params.ac_url,
-                    "thumbnailUri": params.ac_url,
-                    "content_hash": params.content_hash,
-                    "content_type": params.content_type,
-                    "metadata_uri": params.metadata_uri
-                })
-            }
+            # Build TZIP-21 metadata - use packed values
+            token_info = sp.cast({
+                "name": sp.pack("Keep"),
+                "artifactUri": sp.pack(params.ac_url),
+                "displayUri": sp.pack(params.ac_url),
+                "thumbnailUri": sp.pack(params.ac_url),
+                "content_hash": sp.pack(params.content_hash),
+                "content_type": sp.pack(params.content_type),
+                "metadata_uri": sp.pack(params.metadata_uri)
+            }, sp.map[sp.string, sp.bytes])
             
             self.data.token_metadata[token_id] = sp.record(
                 token_id=token_id,
@@ -64,22 +62,22 @@ def main():
                 )]
             )])
             
-            for transfer in params:
-                for tx in transfer.txs:
+            for transfer_item in params:
+                for tx in transfer_item.txs:
                     # NFT: amount must be 1
                     assert tx.amount == 1, "FA2_INSUFFICIENT_BALANCE"
                     
                     # Check authorization
-                    assert (transfer.from_ == sp.sender) or self.data.operators.contains(
+                    assert (transfer_item.from_ == sp.sender) or self.data.operators.contains(
                         sp.record(
-                            owner=transfer.from_,
+                            owner=transfer_item.from_,
                             operator=sp.sender,
                             token_id=tx.token_id
                         )
                     ), "FA2_NOT_OWNER_OR_OPERATOR"
                     
                     # Check owner
-                    assert self.data.ledger[tx.token_id] == transfer.from_, "FA2_INSUFFICIENT_BALANCE"
+                    assert self.data.ledger[tx.token_id] == transfer_item.from_, "FA2_INSUFFICIENT_BALANCE"
                     
                     # Transfer
                     self.data.ledger[tx.token_id] = tx.to_
@@ -94,16 +92,24 @@ def main():
                 )]]
             ))
             
-            responses = sp.compute(
-                params.requests.map(lambda req: sp.record(
-                    request=req,
-                    balance=sp.eif(
-                        self.data.ledger.contains(req.token_id) & (self.data.ledger[req.token_id] == req.owner),
-                        sp.nat(1),
-                        sp.nat(0)
-                    )
-                ))
-            )
+            # Build responses manually by iterating
+            responses = sp.cast([], sp.list[sp.record(
+                request=sp.record(owner=sp.address, token_id=sp.nat),
+                balance=sp.nat
+            )])
+            
+            for req in params.requests:
+                bal = sp.nat(0)
+                # Check if token exists and matches owner
+                if self.data.ledger.contains(req.token_id):
+                    if self.data.ledger[req.token_id] == req.owner:
+                        bal = sp.nat(1)
+                
+                # Append to responses
+                responses = sp.cons(
+                    sp.record(request=req, balance=bal),
+                    responses
+                )
             
             sp.transfer(responses, sp.mutez(0), params.callback)
         
@@ -115,22 +121,21 @@ def main():
             )])
             
             for update in params:
-                if update.is_variant("add_operator"):
-                    op = update.unwrap_some()
-                    assert op.owner == sp.sender, "FA2_NOT_OWNER"
-                    self.data.operators[sp.record(
-                        owner=op.owner,
-                        operator=op.operator,
-                        token_id=op.token_id
-                    )] = ()
-                else:  # remove_operator
-                    op = update.unwrap_some()
-                    assert op.owner == sp.sender, "FA2_NOT_OWNER"
-                    del self.data.operators[sp.record(
-                        owner=op.owner,
-                        operator=op.operator,
-                        token_id=op.token_id
-                    )]
+                with sp.match(update):
+                    with sp.case.add_operator as op:
+                        assert op.owner == sp.sender, "FA2_NOT_OWNER"
+                        self.data.operators[sp.record(
+                            owner=op.owner,
+                            operator=op.operator,
+                            token_id=op.token_id
+                        )] = ()
+                    with sp.case.remove_operator as op:
+                        assert op.owner == sp.sender, "FA2_NOT_OWNER"
+                        del self.data.operators[sp.record(
+                            owner=op.owner,
+                            operator=op.operator,
+                            token_id=op.token_id
+                        )]
 
 @sp.add_test()
 def test():
