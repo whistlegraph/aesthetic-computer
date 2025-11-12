@@ -13,9 +13,9 @@ async function deploy() {
     console.log("🚀 Deploying FA2 NFT to Ghostnet");
     console.log("=" + "=".repeat(68) + "=");
 
-    // Read contract file
+    // Read contract file - CORRECTED VERSION with proper ledger structure
   const contractCode = fs.readFileSync(
-    "/workspaces/aesthetic-computer/tezos/keeps_fa2_final_compiled.tz",
+    "/workspaces/aesthetic-computer/tezos/keeps_fa2_corrected_compiled.tz",
     "utf-8"
   );    console.log("\n📋 Configuration:");
     console.log(`  🌐 Network: Ghostnet`);
