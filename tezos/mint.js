@@ -4,7 +4,7 @@ require('dotenv').config({ path: '../aesthetic-computer-vault/tezos/kidlisp/.env
 
 const GHOSTNET_RPC = "https://ghostnet.ecadinfra.com";
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
-const CONTRACT_ADDRESS = "KT1EWAABoXe6qt29ZR575utjZKNvpQRVauu7";
+const CONTRACT_ADDRESS = "KT1S1sXpFiV4GGxLM3zWX4cDLVEhVp9yuD7b";
 
 async function mint() {
   try {
