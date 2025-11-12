@@ -15,7 +15,7 @@ async function deploy() {
 
     // Read contract file
   const contractCode = fs.readFileSync(
-    "/workspaces/aesthetic-computer/tezos/keeps_fa2_compiled.tz",
+    "/workspaces/aesthetic-computer/tezos/keeps_fa2_v2_compiled.tz",
     "utf-8"
   );    console.log("\n📋 Configuration:");
     console.log(`  🌐 Network: Ghostnet`);
