@@ -2341,7 +2341,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       shareSupported: (iOS || Android) && navigator.share !== undefined,
       previewOrIcon: window.acPREVIEW_OR_ICON,
       vscode: window.acVSCODE,
-      objktMode: window.acPACK_MODE || false,
+      objktMode: sandboxed || window.acPACK_MODE || false,
       objktKidlispCodes: window.objktKidlispCodes || globalThis.objktKidlispCodes || {},
       microphonePermission,
       resolution,
