@@ -20,6 +20,13 @@ const gunzip = promisify(zlib.gunzip);
 const dev = process.env.NETLIFY_DEV || process.env.NODE_ENV === 'development';
 shell.log(`🔧 Development mode: ${dev}, NETLIFY_DEV env: ${process.env.NETLIFY_DEV}`);
 
+// CORS headers to allow IPFS origin
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+};
+
 // S3 client for assets storage (production only)
 const s3Assets = dev
   ? null
@@ -338,6 +345,15 @@ async function cacheGlyph(charCode, glyphData, fontName = "unifont-16.0.03") {
 }
 
 export const handler = async (event) => {
+  // Handle OPTIONS preflight requests
+  if (event.httpMethod === "OPTIONS") {
+    return {
+      statusCode: 204,
+      headers: corsHeaders,
+      body: "",
+    };
+  }
+
   const charParam = event.queryStringParameters.char;
   let fontParam = event.queryStringParameters.font || "unifont-16.0.03";
   
@@ -354,7 +370,7 @@ export const handler = async (event) => {
     return {
       statusCode: 400,
       body: JSON.stringify({ error: "Missing 'char' parameter." }),
-      headers: { "Content-Type": "application/json" },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     };
   }
 
@@ -376,7 +392,7 @@ export const handler = async (event) => {
         body: JSON.stringify({
           error: `Invalid Unicode code point: ${codePointStr}`,
         }),
-        headers: { "Content-Type": "application/json" },
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       };
     }
   } else if (charParam.length === 1) {
@@ -403,7 +419,7 @@ export const handler = async (event) => {
     return {
       statusCode: 200,
       body: JSON.stringify(cachedGlyph.data),
-      headers: { "Content-Type": "application/json" },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     };
   }
 
@@ -626,7 +642,7 @@ export const handler = async (event) => {
           return {
             statusCode: 200,
             body: JSON.stringify(glyphData),
-            headers: { "Content-Type": "application/json" },
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
           };
         }
         inChar = false;
@@ -645,7 +661,7 @@ export const handler = async (event) => {
         body: JSON.stringify({
           error: `Glyph for character '${charToFind}' (code ${charCodeToFind}) not found.`,
         }),
-        headers: { "Content-Type": "application/json" },
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       };
     }
   } catch (error) {
@@ -653,7 +669,7 @@ export const handler = async (event) => {
     return {
       statusCode: 500,
       body: JSON.stringify({ error: error.message }),
-      headers: { "Content-Type": "application/json" },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     };
   }
 };
