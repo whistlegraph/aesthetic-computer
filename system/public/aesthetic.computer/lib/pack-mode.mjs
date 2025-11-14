@@ -13,6 +13,13 @@ export const setPackMode = (value) => {
 
 // Export function to check if we're in PACK mode with fallback detection
 export const checkPackMode = () => {
+  // Spider mode is NOT pack mode - it leeches live resources
+  try {
+    if (typeof window !== 'undefined' && window.acSPIDER) return false;
+  } catch (e) {
+    // Ignore errors
+  }
+  
   // Primary source is the explicitly set PACK_MODE
   if (PACK_MODE) return true;
   
