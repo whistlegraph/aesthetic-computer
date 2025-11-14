@@ -74,11 +74,10 @@ awk -v version="$build_version" -v timestamp="$formatted_timestamp" -v size="$si
     print "          <span style=\"margin-left: 0.5rem; color: #666; font-size: 0.9rem;\">(<a href=\"https://assets.aesthetic.computer/false.work/spiderlily-windows-" version ".txt\" style=\"color: #888;\">download log</a>)</span>"
     print "        </div>"
     print "        <div class=\"meta\">" size " MB | " level " | <span class=\"build-time\" data-date=\"" timestamp "\">just now</span></div>"
-    print "        <div class=\"commit-info\">"
-    print "          <div class=\"commit-label\">📝 Latest Perforce Commit</div>"
-    print "          <div class=\"commit-message\" id=\"latest-commit\">Loading commit info...</div>"
+    print "        <div class=\"build-log-preview animated\" id=\"build-log-preview\">"
+    print "          <div class=\"log-header\">📜 Build Log</div>"
+    print "          Loading build log..."
     print "        </div>"
-    print "        <div class=\"build-log-preview\" id=\"build-log-preview\">Loading build log preview...</div>"
     next
   }
   { print }
