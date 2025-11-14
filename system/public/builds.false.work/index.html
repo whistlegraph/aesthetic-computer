@@ -127,7 +127,7 @@
   <div id="content">
     <div class="container">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-        <img src="https://assets.aesthetic.computer/false.work/falsework-logo.png" alt="false.work" style="width: 120px;">
+        <img src="https://assets.aesthetic.computer/false.work/falsework-logo.png" alt="false.work" style="width: 200px;">
         <button onclick="logout()" style="padding: 0.5rem 1rem; font-size: 0.85rem;">🔓 Logout</button>
       </div>
       <h1>builds.false.work</h1>
@@ -236,12 +236,26 @@
 
     function updateBuildTimes() {
       const timeElements = document.querySelectorAll('.build-time');
+      const dayColors = [
+        '#f66',  // Sunday - Red
+        '#fa0',  // Monday - Orange
+        '#ff0',  // Tuesday - Yellow
+        '#0f0',  // Wednesday - Green
+        '#0ff',  // Thursday - Cyan
+        '#09f',  // Friday - Blue
+        '#f0f'   // Saturday - Magenta
+      ];
+      
       timeElements.forEach(el => {
         const buildDate = new Date(el.dataset.date);
         const now = new Date();
         const diffMs = now - buildDate;
         const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
         const diffDays = Math.floor(diffHours / 24);
+        const dayOfWeek = buildDate.getDay();
+        
+        // Apply color based on day of week
+        el.style.color = dayColors[dayOfWeek];
         
         let timeAgo;
         if (diffHours < 1) {
