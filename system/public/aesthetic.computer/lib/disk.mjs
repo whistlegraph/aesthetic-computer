@@ -5903,11 +5903,11 @@ async function load(
         if (isDevelopment) {
           // Use the local development server
           baseUrl = `${protocol}//${hostname}:${location.port}`;
-        } else if (hostname.includes('aesthetic.computer')) {
-          // If we're on any aesthetic.computer subdomain, use the same origin to avoid CORS
+        } else if (hostname === 'aesthetic.computer') {
+          // If we're on the main aesthetic.computer domain (not subdomain), use same origin
           baseUrl = `${protocol}//${hostname}`;
         } else {
-          // Use the production server for sandboxed iframes or production
+          // Use the production server for sandboxed iframes, spider mode, or any subdomain
           baseUrl = `https://aesthetic.computer`;
         }
       }
