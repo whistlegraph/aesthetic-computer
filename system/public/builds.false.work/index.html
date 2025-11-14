@@ -140,7 +140,7 @@
 </head>
 <body>
   <div id="auth-container">
-    <h1>🔒 false.work builds</h1>
+    <img src="https://assets.aesthetic.computer/false.work/falsework-logo.png" alt="false.work" style="width: 200px; margin-bottom: 2rem;">
     <input type="password" id="password" placeholder="Enter password..." />
     <button onclick="checkPassword()">Access Builds</button>
     <div id="error" class="error"></div>
@@ -153,15 +153,26 @@
         <button onclick="logout()" style="padding: 0.5rem 1rem; font-size: 0.85rem;">🔓 Logout</button>
       </div>
       
-      <ul id="all-builds">
+      <h2 style="color: #fa0; margin-bottom: 1rem;">Latest Build</h2>
+      <div id="latest-build" style="background: #0a0a0a; padding: 1.5rem; border-left: 3px solid #fa0; margin-bottom: 2rem;">
         <!-- BUILD_LIST_ALL -->
-        <li>
+        <div>
           <span class="platform-tag platform-windows">🪟 Windows</span>
           <span class="project-name">SpiderLily</span>
           <a href="https://assets.aesthetic.computer/false.work/spiderlily-windows-2025.11.13-1905.zip">2025.11.13-1905.zip</a>
           <span style="margin-left: 0.5rem; color: #666;">(<a href="https://assets.aesthetic.computer/false.work/spiderlily-windows-2025.11.13-1905.txt" style="color: #888;">download log</a>)</span>
           <div class="meta">1329 MB | L_VerticalSlice_Demo | <span class="build-time" data-date="2025-11-13T19:08:46-08:00">just now</span></div>
-        </li>
+        </div>
+      </div>
+
+      <h2 style="margin-bottom: 1rem;">🔴 Live Build Logs</h2>
+      <div id="build-stream" style="background: #0a0a0a; padding: 1rem; border-left: 2px solid #444; font-family: 'Courier New', monospace; font-size: 0.85rem; max-height: 400px; overflow-y: auto; margin-bottom: 3rem;">
+        <div id="stream-status" style="color: #fa0; margin-bottom: 0.5rem; font-weight: bold;">⏳ Connecting to build stream...</div>
+        <pre id="stream-log" style="margin: 0; color: #0f0; white-space: pre-wrap; word-wrap: break-word;"></pre>
+      </div>
+
+      <h2 style="margin-bottom: 1rem;">Previous Builds</h2>
+      <ul id="all-builds">
         <li>
           <span class="platform-tag platform-windows">🪟 Windows</span>
           <span class="project-name">SpiderLily</span>
@@ -229,12 +240,6 @@
           <div class="meta">446 MB | L_VerticalSlice_Demo | <span class="build-time" data-date="2025-11-07T02:07:00">November 7, 2025</span></div>
         </li>
       </ul>
-
-      <h2>🔴 Live Build Stream</h2>
-      <div id="build-stream" style="background: #1a1a1a; padding: 1rem; border-left: 2px solid #444; font-family: 'Courier New', monospace; font-size: 0.85rem; max-height: 400px; overflow-y: auto;">
-        <div id="stream-status" style="color: #fa0; margin-bottom: 0.5rem; font-weight: bold;">⏳ Connecting to build stream...</div>
-        <pre id="stream-log" style="margin: 0; color: #0f0; white-space: pre-wrap; word-wrap: break-word;"></pre>
-      </div>
 
       <footer>
         <a href="https://false.work">false.work</a>
