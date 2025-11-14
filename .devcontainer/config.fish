@@ -1210,6 +1210,110 @@ function ac-agent
     claude $argv
 end
 
+# Ollama LLM daemon management
+function ac-llama
+    set -l command $argv[1]
+    
+    switch $command
+        case start
+            echo "🦙 Starting Ollama daemon..."
+            
+            # Check if already running
+            if pgrep -f "ollama serve" >/dev/null
+                echo "⚠️  Ollama daemon already running"
+                if curl -s http://localhost:11434/api/version >/dev/null 2>&1
+                    echo "✅ Daemon is responsive"
+                    return 0
+                else
+                    echo "⚠️  Daemon process exists but not responsive, restarting..."
+                    pkill -f "ollama serve" 2>/dev/null
+                    sleep 2
+                end
+            end
+            
+            # Start the daemon
+            nohup ollama serve > /tmp/ollama.log 2>&1 &
+            set daemon_pid $last_pid
+            echo "🚀 Ollama daemon started (PID: $daemon_pid)"
+            
+            # Wait for it to become responsive
+            set -l timeout 30
+            set -l elapsed 0
+            while test $elapsed -lt $timeout
+                if curl -s http://localhost:11434/api/version >/dev/null 2>&1
+                    echo "✅ Ollama daemon is ready!"
+                    return 0
+                end
+                sleep 1
+                set elapsed (math $elapsed + 1)
+            end
+            
+            echo "❌ Ollama daemon didn't become ready within $timeout seconds"
+            echo "📋 Check logs at /tmp/ollama.log"
+            return 1
+            
+        case stop
+            echo "🛑 Stopping Ollama daemon..."
+            pkill -f "ollama serve" 2>/dev/null
+            if test $status -eq 0
+                echo "✅ Ollama daemon stopped"
+            else
+                echo "⚠️  No Ollama daemon was running"
+            end
+            
+        case restart
+            echo "🔄 Restarting Ollama daemon..."
+            ac-llama stop
+            sleep 2
+            ac-llama start
+            
+        case status
+            if pgrep -f "ollama serve" >/dev/null
+                echo "✅ Ollama daemon process is running"
+                if curl -s http://localhost:11434/api/version >/dev/null 2>&1
+                    set -l ollama_version (curl -s http://localhost:11434/api/version 2>/dev/null | jq -r '.version' 2>/dev/null)
+                    echo "✅ Daemon is responsive (version: $ollama_version)"
+                    
+                    # List loaded models
+                    echo "📦 Checking available models..."
+                    set -l models (curl -s http://localhost:11434/api/tags 2>/dev/null | jq -r '.models[]?.name' 2>/dev/null)
+                    if test -n "$models"
+                        echo "Models available:"
+                        for model in $models
+                            echo "  • $model"
+                        end
+                    else
+                        echo "  (no models loaded)"
+                    end
+                else
+                    echo "❌ Daemon process exists but not responsive"
+                    echo "📋 Check logs at /tmp/ollama.log"
+                end
+            else
+                echo "❌ Ollama daemon is not running"
+            end
+            
+        case logs
+            if test -f /tmp/ollama.log
+                echo "📋 Ollama logs (last 50 lines):"
+                tail -n 50 /tmp/ollama.log
+            else
+                echo "⚠️  No log file found at /tmp/ollama.log"
+            end
+            
+        case '*'
+            echo "Usage: ac-llama [start|stop|restart|status|logs]"
+            echo ""
+            echo "Commands:"
+            echo "  start    - Start the Ollama daemon"
+            echo "  stop     - Stop the Ollama daemon"
+            echo "  restart  - Restart the Ollama daemon"
+            echo "  status   - Check daemon status and list models"
+            echo "  logs     - Show recent daemon logs"
+            return 1
+    end
+end
+
 # alias ac-shell 'ac; ac-url; ac-tunnel; fish'
 # alias ac-offline 'ac; cd system/public; npx http-server -p 8888 -c-1 -g -b -S -C ../../ssl-dev/localhost.pem -K ../../ssl-dev/localhost-key.pem'
 alias ac-redis 'clear; ac; npm run redis'
