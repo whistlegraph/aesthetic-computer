@@ -1,0 +1,20 @@
+:8080 {
+	# Serve the dashboard (index.html)
+	root * /workspaces/aesthetic-computer/censor
+	file_server
+	
+	# Proxy API requests to the filter API server
+	handle /api/* {
+		reverse_proxy localhost:3000
+	}
+	
+	# Keep the direct Ollama endpoint for testing
+	handle /censor {
+		reverse_proxy localhost:11434
+	}
+	
+	respond /health 200 {
+		body "OK"
+	}
+}
+
