@@ -64,14 +64,20 @@ set full_map (ssh me@host.docker.internal "powershell -NoProfile -Command \"(Get
 set start_level (echo $full_map | awk -F'.' '{print $NF}')
 
 # Use awk to insert new build entry (more reliable than sed with multiline)
-awk -v version="$build_version" -v url="$download_url" -v size="$file_size" -v level="$start_level" -v timestamp="$iso_timestamp" '
-  /<!-- BUILD_LIST_windows -->/ {
+awk -v version="$build_version" -v timestamp="$formatted_timestamp" -v size="$size_mb" -v level="$level_name" -v url="https://assets.aesthetic.computer/false.work/spiderlily-windows-$build_version.zip" '
+  /<!-- BUILD_LIST_ALL -->/ {
     print
-    print "        <li>"
-    print "          <a href=\"" url "\">" version "</a>"
-    print "          <span style=\"margin-left: 0.5rem; color: #666;\">(<a href=\"https://assets.aesthetic.computer/false.work/spiderlily-windows-" version ".txt\" style=\"color: #888;\">log</a>)</span>"
-    print "          <div class=\"meta\">" size " MB | " level " | <span class=\"build-time\" data-date=\"" timestamp "\">just now</span></div>"
-    print "        </li>"
+    print "        <div class=\"build-header\">"
+    print "          <span class=\"platform-tag platform-windows\">🪟 Windows</span>"
+    print "          <span class=\"project-name\">SpiderLily</span>"
+    print "          <a href=\"" url "\">" version ".zip</a>"
+    print "          <span style=\"margin-left: 0.5rem; color: #666; font-size: 0.9rem;\">(<a href=\"https://assets.aesthetic.computer/false.work/spiderlily-windows-" version ".txt\" style=\"color: #888;\">download log</a>)</span>"
+    print "        </div>"
+    print "        <div class=\"meta\">" size " MB | " level " | <span class=\"build-time\" data-date=\"" timestamp "\">just now</span></div>"
+    print "        <div class=\"build-log-preview animated\" id=\"build-log-preview\">"
+    print "          <div class=\"log-header\">📜 Build Log</div>"
+    print "          Loading build log..."
+    print "        </div>"
     next
   }
   { print }
@@ -86,7 +92,29 @@ echo "========================================="
 cd /workspaces/aesthetic-computer
 git add system/public/builds.false.work/index.html
 git commit -m "Add SpiderLily Windows build $build_version"
-git push
+
+# Try to push, if it fails due to remote changes, pull and retry
+if not git push
+    echo "Push failed, pulling remote changes and retrying..."
+    
+    # Check if there are uncommitted changes (excluding the file we just committed)
+    set -l has_changes (git status --porcelain | grep -v "^M  system/public/builds.false.work/index.html" | wc -l)
+    
+    if test $has_changes -gt 0
+        echo "⚠️  Warning: Uncommitted changes detected, stashing them..."
+        git status --short
+        git stash push -m "Build script auto-stash before rebase"
+        echo "💾 Changes stashed - use 'git stash pop' to restore them after the build"
+    end
+    
+    # Pull with rebase
+    git pull --rebase
+    # Push again
+    git push
+    
+    # Don't automatically pop the stash - let the user decide when to restore
+    echo "✅ Build pushed successfully"
+end
 
 echo ""
 echo "✅ Build complete and deployed!"
