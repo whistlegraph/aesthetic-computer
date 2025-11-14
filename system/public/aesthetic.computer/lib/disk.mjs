@@ -121,6 +121,11 @@ if (typeof globalThis !== "undefined") {
 // Helper function to safely check for sandboxed environments in both main thread and worker contexts
 function isSandboxed() {
   try {
+    // Check for spider mode first
+    if (typeof window !== "undefined" && window.acSPIDER) {
+      return true; // Spider mode should behave like sandboxed for URL construction
+    }
+    
     // In workers, window is undefined but we can still check self.origin or location
     if (typeof window !== "undefined") {
       return window.origin === "null";
