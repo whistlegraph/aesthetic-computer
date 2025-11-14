@@ -2552,6 +2552,21 @@ class KidLisp {
         return;
       }
 
+      // Skip caching in SPIDER mode (read-only IPFS environment)
+      if (typeof window !== 'undefined' && window.acSPIDER) {
+        // Generate a simple hash-based code for SPIDER mode
+        const simpleHash = source.split('').reduce((a, b) => {
+          a = ((a << 5) - a) + b.charCodeAt(0);
+          return a & a;
+        }, 0);
+        const spiderCode = Math.abs(simpleHash).toString(36).substring(0, 8);
+        this.shortUrl = `spider/$${spiderCode}`;
+        this.cachedCode = spiderCode;
+        setCachedCode(source, spiderCode);
+        this.cachingInProgress = false; // Reset the flag
+        return;
+      }
+
       // Use standard fetch with proper headers (like other API calls)
       const headers = { "Content-Type": "application/json" };
 
