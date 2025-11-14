@@ -1,0 +1,22 @@
+#!/usr/bin/env fish
+# Compile SmartPy contracts with correct Docker-in-Docker mounts
+# Usage from /workspaces/aesthetic-computer/tezos:
+#   ./smartpy-compile keeps_fa2_final.py
+
+if test (count $argv) -eq 0
+    echo "Usage: smartpy-compile <script.py>"
+    exit 1
+end
+
+set SCRIPT $argv[1]
+
+if not test -f $SCRIPT
+    echo "Error: File not found: $SCRIPT"
+    exit 1
+end
+
+# Use the host path directly
+set HOST_TEZOS_PATH /home/me/aesthetic-computer/tezos
+
+echo "✓ Compiling $SCRIPT with SmartPy v0.23.1..."
+docker run --rm -v $HOST_TEZOS_PATH:/workspace smartpy-amd64:0.23.1 python3 /workspace/$SCRIPT

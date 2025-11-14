@@ -438,7 +438,11 @@ class Typeface {
           // Only make API calls when NOT in OBJKT mode
           if (!isObjktMode) {
             try {
-              fetch(`/api/bdf-glyph?char=${codePointStr}&font=${this.name}`)
+              // In spider mode, use absolute URL to aesthetic.computer
+              const apiUrl = (typeof window !== 'undefined' && window.acSPIDER)
+                ? `https://aesthetic.computer/api/bdf-glyph?char=${codePointStr}&font=${this.name}`
+                : `/api/bdf-glyph?char=${codePointStr}&font=${this.name}`;
+              fetch(apiUrl)
                 .then((response) => {
                   if (!response.ok) {
                     if (response.status === 404) {

@@ -1,0 +1,24 @@
+#!/usr/bin/env fish
+# Helper for Docker-in-Docker with correct volume mounts in dev containers
+# Usage: docker-dev-mount smartpy-amd64:0.23.1 python3 /workspace/script.py
+
+# Get the host path for the workspace  
+set HOST_PATH (docker inspect (cat /etc/hostname) 2>/dev/null | jq -r '.[0].Mounts[] | select(.Destination == "/workspaces/aesthetic-computer") | .Source' 2>/dev/null)
+
+if test -z "$HOST_PATH"
+    echo "Error: Could not determine host path for workspace"
+    exit 1
+end
+
+# Get current directory from PWD environment variable
+set CURRENT_DIR $PWD
+set CONTAINER_PATH /workspaces/aesthetic-computer
+
+# Calculate relative path
+set REL_PATH (string replace $CONTAINER_PATH "" $CURRENT_DIR)
+
+# Build mount path
+set MOUNT_PATH "$HOST_PATH$REL_PATH"
+
+echo "✓ Mounting: $MOUNT_PATH -> /workspace"
+docker run --rm -v "$MOUNT_PATH:/workspace" $argv

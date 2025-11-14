@@ -121,6 +121,11 @@ if (typeof globalThis !== "undefined") {
 // Helper function to safely check for sandboxed environments in both main thread and worker contexts
 function isSandboxed() {
   try {
+    // Check for spider mode first
+    if (typeof window !== "undefined" && window.acSPIDER) {
+      return true; // Spider mode should behave like sandboxed for URL construction
+    }
+    
     // In workers, window is undefined but we can still check self.origin or location
     if (typeof window !== "undefined") {
       return window.origin === "null";
@@ -3263,6 +3268,10 @@ const $commonApi = {
       //       the future. 24.05.23.21.27
     },
     pieces: `${(() => {
+      // In spider mode, always use main aesthetic.computer domain
+      if (typeof window !== 'undefined' && window.acSPIDER) {
+        return 'https://aesthetic.computer';
+      }
       const { protocol, hostname } = getSafeUrlParts();
       return `${protocol}//${hostname}`;
     })()}/aesthetic.computer/disks`,
@@ -5861,6 +5870,10 @@ async function load(
     hash = parsed.hash;
     host = parsed.host;
     slug = parsed.text;
+    
+    if (typeof window !== 'undefined' && window.acSPIDER) {
+      console.log("🕷️ SPIDER load debug:", { slug, path, parsedText: parsed.text, parsedPath: parsed.path });
+    }
 
     // 👱 Route to the `profile` piece if we are just hitting an empty
     // username.
@@ -5889,6 +5902,7 @@ async function load(
     let baseUrl;
     if (path.startsWith('aesthetic.computer/')) {
       // Check if we're in OBJKT mode - use local bundled files
+      if (typeof window !== 'undefined' && window.acSPIDER) console.log("🕷️ getPackMode():", getPackMode(), "window.acPACK_MODE:", window.acPACK_MODE, "checkPackMode():", checkPackMode());
       if (getPackMode()) {
         // In OBJKT mode, use relative paths to load bundled pieces
         baseUrl = ".";
@@ -5898,11 +5912,11 @@ async function load(
         if (isDevelopment) {
           // Use the local development server
           baseUrl = `${protocol}//${hostname}:${location.port}`;
-        } else if (hostname.includes('aesthetic.computer')) {
-          // If we're on any aesthetic.computer subdomain, use the same origin to avoid CORS
+        } else if (hostname === 'aesthetic.computer') {
+          // If we're on the main aesthetic.computer domain (not subdomain), use same origin
           baseUrl = `${protocol}//${hostname}`;
         } else {
-          // Use the production server for sandboxed iframes or production
+          // Use the production server for sandboxed iframes, spider mode, or any subdomain
           baseUrl = `https://aesthetic.computer`;
         }
       }
@@ -5910,7 +5924,7 @@ async function load(
       baseUrl = `${protocol}//${hostname}`;
     }
     
-    // if (debug) console.log("🔍 Debug getSafeUrlParts:", { protocol, hostname, baseUrl, isSandboxed: isSandboxed(), path, isDevelopment: hostname === 'localhost' && typeof location !== 'undefined' && location.port });
+    if (typeof window !== 'undefined' && window.acSPIDER) console.log("�️ SPIDER MODE Debug:", { protocol, hostname, baseUrl, isSandboxed: isSandboxed(), path, isDevelopment: hostname === 'localhost' && typeof location !== 'undefined' && location.port });
     
     // Check if path already includes the hostname to avoid double paths
     let resolvedPath = path;
@@ -5918,7 +5932,7 @@ async function load(
       // In OBJKT mode, keep the full path since files are bundled with directory structure
       resolvedPath = path;
     } else if (baseUrl === 'https://aesthetic.computer' && path.startsWith('aesthetic.computer/')) {
-      // Only strip "aesthetic.computer/" if we're using the main production domain
+      // Strip "aesthetic.computer/" prefix when using production domain to avoid doubling
       resolvedPath = path.substring('aesthetic.computer/'.length);
     }
     
@@ -6369,6 +6383,10 @@ async function load(
             if (type === "scream" && socket?.id !== id) {
               console.log("😱 Scream:", content, "❗");
               scream = content;
+            }
+            // 🎯 Jump to a specific piece!
+            if (type === "jump") {
+              $commonApi.jump(content.piece);
             }
             // 🧩 Pieces get all other messages not caught in `Socket`.
             receiver?.(id, type, content); // Run the piece receiver.
@@ -7714,7 +7732,6 @@ async function makeFrame({ data: { type, content } }) {
 
   // Jump to any piece slug from the bios.
   if (type === "jump") {
-    console.log("🏃 Jumping to:", content);
     let ahistorical, alias;
     if (content.ahistorical === undefined) {
       ahistorical = true;
@@ -8069,7 +8086,8 @@ async function makeFrame({ data: { type, content } }) {
     type === "tape:post-error" ||
     type === "tape:download-progress" ||
     type === "tape:load-progress" ||
-    type === "tape:audio-context-state"
+    type === "tape:audio-context-state" ||
+    type === "tape:playback-progress"
   ) {
     // Check if actEvents exists without causing ReferenceError
     try {
@@ -12403,7 +12421,7 @@ async function handle() {
         const newHandle = "@" + data.handle;
         if (newHandle === HANDLE) return;
         HANDLE = newHandle;
-        window.acHANDLE = HANDLE; // Expose for UDP identity
+        if (typeof window !== 'undefined') window.acHANDLE = HANDLE; // Expose for UDP identity
         send({ type: "handle", content: HANDLE });
         store["handle:received"] = true;
         store["handle"] = data.handle;
