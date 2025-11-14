@@ -224,6 +224,13 @@ if (dev) {
     everyone(pack("reload", req.body, "pieces"));
     return { msg: "Reload request sent!", body: req.body };
   });
+  
+  // Jump to a specific piece (navigate)
+  fastify.post("/jump", async (req) => {
+    const { piece } = req.body;
+    everyone(pack("jump", { piece }, "pieces"));
+    return { msg: "Jump request sent!", piece };
+  });
 }
 
 // *** HTTP Server Initialization ***
