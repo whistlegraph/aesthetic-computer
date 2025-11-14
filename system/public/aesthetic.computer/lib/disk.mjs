@@ -3268,6 +3268,10 @@ const $commonApi = {
       //       the future. 24.05.23.21.27
     },
     pieces: `${(() => {
+      // In spider mode, always use main aesthetic.computer domain
+      if (typeof window !== 'undefined' && window.acSPIDER) {
+        return 'https://aesthetic.computer';
+      }
       const { protocol, hostname } = getSafeUrlParts();
       return `${protocol}//${hostname}`;
     })()}/aesthetic.computer/disks`,
