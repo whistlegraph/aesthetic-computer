@@ -439,7 +439,7 @@ class Typeface {
           if (!isObjktMode) {
             try {
               // In spider mode, use absolute URL to aesthetic.computer
-              const apiUrl = window.acSPIDER 
+              const apiUrl = (typeof window !== 'undefined' && window.acSPIDER)
                 ? `https://aesthetic.computer/api/bdf-glyph?char=${codePointStr}&font=${this.name}`
                 : `/api/bdf-glyph?char=${codePointStr}&font=${this.name}`;
               fetch(apiUrl)
