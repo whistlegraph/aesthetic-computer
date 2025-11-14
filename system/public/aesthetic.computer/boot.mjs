@@ -279,7 +279,8 @@ if (
 
 if (window.acSTARTING_PIECE === undefined) window.acSTARTING_PIECE = "prompt";
 
-// In OBJKT mode, always use acSTARTING_PIECE instead of URL slug
+// In OBJKT/PACK mode, always use acSTARTING_PIECE instead of URL slug
+// Spider mode should use the URL slug like normal pages
 let originalUrl = location.href;
 let sluggedUrl = null;
 
@@ -434,7 +435,7 @@ if (window.acVSCODE) {
 // Pass the parameters directly without stripping them
 boot(parsed, bpm, { gap: nogap ? 0 : undefined, nolabel, density, zoom, duration, tv, highlight }, debug);
 
-let sandboxed = (window.origin === "null" && !window.acVSCODE) || localStorageBlocked || sessionStorageBlocked || window.acPACK_MODE;
+let sandboxed = (window.origin === "null" && !window.acVSCODE) || localStorageBlocked || sessionStorageBlocked || window.acPACK_MODE || window.acSPIDER;
 
 // #region 🔐 Auth0: Universal Login & Authentication
 function loadAuth0Script() {

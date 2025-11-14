@@ -9,6 +9,14 @@ function respond(statusCode, body, headers = {}) {
     headers["Access-Control-Allow-Origin"] = "*";
   }
 
+  if (!headers["Access-Control-Allow-Methods"]) {
+    headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS";
+  }
+
+  if (!headers["Access-Control-Allow-Headers"]) {
+    headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization";
+  }
+
   const res = { statusCode, headers };
   res.body = typeof body === "object" ? JSON.stringify(body) : body;
 
