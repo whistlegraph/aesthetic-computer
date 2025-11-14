@@ -12240,6 +12240,14 @@ async function fetchCachedCode(nanoidCode, api = null) {
     });
   };
 
+  // In spider mode, skip local server and go straight to production
+  if (typeof window !== 'undefined' && window.acSPIDER) {
+    const productionUrl = `https://aesthetic.computer/api/store-kidlisp?code=${nanoidCode}`;
+    // console.log(`🕷️ Spider mode: fetching from production: ${productionUrl}`);
+    const productionSource = await tryFetch(productionUrl, true);
+    return productionSource;
+  }
+
   // First try local dev server
   const localUrl = `/api/store-kidlisp?code=${nanoidCode}`;
   // console.log(`🔍 Attempting to fetch ${nanoidCode} from local dev server: ${localUrl}`);
