@@ -96,14 +96,29 @@ git commit -m "Add SpiderLily Windows build $build_version"
 # Try to push, if it fails due to remote changes, pull and retry
 if not git push
     echo "Push failed, pulling remote changes and retrying..."
-    # Stash any uncommitted changes
-    git stash
+    
+    # Check if there are uncommitted changes (excluding the file we just committed)
+    set -l has_changes (git status --porcelain | grep -v "^M  system/public/builds.false.work/index.html" | wc -l)
+    
+    if test $has_changes -gt 0
+        echo "⚠️  Warning: Uncommitted changes detected, stashing them temporarily..."
+        git status --short
+        git stash
+        set -l stashed 1
+    else
+        set -l stashed 0
+    end
+    
     # Pull with rebase
     git pull --rebase
     # Push again
     git push
-    # Restore stashed changes
-    git stash pop 2>/dev/null
+    
+    # Restore stashed changes only if we actually stashed something
+    if test $stashed -eq 1
+        echo "Restoring stashed changes..."
+        git stash pop 2>/dev/null
+    end
 end
 
 echo ""
