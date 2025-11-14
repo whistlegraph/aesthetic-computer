@@ -5927,8 +5927,9 @@ async function load(
     if (getPackMode() && path.startsWith('aesthetic.computer/')) {
       // In OBJKT mode, keep the full path since files are bundled with directory structure
       resolvedPath = path;
-    } else if (baseUrl === 'https://aesthetic.computer' && path.startsWith('aesthetic.computer/')) {
+    } else if (baseUrl === 'https://aesthetic.computer' && path.startsWith('aesthetic.computer/') && !window.acSPIDER) {
       // Only strip "aesthetic.computer/" if we're using the main production domain
+      // BUT NOT in spider mode - spider needs the full path to load from production
       resolvedPath = path.substring('aesthetic.computer/'.length);
     }
     
