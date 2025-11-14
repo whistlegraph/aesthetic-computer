@@ -100,7 +100,7 @@ export async function handler(event, context) {
 
   if (event.httpMethod === 'OPTIONS') {
     console.log(`✅ Handling OPTIONS preflight request`);
-    return respond(200, '');
+    return respond(204, '');
   }
 
   try {

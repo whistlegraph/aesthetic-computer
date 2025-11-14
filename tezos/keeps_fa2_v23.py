@@ -9,14 +9,7 @@ def main():
             self.data.ledger = sp.cast(sp.big_map(), sp.big_map[sp.nat, sp.address])
             self.data.metadata = sp.cast(sp.big_map({
                 "": sp.bytes("0x74657a6f732d73746f726167653a636f6e74656e74"),  # "tezos-storage:content"
-                "content": sp.pack({
-                    "name": "Aesthetic Computer Keeps",
-                    "description": "FA2 NFT contract for aesthetic.computer pieces",
-                    "version": "1.0.0",
-                    "interfaces": ["TZIP-012", "TZIP-016"],
-                    "authors": ["aesthetic.computer"],
-                    "homepage": "https://aesthetic.computer"
-                })
+                "content": sp.bytes("0x7b226e616d65223a202241657374686574696320436f6d7075746572204b65657073222c20226465736372697074696f6e223a2022464132204e465420636f6e747261637420666f72206165737468657469632e636f6d7075746572222c202276657273696f6e223a2022312e302e30222c2022696e7465726661636573223a205b22545a49502d303132222c2022545a49502d303136225d2c2022617574686f7273223a205b226165737468657469632e636f6d7075746572225d2c2022686f6d6570616765223a202268747470733a2f2f6165737468657469632e636f6d7075746572227d")
             }), sp.big_map[sp.string, sp.bytes])
             self.data.operators = sp.cast(sp.big_map(), sp.big_map[
                 sp.record(owner=sp.address, operator=sp.address, token_id=sp.nat), 
@@ -101,10 +94,16 @@ def main():
                 )]]
             ))
             
-            responses = []
-            for req in params.requests:
-                balance = sp.nat(1) if self.data.ledger.get(req.token_id, sp.address("tz1Ke2h7sDdakHJQh8WX4Z372du1KChsksyU")) == req.owner else sp.nat(0)
-                responses.append(sp.record(request=req, balance=balance))
+            responses = sp.compute(
+                params.requests.map(lambda req: sp.record(
+                    request=req,
+                    balance=sp.eif(
+                        self.data.ledger.contains(req.token_id) & (self.data.ledger[req.token_id] == req.owner),
+                        sp.nat(1),
+                        sp.nat(0)
+                    )
+                ))
+            )
             
             sp.transfer(responses, sp.mutez(0), params.callback)
         
@@ -123,7 +122,7 @@ def main():
                         owner=op.owner,
                         operator=op.operator,
                         token_id=op.token_id
-                    )] = sp.unit
+                    )] = ()
                 else:  # remove_operator
                     op = update.unwrap_some()
                     assert op.owner == sp.sender, "FA2_NOT_OWNER"
@@ -133,8 +132,11 @@ def main():
                         token_id=op.token_id
                     )]
 
-if __name__ == "__main__":
-    @sp.add_target(name="keeps_fa2_enhanced")
-    def target():
-        admin = sp.address("tz1Lc2DzTjDPyWFj1iuAVGGZWNjK67Wun2dC")
-        return main.KeepsFA2(admin)
+@sp.add_test()
+def test():
+    admin = sp.address("tz1Lc2DzTjDPyWFj1iuAVGGZWNjK67Wun2dC")
+    scenario = sp.test_scenario("keeps_fa2_enhanced", main)
+    scenario.h1("Keeps FA2 NFT Contract")
+    
+    contract = main.KeepsFA2(admin)
+    scenario += contract
