@@ -5919,7 +5919,7 @@ async function load(
       baseUrl = `${protocol}//${hostname}`;
     }
     
-    // if (debug) console.log("🔍 Debug getSafeUrlParts:", { protocol, hostname, baseUrl, isSandboxed: isSandboxed(), path, isDevelopment: hostname === 'localhost' && typeof location !== 'undefined' && location.port });
+    if (typeof window !== 'undefined' && window.acSPIDER) console.log("�️ SPIDER MODE Debug:", { protocol, hostname, baseUrl, isSandboxed: isSandboxed(), path, isDevelopment: hostname === 'localhost' && typeof location !== 'undefined' && location.port });
     
     // Check if path already includes the hostname to avoid double paths
     let resolvedPath = path;
