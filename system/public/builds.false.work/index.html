@@ -33,8 +33,8 @@
       margin-bottom: 2rem;
     }
     input[type="password"] {
-      background: #1a1a1a;
-      border: 2px solid #444;
+      background: #0a0a0a;
+      border: 2px solid #333;
       color: #fff;
       font-family: 'Courier New', monospace;
       font-size: 1rem;
@@ -44,20 +44,23 @@
     }
     input[type="password"]:focus {
       outline: none;
-      border-color: #666;
+      border-color: #555;
+      background: #111;
     }
     button {
-      background: #fff;
-      color: #000;
-      border: none;
+      background: #222;
+      color: #fff;
+      border: 2px solid #444;
       font-family: 'Courier New', monospace;
       font-size: 1rem;
       font-weight: bold;
       padding: 0.75rem 2rem;
       cursor: pointer;
+      transition: all 0.2s;
     }
     button:hover {
-      background: #ccc;
+      background: #333;
+      border-color: #666;
     }
     .error {
       color: #f66;
@@ -68,13 +71,27 @@
     }
     h1 {
       font-size: 1.5rem;
-      margin-bottom: 1rem;
+      margin-bottom: 1.5rem;
       color: #fff;
     }
-    h2 {
-      font-size: 1.2rem;
-      margin: 2rem 0 0.5rem;
-      color: #fff;
+    .platform-tag {
+      display: inline-block;
+      padding: 0.2rem 0.5rem;
+      margin-right: 0.5rem;
+      background: #222;
+      border: 1px solid #444;
+      border-radius: 3px;
+      font-size: 0.75rem;
+      font-weight: bold;
+      text-transform: uppercase;
+    }
+    .platform-windows { color: #09f; border-color: #09f; }
+    .platform-mac { color: #888; border-color: #888; }
+    .platform-ios { color: #f0f; border-color: #f0f; }
+    .project-name {
+      color: #fa0;
+      font-weight: bold;
+      margin-right: 0.5rem;
     }
     ul {
       list-style: none;
@@ -82,8 +99,13 @@
     li {
       padding: 0.75rem;
       margin: 0.5rem 0;
-      background: #1a1a1a;
-      border-left: 2px solid #444;
+      background: #0a0a0a;
+      border-left: 2px solid #333;
+      transition: all 0.2s;
+    }
+    li:hover {
+      background: #111;
+      border-left-color: #666;
     }
     a {
       color: #fff;
@@ -118,7 +140,7 @@
 </head>
 <body>
   <div id="auth-container">
-    <h1>🔒 builds.false.work</h1>
+    <h1>🔒 false.work builds</h1>
     <input type="password" id="password" placeholder="Enter password..." />
     <button onclick="checkPassword()">Access Builds</button>
     <div id="error" class="error"></div>
@@ -126,78 +148,86 @@
 
   <div id="content">
     <div class="container">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
         <img src="https://assets.aesthetic.computer/false.work/falsework-logo.png" alt="false.work" style="width: 200px;">
         <button onclick="logout()" style="padding: 0.5rem 1rem; font-size: 0.85rem;">🔓 Logout</button>
       </div>
-      <h1>builds.false.work</h1>
       
-      <h2>🪟 Windows</h2>
-      <ul id="windows-builds">
-        <!-- BUILD_LIST_windows -->
+      <ul id="all-builds">
+        <!-- BUILD_LIST_ALL -->
         <li>
+          <span class="platform-tag platform-windows">🪟 Windows</span>
+          <span class="project-name">SpiderLily</span>
           <a href="https://assets.aesthetic.computer/false.work/spiderlily-windows-2025.11.13-1905.zip">2025.11.13-1905.zip</a>
           <span style="margin-left: 0.5rem; color: #666;">(<a href="https://assets.aesthetic.computer/false.work/spiderlily-windows-2025.11.13-1905.txt" style="color: #888;">download log</a>)</span>
           <div class="meta">1329 MB | L_VerticalSlice_Demo | <span class="build-time" data-date="2025-11-13T19:08:46-08:00">just now</span></div>
         </li>
         <li>
+          <span class="platform-tag platform-windows">🪟 Windows</span>
+          <span class="project-name">SpiderLily</span>
           <a href="https://assets.aesthetic.computer/false.work/spiderlily-windows-2025.11.13-1609.zip">2025.11.13-1609.zip</a>
           <span style="margin-left: 0.5rem; color: #666;">(<a href="https://assets.aesthetic.computer/false.work/spiderlily-windows-2025.11.13-1609.txt" style="color: #888;">download log</a>)</span>
           <div class="meta">1329 MB | L_VerticalSlice_Demo | <span class="build-time" data-date="2025-11-13T16:15:03-08:00">just now</span></div>
         </li>
         <li>
+          <span class="platform-tag platform-windows">🪟 Windows</span>
+          <span class="project-name">SpiderLily</span>
           <a href="https://assets.aesthetic.computer/false.work/spiderlily-windows-2025.11.12-1202.zip">2025.11.12-1202.zip</a>
           <span style="margin-left: 0.5rem; color: #666;">(<a href="https://assets.aesthetic.computer/false.work/spiderlily-windows-2025.11.12-1202.txt" style="color: #888;">download log</a>)</span>
           <div class="meta">1224 MB | L_VerticalSlice_Demo | <span class="build-time" data-date="2025-11-12T12:09:51-08:00">just now</span></div>
         </li>
         <li>
+          <span class="platform-tag platform-windows">🪟 Windows</span>
+          <span class="project-name">SpiderLily</span>
           <a href="https://assets.aesthetic.computer/false.work/spiderlily-windows-2025.11.11-1817.zip">2025.11.11-1817.zip</a>
           <span style="margin-left: 0.5rem; color: #666;">(<a href="https://assets.aesthetic.computer/false.work/spiderlily-windows-2025.11.11-1817.txt" style="color: #888;">download log</a>)</span>
           <div class="meta">1163 MB | L_VerticalSlice_Demo | <span class="build-time" data-date="2025-11-11T18:26:20-08:00">just now</span></div>
         </li>
         <li>
+          <span class="platform-tag platform-windows">🪟 Windows</span>
+          <span class="project-name">SpiderLily</span>
           <a href="https://assets.aesthetic.computer/false.work/spiderlily-windows-2025.11.10-1505.zip">2025.11.10-1505.zip</a>
           <span style="margin-left: 0.5rem; color: #666;">(<a href="https://assets.aesthetic.computer/false.work/spiderlily-windows-2025.11.10-1505.txt" style="color: #888;">download log</a>)</span>
           <div class="meta">961 MB | L_VerticalSlice_MainMenu | <span class="build-time" data-date="2025-11-10T15:09:48-08:00">just now</span></div>
         </li>
         <li>
+          <span class="platform-tag platform-windows">🪟 Windows</span>
+          <span class="project-name">SpiderLily</span>
           <a href="https://assets.aesthetic.computer/false.work/spiderlily-windows-2025.11.08-1532.zip">2025.11.08-1532.zip</a>
           <span style="margin-left: 0.5rem; color: #666;">(<a href="https://assets.aesthetic.computer/false.work/spiderlily-windows-2025.11.08-1532.txt" style="color: #888;">download log</a>)</span>
           <div class="meta">850 MB | L_VerticalSlice_Intro | <span class="build-time" data-date="2025-11-08T15:32:00">just now</span></div>
         </li>
         <li>
+          <span class="platform-tag platform-windows">🪟 Windows</span>
+          <span class="project-name">SpiderLily</span>
           <a href="https://assets.aesthetic.computer/false.work/spiderlily-windows-2025.11.08-1347.zip">2025.11.08-1347.zip</a>
           <span style="margin-left: 0.5rem; color: #666;">(<a href="https://assets.aesthetic.computer/false.work/spiderlily-windows-2025.11.08-1347.txt" style="color: #888;">download log</a>)</span>
           <div class="meta">849 MB | L_VerticalSlice_MainMenu | <span class="build-time" data-date="2025-11-08T13:47:00">November 8, 2025</span></div>
         </li>
         <li>
+          <span class="platform-tag platform-windows">🪟 Windows</span>
+          <span class="project-name">SpiderLily</span>
           <a href="https://assets.aesthetic.computer/false.work/spiderlily-windows-2025.11.08-1532.zip">2025.11.08-1532</a>
           <div class="meta">850 MB | L_VerticalSlice_Intro | <span class="build-time" data-date="2025-11-08T15:32:00">just now</span></div>
         </li>
         <li>
+          <span class="platform-tag platform-windows">🪟 Windows</span>
+          <span class="project-name">SpiderLily</span>
           <a href="https://assets.aesthetic.computer/false.work/spiderlily-windows-2025.11.08-1347.zip">2025.11.08-1347</a>
           <div class="meta">849 MB | L_VerticalSlice_MainMenu | <span class="build-time" data-date="2025-11-08T13:47:00">November 8, 2025</span></div>
         </li>
         <li>
+          <span class="platform-tag platform-windows">🪟 Windows</span>
+          <span class="project-name">SpiderLily</span>
           <a href="https://assets.aesthetic.computer/false.work/spiderlily-windows-2025.11.08-1255.zip">2025.11.08-1255</a>
           <div class="meta">845 MB | L_VerticalSlice_MainMenu | <span class="build-time" data-date="2025-11-08T12:55:00">November 8, 2025</span></div>
         </li>
         <li>
+          <span class="platform-tag platform-windows">🪟 Windows</span>
+          <span class="project-name">SpiderLily</span>
           <a href="https://assets.aesthetic.computer/false.work/spiderlily-windows-2025.11.07-0207.zip">2025.11.07-0207</a>
           <div class="meta">446 MB | L_VerticalSlice_Demo | <span class="build-time" data-date="2025-11-07T02:07:00">November 7, 2025</span></div>
         </li>
-      </ul>
-
-      <h2>🍎 Mac</h2>
-      <ul id="mac-builds">
-        <!-- BUILD_LIST_mac -->
-        <li class="empty">No builds available yet</li>
-      </ul>
-
-      <h2>📱 iOS</h2>
-      <ul id="ios-builds">
-        <!-- BUILD_LIST_ios -->
-        <li class="empty">No builds available yet</li>
       </ul>
 
       <h2>🔴 Live Build Stream</h2>
