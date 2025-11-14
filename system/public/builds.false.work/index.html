@@ -176,6 +176,9 @@
     .commit-info .commit-message {
       color: #ccc;
       font-family: 'Courier New', monospace;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
     }
     .build-log-preview {
       background: #0a0a0a;
@@ -183,12 +186,30 @@
       border-left: 2px solid #444;
       font-family: 'Courier New', monospace;
       font-size: 0.75rem;
-      max-height: 300px;
+      max-height: 400px;
       overflow-y: auto;
       margin-top: 1rem;
       color: #0f0;
       white-space: pre-wrap;
       word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+    .build-log-preview .log-header {
+      color: #fa0;
+      font-weight: bold;
+      margin-bottom: 0.5rem;
+      position: sticky;
+      top: 0;
+      background: #0a0a0a;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid #333;
+    }
+    @keyframes scrollLog {
+      0% { transform: translateY(20px); opacity: 0; }
+      100% { transform: translateY(0); opacity: 1; }
+    }
+    .build-log-preview.animated {
+      animation: scrollLog 0.5s ease-out;
     }
     .build-log-preview::-webkit-scrollbar {
       width: 8px;
@@ -230,11 +251,10 @@
           <span style="margin-left: 0.5rem; color: #666; font-size: 0.9rem;">(<a href="https://assets.aesthetic.computer/false.work/spiderlily-windows-2025.11.13-2233.txt" style="color: #888;">download log</a>)</span>
         </div>
         <div class="meta">1329 MB | L_VerticalSlice_Demo | <span class="build-time" data-date="2025-11-13T22:33:00-08:00">just now</span></div>
-        <div class="commit-info">
-          <div class="commit-label">📝 Latest Perforce Commit</div>
-          <div class="commit-message" id="latest-commit">Loading commit info...</div>
+        <div class="build-log-preview animated" id="build-log-preview">
+          <div class="log-header">📜 Build Log</div>
+          Loading build log...
         </div>
-        <div class="build-log-preview" id="build-log-preview">Loading build log preview...</div>
       </div>
 
       <h2 style="margin-bottom: 1rem;">Previous Builds</h2>
@@ -382,33 +402,22 @@
 
     async function loadLatestBuildInfo() {
       try {
-        // Load build log preview
+        // Load full build log
         const logResponse = await fetch('https://assets.aesthetic.computer/false.work/spiderlily-windows-2025.11.13-2233.txt');
         const logText = await logResponse.text();
         
-        // Extract Perforce commit message (look for P4 sync or commit info)
-        const p4Lines = logText.split('\n').filter(line => 
-          line.includes('//SpiderLily/') || 
-          line.includes('Changelist') ||
-          line.includes('Change @')
-        );
+        // Show full build log with header
+        const logPreview = document.getElementById('build-log-preview');
+        logPreview.innerHTML = '<div class="log-header">📜 Build Log</div>' + 
+                              '<div style="color: #0f0;">' + logText.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
         
-        let commitInfo = 'No commit information available';
-        if (p4Lines.length > 0) {
-          // Get the first few relevant lines
-          commitInfo = p4Lines.slice(0, 5).join('\n');
-        }
-        
-        document.getElementById('latest-commit').textContent = commitInfo;
-        
-        // Show last 50 lines of build log
-        const logLines = logText.split('\n');
-        const previewLines = logLines.slice(-50).join('\n');
-        document.getElementById('build-log-preview').textContent = previewLines;
+        // Scroll to bottom to show latest output
+        logPreview.scrollTop = logPreview.scrollHeight;
       } catch (error) {
         console.error('Failed to load build info:', error);
-        document.getElementById('latest-commit').textContent = 'Failed to load commit info';
-        document.getElementById('build-log-preview').textContent = 'Failed to load build log preview';
+        document.getElementById('build-log-preview').innerHTML = 
+          '<div class="log-header">📜 Build Log</div>' +
+          '<div style="color: #f66;">Failed to load build log</div>';
       }
     }
 
