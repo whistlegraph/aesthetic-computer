@@ -2318,6 +2318,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   const sandboxed =
     (window.origin === "null" || !window.origin || window.acPACK_MODE) && !window.acVSCODE;
 
+  // 🕷️ SPIDER MODE: Debug sandboxed state
+  if (window.acSPIDER) {
+    console.log("🕷️ SPIDER: Sandboxed check:", {
+      origin: window.origin,
+      acPACK_MODE: window.acPACK_MODE,
+      acVSCODE: window.acVSCODE,
+      sandboxed
+    });
+  }
+
   const microphonePermission = await checkMicrophonePermission();
 
   // Extract embedded source if available
