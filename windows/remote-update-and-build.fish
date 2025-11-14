@@ -64,10 +64,12 @@ set full_map (ssh me@host.docker.internal "powershell -NoProfile -Command \"(Get
 set start_level (echo $full_map | awk -F'.' '{print $NF}')
 
 # Use awk to insert new build entry (more reliable than sed with multiline)
-awk -v version="$build_version" -v url="$download_url" -v size="$file_size" -v level="$start_level" -v timestamp="$iso_timestamp" '
-  /<!-- BUILD_LIST_windows -->/ {
+awk -v version="$build_version" -v timestamp="$formatted_timestamp" -v size="$size_mb" -v level="$level_name" -v url="https://assets.aesthetic.computer/false.work/spiderlily-windows-$build_version.zip" '
+  /<!-- BUILD_LIST_ALL -->/ {
     print
     print "        <li>"
+    print "          <span class=\"platform-tag platform-windows\">🪟 Windows</span>"
+    print "          <span class=\"project-name\">SpiderLily</span>"
     print "          <a href=\"" url "\">" version ".zip</a>"
     print "          <span style=\"margin-left: 0.5rem; color: #666;\">(<a href=\"https://assets.aesthetic.computer/false.work/spiderlily-windows-" version ".txt\" style=\"color: #888;\">download log</a>)</span>"
     print "          <div class=\"meta\">" size " MB | " level " | <span class=\"build-time\" data-date=\"" timestamp "\">just now</span></div>"
