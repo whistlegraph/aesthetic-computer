@@ -5870,6 +5870,10 @@ async function load(
     hash = parsed.hash;
     host = parsed.host;
     slug = parsed.text;
+    
+    if (typeof window !== 'undefined' && window.acSPIDER) {
+      console.log("🕷️ SPIDER load debug:", { slug, path, parsedText: parsed.text, parsedPath: parsed.path });
+    }
 
     // 👱 Route to the `profile` piece if we are just hitting an empty
     // username.
