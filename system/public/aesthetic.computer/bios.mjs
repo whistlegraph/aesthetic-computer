@@ -2372,9 +2372,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     workersEnabled = false;
   }
   
-  // Override: force disable workers for OBJKT and other sandboxed environments
-  if (sandboxed || window.origin === "null") {
-    // Disable workers in any sandboxed environment, including OBJKT
+  // Override: force disable workers for OBJKT, SPIDER, and other sandboxed environments
+  if (sandboxed || window.origin === "null" || window.acSPIDER) {
+    // Disable workers in any sandboxed environment, including OBJKT and SPIDER
     workersEnabled = false;
     if (debug) console.log("🚫 Workers disabled due to sandboxed/null origin environment");
   }
