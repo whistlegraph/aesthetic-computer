@@ -1,0 +1,18 @@
+{
+  "name": "censor",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "This directory contains a Caddy HTTP server that proxies requests to Ollama for content moderation.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^17.2.3",
+    "mongodb": "^7.0.0",
+    "ws": "^8.18.3"
+  }
+}
