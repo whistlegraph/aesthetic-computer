@@ -76,15 +76,13 @@ function sendGameBoyInput(send) {
     start: gameboyButtons.start || false
   };
   
-  console.log("🎮 Sending GameBoy input:", joypadState);
-  
   send({
     type: "gameboy:input",
     content: joypadState
   });
 }
 
-export function boot({ ui, screen }) { 
+export async function boot({ ui, screen, send, params, debug }) { 
   // GameBoy piece loaded - emulator managed by bios.mjs
   // Reset all button states
   gameboyButtons = {};
@@ -92,6 +90,52 @@ export function boot({ ui, screen }) {
   
   // Create buttons immediately in boot
   createGameBoyButtons({ screen, ui });
+  
+  // Auto-load ROM if specified in params
+  if (params && params[0]) {
+    const romName = params[0];
+    
+    // Construct path based on environment
+    const basePath = debug 
+      ? "/aesthetic.computer/gb-emulator" 
+      : "https://aesthetic.computer/gb-emulator";
+    
+    // Add cache-busting parameter in debug mode
+    const cacheBuster = debug ? `?t=${Date.now()}` : "";
+    const romUrl = `${basePath}/${romName}.gb${cacheBuster}`;
+    
+    try {
+      console.log("🎮 gameboy: Loading ROM from:", romUrl);
+      
+      // Fetch the ROM file
+      const response = await fetch(romUrl);
+      if (!response.ok) {
+        throw new Error(`Failed to load ROM: ${response.status} ${response.statusText}`);
+      }
+      
+      const romData = await response.arrayBuffer();
+      console.log("🎮 gameboy: ROM loaded:", romData.byteLength, "bytes");
+      
+      // Create romData object matching bios.mjs format
+      const romDataObj = {
+        name: romName,
+        originalName: `${romName}.gb`,
+        romData: romData,
+        isGameBoyColor: false
+      };
+      
+      // Send load command to bios
+      send({
+        type: "gameboy:load-rom",
+        content: romDataObj
+      });
+      
+      console.log("🎮 gameboy: ROM load command sent to BIOS");
+      
+    } catch (error) {
+      console.error("🎮 gameboy: Failed to load ROM:", error);
+    }
+  }
 }
 
 // Called when leaving this piece
@@ -122,7 +166,14 @@ export function leave({ send }) {
   }
 }
 
-export function paint({ ink, wipe, screen, paste, sound, num, hud, ui }) {
+export function paint({ ink, wipe, screen, paste, sound, num, hud, ui, send }) {
+  // Send joypad state every frame to maintain button holds
+  // WasmBoy needs continuous updates to keep buttons held
+  const hasButtonsPressed = Object.values(gameboyButtons).some(v => v);
+  if (hasButtonsPressed) {
+    sendGameBoyInput(send);
+  }
+  
   // Show GameBoy emulator label with metadata and color coding
   const gameboy = sound?.gameboy;
   let label = "gameboy";
@@ -206,8 +257,8 @@ export function paint({ ink, wipe, screen, paste, sound, num, hud, ui }) {
     const startX = safeX + Math.floor((safeWidth - scaledWidth) / 2);
     const startY = safeY + Math.floor((safeHeight - scaledHeight) / 2);
     
-    // Create black letterbox area for GameBoy screen
-    ink("black").box(safeX, safeY, safeWidth, safeHeight);
+    // Clear background black every frame
+    wipe("black");
     
     // Create an AC-compatible bitmap object for paste()
     const gameboyBitmap = {
@@ -223,8 +274,7 @@ export function paint({ ink, wipe, screen, paste, sound, num, hud, ui }) {
     drawGameBoyButtons({ ink, screen });
     
   } else {
-    wipe("red");
-    // No frame data available yet - waiting for emulator
+    wipe("black");
   }
 }
 
@@ -264,11 +314,11 @@ function drawGameBoyButtons({ ink, screen }) {
   ink(gameboyButtons.select ? "lightyellow" : "yellow").box(topRightX, topRightY, selectStartWidth, selectStartHeight);
   ink(gameboyButtons.start ? "lightcoral" : "orange").box(topRightX + selectStartWidth, topRightY, selectStartWidth, selectStartHeight);
   
-  // Labels with centered text
-  ink("black").write("↑", { x: dpadX + buttonSize + buttonSize/2, y: dpadY + buttonSize/2, center: "xy" });
-  ink("black").write("↓", { x: dpadX + buttonSize + buttonSize/2, y: dpadY + buttonSize * 2 + buttonSize/2, center: "xy" });
-  ink("black").write("←", { x: dpadX + buttonSize/2, y: dpadY + buttonSize + buttonSize/2, center: "xy" });
-  ink("black").write("→", { x: dpadX + buttonSize * 2 + buttonSize/2, y: dpadY + buttonSize + buttonSize/2, center: "xy" });
+  // Labels with centered text using GNU Unifont for arrows
+  ink("black").write("↑", { x: dpadX + buttonSize + buttonSize/2, y: dpadY + buttonSize/2, center: "xy" }, undefined, undefined, false, "unifont");
+  ink("black").write("↓", { x: dpadX + buttonSize + buttonSize/2, y: dpadY + buttonSize * 2 + buttonSize/2, center: "xy" }, undefined, undefined, false, "unifont");
+  ink("black").write("←", { x: dpadX + buttonSize/2, y: dpadY + buttonSize + buttonSize/2, center: "xy" }, undefined, undefined, false, "unifont");
+  ink("black").write("→", { x: dpadX + buttonSize * 2 + buttonSize/2, y: dpadY + buttonSize + buttonSize/2, center: "xy" }, undefined, undefined, false, "unifont");
   ink("black").write("B", { x: actionX + buttonSize/2, y: actionY + buttonSize/2, center: "xy" });
   ink("black").write("A", { x: actionX + buttonSize + buttonSize/2, y: actionY + buttonSize/2, center: "xy" });
   ink("black").write("SELECT", { x: topRightX + selectStartWidth/2, y: topRightY + selectStartHeight/2, center: "xy" });
@@ -289,22 +339,18 @@ export function act({ event: e, send, pens, ui, screen }) {
     
     button.act(e, {
       down: (btn) => {
-        console.log("🎮 Touch DOWN:", buttonName);
         gameboyButtons[buttonName] = true;
         sendGameBoyInput(send);
       },
       up: (btn) => {
-        console.log("🎮 Touch UP:", buttonName);
         gameboyButtons[buttonName] = false;
         sendGameBoyInput(send);
       },
       cancel: (btn) => {
-        console.log("🎮 Touch CANCEL:", buttonName);
         gameboyButtons[buttonName] = false;
         sendGameBoyInput(send);
       },
       out: (btn) => {
-        console.log("🎮 Touch OUT:", buttonName);
         gameboyButtons[buttonName] = false;
         sendGameBoyInput(send);
       }

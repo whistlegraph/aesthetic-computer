@@ -6384,6 +6384,10 @@ async function load(
               console.log("😱 Scream:", content, "❗");
               scream = content;
             }
+            // 🎯 Jump to a specific piece!
+            if (type === "jump") {
+              $commonApi.jump(content.piece);
+            }
             // 🧩 Pieces get all other messages not caught in `Socket`.
             receiver?.(id, type, content); // Run the piece receiver.
           },
@@ -7728,7 +7732,6 @@ async function makeFrame({ data: { type, content } }) {
 
   // Jump to any piece slug from the bios.
   if (type === "jump") {
-    console.log("🏃 Jumping to:", content);
     let ahistorical, alias;
     if (content.ahistorical === undefined) {
       ahistorical = true;
