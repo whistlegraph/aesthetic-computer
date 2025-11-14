@@ -2,9 +2,14 @@
 
 import { MongoClient } from 'mongodb';
 
-const MONGODB_CONNECTION_STRING = process.env.MONGODB_CONNECTION_STRING || 
-  'REDACTED_CREDENTIALS';
+const MONGODB_CONNECTION_STRING = process.env.MONGODB_CONNECTION_STRING;
 const MONGODB_NAME = process.env.MONGODB_NAME || 'aesthetic';
+
+if (!MONGODB_CONNECTION_STRING) {
+  console.error('Error: MONGODB_CONNECTION_STRING environment variable is required');
+  console.error('Usage: MONGODB_CONNECTION_STRING=your_uri node inspect-mongodb.mjs');
+  process.exit(1);
+}
 
 async function main() {
   const client = new MongoClient(MONGODB_CONNECTION_STRING);
