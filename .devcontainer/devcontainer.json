@@ -97,7 +97,9 @@
         "ms-toolsai.jupyter-renderers",
         "jinxdash.prettier-rust",
         "ms-python.black-formatter",
-        "github.vscode-github-actions"
+        "github.vscode-github-actions",
+        "maziac.asm-code-lens",
+        "ms-vscode.cpptools-extension-pack"
       ]
     }
   },
