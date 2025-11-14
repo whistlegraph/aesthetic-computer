@@ -86,7 +86,19 @@ echo "========================================="
 cd /workspaces/aesthetic-computer
 git add system/public/builds.false.work/index.html
 git commit -m "Add SpiderLily Windows build $build_version"
-git push
+
+# Try to push, if it fails due to remote changes, pull and retry
+if not git push
+    echo "Push failed, pulling remote changes and retrying..."
+    # Stash any uncommitted changes
+    git stash
+    # Pull with rebase
+    git pull --rebase
+    # Push again
+    git push
+    # Restore stashed changes
+    git stash pop 2>/dev/null
+end
 
 echo ""
 echo "✅ Build complete and deployed!"
