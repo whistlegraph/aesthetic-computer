@@ -12386,10 +12386,25 @@ async function makeFrame({ data: { type, content } }) {
     // Wait 8 frames of the default piece before loading the initial piece.
     // And also make sure the session has been queried.
     // console.log(sessionStarted);
+    
+    // 🕷️ SPIDER MODE: Debug why piece isn't loading
+    if (typeof window !== 'undefined' && window.acSPIDER && paintCount <= 10n) {
+      console.log("🕷️ SPIDER: Frame check:", {
+        paintCount: paintCount.toString(),
+        sessionStarted,
+        PREVIEW_OR_ICON,
+        sandboxed: $commonApi.net.sandboxed,
+        loadAfterPreambleExists: !!loadAfterPreamble
+      });
+    }
+    
     if (
       paintCount > 8n &&
       (sessionStarted || PREVIEW_OR_ICON || $commonApi.net.sandboxed)
     ) {
+      if (typeof window !== 'undefined' && window.acSPIDER) {
+        console.log("🕷️ SPIDER: Calling loadAfterPreamble now!");
+      }
       loadAfterPreamble?.(); // Start loading after the first disk if necessary.
     }
 
