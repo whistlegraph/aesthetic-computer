@@ -30,7 +30,7 @@ async function uploadToIPFS(acUrl, pieceName) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>aesthetic.computer - $eel</title>
+    <title>aesthetic.computer - $ceo</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         html, body { width: 100%; height: 100%; overflow: hidden; touch-action: none; }
@@ -53,14 +53,14 @@ async function uploadToIPFS(acUrl, pieceName) {
             try {
                 // 🕷️ Configure spider mode before loading
                 window.acSPIDER = true;
-                window.acSTARTING_PIECE = "$eel";
+                window.acSTARTING_PIECE = "$ceo";
                 
-                // Fetch and inject CSS
-                const cssRes = await fetch('https://aesthetic.computer/aesthetic.computer/style.css');
-                const css = await cssRes.text();
-                const style = document.createElement('style');
-                style.textContent = css;
-                document.head.appendChild(style);
+                // Load CSS using link tag (bypasses connect-src CSP)
+                const link = document.createElement('link');
+                link.rel = 'stylesheet';
+                link.href = 'https://aesthetic.computer/aesthetic.computer/style.css';
+                link.crossOrigin = 'anonymous';
+                document.head.appendChild(link);
                 
                 // Fetch boot.mjs and rewrite relative imports to absolute URLs
                 const bootRes = await fetch('https://aesthetic.computer/aesthetic.computer/boot.mjs');
