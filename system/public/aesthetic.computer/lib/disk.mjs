@@ -5898,6 +5898,7 @@ async function load(
     let baseUrl;
     if (path.startsWith('aesthetic.computer/')) {
       // Check if we're in OBJKT mode - use local bundled files
+      if (typeof window !== 'undefined' && window.acSPIDER) console.log("🕷️ getPackMode():", getPackMode(), "window.acPACK_MODE:", window.acPACK_MODE, "checkPackMode():", checkPackMode());
       if (getPackMode()) {
         // In OBJKT mode, use relative paths to load bundled pieces
         baseUrl = ".";
