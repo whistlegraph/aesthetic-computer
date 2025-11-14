@@ -1281,10 +1281,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // Use origin-aware font loading
         let fontUrl;
         try {
-          // Check if we're in OBJKT mode (sandboxed)
+          // Check if we're in OBJKT/PACK mode (sandboxed with bundled fonts)
           if (window.acPACK_MODE) {
             // In OBJKT mode, use relative paths to bundled fonts
             fontUrl = "./type/webfonts/" + font;
+          } else if (window.acSPIDER) {
+            // In SPIDER mode, leech fonts from aesthetic.computer
+            fontUrl = "https://aesthetic.computer/type/webfonts/" + font;
           } else {
             // Check if we're in development environment
             const isDevelopment = location.hostname === 'localhost' && location.port;
