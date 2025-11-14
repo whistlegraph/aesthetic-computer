@@ -1281,13 +1281,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // Use origin-aware font loading
         let fontUrl;
         try {
-          // Check if we're in OBJKT/PACK mode (sandboxed with bundled fonts)
+          // Check if we're in OBJKT mode (sandboxed)
           if (window.acPACK_MODE) {
             // In OBJKT mode, use relative paths to bundled fonts
             fontUrl = "./type/webfonts/" + font;
-          } else if (window.acSPIDER) {
-            // In SPIDER mode, leech fonts from aesthetic.computer
-            fontUrl = "https://aesthetic.computer/type/webfonts/" + font;
           } else {
             // Check if we're in development environment
             const isDevelopment = location.hostname === 'localhost' && location.port;
@@ -2316,7 +2313,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     Date.now(); // bust the cache. This prevents an error related to Safari loading workers from memory.
 
   const sandboxed =
-    (window.origin === "null" || !window.origin || window.acPACK_MODE || window.acSPIDER) && !window.acVSCODE;
+    (window.origin === "null" || !window.origin || window.acPACK_MODE) && !window.acVSCODE;
 
   const microphonePermission = await checkMicrophonePermission();
 
@@ -2344,7 +2341,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       shareSupported: (iOS || Android) && navigator.share !== undefined,
       previewOrIcon: window.acPREVIEW_OR_ICON,
       vscode: window.acVSCODE,
-      objktMode: (sandboxed && !window.acSPIDER) || window.acPACK_MODE || false,
+      objktMode: window.acPACK_MODE || false,
       objktKidlispCodes: window.objktKidlispCodes || globalThis.objktKidlispCodes || {},
       microphonePermission,
       resolution,
@@ -2595,10 +2592,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // 🎮 Handle Game Boy input from worker
   function handleGameboyInput(joypadState) {
-    console.log("🎮 handleGameboyInput called with:", joypadState);
-    console.log("🎮 gameboyEmulator exists:", !!gameboyEmulator);
-    console.log("🎮 currentGameboyROM exists:", !!currentGameboyROM);
-    
     if (gameboyEmulator && currentGameboyROM) {
       // WasmBoy.setJoypadState expects an object with UPPERCASE keys
       // It internally converts them to the format the core needs
@@ -2612,10 +2605,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         SELECT: joypadState.select || false,
         START: joypadState.start || false
       };
-      console.log("🎮 Calling setJoypadState with:", wasmBoyJoypadState);
       gameboyEmulator.setJoypadState(wasmBoyJoypadState);
-    } else {
-      console.warn("🎮 Cannot set joypad state - emulator or ROM not ready");
     }
   }
 

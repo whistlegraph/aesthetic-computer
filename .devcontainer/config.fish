@@ -837,6 +837,18 @@ function ac-site
     echo "❌ Maximum restart attempts reached ($max_restarts). Exiting to prevent infinite loop."
 end
 
+# ac - Smart command: cd with no args, jump to piece with args  
+function ac --description 'cd to aesthetic-computer or jump to piece'
+    if test (count $argv) -eq 0
+        cd ~/aesthetic-computer
+    else
+        set piece_path $argv[1]
+        echo "🎯 Jumping to: $piece_path"
+        set response (curl -s -k -X POST https://localhost:8889/jump -H "Content-Type: application/json" -d "{\"piece\": \"$piece_path\"}")
+        echo "$response"
+    end
+end
+
 function ac-offline
     echo "🐭 Starting offline mode..."
     ac
@@ -851,7 +863,6 @@ function ac-url
     npm run -s url $argv
 end
 
-alias ac 'cd ~/aesthetic-computer'
 alias ac-watch 'ac; npm run watch'
 
 # 📱 Dev log monitoring function with dynamic file detection
