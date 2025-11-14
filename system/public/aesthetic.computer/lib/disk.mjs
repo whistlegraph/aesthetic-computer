@@ -5836,7 +5836,16 @@ async function load(
     text,
     slug;
 
-  // console.log("🧩 Loading:", parsed, "dev:", devReload);
+  // 🕷️ SPIDER MODE: Always log what piece we're loading
+  if (typeof window !== 'undefined' && window.acSPIDER) {
+    console.log("🕷️ SPIDER: Starting load() with:", { 
+      parsed, 
+      fromHistory, 
+      alias, 
+      devReload, 
+      forceKidlisp 
+    });
+  }
 
   if (loading === false) {
     loading = true;
@@ -5872,7 +5881,14 @@ async function load(
     slug = parsed.text;
     
     if (typeof window !== 'undefined' && window.acSPIDER) {
-      console.log("🕷️ SPIDER load debug:", { slug, path, parsedText: parsed.text, parsedPath: parsed.path });
+      console.log("🕷️ SPIDER: Parsed slug/path:", { 
+        slug, 
+        path, 
+        parsedText: parsed.text, 
+        parsedPath: parsed.path,
+        hash,
+        params
+      });
     }
 
     // 👱 Route to the `profile` piece if we are just hitting an empty
@@ -6016,15 +6032,16 @@ async function load(
       // 💾 Check if this is a cached kidlisp code (starts with $ and has content after it)
       if (slug && slug.startsWith("$") && slug.length > 1) {
         const cacheId = slug.slice(1); // Remove $ prefix
-        if (logs.loading) console.log("💾 Loading cached kidlisp code:", cacheId);
+        console.log("💾 Loading cached kidlisp code:", cacheId);
         try {
+          console.log("🔍 Fetching cached code from API...");
           sourceToRun = await getCachedCodeMultiLevel(cacheId);
           if (!sourceToRun) {
             throw new Error(`Cached code not found: ${cacheId}`);
           }
           // Track the original $code identifier for sharing
           currentOriginalCodeId = slug; // Keep the full $code format
-          if (logs.loading) console.log("✅ Successfully loaded cached code:", cacheId);
+          console.log("✅ Successfully loaded cached code:", cacheId, `(${sourceToRun.length} chars)`);
         } catch (error) {
           console.error("❌ Failed to load cached code:", cacheId, error);
           throw new Error(`Failed to load cached code: ${cacheId}`);
@@ -6100,6 +6117,8 @@ async function load(
         sourceCode = sourceToRun;
         originalCode = sourceCode;
         
+        console.log("🎨 Initializing KidLisp piece...");
+        
         // Initialize persistent cache for $codes (only needs to be done once)
         initPersistentCache(store);
         
@@ -6107,6 +6126,8 @@ async function load(
         imageCache.init(store);
         
         loadedModule = lisp.module(sourceToRun, path && path.endsWith(".lisp"));
+        
+        console.log("✅ KidLisp module loaded successfully");
 
         if (devReload) {
           store["publishable-piece"] = {
