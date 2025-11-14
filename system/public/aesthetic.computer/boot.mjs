@@ -279,11 +279,12 @@ if (
 
 if (window.acSTARTING_PIECE === undefined) window.acSTARTING_PIECE = "prompt";
 
-// In OBJKT/PACK mode or SPIDER mode, always use acSTARTING_PIECE instead of URL slug
+// In OBJKT/PACK mode, always use acSTARTING_PIECE instead of URL slug
+// Spider mode should use the URL slug like normal pages
 let originalUrl = location.href;
 let sluggedUrl = null;
 
-if (!window.acPACK_MODE && !window.acSPIDER) {
+if (!window.acPACK_MODE) {
   sluggedUrl = slug(originalUrl) || window.acSTARTING_PIECE;
 } else {
   sluggedUrl = window.acSTARTING_PIECE;
