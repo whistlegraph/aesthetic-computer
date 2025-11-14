@@ -2313,7 +2313,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     Date.now(); // bust the cache. This prevents an error related to Safari loading workers from memory.
 
   const sandboxed =
-    (window.origin === "null" || !window.origin || window.acPACK_MODE) && !window.acVSCODE;
+    (window.origin === "null" || !window.origin || window.acPACK_MODE || window.acSPIDER) && !window.acVSCODE;
 
   const microphonePermission = await checkMicrophonePermission();
 
