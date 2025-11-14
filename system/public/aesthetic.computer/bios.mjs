@@ -14591,6 +14591,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   }
 
   async function authorize() {
+    // Skip authorization in SPIDER mode (read-only IPFS environment)
+    if (window.acSPIDER) {
+      return null;
+    }
+    
     let token;
     try {
       token = window.acTOKEN;

@@ -1954,8 +1954,8 @@ const $commonApi = {
     offset: function () {
       if (clockFetching) return;
 
-      // Skip API calls in OBJKT mode
-      if (getPackMode()) {
+      // Skip API calls in OBJKT mode or SPIDER mode
+      if (getPackMode() || (typeof window !== 'undefined' && window.acSPIDER)) {
         clockFetching = false;
         return;
       }
@@ -6355,8 +6355,8 @@ async function load(
 
   // Requests a session-backend and connects via websockets.
   function startSocket() {
-    // Skip socket connections in OBJKT mode
-    if (getPackMode()) {
+    // Skip socket connections in OBJKT mode or SPIDER mode
+    if (getPackMode() || (typeof window !== 'undefined' && window.acSPIDER)) {
       return;
     }
     
