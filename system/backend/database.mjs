@@ -22,7 +22,7 @@ async function connect() {
   // Simple single connection for serverless - no pooling, no caching, no retries
   const connectionOptions = {
     serverApi: {
-      version: ServerApiVersion.v1,
+      version: '1', // MongoDB driver v7 uses string version
       strict: true,
       deprecationErrors: true,
     },
