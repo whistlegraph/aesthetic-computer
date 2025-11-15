@@ -1,67 +1,59 @@
-# KidLisp GameBoy Integration
+# GameBoy ROM Development
 
-This directory contains the complete KidLisp to GameBoy ROM compilation system.
+This directory contains tools for creating GameBoy ROMs using C (GBDK) and assembly.
 
-## 🎯 Goal
+## 🚀 Quick Start
 
+**→ For C development, see [C-QUICKSTART.md](./C-QUICKSTART.md)** ← **START HERE**
+
+**→ For Assembly development, see [QUICKSTART.md](./QUICKSTART.md)**
+
+## 🎯 Current Projects
+
+### C ROMs (GBDK)
+- **wave-editor** - Interactive Channel 3 waveform editor (working ✅)
+- **demo-graphics** - 4-channel audio visualization (working ✅)
+- Various test ROMs in `src/`
+
+### Assembly ROMs  
+- Line drawing demos in `test/`
+- Text scrolling examples
+
+### Future: KidLisp Integration
 Enable writing in a minimal version of KidLisp and compiling it to actual GameBoy ROMs with basic graphics primitives like:
 - `(point x y)` - Plot a point at coordinates
 - `(wipe)` - Clear screen (planned)
 - `(line x1 y1 x2 y2)` - Draw lines (planned)
 
+
 ## 📁 Directory Structure
 
 ```
 kidlisp-gameboy/
-├── README.md                      # This file
-├── kidlisp-gameboy-integration.md # Complete implementation plan
-├── compiler/                      # Compilation tools
-│   ├── kidlisp-gb-compiler-cli.mjs       # Node.js CLI compiler
-│   └── kidlisp-gb-compiler-browser.mjs   # Browser-compatible parser
-├── templates/                     # GameBoy assembly templates
-│   └── boot.asm                   # Base ROM template with headers
-└── test/                         # Test files and examples
-    ├── kidlisp-gb-test.mjs       # Browser test piece
-    ├── test-point.asm            # Generated assembly example
-    └── minimal-test.asm          # Minimal test case
+├── C-QUICKSTART.md               # ← START HERE for C development
+├── QUICKSTART.md                 # Assembly development guide
+├── README.md                     # This file
+├── src/                          # C source files (wave-editor.c, demo-graphics.c, etc.)
+├── gbdk/                         # GBDK toolchain (gitignored)
+├── test/                         # Assembly test ROMs
+├── compiler/                     # KidLisp compiler (future)
+└── templates/                    # Assembly templates
 ```
 
-## 🚀 Current Status: Phase 1
+## � Documentation
 
-✅ **Completed:**
-- KidLisp parser for `(point x y)` expressions
-- GameBoy assembly code generation
-- CLI compiler using gbasm
-- Browser test interface
-- File organization
+- **[C-QUICKSTART.md](./C-QUICKSTART.md)** - Complete C/GBDK workflow (RECOMMENDED)
+- **[QUICKSTART.md](./QUICKSTART.md)** - Assembly workflow
+- **[PROGRESS.md](./PROGRESS.md)** - Development history
+- **[RESEARCH.md](./RESEARCH.md)** - Technical references
+- **[WORKFLOW.md](./WORKFLOW.md)** - Detailed assembly workflow
 
-🔄 **In Progress:**
-- Fixing gbasm assembly syntax
-- ROM generation and testing
+## 🎮 Running ROMs
 
-## 🛠️ Usage
-
-### CLI Compiler
+All ROMs can be run with:
 ```bash
-cd /workspaces/aesthetic-computer/kidlisp-gameboy
-node compiler/kidlisp-gb-compiler-cli.mjs "(point 80 72)" output.gb
+cd /workspaces/aesthetic-computer
+ac gameboy~<rom-name>
 ```
 
-### Browser Test
-Navigate to: `http://localhost:8888/kidlisp-gb-test`
-(Note: Test file moved to this directory structure)
-
-## 📋 Next Steps
-
-1. Fix gbasm assembly syntax issues
-2. Generate working GameBoy ROM
-3. Test ROM in existing GameBoy emulator
-4. Expand to support more KidLisp primitives
-5. Integrate with main aesthetic.computer interface
-
-## 🎮 Integration with Aesthetic Computer
-
-The compiled ROMs will work with the existing GameBoy emulator piece at:
-`system/public/aesthetic.computer/disks/gameboy.mjs`
-
-This enables a complete workflow: KidLisp → Assembly → ROM → GameBoy Emulator.
+Examples: `ac gameboy~wave-editor`, `ac gameboy~demo-graphics`
