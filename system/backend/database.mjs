@@ -19,29 +19,69 @@ async function connect() {
     throw new Error('MONGODB_NAME environment variable is not set');
   }
 
-  // Simple single connection for serverless - no pooling, no caching, no retries
-  const connectionOptions = {
-    serverApi: {
-      version: '1', // MongoDB driver v7 uses string version
-      strict: true,
-      deprecationErrors: true,
+  // Try multiple connection strategies
+  const strategies = [
+    {
+      name: 'standard',
+      options: {
+        serverApi: {
+          version: '1',
+          strict: true,
+          deprecationErrors: true,
+        },
+        tls: true,
+        directConnection: false,
+        serverSelectionTimeoutMS: 10000,
+        connectTimeoutMS: 10000,
+        socketTimeoutMS: 45000,
+      }
     },
-    // TLS options to help with dev container connections
-    tls: true,
-    tlsAllowInvalidCertificates: false,
-    tlsAllowInvalidHostnames: false,
-    directConnection: false,
-    // Connection timeout and retry settings
-    serverSelectionTimeoutMS: 10000,
-    connectTimeoutMS: 10000,
-    socketTimeoutMS: 45000,
-  };
+    {
+      name: 'direct',
+      options: {
+        serverApi: {
+          version: '1',
+          strict: true,
+          deprecationErrors: true,
+        },
+        tls: true,
+        directConnection: true, // Try direct connection
+        serverSelectionTimeoutMS: 5000,
+        connectTimeoutMS: 5000,
+        socketTimeoutMS: 30000,
+      }
+    },
+    {
+      name: 'minimal',
+      options: {
+        tls: true,
+        serverSelectionTimeoutMS: 5000,
+        connectTimeoutMS: 5000,
+      }
+    }
+  ];
 
-  console.log('🔌 Attempting MongoDB connection...');
-  client = await MongoClient.connect(mongoDBConnectionString, connectionOptions);
-  console.log('✅ MongoDB connected successfully');
-  const db = client.db(mongoDBName);
-  return { db, disconnect };
+  let lastError;
+  
+  for (const strategy of strategies) {
+    try {
+      console.log(`🔌 Attempting MongoDB connection (${strategy.name})...`);
+      client = await MongoClient.connect(mongoDBConnectionString, strategy.options);
+      console.log(`✅ MongoDB connected successfully (${strategy.name})`);
+      const db = client.db(mongoDBName);
+      return { db, disconnect };
+    } catch (error) {
+      console.log(`❌ Connection failed (${strategy.name}):`, error.message);
+      lastError = error;
+      if (client) {
+        try { await client.close(); } catch (e) { /* ignore */ }
+        client = null;
+      }
+    }
+  }
+  
+  // All strategies failed
+  throw lastError;
 }
 
 async function disconnect() {
