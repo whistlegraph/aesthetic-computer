@@ -1011,7 +1011,11 @@ class KidLisp {
     this.expressionRegistry = new Map(); // Map AST expressions to unique IDs
     this.nextExpressionId = 0; // Counter for expression IDs
 
-    // � Default FPS for KidLisp pieces
+    // 🚨 Syntax error tracking for highlighting
+    this.lastValidationErrors = null; // Array of validation error messages
+    this.errorPositions = null; // Set of character positions with errors
+
+    // 📺 Default FPS for KidLisp pieces
     this.targetFps = 60; // Default to 60fps unless overridden by (fps N) command
 
     // �🎯 Performance monitoring system
@@ -3570,13 +3574,103 @@ class KidLisp {
       input = wrappedLines.join(" ");
     }
 
-    const tokens = tokenize(input);
-    // console.log(`🔍 Tokenized:`, tokens);
-    const parsed = readFromTokens(tokens);
-    // console.log(`🔍 Parsed result:`, parsed);
-    this.ast = parsed; // 🎯 Actually assign the parsed result to this.ast!
-    this.endTiming('parse', parseStart);
-    return parsed;
+    // Pre-validation: Check for common syntax errors before parsing
+    const validationErrors = [];
+    const errorPositions = new Set(); // Track character positions with errors
+    
+    // Check parenthesis balance
+    let parenBalance = 0;
+    let lastOpenParen = -1;
+    for (let i = 0; i < input.length; i++) {
+      const char = input[i];
+      if (char === '(') {
+        parenBalance++;
+        lastOpenParen = i;
+      }
+      if (char === ')') {
+        parenBalance--;
+        // Negative balance means more closing than opening
+        if (parenBalance < 0) {
+          validationErrors.push('Too many closing parentheses');
+          errorPositions.add(i);
+          break;
+        }
+      }
+    }
+    
+    if (parenBalance > 0) {
+      validationErrors.push(`Missing ${parenBalance} closing parenthes${parenBalance === 1 ? 'is' : 'es'}`);
+      // Mark the last unclosed opening parenthesis
+      if (lastOpenParen >= 0) {
+        errorPositions.add(lastOpenParen);
+      }
+      // Also mark positions of all unclosed opening parens
+      let tempBalance = 0;
+      for (let i = 0; i < input.length; i++) {
+        if (input[i] === '(') {
+          tempBalance++;
+          if (tempBalance > (parenBalance === 0 ? -1 : 0)) {
+            errorPositions.add(i);
+          }
+        }
+        if (input[i] === ')') tempBalance--;
+      }
+    }
+    
+    // Check for unmatched quotes
+    let lastDoubleQuote = -1;
+    let lastSingleQuote = -1;
+    let doubleQuoteCount = 0;
+    let singleQuoteCount = 0;
+    
+    for (let i = 0; i < input.length; i++) {
+      if (input[i] === '"') {
+        doubleQuoteCount++;
+        lastDoubleQuote = i;
+      }
+      if (input[i] === "'") {
+        singleQuoteCount++;
+        lastSingleQuote = i;
+      }
+    }
+    
+    if (doubleQuoteCount % 2 !== 0) {
+      validationErrors.push('Unmatched double quote');
+      if (lastDoubleQuote >= 0) errorPositions.add(lastDoubleQuote);
+    }
+    
+    if (singleQuoteCount % 2 !== 0) {
+      validationErrors.push('Unmatched single quote');
+      if (lastSingleQuote >= 0) errorPositions.add(lastSingleQuote);
+    }
+    
+    // If validation fails, log errors and return empty AST to prevent crash
+    if (validationErrors.length > 0) {
+      console.error('❌ KidLisp Validation Failed:', validationErrors.join(', '));
+      this.lastValidationErrors = validationErrors;
+      this.errorPositions = errorPositions; // Store error positions for syntax highlighting
+      this.endTiming('parse', parseStart);
+      return []; // Return empty AST instead of crashing
+    }
+    
+    // Clear previous validation errors on successful validation
+    this.lastValidationErrors = null;
+    this.errorPositions = null;
+
+    try {
+      const tokens = tokenize(input);
+      // console.log(`🔍 Tokenized:`, tokens);
+      const parsed = readFromTokens(tokens);
+      // console.log(`🔍 Parsed result:`, parsed);
+      this.ast = parsed; // 🎯 Actually assign the parsed result to this.ast!
+      this.endTiming('parse', parseStart);
+      return parsed;
+    } catch (error) {
+      console.error('❌ KidLisp Parse Error:', error.message);
+      this.lastParseError = error;
+      this.endTiming('parse', parseStart);
+      return []; // Return empty AST instead of crashing
+    }
   }
 
   // 🫵 Tap
@@ -6760,6 +6854,12 @@ class KidLisp {
         if (this.embeddedLayerCache && this.embeddedLayerCache.has(layerKey)) {
           const existingLayer = this.embeddedLayerCache.get(layerKey);
 
+          // 🛑 CRITICAL: Check if layer has been disabled due to failures
+          if (existingLayer.disabled) {
+            // console.log(`🛑 Skipping disabled embedded layer ${layerKey} (${existingLayer.failureCount || 0} failures)`);
+            return undefined;
+          }
+
           // If dimensions don't match exactly, we need to handle the scaling
           if (existingLayer.width !== width || existingLayer.height !== height) {
             // Update position and alpha for this specific call
@@ -9261,6 +9361,77 @@ class KidLisp {
 
   // Determine the color for a specific token based on its type and context
   getTokenColor(token, tokens, index) {
+    // 🚨 SYNTAX ERROR HIGHLIGHTING: Check if there are validation errors
+    if (this.lastValidationErrors && this.lastValidationErrors.length > 0) {
+      // Highlight problematic syntax in red
+      const errors = this.lastValidationErrors.join(' ');
+      
+      // Check for missing closing parentheses - highlight unclosed opening parens
+      if (errors.includes('closing parenthes')) {
+        if (token === '(') {
+          // Count balance to find unclosed parens
+          let balance = 0;
+          let unclosedCount = 0;
+          for (let i = 0; i <= index; i++) {
+            if (tokens[i] === '(') balance++;
+            if (tokens[i] === ')') balance--;
+          }
+          // Check remaining tokens to see if this paren gets closed
+          for (let i = index + 1; i < tokens.length; i++) {
+            if (tokens[i] === '(') balance++;
+            if (tokens[i] === ')') {
+              balance--;
+              if (balance === 0) return null; // This paren is closed, use normal coloring
+            }
+          }
+          if (balance > 0) return "red"; // Unclosed paren - highlight in red
+        }
+      }
+      
+      // Check for too many closing parens
+      if (errors.includes('Too many closing')) {
+        if (token === ')') {
+          // Count balance to find extra closing parens
+          let balance = 0;
+          for (let i = 0; i <= index; i++) {
+            if (tokens[i] === '(') balance++;
+            if (tokens[i] === ')') balance--;
+            if (balance < 0 && i === index) return "red"; // Extra closing paren
+          }
+        }
+      }
+      
+      // Check for unmatched quotes
+      if (errors.includes('Unmatched') && errors.includes('quote')) {
+        if (token.startsWith('"') || token.startsWith("'")) {
+          // This is a string token - check if quotes are balanced up to this point
+          const quoteChar = token[0];
+          let quoteCount = 0;
+          
+          // Count quotes in all tokens up to and including this one
+          for (let i = 0; i <= index; i++) {
+            const t = tokens[i];
+            if (t.startsWith(quoteChar)) {
+              quoteCount++;
+            }
+          }
+          
+          // If odd number of quotes, this is likely the unmatched one
+          if (quoteCount % 2 !== 0) {
+            // Check if there are any more quotes after this
+            let hasMatchingQuote = false;
+            for (let i = index + 1; i < tokens.length; i++) {
+              if (tokens[i].startsWith(quoteChar)) {
+                hasMatchingQuote = true;
+                break;
+              }
+            }
+            if (!hasMatchingQuote) return "red"; // Unmatched quote - highlight in red
+          }
+        }
+      }
+    }
+
     // First check if this token is affected by timing expressions
     const timingExprState = this.getTimingExpressionState(token, tokens, index);
 
@@ -11531,6 +11702,37 @@ class KidLisp {
       return false;
     }
 
+    // Safety check: Validate API object has required methods
+    if (!api || typeof api.page !== 'function' || !api.screen) {
+      console.error(`❌ Invalid API object for embedded layer ${embeddedLayer.cacheId}:`, {
+        hasApi: !!api,
+        hasPageMethod: typeof api?.page === 'function',
+        hasScreen: !!api?.screen
+      });
+      
+      // Mark layer as failed to prevent infinite retry loops
+      embeddedLayer.failed = true;
+      embeddedLayer.failureCount = (embeddedLayer.failureCount || 0) + 1;
+      
+      if (embeddedLayer.failureCount >= 3) {
+        console.warn(`⚠️ Disabling failed embedded layer ${embeddedLayer.cacheId} after ${embeddedLayer.failureCount} failures`);
+        embeddedLayer.disabled = true;
+      }
+      
+      return false;
+    }
+
+    // Check if layer has valid parsed code
+    if (!embeddedLayer.parsedCode || embeddedLayer.parsedCode.length === 0) {
+      console.warn(`⚠️ Empty parsed code for embedded layer ${embeddedLayer.cacheId}`);
+      return false;
+    }
+
+    // Skip disabled layers
+    if (embeddedLayer.disabled) {
+      return false;
+    }
+
     // Track if any drawing commands were executed
     let didRender = false;
 
@@ -11575,6 +11777,8 @@ class KidLisp {
             height: embeddedLayer.height,
             pixels: embeddedLayer.buffer.pixels
           },
+          // 🔧 CRITICAL: Include page function for nested embeds
+          page: api.page,
           // Execute drawing commands directly to the embedded buffer and track rendering
           line: (...args) => {
             didRender = true;
@@ -11638,6 +11842,8 @@ class KidLisp {
       embeddedApi.frame = smoothFrameValue;
       embeddedApi.width = embeddedLayer.width;
       embeddedApi.height = embeddedLayer.height;
+      embeddedApi.screen.width = embeddedLayer.width;
+      embeddedApi.screen.height = embeddedLayer.height;
       embeddedApi.screen.pixels = embeddedLayer.buffer.pixels;
 
       // ⚡ PERFORMANCE: Optimize environment updates (avoid expensive spread)
@@ -11677,9 +11883,23 @@ class KidLisp {
 
     } catch (error) {
       console.error(`❌ Error updating nested embedded layer ${embeddedLayer.cacheId}:`, error);
+      
+      // Mark layer as failed to prevent infinite retry loops
+      embeddedLayer.failed = true;
+      embeddedLayer.failureCount = (embeddedLayer.failureCount || 0) + 1;
+      embeddedLayer.lastError = error.message;
+      
+      // Stop retrying after 3 failures
+      if (embeddedLayer.failureCount >= 3) {
+        console.warn(`⚠️ Disabling failed embedded layer ${embeddedLayer.cacheId} after ${embeddedLayer.failureCount} failures`);
+        embeddedLayer.disabled = true;
+      }
+      
       // Make sure we switch back to original page even on error
       try {
-        api.page(api.screen);
+        if (api && typeof api.page === 'function' && api.screen) {
+          api.page(api.screen);
+        }
       } catch (e) {
         console.error("❌ Error switching back to original page:", e);
       }
