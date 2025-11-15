@@ -13,6 +13,12 @@ let inputInterval = null; // For sustaining input while buttons are held
 // Track reframe state
 let needsReframe = false;
 
+// Touch/drag gesture state
+let dragStartPos = null;
+let isDragging = false;
+let dragThreshold = 5; // Minimum pixels to start drag
+let deadZone = 15; // Dead zone radius - must drag this far before triggering
+
 function createGameBoyButtons({ screen, ui }) {
   const buttonSize = 24; // Smaller buttons for more screen space
   const padding = 8;
@@ -102,16 +108,27 @@ export async function boot({ ui, screen, send, params, debug }) {
     
     // Add cache-busting parameter in debug mode
     const cacheBuster = debug ? `?t=${Date.now()}` : "";
-    const romUrl = `${basePath}/${romName}.gb${cacheBuster}`;
     
     try {
-      console.log("🎮 gameboy: Loading ROM from:", romUrl);
+      // Try .gbc first, then fall back to .gb
+      let romUrl = `${basePath}/${romName}.gbc${cacheBuster}`;
+      let response = await fetch(romUrl);
+      let isGameBoyColor = true;
+      let extension = ".gbc";
       
-      // Fetch the ROM file
-      const response = await fetch(romUrl);
       if (!response.ok) {
-        throw new Error(`Failed to load ROM: ${response.status} ${response.statusText}`);
+        // Fall back to .gb
+        romUrl = `${basePath}/${romName}.gb${cacheBuster}`;
+        response = await fetch(romUrl);
+        isGameBoyColor = false;
+        extension = ".gb";
+        
+        if (!response.ok) {
+          throw new Error(`Failed to load ROM: ${response.status} ${response.statusText}`);
+        }
       }
+      
+      console.log("🎮 gameboy: Loading ROM from:", romUrl);
       
       const romData = await response.arrayBuffer();
       console.log("🎮 gameboy: ROM loaded:", romData.byteLength, "bytes");
@@ -119,9 +136,9 @@ export async function boot({ ui, screen, send, params, debug }) {
       // Create romData object matching bios.mjs format
       const romDataObj = {
         name: romName,
-        originalName: `${romName}.gb`,
+        originalName: `${romName}${extension}`,
         romData: romData,
-        isGameBoyColor: false
+        isGameBoyColor: isGameBoyColor
       };
       
       // Send load command to bios
@@ -167,12 +184,9 @@ export function leave({ send }) {
 }
 
 export function paint({ ink, wipe, screen, paste, sound, num, hud, ui, send }) {
-  // Send joypad state every frame to maintain button holds
-  // WasmBoy needs continuous updates to keep buttons held
-  const hasButtonsPressed = Object.values(gameboyButtons).some(v => v);
-  if (hasButtonsPressed) {
-    sendGameBoyInput(send);
-  }
+  // Send joypad state every frame to WasmBoy
+  // This is required for both pressed AND released states
+  sendGameBoyInput(send);
   
   // Show GameBoy emulator label with metadata and color coding
   const gameboy = sound?.gameboy;
@@ -270,6 +284,17 @@ export function paint({ ink, wipe, screen, paste, sound, num, hud, ui, send }) {
     // Use paste() with integer scaling
     paste(gameboyBitmap, startX, startY, scale);
     
+    // Draw red sightline 4 pixels to the left of GameBoy display (bright red, 2 pixels wide)
+    ink(255, 0, 0); // Bright red RGB
+    const sightlineX = startX - 6; // 6 pixels left of display
+    const sightlineY1 = startY;
+    const sightlineY2 = startY + scaledHeight;
+    // Draw 2-pixel wide line for visibility
+    for (let y = sightlineY1; y < sightlineY2; y++) {
+      ink(sightlineX, y);
+      ink(sightlineX + 1, y);
+    }
+    
     // Draw GameBoy control buttons with gray backdrops
     drawGameBoyButtons({ ink, screen });
     
@@ -300,7 +325,50 @@ function drawGameBoyButtons({ ink, screen }) {
   const topRightY = 0;
   ink("gray").box(topRightX - padding/2, topRightY - padding/2, selectStartWidth * 2 + padding, selectStartHeight + padding);
   
-  // D-Pad (flush with bottom left corner) - Blue color scheme
+  // D-Pad (flush with bottom left corner) - Blue color scheme with diagonal support
+  // Center button for visual feedback
+  const centerX = dpadX + buttonSize + buttonSize / 2;
+  const centerY = dpadY + buttonSize + buttonSize / 2;
+  
+  // Draw center indicator circle showing 8-directional input
+  if (gameboyButtons.up || gameboyButtons.down || gameboyButtons.left || gameboyButtons.right) {
+    // Calculate direction indicator position
+    let indicatorX = centerX;
+    let indicatorY = centerY;
+    const indicatorRadius = 4;
+    const indicatorDistance = 10;
+    
+    if (gameboyButtons.up && gameboyButtons.right) {
+      // Up-Right diagonal
+      indicatorX += indicatorDistance * 0.707; // cos(45°)
+      indicatorY -= indicatorDistance * 0.707; // sin(45°)
+    } else if (gameboyButtons.up && gameboyButtons.left) {
+      // Up-Left diagonal
+      indicatorX -= indicatorDistance * 0.707;
+      indicatorY -= indicatorDistance * 0.707;
+    } else if (gameboyButtons.down && gameboyButtons.right) {
+      // Down-Right diagonal
+      indicatorX += indicatorDistance * 0.707;
+      indicatorY += indicatorDistance * 0.707;
+    } else if (gameboyButtons.down && gameboyButtons.left) {
+      // Down-Left diagonal
+      indicatorX -= indicatorDistance * 0.707;
+      indicatorY += indicatorDistance * 0.707;
+    } else if (gameboyButtons.up) {
+      indicatorY -= indicatorDistance;
+    } else if (gameboyButtons.down) {
+      indicatorY += indicatorDistance;
+    } else if (gameboyButtons.left) {
+      indicatorX -= indicatorDistance;
+    } else if (gameboyButtons.right) {
+      indicatorX += indicatorDistance;
+    }
+    
+    // Draw direction indicator
+    ink("cyan").circle(indicatorX, indicatorY, indicatorRadius, true);
+  }
+  
+  // D-Pad buttons
   ink(gameboyButtons.up ? "lightblue" : "lightgray").box(dpadX + buttonSize, dpadY, buttonSize, buttonSize);
   ink(gameboyButtons.down ? "lightblue" : "lightgray").box(dpadX + buttonSize, dpadY + buttonSize * 2, buttonSize, buttonSize);
   ink(gameboyButtons.left ? "lightblue" : "lightgray").box(dpadX, dpadY + buttonSize, buttonSize, buttonSize);
@@ -331,6 +399,80 @@ export function act({ event: e, send, pens, ui, screen }) {
   if (e.is("reframed")) {
     createGameBoyButtons({ screen, ui });
     needsReframe = true; // Flag that we need to clear background
+  }
+
+  // Handle touch/drag gestures on GameBoy display for 8-directional control
+  if (e.is("touch")) {
+    dragStartPos = { x: e.x, y: e.y };
+    isDragging = false;
+  }
+
+  if (e.is("draw") || e.drag) {
+    if (dragStartPos) {
+      const deltaX = e.x - dragStartPos.x;
+      const deltaY = e.y - dragStartPos.y;
+      const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+
+      if (distance > dragThreshold) {
+        isDragging = true;
+        
+        // Calculate angle in degrees (0 = right, 90 = down, 180 = left, 270 = up)
+        const angle = Math.atan2(deltaY, deltaX) * 180 / Math.PI;
+        
+        // Clear all directional buttons first
+        gameboyButtons.up = false;
+        gameboyButtons.down = false;
+        gameboyButtons.left = false;
+        gameboyButtons.right = false;
+        
+        // 8-directional control based on angle
+        // Each direction covers 45 degrees
+        if (angle >= -22.5 && angle < 22.5) {
+          // Right (0°)
+          gameboyButtons.right = true;
+        } else if (angle >= 22.5 && angle < 67.5) {
+          // Down-Right (45°)
+          gameboyButtons.down = true;
+          gameboyButtons.right = true;
+        } else if (angle >= 67.5 && angle < 112.5) {
+          // Down (90°)
+          gameboyButtons.down = true;
+        } else if (angle >= 112.5 && angle < 157.5) {
+          // Down-Left (135°)
+          gameboyButtons.down = true;
+          gameboyButtons.left = true;
+        } else if (angle >= 157.5 || angle < -157.5) {
+          // Left (180°)
+          gameboyButtons.left = true;
+        } else if (angle >= -157.5 && angle < -112.5) {
+          // Up-Left (-135°)
+          gameboyButtons.up = true;
+          gameboyButtons.left = true;
+        } else if (angle >= -112.5 && angle < -67.5) {
+          // Up (-90°)
+          gameboyButtons.up = true;
+        } else if (angle >= -67.5 && angle < -22.5) {
+          // Up-Right (-45°)
+          gameboyButtons.up = true;
+          gameboyButtons.right = true;
+        }
+        
+        sendGameBoyInput(send);
+      }
+    }
+  }
+
+  if (e.is("lift")) {
+    if (isDragging) {
+      // Release all directional buttons when drag ends
+      gameboyButtons.up = false;
+      gameboyButtons.down = false;
+      gameboyButtons.left = false;
+      gameboyButtons.right = false;
+      sendGameBoyInput(send);
+    }
+    dragStartPos = null;
+    isDragging = false;
   }
 
   // Handle UI button interactions - directly update state and send to emulator
