@@ -103,8 +103,8 @@ export async function boot({ ui, screen, send, params, debug }) {
     
     // Construct path based on environment
     const basePath = debug 
-      ? "/aesthetic.computer/gb-emulator" 
-      : "https://aesthetic.computer/gb-emulator";
+      ? "/assets/gameboy" 
+      : "https://assets.aesthetic.computer/gameboy";
     
     // Add cache-busting parameter in debug mode
     const cacheBuster = debug ? `?t=${Date.now()}` : "";
