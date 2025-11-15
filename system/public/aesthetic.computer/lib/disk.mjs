@@ -550,6 +550,51 @@ function getPersistentFirstLineColor() {
   return persistentFirstLineColor;
 }
 
+// 🎮 Create gamepad helper API for easy access to per-gamepad events
+function createGamepadAPI(gamepadEvents) {
+  if (!gamepadEvents) return [];
+  
+  return gamepadEvents.map((events, index) => {
+    if (!events || events.length === 0) return null;
+    
+    return {
+      index,
+      events,
+      
+      // Helper to check if button was pushed/released
+      button(buttonIndex) {
+        const pushEvent = events.find(e => 
+          e.button === buttonIndex && e.action === 'push'
+        );
+        const releaseEvent = events.find(e => 
+          e.button === buttonIndex && e.action === 'release'
+        );
+        return {
+          pushed: !!pushEvent,
+          released: !!releaseEvent,
+          event: pushEvent || releaseEvent
+        };
+      },
+      
+      // Helper to get axis value (returns most recent value in frame)
+      axis(axisIndex) {
+        const axisEvent = events.findLast(e => e.axis === axisIndex);
+        return axisEvent ? axisEvent.value : 0;
+      },
+      
+      // Check if this gamepad is connected (has events)
+      connected() {
+        return events && events.length > 0;
+      },
+      
+      // Get the gamepad device ID/name
+      get id() {
+        return events[0]?.gamepadId || null;
+      }
+    };
+  });
+}
+
 // 🎨 Make storage function globally available for KidLisp
 if (typeof globalThis !== "undefined") {
   globalThis.storePersistentFirstLineColor = storePersistentFirstLineColor;
@@ -9513,6 +9558,9 @@ async function makeFrame({ data: { type, content } }) {
       cachedAPI = $api; // Remember this API for any other acts outside
       // of this loop, like a focus change or custom act broadcast.
 
+      // 🎮 Add gamepad helper API (separate event streams per gamepad)
+      $api.gamepads = createGamepadAPI(content.gamepads);
+
       // Set the robo API context so it can send events
       $api.robo.setAPI($api);
 
@@ -10047,6 +10095,9 @@ async function makeFrame({ data: { type, content } }) {
 
       cachedAPI = $api; // Remember this API for any other acts outside
       // of this loop, like a focus change or custom act broadcast.
+
+      // 🎮 Add gamepad helper API (separate event streams per gamepad)
+      $api.gamepads = createGamepadAPI(content.gamepads);
 
       // Set the robo API context so it can send events
       $api.robo.setAPI($api);
