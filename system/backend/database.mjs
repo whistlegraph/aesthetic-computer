@@ -20,13 +20,26 @@ async function connect() {
   }
 
   // Simple single connection for serverless - no pooling, no caching, no retries
-  client = await MongoClient.connect(mongoDBConnectionString, {
+  const connectionOptions = {
     serverApi: {
       version: ServerApiVersion.v1,
       strict: true,
       deprecationErrors: true,
     },
-  });
+    // TLS options to help with dev container connections
+    tls: true,
+    tlsAllowInvalidCertificates: false,
+    tlsAllowInvalidHostnames: false,
+    directConnection: false,
+    // Connection timeout and retry settings
+    serverSelectionTimeoutMS: 10000,
+    connectTimeoutMS: 10000,
+    socketTimeoutMS: 45000,
+  };
+
+  console.log('🔌 Attempting MongoDB connection...');
+  client = await MongoClient.connect(mongoDBConnectionString, connectionOptions);
+  console.log('✅ MongoDB connected successfully');
   const db = client.db(mongoDBName);
   return { db, disconnect };
 }

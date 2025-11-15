@@ -196,7 +196,9 @@ export function getGamepadMapping(gamepadId) {
  */
 export function getButtonName(gamepadId, buttonIndex) {
   const mapping = getGamepadMapping(gamepadId);
-  return mapping.buttons[buttonIndex]?.name || `B${buttonIndex}`;
+  const name = mapping.buttons[buttonIndex]?.name || `B${buttonIndex}`;
+  // Remove trailing slash if there's no alternate name
+  return name.replace(/\/\s*$/, '');
 }
 
 /**
