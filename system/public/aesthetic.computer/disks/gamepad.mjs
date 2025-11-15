@@ -323,6 +323,29 @@ function act({ event: e }) {
         lastEvent: null,
       };
       console.log(`🎮 Gamepad ${gpIndex} connected:`, e.gamepadId);
+      console.log("📋 Xbox Controller Button Mapping Reference:");
+      console.log("Button 0: A (bottom face button)");
+      console.log("Button 1: B (right face button)");
+      console.log("Button 2: X (left face button)");
+      console.log("Button 3: Y (top face button)");
+      console.log("Button 4: LB (left bumper)");
+      console.log("Button 5: RB (right bumper)");
+      console.log("Button 6: LT (left trigger)");
+      console.log("Button 7: RT (right trigger)");
+      console.log("Button 8: Back/View");
+      console.log("Button 9: Start/Menu");
+      console.log("Button 10: LS (left stick press)");
+      console.log("Button 11: RS (right stick press)");
+      console.log("Button 12: D-Pad Up");
+      console.log("Button 13: D-Pad Down");
+      console.log("Button 14: D-Pad Left");
+      console.log("Button 15: D-Pad Right");
+      console.log("Button 16: Xbox/Guide button");
+      console.log("📐 Axis Mapping:");
+      console.log("Axis 0: Left stick X (left: -1, right: +1)");
+      console.log("Axis 1: Left stick Y (up: -1, down: +1)");
+      console.log("Axis 2: Right stick X (left: -1, right: +1)");
+      console.log("Axis 3: Right stick Y (up: -1, down: +1)");
     }
     
     const gp = connectedGamepads[gpIndex];
@@ -342,8 +365,10 @@ function act({ event: e }) {
         if (!gp.pressedButtons.includes(buttonIndex)) {
           gp.pressedButtons.push(buttonIndex);
         }
+        console.log(`🔴 Button ${buttonIndex} PRESSED -`, getButtonName(gp.id, buttonIndex));
       } else if (e.action === "release") {
         gp.pressedButtons = gp.pressedButtons.filter(b => b !== buttonIndex);
+        console.log(`⚪ Button ${buttonIndex} RELEASED -`, getButtonName(gp.id, buttonIndex));
       }
       
       // Add to recent events
@@ -359,6 +384,7 @@ function act({ event: e }) {
       // Only track if above deadzone
       if (Math.abs(e.value) > 0.1) {
         gp.axes[axisIndex] = value;
+        console.log(`🕹️ Axis ${axisIndex} -`, getAxisName(gp.id, axisIndex), "value:", value);
       } else {
         delete gp.axes[axisIndex];
       }
