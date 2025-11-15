@@ -113,6 +113,18 @@ void main(void) {
 - Compile with `-Wm-yc` flag for GameBoy Color support
 - ROMs in `src/` are gitignored - production ROMs go in `system/public/assets/gameboy/`
 - Use `npm run assets:sync:up` to publish ROMs to CDN
+- **Subdirectories**: ROMs can be organized in subdirs like `assets/gameboy/gbdk/`
+  - Access with: `ac gameboy~gbdk/filltest`
+
+## 🎮 GBDK Official Examples
+
+Compile all GBDK examples:
+```bash
+cd /workspaces/aesthetic-computer/kidlisp-gameboy
+./compile-gbdk-examples.fish
+```
+
+Then run with: `ac gameboy~gbdk/galaxy`, `ac gameboy~gbdk/filltest`, etc.
 
 ## 📚 Resources
 
