@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "@pinata/sdk": "^2.1.0",
     "@taquito/signer": "^21.0.0",
     "@taquito/taquito": "^21.0.0",
     "dotenv": "^16.4.7"
