@@ -234,15 +234,21 @@ export async function handler(event) {
   let database;
 
   try {
+    console.log("📺 Connecting to database...");
     database = await connect();
+    console.log("📺 Database connected successfully");
 
     for (const type of requestedTypes) {
+      console.log(`📺 Fetching ${type}...`);
       if (type === "painting") {
         media.paintings = await fetchPaintings(database.db, { limit });
+        console.log(`📺 Fetched ${media.paintings.length} paintings`);
       } else if (type === "kidlisp") {
         media.kidlisp = await fetchKidlisp(database.db, { limit });
+        console.log(`📺 Fetched ${media.kidlisp.length} kidlisp items`);
       } else if (type === "tape") {
         media.tapes = await fetchTapes(database.db, { limit });
+        console.log(`📺 Fetched ${media.tapes.length} tapes`);
       } else if (["mood", "scream", "chat"].includes(type)) {
         // Reserve keys for upcoming media types so clients can experiment early.
         media[`${type}s`] = [];
@@ -269,7 +275,8 @@ export async function handler(event) {
     });
   } catch (error) {
     console.error("Failed to build TV feed", error);
-    return respond(500, { error: "Failed to assemble tv feed." });
+    console.error("Error stack:", error.stack);
+    return respond(500, { error: "Failed to assemble tv feed.", details: error.message });
   } finally {
     await database?.disconnect?.();
   }

@@ -29,7 +29,105 @@ const FONT = "MatrixChunky8"; // Pixel-perfect font
 
 const timelinePaintings = [null, null, null, null]; // One timeline per gamepad
 
-function drawGamepadDiagram({ ink, line, circle, box }, gp, x, y) {
+function drawXboxControllerDiagram({ ink, line, circle, box }, gp, x, y) {
+  const baseX = x;
+  const baseY = y;
+  const gamepadId = gp.id;
+  
+  // Get button colors from mapping
+  const getColors = (btnIndex) => {
+    const colors = getButtonColors(gamepadId, btnIndex);
+    const isPressed = gp.pressedButtons.includes(btnIndex);
+    return isPressed ? colors.active : colors.inactive;
+  };
+  
+  const width = 56;
+  const height = 28;
+  
+  // Check if any input is active
+  const hasActiveInput = gp.pressedButtons.length > 0 || 
+    Object.values(gp.axes).some(v => Math.abs(parseFloat(v)) > 0.5);
+  
+  // Solid background box - lightens when any input is active
+  ink(hasActiveInput ? "slategray" : "dimgray").box(baseX, baseY, width, height);
+  
+  // LEFT SIDE: Left stick at top-left, D-pad below (REVERSED from before)
+  const lStickX = baseX + 8;  // Moved further left
+  const lStickY = baseY + 7;
+  const axisVal0 = parseFloat(gp.axes["0"] || 0);
+  const axisVal1 = parseFloat(gp.axes["1"] || 0);
+  const lStickPressed = gp.pressedButtons.includes(10);
+  const lStickActive = Math.abs(axisVal0) > 0.1 || Math.abs(axisVal1) > 0.1 || lStickPressed;
+  
+  // Draw left stick circle (larger)
+  ink(lStickActive ? "cyan" : "gray").circle(lStickX, lStickY, 4);
+  
+  // Draw dot showing stick position
+  const dotX = lStickX + Math.round(axisVal0 * 3);
+  const dotY = lStickY + Math.round(axisVal1 * 3);
+  ink(lStickPressed ? "white" : "cyan").box(dotX, dotY, 1, 1);
+  
+  // D-pad below left stick (buttons 12-15)
+  const dpadX = lStickX + 2;  // Shifted right to give more space
+  const dpadY = baseY + 18;
+  const dpadSize = 4;
+  
+  ink(getColors(12)).box(dpadX, dpadY - 4, dpadSize, dpadSize);      // Up
+  ink(getColors(13)).box(dpadX, dpadY + 4, dpadSize, dpadSize);      // Down
+  ink(getColors(14)).box(dpadX - 4, dpadY, dpadSize, dpadSize);      // Left
+  ink(getColors(15)).box(dpadX + 4, dpadY, dpadSize, dpadSize);      // Right
+  ink("black").box(dpadX, dpadY, dpadSize, dpadSize);                // Center
+  
+  // RIGHT SIDE: ABXY buttons at top-right, Right stick below (moved down a bit)
+  const faceX = baseX + 46;
+  const faceY = baseY + 9;  // Moved down from 6
+  const btnSize = 4;
+  
+  // ABXY in diamond formation (0-3)
+  ink(getColors(3)).box(faceX, faceY - 4, btnSize, btnSize);         // Y (top)
+  ink(getColors(0)).box(faceX, faceY + 4, btnSize, btnSize);         // A (bottom)
+  ink(getColors(2)).box(faceX - 4, faceY, btnSize, btnSize);         // X (left)
+  ink(getColors(1)).box(faceX + 4, faceY, btnSize, btnSize);         // B (right)
+  
+  // Right stick below ABXY (axis 2-3, button 11)
+  const rStickX = faceX - 5;  // Moved further left
+  const rStickY = baseY + 21;  // Moved down lower
+  const axisVal2 = parseFloat(gp.axes["2"] || 0);
+  const axisVal3 = parseFloat(gp.axes["3"] || 0);
+  const rStickPressed = gp.pressedButtons.includes(11);
+  const rStickActive = Math.abs(axisVal2) > 0.1 || Math.abs(axisVal3) > 0.1 || rStickPressed;
+  
+  // Draw right stick circle (larger)
+  ink(rStickActive ? "yellow" : "gray").circle(rStickX, rStickY, 4);
+  
+  // Draw dot showing stick position
+  const dotX2 = rStickX + Math.round(axisVal2 * 3);
+  const dotY2 = rStickY + Math.round(axisVal3 * 3);
+  ink(rStickPressed ? "white" : "yellow").box(dotX2, dotY2, 1, 1);
+  
+  // CENTER: Xbox button with View/Menu below it
+  const centerX = baseX + width / 2;
+  const xboxBtnY = baseY + 8;  // Moved down
+  
+  // Xbox button with X inside
+  ink(getColors(16)).circle(centerX, xboxBtnY, 2);
+  ink("black").line(centerX - 1, xboxBtnY - 1, centerX + 1, xboxBtnY + 1);  // X diagonal 1
+  ink("black").line(centerX - 1, xboxBtnY + 1, centerX + 1, xboxBtnY - 1);  // X diagonal 2
+  
+  // View (Select) and Menu (Start) buttons below Xbox button
+  ink(getColors(8)).box(centerX - 5, xboxBtnY + 5, 3, 2);   // View/Select (left)
+  ink(getColors(9)).box(centerX + 2, xboxBtnY + 5, 3, 2);   // Menu/Start (right)
+  
+  // TOP: Triggers (outer) and Bumpers (inner) - SWAPPED
+  const topY = baseY;
+  ink(getColors(6)).box(baseX + 2, topY, 12, 2);         // LT (outer/left)
+  ink(getColors(4)).box(baseX + 14, topY, 8, 2);         // LB (inner)
+  
+  ink(getColors(7)).box(baseX + width - 14, topY, 12, 2); // RT (outer/right)
+  ink(getColors(5)).box(baseX + width - 22, topY, 8, 2); // RB (inner)
+}
+
+function draw8BitDoMicroDiagram({ ink, line, circle, box }, gp, x, y) {
   const baseX = x;
   const baseY = y;
   const gamepadId = gp.id || "standard";
@@ -76,40 +174,46 @@ function drawGamepadDiagram({ ink, line, circle, box }, gp, x, y) {
   // Solid background box - lightens when any input is active
   ink(hasActiveInput ? "slategray" : "dimgray").box(baseX, baseY, width, height);
   
-  // D-Pad on left side - moved more to the left
+  // D-Pad on left side - using AXES like original mapping
   const dpadX = baseX + 8;
   const dpadY = baseY + 12;
   const dpadSize = 5;
   
-  // D-pad as perfect cross (5 pieces touching)
-  ink(getAxisColor(1, "up")).box(dpadX, dpadY - 5, dpadSize, dpadSize);      // Up
-  ink(getAxisColor(1, "down")).box(dpadX, dpadY + 5, dpadSize, dpadSize);    // Down
-  ink(getAxisColor(0, "left")).box(dpadX - 5, dpadY, dpadSize, dpadSize);    // Left
-  ink(getAxisColor(0, "right")).box(dpadX + 5, dpadY, dpadSize, dpadSize);   // Right
-  ink("black").box(dpadX, dpadY, dpadSize, dpadSize);                        // Center
+  // D-pad as perfect cross (using axes 0-1 for 8BitDo) - always visible
+  const upColor = getAxisColor(1, "up");
+  const downColor = getAxisColor(1, "down");
+  const leftColor = getAxisColor(0, "left");
+  const rightColor = getAxisColor(0, "right");
   
-  // Face buttons on right side - moved more to the left
+  // Use gray as default if inactive color is too dark
+  ink(upColor === "dimgray" ? "gray" : upColor).box(dpadX, dpadY - 5, dpadSize, dpadSize);      // Up
+  ink(downColor === "dimgray" ? "gray" : downColor).box(dpadX, dpadY + 5, dpadSize, dpadSize);  // Down
+  ink(leftColor === "dimgray" ? "gray" : leftColor).box(dpadX - 5, dpadY, dpadSize, dpadSize);  // Left
+  ink(rightColor === "dimgray" ? "gray" : rightColor).box(dpadX + 5, dpadY, dpadSize, dpadSize);// Right
+  ink("black").box(dpadX, dpadY, dpadSize, dpadSize);                                            // Center
+  
+  // Face buttons on right side (ABXY = buttons 0-3)
   const faceX = baseX + 35;
   const faceY = baseY + 12;
   const btnSize = 5;
   
-  // Draw buttons in perfect diamond layout
+  // Draw buttons in perfect diamond layout (original mapping)
   ink(getColors(3)).box(faceX, faceY - 6, btnSize, btnSize);    // Top (X)
   ink(getColors(1)).box(faceX, faceY + 6, btnSize, btnSize);    // Bottom (B)
   ink(getColors(4)).box(faceX - 6, faceY, btnSize, btnSize);    // Left (Y)
   ink(getColors(0)).box(faceX + 6, faceY, btnSize, btnSize);    // Right (A)
   
-  // Select/Start in center
+  // Select/Start in center (original mapping)
   const centerX = baseX + 24;
   ink(getColors(10)).box(centerX - 5, baseY + 3, 4, 3); // Select
   ink(getColors(11)).box(centerX + 1, baseY + 3, 4, 3);  // Start
   
-  // L/R shoulders FLUSH with top of box
+  // L/R shoulders FLUSH with top of box (original mapping)
   const shoulderY = baseY;
   ink(getColors(6)).box(baseX, shoulderY, 14, 2);  // L (wider)
   ink(getColors(7)).box(baseX + 34, shoulderY, 14, 2); // R (wider)
   
-  // L2/R2 triggers - with gap in center
+  // L2/R2 triggers - with gap in center (original mapping)
   ink(getColors(8)).box(baseX + 14, shoulderY, 8, 2);  // L2 (narrower, gap on right)
   ink(getColors(9)).box(baseX + 26, shoulderY, 8, 2); // R2 (narrower, gap on left)
   
@@ -117,7 +221,18 @@ function drawGamepadDiagram({ ink, line, circle, box }, gp, x, y) {
   ink(getColors(12)).box(centerX - 2, baseY + 19, 4, 3);
 }
 
-function paint({ wipe, ink, write, screen, line, circle, box, painting, paste, help }) {
+function drawGamepadDiagram({ ink, line, circle, box }, gp, x, y) {
+  // Detect controller type and use appropriate diagram
+  if (gp.id && (gp.id.includes("045e") && gp.id.includes("0b13"))) {
+    // Xbox Controller
+    drawXboxControllerDiagram({ ink, line, circle, box }, gp, x, y);
+  } else {
+    // 8BitDo Micro or generic
+    draw8BitDoMicroDiagram({ ink, line, circle, box }, gp, x, y);
+  }
+}
+
+function paint({ wipe, ink, write, screen, line, circle, box, painting, paste, help, text }) {
   wipe("black");
   
   const lineHeight = 10;
@@ -172,17 +287,23 @@ function paint({ wipe, ink, write, screen, line, circle, box, painting, paste, h
     // Draw border (only if multiple gamepads)
     if (numConnected > 1) {
       ink("dimgray").box(slotX, slotY, slotWidth - 1, slotHeight - 1, "line");
+      
+      // Draw vertical separator line on right edge
+      if (col < cols - 1) {
+        ink("gray").line(slotX + slotWidth - 1, slotY, slotX + slotWidth - 1, slotY + slotHeight);
+      }
     }
     
     // Player label
     const labelY = slotY + 8;
     ink(playerColor).write(playerLabel, { x: slotX + 8, y: labelY }, undefined, undefined, false, FONT);
     
-    // Calculate space for timeline - account for metadata section at bottom
-    const diagramHeight = 24;
-    const metadataHeight = 50; // Reserve space for controller name + readout
+    // Calculate space for timeline - use consistent height regardless of controller type
+    // Place metadata section at bottom with more space
+    const diagramHeight = 28; // Use max height for all controllers
+    const metadataHeight = 60; // More space for controller name + readout
     const timelineTop = labelY + lineHeight + 4;
-    const timelineBottom = slotY + slotHeight - diagramHeight - metadataHeight - 16;
+    const timelineBottom = slotY + slotHeight - diagramHeight - metadataHeight - 12;
     const timelineHeight = timelineBottom - timelineTop;
     
     if (timelineHeight > 20) {
@@ -196,7 +317,7 @@ function paint({ wipe, ink, write, screen, line, circle, box, painting, paste, h
       keys(gp.axes).forEach(ai => {
         const axisIndex = parseInt(ai);
         const value = parseFloat(gp.axes[ai]);
-        if (Math.abs(value) > 0.5) {
+        if (Math.abs(value) > 0.25) {  // Higher deadzone to filter drift
           const colors = getAxisColors(gamepadId, axisIndex);
           let color;
           
@@ -217,8 +338,12 @@ function paint({ wipe, ink, write, screen, line, circle, box, painting, paste, h
       
       const currentInputs = [...currentButtons, ...currentAxes];
       
-      // Initialize timeline painting buffer for this gamepad
-      if (!timelinePaintings[gpIndex]) {
+      // Initialize or recreate timeline painting buffer if size changed
+      const needsRecreate = !timelinePaintings[gpIndex] || 
+                            timelinePaintings[gpIndex].width !== slotWidth ||
+                            timelinePaintings[gpIndex].height !== timelineHeight;
+      
+      if (needsRecreate) {
         timelinePaintings[gpIndex] = painting(slotWidth, timelineHeight);
         // Fill with dimgray initially
         for (let i = 0; i < timelinePaintings[gpIndex].pixels.length; i += 4) {
@@ -284,16 +409,9 @@ function paint({ wipe, ink, write, screen, line, circle, box, painting, paste, h
       paste(timeline, slotX, timelineTop);
     }
     
-    // Draw controller diagram and metadata at bottom
-    const diagramWidth = 48;
-    const diagramX = centerX - diagramWidth / 2;
-    const diagramY = slotY + slotHeight - diagramHeight - metadataHeight - 8;
-    
-    drawGamepadDiagram({ ink, line, circle, box }, gp, diagramX, diagramY);
-    
-    // Show full gamepad name below diagram
+    // Show controller name and diagram at bottom
     if (gp.id) {
-      const nameY = diagramY + diagramHeight + 4;
+      const nameY = slotY + slotHeight - diagramHeight - metadataHeight - 8;
       const maxWidth = slotWidth - 8;
       
       // Detect controller type and show friendly name
@@ -308,22 +426,30 @@ function paint({ wipe, ink, write, screen, line, circle, box, painting, paste, h
         displayName = displayName.replace(/\s*\(Vendor:[^)]*\)/i, "");
       }
       
-      // Wrap controller name if needed - use MatrixChunky8 font
+      // Controller name - use MatrixChunky8 font
       ink("white").write(displayName, { x: slotX + 4, y: nameY }, undefined, maxWidth, true, FONT);
       
-      let currentY = nameY + lineHeight + 2;
+      // Draw controller diagram right below name
+      const diagramWidth = 48;
+      const diagramX = centerX - diagramWidth / 2;
+      const diagramY = nameY + lineHeight + 2;
       
-      // Show pressed buttons readout - each button in its own box
+      drawGamepadDiagram({ ink, line, circle, box }, gp, diagramX, diagramY);
+      
+      let currentY = diagramY + diagramHeight + 4;
+      
+      // Show pressed buttons readout - each button in its own box with proper sizing
       if (gp.pressedButtons.length > 0) {
         const buttonNames = gp.pressedButtons.map(b => getButtonName(gp.id, b));
         let buttonX = slotX + 4;
         
         buttonNames.forEach((name, i) => {
-          // Measure text width (approximate for MatrixChunky8)
-          const boxPadding = 3;
-          const charWidth = 6; // Approximate width per character in MatrixChunky8
-          const textWidth = name.length * charWidth;
+          // Measure text width accurately using text.box API
+          const measurement = text.box(name, { x: 0, y: 0 }, undefined, 1, false, FONT);
+          const textWidth = measurement?.box?.width || (name.length * 4);
+          const boxPadding = 2;
           const boxWidth = textWidth + boxPadding * 2;
+          const boxHeight = lineHeight;
           
           // Check if this box would overflow the line
           if (buttonX + boxWidth > slotX + slotWidth - 4) {
@@ -331,9 +457,14 @@ function paint({ wipe, ink, write, screen, line, circle, box, painting, paste, h
             currentY += lineHeight + 4; // Move to next line
           }
           
-          // Draw box
-          ink(playerColor, 60).box(buttonX, currentY, boxWidth, lineHeight, "fill");
-          ink(playerColor).box(buttonX, currentY, boxWidth, lineHeight, "line");
+          // Get button color from mapping
+          const buttonIndex = gp.pressedButtons[i];
+          const colors = getButtonColors(gp.id, buttonIndex);
+          const buttonColor = colors.active;
+          
+          // Draw box with button-specific color
+          ink(buttonColor, 180).box(buttonX, currentY, boxWidth, boxHeight, "fill");
+          ink(buttonColor).box(buttonX, currentY, boxWidth, boxHeight, "line");
           
           // Draw text
           ink("white").write(name, { x: buttonX + boxPadding, y: currentY + 1 }, undefined, undefined, false, FONT);
@@ -347,27 +478,33 @@ function paint({ wipe, ink, write, screen, line, circle, box, painting, paste, h
       // Show active axes readout - format compactly
       const activeAxes = keys(gp.axes).filter(a => Math.abs(parseFloat(gp.axes[a])) > 0.1);
       if (activeAxes.length > 0) {
-        // Group left stick and right stick separately for clarity
-        const leftStick = activeAxes.filter(a => parseInt(a) <= 1);
-        const rightStick = activeAxes.filter(a => parseInt(a) >= 2 && parseInt(a) <= 3);
-        const otherAxes = activeAxes.filter(a => parseInt(a) > 3);
+        // For 8BitDo Micro, ignore axes beyond 1 (only has D-pad on axes 0-1)
+        const is8BitDo = gp.id && gp.id.includes("2dc8") && gp.id.includes("9020");
+        const validAxes = is8BitDo ? activeAxes.filter(a => parseInt(a) <= 1) : activeAxes;
         
-        const parts = [];
-        if (leftStick.length > 0) {
-          const values = leftStick.map(a => gp.axes[a]).join(",");
-          parts.push(`LS:${values}`);
+        if (validAxes.length > 0) {
+          // Group left stick and right stick separately for clarity
+          const leftStick = validAxes.filter(a => parseInt(a) <= 1);
+          const rightStick = validAxes.filter(a => parseInt(a) >= 2 && parseInt(a) <= 3);
+          const otherAxes = validAxes.filter(a => parseInt(a) > 3);
+          
+          const parts = [];
+          if (leftStick.length > 0) {
+            const values = leftStick.map(a => gp.axes[a]).join(",");
+            parts.push(`LS:${values}`);
+          }
+          if (rightStick.length > 0) {
+            const values = rightStick.map(a => gp.axes[a]).join(",");
+            parts.push(`RS:${values}`);
+          }
+          if (otherAxes.length > 0) {
+            const values = otherAxes.map(a => `A${a}:${gp.axes[a]}`).join(" ");
+            parts.push(values);
+          }
+          
+          const axesText = parts.join(" ");
+          ink(playerColor, 180).write(axesText, { x: slotX + 4, y: currentY }, undefined, maxWidth, true, FONT);
         }
-        if (rightStick.length > 0) {
-          const values = rightStick.map(a => gp.axes[a]).join(",");
-          parts.push(`RS:${values}`);
-        }
-        if (otherAxes.length > 0) {
-          const values = otherAxes.map(a => `A${a}:${gp.axes[a]}`).join(" ");
-          parts.push(values);
-        }
-        
-        const axesText = parts.join(" ");
-        ink(playerColor, 180).write(axesText, { x: slotX + 4, y: currentY }, undefined, maxWidth, true, FONT);
       }
     }
   });
