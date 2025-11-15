@@ -2568,7 +2568,18 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       try {
         await gameboyEmulator.pause();
         await gameboyEmulator.reset();
-        console.log("🎮 Emulator reset before loading ROM");
+        
+        // Clear the canvas to ensure clean slate
+        const canvas = gameboyEmulator.getCanvas();
+        if (canvas) {
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+          }
+        }
+        
+        console.log("🎮 Emulator reset and canvas cleared");
       } catch (error) {
         console.log("🎮 Could not reset emulator:", error);
       }
