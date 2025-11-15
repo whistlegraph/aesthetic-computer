@@ -99,6 +99,12 @@ node_bundler = "esbuild"
 external_node_modules = ["@taquito/taquito", "@taquito/signer", "mongodb", "adm-zip", "@atproto/api"]
 included_files = ["public/aesthetic.computer/lib/kidlisp.mjs", "backend/**/*.mjs"]
 included_env_vars = ["CONTEXT", "ADMIN_SUB", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "NETLIFY_DEV", "SOTCE_AUTH0_M2M_CLIENT_ID", "SOTCE_AUTH0_M2M_SECRET", "TEZOS_ENABLED", "PDS_URL", "PDS_ADMIN_PASSWORD"]
+
+[functions.tv]
+external_node_modules = ["mongodb"]
+included_files = ["backend/**/*.mjs"]
+included_env_vars = ["MONGODB_CONNECTION_STRING", "MONGODB_NAME", "NETLIFY_DEV", "CONTEXT"]
+
 [functions.ask]
 included_env_vars = ["CONTEXT", "ANTHROPIC_API_KEY", "OPENAI_API_KEY"]
 
