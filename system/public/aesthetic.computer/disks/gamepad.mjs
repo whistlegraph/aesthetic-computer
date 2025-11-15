@@ -178,10 +178,11 @@ function paint({ wipe, ink, write, screen, line, circle, box, painting, paste, h
     const labelY = slotY + 8;
     ink(playerColor).write(playerLabel, { x: slotX + 8, y: labelY }, undefined, undefined, false, FONT);
     
-    // Calculate space for timeline
+    // Calculate space for timeline - account for metadata section at bottom
     const diagramHeight = 24;
+    const metadataHeight = 50; // Reserve space for controller name + readout
     const timelineTop = labelY + lineHeight + 4;
-    const timelineBottom = slotY + slotHeight - diagramHeight - 16;
+    const timelineBottom = slotY + slotHeight - diagramHeight - metadataHeight - 16;
     const timelineHeight = timelineBottom - timelineTop;
     
     if (timelineHeight > 20) {
@@ -283,18 +284,65 @@ function paint({ wipe, ink, write, screen, line, circle, box, painting, paste, h
       paste(timeline, slotX, timelineTop);
     }
     
-    // Draw controller diagram at bottom
+    // Reserve space for metadata at bottom (controller name + readout)
+    const metadataHeight = 50; // Space for name + button/axis readout
     const diagramWidth = 48;
     const diagramX = centerX - diagramWidth / 2;
-    const diagramY = slotY + slotHeight - diagramHeight - 8;
+    const diagramY = slotY + slotHeight - diagramHeight - metadataHeight - 8;
     
     drawGamepadDiagram({ ink, line, circle, box }, gp, diagramX, diagramY);
     
-    // Show gamepad name below diagram (if space)
-    if (gp.id && slotHeight > 100) {
-      const nameY = diagramY - lineHeight - 2;
-      const nameText = gp.id.length > 20 ? gp.id.substring(0, 17) + "..." : gp.id;
-      ink("white").write(nameText, { x: slotX + 8, y: nameY }, undefined, undefined, false, FONT);
+    // Show full gamepad name below diagram
+    if (gp.id) {
+      const nameY = diagramY + diagramHeight + 4;
+      const maxWidth = slotWidth - 8;
+      
+      // Clean up controller name - remove vendor/product IDs if present
+      let displayName = gp.id;
+      // Remove patterns like "(STANDARD GAMEPAD Vendor: 045e Product: 0b13)"
+      displayName = displayName.replace(/\s*\(STANDARD GAMEPAD[^)]*\)/i, "");
+      // Remove patterns like "(Vendor: xxxx Product: xxxx)"
+      displayName = displayName.replace(/\s*\(Vendor:[^)]*\)/i, "");
+      
+      // Wrap controller name if needed - use default sans font to avoid spacing issues
+      ink("white").write(displayName, { x: slotX + 4, y: nameY }, undefined, maxWidth, true);
+      
+      let currentY = nameY + lineHeight + 2;
+      
+      // Show pressed buttons readout - each button on its own with color coding
+      if (gp.pressedButtons.length > 0) {
+        const buttonNames = gp.pressedButtons.map(b => getButtonName(gp.id, b));
+        const buttonsText = buttonNames.join(" + ");
+        
+        ink(playerColor).write(buttonsText, { x: slotX + 4, y: currentY }, undefined, maxWidth, true, FONT);
+        currentY += lineHeight + 2;
+      }
+      
+      // Show active axes readout - format compactly
+      const activeAxes = keys(gp.axes).filter(a => Math.abs(parseFloat(gp.axes[a])) > 0.1);
+      if (activeAxes.length > 0) {
+        // Group left stick and right stick separately for clarity
+        const leftStick = activeAxes.filter(a => parseInt(a) <= 1);
+        const rightStick = activeAxes.filter(a => parseInt(a) >= 2 && parseInt(a) <= 3);
+        const otherAxes = activeAxes.filter(a => parseInt(a) > 3);
+        
+        const parts = [];
+        if (leftStick.length > 0) {
+          const values = leftStick.map(a => gp.axes[a]).join(",");
+          parts.push(`LS:${values}`);
+        }
+        if (rightStick.length > 0) {
+          const values = rightStick.map(a => gp.axes[a]).join(",");
+          parts.push(`RS:${values}`);
+        }
+        if (otherAxes.length > 0) {
+          const values = otherAxes.map(a => `A${a}:${gp.axes[a]}`).join(" ");
+          parts.push(values);
+        }
+        
+        const axesText = parts.join(" ");
+        ink(playerColor, 180).write(axesText, { x: slotX + 4, y: currentY }, undefined, maxWidth, true, FONT);
+      }
     }
   });
 }
