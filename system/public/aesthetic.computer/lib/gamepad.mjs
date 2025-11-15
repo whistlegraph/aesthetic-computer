@@ -1,7 +1,8 @@
 const { abs } = Math;
 
 export class Gamepad {
-  events = [];
+  events = [];           // All events (backwards compatible)
+  eventsByGamepad = [];  // Events separated by gamepad index
   deviceData = [];
 
   constructor() {
@@ -27,13 +28,17 @@ export class Gamepad {
           if (button.pressed !== prevButton.pressed) {
             const action = button.pressed ? "push" : "release";
             const name = `gamepad:${gi}:button:${bi}:${action}`;
-            this.events.push({ 
+            const event = { 
               name, 
               gamepad: gi, 
               button: bi, 
               action,
               gamepadId: gamepad.id // Include gamepad name/type
-            });
+            };
+            this.events.push(event);
+            // Also add to per-gamepad array
+            if (!this.eventsByGamepad[gi]) this.eventsByGamepad[gi] = [];
+            this.eventsByGamepad[gi].push(event);
           }
         });
 
@@ -43,13 +48,17 @@ export class Gamepad {
           const prevValue = this.deviceData[gi]?.axes[ai] || 0;
           //if (abs(value) > deadzone/* && value !== prevValue*/) {
           const name = `gamepad:${gi}:axis:${ai}:move`;
-          this.events.push({ 
+          const event = { 
             name, 
             gamepad: gi, 
             axis: ai, 
             value,
             gamepadId: gamepad.id // Include gamepad name/type
-          });
+          };
+          this.events.push(event);
+          // Also add to per-gamepad array
+          if (!this.eventsByGamepad[gi]) this.eventsByGamepad[gi] = [];
+          this.eventsByGamepad[gi].push(event);
           //}
         });
 
@@ -62,5 +71,11 @@ export class Gamepad {
         };
       });
     }, 8); // Poll every 8 ms (~120 FPS)
+  }
+
+  // Clear all events (both unified and per-gamepad arrays)
+  clearEvents() {
+    this.events.length = 0;
+    this.eventsByGamepad.forEach(arr => arr && (arr.length = 0));
   }
 }

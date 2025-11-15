@@ -2782,7 +2782,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           pen3d: ThreeD?.pollControllers(), // TODO: Implement pointers in 3D.
           hand: handData,
           keyboard: keyboard.events,
-          gamepad: gamepad.events,
+          gamepad: gamepad.events,           // Keep for backwards compat
+          gamepads: gamepad.eventsByGamepad, // NEW: Separate streams per gamepad
           // clipboardText: pastedText,
         },
       },
@@ -2815,7 +2816,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     // Clear keyboard and gamepad events.
     keyboard.events.length = 0;
-    gamepad.events.length = 0;
+    gamepad.clearEvents();
   }
 
   let frameCached = false;
@@ -9846,7 +9847,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       if (pen) pen.events.length = 0; // Clear pen events.
       keyboard.events.length = 0; // Clear keyboard events.
-      gamepad.events.length = 0; // Clear gamepad events.
+      gamepad.clearEvents(); // Clear gamepad events.
 
       // Clear when events but preserve core signal handlers.
       const coreHandlers = {};
