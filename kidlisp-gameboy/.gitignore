@@ -24,3 +24,8 @@
 gbdk/
 gameboy-emulator/
 compiler/
+
+# Old documentation and build directories
+archive/
+builds/
+templates/
