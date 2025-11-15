@@ -32,7 +32,15 @@ if test -d /workspaces/aesthetic-computer
 end
 
 function fish_prompt
-    echo -n '> '
+    # Show shell and directory for LLM context
+    set_color cyan
+    echo -n 'fish'
+    set_color normal
+    echo -n ' '
+    set_color yellow
+    echo -n (prompt_pwd)
+    set_color normal
+    echo -n ' > '
 end
 
 function dns
