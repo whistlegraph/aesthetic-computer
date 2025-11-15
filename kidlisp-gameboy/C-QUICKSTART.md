@@ -10,16 +10,26 @@ cd /workspaces/aesthetic-computer/kidlisp-gameboy/src
 
 ## 🔨 Build & Run
 
-### Quick Build & Test
+### Quick Build & Test (Regular GameBoy)
 ```bash
-# Build wave-editor ROM
+# Build a simple ROM (recommended: use .gb format)
 cd /workspaces/aesthetic-computer/kidlisp-gameboy/src
-/workspaces/aesthetic-computer/kidlisp-gameboy/gbdk/bin/lcc -Wm-yc -o wave-editor.gbc wave-editor.c
+/workspaces/aesthetic-computer/kidlisp-gameboy/gbdk/bin/lcc -o test.gb test.c
 
 # Copy to assets directory
-cp wave-editor.gbc /workspaces/aesthetic-computer/system/public/assets/gameboy/
+cp test.gb /workspaces/aesthetic-computer/system/public/assets/gameboy/
 
 # Run in aesthetic.computer
+cd /workspaces/aesthetic-computer
+ac gameboy~test
+```
+
+### Build with GameBoy Color Support (.gbc)
+```bash
+# Only use .gbc if you need custom color palettes
+cd /workspaces/aesthetic-computer/kidlisp-gameboy/src
+/workspaces/aesthetic-computer/kidlisp-gameboy/gbdk/bin/lcc -Wm-yc -o wave-editor.gbc wave-editor.c
+cp wave-editor.gbc /workspaces/aesthetic-computer/system/public/assets/gameboy/
 cd /workspaces/aesthetic-computer
 ac gameboy~wave-editor
 ```
@@ -36,11 +46,24 @@ ac gameboy~wave-editor
 
 1. **Edit** a `.c` file in `src/`
 2. **Compile** with GBDK's `lcc`:
+   
+   **For regular GameBoy (.gb):**
+   ```bash
+   /workspaces/aesthetic-computer/kidlisp-gameboy/gbdk/bin/lcc -o myrom.gb myrom.c
+   ```
+   
+   **For GameBoy Color (.gbc) - with color palettes:**
    ```bash
    /workspaces/aesthetic-computer/kidlisp-gameboy/gbdk/bin/lcc -Wm-yc -o myrom.gbc myrom.c
    ```
+   
+   ⚠️ **Important:** Use `.gb` format for better compatibility with wasmboy emulator!
+   Only use `.gbc` if you specifically need GameBoy Color features (custom palettes, etc.)
+
 3. **Copy** to assets:
    ```bash
+   cp myrom.gb /workspaces/aesthetic-computer/system/public/assets/gameboy/
+   # OR
    cp myrom.gbc /workspaces/aesthetic-computer/system/public/assets/gameboy/
    ```
 4. **Run** with `ac`:
