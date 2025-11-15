@@ -2564,6 +2564,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       
       console.log("🎮 Loading ROM:", romData.originalName);
       
+      // Reset emulator state before loading new ROM
+      try {
+        await gameboyEmulator.pause();
+        await gameboyEmulator.reset();
+        console.log("🎮 Emulator reset before loading ROM");
+      } catch (error) {
+        console.log("🎮 Could not reset emulator:", error);
+      }
+      
       // Convert ArrayBuffer to Uint8Array for wasmboy
       const romBytes = new Uint8Array(romData.romData);
       await gameboyEmulator.loadROM(romBytes);
