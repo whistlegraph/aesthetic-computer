@@ -5151,7 +5151,7 @@ async function fetchContentItems(api) {
   try {
     // Fetch all types in one request
     // Use absolute URL to ensure HTTPS in dev environment
-    const apiUrl = window.location.origin + "/api/tv?types=kidlisp,painting,tape&limit=60";
+    const apiUrl = (typeof window !== 'undefined' ? window.location.origin : '') + "/api/tv?types=kidlisp,painting,tape&limit=60";
     const res = await fetch(apiUrl);
     if (res.status === 200) {
       const data = await res.json();
