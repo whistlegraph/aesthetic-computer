@@ -27,7 +27,7 @@ const recentEvents = [];
 const MAX_EVENTS = 10;
 const FONT = "MatrixChunky8"; // Pixel-perfect font
 
-let timelinePainting; // Separate painting buffer for timeline
+const timelinePaintings = [null, null, null, null]; // One timeline per gamepad
 
 function drawGamepadDiagram({ ink, line, circle, box }, gp, x, y) {
   const baseX = x;
@@ -123,82 +123,196 @@ function paint({ wipe, ink, write, screen, line, circle, box, painting, paste, h
   const lineHeight = 10;
   const hudHeight = 20; // Space for prompt HUD at top
   
-  // Show up to 4 gamepads in a 2x2 grid
+  // Get connected gamepad indices
+  const connectedIndices = keys(connectedGamepads).map(k => parseInt(k)).filter(i => connectedGamepads[i]);
+  const numConnected = connectedIndices.length;
+  
   const playerColors = ["cyan", "magenta", "lime", "yellow"];
   const playerLabels = ["P1", "P2", "P3", "P4"];
   
-  // Calculate grid positions
-  const gridWidth = screen.width / 2;
-  const gridHeight = (screen.height - hudHeight) / 2;
-  const gridPositions = [
-    { x: 0, y: hudHeight },                    // Top-left (P1)
-    { x: gridWidth, y: hudHeight },           // Top-right (P2)
-    { x: 0, y: hudHeight + gridHeight },      // Bottom-left (P3)
-    { x: gridWidth, y: hudHeight + gridHeight } // Bottom-right (P4)
-  ];
+  if (numConnected === 0) {
+    // No gamepads - show message
+    const msgY = hudHeight + 50;
+    ink("orange").write("No gamepads connected", { x: 10, y: msgY }, undefined, undefined, false, FONT);
+    ink("gray").write("Press any button to connect", { x: 10, y: msgY + lineHeight }, undefined, undefined, false, FONT);
+    return;
+  }
   
-  // Draw each gamepad slot
-  for (let i = 0; i < 4; i++) {
-    const pos = gridPositions[i];
-    const centerX = pos.x + gridWidth / 2;
-    const centerY = pos.y + gridHeight / 2;
+  // Calculate layout based on number of connected controllers
+  let cols, rows;
+  if (numConnected === 1) {
+    cols = 1; rows = 1;
+  } else if (numConnected === 2) {
+    cols = 2; rows = 1;
+  } else if (numConnected <= 4) {
+    cols = 2; rows = 2;
+  } else {
+    cols = 2; rows = 2; // Max 4
+  }
+  
+  const slotWidth = screen.width / cols;
+  const slotHeight = (screen.height - hudHeight) / rows;
+  
+  // Draw each connected gamepad
+  connectedIndices.slice(0, 4).forEach((gpIndex, slotNum) => {
+    const gp = connectedGamepads[gpIndex];
+    if (!gp) return;
     
-    // Draw border around each quadrant
-    ink("dimgray").box(pos.x, pos.y, gridWidth - 1, gridHeight - 1, "line");
+    const col = slotNum % cols;
+    const row = Math.floor(slotNum / cols);
+    const slotX = col * slotWidth;
+    const slotY = hudHeight + row * slotHeight;
+    const centerX = slotX + slotWidth / 2;
+    const centerY = slotY + slotHeight / 2;
     
-    // Player label at top
-    const labelY = pos.y + 8;
-    ink(playerColors[i]).write(playerLabels[i], { x: pos.x + 8, y: labelY }, undefined, undefined, false, FONT);
+    // Player color
+    const playerColor = playerColors[gpIndex];
+    const playerLabel = playerLabels[gpIndex];
     
-    // Check if gamepad is connected
-    const gp = connectedGamepads[i];
+    // Draw border (only if multiple gamepads)
+    if (numConnected > 1) {
+      ink("dimgray").box(slotX, slotY, slotWidth - 1, slotHeight - 1, "line");
+    }
     
-    if (gp && gp.id) {
-      // Gamepad connected - draw diagram
-      const diagramWidth = 48;
-      const diagramHeight = 24;
-      const diagramX = centerX - diagramWidth / 2;
-      const diagramY = centerY - diagramHeight / 2;
+    // Player label
+    const labelY = slotY + 8;
+    ink(playerColor).write(playerLabel, { x: slotX + 8, y: labelY }, undefined, undefined, false, FONT);
+    
+    // Calculate space for timeline
+    const diagramHeight = 24;
+    const timelineTop = labelY + lineHeight + 4;
+    const timelineBottom = slotY + slotHeight - diagramHeight - 16;
+    const timelineHeight = timelineBottom - timelineTop;
+    
+    if (timelineHeight > 20) {
+      // Get current active inputs
+      const gamepadId = gp.id || "standard";
+      const currentButtons = gp.pressedButtons.map(bi => ({
+        color: getButtonColors(gamepadId, bi).active
+      }));
       
-      drawGamepadDiagram({ ink, line, circle, box }, gp, diagramX, diagramY);
+      const currentAxes = [];
+      keys(gp.axes).forEach(ai => {
+        const axisIndex = parseInt(ai);
+        const value = parseFloat(gp.axes[ai]);
+        if (Math.abs(value) > 0.5) {
+          const colors = getAxisColors(gamepadId, axisIndex);
+          let color;
+          
+          if (typeof colors.active === "object") {
+            if (axisIndex === 0) {
+              color = value < 0 ? colors.active.left : colors.active.right;
+            } else if (axisIndex === 1) {
+              color = value < 0 ? colors.active.up : colors.active.down;
+            } else {
+              color = colors.active.left || colors.active.right || colors.active.up || colors.active.down;
+            }
+          } else {
+            color = colors.active;
+          }
+          currentAxes.push({ color });
+        }
+      });
       
-      // Show gamepad name below diagram
-      const nameY = diagramY + diagramHeight + 8;
-      const nameText = gp.id.length > 20 ? gp.id.substring(0, 17) + "..." : gp.id;
-      ink("white").write(nameText, { x: pos.x + 8, y: nameY }, undefined, undefined, false, FONT);
+      const currentInputs = [...currentButtons, ...currentAxes];
       
-      // Show active buttons
-      let infoY = nameY + lineHeight;
-      if (gp.pressedButtons && gp.pressedButtons.length > 0) {
-        const btnNames = gp.pressedButtons.map(bi => getButtonName(gp.id || "standard", bi)).join(" ");
-        const btnText = btnNames.length > 15 ? btnNames.substring(0, 12) + "..." : btnNames;
-        ink("lime").write(btnText, { x: pos.x + 8, y: infoY }, undefined, undefined, false, FONT);
-        infoY += lineHeight;
-      }
-      
-      // Show active axes
-      if (gp.axes && keys(gp.axes).length > 0) {
-        const axisNames = keys(gp.axes).slice(0, 2).map(ai => {
-          return getAxisName(gp.id || "standard", parseInt(ai));
-        });
-        const axisText = axisNames.join(" ");
-        if (axisText.length > 0) {
-          ink("orange").write(axisText.substring(0, 15), { x: pos.x + 8, y: infoY }, undefined, undefined, false, FONT);
+      // Initialize timeline painting buffer for this gamepad
+      if (!timelinePaintings[gpIndex]) {
+        timelinePaintings[gpIndex] = painting(slotWidth, timelineHeight);
+        // Fill with dimgray initially
+        for (let i = 0; i < timelinePaintings[gpIndex].pixels.length; i += 4) {
+          timelinePaintings[gpIndex].pixels[i + 0] = 105;
+          timelinePaintings[gpIndex].pixels[i + 1] = 105;
+          timelinePaintings[gpIndex].pixels[i + 2] = 105;
+          timelinePaintings[gpIndex].pixels[i + 3] = 255;
         }
       }
-    } else {
-      // No gamepad connected
-      const msgY = centerY;
-      ink("gray").write("No gamepad", { x: pos.x + 8, y: msgY }, undefined, undefined, false, FONT);
-      ink("darkgray").write("Press button", { x: pos.x + 8, y: msgY + lineHeight }, undefined, undefined, false, FONT);
-      ink("darkgray").write("to connect", { x: pos.x + 8, y: msgY + lineHeight * 2 }, undefined, undefined, false, FONT);
+      
+      const timeline = timelinePaintings[gpIndex];
+      
+      // Scroll pixels up by 1
+      for (let y = 0; y < timelineHeight - 1; y++) {
+        for (let x = 0; x < slotWidth; x++) {
+          const srcIdx = (x + (y + 1) * slotWidth) * 4;
+          const dstIdx = (x + y * slotWidth) * 4;
+          timeline.pixels[dstIdx + 0] = timeline.pixels[srcIdx + 0];
+          timeline.pixels[dstIdx + 1] = timeline.pixels[srcIdx + 1];
+          timeline.pixels[dstIdx + 2] = timeline.pixels[srcIdx + 2];
+          timeline.pixels[dstIdx + 3] = timeline.pixels[srcIdx + 3];
+        }
+      }
+      
+      // Draw new line at bottom with player color as base
+      const newLineY = timelineHeight - 1;
+      const baseColor = cssColors[playerColor] || [100, 100, 100];
+      
+      if (currentInputs.length > 0) {
+        const colors = currentInputs.map(input => cssColors[input.color] || baseColor);
+        
+        for (let x = 0; x < slotWidth; x++) {
+          const position = (x / slotWidth) * currentInputs.length;
+          const idx1 = Math.floor(position) % currentInputs.length;
+          const idx2 = (idx1 + 1) % currentInputs.length;
+          const t = position - Math.floor(position);
+          
+          const color1 = colors[idx1];
+          const color2 = colors[idx2];
+          
+          const r = Math.floor(color1[0] * (1 - t) + color2[0] * t);
+          const g = Math.floor(color1[1] * (1 - t) + color2[1] * t);
+          const b = Math.floor(color1[2] * (1 - t) + color2[2] * t);
+          
+          const pixelIdx = (x + newLineY * slotWidth) * 4;
+          timeline.pixels[pixelIdx + 0] = r;
+          timeline.pixels[pixelIdx + 1] = g;
+          timeline.pixels[pixelIdx + 2] = b;
+          timeline.pixels[pixelIdx + 3] = 255;
+        }
+      } else {
+        // No input - draw dim player color
+        for (let x = 0; x < slotWidth; x++) {
+          const pixelIdx = (x + newLineY * slotWidth) * 4;
+          timeline.pixels[pixelIdx + 0] = Math.floor(baseColor[0] * 0.2);
+          timeline.pixels[pixelIdx + 1] = Math.floor(baseColor[1] * 0.2);
+          timeline.pixels[pixelIdx + 2] = Math.floor(baseColor[2] * 0.2);
+          timeline.pixels[pixelIdx + 3] = 255;
+        }
+      }
+      
+      // Paste timeline
+      paste(timeline, slotX, timelineTop);
     }
-  }
+    
+    // Draw controller diagram at bottom
+    const diagramWidth = 48;
+    const diagramX = centerX - diagramWidth / 2;
+    const diagramY = slotY + slotHeight - diagramHeight - 8;
+    
+    drawGamepadDiagram({ ink, line, circle, box }, gp, diagramX, diagramY);
+    
+    // Show gamepad name below diagram (if space)
+    if (gp.id && slotHeight > 100) {
+      const nameY = diagramY - lineHeight - 2;
+      const nameText = gp.id.length > 20 ? gp.id.substring(0, 17) + "..." : gp.id;
+      ink("white").write(nameText, { x: slotX + 8, y: nameY }, undefined, undefined, false, FONT);
+    }
+  });
 }
 
 function act({ event: e }) {
   if (e.is("gamepad")) {
     const gpIndex = e.gamepad;
+    
+    // Debug logging
+    console.log("🎮 Gamepad event:", {
+      index: gpIndex,
+      name: e.name,
+      gamepadId: e.gamepadId,
+      button: e.button,
+      axis: e.axis,
+      action: e.action,
+      value: e.value
+    });
     
     // Initialize gamepad entry if needed
     if (!connectedGamepads[gpIndex]) {
@@ -208,6 +322,7 @@ function act({ event: e }) {
         axes: {},
         lastEvent: null,
       };
+      console.log(`🎮 Gamepad ${gpIndex} connected:`, e.gamepadId);
     }
     
     const gp = connectedGamepads[gpIndex];
