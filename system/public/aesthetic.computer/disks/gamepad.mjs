@@ -296,25 +296,52 @@ function paint({ wipe, ink, write, screen, line, circle, box, painting, paste, h
       const nameY = diagramY + diagramHeight + 4;
       const maxWidth = slotWidth - 8;
       
-      // Clean up controller name - remove vendor/product IDs if present
+      // Detect controller type and show friendly name
       let displayName = gp.id;
-      // Remove patterns like "(STANDARD GAMEPAD Vendor: 045e Product: 0b13)"
-      displayName = displayName.replace(/\s*\(STANDARD GAMEPAD[^)]*\)/i, "");
-      // Remove patterns like "(Vendor: xxxx Product: xxxx)"
-      displayName = displayName.replace(/\s*\(Vendor:[^)]*\)/i, "");
+      if (displayName.includes("045e") && displayName.includes("0b13")) {
+        displayName = "Xbox Controller";
+      } else if (displayName.includes("2dc8") && displayName.includes("9020")) {
+        displayName = "8BitDo Micro";
+      } else {
+        // Clean up generic names - remove vendor/product IDs
+        displayName = displayName.replace(/\s*\(STANDARD GAMEPAD[^)]*\)/i, "");
+        displayName = displayName.replace(/\s*\(Vendor:[^)]*\)/i, "");
+      }
       
-      // Wrap controller name if needed - use default sans font to avoid spacing issues
-      ink("white").write(displayName, { x: slotX + 4, y: nameY }, undefined, maxWidth, true);
+      // Wrap controller name if needed - use MatrixChunky8 font
+      ink("white").write(displayName, { x: slotX + 4, y: nameY }, undefined, maxWidth, true, FONT);
       
       let currentY = nameY + lineHeight + 2;
       
-      // Show pressed buttons readout - each button on its own with color coding
+      // Show pressed buttons readout - each button in its own box
       if (gp.pressedButtons.length > 0) {
         const buttonNames = gp.pressedButtons.map(b => getButtonName(gp.id, b));
-        const buttonsText = buttonNames.join(" + ");
+        let buttonX = slotX + 4;
         
-        ink(playerColor).write(buttonsText, { x: slotX + 4, y: currentY }, undefined, maxWidth, true, FONT);
-        currentY += lineHeight + 2;
+        buttonNames.forEach((name, i) => {
+          // Measure text width (approximate for MatrixChunky8)
+          const boxPadding = 3;
+          const charWidth = 6; // Approximate width per character in MatrixChunky8
+          const textWidth = name.length * charWidth;
+          const boxWidth = textWidth + boxPadding * 2;
+          
+          // Check if this box would overflow the line
+          if (buttonX + boxWidth > slotX + slotWidth - 4) {
+            buttonX = slotX + 4; // Reset to left margin
+            currentY += lineHeight + 4; // Move to next line
+          }
+          
+          // Draw box
+          ink(playerColor, 60).box(buttonX, currentY, boxWidth, lineHeight, "fill");
+          ink(playerColor).box(buttonX, currentY, boxWidth, lineHeight, "line");
+          
+          // Draw text
+          ink("white").write(name, { x: buttonX + boxPadding, y: currentY + 1 }, undefined, undefined, false, FONT);
+          
+          buttonX += boxWidth + 3; // Move right for next box
+        });
+        
+        currentY += lineHeight + 4;
       }
       
       // Show active axes readout - format compactly
