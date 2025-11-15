@@ -84,7 +84,11 @@ import {
   decodeKidlispFromUrl,
   encodeKidlispForUrl,
   isKidlispSource,
+  getSyntaxHighlightingColors,
+  fetchCachedCode,
+  tokenize,
 } from "../lib/kidlisp.mjs";
+import { KidLisp } from "../lib/kidlisp.mjs";
 import * as products from "./common/products.mjs";
 const { abs, max, min } = Math;
 const { floor } = Math;
@@ -112,7 +116,14 @@ let chatTicker; // Ticker instance for chat messages
 let chatTickerButton; // Button for chat ticker hover interaction
 let contentTicker; // Ticker instance for mixed $kidlisp, #painting, !tape content
 let contentTickerButton; // Button for content ticker hover interaction
-let contentItems = []; // Store fetched content: {type: 'kidlisp'|'painting'|'tape', code: string}
+let contentItems = []; // Store fetched content: {type: 'kidlisp'|'painting'|'tape', code: string, source?: string}
+let currentTooltipItem = null; // Current item being shown in tooltip (auto-cycles)
+let tooltipTimer = 0; // Timer for switching between items
+let tooltipFadeIn = 0; // Fade in animation for tooltip (0-1)
+let tooltipItemIndex = 0; // Index of current tooltip item
+let tooltipDriftX = 0; // Drift offset X
+let tooltipDriftY = 0; // Drift offset Y
+let tooltipDriftPhase = 0; // Phase for drift animation
 let ruler = false; // Paint a line down the center of the display.
 //                   (for measuring the login / signup centering).
 // let firstCommandSent = false; // 🏳️
@@ -3638,11 +3649,15 @@ function paint($) {
     const tickerPadding = 3; // Padding around text
     
     let currentTickerY = loginY + 44; // Start 44px below login (moved down from 30px)
+    let contentTickerY = 0; // Y position of content ticker (declared here for tooltip access)
     
+    // 1. CHAT TICKER (top priority)
     // 1. CHAT TICKER (top priority)
     if ($.chat.messages.length > 0 && screen.height >= 180) {
       const msg = $.chat.messages[$.chat.messages.length - 1];
-      const fullText = msg.from + ": " + msg.text;
+      // Filter out newline characters to prevent bleeding into ticker underneath
+      const sanitizedText = msg.text.replace(/[\r\n]+/g, ' ');
+      const fullText = msg.from + ": " + sanitizedText;
       const chatTickerY = currentTickerY;
       
       // Create or update ticker instance
@@ -3718,7 +3733,7 @@ function paint($) {
     const contentIsLoading = contentItems.length === 0;
     
     if (showContentTicker && (contentItems.length > 0 || contentIsLoading)) {
-      const contentTickerY = currentTickerY;
+      contentTickerY = currentTickerY; // Assign to outer scope variable
       
       // Build text with prefixes: $ for kidlisp, # for painting, ! for tape
       const fullText = contentItems.length > 0 
@@ -3875,16 +3890,28 @@ function paint($) {
                 hoveredItemIndex = idx;
               }
               
+              // Check if this is the currently displayed tooltip item
+              const isTooltipItem = currentTooltipItem && 
+                                   item.type === 'kidlisp' && 
+                                   item.code === currentTooltipItem.code;
+              
               // Only render if visible
               if (currentX > -100 && currentX < displayWidth + 100) {
-                // Brighter and add background if hovered
-                if (isHovered && !contentTickerButton.down) {
-                  // Bright hover background
-                  ink([255, 255, 255, 40]).box(currentX, boxY, textWidth, boxHeight - 1);
-                  // Brighter text when hovered
-                  ink(color, 255).write(text, { x: currentX, y: textY });
+                // Brighter and add background if hovered OR if it's the tooltip item
+                if ((isHovered || isTooltipItem) && !contentTickerButton.down) {
+                  // Bright background (green tint for tooltip item, white for hover)
+                  const bgColor = isTooltipItem ? [150, 255, 150, 60] : [255, 255, 255, 40];
+                  $.ink(bgColor).box(currentX, boxY, textWidth, boxHeight - 1);
+                  
+                  // Draw box outline around tooltip item
+                  if (isTooltipItem) {
+                    $.ink([150, 255, 150, 180]).box(currentX - 2, boxY - 1, textWidth + 4, boxHeight, "inline");
+                  }
+                  
+                  // Brighter text when hovered or selected
+                  $.ink(color, 255).write(text, { x: currentX, y: textY });
                 } else {
-                  ink(color, contentTickerAlpha).write(text, { x: currentX, y: textY });
+                  $.ink(color, contentTickerAlpha).write(text, { x: currentX, y: textY });
                 }
               }
               
@@ -3922,6 +3949,292 @@ function paint($) {
     } else {
       contentTicker = null;
       contentTickerButton = null;
+      currentTooltipItem = null; // Clear when ticker is hidden
+      tooltipTimer = 0;
+    }
+
+    // 🎨 KIDLISP SOURCE TOOLTIP (ambient floating preview)
+    // Automatically cycles through KidLisp items, showing syntax-highlighted previews
+    if (showContentTicker && contentItems.length > 0) {
+      // Filter to only KidLisp items that are currently visible on screen (from the right side)
+      const kidlispItems = [];
+      
+      if (contentTicker) {
+        const offset = contentTicker.getOffset();
+        let currentX = -offset;
+        
+        contentItems.forEach(item => {
+          if (item.type === 'kidlisp') {
+            const prefix = '$';
+            const text = `${prefix}${item.code}`;
+            const textWidth = $.text.box(text).box.width;
+            
+            // Check if this item is visible on screen (prefer right side)
+            if (currentX >= screen.width * 0.3 && currentX < screen.width) {
+              // Use original item object to preserve fetchAttempted/fetchFailed flags
+              item.screenX = currentX; // Add screenX directly to original object
+              kidlispItems.push(item);
+            }
+            
+            currentX += textWidth + $.text.box(" · ").box.width;
+          } else {
+            // Skip non-kidlisp items but account for their width
+            const itemPrefix = item.type === 'painting' ? '#' : '!';
+            const itemText = `${itemPrefix}${item.code}`;
+            const textWidth = $.text.box(itemText).box.width;
+            currentX += textWidth + $.text.box(" · ").box.width;
+          }
+        });
+      }
+      
+      console.log(`🎨 Tooltip check: showContentTicker=${showContentTicker}, contentItems=${contentItems.length}, visibleKidlispItems=${kidlispItems.length}, currentTooltipItem=${currentTooltipItem ? '$' + currentTooltipItem.code : 'null'}`);
+      
+      if (kidlispItems.length > 0) {
+        const displayDuration = 180; // Show each item for 3 seconds (at 60fps)
+        const fadeDuration = 20; // Fade in/out over ~0.33 seconds
+        
+        // Initialize ONLY if we don't have a tooltip yet
+        if (!currentTooltipItem) {
+          // Find first item that hasn't failed or try first one
+          let startItem = kidlispItems.find(i => !i.fetchFailed) || kidlispItems[0];
+          currentTooltipItem = startItem;
+          tooltipItemIndex = kidlispItems.indexOf(startItem);
+          tooltipTimer = 0;
+          
+          // Fetch source for current item
+          if (!currentTooltipItem.source && !currentTooltipItem.fetchAttempted) {
+            fetchKidlispSource(currentTooltipItem, $);
+          }
+          
+          console.log(`🎨 Tooltip initialized with KidLisp item: $${currentTooltipItem.code}`);
+        }
+        
+        // Pre-fetch next items (always do this, even while waiting for current)
+        for (let i = 1; i <= 2; i++) {
+          const nextIndex = (tooltipItemIndex + i) % kidlispItems.length;
+          const nextItem = kidlispItems[nextIndex];
+          if (nextItem && !nextItem.source && !nextItem.fetchAttempted && !nextItem.fetchFailed) {
+            fetchKidlispSource(nextItem, $);
+          }
+        }
+        
+        // Only increment timer if current item has source loaded
+        if (currentTooltipItem.source) {
+          tooltipTimer++;
+        }
+        
+        // Switch to next item after display duration OR if current item failed
+        if (tooltipTimer > displayDuration || currentTooltipItem.fetchFailed) {
+          // Find next item with source already loaded (don't switch until ready)
+          let attempts = 0;
+          let foundNext = false;
+          const startIndex = tooltipItemIndex;
+          
+          while (attempts < kidlispItems.length && !foundNext) {
+            const checkIndex = (startIndex + attempts + 1) % kidlispItems.length;
+            const nextItem = kidlispItems[checkIndex];
+            
+            // Skip failed items, only switch to items with source
+            if (nextItem.source && !nextItem.fetchFailed) {
+              tooltipTimer = 0;
+              tooltipItemIndex = checkIndex;
+              currentTooltipItem = nextItem;
+              foundNext = true;
+              console.log(`🎨 Tooltip cycling to KidLisp item ${tooltipItemIndex + 1}/${kidlispItems.length}: $${currentTooltipItem.code}`);
+            } else if (!nextItem.fetchAttempted && !nextItem.fetchFailed) {
+              // Try to fetch if not attempted yet
+              fetchKidlispSource(nextItem, $);
+            }
+            
+            attempts++;
+          }
+          
+          // If no loaded item found, wait at full display (don't fade out)
+          if (!foundNext) {
+            tooltipTimer = displayDuration; // Hold at full opacity
+            console.log(`🎨 Waiting for next item to load...`);
+          }
+        } else if (!currentTooltipItem.source) {
+          // Waiting for source to load - check if it's taking too long
+          if (currentTooltipItem.fetchAttempted && !currentTooltipItem.fetchFailed) {
+            // After 2 seconds of waiting, mark as failed and force switch
+            const waitTime = 120; // 2 seconds at 60fps
+            if (tooltipTimer > waitTime) {
+              console.log(`🎨 Timeout waiting for $${currentTooltipItem.code}, marking as failed`);
+              currentTooltipItem.fetchFailed = true;
+              // Switch logic will run on next frame
+            } else {
+              tooltipTimer++; // Keep counting while waiting
+            }
+          }
+          // If not yet attempted, don't increment timer - just wait for fetch to start
+        }
+        
+        // Calculate fade in/out ONLY when we have source
+        if (currentTooltipItem.source) {
+          if (tooltipTimer < fadeDuration) {
+            // Fade in
+            tooltipFadeIn = tooltipTimer / fadeDuration;
+          } else if (tooltipTimer > displayDuration - fadeDuration) {
+            // Fade out (only if we have a next item ready)
+            tooltipFadeIn = (displayDuration - tooltipTimer) / fadeDuration;
+          } else {
+            // Full opacity
+            tooltipFadeIn = 1;
+          }
+        } else {
+          tooltipFadeIn = 0; // Don't show until loaded
+        }
+        
+        // Only render tooltip if we have source code loaded
+        if (currentTooltipItem && currentTooltipItem.source && tooltipFadeIn > 0) {
+          const source = currentTooltipItem.source;
+          const maxLines = 5; // Show up to 5 lines
+          const lines = source.split('\n').slice(0, maxLines);
+          
+          // Calculate tooltip dimensions
+          const charWidth = 4; // MatrixChunky8 character width
+          const lineHeight = 8; // MatrixChunky8 line height
+          const padding = 4;
+          const maxLineLength = Math.max(...lines.map(l => l.length));
+          
+          // Tooltip only contains source code (metadata renders below)
+          const tooltipWidth = Math.min(maxLineLength * charWidth + padding * 2, screen.width - 40);
+          const tooltipHeight = lines.length * lineHeight + padding * 2;
+          
+          // Update drift animation (smooth organic movement)
+          tooltipDriftPhase += 0.02;
+          const driftSpeed = 0.5;
+          tooltipDriftX = Math.sin(tooltipDriftPhase) * 15 * driftSpeed;
+          tooltipDriftY = Math.cos(tooltipDriftPhase * 0.7) * 10 * driftSpeed;
+          
+          // Find the position of the highlighted item in the ticker
+          // We need to calculate where the item appears in the scrolling ticker
+          const tickerY = contentTickerY; // Use contentTickerY (where ticker is actually rendered)
+          const tickerPadding = 4;
+          const tickerHeight = 16;
+          const tickerBoxY = contentTickerY - tickerPadding; // Top of ticker box
+          const tickerBoxHeight = tickerHeight + (tickerPadding * 2); // Height including padding
+          let highlightedItemX = -1;
+          let highlightedItemWidth = -1;
+          
+          // Calculate the offset in the ticker for our current item
+          if (contentTicker) {
+            const offset = contentTicker.getOffset();
+            let currentX = -offset;
+            const prefix = currentTooltipItem.type === 'kidlisp' ? '$' : currentTooltipItem.type === 'painting' ? '#' : '!';
+            const targetText = `${prefix}${currentTooltipItem.code}`;
+            
+            // Find where this item appears in the ticker
+            for (let i = 0; i < contentItems.length; i++) {
+              const item = contentItems[i];
+              const itemPrefix = item.type === 'kidlisp' ? '$' : item.type === 'painting' ? '#' : '!';
+              const itemText = `${itemPrefix}${item.code}`;
+              const textWidth = $.text.box(itemText).box.width;
+              
+              if (item === currentTooltipItem) {
+                // Check if this position is on screen
+                if (currentX >= 0 && currentX < screen.width) {
+                  highlightedItemX = currentX;
+                  highlightedItemWidth = textWidth;
+                }
+                break;
+              }
+              
+              currentX += textWidth + $.text.box(" · ").box.width;
+            }
+          }
+          
+          // Position tooltip - float below the ticker (not at bottom of screen)
+          const baseTooltipX = (screen.width - tooltipWidth) / 2; // Center horizontally
+          const baseTooltipY = contentTickerY + 20; // Just below ticker (use contentTickerY)
+          const tooltipX = baseTooltipX + tooltipDriftX;
+          const tooltipY = baseTooltipY + tooltipDriftY;
+          
+          // Draw connector line from highlighted item box to tooltip (if item is visible)
+          if (highlightedItemX >= 0 && highlightedItemWidth > 0) {
+            const lineAlpha = Math.floor(120 * tooltipFadeIn);
+            
+            // Calculate connection points
+            const boxCenterX = highlightedItemX + highlightedItemWidth / 2;
+            const boxBottomY = tickerBoxY + tickerBoxHeight;
+            const tooltipCenterX = tooltipX + tooltipWidth / 2;
+            const tooltipTopY = tooltipY;
+            
+            // Draw line from bottom center of highlighted box to top center of tooltip
+            $.ink([150, 255, 150, lineAlpha]).line(
+              boxCenterX,
+              boxBottomY,
+              tooltipCenterX,
+              tooltipTopY
+            );
+          }
+          
+          // Draw tooltip background (dark with slight transparency)
+          const bgAlpha = Math.floor(200 * tooltipFadeIn);
+          $.ink([20, 40, 30, bgAlpha]).box(tooltipX, tooltipY, tooltipWidth, tooltipHeight);
+          
+          // Draw border
+          const borderAlpha = Math.floor(180 * tooltipFadeIn);
+          $.ink([100, 255, 150, borderAlpha]).box(tooltipX, tooltipY, tooltipWidth, tooltipHeight, "inline");
+          
+          // Render KidLisp source with proper syntax highlighting
+          const textAlpha = Math.floor(220 * tooltipFadeIn);
+          renderKidlispSource(
+            $,
+            source,
+            tooltipX + padding,
+            tooltipY + padding,
+            tooltipWidth - padding * 2,
+            maxLines,
+            textAlpha
+          );
+          
+          // Render metadata (timestamp and @author) BELOW the tooltip box
+          const metadataY = tooltipY + tooltipHeight + 6; // 6px below box
+          
+          // Format timestamp (relative time or absolute)
+          let timestampText = '';
+          if (currentTooltipItem.timestamp) {
+            const timestamp = new Date(currentTooltipItem.timestamp);
+            const now = new Date();
+            const diff = now - timestamp;
+            const seconds = Math.floor(diff / 1000);
+            const minutes = Math.floor(seconds / 60);
+            const hours = Math.floor(minutes / 60);
+            const days = Math.floor(hours / 24);
+            
+            if (days > 0) {
+              timestampText = `${days}d ago`;
+            } else if (hours > 0) {
+              timestampText = `${hours}h ago`;
+            } else if (minutes > 0) {
+              timestampText = `${minutes}m ago`;
+            } else {
+              timestampText = `${seconds}s ago`;
+            }
+          }
+          
+          // Format author (use code as fallback for testing when API data unavailable)
+          const authorText = currentTooltipItem.author 
+            ? `@${currentTooltipItem.author}` 
+            : `@${currentTooltipItem.code}`; // Fallback for testing
+          
+          // Combine metadata: "timestamp · @author"
+          const metadataText = timestampText && authorText 
+            ? `${timestampText} · ${authorText}`
+            : timestampText || authorText || '';
+          
+          // Render metadata in dimmer color BELOW the box
+          if (metadataText) {
+            $.ink([120, 200, 140, textAlpha]).write(
+              metadataText,
+              { x: tooltipX + padding, y: metadataY },
+              [255, 255, 255, textAlpha]
+            );
+          }
+        }
+      }
     }
 
     // Handle Stats - positioned directly under login button
@@ -4837,7 +5150,9 @@ async function makeMotd({ system, needsPaint, handle, user, net, api, notice }) 
 async function fetchContentItems(api) {
   try {
     // Fetch all types in one request
-    const res = await fetch("/api/tv?types=kidlisp,painting,tape&limit=60");
+    // Use absolute URL to ensure HTTPS in dev environment
+    const apiUrl = window.location.origin + "/api/tv?types=kidlisp,painting,tape&limit=60";
+    const res = await fetch(apiUrl);
     if (res.status === 200) {
       const data = await res.json();
       const items = [];
@@ -4845,7 +5160,13 @@ async function fetchContentItems(api) {
       // Collect kidlisp items
       if (data.media?.kidlisp && Array.isArray(data.media.kidlisp)) {
         data.media.kidlisp.forEach(item => {
-          if (item.code) items.push({ type: 'kidlisp', code: item.code });
+          if (item.code) items.push({ 
+            type: 'kidlisp', 
+            code: item.code,
+            source: item.source, // Store source for tooltip preview
+            timestamp: item.timestamp || item.created_at,
+            author: item.author || item.handle
+          });
         });
       }
       
@@ -4872,10 +5193,134 @@ async function fetchContentItems(api) {
       api.needsPaint();
     } else {
       console.warn("⚠️ Could not fetch content items. Status:", res.status);
+      // Try to read error details
+      try {
+        const errorData = await res.json();
+        console.warn("⚠️ Error details:", errorData);
+      } catch (e) {
+        const errorText = await res.text();
+        console.warn("⚠️ Error response:", errorText);
+      }
     }
   } catch (err) {
     console.warn("⚠️ Content fetch error:", err);
   }
+}
+
+// Fetch KidLisp source code for a given item
+async function fetchKidlispSource(item, $) {
+  if (!item || item.type !== 'kidlisp' || !item.code) return;
+  
+  // Prevent duplicate fetches - check and set atomically
+  if (item.fetchAttempted) return;
+  item.fetchAttempted = true; // Set IMMEDIATELY to block other calls
+  
+  try {
+    const source = await fetchCachedCode(item.code);
+    if (source) {
+      item.source = source;
+      item.fetchFailed = false;
+      console.log(`✅ Fetched source for $${item.code} (${source.length} chars)`);
+      $.needsPaint();
+    } else {
+      console.warn(`⚠️ No source returned for $${item.code}`);
+      item.fetchFailed = true;
+    }
+  } catch (err) {
+    console.warn(`⚠️ Could not fetch source for $${item.code}:`, err);
+    item.fetchFailed = true;
+  }
+}
+
+// Render syntax-highlighted KidLisp source code
+function renderKidlispSource($, source, x, y, maxWidth, maxLines, fadeAlpha) {
+  const lines = source.split('\n').slice(0, maxLines);
+  const charWidth = 4;
+  const lineHeight = 8;
+  
+  // Create temporary KidLisp instance for color mapping
+  const tempKidlisp = new KidLisp();
+  tempKidlisp.syntaxHighlightSource = source;
+  
+  lines.forEach((line, lineIdx) => {
+    const lineY = y + lineIdx * lineHeight;
+    let currentX = x;
+    
+    // Tokenize this line
+    const tokens = tokenize(line);
+    let sourceIndex = 0;
+    
+    tokens.forEach((token, tokenIdx) => {
+      // Get color for this token
+      const colorName = tempKidlisp.getTokenColor(token, tokens, tokenIdx);
+      
+      // Handle fade: expressions specially
+      if (token.startsWith('fade:')) {
+        const coloredFadeString = tempKidlisp.colorFadeExpression(token);
+        // Parse the colored fade string format: \color1\text1\color2\text2...
+        const segments = coloredFadeString.split('\\').filter(s => s);
+        
+        for (let i = 0; i < segments.length; i += 2) {
+          const segmentColor = segments[i];
+          const segmentText = segments[i + 1] || '';
+          
+          const rgb = parseColorName(segmentColor);
+          for (let charIdx = 0; charIdx < segmentText.length; charIdx++) {
+            const char = segmentText[charIdx];
+            $.ink([rgb.r, rgb.g, rgb.b, fadeAlpha]).write(char, { x: currentX, y: lineY }, undefined, undefined, false, "MatrixChunky8");
+            currentX += charWidth;
+          }
+        }
+      } else {
+        // Normal token - render each character
+        const rgb = parseColorName(colorName);
+        for (let charIdx = 0; charIdx < token.length; charIdx++) {
+          const char = token[charIdx];
+          $.ink([rgb.r, rgb.g, rgb.b, fadeAlpha]).write(char, { x: currentX, y: lineY }, undefined, undefined, false, "MatrixChunky8");
+          currentX += charWidth;
+        }
+      }
+      
+      // Add space between tokens (if there was one in original)
+      const tokenEnd = line.indexOf(token, sourceIndex) + token.length;
+      if (tokenEnd < line.length && line[tokenEnd] === ' ') {
+        currentX += charWidth;
+        sourceIndex = tokenEnd + 1;
+      } else {
+        sourceIndex = tokenEnd;
+      }
+    });
+  });
+}
+
+// Helper to parse color names to RGB
+function parseColorName(colorName) {
+  // Handle RGB format colors (like "192,192,192")
+  if (colorName && colorName.includes(',')) {
+    const parts = colorName.split(',').map(p => parseInt(p.trim()));
+    return { r: parts[0] || 200, g: parts[1] || 200, b: parts[2] || 200 };
+  }
+  
+  // Handle named colors
+  const colorMap = {
+    'cyan': { r: 64, g: 224, b: 208 },
+    'teal': { r: 64, g: 224, b: 208 },
+    'lime': { r: 50, g: 205, b: 50 },
+    'green': { r: 0, g: 255, b: 0 },
+    'yellow': { r: 255, g: 255, b: 0 },
+    'orange': { r: 255, g: 165, b: 0 },
+    'red': { r: 255, g: 0, b: 0 },
+    'magenta': { r: 255, g: 0, b: 255 },
+    'pink': { r: 255, g: 192, b: 203 },
+    'purple': { r: 128, g: 0, b: 128 },
+    'blue': { r: 0, g: 0, b: 255 },
+    'white': { r: 255, g: 255, b: 255 },
+    'gray': { r: 128, g: 128, b: 128 },
+    'grey': { r: 128, g: 128, b: 128 },
+    'silver': { r: 192, g: 192, b: 192 },
+  };
+  
+  return colorMap[colorName] || { r: 200, g: 200, b: 200 };
 }
 
 function makeFlash($, clear = true, beep = false) {
