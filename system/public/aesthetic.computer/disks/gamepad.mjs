@@ -284,8 +284,7 @@ function paint({ wipe, ink, write, screen, line, circle, box, painting, paste, h
       paste(timeline, slotX, timelineTop);
     }
     
-    // Reserve space for metadata at bottom (controller name + readout)
-    const metadataHeight = 50; // Space for name + button/axis readout
+    // Draw controller diagram and metadata at bottom
     const diagramWidth = 48;
     const diagramX = centerX - diagramWidth / 2;
     const diagramY = slotY + slotHeight - diagramHeight - metadataHeight - 8;
