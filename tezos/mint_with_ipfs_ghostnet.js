@@ -23,75 +23,53 @@ function stringToBytes(str) {
 async function uploadToIPFS(acUrl, pieceName) {
   console.log('\n📦 Creating IPFS package...');
   
-  // Fetch and inline everything using dynamic construction
-  // This bypasses all CSP restrictions by using only inline scripts and fetch
+  // Fetch the piece code from aesthetic.computer at build time
+  console.log(`   📥 Fetching $${pieceName} code from aesthetic.computer...`);
+  const codeResponse = await fetch(`https://aesthetic.computer/api/store-kidlisp?code=${pieceName}`);
+  const codeData = await codeResponse.json();
+  const pieceCode = codeData.source;
+  
+  console.log(`   ✓ Got ${pieceCode.length} chars of KidLisp code`);
+  
+  // Fetch CSS at build time
+  console.log('   📥 Fetching CSS...');
+  const cssResponse = await fetch('https://aesthetic.computer/aesthetic.computer/style.css');
+  const cssContent = await cssResponse.text();
+  
+  // Create a minimal KidLisp runtime that can execute the code
+  // This will fetch from relative URLs (allowed by CSP 'self')
   const htmlContent = `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>aesthetic.computer - $ceo</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        html, body { width: 100%; height: 100%; overflow: hidden; touch-action: none; }
-        #loading { 
-            position: fixed; 
-            top: 50%; 
-            left: 50%; 
-            transform: translate(-50%, -50%); 
-            font-family: monospace; 
-            color: white; 
-            background: black; 
-            padding: 20px; 
-        }
-    </style>
+    <title>aesthetic.computer - $${pieceName}</title>
+    <style>${cssContent}</style>
 </head>
 <body class="native-cursor">
-    <div id="loading">Loading aesthetic.computer...</div>
-    <script>
-        (async () => {
-            try {
-                // 🕷️ Configure spider mode before loading
-                window.acSPIDER = true;
-                window.acSTARTING_PIECE = "$ceo";
-                
-                // Load CSS using link tag (bypasses connect-src CSP)
-                const link = document.createElement('link');
-                link.rel = 'stylesheet';
-                link.href = 'https://aesthetic.computer/aesthetic.computer/style.css';
-                link.crossOrigin = 'anonymous';
-                document.head.appendChild(link);
-                
-                // Fetch boot.mjs and rewrite relative imports to absolute URLs
-                const bootRes = await fetch('https://aesthetic.computer/aesthetic.computer/boot.mjs');
-                let bootCode = await bootRes.text();
-                
-                // Rewrite all relative imports to absolute URLs
-                bootCode = bootCode.replace(
-                    /from\\s+['"](\\.\\/[^'"]+)['"]/g,
-                    'from "https://aesthetic.computer/aesthetic.computer/$1"'
-                ).replace(
-                    /import\\s+['"](\\.\\/[^'"]+)['"]/g,
-                    'import "https://aesthetic.computer/aesthetic.computer/$1"'
-                );
-                
-                // Create a blob URL for the module to preserve import paths
-                const blob = new Blob([bootCode], { type: 'application/javascript' });
-                const blobUrl = URL.createObjectURL(blob);
-                
-                // Import the module
-                await import(blobUrl);
-                
-                // Clean up
-                document.getElementById('loading').remove();
-            } catch (err) {
-                document.getElementById('loading').textContent = 'Error: ' + err.message;
-                console.error('Failed to load:', err);
-            }
-        })();
+    <canvas id="canvas"></canvas>
+    <script type="module">
+        // Load piece code from relative URL (CSP allows 'self')
+        const pieceResponse = await fetch('./piece.json');
+        const pieceData = await pieceResponse.json();
+        console.log('Loaded piece:', pieceData);
+        
+        // TODO: Implement minimal KidLisp interpreter or use aesthetic.computer API
+        // For now, just show we can load data through CSP
+        document.body.innerHTML = '<pre style="color: white; padding: 20px;">' + 
+            'Piece Code:\\n' + pieceData.code + '</pre>';
     </script>
 </body>
 </html>`;
+
+  // Create piece data file
+  const pieceDataContent = JSON.stringify({
+    name: pieceName,
+    code: pieceCode
+  });
+
+
+
 
   // Create temporary directory structure
   const tempDir = path.join(__dirname, 'ipfs-temp', pieceName);
