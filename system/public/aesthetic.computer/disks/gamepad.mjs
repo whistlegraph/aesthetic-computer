@@ -303,23 +303,13 @@ function act({ event: e }) {
   if (e.is("gamepad")) {
     const gpIndex = e.gamepad;
     
-    // Debug logging
-    console.log("🎮 Gamepad event:", {
-      index: gpIndex,
-      name: e.name,
-      gamepadId: e.gamepadId,
-      button: e.button,
-      axis: e.axis,
-      action: e.action,
-      value: e.value
-    });
-    
     // Initialize gamepad entry if needed
     if (!connectedGamepads[gpIndex]) {
       connectedGamepads[gpIndex] = {
         id: e.gamepadId || null, // Capture gamepad name/type from event
         pressedButtons: [],
         axes: {},
+        lastLoggedAxes: {}, // Track last logged axis values to avoid spam
         lastEvent: null,
       };
       console.log(`🎮 Gamepad ${gpIndex} connected:`, e.gamepadId);
@@ -379,14 +369,25 @@ function act({ event: e }) {
     // Track axis state
     if (e.is(`gamepad:${gpIndex}:axis`)) {
       const axisIndex = e.axis;
-      const value = e.value.toFixed(2);
+      const value = e.value;
       
-      // Only track if above deadzone
-      if (Math.abs(e.value) > 0.1) {
-        gp.axes[axisIndex] = value;
-        console.log(`🕹️ Axis ${axisIndex} -`, getAxisName(gp.id, axisIndex), "value:", value);
+      // Only track/log if above deadzone
+      if (Math.abs(value) > 0.1) {
+        gp.axes[axisIndex] = value.toFixed(2);
+        
+        // Only log if value changed significantly (>0.15 difference from last logged value)
+        const lastLogged = gp.lastLoggedAxes[axisIndex] || 0;
+        if (Math.abs(value - lastLogged) > 0.15) {
+          console.log(`🕹️ Axis ${axisIndex} -`, getAxisName(gp.id, axisIndex), "value:", value.toFixed(2));
+          gp.lastLoggedAxes[axisIndex] = value;
+        }
       } else {
+        // Reset to center
         delete gp.axes[axisIndex];
+        if (gp.lastLoggedAxes[axisIndex] !== 0) {
+          console.log(`🕹️ Axis ${axisIndex} -`, getAxisName(gp.id, axisIndex), "centered");
+          gp.lastLoggedAxes[axisIndex] = 0;
+        }
       }
     }
   }
