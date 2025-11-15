@@ -309,6 +309,8 @@ function paint({ wipe, ink, write, screen, line, circle, box, painting, paste, h
       ink("yellow").write(gp.id, { x: 10, y: bottomY }, undefined, undefined, false, FONT);
     }
   } else {
+    // No gamepads connected
+    let y = hudHeight + 10;
     ink("orange").write("No gamepads", { x: 10, y }, undefined, undefined, false, FONT);
     y += lineHeight;
     ink("gray").write("Press any button", { x: 10, y }, undefined, undefined, false, FONT);
