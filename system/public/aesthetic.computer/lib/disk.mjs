@@ -2495,7 +2495,7 @@ const $commonApi = {
     labelBack: () => {
       labelBack = true;
       // Store the source piece for special handling (e.g., chat returning to prompt)
-      send({ type: "labelBack:source", content: { sourcePiece: piece } });
+      send({ type: "labelBack:source", content: { sourcePiece: $commonApi.piece } });
     },
   },
   send,
