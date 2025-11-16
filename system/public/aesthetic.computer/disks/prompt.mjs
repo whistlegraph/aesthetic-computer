@@ -5241,6 +5241,7 @@ function renderKidlispSource($, source, x, y, maxWidth, maxLines, fadeAlpha) {
   // Create temporary KidLisp instance for color mapping
   const tempKidlisp = new KidLisp();
   tempKidlisp.syntaxHighlightSource = source;
+  tempKidlisp.isEditMode = true; // Enable edit mode to prevent transparent text
   
   lines.forEach((line, lineIdx) => {
     const lineY = y + lineIdx * lineHeight;

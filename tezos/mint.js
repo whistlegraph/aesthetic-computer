@@ -4,7 +4,7 @@ require('dotenv').config({ path: '../aesthetic-computer-vault/tezos/kidlisp/.env
 
 const GHOSTNET_RPC = "https://ghostnet.ecadinfra.com";
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
-const CONTRACT_ADDRESS = "KT1SFyh9C9qqZCC2izMj3BJMs3gUuur4Hy8K"; // CORRECTED FA2 with proper ledger v4
+const CONTRACT_ADDRESS = "KT1S1sXpFiV4GGxLM3zWX4cDLVEhVp9yuD7b"; // Current deployed keeps contract
 
 async function mint() {
   try {
@@ -32,13 +32,13 @@ async function mint() {
     console.log("✅ Contract loaded");
 
     // Mint a token using the 'keep' entrypoint
-    console.log("\n🎨 Minting new token...");
+    console.log("\n🎨 Minting $ceo token...");
 
     const mintParams = {
-      ac_url: "ipfs://Qm1234567890",
-      content_hash: "sha256:abcd1234",
-      content_type: "painting", // Must be "painting" or "tape"
-      metadata_uri: "ipfs://QmMetadata",
+      ac_url: "https://aesthetic.computer/$ceo",
+      content_hash: "ipfs://bafkreie6uyg655ihs4z6faqshes7qsivwymu3vtkzoqte25ztnkhxcn3xm",
+      content_type: "kidlisp",
+      metadata_uri: "ipfs://bafkreie6uyg655ihs4z6faqshes7qsivwymu3vtkzoqte25ztnkhxcn3xm",
       owner: address
     };
 
