@@ -62,6 +62,40 @@ async function fetchKidLispSource(piece) {
   });
 }
 
+// Recursively fetch all embedded KidLisp pieces
+async function fetchAllEmbeddedPieces(mainPiece) {
+  const pieces = new Map(); // Map of piece name -> source
+  const toFetch = [mainPiece];
+  const fetched = new Set();
+
+  console.log(`\n🔍 Scanning for embedded KidLisp pieces...`);
+
+  while (toFetch.length > 0) {
+    const piece = toFetch.shift();
+    if (fetched.has(piece)) continue;
+    
+    fetched.add(piece);
+    const source = await fetchKidLispSource(piece);
+    
+    if (source) {
+      pieces.set(piece, source);
+      
+      // Scan for embedded $codes in the source
+      const embeddedMatches = source.matchAll(/\$([a-z0-9]+)/gi);
+      for (const match of embeddedMatches) {
+        const embeddedPiece = match[1];
+        if (!fetched.has(embeddedPiece) && !toFetch.includes(embeddedPiece)) {
+          console.log(`   📎 Found embedded piece: $${embeddedPiece}`);
+          toFetch.push(embeddedPiece);
+        }
+      }
+    }
+  }
+
+  console.log(`✅ Fetched ${pieces.size} total piece(s): ${Array.from(pieces.keys()).map(p => '$' + p).join(', ')}`);
+  return pieces;
+}
+
 async function inlineFile(filePath, type = "text") {
   try {
     if (type === "binary") {
@@ -108,7 +142,7 @@ async function inlineDirectory(dirPath, basePath = dirPath, excludeImages = fals
   return files;
 }
 
-async function createSingleFile(kidlispSource) {
+async function createSingleFile(kidlispSource, allPieces = new Map()) {
   console.log(`\n📦 Creating single-file HTML for ${PIECE_NAME}...`);
   console.log(`📅 Pack date: ${packDate}`);
   console.log(`🔧 Git version: ${gitVersion}`);
@@ -235,12 +269,15 @@ console.log('Using aesthetic-computer git version ${gitVersion}');
 window.VFS = ${vfsJson};
 
 ${kidlispSource ? `// Embedded KidLisp source for OBJKT offline mode
-window.objktKidlispCodes = {
-  '${PIECE_NAME.replace(/^\$/, '')}': \`${kidlispSourceEscaped}\`
-};
+window.objktKidlispCodes = ${JSON.stringify(Object.fromEntries(
+  Array.from(allPieces.entries()).map(([name, source]) => [
+    name,
+    source
+  ])
+))};
 window.EMBEDDED_KIDLISP_SOURCE = '${kidlispSourceEscaped}';
 window.EMBEDDED_KIDLISP_PIECE = '${PIECE_NAME.replace(/^\$/, '')}';
-console.log('📝 Embedded KidLisp for offline use');
+console.log('📝 Embedded ${allPieces.size} KidLisp piece(s) for offline use');
 ` : ''}
 window.acPACK_MODE = true;
 window.acSTARTING_PIECE = '${PIECE_NAME}';
@@ -660,11 +697,12 @@ if (!bootUrl) {
   console.log(`   • Current timestamp: ${packDate}`);
 }
 
-// Main - fetch KidLisp source if available, then create bundle
+// Main - fetch all KidLisp sources (including embedded pieces), then create bundle
 (async () => {
   try {
-    const kidlispSource = await fetchKidLispSource(PIECE_NAME.replace(/^\$/, ''));
-    await createSingleFile(kidlispSource);
+    const allPieces = await fetchAllEmbeddedPieces(PIECE_NAME.replace(/^\$/, ''));
+    const mainSource = allPieces.get(PIECE_NAME.replace(/^\$/, ''));
+    await createSingleFile(mainSource, allPieces);
   } catch (error) {
     console.error("❌ Error:", error);
     process.exit(1);
