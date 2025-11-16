@@ -57,13 +57,17 @@ async function log(text, data, from = "log") {
   await logs.insertOne({ ...msg }); // Add to database,
 
   // Alert all chat instances directly through HTTP calls with `LOGGER_KEY`.
-  // For mute/unmute actions, we need to notify all chat servers
-  const isMuteAction = msg.action && msg.action.match(/chat-system:(mute|unmute)/);
+  // For mute/unmute and handle actions (AC users only), we need to notify all AC chat servers
+  // Note: Sotce users' handle changes are never logged (filtered in handle.mjs), so they won't reach here
+  const isMultiChatAction = msg.action && (
+    msg.action.match(/chat-system:(mute|unmute)/) ||
+    msg.action.match(/handle:(update|strip)/)
+  );
   
-  const chatServers = isMuteAction ? [
+  const chatServers = isMultiChatAction ? [
     { name: "chat-system", url: dev ? "https://localhost:8083/log" : "https://chat-system.aesthetic.computer/log" },
     { name: "chat-clock", url: dev ? "https://localhost:8085/log" : "https://chat-clock.aesthetic.computer/log" },
-    { name: "chat-sotce", url: dev ? "https://localhost:8084/log" : "https://chat.sotce.net/log" },
+    // Note: chat-sotce is excluded here because AC user handle updates don't apply to Sotce Net
   ] : [
     { name: "chat-system", url: dev ? "https://localhost:8083/log" : "https://chat-system.aesthetic.computer/log" }
   ];

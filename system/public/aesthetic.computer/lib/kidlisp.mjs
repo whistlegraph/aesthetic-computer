@@ -971,6 +971,7 @@ class KidLisp {
     this.currentExecutingExpression = null; // Currently executing expression
     this.lastExecutionTime = 0; // Last execution timestamp
     this.flashDuration = 500; // Duration for flash effects in milliseconds
+    this.isEditMode = false; // Flag to disable transparency effects when editing in prompt
 
     // Handle attribution cache
     this.cachedOwnerHandle = null; // Cache the resolved handle
@@ -3320,6 +3321,14 @@ class KidLisp {
         $.screen.height = this.displayBuffer.height;
         $.screen.pixels = this.displayBuffer.pixels;
 
+        // 🚨 Display validation errors at bottom of screen
+        if (this.lastValidationErrors && this.lastValidationErrors.length > 0) {
+          const errorText = `❌ ${this.lastValidationErrors.join(', ')}`;
+          const textY = $.screen.height - 10; // 10 pixels from bottom
+          // Draw error text in red using MatrixChunky8 font
+          $.ink("red").write(errorText, { x: 2, y: textY }, undefined, undefined, false, "MatrixChunky8");
+        }
+
         // 🎯 End performance frame tracking
         this.endFrame();
       },
@@ -3644,18 +3653,17 @@ class KidLisp {
       if (lastSingleQuote >= 0) errorPositions.add(lastSingleQuote);
     }
     
-    // If validation fails, log errors and return empty AST to prevent crash
+    // Store validation errors for syntax highlighting, but don't block execution
     if (validationErrors.length > 0) {
       console.error('❌ KidLisp Validation Failed:', validationErrors.join(', '));
       this.lastValidationErrors = validationErrors;
       this.errorPositions = errorPositions; // Store error positions for syntax highlighting
-      this.endTiming('parse', parseStart);
-      return []; // Return empty AST instead of crashing
+      // Don't return early - allow partial parsing to continue
+    } else {
+      // Clear previous validation errors on successful validation
+      this.lastValidationErrors = null;
+      this.errorPositions = null;
     }
-    
-    // Clear previous validation errors on successful validation
-    this.lastValidationErrors = null;
-    this.errorPositions = null;
 
     try {
       const tokens = tokenize(input);
@@ -9369,22 +9377,28 @@ class KidLisp {
       // Check for missing closing parentheses - highlight unclosed opening parens
       if (errors.includes('closing parenthes')) {
         if (token === '(') {
-          // Count balance to find unclosed parens
-          let balance = 0;
-          let unclosedCount = 0;
-          for (let i = 0; i <= index; i++) {
-            if (tokens[i] === '(') balance++;
-            if (tokens[i] === ')') balance--;
-          }
-          // Check remaining tokens to see if this paren gets closed
+          // Count how many closing parens exist after this opening paren
+          let depth = 1; // Start at 1 because we're currently at an opening paren
+          let isClosed = false;
+          
           for (let i = index + 1; i < tokens.length; i++) {
-            if (tokens[i] === '(') balance++;
-            if (tokens[i] === ')') {
-              balance--;
-              if (balance === 0) return null; // This paren is closed, use normal coloring
+            if (tokens[i] === '(') {
+              depth++;
+            } else if (tokens[i] === ')') {
+              depth--;
+              if (depth === 0) {
+                // This opening paren has a matching closing paren
+                isClosed = true;
+                break;
+              }
             }
           }
-          if (balance > 0) return "red"; // Unclosed paren - highlight in red
+          
+          // If this paren is never closed, highlight it in red
+          if (!isClosed) {
+            console.log(`🔴 Highlighting unclosed paren at token index ${index}`);
+            return "red";
+          }
         }
       }
       
@@ -9485,8 +9499,12 @@ class KidLisp {
         // After the brief lime flash, allow normal syntax highlighting to show through
         // by falling through to normal coloring logic below (similar to delay timers)
       } else {
-        // This token is in an inactive timing argument - use transparent
-        return "255,255,255,0"; // White with 0 alpha (transparent)
+        // This token is in an inactive timing argument
+        // In edit mode (prompt), show dimmed but visible; in display mode, show transparent
+        if (this.isEditMode) {
+          return "64,64,64"; // Dark gray - visible but dimmed for editing
+        }
+        return "255,255,255,0"; // White with 0 alpha (transparent) for display
       }
     }
 
@@ -9517,7 +9535,11 @@ class KidLisp {
       } else {
         // console.log(`⚪ Token "${token}" inactive (transparent)`);
         // When inactive, show as transparent (greyed out, only shadows visible)
-        return "255,255,255,0"; // White with 0 alpha (transparent)
+        // In edit mode (prompt), show dimmed but visible; in display mode, show transparent
+        if (this.isEditMode) {
+          return "64,64,64"; // Dark gray - visible but dimmed for editing
+        }
+        return "255,255,255,0"; // White with 0 alpha (transparent) for display
       }
     }
 
@@ -12514,6 +12536,7 @@ function getSyntaxHighlightingColors(source) {
 
   // Create a temporary KidLisp instance to access color methods
   const tempInstance = new KidLisp();
+  tempInstance.isEditMode = true; // Enable edit mode to prevent transparent text
 
   // Map tokens to colors using existing syntax highlighting system
   const colors = tokens.map(token => {
