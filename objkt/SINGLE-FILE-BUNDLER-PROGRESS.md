@@ -27,10 +27,17 @@ A Node.js build script that generates a single 7.75 MB HTML file containing:
 7. **Module Path Array** - Pre-computed list of all .js/.mjs files
 8. **Import Map Generation** - Dual-path mapping for legacy/normalized imports
 
-### ❌ Known Issues (Pending Fix)
-1. **sfx.mjs 404** - Import map not activating (scripts not executing)
-2. **Cursor SVG 404** - precise.svg not loading (may need CSS intercept)
-3. **painting.lisp 404** - Expected (not included in bundle)
+### ❌ Known Issues (Need Fixes)
+1. **sfx.mjs 404** - Import map missing `/aesthetic.computer/` prefix paths
+2. **CSS files 404** - Font CSS files not included in VFS (ywft-processing-*.css, berkeley-mono-variable.css)
+3. **Cursor SVG 404** - precise.svg not included in VFS (in cursors/ directory)
+4. **painting.lisp 404** - Expected (not included in bundle, external resource)
+
+### 🔧 Fixes Needed
+1. **Import Map**: Add entries with leading slash: `/aesthetic.computer/disks/common/sfx.mjs`
+2. **VFS**: Include `type/webfonts/*.css` files
+3. **VFS**: Include `aesthetic.computer/cursors/*.svg` files
+4. **Fetch Intercept**: Handle CSS file requests
 
 ### 🔧 Last Fix Applied
 **Script Block Scope Bug** (lines 203-287):
