@@ -2155,10 +2155,6 @@ async function halt($, text) {
     );
     makeFlash($);
     return true;
-  } else if (text.toLowerCase() === "judge") {
-    jump("out:https://judge.aesthetic.computer");
-    makeFlash($);
-    return true;
   } else if (text.toLowerCase() === "kidlisp") {
     const kidlispUrl = debug
       ? toAbsoluteSiteUrl("/kidlisp-com")
