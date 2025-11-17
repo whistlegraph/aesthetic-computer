@@ -1,0 +1,5 @@
+#!/usr/bin/env fish
+
+# Wrapper for build.fish to handle the fish sourcing quirk
+cd (dirname (status -f))
+source ./build.fish $argv

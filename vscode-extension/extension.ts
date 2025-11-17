@@ -557,6 +557,9 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
   // GUI
 
   const provider = new AestheticViewProvider();
+  
+  // Connect to session server for jump commands
+  provider.connectToSessionServer();
 
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(
@@ -715,6 +718,7 @@ class AestheticCodeLensProvider implements vscode.CodeLensProvider {
 class AestheticViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = "aestheticComputer.sidebarView";
   private _view?: vscode.WebviewView;
+  private ws?: any;
 
   constructor() {}
 
@@ -722,6 +726,66 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
   public sendMessageToWebview(message: any) {
     if (this._view && this._view.webview) {
       this._view.webview.postMessage(message);
+    }
+  }
+
+  // Connect to session server as WebSocket client
+  public connectToSessionServer() {
+    const WebSocket = require('ws');
+    const url = local ? "wss://localhost:8889" : "wss://aesthetic.computer";
+    
+    this.ws = new WebSocket(url, {
+      rejectUnauthorized: false
+    });
+    
+    this.ws.on("open", () => {
+      console.log("✅ Connected to session server");
+      // Identify as VSCode extension
+      this.ws.send(JSON.stringify({
+        type: "identify",
+        content: { type: "vscode" }
+      }));
+    });
+    
+    this.ws.on("message", (data: any) => {
+      try {
+        const msg = JSON.parse(data.toString());
+        
+        if (msg.type === "vscode:jump" && msg.content?.piece) {
+          console.log("🎯 Jump command received:", msg.content.piece);
+          this.handleJump(msg.content.piece);
+        }
+      } catch (err) {
+        console.error("Failed to parse message:", err);
+      }
+    });
+    
+    this.ws.on("close", () => {
+      console.log("❌ Disconnected from session server");
+      // Reconnect after 5 seconds
+      setTimeout(() => this.connectToSessionServer(), 5000);
+    });
+    
+    this.ws.on("error", (err: any) => {
+      console.error("WebSocket error:", err.message);
+    });
+  }
+
+  // Handle jump command by updating slug and showing panel
+  private async handleJump(piece: string) {
+    // Update the stored slug BEFORE showing the panel
+    // This ensures the panel loads with the correct URL immediately
+    await extContext.globalState.update("panel:slug", piece);
+    
+    // If panel is hidden, show it (it will load with the new slug)
+    if (!this._view?.visible) {
+      await vscode.commands.executeCommand(
+        "aestheticComputer.sidebarView.focus"
+      );
+      // The panel will initialize with the updated slug from globalState
+    } else {
+      // Panel is visible, send message to navigate
+      this.sendMessageToWebview({ type: "jump", piece });
     }
   }
 
