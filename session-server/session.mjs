@@ -228,8 +228,22 @@ if (dev) {
   // Jump to a specific piece (navigate)
   fastify.post("/jump", async (req) => {
     const { piece } = req.body;
+    
+    // Broadcast to all browser clients
     everyone(pack("jump", { piece }, "pieces"));
-    return { msg: "Jump request sent!", piece };
+    
+    // Send direct message to VSCode extension clients
+    vscodeClients.forEach(client => {
+      if (client?.readyState === WebSocket.OPEN) {
+        client.send(pack("vscode:jump", { piece }, "vscode"));
+      }
+    });
+    
+    return { 
+      msg: "Jump request sent!", 
+      piece,
+      vscodeConnected: vscodeClients.size > 0 
+    };
   });
 }
 
@@ -831,6 +845,15 @@ wss.on("connection", (ws, req) => {
             log("❌ Failed to fetch handle for:", userSub.substring(0, 20) + "...", "Error:", err.message);
           });
       }
+    } else if (msg.type === "identify") {
+      // VSCode extension identifying itself
+      if (msg.content?.type === "vscode") {
+        vscodeClients.add(ws);
+        log("✅ VSCode extension connected, conn:", id);
+        
+        // Send confirmation
+        ws.send(pack("identified", { type: "vscode", id }, id));
+      }
     } else if (msg.type === "location:broadcast") {      /*
       sub
         .subscribe(`logout:broadcast:${msg.content.user.sub}`, () => {
@@ -1049,6 +1072,9 @@ wss.on("connection", (ws, req) => {
   ws.on("close", () => {
     log("🚪 Someone left:", id, "Online:", wss.clients.size, "🫂");
 
+    // Remove from VSCode clients if present
+    vscodeClients.delete(ws);
+
     // Delete the user from the worldClients pieces index.
     // keys(worldClients).forEach((piece) => {
     //   delete worldClients[piece][id];
@@ -1193,6 +1219,10 @@ function subscribers(subs, msg) {
 // *** Status WebSocket Stream ***
 // Track status dashboard clients (separate from game clients)
 const statusClients = new Set();
+
+// *** VSCode Extension Clients ***
+// Track VSCode extension clients for direct jump message routing
+const vscodeClients = new Set();
 
 // Broadcast status updates every 2 seconds
 setInterval(() => {
