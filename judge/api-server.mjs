@@ -5,12 +5,16 @@ import { MongoClient } from 'mongodb';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { readFile } from 'fs/promises';
 
 // Load environment variables from vault
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const vaultEnvPath = join(__dirname, '../aesthetic-computer-vault/censor/.env');
-dotenv.config({ path: vaultEnvPath });
+// Try local .env first (for production), then vault (for development)
+const localEnvPath = join(__dirname, '.env');
+const vaultEnvPath = join(__dirname, '../aesthetic-computer-vault/judge/.env');
+dotenv.config({ path: localEnvPath });
+dotenv.config({ path: vaultEnvPath }); // Will only load if local doesn't exist
 
 const OLLAMA_API = 'http://localhost:11434/api/generate';
 const MODEL = 'gemma2:2b';
@@ -39,7 +43,12 @@ async function connectMongo() {
 // PG-13 content filter prompt
 const systemPrompt = `You are a PG-13 content filter for a chat room. Respond in s-expression format.
 
-ALWAYS reply with: (yes) (why "short lowercase explanation") or (no) (why "short lowercase explanation")
+CRITICAL: ALWAYS include the (why "...") part in your response!
+
+ALWAYS reply with BOTH parts:
+(yes) (why "short lowercase explanation")
+OR
+(no) (why "short lowercase explanation")
 
 Reply (yes) for URLs (http://, https://, www., or domain.tld patterns).
 
@@ -57,12 +66,15 @@ Reply (yes) for:
 - Questions and discussions
 - Greetings and casual chat
 
-Example responses:
+Example responses (ALWAYS include both parts):
 (yes) (why "normal greeting")
+(yes) (why "asking a question")
+(yes) (why "url link")
 (no) (why "contains profanity")
-(yes) (why "url allowed")
+(no) (why "sexual content")
+(no) (why "inappropriate language")
 
-Keep all explanations lowercase and brief. Reply only in this s-expression format.`;
+Keep all explanations lowercase and brief. NEVER skip the (why "...") part!`;
 
 async function filterMessage(message, onChunk = null) {
   const prompt = `${systemPrompt}\n\nMessage: "${message}"\n\nReply (t/f):`;
@@ -145,20 +157,37 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  if (req.method === 'GET' && req.url.startsWith('/api/chat-messages')) {
+  if (req.method === 'GET' && (req.url === '/' || req.url === '/index.html')) {
+    // Serve the dashboard HTML
+    try {
+      const html = await readFile(join(__dirname, 'index.html'), 'utf-8');
+      res.writeHead(200, { 'Content-Type': 'text/html' });
+      res.end(html);
+    } catch (error) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Failed to load dashboard' }));
+    }
+  } else if (req.method === 'GET' && req.url.startsWith('/api/chat-messages')) {
     // Fetch random sample of chat messages for auto-testing
     try {
+      console.log('📡 Fetching chat messages from MongoDB...');
+      console.log('  Connection string:', MONGODB_CONNECTION_STRING ? 'Set ✓' : 'Not set ✗');
+      console.log('  Database:', MONGODB_NAME);
+      console.log('  Collection:', COLLECTION_NAME);
+      
       const collection = await connectMongo();
       const messages = await collection
         .aggregate([
-          { $match: { content: { $exists: true, $ne: '' } } },
+          { $match: { text: { $exists: true, $ne: '' } } },
           { $sample: { size: 100 } },
-          { $project: { content: 1, _id: 0 } }
+          { $project: { text: 1, _id: 0 } }
         ])
         .toArray();
       
+      console.log(`  Found ${messages.length} messages`);
+      
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(messages.map(m => m.content)));
+      res.end(JSON.stringify(messages.map(m => m.text)));
     } catch (error) {
       console.error('MongoDB error:', error);
       // Fallback to test messages if MongoDB unavailable
