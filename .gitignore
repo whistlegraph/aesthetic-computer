@@ -9,8 +9,14 @@ tokens/*/
 
 # ignore objkt output (packaged pieces for OBJKT deployment on teia.art)
 objkt/output/*.zip
+objkt/output/*.html
+objkt/output/*.gif
 objkt/output/*/
 !objkt/output/README.md
+
+# ignore tezos keep bundles and IPFS temp files
+tezos/keep-bundles/
+tezos/ipfs-temp/
 
 # ignore reference tools output directory (bake/tape generated files)
 reference/tools/recording/.tape-frames-cache
