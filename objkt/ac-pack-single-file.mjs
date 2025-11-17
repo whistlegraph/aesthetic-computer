@@ -2,12 +2,14 @@
 
 // Single-file PACK bundler - creates one self-contained HTML file
 // Excludes image assets and generates directly from source
+// For KidLisp pieces, fetches and embeds source code at build time
 // Usage: node ac-pack-single-file.mjs <piece-name>
 
 import { promises as fs } from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { execSync } from "child_process";
+import https from "https";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -28,6 +30,71 @@ const packDate = new Date().toLocaleString("en-US", {
   minute: "2-digit",
   second: "2-digit"
 });
+
+async function fetchKidLispSource(piece) {
+  console.log(`📡 Fetching KidLisp source for: ${piece}...`);
+  
+  const url = `https://aesthetic.computer/.netlify/functions/store-kidlisp?code=${piece}`;
+  
+  return new Promise((resolve, reject) => {
+    https.get(url, (res) => {
+      let data = '';
+      res.on('data', (chunk) => data += chunk);
+      res.on('end', () => {
+        try {
+          const json = JSON.parse(data);
+          if (json.source) {
+            console.log(`✅ KidLisp source: ${json.source.substring(0, 80)}...`);
+            resolve(json.source);
+          } else {
+            console.log(`⚠️ No KidLisp source found for ${piece}`);
+            resolve(null);
+          }
+        } catch (e) {
+          console.log(`⚠️ Not a KidLisp piece: ${piece}`);
+          resolve(null);
+        }
+      });
+    }).on('error', (e) => {
+      console.log(`⚠️ Could not fetch KidLisp source: ${e.message}`);
+      resolve(null);
+    });
+  });
+}
+
+// Recursively fetch all embedded KidLisp pieces
+async function fetchAllEmbeddedPieces(mainPiece) {
+  const pieces = new Map(); // Map of piece name -> source
+  const toFetch = [mainPiece];
+  const fetched = new Set();
+
+  console.log(`\n🔍 Scanning for embedded KidLisp pieces...`);
+
+  while (toFetch.length > 0) {
+    const piece = toFetch.shift();
+    if (fetched.has(piece)) continue;
+    
+    fetched.add(piece);
+    const source = await fetchKidLispSource(piece);
+    
+    if (source) {
+      pieces.set(piece, source);
+      
+      // Scan for embedded $codes in the source
+      const embeddedMatches = source.matchAll(/\$([a-z0-9]+)/gi);
+      for (const match of embeddedMatches) {
+        const embeddedPiece = match[1];
+        if (!fetched.has(embeddedPiece) && !toFetch.includes(embeddedPiece)) {
+          console.log(`   📎 Found embedded piece: $${embeddedPiece}`);
+          toFetch.push(embeddedPiece);
+        }
+      }
+    }
+  }
+
+  console.log(`✅ Fetched ${pieces.size} total piece(s): ${Array.from(pieces.keys()).map(p => '$' + p).join(', ')}`);
+  return pieces;
+}
 
 async function inlineFile(filePath, type = "text") {
   try {
@@ -75,7 +142,7 @@ async function inlineDirectory(dirPath, basePath = dirPath, excludeImages = fals
   return files;
 }
 
-async function createSingleFile() {
+async function createSingleFile(kidlispSource, allPieces = new Map()) {
   console.log(`\n📦 Creating single-file HTML for ${PIECE_NAME}...`);
   console.log(`📅 Pack date: ${packDate}`);
   console.log(`🔧 Git version: ${gitVersion}`);
@@ -158,6 +225,15 @@ async function createSingleFile() {
 
   console.log(`\n📊 Total files in VFS: ${Object.keys(vfs).length}`);
 
+  // Prepare KidLisp embedding
+  const kidlispSourceEscaped = kidlispSource 
+    ? kidlispSource.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n')
+    : '';
+  
+  if (kidlispSource) {
+    console.log(`📝 Embedded KidLisp source: ${kidlispSource.length} chars`);
+  }
+
   // Create the single file HTML
   // CRITICAL: Escape </script> in JSON to prevent premature script tag closure
   const vfsJson = JSON.stringify(vfs).replace(/<\/script>/gi, '<\\/script>');
@@ -183,7 +259,7 @@ console.log('Aesthetic.Computer');
 console.log('');
 console.log('${PIECE_NAME} is a piece by @jeffrey');
 console.log('');
-console.log('Its KidLisp source is: ${PIECE_NAME === "$eel" ? "(beige)(ink (0.5s... gray black rainbow))(0.1s (write (? x X) width/2 height/2))(0.05s (scroll (? 18 -18) (? 32 -32))(blur 0.1)(1.25s (zoom (? 2 1.5 0.5)))" : "(source code here)"}');
+${kidlispSource ? `console.log('KidLisp source: ${kidlispSourceEscaped}');` : `console.log('(source embedded in hash)');`}
 console.log('');
 console.log('This copy was packed on ${packDate}');
 console.log('');
@@ -192,10 +268,95 @@ console.log('Using aesthetic-computer git version ${gitVersion}');
 // Virtual FileSystem - all files embedded as base64/text
 window.VFS = ${vfsJson};
 
+${kidlispSource ? `// Embedded KidLisp source for OBJKT offline mode
+window.objktKidlispCodes = ${JSON.stringify(Object.fromEntries(
+  Array.from(allPieces.entries()).map(([name, source]) => [
+    name,
+    source
+  ])
+))};
+window.EMBEDDED_KIDLISP_SOURCE = '${kidlispSourceEscaped}';
+window.EMBEDDED_KIDLISP_PIECE = '${PIECE_NAME.replace(/^\$/, '')}';
+console.log('📝 Embedded ${allPieces.size} KidLisp piece(s) for offline use');
+` : ''}
 window.acPACK_MODE = true;
+window.acSTARTING_PIECE = '${PIECE_NAME}';
 window.acPACK_PIECE = '${PIECE_NAME}';
 window.acPACK_DATE = '${packDate}';
 window.acPACK_VERSION = '${gitVersion}';
+
+// Intercept appendChild to prevent CSS link elements from being added
+const originalAppendChild = Element.prototype.appendChild;
+Element.prototype.appendChild = function(child) {
+  // Block CSS link elements to prevent 404s (fonts already work via VFS XHR)
+  if (child.tagName === 'LINK' && child.rel === 'stylesheet' && child.href && child.href.includes('.css')) {
+    console.log('🚫 Blocked CSS link to prevent 404:', child.href);
+    return child; // Return without appending
+  }
+  return originalAppendChild.call(this, child);
+};
+console.log('✅ CSS link blocking installed');
+
+// Also intercept document.body.append (used in bios.mjs)
+const originalBodyAppend = HTMLBodyElement.prototype.append;
+HTMLBodyElement.prototype.append = function(...nodes) {
+  const filteredNodes = nodes.filter(node => {
+    if (node.tagName === 'LINK' && node.rel === 'stylesheet' && node.href && node.href.includes('.css')) {
+      console.log('🚫 Blocked CSS link via body.append:', node.href);
+      return false;
+    }
+    return true;
+  });
+  return originalBodyAppend.call(this, ...filteredNodes);
+};
+console.log('✅ CSS link blocking (body.append) installed');
+
+// Intercept Image src loading to serve SVG cursors from VFS
+const OriginalImage = window.Image;
+window.Image = function(...args) {
+  const img = new OriginalImage(...args);
+  const originalSrcDescriptor = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'src');
+  
+  Object.defineProperty(img, 'src', {
+    set: function(value) {
+      // Intercept cursor SVG loading
+      if (value && value.includes('.svg') && (value.includes('cursors/') || value.includes('aesthetic.computer'))) {
+        console.log('🖼️ Intercepting Image src:', value);
+        
+        // Normalize path
+        let vfsPath = value
+          .replace(/^\\.?\\//, '')
+          .replace(/^https?:\\/\\/[^\\/]+\\//, '')
+          .replace(/^aesthetic\\.computer\\//, '');
+        
+        // Add ac/ prefix if not present
+        if (!vfsPath.startsWith('ac/') && !vfsPath.startsWith('type/')) {
+          vfsPath = 'ac/' + vfsPath;
+        }
+        
+        console.log('🖼️ Looking for VFS path:', vfsPath);
+        
+        if (window.VFS[vfsPath]) {
+          const file = window.VFS[vfsPath];
+          // Create data URI for SVG
+          const svgContent = file.binary ? atob(file.content) : file.content;
+          const dataUri = 'data:image/svg+xml;base64,' + (file.binary ? file.content : btoa(svgContent));
+          console.log('✓ Image served from VFS:', vfsPath);
+          originalSrcDescriptor.set.call(this, dataUri);
+          return;
+        }
+      }
+      // Fallback to original behavior
+      originalSrcDescriptor.set.call(this, value);
+    },
+    get: function() {
+      return originalSrcDescriptor.get.call(this);
+    }
+  });
+  
+  return img;
+};
+console.log('✅ Image src interception installed');
 
 // Create blob URLs for all JS modules with rewritten imports
 window.VFS_BLOB_URLS = {};
@@ -277,7 +438,12 @@ for (const filepath of window.modulePaths) {
     if (filepath.startsWith('ac/disks/')) {
       const legacyPath = filepath.replace('ac/disks/', 'aesthetic.computer/disks/');
       importMapEntries[legacyPath] = window.VFS_BLOB_URLS[filepath];
+      // Also add with leading slash
+      importMapEntries['/' + legacyPath] = window.VFS_BLOB_URLS[filepath];
     }
+    
+    // Also add with leading slash for ac/ paths
+    importMapEntries['/' + filepath] = window.VFS_BLOB_URLS[filepath];
   }
 }
 
@@ -298,6 +464,31 @@ const originalXHRSend = XMLHttpRequest.prototype.send;
 
 window.fetch = function(url, options) {
   const urlStr = typeof url === 'string' ? url : url.url;
+  
+  // SPECIAL: Intercept KidLisp/painting API calls and return embedded data
+  if (window.EMBEDDED_KIDLISP_SOURCE) {
+    // Intercept painting-code lookups for the embedded piece
+    if (urlStr.includes('/api/painting-code') && urlStr.includes(window.EMBEDDED_KIDLISP_PIECE)) {
+      console.log('🎯 Intercepted painting-code API, returning embedded KidLisp metadata');
+      return Promise.resolve(new Response(JSON.stringify({
+        slug: window.EMBEDDED_KIDLISP_PIECE,
+        handle: 'jeffrey',
+        code: window.EMBEDDED_KIDLISP_PIECE
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      }));
+    }
+    
+    // Intercept KidLisp source fetches
+    if (urlStr.includes('/store-kidlisp') || urlStr.includes(\`/\${window.EMBEDDED_KIDLISP_PIECE}.lisp\`)) {
+      console.log('🎯 Intercepted KidLisp source API, returning embedded source');
+      return Promise.resolve(new Response(window.EMBEDDED_KIDLISP_SOURCE, {
+        status: 200,
+        headers: { 'Content-Type': 'text/plain' }
+      }));
+    }
+  }
   
   // Normalize URL (remove leading ./ and absolute paths, and strip hash/query)
   let vfsPath = urlStr
@@ -459,7 +650,7 @@ document.head.appendChild(styleEl);
 
 // Auto-load the piece if no hash is set
 if (!window.location.hash) {
-  window.location.hash = '#${PIECE_NAME.replace(/\$/g, '')}';
+  window.location.hash = '#${PIECE_NAME}';
 }
 
 // Load boot.mjs using blob URL
@@ -500,10 +691,20 @@ if (!bootUrl) {
   console.log(`   • No IPFS/CDN required`);
   console.log(`   • Works on objkt.com`);
   console.log(`   • Can be minted directly`);
+  if (kidlispSource) {
+    console.log(`   • KidLisp source embedded (${kidlispSource.length} chars)`);
+  }
   console.log(`   • Current timestamp: ${packDate}`);
 }
 
-createSingleFile().catch(error => {
-  console.error("❌ Error:", error);
-  process.exit(1);
-});
+// Main - fetch all KidLisp sources (including embedded pieces), then create bundle
+(async () => {
+  try {
+    const allPieces = await fetchAllEmbeddedPieces(PIECE_NAME.replace(/^\$/, ''));
+    const mainSource = allPieces.get(PIECE_NAME.replace(/^\$/, ''));
+    await createSingleFile(mainSource, allPieces);
+  } catch (error) {
+    console.error("❌ Error:", error);
+    process.exit(1);
+  }
+})();

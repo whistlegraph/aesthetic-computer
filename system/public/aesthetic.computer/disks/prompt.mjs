@@ -4094,13 +4094,14 @@ function paint($) {
           
           // Calculate tooltip dimensions
           const charWidth = 4; // MatrixChunky8 character width
-          const lineHeight = 8; // MatrixChunky8 line height
+          const lineHeight = 10; // MatrixChunky8 line height (increased for better readability)
           const padding = 4;
           const maxLineLength = Math.max(...lines.map(l => l.length));
           
-          // Tooltip only contains source code (metadata renders below)
+          // Tooltip contains source code + metadata line at bottom
           const tooltipWidth = Math.min(maxLineLength * charWidth + padding * 2, screen.width - 40);
-          const tooltipHeight = lines.length * lineHeight + padding * 2;
+          const metadataHeight = 8; // Height for metadata line at bottom
+          const tooltipHeight = lines.length * lineHeight + padding + metadataHeight + 2; // Reduced bottom padding
           
           // Update drift animation (smooth organic movement)
           tooltipDriftPhase += 0.02;
@@ -4170,16 +4171,16 @@ function paint($) {
             );
           }
           
-          // Draw tooltip background (dark with slight transparency)
-          const bgAlpha = Math.floor(200 * tooltipFadeIn);
-          $.ink([20, 40, 30, bgAlpha]).box(tooltipX, tooltipY, tooltipWidth, tooltipHeight);
+          // Draw tooltip background (darker with better opacity)
+          const bgAlpha = Math.floor(240 * tooltipFadeIn);
+          $.ink([10, 20, 15, bgAlpha]).box(tooltipX, tooltipY, tooltipWidth, tooltipHeight);
           
-          // Draw border
-          const borderAlpha = Math.floor(180 * tooltipFadeIn);
-          $.ink([100, 255, 150, borderAlpha]).box(tooltipX, tooltipY, tooltipWidth, tooltipHeight, "inline");
+          // Draw border (brighter for better contrast)
+          const borderAlpha = Math.floor(200 * tooltipFadeIn);
+          $.ink([120, 255, 160, borderAlpha]).box(tooltipX, tooltipY, tooltipWidth, tooltipHeight, "inline");
           
           // Render KidLisp source with proper syntax highlighting
-          const textAlpha = Math.floor(220 * tooltipFadeIn);
+          const textAlpha = Math.floor(255 * tooltipFadeIn);
           renderKidlispSource(
             $,
             source,
@@ -4190,47 +4191,52 @@ function paint($) {
             textAlpha
           );
           
-          // Render metadata (timestamp and @author) BELOW the tooltip box
-          const metadataY = tooltipY + tooltipHeight + 6; // 6px below box
+          // Render metadata (timestamp and @author) snugly at BOTTOM of tooltip box
+          const metadataY = tooltipY + tooltipHeight - 8; // Inside box, at bottom
           
-          // Format timestamp (relative time or absolute)
+          // Format timestamp using same logic as chat.mjs
           let timestampText = '';
           if (currentTooltipItem.timestamp) {
-            const timestamp = new Date(currentTooltipItem.timestamp);
             const now = new Date();
-            const diff = now - timestamp;
-            const seconds = Math.floor(diff / 1000);
-            const minutes = Math.floor(seconds / 60);
-            const hours = Math.floor(minutes / 60);
-            const days = Math.floor(hours / 24);
+            const past = new Date(currentTooltipItem.timestamp);
+            const seconds = Math.floor((now - past) / 1000);
             
-            if (days > 0) {
-              timestampText = `${days}d ago`;
-            } else if (hours > 0) {
-              timestampText = `${hours}h ago`;
-            } else if (minutes > 0) {
-              timestampText = `${minutes}m ago`;
-            } else {
-              timestampText = `${seconds}s ago`;
+            const units = [
+              { name: "year", seconds: 31536000 },
+              { name: "month", seconds: 2592000 },
+              { name: "week", seconds: 604800 },
+              { name: "day", seconds: 86400 },
+              { name: "hour", seconds: 3600 },
+              { name: "minute", seconds: 60 },
+              { name: "second", seconds: 1 },
+            ];
+            
+            for (const unit of units) {
+              const count = Math.floor(seconds / unit.seconds);
+              if (count >= 1) {
+                timestampText = `${count} ${unit.name}${count > 1 ? "s" : ""} ago`;
+                break;
+              }
             }
+            if (!timestampText) timestampText = "just now";
           }
           
-          // Format author (use code as fallback for testing when API data unavailable)
+          // Format author (handle from owner.handle, which already includes @)
           const authorText = currentTooltipItem.author 
-            ? `@${currentTooltipItem.author}` 
-            : `@${currentTooltipItem.code}`; // Fallback for testing
+            ? currentTooltipItem.author // Already has @ from API
+            : null; // No fallback - only show if we have real data
           
           // Combine metadata: "timestamp · @author"
           const metadataText = timestampText && authorText 
             ? `${timestampText} · ${authorText}`
             : timestampText || authorText || '';
           
-          // Render metadata in dimmer color BELOW the box
+          // Render metadata in dimmer color at BOTTOM of box (non-MatrixChunky)
           if (metadataText) {
-            $.ink([120, 200, 140, textAlpha]).write(
+            const metadataAlpha = Math.floor(180 * tooltipFadeIn);
+            $.ink([100, 180, 120, metadataAlpha]).write(
               metadataText,
-              { x: tooltipX + padding, y: metadataY },
-              [255, 255, 255, textAlpha]
+              { x: tooltipX + padding, y: metadataY }
             );
           }
         }
@@ -5164,8 +5170,8 @@ async function fetchContentItems(api) {
             type: 'kidlisp', 
             code: item.code,
             source: item.source, // Store source for tooltip preview
-            timestamp: item.timestamp || item.created_at,
-            author: item.author || item.handle
+            timestamp: item.timestamp || item.created_at || item.when,
+            author: item.owner?.handle || null // Extract handle from owner.handle
           });
         });
       }
@@ -5236,11 +5242,12 @@ async function fetchKidlispSource(item, $) {
 function renderKidlispSource($, source, x, y, maxWidth, maxLines, fadeAlpha) {
   const lines = source.split('\n').slice(0, maxLines);
   const charWidth = 4;
-  const lineHeight = 8;
+  const lineHeight = 10;
   
   // Create temporary KidLisp instance for color mapping
   const tempKidlisp = new KidLisp();
   tempKidlisp.syntaxHighlightSource = source;
+  tempKidlisp.isEditMode = true; // Enable edit mode to prevent transparent text
   
   lines.forEach((line, lineIdx) => {
     const lineY = y + lineIdx * lineHeight;

@@ -1229,6 +1229,7 @@ class TextInput {
       try {
         const tokens = tokenize(this.text);
         const kidlispInstance = new KidLisp();
+        kidlispInstance.isEditMode = true; // Enable edit mode to prevent transparent text
         kidlispInstance.initializeSyntaxHighlighting(this.text);
         
         charColorMap = new Map();
