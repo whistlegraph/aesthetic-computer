@@ -19,6 +19,9 @@ let isDragging = false;
 let dragThreshold = 5; // Minimum pixels to start drag
 let deadZone = 15; // Dead zone radius - must drag this far before triggering
 
+// Current ROM info for download button
+let currentRom = null; // { name, extension, url, isGameBoyColor }
+
 function createGameBoyButtons({ screen, ui }) {
   const buttonSize = 24; // Smaller buttons for more screen space
   const padding = 8;
@@ -68,6 +71,15 @@ function createGameBoyButtons({ screen, ui }) {
   const startBtn = new ui.Button(topRightX + selectStartWidth, topRightY, selectStartWidth, selectStartHeight);
   startBtn.id = "gameboy-start";
   uiButtons.start = startBtn;
+  
+  // Download ROM button (top center, above SELECT/START)
+  const downloadBtnWidth = buttonSize * 2.5;
+  const downloadBtnHeight = buttonSize * 0.6;
+  const downloadBtnX = topRightX - downloadBtnWidth/2 + selectStartWidth;
+  const downloadBtnY = topRightY - downloadBtnHeight - padding;
+  const downloadBtn = new ui.Button(downloadBtnX, downloadBtnY, downloadBtnWidth, downloadBtnHeight);
+  downloadBtn.id = "gameboy-download";
+  uiButtons.download = downloadBtn;
 }
 
 function sendGameBoyInput(send) {
@@ -132,6 +144,14 @@ export async function boot({ ui, screen, send, params, debug }) {
       
       const romData = await response.arrayBuffer();
       console.log("🎮 gameboy: ROM loaded:", romData.byteLength, "bytes");
+      
+      // Store current ROM info for download button
+      currentRom = {
+        name: romName,
+        extension: extension,
+        url: romUrl,
+        isGameBoyColor: isGameBoyColor
+      };
       
       // Create romData object matching bios.mjs format
       const romDataObj = {
@@ -391,14 +411,39 @@ function drawGameBoyButtons({ ink, screen }) {
   ink("black").write("A", { x: actionX + buttonSize + buttonSize/2, y: actionY + buttonSize/2, center: "xy" });
   ink("black").write("SELECT", { x: topRightX + selectStartWidth/2, y: topRightY + selectStartHeight/2, center: "xy" });
   ink("black").write("START", { x: topRightX + selectStartWidth + selectStartWidth/2, y: topRightY + selectStartHeight/2, center: "xy" });
+  
+  // Download button (top left)
+  if (uiButtons.download && currentRom) {
+    const downloadBtn = uiButtons.download;
+    const downloadHover = downloadBtn.down || downloadBtn.hovered;
+    ink(downloadHover ? "lightblue" : "cyan").box(downloadBtn.box.x, downloadBtn.box.y, downloadBtn.box.w, downloadBtn.box.h);
+    const label = currentRom.isGameBoyColor ? "GBC" : "GB";
+    ink("black").write(label, { x: downloadBtn.box.x + downloadBtn.box.w/2, y: downloadBtn.box.y + downloadBtn.box.h/2, center: "xy" });
+  }
 }
 
 // Handle user input and button interactions
-export function act({ event: e, send, pens, ui, screen }) {
+export function act({ event: e, send, pens, ui, screen, download }) {
   // Recreate buttons if screen size changed
   if (e.is("reframed")) {
     createGameBoyButtons({ screen, ui });
     needsReframe = true; // Flag that we need to clear background
+  }
+
+  // Handle download button
+  if (uiButtons.download && currentRom) {
+    uiButtons.download.act(e, {
+      push: async () => {
+        try {
+          const response = await fetch(currentRom.url);
+          const blob = await response.blob();
+          const filename = `${currentRom.name}${currentRom.extension}`;
+          download(blob, filename);
+        } catch (error) {
+          console.error("Failed to download ROM:", error);
+        }
+      }
+    });
   }
 
   // Handle touch/drag gestures on GameBoy display for 8-directional control
