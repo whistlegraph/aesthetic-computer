@@ -7,25 +7,11 @@
 const char* source_lines[] = {
     "wipe black",
     "ink white",
-    "line 10 0 10 144",
-    "line 20 0 20 144",
-    "line 30 0 30 144",
-    "line 40 0 40 144",
-    "line 50 0 50 144",
-    "line 60 0 60 144",
-    "line 70 0 70 144",
-    "line 80 0 80 144",
-    "line 90 0 90 144",
-    "line 100 0 100 144",
-    "line 110 0 110 144",
-    "line 120 0 120 144",
-    "line 130 0 130 144",
-    "line 140 0 140 144",
-    "line 150 0 150 144",
+    "line 50 50 100 100",
     NULL
 };
 
-const char* rom_name = "lines";
+const char* rom_name = "linetest";
 
 // Aesthetic Computer splash screen
 void show_splash(void) {
@@ -72,29 +58,21 @@ void main(void) {
     // Show splash screen
     show_splash();
 
-    // Reinitialize drawing mode after splash
+    // Completely reset graphics after splash
+    DISPLAY_OFF;
+    // Clear background tile map (20x18 tiles) - critical for removing text!
+    fill_bkg_rect(0, 0, 20, 18, 0);
+    // Clear screen buffer
+    fill_rect(0, 0, 160, 144, WHITE);
+    DISPLAY_ON;
     mode(get_mode() | M_NO_SCROLL | M_NO_INTERP);
 
     // Execute KidLisp commands
     // Wipe screen to BLACK
     fill_rect(0, 0, 160, 144, 0);
     // Set ink color to WHITE
-    color(WHITE, BLACK, SOLID);
-    line(10, 0, 10, 144);
-    line(20, 0, 20, 144);
-    line(30, 0, 30, 144);
-    line(40, 0, 40, 144);
-    line(50, 0, 50, 144);
-    line(60, 0, 60, 144);
-    line(70, 0, 70, 144);
-    line(80, 0, 80, 144);
-    line(90, 0, 90, 144);
-    line(100, 0, 100, 144);
-    line(110, 0, 110, 144);
-    line(120, 0, 120, 144);
-    line(130, 0, 130, 144);
-    line(140, 0, 140, 144);
-    line(150, 0, 150, 144);
+    color(BLACK, BLACK, SOLID);
+    line(50, 50, 100, 100);
 
     // Main loop
     while(1) {

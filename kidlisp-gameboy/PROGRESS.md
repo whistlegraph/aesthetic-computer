@@ -2,41 +2,61 @@
 
 ## Recent Achievements (November 2025)
 
-### 🎯 KidLisp Compiler - First Working Version ✅
-**Date:** November 17, 2025
+### 🎯 KidLisp Compiler - Complete with Splash Screen ✅
+**Date:** November 18, 2025
 
-Built a complete KidLisp → Game Boy ROM compiler!
+Built a complete KidLisp → Game Boy ROM compiler with custom splash screens!
 
 **Syntax:**
 ```kidlisp
 wipe black
 ink white
-line 10 10 150 134
+line 50 50 100 100
+box 10 10 70 70
+circle 80 80 30
 melody "ceg"
 ```
 
 **Features:**
 - Simple command-per-line format (no s-expressions)
-- Graphics commands: `wipe`, `ink`, `line`
-- Music: `melody "notes"` with hUGEDriver
+- Graphics commands: `wipe`, `ink`, `line`, `box`, `circle`
+- Custom splash screen for every ROM with:
+  - AESTHETIC.COMPUTER branding
+  - ROM name display
+  - Source code listing (auto-truncated)
+  - 1px progress bar animation (160 frames)
+  - Auto-start (no button press needed)
+- Music: `melody "notes"` with direct sound register control
 - Full pipeline: `.lisp` → C → GBDK → `.gb` ROM
 - Integrated build system
 - Browser testing: `ac gameboy~romname`
 
 **Technical:**
 - Compiler: Node.js (`kidlisp-to-gb.mjs`)
-- Line drawing: Bresenham's algorithm
-- Music: hUGEDriver patterns (0.5s/note, VBL interrupts)
+- Graphics: GBDK drawing.h (line, box, circle primitives)
+- Color inversion mapping: KidLisp black → GB WHITE (0), KidLisp white → GB BLACK (3)
+- Scene transition: Background tile map clearing critical for text→graphics mode
+- Music: Direct GB sound registers (NR10-NR14, Channel 1 square wave)
 - Output: 32KB DMG ROM
+
+**Critical Bug Fix:**
+- **Problem**: White screen after splash instead of KidLisp graphics
+- **Cause**: gprintf() uses background tile map, conflicts with drawing.h functions
+- **Solution**: Clear BG tile map with `fill_bkg_rect(0, 0, 20, 18, 0)` after splash
+- **Pattern learned from**: GBDK examples (hblank_copy, dscan, galaxy)
 
 **Files:**
 - `compiler/kidlisp-to-gb.mjs` - Main compiler
+- `examples/linetest.lisp` - Simple line test
+- `examples/boxtest.lisp` - Box drawing test
+- `examples/shapes.lisp` - Combined shapes demo
 - `examples/lines.lisp` - Grid pattern demo
 - `KIDLISP-COMPILER.md` - Documentation
 
 **Dependencies:**
-- hUGEDriver from LaroldsJubilantJunkyard/gbdk-hugedriver-example
+- GBDK with drawing.h (line, box, circle)
 - RGBDS (already in Dockerfile)
+- Replaced hUGEDriver with custom sound system
 
 ### 🎵 Melody ROM Development ✅
 - **Status**: COMPLETE - Fully functional Game Boy ROM
@@ -76,15 +96,17 @@ melody "ceg"
 6. **ac command robustness** - WebSocket-based architecture
 
 ### 🔄 Active Development
-- Testing extension v1.194.0 rollout
-- Refining build automation
-- Performance optimization
+- KidLisp compiler fully functional with splash screens
+- All graphics primitives working (line, box, circle)
+- Custom sound system operational
+- Scene transition bugs resolved
 
-### 🎯 Next Phase: KidLisp Compiler
-- Minimal Lisp → Game Boy ROM compilation
-- Graphics primitives: `(point x y)`, `(line x1 y1 x2 y2)`, `(wipe)`
-- Integration with existing build system
-- Live coding workflow for Game Boy development
+### 🎯 Next Phase: Advanced KidLisp Features
+- More graphics primitives (filled shapes, pixels, text)
+- Input handling (buttons, movement)
+- Sprite support
+- Background scrolling
+- Advanced sound (multiple channels, effects)
 
 ## Architecture Insights
 
@@ -135,5 +157,5 @@ kidlisp-gameboy/
 
 ---
 
-**Last Updated**: November 17, 2025  
-**Status**: Active development, melody ROM complete, VSCode integration published
+**Last Updated**: November 18, 2025  
+**Status**: KidLisp compiler complete with splash screens, all core features working
