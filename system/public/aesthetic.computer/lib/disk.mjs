@@ -6325,6 +6325,13 @@ async function load(
   } = {}) {
     // console.log("⚠️ Reloading:", piece, name, source);
 
+    if (loading && source && !name && !piece) {
+      // If a piece is loading and we have new source code, queue the reload
+      console.log("🟡 Queueing reload until current load completes...");
+      setTimeout(() => reload({ source }), 100);
+      return;
+    }
+
     if (loading) {
       console.log("🟡 A piece is already loading.");
       return;
@@ -6348,6 +6355,25 @@ async function load(
         true, // fromHistory - don't add to history stack
         alias,
         true, // devReload
+      );
+    } else if (source && !name && !piece) {
+      // Live reload with new source code (e.g., from kidlisp.com editor)
+      // Just pass the source directly without path/text
+      currentText = source;
+      currentPath = source;
+      $commonApi.load(
+        {
+          source: source,  // Pass as source so it's used directly
+          search: currentSearch,
+          colon: currentColon,
+          params: currentParams,
+          hash: currentHash,
+        },
+        true, // fromHistory - don't add to history stack
+        alias,
+        true, // devReload
+        undefined, // loadedCallback
+        true, // forceKidlisp - always treat as KidLisp code
       );
     } else if (name && source) {
       // TODO: Check for existence of `name` and `source` is hacky. 23.06.24.19.27
@@ -7762,6 +7788,13 @@ async function makeFrame({ data: { type, content } }) {
       }
     }
     sessionStarted = true;
+    return;
+  }
+
+  // Handle live reload from kidlisp.com editor
+  if (type === "piece-reload") {
+    console.log("🔄 Reloading piece with new code:", content.source);
+    $commonApi.reload({ source: content.source });
     return;
   }
 

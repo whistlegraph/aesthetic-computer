@@ -748,6 +748,16 @@ function receive(event) {
   } else if (event.data?.type === "clearSession" && window.acTOKEN) {
     window.location.reload();
     return;
+  } else if (event.data?.type === "kidlisp-reload") {
+    // Live reload from kidlisp.com editor
+    const code = event.data.code;
+    if (code) {
+      window.acSEND({
+        type: "piece-reload",
+        content: { source: code }
+      });
+    }
+    return;
   } else if (event.data?.startsWith?.("docs:")) {
     window.acSEND({
       type: "docs:link",
