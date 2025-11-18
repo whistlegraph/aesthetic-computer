@@ -2,6 +2,42 @@
 
 ## Recent Achievements (November 2025)
 
+### 🎯 KidLisp Compiler - First Working Version ✅
+**Date:** November 17, 2025
+
+Built a complete KidLisp → Game Boy ROM compiler!
+
+**Syntax:**
+```kidlisp
+wipe black
+ink white
+line 10 10 150 134
+melody "ceg"
+```
+
+**Features:**
+- Simple command-per-line format (no s-expressions)
+- Graphics commands: `wipe`, `ink`, `line`
+- Music: `melody "notes"` with hUGEDriver
+- Full pipeline: `.lisp` → C → GBDK → `.gb` ROM
+- Integrated build system
+- Browser testing: `ac gameboy~romname`
+
+**Technical:**
+- Compiler: Node.js (`kidlisp-to-gb.mjs`)
+- Line drawing: Bresenham's algorithm
+- Music: hUGEDriver patterns (0.5s/note, VBL interrupts)
+- Output: 32KB DMG ROM
+
+**Files:**
+- `compiler/kidlisp-to-gb.mjs` - Main compiler
+- `examples/lines.lisp` - Grid pattern demo
+- `KIDLISP-COMPILER.md` - Documentation
+
+**Dependencies:**
+- hUGEDriver from LaroldsJubilantJunkyard/gbdk-hugedriver-example
+- RGBDS (already in Dockerfile)
+
 ### 🎵 Melody ROM Development ✅
 - **Status**: COMPLETE - Fully functional Game Boy ROM
 - **Features**:
