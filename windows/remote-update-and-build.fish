@@ -11,6 +11,13 @@ echo ""
 echo "Version: $build_version"
 echo ""
 
+# First, copy updated build script to remote machine
+echo "========================================="
+echo "Syncing build script to remote..."
+echo "========================================="
+scp /workspaces/aesthetic-computer/windows/build-false-work.ps1 me@host.docker.internal:"C:/Perforce/SpiderLily/SL_main/build-false-work.ps1"
+echo ""
+
 # Run build on Windows via SSH (streaming output to build stream AND log file)
 # Note: removed -t flag to allow proper piping
 ssh me@host.docker.internal "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\Perforce\\SpiderLily\\SL_main\\build-false-work.ps1 -Version $build_version -AutoPackage" 2>&1 | tee $log_file | /workspaces/aesthetic-computer/windows/ac-pipe.sh
@@ -63,8 +70,11 @@ set iso_timestamp (date -Iseconds | cut -d'+' -f1)
 set full_map (ssh me@host.docker.internal "powershell -NoProfile -Command \"(Get-Content 'C:\\Perforce\\SpiderLily\\SL_main\\Config\\DefaultEngine.ini' | Select-String -Pattern 'GameDefaultMap=').ToString().Split('=')[1]\"")
 set start_level (echo $full_map | awk -F'.' '{print $NF}')
 
+# Extract Unreal Engine version from build script
+set ue_version (ssh me@host.docker.internal "powershell -NoProfile -Command \"(Get-Content 'C:\\Perforce\\SpiderLily\\SL_main\\build-false-work.ps1' | Select-String -Pattern 'UE_5\\.\\d+').Matches.Value\"")
+
 # Use awk to insert new build entry (more reliable than sed with multiline)
-awk -v version="$build_version" -v timestamp="$formatted_timestamp" -v size="$size_mb" -v level="$level_name" -v url="https://assets.aesthetic.computer/false.work/spiderlily-windows-$build_version.zip" '
+awk -v version="$build_version" -v timestamp="$iso_timestamp" -v size="$file_size" -v level="$start_level" -v ue_ver="$ue_version" -v url="https://assets.aesthetic.computer/false.work/spiderlily-windows-$build_version.zip" '
   /<!-- BUILD_LIST_ALL -->/ {
     print
     print "        <div class=\"build-header\">"
@@ -73,7 +83,7 @@ awk -v version="$build_version" -v timestamp="$formatted_timestamp" -v size="$si
     print "          <a href=\"" url "\">" version ".zip</a>"
     print "          <span style=\"margin-left: 0.5rem; color: #666; font-size: 0.9rem;\">(<a href=\"https://assets.aesthetic.computer/false.work/spiderlily-windows-" version ".txt\" style=\"color: #888;\">download log</a>)</span>"
     print "        </div>"
-    print "        <div class=\"meta\">" size " MB | " level " | <span class=\"build-time\" data-date=\"" timestamp "\">just now</span></div>"
+    print "        <div class=\"meta\">" size " MB | " level " | " ue_ver " | <span class=\"build-time\" data-date=\"" timestamp "\">just now</span></div>"
     print "        <div class=\"build-log-preview animated\" id=\"build-log-preview\">"
     print "          <div class=\"log-header\">📜 Build Log</div>"
     print "          Loading build log..."
