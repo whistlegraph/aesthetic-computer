@@ -20,7 +20,7 @@ Write-Host "AutoPackage: $AutoPackage"
 Write-Host ""
 
 # Configuration - Update these paths for your local setup
-$UE5Path = "C:\Program Files\Epic Games\UE_5.6"
+$UE5Path = "C:\Program Files\Epic Games\UE_5.7"
 $ProjectRoot = "C:\Perforce\SpiderLily\SL_main"  # Updated to include SL_main subdirectory
 $ProjectFile = "$ProjectRoot\SpiderLily.uproject"
 $OutputDir = "$env:USERPROFILE\Desktop\SpiderLily-$Version"
@@ -32,8 +32,8 @@ if (!(Test-Path $UE5Path)) {
     Write-Host "Please update the `$UE5Path variable in this script to point to your UE5 installation."
     Write-Host ""
     Write-Host "Common locations:"
+    Write-Host "  - C:\Program Files\Epic Games\UE_5.7"
     Write-Host "  - C:\Program Files\Epic Games\UE_5.6"
-    Write-Host "  - C:\Program Files\Epic Games\UE_5.5"
     Write-Host "  - C:\UE5"
     Write-Host ""
     exit 1
