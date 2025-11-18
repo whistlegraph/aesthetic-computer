@@ -2,12 +2,47 @@
 <html>
 
 <head>
-  <title>KidLisp - pattern programming for everybody</title>
+  <title>KidLisp - transmedia pattern programming for everybody</title>
   <meta name="description" content="KidLisp is a simple, expressive language for creating visual patterns and animations. Try it on aesthetic.computer." />
   <link rel="icon" type="image/png"
     href="https://pals-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/painting-2023.7.29.20.39.png" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
+    :root {
+      /* Light mode (default) */
+      --bg-primary: #f7f7f7;
+      --bg-secondary: #e8e8e8;
+      --bg-tertiary: white;
+      --text-primary: #111;
+      --text-secondary: #333;
+      --text-tertiary: #666;
+      --border-color: #ddd;
+      --border-subtle: #e0e0e0;
+      --code-bg: #e8e8e8;
+      --code-text: #a31515;
+      --editor-bg: #1e1e1e;
+      --editor-text: #d4d4d4;
+      --editor-border: #333;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg-primary: #1e1e1e;
+        --bg-secondary: #252526;
+        --bg-tertiary: #2d2d30;
+        --text-primary: #d4d4d4;
+        --text-secondary: #d4d4d4;
+        --text-tertiary: #858585;
+        --border-color: #3e3e42;
+        --border-subtle: #3e3e42;
+        --code-bg: #252526;
+        --code-text: #ce9178;
+        --editor-bg: #1e1e1e;
+        --editor-text: #d4d4d4;
+        --editor-border: #333;
+      }
+    }
+
     ::-webkit-scrollbar {
       display: none;
     }
@@ -24,13 +59,15 @@
       display: flex;
       flex-direction: column;
       min-height: 100vh;
-      background: #f7f7f7;
-      color: #111;
+      background: var(--bg-primary);
+      color: var(--text-primary);
       cursor: url('https://aesthetic.computer/aesthetic.computer/cursors/precise.svg') 12 12, auto;
     }
 
     header {
       padding: 16px;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border-color);
     }
 
     h1 {
@@ -59,38 +96,41 @@
       display: flex;
       flex-direction: row;
       overflow: hidden;
-      border-bottom: 2px solid #ddd;
+      border-bottom: 2px solid var(--border-color);
     }
 
     .editor-panel {
       flex: 1;
       display: flex;
       flex-direction: column;
-      border-right: 2px solid #ddd;
+      border-right: 2px solid var(--border-color);
     }
 
     .editor-header {
       padding: 8px 12px;
-      background: #1e1e1e;
-      border-bottom: 1px solid #333;
+      background: var(--editor-bg);
+      border-bottom: 1px solid var(--editor-border);
       display: flex;
       justify-content: flex-end;
+      align-items: flex-end;
     }
 
     #send-button {
-      padding: 6px 16px;
-      background: rgb(205, 92, 155);
-      color: white;
-      border: none;
+      padding: 4px 12px;
+      background: transparent;
+      color: var(--text-tertiary);
+      border: 1px solid var(--border-color);
       border-radius: 4px;
       font-family: monospace;
-      font-size: 12px;
+      font-size: 11px;
       cursor: pointer;
-      transition: background 0.2s;
+      transition: all 0.2s;
     }
 
     #send-button:hover {
-      background: rgb(185, 72, 135);
+      background: rgb(205, 92, 155);
+      color: white;
+      border-color: rgb(205, 92, 155);
     }
 
     #kidlisp-editor {
@@ -106,7 +146,7 @@
 
     .docs-panel {
       height: 50%;
-      background: #f7f7f7;
+      background: var(--bg-primary);
       display: flex;
       flex-direction: column;
       overflow: hidden;
@@ -118,31 +158,33 @@
 
     .docs-header {
       padding: 8px 12px;
-      background: #e8e8e8;
-      border-bottom: 1px solid #ddd;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border-color);
       display: flex;
       justify-content: space-between;
       align-items: center;
       font-size: 13px;
       font-weight: bold;
+      color: var(--text-primary);
     }
 
     .docs-toggle {
       position: fixed;
       right: 16px;
       bottom: 16px;
-      background: #e8e8e8;
-      border: 2px solid #ddd;
+      background: var(--bg-secondary);
+      border: 2px solid var(--border-color);
       padding: 8px 12px;
       cursor: pointer;
       border-radius: 4px;
       font-size: 18px;
       z-index: 100;
       transition: bottom 0.3s;
+      color: var(--text-primary);
     }
 
     .docs-toggle:hover {
-      background: #d8d8d8;
+      background: var(--bg-tertiary);
     }
 
     .docs-toggle.panel-open {
@@ -155,12 +197,14 @@
       padding: 16px;
       font-size: 13px;
       line-height: 1.5;
+      background: var(--bg-primary);
+      color: var(--text-primary);
     }
 
     .docs-content h3 {
       font-size: 14px;
       margin: 16px 0 8px 0;
-      color: #333;
+      color: var(--text-secondary);
       font-weight: bold;
     }
 
@@ -187,37 +231,32 @@
     }
 
     .docs-content code {
-      background: #e8e8e8;
+      background: var(--code-bg);
       padding: 2px 4px;
       border-radius: 2px;
       font-size: 12px;
+      color: var(--code-text);
     }
 
     .function-category {
       margin-bottom: 20px;
     }
 
-    .function-category h3 {
-      font-size: 12px !important;
-      color: rgb(205, 92, 155) !important;
-      margin-bottom: 8px !important;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
     .function-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-      gap: 6px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
     }
 
     .function-item {
-      padding: 6px 8px;
-      background: white;
-      border: 1px solid #ddd;
-      border-radius: 3px;
+      padding: 4px 10px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
       cursor: pointer;
       transition: all 0.15s;
+      font-size: 13px;
+      color: var(--text-primary);
     }
 
     .function-item:hover {
@@ -225,24 +264,7 @@
       color: white;
       transform: translateY(-1px);
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-
-    .function-item:hover .function-name,
-    .function-item:hover .function-desc {
-      color: white;
-    }
-
-    .function-name {
-      font-weight: bold;
-      color: #333;
-      font-size: 11px;
-      font-family: 'Courier New', monospace;
-    }
-
-    .function-desc {
-      font-size: 10px;
-      color: #666;
-      margin-top: 2px;
+      border-color: rgb(205, 92, 155);
     }
 
     a {
@@ -264,18 +286,38 @@
 
     /* Mobile optimization */
     @media (max-width: 768px) {
+      main {
+        flex-direction: column;
+      }
+
       .top-section {
         flex-direction: column;
+        height: 66.666%;
       }
 
       .editor-panel {
         border-right: none;
-        border-bottom: 2px solid #ddd;
-        min-height: 200px;
+        border-bottom: 2px solid var(--border-color);
+        height: 50%;
+        order: 2;
       }
 
       #preview-iframe {
-        min-height: 200px;
+        height: 50%;
+        order: 1;
+      }
+
+      .docs-panel {
+        height: 33.333% !important;
+        order: 3;
+      }
+
+      .docs-panel.collapsed {
+        height: 33.333% !important;
+      }
+
+      .docs-toggle {
+        display: none;
       }
     }
   </style>
@@ -284,16 +326,16 @@
 <body>
   <header>
     <h1>kidlisp</h1>
-    <div class="tagline">pattern programming for everybody</div>
+    <div class="tagline">transmedia pattern programming for everybody</div>
   </header>
 
   <main>
     <div class="top-section">
       <div class="editor-panel">
-        <div class="editor-header">
-          <button id="send-button">&#9654; run</button>
-        </div>
         <div id="kidlisp-editor"></div>
+        <div class="editor-header">
+          <button id="send-button">enter</button>
+        </div>
       </div>
       
       <iframe id="preview-iframe" frameborder="0"></iframe>
@@ -307,108 +349,28 @@
       </div>
       <div class="docs-content" id="docs-content">
         <div class="function-category">
-          <h3>Drawing</h3>
           <div class="function-grid">
-            <div class="function-item" data-example="wipe black, ink red, circle 100 100 50">
-              <div class="function-name">circle x y r</div>
-              <div class="function-desc">Draw a filled circle</div>
-            </div>
-            <div class="function-item" data-example="wipe white, ink blue, line 0 0 200 200">
-              <div class="function-name">line x1 y1 x2 y2</div>
-              <div class="function-desc">Draw a line</div>
-            </div>
-            <div class="function-item" data-example="wipe white, ink red, box 50 50 100 100">
-              <div class="function-name">box x y w h</div>
-              <div class="function-desc">Draw a rectangle</div>
-            </div>
-            <div class="function-item" data-example="wipe beige, ink purple, point 100 100">
-              <div class="function-name">point x y</div>
-              <div class="function-desc">Draw a pixel</div>
-            </div>
-          </div>
-        </div>        <div class="function-category">
-          <h3>Color</h3>
-          <div class="function-grid">
-            <div class="function-item" data-example="wipe navy">
-              <div class="function-name">wipe color</div>
-              <div class="function-desc">Clear screen</div>
-            </div>
-            <div class="function-item" data-example="wipe black, ink cyan">
-              <div class="function-name">ink color</div>
-              <div class="function-desc">Set draw color</div>
-            </div>
-            <div class="function-item" data-example="wipe black, ink (rainbow), circle 100 100 50">
-              <div class="function-name">rainbow</div>
-              <div class="function-desc">Rainbow color</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="function-category">
-          <h3>Effects</h3>
-          <div class="function-grid">
-            <div class="function-item" data-example="wipe red, scroll 5 0, blur 1">
-              <div class="function-name">scroll x y</div>
-              <div class="function-desc">Shift pixels</div>
-            </div>
-            <div class="function-item" data-example="wipe white, ink blue, box 100 100 50 50, spin 1">
-              <div class="function-name">spin degrees</div>
-              <div class="function-desc">Rotate canvas</div>
-            </div>
-            <div class="function-item" data-example="wipe orange, blur 2">
-              <div class="function-name">blur amount</div>
-              <div class="function-desc">Apply blur</div>
-            </div>
-            <div class="function-item" data-example="wipe teal, zoom 1.5">
-              <div class="function-name">zoom factor</div>
-              <div class="function-desc">Scale canvas</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="function-category">
-          <h3>Text</h3>
-          <div class="function-grid">
-            <div class="function-item" data-example="wipe white, ink black, write hello 100 100">
-              <div class="function-name">write text x y</div>
-              <div class="function-desc">Draw text</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="function-category">
-          <h3>Math & Data</h3>
-          <div class="function-grid">
-            <div class="function-item" data-example="wipe black, ink lime, circle (wiggle width) (wiggle height) 30">
-              <div class="function-name">wiggle value</div>
-              <div class="function-desc">Random 0 to value</div>
-            </div>
-            <div class="function-item" data-example="wipe navy, ink yellow, write width 10 10">
-              <div class="function-name">width</div>
-              <div class="function-desc">Screen width</div>
-            </div>
-            <div class="function-item" data-example="wipe navy, ink yellow, write height 10 30">
-              <div class="function-name">height</div>
-              <div class="function-desc">Screen height</div>
-            </div>
-            <div class="function-item" data-example="wipe black, ink white, write frame 10 10">
-              <div class="function-name">frame</div>
-              <div class="function-desc">Frame number</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="function-category">
-          <h3>Control Flow</h3>
-          <div class="function-grid">
-            <div class="function-item" data-example="wipe black, ink lime, repeat 10 i (box (* i 20) (* i 20) 50 50)">
-              <div class="function-name">repeat n i (body)</div>
-              <div class="function-desc">Loop n times</div>
-            </div>
-            <div class="function-item" data-example="wipe white, def x 100, ink red, circle x x 50">
-              <div class="function-name">def name value</div>
-              <div class="function-desc">Define variable</div>
-            </div>
+            <div class="function-item" data-word="wipe">wipe</div>
+            <div class="function-item" data-word="ink">ink</div>
+            <div class="function-item" data-word="circle">circle</div>
+            <div class="function-item" data-word="line">line</div>
+            <div class="function-item" data-word="box">box</div>
+            <div class="function-item" data-word="point">point</div>
+            <div class="function-item" data-word="write">write</div>
+            <div class="function-item" data-word="scroll">scroll</div>
+            <div class="function-item" data-word="spin">spin</div>
+            <div class="function-item" data-word="blur">blur</div>
+            <div class="function-item" data-word="zoom">zoom</div>
+            <div class="function-item" data-word="rainbow">rainbow</div>
+            <div class="function-item" data-word="wiggle">wiggle</div>
+            <div class="function-item" data-word="width">width</div>
+            <div class="function-item" data-word="height">height</div>
+            <div class="function-item" data-word="frame">frame</div>
+            <div class="function-item" data-word="repeat">repeat</div>
+            <div class="function-item" data-word="def">def</div>
+            <div class="function-item" data-word="fade">fade</div>
+            <div class="function-item" data-word="paste">paste</div>
+            <div class="function-item" data-word="stamp">stamp</div>
           </div>
         </div>
       </div>
@@ -538,6 +500,18 @@
         wordWrap: 'on',
       });
 
+      // Hide line numbers if only one line
+      function updateLineNumbers() {
+        const lineCount = editor.getModel().getLineCount();
+        editor.updateOptions({ lineNumbers: lineCount > 1 ? 'on' : 'off' });
+      }
+      
+      editor.onDidChangeModelContent(() => {
+        updateLineNumbers();
+      });
+      
+      updateLineNumbers();
+
       // Update preview on Cmd/Ctrl+Enter
       editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
         updatePreview();
@@ -549,6 +523,10 @@
 
     let isInitialLoad = true;
     
+    // Detect if we're in development mode
+    const isDev = window.location.hostname === 'localhost' || window.location.hostname.includes('local.');
+    const aestheticUrl = isDev ? 'https://localhost:8888' : 'https://aesthetic.computer';
+    
     function updatePreview() {
       if (!editor) return;
       
@@ -559,13 +537,13 @@
           previewIframe.contentWindow.postMessage({
             type: 'kidlisp-reload',
             code: code
-          }, 'https://aesthetic.computer');
+          }, aestheticUrl);
         }
         
         // Only update iframe src on initial load
         if (isInitialLoad) {
           const encodedCode = encodeURIComponent(code);
-          previewIframe.src = `https://aesthetic.computer/${encodedCode}?nogap=true&nolabel=true`;
+          previewIframe.src = `${aestheticUrl}/${encodedCode}?nogap=true&nolabel=true`;
           isInitialLoad = false;
         }
       }
@@ -582,13 +560,17 @@
       docsToggle.classList.toggle('panel-open');
     });
 
-    // Click function examples to insert into editor
+    // Click function words to insert at cursor
     document.querySelectorAll('.function-item').forEach(item => {
       item.addEventListener('click', () => {
-        const example = item.getAttribute('data-example');
-        if (example && editor) {
-          editor.setValue(example);
-          updatePreview();
+        const word = item.getAttribute('data-word');
+        if (word && editor) {
+          const position = editor.getPosition();
+          editor.executeEdits('', [{
+            range: new monaco.Range(position.lineNumber, position.column, position.lineNumber, position.column),
+            text: word + ' ',
+          }]);
+          editor.focus();
         }
       });
     });
