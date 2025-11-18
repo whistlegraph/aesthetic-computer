@@ -7,25 +7,12 @@
 const char* source_lines[] = {
     "wipe black",
     "ink white",
-    "line 10 0 10 144",
-    "line 20 0 20 144",
-    "line 30 0 30 144",
-    "line 40 0 40 144",
-    "line 50 0 50 144",
-    "line 60 0 60 144",
-    "line 70 0 70 144",
-    "line 80 0 80 144",
-    "line 90 0 90 144",
-    "line 100 0 100 144",
-    "line 110 0 110 144",
-    "line 120 0 120 144",
-    "line 130 0 130 144",
-    "line 140 0 140 144",
-    "line 150 0 150 144",
+    "box 20 20 60 60",
+    "box 80 20 120 60 fill",
     NULL
 };
 
-const char* rom_name = "lines";
+const char* rom_name = "boxtest";
 
 // Aesthetic Computer splash screen
 void show_splash(void) {
@@ -56,9 +43,9 @@ void show_splash(void) {
     
     // Progress bar animation (3 seconds) - 1px line at top
     for (progress = 0; progress <= 160; progress++) {
-        // Draw 1px progress using plot_point to avoid line() conflicts
+        // Draw 1px progress line at top of screen
         if (progress > 0) {
-            plot_point(progress - 1, 0);
+            line(0, 0, progress - 1, 0);
         }
         vsync();
     }
@@ -80,21 +67,8 @@ void main(void) {
     fill_rect(0, 0, 160, 144, 0);
     // Set ink color to WHITE
     color(WHITE, BLACK, SOLID);
-    line(10, 0, 10, 144);
-    line(20, 0, 20, 144);
-    line(30, 0, 30, 144);
-    line(40, 0, 40, 144);
-    line(50, 0, 50, 144);
-    line(60, 0, 60, 144);
-    line(70, 0, 70, 144);
-    line(80, 0, 80, 144);
-    line(90, 0, 90, 144);
-    line(100, 0, 100, 144);
-    line(110, 0, 110, 144);
-    line(120, 0, 120, 144);
-    line(130, 0, 130, 144);
-    line(140, 0, 140, 144);
-    line(150, 0, 150, 144);
+    box(20, 20, 60, 60, M_NOFILL);
+    box(80, 20, 120, 60, M_FILL);
 
     // Main loop
     while(1) {
