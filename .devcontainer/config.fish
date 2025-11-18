@@ -853,7 +853,15 @@ function ac --description 'cd to aesthetic-computer or jump to piece'
         set piece_path $argv[1]
         echo "🎯 Jumping to: $piece_path"
         set response (curl -s -k -X POST https://localhost:8889/jump -H "Content-Type: application/json" -d "{\"piece\": \"$piece_path\"}")
-        echo "$response"
+        
+        # Show appropriate feedback based on connection status
+        if string match -q "*vscodeConnected*true*" $response
+            echo "✅ Sent to VSCode extension"
+        else if string match -q "*Jump request sent*" $response
+            echo "✅ Sent to browser clients"
+        else
+            echo "$response"
+        end
     end
 end
 

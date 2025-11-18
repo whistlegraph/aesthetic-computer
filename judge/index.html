@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>censor · Aesthetic Computer</title>
+    <title>judge · Aesthetic Computer</title>
     <link rel="icon" href="https://aesthetic.computer/icon/128x128/prompt.png" type="image/png" />
     <style>
         * {
@@ -11,112 +11,267 @@
             padding: 0;
             box-sizing: border-box;
         }
-
+        
         ::-webkit-scrollbar {
             display: none;
         }
 
-        html {
-            cursor: url("/aesthetic.computer/cursors/precise.svg") 12 12, auto;
-        }
-
         body {
             font-family: monospace;
-            font-size: 22px;
+            font-size: 14px;
+            line-height: 1.5;
+            background: #f5f5f5;
+            color: #000;
             -webkit-text-size-adjust: none;
-            min-height: 100vh;
-            margin: 0;
-            padding: 16px;
+            cursor: url('https://aesthetic.computer/aesthetic.computer/cursors/precise.svg') 12 12, auto;
         }
 
         .container {
-            max-width: 800px;
-            margin: 0 auto;
+            padding: 1em;
+            padding-top: 4em;
+        }
+
+        header {
+            position: fixed;
+            top: 12px;
+            left: 16px;
+            z-index: 3;
+            background: transparent;
+            border: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        header::before {
+            content: "";
+            height: 3em;
+            width: 100vw;
+            position: absolute;
+            z-index: -1;
+            top: -12px;
+            left: -16px;
+            background: linear-gradient(to bottom, #f5f5f5 50%, transparent 100%);
+        }
+
+        .header-left {
+            flex: 1;
+        }
+
+        .header-right {
+            display: none;
         }
 
         h1 {
-            font-weight: normal;
             font-size: 22px;
-            margin: 0 0 0.5em 0;
+            font-weight: normal;
+            color: rgb(205, 92, 155);
+            margin: 0;
+            cursor: pointer;
+            user-select: none;
         }
 
-        h1 a, h1 a:visited {
-            text-decoration: none;
+        h1:hover {
+            color: purple;
+        }
+
+        h1:active {
+            color: gray;
         }
 
         .subtitle {
-            margin-bottom: 1.5em;
-            font-size: 18px;
+            font-size: 0.85em;
             opacity: 0.7;
+            margin-top: 0.2em;
         }
 
-        .test-section {
-            margin-bottom: 1em;
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 0.5em;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #999;
+        }
+
+        .status-dot.connected {
+            background: #4ade80;
+            box-shadow: 0 0 8px rgba(74, 222, 128, 0.5);
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        .status-dot.disconnected {
+            background: #ef4444;
+        }
+
+        section {
+            margin: 2em 0;
+            padding: 0 1em;
+        }
+
+        h2 {
+            font-size: 1.2em;
+            font-weight: normal;
+            margin-bottom: 0.8em;
+            padding-bottom: 0.3em;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .content-wrapper {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .form-group {
+            margin: 1em 0;
         }
 
         label {
             display: block;
-            font-weight: normal;
             margin-bottom: 0.5em;
+            font-weight: normal;
         }
 
         textarea {
             width: 100%;
-            padding: 12px;
-            border: 1px solid;
-            border-radius: 2px;
+            padding: 0.8em;
             font-family: monospace;
-            font-size: 18px;
+            font-size: 14px;
+            border: 1px solid #ccc;
+            background: white;
             resize: vertical;
-            min-height: 100px;
+            min-height: 80px;
         }
 
         textarea:focus {
             outline: none;
+            border-color: rgb(205, 92, 155);
         }
 
         .button-group {
             display: flex;
-            gap: 8px;
-            margin-bottom: 1.5em;
+            gap: 0.5em;
+            flex-wrap: wrap;
+            margin: 1em 0;
         }
 
         button {
-            flex: 1;
-            padding: 12px;
-            border: 1px solid;
-            border-radius: 2px;
-            font-size: 18px;
+            padding: 0.7em 1.2em;
             font-family: monospace;
+            font-size: 14px;
+            border: 1px solid #000;
+            background: white;
             cursor: pointer;
-            transition: opacity 0.2s;
+            transition: all 0.2s;
+            position: relative;
+            overflow: hidden;
         }
 
         button:hover {
-            opacity: 0.8;
+            background: rgb(205, 92, 155);
+            color: white;
+            border-color: rgb(205, 92, 155);
         }
 
         button:active {
-            opacity: 0.6;
+            transform: translateY(1px);
         }
 
-        .btn-test {
-            background: rgb(92, 205, 155);
-            color: rgb(25, 0, 25);
-            border-color: rgb(92, 205, 155);
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            background: #f0f0f0;
         }
 
-        .btn-clear {
-            background: transparent;
-            border-color: rgba(255, 255, 255, 0.3);
+        button.testing {
+            background: rgb(205, 92, 155);
+            color: white;
+            border-color: rgb(205, 92, 155);
+        }
+
+        button.testing::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 3px;
+            background: rgba(255, 255, 255, 0.5);
+            animation: progress 2s ease-in-out infinite;
+        }
+
+        @keyframes progress {
+            0% { width: 0%; }
+            50% { width: 70%; }
+            100% { width: 100%; }
         }
 
         .result {
-            padding: 16px;
-            border-radius: 4px;
-            margin-bottom: 1.5em;
+            margin: 1em 0;
+            padding: 1em;
+            background: white;
+            border-left: 4px solid #ddd;
             display: none;
-            animation: fadeIn 0.3s ease;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .result.show {
+            display: block;
+        }
+
+        .result.allowed {
+            border-color: #4ade80;
+            background: #f0fdf4;
+        }
+
+        .result.blocked {
+            border-color: #ef4444;
+            background: #fef2f2;
+        }
+
+        .result-header {
+            font-weight: bold;
+            margin-bottom: 0.5em;
+            font-size: 1.1em;
+        }
+
+        .result-details {
+            font-size: 0.9em;
+            opacity: 0.8;
+            margin: 0.3em 0;
+        }
+
+        .stream-output {
+            margin: 1em 0;
+            padding: 0.8em;
+            background: #fafafa;
+            border: 1px solid #eee;
+            min-height: 60px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-size: 0.85em;
+            white-space: pre-wrap;
+            font-family: monospace;
+            display: none;
+            animation: fadeIn 0.3s ease-out;
         }
 
         @keyframes fadeIn {
@@ -124,521 +279,379 @@
             to { opacity: 1; }
         }
 
-        .result-icon {
-            font-size: 2em;
+        .stream-output.active {
+            display: block;
+        }
+
+        .stream-output::before {
+            content: '💬 AI reasoning...';
+            display: block;
+            margin-bottom: 0.5em;
+            opacity: 0.6;
+            font-size: 0.9em;
+        }
+
+        .history {
+            margin: 1em 0;
+        }
+
+        .history-item {
+            padding: 0.8em;
+            margin: 0.5em 0;
+            background: white;
+            border-left: 3px solid #ddd;
+            font-size: 0.9em;
+        }
+
+        .history-item.allowed {
+            border-color: #4ade80;
+        }
+
+        .history-item.blocked {
+            border-color: #ef4444;
+        }
+
+        .message-text {
+            margin-bottom: 0.5em;
+            word-wrap: break-word;
+        }
+
+        .message-meta {
+            font-size: 0.85em;
+            opacity: 0.6;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 0.8em;
+            margin: 1em 0;
+        }
+
+        .stat-box {
+            padding: 1em;
+            background: white;
+            border: 1px solid #ddd;
+        }
+
+        .stat-label {
+            font-size: 0.85em;
+            opacity: 0.7;
             margin-bottom: 0.3em;
         }
 
-        .result-title {
-            font-size: 1.2em;
-            margin-bottom: 0.5em;
+        .stat-value {
+            font-size: 1.8em;
+            font-weight: normal;
+            color: rgb(205, 92, 155);
         }
 
-        .result-details {
-            opacity: 0.8;
-            margin-bottom: 0.5em;
-            font-size: 16px;
-        }
-
-        .result-sentiment {
-            padding: 8px;
-            border-radius: 2px;
-            font-size: 14px;
-            margin-top: 0.5em;
-            opacity: 0.7;
-        }
-
-        .loading {
-            display: none;
-            text-align: center;
-            padding: 1.5em;
-        }
-
-        .spinner {
-            width: 32px;
-            height: 32px;
-            margin: 0 auto 0.5em;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .model-info {
-            padding: 12px;
-            border-radius: 4px;
-            margin-bottom: 1.5em;
-            font-size: 14px;
-            opacity: 0.8;
-        }
-
-        .syntax-highlighted {
-            font-family: monospace;
-            font-size: 13px;
-        }
-
-        /* Dark mode */
-        @media (prefers-color-scheme: dark) {
-            body {
-                background-color: rgb(64, 56, 74);
-                color: rgba(255, 255, 255, 0.85);
+        @media (max-width: 600px) {
+            .container {
+                padding: 0.5em;
             }
-
-            h1 a, h1 a:visited {
-                color: rgba(255, 255, 255, 0.85);
+            
+            header {
+                flex-direction: column;
+                align-items: flex-start;
             }
-
-            h1 a:hover {
-                color: rgb(205, 92, 155);
+            
+            .header-right {
+                width: 100%;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.5em;
             }
-
-            textarea {
-                background: rgb(25, 0, 25);
-                color: rgba(255, 255, 255, 0.85);
-                border-color: rgba(205, 92, 155, 0.3);
+            
+            h1 {
+                font-size: 1.2em;
             }
-
-            textarea:focus {
-                border-color: rgb(205, 92, 155);
+            
+            section {
+                padding: 0 0.5em;
             }
-
+            
+            .stats {
+                grid-template-columns: 1fr;
+            }
+            
+            .button-group {
+                flex-direction: column;
+            }
+            
             button {
-                background: rgb(25, 0, 25);
-                color: rgba(255, 255, 255, 0.85);
-                border-color: rgba(205, 92, 155, 0.3);
-            }
-
-            button:hover {
-                border-color: rgb(205, 92, 155);
-            }
-
-            .btn-test {
-                background: rgb(92, 205, 155);
-                color: rgb(25, 0, 25);
-                border-color: rgb(92, 205, 155);
-            }
-
-            .btn-clear {
-                background: transparent;
-                border-color: rgba(255, 255, 255, 0.3);
-                color: rgba(255, 255, 255, 0.85);
-            }
-
-            .result.pass {
-                background: rgba(92, 205, 155, 0.1);
-                border: 1px solid rgba(92, 205, 155, 0.5);
-            }
-
-            .result.fail {
-                background: rgba(205, 92, 92, 0.1);
-                border: 1px solid rgba(205, 92, 92, 0.5);
-            }
-
-            .result.pass .result-title {
-                color: rgb(92, 205, 155);
-            }
-
-            .result.fail .result-title {
-                color: rgb(205, 92, 92);
-            }
-
-            .result-sentiment {
-                background: rgb(25, 0, 25);
-            }
-
-            .spinner {
-                border: 2px solid rgba(205, 92, 155, 0.2);
-                border-top-color: rgb(205, 92, 155);
-                border-radius: 50%;
-            }
-
-            .model-info {
-                background: rgba(205, 92, 155, 0.05);
-                border: 1px solid rgba(205, 92, 155, 0.2);
-            }
-        }
-
-        /* Light mode */
-        @media (prefers-color-scheme: light) {
-            body {
-                background-color: rgba(244, 235, 250);
-                color: rgb(64, 56, 74);
-            }
-
-            h1 a, h1 a:visited {
-                color: rgb(64, 56, 74);
-            }
-
-            h1 a:hover {
-                color: rgb(205, 92, 155);
-            }
-
-            textarea {
-                background: white;
-                border-color: rgba(64, 56, 74, 0.2);
-            }
-
-            textarea:focus {
-                border-color: rgb(205, 92, 155);
-            }
-
-            button {
-                background: white;
-                border-color: rgba(64, 56, 74, 0.2);
-            }
-
-            button:hover {
-                border-color: rgb(205, 92, 155);
-            }
-
-            .btn-test {
-                background: rgb(92, 205, 155);
-                color: white;
-                border-color: rgb(92, 205, 155);
-            }
-
-            .btn-clear {
-                background: transparent;
-                border-color: rgba(64, 56, 74, 0.2);
-                color: rgb(64, 56, 74);
-            }
-
-            .result.pass {
-                background: rgba(76, 175, 80, 0.08);
-                border: 1px solid rgba(76, 175, 80, 0.3);
-            }
-
-            .result.fail {
-                background: rgba(244, 67, 54, 0.08);
-                border: 1px solid rgba(244, 67, 54, 0.3);
-            }
-
-            .result.pass .result-title {
-                color: rgb(46, 125, 50);
-            }
-
-            .result.fail .result-title {
-                color: rgb(198, 40, 40);
-            }
-
-            .result-sentiment {
-                background: rgba(0, 0, 0, 0.03);
-            }
-
-            .spinner {
-                border: 2px solid rgba(205, 92, 155, 0.2);
-                border-top-color: rgb(205, 92, 155);
-                border-radius: 50%;
-            }
-
-            .model-info {
-                background: rgba(205, 92, 155, 0.03);
-                border: 1px solid rgba(205, 92, 155, 0.15);
+                width: 100%;
             }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1><a href="/">censor</a></h1>
-        <p class="subtitle">pg-13 content filter</p>
-
-        <div class="test-section">
-            <label for="messageInput">enter something inappropriate</label>
-            <textarea 
-                id="messageInput" 
-                placeholder="type or paste a message..."
-            ></textarea>
-        </div>
-
-        <div class="button-group">
-            <button class="btn-test" onclick="testMessage()">test</button>
-            <button class="btn-clear" onclick="clearForm()">clear</button>
-        </div>
-
-        <div class="loading" id="loading">
-            <div class="spinner"></div>
-            <div>testing...</div>
-        </div>
-
-        <div class="result" id="result"></div>
-
-        <div class="model-info">
-            gemma2:2b · 250mb ram · ~1.3s/msg
-        </div>
-
-        <div style="margin-top: 2em; padding-top: 2em; border-top: 1px solid rgba(205, 92, 155, 0.3);">
-            <h2 style="font-weight: normal; font-size: 22px; margin-bottom: 0.5em;">auto-test</h2>
-            <p style="opacity: 0.7; margin-bottom: 1em; font-size: 16px;">test against real chat messages from mongodb</p>
-            
-            <div class="button-group">
-                <button class="btn-test" onclick="startAutoTest()">start test</button>
-                <button class="btn-clear" onclick="stopAutoTest()">stop</button>
+        <header>
+            <div class="header-left">
+                <h1>judge</h1>
             </div>
+            <div class="header-right">
+                <div class="status">
+                    <div class="status-dot" id="wsStatus"></div>
+                    <span id="wsStatusText">Connecting...</span>
+                </div>
+                <div class="status">
+                    <span id="modelInfo">Model: gemma2:2b</span>
+                </div>
+            </div>
+        </header>
 
-            <div id="autoTestStatus" style="margin-top: 1em; padding: 12px; border-radius: 4px; display: none;"></div>
-            <div id="autoTestResults" style="margin-top: 1em;"></div>
+        <div class="content-wrapper">
+            <section>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1em; flex-wrap: wrap; gap: 1em;">
+                    <h2 style="margin: 0;">Test Message</h2>
+                    <div style="display: flex; gap: 1.5em; align-items: center; font-size: 0.9em;">
+                        <div class="status">
+                            <div class="status-dot" id="wsStatus2"></div>
+                            <span id="wsStatusText2">Connecting...</span>
+                        </div>
+                        <div class="status">
+                            <span>gemma2:2b</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="messageInput">Enter a message to check:</label>
+                    <textarea id="messageInput" placeholder="Type a message here..."></textarea>
+                </div>
+                
+                <div class="button-group">
+                    <button id="testBtn" onclick="testMessage()">Test Message</button>
+                    <button onclick="clearForm()">Clear</button>
+                </div>
+
+                <div id="streamOutput" class="stream-output"></div>
+                <div id="result" class="result"></div>
+            </section>
+
+            <section>
+                <h2>Statistics</h2>
+                <div class="stats">
+                    <div class="stat-box">
+                        <div class="stat-label">Total Tests</div>
+                        <div class="stat-value" id="totalTests">0</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">Allowed</div>
+                        <div class="stat-value" id="allowedCount">0</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">Blocked</div>
+                        <div class="stat-value" id="blockedCount">0</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">Avg Response</div>
+                        <div class="stat-value" id="avgResponse">0s</div>
+                    </div>
+                </div>
+            </section>
+
+            <section>
+                <h2>Recent Tests</h2>
+                <div id="history" class="history"></div>
+            </section>
         </div>
     </div>
 
     <script>
         // WebSocket connection
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}/ws`;
         let ws = null;
         let reconnectTimer = null;
 
-        function connectWebSocket() {
-            ws = new WebSocket(`${protocol}//localhost:3000/ws`);
+        console.log('📍 Attempting WebSocket connection to:', wsUrl);
+
+        function updateConnectionStatus(connected) {
+            const dot = document.getElementById('wsStatus');
+            const text = document.getElementById('wsStatusText');
+            const dot2 = document.getElementById('wsStatus2');
+            const text2 = document.getElementById('wsStatusText2');
             
-            ws.onopen = () => {
-                console.log('🟢 WebSocket connected');
-            };
-            
-            ws.onclose = () => {
-                console.log('🔴 WebSocket disconnected');
-                // Reconnect after 2 seconds
-                reconnectTimer = setTimeout(connectWebSocket, 2000);
-            };
-            
-            ws.onerror = (error) => {
-                console.error('WebSocket error:', error);
-            };
+            if (connected) {
+                dot?.classList.add('connected');
+                dot?.classList.remove('disconnected');
+                if (text) text.textContent = 'Connected';
+                dot2?.classList.add('connected');
+                dot2?.classList.remove('disconnected');
+                if (text2) text2.textContent = 'Connected';
+            } else {
+                dot?.classList.remove('connected');
+                dot?.classList.add('disconnected');
+                if (text) text.textContent = 'Disconnected';
+                dot2?.classList.remove('connected');
+                dot2?.classList.add('disconnected');
+                if (text2) text2.textContent = 'Disconnected';
+            }
         }
 
+        function connectWebSocket() {
+            try {
+                console.log('🔌 Connecting WebSocket...');
+                ws = new WebSocket(wsUrl);
+                
+                ws.onopen = () => {
+                    console.log('🟢 WebSocket connected successfully');
+                    updateConnectionStatus(true);
+                };
+                
+                ws.onclose = (event) => {
+                    console.log('🔴 WebSocket disconnected', event.code, event.reason);
+                    updateConnectionStatus(false);
+                    // Reconnect after 2 seconds
+                    reconnectTimer = setTimeout(connectWebSocket, 2000);
+                };
+                
+                ws.onerror = (error) => {
+                    console.error('❌ WebSocket error:', error);
+                    updateConnectionStatus(false);
+                };
+
+                ws.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    handleWebSocketMessage(data);
+                };
+            } catch (error) {
+                console.error('❌ Failed to create WebSocket:', error);
+                updateConnectionStatus(false);
+            }
+        }
+
+        // Initialize on load
         connectWebSocket();
+
+        // Statistics tracking
+        let stats = {
+            total: 0,
+            allowed: 0,
+            blocked: 0,
+            responseTimes: []
+        };
+
+        function updateStats() {
+            document.getElementById('totalTests').textContent = stats.total;
+            document.getElementById('allowedCount').textContent = stats.allowed;
+            document.getElementById('blockedCount').textContent = stats.blocked;
+            
+            if (stats.responseTimes.length > 0) {
+                const avg = stats.responseTimes.reduce((a, b) => a + b, 0) / stats.responseTimes.length;
+                document.getElementById('avgResponse').textContent = avg.toFixed(2) + 's';
+            }
+        }
+
+        function handleWebSocketMessage(data) {
+            const streamOutput = document.getElementById('streamOutput');
+            const testBtn = document.getElementById('testBtn');
+            
+            if (data.type === 'start') {
+                streamOutput.classList.add('active');
+                streamOutput.textContent = '';
+                testBtn.classList.add('testing');
+                testBtn.disabled = true;
+                testBtn.textContent = 'Testing...';
+            } else if (data.type === 'chunk') {
+                streamOutput.textContent = data.full || data.chunk;
+                streamOutput.scrollTop = streamOutput.scrollHeight;
+            } else if (data.type === 'complete') {
+                testBtn.classList.remove('testing');
+                testBtn.disabled = false;
+                testBtn.textContent = 'Test Message';
+                
+                showResult(data);
+                
+                // Update stats
+                stats.total++;
+                if (data.decision === 't') stats.allowed++;
+                else stats.blocked++;
+                if (data.responseTime) stats.responseTimes.push(data.responseTime);
+                updateStats();
+                
+                // Add to history
+                addToHistory(currentMessage, data);
+                
+                // Hide stream output after showing result
+                setTimeout(() => {
+                    streamOutput.classList.remove('active');
+                }, 1000);
+            }
+        }
+
+        let currentMessage = '';
+
+        function testMessage() {
+            const message = document.getElementById('messageInput').value.trim();
+            if (!message) {
+                alert('Please enter a message');
+                return;
+            }
+
+            currentMessage = message;
+
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                alert('WebSocket not connected. Please wait...');
+                return;
+            }
+
+            // Clear previous results
+            document.getElementById('result').classList.remove('show');
+            
+            ws.send(JSON.stringify({ message }));
+        }
+
+        function showResult(data) {
+            const resultDiv = document.getElementById('result');
+            const allowed = data.decision === 't';
+            
+            resultDiv.className = 'result show ' + (allowed ? 'allowed' : 'blocked');
+            
+            const emoji = allowed ? '✓' : '✗';
+            const status = allowed ? 'Allowed' : 'Blocked';
+            
+            resultDiv.innerHTML = `
+                <div class="result-header">${emoji} ${status}</div>
+                <div class="result-details">Sentiment: ${data.sentiment || '(yes)'}</div>
+                ${data.reason ? `<div class="result-details">Reason: ${data.reason}</div>` : ''}
+                <div class="result-details">Response time: ${data.responseTime ? data.responseTime.toFixed(3) + 's' : 'N/A'}</div>
+            `;
+        }
+
+        function addToHistory(message, data) {
+            const historyDiv = document.getElementById('history');
+            const allowed = data.decision === 't';
+            
+            const item = document.createElement('div');
+            item.className = 'history-item ' + (allowed ? 'allowed' : 'blocked');
+            item.innerHTML = `
+                <div class="message-text">${escapeHtml(message)}</div>
+                <div class="message-meta">
+                    ${allowed ? '✓ Allowed' : '✗ Blocked'} · 
+                    ${data.responseTime ? data.responseTime.toFixed(2) + 's' : 'N/A'} · 
+                    ${new Date().toLocaleTimeString()}
+                </div>
+            `;
+            
+            historyDiv.insertBefore(item, historyDiv.firstChild);
+            
+            // Keep only last 10 items
+            while (historyDiv.children.length > 10) {
+                historyDiv.removeChild(historyDiv.lastChild);
+            }
+        }
 
         function clearForm() {
             document.getElementById('messageInput').value = '';
-            document.getElementById('result').style.display = 'none';
-        }
-
-        async function testMessage() {
-            const message = document.getElementById('messageInput').value.trim();
-            
-            if (!message) {
-                alert('Please enter a message to test');
-                return;
-            }
-
-            if (!ws || ws.readyState !== WebSocket.OPEN) {
-                console.log('WebSocket not ready, state:', ws ? ws.readyState : 'null');
-                if (!ws || ws.readyState === WebSocket.CLOSED) {
-                    connectWebSocket();
-                }
-                // Retry after a short delay
-                setTimeout(() => testMessage(), 1000);
-                return;
-            }
-
-            const loading = document.getElementById('loading');
-            const result = document.getElementById('result');
-            
-            loading.style.display = 'block';
-            result.style.display = 'none';
-
-            const startTime = Date.now();
-            let streamedText = '';
-
-            // Set up message handler for this test
-            ws.onmessage = (event) => {
-                const data = JSON.parse(event.data);
-                
-                if (data.type === 'warming') {
-                    // Model warming up
-                    loading.innerHTML = `
-                        <div class="spinner"></div>
-                        <div>⏳ ${data.message}</div>
-                    `;
-                    
-                } else if (data.type === 'start') {
-                    // Test started
-                    streamedText = '';
-                    
-                } else if (data.type === 'chunk') {
-                    // Streaming chunk received
-                    streamedText = data.full;
-                    
-                    // Update loading display with streaming text
-                    loading.innerHTML = `
-                        <div class="spinner"></div>
-                        <div>testing...</div>
-                        <div class="result-sentiment" style="margin-top: 0.5em;">${streamedText}_</div>
-                    `;
-                    
-                } else if (data.type === 'complete') {
-                    // Test complete
-                    const responseTime = Date.now() - startTime;
-
-                    // Show result
-                    loading.style.display = 'none';
-                    result.className = 'result ' + (data.decision === 't' ? 'pass' : 'fail');
-                    
-                    const decision = data.decision === 't' ? '(yes)' : '(no)';
-                    
-                    result.innerHTML = `
-                        <div class="result-icon">${data.decision === 't' ? '✓' : '✗'}</div>
-                        <div class="result-title">${decision}</div>
-                        ${data.reason ? `
-                            <div class="result-details">
-                                (why "${data.reason}")
-                            </div>
-                        ` : ''}
-                        <div class="result-sentiment">
-                            ${data.sentiment || ''}
-                        </div>
-                    `;
-                    result.style.display = 'block';
-                    
-                    // Apply syntax highlighting
-                    const sentimentEl = result.querySelector('.result-sentiment');
-                    if (sentimentEl) {
-                        const text = sentimentEl.textContent;
-                        sentimentEl.innerHTML = highlightSExpression(text);
-                    }
-                    
-                } else if (data.type === 'error') {
-                    loading.style.display = 'none';
-                    result.className = 'result fail';
-                    result.innerHTML = `
-                        <div class="result-icon">✗</div>
-                        <div class="result-title">error</div>
-                        <div class="result-details">
-                            failed to test message
-                        </div>
-                        <div class="result-sentiment">
-                            ${data.error}
-                        </div>
-                    `;
-                    result.style.display = 'block';
-                }
-            };
-
-            // Send message to WebSocket
-            ws.send(JSON.stringify({ message }));
-        }
-
-        // Allow Enter to submit (Shift+Enter for new line)
-        document.getElementById('messageInput').addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                testMessage();
-            }
-        });
-
-        // Auto-test functionality
-        let autoTestMessages = [];
-        let autoTestIndex = 0;
-        let autoTestRunning = false;
-        let autoTestStats = { total: 0, passed: 0, blocked: 0 };
-
-        async function startAutoTest() {
-            if (autoTestRunning) return;
-            
-            const status = document.getElementById('autoTestStatus');
-            status.style.display = 'block';
-            status.style.background = 'rgba(205, 92, 155, 0.1)';
-            status.style.border = '1px solid rgba(205, 92, 155, 0.3)';
-            status.textContent = '⏳ Loading messages from MongoDB...';
-            
-            try {
-                const response = await fetch('/api/chat-messages');
-                autoTestMessages = await response.json();
-                autoTestIndex = 0;
-                autoTestStats = { total: 0, passed: 0, blocked: 0 };
-                autoTestRunning = true;
-                
-                status.textContent = `▶️  Testing ${autoTestMessages.length} messages...`;
-                document.getElementById('autoTestResults').innerHTML = '';
-                
-                runNextAutoTest();
-            } catch (error) {
-                status.textContent = `❌ Error: ${error.message}`;
-                status.style.background = 'rgba(205, 92, 92, 0.1)';
-                status.style.border = '1px solid rgba(205, 92, 92, 0.5)';
-            }
-        }
-
-        function stopAutoTest() {
-            autoTestRunning = false;
-            const status = document.getElementById('autoTestStatus');
-            status.textContent = `⏸️  Stopped at ${autoTestStats.total} messages (${autoTestStats.passed} passed, ${autoTestStats.blocked} blocked)`;
-        }
-
-        async function runNextAutoTest() {
-            if (!autoTestRunning || autoTestIndex >= autoTestMessages.length) {
-                autoTestRunning = false;
-                const status = document.getElementById('autoTestStatus');
-                status.textContent = `✅ Complete: ${autoTestStats.total} tested (${autoTestStats.passed} passed, ${autoTestStats.blocked} blocked)`;
-                status.style.background = 'rgba(92, 205, 155, 0.1)';
-                status.style.border = '1px solid rgba(92, 205, 155, 0.5)';
-                return;
-            }
-
-            const message = autoTestMessages[autoTestIndex];
-            autoTestIndex++;
-
-            if (!ws || ws.readyState !== WebSocket.OPEN) {
-                setTimeout(runNextAutoTest, 100);
-                return;
-            }
-
-            // Set up one-time listener for this test
-            const originalOnMessage = ws.onmessage;
-            let streamedText = '';
-            
-            ws.onmessage = (event) => {
-                const data = JSON.parse(event.data);
-                
-                if (data.type === 'chunk') {
-                    streamedText = data.full;
-                } else if (data.type === 'complete') {
-                    autoTestStats.total++;
-                    if (data.decision === 't') {
-                        autoTestStats.passed++;
-                    } else {
-                        autoTestStats.blocked++;
-                    }
-
-                    // Add result to display with syntax highlighting
-                    const resultsDiv = document.getElementById('autoTestResults');
-                    const resultItem = document.createElement('div');
-                    resultItem.style.marginBottom = '8px';
-                    resultItem.style.padding = '8px';
-                    resultItem.style.borderRadius = '4px';
-                    resultItem.style.fontSize = '14px';
-                    resultItem.style.background = data.decision === 't' ? 'rgba(92, 205, 155, 0.05)' : 'rgba(205, 92, 92, 0.05)';
-                    resultItem.style.border = data.decision === 't' ? '1px solid rgba(92, 205, 155, 0.3)' : '1px solid rgba(205, 92, 92, 0.3)';
-                    
-                    const icon = data.decision === 't' ? '✓' : '✗';
-                    const truncated = message.length > 60 ? message.substring(0, 60) + '...' : message;
-                    
-                    resultItem.innerHTML = `
-                        <span style="opacity: 0.5;">${autoTestStats.total}.</span>
-                        ${icon} ${escapeHtml(truncated)}
-                        <span style="opacity: 0.7; margin-left: 8px;">${highlightSExpression(data.sentiment || '')}</span>
-                    `;
-                    
-                    resultsDiv.insertBefore(resultItem, resultsDiv.firstChild);
-                    
-                    // Keep only last 20 results
-                    while (resultsDiv.children.length > 20) {
-                        resultsDiv.removeChild(resultsDiv.lastChild);
-                    }
-
-                    // Update status
-                    const status = document.getElementById('autoTestStatus');
-                    status.textContent = `▶️  ${autoTestStats.total}/${autoTestMessages.length} (${autoTestStats.passed} ✓, ${autoTestStats.blocked} ✗)`;
-
-                    // Restore original handler and continue
-                    ws.onmessage = originalOnMessage;
-                    setTimeout(runNextAutoTest, 100); // Small delay between tests
-                }
-            };
-
-            // Send test message
-            ws.send(JSON.stringify({ message }));
+            document.getElementById('result').classList.remove('show');
+            document.getElementById('streamOutput').classList.remove('active');
+            const testBtn = document.getElementById('testBtn');
+            testBtn.classList.remove('testing');
+            testBtn.disabled = false;
+            testBtn.textContent = 'Test Message';
         }
 
         function escapeHtml(text) {
@@ -647,39 +660,14 @@
             return div.innerHTML;
         }
 
-        function highlightSExpression(text) {
-            if (!text) return '';
-            
-            // Syntax highlighting for proper s-expressions: (yes) (why "reason") or (no) (why "reason")
-            return text
-                // (yes) - cyan
-                .replace(/\(yes\)/g, '<span style="color: rgb(0, 255, 255);">(yes)</span>')
-                // (no) - orange-red  
-                .replace(/\(no\)/g, '<span style="color: rgb(255, 99, 71);">(no)</span>')
-                // (why ...) - parentheses purple, keyword lime, string yellow
-                .replace(/\(why\s+"([^"]*)"\)/g, function(match, reason) {
-                    return '<span style="color: rgb(147, 112, 219);">(</span>' +
-                           '<span style="color: rgb(50, 205, 50);">why</span> ' +
-                           '<span style="color: rgb(255, 215, 0);">"' + reason + '"</span>' +
-                           '<span style="color: rgb(147, 112, 219);">)</span>';
-                });
-        }
-
-        // Apply syntax highlighting to sentiment displays
-        function applySyntaxHighlighting() {
-            document.querySelectorAll('.result-sentiment').forEach(el => {
-                const text = el.textContent;
-                el.innerHTML = highlightSExpression(text);
-            });
-            document.querySelectorAll('.syntax-highlighted').forEach(el => {
-                const text = el.textContent;
-                el.innerHTML = highlightSExpression(text);
-            });
-        }
-
-        // Apply highlighting after each result
-        const originalOnMessage = ws?.onmessage;
-
+        // Wire up back button to go to aesthetic.computer
+        document.querySelector('h1').onclick = () => {
+            if (window.location.host !== 'judge.aesthetic.computer') {
+                window.location.href = '/';
+            } else {
+                window.location.href = 'https://aesthetic.computer';
+            }
+        };
     </script>
 </body>
 </html>
