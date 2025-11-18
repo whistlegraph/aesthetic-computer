@@ -3,15 +3,26 @@
 # Build script for Game Boy ROMs
 # Automatically detects if source needs CGB (Color Game Boy) or DMG (original Game Boy)
 # Usage: ./build.sh <source.c> [output_name]
+# Usage: ./build.sh <source.lisp> [output_name]  # Compiles KidLisp first
 
 if [ $# -lt 1 ]; then
-    echo "Usage: build.sh <source.c> [output_name]"
+    echo "Usage: build.sh <source.c|source.lisp> [output_name]"
     echo "Example: ./build.sh src/melody.c"
-    echo "Example: ./build.sh src/scrub.c scrub"
+    echo "Example: ./build.sh examples/lines.lisp"
     exit 1
 fi
 
-SOURCE_FILE="$1"
+INPUT_FILE="$1"
+
+# If input is .lisp, compile it first
+if [[ "$INPUT_FILE" == *.lisp ]]; then
+    echo "📜 Compiling KidLisp source..."
+    BASENAME=$(basename "$INPUT_FILE" .lisp)
+    ./compiler/kidlisp-to-gb.mjs "$INPUT_FILE" "src/${BASENAME}.c"
+    SOURCE_FILE="src/${BASENAME}.c"
+else
+    SOURCE_FILE="$INPUT_FILE"
+fi
 GBDK_PATH="$(dirname "$0")/gbdk"
 LCC="$GBDK_PATH/bin/lcc"
 
@@ -52,7 +63,10 @@ OUTPUT_FILE="$OUTPUT_NAME.$EXTENSION"
 
 # Compile
 echo "🔨 Compiling: $SOURCE_FILE -> $OUTPUT_FILE"
-if [ -n "$FLAGS" ]; then
+if grep -q "hUGEDriver.h" "$SOURCE_FILE"; then
+    # Include hUGEDriver for music support
+    "$LCC" $FLAGS -Ihugedriver/include -Wl-lhugedriver/gbdk/hUGEDriver.lib -o "$OUTPUT_FILE" "$SOURCE_FILE"
+elif [ -n "$FLAGS" ]; then
     "$LCC" $FLAGS -o "$OUTPUT_FILE" "$SOURCE_FILE"
 else
     "$LCC" -o "$OUTPUT_FILE" "$SOURCE_FILE"
