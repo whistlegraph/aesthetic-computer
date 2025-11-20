@@ -2425,9 +2425,6 @@ class MediaPreviewBox {
     const contentX = x + this.padding;
     const contentY = y + this.padding;
     
-    // Create a clipping region for the content area
-    $.push();
-    
     if (item.type === 'kidlisp' && item.source) {
       this.renderKidlisp($, item, contentX, contentY, fadeIn);
     } else if (item.type === 'painting' && item.image) {
@@ -2437,8 +2434,6 @@ class MediaPreviewBox {
     } else if (item.type === 'tape' && item.isLoading) {
       this.renderTapeLoading($, item, contentX, contentY, fadeIn);
     }
-    
-    $.pop();
   }
 
   renderKidlisp($, item, x, y, fadeIn) {
