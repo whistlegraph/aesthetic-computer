@@ -4251,35 +4251,13 @@ function paint($) {
             tooltipWidth = Math.max(contentWidth, minWidthForMetadata, 200); // Min 200px for KidLisp
             tooltipHeight = lines.length * lineHeight + padding + metadataGap + metadataHeight;
           } else if (currentTooltipItem.type === 'painting' && currentTooltipItem.image) {
-            // Painting tooltip: image preview - crop and Ken Burns effect
-            const img = currentTooltipItem.image;
-            const maxPreviewWidth = Math.min(maxTooltipWidth - padding * 2, 300); // Cap width
-            const maxPreviewHeight = Math.min(maxContentHeight, 200); // Cap height
-            
-            // Calculate actual display size based on image dimensions
-            const imgAspect = img.width / img.height;
-            const boxAspect = maxPreviewWidth / maxPreviewHeight;
-            
-            let previewWidth, previewHeight;
-            
-            if (img.width > maxPreviewWidth || img.height > maxPreviewHeight) {
-              // Image is larger - use full box for Ken Burns
-              previewWidth = maxPreviewWidth;
-              previewHeight = maxPreviewHeight;
-            } else {
-              // Image is smaller - letterbox/pillarbox to fit
-              if (imgAspect > boxAspect) {
-                previewWidth = Math.min(img.width, maxPreviewWidth);
-                previewHeight = Math.floor(previewWidth / imgAspect);
-              } else {
-                previewHeight = Math.min(img.height, maxPreviewHeight);
-                previewWidth = Math.floor(previewHeight * imgAspect);
-              }
-            }
+            // Painting tooltip: fixed-size preview box with Ken Burns effect (consistent with tapes)
+            const previewWidth = Math.min(150, maxTooltipWidth - padding * 2); // Fixed width
+            const previewHeight = Math.min(120, maxContentHeight); // Fixed height (same as tapes)
             
             // Ensure width fits both image and metadata
             const minWidthForMetadata = metadataWidth + padding * 2;
-            tooltipWidth = Math.max(previewWidth + padding * 2, minWidthForMetadata, 150);
+            tooltipWidth = Math.max(previewWidth + padding * 2, minWidthForMetadata);
             tooltipHeight = previewHeight + padding * 2; // Just the image box, metadata goes outside
           } else if (currentTooltipItem.type === 'tape' && currentTooltipItem.audioUrl) {
             // Tape tooltip: show title and audio visualization - fit to available space
@@ -4427,16 +4405,12 @@ function paint($) {
               textAlpha
             );
           } else if (currentTooltipItem.type === 'painting' && currentTooltipItem.image) {
-            // Render painting image preview with Ken Burns effect (always cropped and animated)
+            // Render painting image preview with Ken Burns effect (fixed size, consistent with tapes)
             const img = currentTooltipItem.image;
             
-            // Recalculate preview dimensions (same as tooltip sizing above)
-            const maxPreviewWidth = Math.min(maxTooltipWidth - padding * 2, 300);
-            const maxPreviewHeight = Math.min(maxContentHeight, 200);
-            
-            // Always use full box size for Ken Burns
-            const previewWidth = maxPreviewWidth;
-            const previewHeight = maxPreviewHeight;
+            // Use fixed preview dimensions (matching tooltip sizing above)
+            const previewWidth = Math.min(150, maxTooltipWidth - padding * 2);
+            const previewHeight = Math.min(120, maxContentHeight);
             const drawX = tooltipX + padding;
             const drawY = tooltipY + padding;
             
