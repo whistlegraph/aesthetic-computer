@@ -38,7 +38,7 @@ function initialize() {
     // Check if we have permissions to use USB
     try {
       listUsbDevices();
-      connectToUsb();
+      // connectToUsb(); // 🔴 Disabled automatic connection on boot. 25.11.20
     } catch (error) {
       // Silently handle permission errors
       if (error.name !== 'SecurityError' && error.name !== 'NotAllowedError') {
@@ -53,5 +53,5 @@ function initialize() {
   }
 }
 
-export { initialize };
+export { initialize, connectToUsb };
 
