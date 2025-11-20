@@ -6105,6 +6105,14 @@ async function load(
         let response;
         if (logs.loading) console.log("📥 Loading from url:", fullUrl);
         // if (debug) console.log("🔍 Debug: Constructed fullUrl:", fullUrl);
+        
+        // Notify boot progress
+        const fetchStartTime = performance.now();
+        send({
+          type: "boot-log",
+          content: `fetching: ${path}`
+        });
+        
         response = await fetch(fullUrl);        if (response.status === 404 || response.status === 403) {
           const extension = path.endsWith('.lisp') ? '.lisp' : '.mjs';
           // Handle sandboxed environments for anon URL construction
@@ -6164,6 +6172,20 @@ async function load(
         
         console.log("🎨 Initializing KidLisp piece...");
         
+        // Notify boot progress
+        const compileStartTime = performance.now();
+        const fetchElapsed = Math.round(compileStartTime - fetchStartTime);
+        // console.log("📢 Disk sending boot-log: compiling kidlisp");
+        // Ensure send is available before using it
+        if (typeof send === 'function') {
+          send({
+            type: "boot-log",
+            content: `compiling kidlisp (fetch: ${fetchElapsed}ms)`
+          });
+        } else {
+          console.warn("⚠️ send function not available for boot-log");
+        }
+        
         // Initialize persistent cache for $codes (only needs to be done once)
         initPersistentCache(store);
         
@@ -6172,7 +6194,16 @@ async function load(
         
         loadedModule = lisp.module(sourceToRun, path && path.endsWith(".lisp"));
         
-        console.log("✅ KidLisp module loaded successfully");
+        const compileEndTime = performance.now();
+        const compileElapsed = Math.round(compileEndTime - compileStartTime);
+        console.log(`✅ KidLisp module loaded successfully (${compileElapsed}ms)`);
+        
+        // Notify boot progress
+        // console.log("📢 Disk sending boot-log: kidlisp compiled");
+        send({
+          type: "boot-log",
+          content: `kidlisp compiled (${compileElapsed}ms)`
+        });
 
         if (devReload) {
           store["publishable-piece"] = {
@@ -6204,8 +6235,27 @@ async function load(
           type: "application/javascript",
         });
 
-        blobUrl = URL.createObjectURL(blob);        sourceCode = updatedCode;
+        blobUrl = URL.createObjectURL(blob);
+        
+        // Notify boot progress
+        const importStartTime = performance.now();
+        const importFetchElapsed = Math.round(importStartTime - fetchStartTime);
+        // console.log("📢 Disk sending boot-log: importing module");
+        send({
+          type: "boot-log",
+          content: `importing module (fetch: ${importFetchElapsed}ms)`
+        });
+        
+        sourceCode = updatedCode;
         loadedModule = await import(blobUrl);
+        
+        const importEndTime = performance.now();
+        const importElapsed = Math.round(importEndTime - importStartTime);
+        if (logs.loading) console.log(`✅ Module imported (${importElapsed}ms)`);
+        send({
+          type: "boot-log",
+          content: `module imported (${importElapsed}ms)`
+        });
       }
     }
   } catch (err) {
@@ -6364,6 +6414,7 @@ async function load(
       $commonApi.load(
         {
           source: source,  // Pass as source so it's used directly
+          name: "kidlisp-live",  // Give it a name so slug won't be undefined
           search: currentSearch,
           colon: currentColon,
           params: currentParams,
@@ -7568,6 +7619,13 @@ async function load(
     },
   });
 
+  // Notify parent window of progress via bios relay
+  // console.log("📢 Disk sending boot-log: loaded");
+  send({
+    type: "boot-log",
+    content: `loaded: ${slug || path}`
+  });
+
   return true; // Loaded successfully.
 }
 
@@ -7577,7 +7635,13 @@ const isWorker = typeof importScripts === "function";
 // Start by responding to a load message, then change
 // the message response to makeFrame.
 if (isWorker) {
-  onmessage = makeFrame;
+  onmessage = (e) => {
+    // Intercept the first message to log that we received it
+    if (e.data?.type === "disk:load") {
+      postMessage({ type: "boot-log", content: "worker received load" });
+    }
+    makeFrame(e);
+  };
 } else {
   noWorker.onMessage = (d) => makeFrame({ data: d });
 }
@@ -7588,7 +7652,11 @@ function send(data, shared = []) {
     if (shared[0] === undefined) shared = [];
     postMessage(data, shared);
   } else {
-    noWorker.postMessage({ data });
+    if (noWorker.postMessage) {
+      noWorker.postMessage({ data });
+    } else {
+      console.warn("⚠️ noWorker.postMessage is not defined yet, cannot send:", data);
+    }
   }
 }
 
@@ -7794,7 +7862,11 @@ async function makeFrame({ data: { type, content } }) {
   // Handle live reload from kidlisp.com editor
   if (type === "piece-reload") {
     console.log("🔄 Reloading piece with new code:", content.source);
-    $commonApi.reload({ source: content.source });
+    if ($commonApi.reload) {
+      $commonApi.reload({ source: content.source });
+    } else {
+      console.warn("⚠️ Reload function not ready yet, ignoring reload request");
+    }
     return;
   }
 
@@ -10322,6 +10394,13 @@ async function makeFrame({ data: { type, content } }) {
         try {
           // Reset zebra cache at the beginning of boot to ensure consistent state
           $api.num.resetZebraCache();
+          
+          // Notify boot progress
+          // console.log("📢 Disk sending boot-log: running boot");
+          send({
+            type: "boot-log",
+            content: "running boot"
+          });
           
           if (system === "nopaint") nopaint_boot({ ...$api, params: $api.params, colon: $api.colon });
           await boot($api);

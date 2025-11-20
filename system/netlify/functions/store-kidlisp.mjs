@@ -103,8 +103,16 @@ export async function handler(event, context) {
     return respond(204, '');
   }
 
+  let database;
   try {
-    const database = await connect();
+    database = await connect();
+  } catch (connectError) {
+    console.error('❌ MongoDB connection failed:', connectError.message);
+    // Return a graceful error response instead of crashing
+    return respond(503, { error: 'Database temporarily unavailable' });
+  }
+
+  try {
     const collection = database.db.collection('kidlisp');
     
     // Ensure indexes exist (safe to call multiple times)

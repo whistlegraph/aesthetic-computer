@@ -2572,6 +2572,17 @@ class KidLisp {
         return;
       }
 
+      // Skip caching if nocache parameter is present (e.g., for kidlisp.com editor)
+      // Check both window (main thread) and self (worker) locations
+      const loc = typeof window !== 'undefined' ? window.location : (typeof self !== 'undefined' ? self.location : null);
+      if (loc) {
+        const urlParams = new URLSearchParams(loc.search);
+        if (urlParams.has('nocache')) {
+          this.cachingInProgress = false; // Reset the flag
+          return;
+        }
+      }
+
       // Use standard fetch with proper headers (like other API calls)
       const headers = { "Content-Type": "application/json" };
 
