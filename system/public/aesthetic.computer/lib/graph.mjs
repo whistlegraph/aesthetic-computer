@@ -44,6 +44,81 @@ let activeMask; // A box for totally masking the renderer.
 //                 This should work everywhere.
 const skips = [];
 
+// 🖼️ ImageBitmap pixel extraction cache (for tape previews and other runtime bitmaps)
+const bitmapPixelCache = typeof WeakMap !== "undefined" ? new WeakMap() : null;
+let bitmapPixelCanvas = null;
+let bitmapPixelCtx = null;
+
+function getBitmapExtractionContext(width, height) {
+  // Prefer OffscreenCanvas when available (workers)
+  if (typeof OffscreenCanvas !== "undefined") {
+    if (!(bitmapPixelCanvas instanceof OffscreenCanvas)) {
+      bitmapPixelCanvas = new OffscreenCanvas(width, height);
+      bitmapPixelCtx = bitmapPixelCanvas.getContext("2d");
+    }
+    if (bitmapPixelCanvas.width !== width) bitmapPixelCanvas.width = width;
+    if (bitmapPixelCanvas.height !== height) bitmapPixelCanvas.height = height;
+    if (!bitmapPixelCtx) bitmapPixelCtx = bitmapPixelCanvas.getContext("2d");
+    return bitmapPixelCtx;
+  }
+
+  // Fallback to DOM canvas when running on the main thread
+  if (typeof document !== "undefined") {
+    if (!bitmapPixelCanvas || typeof bitmapPixelCanvas.getContext !== "function") {
+      bitmapPixelCanvas = document.createElement("canvas");
+    }
+    if (bitmapPixelCanvas.width !== width) bitmapPixelCanvas.width = width;
+    if (bitmapPixelCanvas.height !== height) bitmapPixelCanvas.height = height;
+    bitmapPixelCtx = bitmapPixelCanvas.getContext("2d");
+    return bitmapPixelCtx;
+  }
+
+  return null;
+}
+
+function ensureBufferPixels(buffer) {
+  if (!buffer) return null;
+
+  if (buffer.pixels && buffer.pixels.length) return buffer.pixels;
+
+  if (bitmapPixelCache && bitmapPixelCache.has(buffer)) {
+    return bitmapPixelCache.get(buffer);
+  }
+
+  const isImageBitmap =
+    typeof ImageBitmap !== "undefined" && buffer instanceof ImageBitmap;
+  const isImageData = typeof ImageData !== "undefined" && buffer instanceof ImageData;
+
+  if (isImageData) {
+    const pixels = buffer.data;
+    bitmapPixelCache?.set(buffer, pixels);
+    return pixels;
+  }
+
+  if (isImageBitmap) {
+    const ctx = getBitmapExtractionContext(buffer.width, buffer.height);
+    if (!ctx) return null;
+    ctx.clearRect(0, 0, buffer.width, buffer.height);
+    ctx.drawImage(buffer, 0, 0);
+    try {
+      const imageData = ctx.getImageData(0, 0, buffer.width, buffer.height);
+      const pixels = imageData.data;
+      bitmapPixelCache?.set(buffer, pixels);
+      return pixels;
+    } catch (err) {
+      console.warn("🎨 Unable to extract pixels from ImageBitmap", err);
+      return null;
+    }
+  }
+
+  if (buffer.data && buffer.data.length) {
+    // Generic typed array fallback (ImageData-like objects)
+    return buffer.data;
+  }
+
+  return null;
+}
+
 let forceReplaceMode = false;
 
 function setForceReplaceMode(enabled = false) {
@@ -1810,14 +1885,16 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
     let angle = 0;
     let anchor;
     let width, height;
+    let crop; // 🎨 Support crop parameter for ImageBitmap
 
     if (typeof scale === "object") {
       angle = scale.angle;
       width = scale.width;
       height = scale.height;
       anchor = scale.anchor;
+      crop = scale.crop; // 🎨 Extract crop from transform object
       // ^ Pull properties out of the scale object.
-      scale = scale.scale; // And then redefine scale.
+      scale = scale.scale ?? 1; // And then redefine scale (default to 1 if undefined).
     }
 
     // Fast path for simple integer scaling (no rotation, no custom dimensions)
@@ -1884,14 +1961,50 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
       }
     }
 
+    // 🎨 Special case: ImageBitmap with crop - convert to buffer with crop
+    const isImageBitmap = typeof ImageBitmap !== "undefined" && from instanceof ImageBitmap;
+    if (isImageBitmap && crop) {
+      // Extract pixels from ImageBitmap and create a cropped buffer object
+      const pixels = ensureBufferPixels(from);
+      if (pixels) {
+        // Create buffer object with crop metadata
+        const croppedBuffer = {
+          width: from.width,
+          height: from.height,
+          pixels: pixels,
+          crop: crop
+        };
+        
+        // If scaling is needed, use grid()
+        if (width || height || (typeof scale === 'number' && scale !== 1) || angle) {
+          grid(
+            {
+              box: { x: destX, y: destY, w: crop.w, h: crop.h },
+              transform: { scale, angle, width, height, anchor },
+            },
+            croppedBuffer,
+          );
+        } else {
+          // For 1:1 paste, use the existing crop handling code path
+          paste(croppedBuffer, destX, destY, 1, blit);
+        }
+        return;
+      } else {
+        console.warn("🎨 Failed to extract pixels from ImageBitmap for cropping");
+        return; // Can't proceed without pixels
+      }
+    }
+
     // Fall back to general grid-based scaling for complex cases
-    grid(
-      {
-        box: { x: destX, y: destY, w: from.width, h: from.height },
-        transform: { scale, angle, width, height, anchor },
-      },
-      from,
-    );
+    if (from && from.width && from.height) {
+      grid(
+        {
+          box: { x: destX, y: destY, w: from.width, h: from.height },
+          transform: { scale, angle, width, height, anchor },
+        },
+        from,
+      );
+    }
 
     return;
   }
@@ -1968,15 +2081,18 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
       }
     } else {
       // Fall back to copy() function for edge cases
-      for (let y = 0; y < cropH; y += 1) {
-        for (let x = 0; x < cropW; x += 1) {
-          copy(
-            destX + x,
-            destY + y,
-            from.crop.x + x,
-            from.crop.y + y,
-            from.painting,
-          );
+      const sourcePainting = from.painting || from;
+      if (sourcePainting && sourcePainting.pixels) {
+        for (let y = 0; y < cropH; y += 1) {
+          for (let x = 0; x < cropW; x += 1) {
+            copy(
+              destX + x,
+              destY + y,
+              from.crop.x + x,
+              from.crop.y + y,
+              sourcePainting,
+            );
+          }
         }
       }
     }
@@ -2591,6 +2707,28 @@ function circle(x0, y0, radius, filled = false, thickness, precision) {
     point(x0 + y, y0 - x);
     point(x0 - y, y0 - x);
   }
+}
+
+// Draw a filled pie slice / wedge (for pie charts, progress indicators, etc.)
+// startAngle and endAngle are in radians, 0 = right, PI/2 = down, etc.
+function pie(x0, y0, radius, startAngle, endAngle, precision = 3) {
+  const points = [[x0, y0]]; // Start from center
+  
+  // Generate arc points
+  const angleSpan = endAngle - startAngle;
+  const steps = max(floor(abs(angleSpan) * radius / precision), 8);
+  
+  for (let i = 0; i <= steps; i++) {
+    const angle = startAngle + (angleSpan * i) / steps;
+    const x = x0 + radius * cos(angle);
+    const y = y0 + radius * sin(angle);
+    points.push([x, y]);
+  }
+  
+  // Close back to center
+  points.push([x0, y0]);
+  
+  shape({ points, filled: true });
 }
 
 // TODO: Generate sampled points around a circle then use
@@ -3832,7 +3970,16 @@ function grid(
   if (buffer) {
     const bufWidth = buffer.width;
     const bufHeight = buffer.height;
-    const bufPixels = buffer.pixels;
+    let bufPixels = buffer.pixels;
+
+    if (!bufPixels) {
+      bufPixels = ensureBufferPixels(buffer);
+    }
+
+    if (!bufPixels) {
+      console.warn("🎨 grid: buffer missing pixel data, skipping render", buffer);
+      return;
+    }
 
     // Use fast integer conversions and pre-calculate values
     const scaleXAbs = ~~abs(scale.x); // Fast float-to-int conversion
@@ -7723,6 +7870,7 @@ export {
   pixelPerfectPolyline,
   lineAngle,
   circle,
+  pie,
   oval,
   poly,
   box,

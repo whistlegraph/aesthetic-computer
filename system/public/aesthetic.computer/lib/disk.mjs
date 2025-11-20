@@ -4985,6 +4985,7 @@ const $paintApiUnwrapped = {
   pppline: graph.pixelPerfectPolyline,
   oval: graph.oval,
   circle: graph.circle,
+  pie: graph.pie,
   tri: graph.tri,
   poly: graph.poly,
   box: graph.box,
@@ -7268,6 +7269,14 @@ async function load(
         prompt.prompt_leave($);
       };
 
+      console.log("📨 Module exports check:", {
+        hasReceive: !!module.receive,
+        receiveType: typeof module.receive,
+        receiveIsDefault: module.receive === defaults.receive,
+      });
+
+      receive = module.receive || defaults.receive;
+
       system = "prompt";
     } else if (module.system?.startsWith("world")) {
       // 🗺️ world system
@@ -7345,6 +7354,13 @@ async function load(
       beat = module.beat || defaults.beat;
       act = module.act || defaults.act;
       leave = module.leave || defaults.leave;
+      
+      console.log("📨 Module exports check:", {
+        hasReceive: !!module.receive,
+        receiveType: typeof module.receive,
+        receiveIsDefault: module.receive === defaults.receive
+      });
+      
       receive = module.receive || defaults.receive; // Handle messages from BIOS
       
       // 🎨 AUTO-DETECT BRUSH FUNCTIONS: If a piece exports a brush or lift function, automatically use nopaint system
@@ -8152,6 +8168,9 @@ async function makeFrame({ data: { type, content } }) {
     type === "tape:post-error" ||
     type === "tape:download-progress" ||
     type === "tape:load-progress" ||
+    type === "tape:preloaded" ||
+    type === "tape:preload-error" ||
+    type === "tape:frames" ||
     type === "tape:audio-context-state" ||
     type === "tape:playback-progress"
   ) {
@@ -8177,7 +8196,8 @@ async function makeFrame({ data: { type, content } }) {
     }
     
     // If actEvents isn't available, try calling the piece's receive function directly
-    if (typeof receive === "function") {
+    // But only if the piece is booted AND has a custom receive (not the default)
+    if (typeof receive === "function" && booted && receive !== defaults.receive) {
       const event = {
         is: (eventType) => eventType === type,
         type: type,
@@ -8191,9 +8211,16 @@ async function makeFrame({ data: { type, content } }) {
       } catch (e) {
         console.warn("📼 ❌ Error calling receive:", e);
       }
+    } else {
+      // Log why we're NOT calling receive
+      const reasons = [];
+      if (typeof receive !== "function") reasons.push("receive not a function");
+      if (!booted) reasons.push("not booted");
+      if (receive === defaults.receive) reasons.push("using default receive");
+      console.log(`📼 ⏸️ Cannot call receive for ${type}: ${reasons.join(", ")}`);
     }
     
-    // If we can't deliver it, queue it for later
+    // If we can't deliver it (piece not booted or using default receive), queue it for later
     const event = {
       is: (eventType) => eventType === type,
       type: type,
@@ -10293,6 +10320,26 @@ async function makeFrame({ data: { type, content } }) {
           if (system === "nopaint") nopaint_boot({ ...$api, params: $api.params, colon: $api.colon });
           await boot($api);
           booted = true;
+          console.log("🥾 ✅ Boot completed, booted =", booted, "pending events:", pendingExportEvents.length);
+          
+          // 📨 Flush any pending export events that arrived during boot
+          if (pendingExportEvents.length > 0) {
+            console.log(`📼 🚀 Flushing ${pendingExportEvents.length} pending export events after boot`);
+            console.log(`📼 receive === defaults.receive:`, receive === defaults.receive);
+            console.log(`📼 typeof receive:`, typeof receive);
+            const eventsToFlush = [...pendingExportEvents];
+            pendingExportEvents = [];
+            eventsToFlush.forEach(event => {
+              if (typeof receive === "function" && receive !== defaults.receive) {
+                try {
+                  console.log("📼 ✅ Flushing queued event:", event.type);
+                  receive(event);
+                } catch (e) {
+                  console.warn("📼 ❌ Error flushing event:", event.type, e);
+                }
+              }
+            });
+          }
         } catch (e) {
           console.warn("🥾 Boot failure...", e);
         }
