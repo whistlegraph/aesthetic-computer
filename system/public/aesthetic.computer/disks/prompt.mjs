@@ -2467,26 +2467,43 @@ class MediaPreviewBox {
     const KEN_BURNS_CYCLE_MS = 8000;
     const burnProgress = ((nowTime / KEN_BURNS_CYCLE_MS) + burnSeed) % 1;
     
-    // Crop size matches preview box exactly
-    const cropW = this.width;
-    const cropH = this.height;
-    
-    // Pan around within the available crop space
-    const maxCropX = Math.max(0, img.width - cropW);
-    const maxCropY = Math.max(0, img.height - cropH);
-    
-    const panX = (Math.cos((burnProgress + 0.25) * Math.PI * 2) + 1) / 2;
-    const panY = (Math.sin((burnProgress + 0.65) * Math.PI * 2) + 1) / 2;
-    
-    const cropX = Math.floor(maxCropX * panX);
-    const cropY = Math.floor(maxCropY * panY);
-    
-    // Paste with Ken Burns crop
-    const imageAlpha = Math.floor(255 * fadeIn);
-    $.ink(255, 255, 255, imageAlpha);
-    $.paste(img, x, y, {
-      crop: { x: cropX, y: cropY, w: cropW, h: cropH }
-    });
+    // If image is smaller than preview box, scale it up first or just paste centered
+    if (img.width < this.width || img.height < this.height) {
+      // Image too small for Ken Burns - just paste it centered and scaled
+      const scale = Math.max(this.width / img.width, this.height / img.height);
+      const scaledW = Math.floor(img.width * scale);
+      const scaledH = Math.floor(img.height * scale);
+      const centerX = x + Math.floor((this.width - scaledW) / 2);
+      const centerY = y + Math.floor((this.height - scaledH) / 2);
+      
+      const imageAlpha = Math.floor(255 * fadeIn);
+      $.ink(255, 255, 255, imageAlpha);
+      $.paste(img, centerX, centerY, {
+        width: scaledW,
+        height: scaledH
+      });
+    } else {
+      // Image large enough - use Ken Burns crop
+      const cropW = this.width;
+      const cropH = this.height;
+      
+      // Pan around within the available crop space
+      const maxCropX = Math.max(0, img.width - cropW);
+      const maxCropY = Math.max(0, img.height - cropH);
+      
+      const panX = (Math.cos((burnProgress + 0.25) * Math.PI * 2) + 1) / 2;
+      const panY = (Math.sin((burnProgress + 0.65) * Math.PI * 2) + 1) / 2;
+      
+      const cropX = Math.floor(maxCropX * panX);
+      const cropY = Math.floor(maxCropY * panY);
+      
+      // Paste with Ken Burns crop
+      const imageAlpha = Math.floor(255 * fadeIn);
+      $.ink(255, 255, 255, imageAlpha);
+      $.paste(img, x, y, {
+        crop: { x: cropX, y: cropY, w: cropW, h: cropH }
+      });
+    }
     
     $.needsPaint(); // Keep animating
   }
@@ -4440,24 +4457,10 @@ function paint($) {
           const maxContentHeight = availableHeight - padding - metadataGap - metadataHeight; // Reserve space for metadata
           
           if (currentTooltipItem.type === 'kidlisp' && currentTooltipItem.source) {
-            // KidLisp tooltip: source code preview
-            const source = currentTooltipItem.source;
-            const charWidth = 4; // MatrixChunky8
-            const lineHeight = 10;
-            
-            // Calculate how many lines can fit
-            const maxPossibleLines = Math.floor(maxContentHeight / lineHeight);
-            const maxLines = Math.max(1, Math.min(5, maxPossibleLines)); // 1-5 lines based on available space
-            
-            const lines = source.split('\n').slice(0, maxLines);
-            const maxLineLength = Math.max(...lines.map(l => l.length));
-            
-            // Ensure width fits both content and metadata, respecting available space
-            // Allow wider width for KidLisp to prevent wrapping/truncation
-            const contentWidth = Math.min(maxLineLength * charWidth + padding * 2, maxTooltipWidth);
-            const minWidthForMetadata = metadataWidth + padding * 2;
-            tooltipWidth = Math.max(contentWidth, minWidthForMetadata, 200); // Min 200px for KidLisp
-            tooltipHeight = lines.length * lineHeight + padding + metadataGap + metadataHeight;
+            // KidLisp tooltip: use shared MediaPreviewBox dimensions
+            const boxDims = mediaPreviewBox.getBoxDimensions();
+            tooltipWidth = boxDims.width;
+            tooltipHeight = boxDims.height; // Just the box, metadata goes outside
           } else if (currentTooltipItem.type === 'painting' && currentTooltipItem.image) {
             // Painting tooltip: use shared MediaPreviewBox dimensions
             const boxDims = mediaPreviewBox.getBoxDimensions();
