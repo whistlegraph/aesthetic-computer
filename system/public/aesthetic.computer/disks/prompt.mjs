@@ -2425,6 +2425,9 @@ class MediaPreviewBox {
     const contentX = x + this.padding;
     const contentY = y + this.padding;
     
+    // Set up clipping mask for the content area
+    $.mask({ x: contentX, y: contentY, width: this.width, height: this.height });
+    
     if (item.type === 'kidlisp' && item.source) {
       this.renderKidlisp($, item, contentX, contentY, fadeIn);
     } else if (item.type === 'painting' && item.image) {
@@ -2434,6 +2437,9 @@ class MediaPreviewBox {
     } else if (item.type === 'tape' && item.isLoading) {
       this.renderTapeLoading($, item, contentX, contentY, fadeIn);
     }
+    
+    // Remove clipping mask
+    $.unmask();
   }
 
   renderKidlisp($, item, x, y, fadeIn) {
