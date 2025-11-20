@@ -2467,43 +2467,37 @@ class MediaPreviewBox {
     const KEN_BURNS_CYCLE_MS = 8000;
     const burnProgress = ((nowTime / KEN_BURNS_CYCLE_MS) + burnSeed) % 1;
     
-    // If image is smaller than preview box, scale it up first or just paste centered
-    if (img.width < this.width || img.height < this.height) {
-      // Image too small for Ken Burns - just paste it centered and scaled
-      const scale = Math.max(this.width / img.width, this.height / img.height);
-      const scaledW = Math.floor(img.width * scale);
-      const scaledH = Math.floor(img.height * scale);
-      const centerX = x + Math.floor((this.width - scaledW) / 2);
-      const centerY = y + Math.floor((this.height - scaledH) / 2);
-      
-      const imageAlpha = Math.floor(255 * fadeIn);
-      $.ink(255, 255, 255, imageAlpha);
-      $.paste(img, centerX, centerY, {
-        width: scaledW,
-        height: scaledH
-      });
-    } else {
-      // Image large enough - use Ken Burns crop
-      const cropW = this.width;
-      const cropH = this.height;
-      
-      // Pan around within the available crop space
-      const maxCropX = Math.max(0, img.width - cropW);
-      const maxCropY = Math.max(0, img.height - cropH);
-      
-      const panX = (Math.cos((burnProgress + 0.25) * Math.PI * 2) + 1) / 2;
-      const panY = (Math.sin((burnProgress + 0.65) * Math.PI * 2) + 1) / 2;
-      
-      const cropX = Math.floor(maxCropX * panX);
-      const cropY = Math.floor(maxCropY * panY);
-      
-      // Paste with Ken Burns crop
-      const imageAlpha = Math.floor(255 * fadeIn);
-      $.ink(255, 255, 255, imageAlpha);
-      $.paste(img, x, y, {
-        crop: { x: cropX, y: cropY, w: cropW, h: cropH }
-      });
-    }
+    // Scale image to ensure it's at least as large as the preview box
+    const scale = Math.max(this.width / img.width, this.height / img.height, 1);
+    const scaledW = Math.floor(img.width * scale);
+    const scaledH = Math.floor(img.height * scale);
+    
+    // Calculate crop region for Ken Burns within the scaled image
+    const cropW = this.width;
+    const cropH = this.height;
+    const maxCropX = Math.max(0, scaledW - cropW);
+    const maxCropY = Math.max(0, scaledH - cropH);
+    
+    const panX = (Math.cos((burnProgress + 0.25) * Math.PI * 2) + 1) / 2;
+    const panY = (Math.sin((burnProgress + 0.65) * Math.PI * 2) + 1) / 2;
+    
+    const cropX = Math.floor(maxCropX * panX);
+    const cropY = Math.floor(maxCropY * panY);
+    
+    // Map crop coordinates back to original image space
+    const imgCropX = Math.floor(cropX / scale);
+    const imgCropY = Math.floor(cropY / scale);
+    const imgCropW = Math.floor(cropW / scale);
+    const imgCropH = Math.floor(cropH / scale);
+    
+    // Paste with Ken Burns crop, scaling to fill the box
+    const imageAlpha = Math.floor(255 * fadeIn);
+    $.ink(255, 255, 255, imageAlpha);
+    $.paste(img, x, y, {
+      crop: { x: imgCropX, y: imgCropY, w: imgCropW, h: imgCropH },
+      width: this.width,
+      height: this.height
+    });
     
     $.needsPaint(); // Keep animating
   }
@@ -2521,11 +2515,16 @@ class MediaPreviewBox {
       const KEN_BURNS_CYCLE_MS = 8000;
       const burnProgress = ((nowTime / KEN_BURNS_CYCLE_MS) + burnSeed) % 1;
       
+      // Scale frame to ensure it's at least as large as the preview box
+      const scale = Math.max(this.width / frame.width, this.height / frame.height, 1);
+      const scaledW = Math.floor(frame.width * scale);
+      const scaledH = Math.floor(frame.height * scale);
+      
+      // Calculate crop region for Ken Burns within the scaled frame
       const cropW = this.width;
       const cropH = this.height;
-      
-      const maxCropX = Math.max(0, frame.width - cropW);
-      const maxCropY = Math.max(0, frame.height - cropH);
+      const maxCropX = Math.max(0, scaledW - cropW);
+      const maxCropY = Math.max(0, scaledH - cropH);
       
       const panX = (Math.cos((burnProgress + 0.25) * Math.PI * 2) + 1) / 2;
       const panY = (Math.sin((burnProgress + 0.65) * Math.PI * 2) + 1) / 2;
@@ -2533,8 +2532,17 @@ class MediaPreviewBox {
       const cropX = Math.floor(maxCropX * panX);
       const cropY = Math.floor(maxCropY * panY);
       
+      // Map crop coordinates back to original frame space
+      const frameCropX = Math.floor(cropX / scale);
+      const frameCropY = Math.floor(cropY / scale);
+      const frameCropW = Math.floor(cropW / scale);
+      const frameCropH = Math.floor(cropH / scale);
+      
+      // Paste with Ken Burns crop, scaling to fill the box
       $.paste(frame, x, y, {
-        crop: { x: cropX, y: cropY, w: cropW, h: cropH }
+        crop: { x: frameCropX, y: frameCropY, w: frameCropW, h: frameCropH },
+        width: this.width,
+        height: this.height
       });
     }
     
