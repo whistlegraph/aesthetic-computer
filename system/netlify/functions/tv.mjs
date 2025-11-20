@@ -95,7 +95,7 @@ async function fetchPaintings(db, { limit }) {
         handle,
         userId: record.user,
       },
-      when: record.when instanceof Date ? record.when.toISOString() : record.when,
+      when: record.when,
       media: {
         path: mediaPath,
         url: thumbnailUrl,
@@ -112,11 +112,17 @@ async function fetchPaintings(db, { limit }) {
   });
 }
 
-async function fetchKidlisp(db, { limit }) {
+async function fetchKidlisp(db, { limit, sort }) {
   const collection = db.collection("kidlisp");
+  
+  let sortStage = { $sort: { when: -1 } };
+  if (sort === 'hits') {
+    sortStage = { $sort: { hits: -1 } };
+  }
+
   const pipeline = [
     { $match: { nuked: { $ne: true } } },
-    { $sort: { when: -1 } },
+    sortStage,
     { $limit: limit },
     {
       $lookup: {
@@ -144,27 +150,34 @@ async function fetchKidlisp(db, { limit }) {
     },
   ];
 
+  console.log("Fetching kidlisp with pipeline:", JSON.stringify(pipeline));
   const records = await collection.aggregate(pipeline).toArray();
+  console.log(`Fetched ${records.length} kidlisp records`);
 
-  return records.map((record) => {
-    const handle = record.handle ? `@${record.handle}` : null;
-    
-    return {
-      id: record._id?.toString?.() ?? `${record.user}:${record.code}`,
-      type: "kidlisp",
-      code: record.code,
-      source: record.source, // Include source for tooltip previews
-      owner: {
-        handle,
-        userId: record.user,
-      },
-      when: record.when instanceof Date ? record.when.toISOString() : record.when,
-      hits: record.hits || 0,
-      acUrl: `https://aesthetic.computer/#${record.code}`,
-      meta: {
-        sourceLength: record.source?.length || 0,
-      },
-    };
+  return records.map((record, index) => {
+    try {
+      const handle = record.handle ? `@${record.handle}` : null;
+      
+      return {
+        id: record._id?.toString?.() ?? `${record.user}:${record.code}`,
+        type: "kidlisp",
+        code: record.code,
+        source: record.source, // Include source for tooltip previews
+        owner: {
+          handle,
+          userId: record.user,
+        },
+        when: record.when,
+        hits: record.hits || 0,
+        acUrl: `https://aesthetic.computer/#${record.code}`,
+        meta: {
+          sourceLength: record.source?.length || 0,
+        },
+      };
+    } catch (err) {
+      console.error(`Error processing record at index ${index}:`, record);
+      throw err;
+    }
   });
 }
 
@@ -215,7 +228,7 @@ async function fetchTapes(db, { limit }) {
         handle,
         userId: record.user ?? null, // null for anonymous tapes
       },
-      when: record.when instanceof Date ? record.when.toISOString() : record.when,
+      when: record.when,
       acUrl: `https://aesthetic.computer/!${record.code}`,
       media: {
         bucket: record.bucket,
@@ -243,6 +256,9 @@ export async function handler(event) {
   let database;
 
   try {
+    console.log("Node version:", process.version);
+    // console.log("MongoDB path:", import.meta.resolve("mongodb")); // This might fail if not supported
+    
     console.log("📺 Connecting to database...");
     database = await connect();
     console.log("📺 Database connected successfully");
@@ -432,9 +448,6 @@ export async function handler(event) {
     });
   } catch (error) {
     console.error("Failed to build TV feed", error);
-    console.error("Error stack:", error.stack);
-    return respond(500, { error: "Failed to assemble tv feed.", details: error.message });
-  } finally {
-    await database?.disconnect?.();
+    return respond(500, { error: "Failed to build TV feed", details: error.message });
   }
 }

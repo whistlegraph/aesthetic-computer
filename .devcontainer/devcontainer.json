@@ -99,7 +99,8 @@
         "ms-python.black-formatter",
         "github.vscode-github-actions",
         "maziac.asm-code-lens",
-        "ms-vscode.cpptools-extension-pack"
+        "ms-vscode.cpptools-extension-pack",
+        "ms-vscode.makefile-tools"
       ]
     }
   },
