@@ -3718,6 +3718,7 @@ function paint($) {
           color: [0, 255, 255], // Bright cyan
           alpha: tickerAlpha,
           width: screen.width,
+          font: 'MatrixChunky8', // Use tiny font for tickers
         });
       }
       
@@ -3837,7 +3838,7 @@ function paint($) {
             const pulse = Math.sin(motdFrame * 0.05 + i * 0.3) * 20;
             const alpha = 180 + pulse;
             
-            ink([r, g, b, alpha]).write(char, { x, y: textY });
+            ink([r, g, b, alpha]).write(char, { x, y: textY }, undefined, undefined, false, 'MatrixChunky8');
           }
         } else if (contentTicker) {
           // Show ticker content when loaded (only if ticker exists)
@@ -3874,7 +3875,7 @@ function paint($) {
                 color = [255, 200, 100]; // Bright orange/yellow
               }
               
-              const textWidth = $.text.box(text).box.width;
+              const textWidth = $.text.box(text, undefined, undefined, undefined, undefined, 'MatrixChunky8').box.width;
               
               // Check if mouse is hovering over this item (only check first cycle)
               // Use $.pen for mouse position (available in paint context)
@@ -3909,9 +3910,9 @@ function paint($) {
                   }
                   
                   // Brighter text when hovered or selected
-                  $.ink(color, 255).write(text, { x: currentX, y: textY });
+                  $.ink(color, 255).write(text, { x: currentX, y: textY }, undefined, undefined, false, 'MatrixChunky8');
                 } else {
-                  $.ink(color, contentTickerAlpha).write(text, { x: currentX, y: textY });
+                  $.ink(color, contentTickerAlpha).write(text, { x: currentX, y: textY }, undefined, undefined, false, 'MatrixChunky8');
                 }
               }
               
@@ -3931,9 +3932,9 @@ function paint($) {
               // Add separator after each item (except potentially the last in a cycle)
               if (idx < contentItems.length - 1 || cycle < numCycles - 1) {
                 if (currentX > -100 && currentX < displayWidth + 100) {
-                  ink([150, 150, 150], contentTickerAlpha).write(separator, { x: currentX, y: textY });
+                  ink([150, 150, 150], contentTickerAlpha).write(separator, { x: currentX, y: textY }, undefined, undefined, false, 'MatrixChunky8');
                 }
-                const sepWidth = $.text.box(separator).box.width;
+                const sepWidth = $.text.box(separator, undefined, undefined, undefined, undefined, 'MatrixChunky8').box.width;
                 currentX += sepWidth;
               }
             });
@@ -5157,43 +5158,65 @@ async function fetchContentItems(api) {
   try {
     // Fetch all types in one request
     // Use absolute URL to ensure HTTPS in dev environment
-    const apiUrl = (typeof window !== 'undefined' ? window.location.origin : '') + "/api/tv?types=kidlisp,painting,tape&limit=60";
+    const apiUrl = (typeof window !== 'undefined' ? window.location.origin : '') + "/api/tv?types=kidlisp,painting,tape&limit=60&filter=sprinkle";
     const res = await fetch(apiUrl);
     if (res.status === 200) {
       const data = await res.json();
       const items = [];
       
-      // Collect kidlisp items
-      if (data.media?.kidlisp && Array.isArray(data.media.kidlisp)) {
-        data.media.kidlisp.forEach(item => {
-          if (item.code) items.push({ 
-            type: 'kidlisp', 
-            code: item.code,
-            source: item.source, // Store source for tooltip preview
-            timestamp: item.timestamp || item.created_at || item.when,
-            author: item.owner?.handle || null // Extract handle from owner.handle
-          });
-        });
-      }
-      
-      // Collect painting items
-      if (data.media?.paintings && Array.isArray(data.media.paintings)) {
-        data.media.paintings.forEach(item => {
-          if (item.code) items.push({ type: 'painting', code: item.code });
-        });
-      }
-      
-      // Collect tape items
-      if (data.media?.tapes && Array.isArray(data.media.tapes)) {
-        data.media.tapes.forEach(item => {
-          if (item.code) {
+      // Use mixed feed if available (from sprinkle filter), otherwise collect from individual types
+      if (data.mixed && Array.isArray(data.mixed)) {
+        // Sprinkle filter provides pre-mixed items
+        data.mixed.forEach(item => {
+          if (item.type === 'kidlisp' && item.code) {
+            items.push({ 
+              type: 'kidlisp', 
+              code: item.code,
+              source: item.source, // Store source for tooltip preview
+              timestamp: item.timestamp || item.created_at || item.when,
+              author: item.owner?.handle || null // Extract handle from owner.handle
+            });
+          } else if (item.type === 'painting' && item.code) {
+            items.push({ type: 'painting', code: item.code });
+          } else if (item.type === 'tape' && item.code) {
             const tapeId = `prompt-tape-${item.code}`;
             items.push({ type: 'tape', code: item.code, tapeId: tapeId });
           }
         });
+      } else {
+        // Fallback to collecting from individual media types
+        // Collect kidlisp items
+        if (data.media?.kidlisp && Array.isArray(data.media.kidlisp)) {
+          data.media.kidlisp.forEach(item => {
+            if (item.code) items.push({ 
+              type: 'kidlisp', 
+              code: item.code,
+              source: item.source, // Store source for tooltip preview
+              timestamp: item.timestamp || item.created_at || item.when,
+              author: item.owner?.handle || null // Extract handle from owner.handle
+            });
+          });
+        }
+        
+        // Collect painting items
+        if (data.media?.paintings && Array.isArray(data.media.paintings)) {
+          data.media.paintings.forEach(item => {
+            if (item.code) items.push({ type: 'painting', code: item.code });
+          });
+        }
+        
+        // Collect tape items
+        if (data.media?.tapes && Array.isArray(data.media.tapes)) {
+          data.media.tapes.forEach(item => {
+            if (item.code) {
+              const tapeId = `prompt-tape-${item.code}`;
+              items.push({ type: 'tape', code: item.code, tapeId: tapeId });
+            }
+          });
+        }
       }
       
-      // Keep items in original order (most recent first from API)
+      // Keep items in original order (sprinkled or most recent first from API)
       contentItems = items;
       console.log("✅ Content items loaded:", contentItems.length, 
                   `(${items.filter(i => i.type === 'kidlisp').length} kidlisp, ` +
