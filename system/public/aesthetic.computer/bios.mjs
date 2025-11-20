@@ -596,7 +596,16 @@ USB.initialize();
 
 // 💾 Boot the system and load a disk.
 async function boot(parsed, bpm = 60, resolution, debug) {
+  const bootStartTime = performance.now();
   headers(); // Print console headers with auto-detected theme.
+
+  // Notify parent of boot progress
+  if (window.parent) {
+    window.parent.postMessage({ 
+      type: "boot-log", 
+      message: "initializing graphics" 
+    }, "*");
+  }
 
   // Store original URL parameters for refresh functionality from the resolution object
   preservedParams = {};
@@ -883,6 +892,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // Runs one on boot & every time display resizes to adjust the framebuffer.
   function frame(width, height, gap) {
+    // Notify parent on first frame setup
+    if (!imageData && window.parent) {
+      window.parent.postMessage({ 
+        type: "boot-log", 
+        message: "setting up display" 
+      }, "*");
+    }
+
     gap === 0
       ? document.body.classList.add("nogap")
       : document.body.classList.remove("nogap");
@@ -1692,6 +1709,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   function startSound() {
     if (navigator.audioSession) navigator.audioSession.type = "ambient";
 
+    // Notify parent of boot progress
+    if (window.parent) {
+      window.parent.postMessage({ 
+        type: "boot-log", 
+        message: "starting audio system" 
+      }, "*");
+    }
+
     // 🎵 AUDIO INITIALIZATION LOGGING - Critical for tracking audio timing setup
     const audioStartTimestamp = performance.now();
     // console.log(`🎵 AUDIO_INIT_START: ${audioStartTimestamp.toFixed(3)}ms`);
@@ -2438,6 +2463,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   
   // Workers enabled logging removed for cleaner console
 
+  // Notify parent that we're loading the disk
+  const diskLoadStartTime = performance.now();
+  const bootElapsed = Math.round(diskLoadStartTime - bootStartTime);
+  if (window.parent) {
+    window.parent.postMessage({ 
+      type: "boot-log", 
+      message: `loading disk: ${parsed.text || 'prompt'} (${bootElapsed}ms)` 
+    }, "*");
+  }
+
   if (/*!MetaBrowser &&*/ workersEnabled) {
     const worker = new Worker(new URL(fullPath, window.location.href), {
       type: "module",
@@ -2474,6 +2509,20 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       send = (e, shared) => worker.postMessage(e, shared);
       window.acSEND = send; // Make the message handler global, used in `speech.mjs` and also useful for debugging.
       worker.onmessage = onMessage;
+      
+      // Notify parent that worker is connected
+      const workerConnectTime = performance.now();
+      const workerElapsed = Math.round(workerConnectTime - diskLoadStartTime);
+      if (window.parent) {
+        window.parent.postMessage({ 
+          type: "boot-log", 
+          message: `connecting to worker (${workerElapsed}ms)` 
+        }, "*");
+      }
+
+      // Send the initial message immediately
+      send(firstMessage);
+      consumeDiskSends(send);
     }
   } else {
     // B. No Worker Mode
@@ -2490,8 +2539,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   }
 
   // The initial message sends the path and host to load the disk.
-  send(firstMessage);
-  consumeDiskSends(send);
+  // Note: In worker mode, this is now handled inside the if(worker.postMessage) block
+  // to ensure proper timing. In no-worker mode, it's handled here.
+  if (!workersEnabled) {
+    send(firstMessage);
+    consumeDiskSends(send);
+  }
 
   // 🎮 Initialize Game Boy emulator in main thread
   // (Placed after worker setup so `send` is properly wired)
@@ -2879,6 +2932,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // *** Received Frame ***
   async function receivedChange({ data: { type, content } }) {
+    // Relay boot-log messages to parent window
+    if (type === "boot-log") {
+      // console.log("📢 BIOS relaying boot-log:", content);
+      if (window.parent) {
+        window.parent.postMessage({ type: "boot-log", message: content }, "*");
+      }
+      return;
+    }
+
     // Helper function to generate appropriate filenames for tape recordings
     function generateTapeFilename(extension, suffix = "") {
       const options = window.currentRecordingOptions || {
@@ -3065,6 +3127,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (type === "gameboy:load-rom") {
       console.log("🎮 BIOS received ROM load request:", content);
       loadGameboyROM(content);
+      return;
+    }
+
+    if (type === "usb:connect") {
+      USB.connectToUsb();
       return;
     }
 
@@ -13274,6 +13341,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         window.preloaded = true;
       //if (debug && logs.loading)
       //  console.log("⏳ Preloaded:", window.preloaded ? "✅" : "❌");
+      
+      // Notify parent that disk is ready
+      if (window.parent) {
+        window.parent.postMessage({ 
+          type: "boot-log", 
+          message: `ready: ${currentPiece || 'prompt'}` 
+        }, "*");
+        window.parent.postMessage({ type: "ready" }, "*");
+      }
+      
       consumeDiskSends(send);
       return;
     }
@@ -14727,6 +14804,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   async function authorize() {
     // Skip authorization in SPIDER mode (read-only IPFS environment)
     if (window.acSPIDER) {
+      return null;
+    }
+    
+    // Skip authorization if noauth parameter is present (e.g., for kidlisp.com editor)
+    const urlParams = new URLSearchParams(window.location.search);
+    console.log(`🔐 authorize() called. Search: ${window.location.search}, noauth=${urlParams.has('noauth')}, acNOAUTH=${window.acNOAUTH}`);
+    if (urlParams.has('noauth') || window.acNOAUTH) {
+      console.log('🔕 Skipping auth (noauth parameter present)');
       return null;
     }
     

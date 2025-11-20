@@ -1,14 +1,25 @@
 // `aesthetic.computer` Bootstrap, 23.02.16.19.23
 console.clear();
 
-// Alert the parent /  we are ready.
-if (window.parent) window.parent.postMessage({ type: "ready" }, "*");
+// Helper to send boot progress messages to parent
+function bootLog(message) {
+  console.log(`🚀 ${message}`);
+  if (window.parent) {
+    window.parent.postMessage({ type: "boot-log", message }, "*");
+  }
+}
+
+bootLog("initializing aesthetic.computer");
+
+// Alert the parent we are initialized (but not fully ready yet).
+if (window.parent) window.parent.postMessage({ type: "init" }, "*");
 
 // List of legitimate query parameters that should be preserved
 const LEGITIMATE_PARAMS = [
   'icon', 'preview', 'signup', 'supportSignUp', 'success', 'code', 
   'supportForgotPassword', 'message', 'vscode', 'nogap', 'nolabel', 
-  'density', 'zoom', 'duration', 'session-aesthetic', 'session-sotce', 'notice', 'tv', 'highlight'
+  'density', 'zoom', 'duration', 'session-aesthetic', 'session-sotce', 'notice', 'tv', 'highlight',
+  'noauth', 'nocache'
 ];
 
 // Auth0 parameters that need to be temporarily processed but then removed
@@ -90,6 +101,7 @@ function cleanUrlParams(url, params) {
 }
 
 // Test localStorage access early to detect sandbox restrictions
+bootLog("checking storage access");
 let localStorageBlocked = false;
 try {
   // Test both read and write access
@@ -225,6 +237,7 @@ window.safeSessionStorageRemove = safeSessionStorageRemove;
 }
 
 // Included as a <script> tag to boot the system on a webpage. (Loads `bios`)
+bootLog("loading bios");
 import { boot } from "./bios.mjs";
 import { parse, slug } from "./lib/parse.mjs";
 
@@ -322,6 +335,7 @@ if (
 // }
 
 const pieceToLoad = sluggedUrl;
+bootLog(`parsing: ${pieceToLoad || 'prompt'}`);
 const parsed = parse(pieceToLoad);
 
 if (hashLooksLikePaintingCode && hashCandidate && !parsed.hash) {
@@ -347,6 +361,11 @@ const bpm = 120; // Set the starting bpm. Is this still necessary?
 
 // Parse the query string to detect both ?nogap and ?nolabel parameters
 const params = extractLegitimateParams(window.location.href);
+
+// Set global flags for noauth and nocache
+if (params.has("noauth")) window.acNOAUTH = true;
+if (params.has("nocache")) window.acNOCACHE = true;
+
 const nogap = params.has("nogap") || location.search.includes("nogap") || location.host.includes("wipppps.world");
 
 // Check for nolabel parameter (no localStorage persistence)
@@ -432,6 +451,7 @@ if (window.acVSCODE) {
 }
 
 // Pass the parameters directly without stripping them
+bootLog(`booting: ${parsed?.text || 'prompt'}`);
 boot(parsed, bpm, { gap: nogap ? 0 : undefined, nolabel, density, zoom, duration, tv, highlight }, debug);
 
 let sandboxed = (window.origin === "null" && !window.acVSCODE) || localStorageBlocked || sessionStorageBlocked || window.acPACK_MODE || window.acSPIDER;
@@ -747,6 +767,16 @@ function receive(event) {
     return;
   } else if (event.data?.type === "clearSession" && window.acTOKEN) {
     window.location.reload();
+    return;
+  } else if (event.data?.type === "kidlisp-reload") {
+    // Live reload from kidlisp.com editor
+    const code = event.data.code;
+    if (code) {
+      window.acSEND({
+        type: "piece-reload",
+        content: { source: code }
+      });
+    }
     return;
   } else if (event.data?.startsWith?.("docs:")) {
     window.acSEND({

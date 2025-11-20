@@ -5872,6 +5872,9 @@ async function load(
   loadedCallback,
   forceKidlisp = false, // Force interpretation as kidlisp even without prefix
 ) {
+  const loadFunctionStartTime = performance.now();
+  console.log(`⏰ load() function started at ${loadFunctionStartTime}ms`);
+  
   let fullUrl, source;
   let params,
     search,
@@ -6074,6 +6077,7 @@ async function load(
       originalCode = sourceCode;
     } else {
       let sourceToRun;
+      let fetchStartTime = performance.now(); // Initialize timing at the start
       
       // 💾 Check if this is a cached kidlisp code (starts with $ and has content after it)
       if (slug && slug.startsWith("$") && slug.length > 1) {
@@ -6106,6 +6110,14 @@ async function load(
         let response;
         if (logs.loading) console.log("📥 Loading from url:", fullUrl);
         // if (debug) console.log("🔍 Debug: Constructed fullUrl:", fullUrl);
+        
+        // Notify boot progress
+        const fetchStartTime = performance.now();
+        send({
+          type: "boot-log",
+          content: `fetching: ${path}`
+        });
+        
         response = await fetch(fullUrl);        if (response.status === 404 || response.status === 403) {
           const extension = path.endsWith('.lisp') ? '.lisp' : '.mjs';
           // Handle sandboxed environments for anon URL construction
@@ -6165,6 +6177,20 @@ async function load(
         
         console.log("🎨 Initializing KidLisp piece...");
         
+        // Notify boot progress
+        const compileStartTime = performance.now();
+        const fetchElapsed = Math.round(compileStartTime - fetchStartTime);
+        // console.log("📢 Disk sending boot-log: compiling kidlisp");
+        // Ensure send is available before using it
+        if (typeof send === 'function') {
+          send({
+            type: "boot-log",
+            content: `compiling kidlisp (fetch: ${fetchElapsed}ms)`
+          });
+        } else {
+          console.warn("⚠️ send function not available for boot-log");
+        }
+        
         // Initialize persistent cache for $codes (only needs to be done once)
         initPersistentCache(store);
         
@@ -6173,7 +6199,16 @@ async function load(
         
         loadedModule = lisp.module(sourceToRun, path && path.endsWith(".lisp"));
         
-        console.log("✅ KidLisp module loaded successfully");
+        const compileEndTime = performance.now();
+        const compileElapsed = Math.round(compileEndTime - compileStartTime);
+        console.log(`✅ KidLisp module loaded successfully (${compileElapsed}ms)`);
+        
+        // Notify boot progress
+        // console.log("📢 Disk sending boot-log: kidlisp compiled");
+        send({
+          type: "boot-log",
+          content: `kidlisp compiled (${compileElapsed}ms)`
+        });
 
         if (devReload) {
           store["publishable-piece"] = {
@@ -6205,11 +6240,32 @@ async function load(
           type: "application/javascript",
         });
 
-        blobUrl = URL.createObjectURL(blob);        sourceCode = updatedCode;
+        blobUrl = URL.createObjectURL(blob);
+        
+        // Notify boot progress
+        const importStartTime = performance.now();
+        const importFetchElapsed = Math.round(importStartTime - fetchStartTime);
+        // console.log("📢 Disk sending boot-log: importing module");
+        send({
+          type: "boot-log",
+          content: `importing module (fetch: ${importFetchElapsed}ms)`
+        });
+        
+        sourceCode = updatedCode;
         loadedModule = await import(blobUrl);
+        
+        const importEndTime = performance.now();
+        const importElapsed = Math.round(importEndTime - importStartTime);
+        if (logs.loading) console.log(`✅ Module imported (${importElapsed}ms)`);
+        send({
+          type: "boot-log",
+          content: `module imported (${importElapsed}ms)`
+        });
       }
     }
   } catch (err) {
+    const moduleLoadErrorTime = performance.now();
+    console.log(`⏰ Module load error caught at ${moduleLoadErrorTime}ms`);
     console.log("🟡 Error loading mjs module:", err);
     // Look for lisp files if the mjs file is not found, but only if we weren't already trying to load a .lisp file
     if (fullUrl && !fullUrl.includes('.lisp')) {
@@ -6293,6 +6349,9 @@ async function load(
 
   // console.log("Module load time:", performance.now() - moduleLoadTime, module);
   // 🧨 Fail out if no module is found.
+  const moduleCheckTime = performance.now();
+  console.log(`⏰ Module check at ${moduleCheckTime}ms, module loaded: ${loadedModule !== undefined}`);
+  
   if (loadedModule === undefined) {
     loading = false;
     leaving = false;
@@ -6326,6 +6385,13 @@ async function load(
   } = {}) {
     // console.log("⚠️ Reloading:", piece, name, source);
 
+    if (loading && source && !name && !piece) {
+      // If a piece is loading and we have new source code, queue the reload
+      console.log("🟡 Queueing reload until current load completes...");
+      setTimeout(() => reload({ source }), 100);
+      return;
+    }
+
     if (loading) {
       console.log("🟡 A piece is already loading.");
       return;
@@ -6349,6 +6415,26 @@ async function load(
         true, // fromHistory - don't add to history stack
         alias,
         true, // devReload
+      );
+    } else if (source && !name && !piece) {
+      // Live reload with new source code (e.g., from kidlisp.com editor)
+      // Just pass the source directly without path/text
+      currentText = source;
+      currentPath = source;
+      $commonApi.load(
+        {
+          source: source,  // Pass as source so it's used directly
+          name: "kidlisp-live",  // Give it a name so slug won't be undefined
+          search: currentSearch,
+          colon: currentColon,
+          params: currentParams,
+          hash: currentHash,
+        },
+        true, // fromHistory - don't add to history stack
+        alias,
+        true, // devReload
+        undefined, // loadedCallback
+        true, // forceKidlisp - always treat as KidLisp code
       );
     } else if (name && source) {
       // TODO: Check for existence of `name` and `source` is hacky. 23.06.24.19.27
@@ -6874,7 +6960,28 @@ async function load(
 
   // Load typeface if it hasn't been yet.
   // (This only has to happen when the first piece loads.)
-  if (!tf) tf = await new Typeface(/*"unifont"*/).load($commonApi.net.preload);
+  // Skip expensive typeface loading in editor/preview mode (noauth) - pieces can load it lazily if needed
+  const skipTypefacePreload = typeof window !== 'undefined' && window.acNOAUTH;
+  console.log(`⏰ Typeface skip check: window.acNOAUTH=${typeof window !== 'undefined' ? window.acNOAUTH : 'N/A'}, skipTypefacePreload=${skipTypefacePreload}, tf exists=${!!tf}`);
+  
+  const typefaceLoadStartTime = performance.now();
+  if (!tf && !skipTypefacePreload) {
+    tf = await new Typeface(/*"unifont"*/).load($commonApi.net.preload);
+    const typefaceLoadEndTime = performance.now();
+    console.log(`⏰ Typeface load: ${Math.round(typefaceLoadEndTime - typefaceLoadStartTime)}ms`);
+  } else if (skipTypefacePreload) {
+    // Create a minimal stub typeface for noauth mode
+    tf = {
+      blockWidth: 6,
+      blockHeight: 10,
+      glyphs: {},
+      __stub: true
+    };
+    console.log(`⏰ Typeface load skipped (noauth mode), using stub`);
+  } else {
+    console.log(`⏰ Typeface already loaded`);
+  }
+  
   $commonApi.typeface = tf; // Expose a preloaded typeface globally.
   ui.setTypeface(tf); // Set the default `ui` typeface.
 
@@ -6884,41 +6991,55 @@ async function load(
   currentHUDShareWidth = tf.blockWidth * "share ".length;
 
   // Initialize MatrixChunky8 font for QR code text rendering and keep it warm across pieces
-  let matrixFont = typefaceCache.get("MatrixChunky8");
+  // Skip this expensive preloading if running in editor/preview mode (noauth)
+  const skipMatrixPreload = skipTypefacePreload; // Use same condition
+  
+  if (!skipMatrixPreload) {
+    const matrixFontStartTime = performance.now();
+    let matrixFont = typefaceCache.get("MatrixChunky8");
 
-  if (!matrixFont) {
-    matrixFont = new Typeface("MatrixChunky8");
-    await matrixFont.load($commonApi.net.preload); // Important: call load() to initialize the proxy system
-    typefaceCache.set("MatrixChunky8", matrixFont);
-  }
-
-  if (matrixFont && !matrixFont.__preloadedCommonGlyphs) {
-    // Pre-load common QR code characters to avoid fallback during rendering
-    const commonQRChars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz$";
-
-    // Access each character to trigger the Proxy loading mechanism and collect promises
-    const glyphPromises = [];
-
-    for (const char of commonQRChars) {
-      // Accessing the glyph triggers the Proxy to start loading it
-      const glyph = matrixFont.glyphs[char];
-
-      // If it's a Promise, collect it to wait for loading
-      if (glyph && typeof glyph.then === "function") {
-        glyphPromises.push(glyph);
-      }
+    if (!matrixFont) {
+      matrixFont = new Typeface("MatrixChunky8");
+      await matrixFont.load($commonApi.net.preload); // Important: call load() to initialize the proxy system
+      typefaceCache.set("MatrixChunky8", matrixFont);
     }
 
-    // Wait for all common glyphs to finish loading
-    if (glyphPromises.length > 0) {
-      try {
-        await Promise.all(glyphPromises);
-      } catch (e) {
-        console.warn("🔤 Some MatrixChunky8 glyphs failed to preload:", e);
-      }
-    }
+    if (matrixFont && !matrixFont.__preloadedCommonGlyphs) {
+      const glyphPreloadStartTime = performance.now();
+      // Pre-load common QR code characters to avoid fallback during rendering
+      const commonQRChars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz$";
 
-    matrixFont.__preloadedCommonGlyphs = true;
+      // Access each character to trigger the Proxy loading mechanism and collect promises
+      const glyphPromises = [];
+
+      for (const char of commonQRChars) {
+        // Accessing the glyph triggers the Proxy to start loading it
+        const glyph = matrixFont.glyphs[char];
+
+        // If it's a Promise, collect it to wait for loading
+        if (glyph && typeof glyph.then === "function") {
+          glyphPromises.push(glyph);
+        }
+      }
+
+      // Wait for all common glyphs to finish loading
+      if (glyphPromises.length > 0) {
+        try {
+          await Promise.all(glyphPromises);
+        } catch (e) {
+          console.warn("🔤 Some MatrixChunky8 glyphs failed to preload:", e);
+        }
+      }
+
+      const glyphPreloadEndTime = performance.now();
+      console.log(`⏰ MatrixChunky8 glyph preload: ${Math.round(glyphPreloadEndTime - glyphPreloadStartTime)}ms`);
+      matrixFont.__preloadedCommonGlyphs = true;
+    }
+    
+    const matrixFontEndTime = performance.now();
+    console.log(`⏰ MatrixChunky8 total: ${Math.round(matrixFontEndTime - matrixFontStartTime)}ms`);
+  } else {
+    console.log("⏰ MatrixChunky8 preload skipped (noauth mode)");
   }
 
   /**
@@ -7342,6 +7463,9 @@ async function load(
       console.log("game!");
       // TODO: ⚠️ Make game template. 25.06.05.09.19
     } else {
+      const moduleAssignStartTime = performance.now();
+      console.log(`⏰ Starting module function assignment at ${moduleAssignStartTime}ms`);
+      
       // 🧩 piece
       // Reset scroll state when a piece loads
       graph.resetScrollState();
@@ -7373,6 +7497,9 @@ async function load(
           page(system.nopaint.buffer).wipe(255, 255, 255, 0);
         };
       }
+
+      const moduleAssignEndTime = performance.now();
+      console.log(`⏰ Module function assignment complete (${Math.round(moduleAssignEndTime - moduleAssignStartTime)}ms)`);
 
       // delete $commonApi.system.name; // No system in use.
     }
@@ -7558,6 +7685,15 @@ async function load(
     },
   });
 
+  // Notify parent window of progress via bios relay
+  const loadCompleteTime = performance.now();
+  console.log("⏰ load() completed at", loadCompleteTime);
+  // console.log("📢 Disk sending boot-log: loaded");
+  send({
+    type: "boot-log",
+    content: `loaded: ${slug || path}`
+  });
+
   return true; // Loaded successfully.
 }
 
@@ -7567,7 +7703,13 @@ const isWorker = typeof importScripts === "function";
 // Start by responding to a load message, then change
 // the message response to makeFrame.
 if (isWorker) {
-  onmessage = makeFrame;
+  onmessage = (e) => {
+    // Intercept the first message to log that we received it
+    if (e.data?.type === "disk:load") {
+      postMessage({ type: "boot-log", content: "worker received load" });
+    }
+    makeFrame(e);
+  };
 } else {
   noWorker.onMessage = (d) => makeFrame({ data: d });
 }
@@ -7578,7 +7720,11 @@ function send(data, shared = []) {
     if (shared[0] === undefined) shared = [];
     postMessage(data, shared);
   } else {
-    noWorker.postMessage({ data });
+    if (noWorker.postMessage) {
+      noWorker.postMessage({ data });
+    } else {
+      console.warn("⚠️ noWorker.postMessage is not defined yet, cannot send:", data);
+    }
   }
 }
 
@@ -7688,6 +7834,8 @@ async function makeFrame({ data: { type, content } }) {
 
     originalHost = content.parsed.host;
     loadAfterPreamble = () => {
+      const loadCallStartTime = performance.now();
+      console.log("⏰ loadAfterPreamble called at", loadCallStartTime);
       loadAfterPreamble = null;
       load(content.parsed); // Load after some of the default frames run.
     };
@@ -7778,6 +7926,17 @@ async function makeFrame({ data: { type, content } }) {
       }
     }
     sessionStarted = true;
+    return;
+  }
+
+  // Handle live reload from kidlisp.com editor
+  if (type === "piece-reload") {
+    console.log("🔄 Reloading piece with new code:", content.source);
+    if ($commonApi.reload) {
+      $commonApi.reload({ source: content.source });
+    } else {
+      console.warn("⚠️ Reload function not ready yet, ignoring reload request");
+    }
     return;
   }
 
@@ -10314,11 +10473,23 @@ async function makeFrame({ data: { type, content } }) {
           store["painting:transform"]?.zoom || sys.nopaint.zoomLevel;
 
         try {
+          const bootStartTime = performance.now();
+          console.log("⏰ About to call boot() at", bootStartTime);
+          
           // Reset zebra cache at the beginning of boot to ensure consistent state
           $api.num.resetZebraCache();
           
+          // Notify boot progress
+          // console.log("📢 Disk sending boot-log: running boot");
+          send({
+            type: "boot-log",
+            content: "running boot"
+          });
+          
           if (system === "nopaint") nopaint_boot({ ...$api, params: $api.params, colon: $api.colon });
           await boot($api);
+          const bootEndTime = performance.now();
+          console.log(`⏰ boot() completed in ${Math.round(bootEndTime - bootStartTime)}ms`);
           booted = true;
           console.log("🥾 ✅ Boot completed, booted =", booted, "pending events:", pendingExportEvents.length);
           
@@ -12500,6 +12671,10 @@ async function makeFrame({ data: { type, content } }) {
       paintCount > 8n &&
       (sessionStarted || PREVIEW_OR_ICON || $commonApi.net.sandboxed)
     ) {
+      if (paintCount === 9n) {
+        const preambleCompleteTime = performance.now();
+        console.log(`⏰ Preamble complete (9 frames painted) at ${preambleCompleteTime}ms`);
+      }
       if (typeof window !== 'undefined' && window.acSPIDER) {
         console.log("🕷️ SPIDER: Calling loadAfterPreamble now!");
       }
