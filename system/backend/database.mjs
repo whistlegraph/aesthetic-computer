@@ -24,11 +24,11 @@ async function connect() {
     {
       name: 'standard',
       options: {
-        serverApi: {
-          version: '1',
-          strict: true,
-          deprecationErrors: true,
-        },
+        // serverApi: {
+        //   version: '1',
+        //   strict: true,
+        //   deprecationErrors: true,
+        // },
         tls: true,
         directConnection: false,
         serverSelectionTimeoutMS: 10000,
@@ -66,6 +66,10 @@ async function connect() {
   for (const strategy of strategies) {
     try {
       console.log(`🔌 Attempting MongoDB connection (${strategy.name})...`);
+      // console.log("Strategy options:", JSON.stringify(strategy.options)); // Do not log sensitive info if any
+      console.log("MongoClient type:", typeof MongoClient);
+      console.log("MongoClient.connect type:", typeof MongoClient.connect);
+      
       client = await MongoClient.connect(mongoDBConnectionString, strategy.options);
       console.log(`✅ MongoDB connected successfully (${strategy.name})`);
       const db = client.db(mongoDBName);

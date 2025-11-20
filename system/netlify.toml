@@ -370,12 +370,12 @@ to = "/kidlisp-com.html"
 status = 200
 [[redirects]]
 from = "https://kidlisp.com"
-to = "https://aesthetic.computer/kidlisp-com"
+to = "https://aesthetic.computer/kidlisp.com/"
 status = 200
 force = true
 [[redirects]]
 from = "https://www.kidlisp.com"
-to = "https://aesthetic.computer/kidlisp-com"
+to = "https://aesthetic.computer/kidlisp.com/"
 status = 200
 force = true
 [[redirects]]
