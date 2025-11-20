@@ -1,5 +1,5 @@
 # Rebuilt to run SmartPy on Python 3.11 and avoid 3.13 BrokenPipe
-FROM fedora:latest
+FROM --platform=linux/arm64 fedora:latest
 
 # Preconfigure DNF to minimize footprint and avoid unnecessary optional deps
 RUN set -eux; \
@@ -43,7 +43,6 @@ RUN dnf update -y && \
       libXi libXdamage libXrandr alsa-lib gtk3 \
       xorg-x11-server-Xvfb psmisc lsof chromium \
       sbcl zeromq-devel redhat-rpm-config \
-      rgbds \
             caddy \
         && dnf clean all && rm -rf /var/cache/dnf
 
@@ -89,11 +88,12 @@ RUN set -eux; \
 # This allows us to use tezos/tezos:master which supports current Ghostnet protocol
 RUN dnf install -y docker && dnf clean all && rm -rf /var/cache/dnf
 
-# Pre-pull Octez Docker image during build (saves time later)
+# Pre-pull Tezos & SmartPy Docker images during build (saves time later)
 # Note: This requires BuildKit and may fail in some build environments
-# If it fails, the image will be pulled on first use instead
+# If it fails, the images will be pulled on first use instead
 RUN --mount=type=cache,target=/var/cache/buildkit \
-    docker pull tezos/tezos:master 2>/dev/null || echo "Octez image will be pulled on first use"
+    docker pull tezos/tezos:master 2>/dev/null || echo "Octez image will be pulled on first use" && \
+    docker pull bakingbad/smartpy-cli:latest 2>/dev/null || echo "SmartPy image will be pulled on first use"
 
 # --- Stripe CLI (architecture-aware) -----------------------------------------
 RUN set -eux; \
