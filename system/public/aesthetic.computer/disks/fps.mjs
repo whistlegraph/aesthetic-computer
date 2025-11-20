@@ -16,10 +16,12 @@ let cube, triangle, filledTriangle, texturedQuad, quadTexture, groundPlane, grou
 let showWireframes = true; // Toggle with 'V' key (start with wireframes ON)
 let graphAPI; // Store graph API reference
 let graphInstance; // Store graph instance for camera access
-let systemInstance; // Store system reference for render stats access
+lance; // Store system reference for render stats access
 let showDebugPanel = false; // Toggle with 'P' key (start OFF)
 let frameTimes = []; // Track frame times for FPS calculation
 let lastFrameTime = performance.now();
+let paintingTextureFetchPromise; // Track ongoing painting texture fetch
+let paintingTextureLoaded = false; // Track if we've loaded the painting
 
 // Function to log detailed scene debug info
 function logSceneDebug() {
@@ -119,7 +121,9 @@ function logSceneDebug() {
 }
 
 
-function boot({ Form, CUBEL, QUAD, penLock, system }) {
+function boot({ Form, CUBEL, QUAD, penLock, system, get }) {
+  console.log("🔍 boot parameters:", { hasForm: !!Form, hasCUBEL: !!CUBEL, hasQUAD: !!QUAD, hasPenLock: !!penLock, hasSystem: !!system, hasGet: !!get });
+  
   penLock();
   
   // Store system and graph instance for camera and stats access
@@ -274,6 +278,12 @@ function boot({ Form, CUBEL, QUAD, penLock, system }) {
     { type: "triangle", positions: filledTriPositions, colors: filledTriColors },
     { pos: [-2, 0.5, -4], rot: [0, 0, 0], scale: 0.7 }
   );
+  
+  // Load the latest painting texture from TV endpoint
+  if (get) {
+    console.log("🎨 Starting to load painting from TV endpoint...");
+    loadLatestPaintingTexture(get);
+  }
 }
 
 function sim() {
@@ -353,6 +363,7 @@ function paint({ wipe, ink, painting, screen, line: drawLine, box: drawBox, clea
   
   // Create checkerboard texture for quad if it doesn't exist
   if (!quadTexture) {
+    // Use a placeholder checkerboard texture while loading
     const texSize = 64;
     quadTexture = painting(texSize, texSize, (api) => {
       const { wipe, ink, box } = api;
@@ -487,6 +498,55 @@ function act({ event: e, penLock, setShowClippedWireframes }) {
   // Log scene debug info with 'L' key
   if (e.is("keyboard:down:l")) {
     logSceneDebug();
+  }
+}
+
+// Load the latest painting from the TV endpoint and apply it to the textured quad
+async function loadLatestPaintingTexture(get) {
+  if (!texturedQuad || !get) {
+    console.warn("Cannot load texture: missing quad or get API");
+    return;
+  }
+
+  try {
+    console.log("🖼️ Fetching from TV endpoint...");
+    const response = await fetch("/api/tv?types=painting&limit=1");
+    if (!response.ok) {
+      console.warn("TV endpoint returned", response.status);
+      return;
+    }
+    
+    const payload = await response.json();
+    console.log("🖼️ TV payload:", payload);
+    const latestPainting = payload?.media?.paintings?.[0];
+    
+    if (!latestPainting) {
+      console.warn("No painting found in TV feed");
+      return;
+    }
+
+    const paintingSlug = latestPainting.slug;
+    const paintingHandle = latestPainting.owner?.handle?.replace(/^@/, "") || "anon";
+    
+    console.log("🖼️ Loading painting:", paintingSlug, "by", paintingHandle);
+    
+    // Use get.painting() like painting.mjs and profile.mjs do
+    const got = await get.painting(paintingSlug).by(paintingHandle);
+    if (!got?.img) {
+      console.warn("Failed to load painting image");
+      return;
+    }
+
+    // Replace the placeholder texture with the actual painting
+    quadTexture = got.img;
+    texturedQuad.texture = got.img;
+    paintingTextureLoaded = true;
+    
+    console.log("🖼️ Successfully loaded painting texture:", got.img.width, "x", got.img.height);
+  } catch (error) {
+    console.error("Failed to load latest painting texture:", error);
+  } finally {
+    paintingTextureFetchPromise = null;
   }
 }
 
