@@ -635,6 +635,14 @@ from = "/shop~25.4.8.21.07"
 to = "https://shop.aesthetic.computer/products/books_the-complete-poems-of-emily-dickinson_25-4-8-21-07"
 status = 301
 [[redirects]]
+from = "/25.11.17.19.03"
+to = "https://shop.aesthetic.computer/products/books_radical-computer-music-by-goodiepal_25-11-17-19-03"
+status = 301
+[[redirects]]
+from = "/shop~25.11.17.19.03"
+to = "https://shop.aesthetic.computer/products/books_radical-computer-music-by-goodiepal_25-11-17-19-03"
+status = 301
+[[redirects]]
 from = "/25.4.8.21.0"
 to = "https://shop.aesthetic.computer/products/books_the-art-of-seeing-by-aldous-huxley_25-4-8-21-0"
 status = 301

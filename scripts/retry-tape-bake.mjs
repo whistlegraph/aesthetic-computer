@@ -161,12 +161,12 @@ if (!code) {
   process.exit(1);
 }
 
-const ART_KEY = process.env.ART_KEY;
-const ART_SECRET = process.env.ART_SECRET;
+const ART_KEY = process.env.ART_KEY || process.env.DO_SPACES_KEY || process.env.SPACES_KEY;
+const ART_SECRET = process.env.ART_SECRET || process.env.DO_SPACES_SECRET || process.env.SPACES_SECRET;
 const OVEN_CALLBACK_SECRET = process.env.OVEN_CALLBACK_SECRET;
 
 if (!ART_KEY || !ART_SECRET) {
-  console.error('❌ Missing required environment variables: ART_KEY and ART_SECRET');
+  console.error('❌ Missing required environment variables: ART_KEY/DO_SPACES_KEY/SPACES_KEY and ART_SECRET/DO_SPACES_SECRET/SPACES_SECRET');
   process.exit(1);
 }
 
