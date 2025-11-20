@@ -4280,7 +4280,7 @@ function paint($) {
             // Ensure width fits both image and metadata
             const minWidthForMetadata = metadataWidth + padding * 2;
             tooltipWidth = Math.max(previewWidth + padding * 2, minWidthForMetadata, 150);
-            tooltipHeight = previewHeight + padding + metadataGap + metadataHeight;
+            tooltipHeight = previewHeight + padding * 2; // Just the image box, metadata goes outside
           } else if (currentTooltipItem.type === 'tape' && currentTooltipItem.audioUrl) {
             // Tape tooltip: show title and audio visualization - fit to available space
             const tapeTitle = currentTooltipItem.title || `Tape !${currentTooltipItem.code}`;
@@ -4290,19 +4290,19 @@ function paint($) {
             const minWidthForMetadata = metadataWidth + padding * 2;
             const minWidthForTitle = tapeTitleWidth + padding * 2;
             tooltipWidth = Math.max(Math.min(150, maxTooltipWidth), minWidthForMetadata, minWidthForTitle);
-            tooltipHeight = 8 + padding + visualizerHeight + metadataGap + metadataHeight; // Title + viz + metadata
+            tooltipHeight = 8 + padding + visualizerHeight + padding; // Title + viz only, metadata goes outside
           } else if (currentTooltipItem.type === 'tape' && (currentTooltipItem.isLoading || currentTooltipItem.framesLoaded)) {
             // Tape tooltip: show title and either loading animation or frames - fit to available space
             const tapeTitle = currentTooltipItem.title || `Tape !${currentTooltipItem.code}`;
             const tapeTitleWidth = $.text.box(tapeTitle, undefined, undefined, undefined, undefined, "MatrixChunky8").box.width;
-            const progressBarHeight = 1; // 1px progress bar
-            const timeDisplayHeight = 8; // Height for time text
-            const visualizerHeight = Math.min(120, maxContentHeight - progressBarHeight - timeDisplayHeight); // Fit frames/cassette
+            const progressBarHeight = 1; // 1px progress bar (rendered outside box)
+            const timeDisplayHeight = 8; // Height for time text (rendered outside box)
+            const visualizerHeight = Math.min(120, maxContentHeight); // Full available space for frames/cassette
             
             const minWidthForMetadata = metadataWidth + padding * 2;
             const minWidthForTitle = tapeTitleWidth + padding * 2;
             tooltipWidth = Math.max(Math.min(150, maxTooltipWidth), minWidthForMetadata, minWidthForTitle);
-            tooltipHeight = padding + visualizerHeight + progressBarHeight + timeDisplayHeight + metadataGap + metadataHeight; // viz + progress + time + metadata
+            tooltipHeight = padding + visualizerHeight + padding; // Just the visualizer box, progress/time/metadata go outside
           } else {
             return; // No valid content to show
           }
@@ -4556,18 +4556,18 @@ function paint($) {
                 });
               }
               
-              // Draw progress bar at bottom of visualizer (1px black and red)
-              const progressBarY = vizY + vizHeight;
+              // Draw progress bar OUTSIDE the box, below it (1px black and red)
+              const progressBarY = tooltipY + tooltipHeight + 2; // 2px gap below box
               const totalFrames = currentTooltipItem.frames.length;
               const currentFrame = frameIndex;
               const progress = currentFrame / totalFrames;
-              const progressWidth = Math.floor(vizWidth * progress);
+              const progressWidth = Math.floor(tooltipWidth * progress);
               
               // Black background for unfilled portion
-              $.ink(0, 0, 0, 255).line(tooltipX + padding, progressBarY, tooltipX + padding + vizWidth - 1, progressBarY);
+              $.ink(0, 0, 0, 255).line(tooltipX, progressBarY, tooltipX + tooltipWidth - 1, progressBarY);
               // Red foreground for filled portion
               if (progressWidth > 0) {
-                $.ink(255, 0, 0, 255).line(tooltipX + padding, progressBarY, tooltipX + padding + progressWidth - 1, progressBarY);
+                $.ink(255, 0, 0, 255).line(tooltipX, progressBarY, tooltipX + progressWidth - 1, progressBarY);
               }
               
               // Draw time display below progress bar
@@ -4653,30 +4653,23 @@ function paint($) {
             $.needsPaint(); // Keep animating
           }
           
-          // Render metadata (timestamp and @author) positioned right after content with small gap
-          // For KidLisp: after the code lines + metadataGap
-          // For Painting: after the image + metadataGap
-          // For Tape: after the visualizer + progress bar + time + metadataGap
+          // Render metadata (timestamp and @author) OUTSIDE the box, below it
+          // For KidLisp: after the box + gap
+          // For Painting: after the box + gap
+          // For Tape with frames: after the box + progress bar + time + gap
+          // For Tape with audio or loading: after the box + gap
           let metadataY;
           if (currentTooltipItem.type === 'kidlisp' && currentTooltipItem.source) {
-            const lines = currentTooltipItem.source.split('\n').slice(0, 5);
-            const lineHeight = 10;
-            metadataY = tooltipY + padding + (lines.length * lineHeight) + metadataGap;
+            metadataY = tooltipY + tooltipHeight + metadataGap;
           } else if (currentTooltipItem.type === 'painting' && currentTooltipItem.image) {
-            const img = currentTooltipItem.image;
-            const maxPreviewWidth = 200;
-            const maxPreviewHeight = 150;
-            let previewHeight = img.height;
-            if (img.width > maxPreviewWidth || img.height > maxPreviewHeight) {
-              const scale = Math.min(maxPreviewWidth / img.width, maxPreviewHeight / img.height);
-              previewHeight = Math.floor(img.height * scale);
-            }
-            metadataY = tooltipY + padding + previewHeight + metadataGap;
+            metadataY = tooltipY + tooltipHeight + metadataGap;
           } else if (currentTooltipItem.type === 'tape' && (currentTooltipItem.isLoading || currentTooltipItem.framesLoaded)) {
-            const visualizerHeight = 60;
+            // For tape with frames: metadata goes after progress bar (2px gap) + 1px bar + time (8px) + gap
             const progressBarHeight = 1;
             const timeDisplayHeight = 8;
-            metadataY = tooltipY + padding + visualizerHeight + progressBarHeight + timeDisplayHeight + metadataGap;
+            metadataY = tooltipY + tooltipHeight + 2 + progressBarHeight + 2 + timeDisplayHeight + metadataGap;
+          } else if (currentTooltipItem.type === 'tape' && currentTooltipItem.audioUrl) {
+            metadataY = tooltipY + tooltipHeight + metadataGap;
           }
           
           // Render metadata in dimmer color using MatrixChunky8
