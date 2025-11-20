@@ -2467,36 +2467,36 @@ class MediaPreviewBox {
     const KEN_BURNS_CYCLE_MS = 8000;
     const burnProgress = ((nowTime / KEN_BURNS_CYCLE_MS) + burnSeed) % 1;
     
-    // Scale image to ensure it's at least as large as the preview box
-    const scale = Math.max(this.width / img.width, this.height / img.height, 1);
-    const scaledW = Math.floor(img.width * scale);
-    const scaledH = Math.floor(img.height * scale);
+    // Calculate how much to scale the image to cover the box (cover, not contain)
+    const scaleX = this.width / img.width;
+    const scaleY = this.height / img.height;
+    const scale = Math.max(scaleX, scaleY); // Cover - may crop
     
-    // Calculate crop region for Ken Burns within the scaled image
-    const cropW = this.width;
-    const cropH = this.height;
-    const maxCropX = Math.max(0, scaledW - cropW);
-    const maxCropY = Math.max(0, scaledH - cropH);
+    // Scaled dimensions
+    const scaledW = img.width * scale;
+    const scaledH = img.height * scale;
     
+    // Maximum pan range in scaled space
+    const maxPanX = Math.max(0, scaledW - this.width);
+    const maxPanY = Math.max(0, scaledH - this.height);
+    
+    // Ken Burns pan position (0-1)
     const panX = (Math.cos((burnProgress + 0.25) * Math.PI * 2) + 1) / 2;
     const panY = (Math.sin((burnProgress + 0.65) * Math.PI * 2) + 1) / 2;
     
-    const cropX = Math.floor(maxCropX * panX);
-    const cropY = Math.floor(maxCropY * panY);
+    // Offset in scaled space
+    const offsetX = maxPanX * panX;
+    const offsetY = maxPanY * panY;
     
-    // Map crop coordinates back to original image space
-    const imgCropX = Math.floor(cropX / scale);
-    const imgCropY = Math.floor(cropY / scale);
-    const imgCropW = Math.floor(cropW / scale);
-    const imgCropH = Math.floor(cropH / scale);
+    // Draw scaled image at negative offset to create crop effect
+    const drawX = x - offsetX;
+    const drawY = y - offsetY;
     
-    // Paste with Ken Burns crop, scaling to fill the box
     const imageAlpha = Math.floor(255 * fadeIn);
     $.ink(255, 255, 255, imageAlpha);
-    $.paste(img, x, y, {
-      crop: { x: imgCropX, y: imgCropY, w: imgCropW, h: imgCropH },
-      width: this.width,
-      height: this.height
+    $.paste(img, drawX, drawY, {
+      width: Math.ceil(scaledW),
+      height: Math.ceil(scaledH)
     });
     
     $.needsPaint(); // Keep animating
@@ -2515,34 +2515,34 @@ class MediaPreviewBox {
       const KEN_BURNS_CYCLE_MS = 8000;
       const burnProgress = ((nowTime / KEN_BURNS_CYCLE_MS) + burnSeed) % 1;
       
-      // Scale frame to ensure it's at least as large as the preview box
-      const scale = Math.max(this.width / frame.width, this.height / frame.height, 1);
-      const scaledW = Math.floor(frame.width * scale);
-      const scaledH = Math.floor(frame.height * scale);
+      // Calculate how much to scale the frame to cover the box
+      const scaleX = this.width / frame.width;
+      const scaleY = this.height / frame.height;
+      const scale = Math.max(scaleX, scaleY); // Cover - may crop
       
-      // Calculate crop region for Ken Burns within the scaled frame
-      const cropW = this.width;
-      const cropH = this.height;
-      const maxCropX = Math.max(0, scaledW - cropW);
-      const maxCropY = Math.max(0, scaledH - cropH);
+      // Scaled dimensions
+      const scaledW = frame.width * scale;
+      const scaledH = frame.height * scale;
       
+      // Maximum pan range in scaled space
+      const maxPanX = Math.max(0, scaledW - this.width);
+      const maxPanY = Math.max(0, scaledH - this.height);
+      
+      // Ken Burns pan position (0-1)
       const panX = (Math.cos((burnProgress + 0.25) * Math.PI * 2) + 1) / 2;
       const panY = (Math.sin((burnProgress + 0.65) * Math.PI * 2) + 1) / 2;
       
-      const cropX = Math.floor(maxCropX * panX);
-      const cropY = Math.floor(maxCropY * panY);
+      // Offset in scaled space
+      const offsetX = maxPanX * panX;
+      const offsetY = maxPanY * panY;
       
-      // Map crop coordinates back to original frame space
-      const frameCropX = Math.floor(cropX / scale);
-      const frameCropY = Math.floor(cropY / scale);
-      const frameCropW = Math.floor(cropW / scale);
-      const frameCropH = Math.floor(cropH / scale);
+      // Draw scaled frame at negative offset to create crop effect
+      const drawX = x - offsetX;
+      const drawY = y - offsetY;
       
-      // Paste with Ken Burns crop, scaling to fill the box
-      $.paste(frame, x, y, {
-        crop: { x: frameCropX, y: frameCropY, w: frameCropW, h: frameCropH },
-        width: this.width,
-        height: this.height
+      $.paste(frame, drawX, drawY, {
+        width: Math.ceil(scaledW),
+        height: Math.ceil(scaledH)
       });
     }
     
@@ -4544,9 +4544,20 @@ function paint($) {
           let tooltipX = baseTooltipX + tooltipDriftX;
           let tooltipY = baseTooltipY + tooltipDriftY;
           
-          // Clamp tooltip to stay on screen
+          // Calculate total height including metadata/progress/time
+          const metadataHeight = 10; // Height of metadata text
+          let totalTooltipHeight = tooltipHeight + metadataGap + metadataHeight;
+          
+          // For tapes with frames, add progress bar and time
+          if (currentTooltipItem.type === 'tape' && (currentTooltipItem.isLoading || currentTooltipItem.framesLoaded)) {
+            const progressBarHeight = 1;
+            const timeDisplayHeight = 8;
+            totalTooltipHeight = tooltipHeight + 2 + progressBarHeight + 2 + timeDisplayHeight + metadataGap + metadataHeight;
+          }
+          
+          // Clamp tooltip to stay on screen (including metadata below)
           tooltipX = Math.max(4, Math.min(tooltipX, screen.width - tooltipWidth - 4));
-          tooltipY = Math.max(4, Math.min(tooltipY, screen.height - tooltipHeight - 4));
+          tooltipY = Math.max(4, Math.min(tooltipY, screen.height - totalTooltipHeight - 4));
           
           // Draw connector line from highlighted item box to tooltip (if item is visible)
           if (highlightedItemX >= 0 && highlightedItemWidth > 0) {
