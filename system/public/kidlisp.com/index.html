@@ -114,35 +114,96 @@
       justify-content: space-between; /* Changed to space-between for title */
       align-items: center; /* Changed to center */
       color: var(--editor-text); /* Ensure text color */
+      height: 36px; /* Fixed height for consistency */
+      box-sizing: border-box;
     }
 
     #send-button {
-      padding: 4px 12px;
-      background: white;
-      color: black;
-      border: 1px solid var(--border-color);
+      position: absolute;
+      bottom: 16px;
+      right: 16px;
+      z-index: 10;
+      padding: 6px 16px;
+      background: rgb(205, 92, 155);
+      color: white;
+      border: none;
       border-radius: 4px;
       font-family: monospace;
-      font-size: 11px;
+      font-size: 12px;
+      font-weight: bold;
       cursor: pointer;
       transition: all 0.2s;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
     }
 
     #send-button:hover {
-      background: rgb(205, 92, 155);
-      color: white;
-      border-color: rgb(205, 92, 155);
+      background: rgb(225, 112, 175);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
     }
 
     #kidlisp-editor {
       flex: 1;
       overflow: hidden;
+      position: relative; /* For absolute positioning of button */
     }
 
     #preview-iframe {
       flex: 1;
       border: none;
       background: #000;
+    }
+
+    /* Boot screen / loading state */
+    .boot-screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: #000;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      transition: opacity 0.5s;
+    }
+
+    .boot-screen.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .test-pattern {
+      width: 100%;
+      max-width: 640px;
+      height: 60px;
+      display: flex;
+      margin-bottom: 24px;
+    }
+
+    .color-bar {
+      flex: 1;
+      height: 100%;
+    }
+
+    .boot-text {
+      color: #fff;
+      font-family: monospace;
+      font-size: 14px;
+      text-align: center;
+      line-height: 1.6;
+      opacity: 0.8;
+    }
+
+    .boot-text .blink {
+      animation: blink 1s infinite;
+    }
+
+    @keyframes blink {
+      0%, 49% { opacity: 1; }
+      50%, 100% { opacity: 0; }
     }
 
     .docs-panel {
@@ -213,13 +274,13 @@
     }
 
     .clear-console {
-      padding: 4px 12px;
+      padding: 2px 8px;
       background: transparent;
       color: var(--text-tertiary);
       border: 1px solid var(--border-color);
       border-radius: 4px;
       font-family: monospace;
-      font-size: 11px;
+      font-size: 10px;
       cursor: pointer;
       margin-left: auto;
     }
@@ -230,15 +291,39 @@
     }
 
     .docs-header {
-      padding: 8px 12px;
+      padding: 0; /* Remove padding to allow tabs to fill height */
       background: var(--bg-secondary);
       border-bottom: 1px solid var(--border-color);
       display: flex;
-      justify-content: space-between;
-      align-items: center;
+      align-items: flex-end; /* Align tabs to bottom */
       font-size: 13px;
       font-weight: bold;
       color: var(--text-primary);
+      height: 36px; /* Fixed height for consistency */
+      box-sizing: border-box;
+    }
+
+    .tab {
+      padding: 8px 16px;
+      cursor: pointer;
+      border-right: 1px solid var(--border-color);
+      height: 100%;
+      display: flex;
+      align-items: center;
+      background: var(--bg-secondary);
+      color: var(--text-tertiary);
+      transition: all 0.2s;
+    }
+
+    .tab:hover {
+      background: var(--bg-primary);
+      color: var(--text-primary);
+    }
+
+    .tab.active {
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      border-bottom: 2px solid rgb(205, 92, 155); /* Active indicator */
     }
 
     .docs-content {
@@ -249,6 +334,37 @@
       line-height: 1.5;
       background: var(--bg-primary);
       color: var(--text-primary);
+    }
+
+    .docs-content.hidden {
+      display: none;
+    }
+
+    .example-item {
+      padding: 8px;
+      border-bottom: 1px solid var(--border-subtle);
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .example-item:hover {
+      background: var(--bg-secondary);
+    }
+
+    .example-code {
+      font-family: monospace;
+      color: var(--code-text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 70%;
+    }
+
+    .example-hits {
+      font-size: 11px;
+      color: var(--text-tertiary);
     }
 
     .docs-content h3 {
@@ -384,20 +500,22 @@
       background-color: rgb(205, 92, 155);
     }
 
-    .gutter.gutter-horizontal {
+    /* Only show arrows on the top split (between editor and preview) */
+    #top-split > .gutter.gutter-horizontal {
       cursor: col-resize;
-      background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="6" height="10" viewBox="0 0 6 10"><path d="M1 1 L5 5 L1 9" fill="none" stroke="%23888" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>');
+      background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="4" height="8" viewBox="0 0 4 8"><path d="M1 1 L3 4 L1 7" fill="none" stroke="%23888" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/></svg>');
       background-repeat: repeat-y;
       background-position: center;
-      background-size: 12px 20px;
+      background-size: 8px 12px;
+    }
+
+    /* Default cursors for other gutters */
+    .gutter.gutter-horizontal {
+      cursor: col-resize;
     }
 
     .gutter.gutter-vertical {
       cursor: row-resize;
-      background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="10" height="6" viewBox="0 0 10 6"><path d="M1 1 L5 5 L9 1" fill="none" stroke="%23888" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>');
-      background-repeat: repeat-x;
-      background-position: center;
-      background-size: 20px 12px;
     }
   </style>
 </head>
@@ -412,26 +530,44 @@
     <div class="top-section" id="top-split">
       <div class="editor-panel" id="editor-panel">
         <div class="editor-header">
-          <span style="font-weight: bold; font-size: 13px;">KidLisp</span>
-          <button id="send-button">Enter</button>
+          <span style="font-weight: bold; font-size: 13px;">Program</span>
         </div>
         <div id="kidlisp-editor"></div>
+        <button id="send-button">Enter</button>
       </div>
       
       <div class="preview-panel" id="preview-panel" style="display: flex; flex-direction: column; overflow: hidden;">
         <div class="docs-header" style="background: var(--editor-bg); color: var(--editor-text); border-bottom: 1px solid var(--editor-border);">
           <span>Aesthetic Computer</span>
         </div>
-        <iframe id="preview-iframe" frameborder="0" style="flex: 1; width: 100%; height: 100%;"></iframe>
+        <div style="position: relative; flex: 1;">
+          <div class="boot-screen" id="boot-screen">
+            <div class="test-pattern">
+              <div class="color-bar" style="background: #ffffff;"></div>
+              <div class="color-bar" style="background: #ffff00;"></div>
+              <div class="color-bar" style="background: #00ffff;"></div>
+              <div class="color-bar" style="background: #00ff00;"></div>
+              <div class="color-bar" style="background: #ff00ff;"></div>
+              <div class="color-bar" style="background: #ff0000;"></div>
+              <div class="color-bar" style="background: #0000ff;"></div>
+              <div class="color-bar" style="background: #000000;"></div>
+            </div>
+            <div class="boot-text">
+              loading aesthetic.computer<span class="blink">_</span>
+            </div>
+          </div>
+          <iframe id="preview-iframe" frameborder="0" style="flex: 1; width: 100%; height: 100%;"></iframe>
+        </div>
       </div>
     </div>
     
     <div class="docs-panel" id="bottom-split">
       <div class="reference-section" id="reference-panel">
         <div class="docs-header">
-          <span>Reference</span>
+          <div class="tab active" data-tab="reference">Reference</div>
+          <div class="tab" data-tab="examples">Examples</div>
         </div>
-        <div class="docs-content" id="docs-content">
+        <div class="docs-content" id="reference-content">
         <div class="function-category">
           <div class="function-grid">
             <div class="function-item" data-word="wipe">wipe</div>
@@ -458,10 +594,13 @@
           </div>
         </div>
         </div>
+        <div class="docs-content hidden" id="examples-content">
+          <div id="examples-list">Loading examples...</div>
+        </div>
       </div>
       
       <div class="console-section" id="console-panel">
-        <div class="docs-header">
+        <div class="docs-header" style="padding: 0 12px; align-items: center;">
           <span>Console</span>
           <button class="clear-console" id="clear-console">clear</button>
         </div>
@@ -508,6 +647,54 @@
     const editorContainer = document.getElementById('kidlisp-editor');
     const sendButton = document.getElementById('send-button');
     const previewIframe = document.getElementById('preview-iframe');
+    const bootScreen = document.getElementById('boot-screen');
+
+    // Listen for boot progress messages
+    let bootComplete = false;
+    let fallbackTimeout = null;
+
+    window.addEventListener('message', (event) => {
+      if (event.data?.type === 'boot-log') {
+        // If we receive a log, cancel the fallback timeout immediately
+        if (fallbackTimeout) {
+          console.log("Log received, cancelling fallback hide.");
+          clearTimeout(fallbackTimeout);
+          fallbackTimeout = null;
+        }
+
+        const bootText = bootScreen.querySelector('.boot-text');
+        if (bootText) {
+          bootText.innerHTML = `${event.data.message}<span class="blink">_</span>`;
+        }
+      } else if (event.data?.type === 'ready') {
+        bootComplete = true;
+        if (fallbackTimeout) {
+          clearTimeout(fallbackTimeout);
+          fallbackTimeout = null;
+        }
+        // Give a moment to see the final message before hiding
+        setTimeout(() => {
+          bootScreen.classList.add('hidden');
+        }, 800);
+      }
+    });
+
+    // Fallback: Hide boot screen when iframe loads (if no messages received)
+    previewIframe.addEventListener('load', () => {
+      // Check if the text has changed from the default
+      const currentText = bootScreen.querySelector('.boot-text').textContent;
+      const hasReceivedLogs = !currentText.includes('loading aesthetic.computer');
+      
+      console.log("Iframe loaded. Boot status:", { bootComplete, hasReceivedLogs, currentText });
+
+      if (!bootComplete && !hasReceivedLogs) {
+        console.log("⚠️ No boot logs received yet, scheduling fallback hide...");
+        fallbackTimeout = setTimeout(() => {
+          console.log("Executing fallback hide.");
+          bootScreen.classList.add('hidden');
+        }, 1500);
+      }
+    });
 
     // Create KidLisp instance for syntax highlighting
     const kidlisp = new KidLisp();
@@ -801,23 +988,105 @@
       });
     });
 
+    // Tab functionality
+    const tabs = document.querySelectorAll('.tab');
+    const contents = {
+      reference: document.getElementById('reference-content'),
+      examples: document.getElementById('examples-content')
+    };
+    const examplesList = document.getElementById('examples-list');
+    let examplesLoaded = false;
+
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        // Update tabs
+        tabs.forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+
+        // Update content
+        const target = tab.getAttribute('data-tab');
+        Object.keys(contents).forEach(key => {
+          if (key === target) {
+            contents[key].classList.remove('hidden');
+          } else {
+            contents[key].classList.add('hidden');
+          }
+        });
+
+        // Load examples if needed
+        if (target === 'examples' && !examplesLoaded) {
+          loadExamples();
+        }
+      });
+    });
+
+    async function loadExamples() {
+      try {
+        const response = await fetch(`${aestheticUrl}/api/tv?types=kidlisp&sort=hits&limit=10`);
+        const data = await response.json();
+        
+        if (data.media && data.media.kidlisp) {
+          examplesList.innerHTML = '';
+          data.media.kidlisp.forEach(item => {
+            const el = document.createElement('div');
+            el.className = 'example-item';
+            el.innerHTML = `
+              <div class="example-code">${item.code}</div>
+              <div class="example-hits">${item.hits} hits</div>
+            `;
+            el.addEventListener('click', () => {
+              if (editor) {
+                editor.setValue(item.code);
+                updatePreview();
+              }
+            });
+            examplesList.appendChild(el);
+          });
+          examplesLoaded = true;
+        } else {
+          examplesList.textContent = 'No examples found.';
+        }
+      } catch (e) {
+        console.error('Failed to load examples:', e);
+        examplesList.textContent = 'Error loading examples.';
+      }
+    }
+
     // Simple reload on manual file changes only
     let lastModified = null;
     
-    setInterval(() => {
-      fetch(window.location.href, { method: 'HEAD', cache: 'no-cache' })
-        .then(response => {
-          const modified = response.headers.get('last-modified');
-          if (lastModified === null) {
-            lastModified = modified;
-          } else if (modified && modified !== lastModified) {
-            console.log('📝 File changed, reloading...');
-            lastModified = modified;
-            window.location.reload();
-          }
-        })
-        .catch(() => {});
-    }, 2000);
+    // WebSocket-based reload for development
+    let reconnectInterval = false;
+    function connect() {
+      clearInterval(reconnectInterval);
+      let ws;
+      try {
+        let connectionUrl = "wss://localhost:8889";
+        if (window.location.host === "local.aesthetic.computer") {
+          connectionUrl = "wss://session.local.aesthetic.computer";
+        }
+        ws = new WebSocket(connectionUrl);
+      } catch {
+        console.warn("🧦 Connection failed.");
+        return;
+      }
+
+      ws.onmessage = (e) => {
+        const msg = JSON.parse(e.data);
+        if (msg.type === "reload" && msg.content.piece === "*refresh*") {
+          setTimeout(() => {
+            console.log("🧦 Reloading...");
+            const url = new URL(window.location.href);
+            window.location.href = url.toString();
+          }, 150); // Wait a sec for backend functions to reload.
+        }
+      };
+
+      ws.onclose = (e) => {
+        reconnectInterval = setInterval(connect, 1000);
+      };
+    }
+    connect();
   </script>
 </body>
 
