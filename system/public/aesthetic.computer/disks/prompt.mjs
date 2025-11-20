@@ -4427,91 +4427,52 @@ function paint($) {
               textAlpha
             );
           } else if (currentTooltipItem.type === 'painting' && currentTooltipItem.image) {
-            // Render painting image preview - use calculated responsive dimensions
+            // Render painting image preview with Ken Burns effect (always cropped and animated)
             const img = currentTooltipItem.image;
             
             // Recalculate preview dimensions (same as tooltip sizing above)
             const maxPreviewWidth = Math.min(maxTooltipWidth - padding * 2, 300);
             const maxPreviewHeight = Math.min(maxContentHeight, 200);
             
-            // Calculate aspect ratios
-            const imgAspect = img.width / img.height;
-            const boxAspect = maxPreviewWidth / maxPreviewHeight;
+            // Always use full box size for Ken Burns
+            const previewWidth = maxPreviewWidth;
+            const previewHeight = maxPreviewHeight;
+            const drawX = tooltipX + padding;
+            const drawY = tooltipY + padding;
             
-            let previewWidth, previewHeight;
-            let drawX, drawY;
-            let useKenBurns = false;
+            // Ken Burns effect: pan a crop window that fills the preview box
+            const nowTime = performance.now();
+            const burnSeed = currentTooltipItem.kenBurnsSeed ?? Math.random();
+            currentTooltipItem.kenBurnsSeed = burnSeed;
+            const burnProgress = ((nowTime / KEN_BURNS_CYCLE_MS) + burnSeed) % 1;
             
-            // If image is larger than box, use Ken Burns cropping
-            if (img.width > maxPreviewWidth || img.height > maxPreviewHeight) {
-              // Image is larger - use Ken Burns with crop
-              previewWidth = maxPreviewWidth;
-              previewHeight = maxPreviewHeight;
-              drawX = tooltipX + padding;
-              drawY = tooltipY + padding;
-              useKenBurns = true;
-            } else {
-              // Image is smaller - letterbox/pillarbox to fit
-              if (imgAspect > boxAspect) {
-                // Image is wider - fit to width, letterbox top/bottom
-                previewWidth = Math.min(img.width, maxPreviewWidth);
-                previewHeight = Math.floor(previewWidth / imgAspect);
-              } else {
-                // Image is taller - fit to height, pillarbox left/right
-                previewHeight = Math.min(img.height, maxPreviewHeight);
-                previewWidth = Math.floor(previewHeight * imgAspect);
-              }
-              // Center the image in the available space
-              drawX = tooltipX + padding + Math.floor((maxPreviewWidth - previewWidth) / 2);
-              drawY = tooltipY + padding + Math.floor((maxPreviewHeight - previewHeight) / 2);
-            }
+            // Crop size matches preview box (1:1 pixels, no scaling)
+            const cropW = previewWidth;
+            const cropH = previewHeight;
             
-            // Paste the image
+            // Pan around within the available crop space
+            const maxCropX = Math.max(0, img.width - cropW);
+            const maxCropY = Math.max(0, img.height - cropH);
+            
+            const panX = (Math.cos((burnProgress + 0.25) * Math.PI * 2) + 1) / 2; // 0-1
+            const panY = (Math.sin((burnProgress + 0.65) * Math.PI * 2) + 1) / 2; // 0-1
+            
+            const cropX = Math.floor(maxCropX * panX);
+            const cropY = Math.floor(maxCropY * panY);
+            
+            // Paste the image with Ken Burns crop
             const imageAlpha = Math.floor(255 * tooltipFadeIn);
             $.ink(255, 255, 255, imageAlpha);
+            $.paste(
+              img,
+              drawX,
+              drawY,
+              {
+                crop: { x: cropX, y: cropY, w: cropW, h: cropH }
+              }
+            );
             
-            if (useKenBurns) {
-              // Ken Burns effect: pan a crop window that fills the preview box
-              const nowTime = performance.now();
-              const burnSeed = currentTooltipItem.kenBurnsSeed ?? Math.random();
-              currentTooltipItem.kenBurnsSeed = burnSeed;
-              const burnProgress = ((nowTime / KEN_BURNS_CYCLE_MS) + burnSeed) % 1;
-              
-              // Crop size matches preview box (1:1 pixels, no scaling)
-              const cropW = previewWidth;
-              const cropH = previewHeight;
-              
-              // Pan around within the available crop space
-              const maxCropX = Math.max(0, img.width - cropW);
-              const maxCropY = Math.max(0, img.height - cropH);
-              
-              const panX = (Math.cos((burnProgress + 0.25) * Math.PI * 2) + 1) / 2; // 0-1
-              const panY = (Math.sin((burnProgress + 0.65) * Math.PI * 2) + 1) / 2; // 0-1
-              
-              const cropX = Math.floor(maxCropX * panX);
-              const cropY = Math.floor(maxCropY * panY);
-              
-              $.paste(
-                img,
-                drawX,
-                drawY,
-                {
-                  crop: { x: cropX, y: cropY, w: cropW, h: cropH }
-                }
-              );
-              
-              $.needsPaint(); // Keep animating Ken Burns effect
-            } else {
-              // Simple scaled paste for smaller images
-              $.paste(
-                img,
-                drawX,
-                drawY,
-                {
-                  width: previewWidth,
-                  height: previewHeight
-                }
-              );
+            $.needsPaint(); // Keep animating Ken Burns effect
           } else if (currentTooltipItem.type === 'tape' && (currentTooltipItem.isLoading || currentTooltipItem.framesLoaded)) {
             // Render tape tooltip: just show frames when loaded, cassette animation while loading
             console.log(`🎬 TAPE RENDER: !${currentTooltipItem.code} isLoading=${currentTooltipItem.isLoading} framesLoaded=${currentTooltipItem.framesLoaded} frames=${currentTooltipItem.frames?.length || 0}`);
