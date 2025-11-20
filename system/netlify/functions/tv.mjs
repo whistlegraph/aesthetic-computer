@@ -70,7 +70,14 @@ async function fetchPaintings(db, { limit }) {
   return records.map((record) => {
     const handle = record.handle ? `@${record.handle}` : null;
     const ownerSegment = handle ?? record.user;
-    const mediaPath = `/media/${ownerSegment}/painting/${record.slug}.png`;
+    
+    let mediaPath;
+    if (ownerSegment) {
+      mediaPath = `/media/${ownerSegment}/painting/${record.slug}.png`;
+    } else {
+      // Anonymous painting path
+      mediaPath = `/media/paintings/${record.code}.png`;
+    }
 
     // Prefer ATProto blob URL if available
     let thumbnailUrl = `${mediaOrigin}${mediaPath}`;
@@ -146,6 +153,7 @@ async function fetchKidlisp(db, { limit }) {
       id: record._id?.toString?.() ?? `${record.user}:${record.code}`,
       type: "kidlisp",
       code: record.code,
+      source: record.source, // Include source for tooltip previews
       owner: {
         handle,
         userId: record.user,
@@ -226,6 +234,7 @@ export async function handler(event) {
   const params = event.queryStringParameters || {};
   const requestedTypes = parseMediaTypes(params.types);
   const limit = parseLimit(params.limit);
+  const filter = params.filter?.toLowerCase() || "recent"; // "recent" or "sprinkle"
 
   const media = {};
   const pendingTypes = [];
@@ -238,16 +247,26 @@ export async function handler(event) {
     database = await connect();
     console.log("📺 Database connected successfully");
 
-    for (const type of requestedTypes) {
+    // For "sprinkle" filter, fetch ALL media types mixed with frecency
+    // For other filters, fetch only requested types
+    const typesToFetch = filter === "sprinkle" 
+      ? ["painting", "kidlisp", "tape"] 
+      : requestedTypes;
+
+    // Fetch more items per type to ensure good mixing (3x the limit per type)
+    // This ensures we have enough items from each type to create a well-mixed feed
+    const fetchLimit = limit * 3;
+
+    for (const type of typesToFetch) {
       console.log(`📺 Fetching ${type}...`);
       if (type === "painting") {
-        media.paintings = await fetchPaintings(database.db, { limit });
+        media.paintings = await fetchPaintings(database.db, { limit: fetchLimit });
         console.log(`📺 Fetched ${media.paintings.length} paintings`);
       } else if (type === "kidlisp") {
-        media.kidlisp = await fetchKidlisp(database.db, { limit });
+        media.kidlisp = await fetchKidlisp(database.db, { limit: fetchLimit });
         console.log(`📺 Fetched ${media.kidlisp.length} kidlisp items`);
       } else if (type === "tape") {
-        media.tapes = await fetchTapes(database.db, { limit });
+        media.tapes = await fetchTapes(database.db, { limit: fetchLimit });
         console.log(`📺 Fetched ${media.tapes.length} tapes`);
       } else if (["mood", "scream", "chat"].includes(type)) {
         // Reserve keys for upcoming media types so clients can experiment early.
@@ -262,16 +281,154 @@ export async function handler(event) {
       Object.entries(media).map(([key, value]) => [key, Array.isArray(value) ? value.length : 0]),
     );
 
+    // Interweave all media types by timestamp for mixed feed
+    const allItems = [];
+    if (media.kidlisp) allItems.push(...media.kidlisp);
+    if (media.paintings) allItems.push(...media.paintings);
+    if (media.tapes) allItems.push(...media.tapes);
+    
+    // Apply sorting based on filter type
+    if (filter === "sprinkle") {
+      // Sprinkle algorithm: ensures even distribution across all media types
+      // regardless of recency or popularity, while still considering frecency
+      
+      // Separate items by type
+      const kidlispItems = allItems.filter(i => i.type === 'kidlisp');
+      const paintingItems = allItems.filter(i => i.type === 'painting');
+      const tapeItems = allItems.filter(i => i.type === 'tape');
+      
+      // Apply frecency scoring to each type's items
+      const now = Date.now();
+      const maxAge = 365 * 24 * 60 * 60 * 1000; // 1 year in milliseconds
+      
+      const scoreFrecency = (items) => {
+        items.forEach(item => {
+          // Recency score: newer = higher (0-1 scale)
+          const age = now - new Date(item.when || 0).getTime();
+          const recencyScore = Math.max(0, 1 - (age / maxAge));
+          
+          // Frequency score: more hits = higher (0-1 scale, capped at 1000 hits)
+          const hits = item.hits || 0;
+          const frequencyScore = Math.min(hits / 1000, 1);
+          
+          // Combined frecency score with heavier weight on recency
+          item.frecencyScore = (frequencyScore * 0.3) + (recencyScore * 0.7);
+        });
+        
+        // Sort by frecency within type
+        items.sort((a, b) => (b.frecencyScore || 0) - (a.frecencyScore || 0));
+      };
+      
+      scoreFrecency(kidlispItems);
+      scoreFrecency(paintingItems);
+      scoreFrecency(tapeItems);
+      
+      // Interweave items with natural variation (not perfectly round-robin)
+      // This creates a more organic mix that feels less mechanical
+      const sprinkledFeed = [];
+      const pools = [
+        { items: paintingItems, name: 'painting' },
+        { items: tapeItems, name: 'tape' },
+        { items: kidlispItems, name: 'kidlisp' }
+      ].filter(pool => pool.items.length > 0); // Only use pools that have items
+      
+      if (pools.length === 0) {
+        // No items at all
+        console.log(`📺 Sprinkle feed empty - no items available`);
+      } else {
+        let poolIndices = pools.map(() => 0); // Track position in each pool
+        let lastType = null; // Track last type added
+        let sameTypeCount = 0; // Allow occasional repeats
+        
+        while (sprinkledFeed.length < limit) {
+          // Find pools that still have items
+          const availablePools = pools
+            .map((pool, idx) => ({ pool, idx }))
+            .filter(({ pool, idx }) => poolIndices[idx] < pool.items.length);
+          
+          if (availablePools.length === 0) break; // All pools exhausted
+          
+          // Choose next pool with some randomness
+          let chosenPool;
+          if (availablePools.length === 1) {
+            // Only one pool left, use it
+            chosenPool = availablePools[0];
+          } else {
+            // Weighted random selection that prefers variety but allows repeats
+            const sameTypePenalty = lastType ? 0.3 : 0; // Reduce chance of same type
+            const weights = availablePools.map(({ pool }) => {
+              const baseProbability = 1.0 / availablePools.length;
+              const penalty = pool.name === lastType ? sameTypePenalty : 0;
+              return Math.max(0.1, baseProbability - penalty);
+            });
+            
+            const totalWeight = weights.reduce((sum, w) => sum + w, 0);
+            let random = Math.random() * totalWeight;
+            
+            let selectedIdx = 0;
+            for (let i = 0; i < weights.length; i++) {
+              random -= weights[i];
+              if (random <= 0) {
+                selectedIdx = i;
+                break;
+              }
+            }
+            
+            chosenPool = availablePools[selectedIdx];
+          }
+          
+          // Add item from chosen pool
+          const { pool, idx } = chosenPool;
+          sprinkledFeed.push(pool.items[poolIndices[idx]]);
+          poolIndices[idx]++;
+          
+          // Update tracking
+          if (pool.name === lastType) {
+            sameTypeCount++;
+          } else {
+            sameTypeCount = 1;
+            lastType = pool.name;
+          }
+        }
+      }
+      
+      // Replace allItems with sprinkled feed for final output
+      allItems.length = 0;
+      allItems.push(...sprinkledFeed);
+      
+      const typeCounts = {
+        kidlisp: sprinkledFeed.filter(i => i.type === 'kidlisp').length,
+        paintings: sprinkledFeed.filter(i => i.type === 'painting').length,
+        tapes: sprinkledFeed.filter(i => i.type === 'tape').length
+      };
+      console.log(`📺 Sprinkle feed created with natural distribution: ${allItems.length} items (${typeCounts.kidlisp} kidlisp, ${typeCounts.paintings} paintings, ${typeCounts.tapes} tapes)`);
+    } else {
+      // Default: sort by timestamp (most recent first)
+      allItems.sort((a, b) => {
+        const timeA = new Date(a.when || 0).getTime();
+        const timeB = new Date(b.when || 0).getTime();
+        return timeB - timeA; // Descending order (newest first)
+      });
+    }
+    
+    // Limit the total mixed feed
+    const mixedFeed = allItems.slice(0, limit);
+    
+    console.log(`📺 Mixed feed created: ${mixedFeed.length} items (${mixedFeed.filter(i => i.type === 'kidlisp').length} kidlisp, ${mixedFeed.filter(i => i.type === 'painting').length} paintings, ${mixedFeed.filter(i => i.type === 'tape').length} tapes)`);
+
     return respond(200, {
       meta: {
         requestedTypes,
         limit,
+        filter,
         generatedAt: new Date().toISOString(),
         pendingTypes,
         unsupportedTypes,
         counts,
+        mixedCount: mixedFeed.length,
       },
       media,
+      mixed: mixedFeed, // Add mixed/interwoven feed
     });
   } catch (error) {
     console.error("Failed to build TV feed", error);

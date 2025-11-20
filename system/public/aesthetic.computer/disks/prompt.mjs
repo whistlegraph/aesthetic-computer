@@ -5186,7 +5186,10 @@ async function fetchContentItems(api) {
       // Collect tape items
       if (data.media?.tapes && Array.isArray(data.media.tapes)) {
         data.media.tapes.forEach(item => {
-          if (item.code) items.push({ type: 'tape', code: item.code });
+          if (item.code) {
+            const tapeId = `prompt-tape-${item.code}`;
+            items.push({ type: 'tape', code: item.code, tapeId: tapeId });
+          }
         });
       }
       
