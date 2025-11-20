@@ -1,6 +1,9 @@
 // Prompt, 2023.5.26.21.38.35
 //         2021.11.28.03.13 (Created on)
 // A language based "access-everything" console with LLM fallback.
+// 🔄 Cache bust: 2025-11-18-v2
+
+console.log("📨 ✅ prompt.mjs module loading - receive function will be defined and exported");
 
 /* #region 📚 README
   🎄 Merry Pipeline System
@@ -90,7 +93,7 @@ import {
 } from "../lib/kidlisp.mjs";
 import { KidLisp } from "../lib/kidlisp.mjs";
 import * as products from "./common/products.mjs";
-const { abs, max, min } = Math;
+const { abs, max, min, sin, cos } = Math;
 const { floor } = Math;
 const { keys } = Object;
 
@@ -116,6 +119,7 @@ let chatTicker; // Ticker instance for chat messages
 let chatTickerButton; // Button for chat ticker hover interaction
 let contentTicker; // Ticker instance for mixed $kidlisp, #painting, !tape content
 let contentTickerButton; // Button for content ticker hover interaction
+const tinyTickers = true; // Use MatrixChunky8 font for tighter, smaller tickers
 let contentItems = []; // Store fetched content: {type: 'kidlisp'|'painting'|'tape', code: string, source?: string}
 let currentTooltipItem = null; // Current item being shown in tooltip (auto-cycles)
 let tooltipTimer = 0; // Timer for switching between items
@@ -123,7 +127,8 @@ let tooltipFadeIn = 0; // Fade in animation for tooltip (0-1)
 let tooltipItemIndex = 0; // Index of current tooltip item
 let tooltipDriftX = 0; // Drift offset X
 let tooltipDriftY = 0; // Drift offset Y
-let tooltipDriftPhase = 0; // Phase for drift animation
+let tooltipDriftPhase = 0; // Phase for drift animation (time-based)
+let lastTooltipTime = 0; // Timestamp for tooltip animation
 let ruler = false; // Paint a line down the center of the display.
 //                   (for measuring the login / signup centering).
 // let firstCommandSent = false; // 🏳️
@@ -135,10 +140,22 @@ let startupSfx, keyboardSfx;
 let cornerParticles = [];
 
 let tapePromiseResolve, tapePromiseReject;
+let promptSend;
+let promptNeedsPaint;
+
+const TAPE_PREVIEW_DURATION_MS = 5000;
+let activeTapePreview = null;
+let tapePreviewQueue = [];
+let tapePreviewTimeoutId = null;
+const TAPE_PREVIEW_MAX_FRAMES = 90;
+const KEN_BURNS_MIN_ZOOM = 1.05;
+const KEN_BURNS_MAX_ZOOM = 1.25;
+const KEN_BURNS_CYCLE_MS = 8000;
 
 let handles; // Keep track of total handles set.
 let motd; // Store the mood of the day text
-let motdFrame = 0; // Animation frame counter for MOTD effects
+let motdFrame = 0; // Animation frame counter for MOTD effects (time-based)
+let lastMotdTime = 0; // Timestamp for MOTD animation
 let previousKidlispMode = false; // Track previous KidLisp mode state for sound triggers
 
 // Multilingual "Prompt" translations cycling
@@ -189,7 +206,8 @@ const promptLanguageNames = [
   "Polish",
 ];
 let promptLanguageIndex = 0;
-let promptLanguageChangeFrame = 0;
+let promptLanguageChangeFrame = 0; // Time-based counter (60 units per second)
+let lastLanguageChangeTime = 0; // Timestamp for language change animation
 const promptLanguageChangeInterval = 90; // Change language every 90 frames (~1.5 seconds at 60fps)
 
 let defaultDownloadScale = 6;
@@ -215,6 +233,7 @@ async function boot({
   system,
   pieceCount,
   send,
+  needsPaint,
   ui,
   screen,
   user,
@@ -227,6 +246,8 @@ async function boot({
   net: { socket },
   vscode,
 }) {
+  promptSend = send;
+  promptNeedsPaint = needsPaint;
   cachedGizmo = gizmo; // Cache gizmo for use in act() function
   if (dark) glaze({ on: true });
   // if (vscode) console.log("🟣 Running `prompt` in the VSCode extension.");
@@ -2358,9 +2379,9 @@ async function halt($, text) {
       trimmed.startsWith(";") ||
       isKidlispSource(trimmed);
     if (isKidlisp) {
-      body = { name: trimmed, source: trimmed };
-      loaded = await load(body, false, false, true, undefined, true); // Force kidlisp
-      //                                        ^^^^ devReload  ^^^^^ forceKidlisp
+      // Execute KidLisp code directly by jumping to $code piece
+      jump(`$code~${trimmed}`);
+      return true;
     } else {
       body = parse(trimmed);
       loaded = await load(body); // Execute the current command.
@@ -2384,8 +2405,12 @@ async function halt($, text) {
 
 // 🎨 Paint
 function paint($) {
-  // Increment global animation frame counter (used by both MOTD and ghost hint)
-  motdFrame += 1;
+  // Time-based animation counter (used by both MOTD and ghost hint)
+  const now = performance.now();
+  if (!lastMotdTime) lastMotdTime = now;
+  const deltaTime = (now - lastMotdTime) / 1000; // Convert to seconds
+  lastMotdTime = now;
+  motdFrame += deltaTime * 60; // 60 units per second (equivalent to 60fps @ 1 per frame)
   
   if (fetchingUser) fetchUserAPI = $.api;
 
@@ -2604,7 +2629,10 @@ function paint($) {
   
   // � Paint product (book or record) in top-right corner (only on login curtain)
   // 📦 Paint product (book or record) in top-right corner (only on login curtain)
-  products.paint({ ...$, login, signup }, $.screen, showLoginCurtain);
+  // Hide carousel when prompt is editable or has text
+  const promptHasContent = $.system.prompt.input.text && $.system.prompt.input.text.length > 0;
+  const shouldShowCarousel = showLoginCurtain && !$.system.prompt.input.canType && !promptHasContent;
+  products.paint({ ...$, login, signup }, $.screen, shouldShowCarousel);
   // Old book code removed - now using products system
   /*
   if (showLoginCurtain && bookImageScaled) {
@@ -3363,8 +3391,12 @@ function paint($) {
           // Check dark mode once for all color decisions
           const isDark = $.dark;
           
-          // Cycle through languages
-          promptLanguageChangeFrame += 1;
+          // Cycle through languages (time-based)
+          const now = performance.now();
+          if (!lastLanguageChangeTime) lastLanguageChangeTime = now;
+          const deltaLanguage = (now - lastLanguageChangeTime) / 1000; // Convert to seconds
+          lastLanguageChangeTime = now;
+          promptLanguageChangeFrame += deltaLanguage * 60; // 60 units per second
           if (promptLanguageChangeFrame >= promptLanguageChangeInterval) {
             promptLanguageChangeFrame = 0;
             promptLanguageIndex = (promptLanguageIndex + 1) % promptTranslations.length;
@@ -3644,9 +3676,9 @@ function paint($) {
     const loginY = screen.height / 2;
     
     // Calculate dynamic positioning to prevent overlap
-    const tickerHeight = 14; // Text height plus padding
+    const tickerHeight = tinyTickers ? 8 : 14; // MatrixChunky8 is 8px, default is ~14px
     const tickerSpacing = 0; // No space between tickers for tight stripes
-    const tickerPadding = 3; // Padding around text
+    const tickerPadding = tinyTickers ? 5 : 3; // 5px padding for tiny font (more breathing room)
     
     let currentTickerY = loginY + 44; // Start 44px below login (moved down from 30px)
     let contentTickerY = 0; // Y position of content ticker (declared here for tooltip access)
@@ -3654,10 +3686,14 @@ function paint($) {
     // 1. CHAT TICKER (top priority)
     // 1. CHAT TICKER (top priority)
     if ($.chat.messages.length > 0 && screen.height >= 180) {
-      const msg = $.chat.messages[$.chat.messages.length - 1];
+      // Show last 5-6 messages
+      const numMessages = Math.min(6, $.chat.messages.length);
+      const recentMessages = $.chat.messages.slice(-numMessages);
       // Filter out newline characters to prevent bleeding into ticker underneath
-      const sanitizedText = msg.text.replace(/[\r\n]+/g, ' ');
-      const fullText = msg.from + ": " + sanitizedText;
+      const fullText = recentMessages.map(msg => {
+        const sanitizedText = msg.text.replace(/[\r\n]+/g, ' ');
+        return msg.from + ": " + sanitizedText;
+      }).join(" · ");
       const chatTickerY = currentTickerY;
       
       // Create or update ticker instance
@@ -3711,14 +3747,14 @@ function paint($) {
         // Bottom border (1px, non-overlapping)
         ink([0, 200, 200, 255]).line(0, boxY + boxHeight - 1, screen.width, boxY + boxHeight - 1);
         
-        // Bright text for high contrast - adjusted for vertical centering
+        // Bright text for high contrast - text starts at padding offset from box top
         const tickerAlpha = chatTickerButton.down ? 255 : 220;
-        const textY = chatTickerY + 1; // Add 1px to center text better
+        const textY = chatTickerY; // No offset - text baseline is already at correct Y
         chatTicker.paint($, 0, textY, {
           color: [0, 255, 255], // Bright cyan
           alpha: tickerAlpha,
           width: screen.width,
-          font: 'MatrixChunky8', // Use tiny font for tickers
+          font: tinyTickers ? "MatrixChunky8" : undefined,
         });
       }
       
@@ -3794,12 +3830,11 @@ function paint($) {
         
         // If loading (no content yet), show Matrix-style characters instead of text
         if (contentItems.length === 0) {
-          const yMid = boxY + boxHeight / 2;
-          const textY = contentTickerY + 1;
+          const textY = contentTickerY; // No offset - text baseline is already at correct Y
           
           // Matrix-style random characters - use a variety of colorful symbols
           const chars = "!@#$%^&*()_+-=[]{}|;:,.<>?~/\\`'\"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-          const charWidth = 5; // MatrixChunky8 character width + 1px spacing
+          const charWidth = tinyTickers ? 4 : 5; // MatrixChunky8 is ~4px wide
           const numChars = floor(screen.width / charWidth);
           
           // Shift every frame (60fps)
@@ -3838,13 +3873,13 @@ function paint($) {
             const pulse = Math.sin(motdFrame * 0.05 + i * 0.3) * 20;
             const alpha = 180 + pulse;
             
-            ink([r, g, b, alpha]).write(char, { x, y: textY }, undefined, undefined, false, 'MatrixChunky8');
+            ink([r, g, b, alpha]).write(char, { x, y: textY }, undefined, undefined, false, tinyTickers ? "MatrixChunky8" : undefined);
           }
         } else if (contentTicker) {
           // Show ticker content when loaded (only if ticker exists)
           // Now render the text with color-coded prefixes
           // We need to manually render each item with its own color
-          const textY = contentTickerY + 1;
+          const textY = contentTickerY; // No offset - text baseline is already at correct Y
           const contentTickerAlpha = contentTickerButton.down ? 255 : 220;
           
           // Calculate positions for each item manually and track for hover detection
@@ -3875,7 +3910,7 @@ function paint($) {
                 color = [255, 200, 100]; // Bright orange/yellow
               }
               
-              const textWidth = $.text.box(text, undefined, undefined, undefined, undefined, 'MatrixChunky8').box.width;
+              const textWidth = $.text.box(text, undefined, undefined, undefined, undefined, tinyTickers ? "MatrixChunky8" : undefined).box.width;
               
               // Check if mouse is hovering over this item (only check first cycle)
               // Use $.pen for mouse position (available in paint context)
@@ -3892,27 +3927,37 @@ function paint($) {
               }
               
               // Check if this is the currently displayed tooltip item
-              const isTooltipItem = currentTooltipItem && 
-                                   item.type === 'kidlisp' && 
-                                   item.code === currentTooltipItem.code;
+              const isTooltipItem = currentTooltipItem && item.code === currentTooltipItem.code;
               
               // Only render if visible
               if (currentX > -100 && currentX < displayWidth + 100) {
                 // Brighter and add background if hovered OR if it's the tooltip item
                 if ((isHovered || isTooltipItem) && !contentTickerButton.down) {
-                  // Bright background (green tint for tooltip item, white for hover)
-                  const bgColor = isTooltipItem ? [150, 255, 150, 60] : [255, 255, 255, 40];
+                  // Choose outline color based on media type
+                  let outlineColor;
+                  if (item.type === 'kidlisp') {
+                    outlineColor = [150, 255, 150, 180]; // Green
+                  } else if (item.type === 'painting') {
+                    outlineColor = [255, 150, 255, 180]; // Magenta
+                  } else { // tape
+                    outlineColor = [255, 200, 100, 180]; // Orange
+                  }
+                  
+                  // Bright background (colored tint for tooltip item, white for hover)
+                  const bgColor = isTooltipItem 
+                    ? [...color, 60] // Use media type color at low alpha
+                    : [255, 255, 255, 40]; // White for hover
                   $.ink(bgColor).box(currentX, boxY, textWidth, boxHeight - 1);
                   
-                  // Draw box outline around tooltip item
+                  // Draw box outline around tooltip item (any media type)
                   if (isTooltipItem) {
-                    $.ink([150, 255, 150, 180]).box(currentX - 2, boxY - 1, textWidth + 4, boxHeight, "inline");
+                    $.ink(outlineColor).box(currentX - 2, boxY - 1, textWidth + 4, boxHeight, "inline");
                   }
                   
                   // Brighter text when hovered or selected
-                  $.ink(color, 255).write(text, { x: currentX, y: textY }, undefined, undefined, false, 'MatrixChunky8');
+                  $.ink(color, 255).write(text, { x: currentX, y: textY }, undefined, undefined, false, tinyTickers ? "MatrixChunky8" : undefined);
                 } else {
-                  $.ink(color, contentTickerAlpha).write(text, { x: currentX, y: textY }, undefined, undefined, false, 'MatrixChunky8');
+                  $.ink(color, contentTickerAlpha).write(text, { x: currentX, y: textY }, undefined, undefined, false, tinyTickers ? "MatrixChunky8" : undefined);
                 }
               }
               
@@ -3932,9 +3977,9 @@ function paint($) {
               // Add separator after each item (except potentially the last in a cycle)
               if (idx < contentItems.length - 1 || cycle < numCycles - 1) {
                 if (currentX > -100 && currentX < displayWidth + 100) {
-                  ink([150, 150, 150], contentTickerAlpha).write(separator, { x: currentX, y: textY }, undefined, undefined, false, 'MatrixChunky8');
+                  ink([150, 150, 150], contentTickerAlpha).write(separator, { x: currentX, y: textY }, undefined, undefined, false, tinyTickers ? "MatrixChunky8" : undefined);
                 }
-                const sepWidth = $.text.box(separator, undefined, undefined, undefined, undefined, 'MatrixChunky8').box.width;
+                const sepWidth = $.text.box(separator, undefined, undefined, undefined, undefined, tinyTickers ? "MatrixChunky8" : undefined).box.width;
                 currentX += sepWidth;
               }
             });
@@ -3952,75 +3997,85 @@ function paint($) {
       contentTickerButton = null;
       currentTooltipItem = null; // Clear when ticker is hidden
       tooltipTimer = 0;
+      if (activeTapePreview) {
+        releaseActiveTapePreview("ticker-hidden");
+      }
     }
 
-    // 🎨 KIDLISP SOURCE TOOLTIP (ambient floating preview)
-    // Automatically cycles through KidLisp items, showing syntax-highlighted previews
+    // 🎨 CONTENT TOOLTIP (ambient floating preview)
+    // Automatically cycles through content items (KidLisp + Paintings), showing previews
     if (showContentTicker && contentItems.length > 0) {
-      // Filter to only KidLisp items that are currently visible on screen (from the right side)
-      const kidlispItems = [];
+      // Filter to only items that are currently visible on screen (from the right side)
+      const visibleItems = [];
       
       if (contentTicker) {
         const offset = contentTicker.getOffset();
         let currentX = -offset;
         
         contentItems.forEach(item => {
-          if (item.type === 'kidlisp') {
-            const prefix = '$';
-            const text = `${prefix}${item.code}`;
-            const textWidth = $.text.box(text).box.width;
-            
-            // Check if this item is visible on screen (prefer right side)
-            if (currentX >= screen.width * 0.3 && currentX < screen.width) {
-              // Use original item object to preserve fetchAttempted/fetchFailed flags
-              item.screenX = currentX; // Add screenX directly to original object
-              kidlispItems.push(item);
-            }
-            
-            currentX += textWidth + $.text.box(" · ").box.width;
-          } else {
-            // Skip non-kidlisp items but account for their width
-            const itemPrefix = item.type === 'painting' ? '#' : '!';
-            const itemText = `${itemPrefix}${item.code}`;
-            const textWidth = $.text.box(itemText).box.width;
-            currentX += textWidth + $.text.box(" · ").box.width;
+          const prefix = item.type === 'kidlisp' ? '$' : item.type === 'painting' ? '#' : '!';
+          const text = `${prefix}${item.code}`;
+          const textWidth = $.text.box(text).box.width;
+          
+          // Check if this item is visible on screen (prefer right side)
+          if (currentX >= screen.width * 0.3 && currentX < screen.width) {
+            // Use original item object to preserve fetchAttempted/fetchFailed flags
+            item.screenX = currentX; // Add screenX directly to original object
+            visibleItems.push(item);
           }
+          
+          currentX += textWidth + $.text.box(" · ").box.width;
         });
       }
       
-      console.log(`🎨 Tooltip check: showContentTicker=${showContentTicker}, contentItems=${contentItems.length}, visibleKidlispItems=${kidlispItems.length}, currentTooltipItem=${currentTooltipItem ? '$' + currentTooltipItem.code : 'null'}`);
-      
-      if (kidlispItems.length > 0) {
-        const displayDuration = 180; // Show each item for 3 seconds (at 60fps)
+      if (visibleItems.length > 0) {
+        if (activeTapePreview && currentTooltipItem && activeTapePreview !== currentTooltipItem) {
+          releaseActiveTapePreview("tooltip-switch");
+        }
+
+        // Tape-specific durations (tapes are heavy - need more time to load and display)
+        const baseDuration = 180; // Show kidlisp/paintings for 3 seconds (at 60fps)
+        const tapeDuration = 480; // Show tapes for 8 seconds (at 60fps)
+        const displayDuration = currentTooltipItem?.type === 'tape' ? tapeDuration : baseDuration;
         const fadeDuration = 20; // Fade in/out over ~0.33 seconds
         
         // Initialize ONLY if we don't have a tooltip yet
         if (!currentTooltipItem) {
           // Find first item that hasn't failed or try first one
-          let startItem = kidlispItems.find(i => !i.fetchFailed) || kidlispItems[0];
+          let startItem = visibleItems.find(i => !i.fetchFailed) || visibleItems[0];
           currentTooltipItem = startItem;
-          tooltipItemIndex = kidlispItems.indexOf(startItem);
+          tooltipItemIndex = visibleItems.indexOf(startItem);
           tooltipTimer = 0;
           
-          // Fetch source for current item
-          if (!currentTooltipItem.source && !currentTooltipItem.fetchAttempted) {
+          // Fetch source/image/audio for current item
+          if (currentTooltipItem.type === 'kidlisp' && !currentTooltipItem.source && !currentTooltipItem.fetchAttempted) {
             fetchKidlispSource(currentTooltipItem, $);
+          } else if (currentTooltipItem.type === 'painting' && !currentTooltipItem.image && !currentTooltipItem.fetchAttempted) {
+            fetchPaintingImage(currentTooltipItem, $);
+          } else if (currentTooltipItem.type === 'tape' && !currentTooltipItem.audioUrl && !currentTooltipItem.fetchAttempted) {
+            enqueueTapePreview(currentTooltipItem, $);
           }
           
-          console.log(`🎨 Tooltip initialized with KidLisp item: $${currentTooltipItem.code}`);
+          console.log(`🎨 Tooltip initialized with ${currentTooltipItem.type} item: ${currentTooltipItem.type === 'kidlisp' ? '$' : currentTooltipItem.type === 'painting' ? '#' : '!'}${currentTooltipItem.code}`);
         }
         
         // Pre-fetch next items (always do this, even while waiting for current)
         for (let i = 1; i <= 2; i++) {
-          const nextIndex = (tooltipItemIndex + i) % kidlispItems.length;
-          const nextItem = kidlispItems[nextIndex];
-          if (nextItem && !nextItem.source && !nextItem.fetchAttempted && !nextItem.fetchFailed) {
-            fetchKidlispSource(nextItem, $);
+          const nextIndex = (tooltipItemIndex + i) % visibleItems.length;
+          const nextItem = visibleItems[nextIndex];
+          if (nextItem) {
+            if (nextItem.type === 'kidlisp' && !nextItem.source && !nextItem.fetchAttempted && !nextItem.fetchFailed) {
+              fetchKidlispSource(nextItem, $);
+            } else if (nextItem.type === 'painting' && !nextItem.image && !nextItem.fetchAttempted && !nextItem.fetchFailed) {
+              fetchPaintingImage(nextItem, $);
+            } else if (nextItem.type === 'tape' && !nextItem.audioUrl && !nextItem.fetchAttempted && !nextItem.fetchFailed) {
+              enqueueTapePreview(nextItem, $);
+            }
           }
         }
         
-        // Only increment timer if current item has source loaded
-        if (currentTooltipItem.source) {
+        // Only increment timer if current item has source/image or is a loading/loaded tape
+        if (currentTooltipItem.source || currentTooltipItem.image || currentTooltipItem.isLoading || currentTooltipItem.framesLoaded) {
           tooltipTimer++;
         }
         
@@ -4031,20 +4086,30 @@ function paint($) {
           let foundNext = false;
           const startIndex = tooltipItemIndex;
           
-          while (attempts < kidlispItems.length && !foundNext) {
-            const checkIndex = (startIndex + attempts + 1) % kidlispItems.length;
-            const nextItem = kidlispItems[checkIndex];
+          while (attempts < visibleItems.length && !foundNext) {
+            const checkIndex = (startIndex + attempts + 1) % visibleItems.length;
+            const nextItem = visibleItems[checkIndex];
             
-            // Skip failed items, only switch to items with source
-            if (nextItem.source && !nextItem.fetchFailed) {
+            // Only switch to items with source/image/audio or loading tapes
+            const hasContent = (nextItem.type === 'kidlisp' && nextItem.source) || 
+                              (nextItem.type === 'painting' && nextItem.image) ||
+                              (nextItem.type === 'tape' && (nextItem.isLoading || nextItem.framesLoaded));
+            if (hasContent && !nextItem.fetchFailed) {
               tooltipTimer = 0;
               tooltipItemIndex = checkIndex;
               currentTooltipItem = nextItem;
               foundNext = true;
-              console.log(`🎨 Tooltip cycling to KidLisp item ${tooltipItemIndex + 1}/${kidlispItems.length}: $${currentTooltipItem.code}`);
+              const prefix = nextItem.type === 'kidlisp' ? '$' : nextItem.type === 'painting' ? '#' : '!';
+              console.log(`🎨 Tooltip cycling to ${nextItem.type} item ${tooltipItemIndex + 1}/${visibleItems.length}: ${prefix}${currentTooltipItem.code}`);
             } else if (!nextItem.fetchAttempted && !nextItem.fetchFailed) {
               // Try to fetch if not attempted yet
-              fetchKidlispSource(nextItem, $);
+              if (nextItem.type === 'kidlisp') {
+                fetchKidlispSource(nextItem, $);
+              } else if (nextItem.type === 'painting') {
+                fetchPaintingImage(nextItem, $);
+              } else if (nextItem.type === 'tape') {
+                enqueueTapePreview(nextItem, $);
+              }
             }
             
             attempts++;
@@ -4055,13 +4120,16 @@ function paint($) {
             tooltipTimer = displayDuration; // Hold at full opacity
             console.log(`🎨 Waiting for next item to load...`);
           }
-        } else if (!currentTooltipItem.source) {
-          // Waiting for source to load - check if it's taking too long
+        } else if (!currentTooltipItem.source && !currentTooltipItem.image && !currentTooltipItem.isLoading && !currentTooltipItem.framesLoaded) {
+          // Waiting for source/image/tape to load - check if it's taking too long
           if (currentTooltipItem.fetchAttempted && !currentTooltipItem.fetchFailed) {
-            // After 2 seconds of waiting, mark as failed and force switch
-            const waitTime = 120; // 2 seconds at 60fps
+            // Tapes need longer timeout (heavy ZIPs with many frames)
+            const baseWaitTime = 120; // 2 seconds at 60fps for kidlisp/paintings
+            const tapeWaitTime = 600; // 10 seconds at 60fps for tapes (heavy ZIPs)
+            const waitTime = currentTooltipItem.type === 'tape' ? tapeWaitTime : baseWaitTime;
             if (tooltipTimer > waitTime) {
-              console.log(`🎨 Timeout waiting for $${currentTooltipItem.code}, marking as failed`);
+              const prefix = currentTooltipItem.type === 'kidlisp' ? '$' : currentTooltipItem.type === 'painting' ? '#' : '!';
+              console.log(`🎨 Timeout waiting for ${prefix}${currentTooltipItem.code}, marking as failed`);
               currentTooltipItem.fetchFailed = true;
               // Switch logic will run on next frame
             } else {
@@ -4071,8 +4139,8 @@ function paint($) {
           // If not yet attempted, don't increment timer - just wait for fetch to start
         }
         
-        // Calculate fade in/out ONLY when we have source
-        if (currentTooltipItem.source) {
+        // Calculate fade in/out ONLY when we have source or image or audioUrl or loading tape
+        if (currentTooltipItem.source || currentTooltipItem.image || currentTooltipItem.isLoading || currentTooltipItem.framesLoaded) {
           if (tooltipTimer < fadeDuration) {
             // Fade in
             tooltipFadeIn = tooltipTimer / fadeDuration;
@@ -4087,25 +4155,164 @@ function paint($) {
           tooltipFadeIn = 0; // Don't show until loaded
         }
         
-        // Only render tooltip if we have source code loaded
-        if (currentTooltipItem && currentTooltipItem.source && tooltipFadeIn > 0) {
-          const source = currentTooltipItem.source;
-          const maxLines = 5; // Show up to 5 lines
-          const lines = source.split('\n').slice(0, maxLines);
+        // Render tooltip for KidLisp (source code), Painting (image), or Tape (audio info)
+        if (currentTooltipItem && (currentTooltipItem.source || currentTooltipItem.image || currentTooltipItem.isLoading || currentTooltipItem.framesLoaded) && tooltipFadeIn > 0) {
+          // Calculate tooltip dimensions based on type
+          let tooltipWidth, tooltipHeight;
           
-          // Calculate tooltip dimensions
-          const charWidth = 4; // MatrixChunky8 character width
-          const lineHeight = 10; // MatrixChunky8 line height (increased for better readability)
-          const padding = 4;
-          const maxLineLength = Math.max(...lines.map(l => l.length));
+          // Pre-calculate metadata text to determine width
+          let timestampText = '';
+          if (currentTooltipItem.timestamp) {
+            const now = new Date();
+            const past = new Date(currentTooltipItem.timestamp);
+            const seconds = Math.floor((now - past) / 1000);
+            
+            const units = [
+              { name: "year", seconds: 31536000 },
+              { name: "month", seconds: 2592000 },
+              { name: "week", seconds: 604800 },
+              { name: "day", seconds: 86400 },
+              { name: "hour", seconds: 3600 },
+              { name: "minute", seconds: 60 },
+              { name: "second", seconds: 1 },
+            ];
+            
+            for (const unit of units) {
+              const count = Math.floor(seconds / unit.seconds);
+              if (count >= 1) {
+                timestampText = `${count} ${unit.name}${count > 1 ? "s" : ""} ago`;
+                break;
+              }
+            }
+            if (!timestampText) timestampText = "just now";
+          }
           
-          // Tooltip contains source code + metadata line at bottom
-          const tooltipWidth = Math.min(maxLineLength * charWidth + padding * 2, screen.width - 40);
-          const metadataHeight = 8; // Height for metadata line at bottom
-          const tooltipHeight = lines.length * lineHeight + padding + metadataHeight + 2; // Reduced bottom padding
+          const authorHandle =
+            currentTooltipItem.author ||
+            currentTooltipItem.handle ||
+            currentTooltipItem.owner?.handle ||
+            null;
+          const authorText = authorHandle
+            ? authorHandle.startsWith("@")
+              ? authorHandle
+              : `@${authorHandle}`
+            : null;
           
-          // Update drift animation (smooth organic movement)
-          tooltipDriftPhase += 0.02;
+          // Add tape code to metadata for tape items
+          const tapeCodeText = currentTooltipItem.type === 'tape' ? `!${currentTooltipItem.code}` : null;
+          
+          // Build metadata with code for tapes: "!code · timestamp · @author"
+          let metadataText;
+          if (currentTooltipItem.type === 'tape') {
+            const parts = [tapeCodeText, timestampText, authorText].filter(Boolean);
+            metadataText = parts.join(' · ');
+          } else {
+            metadataText = timestampText && authorText 
+              ? `${timestampText} · ${authorText}`
+              : timestampText || authorText || '';
+          }
+          
+          // Calculate metadata text width using MatrixChunky8
+          const metadataWidth = metadataText ? $.text.box(metadataText, undefined, undefined, undefined, undefined, "MatrixChunky8").box.width : 0;
+          
+          // Standardized tooltip dimensions across all types
+          const padding = 6; // Consistent padding for all tooltips
+          const metadataHeight = 20; // Consistent metadata section height
+          const metadataGap = 6; // Consistent gap before metadata
+          
+          // Calculate available space below ticker for tooltip
+          const tickerBottomY = contentTickerY + tickerHeight + (tickerPadding * 2);
+          const tooltipTopMargin = 32; // Space between ticker and tooltip
+          const tooltipBottomMargin = 4; // Margin from screen bottom
+          const availableHeight = screen.height - tickerBottomY - tooltipTopMargin - tooltipBottomMargin;
+          const availableWidth = screen.width - 8; // 4px margin on each side
+          
+          // Maximum dimensions that respect available space
+          const maxTooltipWidth = Math.min(availableWidth, 500); // Cap at 500px or available width
+          const maxContentHeight = availableHeight - padding - metadataGap - metadataHeight; // Reserve space for metadata
+          
+          if (currentTooltipItem.type === 'kidlisp' && currentTooltipItem.source) {
+            // KidLisp tooltip: source code preview
+            const source = currentTooltipItem.source;
+            const charWidth = 4; // MatrixChunky8
+            const lineHeight = 10;
+            
+            // Calculate how many lines can fit
+            const maxPossibleLines = Math.floor(maxContentHeight / lineHeight);
+            const maxLines = Math.max(1, Math.min(5, maxPossibleLines)); // 1-5 lines based on available space
+            
+            const lines = source.split('\n').slice(0, maxLines);
+            const maxLineLength = Math.max(...lines.map(l => l.length));
+            
+            // Ensure width fits both content and metadata, respecting available space
+            // Allow wider width for KidLisp to prevent wrapping/truncation
+            const contentWidth = Math.min(maxLineLength * charWidth + padding * 2, maxTooltipWidth);
+            const minWidthForMetadata = metadataWidth + padding * 2;
+            tooltipWidth = Math.max(contentWidth, minWidthForMetadata, 200); // Min 200px for KidLisp
+            tooltipHeight = lines.length * lineHeight + padding + metadataGap + metadataHeight;
+          } else if (currentTooltipItem.type === 'painting' && currentTooltipItem.image) {
+            // Painting tooltip: image preview - crop and Ken Burns effect
+            const img = currentTooltipItem.image;
+            const maxPreviewWidth = Math.min(maxTooltipWidth - padding * 2, 300); // Cap width
+            const maxPreviewHeight = Math.min(maxContentHeight, 200); // Cap height
+            
+            // Calculate actual display size based on image dimensions
+            const imgAspect = img.width / img.height;
+            const boxAspect = maxPreviewWidth / maxPreviewHeight;
+            
+            let previewWidth, previewHeight;
+            
+            if (img.width > maxPreviewWidth || img.height > maxPreviewHeight) {
+              // Image is larger - use full box for Ken Burns
+              previewWidth = maxPreviewWidth;
+              previewHeight = maxPreviewHeight;
+            } else {
+              // Image is smaller - letterbox/pillarbox to fit
+              if (imgAspect > boxAspect) {
+                previewWidth = Math.min(img.width, maxPreviewWidth);
+                previewHeight = Math.floor(previewWidth / imgAspect);
+              } else {
+                previewHeight = Math.min(img.height, maxPreviewHeight);
+                previewWidth = Math.floor(previewHeight * imgAspect);
+              }
+            }
+            
+            // Ensure width fits both image and metadata
+            const minWidthForMetadata = metadataWidth + padding * 2;
+            tooltipWidth = Math.max(previewWidth + padding * 2, minWidthForMetadata, 150);
+            tooltipHeight = previewHeight + padding + metadataGap + metadataHeight;
+          } else if (currentTooltipItem.type === 'tape' && currentTooltipItem.audioUrl) {
+            // Tape tooltip: show title and audio visualization - fit to available space
+            const tapeTitle = currentTooltipItem.title || `Tape !${currentTooltipItem.code}`;
+            const tapeTitleWidth = $.text.box(tapeTitle, undefined, undefined, undefined, undefined, "MatrixChunky8").box.width;
+            const visualizerHeight = Math.min(120, maxContentHeight - 8); // Fit visualizer, reserve 8px for title
+            
+            const minWidthForMetadata = metadataWidth + padding * 2;
+            const minWidthForTitle = tapeTitleWidth + padding * 2;
+            tooltipWidth = Math.max(Math.min(150, maxTooltipWidth), minWidthForMetadata, minWidthForTitle);
+            tooltipHeight = 8 + padding + visualizerHeight + metadataGap + metadataHeight; // Title + viz + metadata
+          } else if (currentTooltipItem.type === 'tape' && (currentTooltipItem.isLoading || currentTooltipItem.framesLoaded)) {
+            // Tape tooltip: show title and either loading animation or frames - fit to available space
+            const tapeTitle = currentTooltipItem.title || `Tape !${currentTooltipItem.code}`;
+            const tapeTitleWidth = $.text.box(tapeTitle, undefined, undefined, undefined, undefined, "MatrixChunky8").box.width;
+            const progressBarHeight = 1; // 1px progress bar
+            const timeDisplayHeight = 8; // Height for time text
+            const visualizerHeight = Math.min(120, maxContentHeight - progressBarHeight - timeDisplayHeight); // Fit frames/cassette
+            
+            const minWidthForMetadata = metadataWidth + padding * 2;
+            const minWidthForTitle = tapeTitleWidth + padding * 2;
+            tooltipWidth = Math.max(Math.min(150, maxTooltipWidth), minWidthForMetadata, minWidthForTitle);
+            tooltipHeight = padding + visualizerHeight + progressBarHeight + timeDisplayHeight + metadataGap + metadataHeight; // viz + progress + time + metadata
+          } else {
+            return; // No valid content to show
+          }
+          
+          // Update drift animation (smooth organic movement) - time-based
+          const now = performance.now();
+          if (!lastTooltipTime) lastTooltipTime = now;
+          const deltaTooltip = (now - lastTooltipTime) / 1000; // Convert to seconds
+          lastTooltipTime = now;
+          tooltipDriftPhase += deltaTooltip * 1.2; // ~0.02 per frame at 60fps
           const driftSpeed = 0.5;
           tooltipDriftX = Math.sin(tooltipDriftPhase) * 15 * driftSpeed;
           tooltipDriftY = Math.cos(tooltipDriftPhase * 0.7) * 10 * driftSpeed;
@@ -4113,8 +4320,6 @@ function paint($) {
           // Find the position of the highlighted item in the ticker
           // We need to calculate where the item appears in the scrolling ticker
           const tickerY = contentTickerY; // Use contentTickerY (where ticker is actually rendered)
-          const tickerPadding = 4;
-          const tickerHeight = 16;
           const tickerBoxY = contentTickerY - tickerPadding; // Top of ticker box
           const tickerBoxHeight = tickerHeight + (tickerPadding * 2); // Height including padding
           let highlightedItemX = -1;
@@ -4147,24 +4352,43 @@ function paint($) {
             }
           }
           
-          // Position tooltip - float below the ticker (not at bottom of screen)
+          // Position tooltip - float below the ticker with more spacing
           const baseTooltipX = (screen.width - tooltipWidth) / 2; // Center horizontally
-          const baseTooltipY = contentTickerY + 20; // Just below ticker (use contentTickerY)
-          const tooltipX = baseTooltipX + tooltipDriftX;
-          const tooltipY = baseTooltipY + tooltipDriftY;
+          const baseTooltipY = contentTickerY + 32; // Increased from 20 for more space below ticker
+          let tooltipX = baseTooltipX + tooltipDriftX;
+          let tooltipY = baseTooltipY + tooltipDriftY;
+          
+          // Clamp tooltip to stay on screen
+          tooltipX = Math.max(4, Math.min(tooltipX, screen.width - tooltipWidth - 4));
+          tooltipY = Math.max(4, Math.min(tooltipY, screen.height - tooltipHeight - 4));
           
           // Draw connector line from highlighted item box to tooltip (if item is visible)
           if (highlightedItemX >= 0 && highlightedItemWidth > 0) {
-            const lineAlpha = Math.floor(120 * tooltipFadeIn);
+            // Choose line color based on media type
+            let lineColor;
+            if (currentTooltipItem.type === 'kidlisp') {
+              lineColor = [150, 255, 150]; // Green
+            } else if (currentTooltipItem.type === 'painting') {
+              lineColor = [255, 150, 255]; // Magenta
+            } else { // tape
+              lineColor = [255, 200, 100]; // Orange
+            }
             
-            // Calculate connection points
-            const boxCenterX = highlightedItemX + highlightedItemWidth / 2;
-            const boxBottomY = tickerBoxY + tickerBoxHeight;
+            const lineAlpha = Math.floor(180 * tooltipFadeIn); // Brighter line
+            
+            // Calculate connection points - connect to the OUTLINE box, not the text
+            const outlineBoxX = highlightedItemX - 2; // Outline extends 2px to the left
+            const outlineBoxWidth = highlightedItemWidth + 4; // 2px on each side
+            const outlineBoxY = tickerBoxY - 1; // Outline extends 1px above
+            const outlineBoxHeight = tickerBoxHeight + 1; // 1px above box
+            
+            const boxCenterX = outlineBoxX + outlineBoxWidth / 2;
+            const boxBottomY = outlineBoxY + outlineBoxHeight;
             const tooltipCenterX = tooltipX + tooltipWidth / 2;
             const tooltipTopY = tooltipY;
             
-            // Draw line from bottom center of highlighted box to top center of tooltip
-            $.ink([150, 255, 150, lineAlpha]).line(
+            // Draw line from bottom center of highlighted outline box to top center of tooltip
+            $.ink([...lineColor, lineAlpha]).line(
               boxCenterX,
               boxBottomY,
               tooltipCenterX,
@@ -4176,68 +4400,295 @@ function paint($) {
           const bgAlpha = Math.floor(240 * tooltipFadeIn);
           $.ink([10, 20, 15, bgAlpha]).box(tooltipX, tooltipY, tooltipWidth, tooltipHeight);
           
-          // Draw border (brighter for better contrast)
+          // Draw border matching media type color
+          let borderColor;
+          if (currentTooltipItem.type === 'kidlisp') {
+            borderColor = [120, 255, 160]; // Green
+          } else if (currentTooltipItem.type === 'painting') {
+            borderColor = [255, 120, 255]; // Magenta
+          } else { // tape
+            borderColor = [255, 200, 120]; // Orange
+          }
           const borderAlpha = Math.floor(200 * tooltipFadeIn);
-          $.ink([120, 255, 160, borderAlpha]).box(tooltipX, tooltipY, tooltipWidth, tooltipHeight, "inline");
+          $.ink([...borderColor, borderAlpha]).box(tooltipX, tooltipY, tooltipWidth, tooltipHeight, "inline");
           
-          // Render KidLisp source with proper syntax highlighting
+          // Render content based on type
           const textAlpha = Math.floor(255 * tooltipFadeIn);
-          renderKidlispSource(
-            $,
-            source,
-            tooltipX + padding,
-            tooltipY + padding,
-            tooltipWidth - padding * 2,
-            maxLines,
-            textAlpha
-          );
           
-          // Render metadata (timestamp and @author) snugly at BOTTOM of tooltip box
-          const metadataY = tooltipY + tooltipHeight - 8; // Inside box, at bottom
-          
-          // Format timestamp using same logic as chat.mjs
-          let timestampText = '';
-          if (currentTooltipItem.timestamp) {
-            const now = new Date();
-            const past = new Date(currentTooltipItem.timestamp);
-            const seconds = Math.floor((now - past) / 1000);
+          if (currentTooltipItem.type === 'kidlisp' && currentTooltipItem.source) {
+            // Render KidLisp source with proper syntax highlighting
+            renderKidlispSource(
+              $,
+              currentTooltipItem.source,
+              tooltipX + padding,
+              tooltipY + padding,
+              tooltipWidth - padding * 2,
+              5, // maxLines
+              textAlpha
+            );
+          } else if (currentTooltipItem.type === 'painting' && currentTooltipItem.image) {
+            // Render painting image preview - use calculated responsive dimensions
+            const img = currentTooltipItem.image;
             
-            const units = [
-              { name: "year", seconds: 31536000 },
-              { name: "month", seconds: 2592000 },
-              { name: "week", seconds: 604800 },
-              { name: "day", seconds: 86400 },
-              { name: "hour", seconds: 3600 },
-              { name: "minute", seconds: 60 },
-              { name: "second", seconds: 1 },
-            ];
+            // Recalculate preview dimensions (same as tooltip sizing above)
+            const maxPreviewWidth = Math.min(maxTooltipWidth - padding * 2, 300);
+            const maxPreviewHeight = Math.min(maxContentHeight, 200);
             
-            for (const unit of units) {
-              const count = Math.floor(seconds / unit.seconds);
-              if (count >= 1) {
-                timestampText = `${count} ${unit.name}${count > 1 ? "s" : ""} ago`;
-                break;
+            // Calculate aspect ratios
+            const imgAspect = img.width / img.height;
+            const boxAspect = maxPreviewWidth / maxPreviewHeight;
+            
+            let previewWidth, previewHeight;
+            let drawX, drawY;
+            let useKenBurns = false;
+            
+            // If image is larger than box, use Ken Burns cropping
+            if (img.width > maxPreviewWidth || img.height > maxPreviewHeight) {
+              // Image is larger - use Ken Burns with crop
+              previewWidth = maxPreviewWidth;
+              previewHeight = maxPreviewHeight;
+              drawX = tooltipX + padding;
+              drawY = tooltipY + padding;
+              useKenBurns = true;
+            } else {
+              // Image is smaller - letterbox/pillarbox to fit
+              if (imgAspect > boxAspect) {
+                // Image is wider - fit to width, letterbox top/bottom
+                previewWidth = Math.min(img.width, maxPreviewWidth);
+                previewHeight = Math.floor(previewWidth / imgAspect);
+              } else {
+                // Image is taller - fit to height, pillarbox left/right
+                previewHeight = Math.min(img.height, maxPreviewHeight);
+                previewWidth = Math.floor(previewHeight * imgAspect);
+              }
+              // Center the image in the available space
+              drawX = tooltipX + padding + Math.floor((maxPreviewWidth - previewWidth) / 2);
+              drawY = tooltipY + padding + Math.floor((maxPreviewHeight - previewHeight) / 2);
+            }
+            
+            // Paste the image
+            const imageAlpha = Math.floor(255 * tooltipFadeIn);
+            $.ink(255, 255, 255, imageAlpha);
+            
+            if (useKenBurns) {
+              // Ken Burns effect: pan a crop window that fills the preview box
+              const nowTime = performance.now();
+              const burnSeed = currentTooltipItem.kenBurnsSeed ?? Math.random();
+              currentTooltipItem.kenBurnsSeed = burnSeed;
+              const burnProgress = ((nowTime / KEN_BURNS_CYCLE_MS) + burnSeed) % 1;
+              
+              // Crop size matches preview box (1:1 pixels, no scaling)
+              const cropW = previewWidth;
+              const cropH = previewHeight;
+              
+              // Pan around within the available crop space
+              const maxCropX = Math.max(0, img.width - cropW);
+              const maxCropY = Math.max(0, img.height - cropH);
+              
+              const panX = (Math.cos((burnProgress + 0.25) * Math.PI * 2) + 1) / 2; // 0-1
+              const panY = (Math.sin((burnProgress + 0.65) * Math.PI * 2) + 1) / 2; // 0-1
+              
+              const cropX = Math.floor(maxCropX * panX);
+              const cropY = Math.floor(maxCropY * panY);
+              
+              $.paste(
+                img,
+                drawX,
+                drawY,
+                {
+                  crop: { x: cropX, y: cropY, w: cropW, h: cropH }
+                }
+              );
+              
+              $.needsPaint(); // Keep animating Ken Burns effect
+            } else {
+              // Simple scaled paste for smaller images
+              $.paste(
+                img,
+                drawX,
+                drawY,
+                {
+                  width: previewWidth,
+                  height: previewHeight
+                }
+              );
+          } else if (currentTooltipItem.type === 'tape' && (currentTooltipItem.isLoading || currentTooltipItem.framesLoaded)) {
+            // Render tape tooltip: just show frames when loaded, cassette animation while loading
+            console.log(`🎬 TAPE RENDER: !${currentTooltipItem.code} isLoading=${currentTooltipItem.isLoading} framesLoaded=${currentTooltipItem.framesLoaded} frames=${currentTooltipItem.frames?.length || 0}`);
+            
+            const vizY = tooltipY + padding; // Start at top of tooltip
+            // Use calculated responsive height from sizing above
+            const progressBarHeight = 1;
+            const timeDisplayHeight = 8;
+            const vizHeight = Math.min(60, maxContentHeight - progressBarHeight - timeDisplayHeight);
+            const vizWidth = tooltipWidth - padding * 2;
+            
+            // Show frames if loaded, otherwise show cassette animation
+            if (currentTooltipItem.framesLoaded && currentTooltipItem.frames && currentTooltipItem.frames.length > 0) {
+              // Cycle through frames based on time (animate at ~12 fps)
+              const nowTime = performance.now();
+              const frameIndex = Math.floor((nowTime / 83)) % currentTooltipItem.frames.length; // 83ms ≈ 12fps
+              const frame = currentTooltipItem.frames[frameIndex];
+              
+              if (frame) {
+                // Ken Burns effect: pan a 1:1 crop window that fills the preview box
+                const burnSeed = currentTooltipItem.kenBurnsSeed ?? Math.random();
+                currentTooltipItem.kenBurnsSeed = burnSeed;
+                const burnProgress = ((nowTime / KEN_BURNS_CYCLE_MS) + burnSeed) % 1;
+                
+                // Crop size matches preview box (1:1 pixels, no scaling)
+                const cropW = vizWidth;
+                const cropH = vizHeight;
+                
+                // Pan around within the available crop space
+                const maxCropX = Math.max(0, frame.width - cropW);
+                const maxCropY = Math.max(0, frame.height - cropH);
+                
+                const panX = (Math.cos((burnProgress + 0.25) * Math.PI * 2) + 1) / 2; // 0-1
+                const panY = (Math.sin((burnProgress + 0.65) * Math.PI * 2) + 1) / 2; // 0-1
+                
+                const cropX = Math.floor(maxCropX * panX);
+                const cropY = Math.floor(maxCropY * panY);
+                
+                // Paste at 1:1 scale, full bleed (no width/height = no scaling)
+                $.paste(frame, tooltipX + padding, vizY, {
+                  crop: { x: cropX, y: cropY, w: cropW, h: cropH }
+                });
+              }
+              
+              // Draw progress bar at bottom of visualizer (1px black and red)
+              const progressBarY = vizY + vizHeight;
+              const totalFrames = currentTooltipItem.frames.length;
+              const currentFrame = frameIndex;
+              const progress = currentFrame / totalFrames;
+              const progressWidth = Math.floor(vizWidth * progress);
+              
+              // Black background for unfilled portion
+              $.ink(0, 0, 0, 255).line(tooltipX + padding, progressBarY, tooltipX + padding + vizWidth - 1, progressBarY);
+              // Red foreground for filled portion
+              if (progressWidth > 0) {
+                $.ink(255, 0, 0, 255).line(tooltipX + padding, progressBarY, tooltipX + padding + progressWidth - 1, progressBarY);
+              }
+              
+              // Draw time display below progress bar
+              const timeY = progressBarY + 2;
+              const fps = 12; // Frames per second for tape playback
+              const currentSeconds = currentFrame / fps;
+              const totalSeconds = totalFrames / fps;
+              
+              const formatTime = (seconds) => {
+                const mins = Math.floor(seconds / 60);
+                const secs = Math.floor(seconds % 60);
+                return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+              };
+              
+              const timeText = `${formatTime(currentSeconds)} / ${formatTime(totalSeconds)}`;
+              const timeAlpha = Math.floor(180 * tooltipFadeIn);
+              $.ink(100, 180, 120, timeAlpha).write(
+                timeText,
+                { x: tooltipX + padding, y: timeY },
+                undefined,
+                undefined,
+                false,
+                "MatrixChunky8"
+              );
+              
+              $.needsPaint(); // Keep animating frames
+            } else {
+              // Show animated cassette while loading
+              const animPhase = (performance.now() / 100) % (Math.PI * 2);
+              const loadingAlpha = Math.floor(255 * tooltipFadeIn);
+              
+              // Draw cassette body outline
+              const bodyColor = [80, 80, 80, loadingAlpha];
+              $.ink(...bodyColor).box(tooltipX + padding, vizY, vizWidth, vizHeight, "outline");
+              
+              // Draw two reels inside
+              const reelRadius = 15;
+              const reelY = vizY + vizHeight / 2;
+              const reel1X = tooltipX + padding + vizWidth * 0.3;
+              const reel2X = tooltipX + padding + vizWidth * 0.7;
+              
+              // Left reel - rotating
+              $.ink(150, 100, 150, loadingAlpha).circle(reel1X, reelY, reelRadius, false);
+              const spoke1Angle = animPhase;
+              const spokeLength = reelRadius - 3;
+              for (let i = 0; i < 6; i++) {
+                const angle = spoke1Angle + (i * Math.PI / 3);
+                const endX = reel1X + Math.cos(angle) * spokeLength;
+                const endY = reelY + Math.sin(angle) * spokeLength;
+                $.ink(150, 100, 150, loadingAlpha).line(reel1X, reelY, endX, endY);
+              }
+              
+              // Right reel - rotating opposite direction
+              $.ink(150, 100, 150, loadingAlpha).circle(reel2X, reelY, reelRadius, false);
+              const spoke2Angle = -animPhase;
+              for (let i = 0; i < 6; i++) {
+                const angle = spoke2Angle + (i * Math.PI / 3);
+                const endX = reel2X + Math.cos(angle) * spokeLength;
+                const endY = reelY + Math.sin(angle) * spokeLength;
+                $.ink(150, 100, 150, loadingAlpha).line(reel2X, reelY, endX, endY);
+              }
+              
+              // Draw tape connecting reels
+              const tapeY1 = reelY - reelRadius;
+              const tapeY2 = reelY + reelRadius;
+              $.ink(100, 70, 50, loadingAlpha).line(reel1X, tapeY1, reel2X, tapeY1);
+              $.ink(100, 70, 50, loadingAlpha).line(reel1X, tapeY2, reel2X, tapeY2);
+              
+              // Show loading status if available
+              if (currentTooltipItem.loadMessage) {
+                const statusAlpha = Math.floor(180 * tooltipFadeIn);
+                $.ink(100, 180, 120, statusAlpha).write(
+                  currentTooltipItem.loadMessage,
+                  { x: tooltipX + padding, y: vizY + vizHeight + 2 },
+                  undefined,
+                  undefined,
+                  false,
+                  "MatrixChunky8"
+                );
               }
             }
-            if (!timestampText) timestampText = "just now";
+            
+            $.needsPaint(); // Keep animating
           }
           
-          // Format author (handle from owner.handle, which already includes @)
-          const authorText = currentTooltipItem.author 
-            ? currentTooltipItem.author // Already has @ from API
-            : null; // No fallback - only show if we have real data
+          // Render metadata (timestamp and @author) positioned right after content with small gap
+          // For KidLisp: after the code lines + metadataGap
+          // For Painting: after the image + metadataGap
+          // For Tape: after the visualizer + progress bar + time + metadataGap
+          let metadataY;
+          if (currentTooltipItem.type === 'kidlisp' && currentTooltipItem.source) {
+            const lines = currentTooltipItem.source.split('\n').slice(0, 5);
+            const lineHeight = 10;
+            metadataY = tooltipY + padding + (lines.length * lineHeight) + metadataGap;
+          } else if (currentTooltipItem.type === 'painting' && currentTooltipItem.image) {
+            const img = currentTooltipItem.image;
+            const maxPreviewWidth = 200;
+            const maxPreviewHeight = 150;
+            let previewHeight = img.height;
+            if (img.width > maxPreviewWidth || img.height > maxPreviewHeight) {
+              const scale = Math.min(maxPreviewWidth / img.width, maxPreviewHeight / img.height);
+              previewHeight = Math.floor(img.height * scale);
+            }
+            metadataY = tooltipY + padding + previewHeight + metadataGap;
+          } else if (currentTooltipItem.type === 'tape' && (currentTooltipItem.isLoading || currentTooltipItem.framesLoaded)) {
+            const visualizerHeight = 60;
+            const progressBarHeight = 1;
+            const timeDisplayHeight = 8;
+            metadataY = tooltipY + padding + visualizerHeight + progressBarHeight + timeDisplayHeight + metadataGap;
+          }
           
-          // Combine metadata: "timestamp · @author"
-          const metadataText = timestampText && authorText 
-            ? `${timestampText} · ${authorText}`
-            : timestampText || authorText || '';
-          
-          // Render metadata in dimmer color at BOTTOM of box (non-MatrixChunky)
+          // Render metadata in dimmer color using MatrixChunky8
           if (metadataText) {
             const metadataAlpha = Math.floor(180 * tooltipFadeIn);
             $.ink([100, 180, 120, metadataAlpha]).write(
               metadataText,
-              { x: tooltipX + padding, y: metadataY }
+              { x: tooltipX + padding, y: metadataY },
+              undefined,
+              undefined,
+              false,
+              "MatrixChunky8"
             );
           }
         }
@@ -4521,7 +4972,9 @@ function sim($) {
   const showLoginCurtain = 
     (!login?.btn.disabled && !profile) || 
     (!login && !profile?.btn.disabled);
-  if (showLoginCurtain) {
+  const promptHasContent = $.system.prompt.input.text && $.system.prompt.input.text.length > 0;
+  const shouldShowCarousel = showLoginCurtain && !$.system.prompt.input.canType && !promptHasContent;
+  if (shouldShowCarousel) {
     const product = products.getActiveProduct();
     if (product && product.imageScaled) {
       products.sim($);
@@ -4679,9 +5132,11 @@ function act({
   const showLoginCurtainAct = 
     (!login?.btn.disabled && !profile) || 
     (!login && !profile?.btn.disabled);
+  const promptHasContentAct = system.prompt.input.text && system.prompt.input.text.length > 0;
+  const shouldShowCarouselAct = showLoginCurtainAct && !system.prompt.input.canType && !promptHasContentAct;
 
   // Use products.act() to handle button interaction with callbacks
-  if (showLoginCurtainAct) {
+  if (shouldShowCarouselAct) {
     products.act(
       { api, needsPaint, net, screen, num, jump, system, user, store, send, handle, glaze, canShare, notice, ui, sound: { play, synth } },
       e,
@@ -5089,6 +5544,7 @@ export {
   act,
   activated,
   reply,
+  receive,
   meta,
   leave,
 };
@@ -5156,44 +5612,70 @@ async function makeMotd({ system, needsPaint, handle, user, net, api, notice }) 
 // Fetch all content (kidlisp, painting, tape) and combine into a single shuffled array
 async function fetchContentItems(api) {
   try {
-    // Fetch all types in one request
-    // Use absolute URL to ensure HTTPS in dev environment
-    const apiUrl = (typeof window !== 'undefined' ? window.location.origin : '') + "/api/tv?types=kidlisp,painting,tape&limit=60&filter=sprinkle";
+    // Fetch all types mixed with frecency using the "sprinkle" filter
+    // This creates a diverse feed mixing tapes, paintings, and kidlisp based on
+    // recency and popularity (hits)
+    const apiUrl = (typeof window !== 'undefined' ? window.location.origin : '') + "/api/tv?filter=sprinkle&limit=60";
     const res = await fetch(apiUrl);
     if (res.status === 200) {
       const data = await res.json();
       const items = [];
       
-      // Use mixed feed if available (from sprinkle filter), otherwise collect from individual types
+      // Use mixed feed if available (interwoven by timestamp)
       if (data.mixed && Array.isArray(data.mixed)) {
-        // Sprinkle filter provides pre-mixed items
         data.mixed.forEach(item => {
-          if (item.type === 'kidlisp' && item.code) {
+          if (!item.code) return; // Skip items without code
+          
+          const baseItem = {
+            type: item.type,
+            code: item.code,
+            timestamp: item.timestamp || item.created_at || item.when,
+            author: item.owner?.handle || null
+          };
+          
+          // Sanitize handle to prevent string "undefined" or "null"
+          const sanitizedHandle = (item.owner?.handle && 
+                                  typeof item.owner.handle === 'string' && 
+                                  item.owner.handle !== 'undefined' && 
+                                  item.owner.handle !== 'null' &&
+                                  item.owner.handle.length > 0) 
+            ? item.owner.handle 
+            : null;
+          
+          if (item.type === 'kidlisp') {
+            items.push({ ...baseItem, source: item.source });
+          } else if (item.type === 'painting') {
             items.push({ 
-              type: 'kidlisp', 
-              code: item.code,
-              source: item.source, // Store source for tooltip preview
-              timestamp: item.timestamp || item.created_at || item.when,
-              author: item.owner?.handle || null // Extract handle from owner.handle
+              ...baseItem, 
+              slug: item.slug, 
+              handle: sanitizedHandle,
+              mediaPath: item.media?.path || null,
+              mediaUrl: item.media?.url || null
             });
-          } else if (item.type === 'painting' && item.code) {
-            items.push({ type: 'painting', code: item.code });
-          } else if (item.type === 'tape' && item.code) {
-            const tapeId = `prompt-tape-${item.code}`;
-            items.push({ type: 'tape', code: item.code, tapeId: tapeId });
+          } else if (item.type === 'tape') {
+            items.push({ 
+              ...baseItem,
+              slug: item.slug,
+              handle: sanitizedHandle,
+              mediaPath: item.media?.path || null,
+              mediaUrl: item.media?.url || null,
+              title: item.title || null
+            });
           }
         });
       } else {
-        // Fallback to collecting from individual media types
+        // Fallback: collect and manually interweave (for backwards compatibility)
+        const allItems = [];
+        
         // Collect kidlisp items
         if (data.media?.kidlisp && Array.isArray(data.media.kidlisp)) {
           data.media.kidlisp.forEach(item => {
-            if (item.code) items.push({ 
+            if (item.code) allItems.push({ 
               type: 'kidlisp', 
               code: item.code,
-              source: item.source, // Store source for tooltip preview
+              source: item.source,
               timestamp: item.timestamp || item.created_at || item.when,
-              author: item.owner?.handle || null // Extract handle from owner.handle
+              author: item.owner?.handle || null
             });
           });
         }
@@ -5201,24 +5683,52 @@ async function fetchContentItems(api) {
         // Collect painting items
         if (data.media?.paintings && Array.isArray(data.media.paintings)) {
           data.media.paintings.forEach(item => {
-            if (item.code) items.push({ type: 'painting', code: item.code });
+            const sanitizedHandle = (item.owner?.handle && 
+                                    typeof item.owner.handle === 'string' && 
+                                    item.owner.handle !== 'undefined' && 
+                                    item.owner.handle !== 'null' &&
+                                    item.owner.handle.length > 0) 
+              ? item.owner.handle 
+              : null;
+            
+            if (item.code) allItems.push({ 
+              type: 'painting', 
+              code: item.code,
+              slug: item.slug,
+              handle: sanitizedHandle,
+              mediaPath: item.media?.path || null,
+              mediaUrl: item.media?.url || null,
+              timestamp: item.timestamp || item.created_at || item.when,
+              author: item.owner?.handle || null
+            });
           });
         }
         
         // Collect tape items
         if (data.media?.tapes && Array.isArray(data.media.tapes)) {
           data.media.tapes.forEach(item => {
-            if (item.code) {
-              const tapeId = `prompt-tape-${item.code}`;
-              items.push({ type: 'tape', code: item.code, tapeId: tapeId });
-            }
+            if (item.code) allItems.push({ 
+              type: 'tape', 
+              code: item.code,
+              timestamp: item.timestamp || item.created_at || item.when,
+              author: item.owner?.handle || null
+            });
           });
         }
+        
+        // Sort by timestamp (newest first)
+        allItems.sort((a, b) => {
+          const timeA = new Date(a.timestamp || 0).getTime();
+          const timeB = new Date(b.timestamp || 0).getTime();
+          return timeB - timeA;
+        });
+        
+        items.push(...allItems);
       }
       
-      // Keep items in original order (sprinkled or most recent first from API)
       contentItems = items;
-      console.log("✅ Content items loaded:", contentItems.length, 
+      
+      console.log("✅ Content items loaded with sprinkle filter:", contentItems.length, 
                   `(${items.filter(i => i.type === 'kidlisp').length} kidlisp, ` +
                   `${items.filter(i => i.type === 'painting').length} paintings, ` +
                   `${items.filter(i => i.type === 'tape').length} tapes)`);
@@ -5263,6 +5773,133 @@ async function fetchKidlispSource(item, $) {
     item.fetchFailed = true;
   }
 }
+
+// Fetch painting image for a given item
+async function fetchPaintingImage(item, $) {
+  if (!item || item.type !== 'painting' || !item.code) {
+    console.warn(`⚠️ fetchPaintingImage called with invalid item:`, item);
+    return;
+  }
+  
+  // Prevent duplicate fetches - check and set atomically
+  if (item.fetchAttempted) {
+    console.log(`🖼️ Already attempted fetch for #${item.code}, skipping`);
+    return;
+  }
+  item.fetchAttempted = true; // Set IMMEDIATELY to block other calls
+  
+  let imageUrl; // Declare outside try block so it's accessible in catch
+  try {
+    // Prefer mediaPath from API, fall back to constructing path
+    if (item.mediaPath && !item.mediaPath.includes('/undefined/')) {
+      // mediaPath is a relative path like /media/@user/painting/file.png
+      // Convert to absolute URL using current origin
+      imageUrl = `${location.origin}${item.mediaPath}`;
+    } else if (item.handle && 
+               typeof item.handle === 'string' && 
+               item.handle !== 'undefined' && 
+               item.handle !== 'null' && 
+               item.handle.length > 0) {
+      // User painting with valid handle (check both string and actual null/undefined)
+      imageUrl = `${location.origin}/media/@${item.handle}/painting/${item.slug}.png`;
+    } else {
+      // Anonymous painting - use /media/paintings/CODE route
+      console.log(`🖼️ Using anonymous painting route for #${item.code} (handle: ${JSON.stringify(item.handle)})`);
+      imageUrl = `${location.origin}/media/paintings/${item.code}.png`;
+    }
+    
+    // Load the image
+    console.log(`🖼️ Attempting to load image for #${item.code} from: ${imageUrl}`);
+    const result = await $.net.preload(imageUrl);
+    if (result && result.img) {
+      // Extract the actual image bitmap from the result
+      item.image = result.img;
+      item.fetchFailed = false;
+      console.log(`✅ Fetched image for #${item.code} (${result.img.width}x${result.img.height})`);
+      $.needsPaint();
+    } else {
+      console.warn(`⚠️ No image returned for #${item.code} (tried: ${imageUrl})`, result);
+      item.fetchFailed = true;
+    }
+  } catch (err) {
+    console.warn(`⚠️ Could not fetch image for #${item.code}:`, imageUrl, err);
+    item.fetchFailed = true;
+  }
+}
+
+// Fetch tape audio and frames for preview playback
+async function fetchTapeAudio(item, $) {
+  if (!item || item.type !== 'tape' || !item.code) {
+    console.warn(`⚠️ fetchTapeAudio called with invalid item:`, item);
+    return;
+  }
+  
+  // Prevent duplicate fetches
+  if (item.fetchAttempted) {
+    console.log(`🎵 Already attempted fetch for !${item.code}, skipping`);
+    return;
+  }
+  item.fetchAttempted = true;
+  
+  try {
+    console.log(`🎵 Loading tape !${item.code}`);
+    
+    // Fetch tape metadata first
+    const metadataResponse = await fetch(`/api/get-tape?code=${item.code}`);
+    if (!metadataResponse.ok) {
+      throw new Error(`Failed to load tape metadata: ${metadataResponse.status}`);
+    }
+    
+    const metadata = await metadataResponse.json();
+    
+    if (metadata.nuked) {
+      throw new Error(`Tape !${item.code} has been deleted`);
+    }
+    
+    // Construct ZIP URL
+    const zipUrl = `${location.origin}/media/tapes/${item.code}`;
+    const tapeId = `prompt-tape-${item.code}`;
+    
+    // Store metadata and URLs
+    item.metadata = metadata;
+    item.zipUrl = zipUrl;
+    item.tapeId = tapeId;
+    item.isLoading = true;
+    item.loadProgress = 0;
+    item.loadPhase = 'downloading';
+    
+    // Check if tape is already loaded in bios TapeManager
+    // (We can't access globalThis.tapeManager directly since it's in the worker,
+    // but we can send a message to check and get frames back)
+    item.isLoading = true;
+    item.loadProgress = 0;
+    item.loadPhase = 'checking';
+    
+    // Send preload request to bios to load frames (or get existing frames)
+    console.log(`📼 Sending tape:preload with zipUrl: ${zipUrl}`);
+    $.send({
+      type: "tape:preload",
+      content: {
+        tapeId: tapeId,
+        code: item.code,
+        zipUrl: zipUrl,
+        metadata: metadata,
+        requestFrames: true // Tell bios to send frames back to disk
+      }
+    });
+    
+    console.log(`✅ Initiated tape load for !${item.code}`);
+    item.fetchFailed = false;
+    $.needsPaint();
+  } catch (err) {
+    console.warn(`⚠️ Could not prepare tape for !${item.code}:`, err);
+    item.fetchFailed = true;
+    item.fetchAttempted = false;
+    throw err;
+  }
+}
+
+console.log("📨 ✅ receive function defined! typeof receive =", typeof receive);
 
 // Render syntax-highlighted KidLisp source code
 function renderKidlispSource($, source, x, y, maxWidth, maxLines, fadeAlpha) {
@@ -5477,4 +6114,153 @@ function fetchUser() {
       } else setTimeout(() => fetchUser(), 1000);
     })
     .catch((err) => setTimeout(() => fetchUser(), 1000));
+}
+
+// 📨 Receive messages from bios (for tape loading progress)
+function receive(e) {
+  console.log(`📨 ✅✅✅ PROMPT.MJS RECEIVE called with type: ${e.type}, is() available: ${typeof e.is === 'function'}`);
+  
+  if (e.is("tape:load-progress")) {
+    const { code, phase, progress, loadedFrames, totalFrames } = e.content || {};
+    
+    // Find the tape item in contentItems
+    const tapeItem = contentItems.find(item => item.type === 'tape' && item.code === code);
+    if (tapeItem) {
+      tapeItem.loadPhase = phase;
+      tapeItem.loadProgress = progress;
+      
+      if (phase === 'frames') {
+        tapeItem.loadMessage = `${loadedFrames}/${totalFrames} FRAMES`;
+      } else if (phase === 'downloading') {
+        tapeItem.loadMessage = 'DOWNLOADING';
+      } else if (phase === 'audio') {
+        tapeItem.loadMessage = 'LOADING AUDIO';
+      }
+    }
+  }
+  
+  if (e.is("tape:preloaded")) {
+    const { tapeId, frameCount } = e.content || {};
+    
+    // Find tape by tapeId
+    const tapeItem = contentItems.find(item => item.tapeId === tapeId);
+    if (tapeItem) {
+      tapeItem.isLoading = false;
+      tapeItem.framesLoaded = true;
+      tapeItem.frameCount = frameCount;
+      tapeItem.frames = []; // Array to hold frames sent from bios
+      console.log(`✅ Tape !${tapeItem.code} loaded: ${frameCount} frames - requesting frames for preview`);
+      
+      // Request frames from bios for preview (send all frames at once)
+      if (typeof promptSend === "function") {
+        promptSend({
+          type: "tape:request-frames",
+          content: { tapeId },
+        });
+      } else {
+        console.warn("⚠️ promptSend unavailable; cannot request frames for", tapeId);
+      }
+    }
+  }
+  
+  if (e.is("tape:frames")) {
+    console.log(`📼 Received tape:frames message:`, e.content);
+  const { tapeId, frames } = e.content || {};
+    console.log(`📼 Looking for tapeId: ${tapeId}, frames array length: ${frames?.length || 0}`);
+    console.log(`📼 Content items with tapeIds:`, contentItems.filter(i => i.tapeId).map(i => ({code: i.code, tapeId: i.tapeId})));
+    
+    // Find tape by tapeId
+    const tapeItem = contentItems.find(item => item.tapeId === tapeId);
+    if (tapeItem) {
+      const limitedFrames = Array.isArray(frames)
+        ? frames.slice(0, TAPE_PREVIEW_MAX_FRAMES)
+        : frames;
+      tapeItem.frames = limitedFrames; // Array of ImageBitmap objects
+      tapeItem.framesLoaded = true;
+      console.log(`✅ Received ${frames?.length || 0} frames for !${tapeItem.code}`);
+      if (activeTapePreview === tapeItem) {
+        scheduleTapePreviewRelease(tapeItem);
+      }
+      if (typeof promptNeedsPaint === "function") {
+        promptNeedsPaint();
+      } else {
+        console.warn("⚠️ promptNeedsPaint unavailable; cannot trigger repaint for", tapeId);
+      }
+    } else {
+      console.warn(`⚠️ Received frames for unknown tapeId: ${tapeId}`);
+    }
+  }
+  
+  if (e.is("tape:preload-error")) {
+    const { tapeId, error } = e.content || {};
+    
+    const tapeItem = contentItems.find(item => item.tapeId === tapeId);
+    if (tapeItem) {
+      tapeItem.isLoading = false;
+      tapeItem.fetchFailed = true;
+      tapeItem.fetchAttempted = false;
+      console.error(`❌ Failed to load tape !${tapeItem.code}:`, error);
+      tapePreviewQueue = tapePreviewQueue.filter((entry) => entry.item !== tapeItem);
+      tapeItem.previewQueued = false;
+      tapeItem.previewActive = false;
+      if (activeTapePreview === tapeItem) {
+        releaseActiveTapePreview("error");
+      }
+    }
+  }
+}
+function releaseActiveTapePreview(reason = "complete") {
+  if (tapePreviewTimeoutId) {
+    clearTimeout(tapePreviewTimeoutId);
+    tapePreviewTimeoutId = null;
+  }
+  if (activeTapePreview) {
+    console.log(`📼 Tape preview ${reason}: !${activeTapePreview.code}`);
+    activeTapePreview.previewActive = false;
+    activeTapePreview.previewQueued = false;
+    if (!activeTapePreview.framesLoaded) {
+      activeTapePreview.isLoading = false;
+      activeTapePreview.loadPhase = undefined;
+      activeTapePreview.loadMessage = undefined;
+      activeTapePreview.loadProgress = 0;
+    }
+  }
+  activeTapePreview = null;
+  processTapePreviewQueue();
+}
+
+function processTapePreviewQueue() {
+  if (activeTapePreview || tapePreviewQueue.length === 0) return;
+  const next = tapePreviewQueue.shift();
+  if (next?.item && next.api) {
+    activeTapePreview = next.item;
+    activeTapePreview.previewQueued = false;
+    activeTapePreview.previewActive = true;
+    console.log(`📼 ▶️ Starting queued tape preview for !${next.item.code}`);
+    fetchTapeAudio(next.item, next.api).catch((err) => {
+      console.warn(`📼 Tape preview load failed for !${next.item.code}:`, err);
+      releaseActiveTapePreview("load-error");
+    });
+  }
+}
+
+function enqueueTapePreview(item, api) {
+  if (!item || item.type !== "tape" || !api) return;
+  if (item.fetchAttempted) return;
+  if (activeTapePreview === item) return;
+  const isAlreadyQueued = tapePreviewQueue.some((entry) => entry.item === item);
+  if (isAlreadyQueued) return;
+  item.previewQueued = true;
+  tapePreviewQueue.push({ item, api });
+  processTapePreviewQueue();
+}
+
+function scheduleTapePreviewRelease(tapeItem) {
+  if (activeTapePreview !== tapeItem) return;
+  if (tapePreviewTimeoutId) clearTimeout(tapePreviewTimeoutId);
+  tapePreviewTimeoutId = setTimeout(() => {
+    if (activeTapePreview === tapeItem) {
+      releaseActiveTapePreview("duration-complete");
+    }
+  }, TAPE_PREVIEW_DURATION_MS);
 }
