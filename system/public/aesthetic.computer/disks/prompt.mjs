@@ -4252,12 +4252,11 @@ function paint($) {
             tooltipHeight = lines.length * lineHeight + padding + metadataGap + metadataHeight;
           } else if (currentTooltipItem.type === 'painting' && currentTooltipItem.image) {
             // Painting tooltip: fixed-size preview box with Ken Burns effect (consistent with tapes)
-            const previewWidth = Math.min(150, maxTooltipWidth - padding * 2); // Fixed width
-            const previewHeight = Math.min(120, maxContentHeight); // Fixed height (same as tapes)
+            const previewWidth = 150; // Fixed width
+            const previewHeight = 120; // Fixed height (same as tapes)
             
-            // Ensure width fits both image and metadata
-            const minWidthForMetadata = metadataWidth + padding * 2;
-            tooltipWidth = Math.max(previewWidth + padding * 2, minWidthForMetadata);
+            // Box is exactly preview size + padding
+            tooltipWidth = previewWidth + padding * 2;
             tooltipHeight = previewHeight + padding * 2; // Just the image box, metadata goes outside
           } else if (currentTooltipItem.type === 'tape' && currentTooltipItem.audioUrl) {
             // Tape tooltip: show title and audio visualization - fit to available space
@@ -4408,9 +4407,9 @@ function paint($) {
             // Render painting image preview with Ken Burns effect (fixed size, consistent with tapes)
             const img = currentTooltipItem.image;
             
-            // Use fixed preview dimensions (matching tooltip sizing above)
-            const previewWidth = Math.min(150, maxTooltipWidth - padding * 2);
-            const previewHeight = Math.min(120, maxContentHeight);
+            // Use fixed preview dimensions
+            const previewWidth = 150;
+            const previewHeight = 120;
             const drawX = tooltipX + padding;
             const drawY = tooltipY + padding;
             
