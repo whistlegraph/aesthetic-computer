@@ -88,7 +88,7 @@ async function fetchPaintings(db, { limit }) {
         handle,
         userId: record.user,
       },
-      when: record.when instanceof Date ? record.when.toISOString() : record.when,
+      when: record.when,
       media: {
         path: mediaPath,
         url: thumbnailUrl,
@@ -105,11 +105,17 @@ async function fetchPaintings(db, { limit }) {
   });
 }
 
-async function fetchKidlisp(db, { limit }) {
+async function fetchKidlisp(db, { limit, sort }) {
   const collection = db.collection("kidlisp");
+  
+  let sortStage = { $sort: { when: -1 } };
+  if (sort === 'hits') {
+    sortStage = { $sort: { hits: -1 } };
+  }
+
   const pipeline = [
     { $match: { nuked: { $ne: true } } },
-    { $sort: { when: -1 } },
+    sortStage,
     { $limit: limit },
     {
       $lookup: {
@@ -137,26 +143,33 @@ async function fetchKidlisp(db, { limit }) {
     },
   ];
 
+  console.log("Fetching kidlisp with pipeline:", JSON.stringify(pipeline));
   const records = await collection.aggregate(pipeline).toArray();
+  console.log(`Fetched ${records.length} kidlisp records`);
 
-  return records.map((record) => {
-    const handle = record.handle ? `@${record.handle}` : null;
-    
-    return {
-      id: record._id?.toString?.() ?? `${record.user}:${record.code}`,
-      type: "kidlisp",
-      code: record.code,
-      owner: {
-        handle,
-        userId: record.user,
-      },
-      when: record.when instanceof Date ? record.when.toISOString() : record.when,
-      hits: record.hits || 0,
-      acUrl: `https://aesthetic.computer/#${record.code}`,
-      meta: {
-        sourceLength: record.source?.length || 0,
-      },
-    };
+  return records.map((record, index) => {
+    try {
+      const handle = record.handle ? `@${record.handle}` : null;
+      
+      return {
+        id: record._id?.toString?.() ?? `${record.user}:${record.code}`,
+        type: "kidlisp",
+        code: record.code,
+        owner: {
+          handle,
+          userId: record.user,
+        },
+        when: record.when,
+        hits: record.hits || 0,
+        acUrl: `https://aesthetic.computer/#${record.code}`,
+        meta: {
+          sourceLength: record.source?.length || 0,
+        },
+      };
+    } catch (err) {
+      console.error(`Error processing record at index ${index}:`, record);
+      throw err;
+    }
   });
 }
 
@@ -207,7 +220,7 @@ async function fetchTapes(db, { limit }) {
         handle,
         userId: record.user ?? null, // null for anonymous tapes
       },
-      when: record.when instanceof Date ? record.when.toISOString() : record.when,
+      when: record.when,
       acUrl: `https://aesthetic.computer/!${record.code}`,
       media: {
         bucket: record.bucket,
@@ -219,65 +232,17 @@ async function fetchTapes(db, { limit }) {
 }
 
 export async function handler(event) {
-  if (event.httpMethod !== "GET") {
-    return respond(405, { error: "Method not allowed" });
-  }
-
-  const params = event.queryStringParameters || {};
-  const requestedTypes = parseMediaTypes(params.types);
-  const limit = parseLimit(params.limit);
-
-  const media = {};
-  const pendingTypes = [];
-  const unsupportedTypes = [];
-
-  let database;
-
   try {
+    console.log("Node version:", process.version);
+    // console.log("MongoDB path:", import.meta.resolve("mongodb")); // This might fail if not supported
+    
     console.log("📺 Connecting to database...");
-    database = await connect();
+    const { db, disconnect } = await connect();
     console.log("📺 Database connected successfully");
-
-    for (const type of requestedTypes) {
-      console.log(`📺 Fetching ${type}...`);
-      if (type === "painting") {
-        media.paintings = await fetchPaintings(database.db, { limit });
-        console.log(`📺 Fetched ${media.paintings.length} paintings`);
-      } else if (type === "kidlisp") {
-        media.kidlisp = await fetchKidlisp(database.db, { limit });
-        console.log(`📺 Fetched ${media.kidlisp.length} kidlisp items`);
-      } else if (type === "tape") {
-        media.tapes = await fetchTapes(database.db, { limit });
-        console.log(`📺 Fetched ${media.tapes.length} tapes`);
-      } else if (["mood", "scream", "chat"].includes(type)) {
-        // Reserve keys for upcoming media types so clients can experiment early.
-        media[`${type}s`] = [];
-        pendingTypes.push(type);
-      } else {
-        unsupportedTypes.push(type);
-      }
-    }
-
-    const counts = Object.fromEntries(
-      Object.entries(media).map(([key, value]) => [key, Array.isArray(value) ? value.length : 0]),
-    );
-
-    return respond(200, {
-      meta: {
-        requestedTypes,
-        limit,
-        generatedAt: new Date().toISOString(),
-        pendingTypes,
-        unsupportedTypes,
-        counts,
-      },
-      media,
-    });
+    await disconnect();
+    return respond(200, { status: "ok" });
   } catch (error) {
-    console.error("Failed to build TV feed", error);
-    console.error("Error stack:", error.stack);
-    return respond(500, { error: "Failed to assemble tv feed.", details: error.message });
-  } finally {
-    await database?.disconnect?.();
+    console.error("Failed to connect", error);
+    return respond(500, { error: "Failed to connect", details: error.message });
   }
 }
