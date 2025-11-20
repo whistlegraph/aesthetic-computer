@@ -5871,6 +5871,9 @@ async function load(
   loadedCallback,
   forceKidlisp = false, // Force interpretation as kidlisp even without prefix
 ) {
+  const loadFunctionStartTime = performance.now();
+  console.log(`⏰ load() function started at ${loadFunctionStartTime}ms`);
+  
   let fullUrl, source;
   let params,
     search,
@@ -6073,6 +6076,7 @@ async function load(
       originalCode = sourceCode;
     } else {
       let sourceToRun;
+      let fetchStartTime = performance.now(); // Initialize timing at the start
       
       // 💾 Check if this is a cached kidlisp code (starts with $ and has content after it)
       if (slug && slug.startsWith("$") && slug.length > 1) {
@@ -6259,6 +6263,8 @@ async function load(
       }
     }
   } catch (err) {
+    const moduleLoadErrorTime = performance.now();
+    console.log(`⏰ Module load error caught at ${moduleLoadErrorTime}ms`);
     console.log("🟡 Error loading mjs module:", err);
     // Look for lisp files if the mjs file is not found, but only if we weren't already trying to load a .lisp file
     if (fullUrl && !fullUrl.includes('.lisp')) {
@@ -6342,6 +6348,9 @@ async function load(
 
   // console.log("Module load time:", performance.now() - moduleLoadTime, module);
   // 🧨 Fail out if no module is found.
+  const moduleCheckTime = performance.now();
+  console.log(`⏰ Module check at ${moduleCheckTime}ms, module loaded: ${loadedModule !== undefined}`);
+  
   if (loadedModule === undefined) {
     loading = false;
     leaving = false;
@@ -6950,7 +6959,28 @@ async function load(
 
   // Load typeface if it hasn't been yet.
   // (This only has to happen when the first piece loads.)
-  if (!tf) tf = await new Typeface(/*"unifont"*/).load($commonApi.net.preload);
+  // Skip expensive typeface loading in editor/preview mode (noauth) - pieces can load it lazily if needed
+  const skipTypefacePreload = typeof window !== 'undefined' && window.acNOAUTH;
+  console.log(`⏰ Typeface skip check: window.acNOAUTH=${typeof window !== 'undefined' ? window.acNOAUTH : 'N/A'}, skipTypefacePreload=${skipTypefacePreload}, tf exists=${!!tf}`);
+  
+  const typefaceLoadStartTime = performance.now();
+  if (!tf && !skipTypefacePreload) {
+    tf = await new Typeface(/*"unifont"*/).load($commonApi.net.preload);
+    const typefaceLoadEndTime = performance.now();
+    console.log(`⏰ Typeface load: ${Math.round(typefaceLoadEndTime - typefaceLoadStartTime)}ms`);
+  } else if (skipTypefacePreload) {
+    // Create a minimal stub typeface for noauth mode
+    tf = {
+      blockWidth: 6,
+      blockHeight: 10,
+      glyphs: {},
+      __stub: true
+    };
+    console.log(`⏰ Typeface load skipped (noauth mode), using stub`);
+  } else {
+    console.log(`⏰ Typeface already loaded`);
+  }
+  
   $commonApi.typeface = tf; // Expose a preloaded typeface globally.
   ui.setTypeface(tf); // Set the default `ui` typeface.
 
@@ -6960,41 +6990,55 @@ async function load(
   currentHUDShareWidth = tf.blockWidth * "share ".length;
 
   // Initialize MatrixChunky8 font for QR code text rendering and keep it warm across pieces
-  let matrixFont = typefaceCache.get("MatrixChunky8");
+  // Skip this expensive preloading if running in editor/preview mode (noauth)
+  const skipMatrixPreload = skipTypefacePreload; // Use same condition
+  
+  if (!skipMatrixPreload) {
+    const matrixFontStartTime = performance.now();
+    let matrixFont = typefaceCache.get("MatrixChunky8");
 
-  if (!matrixFont) {
-    matrixFont = new Typeface("MatrixChunky8");
-    await matrixFont.load($commonApi.net.preload); // Important: call load() to initialize the proxy system
-    typefaceCache.set("MatrixChunky8", matrixFont);
-  }
-
-  if (matrixFont && !matrixFont.__preloadedCommonGlyphs) {
-    // Pre-load common QR code characters to avoid fallback during rendering
-    const commonQRChars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz$";
-
-    // Access each character to trigger the Proxy loading mechanism and collect promises
-    const glyphPromises = [];
-
-    for (const char of commonQRChars) {
-      // Accessing the glyph triggers the Proxy to start loading it
-      const glyph = matrixFont.glyphs[char];
-
-      // If it's a Promise, collect it to wait for loading
-      if (glyph && typeof glyph.then === "function") {
-        glyphPromises.push(glyph);
-      }
+    if (!matrixFont) {
+      matrixFont = new Typeface("MatrixChunky8");
+      await matrixFont.load($commonApi.net.preload); // Important: call load() to initialize the proxy system
+      typefaceCache.set("MatrixChunky8", matrixFont);
     }
 
-    // Wait for all common glyphs to finish loading
-    if (glyphPromises.length > 0) {
-      try {
-        await Promise.all(glyphPromises);
-      } catch (e) {
-        console.warn("🔤 Some MatrixChunky8 glyphs failed to preload:", e);
-      }
-    }
+    if (matrixFont && !matrixFont.__preloadedCommonGlyphs) {
+      const glyphPreloadStartTime = performance.now();
+      // Pre-load common QR code characters to avoid fallback during rendering
+      const commonQRChars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz$";
 
-    matrixFont.__preloadedCommonGlyphs = true;
+      // Access each character to trigger the Proxy loading mechanism and collect promises
+      const glyphPromises = [];
+
+      for (const char of commonQRChars) {
+        // Accessing the glyph triggers the Proxy to start loading it
+        const glyph = matrixFont.glyphs[char];
+
+        // If it's a Promise, collect it to wait for loading
+        if (glyph && typeof glyph.then === "function") {
+          glyphPromises.push(glyph);
+        }
+      }
+
+      // Wait for all common glyphs to finish loading
+      if (glyphPromises.length > 0) {
+        try {
+          await Promise.all(glyphPromises);
+        } catch (e) {
+          console.warn("🔤 Some MatrixChunky8 glyphs failed to preload:", e);
+        }
+      }
+
+      const glyphPreloadEndTime = performance.now();
+      console.log(`⏰ MatrixChunky8 glyph preload: ${Math.round(glyphPreloadEndTime - glyphPreloadStartTime)}ms`);
+      matrixFont.__preloadedCommonGlyphs = true;
+    }
+    
+    const matrixFontEndTime = performance.now();
+    console.log(`⏰ MatrixChunky8 total: ${Math.round(matrixFontEndTime - matrixFontStartTime)}ms`);
+  } else {
+    console.log("⏰ MatrixChunky8 preload skipped (noauth mode)");
   }
 
   /**
@@ -7410,6 +7454,9 @@ async function load(
       console.log("game!");
       // TODO: ⚠️ Make game template. 25.06.05.09.19
     } else {
+      const moduleAssignStartTime = performance.now();
+      console.log(`⏰ Starting module function assignment at ${moduleAssignStartTime}ms`);
+      
       // 🧩 piece
       // Reset scroll state when a piece loads
       graph.resetScrollState();
@@ -7434,6 +7481,9 @@ async function load(
           page(system.nopaint.buffer).wipe(255, 255, 255, 0);
         };
       }
+
+      const moduleAssignEndTime = performance.now();
+      console.log(`⏰ Module function assignment complete (${Math.round(moduleAssignEndTime - moduleAssignStartTime)}ms)`);
 
       // delete $commonApi.system.name; // No system in use.
     }
@@ -7620,6 +7670,8 @@ async function load(
   });
 
   // Notify parent window of progress via bios relay
+  const loadCompleteTime = performance.now();
+  console.log("⏰ load() completed at", loadCompleteTime);
   // console.log("📢 Disk sending boot-log: loaded");
   send({
     type: "boot-log",
@@ -7766,6 +7818,8 @@ async function makeFrame({ data: { type, content } }) {
 
     originalHost = content.parsed.host;
     loadAfterPreamble = () => {
+      const loadCallStartTime = performance.now();
+      console.log("⏰ loadAfterPreamble called at", loadCallStartTime);
       loadAfterPreamble = null;
       load(content.parsed); // Load after some of the default frames run.
     };
@@ -10392,6 +10446,9 @@ async function makeFrame({ data: { type, content } }) {
           store["painting:transform"]?.zoom || sys.nopaint.zoomLevel;
 
         try {
+          const bootStartTime = performance.now();
+          console.log("⏰ About to call boot() at", bootStartTime);
+          
           // Reset zebra cache at the beginning of boot to ensure consistent state
           $api.num.resetZebraCache();
           
@@ -10404,6 +10461,8 @@ async function makeFrame({ data: { type, content } }) {
           
           if (system === "nopaint") nopaint_boot({ ...$api, params: $api.params, colon: $api.colon });
           await boot($api);
+          const bootEndTime = performance.now();
+          console.log(`⏰ boot() completed in ${Math.round(bootEndTime - bootStartTime)}ms`);
           booted = true;
         } catch (e) {
           console.warn("🥾 Boot failure...", e);
@@ -12565,6 +12624,10 @@ async function makeFrame({ data: { type, content } }) {
       paintCount > 8n &&
       (sessionStarted || PREVIEW_OR_ICON || $commonApi.net.sandboxed)
     ) {
+      if (paintCount === 9n) {
+        const preambleCompleteTime = performance.now();
+        console.log(`⏰ Preamble complete (9 frames painted) at ${preambleCompleteTime}ms`);
+      }
       if (typeof window !== 'undefined' && window.acSPIDER) {
         console.log("🕷️ SPIDER: Calling loadAfterPreamble now!");
       }
