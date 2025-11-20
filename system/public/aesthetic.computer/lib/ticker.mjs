@@ -46,11 +46,11 @@ export class Ticker {
   }
 
   // Update text measurements when text or separator changes
-  #updateMeasurements() {
+  #updateMeasurements(font) {
     if (!this.#api || !this.#text) return;
     
-    const textMeasurement = this.#api.text.box(this.#text);
-    const separatorMeasurement = this.#api.text.box(this.#separator);
+    const textMeasurement = this.#api.text.box(this.#text, undefined, undefined, undefined, undefined, font);
+    const separatorMeasurement = this.#api.text.box(this.#separator, undefined, undefined, undefined, undefined, font);
     this.#textWidth = textMeasurement.box.width;
     this.#separatorWidth = separatorMeasurement.box.width;
     this.#cycleWidth = this.#textWidth + this.#separatorWidth;
@@ -99,10 +99,11 @@ export class Ticker {
     if (!this.#text) return;
 
     this.#api = api;
+    const font = options.font; // Optional font parameter
     
-    // Update measurements if needed
-    if (this.#cycleWidth === 0) {
-      this.#updateMeasurements();
+    // Update measurements if needed (always update to ensure correct font)
+    if (this.#cycleWidth === 0 || font) {
+      this.#updateMeasurements(font);
     }
 
     const displayWidth = options.width || api.screen.width;
@@ -119,8 +120,8 @@ export class Ticker {
         // Apply ink settings if provided in options
         if (options.color) api.ink(options.color, options.alpha || 255);
         
-        api.write(this.#text, { x: baseX, y });
-        api.write(this.#separator, { x: baseX + this.#textWidth, y });
+        api.write(this.#text, { x: baseX, y }, undefined, undefined, false, font);
+        api.write(this.#separator, { x: baseX + this.#textWidth, y }, undefined, undefined, false, font);
       }
     }
   }

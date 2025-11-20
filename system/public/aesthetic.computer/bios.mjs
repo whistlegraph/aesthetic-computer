@@ -2368,6 +2368,53 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     console.warn("Send has not been wired yet!", msg);
   };
 
+  const TAPE_PREVIEW_MAX_FRAMES = 90;
+  const TAPE_PREVIEW_WIDTH = 256;
+  const TAPE_PREVIEW_HEIGHT = 192;
+  let tapePreviewCanvas = null;
+  let tapePreviewCtx = null;
+
+  function getTapePreviewContext(width = TAPE_PREVIEW_WIDTH, height = TAPE_PREVIEW_HEIGHT) {
+    if (typeof OffscreenCanvas !== "undefined") {
+      if (!(tapePreviewCanvas instanceof OffscreenCanvas)) {
+        tapePreviewCanvas = new OffscreenCanvas(width, height);
+      }
+      if (tapePreviewCanvas.width !== width) tapePreviewCanvas.width = width;
+      if (tapePreviewCanvas.height !== height) tapePreviewCanvas.height = height;
+      tapePreviewCtx = tapePreviewCanvas.getContext("2d");
+      return tapePreviewCtx;
+    }
+
+    if (!tapePreviewCanvas && typeof document !== "undefined") {
+      tapePreviewCanvas = document.createElement("canvas");
+    }
+    if (tapePreviewCanvas) {
+      if (tapePreviewCanvas.width !== width) tapePreviewCanvas.width = width;
+      if (tapePreviewCanvas.height !== height) tapePreviewCanvas.height = height;
+      tapePreviewCtx = tapePreviewCanvas.getContext("2d");
+    }
+    return tapePreviewCtx;
+  }
+
+  async function buildTapePreviewFrames(sourceFrames, limit = TAPE_PREVIEW_MAX_FRAMES) {
+    const previews = [];
+    if (!Array.isArray(sourceFrames) || sourceFrames.length === 0) return previews;
+
+    const total = sourceFrames.length;
+    const step = Math.max(1, Math.floor(total / limit));
+
+    for (let i = 0; i < total && previews.length < limit; i += step) {
+      const frame = sourceFrames[i];
+      if (!frame) continue;
+      
+      // Keep original frames at full resolution for Ken Burns panning
+      // No downscaling - just select frames and pass them through
+      previews.push(frame);
+    }
+
+    return previews;
+  }
+
   //  👷️ Always use workers if they are supported, except for
   //     when we are in VR (MetaBrowser).
   // Disable workers if we are in a sandboxed iframe.
@@ -8522,6 +8569,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // 📼 Preload a tape into cache (for tv.mjs smart preloading)
     if (type === "tape:preload") {
       console.log("📼 Preloading tape:", content);
+      console.log("📼 Received zipUrl:", content.zipUrl);
+      console.log("📼 Metadata.zip:", content.metadata?.zip);
       
       (async () => {
         try {
@@ -8582,6 +8631,22 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               type: "tape:preloaded",
               content: { tapeId, frameCount: tape.frames.length }
             });
+            
+            // If requestFrames is true, send frames to disk
+            if (content.requestFrames) {
+              const previewFrames = await buildTapePreviewFrames(tape.frames);
+              const framesToSend = previewFrames.length > 0 ? previewFrames : tape.frames.slice(0, TAPE_PREVIEW_MAX_FRAMES);
+              console.log(`📼 Sending ${framesToSend.length}/${tape.frames.length} preview frames to disk (cached)`);
+              send({
+                type: "tape:frames",
+                content: {
+                  tapeId,
+                  frames: framesToSend,
+                  preview: previewFrames.length > 0,
+                  totalFrames: tape.frames.length
+                }
+              });
+            }
             return;
           }
           
@@ -8596,8 +8661,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           });
           
           // Fetch ZIP
+          console.log(`📼 About to fetch ZIP for tape ${code} (${tapeId}) from:`, zipUrl);
           const response = await fetch(decodeURI(zipUrl));
           if (!response.ok) {
+            console.error(`📼 ZIP fetch failed for ${code}: ${response.status} from URL:`, zipUrl);
             throw new Error(`Tape ZIP not found. Status: ${response.status}`);
           }
           
@@ -8683,11 +8750,57 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             type: "tape:preloaded",
             content: { tapeId, frameCount: tape.frames.length }
           });
+          
+          // If requestFrames is true, send frames to disk for preview
+          if (content.requestFrames) {
+            const previewFrames = await buildTapePreviewFrames(tape.frames);
+            const framesToSend = previewFrames.length > 0 ? previewFrames : tape.frames.slice(0, TAPE_PREVIEW_MAX_FRAMES);
+            console.log(`📼 Sending ${framesToSend.length}/${tape.frames.length} preview frames to disk`);
+            send({
+              type: "tape:frames",
+              content: {
+                tapeId,
+                frames: framesToSend,
+                preview: previewFrames.length > 0,
+                totalFrames: tape.frames.length
+              }
+            });
+          }
         } catch (error) {
           console.error("📼 Error preloading tape:", error);
           send({ type: "tape:preload-error", content: { tapeId: content.tapeId, error: error.message } });
         }
       })();
+      
+      return;
+    }
+
+    // 📼 Request frames from a loaded tape (for disk-side preview/playback)
+    if (type === "tape:request-frames") {
+      const { tapeId } = content;
+      
+      if (!tapeManager) {
+        console.warn("📼 Cannot send frames - TapeManager not initialized");
+        return;
+      }
+      
+      const tape = tapeManager.getTape(tapeId);
+      if (tape && tape.frames.length > 0) {
+        const previewFrames = await buildTapePreviewFrames(tape.frames);
+        const framesToSend = previewFrames.length > 0 ? previewFrames : tape.frames.slice(0, TAPE_PREVIEW_MAX_FRAMES);
+        console.log(`📼 Sending ${framesToSend.length}/${tape.frames.length} preview frames to disk for ${tapeId}`);
+        send({
+          type: "tape:frames",
+          content: {
+            tapeId,
+            frames: framesToSend,
+            preview: previewFrames.length > 0,
+            totalFrames: tape.frames.length
+          }
+        });
+      } else {
+        console.warn(`📼 Cannot send frames for ${tapeId} - not loaded`);
+      }
       
       return;
     }

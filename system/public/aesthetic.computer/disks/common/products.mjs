@@ -78,13 +78,19 @@ class Product {
   }
 
   // Update animation state
-  sim() {
+  sim(now) {
+    // Use time-based animation instead of frame-based
+    if (!this.lastSimTime) this.lastSimTime = now;
+    const delta = (now - this.lastSimTime) / 1000; // Convert to seconds
+    this.lastSimTime = now;
+    
     // Records always rotate for wobble animation
     if (this.type === 'record') {
-      this.rotation += 1;
+      this.rotation += delta * 60; // 60 units per second (equivalent to 60fps @ 1 per frame)
       
       // Spawn music notes from the edge of the record when playing
-      if (this.isPlaying && this.rotation % 20 === 0) { // Every 20 frames
+      if (this.isPlaying && Math.floor(this.rotation) % 20 === 0 && !this.lastNoteSpawn) { // Every 20 rotation units
+        this.lastNoteSpawn = true;
         const angle = Math.random() * Math.PI * 2;
         
         // Spawn from the circumference of the record (radius ~35-40% of record size)
@@ -113,30 +119,32 @@ class Product {
           color: noteColors[floor(Math.random() * noteColors.length)]
         };
         this.musicNotes.push(note);
+      } else if (Math.floor(this.rotation) % 20 !== 0) {
+        this.lastNoteSpawn = false;
       }
     } else {
       // Books and other products always rotate
-      this.rotation += 1;
+      this.rotation += delta * 60; // 60 units per second
     }
     
-    // Update music notes with gravity, drag, and wiggle
+    // Update music notes with gravity, drag, and wiggle (time-based)
     this.musicNotes = this.musicNotes.filter(note => {
       // Wiggle horizontally (slower)
-      note.wiggle += 0.08;
+      note.wiggle += delta * 4.8; // ~0.08 per frame at 60fps
       const wiggleOffset = sin(note.wiggle) * 0.3;
       
       // Apply very gentle gravity (much less downward pull)
-      note.vy += 0.03;
+      note.vy += delta * 1.8; // ~0.03 per frame at 60fps
       
       // Apply drag (slow down over time)
-      note.vx *= 0.99;
-      note.vy *= 0.99;
+      note.vx *= Math.pow(0.99, delta * 60); // Exponential decay adjusted for delta
+      note.vy *= Math.pow(0.99, delta * 60);
       
       // Update position with wiggle
-      note.x += note.vx + wiggleOffset;
-      note.y += note.vy;
+      note.x += (note.vx + wiggleOffset) * delta * 60;
+      note.y += note.vy * delta * 60;
       
-      note.life -= 1;
+      note.life -= delta * 60; // ~1 per frame at 60fps
       return note.life > 0;
     });
   }
@@ -292,6 +300,7 @@ class Product {
 
   // Paint the product based on its type
   paint($, screen, showLoginCurtain) {
+    // Hide all products when curtain is down
     if (!showLoginCurtain) return;
     
     // Show loading animation if image isn't loaded yet
@@ -300,11 +309,17 @@ class Product {
       return;
     }
     
-    // Dispatch to type-specific painter
+    // Dispatch to type-specific painter and get BUY button bounds
+    let buyButtonBounds = null;
     if (this.type === 'book') {
-      this.paintBook($, screen);
+      buyButtonBounds = this.paintBook($, screen);
     } else if (this.type === 'record') {
-      this.paintRecord($, screen);
+      buyButtonBounds = this.paintRecord($, screen);
+    }
+    
+    // 🎨 Paint progress bar as underline on BUY button (if we have bounds)
+    if (buyButtonBounds) {
+      this.paintProgressBar($, screen, null, buyButtonBounds);
     }
   }
   
@@ -382,18 +397,13 @@ class Product {
     const authorX = rightEdge - authorW + 3;
     const authorY = titleY + textH + 6;
     
-    const minPriceY = bookY + bookH + 35;
-    const authorMaxY = authorY + 3.5;
-    const safeGap = 2;
-    const priceY = max(minPriceY, authorMaxY + textH + safeGap);
-    const priceX = bookX + (bookW / 2) - (priceActualW / 2);
-    
-    // Check for overlaps
+    // Check for overlaps (using bottom edge of book for height calculation)
+    const estimatedPriceY = bookY + bookH;
     const wouldOverlap = this.checkOverlaps($, screen, {
       x: min(titleX, bookX, authorX) - 6,
       y: titleY - 2,
       w: max(titleW, bookW, authorW) + 10,
-      h: priceY + textH - titleY
+      h: estimatedPriceY + textH - titleY
     });
     
     const screenTooNarrow = screen.width < 75;
@@ -403,7 +413,8 @@ class Product {
     
     if (!shouldShowBook) {
       if (this.button) this.button.disabled = true;
-      return;
+      if (this.buyButton) this.buyButton.disabled = true;
+      return null; // Return null if not showing
     }
     
     // Animation calculations
@@ -481,16 +492,30 @@ class Product {
     $.ink(...finalAuthorColor)
       .write(authorText, { x: authorX + authorSwayX, y: authorY + authorSwayY }, undefined, undefined, false, "MatrixChunky8");
     
-    // Price
+    // Price and BUY button side-by-side (horizontal layout like vinyl)
     const priceDriftX = floor(sin(this.rotation * 0.05) * 3);
-    const priceTextX = rightEdge - priceActualW - 4 + priceDriftX;
-    const priceTextY = bookY + bookH - 8;
-    const padding = 2;
+    const priceX = rightEdge - priceActualW - 34 + priceDriftX; // Position for side-by-side layout
+    const priceY = bookY + bookH - 4; // Below book
+    const pricePaddingLeft = 2;
+    const pricePaddingTop = 2;
+    const pricePaddingRight = 1;
+    const pricePaddingBottom = 1;
     const priceW = priceActualW;
     const priceH = 8;
     
+    const priceTextX = priceX;
+    const priceTextY = priceY;
+    
     const priceBg = isDark ? [0, 0, 0, 255] : [255, 255, 255, 255];
-    $.ink(...priceBg).box(priceTextX - padding, priceTextY - padding, priceW + padding * 2, priceH + padding * 2);
+    $.ink(...priceBg).box(priceTextX - pricePaddingLeft, priceTextY - pricePaddingTop, priceW + pricePaddingLeft + pricePaddingRight, priceH + pricePaddingTop + pricePaddingBottom);
+    
+    // Cyan outline (matching vinyl style)
+    const priceOutline = [0, 255, 255];
+    $.ink(...priceOutline, 150).line(priceTextX - pricePaddingLeft, priceTextY - pricePaddingTop, priceTextX + priceW + pricePaddingRight, priceTextY - pricePaddingTop); // Top
+    $.ink(...priceOutline, 150).line(priceTextX - pricePaddingLeft, priceTextY + priceH + pricePaddingBottom, priceTextX + priceW + pricePaddingRight, priceTextY + priceH + pricePaddingBottom); // Bottom
+    $.ink(...priceOutline, 150).line(priceTextX - pricePaddingLeft, priceTextY - pricePaddingTop, priceTextX - pricePaddingLeft, priceTextY + priceH + pricePaddingBottom); // Left
+    $.ink(...priceOutline, 150).line(priceTextX + priceW + pricePaddingRight, priceTextY - pricePaddingTop, priceTextX + priceW + pricePaddingRight, priceTextY + priceH + pricePaddingBottom); // Right
+    
     $.ink(0, 0, 0, isDark ? 80 : 50)
       .write(priceText, { x: priceTextX + 0.5, y: priceTextY + 0.5 }, undefined, undefined, false, 'MatrixChunky8');
     
@@ -505,6 +530,87 @@ class Product {
     const priceColorIndex = floor((sin(this.rotation * priceBlinkSpeed) * 0.5 + 0.5) * priceColorCycle.length) % priceColorCycle.length;
     const priceFinalColor = priceColorCycle[priceColorIndex];
     $.ink(...priceFinalColor).write(priceText, { x: priceTextX, y: priceTextY }, undefined, undefined, false, 'MatrixChunky8');
+    
+    // BUY button to the right of price (horizontal layout like vinyl)
+    const buyText = "BUY";
+    const buyCharWidth = 4;
+    const buyTextW = buyText.length * buyCharWidth;
+    const buyX = priceX + priceActualW + 6; // To the right of price with 6px gap
+    const buyY = priceY; // Same vertical level as price
+    const buyPaddingLeft = 5;
+    const buyPaddingRight = 3;
+    const buyPaddingTop = 4;
+    const buyPaddingBottom = 2;
+    
+    // Create or update BUY button for book
+    if (!this.buyButton) {
+      this.buyButton = new $.ui.Button(buyX, buyY, buyTextW + buyPaddingLeft + buyPaddingRight, priceH + buyPaddingTop + buyPaddingBottom);
+      this.buyButton.stickyScrubbing = true;
+    } else {
+      this.buyButton.disabled = false;
+      this.buyButton.box.x = buyX;
+      this.buyButton.box.y = buyY;
+      this.buyButton.box.w = buyTextW + buyPaddingLeft + buyPaddingRight;
+      this.buyButton.box.h = priceH + buyPaddingTop + buyPaddingBottom;
+    }
+    
+    // Colored background that cycles with the text (dark green)
+    const bgColorPhase = (this.rotation * 0.1) % 5;
+    const bgIndex = floor(bgColorPhase);
+    const bgNextIndex = (bgIndex + 1) % 5;
+    const bgMix = bgColorPhase - bgIndex;
+    const bgColors = [
+      [0, 50, 0],
+      [20, 60, 20], 
+      [0, 40, 0],
+      [10, 55, 10],
+      [30, 70, 30]
+    ];
+    const buyBg = [
+      floor(bgColors[bgIndex][0] * (1 - bgMix) + bgColors[bgNextIndex][0] * bgMix),
+      floor(bgColors[bgIndex][1] * (1 - bgMix) + bgColors[bgNextIndex][1] * bgMix),
+      floor(bgColors[bgIndex][2] * (1 - bgMix) + bgColors[bgNextIndex][2] * bgMix)
+    ];
+    const buyOutline = [255, 255, 255];
+    
+    $.ink(...buyBg).box(buyX, buyY, buyTextW + buyPaddingLeft + buyPaddingRight, priceH + buyPaddingTop + buyPaddingBottom);
+    $.ink(...buyOutline, 150).line(buyX, buyY, buyX + buyTextW + buyPaddingLeft + buyPaddingRight, buyY); // Top
+    $.ink(...buyOutline, 150).line(buyX, buyY + priceH + buyPaddingTop + buyPaddingBottom, buyX + buyTextW + buyPaddingLeft + buyPaddingRight, buyY + priceH + buyPaddingTop + buyPaddingBottom); // Bottom
+    $.ink(...buyOutline, 150).line(buyX, buyY, buyX, buyY + priceH + buyPaddingTop + buyPaddingBottom); // Left
+    $.ink(...buyOutline, 150).line(buyX + buyTextW + buyPaddingLeft + buyPaddingRight, buyY, buyX + buyTextW + buyPaddingLeft + buyPaddingRight, buyY + priceH + buyPaddingTop + buyPaddingBottom); // Right
+    
+    // Color cycle each character individually with green blinking
+    const buyColors = [
+      [0, 255, 0], 
+      [100, 255, 100], 
+      [0, 200, 0],
+      [50, 255, 50],
+      [150, 255, 150]
+    ];
+    for (let i = 0; i < buyText.length; i++) {
+      const charX = buyX + buyPaddingLeft + i * buyCharWidth;
+      const charY = buyY + buyPaddingTop;
+      const colorPhase = (this.rotation * 0.1 + i * 0.5) % (buyColors.length);
+      const colorIndex = floor(colorPhase);
+      const nextColorIndex = (colorIndex + 1) % buyColors.length;
+      const mix = colorPhase - colorIndex;
+      
+      const charColor = [
+        floor(buyColors[colorIndex][0] * (1 - mix) + buyColors[nextColorIndex][0] * mix),
+        floor(buyColors[colorIndex][1] * (1 - mix) + buyColors[nextColorIndex][1] * mix),
+        floor(buyColors[colorIndex][2] * (1 - mix) + buyColors[nextColorIndex][2] * mix)
+      ];
+      
+      $.ink(...charColor).write(buyText[i], { x: charX, y: charY }, undefined, undefined, false, 'MatrixChunky8');
+    }
+    
+    // Return bounds for progress bar positioning (now returns BUY button bounds)
+    return {
+      x: buyX,
+      y: buyY,
+      w: buyTextW + buyPaddingLeft + buyPaddingRight,
+      h: priceH + buyPaddingTop + buyPaddingBottom
+    };
   }
 
   // Paint record product
@@ -554,7 +660,7 @@ class Product {
     
     if (!shouldShowRecord) {
       if (this.button) this.button.disabled = true;
-      return;
+      return null; // Return null if not showing
     }
     
     // Only spin when playing, shake/zoom when previewing, wobble otherwise
@@ -833,7 +939,7 @@ class Product {
       floor(bgColors[bgIndex][1] * (1 - bgMix) + bgColors[bgNextIndex][1] * bgMix),
       floor(bgColors[bgIndex][2] * (1 - bgMix) + bgColors[bgNextIndex][2] * bgMix)
     ];
-    const buyOutline = this.buyButton.down ? [0, 255, 0] : (this.buyButton.over ? [255, 255, 100] : [255, 255, 255]);
+    const buyOutline = [255, 255, 255];
     
     $.ink(...buyBg).box(buyX, buyY, buyW + buyPaddingLeft + buyPaddingRight, buyH + buyPaddingTop + buyPaddingBottom);
     $.ink(...buyOutline, 150).line(buyX, buyY, buyX + buyW + buyPaddingLeft + buyPaddingRight, buyY); // Top
@@ -953,6 +1059,72 @@ class Product {
     const priceColorIndex = floor((sin(this.rotation * priceBlinkSpeed) * 0.5 + 0.5) * priceColorCycle.length) % priceColorCycle.length;
     const priceFinalColor = priceColorCycle[priceColorIndex];
     $.ink(...priceFinalColor).write(priceText, { x: priceTextX, y: priceTextY }, undefined, undefined, false, 'MatrixChunky8');
+    
+    // Return BUY button bounds for progress bar positioning
+    return {
+      x: buyX,
+      y: buyY,
+      w: buyW + buyPaddingLeft + buyPaddingRight,
+      h: buyH + buyPaddingTop + buyPaddingBottom
+    };
+  }
+
+  // Paint progress bar showing cycle countdown (as underline on BUY button)
+  paintProgressBar($, screen, productBounds, buyButtonBounds) {
+    if (!buyButtonBounds) return; // No BUY button to draw under
+    
+    // Calculate remaining time (1 to 0) - time running out
+    const remaining = 1 - (cycleTimer / CYCLE_DURATION);
+    
+    // Progress bar flush with bottom border inside the BUY button
+    const progressY = buyButtonBounds.y + buyButtonBounds.h - 1; // Flush with bottom
+    const progressWidth = buyButtonBounds.w - 2; // Full width minus 1px on each side for borders
+    const progressX = buyButtonBounds.x + 1; // 1px from left border
+    
+    // Draw dark background for the progress bar
+    $.ink(0, 0, 0, 180).line(progressX, progressY, progressX + progressWidth, progressY);
+    
+    // Draw filled portion showing remaining time (draining from right to left)
+    const remainingWidth = Math.floor(progressWidth * remaining);
+    if (remainingWidth > 0) {
+      // Subtle pulsing animation
+      const pulsePhase = Math.sin(this.rotation * 0.08);
+      const pulseAlpha = 0.4 + (pulsePhase * 0.5 + 0.5) * 0.3; // Range: 0.4 to 0.7
+      
+      // Color cycling from orange to yellow to red as time runs out
+      let r, g, b;
+      if (remaining > 0.66) {
+        // Orange to yellow (high to medium-high time)
+        const mix = (1 - remaining) / 0.34; // 0 to 1 over the 0.66-1.0 range
+        r = 255;
+        g = Math.floor(165 + (255 - 165) * mix); // Orange to yellow
+        b = 0;
+      } else if (remaining > 0.33) {
+        // Yellow to red (medium to low time)
+        const mix = (0.66 - remaining) / 0.33; // 0 to 1 over the 0.33-0.66 range
+        r = 255;
+        g = Math.floor(255 * (1 - mix));
+        b = 0;
+      } else {
+        // Red
+        r = 255;
+        g = 0;
+        b = 0;
+      }
+      
+      // Triple blink effect when almost out of time (< 10%)
+      let finalAlpha = pulseAlpha;
+      if (remaining < 0.1) {
+        const blinkSpeed = 0.5; // Faster blinking
+        const cycle = (this.rotation * blinkSpeed) % (Math.PI * 2);
+        if (cycle < Math.PI * 0.33 || (cycle > Math.PI * 0.66 && cycle < Math.PI) || cycle > Math.PI * 1.33) {
+          finalAlpha = 0.9; // Much brighter during blinks
+        }
+      }
+      
+      // Draw filled portion from left, shrinking from right to left with pulsing alpha
+      $.ink(r, g, b, Math.floor(finalAlpha * 255)).line(progressX, progressY, progressX + remainingWidth, progressY);
+    }
   }
 
   // Helper: Cycle through colors smoothly
@@ -1026,7 +1198,7 @@ class Product {
 
 // 📦 Product Definitions
 
-// Book Product
+// Book Product - What is Landscape?
 products.book = new Product({
   type: 'book',
   title: 'What is Landscape?',
@@ -1034,7 +1206,18 @@ products.book = new Product({
   price: '$60 USD',
   imageUrl: 'https://shop.aesthetic.computer/cdn/shop/files/IMG-1176.png?v=1761673860&width=1646',
   imageScale: 0.05,
-  shopUrl: 'https://shop.aesthetic.computer/products/what-is-landscape-by-john-r-stilgoe'
+  shopUrl: 'https://shop.aesthetic.computer/products/books_what-is-landscape-by-john-r-stilgoe_25-4-8-21-08'
+});
+
+// Book Product - Radical Computer Music
+products.radicalComputerMusic = new Product({
+  type: 'book',
+  title: 'Radical Computer Music',
+  byline: 'by Goodiepal',
+  price: '$60 USD',
+  imageUrl: 'https://shop.aesthetic.computer/cdn/shop/files/20251104_203646_70c81da4-34a3-41a7-a9ba-2c924488b19e.png?v=1763435420&width=1646',
+  imageScale: 0.05,
+  shopUrl: 'https://shop.aesthetic.computer/products/books_radical-computer-music-by-goodiepal_25-11-17-19-03'
 });
 
 // Record Product
@@ -1050,15 +1233,25 @@ products.record = new Product({
 });
 
 // 🎯 Active product (can be switched)
-let activeProductKey = 'record'; // Default to book
+// Randomize on load: equal chance between all products
+const productKeys = ['book', 'radicalComputerMusic', 'record'];
+let activeProductKey = productKeys[Math.floor(Math.random() * productKeys.length)];
+
+// ⏱️ Auto-cycling state
+let cycleTimer = 0;
+const CYCLE_DURATION = 9 * 60; // 9 seconds at 60fps
+let currentProductIndex = productKeys.indexOf(activeProductKey);
 
 // 📚 API
 
 export async function boot(api) {
-  // Load all product images
+  // Eagerly load ALL product images
+  const loadPromises = [];
   for (const key in products) {
-    await products[key].load(api.net, api);
+    loadPromises.push(products[key].load(api.net, api));
   }
+  await Promise.all(loadPromises);
+  console.log(`📦 All products preloaded. Active product on load: ${activeProductKey}`);
 }
 
 export function setActiveProduct(key) {
@@ -1076,10 +1269,41 @@ export function getActiveProduct() {
 
 export function sim($) {
   const product = getActiveProduct();
-  if (product) product.sim();
+  if (product) product.sim(performance.now());
   
   // Poll speaker for audio data (amplitude and waveform)
   $.sound?.speaker?.poll();
+  
+  // ⏱️ Auto-cycle products every 9 seconds
+  cycleTimer++;
+  if (cycleTimer >= CYCLE_DURATION) {
+    cycleTimer = 0;
+    
+    // Gracefully stop any playing audio before switching
+    const currentProduct = getActiveProduct();
+    if (currentProduct && currentProduct.audioSfx && currentProduct.isPlaying) {
+      console.log(`🎵 Fading out audio for ${currentProduct.title} before product switch`);
+      currentProduct.isPlaying = false;
+      currentProduct.isBuffering = false;
+      if (currentProduct.audioSfx.fade) {
+        currentProduct.audioSfx.fade(0, 0.5); // Fade to 0 over 0.5 seconds
+        setTimeout(() => {
+          if (currentProduct.audioSfx) {
+            currentProduct.audioSfx.kill?.(0);
+            currentProduct.audioSfx = null;
+          }
+        }, 500);
+      } else {
+        currentProduct.audioSfx.kill?.(0.5);
+        currentProduct.audioSfx = null;
+      }
+    }
+    
+    // Switch to next product
+    currentProductIndex = (currentProductIndex + 1) % productKeys.length;
+    activeProductKey = productKeys[currentProductIndex];
+    console.log(`📦 Auto-cycled to product: ${activeProductKey}`);
+  }
 }
 
 export function act($, event, callbacks) {
