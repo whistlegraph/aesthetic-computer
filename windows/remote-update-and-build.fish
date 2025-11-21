@@ -73,7 +73,7 @@ set start_level (echo $full_map | awk -F'.' '{print $NF}')
 # Extract Unreal Engine version from build script
 set ue_version (ssh me@host.docker.internal "powershell -NoProfile -Command \"(Get-Content 'C:\\Perforce\\SpiderLily\\SL_main\\build-false-work.ps1' | Select-String -Pattern 'UE_5\\.\\d+').Matches.Value\"")
 
-# Use awk to insert new build entry (more reliable than sed with multiline)
+# Use awk to replace latest build section (removes old, inserts new)
 awk -v version="$build_version" -v timestamp="$iso_timestamp" -v size="$file_size" -v level="$start_level" -v ue_ver="$ue_version" -v url="https://assets.aesthetic.computer/false.work/spiderlily-windows-$build_version.zip" '
   /<!-- BUILD_LIST_ALL -->/ {
     print
@@ -88,9 +88,14 @@ awk -v version="$build_version" -v timestamp="$iso_timestamp" -v size="$file_siz
     print "          <div class=\"log-header\">📜 Build Log</div>"
     print "          Loading build log..."
     print "        </div>"
+    # Skip all content until we hit the next section header
+    in_old_builds = 1
     next
   }
-  { print }
+  in_old_builds && /<h2/ {
+    in_old_builds = 0
+  }
+  !in_old_builds { print }
 ' /workspaces/aesthetic-computer/system/public/builds.false.work/index.html > /tmp/builds-temp.html
 mv /tmp/builds-temp.html /workspaces/aesthetic-computer/system/public/builds.false.work/index.html
 
