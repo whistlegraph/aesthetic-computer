@@ -20,7 +20,7 @@ Write-Host "AutoPackage: $AutoPackage"
 Write-Host ""
 
 # Configuration - Update these paths for your local setup
-$UE5Path = "C:\Program Files\Epic Games\UE_5.7"
+$UE5Path = "C:\Program Files\Epic Games\UE_5.6"
 $ProjectRoot = "C:\Perforce\SpiderLily\SL_main"  # Updated to include SL_main subdirectory
 $ProjectFile = "$ProjectRoot\SpiderLily.uproject"
 $OutputDir = "$env:USERPROFILE\Desktop\SpiderLily-$Version"

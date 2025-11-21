@@ -1,5 +1,5 @@
 # Rebuilt to run SmartPy on Python 3.11 and avoid 3.13 BrokenPipe
-FROM --platform=linux/arm64 fedora:latest
+FROM fedora:latest
 
 # Preconfigure DNF to minimize footprint and avoid unnecessary optional deps
 RUN set -eux; \
@@ -11,12 +11,7 @@ RUN set -eux; \
 
 ENV NODE_OPTIONS=--max_old_space_size=8192
 ENV DENO_DIR=/home/me/.cache/deno
-ENV NETLIFY_DENO_VERSION=1.45.5
-ENV NETLIFY_CLI_TELEMETRY_DISABLED=1
-ENV NODE_DISABLE_COMPILE_CACHE=1
-ENV PIP_DISABLE_PIP_VERSION_CHECK=1
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
+ENV NETLIFY_DENO_VERSION=1.45.0
 # Prevent paging for LLM/agentic use
 ENV PAGER=cat
 ENV GIT_PAGER=cat

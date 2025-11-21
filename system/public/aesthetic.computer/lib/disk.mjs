@@ -6970,9 +6970,9 @@ async function load(
 
   // Load typeface if it hasn't been yet.
   // (This only has to happen when the first piece loads.)
-  // Skip expensive typeface loading in editor/preview mode (noauth) - pieces can load it lazily if needed
-  const skipTypefacePreload = typeof window !== 'undefined' && window.acNOAUTH;
-  console.log(`⏰ Typeface skip check: window.acNOAUTH=${typeof window !== 'undefined' ? window.acNOAUTH : 'N/A'}, skipTypefacePreload=${skipTypefacePreload}, tf exists=${!!tf}`);
+  // Skip expensive typeface loading - use on-demand loading for all glyphs
+  const skipTypefacePreload = true; // Always skip preload, load on-demand instead
+  console.log(`⏰ Typeface skip check: skipTypefacePreload=${skipTypefacePreload}, tf exists=${!!tf}`);
   
   const typefaceLoadStartTime = performance.now();
   if (!tf && !skipTypefacePreload) {
@@ -6980,14 +6980,11 @@ async function load(
     const typefaceLoadEndTime = performance.now();
     console.log(`⏰ Typeface load: ${Math.round(typefaceLoadEndTime - typefaceLoadStartTime)}ms`);
   } else if (skipTypefacePreload) {
-    // Create a minimal stub typeface for noauth mode
-    tf = {
-      blockWidth: 6,
-      blockHeight: 10,
-      glyphs: {},
-      __stub: true
-    };
-    console.log(`⏰ Typeface load skipped (noauth mode), using stub`);
+    // Create a Typeface instance and call load() to set up Proxy, but don't await it (on-demand loading)
+    tf = new Typeface(/*"unifont"*/);
+    tf.load($commonApi.net.preload); // Initialize Proxy system without awaiting (glyphs load on-demand)
+    const typefaceLoadEndTime = performance.now();
+    console.log(`⏰ Typeface load skipped (on-demand mode), Proxy initialized in ${Math.round(typefaceLoadEndTime - typefaceLoadStartTime)}ms`);
   } else {
     console.log(`⏰ Typeface already loaded`);
   }
