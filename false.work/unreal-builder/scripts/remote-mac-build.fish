@@ -52,17 +52,17 @@ echo "========================================="
 ssh_exec "~/build-spiderlily.sh $build_version 2>&1" | tee $log_file
 
 # Verify build exists and is substantial (>100MB)
-set build_size (ssh_exec "du -sk ~/Builds/$build_version/MacNoEditor 2>/dev/null | cut -f1")
+set build_size (ssh_exec "du -sk ~/Builds/$build_version/Mac 2>/dev/null | cut -f1")
 
 if test -z "$build_size" -o "$build_size" -lt 100000
     echo ""
     echo "❌ Build verification failed!"
-    echo "   Expected MacNoEditor >100MB, got: "(math "$build_size" / 1024)"MB"
+    echo "   Expected Mac folder >100MB, got: $build_size KB"
     exit 1
 end
 
 echo ""
-echo "✅ Build verified: "(math "$build_size" / 1024)"MB"
+echo "✅ Build verified: "(math $build_size / 1024)" MB"
 
 echo ""
 echo "========================================="
@@ -71,7 +71,7 @@ echo "========================================="
 
 # Create ZIP on Mac if it doesn't exist
 set zip_name "spiderlily-mac-$build_version.zip"
-ssh_exec "cd ~/Builds/$build_version && zip -r -q ~/$zip_name MacNoEditor/"
+ssh_exec "cd ~/Builds/$build_version && zip -r -q ~/$zip_name Mac/"
 
 # Copy ZIP to local assets
 sshpass -p "$MAC_PASSWORD" scp -o StrictHostKeyChecking=no \
