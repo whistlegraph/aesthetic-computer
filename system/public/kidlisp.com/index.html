@@ -55,6 +55,7 @@
 
     * {
       box-sizing: border-box;
+      touch-action: manipulation;
     }
 
     body {
@@ -132,11 +133,16 @@
       background: var(--bg-secondary);
       border-bottom: 1px solid var(--editor-border);
       display: flex;
-      justify-content: space-between;
+      justify-content: flex-start; /* Align items to the left */
+      gap: 12px; /* Space between logo and language switcher */
       align-items: center;
       color: var(--editor-text);
       height: 32px;
       box-sizing: border-box;
+      overflow: visible; /* Allow dropdown to overflow */
+      flex-shrink: 0; /* Prevent header from shrinking */
+      position: relative; /* For z-index context */
+      z-index: 200; /* Ensure dropdown is above editor */
     }
 
     #clear-button {
@@ -155,10 +161,12 @@
       opacity: 0.6;
     }
 
-    #clear-button:hover {
-      color: rgb(205, 92, 155);
-      opacity: 1;
-      text-decoration: underline;
+    @media (hover: hover) {
+      #clear-button:hover {
+        color: rgb(205, 92, 155);
+        opacity: 1;
+        text-decoration: underline;
+      }
     }
 
     #send-button {
@@ -186,14 +194,16 @@
     }
 
     #send-button.playing {
-      background: rgb(158, 158, 158); /* Gray when playing */
-      cursor: default;
+      background: rgb(255, 193, 7); /* Yellow when playing (Pause) */
+      cursor: pointer; /* Remain clickable */
     }
 
-    #send-button.playing:hover {
-      background: rgb(158, 158, 158); /* Keep gray on hover */
-      transform: none;
-      box-shadow: 0 3px 6px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2);
+    @media (hover: hover) {
+      #send-button.playing:hover {
+        background: rgb(255, 213, 79); /* Lighter yellow on hover */
+        transform: none;
+        box-shadow: 0 3px 6px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2);
+      }
     }
 
     #send-button::before {
@@ -206,9 +216,22 @@
       margin-left: 3px; /* Offset to center the triangle visually */
     }
 
-    #send-button:hover {
-      background: rgb(102, 187, 106); /* Lighter green on hover */
-      box-shadow: 0 4px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.3);
+    /* Pause icon (double bars) */
+    #send-button.playing::before {
+      width: 10px;
+      height: 16px;
+      border: none;
+      border-left: 3px solid white;
+      border-right: 3px solid white;
+      background: transparent;
+      margin-left: 0;
+    }
+
+    @media (hover: hover) {
+      #send-button:hover {
+        background: rgb(102, 187, 106); /* Lighter green on hover */
+        box-shadow: 0 4px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.3);
+      }
     }
 
     #send-button:active {
@@ -245,9 +268,11 @@
       border-radius: 2px;
     }
 
-    #stop-button:hover {
-      background: rgb(239, 83, 80); /* Lighter red */
-      box-shadow: 0 4px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.3);
+    @media (hover: hover) {
+      #stop-button:hover {
+        background: rgb(239, 83, 80); /* Lighter red */
+        box-shadow: 0 4px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.3);
+      }
     }
 
     #stop-button:active {
@@ -377,14 +402,14 @@
     }
 
     @keyframes babyColors {
-      0% { color: #FF6B6B; }     /* Soft Red */
-      14% { color: #FF9F43; }    /* Soft Orange */
-      28% { color: #FECA57; }    /* Soft Yellow */
-      42% { color: #1DD1A1; }    /* Soft Green */
-      57% { color: #54A0FF; }    /* Soft Blue */
-      71% { color: #5F27CD; }    /* Soft Indigo */
-      85% { color: #FF9FF3; }    /* Soft Pink */
-      100% { color: #FF6B6B; }   /* Soft Red */
+      0% { color: #FF7096; }     /* Saturated Pink */
+      14% { color: #FFB870; }    /* Saturated Orange */
+      28% { color: #FFEA70; }    /* Saturated Yellow */
+      42% { color: #8AFF8A; }    /* Saturated Lime */
+      57% { color: #70D6FF; }    /* Saturated Cyan */
+      71% { color: #C596FF; }    /* Saturated Purple */
+      85% { color: #FF96C5; }    /* Saturated Rose */
+      100% { color: #FF7096; }   /* Saturated Pink */
     }
 
     .baby-colors {
@@ -392,6 +417,9 @@
       font-family: 'Comic Relief', 'Comic Sans MS', cursive;
       font-size: 20px;
       line-height: 32px; /* Match tab bar height */
+      display: flex;
+      align-items: center;
+      height: 100%;
     }
 
     .baby-colors span {
@@ -402,13 +430,14 @@
     }
     
     .baby-colors .com-part {
-      font-family: monospace;
-      font-weight: normal;
-      font-size: 13px;
-      color: #999;
+      color: #70D6FF; /* Light Blue */
       text-shadow: none;
-      letter-spacing: normal;
-      margin-left: -0.15em; /* Bring it closer to "KidLisp" */
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .baby-colors .com-part {
+        color: #70D6FF; /* Keep Light Blue in dark mode */
+      }
     }
 
     #preview-panel .docs-header {
@@ -422,8 +451,8 @@
       font-size: 16px; /* Smaller text */
       color: rgb(88, 78, 108); /* Muted purple text */
       margin-left: 0px; /* Reset margin */
-      transform: translateY(1px); /* Move down */
       display: inline-block;
+      line-height: 32px; /* Match header height */
     }
     
     #preview-title .bounce-dot {
@@ -535,9 +564,11 @@
       margin-left: auto;
     }
 
-    .clear-console:hover {
-      background: var(--bg-tertiary);
-      color: var(--text-primary);
+    @media (hover: hover) {
+      .clear-console:hover {
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+      }
     }
 
     .docs-header {
@@ -551,6 +582,8 @@
       color: var(--text-primary);
       height: 32px;
       box-sizing: border-box;
+      overflow: hidden;
+      flex-shrink: 0; /* Prevent header from shrinking */
     }
 
     /* Remove padding when header contains tabs */
@@ -570,9 +603,11 @@
       transition: all 0.2s;
     }
 
-    .tab:hover {
-      background: var(--bg-primary);
-      color: var(--text-primary);
+    @media (hover: hover) {
+      .tab:hover {
+        background: var(--bg-primary);
+        color: var(--text-primary);
+      }
     }
 
     .tab.active {
@@ -594,9 +629,11 @@
       position: relative;
     }
 
-    .language-tab:hover {
-      background: var(--bg-primary);
-      color: var(--text-primary);
+    @media (hover: hover) {
+      .language-tab:hover {
+        background: var(--bg-primary);
+        color: var(--text-primary);
+      }
     }
 
     .lang-flag {
@@ -633,9 +670,11 @@
       transition: all 0.2s;
     }
 
-    .lang-option:hover {
-      background: rgba(205, 92, 155, 0.1);
-      color: rgb(205, 92, 155);
+    @media (hover: hover) {
+      .lang-option:hover {
+        background: rgba(205, 92, 155, 0.1);
+        color: rgb(205, 92, 155);
+      }
     }
 
     .lang-option:first-child {
@@ -646,11 +685,17 @@
       border-radius: 0 0 4px 4px;
     }
 
-    .language-tab.cycling .lang-text {
-      animation: langCycle 1s ease-in-out;
+    .language-tab {
+      overflow: visible; /* Allow dropdown to overflow */
+      position: relative;
     }
 
-    @keyframes langCycle {
+    .language-tab.cycling .lang-flag,
+    .language-tab.cycling .lang-text {
+      animation: langFade 0.3s ease-in-out;
+    }
+
+    @keyframes langFade {
       0% { opacity: 1; }
       50% { opacity: 0.3; }
       100% { opacity: 1; }
@@ -679,8 +724,10 @@
       align-items: center;
     }
 
-    .example-item:hover {
-      background: var(--bg-secondary);
+    @media (hover: hover) {
+      .example-item:hover {
+        background: var(--bg-secondary);
+      }
     }
 
     .example-code {
@@ -722,8 +769,10 @@
       text-decoration: none;
     }
 
-    .docs-content a:hover {
-      text-decoration: underline;
+    @media (hover: hover) {
+      .docs-content a:hover {
+        text-decoration: underline;
+      }
     }
 
     .docs-content code {
@@ -772,12 +821,14 @@
       }
     }
 
-    .function-item:hover {
-      background: rgb(205, 92, 155);
-      color: white;
-      transform: translateY(-1px);
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-      border-color: rgb(205, 92, 155);
+    @media (hover: hover) {
+      .function-item:hover {
+        background: rgb(205, 92, 155);
+        color: white;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        border-color: rgb(205, 92, 155);
+      }
     }
 
     /* Wizard styles */
@@ -841,12 +892,14 @@
       }
     }
 
-    .wizard-suggestion:hover {
-      background: rgb(205, 92, 155);
-      color: white;
-      transform: translateY(-1px);
-      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-      border-color: rgb(205, 92, 155);
+    @media (hover: hover) {
+      .wizard-suggestion:hover {
+        background: rgb(205, 92, 155);
+        color: white;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        border-color: rgb(205, 92, 155);
+      }
     }
 
     .wizard-suggestion:active {
@@ -859,8 +912,10 @@
       text-decoration: none;
     }
 
-    a:hover {
-      color: rgb(205, 92, 155);
+    @media (hover: hover) {
+      a:hover {
+        color: rgb(205, 92, 155);
+      }
     }
 
     footer {
@@ -876,36 +931,29 @@
       main {
         flex-direction: column;
       }
-
-      .top-section {
-        flex-direction: column;
-        height: 66.666%;
+      
+      /* Split.js handles the layout now, so we just need to ensure containers are flex columns */
+      .top-row, .bottom-row {
+        flex-direction: column !important;
       }
-
+      
+      /* Ensure panels take full width in vertical mode */
+      .editor-panel, .preview-panel, .reference-section, .console-section {
+        width: 100% !important;
+      }
+      
+      /* Remove borders that might double up with gutters */
       .editor-panel {
         border-right: none;
-        border-bottom: 2px solid var(--border-color);
-        height: 50%;
-        order: 2;
+        border-bottom: none;
       }
-
-      #preview-iframe {
-        height: 50%;
-        order: 1;
+      
+      .reference-section {
+        border-right: none;
       }
-
-      .docs-panel {
-        height: 33.333% !important;
-        order: 3;
-      }
-
+      
       .docs-panel.collapsed {
         height: 33.333% !important;
-      }
-
-      .reference-section,
-      .console-section {
-        flex: 1;
       }
     }
 
@@ -934,8 +982,10 @@
       z-index: 1;
     }
 
-    .gutter:hover {
-      opacity: 0.6;
+    @media (hover: hover) {
+      .gutter:hover {
+        opacity: 0.6;
+      }
     }
 
     /* Default cursors for gutters */
@@ -995,7 +1045,18 @@
     <div class="top-row" id="top-row">
       <div class="editor-panel" id="editor-panel">
         <div class="editor-header">
-          <span class="baby-colors"><span>K</span><span>i</span><span>d</span><span>L</span><span>i</span><span>s</span><span>p</span><span class="com-part">.com</span></span>
+          <span class="baby-colors"><span>K</span><span>i</span><span>d</span><span>L</span><span>i</span><span>s</span><span>p</span><span>.</span><span class="com-part">com</span></span>
+          <div class="tab language-tab" id="language-tab" style="border: none; height: 100%; padding: 0 8px; background: transparent; display: flex; align-items: center;">
+            <span class="lang-flag" id="lang-flag" style="font-size: 12px; margin-right: 6px;">🇺🇸</span>
+            <span class="lang-text" style="font-size: 12px; opacity: 0.7;">English</span>
+            <span class="lang-arrow" style="font-size: 10px; opacity: 0.5; margin-left: 4px;">▼</span>
+            <div class="language-dropdown" id="language-dropdown" style="display: none; left: 0; top: 100%; margin-top: 0; border-top-left-radius: 0; border-top-right-radius: 0;">
+              <div class="lang-option" data-lang="en">🇺🇸 English</div>
+              <div class="lang-option" data-lang="es">🇪🇸 Español</div>
+              <div class="lang-option" data-lang="zh">🇨🇳 中文</div>
+              <div class="lang-option" data-lang="da">🇩🇰 Dansk</div>
+            </div>
+          </div>
         </div>
         <div id="kidlisp-editor">
           <button id="send-button" aria-label="Play"></button>
@@ -1028,16 +1089,6 @@
     <div class="bottom-row" id="bottom-row">
       <div class="reference-section" id="reference-panel">
         <div class="docs-header">
-          <div class="tab language-tab" id="language-tab">
-            <span class="lang-flag" id="lang-flag">🇺🇸</span>
-            <span class="lang-text">English</span>
-            <span class="lang-arrow">▼</span>
-            <div class="language-dropdown" id="language-dropdown" style="display: none;">
-              <div class="lang-option" data-lang="en">🇺🇸 English</div>
-              <div class="lang-option" data-lang="es">🇪🇸 Español</div>
-              <div class="lang-option" data-lang="zh">🇨🇳 中文</div>
-            </div>
-          </div>
           <div class="tab active" data-tab="reference" id="reference-tab">Code</div>
           <div class="tab" data-tab="examples" id="examples-tab">Top 25</div>
         </div>
@@ -1136,6 +1187,27 @@
         categoryNumbers: '数字',
         wizardPrompt: '点击构建你的 KidLisp 程序：',
         wizardEmpty: '从下面选择一个形式开始',
+      },
+      da: {
+        editorTitle: 'KidLisp',
+        clearButton: 'Ryd',
+        playButton: 'Kør',
+        previewTitle: 'Aesthetic.Computer',
+        consoleTitle: 'Konsol',
+        referenceTab: 'Kode',
+        examplesTab: 'Top 25',
+        examplesLoading: 'Indlæser eksempler...',
+        examplesNone: 'Ingen eksempler fundet.',
+        examplesError: 'Fejl ved indlæsning af eksempler.',
+        running: 'Kører...',
+        hits: 'visninger',
+        categoryStructure: 'Struktur',
+        categoryDrawing: 'Tegning',
+        categoryEffects: 'Effekter',
+        categoryColors: 'Farver',
+        categoryNumbers: 'Tal',
+        wizardPrompt: 'Tryk for at bygge dit KidLisp program:',
+        wizardEmpty: 'Start med at vælge en form nedenfor',
       }
     };
 
@@ -1178,27 +1250,87 @@
       });
     }
     
-    // Initialize Split.js - 2x2 grid layout with 4 independent bars
-    // Main vertical split (top row vs bottom row)
-    Split(['#top-row', '#bottom-row'], {
-      sizes: [50, 50],
-      direction: 'vertical',
-      gutterSize: 8,
-      cursor: 'row-resize',
-    });
+    // Initialize Split.js
+    let splits = [];
+    
+    function initSplits() {
+      // Destroy existing splits
+      splits.forEach(s => s.destroy());
+      splits = [];
+      
+      const isMobile = window.innerWidth <= 768;
+      const mainSplit = document.getElementById('main-split');
+      const topRow = document.getElementById('top-row');
+      const bottomRow = document.getElementById('bottom-row');
+      const editorPanel = document.getElementById('editor-panel');
+      const previewPanel = document.getElementById('preview-panel');
+      const consolePanel = document.getElementById('console-panel');
+      const referencePanel = document.getElementById('reference-panel');
 
-    // Top row horizontal split (editor vs preview)
-    Split(['#editor-panel', '#preview-panel'], {
-      sizes: [50, 50],
-      gutterSize: 8,
-      cursor: 'col-resize',
-    });
+      if (isMobile) {
+        // Mobile: Single vertical column with 4 panels
+        // Move all panels to main-split to allow a single Split instance
+        if (mainSplit && editorPanel && previewPanel && consolePanel && referencePanel) {
+          mainSplit.appendChild(editorPanel);
+          mainSplit.appendChild(previewPanel);
+          mainSplit.appendChild(consolePanel);
+          mainSplit.appendChild(referencePanel);
+        }
 
-    // Bottom row horizontal split (reference vs console)
-    Split(['#reference-panel', '#console-panel'], {
-      sizes: [50, 50],
-      gutterSize: 8,
-      cursor: 'col-resize',
+        // Initialize single vertical split for all 4 panels
+        splits.push(Split(['#editor-panel', '#preview-panel', '#console-panel', '#reference-panel'], {
+          sizes: [33, 33, 17, 17], // Approximate starting sizes
+          direction: 'vertical',
+          gutterSize: 8,
+          cursor: 'row-resize',
+          minSize: 32, // Minimum size to keep header visible
+        }));
+        
+      } else {
+        // Desktop: 2x2 Grid
+        // Move panels back to their rows
+        if (topRow && editorPanel && previewPanel) {
+          topRow.appendChild(editorPanel);
+          topRow.appendChild(previewPanel);
+        }
+        
+        if (bottomRow && referencePanel && consolePanel) {
+          bottomRow.appendChild(referencePanel);
+          bottomRow.appendChild(consolePanel);
+        }
+        
+        // 1. Main vertical split (Top Row vs Bottom Row)
+        splits.push(Split(['#top-row', '#bottom-row'], {
+          sizes: [50, 50],
+          direction: 'vertical',
+          gutterSize: 8,
+          cursor: 'row-resize',
+        }));
+
+        // 2. Top Row horizontal split (Editor vs Preview)
+        splits.push(Split(['#editor-panel', '#preview-panel'], {
+          sizes: [50, 50],
+          gutterSize: 8,
+          cursor: 'col-resize',
+        }));
+
+        // 3. Bottom Row horizontal split (Reference vs Console)
+        splits.push(Split(['#reference-panel', '#console-panel'], {
+          sizes: [50, 50],
+          gutterSize: 8,
+          cursor: 'col-resize',
+        }));
+      }
+    }
+    
+    // Initialize on load
+    initSplits();
+    
+    // Handle resize with debounce
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(initSplits, 200);
     });
 
     import { tokenize } from 'https://aesthetic.computer/aesthetic.computer/lib/kidlisp.mjs';
@@ -1320,7 +1452,7 @@
 
       // Create the editor
       editor = monaco.editor.create(editorContainer, {
-        value: '',
+        value: localStorage.getItem('kidlisp-code') || '',
         language: 'kidlisp',
         theme: initialTheme,
         minimap: { enabled: false },
@@ -1602,6 +1734,7 @@
       editor.onDidChangeModelContent(() => {
         updateLineNumbers();
         applyColorNameDecorations();
+        localStorage.setItem('kidlisp-code', editor.getValue());
       });
       
       // Initial application
@@ -1670,12 +1803,14 @@
       const languages = [
         { code: 'en', name: 'English', flag: '🇺🇸' },
         { code: 'es', name: 'Español', flag: '🇪🇸' },
-        { code: 'zh', name: '中文', flag: '🇨🇳' }
+        { code: 'zh', name: '中文', flag: '🇨🇳' },
+        { code: 'da', name: 'Dansk', flag: '🇩🇰' }
       ];
       
       function updateLanguageTab() {
         if (langText && langFlag) {
           const currentLangObj = languages.find(l => l.code === currentLang);
+          // Use 'en' for English display, otherwise use the language name
           langText.textContent = currentLangObj?.name || 'English';
           langFlag.textContent = currentLangObj?.flag || '🇺🇸';
         }
@@ -1712,23 +1847,29 @@
         // Auto-cycle animation on load (preview only, doesn't change actual language)
         setTimeout(() => {
           let cycleCount = 0;
+          
           const autoCycle = setInterval(() => {
-            // Loop forever
-            
             const previewIndex = (cycleCount + 1) % languages.length;
             const previewLang = languages[previewIndex];
             
+            // Add animation class
             langTab.classList.add('cycling');
+            
+            // Update content at midpoint
             setTimeout(() => {
               if (langText && langFlag) {
                 langText.textContent = previewLang.name;
                 langFlag.textContent = previewLang.flag;
               }
+            }, 150);
+            
+            // Remove animation class
+            setTimeout(() => {
               langTab.classList.remove('cycling');
-            }, 500); // Match half of animation duration
+            }, 300);
             
             cycleCount++;
-          }, 3000); // Slower cycle (3 seconds)
+          }, 3000); // Cycle every 3 seconds
         }, 1500); // Start after 1.5 seconds
       }
       
@@ -1739,7 +1880,8 @@
       const kidlispTitle = document.querySelector('.baby-colors');
       if (kidlispTitle) {
         const letters = kidlispTitle.querySelectorAll('span:not(.com-part)');
-        const colors = ['#FF6B6B', '#FF9F43', '#FECA57', '#1DD1A1', '#54A0FF', '#5F27CD', '#FF9FF3'];
+        // Saturated Easter palette
+        const colors = ['#FF7096', '#FFB870', '#FFEA70', '#8AFF8A', '#70D6FF', '#C596FF', '#FF96C5'];
         
         let lastColorIndex = -1;
         letters.forEach(letter => {
@@ -1923,6 +2065,9 @@
       }, 500);
     }, { once: true });
     
+    let isPlaying = false;
+    let isPaused = false;
+
     function updatePreview() {
       if (!editor) return;
       
@@ -1947,27 +2092,46 @@
     }
 
     sendButton.addEventListener('click', () => {
-      updatePreview();
-      sendButton.classList.add('playing');
-      sendButton.style.right = '64px'; // Move play button to the left
-      stopButton.style.display = 'flex';
-      // Stop button appears at right: 8px (default in CSS)
+      if (!isPlaying) {
+        // Start playing
+        updatePreview();
+        isPlaying = true;
+        isPaused = false;
+        sendButton.classList.add('playing');
+        sendButton.style.right = '64px'; // Move play button to the left
+        stopButton.style.display = 'flex';
+      } else if (isPaused) {
+        // Resume
+        if (previewIframe.contentWindow) {
+          previewIframe.contentWindow.postMessage({ type: 'kidlisp-resume' }, aestheticUrl);
+        }
+        isPaused = false;
+        sendButton.classList.add('playing'); // Ensure playing style (Pause icon)
+      } else {
+        // Pause
+        if (previewIframe.contentWindow) {
+          previewIframe.contentWindow.postMessage({ type: 'kidlisp-pause' }, aestheticUrl);
+        }
+        isPaused = true;
+        sendButton.classList.remove('playing'); // Revert to Play icon (Green)
+        // But keep position and stop button
+        sendButton.style.right = '64px';
+        stopButton.style.display = 'flex';
+      }
     });
 
-    // Stop button - reloads with empty code
+    // Stop button - reloads the blank kidlisp piece
     const stopButton = document.getElementById('stop-button');
     stopButton.addEventListener('click', () => {
-      // Send empty code to reset the preview
-      if (previewIframe.contentWindow) {
-        previewIframe.contentWindow.postMessage({
-          type: 'kidlisp-reload',
-          code: '',
-          createCode: false
-        }, aestheticUrl);
-        console.log('⏹️ Stop button pressed - clearing preview');
-      }
+      // Reload the iframe to get back to the initial empty state
+      const isDev = window.location.hostname === 'localhost' || window.location.hostname.includes('local.');
+      const aestheticUrl = isDev ? 'https://localhost:8888' : 'https://aesthetic.computer';
+      previewIframe.src = `${aestheticUrl}/kidlisp?nogap=true&nolabel=true&noauth=true`;
+      console.log('⏹️ Stop button pressed - reloading blank piece');
       
-      // Remove playing class from play button and hide stop button
+      // Reset state
+      isPlaying = false;
+      isPaused = false;
       sendButton.classList.remove('playing');
       sendButton.style.right = '8px'; // Move play button back to original position
       stopButton.style.display = 'none';
@@ -2235,38 +2399,70 @@
     });
 
     // Tab functionality
+    console.log('🔍 Starting tab setup...');
     const referenceContent = document.getElementById('reference-content');
     const examplesContent = document.getElementById('examples-content');
     const codeTab = document.getElementById('reference-tab');
     const examplesTab = document.getElementById('examples-tab');
     let examplesLoaded = false;
 
-    console.log('Tab elements:', { codeTab, examplesTab, referenceContent, examplesContent });
+    console.log('🔍 Tab elements found:', { 
+      codeTab: !!codeTab, 
+      examplesTab: !!examplesTab, 
+      referenceContent: !!referenceContent, 
+      examplesContent: !!examplesContent,
+      referenceContentClasses: referenceContent?.className,
+      examplesContentClasses: examplesContent?.className
+    });
     
     if (codeTab && examplesTab && referenceContent && examplesContent) {
       codeTab.addEventListener('click', function(e) {
-        console.log('Code tab clicked!');
+        console.log('🎯 Code tab clicked!');
         e.stopPropagation();
         codeTab.classList.add('active');
         examplesTab.classList.remove('active');
         referenceContent.classList.remove('hidden');
         examplesContent.classList.add('hidden');
+        console.log('🎯 After Code tab click:', {
+          codeTabActive: codeTab.classList.contains('active'),
+          examplesTabActive: examplesTab.classList.contains('active'),
+          referenceHidden: referenceContent.classList.contains('hidden'),
+          examplesHidden: examplesContent.classList.contains('hidden')
+        });
       });
       
       examplesTab.addEventListener('click', function(e) {
-        console.log('Examples tab clicked!');
+        console.log('🎯 Examples tab clicked!');
+        console.log('🎯 Event:', e);
+        console.log('🎯 Target:', e.target);
+        console.log('🎯 CurrentTarget:', e.currentTarget);
         e.stopPropagation();
+        e.preventDefault();
+        
         examplesTab.classList.add('active');
         codeTab.classList.remove('active');
         examplesContent.classList.remove('hidden');
         referenceContent.classList.add('hidden');
+        
+        console.log('🎯 After Examples tab click:', {
+          codeTabActive: codeTab.classList.contains('active'),
+          examplesTabActive: examplesTab.classList.contains('active'),
+          referenceHidden: referenceContent.classList.contains('hidden'),
+          examplesHidden: examplesContent.classList.contains('hidden'),
+          examplesDisplay: window.getComputedStyle(examplesContent).display
+        });
+        
         if (!examplesLoaded) {
-          console.log('Loading examples...');
+          console.log('🎯 Loading examples for first time...');
           loadExamples();
+        } else {
+          console.log('🎯 Examples already loaded');
         }
       });
+      
+      console.log('✅ Tab event listeners attached successfully');
     } else {
-      console.error('Missing tab elements!', { codeTab, examplesTab, referenceContent, examplesContent });
+      console.error('❌ Missing tab elements!', { codeTab, examplesTab, referenceContent, examplesContent });
     }
 
     async function loadExamples() {
