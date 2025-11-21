@@ -2503,6 +2503,39 @@ class KidLisp {
     }
   }
 
+  // Generate QR code as a data URI for a given code
+  async generateQRDataUri(code) {
+    try {
+      const url = `https://prompt.ac/$${code}`;
+      const { ErrorCorrectLevel } = await import("../dep/@akamfoad/qr/qr.mjs");
+      const cells = qr(url, { errorCorrectLevel: ErrorCorrectLevel.M }).modules;
+      
+      const cellSize = 4; // 4px per cell for better visibility in small size
+      const qrSize = cells.length * cellSize;
+      
+      // Create a canvas to render the QR code
+      const canvas = document.createElement('canvas');
+      canvas.width = qrSize;
+      canvas.height = qrSize;
+      const ctx = canvas.getContext('2d');
+      
+      // Draw QR code
+      for (let y = 0; y < cells.length; y++) {
+        for (let x = 0; x < cells.length; x++) {
+          const isBlack = cells[y][x];
+          ctx.fillStyle = isBlack ? 'black' : 'white';
+          ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+        }
+      }
+      
+      // Convert canvas to data URI
+      return canvas.toDataURL('image/png');
+    } catch (error) {
+      console.warn('Failed to generate QR data URI:', error);
+      return null;
+    }
+  }
+
   // Cache kidlisp source code for QR generation
   async cacheKidlispSource(source, api) {
     // Skip caching for .lisp files since they're already stored as files
@@ -2618,6 +2651,32 @@ class KidLisp {
         const { logKidlispCode } = await import('./headers.mjs');
         logKidlispCode(source, data.code, api.dark);
 
+        // If createCode flag is set (from kidlisp.com editor), send response back to parent
+        if (api.kidlispCreateCode) {
+          console.log('🚀 createCode flag detected, generating QR and sending to parent...');
+          
+          // Generate QR code as data URI
+          const qrDataUri = await this.generateQRDataUri(data.code);
+          console.log('📊 QR generated:', qrDataUri ? 'success' : 'failed');
+          
+          // Send message to parent window
+          if (window.parent !== window) {
+            const message = {
+              type: 'kidlisp-code-created',
+              code: data.code,
+              qr: qrDataUri
+            };
+            console.log('📤 Sending message to parent:', message);
+            window.parent.postMessage(message, '*');
+            console.log('✅ Message sent successfully');
+          } else {
+            console.warn('⚠️ window.parent === window, cannot send message');
+          }
+          
+          // Clear the flag (note: this only clears it on the current frame's API copy)
+          // To properly clear it, we should probably rely on the reload mechanism resetting it
+          // or just let the caching check prevent re-sending.
+        }
 
         // Update browser URL to show the short code
         this.updateBrowserUrl(response.code, api);
@@ -7468,6 +7527,26 @@ class KidLisp {
   }
 
   evaluate(parsed, api = {}, env, inArgs, isTopLevel = false, expressionIndex = 0) {
+    // 🎨 DEFAULT PATTERN: If no code provided, show a checkerboard pattern
+    if (!parsed || (Array.isArray(parsed) && parsed.length === 0)) {
+      if (api.wipe && api.ink && api.box) {
+        // Draw a simple checkerboard pattern
+        api.wipe(240, 240, 240); // Light gray background
+        api.ink(60, 60, 60); // Dark gray squares
+        const size = 32; // Size of each square
+        const cols = Math.ceil((api.screen?.width || 256) / size);
+        const rows = Math.ceil((api.screen?.height || 256) / size);
+        for (let y = 0; y < rows; y++) {
+          for (let x = 0; x < cols; x++) {
+            if ((x + y) % 2 === 0) {
+              api.box(x * size, y * size, size, size);
+            }
+          }
+        }
+      }
+      return undefined;
+    }
+    
     // 🐛 Track current expression for debugging
     const prevExpression = this.currentEvaluatingExpression;
     if (!this.inkStateSet && kidlispInkLoggingEnabled()) {
