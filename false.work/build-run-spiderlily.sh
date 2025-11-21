@@ -84,7 +84,7 @@ fi
 
 echo ""
 echo "✅ Build complete!"
-echo "📦 Output: $OUTPUT_DIR/MacNoEditor"
+echo "📦 Output: $OUTPUT_DIR/Mac"
 
-BUILD_SIZE=$(du -sh "$OUTPUT_DIR/MacNoEditor" | cut -f1)
+BUILD_SIZE=$(du -sh "$OUTPUT_DIR/Mac" 2>/dev/null | cut -f1)
 echo "📊 Size: $BUILD_SIZE"
