@@ -558,7 +558,7 @@ export const handler = async (event) => {
           glyphFound = true;
           // shell.log(
           //   `Glyph ${charToFind} (code ${charCodeToFind}) found and processed. BBX width: ${bbx.width}, height: ${bbx.height}`,
-          );
+          // );
           // Process bitmapLines
           const pointCommands = [];
           const bytesPerRow = Math.ceil(bbx.width / 8);
