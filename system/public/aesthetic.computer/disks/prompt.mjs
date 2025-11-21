@@ -119,6 +119,7 @@ let chatTicker; // Ticker instance for chat messages
 let chatTickerButton; // Button for chat ticker hover interaction
 let contentTicker; // Ticker instance for mixed $kidlisp, #painting, !tape content
 let contentTickerButton; // Button for content ticker hover interaction
+let mediaPreviewBox; // Shared preview box renderer for all media types
 const tinyTickers = true; // Use MatrixChunky8 font for tighter, smaller tickers
 let contentItems = []; // Store fetched content: {type: 'kidlisp'|'painting'|'tape', code: string, source?: string}
 let currentTooltipItem = null; // Current item being shown in tooltip (auto-cycles)
@@ -2403,6 +2404,243 @@ async function halt($, text) {
   }
 }
 
+// 📦 Media Preview Box - renders kidlisp/painting/tape previews with consistent sizing
+class MediaPreviewBox {
+  constructor() {
+    this.width = 150;  // Fixed width for all media types
+    this.height = 120; // Fixed height for all media types
+    this.padding = 4;
+  }
+
+  // Get box dimensions for tooltip sizing
+  getBoxDimensions() {
+    return {
+      width: this.width + this.padding * 2,
+      height: this.height + this.padding * 2
+    };
+  }
+
+  // Render a media item in the preview box with proper clipping
+  render($, item, x, y, fadeIn) {
+    const contentX = x + this.padding;
+    const contentY = y + this.padding;
+    
+    // Set up clipping mask for the content area
+    $.mask({ x: contentX, y: contentY, width: this.width, height: this.height });
+    
+    if (item.type === 'kidlisp' && item.source) {
+      this.renderKidlisp($, item, contentX, contentY, fadeIn);
+    } else if (item.type === 'painting' && item.image) {
+      this.renderPainting($, item, contentX, contentY, fadeIn);
+    } else if (item.type === 'tape' && item.frames && item.frames.length > 0) {
+      this.renderTape($, item, contentX, contentY, fadeIn);
+    } else if (item.type === 'tape' && item.isLoading) {
+      this.renderTapeLoading($, item, contentX, contentY, fadeIn);
+    }
+    
+    // Remove clipping mask
+    $.unmask();
+  }
+
+  renderKidlisp($, item, x, y, fadeIn) {
+    const charWidth = 4;
+    const lineHeight = 10;
+    const lines = item.source.split('\n').slice(0, Math.floor(this.height / lineHeight));
+    
+    const textAlpha = Math.floor(255 * fadeIn);
+    
+    lines.forEach((line, i) => {
+      const lineY = y + i * lineHeight;
+      // Simple monochrome rendering for now - could add syntax highlighting
+      $.ink(100, 255, 150, textAlpha).write(
+        line.substring(0, Math.floor(this.width / charWidth)),
+        { x, y: lineY },
+        undefined,
+        undefined,
+        false,
+        "MatrixChunky8"
+      );
+    });
+  }
+
+  renderPainting($, item, x, y, fadeIn) {
+    const img = item.image;
+    
+    // Ken Burns effect: pan a crop window that fills the preview box
+    const nowTime = performance.now();
+    const burnSeed = item.kenBurnsSeed ?? Math.random();
+    item.kenBurnsSeed = burnSeed;
+    const KEN_BURNS_CYCLE_MS = 8000;
+    const burnProgress = ((nowTime / KEN_BURNS_CYCLE_MS) + burnSeed) % 1;
+    
+    // Calculate how much to scale the image to cover the box (cover, not contain)
+    const scaleX = this.width / img.width;
+    const scaleY = this.height / img.height;
+    const scale = Math.max(scaleX, scaleY); // Cover - may crop
+    
+    // Scaled dimensions
+    const scaledW = img.width * scale;
+    const scaledH = img.height * scale;
+    
+    // Maximum pan range in scaled space
+    const maxPanX = Math.max(0, scaledW - this.width);
+    const maxPanY = Math.max(0, scaledH - this.height);
+    
+    // Ken Burns pan position (0-1)
+    const panX = (Math.cos((burnProgress + 0.25) * Math.PI * 2) + 1) / 2;
+    const panY = (Math.sin((burnProgress + 0.65) * Math.PI * 2) + 1) / 2;
+    
+    // Offset in scaled space
+    const offsetX = maxPanX * panX;
+    const offsetY = maxPanY * panY;
+    
+    // Draw scaled image at negative offset to create crop effect
+    const drawX = x - offsetX;
+    const drawY = y - offsetY;
+    
+    const imageAlpha = Math.floor(255 * fadeIn);
+    $.ink(255, 255, 255, imageAlpha);
+    $.paste(img, drawX, drawY, {
+      width: Math.ceil(scaledW),
+      height: Math.ceil(scaledH)
+    });
+    
+    $.needsPaint(); // Keep animating
+  }
+
+  renderTape($, item, x, y, fadeIn) {
+    // Cycle through frames at ~12 fps
+    const nowTime = performance.now();
+    const frameIndex = Math.floor((nowTime / 83)) % item.frames.length;
+    const frame = item.frames[frameIndex];
+    
+    if (frame) {
+      // Ken Burns effect
+      const burnSeed = item.kenBurnsSeed ?? Math.random();
+      item.kenBurnsSeed = burnSeed;
+      const KEN_BURNS_CYCLE_MS = 8000;
+      const burnProgress = ((nowTime / KEN_BURNS_CYCLE_MS) + burnSeed) % 1;
+      
+      // Calculate how much to scale the frame to cover the box
+      const scaleX = this.width / frame.width;
+      const scaleY = this.height / frame.height;
+      const scale = Math.max(scaleX, scaleY); // Cover - may crop
+      
+      // Scaled dimensions
+      const scaledW = frame.width * scale;
+      const scaledH = frame.height * scale;
+      
+      // Maximum pan range in scaled space
+      const maxPanX = Math.max(0, scaledW - this.width);
+      const maxPanY = Math.max(0, scaledH - this.height);
+      
+      // Ken Burns pan position (0-1)
+      const panX = (Math.cos((burnProgress + 0.25) * Math.PI * 2) + 1) / 2;
+      const panY = (Math.sin((burnProgress + 0.65) * Math.PI * 2) + 1) / 2;
+      
+      // Offset in scaled space
+      const offsetX = maxPanX * panX;
+      const offsetY = maxPanY * panY;
+      
+      // Draw scaled frame at negative offset to create crop effect
+      const drawX = x - offsetX;
+      const drawY = y - offsetY;
+      
+      $.paste(frame, drawX, drawY, {
+        width: Math.ceil(scaledW),
+        height: Math.ceil(scaledH)
+      });
+    }
+    
+    $.needsPaint(); // Keep animating
+  }
+
+  renderTapeLoading($, item, x, y, fadeIn) {
+    const animPhase = (performance.now() / 100) % (Math.PI * 2);
+    const loadingAlpha = Math.floor(255 * fadeIn);
+    
+    // Draw cassette body outline
+    $.ink(80, 80, 80, loadingAlpha).box(x, y, this.width, this.height, "outline");
+    
+    // Draw two reels
+    const reelRadius = 15;
+    const reelY = y + this.height / 2;
+    const reel1X = x + this.width * 0.3;
+    const reel2X = x + this.width * 0.7;
+    
+    // Left reel
+    $.ink(150, 100, 150, loadingAlpha).circle(reel1X, reelY, reelRadius, false);
+    const spoke1Angle = animPhase;
+    const spokeLength = reelRadius - 3;
+    for (let i = 0; i < 6; i++) {
+      const angle = spoke1Angle + (i * Math.PI / 3);
+      const endX = reel1X + Math.cos(angle) * spokeLength;
+      const endY = reelY + Math.sin(angle) * spokeLength;
+      $.ink(150, 100, 150, loadingAlpha).line(reel1X, reelY, endX, endY);
+    }
+    
+    // Right reel
+    $.ink(150, 100, 150, loadingAlpha).circle(reel2X, reelY, reelRadius, false);
+    const spoke2Angle = -animPhase;
+    for (let i = 0; i < 6; i++) {
+      const angle = spoke2Angle + (i * Math.PI / 3);
+      const endX = reel2X + Math.cos(angle) * spokeLength;
+      const endY = reelY + Math.sin(angle) * spokeLength;
+      $.ink(150, 100, 150, loadingAlpha).line(reel2X, reelY, endX, endY);
+    }
+    
+    // Tape connecting reels
+    const tapeY1 = reelY - reelRadius;
+    const tapeY2 = reelY + reelRadius;
+    $.ink(100, 70, 50, loadingAlpha).line(reel1X, tapeY1, reel2X, tapeY1);
+    $.ink(100, 70, 50, loadingAlpha).line(reel1X, tapeY2, reel2X, tapeY2);
+    
+    $.needsPaint(); // Keep animating
+  }
+
+  // Render tape progress bar and time (outside the box)
+  renderTapeMetrics($, item, x, y, boxWidth, fadeIn) {
+    if (!item.frames || item.frames.length === 0) return;
+    
+    const nowTime = performance.now();
+    const frameIndex = Math.floor((nowTime / 83)) % item.frames.length;
+    
+    // Progress bar (2px below box)
+    const progressBarY = y + 2;
+    const totalFrames = item.frames.length;
+    const progress = frameIndex / totalFrames;
+    const progressWidth = Math.floor(boxWidth * progress);
+    
+    $.ink(0, 0, 0, 255).line(x, progressBarY, x + boxWidth - 1, progressBarY);
+    if (progressWidth > 0) {
+      $.ink(255, 0, 0, 255).line(x, progressBarY, x + progressWidth - 1, progressBarY);
+    }
+    
+    // Time display (2px below progress bar)
+    const timeY = progressBarY + 4;
+    const fps = 12;
+    const currentSeconds = frameIndex / fps;
+    const totalSeconds = totalFrames / fps;
+    
+    const formatTime = (seconds) => {
+      const mins = Math.floor(seconds / 60);
+      const secs = Math.floor(seconds % 60);
+      return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    };
+    
+    const timeText = `${formatTime(currentSeconds)} / ${formatTime(totalSeconds)}`;
+    const timeAlpha = Math.floor(180 * fadeIn);
+    $.ink(100, 180, 120, timeAlpha).write(
+      timeText,
+      { x: x + this.padding, y: timeY },
+      undefined,
+      undefined,
+      false,
+      "MatrixChunky8"
+    );
+  }
+}
+
 // 🎨 Paint
 function paint($) {
   // Time-based animation counter (used by both MOTD and ghost hint)
@@ -3782,6 +4020,7 @@ function paint($) {
       
       // Create or update content ticker instance
       if (!contentTicker && contentItems.length > 0) {
+        mediaPreviewBox = new MediaPreviewBox(); // Initialize shared preview box
         contentTicker = new $.gizmo.Ticker(fullText, {
           speed: 1, // 1px per frame
           separator: " · ",
@@ -4232,33 +4471,15 @@ function paint($) {
           const maxContentHeight = availableHeight - padding - metadataGap - metadataHeight; // Reserve space for metadata
           
           if (currentTooltipItem.type === 'kidlisp' && currentTooltipItem.source) {
-            // KidLisp tooltip: source code preview
-            const source = currentTooltipItem.source;
-            const charWidth = 4; // MatrixChunky8
-            const lineHeight = 10;
-            
-            // Calculate how many lines can fit
-            const maxPossibleLines = Math.floor(maxContentHeight / lineHeight);
-            const maxLines = Math.max(1, Math.min(5, maxPossibleLines)); // 1-5 lines based on available space
-            
-            const lines = source.split('\n').slice(0, maxLines);
-            const maxLineLength = Math.max(...lines.map(l => l.length));
-            
-            // Ensure width fits both content and metadata, respecting available space
-            // Allow wider width for KidLisp to prevent wrapping/truncation
-            const contentWidth = Math.min(maxLineLength * charWidth + padding * 2, maxTooltipWidth);
-            const minWidthForMetadata = metadataWidth + padding * 2;
-            tooltipWidth = Math.max(contentWidth, minWidthForMetadata, 200); // Min 200px for KidLisp
-            tooltipHeight = lines.length * lineHeight + padding + metadataGap + metadataHeight;
+            // KidLisp tooltip: use shared MediaPreviewBox dimensions
+            const boxDims = mediaPreviewBox.getBoxDimensions();
+            tooltipWidth = boxDims.width;
+            tooltipHeight = boxDims.height; // Just the box, metadata goes outside
           } else if (currentTooltipItem.type === 'painting' && currentTooltipItem.image) {
-            // Painting tooltip: fixed-size preview box with Ken Burns effect (consistent with tapes)
-            const previewWidth = Math.min(150, maxTooltipWidth - padding * 2); // Fixed width
-            const previewHeight = Math.min(120, maxContentHeight); // Fixed height (same as tapes)
-            
-            // Ensure width fits both image and metadata
-            const minWidthForMetadata = metadataWidth + padding * 2;
-            tooltipWidth = Math.max(previewWidth + padding * 2, minWidthForMetadata);
-            tooltipHeight = previewHeight + padding * 2; // Just the image box, metadata goes outside
+            // Painting tooltip: use shared MediaPreviewBox dimensions
+            const boxDims = mediaPreviewBox.getBoxDimensions();
+            tooltipWidth = boxDims.width;
+            tooltipHeight = boxDims.height; // Just the box, metadata goes outside
           } else if (currentTooltipItem.type === 'tape' && currentTooltipItem.audioUrl) {
             // Tape tooltip: show title and audio visualization - fit to available space
             const tapeTitle = currentTooltipItem.title || `Tape !${currentTooltipItem.code}`;
@@ -4270,17 +4491,10 @@ function paint($) {
             tooltipWidth = Math.max(Math.min(150, maxTooltipWidth), minWidthForMetadata, minWidthForTitle);
             tooltipHeight = 8 + padding + visualizerHeight + padding; // Title + viz only, metadata goes outside
           } else if (currentTooltipItem.type === 'tape' && (currentTooltipItem.isLoading || currentTooltipItem.framesLoaded)) {
-            // Tape tooltip: show title and either loading animation or frames - fit to available space
-            const tapeTitle = currentTooltipItem.title || `Tape !${currentTooltipItem.code}`;
-            const tapeTitleWidth = $.text.box(tapeTitle, undefined, undefined, undefined, undefined, "MatrixChunky8").box.width;
-            const progressBarHeight = 1; // 1px progress bar (rendered outside box)
-            const timeDisplayHeight = 8; // Height for time text (rendered outside box)
-            const visualizerHeight = Math.min(120, maxContentHeight); // Full available space for frames/cassette
-            
-            const minWidthForMetadata = metadataWidth + padding * 2;
-            const minWidthForTitle = tapeTitleWidth + padding * 2;
-            tooltipWidth = Math.max(Math.min(150, maxTooltipWidth), minWidthForMetadata, minWidthForTitle);
-            tooltipHeight = padding + visualizerHeight + padding; // Just the visualizer box, progress/time/metadata go outside
+            // Tape tooltip: use shared MediaPreviewBox dimensions
+            const boxDims = mediaPreviewBox.getBoxDimensions();
+            tooltipWidth = boxDims.width;
+            tooltipHeight = boxDims.height; // Just the box, progress/time/metadata go outside
           } else {
             return; // No valid content to show
           }
@@ -4336,9 +4550,20 @@ function paint($) {
           let tooltipX = baseTooltipX + tooltipDriftX;
           let tooltipY = baseTooltipY + tooltipDriftY;
           
-          // Clamp tooltip to stay on screen
+          // Calculate total height including metadata/progress/time
+          const metadataHeight = 10; // Height of metadata text
+          let totalTooltipHeight = tooltipHeight + metadataGap + metadataHeight;
+          
+          // For tapes with frames, add progress bar and time
+          if (currentTooltipItem.type === 'tape' && (currentTooltipItem.isLoading || currentTooltipItem.framesLoaded)) {
+            const progressBarHeight = 1;
+            const timeDisplayHeight = 8;
+            totalTooltipHeight = tooltipHeight + 2 + progressBarHeight + 2 + timeDisplayHeight + metadataGap + metadataHeight;
+          }
+          
+          // Clamp tooltip to stay on screen (including metadata below)
           tooltipX = Math.max(4, Math.min(tooltipX, screen.width - tooltipWidth - 4));
-          tooltipY = Math.max(4, Math.min(tooltipY, screen.height - tooltipHeight - 4));
+          tooltipY = Math.max(4, Math.min(tooltipY, screen.height - totalTooltipHeight - 4));
           
           // Draw connector line from highlighted item box to tooltip (if item is visible)
           if (highlightedItemX >= 0 && highlightedItemWidth > 0) {
@@ -4405,187 +4630,16 @@ function paint($) {
               textAlpha
             );
           } else if (currentTooltipItem.type === 'painting' && currentTooltipItem.image) {
-            // Render painting image preview with Ken Burns effect (fixed size, consistent with tapes)
-            const img = currentTooltipItem.image;
-            
-            // Use fixed preview dimensions (matching tooltip sizing above)
-            const previewWidth = Math.min(150, maxTooltipWidth - padding * 2);
-            const previewHeight = Math.min(120, maxContentHeight);
-            const drawX = tooltipX + padding;
-            const drawY = tooltipY + padding;
-            
-            // Ken Burns effect: pan a crop window that fills the preview box
-            const nowTime = performance.now();
-            const burnSeed = currentTooltipItem.kenBurnsSeed ?? Math.random();
-            currentTooltipItem.kenBurnsSeed = burnSeed;
-            const burnProgress = ((nowTime / KEN_BURNS_CYCLE_MS) + burnSeed) % 1;
-            
-            // Crop size matches preview box (1:1 pixels, no scaling)
-            const cropW = previewWidth;
-            const cropH = previewHeight;
-            
-            // Pan around within the available crop space
-            const maxCropX = Math.max(0, img.width - cropW);
-            const maxCropY = Math.max(0, img.height - cropH);
-            
-            const panX = (Math.cos((burnProgress + 0.25) * Math.PI * 2) + 1) / 2; // 0-1
-            const panY = (Math.sin((burnProgress + 0.65) * Math.PI * 2) + 1) / 2; // 0-1
-            
-            const cropX = Math.floor(maxCropX * panX);
-            const cropY = Math.floor(maxCropY * panY);
-            
-            // Paste the image with Ken Burns crop
-            const imageAlpha = Math.floor(255 * tooltipFadeIn);
-            $.ink(255, 255, 255, imageAlpha);
-            $.paste(
-              img,
-              drawX,
-              drawY,
-              {
-                crop: { x: cropX, y: cropY, w: cropW, h: cropH }
-              }
-            );
-            
-            $.needsPaint(); // Keep animating Ken Burns effect
+            // Render painting using shared MediaPreviewBox
+            mediaPreviewBox.render($, currentTooltipItem, tooltipX, tooltipY, tooltipFadeIn);
           } else if (currentTooltipItem.type === 'tape' && (currentTooltipItem.isLoading || currentTooltipItem.framesLoaded)) {
-            // Render tape tooltip: just show frames when loaded, cassette animation while loading
-            console.log(`🎬 TAPE RENDER: !${currentTooltipItem.code} isLoading=${currentTooltipItem.isLoading} framesLoaded=${currentTooltipItem.framesLoaded} frames=${currentTooltipItem.frames?.length || 0}`);
+            // Render tape using shared MediaPreviewBox
+            mediaPreviewBox.render($, currentTooltipItem, tooltipX, tooltipY, tooltipFadeIn);
             
-            const vizY = tooltipY + padding; // Start at top of tooltip
-            // Use calculated responsive height from sizing above
-            const progressBarHeight = 1;
-            const timeDisplayHeight = 8;
-            const vizHeight = Math.min(60, maxContentHeight - progressBarHeight - timeDisplayHeight);
-            const vizWidth = tooltipWidth - padding * 2;
-            
-            // Show frames if loaded, otherwise show cassette animation
+            // Render progress bar and time display outside the box
             if (currentTooltipItem.framesLoaded && currentTooltipItem.frames && currentTooltipItem.frames.length > 0) {
-              // Cycle through frames based on time (animate at ~12 fps)
-              const nowTime = performance.now();
-              const frameIndex = Math.floor((nowTime / 83)) % currentTooltipItem.frames.length; // 83ms ≈ 12fps
-              const frame = currentTooltipItem.frames[frameIndex];
-              
-              if (frame) {
-                // Ken Burns effect: pan a 1:1 crop window that fills the preview box
-                const burnSeed = currentTooltipItem.kenBurnsSeed ?? Math.random();
-                currentTooltipItem.kenBurnsSeed = burnSeed;
-                const burnProgress = ((nowTime / KEN_BURNS_CYCLE_MS) + burnSeed) % 1;
-                
-                // Crop size matches preview box (1:1 pixels, no scaling)
-                const cropW = vizWidth;
-                const cropH = vizHeight;
-                
-                // Pan around within the available crop space
-                const maxCropX = Math.max(0, frame.width - cropW);
-                const maxCropY = Math.max(0, frame.height - cropH);
-                
-                const panX = (Math.cos((burnProgress + 0.25) * Math.PI * 2) + 1) / 2; // 0-1
-                const panY = (Math.sin((burnProgress + 0.65) * Math.PI * 2) + 1) / 2; // 0-1
-                
-                const cropX = Math.floor(maxCropX * panX);
-                const cropY = Math.floor(maxCropY * panY);
-                
-                // Paste at 1:1 scale, full bleed (no width/height = no scaling)
-                $.paste(frame, tooltipX + padding, vizY, {
-                  crop: { x: cropX, y: cropY, w: cropW, h: cropH }
-                });
-              }
-              
-              // Draw progress bar OUTSIDE the box, below it (1px black and red)
-              const progressBarY = tooltipY + tooltipHeight + 2; // 2px gap below box
-              const totalFrames = currentTooltipItem.frames.length;
-              const currentFrame = frameIndex;
-              const progress = currentFrame / totalFrames;
-              const progressWidth = Math.floor(tooltipWidth * progress);
-              
-              // Black background for unfilled portion
-              $.ink(0, 0, 0, 255).line(tooltipX, progressBarY, tooltipX + tooltipWidth - 1, progressBarY);
-              // Red foreground for filled portion
-              if (progressWidth > 0) {
-                $.ink(255, 0, 0, 255).line(tooltipX, progressBarY, tooltipX + progressWidth - 1, progressBarY);
-              }
-              
-              // Draw time display below progress bar
-              const timeY = progressBarY + 2;
-              const fps = 12; // Frames per second for tape playback
-              const currentSeconds = currentFrame / fps;
-              const totalSeconds = totalFrames / fps;
-              
-              const formatTime = (seconds) => {
-                const mins = Math.floor(seconds / 60);
-                const secs = Math.floor(seconds % 60);
-                return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-              };
-              
-              const timeText = `${formatTime(currentSeconds)} / ${formatTime(totalSeconds)}`;
-              const timeAlpha = Math.floor(180 * tooltipFadeIn);
-              $.ink(100, 180, 120, timeAlpha).write(
-                timeText,
-                { x: tooltipX + padding, y: timeY },
-                undefined,
-                undefined,
-                false,
-                "MatrixChunky8"
-              );
-              
-              $.needsPaint(); // Keep animating frames
-            } else {
-              // Show animated cassette while loading
-              const animPhase = (performance.now() / 100) % (Math.PI * 2);
-              const loadingAlpha = Math.floor(255 * tooltipFadeIn);
-              
-              // Draw cassette body outline
-              const bodyColor = [80, 80, 80, loadingAlpha];
-              $.ink(...bodyColor).box(tooltipX + padding, vizY, vizWidth, vizHeight, "outline");
-              
-              // Draw two reels inside
-              const reelRadius = 15;
-              const reelY = vizY + vizHeight / 2;
-              const reel1X = tooltipX + padding + vizWidth * 0.3;
-              const reel2X = tooltipX + padding + vizWidth * 0.7;
-              
-              // Left reel - rotating
-              $.ink(150, 100, 150, loadingAlpha).circle(reel1X, reelY, reelRadius, false);
-              const spoke1Angle = animPhase;
-              const spokeLength = reelRadius - 3;
-              for (let i = 0; i < 6; i++) {
-                const angle = spoke1Angle + (i * Math.PI / 3);
-                const endX = reel1X + Math.cos(angle) * spokeLength;
-                const endY = reelY + Math.sin(angle) * spokeLength;
-                $.ink(150, 100, 150, loadingAlpha).line(reel1X, reelY, endX, endY);
-              }
-              
-              // Right reel - rotating opposite direction
-              $.ink(150, 100, 150, loadingAlpha).circle(reel2X, reelY, reelRadius, false);
-              const spoke2Angle = -animPhase;
-              for (let i = 0; i < 6; i++) {
-                const angle = spoke2Angle + (i * Math.PI / 3);
-                const endX = reel2X + Math.cos(angle) * spokeLength;
-                const endY = reelY + Math.sin(angle) * spokeLength;
-                $.ink(150, 100, 150, loadingAlpha).line(reel2X, reelY, endX, endY);
-              }
-              
-              // Draw tape connecting reels
-              const tapeY1 = reelY - reelRadius;
-              const tapeY2 = reelY + reelRadius;
-              $.ink(100, 70, 50, loadingAlpha).line(reel1X, tapeY1, reel2X, tapeY1);
-              $.ink(100, 70, 50, loadingAlpha).line(reel1X, tapeY2, reel2X, tapeY2);
-              
-              // Show loading status if available
-              if (currentTooltipItem.loadMessage) {
-                const statusAlpha = Math.floor(180 * tooltipFadeIn);
-                $.ink(100, 180, 120, statusAlpha).write(
-                  currentTooltipItem.loadMessage,
-                  { x: tooltipX + padding, y: vizY + vizHeight + 2 },
-                  undefined,
-                  undefined,
-                  false,
-                  "MatrixChunky8"
-                );
-              }
+              mediaPreviewBox.renderTapeMetrics($, currentTooltipItem, tooltipX, tooltipY + tooltipHeight, tooltipWidth, tooltipFadeIn);
             }
-            
-            $.needsPaint(); // Keep animating
           }
           
           // Render metadata (timestamp and @author) OUTSIDE the box, below it
