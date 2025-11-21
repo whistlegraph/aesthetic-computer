@@ -10,7 +10,7 @@ console.log("📨 ✅ prompt.mjs module loading - receive function will be defin
   - Chain pieces together with configurable durations
   - Syntax: `merry piece1 piece2 piece3` (dA great conversation starteroefault 5 seconds each)
   - Custom: `merry tone:3 clock:5 wand:2` or `merry 3-tone 5-clock 2-wand`
-  - Loopeforever: `merryo 0.25-tone` (use `stop` to exit)
+  - Loop forever: `merryo 0.25-tone` (use `stop` to exit)
   - Stop early: `merry:stop` or `stop`
   - Example: `merry tone:3 clock:5` plays tone for 3s, then clock for 5s, then returns to prompt
 #endregion */
@@ -117,6 +117,9 @@ let resendVerificationText;
 let ellipsisTicker;
 let chatTicker; // Ticker instance for chat messages
 let chatTickerButton; // Button for chat ticker hover interaction
+let clockChatTicker; // Ticker instance for Laer-Klokken clock chat
+let clockChatTickerButton; // Button for clock chat ticker
+let clockChatMessages = []; // Messages from clock chat (starts empty, shows Matrix until API loads)
 let contentTicker; // Ticker instance for mixed $kidlisp, #painting, !tape content
 let contentTickerButton; // Button for content ticker hover interaction
 let mediaPreviewBox; // Shared preview box renderer for all media types
@@ -341,6 +344,7 @@ async function boot({
     // Fetch all content (kidlisp, painting, tape) for content ticker
     // Always fetch content items, even when params exist (prefilled text)
     fetchContentItems(api);
+    fetchClockChatMessages(); // Fetch Laer-Klokken clock chat messages
 
     if (pieceCount === 0 || store["prompt:splash"] === true) {
       // Initial boot setup
@@ -3898,10 +3902,7 @@ function paint($) {
     }
   }
 
-  if (
-    (!login?.btn.disabled && !profile) ||
-    (!login && !profile?.btn.disabled)
-  ) {
+  if (showLoginCurtain) {
     // Paint current status color.
     // if (!$.system.prompt.input.canType) {
     starfield.paint($, {
@@ -3910,6 +3911,7 @@ function paint($) {
     });
 
     // 📊 Stats / Analytics - Unified Ticker System
+    $.layer(2); // Render tickers on top of tooltips
     
     const loginY = screen.height / 2;
     
@@ -3922,10 +3924,12 @@ function paint($) {
     let contentTickerY = 0; // Y position of content ticker (declared here for tooltip access)
     
     // 1. CHAT TICKER (top priority)
-    // 1. CHAT TICKER (top priority)
-    if ($.chat.messages.length > 0 && screen.height >= 180) {
-      // Show last 5-6 messages
-      const numMessages = Math.min(6, $.chat.messages.length);
+    // Show recent chat messages with syntax highlighting
+    // Note: $.chat is the global chat system (automatically connected)
+    const hasChatMessages = $.chat?.messages && $.chat.messages.length > 0;
+    if (screen.height >= 180) {
+      // Show last 12 messages
+      const numMessages = Math.min(12, $.chat.messages.length);
       const recentMessages = $.chat.messages.slice(-numMessages);
       // Filter out newline characters to prevent bleeding into ticker underneath
       const fullText = recentMessages.map(msg => {
@@ -3938,7 +3942,7 @@ function paint($) {
       if (!chatTicker) {
         chatTicker = new $.gizmo.Ticker(fullText, {
           speed: 1, // 1px per frame
-          separator: " - ",
+          separator: " · ",
           reverse: false, // Left to right
         });
         chatTicker.paused = false;
@@ -3985,15 +3989,21 @@ function paint($) {
         // Bottom border (1px, non-overlapping)
         ink([0, 200, 200, 255]).line(0, boxY + boxHeight - 1, screen.width, boxY + boxHeight - 1);
         
-        // Bright text for high contrast - text starts at padding offset from box top
         const tickerAlpha = chatTickerButton.down ? 255 : 220;
-        const textY = chatTickerY; // No offset - text baseline is already at correct Y
-        chatTicker.paint($, 0, textY, {
-          color: [0, 255, 255], // Bright cyan
-          alpha: tickerAlpha,
-          width: screen.width,
-          font: tinyTickers ? "MatrixChunky8" : undefined,
-        });
+        const textY = chatTickerY;
+        
+        if (hasChatMessages) {
+          // Use Ticker's built-in paint for scrolling (syntax highlighting TODO)
+          chatTicker.paint($, 0, textY, {
+            color: [0, 255, 255], // Bright cyan
+            alpha: tickerAlpha,
+            width: screen.width,
+            font: tinyTickers ? "MatrixChunky8" : undefined,
+          });
+        } else {
+          // Show Matrix loading animation
+          paintMatrixLoading($, 0, textY, screen.width, tinyTickers ? "MatrixChunky8" : undefined, "cyan");
+        }
       }
       
       // Move down for next ticker
@@ -4001,6 +4011,87 @@ function paint($) {
     } else {
       chatTicker = null;
       chatTickerButton = null;
+    }
+    
+    // 1B. LAER-KLOKKEN CLOCK CHAT TICKER
+    // Always show, Matrix animation when no messages
+    if (screen.height >= 240) {
+      const hasClockMessages = clockChatMessages && clockChatMessages.length > 0;
+      const clockTickerY = currentTickerY;
+      
+      if (hasClockMessages) {
+        const numClockMessages = Math.min(12, clockChatMessages.length);
+        const recentClockMessages = clockChatMessages.slice(-numClockMessages);
+        const clockFullText = recentClockMessages.map(msg => {
+          const sanitizedText = (msg.text || msg.message || '').replace(/[\r\n]+/g, ' ');
+          const from = msg.from || msg.handle || msg.author || 'anon';
+          return from + ": " + sanitizedText;
+        }).join(" · ");
+        
+        if (!clockChatTicker) {
+          clockChatTicker = new $.gizmo.Ticker(clockFullText, {
+            speed: 1,
+            separator: " · ",
+            reverse: false,
+          });
+          clockChatTicker.paused = false;
+          clockChatTicker.offset = 0;
+        } else {
+          clockChatTicker.setText(clockFullText);
+        }
+      }
+
+      if (hasClockMessages && clockChatTicker && !clockChatTicker.paused) {
+        clockChatTicker.update($);
+      }
+
+      if (!clockChatTickerButton) {
+        clockChatTickerButton = new $.ui.Button({
+          x: 0,
+          y: clockTickerY - tickerPadding,
+          w: screen.width,
+          h: tickerHeight + (tickerPadding * 2),
+        });
+        clockChatTickerButton.noEdgeDetection = true;
+        clockChatTickerButton.noRolloverActivation = true;
+        clockChatTickerButton.stickyScrubbing = true;
+      } else {
+        clockChatTickerButton.box.x = 0;
+        clockChatTickerButton.box.y = clockTickerY - tickerPadding;
+        clockChatTickerButton.box.w = screen.width;
+        clockChatTickerButton.box.h = tickerHeight + (tickerPadding * 2);
+      }
+
+      if (!clockChatTickerButton.disabled) {
+        const boxHeight = tickerHeight + (tickerPadding * 2);
+        const boxY = clockTickerY - tickerPadding;
+        
+        const bgAlpha = clockChatTickerButton.down ? 120 : 80;
+        ink([80, 40, 0, bgAlpha]).box(0, boxY, screen.width, boxHeight - 1);
+        
+        ink([255, 160, 0, 255]).line(0, boxY, screen.width, boxY);
+        ink([255, 160, 0, 255]).line(0, boxY + boxHeight - 1, screen.width, boxY + boxHeight - 1);
+        
+        const tickerAlpha = clockChatTickerButton.down ? 255 : 220;
+        const textY = clockTickerY;
+        
+        if (hasClockMessages && clockChatTicker) {
+          clockChatTicker.paint($, 0, textY, {
+            color: [255, 200, 100],
+            alpha: tickerAlpha,
+            width: screen.width,
+            font: tinyTickers ? "MatrixChunky8" : undefined,
+          });
+        } else {
+          // Show Matrix loading animation
+          paintMatrixLoading($, 0, textY, screen.width, tinyTickers ? "MatrixChunky8" : undefined, "orange");
+        }
+      }
+      
+      currentTickerY += tickerHeight + (tickerPadding * 2) + tickerSpacing;
+    } else {
+      clockChatTicker = null;
+      clockChatTickerButton = null;
     }
     
     // 2. CONTENT TICKER (combined $kidlisp, #painting, !tape)
@@ -4069,51 +4160,8 @@ function paint($) {
         
         // If loading (no content yet), show Matrix-style characters instead of text
         if (contentItems.length === 0) {
-          const textY = contentTickerY; // No offset - text baseline is already at correct Y
-          
-          // Matrix-style random characters - use a variety of colorful symbols
-          const chars = "!@#$%^&*()_+-=[]{}|;:,.<>?~/\\`'\"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-          const charWidth = tinyTickers ? 4 : 5; // MatrixChunky8 is ~4px wide
-          const numChars = floor(screen.width / charWidth);
-          
-          // Shift every frame (60fps)
-          const framePhase = motdFrame;
-          
-          for (let i = 0; i < numChars; i++) {
-            // Create stable character per position that changes every frame
-            const baseCharIndex = (i * 7919) % chars.length;
-            const shiftOffset = (framePhase + i * 13) % chars.length;
-            const charIndex = (baseCharIndex + shiftOffset) % chars.length;
-            const char = chars[charIndex];
-            const x = i * charWidth;
-            
-            // Mostly greens and reds - weighted color selection
-            const colorSeed = (i * 17 + framePhase) % 10;
-            let r, g, b;
-            
-            if (colorSeed < 4) {
-              // Green variants (40%)
-              r = 50 + (colorSeed * 30);
-              g = 200 + (colorSeed * 13);
-              b = 50 + (colorSeed * 20);
-            } else if (colorSeed < 8) {
-              // Red variants (40%)
-              r = 200 + ((colorSeed - 4) * 13);
-              g = 50 + ((colorSeed - 4) * 30);
-              b = 50 + ((colorSeed - 4) * 20);
-            } else {
-              // Yellow/orange accent (20%)
-              r = 220 + (colorSeed * 5);
-              g = 200 + (colorSeed * 5);
-              b = 50;
-            }
-            
-            // Gentle alpha pulsing
-            const pulse = Math.sin(motdFrame * 0.05 + i * 0.3) * 20;
-            const alpha = 180 + pulse;
-            
-            ink([r, g, b, alpha]).write(char, { x, y: textY }, undefined, undefined, false, tinyTickers ? "MatrixChunky8" : undefined);
-          }
+          const textY = contentTickerY;
+          paintMatrixLoading($, 0, textY, screen.width, tinyTickers ? "MatrixChunky8" : undefined, "default");
         } else if (contentTicker) {
           // Show ticker content when loaded (only if ticker exists)
           // Now render the text with color-coded prefixes
@@ -4216,7 +4264,9 @@ function paint($) {
               // Add separator after each item (except potentially the last in a cycle)
               if (idx < contentItems.length - 1 || cycle < numCycles - 1) {
                 if (currentX > -100 && currentX < displayWidth + 100) {
-                  ink([150, 150, 150], contentTickerAlpha).write(separator, { x: currentX, y: textY }, undefined, undefined, false, tinyTickers ? "MatrixChunky8" : undefined);
+                  // Blinking separator with high contrast
+                  const blinkAlpha = 150 + Math.sin(motdFrame * 0.2) * 100;
+                  ink([255, 255, 255], blinkAlpha).write(separator, { x: currentX, y: textY }, undefined, undefined, false, tinyTickers ? "MatrixChunky8" : undefined);
                 }
                 const sepWidth = $.text.box(separator, undefined, undefined, undefined, undefined, tinyTickers ? "MatrixChunky8" : undefined).box.width;
                 currentX += sepWidth;
@@ -4241,6 +4291,8 @@ function paint($) {
       }
     }
 
+    $.layer(1); // Reset layer back to 1 for tooltips
+    
     // 🎨 CONTENT TOOLTIP (ambient floating preview)
     // Automatically cycles through content items (KidLisp + Paintings), showing previews
     if (showContentTicker && contentItems.length > 0) {
@@ -4394,9 +4446,11 @@ function paint($) {
           tooltipFadeIn = 0; // Don't show until loaded
         }
         
-        // Render tooltip for KidLisp (source code), Painting (image), or Tape (audio info)
+        // Render media preview as centered, faded background element
         if (currentTooltipItem && (currentTooltipItem.source || currentTooltipItem.image || currentTooltipItem.isLoading || currentTooltipItem.framesLoaded) && tooltipFadeIn > 0) {
-          // Calculate tooltip dimensions based on type
+          $.layer(0); // Render behind everything
+          
+          // Calculate preview dimensions based on type
           let tooltipWidth, tooltipHeight;
           
           // Pre-calculate metadata text to determine width
@@ -4544,14 +4598,16 @@ function paint($) {
             }
           }
           
-          // Position tooltip - float below the ticker with more spacing
-          const baseTooltipX = (screen.width - tooltipWidth) / 2; // Center horizontally
-          const baseTooltipY = contentTickerY + 32; // Increased from 20 for more space below ticker
-          let tooltipX = baseTooltipX + tooltipDriftX;
-          let tooltipY = baseTooltipY + tooltipDriftY;
+          // Position preview centered on screen with subtle fade
+          const baseTooltipX = (screen.width - tooltipWidth) / 2;
+          const baseTooltipY = (screen.height - tooltipHeight) / 2;
+          let tooltipX = baseTooltipX;
+          let tooltipY = baseTooltipY;
+          
+          // Reduce opacity for background effect (30% max)
+          const bgFadeMultiplier = 0.3;
           
           // Calculate total height including metadata/progress/time
-          const metadataHeight = 10; // Height of metadata text
           let totalTooltipHeight = tooltipHeight + metadataGap + metadataHeight;
           
           // For tapes with frames, add progress bar and time
@@ -4565,42 +4621,8 @@ function paint($) {
           tooltipX = Math.max(4, Math.min(tooltipX, screen.width - tooltipWidth - 4));
           tooltipY = Math.max(4, Math.min(tooltipY, screen.height - totalTooltipHeight - 4));
           
-          // Draw connector line from highlighted item box to tooltip (if item is visible)
-          if (highlightedItemX >= 0 && highlightedItemWidth > 0) {
-            // Choose line color based on media type
-            let lineColor;
-            if (currentTooltipItem.type === 'kidlisp') {
-              lineColor = [150, 255, 150]; // Green
-            } else if (currentTooltipItem.type === 'painting') {
-              lineColor = [255, 150, 255]; // Magenta
-            } else { // tape
-              lineColor = [255, 200, 100]; // Orange
-            }
-            
-            const lineAlpha = Math.floor(180 * tooltipFadeIn); // Brighter line
-            
-            // Calculate connection points - connect to the OUTLINE box, not the text
-            const outlineBoxX = highlightedItemX - 2; // Outline extends 2px to the left
-            const outlineBoxWidth = highlightedItemWidth + 4; // 2px on each side
-            const outlineBoxY = tickerBoxY - 1; // Outline extends 1px above
-            const outlineBoxHeight = tickerBoxHeight + 1; // 1px above box
-            
-            const boxCenterX = outlineBoxX + outlineBoxWidth / 2;
-            const boxBottomY = outlineBoxY + outlineBoxHeight;
-            const tooltipCenterX = tooltipX + tooltipWidth / 2;
-            const tooltipTopY = tooltipY;
-            
-            // Draw line from bottom center of highlighted outline box to top center of tooltip
-            $.ink([...lineColor, lineAlpha]).line(
-              boxCenterX,
-              boxBottomY,
-              tooltipCenterX,
-              tooltipTopY
-            );
-          }
-          
-          // Draw tooltip background (darker with better opacity)
-          const bgAlpha = Math.floor(240 * tooltipFadeIn);
+          // Draw subtle background
+          const bgAlpha = Math.floor(60 * tooltipFadeIn * bgFadeMultiplier);
           $.ink([10, 20, 15, bgAlpha]).box(tooltipX, tooltipY, tooltipWidth, tooltipHeight);
           
           // Draw border matching media type color
@@ -4612,11 +4634,11 @@ function paint($) {
           } else { // tape
             borderColor = [255, 200, 120]; // Orange
           }
-          const borderAlpha = Math.floor(200 * tooltipFadeIn);
+          const borderAlpha = Math.floor(50 * tooltipFadeIn * bgFadeMultiplier);
           $.ink([...borderColor, borderAlpha]).box(tooltipX, tooltipY, tooltipWidth, tooltipHeight, "inline");
           
-          // Render content based on type
-          const textAlpha = Math.floor(255 * tooltipFadeIn);
+          // Render content based on type with reduced opacity
+          const textAlpha = Math.floor(80 * tooltipFadeIn * bgFadeMultiplier);
           
           if (currentTooltipItem.type === 'kidlisp' && currentTooltipItem.source) {
             // Render KidLisp source with proper syntax highlighting
@@ -4631,17 +4653,16 @@ function paint($) {
             );
           } else if (currentTooltipItem.type === 'painting' && currentTooltipItem.image) {
             // Render painting using shared MediaPreviewBox
-            mediaPreviewBox.render($, currentTooltipItem, tooltipX, tooltipY, tooltipFadeIn);
+            mediaPreviewBox.render($, currentTooltipItem, tooltipX, tooltipY, tooltipFadeIn * bgFadeMultiplier);
           } else if (currentTooltipItem.type === 'tape' && (currentTooltipItem.isLoading || currentTooltipItem.framesLoaded)) {
             // Render tape using shared MediaPreviewBox
-            mediaPreviewBox.render($, currentTooltipItem, tooltipX, tooltipY, tooltipFadeIn);
-            
-            // Render progress bar and time display outside the box
-            if (currentTooltipItem.framesLoaded && currentTooltipItem.frames && currentTooltipItem.frames.length > 0) {
-              mediaPreviewBox.renderTapeMetrics($, currentTooltipItem, tooltipX, tooltipY + tooltipHeight, tooltipWidth, tooltipFadeIn);
-            }
+            mediaPreviewBox.render($, currentTooltipItem, tooltipX, tooltipY, tooltipFadeIn * bgFadeMultiplier);
           }
           
+          $.layer(1); // Reset to main layer
+          
+          // Skip metadata rendering for background preview
+          /*
           // Render metadata (timestamp and @author) OUTSIDE the box, below it
           // For KidLisp: after the box + gap
           // For Painting: after the box + gap
@@ -4673,6 +4694,7 @@ function paint($) {
               "MatrixChunky8"
             );
           }
+          */
         }
       }
     }
@@ -5731,6 +5753,27 @@ async function fetchContentItems(api) {
   }
 }
 
+// Fetch recent messages from Laer-Klokken clock chat
+async function fetchClockChatMessages() {
+  try {
+    // Use the same chat API endpoint but for the "clock" chat instance
+    const apiUrl = (typeof window !== 'undefined' ? window.location.origin : '') + "/api/chat/messages?instance=clock&limit=12";
+    const res = await fetch(apiUrl);
+    
+    if (res.status === 200) {
+      const data = await res.json();
+      if (data.messages && Array.isArray(data.messages)) {
+        clockChatMessages = data.messages;
+        console.log(`🕰️ Loaded ${clockChatMessages.length} clock chat messages`);
+      }
+    } else {
+      console.warn("⚠️ Clock chat fetch failed:", res.status);
+    }
+  } catch (err) {
+    console.warn("⚠️ Clock chat fetch error:", err);
+  }
+}
+
 // Fetch KidLisp source code for a given item
 async function fetchKidlispSource(item, $) {
   if (!item || item.type !== 'kidlisp' || !item.code) return;
@@ -6245,4 +6288,119 @@ function scheduleTapePreviewRelease(tapeItem) {
       releaseActiveTapePreview("duration-complete");
     }
   }, TAPE_PREVIEW_DURATION_MS);
+}
+
+// Shared Matrix-style loading animation for tickers
+function paintMatrixLoading($, x, y, width, tickerFont, colorTheme = "default") {
+  const chars = "!@#$%^&*()_+-=[]{}|;:,.<>?~/`'0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+  const charWidth = tickerFont === "MatrixChunky8" ? 4 : 5;
+  const numChars = floor(width / charWidth);
+  const framePhase = motdFrame;
+  
+  for (let i = 0; i < numChars; i++) {
+    const baseCharIndex = (i * 7919) % chars.length;
+    const shiftOffset = (framePhase + i * 13) % chars.length;
+    const charIndex = (baseCharIndex + shiftOffset) % chars.length;
+    const char = chars[charIndex];
+    const charX = x + (i * charWidth);
+    
+    // Color themes: default (green/red), cyan, orange
+    const colorSeed = (i * 17 + framePhase) % 10;
+    let r, g, b;
+    
+    if (colorTheme === "cyan") {
+      // Cyan theme for chat ticker
+      if (colorSeed < 6) {
+        r = 0 + (colorSeed * 20);
+        g = 200 + (colorSeed * 9);
+        b = 200 + (colorSeed * 9);
+      } else {
+        r = 100 + (colorSeed * 10);
+        g = 220 + (colorSeed * 5);
+        b = 255;
+      }
+    } else if (colorTheme === "orange") {
+      // Orange theme for clock ticker
+      if (colorSeed < 6) {
+        r = 200 + (colorSeed * 9);
+        g = 120 + (colorSeed * 13);
+        b = 0 + (colorSeed * 10);
+      } else {
+        r = 255;
+        g = 180 + (colorSeed * 10);
+        b = 80 + (colorSeed * 10);
+      }
+    } else {
+      // Default green/red theme
+      if (colorSeed < 4) {
+        r = 50 + (colorSeed * 30);
+        g = 200 + (colorSeed * 13);
+        b = 50 + (colorSeed * 20);
+      } else if (colorSeed < 8) {
+        r = 200 + ((colorSeed - 4) * 13);
+        g = 50 + ((colorSeed - 4) * 30);
+        b = 50 + ((colorSeed - 4) * 20);
+      } else {
+        r = 220 + (colorSeed * 5);
+        g = 200 + (colorSeed * 5);
+        b = 50;
+      }
+    }
+    
+    const pulse = Math.sin(motdFrame * 0.05 + i * 0.3) * 20;
+    const alpha = 180 + pulse;
+    
+    $.ink([r, g, b, alpha]).write(char, { x: charX, y }, undefined, undefined, false, tickerFont);
+  }
+}
+
+// Helper to parse message elements for syntax highlighting (ported from chat.mjs)
+function parseMessageElements(message) {
+  const elements = [];
+
+  // Parse prompts (text within single quotes) - simplified without kidlisp tokenization
+  const promptRegex = /(?:^|[\s\(\[\{])'([^']*)'/g;
+  let match;
+  while ((match = promptRegex.exec(message)) !== null) {
+    const actualStart = match[0].startsWith("'") ? match.index : match.index + 1;
+    const promptText = match[1];
+    
+    // Treat all prompts as simple prompt content (no kidlisp tokenization for now)
+    elements.push({ type: "prompt", text: "'", start: actualStart, end: actualStart + 1 });
+    elements.push({ type: "prompt-content", text: promptText, start: actualStart + 1, end: actualStart + 1 + promptText.length });
+    elements.push({ type: "prompt", text: "'", start: actualStart + 1 + promptText.length, end: actualStart + 1 + promptText.length + 1 });
+  }
+
+  // Parse URLs
+  const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+)/g;
+  while ((match = urlRegex.exec(message)) !== null) {
+    elements.push({ type: "url", text: match[0], start: match.index, end: match.index + match[0].length });
+  }
+
+  // Parse @handles
+  const handleRegex = /@[a-z0-9]+([._][a-z0-9]+)*/gi;
+  while ((match = handleRegex.exec(message)) !== null) {
+    elements.push({ type: "handle", text: match[0], start: match.index, end: match.index + match[0].length });
+  }
+
+  // Parse #painting codes
+  const hashtagRegex = /#[a-z0-9]+/gi;
+  while ((match = hashtagRegex.exec(message)) !== null) {
+    elements.push({ type: "painting", text: match[0], start: match.index, end: match.index + match[0].length });
+  }
+
+  // Parse $kidlisp inline references
+  const kidlispRefRegex = /\$[a-z0-9]+/gi;
+  while ((match = kidlispRefRegex.exec(message)) !== null) {
+    elements.push({ type: "kidlisp", text: match[0], start: match.index, end: match.index + match[0].length });
+  }
+
+  // Parse !tape URLs
+  const tapeRegex = /![a-z0-9]+/gi;
+  while ((match = tapeRegex.exec(message)) !== null) {
+    elements.push({ type: "url", text: match[0], start: match.index, end: match.index + match[0].length });
+  }
+
+  elements.sort((a, b) => a.start - b.start);
+  return elements;
 }
