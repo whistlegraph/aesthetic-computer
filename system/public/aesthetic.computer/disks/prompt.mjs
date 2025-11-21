@@ -4699,15 +4699,10 @@ function paint($) {
       }
     }
 
-    // Handle Stats - positioned directly under login button
+    // Handle Stats - positioned at bottom of screen
     if (handles && screen.height >= 100) {
-      // Position directly under the login button
-      let handlesY = screen.height - 16; // Default bottom position
-      
-      if (login && !login.btn.disabled && login.btn.box) {
-        // Position directly under login button with extra spacing
-        handlesY = login.btn.box.y + login.btn.box.h + 8; // 8px gap below button (moved down)
-      }
+      // Always position at bottom of screen
+      let handlesY = screen.height - 16;
       
       // Use MatrixChunky8 font for more compact display, centered
       const handlesText = `${handles.toLocaleString()} HANDLES SET`;
@@ -4911,7 +4906,7 @@ function paint($) {
         {
           center: "x",
           x: screen.width / 2 + 1,
-          y: screen.height / 2 - 48 + 1,
+          y: screen.height / 2 - 80 + 1,
         },
         undefined,
         screen.width - 16,
@@ -4919,7 +4914,7 @@ function paint($) {
 
       ink(verified ? "lime" : "yellow").write(
         message,
-        { center: "x", y: screen.height / 2 - 48 },
+        { center: "x", y: screen.height / 2 - 80 },
         undefined,
         screen.width - 16,
       );
