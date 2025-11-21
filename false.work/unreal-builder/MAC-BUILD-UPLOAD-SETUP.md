@@ -1,7 +1,7 @@
 # Mac Build & Upload Setup Guide
 
 ## Overview
-Automated Mac build pipeline that syncs from Perforce, builds with BuildCookRun, and uploads to DigitalOcean Spaces.
+Automated Mac build pipeline that runs from the dev container (like Windows builds). All orchestration happens via SSH - syncs from Perforce, builds with BuildCookRun, and uploads to DigitalOcean Spaces.
 
 ## Prerequisites
 
@@ -9,11 +9,12 @@ Automated Mac build pipeline that syncs from Perforce, builds with BuildCookRun,
 - Mac with Xcode and Unreal Engine 5.6 installed
 - Perforce workspace configured at `~/Perforce/spiderlily_build_workspace_macmini/SL_main`
 - SSH access from dev container
+- AWS CLI installed: `brew install awscli`
 
 ### 2. Credentials Setup
 
 #### Mac Builder Credentials
-Already set up in `/workspaces/aesthetic-computer/aesthetic-computer-vault/false.work/mac-builder-credentials.env`:
+In dev container at `aesthetic-computer-vault/false.work/mac-builder-credentials.env`:
 ```bash
 MAC_HOST=host.docker.internal
 MAC_USERNAME=falsework
@@ -21,7 +22,7 @@ MAC_PASSWORD=BuildM@chine
 ```
 
 #### DigitalOcean Spaces Credentials
-Create `~/aesthetic-computer-vault/false.work/builds-spaces.env` on the **Mac build machine**:
+In dev container at `aesthetic-computer-vault/false.work/builds-spaces.env`:
 
 ```bash
 # false.work Build Storage Configuration
@@ -32,31 +33,7 @@ BUILDS_SPACES_BUCKET=falsework-builds
 BUILDS_SPACES_REGION=sfo3
 ```
 
-**To deploy this file to the Mac:**
-```fish
-# From dev container:
-cd /workspaces/aesthetic-computer
-scp aesthetic-computer-vault/false.work/builds-spaces.env falsework@host.docker.internal:~/aesthetic-computer-vault/false.work/
-```
-
-### 3. Install AWS CLI on Mac
-The upload script uses AWS CLI (S3-compatible) for DigitalOcean Spaces:
-
-```bash
-# On Mac:
-brew install awscli
-```
-
-Verify installation:
-```bash
-aws --version
-```
-
-### 4. Create Vault Directory on Mac
-```bash
-# On Mac:
-mkdir -p ~/aesthetic-computer-vault/false.work
-```
+**Both credential files stay in the dev container vault - nothing needs to be copied to the Mac.**
 
 ## Usage
 
@@ -80,11 +57,13 @@ cd /workspaces/aesthetic-computer
 
 ### Pipeline Steps
 
+The Fish script runs from the dev container and executes all steps remotely via SSH:
+
 1. **Sync Perforce** - Gets latest code from P4
 2. **Apply FMOD Fix** - Auto-fixes FMOD plugin compilation error
 3. **Build** - Runs BuildCookRun with full shader cooking
 4. **Compress** - Creates `.zip` archive
-5. **Upload** - Uploads to DigitalOcean Spaces
+5. **Upload** - Uploads to DigitalOcean Spaces (credentials passed via SSH)
 
 ### Output
 
@@ -95,15 +74,18 @@ Builds are uploaded to:
 ## Architecture
 
 ```
-Dev Container                    Mac Build Machine
-├─ remote-mac-build.fish  ──SSH─>  ├─ mac-build-and-upload.sh
-│  (triggers build)                 │  ├─ P4 sync
-│                                   │  ├─ Apply FMOD fix
-│                                   │  ├─ BuildCookRun
-│                                   │  ├─ Compress
-│                                   │  └─ Upload to Spaces
-└─ Waits for completion             └─ Returns status
+Dev Container                           Mac Build Machine
+├─ remote-mac-build.fish                ├─ Receives SSH commands
+│  ├─ Loads vault credentials           ├─ Executes P4 sync
+│  ├─ SSH: P4 sync                      ├─ Applies FMOD fix
+│  ├─ SSH: Apply FMOD fix               ├─ Runs BuildCookRun
+│  ├─ SSH: BuildCookRun                 ├─ Compresses build
+│  ├─ SSH: Compress                     └─ Uploads to Spaces
+│  ├─ SSH: Upload (w/ credentials)            (AWS CLI uses passed credentials)
+│  └─ Displays results
 ```
+
+**All orchestration happens in the dev container, just like the Windows build script.**
 
 ## Troubleshooting
 
@@ -122,13 +104,9 @@ Dev Container                    Mac Build Machine
 - Verify Unreal Engine path: `/Users/Shared/Epic Games/UE_5.6`
 
 ### Upload Fails
-- Check AWS CLI: `aws --version`
-- Verify Spaces credentials in `~/aesthetic-computer-vault/false.work/builds-spaces.env`
-- Test connection:
-  ```bash
-  source ~/aesthetic-computer-vault/false.work/builds-spaces.env
-  aws s3 ls s3://$BUILDS_SPACES_BUCKET --endpoint-url $BUILDS_SPACES_ENDPOINT
-  ```
+- Check AWS CLI on Mac: `ssh falsework@host.docker.internal "aws --version"`
+- Verify Spaces credentials in dev container vault: `aesthetic-computer-vault/false.work/builds-spaces.env`
+- The script passes credentials via environment variables over SSH, so nothing needs to be stored on the Mac
 
 ## Integration with builds.false.work
 
