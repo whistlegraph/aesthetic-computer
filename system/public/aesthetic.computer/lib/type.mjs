@@ -525,26 +525,17 @@ class Typeface {
   // Helper method to get appropriate fallback for different character types
   getEmojiFallback(char, target) {
     if (!char || char.length === 0) {
-      // For MatrixChunky8, don't show fallback glyphs to avoid "?" characters
-      if (this.name === "MatrixChunky8") {
-        return null;
-      }
-      // For unifont, don't show placeholder - return null to avoid black boxes
-      if (this.name === "unifont" || this.data?.bdfFont === "unifont-16.0.03") {
-        return null;
-      }
-      return target["?"] || null;
+      return this.getLoadingPlaceholder();
     }
 
-    // For MatrixChunky8, don't show fallback glyphs to avoid "?" characters
-    // Also prevent infinite recursion if "?" itself is the character being loaded
-    if (this.name === "MatrixChunky8" || char === "?") {
-      return null;
+    // For MatrixChunky8, show loading placeholder
+    if (this.name === "MatrixChunky8") {
+      return this.getLoadingPlaceholder(4, 8); // MatrixChunky8 size
     }
     
-    // For unifont, don't show placeholder - return null to avoid black boxes
-    if (this.name === "unifont" || this.data?.bdfFont === "unifont-16.0.03") {
-      return null;
+    // For unifont, show loading placeholder
+    if (this.name === "unifont" || this.data?.bdfFont === "unifont-16.0.03" || this.data?.bdfFont) {
+      return this.getLoadingPlaceholder(8, 16); // Unifont size
     }
 
     const codePoint = char.codePointAt(0);
@@ -566,6 +557,32 @@ class Typeface {
       // For other missing characters, use standard fallback
       return target["?"] || null;
     }
+  }
+  
+  // Create an animated loading placeholder for characters being fetched
+  getLoadingPlaceholder(width = 8, height = 16) {
+    // Use time to create animation effect
+    const time = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    const frame = Math.floor(time / 100) % 4; // 4-frame animation at ~10fps
+    
+    // Create different patterns for each frame
+    const pixels = [];
+    for (let y = 0; y < height; y++) {
+      const row = [];
+      for (let x = 0; x < width; x++) {
+        // Create a moving diagonal pattern
+        const pattern = (x + y + frame) % 4;
+        row.push(pattern < 2 ? 1 : 0);
+      }
+      pixels.push(row);
+    }
+    
+    return {
+      resolution: [width, height],
+      pixels,
+      advance: width,
+      isPlaceholder: true, // Mark as placeholder so we know to repaint
+    };
   }
   
   // Create a colored block placeholder for unifont characters that haven't loaded yet

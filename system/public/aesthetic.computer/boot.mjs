@@ -1,9 +1,14 @@
 // `aesthetic.computer` Bootstrap, 23.02.16.19.23
 console.clear();
 
+// Track boot timing
+const bootStartTime = performance.now();
+window.acBOOT_START_TIME = bootStartTime;
+
 // Helper to send boot progress messages to parent
 function bootLog(message) {
-  console.log(`🚀 ${message}`);
+  const elapsed = Math.round(performance.now() - bootStartTime);
+  console.log(`🚀 ${message} (${elapsed}ms)`);
   if (window.parent) {
     window.parent.postMessage({ type: "boot-log", message }, "*");
   }
@@ -12,7 +17,11 @@ function bootLog(message) {
 bootLog("initializing aesthetic.computer");
 
 // Alert the parent we are initialized (but not fully ready yet).
-if (window.parent) window.parent.postMessage({ type: "init" }, "*");
+if (window.parent) {
+  window.parent.postMessage({ type: "init" }, "*");
+  // Send ready message early so VS Code extension doesn't keep reloading
+  window.parent.postMessage({ type: "ready" }, "*");
+}
 
 // List of legitimate query parameters that should be preserved
 const LEGITIMATE_PARAMS = [
@@ -478,11 +487,15 @@ function loadAuth0Script() {
 
 // Call this function at the desired point in your application
 if (!sandboxed) {
+  const auth0LoadStart = performance.now();
+  bootLog("loading auth0 script");
   loadAuth0Script()
     .then(async () => {
+      bootLog(`auth0 script loaded (${Math.round(performance.now() - auth0LoadStart)}ms)`);
       if (!sandboxed && window.auth0 && !previewOrIcon) {
       const clientId = "LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt";
       const before = performance.now();
+      bootLog("initializing auth0 client");
 
       const auth0Client = await window.auth0?.createAuth0Client({
         domain: "https://hi.aesthetic.computer",
@@ -710,8 +723,8 @@ if (!sandboxed) {
         });
       }
 
-      // const after = performance.now();
-      // console.log("🗝️ Auth took:", (after - before) / 1000, "seconds.");
+      const after = performance.now();
+      bootLog(`auth0 complete (${Math.round(after - before)}ms total auth time)`);
     }
   })
   .catch((error) => {

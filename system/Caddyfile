@@ -1,21 +1,20 @@
 :8111 {
 	root * public
 	file_server # browse
-	encode gzip
-
-	# can't get this to work :( 24.07.11.06.46
+	
+	# Enable HTTP/2 and compression for faster transfers
+	protocols h1 h2c
+	encode zstd gzip
+	
+	# Aggressive caching disabled for dev (instant updates)
+	header Cache-Control "no-store, no-cache, must-revalidate"
+	header X-Content-Type-Options "nosniff"
+	
+	# Enable CORS for local development
+	header Access-Control-Allow-Origin "*"
+	header Access-Control-Allow-Methods "GET, POST, OPTIONS"
+	header Access-Control-Allow-Headers "*"
+	
+	# Optional: TLS for local HTTPS
 	# tls ../ssl-dev/localhost.pem ../ssl-dev/localhost-key.pem
-	@changed {
-		file {
-			try_files {path}
-		}
-	}
-
-	handle @changed {
-		header Cache-Control no-store
-	}
-
-	handle {
-		header Cache-Control "public, max-age=3600"
-	}
 }

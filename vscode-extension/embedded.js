@@ -6,10 +6,10 @@
 
   iframe.classList.add("visible");
 
-  // Handle messages sent from the extension to the webview
+  // Handle messages sent from the extension to the webview AND from the iframe
   window.addEventListener("message", (event) => {
     const message = event.data; // The json data that the extension sent
-    // console.log("📶 Received message:", message);
+    console.log("📶 Received message:", message, "from:", event.source === iframe.contentWindow ? "iframe" : "extension");
     switch (message.type) {
       case "vscode-extension:reload": {
         vscode.postMessage({ type: "vscode-extension:reload" });
@@ -94,6 +94,7 @@
         break;
       }
       case "ready": {
+        console.log("🫐 ✅ Received ready message, clearing timeout");
         clearTimeout(readyTimeout);
         break;
       }
@@ -107,12 +108,32 @@
 
   // ♻️ Refresh the iframe's src url until it loads successfully.
   let readyTimeout = setTimeout(refresh, 5000);
+  let refreshCount = 0;
+  const maxRefreshAttempts = 3; // Limit refresh attempts to prevent infinite loop
 
   function refresh() {
-    console.log("🫐 Awaiting...");
+    refreshCount++;
+    if (refreshCount > maxRefreshAttempts) {
+      console.log("🫐 Max refresh attempts reached, assuming ready");
+      clearTimeout(readyTimeout);
+      return;
+    }
+    console.log(`🫐 Awaiting... (attempt ${refreshCount}/${maxRefreshAttempts})`);
     const url = new URL(iframe.src);
     url.searchParams.set("ac-timestamp", new Date().getTime());
     iframe.src = url.href;
     readyTimeout = setTimeout(refresh, 5000);
   }
+  
+  // Also listen for iframe load event as a fallback
+  iframe.addEventListener('load', () => {
+    console.log("🫐 Iframe loaded");
+    // Give the iframe content a bit of time to initialize and send ready message
+    setTimeout(() => {
+      if (readyTimeout) {
+        console.log("🫐 Clearing timeout after iframe load");
+        clearTimeout(readyTimeout);
+      }
+    }, 2000);
+  });
 })();
