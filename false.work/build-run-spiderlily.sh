@@ -89,22 +89,32 @@ if [ ! -f "$PROJECT_ROOT/Binaries/Mac/SpiderLily" ]; then
 fi
 
 echo ""
-echo "🍳 Cooking content and shaders..."
+echo "🍳 Building and Cooking with UAT (BuildCookRun)..."
 echo ""
-"$UE_ROOT/Engine/Binaries/Mac/UnrealEditor.app/Contents/MacOS/UnrealEditor" \
-    "$PROJECT_FILE" \
-    -run=Cook \
-    -targetplatform=Mac \
-    -iterate \
-    -unversioned \
-    -stdout \
-    -CrashForUAT \
-    -unattended \
-    -NoLogTimes \
-    -UTF8Output
+
+# Use Unreal's automation tool which handles everything properly
+"$UE_ROOT/Engine/Build/BatchFiles/RunUAT.sh" BuildCookRun \
+    -project="$PROJECT_FILE" \
+    -platform=Mac \
+    -clientconfig=Development \
+    -cook \
+    -stage \
+    -pak \
+    -archive \
+    -archivedirectory="$PROJECT_ROOT/Archived" \
+    -build \
+    -noP4 \
+    -utf8output
 
 if [ $? -ne 0 ]; then
-    echo "⚠️  Cooking had errors, but continuing..."
+    echo "⚠️  BuildCookRun had errors, but continuing..."
+fi
+
+# Copy the archived build to our .app location
+if [ -d "$PROJECT_ROOT/Archived/MacNoEditor" ]; then
+    echo "Copying archived build to standard location..."
+    rm -rf "$APP_PATH"
+    cp -R "$PROJECT_ROOT/Archived/MacNoEditor/SpiderLily.app" "$APP_PATH"
 fi
 
 echo ""
@@ -143,7 +153,14 @@ fi
 
 # Copy staged content
 if [ -d "$PROJECT_ROOT/Saved/StagedBuilds/Mac" ]; then
-    rsync -a "$PROJECT_ROOT/Saved/StagedBuilds/Mac/" "$APP_PATH/Contents/UE/" 2>/dev/null || true
+    echo "Copying staged content..."
+    rsync -a "$PROJECT_ROOT/Saved/StagedBuilds/Mac/" "$APP_PATH/Contents/UE/"
+fi
+
+# Copy cooked content  
+if [ -d "$PROJECT_ROOT/Saved/Cooked/Mac" ]; then
+    echo "Copying cooked content..."
+    rsync -av "$PROJECT_ROOT/Saved/Cooked/Mac/" "$APP_PATH/Contents/UE/" | grep -E "(metallib|metalmap|sending)"
 fi
 
 # Verify binary exists
