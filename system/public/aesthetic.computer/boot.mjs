@@ -779,6 +779,19 @@ function receive(event) {
       });
     }
     return;
+  } else if (event.data?.type === "kidlisp-pause") {
+    window.acPAUSE?.();
+    return;
+  } else if (event.data?.type === "kidlisp-resume") {
+    window.acRESUME?.();
+    return;
+  } else if (event.data?.type === "kidlisp-stop") {
+    window.acRESUME?.(); // Ensure we are running so we can load the empty piece.
+    window.acSEND({
+      type: "piece-reload",
+      content: { source: "", createCode: false }
+    });
+    return;
   } else if (event.data?.startsWith?.("docs:")) {
     window.acSEND({
       type: "docs:link",

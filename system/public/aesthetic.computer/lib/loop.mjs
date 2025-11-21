@@ -13,11 +13,18 @@ let renderTime = 0;
 let lastNow;
 let input;
 let updateAndRender;
+let paused = false;
 
 // Input runs once per loop.
 // Update runs multiple times.
 // Render runs once if enough time has passed.
 function loop(now, XR = false) {
+  if (paused) {
+    lastNow = now;
+    if (!XR) window.requestAnimationFrame(loop);
+    return;
+  }
+
   input(now);
 
   const delta = now - lastNow;
@@ -61,7 +68,18 @@ function start(inputFun, updateAndRenderFun) {
   input = inputFun;
   updateAndRender = updateAndRenderFun;
   lastNow = performance.now();
+  paused = false;
   window.requestAnimationFrame(loop);
+}
+
+function pause() {
+  paused = true;
+}
+
+function resume() {
+  paused = false;
+  lastNow = performance.now();
+  updateTime = 0;
 }
 
 // Update the frame rate.
@@ -74,4 +92,4 @@ function frameRate(n = 165) {
 }
 
 export const mainLoop = loop;
-export { start, frameRate };
+export { start, frameRate, pause, resume };

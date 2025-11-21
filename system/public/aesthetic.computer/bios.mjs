@@ -599,6 +599,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   const bootStartTime = performance.now();
   headers(); // Print console headers with auto-detected theme.
 
+  // Expose Loop control to window for boot.mjs
+  window.acPAUSE = Loop.pause;
+  window.acRESUME = Loop.resume;
+
   // Notify parent of boot progress
   if (window.parent) {
     window.parent.postMessage({ 
