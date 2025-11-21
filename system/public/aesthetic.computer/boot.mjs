@@ -771,10 +771,11 @@ function receive(event) {
   } else if (event.data?.type === "kidlisp-reload") {
     // Live reload from kidlisp.com editor
     const code = event.data.code;
+    const createCode = event.data.createCode; // Flag to enable code creation
     if (code) {
       window.acSEND({
         type: "piece-reload",
-        content: { source: code }
+        content: { source: code, createCode: createCode }
       });
     }
     return;

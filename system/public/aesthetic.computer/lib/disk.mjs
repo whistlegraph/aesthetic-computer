@@ -6382,13 +6382,14 @@ async function load(
     name,
     source,
     codeChannel,
+    createCode,
   } = {}) {
     // console.log("⚠️ Reloading:", piece, name, source);
 
     if (loading && source && !name && !piece) {
       // If a piece is loading and we have new source code, queue the reload
       console.log("🟡 Queueing reload until current load completes...");
-      setTimeout(() => reload({ source }), 100);
+      setTimeout(() => reload({ source, createCode }), 100);
       return;
     }
 
@@ -6421,6 +6422,15 @@ async function load(
       // Just pass the source directly without path/text
       currentText = source;
       currentPath = source;
+      
+      // Store createCode flag globally so kidlisp can access it
+      if (createCode) {
+        $commonApi.kidlispCreateCode = true;
+      } else {
+        // console.log('⚠️ createCode flag is false or undefined:', createCode);
+        $commonApi.kidlispCreateCode = false;
+      }
+      
       $commonApi.load(
         {
           source: source,  // Pass as source so it's used directly
@@ -7931,9 +7941,12 @@ async function makeFrame({ data: { type, content } }) {
 
   // Handle live reload from kidlisp.com editor
   if (type === "piece-reload") {
-    console.log("🔄 Reloading piece with new code:", content.source);
+    console.log("🔄 Reloading piece with new code:", content.source?.substring(0, 50), "createCode:", content.createCode);
     if ($commonApi.reload) {
-      $commonApi.reload({ source: content.source });
+      $commonApi.reload({ 
+        source: content.source, 
+        createCode: content.createCode 
+      });
     } else {
       console.warn("⚠️ Reload function not ready yet, ignoring reload request");
     }
