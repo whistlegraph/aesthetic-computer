@@ -73,31 +73,9 @@ set start_level (echo $full_map | awk -F'.' '{print $NF}')
 # Extract Unreal Engine version from build script
 set ue_version (ssh me@host.docker.internal "powershell -NoProfile -Command \"(Get-Content 'C:\\Perforce\\SpiderLily\\SL_main\\build-false-work.ps1' | Select-String -Pattern 'UE_5\\.\\d+').Matches.Value\"")
 
-# Use awk to replace latest build section (removes old, inserts new)
-awk -v version="$build_version" -v timestamp="$iso_timestamp" -v size="$file_size" -v level="$start_level" -v ue_ver="$ue_version" -v url="https://assets.aesthetic.computer/false.work/spiderlily-windows-$build_version.zip" '
-  /<!-- BUILD_LIST_ALL -->/ {
-    print
-    print "        <div class=\"build-header\">"
-    print "          <span class=\"platform-tag platform-windows\">🪟 Windows</span>"
-    print "          <span class=\"project-name\">SpiderLily</span>"
-    print "          <a href=\"" url "\">" version ".zip</a>"
-    print "          <span style=\"margin-left: 0.5rem; color: #666; font-size: 0.9rem;\">(<a href=\"https://assets.aesthetic.computer/false.work/spiderlily-windows-" version ".txt\" style=\"color: #888;\">download log</a>)</span>"
-    print "        </div>"
-    print "        <div class=\"meta\">" size " MB | " level " | " ue_ver " | <span class=\"build-time\" data-date=\"" timestamp "\">just now</span></div>"
-    print "        <div class=\"build-log-preview animated\" id=\"build-log-preview\">"
-    print "          <div class=\"log-header\">📜 Build Log</div>"
-    print "          Loading build log..."
-    print "        </div>"
-    # Skip all content until we hit the next section header
-    in_old_builds = 1
-    next
-  }
-  in_old_builds && /<h2/ {
-    in_old_builds = 0
-  }
-  !in_old_builds { print }
-' /workspaces/aesthetic-computer/system/public/builds.false.work/index.html > /tmp/builds-temp.html
-mv /tmp/builds-temp.html /workspaces/aesthetic-computer/system/public/builds.false.work/index.html
+# Use shared function to update the builds page
+source /workspaces/aesthetic-computer/false.work/unreal-builder/scripts/shared/update-builds-page.fish
+update_builds_page "windows" "$build_version" "$iso_timestamp" "$file_size" "$start_level" "$ue_version" "$download_url"
 
 echo ""
 echo "========================================="

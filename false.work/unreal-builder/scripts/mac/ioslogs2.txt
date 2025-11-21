@@ -1,0 +1,1042 @@
+r.
+[UE] Used memory before allocating anything was 17.72MB
+[UE] LC_CODE_SIGNATURE found
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>application-identifier</key>
+	<string>F7G74Z35B8.work.false.SpiderLily</string>
+	<key>com.apple.developer.team-identifier</key>
+	<string>F7G74Z35B8</string>
+	<key>get-task-allow</key>
+	<true/>
+</dict>
+</plist>
+˙ﬁqr
+[UE] Entitlements not found in binary Mach-O header. Looking at the embedded mobile provision file.
+[UE] Hardware CRC support detected!
+[UE] Checking for command line in /var/mobile/Containers/Data/Application/EF19A4BF-534B-464F-9659-7C48B24D6BBF/Documents/uecommandline.txt... NOT FOUND!
+[UE] Checking for command line in /private/var/containers/Bundle/Application/0841025D-717B-4593-8C7B-2030210B8AEB/SpiderLily.app/uecommandline.txt... FOUND!
+[UE] Combined iOS Commandline: -project="../../../SpiderLily/SpiderLily.uproject"
+CLIENT OF UIKIT REQUIRES UPDATE: This process does not adopt UIScene lifecycle. This will become an assert in a future version.
+========= This app is in LANDSCAPE mode
+didRotate orientation = 1
+[UE] Project file not found: ../../../SpiderLily/SpiderLily.uproject
+[UE] ConfigRules: ~/configrules was not found.
+[UE] LogTrace: Initializing trace...
+[UE] LogTrace: Finished trace initialization.
+[UE] LogCsvProfiler: Display: Metadata set : platform="IOS"
+[UE] LogCsvProfiler: Display: Metadata set : config="Development"
+[UE] LogCsvProfiler: Display: Metadata set : buildversion="++UE5+Release-5.6-CL-44394996"
+[UE] LogCsvProfiler: Display: Metadata set : engineversion="5.6.1-44394996+++UE5+Release-5.6"
+[UE] LogCsvProfiler: Display: Metadata set : os="IOS 18.6.2"
+[UE] LogCsvProfiler: Warning: Metadata value sanitized due to invalid characters: cpu="Apple|iPhone15,3"
+[UE] LogCsvProfiler: Display: Metadata set : cpu="Apple|iPhone15&#44;3"
+[UE] LogCsvProfiler: Display: Metadata set : pgoenabled="0"
+[UE] LogCsvProfiler: Display: Metadata set : pgoprofilingenabled="0"
+[UE] LogCsvProfiler: Display: Metadata set : ltoenabled="0"
+[UE] LogCsvProfiler: Display: Metadata set : asan="0"
+[UE] LogCsvProfiler: Display: Metadata set : commandline=""-project="../../../SpiderLily/SpiderLily.uproject" ""
+[UE] LogCsvProfiler: Display: Metadata set : loginid="7cebba4f2e482ad700b7dba7766410f3"
+[UE] LogCsvProfiler: Display: Metadata set : deviceid="EABF5389-A888-4086-8399-403BF66CB6E2"
+[UE] LogCsvProfiler: Display: Metadata set : llm="0"
+[UE] LogInit: Display: Project file not found: ../../../SpiderLily/SpiderLily.uproject
+[UE] LogInit: Display: 	Attempting to find via project info helper.
+[UE] LogPakFile: Initializing PakPlatformFile
+[UE] LogIoDispatcher: Display: Reading toc: ../../../SpiderLily/Content/Paks/global.utoc
+[UE] LogIoDispatcher: Display: Toc loaded : ../../../SpiderLily/Content/Paks/global.utoc, Id=ffffffffffffffff, Order=0, EntryCount=1, SignatureHash=0000000000000000000000000000000000000000
+[UE] LogIoDispatcher: Display: Mounting container '../../../SpiderLily/Content/Paks/global.utoc' in location slot 0
+[UE] LogPakFile: Display: Initialized I/O dispatcher file backend. Mounted the global container: ../../../SpiderLily/Content/Paks/global.utoc
+[UE] LogPakFile: Display: Found Pak file ../../../SpiderLily/Content/Paks/spiderlily-ios.pak attempting to mount.
+[UE] LogPakFile: Display: Mounting pak file ../../../SpiderLily/Content/Paks/spiderlily-ios.pak.
+[UE] LogIoDispatcher: Display: Reading toc: ../../../SpiderLily/Content/Paks/spiderlily-ios.utoc
+[UE] LogIoDispatcher: Display: Toc loaded : ../../../SpiderLily/Content/Paks/spiderlily-ios.utoc, Id=74679e073831c5b9, Order=4, EntryCount=1213, SignatureHash=0000000000000000000000000000000000000000
+[UE] LogIoDispatcher: Display: Mounting container '../../../SpiderLily/Content/Paks/spiderlily-ios.utoc' in location slot 0
+[UE] LogPakFile: Display: Mounted IoStore container "../../../SpiderLily/Content/Paks/spiderlily-ios.utoc"
+[UE] LogFilePackageStore: Mounting container: Id=74679e073831c5b9, Order=4, NumPackages=993
+[UE] LogPakFile: Display: Mounted Pak file '../../../SpiderLily/Content/Paks/spiderlily-ios.pak', mount point: '../../../'
+[UE] LogStats: Stats thread started at 0.072399
+[UE] LogAssetRegistry: Premade AssetRegistry loaded from '../../../SpiderLily/AssetRegistry.bin'
+[UE] LogCsvProfiler: Display: Metadata set : systemresolution.resx="1280"
+[UE] LogCsvProfiler: Display: Metadata set : systemresolution.resy="720"
+[UE] LogICUInternationalization: OS requested locale 'en-US' is not supported. Using the OS requested language of 'en-US' as the locale.
+[UE] LogICUInternationalization: ICU TimeZone Detection - Raw Offset: -8:00, Platform Override: ''
+[UE] LogInit: Session CrashGUID >====================================================
+         Session CrashGUID >   UECC-IOS-571B6554DC463087CE2CE5B6939CDD34
+         Session CrashGUID >====================================================
+[UE] LogStreaming: Warning: Failed to read file '~/configrules' error.
+[UE] LogConfig: No local boot hotfix file found at: [../../../SpiderLily/PersistentDownloadDir/HotfixForNextBoot.txt]
+[UE] LogAudio: Display: Pre-Initializing Audio Device Manager...
+[UE] LogAudio: Display: AudioInfo: 'OPUS' Registered
+[UE] LogAudio: Display: AudioInfo: 'OGG' Registered
+[UE] LogAudio: Display: AudioInfo: 'ADPCM' Registered
+[UE] LogAudio: Display: AudioInfo: 'PCM' Registered
+[UE] LogAudio: Display: AudioInfo: 'BINKA' Registered
+[UE] LogAudio: Display: AudioInfo: 'RADA' Registered
+[UE] LogAudio: Display: Audio Device Manager Pre-Initialized
+[UE] LogPluginManager: Mounting Engine plugin Paper2D
+[UE] LogPluginManager: Mounting Engine plugin AISupport
+[UE] LogPluginManager: Mounting Engine plugin EnvironmentQueryEditor
+[UE] LogPluginManager: Mounting Engine plugin ACLPlugin
+[UE] LogPluginManager: Mounting Engine plugin AnimationData
+[UE] LogPluginManager: Mounting Engine plugin ControlRig
+[UE] LogPluginManager: Mounting Engine plugin ControlRigModules
+[UE] LogPluginManager: Mounting Engine plugin ControlRigSpline
+[UE] LogPluginManager: Mounting Engine plugin DeformerGraph
+[UE] LogPluginManager: Mounting Engine plugin IKRig
+[UE] LogPluginManager: Mounting Engine plugin RigLogic
+[UE] LogPluginManager: Mounting Engine plugin SkeletalMeshModelingTools
+[UE] LogPluginManager: Mounting Engine plugin TweeningUtils
+[UE] LogPluginManager: Mounting Engine plugin Bridge
+[UE] LogPluginManager: Mounting Engine plugin CameraShakePreviewer
+[UE] LogPluginManager: Mounting Engine plugin EngineCameras
+[UE] LogPluginManager: Mounting Engine plugin GameplayCameras
+[UE] LogPluginManager: Mounting Engine plugin ChaosCloth
+[UE] LogPluginManager: Mounting Engine plugin ChaosVD
+[UE] LogPluginManager: Mounting Engine plugin OodleNetwork
+[UE] LogPluginManager: Mounting Engine plugin AnimationSharing
+[UE] LogPluginManager: Mounting Engine plugin DumpGPUServices
+[UE] LogPluginManager: Mounting Engine plugin NamingTokens
+[UE] LogPluginManager: Mounting Engine plugin PluginUtils
+[UE] LogPluginManager: Mounting Engine plugin UObjectPlugin
+[UE] LogPluginManager: Mounting Engine plugin AssetManagerEditor
+[UE] LogPluginManager: Mounting Engine plugin BlueprintHeaderView
+[UE] LogPluginManager: Mounting Engine plugin BlueprintMaterialTextureNodes
+[UE] LogPluginManager: Mounting Engine plugin ColorGrading
+[UE] LogPluginManager: Mounting Engine plugin ContentBrowserAssetDataSource
+[UE] LogPluginManager: Mounting Engine plugin CurveEditorTools
+[UE] LogPluginManager: Mounting Engine plugin DataValidation
+[UE] LogPluginManager: Mounting Engine plugin EditorScriptingUtilities
+[UE] LogPluginManager: Mounting Engine plugin EngineAssetDefinitions
+[UE] LogPluginManager: Mounting Engine plugin FacialAnimation
+[UE] LogPluginManager: Mounting Engine plugin GameplayTagsEditor
+[UE] LogPluginManager: Mounting Engine plugin GeometryMode
+[UE] LogPluginManager: Mounting Engine plugin LightMixer
+[UE] LogPluginManager: Mounting Engine plugin ObjectMixer
+[UE] LogPluginManager: Mounting Engine plugin SequencerAnimTools
+[UE] LogPluginManager: Mounting Engine plugin SpeedTreeImporter
+[UE] LogPluginManager: Mounting Engine plugin UMGWidgetPreview
+[UE] LogPluginManager: Mounting Engine plugin UVEditor
+[UE] LogPluginManager: Mounting Engine plugin EnhancedInput
+[UE] LogPluginManager: Mounting Engine plugin DatasmithContent
+[UE] LogPluginManager: Mounting Engine plugin GLTFExporter
+[UE] LogPluginManager: Mounting Engine plugin VariantManagerContent
+[UE] LogPluginManager: Mounting Engine plugin ActorPalette
+[UE] LogPluginManager: Mounting Engine plugin AutomationUtils
+[UE] LogPluginManager: Mounting Engine plugin BackChannel
+[UE] LogPluginManager: Mounting Engine plugin ChaosCaching
+[UE] LogPluginManager: Mounting Engine plugin ChaosEditor
+[UE] LogPluginManager: Mounting Engine plugin ChaosNiagara
+[UE] LogPluginManager: Mounting Engine plugin ChaosSolverPlugin
+[UE] LogPluginManager: Mounting Engine plugin ChaosUserDataPT
+[UE] LogPluginManager: Mounting Engine plugin CharacterAI
+[UE] LogPluginManager: Mounting Engine plugin CompositeCore
+[UE] LogPluginManager: Mounting Engine plugin Dataflow
+[UE] LogPluginManager: Mounting Engine plugin EditorDataStorage
+[UE] LogPluginManager: Mounting Engine plugin EditorDataStorageFeatures
+[UE] LogPluginManager: Mounting Engine plugin Fracture
+[UE] LogPluginManager: Mounting Engine plugin FullBodyIK
+[UE] LogPluginManager: Mounting Engine plugin GeometryCollectionPlugin
+[UE] LogPluginManager: Mounting Engine plugin GeometryDataflow
+[UE] LogPluginManager: Mounting Engine plugin Landmass
+[UE] LogPluginManager: Mounting Engine plugin LevelSequenceNavigatorBridge
+[UE] LogPluginManager: Mounting Engine plugin LocalizableMessage
+[UE] LogPluginManager: Mounting Engine plugin PlatformCrypto
+[UE] LogPluginManager: Mounting Engine plugin PythonScriptPlugin
+[UE] LogPluginManager: Mounting Engine plugin RuntimeTelemetry
+[UE] LogPluginManager: Mounting Engine plugin ToolPresets
+[UE] LogPluginManager: Mounting Engine plugin Water
+[UE] LogPluginManager: Mounting Engine plugin WaterExtras
+[UE] LogPluginManager: Mounting Engine plugin Cascade
+[UE] LogPluginManager: Mounting Engine plugin Niagara
+[UE] LogPluginManager: Mounting Engine plugin NiagaraSimCaching
+[UE] LogPluginManager: Mounting Engine plugin Fab
+[UE] LogPluginManager: Mounting Engine plugin AlembicImporter
+[UE] LogPluginManager: Mounting Engine plugin InterchangeAssets
+[UE] LogPluginManager: Mounting Engine plugin AvfMedia
+[UE] LogPluginManager: Mounting Engine plugin ImgMedia
+[UE] LogPluginManager: Mounting Engine plugin MediaCompositing
+[UE] LogPluginManager: Mounting Engine plugin MediaPlate
+[UE] LogPluginManager: Mounting Engine plugin MeshPainting
+[UE] LogPluginManager: Mounting Engine plugin TcpMessaging
+[UE] LogPluginManager: Mounting Engine plugin UdpMessaging
+[UE] LogPluginManager: Mounting Engine plugin MetaHumanSDK
+[UE] LogPluginManager: Mounting Engine plugin ActorSequence
+[UE] LogPluginManager: Mounting Engine plugin LevelSequenceEditor
+[UE] LogPluginManager: Mounting Engine plugin SequencerScripting
+[UE] LogPluginManager: Mounting Engine plugin TemplateSequence
+[UE] LogPluginManager: Mounting Engine plugin OnlineSubsystemIOS
+[UE] LogPluginManager: Mounting Engine plugin OnlineBase
+[UE] LogPluginManager: Mounting Engine plugin OnlineServices
+[UE] LogPluginManager: Mounting Engine plugin OnlineSubsystem
+[UE] LogPluginManager: Mounting Engine plugin OnlineSubsystemNull
+[UE] LogPluginManager: Mounting Engine plugin OnlineSubsystemUtils
+[UE] LogPluginManager: Mounting Engine plugin ActorLayerUtilities
+[UE] LogPluginManager: Mounting Engine plugin AndroidPermission
+[UE] LogPluginManager: Mounting Engine plugin AppleImageUtils
+[UE] LogPluginManager: Mounting Engine plugin AppleMoviePlayer
+[UE] LogPluginManager: Mounting Engine plugin ArchVisCharacter
+[UE] LogPluginManager: Mounting Engine plugin AssetTags
+[UE] LogPluginManager: Mounting Engine plugin AudioCapture
+[UE] LogPluginManager: Mounting Engine plugin AudioSynesthesia
+[UE] LogPluginManager: Mounting Engine plugin AudioWidgets
+[UE] LogPluginManager: Mounting Engine plugin CableComponent
+[UE] LogPluginManager: Mounting Engine plugin ChunkDownloader
+[UE] LogPluginManager: Mounting Engine plugin CommonUI
+[UE] LogPluginManager: Mounting Engine plugin ComputeFramework
+[UE] LogPluginManager: Mounting Engine plugin CustomMeshComponent
+[UE] LogPluginManager: Mounting Engine plugin ExampleDeviceProfileSelector
+[UE] LogPluginManager: Mounting Engine plugin GameplayStateTree
+[UE] LogPluginManager: Mounting Engine plugin GeometryCache
+[UE] LogPluginManager: Mounting Engine plugin GeometryProcessing
+[UE] LogPluginManager: Mounting Engine plugin HairStrands
+[UE] LogPluginManager: Mounting Engine plugin IOSDeviceProfileSelector
+[UE] LogPluginManager: Mounting Engine plugin InputDebugging
+[UE] LogPluginManager: Mounting Engine plugin LocationServicesBPLibrary
+[UE] LogPluginManager: Mounting Engine plugin Metasound
+[UE] LogPluginManager: Mounting Engine plugin MobilePatchingUtils
+[UE] LogPluginManager: Mounting Engine plugin ProceduralMeshComponent
+[UE] LogPluginManager: Mounting Engine plugin PropertyAccessEditor
+[UE] LogPluginManager: Mounting Engine plugin PropertyBindingUtils
+[UE] LogPluginManager: Mounting Engine plugin ResonanceAudio
+[UE] LogPluginManager: Mounting Engine plugin RigVM
+[UE] LogPluginManager: Mounting Engine plugin SignificanceManager
+[UE] LogPluginManager: Mounting Engine plugin SoundFields
+[UE] LogPluginManager: Mounting Engine plugin StateTree
+[UE] LogPluginManager: Mounting Engine plugin Synthesis
+[UE] LogPluginManager: Mounting Engine plugin WaveTable
+[UE] LogPluginManager: Mounting Engine plugin InterchangeTests
+[UE] LogPluginManager: Mounting Engine plugin TraceUtilities
+[UE] LogPluginManager: Mounting Engine plugin CameraCalibrationCore
+[UE] LogPluginManager: Mounting Engine plugin Takes
+[UE] LogPluginManager: Mounting Engine plugin WorldMetrics
+[UE] LogPluginManager: Mounting Project plugin FMODStudio
+[UE] LogPluginManager: Mounting Project plugin FMODStudioNiagara
+[UE] LogIOSAudioSession: Setting AVAudioSession category to Category:AVAudioSessionCategoryAmbient Mode:AVAudioSessionModeDefault Options:0
+[UE] LogConfig: Applying CVar settings from Section [/Script/CompositeCore.CompositeCorePluginSettings] File [Engine]
+[UE] LogStudioTelemetry: Started StudioTelemetry Session
+[UE] LogInit: Creating http thread with maximum 256 concurrent requests
+[UE] LogOnline: Display: OSS: FOnlineSubsystemIOSModule::StartupModule()
+[UE] LogOnlineSession: Display: OSS: FOnlineSessionIOS::FOnlineSessionIOS(FOnlineSubsystemIOS* InSubsystem)
+[UE] LogMarketplaceKit: AppDistributorWrapper getCurrentWithCompletionHandler Other
+[UE] LogOnline: OSS: Created online subsystem instance for: IOS
+[UE] LogOnline: OSS: TryLoadSubsystemAndSetDefault: Loaded subsystem for type [IOS]
+[UE] LogInit: ExecutableName: SpiderLily
+[UE] LogInit: Build: ++UE5+Release-5.6-CL-44394996
+[UE] LogInit: Platform=IOS
+[UE] LogInit: MachineId=7cebba4f2e482ad700b7dba7766410f3
+[UE] LogInit: DeviceId=EABF5389-A888-4086-8399-403BF66CB6E2
+[UE] LogInit: Engine Version: 5.6.1-44394996+++UE5+Release-5.6
+[UE] LogInit: Compatible Engine Version: 5.6.0-43139311+++UE5+Release-5.6
+[UE] LogInit: Net CL: 43139311
+[UE] LogInit: OS: IOS (18.6.2), CPU: iPhone15,3, GPU: GenericGPUBrand
+[UE] LogInit: Compiled (64-bit): Jul 28 2025 16:53:43
+[UE] LogInit: Architecture: arm64
+[UE] LogInit: Compiled with Clang: 16.0.0 (clang-1600.0.26.4)
+[UE] LogInit: Build Configuration: Development
+[UE] LogInit: Branch Name: ++UE5+Release-5.6
+[UE] LogInit: Command Line: -project="../../../SpiderLily/SpiderLily.uproject"
+[UE] LogInit: Base Directory:
+[UE] LogInit: Allocator: Binned2
+[UE] LogInit: Installed Engine Build: 0
+[UE] LogInit: This binary is optimized with LTO: no, PGO: no, instrumented for PGO data collection: no
+[UE] LogDevObjectVersion: Number of dev versions registered: 41
+[UE] LogDevObjectVersion:   Dev-Blueprints (B0D832E4-1F89-4F0D-ACCF-7EB736FD4AA2): 10
+[UE] LogDevObjectVersion:   Dev-Build (E1C64328-A22C-4D53-A36C-8E866417BD8C): 0
+[UE] LogDevObjectVersion:   Dev-Core (375EC13C-06E4-48FB-B500-84F0262A717E): 4
+[UE] LogDevObjectVersion:   Dev-Editor (E4B068ED-F494-42E9-A231-DA0B2E46BB41): 40
+[UE] LogDevObjectVersion:   Dev-Framework (CFFC743F-43B0-4480-9391-14DF171D2073): 37
+[UE] LogDevObjectVersion:   Dev-Mobile (B02B49B5-BB20-44E9-A304-32B752E40360): 3
+[UE] LogDevObjectVersion:   Dev-Networking (A4E4105C-59A1-49B5-A7C5-40C4547EDFEE): 0
+[UE] LogDevObjectVersion:   Dev-Online (39C831C9-5AE6-47DC-9A44-9C173E1C8E7C): 0
+[UE] LogDevObjectVersion:   Dev-Physics (78F01B33-EBEA-4F98-B9B4-84EACCB95AA2): 20
+[UE] LogDevObjectVersion:   Dev-Platform (6631380F-2D4D-43E0-8009-CF276956A95A): 0
+[UE] LogDevObjectVersion:   Dev-Rendering (12F88B9F-8875-4AFC-A67C-D90C383ABD29): 49
+[UE] LogDevObjectVersion:   Dev-Sequencer (7B5AE74C-D270-4C10-A958-57980B212A5A): 13
+[UE] LogDevObjectVersion:   Dev-VR (D7296918-1DD6-4BDD-9DE2-64A83CC13884): 3
+[UE] LogDevObjectVersion:   Dev-LoadTimes (C2A15278-BFE7-4AFE-6C17-90FF531DF755): 1
+[UE] LogDevObjectVersion:   Private-Geometry (6EACA3D4-40EC-4CC1-B786-8BED09428FC5): 3
+[UE] LogDevObjectVersion:   Dev-AnimPhys (29E575DD-E0A3-4627-9D10-D276232CDCEA): 17
+[UE] LogDevObjectVersion:   Dev-Anim (AF43A65D-7FD3-4947-9873-3E8ED9C1BB05): 15
+[UE] LogDevObjectVersion:   Dev-ReflectionCapture (6B266CEC-1EC7-4B8F-A30B-E4D90942FC07): 1
+[UE] LogDevObjectVersion:   Dev-Automation (0DF73D61-A23F-47EA-B727-89E90C41499A): 1
+[UE] LogDevObjectVersion:   FortniteMain (601D1886-AC64-4F84-AA16-D3DE0DEAC7D6): 207
+[UE] LogDevObjectVersion:   FortniteValkyrie (8DBC2C5B-54A7-43E0-A768-FCBB7DA29060): 8
+[UE] LogDevObjectVersion:   FortniteSeason (5B4C06B7-2463-4AF8-805B-BF70CDF5D0DD): 13
+[UE] LogDevObjectVersion:   FortniteRelease (E7086368-6B23-4C58-8439-1B7016265E91): 17
+[UE] LogDevObjectVersion:   Dev-Enterprise (9DFFBCD6-494F-0158-E221-12823C92A888): 11
+[UE] LogDevObjectVersion:   Dev-Niagara (F2AED0AC-9AFE-416F-8664-AA7FFA26D6FC): 1
+[UE] LogDevObjectVersion:   Dev-Destruction (174F1F0B-B4C6-45A5-B13F-2EE8D0FB917D): 10
+[UE] LogDevObjectVersion:   Dev-Physics-Ext (35F94A83-E258-406C-A318-09F59610247C): 41
+[UE] LogDevObjectVersion:   Dev-PhysicsMaterial-Chaos (B68FC16E-8B1B-42E2-B453-215C058844FE): 1
+[UE] LogDevObjectVersion:   Dev-CineCamera (B2E18506-4273-CFC2-A54E-F4BB758BBA07): 1
+[UE] LogDevObjectVersion:   Dev-VirtualProduction (64F58936-FD1B-42BA-BA96-7289D5D0FA4E): 1
+[UE] LogDevObjectVersion:   UE5-Main (697DD581-E64F-41AB-AA4A-51ECBEB7B628): 121
+[UE] LogDevObjectVersion:   UE5-Release (D89B5E42-24BD-4D46-8412-ACA8DF641779): 56
+[UE] LogDevObjectVersion:   UE5-SpecialProject (59DA5D52-1232-4948-B878-597870B8E98B): 9
+[UE] LogDevObjectVersion:   Dev-MediaFramework (6F0ED827-A609-4895-9C91-998D90180EA4): 2
+[UE] LogDevObjectVersion:   Dev-NaniteResearch (30D58BE3-95EA-4282-A6E3-B159D8EBB06A): 1
+[UE] LogDevObjectVersion:   Dev-RigVM (DC49959B-53C0-4DE7-9156-EA885E7C5D39): 18
+[UE] LogDevObjectVersion:   Dev-ControlRig (A7820CFB-20A7-4359-8C54-2C149623CF50): 38
+[UE] LogDevObjectVersion:   Dev-IKRig (F6DFBB78-BB50-A0E4-4018-B84D60CBAF23): 6
+[UE] LogDevObjectVersion:   Dev-ComputeFramework (6304A3E7-0059-4F59-8CFC-21BD7721FD4E): 0
+[UE] LogDevObjectVersion:   Dev-Optimus (93EDE1AA-10CA-7375-4DF9-8A2849B157A0): 14
+[UE] LogDevObjectVersion:   LensFileVersion (8652A554-966A-466C-9FD7-1C6DD61B1ADB): 1
+[UE] LogInit: Presizing for max 131072 objects, including 1 objects not considered by GC.
+[UE] LogInit: Object subsystem initialized
+[UE] LogConfig: Set CVar [[con.DebugEarlyDefault:1]]
+[UE] LogConfig: CVar [[con.DebugLateDefault:1]] deferred - dummy variable created
+[UE] LogConfig: CVar [[con.DebugLateCheat:1]] deferred - dummy variable created
+[UE] LogConfig: CVar [[LogNamedEventFilters:Frame *]] deferred - dummy variable created
+[UE] LogConfig: Set CVar [[net.DisableIPv6:0]]
+[UE] LogConfig: CVar [[QualityLevelMapping:low]] deferred - dummy variable created
+[UE] LogConfig: Set CVar [[fx.Niagara.QualityLevel.Min:0]]
+[UE] LogConfig: Set CVar [[fx.Niagara.QualityLevel.Max:1]]
+[UE] [2025.10.31-04.19.45:408][  0]LogConfig: CVar [[con.DebugLateDefault:1]] deferred - dummy variable created
+[UE] [2025.10.31-04.19.45:408][  0]LogConfig: CVar [[con.DebugLateCheat:1]] deferred - dummy variable created
+[UE] [2025.10.31-04.19.45:408][  0]LogConfig: CVar [[LogNamedEventFilters:Frame *]] deferred - dummy variable created
+[UE] [2025.10.31-04.19.45:408][  0]LogConfig: CVar [[QualityLevelMapping:low]] deferred - dummy variable created
+[UE] [2025.10.31-04.19.45:408][  0]LogConfig: Applying CVar settings from Section [/Script/Engine.RendererSettings] File [Engine]
+[UE] [2025.10.31-04.19.45:408][  0]LogConfig: CVar [[VisualizeCalibrationColorMaterialPath:/Engine/EngineMaterials/PPM_DefaultCalibrationColor.PPM_DefaultCalibrationColor]] deferred - dummy variable created
+[UE] [2025.10.31-04.19.45:408][  0]LogConfig: CVar [[VisualizeCalibrationGrayscaleMaterialPath:/Engine/EngineMaterials/PPM_DefaultCalibrationGrayscale.PPM_DefaultCalibrationGrayscale]] deferred - dummy variable created
+[UE] [2025.10.31-04.19.45:408][  0]LogConfig: Set CVar [[r.GPUCrashDebugging:0]]
+[UE] [2025.10.31-04.19.45:408][  0]LogConfig: CVar [[MaxSkinBones:(Default=65536,PerPlatform=(("Mobile", 256)))]] deferred - dummy variable created
+[UE] [2025.10.31-04.19.45:408][  0]LogConfig: Set CVar [[r.DistanceFields:0]]
+[UE] [2025.10.31-04.19.45:408][  0]LogConfig: Set CVar [[r.TemporalAA.Mobile.UseCompute:0]]
+[UE] [2025.10.31-04.19.45:408][  0]LogConfig: Set CVar [[r.Substrate.RoughDiffuse:0]]
+[UE] [2025.10.31-04.19.45:408][  0]LogConfig: Set CVar [[r.Substrate.ShadingQuality:2]]
+[UE] [2025.10.31-04.19.45:408][  0]LogConfig: Set CVar [[r.Substrate.TileCoord8bits:1]]
+[UE] [2025.10.31-04.19.45:408][  0]LogConfig: Set CVar [[r.Substrate.SheenQuality:2]]
+[UE] [2025.10.31-04.19.45:409][  0]LogConfig: Set CVar [[r.Substrate.Glints:0]]
+[UE] [2025.10.31-04.19.45:409][  0]LogConfig: Set CVar [[r.Substrate.ClosuresPerPixel:1]]
+[UE] [2025.10.31-04.19.45:409][  0]LogConfig: Set CVar [[r.Visibility.DynamicMeshElements.Parallel:0]]
+[UE] [2025.10.31-04.19.45:409][  0]LogConfig: Set CVar [[r.ReflectionMethod:1]]
+[UE] [2025.10.31-04.19.45:409][  0]LogConfig: Set CVar [[r.GenerateMeshDistanceFields:1]]
+[UE] Device Type: iPhone15,3
+[UE] [2025.10.31-04.19.45:409][  0]LogConfig: Set CVar [[r.DynamicGlobalIlluminationMethod:1]]
+[UE] [2025.10.31-04.19.45:409][  0]LogConfig: Set CVar [[r.Lumen.TraceMeshSDFs:0]]
+[UE] [2025.10.31-04.19.45:409][  0]LogConfig: Set CVar [[r.Shadow.Virtual.Enable:1]]
+[UE] [2025.10.31-04.19.45:409][  0]LogConfig: Set CVar [[r.DefaultFeature.AutoExposure.ExtendDefaultLuminanceRange:1]]
+[UE] [2025.10.31-04.19.45:409][  0]LogConfig: Set CVar [[r.AllowStaticLighting:0]]
+[UE] [2025.10.31-04.19.45:409][  0]LogConfig: Set CVar [[r.SkinCache.CompileShaders:1]]
+[UE] [2025.10.31-04.19.45:410][  0]LogConfig: Set CVar [[r.RayTracing.RayTracingProxies.ProjectEnabled:1]]
+[UE] [2025.10.31-04.19.45:410][  0]LogConfig: Set CVar [[r.DefaultFeature.LocalExposure.HighlightContrastScale:0.8]]
+[UE] [2025.10.31-04.19.45:410][  0]LogConfig: Set CVar [[r.DefaultFeature.LocalExposure.ShadowContrastScale:0.8]]
+[UE] [2025.10.31-04.19.45:410][  0]LogConfig: Applying CVar settings from Section [/Script/Engine.RendererOverrideSettings] File [Engine]
+[UE] [2025.10.31-04.19.45:410][  0]LogConfig: Applying CVar settings from Section [/Script/Engine.StreamingSettings] File [Engine]
+[UE] [2025.10.31-04.19.45:410][  0]LogConfig: Set CVar [[s.MinBulkDataSizeForAsyncLoading:131072]]
+[UE] [2025.10.31-04.19.45:410][  0]LogConfig: Set CVar [[s.AsyncLoadingThreadEnabled:1]]
+[UE] [2025.10.31-04.19.45:410][  0]LogConfig: Set CVar [[s.EventDrivenLoaderEnabled:1]]
+[UE] [2025.10.31-04.19.45:410][  0]LogConfig: Set CVar [[s.WarnIfTimeLimitExceeded:0]]
+[UE] [2025.10.31-04.19.45:410][  0]LogConfig: Set CVar [[s.TimeLimitExceededMultiplier:1.5]]
+[UE] [2025.10.31-04.19.45:410][  0]LogConfig: Set CVar [[s.TimeLimitExceededMinTime:0.005]]
+[UE] [2025.10.31-04.19.45:410][  0]LogConfig: Set CVar [[s.UseBackgroundLevelStreaming:1]]
+[UE] [2025.10.31-04.19.45:410][  0]LogConfig: Set CVar [[s.PriorityAsyncLoadingExtraTime:15.0]]
+[UE] [2025.10.31-04.19.45:410][  0]LogConfig: Set CVar [[s.LevelStreamingActorsUpdateTimeLimit:5.0]]
+[UE] [2025.10.31-04.19.45:410][  0]LogConfig: Set CVar [[s.PriorityLevelStreamingActorsUpdateExtraTime:5.0]]
+[UE] [2025.10.31-04.19.45:411][  0]LogConfig: Set CVar [[s.LevelStreamingComponentsRegistrationGranularity:10]]
+[UE] [2025.10.31-04.19.45:411][  0]LogConfig: Set CVar [[s.UnregisterComponentsTimeLimit:1.0]]
+[UE] [2025.10.31-04.19.45:411][  0]LogConfig: Set CVar [[s.LevelStreamingComponentsUnregistrationGranularity:5]]
+[UE] [2025.10.31-04.19.45:411][  0]LogConfig: CVar [[s.MaxPackageSummarySize:16384]] deferred - dummy variable created
+[UE] [2025.10.31-04.19.45:411][  0]LogConfig: Set CVar [[s.FlushStreamingOnExit:1]]
+[UE] [2025.10.31-04.19.45:411][  0]LogConfig: CVar [[FixedBootOrder:/Script/Engine/Default__SoundBase]] deferred - dummy variable created
+[UE] [2025.10.31-04.19.45:412][  0]LogConfig: CVar [[FixedBootOrder:/Script/Engine/Default__MaterialInterface]] deferred - dummy variable created
+[UE] Matched iPhone15,3 as iPhone14ProMax
+[UE] [2025.10.31-04.19.45:412][  0]LogConfig: CVar [[FixedBootOrder:/Script/Engine/Default__DeviceProfileManager]] deferred - dummy variable created
+[UE] [2025.10.31-04.19.45:412][  0]LogConfig: Applying CVar settings from Section [/Script/Engine.GarbageCollectionSettings] File [Engine]
+[UE] [2025.10.31-04.19.45:412][  0]LogConfig: Set CVar [[gc.MaxObjectsNotConsideredByGC:1]]
+[UE] [2025.10.31-04.19.45:412][  0]LogConfig: Set CVar [[gc.FlushStreamingOnGC:0]]
+[UE] [2025.10.31-04.19.45:412][  0]LogConfig: Set CVar [[gc.NumRetriesBeforeForcingGC:10]]
+[UE] [2025.10.31-04.19.45:412][  0]LogConfig: Set CVar [[gc.AllowParallelGC:1]]
+[UE] [2025.10.31-04.19.45:412][  0]LogConfig: Set CVar [[gc.TimeBetweenPurgingPendingKillObjects:61.1]]
+[UE] [2025.10.31-04.19.45:412][  0]LogConfig: Set CVar [[gc.MaxObjectsInEditor:25165824]]
+[UE] [2025.10.31-04.19.45:412][  0]LogConfig: Set CVar [[gc.IncrementalBeginDestroyEnabled:1]]
+[UE] [2025.10.31-04.19.45:412][  0]LogConfig: Set CVar [[gc.CreateGCClusters:1]]
+[UE] [2025.10.31-04.19.45:412][  0]LogConfig: Set CVar [[gc.MinGCClusterSize:5]]
+[UE] [2025.10.31-04.19.45:412][  0]LogConfig: Set CVar [[gc.AssetClustreringEnabled:0]]
+[UE] [2025.10.31-04.19.45:413][  0]LogConfig: Set CVar [[gc.ActorClusteringEnabled:0]]
+[UE] [2025.10.31-04.19.45:413][  0]LogConfig: Set CVar [[gc.VerifyUObjectsAreNotFGCObjects:0]]
+[UE] [2025.10.31-04.19.45:413][  0]LogConfig: Set CVar [[gc.GarbageEliminationEnabled:1]]
+[UE] [2025.10.31-04.19.45:413][  0]LogConfig: Set CVar [[gc.MaxObjectsInGame:131072]]
+::: Created a UIView that will support Metal :::
+[UE] [2025.10.31-04.19.45:413][  0]LogConfig: Applying CVar settings from Section [/Script/Engine.NetworkSettings] File [Engine]
+[UE] [2025.10.31-04.19.45:639][  0]LogConfig: CVar [[NetworkEmulationProfiles:(ProfileName="Average",ToolTip="Simulates average internet conditions")]] deferred - dummy variable created
+[UE] [2025.10.31-04.19.45:640][  0]LogConfig: CVar [[NetworkEmulationProfiles:(ProfileName="Bad",ToolTip="Simulates laggy internet conditions")]] deferred - dummy variable created
+[UE] [2025.10.31-04.19.45:640][  0]LogConfig: Applying CVar settings from Section [ViewDistanceQuality@3] File [Scalability]
+[UE] [2025.10.31-04.19.45:640][  0]LogConfig: Set CVar [[r.SkeletalMeshLODBias:0]]
+[UE] [2025.10.31-04.19.45:640][  0]LogConfig: Set CVar [[r.ViewDistanceScale:1.0]]
+[UE] [2025.10.31-04.19.45:640][  0]LogConfig: Set CVar [[r.NeverOcclusionTestDistance:200]]
+[UE] [2025.10.31-04.19.45:640][  0]LogConfig: Applying CVar settings from Section [AntiAliasingQuality@3] File [Scalability]
+[UE] [2025.10.31-04.19.45:640][  0]LogConfig: Set CVar [[r.FXAA.Quality:0]]
+[UE] [2025.10.31-04.19.45:641][  0]LogConfig: Set CVar [[r.TemporalAA.Quality:2]]
+[UE] [2025.10.31-04.19.45:641][  0]LogConfig: Set CVar [[r.TSR.History.R11G11B10:1]]
+[UE] [2025.10.31-04.19.45:641][  0]LogConfig: Set CVar [[r.TSR.History.ScreenPercentage:200]]
+[UE] [2025.10.31-04.19.45:641][  0]LogConfig: Set CVar [[r.TSR.History.UpdateQuality:3]]
+[UE] [2025.10.31-04.19.45:641][  0]LogConfig: Set CVar [[r.TSR.ShadingRejection.Flickering:1]]
+[UE] [2025.10.31-04.19.45:641][  0]LogConfig: Set CVar [[r.TSR.RejectionAntiAliasingQuality:2]]
+[UE] [2025.10.31-04.19.45:642][  0]LogConfig: Set CVar [[r.TSR.ReprojectionField:1]]
+[UE] [2025.10.31-04.19.45:642][  0]LogConfig: Set CVar [[r.TSR.Resurrection:1]]
+[UE] [2025.10.31-04.19.45:642][  0]LogConfig: Applying CVar settings from Section [ShadowQuality@3] File [Scalability]
+[UE] [2025.10.31-04.19.45:642][  0]LogConfig: Set CVar [[r.LightFunctionQuality:1]]
+[UE] [2025.10.31-04.19.45:642][  0]LogConfig: Set CVar [[r.ShadowQuality:2]]
+[UE] [2025.10.31-04.19.45:642][  0]LogConfig: Set CVar [[r.Shadow.CSM.MaxCascades:3]]
+[UE] [2025.10.31-04.19.45:642][  0]LogConfig: Set CVar [[r.Shadow.MaxResolution:2048]]
+[UE] [2025.10.31-04.19.45:642][  0]LogConfig: Set CVar [[r.Shadow.MaxCSMResolution:2048]]
+[UE] [2025.10.31-04.19.45:642][  0]LogConfig: Set CVar [[r.Shadow.RadiusThreshold:0.06]]
+[UE] [2025.10.31-04.19.45:642][  0]LogConfig: Set CVar [[r.Shadow.DistanceScale:1.0]]
+[UE] [2025.10.31-04.19.45:642][  0]LogConfig: Set CVar [[r.Shadow.CSM.TransitionScale:1.0]]
+[UE] [2025.10.31-04.19.45:642][  0]LogConfig: Set CVar [[r.Shadow.PreShadowResolutionFactor:1.0]]
+[UE] [2025.10.31-04.19.45:642][  0]LogConfig: Set CVar [[r.DistanceFieldShadowing:1]]
+[UE] [2025.10.31-04.19.45:642][  0]LogConfig: Set CVar [[r.VolumetricFog:0]]
+[UE] [2025.10.31-04.19.45:642][  0]LogConfig: Set CVar [[r.VolumetricFog.GridPixelSize:8]]
+[UE] [2025.10.31-04.19.45:642][  0]LogConfig: Set CVar [[r.VolumetricFog.GridSizeZ:128]]
+[UE] [2025.10.31-04.19.45:642][  0]LogConfig: Set CVar [[r.VolumetricFog.HistoryMissSupersampleCount:4]]
+[UE] [2025.10.31-04.19.45:642][  0]LogConfig: Set CVar [[r.LightMaxDrawDistanceScale:1]]
+[UE] [2025.10.31-04.19.45:643][  0]LogConfig: Set CVar [[r.CapsuleShadows:1]]
+[UE] [2025.10.31-04.19.45:643][  0]LogConfig: Set CVar [[r.Shadow.Virtual.MaxPhysicalPages:4096]]
+[UE] [2025.10.31-04.19.45:643][  0]LogConfig: Set CVar [[r.Shadow.Virtual.ResolutionLodBiasDirectional:-1.5]]
+[UE] [2025.10.31-04.19.45:643][  0]LogConfig: Set CVar [[r.Shadow.Virtual.ResolutionLodBiasDirectionalMoving:-1.5]]
+[UE] [2025.10.31-04.19.45:643][  0]LogConfig: Set CVar [[r.Shadow.Virtual.ResolutionLodBiasLocal:0.0]]
+[UE] [2025.10.31-04.19.45:643][  0]LogConfig: Set CVar [[r.Shadow.Virtual.ResolutionLodBiasLocalMoving:1.0]]
+[UE] [2025.10.31-04.19.45:643][  0]LogConfig: Set CVar [[r.Shadow.Virtual.SMRT.RayCountDirectional:8]]
+[UE] [2025.10.31-04.19.45:643][  0]LogConfig: Set CVar [[r.Shadow.Virtual.SMRT.SamplesPerRayDirectional:4]]
+[UE] [2025.10.31-04.19.45:643][  0]LogConfig: Set CVar [[r.Shadow.Virtual.SMRT.RayCountLocal:8]]
+[UE] [2025.10.31-04.19.45:643][  0]LogConfig: Set CVar [[r.Shadow.Virtual.SMRT.SamplesPerRayLocal:4]]
+[UE] [2025.10.31-04.19.45:643][  0]LogConfig: Set CVar [[r.ContactShadows:0]]
+[UE] [2025.10.31-04.19.45:643][  0]LogConfig: Applying CVar settings from Section [GlobalIlluminationQuality@3] File [Scalability]
+[UE] [2025.10.31-04.19.45:643][  0]LogConfig: Set CVar [[r.DistanceFieldAO:1]]
+[UE] [2025.10.31-04.19.45:643][  0]LogConfig: Set CVar [[r.SkylightIntensityMultiplier:1.0]]
+[UE] [2025.10.31-04.19.45:643][  0]LogConfig: Set CVar [[r.AOQuality:2]]
+[UE] [2025.10.31-04.19.45:643][  0]LogConfig: Set CVar [[r.Lumen.DiffuseIndirect.Allow:1]]
+[UE] [2025.10.31-04.19.45:643][  0]LogConfig: Set CVar [[r.LumenScene.DirectLighting.MaxLightsPerTile:8]]
+[UE] [2025.10.31-04.19.45:643][  0]LogConfig: Set CVar [[r.LumenScene.DirectLighting.UpdateFactor:32]]
+[UE] [2025.10.31-04.19.45:643][  0]LogConfig: Set CVar [[r.LumenScene.Radiosity.UpdateFactor:64]]
+[UE] [2025.10.31-04.19.45:643][  0]LogConfig: Set CVar [[r.LumenScene.Radiosity.ProbeSpacing:4]]
+[UE] [2025.10.31-04.19.45:644][  0]LogConfig: Set CVar [[r.LumenScene.Radiosity.HemisphereProbeResolution:4]]
+[UE] [2025.10.31-04.19.45:644][  0]LogConfig: Set CVar [[r.Lumen.TraceMeshSDFs.Allow:1]]
+[UE] [2025.10.31-04.19.45:644][  0]LogConfig: Set CVar [[r.Lumen.ScreenProbeGather.RadianceCache.ProbeResolution:32]]
+[UE] [2025.10.31-04.19.45:644][  0]LogConfig: Set CVar [[r.Lumen.ScreenProbeGather.RadianceCache.NumProbesToTraceBudget:100]]
+[UE] [2025.10.31-04.19.45:644][  0]LogConfig: Set CVar [[r.Lumen.ScreenProbeGather.DownsampleFactor:16]]
+[UE] [2025.10.31-04.19.45:644][  0]LogConfig: Set CVar [[r.Lumen.ScreenProbeGather.NumAdaptiveProbes:8]]
+[UE] [2025.10.31-04.19.45:644][  0]LogConfig: Set CVar [[r.Lumen.ScreenProbeGather.TracingOctahedronResolution:8]]
+[UE] [2025.10.31-04.19.45:644][  0]LogConfig: Set CVar [[r.Lumen.ScreenProbeGather.IrradianceFormat:0]]
+[UE] [2025.10.31-04.19.45:644][  0]LogConfig: Set CVar [[r.Lumen.ScreenProbeGather.StochasticInterpolation:0]]
+[UE] [2025.10.31-04.19.45:644][  0]LogConfig: Set CVar [[r.Lumen.ScreenProbeGather.FullResolutionJitterWidth:1]]
+[UE] [2025.10.31-04.19.45:644][  0]LogConfig: Set CVar [[r.Lumen.ScreenProbeGather.TwoSidedFoliageBackfaceDiffuse:1]]
+[UE] [2025.10.31-04.19.45:644][  0]LogConfig: Set CVar [[r.Lumen.ScreenProbeGather.ScreenTraces.HZBTraversal.FullResDepth:1]]
+[UE] [2025.10.31-04.19.45:644][  0]LogConfig: Set CVar [[r.Lumen.ScreenProbeGather.ShortRangeAO.HardwareRayTracing:0]]
+[UE] [2025.10.31-04.19.45:644][  0]LogConfig: Set CVar [[r.Lumen.ScreenProbeGather.ShortRangeAO.BentNormal:1]]
+[UE] [2025.10.31-04.19.45:644][  0]LogConfig: Set CVar [[r.Lumen.TranslucencyVolume.GridPixelSize:32]]
+[UE] [2025.10.31-04.19.45:644][  0]LogConfig: Set CVar [[r.Lumen.TranslucencyVolume.TraceFromVolume:1]]
+[UE] [2025.10.31-04.19.45:644][  0]LogConfig: Set CVar [[r.Lumen.TranslucencyVolume.TracingOctahedronResolution:3]]
+[UE] [2025.10.31-04.19.45:644][  0]LogConfig: Set CVar [[r.Lumen.TranslucencyVolume.RadianceCache.ProbeResolution:8]]
+[UE] [2025.10.31-04.19.45:645][  0]LogConfig: Set CVar [[r.Lumen.TranslucencyVolume.RadianceCache.NumProbesToTraceBudget:70]]
+[UE] [2025.10.31-04.19.45:645][  0]LogConfig: CVar [[r.RayTracing.Scene.BuildMode:1]] deferred - dummy variable created
+[UE] [2025.10.31-04.19.45:645][  0]LogConfig: Applying CVar settings from Section [ReflectionQuality@3] File [Scalability]
+[UE] [2025.10.31-04.19.45:645][  0]LogConfig: Set CVar [[r.SSR.Quality:3]]
+[UE] [2025.10.31-04.19.45:645][  0]LogConfig: Set CVar [[r.SSR.HalfResSceneColor:0]]
+[UE] [2025.10.31-04.19.45:645][  0]LogConfig: Set CVar [[r.Lumen.Reflections.Allow:1]]
+[UE] [2025.10.31-04.19.45:645][  0]LogConfig: Set CVar [[r.Lumen.Reflections.DownsampleFactor:1]]
+[UE] [2025.10.31-04.19.45:645][  0]LogConfig: Set CVar [[r.Lumen.Reflections.MaxRoughnessToTraceForFoliage:0.4]]
+[UE] [2025.10.31-04.19.45:645][  0]LogConfig: Set CVar [[r.Lumen.ScreenProbeGather.MaxRoughnessToEvaluateRoughSpecularForFoliage:0.8]]
+[UE] [2025.10.31-04.19.45:645][  0]LogConfig: Set CVar [[r.Lumen.Reflections.ScreenSpaceReconstruction.NumSamples:5]]
+[UE] [2025.10.31-04.19.45:645][  0]LogConfig: Set CVar [[r.Lumen.Reflections.ScreenSpaceReconstruction.MinWeight:0]]
+[UE] [2025.10.31-04.19.45:645][  0]LogConfig: Set CVar [[r.Lumen.TranslucencyReflections.FrontLayer.Allow:1]]
+[UE] [2025.10.31-04.19.45:645][  0]LogConfig: Set CVar [[r.Lumen.TranslucencyReflections.FrontLayer.Enable:0]]
+[UE] [2025.10.31-04.19.45:645][  0]LogConfig: Applying CVar settings from Section [PostProcessQuality@3] File [Scalability]
+[UE] [2025.10.31-04.19.45:645][  0]LogConfig: Set CVar [[r.MotionBlurQuality:4]]
+[UE] [2025.10.31-04.19.45:645][  0]LogConfig: Set CVar [[r.MotionBlur.HalfResGather:0]]
+[UE] [2025.10.31-04.19.45:645][  0]LogConfig: Set CVar [[r.AmbientOcclusionMipLevelFactor:0.4]]
+[UE] [2025.10.31-04.19.45:645][  0]LogConfig: Set CVar [[r.AmbientOcclusionMaxQuality:100]]
+[UE] [2025.10.31-04.19.45:645][  0]LogConfig: Set CVar [[r.AmbientOcclusionLevels:-1]]
+[UE] [2025.10.31-04.19.45:645][  0]LogConfig: Set CVar [[r.AmbientOcclusionRadiusScale:1.0]]
+[UE] [2025.10.31-04.19.45:645][  0]LogConfig: Set CVar [[r.DepthOfFieldQuality:1]]
+[UE] [2025.10.31-04.19.45:645][  0]LogConfig: Set CVar [[r.RenderTargetPoolMin:400]]
+[UE] [2025.10.31-04.19.45:645][  0]LogConfig: Set CVar [[r.LensFlareQuality:2]]
+[UE] [2025.10.31-04.19.45:645][  0]LogConfig: Set CVar [[r.SceneColorFringeQuality:1]]
+[UE] [2025.10.31-04.19.45:645][  0]LogConfig: Set CVar [[r.EyeAdaptationQuality:1]]
+[UE] [2025.10.31-04.19.45:646][  0]LogConfig: Set CVar [[r.BloomQuality:3]]
+[UE] [2025.10.31-04.19.45:646][  0]LogConfig: Set CVar [[r.Bloom.ScreenPercentage:50.000]]
+[UE] [2025.10.31-04.19.45:646][  0]LogConfig: Set CVar [[r.FastBlurThreshold:100]]
+[UE] [2025.10.31-04.19.45:646][  0]LogConfig: Set CVar [[r.Upscale.Quality:3]]
+[UE] [2025.10.31-04.19.45:646][  0]LogConfig: Set CVar [[r.LightShaftQuality:1]]
+[UE] [2025.10.31-04.19.45:646][  0]LogConfig: Set CVar [[r.Filter.SizeScale:1]]
+[UE] [2025.10.31-04.19.45:646][  0]LogConfig: Set CVar [[r.Tonemapper.Quality:3]]
+[UE] [2025.10.31-04.19.45:646][  0]LogConfig: Set CVar [[r.DOF.Gather.ResolutionDivisor:2         ; lower gathering resolution]]
+[UE] [2025.10.31-04.19.45:646][  0]LogConfig: Set CVar [[r.DOF.Gather.AccumulatorQuality:1        ; higher gathering accumulator quality]]
+[UE] [2025.10.31-04.19.45:646][  0]LogConfig: Set CVar [[r.DOF.Gather.PostfilterMethod:1          ; Median3x3 postfilering method]]
+[UE] [2025.10.31-04.19.45:646][  0]LogConfig: Set CVar [[r.DOF.Gather.EnableBokehSettings:0       ; no bokeh simulation when gathering]]
+[UE] [2025.10.31-04.19.45:646][  0]LogConfig: Set CVar [[r.DOF.Gather.RingCount:4                 ; medium number of samples when gathering]]
+[UE] [2025.10.31-04.19.45:646][  0]LogConfig: Set CVar [[r.DOF.Scatter.ForegroundCompositing:1    ; additive foreground scattering]]
+[UE] [2025.10.31-04.19.45:646][  0]LogConfig: Set CVar [[r.DOF.Scatter.BackgroundCompositing:2    ; additive background scattering]]
+[UE] [2025.10.31-04.19.45:646][  0]LogConfig: Set CVar [[r.DOF.Scatter.EnableBokehSettings:1      ; bokeh simulation when scattering]]
+[UE] [2025.10.31-04.19.45:646][  0]LogConfig: Set CVar [[r.DOF.Scatter.MaxSpriteRatio:0.1         ; only a maximum of 10% of scattered bokeh]]
+[UE] [2025.10.31-04.19.45:646][  0]LogConfig: Set CVar [[r.DOF.Recombine.Quality:1                ; cheap slight out of focus]]
+[UE] [2025.10.31-04.19.45:646][  0]LogConfig: Set CVar [[r.DOF.Recombine.EnableBokehSettings:0    ; no bokeh simulation on slight out of focus]]
+[UE] [2025.10.31-04.19.45:646][  0]LogConfig: Set CVar [[r.DOF.TemporalAAQuality:1                ; more stable temporal accumulation]]
+[UE] [2025.10.31-04.19.45:646][  0]LogConfig: Set CVar [[r.DOF.Kernel.MaxForegroundRadius:0.025]]
+[UE] [2025.10.31-04.19.45:646][  0]LogConfig: Set CVar [[r.DOF.Kernel.MaxBackgroundRadius:0.025]]
+[UE] [2025.10.31-04.19.45:646][  0]LogConfig: Set CVar [[r.Mobile.AmbientOcclusionQuality:1]]
+[UE] [2025.10.31-04.19.45:647][  0]LogConfig: Applying CVar settings from Section [TextureQuality@3] File [Scalability]
+[UE] [2025.10.31-04.19.45:647][  0]LogConfig: Set CVar [[r.Streaming.MipBias:0]]
+[UE] [2025.10.31-04.19.45:647][  0]LogConfig: Set CVar [[r.Streaming.AmortizeCPUToGPUCopy:0]]
+[UE] [2025.10.31-04.19.45:647][  0]LogConfig: Set CVar [[r.Streaming.MaxNumTexturesToStreamPerFrame:0]]
+[UE] [2025.10.31-04.19.45:647][  0]LogConfig: Set CVar [[r.Streaming.Boost:1]]
+[UE] [2025.10.31-04.19.45:647][  0]LogConfig: Set CVar [[r.MaxAnisotropy:4]]
+[UE] [2025.10.31-04.19.45:647][  0]LogConfig: Set CVar [[r.VT.MaxAnisotropy:8]]
+[UE] [2025.10.31-04.19.45:647][  0]LogConfig: Set CVar [[r.Streaming.LimitPoolSizeToVRAM:0]]
+[UE] [2025.10.31-04.19.45:647][  0]LogConfig: Set CVar [[r.Streaming.PoolSize:1000]]
+[UE] [2025.10.31-04.19.45:647][  0]LogConfig: Set CVar [[r.Streaming.MaxEffectiveScreenSize:0]]
+[UE] [2025.10.31-04.19.45:647][  0]LogConfig: Applying CVar settings from Section [EffectsQuality@3] File [Scalability]
+[UE] [2025.10.31-04.19.45:647][  0]LogConfig: Set CVar [[r.TranslucencyLightingVolumeDim:64]]
+[UE] [2025.10.31-04.19.45:647][  0]LogConfig: Set CVar [[r.RefractionQuality:1]]
+[UE] [2025.10.31-04.19.45:647][  0]LogConfig: Set CVar [[r.SceneColorFormat:4]]
+[UE] [2025.10.31-04.19.45:647][  0]LogConfig: Set CVar [[r.DetailMode:3]]
+[UE] [2025.10.31-04.19.45:647][  0]LogConfig: Set CVar [[r.TranslucencyVolumeBlur:1]]
+[UE] [2025.10.31-04.19.45:647][  0]LogConfig: Set CVar [[r.MaterialQualityLevel:1 ; High quality]]
+[UE] [2025.10.31-04.19.45:647][  0]LogConfig: Set CVar [[r.SSS.Scale:1]]
+[UE] [2025.10.31-04.19.45:647][  0]LogConfig: Set CVar [[r.SSS.SampleSet:2]]
+[UE] [2025.10.31-04.19.45:647][  0]LogConfig: Set CVar [[r.SSS.Quality:1]]
+[UE] [2025.10.31-04.19.45:647][  0]LogConfig: Set CVar [[r.SSS.HalfRes:0]]
+[UE] [2025.10.31-04.19.45:647][  0]LogConfig: Set CVar [[r.SSGI.Quality:3]]
+[UE] [2025.10.31-04.19.45:647][  0]LogConfig: Set CVar [[r.EmitterSpawnRateScale:1.0]]
+[UE] [2025.10.31-04.19.45:647][  0]LogConfig: Set CVar [[r.ParticleLightQuality:2]]
+[UE] [2025.10.31-04.19.45:647][  0]LogConfig: Set CVar [[r.SkyAtmosphere.AerialPerspectiveLUT.FastApplyOnOpaque:1 ; Always have FastSkyLUT 1 in this case to avoid wrong sky]]
+[UE] [2025.10.31-04.19.45:647][  0]LogConfig: Set CVar [[r.SkyAtmosphere.AerialPerspectiveLUT.SampleCountMaxPerSlice:1]]
+[UE] [2025.10.31-04.19.45:648][  0]LogConfig: Set CVar [[r.SkyAtmosphere.AerialPerspectiveLUT.DepthResolution:4]]
+[UE] [2025.10.31-04.19.45:648][  0]LogConfig: Set CVar [[r.SkyAtmosphere.FastSkyLUT:1]]
+[UE] [2025.10.31-04.19.45:648][  0]LogConfig: Set CVar [[r.SkyAtmosphere.FastSkyLUT.SampleCountMin:1.0]]
+[UE] [2025.10.31-04.19.45:648][  0]LogConfig: Set CVar [[r.SkyAtmosphere.FastSkyLUT.SampleCountMax:8.0]]
+[UE] [2025.10.31-04.19.45:648][  0]LogConfig: Set CVar [[r.SkyAtmosphere.SampleCountMin:4.0]]
+[UE] [2025.10.31-04.19.45:648][  0]LogConfig: Set CVar [[r.SkyAtmosphere.SampleCountMax:128.0]]
+[UE] [2025.10.31-04.19.45:648][  0]LogConfig: Set CVar [[r.SkyAtmosphere.TransmittanceLUT.UseSmallFormat:1]]
+[UE] [2025.10.31-04.19.45:648][  0]LogConfig: Set CVar [[r.SkyAtmosphere.TransmittanceLUT.SampleCount:10.0]]
+[UE] [2025.10.31-04.19.45:648][  0]LogConfig: Set CVar [[r.SkyAtmosphere.MultiScatteringLUT.SampleCount:15.0]]
+[UE] [2025.10.31-04.19.45:648][  0]LogConfig: Set CVar [[fx.Niagara.QualityLevel:1]]
+[UE] [2025.10.31-04.19.45:648][  0]LogConfig: Set CVar [[r.Refraction.OffsetQuality:1]]
+[UE] [2025.10.31-04.19.45:648][  0]LogConfig: Set CVar [[r.HeterogeneousVolumes.DownsampleFactor:2]]
+[UE] [2025.10.31-04.19.45:648][  0]LogConfig: Set CVar [[r.HeterogeneousVolumes.MaxStepCount:256]]
+[UE] [2025.10.31-04.19.45:648][  0]LogConfig: Set CVar [[r.HeterogeneousVolumes.Shadows.Resolution:256]]
+[UE] [2025.10.31-04.19.45:648][  0]LogConfig: Set CVar [[r.HeterogeneousVolumes.Shadows.MaxSampleCount:8]]
+[UE] [2025.10.31-04.19.45:648][  0]LogConfig: Set CVar [[r.HeterogeneousVolumes.UseExistenceMask:0]]
+[UE] [2025.10.31-04.19.45:648][  0]LogConfig: Set CVar [[r.SkyAtmosphere.FastSkyLUT.Width:96]]
+[UE] [2025.10.31-04.19.45:648][  0]LogConfig: Set CVar [[r.SkyAtmosphere.FastSkyLUT.Height:50]]
+[UE] [2025.10.31-04.19.45:649][  0]LogConfig: Applying CVar settings from Section [FoliageQuality@3] File [Scalability]
+[UE] [2025.10.31-04.19.45:649][  0]LogConfig: Set CVar [[foliage.DensityScale:1.0]]
+[UE] [2025.10.31-04.19.45:649][  0]LogConfig: Set CVar [[grass.DensityScale:1.0]]
+[UE] [2025.10.31-04.19.45:649][  0]LogConfig: Set CVar [[grass.CullDistanceScale:1.0]]
+[UE] [2025.10.31-04.19.45:649][  0]LogConfig: Applying CVar settings from Section [ShadingQuality@3] File [Scalability]
+[UE] [2025.10.31-04.19.45:649][  0]LogConfig: Set CVar [[r.HairStrands.SkyLighting.IntegrationType:2]]
+[UE] [2025.10.31-04.19.45:649][  0]LogConfig: Set CVar [[r.HairStrands.SkyAO.SampleCount:4]]
+[UE] [2025.10.31-04.19.45:649][  0]LogConfig: Set CVar [[r.HairStrands.Visibility.MSAA.SamplePerPixel:4]]
+[UE] [2025.10.31-04.19.45:649][  0]LogConfig: Set CVar [[r.AnisotropicMaterials:1]]
+[UE] [2025.10.31-04.19.45:649][  0]LogConfig: Applying CVar settings from Section [LandscapeQuality@3] File [Scalability]
+[UE] [2025.10.31-04.19.45:649][  0]LogIOS: Selected Device Profile: [iPhone14ProMax]
+[UE] [2025.10.31-04.19.45:649][  0]LogInit: Selected Device Profile: [iPhone14ProMax]
+[UE] [2025.10.31-04.19.45:649][  0]LogHAL: Display: Platform has ~ 3 GB [3211427192 / 4294967296 / 6], which maps to Smaller [LargestMinGB=6, LargerMinGB=4, DefaultMinGB=4, SmallerMinGB=3, SmallestMinGB=0)
+[UE] [2025.10.31-04.19.45:649][  0]LogDeviceProfileManager: Going up to parent DeviceProfile [iPhone13ProMax]
+[UE] [2025.10.31-04.19.45:649][  0]LogDeviceProfileManager: Going up to parent DeviceProfile [iPhone11ProMax]
+[UE] [2025.10.31-04.19.45:649][  0]LogDeviceProfileManager: Going up to parent DeviceProfile [iPhone8]
+[UE] [2025.10.31-04.19.45:649][  0]LogDeviceProfileManager: Going up to parent DeviceProfile [iPhone7]
+[UE] [2025.10.31-04.19.45:649][  0]LogDeviceProfileManager: Going up to parent DeviceProfile [iPhone6S]
+[UE] [2025.10.31-04.19.45:649][  0]LogDeviceProfileManager: Going up to parent DeviceProfile [IOS]
+[UE] [2025.10.31-04.19.45:649][  0]LogDeviceProfileManager: Going up to parent DeviceProfile []
+[UE] [2025.10.31-04.19.45:649][  0]LogDeviceProfileManager: Pushing Device Profile CVar: [[ios.PhysicalScreenDensity:-1 -> 460]]
+[UE] [2025.10.31-04.19.45:649][  0]LogDeviceProfileManager: Pushing Device Profile CVar: [[r.CustomUnsafeZones: -> "(L:free[0,-15][812,15]);(P:fixed[83,0][206,30])"]]
+[UE] [2025.10.31-04.19.45:649][  0]LogDeviceProfileManager: Pushing Device Profile CVar: [[sg.ShadowQuality:3 -> 3]]
+[UE] [2025.10.31-04.19.45:649][  0]LogConfig: Applying CVar settings from Section [ShadowQuality@3] File [Scalability]
+[UE] [2025.10.31-04.19.45:650][  0]LogDeviceProfileManager: Pushing Device Profile CVar: [[sg.GlobalIlluminationQuality:3 -> 3]]
+[UE] [2025.10.31-04.19.45:650][  0]LogConfig: Applying CVar settings from Section [GlobalIlluminationQuality@3] File [Scalability]
+[UE] [2025.10.31-04.19.45:650][  0]LogConfig: CVar [[r.RayTracing.Scene.BuildMode:1]] deferred - dummy variable created
+[UE] [2025.10.31-04.19.45:650][  0]LogDeviceProfileManager: Pushing Device Profile CVar: [[r.Mobile.AmbientOcclusionQuality:1 -> 1]]
+[UE] [2025.10.31-04.19.45:650][  0]LogDeviceProfileManager: Pushing Device Profile CVar: [[r.MobileContentScaleFactor:1 -> 2]]
+[UE] [2025.10.31-04.19.45:650][  0]LogDeviceProfileManager: Pushing Device Profile CVar: [[sg.PostProcessQuality:3 -> 3]]
+[UE] [2025.10.31-04.19.45:650][  0]LogConfig: Applying CVar settings from Section [PostProcessQuality@3] File [Scalability]
+[UE] [2025.10.31-04.19.45:650][  0]LogConsoleManager: Setting the console variable 'r.Mobile.AmbientOcclusionQuality' with 'SetByScalability' was ignored as it is lower priority than the previous 'SetByDeviceProfile'. Value remains '1'
+[UE] [2025.10.31-04.19.45:650][  0]LogDeviceProfileManager: Pushing Device Profile CVar: [[r.HZBOcclusion:0 -> 0]]
+[UE] [2025.10.31-04.19.45:650][  0]LogDeviceProfileManager: Pushing Device Profile CVar: [[r.EarlyZPass:3 -> 0]]
+[UE] [2025.10.31-04.19.45:650][  0]LogDeviceProfileManager: Pushing Device Profile CVar: [[r.TranslucentLightingVolume:1 -> 0]]
+[UE] [2025.10.31-04.19.45:650][  0]LogDeviceProfileManager: Pushing Device Profile CVar: [[r.AllowPointLightCubemapShadows:1 -> 0]]
+[UE] [2025.10.31-04.19.45:650][  0]LogDeviceProfileManager: Pushing Device Profile CVar: [[r.Decal.StencilSizeThreshold:0.1 -> -1]]
+[UE] [2025.10.31-04.19.45:650][  0]LogDeviceProfileManager: Pushing Device Profile CVar: [[r.MorphTarget.Mode:1 -> 0]]
+[UE] [2025.10.31-04.19.45:650][  0]LogDeviceProfileManager: Pushing Device Profile CVar: [[r.DefaultBackBufferPixelFormat:4 -> 0]]
+[UE] [2025.10.31-04.19.45:650][  0]LogDeviceProfileManager: Pushing Device Profile CVar: [[sg.AntiAliasingQuality:3 -> 0]]
+[UE] [2025.10.31-04.19.45:650][  0]LogConfig: Applying CVar settings from Section [AntiAliasingQuality@0] File [Scalability]
+[UE] [2025.10.31-04.19.45:650][  0]LogConfig: Set CVar [[r.TemporalAA.Quality:0]]
+=================================================================
+Main Thread Checker: UI API called on a background thread: -[UIView frame]
+PID: 19011, TID: 10372209, Thread name: (none), Queue name: com.apple.root.default-qos.overcommit, QoS: 0
+Backtrace:
+5   SpiderLily                          0x00000001017e2564 _ZN15FDisplayMetrics21RebuildDisplayMetricsERS_ + 64
+6   SpiderLily                          0x000000010792d9f0 _ZN9FAppEntry12PlatformInitEv + 164
+7   SpiderLily                          0x0000000100cf4314 _ZN16FIOSPlatformMisc12PlatformInitEv + 48
+8   SpiderLily                          0x00000001079413b8 _ZN11FEngineLoop23PreInitPreStartupScreenEPKDs + 11928
+9   SpiderLily                          0x000000010792e734 _ZN11FEngineLoop7PreInitEPKDs + 40
+10  SpiderLily                          0x000000010792dce0 _ZN9FAppEntry4InitEv + 376
+11  SpiderLily                          0x00000001017e54d0 -[IOSAppDelegate MainAppThread:] + 292
+12  Foundation                          0x000000018a4ec804 C031896B-2EF1-3D89-966A-0B52D54BCEEE + 481284
+13  libsystem_pthread.dylib             0x0000000215cb3344 _pthread_start + 136
+14  libsystem_pthread.dylib             0x0000000215cb0ab8 thread_start + 8
+[UE] [2025.10.31-04.19.45:650][  0]LogConfig: Set CVar [[r.TSR.History.ScreenPercentage:100]]
+Main Thread Checker: UI API called on a background thread: -[UIView frame]
+PID: 19011, TID: 10372209, Thread name: (none), Queue name: com.apple.root.default-qos.overcommit, QoS: 0
+Backtrace:
+5   SpiderLily                          0x00000001017e2564 _ZN15FDisplayMetrics21RebuildDisplayMetricsERS_ + 64
+6   SpiderLily                          0x000000010792d9f0 _ZN9FAppEntry12PlatformInitEv + 164
+7   SpiderLily                          0x0000000100cf4314 _ZN16FIOSPlatformMisc12PlatformInitEv + 48
+8   SpiderLily                          0x00000001079413b8 _ZN11FEngineLoop23PreInitPreStartupScreenEPKDs + 11928
+9   SpiderLily                          0x000000010792e734 _ZN11FEngineLoop7PreInitEPKDs + 40
+10  SpiderLily                          0x000000010792dce0 _ZN9FAppEntry4InitEv + 376
+11  SpiderLily                          0x00000001017e54d0 -[IOSAppDelegate MainAppThread:] + 292
+12  Foundation                          0x000000018a4ec804 C031896B-2EF1-3D89-966A-0B52D54BCEEE + 481284
+13  libsystem_pthread.dylib             0x0000000215cb3344 _pthread_start + 136
+14  libsystem_pthread.dylib             0x0000000215cb0ab8 thread_start + 8
+[UE] [2025.10.31-04.19.45:650][  0]LogConfig: Set CVar [[r.TSR.History.UpdateQuality:0]]
+[UE] [2025.10.31-04.19.45:650][  0]LogConfig: Set CVar [[r.TSR.ShadingRejection.Flickering:0]]
+[UE] [2025.10.31-04.19.45:651][  0]LogConfig: Set CVar [[r.TSR.RejectionAntiAliasingQuality:0]]
+[UE] [2025.10.31-04.19.45:651][  0]LogConfig: Set CVar [[r.TSR.ReprojectionField:0]]
+[UE] [2025.10.31-04.19.45:651][  0]LogConfig: Set CVar [[r.TSR.Resurrection:0]]
+[UE] [2025.10.31-04.19.45:651][  0]LogDeviceProfileManager: Pushing Device Profile CVar: [[sg.ReflectionQuality:3 -> 1]]
+[UE] [2025.10.31-04.19.46:092][  0]LogConfig: Applying CVar settings from Section [ReflectionQuality@1] File [Scalability]
+[UE] [2025.10.31-04.19.46:092][  0]LogConfig: Set CVar [[r.SSR.Quality:2]]
+[UE] [2025.10.31-04.19.46:092][  0]LogConfig: Set CVar [[r.SSR.HalfResSceneColor:1]]
+[UE] [2025.10.31-04.19.46:092][  0]LogConfig: Set CVar [[r.Lumen.Reflections.Allow:0]]
+[UE] [2025.10.31-04.19.46:092][  0]LogDeviceProfileManager: Pushing Device Profile CVar: [[sg.ViewDistanceQuality:3 -> 3]]
+[UE] [2025.10.31-04.19.46:094][  0]LogConfig: Applying CVar settings from Section [ViewDistanceQuality@3] File [Scalability]
+[UE] [2025.10.31-04.19.46:094][  0]LogDeviceProfileManager: Pushing Device Profile CVar: [[sg.TextureQuality:3 -> 3]]
+[UE] [2025.10.31-04.19.46:095][  0]LogConfig: Applying CVar settings from Section [TextureQuality@3] File [Scalability]
+[UE] [2025.10.31-04.19.46:095][  0]LogDeviceProfileManager: Pushing Device Profile CVar: [[sg.EffectsQuality:3 -> 3]]
+[UE] [2025.10.31-04.19.46:095][  0]LogConfig: Applying CVar settings from Section [EffectsQuality@3] File [Scalability]
+[UE] [2025.10.31-04.19.46:095][  0]LogDeviceProfileManager: Pushing Device Profile CVar: [[sg.FoliageQuality:3 -> 3]]
+[UE] [2025.10.31-04.19.46:095][  0]LogConfig: Applying CVar settings from Section [FoliageQuality@3] File [Scalability]
+[UE] [2025.10.31-04.19.46:095][  0]LogDeviceProfileManager: Pushing Device Profile CVar: [[sg.LandscapeQuality:3 -> 2]]
+[UE] [2025.10.31-04.19.46:095][  0]LogConfig: Applying CVar settings from Section [LandscapeQuality@2] File [Scalability]
+[UE] [2025.10.31-04.19.46:095][  0]LogDeviceProfileManager: Pushing Device Profile CVar: [[r.Forward.LightLinkedListCulling:1 -> 0]]
+[UE] [2025.10.31-04.19.46:096][  0]LogDeviceProfileManager: Pushing Device Profile CVar: [[UI.SlateSDFText.RasterizationMode:Bitmap -> SdfApproximation]]
+[UE] [2025.10.31-04.19.46:096][  0]LogDeviceProfileManager: Pushing Device Profile CVar: [[UI.SlateSDFText.ResolutionLevel:2 -> 1]]
+[UE] [2025.10.31-04.19.46:096][  0]LogDeviceProfileManager: Pushing Device Profile CVar: [[AsyncTraceDelegateHitchThresholdMS:-1 -> 0.75]]
+[UE] [2025.10.31-04.19.46:096][  0]LogConfig: Applying CVar settings from Section [Startup] File [../../../Engine/Config/ConsoleVariables.ini]
+[UE] [2025.10.31-04.19.46:096][  0]LogConfig: Set CVar [[r.DumpShaderDebugInfo:2]]
+[UE] [2025.10.31-04.19.46:096][  0]LogConfig: Set CVar [[p.chaos.AllowCreatePhysxBodies:1]]
+[UE] [2025.10.31-04.19.46:096][  0]LogConfig: Set CVar [[fx.SkipVectorVMBackendOptimizations:1]]
+[UE] [2025.10.31-04.19.46:096][  0]LogConfig: CVar [[ds.CADTranslator.Meshing.ActivateThinZoneMeshing:0]] deferred - dummy variable created
+[UE] [2025.10.31-04.19.46:096][  0]LogConfig: CVar [[ds.CADTranslator.Stitching.RemoveThinFaces:0]] deferred - dummy variable created
+[UE] [2025.10.31-04.19.46:097][  0]LogConfig: Applying CVar settings from Section [Startup_IOS] File [../../../Engine/Config/ConsoleVariables.ini]
+[UE] [2025.10.31-04.19.46:097][  0]LogConfig: Applying CVar settings from Section [ConsoleVariables] File [Engine]
+[UE] [2025.10.31-04.19.46:097][  0]LogConfig: CVar [[Slate.CacheRenderData:0]] deferred - dummy variable created
+[UE] [2025.10.31-04.19.46:097][  0]LogConfig: Set CVar [[r.HairStrands.Simulation:0]]
+[UE] [2025.10.31-04.19.46:097][  0]LogConfig: Set CVar [[r.HairStrands.Strands:0]]
+[UE] [2025.10.31-04.19.46:098][  0]LogConfig: Set CVar [[r.HairStrands.Binding:0]]
+[UE] [2025.10.31-04.19.46:098][  0]LogConfig: Set CVar [[r.Forward.LightGridSizeZ:8]]
+[UE] [2025.10.31-04.19.46:098][  0]LogConfig: Set CVar [[r.Forward.MaxCulledLightsPerCell:8]]
+=================================================================
+Main Thread Checker: UI API called on a background thread: -[UIView contentScaleFactor]
+PID: 19011, TID: 10372209, Thread name: (none), Queue name: com.apple.root.default-qos.overcommit, QoS: 0
+Backtrace:
+5   SpiderLily                          0x00000001017e257c _ZN15FDisplayMetrics21RebuildDisplayMetricsERS_ + 88
+6   SpiderLily                          0x000000010792d9f0 _ZN9FAppEntry12PlatformInitEv + 164
+7   SpiderLily                          0x0000000100cf4314 _ZN16FIOSPlatformMisc12PlatformInitEv + 48
+8   SpiderLily                          0x00000001079413b8 _ZN11FEngineLoop23PreInitPreStartupScreenEPKDs + 11928
+9   SpiderLily                          0x000000010792e734 _ZN11FEngineLoop7PreInitEPKDs + 40
+10  SpiderLily                          0x000000010792dce0 _ZN9FAppEntry4InitEv + 376
+11  SpiderLily                          0x00000001017e54d0 -[IOSAppDelegate MainAppThread:] + 292
+12  Foundation                          0x000000018a4ec804 C031896B-2EF1-3D89-966A-0B52D54BCEEE + 481284
+13  libsystem_pthread.dylib             0x0000000215cb3344 _pthread_start + 136
+14  libsystem_pthread.dylib             0x0000000215cb0ab8 thread_start + 8
+Main Thread Checker: UI API called on a background thread: -[UIView contentScaleFactor]
+PID: 19011, TID: 10372209, Thread name: (none), Queue name: com.apple.root.default-qos.overcommit, QoS: 0
+Backtrace:
+5   SpiderLily                          0x00000001017e257c _ZN15FDisplayMetrics21RebuildDisplayMetricsERS_ + 88
+6   SpiderLily                          0x000000010792d9f0 _ZN9FAppEntry12PlatformInitEv + 164
+7   SpiderLily                          0x0000000100cf4314 _ZN16FIOSPlatformMisc12PlatformInitEv + 48
+8   SpiderLily                          0x00000001079413b8 _ZN11FEngineLoop23PreInitPreStartupScreenEPKDs + 11928
+9   SpiderLily                          0x000000010792e734 _ZN11FEngineLoop7PreInitEPKDs + 40
+10  SpiderLily                          0x000000010792dce0 _ZN9FAppEntry4InitEv + 376
+11  SpiderLily                          0x00000001017e54d0 -[IOSAppDelegate MainAppThread:] + 292
+12  Foundation                          0x000000018a4ec804 C031896B-2EF1-3D89-966A-0B52D54BCEEE + 481284
+13  libsystem_pthread.dylib             0x0000000215cb3344 _pthread_start + 136
+14  libsystem_pthread.dylib             0x0000000215cb0ab8 thread_start + 8
+[UE] [2025.10.31-04.19.46:280][  0]LogCsvProfiler: Display: Metadata set : systemresolution.resx="860"
+[UE] [2025.10.31-04.19.46:280][  0]LogCsvProfiler: Display: Metadata set : systemresolution.resy="1864"
+[UE] [2025.10.31-04.19.46:280][  0]LogInit: Computer: localhost
+[UE] [2025.10.31-04.19.46:280][  0]LogInit: User: GenericUser
+[UE] [2025.10.31-04.19.46:280][  0]LogInit: CPU Page size=16384, Cores=6
+[UE] [2025.10.31-04.19.46:280][  0]LogInit: High frequency timer resolution =24.000000 MHz
+[UE] [2025.10.31-04.19.46:280][  0]LogInit: Free Memory at startup: 2980 MB
+[UE] [2025.10.31-04.19.46:287][  0]LogInit: Network path changed
+[UE] [2025.10.31-04.19.46:287][  0]LogInit: Memory total: Physical=3.0GB (6GB approx) Pagefile=1.2GB Virtual=4.2GB
+[UE] [2025.10.31-04.19.46:287][  0]LogCsvProfiler: Display: Metadata set : extradevelopmentmemorymb="0"
+[UE] [2025.10.31-04.19.46:289][  0]LogChaosDD: Chaos Debug Draw Startup
+[UE] [2025.10.31-04.19.46:289][  0]LogInit: Physics initialised using underlying interface: Chaos
+[UE] [2025.10.31-04.19.46:292][  0]LogInit: Using OS detected language (en-US).
+[UE] [2025.10.31-04.19.46:292][  0]LogInit: Using OS detected locale (en-US).
+[UE] [2025.10.31-04.19.46:294][  0]LogTextLocalizationManager: No specific localization for 'en-US' exists, so 'en' will be used for the language.
+[UE] [2025.10.31-04.19.46:343][  0]LogObj: Display: Attempting to load config data for Default__SlateThemeManager before the Class has been constructed/registered/linked (likely during module loading or early startup). This will result in the load silently failing and should be fixed.
+[UE] [2025.10.31-04.19.46:344][  0]LogSlate: New Slate User Created. Platform User Id 0, User Index 0, Is Virtual User: 0
+[UE] [2025.10.31-04.19.46:345][  0]LogSlate: Slate User Registered.  User Index 0, Is Virtual User: 0
+[UE] [2025.10.31-04.19.46:394][  0]LogRHI: Texture pool is 2076 MB (70% of 2966 MB)
+[UE] [2025.10.31-04.19.46:396][  0]LogMetal: Display: Got a bulk data texture, with 1 mips
+[UE] [2025.10.31-04.19.46:396][  0]LogMetal: Display: Got a bulk data texture, with 1 mips
+[UE] [2025.10.31-04.19.46:396][  0]LogMetal: Display: Got a bulk data texture, with 1 mips
+[UE] [2025.10.31-04.19.46:396][  0]LogMetal: Display: Got a bulk data texture, with 1 mips
+[UE] [2025.10.31-04.19.46:396][  0]LogMetal: Display: Got a bulk data texture, with 1 mips
+[UE] [2025.10.31-04.19.46:396][  0]LogMetal: Display: Got a bulk data texture, with 1 mips
+[UE] [2025.10.31-04.19.46:396][  0]LogMetal: Display: Got a bulk data texture, with 1 mips
+[UE] [2025.10.31-04.19.46:407][  0]LogVRS: Current RHI does not support Variable Rate Shading
+[UE] [2025.10.31-04.19.46:409][  0]LogCsvProfiler: Display: Metadata set : verbatimrhiname="Metal"
+[UE] [2025.10.31-04.19.46:409][  0]LogCsvProfiler: Display: Metadata set : rhiname="Metal_ES31"
+[UE] [2025.10.31-04.19.46:409][  0]LogCsvProfiler: Display: Metadata set : rhifeaturelevel="ES3_1"
+[UE] [2025.10.31-04.19.46:409][  0]LogCsvProfiler: Display: Metadata set : shaderplatform="METAL_ES3_1_IOS"
+[UE] [2025.10.31-04.19.46:409][  0]LogInit: Initializing FReadOnlyCVARCache
+[UE] [2025.10.31-04.19.46:415][  0]LogRendererCore: Ray tracing is disabled. Reason: disabled through project setting (r.RayTracing=0).
+[UE] [2025.10.31-04.19.46:416][  0]LogShaderLibrary: Display: Cooked Context: Loaded Native Shared Shader Library Global
+[UE] [2025.10.31-04.19.46:416][  0]LogShaderLibrary: Display: Logical shader library 'Global' has been created as a monolithic library
+[UE] [2025.10.31-04.19.46:416][  0]LogMetal: Display: No .metalmap file found for global_sc_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:417][  0]LogMetal: Display: No .metalmap file found for global_sc_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:417][  0]LogMetal: Display: No .metalmap file found for paper2d_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:417][  0]LogMetal: Display: No .metalmap file found for controlrigmodules_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:417][  0]LogMetal: Display: No .metalmap file found for aclplugin_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:417][  0]LogMetal: Display: No .metalmap file found for chaosvd_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:417][  0]LogMetal: Display: No .metalmap file found for controlrig_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:418][  0]LogMetal: Display: No .metalmap file found for ikrig_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:418][  0]LogMetal: Display: No .metalmap file found for controlrigspline_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:418][  0]LogMetal: Display: No .metalmap file found for tweeningutils_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:418][  0]LogMetal: Display: No .metalmap file found for blueprintheaderview_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:418][  0]LogMetal: Display: No .metalmap file found for riglogic_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:418][  0]LogMetal: Display: No .metalmap file found for animationsharing_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:418][  0]LogMetal: Display: No .metalmap file found for deformergraph_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:418][  0]LogMetal: Display: No .metalmap file found for geometrymode_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:418][  0]LogMetal: Display: No .metalmap file found for skeletalmeshmodelingtools_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:418][  0]LogMetal: Display: No .metalmap file found for lightmixer_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:419][  0]LogMetal: Display: No .metalmap file found for objectmixer_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:419][  0]LogMetal: Display: No .metalmap file found for chaoscaching_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:419][  0]LogMetal: Display: No .metalmap file found for bridge_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:419][  0]LogMetal: Display: No .metalmap file found for namingtokens_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:419][  0]LogMetal: Display: No .metalmap file found for uveditor_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:419][  0]LogMetal: Display: No .metalmap file found for chaosniagara_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:419][  0]LogMetal: Display: No .metalmap file found for speedtreeimporter_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:419][  0]LogMetal: Display: No .metalmap file found for chaossolverplugin_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:420][  0]LogMetal: Display: No .metalmap file found for datasmithcontent_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:420][  0]LogMetal: Display: No .metalmap file found for fullbodyik_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:420][  0]LogMetal: Display: No .metalmap file found for gameplaycameras_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:420][  0]LogMetal: Display: No .metalmap file found for dataflow_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:420][  0]LogMetal: Display: No .metalmap file found for umgwidgetpreview_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:420][  0]LogMetal: Display: No .metalmap file found for geometrycollectionplugin_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:420][  0]LogMetal: Display: No .metalmap file found for editordatastorage_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:420][  0]LogMetal: Display: No .metalmap file found for landmass_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:420][  0]LogMetal: Display: No .metalmap file found for water_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:420][  0]LogMetal: Display: No .metalmap file found for gltfexporter_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:421][  0]LogMetal: Display: No .metalmap file found for geometrydataflow_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:421][  0]LogMetal: Display: No .metalmap file found for waterextras_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:421][  0]LogMetal: Display: No .metalmap file found for niagara_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:421][  0]LogMetal: Display: No .metalmap file found for editordatastoragefeatures_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:421][  0]LogMetal: Display: No .metalmap file found for pythonscriptplugin_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:421][  0]LogMetal: Display: No .metalmap file found for niagarasimcaching_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:421][  0]LogMetal: Display: No .metalmap file found for interchangeassets_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:422][  0]LogMetal: Display: No .metalmap file found for cascade_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:422][  0]LogMetal: Display: No .metalmap file found for metahumansdk_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:422][  0]LogMetal: Display: No .metalmap file found for fab_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:422][  0]LogMetal: Display: No .metalmap file found for toolpresets_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:422][  0]LogMetal: Display: No .metalmap file found for geometryprocessing_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:422][  0]LogMetal: Display: No .metalmap file found for audiowidgets_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:422][  0]LogMetal: Display: No .metalmap file found for hairstrands_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:422][  0]LogMetal: Display: No .metalmap file found for mediacompositing_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:422][  0]LogMetal: Display: No .metalmap file found for sequencerscripting_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:422][  0]LogMetal: Display: No .metalmap file found for propertybindingutils_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:423][  0]LogMetal: Display: No .metalmap file found for metasound_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:423][  0]LogMetal: Display: No .metalmap file found for mediaplate_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:423][  0]LogMetal: Display: No .metalmap file found for statetree_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:423][  0]LogMetal: Display: No .metalmap file found for audiosynesthesia_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:423][  0]LogMetal: Display: No .metalmap file found for resonanceaudio_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:423][  0]LogMetal: Display: No .metalmap file found for commonui_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:423][  0]LogMetal: Display: No .metalmap file found for synthesis_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:423][  0]LogMetal: Display: No .metalmap file found for wavetable_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:423][  0]LogMetal: Display: No .metalmap file found for traceutilities_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:424][  0]LogMetal: Display: No .metalmap file found for gameplaystatetree_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:424][  0]LogMetal: Display: No .metalmap file found for rigvm_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:424][  0]LogMetal: Display: No .metalmap file found for fmodstudio_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:424][  0]LogMetal: Display: No .metalmap file found for fmodstudioniagara_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:424][  0]LogMetal: Display: No .metalmap file found for cameracalibrationcore_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:424][  0]LogMetal: Display: No .metalmap file found for takes_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:424][  0]LogTemp: Display: Clearing the OS Cache
+[UE] [2025.10.31-04.19.46:427][  0]LogInit: FStereoShaderAspects: --- StereoAspects begin ---
+[UE] [2025.10.31-04.19.46:427][  0]LogInit: FStereoShaderAspects: Platform=METAL_ES3_1_IOS (11)
+[UE] [2025.10.31-04.19.46:427][  0]LogInit: FStereoShaderAspects: bInstancedStereo = 0
+[UE] [2025.10.31-04.19.46:427][  0]LogInit: FStereoShaderAspects: bMobilePlatform = 1
+[UE] [2025.10.31-04.19.46:427][  0]LogInit: FStereoShaderAspects: bMobilePostprocessing = 1
+[UE] [2025.10.31-04.19.46:427][  0]LogInit: FStereoShaderAspects: bMobileMultiView = 0
+[UE] [2025.10.31-04.19.46:427][  0]LogInit: FStereoShaderAspects: bMultiViewportCapable = 0
+[UE] [2025.10.31-04.19.46:427][  0]LogInit: FStereoShaderAspects: bInstancedStereoNative = 0
+[UE] [2025.10.31-04.19.46:427][  0]LogInit: FStereoShaderAspects: ---
+[UE] [2025.10.31-04.19.46:427][  0]LogInit: FStereoShaderAspects: bMobileMultiViewCoreSupport = 0
+[UE] [2025.10.31-04.19.46:427][  0]LogInit: FStereoShaderAspects: bMobileMultiViewNative = 0
+[UE] [2025.10.31-04.19.46:427][  0]LogInit: FStereoShaderAspects: bMobileMultiViewFallback = 0
+[UE] [2025.10.31-04.19.46:427][  0]LogInit: FStereoShaderAspects: ---
+[UE] [2025.10.31-04.19.46:427][  0]LogInit: FStereoShaderAspects: bInstancedMultiViewportEnabled = 0
+[UE] [2025.10.31-04.19.46:428][  0]LogInit: FStereoShaderAspects: bInstancedStereoEnabled = 0
+[UE] [2025.10.31-04.19.46:428][  0]LogInit: FStereoShaderAspects: bMobileMultiViewEnabled = 0
+[UE] [2025.10.31-04.19.46:428][  0]LogInit: FStereoShaderAspects: --- StereoAspects end ---
+[UE] [2025.10.31-04.19.46:429][  0]LogInit: XR: Instanced Stereo Rendering is Disabled
+[UE] [2025.10.31-04.19.46:429][  0]LogInit: XR: MultiViewport is Disabled
+[UE] [2025.10.31-04.19.46:429][  0]LogInit: XR: Mobile Multiview is Disabled
+[UE] [2025.10.31-04.19.46:437][  0]LogSlate: Using FreeType 2.10.0
+[UE] [2025.10.31-04.19.46:438][  0]LogSlate: SlateFontServices - WITH_FREETYPE: 1, WITH_HARFBUZZ: 1
+[UE] [2025.10.31-04.19.46:452][  0]LogMetal: Display: No .metalmap file found for paper2d_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:452][  0]LogMetal: Display: No .metalmap file found for aclplugin_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:452][  0]LogMetal: Display: No .metalmap file found for controlrig_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:452][  0]LogMetal: Display: No .metalmap file found for controlrigmodules_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:453][  0]LogMetal: Display: No .metalmap file found for controlrigspline_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:453][  0]LogMetal: Display: No .metalmap file found for deformergraph_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:453][  0]LogMetal: Display: No .metalmap file found for ikrig_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:453][  0]LogMetal: Display: No .metalmap file found for riglogic_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:453][  0]LogMetal: Display: No .metalmap file found for skeletalmeshmodelingtools_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:454][  0]LogMetal: Display: No .metalmap file found for tweeningutils_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:454][  0]LogMetal: Display: No .metalmap file found for bridge_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:454][  0]LogMetal: Display: No .metalmap file found for gameplaycameras_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:454][  0]LogMetal: Display: No .metalmap file found for chaosvd_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:454][  0]LogMetal: Display: No .metalmap file found for animationsharing_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:454][  0]LogMetal: Display: No .metalmap file found for namingtokens_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:455][  0]LogMetal: Display: No .metalmap file found for blueprintheaderview_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:455][  0]LogMetal: Display: No .metalmap file found for geometrymode_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:455][  0]LogMetal: Display: No .metalmap file found for lightmixer_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:455][  0]LogMetal: Display: No .metalmap file found for objectmixer_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:455][  0]LogMetal: Display: No .metalmap file found for speedtreeimporter_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:456][  0]LogMetal: Display: No .metalmap file found for umgwidgetpreview_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:456][  0]LogMetal: Display: No .metalmap file found for uveditor_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:456][  0]LogMetal: Display: No .metalmap file found for datasmithcontent_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:456][  0]LogMetal: Display: No .metalmap file found for gltfexporter_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:456][  0]LogMetal: Display: No .metalmap file found for chaoscaching_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:456][  0]LogMetal: Display: No .metalmap file found for chaosniagara_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:457][  0]LogMetal: Display: No .metalmap file found for chaossolverplugin_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:457][  0]LogMetal: Display: No .metalmap file found for dataflow_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:457][  0]LogMetal: Display: No .metalmap file found for editordatastorage_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:457][  0]LogMetal: Display: No .metalmap file found for editordatastoragefeatures_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:457][  0]LogMetal: Display: No .metalmap file found for fullbodyik_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:458][  0]LogMetal: Display: No .metalmap file found for geometrycollectionplugin_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:458][  0]LogMetal: Display: No .metalmap file found for geometrydataflow_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:458][  0]LogMetal: Display: No .metalmap file found for landmass_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:458][  0]LogMetal: Display: No .metalmap file found for pythonscriptplugin_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:458][  0]LogMetal: Display: No .metalmap file found for toolpresets_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:458][  0]LogMetal: Display: No .metalmap file found for water_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:459][  0]LogMetal: Display: No .metalmap file found for waterextras_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:459][  0]LogMetal: Display: No .metalmap file found for cascade_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:459][  0]LogMetal: Display: No .metalmap file found for niagara_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:459][  0]LogMetal: Display: No .metalmap file found for niagarasimcaching_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:459][  0]LogMetal: Display: No .metalmap file found for fab_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:459][  0]LogMetal: Display: No .metalmap file found for interchangeassets_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:460][  0]LogMetal: Display: No .metalmap file found for mediacompositing_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:460][  0]LogMetal: Display: No .metalmap file found for mediaplate_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:460][  0]LogMetal: Display: No .metalmap file found for metahumansdk_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:460][  0]LogMetal: Display: No .metalmap file found for sequencerscripting_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:460][  0]LogMetal: Display: No .metalmap file found for audiosynesthesia_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:461][  0]LogMetal: Display: No .metalmap file found for audiowidgets_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:461][  0]LogMetal: Display: No .metalmap file found for commonui_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:461][  0]LogMetal: Display: No .metalmap file found for gameplaystatetree_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:461][  0]LogMetal: Display: No .metalmap file found for geometryprocessing_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:461][  0]LogMetal: Display: No .metalmap file found for hairstrands_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:461][  0]LogMetal: Display: No .metalmap file found for metasound_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:462][  0]LogMetal: Display: No .metalmap file found for propertybindingutils_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:462][  0]LogMetal: Display: No .metalmap file found for resonanceaudio_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:462][  0]LogMetal: Display: No .metalmap file found for rigvm_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:462][  0]LogMetal: Display: No .metalmap file found for statetree_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:462][  0]LogMetal: Display: No .metalmap file found for synthesis_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:463][  0]LogMetal: Display: No .metalmap file found for wavetable_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:463][  0]LogMetal: Display: No .metalmap file found for traceutilities_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:463][  0]LogMetal: Display: No .metalmap file found for cameracalibrationcore_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:463][  0]LogMetal: Display: No .metalmap file found for takes_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:463][  0]LogMetal: Display: No .metalmap file found for fmodstudio_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:464][  0]LogMetal: Display: No .metalmap file found for fmodstudioniagara_sf_metal_es3_1_ios-metal_es3_1_ios!
+[UE] [2025.10.31-04.19.46:465][  0]LogShaderLibrary: Display: Cooked Context: Loaded Native Shared Shader Library SpiderLily
+[UE] [2025.10.31-04.19.46:465][  0]LogShaderLibrary: Display: Logical shader library 'SpiderLily' has been created as a monolithic library
+[UE] [2025.10.31-04.19.46:465][  0]LogShaderLibrary: Display: Cooked Context: Loaded Native Shared Shader Library SpiderLily
+[UE] [2025.10.31-04.19.46:465][  0]LogShaderLibrary: Display: Discovered new 0 components for logical shader library 'SpiderLily' (total number of components is now 2)
+[UE] [2025.10.31-04.19.46:465][  0]LogInit: Using OS detected language (en-US).
+[UE] [2025.10.31-04.19.46:465][  0]LogInit: Using OS detected locale (en-US).
+[UE] [2025.10.31-04.19.46:465][  0]LogTextLocalizationManager: No localization for 'en-US' exists, so 'en' will be used for the language.
+[UE] [2025.10.31-04.19.46:465][  0]LogTextLocalizationManager: No localization for 'en-US' exists, so 'en' will be used for the locale.
+[UE] [2025.10.31-04.19.46:465][  0]LogSlate: FontCache flush requested. Reason: Culture for localization was changed
+[UE] [2025.10.31-04.19.46:465][  0]LogSlate: FontCache flush requested. Reason: Culture for localization was changed
+[UE] [2025.10.31-04.19.46:465][  0]LogAssetRegistry: FAssetRegistry took 0.0001 seconds to start up
+=================================================================
+Main Thread Checker: UI API called on a background thread: -[UIView layer]
+PID: 19011, TID: 10372303, Thread name: RenderThread 0, Queue name: com.apple.root.default-qos.overcommit, QoS: 0
+Backtrace:
+5   SpiderLily                          0x000000010a6a9078 _ZN14FMetalViewport18GetDrawableTextureE24EMetalViewportAccessFlag + 136
+6   SpiderLily                          0x000000010a6772b0 _ZN13FMetalSurface18GetDrawableTextureEv + 104
+7   SpiderLily                          0x000000010a6745d4 _ZN16FMetalStateCache17SetRenderPassInfoERK18FRHIRenderPassInfo12TRefCountPtrI17FMetalQueryBufferE + 1252
+8   SpiderLily                          0x000000010a62ff9c _ZN23FMetalRHICommandContext24SetRenderTargetsAndClearERK24FRHISetRenderTargetsInfo + 476
+9   SpiderLily                          0x000000010a62fd68 _ZN23FMetalRHICommandContext16SetRenderTargetsEjPK20FRHIRenderTargetViewPK25FRHIDepthRenderTargetView + 160
+10  SpiderLily                          0x000000010a6aa614 _ZN23FMetalRHICommandContext23RHIBeginDrawingViewportEP12FRHIViewportP11FRHITexture + 132
+11  SpiderLily                          0x00000001025ad3b0 _ZN11FRHICommandI31FRHICommandBeginDrawingViewport41FRHICommandBeginDrawingViewportString2511E18ExecuteAndDestructER19FRHICommandListBase + 228
+12  SpiderLily                          0x000000010258f494 _ZN19FRHICommandListBase7ExecuteEv + 312
+13  SpiderLily                          0x0000000102591d1c _ZN23FRHICommandListExecutor15FTranslateState9TranslateEP19FRHICommandListBase + 184
+14  SpiderLily                          0x00000001025c752c _ZN2UE4Core7Private8Function18TFunctionRefCallerIZN23FRHICommandListExecutor12FSubmitState8DispatchEP19FRHICommandListBaseE3$_0vJEE4CallEPv + 132
+15  SpiderLily                          0x000000010258ff14 _ZNK23FRHICommandListExecutor9FTaskPipe7ExecuteEPNS0_5FTaskERK12TRefCountPtrI14FBaseGraphTaskE + 412
+16  SpiderLily                          0x0000000101011270 _ZN10TGraphTaskI22TFunctionGraphTaskImplIFvN13ENamedThreads4TypeERK12TRefCountPtrI14FBaseGraphTaskEELN16ESubsequentsMode4TypeE0EEE11ExecuteTaskEv + 584
+17  SpiderLily                          0x0000000100ac3658 _ZN2UE5Tasks7Private9FTaskBase14TryExecuteTaskEv + 248
+18  SpiderLily                          0x0000000100ac26c4 _ZN16FNamedTaskThread23ProcessTasksNamedThreadEib + 1512
+19  SpiderLily                          0x0000000100ac0f94 _ZN16FNamedTaskThread21ProcessTasksUntilQuitEi + 148
+20  SpiderLily                          0x0000000100ac5020 _ZN37FTaskGraphCompatibilityImplementation25WaitOnNamedThreadForTasksERK6TArrayI12TRefCountPtrI14FBaseGraphTaskE21TSizedInlineAllocatorILj4ELi32E22TSizedDefaultAllocatorILi32EEEEN13ENamedThreads4TypeESC_ + 1232
+21  SpiderLily                          0x0000000100ac0004 _ZN37FTaskGraphCompatibilityImplementation22WaitUntilTasksCompleteERK6TArrayI12TRefCountPtrI14FBaseGraphTaskE21TSizedInlineAllocatorILj4ELi32E22TSizedDefaultAllocatorILi32EEEEN13ENamedThreads4TypeE + 652
+22  SpiderLily                          0x0000000100b42a60 _ZN19FTaskGraphInterface22WaitUntilTaskCompletesERK12TRefCountPtrI14FBaseGraphTaskEN13ENamedThreads4TypeE + 172
+23  SpiderLily                          0x00000001025943d8 _ZN23FRHICommandListExecutor6SubmitE10TArrayViewIKP19FRHICommandListBaseiE15ERHISubmitFlags + 4752
+24  SpiderLily                          0x000000010259698c _ZN24FRHICommandListImmediate20BeginDrawingViewportEP12FRHIViewportP11FRHITexture + 1024
+25  SpiderLily                          0x0000000104b3b840 _ZN17FSlateRHIRenderer26PresentWindow_RenderThreadER24FRHICommandListImmediateRK26FSlateDrawWindowPassInputsRK27FSlateDrawWindowPassOutputs + 488
+26  SpiderLily                          0x0000000104b3f89c _ZN17FSlateRHIRenderer24DrawWindows_RenderThreadER24FRHICommandListImmediate10TArrayViewIK26FSlateDrawWindowPassInputsiES2_IK26FRenderThreadUpdateContextiE + 1308
+27  SpiderLily                          0x0000000104b82c8c _ZN10TGraphTaskI31TEnqueueUniqueRenderCommandTypeI17TRenderCommandTagIZN17FSlateRHIRenderer19DrawWindows_PrivateER16FSlateDrawBufferE32TSTR_SlateDrawWindowsCommand14
+Main Thread Checker: UI API called on a background thread: -[UIView layer]
+PID: 19011, TID: 10372303, Thread name: RenderThread 0, Queue name: com.apple.root.default-qos.overcommit, QoS: 0
+Backtrace:
+5   SpiderLily                          0x000000010a6a9078 _ZN14FMetalViewport18GetDrawableTextureE24EMetalViewportAccessFlag + 136
+6   SpiderLily                          0x000000010a6772b0 _ZN13FMetalSurface18GetDrawableTextureEv + 104
+7   SpiderLily                          0x000000010a6745d4 _ZN16FMetalStateCache17SetRenderPassInfoERK18FRHIRenderPassInfo12TRefCountPtrI17FMetalQueryBufferE + 1252
+8   SpiderLily                          0x000000010a62ff9c _ZN23FMetalRHICommandContext24SetRenderTargetsAndClearERK24FRHISetRenderTargetsInfo + 476
+9   SpiderLily                          0x000000010a62fd68 _ZN23FMetalRHICommandContext16SetRenderTargetsEjPK20FRHIRenderTargetViewPK25FRHIDepthRenderTargetView + 160
+10  SpiderLily                          0x000000010a6aa614 _ZN23FMetalRHICommandContext23RHIBeginDrawingViewportEP12FRHIViewportP11FRHITexture + 132
+11  SpiderLily                          0x00000001025ad3b0 _ZN11FRHICommandI31FRHICommandBeginDrawingViewport41FRHICommandBeginDrawingViewportString2511E18ExecuteAndDestructER19FRHICommandListBase + 228
+12  SpiderLily                          0x000000010258f494 _ZN19FRHICommandListBase7ExecuteEv + 312
+13  SpiderLily                          0x0000000102591d1c _ZN23FRHICommandListExecutor15FTranslateState9TranslateEP19FRHICommandListBase + 184
+14  SpiderLily                          0x00000001025c752c _ZN2UE4Core7Private8Function18TFunctionRefCallerIZN23FRHICommandListExecutor12FSubmitState8DispatchEP19FRHICommandListBaseE3$_0vJEE4CallEPv + 132
+15  SpiderLily                          0x000000010258ff14 _ZNK23FRHICommandListExecutor9FTaskPipe7ExecuteEPNS0_5FTaskERK12TRefCountPtrI14FBaseGraphTaskE + 412
+16  SpiderLily                          0x0000000101011270 _ZN10TGraphTaskI22TFunctionGraphTaskImplIFvN13ENamedThreads4TypeERK12TRefCountPtrI14FBaseGraphTaskEELN16ESubsequentsMode4TypeE0EEE11ExecuteTaskEv + 584
+17  SpiderLily                          0x0000000100ac3658 _ZN2UE5Tasks7Private9FTaskBase14TryExecuteTaskEv + 248
+18  SpiderLily                          0x0000000100ac26c4 _ZN16FNamedTaskThread23ProcessTasksNamedThreadEib + 1512
+19  SpiderLily                          0x0000000100ac0f94 _ZN16FNamedTaskThread21ProcessTasksUntilQuitEi + 148
+20  SpiderLily                          0x0000000100ac5020 _ZN37FTaskGraphCompatibilityImplementation25WaitOnNamedThreadForTasksERK6TArrayI12TRefCountPtrI14FBaseGraphTaskE21TSizedInlineAllocatorILj4ELi32E22TSizedDefaultAllocatorILi32EEEEN13ENamedThreads4TypeESC_ + 1232
+21  SpiderLily                          0x0000000100ac0004 _ZN37FTaskGraphCompatibilityImplementation22WaitUntilTasksCompleteERK6TArrayI12TRefCountPtrI14FBaseGraphTaskE21TSizedInlineAllocatorILj4ELi32E22TSizedDefaultAllocatorILi32EEEEN13ENamedThreads4TypeE + 652
+22  SpiderLily                          0x0000000100b42a60 _ZN19FTaskGraphInterface22WaitUntilTaskCompletesERK12TRefCountPtrI14FBaseGraphTaskEN13ENamedThreads4TypeE + 172
+23  SpiderLily                          0x00000001025943d8 _ZN23FRHICommandListExecutor6SubmitE10TArrayViewIKP19FRHICommandListBaseiE15ERHISubmitFlags + 4752
+24  SpiderLily                          0x000000010259698c _ZN24FRHICommandListImmediate20BeginDrawingViewportEP12FRHIViewportP11FRHITexture + 1024
+25  SpiderLily                          0x0000000104b3b840 _ZN17FSlateRHIRenderer26PresentWindow_RenderThreadER24FRHICommandListImmediateRK26FSlateDrawWindowPassInputsRK27FSlateDrawWindowPassOutputs + 488
+26  SpiderLily                          0x0000000104b3f89c _ZN17FSlateRHIRenderer24DrawWindows_RenderThreadER24FRHICommandListImmediate10TArrayViewIK26FSlateDrawWindowPassInputsiES2_IK26FRenderThreadUpdateContextiE + 1308
+27  SpiderLily                          0x0000000104b82c8c _ZN10TGraphTaskI31TEnqueueUniqueRenderCommandTypeI17TRenderCommandTagIZN17FSlateRHIRenderer19DrawWindows_PrivateER16FSlateDrawBufferE32TSTR_SlateDrawWindowsCommand14
+[UE] [2025.10.31-04.19.46:999][  0]LogStreaming: Display: FlushAsyncLoading(1): 1 QueuedPackages, 0 AsyncPackages
+[UE] [2025.10.31-04.19.46:999][  0]LogFilePackageStore: Updated: NewPackages=993, OldPackages=0, TotalPackages=994
+[UE] [2025.10.31-04.19.47:003][  0]LogDeviceProfileManager: Display: Deviceprofile LinuxArm64Editor not found.
+[UE] [2025.10.31-04.19.47:003][  0]LogDeviceProfileManager: Display: Deviceprofile LinuxArm64 not found.
+[UE] [2025.10.31-04.19.47:004][  0]LogIOS: Selected Device Profile: [iPhone14ProMax]
+[UE] [2025.10.31-04.19.47:004][  0]LogDeviceProfileManager: Active device profile: [0x128fd9700][0x12a66b6e0 66] iPhone14ProMax
+[UE] [2025.10.31-04.19.47:004][  0]LogCsvProfiler: Display: Metadata set : deviceprofile="iPhone14ProMax"
+[UE] [2025.10.31-04.19.47:031][  0]LogMetal: Display: mmapping ../../../SpiderLily/Content/spiderlily_sf_metal_es3_1_ios-metal_es3_1_ios.0.metallib, 13328906 bytes
+[UE] [2025.10.31-04.19.47:063][  0]LogAudioCaptureCore: Display: No Audio Capture implementations found. Audio input will be silent.
+[UE] [2025.10.31-04.19.47:065][  0]LogMetaSound: Display: MetaSound Page Target Initialized to 'Default'
+[UE] [2025.10.31-04.19.47:067][  0]LogPackageLocalizationCache: Processed 67 localized package path(s) for 1 prioritized culture(s) in 0.000269 seconds
+[UE] [2025.10.31-04.19.47:069][  0]LogStats: UGameplayTagsManager::InitializeManager -  0.000 s
+[UE] [2025.10.31-04.19.47:074][  0]LogAudioCaptureCore: Display: No Audio Capture implementations found. Audio input will be silent.
+[UE] [2025.10.31-04.19.47:078][  0]LogIris: FNetObjectFactoryRegistry::UnregisterFactory is unregistering factory: NetActorFactory name: NetActorFactory id: 0
+[UE] [2025.10.31-04.19.47:078][  0]LogIris: FNetObjectFactoryRegistry::UnregisterFactory is unregistering factory: NetSubObjectFactory name: NetSubObjectFactory id: 1
+[UE] [2025.10.31-04.19.47:079][  0]LogMoviePlayer: FAVMoviePlayer ctor...
+[UE] [2025.10.31-04.19.47:079][  0]LogMoviePlayer: Initializing movie player
+[UE] [2025.10.31-04.19.47:082][  0]LogNiagaraDebuggerClient: Niagara Debugger Client Initialized | Session: 70701509BBA44F40800000000000AF00 | Instance: C9055CF03E45113363190C80B551A243 (localhost-0).
+[UE] [2025.10.31-04.19.47:112][  0]LogAudio: Display: Registering Engine Module Parameter Interfaces...
+[UE] [2025.10.31-04.19.47:113][  0]LogMetaSound: MetaSound Engine Initialized
+[UE] [2025.10.31-04.19.47:113][  0]LogFMOD: FFMODStudioModule startup
+[UE] [2025.10.31-04.19.47:113][  0]LogFMOD: Lib path = '../../../SpiderLily/Plugins/FMODStudio/Binaries'
+[UE] [2025.10.31-04.19.47:113][  0]LogFMOD: Display: Loaded bank lookup
+[UE] [2025.10.31-04.19.47:113][  0]LogFMOD: Display: Loaded asset lookup
+[UE] [2025.10.31-04.19.47:115][  0]LogFMOD: Default sample rate = 24000
+[UE] [2025.10.31-04.19.47:115][  0]LogFMOD: System sample rate = 48000
+[UE] [2025.10.31-04.19.47:115][  0]LogFMOD: CallbackHandler not set.
+[UE] [2025.10.31-04.19.48:192][  0]LogFMOD: Warning: /opt/teamcity-agent/work/c1c3f17eb167c494/core_api/platforms/ios/src/fmod_output_coreaudio.mm(216) - DSP buffer size * DSP num buffers is potentially too small.
+[UE] [2025.10.31-04.19.48:283][  0]LogFMOD: Error: /opt/teamcity-agent/work/c1c3f17eb167c494/studio_api/src/fmod_bankmodel.cpp(256) - Failed to open file '../../../SpiderLily/Content/FMOD/Mobile/Master.bank'
+[UE] [2025.10.31-04.19.48:283][  0]LogFMOD: Error: /opt/teamcity-agent/work/c1c3f17eb167c494/studio_api/src/fmod_bankmodel.cpp(256) - Failed to open file '../../../SpiderLily/Content/FMOD/Mobile/Master.strings.bank'
+[UE] [2025.10.31-04.19.48:304][  0]LogFMOD: Warning: Failed to load bank: ../../../SpiderLily/Content/FMOD/Mobile/Master.bank (File does not exist)
+[UE] [2025.10.31-04.19.48:304][  0]LogFMOD: Warning: Failed to load bank: ../../../SpiderLily/Content/FMOD/Mobile/Master.strings.bank (File does not exist)
+[UE] [2025.10.31-04.19.48:317][  0]LogAndroidPermission: UAndroidPermissionCallbackProxy::GetInstance
+[UE] [2025.10.31-04.19.48:326][  0]LogUObjectArray: 26754 objects as part of root set at end of initial load.
+[UE] [2025.10.31-04.19.48:326][  0]LogUObjectArray: 4 objects are not in the root set, but can never be destroyed because they are in the DisregardForGC set.
+[UE] [2025.10.31-04.19.48:326][  0]LogUObjectArray: CloseDisregardForGC: 26754/26754 objects in disregard for GC pool
+Initializing ULD Communications in game mode
+[UE] [2025.10.31-04.19.48:335][  0]LogEngine: Initializing Engine...
+[UE] [2025.10.31-04.19.48:343][  0]LogNetVersion: Set ProjectVersion to 1.0.0.230. Version Checksum will be recalculated on next use.
+[UE] [2025.10.31-04.19.48:343][  0]LogInit: Texture streaming: Enabled
+[UE] [2025.10.31-04.19.48:344][  0]LogAudio: Display: Initializing Audio Device Manager...
+[UE] [2025.10.31-04.19.48:344][  0]LogAudio: Display: Loading Default Audio Settings Objects...
+[UE] [2025.10.31-04.19.48:344][  0]LogAudio: Display: No default SoundConcurrencyObject specified (or failed to load).
+[UE] [2025.10.31-04.19.48:344][  0]LogAudio: Display: Audio Device Manager Initialized
+[UE] [2025.10.31-04.19.48:344][  0]LogAudio: Display: Creating Audio Device:                 Id: 1, Scope: Shared, Realtime: True
+[UE] [2025.10.31-04.19.48:345][  0]LogAudioMixer: Display: Audio Mixer Platform Settings:
+[UE] [2025.10.31-04.19.48:345][  0]LogAudioMixer: Display: 	Sample Rate:						  48000
+[UE] [2025.10.31-04.19.48:345][  0]LogAudioMixer: Display: 	Callback Buffer Frame Size Requested: 1024
+[UE] [2025.10.31-04.19.48:345][  0]LogAudioMixer: Display: 	Callback Buffer Frame Size To Use:	  1024
+[UE] [2025.10.31-04.19.48:345][  0]LogAudioMixer: Display: 	Number of buffers to queue:			  2
+[UE] [2025.10.31-04.19.48:346][  0]LogAudioMixer: Display: 	Max Channels (voices):				  32
+[UE] [2025.10.31-04.19.48:346][  0]LogAudioMixer: Display: 	Number of Async Source Workers:		  0
+[UE] [2025.10.31-04.19.48:346][  0]LogAudio: Display: AudioDevice MaxSources: 32
+[UE] [2025.10.31-04.19.48:346][  0]LogAudio: Display: Audio Spatialization Plugin: None (built-in).
+[UE] [2025.10.31-04.19.48:346][  0]LogAudio: Display: Audio Reverb Plugin: None (built-in).
+[UE] [2025.10.31-04.19.48:346][  0]LogAudio: Display: Audio Occlusion Plugin: None (built-in).
+[UE] [2025.10.31-04.19.48:385][  0]LogAudioMixerAudioUnit: Display: Device Sample Rate: 48000.000000
+[UE] [2025.10.31-04.19.48:385][  0]LogAudioMixerAudioUnit: Display: Bytes per submitted buffer: 8192
+[UE] [2025.10.31-04.19.48:389][  0]LogAudioMixer: Display: Initializing audio mixer using platform API: 'AudioUnit'
+[UE] [2025.10.31-04.19.48:389][  0]LogAudioMixerAudioUnit: Display: Growing iOS circular buffer to 16384 bytes.
+[UE] [2025.10.31-04.19.48:391][  0]LogAudioMixer: Display: Using Audio Hardware Device Unknown
+[UE] [2025.10.31-04.19.48:394][  0]LogAudioMixer: Display: Initializing Sound Submixes...
+[UE] [2025.10.31-04.19.48:394][  0]LogAudioMixer: Display: Creating Master Submix 'MasterSubmixDefault'
+[UE] [2025.10.31-04.19.48:394][  0]LogAudioMixer: Display: Creating Master Submix 'MasterReverbSubmixDefault'
+[UE] [2025.10.31-04.19.48:395][  0]LogAudioMixer: Display: Output buffers initialized: Frames=1024, Channels=2, Samples=2048, InstanceID=1
+[UE] [2025.10.31-04.19.48:397][  0]LogAudioMixer: Display: Starting AudioMixerPlatformInterface::RunInternal(), InstanceID=1
+[UE] [2025.10.31-04.19.48:397][  0]LogInit: FAudioDevice initialized with ID 1.
+[UE] [2025.10.31-04.19.48:398][  0]LogAudioMixer: Initializing Audio Bus Subsystem for audio device with ID 1
+[UE] [2025.10.31-04.19.48:398][  0]LogCsvProfiler: Display: Metadata set : largeworldcoordinates="1"
+[UE] [2025.10.31-04.19.48:407][  0]LogChaosDD: Creating Chaos Debug Draw Scene for world Untitled
+[UE] [2025.10.31-04.19.48:414][  0]LogAudio: Display: Audio Device (ID: 1) registered with world 'Untitled'.
+[UE] [2025.10.31-04.19.48:414][  0]LogSlate: Updating window title bar state: overlay mode, drag disabled, window buttons hidden, title bar hidden
+[UE] [2025.10.31-04.19.48:415][  0]LogUIActionRouter: Display: Found 0 derived classes when attemping to create action router (CommonUIActionRouterBase)
+[UE] [2025.10.31-04.19.48:415][  0]LogUIActionRouter: Error: Using CommonUI without a CommonGameViewportClient derived game viewport client. CommonUI Input routing will not function correctly.
+To disable this warning set CommonUI.Debug.CheckGameViewportClientValid=0 under [SystemSettings] in your project's DefaultEngine.ini.
+[UE] [2025.10.31-04.19.48:415][  0]LogInit: Display: Game Engine Initialized.
+[UE] [2025.10.31-04.19.48:420][  0]LogInit: Display: Starting Game.
+[UE] [2025.10.31-04.19.48:420][  0]LogGlobalStatus: Browse Started Browse: "/Game/Levels/L_VerticalSlice_Demo?Name=Player"
+[UE] [2025.10.31-04.19.48:420][  0]LogNet: Browse: /Game/Levels/L_VerticalSlice_Demo?Name=Player
+[UE] [2025.10.31-04.19.48:420][  0]LogLoad: LoadMap: /Game/Levels/L_VerticalSlice_Demo?Name=Player
+[UE] [2025.10.31-04.19.48:420][  0]LogWorld: BeginTearingDown for /Temp/Untitled_0
+[UE] [2025.10.31-04.19.48:420][  0]LogWorld: UWorld::CleanupWorld for Untitled, bSessionEnded=true, bCleanupResources=true
+[UE] [2025.10.31-04.19.48:420][  0]LogSlate: InvalidateAllWidgets triggered.  All widgets were invalidated
+[UE] [2025.10.31-04.19.48:426][  0]LogAudio: Display: Audio Device unregistered from world 'None'.
+[UE] [2025.10.31-04.19.48:427][  0]LogUObjectHash: Compacting FUObjectHashTables data took   0.40ms
+[UE] [2025.10.31-04.19.48:476][  0]LogMaterial: Error: Loading a material resource None with an invalid ShaderMap!
+[UE] [2025.10.31-04.19.48:476][  0]LogMaterial: Error: Tried to access an uncooked shader map ID in a cooked application
+[UE] [2025.10.31-04.19.48:476][  0]LogMaterial: Warning: Invalid shader map ID caching shaders for 'M_FishHealth_PP', will use default material.
+[UE] [2025.10.31-04.19.48:476][  0]LogMaterial: Can't compile M_FishHealth_PP with cooked content, will use default material instead
+[UE] [2025.10.31-04.19.48:476][  0]LogMaterial: Warning: [AssetLog] /var/mobile/Containers/Data/Application/EF19A4BF-534B-464F-9659-7C48B24D6BBF/Documents/SpiderLily/Content/LIB/Characters/Player/PostProcess/M_FishHealth_PP: Failed to compile Material for platform SF_METAL_ES3_1_IOS, Default Material will be used in game.
+[UE] [2025.10.31-04.19.48:486][  0]LogAudio: Display: Audio Device (ID: 1) registered with world 'L_VerticalSlice_Demo'.
+[UE] [2025.10.31-04.19.48:486][  0]LogChaosDD: Creating Chaos Debug Draw Scene for world L_VerticalSlice_Demo
+[UE] [2025.10.31-04.19.48:488][  0]LogLoad: Game class is 'BP_SpiderLily_GameMode_C'
+[UE] [2025.10.31-04.19.48:488][  0]LogStreaming: Display: ULevelStreaming::RequestLevel(/Game/Levels/L_VerticalSlice_Demo_Lighting) is flushing async loading
+[UE] [2025.10.31-04.19.48:488][  0]LogMaterial: Error: Loading a material resource None with an invalid ShaderMap!
+[UE] [2025.10.31-04.19.48:488][  0]LogMaterial: Error: Tried to access an uncooked shader map ID in a cooked application
+[UE] [2025.10.31-04.19.48:488][  0]LogMaterial: Warning: Invalid shader map ID caching shaders for 'CelShadePP_Mat', will use default material.
+[UE] [2025.10.31-04.19.48:488][  0]LogMaterial: Can't compile CelShadePP_Mat with cooked content, will use default material instead
+[UE] [2025.10.31-04.19.48:488][  0]LogMaterial: Warning: [AssetLog] /var/mobile/Containers/Data/Application/EF19A4BF-534B-464F-9659-7C48B24D6BBF/Documents/SpiderLily/Content/Developers/yueha/FX/CelShadePP_Mat: Failed to compile Material for platform SF_METAL_ES3_1_IOS, Default Material will be used in game.
+[UE] [2025.10.31-04.19.48:501][  0]LogMetal: Display: Got a bulk data texture, with 1 mips
+[UE] [2025.10.31-04.19.48:523][  0]LogWorld: Bringing World /Game/Levels/L_VerticalSlice_Demo.L_VerticalSlice_Demo up for play (max tick rate 0) at 2025.10.30-21.19.48
+[UE] [2025.10.31-04.19.48:526][  0]LogWorld: Bringing up level for play took: 0.022474
+[UE] [2025.10.31-04.19.48:532][  0]LogStreaming: Warning: Failed to read file '../../../SpiderLily/Saved/SaveGames/MainSave.sav' error.
+[UE] [2025.10.31-04.19.48:534][  0]LogScript: Warning: Script Msg: Attempted to access index 0 from array 'CallFunc_GetComponentsByInterface_ReturnValue' of length 0 in '/Game/LIB/Characters/Player/BP_Player.BP_Player_C:ExecuteUbergraph_BP_Player'!
+[UE] [2025.10.31-04.19.48:534][  0]LogScript: Warning: Script Msg called by: BP_Player_C /Game/Levels/L_VerticalSlice_Demo.L_VerticalSlice_Demo:PersistentLevel.BP_Player_C_2147482336
+[UE] [2025.10.31-04.19.48:535][  0]LogScript: Warning: Script Msg: Attempted to access index 0 from array 'CallFunc_GetComponentsByInterface_ReturnValue' of length 0 in '/Game/LIB/Characters/Player/BP_Player.BP_Player_C:ExecuteUbergraph_BP_Player'!
+[UE] [2025.10.31-04.19.48:535][  0]LogScript: Warning: Script Msg called by: BP_Player_C /Game/Levels/L_VerticalSlice_Demo.L_VerticalSlice_Demo:PersistentLevel.BP_Player_C_2147482336
+[UE] [2025.10.31-04.19.48:535][  0]LogLoad: Took 0.114897 seconds to LoadMap(/Game/Levels/L_VerticalSlice_Demo)
+[UE] [2025.10.31-04.19.48:535][  0]LogGlobalStatus: LoadMap Load map complete /Game/Levels/L_VerticalSlice_Demo
+[UE] [2025.10.31-04.19.48:545][  0]LogSlate: Took 0.000416 seconds to synchronously load lazily loaded font '../../../Engine/Content/Slate/Fonts/Roboto-Regular.ttf' (155K)
+[UE] [2025.10.31-04.19.48:546][  0]LogRHI: Display: ShaderPipelineCache: Paused Batching. 1
+[UE] [2025.10.31-04.19.48:546][  0]LogPakFile: AllPaks IndexSizes: DirectoryHashSize=32, PathHashSize=16, EntriesSize=32752, DirTreeIndexSize=175796, TotalSize=208596
+[UE] [2025.10.31-04.19.48:546][  0]LogRHI: Display: ShaderPipelineCache: Resumed Batching. 0
+[UE] [2025.10.31-04.19.48:546][  0]LogRHI: Display: ShaderPipelineCache: Batching Resumed.
+[UE] [2025.10.31-04.19.48:565][  0]LogMetal: Display: mmapping ../../../SpiderLily/Content/global_sf_metal_es3_1_ios-metal_es3_1_ios.0.metallib, 16035400 bytes
+[UE] [2025.10.31-04.19.48:565][  0]LogInit: Display: Engine is initialized. Leaving FEngineLoop::Init()
+[UE] [2025.10.31-04.19.48:565][  0]LogTemp: Display: Initializing TCPConsoleListener.
+[UE] [2025.10.31-04.19.48:568][  0]LogIOS:  FSocketSubsystemIOS::InternalBSDSocketFactory
+[UE] [2025.10.31-04.19.48:574][  0]LogContentStreaming: Texture pool size now 1000 MB
+[UE] [2025.10.31-04.19.48:574][  0]LogCsvProfiler: Display: Metadata set : streamingpoolsizemb="1000"
+[UE] [2025.10.31-04.19.48:579][  0]LogSlate: InvalidateAllWidgets triggered.  All widgets were invalidated
+[UE] [2025.10.31-04.19.48:950][  0]LogFMOD: Warning: /opt/teamcity-agent/work/c1c3f17eb167c494/core_api/src/fmod_output.cpp(1880) - Buffer starvation detected, requested 8192 bytes, 4096 / 16384 bytes available.
+[UE] [2025.10.31-04.19.48:950][  0]LogAudioMixer: Display: Audio Buffer Underrun (starvation) detected. InstanceID=1
+[UE] [2025.10.31-04.19.48:950][  0]LogFMOD: Warning: /opt/teamcity-agent/work/c1c3f17eb167c494/core_api/src/fmod_output.cpp(1880) - Buffer starvation detected, requested 8192 bytes, 4096 / 16384 bytes available.
+[UE] [2025.10.31-04.19.49:006][  0]LogMetal: Display: Got a bulk data texture, with 1 mips
+[UE] [2025.10.31-04.19.49:021][  0]LogSlate: Slate font cache was flushed
+[UE] [2025.10.31-04.19.49:022][  0]LogSlate: InvalidateAllWidgets triggered.  All widgets were invalidated
+[UE] [2025.10.31-04.19.49:022][  0]LogTrace: Display: Control listening on port 1985
+[UE] [2025.10.31-04.19.49:032][  1]LogSlate: Took 0.000418 seconds to synchronously load lazily loaded font '../../../Engine/Content/Slate/Fonts/Roboto-Regular.ttf' (155K)
