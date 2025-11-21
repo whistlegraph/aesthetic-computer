@@ -1884,13 +1884,13 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
   if (scale !== 1) {
     let angle = 0;
     let anchor;
-    let width, height;
+    let tWidth, tHeight;
     let crop; // 🎨 Support crop parameter for ImageBitmap
 
     if (typeof scale === "object") {
       angle = scale.angle;
-      width = scale.width;
-      height = scale.height;
+      tWidth = scale.width;
+      tHeight = scale.height;
       anchor = scale.anchor;
       crop = scale.crop; // 🎨 Extract crop from transform object
       // ^ Pull properties out of the scale object.
@@ -1900,8 +1900,8 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
     // Fast path for simple integer scaling (no rotation, no custom dimensions)
     if (
       !angle &&
-      !width &&
-      !height &&
+      !tWidth &&
+      !tHeight &&
       !anchor &&
       typeof scale === "number" &&
       scale > 0 &&
@@ -1962,36 +1962,139 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
     }
 
     // 🎨 Special case: ImageBitmap with crop - convert to buffer with crop
-    const isImageBitmap = typeof ImageBitmap !== "undefined" && from instanceof ImageBitmap;
+    let isImageBitmap = typeof ImageBitmap !== "undefined" && from instanceof ImageBitmap;
     if (isImageBitmap && crop) {
       // Extract pixels from ImageBitmap and create a cropped buffer object
       const pixels = ensureBufferPixels(from);
       if (pixels) {
-        // Create buffer object with crop metadata
+        // Convert to simple buffer to share logic with regular buffer path
+        from = { width: from.width, height: from.height, pixels };
+        isImageBitmap = false; // Allow fall-through to next block
+      } else {
+        console.warn("🎨 Failed to extract pixels from ImageBitmap for cropping");
+        return; // Can't proceed without pixels
+      }
+    }
+
+    // 🎨 Special case: Regular buffer with crop
+    if (!isImageBitmap && crop && from && from.width && from.height) {
+      const sourcePixels = from.pixels || (from.painting && from.painting.pixels);
+      
+      if (sourcePixels) {
+        // Ensure crop parameters are integers for pixel manipulation
+        const cX = Math.floor(crop.x);
+        const cY = Math.floor(crop.y);
+        const cW = Math.floor(crop.w);
+        const cH = Math.floor(crop.h);
+
+        // Create a new buffer for the cropped area
+        // We must copy the pixels because grid() expects a packed buffer matching width/height
+        const croppedPixels = new Uint8ClampedArray(cW * cH * 4);
+        const srcWidth = from.width;
+        
+        for (let y = 0; y < cH; y++) {
+          const srcY = cY + y;
+          if (srcY >= 0 && srcY < from.height) {
+             const srcRowStart = (srcY * srcWidth + cX) * 4;
+             const rowLength = cW * 4;
+             
+             // Calculate valid copy range
+             // We need to handle cases where crop.x is negative or extends beyond width
+             let startOffset = 0;
+             let copyLength = rowLength;
+             let srcStart = srcRowStart;
+             
+             if (cX < 0) {
+               startOffset = -cX * 4;
+               copyLength -= startOffset;
+               srcStart = (srcY * srcWidth) * 4; // Start from beginning of row
+             }
+             
+             if (cX + cW > srcWidth) {
+               copyLength -= (cX + cW - srcWidth) * 4;
+             }
+             
+             if (copyLength > 0 && srcStart < sourcePixels.length) {
+                 const row = sourcePixels.subarray(srcStart, srcStart + copyLength);
+                 // Ensure we don't write out of bounds
+                 if (y * rowLength + startOffset + row.length <= croppedPixels.length) {
+                    croppedPixels.set(row, y * rowLength + startOffset);
+                 }
+             }
+          }
+        }
+        
         const croppedBuffer = {
-          width: from.width,
-          height: from.height,
-          pixels: pixels,
-          crop: crop
+            width: cW,
+            height: cH,
+            pixels: croppedPixels
         };
         
-        // If scaling is needed, use grid()
-        if (width || height || (typeof scale === 'number' && scale !== 1) || angle) {
-          grid(
+        // Destination-based scaling for cropped buffers (fixes downscaling gaps)
+        const targetW = tWidth || (scale && typeof scale === 'number' ? Math.floor(cW * scale) : cW);
+        const targetH = tHeight || (scale && typeof scale === 'number' ? Math.floor(cH * scale) : cH);
+        
+        if ((targetW !== cW || targetH !== cH) && !angle) {
+             const scaleX = cW / targetW;
+             const scaleY = cH / targetH;
+             
+             // Pre-calculate bounds
+             const startY = Math.max(0, -destY);
+             const endY = Math.min(targetH, height - destY);
+             const startX = Math.max(0, -destX);
+             const endX = Math.min(targetW, width - destX);
+             
+             for (let dy = startY; dy < endY; dy++) {
+                 const srcY = Math.floor(dy * scaleY);
+                 const destRowY = destY + dy;
+                 const destRowStart = destRowY * width * 4;
+                 
+                 for (let dx = startX; dx < endX; dx++) {
+                     const destColX = destX + dx;
+                     const srcX = Math.floor(dx * scaleX);
+                     const srcIdx = (srcY * cW + srcX) * 4;
+                     const destIdx = destRowStart + destColX * 4;
+                     
+                     // Blend pixel
+                     const sA = croppedPixels[srcIdx + 3];
+                     if (sA > 0) {
+                         const sR = croppedPixels[srcIdx];
+                         const sG = croppedPixels[srcIdx + 1];
+                         const sB = croppedPixels[srcIdx + 2];
+                         
+                         if (sA === 255) {
+                             pixels[destIdx] = sR;
+                             pixels[destIdx + 1] = sG;
+                             pixels[destIdx + 2] = sB;
+                             pixels[destIdx + 3] = 255;
+                         } else {
+                             // Alpha blend
+                             const dA = pixels[destIdx + 3];
+                             const alpha = sA + 1;
+                             const invAlpha = 256 - alpha;
+                             pixels[destIdx] = (alpha * sR + invAlpha * pixels[destIdx]) >> 8;
+                             pixels[destIdx + 1] = (alpha * sG + invAlpha * pixels[destIdx + 1]) >> 8;
+                             pixels[destIdx + 2] = (alpha * sB + invAlpha * pixels[destIdx + 2]) >> 8;
+                             pixels[destIdx + 3] = Math.min(255, dA + sA);
+                         }
+                     }
+                 }
+             }
+             return;
+        }
+        
+        if (tWidth || tHeight || (typeof scale === 'number' && scale !== 1) || angle) {
+             grid(
             {
-              box: { x: destX, y: destY, w: crop.w, h: crop.h },
-              transform: { scale, angle, width, height, anchor },
+              box: { x: destX, y: destY, w: cW, h: cH },
+              transform: { scale, angle, width: tWidth, height: tHeight, anchor },
             },
             croppedBuffer,
           );
         } else {
-          // For 1:1 paste, use the existing crop handling code path
-          paste(croppedBuffer, destX, destY, 1, blit);
+             paste(croppedBuffer, destX, destY, 1, blit);
         }
         return;
-      } else {
-        console.warn("🎨 Failed to extract pixels from ImageBitmap for cropping");
-        return; // Can't proceed without pixels
       }
     }
 
@@ -2000,7 +2103,7 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
       grid(
         {
           box: { x: destX, y: destY, w: from.width, h: from.height },
-          transform: { scale, angle, width, height, anchor },
+          transform: { scale, angle, width: tWidth, height: tHeight, anchor },
         },
         from,
       );
