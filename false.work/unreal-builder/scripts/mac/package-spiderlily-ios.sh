@@ -53,51 +53,56 @@ fix_fmod_headers() {
     fi
 }
 
+# Function to patch Xcode project with team ID
+patch_xcode_project() {
+    echo "🔧 Patching Xcode project with team ID..."
+    local xcode_project="$PROJECT_ROOT/Intermediate/ProjectFilesIOS/SpiderLily (IOS).xcodeproj/project.pbxproj"
+    
+    if [ -f "$xcode_project" ]; then
+        # Add DEVELOPMENT_TEAM to all build configurations
+        sed -i.bak 's/CODE_SIGN_IDENTITY = "iPhone Developer";/CODE_SIGN_IDENTITY = "iPhone Developer";\n\t\t\t\tDEVELOPMENT_TEAM = F7G74Z35B8;/g' "$xcode_project"
+        sed -i.bak2 's/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Automatic;\n\t\t\t\tDEVELOPMENT_TEAM = F7G74Z35B8;/g' "$xcode_project"
+        
+        # Verify the patch worked
+        if grep -q "DEVELOPMENT_TEAM = F7G74Z35B8" "$xcode_project"; then
+            echo "  ✓ Xcode project patched with Team ID F7G74Z35B8"
+        else
+            echo "  ⚠️  Warning: Could not verify team ID in Xcode project"
+        fi
+    else
+        echo "  ⚠️  Warning: Xcode project not found at $xcode_project"
+    fi
+}
+
 # Determine build flags based on build type
 if [ "$BUILD_TYPE" = "simulator" ]; then
     echo "🔧 Building for iOS Simulator..."
     PLATFORM_FLAGS="-platform=IOS -cookflavor=Multi -device=IOS_Simulator"
     EXPECTED_STAGED_PATH="$PROJECT_ROOT/Saved/StagedBuilds/IOS_Simulator/SpiderLily.app"
-    # Simulator doesn't need provisioning, just ad-hoc signing
-    CODE_SIGN_FLAGS="-codesigningidentity=- -bundlename=com.falsework.SpiderLily"
+    # Simulator uses ad-hoc signing
+    SIGNING_IDENTITY="-"
+    BUNDLE_NAME="work.false.SpiderLily"
+    PROVISION_UUID=""
 else
     echo "🔧 Building for iOS Device..."
     PLATFORM_FLAGS="-platform=IOS -device=IOS"
     EXPECTED_STAGED_PATH="$PROJECT_ROOT/Saved/StagedBuilds/IOS/SpiderLily.app"
-    # Device builds need proper signing (will fail without provisioning profile)
-    CODE_SIGN_FLAGS="-bundlename=com.falsework.SpiderLily"
+    # Device builds use proper signing with Apple Development certificate and provisioning profile
+    SIGNING_IDENTITY="Apple Development: make@false.work (7F4BYG5WCH)"
+    BUNDLE_NAME="work.false.SpiderLily"
+    PROVISION_UUID=""  # Empty to allow automatic provisioning
 fi
 
 # Run Unreal Automation Tool to build and package
 echo "🚀 Running BuildCookRun (attempt 1)..."
-"$UAT" BuildCookRun \
-    -project="$PROJECT_FILE" \
-    $PLATFORM_FLAGS \
-    $CODE_SIGN_FLAGS \
-    -clientconfig=Development \
-    -serverconfig=Development \
-    -cook \
-    -allmaps \
-    -build \
-    -stage \
-    -pak \
-    -archive \
-    -archivedirectory="$OUTPUT_DIR" \
-    -noP4 \
-    -utf8output 2>&1 | tee /tmp/build_ios.log
-
-# Check if it failed with FMOD bug
-if grep -q "allbackHandler.h" /tmp/build_ios.log; then
-    echo ""
-    echo "⚠️  Detected FMOD header bug, applying fix and retrying..."
-    fix_fmod_headers
-    
-    echo ""
-    echo "🚀 Running BuildCookRun (attempt 2)..."
+if [ -n "$PROVISION_UUID" ]; then
+    # Device build with provisioning profile
     "$UAT" BuildCookRun \
         -project="$PROJECT_FILE" \
         $PLATFORM_FLAGS \
-        $CODE_SIGN_FLAGS \
+        -codesigningidentity="$SIGNING_IDENTITY" \
+        -bundlename="$BUNDLE_NAME" \
+        -provision="$PROVISION_UUID" \
         -clientconfig=Development \
         -serverconfig=Development \
         -cook \
@@ -108,7 +113,119 @@ if grep -q "allbackHandler.h" /tmp/build_ios.log; then
         -archive \
         -archivedirectory="$OUTPUT_DIR" \
         -noP4 \
-        -utf8output
+        -utf8output 2>&1 | tee /tmp/build_ios.log
+else
+    # Simulator build (no provisioning profile needed)
+    "$UAT" BuildCookRun \
+        -project="$PROJECT_FILE" \
+        $PLATFORM_FLAGS \
+        -codesigningidentity="$SIGNING_IDENTITY" \
+        -bundlename="$BUNDLE_NAME" \
+        -clientconfig=Development \
+        -serverconfig=Development \
+        -cook \
+        -allmaps \
+        -build \
+        -stage \
+        -pak \
+        -archive \
+        -archivedirectory="$OUTPUT_DIR" \
+        -noP4 \
+        -utf8output 2>&1 | tee /tmp/build_ios.log
+fi
+
+# Check if it failed with FMOD bug
+if grep -q "allbackHandler.h" /tmp/build_ios.log; then
+    echo ""
+    echo "⚠️  Detected FMOD header bug, applying fix and retrying..."
+    fix_fmod_headers
+    
+    echo ""
+    echo "🚀 Running BuildCookRun (attempt 2)..."
+    if [ -n "$PROVISION_UUID" ]; then
+        # Device build with provisioning profile
+        "$UAT" BuildCookRun \
+            -project="$PROJECT_FILE" \
+            $PLATFORM_FLAGS \
+            -codesigningidentity="$SIGNING_IDENTITY" \
+            -bundlename="$BUNDLE_NAME" \
+            -provision="$PROVISION_UUID" \
+            -clientconfig=Development \
+            -serverconfig=Development \
+            -cook \
+            -allmaps \
+            -build \
+            -stage \
+            -pak \
+            -archive \
+            -archivedirectory="$OUTPUT_DIR" \
+            -noP4 \
+            -utf8output
+    else
+        # Simulator build (no provisioning profile needed)
+        "$UAT" BuildCookRun \
+            -project="$PROJECT_FILE" \
+            $PLATFORM_FLAGS \
+            -codesigningidentity="$SIGNING_IDENTITY" \
+            -bundlename="$BUNDLE_NAME" \
+            -clientconfig=Development \
+            -serverconfig=Development \
+            -cook \
+            -allmaps \
+            -build \
+            -stage \
+            -pak \
+            -archive \
+            -archivedirectory="$OUTPUT_DIR" \
+            -noP4 \
+            -utf8output
+    fi
+fi
+
+# Check if it failed with team signing error
+if grep -q "requires a development team" /tmp/build_ios.log; then
+    echo ""
+    echo "⚠️  Detected team signing error, patching Xcode project and retrying..."
+    patch_xcode_project
+    
+    echo ""
+    echo "🚀 Running BuildCookRun (attempt 3)..."
+    if [ -n "$PROVISION_UUID" ]; then
+        # Device build with provisioning profile
+        "$UAT" BuildCookRun \
+            -project="$PROJECT_FILE" \
+            $PLATFORM_FLAGS \
+            -codesigningidentity="$SIGNING_IDENTITY" \
+            -bundlename="$BUNDLE_NAME" \
+            -provision="$PROVISION_UUID" \
+            -clientconfig=Development \
+            -serverconfig=Development \
+            -skipcook \
+            -build \
+            -stage \
+            -pak \
+            -archive \
+            -archivedirectory="$OUTPUT_DIR" \
+            -noP4 \
+            -utf8output
+    else
+        # Simulator build (no provisioning profile needed)
+        "$UAT" BuildCookRun \
+            -project="$PROJECT_FILE" \
+            $PLATFORM_FLAGS \
+            -codesigningidentity="$SIGNING_IDENTITY" \
+            -bundlename="$BUNDLE_NAME" \
+            -clientconfig=Development \
+            -serverconfig=Development \
+            -skipcook \
+            -build \
+            -stage \
+            -pak \
+            -archive \
+            -archivedirectory="$OUTPUT_DIR" \
+            -noP4 \
+            -utf8output
+    fi
 fi
 
 echo ""
@@ -122,6 +239,23 @@ if [ -d "$EXPECTED_STAGED_PATH" ]; then
     rm -rf "$OUTPUT_DIR/$APP_NAME"
     cp -R "$EXPECTED_STAGED_PATH" "$OUTPUT_DIR/$APP_NAME"
     echo "  ✓ Copied: $EXPECTED_STAGED_PATH -> $OUTPUT_DIR/$APP_NAME"
+    
+    # iOS requires .uproject file to be in the package
+    echo "📄 Copying .uproject file to iOS package..."
+    cp "$PROJECT_FILE" "$OUTPUT_DIR/$APP_NAME/SpiderLily.uproject"
+    echo "  ✓ Copied: SpiderLily.uproject -> $OUTPUT_DIR/$APP_NAME/"
+    
+    # Fix FMOD folder structure - create Mobile subfolder with bank files
+    echo "🔧 Fixing FMOD folder structure..."
+    FMOD_DIR="$OUTPUT_DIR/$APP_NAME/cookeddata/spiderlily/content/fmod"
+    if [ -d "$FMOD_DIR" ]; then
+        mkdir -p "$FMOD_DIR/Mobile"
+        if [ -f "$FMOD_DIR/master.bank" ]; then
+            cp "$FMOD_DIR/master.bank" "$FMOD_DIR/Mobile/"
+            cp "$FMOD_DIR/master.strings.bank" "$FMOD_DIR/Mobile/"
+            echo "  ✓ Created Mobile/ folder with FMOD banks"
+        fi
+    fi
 fi
 
 echo ""
