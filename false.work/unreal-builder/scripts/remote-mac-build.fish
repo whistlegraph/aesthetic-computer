@@ -94,6 +94,12 @@ echo "========================================="
 echo "Updating builds.false.work page..."
 echo "========================================="
 
+# Ensure the file exists before calculating size
+if not test -f /workspaces/aesthetic-computer/system/public/assets/false.work/$zip_name
+    echo "❌ Build ZIP not found at /workspaces/aesthetic-computer/system/public/assets/false.work/$zip_name"
+    exit 1
+end
+
 # Get file size in MB (rounded to whole number)
 set file_size (math -s0 (stat -c%s /workspaces/aesthetic-computer/system/public/assets/false.work/$zip_name) / 1048576)
 set download_url "https://assets.aesthetic.computer/false.work/$zip_name"
@@ -103,34 +109,12 @@ set iso_timestamp (date -Iseconds | cut -d'+' -f1)
 set full_map (ssh_exec "grep 'GameDefaultMap=' ~/Perforce/spiderlily_build_workspace_macmini/SL_main/Config/DefaultEngine.ini | cut -d= -f2")
 set start_level (echo $full_map | awk -F'.' '{print $NF}')
 
-# Extract UE version from build script
+# Extract UE version
 set ue_version "UE_5.6"
 
-# Use awk to replace latest build section (removes old, inserts new)
-awk -v version="$build_version" -v timestamp="$iso_timestamp" -v size="$file_size" -v level="$start_level" -v ue_ver="$ue_version" -v url="$download_url" '
-  /<!-- BUILD_LIST_ALL -->/ {
-    print
-    print "        <div class=\"build-header\">"
-    print "          <span class=\"platform-tag platform-mac\">🍎 Mac</span>"
-    print "          <span class=\"project-name\">SpiderLily</span>"
-    print "          <a href=\"" url "\">" version ".zip</a>"
-    print "          <span style=\"margin-left: 0.5rem; color: #666; font-size: 0.9rem;\">(<a href=\"https://assets.aesthetic.computer/false.work/spiderlily-mac-" version ".txt\" style=\"color: #888;\">download log</a>)</span>"
-    print "        </div>"
-    print "        <div class=\"meta\">" size " MB | " level " | " ue_ver " | <span class=\"build-time\" data-date=\"" timestamp "\">just now</span></div>"
-    print "        <div class=\"build-log-preview animated\" id=\"build-log-preview\">"
-    print "          <div class=\"log-header\">📜 Build Log</div>"
-    print "          Loading build log..."
-    print "        </div>"
-    # Skip all content until we hit the next section header
-    in_old_builds = 1
-    next
-  }
-  in_old_builds && /<h2/ {
-    in_old_builds = 0
-  }
-  !in_old_builds { print }
-' /workspaces/aesthetic-computer/system/public/builds.false.work/index.html > /tmp/builds-temp.html
-mv /tmp/builds-temp.html /workspaces/aesthetic-computer/system/public/builds.false.work/index.html
+# Use shared function to update the builds page
+source /workspaces/aesthetic-computer/false.work/unreal-builder/scripts/shared/update-builds-page.fish
+update_builds_page "mac" "$build_version" "$iso_timestamp" "$file_size" "$start_level" "$ue_version" "$download_url"
 
 echo ""
 echo "========================================="
