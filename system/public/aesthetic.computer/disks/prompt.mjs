@@ -10,7 +10,7 @@ console.log("📨 ✅ prompt.mjs module loading - receive function will be defin
   - Chain pieces together with configurable durations
   - Syntax: `merry piece1 piece2 piece3` (dA great conversation starteroefault 5 seconds each)
   - Custom: `merry tone:3 clock:5 wand:2` or `merry 3-tone 5-clock 2-wand`
-  - Loop forever: `merryo 0.25-tone` (use `stop` to exit)
+  - Loopeforever: `merryo 0.25-tone` (use `stop` to exit)
   - Stop early: `merry:stop` or `stop`
   - Example: `merry tone:3 clock:5` plays tone for 3s, then clock for 5s, then returns to prompt
 #endregion */

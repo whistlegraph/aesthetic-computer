@@ -358,8 +358,8 @@ export const handler = async (event) => {
   let fontParam = event.queryStringParameters.font || "unifont-16.0.03";
   
   // Add extensive logging for debugging
-  shell.log(`🔍 BDF-GLYPH CALLED: char=${charParam}, font=${fontParam}`);
-  shell.log(`🔍 Query params:`, event.queryStringParameters);
+  // shell.log(`🔍 BDF-GLYPH CALLED: char=${charParam}, font=${fontParam}`);
+  // shell.log(`🔍 Query params:`, event.queryStringParameters);
   
   // Normalize font name for unifont
   if (fontParam === "unifont") {
@@ -431,7 +431,7 @@ export const handler = async (event) => {
     ? process.env.URL || "http://localhost:8888"
     : "https://assets.aesthetic.computer";
 
-  shell.log(`🌐 Assets base URL: ${assetsBaseUrl} (dev mode: ${dev})`);
+  // shell.log(`🌐 Assets base URL: ${assetsBaseUrl} (dev mode: ${dev})`);
 
   // Determine BDF file extension and path based on font
   let bdfFileName;
@@ -450,7 +450,7 @@ export const handler = async (event) => {
     ? "https://localhost:8888/assets/type/MatrixChunky8.bdf"
     : bdfFileUrl;
 
-  shell.log(`Attempting to fetch BDF from: ${actualBdfUrl}`);
+  // shell.log(`Attempting to fetch BDF from: ${actualBdfUrl}`);
 
   try {
     let fetchOptions = {};
@@ -501,10 +501,10 @@ export const handler = async (event) => {
     for (const line of lines) {
       if (line.startsWith("FONT_ASCENT")) {
         fontAscent = parseInt(line.split(" ")[1]);
-        shell.log(`Found FONT_ASCENT: ${fontAscent}`);
+        // shell.log(`Found FONT_ASCENT: ${fontAscent}`);
       } else if (line.startsWith("FONT_DESCENT")) {
         fontDescent = parseInt(line.split(" ")[1]);
-        shell.log(`Found FONT_DESCENT: ${fontDescent}`);
+        // shell.log(`Found FONT_DESCENT: ${fontDescent}`);
       } else if (line.startsWith("STARTCHAR")) {
         inChar = true;
         currentCharCode = -1;
@@ -515,7 +515,7 @@ export const handler = async (event) => {
         currentCharCode = parseInt(line.split(" ")[1]);
         // console.log(`Found ENCODING: ${currentCharCode}`); // Optional: very verbose
         if (currentCharCode === charCodeToFind) {
-          shell.log(`Target ENCODING ${charCodeToFind} found for a character.`);
+          // shell.log(`Target ENCODING ${charCodeToFind} found for a character.`);
         }
       } else if (inChar && line.startsWith("DWIDTH")) {
         const parts = line.split(" ");
@@ -524,11 +524,11 @@ export const handler = async (event) => {
           y: parseInt(parts[2])
         };
         if (currentCharCode === charCodeToFind) {
-          shell.log(`Found DWIDTH for target character ${charCodeToFind}: ${dwidth.x}`);
+          // shell.log(`Found DWIDTH for target character ${charCodeToFind}: ${dwidth.x}`);
         }
         // Extra logging for character 40 (parenthesis)
         if (currentCharCode === 40) {
-          shell.log(`🔤 Character '(' (code 40) DWIDTH: x=${dwidth.x}, y=${dwidth.y} | advance will be: ${dwidth.x}`);
+          // shell.log(`🔤 Character '(' (code 40) DWIDTH: x=${dwidth.x}, y=${dwidth.y} | advance will be: ${dwidth.x}`);
         }
       } else if (inChar && line.startsWith("BBX")) {
         const parts = line.split(" ");
@@ -543,11 +543,11 @@ export const handler = async (event) => {
         // The actual bitmap lines are collected in the else if block below
       } else if (inChar && line.startsWith("ENDCHAR")) {
         if (currentCharCode === charCodeToFind) {
-          shell.log(
-            `Processing ENDCHAR for target ${charCodeToFind}. BBX:`,
-            bbx,
-            `Bitmap lines collected: ${bitmapLines.length}`,
-          );
+          // shell.log(
+          //   `Processing ENDCHAR for target ${charCodeToFind}. BBX:`,
+          //   bbx,
+          //   `Bitmap lines collected: ${bitmapLines.length}`,
+          // );
         }
         if (
           currentCharCode === charCodeToFind &&
@@ -556,8 +556,8 @@ export const handler = async (event) => {
           bbx.height > 0
         ) {
           glyphFound = true;
-          shell.log(
-            `Glyph ${charToFind} (code ${charCodeToFind}) found and processed. BBX width: ${bbx.width}, height: ${bbx.height}`,
+          // shell.log(
+          //   `Glyph ${charToFind} (code ${charCodeToFind}) found and processed. BBX width: ${bbx.width}, height: ${bbx.height}`,
           );
           // Process bitmapLines
           const pointCommands = [];
@@ -599,10 +599,10 @@ export const handler = async (event) => {
             }
           });
 
-          shell.log(
-            `Optimized ${pointCommands.length} points into ${commands.length} commands: ` +
-            `${commandCounts.line} lines, ${commandCounts.point} points`
-          );
+          // shell.log(
+          //   `Optimized ${pointCommands.length} points into ${commands.length} commands: ` +
+          //   `${commandCounts.line} lines, ${commandCounts.point} points`
+          // );
 
           const glyphData = {
             resolution: [bbx.width, bbx.height],
@@ -625,16 +625,16 @@ export const handler = async (event) => {
 
           // Extra logging for character 40 (parenthesis)
           if (charCodeToFind === 40) {
-            shell.log(`🚀 Final glyph data for '(' (code 40):`, {
-              advance: glyphData.advance,
-              dwidth: glyphData.dwidth,
-              resolution: glyphData.resolution,
-              bbx: glyphData.bbx
-            });
+            // shell.log(`🚀 Final glyph data for '(' (code 40):`, {
+            //   advance: glyphData.advance,
+            //   dwidth: glyphData.dwidth,
+            //   resolution: glyphData.resolution,
+            //   bbx: glyphData.bbx
+            // });
           }
 
           // Log glyph as ASCII art using block characters
-          logGlyphAsASCII(charToFind, charCodeToFind, glyphData, "Generated");
+          // logGlyphAsASCII(charToFind, charCodeToFind, glyphData, "Generated");
 
           // Cache the parsed glyph data to S3 for future requests
           await cacheGlyph(charCodeToFind, glyphData, fontParam);
