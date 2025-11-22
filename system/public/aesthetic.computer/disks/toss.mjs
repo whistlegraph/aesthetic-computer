@@ -214,6 +214,7 @@ function makeBands({ api, colon, sound }, count, noteChars = []) {
       waveBtn: null,
       currentVolume: 1.0,
       returning: false,
+      lastX: null, // Track last touch x position
     };
     bandCount++;
   }
@@ -290,29 +291,47 @@ function paint({ api, wipe, ink, line, screen, box, circle, pen, write, num }) {
         ink("white", 128).line(b.box.x, b.box.y, b.box.x, b.box.y + b.box.h);
       }
       
-      // Draw center dotted line for volume reference
-      const centerX = b.box.x + b.box.w / 2;
+      // Draw dotted line representing current tone position
       const isActive = b.down;
       
-      // Calculate opacity based on horizontal distance from center when active
-      let lineOpacity = 64;
-      if (isActive && e.x !== undefined) {
-        const distanceFromCenter = abs(e.x - centerX);
-        const maxDistance = b.box.w / 2;
-        const volumeFactor = 1 - (distanceFromCenter / maxDistance) * 0.7;
-        lineOpacity = 64 + volumeFactor * 191; // 64 to 255 based on volume
+      // For note-based mode: use center line with volume-based opacity
+      // For normal mode: position line based on Hz value
+      let lineX, lineOpacity;
+      
+      if (band.originalTone !== null) {
+        // Note-based mode: center line with volume feedback
+        lineX = b.box.x + b.box.w / 2;
+        lineOpacity = 64;
+        if (isActive && band.lastX !== null) {
+          const distanceFromCenter = abs(band.lastX - lineX);
+          const maxDistance = b.box.w / 2;
+          const volumeFactor = 1 - (distanceFromCenter / maxDistance) * 0.7;
+          lineOpacity = 64 + volumeFactor * 191;
+        }
+      } else {
+        // Normal mode: position based on Hz value
+        lineX = num.map(band.tone, toneLow, toneHigh, b.box.x, b.box.x + b.box.w);
+        lineOpacity = isActive ? 255 : 128;
       }
       
       ink("white", lineOpacity);
       const dashLength = 4;
       const gapLength = 4;
-      const offset = isActive ? scrollOffset % (dashLength + gapLength) : 0;
+      
+      // Vary scroll speed based on pitch deviation from original (note mode only)
+      let scrollSpeed = 1;
+      if (isActive && band.originalTone !== null) {
+        const pitchDeviation = abs(band.tone - band.originalTone);
+        scrollSpeed = 1 + pitchDeviation / 100;
+      }
+      
+      const offset = isActive ? (scrollOffset * scrollSpeed) % (dashLength + gapLength) : 0;
       
       for (let dy = -offset; dy < b.box.h; dy += dashLength + gapLength) {
         const startY = max(b.box.y, b.box.y + dy);
         const endY = min(b.box.y + b.box.h, b.box.y + dy + dashLength);
         if (startY < endY) {
-          line(centerX, startY, centerX, endY);
+          line(lineX, startY, lineX, endY);
         }
       }
       const toneHeight = num.map(band.tone, toneLow, toneHigh, screen.height, 0);
@@ -392,6 +411,8 @@ function act({ event: e, api, sound, pens }) {
           const maxDistance = btn.box.w / 2;
           const volumeFactor = 1 - (distanceFromCenter / maxDistance) * 0.7; // 30% to 100% volume
           
+          band.lastX = e.x; // Store touch position
+          
           console.log("🎵 Toss band starting sound:", index, band.tone, "volume:", volumeFactor.toFixed(2));
           band.sound = sound.synth({
             type: band.waveType,
@@ -407,6 +428,7 @@ function act({ event: e, api, sound, pens }) {
           console.log("🔇 Toss band UP - stopping sound:", index, !!band.sound);
           band.sound?.kill(killFade);
           band.sound = null;
+          band.lastX = null; // Clear touch position
           
           // If this band has an original tone set via notes, start returning to it
           if (band.originalTone !== null && band.tone !== band.originalTone) {
@@ -429,6 +451,8 @@ function act({ event: e, api, sound, pens }) {
         scrub: (btn) => {
           // Stop return animation when actively scrubbing
           band.returning = false;
+          
+          band.lastX = e.x; // Store touch position
           
           band.tone -= e.delta.y;
 
