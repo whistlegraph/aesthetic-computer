@@ -11963,7 +11963,7 @@ async function makeFrame({ data: { type, content } }) {
             }
             
 
-            // Check if this QR overlay is already cached (unless caching is disabled or font not loaded)
+            // Check if this QR overlay is already cached (unless caching is disabled)
             const isQRCacheDisabled = isQROverlayCacheDisabled();
             const hasQRCache = qrOverlayCache.has(cacheKey);
             
@@ -11971,7 +11971,9 @@ async function makeFrame({ data: { type, content } }) {
             let overlayWidth, overlayHeight, startX, startY;
             
 
-            if (!isQRCacheDisabled && shouldShowQR && hasQRCache) {
+            // Render QR from cache if available, or generate fresh
+            // Note: We render even if glyphs aren't loaded yet - they'll pop in on repaint
+            if (!isQRCacheDisabled && hasQRCache) {
 
               const cachedQrData = qrOverlayCache.get(cacheKey);
               
