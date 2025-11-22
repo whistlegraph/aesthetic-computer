@@ -287,6 +287,26 @@ function setCachedCode(source, code) {
   cacheRegistry.set(hash, code);
 }
 
+// Global map to track which sources are currently being cached
+// This prevents multiple simultaneous cache attempts for the same source
+const cachingInProgressMap = new Map();
+
+// Function to check if a source is currently being cached
+function isCachingInProgress(source) {
+  const hash = getSourceHash(source);
+  return cachingInProgressMap.get(hash) || false;
+}
+
+// Function to mark a source as being cached
+function setCachingInProgress(source, inProgress) {
+  const hash = getSourceHash(source);
+  if (inProgress) {
+    cachingInProgressMap.set(hash, true);
+  } else {
+    cachingInProgressMap.delete(hash);
+  }
+}
+
 /* #region 📚 Examples / Notebook 
  Working programs:
 
@@ -1544,10 +1564,23 @@ class KidLisp {
     this.lastSecondExecutions = {};
     this.instantTriggersExecuted = {};
 
-    // Reset cache state
-    this.cachedCode = null;
-    this.cachingInProgress = false;
-    this.shortUrl = null;
+    // Reset cache state - but check global registry to prevent re-caching
+    // For inline code executed from prompt, each execution creates a new instance
+    // but if the source is already cached globally, we should restore that cache ID
+    const globalCachedCode = this.currentSource ? getCachedCode(this.currentSource) : null;
+    
+    if (globalCachedCode) {
+      // This source is already cached globally - restore cached state to prevent re-caching
+      this.cachedCode = globalCachedCode;
+      this.shortUrl = `aesthetic.computer/$${globalCachedCode}`;
+    } else {
+      // Not cached yet or no current source
+      this.cachedCode = null;
+      this.shortUrl = null;
+    }
+
+    // Track whether we've kicked off a cache request for this module
+    this.cacheInitiated = false;
 
     // Reset microphone state
     this.microphoneConnected = false;
@@ -2560,8 +2593,9 @@ class KidLisp {
       return;
     }
 
-    // Skip if already cached or caching is in progress
-    if (this.cachedCode || this.cachingInProgress) {
+    // Skip if already cached (check both instance and global registry) or caching is in progress
+    const alreadyCached = this.cachedCode || getCachedCode(source);
+    if (alreadyCached || isCachingInProgress(source)) {
       return;
     }
 
@@ -2583,8 +2617,8 @@ class KidLisp {
       return;
     }
 
-    // Set flag to prevent multiple requests
-    this.cachingInProgress = true;
+    // Set global flag to prevent multiple requests for the same source
+    setCachingInProgress(source, true);
 
     try {
       // console.log("🚀 Starting cache request for:", source.substring(0, 50));
@@ -2603,7 +2637,7 @@ class KidLisp {
         this.shortUrl = `teia/$${teiaCode}`;
         this.cachedCode = teiaCode;
         setCachedCode(source, teiaCode);
-        this.cachingInProgress = false; // Reset the flag
+        setCachingInProgress(source, false); // Clear the global flag
         return;
       }
 
@@ -2618,7 +2652,7 @@ class KidLisp {
         this.shortUrl = `spider/$${spiderCode}`;
         this.cachedCode = spiderCode;
         setCachedCode(source, spiderCode);
-        this.cachingInProgress = false; // Reset the flag
+        setCachingInProgress(source, false); // Clear the global flag
         return;
       }
 
@@ -2628,7 +2662,7 @@ class KidLisp {
       if (loc) {
         const urlParams = new URLSearchParams(loc.search);
         if (urlParams.has('nocache')) {
-          this.cachingInProgress = false; // Reset the flag
+          setCachingInProgress(source, false); // Clear the global flag
           return;
         }
       }
@@ -2707,8 +2741,8 @@ class KidLisp {
       // Silently handle caching failures - auth issues are common and not critical  
       // console.warn('Failed to cache kidlisp:', error.message || error);
     } finally {
-      // Always clear the flag when done (success or failure)
-      this.cachingInProgress = false;
+      // Always clear the global flag when done (success or failure)
+      setCachingInProgress(source, false);
     }
   }
 
@@ -2950,7 +2984,8 @@ class KidLisp {
         const cacheDelayFrames = 0; // Instant caching
 
         if (!this.isEmbeddedContext &&
-          this.frameCount >= cacheDelayFrames && !this.cachedCode) {
+          this.frameCount >= cacheDelayFrames && !this.cachedCode && !this.cacheInitiated) {
+          this.cacheInitiated = true; // Only kick off caching once per module load
           this.cacheKidlispSource(source, $);
         }
 
