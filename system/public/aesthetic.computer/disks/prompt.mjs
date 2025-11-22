@@ -2385,9 +2385,9 @@ async function halt($, text) {
       trimmed.startsWith(";") ||
       isKidlispSource(trimmed);
     if (isKidlisp) {
-      body = { name: trimmed, source: trimmed };
-      loaded = await load(body, false, false, true, undefined, true); // Force kidlisp
-      //                                        ^^^^ devReload  ^^^^^ forceKidlisp
+      // Execute KidLisp code directly by jumping to $code piece
+      jump(`$code~${trimmed}`);
+      return true;
     } else {
       body = parse(trimmed);
       loaded = await load(body); // Execute the current command.
