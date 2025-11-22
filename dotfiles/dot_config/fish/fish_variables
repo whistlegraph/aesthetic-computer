@@ -1,5 +1,6 @@
 # This file contains fish universal variable definitions.
 # VERSION: 3.0
+SETUVAR --export DOCKER_API_VERSION:1\x2e44
 SETUVAR --export OPENAI_API_KEY:sk\x2dNuSkbMP0vqcvi2jJxEx5T3BlbkFJzgJ5Q6d595WB6JNQihOh\x0d
 SETUVAR __fish_initialized:3800
 SETUVAR fish_color_autosuggestion:555\x1ebrblack\x0d
