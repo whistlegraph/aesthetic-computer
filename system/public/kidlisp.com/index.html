@@ -966,7 +966,7 @@
 
     /* Main vertical gutter (between top and bottom rows) */
     #top-row + .gutter.gutter-vertical {
-      background-color: rgba(205, 92, 155, 0.3) !important; /* Pink */
+      background: linear-gradient(to right, rgba(255, 140, 0, 0.3) 0%, rgba(255, 140, 0, 0.3) 50%, rgba(100, 149, 237, 0.3) 50%, rgba(100, 149, 237, 0.3) 100%) !important; /* Orange left, Blue right */
       z-index: 2;
     }
 
@@ -1000,6 +1000,25 @@
     /* Ensure rows contain their gutters properly */
     .top-row, .bottom-row {
       position: relative;
+    }
+
+    /* Center square at the intersection of all 4 gutters */
+    #center-square {
+      position: fixed;
+      width: 8px;
+      height: 8px;
+      background: rgba(205, 92, 155, 0.4);
+      cursor: move;
+      z-index: 1000;
+      pointer-events: auto;
+    }
+
+    #center-square:hover {
+      background: rgba(205, 92, 155, 0.6);
+    }
+
+    #center-square.dragging {
+      background: rgba(205, 92, 155, 0.8);
     }
 
     /* Syntax highlighting blink effect */
@@ -1042,6 +1061,9 @@
   </header> -->
 
   <main id="main-split">
+    <!-- Center square for simultaneous 4-panel resize -->
+    <div id="center-square" title="Drag to resize all panels"></div>
+    
     <div class="top-row" id="top-row">
       <div class="editor-panel" id="editor-panel">
         <div class="editor-header">
@@ -1057,6 +1079,7 @@
               <div class="lang-option" data-lang="da">🇩🇰 Dansk</div>
             </div>
           </div>
+          <button id="line-limit-btn" style="padding: 4px 8px; background: rgba(255,255,255,0.3); border: 1px solid rgba(0,0,0,0.1); border-radius: 4px; font-size: 11px; cursor: pointer; margin-left: auto;">1</button>
         </div>
         <div id="kidlisp-editor">
           <button id="send-button" aria-label="Play"></button>
@@ -1252,6 +1275,11 @@
     
     // Initialize Split.js
     let splits = [];
+    let gutterStates = {
+      vertical: false, // Start uncentered for standard 2x2 grid
+      horizontalTop: false,
+      horizontalBottom: false
+    };
     
     function initSplits() {
       // Destroy existing splits
@@ -1287,39 +1315,191 @@
         }));
         
       } else {
-        // Desktop: 2x2 Grid
-        // Move panels back to their rows
-        if (topRow && editorPanel && previewPanel) {
-          topRow.appendChild(editorPanel);
-          topRow.appendChild(previewPanel);
-        }
+        // Desktop: Dynamic layout based on centering
+        // When all centered (perfect +): 4 independent panels with 2 vertical gutters
+        // When off-center: Standard 2x2 grid with 1 vertical gutter
         
-        if (bottomRow && referencePanel && consolePanel) {
-          bottomRow.appendChild(referencePanel);
-          bottomRow.appendChild(consolePanel);
-        }
+        const allCentered = gutterStates.vertical && gutterStates.horizontalTop && gutterStates.horizontalBottom;
         
-        // 1. Main vertical split (Top Row vs Bottom Row)
-        splits.push(Split(['#top-row', '#bottom-row'], {
-          sizes: [50, 50],
-          direction: 'vertical',
-          gutterSize: 8,
-          cursor: 'row-resize',
-        }));
+        if (allCentered) {
+          // PERFECT + MODE: 4 truly independent quadrants
+          // Use nested splits to create independent vertical controls
+          
+          // Create wrapper rows for independent vertical control
+          const leftCol = document.createElement('div');
+          leftCol.id = 'left-col';
+          leftCol.style.display = 'flex';
+          leftCol.style.flexDirection = 'column';
+          leftCol.style.height = '100%';
+          
+          const rightCol = document.createElement('div');
+          rightCol.id = 'right-col';
+          rightCol.style.display = 'flex';
+          rightCol.style.flexDirection = 'column';
+          rightCol.style.height = '100%';
+          
+          if (mainSplit) {
+            mainSplit.innerHTML = '';
+            mainSplit.appendChild(leftCol);
+            mainSplit.appendChild(rightCol);
+            
+            leftCol.appendChild(editorPanel);
+            leftCol.appendChild(referencePanel);
+            
+            rightCol.appendChild(previewPanel);
+            rightCol.appendChild(consolePanel);
+          }
+          
+          const snapThreshold = 5;
+          
+          // Left column vertical split (Editor / Reference)
+          const leftVerticalSplit = Split(['#editor-panel', '#reference-panel'], {
+            sizes: [50, 50],
+            direction: 'vertical',
+            gutterSize: 8,
+            cursor: 'row-resize',
+            onDrag: (sizes) => {
+              if (Math.abs(sizes[0] - 50) > snapThreshold) {
+                // Breaking out of perfect + mode
+                gutterStates.vertical = false;
+                initSplits();
+              }
+            }
+          });
+          splits.push(leftVerticalSplit);
+          
+          // Right column vertical split (Preview / Console)
+          const rightVerticalSplit = Split(['#preview-panel', '#console-panel'], {
+            sizes: [50, 50],
+            direction: 'vertical',
+            gutterSize: 8,
+            cursor: 'row-resize',
+            onDrag: (sizes) => {
+              if (Math.abs(sizes[0] - 50) > snapThreshold) {
+                // Breaking out of perfect + mode
+                gutterStates.vertical = false;
+                initSplits();
+              }
+            }
+          });
+          splits.push(rightVerticalSplit);
+          
+          // Main horizontal split (Left Col / Right Col)
+          const mainHorizontalSplit = Split(['#left-col', '#right-col'], {
+            sizes: [50, 50],
+            gutterSize: 8,
+            cursor: 'col-resize',
+            onDrag: (sizes) => {
+              if (Math.abs(sizes[0] - 50) > snapThreshold) {
+                // Breaking out of perfect + mode
+                gutterStates.horizontalTop = false;
+                gutterStates.horizontalBottom = false;
+                initSplits();
+              }
+            }
+          });
+          splits.push(mainHorizontalSplit);
+          
+        } else {
+          // STANDARD 2x2 MODE: Traditional layout with rows
+          
+          // Restore row structure
+          if (mainSplit) {
+            mainSplit.innerHTML = '';
+            mainSplit.appendChild(topRow);
+            mainSplit.appendChild(bottomRow);
+          }
+          
+          if (topRow) {
+            topRow.innerHTML = '';
+            topRow.appendChild(editorPanel);
+            topRow.appendChild(previewPanel);
+          }
+          
+          if (bottomRow) {
+            bottomRow.innerHTML = '';
+            bottomRow.appendChild(referencePanel);
+            bottomRow.appendChild(consolePanel);
+          }
+          
+          const snapThreshold = 5;
+          
+          // 1. Main vertical split (Top Row vs Bottom Row)
+          const verticalSplit = Split(['#top-row', '#bottom-row'], {
+            sizes: [50, 50],
+            direction: 'vertical',
+            gutterSize: 8,
+            cursor: 'row-resize',
+            onDragEnd: (sizes) => {
+              if (Math.abs(sizes[0] - 50) < snapThreshold) {
+                verticalSplit.setSizes([50, 50]);
+                gutterStates.vertical = true;
+                // Check if we should switch to perfect + mode
+                if (gutterStates.horizontalTop && gutterStates.horizontalBottom) {
+                  setTimeout(() => initSplits(), 100);
+                }
+              } else {
+                gutterStates.vertical = false;
+              }
+            },
+            onDrag: (sizes) => {
+              if (gutterStates.vertical && Math.abs(sizes[0] - 50) > snapThreshold) {
+                gutterStates.vertical = false;
+              }
+            }
+          });
+          splits.push(verticalSplit);
 
-        // 2. Top Row horizontal split (Editor vs Preview)
-        splits.push(Split(['#editor-panel', '#preview-panel'], {
-          sizes: [50, 50],
-          gutterSize: 8,
-          cursor: 'col-resize',
-        }));
+          // 2. Top Row horizontal split (Editor vs Preview)
+          const horizontalTopSplit = Split(['#editor-panel', '#preview-panel'], {
+            sizes: [50, 50],
+            gutterSize: 8,
+            cursor: 'col-resize',
+            onDragEnd: (sizes) => {
+              if (Math.abs(sizes[0] - 50) < snapThreshold) {
+                horizontalTopSplit.setSizes([50, 50]);
+                gutterStates.horizontalTop = true;
+                // Check if we should switch to perfect + mode
+                if (gutterStates.vertical && gutterStates.horizontalBottom) {
+                  setTimeout(() => initSplits(), 100);
+                }
+              } else {
+                gutterStates.horizontalTop = false;
+              }
+            },
+            onDrag: (sizes) => {
+              if (gutterStates.horizontalTop && Math.abs(sizes[0] - 50) > snapThreshold) {
+                gutterStates.horizontalTop = false;
+              }
+            }
+          });
+          splits.push(horizontalTopSplit);
 
-        // 3. Bottom Row horizontal split (Reference vs Console)
-        splits.push(Split(['#reference-panel', '#console-panel'], {
-          sizes: [50, 50],
-          gutterSize: 8,
-          cursor: 'col-resize',
-        }));
+          // 3. Bottom Row horizontal split (Reference vs Console)
+          const horizontalBottomSplit = Split(['#reference-panel', '#console-panel'], {
+            sizes: [50, 50],
+            gutterSize: 8,
+            cursor: 'col-resize',
+            onDragEnd: (sizes) => {
+              if (Math.abs(sizes[0] - 50) < snapThreshold) {
+                horizontalBottomSplit.setSizes([50, 50]);
+                gutterStates.horizontalBottom = true;
+                // Check if we should switch to perfect + mode
+                if (gutterStates.vertical && gutterStates.horizontalTop) {
+                  setTimeout(() => initSplits(), 100);
+                }
+              } else {
+                gutterStates.horizontalBottom = false;
+              }
+            },
+            onDrag: (sizes) => {
+              if (gutterStates.horizontalBottom && Math.abs(sizes[0] - 50) > snapThreshold) {
+                gutterStates.horizontalBottom = false;
+              }
+            }
+          });
+          splits.push(horizontalBottomSplit);
+        }
       }
     }
     
@@ -1330,8 +1510,139 @@
     let resizeTimeout;
     window.addEventListener('resize', () => {
       clearTimeout(resizeTimeout);
-      resizeTimeout = setTimeout(initSplits, 200);
+      resizeTimeout = setTimeout(() => {
+        initSplits();
+        updateCenterSquarePosition();
+      }, 200);
     });
+
+    // Position and handle center square
+    function updateCenterSquarePosition() {
+      const centerSquare = document.getElementById('center-square');
+      if (!centerSquare) return;
+      
+      const isMobile = window.innerWidth <= 768;
+      if (isMobile) {
+        centerSquare.style.display = 'none';
+        return;
+      }
+      
+      centerSquare.style.display = 'block';
+      
+      // Find the intersection point of the gutters
+      const verticalGutter = document.querySelector('#top-row + .gutter.gutter-vertical');
+      const horizontalGutter = document.querySelector('#editor-panel + .gutter.gutter-horizontal');
+      
+      if (verticalGutter && horizontalGutter) {
+        const vRect = verticalGutter.getBoundingClientRect();
+        const hRect = horizontalGutter.getBoundingClientRect();
+        
+        // Position center square at intersection
+        const left = hRect.left + (hRect.width / 2);
+        const top = vRect.top + (vRect.height / 2);
+        
+        centerSquare.style.left = `${left}px`;
+        centerSquare.style.top = `${top}px`;
+        centerSquare.style.transform = 'translate(-50%, -50%)';
+      }
+    }
+
+    // Center square drag handler
+    function setupCenterSquareDrag() {
+      const centerSquare = document.getElementById('center-square');
+      if (!centerSquare) return;
+      
+      let isDragging = false;
+      let startX, startY;
+      let startSizes = {};
+      
+      centerSquare.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        isDragging = true;
+        startX = e.clientX;
+        startY = e.clientY;
+        centerSquare.classList.add('dragging');
+        
+        // Store initial sizes
+        const topRow = document.getElementById('top-row');
+        const bottomRow = document.getElementById('bottom-row');
+        const editorPanel = document.getElementById('editor-panel');
+        const previewPanel = document.getElementById('preview-panel');
+        const referencePanel = document.getElementById('reference-panel');
+        const consolePanel = document.getElementById('console-panel');
+        
+        startSizes = {
+          topHeight: topRow.offsetHeight,
+          bottomHeight: bottomRow.offsetHeight,
+          editorWidth: editorPanel.offsetWidth,
+          previewWidth: previewPanel.offsetWidth,
+          referenceWidth: referencePanel.offsetWidth,
+          consoleWidth: consolePanel.offsetWidth,
+          totalHeight: topRow.offsetHeight + bottomRow.offsetHeight,
+          totalWidth: editorPanel.offsetWidth + previewPanel.offsetWidth
+        };
+      });
+      
+      document.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        
+        const deltaX = e.clientX - startX;
+        const deltaY = e.clientY - startY;
+        
+        // Calculate new sizes
+        const newTopHeight = startSizes.topHeight + deltaY;
+        const newBottomHeight = startSizes.bottomHeight - deltaY;
+        const newEditorWidth = startSizes.editorWidth + deltaX;
+        const newPreviewWidth = startSizes.previewWidth - deltaX;
+        const newReferenceWidth = startSizes.referenceWidth + deltaX;
+        const newConsoleWidth = startSizes.consoleWidth - deltaX;
+        
+        // Convert to percentages
+        const topPercent = (newTopHeight / startSizes.totalHeight) * 100;
+        const bottomPercent = (newBottomHeight / startSizes.totalHeight) * 100;
+        const editorPercent = (newEditorWidth / startSizes.totalWidth) * 100;
+        const previewPercent = (newPreviewWidth / startSizes.totalWidth) * 100;
+        const referencePercent = (newReferenceWidth / startSizes.totalWidth) * 100;
+        const consolePercent = (newConsoleWidth / startSizes.totalWidth) * 100;
+        
+        // Apply new sizes if they're reasonable
+        if (topPercent > 10 && bottomPercent > 10 && editorPercent > 10 && previewPercent > 10) {
+          if (splits.length >= 3) {
+            splits[0].setSizes([topPercent, bottomPercent]);
+            splits[1].setSizes([editorPercent, previewPercent]);
+            splits[2].setSizes([referencePercent, consolePercent]);
+          }
+        }
+      });
+      
+      document.addEventListener('mouseup', () => {
+        if (isDragging) {
+          isDragging = false;
+          centerSquare.classList.remove('dragging');
+          updateCenterSquarePosition();
+        }
+      });
+    }
+
+    // Initialize everything
+    setTimeout(() => {
+      updateCenterSquarePosition();
+      setupCenterSquareDrag();
+      
+      // Update center square position when splits are dragged
+      const observer = new MutationObserver(() => {
+        updateCenterSquarePosition();
+      });
+      
+      const mainSplit = document.getElementById('main-split');
+      if (mainSplit) {
+        observer.observe(mainSplit, {
+          attributes: true,
+          attributeFilter: ['style'],
+          subtree: true
+        });
+      }
+    }, 500);
 
     import { tokenize } from 'https://aesthetic.computer/aesthetic.computer/lib/kidlisp.mjs';
     import { KidLisp } from 'https://aesthetic.computer/aesthetic.computer/lib/kidlisp.mjs';
@@ -1426,6 +1737,8 @@
           'editor.lineHighlightBackground': '#fff5b8', /* Slightly darker yellow for highlight */
           'editor.selectionBackground': '#ffd700aa', /* Golden selection */
           'editor.inactiveSelectionBackground': '#ffebad',
+          'editorLineNumber.foreground': '#999999', /* Line number color */
+          'editorLineNumber.activeForeground': '#333333', /* Active line number */
         }
       });
 
@@ -1450,31 +1763,120 @@
       const isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
       const initialTheme = isDarkMode ? 'kidlisp-dark' : 'kidlisp-light';
 
+      // Line limit state
+      let maxLines = 1;
+      
       // Create the editor
       editor = monaco.editor.create(editorContainer, {
         value: localStorage.getItem('kidlisp-code') || '',
         language: 'kidlisp',
         theme: initialTheme,
         minimap: { enabled: false },
-        scrollBeyondLastLine: true, // Allow scrolling past last line
+        scrollBeyondLastLine: false,
         fontSize: 16,
-        lineNumbers: 'off', // Remove line numbers
+        lineNumbers: 'off', // Start with line numbers off for 1 line
         glyphMargin: false,
         folding: false,
-        lineDecorationsWidth: 0, // Remove left padding for line numbers
-        lineNumbersMinChars: 0,
+        lineDecorationsWidth: 0,
         lineNumbersMinChars: 3,
         roundedSelection: false,
         overviewRulerLanes: 0,
         scrollbar: {
-          vertical: 'hidden',
+          vertical: 'auto',
           horizontal: 'auto'
         },
         automaticLayout: true,
         wordWrap: 'on',
         cursorStyle: 'line',
         cursorBlinking: 'blink',
-        padding: { top: 12 }, // Add padding above the first line
+        padding: { top: 12 },
+      });
+
+      // Line limit button handler
+      const lineLimitBtn = document.getElementById('line-limit-btn');
+      lineLimitBtn.addEventListener('click', () => {
+        // Cycle through 1, 2, 4, 8, 16
+        const limits = [1, 2, 4, 8, 16];
+        const currentIndex = limits.indexOf(maxLines);
+        maxLines = limits[(currentIndex + 1) % limits.length];
+        lineLimitBtn.textContent = maxLines;
+        
+        // Update line numbers visibility
+        editor.updateOptions({
+          lineNumbers: maxLines > 1 ? 'on' : 'off',
+          lineDecorationsWidth: maxLines > 1 ? 10 : 0
+        });
+        
+        // Pad the content to show striped background
+        updateEditorPadding();
+        
+        // Enforce line limit on current content
+        enforceLineLimit();
+      });
+      
+      // Update editor vertical padding based on line count
+      function updateEditorPadding() {
+        const model = editor.getModel();
+        if (!model) return;
+        
+        const currentContent = model.getValue();
+        const currentLineCount = model.getLineCount();
+        
+        if (currentLineCount < maxLines) {
+          // Add empty lines to reach maxLines
+          const linesToAdd = maxLines - currentLineCount;
+          const newContent = currentContent + '\n'.repeat(linesToAdd);
+          
+          // Get current cursor position
+          const position = editor.getPosition();
+          
+          // Update content
+          model.setValue(newContent);
+          
+          // Restore cursor position
+          if (position) {
+            editor.setPosition(position);
+          }
+        }
+      }
+      
+      // Enforce line limit
+      function enforceLineLimit() {
+        const model = editor.getModel();
+        if (!model) return;
+        
+        const lineCount = model.getLineCount();
+        if (lineCount > maxLines) {
+          // Trim to maxLines immediately
+          const lastLine = model.getLineContent(maxLines);
+          const range = new monaco.Range(maxLines + 1, 1, lineCount + 1, 1);
+          
+          // Remove extra lines
+          model.pushEditOperations([], [{
+            range: range,
+            text: null
+          }], () => null);
+          
+          // Move cursor to end of last allowed line
+          const endOfLastLine = lastLine.length + 1;
+          editor.setPosition({ lineNumber: maxLines, column: endOfLastLine });
+        }
+      }
+      
+      // Prevent Enter key when at line limit
+      editor.onKeyDown((e) => {
+        if (e.keyCode === monaco.KeyCode.Enter) {
+          const model = editor.getModel();
+          if (model && model.getLineCount() >= maxLines) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
+        }
+      });
+      
+      // Listen for content changes to enforce line limit
+      editor.onDidChangeModelContent(() => {
+        enforceLineLimit();
       });
 
       // Listen for theme changes
@@ -1745,12 +2147,13 @@
         applyColorNameDecorations();
       }, 1000 / 60); // 60fps for smooth timing blinks
 
-      // Hide line numbers if only one line
+      // Update line numbers based on maxLines setting
       function updateLineNumbers() {
-        // Always keep line numbers off as requested
+        // Show line numbers only when maxLines > 1
         editor.updateOptions({ 
-          lineNumbers: 'off',
-          lineNumbersMinChars: 0
+          lineNumbers: maxLines > 1 ? 'on' : 'off',
+          lineNumbersMinChars: maxLines > 1 ? 3 : 0,
+          lineDecorationsWidth: maxLines > 1 ? 10 : 0
         });
       }
       
@@ -2319,6 +2722,10 @@
     
     function populateGrid(gridId, words) {
       const grid = document.getElementById(gridId);
+      if (!grid) {
+        console.warn(`Grid element #${gridId} not found, skipping population`);
+        return;
+      }
       words.forEach(word => {
         const item = document.createElement('div');
         item.className = 'function-item';
