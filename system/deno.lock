@@ -226,6 +226,7 @@
         "npm:@mediapipe/tasks-vision@20230920",
         "npm:@netlify/edge-functions@^3.0.2",
         "npm:@netlify/functions@^5.1.0",
+        "npm:@netlify/zip-it-and-ship-it@^14.1.14",
         "npm:adm-zip@~0.5.16",
         "npm:auth0@^5.1.0",
         "npm:busboy@^1.6.0",

@@ -344,6 +344,38 @@ else
 end
 
 # Function to check and install npm dependencies in a directory
+set -g NODE_DEPS_CHECK_SCRIPT /workspaces/aesthetic-computer/.devcontainer/scripts/check-node-deps.mjs
+
+function verify_npm_versions
+    set -l dir $argv[1]
+    set -l dir_name (basename $dir)
+
+    if not test -f $NODE_DEPS_CHECK_SCRIPT
+        return
+    end
+
+    if not test -f $dir/package.json
+        return
+    end
+
+    if not test -d $dir/node_modules
+        return
+    end
+
+    node $NODE_DEPS_CHECK_SCRIPT $dir
+    set -l check_status $status
+
+    if test $check_status -ne 0
+        echo "♻️ Resyncing dependencies in $dir_name to match package.json versions..."
+        cd $dir
+        npm ci --no-fund --no-audit --silent
+        if test $status -ne 0
+            echo "⚠️ npm ci failed in $dir_name, falling back to npm install"
+            npm install --no-fund --no-audit --silent
+        end
+    end
+end
+
 function install_npm_deps
     set -l dir $argv[1]
     set -l dir_name (basename $dir)
@@ -360,6 +392,7 @@ function install_npm_deps
         else
             echo "✅ $dir_name already has node_modules"
         end
+        verify_npm_versions $dir
     end
 end
 
@@ -374,6 +407,8 @@ if not test -d /home/me/aesthetic-computer/node_modules || not count /home/me/ae
 else
     echo "✅ Root directory already has node_modules"
 end
+
+verify_npm_versions /home/me/aesthetic-computer
 
 # Install dependencies in critical subdirectories (archive intentionally excluded)
 set -l critical_dirs system session-server vscode-extension nanos daemon utilities shared

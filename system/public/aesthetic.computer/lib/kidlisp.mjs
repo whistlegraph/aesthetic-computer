@@ -2676,15 +2676,46 @@ class KidLisp {
         if (token) headers.Authorization = `Bearer ${token}`;
       } catch (err) { } // Handled up-stream
 
-      const response = await fetch('/api/store-kidlisp', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ source })
-      });
+      const endpoints = ['/api/store-kidlisp'];
 
-      // console.log("📥 Cache response:", response);
+      // When running on localhost/dev, add production fallback endpoints to work around 503s
+      if (typeof window !== 'undefined') {
+        const originHost = window.location?.host || '';
+        if (!originHost.includes('aesthetic.computer')) {
+          endpoints.push('https://aesthetic.computer/api/store-kidlisp');
+        }
+      } else {
+        endpoints.push('https://aesthetic.computer/api/store-kidlisp');
+      }
 
-      if (response.ok) {
+      let response;
+      let lastError;
+
+      for (const endpoint of endpoints) {
+        const attemptLabel = endpoint.includes('aesthetic.computer') ? 'production' : 'local';
+        console.log(`🛰️ store-kidlisp attempt (${attemptLabel}):`, endpoint);
+        try {
+          const attempt = await fetch(endpoint, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ source })
+          });
+
+          if (attempt.ok) {
+            response = attempt;
+            console.log(`✅ store-kidlisp success via ${attemptLabel}`);
+            break;
+          }
+
+          lastError = new Error(`HTTP ${attempt.status}: ${attempt.statusText || 'Unknown'} (${endpoint})`);
+          console.warn(`⚠️ store-kidlisp ${attemptLabel} failed:`, attempt.status, attempt.statusText);
+        } catch (err) {
+          lastError = err;
+          console.warn(`⚠️ store-kidlisp ${attemptLabel} fetch error:`, err?.message || err);
+        }
+      }
+
+      if (response?.ok) {
         const data = await response.json();
         // console.log("📥 Cache data:", data);
 
@@ -2730,11 +2761,20 @@ class KidLisp {
         }
 
         // Update browser URL to show the short code
-        this.updateBrowserUrl(response.code, api);
+        this.updateBrowserUrl(data.code, api);
       } else {
-        // console.log("❌ Cache failed - response not ok:", response.status, response.statusText);
-        // Silently handle caching failures - auth issues are common and not critical
-        // console.warn('Failed to cache kidlisp:', response?.status, response?.message || 'Unknown error');
+        console.warn('❌ store-kidlisp failed on all endpoints:', lastError?.message || lastError);
+
+        // As a fallback, generate a deterministic local code so QR overlay still works offline/dev
+        const fallbackCode = Math.abs(source.split('').reduce((hash, ch) => {
+          hash = ((hash << 5) - hash) + ch.charCodeAt(0);
+          return hash & hash;
+        }, 0)).toString(36).substring(0, 8);
+
+        this.shortUrl = `local/$${fallbackCode}`;
+        this.cachedCode = fallbackCode;
+        setCachedCode(source, fallbackCode);
+        console.warn(`⚠️ Using local fallback code $${fallbackCode} (not stored remotely)`);
       }
     } catch (error) {
       // console.log("❌ Cache error:", error);
