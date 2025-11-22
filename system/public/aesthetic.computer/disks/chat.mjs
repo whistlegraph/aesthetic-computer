@@ -59,6 +59,7 @@ let paintingLoadQueue = new Set(); // Track which paintings are being loaded
 let paintingLoadProgress = new Map(); // Track loading progress (0-1) for each painting
 let paintingAnimations = new Map(); // Track Ken Burns animation state for each painting
 let modalPainting = null; // Track fullscreen modal painting { painting, code, metadata }
+let draftMessage = ""; // Store draft message text persistently
 
 async function boot(
   {
@@ -175,6 +176,7 @@ async function boot(
 
       // Clear text, hide cursor block, and close keyboard after sending message.
       input.text = "";
+      draftMessage = ""; // Clear draft
       input.showBlink = false;
       input.mute = true;
       send({ type: "keyboard:close" });
@@ -787,7 +789,16 @@ function paint(
   
   // Position and paint login/handle button with prompt.mjs styling
   // Place it at the very bottom, below the chat area
-  handleBtn.reposition({ left: leftMargin + 4, bottom: 8, screen });
+  handleBtn.reposition({ left: leftMargin + 1, bottom: 7, screen });
+  
+  // Draw panel background behind both buttons
+  const panelHeight = 32; // Height of the button panel area
+  ink(20, 20, 30, 255).box(
+    0,
+    screen.height - panelHeight,
+    screen.width,
+    panelHeight
+  );
   
   // Use blue color scheme for Log in, pink/magenta for handle (like prompt.mjs)
   const loginColors = currentHandle 
@@ -799,65 +810,76 @@ function paint(
     loginColors
   );
 
-  // Draw "Enter message" button with visible border - make it larger
-  const msg = currentHandle || "Log In";
-  const handleWidth = typefaceName ? text.width(msg, typefaceName) : text.width(msg);
-  const charW = typefaceName ? text.width("M", typefaceName) : typeface.glyphs[0].resolution[0];
-  const gapWidth = charW * 2; // Reduced gap for more button space
+  // Draw "Enter message" button with visible border - 3px taller than handle button
+  const gapWidth = 1; // 1px gap between buttons
   
   const inputBtnX = handleBtn.btn.box.x + handleBtn.btn.box.w + gapWidth;
-  const inputBtnWidth = screen.width - inputBtnX - leftMargin - 4;
-  const inputBtnHeight = handleBtn.btn.box.h + 8; // Taller button
+  const inputBtnWidth = screen.width - inputBtnX - 5; // 1px less width on right side
+  const inputBtnHeight = handleBtn.btn.box.h + 2; // 2px taller than handle button (was +3)
   
   inputBtn.box = new Box(
     inputBtnX,
-    handleBtn.btn.box.y - 4, // Slightly higher to accommodate larger size
+    handleBtn.btn.box.y - 1, // Position matches handle button
     inputBtnWidth,
     inputBtnHeight,
   );
 
-  // Draw border for Enter message button
+  // Draw border for Enter message button (no left border)
   const borderColor = inputBtn.down ? "yellow" : (inputBtn.over ? "white" : "gray");
-  ink(borderColor).box(
+  // Top border
+  ink(borderColor).line(
     inputBtn.box.x,
     inputBtn.box.y,
-    inputBtn.box.w,
-    inputBtn.box.h,
-    "outline"
+    inputBtn.box.x + inputBtn.box.w - 1,
+    inputBtn.box.y
+  );
+  // Bottom border
+  ink(borderColor).line(
+    inputBtn.box.x,
+    inputBtn.box.y + inputBtn.box.h - 1,
+    inputBtn.box.x + inputBtn.box.w - 1,
+    inputBtn.box.y + inputBtn.box.h - 1
+  );
+  // Right border
+  ink(borderColor).line(
+    inputBtn.box.x + inputBtn.box.w - 1,
+    inputBtn.box.y,
+    inputBtn.box.x + inputBtn.box.w - 1,
+    inputBtn.box.y + inputBtn.box.h - 1
   );
 
   // Draw background for Enter message button (always visible, darker when hovering)
-  const draftText = input && input.text ? input.text : "";
+  const draftText = draftMessage;
   const hasDraft = draftText.length > 0;
   
   if (inputBtn.down) {
     ink("yellow", 200).box(
-      inputBtn.box.x + 1,
+      inputBtn.box.x,
       inputBtn.box.y + 1,
-      inputBtn.box.w - 2,
+      inputBtn.box.w - 1,
       inputBtn.box.h - 2
     );
   } else if (inputBtn.over) {
     ink(220, 100).box(
-      inputBtn.box.x + 1,
+      inputBtn.box.x,
       inputBtn.box.y + 1,
-      inputBtn.box.w - 2,
+      inputBtn.box.w - 1,
       inputBtn.box.h - 2
     );
   } else if (hasDraft) {
     // Highlight background when there's a draft
     ink(80, 100, 80, 100).box(
-      inputBtn.box.x + 1,
+      inputBtn.box.x,
       inputBtn.box.y + 1,
-      inputBtn.box.w - 2,
+      inputBtn.box.w - 1,
       inputBtn.box.h - 2
     );
   } else {
     // Default subtle background
     ink(60, 60, 80, 80).box(
-      inputBtn.box.x + 1,
+      inputBtn.box.x,
       inputBtn.box.y + 1,
-      inputBtn.box.w - 2,
+      inputBtn.box.w - 1,
       inputBtn.box.h - 2
     );
   }
@@ -870,7 +892,7 @@ function paint(
     enterMsg,
     {
       left: inputBtnX + 6,
-      bottom: inputBtn.box.y === handleBtn.btn.box.y ? 10 : 14,
+      bottom: 9, // Moved up 1px
     },
     false, undefined, false, typefaceName
   );
@@ -883,6 +905,11 @@ function paint(
   }
 
   if (input.canType && !leaving()) {
+    // Update draft message while typing
+    if (input.text !== "...") {
+      draftMessage = input.text;
+    }
+    
     input.paint(api, false, {
       x: 0,
       y: topMargin,

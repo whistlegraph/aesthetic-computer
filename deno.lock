@@ -1,5 +1,5 @@
 {
-  "version": "3",
+  "version": "5",
   "remote": {
     "https://edge.netlify.com/": "fd941d61d88673d5f28aab283fb86fcc50f08a3bc80ee5470498fcfa88c65cfb",
     "https://edge.netlify.com/bootstrap/config.ts": "6a2ce0e544e15e8f8883a5c18da5948e37fd0f2619f68cb31f3af53c51817025",
@@ -11,28 +11,36 @@
   "workspace": {
     "packageJson": {
       "dependencies": [
+        "npm:@atproto/api@~0.17.2",
+        "npm:@aws-sdk/client-s3@^3.934.0",
         "npm:archiver@^7.0.1",
-        "npm:blessed@^0.1.81",
+        "npm:blessed@~0.1.81",
         "npm:chalk@^5.6.2",
         "npm:concurrently@^9.2.1",
+        "npm:dotenv@^16.4.7",
         "npm:electron-builder@^26.0.12",
         "npm:electron@^38.1.2",
         "npm:gbasm@^0.0.21",
         "npm:gif-encoder-2@^1.0.5",
         "npm:got@^14.4.9",
-        "npm:gradient-string@^3.0.0",
+        "npm:gradient-string@3",
         "npm:http-server@^14.1.1",
         "npm:jasmine@^5.10.0",
         "npm:jszip@^3.10.1",
         "npm:kill-port@^2.0.1",
+        "npm:lighthouse@^13.0.1",
+        "npm:mongodb@^6.20.0",
+        "npm:node-fetch@^3.3.2",
         "npm:nodemon@^3.1.10",
         "npm:npm-check-updates@^18.3.0",
-        "npm:ntp-client@^0.5.3",
-        "npm:obscenity@^0.4.5",
-        "npm:pngjs@^7.0.0",
+        "npm:ntp-client@~0.5.3",
+        "npm:obscenity@~0.4.5",
+        "npm:pngjs@7",
         "npm:prettier@^3.6.2",
-        "npm:qrcode-terminal@^0.12.0",
-        "npm:terminal-kit@^3.1.2"
+        "npm:puppeteer@^24.31.0",
+        "npm:qrcode-terminal@0.12",
+        "npm:terminal-kit@^3.1.2",
+        "npm:terser@^5.36.0"
       ]
     }
   }
