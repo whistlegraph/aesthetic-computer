@@ -33,12 +33,12 @@
 const { max, floor, ceil } = Math;
 
 import { isKidlispSource, tokenize, KidLisp } from "../lib/kidlisp.mjs";
+import { parseMessageElements as parseMessageElementsShared } from "../lib/chat-highlighting.mjs";
 
 let input, inputBtn, handleBtn, token;
 let messagesNeedLayout = true;
 let tapState = null;
 let inputTypefaceName; // Store the typeface name for text input
-let draftText = ""; // Track draft text even when keyboard is closed
 
 let rowHeight;
 const lineGap = 1,
@@ -57,6 +57,8 @@ let scroll = 0,
 let paintingPreviewCache = new Map(); // Store loaded painting previews
 let paintingLoadQueue = new Set(); // Track which paintings are being loaded
 let paintingLoadProgress = new Map(); // Track loading progress (0-1) for each painting
+let paintingAnimations = new Map(); // Track Ken Burns animation state for each painting
+let modalPainting = null; // Track fullscreen modal painting { painting, code, metadata }
 
 async function boot(
   {
@@ -173,7 +175,6 @@ async function boot(
 
       // Clear text, hide cursor block, and close keyboard after sending message.
       input.text = "";
-      draftText = ""; // Clear draft text
       input.showBlink = false;
       input.mute = true;
       send({ type: "keyboard:close" });
@@ -201,13 +202,6 @@ async function boot(
     },
   );
 
-  inputBtn = new ui.Button(
-    0,
-    screen.height - bottomMargin + 2,
-    screen.width / 2 - 1,
-    bottomMargin - 2,
-  );
-
   const currentHandle = handle();
   const handleText = currentHandle || "Log in";
   handleBtn = new ui.TextButton(handleText, { 
@@ -215,6 +209,14 @@ async function boot(
     bottom: 0,
     screen 
   });
+  
+  // Simple button for "Enter message"
+  inputBtn = new ui.Button(
+    0,
+    screen.height - bottomMargin + 2,
+    screen.width / 2,
+    bottomMargin - 2,
+  );
 
   ellipsisTicker = new gizmo.EllipsisTicker();
 
@@ -241,6 +243,7 @@ function paint(
     piece,
     store,
     paste,
+    needsPaint,
   },
   options,
 ) {
@@ -557,6 +560,8 @@ function paint(
   }
 
   // 🎨 Render painting previews and trigger loading
+  let hasAnimatingPaintings = false;
+  
   for (let i = client.messages.length - 1; i >= 0; i--) {
     const message = client.messages[i];
     if (!message.layout?.paintingCodes) continue;
@@ -584,50 +589,94 @@ function paint(
       }
       
       if (cached) {
+        hasAnimatingPaintings = true; // Mark that we have animations
         const { painting } = cached;
         
-        // Calculate scaling to fit 64x64 max
-        const targetSize = 64;
-        const scale = Math.min(
-          targetSize / painting.width,
-          targetSize / painting.height,
-          1 // Don't scale up, only down
-        );
+        // Fixed preview size (Ken Burns style)
+        const previewSize = 64;
         
-        const scaledW = floor(painting.width * scale);
-        const scaledH = floor(painting.height * scale);
+        // Initialize animation state for this painting if it doesn't exist
+        // Use message index + code to create stable key that doesn't change on scroll
+        const animKey = `${i}-${code}`;
+        if (!paintingAnimations.has(animKey)) {
+          // Random starting position for Ken Burns effect
+          paintingAnimations.set(animKey, {
+            seed: Math.random(),
+            startTime: performance.now(),
+          });
+        }
+        
+        const anim = paintingAnimations.get(animKey);
+        
+        // Ken Burns effect: pan a crop window that fills the preview box
+        const KEN_BURNS_CYCLE_MS = 8000;
+        const nowTime = performance.now();
+        const burnProgress = ((nowTime / KEN_BURNS_CYCLE_MS) + anim.seed) % 1;
+        
+        // Get actual image dimensions
+        const imgWidth = painting.width || painting.w;
+        const imgHeight = painting.height || painting.h;
+        
+        // NO SCALING - Use 1:1 pixel ratio
+        // Calculate maximum pan range (how much we can move within the source image)
+        const maxPanX = Math.max(0, imgWidth - previewSize);
+        const maxPanY = Math.max(0, imgHeight - previewSize);
+        
+        // Ken Burns pan position (0-1) - smooth circular motion
+        const panX = (Math.cos((burnProgress + 0.25) * Math.PI * 2) + 1) / 2;
+        const panY = (Math.sin((burnProgress + 0.65) * Math.PI * 2) + 1) / 2;
+        
+        // Calculate crop position in source pixels
+        const cropX = Math.max(0, Math.min(maxPanX * panX, imgWidth - previewSize));
+        const cropY = Math.max(0, Math.min(maxPanY * panY, imgHeight - previewSize));
+        
+        // Ensure crop dimensions don't exceed image bounds
+        const cropW = Math.min(previewSize, imgWidth - cropX);
+        const cropH = Math.min(previewSize, imgHeight - cropY);
         
         // Check if this preview is being hovered
         const isHovered = message.layout.hoveredPainting === code && 
                           message.layout.hoveredPaintingIndex === codeIdx;
         
-        // Paste the painting directly (no background, no border, no padding)
-        paste(painting, previewX, previewY, scale);
+        // Paste with crop at 1:1 scale (no width/height scale)
+        paste(
+          painting,
+          floor(previewX),
+          floor(previewY),
+          { 
+            crop: {
+              x: floor(cropX),
+              y: floor(cropY),
+              w: floor(cropW),
+              h: floor(cropH)
+            }
+          }
+        );
         
-        // Only draw border on hover
+        // Only draw border on hover (after unmask so border isn't clipped)
         if (isHovered) {
           const borderColor = theme.paintingHover;
           if (Array.isArray(borderColor)) {
             ink(...borderColor).box(
               previewX, 
               previewY, 
-              scaledW, 
-              scaledH, 
+              previewSize, 
+              previewSize, 
               "outline"
             );
           } else {
             ink(borderColor).box(
               previewX, 
               previewY, 
-              scaledW, 
-              scaledH, 
+              previewSize, 
+              previewSize, 
               "outline"
             );
           }
         }
         
-        // Move X position for next preview (no gap, flush against each other)
-        previewX += scaledW;
+        // Move X position for next preview (add 2px gap between paintings)
+        previewX += previewSize + 2;
       } else {
         // Show loading indicator with background and animation
         const loadingW = 64; // Max preview size (no padding)
@@ -694,6 +743,11 @@ function paint(
       }
     }
   }
+  
+  // Request continuous painting only if we have animating paintings
+  if (hasAnimatingPaintings) {
+    needsPaint();
+  }
 
   unmask();
 
@@ -723,48 +777,58 @@ function paint(
   // }
 
   const currentHandle = handle();
-  const msg = currentHandle || "Log In";
-
-  const color = currentHandle ? "lime" : "red";
-
-  // Calculate dimensions
-  const handleWidth = typefaceName ? text.width(msg, typefaceName) : text.width(msg);
-  const charW = typefaceName ? text.width("M", typefaceName) : typeface.glyphs[0].resolution[0];
-  const gapWidth = charW * 4; // Four character widths for better spacing with unifont
   
-  // Define button boxes first so they match the visual boxes
-  const handleBtnWidth = leftMargin + handleWidth + Math.floor(gapWidth / 2);
-  const inputBtnX = leftMargin + handleWidth + gapWidth;
-  const inputBtnWidth = screen.width - inputBtnX;
-  
-  // Update handleBtn text based on current handle
-  const currentHandle = handle();
+  // Update button text if handle changed
   if (currentHandle && handleBtn.text !== currentHandle) {
     handleBtn.text = currentHandle;
   } else if (!currentHandle && handleBtn.text !== "Log in") {
     handleBtn.text = "Log in";
   }
   
-  // Position and paint the Log In / handle button using TextButton
+  // Position and paint login/handle button with prompt.mjs styling
+  // Place it at the very bottom, below the chat area
   handleBtn.reposition({ left: leftMargin + 4, bottom: 8, screen });
   
+  // Use blue color scheme for Log in, pink/magenta for handle (like prompt.mjs)
   const loginColors = currentHandle 
     ? [[128, 0, 128], 255, 255, [128, 0, 128]] // Magenta for handle
     : [[0, 0, 128], 255, 255, [0, 0, 128]];     // Blue for "Log in"
-  
-  handleBtn.paint($, loginColors);
+    
+  handleBtn.paint(
+    { ink, wipe, paste, screen, text, typeface }, 
+    loginColors
+  );
 
-  // Define Enter message button box (larger than before)
-  const inputBtnHeight = handleBtn.btn.box.h + 8;
+  // Draw "Enter message" button with visible border - make it larger
+  const msg = currentHandle || "Log In";
+  const handleWidth = typefaceName ? text.width(msg, typefaceName) : text.width(msg);
+  const charW = typefaceName ? text.width("M", typefaceName) : typeface.glyphs[0].resolution[0];
+  const gapWidth = charW * 2; // Reduced gap for more button space
+  
+  const inputBtnX = handleBtn.btn.box.x + handleBtn.btn.box.w + gapWidth;
+  const inputBtnWidth = screen.width - inputBtnX - leftMargin - 4;
+  const inputBtnHeight = handleBtn.btn.box.h + 8; // Taller button
+  
   inputBtn.box = new Box(
     inputBtnX,
-    screen.height - bottomMargin + 2,
+    handleBtn.btn.box.y - 4, // Slightly higher to accommodate larger size
     inputBtnWidth,
     inputBtnHeight,
   );
-  
+
+  // Draw border for Enter message button
+  const borderColor = inputBtn.down ? "yellow" : (inputBtn.over ? "white" : "gray");
+  ink(borderColor).box(
+    inputBtn.box.x,
+    inputBtn.box.y,
+    inputBtn.box.w,
+    inputBtn.box.h,
+    "outline"
+  );
+
   // Draw background for Enter message button (always visible, darker when hovering)
-  const hasDraft = draftText && draftText.trim().length > 0;
+  const draftText = input && input.text ? input.text : "";
+  const hasDraft = draftText.length > 0;
   
   if (inputBtn.down) {
     ink("yellow", 200).box(
@@ -799,19 +863,11 @@ function paint(
   }
 
   // Show draft text if there is any, otherwise show "Enter message..."
-  // Truncate draft text if too long to fit in button
-  let displayText;
-  if (hasDraft) {
-    const maxChars = Math.floor((inputBtnWidth - 12) / 6); // Rough estimate
-    displayText = draftText.length > maxChars ? draftText.substring(0, maxChars - 3) + "..." : draftText;
-  } else {
-    displayText = "Enter message" + ellipsisTicker.text(help.repeat);
-  }
-  
+  const enterMsg = hasDraft ? draftText : ("Enter message" + ellipsisTicker.text(help.repeat));
   const textColor = inputBtn.down ? "black" : (hasDraft ? "lime" : (inputBtn.over ? "white" : 200));
   
   ink(textColor).write(
-    displayText,
+    enterMsg,
     {
       left: inputBtnX + 6,
       bottom: inputBtn.box.y === handleBtn.btn.box.y ? 10 : 14,
@@ -841,6 +897,46 @@ function paint(
       { right: 6, top: 6 }
     ); // Use default font for character count
   }
+  
+  // 🖼️ Render fullscreen painting modal (overlay over everything)
+  if (modalPainting) {
+    const { painting, code, metadata } = modalPainting;
+    
+    // Semi-transparent black backdrop
+    ink(0, 0, 0, 200).box(0, 0, screen.width, screen.height);
+    
+    // Calculate centered position and scale to fit screen while maintaining aspect ratio
+    const maxW = screen.width - 40; // 20px padding on each side
+    const maxH = screen.height - 40;
+    
+    const scaleW = maxW / painting.width;
+    const scaleH = maxH / painting.height;
+    const scale = Math.min(scaleW, scaleH, 1); // Don't scale up, max 1:1
+    
+    const displayW = Math.floor(painting.width * scale);
+    const displayH = Math.floor(painting.height * scale);
+    
+    const x = Math.floor((screen.width - displayW) / 2);
+    const y = Math.floor((screen.height - displayH) / 2);
+    
+    // Draw painting
+    if (scale === 1) {
+      // 1:1 pixel perfect
+      paste(painting, x, y);
+    } else {
+      // Scaled to fit
+      paste(painting, x, y, { width: displayW, height: displayH });
+    }
+    
+    // Draw border
+    ink(255, 255, 255).box(x - 1, y - 1, displayW + 2, displayH + 2, "outline");
+    
+    // Draw title/code at bottom
+    const titleText = metadata?.slug ? `#${code} - ${metadata.handle}` : `#${code}`;
+    ink(255, 255, 255).write(titleText, { center: "x", bottom: 10 });
+    
+    needsPaint(); // Keep modal visible
+  }
 }
 
 function act(
@@ -867,6 +963,15 @@ function act(
   
   // Calculate rowHeight based on the typeface being used
   const currentRowHeight = typefaceName === "unifont" ? 17 : (typeface.blockHeight + 1);
+  
+  // 🖼️ Modal painting intercepts all events
+  if (modalPainting) {
+    if (e.is("lift") || e.is("touch")) {
+      beep();
+      modalPainting = null; // Close modal on any tap/click
+    }
+    return; // Block all other interactions when modal is open
+  }
   
   // if (e.is("viewport-height:changed")) {
   // console.log("✨ New keyboard cutoff would be:", e.y, "?");
@@ -960,6 +1065,7 @@ function act(
           if (message.layout.paintingCodes) {
             const previewY = message.layout.y + message.layout.height + 4;
             let previewX = message.layout.x;
+            const previewSize = 64; // Fixed size for Ken Burns previews
             
             message.layout.hoveredPainting = null;
             message.layout.hoveredPaintingIndex = null;
@@ -968,26 +1074,20 @@ function act(
               const code = message.layout.paintingCodes[codeIdx];
               const cached = paintingPreviewCache.get(code);
               if (cached) {
-                const { painting } = cached;
-                const targetSize = 64;
-                const scale = Math.min(targetSize / painting.width, targetSize / painting.height, 1);
-                const scaledW = floor(painting.width * scale);
-                const scaledH = floor(painting.height * scale);
-                
                 if (
                   e.x >= previewX &&
-                  e.x < previewX + scaledW &&
+                  e.x < previewX + previewSize &&
                   e.y >= previewY &&
-                  e.y < previewY + scaledH
+                  e.y < previewY + previewSize
                 ) {
                   message.layout.hoveredPainting = code;
                   message.layout.hoveredPaintingIndex = codeIdx;
                   break;
                 }
                 
-                previewX += scaledW; // Move to next preview position (no gap)
+                previewX += previewSize + 2; // Move to next preview with 2px gap
               } else {
-                previewX += 64; // Reserve space for loading preview (no gap)
+                previewX += 64; // Reserve space for loading preview
               }
             }
           }
@@ -1106,36 +1206,29 @@ function act(
           if (message.layout.paintingCodes) {
             const previewY = message.layout.y + message.layout.height + 4;
             let previewX = message.layout.x;
+            const previewSize = 64; // Fixed size for Ken Burns previews
             
             for (const code of message.layout.paintingCodes) {
               const cached = paintingPreviewCache.get(code);
               if (cached) {
-                const { painting } = cached;
-                
-                // Calculate the preview dimensions
-                const targetSize = 64;
-                const scale = Math.min(
-                  targetSize / painting.width,
-                  targetSize / painting.height,
-                  1
-                );
-                const scaledW = floor(painting.width * scale);
-                const scaledH = floor(painting.height * scale);
-                
                 // Check if click is inside this preview
                 if (
                   e.x >= previewX &&
-                  e.x < previewX + scaledW &&
+                  e.x < previewX + previewSize &&
                   e.y >= previewY &&
-                  e.y < previewY + scaledH
+                  e.y < previewY + previewSize
                 ) {
                   beep();
-                  hud.label(piece); // Set back label to current piece
-                  jump(`painting#${code}`);
+                  // Open painting in fullscreen modal
+                  modalPainting = {
+                    painting: cached.painting,
+                    code: cached.code,
+                    metadata: cached.metadata
+                  };
                   break;
                 }
                 
-                previewX += scaledW; // Move to next preview position (no gap)
+                previewX += previewSize + 2; // Move to next preview with 2px gap
               } else {
                 previewX += 64; // Reserve space for loading preview (no gap)
               }
@@ -1263,18 +1356,14 @@ function act(
             for (let codeIdx = 0; codeIdx < message.layout.paintingCodes.length; codeIdx++) {
               const code = message.layout.paintingCodes[codeIdx];
               const cached = paintingPreviewCache.get(code);
+              const previewSize = 64; // Fixed size for Ken Burns previews
+              
               if (cached) {
-                const { painting } = cached;
-                const targetSize = 64;
-                const scale = Math.min(targetSize / painting.width, targetSize / painting.height, 1);
-                const scaledW = floor(painting.width * scale);
-                const scaledH = floor(painting.height * scale);
-                
                 if (
                   e.x >= previewX &&
-                  e.x < previewX + scaledW &&
+                  e.x < previewX + previewSize &&
                   e.y >= previewY &&
-                  e.y < previewY + scaledH
+                  e.y < previewY + previewSize
                 ) {
                   message.layout.hoveredPainting = code;
                   message.layout.hoveredPaintingIndex = codeIdx;
@@ -1282,9 +1371,9 @@ function act(
                   break;
                 }
                 
-                previewX += scaledW; // Move to next preview position (no gap)
+                previewX += previewSize + 2; // Move to next preview with 2px gap
               } else {
-                previewX += 64; // Reserve space for loading preview (no gap)
+                previewX += 64; // Reserve space for loading preview
               }
             }
           }
@@ -1412,10 +1501,6 @@ function act(
 
   if (shouldCallInputAct) {
     input.act(api);
-    // Update draft text whenever input changes
-    if (input.canType) {
-      draftText = input.text;
-    }
   }
 }
 
@@ -1755,185 +1840,8 @@ function buildWordPositionMap(originalMessage, textBoxLines) {
   return wordMap;
 }
 
-// Parse prompts, URLs, and @handles from the original message string
-function parseMessageElements(message) {
-  const elements = [];
-
-  // Parse prompts (text within single quotes) - ignore contractions like "I'll" or "you'll"
-  // Require word boundary or whitespace before the opening quote
-  const promptRegex = /(?:^|[\s\(\[\{])'([^']*)'/g;
-  let match;
-  while ((match = promptRegex.exec(message)) !== null) {
-    // Adjust index if we matched a preceding whitespace/boundary character
-    const actualStart = match[0].startsWith("'") ? match.index : match.index + 1;
-    const promptText = match[1]; // Captured group without quotes
-    
-    // Check if this prompt is kidlisp code
-    if (isKidlispSource(promptText)) {
-      // Add green opening quote
-      elements.push({
-        type: "prompt",
-        text: "'",
-        start: actualStart,
-        end: actualStart + 1,
-      });
-      
-      // Parse as kidlisp and create elements for each token with syntax highlighting
-      const tokens = tokenize(promptText);
-      const kidlispInstance = new KidLisp();
-      
-      let charOffset = actualStart + 1; // +1 to skip opening quote
-      
-      for (let i = 0; i < tokens.length; i++) {
-        const token = tokens[i];
-        const tokenStart = promptText.indexOf(token, charOffset - (actualStart + 1));
-        
-        if (tokenStart >= 0) {
-          elements.push({
-            type: "kidlisp-token",
-            text: token,
-            start: actualStart + 1 + tokenStart,
-            end: actualStart + 1 + tokenStart + token.length,
-            color: kidlispInstance.getTokenColor(token, tokens, i),
-          });
-          charOffset = actualStart + 1 + tokenStart + token.length;
-        }
-      }
-      
-      // Add green closing quote
-      elements.push({
-        type: "prompt",
-        text: "'",
-        start: actualStart + 1 + promptText.length,
-        end: actualStart + 1 + promptText.length + 1,
-      });
-    } else {
-      // Not kidlisp, regular prompt - separate quotes from content
-      // Opening quote
-      elements.push({
-        type: "prompt",
-        text: "'",
-        start: actualStart,
-        end: actualStart + 1,
-      });
-      
-      // Inner content (different color)
-      elements.push({
-        type: "prompt-content",
-        text: promptText,
-        start: actualStart + 1,
-        end: actualStart + 1 + promptText.length,
-      });
-      
-      // Closing quote
-      elements.push({
-        type: "prompt",
-        text: "'",
-        start: actualStart + 1 + promptText.length,
-        end: actualStart + 1 + promptText.length + 1,
-      });
-    }
-  }
-
-  // Parse URLs (starting with http://, https://, or www.)
-  const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+)/g;
-  while ((match = urlRegex.exec(message)) !== null) {
-    elements.push({
-      type: "url",
-      text: match[0],
-      start: match.index,
-      end: match.index + match[0].length,
-    });
-  }
-
-  // Parse @handles
-  // Handles can only contain a-z, 0-9, underscores and periods (not at start/end)
-  // They should stop at quotes, parentheses, and other special characters
-  const handleRegex = /@[a-z0-9]+([._][a-z0-9]+)*/gi;
-  while ((match = handleRegex.exec(message)) !== null) {
-    elements.push({
-      type: "handle",
-      text: match[0],
-      start: match.index,
-      end: match.index + match[0].length,
-    });
-  }
-
-  // Parse #painting codes (hashtags followed by alphanumeric characters)
-  // Painting codes are typically 3 characters but can vary (e.g., #k3d, #WDv, #abc)
-  const hashtagRegex = /#[a-z0-9]+/gi;
-  while ((match = hashtagRegex.exec(message)) !== null) {
-    elements.push({
-      type: "painting",
-      text: match[0],
-      start: match.index,
-      end: match.index + match[0].length,
-    });
-  }
-
-  // Parse $kidlisp inline references (dollar sign followed by alphanumeric)
-  const kidlispRefRegex = /\$[a-z0-9]+/gi;
-  while ((match = kidlispRefRegex.exec(message)) !== null) {
-    elements.push({
-      type: "kidlisp",
-      text: match[0],
-      start: match.index,
-      end: match.index + match[0].length,
-    });
-  }
-
-  // Parse !tape URLs (exclamation followed by alphanumeric)
-  const tapeRegex = /![a-z0-9]+/gi;
-  while ((match = tapeRegex.exec(message)) !== null) {
-    elements.push({
-      type: "url",
-      text: match[0],
-      start: match.index,
-      end: match.index + match[0].length,
-    });
-  }
-
-  // Sort elements by start position to ensure proper ordering
-  elements.sort((a, b) => a.start - b.start);
-
-  // Remove elements that are completely inside quoted sections
-  // (to avoid double-highlighting things like '#abc' when it's inside 'run #abc')
-  const quotedRanges = elements
-    .filter(el => el.type === "prompt" || el.type === "kidlisp-token" || el.type === "prompt-content")
-    .map(el => ({ start: el.start, end: el.end }));
-  
-  // Merge overlapping quoted ranges
-  const mergedQuotedRanges = [];
-  for (const range of quotedRanges) {
-    if (mergedQuotedRanges.length === 0) {
-      mergedQuotedRanges.push(range);
-    } else {
-      const last = mergedQuotedRanges[mergedQuotedRanges.length - 1];
-      if (range.start <= last.end) {
-        last.end = Math.max(last.end, range.end);
-      } else {
-        mergedQuotedRanges.push(range);
-      }
-    }
-  }
-  
-  // Filter out elements that are inside quotes (except quote-related elements)
-  const filteredElements = elements.filter(el => {
-    if (el.type === "prompt" || el.type === "kidlisp-token" || el.type === "prompt-content") {
-      return true; // Keep quote-related elements
-    }
-    
-    // Check if this element is inside any quoted range
-    for (const range of mergedQuotedRanges) {
-      if (el.start >= range.start && el.end <= range.end) {
-        return false; // Remove it - it's inside quotes
-      }
-    }
-    return true; // Keep it
-  });
-
-  return filteredElements;
-}
+// Use shared parsing function from chat-highlighting.mjs
+const parseMessageElements = parseMessageElementsShared;
 
 // Calculate the rendered position of an interactive element in the text layout
 function calculateElementPosition(element, fullMessage, textLines, text, currentRowHeight, typefaceName) {
