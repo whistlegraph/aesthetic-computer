@@ -242,7 +242,7 @@
       position: absolute;
       bottom: 8px;
       right: 8px; /* Same position as play button initially */
-      z-index: 100;
+      z-index: 101; /* Above play button to ensure it's clickable */
       width: 48px;
       height: 48px;
       background: rgb(244, 67, 54); /* Red */
@@ -258,6 +258,7 @@
       padding: 0;
       margin: 0;
       vertical-align: baseline;
+      pointer-events: auto; /* Ensure clicks are captured */
     }
 
     #stop-button::before {
@@ -1649,6 +1650,7 @@
 
     const editorContainer = document.getElementById('kidlisp-editor');
     const sendButton = document.getElementById('send-button');
+    const stopButton = document.getElementById('stop-button');
     const previewIframe = document.getElementById('preview-iframe');
     const bootScreen = document.getElementById('boot-screen');
 
@@ -1763,8 +1765,15 @@
       const isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
       const initialTheme = isDarkMode ? 'kidlisp-dark' : 'kidlisp-light';
 
-      // Line limit state
+      // Line limit state - restore from localStorage or default to 1
+      const savedMaxLines = localStorage.getItem('kidlisp-maxLines');
       let maxLines = 1;
+      if (savedMaxLines) {
+        const parsed = parseInt(savedMaxLines, 10);
+        if ([1, 2, 4, 8, 16].includes(parsed)) {
+          maxLines = parsed;
+        }
+      }
       
       // Create the editor
       editor = monaco.editor.create(editorContainer, {
@@ -1794,12 +1803,23 @@
 
       // Line limit button handler
       const lineLimitBtn = document.getElementById('line-limit-btn');
+      // Update button text to show restored value
+      lineLimitBtn.textContent = maxLines;
+      // Update line numbers based on restored maxLines
+      editor.updateOptions({
+        lineNumbers: maxLines > 1 ? 'on' : 'off',
+        lineDecorationsWidth: maxLines > 1 ? 10 : 0
+      });
+      
       lineLimitBtn.addEventListener('click', () => {
         // Cycle through 1, 2, 4, 8, 16
         const limits = [1, 2, 4, 8, 16];
         const currentIndex = limits.indexOf(maxLines);
         maxLines = limits[(currentIndex + 1) % limits.length];
         lineLimitBtn.textContent = maxLines;
+        
+        // Save to localStorage
+        localStorage.setItem('kidlisp-maxLines', maxLines.toString());
         
         // Update line numbers visibility
         editor.updateOptions({
@@ -2471,6 +2491,31 @@
     let isPlaying = false;
     let isPaused = false;
 
+    // Console functionality (must be defined before updatePreview uses it)
+    const consoleOutput = document.getElementById('console-output');
+    
+    function addConsoleEntry(message, type = 'log', line = null) {
+      const entry = document.createElement('div');
+      entry.className = `console-entry ${type}`;
+      
+      if (line) {
+        const lineSpan = document.createElement('span');
+        lineSpan.className = 'console-line';
+        lineSpan.textContent = `:${line}`;
+        entry.appendChild(lineSpan);
+        
+        const msgSpan = document.createElement('span');
+        msgSpan.textContent = ' ' + message;
+        entry.appendChild(msgSpan);
+      } else {
+        entry.textContent = message;
+      }
+      
+      consoleOutput.appendChild(entry);
+      consoleOutput.scrollTop = consoleOutput.scrollHeight;
+      return entry;
+    }
+
     function updatePreview() {
       if (!editor) return;
       
@@ -2496,7 +2541,7 @@
 
     sendButton.addEventListener('click', () => {
       if (!isPlaying) {
-        // Start playing
+        // Start playing - always run the current code
         updatePreview();
         isPlaying = true;
         isPaused = false;
@@ -2522,23 +2567,37 @@
         stopButton.style.display = 'flex';
       }
     });
+    
+    // Also update when code changes while playing
+    let lastCode = '';
+    editor.onDidChangeModelContent(() => {
+      const currentCode = editor.getValue().trim();
+      if (isPlaying && !isPaused && currentCode !== lastCode) {
+        // Auto-reload when editing while playing
+        updatePreview();
+        lastCode = currentCode;
+      }
+    });
 
     // Stop button - reloads the blank kidlisp piece
-    const stopButton = document.getElementById('stop-button');
-    stopButton.addEventListener('click', () => {
-      // Reload the iframe to get back to the initial empty state
-      const isDev = window.location.hostname === 'localhost' || window.location.hostname.includes('local.');
-      const aestheticUrl = isDev ? 'https://localhost:8888' : 'https://aesthetic.computer';
-      previewIframe.src = `${aestheticUrl}/kidlisp?nogap=true&nolabel=true&noauth=true`;
-      console.log('⏹️ Stop button pressed - reloading blank piece');
-      
-      // Reset state
-      isPlaying = false;
-      isPaused = false;
-      sendButton.classList.remove('playing');
-      sendButton.style.right = '8px'; // Move play button back to original position
-      stopButton.style.display = 'none';
-    });
+    if (stopButton) {
+      stopButton.addEventListener('click', () => {
+        console.log('⏹️ Stop button pressed - reloading blank piece');
+        
+        // Reload the iframe to get back to the initial empty state
+        previewIframe.src = `${aestheticUrl}/kidlisp?nogap=true&nolabel=true&noauth=true`;
+        
+        // Reset state
+        isPlaying = false;
+        isPaused = false;
+        lastCode = '';
+        sendButton.classList.remove('playing');
+        sendButton.style.right = '8px'; // Move play button back to original position
+        stopButton.style.display = 'none';
+      });
+    } else {
+      console.error('❌ Stop button not found in DOM!');
+    }
 
     // Inject console forwarding into iframe once it loads
     previewIframe.addEventListener('load', () => {
@@ -2615,31 +2674,6 @@
       }
     });
 
-    // Console functionality
-    const consoleOutput = document.getElementById('console-output');
-    
-    function addConsoleEntry(message, type = 'log', line = null) {
-      const entry = document.createElement('div');
-      entry.className = `console-entry ${type}`;
-      
-      if (line) {
-        const lineSpan = document.createElement('span');
-        lineSpan.className = 'console-line';
-        lineSpan.textContent = `:${line}`;
-        entry.appendChild(lineSpan);
-        
-        const msgSpan = document.createElement('span');
-        msgSpan.textContent = ' ' + message;
-        entry.appendChild(msgSpan);
-      } else {
-        entry.textContent = message;
-      }
-      
-      consoleOutput.appendChild(entry);
-      consoleOutput.scrollTop = consoleOutput.scrollHeight;
-      return entry;
-    }
-    
     // Update initial console message
     updateUILanguage();
     
