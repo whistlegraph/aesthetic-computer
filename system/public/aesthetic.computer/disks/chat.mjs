@@ -38,6 +38,7 @@ let input, inputBtn, handleBtn, token;
 let messagesNeedLayout = true;
 let tapState = null;
 let inputTypefaceName; // Store the typeface name for text input
+let draftText = ""; // Track draft text even when keyboard is closed
 
 let rowHeight;
 const lineGap = 1,
@@ -172,6 +173,7 @@ async function boot(
 
       // Clear text, hide cursor block, and close keyboard after sending message.
       input.text = "";
+      draftText = ""; // Clear draft text
       input.showBlink = false;
       input.mute = true;
       send({ type: "keyboard:close" });
@@ -206,12 +208,13 @@ async function boot(
     bottomMargin - 2,
   );
 
-  handleBtn = new ui.Button(
-    screen.width / 2,
-    screen.height - bottomMargin + 2,
-    screen.width / 2 - 1,
-    bottomMargin - 2,
-  );
+  const currentHandle = handle();
+  const handleText = currentHandle || "Log in";
+  handleBtn = new ui.TextButton(handleText, { 
+    left: 0, 
+    bottom: 0,
+    screen 
+  });
 
   ellipsisTicker = new gizmo.EllipsisTicker();
 
@@ -734,52 +737,84 @@ function paint(
   const inputBtnX = leftMargin + handleWidth + gapWidth;
   const inputBtnWidth = screen.width - inputBtnX;
   
-  handleBtn.btn.box = new Box(
-    0,
-    screen.height - bottomMargin + 2,
-    handleBtnWidth,
-    bottomMargin - 2,
-  );
+  // Update handleBtn text based on current handle
+  const currentHandle = handle();
+  if (currentHandle && handleBtn.text !== currentHandle) {
+    handleBtn.text = currentHandle;
+  } else if (!currentHandle && handleBtn.text !== "Log in") {
+    handleBtn.text = "Log in";
+  }
+  
+  // Position and paint the Log In / handle button using TextButton
+  handleBtn.reposition({ left: leftMargin + 4, bottom: 8, screen });
+  
+  const loginColors = currentHandle 
+    ? [[128, 0, 128], 255, 255, [128, 0, 128]] // Magenta for handle
+    : [[0, 0, 128], 255, 255, [0, 0, 128]];     // Blue for "Log in"
+  
+  handleBtn.paint($, loginColors);
 
-  inputBtn.btn.box = new Box(
+  // Define Enter message button box (larger than before)
+  const inputBtnHeight = handleBtn.btn.box.h + 8;
+  inputBtn.box = new Box(
     inputBtnX,
     screen.height - bottomMargin + 2,
     inputBtnWidth,
-    bottomMargin - 2,
+    inputBtnHeight,
   );
   
-  // Draw background box for Log In / handle button
-  if (handleBtn.over || handleBtn.down) {
-    ink(handleBtn.down ? "white" : color, 32).box(
-      handleBtn.btn.box.x,
-      handleBtn.btn.box.y,
-      handleBtn.btn.box.w,
-      handleBtn.btn.box.h
-    );
-  }
-
-  ink(handleBtn.down ? "black" : (handleBtn.over ? "white" : color)).write(msg, {
-    bottom: 10,
-    left: leftMargin,
-  }, false, undefined, false, typefaceName);
-
-  // Draw background box for Enter message button
-  const enterMsg = "Enter message" + ellipsisTicker.text(help.repeat);
+  // Draw background for Enter message button (always visible, darker when hovering)
+  const hasDraft = draftText && draftText.trim().length > 0;
   
-  if (inputBtn.over || inputBtn.down) {
-    ink(inputBtn.down ? "yellow" : 220, 32).box(
-      inputBtn.btn.box.x,
-      inputBtn.btn.box.y,
-      inputBtn.btn.box.w,
-      inputBtn.btn.box.h
+  if (inputBtn.down) {
+    ink("yellow", 200).box(
+      inputBtn.box.x + 1,
+      inputBtn.box.y + 1,
+      inputBtn.box.w - 2,
+      inputBtn.box.h - 2
+    );
+  } else if (inputBtn.over) {
+    ink(220, 100).box(
+      inputBtn.box.x + 1,
+      inputBtn.box.y + 1,
+      inputBtn.box.w - 2,
+      inputBtn.box.h - 2
+    );
+  } else if (hasDraft) {
+    // Highlight background when there's a draft
+    ink(80, 100, 80, 100).box(
+      inputBtn.box.x + 1,
+      inputBtn.box.y + 1,
+      inputBtn.box.w - 2,
+      inputBtn.box.h - 2
+    );
+  } else {
+    // Default subtle background
+    ink(60, 60, 80, 80).box(
+      inputBtn.box.x + 1,
+      inputBtn.box.y + 1,
+      inputBtn.box.w - 2,
+      inputBtn.box.h - 2
     );
   }
 
-  ink(inputBtn.down ? "black" : (inputBtn.over ? "white" : 220)).write(
-    enterMsg,
+  // Show draft text if there is any, otherwise show "Enter message..."
+  // Truncate draft text if too long to fit in button
+  let displayText;
+  if (hasDraft) {
+    const maxChars = Math.floor((inputBtnWidth - 12) / 6); // Rough estimate
+    displayText = draftText.length > maxChars ? draftText.substring(0, maxChars - 3) + "..." : draftText;
+  } else {
+    displayText = "Enter message" + ellipsisTicker.text(help.repeat);
+  }
+  
+  const textColor = inputBtn.down ? "black" : (hasDraft ? "lime" : (inputBtn.over ? "white" : 200));
+  
+  ink(textColor).write(
+    displayText,
     {
-      left: leftMargin + handleWidth + gapWidth,
-      bottom: 10,
+      left: inputBtnX + 6,
+      bottom: inputBtn.box.y === handleBtn.btn.box.y ? 10 : 14,
     },
     false, undefined, false, typefaceName
   );
@@ -1156,7 +1191,7 @@ function act(
 
     // Track hover state for button visual feedback
     if (e.is("move")) {
-      handleBtn.over = handleBtn.box.contains(e);
+      handleBtn.over = handleBtn.btn.box.contains(e);
       inputBtn.over = inputBtn.box.contains(e);
       
       let hoveredAnyElement = false;
@@ -1377,6 +1412,10 @@ function act(
 
   if (shouldCallInputAct) {
     input.act(api);
+    // Update draft text whenever input changes
+    if (input.canType) {
+      draftText = input.text;
+    }
   }
 }
 
