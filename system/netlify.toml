@@ -395,6 +395,10 @@ from = "/api/clock"
 to = "/.netlify/functions/clock"
 status = 200
 [[redirects]]
+from = "/api/chat/messages"
+to = "/.netlify/functions/chat-messages"
+status = 200
+[[redirects]]
 from = "/api/auth0-events"
 to = "/.netlify/functions/auth0-events"
 status = 200
