@@ -9,6 +9,7 @@ command = "rm -f public/index.html" # Remove index.html before build
 [functions]
 node_bundler = "esbuild"
 directory = "netlify/functions"
+external_node_modules = ["mongodb"]
 
 [functions.apple-developer-merchantid-domain-association]
 included_files = ["public/.well-known/*"]
