@@ -2,8 +2,7 @@
 	root * public
 	file_server # browse
 	
-	# Enable HTTP/2 and compression for faster transfers
-	protocols h1 h2c
+	# Enable compression for faster transfers (HTTP/2 is enabled by default)
 	encode zstd gzip
 	
 	# Aggressive caching disabled for dev (instant updates)

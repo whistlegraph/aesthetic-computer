@@ -83,12 +83,8 @@ RUN set -eux; \
 # This allows us to use tezos/tezos:master which supports current Ghostnet protocol
 RUN dnf install -y docker && dnf clean all && rm -rf /var/cache/dnf
 
-# Pre-pull Tezos & SmartPy Docker images during build (saves time later)
-# Note: This requires BuildKit and may fail in some build environments
-# If it fails, the images will be pulled on first use instead
-RUN --mount=type=cache,target=/var/cache/buildkit \
-    docker pull tezos/tezos:master 2>/dev/null || echo "Octez image will be pulled on first use" && \
-    docker pull bakingbad/smartpy-cli:latest 2>/dev/null || echo "SmartPy image will be pulled on first use"
+# Note: Docker image pre-pulling is skipped during build to avoid API version conflicts
+# Images will be pulled on first use instead via the entry script
 
 # --- Stripe CLI (architecture-aware) -----------------------------------------
 RUN set -eux; \
