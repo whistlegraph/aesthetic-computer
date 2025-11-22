@@ -2,6 +2,7 @@
 
 // Minimal bundler for simple KidLisp pieces like $pie
 // Only includes essential dependencies, removes unused pieces
+// Automatically compresses to gzip+base64 self-contained HTML
 // Usage: node bundle-minimal-keep.mjs <piece-name>
 
 import { promises as fs } from "fs";
@@ -10,6 +11,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { minify } from "terser";
 import { execSync } from "child_process";
+import { gzipSync } from "zlib";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -691,7 +693,7 @@ async function createMinimalBundle(kidlispSources) {
   // Don't minify - the VFS JSON contains template literals that need newlines preserved
   // HTML minification would break the embedded JavaScript
 
-  // Write output
+  // Write uncompressed output
   await fs.mkdir(OUTPUT_DIR, { recursive: true });
   const outputPath = path.join(OUTPUT_DIR, `${PIECE_NAME.replace('$', '')}-minimal-nft.html`);
   await fs.writeFile(outputPath, htmlContent);
@@ -711,7 +713,51 @@ async function createMinimalBundle(kidlispSources) {
   console.log(`   • ${Object.keys(kidlispSources).length} KidLisp pieces embedded (${totalChars} chars total)`);
   console.log(`   • Ready for Tezos minting`);
   
-  return outputPath;
+  // Now create compressed version
+  console.log(`\n📦 Compressing bundle...`);
+  const compressed = gzipSync(htmlContent, { level: 9 });
+  const base64 = compressed.toString('base64');
+  
+  const selfContained = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>${PIECE_NAME} • Aesthetic Computer</title>
+  <style>
+    body{margin:0;background:#000;overflow:hidden}
+  </style>
+</head>
+<body>
+  <script>
+    fetch('data:application/gzip;base64,${base64}')
+      .then(r=>r.blob())
+      .then(b=>b.stream().pipeThrough(new DecompressionStream('gzip')))
+      .then(s=>new Response(s).text())
+      .then(h=>{document.open();document.write(h);document.close();});
+  </script>
+</body>
+</html>`;
+
+  const compressedPath = path.join(OUTPUT_DIR, `${PIECE_NAME.replace('$', '')}-self-contained.html`);
+  await fs.writeFile(compressedPath, selfContained);
+  
+  console.log(`\n📊 Compression results:`);
+  console.log(`   Original:  ${htmlContent.length.toLocaleString()} bytes`);
+  console.log(`   Gzipped:   ${compressed.length.toLocaleString()} bytes`);
+  console.log(`   Base64:    ${base64.length.toLocaleString()} bytes`);
+  console.log(`   Final:     ${selfContained.length.toLocaleString()} bytes = ${Math.round(selfContained.length/1024)} KB`);
+  
+  if (selfContained.length <= 256000) {
+    console.log(`\n✅ Fits in 256 KB Tezos limit!`);
+  } else {
+    const overage = Math.round((selfContained.length - 256000) / 1024);
+    console.log(`\n⚠️  Does not fit in 256 KB limit`);
+    console.log(`   Overage: ${overage} KB`);
+  }
+  
+  console.log(`\n📝 Written to: ${compressedPath}`);
+  
+  return compressedPath;
 }
 
 async function main() {
