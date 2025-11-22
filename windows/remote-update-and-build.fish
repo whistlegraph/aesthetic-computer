@@ -70,8 +70,8 @@ set iso_timestamp (date -Iseconds | cut -d'+' -f1)
 set full_map (ssh me@host.docker.internal "powershell -NoProfile -Command \"(Get-Content 'C:\\Perforce\\SpiderLily\\SL_main\\Config\\DefaultEngine.ini' | Select-String -Pattern 'GameDefaultMap=').ToString().Split('=')[1]\"")
 set start_level (echo $full_map | awk -F'.' '{print $NF}')
 
-# Extract Unreal Engine version from build script
-set ue_version (ssh me@host.docker.internal "powershell -NoProfile -Command \"(Get-Content 'C:\\Perforce\\SpiderLily\\SL_main\\build-false-work.ps1' | Select-String -Pattern 'UE_5\\.\\d+').Matches.Value\"")
+# Extract Unreal Engine version from build script (get first match from $UE5Path variable)
+set ue_version (ssh me@host.docker.internal "powershell -NoProfile -Command \"(Get-Content 'C:\\Perforce\\SpiderLily\\SL_main\\build-false-work.ps1' | Select-String -Pattern '\\`$UE5Path = .*UE_5\\.\\d+').Matches.Value | Select-Object -First 1\" | grep -oP 'UE_5\\.\\d+'")
 
 # Use shared function to update the builds page
 source /workspaces/aesthetic-computer/false.work/unreal-builder/scripts/shared/update-builds-page.fish
