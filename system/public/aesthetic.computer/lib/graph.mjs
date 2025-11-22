@@ -674,6 +674,11 @@ function makeBuffer(width, height, fillProcess, painting, api) {
     // Remember the current buffer and color.
     const savedBuffer = getBuffer();
     const rc = c; // Remember color.
+    // Save and reset panTranslation to prevent paste operations in new buffers from being offset
+    const savedPan = { x: panTranslation.x, y: panTranslation.y };
+    panTranslation.x = 0;
+    panTranslation.y = 0;
+    
     setBuffer(buffer);
     api.screen.pixels = buffer.pixels; // Set the API's pixel buffer.
     
@@ -688,7 +693,9 @@ function makeBuffer(width, height, fillProcess, painting, api) {
       console.warn('⚠️ makeBuffer fillProcess error:', error);
     }
     
-    // Restore old buffer and color.
+    // Restore old buffer, color, and panTranslation.
+    panTranslation.x = savedPan.x;
+    panTranslation.y = savedPan.y;
     setBuffer(savedBuffer);
     color(...rc);
   }
@@ -1894,7 +1901,14 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
       anchor = scale.anchor;
       crop = scale.crop; // 🎨 Extract crop from transform object
       // ^ Pull properties out of the scale object.
-      scale = scale.scale ?? 1; // And then redefine scale (default to 1 if undefined).
+      
+      // Only default scale to 1 if explicit dimensions are NOT provided.
+      // This allows grid() to use tWidth/tHeight for scaling when they are present.
+      if (scale.scale === undefined && (tWidth === undefined || tHeight === undefined)) {
+        scale = 1;
+      } else {
+        scale = scale.scale;
+      }
     }
 
     // Fast path for simple integer scaling (no rotation, no custom dimensions)
@@ -4207,13 +4221,11 @@ function grid(
             color(...colorData);
 
             // Calculate destination pixel ranges ensuring no gaps
-            const scaleX = abs(scale.x);
-            const scaleY = abs(scale.y);
-
-            const destStartX = ~~(x + i * scaleX); // Fast floor conversion
-            const destEndX = ~~(x + (i + 1) * scaleX);
-            const destStartY = ~~(y + j * scaleY);
-            const destEndY = ~~(y + (j + 1) * scaleY);
+            // Use colPix/rowPix which are the actual pixel sizes (w/cols, h/rows)
+            const destStartX = Math.round(x + i * colPix); // Round to nearest pixel for better centering
+            const destEndX = Math.round(x + (i + 1) * colPix);
+            const destStartY = Math.round(y + j * rowPix);
+            const destEndY = Math.round(y + (j + 1) * rowPix);
 
             const pixelWidth = destEndX - destStartX;
             const pixelHeight = destEndY - destStartY;
