@@ -12292,10 +12292,14 @@ async function makeFrame({ data: { type, content } }) {
                       $.write(codeToRender, { x: textX, y: textY });
                     }
                   } else {
-                    // Use MatrixChunky8 font in normal mode - with simple fallback
+                    // Use MatrixChunky8 font in normal mode - wait for it to load first
                     const matrixFont = typefaceCache.get("MatrixChunky8");
                     if (matrixFont) {
                       try {
+                        // Ensure font is fully loaded before attempting to use it
+                        if (matrixFont.__loadPromise) {
+                          await matrixFont.__loadPromise;
+                        }
                         $.write(codeToRender, { x: textX, y: textY }, undefined, undefined, false, "MatrixChunky8");
                       } catch (error) {
                         // Fallback to default font if MatrixChunky8 fails
@@ -12326,10 +12330,14 @@ async function makeFrame({ data: { type, content } }) {
                       $.write(codeToRender, { x: textX + 1, y: textY + 1 });
                     }
                   } else {
-                    // Try MatrixChunky8 with simple fallback
+                    // Try MatrixChunky8 with simple fallback - wait for load
                     const matrixFont = typefaceCache.get("MatrixChunky8");
                     if (matrixFont) {
                       try {
+                        // Ensure font is fully loaded before attempting to use it
+                        if (matrixFont.__loadPromise) {
+                          await matrixFont.__loadPromise;
+                        }
                         $.write(codeToRender, { x: textX + 1, y: textY + 1 }, undefined, undefined, false, "MatrixChunky8");
                       } catch (error) {
                         $.write(codeToRender, { x: textX + 1, y: textY + 1 });
@@ -12356,10 +12364,14 @@ async function makeFrame({ data: { type, content } }) {
                       $.write(codeToRender, { x: textX, y: textY });
                     }
                   } else {
-                    // Try MatrixChunky8 with simple fallback  
+                    // Try MatrixChunky8 with simple fallback - wait for load
                     const matrixFont = typefaceCache.get("MatrixChunky8");
                     if (matrixFont) {
                       try {
+                        // Ensure font is fully loaded before attempting to use it
+                        if (matrixFont.__loadPromise) {
+                          await matrixFont.__loadPromise;
+                        }
                         $.write(codeToRender, { x: textX, y: textY }, undefined, undefined, false, "MatrixChunky8");
                       } catch (error) {
                         $.write(codeToRender, { x: textX, y: textY });
