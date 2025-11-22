@@ -528,6 +528,11 @@ function nopaint_adjust(
 
     if (isNaN(width) || isNaN(height)) return false;
 
+    // Save and reset pan translation to prevent offset during resize
+    const savedPan = api.graph?.savepan ? 
+      { x: api.graph.panTranslation?.x || 0, y: api.graph.panTranslation?.y || 0 } : null;
+    if (api.graph?.unpan) api.graph.unpan();
+
     sys.painting = painting(width, height, (p) => {
       if (size?.scale) {
         p.paste(sys.painting, 0, 0, { width, height });
