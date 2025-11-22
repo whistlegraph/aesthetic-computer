@@ -2,16 +2,17 @@
 
 ## ✅ Working Solution
 
-We now have a fully functional pipeline for creating self-contained KidLisp bundles for Tezos minting.
+We now have a fully functional single-script pipeline for creating self-contained KidLisp bundles for Tezos minting.
 
 ### Active Scripts
 
-- **`bundle-minimal-keep.mjs`** - Main bundler: creates minimal HTML with VFS and recursive KidLisp dependency resolution
-- **`compress-ceo.mjs`** - Compresses CEO bundle to gzip+base64
-- **`compress-cow.mjs`** - Compresses COW bundle to gzip+base64
+- **`bundle-minimal-keep.mjs`** - Complete bundler: creates minimal HTML with VFS, resolves dependencies, AND compresses to final output
 
 ### Removed Scripts (obsolete)
 
+- ~~`compress-ceo.mjs`~~ - Now integrated into bundle-minimal-keep.mjs
+- ~~`compress-cow.mjs`~~ - Now integrated into bundle-minimal-keep.mjs
+- ~~`compress-roz.mjs`~~ - Now integrated into bundle-minimal-keep.mjs
 - ~~`bundle-kidlisp-keep.mjs`~~ - Superseded by bundle-minimal-keep.mjs
 - ~~`bundle-piece.mjs`~~ - Old approach without proper VFS
 - ~~`create-self-contained.mjs`~~ - Hard-coded for roz, replaced by compress-*.mjs
@@ -21,13 +22,17 @@ We now have a fully functional pipeline for creating self-contained KidLisp bund
 ### Usage
 
 ```bash
-# Create a bundle for any KidLisp piece
+# Create a complete bundle for any KidLisp piece (one command!)
 node bundle-minimal-keep.mjs <piece-name>
-node compress-<piece-name>.mjs
 
-# Example: Bundle $cow
+# Examples:
 node bundle-minimal-keep.mjs cow
-node compress-cow.mjs
+node bundle-minimal-keep.mjs ceo
+node bundle-minimal-keep.mjs roz
+
+# Output:
+# - keep-bundles/<piece>-minimal-nft.html (uncompressed ~1MB)
+# - keep-bundles/<piece>-self-contained.html (compressed ~380-390KB)
 ```
 
 ### Features Implemented
@@ -137,6 +142,18 @@ imports: {
    - Confirm offline functionality
 
 ### Changelog
+
+**2025-11-22**: Unified single-script pipeline ✅
+- **MAJOR**: Combined bundling + compression into single script
+- Removed compress-ceo.mjs, compress-cow.mjs, compress-roz.mjs
+- Now just: `node bundle-minimal-keep.mjs <piece>` for complete output
+- Outputs both uncompressed and compressed versions automatically
+- Successfully tested with $roz, $cow, $ceo
+
+**2025-11-22**: Successfully tested $roz bundle
+- Built $roz bundle: 387 KB (137 KB over limit)
+- Confirmed recursive dependency system works (roz has no $ refs)
+- Created compress-roz.mjs (later removed)
 
 **2025-11-22**: Initial working version
 - Implemented recursive KidLisp dependency resolution
