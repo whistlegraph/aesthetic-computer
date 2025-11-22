@@ -20,6 +20,7 @@ output/
 output_v23/
 *.js.map
 *.d.ts
+keep-bundles/*.html
 
 # Deployment artifacts
 deployment-*.json

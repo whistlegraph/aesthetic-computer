@@ -442,6 +442,23 @@ function initPersistentCache(store) {
     persistentStoreRef = store;
     // console.log("%c🗄️ $cache ready", 'color: #4CAF50; font-weight: bold;');
   }
+  
+  // Prefill globalCodeCache from bundle if available
+  const globalScope = (function () {
+    if (typeof window !== 'undefined') return window;
+    if (typeof globalThis !== 'undefined') return globalThis;
+    if (typeof global !== 'undefined') return global;
+    if (typeof self !== 'undefined') return self;
+    return {};
+  })();
+  
+  if (globalScope.acPREFILL_CODE_CACHE && !globalCodeCache.size) {
+    const prefillData = globalScope.acPREFILL_CODE_CACHE;
+    for (const [cacheId, source] of Object.entries(prefillData)) {
+      globalCodeCache.set(cacheId, source);
+    }
+    console.log(`📦 Prefilled code cache with ${Object.keys(prefillData).length} pieces: ${Object.keys(prefillData).join(', ')}`);
+  }
 }
 
 // Get from persistent cache (IndexedDB)

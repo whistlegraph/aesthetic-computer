@@ -6082,19 +6082,35 @@ async function load(
       // 💾 Check if this is a cached kidlisp code (starts with $ and has content after it)
       if (slug && slug.startsWith("$") && slug.length > 1) {
         const cacheId = slug.slice(1); // Remove $ prefix
-        console.log("💾 Loading cached kidlisp code:", cacheId);
-        try {
-          console.log("🔍 Fetching cached code from API...");
-          sourceToRun = await getCachedCodeMultiLevel(cacheId);
-          if (!sourceToRun) {
-            throw new Error(`Cached code not found: ${cacheId}`);
+        
+        // First check if we have this in objktKidlispCodes (offline bundle)
+        const globalScope = (function () {
+          if (typeof window !== 'undefined') return window;
+          if (typeof globalThis !== 'undefined') return globalThis;
+          if (typeof global !== 'undefined') return global;
+          if (typeof self !== 'undefined') return self;
+          return {};
+        })();
+        
+        if (globalScope.objktKidlispCodes && globalScope.objktKidlispCodes[cacheId]) {
+          console.log("💾 Loading from objktKidlispCodes:", cacheId);
+          sourceToRun = globalScope.objktKidlispCodes[cacheId];
+          currentOriginalCodeId = slug;
+        } else {
+          console.log("💾 Loading cached kidlisp code:", cacheId);
+          try {
+            console.log("🔍 Fetching cached code from API...");
+            sourceToRun = await getCachedCodeMultiLevel(cacheId);
+            if (!sourceToRun) {
+              throw new Error(`Cached code not found: ${cacheId}`);
+            }
+            // Track the original $code identifier for sharing
+            currentOriginalCodeId = slug; // Keep the full $code format
+            console.log("✅ Successfully loaded cached code:", cacheId, `(${sourceToRun.length} chars)`);
+          } catch (error) {
+            console.error("❌ Failed to load cached code:", cacheId, error);
+            throw new Error(`Failed to load cached code: ${cacheId}`);
           }
-          // Track the original $code identifier for sharing
-          currentOriginalCodeId = slug; // Keep the full $code format
-          console.log("✅ Successfully loaded cached code:", cacheId, `(${sourceToRun.length} chars)`);
-        } catch (error) {
-          console.error("❌ Failed to load cached code:", cacheId, error);
-          throw new Error(`Failed to load cached code: ${cacheId}`);
         }
       } else if (fullUrl) {
         // In OBJKT mode, try direct import first for .mjs files to avoid CSP issues
@@ -6157,7 +6173,8 @@ async function load(
         slug === "(...)" ||
         path === "(...)" ||
         (path && path.endsWith(".lisp")) ||
-        (slug && slug.startsWith("$") && slug.length > 1) // Cached codes are always kidlisp
+        (slug && slug.startsWith("$") && slug.length > 1) || // Cached codes are always kidlisp
+        (typeof window !== 'undefined' && window.acPACK_PIECE && slug === window.acPACK_PIECE) // Pack mode KidLisp pieces
       ) {
         // Only use basic detection, not the broader isKidlispSource function
         // which can incorrectly detect JavaScript as kidlisp, unless forceKidlisp is true
