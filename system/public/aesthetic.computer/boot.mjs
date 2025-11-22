@@ -8,7 +8,7 @@ window.acBOOT_START_TIME = bootStartTime;
 // Helper to send boot progress messages to parent
 function bootLog(message) {
   const elapsed = Math.round(performance.now() - bootStartTime);
-  console.log(`🚀 ${message} (${elapsed}ms)`);
+  // console.log(`🚀 ${message} (${elapsed}ms)`);
   if (window.parent) {
     window.parent.postMessage({ type: "boot-log", message }, "*");
   }

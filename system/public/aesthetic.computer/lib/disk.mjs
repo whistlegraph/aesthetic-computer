@@ -5873,7 +5873,7 @@ async function load(
   forceKidlisp = false, // Force interpretation as kidlisp even without prefix
 ) {
   const loadFunctionStartTime = performance.now();
-  console.log(`⏰ load() function started at ${loadFunctionStartTime}ms`);
+  // console.log(`⏰ load() function started at ${loadFunctionStartTime}ms`);
   
   let fullUrl, source;
   let params,
@@ -6282,7 +6282,7 @@ async function load(
     }
   } catch (err) {
     const moduleLoadErrorTime = performance.now();
-    console.log(`⏰ Module load error caught at ${moduleLoadErrorTime}ms`);
+    // console.log(`⏰ Module load error caught at ${moduleLoadErrorTime}ms`);
     console.log("🟡 Error loading mjs module:", err);
     // Look for lisp files if the mjs file is not found, but only if we weren't already trying to load a .lisp file
     if (fullUrl && !fullUrl.includes('.lisp')) {
@@ -6367,7 +6367,7 @@ async function load(
   // console.log("Module load time:", performance.now() - moduleLoadTime, module);
   // 🧨 Fail out if no module is found.
   const moduleCheckTime = performance.now();
-  console.log(`⏰ Module check at ${moduleCheckTime}ms, module loaded: ${loadedModule !== undefined}`);
+  // console.log(`⏰ Module check at ${moduleCheckTime}ms, module loaded: ${loadedModule !== undefined}`);
   
   if (loadedModule === undefined) {
     loading = false;
@@ -6989,21 +6989,21 @@ async function load(
   // (This only has to happen when the first piece loads.)
   // Skip expensive typeface loading - use on-demand loading for all glyphs
   const skipTypefacePreload = true; // Always skip preload, load on-demand instead
-  console.log(`⏰ Typeface skip check: skipTypefacePreload=${skipTypefacePreload}, tf exists=${!!tf}`);
+  // console.log(`⏰ Typeface skip check: skipTypefacePreload=${skipTypefacePreload}, tf exists=${!!tf}`);
   
   const typefaceLoadStartTime = performance.now();
   if (!tf && !skipTypefacePreload) {
     tf = await new Typeface(/*"unifont"*/).load($commonApi.net.preload);
     const typefaceLoadEndTime = performance.now();
-    console.log(`⏰ Typeface load: ${Math.round(typefaceLoadEndTime - typefaceLoadStartTime)}ms`);
+    // console.log(`⏰ Typeface load: ${Math.round(typefaceLoadEndTime - typefaceLoadStartTime)}ms`);
   } else if (skipTypefacePreload) {
     // Create a Typeface instance and call load() to set up Proxy, but don't await it (on-demand loading)
     tf = new Typeface(/*"unifont"*/);
     tf.load($commonApi.net.preload); // Initialize Proxy system without awaiting (glyphs load on-demand)
     const typefaceLoadEndTime = performance.now();
-    console.log(`⏰ Typeface load skipped (on-demand mode), Proxy initialized in ${Math.round(typefaceLoadEndTime - typefaceLoadStartTime)}ms`);
+    // console.log(`⏰ Typeface load skipped (on-demand mode), Proxy initialized in ${Math.round(typefaceLoadEndTime - typefaceLoadStartTime)}ms`);
   } else {
-    console.log(`⏰ Typeface already loaded`);
+    // console.log(`⏰ Typeface already loaded`);
   }
   
   $commonApi.typeface = tf; // Expose a preloaded typeface globally.
@@ -7056,14 +7056,14 @@ async function load(
       }
 
       const glyphPreloadEndTime = performance.now();
-      console.log(`⏰ MatrixChunky8 glyph preload: ${Math.round(glyphPreloadEndTime - glyphPreloadStartTime)}ms`);
+      // console.log(`⏰ MatrixChunky8 glyph preload: ${Math.round(glyphPreloadEndTime - glyphPreloadStartTime)}ms`);
       matrixFont.__preloadedCommonGlyphs = true;
     }
     
     const matrixFontEndTime = performance.now();
-    console.log(`⏰ MatrixChunky8 total: ${Math.round(matrixFontEndTime - matrixFontStartTime)}ms`);
+    // console.log(`⏰ MatrixChunky8 total: ${Math.round(matrixFontEndTime - matrixFontStartTime)}ms`);
   } else {
-    console.log("⏰ MatrixChunky8 preload skipped (noauth mode)");
+    // console.log("⏰ MatrixChunky8 preload skipped (noauth mode)");
   }
 
   /**
@@ -7414,11 +7414,11 @@ async function load(
         prompt.prompt_leave($);
       };
 
-      console.log("📨 Module exports check:", {
-        hasReceive: !!module.receive,
-        receiveType: typeof module.receive,
-        receiveIsDefault: module.receive === defaults.receive,
-      });
+      // console.log("📨 Module exports check:", {
+      //   hasReceive: !!module.receive,
+      //   receiveType: typeof module.receive,
+      //   receiveIsDefault: module.receive === defaults.receive,
+      // });
 
       receive = module.receive || defaults.receive;
 
@@ -7488,7 +7488,7 @@ async function load(
       // TODO: ⚠️ Make game template. 25.06.05.09.19
     } else {
       const moduleAssignStartTime = performance.now();
-      console.log(`⏰ Starting module function assignment at ${moduleAssignStartTime}ms`);
+      // console.log(`⏰ Starting module function assignment at ${moduleAssignStartTime}ms`);
       
       // 🧩 piece
       // Reset scroll state when a piece loads
@@ -7503,11 +7503,11 @@ async function load(
       act = module.act || defaults.act;
       leave = module.leave || defaults.leave;
       
-      console.log("📨 Module exports check:", {
-        hasReceive: !!module.receive,
-        receiveType: typeof module.receive,
-        receiveIsDefault: module.receive === defaults.receive
-      });
+      // console.log("📨 Module exports check:", {
+      //   hasReceive: !!module.receive,
+      //   receiveType: typeof module.receive,
+      //   receiveIsDefault: module.receive === defaults.receive
+      // });
       
       receive = module.receive || defaults.receive; // Handle messages from BIOS
       
@@ -7523,7 +7523,7 @@ async function load(
       }
 
       const moduleAssignEndTime = performance.now();
-      console.log(`⏰ Module function assignment complete (${Math.round(moduleAssignEndTime - moduleAssignStartTime)}ms)`);
+      // console.log(`⏰ Module function assignment complete (${Math.round(moduleAssignEndTime - moduleAssignStartTime)}ms)`);
 
       // delete $commonApi.system.name; // No system in use.
     }
@@ -7711,7 +7711,7 @@ async function load(
 
   // Notify parent window of progress via bios relay
   const loadCompleteTime = performance.now();
-  console.log("⏰ load() completed at", loadCompleteTime);
+  // console.log("⏰ load() completed at", loadCompleteTime);
   // console.log("📢 Disk sending boot-log: loaded");
   send({
     type: "boot-log",
@@ -7859,7 +7859,7 @@ async function makeFrame({ data: { type, content } }) {
     originalHost = content.parsed.host;
     loadAfterPreamble = () => {
       const loadCallStartTime = performance.now();
-      console.log("⏰ loadAfterPreamble called at", loadCallStartTime);
+      // console.log("⏰ loadAfterPreamble called at", loadCallStartTime);
       loadAfterPreamble = null;
       load(content.parsed); // Load after some of the default frames run.
     };
@@ -10501,7 +10501,7 @@ async function makeFrame({ data: { type, content } }) {
 
         try {
           const bootStartTime = performance.now();
-          console.log("⏰ About to call boot() at", bootStartTime);
+          // console.log("⏰ About to call boot() at", bootStartTime);
           
           // Reset zebra cache at the beginning of boot to ensure consistent state
           $api.num.resetZebraCache();
@@ -10516,7 +10516,7 @@ async function makeFrame({ data: { type, content } }) {
           if (system === "nopaint") nopaint_boot({ ...$api, params: $api.params, colon: $api.colon });
           await boot($api);
           const bootEndTime = performance.now();
-          console.log(`⏰ boot() completed in ${Math.round(bootEndTime - bootStartTime)}ms`);
+          // console.log(`⏰ boot() completed in ${Math.round(bootEndTime - bootStartTime)}ms`);
           booted = true;
           console.log("🥾 ✅ Boot completed, booted =", booted, "pending events:", pendingExportEvents.length);
           
@@ -12700,7 +12700,7 @@ async function makeFrame({ data: { type, content } }) {
     ) {
       if (paintCount === 9n) {
         const preambleCompleteTime = performance.now();
-        console.log(`⏰ Preamble complete (9 frames painted) at ${preambleCompleteTime}ms`);
+        // console.log(`⏰ Preamble complete (9 frames painted) at ${preambleCompleteTime}ms`);
       }
       if (typeof window !== 'undefined' && window.acSPIDER) {
         console.log("🕷️ SPIDER: Calling loadAfterPreamble now!");

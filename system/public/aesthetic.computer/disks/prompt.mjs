@@ -3,7 +3,7 @@
 // A language based "access-everything" console with LLM fallback.
 // 🔄 Cache bust: 2025-11-18-v2
 
-console.log("📨 ✅ prompt.mjs module loading - receive function will be defined and exported");
+// console.log("📨 ✅ prompt.mjs module loading - receive function will be defined and exported");
 
 /* #region 📚 README
   🎄 Merry Pipeline System
@@ -6029,7 +6029,7 @@ async function fetchTapeAudio(item, $) {
   }
 }
 
-console.log("📨 ✅ receive function defined! typeof receive =", typeof receive);
+// console.log("📨 ✅ receive function defined! typeof receive =", typeof receive);
 
 // Render syntax-highlighted KidLisp source code
 function renderKidlispSource($, source, x, y, maxWidth, maxLines, fadeAlpha) {
