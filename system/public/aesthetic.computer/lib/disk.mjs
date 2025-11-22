@@ -7015,18 +7015,24 @@ async function load(
   currentHUDShareWidth = tf.blockWidth * "share ".length;
 
   // Initialize MatrixChunky8 font for QR code text rendering and keep it warm across pieces
-  // Skip this expensive preloading if running in editor/preview mode (noauth)
-  const skipMatrixPreload = skipTypefacePreload; // Use same condition
-  
-  if (!skipMatrixPreload) {
-    const matrixFontStartTime = performance.now();
-    let matrixFont = typefaceCache.get("MatrixChunky8");
+  // Always register the font so kidlisp.com previews still render MatrixChunky8 labels
+  const matrixFontStartTime = performance.now();
+  let matrixFont = typefaceCache.get("MatrixChunky8");
 
-    if (!matrixFont) {
-      matrixFont = new Typeface("MatrixChunky8");
-      await matrixFont.load($commonApi.net.preload); // Important: call load() to initialize the proxy system
-      typefaceCache.set("MatrixChunky8", matrixFont);
-    }
+  if (!matrixFont) {
+    matrixFont = new Typeface("MatrixChunky8");
+    typefaceCache.set("MatrixChunky8", matrixFont);
+  }
+
+  if (!matrixFont.__loadPromise) {
+    matrixFont.__loadPromise = matrixFont.load($commonApi.net.preload);
+  }
+
+  // Only run the heavier glyph preload pass when auth UI is enabled; kidlisp.com preview just needs the font registered
+  const skipMatrixGlyphPreload = typeof window !== "undefined" && window.acNOAUTH;
+
+  if (!skipMatrixGlyphPreload) {
+    await matrixFont.__loadPromise;
 
     if (matrixFont && !matrixFont.__preloadedCommonGlyphs) {
       const glyphPreloadStartTime = performance.now();
@@ -7059,7 +7065,7 @@ async function load(
       // console.log(`⏰ MatrixChunky8 glyph preload: ${Math.round(glyphPreloadEndTime - glyphPreloadStartTime)}ms`);
       matrixFont.__preloadedCommonGlyphs = true;
     }
-    
+
     const matrixFontEndTime = performance.now();
     // console.log(`⏰ MatrixChunky8 total: ${Math.round(matrixFontEndTime - matrixFontStartTime)}ms`);
   } else {
