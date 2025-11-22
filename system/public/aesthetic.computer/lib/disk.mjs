@@ -10131,8 +10131,12 @@ async function makeFrame({ data: { type, content } }) {
                     volume: 0.1,
                   });
                   // Use tilde separator for proper URL structure: share~(encoded_kidlisp)
-                  // If this was originally loaded from $code, use that format for sharing instead of full source
-                  if (currentOriginalCodeId && currentOriginalCodeId.startsWith("$")) {
+                  // Prefer existing cached short codes so we don't re-embed long inline source
+                  const cachedShortCode = getCachedCode(currentCode);
+
+                  if (cachedShortCode) {
+                    $api.jump("share~$" + cachedShortCode);
+                  } else if (currentOriginalCodeId && currentOriginalCodeId.startsWith("$")) {
                     $api.jump("share~" + currentOriginalCodeId);
                   } else {
                     // Use plain text version (without color codes) for sharing
