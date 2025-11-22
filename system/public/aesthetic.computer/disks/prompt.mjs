@@ -92,6 +92,7 @@ import {
   tokenize,
 } from "../lib/kidlisp.mjs";
 import { KidLisp } from "../lib/kidlisp.mjs";
+import { parseMessageElements, applyColorCodes } from "../lib/chat-highlighting.mjs";
 import * as products from "./common/products.mjs";
 const { abs, max, min, sin, cos } = Math;
 const { floor } = Math;
@@ -3928,13 +3929,26 @@ function paint($) {
     // Note: $.chat is the global chat system (automatically connected)
     const hasChatMessages = $.chat?.messages && $.chat.messages.length > 0;
     if (screen.height >= 180) {
-      // Show last 12 messages
+      // Show last 12 messages with syntax highlighting
       const numMessages = Math.min(12, $.chat.messages.length);
       const recentMessages = $.chat.messages.slice(-numMessages);
-      // Filter out newline characters to prevent bleeding into ticker underneath
+      
       const fullText = recentMessages.map(msg => {
         const sanitizedText = msg.text.replace(/[\r\n]+/g, ' ');
-        return msg.from + ": " + sanitizedText;
+        const fullMessage = msg.from + ": " + sanitizedText;
+        
+        // Parse and apply color codes
+        const elements = parseMessageElements(fullMessage);
+        const colorMap = {
+          handle: "pink",
+          url: "cyan",
+          prompt: "lime",
+          promptcontent: "cyan",
+          painting: "orange",
+          kidlisp: "magenta",
+        };
+        
+        return applyColorCodes(fullMessage, elements, colorMap, [0, 255, 255]);
       }).join(" · ");
       const chatTickerY = currentTickerY;
       
@@ -4022,10 +4036,25 @@ function paint($) {
       if (hasClockMessages) {
         const numClockMessages = Math.min(12, clockChatMessages.length);
         const recentClockMessages = clockChatMessages.slice(-numClockMessages);
+        
+        // Build ticker text with syntax highlighting for @handles, URLs, 'prompts', etc.
         const clockFullText = recentClockMessages.map(msg => {
           const sanitizedText = (msg.text || msg.message || '').replace(/[\r\n]+/g, ' ');
           const from = msg.from || msg.handle || msg.author || 'anon';
-          return from + ": " + sanitizedText;
+          const fullMessage = from + ": " + sanitizedText;
+          
+          // Parse and apply color codes
+          const elements = parseMessageElements(fullMessage);
+          const colorMap = {
+            handle: "pink",
+            url: "cyan",
+            prompt: "lime",
+            promptcontent: "cyan",
+            painting: "orange",
+            kidlisp: "magenta",
+          };
+          
+          return applyColorCodes(fullMessage, elements, colorMap, [255, 200, 100]);
         }).join(" · ");
         
         if (!clockChatTicker) {
@@ -4699,10 +4728,15 @@ function paint($) {
       }
     }
 
-    // Handle Stats - positioned at bottom of screen
+    // Handle Stats - positioned directly under login button
     if (handles && screen.height >= 100) {
-      // Always position at bottom of screen
-      let handlesY = screen.height - 16;
+      // Position directly under the login button
+      let handlesY = screen.height - 16; // Default bottom position
+      
+      if (login && !login.btn.disabled && login.btn.box) {
+        // Position directly under login button with extra spacing
+        handlesY = login.btn.box.y + login.btn.box.h + 8; // 8px gap below button (moved down)
+      }
       
       // Use MatrixChunky8 font for more compact display, centered
       const handlesText = `${handles.toLocaleString()} HANDLES SET`;
@@ -4906,7 +4940,7 @@ function paint($) {
         {
           center: "x",
           x: screen.width / 2 + 1,
-          y: screen.height / 2 - 80 + 1,
+          y: screen.height / 2 - 48 + 1,
         },
         undefined,
         screen.width - 16,
@@ -4914,7 +4948,7 @@ function paint($) {
 
       ink(verified ? "lime" : "yellow").write(
         message,
-        { center: "x", y: screen.height / 2 - 80 },
+        { center: "x", y: screen.height / 2 - 48 },
         undefined,
         screen.width - 16,
       );
@@ -5229,6 +5263,82 @@ function act({
         // Resume animation on cancel
         if (chatTicker) {
           chatTicker.paused = false;
+        }
+      },
+    });
+  }
+
+  // Clock chat ticker button (invisible, just for click interaction)
+  if (clockChatTickerButton && !clockChatTickerButton.disabled) {
+    clockChatTickerButton.act(e, {
+      down: () => {
+        // Sound feedback on tap down
+        downSound();
+
+        // Stop ticker animation and store initial scrub position
+        if (clockChatTicker) {
+          clockChatTicker.paused = true;
+          clockChatTickerButton.scrubStartX = e.x;
+          clockChatTickerButton.scrubInitialOffset = clockChatTicker.getOffset();
+          clockChatTickerButton.hasScrubbed = false;
+        }
+        needsPaint();
+      },
+      scrub: (btn) => {
+        // Manual scrubbing - move content left/right using current position vs start
+        if (clockChatTicker && e.x !== undefined && e.y !== undefined) {
+          const scrubDelta = e.x - clockChatTickerButton.scrubStartX;
+
+          // Calculate the raw offset
+          let newOffset = clockChatTickerButton.scrubInitialOffset - scrubDelta;
+
+          // Add elastic bounce effect for negative values
+          if (newOffset < 0) {
+            // Apply diminishing returns for negative movement (elastic effect)
+            newOffset = newOffset * 0.3; // Scale down negative movement to 30%
+          }
+
+          clockChatTicker.setOffset(newOffset);
+
+          clockChatTickerButton.hasScrubbed = Math.abs(scrubDelta) > 5;
+
+          // Play softer, shorter tick sound during scrubbing
+          synth({
+            type: "sine",
+            tone: 1200 + Math.abs(scrubDelta) * 2, // Pitch varies with scrub distance
+            attack: 0.005,
+            decay: 0.9,
+            volume: 0.08,
+            duration: 0.01,
+          });
+
+          needsPaint();
+        }
+      },
+      push: () => {
+        // Sound feedback on successful action
+        if (!clockChatTickerButton.hasScrubbed) {
+          pushSound();
+        }
+
+        // Only open URL if we didn't scrub
+        if (!clockChatTickerButton.hasScrubbed) {
+          // Jump to Laer-Klokken piece
+          jump("laer-klokken");
+        } else {
+          // Resume animation if we scrubbed
+          if (clockChatTicker) {
+            clockChatTicker.paused = false;
+          }
+        }
+      },
+      cancel: () => {
+        // Cancel sound
+        cancelSound();
+
+        // Resume animation on cancel
+        if (clockChatTicker) {
+          clockChatTicker.paused = false;
         }
       },
     });
@@ -6138,7 +6248,7 @@ function fetchUser() {
 
 // 📨 Receive messages from bios (for tape loading progress)
 function receive(e) {
-  console.log(`📨 ✅✅✅ PROMPT.MJS RECEIVE called with type: ${e.type}, is() available: ${typeof e.is === 'function'}`);
+  // console.log(`📨 ✅✅✅ PROMPT.MJS RECEIVE called with type: ${e.type}, is() available: ${typeof e.is === 'function'}`);
   
   if (e.is("tape:load-progress")) {
     const { code, phase, progress, loadedFrames, totalFrames } = e.content || {};
@@ -6184,10 +6294,10 @@ function receive(e) {
   }
   
   if (e.is("tape:frames")) {
-    console.log(`📼 Received tape:frames message:`, e.content);
+    // console.log(`📼 Received tape:frames message:`, e.content);
   const { tapeId, frames } = e.content || {};
-    console.log(`📼 Looking for tapeId: ${tapeId}, frames array length: ${frames?.length || 0}`);
-    console.log(`📼 Content items with tapeIds:`, contentItems.filter(i => i.tapeId).map(i => ({code: i.code, tapeId: i.tapeId})));
+    // console.log(`📼 Looking for tapeId: ${tapeId}, frames array length: ${frames?.length || 0}`);
+    // console.log(`📼 Content items with tapeIds:`, contentItems.filter(i => i.tapeId).map(i => ({code: i.code, tapeId: i.tapeId})));
     
     // Find tape by tapeId
     const tapeItem = contentItems.find(item => item.tapeId === tapeId);
@@ -6197,7 +6307,7 @@ function receive(e) {
         : frames;
       tapeItem.frames = limitedFrames; // Array of ImageBitmap objects
       tapeItem.framesLoaded = true;
-      console.log(`✅ Received ${frames?.length || 0} frames for !${tapeItem.code}`);
+      // console.log(`✅ Received ${frames?.length || 0} frames for !${tapeItem.code}`);
       if (activeTapePreview === tapeItem) {
         scheduleTapePreviewRelease(tapeItem);
       }
@@ -6207,7 +6317,11 @@ function receive(e) {
         console.warn("⚠️ promptNeedsPaint unavailable; cannot trigger repaint for", tapeId);
       }
     } else {
-      console.warn(`⚠️ Received frames for unknown tapeId: ${tapeId}`);
+      // Only warn if this is actually a prompt tape (ignore frames for other contexts)
+      if (tapeId && tapeId.startsWith("prompt-tape-")) {
+        // Silently ignore - likely cached frames arriving before content items are loaded
+        // This is normal behavior and not an error condition
+      }
     }
   }
   
@@ -6350,52 +6464,4 @@ function paintMatrixLoading($, x, y, width, tickerFont, colorTheme = "default") 
 }
 
 // Helper to parse message elements for syntax highlighting (ported from chat.mjs)
-function parseMessageElements(message) {
-  const elements = [];
-
-  // Parse prompts (text within single quotes) - simplified without kidlisp tokenization
-  const promptRegex = /(?:^|[\s\(\[\{])'([^']*)'/g;
-  let match;
-  while ((match = promptRegex.exec(message)) !== null) {
-    const actualStart = match[0].startsWith("'") ? match.index : match.index + 1;
-    const promptText = match[1];
-    
-    // Treat all prompts as simple prompt content (no kidlisp tokenization for now)
-    elements.push({ type: "prompt", text: "'", start: actualStart, end: actualStart + 1 });
-    elements.push({ type: "prompt-content", text: promptText, start: actualStart + 1, end: actualStart + 1 + promptText.length });
-    elements.push({ type: "prompt", text: "'", start: actualStart + 1 + promptText.length, end: actualStart + 1 + promptText.length + 1 });
-  }
-
-  // Parse URLs
-  const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+)/g;
-  while ((match = urlRegex.exec(message)) !== null) {
-    elements.push({ type: "url", text: match[0], start: match.index, end: match.index + match[0].length });
-  }
-
-  // Parse @handles
-  const handleRegex = /@[a-z0-9]+([._][a-z0-9]+)*/gi;
-  while ((match = handleRegex.exec(message)) !== null) {
-    elements.push({ type: "handle", text: match[0], start: match.index, end: match.index + match[0].length });
-  }
-
-  // Parse #painting codes
-  const hashtagRegex = /#[a-z0-9]+/gi;
-  while ((match = hashtagRegex.exec(message)) !== null) {
-    elements.push({ type: "painting", text: match[0], start: match.index, end: match.index + match[0].length });
-  }
-
-  // Parse $kidlisp inline references
-  const kidlispRefRegex = /\$[a-z0-9]+/gi;
-  while ((match = kidlispRefRegex.exec(message)) !== null) {
-    elements.push({ type: "kidlisp", text: match[0], start: match.index, end: match.index + match[0].length });
-  }
-
-  // Parse !tape URLs
-  const tapeRegex = /![a-z0-9]+/gi;
-  while ((match = tapeRegex.exec(message)) !== null) {
-    elements.push({ type: "url", text: match[0], start: match.index, end: match.index + match[0].length });
-  }
-
-  elements.sort((a, b) => a.start - b.start);
-  return elements;
-}
+// parseMessageElements is imported from chat-highlighting.mjs
