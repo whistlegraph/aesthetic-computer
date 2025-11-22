@@ -263,6 +263,7 @@
         "npm:redis@^5.9.0",
         "npm:sharp@~0.34.5",
         "npm:stripe@^19.3.1",
+        "npm:terser@^5.36.0",
         "npm:three@~0.181.1",
         "npm:typescript@^5.9.3",
         "npm:web3@^4.16.0"
