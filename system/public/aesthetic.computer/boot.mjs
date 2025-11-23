@@ -1,5 +1,8 @@
 // `aesthetic.computer` Bootstrap, 23.02.16.19.23
-console.clear();
+// Don't clear console if we're in an embedded/iframe context (like kidlisp.com editor)
+if (window === window.top) {
+  console.clear();
+}
 
 // Track boot timing
 const bootStartTime = performance.now();
@@ -21,6 +24,8 @@ if (window.parent) {
   window.parent.postMessage({ type: "init" }, "*");
   // Send ready message early so VS Code extension doesn't keep reloading
   window.parent.postMessage({ type: "ready" }, "*");
+  // Send kidlisp-ready for editor controls (boot is complete enough to accept commands)
+  window.parent.postMessage({ type: "kidlisp-ready", ready: true }, "*");
 }
 
 // List of legitimate query parameters that should be preserved
@@ -802,8 +807,17 @@ function receive(event) {
     window.acRESUME?.(); // Ensure we are running so we can load the empty piece.
     window.acSEND({
       type: "piece-reload",
-      content: { source: "", createCode: false }
+      content: { source: "prompt", createCode: false }
     });
+    return;
+  } else if (event.data?.type === "kidlisp-ping") {
+    // Respond to ping requests from kidlisp.com to confirm we're ready
+    if (window.parent !== window) {
+      window.parent.postMessage({
+        type: 'kidlisp-ready',
+        ready: true
+      }, '*');
+    }
     return;
   } else if (event.data?.startsWith?.("docs:")) {
     window.acSEND({
