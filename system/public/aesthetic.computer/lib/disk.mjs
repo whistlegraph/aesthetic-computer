@@ -11945,12 +11945,13 @@ async function makeFrame({ data: { type, content } }) {
             // If font exists but glyphs not loaded yet, trigger loading and request repaint
             if (font && !shouldShowQR) {
               if (!font.__loadPromise) {
-                console.log('[QR] Starting font load...');
                 ensureTypefaceLoaded(font);
               }
               if (font.__loadPromise) {
                 font.__loadPromise.then(() => {
                   font.__loaded = true;
+                  // Clear QR cache for this code so it regenerates with proper font
+                  qrOverlayCache.delete(cacheKey);
                   // Trigger repaint to show QR once font is ready
                   if (typeof window !== "undefined" && window.$activePaintApi?.needsPaint) {
                     window.$activePaintApi.needsPaint();
@@ -12294,23 +12295,29 @@ async function makeFrame({ data: { type, content } }) {
                       $.write(codeToRender, { x: textX, y: textY });
                     }
                   } else {
-                    // Use MatrixChunky8 font in normal mode - wait for it to load first
+                    // Use MatrixChunky8 font in normal mode if available
                     const matrixFont = typefaceCache.get("MatrixChunky8");
-                    if (matrixFont) {
-                      try {
-                        // Ensure font is fully loaded before attempting to use it
-                        if (matrixFont.__loadPromise) {
-                          await matrixFont.__loadPromise;
+                    
+                    // Check if MatrixChunky8 glyphs are actually loaded and ready
+                    let useMatrixFont = false;
+                    if (matrixFont && matrixFont.glyphs) {
+                      // Check if ALL glyphs in codeToRender are loaded
+                      useMatrixFont = true;
+                      for (const char of codeToRender) {
+                        const glyph = matrixFont.glyphs[char];
+                        const isLoaded = glyph && (glyph.pixels || glyph.commands || glyph.resolution);
+                        if (!isLoaded) {
+                          useMatrixFont = false;
+                          break;
                         }
-                        $.write(codeToRender, { x: textX, y: textY }, undefined, undefined, false, "MatrixChunky8");
-                      } catch (error) {
-                        // Fallback to default font if MatrixChunky8 fails
-                        $.write(codeToRender, { x: textX, y: textY });
                       }
-                    } else {
-                      // Use default font if MatrixChunky8 not available
-                      $.write(codeToRender, { x: textX, y: textY });
                     }
+                    
+                    // Only render text if MatrixChunky8 is ready (will trigger repaint when it loads)
+                    if (useMatrixFont) {
+                      $.write(codeToRender, { x: textX, y: textY }, undefined, undefined, false, "MatrixChunky8");
+                    }
+                    // Otherwise skip rendering text - it will pop in on next repaint
                   }
                 } else {
                   // Shadow style: black shadow first, then white text
@@ -12332,20 +12339,17 @@ async function makeFrame({ data: { type, content } }) {
                       $.write(codeToRender, { x: textX + 1, y: textY + 1 });
                     }
                   } else {
-                    // Try MatrixChunky8 with simple fallback - wait for load
+                    // Check if MatrixChunky8 glyphs are loaded for shadow
                     const matrixFont = typefaceCache.get("MatrixChunky8");
-                    if (matrixFont) {
-                      try {
-                        // Ensure font is fully loaded before attempting to use it
-                        if (matrixFont.__loadPromise) {
-                          await matrixFont.__loadPromise;
-                        }
-                        $.write(codeToRender, { x: textX + 1, y: textY + 1 }, undefined, undefined, false, "MatrixChunky8");
-                      } catch (error) {
-                        $.write(codeToRender, { x: textX + 1, y: textY + 1 });
-                      }
-                    } else {
-                      $.write(codeToRender, { x: textX + 1, y: textY + 1 });
+                    let useMatrixFont = false;
+                    if (matrixFont && matrixFont.glyphs) {
+                      const testGlyph = matrixFont.glyphs['$'] || matrixFont.glyphs['a'];
+                      useMatrixFont = !!(testGlyph && (testGlyph.pixels || testGlyph.commands || testGlyph.resolution));
+                    }
+                    
+                    // Only render if MatrixChunky8 is ready
+                    if (useMatrixFont) {
+                      $.write(codeToRender, { x: textX + 1, y: textY + 1 }, undefined, undefined, false, "MatrixChunky8");
                     }
                   }
                   
@@ -12366,20 +12370,17 @@ async function makeFrame({ data: { type, content } }) {
                       $.write(codeToRender, { x: textX, y: textY });
                     }
                   } else {
-                    // Try MatrixChunky8 with simple fallback - wait for load
+                    // Check if MatrixChunky8 glyphs are loaded for white text
                     const matrixFont = typefaceCache.get("MatrixChunky8");
-                    if (matrixFont) {
-                      try {
-                        // Ensure font is fully loaded before attempting to use it
-                        if (matrixFont.__loadPromise) {
-                          await matrixFont.__loadPromise;
-                        }
-                        $.write(codeToRender, { x: textX, y: textY }, undefined, undefined, false, "MatrixChunky8");
-                      } catch (error) {
-                        $.write(codeToRender, { x: textX, y: textY });
-                      }
-                    } else {
-                      $.write(codeToRender, { x: textX, y: textY });
+                    let useMatrixFont = false;
+                    if (matrixFont && matrixFont.glyphs) {
+                      const testGlyph = matrixFont.glyphs['$'] || matrixFont.glyphs['a'];
+                      useMatrixFont = !!(testGlyph && (testGlyph.pixels || testGlyph.commands || testGlyph.resolution));
+                    }
+                    
+                    // Only render if MatrixChunky8 is ready
+                    if (useMatrixFont) {
+                      $.write(codeToRender, { x: textX, y: textY }, undefined, undefined, false, "MatrixChunky8");
                     }
                   }
                 }
@@ -12526,9 +12527,12 @@ async function makeFrame({ data: { type, content } }) {
               }
               
               // Cache the QR data for this piece (not the transferable version)
-              // Cache if we have some characters loaded to stabilize the QR
+              // Only cache if all glyphs are loaded to avoid caching broken placeholders
               if (!isQRCacheDisabled && shouldShowQR && !hudAnimationState.qrFullscreen) {
                 qrOverlayCache.set(cacheKey, qrData);
+                console.log('[QR] ✅ Cached QR with MatrixChunky8 glyphs for:', cacheKey);
+              } else {
+                console.log('[QR] ⏭️ Skipping cache - regenerating until glyphs load');
               }
               
               // Add QR overlay to sendData with exact position and animation effects
