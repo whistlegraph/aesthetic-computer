@@ -18,6 +18,12 @@
             padding: 0;
             margin: 0;
         }
+        
+        /* Emoji fallback - use Noto Color Emoji or Apple Color Emoji */
+        .emoji {
+            font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Android Emoji', sans-serif;
+            font-style: normal;
+        }
 
         .test-container {
             max-width: 1400px;
@@ -746,6 +752,40 @@
         .test-info p {
             color: #ccc;
             line-height: 1.5;
+        }
+
+        @media print {
+            * {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            
+            body {
+                margin: 0;
+                padding: 0;
+                background: #fff;
+            }
+            
+            .test-container {
+                max-width: 100%;
+                width: 8.5in;
+                margin: 0;
+                padding: 0;
+            }
+            
+            .module {
+                page-break-inside: avoid;
+                page-break-after: avoid;
+                break-inside: avoid;
+            }
+            
+            .test-info {
+                display: none !important;
+            }
+            
+            .module-label {
+                display: none !important;
+            }
         }
     </style>
 </head>
