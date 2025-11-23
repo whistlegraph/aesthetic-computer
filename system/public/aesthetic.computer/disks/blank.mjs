@@ -8,40 +8,18 @@
   Special note: `Use screen.pixels / direct pixel array access for any automated drawing.`
 */
 
-function paint({ api, wipe, ink, line, screen, box, circle, pen, write, paste, kidlisp }) {
-  wipe(0, 0, 0, 0); // Clear the background.
+function boot({ api }) {
+  // Enable WebGPU rendering and disable CPU renderer
+  api.webgpu.enabled = true;
+}
 
-  ink("red").line();
+function paint({ wipe, ink, line, screen }) {
+  // Clear with dark blue/purple background (fully opaque)
+  wipe(32, 32, 64, 255);
   
-  // ✨ Test the new tri function!
-  // kidlisp(0, 0, screen.width, screen.height, `
-  //   ; Test the new triangle function
-  //   (ink "red")
-  //   (tri 50 50 100 50 75 100)
-  //   
-  //   ; Test triangle outline  
-  //   (ink "lime")
-  //   (tri 150 50 200 50 175 100 "outline")
-  //   
-  //   ; Test play button triangle (similar to the one mentioned)
-  //   (ink "yellow")
-  //   (tri 100 150 120 160 100 170)
-  // `);
-  
-  // // Regular JavaScript paste still works with quoted URLs
-  // paste("https://assets.aesthetic.computer/wipppps/cow.png", 0, 0, 0.05);
-  
-  // ink("lime"); // Paint some decoration
-  // line(0, 0, screen.width, screen.height);
-  // line(screen.width, 0, 0, screen.height);
-
-  // ink("white");
-  // write("� Testing tri function in KidLisp!", 5, screen.height - 20);
-
-  // if (pen) {
-  //   ink("yellow").circle(pen.x, pen.y, 8);
-  //   ink("white").write("Cursor!", { x: pen.x, y: pen.y + 15, center: "x" });
-  // }
+  // Draw a yellow diagonal line
+  ink(255, 255, 0, 255);
+  line(screen.width, 0, 0, screen.height);
 }
 
 // 📚 Library
