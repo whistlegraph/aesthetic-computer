@@ -397,7 +397,7 @@ status = 200
 force = true
 [[redirects]]
 from = "/kidlisp-com"
-to = "/kidlisp-com.html"
+to = "/kidlisp.com/"
 status = 200
 [[redirects]]
 from = "https://kidlisp.com"
