@@ -11958,8 +11958,21 @@ async function makeFrame({ data: { type, content } }) {
             
             const shouldShowQR = allGlyphsLoaded;
             
+            // Track if we've already rendered at least once with all glyphs loaded
+            // This ensures the painting callback has had time to actually render the glyphs
+            if (!font.__qrGlyphsRendered && shouldShowQR) {
+              // First frame where all glyphs are loaded - mark it but don't cache yet
+              font.__qrGlyphsRendered = false; // Will be set to true on next frame
+            } else if (font.__qrGlyphsRendered === false && shouldShowQR) {
+              // Second frame with all glyphs loaded - now safe to cache
+              font.__qrGlyphsRendered = true;
+            }
+            
+            const safeToCache = font?.__qrGlyphsRendered === true;
+            
             // If font exists but glyphs not loaded yet, trigger loading and request repaint
             if (font && !shouldShowQR) {
+              font.__qrGlyphsRendered = undefined; // Reset the rendering flag
               if (!font.__loadPromise) {
                 ensureTypefaceLoaded(font);
               }
@@ -12542,13 +12555,11 @@ async function makeFrame({ data: { type, content } }) {
                 };
               }
               
-              // Cache the QR data for this piece (not the transferable version)
-              // Only cache if all glyphs are loaded to avoid caching broken placeholders
-              if (!isQRCacheDisabled && shouldShowQR && !hudAnimationState.qrFullscreen) {
+              // Cache the QR data for this piece once glyphs are confirmed rendered
+              // We use safeToCache to ensure the painting callback has completed
+              if (!isQRCacheDisabled && safeToCache && !hudAnimationState.qrFullscreen) {
                 qrOverlayCache.set(cacheKey, qrData);
                 console.log('[QR] ✅ Cached QR with MatrixChunky8 glyphs for:', cacheKey);
-              } else {
-                console.log('[QR] ⏭️ Skipping cache - regenerating until glyphs load');
               }
               
               // Add QR overlay to sendData with exact position and animation effects
