@@ -634,6 +634,23 @@
       // Create the editor with initial value
       let initialCode = 'wipe navy, ink yellow, circle 100 100 50';
       
+      editor = monaco.editor.create(editorContainer, {
+        value: initialCode,
+        language: 'kidlisp',
+        theme: 'kidlisp-theme',
+        minimap: { enabled: false },
+        scrollBeyondLastLine: false,
+        fontSize: 14,
+        lineNumbers: 'on',
+        roundedSelection: false,
+        scrollbar: {
+          vertical: 'auto',
+          horizontal: 'auto'
+        },
+        automaticLayout: true,
+        wordWrap: 'on',
+      });
+      
       // Check URL path for a kidlisp code (e.g., /kidlisp-com/$46k or /$46k)
       const urlPath = window.location.pathname;
       const codeMatch = urlPath.match(/\/\$([a-zA-Z0-9]+)$/);
@@ -652,23 +669,6 @@
           }
         });
       }
-      
-      editor = monaco.editor.create(editorContainer, {
-        value: initialCode,
-        language: 'kidlisp',
-        theme: 'kidlisp-theme',
-        minimap: { enabled: false },
-        scrollBeyondLastLine: false,
-        fontSize: 14,
-        lineNumbers: 'on',
-        roundedSelection: false,
-        scrollbar: {
-          vertical: 'auto',
-          horizontal: 'auto'
-        },
-        automaticLayout: true,
-        wordWrap: 'on',
-      });
 
       // Hide line numbers if only one line
       function updateLineNumbers() {
