@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Art Raffle Fundraiser - December 14, 2025</title>
+    <style>
+        body {
+            font-family: 'Arial', 'Helvetica', sans-serif;
+            color: #000;
+            background: #fff;
+            line-height: 1.5;
+            padding: 30px;
+            max-width: 1400px;
+            margin: 0 auto;
+            font-size: 16px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding-bottom: 25px;
+        }
+
+        h1 {
+            font-size: 4.5em;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            font-weight: bold;
+            letter-spacing: 3px;
+            line-height: 1.1;
+        }
+
+        .subtitle {
+            font-size: 2em;
+            margin-bottom: 30px;
+            line-height: 1.4;
+            font-weight: bold;
+        }
+
+        .event-details {
+            margin-bottom: 50px;
+            padding: 30px;
+        }
+
+        .event-details h2 {
+            font-size: 2.5em;
+            margin-bottom: 30px;
+            text-transform: uppercase;
+            font-weight: bold;
+        }
+
+        .detail-item {
+            margin-bottom: 25px;
+            font-size: 1.5em;
+            line-height: 1.5;
+        }
+
+        .detail-item strong {
+            text-transform: uppercase;
+            font-weight: bold;
+        }
+
+        .artists-list {
+            padding-top: 20px;
+            margin-top: 20px;
+            text-align: center;
+            margin-bottom: 60px;
+        }
+
+        .artists-list strong {
+            font-size: 2em;
+            display: block;
+            margin-bottom: 25px;
+            text-transform: uppercase;
+            font-weight: bold;
+        }
+
+        .artists-list p {
+            font-size: 2.2em;
+            line-height: 1.6;
+            font-weight: bold;
+        }
+
+        .venmo-section {
+            text-align: center;
+            margin: 60px 0;
+            padding: 40px;
+            background: #f5f5f5;
+        }
+
+        .venmo-section h2 {
+            font-size: 2.5em;
+            margin-bottom: 30px;
+            text-transform: uppercase;
+            font-weight: bold;
+        }
+
+        .venmo-section img {
+            max-width: 400px;
+            width: 100%;
+            height: auto;
+            margin: 0 auto;
+            display: block;
+        }
+
+        .venmo-section p {
+            font-size: 1.8em;
+            margin-top: 20px;
+            font-weight: bold;
+        }
+
+        .venmo-instructions {
+            font-size: 2em;
+            color: #cc0000;
+            font-weight: bold;
+            margin: 30px 0;
+            line-height: 1.6;
+        }
+
+        .lot-number {
+            color: #cc0000;
+            font-weight: bold;
+        }
+
+        .works-section {
+            margin-top: 60px;
+        }
+
+        .works-section h2 {
+            font-size: 2.5em;
+            text-align: center;
+            margin-bottom: 50px;
+            text-transform: uppercase;
+            font-weight: bold;
+            letter-spacing: 3px;
+        }
+
+        .works-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 60px;
+        }
+
+        .artwork-item {
+            page-break-inside: avoid;
+        }
+
+        .artwork-image {
+            width: 100%;
+            height: auto;
+            margin-bottom: 20px;
+            display: block;
+        }
+
+        .raffle-number {
+            font-weight: bold;
+            margin-bottom: 15px;
+            font-size: 2em;
+            text-transform: uppercase;
+            font-family: 'Courier New', monospace;
+            color: #cc0000;
+        }
+
+        .artwork-info h3 {
+            font-size: 1.8em;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+
+        .artwork-info .title {
+            font-style: italic;
+            margin-bottom: 12px;
+            font-size: 1.3em;
+        }
+
+        .artwork-info div {
+            font-size: 1.1em;
+            line-height: 1.6;
+        }
+
+        @media print {
+            body {
+                padding: 20px;
+            }
+            
+            .works-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .works-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @page {
+            margin: 0.5in;
+        }
+    </style>
+    <script>
+        // Live reload script
+        (function() {
+            let lastModified = document.lastModified;
+            setInterval(function() {
+                fetch(window.location.href, { cache: 'no-store' })
+                    .then(response => response.text())
+                    .then(html => {
+                        const parser = new DOMParser();
+                        const doc = parser.parseFromString(html, 'text/html');
+                        const newModified = doc.lastModified;
+                        if (newModified !== lastModified) {
+                            lastModified = newModified;
+                            window.location.reload();
+                        }
+                    });
+            }, 1000);
+        })();
+    </script>
+</head>
+<body>
+    <header>
+        <h1>ART RAFFLE FUNDRAISER</h1>
+        <p class="subtitle">To help support an undocumented family seeking relocation</p>
+    </header>
+
+    <div class="event-details">
+        <h2>Event Information</h2>
+        
+        <div class="detail-item">
+            <strong>Date & Time:</strong> December 14th, 2025 / 7:00 PM - 11:00 PM
+        </div>
+        
+        <div class="detail-item">
+            <strong>Location:</strong> Tropico Beauty, 415 West Palmer Ave, Glendale, CA 91204
+        </div>
+        
+        <div class="detail-item">
+            <strong>Entry:</strong> Presale $5 (toward raffle ticket) / Day of $10 or Free with raffle ticket
+        </div>
+        
+        <div class="detail-item">
+            <strong>Raffle Tickets:</strong> $30 each / $150 for 6 tickets
+        </div>
+
+        <div class="detail-item">
+            <strong>DJs:</strong> Jazmin Garcia "Como La Flor" / Ana Calderon
+        </div>
+        
+        <div class="detail-item">
+            <strong>Food & Drinks:</strong> Pine and Crane / Cash Bar
+        </div>
+
+        <div class="artists-list">
+            <strong>Participating Artists</strong>
+            <p>Alina Perkins<br>
+            Paz G<br>
+            Devendra Banhart<br>
+            Ari Salka<br>
+            Tuna Bora<br>
+            Sissòn<br>
+            Alia Shawkat<br>
+            Max Rippon<br>
+            Mia Weiner<br>
+            Jonny Negron<br>
+            Jake Sheiner<br>
+            Lucy Black<br>
+            Chloe Pang</p>
+        </div>
+    </div>
+
+    <div class="venmo-section">
+        <h2>SEND PAYMENT</h2>
+        <img src="venmo.jpeg" alt="Venmo Payment">
+        <p>SCAN TO PAY VIA VENMO</p>
+        <p class="venmo-instructions">TO ENTER: VENMO THE <span class="lot-number">LOT NUMBER</span> YOU WANT TO RAFFLE FOR<br>
+        $30 PER LOT / $150 FOR 6 LOTS</p>
+    </div>
+
+    <div class="works-section">
+        <h2>WORKS</h2>
+        
+        <div class="works-grid">
+            <!-- Artwork 1 -->
+            <div class="artwork-item">
+                <div class="raffle-number">LOT 1</div>
+                <img src="images/image10.jpg" alt="Free Karma by Jonny Negron" class="artwork-image">
+                <div class="artwork-info">
+                    <h3>Jonny Negron</h3>
+                    <div class="title">Free Karma</div>
+                    <div>2019</div>
+                    <div>Ink on paper</div>
+                    <div>11 × 14 in</div>
+                </div>
+            </div>
+
+            <!-- Artwork 2 -->
+            <div class="artwork-item">
+                <div class="raffle-number">LOT 2</div>
+                <img src="images/image1.png" alt="Untitled by Paz G" class="artwork-image">
+                <div class="artwork-info">
+                    <h3>Paz G</h3>
+                    <div class="title">Untitled</div>
+                    <div>2024</div>
+                    <div>Stoneware and glaze</div>
+                    <div>17" H × 17" W × 12" D</div>
+                </div>
+            </div>
+
+            <!-- Artwork 3 -->
+            <div class="artwork-item">
+                <div class="raffle-number">LOT 3</div>
+                <img src="images/image5.jpg" alt="Blessings Birth Blessings by Sisson" class="artwork-image">
+                <div class="artwork-info">
+                    <h3>Sissòn</h3>
+                    <div class="title">Blessings Birth Blessings</div>
+                    <div>2023</div>
+                    <div>Charcoal and Pastel on Cotton Paper</div>
+                    <div>20 1/8" × 17 1/8"</div>
+                    <div>with maple wood frame</div>
+                </div>
+            </div>
+
+            <!-- Artwork 4 -->
+            <div class="artwork-item">
+                <div class="raffle-number">LOT 4</div>
+                <img src="images/image8.png" alt="Wash by Jake Sheiner" class="artwork-image">
+                <div class="artwork-info">
+                    <h3>Jake Sheiner</h3>
+                    <div class="title">Wash</div>
+                    <div>2022</div>
+                    <div>Acrylic on Canvas</div>
+                    <div>24 × 30 in</div>
+                </div>
+            </div>
+
+            <!-- Artwork 5 -->
+            <div class="artwork-item">
+                <div class="raffle-number">LOT 5</div>
+                <img src="images/image12.jpg" alt="Hugging swans by Lucy Black" class="artwork-image">
+                <div class="artwork-info">
+                    <h3>Lucy Black</h3>
+                    <div class="title">Hugging swans</div>
+                    <div>2025</div>
+                    <div>Cotton waffle fabric, stuffing and wire on canvas</div>
+                    <div>8 × 11 in</div>
+                </div>
+            </div>
+
+            <!-- Artwork 6 -->
+            <div class="artwork-item">
+                <div class="raffle-number">LOT 6</div>
+                <img src="images/image4.jpg" alt="Untitled by Alia Shawkat" class="artwork-image">
+                <div class="artwork-info">
+                    <h3>Alia Shawkat</h3>
+                    <div class="title">Untitled</div>
+                    <div>2020</div>
+                    <div>Oil on paper</div>
+                    <div>19.5 × 16.5 in (framed)</div>
+                </div>
+            </div>
+
+            <!-- Artwork 7 -->
+            <div class="artwork-item">
+                <div class="raffle-number">LOT 7</div>
+                <img src="images/image9.jpg" alt="Para Paz by Devendra Banhart" class="artwork-image">
+                <div class="artwork-info">
+                    <h3>Devendra Banhart</h3>
+                    <div class="title">Para Paz</div>
+                    <div>2025</div>
+                    <div>Oil on Wood in Artist's Frame</div>
+                    <div>17 × 21 in</div>
+                </div>
+            </div>
+
+            <!-- Artwork 8 -->
+            <div class="artwork-item">
+                <div class="raffle-number">LOT 8</div>
+                <img src="images/image3.jpg" alt="Blue Thing by Devendra Banhart" class="artwork-image">
+                <div class="artwork-info">
+                    <h3>Devendra Banhart</h3>
+                    <div class="title">Blue Thing</div>
+                    <div>2025</div>
+                    <div>Oil on Canvas</div>
+                    <div>20 × 24.5 in</div>
+                </div>
+            </div>
+
+            <!-- Artwork 9 -->
+            <div class="artwork-item">
+                <div class="raffle-number">LOT 9</div>
+                <img src="images/image6.gif" alt="ABYSS by Chloe Pang" class="artwork-image">
+                <div class="artwork-info">
+                    <h3>Chloe Pang</h3>
+                    <div class="title">ABYSS</div>
+                    <div>2021</div>
+                    <div>8.5 × 11 in Print in Frame</div>
+                </div>
+            </div>
+
+            <!-- Artwork 10 -->
+            <div class="artwork-item">
+                <div class="raffle-number">LOT 10</div>
+                <img src="images/image2.jpg" alt="Don't Seem To Mind The Heavy Metal by Max Rippon" class="artwork-image">
+                <div class="artwork-info">
+                    <h3>Max Rippon</h3>
+                    <div class="title">Don't Seem To Mind The Heavy Metal</div>
+                    <div>2024</div>
+                    <div>Oil Paint, Acrylic, Color Pencil, Gesso, and Image transfer on canvas in artist frame</div>
+                    <div>12 × 15 in (30 × 38 cm)</div>
+                </div>
+            </div>
+
+            <!-- Artwork 11 -->
+            <div class="artwork-item">
+                <div class="raffle-number">LOT 11</div>
+                <img src="images/image11.png" alt="Angel Found Beneath Flower Amidst Season Change by Ari Salka" class="artwork-image">
+                <div class="artwork-info">
+                    <h3>Ari Salka</h3>
+                    <div class="title">Angel Found Beneath Flower Amidst Season Change</div>
+                    <div>2025</div>
+                    <div>Acrylic, Enamel, Raw Pigment, Latex Paint, India Ink, Resin, and Oil on Cradled Wood Panel</div>
+                    <div>20 × 16 in</div>
+                </div>
+            </div>
+
+            <!-- Artwork 12 -->
+            <div class="artwork-item">
+                <div class="raffle-number">LOT 12</div>
+                <img src="images/image7.jpg" alt="Untitled by Tuna Bora" class="artwork-image">
+                <div class="artwork-info">
+                    <h3>Tuna Bora</h3>
+                    <div class="title">Untitled</div>
+                    <div>2025</div>
+                    <div>Acrylic on Cradled Panel</div>
+                    <div>18 × 18 in</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
