@@ -6,12 +6,6 @@
   <meta name="description" content="KidLisp is a simple, expressive language for creating visual patterns and animations. Try it on aesthetic.computer." />
   <link rel="icon" type="image/png"
     href="https://pals-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/painting-2023.7.29.20.39.png" />
-  <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/ywft-processing-regular.css">
-  <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/ywft-processing-bold.css">
-  <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Comic+Relief:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     :root {
@@ -26,9 +20,9 @@
       --border-subtle: #e0e0e0;
       --code-bg: #e8e8e8;
       --code-text: #a31515;
-      --editor-bg: #fafafa;
-      --editor-text: #111;
-      --editor-border: #ddd;
+      --editor-bg: #1e1e1e;
+      --editor-text: #d4d4d4;
+      --editor-border: #333;
     }
 
     @media (prefers-color-scheme: dark) {
@@ -48,39 +42,6 @@
         --editor-border: #333;
       }
     }
-    
-    /* Manual theme overrides via data-theme attribute */
-    [data-theme="light"] {
-      --bg-primary: #f7f7f7;
-      --bg-secondary: #e8e8e8;
-      --bg-tertiary: white;
-      --text-primary: #111;
-      --text-secondary: #333;
-      --text-tertiary: #666;
-      --border-color: #ddd;
-      --border-subtle: #e0e0e0;
-      --code-bg: #e8e8e8;
-      --code-text: #a31515;
-      --editor-bg: #fafafa;
-      --editor-text: #111;
-      --editor-border: #ddd;
-    }
-    
-    [data-theme="dark"] {
-      --bg-primary: #1e1e1e;
-      --bg-secondary: #252526;
-      --bg-tertiary: #2d2d30;
-      --text-primary: #d4d4d4;
-      --text-secondary: #d4d4d4;
-      --text-tertiary: #858585;
-      --border-color: #3e3e42;
-      --border-subtle: #3e3e42;
-      --code-bg: #252526;
-      --code-text: #ce9178;
-      --editor-bg: #1e1e1e;
-      --editor-text: #d4d4d4;
-      --editor-border: #333;
-    }
 
     ::-webkit-scrollbar {
       display: none;
@@ -88,7 +49,6 @@
 
     * {
       box-sizing: border-box;
-      touch-action: manipulation;
     }
 
     body {
@@ -131,20 +91,12 @@
       overflow: hidden;
     }
 
-    .top-row, .bottom-row {
+    .top-section {
+      /* flex: 1; Removed for Split.js */
       display: flex;
       flex-direction: row;
       overflow: hidden;
-      width: 100%;
-      min-height: 0; /* Allow flex items to shrink below content size */
-    }
-
-    .editor-panel,
-    .preview-panel,
-    .console-section,
-    .reference-section {
-      min-width: 0; /* Allow flex items to shrink below content size */
-      min-height: 0;
+      /* border-bottom: 2px solid var(--border-color); Removed for Split.js */
     }
 
     .editor-panel {
@@ -152,520 +104,54 @@
       display: flex;
       flex-direction: column;
       /* border-right: 2px solid var(--border-color); Removed for Split.js */
-      background: #fffacd; /* Legal pad yellow */
-    }
-
-    @media (prefers-color-scheme: dark) {
-      .editor-panel {
-        background: #2a2520; /* Dark mode: warm dark brown */
-      }
-    }
-    
-    [data-theme="light"] .editor-panel {
-      background: #fffacd; /* Legal pad yellow */
-    }
-    
-    [data-theme="dark"] .editor-panel {
-      background: #2a2520; /* Dark mode: warm dark brown */
     }
 
     .editor-header {
-      padding: 0 12px;
-      background: var(--bg-secondary);
+      padding: 8px 12px;
+      background: var(--editor-bg);
       border-bottom: 1px solid var(--editor-border);
       display: flex;
-      justify-content: flex-start; /* Align items to the left */
-      gap: 12px; /* Space between logo and language switcher */
-      align-items: center;
-      color: var(--editor-text);
-      height: 32px;
-      box-sizing: border-box;
-      overflow: visible; /* Allow dropdown to overflow */
-      flex-shrink: 0; /* Prevent header from shrinking */
-      position: relative; /* For z-index context */
-      z-index: 200; /* Ensure dropdown is above editor */
+      justify-content: space-between; /* Changed to space-between for title */
+      align-items: center; /* Changed to center */
+      color: var(--editor-text); /* Ensure text color */
     }
 
-    #clear-button {
-      position: absolute;
-      bottom: 8px;
-      left: 8px;
-      z-index: 100; /* Higher z-index to stay on top */
-      padding: 6px 12px;
-      background: transparent;
-      color: var(--text-tertiary);
-      border: none;
+    #send-button {
+      padding: 4px 12px;
+      background: white;
+      color: black;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
       font-family: monospace;
       font-size: 11px;
       cursor: pointer;
       transition: all 0.2s;
-      opacity: 0.6;
     }
 
-    @media (hover: hover) {
-      #clear-button:hover {
-        color: rgb(205, 92, 155);
-        opacity: 1;
-        text-decoration: underline;
-      }
-    }
-
-    #send-button {
-      position: absolute;
-      bottom: 8px;
-      right: 8px;
-      z-index: 100;
-      width: 48px;
-      height: 48px;
-      background: rgb(76, 175, 80); /* Green by default */
+    #send-button:hover {
+      background: rgb(205, 92, 155);
       color: white;
-      border: none;
-      border-radius: 50%;
-      font-family: monospace;
-      font-size: 20px;
-      cursor: pointer;
-      box-shadow: 0 3px 6px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2);
-      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-      display: flex;
-      flex-direction: row;
-      align-items: center;
-      justify-content: center;
-      padding: 0;
-      margin: 0;
-      vertical-align: baseline;
-    }
-
-    #send-button.playing {
-      background: rgb(255, 193, 7); /* Yellow when playing (Pause) */
-      cursor: pointer; /* Remain clickable */
-    }
-
-    #send-button.playing:active {
-      background: rgb(245, 183, 0); /* Darker yellow on click */
-      box-shadow: 0 2px 4px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.1);
-      transform: scale(0.95);
-    }
-
-    @media (hover: hover) {
-      #send-button.playing:hover {
-        background: rgb(255, 213, 79); /* Lighter yellow on hover */
-        transform: scale(1.05);
-        box-shadow: 0 4px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.3);
-      }
-    }
-
-    #send-button::before {
-      content: '';
-      width: 0;
-      height: 0;
-      border-left: 12px solid white;
-      border-top: 8px solid transparent;
-      border-bottom: 8px solid transparent;
-      margin-left: 3px; /* Offset to center the triangle visually */
-    }
-
-    /* Pause icon (double bars) */
-    #send-button.playing::before {
-      width: 10px;
-      height: 16px;
-      border: none;
-      border-left: 3px solid white;
-      border-right: 3px solid white;
-      background: transparent;
-      margin-left: 0;
-    }
-
-    @media (hover: hover) {
-      #send-button:hover {
-        background: rgb(102, 187, 106); /* Lighter green on hover */
-        box-shadow: 0 4px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.3);
-        transform: scale(1.05);
-      }
-    }
-
-    #send-button:active {
-      background: rgb(56, 142, 60); /* Darker green on click */
-      box-shadow: 0 2px 4px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.1);
-      transform: scale(0.95);
-    }
-    
-    #send-button:disabled {
-      cursor: not-allowed !important;
-      opacity: 0.4 !important;
-      pointer-events: auto; /* Still allow clicks for debugging */
-    }
-    
-    #send-button:disabled:hover,
-    #send-button:disabled:active {
-      background: rgb(76, 175, 80) !important;
-      transform: scale(1) !important;
-      box-shadow: 0 3px 6px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2) !important;
-    }
-
-    #stop-button {
-      position: absolute;
-      bottom: 8px;
-      right: 8px; /* Same position as play button initially */
-      z-index: 101; /* Above play button to ensure it's clickable */
-      width: 48px;
-      height: 48px;
-      background: rgb(244, 67, 54); /* Red */
-      color: white;
-      border: none;
-      border-radius: 50%;
-      cursor: pointer;
-      box-shadow: 0 3px 6px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2);
-      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-      display: none; /* Hidden by default */
-      flex-direction: row;
-      align-items: center;
-      justify-content: center;
-      padding: 0;
-      margin: 0;
-      vertical-align: baseline;
-      pointer-events: auto; /* Ensure clicks are captured */
-    }
-
-    #stop-button::before {
-      content: '';
-      width: 14px;
-      height: 14px;
-      background: white;
-      border-radius: 2px;
-    }
-
-    @media (hover: hover) {
-      #stop-button:hover {
-        background: rgb(239, 83, 80); /* Lighter red */
-        box-shadow: 0 4px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.3);
-        transform: scale(1.05);
-      }
-    }
-
-    #stop-button:active {
-      background: rgb(211, 47, 47); /* Darker red on click */
-      box-shadow: 0 2px 4px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.1);
-      transform: scale(0.95);
-    }
-    
-    #stop-button:disabled {
-      cursor: not-allowed !important;
-      opacity: 0.4 !important;
-      pointer-events: auto;
-    }
-    
-    #stop-button:disabled:hover,
-    #stop-button:disabled:active {
-      background: rgb(244, 67, 54) !important;
-      transform: scale(1) !important;
-      box-shadow: 0 3px 6px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2) !important;
+      border-color: rgb(205, 92, 155);
     }
 
     #kidlisp-editor {
       flex: 1;
       overflow: hidden;
-      position: relative; /* For absolute positioning of button */
-      padding-left: 12px; /* Add padding to the left of the editor */
-      transition: box-shadow 0.3s ease, outline 0.3s ease;
-    }
-    
-    /* Live running state - green outline */
-    #kidlisp-editor.live-running {
-      outline: 3px solid #00ff00;
-      outline-offset: -3px;
-      box-shadow: inset 0 0 20px rgba(0, 255, 0, 0.1);
-    }
-    
-    /* Pulse animation for live state */
-    @keyframes live-pulse {
-      0%, 100% { outline-color: #00ff00; }
-      50% { outline-color: #00cc00; }
-    }
-    
-    #kidlisp-editor.live-running {
-      animation: live-pulse 2s ease-in-out infinite;
-    }
-
-    /* Zebra striping for editor rows - always visible */
-    .monaco-editor .view-lines .view-line:nth-child(even) {
-      background-color: #fff9c0 !important; /* Ultra light yellow */
-    }
-
-    .monaco-editor .view-lines .view-line:nth-child(odd) {
-      background-color: #fffacd !important; /* Legal pad yellow */
-    }
-
-    .monaco-editor.vs-dark .view-lines .view-line:nth-child(even) {
-      background-color: #332f28 !important; /* Darker brown for dark mode */
-    }
-
-    .monaco-editor.vs-dark .view-lines .view-line:nth-child(odd) {
-      background-color: #2a2520 !important; /* Warm dark brown for dark mode */
     }
 
     #preview-iframe {
       flex: 1;
       border: none;
-      background: #1a1a1a;
+      background: #000;
     }
 
-    /* Boot screen / loading state */
-    .boot-screen {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
+    .docs-panel {
+      /* height: 50%; Removed for Split.js */
+      background: var(--bg-primary);
       display: flex;
       flex-direction: row;
-      z-index: 1000;
-      transition: opacity 0.5s;
+      overflow: hidden;
     }
-
-    .boot-screen.hidden {
-      opacity: 0;
-      pointer-events: none;
-    }
-
-    .color-bar {
-      flex: 1;
-      height: 100%;
-    }
-
-    .test-pattern {
-      width: 100%;
-      height: 60px;
-      display: flex;
-      margin-bottom: 24px;
-    }
-
-    .color-bar {
-      flex: 1;
-      height: 100%;
-    }
-
-    .boot-text {
-      color: #fff;
-      font-family: monospace;
-      font-size: 14px;
-      text-align: center;
-      line-height: 1.6;
-      opacity: 0.8;
-    }
-
-    @media (prefers-color-scheme: light) {
-      .boot-screen {
-        background: #fff;
-      }
-      
-      .boot-text {
-        color: #000;
-      }
-      
-      #preview-iframe {
-        background: #e8e8e8;
-      }
-      
-      /* Invert color bars for light mode */
-      .bar-1 { background: #000000 !important; }
-      .bar-2 { background: #0000aa !important; }
-      .bar-3 { background: #aa0000 !important; }
-      .bar-4 { background: #aa00aa !important; }
-      .bar-5 { background: #00aa00 !important; }
-      .bar-6 { background: #00aaaa !important; }
-      .bar-7 { background: #aaaa00 !important; }
-      .bar-8 { background: #ffffff !important; }
-    }
-
-    .boot-text .blink {
-      animation: blink 1s infinite;
-    }
-
-    @keyframes blink {
-      0%, 49% { opacity: 1; }
-      50%, 100% { opacity: 0; }
-    }
-
-    @keyframes bounce {
-      0%, 100% {
-        transform: translateY(0);
-      }
-      50% {
-        transform: translateY(-4px);
-      }
-    }
-
-    .bounce-dot {
-      display: inline-block;
-      animation: bounce 1.2s ease-in-out 3;
-      font-weight: bold;
-    }
-
-    @keyframes babyColors {
-      0% { color: #FF7096; }     /* Saturated Pink */
-      14% { color: #FFB870; }    /* Saturated Orange */
-      28% { color: #FFEA70; }    /* Saturated Yellow */
-      42% { color: #8AFF8A; }    /* Saturated Lime */
-      57% { color: #70D6FF; }    /* Saturated Cyan */
-      71% { color: #C596FF; }    /* Saturated Purple */
-      85% { color: #FF96C5; }    /* Saturated Rose */
-      100% { color: #FF7096; }   /* Saturated Pink */
-    }
-
-    .baby-colors {
-      font-weight: bold;
-      font-family: 'Comic Relief', 'Comic Sans MS', cursive;
-      font-size: 20px;
-      line-height: 32px; /* Match tab bar height */
-      display: flex;
-      align-items: center;
-      height: 100%;
-    }
-
-    .baby-colors span {
-      display: inline-block;
-      /* animation: babyColors 4s step-end infinite; */
-      text-shadow: 1px 1px 0px rgba(0, 0, 0, 0.3);
-      letter-spacing: 0.05em; /* Extra spacing between characters */
-    }
-    
-    .baby-colors .com-part {
-      color: #70D6FF; /* Light Blue */
-      text-shadow: none;
-    }
-
-    @media (prefers-color-scheme: dark) {
-      .baby-colors .com-part {
-        color: #70D6FF; /* Keep Light Blue in dark mode */
-      }
-    }
-    
-    /* Connectivity indicator for the period in kidlisp. */
-    .baby-colors .connectivity-dot {
-      transition: color 0.3s ease, text-shadow 0.3s ease;
-    }
-    
-    .baby-colors .connectivity-dot.disconnected {
-      color: #ff4444; /* Red - disconnected */
-      text-shadow: 1px 1px 0px rgba(255, 68, 68, 0.3);
-    }
-    
-    .baby-colors .connectivity-dot.connecting {
-      color: #ff8800; /* Orange - connecting */
-      text-shadow: 1px 1px 0px rgba(255, 136, 0, 0.3);
-      animation: connectingPulse 1s ease-in-out infinite;
-    }
-    
-    .baby-colors .connectivity-dot.waiting {
-      color: #ffdd00; /* Yellow - waiting/ready */
-      text-shadow: 1px 1px 0px rgba(255, 221, 0, 0.3);
-    }
-    
-    .baby-colors .connectivity-dot.connected {
-      color: #00ff88; /* Green - connected */
-      text-shadow: 1px 1px 0px rgba(0, 255, 136, 0.3);
-    }
-    
-    .baby-colors .connectivity-dot.receiving {
-      animation: receivingBlink 0.2s ease-in-out 2;
-    }
-    
-    @keyframes connectingPulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
-    }
-    
-    @keyframes receivingBlink {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.3; transform: scale(1.2); }
-    }
-    
-    /* Theme toggle button */
-    #theme-toggle {
-      width: 32px;
-      height: 32px;
-      border: none;
-      border-radius: 4px;
-      background: transparent;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 16px;
-      transition: opacity 0.2s;
-      margin-left: 8px;
-      padding: 0;
-      opacity: 0.6;
-    }
-    
-    @media (hover: hover) {
-      #theme-toggle:hover {
-        opacity: 1;
-      }
-    }
-    
-    #theme-toggle:active {
-      opacity: 0.4;
-    }
-    
-    @media (prefers-color-scheme: dark) {
-      #theme-toggle {
-        opacity: 0.6;
-      }
-    }
-
-    #preview-panel .docs-header {
-      background: rgb(240, 235, 250); /* Light muted purple backdrop */
-      border-bottom-color: rgb(220, 215, 230);
-    }
-
-    #preview-title {
-      font-family: 'YWFTProcessing-Regular', monospace;
-      font-weight: bold;
-      font-size: 16px; /* Smaller text */
-      color: rgb(88, 78, 108); /* Muted purple text */
-      margin-left: 0px; /* Reset margin */
-      display: inline-block;
-      line-height: 32px; /* Match header height */
-    }
-    
-    #preview-title .bounce-dot {
-      font-weight: 900;
-      font-size: 1.2em; /* Larger dot */
-      text-shadow: 1px 0 0 currentColor; /* Faux bold/doubled up effect */
-      margin: 0 1px;
-      color: rgb(205, 92, 155); /* AC Purple */
-    }
-    
-    /* Code display with monospace font */
-    #preview-title .code-display {
-      font-family: 'Berkeley Mono', 'Courier New', monospace;
-      font-weight: normal;
-      letter-spacing: 0.05em;
-    }
-    
-    /* Code generating animation - scramble effect */
-    @keyframes scramble {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.3; }
-    }
-    
-    #preview-title .code-display.generating {
-      animation: scramble 0.3s ease-in-out 3;
-    }
-    
-    /* Bounce dot during code generation */
-    #preview-title .bounce-dot.generating {
-      animation: bounce 0.6s ease-in-out infinite;
-    }
-
-    .baby-colors span:nth-child(1) { animation-delay: 0s; }
-    .baby-colors span:nth-child(2) { animation-delay: -1s; }
-    .baby-colors span:nth-child(3) { animation-delay: -2s; }
-    .baby-colors span:nth-child(4) { animation-delay: -3s; }
-    .baby-colors span:nth-child(5) { animation-delay: -4s; }
-    .baby-colors span:nth-child(6) { animation-delay: -5s; }
-    .baby-colors span:nth-child(7) { animation-delay: -6s; }
 
     .reference-section,
     .console-section {
@@ -683,18 +169,11 @@
       flex: 1;
       overflow-y: auto;
       padding: 8px;
-      font-size: 14px;
-      font-family: 'Berkeley Mono Variable', monospace;
+      font-size: 12px;
+      font-family: monospace;
       line-height: 1.4;
-      background: #4a3020; /* Lighter brown background */
-      color: #ff9f43; /* Orange text */
-    }
-
-    @media (prefers-color-scheme: dark) {
-      .console-output {
-        background: #4a3020;
-        color: #ff9f43;
-      }
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
     }
 
     .console-entry {
@@ -705,7 +184,7 @@
     }
 
     .console-entry:nth-child(even) {
-      background-color: rgba(255, 159, 67, 0.05); /* Subtle orange zebra striping */
+      background-color: rgba(0, 0, 0, 0.03); /* Zebra striping */
     }
 
     .console-line {
@@ -721,180 +200,45 @@
       border-bottom: none;
     }
 
-    /* Console log colors (bright on brown) */
-    .console-entry.error { color: #ff6b6b; }
-    .console-entry.warn { color: #ffd93d; }
-    .console-entry.info { color: #6bcfff; }
-
-    /* Dark mode keeps same colors */
-    @media (prefers-color-scheme: dark) {
-      .console-entry.error { color: #ff6b6b; }
-      .console-entry.warn { color: #ffd93d; }
-      .console-entry.info { color: #6bcfff; }
+    .console-entry.error {
+      color: #f48771;
     }
 
-    /* Tab-specific header colors */
-    .editor-header {
-      background: #fffacd; /* Legal pad yellow background for KidLisp.com tab */
-      border-bottom-color: #f0e68c;
+    .console-entry.warn {
+      color: #cca700;
     }
 
-    #console-panel .docs-header {
-      background: #3d2817; /* Darker brown background for Console tab bar */
-      border-bottom-color: #2a1a0f;
-    }
-
-    #console-title {
-      color: #ff9f43; /* Orange text for Console title */
+    .console-entry.info {
+      color: #75beff;
     }
 
     .clear-console {
-      padding: 2px 8px;
+      padding: 4px 12px;
       background: transparent;
       color: var(--text-tertiary);
       border: 1px solid var(--border-color);
       border-radius: 4px;
       font-family: monospace;
-      font-size: 10px;
+      font-size: 11px;
       cursor: pointer;
       margin-left: auto;
     }
 
-    @media (hover: hover) {
-      .clear-console:hover {
-        background: var(--bg-tertiary);
-        color: var(--text-primary);
-      }
+    .clear-console:hover {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
     }
 
     .docs-header {
-      padding: 0 12px;
+      padding: 8px 12px;
       background: var(--bg-secondary);
       border-bottom: 1px solid var(--border-color);
       display: flex;
+      justify-content: space-between;
       align-items: center;
       font-size: 13px;
       font-weight: bold;
       color: var(--text-primary);
-      height: 32px;
-      box-sizing: border-box;
-      overflow: hidden;
-      flex-shrink: 0; /* Prevent header from shrinking */
-    }
-
-    /* Remove padding when header contains tabs */
-    .docs-header:has(.tab) {
-      padding: 0;
-    }
-
-    .tab {
-      padding: 0 16px;
-      cursor: pointer;
-      border-right: 1px solid var(--border-color);
-      height: 100%;
-      display: flex;
-      align-items: center;
-      background: var(--bg-secondary);
-      color: var(--text-tertiary);
-      transition: all 0.2s;
-    }
-
-    @media (hover: hover) {
-      .tab:hover {
-        background: var(--bg-primary);
-        color: var(--text-primary);
-      }
-    }
-
-    .tab.active {
-      background: var(--bg-primary);
-      color: var(--text-primary);
-      border-bottom: 1px solid var(--bg-primary); /* Blend with content */
-      margin-bottom: -1px; /* Cover the header border */
-      position: relative;
-      z-index: 1;
-    }
-
-    .language-tab {
-      border-left: 1px solid var(--border-color);
-      border-right: 1px solid var(--border-color);
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      cursor: pointer;
-      position: relative;
-    }
-
-    @media (hover: hover) {
-      .language-tab:hover {
-        background: var(--bg-primary);
-        color: var(--text-primary);
-      }
-    }
-
-    .lang-flag {
-      font-size: 14px;
-    }
-
-    .lang-text {
-      font-size: 12px;
-      min-width: 50px;
-    }
-
-    .lang-arrow {
-      font-size: 12px;
-      opacity: 0.6;
-    }
-
-    .language-dropdown {
-      position: absolute;
-      top: 100%;
-      right: 0;
-      background: var(--bg-tertiary);
-      border: 1px solid var(--border-color);
-      border-radius: 4px;
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-      z-index: 1000;
-      min-width: 120px;
-      margin-top: 2px;
-    }
-
-    .lang-option {
-      padding: 8px 12px;
-      cursor: pointer;
-      font-size: 12px;
-      transition: all 0.2s;
-    }
-
-    @media (hover: hover) {
-      .lang-option:hover {
-        background: rgba(205, 92, 155, 0.1);
-        color: rgb(205, 92, 155);
-      }
-    }
-
-    .lang-option:first-child {
-      border-radius: 4px 4px 0 0;
-    }
-
-    .lang-option:last-child {
-      border-radius: 0 0 4px 4px;
-    }
-
-    .language-tab {
-      overflow: visible; /* Allow dropdown to overflow */
-      position: relative;
-    }
-
-    .language-tab.cycling .lang-flag,
-    .language-tab.cycling .lang-text {
-      animation: langFade 0.3s ease-in-out;
-    }
-
-    @keyframes langFade {
-      0% { opacity: 1; }
-      50% { opacity: 0.3; }
-      100% { opacity: 1; }
     }
 
     .docs-content {
@@ -905,39 +249,6 @@
       line-height: 1.5;
       background: var(--bg-primary);
       color: var(--text-primary);
-    }
-
-    .docs-content.hidden {
-      display: none;
-    }
-
-    .example-item {
-      padding: 8px;
-      border-bottom: 1px solid var(--border-subtle);
-      cursor: pointer;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    @media (hover: hover) {
-      .example-item:hover {
-        background: var(--bg-secondary);
-      }
-    }
-
-    .example-code {
-      font-family: monospace;
-      color: var(--code-text);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: 70%;
-    }
-
-    .example-hits {
-      font-size: 11px;
-      color: var(--text-tertiary);
     }
 
     .docs-content h3 {
@@ -965,27 +276,16 @@
       text-decoration: none;
     }
 
-    @media (hover: hover) {
-      .docs-content a:hover {
-        text-decoration: underline;
-      }
+    .docs-content a:hover {
+      text-decoration: underline;
     }
 
     .docs-content code {
-      background: #fff9c0; /* Ultra light yellow to match editor zebra stripes */
+      background: var(--code-bg);
       padding: 2px 4px;
       border-radius: 2px;
       font-size: 12px;
-      color: #333333;
-      border: 1px solid #f0e68c;
-    }
-
-    @media (prefers-color-scheme: dark) {
-      .docs-content code {
-        background: #332f28; /* Dark brown to match editor zebra stripes */
-        color: #d4d4d4;
-        border-color: #4a4540;
-      }
+      color: var(--code-text);
     }
 
     .function-category {
@@ -1000,107 +300,21 @@
 
     .function-item {
       padding: 4px 10px;
-      background: #fff9c0; /* Ultra light yellow to match editor zebra stripes */
-      border: 1px solid #f0e68c;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
       border-radius: 12px;
       cursor: pointer;
       transition: all 0.15s;
-      font-size: 15px;
-      color: #333333;
+      font-size: 13px;
+      color: var(--text-primary);
     }
 
-    @media (prefers-color-scheme: dark) {
-      .function-item {
-        background: #332f28; /* Dark brown to match editor zebra stripes */
-        border-color: #4a4540;
-        color: #d4d4d4;
-      }
-    }
-
-    @media (hover: hover) {
-      .function-item:hover {
-        background: rgb(205, 92, 155);
-        color: white;
-        transform: translateY(-1px);
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        border-color: rgb(205, 92, 155);
-      }
-    }
-
-    /* Wizard styles */
-    #wizard-container {
-      display: flex;
-      flex-direction: column;
-      height: 100%;
-    }
-
-    .wizard-prompt {
-      padding: 12px 0;
-      font-size: 14px;
-      font-weight: bold;
-      color: var(--text-secondary);
-      border-bottom: 1px solid var(--border-subtle);
-    }
-
-    #wizard-suggestions {
-      flex: 1;
-      overflow-y: auto;
-      padding: 12px 0;
-    }
-
-    .wizard-category {
-      margin-bottom: 16px;
-    }
-
-    .wizard-category-title {
-      font-size: 12px;
-      font-weight: bold;
-      color: var(--text-tertiary);
-      margin-bottom: 8px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .wizard-suggestions-grid {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-    }
-
-    .wizard-suggestion {
-      padding: 6px 12px;
-      background: #fff9c0;
-      border: 1px solid #f0e68c;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: all 0.15s;
-      font-size: 14px;
-      font-family: monospace;
-      color: #333333;
-      user-select: none;
-    }
-
-    @media (prefers-color-scheme: dark) {
-      .wizard-suggestion {
-        background: #332f28;
-        border-color: #4a4540;
-        color: #d4d4d4;
-      }
-    }
-
-    @media (hover: hover) {
-      .wizard-suggestion:hover {
-        background: rgb(205, 92, 155);
-        color: white;
-        transform: translateY(-1px);
-        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-        border-color: rgb(205, 92, 155);
-      }
-    }
-
-    .wizard-suggestion:active {
-      transform: translateY(0);
-      box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    .function-item:hover {
+      background: rgb(205, 92, 155);
+      color: white;
+      transform: translateY(-1px);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      border-color: rgb(205, 92, 155);
     }
 
     a {
@@ -1108,10 +322,8 @@
       text-decoration: none;
     }
 
-    @media (hover: hover) {
-      a:hover {
-        color: rgb(205, 92, 155);
-      }
+    a:hover {
+      color: rgb(205, 92, 155);
     }
 
     footer {
@@ -1127,166 +339,65 @@
       main {
         flex-direction: column;
       }
-      
-      /* Split.js handles the layout now, so we just need to ensure containers are flex columns */
-      .top-row, .bottom-row {
-        flex-direction: column !important;
+
+      .top-section {
+        flex-direction: column;
+        height: 66.666%;
       }
-      
-      /* Ensure panels take full width in vertical mode */
-      .editor-panel, .preview-panel, .reference-section, .console-section {
-        width: 100% !important;
-      }
-      
-      /* Remove borders that might double up with gutters */
+
       .editor-panel {
         border-right: none;
-        border-bottom: none;
+        border-bottom: 2px solid var(--border-color);
+        height: 50%;
+        order: 2;
       }
-      
-      .reference-section {
-        border-right: none;
+
+      #preview-iframe {
+        height: 50%;
+        order: 1;
       }
-      
+
+      .docs-panel {
+        height: 33.333% !important;
+        order: 3;
+      }
+
       .docs-panel.collapsed {
         height: 33.333% !important;
+      }
+
+      .reference-section,
+      .console-section {
+        flex: 1;
       }
     }
 
     /* Split.js Gutter Styles */
     .gutter {
-      transition: all 0.2s;
-      position: relative;
-      z-index: 1;
+      background-color: var(--bg-secondary);
+      background-repeat: no-repeat;
+      background-position: 50%;
+      transition: background-color 0.2s;
     }
 
-    /* Main vertical gutter (between top and bottom rows) */
-    #top-row + .gutter.gutter-vertical {
-      background: linear-gradient(to right, rgba(255, 140, 0, 0.3) 0%, rgba(255, 140, 0, 0.3) 50%, rgba(100, 149, 237, 0.3) 50%, rgba(100, 149, 237, 0.3) 100%) !important; /* Orange left, Blue right */
-      z-index: 2;
+    .gutter:hover {
+      background-color: rgb(205, 92, 155);
     }
 
-    /* Top row horizontal gutter (between editor and preview) */
-    #editor-panel + .gutter.gutter-horizontal {
-      background-color: rgba(255, 140, 0, 0.3) !important; /* Orange */
-      z-index: 1;
-    }
-
-    /* Bottom row horizontal gutter (between reference and console) */
-    #reference-panel + .gutter.gutter-horizontal {
-      background-color: rgba(100, 149, 237, 0.3) !important; /* Blue */
-      z-index: 1;
-    }
-
-    @media (hover: hover) {
-      .gutter:hover {
-        opacity: 0.6;
-      }
-    }
-
-    /* Default cursors for gutters */
     .gutter.gutter-horizontal {
       cursor: col-resize;
+      background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="6" height="10" viewBox="0 0 6 10"><path d="M1 1 L5 5 L1 9" fill="none" stroke="%23888" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>');
+      background-repeat: repeat-y;
+      background-position: center;
+      background-size: 12px 20px;
     }
 
     .gutter.gutter-vertical {
       cursor: row-resize;
-    }
-    
-    /* Ensure rows contain their gutters properly */
-    .top-row, .bottom-row {
-      position: relative;
-    }
-
-    /* Center square at the intersection of all 4 gutters */
-    #center-square {
-      position: fixed;
-      width: 8px;
-      height: 8px;
-      background: rgba(205, 92, 155, 0.4);
-      cursor: move;
-      z-index: 1000;
-      pointer-events: auto;
-    }
-
-    #center-square:hover {
-      background: rgba(205, 92, 155, 0.6);
-    }
-
-    #center-square.dragging {
-      background: rgba(205, 92, 155, 0.8);
-    }
-
-    /* Syntax highlighting blink effect */
-    .blink-highlight {
-      animation: highlight-blink 0.2s ease-in-out;
-    }
-
-    @keyframes highlight-blink {
-      0% { opacity: 1; }
-      50% { opacity: 0.3; }
-      100% { opacity: 1; }
-    }
-
-    /* Monaco Editor Selection Highlighting */
-    /* Target the actual selection layer that Monaco uses */
-    .monaco-editor .selected-text {
-      background-color: rgba(255, 165, 0, 0.4) !important; /* Orange selection in light mode */
-    }
-    
-    .monaco-editor .view-overlays .current-line-exact {
-      background-color: transparent !important;
-    }
-    
-    /* Selection in the editor lines themselves */
-    .monaco-editor .view-line span.mtk1.selected-text,
-    .monaco-editor .view-line > span > span.selected-text {
-      background-color: rgba(255, 165, 0, 0.4) !important;
-    }
-    
-    /* Dark mode selection */
-    @media (prefers-color-scheme: dark) {
-      .monaco-editor .selected-text {
-        background-color: rgba(100, 149, 237, 0.4) !important; /* Blue selection in dark mode */
-      }
-      
-      .monaco-editor .view-line span.mtk1.selected-text,
-      .monaco-editor .view-line > span > span.selected-text {
-        background-color: rgba(100, 149, 237, 0.4) !important;
-      }
-    }
-    
-    /* Manual theme overrides for selection */
-    [data-theme="light"] .monaco-editor .selected-text,
-    [data-theme="light"] .monaco-editor .view-line span.mtk1.selected-text,
-    [data-theme="light"] .monaco-editor .view-line > span > span.selected-text {
-      background-color: rgba(255, 165, 0, 0.4) !important;
-    }
-    
-    [data-theme="dark"] .monaco-editor .selected-text,
-    [data-theme="dark"] .monaco-editor .view-line span.mtk1.selected-text,
-    [data-theme="dark"] .monaco-editor .view-line > span > span.selected-text {
-      background-color: rgba(100, 149, 237, 0.4) !important;
-    }
-
-    /* Text shadow for editor - matches prompt HUD preview */
-    @media (prefers-color-scheme: light) {
-      .monaco-editor .view-line span {
-        text-shadow: 0.5px 0.5px 0px rgba(0, 0, 0, 0.25);
-      }
-      .function-item {
-        text-shadow: 0.5px 0.5px 0px rgba(0, 0, 0, 0.25);
-      }
-    }
-    
-    @media (prefers-color-scheme: dark) {
-      .monaco-editor .view-line span {
-        text-shadow: 1px 1px 0px rgba(0, 0, 0, 0.5);
-      }
-      .function-item {
-        background: #2d2d30;
-        text-shadow: 1px 1px 0px rgba(0, 0, 0, 0.5);
-      }
+      background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="10" height="6" viewBox="0 0 10 6"><path d="M1 1 L5 5 L9 1" fill="none" stroke="%23888" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>');
+      background-repeat: repeat-x;
+      background-position: center;
+      background-size: 20px 12px;
     }
   </style>
 </head>
@@ -1297,75 +408,62 @@
     <div class="tagline">transmedia pattern programming for everybody</div>
   </header> -->
 
-  <main id="main-split">
-    <!-- Center square for simultaneous 4-panel resize -->
-    <div id="center-square" title="Drag to resize all panels"></div>
-    
-    <div class="top-row" id="top-row">
+  <main>
+    <div class="top-section" id="top-split">
       <div class="editor-panel" id="editor-panel">
         <div class="editor-header">
-          <span class="baby-colors"><span>K</span><span>i</span><span>d</span><span>L</span><span>i</span><span>s</span><span>p</span><span class="connectivity-dot disconnected">.</span><span class="com-part">com</span></span>
-          <div class="tab language-tab" id="language-tab" style="border: none; height: 100%; padding: 0 8px; background: transparent; display: flex; align-items: center;">
-            <span class="lang-flag" id="lang-flag" style="font-size: 12px; margin-right: 6px;">🇺🇸</span>
-            <span class="lang-text" style="font-size: 12px; opacity: 0.7;">English</span>
-            <span class="lang-arrow" style="font-size: 10px; opacity: 0.5; margin-left: 4px;">▼</span>
-            <div class="language-dropdown" id="language-dropdown" style="display: none; left: 0; top: 100%; margin-top: 0; border-top-left-radius: 0; border-top-right-radius: 0;">
-              <div class="lang-option" data-lang="en">🇺🇸 English</div>
-              <div class="lang-option" data-lang="es">🇪🇸 Español</div>
-              <div class="lang-option" data-lang="zh">🇨🇳 中文</div>
-              <div class="lang-option" data-lang="da">🇩🇰 Dansk</div>
-            </div>
-          </div>
-          <button id="theme-toggle" title="Toggle light/dark mode">○</button>
-          <button id="line-limit-btn" style="padding: 4px 8px; background: rgba(255,255,255,0.3); border: 1px solid rgba(0,0,0,0.1); border-radius: 4px; font-size: 11px; cursor: pointer; margin-left: auto;">1</button>
+          <span style="font-weight: bold; font-size: 13px;">KidLisp</span>
+          <button id="send-button">Enter</button>
         </div>
-        <div id="kidlisp-editor">
-          <button id="send-button" aria-label="Play"></button>
-          <button id="stop-button" aria-label="Stop"></button>
-          <button id="clear-button" style="display: none;">Clear</button>
-        </div>
+        <div id="kidlisp-editor"></div>
       </div>
       
       <div class="preview-panel" id="preview-panel" style="display: flex; flex-direction: column; overflow: hidden;">
-        <div class="docs-header" style="display: flex; align-items: center; gap: 8px;">
-          <img id="preview-qr" src="" alt="" style="display: none; width: 24px; height: 24px; image-rendering: pixelated;" />
-          <span id="preview-title">Aesthetic<span class="bounce-dot">.</span>Computer</span>
+        <div class="docs-header" style="background: var(--editor-bg); color: var(--editor-text); border-bottom: 1px solid var(--editor-border);">
+          <span>Aesthetic Computer</span>
         </div>
-        <div style="position: relative; flex: 1;">
-          <div class="boot-screen" id="boot-screen">
-            <div class="color-bar bar-1" style="background: #ffffff;"></div>
-            <div class="color-bar bar-2" style="background: #ffff00;"></div>
-            <div class="color-bar bar-3" style="background: #00ffff;"></div>
-            <div class="color-bar bar-4" style="background: #00ff00;"></div>
-            <div class="color-bar bar-5" style="background: #ff00ff;"></div>
-            <div class="color-bar bar-6" style="background: #ff0000;"></div>
-            <div class="color-bar bar-7" style="background: #0000ff;"></div>
-            <div class="color-bar bar-8" style="background: #000000;"></div>
-          </div>
-          <iframe id="preview-iframe" frameborder="0" style="flex: 1; width: 100%; height: 100%;"></iframe>
-        </div>
+        <iframe id="preview-iframe" frameborder="0" style="flex: 1; width: 100%; height: 100%;"></iframe>
       </div>
     </div>
     
-    <div class="bottom-row" id="bottom-row">
+    <div class="docs-panel" id="bottom-split">
       <div class="reference-section" id="reference-panel">
         <div class="docs-header">
-          <div class="tab active" data-tab="reference" id="reference-tab">Code</div>
-          <div class="tab" data-tab="examples" id="examples-tab">Top 25</div>
+          <span>Reference</span>
         </div>
-        <div class="docs-content" id="reference-content">
-          <div id="wizard-container">
-            <div id="wizard-suggestions"></div>
+        <div class="docs-content" id="docs-content">
+        <div class="function-category">
+          <div class="function-grid">
+            <div class="function-item" data-word="wipe">wipe</div>
+            <div class="function-item" data-word="ink">ink</div>
+            <div class="function-item" data-word="circle">circle</div>
+            <div class="function-item" data-word="line">line</div>
+            <div class="function-item" data-word="box">box</div>
+            <div class="function-item" data-word="point">point</div>
+            <div class="function-item" data-word="write">write</div>
+            <div class="function-item" data-word="scroll">scroll</div>
+            <div class="function-item" data-word="spin">spin</div>
+            <div class="function-item" data-word="blur">blur</div>
+            <div class="function-item" data-word="zoom">zoom</div>
+            <div class="function-item" data-word="rainbow">rainbow</div>
+            <div class="function-item" data-word="wiggle">wiggle</div>
+            <div class="function-item" data-word="width">width</div>
+            <div class="function-item" data-word="height">height</div>
+            <div class="function-item" data-word="frame">frame</div>
+            <div class="function-item" data-word="repeat">repeat</div>
+            <div class="function-item" data-word="def">def</div>
+            <div class="function-item" data-word="fade">fade</div>
+            <div class="function-item" data-word="paste">paste</div>
+            <div class="function-item" data-word="stamp">stamp</div>
           </div>
         </div>
-        <div class="docs-content hidden" id="examples-content">
-          <div id="examples-list">Loading examples...</div>
         </div>
       </div>
       
       <div class="console-section" id="console-panel">
         <div class="docs-header">
-          <span id="console-title">Console</span>
+          <span>Console</span>
+          <button class="clear-console" id="clear-console">clear</button>
         </div>
         <div class="console-output" id="console-output"></div>
       </div>
@@ -1384,611 +482,65 @@
   
   <!-- Development reload logic. -->
   <script type="module">
-    // Internationalization
-    const i18n = {
-      en: {
-        editorTitle: 'KidLisp',
-        clearButton: 'Clear',
-        playButton: 'Play',
-        previewTitle: 'Aesthetic.Computer',
-        consoleTitle: 'Console',
-        referenceTab: 'Code',
-        examplesTab: 'Top 25',
-        examplesLoading: 'Loading examples...',
-        examplesNone: 'No examples found.',
-        examplesError: 'Error loading examples.',
-        running: 'Running...',
-        hits: 'hits',
-        categoryStructure: 'Structure',
-        categoryDrawing: 'Drawing',
-        categoryEffects: 'Effects',
-        categoryColors: 'Colors',
-        categoryNumbers: 'Numbers',
-        wizardPrompt: 'Tap to build your KidLisp program:',
-        wizardEmpty: 'Start by selecting a form below',
-      },
-      es: {
-        editorTitle: 'KidLisp',
-        clearButton: 'Limpiar',
-        playButton: 'Ejecutar',
-        previewTitle: 'Aesthetic.Computer',
-        consoleTitle: 'Consola',
-        referenceTab: 'Código',
-        examplesTab: 'Top 25',
-        examplesLoading: 'Cargando ejemplos...',
-        examplesNone: 'No se encontraron ejemplos.',
-        examplesError: 'Error al cargar ejemplos.',
-        running: 'Ejecutando...',
-        hits: 'visitas',
-        categoryStructure: 'Estructura',
-        categoryDrawing: 'Dibujo',
-        categoryEffects: 'Efectos',
-        categoryColors: 'Colores',
-        categoryNumbers: 'Números',
-        wizardPrompt: 'Toca para construir tu programa KidLisp:',
-        wizardEmpty: 'Comienza seleccionando una forma a continuación',
-      },
-      zh: {
-        editorTitle: 'KidLisp',
-        clearButton: '清空',
-        playButton: '运行',
-        previewTitle: 'Aesthetic.Computer',
-        consoleTitle: '控制台',
-        referenceTab: '代码',
-        examplesTab: 'Top 25',
-        examplesLoading: '加载示例中...',
-        examplesNone: '未找到示例。',
-        examplesError: '加载示例时出错。',
-        running: '运行中...',
-        hits: '次点击',
-        categoryStructure: '结构',
-        categoryDrawing: '绘图',
-        categoryEffects: '效果',
-        categoryColors: '颜色',
-        categoryNumbers: '数字',
-        wizardPrompt: '点击构建你的 KidLisp 程序：',
-        wizardEmpty: '从下面选择一个形式开始',
-      },
-      da: {
-        editorTitle: 'KidLisp',
-        clearButton: 'Ryd',
-        playButton: 'Kør',
-        previewTitle: 'Aesthetic.Computer',
-        consoleTitle: 'Konsol',
-        referenceTab: 'Kode',
-        examplesTab: 'Top 25',
-        examplesLoading: 'Indlæser eksempler...',
-        examplesNone: 'Ingen eksempler fundet.',
-        examplesError: 'Fejl ved indlæsning af eksempler.',
-        running: 'Kører...',
-        hits: 'visninger',
-        categoryStructure: 'Struktur',
-        categoryDrawing: 'Tegning',
-        categoryEffects: 'Effekter',
-        categoryColors: 'Farver',
-        categoryNumbers: 'Tal',
-        wizardPrompt: 'Tryk for at bygge dit KidLisp program:',
-        wizardEmpty: 'Start med at vælge en form nedenfor',
-      }
-    };
-
-    // Get or set language preference
-    let currentLang = localStorage.getItem('kidlisp-lang') || 'en';
-    
-    function t(key) {
-      return i18n[currentLang]?.[key] || i18n.en[key] || key;
-    }
-    
-    function setLanguage(lang) {
-      currentLang = lang;
-      localStorage.setItem('kidlisp-lang', lang);
-      updateUILanguage();
-    }
-    
-    function updateUILanguage() {
-      // Update all translatable elements
-      const clearBtn = document.getElementById('clear-button');
-      if (clearBtn) clearBtn.textContent = t('clearButton');
-      
-      // Send button uses CSS triangle, no text needed
-      
-      const consoleHeader = document.querySelector('#console-panel .docs-header span');
-      if (consoleHeader) consoleHeader.textContent = t('consoleTitle');
-      
-      const refTab = document.querySelector('.tab[data-tab="reference"]');
-      if (refTab) refTab.textContent = t('referenceTab');
-      
-      const exTab = document.querySelector('.tab[data-tab="examples"]');
-      if (exTab) exTab.textContent = t('examplesTab');
-      
-      // Update category headers
-      const categoryHeaders = document.querySelectorAll('.docs-content h3');
-      const categories = ['categoryStructure', 'categoryDrawing', 'categoryEffects', 'categoryColors', 'categoryNumbers'];
-      categoryHeaders.forEach((header, index) => {
-        if (categories[index]) {
-          header.textContent = t(categories[index]);
-        }
-      });
-    }
-    
     // Initialize Split.js
-    let splits = [];
-    let gutterStates = {
-      vertical: false, // Start uncentered for standard 2x2 grid
-      horizontalTop: false,
-      horizontalBottom: false
-    };
-    
-    function initSplits() {
-      // Destroy existing splits
-      splits.forEach(s => s.destroy());
-      splits = [];
-      
-      const isMobile = window.innerWidth <= 768;
-      const mainSplit = document.getElementById('main-split');
-      const topRow = document.getElementById('top-row');
-      const bottomRow = document.getElementById('bottom-row');
-      const editorPanel = document.getElementById('editor-panel');
-      const previewPanel = document.getElementById('preview-panel');
-      const consolePanel = document.getElementById('console-panel');
-      const referencePanel = document.getElementById('reference-panel');
-
-      if (isMobile) {
-        // Mobile: Single vertical column with 4 panels
-        // Move all panels to main-split to allow a single Split instance
-        if (mainSplit && editorPanel && previewPanel && consolePanel && referencePanel) {
-          mainSplit.appendChild(editorPanel);
-          mainSplit.appendChild(previewPanel);
-          mainSplit.appendChild(consolePanel);
-          mainSplit.appendChild(referencePanel);
-        }
-
-        // Initialize single vertical split for all 4 panels
-        splits.push(Split(['#editor-panel', '#preview-panel', '#console-panel', '#reference-panel'], {
-          sizes: [33, 33, 17, 17], // Approximate starting sizes
-          direction: 'vertical',
-          gutterSize: 8,
-          cursor: 'row-resize',
-          minSize: 32, // Minimum size to keep header visible
-        }));
-        
-      } else {
-        // Desktop: Dynamic layout based on centering
-        // When all centered (perfect +): 4 independent panels with 2 vertical gutters
-        // When off-center: Standard 2x2 grid with 1 vertical gutter
-        
-        const allCentered = gutterStates.vertical && gutterStates.horizontalTop && gutterStates.horizontalBottom;
-        
-        if (allCentered) {
-          // PERFECT + MODE: 4 truly independent quadrants
-          // Use nested splits to create independent vertical controls
-          
-          // Create wrapper rows for independent vertical control
-          const leftCol = document.createElement('div');
-          leftCol.id = 'left-col';
-          leftCol.style.display = 'flex';
-          leftCol.style.flexDirection = 'column';
-          leftCol.style.height = '100%';
-          
-          const rightCol = document.createElement('div');
-          rightCol.id = 'right-col';
-          rightCol.style.display = 'flex';
-          rightCol.style.flexDirection = 'column';
-          rightCol.style.height = '100%';
-          
-          if (mainSplit) {
-            mainSplit.innerHTML = '';
-            mainSplit.appendChild(leftCol);
-            mainSplit.appendChild(rightCol);
-            
-            leftCol.appendChild(editorPanel);
-            leftCol.appendChild(referencePanel);
-            
-            rightCol.appendChild(previewPanel);
-            rightCol.appendChild(consolePanel);
-          }
-          
-          const snapThreshold = 5;
-          
-          // Left column vertical split (Editor / Reference)
-          const leftVerticalSplit = Split(['#editor-panel', '#reference-panel'], {
-            sizes: [50, 50],
-            direction: 'vertical',
-            gutterSize: 8,
-            cursor: 'row-resize',
-            onDrag: (sizes) => {
-              if (Math.abs(sizes[0] - 50) > snapThreshold) {
-                // Breaking out of perfect + mode
-                gutterStates.vertical = false;
-                initSplits();
-              }
-            }
-          });
-          splits.push(leftVerticalSplit);
-          
-          // Right column vertical split (Preview / Console)
-          const rightVerticalSplit = Split(['#preview-panel', '#console-panel'], {
-            sizes: [50, 50],
-            direction: 'vertical',
-            gutterSize: 8,
-            cursor: 'row-resize',
-            onDrag: (sizes) => {
-              if (Math.abs(sizes[0] - 50) > snapThreshold) {
-                // Breaking out of perfect + mode
-                gutterStates.vertical = false;
-                initSplits();
-              }
-            }
-          });
-          splits.push(rightVerticalSplit);
-          
-          // Main horizontal split (Left Col / Right Col)
-          const mainHorizontalSplit = Split(['#left-col', '#right-col'], {
-            sizes: [50, 50],
-            gutterSize: 8,
-            cursor: 'col-resize',
-            onDrag: (sizes) => {
-              if (Math.abs(sizes[0] - 50) > snapThreshold) {
-                // Breaking out of perfect + mode
-                gutterStates.horizontalTop = false;
-                gutterStates.horizontalBottom = false;
-                initSplits();
-              }
-            }
-          });
-          splits.push(mainHorizontalSplit);
-          
-        } else {
-          // STANDARD 2x2 MODE: Traditional layout with rows
-          
-          // Restore row structure
-          if (mainSplit) {
-            mainSplit.innerHTML = '';
-            mainSplit.appendChild(topRow);
-            mainSplit.appendChild(bottomRow);
-          }
-          
-          if (topRow) {
-            topRow.innerHTML = '';
-            topRow.appendChild(editorPanel);
-            topRow.appendChild(previewPanel);
-          }
-          
-          if (bottomRow) {
-            bottomRow.innerHTML = '';
-            bottomRow.appendChild(referencePanel);
-            bottomRow.appendChild(consolePanel);
-          }
-          
-          const snapThreshold = 5;
-          
-          // 1. Main vertical split (Top Row vs Bottom Row)
-          const verticalSplit = Split(['#top-row', '#bottom-row'], {
-            sizes: [50, 50],
-            direction: 'vertical',
-            gutterSize: 8,
-            cursor: 'row-resize',
-            onDragEnd: (sizes) => {
-              if (Math.abs(sizes[0] - 50) < snapThreshold) {
-                verticalSplit.setSizes([50, 50]);
-                gutterStates.vertical = true;
-                // Check if we should switch to perfect + mode
-                if (gutterStates.horizontalTop && gutterStates.horizontalBottom) {
-                  setTimeout(() => initSplits(), 100);
-                }
-              } else {
-                gutterStates.vertical = false;
-              }
-            },
-            onDrag: (sizes) => {
-              if (gutterStates.vertical && Math.abs(sizes[0] - 50) > snapThreshold) {
-                gutterStates.vertical = false;
-              }
-            }
-          });
-          splits.push(verticalSplit);
-
-          // 2. Top Row horizontal split (Editor vs Preview)
-          const horizontalTopSplit = Split(['#editor-panel', '#preview-panel'], {
-            sizes: [50, 50],
-            gutterSize: 8,
-            cursor: 'col-resize',
-            onDragEnd: (sizes) => {
-              if (Math.abs(sizes[0] - 50) < snapThreshold) {
-                horizontalTopSplit.setSizes([50, 50]);
-                gutterStates.horizontalTop = true;
-                // Check if we should switch to perfect + mode
-                if (gutterStates.vertical && gutterStates.horizontalBottom) {
-                  setTimeout(() => initSplits(), 100);
-                }
-              } else {
-                gutterStates.horizontalTop = false;
-              }
-            },
-            onDrag: (sizes) => {
-              if (gutterStates.horizontalTop && Math.abs(sizes[0] - 50) > snapThreshold) {
-                gutterStates.horizontalTop = false;
-              }
-            }
-          });
-          splits.push(horizontalTopSplit);
-
-          // 3. Bottom Row horizontal split (Reference vs Console)
-          const horizontalBottomSplit = Split(['#reference-panel', '#console-panel'], {
-            sizes: [50, 50],
-            gutterSize: 8,
-            cursor: 'col-resize',
-            onDragEnd: (sizes) => {
-              if (Math.abs(sizes[0] - 50) < snapThreshold) {
-                horizontalBottomSplit.setSizes([50, 50]);
-                gutterStates.horizontalBottom = true;
-                // Check if we should switch to perfect + mode
-                if (gutterStates.vertical && gutterStates.horizontalTop) {
-                  setTimeout(() => initSplits(), 100);
-                }
-              } else {
-                gutterStates.horizontalBottom = false;
-              }
-            },
-            onDrag: (sizes) => {
-              if (gutterStates.horizontalBottom && Math.abs(sizes[0] - 50) > snapThreshold) {
-                gutterStates.horizontalBottom = false;
-              }
-            }
-          });
-          splits.push(horizontalBottomSplit);
-        }
-      }
-    }
-    
-    // Initialize on load
-    initSplits();
-    
-    // Handle resize with debounce
-    let resizeTimeout;
-    window.addEventListener('resize', () => {
-      clearTimeout(resizeTimeout);
-      resizeTimeout = setTimeout(() => {
-        initSplits();
-        updateCenterSquarePosition();
-      }, 200);
+    Split(['#top-split', '#bottom-split'], {
+      sizes: [60, 40],
+      direction: 'vertical',
+      gutterSize: 10,
+      cursor: 'row-resize',
     });
 
-    // Position and handle center square
-    function updateCenterSquarePosition() {
-      const centerSquare = document.getElementById('center-square');
-      if (!centerSquare) return;
-      
-      const isMobile = window.innerWidth <= 768;
-      if (isMobile) {
-        centerSquare.style.display = 'none';
-        return;
-      }
-      
-      centerSquare.style.display = 'block';
-      
-      // Find the intersection point of the gutters
-      const verticalGutter = document.querySelector('#top-row + .gutter.gutter-vertical');
-      const horizontalGutter = document.querySelector('#editor-panel + .gutter.gutter-horizontal');
-      
-      if (verticalGutter && horizontalGutter) {
-        const vRect = verticalGutter.getBoundingClientRect();
-        const hRect = horizontalGutter.getBoundingClientRect();
-        
-        // Position center square at intersection
-        const left = hRect.left + (hRect.width / 2);
-        const top = vRect.top + (vRect.height / 2);
-        
-        centerSquare.style.left = `${left}px`;
-        centerSquare.style.top = `${top}px`;
-        centerSquare.style.transform = 'translate(-50%, -50%)';
-      }
-    }
+    Split(['#editor-panel', '#preview-panel'], {
+      sizes: [50, 50],
+      gutterSize: 10,
+      cursor: 'col-resize',
+    });
 
-    // Center square drag handler
-    function setupCenterSquareDrag() {
-      const centerSquare = document.getElementById('center-square');
-      if (!centerSquare) return;
-      
-      let isDragging = false;
-      let startX, startY;
-      let startSizes = {};
-      
-      centerSquare.addEventListener('mousedown', (e) => {
-        e.preventDefault();
-        isDragging = true;
-        startX = e.clientX;
-        startY = e.clientY;
-        centerSquare.classList.add('dragging');
-        
-        // Store initial sizes
-        const topRow = document.getElementById('top-row');
-        const bottomRow = document.getElementById('bottom-row');
-        const editorPanel = document.getElementById('editor-panel');
-        const previewPanel = document.getElementById('preview-panel');
-        const referencePanel = document.getElementById('reference-panel');
-        const consolePanel = document.getElementById('console-panel');
-        
-        startSizes = {
-          topHeight: topRow.offsetHeight,
-          bottomHeight: bottomRow.offsetHeight,
-          editorWidth: editorPanel.offsetWidth,
-          previewWidth: previewPanel.offsetWidth,
-          referenceWidth: referencePanel.offsetWidth,
-          consoleWidth: consolePanel.offsetWidth,
-          totalHeight: topRow.offsetHeight + bottomRow.offsetHeight,
-          totalWidth: editorPanel.offsetWidth + previewPanel.offsetWidth
-        };
-      });
-      
-      document.addEventListener('mousemove', (e) => {
-        if (!isDragging) return;
-        
-        const deltaX = e.clientX - startX;
-        const deltaY = e.clientY - startY;
-        
-        // Calculate new sizes
-        const newTopHeight = startSizes.topHeight + deltaY;
-        const newBottomHeight = startSizes.bottomHeight - deltaY;
-        const newEditorWidth = startSizes.editorWidth + deltaX;
-        const newPreviewWidth = startSizes.previewWidth - deltaX;
-        const newReferenceWidth = startSizes.referenceWidth + deltaX;
-        const newConsoleWidth = startSizes.consoleWidth - deltaX;
-        
-        // Convert to percentages
-        const topPercent = (newTopHeight / startSizes.totalHeight) * 100;
-        const bottomPercent = (newBottomHeight / startSizes.totalHeight) * 100;
-        const editorPercent = (newEditorWidth / startSizes.totalWidth) * 100;
-        const previewPercent = (newPreviewWidth / startSizes.totalWidth) * 100;
-        const referencePercent = (newReferenceWidth / startSizes.totalWidth) * 100;
-        const consolePercent = (newConsoleWidth / startSizes.totalWidth) * 100;
-        
-        // Apply new sizes if they're reasonable
-        if (topPercent > 10 && bottomPercent > 10 && editorPercent > 10 && previewPercent > 10) {
-          if (splits.length >= 3) {
-            splits[0].setSizes([topPercent, bottomPercent]);
-            splits[1].setSizes([editorPercent, previewPercent]);
-            splits[2].setSizes([referencePercent, consolePercent]);
-          }
-        }
-      });
-      
-      document.addEventListener('mouseup', () => {
-        if (isDragging) {
-          isDragging = false;
-          centerSquare.classList.remove('dragging');
-          updateCenterSquarePosition();
-        }
-      });
-    }
-
-    // Initialize everything
-    setTimeout(() => {
-      updateCenterSquarePosition();
-      setupCenterSquareDrag();
-      
-      // Update center square position when splits are dragged
-      const observer = new MutationObserver(() => {
-        updateCenterSquarePosition();
-      });
-      
-      const mainSplit = document.getElementById('main-split');
-      if (mainSplit) {
-        observer.observe(mainSplit, {
-          attributes: true,
-          attributeFilter: ['style'],
-          subtree: true
-        });
-      }
-    }, 500);
+    Split(['#reference-panel', '#console-panel'], {
+      sizes: [50, 50],
+      gutterSize: 10,
+      cursor: 'col-resize',
+    });
 
     import { tokenize } from 'https://aesthetic.computer/aesthetic.computer/lib/kidlisp.mjs';
     import { KidLisp } from 'https://aesthetic.computer/aesthetic.computer/lib/kidlisp.mjs';
 
     const editorContainer = document.getElementById('kidlisp-editor');
     const sendButton = document.getElementById('send-button');
-    const stopButton = document.getElementById('stop-button');
     const previewIframe = document.getElementById('preview-iframe');
-    const bootScreen = document.getElementById('boot-screen');
-    
-    // Console functionality (must be defined early for boot messages)
-    const consoleOutput = document.getElementById('console-output');
-    
-    // Track if piece is fully loaded and ready
-    let pieceReady = false;
-    let shouldAutoPlay = false;
-    
-    function addConsoleEntry(message, type = 'log', line = null) {
-      const entry = document.createElement('div');
-      entry.className = `console-entry ${type}`;
-      
-      if (line) {
-        const lineSpan = document.createElement('span');
-        lineSpan.className = 'console-line';
-        lineSpan.textContent = `:${line}`;
-        entry.appendChild(lineSpan);
-        
-        const msgSpan = document.createElement('span');
-        msgSpan.textContent = ' ' + message;
-        entry.appendChild(msgSpan);
-      } else {
-        entry.textContent = message;
-      }
-      
-      consoleOutput.appendChild(entry);
-      consoleOutput.scrollTop = consoleOutput.scrollHeight;
-      return entry;
-    }
 
-    // Listen for boot progress messages
-    let bootComplete = false;
-    let hasReceivedLogs = false;
-    let fallbackTimeout = null;
-    let bootLogEntry = null;
-
-    window.addEventListener('message', (event) => {
-      if (event.data?.type === 'boot-log') {
-        // If we receive a log, cancel the fallback timeout immediately
-        if (fallbackTimeout) {
-          console.log("Log received, cancelling fallback hide.");
-          clearTimeout(fallbackTimeout);
-          fallbackTimeout = null;
-        }
+    // Function to load kidlisp code from database by code (e.g., $46k)
+    async function loadKidlispFromDatabase(code) {
+      try {
+        // Remove $ prefix if present
+        const cleanCode = code.startsWith('$') ? code.substring(1) : code;
         
-        hasReceivedLogs = true;
+        // Fetch from the same API that aesthetic.computer uses
+        const isDev = window.location.hostname === 'localhost' || window.location.hostname.includes('local.');
+        const baseUrl = isDev ? 'http://localhost:8888' : 'https://aesthetic.computer';
+        const url = `${baseUrl}/api/store-kidlisp?code=${cleanCode}`;
         
-        // Format boot message: capitalize and add styling
-        const formattedMessage = event.data.message.toUpperCase();
+        console.log(`🔍 Loading kidlisp code from database: ${cleanCode}`);
+        const response = await fetch(url);
         
-        if (bootLogEntry) {
-          bootLogEntry.textContent = formattedMessage;
-        } else {
-          bootLogEntry = addConsoleEntry(formattedMessage, 'info');
-        }
-        
-        // Check if this is the final "ready: aesthetic.computer/disks/kidlisp" message
-        if (event.data.message.includes('ready: aesthetic.computer/disks/kidlisp')) {
-          console.log('🎯 Piece is fully loaded and ready!');
-          pieceReady = true;
-          
-          // If we were waiting to auto-play, do it now
-          if (shouldAutoPlay && !isPlaying) {
-            console.log('🎬 Auto-playing initial code now that piece is ready...');
-            updatePreview();
-            isPlaying = true;
-            isPaused = false;
-            sendButton.classList.add('playing');
-            sendButton.style.right = '64px';
-            stopButton.style.display = 'flex';
-            document.getElementById('kidlisp-editor').classList.add('live-running');
-            shouldAutoPlay = false;
+        if (response.ok) {
+          const data = await response.json();
+          if (data.source) {
+            console.log(`✅ Loaded kidlisp code: ${cleanCode}`);
+            return data.source;
+          } else {
+            console.error(`❌ No source found for code: ${cleanCode}`);
+            return null;
           }
+        } else {
+          console.error(`❌ Failed to load code ${cleanCode}: HTTP ${response.status}`);
+          return null;
         }
-      } else if (event.data?.type === 'ready') {
-        bootComplete = true;
-        if (fallbackTimeout) {
-          clearTimeout(fallbackTimeout);
-          fallbackTimeout = null;
-        }
-        // Give a moment to see the final message before hiding
-        setTimeout(() => {
-          bootScreen.classList.add('hidden');
-        }, 800);
+      } catch (error) {
+        console.error(`❌ Error loading kidlisp code:`, error);
+        return null;
       }
-    });
-
-    // Fallback: Hide boot screen when iframe loads (if no messages received)
-    previewIframe.addEventListener('load', () => {
-      console.log("Iframe loaded. Boot status:", { bootComplete, hasReceivedLogs });
-
-      if (!bootComplete && !hasReceivedLogs) {
-        console.log("⚠️ No boot logs received yet, scheduling fallback hide...");
-        fallbackTimeout = setTimeout(() => {
-          console.log("Executing fallback hide.");
-          bootScreen.classList.add('hidden');
-        }, 1500);
-      }
-    });
+    }
 
     // Create KidLisp instance for syntax highlighting
     const kidlisp = new KidLisp();
@@ -2001,558 +553,127 @@
       // Register KidLisp language
       monaco.languages.register({ id: 'kidlisp' });
 
-      // Simple Monaco language definition - decorations will handle all coloring
+      // Define KidLisp tokens
       monaco.languages.setMonarchTokensProvider('kidlisp', {
         tokenizer: {
           root: [
-            [/./, 'text']
-          ]
-        }
+            // Comments
+            [/;.*$/, 'comment'],
+            
+            // Strings
+            [/"([^"\\]|\\.)*$/, 'string.invalid'],
+            [/"/, 'string', '@string'],
+            
+            // Numbers
+            [/\d+\.?\d*[sf]\.\.\.?/, 'number.timing'],
+            [/\d*\.?\d+/, 'number'],
+            
+            // Special codes
+            [/\$[a-zA-Z0-9_-]+/, 'code'],
+            [/#[a-zA-Z0-9_-]+/, 'tag'],
+            
+            // Parentheses
+            [/[()]/, 'delimiter.parenthesis'],
+            
+            // Operators
+            [/[+\-*\/%]/, 'operator'],
+            
+            // Functions and identifiers
+            [/[a-zA-Z_][a-zA-Z0-9_-]*/, {
+              cases: {
+                '@keywords': 'keyword',
+                '@default': 'identifier'
+              }
+            }],
+            
+            // Commas
+            [/,/, 'delimiter.comma'],
+          ],
+          
+          string: [
+            [/[^\\"]+/, 'string'],
+            [/"/, 'string', '@pop']
+          ],
+        },
+        
+        keywords: [
+          'def', 'later', 'repeat', 'if', 'wipe', 'ink', 'line', 'circle', 
+          'box', 'point', 'write', 'paste', 'blur', 'scroll', 'spin', 'zoom',
+          'fade', 'suck', 'tap', 'wiggle', 'rainbow', 'zebra'
+        ]
       });
 
-      // Simple neutral theme - KidLisp decorations will handle all syntax coloring
-      monaco.editor.defineTheme('kidlisp-light', {
-        base: 'vs',
-        inherit: false,
-        rules: [
-          { token: 'text', foreground: '333333' }
-        ],
-        colors: {
-          'editor.background': '#fffacd', /* Legal pad yellow */
-          'editor.foreground': '#333333',
-          'editorCursor.foreground': '#FF1493',
-          'editor.lineHighlightBackground': '#fff5b8', /* Slightly darker yellow for highlight */
-          'editor.selectionBackground': '#ff8c00dd', /* Bright orange with high opacity for visibility */
-          'editor.inactiveSelectionBackground': '#ffa500aa', /* Lighter orange for inactive */
-          'editorLineNumber.foreground': '#999999', /* Line number color */
-          'editorLineNumber.activeForeground': '#333333', /* Active line number */
-        }
-      });
-
-      monaco.editor.defineTheme('kidlisp-dark', {
+      // Define color theme matching KidLisp
+      monaco.editor.defineTheme('kidlisp-theme', {
         base: 'vs-dark',
-        inherit: false,
+        inherit: true,
         rules: [
-          { token: 'text', foreground: 'd4d4d4' }
+          { token: 'comment', foreground: '75715e', fontStyle: 'italic' },
+          { token: 'string', foreground: 'e6db74' },
+          { token: 'number', foreground: 'ae81ff' },
+          { token: 'number.timing', foreground: 'ffaa00' },
+          { token: 'keyword', foreground: '66d9ef', fontStyle: 'bold' },
+          { token: 'identifier', foreground: 'a6e22e' },
+          { token: 'code', foreground: 'ff6b9d', fontStyle: 'bold' },
+          { token: 'tag', foreground: 'fd971f' },
+          { token: 'operator', foreground: 'f92672' },
+          { token: 'delimiter.parenthesis', foreground: 'f8f8f2' },
+          { token: 'delimiter.comma', foreground: 'f8f8f2' },
         ],
         colors: {
-          'editor.background': '#2a2520', /* Warm dark brown */
-          'editor.foreground': '#d4d4d4',
-          'editorCursor.foreground': '#FF69B4',
-          'editor.lineHighlightBackground': '#3a3530', /* Slightly lighter brown for highlight */
-          'editorLineNumber.foreground': '#858585',
-          'editor.selectionBackground': '#6495eddd', /* Cornflower blue with high opacity */
-          'editor.inactiveSelectionBackground': '#6495ed88', /* Lighter blue for inactive */
+          'editor.background': '#2d2d2d',
+          'editor.foreground': '#f8f8f2',
+          'editorCursor.foreground': '#f8f8f0',
+          'editor.lineHighlightBackground': '#3e3d32',
+          'editorLineNumber.foreground': '#75715e',
+          'editor.selectionBackground': '#49483e',
+          'editor.inactiveSelectionBackground': '#3e3d32',
         }
       });
 
-      // Detect color scheme and set appropriate theme
-      const isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      const initialTheme = isDarkMode ? 'kidlisp-dark' : 'kidlisp-light';
-
-      // Line limit state - restore from localStorage or default to 1
-      const savedMaxLines = localStorage.getItem('kidlisp-maxLines');
-      let maxLines = 1;
-      if (savedMaxLines) {
-        const parsed = parseInt(savedMaxLines, 10);
-        if ([1, 2, 4, 8, 16].includes(parsed)) {
-          maxLines = parsed;
-        }
+      // Create the editor with initial value
+      let initialCode = 'wipe navy, ink yellow, circle 100 100 50';
+      
+      // Check URL path for a kidlisp code (e.g., /kidlisp-com/$46k or /$46k)
+      const urlPath = window.location.pathname;
+      const codeMatch = urlPath.match(/\/\$([a-zA-Z0-9]+)$/);
+      
+      if (codeMatch) {
+        const code = codeMatch[1];
+        console.log(`🔍 Detected kidlisp code in URL: $${code}`);
+        
+        // Load code from database
+        loadKidlispFromDatabase(code).then(source => {
+          if (source && editor) {
+            editor.setValue(source);
+            console.log(`✅ Loaded code into editor: $${code}`);
+            // Trigger initial preview
+            updatePreview();
+          }
+        });
       }
       
-      // Create the editor
       editor = monaco.editor.create(editorContainer, {
-        value: localStorage.getItem('kidlisp-code') || '',
+        value: initialCode,
         language: 'kidlisp',
-        theme: initialTheme,
+        theme: 'kidlisp-theme',
         minimap: { enabled: false },
         scrollBeyondLastLine: false,
-        fontSize: 16,
-        lineNumbers: 'off', // Start with line numbers off for 1 line
-        glyphMargin: false,
-        folding: false,
-        lineDecorationsWidth: 0,
-        lineNumbersMinChars: 3,
+        fontSize: 14,
+        lineNumbers: 'on',
         roundedSelection: false,
-        renderLineHighlight: 'all',
-        selectionHighlight: true,
-        occurrencesHighlight: 'off',
-        overviewRulerLanes: 0,
         scrollbar: {
           vertical: 'auto',
           horizontal: 'auto'
         },
         automaticLayout: true,
         wordWrap: 'on',
-        cursorStyle: 'line',
-        cursorBlinking: 'blink',
-        padding: { top: 12 },
       });
 
-      // Line limit button handler
-      const lineLimitBtn = document.getElementById('line-limit-btn');
-      // Update button text to show restored value
-      lineLimitBtn.textContent = maxLines;
-      // Update line numbers based on restored maxLines
-      editor.updateOptions({
-        lineNumbers: maxLines > 1 ? 'on' : 'off',
-        lineDecorationsWidth: maxLines > 1 ? 10 : 0
-      });
-      
-      lineLimitBtn.addEventListener('click', () => {
-        // Cycle through 1, 2, 4, 8, 16
-        const limits = [1, 2, 4, 8, 16];
-        const currentIndex = limits.indexOf(maxLines);
-        maxLines = limits[(currentIndex + 1) % limits.length];
-        lineLimitBtn.textContent = maxLines;
-        
-        // Save to localStorage
-        localStorage.setItem('kidlisp-maxLines', maxLines.toString());
-        
-        // Update line numbers visibility
-        editor.updateOptions({
-          lineNumbers: maxLines > 1 ? 'on' : 'off',
-          lineDecorationsWidth: maxLines > 1 ? 10 : 0
-        });
-        
-        // Pad the content to show striped background
-        updateEditorPadding();
-        
-        // Enforce line limit on current content
-        enforceLineLimit();
-      });
-      
-      // Update editor vertical padding based on line count
-      function updateEditorPadding() {
-        const model = editor.getModel();
-        if (!model) return;
-        
-        const currentContent = model.getValue();
-        const currentLineCount = model.getLineCount();
-        
-        if (currentLineCount < maxLines) {
-          // Add empty lines to reach maxLines
-          const linesToAdd = maxLines - currentLineCount;
-          const newContent = currentContent + '\n'.repeat(linesToAdd);
-          
-          // Get current cursor position
-          const position = editor.getPosition();
-          
-          // Update content
-          model.setValue(newContent);
-          
-          // Restore cursor position
-          if (position) {
-            editor.setPosition(position);
-          }
-        }
-      }
-      
-      // Enforce line limit
-      function enforceLineLimit() {
-        const model = editor.getModel();
-        if (!model) return;
-        
-        const lineCount = model.getLineCount();
-        if (lineCount > maxLines) {
-          // Trim to maxLines immediately
-          const lastLine = model.getLineContent(maxLines);
-          const range = new monaco.Range(maxLines + 1, 1, lineCount + 1, 1);
-          
-          // Remove extra lines
-          model.pushEditOperations([], [{
-            range: range,
-            text: null
-          }], () => null);
-          
-          // Move cursor to end of last allowed line
-          const endOfLastLine = lastLine.length + 1;
-          editor.setPosition({ lineNumber: maxLines, column: endOfLastLine });
-        }
-      }
-      
-      // Prevent Enter key when at line limit
-      editor.onKeyDown((e) => {
-        if (e.keyCode === monaco.KeyCode.Enter) {
-          const model = editor.getModel();
-          if (model && model.getLineCount() >= maxLines) {
-            e.preventDefault();
-            e.stopPropagation();
-          }
-        }
-      });
-      
-      // Listen for content changes to enforce line limit
-      editor.onDidChangeModelContent(() => {
-        enforceLineLimit();
-      });
-
-      // Listen for theme changes
-      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
-        editor.updateOptions({
-          theme: e.matches ? 'kidlisp-dark' : 'kidlisp-light'
-        });
-      });
-
-      // Track decorations for syntax highlighting blinks
-      let currentDecorations = [];
-      
-      // Enable edit mode for timing blinks
-      kidlisp.isEditMode = true;
-      
-      // Detect if we're in light mode for high-contrast syntax colors
-      const isLightMode = !window.matchMedia('(prefers-color-scheme: dark)').matches;
-      kidlisp.lightModeHighContrast = isLightMode;
-      
-      // Listen for theme changes to update contrast mode
-      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
-        kidlisp.lightModeHighContrast = !e.matches;
-      });
-      
-      // CSS color name to RGB mapping
-      const cssColorMap = {
-        aliceblue: [240, 248, 255], antiquewhite: [250, 235, 215], aqua: [0, 255, 255],
-        aquamarine: [127, 255, 212], azure: [240, 255, 255], beige: [245, 245, 220],
-        bisque: [255, 228, 196], black: [0, 0, 0], blanchedalmond: [255, 235, 205],
-        blue: [0, 0, 255], blueviolet: [138, 43, 226], brown: [165, 42, 42],
-        burlywood: [222, 184, 135], cadetblue: [95, 158, 160], chartreuse: [127, 255, 0],
-        chocolate: [210, 105, 30], coral: [255, 127, 80], cornflowerblue: [100, 149, 237],
-        cornsilk: [255, 248, 220], crimson: [220, 20, 60], cyan: [0, 255, 255],
-        darkblue: [0, 0, 139], darkcyan: [0, 139, 139], darkgoldenrod: [184, 134, 11],
-        darkgray: [169, 169, 169], darkgrey: [169, 169, 169], darkgreen: [0, 100, 0],
-        darkkhaki: [189, 183, 107], darkmagenta: [139, 0, 139], darkolivegreen: [85, 107, 47],
-        darkorange: [255, 140, 0], darkorchid: [153, 50, 204], darkred: [139, 0, 0],
-        darksalmon: [233, 150, 122], darkseagreen: [143, 188, 143], darkslateblue: [72, 61, 139],
-        darkslategray: [47, 79, 79], darkslategrey: [47, 79, 79], darkturquoise: [0, 206, 209],
-        darkviolet: [148, 0, 211], deeppink: [255, 20, 147], deepskyblue: [0, 191, 255],
-        dimgray: [105, 105, 105], dimgrey: [105, 105, 105], dodgerblue: [30, 144, 255],
-        firebrick: [178, 34, 34], floralwhite: [255, 250, 240], forestgreen: [34, 139, 34],
-        fuchsia: [255, 0, 255], gainsboro: [220, 220, 220], ghostwhite: [248, 248, 255],
-        gold: [255, 215, 0], goldenrod: [218, 165, 32], gray: [128, 128, 128],
-        grey: [128, 128, 128], green: [0, 128, 0], greenyellow: [173, 255, 47],
-        honeydew: [240, 255, 240], hotpink: [255, 105, 180], indianred: [205, 92, 92],
-        indigo: [75, 0, 130], ivory: [255, 255, 240], khaki: [240, 230, 140],
-        lavender: [230, 230, 250], lavenderblush: [255, 240, 245], lawngreen: [124, 252, 0],
-        lemonchiffon: [255, 250, 205], lightblue: [173, 216, 230], lightcoral: [240, 128, 128],
-        lightcyan: [224, 255, 255], lightgoldenrodyellow: [250, 250, 210], lightgray: [211, 211, 211],
-        lightgrey: [211, 211, 211], lightgreen: [144, 238, 144], lightpink: [255, 182, 193],
-        lightsalmon: [255, 160, 122], lightseagreen: [32, 178, 170], lightskyblue: [135, 206, 250],
-        lightslategray: [119, 136, 153], lightslategrey: [119, 136, 153], lightsteelblue: [176, 196, 222],
-        lightyellow: [255, 255, 224], lime: [0, 255, 0], limegreen: [50, 205, 50],
-        linen: [250, 240, 230], magenta: [255, 0, 255], maroon: [128, 0, 0],
-        mediumaquamarine: [102, 205, 170], mediumblue: [0, 0, 205], mediumorchid: [186, 85, 211],
-        mediumpurple: [147, 112, 219], mediumseagreen: [60, 179, 113], mediumslateblue: [123, 104, 238],
-        mediumspringgreen: [0, 250, 154], mediumturquoise: [72, 209, 204], mediumvioletred: [199, 21, 133],
-        midnightblue: [25, 25, 112], mintcream: [245, 255, 250], mistyrose: [255, 228, 225],
-        moccasin: [255, 228, 181], navajowhite: [255, 222, 173], navy: [0, 0, 128],
-        oldlace: [253, 245, 230], olive: [128, 128, 0], olivedrab: [107, 142, 35],
-        orange: [255, 165, 0], orangered: [255, 69, 0], orchid: [218, 112, 214],
-        palegoldenrod: [238, 232, 170], palegreen: [152, 251, 152], paleturquoise: [175, 238, 238],
-        palevioletred: [219, 112, 147], papayawhip: [255, 239, 213], peachpuff: [255, 218, 185],
-        peru: [205, 133, 63], pink: [255, 192, 203], plum: [221, 160, 221],
-        powderblue: [176, 224, 230], purple: [128, 0, 128], rebeccapurple: [102, 51, 153],
-        red: [255, 0, 0], rosybrown: [188, 143, 143], royalblue: [65, 105, 225],
-        saddlebrown: [139, 69, 19], salmon: [250, 128, 114], sandybrown: [244, 164, 96],
-        seagreen: [46, 139, 87], seashell: [255, 245, 238], sienna: [160, 82, 45],
-        silver: [192, 192, 192], skyblue: [135, 206, 235], slateblue: [106, 90, 205],
-        slategray: [112, 128, 144], slategrey: [112, 128, 144], snow: [255, 250, 250],
-        springgreen: [0, 255, 127], steelblue: [70, 130, 180], tan: [210, 180, 140],
-        teal: [0, 128, 128], thistle: [216, 191, 216], tomato: [255, 99, 71],
-        turquoise: [64, 224, 208], violet: [238, 130, 238], wheat: [245, 222, 179],
-        white: [255, 255, 255], whitesmoke: [245, 245, 245], yellow: [255, 255, 0],
-        yellowgreen: [154, 205, 50]
-      };
-      
-      // Function to apply color name decorations using KidLisp's own syntax highlighting
-      function applyColorNameDecorations() {
-        if (!editor) return;
-        const model = editor.getModel();
-        if (!model) return;
-        
-        const decorations = [];
-        const code = model.getValue();
-        
-        if (!code.trim()) {
-          currentDecorations = editor.deltaDecorations(currentDecorations, []);
-          return;
-        }
-        
-        try {
-          // Use KidLisp's tokenizer
-          const tokens = tokenize(code);
-          kidlisp.initializeSyntaxHighlighting(code);
-          
-          // Track position in code
-          let searchPos = 0;
-          
-          tokens.forEach((token, index) => {
-            // Get the color from KidLisp's getTokenColor method (with timing support in edit mode)
-            let colorName = kidlisp.getTokenColor(token, tokens, index);
-            
-            // Find the token's position in the code starting from searchPos
-            const tokenPos = code.indexOf(token, searchPos);
-            if (tokenPos === -1) {
-              return;
-            }
-            
-            // Calculate line and column from position
-            const beforeToken = code.substring(0, tokenPos);
-            const lines = beforeToken.split('\n');
-            const lineNumber = lines.length;
-            const columnNumber = lines[lines.length - 1].length + 1;
-            const endColumn = columnNumber + token.length;
-            
-            // Validate range before creating decorations
-            if (lineNumber < 1 || columnNumber < 1 || endColumn < columnNumber) {
-              searchPos = tokenPos + token.length;
-              return;
-            }
-            
-            // Convert KidLisp color to CSS
-            let cssColor = null;
-            let cssClass = null;
-            
-            // Handle fade: expressions with multi-color highlighting
-            if (token.startsWith('fade:')) {
-              const coloredFadeString = kidlisp.colorFadeExpression(token);
-              // Parse the colored fade string format: \color1\text1\color2\text2...
-              const segments = coloredFadeString.split('\\').filter(s => s);
-              
-              let charOffset = 0;
-              for (let i = 0; i < segments.length; i += 2) {
-                const segmentColor = segments[i];
-                const segmentText = segments[i + 1] || '';
-                
-                // Convert segment color to CSS
-                let segmentCssColor = segmentColor;
-                if (segmentColor.includes(',')) {
-                  segmentCssColor = `rgb(${segmentColor})`;
-                }
-                
-                // Apply high-contrast colors for light mode
-                if (kidlisp.lightModeHighContrast) {
-                  const lightModeColorMap = {
-                    'yellow': '#cc9900',
-                    'cyan': '#0099cc',
-                    'lime': '#00aa00',
-                    'pink': '#cc0066',
-                    'orange': '#cc6600',
-                    'magenta': '#cc00cc',
-                    'mediumseagreen': '#2e8b57',
-                    'gray': '#666666',
-                  };
-                  
-                  if (lightModeColorMap[segmentColor]) {
-                    segmentCssColor = lightModeColorMap[segmentColor];
-                  }
-                }
-                
-                const segmentClass = `fade-segment-${segmentColor.replace(/,/g, '-').replace(/ /g, '')}`;
-                if (!document.getElementById(segmentClass)) {
-                  const style = document.createElement('style');
-                  style.id = segmentClass;
-                  style.textContent = `.monaco-editor .view-line > span > span.${segmentClass} { color: ${segmentCssColor}; font-weight: bold; }`;
-                  document.head.appendChild(style);
-                }
-                
-                // Apply color to each character in the segment
-                for (let charIdx = 0; charIdx < segmentText.length; charIdx++) {
-                  decorations.push({
-                    range: new monaco.Range(lineNumber, columnNumber + charOffset, lineNumber, columnNumber + charOffset + 1),
-                    options: { inlineClassName: segmentClass }
-                  });
-                  charOffset++;
-                }
-              }
-              
-              searchPos = tokenPos + token.length;
-              return;
-            }
-            
-            // Handle special color markers
-            if (colorName === 'RAINBOW') {
-              // Rainbow effect - each character gets a different color
-              const rainbowColors = ['#ff0000', '#ff7f00', '#ffff00', '#00ff00', '#0000ff', '#4b0082', '#9400d3'];
-              for (let i = 0; i < token.length; i++) {
-                const charColor = rainbowColors[i % rainbowColors.length];
-                const styleId = `rainbow-char-${i % rainbowColors.length}`;
-                if (!document.getElementById(styleId)) {
-                  const style = document.createElement('style');
-                  style.id = styleId;
-                  style.textContent = `.monaco-editor .view-line > span > span.${styleId} { color: ${charColor}; font-weight: bold; }`;
-                  document.head.appendChild(style);
-                }
-                decorations.push({
-                  range: new monaco.Range(lineNumber, columnNumber + i, lineNumber, columnNumber + i + 1),
-                  options: { inlineClassName: styleId }
-                });
-              }
-              searchPos = tokenPos + token.length;
-              return;
-            } else if (colorName === 'ZEBRA') {
-              // Zebra effect - alternating black and white
-              for (let i = 0; i < token.length; i++) {
-                const zebraColor = i % 2 === 0 ? '#000000' : '#ffffff';
-                const zebraClass = i % 2 === 0 ? 'zebra-black' : 'zebra-white';
-                const styleId = zebraClass;
-                if (!document.getElementById(styleId)) {
-                  const style = document.createElement('style');
-                  style.id = styleId;
-                  const bgColor = i % 2 === 0 ? '#ffffff' : '#000000';
-                  style.textContent = `.monaco-editor .view-line > span > span.${styleId} { color: ${zebraColor}; background: ${bgColor}; font-weight: bold; }`;
-                  document.head.appendChild(style);
-                }
-                decorations.push({
-                  range: new monaco.Range(lineNumber, columnNumber + i, lineNumber, columnNumber + i + 1),
-                  options: { inlineClassName: styleId }
-                });
-              }
-              searchPos = tokenPos + token.length;
-              return;
-            } else if (colorName && colorName.startsWith('COMPOUND:')) {
-              // Handle compound colors like $codes and #codes
-              const parts = colorName.split(':');
-              const prefixColor = parts[1];
-              const identifierColor = parts[2];
-              
-              // Color the prefix character
-              cssColor = prefixColor.includes(',') ? `rgb(${prefixColor})` : prefixColor;
-              cssClass = `compound-prefix-${prefixColor.replace(/,/g, '-').replace(/ /g, '')}`;
-              if (!document.getElementById(cssClass)) {
-                const style = document.createElement('style');
-                style.id = cssClass;
-                style.textContent = `.monaco-editor .view-line > span > span.${cssClass} { color: ${cssColor}; font-weight: bold; }`;
-                document.head.appendChild(style);
-              }
-              decorations.push({
-                range: new monaco.Range(lineNumber, columnNumber, lineNumber, columnNumber + 1),
-                options: { inlineClassName: cssClass }
-              });
-              
-              // Color the identifier part
-              const idColor = identifierColor.includes(',') ? `rgb(${identifierColor})` : identifierColor;
-              const idClass = `compound-id-${identifierColor.replace(/,/g, '-').replace(/ /g, '')}`;
-              if (!document.getElementById(idClass)) {
-                const style = document.createElement('style');
-                style.id = idClass;
-                style.textContent = `.monaco-editor .view-line > span > span.${idClass} { color: ${idColor}; font-weight: bold; }`;
-                document.head.appendChild(style);
-              }
-              decorations.push({
-                range: new monaco.Range(lineNumber, columnNumber + 1, lineNumber, endColumn),
-                options: { inlineClassName: idClass }
-              });
-              
-              searchPos = tokenPos + token.length;
-              return;
-            } else if (colorName) {
-              // Regular color - convert to CSS
-              let originalColor = colorName;
-              
-              // Apply high-contrast colors for light mode
-              if (kidlisp.lightModeHighContrast) {
-                // Map light colors to darker, higher contrast versions
-                const lightModeColorMap = {
-                  'yellow': '#cc9900',      // Darker yellow/gold
-                  'cyan': '#0099cc',        // Darker cyan
-                  'lime': '#00aa00',        // Darker lime
-                  'pink': '#cc0066',        // Darker pink/magenta
-                  'orange': '#cc6600',      // Keep orange similar
-                  'magenta': '#cc00cc',     // Darker magenta
-                  'gray': '#666666',        // Darker gray
-                  'lightgray': '#999999',   // Medium gray
-                  'white': '#cccccc',       // Light gray instead of white
-                };
-                
-                if (lightModeColorMap[colorName]) {
-                  colorName = lightModeColorMap[colorName];
-                }
-              }
-              
-              if (colorName.includes(',')) {
-                // RGB format
-                cssColor = `rgb(${colorName})`;
-                cssClass = `color-rgb-${colorName.replace(/,/g, '-').replace(/ /g, '')}`;
-              } else {
-                // Named color
-                cssColor = colorName;
-                cssClass = `color-${colorName.replace(/ /g, '-')}`;
-              }
-              
-              // Create or reuse style
-              if (!document.getElementById(cssClass)) {
-                const style = document.createElement('style');
-                style.id = cssClass;
-                style.textContent = `.monaco-editor .view-line > span > span.${cssClass} { color: ${cssColor}; font-weight: bold; }`;
-                document.head.appendChild(style);
-              }
-              
-              decorations.push({
-                range: new monaco.Range(lineNumber, columnNumber, lineNumber, endColumn),
-                options: { inlineClassName: cssClass }
-              });
-            }
-            
-            searchPos = tokenPos + token.length;
-          });
-          
-        } catch (error) {
-          // Silently handle errors to avoid console spam during typing
-          console.warn('Decoration error:', error);
-        }
-        
-        // Safely apply decorations with error handling
-        try {
-          if (editor && editor.getModel()) {
-            currentDecorations = editor.deltaDecorations(currentDecorations, decorations);
-          }
-        } catch (error) {
-          console.warn('Failed to apply decorations:', error);
-          currentDecorations = [];
-        }
-      }
-      
-      // Apply color decorations on content change
-      editor.onDidChangeModelContent(() => {
-        updateLineNumbers();
-        // Debounce decoration updates to avoid overwhelming the editor
-        if (window.decorationTimeout) {
-          clearTimeout(window.decorationTimeout);
-        }
-        window.decorationTimeout = setTimeout(() => {
-          applyColorNameDecorations();
-        }, 50);
-        localStorage.setItem('kidlisp-code', editor.getValue());
-      });
-      
-      // Initial application after a short delay to ensure editor is ready
-      setTimeout(() => {
-        applyColorNameDecorations();
-      }, 100);
-      
-      // Continuously update decorations for timing blinks (60fps)
-      // Use requestAnimationFrame for better performance and to avoid conflicts
-      let isUpdating = false;
-      function scheduleDecorationUpdate() {
-        if (!isUpdating && editor && editor.getModel()) {
-          isUpdating = true;
-          requestAnimationFrame(() => {
-            applyColorNameDecorations();
-            isUpdating = false;
-            setTimeout(scheduleDecorationUpdate, 16); // ~60fps
-          });
-        }
-      }
-      scheduleDecorationUpdate();
-
-      // Update line numbers based on maxLines setting
+      // Hide line numbers if only one line
       function updateLineNumbers() {
-        // Show line numbers only when maxLines > 1
-        editor.updateOptions({ 
-          lineNumbers: maxLines > 1 ? 'on' : 'off',
-          lineNumbersMinChars: maxLines > 1 ? 3 : 0,
-          lineDecorationsWidth: maxLines > 1 ? 10 : 0
-        });
+        const lineCount = editor.getModel().getLineCount();
+        editor.updateOptions({ lineNumbers: lineCount > 1 ? 'on' : 'off' });
       }
       
       editor.onDidChangeModelContent(() => {
@@ -2566,357 +687,6 @@
         updatePreview();
       });
 
-      // Clear button handler
-      const clearButton = document.getElementById('clear-button');
-      
-      function updateClearButtonVisibility() {
-        if (clearButton && editor) {
-          const hasContent = editor.getValue().trim().length > 0;
-          clearButton.style.display = hasContent ? 'block' : 'none';
-          clearButton.textContent = t('clearButton');
-        }
-      }
-      
-      if (clearButton) {
-        clearButton.addEventListener('click', () => {
-          if (editor) {
-            editor.setValue('');
-            editor.focus();
-          }
-        });
-      }
-      
-      // Update clear button visibility on content change
-      editor.onDidChangeModelContent(() => {
-        updateLineNumbers();
-        applyColorNameDecorations();
-        updateClearButtonVisibility();
-      });
-      
-      // Initial visibility check
-      updateClearButtonVisibility();
-      
-      // Language selector handler
-      const langTab = document.getElementById('language-tab');
-      const langText = langTab?.querySelector('.lang-text');
-      const langFlag = document.getElementById('lang-flag');
-      const langDropdown = document.getElementById('language-dropdown');
-      const languages = [
-        { code: 'en', name: 'English', flag: '🇺🇸' },
-        { code: 'es', name: 'Español', flag: '🇪🇸' },
-        { code: 'zh', name: '中文', flag: '🇨🇳' },
-        { code: 'da', name: 'Dansk', flag: '🇩🇰' }
-      ];
-      
-      function updateLanguageTab() {
-        if (langText && langFlag) {
-          const currentLangObj = languages.find(l => l.code === currentLang);
-          // Use 'en' for English display, otherwise use the language name
-          langText.textContent = currentLangObj?.name || 'English';
-          langFlag.textContent = currentLangObj?.flag || '🇺🇸';
-        }
-      }
-      
-      if (langTab && langDropdown) {
-        // Toggle dropdown on click
-        langTab.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const isVisible = langDropdown.style.display === 'block';
-          langDropdown.style.display = isVisible ? 'none' : 'block';
-        });
-        
-        // Handle language selection
-        langDropdown.querySelectorAll('.lang-option').forEach(option => {
-          option.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const lang = option.getAttribute('data-lang');
-            if (lang) {
-              setLanguage(lang);
-              updateLanguageTab();
-              langDropdown.style.display = 'none';
-            }
-          });
-        });
-        
-        // Close dropdown when clicking outside
-        document.addEventListener('click', () => {
-          langDropdown.style.display = 'none';
-        });
-        
-        updateLanguageTab();
-        
-        // Auto-cycle animation on load (preview only, doesn't change actual language)
-        setTimeout(() => {
-          let cycleCount = 0;
-          
-          const autoCycle = setInterval(() => {
-            const previewIndex = (cycleCount + 1) % languages.length;
-            const previewLang = languages[previewIndex];
-            
-            // Add animation class
-            langTab.classList.add('cycling');
-            
-            // Update content at midpoint
-            setTimeout(() => {
-              if (langText && langFlag) {
-                langText.textContent = previewLang.name;
-                langFlag.textContent = previewLang.flag;
-              }
-            }, 150);
-            
-            // Remove animation class
-            setTimeout(() => {
-              langTab.classList.remove('cycling');
-            }, 300);
-            
-            cycleCount++;
-          }, 3000); // Cycle every 3 seconds
-        }, 1500); // Start after 1.5 seconds
-      }
-      
-      // Initialize UI language
-      updateUILanguage();
-      
-      // Theme toggle functionality
-      const themeToggle = document.getElementById('theme-toggle');
-      let currentTheme = 'system'; // 'system', 'light', or 'dark'
-      
-      function applyTheme(theme) {
-        currentTheme = theme;
-        localStorage.setItem('kidlisp-theme', theme);
-        
-        if (theme === 'system') {
-          document.documentElement.removeAttribute('data-theme');
-          const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-          themeToggle.textContent = prefersDark ? '●' : '○';
-          if (editor) {
-            monaco.editor.setTheme(prefersDark ? 'kidlisp-dark' : 'kidlisp-light');
-          }
-        } else if (theme === 'light') {
-          document.documentElement.setAttribute('data-theme', 'light');
-          themeToggle.textContent = '○';
-          if (editor) {
-            monaco.editor.setTheme('kidlisp-light');
-          }
-        } else if (theme === 'dark') {
-          document.documentElement.setAttribute('data-theme', 'dark');
-          themeToggle.textContent = '●';
-          if (editor) {
-            monaco.editor.setTheme('kidlisp-dark');
-          }
-        }
-        
-        // Re-apply decorations with new theme
-        if (editor) {
-          applyColorNameDecorations();
-        }
-      }
-      
-      // Load saved theme preference or default to system
-      const savedTheme = localStorage.getItem('kidlisp-theme') || 'system';
-      applyTheme(savedTheme);
-      
-      // Theme toggle click - cycle through: system → light → dark → system
-      if (themeToggle) {
-        themeToggle.addEventListener('click', () => {
-          if (currentTheme === 'system') {
-            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-            applyTheme(prefersDark ? 'light' : 'dark');
-          } else if (currentTheme === 'light') {
-            applyTheme('dark');
-          } else {
-            applyTheme('system');
-          }
-        });
-      }
-      
-      // Listen for system theme changes when in system mode
-      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
-        if (currentTheme === 'system') {
-          applyTheme('system'); // Re-apply to update icon and theme
-        }
-      });
-
-      // Stochastic coloring for KidLisp title
-      const kidlispTitle = document.querySelector('.baby-colors');
-      if (kidlispTitle) {
-        const letters = kidlispTitle.querySelectorAll('span:not(.com-part)');
-        // Saturated Easter palette
-        const colors = ['#FF7096', '#FFB870', '#FFEA70', '#8AFF8A', '#70D6FF', '#C596FF', '#FF96C5'];
-        
-        let lastColorIndex = -1;
-        letters.forEach(letter => {
-          let randomIndex;
-          do {
-            randomIndex = Math.floor(Math.random() * colors.length);
-          } while (randomIndex === lastColorIndex && colors.length > 1);
-          lastColorIndex = randomIndex;
-          
-          const randomColor = colors[randomIndex];
-          letter.style.color = randomColor;
-          
-          // Calculate intelligent shadow color (darker version for contrast)
-          const rgb = randomColor.match(/\w\w/g);
-          if (rgb) {
-            const r = Math.max(0, parseInt(rgb[0], 16) - 80);
-            const g = Math.max(0, parseInt(rgb[1], 16) - 80);
-            const b = Math.max(0, parseInt(rgb[2], 16) - 80);
-            letter.style.textShadow = `1px 1px 0px rgb(${r}, ${g}, ${b})`;
-          }
-          
-          letter.style.animation = 'none'; // Ensure animation is off
-        });
-      }
-
-      // Wizard - Contextual Structural Editor
-      const wizardSuggestions = document.getElementById('wizard-suggestions');
-      
-      // KidLisp forms and their expected arguments
-      const kidlispForms = {
-        structure: [
-          { name: 'def', args: ['name', 'value'], desc: 'Define a variable' },
-          { name: 'fn', args: ['params', '...body'], desc: 'Define a function' },
-          { name: 'if', args: ['test', 'then', 'else?'], desc: 'Conditional' },
-          { name: 'do', args: ['...body'], desc: 'Execute sequence' },
-          { name: 'let', args: ['bindings', '...body'], desc: 'Local bindings' },
-        ],
-        drawing: [
-          { name: 'line', args: ['x1', 'y1', 'x2', 'y2'], desc: 'Draw a line' },
-          { name: 'circle', args: ['x', 'y', 'radius'], desc: 'Draw a circle' },
-          { name: 'rect', args: ['x', 'y', 'w', 'h'], desc: 'Draw a rectangle' },
-          { name: 'pixel', args: ['x', 'y'], desc: 'Draw a pixel' },
-          { name: 'plot', args: ['x', 'y'], desc: 'Plot a point' },
-        ],
-        effects: [
-          { name: 'ink', args: ['color'], desc: 'Set drawing color' },
-          { name: 'wipe', args: ['color?'], desc: 'Clear screen' },
-          { name: 'noise', args: ['seed?'], desc: 'Random noise' },
-        ],
-        colors: [
-          { name: 'red', args: [], desc: 'Red color' },
-          { name: 'blue', args: [], desc: 'Blue color' },
-          { name: 'green', args: [], desc: 'Green color' },
-          { name: 'yellow', args: [], desc: 'Yellow color' },
-          { name: 'cyan', args: [], desc: 'Cyan color' },
-          { name: 'magenta', args: [], desc: 'Magenta color' },
-          { name: 'white', args: [], desc: 'White color' },
-          { name: 'black', args: [], desc: 'Black color' },
-        ],
-        numbers: [
-          { name: '+', args: ['...numbers'], desc: 'Add numbers' },
-          { name: '-', args: ['...numbers'], desc: 'Subtract numbers' },
-          { name: '*', args: ['...numbers'], desc: 'Multiply numbers' },
-          { name: '/', args: ['...numbers'], desc: 'Divide numbers' },
-          { name: 'random', args: ['min?', 'max?'], desc: 'Random number' },
-        ],
-      };
-
-      function updateWizard() {
-        if (!editor) return;
-        
-        const code = editor.getValue();
-        const position = editor.getPosition();
-        const model = editor.getModel();
-        
-        // Show all forms as a dense list without categories
-        wizardSuggestions.innerHTML = '';
-        
-        const grid = document.createElement('div');
-        grid.className = 'wizard-suggestions-grid';
-        
-        // Flatten all forms into a single list
-        const allForms = [];
-        Object.keys(kidlispForms).forEach(category => {
-          allForms.push(...kidlispForms[category]);
-        });
-        
-        allForms.forEach(form => {
-          const suggestion = document.createElement('div');
-          suggestion.className = 'wizard-suggestion';
-          suggestion.textContent = form.name;
-          suggestion.title = form.desc;
-          
-          suggestion.addEventListener('click', () => {
-            insertFormAtCursor(form);
-          });
-          
-          grid.appendChild(suggestion);
-        });
-        
-        wizardSuggestions.appendChild(grid);
-      }
-
-      function insertFormAtCursor(form) {
-        if (!editor) return;
-        
-        const position = editor.getPosition();
-        const model = editor.getModel();
-        
-        // Build the form template with placeholders
-        let template = `(${form.name}`;
-        if (form.args.length > 0) {
-          template += ' ' + form.args.map(arg => arg.startsWith('...') ? arg.slice(3) : arg).join(' ');
-        }
-        template += ')';
-        
-        // Insert at cursor position
-        const range = {
-          startLineNumber: position.lineNumber,
-          startColumn: position.column,
-          endLineNumber: position.lineNumber,
-          endColumn: position.column
-        };
-        
-        editor.executeEdits('wizard', [{
-          range: range,
-          text: template
-        }]);
-        
-        // Move cursor to first argument position
-        if (form.args.length > 0) {
-          const newPosition = {
-            lineNumber: position.lineNumber,
-            column: position.column + form.name.length + 2 // After "(" and name and space
-          };
-          editor.setPosition(newPosition);
-          
-          // Select the first argument placeholder
-          const firstArg = form.args[0].startsWith('...') ? form.args[0].slice(3) : form.args[0];
-          editor.setSelection({
-            startLineNumber: newPosition.lineNumber,
-            startColumn: newPosition.column,
-            endLineNumber: newPosition.lineNumber,
-            endColumn: newPosition.column + firstArg.length
-          });
-        }
-        
-        // Focus back on editor
-        editor.focus();
-        
-        // Update wizard for new context
-        updateWizard();
-      }
-
-      // Initialize wizard
-      updateWizard();
-      
-      // Update wizard when cursor moves or content changes
-      if (editor) {
-        editor.onDidChangeCursorPosition(() => updateWizard());
-        editor.onDidChangeModelContent(() => updateWizard());
-      }
-      
-      // Auto-reload when code changes while playing
-      if (editor) {
-        editor.onDidChangeModelContent(() => {
-          const currentCode = editor.getValue().trim();
-          if (isPlaying && !isPaused && currentCode !== lastCode) {
-            updatePreview();
-            lastCode = currentCode;
-          }
-        });
-      }
-
       // Initial preview - load the iframe once
       updatePreview();
     });
@@ -2927,162 +697,40 @@
     const isDev = window.location.hostname === 'localhost' || window.location.hostname.includes('local.');
     const aestheticUrl = isDev ? 'https://localhost:8888' : 'https://aesthetic.computer';
     
-    // Load KidLisp with empty code (should show default pattern/checkerboard)
-    previewIframe.src = `${aestheticUrl}/kidlisp?nogap=true&nolabel=true&noauth=true`;
-    
-    // Hide boot screen after iframe loads
-    previewIframe.addEventListener('load', () => {
-      setTimeout(() => {
-        bootScreen.classList.add('hidden');
-      }, 500);
-    }, { once: true });
-    
-    let isPlaying = false;
-    let isPaused = false;
-    let lastCode = ''; // Track last code for auto-reload
-    
-    // Disable controls initially until iframe signals ready
-    sendButton.disabled = true;
-    stopButton.disabled = true;
-    sendButton.style.opacity = '0.4';
-    stopButton.style.opacity = '0.4';
-    sendButton.style.cursor = 'not-allowed';
-    stopButton.style.cursor = 'not-allowed';
-    console.log('🔒 Controls disabled until iframe ready');
-
     function updatePreview() {
       if (!editor) return;
       
       const code = editor.getValue().trim();
       if (code) {
-        // Send code via postMessage for instant reload (no network!)
-        console.log('🟢 Sending postMessage reload...');
-        addConsoleEntry(t('running'), 'info');
-        if (previewIframe.contentWindow) {
-          previewIframe.contentWindow.postMessage({
-            type: 'kidlisp-reload',
-            code: code,
-            createCode: true  // Enable code creation with $ identifier
-          }, aestheticUrl);
-          console.log('✅ PostMessage sent:', code.substring(0, 50));
+        // Only update iframe src on initial load
+        if (isInitialLoad) {
+          console.log('🔵 Initial load, setting iframe src...');
+          const encodedCode = encodeURIComponent(code);
+          previewIframe.src = `${aestheticUrl}/${encodedCode}?nogap=true&nolabel=true&noauth=true&nocache=true`;
+          isInitialLoad = false;
         } else {
-          console.warn('⚠️ No iframe contentWindow available');
+          // Send code via postMessage for instant reload (no network!)
+          console.log('🟢 Sending postMessage reload...');
+          addConsoleEntry('Running...', 'info'); // 🟢 Log run action
+          if (previewIframe.contentWindow) {
+            previewIframe.contentWindow.postMessage({
+              type: 'kidlisp-reload',
+              code: code
+            }, aestheticUrl);
+            console.log('✅ PostMessage sent:', code.substring(0, 50));
+          } else {
+            console.warn('⚠️ No iframe contentWindow available');
+          }
         }
       } else {
         console.warn('⚠️ No code to update');
       }
     }
 
-    sendButton.addEventListener('click', () => {
-      // Don't respond if disabled
-      if (sendButton.disabled) {
-        console.log('⏸️ Play button clicked but disabled (iframe not ready)');
-        return;
-      }
-      
-      console.log('🎮 Play/Pause button clicked - isPlaying:', isPlaying, 'isPaused:', isPaused);
-      if (!isPlaying) {
-        // Start playing - always run the current code
-        console.log('▶️ Starting playback');
-        updatePreview();
-        isPlaying = true;
-        isPaused = false;
-        sendButton.classList.add('playing');
-        sendButton.style.right = '64px'; // Move play button to the left
-        stopButton.style.display = 'flex';
-        // Add live-running class to show green outline
-        document.getElementById('kidlisp-editor').classList.add('live-running');
-        console.log('✅ Stop button shown, display:', stopButton.style.display);
-      } else if (isPaused) {
-        // Resume
-        console.log('▶️ Resuming playback');
-        if (previewIframe.contentWindow) {
-          previewIframe.contentWindow.postMessage({ type: 'kidlisp-resume' }, aestheticUrl);
-        }
-        isPaused = false;
-        sendButton.classList.add('playing'); // Ensure playing style (Pause icon)
-      } else {
-        // Pause
-        console.log('⏸️ Pausing playback');
-        if (previewIframe.contentWindow) {
-          previewIframe.contentWindow.postMessage({ type: 'kidlisp-pause' }, aestheticUrl);
-        }
-        isPaused = true;
-        sendButton.classList.remove('playing'); // Revert to Play icon (Green)
-        // But keep position and stop button
-        sendButton.style.right = '64px';
-        stopButton.style.display = 'flex';
-      }
-    });
-
-    // Stop button - sends stop message to iframe
-    if (stopButton) {
-      console.log('✅ Stop button found and setting up event listener');
-      console.log('📍 Stop button current display:', stopButton.style.display);
-      console.log('📍 Stop button z-index:', window.getComputedStyle(stopButton).zIndex);
-      console.log('📍 Stop button pointer-events:', window.getComputedStyle(stopButton).pointerEvents);
-      
-      stopButton.addEventListener('click', (e) => {
-        // Don't respond if disabled
-        if (stopButton.disabled) {
-          console.log('⏸️ Stop button clicked but disabled (iframe not ready)');
-          return;
-        }
-        
-        console.log('⏹️ Stop button CLICKED - event:', e);
-        console.log('⏹️ Stop button pressed - sending stop message to iframe');
-        console.log('📊 Current state - isPlaying:', isPlaying, 'isPaused:', isPaused);
-        
-        // Prevent any bubbling
-        e.stopPropagation();
-        e.preventDefault();
-        
-        // Send stop message to the iframe (this triggers piece-reload with empty source)
-        if (previewIframe.contentWindow) {
-          console.log('📤 Sending kidlisp-stop message to iframe');
-          previewIframe.contentWindow.postMessage({ 
-            type: 'kidlisp-stop' 
-          }, aestheticUrl);
-          console.log('✅ Stop message sent');
-        } else {
-          console.warn('⚠️ No iframe contentWindow available');
-        }
-        
-        // Reset state
-        isPlaying = false;
-        isPaused = false;
-        lastCode = '';
-        sendButton.classList.remove('playing');
-        sendButton.style.right = '8px'; // Move play button back to original position
-        stopButton.style.display = 'none';
-        // Remove live-running class to hide green outline
-        document.getElementById('kidlisp-editor').classList.remove('live-running');
-        console.log('✅ State reset complete - stop button hidden');
-      });
-      
-      // Add visual feedback on hover
-      stopButton.addEventListener('mouseenter', () => {
-        console.log('🖱️ Mouse entered stop button');
-      });
-      
-      stopButton.addEventListener('mouseleave', () => {
-        console.log('🖱️ Mouse left stop button');
-      });
-    } else {
-      console.error('❌ Stop button not found in DOM!');
-    }
+    sendButton.addEventListener('click', updatePreview);
 
     // Inject console forwarding into iframe once it loads
     previewIframe.addEventListener('load', () => {
-      console.log('🎬 Iframe loaded, sending ping to check readiness...');
-      
-      // Send ping to check if aesthetic.computer is ready
-      if (previewIframe.contentWindow) {
-        previewIframe.contentWindow.postMessage({ 
-          type: 'kidlisp-ping' 
-        }, aestheticUrl);
-      }
-      
       try {
         const iframeWindow = previewIframe.contentWindow;
         if (iframeWindow) {
@@ -3156,187 +804,41 @@
       }
     });
 
-    // Update initial console message
-    updateUILanguage();
+    // Console functionality
+    const consoleOutput = document.getElementById('console-output');
+    const clearConsoleBtn = document.getElementById('clear-console');
     
-    console.log('🎯 Setting up main message listener for kidlisp-ready...');
-    
-    // Listen for console messages and syntax highlighting signals from iframe
-    window.addEventListener('message', (event) => {
-      console.log('📨 Message received:', event.data?.type, event.data);
-      console.log('📨 Message origin:', event.origin, 'Expected:', aestheticUrl);
+    function addConsoleEntry(message, type = 'log', line = null) {
+      const entry = document.createElement('div');
+      entry.className = `console-entry ${type}`;
       
-      // Handle ready signal from iframe
-      if (event.data && event.data.type === 'kidlisp-ready') {
-        console.log('✅ Iframe is ready! Enabling controls...');
-        sendButton.disabled = false;
-        stopButton.disabled = false;
-        sendButton.style.opacity = '1';
-        stopButton.style.opacity = '1';
-        // Remove disabled cursor
-        sendButton.style.cursor = 'pointer';
-        stopButton.style.cursor = 'pointer';
-        console.log('✅ Controls enabled!');
+      if (line) {
+        const lineSpan = document.createElement('span');
+        lineSpan.className = 'console-line';
+        lineSpan.textContent = `:${line}`;
+        entry.appendChild(lineSpan);
         
-        // Mark that we want to auto-play, but wait for piece to be ready
-        const initialCode = editor?.getValue().trim();
-        if (initialCode && !isPlaying) {
-          console.log('🎬 Will auto-play once piece is fully loaded...');
-          shouldAutoPlay = true;
-          
-          // If piece is already ready, play immediately
-          if (pieceReady) {
-            console.log('🎬 Piece already ready, auto-playing now...');
-            updatePreview();
-            isPlaying = true;
-            isPaused = false;
-            sendButton.classList.add('playing');
-            sendButton.style.right = '64px';
-            stopButton.style.display = 'flex';
-            document.getElementById('kidlisp-editor').classList.add('live-running');
-            shouldAutoPlay = false;
-          }
-        }
-      } else if (event.data && event.data.type === 'console') {
+        const msgSpan = document.createElement('span');
+        msgSpan.textContent = ' ' + message;
+        entry.appendChild(msgSpan);
+      } else {
+        entry.textContent = message;
+      }
+      
+      consoleOutput.appendChild(entry);
+      consoleOutput.scrollTop = consoleOutput.scrollHeight;
+    }
+    
+    clearConsoleBtn.addEventListener('click', () => {
+      consoleOutput.innerHTML = '';
+    });
+    
+    // Listen for console messages from iframe
+    window.addEventListener('message', (event) => {
+      if (event.data && event.data.type === 'console') {
         addConsoleEntry(event.data.message, event.data.level, event.data.line);
-      } else if (event.data && event.data.type === 'kidlisp-highlight') {
-        // Syntax highlighting signals from KidLisp execution
-        if (editor && event.data.highlights) {
-          applyHighlightDecorations(event.data.highlights);
-        }
-      } else if (event.data && event.data.type === 'setCode') {
-        // Code was set via setCode message (alternative to kidlisp-code-created)
-        console.log('🎉 setCode message received!', event.data);
-        const previewTitle = document.getElementById('preview-title');
-        const previewQR = document.getElementById('preview-qr');
-        
-        if (event.data.value) {
-          // Trigger generating animation
-          const codeSpan = previewTitle.querySelector('.code-display');
-          const dotSpan = previewTitle.querySelector('.bounce-dot');
-          if (codeSpan) codeSpan.classList.add('generating');
-          if (dotSpan) dotSpan.classList.add('generating');
-          
-          // Update title to show the code URL
-          previewTitle.innerHTML = `Aesthetic<span class="bounce-dot" style="color: #9370DB !important;">.</span>Computer/<span class="code-display">$${event.data.value}</span>`;
-          console.log('✅ Title updated to:', `Aesthetic.Computer/$${event.data.value}`);
-          
-          // Remove animation after it completes
-          setTimeout(() => {
-            const newCodeSpan = previewTitle.querySelector('.code-display');
-            const newDotSpan = previewTitle.querySelector('.bounce-dot');
-            if (newCodeSpan) newCodeSpan.classList.remove('generating');
-            if (newDotSpan) newDotSpan.classList.remove('generating');
-          }, 900);
-        }
-        
-        if (event.data.qr) {
-          // Display QR code as data URI if provided
-          previewQR.src = event.data.qr;
-          previewQR.style.display = 'block';
-          console.log('✅ QR code displayed from setCode');
-        }
-      } else if (event.data && event.data.type === 'kidlisp-code-created') {
-        // Code was created with $ identifier
-        console.log('🎉 kidlisp-code-created message received!', event.data);
-        const previewTitle = document.getElementById('preview-title');
-        const previewQR = document.getElementById('preview-qr');
-        
-        if (event.data.code) {
-          // Trigger generating animation
-          const codeSpan = previewTitle.querySelector('.code-display');
-          const dotSpan = previewTitle.querySelector('.bounce-dot');
-          if (codeSpan) codeSpan.classList.add('generating');
-          if (dotSpan) dotSpan.classList.add('generating');
-          
-          // Update title to show the code URL
-          previewTitle.innerHTML = `Aesthetic<span class="bounce-dot" style="color: #9370DB !important;">.</span>Computer/<span class="code-display">$${event.data.code}</span>`;
-          console.log('✅ Title updated to:', `Aesthetic.Computer/$${event.data.code}`);
-          
-          // Remove animation after it completes
-          setTimeout(() => {
-            const newCodeSpan = previewTitle.querySelector('.code-display');
-            const newDotSpan = previewTitle.querySelector('.bounce-dot');
-            if (newCodeSpan) newCodeSpan.classList.remove('generating');
-            if (newDotSpan) newDotSpan.classList.remove('generating');
-          }, 900);
-        }
-        
-        if (event.data.qr) {
-          // Display QR code as data URI
-          previewQR.src = event.data.qr;
-          previewQR.style.display = 'block';
-          console.log('✅ QR code displayed');
-        }
       }
     });
-
-    // Apply syntax highlighting decorations based on kidlisp execution state
-    function applyHighlightDecorations(highlights) {
-      if (!editor) return;
-      
-      const decorations = [];
-      const model = editor.getModel();
-      if (!model) return;
-
-      // highlights is an array of { token, color, line, column }
-      highlights.forEach(hl => {
-        const lineContent = model.getLineContent(hl.line);
-        const startColumn = lineContent.indexOf(hl.token, hl.column - 1) + 1;
-        if (startColumn > 0) {
-          const endColumn = startColumn + hl.token.length;
-          
-          // Map color to CSS
-          let cssColor = hl.color;
-          if (hl.color.includes(',')) {
-            cssColor = `rgb(${hl.color})`;
-          }
-          
-          decorations.push({
-            range: new monaco.Range(hl.line, startColumn, hl.line, endColumn),
-            options: {
-              inlineClassName: hl.color === 'red' || hl.color === 'lime' ? 'blink-highlight' : null,
-              beforeContentClassName: null,
-              afterContentClassName: null,
-              color: cssColor,
-            }
-          });
-        }
-      });
-
-      // Apply decorations
-      currentDecorations = editor.deltaDecorations(currentDecorations, decorations);
-    }
-
-    // Populate reference grids automatically
-    const structureWords = ['(', 'def', 'repeat', 'later', 'if', 'once'];
-    const drawingWords = ['wipe', 'ink', 'line', 'circle', 'box', 'point', 'write', 'paste', 'stamp', 'plot', 'tri', 'quad'];
-    const effectsWords = ['scroll', 'spin', 'blur', 'zoom', 'fade', 'wiggle', 'contrast', 'invert', 'noise', 'half', 'third', 'fourth'];
-    const colorWords = ['red', 'orange', 'yellow', 'green', 'cyan', 'blue', 'purple', 'pink', 'white', 'black', 'gray', 
-                        'lime', 'navy', 'magenta', 'brown', 'rainbow', 'zebra'];
-    const numberWords = ['0', '1', '10', '50', '100', '255', '0.5', '1s...', '2s', 'width', 'height', 'frame'];
-    
-    function populateGrid(gridId, words) {
-      const grid = document.getElementById(gridId);
-      if (!grid) {
-        console.warn(`Grid element #${gridId} not found, skipping population`);
-        return;
-      }
-      words.forEach(word => {
-        const item = document.createElement('div');
-        item.className = 'function-item';
-        item.setAttribute('data-word', word);
-        item.textContent = word === '(' ? '( )' : word;
-        grid.appendChild(item);
-      });
-    }
-    
-    // Populate grids BEFORE attaching event listeners
-    populateGrid('structure-grid', structureWords);
-    populateGrid('drawing-grid', drawingWords);
-    populateGrid('effects-grid', effectsWords);
-    populateGrid('colors-grid', colorWords);
-    populateGrid('numbers-grid', numberWords);
 
     // Click function words to insert at cursor
     document.querySelectorAll('.function-item').forEach(item => {
@@ -3344,264 +846,32 @@
         const word = item.getAttribute('data-word');
         if (word && editor) {
           const position = editor.getPosition();
-          if (word === '(') {
-            // Insert parentheses with cursor inside
-            editor.executeEdits('', [{
-              range: new monaco.Range(position.lineNumber, position.column, position.lineNumber, position.column),
-              text: '()',
-            }]);
-            // Move cursor between the parentheses
-            editor.setPosition({
-              lineNumber: position.lineNumber,
-              column: position.column + 1
-            });
-          } else {
-            editor.executeEdits('', [{
-              range: new monaco.Range(position.lineNumber, position.column, position.lineNumber, position.column),
-              text: word + ' ',
-            }]);
-          }
+          editor.executeEdits('', [{
+            range: new monaco.Range(position.lineNumber, position.column, position.lineNumber, position.column),
+            text: word + ' ',
+          }]);
           editor.focus();
         }
       });
-      
-      // Apply KidLisp syntax highlighting color to each function word
-      const word = item.getAttribute('data-word');
-      if (word) {
-        try {
-          // Tokenize and get color from KidLisp using the global instance
-          const tokens = tokenize(word);
-          kidlisp.initializeSyntaxHighlighting(word);
-          let color = kidlisp.getTokenColor(tokens[0], tokens, 0);
-          
-          // Apply high-contrast colors for light mode
-          if (kidlisp.lightModeHighContrast) {
-            const lightModeColorMap = {
-              'yellow': '#cc9900',
-              'cyan': '#0099cc',
-              'lime': '#00aa00',
-              'pink': '#cc0066',
-              'orange': '#cc6600',
-              'magenta': '#cc00cc',
-              'gray': '#666666',
-            };
-            if (lightModeColorMap[color]) {
-              color = lightModeColorMap[color];
-            }
-          }
-          
-          // Apply the color
-          if (color && color !== 'RAINBOW' && color !== 'ZEBRA' && !color.startsWith('COMPOUND:')) {
-            const cssColor = color.includes(',') ? `rgb(${color})` : color;
-            item.style.color = cssColor;
-          }
-        } catch (e) {
-          // If coloring fails, just leave default
-        }
-      }
     });
 
-    // Tab functionality
-    console.log('🔍 Starting tab setup...');
-    const referenceContent = document.getElementById('reference-content');
-    const examplesContent = document.getElementById('examples-content');
-    const codeTab = document.getElementById('reference-tab');
-    const examplesTab = document.getElementById('examples-tab');
-    let examplesLoaded = false;
-
-    console.log('🔍 Tab elements found:', { 
-      codeTab: !!codeTab, 
-      examplesTab: !!examplesTab, 
-      referenceContent: !!referenceContent, 
-      examplesContent: !!examplesContent,
-      referenceContentClasses: referenceContent?.className,
-      examplesContentClasses: examplesContent?.className
-    });
+    // Simple reload on manual file changes only
+    let lastModified = null;
     
-    if (codeTab && examplesTab && referenceContent && examplesContent) {
-      codeTab.addEventListener('click', function(e) {
-        console.log('🎯 Code tab clicked!');
-        e.stopPropagation();
-        codeTab.classList.add('active');
-        examplesTab.classList.remove('active');
-        referenceContent.classList.remove('hidden');
-        examplesContent.classList.add('hidden');
-        console.log('🎯 After Code tab click:', {
-          codeTabActive: codeTab.classList.contains('active'),
-          examplesTabActive: examplesTab.classList.contains('active'),
-          referenceHidden: referenceContent.classList.contains('hidden'),
-          examplesHidden: examplesContent.classList.contains('hidden')
-        });
-      });
-      
-      examplesTab.addEventListener('click', function(e) {
-        console.log('🎯 Examples tab clicked!');
-        console.log('🎯 Event:', e);
-        console.log('🎯 Target:', e.target);
-        console.log('🎯 CurrentTarget:', e.currentTarget);
-        e.stopPropagation();
-        e.preventDefault();
-        
-        examplesTab.classList.add('active');
-        codeTab.classList.remove('active');
-        examplesContent.classList.remove('hidden');
-        referenceContent.classList.add('hidden');
-        
-        console.log('🎯 After Examples tab click:', {
-          codeTabActive: codeTab.classList.contains('active'),
-          examplesTabActive: examplesTab.classList.contains('active'),
-          referenceHidden: referenceContent.classList.contains('hidden'),
-          examplesHidden: examplesContent.classList.contains('hidden'),
-          examplesDisplay: window.getComputedStyle(examplesContent).display
-        });
-        
-        if (!examplesLoaded) {
-          console.log('🎯 Loading examples for first time...');
-          loadExamples();
-        } else {
-          console.log('🎯 Examples already loaded');
-        }
-      });
-      
-      console.log('✅ Tab event listeners attached successfully');
-    } else {
-      console.error('❌ Missing tab elements!', { codeTab, examplesTab, referenceContent, examplesContent });
-    }
-
-    async function loadExamples() {
-      try {
-        const examplesList = document.getElementById('examples-list');
-        examplesList.textContent = t('examplesLoading');
-        
-        const response = await fetch(`${aestheticUrl}/api/tv?types=kidlisp&sort=hits&limit=10`);
-        const data = await response.json();
-        
-        if (data.media && data.media.kidlisp) {
-          examplesList.innerHTML = '';
-          // Sort by hits (descending)
-          const sortedItems = [...data.media.kidlisp].sort((a, b) => (b.hits || 0) - (a.hits || 0));
-          
-          sortedItems.forEach(item => {
-            const el = document.createElement('div');
-            el.className = 'example-item';
-            el.innerHTML = `
-              <div style="display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0;">
-                <div class="example-code">${item.source || item.code}</div>
-                <div style="font-size: 10px; color: var(--text-tertiary); opacity: 0.7;">$${item.code}</div>
-              </div>
-              <div class="example-hits">${item.hits} ${t('hits')}</div>
-            `;
-            el.addEventListener('click', () => {
-              if (editor) {
-                editor.setValue(item.source || item.code);
-                updatePreview();
-              }
-            });
-            examplesList.appendChild(el);
-          });
-          examplesLoaded = true;
-        } else {
-          examplesList.textContent = t('examplesNone');
-        }
-      } catch (e) {
-        console.error('Failed to load examples:', e);
-        document.getElementById('examples-list').textContent = t('examplesError');
-      }
-    }
-
-    // Session server connection with connectivity feedback
-    let sessionWs = null;
-    let reconnectInterval = null;
-    const connectivityDot = document.querySelector('.connectivity-dot');
-    
-    function setConnectivityState(state) {
-      if (!connectivityDot) return;
-      connectivityDot.className = 'connectivity-dot ' + state;
-    }
-    
-    function connectToSessionServer() {
-      if (reconnectInterval) {
-        clearInterval(reconnectInterval);
-        reconnectInterval = null;
-      }
-      
-      // Determine connection URL
-      let connectionUrl = "wss://localhost:8889";
-      if (window.location.host === "local.aesthetic.computer") {
-        connectionUrl = "wss://session.local.aesthetic.computer";
-      } else if (window.location.host === "kidlisp.com") {
-        connectionUrl = "wss://session.aesthetic.computer";
-      }
-      
-      setConnectivityState('connecting');
-      console.log("🧦 Connecting to session server:", connectionUrl);
-      
-      try {
-        sessionWs = new WebSocket(connectionUrl);
-      } catch (error) {
-        console.warn("🧦 Connection failed:", error);
-        setConnectivityState('disconnected');
-        scheduleReconnect();
-        return;
-      }
-
-      sessionWs.onopen = () => {
-        console.log("🧦 Connected to session server");
-        setConnectivityState('connected');
-      };
-
-      sessionWs.onmessage = (e) => {
-        // Blink the dot when receiving a message
-        setConnectivityState('receiving');
-        setTimeout(() => {
-          setConnectivityState('connected');
-        }, 400);
-        
-        try {
-          const msg = JSON.parse(e.data);
-          console.log("🧦 Received message:", msg);
-          
-          // Handle reload messages for full page refresh
-          if (msg.type === "reload") {
-            console.log("🧦 Reload message received:", msg.content.piece);
-            if (msg.content.piece === "*refresh*" || msg.content.piece === "kidlisp.com") {
-              console.log("🧦 Reloading entire page...");
-              setTimeout(() => {
-                window.location.reload();
-              }, 150); // Wait a moment for backend to be ready
-            }
+    setInterval(() => {
+      fetch(window.location.href, { method: 'HEAD', cache: 'no-cache' })
+        .then(response => {
+          const modified = response.headers.get('last-modified');
+          if (lastModified === null) {
+            lastModified = modified;
+          } else if (modified && modified !== lastModified) {
+            console.log('📝 File changed, reloading...');
+            lastModified = modified;
+            window.location.reload();
           }
-        } catch (error) {
-          console.warn("🧦 Error parsing message:", error);
-        }
-      };
-
-      sessionWs.onerror = (error) => {
-        console.warn("🧦 WebSocket error:", error);
-        setConnectivityState('disconnected');
-      };
-
-      sessionWs.onclose = () => {
-        console.log("🧦 Disconnected from session server");
-        setConnectivityState('disconnected');
-        sessionWs = null;
-        scheduleReconnect();
-      };
-    }
-    
-    function scheduleReconnect() {
-      if (!reconnectInterval) {
-        setConnectivityState('waiting');
-        reconnectInterval = setInterval(() => {
-          if (!sessionWs || sessionWs.readyState === WebSocket.CLOSED) {
-            connectToSessionServer();
-          }
-        }, 2000); // Try to reconnect every 2 seconds
-      }
-    }
-    
-    // Start connection on page load
-    connectToSessionServer();
+        })
+        .catch(() => {});
+    }, 2000);
   </script>
 </body>
 

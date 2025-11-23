@@ -509,6 +509,39 @@
     const sendButton = document.getElementById('send-button');
     const previewIframe = document.getElementById('preview-iframe');
 
+    // Function to load kidlisp code from database by code (e.g., $46k)
+    async function loadKidlispFromDatabase(code) {
+      try {
+        // Remove $ prefix if present
+        const cleanCode = code.startsWith('$') ? code.substring(1) : code;
+        
+        // Fetch from the same API that aesthetic.computer uses
+        const isDev = window.location.hostname === 'localhost' || window.location.hostname.includes('local.');
+        const baseUrl = isDev ? 'http://localhost:8888' : 'https://aesthetic.computer';
+        const url = `${baseUrl}/api/store-kidlisp?code=${cleanCode}`;
+        
+        console.log(`🔍 Loading kidlisp code from database: ${cleanCode}`);
+        const response = await fetch(url);
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.source) {
+            console.log(`✅ Loaded kidlisp code: ${cleanCode}`);
+            return data.source;
+          } else {
+            console.error(`❌ No source found for code: ${cleanCode}`);
+            return null;
+          }
+        } else {
+          console.error(`❌ Failed to load code ${cleanCode}: HTTP ${response.status}`);
+          return null;
+        }
+      } catch (error) {
+        console.error(`❌ Error loading kidlisp code:`, error);
+        return null;
+      }
+    }
+
     // Create KidLisp instance for syntax highlighting
     const kidlisp = new KidLisp();
     let editor;
@@ -598,9 +631,30 @@
         }
       });
 
-      // Create the editor
+      // Create the editor with initial value
+      let initialCode = 'wipe navy, ink yellow, circle 100 100 50';
+      
+      // Check URL path for a kidlisp code (e.g., /kidlisp-com/$46k or /$46k)
+      const urlPath = window.location.pathname;
+      const codeMatch = urlPath.match(/\/\$([a-zA-Z0-9]+)$/);
+      
+      if (codeMatch) {
+        const code = codeMatch[1];
+        console.log(`🔍 Detected kidlisp code in URL: $${code}`);
+        
+        // Load code from database
+        loadKidlispFromDatabase(code).then(source => {
+          if (source && editor) {
+            editor.setValue(source);
+            console.log(`✅ Loaded code into editor: $${code}`);
+            // Trigger initial preview
+            updatePreview();
+          }
+        });
+      }
+      
       editor = monaco.editor.create(editorContainer, {
-        value: 'wipe navy, ink yellow, circle 100 100 50',
+        value: initialCode,
         language: 'kidlisp',
         theme: 'kidlisp-theme',
         minimap: { enabled: false },
