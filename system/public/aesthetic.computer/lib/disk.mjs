@@ -7139,6 +7139,22 @@ async function load(
     $commonApi.rec.loadCallback?.(); // Start any queued tape.
     $commonApi.rec.loadCallback = null;
 
+    // 📤 Send ready signal to parent window (e.g., kidlisp.com editor)
+    console.log('🔍 hotSwap: checking if we can send ready message...');
+    console.log('🔍 typeof window:', typeof window);
+    try {
+      if (typeof window !== 'undefined' && window.parent && window.parent !== window) {
+        console.log('📤 Sending kidlisp-ready to parent window');
+        window.parent.postMessage({ type: "kidlisp-ready" }, "*");
+        console.log('✅ kidlisp-ready message sent');
+      } else {
+        console.log('⚠️ Not in iframe context, skipping ready message');
+      }
+    } catch (e) {
+      // Silently fail if in worker context or cross-origin
+      console.log('⚠️ Could not send ready message:', e.message);
+    }
+
     module = loadedModule;
 
     // 🧹 Reset KidLisp baked layers when returning to the prompt to avoid stale flashes

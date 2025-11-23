@@ -48,6 +48,39 @@
         --editor-border: #333;
       }
     }
+    
+    /* Manual theme overrides via data-theme attribute */
+    [data-theme="light"] {
+      --bg-primary: #f7f7f7;
+      --bg-secondary: #e8e8e8;
+      --bg-tertiary: white;
+      --text-primary: #111;
+      --text-secondary: #333;
+      --text-tertiary: #666;
+      --border-color: #ddd;
+      --border-subtle: #e0e0e0;
+      --code-bg: #e8e8e8;
+      --code-text: #a31515;
+      --editor-bg: #fafafa;
+      --editor-text: #111;
+      --editor-border: #ddd;
+    }
+    
+    [data-theme="dark"] {
+      --bg-primary: #1e1e1e;
+      --bg-secondary: #252526;
+      --bg-tertiary: #2d2d30;
+      --text-primary: #d4d4d4;
+      --text-secondary: #d4d4d4;
+      --text-tertiary: #858585;
+      --border-color: #3e3e42;
+      --border-subtle: #3e3e42;
+      --code-bg: #252526;
+      --code-text: #ce9178;
+      --editor-bg: #1e1e1e;
+      --editor-text: #d4d4d4;
+      --editor-border: #333;
+    }
 
     ::-webkit-scrollbar {
       display: none;
@@ -127,6 +160,14 @@
         background: #2a2520; /* Dark mode: warm dark brown */
       }
     }
+    
+    [data-theme="light"] .editor-panel {
+      background: #fffacd; /* Legal pad yellow */
+    }
+    
+    [data-theme="dark"] .editor-panel {
+      background: #2a2520; /* Dark mode: warm dark brown */
+    }
 
     .editor-header {
       padding: 0 12px;
@@ -184,6 +225,7 @@
       font-size: 20px;
       cursor: pointer;
       box-shadow: 0 3px 6px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2);
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
       display: flex;
       flex-direction: row;
       align-items: center;
@@ -198,11 +240,17 @@
       cursor: pointer; /* Remain clickable */
     }
 
+    #send-button.playing:active {
+      background: rgb(245, 183, 0); /* Darker yellow on click */
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.1);
+      transform: scale(0.95);
+    }
+
     @media (hover: hover) {
       #send-button.playing:hover {
         background: rgb(255, 213, 79); /* Lighter yellow on hover */
-        transform: none;
-        box-shadow: 0 3px 6px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2);
+        transform: scale(1.05);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.3);
       }
     }
 
@@ -231,11 +279,27 @@
       #send-button:hover {
         background: rgb(102, 187, 106); /* Lighter green on hover */
         box-shadow: 0 4px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.3);
+        transform: scale(1.05);
       }
     }
 
     #send-button:active {
+      background: rgb(56, 142, 60); /* Darker green on click */
       box-shadow: 0 2px 4px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.1);
+      transform: scale(0.95);
+    }
+    
+    #send-button:disabled {
+      cursor: not-allowed !important;
+      opacity: 0.4 !important;
+      pointer-events: auto; /* Still allow clicks for debugging */
+    }
+    
+    #send-button:disabled:hover,
+    #send-button:disabled:active {
+      background: rgb(76, 175, 80) !important;
+      transform: scale(1) !important;
+      box-shadow: 0 3px 6px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2) !important;
     }
 
     #stop-button {
@@ -251,6 +315,7 @@
       border-radius: 50%;
       cursor: pointer;
       box-shadow: 0 3px 6px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2);
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
       display: none; /* Hidden by default */
       flex-direction: row;
       align-items: center;
@@ -273,11 +338,27 @@
       #stop-button:hover {
         background: rgb(239, 83, 80); /* Lighter red */
         box-shadow: 0 4px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.3);
+        transform: scale(1.05);
       }
     }
 
     #stop-button:active {
+      background: rgb(211, 47, 47); /* Darker red on click */
       box-shadow: 0 2px 4px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.1);
+      transform: scale(0.95);
+    }
+    
+    #stop-button:disabled {
+      cursor: not-allowed !important;
+      opacity: 0.4 !important;
+      pointer-events: auto;
+    }
+    
+    #stop-button:disabled:hover,
+    #stop-button:disabled:active {
+      background: rgb(244, 67, 54) !important;
+      transform: scale(1) !important;
+      box-shadow: 0 3px 6px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2) !important;
     }
 
     #kidlisp-editor {
@@ -285,6 +366,24 @@
       overflow: hidden;
       position: relative; /* For absolute positioning of button */
       padding-left: 12px; /* Add padding to the left of the editor */
+      transition: box-shadow 0.3s ease, outline 0.3s ease;
+    }
+    
+    /* Live running state - green outline */
+    #kidlisp-editor.live-running {
+      outline: 3px solid #00ff00;
+      outline-offset: -3px;
+      box-shadow: inset 0 0 20px rgba(0, 255, 0, 0.1);
+    }
+    
+    /* Pulse animation for live state */
+    @keyframes live-pulse {
+      0%, 100% { outline-color: #00ff00; }
+      50% { outline-color: #00cc00; }
+    }
+    
+    #kidlisp-editor.live-running {
+      animation: live-pulse 2s ease-in-out infinite;
     }
 
     /* Zebra striping for editor rows - always visible */
@@ -440,6 +539,80 @@
         color: #70D6FF; /* Keep Light Blue in dark mode */
       }
     }
+    
+    /* Connectivity indicator for the period in kidlisp. */
+    .baby-colors .connectivity-dot {
+      transition: color 0.3s ease, text-shadow 0.3s ease;
+    }
+    
+    .baby-colors .connectivity-dot.disconnected {
+      color: #ff4444; /* Red - disconnected */
+      text-shadow: 1px 1px 0px rgba(255, 68, 68, 0.3);
+    }
+    
+    .baby-colors .connectivity-dot.connecting {
+      color: #ff8800; /* Orange - connecting */
+      text-shadow: 1px 1px 0px rgba(255, 136, 0, 0.3);
+      animation: connectingPulse 1s ease-in-out infinite;
+    }
+    
+    .baby-colors .connectivity-dot.waiting {
+      color: #ffdd00; /* Yellow - waiting/ready */
+      text-shadow: 1px 1px 0px rgba(255, 221, 0, 0.3);
+    }
+    
+    .baby-colors .connectivity-dot.connected {
+      color: #00ff88; /* Green - connected */
+      text-shadow: 1px 1px 0px rgba(0, 255, 136, 0.3);
+    }
+    
+    .baby-colors .connectivity-dot.receiving {
+      animation: receivingBlink 0.2s ease-in-out 2;
+    }
+    
+    @keyframes connectingPulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    
+    @keyframes receivingBlink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; transform: scale(1.2); }
+    }
+    
+    /* Theme toggle button */
+    #theme-toggle {
+      width: 32px;
+      height: 32px;
+      border: none;
+      border-radius: 4px;
+      background: transparent;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      transition: opacity 0.2s;
+      margin-left: 8px;
+      padding: 0;
+      opacity: 0.6;
+    }
+    
+    @media (hover: hover) {
+      #theme-toggle:hover {
+        opacity: 1;
+      }
+    }
+    
+    #theme-toggle:active {
+      opacity: 0.4;
+    }
+    
+    @media (prefers-color-scheme: dark) {
+      #theme-toggle {
+        opacity: 0.6;
+      }
+    }
 
     #preview-panel .docs-header {
       background: rgb(240, 235, 250); /* Light muted purple backdrop */
@@ -462,6 +635,28 @@
       text-shadow: 1px 0 0 currentColor; /* Faux bold/doubled up effect */
       margin: 0 1px;
       color: rgb(205, 92, 155); /* AC Purple */
+    }
+    
+    /* Code display with monospace font */
+    #preview-title .code-display {
+      font-family: 'Berkeley Mono', 'Courier New', monospace;
+      font-weight: normal;
+      letter-spacing: 0.05em;
+    }
+    
+    /* Code generating animation - scramble effect */
+    @keyframes scramble {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+    
+    #preview-title .code-display.generating {
+      animation: scramble 0.3s ease-in-out 3;
+    }
+    
+    /* Bounce dot during code generation */
+    #preview-title .bounce-dot.generating {
+      animation: bounce 0.6s ease-in-out infinite;
     }
 
     .baby-colors span:nth-child(1) { animation-delay: 0s; }
@@ -1033,6 +1228,47 @@
       100% { opacity: 1; }
     }
 
+    /* Monaco Editor Selection Highlighting */
+    /* Target the actual selection layer that Monaco uses */
+    .monaco-editor .selected-text {
+      background-color: rgba(255, 165, 0, 0.4) !important; /* Orange selection in light mode */
+    }
+    
+    .monaco-editor .view-overlays .current-line-exact {
+      background-color: transparent !important;
+    }
+    
+    /* Selection in the editor lines themselves */
+    .monaco-editor .view-line span.mtk1.selected-text,
+    .monaco-editor .view-line > span > span.selected-text {
+      background-color: rgba(255, 165, 0, 0.4) !important;
+    }
+    
+    /* Dark mode selection */
+    @media (prefers-color-scheme: dark) {
+      .monaco-editor .selected-text {
+        background-color: rgba(100, 149, 237, 0.4) !important; /* Blue selection in dark mode */
+      }
+      
+      .monaco-editor .view-line span.mtk1.selected-text,
+      .monaco-editor .view-line > span > span.selected-text {
+        background-color: rgba(100, 149, 237, 0.4) !important;
+      }
+    }
+    
+    /* Manual theme overrides for selection */
+    [data-theme="light"] .monaco-editor .selected-text,
+    [data-theme="light"] .monaco-editor .view-line span.mtk1.selected-text,
+    [data-theme="light"] .monaco-editor .view-line > span > span.selected-text {
+      background-color: rgba(255, 165, 0, 0.4) !important;
+    }
+    
+    [data-theme="dark"] .monaco-editor .selected-text,
+    [data-theme="dark"] .monaco-editor .view-line span.mtk1.selected-text,
+    [data-theme="dark"] .monaco-editor .view-line > span > span.selected-text {
+      background-color: rgba(100, 149, 237, 0.4) !important;
+    }
+
     /* Text shadow for editor - matches prompt HUD preview */
     @media (prefers-color-scheme: light) {
       .monaco-editor .view-line span {
@@ -1068,7 +1304,7 @@
     <div class="top-row" id="top-row">
       <div class="editor-panel" id="editor-panel">
         <div class="editor-header">
-          <span class="baby-colors"><span>K</span><span>i</span><span>d</span><span>L</span><span>i</span><span>s</span><span>p</span><span>.</span><span class="com-part">com</span></span>
+          <span class="baby-colors"><span>K</span><span>i</span><span>d</span><span>L</span><span>i</span><span>s</span><span>p</span><span class="connectivity-dot disconnected">.</span><span class="com-part">com</span></span>
           <div class="tab language-tab" id="language-tab" style="border: none; height: 100%; padding: 0 8px; background: transparent; display: flex; align-items: center;">
             <span class="lang-flag" id="lang-flag" style="font-size: 12px; margin-right: 6px;">🇺🇸</span>
             <span class="lang-text" style="font-size: 12px; opacity: 0.7;">English</span>
@@ -1080,6 +1316,7 @@
               <div class="lang-option" data-lang="da">🇩🇰 Dansk</div>
             </div>
           </div>
+          <button id="theme-toggle" title="Toggle light/dark mode">○</button>
           <button id="line-limit-btn" style="padding: 4px 8px; background: rgba(255,255,255,0.3); border: 1px solid rgba(0,0,0,0.1); border-radius: 4px; font-size: 11px; cursor: pointer; margin-left: auto;">1</button>
         </div>
         <div id="kidlisp-editor">
@@ -1653,6 +1890,35 @@
     const stopButton = document.getElementById('stop-button');
     const previewIframe = document.getElementById('preview-iframe');
     const bootScreen = document.getElementById('boot-screen');
+    
+    // Console functionality (must be defined early for boot messages)
+    const consoleOutput = document.getElementById('console-output');
+    
+    // Track if piece is fully loaded and ready
+    let pieceReady = false;
+    let shouldAutoPlay = false;
+    
+    function addConsoleEntry(message, type = 'log', line = null) {
+      const entry = document.createElement('div');
+      entry.className = `console-entry ${type}`;
+      
+      if (line) {
+        const lineSpan = document.createElement('span');
+        lineSpan.className = 'console-line';
+        lineSpan.textContent = `:${line}`;
+        entry.appendChild(lineSpan);
+        
+        const msgSpan = document.createElement('span');
+        msgSpan.textContent = ' ' + message;
+        entry.appendChild(msgSpan);
+      } else {
+        entry.textContent = message;
+      }
+      
+      consoleOutput.appendChild(entry);
+      consoleOutput.scrollTop = consoleOutput.scrollHeight;
+      return entry;
+    }
 
     // Listen for boot progress messages
     let bootComplete = false;
@@ -1678,6 +1944,25 @@
           bootLogEntry.textContent = formattedMessage;
         } else {
           bootLogEntry = addConsoleEntry(formattedMessage, 'info');
+        }
+        
+        // Check if this is the final "ready: aesthetic.computer/disks/kidlisp" message
+        if (event.data.message.includes('ready: aesthetic.computer/disks/kidlisp')) {
+          console.log('🎯 Piece is fully loaded and ready!');
+          pieceReady = true;
+          
+          // If we were waiting to auto-play, do it now
+          if (shouldAutoPlay && !isPlaying) {
+            console.log('🎬 Auto-playing initial code now that piece is ready...');
+            updatePreview();
+            isPlaying = true;
+            isPaused = false;
+            sendButton.classList.add('playing');
+            sendButton.style.right = '64px';
+            stopButton.style.display = 'flex';
+            document.getElementById('kidlisp-editor').classList.add('live-running');
+            shouldAutoPlay = false;
+          }
         }
       } else if (event.data?.type === 'ready') {
         bootComplete = true;
@@ -1737,8 +2022,8 @@
           'editor.foreground': '#333333',
           'editorCursor.foreground': '#FF1493',
           'editor.lineHighlightBackground': '#fff5b8', /* Slightly darker yellow for highlight */
-          'editor.selectionBackground': '#ffd700aa', /* Golden selection */
-          'editor.inactiveSelectionBackground': '#ffebad',
+          'editor.selectionBackground': '#ff8c00dd', /* Bright orange with high opacity for visibility */
+          'editor.inactiveSelectionBackground': '#ffa500aa', /* Lighter orange for inactive */
           'editorLineNumber.foreground': '#999999', /* Line number color */
           'editorLineNumber.activeForeground': '#333333', /* Active line number */
         }
@@ -1756,8 +2041,8 @@
           'editorCursor.foreground': '#FF69B4',
           'editor.lineHighlightBackground': '#3a3530', /* Slightly lighter brown for highlight */
           'editorLineNumber.foreground': '#858585',
-          'editor.selectionBackground': '#4a4540',
-          'editor.inactiveSelectionBackground': '#3a3530',
+          'editor.selectionBackground': '#6495eddd', /* Cornflower blue with high opacity */
+          'editor.inactiveSelectionBackground': '#6495ed88', /* Lighter blue for inactive */
         }
       });
 
@@ -1789,6 +2074,9 @@
         lineDecorationsWidth: 0,
         lineNumbersMinChars: 3,
         roundedSelection: false,
+        renderLineHighlight: 'all',
+        selectionHighlight: true,
+        occurrencesHighlight: 'off',
         overviewRulerLanes: 0,
         scrollbar: {
           vertical: 'auto',
@@ -2014,9 +2302,72 @@
             const columnNumber = lines[lines.length - 1].length + 1;
             const endColumn = columnNumber + token.length;
             
+            // Validate range before creating decorations
+            if (lineNumber < 1 || columnNumber < 1 || endColumn < columnNumber) {
+              searchPos = tokenPos + token.length;
+              return;
+            }
+            
             // Convert KidLisp color to CSS
             let cssColor = null;
             let cssClass = null;
+            
+            // Handle fade: expressions with multi-color highlighting
+            if (token.startsWith('fade:')) {
+              const coloredFadeString = kidlisp.colorFadeExpression(token);
+              // Parse the colored fade string format: \color1\text1\color2\text2...
+              const segments = coloredFadeString.split('\\').filter(s => s);
+              
+              let charOffset = 0;
+              for (let i = 0; i < segments.length; i += 2) {
+                const segmentColor = segments[i];
+                const segmentText = segments[i + 1] || '';
+                
+                // Convert segment color to CSS
+                let segmentCssColor = segmentColor;
+                if (segmentColor.includes(',')) {
+                  segmentCssColor = `rgb(${segmentColor})`;
+                }
+                
+                // Apply high-contrast colors for light mode
+                if (kidlisp.lightModeHighContrast) {
+                  const lightModeColorMap = {
+                    'yellow': '#cc9900',
+                    'cyan': '#0099cc',
+                    'lime': '#00aa00',
+                    'pink': '#cc0066',
+                    'orange': '#cc6600',
+                    'magenta': '#cc00cc',
+                    'mediumseagreen': '#2e8b57',
+                    'gray': '#666666',
+                  };
+                  
+                  if (lightModeColorMap[segmentColor]) {
+                    segmentCssColor = lightModeColorMap[segmentColor];
+                  }
+                }
+                
+                const segmentClass = `fade-segment-${segmentColor.replace(/,/g, '-').replace(/ /g, '')}`;
+                if (!document.getElementById(segmentClass)) {
+                  const style = document.createElement('style');
+                  style.id = segmentClass;
+                  style.textContent = `.monaco-editor .view-line > span > span.${segmentClass} { color: ${segmentCssColor}; font-weight: bold; }`;
+                  document.head.appendChild(style);
+                }
+                
+                // Apply color to each character in the segment
+                for (let charIdx = 0; charIdx < segmentText.length; charIdx++) {
+                  decorations.push({
+                    range: new monaco.Range(lineNumber, columnNumber + charOffset, lineNumber, columnNumber + charOffset + 1),
+                    options: { inlineClassName: segmentClass }
+                  });
+                  charOffset++;
+                }
+              }
+              
+              searchPos = tokenPos + token.length;
+              return;
+            }
             
             // Handle special color markers
             if (colorName === 'RAINBOW') {
@@ -2028,7 +2379,7 @@
                 if (!document.getElementById(styleId)) {
                   const style = document.createElement('style');
                   style.id = styleId;
-                  style.textContent = `.${styleId} { color: ${charColor} !important; font-weight: bold; }`;
+                  style.textContent = `.monaco-editor .view-line > span > span.${styleId} { color: ${charColor}; font-weight: bold; }`;
                   document.head.appendChild(style);
                 }
                 decorations.push({
@@ -2048,7 +2399,7 @@
                   const style = document.createElement('style');
                   style.id = styleId;
                   const bgColor = i % 2 === 0 ? '#ffffff' : '#000000';
-                  style.textContent = `.${styleId} { color: ${zebraColor} !important; background: ${bgColor} !important; font-weight: bold; }`;
+                  style.textContent = `.monaco-editor .view-line > span > span.${styleId} { color: ${zebraColor}; background: ${bgColor}; font-weight: bold; }`;
                   document.head.appendChild(style);
                 }
                 decorations.push({
@@ -2070,7 +2421,7 @@
               if (!document.getElementById(cssClass)) {
                 const style = document.createElement('style');
                 style.id = cssClass;
-                style.textContent = `.${cssClass} { color: ${cssColor} !important; font-weight: bold; }`;
+                style.textContent = `.monaco-editor .view-line > span > span.${cssClass} { color: ${cssColor}; font-weight: bold; }`;
                 document.head.appendChild(style);
               }
               decorations.push({
@@ -2084,7 +2435,7 @@
               if (!document.getElementById(idClass)) {
                 const style = document.createElement('style');
                 style.id = idClass;
-                style.textContent = `.${idClass} { color: ${idColor} !important; font-weight: bold; }`;
+                style.textContent = `.monaco-editor .view-line > span > span.${idClass} { color: ${idColor}; font-weight: bold; }`;
                 document.head.appendChild(style);
               }
               decorations.push({
@@ -2132,7 +2483,7 @@
               if (!document.getElementById(cssClass)) {
                 const style = document.createElement('style');
                 style.id = cssClass;
-                style.textContent = `.${cssClass} { color: ${cssColor} !important; font-weight: bold; }`;
+                style.textContent = `.monaco-editor .view-line > span > span.${cssClass} { color: ${cssColor}; font-weight: bold; }`;
                 document.head.appendChild(style);
               }
               
@@ -2147,25 +2498,52 @@
           
         } catch (error) {
           // Silently handle errors to avoid console spam during typing
+          console.warn('Decoration error:', error);
         }
         
-        currentDecorations = editor.deltaDecorations(currentDecorations, decorations);
+        // Safely apply decorations with error handling
+        try {
+          if (editor && editor.getModel()) {
+            currentDecorations = editor.deltaDecorations(currentDecorations, decorations);
+          }
+        } catch (error) {
+          console.warn('Failed to apply decorations:', error);
+          currentDecorations = [];
+        }
       }
       
       // Apply color decorations on content change
       editor.onDidChangeModelContent(() => {
         updateLineNumbers();
-        applyColorNameDecorations();
+        // Debounce decoration updates to avoid overwhelming the editor
+        if (window.decorationTimeout) {
+          clearTimeout(window.decorationTimeout);
+        }
+        window.decorationTimeout = setTimeout(() => {
+          applyColorNameDecorations();
+        }, 50);
         localStorage.setItem('kidlisp-code', editor.getValue());
       });
       
-      // Initial application
-      applyColorNameDecorations();
+      // Initial application after a short delay to ensure editor is ready
+      setTimeout(() => {
+        applyColorNameDecorations();
+      }, 100);
       
       // Continuously update decorations for timing blinks (60fps)
-      setInterval(() => {
-        applyColorNameDecorations();
-      }, 1000 / 60); // 60fps for smooth timing blinks
+      // Use requestAnimationFrame for better performance and to avoid conflicts
+      let isUpdating = false;
+      function scheduleDecorationUpdate() {
+        if (!isUpdating && editor && editor.getModel()) {
+          isUpdating = true;
+          requestAnimationFrame(() => {
+            applyColorNameDecorations();
+            isUpdating = false;
+            setTimeout(scheduleDecorationUpdate, 16); // ~60fps
+          });
+        }
+      }
+      scheduleDecorationUpdate();
 
       // Update line numbers based on maxLines setting
       function updateLineNumbers() {
@@ -2298,6 +2676,66 @@
       
       // Initialize UI language
       updateUILanguage();
+      
+      // Theme toggle functionality
+      const themeToggle = document.getElementById('theme-toggle');
+      let currentTheme = 'system'; // 'system', 'light', or 'dark'
+      
+      function applyTheme(theme) {
+        currentTheme = theme;
+        localStorage.setItem('kidlisp-theme', theme);
+        
+        if (theme === 'system') {
+          document.documentElement.removeAttribute('data-theme');
+          const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          themeToggle.textContent = prefersDark ? '●' : '○';
+          if (editor) {
+            monaco.editor.setTheme(prefersDark ? 'kidlisp-dark' : 'kidlisp-light');
+          }
+        } else if (theme === 'light') {
+          document.documentElement.setAttribute('data-theme', 'light');
+          themeToggle.textContent = '○';
+          if (editor) {
+            monaco.editor.setTheme('kidlisp-light');
+          }
+        } else if (theme === 'dark') {
+          document.documentElement.setAttribute('data-theme', 'dark');
+          themeToggle.textContent = '●';
+          if (editor) {
+            monaco.editor.setTheme('kidlisp-dark');
+          }
+        }
+        
+        // Re-apply decorations with new theme
+        if (editor) {
+          applyColorNameDecorations();
+        }
+      }
+      
+      // Load saved theme preference or default to system
+      const savedTheme = localStorage.getItem('kidlisp-theme') || 'system';
+      applyTheme(savedTheme);
+      
+      // Theme toggle click - cycle through: system → light → dark → system
+      if (themeToggle) {
+        themeToggle.addEventListener('click', () => {
+          if (currentTheme === 'system') {
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            applyTheme(prefersDark ? 'light' : 'dark');
+          } else if (currentTheme === 'light') {
+            applyTheme('dark');
+          } else {
+            applyTheme('system');
+          }
+        });
+      }
+      
+      // Listen for system theme changes when in system mode
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+        if (currentTheme === 'system') {
+          applyTheme('system'); // Re-apply to update icon and theme
+        }
+      });
 
       // Stochastic coloring for KidLisp title
       const kidlispTitle = document.querySelector('.baby-colors');
@@ -2467,6 +2905,17 @@
         editor.onDidChangeCursorPosition(() => updateWizard());
         editor.onDidChangeModelContent(() => updateWizard());
       }
+      
+      // Auto-reload when code changes while playing
+      if (editor) {
+        editor.onDidChangeModelContent(() => {
+          const currentCode = editor.getValue().trim();
+          if (isPlaying && !isPaused && currentCode !== lastCode) {
+            updatePreview();
+            lastCode = currentCode;
+          }
+        });
+      }
 
       // Initial preview - load the iframe once
       updatePreview();
@@ -2490,31 +2939,16 @@
     
     let isPlaying = false;
     let isPaused = false;
-
-    // Console functionality (must be defined before updatePreview uses it)
-    const consoleOutput = document.getElementById('console-output');
+    let lastCode = ''; // Track last code for auto-reload
     
-    function addConsoleEntry(message, type = 'log', line = null) {
-      const entry = document.createElement('div');
-      entry.className = `console-entry ${type}`;
-      
-      if (line) {
-        const lineSpan = document.createElement('span');
-        lineSpan.className = 'console-line';
-        lineSpan.textContent = `:${line}`;
-        entry.appendChild(lineSpan);
-        
-        const msgSpan = document.createElement('span');
-        msgSpan.textContent = ' ' + message;
-        entry.appendChild(msgSpan);
-      } else {
-        entry.textContent = message;
-      }
-      
-      consoleOutput.appendChild(entry);
-      consoleOutput.scrollTop = consoleOutput.scrollHeight;
-      return entry;
-    }
+    // Disable controls initially until iframe signals ready
+    sendButton.disabled = true;
+    stopButton.disabled = true;
+    sendButton.style.opacity = '0.4';
+    stopButton.style.opacity = '0.4';
+    sendButton.style.cursor = 'not-allowed';
+    stopButton.style.cursor = 'not-allowed';
+    console.log('🔒 Controls disabled until iframe ready');
 
     function updatePreview() {
       if (!editor) return;
@@ -2540,16 +2974,28 @@
     }
 
     sendButton.addEventListener('click', () => {
+      // Don't respond if disabled
+      if (sendButton.disabled) {
+        console.log('⏸️ Play button clicked but disabled (iframe not ready)');
+        return;
+      }
+      
+      console.log('🎮 Play/Pause button clicked - isPlaying:', isPlaying, 'isPaused:', isPaused);
       if (!isPlaying) {
         // Start playing - always run the current code
+        console.log('▶️ Starting playback');
         updatePreview();
         isPlaying = true;
         isPaused = false;
         sendButton.classList.add('playing');
         sendButton.style.right = '64px'; // Move play button to the left
         stopButton.style.display = 'flex';
+        // Add live-running class to show green outline
+        document.getElementById('kidlisp-editor').classList.add('live-running');
+        console.log('✅ Stop button shown, display:', stopButton.style.display);
       } else if (isPaused) {
         // Resume
+        console.log('▶️ Resuming playback');
         if (previewIframe.contentWindow) {
           previewIframe.contentWindow.postMessage({ type: 'kidlisp-resume' }, aestheticUrl);
         }
@@ -2557,6 +3003,7 @@
         sendButton.classList.add('playing'); // Ensure playing style (Pause icon)
       } else {
         // Pause
+        console.log('⏸️ Pausing playback');
         if (previewIframe.contentWindow) {
           previewIframe.contentWindow.postMessage({ type: 'kidlisp-pause' }, aestheticUrl);
         }
@@ -2567,25 +3014,39 @@
         stopButton.style.display = 'flex';
       }
     });
-    
-    // Also update when code changes while playing
-    let lastCode = '';
-    editor.onDidChangeModelContent(() => {
-      const currentCode = editor.getValue().trim();
-      if (isPlaying && !isPaused && currentCode !== lastCode) {
-        // Auto-reload when editing while playing
-        updatePreview();
-        lastCode = currentCode;
-      }
-    });
 
-    // Stop button - reloads the blank kidlisp piece
+    // Stop button - sends stop message to iframe
     if (stopButton) {
-      stopButton.addEventListener('click', () => {
-        console.log('⏹️ Stop button pressed - reloading blank piece');
+      console.log('✅ Stop button found and setting up event listener');
+      console.log('📍 Stop button current display:', stopButton.style.display);
+      console.log('📍 Stop button z-index:', window.getComputedStyle(stopButton).zIndex);
+      console.log('📍 Stop button pointer-events:', window.getComputedStyle(stopButton).pointerEvents);
+      
+      stopButton.addEventListener('click', (e) => {
+        // Don't respond if disabled
+        if (stopButton.disabled) {
+          console.log('⏸️ Stop button clicked but disabled (iframe not ready)');
+          return;
+        }
         
-        // Reload the iframe to get back to the initial empty state
-        previewIframe.src = `${aestheticUrl}/kidlisp?nogap=true&nolabel=true&noauth=true`;
+        console.log('⏹️ Stop button CLICKED - event:', e);
+        console.log('⏹️ Stop button pressed - sending stop message to iframe');
+        console.log('📊 Current state - isPlaying:', isPlaying, 'isPaused:', isPaused);
+        
+        // Prevent any bubbling
+        e.stopPropagation();
+        e.preventDefault();
+        
+        // Send stop message to the iframe (this triggers piece-reload with empty source)
+        if (previewIframe.contentWindow) {
+          console.log('📤 Sending kidlisp-stop message to iframe');
+          previewIframe.contentWindow.postMessage({ 
+            type: 'kidlisp-stop' 
+          }, aestheticUrl);
+          console.log('✅ Stop message sent');
+        } else {
+          console.warn('⚠️ No iframe contentWindow available');
+        }
         
         // Reset state
         isPlaying = false;
@@ -2594,6 +3055,18 @@
         sendButton.classList.remove('playing');
         sendButton.style.right = '8px'; // Move play button back to original position
         stopButton.style.display = 'none';
+        // Remove live-running class to hide green outline
+        document.getElementById('kidlisp-editor').classList.remove('live-running');
+        console.log('✅ State reset complete - stop button hidden');
+      });
+      
+      // Add visual feedback on hover
+      stopButton.addEventListener('mouseenter', () => {
+        console.log('🖱️ Mouse entered stop button');
+      });
+      
+      stopButton.addEventListener('mouseleave', () => {
+        console.log('🖱️ Mouse left stop button');
       });
     } else {
       console.error('❌ Stop button not found in DOM!');
@@ -2601,6 +3074,15 @@
 
     // Inject console forwarding into iframe once it loads
     previewIframe.addEventListener('load', () => {
+      console.log('🎬 Iframe loaded, sending ping to check readiness...');
+      
+      // Send ping to check if aesthetic.computer is ready
+      if (previewIframe.contentWindow) {
+        previewIframe.contentWindow.postMessage({ 
+          type: 'kidlisp-ping' 
+        }, aestheticUrl);
+      }
+      
       try {
         const iframeWindow = previewIframe.contentWindow;
         if (iframeWindow) {
@@ -2677,16 +3159,82 @@
     // Update initial console message
     updateUILanguage();
     
+    console.log('🎯 Setting up main message listener for kidlisp-ready...');
+    
     // Listen for console messages and syntax highlighting signals from iframe
     window.addEventListener('message', (event) => {
       console.log('📨 Message received:', event.data?.type, event.data);
+      console.log('📨 Message origin:', event.origin, 'Expected:', aestheticUrl);
       
-      if (event.data && event.data.type === 'console') {
+      // Handle ready signal from iframe
+      if (event.data && event.data.type === 'kidlisp-ready') {
+        console.log('✅ Iframe is ready! Enabling controls...');
+        sendButton.disabled = false;
+        stopButton.disabled = false;
+        sendButton.style.opacity = '1';
+        stopButton.style.opacity = '1';
+        // Remove disabled cursor
+        sendButton.style.cursor = 'pointer';
+        stopButton.style.cursor = 'pointer';
+        console.log('✅ Controls enabled!');
+        
+        // Mark that we want to auto-play, but wait for piece to be ready
+        const initialCode = editor?.getValue().trim();
+        if (initialCode && !isPlaying) {
+          console.log('🎬 Will auto-play once piece is fully loaded...');
+          shouldAutoPlay = true;
+          
+          // If piece is already ready, play immediately
+          if (pieceReady) {
+            console.log('🎬 Piece already ready, auto-playing now...');
+            updatePreview();
+            isPlaying = true;
+            isPaused = false;
+            sendButton.classList.add('playing');
+            sendButton.style.right = '64px';
+            stopButton.style.display = 'flex';
+            document.getElementById('kidlisp-editor').classList.add('live-running');
+            shouldAutoPlay = false;
+          }
+        }
+      } else if (event.data && event.data.type === 'console') {
         addConsoleEntry(event.data.message, event.data.level, event.data.line);
       } else if (event.data && event.data.type === 'kidlisp-highlight') {
         // Syntax highlighting signals from KidLisp execution
         if (editor && event.data.highlights) {
           applyHighlightDecorations(event.data.highlights);
+        }
+      } else if (event.data && event.data.type === 'setCode') {
+        // Code was set via setCode message (alternative to kidlisp-code-created)
+        console.log('🎉 setCode message received!', event.data);
+        const previewTitle = document.getElementById('preview-title');
+        const previewQR = document.getElementById('preview-qr');
+        
+        if (event.data.value) {
+          // Trigger generating animation
+          const codeSpan = previewTitle.querySelector('.code-display');
+          const dotSpan = previewTitle.querySelector('.bounce-dot');
+          if (codeSpan) codeSpan.classList.add('generating');
+          if (dotSpan) dotSpan.classList.add('generating');
+          
+          // Update title to show the code URL
+          previewTitle.innerHTML = `Aesthetic<span class="bounce-dot" style="color: #9370DB !important;">.</span>Computer/<span class="code-display">$${event.data.value}</span>`;
+          console.log('✅ Title updated to:', `Aesthetic.Computer/$${event.data.value}`);
+          
+          // Remove animation after it completes
+          setTimeout(() => {
+            const newCodeSpan = previewTitle.querySelector('.code-display');
+            const newDotSpan = previewTitle.querySelector('.bounce-dot');
+            if (newCodeSpan) newCodeSpan.classList.remove('generating');
+            if (newDotSpan) newDotSpan.classList.remove('generating');
+          }, 900);
+        }
+        
+        if (event.data.qr) {
+          // Display QR code as data URI if provided
+          previewQR.src = event.data.qr;
+          previewQR.style.display = 'block';
+          console.log('✅ QR code displayed from setCode');
         }
       } else if (event.data && event.data.type === 'kidlisp-code-created') {
         // Code was created with $ identifier
@@ -2695,9 +3243,23 @@
         const previewQR = document.getElementById('preview-qr');
         
         if (event.data.code) {
+          // Trigger generating animation
+          const codeSpan = previewTitle.querySelector('.code-display');
+          const dotSpan = previewTitle.querySelector('.bounce-dot');
+          if (codeSpan) codeSpan.classList.add('generating');
+          if (dotSpan) dotSpan.classList.add('generating');
+          
           // Update title to show the code URL
-          previewTitle.innerHTML = `Aesthetic<span class="bounce-dot" style="color: #9370DB !important;">.</span>Computer/$${event.data.code}`;
+          previewTitle.innerHTML = `Aesthetic<span class="bounce-dot" style="color: #9370DB !important;">.</span>Computer/<span class="code-display">$${event.data.code}</span>`;
           console.log('✅ Title updated to:', `Aesthetic.Computer/$${event.data.code}`);
+          
+          // Remove animation after it completes
+          setTimeout(() => {
+            const newCodeSpan = previewTitle.querySelector('.code-display');
+            const newDotSpan = previewTitle.querySelector('.bounce-dot');
+            if (newCodeSpan) newCodeSpan.classList.remove('generating');
+            if (newDotSpan) newDotSpan.classList.remove('generating');
+          }, 900);
         }
         
         if (event.data.qr) {
@@ -2947,41 +3509,99 @@
       }
     }
 
-    // Simple reload on manual file changes only
-    let lastModified = null;
+    // Session server connection with connectivity feedback
+    let sessionWs = null;
+    let reconnectInterval = null;
+    const connectivityDot = document.querySelector('.connectivity-dot');
     
-    // WebSocket-based reload for development
-    let reconnectInterval = false;
-    function connect() {
-      clearInterval(reconnectInterval);
-      let ws;
+    function setConnectivityState(state) {
+      if (!connectivityDot) return;
+      connectivityDot.className = 'connectivity-dot ' + state;
+    }
+    
+    function connectToSessionServer() {
+      if (reconnectInterval) {
+        clearInterval(reconnectInterval);
+        reconnectInterval = null;
+      }
+      
+      // Determine connection URL
+      let connectionUrl = "wss://localhost:8889";
+      if (window.location.host === "local.aesthetic.computer") {
+        connectionUrl = "wss://session.local.aesthetic.computer";
+      } else if (window.location.host === "kidlisp.com") {
+        connectionUrl = "wss://session.aesthetic.computer";
+      }
+      
+      setConnectivityState('connecting');
+      console.log("🧦 Connecting to session server:", connectionUrl);
+      
       try {
-        let connectionUrl = "wss://localhost:8889";
-        if (window.location.host === "local.aesthetic.computer") {
-          connectionUrl = "wss://session.local.aesthetic.computer";
-        }
-        ws = new WebSocket(connectionUrl);
-      } catch {
-        console.warn("🧦 Connection failed.");
+        sessionWs = new WebSocket(connectionUrl);
+      } catch (error) {
+        console.warn("🧦 Connection failed:", error);
+        setConnectivityState('disconnected');
+        scheduleReconnect();
         return;
       }
 
-      ws.onmessage = (e) => {
-        const msg = JSON.parse(e.data);
-        if (msg.type === "reload" && msg.content.piece === "*refresh*") {
-          setTimeout(() => {
-            console.log("🧦 Reloading...");
-            const url = new URL(window.location.href);
-            window.location.href = url.toString();
-          }, 150); // Wait a sec for backend functions to reload.
+      sessionWs.onopen = () => {
+        console.log("🧦 Connected to session server");
+        setConnectivityState('connected');
+      };
+
+      sessionWs.onmessage = (e) => {
+        // Blink the dot when receiving a message
+        setConnectivityState('receiving');
+        setTimeout(() => {
+          setConnectivityState('connected');
+        }, 400);
+        
+        try {
+          const msg = JSON.parse(e.data);
+          console.log("🧦 Received message:", msg);
+          
+          // Handle reload messages for full page refresh
+          if (msg.type === "reload") {
+            console.log("🧦 Reload message received:", msg.content.piece);
+            if (msg.content.piece === "*refresh*" || msg.content.piece === "kidlisp.com") {
+              console.log("🧦 Reloading entire page...");
+              setTimeout(() => {
+                window.location.reload();
+              }, 150); // Wait a moment for backend to be ready
+            }
+          }
+        } catch (error) {
+          console.warn("🧦 Error parsing message:", error);
         }
       };
 
-      ws.onclose = (e) => {
-        reconnectInterval = setInterval(connect, 1000);
+      sessionWs.onerror = (error) => {
+        console.warn("🧦 WebSocket error:", error);
+        setConnectivityState('disconnected');
+      };
+
+      sessionWs.onclose = () => {
+        console.log("🧦 Disconnected from session server");
+        setConnectivityState('disconnected');
+        sessionWs = null;
+        scheduleReconnect();
       };
     }
-    connect();
+    
+    function scheduleReconnect() {
+      if (!reconnectInterval) {
+        setConnectivityState('waiting');
+        reconnectInterval = setInterval(() => {
+          if (!sessionWs || sessionWs.readyState === WebSocket.CLOSED) {
+            connectToSessionServer();
+          }
+        }, 2000); // Try to reconnect every 2 seconds
+      }
+    }
+    
+    // Start connection on page load
+    connectToSessionServer();
   </script>
 </body>
 
