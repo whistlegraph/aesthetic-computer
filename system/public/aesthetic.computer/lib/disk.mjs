@@ -11958,21 +11958,23 @@ async function makeFrame({ data: { type, content } }) {
             
             const shouldShowQR = allGlyphsLoaded;
             
-            // Track if we've already rendered at least once with all glyphs loaded
-            // This ensures the painting callback has had time to actually render the glyphs
-            if (!font.__qrGlyphsRendered && shouldShowQR) {
-              // First frame where all glyphs are loaded - mark it but don't cache yet
-              font.__qrGlyphsRendered = false; // Will be set to true on next frame
-            } else if (font.__qrGlyphsRendered === false && shouldShowQR) {
-              // Second frame with all glyphs loaded - now safe to cache
-              font.__qrGlyphsRendered = true;
+            // Track when glyphs first become available to delay caching by one frame
+            // This ensures the painting callback has completed rendering before we cache
+            if (font && shouldShowQR && font.__qrGlyphsReadyFrame === undefined) {
+              // First frame where glyphs are loaded - mark the frame number
+              font.__qrGlyphsReadyFrame = (typeof window !== "undefined" && window.frameCount) || 0;
             }
             
-            const safeToCache = font?.__qrGlyphsRendered === true;
+            // Safe to cache if glyphs were ready at least 1 frame ago (or we don't have frameCount)
+            const currentFrame = (typeof window !== "undefined" && window.frameCount) || 0;
+            const safeToCache = shouldShowQR && (
+              font?.__qrGlyphsReadyFrame === undefined || 
+              currentFrame > font.__qrGlyphsReadyFrame
+            );
             
             // If font exists but glyphs not loaded yet, trigger loading and request repaint
             if (font && !shouldShowQR) {
-              font.__qrGlyphsRendered = undefined; // Reset the rendering flag
+              font.__qrGlyphsReadyFrame = undefined; // Reset the ready frame tracking
               if (!font.__loadPromise) {
                 ensureTypefaceLoaded(font);
               }
