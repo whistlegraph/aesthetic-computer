@@ -11,32 +11,43 @@
             box-sizing: border-box;
         }
 
+        :root {
+            --poster-width: min(1000px, 92vw, calc((100vh - 4vh) * 4 / 5));
+            --poster-height: calc(var(--poster-width) * 5 / 4);
+        }
+
         body {
             font-family: 'Arial', 'Helvetica', sans-serif;
             color: #000;
-            background: #fff;
-            height: 100vh;
+            background: #000;
+            min-height: 100vh;
             width: 100vw;
-            overflow: hidden;
+            overflow: auto;
             display: flex;
             justify-content: center;
             align-items: center;
+            padding: 2vh 2vw;
         }
 
         .poster-container {
-            display: flex;
-            flex-direction: column;
-            aspect-ratio: 4/3;
-            height: 100%;
-            width: auto;
+            display: grid;
+            grid-template-rows: auto 1fr auto auto;
+            grid-template-columns: 1fr;
+            gap: 0.8cqh;
+            width: var(--poster-width);
+            height: var(--poster-height);
+            aspect-ratio: 4 / 5;
+            background: #fff;
+            border: 0.4cqh solid #000;
+            box-shadow: 0 1cqh 3cqh rgba(0, 0, 0, 0.4);
             padding: 1cqh 1cqw;
             container-type: size;
+            overflow: hidden;
         }
 
-        @media (max-aspect-ratio: 4/3) {
-            .poster-container {
-                width: 100%;
-                height: auto;
+        @media (max-width: 600px) {
+            :root {
+                --poster-width: min(96vw, calc((100vh - 4vh) * 4 / 5));
             }
         }
 
@@ -45,14 +56,15 @@
             justify-content: space-between;
             align-items: center;
             border-bottom: 0.4cqh solid #000;
-            padding-bottom: 1cqh;
-            margin-bottom: 1cqh;
-            flex: 0 0 auto;
+            padding: 0.8cqh 0.5cqw;
             gap: 2cqw;
+            aspect-ratio: 16 / 3;
+            width: 100%;
+            height: auto;
         }
 
         h1 {
-            font-size: 2.8cqh;
+            font-size: 2cqh;
             font-weight: 900;
             text-transform: uppercase;
             letter-spacing: 0.05cqw;
@@ -63,7 +75,7 @@
         }
 
         .subtitle {
-            font-size: 1.8cqh;
+            font-size: 1.2cqh;
             font-weight: 900;
             text-transform: uppercase;
             text-align: right;
@@ -74,11 +86,10 @@
         .top-section {
             display: grid;
             grid-template-columns: 1.2fr 1fr 0.8fr;
-            gap: 1cqw;
-            flex: 0 0 auto;
+            gap: 0.8cqw;
+            aspect-ratio: 16 / 7;
+            width: 100%;
             height: auto;
-            min-height: 25cqh;
-            margin-bottom: 1cqh;
         }
 
         .event-box, .artists-box, .venmo-box {
@@ -87,6 +98,9 @@
             display: flex;
             flex-direction: column;
             justify-content: space-between;
+            aspect-ratio: auto;
+            height: 100%;
+            overflow: hidden;
         }
 
         .event-box h2, .artists-box h2, .venmo-box h2 {
@@ -112,7 +126,7 @@
         }
 
         .date-highlight {
-            font-size: 3.5cqh;
+            font-size: 2.5cqh;
             font-weight: 900;
             color: #000;
             text-align: center;
@@ -133,6 +147,7 @@
             gap: 0.5cqw;
             flex: 1;
             min-height: 0;
+            overflow: auto;
         }
 
         .info-box {
@@ -140,8 +155,9 @@
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            padding: 0.8cqh 0.6cqw;
+            padding: 0.6cqh 0.4cqw;
             position: relative;
+            min-height: 0;
         }
 
         .info-box:nth-child(1) { background-color: #ffcccc; transform: rotate(-1deg); }
@@ -149,7 +165,7 @@
         .info-box:nth-child(3) { background-color: #ccccff; transform: rotate(-0.5deg); }
 
         .info-box h3 {
-            font-size: 1.2cqh;
+            font-size: 1cqh;
             font-weight: 900;
             text-transform: uppercase;
             text-align: left;
@@ -160,11 +176,12 @@
         }
 
         .info-box p {
-            font-size: 2.2cqh;
+            font-size: clamp(1.2cqh, 1.6cqh, 1.8cqh);
             font-weight: 900;
             line-height: 1;
             text-align: right;
             align-self: flex-end;
+            word-break: break-word;
         }
 
         /* Artists Box */
@@ -189,14 +206,16 @@
             flex-wrap: wrap;
             justify-content: center;
             align-items: center;
-            align-content: center;
-            gap: 3cqh 2.5cqw;
-            padding: 1cqh;
+            align-content: flex-start;
+            gap: 2cqh 1.5cqw;
+            padding: 0.8cqh;
             height: 100%;
+            overflow: auto;
+            min-height: 0;
         }
 
         .artists-grid div {
-            font-size: 2cqh;
+            font-size: 1.4cqh;
             line-height: 1;
             font-weight: 900;
             text-transform: uppercase;
@@ -215,7 +234,7 @@
         }
 
         .artists-grid div:nth-child(3n) {
-            font-size: 2.2cqh;
+            font-size: 1.8cqh;
         }
 
         .artists-grid div:nth-child(5n) {
@@ -234,14 +253,14 @@
         }
 
         .venmo-box h2 {
-            font-size: 4cqh;
+            font-size: 3cqh;
             line-height: 0.8;
             margin: 0;
             transform: rotate(-2deg);
         }
 
         .venmo-box img {
-            max-height: 22cqh;
+            max-height: 16cqh;
             max-width: 100%;
             object-fit: contain;
             margin: 0.5cqh 0;
@@ -275,60 +294,88 @@
             height: 2.8cqh;
             font-size: 1.4cqh;
             line-height: 1;
-            flex-shrink: 0;
+            vertical-align: middle;
+        }
+
+        .artwork-item .number-badge {
+            position: absolute;
+            top: 0.4cqh;
+            left: 0.4cqw;
+            z-index: 2;
         }
 
         /* Works Section */
         .works-section {
-            flex: 1;
             display: flex;
             flex-direction: column;
+            aspect-ratio: 4 / 3;
+            width: 100%;
+            height: auto;
             overflow: hidden;
+            border: 0.15cqh solid #000;
+            padding: 0.6cqh 0.6cqw;
         }
 
         .works-section h2 {
-            font-size: 1.8cqh;
+            font-size: 1.3cqh;
             text-align: center;
             text-transform: uppercase;
             font-weight: 900;
-            margin-bottom: 0.5cqh;
+            margin-bottom: 0.4cqh;
             flex: 0 0 auto;
         }
 
         .works-grid {
             display: grid;
-            grid-template-columns: repeat(6, 1fr);
-            grid-template-rows: repeat(2, 1fr);
+            grid-template-columns: repeat(4, minmax(0, 1fr));
             gap: 0.5cqw;
+            padding: 0;
+            align-content: flex-start;
             flex: 1;
             min-height: 0;
+            overflow: auto;
         }
 
         .artwork-item {
             border: 0.1cqh solid #000;
-            padding: 0.5cqh 0.5cqw;
+            padding: 2cqh 0.5cqw 0.6cqh;
             display: flex;
             flex-direction: column;
-            height: 100%;
+            gap: 0.5cqh;
             background: #fff;
-            overflow: hidden;
+            position: relative;
+            aspect-ratio: 3 / 4;
         }
 
         .artwork-image {
-            flex: 1;
             width: 100%;
-            height: 0;
-            min-height: 0;
-            object-fit: contain;
-            margin-bottom: 0.5cqh;
+            height: auto;
+            max-height: 8cqh;
+            object-fit: cover;
+            border: 0.05cqh solid #000;
+            display: block;
+            flex: 0 0 auto;
+            box-shadow: 0.15cqh 0.15cqw 0 rgba(0,0,0,0.25);
+            margin-bottom: 0.3cqh;
         }
 
         .artwork-info {
-            flex: 0 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25cqh;
+            flex: 1 1 auto;
+            min-height: 0;
+        }
+
+        .artwork-info h3,
+        .artwork-info .title,
+        .artwork-info .details {
+            position: relative;
+            z-index: 1;
         }
 
         .artwork-info h3 {
-            font-size: 1.1cqh;
+            font-size: 0.9cqh;
             font-weight: 700;
             line-height: 1.1;
             margin-bottom: 0.1cqh;
@@ -339,7 +386,7 @@
 
         .artwork-info .title {
             font-style: italic;
-            font-size: 1.3cqh;
+            font-size: 1cqh;
             font-weight: 900;
             line-height: 1.1;
             margin-bottom: 0.1cqh;
@@ -349,7 +396,7 @@
         }
 
         .artwork-info .details {
-            font-size: 0.9cqh;
+            font-size: 0.7cqh;
             font-family: 'Courier New', monospace;
             line-height: 1.1;
             white-space: nowrap;
@@ -358,34 +405,57 @@
         }
 
         footer {
-            flex: 0 0 auto;
             display: flex;
             justify-content: center;
             align-items: center;
-            margin-top: 1cqh;
-            padding: 1.5cqh 0;
-            font-size: 2.5cqh;
+            padding: 0.5cqh 0.5cqw;
+            font-size: 2cqh;
             font-weight: 900;
             text-transform: uppercase;
             color: #cc0000;
+            aspect-ratio: 16 / 1.5;
+            width: 100%;
+            height: auto;
         }
 
         footer img {
-            height: 4cqh;
-            margin: 0 1cqw;
+            height: 3cqh;
+            margin: 0 0.8cqw;
             border: 0.2cqh solid #000;
         }
 
-        @media (max-width: 1000px) {
-            .works-grid {
-                grid-template-columns: repeat(4, 1fr);
+        @container (max-width: 85cqw) {
+            header {
+                flex-direction: column;
+                text-align: center;
+                gap: 1cqh;
+            }
+            .subtitle {
+                text-align: center;
             }
             .top-section {
-                height: auto;
-                flex: 1;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
             }
-            .works-section {
-                flex: 2;
+            .venmo-box {
+                grid-column: span 2;
+            }
+            .works-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @container (max-width: 55cqw) {
+            .top-section {
+                grid-template-columns: 1fr;
+            }
+            .venmo-box {
+                grid-column: auto;
+            }
+            .works-grid {
+                grid-template-columns: 1fr;
+            }
+            .artists-box .artists-grid {
+                gap: 1.5cqh 1cqw;
             }
         }
     </style>
@@ -397,58 +467,10 @@
             <p class="subtitle">To help support an undocumented family seeking relocation</p>
         </header>
 
-        <div class="top-section">
-            <div class="event-box">
-                <div class="date-highlight">December 14, 2025</div>
-                <div class="detail-item" style="font-size: 3cqh; font-weight: 900; margin: 0.5cqh 0;">7-11 PM</div>
-                <div class="detail-item" style="margin-top: 0.5cqh; font-size: 2cqh; font-weight: 900;">Tropico Beauty<br>415 West Palmer Ave<br>Glendale, CA 91204</div>
-                
-                <div class="info-boxes">
-                    <div class="info-box">
-                        <h3>🎟️ Entry</h3>
-                        <p>Presale $5<br>Day of $10<br>Free w/ raffle ticket</p>
-                    </div>
-                    <div class="info-box">
-                        <h3>🎵 Music</h3>
-                        <p>Jazmin Garcia<br>"Como La Flor"<br>&<br>Ana Calderon</p>
-                    </div>
-                    <div class="info-box">
-                        <h3>🍜 Food</h3>
-                        <p>Pine and Crane<br>+<br>Cash Bar</p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="artists-box">
-                <h2>Artists</h2>
-                <div class="artists-grid">
-                    <div>Alina Perkins</div>
-                    <div>Paz G</div>
-                    <div>Devendra Banhart</div>
-                    <div>Ari Salka</div>
-                    <div>Tuna Bora</div>
-                    <div>Sissòn</div>
-                    <div>Alia Shawkat</div>
-                    <div>Max Rippon</div>
-                    <div>Mia Weiner</div>
-                    <div>Jonny Negron</div>
-                    <div>Jake Sheiner</div>
-                    <div>Lucy Black</div>
-                    <div>Chloe Pang</div>
-                </div>
-            </div>
-
-            <div class="venmo-box">
-                <h2>Raffle</h2>
-                <img src="venmo_qr.png" alt="Venmo QR">
-                <div class="venmo-instructions">$30 each, $150 for 6<br>Venmo the <span class="number-badge">#</span> you want</div>
-            </div>
-        </div>
-
         <div class="works-section">
-            <div style="text-align: center; flex: 0 0 auto; margin-bottom: 0.5cqh;">
-                <h2 style="display: inline-block; margin-right: 1cqw;">12 WORKS</h2>
-                <span style="font-size: 2cqh; font-weight: 900; color: #000; text-transform: uppercase;">Pick your favorite below &darr;</span>
+            <div style="text-align: center; flex: 0 0 auto; margin-bottom: 0.3cqh;">
+                <h2 style="display: inline-block; margin-right: 0.5cqw;">12 WORKS</h2>
+                <span style="font-size: 1cqh; font-weight: 900; color: #000; text-transform: uppercase;">Pick your favorite below &darr;</span>
             </div>
             <div class="works-grid">
                 <!-- #1 -->
@@ -582,6 +604,54 @@
                         <div class="details">2025<br>Acrylic on cradled panel<br>18×18"</div>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <div class="top-section">
+            <div class="event-box">
+                <div class="date-highlight">December 14, 2025</div>
+                <div class="detail-item" style="font-size: 3cqh; font-weight: 900; margin: 0.5cqh 0;">7-11 PM</div>
+                <div class="detail-item" style="margin-top: 0.5cqh; font-size: 2cqh; font-weight: 900;">Tropico Beauty<br>415 West Palmer Ave<br>Glendale, CA 91204</div>
+                
+                <div class="info-boxes">
+                    <div class="info-box">
+                        <h3>🎟️ Entry</h3>
+                        <p>Presale $5<br>Day of $10<br>Free w/ raffle ticket</p>
+                    </div>
+                    <div class="info-box">
+                        <h3>🎵 Music</h3>
+                        <p>Jazmin Garcia<br>"Como La Flor"<br>&<br>Ana Calderon</p>
+                    </div>
+                    <div class="info-box">
+                        <h3>🍜 Food</h3>
+                        <p>Pine and Crane<br>+<br>Cash Bar</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="artists-box">
+                <h2>Artists</h2>
+                <div class="artists-grid">
+                    <div>Alina Perkins</div>
+                    <div>Paz G</div>
+                    <div>Devendra Banhart</div>
+                    <div>Ari Salka</div>
+                    <div>Tuna Bora</div>
+                    <div>Sissòn</div>
+                    <div>Alia Shawkat</div>
+                    <div>Max Rippon</div>
+                    <div>Mia Weiner</div>
+                    <div>Jonny Negron</div>
+                    <div>Jake Sheiner</div>
+                    <div>Lucy Black</div>
+                    <div>Chloe Pang</div>
+                </div>
+            </div>
+
+            <div class="venmo-box">
+                <h2>Raffle</h2>
+                <img src="venmo_qr.png" alt="Venmo QR">
+                <div class="venmo-instructions">$30 each, $150 for 6<br>Venmo the <span class="number-badge">#</span> you want</div>
             </div>
         </div>
 

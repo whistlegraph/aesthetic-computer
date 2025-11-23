@@ -302,6 +302,14 @@ canvas[data-type="ui"] {
   /* display: none; */
 }
 
+canvas[data-type="webgpu"] {
+  z-index: 1; /* Below UI and glaze, but above main canvas */
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+}
+
 canvas[data-type="2d"] {
   z-index: 7;
 }

@@ -2942,6 +2942,35 @@ const $commonApi = {
       return p;
     },
   },
+  // WebGPU 2D Renderer API
+  webgpu: {
+    enabled: false, // Flag to disable CPU renderer when true
+    clear: (r = 0, g = 0, b = 0, a = 255) => {
+      send({ 
+        type: "webgpu-command", 
+        content: { 
+          type: "clear", 
+          color: [r, g, b, a] 
+        } 
+      });
+    },
+    line: (x1, y1, x2, y2, r = 255, g = 255, b = 255, a = 255) => {
+      send({ 
+        type: "webgpu-command", 
+        content: { 
+          type: "line", 
+          x1, y1, x2, y2,
+          color: [r, g, b, a] 
+        } 
+      });
+    },
+    render: () => {
+      send({ 
+        type: "webgpu-command", 
+        content: { type: "render" } 
+      });
+    },
+  },
   // Deprecated in favor of `bios` -> `hitboxes`. (To support iOS)
   // clipboard: {
   //   copy: (text) => {
@@ -4855,6 +4884,22 @@ const $paintApiUnwrapped = {
       ink(...arguments);
     }
     
+    // 🎨 WebGPU clear if enabled
+    if ($commonApi.webgpu.enabled) {
+      send({ 
+        type: "webgpu-command", 
+        content: { 
+          type: "clear", 
+          color: graph.c.slice(0) 
+        } 
+      });
+      ink(...cc);
+      if (!preserveFadeAlpha && typeof setPreserveFadeAlpha === 'function') {
+        setPreserveFadeAlpha(false);
+      }
+      return;
+    }
+    
     // 🎨 REFRAME FIX: Use explicit canvas fill to ensure extended areas are covered
     // For reframe operations, graph.clear() may not cover new extended areas
     graph.withForceReplaceMode(() => {
@@ -4978,6 +5023,20 @@ const $paintApiUnwrapped = {
     twoDCommands.push(["point", ...out]);
   },
   line: function() {
+    // 🎨 WebGPU line if enabled
+    if ($commonApi.webgpu.enabled && arguments.length >= 4) {
+      const [x1, y1, x2, y2] = arguments;
+      const color = graph.c.slice(0);
+      send({ 
+        type: "webgpu-command", 
+        content: { 
+          type: "line", 
+          x1, y1, x2, y2,
+          color
+        } 
+      });
+      return;
+    }
     return graph.line(...arguments);
   },
   lineAngle: graph.lineAngle,
@@ -12639,6 +12698,9 @@ async function makeFrame({ data: { type, content } }) {
       // Optional messages to send.
       if (painted === true) sendData.paintChanged = true;
       if (loading === true) sendData.loading = true;
+      
+      // WebGPU state (tell main thread whether to skip CPU rendering)
+      if ($commonApi.webgpu.enabled) sendData.webgpuEnabled = true;
 
       // These fields are one time `signals`.
       if (reframe || glazeAfterReframe) {

@@ -38,6 +38,7 @@ import { checkPackMode } from "./lib/pack-mode.mjs";
 import { soundWhitelist } from "./lib/sound/sound-whitelist.mjs";
 import { timestamp, radians } from "./lib/num.mjs";
 import * as graph from "./lib/graph.mjs";
+import * as WebGPU from "./lib/webgpu.mjs";
 
 // import * as TwoD from "./lib/2d.mjs"; // 🆕 2D GPU Renderer.
 const TwoD = undefined;
@@ -800,7 +801,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d", { willReadFrequently: true });
 
-  // 🖥️🔌 Secondary main display surface. (GPU Renderer)
+  // 🖥️🔌 WebGPU 2D Renderer Canvas
+  const webgpuCanvas = document.createElement("canvas");
+  webgpuCanvas.dataset.type = "webgpu";
+  webgpuCanvas.style.position = "absolute";
+  webgpuCanvas.style.top = "0";
+  webgpuCanvas.style.left = "0";
+  webgpuCanvas.style.zIndex = "1"; // Place above main canvas
+  webgpuCanvas.style.pointerEvents = "none"; // Let events pass through to main canvas
+  webgpuCanvas.style.display = "none"; // Hidden by default until WebGPU is enabled
+
+  // 🖥️🔌 Secondary main display surface. (3D GPU Renderer)
   // TODO: Eventually deprecate the software renderer in favor of this?
   //       (Or even reuse the same tag if pieces swap.)
   //       TODO: Would it be possible for pieces to use both... and why?
@@ -1057,6 +1068,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     canvas.width = width;
     canvas.height = height;
 
+    // Resize WebGPU canvas to match
+    webgpuCanvas.width = width;
+    webgpuCanvas.height = height;
+
     // Restore the clean pixels onto the resized canvas
     ctx.drawImage(tempCanvas, 0, 0);
 
@@ -1246,6 +1261,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     canvas.style.width = projectedWidth + "px";
     canvas.style.height = projectedHeight + "px";
+    webgpuCanvas.style.width = projectedWidth + "px";
+    webgpuCanvas.style.height = projectedHeight + "px";
     uiCanvas.style.width = projectedWidth + "px";
     uiCanvas.style.height = projectedHeight + "px";
 
@@ -1284,7 +1301,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       wrapper.append(uiCanvas);
       if (debug) wrapper.append(debugCanvas);
+      wrapper.append(webgpuCanvas); // Add WebGPU canvas (initially hidden)
       document.body.append(wrapper);
+
+      // Initialize WebGPU 2D renderer with dedicated canvas
+      initWebGPU(webgpuCanvas).catch(err => {
+        console.warn("⚠️ WebGPU initialization failed:", err);
+      });
 
       const fonts = [
         "berkeley-mono-variable.css",
@@ -1579,6 +1602,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       receivedUpload,
       send,
     );
+  }
+
+  // WebGPU 2D Renderer
+  let webGPUInitialized = false;
+  async function initWebGPU(canvas) {
+    if (webGPUInitialized) return;
+    webGPUInitialized = await WebGPU.init(canvas);
+    if (webGPUInitialized) {
+      console.log("🎨 WebGPU 2D renderer ready");
+    }
   }
 
   // Web3
@@ -10312,6 +10345,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    if (type === "webgpu-command") {
+      WebGPU.handleCommand(content);
+      return;
+    }
+
     // Adding custom DOM content.
     if (type === "content-create") {
       // Create a DOM container, if it doesn't already exist,
@@ -14022,11 +14060,34 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           }
           // Use async rendering for better performance (except during tape playback for immediate UI)
           const forceSynchronousRendering = isRecording || needs$creenshot;
-          if (underlayFrame) {
+          
+          // Skip CPU rendering if WebGPU is enabled
+          if (content.webgpuEnabled) {
+            // Hide CPU canvas and rely on WebGPU surface
+            if (canvas.style.visibility !== "hidden") {
+              canvas.style.visibility = "hidden";
+            }
+            if (webgpuCanvas.style.display === "none") {
+              webgpuCanvas.style.display = "block";
+            }
+            skipImmediateOverlays = true; // Overlays will be handled separately
+          } else if (underlayFrame) {
+            if (canvas.style.visibility !== "visible") {
+              canvas.style.visibility = "visible";
+            }
+            if (webgpuCanvas.style.display !== "none") {
+              webgpuCanvas.style.display = "none";
+            }
             // Force sync rendering during tape playback for immediate UI updates
             ctx.putImageData(imageData, 0, 0);
           } else if (!forceSynchronousRendering && window.pixelOptimizer && window.pixelOptimizer.asyncRenderingSupported) {
             try {
+              if (canvas.style.visibility !== "visible") {
+                canvas.style.visibility = "visible";
+              }
+              if (webgpuCanvas.style.display !== "none") {
+                webgpuCanvas.style.display = "none";
+              }
               // Non-blocking async rendering
               window.pixelOptimizer.renderImageDataAsync(imageData, ctx, 0, 0).then(() => {
                 // Paint overlays after async fallback rendering completes
@@ -14044,10 +14105,22 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               });
               skipImmediateOverlays = true; // Skip immediate overlays; they'll paint in async callback
             } catch (err) {
+              if (canvas.style.visibility !== "visible") {
+                canvas.style.visibility = "visible";
+              }
+              if (webgpuCanvas.style.display !== "none") {
+                webgpuCanvas.style.display = "none";
+              }
               ctx.putImageData(imageData, 0, 0);
               skipImmediateOverlays = false;
             }
           } else {
+            if (canvas.style.visibility !== "visible") {
+              canvas.style.visibility = "visible";
+            }
+            if (webgpuCanvas.style.display !== "none") {
+              webgpuCanvas.style.display = "none";
+            }
             ctx.putImageData(imageData, 0, 0);
             skipImmediateOverlays = false;
           }
