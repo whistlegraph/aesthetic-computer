@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Art Raffle Fundraiser - December 14, 2025</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', 'Helvetica', sans-serif;
+            color: #000;
+            background: #fff;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .poster-container {
+            display: flex;
+            flex-direction: column;
+            aspect-ratio: 4/3;
+            height: 100%;
+            width: auto;
+            padding: 1cqh 1cqw;
+            container-type: size;
+        }
+
+        @media (max-aspect-ratio: 4/3) {
+            .poster-container {
+                width: 100%;
+                height: auto;
+            }
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 0.4cqh solid #000;
+            padding-bottom: 1cqh;
+            margin-bottom: 1cqh;
+            flex: 0 0 auto;
+            gap: 2cqw;
+        }
+
+        h1 {
+            font-size: 2.8cqh;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.05cqw;
+            line-height: 1;
+            margin: 0;
+            white-space: nowrap;
+            flex: 0 0 auto;
+        }
+
+        .subtitle {
+            font-size: 1.8cqh;
+            font-weight: 900;
+            text-transform: uppercase;
+            text-align: right;
+            line-height: 1;
+            flex: 1;
+        }
+
+        .top-section {
+            display: grid;
+            grid-template-columns: 1.2fr 1fr 0.8fr;
+            gap: 1cqw;
+            flex: 0 0 auto;
+            height: auto;
+            min-height: 25cqh;
+            margin-bottom: 1cqh;
+        }
+
+        .event-box, .artists-box, .venmo-box {
+            border: 0.2cqh solid #000;
+            padding: 0.5cqh 0.5cqw;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .event-box h2, .artists-box h2, .venmo-box h2 {
+            font-size: 1.8cqh;
+            text-transform: uppercase;
+            font-weight: 900;
+            letter-spacing: 0.05cqw;
+            margin-bottom: 0.2cqh;
+            text-align: center;
+        }
+
+        /* Event Box Specifics */
+        .event-box {
+            background: radial-gradient(circle, #fff 20%, #ffffcc 90%);
+            border: 0.3cqh dashed #ff00ff;
+        }
+
+        .opening-text {
+            font-size: 1.6cqh;
+            font-weight: 900;
+            text-transform: uppercase;
+            text-align: center;
+        }
+
+        .date-highlight {
+            font-size: 3.5cqh;
+            font-weight: 900;
+            color: #000;
+            text-align: center;
+            margin-bottom: 0.2cqh;
+        }
+
+        .location-info {
+            text-align: center;
+            font-size: 1.2cqh;
+            font-weight: 700;
+            line-height: 1.1;
+            margin-bottom: 0.5cqh;
+        }
+
+        .info-boxes {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 0.5cqw;
+            flex: 1;
+            min-height: 0;
+        }
+
+        .info-box {
+            border: 0.2cqh solid #000;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 0.8cqh 0.6cqw;
+            position: relative;
+        }
+
+        .info-box:nth-child(1) { background-color: #ffcccc; transform: rotate(-1deg); }
+        .info-box:nth-child(2) { background-color: #ccffcc; transform: rotate(1deg); z-index: 1; }
+        .info-box:nth-child(3) { background-color: #ccccff; transform: rotate(-0.5deg); }
+
+        .info-box h3 {
+            font-size: 1.2cqh;
+            font-weight: 900;
+            text-transform: uppercase;
+            text-align: left;
+            line-height: 0.9;
+            transform: rotate(-2deg);
+            transform-origin: bottom left;
+            opacity: 0.8;
+        }
+
+        .info-box p {
+            font-size: 2.2cqh;
+            font-weight: 900;
+            line-height: 1;
+            text-align: right;
+            align-self: flex-end;
+        }
+
+        /* Artists Box */
+        .artists-box {
+            padding: 0;
+            overflow: hidden;
+            background: #fff;
+            border: 0.4cqh solid #000;
+        }
+
+        .artists-box h2 {
+            background: transparent;
+            color: #000;
+            padding: 0.5cqh 0;
+            margin: 0;
+            font-size: 1.5cqh;
+            border-bottom: 0.4cqh solid #000;
+        }
+
+        .artists-box .artists-grid {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            align-content: center;
+            gap: 3cqh 2.5cqw;
+            padding: 1cqh;
+            height: 100%;
+        }
+
+        .artists-grid div {
+            font-size: 2cqh;
+            line-height: 1;
+            font-weight: 900;
+            text-transform: uppercase;
+        }
+
+        /* Fun/Hip Artist Styles */
+        .artists-grid div:nth-child(odd) {
+            font-family: 'Times New Roman', serif;
+            font-style: italic;
+            transform: rotate(-3deg);
+        }
+
+        .artists-grid div:nth-child(even) {
+            font-family: 'Arial', sans-serif;
+            transform: rotate(2deg);
+        }
+
+        .artists-grid div:nth-child(3n) {
+            font-size: 2.2cqh;
+        }
+
+        .artists-grid div:nth-child(5n) {
+            font-family: 'Courier New', monospace;
+            letter-spacing: -0.1cqw;
+            transform: scale(1.1) rotate(4deg);
+        }
+
+        /* Raffle Box */
+        .venmo-box {
+            align-items: center;
+            justify-content: space-between;
+            padding: 1cqh 0.5cqw;
+            background: #ccffcc;
+            border: 0.2cqh solid #006400;
+        }
+
+        .venmo-box h2 {
+            font-size: 4cqh;
+            line-height: 0.8;
+            margin: 0;
+            transform: rotate(-2deg);
+        }
+
+        .venmo-box img {
+            max-height: 22cqh;
+            max-width: 100%;
+            object-fit: contain;
+            margin: 0.5cqh 0;
+            transform: rotate(2deg);
+            border: 0.2cqh solid #000;
+            box-shadow: 0.3cqh 0.3cqh 0px #cc0000;
+        }
+
+        .venmo-instructions {
+            font-size: 1.8cqh;
+            color: #000;
+            font-weight: 900;
+            text-align: center;
+            line-height: 1.1;
+            background: #cc0000;
+            color: #fff;
+            padding: 0.5cqh;
+            transform: rotate(-1deg);
+            width: 100%;
+        }
+
+        .number-badge {
+            background: #cc0000;
+            color: #fff;
+            border-radius: 50%;
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: 900;
+            width: 2.8cqh;
+            height: 2.8cqh;
+            font-size: 1.4cqh;
+            line-height: 1;
+            flex-shrink: 0;
+        }
+
+        /* Works Section */
+        .works-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .works-section h2 {
+            font-size: 1.8cqh;
+            text-align: center;
+            text-transform: uppercase;
+            font-weight: 900;
+            margin-bottom: 0.5cqh;
+            flex: 0 0 auto;
+        }
+
+        .works-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            grid-template-rows: repeat(2, 1fr);
+            gap: 0.5cqw;
+            flex: 1;
+            min-height: 0;
+        }
+
+        .artwork-item {
+            border: 0.1cqh solid #000;
+            padding: 0.5cqh 0.5cqw;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            background: #fff;
+            overflow: hidden;
+        }
+
+        .artwork-image {
+            flex: 1;
+            width: 100%;
+            height: 0;
+            min-height: 0;
+            object-fit: contain;
+            margin-bottom: 0.5cqh;
+        }
+
+        .artwork-info {
+            flex: 0 0 auto;
+        }
+
+        .artwork-info h3 {
+            font-size: 1.1cqh;
+            font-weight: 700;
+            line-height: 1.1;
+            margin-bottom: 0.1cqh;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .artwork-info .title {
+            font-style: italic;
+            font-size: 1.3cqh;
+            font-weight: 900;
+            line-height: 1.1;
+            margin-bottom: 0.1cqh;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .artwork-info .details {
+            font-size: 0.9cqh;
+            font-family: 'Courier New', monospace;
+            line-height: 1.1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        footer {
+            flex: 0 0 auto;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-top: 1cqh;
+            padding: 1.5cqh 0;
+            font-size: 2.5cqh;
+            font-weight: 900;
+            text-transform: uppercase;
+            color: #cc0000;
+        }
+
+        footer img {
+            height: 4cqh;
+            margin: 0 1cqw;
+            border: 0.2cqh solid #000;
+        }
+
+        @media (max-width: 1000px) {
+            .works-grid {
+                grid-template-columns: repeat(4, 1fr);
+            }
+            .top-section {
+                height: auto;
+                flex: 1;
+            }
+            .works-section {
+                flex: 2;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="poster-container">
+        <header>
+            <h1>ART FUNDRAISER PARTY</h1>
+            <p class="subtitle">To help support an undocumented family seeking relocation</p>
+        </header>
+
+        <div class="top-section">
+            <div class="event-box">
+                <div class="date-highlight">December 14, 2025</div>
+                <div class="detail-item" style="font-size: 3cqh; font-weight: 900; margin: 0.5cqh 0;">7-11 PM</div>
+                <div class="detail-item" style="margin-top: 0.5cqh; font-size: 2cqh; font-weight: 900;">Tropico Beauty<br>415 West Palmer Ave<br>Glendale, CA 91204</div>
+                
+                <div class="info-boxes">
+                    <div class="info-box">
+                        <h3>🎟️ Entry</h3>
+                        <p>Presale $5<br>Day of $10<br>Free w/ raffle ticket</p>
+                    </div>
+                    <div class="info-box">
+                        <h3>🎵 Music</h3>
+                        <p>Jazmin Garcia<br>"Como La Flor"<br>&<br>Ana Calderon</p>
+                    </div>
+                    <div class="info-box">
+                        <h3>🍜 Food</h3>
+                        <p>Pine and Crane<br>+<br>Cash Bar</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="artists-box">
+                <h2>Artists</h2>
+                <div class="artists-grid">
+                    <div>Alina Perkins</div>
+                    <div>Paz G</div>
+                    <div>Devendra Banhart</div>
+                    <div>Ari Salka</div>
+                    <div>Tuna Bora</div>
+                    <div>Sissòn</div>
+                    <div>Alia Shawkat</div>
+                    <div>Max Rippon</div>
+                    <div>Mia Weiner</div>
+                    <div>Jonny Negron</div>
+                    <div>Jake Sheiner</div>
+                    <div>Lucy Black</div>
+                    <div>Chloe Pang</div>
+                </div>
+            </div>
+
+            <div class="venmo-box">
+                <h2>Raffle</h2>
+                <img src="venmo_qr.png" alt="Venmo QR">
+                <div class="venmo-instructions">$30 each, $150 for 6<br>Venmo the <span class="number-badge">#</span> you want</div>
+            </div>
+        </div>
+
+        <div class="works-section">
+            <div style="text-align: center; flex: 0 0 auto; margin-bottom: 0.5cqh;">
+                <h2 style="display: inline-block; margin-right: 1cqw;">12 WORKS</h2>
+                <span style="font-size: 2cqh; font-weight: 900; color: #000; text-transform: uppercase;">Pick your favorite below &darr;</span>
+            </div>
+            <div class="works-grid">
+                <!-- #1 -->
+                <div class="artwork-item">
+                    <div class="number-badge">#1</div>
+                    <img src="images/image10.jpg" alt="Jonny Negron" class="artwork-image">
+                    <div class="artwork-info">
+                        <div class="title">Free Karma</div>
+                        <h3>Jonny Negron</h3>
+                        <div class="details">2019<br>Ink on paper<br>11×14"</div>
+                    </div>
+                </div>
+
+                <!-- #2 -->
+                <div class="artwork-item">
+                    <div class="number-badge">#2</div>
+                    <img src="images/image1.png" alt="Paz G" class="artwork-image">
+                    <div class="artwork-info">
+                        <div class="title">Untitled</div>
+                        <h3>Paz G</h3>
+                        <div class="details">2024<br>Stoneware + glaze<br>17×17×12"</div>
+                    </div>
+                </div>
+
+                <!-- #3 -->
+                <div class="artwork-item">
+                    <div class="number-badge">#3</div>
+                    <img src="images/image5.jpg" alt="Sisson" class="artwork-image">
+                    <div class="artwork-info">
+                        <div class="title">Blessings Birth Blessings</div>
+                        <h3>Sissòn</h3>
+                        <div class="details">2023<br>Charcoal + pastel on cotton paper<br>20 1/8×17 1/8" (with maple wood frame)</div>
+                    </div>
+                </div>
+
+                <!-- #4 -->
+                <div class="artwork-item">
+                    <div class="number-badge">#4</div>
+                    <img src="images/image8.png" alt="Jake Sheiner" class="artwork-image">
+                    <div class="artwork-info">
+                        <div class="title">Wash</div>
+                        <h3>Jake Sheiner</h3>
+                        <div class="details">2022<br>Acrylic on Canvas<br>24×30"</div>
+                    </div>
+                </div>
+
+                <!-- #5 -->
+                <div class="artwork-item">
+                    <div class="number-badge">#5</div>
+                    <img src="images/image12.jpg" alt="Lucy Black" class="artwork-image">
+                    <div class="artwork-info">
+                        <div class="title">Hugging swans</div>
+                        <h3>Lucy Black</h3>
+                        <div class="details">2025<br>Cotton waffle fabric, stuffing + wire on canvas<br>8×11"</div>
+                    </div>
+                </div>
+
+                <!-- #6 -->
+                <div class="artwork-item">
+                    <div class="number-badge">#6</div>
+                    <img src="images/image4.jpg" alt="Alia Shawkat" class="artwork-image">
+                    <div class="artwork-info">
+                        <div class="title">Untitled</div>
+                        <h3>Alia Shawkat</h3>
+                        <div class="details">2020<br>Oil on paper<br>19.5×16.5" (framed)</div>
+                    </div>
+                </div>
+
+                <!-- #7 -->
+                <div class="artwork-item">
+                    <div class="number-badge">#7</div>
+                    <img src="images/image9.jpg" alt="Devendra Banhart" class="artwork-image">
+                    <div class="artwork-info">
+                        <div class="title">Para Paz</div>
+                        <h3>Devendra Banhart</h3>
+                        <div class="details">2025<br>Oil on wood<br>17×21" (in artist's frame)</div>
+                    </div>
+                </div>
+
+                <!-- #8 -->
+                <div class="artwork-item">
+                    <div class="number-badge">#8</div>
+                    <img src="images/image3.jpg" alt="Devendra Banhart" class="artwork-image">
+                    <div class="artwork-info">
+                        <div class="title">Blue Thing</div>
+                        <h3>Devendra Banhart</h3>
+                        <div class="details">2025<br>Oil on canvas<br>20×24.5"</div>
+                    </div>
+                </div>
+
+                <!-- #9 -->
+                <div class="artwork-item">
+                    <div class="number-badge">#9</div>
+                    <img src="images/image6.gif" alt="Chloe Pang" class="artwork-image">
+                    <div class="artwork-info">
+                        <div class="title">ABYSS</div>
+                        <h3>Chloe Pang</h3>
+                        <div class="details">2021<br>Print in frame<br>8.5×11"</div>
+                    </div>
+                </div>
+
+                <!-- #10 -->
+                <div class="artwork-item">
+                    <div class="number-badge">#10</div>
+                    <img src="images/image2.jpg" alt="Max Rippon" class="artwork-image">
+                    <div class="artwork-info">
+                        <div class="title">Don't Seem To Mind The Heavy Metal</div>
+                        <h3>Max Rippon</h3>
+                        <div class="details">2024<br>Oil paint, acrylic, color pencil, gesso + image transfer on canvas<br>12×15" (in artist's frame)</div>
+                    </div>
+                </div>
+
+                <!-- #11 -->
+                <div class="artwork-item">
+                    <div class="number-badge">#11</div>
+                    <img src="images/image11.png" alt="Ari Salka" class="artwork-image">
+                    <div class="artwork-info">
+                        <div class="title">Angel Found Beneath Flower Amidst Season Change</div>
+                        <h3>Ari Salka</h3>
+                        <div class="details">2025<br>Acrylic, enamel, raw pigment, latex paint, India ink, resin + oil on cradled wood panel<br>20×16"</div>
+                    </div>
+                </div>
+
+                <!-- #12 -->
+                <div class="artwork-item">
+                    <div class="number-badge">#12</div>
+                    <img src="images/image7.jpg" alt="Tuna Bora" class="artwork-image">
+                    <div class="artwork-info">
+                        <div class="title">Untitled</div>
+                        <h3>Tuna Bora</h3>
+                        <div class="details">2025<br>Acrylic on cradled panel<br>18×18"</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <img src="venmo_qr.png" alt="QR">
+            Venmo the # you want to @FabianneGstottenmayr
+            <img src="venmo_qr.png" alt="QR">
+        </footer>
+    </div>
+</body>
+</html>
