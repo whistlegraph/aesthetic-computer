@@ -399,6 +399,7 @@ force = true
 from = "/kidlisp-com"
 to = "/kidlisp.com/"
 status = 200
+force = true
 [[redirects]]
 from = "https://kidlisp.com"
 to = "https://aesthetic.computer/kidlisp.com/"

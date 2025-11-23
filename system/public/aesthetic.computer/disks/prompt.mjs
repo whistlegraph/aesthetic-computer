@@ -2183,13 +2183,9 @@ async function halt($, text) {
     makeFlash($);
     return true;
   } else if (text.toLowerCase() === "kidlisp") {
-    const kidlispUrl = debug
-      ? toAbsoluteSiteUrl("/kidlisp-com")
-      : "https://kidlisp.com";
-    if (!openExternalFromIframe(kidlispUrl)) {
-      const prefix = "out:";
-      jump(debug ? prefix + "/kidlisp-com" : prefix + kidlispUrl);
-    }
+    const url = debug ? "/kidlisp.com" : "https://kidlisp.com";
+    console.log("🎨 kidlisp command - debug:", debug, "url:", url);
+    jump(url);
     makeFlash($);
     return true;
   } else if (text.toLowerCase() === "support") {
