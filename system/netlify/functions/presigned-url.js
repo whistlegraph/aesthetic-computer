@@ -38,9 +38,30 @@ let s3Guest, s3Wand, s3User;
 function getS3Clients() {
   if (!s3Guest) {
     // Credentials must be provided via environment variables
-    const accessKeyId = process.env.ART_KEY;
-    const secretAccessKey = process.env.ART_SECRET;
+    // Support both ART_KEY and DO_SPACES_KEY naming conventions
+    const accessKeyId = process.env.ART_KEY || process.env.DO_SPACES_KEY;
+    const secretAccessKey = process.env.ART_SECRET || process.env.DO_SPACES_SECRET;
     const endpoint = "https://" + (process.env.ART_ENDPOINT || "sfo3.digitaloceanspaces.com");
+    
+    // Validate credentials are available
+    if (!accessKeyId || !secretAccessKey) {
+      console.error("❌ S3 Credentials missing:", {
+        hasArtKey: !!process.env.ART_KEY,
+        hasDoSpacesKey: !!process.env.DO_SPACES_KEY,
+        hasArtSecret: !!process.env.ART_SECRET,
+        hasDoSpacesSecret: !!process.env.DO_SPACES_SECRET,
+        endpoint,
+      });
+      throw new Error(`Missing S3 credentials: ART_KEY=${!!process.env.ART_KEY}, DO_SPACES_KEY=${!!process.env.DO_SPACES_KEY}, ART_SECRET=${!!process.env.ART_SECRET}, DO_SPACES_SECRET=${!!process.env.DO_SPACES_SECRET}`);
+    }
+    
+    console.log("🔑 Using credentials:", {
+      keySource: process.env.ART_KEY ? 'ART_KEY' : 'DO_SPACES_KEY',
+      secretSource: process.env.ART_SECRET ? 'ART_SECRET' : 'DO_SPACES_SECRET',
+      keyLength: accessKeyId?.length,
+      secretLength: secretAccessKey?.length,
+      endpoint,
+    });
     
     s3Guest = new S3Client({
       endpoint,
@@ -56,12 +77,25 @@ function getS3Clients() {
       endpoint: "https://" + (process.env.USER_ENDPOINT || "sfo3.digitaloceanspaces.com"),
       credentials: { accessKeyId, secretAccessKey },
     });
+    
+    console.log("✅ S3 Clients initialized successfully");
   }
   return { s3Guest, s3Wand, s3User };
 }
 
 export async function handler(event, context) {
   try {
+    // Log environment variable availability for debugging
+    console.log("🔍 Environment check:", {
+      hasArtKey: !!process.env.ART_KEY,
+      hasArtSecret: !!process.env.ART_SECRET,
+      hasArtEndpoint: !!process.env.ART_ENDPOINT,
+      hasUserEndpoint: !!process.env.USER_ENDPOINT,
+      hasWandEndpoint: !!process.env.WAND_ENDPOINT,
+      artKeyLength: process.env.ART_KEY?.length,
+      artSecretLength: process.env.ART_SECRET?.length,
+    });
+    
     // Initialize S3 clients (lazy load to allow env vars to be set)
     const { s3Guest, s3Wand, s3User } = getS3Clients();
     
@@ -227,6 +261,14 @@ export async function handler(event, context) {
   };
   } catch (error) {
     console.error("❌ Presigned URL error:", error);
+    console.error("❌ Error details:", {
+      message: error.message,
+      name: error.name,
+      code: error.code,
+      statusCode: error.statusCode,
+      hasArtKey: !!process.env.ART_KEY,
+      hasArtSecret: !!process.env.ART_SECRET,
+    });
     return respond(500, { 
       error: error.message || "Internal server error",
       details: error.stack 
