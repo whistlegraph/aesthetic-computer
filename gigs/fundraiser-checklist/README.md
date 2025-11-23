@@ -27,6 +27,17 @@ python3 -m http.server 8000
 
 Then open: `http://localhost:8000/layout-test.html`
 
+## Generate PDF
+
+To export the poster as a PDF:
+
+```bash
+chromium-browser --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+  --print-to-pdf=fundraiser-poster.pdf http://localhost:8000/layout-test.html
+```
+
+Note: The HTTP server must be running on port 8000.
+
 ## File Structure
 
 - `layout-test.html` - Main working file with modular components
