@@ -2563,6 +2563,12 @@ class KidLisp {
       const cellSize = 4; // 4px per cell for better visibility in small size
       const qrSize = cells.length * cellSize;
       
+      // Check if we're in a browser environment
+      if (typeof document === 'undefined') {
+        console.warn('⚠️ QR generation requires browser environment (document not available)');
+        return null;
+      }
+      
       // Create a canvas to render the QR code
       const canvas = document.createElement('canvas');
       canvas.width = qrSize;
@@ -2735,24 +2741,43 @@ class KidLisp {
 
         // If createCode flag is set (from kidlisp.com editor), send response back to parent
         if (api.kidlispCreateCode) {
-          console.log('🚀 createCode flag detected, generating QR and sending to parent...');
+          console.log('🚀 createCode flag detected, sending code to parent...');
+          console.log('📦 Code to send:', data.code);
           
-          // Generate QR code as data URI
-          const qrDataUri = await this.generateQRDataUri(data.code);
-          console.log('📊 QR generated:', qrDataUri ? 'success' : 'failed');
+          // Generate QR code as data URI (only works in browser, not in worker)
+          let qrDataUri = null;
+          try {
+            qrDataUri = await this.generateQRDataUri(data.code);
+            console.log('📊 QR generated:', qrDataUri ? 'success' : 'failed');
+          } catch (error) {
+            console.log('⚠️ QR generation skipped (worker context):', error.message);
+          }
           
-          // Send message to parent window
-          if (window.parent !== window) {
-            const message = {
-              type: 'kidlisp-code-created',
-              code: data.code,
-              qr: qrDataUri
-            };
-            console.log('📤 Sending message to parent:', message);
-            window.parent.postMessage(message, '*');
-            console.log('✅ Message sent successfully');
+          // Send messages via the send API (works in worker context)
+          if (api.send) {
+            // Send kidlisp-code-created message
+            api.send({
+              type: 'post-to-parent',
+              content: {
+                type: 'kidlisp-code-created',
+                code: data.code,
+                qr: qrDataUri
+              }
+            });
+            
+            // Also send setCode message with the new code
+            api.send({
+              type: 'post-to-parent',
+              content: {
+                type: 'setCode',
+                value: data.code,
+                qr: qrDataUri
+              }
+            });
+            
+            console.log('✅ Messages sent to parent via api.send');
           } else {
-            console.warn('⚠️ window.parent === window, cannot send message');
+            console.warn('⚠️ api.send not available');
           }
           
           // Clear the flag (note: this only clears it on the current frame's API copy)
