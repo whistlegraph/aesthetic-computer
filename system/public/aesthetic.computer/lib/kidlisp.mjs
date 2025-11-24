@@ -3227,15 +3227,10 @@ class KidLisp {
               // Fill with first-line color as background
               $.wipe(this.firstLineColor);
             } else {
-              // Check if the source code contains any $code references (embedded layers)
-              // If so, wipe to black to prevent checkerboard from showing through
-              const hasEmbeddedCodes = source && source.includes('$');
-              if (hasEmbeddedCodes) {
-                $.wipe(0, 0, 0, 255);
-              } else {
-                // Clear to transparent
-                screen.pixels.fill(0);
-              }
+              // Don't wipe screen when embedded layers are present - let them composite
+              // over accumulated parent content instead of fresh black background
+              // Clear to transparent
+              screen.pixels.fill(0);
             }
           }
           
@@ -11165,7 +11160,6 @@ class KidLisp {
         cacheId: cacheId // Store the specific cache ID this layer corresponds to
       } : null
     };
-    console.log(`🎨 CREATED EMBEDDED LAYER: ${cacheId} at (${x}, ${y}) size ${width}x${height} alpha=${alpha}`);
 
     // Ensure embeddedLayers is initialized before pushing
     if (!this.embeddedLayers) {
@@ -11661,9 +11655,6 @@ class KidLisp {
     const dstWidth = api.screen.width;
     const dstHeight = api.screen.height;
 
-    console.log(`🔍 fallbackPasteWithAlpha: src=${srcWidth}x${srcHeight}, dst=${dstWidth}x${dstHeight}, pos=(${x},${y}), alpha=${alpha}, srcPixels=${srcPixels?.length}, dstPixels=${dstPixels?.length}`);
-    console.log(`🔍 Buffer comparison: srcPixels === dstPixels? ${srcPixels === dstPixels}, srcPixels.buffer === dstPixels.buffer? ${srcPixels?.buffer === dstPixels?.buffer}`);
-
     // 🚨 CRITICAL: If source and destination are the same buffer, we can't blend in-place
     if (srcPixels === dstPixels || srcPixels?.buffer === dstPixels?.buffer) {
       console.warn(`⚠️ SKIPPING PASTE: Source and destination buffers are the same! This would cause self-overwrite.`);
@@ -11678,21 +11669,6 @@ class KidLisp {
     const startY = Math.max(0, y);
     const endX = Math.min(dstWidth, x + srcWidth);
     const endY = Math.min(dstHeight, y + srcHeight);
-
-    console.log(`🔍 PASTE BOUNDS: startX=${startX}, startY=${startY}, endX=${endX}, endY=${endY}`);
-    console.log(`🔍 LOOP WILL PROCESS: ${(endX - startX) * (endY - startY)} pixels`);
-
-    // DEBUG: Check first pixels BEFORE blending
-    if (dstPixels.length >= 4 && srcPixels.length >= 4) {
-      console.log(`🔍 SRC FIRST PIXEL: [${srcPixels[0]},${srcPixels[1]},${srcPixels[2]},${srcPixels[3]}]`);
-      console.log(`🔍 DST FIRST PIXEL BEFORE BLEND: [${dstPixels[0]},${dstPixels[1]},${dstPixels[2]},${dstPixels[3]}]`);
-      
-      // Sample a pixel from the middle of the source to see if there's any color
-      const midIdx = (srcWidth * Math.floor(srcHeight / 2) + Math.floor(srcWidth / 2)) * 4;
-      if (midIdx < srcPixels.length) {
-        console.log(`🔍 SRC MIDDLE PIXEL: [${srcPixels[midIdx]},${srcPixels[midIdx+1]},${srcPixels[midIdx+2]},${srcPixels[midIdx+3]}]`);
-      }
-    }
 
     let processedPixels = 0;
     let skippedTransparent = 0;
@@ -11754,14 +11730,6 @@ class KidLisp {
           }
         }
       }
-    }
-
-    console.log(`🔍 PASTE COMPLETE: processed=${processedPixels}, skipped=${skippedTransparent}, blended=${blendedPixels}`);
-    
-    // DEBUG: Check what the destination looks like AFTER blending
-    const debugDstIdx = (startY * dstWidth + startX) * 4;
-    if (debugDstIdx < dstPixels.length && blendedPixels > 0) {
-      console.log(`🔍 DST AFTER BLEND (first pixel in paste area): [${dstPixels[debugDstIdx]},${dstPixels[debugDstIdx+1]},${dstPixels[debugDstIdx+2]},${dstPixels[debugDstIdx+3]}]`);
     }
   }
 
