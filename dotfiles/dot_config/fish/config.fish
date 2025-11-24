@@ -92,7 +92,9 @@ function acd
     end
     set container_id (pwd | tr -d '\n' | xxd -c 256 -p)
     set workspace_name (basename (pwd))
-    code --folder-uri="vscode-remote://dev-container+$container_id/workspaces/$workspace_name"
+    # Launch VS Code with Chrome DevTools Protocol enabled on port 9222
+    # Allow remote origins so dev container can connect via host.docker.internal
+    code --remote-debugging-port=9222 --remote-allow-origins="*" --folder-uri="vscode-remote://dev-container+$container_id/workspaces/$workspace_name"
     cd -
     # exit
 end

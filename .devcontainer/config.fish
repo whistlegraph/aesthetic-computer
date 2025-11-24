@@ -522,6 +522,79 @@ print(f'{seconds:.2f}')" $duration_spec)
 
     cd $current_dir
 end
+
+# 🩸 Artery - Direct connection to Aesthetic Computer workbench
+# Interactive REPL for controlling AC, seeing console logs, and executing JavaScript
+# Usage: artery [command] [args...]
+# Examples:
+#   artery                  # Show help
+#   artery jump prompt      # Navigate to prompt piece
+#   artery current          # Show current piece
+#   artery repl             # Interactive REPL mode
+function artery
+    if test (count $argv) -eq 0
+        # No args - show help
+        node /workspaces/aesthetic-computer/.vscode/artery.mjs
+    else
+        # Pass through to artery
+        node /workspaces/aesthetic-computer/.vscode/artery.mjs $argv
+    end
+end
+
+# 🩸 AC REPL - Quick shortcut to artery REPL mode
+# Live JavaScript console with AC console logs
+# Usage: ac-repl
+# Commands in REPL:
+#   .jump <piece>   - Navigate to piece
+#   .current        - Show current piece
+#   .panel [action] - Control AC panel
+#   .exit           - Close artery
+function ac-repl
+    echo "🩸 Starting Artery REPL - Live connection to Aesthetic Computer"
+    echo "   💉 Console logs will appear in real-time"
+    echo "   🎯 Type .jump <piece> to navigate"
+    echo "   🔍 Type JavaScript to execute in AC context"
+    echo ""
+    artery repl
+end
+
+# Automated testing for AC pieces
+# Usage: test-notepat [duration_ms]
+# Example: test-notepat 60000  (runs for 60 seconds)
+function test-notepat
+    node /workspaces/aesthetic-computer/.vscode/tests/test-notepat.mjs $argv
+end
+
+# Test line drawing tool
+# Usage: test-line [duration_ms]
+# Example: test-line 30000  (runs for 30 seconds)
+function test-line
+    node /workspaces/aesthetic-computer/.vscode/tests/test-line.mjs $argv
+end
+
+# Test toss piece
+# Usage: test-toss [duration_ms]
+# Example: test-toss 5000  (runs for 5 seconds)
+function test-toss
+  node /workspaces/aesthetic-computer/.vscode/tests/test-toss.mjs $argv
+end
+
+function test-melody
+  node /workspaces/aesthetic-computer/.vscode/tests/test-melody.mjs $argv
+end
+
+function test-playlist
+  node /workspaces/aesthetic-computer/.vscode/tests/test-playlist.mjs $argv
+end
+
+function test-chords
+  node /workspaces/aesthetic-computer/.vscode/tests/test-chords.mjs $argv
+end
+
+function test-generative-waltz
+  node /workspaces/aesthetic-computer/.vscode/tests/test-generative-waltz.mjs $argv
+end
+
 # always start in aesthetic-computer directory if there was a greeting
 if not test "$nogreet" = true
     cd ~/aesthetic-computer
