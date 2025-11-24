@@ -387,14 +387,8 @@
       animation: live-pulse 2s ease-in-out infinite;
     }
 
-    /* Zebra striping for editor rows - always visible */
-    .monaco-editor .view-lines .view-line:nth-child(even) {
-      background-color: #fff9c0 !important; /* Ultra light yellow */
-    }
-
-    .monaco-editor .view-lines .view-line:nth-child(odd) {
-      background-color: #fffacd !important; /* Legal pad yellow */
-    }
+    /* Zebra striping for editor rows - removed to allow selection highlighting to work */
+    /* The background colors were blocking Monaco's selection overlay */
 
     .monaco-editor.vs-dark .view-lines .view-line:nth-child(even) {
       background-color: #332f28 !important; /* Darker brown for dark mode */
@@ -1230,44 +1224,49 @@
     }
 
     /* Monaco Editor Selection Highlighting */
-    /* Target the actual selection layer that Monaco uses */
-    .monaco-editor .selected-text {
-      background-color: rgba(255, 165, 0, 0.4) !important; /* Orange selection in light mode */
+    /* CRITICAL: Force Monaco's selection to be visible */
+    /* Monaco uses CSS variables from the theme, but we need to ensure they're applied */
+    
+    /* Override ::selection for all Monaco content */
+    .monaco-editor *::selection {
+      background-color: rgba(255, 140, 0, 0.6) !important; /* Orange for light mode */
+      color: inherit !important;
     }
     
+    /* Specific targeting for view lines */
+    .monaco-editor .view-line::selection,
+    .monaco-editor .view-line *::selection {
+      background-color: rgba(255, 140, 0, 0.6) !important;
+    }
+    
+    /* Also target the overlay layer where Monaco renders selections */
     .monaco-editor .view-overlays .current-line-exact {
       background-color: transparent !important;
     }
     
-    /* Selection in the editor lines themselves */
-    .monaco-editor .view-line span.mtk1.selected-text,
-    .monaco-editor .view-line > span > span.selected-text {
-      background-color: rgba(255, 165, 0, 0.4) !important;
-    }
-    
-    /* Dark mode selection */
+    /* Dark mode */
     @media (prefers-color-scheme: dark) {
-      .monaco-editor .selected-text {
-        background-color: rgba(100, 149, 237, 0.4) !important; /* Blue selection in dark mode */
+      .monaco-editor *::selection {
+        background-color: rgba(100, 149, 237, 0.6) !important; /* Blue for dark mode */
       }
       
-      .monaco-editor .view-line span.mtk1.selected-text,
-      .monaco-editor .view-line > span > span.selected-text {
-        background-color: rgba(100, 149, 237, 0.4) !important;
+      .monaco-editor .view-line::selection,
+      .monaco-editor .view-line *::selection {
+        background-color: rgba(100, 149, 237, 0.6) !important;
       }
     }
     
-    /* Manual theme overrides for selection */
-    [data-theme="light"] .monaco-editor .selected-text,
-    [data-theme="light"] .monaco-editor .view-line span.mtk1.selected-text,
-    [data-theme="light"] .monaco-editor .view-line > span > span.selected-text {
-      background-color: rgba(255, 165, 0, 0.4) !important;
+    /* Theme-specific overrides */
+    [data-theme="light"] .monaco-editor *::selection,
+    [data-theme="light"] .monaco-editor .view-line::selection,
+    [data-theme="light"] .monaco-editor .view-line *::selection {
+      background-color: rgba(255, 140, 0, 0.6) !important;
     }
     
-    [data-theme="dark"] .monaco-editor .selected-text,
-    [data-theme="dark"] .monaco-editor .view-line span.mtk1.selected-text,
-    [data-theme="dark"] .monaco-editor .view-line > span > span.selected-text {
-      background-color: rgba(100, 149, 237, 0.4) !important;
+    [data-theme="dark"] .monaco-editor *::selection,
+    [data-theme="dark"] .monaco-editor .view-line::selection,
+    [data-theme="dark"] .monaco-editor .view-line *::selection {
+      background-color: rgba(100, 149, 237, 0.6) !important;
     }
 
     /* Text shadow for editor - matches prompt HUD preview */
@@ -2059,7 +2058,7 @@
       // Simple neutral theme - KidLisp decorations will handle all syntax coloring
       monaco.editor.defineTheme('kidlisp-light', {
         base: 'vs',
-        inherit: false,
+        inherit: true,
         rules: [
           { token: 'text', foreground: '333333' }
         ],
@@ -2077,7 +2076,7 @@
 
       monaco.editor.defineTheme('kidlisp-dark', {
         base: 'vs-dark',
-        inherit: false,
+        inherit: true,
         rules: [
           { token: 'text', foreground: 'd4d4d4' }
         ],
@@ -2464,6 +2463,7 @@
               return;
             } else if (colorName === 'ZEBRA') {
               // Zebra effect - alternating black and white
+              // Note: We don't add background to allow selection highlighting to show through
               for (let i = 0; i < token.length; i++) {
                 const zebraColor = i % 2 === 0 ? '#000000' : '#ffffff';
                 const zebraClass = i % 2 === 0 ? 'zebra-black' : 'zebra-white';
@@ -2471,8 +2471,8 @@
                 if (!document.getElementById(styleId)) {
                   const style = document.createElement('style');
                   style.id = styleId;
-                  const bgColor = i % 2 === 0 ? '#ffffff' : '#000000';
-                  style.textContent = `.monaco-editor .view-line > span > span.${styleId} { color: ${zebraColor}; background: ${bgColor}; font-weight: bold; }`;
+                  // Only set color and font-weight, not background, to allow selection to show
+                  style.textContent = `.monaco-editor .view-line > span > span.${styleId} { color: ${zebraColor}; font-weight: bold; }`;
                   document.head.appendChild(style);
                 }
                 decorations.push({
