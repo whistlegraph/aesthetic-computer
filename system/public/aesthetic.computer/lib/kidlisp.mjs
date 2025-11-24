@@ -3227,8 +3227,15 @@ class KidLisp {
               // Fill with first-line color as background
               $.wipe(this.firstLineColor);
             } else {
-              // Clear to transparent
-              screen.pixels.fill(0);
+              // Check if the source code contains any $code references (embedded layers)
+              // If so, wipe to black to prevent checkerboard from showing through
+              const hasEmbeddedCodes = source && source.includes('$');
+              if (hasEmbeddedCodes) {
+                $.wipe(0, 0, 0, 255);
+              } else {
+                // Clear to transparent
+                screen.pixels.fill(0);
+              }
             }
           }
           
@@ -3280,6 +3287,12 @@ class KidLisp {
           // This ensures burn only takes effect when explicitly called each frame
           // Without this, burnedBuffer persists and causes stale compositing
           this.burnedBuffer = null;
+          
+          // Clear layer0 to transparent at the start of each frame
+          // This prevents garbage/checkerboard data from showing through embedded layers
+          if (this.layer0 && this.layer0.pixels) {
+            this.layer0.pixels.fill(0);
+          }
           
           // Switch to layer 0 as initial drawing target
           $.page(this.layer0);
@@ -3354,7 +3367,7 @@ class KidLisp {
           if (this.embeddedLayers && this.embeddedLayers.length > 0) {
             const frameValue = $.frame || this.frameCount || 0;
             
-            this.embeddedLayers.forEach(embeddedLayer => {
+            this.embeddedLayers.forEach((embeddedLayer, index) => {
               const shouldEvaluate = this.shouldLayerExecuteThisFrame($, embeddedLayer);
               this.renderSingleLayer($, embeddedLayer, frameValue, shouldEvaluate);
             });
@@ -3419,12 +3432,26 @@ class KidLisp {
             }
           } else {
             // 🐌 SLOW PATH: No burn - composite all layers individually
-            // Step 1: Paste layer 0 (all drawing before first bake, or all drawing if no bake)
+            
+            // Check if layer0 has any non-transparent pixels
+            let layer0HasContent = false;
             if (this.layer0 && this.layer0.pixels) {
+              // Sample every 100th pixel's alpha to quickly check if layer0 has content
+              for (let i = 3; i < this.layer0.pixels.length; i += 400) {
+                if (this.layer0.pixels[i] > 0) {
+                  layer0HasContent = true;
+                  break;
+                }
+              }
+            }
+            
+            // Step 1: Paste layer 0 only if it has content (all drawing before first bake, or all drawing if no bake)
+            if (layer0HasContent && this.layer0 && this.layer0.pixels) {
               // Check dimensions match before pasting to avoid bounds errors
               if (this.layer0.width === screen.width && this.layer0.height === screen.height) {
                 try {
-                  $.paste(this.layer0, 0, 0, 1, true); // true = blit mode, direct copy
+                  // 🚨 FIX: Use 255 for alpha, not 1 (which is 1/255 opacity)
+                  $.paste(this.layer0, 0, 0, 255, true); // true = blit mode, direct copy
                 } catch (error) {
                   console.warn(`⚠️ Error pasting layer0:`, error.message);
                 }
@@ -3432,23 +3459,9 @@ class KidLisp {
                 console.warn(`⚠️ Skipping layer0 paste due to dimension mismatch: layer0=${this.layer0.width}x${this.layer0.height}, screen=${screen.width}x${screen.height}`);
               }
             }
+            // Note: We don't wipe the screen here anymore - that happens before embedded layers render
             
-            // Step 2: Paste embedded layers on top of layer0
-            // 🚀 OPTIMIZATION: Only iterate if array exists (skip length check, forEach handles empty)
-            if (this.embeddedLayers) {
-              for (let i = 0, len = this.embeddedLayers.length; i < len; i++) {
-                const embeddedLayer = this.embeddedLayers[i];
-                if (embeddedLayer.buffer && embeddedLayer.buffer.pixels) {
-                  try {
-                    this.pasteWithAlpha($, embeddedLayer.buffer, embeddedLayer.x, embeddedLayer.y, embeddedLayer.alpha);
-                  } catch (error) {
-                    console.warn(`⚠️ Error pasting embedded layer ${i}:`, error.message);
-                  }
-                }
-              }
-            }
-            
-            // Step 3: Paste all bake buffers on top
+            // Step 2: Paste all bake buffers on top of layer0
             // 🚀 OPTIMIZATION: Traditional for loop is faster than forEach
             if (this.bakes) {
               for (let i = 0, len = this.bakes.length; i < len; i++) {
@@ -3464,6 +3477,20 @@ class KidLisp {
                     }
                   } else {
                     console.warn(`⚠️ Skipping bake layer ${i} paste due to dimension mismatch: bake=${bakeLayer.width}x${bakeLayer.height}, screen=${screen.width}x${screen.height}`);
+                  }
+                }
+              }
+            }
+
+            // Step 3: Paste embedded layers last so they sit above everything
+            if (this.embeddedLayers) {
+              for (let i = 0, len = this.embeddedLayers.length; i < len; i++) {
+                const embeddedLayer = this.embeddedLayers[i];
+                if (embeddedLayer.buffer && embeddedLayer.buffer.pixels) {
+                  try {
+                    this.pasteWithAlpha($, embeddedLayer.buffer, embeddedLayer.x, embeddedLayer.y, embeddedLayer.alpha);
+                  } catch (error) {
+                    console.warn(`⚠️ Error pasting embedded layer ${i}:`, error.message);
                   }
                 }
               }
@@ -4470,6 +4497,19 @@ class KidLisp {
         }
       },
       wipe: (api, args) => {
+        // 🎨 EMBEDDED LAYER FIX: Allow first wipe to set background, block subsequent wipes
+        if (this.isEmbeddedLayer) {
+          if (!this.embeddedLayerWipedOnce) {
+            // First wipe is allowed to set the initial background
+            this.embeddedLayerWipedOnce = true;
+            console.log(`✅ WIPE ALLOWED: First wipe for embedded layer to set background`);
+          } else {
+            // Subsequent wipes are blocked to preserve accumulation
+            console.log(`🚫 WIPE BLOCKED: Embedded layer tried to wipe again, ignoring to preserve accumulation`);
+            return;
+          }
+        }
+        
         const processedArgs = processArgStringTypes(args);
 
         const performWipe = () => {
@@ -6947,8 +6987,10 @@ class KidLisp {
             height = this.evaluate(args[2], api, this.localEnv) || 256;
           } else if (args.length === 4) {
             // (embed $pie x y size) - size becomes both width and height
-            x = this.evaluate(args[1], api, this.localEnv) || 0;
-            y = this.evaluate(args[2], api, this.localEnv) || 0;
+            const evalX = this.evaluate(args[1], api, this.localEnv);
+            const evalY = this.evaluate(args[2], api, this.localEnv);
+            x = (evalX !== undefined && evalX !== null) ? evalX : 0;
+            y = (evalY !== undefined && evalY !== null) ? evalY : 0;
             const size = this.evaluate(args[3], api, this.localEnv) || 256;
             width = size;
             height = size;
@@ -6963,8 +7005,10 @@ class KidLisp {
               usesScreenDimensions = true;
             }
 
-            x = this.evaluate(args[1], api, this.localEnv) || 0;
-            y = this.evaluate(args[2], api, this.localEnv) || 0;
+            const evalX = this.evaluate(args[1], api, this.localEnv);
+            const evalY = this.evaluate(args[2], api, this.localEnv);
+            x = (evalX !== undefined && evalX !== null) ? evalX : 0;
+            y = (evalY !== undefined && evalY !== null) ? evalY : 0;
             width = this.evaluate(args[3], api, this.localEnv) || 256;
             height = this.evaluate(args[4], api, this.localEnv) || 256;
           } else if (args.length >= 6) {
@@ -6978,8 +7022,10 @@ class KidLisp {
               usesScreenDimensions = true;
             }
 
-            x = this.evaluate(args[1], api, this.localEnv) || 0;
-            y = this.evaluate(args[2], api, this.localEnv) || 0;
+            const evalX = this.evaluate(args[1], api, this.localEnv);
+            const evalY = this.evaluate(args[2], api, this.localEnv);
+            x = (evalX !== undefined && evalX !== null) ? evalX : 0;
+            y = (evalY !== undefined && evalY !== null) ? evalY : 0;
             width = this.evaluate(args[3], api, this.localEnv) || 256;
             height = this.evaluate(args[4], api, this.localEnv) || 256;
             alpha = this.evaluate(args[5], api, this.localEnv);
@@ -7114,7 +7160,8 @@ class KidLisp {
           if (existingLayer.buffer && api.paste) {
             // console.log(`🔄 embed() calling pasteWithAlpha: buffer=${existingLayer.buffer.width}x${existingLayer.buffer.height}, pos=(${x},${y}), alpha=${existingLayer.alpha}`);
             // Always use alpha blending to properly handle pixels with alpha channels
-            this.pasteWithAlpha(api, existingLayer.buffer, x, y, existingLayer.alpha);
+            // 🚨 FIX: Don't paste here! Let the composite phase handle it to avoid double-pasting and layer0 contamination.
+            // this.pasteWithAlpha(api, existingLayer.buffer, x, y, existingLayer.alpha);
           } else {
             // console.log(`🚫 embed() NOT calling pasteWithAlpha: hasBuffer=${!!existingLayer.buffer}, hasPaste=${!!api.paste}`);
           }
@@ -11118,6 +11165,7 @@ class KidLisp {
         cacheId: cacheId // Store the specific cache ID this layer corresponds to
       } : null
     };
+    console.log(`🎨 CREATED EMBEDDED LAYER: ${cacheId} at (${x}, ${y}) size ${width}x${height} alpha=${alpha}`);
 
     // Ensure embeddedLayers is initialized before pushing
     if (!this.embeddedLayers) {
@@ -11452,15 +11500,18 @@ class KidLisp {
       return;
     }
 
-    // 🛡️ DIMENSION CHECK: Ensure source and destination buffers have compatible dimensions
-    // Only paste if source fits within destination (considering offset)
-    if (x + sourceBuffer.width > api.screen.width || y + sourceBuffer.height > api.screen.height) {
-      // console.warn(`⚠️ pasteWithAlpha: Source buffer extends beyond screen bounds, skipping. Source=${sourceBuffer.width}x${sourceBuffer.height} at (${x},${y}), Screen=${api.screen.width}x${api.screen.height}`);
+    // 🛡️ DIMENSION CHECK: Abort only when completely off-screen
+    const destWidth = api.screen.width;
+    const destHeight = api.screen.height;
+    const noHorizontalOverlap = x >= destWidth || x + sourceBuffer.width <= 0;
+    const noVerticalOverlap = y >= destHeight || y + sourceBuffer.height <= 0;
+    if (noHorizontalOverlap || noVerticalOverlap) {
       return;
     }
 
     // 🎯 ULTRA-FAST PATH: Direct paste for opaque layers
     if (alpha === 255) {
+      console.log(`🎯 pasteWithAlpha FAST PATH: buffer=${sourceBuffer.width}x${sourceBuffer.height}, screen=${api.screen.width}x${api.screen.height}, pos=(${x},${y}), alpha=${alpha}`);
       if (api.paste) {
         api.paste(sourceBuffer, x, y);
       } else {
@@ -11610,6 +11661,15 @@ class KidLisp {
     const dstWidth = api.screen.width;
     const dstHeight = api.screen.height;
 
+    console.log(`🔍 fallbackPasteWithAlpha: src=${srcWidth}x${srcHeight}, dst=${dstWidth}x${dstHeight}, pos=(${x},${y}), alpha=${alpha}, srcPixels=${srcPixels?.length}, dstPixels=${dstPixels?.length}`);
+    console.log(`🔍 Buffer comparison: srcPixels === dstPixels? ${srcPixels === dstPixels}, srcPixels.buffer === dstPixels.buffer? ${srcPixels?.buffer === dstPixels?.buffer}`);
+
+    // 🚨 CRITICAL: If source and destination are the same buffer, we can't blend in-place
+    if (srcPixels === dstPixels || srcPixels?.buffer === dstPixels?.buffer) {
+      console.warn(`⚠️ SKIPPING PASTE: Source and destination buffers are the same! This would cause self-overwrite.`);
+      return;
+    }
+
     // Normalize alpha to 0-1 range
     const alphaFactor = alpha / 255.0;
 
@@ -11618,6 +11678,25 @@ class KidLisp {
     const startY = Math.max(0, y);
     const endX = Math.min(dstWidth, x + srcWidth);
     const endY = Math.min(dstHeight, y + srcHeight);
+
+    console.log(`🔍 PASTE BOUNDS: startX=${startX}, startY=${startY}, endX=${endX}, endY=${endY}`);
+    console.log(`🔍 LOOP WILL PROCESS: ${(endX - startX) * (endY - startY)} pixels`);
+
+    // DEBUG: Check first pixels BEFORE blending
+    if (dstPixels.length >= 4 && srcPixels.length >= 4) {
+      console.log(`🔍 SRC FIRST PIXEL: [${srcPixels[0]},${srcPixels[1]},${srcPixels[2]},${srcPixels[3]}]`);
+      console.log(`🔍 DST FIRST PIXEL BEFORE BLEND: [${dstPixels[0]},${dstPixels[1]},${dstPixels[2]},${dstPixels[3]}]`);
+      
+      // Sample a pixel from the middle of the source to see if there's any color
+      const midIdx = (srcWidth * Math.floor(srcHeight / 2) + Math.floor(srcWidth / 2)) * 4;
+      if (midIdx < srcPixels.length) {
+        console.log(`🔍 SRC MIDDLE PIXEL: [${srcPixels[midIdx]},${srcPixels[midIdx+1]},${srcPixels[midIdx+2]},${srcPixels[midIdx+3]}]`);
+      }
+    }
+
+    let processedPixels = 0;
+    let skippedTransparent = 0;
+    let blendedPixels = 0;
 
     // Optimized row-wise blending for better cache performance
     for (let dy = startY; dy < endY; dy++) {
@@ -11630,11 +11709,23 @@ class KidLisp {
 
         const srcIndex = (srcY * srcWidth + srcX) * 4;
         const dstIndex = (dy * dstWidth + dx) * 4;
+        processedPixels++;
 
-        const srcA = srcPixels[srcIndex + 3];
+        let srcA = srcPixels[srcIndex + 3];
 
-        // Skip transparent pixels
-        if (srcA === 0) continue;
+        // Some KidLisp layers never set alpha but still draw RGB; treat them as opaque
+        if (srcA === 0) {
+          const hasColor = srcPixels[srcIndex] !== 0 ||
+            srcPixels[srcIndex + 1] !== 0 ||
+            srcPixels[srcIndex + 2] !== 0;
+          if (!hasColor) {
+            skippedTransparent++;
+            continue; // Truly transparent pixel
+          }
+          srcA = 255; // Promote color-only pixels to opaque so global alpha works
+        }
+
+        blendedPixels++;
 
         // Fast path for fully opaque pixels
         if (alphaFactor === 1.0 && srcA === 255) {
@@ -11645,14 +11736,32 @@ class KidLisp {
         } else {
           // Alpha blend using bit shifts for performance (similar to graph.mjs)
           const effectiveAlpha = (srcA * alphaFactor + 1) | 0; // Convert to int
-          const invAlpha = 256 - effectiveAlpha;
 
-          dstPixels[dstIndex] = (effectiveAlpha * srcPixels[srcIndex] + invAlpha * dstPixels[dstIndex]) >> 8;
-          dstPixels[dstIndex + 1] = (effectiveAlpha * srcPixels[srcIndex + 1] + invAlpha * dstPixels[dstIndex + 1]) >> 8;
-          dstPixels[dstIndex + 2] = (effectiveAlpha * srcPixels[srcIndex + 2] + invAlpha * dstPixels[dstIndex + 2]) >> 8;
-          dstPixels[dstIndex + 3] = Math.min(255, dstPixels[dstIndex + 3] + effectiveAlpha);
+          // 🚨 FIX: Handle transparent destination correctly to avoid double-darkening
+          // If destination is fully transparent, just copy the source color and set alpha
+          if (dstPixels[dstIndex + 3] === 0) {
+            dstPixels[dstIndex] = srcPixels[srcIndex];
+            dstPixels[dstIndex + 1] = srcPixels[srcIndex + 1];
+            dstPixels[dstIndex + 2] = srcPixels[srcIndex + 2];
+            dstPixels[dstIndex + 3] = effectiveAlpha;
+          } else {
+            const invAlpha = 256 - effectiveAlpha;
+
+            dstPixels[dstIndex] = (effectiveAlpha * srcPixels[srcIndex] + invAlpha * dstPixels[dstIndex]) >> 8;
+            dstPixels[dstIndex + 1] = (effectiveAlpha * srcPixels[srcIndex + 1] + invAlpha * dstPixels[dstIndex + 1]) >> 8;
+            dstPixels[dstIndex + 2] = (effectiveAlpha * srcPixels[srcIndex + 2] + invAlpha * dstPixels[dstIndex + 2]) >> 8;
+            dstPixels[dstIndex + 3] = Math.min(255, dstPixels[dstIndex + 3] + effectiveAlpha);
+          }
         }
       }
+    }
+
+    console.log(`🔍 PASTE COMPLETE: processed=${processedPixels}, skipped=${skippedTransparent}, blended=${blendedPixels}`);
+    
+    // DEBUG: Check what the destination looks like AFTER blending
+    const debugDstIdx = (startY * dstWidth + startX) * 4;
+    if (debugDstIdx < dstPixels.length && blendedPixels > 0) {
+      console.log(`🔍 DST AFTER BLEND (first pixel in paste area): [${dstPixels[debugDstIdx]},${dstPixels[debugDstIdx+1]},${dstPixels[debugDstIdx+2]},${dstPixels[debugDstIdx+3]}]`);
     }
   }
 
@@ -11749,19 +11858,19 @@ class KidLisp {
   shouldLayerEvaluate(embeddedLayer, frameValue) {
     // Always evaluate if never been evaluated
     if (!embeddedLayer.hasBeenEvaluated) {
-      // console.log(`🔄 shouldLayerEvaluate: First evaluation for layer ${embeddedLayer.id}`);
+      console.log(`🔄 shouldLayerEvaluate: First evaluation for layer ${embeddedLayer.originalCacheId || embeddedLayer.id}`);
       return true;
     }
 
     // Skip if evaluated this exact frame already
     if (embeddedLayer.lastFrameEvaluated === frameValue) {
-      // console.log(`🔄 shouldLayerEvaluate: Already evaluated this frame ${frameValue} for layer ${embeddedLayer.id}`);
+      console.log(`🔄 shouldLayerEvaluate: Already evaluated this frame ${frameValue} for layer ${embeddedLayer.originalCacheId || embeddedLayer.id}`);
       return false;
     }
 
     // Check for dynamic content in source (check multiple places)
     const source = embeddedLayer.kidlispInstance.source || embeddedLayer.sourceCode || embeddedLayer.source || '';
-    // console.log(`🔄 shouldLayerEvaluate: Checking source for layer ${embeddedLayer.id}:`, source);
+    console.log(`🔄 shouldLayerEvaluate: Checking source for layer ${embeddedLayer.originalCacheId || embeddedLayer.id}:`, source);
 
     const hasDynamicContent = source.includes('frame') ||
       source.includes('scroll') ||
@@ -11773,21 +11882,21 @@ class KidLisp {
       source.includes('tap') ||
       source.includes('random');
 
-    // console.log(`🔄 shouldLayerEvaluate: hasDynamicContent=${hasDynamicContent}, hasBeenEvaluated=${embeddedLayer.hasBeenEvaluated} for layer ${embeddedLayer.id}`);
+    console.log(`🔄 shouldLayerEvaluate: hasDynamicContent=${hasDynamicContent}, hasBeenEvaluated=${embeddedLayer.hasBeenEvaluated} for layer ${embeddedLayer.originalCacheId || embeddedLayer.id}`);
 
     // TEMPORARY WORKAROUND: Force re-evaluation for layers that might have scroll
     // Since source is often empty due to caching issues, force evaluation more frequently
     if (!hasDynamicContent && embeddedLayer.hasBeenEvaluated) {
       // Check if we should force evaluation anyway (every 10 frames for potential scroll effects)
       const shouldForceEvaluation = (frameValue % 10 === 0);
-      // console.log(`🔄 shouldLayerEvaluate: Forcing evaluation every 10 frames: ${shouldForceEvaluation} (frame ${frameValue})`);
+      console.log(`🔄 shouldLayerEvaluate: Forcing evaluation every 10 frames: ${shouldForceEvaluation} (frame ${frameValue})`);
       if (shouldForceEvaluation) {
         return true;
       }
       return false;
     }
 
-    // console.log(`🔄 shouldLayerEvaluate: Returning true (default) for layer ${embeddedLayer.id}`);
+    console.log(`🔄 shouldLayerEvaluate: Returning true (default) for layer ${embeddedLayer.originalCacheId || embeddedLayer.id}`);
     return true; // Default to evaluating
   }
 
@@ -11816,16 +11925,17 @@ class KidLisp {
     }
     embeddedLayer.localFrameCount += 1;
 
-    // CRITICAL: Each embedded layer needs its own independent timeline
-    embeddedLayer.kidlispInstance.frameCount = embeddedLayer.localFrameCount;
-    embeddedLayer.kidlispInstance.frameCounter = embeddedLayer.localFrameCount;
+      // CRITICAL: Each embedded layer needs its own independent timeline
+      embeddedLayer.kidlispInstance.frameCount = embeddedLayer.localFrameCount;
+      embeddedLayer.kidlispInstance.frameCounter = embeddedLayer.localFrameCount;
+      
+      // 🎨 Mark as embedded so wipe() becomes a no-op (embedded buffers should accumulate)
+      embeddedLayer.kidlispInstance.isEmbeddedLayer = true;
 
-    // Ensure timing state
-    if (!embeddedLayer.kidlispInstance.timingStates) {
-      embeddedLayer.kidlispInstance.timingStates = new Map();
-    }
-
-    if (shouldEvaluate) {
+      // Ensure timing state
+      if (!embeddedLayer.kidlispInstance.timingStates) {
+        embeddedLayer.kidlispInstance.timingStates = new Map();
+      }    if (shouldEvaluate) {
       // Get optimized API for this layer
       const embeddedApi = this.getOptimizedLayerApi(embeddedLayer, api);
 
@@ -11844,11 +11954,13 @@ class KidLisp {
       localEnv.frame = embeddedLayer.localFrameCount;
       localEnv.scroll = frameValue % (embeddedLayer.width + embeddedLayer.height);
 
+      // 🎨 SKIP background wipe for embedded layers - they should render on transparent
+      // so they can be composited properly. The parent piece controls the background.
       // Apply fade background only once
-      if (embeddedLayer.kidlispInstance.firstLineColor && !embeddedLayer.fadeApplied) {
-        embeddedApi.wipe(embeddedLayer.kidlispInstance.firstLineColor);
-        embeddedLayer.fadeApplied = true;
-      }
+      // if (embeddedLayer.kidlispInstance.firstLineColor && !embeddedLayer.fadeApplied) {
+      //   embeddedApi.wipe(embeddedLayer.kidlispInstance.firstLineColor);
+      //   embeddedLayer.fadeApplied = true;
+      // }
 
       // Execute the code
       const scrollNodesInAST = Array.isArray(embeddedLayer.parsedCode) ?
@@ -11912,8 +12024,9 @@ class KidLisp {
     // Manual pixels assignment needed (same reason as bake buffers)
     api.screen.pixels = this.layer0.pixels;
 
-    // Paste with optimized alpha compositing
-    this.pasteWithAlpha(api, embeddedLayer.buffer, embeddedLayer.x, embeddedLayer.y, embeddedLayer.alpha);
+    // ⚠️ DON'T paste embedded layers here - they're composited later in Step 3
+    // Pasting here would contaminate layer0 and cause it to be pasted over the embedded layers
+    // this.pasteWithAlpha(api, embeddedLayer.buffer, embeddedLayer.x, embeddedLayer.y, embeddedLayer.alpha);
   }
 
   // 🚀 CACHE OPTIMIZED API: Minimal API object creation
@@ -12245,11 +12358,18 @@ class KidLisp {
     // Track if any drawing commands were executed
     let didRender = false;
 
+    const originalPage = api?.screen
+      ? {
+          width: api.screen.width,
+          height: api.screen.height,
+          pixels: api.screen.pixels,
+        }
+      : null;
+
     try {
       // console.log(`🎯 Updating nested embedded layer: ${embeddedLayer.cacheId}`);
 
       // Switch to drawing on the embedded buffer using page()
-      const originalPage = api.screen;
       api.page(embeddedLayer.buffer);
       // console.log(`📄 Switched to nested buffer: ${embeddedLayer.cacheId}`);
 
@@ -12262,6 +12382,9 @@ class KidLisp {
       // CRITICAL: Each embedded layer needs its own independent timeline
       embeddedLayer.kidlispInstance.frameCount = embeddedLayer.localFrameCount;
       embeddedLayer.kidlispInstance.frameCounter = embeddedLayer.localFrameCount;
+      
+      // 🎨 Mark as embedded so wipe() becomes a no-op (embedded buffers should accumulate)
+      embeddedLayer.kidlispInstance.isEmbeddedLayer = true;
 
       // Ensure timing state is preserved for the embedded instance
       if (!embeddedLayer.kidlispInstance.timingStates) {
@@ -12386,10 +12509,6 @@ class KidLisp {
       
       // console.log(`✅ Embedded layer execution complete: ${embeddedLayer.originalCacheId}`);
 
-      // Switch back to the original page
-      api.page(originalPage);
-      // console.log(`📄 Switched back from nested buffer: ${embeddedLayer.cacheId}`);
-
     } catch (error) {
       console.error(`❌ Error updating nested embedded layer ${embeddedLayer.cacheId}:`, error);
       
@@ -12404,83 +12523,49 @@ class KidLisp {
         embeddedLayer.disabled = true;
       }
       
-      // Make sure we switch back to original page even on error
-      try {
-        if (api && typeof api.page === 'function' && api.screen) {
-          api.page(api.screen);
+    } finally {
+      if (originalPage && typeof api?.page === "function") {
+        try {
+          api.page(originalPage);
+          if (api.screen) {
+            api.screen.pixels = originalPage.pixels;
+          }
+        } catch (restoreError) {
+          console.error("❌ Error switching back to original page:", restoreError);
         }
-      } catch (e) {
-        console.error("❌ Error switching back to original page:", e);
       }
-    }    // Return whether any drawing commands were executed
+    }
+    // Return whether any drawing commands were executed
     return didRender;
   }
 
   // Manual pixel compositing for embedded layers (optimized)
   compositeEmbeddedLayer(api, embeddedLayer) {
-    if (!api.screen?.pixels || !embeddedLayer.buffer?.pixels) {
+    if (!api || !embeddedLayer?.buffer) {
       return;
     }
 
-    const currentPixels = api.screen.pixels;
-    const layerPixels = embeddedLayer.buffer.pixels;
-    const currentWidth = api.screen.width;
-    const currentHeight = api.screen.height;
-    const layerWidth = embeddedLayer.width;
-    const layerHeight = embeddedLayer.height;
-    const x = embeddedLayer.x || 0;
-    const y = embeddedLayer.y || 0;
-
-    // Optimized bounds checking - calculate once
-    const maxX = Math.min(layerWidth, currentWidth - x);
-    const maxY = Math.min(layerHeight, currentHeight - y);
-
-    // Early exit for completely out-of-bounds layers
-    if (x >= currentWidth || y >= currentHeight || x + layerWidth <= 0 || y + layerHeight <= 0) {
-      return;
-    }
-
-    // Composite the embedded layer at the specified position
-    for (let ly = 0; ly < maxY; ly++) {
-      const screenY = y + ly;
-      if (screenY < 0) continue; // Skip negative Y
-
-      const layerRowStart = ly * layerWidth * 4;
-      const screenRowStart = screenY * currentWidth * 4;
-
-      for (let lx = 0; lx < maxX; lx++) {
-        const screenX = x + lx;
-        if (screenX < 0) continue; // Skip negative X
-
-        const layerIndex = layerRowStart + (lx * 4);
-        const screenIndex = screenRowStart + (screenX * 4);
-
-        const layerA = layerPixels[layerIndex + 3];
-
-        // Skip transparent pixels for performance
-        if (layerA > 0) {
-          const layerR = layerPixels[layerIndex];
-          const layerG = layerPixels[layerIndex + 1];
-          const layerB = layerPixels[layerIndex + 2];
-
-          if (layerA === 255) {
-            // Fully opaque - direct copy (faster)
-            currentPixels[screenIndex] = layerR;
-            currentPixels[screenIndex + 1] = layerG;
-            currentPixels[screenIndex + 2] = layerB;
-            currentPixels[screenIndex + 3] = layerA;
-          } else {
-            // Alpha blending
-            const alpha = layerA / 255;
-            const invAlpha = 1 - alpha;
-            currentPixels[screenIndex] = layerR * alpha + currentPixels[screenIndex] * invAlpha;
-            currentPixels[screenIndex + 1] = layerG * alpha + currentPixels[screenIndex + 1] * invAlpha;
-            currentPixels[screenIndex + 2] = layerB * alpha + currentPixels[screenIndex + 2] * invAlpha;
-            currentPixels[screenIndex + 3] = Math.max(currentPixels[screenIndex + 3], layerA);
-          }
+    const destinationPage = api.screen
+      ? {
+          width: api.screen.width,
+          height: api.screen.height,
+          pixels: api.screen.pixels,
         }
-      }
+      : null;
+
+    if (destinationPage && typeof api.page === "function") {
+      api.page(destinationPage);
+      api.screen.pixels = destinationPage.pixels;
     }
+
+    const alpha = typeof embeddedLayer.alpha === "number" ? embeddedLayer.alpha : 255;
+    this.pasteWithAlpha(
+      api,
+      embeddedLayer.buffer,
+      embeddedLayer.x || 0,
+      embeddedLayer.y || 0,
+      alpha,
+    );
   }
 }
 
