@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "chrome-devtools": {
+      "command": "chrome-devtools-mcp",
+      "args": [
+        "--executablePath",
+        "/usr/sbin/chromium-browser",
+        "--headless",
+        "--isolated",
+        "--chromeArg",
+        "--no-sandbox",
+        "--chromeArg",
+        "--disable-setuid-sandbox",
+        "--chromeArg",
+        "--disable-dev-shm-usage"
+      ]
+    }
+  }
+}
