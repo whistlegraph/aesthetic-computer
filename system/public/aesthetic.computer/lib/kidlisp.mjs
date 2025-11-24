@@ -3436,13 +3436,14 @@ class KidLisp {
             // Check if layer0 has any non-transparent pixels
             let layer0HasContent = false;
             if (this.layer0 && this.layer0.pixels) {
-              // Sample every 100th pixel's alpha to quickly check if layer0 has content
-              for (let i = 3; i < this.layer0.pixels.length; i += 400) {
+              // Sample more frequently to catch thin lines - every 16th pixel
+              for (let i = 3; i < this.layer0.pixels.length; i += 64) {
                 if (this.layer0.pixels[i] > 0) {
                   layer0HasContent = true;
                   break;
                 }
               }
+              console.log(`🔍 layer0HasContent check: ${layer0HasContent}, layer0 size: ${this.layer0.width}x${this.layer0.height}, first alpha sample: ${this.layer0.pixels[3]}`);
             }
             
             // Step 1: Paste layer 0 only if it has content (all drawing before first bake, or all drawing if no bake)
