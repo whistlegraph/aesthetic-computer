@@ -1937,6 +1937,12 @@ class KidLisp {
       if (head === "line" && args.length > 0) {
         return `(line ${args.join(" ")})`;
       }
+      if (head === "box" && args.length === 0) {
+        return "(box)";
+      }
+      if (head === "box" && args.length > 0) {
+        return `(box ${args.join(" ")})`;
+      }
 
       // Generic formatting: show first few items to keep it concise
       const displayArgs = args.slice(0, 3);
@@ -4978,10 +4984,18 @@ class KidLisp {
         return (this.seededRandom() - 0.5) * amount;
       },
       box: (api, args = []) => {
+        console.log('📦 BOX called with args:', args, 'length:', args.length);
+        
         // Handle non-array args
         if (!Array.isArray(args)) {
           console.warn('⚠️ box function received non-array args, converting to array');
           args = Array.isArray(args) ? args : [args];
+        }
+
+        // If no args provided, fill with undefined to trigger randomization
+        if (args.length === 0) {
+          console.log('📦 BOX: No args provided, using undefined placeholders');
+          args = [undefined, undefined, undefined, undefined];
         }
 
         // Handle undefined (?) values with contextual logic
