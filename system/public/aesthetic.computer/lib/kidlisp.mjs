@@ -1663,6 +1663,9 @@ class KidLisp {
     // Reset deferred commands state
     this.postEmbedCommands = [];
 
+    // Reset persistence flag
+    this.preserveLayer0NextFrame = false;
+
     // Reset buffer pool state
     this.bufferPool.clear();
 
@@ -1997,8 +2000,21 @@ class KidLisp {
       // Check if it's a direct color name, fade string, color code, or pattern code in the global environment
       if (globalEnv[colorName] && typeof globalEnv[colorName] === "function") {
         try {
-          // Test if this is a color function by calling it
-          const result = globalEnv[colorName]();
+          // Create a dummy API to prevent side effects during color detection
+          // This prevents drawing commands like (box) from executing on the main screen
+          const dummyApi = {
+            screen: { width: 100, height: 100 },
+            isSafe: true,
+          };
+          const safeApi = new Proxy(dummyApi, {
+            get: (target, prop) => {
+              if (prop in target) return target[prop];
+              return () => {}; // Return no-op function for any other property
+            }
+          });
+
+          // Test if this is a color function by calling it with safe API
+          const result = globalEnv[colorName](safeApi);
 
           // Check if the result is a valid color (array of RGB values, fade string, or rainbow/zebra)
           const isValidColor = Array.isArray(result) ||
@@ -3288,11 +3304,15 @@ class KidLisp {
           // Without this, burnedBuffer persists and causes stale compositing
           this.burnedBuffer = null;
           
-          // Clear layer0 to transparent at the start of each frame
-          // This prevents garbage/checkerboard data from showing through embedded layers
-          if (this.layer0 && this.layer0.pixels) {
-            this.layer0.pixels.fill(0);
-          }
+          // 🎨 CRITICAL FIX: Layer0 should PERSIST across frames for accumulation effects
+          // Only clear layer0 if EXPLICITLY requested (e.g., when wipe is called without firstLineColor)
+          // This allows drawing commands like 'purple, ink red, line' to accumulate across frames
+          // The screen buffer is cleared separately (below) to ensure proper compositing
+          // DO NOT clear layer0 automatically - it maintains its own persistent state
+          
+          // Reset persistence flag for the next frame
+          // It must be re-triggered by a transform call in this frame
+          this.preserveLayer0NextFrame = false;
           
           // Switch to layer 0 as initial drawing target
           $.page(this.layer0);
@@ -3433,26 +3453,16 @@ class KidLisp {
           } else {
             // 🐌 SLOW PATH: No burn - composite all layers individually
             
-            // Check if layer0 has any non-transparent pixels
-            let layer0HasContent = false;
+            // Step 1: Paste layer 0 (all drawing before first bake, or all drawing if no bake)
+            // Always paste layer0 to ensure thin lines are rendered (optimization removed due to false negatives)
+            // 🎯 FIX: Use pasteWithAlpha with alpha=255 instead of $.paste to handle overlapping embedded layers at (0,0)
             if (this.layer0 && this.layer0.pixels) {
-              // Sample more frequently to catch thin lines - every 16th pixel
-              for (let i = 3; i < this.layer0.pixels.length; i += 64) {
-                if (this.layer0.pixels[i] > 0) {
-                  layer0HasContent = true;
-                  break;
-                }
-              }
-              console.log(`🔍 layer0HasContent check: ${layer0HasContent}, layer0 size: ${this.layer0.width}x${this.layer0.height}, first alpha sample: ${this.layer0.pixels[3]}`);
-            }
-            
-            // Step 1: Paste layer 0 only if it has content (all drawing before first bake, or all drawing if no bake)
-            if (layer0HasContent && this.layer0 && this.layer0.pixels) {
               // Check dimensions match before pasting to avoid bounds errors
               if (this.layer0.width === screen.width && this.layer0.height === screen.height) {
                 try {
-                  // 🚨 FIX: Use 255 for alpha, not 1 (which is 1/255 opacity)
-                  $.paste(this.layer0, 0, 0, 255, true); // true = blit mode, direct copy
+                  // Use pasteWithAlpha instead of $.paste - this respects alpha channel in layer0
+                  // and prevents it from overwriting transparent pixels in embedded layers at (0,0)
+                  this.pasteWithAlpha($, this.layer0, 0, 0, 255, false);
                 } catch (error) {
                   console.warn(`⚠️ Error pasting layer0:`, error.message);
                 }
@@ -3489,9 +3499,16 @@ class KidLisp {
                 const embeddedLayer = this.embeddedLayers[i];
                 if (embeddedLayer.buffer && embeddedLayer.buffer.pixels) {
                   try {
-                    this.pasteWithAlpha($, embeddedLayer.buffer, embeddedLayer.x, embeddedLayer.y, embeddedLayer.alpha);
+                    // Check if alpha blending is used
+                    const alpha = typeof embeddedLayer.alpha === "number" ? embeddedLayer.alpha : 255;
+                    
+                    // Force integer coordinates to avoid sub-pixel indexing issues
+                    // Handle explicit 0 values (0 is falsy, so we need to check specifically)
+                    const destX = typeof embeddedLayer.x === "number" ? Math.round(embeddedLayer.x) : 0;
+                    const destY = typeof embeddedLayer.y === "number" ? Math.round(embeddedLayer.y) : 0;
+                    this.pasteWithAlpha($, embeddedLayer.buffer, destX, destY, alpha);
                   } catch (error) {
-                    console.warn(`⚠️ Error pasting embedded layer ${i}:`, error.message);
+                    console.warn(`⚠️ Error pasting embedded layer ${i}:`, error.message, error.stack);
                   }
                 }
               }
@@ -3880,8 +3897,19 @@ class KidLisp {
       this.errorPositions = null;
     }
 
+    // Allow parser to recover by auto-closing missing parentheses (helps legacy pieces)
+    let parserInput = input;
+    if (validationErrors.length > 0 && /Missing \d+ closing parenthesis/.test(validationErrors.join(' '))) {
+      const missingCountMatch = validationErrors.join(' ').match(/Missing (\d+) closing parenthes/);
+      const missingCount = missingCountMatch ? parseInt(missingCountMatch[1], 10) : 0;
+      if (missingCount > 0) {
+        parserInput = `${input}\n${')'.repeat(missingCount)}`;
+        console.warn(`⚠️ KidLisp auto-balanced ${missingCount} missing parenthesis${missingCount === 1 ? '' : 'es'}`);
+      }
+    }
+
     try {
-      const tokens = tokenize(input);
+      const tokens = tokenize(parserInput);
       // console.log(`🔍 Tokenized:`, tokens);
       const parsed = readFromTokens(tokens);
       // console.log(`🔍 Parsed result:`, parsed);
@@ -4983,7 +5011,7 @@ class KidLisp {
         return (this.seededRandom() - 0.5) * amount;
       },
       box: (api, args = []) => {
-        console.log('📦 BOX called with args:', args, 'length:', args.length);
+        // console.log('📦 BOX called with args:', args, 'length:', args.length);
         
         // Handle non-array args
         if (!Array.isArray(args)) {
@@ -5193,6 +5221,9 @@ class KidLisp {
         api.shape({ points, filled, thickness });
       },
       scroll: (api, args = []) => {
+        // Request persistence for next frame to allow trails
+        this.preserveLayer0NextFrame = true;
+
         // 🍞 Suppress scroll effect if we're before the bake point
         if (this.suppressDrawingBeforeBake) {
           if (VERBOSE) console.log("🍞 Scroll: SUPPRESSED (before bake point)");
@@ -5309,6 +5340,9 @@ class KidLisp {
         }
       },
       spin: (api, args = []) => {
+        // Request persistence for next frame to allow trails
+        this.preserveLayer0NextFrame = true;
+
         // Defer spin execution if embedded layers exist and we're not in embed phase
         if (this.embeddedLayers?.length > 0 && !this.inEmbedPhase) {
           //console.log("🎡 Deferring spin command until after embedded layers");
@@ -5325,6 +5359,9 @@ class KidLisp {
         api.resetSpin();
       },
       smoothspin: (api, args = []) => {
+        // Request persistence for next frame to allow trails
+        this.preserveLayer0NextFrame = true;
+
         // Defer smoothspin execution if embedded layers exist and we're not in embed phase
         if (this.embeddedLayers?.length > 0 && !this.inEmbedPhase) {
           console.log("🎡 Deferring smoothspin command until after embedded layers");
@@ -5341,6 +5378,9 @@ class KidLisp {
         api.sort(...args);
       },
       zoom: (api, args = []) => {
+        // Request persistence for next frame to allow trails
+        this.preserveLayer0NextFrame = true;
+
         const performZoom = () => {
           api.zoom(...args);
         };
@@ -5370,6 +5410,9 @@ class KidLisp {
         performZoom();
       },
       suck: (api, args = []) => {
+        // Request persistence for next frame to allow trails
+        this.preserveLayer0NextFrame = true;
+
         const performSuck = () => {
           api.suck(...args);
         };
@@ -5403,6 +5446,9 @@ class KidLisp {
         performSuck();
       },
       blur: (api, args = []) => {
+        // Request persistence for next frame to allow trails
+        this.preserveLayer0NextFrame = true;
+
         // 🍞 Suppress blur effect if we're before the bake point
         if (this.suppressDrawingBeforeBake) {
           const routed = this.runWithBakedBuffer(api, () => {
@@ -5418,6 +5464,9 @@ class KidLisp {
         api.blur(...args);
       },
       sharpen: (api, args = []) => {
+        // Request persistence for next frame to allow trails
+        this.preserveLayer0NextFrame = true;
+
         // 🍞 Suppress sharpen effect if we're before the bake point
         if (this.suppressDrawingBeforeBake) {
           const routed = this.runWithBakedBuffer(api, () => {
@@ -5433,6 +5482,9 @@ class KidLisp {
         api.sharpen(...args);
       },
       invert: (api, args = []) => {
+        // Request persistence for next frame to allow trails
+        this.preserveLayer0NextFrame = true;
+
         // 🍞 Suppress invert effect if we're before the bake point
         if (this.suppressDrawingBeforeBake) {
           const routed = this.runWithBakedBuffer(api, () => {
@@ -5448,6 +5500,9 @@ class KidLisp {
         api.invert(...args);
       },
       contrast: (api, args = []) => {
+        // Request persistence for next frame to allow trails
+        this.preserveLayer0NextFrame = true;
+
         const performContrast = () => {
           api.contrast(...args);
         };
@@ -7072,6 +7127,7 @@ class KidLisp {
             if (alpha === undefined || alpha === null) {
               alpha = 255;
             }
+            console.log(`🔍 embed parsed alpha: ${alpha} from args[5]:`, args[5]);
           }
         }
 
@@ -7135,13 +7191,13 @@ class KidLisp {
             return undefined;
           }
 
+          // Always update position and alpha for this specific call
+          existingLayer.x = x;
+          existingLayer.y = y;
+          existingLayer.alpha = alpha;
+
           // If dimensions don't match exactly, we need to handle the scaling
           if (existingLayer.width !== width || existingLayer.height !== height) {
-            // Update position and alpha for this specific call
-            existingLayer.x = x;
-            existingLayer.y = y;
-            existingLayer.alpha = alpha;
-
             // For performance, we'll render at the cached size but paste at the requested position
             // This avoids recreating buffers during reframe operations
           }
@@ -7214,6 +7270,7 @@ class KidLisp {
         this.loadingEmbeddedLayers.add(cacheId);
 
         // Check if we already have the source code cached
+        console.log(`🔍 Checking embeddedSourceCache for ${cacheId}. Has it? ${this.embeddedSourceCache.has(cacheId)}`);
         if (this.embeddedSourceCache.has(cacheId)) {
           const cachedSource = this.embeddedSourceCache.get(cacheId);
           // Mark as loaded since we have cached source
@@ -7726,7 +7783,8 @@ class KidLisp {
 
   evaluate(parsed, api = {}, env, inArgs, isTopLevel = false, expressionIndex = 0) {
     // 🎨 DEFAULT PATTERN: If no code provided, show a checkerboard pattern
-    if (!parsed || (Array.isArray(parsed) && parsed.length === 0)) {
+    // Note: 0 is a valid value, so we must check for undefined/null/empty string explicitly
+    if (parsed === undefined || parsed === null || parsed === "" || (Array.isArray(parsed) && parsed.length === 0)) {
       if (api.wipe && api.ink && api.box) {
         // Draw a simple checkerboard pattern
         api.wipe(240, 240, 240); // Light gray background
@@ -10947,6 +11005,7 @@ class KidLisp {
 
   // Helper method to create embedded layer from source code
   createEmbeddedLayerFromSource(source, cacheId, layerKey, width, height, x, y, alpha, api) {
+    // console.log(`🛠️ createEmbeddedLayerFromSource called for ${layerKey}`);
     // Check if there's already an existing layer for this key
     const existingLayer = this.embeddedLayerCache.get(layerKey);
     if (existingLayer) {
@@ -11208,6 +11267,7 @@ class KidLisp {
 
     this.embeddedLayers.push(embeddedLayer);
     this.embeddedLayerCache.set(layerKey, embeddedLayer);
+    console.log(`✅ Pushed layer to embeddedLayers. Count: ${this.embeddedLayers.length}. Layer ID: ${embeddedLayer.id}`);
 
     // 🎨 IMMEDIATE PASTE: Paste the embedded layer back to main canvas right after creation
     // This allows any subsequent drawing commands to naturally draw on top
@@ -11522,7 +11582,8 @@ class KidLisp {
 
   // Helper function to paste a buffer with alpha blending
   // 🚀 ULTRA-OPTIMIZED: Pre-cache alpha buffers and use fast paths
-  pasteWithAlpha(api, sourceBuffer, x, y, alpha) {
+  pasteWithAlpha(api, sourceBuffer, x, y, alpha, respectSourceAlpha = true) {
+    // console.log(`🖌️ pasteWithAlpha called: x=${x}, y=${y}, alpha=${alpha}, respectSourceAlpha=${respectSourceAlpha}`);
     if (!sourceBuffer || !sourceBuffer.pixels || !api.screen || !api.screen.pixels) {
       return; // Silent fail for performance
     }
@@ -11543,14 +11604,36 @@ class KidLisp {
     }
 
     // 🎯 ULTRA-FAST PATH: Direct paste for opaque layers
-    if (alpha === 255) {
-      console.log(`🎯 pasteWithAlpha FAST PATH: buffer=${sourceBuffer.width}x${sourceBuffer.height}, screen=${api.screen.width}x${api.screen.height}, pos=(${x},${y}), alpha=${alpha}`);
+    // Skip transparency checks when caller explicitly does not care about source alpha
+    if (alpha === 255 && !respectSourceAlpha) {
       if (api.paste) {
         api.paste(sourceBuffer, x, y);
       } else {
         this.fastDirectPaste(api, sourceBuffer, x, y);
       }
       return;
+    }
+
+    if (alpha === 255 && respectSourceAlpha) {
+      // Check if source has any transparent pixels that we need to preserve
+      let hasTransparency = false;
+      const pixels = sourceBuffer.pixels;
+      for (let i = 3; i < pixels.length; i += 4) {
+        if (pixels[i] < 255) {
+          hasTransparency = true;
+          break;
+        }
+      }
+
+      if (!hasTransparency) {
+        if (api.paste) {
+          api.paste(sourceBuffer, x, y);
+        } else {
+          this.fastDirectPaste(api, sourceBuffer, x, y);
+        }
+        return;
+      }
+      // Fall through to proper alpha blending when transparency exists
     }
 
     // 🚀 CACHE ALPHA BUFFERS: Reuse alpha-adjusted buffers to avoid repeated allocations
@@ -11687,6 +11770,7 @@ class KidLisp {
 
   // Fallback manual alpha blending for when graph.paste is not available
   fallbackPasteWithAlpha(api, sourceBuffer, x, y, alpha) {
+    console.log(`🖌️ fallbackPasteWithAlpha called: x=${x}, y=${y}, alpha=${alpha}`);
     const srcPixels = sourceBuffer.pixels;
     const dstPixels = api.screen.pixels;
     const srcWidth = sourceBuffer.width;
@@ -11709,23 +11793,19 @@ class KidLisp {
     const endX = Math.min(dstWidth, x + srcWidth);
     const endY = Math.min(dstHeight, y + srcHeight);
 
-    let processedPixels = 0;
-    let skippedTransparent = 0;
-    let blendedPixels = 0;
-
     // Optimized row-wise blending for better cache performance
+    let pixelsProcessed = 0;
     for (let dy = startY; dy < endY; dy++) {
       const srcY = dy - y;
       if (srcY < 0 || srcY >= srcHeight) continue;
 
       for (let dx = startX; dx < endX; dx++) {
+        pixelsProcessed++;
         const srcX = dx - x;
         if (srcX < 0 || srcX >= srcWidth) continue;
 
         const srcIndex = (srcY * srcWidth + srcX) * 4;
         const dstIndex = (dy * dstWidth + dx) * 4;
-        processedPixels++;
-
         let srcA = srcPixels[srcIndex + 3];
 
         // Some KidLisp layers never set alpha but still draw RGB; treat them as opaque
@@ -11734,13 +11814,10 @@ class KidLisp {
             srcPixels[srcIndex + 1] !== 0 ||
             srcPixels[srcIndex + 2] !== 0;
           if (!hasColor) {
-            skippedTransparent++;
             continue; // Truly transparent pixel
           }
           srcA = 255; // Promote color-only pixels to opaque so global alpha works
         }
-
-        blendedPixels++;
 
         // Fast path for fully opaque pixels
         if (alphaFactor === 1.0 && srcA === 255) {
@@ -11770,6 +11847,7 @@ class KidLisp {
         }
       }
     }
+    // console.log(`🖌️ fallbackPasteWithAlpha processed ${pixelsProcessed} pixels`);
   }
 
   // Fast pixel hash for change detection (samples key pixels to avoid full buffer comparison)
@@ -12566,11 +12644,26 @@ class KidLisp {
     }
 
     const alpha = typeof embeddedLayer.alpha === "number" ? embeddedLayer.alpha : 255;
+    
+    // If alpha is used, request persistence to allow accumulation
+    if (alpha < 255) {
+      // console.log(`Requesting persistence due to alpha: ${alpha}`);
+      this.preserveLayer0NextFrame = true;
+    }
+
+    // Force integer coordinates to avoid sub-pixel indexing issues
+    const destX = Math.round(embeddedLayer.x || 0);
+    const destY = Math.round(embeddedLayer.y || 0);
+
+    if (destX === 0 && destY === 0 && alpha < 255) {
+       // console.log(`Composite at 0,0 with alpha ${alpha}. Preserve: ${this.preserveLayer0NextFrame}`);
+    }
+
     this.pasteWithAlpha(
       api,
       embeddedLayer.buffer,
-      embeddedLayer.x || 0,
-      embeddedLayer.y || 0,
+      destX,
+      destY,
       alpha,
     );
   }
