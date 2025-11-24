@@ -2,6 +2,7 @@
 <html>
 
 <head>
+  <meta charset="utf-8">
   <title>KidLisp - transmedia pattern programming for everybody</title>
   <meta name="description" content="KidLisp is a simple, expressive language for creating visual patterns and animations. Try it on aesthetic.computer." />
   <link rel="icon" type="image/png"
@@ -11,7 +12,7 @@
   <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Comic+Relief:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Comic+Relief:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+Mono:wght@400;700&display=swap" rel="stylesheet">
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     :root {
@@ -639,7 +640,7 @@
     
     /* Code display with monospace font */
     #preview-title .code-display {
-      font-family: 'Berkeley Mono', 'Courier New', monospace;
+      font-family: 'Noto Sans Mono', 'SF Mono', 'Monaco', 'Menlo', 'Consolas', 'Liberation Mono', 'Courier New', monospace;
       font-weight: normal;
       letter-spacing: 0.05em;
     }
@@ -684,7 +685,7 @@
       overflow-y: auto;
       padding: 8px;
       font-size: 14px;
-      font-family: 'Berkeley Mono Variable', monospace;
+      font-family: 'Noto Sans Mono', 'SF Mono', 'Monaco', 'Menlo', 'Consolas', 'Liberation Mono', 'Courier New', monospace;
       line-height: 1.4;
       background: #4a3020; /* Lighter brown background */
       color: #ff9f43; /* Orange text */
@@ -1994,6 +1995,20 @@
     const kidlisp = new KidLisp();
     let editor;
 
+    // Function to update browser URL and title when code changes
+    function updateURLForCode(code) {
+      const cleanCode = code.startsWith('$') ? code.substring(1) : code;
+      const newPath = `/kidlisp.com/$${cleanCode}`;
+      const newTitle = `aesthetic.computer/$${cleanCode}`;
+      
+      // Update URL without reloading
+      if (window.location.pathname !== newPath) {
+        window.history.pushState({ code: cleanCode }, newTitle, newPath);
+        document.title = newTitle;
+        console.log(`🔄 Updated URL to: ${newPath}`);
+      }
+    }
+
     // Function to load kidlisp code from database by code (e.g., $46k)
     async function loadKidlispFromDatabase(code) {
       try {
@@ -2131,8 +2146,15 @@
         // Load code from database
         loadKidlispFromDatabase(code).then(source => {
           if (source && editor) {
+            console.log(`📝 Full source from database (${source.length} chars):`, source);
             editor.setValue(source);
             console.log(`✅ Loaded code into editor: $${code}`);
+            console.log(`📝 Code now in editor (${editor.getValue().length} chars):`, editor.getValue());
+            // Update title
+            document.title = `aesthetic.computer/$${code}`;
+            // Update preview pane title
+            const previewTitle = document.getElementById('preview-title');
+            previewTitle.innerHTML = `Aesthetic<span class="bounce-dot" style="color: #9370DB !important;">.</span>Computer/<span class="code-display">$${code}</span>`;
             // Don't save to localStorage when loading from URL
             // Trigger initial preview
             updatePreview();
@@ -2959,11 +2981,25 @@
       
       // Auto-reload when code changes while playing
       if (editor) {
+        let debounceTimer = null;
+        let pendingUpdate = false;
+        
         editor.onDidChangeModelContent(() => {
           const currentCode = editor.getValue().trim();
           if (isPlaying && !isPaused && currentCode !== lastCode) {
-            updatePreview();
-            lastCode = currentCode;
+            // Cancel any pending update
+            if (debounceTimer) {
+              clearTimeout(debounceTimer);
+              pendingUpdate = true;
+            }
+            
+            // Wait 1 second after user stops typing before updating
+            debounceTimer = setTimeout(() => {
+              updatePreview();
+              lastCode = currentCode;
+              pendingUpdate = false;
+              debounceTimer = null;
+            }, 1000);
           }
         });
       }
@@ -3001,10 +3037,12 @@
     stopButton.style.cursor = 'not-allowed';
     console.log('🔒 Controls disabled until iframe ready');
 
-    function updatePreview() {
+    function updatePreview(shouldCreateCode = false) {
       if (!editor) return;
       
       const code = editor.getValue().trim();
+      console.log(`📤 updatePreview called with code length: ${code.length}`);
+      console.log(`📤 Full code being sent:`, code);
       if (code) {
         // Send code via postMessage for instant reload (no network!)
         console.log('🟢 Sending postMessage reload...');
@@ -3013,9 +3051,9 @@
           previewIframe.contentWindow.postMessage({
             type: 'kidlisp-reload',
             code: code,
-            createCode: true  // Enable code creation with $ identifier
+            createCode: shouldCreateCode  // Only create code when explicitly requested
           }, aestheticUrl);
-          console.log('✅ PostMessage sent:', code.substring(0, 50));
+          console.log('✅ PostMessage sent - code length:', code.length);
         } else {
           console.warn('⚠️ No iframe contentWindow available');
         }
@@ -3033,9 +3071,9 @@
       
       console.log('🎮 Play/Pause button clicked - isPlaying:', isPlaying, 'isPaused:', isPaused);
       if (!isPlaying) {
-        // Start playing - always run the current code
+        // Start playing - run the current code without creating a code
         console.log('▶️ Starting playback');
-        updatePreview();
+        updatePreview(); // Don't create code on play - only on explicit save
         isPlaying = true;
         isPaused = false;
         sendButton.classList.add('playing');
@@ -3214,6 +3252,11 @@
     
     // Listen for console messages and syntax highlighting signals from iframe
     window.addEventListener('message', (event) => {
+      // Ignore setCode messages - they're for other pieces, not kidlisp
+      if (event.data?.type === 'setCode') {
+        return;
+      }
+      
       console.log('📨 Message received:', event.data?.type, event.data);
       console.log('📨 Message origin:', event.origin, 'Expected:', aestheticUrl);
       
@@ -3255,65 +3298,21 @@
         if (editor && event.data.highlights) {
           applyHighlightDecorations(event.data.highlights);
         }
-      } else if (event.data && event.data.type === 'setCode') {
-        // Code was set via setCode message (alternative to kidlisp-code-created)
-        console.log('🎉 setCode message received!', event.data);
-        const previewTitle = document.getElementById('preview-title');
-        const previewQR = document.getElementById('preview-qr');
-        
-        if (event.data.value) {
-          // Trigger generating animation
-          const codeSpan = previewTitle.querySelector('.code-display');
-          const dotSpan = previewTitle.querySelector('.bounce-dot');
-          if (codeSpan) codeSpan.classList.add('generating');
-          if (dotSpan) dotSpan.classList.add('generating');
-          
-          // Update title to show the code URL
-          previewTitle.innerHTML = `Aesthetic<span class="bounce-dot" style="color: #9370DB !important;">.</span>Computer/<span class="code-display">$${event.data.value}</span>`;
-          console.log('✅ Title updated to:', `Aesthetic.Computer/$${event.data.value}`);
-          
-          // Remove animation after it completes
-          setTimeout(() => {
-            const newCodeSpan = previewTitle.querySelector('.code-display');
-            const newDotSpan = previewTitle.querySelector('.bounce-dot');
-            if (newCodeSpan) newCodeSpan.classList.remove('generating');
-            if (newDotSpan) newDotSpan.classList.remove('generating');
-          }, 900);
-        }
-        
-        if (event.data.qr) {
-          // Display QR code as data URI if provided
-          previewQR.src = event.data.qr;
-          previewQR.style.display = 'block';
-          console.log('✅ QR code displayed from setCode');
-        }
       } else if (event.data && event.data.type === 'kidlisp-code-created') {
-        // Code was created with $ identifier
+        // Code was created with $ identifier - update URL and preview title
         console.log('🎉 kidlisp-code-created message received!', event.data);
-        const previewTitle = document.getElementById('preview-title');
-        const previewQR = document.getElementById('preview-qr');
         
         if (event.data.code) {
-          // Trigger generating animation
-          const codeSpan = previewTitle.querySelector('.code-display');
-          const dotSpan = previewTitle.querySelector('.bounce-dot');
-          if (codeSpan) codeSpan.classList.add('generating');
-          if (dotSpan) dotSpan.classList.add('generating');
+          // Update browser URL and title
+          updateURLForCode(event.data.code);
           
-          // Update title to show the code URL
+          // Update preview pane title to show the code
+          const previewTitle = document.getElementById('preview-title');
           previewTitle.innerHTML = `Aesthetic<span class="bounce-dot" style="color: #9370DB !important;">.</span>Computer/<span class="code-display">$${event.data.code}</span>`;
-          console.log('✅ Title updated to:', `Aesthetic.Computer/$${event.data.code}`);
-          
-          // Remove animation after it completes
-          setTimeout(() => {
-            const newCodeSpan = previewTitle.querySelector('.code-display');
-            const newDotSpan = previewTitle.querySelector('.bounce-dot');
-            if (newCodeSpan) newCodeSpan.classList.remove('generating');
-            if (newDotSpan) newDotSpan.classList.remove('generating');
-          }, 900);
         }
         
         if (event.data.qr) {
+          const previewQR = document.getElementById('preview-qr');
           // Display QR code as data URI
           previewQR.src = event.data.qr;
           previewQR.style.display = 'block';

@@ -40,6 +40,24 @@ async function fun(event, context) {
       },
     );
   }
+
+  // Serve kidlisp.com/index.html for all /kidlisp.com/* paths (SPA routing)
+  if (event.path.startsWith("/kidlisp.com/") || event.path === "/kidlisp.com") {
+    try {
+      const htmlContent = await fs.readFile(
+        path.join(process.cwd(), "public/kidlisp.com/index.html"),
+        "utf8"
+      );
+      return {
+        statusCode: 200,
+        headers: { "Content-Type": "text/html" },
+        body: htmlContent,
+      };
+    } catch (err) {
+      console.error("❌ Error serving kidlisp.com:", err);
+      return respond(500, "Error loading kidlisp.com");
+    }
+  }
   // console.log("😃", __dirname, __filename);
 
   let slug = event.path.slice(1) || "prompt";
@@ -111,7 +129,7 @@ async function fun(event, context) {
   if (slug.startsWith("kidlisp:") && slug.length > 8) {
     const code = slug.slice(8); // Remove "kidlisp:" prefix
     const newSlug = `$${code}`; // Convert to $code format
-    console.log(`🔄 Converting kidlisp:${code} to $${code} and redirecting`);
+    console.log(`[kidlisp] Converting kidlisp:${code} to $${code} and redirecting`);
     
     // Redirect to the $code format to update the URL bar
     return respond(
@@ -222,7 +240,7 @@ async function fun(event, context) {
         // Handle special kidlisp path case
         if (path === "(...)" || path === "(...)") {
           // This is inline kidlisp code, not a file to load
-          console.log("🤖 Detected inline kidlisp, skipping file load");
+          console.log("[kidlisp] Detected inline kidlisp, skipping file load");
           sourceCode = null; // No source code to load
         } else {
           try {
@@ -339,7 +357,7 @@ async function fun(event, context) {
       console.log("📰 Metadata:", meta, "Path:", parsed.text);
     } else if (parsed.source) {
       // Handle inline kidlisp code that doesn't need file loading
-      console.log("🤖 Using inline kidlisp source for metadata");
+      console.log("[kidlisp] Using inline kidlisp source for metadata");
       
       // Get initial metadata from inference
       meta = inferTitleDesc(parsed.source);
