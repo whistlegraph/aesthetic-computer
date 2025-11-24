@@ -34,8 +34,9 @@ function start
   osascript -e 'tell application "Visual Studio Code" to quit'
   sleep 1
 
-  # Launch VS Code
-  open -a "Visual Studio Code"
+  # Launch VS Code with Chrome DevTools Protocol enabled on port 9222
+  # Allow remote origins so dev container can connect via host.docker.internal
+  open -a "Visual Studio Code" --args --remote-debugging-port=9222 --remote-allow-origins="*"
 end
 
 # empty greeting
