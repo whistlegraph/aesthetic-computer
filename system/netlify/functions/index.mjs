@@ -42,7 +42,8 @@ async function fun(event, context) {
   }
 
   // Serve kidlisp.com/index.html for all /kidlisp.com/* paths (SPA routing)
-  if (event.path.startsWith("/kidlisp.com/") || event.path === "/kidlisp.com") {
+  // This handles paths like /kidlisp.com, /kidlisp.com/, /kidlisp.com/$abc
+  if (event.path.startsWith("/kidlisp.com")) {
     try {
       const htmlContent = await fs.readFile(
         path.join(process.cwd(), "public/kidlisp.com/index.html"),

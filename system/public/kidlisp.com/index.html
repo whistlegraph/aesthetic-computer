@@ -1317,7 +1317,7 @@
             </div>
           </div>
           <button id="theme-toggle" title="Toggle light/dark mode">○</button>
-          <button id="line-limit-btn" style="padding: 4px 8px; background: rgba(255,255,255,0.3); border: 1px solid rgba(0,0,0,0.1); border-radius: 4px; font-size: 11px; cursor: pointer; margin-left: auto;">1</button>
+          <div id="local-indicator" style="display: none; padding: 4px 8px; background: rgba(76, 175, 80, 0.2); border: 1px solid rgba(76, 175, 80, 0.5); border-radius: 4px; font-size: 10px; color: #4caf50; font-weight: bold; margin-left: auto;">🟢 LOCAL</div>
         </div>
         <div id="kidlisp-editor">
           <button id="send-button" aria-label="Play"></button>
@@ -2095,13 +2095,15 @@
       const isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
       const initialTheme = isDarkMode ? 'kidlisp-dark' : 'kidlisp-light';
 
-      // Line limit state - restore from localStorage or default to 1
-      const savedMaxLines = localStorage.getItem('kidlisp-maxLines');
-      let maxLines = 1;
-      if (savedMaxLines) {
-        const parsed = parseInt(savedMaxLines, 10);
-        if ([1, 2, 4, 8, 16].includes(parsed)) {
-          maxLines = parsed;
+      // Set max lines to 16 (fixed)
+      const maxLines = 16;
+      
+      // Show local indicator if in development mode
+      const isDev = window.location.hostname === 'localhost' || window.location.hostname.includes('local.') || window.location.hostname.includes('app.github.dev');
+      if (isDev) {
+        const localIndicator = document.getElementById('local-indicator');
+        if (localIndicator) {
+          localIndicator.style.display = 'block';
         }
       }
       
@@ -2113,10 +2115,10 @@
         minimap: { enabled: false },
         scrollBeyondLastLine: false,
         fontSize: 16,
-        lineNumbers: 'off', // Start with line numbers off for 1 line
+        lineNumbers: 'on',
         glyphMargin: false,
         folding: false,
-        lineDecorationsWidth: 0,
+        lineDecorationsWidth: 10,
         lineNumbersMinChars: 3,
         roundedSelection: false,
         renderLineHighlight: 'all',
@@ -2149,8 +2151,10 @@
             editor.setValue(source);
             console.log(`✅ Loaded code into editor: $${code}`);
             console.log(`📝 Code now in editor (${editor.getValue().length} chars):`, editor.getValue());
-            // Update title
-            document.title = `aesthetic.computer/$${code}`;
+            // Update URL and title
+            updateURLForCode(code);
+            // Store code identifier in localStorage
+            localStorage.setItem('kidlisp-current-code', code);
             // Update preview pane title
             const previewTitle = document.getElementById('preview-title');
             previewTitle.innerHTML = `Aesthetic<span class="bounce-dot" style="color: #9370DB !important;">.</span>Computer/<span class="code-display">$${code}</span>`;
@@ -2159,40 +2163,21 @@
             updatePreview();
           }
         });
+      } else {
+        // No code in URL - check if we have a saved code identifier from localStorage
+        const savedCode = localStorage.getItem('kidlisp-current-code');
+        if (savedCode && editor.getValue().trim()) {
+          console.log(`🔍 Found saved code identifier in localStorage: $${savedCode}`);
+          // Update URL and title to match the saved code
+          updateURLForCode(savedCode);
+          // Update preview pane title
+          const previewTitle = document.getElementById('preview-title');
+          previewTitle.innerHTML = `Aesthetic<span class="bounce-dot" style="color: #9370DB !important;">.</span>Computer/<span class="code-display">$${savedCode}</span>`;
+        }
       }
 
       // Line limit button handler
-      const lineLimitBtn = document.getElementById('line-limit-btn');
-      // Update button text to show restored value
-      lineLimitBtn.textContent = maxLines;
-      // Update line numbers based on restored maxLines
-      editor.updateOptions({
-        lineNumbers: maxLines > 1 ? 'on' : 'off',
-        lineDecorationsWidth: maxLines > 1 ? 10 : 0
-      });
-      
-      lineLimitBtn.addEventListener('click', () => {
-        // Cycle through 1, 2, 4, 8, 16
-        const limits = [1, 2, 4, 8, 16];
-        const currentIndex = limits.indexOf(maxLines);
-        maxLines = limits[(currentIndex + 1) % limits.length];
-        lineLimitBtn.textContent = maxLines;
-        
-        // Save to localStorage
-        localStorage.setItem('kidlisp-maxLines', maxLines.toString());
-        
-        // Update line numbers visibility
-        editor.updateOptions({
-          lineNumbers: maxLines > 1 ? 'on' : 'off',
-          lineDecorationsWidth: maxLines > 1 ? 10 : 0
-        });
-        
-        // Pad the content to show striped background
-        updateEditorPadding();
-        
-        // Enforce line limit on current content
-        enforceLineLimit();
-      });
+      // Removed - now using fixed 16 lines
       
       // Update editor vertical padding based on line count
       function updateEditorPadding() {
@@ -2596,6 +2581,19 @@
           applyColorNameDecorations();
         }, 50);
         localStorage.setItem('kidlisp-code', editor.getValue());
+        
+        // Clear URL and code identifier when content changes
+        const currentPath = window.location.pathname;
+        if (currentPath !== '/kidlisp.com' && currentPath.startsWith('/kidlisp.com/')) {
+          window.history.pushState({}, 'KidLisp - transmedia pattern programming for everybody', '/kidlisp.com');
+          document.title = 'KidLisp - transmedia pattern programming for everybody';
+          localStorage.removeItem('kidlisp-current-code');
+          // Reset preview title
+          const previewTitle = document.getElementById('preview-title');
+          if (previewTitle) {
+            previewTitle.innerHTML = `Aesthetic<span class="bounce-dot" style="color: #9370DB !important;">.</span>Computer`;
+          }
+        }
       });
       
       // Initial application after a short delay to ensure editor is ready
@@ -3071,9 +3069,9 @@
       
       console.log('🎮 Play/Pause button clicked - isPlaying:', isPlaying, 'isPaused:', isPaused);
       if (!isPlaying) {
-        // Start playing - run the current code without creating a code
+        // Start playing - run the current code and request a new code to be created
         console.log('▶️ Starting playback');
-        updatePreview(); // Don't create code on play - only on explicit save
+        updatePreview(true); // Request code creation to get a new $code identifier
         isPlaying = true;
         isPaused = false;
         sendButton.classList.add('playing');
@@ -3146,6 +3144,15 @@
         stopButton.style.display = 'none';
         // Remove live-running class to hide green outline
         document.getElementById('kidlisp-editor').classList.remove('live-running');
+        
+        // Clear title (but not URL, which reflects editor content)
+        document.title = 'KidLisp - transmedia pattern programming for everybody';
+        // Clear localStorage code identifier
+        localStorage.removeItem('kidlisp-current-code');
+        // Reset preview title
+        const previewTitle = document.getElementById('preview-title');
+        previewTitle.innerHTML = `Aesthetic<span class="bounce-dot" style="color: #9370DB !important;">.</span>Computer`;
+        
         console.log('✅ State reset complete - stop button hidden');
       });
       
@@ -3305,6 +3312,9 @@
         if (event.data.code) {
           // Update browser URL and title
           updateURLForCode(event.data.code);
+          
+          // Store the code identifier in localStorage
+          localStorage.setItem('kidlisp-current-code', event.data.code);
           
           // Update preview pane title to show the code
           const previewTitle = document.getElementById('preview-title');
@@ -3523,7 +3533,7 @@
         const examplesList = document.getElementById('examples-list');
         examplesList.textContent = t('examplesLoading');
         
-        const response = await fetch(`${aestheticUrl}/api/tv?types=kidlisp&sort=hits&limit=10`);
+        const response = await fetch(`${aestheticUrl}/api/tv?types=kidlisp&sort=hits&limit=25`);
         const data = await response.json();
         
         if (data.media && data.media.kidlisp) {
@@ -3534,16 +3544,48 @@
           sortedItems.forEach(item => {
             const el = document.createElement('div');
             el.className = 'example-item';
+            
+            // Apply syntax highlighting to the code
+            let highlightedCode = item.source || item.code;
+            try {
+              const tokens = tokenize(highlightedCode);
+              kidlisp.initializeSyntaxHighlighting(highlightedCode);
+              const coloredString = kidlisp.buildColoredKidlispString();
+              
+              // Convert KidLisp color codes to HTML spans
+              highlightedCode = coloredString.replace(/\\([^\\]+)\\([^\\]*)/g, (match, color, text) => {
+                // Handle RGB colors
+                if (color.match(/^\d+,\d+,\d+/)) {
+                  return `<span style="color: rgb(${color})">${text || ''}</span>`;
+                }
+                // Named colors
+                return `<span style="color: ${color}">${text || ''}</span>`;
+              });
+            } catch (e) {
+              // If highlighting fails, use plain text
+            }
+            
+            const handle = item.owner?.handle || '';
+            const handleHtml = handle ? `<div style="font-size: 10px; color: var(--text-tertiary); opacity: 0.7;">${handle}</div>` : '';
+            
             el.innerHTML = `
               <div style="display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0;">
-                <div class="example-code">${item.source || item.code}</div>
+                <div class="example-code">${highlightedCode}</div>
                 <div style="font-size: 10px; color: var(--text-tertiary); opacity: 0.7;">$${item.code}</div>
+                ${handleHtml}
               </div>
               <div class="example-hits">${item.hits} ${t('hits')}</div>
             `;
             el.addEventListener('click', () => {
               if (editor) {
                 editor.setValue(item.source || item.code);
+                // Update URL and title
+                updateURLForCode(item.code);
+                // Store code identifier
+                localStorage.setItem('kidlisp-current-code', item.code);
+                // Update preview pane title
+                const previewTitle = document.getElementById('preview-title');
+                previewTitle.innerHTML = `Aesthetic<span class="bounce-dot" style="color: #9370DB !important;">.</span>Computer/<span class="code-display">$${item.code}</span>`;
                 updatePreview();
               }
             });
