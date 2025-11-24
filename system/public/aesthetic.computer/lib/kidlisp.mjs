@@ -3234,9 +3234,7 @@ class KidLisp {
               // Fill with first-line color as background
               $.wipe(this.firstLineColor);
             } else {
-              // Don't wipe screen when embedded layers are present - let them composite
-              // over accumulated parent content instead of fresh black background
-              // Clear to transparent
+              // Clear to transparent for normal operation
               screen.pixels.fill(0);
             }
           }
@@ -6978,7 +6976,10 @@ class KidLisp {
 
         // Parse dimensions, position, and alpha from arguments
         // Default to fullscreen at (0,0) with full opacity
-        let width = api.screen.width, height = api.screen.height, x = 0, y = 0, alpha = 255;
+        // Safety: Use 512x512 if screen not available yet (during parsing)
+        const screenWidth = api.screen?.width || 512;
+        const screenHeight = api.screen?.height || 512;
+        let width = screenWidth, height = screenHeight, x = 0, y = 0, alpha = 255;
         let usesScreenDimensions = true; // Default to screen-responsive
 
         if (args.length >= 2) {
@@ -7003,8 +7004,8 @@ class KidLisp {
             // If size not provided, use screen width (square) and mark as screen-responsive
             if (!sizeValue) {
               usesScreenDimensions = true;
-              width = api.screen.width;
-              height = api.screen.width;
+              width = screenWidth;
+              height = screenWidth;
             } else {
               width = sizeValue;
               height = sizeValue;
@@ -7033,8 +7034,8 @@ class KidLisp {
               usesScreenDimensions = true;
             }
             
-            width = widthValue || api.screen.width;
-            height = heightValue || api.screen.height;
+            width = widthValue || screenWidth;
+            height = heightValue || screenHeight;
           } else if (args.length >= 6) {
             // (embed $pie x y width height alpha)
             const widthArg = args[3];
@@ -7058,8 +7059,8 @@ class KidLisp {
               usesScreenDimensions = true;
             }
             
-            width = widthValue || api.screen.width;
-            height = heightValue || api.screen.height;
+            width = widthValue || screenWidth;
+            height = heightValue || screenHeight;
             alpha = this.evaluate(args[5], api, this.localEnv);
             // Support both 0-1 and 0-255 alpha ranges
             if (alpha !== undefined && alpha !== null && alpha <= 1 && alpha >= 0) {
@@ -7094,12 +7095,12 @@ class KidLisp {
         }
 
         // Include screen dimensions in cache key for responsive embeds
-        const screenSuffix = usesScreenDimensions ? `_screen${api.screen.width}x${api.screen.height}` : '';
+        const screenSuffix = usesScreenDimensions ? `_screen${screenWidth}x${screenHeight}` : '';
         const layerKey = `${cacheId}_${normalizedWidth}x${normalizedHeight}_${x},${y}_${alpha}${screenSuffix}`;
 
         // 🔄 RESPONSIVE CACHE: Clear outdated screen-dependent entries before checking cache
         if (this.embeddedLayerCache && usesScreenDimensions) {
-          const currentScreenKey = `_screen${api.screen.width}x${api.screen.height}`;
+          const currentScreenKey = `_screen${screenWidth}x${screenHeight}`;
           const entriesToDelete = [];
 
           for (const [key, layer] of this.embeddedLayerCache.entries()) {
