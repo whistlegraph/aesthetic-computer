@@ -2876,8 +2876,9 @@ class KidLisp {
 
     if (!this.isEmbeddedContext &&
       parsed.length === 1 &&
+      // Only substitute if it's a bare $code reference, not a function call with args
       ((typeof parsed[0] === 'string' && parsed[0].startsWith('$')) ||
-        (Array.isArray(parsed[0]) && parsed[0].length >= 1 &&
+        (Array.isArray(parsed[0]) && parsed[0].length === 1 &&
           typeof parsed[0][0] === 'string' && parsed[0][0].startsWith('$')))) {
 
       const cacheCode = typeof parsed[0] === 'string' ? parsed[0] : parsed[0][0];
@@ -7021,8 +7022,8 @@ class KidLisp {
             const evalY = this.evaluate(args[2], api, this.localEnv);
             x = (evalX !== undefined && evalX !== null) ? evalX : 0;
             y = (evalY !== undefined && evalY !== null) ? evalY : 0;
-            width = this.evaluate(args[3], api, this.localEnv) || 256;
-            height = this.evaluate(args[4], api, this.localEnv) || 256;
+            width = this.evaluate(args[3], api, this.localEnv) || api.screen.width;
+            height = this.evaluate(args[4], api, this.localEnv) || api.screen.height;
             alpha = this.evaluate(args[5], api, this.localEnv);
             // Support both 0-1 and 0-255 alpha ranges
             if (alpha !== undefined && alpha !== null && alpha <= 1 && alpha >= 0) {
