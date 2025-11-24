@@ -4,16 +4,25 @@
 export PATH="$HOME/.local/bin:$PATH"
 
 # Use a writable XDG config root so fish can create its state files
-if [ -z "$XDG_CONFIG_HOME" ]; then
-    export XDG_CONFIG_HOME="/workspaces/aesthetic-computer/.xdg"
-fi
-mkdir -p "$XDG_CONFIG_HOME/fish/functions"
+# Detect if we're in a devcontainer or on macOS
+if [ -d "/workspaces/aesthetic-computer" ]; then
+    # Devcontainer environment
+    if [ -z "$XDG_CONFIG_HOME" ]; then
+        export XDG_CONFIG_HOME="/workspaces/aesthetic-computer/.xdg"
+    fi
+    mkdir -p "$XDG_CONFIG_HOME/fish/functions"
 
-FISH_CONFIG_FILE="$XDG_CONFIG_HOME/fish/config.fish"
-if [ ! -f "$FISH_CONFIG_FILE" ]; then
-    cat <<'EOF' > "$FISH_CONFIG_FILE"
+    FISH_CONFIG_FILE="$XDG_CONFIG_HOME/fish/config.fish"
+    if [ ! -f "$FISH_CONFIG_FILE" ]; then
+        cat <<'EOF' > "$FISH_CONFIG_FILE"
 source /workspaces/aesthetic-computer/.devcontainer/config.fish
 EOF
+    fi
+else
+    # macOS/local environment - use existing fish config
+    if [ -z "$XDG_CONFIG_HOME" ]; then
+        export XDG_CONFIG_HOME="$HOME/.config"
+    fi
 fi
 
 echo "→ \$0 is: $0"
