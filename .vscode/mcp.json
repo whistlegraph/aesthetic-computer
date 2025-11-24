@@ -1,18 +1,11 @@
 {
   "mcpServers": {
     "chrome-devtools": {
-      "command": "chrome-devtools-mcp",
+      "command": "npx",
       "args": [
-        "--executablePath",
-        "/usr/sbin/chromium-browser",
-        "--headless",
-        "--isolated",
-        "--chromeArg",
-        "--no-sandbox",
-        "--chromeArg",
-        "--disable-setuid-sandbox",
-        "--chromeArg",
-        "--disable-dev-shm-usage"
+        "-y",
+        "chrome-devtools-mcp@latest",
+        "--browserUrl=http://127.0.0.1:9222"
       ]
     }
   }
