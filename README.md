@@ -59,6 +59,26 @@ piece[3].
 
 ---
 
+### Development in GitHub Codespaces
+
+When running Aesthetic Computer in a GitHub Codespace, you can access the local server using the Codespace's public URL.
+
+To get the proper Codespace URL:
+1. Get your Codespace name: `echo $CODESPACE_NAME`
+2. Construct the URL: `https://{CODESPACE_NAME}-8888.app.github.dev`
+
+For example, if your Codespace name is `potential-parakeet-7p54gjqw7qcx46g`, the URL would be:
+```
+https://potential-parakeet-7p54gjqw7qcx46g-8888.app.github.dev
+```
+
+To access specific routes like kidlisp.com:
+```
+https://potential-parakeet-7p54gjqw7qcx46g-8888.app.github.dev/kidlisp.com
+```
+
+---
+
 ### KidLisp
 
 Aesthetic Computer includes KidLisp, a minimal Lisp dialect for creating generative art and interactive experiences. See the [KidLisp documentation](kidlisp/) for language reference, examples, and technical details.
