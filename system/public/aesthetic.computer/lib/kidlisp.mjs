@@ -6963,33 +6963,38 @@ class KidLisp {
         }
 
         // Parse dimensions, position, and alpha from arguments
-        // ⚡ PERFORMANCE: Use fixed default size to avoid cache invalidation on screen resize
-        let width = 256, height = 256, x = 0, y = 0, alpha = 255; // Default to 256x256 and opaque
-        let usesScreenDimensions = false; // Track if w/h are used for responsive sizing
+        // Default to fullscreen at (0,0) with full opacity
+        let width = api.screen.width, height = api.screen.height, x = 0, y = 0, alpha = 255;
+        let usesScreenDimensions = true; // Default to screen-responsive
 
-        if (args.length >= 3) {
-          if (args.length === 3) {
-            // (embed $pie width height)
-            const widthArg = args[1];
-            const heightArg = args[2];
-
-            // Check if using screen dimensions
-            if ((typeof widthArg === 'string' && widthArg === 'w') ||
-              (typeof heightArg === 'string' && heightArg === 'h')) {
-              usesScreenDimensions = true;
-            }
-
-            width = this.evaluate(args[1], api, this.localEnv) || 256;
-            height = this.evaluate(args[2], api, this.localEnv) || 256;
+        if (args.length >= 2) {
+          if (args.length === 2) {
+            // ($39i x) - x position only, y=0, fullscreen
+            const evalX = this.evaluate(args[1], api, this.localEnv);
+            x = (evalX !== undefined && evalX !== null) ? evalX : 0;
+          } else if (args.length === 3) {
+            // ($39i x y) - position only, fullscreen dimensions
+            const evalX = this.evaluate(args[1], api, this.localEnv);
+            const evalY = this.evaluate(args[2], api, this.localEnv);
+            x = (evalX !== undefined && evalX !== null) ? evalX : 0;
+            y = (evalY !== undefined && evalY !== null) ? evalY : 0;
           } else if (args.length === 4) {
             // (embed $pie x y size) - size becomes both width and height
             const evalX = this.evaluate(args[1], api, this.localEnv);
             const evalY = this.evaluate(args[2], api, this.localEnv);
             x = (evalX !== undefined && evalX !== null) ? evalX : 0;
             y = (evalY !== undefined && evalY !== null) ? evalY : 0;
-            const size = this.evaluate(args[3], api, this.localEnv) || 256;
-            width = size;
-            height = size;
+            const sizeValue = this.evaluate(args[3], api, this.localEnv);
+            
+            // If size not provided, use screen width (square) and mark as screen-responsive
+            if (!sizeValue) {
+              usesScreenDimensions = true;
+              width = api.screen.width;
+              height = api.screen.width;
+            } else {
+              width = sizeValue;
+              height = sizeValue;
+            }
           } else if (args.length === 5) {
             // (embed $pie x y width height)
             const widthArg = args[3];
@@ -7005,8 +7010,17 @@ class KidLisp {
             const evalY = this.evaluate(args[2], api, this.localEnv);
             x = (evalX !== undefined && evalX !== null) ? evalX : 0;
             y = (evalY !== undefined && evalY !== null) ? evalY : 0;
-            width = this.evaluate(args[3], api, this.localEnv) || 256;
-            height = this.evaluate(args[4], api, this.localEnv) || 256;
+            
+            const widthValue = this.evaluate(args[3], api, this.localEnv);
+            const heightValue = this.evaluate(args[4], api, this.localEnv);
+            
+            // If width or height not provided, use screen dimensions and mark as screen-responsive
+            if (!widthValue || !heightValue) {
+              usesScreenDimensions = true;
+            }
+            
+            width = widthValue || api.screen.width;
+            height = heightValue || api.screen.height;
           } else if (args.length >= 6) {
             // (embed $pie x y width height alpha)
             const widthArg = args[3];
@@ -7022,8 +7036,16 @@ class KidLisp {
             const evalY = this.evaluate(args[2], api, this.localEnv);
             x = (evalX !== undefined && evalX !== null) ? evalX : 0;
             y = (evalY !== undefined && evalY !== null) ? evalY : 0;
-            width = this.evaluate(args[3], api, this.localEnv) || api.screen.width;
-            height = this.evaluate(args[4], api, this.localEnv) || api.screen.height;
+            const widthValue = this.evaluate(args[3], api, this.localEnv);
+            const heightValue = this.evaluate(args[4], api, this.localEnv);
+            
+            // If width or height not provided, use screen dimensions and mark as screen-responsive
+            if (!widthValue || !heightValue) {
+              usesScreenDimensions = true;
+            }
+            
+            width = widthValue || api.screen.width;
+            height = heightValue || api.screen.height;
             alpha = this.evaluate(args[5], api, this.localEnv);
             // Support both 0-1 and 0-255 alpha ranges
             if (alpha !== undefined && alpha !== null && alpha <= 1 && alpha >= 0) {
