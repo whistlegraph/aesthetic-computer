@@ -86,6 +86,7 @@ async function discoverDependencies(acDir, essentialFiles, skipFiles) {
 const gitHash = execSync("git rev-parse --short HEAD", { encoding: "utf8" }).trim();
 const gitDirty = execSync("git diff --quiet || echo dirty", { encoding: "utf8" }).trim();
 const gitVersion = gitHash + (gitDirty ? " (dirty)" : "");
+const packTime = Date.now();
 const packDate = new Date().toLocaleString("en-US", {
   timeZone: "America/Los_Angeles",
   year: "numeric",
@@ -539,6 +540,65 @@ async function createMinimalBundle(kidlispSources) {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${PIECE_NAME} • Aesthetic Computer</title>
+  <script>
+    // CRITICAL: Console suppression MUST happen first, before any other code
+    (function() {
+      const originalWarn = console.warn;
+      const originalLog = console.log;
+      const originalError = console.error;
+      const originalInfo = console.info;
+      
+      const shouldSuppress = (...args) => {
+        const fullMessage = args.map(a => {
+          if (typeof a === 'string') return a;
+          if (a instanceof Error) return a.message + a.stack;
+          try { return String(a); } catch { return ''; }
+        }).join(' ');
+        
+        return fullMessage.includes('WebGPU') ||
+               fullMessage.includes('Implementation Status') ||
+               fullMessage.includes('experimental on this platform') ||
+               fullMessage.includes('gpuweb') ||
+               fullMessage.includes('Context Provider') ||
+               fullMessage.includes('viewpoint.svg') ||
+               fullMessage.includes('VFS fetch:') ||
+               fullMessage.includes('VFS miss:') ||
+               fullMessage.includes('Boot completed') ||
+               fullMessage.includes('🥾') ||
+               fullMessage.includes('🟡 Error loading mjs') ||
+               fullMessage.includes('Sending kidlisp-ready') ||
+               fullMessage.includes('kidlisp-ready message') ||
+               fullMessage.includes('hotSwap:') ||
+               fullMessage.includes('typeof window:') ||
+               fullMessage.includes('Response:') ||
+               fullMessage.includes('🔍') ||
+               fullMessage.includes('📤') ||
+               fullMessage.includes('✅') ||
+               fullMessage.includes('Initializing WebGPU') ||
+               fullMessage.includes('🎨');
+      };
+      
+      console.warn = function(...args) {
+        if (shouldSuppress(...args)) return;
+        return originalWarn.apply(console, args);
+      };
+      
+      console.info = function(...args) {
+        if (shouldSuppress(...args)) return;
+        return originalInfo.apply(console, args);
+      };
+      
+      console.log = function(...args) {
+        if (shouldSuppress(...args)) return;
+        return originalLog.apply(console, args);
+      };
+      
+      console.error = function(...args) {
+        if (shouldSuppress(...args)) return;
+        return originalError.apply(console, args);
+      };
+    })();
+  </script>
   <style>
     body { margin: 0; padding: 0; background: black; overflow: hidden; }
     canvas { display: block; }
@@ -546,18 +606,7 @@ async function createMinimalBundle(kidlispSources) {
 </head>
 <body>
   <script type="module">
-    console.log('Aesthetic.Computer');
-    console.log('');
-    console.log('${PIECE_NAME} is a piece by @jeffrey');
-    console.log('');
-    console.log('KidLisp source:', ${JSON.stringify(mainSource)});
-    console.log('');
-    console.log('This ULTRA-MINIMAL copy was packed on ${packDate}');
-    console.log('');
-    console.log('Using aesthetic-computer git version ${gitVersion}');
-    console.log('');
-    
-    // Pack mode + KEEP mode flags
+    // Pack mode + KEEP mode flags (set these BEFORE headers display)
     window.acPACK_MODE = true;
     window.acKEEP_MODE = true;  // NEW: Signal ultra-minimal mode
     window.acSTARTING_PIECE = "${PIECE_NAME}";
@@ -566,20 +615,32 @@ async function createMinimalBundle(kidlispSources) {
     window.acPACK_GIT = "${gitVersion}";
     window.acKIDLISP_SOURCE = ${JSON.stringify(mainSource)};
     
+    // Set colophon data for headers.mjs to display
+    window.acPACK_COLOPHON = {
+      piece: {
+        name: '${PIECE_NAME}',
+        sourceCode: ${JSON.stringify(mainSource)},
+        isKidLisp: true
+      },
+      build: {
+        author: '@jeffrey',
+        packTime: ${packTime},
+        gitCommit: '${gitHash}',
+        gitIsDirty: ${gitDirty ? 'true' : 'false'},
+        fileCount: ${Object.keys(files).length}
+      }
+    };
+    
     // Embedded KidLisp sources
     window.EMBEDDED_KIDLISP_SOURCE = ${JSON.stringify(mainSource)};
     window.EMBEDDED_KIDLISP_PIECE = '${PIECE_NAME_NO_DOLLAR}';
     window.objktKidlispCodes = ${JSON.stringify(kidlispSources)};
     window.acPREFILL_CODE_CACHE = ${JSON.stringify(kidlispSources)};
     
-    console.log('📝 Embedded ${Object.keys(kidlispSources).length} KidLisp pieces');
-    console.log('🎯 KEEP MODE: Ultra-minimal bundle for Tezos');
-    
-    // Intercept CSS links
+    // Intercept CSS links (silently)
     const originalAppendChild = Element.prototype.appendChild;
     Element.prototype.appendChild = function(child) {
       if (child.tagName === 'LINK' && child.rel === 'stylesheet' && child.href && child.href.includes('.css')) {
-        console.log('🚫 Blocked CSS link:', child.href);
         return child;
       }
       return originalAppendChild.call(this, child);
@@ -589,14 +650,12 @@ async function createMinimalBundle(kidlispSources) {
     HTMLBodyElement.prototype.append = function(...nodes) {
       const filteredNodes = nodes.filter(node => {
         if (node.tagName === 'LINK' && node.rel === 'stylesheet') {
-          console.log('🚫 Blocked CSS link via body.append:', node.href);
           return false;
         }
         return true;
       });
       return originalBodyAppend.call(this, ...filteredNodes);
     };
-    console.log('✅ CSS link blocking installed');
     
     // Virtual File System
     window.VFS = ${JSON.stringify(files).replace(/<\/script>/g, '<\\/script>')};
@@ -616,7 +675,7 @@ async function createMinimalBundle(kidlispSources) {
       }
     });
     
-    // Create import map
+    // Create import map (silently)
     const importMapEntries = {};
     
     for (const filepath of window.modulePaths) {
@@ -637,8 +696,6 @@ async function createMinimalBundle(kidlispSources) {
     importMapScript.textContent = JSON.stringify(importMap);
     document.head.appendChild(importMapScript);
     
-    console.log(\`✅ Import map created with \${Object.keys(importMapEntries).length} entries\`);
-    
     // VFS fetch/XHR interceptor
     const originalFetch = window.fetch;
     const originalXHROpen = XMLHttpRequest.prototype.open;
@@ -658,7 +715,6 @@ async function createMinimalBundle(kidlispSources) {
       if (window.VFS[vfsPath]) {
         const file = window.VFS[vfsPath];
         const content = file.binary ? atob(file.content) : file.content;
-        console.log('✓ VFS fetch:', vfsPath);
         
         return Promise.resolve(new Response(content, {
           status: 200,
@@ -666,7 +722,11 @@ async function createMinimalBundle(kidlispSources) {
         }));
       }
       
-      console.log('VFS miss:', vfsPath);
+      // Silently handle expected missing files (fonts, .mjs pieces, and cursor SVGs)
+      if (vfsPath.includes('disks/drawings/font_') || vfsPath.endsWith('.mjs') || vfsPath.includes('cursors/') || vfsPath.endsWith('.svg')) {
+        return Promise.resolve(new Response('{}', { status: 404 }));
+      }
+      
       return originalFetch.call(this, url, options);
     };
     
@@ -694,11 +754,24 @@ async function createMinimalBundle(kidlispSources) {
           Object.defineProperty(this, 'status', { writable: true, value: 200 });
           Object.defineProperty(this, 'readyState', { writable: true, value: 4 });
           
-          console.log('✓ XHR VFS:', vfsPath);
-          
           setTimeout(() => {
             if (this.onreadystatechange) this.onreadystatechange();
             if (this.onload) this.onload();
+          }, 0);
+          
+          return;
+        }
+        
+        // Silently handle expected missing files (fonts, .mjs pieces, and cursor SVGs)
+        if (vfsPath.includes('disks/drawings/font_') || vfsPath.endsWith('.mjs') || vfsPath.includes('cursors/') || vfsPath.endsWith('.svg')) {
+          Object.defineProperty(this, 'responseText', { writable: true, value: '{}' });
+          Object.defineProperty(this, 'response', { writable: true, value: '{}' });
+          Object.defineProperty(this, 'status', { writable: true, value: 404 });
+          Object.defineProperty(this, 'readyState', { writable: true, value: 4 });
+          
+          setTimeout(() => {
+            if (this.onreadystatechange) this.onreadystatechange();
+            if (this.onerror) this.onerror();
           }, 0);
           
           return;
@@ -708,10 +781,7 @@ async function createMinimalBundle(kidlispSources) {
       return originalXHRSend.call(this, ...args);
     };
     
-    console.log('✅ VFS fetch/XHR interceptors installed');
-    
-    // Start the system  
-    console.log('🚀 Loading boot.mjs...');
+    // Start the system
     import(window.VFS_BLOB_URLS['boot.mjs']).catch(err => {
       console.error('❌ Failed to load boot.mjs:', err);
     });
