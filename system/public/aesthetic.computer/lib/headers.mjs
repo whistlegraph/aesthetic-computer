@@ -149,17 +149,23 @@ export function headers(isDarkMode) {
       const colorScheme = getDayColorScheme(isDarkMode);
       const theme = colorScheme.dark;
       
-      // First line: Aesthetic Computer title with daily changing background and colored dot
-      console.log(
-        `%cAesthetic.Computer`,
-        `background: ${theme.header.bg}; color: ${theme.header.color}; font-weight: bold; font-size: 12px; padding: 2px 4px; border-radius: 3px; border: 1px solid ${theme.header.border};`
-      );
+      // Per-character colored "Aesthetic.Computer" title (subtle pastel rainbow)
+      const titleChars = "Aesthetic.Computer".split('');
+      const colors = ['#ff9999', '#ffcc99', '#ffff99', '#99ff99', '#99ccff', '#cc99ff', '#ff99cc'];
+      let titleFormatted = '';
+      let titleStyles = [];
       
-
+      titleChars.forEach((char, i) => {
+        titleFormatted += `%c${char}`;
+        const color = colors[i % colors.length];
+        titleStyles.push(`color: ${color}; font-weight: bold; font-size: 14px;`);
+      });
       
-      // Third line: Piece info with colored piece name
+      console.log(titleFormatted, ...titleStyles);
+      
+      // Third line: Piece info with colored piece name (include $ prefix)
       console.log(
-        `%c${piece.name} %cis a %cpiece%c by %c${build.author}`,
+        `%c$${piece.name} %cis a %cpiece%c by %c${build.author}`,
         "color: #ffc107; font-weight: bold; font-size: 11px;",
         "color: #6c757d; font-size: 10px;",
         "color: #343a40; font-weight: bold; font-size: 10px;",
@@ -172,16 +178,16 @@ export function headers(isDarkMode) {
         try {
           const highlighted = formatKidLispForConsole(piece.sourceCode);
           console.log(
-            `%cIts %cKidLisp%c source is:%c ${highlighted.text}`,
+            `%cIts %cKidLisp%c source:\n%c${highlighted.text}`,
             "color: #6c757d; font-size: 10px;",
             "color: #28a745; font-weight: bold; font-size: 10px;",
             "color: #6c757d; font-size: 10px;",
-            "color: #28a745; font-size: 10px;",
+            "font-family: monospace; font-size: 10px;",
             ...highlighted.styles
           );
         } catch (error) {
           console.log(
-            `%cIts %cKidLisp%c source is:%c ${piece.sourceCode}`,
+            `%cIts %cKidLisp%c source: %c${piece.sourceCode}`,
             "color: #6c757d; font-size: 10px;",
             "color: #28a745; font-weight: bold; font-size: 10px;",
             "color: #6c757d; font-size: 10px;",
@@ -246,6 +252,29 @@ export function headers(isDarkMode) {
         "color: #6c757d; font-size: 11px;",
         "color: #ffc107; font-size: 11px;",
         build.gitIsDirty ? "color: #dc3545; font-size: 11px;" : "color: #343a40; font-size: 11px;"
+      );
+      
+      // Links at the end with labels
+      console.log(
+        `%cView this piece at %chttps://aesthetic.computer`,
+        "color: #6c757d; font-size: 10px;",
+        "color: #4ecdc4; font-size: 10px; text-decoration: underline;"
+      );
+      
+      console.log(
+        `%cLearn %cKidLisp%c at %chttps://kidlisp.com`,
+        "color: #6c757d; font-size: 10px;",
+        "color: #28a745; font-weight: bold; font-size: 10px;",
+        "color: #6c757d; font-size: 10px;",
+        "color: #28a745; font-size: 10px; text-decoration: underline;"
+      );
+      
+      console.log(
+        `%cContribute on %cGitHub%c at %chttps://github.com/whistlegraph/aesthetic-computer`,
+        "color: #6c757d; font-size: 10px;",
+        "color: #343a40; font-weight: bold; font-size: 10px;",
+        "color: #6c757d; font-size: 10px;",
+        "color: #6c757d; font-size: 10px; text-decoration: underline;"
       );
     }
   }
