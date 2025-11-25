@@ -1351,7 +1351,7 @@
       <div class="reference-section" id="reference-panel">
         <div class="docs-header">
           <div class="tab active" data-tab="reference" id="reference-tab">Code</div>
-          <div class="tab" data-tab="examples" id="examples-tab">Top 25</div>
+          <div class="tab" data-tab="examples" id="examples-tab">Top Hits</div>
         </div>
         <div class="docs-content" id="reference-content">
           <div id="wizard-container">
@@ -1393,7 +1393,7 @@
         previewTitle: 'Aesthetic.Computer',
         consoleTitle: 'Console',
         referenceTab: 'Code',
-        examplesTab: 'Top 25',
+        examplesTab: 'Top Hits',
         examplesLoading: 'Loading examples...',
         examplesNone: 'No examples found.',
         examplesError: 'Error loading examples.',
@@ -1414,7 +1414,7 @@
         previewTitle: 'Aesthetic.Computer',
         consoleTitle: 'Consola',
         referenceTab: 'Código',
-        examplesTab: 'Top 25',
+        examplesTab: 'Más Populares',
         examplesLoading: 'Cargando ejemplos...',
         examplesNone: 'No se encontraron ejemplos.',
         examplesError: 'Error al cargar ejemplos.',
@@ -1435,7 +1435,7 @@
         previewTitle: 'Aesthetic.Computer',
         consoleTitle: '控制台',
         referenceTab: '代码',
-        examplesTab: 'Top 25',
+        examplesTab: '热门',
         examplesLoading: '加载示例中...',
         examplesNone: '未找到示例。',
         examplesError: '加载示例时出错。',
@@ -1456,7 +1456,7 @@
         previewTitle: 'Aesthetic.Computer',
         consoleTitle: 'Konsol',
         referenceTab: 'Kode',
-        examplesTab: 'Top 25',
+        examplesTab: 'Top Hits',
         examplesLoading: 'Indlæser eksempler...',
         examplesNone: 'Ingen eksempler fundet.',
         examplesError: 'Fejl ved indlæsning af eksempler.',
@@ -1997,7 +1997,8 @@
     // Function to update browser URL and title when code changes
     function updateURLForCode(code) {
       const cleanCode = code.startsWith('$') ? code.substring(1) : code;
-      const newPath = `/kidlisp.com/$${cleanCode}`;
+      const isKidlispDomain = window.location.hostname === 'kidlisp.com' || window.location.hostname === 'www.kidlisp.com';
+      const newPath = isKidlispDomain ? `/$${cleanCode}` : `/kidlisp.com/$${cleanCode}`;
       const newTitle = `aesthetic.computer/$${cleanCode}`;
       
       // Update URL without reloading
