@@ -155,7 +155,13 @@ async function fetchKidlisp(db, { limit, sort }) {
   ];
 
   console.log("Fetching kidlisp with pipeline:", JSON.stringify(pipeline));
-  const records = await collection.aggregate(pipeline).toArray();
+  
+  // When sorting by hits, allow disk use to scan entire collection
+  const aggregateOptions = sort === 'hits' 
+    ? { allowDiskUse: true }
+    : {};
+  
+  const records = await collection.aggregate(pipeline, aggregateOptions).toArray();
   console.log(`Fetched ${records.length} kidlisp records`);
 
   return records.map((record, index) => {
