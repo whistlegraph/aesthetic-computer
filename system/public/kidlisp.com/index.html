@@ -664,7 +664,6 @@
     #preview-panel .docs-header {
       background: rgb(240, 235, 250); /* Light muted purple backdrop */
       border-bottom-color: rgb(220, 215, 230);
-      padding-left: 0; /* Remove left padding for flush QR */
     }
     
     @media (prefers-color-scheme: dark) {
@@ -1412,10 +1411,24 @@
     #preview-qr {
       cursor: pointer;
       transition: transform 0.2s, opacity 0.2s;
-      margin-left: 0;
-      margin-right: 8px;
-      padding: 0;
+      margin-left: 8px;
+      margin-right: 0;
+      padding: 4px;
       display: block;
+      border: 1px solid rgba(0, 0, 0, 0.3);
+      border-radius: 2px;
+      box-sizing: content-box;
+      height: 36px !important; /* Slightly smaller to account for padding */
+    }
+    
+    @media (prefers-color-scheme: dark) {
+      #preview-qr {
+        border-color: rgba(255, 255, 255, 0.2);
+      }
+    }
+    
+    [data-theme="dark"] #preview-qr {
+      border-color: rgba(255, 255, 255, 0.2);
     }
     
     @media (hover: hover) {
@@ -1535,8 +1548,8 @@
       
       <div class="preview-panel" id="preview-panel" style="display: flex; flex-direction: column; overflow: hidden;">
         <div class="docs-header" style="display: flex; align-items: center; gap: 8px;">
-          <img id="preview-qr" src="" alt="QR Code" title="Click to enlarge" style="display: none; height: 44px; width: auto; image-rendering: pixelated;" />
           <span id="preview-title">Aesthetic<span class="bounce-dot">.</span>Computer</span>
+          <img id="preview-qr" src="" alt="QR Code" title="Click to enlarge" style="display: none; width: auto; image-rendering: pixelated;" />
         </div>
         <div style="position: relative; flex: 1;">
           <div class="boot-screen" id="boot-screen">
@@ -2233,9 +2246,10 @@
         // Generate QR code with lowest error correction for smallest size
         const cells = window.qr(url, { errorCorrectLevel: window.ErrorCorrectLevel.L }).modules;
         
-        // Scale QR to fill header height (44px)
-        const headerHeight = 44;
-        const cellSize = Math.floor(headerHeight / cells.length);
+        // Scale QR to fit within header with padding and border
+        // Header is 44px, minus 4px padding top/bottom and 1px border = 36px
+        const targetHeight = 36;
+        const cellSize = Math.floor(targetHeight / cells.length);
         const qrSize = cells.length * cellSize;
         
         // Create canvas for QR in header
