@@ -4,19 +4,57 @@
 
 **Bundle System**: `bundle-keep-html.mjs`  
 **Technology**: SWC minification + Brotli compression  
-**Current Size**: 360 KB (working, 104 KB over target)  
+**Current Size**: 361 KB (working, ~105 KB over target)  
 **Target Size**: 256 KB (Tezos storage limit)  
-**Test Piece**: `wwi` - KidLisp with `(wipe fade:red-rainbow)`
+**Test Pieces**: `$bop`, `$roz`, `$wwi` - KidLisp pieces
 
 ## Quick Start
 
 ```bash
-# Create a self-contained HTML bundle for any KidLisp piece
-node bundle-keep-html.mjs <piece-name>
+# Using the fish shell command (recommended):
+ac-keep bop          # Create bundle for $bop
+ac-keep-test bop     # Create bundle AND start test server
 
-# Example:
-node bundle-keep-html.mjs wwi
-# Creates: wwi-ultra-gzip.html (360 KB, working)
+# Or run the script directly:
+node tezos/bundle-keep-html.mjs bop
+```
+
+## Fish Shell Commands
+
+### `ac-keep <piece>`
+Creates a self-contained HTML bundle for a KidLisp piece.
+
+```bash
+ac-keep bop      # Creates bundles in tezos/keep-bundles/
+ac-keep '$bop'   # $ prefix is optional
+```
+
+**Output files:**
+- `{piece}-ultra-minimal-nft.html` - Uncompressed, readable
+- `{piece}-ultra-self-contained.html` - Brotli compressed for Tezos
+- `{piece}-ultra-gzip.html` - Gzip version for browser testing
+
+### `ac-keep-test <piece>`
+Creates the bundle AND starts a local test server.
+
+```bash
+ac-keep-test bop   # Build + serve at http://localhost:8082/bop-ultra-gzip.html
+```
+
+## Console Output (Colophon)
+
+When a KEEP bundle runs, it displays rich metadata in the console:
+
+```
+Aesthetic.Computer           (rainbow colored title)
+$bop is a piece by @jeffrey
+Its KidLisp source:
+purple, ink, line, blur 5
+This copy was packed on 11/25/2025
+Using aesthetic-computer git version 847bdc27 (dirty)
+View this piece at https://aesthetic.computer
+Learn KidLisp at https://kidlisp.com
+Contribute on GitHub at https://github.com/whistlegraph/aesthetic-computer
 ```
 
 ## System Architecture
