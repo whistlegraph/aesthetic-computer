@@ -413,32 +413,29 @@
       overflow: hidden;
       position: relative; /* For absolute positioning of button */
       padding-left: 12px; /* Add padding to the left of the editor */
-      transition: box-shadow 0.3s ease, outline 0.3s ease;
+      transition: box-shadow 0.3s ease;
       z-index: 1; /* Base z-index */
     }
     
-    /* Live running state - green outline */
-    #kidlisp-editor.live-running {
-      outline: 4px solid #00ff00;
-      outline-offset: -4px;
+    /* Live running state - green outline using pseudo-element for proper z-index */
+    #kidlisp-editor.live-running::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      border: 4px solid #00ff00;
+      pointer-events: none; /* Allow clicks through to Monaco */
+      z-index: 999999; /* Very high z-index to be above everything */
+      animation: live-pulse 2s ease-in-out infinite;
       box-shadow: inset 0 0 30px rgba(0, 255, 0, 0.2), 0 0 10px rgba(0, 255, 0, 0.3);
-      z-index: 100; /* High z-index to be above Monaco editor */
-      position: relative;
-    }
-    
-    /* Ensure Monaco editor itself has lower z-index */
-    .monaco-editor {
-      z-index: auto;
     }
     
     /* Pulse animation for live state */
     @keyframes live-pulse {
-      0%, 100% { outline-color: #00ff00; }
-      50% { outline-color: #00cc00; }
-    }
-    
-    #kidlisp-editor.live-running {
-      animation: live-pulse 2s ease-in-out infinite;
+      0%, 100% { border-color: #00ff00; }
+      50% { border-color: #00cc00; }
     }
 
     /* Zebra striping for editor rows - removed to allow selection highlighting to work */
