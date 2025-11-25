@@ -1402,7 +1402,9 @@
       cursor: pointer;
       transition: transform 0.2s, opacity 0.2s;
       margin-left: auto;
-      margin-right: 8px;
+      margin-right: 0;
+      padding: 0;
+      display: block;
     }
     
     @media (hover: hover) {
@@ -1523,7 +1525,7 @@
       <div class="preview-panel" id="preview-panel" style="display: flex; flex-direction: column; overflow: hidden;">
         <div class="docs-header" style="display: flex; align-items: center; gap: 8px;">
           <span id="preview-title">Aesthetic<span class="bounce-dot">.</span>Computer</span>
-          <img id="preview-qr" src="" alt="QR Code" title="Click to enlarge" style="display: none; width: 24px; height: 24px; image-rendering: pixelated;" />
+          <img id="preview-qr" src="" alt="QR Code" title="Click to enlarge" style="display: none; height: 44px; width: auto; image-rendering: pixelated;" />
         </div>
         <div style="position: relative; flex: 1;">
           <div class="boot-screen" id="boot-screen">
@@ -2217,12 +2219,15 @@
       const url = `https://aesthetic.computer/$${cleanCode}`;
       
       try {
-        // Generate QR code
-        const cells = window.qr(url, { errorCorrectLevel: window.ErrorCorrectLevel.M }).modules;
-        const cellSize = 1; // 1 pixel per cell
+        // Generate QR code with lowest error correction for smallest size
+        const cells = window.qr(url, { errorCorrectLevel: window.ErrorCorrectLevel.L }).modules;
+        
+        // Scale QR to fill header height (44px)
+        const headerHeight = 44;
+        const cellSize = Math.floor(headerHeight / cells.length);
         const qrSize = cells.length * cellSize;
         
-        // Create canvas for small QR in header
+        // Create canvas for QR in header
         const canvas = document.createElement('canvas');
         canvas.width = qrSize;
         canvas.height = qrSize;
@@ -2259,8 +2264,8 @@
       
       if (!url || !qrSize) return;
       
-      // Generate larger QR for modal
-      const cells = window.qr(url, { errorCorrectLevel: window.ErrorCorrectLevel.M }).modules;
+      // Generate larger QR for modal (use lowest error correction)
+      const cells = window.qr(url, { errorCorrectLevel: window.ErrorCorrectLevel.L }).modules;
       const largeSize = Math.min(400, window.innerWidth - 100, window.innerHeight - 200);
       const largeCellSize = Math.floor(largeSize / cells.length);
       const actualSize = cells.length * largeCellSize;
