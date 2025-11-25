@@ -1272,8 +1272,18 @@
 
     /* Top row horizontal gutter (between editor and preview) */
     #editor-panel + .gutter.gutter-horizontal {
-      background-color: rgba(255, 140, 0, 0.3) !important; /* Orange */
+      background-color: rgb(240, 235, 250) !important; /* Light muted purple to match aesthetic.computer tab */
       z-index: 1;
+    }
+    
+    @media (prefers-color-scheme: dark) {
+      #editor-panel + .gutter.gutter-horizontal {
+        background-color: rgb(48, 43, 58) !important; /* Dark muted purple for dark mode */
+      }
+    }
+    
+    [data-theme="dark"] #editor-panel + .gutter.gutter-horizontal {
+      background-color: rgb(48, 43, 58) !important; /* Dark muted purple for dark mode */
     }
 
     /* Bottom row horizontal gutter (between reference and console) */
