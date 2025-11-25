@@ -29,16 +29,22 @@ ac-keep bop      # Creates bundles in tezos/keep-bundles/
 ac-keep '$bop'   # $ prefix is optional
 ```
 
-**Output files:**
-- `{piece}-ultra-minimal-nft.html` - Uncompressed, readable
-- `{piece}-ultra-self-contained.html` - Brotli compressed for Tezos
-- `{piece}-ultra-gzip.html` - Gzip version for browser testing
+**Output files (named like bios.mjs downloads):**
+- `@author-$piece-timestamp.html` - Uncompressed, readable
+- `@author-$piece-timestamp.brotli.html` - Brotli compressed for Tezos
+- `@author-$piece-timestamp.gzip.html` - Gzip version for browser testing
+
+Example filenames:
+- `@jeffrey-$bop-2025.11.25.23.18.17.065.html`
+- `@jeffrey-$bop-2025.11.25.23.18.17.065.brotli.html`
+- `@jeffrey-$bop-2025.11.25.23.18.17.065.gzip.html`
 
 ### `ac-keep-test <piece>`
 Creates the bundle AND starts a local test server.
 
 ```bash
-ac-keep-test bop   # Build + serve at http://localhost:8082/bop-ultra-gzip.html
+ac-keep-test bop   # Build + serve at http://localhost:8082/
+                   # Browse to the .gzip.html file
 ```
 
 ## Console Output (Colophon)
