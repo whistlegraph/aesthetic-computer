@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="utf-8">
-  <title>KidLisp - transmedia pattern programming for everybody</title>
+  <title>KidLisp - friendly coding for everyone</title>
   <meta name="description" content="KidLisp is a simple, expressive language for creating visual patterns and animations. Try it on aesthetic.computer." />
   <link rel="icon" type="image/png"
     href="https://pals-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/painting-2023.7.29.20.39.png" />
@@ -179,7 +179,7 @@
       gap: 12px; /* Space between logo and language switcher */
       align-items: center;
       color: var(--editor-text);
-      height: 32px;
+      height: 44px;
       box-sizing: border-box;
       overflow: visible; /* Allow dropdown to overflow */
       flex-shrink: 0; /* Prevent header from shrinking */
@@ -235,10 +235,32 @@
       margin: 0;
       vertical-align: baseline;
     }
+    
+    @media (prefers-color-scheme: dark) {
+      #send-button {
+        background: rgb(102, 187, 106); /* Lighter green for dark mode */
+        box-shadow: 0 3px 6px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.3);
+      }
+    }
+    
+    [data-theme="dark"] #send-button {
+      background: rgb(102, 187, 106); /* Lighter green for dark mode */
+      box-shadow: 0 3px 6px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.3);
+    }
 
     #send-button.playing {
       background: rgb(255, 193, 7); /* Yellow when playing (Pause) */
       cursor: pointer; /* Remain clickable */
+    }
+    
+    @media (prefers-color-scheme: dark) {
+      #send-button.playing {
+        background: rgb(255, 213, 79); /* Lighter yellow for dark mode */
+      }
+    }
+    
+    [data-theme="dark"] #send-button.playing {
+      background: rgb(255, 213, 79); /* Lighter yellow for dark mode */
     }
 
     #send-button.playing:active {
@@ -326,6 +348,30 @@
       vertical-align: baseline;
       pointer-events: auto; /* Ensure clicks are captured */
     }
+    
+    @media (prefers-color-scheme: dark) {
+      #stop-button {
+        background: rgb(239, 83, 80); /* Lighter red for dark mode */
+        box-shadow: 0 3px 6px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.3);
+      }
+    }
+    
+    [data-theme="dark"] #stop-button {
+      background: rgb(239, 83, 80); /* Lighter red for dark mode */
+      box-shadow: 0 3px 6px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.3);
+    }
+    
+    @media (prefers-color-scheme: dark) {
+      #stop-button {
+        background: rgb(239, 83, 80); /* Lighter red for dark mode */
+        box-shadow: 0 3px 6px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.3);
+      }
+    }
+    
+    [data-theme="dark"] #stop-button {
+      background: rgb(239, 83, 80); /* Lighter red for dark mode */
+      box-shadow: 0 3px 6px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.3);
+    }
 
     #stop-button::before {
       content: '';
@@ -367,24 +413,29 @@
       overflow: hidden;
       position: relative; /* For absolute positioning of button */
       padding-left: 12px; /* Add padding to the left of the editor */
-      transition: box-shadow 0.3s ease, outline 0.3s ease;
+      transition: box-shadow 0.3s ease;
+      z-index: 1; /* Base z-index */
     }
     
-    /* Live running state - green outline */
-    #kidlisp-editor.live-running {
-      outline: 3px solid #00ff00;
-      outline-offset: -3px;
-      box-shadow: inset 0 0 20px rgba(0, 255, 0, 0.1);
+    /* Live running state - green outline using pseudo-element for proper z-index */
+    #kidlisp-editor.live-running::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      border: 4px solid #00ff00;
+      pointer-events: none; /* Allow clicks through to Monaco */
+      z-index: 999999; /* Very high z-index to be above everything */
+      animation: live-pulse 2s ease-in-out infinite;
+      box-shadow: inset 0 0 30px rgba(0, 255, 0, 0.2), 0 0 10px rgba(0, 255, 0, 0.3);
     }
     
     /* Pulse animation for live state */
     @keyframes live-pulse {
-      0%, 100% { outline-color: #00ff00; }
-      50% { outline-color: #00cc00; }
-    }
-    
-    #kidlisp-editor.live-running {
-      animation: live-pulse 2s ease-in-out infinite;
+      0%, 100% { border-color: #00ff00; }
+      50% { border-color: #00cc00; }
     }
 
     /* Zebra striping for editor rows - removed to allow selection highlighting to work */
@@ -588,9 +639,10 @@
       justify-content: center;
       font-size: 16px;
       transition: opacity 0.2s;
-      margin-left: 8px;
       padding: 0;
       opacity: 0.6;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
     }
     
     @media (hover: hover) {
@@ -613,6 +665,18 @@
       background: rgb(240, 235, 250); /* Light muted purple backdrop */
       border-bottom-color: rgb(220, 215, 230);
     }
+    
+    @media (prefers-color-scheme: dark) {
+      #preview-panel .docs-header {
+        background: rgb(48, 43, 58); /* Dark muted purple */
+        border-bottom-color: rgb(62, 56, 72);
+      }
+    }
+    
+    [data-theme="dark"] #preview-panel .docs-header {
+      background: rgb(48, 43, 58); /* Dark muted purple */
+      border-bottom-color: rgb(62, 56, 72);
+    }
 
     #preview-title {
       font-family: 'YWFTProcessing-Regular', monospace;
@@ -622,6 +686,16 @@
       margin-left: 0px; /* Reset margin */
       display: inline-block;
       line-height: 32px; /* Match header height */
+    }
+    
+    @media (prefers-color-scheme: dark) {
+      #preview-title {
+        color: rgb(188, 168, 218); /* Lighter purple for dark mode */
+      }
+    }
+    
+    [data-theme="dark"] #preview-title {
+      color: rgb(188, 168, 218); /* Lighter purple for dark mode */
     }
     
     #preview-title .bounce-dot {
@@ -733,14 +807,48 @@
       background: #fffacd; /* Legal pad yellow background for KidLisp.com tab */
       border-bottom-color: #f0e68c;
     }
+    
+    @media (prefers-color-scheme: dark) {
+      .editor-header {
+        background: #3a3530; /* Dark brown for dark mode */
+        border-bottom-color: #2a2520;
+      }
+    }
+    
+    [data-theme="dark"] .editor-header {
+      background: #3a3530; /* Dark brown for dark mode */
+      border-bottom-color: #2a2520;
+    }
 
     #console-panel .docs-header {
       background: #3d2817; /* Darker brown background for Console tab bar */
       border-bottom-color: #2a1a0f;
     }
+    
+    @media (prefers-color-scheme: dark) {
+      #console-panel .docs-header {
+        background: #3d2817; /* Same in dark mode - already dark */
+        border-bottom-color: #2a1a0f;
+      }
+    }
+    
+    [data-theme="dark"] #console-panel .docs-header {
+      background: #3d2817; /* Same in dark mode - already dark */
+      border-bottom-color: #2a1a0f;
+    }
 
     #console-title {
       color: #ff9f43; /* Orange text for Console title */
+    }
+    
+    @media (prefers-color-scheme: dark) {
+      #console-title {
+        color: #ff9f43; /* Same in dark mode - already bright */
+      }
+    }
+    
+    [data-theme="dark"] #console-title {
+      color: #ff9f43; /* Same in dark mode - already bright */
     }
 
     .clear-console {
@@ -771,7 +879,7 @@
       font-size: 13px;
       font-weight: bold;
       color: var(--text-primary);
-      height: 32px;
+      height: 44px;
       box-sizing: border-box;
       overflow: hidden;
       flex-shrink: 0; /* Prevent header from shrinking */
@@ -1163,8 +1271,18 @@
 
     /* Top row horizontal gutter (between editor and preview) */
     #editor-panel + .gutter.gutter-horizontal {
-      background-color: rgba(255, 140, 0, 0.3) !important; /* Orange */
+      background-color: rgb(240, 235, 250) !important; /* Light muted purple to match aesthetic.computer tab */
       z-index: 1;
+    }
+    
+    @media (prefers-color-scheme: dark) {
+      #editor-panel + .gutter.gutter-horizontal {
+        background-color: rgb(48, 43, 58) !important; /* Dark muted purple for dark mode */
+      }
+    }
+    
+    [data-theme="dark"] #editor-panel + .gutter.gutter-horizontal {
+      background-color: rgb(48, 43, 58) !important; /* Dark muted purple for dark mode */
     }
 
     /* Bottom row horizontal gutter (between reference and console) */
@@ -1288,6 +1406,105 @@
         text-shadow: 1px 1px 0px rgba(0, 0, 0, 0.5);
       }
     }
+    
+    /* QR Code in header */
+    #preview-qr {
+      cursor: pointer;
+      transition: transform 0.2s, opacity 0.2s;
+      margin-left: 4px;
+      margin-right: 0;
+      padding: 2px;
+      display: block;
+      border: 1px solid rgba(0, 0, 0, 0.3);
+      border-radius: 2px;
+      box-sizing: content-box;
+      height: 40px !important; /* Slightly smaller to account for reduced padding */
+    }
+    
+    @media (prefers-color-scheme: dark) {
+      #preview-qr {
+        border-color: rgba(255, 255, 255, 0.2);
+      }
+    }
+    
+    [data-theme="dark"] #preview-qr {
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+    
+    @media (hover: hover) {
+      #preview-qr:hover {
+        transform: scale(1.1);
+        opacity: 0.8;
+      }
+    }
+    
+    #preview-qr:active {
+      transform: scale(0.95);
+    }
+    
+    /* QR Modal */
+    #qr-modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.9);
+      z-index: 10000;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      animation: fadeIn 0.2s ease-out;
+    }
+    
+    #qr-modal.show {
+      display: flex;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    
+    #qr-modal-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      animation: scaleIn 0.2s ease-out;
+    }
+    
+    @keyframes scaleIn {
+      from { transform: scale(0.9); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+    
+    #qr-modal canvas {
+      image-rendering: pixelated;
+      image-rendering: -moz-crisp-edges;
+      image-rendering: crisp-edges;
+      border: 8px solid white;
+      border-radius: 8px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    }
+    
+    #qr-modal-url {
+      color: white;
+      font-family: monospace;
+      font-size: 18px;
+      background: rgba(0, 0, 0, 0.5);
+      padding: 12px 24px;
+      border-radius: 8px;
+      user-select: all;
+    }
+    
+    #qr-modal-close {
+      color: rgba(255, 255, 255, 0.7);
+      font-family: monospace;
+      font-size: 14px;
+      margin-top: 8px;
+    }
   </style>
 </head>
 
@@ -1304,11 +1521,14 @@
     <div class="top-row" id="top-row">
       <div class="editor-panel" id="editor-panel">
         <div class="editor-header">
-          <span class="baby-colors"><span>K</span><span>i</span><span>d</span><span>L</span><span>i</span><span>s</span><span>p</span><span class="connectivity-dot disconnected">.</span><span class="com-part">com</span></span>
-          <div class="tab language-tab" id="language-tab" style="border: none; height: 100%; padding: 0 8px; background: transparent; display: flex; align-items: center;">
-            <span class="lang-flag" id="lang-flag" style="font-size: 12px; margin-right: 6px;">🇺🇸</span>
-            <span class="lang-text" style="font-size: 12px; opacity: 0.7;">English</span>
-            <span class="lang-arrow" style="font-size: 10px; opacity: 0.5; margin-left: 4px;">▼</span>
+          <div style="display: flex; flex-direction: column; align-items: flex-start;">
+            <span class="baby-colors"><span>K</span><span>i</span><span>d</span><span>L</span><span>i</span><span>s</span><span>p</span><span class="connectivity-dot disconnected">.</span><span class="com-part">com</span></span>
+            <span style="font-size: 9px; opacity: 0.5; margin-top: 2px; margin-bottom: 8px; font-family: monospace;">friendly coding for everyone</span>
+          </div>
+          <div class="tab language-tab" id="language-tab" style="border: none; height: 100%; padding: 0 6px; background: transparent; display: flex; align-items: center; margin-left: auto; margin-right: 8px;">
+            <span class="lang-flag" id="lang-flag" style="font-size: 10px; margin-right: 4px;">🇺🇸</span>
+            <span class="lang-text" style="font-size: 10px; opacity: 0.7;">English</span>
+            <span class="lang-arrow" style="font-size: 8px; opacity: 0.5; margin-left: 3px;">▼</span>
             <div class="language-dropdown" id="language-dropdown" style="display: none; left: 0; top: 100%; margin-top: 0; border-top-left-radius: 0; border-top-right-radius: 0;">
               <div class="lang-option" data-lang="en">🇺🇸 English</div>
               <div class="lang-option" data-lang="es">🇪🇸 Español</div>
@@ -1328,8 +1548,8 @@
       
       <div class="preview-panel" id="preview-panel" style="display: flex; flex-direction: column; overflow: hidden;">
         <div class="docs-header" style="display: flex; align-items: center; gap: 8px;">
-          <img id="preview-qr" src="" alt="" style="display: none; width: 24px; height: 24px; image-rendering: pixelated;" />
           <span id="preview-title">Aesthetic<span class="bounce-dot">.</span>Computer</span>
+          <img id="preview-qr" src="" alt="QR Code" title="Click to enlarge" style="display: none; width: auto; image-rendering: pixelated;" />
         </div>
         <div style="position: relative; flex: 1;">
           <div class="boot-screen" id="boot-screen">
@@ -1350,16 +1570,16 @@
     <div class="bottom-row" id="bottom-row">
       <div class="reference-section" id="reference-panel">
         <div class="docs-header">
-          <div class="tab active" data-tab="reference" id="reference-tab">Code</div>
-          <div class="tab" data-tab="examples" id="examples-tab">Top 25</div>
+          <div class="tab active" data-tab="examples" id="examples-tab">Top Hits</div>
+          <div class="tab" data-tab="reference" id="reference-tab">Code</div>
         </div>
-        <div class="docs-content" id="reference-content">
+        <div class="docs-content" id="examples-content">
+          <div id="examples-list">Loading examples...</div>
+        </div>
+        <div class="docs-content hidden" id="reference-content">
           <div id="wizard-container">
             <div id="wizard-suggestions"></div>
           </div>
-        </div>
-        <div class="docs-content hidden" id="examples-content">
-          <div id="examples-list">Loading examples...</div>
         </div>
       </div>
       
@@ -1371,6 +1591,15 @@
       </div>
     </div>
   </main>
+  
+  <!-- QR Code Modal -->
+  <div id="qr-modal">
+    <div id="qr-modal-content">
+      <canvas id="qr-modal-canvas"></canvas>
+      <div id="qr-modal-url"></div>
+      <div id="qr-modal-close">Click anywhere to close</div>
+    </div>
+  </div>
 
   <footer>
     &copy; 2025 aesthetic computer
@@ -1381,6 +1610,13 @@
 
   <!-- Monaco Editor -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
+  
+  <script type="module">
+    // Import QR code library
+    import { qrcode as qr, ErrorCorrectLevel } from 'https://aesthetic.computer/aesthetic.computer/dep/@akamfoad/qr/qr.mjs';
+    window.qr = qr;
+    window.ErrorCorrectLevel = ErrorCorrectLevel;
+  </script>
   
   <!-- Development reload logic. -->
   <script type="module">
@@ -1393,7 +1629,7 @@
         previewTitle: 'Aesthetic.Computer',
         consoleTitle: 'Console',
         referenceTab: 'Code',
-        examplesTab: 'Top 25',
+        examplesTab: 'Top Hits',
         examplesLoading: 'Loading examples...',
         examplesNone: 'No examples found.',
         examplesError: 'Error loading examples.',
@@ -1414,7 +1650,7 @@
         previewTitle: 'Aesthetic.Computer',
         consoleTitle: 'Consola',
         referenceTab: 'Código',
-        examplesTab: 'Top 25',
+        examplesTab: 'Más Populares',
         examplesLoading: 'Cargando ejemplos...',
         examplesNone: 'No se encontraron ejemplos.',
         examplesError: 'Error al cargar ejemplos.',
@@ -1435,7 +1671,7 @@
         previewTitle: 'Aesthetic.Computer',
         consoleTitle: '控制台',
         referenceTab: '代码',
-        examplesTab: 'Top 25',
+        examplesTab: '热门',
         examplesLoading: '加载示例中...',
         examplesNone: '未找到示例。',
         examplesError: '加载示例时出错。',
@@ -1456,7 +1692,7 @@
         previewTitle: 'Aesthetic.Computer',
         consoleTitle: 'Konsol',
         referenceTab: 'Kode',
-        examplesTab: 'Top 25',
+        examplesTab: 'Top Hits',
         examplesLoading: 'Indlæser eksempler...',
         examplesNone: 'Ingen eksempler fundet.',
         examplesError: 'Fejl ved indlæsning af eksempler.',
@@ -1994,10 +2230,119 @@
     const kidlisp = new KidLisp();
     let editor;
 
+    // Function to generate and display QR code
+    function generateAndDisplayQR(code) {
+      // Wait for QR library to be loaded
+      if (!window.qr || !window.ErrorCorrectLevel) {
+        console.warn('⚠️ QR library not loaded yet');
+        setTimeout(() => generateAndDisplayQR(code), 100);
+        return;
+      }
+      
+      const cleanCode = code.startsWith('$') ? code.substring(1) : code;
+      const url = `https://aesthetic.computer/$${cleanCode}`;
+      
+      try {
+        // Generate QR code with lowest error correction for smallest size
+        const cells = window.qr(url, { errorCorrectLevel: window.ErrorCorrectLevel.L }).modules;
+        
+        // Scale QR to fit within header with reduced padding and border
+        // Header is 44px, minus 2px padding top/bottom and 1px border = 40px
+        const targetHeight = 40;
+        const cellSize = Math.floor(targetHeight / cells.length);
+        const qrSize = cells.length * cellSize;
+        
+        // Create canvas for QR in header
+        const canvas = document.createElement('canvas');
+        canvas.width = qrSize;
+        canvas.height = qrSize;
+        const ctx = canvas.getContext('2d');
+        
+        // Draw QR code with transparency - black squares, transparent background
+        // This allows the header background color to show through
+        ctx.clearRect(0, 0, qrSize, qrSize); // Start with transparent canvas
+        for (let y = 0; y < cells.length; y++) {
+          for (let x = 0; x < cells.length; x++) {
+            if (cells[y][x]) {
+              // Only draw black squares, leave white squares transparent
+              ctx.fillStyle = 'rgba(0, 0, 0, 0.7)'; // Semi-transparent black
+              ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+            }
+          }
+        }
+        
+        // Display in header
+        const previewQR = document.getElementById('preview-qr');
+        previewQR.src = canvas.toDataURL();
+        previewQR.style.display = 'block';
+        
+        // Store for modal
+        previewQR.dataset.url = url;
+        previewQR.dataset.qrSize = qrSize;
+        
+        console.log(`✅ Generated QR code for $${cleanCode}`);
+      } catch (error) {
+        console.error('❌ Error generating QR code:', error);
+      }
+    }
+    
+    // Function to show QR modal
+    function showQRModal() {
+      const previewQR = document.getElementById('preview-qr');
+      const url = previewQR.dataset.url;
+      const qrSize = parseInt(previewQR.dataset.qrSize);
+      
+      if (!url || !qrSize) return;
+      
+      // Generate larger QR for modal (use lowest error correction)
+      const cells = window.qr(url, { errorCorrectLevel: window.ErrorCorrectLevel.L }).modules;
+      const largeSize = Math.min(400, window.innerWidth - 100, window.innerHeight - 200);
+      const largeCellSize = Math.floor(largeSize / cells.length);
+      const actualSize = cells.length * largeCellSize;
+      
+      const canvas = document.getElementById('qr-modal-canvas');
+      canvas.width = actualSize;
+      canvas.height = actualSize;
+      const ctx = canvas.getContext('2d');
+      
+      // Draw larger QR
+      for (let y = 0; y < cells.length; y++) {
+        for (let x = 0; x < cells.length; x++) {
+          ctx.fillStyle = cells[y][x] ? '#000000' : '#ffffff';
+          ctx.fillRect(x * largeCellSize, y * largeCellSize, largeCellSize, largeCellSize);
+        }
+      }
+      
+      // Show URL
+      document.getElementById('qr-modal-url').textContent = url;
+      
+      // Show modal
+      document.getElementById('qr-modal').classList.add('show');
+    }
+    
+    // Function to hide QR modal
+    function hideQRModal() {
+      document.getElementById('qr-modal').classList.remove('show');
+    }
+    
+    // Add click handlers
+    document.addEventListener('DOMContentLoaded', () => {
+      const previewQR = document.getElementById('preview-qr');
+      if (previewQR) {
+        previewQR.addEventListener('click', showQRModal);
+      }
+      
+      const qrModal = document.getElementById('qr-modal');
+      if (qrModal) {
+        qrModal.addEventListener('click', hideQRModal);
+      }
+    });
+
     // Function to update browser URL and title when code changes
     function updateURLForCode(code) {
       const cleanCode = code.startsWith('$') ? code.substring(1) : code;
-      const newPath = `/kidlisp.com/$${cleanCode}`;
+      const isKidlispDomain = window.location.hostname === 'kidlisp.com' || window.location.hostname === 'www.kidlisp.com';
+      const newPath = isKidlispDomain ? `/$${cleanCode}` : `/kidlisp.com/$${cleanCode}`;
       const newTitle = `aesthetic.computer/$${cleanCode}`;
       
       // Update URL without reloading
@@ -2006,6 +2351,9 @@
         document.title = newTitle;
         console.log(`🔄 Updated URL to: ${newPath}`);
       }
+      
+      // Generate QR code
+      generateAndDisplayQR(code);
     }
 
     // Function to load kidlisp code from database by code (e.g., $46k)
@@ -2086,6 +2434,7 @@
           'editorCursor.foreground': '#FF69B4',
           'editor.lineHighlightBackground': '#3a3530', /* Slightly lighter brown for highlight */
           'editorLineNumber.foreground': '#858585',
+          'editorLineNumber.activeForeground': '#d4d4d4', /* Active line number */
           'editor.selectionBackground': '#6495eddd', /* Cornflower blue with high opacity */
           'editor.inactiveSelectionBackground': '#6495ed88', /* Lighter blue for inactive */
         }
@@ -2253,6 +2602,96 @@
 
       // Track decorations for syntax highlighting blinks
       let currentDecorations = [];
+      
+      // Helper function to get shadow color for dark text (from disk.mjs approach)
+      function getShadowForColor(colorStr) {
+        if (!colorStr) return null;
+        
+        let rgb;
+        // Parse RGB format
+        if (colorStr.startsWith('rgb(')) {
+          const match = colorStr.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+          if (match) {
+            rgb = [parseInt(match[1]), parseInt(match[2]), parseInt(match[3])];
+          }
+        } else if (colorStr.includes(',')) {
+          rgb = colorStr.split(',').map(n => parseInt(n.trim()));
+        } else {
+          // Named colors - approximate common dark colors
+          const darkColors = {
+            'black': [0, 0, 0],
+            'darkblue': [0, 0, 139],
+            'darkgreen': [0, 100, 0],
+            'darkred': [139, 0, 0],
+            'navy': [0, 0, 128],
+            'maroon': [128, 0, 0],
+            'purple': [128, 0, 128],
+            'indigo': [75, 0, 130]
+          };
+          rgb = darkColors[colorStr.toLowerCase()];
+        }
+        
+        if (!rgb || rgb.length < 3) return null;
+        
+        const [r, g, b] = rgb;
+        // Check if color is dark (low luminance)
+        const luminance = (0.299 * r + 0.587 * g + 0.114 * b);
+        
+        if (luminance < 50) {
+          // Very dark - needs bright shadow
+          return '1px 1px 0px rgba(220, 220, 220, 0.8)';
+        } else if (luminance < 100) {
+          // Somewhat dark - needs lighter shadow
+          return '1px 1px 0px rgba(200, 200, 200, 0.6)';
+        }
+        
+        return null; // Light color, no shadow needed
+      }
+      
+      // Helper function to get shadow color for dark text (from disk.mjs approach)
+      function getShadowForColor(colorStr) {
+        if (!colorStr) return null;
+        
+        let rgb;
+        // Parse RGB format
+        if (colorStr.startsWith('rgb(')) {
+          const match = colorStr.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+          if (match) {
+            rgb = [parseInt(match[1]), parseInt(match[2]), parseInt(match[3])];
+          }
+        } else if (colorStr.includes(',')) {
+          rgb = colorStr.split(',').map(n => parseInt(n.trim()));
+        } else {
+          // Named colors - approximate common dark colors
+          const darkColors = {
+            'black': [0, 0, 0],
+            'darkblue': [0, 0, 139],
+            'darkgreen': [0, 100, 0],
+            'darkred': [139, 0, 0],
+            'navy': [0, 0, 128],
+            'maroon': [128, 0, 0],
+            'purple': [128, 0, 128],
+            'indigo': [75, 0, 130]
+          };
+          rgb = darkColors[colorStr.toLowerCase()];
+        }
+        
+        if (!rgb || rgb.length < 3) return null;
+        
+        const [r, g, b] = rgb;
+        // Check if color is dark (low luminance)
+        const luminance = (0.299 * r + 0.587 * g + 0.114 * b);
+        
+        if (luminance < 50) {
+          // Very dark - needs bright shadow
+          return '1px 1px 0px rgba(220, 220, 220, 0.8)';
+        } else if (luminance < 100) {
+          // Somewhat dark - needs lighter shadow
+          return '1px 1px 0px rgba(200, 200, 200, 0.6)';
+        }
+        
+        return null; // Light color, no shadow needed
+      }
       
       // Enable edit mode for timing blinks
       kidlisp.isEditMode = true;
@@ -2541,7 +2980,14 @@
               if (!document.getElementById(cssClass)) {
                 const style = document.createElement('style');
                 style.id = cssClass;
-                style.textContent = `.monaco-editor .view-line > span > span.${cssClass} { color: ${cssColor}; font-weight: bold; }`;
+                
+                // Add text-shadow for dark colors in dark mode
+                const isDarkMode = document.documentElement.getAttribute('data-theme') === 'dark' || 
+                                 (!document.documentElement.getAttribute('data-theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
+                const shadow = isDarkMode ? getShadowForColor(cssColor) : null;
+                const shadowStyle = shadow ? ` text-shadow: ${shadow};` : '';
+                
+                style.textContent = `.monaco-editor .view-line > span > span.${cssClass} { color: ${cssColor}; font-weight: bold;${shadowStyle} }`;
                 document.head.appendChild(style);
               }
               
@@ -2759,19 +3205,19 @@
         if (theme === 'system') {
           document.documentElement.removeAttribute('data-theme');
           const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-          themeToggle.textContent = prefersDark ? '●' : '○';
+          themeToggle.textContent = prefersDark ? '🌙' : '☀️';
           if (editor) {
             monaco.editor.setTheme(prefersDark ? 'kidlisp-dark' : 'kidlisp-light');
           }
         } else if (theme === 'light') {
           document.documentElement.setAttribute('data-theme', 'light');
-          themeToggle.textContent = '○';
+          themeToggle.textContent = '☀️';
           if (editor) {
             monaco.editor.setTheme('kidlisp-light');
           }
         } else if (theme === 'dark') {
           document.documentElement.setAttribute('data-theme', 'dark');
-          themeToggle.textContent = '●';
+          themeToggle.textContent = '🌙';
           if (editor) {
             monaco.editor.setTheme('kidlisp-dark');
           }
@@ -2789,7 +3235,9 @@
       
       // Theme toggle click - cycle through: system → light → dark → system
       if (themeToggle) {
-        themeToggle.addEventListener('click', () => {
+        themeToggle.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
           if (currentTheme === 'system') {
             const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
             applyTheme(prefersDark ? 'light' : 'dark');
@@ -2798,6 +3246,11 @@
           } else {
             applyTheme('system');
           }
+        });
+        // Also handle touch events for better mobile support
+        themeToggle.addEventListener('touchend', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
         });
       }
       
@@ -3069,9 +3522,12 @@
       
       console.log('🎮 Play/Pause button clicked - isPlaying:', isPlaying, 'isPaused:', isPaused);
       if (!isPlaying) {
-        // Start playing - run the current code and request a new code to be created
-        console.log('▶️ Starting playback');
-        updatePreview(true); // Request code creation to get a new $code identifier
+        // Start playing - run the current code
+        // Only create a NEW code if we don't already have one stored
+        const existingCode = localStorage.getItem('kidlisp-current-code');
+        const shouldCreateCode = !existingCode; // Only create if no existing code
+        console.log('▶️ Starting playback', existingCode ? `with existing code: ${existingCode}` : 'will create new code');
+        updatePreview(shouldCreateCode);
         isPlaying = true;
         isPaused = false;
         sendButton.classList.add('playing');
@@ -3524,6 +3980,9 @@
       });
       
       console.log('✅ Tab event listeners attached successfully');
+      
+      // Load examples on init since Top Hits is the default active tab
+      loadExamples();
     } else {
       console.error('❌ Missing tab elements!', { codeTab, examplesTab, referenceContent, examplesContent });
     }

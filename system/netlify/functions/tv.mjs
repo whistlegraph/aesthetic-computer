@@ -117,11 +117,15 @@ async function fetchKidlisp(db, { limit, sort }) {
   
   let sortStage = { $sort: { when: -1 } };
   if (sort === 'hits') {
-    sortStage = { $sort: { hits: -1 } };
+    // Sort by hits descending, then by when descending for ties
+    // Also handle null/missing hits field (treat as 0)
+    sortStage = { $sort: { hits: -1, when: -1 } };
   }
 
   const pipeline = [
     { $match: { nuked: { $ne: true } } },
+    // Add a field to handle null hits before sorting
+    ...(sort === 'hits' ? [{ $addFields: { hits: { $ifNull: ["$hits", 0] } } }] : []),
     sortStage,
     { $limit: limit },
     {
@@ -151,7 +155,13 @@ async function fetchKidlisp(db, { limit, sort }) {
   ];
 
   console.log("Fetching kidlisp with pipeline:", JSON.stringify(pipeline));
-  const records = await collection.aggregate(pipeline).toArray();
+  
+  // When sorting by hits, allow disk use to scan entire collection
+  const aggregateOptions = sort === 'hits' 
+    ? { allowDiskUse: true }
+    : {};
+  
+  const records = await collection.aggregate(pipeline, aggregateOptions).toArray();
   console.log(`Fetched ${records.length} kidlisp records`);
 
   return records.map((record, index) => {
@@ -248,6 +258,7 @@ export async function handler(event) {
   const requestedTypes = parseMediaTypes(params.types);
   const limit = parseLimit(params.limit);
   const filter = params.filter?.toLowerCase() || "recent"; // "recent" or "sprinkle"
+  const sort = params.sort?.toLowerCase(); // "hits" for all-time popularity
 
   const media = {};
   const pendingTypes = [];
@@ -279,7 +290,10 @@ export async function handler(event) {
         media.paintings = await fetchPaintings(database.db, { limit: fetchLimit });
         console.log(`📺 Fetched ${media.paintings.length} paintings`);
       } else if (type === "kidlisp") {
-        media.kidlisp = await fetchKidlisp(database.db, { limit: fetchLimit });
+        // When sorting by hits, use the direct limit to get true top N
+        // Otherwise use fetchLimit for frecency mixing
+        const kidlispLimit = sort === 'hits' ? limit : fetchLimit;
+        media.kidlisp = await fetchKidlisp(database.db, { limit: kidlispLimit, sort });
         console.log(`📺 Fetched ${media.kidlisp.length} kidlisp items`);
       } else if (type === "tape") {
         media.tapes = await fetchTapes(database.db, { limit: fetchLimit });
