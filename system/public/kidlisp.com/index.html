@@ -616,6 +616,18 @@
       background: rgb(240, 235, 250); /* Light muted purple backdrop */
       border-bottom-color: rgb(220, 215, 230);
     }
+    
+    @media (prefers-color-scheme: dark) {
+      #preview-panel .docs-header {
+        background: rgb(48, 43, 58); /* Dark muted purple */
+        border-bottom-color: rgb(62, 56, 72);
+      }
+    }
+    
+    [data-theme="dark"] #preview-panel .docs-header {
+      background: rgb(48, 43, 58); /* Dark muted purple */
+      border-bottom-color: rgb(62, 56, 72);
+    }
 
     #preview-title {
       font-family: 'YWFTProcessing-Regular', monospace;
@@ -625,6 +637,16 @@
       margin-left: 0px; /* Reset margin */
       display: inline-block;
       line-height: 32px; /* Match header height */
+    }
+    
+    @media (prefers-color-scheme: dark) {
+      #preview-title {
+        color: rgb(188, 168, 218); /* Lighter purple for dark mode */
+      }
+    }
+    
+    [data-theme="dark"] #preview-title {
+      color: rgb(188, 168, 218); /* Lighter purple for dark mode */
     }
     
     #preview-title .bounce-dot {
@@ -736,14 +758,48 @@
       background: #fffacd; /* Legal pad yellow background for KidLisp.com tab */
       border-bottom-color: #f0e68c;
     }
+    
+    @media (prefers-color-scheme: dark) {
+      .editor-header {
+        background: #3a3530; /* Dark brown for dark mode */
+        border-bottom-color: #2a2520;
+      }
+    }
+    
+    [data-theme="dark"] .editor-header {
+      background: #3a3530; /* Dark brown for dark mode */
+      border-bottom-color: #2a2520;
+    }
 
     #console-panel .docs-header {
       background: #3d2817; /* Darker brown background for Console tab bar */
       border-bottom-color: #2a1a0f;
     }
+    
+    @media (prefers-color-scheme: dark) {
+      #console-panel .docs-header {
+        background: #3d2817; /* Same in dark mode - already dark */
+        border-bottom-color: #2a1a0f;
+      }
+    }
+    
+    [data-theme="dark"] #console-panel .docs-header {
+      background: #3d2817; /* Same in dark mode - already dark */
+      border-bottom-color: #2a1a0f;
+    }
 
     #console-title {
       color: #ff9f43; /* Orange text for Console title */
+    }
+    
+    @media (prefers-color-scheme: dark) {
+      #console-title {
+        color: #ff9f43; /* Same in dark mode - already bright */
+      }
+    }
+    
+    [data-theme="dark"] #console-title {
+      color: #ff9f43; /* Same in dark mode - already bright */
     }
 
     .clear-console {
@@ -2093,6 +2149,7 @@
           'editorCursor.foreground': '#FF69B4',
           'editor.lineHighlightBackground': '#3a3530', /* Slightly lighter brown for highlight */
           'editorLineNumber.foreground': '#858585',
+          'editorLineNumber.activeForeground': '#d4d4d4', /* Active line number */
           'editor.selectionBackground': '#6495eddd', /* Cornflower blue with high opacity */
           'editor.inactiveSelectionBackground': '#6495ed88', /* Lighter blue for inactive */
         }
