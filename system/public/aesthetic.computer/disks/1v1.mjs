@@ -1,17 +1,40 @@
-// fps, 2024.2.15.16.28.02.162
-// The most basic first person environment.
+// 1v1, 2025.11.25.04.50.00
+// Multiplayer Quake-like FPS game.
 
 /* #region 📚 README 
+  A real-time multiplayer first-person shooter.
+  Two players battle in a 3D arena with simple hitscan weapons.
 #endregion */
 
 /* #region 🏁 TODO 
-  - [o] Make sure pointer lock movement is the right numbers.
-  - [] Rewrite this module in the lisp as an initial production piece.
+  - [] Add UDP support for lower latency
+  - [] Add sound effects (gunshots, hits)
+  - [] Add death/respawn system
+  - [] Add kill counter and match timer
+  - [] Better player models (not just boxes)
   + Done
-  - [x] Get Pointer Lock working.
-  - [x] Add spinning cube and gradient triangle.
+  - [x] Clone fps.mjs as foundation
+  - [x] Add socket networking
+  - [x] Basic player state management
 #endregion */
 
+// Networking
+let server;
+let self = {
+  id: null,
+  handle: "player",
+  pos: { x: 0, y: 1.6, z: 0 },
+  rot: { x: 0, y: 0, z: 0 },
+  vel: { x: 0, y: 0, z: 0 },
+  health: 100,
+  kills: 0,
+  deaths: 0,
+  lastShot: 0,
+};
+let others = {}; // Map of other players by ID
+let gameState = "connecting"; // connecting, lobby, playing, dead, gameover
+
+// 3D Scene
 let cube, triangle, filledTriangle, texturedQuad, quadTexture, groundPlane, groundTexture, groundWireframe, penLocked = false;
 let showWireframes = true; // Toggle with 'V' key (start with wireframes ON)
 let graphAPI; // Store graph API reference
@@ -22,6 +45,11 @@ let frameTimes = []; // Track frame times for FPS calculation
 let lastFrameTime = performance.now();
 let paintingTextureFetchPromise; // Track ongoing painting texture fetch
 let paintingTextureLoaded = false; // Track if we've loaded the painting
+
+// Combat
+const SHOOT_COOLDOWN = 200; // ms between shots
+const DAMAGE_PER_HIT = 20;
+let playerBoxes = {}; // Visual representation of other players
 
 // Function to log detailed scene debug info
 function logSceneDebug() {
@@ -121,14 +149,114 @@ function logSceneDebug() {
 }
 
 
-function boot({ Form, CUBEL, QUAD, penLock, system, get }) {
-  console.log("🔍 boot parameters:", { hasForm: !!Form, hasCUBEL: !!CUBEL, hasQUAD: !!QUAD, hasPenLock: !!penLock, hasSystem: !!system, hasGet: !!get });
+function boot({ Form, CUBEL, QUAD, penLock, system, get, net: { socket }, handle, help }) {
+  console.log("🎮 1v1 boot", { hasForm: !!Form, hasSocket: !!socket, hasHandle: !!handle });
   
   penLock();
   
   // Store system and graph instance for camera and stats access
   systemInstance = system;
   graphInstance = system?.fps?.doll?.cam;
+  
+  // Set player handle
+  self.handle = handle() || help.choose("red", "blue", "green", "yellow") + "_player";
+  
+  // Initialize networking
+  server = socket((id, type, content) => {
+    if (type === "left") {
+      console.log("👋 Player left:", id);
+      delete others[id];
+      delete playerBoxes[id];
+    }
+    
+    if (type === "joined") {
+      console.log("👋 Player joined:", id);
+    }
+    
+    if (type.startsWith("connected")) {
+      self.id = id;
+      gameState = "lobby";
+      console.log("🎮 Connected as:", self.handle, `(${id})`);
+      
+      // Send initial join message
+      server.send("1v1:join", {
+        handle: self.handle,
+        pos: self.pos,
+        rot: self.rot,
+        health: self.health,
+      });
+    }
+    
+    // Handle messages from other players
+    if (server.id !== id) {
+      if (type === "1v1:join") {
+        console.log(`Player joined:`, content.handle, id);
+        others[id] = {
+          handle: content.handle,
+          pos: content.pos || { x: 0, y: 1.6, z: 0 },
+          rot: content.rot || { x: 0, y: 0, z: 0 },
+          health: content.health || 100,
+        };
+        
+        // Send our state back to new player
+        server.send("1v1:join", {
+          handle: self.handle,
+          pos: self.pos,
+          rot: self.rot,
+          health: self.health,
+        });
+        
+        // Create visual box for this player
+        if (!playerBoxes[id]) {
+          playerBoxes[id] = new Form(
+            { type: "cube" },
+            { pos: [content.pos.x, content.pos.y, content.pos.z], scale: 0.5 }
+          );
+        }
+        
+        gameState = "playing";
+      }
+      
+      if (type === "1v1:move") {
+        if (others[id]) {
+          others[id].pos = content.pos;
+          others[id].rot = content.rot;
+          
+          // Update player box position
+          if (playerBoxes[id]) {
+            playerBoxes[id].position = [content.pos.x, content.pos.y, content.pos.z];
+          }
+        }
+      }
+      
+      if (type === "1v1:shoot") {
+        console.log("💥 Player shot:", id);
+        // TODO: Show muzzle flash or projectile
+      }
+      
+      if (type === "1v1:hit") {
+        if (content.targetId === self.id) {
+          self.health -= content.damage;
+          console.log(`💔 Hit! Health: ${self.health}`);
+          
+          if (self.health <= 0) {
+            self.health = 0;
+            self.deaths++;
+            gameState = "dead";
+            console.log("💀 You died!");
+            
+            // Notify killer
+            server.send("1v1:death", { killerId: id });
+          }
+        }
+      }
+      
+      if (type === "1v1:death" && content.killerId === self.id) {
+        self.kills++;
+        console.log(`💀 Kill! Total: ${self.kills}`);
+      }
+    }
+  });
   
   // Enable clipped wireframes by default if available
   // Note: graphAPI will be set in paint function
@@ -287,6 +415,25 @@ function boot({ Form, CUBEL, QUAD, penLock, system, get }) {
 }
 
 function sim() {
+  // Network update - send position every frame (throttled on server if needed)
+  if (server && gameState === "playing" && graphInstance) {
+    self.pos = { 
+      x: graphInstance.x, 
+      y: graphInstance.y, 
+      z: graphInstance.z 
+    };
+    self.rot = { 
+      x: graphInstance.rotX, 
+      y: graphInstance.rotY, 
+      z: graphInstance.rotZ 
+    };
+    
+    server.send("1v1:move", {
+      pos: self.pos,
+      rot: self.rot,
+    });
+  }
+  
   // Rotate the cube around its local center
   cube.rotation[0] += 0.3;
   cube.rotation[1] += 0.5;
@@ -404,6 +551,82 @@ function paint({ wipe, ink, painting, screen, line: drawLine, box: drawBox, clea
   }
   
   const debugFont = "MatrixChunky8";
+  
+  // === 2D HUD OVERLAY ===
+  
+  // Draw game state indicator
+  ink(255, 255, 255).write(gameState.toUpperCase(), { x: 10, y: 10 });
+  
+  // Draw health bar (bottom left)
+  const healthBarX = 10;
+  const healthBarY = screen.height - 30;
+  const healthBarWidth = 200;
+  const healthBarHeight = 20;
+  
+  // Health bar background
+  ink(50, 50, 50).box(healthBarX, healthBarY, healthBarWidth, healthBarHeight);
+  
+  // Health bar fill (green to red gradient based on health)
+  const healthPercent = self.health / 100;
+  const healthColor = healthPercent > 0.5 
+    ? [0, 255, 0] // Green
+    : healthPercent > 0.25
+    ? [255, 255, 0] // Yellow
+    : [255, 0, 0]; // Red
+  
+  ink(...healthColor).box(
+    healthBarX + 2, 
+    healthBarY + 2, 
+    (healthBarWidth - 4) * healthPercent, 
+    healthBarHeight - 4
+  );
+  
+  // Health text
+  ink(255, 255, 255).write(`HP: ${Math.ceil(self.health)}`, { 
+    x: healthBarX + 5, 
+    y: healthBarY + 5 
+  });
+  
+  // Draw score (top center)
+  ink(255, 255, 255).write(
+    `${self.handle} | K:${self.kills} D:${self.deaths}`, 
+    { x: screen.width / 2 - 80, y: 10 }
+  );
+  
+  // Draw crosshair (center of screen)
+  const centerX = screen.width / 2;
+  const centerY = screen.height / 2;
+  const crosshairSize = 10;
+  
+  ink(255, 255, 255, 200)
+    .line(centerX - crosshairSize, centerY, centerX + crosshairSize, centerY)
+    .line(centerX, centerY - crosshairSize, centerX, centerY + crosshairSize);
+  
+  // Draw other players count
+  const playerCount = Object.keys(others).length;
+  if (playerCount > 0) {
+    ink(255, 255, 0).write(`Players: ${playerCount + 1}`, { x: 10, y: 30 });
+  }
+  
+  // Show "Waiting for opponent" message in lobby
+  if (gameState === "lobby") {
+    ink(255, 255, 0, 200).write("WAITING FOR OPPONENT...", { 
+      x: screen.width / 2 - 100, 
+      y: screen.height / 2 
+    });
+  }
+  
+  // Show death screen
+  if (gameState === "dead") {
+    ink(255, 0, 0, 200).write("YOU DIED", { 
+      x: screen.width / 2 - 40, 
+      y: screen.height / 2 - 20 
+    });
+    ink(255, 255, 255, 150).write("Respawning in 3s...", { 
+      x: screen.width / 2 - 70, 
+      y: screen.height / 2 + 10 
+    });
+  }
 
   // Draw debug panel in top-right corner
   if (showDebugPanel) {
@@ -481,6 +704,15 @@ function act({ event: e, penLock, setShowClippedWireframes }) {
   if (e.is("pen:unlocked")) penLocked = false;
   if (!penLocked && e.is("touch")) penLock();
   
+  // Shooting with left mouse button
+  if (e.is("draw") && gameState === "playing") {
+    const now = performance.now();
+    if (now - self.lastShot >= SHOOT_COOLDOWN) {
+      self.lastShot = now;
+      shoot();
+    }
+  }
+  
   // Toggle wireframe mode with 'V' key
   if (e.is("keyboard:down:v")) {
     showWireframes = !showWireframes;
@@ -498,6 +730,63 @@ function act({ event: e, penLock, setShowClippedWireframes }) {
   // Log scene debug info with 'L' key
   if (e.is("keyboard:down:l")) {
     logSceneDebug();
+  }
+}
+
+// Raycast shooting - check if we hit another player
+function shoot() {
+  if (!graphInstance || !server) return;
+  
+  console.log("🔫 Shooting!");
+  server.send("1v1:shoot", { timestamp: performance.now() });
+  
+  // Simple raycast from camera forward
+  const camPos = { x: graphInstance.x, y: graphInstance.y, z: graphInstance.z };
+  const camRot = { x: graphInstance.rotX, y: graphInstance.rotY, z: graphInstance.rotZ };
+  
+  // Convert rotation to direction vector (simplified)
+  const yawRad = (camRot.y * Math.PI) / 180;
+  const pitchRad = (camRot.x * Math.PI) / 180;
+  
+  const dir = {
+    x: Math.cos(pitchRad) * Math.sin(yawRad),
+    y: -Math.sin(pitchRad),
+    z: Math.cos(pitchRad) * Math.cos(yawRad),
+  };
+  
+  // Check collision with other players (simple sphere test)
+  const MAX_RANGE = 50;
+  let hitPlayerId = null;
+  let minDist = MAX_RANGE;
+  
+  for (const [id, other] of Object.entries(others)) {
+    const dx = other.pos.x - camPos.x;
+    const dy = other.pos.y - camPos.y;
+    const dz = other.pos.z - camPos.z;
+    const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+    
+    if (dist > MAX_RANGE) continue;
+    
+    // Check if player is in front of camera (dot product)
+    const dot = dx * dir.x + dy * dir.y + dz * dir.z;
+    if (dot <= 0) continue; // Behind us
+    
+    // Simple sphere collision (player radius ~0.5)
+    const hitRadius = 0.5;
+    const perpDist = Math.sqrt(dx * dx + dy * dy + dz * dz - dot * dot);
+    
+    if (perpDist < hitRadius && dist < minDist) {
+      minDist = dist;
+      hitPlayerId = id;
+    }
+  }
+  
+  if (hitPlayerId) {
+    console.log("💥 HIT player:", hitPlayerId);
+    server.send("1v1:hit", {
+      targetId: hitPlayerId,
+      damage: DAMAGE_PER_HIT,
+    });
   }
 }
 
