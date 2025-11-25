@@ -75,6 +75,7 @@
   },
   "homepage": "https://github.com/digitpain/aesthetic.computer#readme",
   "devDependencies": {
+    "@swc/core": "^1.15.3",
     "blessed": "^0.1.81",
     "chalk": "^5.6.2",
     "concurrently": "^9.2.1",
@@ -88,6 +89,7 @@
     "lighthouse": "^13.0.1",
     "nodemon": "^3.1.10",
     "npm-check-updates": "^18.3.0",
+    "oxc-transform": "^0.99.0",
     "pngjs": "^7.0.0",
     "prettier": "^3.6.2",
     "puppeteer": "^24.31.0",
