@@ -1402,7 +1402,7 @@
       cursor: pointer;
       transition: transform 0.2s, opacity 0.2s;
       margin-left: auto;
-      margin-right: 0;
+      margin-right: 12px;
       padding: 0;
       display: block;
     }
@@ -2219,6 +2219,14 @@
       const url = `https://aesthetic.computer/$${cleanCode}`;
       
       try {
+        // Get theme colors from preview panel header
+        const isDarkMode = document.documentElement.getAttribute('data-theme') === 'dark' || 
+                         (!document.documentElement.getAttribute('data-theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        
+        // Background and foreground colors based on theme
+        const bgColor = isDarkMode ? 'rgb(48, 43, 58)' : 'rgb(240, 235, 250)';
+        const fgColor = isDarkMode ? 'rgb(188, 168, 218)' : 'rgb(88, 78, 108)';
+        
         // Generate QR code with lowest error correction for smallest size
         const cells = window.qr(url, { errorCorrectLevel: window.ErrorCorrectLevel.L }).modules;
         
@@ -2233,10 +2241,10 @@
         canvas.height = qrSize;
         const ctx = canvas.getContext('2d');
         
-        // Draw QR code
+        // Draw QR code with theme colors
         for (let y = 0; y < cells.length; y++) {
           for (let x = 0; x < cells.length; x++) {
-            ctx.fillStyle = cells[y][x] ? '#000000' : '#ffffff';
+            ctx.fillStyle = cells[y][x] ? fgColor : bgColor;
             ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
           }
         }
