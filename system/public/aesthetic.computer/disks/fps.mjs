@@ -16,7 +16,7 @@ let cube, triangle, filledTriangle, texturedQuad, quadTexture, groundPlane, grou
 let showWireframes = true; // Toggle with 'V' key (start with wireframes ON)
 let graphAPI; // Store graph API reference
 let graphInstance; // Store graph instance for camera access
-lance; // Store system reference for render stats access
+let systemInstance; // Store system reference for render stats access
 let showDebugPanel = false; // Toggle with 'P' key (start OFF)
 let frameTimes = []; // Track frame times for FPS calculation
 let lastFrameTime = performance.now();
