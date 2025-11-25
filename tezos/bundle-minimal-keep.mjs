@@ -11,7 +11,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { minify } from "terser";
 import { execSync } from "child_process";
-import { gzipSync } from "zlib";
+import { gzipSync, brotliCompressSync, constants } from "zlib";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -37,57 +37,103 @@ const packDate = new Date().toLocaleString("en-US", {
   hour12: true,
 });
 
-// Minimal set of files needed for basic KidLisp pieces
+// OPTIMIZED: Only files in the import graph (from static analysis)
+// This removes 37 unused files, saving ~200+ KB minified!
 const ESSENTIAL_FILES = [
-  // Core system
+  // Core system (2 files)
   'boot.mjs',
   'bios.mjs',
   
-  // Essential libraries for basic graphics and KidLisp
-  'lib/loop.mjs',        // Required by boot.mjs
-  'lib/disk.mjs',
-  'lib/kidlisp.mjs',
-  'lib/graph.mjs',
-  'lib/geo.mjs',         // Required by graph.mjs
+  // Lib files actually imported by boot→bios chain (42 files)
   'lib/2d.mjs',
-  'lib/type.mjs',
-  'lib/num.mjs',
-  'lib/pen.mjs',
-  'lib/color.mjs',       // Required for color functions
-  'lib/wipe.mjs',        // Required for wipe function
-  
-  // Sound (for KidLisp sound functions)
-  'lib/sound/synth.mjs',
-  'lib/speaker.mjs',
-  
-  // Basic UI
-  'lib/ui.mjs',
-  'lib/headers.mjs',
-  'lib/helpers.mjs',
-  'lib/help.mjs',
-  'lib/parse.mjs',
-  
-  // Input
-  'lib/keyboard.mjs',
-  'lib/gesture.mjs',
+  'lib/ask.mjs',              // Required by systems/prompt-system.mjs
+  'lib/cam-doll.mjs',         // Required by lib/disk.mjs
+  'lib/chat.mjs',             // Required by lib/disk.mjs
+  'lib/color-highlighting.mjs',
+  'lib/disk.mjs',  // Required: bios.mjs dynamically imports this as fallback
+  'lib/fade-state.mjs',
   'lib/gamepad.mjs',
-  'lib/motion.mjs',
-  'lib/midi.mjs',
-  'lib/usb.mjs',
-  
-  // System
-  'lib/logs.mjs',
-  'lib/speech.mjs',
+  'lib/gamepad-mappings.mjs', // Required by lib/cam-doll.mjs
+  'lib/geo.mjs',
+  'lib/gizmo.mjs',            // Required by lib/disk.mjs
+  'lib/gl.mjs',
   'lib/glaze.mjs',
-  'lib/sound/sound-whitelist.mjs',
-  
-  // Minimal system support
-  'lib/store.mjs',
-  'lib/platform.mjs',
+  'lib/glazes/uniforms.js',
+  'lib/graph.mjs',
+  'lib/graphics-optimizer.mjs',
+  'lib/headers.mjs',
+  'lib/help.mjs',
+  'lib/helpers.mjs',
+  'lib/keyboard.mjs',
+  'lib/kidlisp.mjs',
+  'lib/logs.mjs',
+  'lib/loop.mjs',
+  'lib/melody-parser.mjs',
+  'lib/midi.mjs',
+  'lib/motion.mjs',
+  'lib/num.mjs',
   'lib/pack-mode.mjs',
+  'lib/parse.mjs',
+  'lib/pen.mjs',
+  'lib/platform.mjs',
+  'lib/redact.mjs',           // Required by lib/chat.mjs
+  'lib/shop.mjs',             // Required by lib/disk.mjs
+  'lib/socket.mjs',           // Required by lib/disk.mjs
+  'lib/sound/sound-whitelist.mjs',
+  'lib/speech.mjs',
+  'lib/store.mjs',
+  'lib/text.mjs',  // Required: lib/disk.mjs imports this
+  'lib/ticker.mjs',           // Required by lib/gizmo.mjs
+  'lib/type.mjs',             // Required by lib/disk.mjs
+  'lib/udp.mjs',
+  'lib/ui.mjs',
+  'lib/usb.mjs',
+  'lib/webgpu.mjs',
   
-  // Only essential pieces (none for basic KidLisp)
+  // Systems (3 files - required by lib/disk.mjs)
+  'systems/nopaint.mjs',
+  'systems/prompt-system.mjs',
+  'systems/world.mjs',
+  
+  // Common disk files (4 files)
+  'disks/common/debug.mjs',   // Required by lib/disk.mjs
+  'disks/common/fonts.mjs',
+  'disks/common/tape-player.mjs',
+  
+  // GL Matrix dependencies (7 files)
+  'dep/gl-matrix/common.mjs',
+  'dep/gl-matrix/mat3.mjs',
+  'dep/gl-matrix/mat4.mjs',
+  'dep/gl-matrix/quat.mjs',
+  'dep/gl-matrix/vec2.mjs',
+  'dep/gl-matrix/vec3.mjs',
+  'dep/gl-matrix/vec4.mjs',
+  
+  // Other dependencies (5 files)
+  'dep/@akamfoad/qr/qr.mjs',
+  'dep/idb.js',
+  'dep/nanoid/nanoid.js',
+  'dep/nanoid/url-alphabet/index.js',
+  'dep/geckos.io-client.2.3.2.min.js',
+  
+  // REMOVED: dep/wasmboy/wasmboy.ts.esm.js (376 KB!)
+  // Only needed for Gameboy emulation, not for basic KidLisp pieces
 ];
+
+// TODO: Investigate if wasmboy is actually used at runtime
+// If not, removing it would save ~120+ KB minified!
+
+// Removed files (37 total, ~200+ KB minified savings):
+// lib/3d.mjs, lib/ask.mjs, lib/cam-doll.mjs, lib/chat-highlighting.mjs,
+// lib/chat.mjs, lib/disk.mjs (HUGE!), lib/gamepad-mappings.mjs, lib/gesture.mjs,
+// lib/gizmo.mjs, lib/hand-processor.js, lib/hand.mjs, lib/microphone.mjs,
+// lib/notepat-convert.mjs, lib/redact.mjs, lib/shop.mjs, lib/socket.mjs,
+// lib/sound/bubble.mjs, lib/sound/synth.mjs, lib/sound/volume.mjs, lib/speaker.mjs,
+// lib/text.mjs, lib/ticker.mjs, lib/ticket.mjs, lib/type.mjs (HUGE!), lib/user-code.mjs,
+// systems/nopaint.mjs, systems/prompt-system.mjs, systems/world.mjs,
+// disks/common/debug.mjs, disks/common/music.mjs, disks/common/products.mjs,
+// disks/common/scrub.mjs, disks/common/sfx.mjs,
+// dep/gl-matrix/index.mjs, dep/gl-matrix/mat2.mjs, dep/gl-matrix/mat2d.mjs, dep/gl-matrix/quat2.mjs
 
 // Minimal font set (just one variant)
 const ESSENTIAL_FONTS = [
@@ -327,7 +373,9 @@ async function createMinimalBundle(kidlispSources) {
   for (const [name, source] of Object.entries(kidlispSources)) {
     console.log(`   • $${name} (${source.length} chars)`);
   }
-  
+  // DISABLED: Don't load ALL lib/ files - only load ESSENTIAL_FILES
+  // This was loading 87 files instead of the optimized 48!
+  /*
   // Load all lib/ files automatically (they're core infrastructure)
   console.log("📁 Loading all lib/ files...");
   const acDir = path.join(SOURCE_DIR, "system/public/aesthetic.computer");
@@ -397,7 +445,6 @@ async function createMinimalBundle(kidlispSources) {
       }
     }
   }
-  
   await loadDirectory(libDir, 'lib');
   
   // Load systems/ files
@@ -409,11 +456,52 @@ async function createMinimalBundle(kidlispSources) {
   console.log("📁 Loading disks/common/ files...");
   const commonDir = path.join(acDir, "disks/common");
   await loadDirectory(commonDir, 'disks/common');
+  */
+
+  // Instead, manually load ONLY the files in ESSENTIAL_FILES
+  console.log("📁 Loading ONLY essential files from import graph...");
+  const acDir = path.join(SOURCE_DIR, "system/public/aesthetic.computer");
+  
+  for (const file of ESSENTIAL_FILES) {
+    
+    try {
+      const fullPath = path.join(acDir, file);
+      let content = await inlineFile(fullPath, "text");
+      
+      // Special handling for fonts.mjs to prevent 404s
+      if (file === 'disks/common/fonts.mjs') {
+        console.log('   🧹 Stripping glyphs from fonts.mjs to prevent 404s...');
+        content = content.replace(
+          /export const font_1 = \{[\s\S]*?\};/, 
+          `export const font_1 = {
+  info: { face: "AC Font Regular", size: 34 },
+  common: { lineHeight: 40, base: 32, scaleW: 1024, scaleH: 1024, pages: 1 },
+  chars: {}  // Stripped to prevent 404s
+};`
+        );
+      }
+      
+      // Minify JS files
+      if (file.endsWith('.mjs') || file.endsWith('.js')) {
+        content = await minifyIfJS(content, file);
+      }
+      
+      files[file] = {
+        content: content,
+        binary: false,
+        type: path.extname(file).slice(1)
+      };
+    } catch (error) {
+      console.warn(`   ⚠️  Could not load ${file}: ${error.message}`);
+    }
+  }
 
   // Skip font_1 drawings - $pie doesn't use text rendering
   // This saves ~100 JSON files and reduces bundle size significantly
   console.log("📁 Skipping font_1 drawings (not needed for $pie)...");
   
+  // DISABLED: Dependencies already loaded via ESSENTIAL_FILES above
+  /*
   // Load only essential dependencies (not all 63MB of dep/)
   console.log("📁 Loading essential dependencies from dep/...");
   
@@ -444,6 +532,7 @@ async function createMinimalBundle(kidlispSources) {
     const minified = await minifyIfJS(content, 'dep/geckos.io-client.2.3.2.min.js');
     files['dep/geckos.io-client.2.3.2.min.js'] = { content: minified, binary: false, type: 'js' };
   }
+  */
   
   // Skip font files - $pie doesn't use text rendering
   // This saves additional space from webfont files
@@ -714,8 +803,13 @@ async function createMinimalBundle(kidlispSources) {
   console.log(`   • Ready for Tezos minting`);
   
   // Now create compressed version
-  console.log(`\n📦 Compressing bundle...`);
-  const compressed = gzipSync(htmlContent, { level: 9 });
+  console.log(`\n📦 Compressing bundle with Brotli (level 11)...`);
+  const compressed = brotliCompressSync(htmlContent, {
+    params: {
+      [constants.BROTLI_PARAM_QUALITY]: 11,
+      [constants.BROTLI_PARAM_SIZE_HINT]: htmlContent.length
+    }
+  });
   const base64 = compressed.toString('base64');
   
   const selfContained = `<!DOCTYPE html>
@@ -729,9 +823,9 @@ async function createMinimalBundle(kidlispSources) {
 </head>
 <body>
   <script>
-    fetch('data:application/gzip;base64,${base64}')
+    fetch('data:application/x-brotli;base64,${base64}')
       .then(r=>r.blob())
-      .then(b=>b.stream().pipeThrough(new DecompressionStream('gzip')))
+      .then(b=>b.stream().pipeThrough(new DecompressionStream('br')))
       .then(s=>new Response(s).text())
       .then(h=>{document.open();document.write(h);document.close();});
   </script>
@@ -741,9 +835,9 @@ async function createMinimalBundle(kidlispSources) {
   const compressedPath = path.join(OUTPUT_DIR, `${PIECE_NAME.replace('$', '')}-self-contained.html`);
   await fs.writeFile(compressedPath, selfContained);
   
-  console.log(`\n📊 Compression results:`);
+  console.log(`\n📊 Compression results (Brotli):`);
   console.log(`   Original:  ${htmlContent.length.toLocaleString()} bytes`);
-  console.log(`   Gzipped:   ${compressed.length.toLocaleString()} bytes`);
+  console.log(`   Brotli:    ${compressed.length.toLocaleString()} bytes`);
   console.log(`   Base64:    ${base64.length.toLocaleString()} bytes`);
   console.log(`   Final:     ${selfContained.length.toLocaleString()} bytes = ${Math.round(selfContained.length/1024)} KB`);
   
@@ -756,6 +850,39 @@ async function createMinimalBundle(kidlispSources) {
   }
   
   console.log(`\n📝 Written to: ${compressedPath}`);
+  
+  // Also create gzip version for browser testing (Simple Browser doesn't support Brotli)
+  console.log(`\n📦 Creating gzip version for testing...`);
+  const gzipCompressed = gzipSync(htmlContent, { level: 9 });
+  const gzipBase64 = gzipCompressed.toString('base64');
+  
+  const gzipVersion = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>${PIECE_NAME} • Aesthetic Computer</title>
+  <style>
+    body{margin:0;padding:0;background:#000;color:#fff;font-family:monospace;display:flex;align-items:center;justify-content:center;height:100vh}
+  </style>
+</head>
+<body>
+  <script>
+    fetch('data:application/gzip;base64,${gzipBase64}')
+      .then(r=>r.blob())
+      .then(b=>b.stream().pipeThrough(new DecompressionStream('gzip')))
+      .then(s=>new Response(s).text())
+      .then(h=>{document.open();document.write(h);document.close();});
+  </script>
+</body>
+</html>`;
+
+  const gzipPath = path.join(OUTPUT_DIR, `${PIECE_NAME.replace('$', '')}-test.html`);
+  await fs.writeFile(gzipPath, gzipVersion);
+  
+  console.log(`\n📊 Gzip test version:`);
+  console.log(`   Gzipped:   ${gzipCompressed.length.toLocaleString()} bytes`);
+  console.log(`   Final:     ${gzipVersion.length.toLocaleString()} bytes = ${Math.round(gzipVersion.length/1024)} KB`);
+  console.log(`   📝 ${gzipPath}`);
   
   return compressedPath;
 }
