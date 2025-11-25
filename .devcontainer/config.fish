@@ -249,7 +249,7 @@ function ac-keep
         echo "Output files (named like downloads from bios.mjs):"
         echo "  • \$piece-@author-timestamp.html (uncompressed)"
         echo "  • \$piece-@author-timestamp.brotli.html (Brotli, for Tezos)"
-        echo "  • \$piece-@author-timestamp.gzip.html (gzip, for browser testing)"
+        echo "  • \$piece-@author-timestamp.lisp.html (gzip, for browser/drag-drop)"
         return 1
     end
     
