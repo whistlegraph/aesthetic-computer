@@ -32,12 +32,12 @@ ac-keep '$bop'   # $ prefix is optional
 **Output files (named like bios.mjs downloads):**
 - `$piece-@author-timestamp.html` - Uncompressed, readable
 - `$piece-@author-timestamp.brotli.html` - Brotli compressed for Tezos
-- `$piece-@author-timestamp.gzip.html` - Gzip version for browser testing
+- `$piece-@author-timestamp.lisp.html` - Gzip compressed, for browser testing & drag-drop
 
 Example filenames:
 - `$bop-@jeffrey-2025.11.25.23.18.17.065.html`
 - `$bop-@jeffrey-2025.11.25.23.18.17.065.brotli.html`
-- `$bop-@jeffrey-2025.11.25.23.18.17.065.gzip.html`
+- `$bop-@jeffrey-2025.11.25.23.18.17.065.lisp.html`
 
 ### `ac-keep-test <piece>`
 Creates the bundle AND starts a local test server.
