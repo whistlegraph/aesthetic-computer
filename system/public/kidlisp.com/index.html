@@ -664,7 +664,6 @@
     #preview-panel .docs-header {
       background: rgb(240, 235, 250); /* Light muted purple backdrop */
       border-bottom-color: rgb(220, 215, 230);
-      padding-right: 0; /* Remove right padding for QR code */
     }
     
     @media (prefers-color-scheme: dark) {
@@ -1402,8 +1401,8 @@
     #preview-qr {
       cursor: pointer;
       transition: transform 0.2s, opacity 0.2s;
-      margin-left: auto;
-      margin-right: 0;
+      margin-left: 0;
+      margin-right: 8px;
       padding: 0;
       display: block;
     }
@@ -1525,8 +1524,8 @@
       
       <div class="preview-panel" id="preview-panel" style="display: flex; flex-direction: column; overflow: hidden;">
         <div class="docs-header" style="display: flex; align-items: center; gap: 8px;">
-          <span id="preview-title">Aesthetic<span class="bounce-dot">.</span>Computer</span>
           <img id="preview-qr" src="" alt="QR Code" title="Click to enlarge" style="display: none; height: 44px; width: auto; image-rendering: pixelated;" />
+          <span id="preview-title">Aesthetic<span class="bounce-dot">.</span>Computer</span>
         </div>
         <div style="position: relative; flex: 1;">
           <div class="boot-screen" id="boot-screen">
