@@ -3070,9 +3070,12 @@
       
       console.log('🎮 Play/Pause button clicked - isPlaying:', isPlaying, 'isPaused:', isPaused);
       if (!isPlaying) {
-        // Start playing - run the current code and request a new code to be created
-        console.log('▶️ Starting playback');
-        updatePreview(true); // Request code creation to get a new $code identifier
+        // Start playing - run the current code
+        // Only create a NEW code if we don't already have one stored
+        const existingCode = localStorage.getItem('kidlisp-current-code');
+        const shouldCreateCode = !existingCode; // Only create if no existing code
+        console.log('▶️ Starting playback', existingCode ? `with existing code: ${existingCode}` : 'will create new code');
+        updatePreview(shouldCreateCode);
         isPlaying = true;
         isPaused = false;
         sendButton.classList.add('playing');
