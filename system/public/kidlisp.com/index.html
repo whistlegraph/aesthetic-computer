@@ -1413,12 +1413,12 @@
       transition: transform 0.2s, opacity 0.2s;
       margin-left: 4px;
       margin-right: 0;
-      padding: 2px;
+      padding: 1px;
       display: block;
       border: 1px solid rgba(0, 0, 0, 0.3);
       border-radius: 2px;
       box-sizing: content-box;
-      height: 40px !important; /* Slightly smaller to account for reduced padding */
+      height: 42px !important; /* Slightly smaller to account for minimal padding */
     }
     
     @media (prefers-color-scheme: dark) {
@@ -2246,9 +2246,9 @@
         // Generate QR code with lowest error correction for smallest size
         const cells = window.qr(url, { errorCorrectLevel: window.ErrorCorrectLevel.L }).modules;
         
-        // Scale QR to fit within header with reduced padding and border
-        // Header is 44px, minus 2px padding top/bottom and 1px border = 40px
-        const targetHeight = 40;
+        // Scale QR to fit within header with minimal padding and border
+        // Header is 44px, minus 1px padding top/bottom and 1px border = 42px
+        const targetHeight = 42;
         const cellSize = Math.floor(targetHeight / cells.length);
         const qrSize = cells.length * cellSize;
         
