@@ -3525,6 +3525,9 @@
       });
       
       console.log('✅ Tab event listeners attached successfully');
+      
+      // Load examples on init since Top Hits is the default active tab
+      loadExamples();
     } else {
       console.error('❌ Missing tab elements!', { codeTab, examplesTab, referenceContent, examplesContent });
     }
