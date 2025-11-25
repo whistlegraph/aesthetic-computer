@@ -1304,10 +1304,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       wrapper.append(webgpuCanvas); // Add WebGPU canvas (initially hidden)
       document.body.append(wrapper);
 
-      // Initialize WebGPU 2D renderer with dedicated canvas
-      initWebGPU(webgpuCanvas).catch(err => {
-        console.warn("⚠️ WebGPU initialization failed:", err);
-      });
+      // Initialize WebGPU 2D renderer with dedicated canvas (skip in PACK mode)
+      if (!window.acPACK_MODE) {
+        initWebGPU(webgpuCanvas).catch(err => {
+          console.warn("⚠️ WebGPU initialization failed:", err);
+        });
+      }
 
       const fonts = [
         "berkeley-mono-variable.css",
