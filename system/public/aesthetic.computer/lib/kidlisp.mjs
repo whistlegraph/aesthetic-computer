@@ -2998,7 +2998,9 @@ class KidLisp {
         // This can be overridden later by calling (fps N) in the KidLisp code
         if (fps && typeof fps === "function") {
           fps(this.targetFps);
-          console.log(`🎬 KidLisp piece default FPS set to: ${this.targetFps}`);
+          if (!window.acPACK_MODE) {
+            console.log(`🎬 KidLisp piece default FPS set to: ${this.targetFps}`);
+          }
         }
 
         // ...existing boot code...
