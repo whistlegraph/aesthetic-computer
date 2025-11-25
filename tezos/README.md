@@ -1,4 +1,72 @@
-# Tezos Wallet Vault
+# Tezos KEEPS - KidLisp NFT Minting System
+
+Tezos FA2 NFT contract for minting self-contained KidLisp pieces as on-chain NFTs.
+
+## Status
+
+✅ **Bundle System Working** - Fits in 256 KB Tezos storage limit!
+
+### Current Bundle Performance
+
+- **Test piece**: `$wwi` - `(wipe fade:red-rainbow)`
+- **Final size**: 216 KB (Brotli compressed)
+- **Tezos limit**: 256 KB
+- **Headroom**: 40 KB (15.6%)
+- **Files**: 17 essential (80% reduction from 87)
+
+### FA2 Contract
+
+- **Address**: `KT1S1sXpFiV4GGxLM3zWX4cDLVEhVp9yuD7b` (Ghostnet)
+- **Deployed**: November 13, 2024
+- **Standard**: TZIP-12 compliant FA2
+- **Compiler**: SmartPy v0.23.1
+- **Status**: Functional, tested
+
+## Quick Commands
+
+```bash
+# Create ultra-minimal bundle for Tezos (< 256 KB)
+node bundle-ultra-minimal-keep.mjs <piece-name>
+
+# Example:
+node bundle-ultra-minimal-keep.mjs wwi
+# Output: keep-bundles/wwi-ultra-self-contained.html (216 KB)
+
+# Research compression techniques
+node compression-research.mjs <bundle-path>
+```
+
+## Bundle Optimization Details
+
+### Key Achievements
+
+1. **Aggressive Pruning** (87 → 17 files, 80% reduction):
+   - Removed 3D graphics (lib/3d.mjs, Three.js)
+   - Removed unused systems (world, prompt, nopaint)
+   - Removed advanced input (hand, WebGPU, chat, networking)
+   - Removed non-essential libs (sound, UI, gamepad, MIDI, USB)
+
+2. **Brotli Compression** (51 KB better than gzip):
+   - Gzip level 9: 200 KB → 267 KB (with base64)
+   - Brotli level 11: 165 KB → 216 KB (with base64)
+   - **Savings**: 51 KB (19% improvement)
+
+3. **JavaScript Minification** (66-70% reduction):
+   - Terser with unsafe optimizations
+   - 3 compression passes
+   - Dead code elimination
+
+### Bundle Composition
+
+**Core Files** (17 total):
+- `boot.mjs`, `bios.mjs` - System bootstrap (229 KB minified)
+- `lib/disk.mjs` - Piece loader (160 KB minified)
+- `lib/kidlisp.mjs` - KidLisp interpreter (151 KB minified)
+- `lib/graph.mjs` - Graphics engine (85 KB minified)
+- Essential graphics/math libs (geo, 2d, pen, num)
+- Minimal utilities (helpers, logs, store, platform, pack-mode)
+
+## Tezos Wallet Vault
 
 This directory stores Tezos wallet credentials in the private vault repo.
 
