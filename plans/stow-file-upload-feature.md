@@ -4,6 +4,19 @@
 **Status:** Planning  
 **Priority:** Medium
 
+## Development Log
+
+### 2025-11-25: Artery Enhancement Proposal
+Proposed extending Artery CDP automation framework to support stow feature development:
+- **File simulation**: `simulateDragDrop()`, `monitorUpload()`, `capturePresignedUrl()`
+- **API testing**: `testPresignedUrl()`, `testTrackMedia()`, `verifyStowRecord()`
+- **MongoDB inspection**: `queryStows()`, `checkIndexes()`, `getStorageStats()`
+- **S3 verification**: `listUserFiles()`, `checkFileExists()`, `getFileMetadata()`
+- **Auth testing**: `getAuthToken()`, `testAuthRequired()`
+- **Visual regression**: `screenshot()`, `compareScreenshots()`
+
+Status: Proposed, not yet implemented. TDD approach recommended starting with file simulation and API helpers.
+
 ## Overview
 
 Implement a `stow` piece that allows **authenticated users with handles** to drag and drop arbitrary files into aesthetic.computer, store them in S3, and share them via unique URLs. Following the chat upload pattern, this feature **requires registration and authentication** - no anonymous uploads are supported.
