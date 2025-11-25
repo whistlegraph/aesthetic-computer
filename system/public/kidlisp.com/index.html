@@ -1396,6 +1396,89 @@
         text-shadow: 1px 1px 0px rgba(0, 0, 0, 0.5);
       }
     }
+    
+    /* QR Code in header */
+    #preview-qr {
+      cursor: pointer;
+      transition: transform 0.2s, opacity 0.2s;
+      margin-left: auto;
+      margin-right: 8px;
+    }
+    
+    @media (hover: hover) {
+      #preview-qr:hover {
+        transform: scale(1.1);
+        opacity: 0.8;
+      }
+    }
+    
+    #preview-qr:active {
+      transform: scale(0.95);
+    }
+    
+    /* QR Modal */
+    #qr-modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.9);
+      z-index: 10000;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      animation: fadeIn 0.2s ease-out;
+    }
+    
+    #qr-modal.show {
+      display: flex;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    
+    #qr-modal-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      animation: scaleIn 0.2s ease-out;
+    }
+    
+    @keyframes scaleIn {
+      from { transform: scale(0.9); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+    
+    #qr-modal canvas {
+      image-rendering: pixelated;
+      image-rendering: -moz-crisp-edges;
+      image-rendering: crisp-edges;
+      border: 8px solid white;
+      border-radius: 8px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    }
+    
+    #qr-modal-url {
+      color: white;
+      font-family: monospace;
+      font-size: 18px;
+      background: rgba(0, 0, 0, 0.5);
+      padding: 12px 24px;
+      border-radius: 8px;
+      user-select: all;
+    }
+    
+    #qr-modal-close {
+      color: rgba(255, 255, 255, 0.7);
+      font-family: monospace;
+      font-size: 14px;
+      margin-top: 8px;
+    }
   </style>
 </head>
 
@@ -1439,8 +1522,8 @@
       
       <div class="preview-panel" id="preview-panel" style="display: flex; flex-direction: column; overflow: hidden;">
         <div class="docs-header" style="display: flex; align-items: center; gap: 8px;">
-          <img id="preview-qr" src="" alt="" style="display: none; width: 24px; height: 24px; image-rendering: pixelated;" />
           <span id="preview-title">Aesthetic<span class="bounce-dot">.</span>Computer</span>
+          <img id="preview-qr" src="" alt="QR Code" title="Click to enlarge" style="display: none; width: 24px; height: 24px; image-rendering: pixelated;" />
         </div>
         <div style="position: relative; flex: 1;">
           <div class="boot-screen" id="boot-screen">
@@ -1482,6 +1565,15 @@
       </div>
     </div>
   </main>
+  
+  <!-- QR Code Modal -->
+  <div id="qr-modal">
+    <div id="qr-modal-content">
+      <canvas id="qr-modal-canvas"></canvas>
+      <div id="qr-modal-url"></div>
+      <div id="qr-modal-close">Click anywhere to close</div>
+    </div>
+  </div>
 
   <footer>
     &copy; 2025 aesthetic computer
@@ -1492,6 +1584,13 @@
 
   <!-- Monaco Editor -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
+  
+  <script type="module">
+    // Import QR code library
+    import { qrcode as qr, ErrorCorrectLevel } from 'https://aesthetic.computer/aesthetic.computer/dep/@akamfoad/qr/qr.mjs';
+    window.qr = qr;
+    window.ErrorCorrectLevel = ErrorCorrectLevel;
+  </script>
   
   <!-- Development reload logic. -->
   <script type="module">
@@ -2105,6 +2204,105 @@
     const kidlisp = new KidLisp();
     let editor;
 
+    // Function to generate and display QR code
+    function generateAndDisplayQR(code) {
+      // Wait for QR library to be loaded
+      if (!window.qr || !window.ErrorCorrectLevel) {
+        console.warn('⚠️ QR library not loaded yet');
+        setTimeout(() => generateAndDisplayQR(code), 100);
+        return;
+      }
+      
+      const cleanCode = code.startsWith('$') ? code.substring(1) : code;
+      const url = `https://aesthetic.computer/$${cleanCode}`;
+      
+      try {
+        // Generate QR code
+        const cells = window.qr(url, { errorCorrectLevel: window.ErrorCorrectLevel.M }).modules;
+        const cellSize = 1; // 1 pixel per cell
+        const qrSize = cells.length * cellSize;
+        
+        // Create canvas for small QR in header
+        const canvas = document.createElement('canvas');
+        canvas.width = qrSize;
+        canvas.height = qrSize;
+        const ctx = canvas.getContext('2d');
+        
+        // Draw QR code
+        for (let y = 0; y < cells.length; y++) {
+          for (let x = 0; x < cells.length; x++) {
+            ctx.fillStyle = cells[y][x] ? '#000000' : '#ffffff';
+            ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+          }
+        }
+        
+        // Display in header
+        const previewQR = document.getElementById('preview-qr');
+        previewQR.src = canvas.toDataURL();
+        previewQR.style.display = 'block';
+        
+        // Store for modal
+        previewQR.dataset.url = url;
+        previewQR.dataset.qrSize = qrSize;
+        
+        console.log(`✅ Generated QR code for $${cleanCode}`);
+      } catch (error) {
+        console.error('❌ Error generating QR code:', error);
+      }
+    }
+    
+    // Function to show QR modal
+    function showQRModal() {
+      const previewQR = document.getElementById('preview-qr');
+      const url = previewQR.dataset.url;
+      const qrSize = parseInt(previewQR.dataset.qrSize);
+      
+      if (!url || !qrSize) return;
+      
+      // Generate larger QR for modal
+      const cells = window.qr(url, { errorCorrectLevel: window.ErrorCorrectLevel.M }).modules;
+      const largeSize = Math.min(400, window.innerWidth - 100, window.innerHeight - 200);
+      const largeCellSize = Math.floor(largeSize / cells.length);
+      const actualSize = cells.length * largeCellSize;
+      
+      const canvas = document.getElementById('qr-modal-canvas');
+      canvas.width = actualSize;
+      canvas.height = actualSize;
+      const ctx = canvas.getContext('2d');
+      
+      // Draw larger QR
+      for (let y = 0; y < cells.length; y++) {
+        for (let x = 0; x < cells.length; x++) {
+          ctx.fillStyle = cells[y][x] ? '#000000' : '#ffffff';
+          ctx.fillRect(x * largeCellSize, y * largeCellSize, largeCellSize, largeCellSize);
+        }
+      }
+      
+      // Show URL
+      document.getElementById('qr-modal-url').textContent = url;
+      
+      // Show modal
+      document.getElementById('qr-modal').classList.add('show');
+    }
+    
+    // Function to hide QR modal
+    function hideQRModal() {
+      document.getElementById('qr-modal').classList.remove('show');
+    }
+    
+    // Add click handlers
+    document.addEventListener('DOMContentLoaded', () => {
+      const previewQR = document.getElementById('preview-qr');
+      if (previewQR) {
+        previewQR.addEventListener('click', showQRModal);
+      }
+      
+      const qrModal = document.getElementById('qr-modal');
+      if (qrModal) {
+        qrModal.addEventListener('click', hideQRModal);
+      }
+    });
+
     // Function to update browser URL and title when code changes
     function updateURLForCode(code) {
       const cleanCode = code.startsWith('$') ? code.substring(1) : code;
@@ -2118,6 +2316,9 @@
         document.title = newTitle;
         console.log(`🔄 Updated URL to: ${newPath}`);
       }
+      
+      // Generate QR code
+      generateAndDisplayQR(code);
     }
 
     // Function to load kidlisp code from database by code (e.g., $46k)
