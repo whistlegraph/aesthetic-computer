@@ -899,19 +899,19 @@ async function createMinimalBundle(kidlispSources) {
 </body>
 </html>`;
 
-  const gzipFilename = bundleFilename('gzip.html');
-  const gzipPath = path.join(OUTPUT_DIR, gzipFilename);
-  await fs.writeFile(gzipPath, gzipSelfContained);
+  const lispFilename = bundleFilename('lisp.html');
+  const lispPath = path.join(OUTPUT_DIR, lispFilename);
+  await fs.writeFile(lispPath, gzipSelfContained);
   
-  const gzipSizeKB = Math.round(gzipSelfContained.length / 1024);
-  console.log(`   Gzip version: ${gzipSizeKB} KB (for browser testing)`);
-  console.log(`   Written to: ${gzipPath}`);
+  const lispSizeKB = Math.round(gzipSelfContained.length / 1024);
+  console.log(`   KidLisp bundle: ${lispSizeKB} KB (.lisp.html for browser testing)`);
+  console.log(`   Written to: ${lispPath}`);
   
   // Return info for CLI tools
   return {
     uncompressed: uncompressedFilename,
     brotli: brotliFilename,
-    gzip: gzipFilename,
+    lisp: lispFilename,
     timestamp: BUNDLE_TIMESTAMP
   };
 }
