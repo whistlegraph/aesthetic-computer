@@ -107,10 +107,10 @@ function timestamp(date = new Date()) {
 // Piece author handle (later could be dynamic based on piece metadata)
 const AUTHOR_HANDLE = '@jeffrey';
 
-// Generate filename: @author-$piece-timestamp
+// Generate filename: $piece-@author-timestamp
 const BUNDLE_TIMESTAMP = timestamp();
 function bundleFilename(extension) {
-  return `${AUTHOR_HANDLE}-$${PIECE_NAME_NO_DOLLAR}-${BUNDLE_TIMESTAMP}.${extension}`;
+  return `$${PIECE_NAME_NO_DOLLAR}-${AUTHOR_HANDLE}-${BUNDLE_TIMESTAMP}.${extension}`;
 }
 
 // ULTRA-MINIMAL file set - only what's absolutely required for basic KidLisp visuals

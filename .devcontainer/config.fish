@@ -247,9 +247,9 @@ function ac-keep
         echo ""
         echo "Creates self-contained HTML bundles in tezos/keep-bundles/"
         echo "Output files (named like downloads from bios.mjs):"
-        echo "  • @author-\$piece-timestamp.html (uncompressed)"
-        echo "  • @author-\$piece-timestamp.brotli.html (Brotli, for Tezos)"
-        echo "  • @author-\$piece-timestamp.gzip.html (gzip, for browser testing)"
+        echo "  • \$piece-@author-timestamp.html (uncompressed)"
+        echo "  • \$piece-@author-timestamp.brotli.html (Brotli, for Tezos)"
+        echo "  • \$piece-@author-timestamp.gzip.html (gzip, for browser testing)"
         return 1
     end
     
