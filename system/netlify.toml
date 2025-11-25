@@ -396,26 +396,6 @@ to = "https://aesthetic.computer/aesthetic-direct"
 status = 200
 force = true
 [[redirects]]
-from = "/kidlisp.com"
-to = "https://kidlisp.com/"
-status = 301
-force = true
-[[redirects]]
-from = "/kidlisp.com/*"
-to = "https://kidlisp.com/:splat"
-status = 301
-force = true
-[[redirects]]
-from = "/kidlisp-com"
-to = "https://kidlisp.com/"
-status = 301
-force = true
-[[redirects]]
-from = "/kidlisp-com/*"
-to = "https://kidlisp.com/:splat"
-status = 301
-force = true
-[[redirects]]
 from = "https://kidlisp.com"
 to = "https://aesthetic.computer/kidlisp.com/"
 status = 200
