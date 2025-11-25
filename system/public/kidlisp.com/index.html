@@ -372,9 +372,11 @@
     
     /* Live running state - green outline */
     #kidlisp-editor.live-running {
-      outline: 3px solid #00ff00;
-      outline-offset: -3px;
-      box-shadow: inset 0 0 20px rgba(0, 255, 0, 0.1);
+      outline: 4px solid #00ff00;
+      outline-offset: -4px;
+      box-shadow: inset 0 0 30px rgba(0, 255, 0, 0.2), 0 0 10px rgba(0, 255, 0, 0.3);
+      z-index: 1;
+      position: relative;
     }
     
     /* Pulse animation for live state */
@@ -1306,7 +1308,7 @@
         <div class="editor-header">
           <div style="display: flex; flex-direction: column; align-items: flex-start;">
             <span class="baby-colors"><span>K</span><span>i</span><span>d</span><span>L</span><span>i</span><span>s</span><span>p</span><span class="connectivity-dot disconnected">.</span><span class="com-part">com</span></span>
-            <span style="font-size: 9px; opacity: 0.5; margin-top: -2px; font-family: monospace;">friendly coding for everyone</span>
+            <span style="font-size: 9px; opacity: 0.5; margin-top: -2px; margin-bottom: 4px; font-family: monospace;">friendly coding for everyone</span>
           </div>
           <div class="tab language-tab" id="language-tab" style="border: none; height: 100%; padding: 0 8px; background: transparent; display: flex; align-items: center;">
             <span class="lang-flag" id="lang-flag" style="font-size: 12px; margin-right: 6px;">🇺🇸</span>
