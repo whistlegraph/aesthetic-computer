@@ -98,6 +98,21 @@ const packDate = new Date().toLocaleString("en-US", {
   hour12: true,
 });
 
+// Generate timestamp matching lib/num.mjs format: YYYY.M.D.H.M.S.mmm
+function timestamp(date = new Date()) {
+  const pad = (n, digits = 2) => n.toString().padStart(digits, "0");
+  return `${date.getFullYear()}.${date.getMonth() + 1}.${date.getDate()}.${date.getHours()}.${date.getMinutes()}.${date.getSeconds()}.${pad(date.getMilliseconds(), 3)}`;
+}
+
+// Piece author handle (later could be dynamic based on piece metadata)
+const AUTHOR_HANDLE = '@jeffrey';
+
+// Generate filename: @author-$piece-timestamp
+const BUNDLE_TIMESTAMP = timestamp();
+function bundleFilename(extension) {
+  return `${AUTHOR_HANDLE}-$${PIECE_NAME_NO_DOLLAR}-${BUNDLE_TIMESTAMP}.${extension}`;
+}
+
 // ULTRA-MINIMAL file set - only what's absolutely required for basic KidLisp visuals
 const ESSENTIAL_FILES = [
   // Core system (required)
@@ -623,7 +638,7 @@ async function createMinimalBundle(kidlispSources) {
         isKidLisp: true
       },
       build: {
-        author: '@jeffrey',
+        author: '${AUTHOR_HANDLE}',
         packTime: ${packTime},
         gitCommit: '${gitHash}',
         gitIsDirty: ${gitDirty ? 'true' : 'false'},
@@ -791,13 +806,14 @@ async function createMinimalBundle(kidlispSources) {
 
   // Write uncompressed output
   await fs.mkdir(OUTPUT_DIR, { recursive: true });
-  const outputPath = path.join(OUTPUT_DIR, `${PIECE_NAME.replace('$', '')}-ultra-minimal-nft.html`);
+  const uncompressedFilename = bundleFilename('html');
+  const outputPath = path.join(OUTPUT_DIR, uncompressedFilename);
   await fs.writeFile(outputPath, htmlContent);
   
   const stats = await fs.stat(outputPath);
   const sizeKB = (stats.size / 1024).toFixed(2);
   
-  console.log(`\n✅ ULTRA-MINIMAL bundle created!`);
+  console.log(`\n✅ Bundle created: ${uncompressedFilename}`);
   console.log(`   📄 ${outputPath}`);
   console.log(`   💾 Size: ${sizeKB} KB (uncompressed)`);
   
@@ -831,7 +847,8 @@ async function createMinimalBundle(kidlispSources) {
 </body>
 </html>`;
 
-  const compressedPath = path.join(OUTPUT_DIR, `${PIECE_NAME.replace('$', '')}-ultra-self-contained.html`);
+  const brotliFilename = bundleFilename('brotli.html');
+  const compressedPath = path.join(OUTPUT_DIR, brotliFilename);
   await fs.writeFile(compressedPath, selfContained);
   
   const finalSizeKB = Math.round(selfContained.length / 1024);
@@ -882,14 +899,21 @@ async function createMinimalBundle(kidlispSources) {
 </body>
 </html>`;
 
-  const gzipPath = path.join(OUTPUT_DIR, `${PIECE_NAME.replace('$', '')}-ultra-gzip.html`);
+  const gzipFilename = bundleFilename('gzip.html');
+  const gzipPath = path.join(OUTPUT_DIR, gzipFilename);
   await fs.writeFile(gzipPath, gzipSelfContained);
   
   const gzipSizeKB = Math.round(gzipSelfContained.length / 1024);
   console.log(`   Gzip version: ${gzipSizeKB} KB (for browser testing)`);
   console.log(`   Written to: ${gzipPath}`);
   
-  return compressedPath;
+  // Return info for CLI tools
+  return {
+    uncompressed: uncompressedFilename,
+    brotli: brotliFilename,
+    gzip: gzipFilename,
+    timestamp: BUNDLE_TIMESTAMP
+  };
 }
 
 async function main() {
