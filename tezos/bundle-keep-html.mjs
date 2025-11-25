@@ -10,6 +10,7 @@ import fsSync from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { minify } from "terser";
+import swc from "@swc/core";
 import { execSync } from "child_process";
 import { gzipSync, brotliCompressSync, constants } from "zlib";
 
@@ -21,6 +22,7 @@ const PIECE_NAME_NO_DOLLAR = PIECE_NAME.replace(/^\$/, '');
 const OUTPUT_DIR = path.join(__dirname, "keep-bundles");
 const SOURCE_DIR = path.resolve(__dirname, "..");
 const MINIFY_JS = true;
+const USE_SWC = true; // Use SWC instead of Terser for better compression
 
 // Auto-discover dependencies by analyzing imports
 async function discoverDependencies(acDir, essentialFiles, skipFiles) {
@@ -162,35 +164,10 @@ const ESSENTIAL_FILES = [
 // NO fonts - saves significant space for purely visual pieces
 const ESSENTIAL_FONTS = [];
 
-// Files to explicitly skip (systems that auto-load but aren't needed)
+// Files to explicitly skip (optional - currently disabled to include everything)
 const SKIP_FILES = [
-  // All systems are imported by disk.mjs, so we can't skip them
-  // 'systems/world.mjs',  // NEEDED by disk.mjs
-  // 'systems/prompt-system.mjs',  // NEEDED by disk.mjs import
-  // 'systems/nopaint.mjs',  // NEEDED by disk.mjs import (even if not used)
-  'lib/3d.mjs',
-  'lib/hand.mjs',
-  // 'lib/chat.mjs',  // NEEDED by disk.mjs
-  // 'lib/socket.mjs',  // NEEDED by disk.mjs
-  'lib/udp.mjs',
-  'lib/microphone.mjs',
-  // 'lib/cam-doll.mjs',  // NEEDED by disk.mjs
-  'lib/type.mjs',  // Too large (100 KB) - skip for now
-  'lib/gesture.mjs',    // Skip gesture - not in ESSENTIAL_FILES
-  'disks/common/products.mjs',  // Only used by prompt.mjs which we skip
-  
-  // Skip heavy optional features
-  'dep/wasmboy',        // Game Boy emulator
-  'lib/graphics-optimizer.mjs',
-  // 'dep/@akamfoad/qr',   // QR code generation - NEEDED by disk.mjs
-  'disks/chat.mjs',
-  'disks/common/fonts.mjs',  // Font loading
-  'lib/ticker.mjs',
-  'lib/redact.mjs',
-  'lib/ask.mjs',
-  'lib/gamepad-mappings.mjs',
-  'lib/chat-highlighting.mjs',
-  'disks/common/debug.mjs',
+  // Import everything for now to get a working bundle
+  // We can optimize and remove unused files later
 ];
 
 async function inlineFile(filePath, type = "text") {
@@ -271,43 +248,88 @@ async function minifyIfJS(content, relativePath) {
     return rewriteImports(processedContent, relativePath);
   }
   
+  // Rewrite imports BEFORE minification for SWC
+  if (USE_SWC) {
+    processedContent = rewriteImports(processedContent, relativePath);
+  }
+  
   try {
-    const minified = await minify(processedContent, {
-      compress: {
-        dead_code: true,
-        drop_console: false,
-        drop_debugger: true, 
-        unused: true,
-        passes: 5,  // Increased from 3 to 5 for better compression
-        pure_getters: true,
-        unsafe: true,
-        unsafe_math: true,
-        unsafe_proto: true,
-        unsafe_comps: true,
-        unsafe_Function: true,
-        unsafe_regexp: true,
-        unsafe_undefined: true,
-        collapse_vars: true,
-        reduce_vars: true,
-        inline: 3,  // Aggressive inlining
-        join_vars: true,
-        sequences: true,
-        evaluate: true,
-        conditionals: true,
-        booleans: true,
-        loops: true,
-        side_effects: true
-      },
-      mangle: {
-        toplevel: true,  // Enable toplevel mangling for better compression
-        properties: false
-      },
-      format: {
-        comments: false,
-        ascii_only: false,
-        ecma: 2020
-      }
-    });
+    let minified;
+    
+    if (USE_SWC) {
+      // Use SWC for faster, better minification
+      const result = await swc.minify(processedContent, {
+        compress: {
+          dead_code: true,
+          unused: true,
+          passes: 3,
+          pure_getters: true,
+          unsafe_math: true,
+          join_vars: true,
+          sequences: true,
+          evaluate: true,
+          conditionals: true,
+          booleans: true,
+          loops: true,
+          side_effects: true,
+          collapse_vars: true,
+          reduce_vars: true,
+          inline: 3
+        },
+        mangle: {
+          toplevel: true,
+          keep_classnames: false,
+          keep_fnames: false,
+          safari10: false
+        },
+        format: {
+          comments: false,
+          ascii_only: false
+        },
+        module: true,
+        sourceMap: false
+      });
+      
+      minified = result;
+    } else {
+      // Use Terser (original implementation)
+      minified = await minify(processedContent, {
+        compress: {
+          dead_code: true,
+          drop_console: false,
+          drop_debugger: true, 
+          unused: true,
+          passes: 5,
+          pure_getters: true,
+          unsafe: true,
+          unsafe_math: true,
+          unsafe_proto: true,
+          unsafe_comps: true,
+          unsafe_Function: true,
+          unsafe_regexp: true,
+          unsafe_undefined: true,
+          collapse_vars: true,
+          reduce_vars: true,
+          inline: 3,
+          join_vars: true,
+          sequences: true,
+          evaluate: true,
+          conditionals: true,
+          booleans: true,
+          loops: true,
+          side_effects: true
+        },
+        mangle: {
+          toplevel: true,
+          properties: false
+        },
+        format: {
+          comments: false,
+          ascii_only: false,
+          ecma: 2020
+        }
+      });
+    }
     
     if (minified.code) {
       const originalSize = content.length;
@@ -315,7 +337,8 @@ async function minifyIfJS(content, relativePath) {
       const savings = ((originalSize - minifiedSize) / originalSize * 100).toFixed(1);
       console.log(`   🗜️  ${relativePath}: ${(originalSize/1024).toFixed(1)}KB → ${(minifiedSize/1024).toFixed(1)}KB (${savings}% smaller)`);
       
-      return rewriteImports(minified.code, relativePath);
+      // Rewrite imports AFTER minification for Terser
+      return USE_SWC ? minified.code : rewriteImports(minified.code, relativePath);
     }
   } catch (error) {
     console.warn(`   ⚠️  Failed to minify ${relativePath}:`, error.message);
