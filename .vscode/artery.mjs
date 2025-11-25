@@ -15,6 +15,18 @@ const brightLog = (msg) => console.log(`${RED_BG}${PINK}${BOLD}${msg}${RESET}`);
 const darkLog = (msg) => console.log(`${RED_BG}${PINK}${msg}${RESET}`);
 const consoleLog = (msg) => console.log(`${PURPLE_BG}${WHITE}💉${RESET} ${msg}`);
 
+// Auto-detect CDP host based on environment
+function getCDPHost() {
+  // Check if we're in a dev container (Docker)
+  if (process.env.REMOTE_CONTAINERS === 'true' || process.env.CODESPACES === 'true') {
+    return 'host.docker.internal';
+  }
+  // Otherwise use localhost (native Windows/Mac/Linux)
+  return 'localhost';
+}
+
+const CDP_HOST = getCDPHost();
+
 class Artery {
   constructor() {
     this.ws = null;
@@ -29,7 +41,7 @@ class Artery {
   async findAestheticTarget() {
     const targets = await new Promise((resolve, reject) => {
       http.get({
-        hostname: 'host.docker.internal',
+        hostname: CDP_HOST,
         port: 9222,
         path: '/json',
         headers: { 'Host': 'localhost' }
@@ -52,9 +64,13 @@ class Artery {
     if (!acTarget) throw new Error('AC not found');
     
     redLog('🩸 Found AC');
-    this.debuggerUrl = acTarget.webSocketDebuggerUrl
-      .replace('localhost', 'host.docker.internal:9222')
-      .replace(':9222:9222', ':9222');
+    // Fix WebSocket URL based on environment
+    this.debuggerUrl = acTarget.webSocketDebuggerUrl;
+    if (CDP_HOST !== 'localhost') {
+      this.debuggerUrl = this.debuggerUrl
+        .replace('localhost', `${CDP_HOST}:9222`)
+        .replace(':9222:9222', ':9222');
+    }
     return acTarget;
   }
 
@@ -164,7 +180,7 @@ class Artery {
     // First, get all targets
     const targetsJson = await new Promise((resolve, reject) => {
       const req = http.get({
-        hostname: 'host.docker.internal',
+        hostname: CDP_HOST,
         port: 9222,
         path: '/json',
         headers: { 'Host': 'localhost' }
@@ -188,7 +204,7 @@ class Artery {
     }
     
     // Connect to workbench and execute command
-    const wsUrl = workbenchTarget.webSocketDebuggerUrl.replace('localhost', 'host.docker.internal:9222');
+    const wsUrl = workbenchTarget.webSocketDebuggerUrl.replace('localhost', `${CDP_HOST}:9222`);
     const ws = new WebSocket(wsUrl);
     
     await new Promise((resolve, reject) => {
@@ -312,7 +328,7 @@ class Artery {
     // Get all targets
     const targetsJson = await new Promise((resolve, reject) => {
       const req = http.get({
-        hostname: 'host.docker.internal',
+        hostname: CDP_HOST,
         port: 9222,
         path: '/json',
         headers: { 'Host': 'localhost' }
@@ -335,7 +351,7 @@ class Artery {
     }
     
     // Connect to workbench
-    const wsUrl = workbenchTarget.webSocketDebuggerUrl.replace('localhost', 'host.docker.internal:9222');
+    const wsUrl = workbenchTarget.webSocketDebuggerUrl.replace('localhost', `${CDP_HOST}:9222`);
     const ws = new WebSocket(wsUrl);
     
     await new Promise((resolve, reject) => {
@@ -443,7 +459,7 @@ class Artery {
     brightLog('🩸 Closing AC panel...');
     const targetsJson = await new Promise((resolve, reject) => {
       const req = http.get({
-        hostname: 'host.docker.internal',
+        hostname: CDP_HOST,
         port: 9222,
         path: '/json',
         headers: { 'Host': 'localhost' }
@@ -464,7 +480,7 @@ class Artery {
       throw new Error('Could not find VS Code workbench target');
     }
     
-    const wsUrl = workbenchTarget.webSocketDebuggerUrl.replace('localhost', 'host.docker.internal:9222');
+    const wsUrl = workbenchTarget.webSocketDebuggerUrl.replace('localhost', `${CDP_HOST}:9222`);
     const ws = new WebSocket(wsUrl);
     
     await new Promise((resolve, reject) => {
@@ -547,7 +563,7 @@ class Artery {
     
     const targetsJson = await new Promise((resolve, reject) => {
       const req = http.get({
-        hostname: 'host.docker.internal',
+        hostname: CDP_HOST,
         port: 9222,
         path: '/json',
         headers: { 'Host': 'localhost' }
@@ -568,7 +584,7 @@ class Artery {
       throw new Error('Could not find VS Code workbench target');
     }
     
-    const wsUrl = workbenchTarget.webSocketDebuggerUrl.replace('localhost', 'host.docker.internal:9222');
+    const wsUrl = workbenchTarget.webSocketDebuggerUrl.replace('localhost', `${CDP_HOST}:9222`);
     const ws = new WebSocket(wsUrl);
     
     await new Promise((resolve, reject) => {
