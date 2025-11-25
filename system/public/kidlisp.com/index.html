@@ -2230,14 +2230,6 @@
       const url = `https://aesthetic.computer/$${cleanCode}`;
       
       try {
-        // Get theme colors from preview panel header
-        const isDarkMode = document.documentElement.getAttribute('data-theme') === 'dark' || 
-                         (!document.documentElement.getAttribute('data-theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
-        
-        // Background and foreground colors based on theme
-        const bgColor = isDarkMode ? 'rgb(48, 43, 58)' : 'rgb(240, 235, 250)';
-        const fgColor = isDarkMode ? 'rgb(188, 168, 218)' : 'rgb(88, 78, 108)';
-        
         // Generate QR code with lowest error correction for smallest size
         const cells = window.qr(url, { errorCorrectLevel: window.ErrorCorrectLevel.L }).modules;
         
@@ -2252,11 +2244,16 @@
         canvas.height = qrSize;
         const ctx = canvas.getContext('2d');
         
-        // Draw QR code with theme colors
+        // Draw QR code with transparency - black squares, transparent background
+        // This allows the header background color to show through
+        ctx.clearRect(0, 0, qrSize, qrSize); // Start with transparent canvas
         for (let y = 0; y < cells.length; y++) {
           for (let x = 0; x < cells.length; x++) {
-            ctx.fillStyle = cells[y][x] ? fgColor : bgColor;
-            ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+            if (cells[y][x]) {
+              // Only draw black squares, leave white squares transparent
+              ctx.fillStyle = 'rgba(0, 0, 0, 0.7)'; // Semi-transparent black
+              ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+            }
           }
         }
         
