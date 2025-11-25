@@ -235,10 +235,32 @@
       margin: 0;
       vertical-align: baseline;
     }
+    
+    @media (prefers-color-scheme: dark) {
+      #send-button {
+        background: rgb(102, 187, 106); /* Lighter green for dark mode */
+        box-shadow: 0 3px 6px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.3);
+      }
+    }
+    
+    [data-theme="dark"] #send-button {
+      background: rgb(102, 187, 106); /* Lighter green for dark mode */
+      box-shadow: 0 3px 6px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.3);
+    }
 
     #send-button.playing {
       background: rgb(255, 193, 7); /* Yellow when playing (Pause) */
       cursor: pointer; /* Remain clickable */
+    }
+    
+    @media (prefers-color-scheme: dark) {
+      #send-button.playing {
+        background: rgb(255, 213, 79); /* Lighter yellow for dark mode */
+      }
+    }
+    
+    [data-theme="dark"] #send-button.playing {
+      background: rgb(255, 213, 79); /* Lighter yellow for dark mode */
     }
 
     #send-button.playing:active {
@@ -326,6 +348,30 @@
       vertical-align: baseline;
       pointer-events: auto; /* Ensure clicks are captured */
     }
+    
+    @media (prefers-color-scheme: dark) {
+      #stop-button {
+        background: rgb(239, 83, 80); /* Lighter red for dark mode */
+        box-shadow: 0 3px 6px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.3);
+      }
+    }
+    
+    [data-theme="dark"] #stop-button {
+      background: rgb(239, 83, 80); /* Lighter red for dark mode */
+      box-shadow: 0 3px 6px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.3);
+    }
+    
+    @media (prefers-color-scheme: dark) {
+      #stop-button {
+        background: rgb(239, 83, 80); /* Lighter red for dark mode */
+        box-shadow: 0 3px 6px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.3);
+      }
+    }
+    
+    [data-theme="dark"] #stop-button {
+      background: rgb(239, 83, 80); /* Lighter red for dark mode */
+      box-shadow: 0 3px 6px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.3);
+    }
 
     #stop-button::before {
       content: '';
@@ -368,6 +414,7 @@
       position: relative; /* For absolute positioning of button */
       padding-left: 12px; /* Add padding to the left of the editor */
       transition: box-shadow 0.3s ease, outline 0.3s ease;
+      z-index: 1; /* Base z-index */
     }
     
     /* Live running state - green outline */
@@ -375,8 +422,13 @@
       outline: 4px solid #00ff00;
       outline-offset: -4px;
       box-shadow: inset 0 0 30px rgba(0, 255, 0, 0.2), 0 0 10px rgba(0, 255, 0, 0.3);
-      z-index: 10;
+      z-index: 100; /* High z-index to be above Monaco editor */
       position: relative;
+    }
+    
+    /* Ensure Monaco editor itself has lower z-index */
+    .monaco-editor {
+      z-index: auto;
     }
     
     /* Pulse animation for live state */
@@ -2318,6 +2370,96 @@
       // Track decorations for syntax highlighting blinks
       let currentDecorations = [];
       
+      // Helper function to get shadow color for dark text (from disk.mjs approach)
+      function getShadowForColor(colorStr) {
+        if (!colorStr) return null;
+        
+        let rgb;
+        // Parse RGB format
+        if (colorStr.startsWith('rgb(')) {
+          const match = colorStr.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+          if (match) {
+            rgb = [parseInt(match[1]), parseInt(match[2]), parseInt(match[3])];
+          }
+        } else if (colorStr.includes(',')) {
+          rgb = colorStr.split(',').map(n => parseInt(n.trim()));
+        } else {
+          // Named colors - approximate common dark colors
+          const darkColors = {
+            'black': [0, 0, 0],
+            'darkblue': [0, 0, 139],
+            'darkgreen': [0, 100, 0],
+            'darkred': [139, 0, 0],
+            'navy': [0, 0, 128],
+            'maroon': [128, 0, 0],
+            'purple': [128, 0, 128],
+            'indigo': [75, 0, 130]
+          };
+          rgb = darkColors[colorStr.toLowerCase()];
+        }
+        
+        if (!rgb || rgb.length < 3) return null;
+        
+        const [r, g, b] = rgb;
+        // Check if color is dark (low luminance)
+        const luminance = (0.299 * r + 0.587 * g + 0.114 * b);
+        
+        if (luminance < 50) {
+          // Very dark - needs bright shadow
+          return '1px 1px 0px rgba(220, 220, 220, 0.8)';
+        } else if (luminance < 100) {
+          // Somewhat dark - needs lighter shadow
+          return '1px 1px 0px rgba(200, 200, 200, 0.6)';
+        }
+        
+        return null; // Light color, no shadow needed
+      }
+      
+      // Helper function to get shadow color for dark text (from disk.mjs approach)
+      function getShadowForColor(colorStr) {
+        if (!colorStr) return null;
+        
+        let rgb;
+        // Parse RGB format
+        if (colorStr.startsWith('rgb(')) {
+          const match = colorStr.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+          if (match) {
+            rgb = [parseInt(match[1]), parseInt(match[2]), parseInt(match[3])];
+          }
+        } else if (colorStr.includes(',')) {
+          rgb = colorStr.split(',').map(n => parseInt(n.trim()));
+        } else {
+          // Named colors - approximate common dark colors
+          const darkColors = {
+            'black': [0, 0, 0],
+            'darkblue': [0, 0, 139],
+            'darkgreen': [0, 100, 0],
+            'darkred': [139, 0, 0],
+            'navy': [0, 0, 128],
+            'maroon': [128, 0, 0],
+            'purple': [128, 0, 128],
+            'indigo': [75, 0, 130]
+          };
+          rgb = darkColors[colorStr.toLowerCase()];
+        }
+        
+        if (!rgb || rgb.length < 3) return null;
+        
+        const [r, g, b] = rgb;
+        // Check if color is dark (low luminance)
+        const luminance = (0.299 * r + 0.587 * g + 0.114 * b);
+        
+        if (luminance < 50) {
+          // Very dark - needs bright shadow
+          return '1px 1px 0px rgba(220, 220, 220, 0.8)';
+        } else if (luminance < 100) {
+          // Somewhat dark - needs lighter shadow
+          return '1px 1px 0px rgba(200, 200, 200, 0.6)';
+        }
+        
+        return null; // Light color, no shadow needed
+      }
+      
       // Enable edit mode for timing blinks
       kidlisp.isEditMode = true;
       
@@ -2605,7 +2747,14 @@
               if (!document.getElementById(cssClass)) {
                 const style = document.createElement('style');
                 style.id = cssClass;
-                style.textContent = `.monaco-editor .view-line > span > span.${cssClass} { color: ${cssColor}; font-weight: bold; }`;
+                
+                // Add text-shadow for dark colors in dark mode
+                const isDarkMode = document.documentElement.getAttribute('data-theme') === 'dark' || 
+                                 (!document.documentElement.getAttribute('data-theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
+                const shadow = isDarkMode ? getShadowForColor(cssColor) : null;
+                const shadowStyle = shadow ? ` text-shadow: ${shadow};` : '';
+                
+                style.textContent = `.monaco-editor .view-line > span > span.${cssClass} { color: ${cssColor}; font-weight: bold;${shadowStyle} }`;
                 document.head.appendChild(style);
               }
               
