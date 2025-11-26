@@ -239,16 +239,17 @@ end
 # AC Keep - Create self-contained HTML bundles for Tezos KEEPS
 # Usage: ac-keep '$bop' or ac-keep 'bop' (from any directory)
 # Creates a single HTML file that runs offline with all dependencies embedded
+# Filenames: @author-$piece-timestamp.html (matching bios.mjs download format)
 function ac-keep
     if test (count $argv) -lt 1
         echo "Usage: ac-keep PIECE_NAME"
         echo "Example: ac-keep '\$bop' or ac-keep 'bop'"
         echo ""
         echo "Creates self-contained HTML bundles in tezos/keep-bundles/"
-        echo "Output files:"
-        echo "  • {piece}-ultra-minimal-nft.html (uncompressed)"
-        echo "  • {piece}-ultra-self-contained.html (Brotli compressed)"
-        echo "  • {piece}-ultra-gzip.html (gzip for browser testing)"
+        echo "Output files (named like downloads from bios.mjs):"
+        echo "  • \$piece-@author-timestamp.html (uncompressed)"
+        echo "  • \$piece-@author-timestamp.brotli.html (Brotli, for Tezos)"
+        echo "  • \$piece-@author-timestamp.lisp.html (gzip, for browser/drag-drop)"
         return 1
     end
     
@@ -258,20 +259,17 @@ function ac-keep
     
     echo "📦 Creating KEEP bundle for \$$piece_name..."
     
-    # Run the bundle-keep-html.mjs script
-    node /workspaces/aesthetic-computer/tezos/bundle-keep-html.mjs $piece_name
-    
+    # Run the bundle-keep-html.mjs script and capture output
+    set -l output (node /workspaces/aesthetic-computer/tezos/bundle-keep-html.mjs $piece_name 2>&1)
     set -l exit_status $status
+    
+    # Print the output
+    echo $output
     
     if test $exit_status -eq 0
         echo ""
         echo "✅ KEEP bundle created!"
         echo "📁 Files in: /workspaces/aesthetic-computer/tezos/keep-bundles/"
-        echo ""
-        echo "To test locally:"
-        echo "  cd /workspaces/aesthetic-computer/tezos/keep-bundles"
-        echo "  python3 -m http.server 8082"
-        echo "  # Open http://localhost:8082/$piece_name-ultra-gzip.html"
     else
         echo "❌ KEEP bundle failed with exit code $exit_status"
     end
@@ -292,8 +290,9 @@ function ac-keep-test
     # Remove $ prefix if present
     set piece_name (string replace -r '^\$' '' -- $piece_name)
     
-    # Build the bundle
-    ac-keep $piece_name
+    # Build the bundle and capture output
+    echo "📦 Creating KEEP bundle for \$$piece_name..."
+    node /workspaces/aesthetic-computer/tezos/bundle-keep-html.mjs $piece_name
     
     if test $status -ne 0
         return 1
@@ -301,7 +300,7 @@ function ac-keep-test
     
     echo ""
     echo "🌐 Starting test server on http://localhost:8082..."
-    echo "   Opening: http://localhost:8082/$piece_name-ultra-gzip.html"
+    echo "   Browse to http://localhost:8082/ and select the .gzip.html file"
     echo "   Press Ctrl+C to stop"
     echo ""
     

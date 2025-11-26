@@ -7199,19 +7199,26 @@ async function load(
     $commonApi.rec.loadCallback = null;
 
     // 📤 Send ready signal to parent window (e.g., kidlisp.com editor)
-    console.log('🔍 hotSwap: checking if we can send ready message...');
-    console.log('🔍 typeof window:', typeof window);
+    // Note: disk.mjs runs in a Web Worker, so window may not exist
+    // Use getPackMode() which works in worker context (set via init-from-bios)
+    const hasWindow = typeof window !== 'undefined';
+    const packMode = getPackMode();
+    
+    if (hasWindow && !packMode) {
+      console.log('🔍 hotSwap: checking if we can send ready message...');
+    }
     try {
-      if (typeof window !== 'undefined' && window.parent && window.parent !== window) {
-        console.log('📤 Sending kidlisp-ready to parent window');
+      if (hasWindow && window.parent && window.parent !== window) {
+        if (!packMode) console.log('📤 Sending kidlisp-ready to parent window');
         window.parent.postMessage({ type: "kidlisp-ready" }, "*");
-        console.log('✅ kidlisp-ready message sent');
-      } else {
-        console.log('⚠️ Not in iframe context, skipping ready message');
+        if (!packMode) console.log('✅ kidlisp-ready message sent');
+      } else if (hasWindow) {
+        if (!packMode) console.log('⚠️ Not in iframe context, skipping ready message');
       }
+      // If no window (worker context), silently skip
     } catch (e) {
       // Silently fail if in worker context or cross-origin
-      console.log('⚠️ Could not send ready message:', e.message);
+      if (hasWindow && !packMode) console.log('⚠️ Could not send ready message:', e.message);
     }
 
     module = loadedModule;
@@ -8134,9 +8141,11 @@ async function makeFrame({ data: { type, content } }) {
   // return;
   // }
 
-  // Load the source code for a dropped `.mjs` file.
+  // Load the source code for a dropped `.mjs` or KidLisp file.
   if (type === "dropped:piece") {
-    load(content, false, false, true);
+    // Pass forceKidlisp=true if this was detected as KidLisp (e.g., from .lisp.html bundle)
+    const forceKidlisp = content.isKidLisp === true;
+    load(content, false, false, true, undefined, forceKidlisp);
     return;
   }
 
@@ -8472,7 +8481,7 @@ async function makeFrame({ data: { type, content } }) {
         progress: type === "recorder:transcode-progress" ? content : undefined
       };
       try {
-        console.log("📼 ✅ Calling receive directly for export event:", type);
+        if (!getPackMode()) console.log("📼 ✅ Calling receive directly for export event:", type);
         receive(event);
         return; // Successfully delivered to piece
       } catch (e) {
@@ -8480,11 +8489,13 @@ async function makeFrame({ data: { type, content } }) {
       }
     } else {
       // Log why we're NOT calling receive
-      const reasons = [];
-      if (typeof receive !== "function") reasons.push("receive not a function");
-      if (!booted) reasons.push("not booted");
-      if (receive === defaults.receive) reasons.push("using default receive");
-      console.log(`📼 ⏸️ Cannot call receive for ${type}: ${reasons.join(", ")}`);
+      if (!getPackMode()) {
+        const reasons = [];
+        if (typeof receive !== "function") reasons.push("receive not a function");
+        if (!booted) reasons.push("not booted");
+        if (receive === defaults.receive) reasons.push("using default receive");
+        console.log(`📼 ⏸️ Cannot call receive for ${type}: ${reasons.join(", ")}`);
+      }
     }
     
     // If we can't deliver it (piece not booted or using default receive), queue it for later
@@ -8495,7 +8506,9 @@ async function makeFrame({ data: { type, content } }) {
       progress: type === "recorder:transcode-progress" ? content : undefined
     };
     pendingExportEvents.push(event);
-    console.log("📼 📥 Queued export event for later delivery:", type, "queue size:", pendingExportEvents.length);
+    if (!getPackMode()) {
+      console.log("📼 📥 Queued export event for later delivery:", type, "queue size:", pendingExportEvents.length);
+    }
     return;
   }
 
