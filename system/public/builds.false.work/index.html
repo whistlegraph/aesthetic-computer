@@ -69,8 +69,11 @@
     #content {
       display: none;
     }
-    #content > * {
-      display: none !important;
+    body.authenticated #content {
+      display: block;
+    }
+    body.authenticated #content > * {
+      display: block;
     }
     h1 {
       font-size: 1.5rem;
@@ -430,12 +433,7 @@
       .then(data => {
         if (data.success) {
           document.getElementById('auth-container').style.display = 'none';
-          const content = document.getElementById('content');
-          content.style.display = 'block';
-          // Show all child elements
-          Array.from(content.children).forEach(child => {
-            child.style.display = '';
-          });
+          document.body.classList.add('authenticated');
           localStorage.setItem('builds_auth', 'true');
           updateBuildTimes();
         } else {
@@ -495,12 +493,7 @@
     // Check if already authenticated
     if (localStorage.getItem('builds_auth') === 'true') {
       document.getElementById('auth-container').style.display = 'none';
-      const content = document.getElementById('content');
-      content.style.display = 'block';
-      // Show all child elements
-      Array.from(content.children).forEach(child => {
-        child.style.display = '';
-      });
+      document.body.classList.add('authenticated');
       updateBuildTimes();
       // Update times every minute
       setInterval(updateBuildTimes, 60000);
