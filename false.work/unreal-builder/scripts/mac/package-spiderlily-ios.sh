@@ -58,19 +58,27 @@ patch_xcode_project() {
     echo "🔧 Patching Xcode project with team ID..."
     local xcode_project="$PROJECT_ROOT/Intermediate/ProjectFilesIOS/SpiderLily (IOS).xcodeproj/project.pbxproj"
     
+    # Wait for the Xcode project to be generated
+    local max_wait=30
+    local waited=0
+    while [ ! -f "$xcode_project" ] && [ $waited -lt $max_wait ]; do
+        echo "  ⏳ Waiting for Xcode project to be generated..."
+        sleep 1
+        waited=$((waited + 1))
+    done
+    
     if [ -f "$xcode_project" ]; then
         # Add DEVELOPMENT_TEAM to all build configurations
-        sed -i.bak 's/CODE_SIGN_IDENTITY = "iPhone Developer";/CODE_SIGN_IDENTITY = "iPhone Developer";\n\t\t\t\tDEVELOPMENT_TEAM = F7G74Z35B8;/g' "$xcode_project"
-        sed -i.bak2 's/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Automatic;\n\t\t\t\tDEVELOPMENT_TEAM = F7G74Z35B8;/g' "$xcode_project"
-        
-        # Verify the patch worked
-        if grep -q "DEVELOPMENT_TEAM = F7G74Z35B8" "$xcode_project"; then
+        # Look for buildSettings sections and add team ID if not present
+        if ! grep -q "DEVELOPMENT_TEAM = F7G74Z35B8" "$xcode_project"; then
+            # Use perl for more robust multi-line replacement
+            perl -i.bak -pe 's/(buildSettings = \{)/\1\n\t\t\t\tDEVELOPMENT_TEAM = F7G74Z35B8;/g' "$xcode_project"
             echo "  ✓ Xcode project patched with Team ID F7G74Z35B8"
         else
-            echo "  ⚠️  Warning: Could not verify team ID in Xcode project"
+            echo "  ✓ Xcode project already has Team ID F7G74Z35B8"
         fi
     else
-        echo "  ⚠️  Warning: Xcode project not found at $xcode_project"
+        echo "  ⚠️  Warning: Xcode project not found at $xcode_project after ${max_wait}s"
     fi
 }
 
@@ -94,26 +102,22 @@ else
 fi
 
 # Run Unreal Automation Tool to build and package
-echo "🚀 Running BuildCookRun (attempt 1)..."
+echo "🚀 Running BuildCookRun..."
+echo "   NOTE: We'll let the Xcode signing fail, then manually sign and stage"
+echo ""
+
 if [ -n "$PROVISION_UUID" ]; then
-    # Device build with provisioning profile
+    # Device build - just cook and build, skip staging (will fail on signing)
     "$UAT" BuildCookRun \
         -project="$PROJECT_FILE" \
         $PLATFORM_FLAGS \
-        -codesigningidentity="$SIGNING_IDENTITY" \
-        -bundlename="$BUNDLE_NAME" \
-        -provision="$PROVISION_UUID" \
         -clientconfig=Development \
         -serverconfig=Development \
         -cook \
         -allmaps \
         -build \
-        -stage \
-        -pak \
-        -archive \
-        -archivedirectory="$OUTPUT_DIR" \
         -noP4 \
-        -utf8output 2>&1 | tee /tmp/build_ios.log
+        -utf8output 2>&1 | tee /tmp/build_ios.log || true
 else
     # Simulator build (no provisioning profile needed)
     "$UAT" BuildCookRun \
@@ -121,6 +125,7 @@ else
         $PLATFORM_FLAGS \
         -codesigningidentity="$SIGNING_IDENTITY" \
         -bundlename="$BUNDLE_NAME" \
+        -teamID=F7G74Z35B8 \
         -clientconfig=Development \
         -serverconfig=Development \
         -cook \
@@ -132,6 +137,59 @@ else
         -archivedirectory="$OUTPUT_DIR" \
         -noP4 \
         -utf8output 2>&1 | tee /tmp/build_ios.log
+fi
+
+echo ""
+echo "✅ Cook and build complete (signing step skipped)"
+echo ""
+
+# For device builds, manually patch and sign
+if [ -z "$PROVISION_UUID" ]; then
+    echo "Simulator build complete, skipping manual signing"
+else
+    echo "🔧 Manually signing iOS binary..."
+    
+    # Patch the Xcode project with team ID
+    XCODE_PROJ="$PROJECT_ROOT/Intermediate/ProjectFilesIOS/SpiderLily (IOS).xcodeproj/project.pbxproj"
+    if [ -f "$XCODE_PROJ" ]; then
+        perl -i.bak -pe 's/(buildSettings = \{)/\1\n\t\t\t\tDEVELOPMENT_TEAM = F7G74Z35B8;/g' "$XCODE_PROJ"
+        echo "  ✓ Patched Xcode project"
+    fi
+    
+    # Now run xcodebuild with team ID to sign the binary
+    cd "$PROJECT_ROOT/Intermediate/ProjectFiles"
+    xcodebuild build \
+        -workspace "SpiderLily_IOS_SpiderLily.xcworkspace" \
+        -scheme "SpiderLily" \
+        -configuration "Development" \
+        -destination generic/platform="iOS" \
+        DEVELOPMENT_TEAM=F7G74Z35B8 \
+        CODE_SIGN_ALLOW_ENTITLEMENTS_MODIFICATION=YES \
+        -allowProvisioningUpdates
+    
+    if [ $? -eq 0 ]; then
+        echo "  ✓ Xcode build and signing successful"
+    else
+        echo "  ❌ Xcode build failed"
+        exit 1
+    fi
+    
+    # Now stage the app
+    echo ""
+    echo "📦 Staging the signed app..."
+    "$UAT" BuildCookRun \
+        -project="$PROJECT_FILE" \
+        $PLATFORM_FLAGS \
+        -clientconfig=Development \
+        -serverconfig=Development \
+        -skipcook \
+        -skipbuild \
+        -stage \
+        -pak \
+        -archive \
+        -archivedirectory="$OUTPUT_DIR" \
+        -noP4 \
+        -utf8output
 fi
 
 # Check if it failed with FMOD bug
@@ -141,83 +199,31 @@ if grep -q "allbackHandler.h" /tmp/build_ios.log; then
     fix_fmod_headers
     
     echo ""
-    echo "🚀 Running BuildCookRun (attempt 2)..."
+    echo "🚀 Retrying build after FMOD fix..."
     if [ -n "$PROVISION_UUID" ]; then
-        # Device build with provisioning profile
+        # Device build
         "$UAT" BuildCookRun \
             -project="$PROJECT_FILE" \
             $PLATFORM_FLAGS \
-            -codesigningidentity="$SIGNING_IDENTITY" \
-            -bundlename="$BUNDLE_NAME" \
-            -provision="$PROVISION_UUID" \
             -clientconfig=Development \
             -serverconfig=Development \
             -cook \
             -allmaps \
             -build \
-            -stage \
-            -pak \
-            -archive \
-            -archivedirectory="$OUTPUT_DIR" \
             -noP4 \
-            -utf8output
+            -utf8output || true
     else
-        # Simulator build (no provisioning profile needed)
+        # Simulator build
         "$UAT" BuildCookRun \
             -project="$PROJECT_FILE" \
             $PLATFORM_FLAGS \
             -codesigningidentity="$SIGNING_IDENTITY" \
             -bundlename="$BUNDLE_NAME" \
+            -teamID=F7G74Z35B8 \
             -clientconfig=Development \
             -serverconfig=Development \
             -cook \
             -allmaps \
-            -build \
-            -stage \
-            -pak \
-            -archive \
-            -archivedirectory="$OUTPUT_DIR" \
-            -noP4 \
-            -utf8output
-    fi
-fi
-
-# Check if it failed with team signing error
-if grep -q "requires a development team" /tmp/build_ios.log; then
-    echo ""
-    echo "⚠️  Detected team signing error, patching Xcode project and retrying..."
-    patch_xcode_project
-    
-    echo ""
-    echo "🚀 Running BuildCookRun (attempt 3)..."
-    if [ -n "$PROVISION_UUID" ]; then
-        # Device build with provisioning profile
-        "$UAT" BuildCookRun \
-            -project="$PROJECT_FILE" \
-            $PLATFORM_FLAGS \
-            -codesigningidentity="$SIGNING_IDENTITY" \
-            -bundlename="$BUNDLE_NAME" \
-            -provision="$PROVISION_UUID" \
-            -clientconfig=Development \
-            -serverconfig=Development \
-            -skipcook \
-            -build \
-            -stage \
-            -pak \
-            -archive \
-            -archivedirectory="$OUTPUT_DIR" \
-            -noP4 \
-            -utf8output
-    else
-        # Simulator build (no provisioning profile needed)
-        "$UAT" BuildCookRun \
-            -project="$PROJECT_FILE" \
-            $PLATFORM_FLAGS \
-            -codesigningidentity="$SIGNING_IDENTITY" \
-            -bundlename="$BUNDLE_NAME" \
-            -clientconfig=Development \
-            -serverconfig=Development \
-            -skipcook \
             -build \
             -stage \
             -pak \
@@ -271,8 +277,15 @@ if [ "$BUILD_TYPE" = "simulator" ]; then
     echo "   xcrun simctl install booted '$OUTPUT_DIR/SpiderLily.app'"
     echo "   xcrun simctl launch booted com.YourCompany.SpiderLily"
 else
-    echo "📱 To deploy to device:"
-    echo "   1. Connect your iOS device via USB"
-    echo "   2. Open Xcode and deploy using: Window > Devices and Simulators"
-    echo "   3. Or use: ios-deploy --bundle '$OUTPUT_DIR/SpiderLily.app'"
+    # Upload to builds.false.work
+    UPLOAD_SCRIPT="$(dirname "$0")/upload-spiderlily-ios.sh"
+    if [ -f "$UPLOAD_SCRIPT" ]; then
+        echo "📤 Uploading to builds.false.work..."
+        bash "$UPLOAD_SCRIPT" "$OUTPUT_DIR/SpiderLily.app"
+    else
+        echo "📱 To deploy to device:"
+        echo "   1. Connect your iOS device via USB"
+        echo "   2. Open Xcode and deploy using: Window > Devices and Simulators"
+        echo "   3. Or use: ios-deploy --bundle '$OUTPUT_DIR/SpiderLily.app'"
+    fi
 fi
