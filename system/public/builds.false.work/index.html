@@ -72,13 +72,30 @@
     body.authenticated #content {
       display: block;
     }
-    body.authenticated #content > * {
-      display: block;
-    }
     h1 {
       font-size: 1.5rem;
       margin-bottom: 1.5rem;
       color: #fff;
+    }
+    h2 {
+      color: #fa0;
+      margin-bottom: 1rem;
+    }
+    .platform-filters {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+    }
+    .platform-filters button {
+      padding: 0.5rem 1rem;
+      font-size: 0.9rem;
+      border-width: 1px;
+    }
+    .platform-filters button.active {
+      background: #333;
+      border-color: #fa0;
+      color: #fa0;
     }
     .platform-tag {
       display: inline-block;
@@ -99,20 +116,6 @@
       font-weight: bold;
       margin-right: 0.5rem;
     }
-    ul {
-      list-style: none;
-    }
-    li {
-      padding: 0.75rem;
-      margin: 0.5rem 0;
-      background: #0a0a0a;
-      border-left: 2px solid #333;
-      transition: all 0.2s;
-    }
-    li:hover {
-      background: #111;
-      border-left-color: #666;
-    }
     a {
       color: #fff;
       text-decoration: none;
@@ -126,10 +129,6 @@
       font-size: 0.9rem;
       margin-top: 0.25rem;
     }
-    .empty {
-      color: #555;
-      font-style: italic;
-    }
     footer {
       margin-top: 3rem;
       padding-top: 1rem;
@@ -142,101 +141,46 @@
       color: #888;
       font-weight: normal;
     }
-    #latest-build {
-      background: linear-gradient(135deg, #0a0a0a 0%, #1a1a0a 100%);
-      padding: 2rem;
-      border-left: 4px solid #fa0;
+    .build-card {
+      padding: 1.5rem;
       border-radius: 4px;
-      box-shadow: 0 4px 8px rgba(255, 170, 0, 0.1);
-    }
-    #latest-build .build-header {
-      font-size: 1.2rem;
       margin-bottom: 1rem;
+    }
+    .build-card.windows {
+      background: linear-gradient(135deg, #0a0a0a 0%, #0a1a2a 100%);
+      border-left: 4px solid #09f;
+    }
+    .build-card.mac {
+      background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
+      border-left: 4px solid #888;
+    }
+    .build-card.ios {
+      background: linear-gradient(135deg, #0a0a0a 0%, #1a0a1a 100%);
+      border-left: 4px solid #f0f;
+    }
+    .build-header {
       display: flex;
       align-items: center;
       gap: 0.5rem;
+      flex-wrap: wrap;
     }
-    #latest-build .build-header a {
+    .date-header {
+      margin: 2rem 0 1rem 0;
       font-size: 1.1rem;
+    }
+    .date-header.today {
       color: #fa0;
     }
-    #latest-build .meta {
-      font-size: 1rem;
-      color: #999;
-      margin-bottom: 1rem;
-    }
-    .commit-info {
-      background: #0a0a0a;
-      padding: 1rem;
-      border-radius: 3px;
-      border-left: 2px solid #555;
-      margin-top: 1rem;
-      font-size: 0.9rem;
-    }
-    .commit-info .commit-label {
-      color: #888;
-      font-size: 0.8rem;
-      text-transform: uppercase;
-      margin-bottom: 0.5rem;
-    }
-    .commit-info .commit-message {
-      color: #ccc;
-      font-family: 'Courier New', monospace;
-      white-space: pre-wrap;
-      word-wrap: break-word;
-      overflow-wrap: break-word;
-    }
-    .build-log-preview {
-      background: #0a0a0a;
-      padding: 1rem;
-      border-left: 2px solid #444;
-      font-family: 'Courier New', monospace;
-      font-size: 0.75rem;
-      max-height: 400px;
-      overflow-y: auto;
-      margin-top: 1rem;
-      color: #0f0;
-      white-space: pre-wrap;
-      word-wrap: break-word;
-      overflow-wrap: break-word;
-    }
-    .build-log-preview .log-header {
-      color: #fa0;
-      font-weight: bold;
-      margin-bottom: 0.5rem;
-      position: sticky;
-      top: 0;
-      background: #0a0a0a;
-      padding-bottom: 0.5rem;
-      border-bottom: 1px solid #333;
-    }
-    @keyframes scrollLog {
-      0% { transform: translateY(20px); opacity: 0; }
-      100% { transform: translateY(0); opacity: 1; }
-    }
-    .build-log-preview.animated {
-      animation: scrollLog 0.5s ease-out;
-    }
-    .build-log-preview::-webkit-scrollbar {
-      width: 8px;
-    }
-    .build-log-preview::-webkit-scrollbar-track {
-      background: #000;
-    }
-    .build-log-preview::-webkit-scrollbar-thumb {
-      background: #333;
-      border-radius: 4px;
-    }
-    .build-log-preview::-webkit-scrollbar-thumb:hover {
-      background: #555;
+    .date-header.previous {
+      color: #666;
     }
     .ios-install-btn {
       display: inline-block;
       background: linear-gradient(135deg, #f0f 0%, #90f 100%);
-      color: white;
+      color: white !important;
       padding: 0.5rem 1rem;
       border-radius: 4px;
-      text-decoration: none;
+      text-decoration: none !important;
       font-weight: bold;
       font-size: 0.9rem;
       margin-left: 0.5rem;
@@ -257,6 +201,21 @@
       font-size: 0.85rem;
       color: #ccc;
     }
+    .loading {
+      text-align: center;
+      padding: 3rem;
+      color: #666;
+    }
+    .loading::after {
+      content: '';
+      animation: dots 1.5s steps(4, end) infinite;
+    }
+    @keyframes dots {
+      0%, 20% { content: ''; }
+      40% { content: '.'; }
+      60% { content: '..'; }
+      80%, 100% { content: '...'; }
+    }
   </style>
 </head>
 <body>
@@ -274,141 +233,17 @@
         <button onclick="logout()" style="padding: 0.5rem 1rem; font-size: 0.85rem;">🔓 Logout</button>
       </div>
       
-      <h2 style="color: #fa0; margin-bottom: 1rem;">📦 Builds</h2>
+      <h2>📦 Builds</h2>
       
-      <!-- BUILD_LIST_ALL -->
-      <div class="build-group" data-date="4.0.2">
-        <h3 class="date-header" style="color: #fa0; margin: 2rem 0 1rem 0; font-size: 1.2rem;"></h3>
-        <div style="background: linear-gradient(135deg, #0a0a0a 0%, #1a0a1a 100%); padding: 1.5rem; border-left: 4px solid #f0f; border-radius: 4px; margin-bottom: 1rem;">
-          <div class="build-header">
-            <span class="platform-tag platform-ios">📱 iOS</span>
-            <span class="project-name">SpiderLily</span>
-            <a href="https://assets-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/false.work/ios/spiderlily-ios-device-2025.11.26-1019.ipa">2025.11.26-1019.ipa</a>
-            <a href="itms-services://?action=download-manifest&url=https://builds.false.work/ios/manifest.plist" class="ios-install-btn">📲 Install on Device</a>
-          </div>
-          <div class="meta">879 MB | CL#689 | UE_5.6 | <span class="build-time" data-date="2025-11-26T10:19:00-08:00">just now</span></div>
-          <div class="ios-note">💡 Open in Safari on your iOS device and tap "Install on Device" for wireless installation. Device must be registered with Team ID: F7G74Z35B8</div>
-        </div>
+      <div class="platform-filters">
+        <button data-platform="all" class="active" onclick="filterPlatform('all')">All</button>
+        <button data-platform="windows" onclick="filterPlatform('windows')">🪟 Windows</button>
+        <button data-platform="mac" onclick="filterPlatform('mac')">🍎 Mac</button>
+        <button data-platform="ios" onclick="filterPlatform('ios')">📱 iOS</button>
       </div>
       
-      <h3 class="date-header" style="color: #888; margin: 2rem 0 1rem 0; font-size: 1.2rem;">Previous</h3>
-        <h3 class="date-header" style="color: #fa0; margin: 2rem 0 1rem 0; font-size: 1.2rem;"></h3>
-        <div style="background: linear-gradient(135deg, #0a0a0a 0%, #1a1a0a 100%); padding: 1.5rem; border-left: 4px solid #fa0; border-radius: 4px; margin-bottom: 1rem;">
-          <div class="build-header">
-            <span class="platform-tag platform-windows">🪟 Windows</span>
-            <span class="project-name">SpiderLily</span>
-            <a href="https://assets.aesthetic.computer/false.work/spiderlily-windows-2025.11.21-1654.zip">2025.11.21-1654.zip</a>
-            <span style="margin-left: 0.5rem; color: #666; font-size: 0.9rem;">(<a href="https://assets.aesthetic.computer/false.work/spiderlily-windows-2025.11.21-1654.txt" style="color: #888;">download log</a>)</span>
-          </div>
-          <div class="meta">1342 MB | L_VerticalSlice_Demo | UE_5.6 | <span class="build-time" data-date="2025-11-21T16:58:04-08:00">just now</span></div>
-        </div>
-      
-      <h3 class="date-header" style="color: #888; margin: 2rem 0 1rem 0; font-size: 1.2rem;">Previous</h3>
-        <h3 class="date-header" style="color: #fa0; margin: 2rem 0 1rem 0; font-size: 1.2rem;">Today</h3>
-        <div style="background: linear-gradient(135deg, #0a0a0a 0%, #1a1a0a 100%); padding: 1.5rem; border-left: 4px solid #fa0; border-radius: 4px; margin-bottom: 1rem;">
-          <div class="build-header">
-            <span class="platform-tag platform-mac">🍎 Mac</span>
-            <span class="project-name">SpiderLily</span>
-            <a href="https://assets.aesthetic.computer/false.work/spiderlily-mac-2025.11.21-2133.zip">2025.11.21-2133.zip</a>
-            <span style="margin-left: 0.5rem; color: #666; font-size: 0.9rem;">(<a href="https://assets.aesthetic.computer/false.work/spiderlily-mac-2025.11.21-2133.txt" style="color: #888;">download log</a>)</span>
-          </div>
-          <div class="meta">3458 MB | L_VerticalSlice_Demo | UE_5.6 | <span class="build-time" data-date="2025-11-21T21:36:58">just now</span></div>
-        </div>
-      
-      <div class="build-group" data-date="2025-11-13">
-        <h3 class="date-header" style="color: #888; margin: 2rem 0 1rem 0; font-size: 1.2rem;">November 13, 2025</h3>
-        <div style="background: #0a0a0a; padding: 1rem; border-left: 2px solid #333; border-radius: 4px; margin-bottom: 0.5rem;">
-          <div class="build-header">
-            <span class="platform-tag platform-windows">🪟 Windows</span>
-            <span class="project-name">SpiderLily</span>
-            <a href="https://assets.aesthetic.computer/false.work/spiderlily-windows-2025.11.13-1609.zip">2025.11.13-1609.zip</a>
-            <span style="margin-left: 0.5rem; color: #666; font-size: 0.9rem;">(<a href="https://assets.aesthetic.computer/false.work/spiderlily-windows-2025.11.13-1609.txt" style="color: #888;">download log</a>)</span>
-          </div>
-          <div class="meta">1329 MB | L_VerticalSlice_Demo | UE_5.6 | <span class="build-time" data-date="2025-11-13T16:15:03">just now</span></div>
-        </div>
-      </div>
-      
-      <div class="build-group" data-date="2025-11-12">
-        <h3 class="date-header" style="color: #888; margin: 2rem 0 1rem 0; font-size: 1.2rem;">November 12, 2025</h3>
-        <div style="background: #0a0a0a; padding: 1rem; border-left: 2px solid #333; border-radius: 4px; margin-bottom: 0.5rem;">
-          <div class="build-header">
-            <span class="platform-tag platform-windows">🪟 Windows</span>
-            <span class="project-name">SpiderLily</span>
-            <a href="https://assets.aesthetic.computer/false.work/spiderlily-windows-2025.11.12-1202.zip">2025.11.12-1202.zip</a>
-            <span style="margin-left: 0.5rem; color: #666; font-size: 0.9rem;">(<a href="https://assets.aesthetic.computer/false.work/spiderlily-windows-2025.11.12-1202.txt" style="color: #888;">download log</a>)</span>
-          </div>
-          <div class="meta">1224 MB | L_VerticalSlice_Demo | UE_5.6 | <span class="build-time" data-date="2025-11-12T12:09:51">just now</span></div>
-        </div>
-      </div>
-      
-      <div class="build-group" data-date="2025-11-11">
-        <h3 class="date-header" style="color: #888; margin: 2rem 0 1rem 0; font-size: 1.2rem;">November 11, 2025</h3>
-        <div style="background: #0a0a0a; padding: 1rem; border-left: 2px solid #333; border-radius: 4px; margin-bottom: 0.5rem;">
-          <div class="build-header">
-            <span class="platform-tag platform-windows">🪟 Windows</span>
-            <span class="project-name">SpiderLily</span>
-            <a href="https://assets.aesthetic.computer/false.work/spiderlily-windows-2025.11.11-1817.zip">2025.11.11-1817.zip</a>
-            <span style="margin-left: 0.5rem; color: #666; font-size: 0.9rem;">(<a href="https://assets.aesthetic.computer/false.work/spiderlily-windows-2025.11.11-1817.txt" style="color: #888;">download log</a>)</span>
-          </div>
-          <div class="meta">1163 MB | L_VerticalSlice_Demo | UE_5.6 | <span class="build-time" data-date="2025-11-11T18:26:20">just now</span></div>
-        </div>
-      </div>
-      
-      <div class="build-group" data-date="2025-11-10">
-        <h3 class="date-header" style="color: #888; margin: 2rem 0 1rem 0; font-size: 1.2rem;">November 10, 2025</h3>
-        <div style="background: #0a0a0a; padding: 1rem; border-left: 2px solid #333; border-radius: 4px; margin-bottom: 0.5rem;">
-          <div class="build-header">
-            <span class="platform-tag platform-windows">🪟 Windows</span>
-            <span class="project-name">SpiderLily</span>
-            <a href="https://assets.aesthetic.computer/false.work/spiderlily-windows-2025.11.10-1505.zip">2025.11.10-1505.zip</a>
-            <span style="margin-left: 0.5rem; color: #666; font-size: 0.9rem;">(<a href="https://assets.aesthetic.computer/false.work/spiderlily-windows-2025.11.10-1505.txt" style="color: #888;">download log</a>)</span>
-          </div>
-          <div class="meta">961 MB | L_VerticalSlice_MainMenu | UE_5.6 | <span class="build-time" data-date="2025-11-10T15:09:48">just now</span></div>
-        </div>
-      </div>
-      
-      <div class="build-group" data-date="2025-11-08">
-        <h3 class="date-header" style="color: #888; margin: 2rem 0 1rem 0; font-size: 1.2rem;">November 8, 2025</h3>
-        <div style="background: #0a0a0a; padding: 1rem; border-left: 2px solid #333; border-radius: 4px; margin-bottom: 0.5rem;">
-          <div class="build-header">
-            <span class="platform-tag platform-windows">🪟 Windows</span>
-            <span class="project-name">SpiderLily</span>
-            <a href="https://assets.aesthetic.computer/false.work/spiderlily-windows-2025.11.08-1532.zip">2025.11.08-1532.zip</a>
-            <span style="margin-left: 0.5rem; color: #666; font-size: 0.9rem;">(<a href="https://assets.aesthetic.computer/false.work/spiderlily-windows-2025.11.08-1532.txt" style="color: #888;">download log</a>)</span>
-          </div>
-          <div class="meta">850 MB | L_VerticalSlice_Intro | UE_5.6 | <span class="build-time" data-date="2025-11-08T15:32:00">just now</span></div>
-        </div>
-        <div style="background: #0a0a0a; padding: 1rem; border-left: 2px solid #333; border-radius: 4px; margin-bottom: 0.5rem;">
-          <div class="build-header">
-            <span class="platform-tag platform-windows">🪟 Windows</span>
-            <span class="project-name">SpiderLily</span>
-            <a href="https://assets.aesthetic.computer/false.work/spiderlily-windows-2025.11.08-1347.zip">2025.11.08-1347.zip</a>
-            <span style="margin-left: 0.5rem; color: #666; font-size: 0.9rem;">(<a href="https://assets.aesthetic.computer/false.work/spiderlily-windows-2025.11.08-1347.txt" style="color: #888;">download log</a>)</span>
-          </div>
-          <div class="meta">849 MB | L_VerticalSlice_MainMenu | UE_5.6 | <span class="build-time" data-date="2025-11-08T13:47:00">just now</span></div>
-        </div>
-        <div style="background: #0a0a0a; padding: 1rem; border-left: 2px solid #333; border-radius: 4px; margin-bottom: 0.5rem;">
-          <div class="build-header">
-            <span class="platform-tag platform-windows">🪟 Windows</span>
-            <span class="project-name">SpiderLily</span>
-            <a href="https://assets.aesthetic.computer/false.work/spiderlily-windows-2025.11.08-1255.zip">2025.11.08-1255.zip</a>
-            <span style="margin-left: 0.5rem; color: #666; font-size: 0.9rem;">(<a href="https://assets.aesthetic.computer/false.work/spiderlily-windows-2025.11.08-1255.txt" style="color: #888;">download log</a>)</span>
-          </div>
-          <div class="meta">845 MB | L_VerticalSlice_MainMenu | UE_5.6 | <span class="build-time" data-date="2025-11-08T12:55:00">just now</span></div>
-        </div>
-      </div>
-      
-      <div class="build-group" data-date="2025-11-07">
-        <h3 class="date-header" style="color: #888; margin: 2rem 0 1rem 0; font-size: 1.2rem;">November 7, 2025</h3>
-        <div style="background: #0a0a0a; padding: 1rem; border-left: 2px solid #333; border-radius: 4px; margin-bottom: 0.5rem;">
-          <div class="build-header">
-            <span class="platform-tag platform-windows">🪟 Windows</span>
-            <span class="project-name">SpiderLily</span>
-            <a href="https://assets.aesthetic.computer/false.work/spiderlily-windows-2025.11.07-0207.zip">2025.11.07-0207.zip</a>
-            <span style="margin-left: 0.5rem; color: #666; font-size: 0.9rem;">(<a href="https://assets.aesthetic.computer/false.work/spiderlily-windows-2025.11.07-0207.txt" style="color: #888;">download log</a>)</span>
-          </div>
-          <div class="meta">446 MB | L_VerticalSlice_Demo | UE_5.6 | <span class="build-time" data-date="2025-11-07T02:07:00">just now</span></div>
-        </div>
+      <div id="builds-list">
+        <div class="loading">Loading builds</div>
       </div>
 
       <footer>
@@ -418,65 +253,172 @@
   </div>
 
   <script>
-    function checkPassword() {
+    let sessionPassword = null;
+    let allBuilds = [];
+    let currentFilter = 'all';
+
+    async function checkPassword() {
       const password = document.getElementById('password').value;
       
-      // Call Netlify function to verify password
-      fetch('/.netlify/functions/verify-builds-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password })
-      })
-      .then(res => res.json())
-      .then(data => {
+      try {
+        const res = await fetch('/.netlify/functions/verify-builds-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password })
+        });
+        const data = await res.json();
+        
         if (data.success) {
+          sessionPassword = password;
           document.getElementById('auth-container').style.display = 'none';
           document.body.classList.add('authenticated');
-          localStorage.setItem('builds_auth', 'true');
-          updateBuildTimes();
+          await loadBuilds();
         } else {
           document.getElementById('error').textContent = 'Incorrect password';
           document.getElementById('password').value = '';
         }
-      })
-      .catch(() => {
+      } catch (err) {
         document.getElementById('error').textContent = 'Authentication error';
+      }
+    }
+
+    async function loadBuilds() {
+      const container = document.getElementById('builds-list');
+      container.innerHTML = '<div class="loading">Loading builds</div>';
+      
+      try {
+        const res = await fetch('/.netlify/functions/get-builds', {
+          headers: { 'Authorization': `Bearer ${sessionPassword}` }
+        });
+        
+        if (!res.ok) {
+          throw new Error('Failed to load builds');
+        }
+        
+        const data = await res.json();
+        allBuilds = data.builds || [];
+        renderBuilds();
+      } catch (err) {
+        container.innerHTML = '<div class="error">Failed to load builds. Please try again.</div>';
+        console.error(err);
+      }
+    }
+
+    function filterPlatform(platform) {
+      currentFilter = platform;
+      document.querySelectorAll('.platform-filters button').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.platform === platform);
       });
+      renderBuilds();
+    }
+
+    function renderBuilds() {
+      const container = document.getElementById('builds-list');
+      const filtered = currentFilter === 'all' 
+        ? allBuilds 
+        : allBuilds.filter(b => b.platform === currentFilter);
+      
+      if (filtered.length === 0) {
+        container.innerHTML = '<p style="color: #666; font-style: italic;">No builds available.</p>';
+        return;
+      }
+
+      // Group builds by date
+      const grouped = {};
+      const today = new Date().toDateString();
+      const yesterday = new Date(Date.now() - 86400000).toDateString();
+
+      filtered.forEach(build => {
+        const date = new Date(build.timestamp).toDateString();
+        let label;
+        if (date === today) label = 'Today';
+        else if (date === yesterday) label = 'Yesterday';
+        else label = new Date(build.timestamp).toLocaleDateString('en-US', { 
+          month: 'long', day: 'numeric', year: 'numeric' 
+        });
+        
+        if (!grouped[label]) grouped[label] = [];
+        grouped[label].push(build);
+      });
+
+      let html = '';
+      const dateOrder = Object.keys(grouped);
+      
+      dateOrder.forEach((dateLabel, idx) => {
+        const isToday = dateLabel === 'Today';
+        html += `<h3 class="date-header ${isToday ? 'today' : 'previous'}">${dateLabel}</h3>`;
+        
+        grouped[dateLabel].forEach(build => {
+          html += renderBuildCard(build);
+        });
+      });
+
+      container.innerHTML = html;
+      updateBuildTimes();
+    }
+
+    function renderBuildCard(build) {
+      const platformEmoji = { windows: '🪟', mac: '🍎', ios: '📱' };
+      const platformLabel = { windows: 'Windows', mac: 'Mac', ios: 'iOS' };
+      const fileExt = build.platform === 'ios' ? 'ipa' : 'zip';
+      
+      let html = `
+        <div class="build-card ${build.platform}">
+          <div class="build-header">
+            <span class="platform-tag platform-${build.platform}">${platformEmoji[build.platform]} ${platformLabel[build.platform]}</span>
+            <span class="project-name">SpiderLily</span>
+            <a href="${build.downloadUrl}">${build.version}.${fileExt}</a>
+      `;
+      
+      if (build.logUrl) {
+        html += `<span style="margin-left: 0.5rem; color: #666; font-size: 0.9rem;">(<a href="${build.logUrl}" style="color: #888;">log</a>)</span>`;
+      }
+      
+      if (build.platform === 'ios') {
+        html += `<a href="itms-services://?action=download-manifest&url=https://builds.false.work/ios/manifest.plist" class="ios-install-btn">📲 Install</a>`;
+      }
+      
+      html += `</div>`;
+      
+      // Meta line
+      const parts = [];
+      parts.push(`${build.sizeMB} MB`);
+      if (build.changelist) parts.push(build.changelist);
+      else if (build.level) parts.push(build.level);
+      if (build.ueVersion) parts.push(build.ueVersion);
+      
+      html += `<div class="meta">${parts.join(' | ')} | <span class="build-time" data-date="${build.timestamp}">...</span></div>`;
+      
+      if (build.platform === 'ios') {
+        html += `<div class="ios-note">💡 Open in Safari on your iOS device and tap "Install" for wireless installation.</div>`;
+      }
+      
+      html += `</div>`;
+      return html;
     }
 
     function updateBuildTimes() {
-      const timeElements = document.querySelectorAll('.build-time');
-      const dayColors = [
-        '#f66',  // Sunday - Red
-        '#fa0',  // Monday - Orange
-        '#ff0',  // Tuesday - Yellow
-        '#0f0',  // Wednesday - Green
-        '#0ff',  // Thursday - Cyan
-        '#09f',  // Friday - Blue
-        '#f0f'   // Saturday - Magenta
-      ];
+      const dayColors = ['#f66', '#fa0', '#ff0', '#0f0', '#0ff', '#09f', '#f0f'];
       
-      timeElements.forEach(el => {
+      document.querySelectorAll('.build-time').forEach(el => {
         const buildDate = new Date(el.dataset.date);
         const now = new Date();
         const diffMs = now - buildDate;
         const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
         const diffDays = Math.floor(diffHours / 24);
-        const dayOfWeek = buildDate.getDay();
         
-        // Apply color based on day of week
-        el.style.color = dayColors[dayOfWeek];
+        el.style.color = dayColors[buildDate.getDay()];
         
         let timeAgo;
         if (diffHours < 1) {
           const diffMins = Math.floor(diffMs / (1000 * 60));
-          timeAgo = diffMins < 1 ? 'just now' : `${diffMins} minute${diffMins === 1 ? '' : 's'} ago`;
+          timeAgo = diffMins < 1 ? 'just now' : `${diffMins}m ago`;
         } else if (diffHours < 24) {
-          timeAgo = `${diffHours} hour${diffHours === 1 ? '' : 's'} ago`;
+          timeAgo = `${diffHours}h ago`;
         } else if (diffDays < 7) {
-          timeAgo = `${diffDays} day${diffDays === 1 ? '' : 's'} ago`;
+          timeAgo = `${diffDays}d ago`;
         } else {
-          timeAgo = buildDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+          timeAgo = buildDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
         }
         
         el.textContent = timeAgo;
@@ -484,23 +426,18 @@
     }
 
     function logout() {
-      localStorage.removeItem('builds_auth');
+      sessionPassword = null;
+      allBuilds = [];
       location.reload();
-    }
-
-    // Check if already authenticated
-    if (localStorage.getItem('builds_auth') === 'true') {
-      document.getElementById('auth-container').style.display = 'none';
-      document.body.classList.add('authenticated');
-      updateBuildTimes();
-      // Update times every minute
-      setInterval(updateBuildTimes, 60000);
     }
 
     // Allow Enter key to submit
     document.getElementById('password').addEventListener('keypress', function(e) {
       if (e.key === 'Enter') checkPassword();
     });
+
+    // Update times every minute
+    setInterval(updateBuildTimes, 60000);
   </script>
 </body>
 </html>
