@@ -33,6 +33,7 @@ let docs: any;
 
 let extContext: any;
 let webWindow: any;
+let kidlispWindow: any;
 
 async function activate(context: vscode.ExtensionContext): Promise<void> {
   // local = context.globalState.get("aesthetic:local", false); // Retrieve env.
@@ -453,6 +454,34 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     }),
   );
 
+  // 🌈 KidLisp.com Window
+  context.subscriptions.push(
+    vscode.commands.registerCommand("aestheticComputer.openKidLispWindow", () => {
+      const panel = vscode.window.createWebviewPanel(
+        "kidlispWebView", // Identifies the type of the webview
+        "KidLisp.com", // Title of the panel displayed to the user
+        vscode.ViewColumn.One, // Editor column to show the new webview panel in
+        {
+          enableScripts: true,
+          enableForms: true,
+          localResourceRoots: [extContext.extensionUri],
+        },
+      );
+
+      panel.title = "KidLisp.com" + (local ? " 🧑‍🤝‍🧑" : "");
+      panel.webview.html = getKidLispWebViewContent(panel.webview);
+      kidlispWindow = panel;
+
+      panel.onDidDispose(
+        () => {
+          kidlispWindow = null;
+        },
+        null,
+        context.subscriptions,
+      );
+    }),
+  );
+
   // Add definitionProvider to context.subscriptions if necessary
   context.subscriptions.push(definitionProvider);
 
@@ -623,6 +652,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
       // Refresh the webview with the new local state
       provider.refreshWebview();
       refreshWebWindow();
+      refreshKidLispWindow();
       vscode.window.showInformationMessage(
         `💻 Local Development: ${local ? "Enabled" : "Disabled"}`,
       );
@@ -1004,6 +1034,13 @@ function refreshWebWindow() {
   }
 }
 
+function refreshKidLispWindow() {
+  if (kidlispWindow) {
+    kidlispWindow.title = "KidLisp.com" + (local ? " 🧑‍🤝‍🧑" : "");
+    kidlispWindow.webview.html = getKidLispWebViewContent(kidlispWindow.webview);
+  }
+}
+
 function getWebViewContent(webview: any, slug: string) {
   const scriptUri = webview.asWebviewUri(
     vscode.Uri.joinPath(extContext.extensionUri, "embedded.js"),
@@ -1122,6 +1159,71 @@ function getWebViewContent(webview: any, slug: string) {
        	<script nonce="${nonce}" src="${scriptUri}"></script>
 			</body>
 			</html>`;
+}
+
+// 🌈 KidLisp.com WebView Content
+function getKidLispWebViewContent(webview: any) {
+  const nonce = getNonce();
+  
+  const styleUri = webview.asWebviewUri(
+    vscode.Uri.joinPath(extContext.extensionUri, "main.css"),
+  );
+
+  const resetStyleUri = webview.asWebviewUri(
+    vscode.Uri.joinPath(extContext.extensionUri, "reset.css"),
+  );
+
+  const vscodeStyleUri = webview.asWebviewUri(
+    vscode.Uri.joinPath(extContext.extensionUri, "vscode.css"),
+  );
+
+  // Determine the iframe URL based on environment
+  let iframeUrl;
+  let iframeProtocol = "https://";
+  if (isCodespaces && codespaceName && codespacesDomain) {
+    iframeUrl = `${codespaceName}-8888.${codespacesDomain}`;
+  } else {
+    iframeUrl = local ? "localhost:8888" : "aesthetic.computer";
+  }
+
+  // Build CSP for kidlisp.com
+  let cspFrameSrc = "frame-src https://aesthetic.computer https://localhost:8888";
+  let cspChildSrc = "child-src https://aesthetic.computer https://localhost:8888";
+  
+  if (isCodespaces && codespacesDomain) {
+    const codespaceWildcard = `https://*.${codespacesDomain}`;
+    cspFrameSrc += ` ${codespaceWildcard}`;
+    cspChildSrc += ` ${codespaceWildcard}`;
+  }
+
+  return `<!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta http-equiv="Content-Security-Policy" content="default-src 'none'; ${cspFrameSrc}; ${cspChildSrc}; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}'; media-src *; img-src ${webview.cspSource} data:;">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <link href="${styleUri}" rel="stylesheet">
+      <link href="${resetStyleUri}" rel="stylesheet">
+      <link href="${vscodeStyleUri}" rel="stylesheet">
+      <title>KidLisp.com</title>
+      <style>
+        body {
+          margin: 0;
+          padding: 0;
+          overflow: hidden;
+        }
+        iframe#kidlisp {
+          border: none;
+          width: 100vw;
+          height: 100vh;
+          background: linear-gradient(135deg, #fffacd 0%, #fff9c0 100%);
+        }
+      </style>
+    </head>
+    <body>
+      <iframe id="kidlisp" sandbox="allow-scripts allow-same-origin allow-modals allow-popups allow-popups-to-escape-sandbox" allow="clipboard-write; clipboard-read" src="${iframeProtocol}${iframeUrl}/kidlisp.com" border="none"></iframe>
+    </body>
+    </html>`;
 }
 
 export { activate, AestheticViewProvider };
