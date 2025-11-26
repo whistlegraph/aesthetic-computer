@@ -2203,191 +2203,156 @@
     
     // Mobile header interactions - tap to toggle, drag to resize
     function setupMobileHeaders() {
-      const panels = [
-        { id: 'editor-panel', headerClass: '.editor-header', defaultHeight: 250, showIndicator: false },
-        { id: 'preview-panel', headerClass: '.docs-header', defaultHeight: 300, showIndicator: true },
-        { id: 'console-panel', headerClass: '.docs-header', defaultHeight: 150, showIndicator: true },
-        { id: 'reference-panel', headerClass: '.docs-header', defaultHeight: 200, showIndicator: true }
-      ];
-      
-      const mainSplit = document.getElementById('main-split');
-      if (!mainSplit) return;
-      
       const HEADER_HEIGHT = 40;
       
-      // Store last expanded heights for each panel
-      const savedHeights = {};
-      panels.forEach(p => savedHeights[p.id] = p.defaultHeight);
+      // Store state per panel using data attributes
+      const panelConfigs = [
+        { id: 'editor-panel', headerSelector: '.editor-header', defaultHeight: 250, showIndicator: false },
+        { id: 'preview-panel', headerSelector: '.docs-header', defaultHeight: 300, showIndicator: true },
+        { id: 'console-panel', headerSelector: '.docs-header', defaultHeight: 150, showIndicator: true },
+        { id: 'reference-panel', headerSelector: '.docs-header', defaultHeight: 200, showIndicator: true }
+      ];
       
-      // Track collapsed state
-      const collapsedPanels = new Set();
+      // Initially collapsed panels
+      const initiallyCollapsed = ['console-panel', 'reference-panel'];
       
-      // Initially collapse console and reference on mobile
-      collapsedPanels.add('console-panel');
-      collapsedPanels.add('reference-panel');
-      
-      // Apply initial state
-      panels.forEach(({ id, headerClass, showIndicator }) => {
-        const panel = document.getElementById(id);
+      panelConfigs.forEach(config => {
+        const panel = document.getElementById(config.id);
         if (!panel) return;
         
-        const header = panel.querySelector(headerClass);
+        const header = panel.querySelector(config.headerSelector);
         if (!header) return;
         
-        // Style header as interactive
+        // Mark this header as belonging to this panel
+        header.dataset.panelId = config.id;
+        panel.dataset.savedHeight = config.defaultHeight;
+        panel.dataset.collapsed = initiallyCollapsed.includes(config.id) ? 'true' : 'false';
+        
+        // Style header
         header.style.cursor = 'ns-resize';
         header.style.userSelect = 'none';
         header.style.webkitUserSelect = 'none';
         
-        // Add collapse indicator only for panels that should show it (not editor)
-        if (showIndicator && !header.querySelector('.mobile-collapse-indicator')) {
+        // Add indicator (not for editor)
+        if (config.showIndicator && !header.querySelector('.mobile-collapse-indicator')) {
           const indicator = document.createElement('span');
           indicator.className = 'mobile-collapse-indicator';
-          indicator.textContent = '▼';
+          indicator.textContent = panel.dataset.collapsed === 'true' ? '▶' : '▼';
           header.appendChild(indicator);
         }
         
-        // Set initial heights
-        if (collapsedPanels.has(id)) {
+        // Set initial height
+        if (panel.dataset.collapsed === 'true') {
           panel.style.height = `${HEADER_HEIGHT}px`;
           panel.style.minHeight = `${HEADER_HEIGHT}px`;
           panel.style.flex = 'none';
           panel.classList.add('panel-collapsed');
-          const indicator = panel.querySelector('.mobile-collapse-indicator');
-          if (indicator) indicator.textContent = '▶';
         } else {
-          panel.style.height = `${savedHeights[id]}px`;
+          panel.style.height = `${config.defaultHeight}px`;
           panel.style.minHeight = `${HEADER_HEIGHT}px`;
           panel.style.flex = 'none';
         }
         
-        // Drag and tap handling
-        let isDragging = false;
-        let startY = 0;
-        let startHeight = 0;
-        let hasDragged = false;
-        const DRAG_THRESHOLD = 8;
+        // Drag state (per-header)
+        let dragState = { active: false, startY: 0, startHeight: 0, moved: false };
         
-        // Touch handlers
-        header.addEventListener('touchstart', (e) => {
-          if (e.target.tagName === 'BUTTON' || e.target.closest('button')) return;
-          if (e.target.tagName === 'SELECT' || e.target.closest('select')) return;
-          
-          isDragging = true;
-          hasDragged = false;
-          startY = e.touches[0].clientY;
-          startHeight = panel.offsetHeight;
-          
-          // Disable transition during drag
+        function startDrag(clientY) {
+          dragState.active = true;
+          dragState.moved = false;
+          dragState.startY = clientY;
+          dragState.startHeight = panel.offsetHeight;
           panel.style.transition = 'none';
+        }
+        
+        function moveDrag(clientY) {
+          if (!dragState.active) return false;
+          
+          const deltaY = clientY - dragState.startY;
+          if (Math.abs(deltaY) > 8) {
+            dragState.moved = true;
+            
+            // Expand if collapsed
+            if (panel.dataset.collapsed === 'true') {
+              panel.dataset.collapsed = 'false';
+              panel.classList.remove('panel-collapsed');
+              dragState.startHeight = HEADER_HEIGHT;
+              const indicator = header.querySelector('.mobile-collapse-indicator');
+              if (indicator) indicator.textContent = '▼';
+            }
+            
+            const newHeight = Math.max(HEADER_HEIGHT, dragState.startHeight + deltaY);
+            panel.style.height = `${newHeight}px`;
+            panel.dataset.savedHeight = newHeight;
+            return true; // consumed
+          }
+          return false;
+        }
+        
+        function endDrag() {
+          if (!dragState.active) return;
+          dragState.active = false;
+          panel.style.transition = '';
+          
+          if (!dragState.moved) {
+            toggleCollapse();
+          }
+        }
+        
+        function toggleCollapse() {
+          const indicator = header.querySelector('.mobile-collapse-indicator');
+          
+          if (panel.dataset.collapsed === 'true') {
+            // Expand
+            panel.dataset.collapsed = 'false';
+            panel.classList.remove('panel-collapsed');
+            panel.style.height = `${panel.dataset.savedHeight}px`;
+            if (indicator) indicator.textContent = '▼';
+          } else {
+            // Collapse - save current height first
+            const currentHeight = panel.offsetHeight;
+            if (currentHeight > HEADER_HEIGHT) {
+              panel.dataset.savedHeight = currentHeight;
+            }
+            panel.dataset.collapsed = 'true';
+            panel.classList.add('panel-collapsed');
+            panel.style.height = `${HEADER_HEIGHT}px`;
+            if (indicator) indicator.textContent = '▶';
+          }
+        }
+        
+        // Touch events
+        header.addEventListener('touchstart', (e) => {
+          if (e.target.closest('button, select, input')) return;
+          startDrag(e.touches[0].clientY);
         }, { passive: true });
         
         header.addEventListener('touchmove', (e) => {
-          if (!isDragging) return;
-          if (e.target.tagName === 'BUTTON' || e.target.closest('button')) return;
-          
-          const currentY = e.touches[0].clientY;
-          const deltaY = currentY - startY;
-          
-          if (Math.abs(deltaY) > DRAG_THRESHOLD) {
-            hasDragged = true;
+          if (e.target.closest('button, select, input')) return;
+          if (moveDrag(e.touches[0].clientY)) {
             e.preventDefault();
-            
-            // If collapsed, expand first
-            if (collapsedPanels.has(id)) {
-              collapsedPanels.delete(id);
-              panel.classList.remove('panel-collapsed');
-              startHeight = HEADER_HEIGHT;
-            }
-            
-            // Resize panel
-            const newHeight = Math.max(HEADER_HEIGHT, startHeight + deltaY);
-            panel.style.height = `${newHeight}px`;
-            savedHeights[id] = newHeight;
           }
         }, { passive: false });
         
-        header.addEventListener('touchend', (e) => {
-          if (!isDragging) return;
-          isDragging = false;
-          
-          // Re-enable transition
-          panel.style.transition = '';
-          
-          // If didn't drag, it's a tap - toggle collapse
-          if (!hasDragged) {
-            togglePanel(id, panel);
-          }
-        });
+        header.addEventListener('touchend', () => endDrag());
+        header.addEventListener('touchcancel', () => endDrag());
         
-        // Mouse handlers for desktop testing
+        // Mouse events (for testing)
         header.addEventListener('mousedown', (e) => {
-          if (e.target.tagName === 'BUTTON' || e.target.closest('button')) return;
-          if (e.target.tagName === 'SELECT' || e.target.closest('select')) return;
+          if (e.target.closest('button, select, input')) return;
+          e.preventDefault();
+          startDrag(e.clientY);
           
-          isDragging = true;
-          hasDragged = false;
-          startY = e.clientY;
-          startHeight = panel.offsetHeight;
-          panel.style.transition = 'none';
-          
-          const onMouseMove = (e) => {
-            if (!isDragging) return;
-            
-            const deltaY = e.clientY - startY;
-            
-            if (Math.abs(deltaY) > DRAG_THRESHOLD) {
-              hasDragged = true;
-              
-              if (collapsedPanels.has(id)) {
-                collapsedPanels.delete(id);
-                panel.classList.remove('panel-collapsed');
-                startHeight = HEADER_HEIGHT;
-              }
-              
-              const newHeight = Math.max(HEADER_HEIGHT, startHeight + deltaY);
-              panel.style.height = `${newHeight}px`;
-              savedHeights[id] = newHeight;
-            }
+          const onMove = (e) => moveDrag(e.clientY);
+          const onUp = () => {
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+            endDrag();
           };
           
-          const onMouseUp = () => {
-            document.removeEventListener('mousemove', onMouseMove);
-            document.removeEventListener('mouseup', onMouseUp);
-            panel.style.transition = '';
-            
-            if (!hasDragged) {
-              togglePanel(id, panel);
-            }
-            isDragging = false;
-          };
-          
-          document.addEventListener('mousemove', onMouseMove);
-          document.addEventListener('mouseup', onMouseUp);
+          document.addEventListener('mousemove', onMove);
+          document.addEventListener('mouseup', onUp);
         });
       });
-      
-      function togglePanel(panelId, panelEl) {
-        const indicator = panelEl.querySelector('.mobile-collapse-indicator');
-        
-        if (collapsedPanels.has(panelId)) {
-          // Expand - restore saved height with animation
-          collapsedPanels.delete(panelId);
-          panelEl.classList.remove('panel-collapsed');
-          panelEl.style.height = `${savedHeights[panelId]}px`;
-          if (indicator) indicator.textContent = '▼';
-        } else {
-          // Collapse - save current height first, then animate to header-only
-          const currentHeight = panelEl.offsetHeight;
-          if (currentHeight > HEADER_HEIGHT) {
-            savedHeights[panelId] = currentHeight;
-          }
-          collapsedPanels.add(panelId);
-          panelEl.classList.add('panel-collapsed');
-          panelEl.style.height = `${HEADER_HEIGHT}px`;
-          if (indicator) indicator.textContent = '▶';
-        }
-      }
     }
     
     // Initialize on load
