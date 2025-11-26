@@ -2205,6 +2205,9 @@
     function setupMobileHeaders() {
       const HEADER_HEIGHT = 40;
       
+      // Panel order (top to bottom)
+      const panelOrder = ['editor-panel', 'preview-panel', 'console-panel', 'reference-panel'];
+      
       // Store state per panel using data attributes
       const panelConfigs = [
         { id: 'editor-panel', headerSelector: '.editor-header', defaultHeight: 250, showIndicator: false },
@@ -2216,30 +2219,13 @@
       // Initially collapsed panels
       const initiallyCollapsed = ['console-panel', 'reference-panel'];
       
+      // Initialize all panels first
       panelConfigs.forEach(config => {
         const panel = document.getElementById(config.id);
         if (!panel) return;
         
-        const header = panel.querySelector(config.headerSelector);
-        if (!header) return;
-        
-        // Mark this header as belonging to this panel
-        header.dataset.panelId = config.id;
         panel.dataset.savedHeight = config.defaultHeight;
         panel.dataset.collapsed = initiallyCollapsed.includes(config.id) ? 'true' : 'false';
-        
-        // Style header
-        header.style.cursor = 'ns-resize';
-        header.style.userSelect = 'none';
-        header.style.webkitUserSelect = 'none';
-        
-        // Add indicator (not for editor)
-        if (config.showIndicator && !header.querySelector('.mobile-collapse-indicator')) {
-          const indicator = document.createElement('span');
-          indicator.className = 'mobile-collapse-indicator';
-          indicator.textContent = panel.dataset.collapsed === 'true' ? '▶' : '▼';
-          header.appendChild(indicator);
-        }
         
         // Set initial height
         if (panel.dataset.collapsed === 'true') {
@@ -2252,16 +2238,51 @@
           panel.style.minHeight = `${HEADER_HEIGHT}px`;
           panel.style.flex = 'none';
         }
+      });
+      
+      // Now set up header interactions
+      panelConfigs.forEach((config, index) => {
+        const panel = document.getElementById(config.id);
+        if (!panel) return;
         
-        // Drag state (per-header)
-        let dragState = { active: false, startY: 0, startHeight: 0, moved: false };
+        const header = panel.querySelector(config.headerSelector);
+        if (!header) return;
+        
+        // Find the panel above this one
+        const abovePanelId = index > 0 ? panelOrder[index - 1] : null;
+        const abovePanel = abovePanelId ? document.getElementById(abovePanelId) : null;
+        
+        // Style header
+        header.style.cursor = abovePanel ? 'ns-resize' : 'pointer';
+        header.style.userSelect = 'none';
+        header.style.webkitUserSelect = 'none';
+        
+        // Add indicator (not for editor)
+        if (config.showIndicator && !header.querySelector('.mobile-collapse-indicator')) {
+          const indicator = document.createElement('span');
+          indicator.className = 'mobile-collapse-indicator';
+          indicator.textContent = panel.dataset.collapsed === 'true' ? '▶' : '▼';
+          header.appendChild(indicator);
+        }
+        
+        // Drag state
+        let dragState = { 
+          active: false, 
+          startY: 0, 
+          startAboveHeight: 0,
+          startCurrentHeight: 0,
+          moved: false 
+        };
         
         function startDrag(clientY) {
           dragState.active = true;
           dragState.moved = false;
           dragState.startY = clientY;
-          dragState.startHeight = panel.offsetHeight;
+          dragState.startCurrentHeight = panel.offsetHeight;
+          dragState.startAboveHeight = abovePanel ? abovePanel.offsetHeight : 0;
+          
           panel.style.transition = 'none';
+          if (abovePanel) abovePanel.style.transition = 'none';
         }
         
         function moveDrag(clientY) {
@@ -2271,19 +2292,37 @@
           if (Math.abs(deltaY) > 8) {
             dragState.moved = true;
             
-            // Expand if collapsed
-            if (panel.dataset.collapsed === 'true') {
-              panel.dataset.collapsed = 'false';
-              panel.classList.remove('panel-collapsed');
-              dragState.startHeight = HEADER_HEIGHT;
-              const indicator = header.querySelector('.mobile-collapse-indicator');
-              if (indicator) indicator.textContent = '▼';
+            if (abovePanel) {
+              // Dragging resizes the panel ABOVE (grows/shrinks with drag direction)
+              // and this panel inversely
+              const newAboveHeight = Math.max(HEADER_HEIGHT, dragState.startAboveHeight + deltaY);
+              const newCurrentHeight = Math.max(HEADER_HEIGHT, dragState.startCurrentHeight - deltaY);
+              
+              // Expand panels if collapsed
+              if (abovePanel.dataset.collapsed === 'true' && deltaY > 0) {
+                abovePanel.dataset.collapsed = 'false';
+                abovePanel.classList.remove('panel-collapsed');
+              }
+              if (panel.dataset.collapsed === 'true' && deltaY < 0) {
+                panel.dataset.collapsed = 'false';
+                panel.classList.remove('panel-collapsed');
+                const indicator = header.querySelector('.mobile-collapse-indicator');
+                if (indicator) indicator.textContent = '▼';
+              }
+              
+              abovePanel.style.height = `${newAboveHeight}px`;
+              abovePanel.dataset.savedHeight = newAboveHeight;
+              
+              panel.style.height = `${newCurrentHeight}px`;
+              panel.dataset.savedHeight = newCurrentHeight;
+            } else {
+              // Top panel (editor) - just resize itself
+              const newHeight = Math.max(HEADER_HEIGHT, dragState.startCurrentHeight + deltaY);
+              panel.style.height = `${newHeight}px`;
+              panel.dataset.savedHeight = newHeight;
             }
             
-            const newHeight = Math.max(HEADER_HEIGHT, dragState.startHeight + deltaY);
-            panel.style.height = `${newHeight}px`;
-            panel.dataset.savedHeight = newHeight;
-            return true; // consumed
+            return true;
           }
           return false;
         }
@@ -2292,6 +2331,7 @@
           if (!dragState.active) return;
           dragState.active = false;
           panel.style.transition = '';
+          if (abovePanel) abovePanel.style.transition = '';
           
           if (!dragState.moved) {
             toggleCollapse();
