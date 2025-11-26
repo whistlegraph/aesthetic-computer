@@ -12,170 +12,212 @@
       box-sizing: border-box;
     }
     body {
-      font-family: 'Courier New', monospace;
-      background: #1a1a1a;
-      color: #ccc;
-      line-height: 1.7;
-      padding: 2rem;
+      font-family: 'SF Mono', 'Menlo', 'Monaco', 'Courier New', monospace;
+      background: #0d0d0d;
+      color: #e8e8e8;
+      line-height: 1.75;
+      padding: 2.5rem;
+      font-size: 14px;
+      letter-spacing: 0.01em;
     }
     .container {
-      max-width: 900px;
+      max-width: 920px;
       margin: 0 auto;
-      background: #242424;
-      border: 1px solid #333;
-      border-radius: 4px;
-      padding: 2rem;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+      background: #151515;
+      border: 1px solid #2a2a2a;
+      border-radius: 6px;
+      padding: 2.5rem;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.6);
     }
     header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 2rem;
-      padding-bottom: 1rem;
-      border-bottom: 1px solid #333;
+      margin-bottom: 2.5rem;
+      padding-bottom: 1.25rem;
+      border-bottom: 1px solid #2a2a2a;
     }
     header h1 {
-      font-size: 1.3rem;
+      font-size: 1.4rem;
       color: #fff;
+      font-weight: 600;
+      letter-spacing: -0.02em;
     }
     .platform-tag {
       display: inline-block;
-      padding: 0.2rem 0.5rem;
-      margin-right: 0.5rem;
-      background: #333;
-      border: 1px solid #f0f;
-      border-radius: 3px;
+      padding: 0.25rem 0.6rem;
+      margin-right: 0.6rem;
+      background: #1a1a1a;
+      border: 1px solid #ff00ff;
+      border-radius: 4px;
       font-size: 0.75rem;
-      font-weight: bold;
-      color: #f0f;
+      font-weight: 700;
+      color: #ff00ff;
+      letter-spacing: 0.03em;
     }
     .back-link {
       color: #666;
       text-decoration: none;
-      font-size: 0.9rem;
+      font-size: 0.875rem;
+      transition: color 0.15s;
     }
     .back-link:hover {
-      color: #fa0;
+      color: #ffaa00;
+    }
+    
+    /* TODO Banner */
+    .todo-banner {
+      background: linear-gradient(135deg, #1a0a00 0%, #0d0500 100%);
+      border: 2px solid #ff5500;
+      border-radius: 6px;
+      padding: 1.75rem 2rem;
+      margin-bottom: 2rem;
+      text-align: center;
+    }
+    .todo-banner h2 {
+      font-size: 2rem;
+      font-weight: 800;
+      color: #ff5500;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      margin-bottom: 0.5rem;
+      text-shadow: 0 0 20px rgba(255,85,0,0.3);
+    }
+    .todo-banner p {
+      color: #cc8855;
+      font-size: 0.95rem;
+      letter-spacing: 0.02em;
     }
     
     /* Status Banner */
     .status-banner {
-      padding: 1rem 1.25rem;
+      padding: 1.25rem 1.5rem;
       margin-bottom: 2rem;
       border-radius: 4px;
-      font-weight: bold;
-      font-size: 0.95rem;
+      font-weight: 600;
+      font-size: 0.9rem;
+      letter-spacing: 0.01em;
     }
     .status-warning {
-      background: linear-gradient(135deg, #2a2000 0%, #1a1500 100%);
-      border-left: 4px solid #fa0;
-      color: #fa0;
+      background: linear-gradient(135deg, #1a1200 0%, #0d0900 100%);
+      border-left: 4px solid #ffaa00;
+      color: #ffcc44;
     }
     
     /* Sections */
     section {
-      background: #2a2a2a;
-      border: 1px solid #3a3a3a;
-      border-radius: 4px;
-      margin-bottom: 1.5rem;
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 6px;
+      margin-bottom: 1.75rem;
     }
     section h2 {
       font-size: 1rem;
-      padding: 0.85rem 1.25rem;
-      background: #303030;
-      border-bottom: 1px solid #3a3a3a;
-      color: #fa0;
+      font-weight: 600;
+      padding: 1rem 1.5rem;
+      background: #1e1e1e;
+      border-bottom: 1px solid #2a2a2a;
+      color: #ffaa00;
+      letter-spacing: 0.02em;
     }
     .content {
-      padding: 1.25rem;
+      padding: 1.5rem;
     }
     
     /* Meta Grid */
     .meta-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 0.75rem;
+      gap: 1rem;
     }
     .meta-item {
-      background: #222;
-      padding: 0.6rem 0.85rem;
-      border-radius: 3px;
-      border-left: 2px solid #444;
+      background: #141414;
+      padding: 0.85rem 1rem;
+      border-radius: 4px;
+      border-left: 3px solid #333;
     }
     .meta-label {
       color: #666;
       font-size: 0.7rem;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.08em;
+      margin-bottom: 0.35rem;
     }
     .meta-value {
       color: #fff;
       font-size: 0.9rem;
+      font-weight: 500;
     }
     
     /* Priority Fix Steps */
     .fix-step {
-      background: #222;
-      border: 1px solid #333;
-      border-radius: 4px;
-      margin-bottom: 1rem;
+      background: #141414;
+      border: 1px solid #252525;
+      border-radius: 6px;
+      margin-bottom: 1.25rem;
       overflow: hidden;
     }
     .fix-header {
       display: flex;
       align-items: center;
-      padding: 0.85rem 1rem;
-      background: #282828;
-      border-bottom: 1px solid #333;
+      padding: 1rem 1.25rem;
+      background: #181818;
+      border-bottom: 1px solid #252525;
+      gap: 0.85rem;
     }
     .fix-priority {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: 2rem;
-      height: 2rem;
+      width: 2.25rem;
+      height: 2.25rem;
       border-radius: 50%;
-      font-weight: bold;
-      font-size: 0.9rem;
-      margin-right: 0.75rem;
+      font-weight: 700;
+      font-size: 0.95rem;
       flex-shrink: 0;
     }
-    .priority-1 { background: #500; color: #f88; border: 2px solid #f00; }
-    .priority-2 { background: #530; color: #fa8; border: 2px solid #fa0; }
-    .priority-3 { background: #550; color: #ff8; border: 2px solid #ff0; }
-    .priority-4 { background: #353; color: #8f8; border: 2px solid #0f0; }
+    .priority-1 { background: #2a0a0a; color: #ff6666; border: 2px solid #ff3333; }
+    .priority-2 { background: #2a1a0a; color: #ffaa66; border: 2px solid #ff8800; }
+    .priority-3 { background: #2a2a0a; color: #ffff66; border: 2px solid #cccc00; }
+    .priority-4 { background: #0a2a0a; color: #66ff66; border: 2px solid #00cc00; }
     
     .fix-title {
       color: #fff;
-      font-weight: bold;
+      font-weight: 600;
       font-size: 0.95rem;
+      letter-spacing: 0.01em;
     }
     .fix-severity {
       margin-left: auto;
-      font-size: 0.7rem;
+      font-size: 0.65rem;
       text-transform: uppercase;
-      padding: 0.2rem 0.5rem;
-      border-radius: 3px;
-      font-weight: bold;
+      padding: 0.3rem 0.65rem;
+      border-radius: 4px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
     }
-    .severity-critical { background: #400; color: #f66; }
-    .severity-high { background: #430; color: #fa6; }
-    .severity-medium { background: #440; color: #ff6; }
-    .severity-low { background: #343; color: #6f6; }
+    .severity-critical { background: #2a0a0a; color: #ff5555; border: 1px solid #ff3333; }
+    .severity-high { background: #2a1a0a; color: #ffaa55; border: 1px solid #ff8800; }
+    .severity-medium { background: #2a2a0a; color: #dddd55; border: 1px solid #aaaa00; }
+    .severity-low { background: #0a2a0a; color: #55dd55; border: 1px solid #00aa00; }
     
     .fix-body {
-      padding: 1rem;
+      padding: 1.5rem;
     }
     .fix-body p {
-      margin-bottom: 0.75rem;
+      margin-bottom: 1rem;
       color: #aaa;
+      line-height: 1.8;
     }
     .fix-body h4 {
       color: #888;
-      font-size: 0.8rem;
+      font-size: 0.75rem;
+      font-weight: 600;
       text-transform: uppercase;
-      margin: 1rem 0 0.5rem;
+      letter-spacing: 0.1em;
+      margin: 1.5rem 0 0.85rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid #222;
     }
     .fix-body h4:first-child {
       margin-top: 0;
@@ -183,50 +225,70 @@
     
     /* Steps List */
     ol.steps {
-      margin-left: 1.25rem;
-      color: #bbb;
+      margin-left: 0;
+      padding-left: 1.75rem;
+      color: #ccc;
     }
     ol.steps li {
-      margin-bottom: 0.5rem;
-      padding-left: 0.25rem;
+      margin-bottom: 0.85rem;
+      padding-left: 0.5rem;
+      line-height: 1.8;
     }
     ol.steps li::marker {
-      color: #fa0;
-      font-weight: bold;
+      color: #ffaa00;
+      font-weight: 700;
     }
     
     /* Code Blocks */
     pre {
-      background: #1a1a1a;
-      padding: 0.85rem 1rem;
-      border-radius: 3px;
+      background: #0d0d0d;
+      padding: 1rem 1.25rem;
+      border-radius: 4px;
       overflow-x: auto;
       font-size: 0.8rem;
-      line-height: 1.5;
-      border: 1px solid #333;
-      margin: 0.5rem 0;
+      line-height: 1.65;
+      border: 1px solid #252525;
+      margin: 0.75rem 0;
     }
     code {
-      color: #ddd;
+      color: #e0e0e0;
+      font-family: inherit;
     }
-    .error { color: #f88; }
-    .warning { color: #fa8; }
-    .path { color: #8af; }
-    .setting { color: #af8; }
+    .error { color: #ff6b6b; font-weight: 500; }
+    .warning { color: #ffaa55; font-weight: 500; }
+    .path { color: #66b3ff; }
+    .setting { color: #88dd88; }
+    
+    /* Inline code highlight */
+    .fix-body code,
+    ol.steps code {
+      background: #0d0d0d;
+      padding: 0.2em 0.45em;
+      border-radius: 3px;
+      border: 1px solid #252525;
+      font-size: 0.85em;
+    }
     
     /* Checklist */
     ul.checklist {
       list-style: none;
+      padding: 0;
     }
     ul.checklist li {
-      padding: 0.35rem 0;
-      padding-left: 1.75rem;
+      padding: 0.6rem 0;
+      padding-left: 2rem;
       position: relative;
+      border-bottom: 1px solid #1a1a1a;
+      line-height: 1.6;
+    }
+    ul.checklist li:last-child {
+      border-bottom: none;
     }
     ul.checklist li::before {
       position: absolute;
       left: 0;
-      width: 1.25rem;
+      width: 1.5rem;
+      font-size: 0.9rem;
     }
     ul.checklist li.done::before { content: "✅"; }
     ul.checklist li.fail::before { content: "❌"; }
@@ -236,68 +298,84 @@
     .two-col {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 1.25rem;
+      gap: 1.75rem;
+    }
+    .two-col h4 {
+      margin-bottom: 0.75rem !important;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid #252525;
     }
     @media (max-width: 600px) {
       .two-col { grid-template-columns: 1fr; }
-      body { padding: 1rem; }
-      .container { padding: 1rem; }
+      body { padding: 1.25rem; }
+      .container { padding: 1.25rem; }
+      .todo-banner h2 { font-size: 1.5rem; }
     }
     
     /* Commands */
     .cmd {
-      background: #1a1a1a;
-      padding: 0.75rem 1rem;
-      margin: 0.5rem 0;
-      border-radius: 3px;
+      background: #0d0d0d;
+      padding: 1rem 1.25rem;
+      margin: 0.75rem 0;
+      border-radius: 4px;
       font-size: 0.8rem;
-      border-left: 2px solid #fa0;
+      border-left: 3px solid #ffaa00;
     }
     .cmd-label {
       color: #666;
       font-size: 0.7rem;
-      margin-bottom: 0.25rem;
+      font-weight: 600;
+      margin-bottom: 0.4rem;
       text-transform: uppercase;
+      letter-spacing: 0.08em;
     }
     .cmd code {
       color: #fff;
+      background: none;
+      border: none;
+      padding: 0;
     }
     
     /* Links */
     a {
-      color: #fa0;
+      color: #ffaa00;
       text-decoration: none;
+      transition: color 0.15s;
     }
     a:hover {
+      color: #ffcc44;
       text-decoration: underline;
     }
     
     /* Footer */
     footer {
       text-align: center;
-      padding: 1.5rem;
+      padding: 1.75rem;
       color: #555;
       font-size: 0.8rem;
-      border-top: 1px solid #333;
-      margin-top: 1rem;
+      border-top: 1px solid #252525;
+      margin-top: 1.25rem;
+      letter-spacing: 0.02em;
     }
     
     /* Summary Box */
     .summary {
-      background: #222;
-      border: 1px solid #333;
-      border-radius: 4px;
-      padding: 1rem;
-      margin-bottom: 1.5rem;
+      background: #141414;
+      border: 1px solid #252525;
+      border-radius: 6px;
+      padding: 1.5rem;
+      margin-bottom: 1.75rem;
     }
     .summary-title {
-      color: #fa0;
-      font-weight: bold;
-      margin-bottom: 0.5rem;
+      color: #ffaa00;
+      font-weight: 600;
+      margin-bottom: 0.75rem;
+      font-size: 0.95rem;
     }
     .summary-text {
       color: #999;
       font-size: 0.9rem;
+      line-height: 1.85;
     }
   </style>
 </head>
@@ -308,6 +386,11 @@
       <a href="/" class="back-link">← Back to Builds</a>
     </header>
 
+    <div class="todo-banner">
+      <h2>🔧 TODO in Unreal Engine</h2>
+      <p>Fix post-process shaders to restore correct iOS rendering</p>
+    </div>
+
     <div class="status-banner status-warning">
       ⚠️ BUILD RUNS BUT DISPLAYS INCORRECTLY — Post-process shaders failing to compile for iOS Metal
     </div>
@@ -316,7 +399,7 @@
       <div class="summary-title">📋 Quick Summary</div>
       <div class="summary-text">
         The iOS build packages successfully and launches on device, but the screen appears broken (gray/incorrect rendering). 
-        Root cause: Two post-process material shaders (M_FishHealth_PP, CelShadePP_Mat) are not compiling for Metal ES3.1, 
+        Root cause: Two post-process material shaders (<code>M_FishHealth_PP</code>, <code>CelShadePP_Mat</code>) are not compiling for Metal ES3.1, 
         causing the engine to use fallback materials. Follow the prioritized steps below to fix in Unreal Engine.
       </div>
     </div>
