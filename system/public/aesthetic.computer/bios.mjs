@@ -1785,7 +1785,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     });
 
     // Notify pieces of initial AudioContext state
-    console.log("🎵 BIOS sending initial AudioContext state:", { state: audioContext.state, hasAudio: true });
+    if (!window.acPACK_MODE) {
+      console.log("🎵 BIOS sending initial AudioContext state:", { state: audioContext.state, hasAudio: true });
+    }
     acDISK_SEND({ 
       type: "tape:audio-context-state", 
       content: { 
@@ -9852,7 +9854,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             const shouldShowCursor = timeSinceMove < 2000;
             
             if (shouldShowCursor && document.body.style.cursor === 'none') {
-              document.body.style.cursor = "url('ac/cursors/viewpoint.svg') 12 12, auto";
+              // Use simple CSS cursor in PACK mode to avoid SVG 404
+              document.body.style.cursor = 'crosshair';
             } else if (!shouldShowCursor && document.body.style.cursor !== 'none') {
               document.body.style.cursor = 'none';
             }
@@ -15984,6 +15987,73 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   async function processDroppedFile(file) {
     const ext = extension(file.name);
     console.log("💧 Processing:", file.name, ext);
+    
+    // 📦 KidLisp bundle (.lisp.html) - extract embedded source and run it
+    if (file.name.endsWith('.lisp.html')) {
+      console.log("📦 Detected KidLisp bundle:", file.name);
+      const reader = new FileReader();
+      reader.onload = async function (e) {
+        try {
+          let htmlContent = e.target.result;
+          
+          // Check if it's gzip compressed (has DecompressionStream)
+          if (htmlContent.includes("DecompressionStream('gzip')")) {
+            // Extract base64 gzip data and decompress
+            const base64Match = htmlContent.match(/base64,([A-Za-z0-9+/=]+)/);
+            if (base64Match) {
+              const base64Data = base64Match[1];
+              const binaryString = atob(base64Data);
+              const bytes = new Uint8Array(binaryString.length);
+              for (let i = 0; i < binaryString.length; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+              }
+              // Decompress gzip
+              const blob = new Blob([bytes]);
+              const ds = new DecompressionStream('gzip');
+              const decompressedStream = blob.stream().pipeThrough(ds);
+              htmlContent = await new Response(decompressedStream).text();
+            }
+          }
+          
+          // Extract KidLisp source from the decompressed HTML
+          // Look for: window.EMBEDDED_KIDLISP_SOURCE = "..."
+          // or: window.acKIDLISP_SOURCE = "..."
+          let source = null;
+          const embeddedMatch = htmlContent.match(/window\.EMBEDDED_KIDLISP_SOURCE\s*=\s*"([^"]+)"/);
+          const acMatch = htmlContent.match(/window\.acKIDLISP_SOURCE\s*=\s*"([^"]+)"/);
+          
+          if (embeddedMatch) {
+            source = embeddedMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"');
+          } else if (acMatch) {
+            source = acMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"');
+          }
+          
+          if (source) {
+            // Extract piece name from filename: $piece-@author-timestamp.lisp.html
+            // Keep the $ prefix for KidLisp pieces
+            const nameMatch = file.name.match(/^(\$[^-]+)/);
+            const pieceName = nameMatch ? nameMatch[1] : file.name.replace('.lisp.html', '');
+            
+            console.log("📦 Extracted KidLisp source from bundle:", pieceName, source.substring(0, 50) + "...");
+            send({
+              type: "dropped:piece",
+              content: {
+                name: pieceName,
+                source: source,
+                isKidLisp: true,
+                fromBundle: true
+              },
+            });
+          } else {
+            console.warn("📦 Could not find KidLisp source in bundle");
+          }
+        } catch (err) {
+          console.error("📦 Error processing KidLisp bundle:", err);
+        }
+      };
+      reader.readAsText(file);
+      return;
+    }
     
     // 🗒️ Source code file.
     if (ext === "mjs" || ext === "lisp") {
