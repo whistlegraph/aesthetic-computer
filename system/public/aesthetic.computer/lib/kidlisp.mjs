@@ -9,7 +9,7 @@ import { parseMelody, noteToTone } from "./melody-parser.mjs";
 import { qrcode as qr } from "../dep/@akamfoad/qr/qr.mjs";
 import { cssColors, rainbow, zebra, resetZebraCache, resetRainbowCache, staticColorMap } from "./num.mjs";
 import { setFadeAlpha, clearFadeAlpha } from "./fade-state.mjs";
-import { checkPackMode } from "./pack-mode.mjs";
+import { checkPackMode, getPackMode } from "./pack-mode.mjs";
 
 /* #region 🤖 LLM API SPECIFICATION
    This section provides a structured specification for Large Language Models
@@ -2998,7 +2998,7 @@ class KidLisp {
         // This can be overridden later by calling (fps N) in the KidLisp code
         if (fps && typeof fps === "function") {
           fps(this.targetFps);
-          if (!window.acPACK_MODE) {
+          if (!getPackMode()) {
             console.log(`🎬 KidLisp piece default FPS set to: ${this.targetFps}`);
           }
         }
