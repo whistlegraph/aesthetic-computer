@@ -7200,8 +7200,9 @@ async function load(
 
     // 📤 Send ready signal to parent window (e.g., kidlisp.com editor)
     // Note: disk.mjs runs in a Web Worker, so window may not exist
+    // Use getPackMode() which works in worker context (set via init-from-bios)
     const hasWindow = typeof window !== 'undefined';
-    const packMode = hasWindow && window.acPACK_MODE;
+    const packMode = getPackMode();
     
     if (hasWindow && !packMode) {
       console.log('🔍 hotSwap: checking if we can send ready message...');
@@ -8478,7 +8479,7 @@ async function makeFrame({ data: { type, content } }) {
         progress: type === "recorder:transcode-progress" ? content : undefined
       };
       try {
-        if (!window.acPACK_MODE) console.log("📼 ✅ Calling receive directly for export event:", type);
+        if (!getPackMode()) console.log("📼 ✅ Calling receive directly for export event:", type);
         receive(event);
         return; // Successfully delivered to piece
       } catch (e) {
@@ -8486,7 +8487,7 @@ async function makeFrame({ data: { type, content } }) {
       }
     } else {
       // Log why we're NOT calling receive
-      if (!window.acPACK_MODE) {
+      if (!getPackMode()) {
         const reasons = [];
         if (typeof receive !== "function") reasons.push("receive not a function");
         if (!booted) reasons.push("not booted");
@@ -8503,7 +8504,7 @@ async function makeFrame({ data: { type, content } }) {
       progress: type === "recorder:transcode-progress" ? content : undefined
     };
     pendingExportEvents.push(event);
-    if (!window.acPACK_MODE) {
+    if (!getPackMode()) {
       console.log("📼 📥 Queued export event for later delivery:", type, "queue size:", pendingExportEvents.length);
     }
     return;
