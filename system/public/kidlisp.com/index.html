@@ -2221,11 +2221,18 @@
       // Initially collapsed panels
       const initiallyCollapsed = ['console-panel', 'reference-panel'];
       
-      // Disable transitions on all panels during drag
-      function setAllTransitions(enabled) {
+      // Get iframe to disable during drag
+      const previewIframe = document.getElementById('preview-iframe');
+      
+      // Disable transitions and iframe pointer events during drag
+      function setDragMode(dragging) {
         panels.forEach(p => {
-          if (p) p.style.transition = enabled ? '' : 'none';
+          if (p) p.style.transition = dragging ? 'none' : '';
         });
+        // Disable iframe interaction during drag so it doesn't steal events
+        if (previewIframe) {
+          previewIframe.style.pointerEvents = dragging ? 'none' : '';
+        }
       }
       
       // Initialize all panels first
@@ -2303,7 +2310,7 @@
             if (Math.abs(deltaY) > DRAG_THRESHOLD) {
               dragState.dragging = true;
               dragState.pending = false;
-              setAllTransitions(false);
+              setDragMode(true);
             } else {
               return false; // Not dragging yet
             }
@@ -2352,7 +2359,7 @@
           
           dragState.pending = false;
           dragState.dragging = false;
-          setAllTransitions(true);
+          setDragMode(false);
           
           // Only toggle if it was a clean tap (pending but never started dragging)
           if (wasPending && !wasDragging) {
