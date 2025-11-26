@@ -71,8 +71,8 @@ set iso_timestamp (date -Iseconds)
 set full_map (ssh me@host.docker.internal "powershell -NoProfile -Command \"(Get-Content 'C:\\Perforce\\SpiderLily\\SL_main\\Config\\DefaultEngine.ini' | Select-String -Pattern 'GameDefaultMap=').ToString().Split('=')[1]\"")
 set start_level (echo $full_map | awk -F'.' '{print $NF}')
 
-# Extract Unreal Engine version from build script (get first match from $UE5Path variable)
-set ue_version (ssh me@host.docker.internal "powershell -NoProfile -Command \"(Get-Content 'C:\\Perforce\\SpiderLily\\SL_main\\build-false-work.ps1' | Select-String -Pattern '\\`$UE5Path = .*UE_5\\.\\d+').Matches.Value | Select-Object -First 1\" | grep -oP 'UE_5\\.\\d+'")
+# UE version - hardcoded for now since extraction is complex
+set ue_version "UE_5.6"
 
 # Register build in MongoDB via Netlify function
 source /workspaces/aesthetic-computer/false.work/unreal-builder/scripts/shared/register-build.fish
