@@ -4,6 +4,7 @@
   <title>iOS Build Status - SpiderLily | builds.false.work</title>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <style>
     * {
       margin: 0;
@@ -12,26 +13,42 @@
     }
     body {
       font-family: 'Courier New', monospace;
-      background: #0a0a0a;
-      color: #e0e0e0;
-      line-height: 1.6;
-      padding: 1.5rem;
+      background: #1a1a1a;
+      color: #ccc;
+      line-height: 1.7;
+      padding: 2rem;
     }
     .container {
-      max-width: 1000px;
+      max-width: 900px;
       margin: 0 auto;
+      background: #242424;
+      border: 1px solid #333;
+      border-radius: 4px;
+      padding: 2rem;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
     }
     header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 1.5rem;
+      margin-bottom: 2rem;
       padding-bottom: 1rem;
       border-bottom: 1px solid #333;
     }
-    h1 {
-      font-size: 1.4rem;
-      color: #0f0;
+    header h1 {
+      font-size: 1.3rem;
+      color: #fff;
+    }
+    .platform-tag {
+      display: inline-block;
+      padding: 0.2rem 0.5rem;
+      margin-right: 0.5rem;
+      background: #333;
+      border: 1px solid #f0f;
+      border-radius: 3px;
+      font-size: 0.75rem;
+      font-weight: bold;
+      color: #f0f;
     }
     .back-link {
       color: #666;
@@ -39,233 +56,273 @@
       font-size: 0.9rem;
     }
     .back-link:hover {
-      color: #0f0;
+      color: #fa0;
     }
+    
+    /* Status Banner */
     .status-banner {
-      padding: 1rem;
-      margin-bottom: 1.5rem;
+      padding: 1rem 1.25rem;
+      margin-bottom: 2rem;
       border-radius: 4px;
       font-weight: bold;
-    }
-    .status-blocker {
-      background: linear-gradient(90deg, #300 0%, #200 100%);
-      border-left: 4px solid #f00;
-      color: #f88;
+      font-size: 0.95rem;
     }
     .status-warning {
-      background: linear-gradient(90deg, #330 0%, #220 100%);
-      border-left: 4px solid #ff0;
-      color: #ff8;
+      background: linear-gradient(135deg, #2a2000 0%, #1a1500 100%);
+      border-left: 4px solid #fa0;
+      color: #fa0;
     }
-    .status-ok {
-      background: linear-gradient(90deg, #030 0%, #020 100%);
-      border-left: 4px solid #0f0;
-      color: #8f8;
-    }
+    
+    /* Sections */
     section {
-      background: #111;
-      border: 1px solid #222;
+      background: #2a2a2a;
+      border: 1px solid #3a3a3a;
       border-radius: 4px;
       margin-bottom: 1.5rem;
-      overflow: hidden;
     }
     section h2 {
       font-size: 1rem;
-      padding: 0.75rem 1rem;
-      background: #1a1a1a;
-      border-bottom: 1px solid #222;
-      color: #0d0;
-    }
-    section h2 .emoji {
-      margin-right: 0.5rem;
+      padding: 0.85rem 1.25rem;
+      background: #303030;
+      border-bottom: 1px solid #3a3a3a;
+      color: #fa0;
     }
     .content {
-      padding: 1rem;
+      padding: 1.25rem;
     }
+    
+    /* Meta Grid */
     .meta-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
       gap: 0.75rem;
     }
     .meta-item {
-      background: #0a0a0a;
-      padding: 0.5rem 0.75rem;
+      background: #222;
+      padding: 0.6rem 0.85rem;
       border-radius: 3px;
-      border-left: 2px solid #333;
+      border-left: 2px solid #444;
     }
     .meta-label {
       color: #666;
-      font-size: 0.75rem;
+      font-size: 0.7rem;
       text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
     .meta-value {
-      color: #0f0;
+      color: #fff;
       font-size: 0.9rem;
     }
-    pre {
-      background: #050505;
+    
+    /* Priority Fix Steps */
+    .fix-step {
+      background: #222;
+      border: 1px solid #333;
+      border-radius: 4px;
+      margin-bottom: 1rem;
+      overflow: hidden;
+    }
+    .fix-header {
+      display: flex;
+      align-items: center;
+      padding: 0.85rem 1rem;
+      background: #282828;
+      border-bottom: 1px solid #333;
+    }
+    .fix-priority {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 2rem;
+      height: 2rem;
+      border-radius: 50%;
+      font-weight: bold;
+      font-size: 0.9rem;
+      margin-right: 0.75rem;
+      flex-shrink: 0;
+    }
+    .priority-1 { background: #500; color: #f88; border: 2px solid #f00; }
+    .priority-2 { background: #530; color: #fa8; border: 2px solid #fa0; }
+    .priority-3 { background: #550; color: #ff8; border: 2px solid #ff0; }
+    .priority-4 { background: #353; color: #8f8; border: 2px solid #0f0; }
+    
+    .fix-title {
+      color: #fff;
+      font-weight: bold;
+      font-size: 0.95rem;
+    }
+    .fix-severity {
+      margin-left: auto;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      padding: 0.2rem 0.5rem;
+      border-radius: 3px;
+      font-weight: bold;
+    }
+    .severity-critical { background: #400; color: #f66; }
+    .severity-high { background: #430; color: #fa6; }
+    .severity-medium { background: #440; color: #ff6; }
+    .severity-low { background: #343; color: #6f6; }
+    
+    .fix-body {
       padding: 1rem;
+    }
+    .fix-body p {
+      margin-bottom: 0.75rem;
+      color: #aaa;
+    }
+    .fix-body h4 {
+      color: #888;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      margin: 1rem 0 0.5rem;
+    }
+    .fix-body h4:first-child {
+      margin-top: 0;
+    }
+    
+    /* Steps List */
+    ol.steps {
+      margin-left: 1.25rem;
+      color: #bbb;
+    }
+    ol.steps li {
+      margin-bottom: 0.5rem;
+      padding-left: 0.25rem;
+    }
+    ol.steps li::marker {
+      color: #fa0;
+      font-weight: bold;
+    }
+    
+    /* Code Blocks */
+    pre {
+      background: #1a1a1a;
+      padding: 0.85rem 1rem;
       border-radius: 3px;
       overflow-x: auto;
       font-size: 0.8rem;
       line-height: 1.5;
+      border: 1px solid #333;
+      margin: 0.5rem 0;
     }
     code {
-      color: #8f8;
+      color: #ddd;
     }
-    .error-log {
-      color: #f66;
-    }
-    .warning-log {
-      color: #ff8;
-    }
-    .success-log {
-      color: #8f8;
-    }
+    .error { color: #f88; }
+    .warning { color: #fa8; }
+    .path { color: #8af; }
+    .setting { color: #af8; }
+    
+    /* Checklist */
     ul.checklist {
       list-style: none;
     }
     ul.checklist li {
-      padding: 0.4rem 0;
-      padding-left: 1.5rem;
+      padding: 0.35rem 0;
+      padding-left: 1.75rem;
       position: relative;
     }
     ul.checklist li::before {
       position: absolute;
       left: 0;
-      width: 1.2rem;
+      width: 1.25rem;
     }
-    ul.checklist li.done::before {
-      content: "✅";
+    ul.checklist li.done::before { content: "✅"; }
+    ul.checklist li.fail::before { content: "❌"; }
+    ul.checklist li.pending::before { content: "🔄"; }
+    
+    /* Two Column */
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.25rem;
     }
-    ul.checklist li.fail::before {
-      content: "❌";
+    @media (max-width: 600px) {
+      .two-col { grid-template-columns: 1fr; }
+      body { padding: 1rem; }
+      .container { padding: 1rem; }
     }
-    ul.checklist li.pending::before {
-      content: "🔄";
-    }
-    .build-history {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.85rem;
-    }
-    .build-history th,
-    .build-history td {
-      padding: 0.5rem 0.75rem;
-      text-align: left;
-      border-bottom: 1px solid #222;
-    }
-    .build-history th {
-      color: #666;
-      font-weight: normal;
-      text-transform: uppercase;
-      font-size: 0.7rem;
-    }
-    .build-history tr:hover {
-      background: #151515;
-    }
-    .tag {
-      display: inline-block;
-      padding: 0.15rem 0.5rem;
-      border-radius: 3px;
-      font-size: 0.7rem;
-      text-transform: uppercase;
-    }
-    .tag-success {
-      background: #052;
-      color: #0f0;
-    }
-    .tag-fail {
-      background: #520;
-      color: #f66;
-    }
-    .tag-pending {
-      background: #330;
-      color: #ff8;
-    }
-    .tag-blocked {
-      background: #402;
-      color: #f8f;
-    }
+    
+    /* Commands */
     .cmd {
-      background: #0a0a0a;
+      background: #1a1a1a;
       padding: 0.75rem 1rem;
       margin: 0.5rem 0;
       border-radius: 3px;
       font-size: 0.8rem;
-      border-left: 2px solid #0f0;
+      border-left: 2px solid #fa0;
     }
     .cmd-label {
       color: #666;
       font-size: 0.7rem;
       margin-bottom: 0.25rem;
+      text-transform: uppercase;
     }
+    .cmd code {
+      color: #fff;
+    }
+    
+    /* Links */
+    a {
+      color: #fa0;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    
+    /* Footer */
     footer {
       text-align: center;
       padding: 1.5rem;
-      color: #444;
+      color: #555;
       font-size: 0.8rem;
+      border-top: 1px solid #333;
+      margin-top: 1rem;
     }
-    footer a {
-      color: #0a0;
-      text-decoration: none;
+    
+    /* Summary Box */
+    .summary {
+      background: #222;
+      border: 1px solid #333;
+      border-radius: 4px;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
     }
-    footer a:hover {
-      text-decoration: underline;
-    }
-    .two-col {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 1rem;
-    }
-    @media (max-width: 700px) {
-      .two-col {
-        grid-template-columns: 1fr;
-      }
-    }
-    .device-card {
-      background: #0a0a0a;
-      padding: 0.75rem;
-      border-radius: 3px;
+    .summary-title {
+      color: #fa0;
+      font-weight: bold;
       margin-bottom: 0.5rem;
     }
-    .device-name {
-      color: #0f0;
-      font-weight: bold;
-    }
-    .device-status {
-      font-size: 0.8rem;
-      margin-top: 0.25rem;
-    }
-    .device-status.available {
-      color: #8f8;
-    }
-    .device-status.unavailable {
-      color: #f88;
-    }
-    h3 {
-      color: #888;
+    .summary-text {
+      color: #999;
       font-size: 0.9rem;
-      margin: 1rem 0 0.5rem;
-    }
-    p {
-      margin: 0.5rem 0;
     }
   </style>
 </head>
 <body>
   <div class="container">
     <header>
-      <h1>📱 iOS Build Status: SpiderLily</h1>
-      <a href="/" class="back-link">← builds.false.work</a>
+      <h1><span class="platform-tag">📱 iOS</span> SpiderLily Build Status</h1>
+      <a href="/" class="back-link">← Back to Builds</a>
     </header>
 
     <div class="status-banner status-warning">
-      ⚠️ BUILD FUNCTIONAL - Post-Process Material Shader Issues Causing Display Problems
+      ⚠️ BUILD RUNS BUT DISPLAYS INCORRECTLY — Post-process shaders failing to compile for iOS Metal
+    </div>
+
+    <div class="summary">
+      <div class="summary-title">📋 Quick Summary</div>
+      <div class="summary-text">
+        The iOS build packages successfully and launches on device, but the screen appears broken (gray/incorrect rendering). 
+        Root cause: Two post-process material shaders (M_FishHealth_PP, CelShadePP_Mat) are not compiling for Metal ES3.1, 
+        causing the engine to use fallback materials. Follow the prioritized steps below to fix in Unreal Engine.
+      </div>
     </div>
 
     <section>
-      <h2><span class="emoji">📊</span>Build Information</h2>
+      <h2>📊 Build Information</h2>
       <div class="content">
         <div class="meta-grid">
           <div class="meta-item">
@@ -277,8 +334,8 @@
             <div class="meta-value">November 26, 2025</div>
           </div>
           <div class="meta-item">
-            <div class="meta-label">Engine Version</div>
-            <div class="meta-value">UE 5.6.1-44394996</div>
+            <div class="meta-label">Engine</div>
+            <div class="meta-value">UE 5.6.1</div>
           </div>
           <div class="meta-item">
             <div class="meta-label">Build Config</div>
@@ -289,62 +346,184 @@
             <div class="meta-value">work.false.SpiderLily</div>
           </div>
           <div class="meta-item">
-            <div class="meta-label">Team ID</div>
-            <div class="meta-value">F7G74Z35B8</div>
+            <div class="meta-label">Target</div>
+            <div class="meta-value">iOS Device (ARM64)</div>
           </div>
         </div>
       </div>
     </section>
 
     <section>
-      <h2><span class="emoji">🐛</span>Current Issues</h2>
+      <h2>🔧 Issues to Fix (Priority Order)</h2>
       <div class="content">
-        <h3>1. Post-Process Material Shader Failures (CRITICAL)</h3>
-        <p>Two post-process materials are failing to compile for Metal ES3.1:</p>
-        <pre><code class="error-log">LogMaterial: Error: Loading a material resource None with an invalid ShaderMap!
+        
+        <!-- Priority 1 -->
+        <div class="fix-step">
+          <div class="fix-header">
+            <span class="fix-priority priority-1">1</span>
+            <span class="fix-title">Fix Post-Process Material Shaders (M_FishHealth_PP)</span>
+            <span class="fix-severity severity-critical">CRITICAL</span>
+          </div>
+          <div class="fix-body">
+            <p>The M_FishHealth_PP material is failing to compile for Metal ES3.1. This is the player health overlay and is likely causing the broken display.</p>
+            
+            <h4>Error from Runtime Log</h4>
+            <pre><code class="error">LogMaterial: Error: Loading a material resource with an invalid ShaderMap!
 LogMaterial: Warning: Invalid shader map ID caching shaders for 'M_FishHealth_PP'
-LogMaterial: Warning: Invalid shader map ID caching shaders for 'CelShadePP_Mat'
-LogMaterial: Can't compile with cooked content, will use default material instead</code></pre>
-        <p>These post-process effects (player health, cel-shading) are falling back to default materials, likely causing broken/gray viewport rendering.</p>
+LogMaterial: Can't compile with cooked content, will use default material</code></pre>
+            
+            <h4>Steps in Unreal Engine</h4>
+            <ol class="steps">
+              <li>Open <code class="path">Content Browser → LIB/Materials/PostProcess/M_FishHealth_PP</code></li>
+              <li>In the Material Editor, check <code class="setting">Details → Material → Shader Model</code></li>
+              <li>Ensure it's set to <code class="setting">SM5</code> or <code class="setting">Default</code> (NOT SM6)</li>
+              <li>Check for any <strong>custom nodes</strong> using HLSL that isn't Metal-compatible</li>
+              <li>Look for <strong>texture sampling</strong> that uses features not in ES3.1</li>
+              <li>Right-click → <code class="setting">Asset Actions → Reload</code></li>
+              <li>Save and recook for iOS</li>
+            </ol>
+            
+            <h4>Quick Test (Disable to Confirm)</h4>
+            <ol class="steps">
+              <li>Open the Post Process Volume using M_FishHealth_PP</li>
+              <li>Temporarily disable this material in the PP settings</li>
+              <li>Recook and deploy to see if display works</li>
+            </ol>
+          </div>
+        </div>
 
-        <h3>2. FMOD Audio Bank Paths (MEDIUM)</h3>
-        <p>FMOD looks for banks in subfolders, but iOS cooker flattens structure:</p>
-        <pre><code class="error-log">LogFMOD: Error: Failed to open file '../../../SpiderLily/Content/FMOD/Mobile/Master.bank'
+        <!-- Priority 2 -->
+        <div class="fix-step">
+          <div class="fix-header">
+            <span class="fix-priority priority-1">2</span>
+            <span class="fix-title">Fix Post-Process Material Shaders (CelShadePP_Mat)</span>
+            <span class="fix-severity severity-critical">CRITICAL</span>
+          </div>
+          <div class="fix-body">
+            <p>The cel-shading post-process material is also failing. This stylizes the entire game's rendering.</p>
+            
+            <h4>Error from Runtime Log</h4>
+            <pre><code class="error">LogMaterial: Warning: Invalid shader map ID caching shaders for 'CelShadePP_Mat'
+LogMaterial: Can't compile with cooked content, will use default material</code></pre>
+            
+            <h4>Steps in Unreal Engine</h4>
+            <ol class="steps">
+              <li>Open <code class="path">Content Browser → (search) CelShadePP_Mat</code></li>
+              <li>Check <code class="setting">Material Domain</code> is set to <code class="setting">Post Process</code></li>
+              <li>Check <code class="setting">Blendable Location</code> — try <code class="setting">Before Tonemapping</code></li>
+              <li>Look for any Scene Texture nodes using unsupported buffers on iOS</li>
+              <li>Verify no <strong>Custom HLSL expressions</strong> with desktop-only syntax</li>
+              <li>Consider simplifying the shader for mobile (fewer texture lookups)</li>
+              <li>Save and recook for iOS</li>
+            </ol>
+          </div>
+        </div>
+
+        <!-- Priority 3 -->
+        <div class="fix-step">
+          <div class="fix-header">
+            <span class="fix-priority priority-2">3</span>
+            <span class="fix-title">Verify iOS Shader Format is Enabled</span>
+            <span class="fix-severity severity-high">HIGH</span>
+          </div>
+          <div class="fix-body">
+            <p>Make sure the project is actually cooking shaders for iOS Metal.</p>
+            
+            <h4>Steps in Unreal Engine</h4>
+            <ol class="steps">
+              <li>Open <code class="setting">Edit → Project Settings</code></li>
+              <li>Go to <code class="path">Platforms → iOS → Rendering</code></li>
+              <li>Ensure <code class="setting">Target iOS Hardware</code> includes your target devices</li>
+              <li>Go to <code class="path">Project → Packaging → Shader Formats</code></li>
+              <li>Verify <code class="setting">SF_METAL_SM5</code> or <code class="setting">METAL_ES3_1</code> is checked</li>
+              <li>Go to <code class="path">Engine → Rendering → Mobile</code></li>
+              <li>Check <code class="setting">Mobile Shaders</code> settings</li>
+            </ol>
+          </div>
+        </div>
+
+        <!-- Priority 4 -->
+        <div class="fix-step">
+          <div class="fix-header">
+            <span class="fix-priority priority-3">4</span>
+            <span class="fix-title">Fix FMOD Audio Bank Paths</span>
+            <span class="fix-severity severity-medium">MEDIUM</span>
+          </div>
+          <div class="fix-body">
+            <p>FMOD expects banks in a <code>Mobile/</code> subfolder, but iOS cooking flattens the structure.</p>
+            
+            <h4>Error from Runtime Log</h4>
+            <pre><code class="error">LogFMOD: Error: Failed to open file '../../../SpiderLily/Content/FMOD/Mobile/Master.bank'
 LogFMOD: Warning: Failed to load bank (File does not exist)</code></pre>
-        <p>Audio will not play, but this doesn't block visual rendering.</p>
+            
+            <h4>Option A: Post-Build Script Fix</h4>
+            <p>Add this after the iOS build completes:</p>
+            <pre><code># Create the subfolder FMOD expects
+FMOD_PATH="$APP_PATH/cookeddata/spiderlily/content/fmod"
+mkdir -p "$FMOD_PATH/Desktop"
+cp "$FMOD_PATH/master.bank" "$FMOD_PATH/Desktop/"
+cp "$FMOD_PATH/master.strings.bank" "$FMOD_PATH/Desktop/"</code></pre>
+            
+            <h4>Option B: FMOD Config Fix</h4>
+            <ol class="steps">
+              <li>Open <code class="path">Project Settings → Plugins → FMOD Studio</code></li>
+              <li>Set <code class="setting">Force Platform Name</code> to empty string</li>
+              <li>Or set <code class="setting">Bank Output Directory</code> without subfolders</li>
+            </ol>
+          </div>
+        </div>
 
-        <h3>3. Blueprint Script Warning (LOW)</h3>
-        <pre><code class="warning-log">LogScript: Warning: Attempted to access index 0 from array of length 0
+        <!-- Priority 5 -->
+        <div class="fix-step">
+          <div class="fix-header">
+            <span class="fix-priority priority-4">5</span>
+            <span class="fix-title">Fix BP_Player Component Warning</span>
+            <span class="fix-severity severity-low">LOW</span>
+          </div>
+          <div class="fix-body">
+            <p>Blueprint trying to access an empty array at startup. Not blocking but should be fixed.</p>
+            
+            <h4>Warning from Runtime Log</h4>
+            <pre><code class="warning">LogScript: Warning: Attempted to access index 0 from array of length 0
   in '/Game/LIB/Characters/Player/BP_Player.BP_Player_C'</code></pre>
+            
+            <h4>Steps in Unreal Engine</h4>
+            <ol class="steps">
+              <li>Open <code class="path">Content/LIB/Characters/Player/BP_Player</code></li>
+              <li>Search the Event Graph for array access (Get node with index 0)</li>
+              <li>Add an <code class="setting">Is Valid Index</code> or <code class="setting">Length > 0</code> check</li>
+              <li>Or ensure the array is populated before access (check initialization order)</li>
+            </ol>
+          </div>
+        </div>
+
       </div>
     </section>
 
     <section>
-      <h2><span class="emoji">✅</span>Component Status</h2>
+      <h2>✅ Component Status</h2>
       <div class="content">
         <div class="two-col">
           <div>
-            <h3>Working</h3>
+            <h4 style="color:#8f8;margin-bottom:0.5rem;">✓ Working</h4>
             <ul class="checklist">
-              <li class="done">Code signing configuration</li>
-              <li class="done">Apple Developer credentials</li>
-              <li class="done">.uproject staging</li>
-              <li class="done">FMOD iOS binaries (98MB)</li>
-              <li class="done">Packaging succeeds</li>
-              <li class="done">App installs on devices</li>
-              <li class="done">Game engine initializes</li>
+              <li class="done">Code signing &amp; provisioning</li>
+              <li class="done">App packaging (.app bundle)</li>
+              <li class="done">Device installation</li>
+              <li class="done">App launches successfully</li>
               <li class="done">Level loads (L_VerticalSlice_Demo)</li>
-              <li class="done">Touch input functional</li>
-              <li class="done">Device rotation works</li>
+              <li class="done">Touch input detected</li>
+              <li class="done">Device rotation</li>
+              <li class="done">FMOD binaries linked (98MB)</li>
             </ul>
           </div>
           <div>
-            <h3>Failing</h3>
+            <h4 style="color:#f88;margin-bottom:0.5rem;">✗ Failing</h4>
             <ul class="checklist">
-              <li class="fail">M_FishHealth_PP shader compilation</li>
-              <li class="fail">CelShadePP_Mat shader compilation</li>
-              <li class="fail">FMOD Mobile bank loading</li>
-              <li class="pending">BP_Player component interface</li>
+              <li class="fail">M_FishHealth_PP shader</li>
+              <li class="fail">CelShadePP_Mat shader</li>
+              <li class="fail">FMOD bank loading</li>
+              <li class="pending">BP_Player array access</li>
             </ul>
           </div>
         </div>
@@ -352,148 +531,20 @@ LogFMOD: Warning: Failed to load bank (File does not exist)</code></pre>
     </section>
 
     <section>
-      <h2><span class="emoji">📱</span>Test Devices</h2>
-      <div class="content">
-        <div class="device-card">
-          <div class="device-name">aesthetic.computer</div>
-          <div class="device-status available">✓ Connected &amp; Provisioned</div>
-          <div style="font-size:0.75rem;color:#666;margin-top:0.25rem;">
-            iPhone 14 Pro Max • UDID: 46720BDD-8807-53C8-AA2E-6977BCA606D3
-          </div>
-        </div>
-        <div class="device-card">
-          <div class="device-name">Matt's iPhone</div>
-          <div class="device-status unavailable">✗ Disconnected</div>
-          <div style="font-size:0.75rem;color:#666;margin-top:0.25rem;">
-            iPhone 16 Pro Max • UDID: 9654E2B8-54C5-53AD-9F78-60AA7BB15BFD
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section>
-      <h2><span class="emoji">📜</span>Build History</h2>
-      <div class="content">
-        <table class="build-history">
-          <thead>
-            <tr>
-              <th>Build</th>
-              <th>Date</th>
-              <th>Approach</th>
-              <th>Result</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>#8</td>
-              <td>Oct 30, 20:28</td>
-              <td>ForcePlatformName=Desktop</td>
-              <td><span class="tag tag-blocked">Blocked</span> No provisioned device</td>
-            </tr>
-            <tr>
-              <td>#7</td>
-              <td>Oct 30, 20:23</td>
-              <td>ForcePlatformName=Desktop</td>
-              <td><span class="tag tag-pending">Untested</span> Never deployed</td>
-            </tr>
-            <tr>
-              <td>#6</td>
-              <td>Oct 30, 20:08</td>
-              <td>Identity staging remaps</td>
-              <td><span class="tag tag-fail">Failed</span> Still flat structure</td>
-            </tr>
-            <tr>
-              <td>#5</td>
-              <td>Oct 30, 20:02</td>
-              <td>Copy Mobile folder</td>
-              <td><span class="tag tag-fail">Failed</span> Cooker flattened anyway</td>
-            </tr>
-            <tr>
-              <td>#4</td>
-              <td>Oct 30, 19:45</td>
-              <td>Symlink Mobile→Desktop</td>
-              <td><span class="tag tag-fail">Failed</span> Symlink not preserved</td>
-            </tr>
-            <tr>
-              <td>#3</td>
-              <td>Oct 30, 19:34</td>
-              <td>Force config reload</td>
-              <td><span class="tag tag-fail">Failed</span> Runtime path unchanged</td>
-            </tr>
-            <tr>
-              <td>#2</td>
-              <td>Oct 30, 19:08</td>
-              <td>Staging remap (Mobile)</td>
-              <td><span class="tag tag-fail">Failed</span> Cache issue</td>
-            </tr>
-            <tr>
-              <td>#1</td>
-              <td>Oct 30, 19:08</td>
-              <td>Staging remap (Desktop)</td>
-              <td><span class="tag tag-fail">Failed</span> FMOD path mismatch</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <section>
-      <h2><span class="emoji">🔧</span>Recommended Fixes</h2>
-      <div class="content">
-        <h3>Fix #1: Post-Process Material Shaders</h3>
-        <p>Verify materials are cooked for iOS Metal ES3.1:</p>
-        <ul style="margin-left:1.5rem;margin-top:0.5rem;">
-          <li>Project Settings → Packaging → Include Shader Formats → METAL_ES3_1_IOS</li>
-          <li>Check M_FishHealth_PP and CelShadePP_Mat aren't excluded from cooking</li>
-          <li>Consider disabling post-process temporarily to confirm this is the cause</li>
-        </ul>
-
-        <h3>Fix #2: FMOD Bank Path (Post-Build Script)</h3>
-        <div class="cmd">
-          <div class="cmd-label">Add to package-spiderlily-ios.sh after build:</div>
-          <code>FMOD_PATH="$OUTPUT_DIR/$APP_NAME/cookeddata/spiderlily/content/fmod"<br>
-mkdir -p "$FMOD_PATH/Desktop"<br>
-cp "$FMOD_PATH/master.bank" "$FMOD_PATH/Desktop/"<br>
-cp "$FMOD_PATH/master.strings.bank" "$FMOD_PATH/Desktop/"</code>
-        </div>
-      </div>
-    </section>
-
-    <section>
-      <h2><span class="emoji">💻</span>Useful Commands</h2>
+      <h2>💻 Deployment Commands</h2>
       <div class="content">
         <div class="cmd">
-          <div class="cmd-label">Check connected devices:</div>
-          <code>xcrun devicectl list devices | grep -i iphone</code>
-        </div>
-        <div class="cmd">
-          <div class="cmd-label">Deploy to device:</div>
-          <code>xcrun devicectl device install app --device UDID ~/path/to/SpiderLily.app</code>
+          <div class="cmd-label">Install to device:</div>
+          <code>xcrun devicectl device install app --device 46720BDD-... ~/path/SpiderLily.app</code>
         </div>
         <div class="cmd">
           <div class="cmd-label">Launch app:</div>
-          <code>xcrun devicectl device process launch --device UDID work.false.SpiderLily</code>
+          <code>xcrun devicectl device process launch --device 46720BDD-... work.false.SpiderLily</code>
         </div>
         <div class="cmd">
-          <div class="cmd-label">Check FMOD structure in package:</div>
+          <div class="cmd-label">Check FMOD files in package:</div>
           <code>ls -laR SpiderLily.app/cookeddata/spiderlily/content/fmod/</code>
         </div>
-      </div>
-    </section>
-
-    <section>
-      <h2><span class="emoji">🔍</span>Key Technical Discoveries</h2>
-      <div class="content">
-        <h3>Unreal iOS Cooker Behavior</h3>
-        <p>The iOS cooking process <strong>always flattens</strong> content folder structures. This cannot be prevented through staging remaps, symlinks, or config settings.</p>
-        
-        <h3>FMOD Runtime Path Construction</h3>
-        <pre><code>Base: BankOutputDirectory ("FMOD")
-Platform: GetPlatformName() → "Mobile" on iOS
-Override: ForcePlatformName → "Desktop"
-
-Expected: ../../../SpiderLily/Content/FMOD/Mobile/Master.bank
-Actual:   cookeddata/spiderlily/content/fmod/master.bank (NO SUBFOLDER)</code></pre>
       </div>
     </section>
 
