@@ -19,6 +19,11 @@
       color: #fff;
       line-height: 1.6;
       padding: 2rem;
+      min-height: 100vh;
+    }
+    body.locked {
+      overflow: hidden;
+      height: 100vh;
     }
     .container {
       max-width: 800px;
@@ -253,7 +258,7 @@
     }
   </style>
 </head>
-<body>
+<body class="locked">
   <div id="auth-container">
     <img src="https://assets.aesthetic.computer/false.work/falsework-logo.png" alt="false.work" style="width: 200px; margin-bottom: 2rem;">
     <input type="password" id="password" placeholder="Enter password..." />
@@ -428,9 +433,9 @@
         if (data.success) {
           document.getElementById('auth-container').style.display = 'none';
           document.getElementById('content').style.display = 'block';
+          document.body.classList.remove('locked');
           localStorage.setItem('builds_auth', 'true');
           updateBuildTimes();
-          loadLatestBuildInfo();
         } else {
           document.getElementById('error').textContent = 'Incorrect password';
           document.getElementById('password').value = '';
@@ -489,6 +494,7 @@
     if (localStorage.getItem('builds_auth') === 'true') {
       document.getElementById('auth-container').style.display = 'none';
       document.getElementById('content').style.display = 'block';
+      document.body.classList.remove('locked');
       updateBuildTimes();
       // Update times every minute
       setInterval(updateBuildTimes, 60000);
