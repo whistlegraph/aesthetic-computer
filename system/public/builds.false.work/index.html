@@ -65,6 +65,9 @@
         --ios-note-bg: #fef0fe;
         --tag-bg: #f0f0f0;
       }
+      .logo {
+        filter: invert(1);
+      }
     }
 
     * {
@@ -275,11 +278,55 @@
       60% { content: '..'; }
       80%, 100% { content: '...'; }
     }
+    /* Failed/stale build styles */
+    .build-card.failed {
+      position: relative;
+      opacity: 0.6;
+    }
+    .build-card.failed::before {
+      content: '✕';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 4rem;
+      color: var(--error);
+      opacity: 0.4;
+      pointer-events: none;
+      font-weight: bold;
+    }
+    .build-card.failed .build-header a {
+      text-decoration: line-through;
+      color: var(--text-muted);
+    }
+    .status-badge {
+      display: inline-block;
+      padding: 0.15rem 0.4rem;
+      margin-left: 0.5rem;
+      background: var(--error);
+      color: #fff;
+      border-radius: 3px;
+      font-size: 0.7rem;
+      font-weight: bold;
+      text-transform: uppercase;
+    }
+    .status-badge.stale {
+      background: #a50;
+    }
+    .status-badge.failed {
+      background: var(--error);
+    }
+    .status-reason {
+      color: var(--error);
+      font-size: 0.85rem;
+      margin-top: 0.5rem;
+      font-style: italic;
+    }
   </style>
 </head>
 <body>
   <div id="auth-container">
-    <img src="https://assets.aesthetic.computer/false.work/falsework-logo.png" alt="false.work" style="width: 200px; margin-bottom: 2rem;">
+    <img class="logo" src="https://assets.aesthetic.computer/false.work/falsework-logo.png" alt="false.work" style="width: 200px; margin-bottom: 2rem;">
     <input type="password" id="password" placeholder="Enter password..." />
     <button onclick="checkPassword()">Access Builds</button>
     <div id="error" class="error"></div>
@@ -288,7 +335,7 @@
   <div id="content">
     <div class="container">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
-        <img src="https://assets.aesthetic.computer/false.work/falsework-logo.png" alt="false.work" style="width: 200px;">
+        <img class="logo" src="https://assets.aesthetic.computer/false.work/falsework-logo.png" alt="false.work" style="width: 200px;">
         <button onclick="logout()" style="padding: 0.5rem 1rem; font-size: 0.85rem;">🔓 Logout</button>
       </div>
       
@@ -420,20 +467,25 @@
       const platformEmoji = { windows: '🪟', mac: '🍎', ios: '📱' };
       const platformLabel = { windows: 'Windows', mac: 'Mac', ios: 'iOS' };
       const fileExt = build.platform === 'ios' ? 'ipa' : 'zip';
+      const isFailed = build.status === 'failed' || build.status === 'stale';
       
       let html = `
-        <div class="build-card ${build.platform}">
+        <div class="build-card ${build.platform}${isFailed ? ' failed' : ''}">
           <div class="build-header">
             <span class="platform-tag platform-${build.platform}">${platformEmoji[build.platform]} ${platformLabel[build.platform]}</span>
             <span class="project-name">SpiderLily</span>
             <a href="${build.downloadUrl}">${build.version}.${fileExt}</a>
       `;
       
+      if (build.status && build.status !== 'ok') {
+        html += `<span class="status-badge ${build.status}">${build.status}</span>`;
+      }
+      
       if (build.logUrl) {
         html += `<span style="margin-left: 0.5rem; color: #666; font-size: 0.9rem;">(<a href="${build.logUrl}" style="color: #888;">log</a>)</span>`;
       }
       
-      if (build.platform === 'ios') {
+      if (build.platform === 'ios' && !isFailed) {
         html += `<a href="itms-services://?action=download-manifest&url=https://builds.false.work/ios/manifest.plist" class="ios-install-btn">📲 Install</a>`;
       }
       
@@ -448,7 +500,11 @@
       
       html += `<div class="meta">${parts.join(' | ')} | <span class="build-time" data-date="${build.timestamp}">...</span></div>`;
       
-      if (build.platform === 'ios') {
+      if (build.statusReason) {
+        html += `<div class="status-reason">⚠️ ${build.statusReason}</div>`;
+      }
+      
+      if (build.platform === 'ios' && !isFailed) {
         html += `<div class="ios-note">💡 Open in Safari on your iOS device and tap "Install" for wireless installation.</div>`;
       }
       

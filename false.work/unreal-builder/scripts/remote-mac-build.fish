@@ -27,8 +27,9 @@ set MAC_PASSWORD (grep '^MAC_PASSWORD=' $MAC_CREDS | cut -d= -f2 | tr -d '"')
 
 # Check if sshpass is installed
 if not command -v sshpass >/dev/null
-    echo "⚠️  Installing sshpass..."
-    sudo apt-get update -qq && sudo apt-get install -y -qq sshpass
+    echo "❌ sshpass is not installed. Please rebuild the devcontainer or run:"
+    echo "   sudo dnf install -y sshpass"
+    exit 1
 end
 
 # Helper for SSH commands
