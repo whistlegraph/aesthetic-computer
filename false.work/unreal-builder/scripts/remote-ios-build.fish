@@ -129,14 +129,11 @@ if test $local_mode = false
 
     echo ""
     echo "========================================="
-    echo "Updating builds page..."
+    echo "Registering build in database..."
     echo "========================================="
 
     # Calculate file size
     set file_size_mb (math -s0 (stat -c%s /workspaces/aesthetic-computer/system/public/builds.false.work/ios/SpiderLily-latest.ipa) / 1048576)
-    
-    # Update main builds page (same as Mac/Windows builds)
-    source /workspaces/aesthetic-computer/false.work/unreal-builder/scripts/shared/update-builds-page.fish
     
     # Get the dated IPA filename  
     set ipa_dated_name spiderlily-ios-$build_type-$build_version.ipa
@@ -147,39 +144,9 @@ if test $local_mode = false
     # Get current timestamp in ISO format
     set build_timestamp (date -Iseconds)
     
-    # Update builds page with iOS build entry (platform version timestamp size level ue_version url)
-    update_builds_page "ios" "$build_version" "$build_timestamp" "$file_size_mb" "L_VerticalSlice_Demo" "UE_5.6" "$download_url"
-
-    echo ""
-    echo "========================================="
-    echo "Committing and pushing to GitHub..."
-    echo "========================================="
-
-    cd /workspaces/aesthetic-computer
-    git add system/public/builds.false.work/index.html
-    git commit -m "Add SpiderLily iOS ($build_type) build $build_version to builds page"
-
-    # Try to push, if it fails due to remote changes, pull and retry
-    if not git push
-        echo "Push failed, pulling remote changes and retrying..."
-        
-        # Check if there are uncommitted changes (excluding the file we just committed)
-        set -l has_changes (git status --porcelain | grep -v "^M  system/public/builds.false.work/index.html" | wc -l)
-        
-        if test $has_changes -gt 0
-            echo "⚠️  Warning: Uncommitted changes detected, stashing them..."
-            git status --short
-            git stash push -m "Build script auto-stash before rebase"
-            echo "💾 Changes stashed - use 'git stash pop' to restore them after the build"
-        end
-        
-        # Pull with rebase
-        git pull --rebase
-        # Push again
-        git push
-        
-        echo "✅ Build pushed successfully"
-    end
+    # Register build in MongoDB via Netlify function
+    source /workspaces/aesthetic-computer/false.work/unreal-builder/scripts/shared/register-build.fish
+    register_build "ios" "$build_version" "$build_timestamp" "$file_size_mb" "$download_url" "L_VerticalSlice_Demo" "UE_5.6" "" "" "$build_type"
 
     echo ""
     echo "✅ Build complete and deployed!"

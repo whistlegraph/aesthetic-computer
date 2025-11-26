@@ -91,7 +91,7 @@ npm run assets:sync:up
 
 echo ""
 echo "========================================="
-echo "Updating builds.false.work page..."
+echo "Registering build in database..."
 echo "========================================="
 
 # Ensure the file exists before calculating size
@@ -103,7 +103,8 @@ end
 # Get file size in MB (rounded to whole number)
 set file_size (math -s0 (stat -c%s /workspaces/aesthetic-computer/system/public/assets/false.work/$zip_name) / 1048576)
 set download_url "https://assets.aesthetic.computer/false.work/$zip_name"
-set iso_timestamp (date -Iseconds | cut -d'+' -f1)
+set log_url "https://assets.aesthetic.computer/false.work/spiderlily-mac-$build_version.txt"
+set iso_timestamp (date -Iseconds)
 
 # Extract start level from DefaultEngine.ini (get last part after dot)
 set full_map (ssh_exec "grep 'GameDefaultMap=' ~/Perforce/spiderlily_build_workspace_macmini/SL_main/Config/DefaultEngine.ini | cut -d= -f2")
@@ -112,43 +113,13 @@ set start_level (echo $full_map | awk -F'.' '{print $NF}')
 # Extract UE version
 set ue_version "UE_5.6"
 
-# Use shared function to update the builds page
-source /workspaces/aesthetic-computer/false.work/unreal-builder/scripts/shared/update-builds-page.fish
-update_builds_page "mac" "$build_version" "$iso_timestamp" "$file_size" "$start_level" "$ue_version" "$download_url"
-
-echo ""
-echo "========================================="
-echo "Committing and pushing to GitHub..."
-echo "========================================="
-
-cd /workspaces/aesthetic-computer
-git add system/public/builds.false.work/index.html
-git commit -m "Add SpiderLily Mac build $build_version"
-
-# Try to push, if it fails due to remote changes, pull and retry
-if not git push
-    echo "Push failed, pulling remote changes and retrying..."
-    
-    # Check if there are uncommitted changes (excluding the file we just committed)
-    set -l has_changes (git status --porcelain | grep -v "^M  system/public/builds.false.work/index.html" | wc -l)
-    
-    if test $has_changes -gt 0
-        echo "⚠️  Warning: Uncommitted changes detected, stashing them..."
-        git status --short
-        git stash push -m "Build script auto-stash before rebase"
-        echo "💾 Changes stashed - use 'git stash pop' to restore them after the build"
-    end
-    
-    # Pull with rebase
-    git pull --rebase
-    # Push again
-    git push
-    
-    echo "✅ Build pushed successfully"
-end
+# Register build in MongoDB via Netlify function
+source /workspaces/aesthetic-computer/false.work/unreal-builder/scripts/shared/register-build.fish
+register_build "mac" "$build_version" "$iso_timestamp" "$file_size" "$download_url" "$start_level" "$ue_version" "$log_url"
 
 echo ""
 echo "✅ Build complete and deployed!"
 echo "📦 Build: $build_version"
 echo "🔗 Download: $download_url"
 echo "🌐 Page: https://builds.false.work"
+
