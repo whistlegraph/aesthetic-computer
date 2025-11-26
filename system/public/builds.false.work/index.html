@@ -8,6 +8,65 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <style>
+    :root {
+      /* Dark theme (default) */
+      --bg-primary: #000;
+      --bg-secondary: #0a0a0a;
+      --bg-card: #111;
+      --bg-input: #0a0a0a;
+      --bg-input-focus: #111;
+      --bg-button: #222;
+      --bg-button-hover: #333;
+      --text-primary: #fff;
+      --text-secondary: #888;
+      --text-muted: #666;
+      --border-primary: #333;
+      --border-secondary: #444;
+      --border-input: #333;
+      --border-input-focus: #555;
+      --accent: #fa0;
+      --accent-secondary: #09f;
+      --platform-windows: #09f;
+      --platform-mac: #888;
+      --platform-ios: #f0f;
+      --error: #f66;
+      --card-windows-bg: linear-gradient(135deg, #0a0a0a 0%, #0a1a2a 100%);
+      --card-mac-bg: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
+      --card-ios-bg: linear-gradient(135deg, #0a0a0a 0%, #1a0a1a 100%);
+      --ios-note-bg: #1a0a1a;
+      --tag-bg: #222;
+    }
+
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg-primary: #f5f5f5;
+        --bg-secondary: #fff;
+        --bg-card: #fff;
+        --bg-input: #fff;
+        --bg-input-focus: #fafafa;
+        --bg-button: #e8e8e8;
+        --bg-button-hover: #ddd;
+        --text-primary: #111;
+        --text-secondary: #555;
+        --text-muted: #888;
+        --border-primary: #ddd;
+        --border-secondary: #ccc;
+        --border-input: #ccc;
+        --border-input-focus: #999;
+        --accent: #d90;
+        --accent-secondary: #07d;
+        --platform-windows: #07d;
+        --platform-mac: #666;
+        --platform-ios: #c0c;
+        --error: #c33;
+        --card-windows-bg: linear-gradient(135deg, #fff 0%, #e8f4ff 100%);
+        --card-mac-bg: linear-gradient(135deg, #fff 0%, #f0f0f0 100%);
+        --card-ios-bg: linear-gradient(135deg, #fff 0%, #ffe8ff 100%);
+        --ios-note-bg: #fef0fe;
+        --tag-bg: #f0f0f0;
+      }
+    }
+
     * {
       margin: 0;
       padding: 0;
@@ -15,8 +74,8 @@
     }
     body {
       font-family: 'Courier New', monospace;
-      background: #000;
-      color: #fff;
+      background: var(--bg-primary);
+      color: var(--text-primary);
       line-height: 1.6;
       padding: 2rem;
     }
@@ -33,9 +92,9 @@
       margin-bottom: 2rem;
     }
     input[type="password"] {
-      background: #0a0a0a;
-      border: 2px solid #333;
-      color: #fff;
+      background: var(--bg-input);
+      border: 2px solid var(--border-input);
+      color: var(--text-primary);
       font-family: 'Courier New', monospace;
       font-size: 1rem;
       padding: 0.75rem;
@@ -44,13 +103,13 @@
     }
     input[type="password"]:focus {
       outline: none;
-      border-color: #555;
-      background: #111;
+      border-color: var(--border-input-focus);
+      background: var(--bg-input-focus);
     }
     button {
-      background: #222;
-      color: #fff;
-      border: 2px solid #444;
+      background: var(--bg-button);
+      color: var(--text-primary);
+      border: 2px solid var(--border-secondary);
       font-family: 'Courier New', monospace;
       font-size: 1rem;
       font-weight: bold;
@@ -59,11 +118,11 @@
       transition: all 0.2s;
     }
     button:hover {
-      background: #333;
-      border-color: #666;
+      background: var(--bg-button-hover);
+      border-color: var(--text-muted);
     }
     .error {
-      color: #f66;
+      color: var(--error);
       margin-top: 1rem;
     }
     #content {
@@ -75,10 +134,10 @@
     h1 {
       font-size: 1.5rem;
       margin-bottom: 1.5rem;
-      color: #fff;
+      color: var(--text-primary);
     }
     h2 {
-      color: #fa0;
+      color: var(--accent);
       margin-bottom: 1rem;
     }
     .platform-filters {
@@ -93,31 +152,31 @@
       border-width: 1px;
     }
     .platform-filters button.active {
-      background: #333;
-      border-color: #fa0;
-      color: #fa0;
+      background: var(--bg-button-hover);
+      border-color: var(--accent);
+      color: var(--accent);
     }
     .platform-tag {
       display: inline-block;
       padding: 0.2rem 0.5rem;
       margin-right: 0.5rem;
-      background: #222;
-      border: 1px solid #444;
+      background: var(--tag-bg);
+      border: 1px solid var(--border-secondary);
       border-radius: 3px;
       font-size: 0.75rem;
       font-weight: bold;
       text-transform: uppercase;
     }
-    .platform-windows { color: #09f; border-color: #09f; }
-    .platform-mac { color: #888; border-color: #888; }
-    .platform-ios { color: #f0f; border-color: #f0f; }
+    .platform-windows { color: var(--platform-windows); border-color: var(--platform-windows); }
+    .platform-mac { color: var(--platform-mac); border-color: var(--platform-mac); }
+    .platform-ios { color: var(--platform-ios); border-color: var(--platform-ios); }
     .project-name {
-      color: #fa0;
+      color: var(--accent);
       font-weight: bold;
       margin-right: 0.5rem;
     }
     a {
-      color: #fff;
+      color: var(--text-primary);
       text-decoration: none;
       font-weight: bold;
     }
@@ -125,20 +184,20 @@
       text-decoration: underline;
     }
     .meta {
-      color: #888;
+      color: var(--text-secondary);
       font-size: 0.9rem;
       margin-top: 0.25rem;
     }
     footer {
       margin-top: 3rem;
       padding-top: 1rem;
-      border-top: 1px solid #333;
+      border-top: 1px solid var(--border-primary);
       text-align: center;
-      color: #666;
+      color: var(--text-muted);
       font-size: 0.85rem;
     }
     footer a {
-      color: #888;
+      color: var(--text-secondary);
       font-weight: normal;
     }
     .build-card {
@@ -147,16 +206,16 @@
       margin-bottom: 1rem;
     }
     .build-card.windows {
-      background: linear-gradient(135deg, #0a0a0a 0%, #0a1a2a 100%);
-      border-left: 4px solid #09f;
+      background: var(--card-windows-bg);
+      border-left: 4px solid var(--platform-windows);
     }
     .build-card.mac {
-      background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
-      border-left: 4px solid #888;
+      background: var(--card-mac-bg);
+      border-left: 4px solid var(--platform-mac);
     }
     .build-card.ios {
-      background: linear-gradient(135deg, #0a0a0a 0%, #1a0a1a 100%);
-      border-left: 4px solid #f0f;
+      background: var(--card-ios-bg);
+      border-left: 4px solid var(--platform-ios);
     }
     .build-header {
       display: flex;
@@ -169,14 +228,14 @@
       font-size: 1.1rem;
     }
     .date-header.today {
-      color: #fa0;
+      color: var(--accent);
     }
     .date-header.previous {
-      color: #666;
+      color: var(--text-muted);
     }
     .ios-install-btn {
       display: inline-block;
-      background: linear-gradient(135deg, #f0f 0%, #90f 100%);
+      background: linear-gradient(135deg, var(--platform-ios) 0%, #90f 100%);
       color: white !important;
       padding: 0.5rem 1rem;
       border-radius: 4px;
@@ -185,7 +244,7 @@
       font-size: 0.9rem;
       margin-left: 0.5rem;
       transition: all 0.2s;
-      border: 1px solid #f0f;
+      border: 1px solid var(--platform-ios);
     }
     .ios-install-btn:hover {
       background: linear-gradient(135deg, #f5f 0%, #a5f 100%);
@@ -193,18 +252,18 @@
       box-shadow: 0 2px 8px rgba(255, 0, 255, 0.3);
     }
     .ios-note {
-      background: #1a0a1a;
-      border-left: 2px solid #f0f;
+      background: var(--ios-note-bg);
+      border-left: 2px solid var(--platform-ios);
       padding: 0.5rem 1rem;
       margin-top: 0.5rem;
       border-radius: 3px;
       font-size: 0.85rem;
-      color: #ccc;
+      color: var(--text-secondary);
     }
     .loading {
       text-align: center;
       padding: 3rem;
-      color: #666;
+      color: var(--text-muted);
     }
     .loading::after {
       content: '';
