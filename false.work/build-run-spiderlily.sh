@@ -71,8 +71,6 @@ rm -rf "$PROJECT_ROOT/Saved/StagedBuilds"
     -build \
     -stage \
     -pak \
-    -archive \
-    -archivedirectory="$OUTPUT_DIR" \
     -noP4 \
     -utf8output
 
@@ -81,6 +79,12 @@ if [ $? -ne 0 ]; then
     echo "❌ Build failed"
     exit 1
 fi
+
+# Manually copy staged build to output (archive doesn't include cooked content properly)
+echo ""
+echo "📦 Copying staged build to archive..."
+mkdir -p "$OUTPUT_DIR"
+cp -R "$PROJECT_ROOT/Saved/StagedBuilds/Mac" "$OUTPUT_DIR/"
 
 echo ""
 echo "✅ Build complete!"

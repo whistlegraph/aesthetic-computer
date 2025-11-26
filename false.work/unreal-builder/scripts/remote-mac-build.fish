@@ -87,8 +87,14 @@ echo "========================================="
 echo "Uploading to assets.aesthetic.computer..."
 echo "========================================="
 
-cd /workspaces/aesthetic-computer
-npm run assets:sync:up
+# Direct S3 upload for build files (npm run assets:sync:up excludes large zips)
+set local_zip /workspaces/aesthetic-computer/system/public/assets/false.work/$zip_name
+set local_log /workspaces/aesthetic-computer/system/public/assets/false.work/spiderlily-mac-$build_version.txt
+set s3_endpoint "https://sfo3.digitaloceanspaces.com"
+set s3_bucket "s3://assets-aesthetic-computer/false.work"
+
+aws s3 cp $local_zip $s3_bucket/$zip_name --endpoint-url $s3_endpoint --acl public-read
+aws s3 cp $local_log $s3_bucket/spiderlily-mac-$build_version.txt --endpoint-url $s3_endpoint --acl public-read
 
 echo ""
 echo "========================================="
