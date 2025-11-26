@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Comic+Relief:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+Mono:wght@400;700&display=swap" rel="stylesheet">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <style>
     :root {
       /* Light mode (default) */
@@ -1240,8 +1240,32 @@
 
     /* Mobile optimization */
     @media (max-width: 768px) {
+      /* Normalize text sizing for iOS */
+      html {
+        -webkit-text-size-adjust: 100%;
+        text-size-adjust: 100%;
+      }
+      
+      body {
+        font-size: 16px; /* Base size for mobile */
+        /* iOS safe area support */
+        padding-top: env(safe-area-inset-top);
+        padding-bottom: env(safe-area-inset-bottom);
+        padding-left: env(safe-area-inset-left);
+        padding-right: env(safe-area-inset-right);
+        /* Prevent pull-to-refresh and overscroll */
+        overscroll-behavior: none;
+        overflow: hidden;
+        position: fixed;
+        width: 100%;
+        height: 100%;
+      }
+      
       main {
         flex-direction: column;
+        height: 100%;
+        /* Account for iOS safe areas */
+        height: calc(100% - env(safe-area-inset-top) - env(safe-area-inset-bottom));
       }
       
       /* Split.js handles the layout now, so we just need to ensure containers are flex columns */
@@ -1252,6 +1276,75 @@
       /* Ensure panels take full width in vertical mode */
       .editor-panel, .preview-panel, .reference-section, .console-section {
         width: 100% !important;
+        min-height: 44px; /* At least show header */
+      }
+      
+      /* Compact headers on mobile */
+      .editor-header, .docs-header {
+        height: 40px;
+        padding: 0 8px;
+        font-size: 12px;
+      }
+      
+      /* Make KidLisp logo smaller on mobile */
+      .baby-colors {
+        font-size: 16px !important;
+        line-height: 28px !important;
+      }
+      
+      .baby-colors + span {
+        font-size: 8px !important;
+        margin-top: -1px !important;
+        margin-bottom: 6px !important;
+      }
+      
+      /* Compact language selector on mobile */
+      .language-tab {
+        padding: 0 4px !important;
+      }
+      
+      .lang-flag {
+        font-size: 9px !important;
+      }
+      
+      .lang-text {
+        font-size: 9px !important;
+        min-width: 40px !important;
+      }
+      
+      /* Compact theme toggle */
+      #theme-toggle {
+        width: 28px;
+        height: 28px;
+        font-size: 14px;
+      }
+      
+      /* Make tabs touch-friendly */
+      .tab {
+        padding: 0 12px;
+        font-size: 12px;
+        min-height: 40px;
+      }
+      
+      /* Preview title smaller on mobile */
+      #preview-title {
+        font-size: 13px !important;
+      }
+      
+      #preview-title .code-display {
+        font-size: 11px !important;
+      }
+      
+      /* QR code hidden on very small screens */
+      @media (max-width: 380px) {
+        #preview-qr {
+          display: none !important;
+        }
+      }
+      
+      /* Console title smaller */
+      #console-title {
+        font-size: 12px;
       }
       
       /* Remove borders that might double up with gutters */
@@ -1266,6 +1359,94 @@
       
       .docs-panel.collapsed {
         height: 33.333% !important;
+      }
+      
+      /* Play/Stop buttons - ensure visible and tappable on mobile */
+      #send-button, #stop-button {
+        width: 44px;
+        height: 44px;
+        bottom: 6px;
+        right: 6px;
+      }
+      
+      #send-button.playing {
+        right: 56px;
+      }
+      
+      /* Clear button smaller on mobile */
+      #clear-button {
+        font-size: 10px;
+        padding: 4px 8px;
+        bottom: 6px;
+        left: 6px;
+      }
+      
+      /* Monaco editor adjustments for mobile */
+      #kidlisp-editor {
+        padding-left: 8px;
+      }
+      
+      /* Docs content compact */
+      .docs-content {
+        padding: 8px;
+        font-size: 12px;
+      }
+      
+      /* Function grid compact */
+      .function-item {
+        padding: 3px 8px;
+        font-size: 13px;
+      }
+      
+      /* Console compact */
+      .console-output {
+        font-size: 12px;
+        padding: 6px;
+      }
+    }
+    
+    /* Touch-friendly gutters on mobile */
+    @media (max-width: 768px) {
+      .gutter {
+        background-color: var(--border-color) !important;
+        position: relative;
+        /* Critical: Allow vertical touch dragging on gutters */
+        touch-action: pan-y !important;
+        -webkit-user-select: none;
+        user-select: none;
+      }
+      
+      .gutter.gutter-vertical {
+        height: 12px !important;
+        cursor: row-resize;
+        /* Expand touch target */
+        min-height: 12px;
+        /* Allow vertical dragging */
+        touch-action: pan-y !important;
+      }
+      
+      /* Visual grab indicator for mobile gutters */
+      .gutter.gutter-vertical::before {
+        content: '';
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        width: 40px;
+        height: 4px;
+        background: var(--text-tertiary);
+        border-radius: 2px;
+        opacity: 0.5;
+      }
+      
+      .gutter.gutter-vertical::after {
+        content: '';
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        width: 100%;
+        height: 24px; /* Larger touch target */
       }
     }
 
@@ -1782,6 +1963,8 @@
         // Mobile: Single vertical column with 4 panels
         // Move all panels to main-split to allow a single Split instance
         if (mainSplit && editorPanel && previewPanel && consolePanel && referencePanel) {
+          // Clear the main split first
+          mainSplit.innerHTML = '';
           mainSplit.appendChild(editorPanel);
           mainSplit.appendChild(previewPanel);
           mainSplit.appendChild(consolePanel);
@@ -1789,12 +1972,15 @@
         }
 
         // Initialize single vertical split for all 4 panels
+        // Prioritize editor and preview, minimize reference and console
         splits.push(Split(['#editor-panel', '#preview-panel', '#console-panel', '#reference-panel'], {
-          sizes: [33, 33, 17, 17], // Approximate starting sizes
+          sizes: [35, 40, 15, 10], // Editor 35%, Preview 40%, Console 15%, Reference 10%
           direction: 'vertical',
-          gutterSize: 8,
+          gutterSize: 12, // Larger gutters for touch
           cursor: 'row-resize',
-          minSize: 32, // Minimum size to keep header visible
+          minSize: 40, // Minimum size to keep header visible and tappable
+          snapOffset: 0, // Disable snapping on mobile
+          dragInterval: 1, // Smooth dragging
         }));
         
       } else {
