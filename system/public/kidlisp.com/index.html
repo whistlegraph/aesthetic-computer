@@ -2204,9 +2204,11 @@
     // Mobile header interactions - tap to toggle, drag to resize
     function setupMobileHeaders() {
       const HEADER_HEIGHT = 40;
+      const DRAG_THRESHOLD = 5;
       
       // Panel order (top to bottom)
       const panelOrder = ['editor-panel', 'preview-panel', 'console-panel', 'reference-panel'];
+      const panels = panelOrder.map(id => document.getElementById(id)).filter(Boolean);
       
       // Store state per panel using data attributes
       const panelConfigs = [
@@ -2218,6 +2220,13 @@
       
       // Initially collapsed panels
       const initiallyCollapsed = ['console-panel', 'reference-panel'];
+      
+      // Disable transitions on all panels during drag
+      function setAllTransitions(enabled) {
+        panels.forEach(p => {
+          if (p) p.style.transition = enabled ? '' : 'none';
+        });
+      }
       
       // Initialize all panels first
       panelConfigs.forEach(config => {
@@ -2248,12 +2257,8 @@
         const header = panel.querySelector(config.headerSelector);
         if (!header) return;
         
-        // Find the panel above this one
-        const abovePanelId = index > 0 ? panelOrder[index - 1] : null;
-        const abovePanel = abovePanelId ? document.getElementById(abovePanelId) : null;
-        
         // Style header
-        header.style.cursor = abovePanel ? 'ns-resize' : 'pointer';
+        header.style.cursor = 'ns-resize';
         header.style.userSelect = 'none';
         header.style.webkitUserSelect = 'none';
         
@@ -2267,73 +2272,90 @@
         
         // Drag state
         let dragState = { 
-          active: false, 
-          startY: 0, 
-          startAboveHeight: 0,
-          startCurrentHeight: 0,
-          moved: false 
+          pending: false,      // Touch/mouse down, waiting to see if it's a drag
+          dragging: false,     // Actually dragging (moved past threshold)
+          startY: 0,
+          startHeights: {}     // Heights of all panels when drag started
         };
         
-        function startDrag(clientY) {
-          dragState.active = true;
-          dragState.moved = false;
+        function captureAllHeights() {
+          const heights = {};
+          panels.forEach(p => {
+            if (p) heights[p.id] = p.offsetHeight;
+          });
+          return heights;
+        }
+        
+        function startPending(clientY) {
+          dragState.pending = true;
+          dragState.dragging = false;
           dragState.startY = clientY;
-          dragState.startCurrentHeight = panel.offsetHeight;
-          dragState.startAboveHeight = abovePanel ? abovePanel.offsetHeight : 0;
-          
-          panel.style.transition = 'none';
-          if (abovePanel) abovePanel.style.transition = 'none';
+          dragState.startHeights = captureAllHeights();
         }
         
         function moveDrag(clientY) {
-          if (!dragState.active) return false;
+          if (!dragState.pending && !dragState.dragging) return false;
           
           const deltaY = clientY - dragState.startY;
-          if (Math.abs(deltaY) > 8) {
-            dragState.moved = true;
-            
+          
+          // Check if we should start dragging
+          if (dragState.pending && !dragState.dragging) {
+            if (Math.abs(deltaY) > DRAG_THRESHOLD) {
+              dragState.dragging = true;
+              dragState.pending = false;
+              setAllTransitions(false);
+            } else {
+              return false; // Not dragging yet
+            }
+          }
+          
+          if (!dragState.dragging) return false;
+          
+          // Cascade resize: this panel and all panels above get adjusted
+          // Dragging down = this panel moves down, panel above grows
+          // All panels below this one stay same size but shift position (automatic via flow)
+          
+          if (index > 0) {
+            // Resize the panel directly above
+            const abovePanel = panels[index - 1];
             if (abovePanel) {
-              // Dragging resizes the panel ABOVE (grows/shrinks with drag direction)
-              // and this panel inversely
-              const newAboveHeight = Math.max(HEADER_HEIGHT, dragState.startAboveHeight + deltaY);
-              const newCurrentHeight = Math.max(HEADER_HEIGHT, dragState.startCurrentHeight - deltaY);
+              const newAboveHeight = Math.max(HEADER_HEIGHT, dragState.startHeights[abovePanel.id] + deltaY);
+              abovePanel.style.height = `${newAboveHeight}px`;
               
-              // Expand panels if collapsed
-              if (abovePanel.dataset.collapsed === 'true' && deltaY > 0) {
+              // Update collapsed state if expanded by drag
+              if (newAboveHeight > HEADER_HEIGHT && abovePanel.dataset.collapsed === 'true') {
                 abovePanel.dataset.collapsed = 'false';
                 abovePanel.classList.remove('panel-collapsed');
-              }
-              if (panel.dataset.collapsed === 'true' && deltaY < 0) {
-                panel.dataset.collapsed = 'false';
-                panel.classList.remove('panel-collapsed');
-                const indicator = header.querySelector('.mobile-collapse-indicator');
-                if (indicator) indicator.textContent = '▼';
+                const ind = abovePanel.querySelector('.mobile-collapse-indicator');
+                if (ind) ind.textContent = '▼';
               }
               
-              abovePanel.style.height = `${newAboveHeight}px`;
-              abovePanel.dataset.savedHeight = newAboveHeight;
-              
-              panel.style.height = `${newCurrentHeight}px`;
-              panel.dataset.savedHeight = newCurrentHeight;
-            } else {
-              // Top panel (editor) - just resize itself
-              const newHeight = Math.max(HEADER_HEIGHT, dragState.startCurrentHeight + deltaY);
-              panel.style.height = `${newHeight}px`;
+              if (newAboveHeight > HEADER_HEIGHT) {
+                abovePanel.dataset.savedHeight = newAboveHeight;
+              }
+            }
+          } else {
+            // This is the top panel (editor) - resize itself
+            const newHeight = Math.max(HEADER_HEIGHT, dragState.startHeights[panel.id] + deltaY);
+            panel.style.height = `${newHeight}px`;
+            if (newHeight > HEADER_HEIGHT) {
               panel.dataset.savedHeight = newHeight;
             }
-            
-            return true;
           }
-          return false;
+          
+          return true;
         }
         
         function endDrag() {
-          if (!dragState.active) return;
-          dragState.active = false;
-          panel.style.transition = '';
-          if (abovePanel) abovePanel.style.transition = '';
+          const wasDragging = dragState.dragging;
+          const wasPending = dragState.pending;
           
-          if (!dragState.moved) {
+          dragState.pending = false;
+          dragState.dragging = false;
+          setAllTransitions(true);
+          
+          // Only toggle if it was a clean tap (pending but never started dragging)
+          if (wasPending && !wasDragging) {
             toggleCollapse();
           }
         }
@@ -2360,37 +2382,50 @@
           }
         }
         
-        // Touch events
+        // Touch events - track on document for touchmove/end
         header.addEventListener('touchstart', (e) => {
           if (e.target.closest('button, select, input')) return;
-          startDrag(e.touches[0].clientY);
+          startPending(e.touches[0].clientY);
         }, { passive: true });
         
-        header.addEventListener('touchmove', (e) => {
-          if (e.target.closest('button, select, input')) return;
-          if (moveDrag(e.touches[0].clientY)) {
-            e.preventDefault();
-          }
-        }, { passive: false });
-        
-        header.addEventListener('touchend', () => endDrag());
-        header.addEventListener('touchcancel', () => endDrag());
-        
-        // Mouse events (for testing)
-        header.addEventListener('mousedown', (e) => {
-          if (e.target.closest('button, select, input')) return;
-          e.preventDefault();
-          startDrag(e.clientY);
+        // Use document-level listeners for touch to continue tracking outside header
+        header.addEventListener('touchstart', () => {
+          const onTouchMove = (e) => {
+            if (moveDrag(e.touches[0].clientY)) {
+              e.preventDefault();
+            }
+          };
           
-          const onMove = (e) => moveDrag(e.clientY);
-          const onUp = () => {
-            document.removeEventListener('mousemove', onMove);
-            document.removeEventListener('mouseup', onUp);
+          const onTouchEnd = () => {
+            document.removeEventListener('touchmove', onTouchMove);
+            document.removeEventListener('touchend', onTouchEnd);
+            document.removeEventListener('touchcancel', onTouchEnd);
             endDrag();
           };
           
-          document.addEventListener('mousemove', onMove);
-          document.addEventListener('mouseup', onUp);
+          document.addEventListener('touchmove', onTouchMove, { passive: false });
+          document.addEventListener('touchend', onTouchEnd);
+          document.addEventListener('touchcancel', onTouchEnd);
+        }, { passive: true });
+        
+        // Mouse events - track on document for move/up
+        header.addEventListener('mousedown', (e) => {
+          if (e.target.closest('button, select, input')) return;
+          e.preventDefault();
+          startPending(e.clientY);
+          
+          const onMouseMove = (e) => {
+            moveDrag(e.clientY);
+          };
+          
+          const onMouseUp = () => {
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
+            endDrag();
+          };
+          
+          document.addEventListener('mousemove', onMouseMove);
+          document.addEventListener('mouseup', onMouseUp);
         });
       });
     }
