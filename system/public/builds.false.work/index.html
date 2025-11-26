@@ -39,9 +39,9 @@
 
     @media (prefers-color-scheme: light) {
       :root {
-        --bg-primary: #f5f5f5;
+        --bg-primary: #fff;
         --bg-secondary: #fff;
-        --bg-card: #fff;
+        --bg-card: #fafafa;
         --bg-input: #fff;
         --bg-input-focus: #fafafa;
         --bg-button: #e8e8e8;
@@ -158,6 +158,11 @@
       background: var(--bg-button-hover);
       border-color: var(--accent);
       color: var(--accent);
+    }
+    .platform-filters button.disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      pointer-events: none;
     }
     .platform-tag {
       display: inline-block;
@@ -346,6 +351,9 @@
         <button data-platform="windows" onclick="filterPlatform('windows')">🪟 Windows</button>
         <button data-platform="mac" onclick="filterPlatform('mac')">🍎 Mac</button>
         <button data-platform="ios" onclick="filterPlatform('ios')">📱 iOS</button>
+        <button class="disabled" title="Coming soon">🎮 Gameboy</button>
+        <button class="disabled" title="Coming soon">🟡 Playdate</button>
+        <button class="disabled" title="Coming soon">🕹️ N64</button>
       </div>
       
       <div id="builds-list">
@@ -524,6 +532,14 @@
         
         el.style.color = dayColors[buildDate.getDay()];
         
+        // Format time in Pacific timezone
+        const ptTime = buildDate.toLocaleTimeString('en-US', {
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true,
+          timeZone: 'America/Los_Angeles'
+        }) + ' PT';
+        
         let timeAgo;
         if (diffHours < 1) {
           const diffMins = Math.floor(diffMs / (1000 * 60));
@@ -536,7 +552,7 @@
           timeAgo = buildDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
         }
         
-        el.textContent = timeAgo;
+        el.textContent = `${timeAgo} (${ptTime})`;
       });
     }
 
