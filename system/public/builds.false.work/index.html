@@ -339,12 +339,9 @@
 
   <div id="content">
     <div class="container">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+      <div style="display: flex; justify-content: center; align-items: center; margin-bottom: 2rem;">
         <img class="logo" src="https://assets.aesthetic.computer/false.work/falsework-logo.png" alt="false.work" style="width: 200px;">
-        <button onclick="logout()" style="padding: 0.5rem 1rem; font-size: 0.85rem;">🔓 Logout</button>
       </div>
-      
-      <h2>📦 Builds</h2>
       
       <div class="platform-filters">
         <button data-platform="all" class="active" onclick="filterPlatform('all')">All</button>
@@ -361,7 +358,8 @@
       </div>
 
       <footer>
-        <a href="https://false.work">false.work</a>
+        <span id="footer-lock">🔒</span> <a href="https://builds.false.work">builds.false.work</a>
+        <span id="logout-link" style="display: none;"> · <a href="#" onclick="logout(); return false;">logout</a></span>
       </footer>
     </div>
   </div>
@@ -386,6 +384,8 @@
           sessionPassword = password;
           document.getElementById('auth-container').style.display = 'none';
           document.body.classList.add('authenticated');
+          document.getElementById('footer-lock').textContent = '🔓';
+          document.getElementById('logout-link').style.display = 'inline';
           await loadBuilds();
         } else {
           document.getElementById('error').textContent = 'Incorrect password';
@@ -559,6 +559,8 @@
     function logout() {
       sessionPassword = null;
       allBuilds = [];
+      document.getElementById('footer-lock').textContent = '🔒';
+      document.getElementById('logout-link').style.display = 'none';
       location.reload();
     }
 
