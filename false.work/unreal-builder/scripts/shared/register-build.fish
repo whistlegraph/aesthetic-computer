@@ -69,16 +69,16 @@ function register_build
           + (if $changelist != "" then {changelist: $changelist} else {} end)
           + (if $buildType != "" then {buildType: $buildType} else {} end)')
 
-    # Call Netlify function
-    set response (curl -s -w "\n%{http_code}" \
+    # Call Netlify function - use temp file to separate body and http_code
+    set tmp_file (mktemp)
+    set http_code (curl -s -w '%{http_code}' -o "$tmp_file" \
         -X POST \
         -H "Content-Type: application/json" \
         -H "X-API-Key: $API_KEY" \
         -d "$json_payload" \
         "https://aesthetic.computer/.netlify/functions/register-build")
-
-    set http_code (echo "$response" | tail -1)
-    set body (echo "$response" | sed '$d')
+    set body (cat "$tmp_file")
+    rm -f "$tmp_file"
 
     switch $http_code
         case 201
