@@ -668,6 +668,18 @@ function test-generative-waltz
   node /workspaces/aesthetic-computer/.vscode/tests/test-generative-waltz.mjs $argv
 end
 
+# 🌐 KidLisp.com Probe - Control kidlisp.com in Simple Browser via CDP
+# Usage:
+#   kidlisp                    # Show status
+#   kidlisp eval <js>          # Evaluate JS in kidlisp.com
+#   kidlisp theme              # Toggle theme
+#   kidlisp clear              # Clear editor
+#   kidlisp set <code>         # Set editor content
+#   kidlisp play               # Press play button
+function kidlisp
+    node /workspaces/aesthetic-computer/kidlisp-tools/kidlisp-probe.mjs $argv
+end
+
 # always start in aesthetic-computer directory if there was a greeting
 if not test "$nogreet" = true
     cd ~/aesthetic-computer
