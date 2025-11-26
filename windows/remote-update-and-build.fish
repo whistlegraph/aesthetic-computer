@@ -58,13 +58,14 @@ npm run assets:sync:up
 
 echo ""
 echo "========================================="
-echo "Updating builds.false.work page..."
+echo "Registering build in database..."
 echo "========================================="
 
 # Get file size in MB (rounded to whole number)
 set file_size (math -s0 (stat -c%s /workspaces/aesthetic-computer/system/public/assets/false.work/spiderlily-windows-$build_version.zip) / 1048576)
 set download_url "https://assets.aesthetic.computer/false.work/spiderlily-windows-$build_version.zip"
-set iso_timestamp (date -Iseconds | cut -d'+' -f1)
+set log_url "https://assets.aesthetic.computer/false.work/spiderlily-windows-$build_version.txt"
+set iso_timestamp (date -Iseconds)
 
 # Extract start level from remote DefaultEngine.ini (get last part after dot)
 set full_map (ssh me@host.docker.internal "powershell -NoProfile -Command \"(Get-Content 'C:\\Perforce\\SpiderLily\\SL_main\\Config\\DefaultEngine.ini' | Select-String -Pattern 'GameDefaultMap=').ToString().Split('=')[1]\"")
@@ -73,44 +74,13 @@ set start_level (echo $full_map | awk -F'.' '{print $NF}')
 # Extract Unreal Engine version from build script (get first match from $UE5Path variable)
 set ue_version (ssh me@host.docker.internal "powershell -NoProfile -Command \"(Get-Content 'C:\\Perforce\\SpiderLily\\SL_main\\build-false-work.ps1' | Select-String -Pattern '\\`$UE5Path = .*UE_5\\.\\d+').Matches.Value | Select-Object -First 1\" | grep -oP 'UE_5\\.\\d+'")
 
-# Use shared function to update the builds page
-source /workspaces/aesthetic-computer/false.work/unreal-builder/scripts/shared/update-builds-page.fish
-update_builds_page "windows" "$build_version" "$iso_timestamp" "$file_size" "$start_level" "$ue_version" "$download_url"
-
-echo ""
-echo "========================================="
-echo "Committing and pushing to GitHub..."
-echo "========================================="
-
-cd /workspaces/aesthetic-computer
-git add system/public/builds.false.work/index.html
-git commit -m "Add SpiderLily Windows build $build_version"
-
-# Try to push, if it fails due to remote changes, pull and retry
-if not git push
-    echo "Push failed, pulling remote changes and retrying..."
-    
-    # Check if there are uncommitted changes (excluding the file we just committed)
-    set -l has_changes (git status --porcelain | grep -v "^M  system/public/builds.false.work/index.html" | wc -l)
-    
-    if test $has_changes -gt 0
-        echo "⚠️  Warning: Uncommitted changes detected, stashing them..."
-        git status --short
-        git stash push -m "Build script auto-stash before rebase"
-        echo "💾 Changes stashed - use 'git stash pop' to restore them after the build"
-    end
-    
-    # Pull with rebase
-    git pull --rebase
-    # Push again
-    git push
-    
-    # Don't automatically pop the stash - let the user decide when to restore
-    echo "✅ Build pushed successfully"
-end
+# Register build in MongoDB via Netlify function
+source /workspaces/aesthetic-computer/false.work/unreal-builder/scripts/shared/register-build.fish
+register_build "windows" "$build_version" "$iso_timestamp" "$file_size" "$download_url" "$start_level" "$ue_version" "$log_url"
 
 echo ""
 echo "✅ Build complete and deployed!"
 echo "📦 Build: $build_version"
 echo "🔗 Download: $download_url"
 echo "🌐 Page: https://builds.false.work"
+
