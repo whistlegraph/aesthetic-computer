@@ -1452,16 +1452,43 @@
         background: rgba(128, 128, 128, 0.25);
       }
       
-      /* Collapse/expand indicator - match text color */
+      /* Collapse/expand indicator - base styles */
       .mobile-collapse-indicator {
         position: absolute;
         right: 12px;
         top: 50%;
         transform: translateY(-50%);
         font-size: 12px;
-        color: var(--text-primary);
-        opacity: 0.7;
+        opacity: 0.85;
         pointer-events: none;
+      }
+      
+      /* Per-panel arrow colors to match their themes */
+      #preview-panel .mobile-collapse-indicator {
+        color: rgb(88, 78, 108); /* Purple to match Aesthetic.Computer title */
+      }
+      
+      #console-panel .mobile-collapse-indicator {
+        color: #ff9f43; /* Orange to match Console title */
+      }
+      
+      #reference-panel .mobile-collapse-indicator {
+        color: rgb(100, 149, 237); /* Blue to match Reference theme */
+      }
+      
+      #editor-panel .mobile-collapse-indicator {
+        color: var(--text-primary); /* Default text color for editor */
+      }
+      
+      /* Dark mode arrow colors */
+      @media (prefers-color-scheme: dark) {
+        #preview-panel .mobile-collapse-indicator {
+          color: rgb(200, 190, 220); /* Lighter purple */
+        }
+      }
+      
+      [data-theme="dark"] #preview-panel .mobile-collapse-indicator {
+        color: rgb(200, 190, 220); /* Lighter purple */
       }
       
       /* No indicator rotation needed - we swap ▼/▶ in JS */
