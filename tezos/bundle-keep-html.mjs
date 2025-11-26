@@ -17,8 +17,10 @@ import { gzipSync, brotliCompressSync, constants } from "zlib";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const PIECE_NAME = process.argv[2] || "$wwi";
-const PIECE_NAME_NO_DOLLAR = PIECE_NAME.replace(/^\$/, '');
+// Normalize piece name to always have $ prefix
+const rawPieceName = process.argv[2] || "wwi";
+const PIECE_NAME_NO_DOLLAR = rawPieceName.replace(/^\$/, '');
+const PIECE_NAME = '$' + PIECE_NAME_NO_DOLLAR;
 const OUTPUT_DIR = path.join(__dirname, "keep-bundles");
 const SOURCE_DIR = path.resolve(__dirname, "..");
 const MINIFY_JS = true;
@@ -554,7 +556,7 @@ async function createMinimalBundle(kidlispSources) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${PIECE_NAME} • Aesthetic Computer</title>
+  <title>${PIECE_NAME} · Aesthetic Computer</title>
   <script>
     // CRITICAL: Console suppression MUST happen first, before any other code
     (function() {
@@ -831,7 +833,7 @@ async function createMinimalBundle(kidlispSources) {
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>${PIECE_NAME} • Aesthetic Computer</title>
+  <title>${PIECE_NAME} · Aesthetic Computer</title>
   <style>
     body{margin:0;background:#000;overflow:hidden}
   </style>
@@ -883,7 +885,7 @@ async function createMinimalBundle(kidlispSources) {
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>${PIECE_NAME} • Aesthetic Computer</title>
+  <title>${PIECE_NAME} · Aesthetic Computer</title>
   <style>
     body{margin:0;background:#000;overflow:hidden}
   </style>
