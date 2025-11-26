@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QR Code Density Test</title>
+  <style>
+    body {
+      font-family: monospace;
+      padding: 20px;
+      background: #1a1a1a;
+      color: #fff;
+    }
+    .test-result {
+      margin: 20px 0;
+      padding: 15px;
+      background: #2a2a2a;
+      border: 1px solid #444;
+    }
+    canvas {
+      border: 1px solid #666;
+      margin: 10px;
+      image-rendering: pixelated;
+    }
+    table {
+      border-collapse: collapse;
+      margin: 20px 0;
+    }
+    th, td {
+      border: 1px solid #444;
+      padding: 8px 12px;
+      text-align: left;
+    }
+    th {
+      background: #333;
+    }
+    .best {
+      background: #1a3a1a;
+    }
+  </style>
+</head>
+<body>
+  <h1>QR Code Density Test for prompt.ac/$39i</h1>
+  <p>Testing different error correction levels to find the smallest QR code...</p>
+  
+  <div id="results"></div>
+  
+  <script type="module">
+    console.log('Starting QR test...');
+    
+    // Import QR library
+    let qr, ErrorCorrectLevel;
+    try {
+      const module = await import('/aesthetic.computer/dep/@akamfoad/qr/qr.mjs');
+      qr = module.qrcode; // Note: it's 'qrcode' not 'qr'
+      ErrorCorrectLevel = module.ErrorCorrectLevel;
+      console.log('QR library loaded:', { qr, ErrorCorrectLevel });
+    } catch (error) {
+      document.getElementById('results').innerHTML = `<div class="test-result" style="color: #f88;">Error loading QR library: ${error.message}<br>Check console for details.</div>`;
+      console.error('Failed to load QR library:', error);
+      throw error;
+    }
+    
+    const testURL = 'https://prompt.ac/$39i';
+    const errorLevels = [
+      { name: 'L (Low ~7%)', level: ErrorCorrectLevel.L },
+      { name: 'M (Medium ~15%)', level: ErrorCorrectLevel.M },
+      { name: 'Q (Quartile ~25%)', level: ErrorCorrectLevel.Q },
+      { name: 'H (High ~30%)', level: ErrorCorrectLevel.H }
+    ];
+    
+    const results = [];
+    const resultsDiv = document.getElementById('results');
+    
+    // Test each error correction level
+    console.log('Testing error levels...');
+    errorLevels.forEach(({ name, level }) => {
+      try {
+        console.log(`Testing ${name}...`);
+        const cells = qr(testURL, { errorCorrectLevel: level }).modules;
+        const gridSize = cells.length;
+        const totalCells = gridSize * gridSize;
+        console.log(`  Grid size: ${gridSize}x${gridSize}`);
+        
+        // Count black cells
+        let blackCells = 0;
+        for (let y = 0; y < gridSize; y++) {
+          for (let x = 0; x < gridSize; x++) {
+            if (cells[y][x]) blackCells++;
+          }
+        }
+        
+        // Create canvas
+        const scale = 8; // Larger scale for better visibility
+        const canvas = document.createElement('canvas');
+        canvas.width = gridSize * scale;
+        canvas.height = gridSize * scale;
+        const ctx = canvas.getContext('2d');
+        
+        // Draw QR
+        for (let y = 0; y < gridSize; y++) {
+          for (let x = 0; x < gridSize; x++) {
+            ctx.fillStyle = cells[y][x] ? '#000' : '#fff';
+            ctx.fillRect(x * scale, y * scale, scale, scale);
+          }
+        }
+        
+        console.log(`  Canvas created: ${canvas.width}x${canvas.height}`);
+        
+        results.push({
+          name,
+          gridSize,
+          totalCells,
+          blackCells,
+          density: (blackCells / totalCells * 100).toFixed(1),
+          canvas
+        });
+      } catch (error) {
+        console.error(`Error with ${name}:`, error);
+        document.getElementById('results').innerHTML += `<div class="test-result" style="color: #f88;">Error testing ${name}: ${error.message}</div>`;
+      }
+    });
+    
+    console.log(`Generated ${results.length} results`);
+    
+    // Find the smallest
+    const smallest = results.reduce((min, r) => r.gridSize < min.gridSize ? r : min, results[0]);
+    
+    // Create table with canvases embedded
+    const table = document.createElement('table');
+    const thead = document.createElement('thead');
+    thead.innerHTML = `
+      <tr>
+        <th>Error Correction</th>
+        <th>Grid Size</th>
+        <th>Total Cells</th>
+        <th>Black Cells</th>
+        <th>Density</th>
+        <th>Preview</th>
+      </tr>
+    `;
+    table.appendChild(thead);
+    
+    const tbody = document.createElement('tbody');
+    results.forEach(r => {
+      const row = document.createElement('tr');
+      if (r === smallest) row.className = 'best';
+      
+      row.innerHTML = `
+        <td>${r.name}</td>
+        <td>${r.gridSize}×${r.gridSize}</td>
+        <td>${r.totalCells}</td>
+        <td>${r.blackCells}</td>
+        <td>${r.density}%</td>
+        <td></td>
+      `;
+      
+      // Append canvas directly
+      row.querySelector('td:last-child').appendChild(r.canvas);
+      tbody.appendChild(row);
+    });
+    
+    table.appendChild(tbody);
+    resultsDiv.appendChild(table);
+    
+    // Summary
+    const summary = document.createElement('div');
+    summary.className = 'test-result';
+    summary.innerHTML = `
+      <h2>✅ Best Result</h2>
+      <p><strong>Error Correction Level:</strong> ${smallest.name}</p>
+      <p><strong>Grid Size:</strong> ${smallest.gridSize}×${smallest.gridSize} (${smallest.totalCells} cells)</p>
+      <p><strong>Information Density:</strong> ${smallest.density}% black cells</p>
+      <p><strong>URL:</strong> ${testURL}</p>
+    `;
+    resultsDiv.insertBefore(summary, table);
+    
+    console.log('QR Test Results:', results);
+  </script>
+</body>
+</html>
