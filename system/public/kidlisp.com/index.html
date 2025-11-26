@@ -941,6 +941,17 @@
       top: auto;
     }
     
+    /* Desktop swap indicator - highlight entire panel */
+    .panel-drop-target.drop-swap::before {
+      top: 0;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: auto;
+      background: rgba(205, 92, 155, 0.2);
+      border: 3px solid rgb(205, 92, 155);
+    }
+    
     @keyframes dropTargetPulse {
       0%, 100% { opacity: 1; }
       50% { opacity: 0.5; }
@@ -2494,20 +2505,30 @@
         
         if (!isDraggingHeader) return;
         
-        // Find drop target
-        const panelsInOrder = getPanelsInOrder();
+        // Find drop target - works for both mobile (vertical) and desktop (2x2 grid)
+        const isMobile = window.innerWidth <= 768;
         let newDropTarget = null;
         let newDropPosition = null;
         
-        panelsInOrder.forEach(panel => {
-          if (panel === draggedPanel) return;
+        panels.forEach(panelId => {
+          const panel = document.getElementById(panelId);
+          if (!panel || panel === draggedPanel) return;
           
           const rect = panel.getBoundingClientRect();
-          const midY = rect.top + rect.height / 2;
           
-          if (e.clientY >= rect.top && e.clientY <= rect.bottom) {
+          // Check if cursor is within this panel's bounds
+          if (e.clientX >= rect.left && e.clientX <= rect.right &&
+              e.clientY >= rect.top && e.clientY <= rect.bottom) {
             newDropTarget = panel;
-            newDropPosition = e.clientY < midY ? 'above' : 'below';
+            
+            if (isMobile) {
+              // Mobile: above/below based on Y position
+              const midY = rect.top + rect.height / 2;
+              newDropPosition = e.clientY < midY ? 'above' : 'below';
+            } else {
+              // Desktop: swap panels (position indicates which panel to swap with)
+              newDropPosition = 'swap';
+            }
           }
         });
         
@@ -2515,12 +2536,16 @@
         if (currentDropTarget !== newDropTarget || dropPosition !== newDropPosition) {
           // Remove old indicator
           if (currentDropTarget) {
-            currentDropTarget.classList.remove('panel-drop-target', 'drop-above', 'drop-below');
+            currentDropTarget.classList.remove('panel-drop-target', 'drop-above', 'drop-below', 'drop-swap');
           }
           
           // Add new indicator
           if (newDropTarget) {
-            newDropTarget.classList.add('panel-drop-target', `drop-${newDropPosition}`);
+            if (isMobile) {
+              newDropTarget.classList.add('panel-drop-target', `drop-${newDropPosition}`);
+            } else {
+              newDropTarget.classList.add('panel-drop-target', 'drop-swap');
+            }
           }
           
           currentDropTarget = newDropTarget;
@@ -2546,7 +2571,7 @@
         }
         
         if (currentDropTarget) {
-          currentDropTarget.classList.remove('panel-drop-target', 'drop-above', 'drop-below');
+          currentDropTarget.classList.remove('panel-drop-target', 'drop-above', 'drop-below', 'drop-swap');
         }
         
         draggedPanel = null;
@@ -2611,9 +2636,90 @@
           
           console.log(`📦 Reordered: ${draggedPanel.id} moved ${position} ${targetPanel.id}`);
         } else {
-          // Desktop: More complex - panels are in top-row and bottom-row
-          // For now, just log that reordering on desktop isn't implemented
-          console.log('🖥️ Desktop reordering coming soon');
+          // Desktop: 2x2 grid - swap panels within or between rows
+          const topRow = document.getElementById('top-row');
+          const bottomRow = document.getElementById('bottom-row');
+          
+          // Determine which row each panel is in
+          const draggedInTop = topRow.contains(draggedPanel);
+          const targetInTop = topRow.contains(targetPanel);
+          
+          // Get panel positions (left or right in their row)
+          const getDraggedPos = () => {
+            const row = draggedInTop ? topRow : bottomRow;
+            const children = Array.from(row.children).filter(c => c.classList.contains('editor-panel') || 
+                                                                   c.classList.contains('preview-panel') ||
+                                                                   c.classList.contains('reference-section') ||
+                                                                   c.classList.contains('console-section'));
+            return children.indexOf(draggedPanel);
+          };
+          
+          const getTargetPos = () => {
+            const row = targetInTop ? topRow : bottomRow;
+            const children = Array.from(row.children).filter(c => c.classList.contains('editor-panel') || 
+                                                                   c.classList.contains('preview-panel') ||
+                                                                   c.classList.contains('reference-section') ||
+                                                                   c.classList.contains('console-section'));
+            return children.indexOf(targetPanel);
+          };
+          
+          // Swap the panels
+          const draggedRow = draggedInTop ? topRow : bottomRow;
+          const targetRow = targetInTop ? topRow : bottomRow;
+          
+          if (draggedRow === targetRow) {
+            // Same row - swap positions
+            const draggedPos = getDraggedPos();
+            const targetPos = getTargetPos();
+            
+            if (draggedPos !== targetPos) {
+              // Swap by removing both and reinserting
+              const draggedNext = draggedPanel.nextSibling;
+              const targetNext = targetPanel.nextSibling;
+              
+              if (draggedNext === targetPanel) {
+                // Adjacent: dragged is before target
+                draggedRow.insertBefore(targetPanel, draggedPanel);
+              } else if (targetNext === draggedPanel) {
+                // Adjacent: target is before dragged
+                draggedRow.insertBefore(draggedPanel, targetPanel);
+              } else {
+                // Not adjacent
+                draggedRow.insertBefore(draggedPanel, targetNext);
+                draggedRow.insertBefore(targetPanel, draggedNext);
+              }
+            }
+          } else {
+            // Different rows - swap panels between rows
+            const draggedPos = getDraggedPos();
+            const targetPos = getTargetPos();
+            
+            // Remove both panels
+            const draggedPlaceholder = document.createComment('placeholder');
+            const targetPlaceholder = document.createComment('placeholder');
+            
+            draggedPanel.parentNode.insertBefore(draggedPlaceholder, draggedPanel);
+            targetPanel.parentNode.insertBefore(targetPlaceholder, targetPanel);
+            
+            draggedPanel.remove();
+            targetPanel.remove();
+            
+            // Insert in swapped positions
+            draggedPlaceholder.parentNode.insertBefore(targetPanel, draggedPlaceholder);
+            targetPlaceholder.parentNode.insertBefore(draggedPanel, targetPlaceholder);
+            
+            // Remove placeholders
+            draggedPlaceholder.remove();
+            targetPlaceholder.remove();
+          }
+          
+          // Reinitialize Split.js
+          initSplits();
+          
+          // Re-setup draggable headers
+          setTimeout(() => setupDraggableHeaders(), 100);
+          
+          console.log(`📦 Desktop swap: ${draggedPanel.id} ↔ ${targetPanel.id}`);
         }
       }
     }
