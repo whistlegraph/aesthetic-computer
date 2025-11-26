@@ -10,9 +10,9 @@
 #     "https://assets.aesthetic.computer/false.work/spiderlily-windows-2025.11.26-1500.txt"
 
 function register_build
-    set platform $argv[1]
-    set version $argv[2]
-    set timestamp $argv[3]
+    set build_platform $argv[1]
+    set build_version $argv[2]
+    set build_timestamp $argv[3]
     set size_mb $argv[4]
     set download_url $argv[5]
     set level $argv[6]
@@ -22,7 +22,7 @@ function register_build
     set build_type $argv[10]
 
     # Validate required args
-    if test -z "$platform" -o -z "$version" -o -z "$timestamp" -o -z "$size_mb" -o -z "$download_url"
+    if test -z "$build_platform" -o -z "$build_version" -o -z "$build_timestamp" -o -z "$size_mb" -o -z "$download_url"
         echo "❌ Usage: register_build PLATFORM VERSION TIMESTAMP SIZE_MB DOWNLOAD_URL [LEVEL] [UE_VERSION] [LOG_URL] [CHANGELIST] [BUILD_TYPE]"
         return 1
     end
@@ -43,13 +43,13 @@ function register_build
         return 1
     end
 
-    echo "📤 Registering build: $platform $version"
+    echo "📤 Registering build: $build_platform $build_version"
 
     # Build JSON payload using jq for proper escaping
     set json_payload (jq -n \
-        --arg platform "$platform" \
-        --arg version "$version" \
-        --arg timestamp "$timestamp" \
+        --arg platform "$build_platform" \
+        --arg version "$build_version" \
+        --arg timestamp "$build_timestamp" \
         --argjson sizeMB "$size_mb" \
         --arg downloadUrl "$download_url" \
         --arg level "$level" \
@@ -82,13 +82,13 @@ function register_build
 
     switch $http_code
         case 201
-            echo "✅ Build registered successfully: $platform $version"
+            echo "✅ Build registered successfully: $build_platform $build_version"
             return 0
         case 409
-            echo "⚠️  Build already exists: $platform $version"
+            echo "⚠️  Build already exists: $build_platform $build_version"
             return 0
         case 401
-            echo "❌ Authentication failed - check API key"
+            echo "❌ Authentication failed - check API key or ensure BUILDS_API_KEY is set in Netlify"
             return 1
         case 400
             echo "❌ Bad request: $body"
