@@ -18,6 +18,14 @@ included_env_vars = []
 [functions.verify-builds-password]
 included_env_vars = ["BUILDS_PASSWORD"]
 
+[functions.register-build]
+external_node_modules = ["mongodb", "mongodb-connection-string-url"]
+included_env_vars = ["BUILDS_API_KEY", "MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
+
+[functions.get-builds]
+external_node_modules = ["mongodb", "mongodb-connection-string-url"]
+included_env_vars = ["BUILDS_PASSWORD", "MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
+
 [functions.index]
 included_files = [
   "public/aesthetic.computer/disks/**/*.mjs",
@@ -287,6 +295,21 @@ force = true
 from = "https://www.digitpain.com/*"
 to = "https://digitpain.com/:splat"
 status = 301
+force = true
+[[redirects]]
+from = "https://builds.false.work/api/register-build"
+to = "/.netlify/functions/register-build"
+status = 200
+force = true
+[[redirects]]
+from = "https://builds.false.work/api/get-builds"
+to = "/.netlify/functions/get-builds"
+status = 200
+force = true
+[[redirects]]
+from = "https://builds.false.work/api/verify-password"
+to = "/.netlify/functions/verify-builds-password"
+status = 200
 force = true
 [[redirects]]
 from = "https://builds.false.work/*"
