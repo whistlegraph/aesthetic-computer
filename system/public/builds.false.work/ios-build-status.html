@@ -104,6 +104,24 @@
       color: #ffcc44;
     }
     
+    /* Progress Banner */
+    .progress-banner {
+      background: linear-gradient(135deg, #0a1a0a 0%, #050d05 100%);
+      border: 2px solid #44aa44;
+      border-radius: 6px;
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 2rem;
+    }
+    .progress-banner h3 {
+      color: #66dd66;
+      font-size: 1rem;
+      margin-bottom: 0.5rem;
+    }
+    .progress-banner p {
+      color: #88bb88;
+      font-size: 0.85rem;
+    }
+    
     /* Sections */
     section {
       background: #1a1a1a;
@@ -200,6 +218,7 @@
     .severity-high { background: #2a1a0a; color: #ffaa55; border: 1px solid #ff8800; }
     .severity-medium { background: #2a2a0a; color: #dddd55; border: 1px solid #aaaa00; }
     .severity-low { background: #0a2a0a; color: #55dd55; border: 1px solid #00aa00; }
+    .severity-fixed { background: #0a2a0a; color: #44ff44; border: 1px solid #00ff00; }
     
     .fix-body {
       padding: 1.5rem;
@@ -293,6 +312,7 @@
     ul.checklist li.done::before { content: "✅"; }
     ul.checklist li.fail::before { content: "❌"; }
     ul.checklist li.pending::before { content: "🔄"; }
+    ul.checklist li.fixed::before { content: "🎉"; }
     
     /* Two Column */
     .two-col {
@@ -343,6 +363,16 @@
         padding: 1rem;
         font-size: 0.8rem;
         margin-bottom: 1.25rem;
+      }
+      .progress-banner {
+        padding: 1rem;
+        margin-bottom: 1.25rem;
+      }
+      .progress-banner h3 {
+        font-size: 0.9rem;
+      }
+      .progress-banner p {
+        font-size: 0.8rem;
       }
       .summary {
         padding: 1rem;
@@ -537,6 +567,34 @@
       font-size: 0.9rem;
       line-height: 1.85;
     }
+    
+    /* P4 Changes */
+    .p4-changes {
+      background: #0d0d0d;
+      border: 1px solid #252525;
+      border-radius: 4px;
+      padding: 1rem;
+      margin: 1rem 0;
+    }
+    .p4-change {
+      padding: 0.5rem 0;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    .p4-change:last-child {
+      border-bottom: none;
+    }
+    .p4-id {
+      color: #66b3ff;
+      font-weight: 600;
+    }
+    .p4-user {
+      color: #88dd88;
+    }
+    .p4-desc {
+      color: #aaa;
+      font-size: 0.85rem;
+      margin-top: 0.25rem;
+    }
   </style>
 </head>
 <body>
@@ -547,20 +605,25 @@
     </header>
 
     <div class="todo-banner">
-      <h2>🔧 TODO in Unreal Engine</h2>
-      <p>Fix post-process shaders to restore correct iOS rendering</p>
+      <h2>🔧 2 Shaders Need Fixing</h2>
+      <p>CelShadePP_Mat and CelShadeRock materials causing dark scene on iOS</p>
+    </div>
+
+    <div class="progress-banner">
+      <h3>✅ Progress: M_FishHealth_PP is FIXED!</h3>
+      <p>Change #684 by falsework-admin successfully fixed the fish health post-process shader. It now compiles for iOS Metal.</p>
     </div>
 
     <div class="status-banner status-warning">
-      ⚠️ BUILD RUNS BUT DISPLAYS INCORRECTLY — Post-process shaders failing to compile for iOS Metal
+      ⚠️ BUILD RUNS BUT SCENE IS VERY DARK — CelShadePP_Mat using GBuffer textures not available on mobile
     </div>
 
     <div class="summary">
-      <div class="summary-title">📋 Quick Summary</div>
+      <div class="summary-title">📋 Current Status (Nov 26, 2025 @ 10:08 PM)</div>
       <div class="summary-text">
-        The iOS build packages successfully and launches on device, but the screen appears broken (gray/incorrect rendering). 
-        Root cause: Two post-process material shaders (<code>M_FishHealth_PP</code>, <code>CelShadePP_Mat</code>) are not compiling for Metal ES3.1, 
-        causing the engine to use fallback materials. Follow the prioritized steps below to fix in Unreal Engine.
+        The iOS build packages, installs, and launches successfully on both test devices. However, the entire scene renders <strong>very dark</strong> because 
+        the cel-shading post-process material (<code>CelShadePP_Mat</code>) fails to compile for iOS Metal. The material uses <strong>GBuffer SceneTexture nodes</strong> 
+        which are only available in deferred rendering — iOS uses forward rendering and doesn't have GBuffer access.
       </div>
     </div>
 
@@ -573,16 +636,16 @@
             <div class="meta-value">SpiderLily</div>
           </div>
           <div class="meta-item">
-            <div class="meta-label">Last Updated</div>
-            <div class="meta-value">November 26, 2025</div>
+            <div class="meta-label">Last Build</div>
+            <div class="meta-value">Nov 26, 2025 10:00 PM</div>
           </div>
           <div class="meta-item">
             <div class="meta-label">Engine</div>
             <div class="meta-value">UE 5.6.1</div>
           </div>
           <div class="meta-item">
-            <div class="meta-label">Build Config</div>
-            <div class="meta-value">Development</div>
+            <div class="meta-label">P4 Changelist</div>
+            <div class="meta-value">#685 (latest)</div>
           </div>
           <div class="meta-item">
             <div class="meta-label">Bundle ID</div>
@@ -590,153 +653,128 @@
           </div>
           <div class="meta-item">
             <div class="meta-label">Target</div>
-            <div class="meta-value">iOS Device (ARM64)</div>
+            <div class="meta-value">iOS Metal ES3.1</div>
           </div>
         </div>
       </div>
     </section>
 
     <section>
-      <h2>🔧 Issues to Fix (Priority Order)</h2>
+      <h2>📝 Recent P4 Changes (Shader Fixes)</h2>
+      <div class="content">
+        <div class="p4-changes">
+          <div class="p4-change">
+            <span class="p4-id">#685</span> by <span class="p4-user">falsework-admin</span> — Nov 26, 2025
+            <div class="p4-desc">Changed blendable location of CelShadePP_Mat so that it is "after bloom" for iOS</div>
+          </div>
+          <div class="p4-change">
+            <span class="p4-id">#684</span> by <span class="p4-user">falsework-admin</span> — Nov 26, 2025
+            <div class="p4-desc">Made a conditional modification to the post processing fish health to build on iOS with Jeffrey. <strong style="color:#66ff66;">✓ THIS WORKED!</strong></div>
+          </div>
+          <div class="p4-change">
+            <span class="p4-id">#683</span> by <span class="p4-user">falsework-admin</span> — Nov 26, 2025
+            <div class="p4-desc">Made changes to iOS build settings.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>🔧 Remaining Issues to Fix</h2>
       <div class="content">
         
-        <!-- Priority 1 -->
+        <!-- Priority 1 - CelShadePP_Mat -->
         <div class="fix-step">
           <div class="fix-header">
             <span class="fix-priority priority-1">1</span>
-            <span class="fix-title">Fix Post-Process Material Shaders (M_FishHealth_PP)</span>
+            <span class="fix-title">CelShadePP_Mat — GBuffer Not Available on Mobile</span>
             <span class="fix-severity severity-critical">CRITICAL</span>
           </div>
           <div class="fix-body">
-            <p>The M_FishHealth_PP material is failing to compile for Metal ES3.1. This is the player health overlay and is likely causing the broken display.</p>
+            <p>This is the <strong>main issue causing the dark scene</strong>. The cel-shading post-process material is trying to access GBuffer textures (WorldNormal, BaseColor, etc.) which don't exist on iOS because mobile uses <strong>forward rendering</strong>, not deferred.</p>
             
-            <h4>Error from Runtime Log</h4>
-            <pre><code class="error">LogMaterial: Error: Loading a material resource with an invalid ShaderMap!
-LogMaterial: Warning: Invalid shader map ID caching shaders for 'M_FishHealth_PP'
-LogMaterial: Can't compile with cooked content, will use default material</code></pre>
+            <h4>Error from Cook Log</h4>
+            <pre><code class="error">(Node SceneTexture) GBuffer scene textures not available with forward shading (platform id 11).
+(Node SceneTexture) GBuffer scene textures not available in post-processing with mobile shading (platform id 11).
+
+LogMaterial: Warning: Failed to compile Material for platform SF_METAL_ES3_1_IOS, Default Material will be used in game.</code></pre>
             
-            <h4>Steps in Unreal Engine</h4>
+            <h4>Root Cause</h4>
+            <p>The material graph contains <code>SceneTexture</code> nodes set to access GBuffer data like:</p>
+            <ul style="margin-left: 1.5rem; margin-bottom: 1rem; color: #ccc;">
+              <li><code>WorldNormal</code> — Not available on mobile</li>
+              <li><code>BaseColor</code> — Not available on mobile</li>
+              <li><code>Metallic/Specular/Roughness</code> — Not available on mobile</li>
+            </ul>
+            
+            <h4>Fix in Unreal Editor</h4>
             <ol class="steps">
-              <li>Open <code class="path">Content Browser → LIB/Materials/PostProcess/M_FishHealth_PP</code></li>
-              <li>In the Material Editor, check <code class="setting">Details → Material → Shader Model</code></li>
-              <li>Ensure it's set to <code class="setting">SM5</code> or <code class="setting">Default</code> (NOT SM6)</li>
-              <li>Check for any <strong>custom nodes</strong> using HLSL that isn't Metal-compatible</li>
-              <li>Look for <strong>texture sampling</strong> that uses features not in ES3.1</li>
-              <li>Right-click → <code class="setting">Asset Actions → Reload</code></li>
-              <li>Save and recook for iOS</li>
+              <li>Open <code class="path">Content/Developers/yueha/FX/CelShadePP_Mat</code></li>
+              <li>Find all <strong>SceneTexture</strong> nodes in the material graph</li>
+              <li>For each node accessing GBuffer data, either:
+                <ul style="margin-top: 0.5rem; margin-left: 1rem;">
+                  <li>Remove it and use a simpler approach</li>
+                  <li>Wrap it in a <code class="setting">Feature Level Switch</code> node with a mobile fallback</li>
+                  <li>Use only mobile-compatible inputs: <code>PostProcessInput0</code>, <code>SceneDepth</code>, <code>CustomDepth</code></li>
+                </ul>
+              </li>
+              <li>Test by previewing in <code class="setting">ES3.1 Preview Mode</code> (Settings → Preview Rendering Level)</li>
+              <li>Save, submit to P4, and trigger new iOS cook</li>
             </ol>
             
-            <h4>Quick Test (Disable to Confirm)</h4>
+            <h4>Alternative: Disable for iOS</h4>
+            <p>If cel-shading isn't critical for mobile, you can disable it:</p>
             <ol class="steps">
-              <li>Open the Post Process Volume using M_FishHealth_PP</li>
-              <li>Temporarily disable this material in the PP settings</li>
-              <li>Recook and deploy to see if display works</li>
+              <li>Open the Post Process Volume that uses CelShadePP_Mat</li>
+              <li>Add a branch that checks platform: <code class="setting">Is Platform Mobile</code></li>
+              <li>Skip applying this post-process on mobile platforms</li>
             </ol>
           </div>
         </div>
 
-        <!-- Priority 2 -->
+        <!-- Priority 2 - CelShadeRock -->
         <div class="fix-step">
           <div class="fix-header">
-            <span class="fix-priority priority-1">2</span>
-            <span class="fix-title">Fix Post-Process Material Shaders (CelShadePP_Mat)</span>
-            <span class="fix-severity severity-critical">CRITICAL</span>
-          </div>
-          <div class="fix-body">
-            <p>The cel-shading post-process material is also failing. This stylizes the entire game's rendering.</p>
-            
-            <h4>Error from Runtime Log</h4>
-            <pre><code class="error">LogMaterial: Warning: Invalid shader map ID caching shaders for 'CelShadePP_Mat'
-LogMaterial: Can't compile with cooked content, will use default material</code></pre>
-            
-            <h4>Steps in Unreal Engine</h4>
-            <ol class="steps">
-              <li>Open <code class="path">Content Browser → (search) CelShadePP_Mat</code></li>
-              <li>Check <code class="setting">Material Domain</code> is set to <code class="setting">Post Process</code></li>
-              <li>Check <code class="setting">Blendable Location</code> — try <code class="setting">Before Tonemapping</code></li>
-              <li>Look for any Scene Texture nodes using unsupported buffers on iOS</li>
-              <li>Verify no <strong>Custom HLSL expressions</strong> with desktop-only syntax</li>
-              <li>Consider simplifying the shader for mobile (fewer texture lookups)</li>
-              <li>Save and recook for iOS</li>
-            </ol>
-          </div>
-        </div>
-
-        <!-- Priority 3 -->
-        <div class="fix-step">
-          <div class="fix-header">
-            <span class="fix-priority priority-2">3</span>
-            <span class="fix-title">Verify iOS Shader Format is Enabled</span>
+            <span class="fix-priority priority-2">2</span>
+            <span class="fix-title">CelShadeRock — Missing Material Function</span>
             <span class="fix-severity severity-high">HIGH</span>
           </div>
           <div class="fix-body">
-            <p>Make sure the project is actually cooking shaders for iOS Metal.</p>
+            <p>This rock material is failing because it references a material function that doesn't exist or isn't being cooked.</p>
             
-            <h4>Steps in Unreal Engine</h4>
+            <h4>Error from Cook Log</h4>
+            <pre><code class="error">LogMaterial: Warning: Failed to compile Material for platform SF_METAL_ES3_1_IOS
+  Missing Material Function
+
+Content/Developers/yueha/Migrate/Beach/Rock_Pack/Material/MI/CelShadeRock.uasset</code></pre>
+            
+            <h4>Fix in Unreal Editor</h4>
             <ol class="steps">
-              <li>Open <code class="setting">Edit → Project Settings</code></li>
-              <li>Go to <code class="path">Platforms → iOS → Rendering</code></li>
-              <li>Ensure <code class="setting">Target iOS Hardware</code> includes your target devices</li>
-              <li>Go to <code class="path">Project → Packaging → Shader Formats</code></li>
-              <li>Verify <code class="setting">SF_METAL_SM5</code> or <code class="setting">METAL_ES3_1</code> is checked</li>
-              <li>Go to <code class="path">Engine → Rendering → Mobile</code></li>
-              <li>Check <code class="setting">Mobile Shaders</code> settings</li>
+              <li>Open <code class="path">Content/Developers/yueha/Migrate/Beach/Rock_Pack/Material/MI/CelShadeRock</code></li>
+              <li>Look for any <strong>Material Function</strong> nodes with a red error state</li>
+              <li>Check if the referenced function exists and is in the correct location</li>
+              <li>If the function was deleted/moved, re-link it or recreate it</li>
+              <li>Ensure all referenced functions are set to be cooked (<code class="setting">Used with</code> settings)</li>
+              <li>Save and submit to P4</li>
             </ol>
           </div>
         </div>
 
-        <!-- Priority 4 -->
+        <!-- FIXED - M_FishHealth_PP -->
         <div class="fix-step">
           <div class="fix-header">
-            <span class="fix-priority priority-3">4</span>
-            <span class="fix-title">Fix FMOD Audio Bank Paths</span>
-            <span class="fix-severity severity-medium">MEDIUM</span>
+            <span class="fix-priority priority-4">✓</span>
+            <span class="fix-title">M_FishHealth_PP — SceneTextureLookup Issue</span>
+            <span class="fix-severity severity-fixed">FIXED</span>
           </div>
           <div class="fix-body">
-            <p>FMOD expects banks in a <code>Mobile/</code> subfolder, but iOS cooking flattens the structure.</p>
+            <p style="color: #66dd66;"><strong>This issue has been resolved!</strong> Change #684 by falsework-admin added a conditional modification that makes this shader compile for iOS.</p>
             
-            <h4>Error from Runtime Log</h4>
-            <pre><code class="error">LogFMOD: Error: Failed to open file '../../../SpiderLily/Content/FMOD/Mobile/Master.bank'
-LogFMOD: Warning: Failed to load bank (File does not exist)</code></pre>
+            <h4>Original Error (Now Fixed)</h4>
+            <pre><code class="warning" style="text-decoration: line-through;">error: use of undeclared identifier 'SceneTextureLookup'; did you mean 'MobileSceneTextureLookup'?
+    sum += SceneTextureLookup(ViewportUVToSceneTextureUV(pos,TexIndex), TexIndex, false);</code></pre>
             
-            <h4>Option A: Post-Build Script Fix</h4>
-            <p>Add this after the iOS build completes:</p>
-            <pre><code># Create the subfolder FMOD expects
-FMOD_PATH="$APP_PATH/cookeddata/spiderlily/content/fmod"
-mkdir -p "$FMOD_PATH/Desktop"
-cp "$FMOD_PATH/master.bank" "$FMOD_PATH/Desktop/"
-cp "$FMOD_PATH/master.strings.bank" "$FMOD_PATH/Desktop/"</code></pre>
-            
-            <h4>Option B: FMOD Config Fix</h4>
-            <ol class="steps">
-              <li>Open <code class="path">Project Settings → Plugins → FMOD Studio</code></li>
-              <li>Set <code class="setting">Force Platform Name</code> to empty string</li>
-              <li>Or set <code class="setting">Bank Output Directory</code> without subfolders</li>
-            </ol>
-          </div>
-        </div>
-
-        <!-- Priority 5 -->
-        <div class="fix-step">
-          <div class="fix-header">
-            <span class="fix-priority priority-4">5</span>
-            <span class="fix-title">Fix BP_Player Component Warning</span>
-            <span class="fix-severity severity-low">LOW</span>
-          </div>
-          <div class="fix-body">
-            <p>Blueprint trying to access an empty array at startup. Not blocking but should be fixed.</p>
-            
-            <h4>Warning from Runtime Log</h4>
-            <pre><code class="warning">LogScript: Warning: Attempted to access index 0 from array of length 0
-  in '/Game/LIB/Characters/Player/BP_Player.BP_Player_C'</code></pre>
-            
-            <h4>Steps in Unreal Engine</h4>
-            <ol class="steps">
-              <li>Open <code class="path">Content/LIB/Characters/Player/BP_Player</code></li>
-              <li>Search the Event Graph for array access (Get node with index 0)</li>
-              <li>Add an <code class="setting">Is Valid Index</code> or <code class="setting">Length > 0</code> check</li>
-              <li>Or ensure the array is populated before access (check initialization order)</li>
-            </ol>
+            <p>The fix likely used a <code>Feature Level Switch</code> or platform-specific branching to use mobile-compatible functions on iOS.</p>
           </div>
         </div>
 
@@ -756,17 +794,16 @@ cp "$FMOD_PATH/master.strings.bank" "$FMOD_PATH/Desktop/"</code></pre>
               <li class="done">App launches successfully</li>
               <li class="done">Level loads (L_VerticalSlice_Demo)</li>
               <li class="done">Touch input detected</li>
-              <li class="done">Device rotation</li>
-              <li class="done">FMOD binaries linked (98MB)</li>
+              <li class="fixed">M_FishHealth_PP shader (FIXED!)</li>
+              <li class="done">FMOD binaries linked</li>
             </ul>
           </div>
           <div>
-            <h4 style="color:#f88;margin-bottom:0.5rem;">✗ Failing</h4>
+            <h4 style="color:#f88;margin-bottom:0.5rem;">✗ Needs Fix</h4>
             <ul class="checklist">
-              <li class="fail">M_FishHealth_PP shader</li>
-              <li class="fail">CelShadePP_Mat shader</li>
-              <li class="fail">FMOD bank loading</li>
-              <li class="pending">BP_Player array access</li>
+              <li class="fail">CelShadePP_Mat (GBuffer access)</li>
+              <li class="fail">CelShadeRock (missing function)</li>
+              <li class="pending">Scene brightness/lighting</li>
             </ul>
           </div>
         </div>
@@ -774,25 +811,55 @@ cp "$FMOD_PATH/master.strings.bank" "$FMOD_PATH/Desktop/"</code></pre>
     </section>
 
     <section>
-      <h2>💻 Deployment Commands</h2>
+      <h2>📱 Test Devices</h2>
+      <div class="content">
+        <div class="meta-grid">
+          <div class="meta-item">
+            <div class="meta-label">aesthetic.computer</div>
+            <div class="meta-value">iPhone 14 Pro Max</div>
+          </div>
+          <div class="meta-item">
+            <div class="meta-label">Matthew Doyle's iPhone</div>
+            <div class="meta-value">iPhone 16 Pro Max</div>
+          </div>
+        </div>
+        <p style="margin-top: 1rem; color: #888; font-size: 0.85rem;">Both devices have the latest build installed and exhibit the same dark scene issue.</p>
+      </div>
+    </section>
+
+    <section>
+      <h2>🎯 Next Steps</h2>
+      <div class="content">
+        <ol class="steps">
+          <li><strong>Fix CelShadePP_Mat</strong> — Replace GBuffer SceneTexture nodes with mobile-compatible alternatives or add Feature Level Switch</li>
+          <li><strong>Fix CelShadeRock</strong> — Re-link the missing material function</li>
+          <li><strong>Submit to P4</strong> — Use <code>falsework-admin</code> workspace</li>
+          <li><strong>Ping Jeffrey</strong> — Trigger new iOS cook + deploy from Mac Mini</li>
+          <li><strong>Test on devices</strong> — Verify scene renders correctly with proper brightness</li>
+        </ol>
+      </div>
+    </section>
+
+    <section>
+      <h2>💻 Quick Commands</h2>
       <div class="content">
         <div class="cmd">
-          <div class="cmd-label">Install to device:</div>
-          <code>xcrun devicectl device install app --device 46720BDD-... ~/path/SpiderLily.app</code>
+          <div class="cmd-label">Force P4 Sync:</div>
+          <code>p4 -H "falseworks-Mac-mini.local" sync -f</code>
         </div>
         <div class="cmd">
-          <div class="cmd-label">Launch app:</div>
-          <code>xcrun devicectl device process launch --device 46720BDD-... work.false.SpiderLily</code>
+          <div class="cmd-label">iOS Cook + Stage:</div>
+          <code>RunUAT.sh BuildCookRun -project=SpiderLily.uproject -platform=IOS -cook -stage -pak</code>
         </div>
         <div class="cmd">
-          <div class="cmd-label">Check FMOD files in package:</div>
-          <code>ls -laR SpiderLily.app/cookeddata/spiderlily/content/fmod/</code>
+          <div class="cmd-label">Deploy to Matthew's iPhone:</div>
+          <code>xcrun devicectl device install app --device 9654E2B8-... SpiderLily.app</code>
         </div>
       </div>
     </section>
 
     <footer>
-      <a href="https://false.work">false.work</a> • Updated November 26, 2025
+      <a href="https://false.work">false.work</a> • Updated November 26, 2025 @ 10:08 PM
     </footer>
   </div>
 </body>
