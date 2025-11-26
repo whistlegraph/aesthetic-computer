@@ -1423,8 +1423,8 @@
         display: none !important;
       }
       
-      /* Clickable/draggable header on mobile */
-      .editor-header, .docs-header {
+      /* Clickable/draggable header on mobile - NOT the editor header (logo bar) */
+      .docs-header {
         cursor: ns-resize;
         position: relative;
         user-select: none;
@@ -1433,23 +1433,34 @@
         transition: background-color 0.15s ease;
       }
       
-      .editor-header:hover, .docs-header:hover {
-        background: var(--bg-tertiary);
+      /* Editor header is just for collapse, not resize */
+      .editor-header {
+        cursor: pointer;
+        position: relative;
+        user-select: none;
+        -webkit-user-select: none;
       }
       
-      .editor-header:active, .docs-header:active,
-      .editor-header.dragging, .docs-header.dragging {
-        background: var(--border-color);
+      /* Hover state for docs headers only */
+      .docs-header:hover {
+        background: rgba(128, 128, 128, 0.15);
       }
       
-      /* Collapse/expand indicator - only shown on non-editor panels */
+      /* Active/dragging state for docs headers */
+      .docs-header:active,
+      .docs-header.dragging {
+        background: rgba(128, 128, 128, 0.25);
+      }
+      
+      /* Collapse/expand indicator - match text color */
       .mobile-collapse-indicator {
         position: absolute;
         right: 12px;
         top: 50%;
         transform: translateY(-50%);
         font-size: 12px;
-        opacity: 0.6;
+        color: var(--text-primary);
+        opacity: 0.7;
         pointer-events: none;
       }
       
@@ -2218,10 +2229,10 @@
       
       // Store state per panel using data attributes
       const panelConfigs = [
-        { id: 'editor-panel', headerSelector: '.editor-header', defaultHeight: 250, showIndicator: false },
-        { id: 'preview-panel', headerSelector: '.docs-header', defaultHeight: 300, showIndicator: true },
-        { id: 'console-panel', headerSelector: '.docs-header', defaultHeight: 150, showIndicator: true },
-        { id: 'reference-panel', headerSelector: '.docs-header', defaultHeight: 200, showIndicator: true }
+        { id: 'editor-panel', headerSelector: '.editor-header', defaultHeight: 250, showIndicator: true, indicatorPosition: 'after-tagline' },
+        { id: 'preview-panel', headerSelector: '.docs-header', defaultHeight: 300, showIndicator: true, indicatorPosition: 'right' },
+        { id: 'console-panel', headerSelector: '.docs-header', defaultHeight: 150, showIndicator: true, indicatorPosition: 'right' },
+        { id: 'reference-panel', headerSelector: '.docs-header', defaultHeight: 200, showIndicator: true, indicatorPosition: 'right' }
       ];
       
       // Initially collapsed panels
@@ -2270,17 +2281,37 @@
         const header = panel.querySelector(config.headerSelector);
         if (!header) return;
         
-        // Style header
-        header.style.cursor = 'ns-resize';
+        // Style header - docs headers get resize cursor, editor just pointer
+        if (config.id === 'editor-panel') {
+          header.style.cursor = 'pointer';
+        } else {
+          header.style.cursor = 'ns-resize';
+        }
         header.style.userSelect = 'none';
         header.style.webkitUserSelect = 'none';
         
-        // Add indicator (not for editor)
+        // Add indicator based on position config
         if (config.showIndicator && !header.querySelector('.mobile-collapse-indicator')) {
           const indicator = document.createElement('span');
           indicator.className = 'mobile-collapse-indicator';
           indicator.textContent = panel.dataset.collapsed === 'true' ? '▶' : '▼';
-          header.appendChild(indicator);
+          
+          if (config.indicatorPosition === 'after-tagline') {
+            // For editor: insert after the tagline div
+            const taglineContainer = header.querySelector('div');
+            if (taglineContainer) {
+              indicator.style.position = 'relative';
+              indicator.style.right = 'auto';
+              indicator.style.top = 'auto';
+              indicator.style.transform = 'none';
+              indicator.style.marginLeft = '8px';
+              indicator.style.alignSelf = 'center';
+              taglineContainer.parentNode.insertBefore(indicator, taglineContainer.nextSibling);
+            }
+          } else {
+            // Default: absolute position on right
+            header.appendChild(indicator);
+          }
         }
         
         // Drag state
