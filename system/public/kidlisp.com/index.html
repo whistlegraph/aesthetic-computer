@@ -1430,10 +1430,16 @@
         user-select: none;
         -webkit-user-select: none;
         touch-action: none;
+        transition: background-color 0.15s ease;
       }
       
-      .editor-header:active, .docs-header:active {
+      .editor-header:hover, .docs-header:hover {
         background: var(--bg-tertiary);
+      }
+      
+      .editor-header:active, .docs-header:active,
+      .editor-header.dragging, .docs-header.dragging {
+        background: var(--border-color);
       }
       
       /* Collapse/expand indicator - only shown on non-editor panels */
@@ -2311,6 +2317,7 @@
               dragState.dragging = true;
               dragState.pending = false;
               setDragMode(true);
+              header.classList.add('dragging');
             } else {
               return false; // Not dragging yet
             }
@@ -2360,6 +2367,7 @@
           dragState.pending = false;
           dragState.dragging = false;
           setDragMode(false);
+          header.classList.remove('dragging');
           
           // Only toggle if it was a clean tap (pending but never started dragging)
           if (wasPending && !wasDragging) {
@@ -2425,14 +2433,17 @@
             moveDrag(e.clientY);
           };
           
-          const onMouseUp = () => {
+          const cleanup = () => {
             document.removeEventListener('mousemove', onMouseMove);
-            document.removeEventListener('mouseup', onMouseUp);
+            document.removeEventListener('mouseup', cleanup);
+            document.removeEventListener('mouseleave', cleanup);
             endDrag();
           };
           
           document.addEventListener('mousemove', onMouseMove);
-          document.addEventListener('mouseup', onMouseUp);
+          document.addEventListener('mouseup', cleanup);
+          // End drag when mouse leaves window
+          document.addEventListener('mouseleave', cleanup);
         });
       });
     }
