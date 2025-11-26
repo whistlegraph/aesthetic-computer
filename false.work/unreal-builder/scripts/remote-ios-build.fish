@@ -114,51 +114,41 @@ if test $local_mode = false
 
     echo ""
     echo "========================================="
-    echo "Copying build to assets..."
+    echo "Copying build locally..."
     echo "========================================="
 
-    # Copy .ipa to local assets
+    # Copy .ipa to builds.false.work/ios/
     sshpass -p "$MAC_PASSWORD" scp -o StrictHostKeyChecking=no \
         "$MAC_USERNAME@$MAC_HOST:~/$ipa_name" \
-        /workspaces/aesthetic-computer/system/public/assets/false.work/
+        /workspaces/aesthetic-computer/system/public/builds.false.work/ios/SpiderLily-latest.ipa
 
-    # Copy log file to assets
-    cp $log_file /workspaces/aesthetic-computer/system/public/assets/false.work/spiderlily-ios-$build_type-$build_version.txt
-
-    echo ""
-    echo "========================================="
-    echo "Uploading to assets.aesthetic.computer..."
-    echo "========================================="
-
-    cd /workspaces/aesthetic-computer
-    npm run assets:sync:up
+    # Also save dated version
+    sshpass -p "$MAC_PASSWORD" scp -o StrictHostKeyChecking=no \
+        "$MAC_USERNAME@$MAC_HOST:~/$ipa_name" \
+        /workspaces/aesthetic-computer/system/public/builds.false.work/ios/$ipa_name
 
     echo ""
     echo "========================================="
-    echo "Updating builds.false.work page..."
+    echo "Updating builds page..."
     echo "========================================="
 
-    # Ensure the file exists before calculating size
-    if not test -f /workspaces/aesthetic-computer/system/public/assets/false.work/$ipa_name
-        echo "❌ Build IPA not found at /workspaces/aesthetic-computer/system/public/assets/false.work/$ipa_name"
-        exit 1
-    end
-
-    # Get file size in MB (rounded to whole number)
-    set file_size (math -s0 (stat -c%s /workspaces/aesthetic-computer/system/public/assets/false.work/$ipa_name) / 1048576)
-    set download_url "https://assets.aesthetic.computer/false.work/$ipa_name"
-    set iso_timestamp (date -Iseconds | cut -d'+' -f1)
-
-    # Extract start level from DefaultEngine.ini (get last part after dot)
-    set full_map (ssh_exec "grep 'GameDefaultMap=' ~/Perforce/spiderlily_build_workspace_macmini/SL_main/Config/DefaultEngine.ini | cut -d= -f2")
-    set start_level (echo $full_map | awk -F'.' '{print $NF}')
-
-    # Extract UE version
-    set ue_version "UE_5.6"
-
-    # Use shared function to update the builds page
+    # Calculate file size
+    set file_size_mb (math -s0 (stat -c%s /workspaces/aesthetic-computer/system/public/builds.false.work/ios/SpiderLily-latest.ipa) / 1048576)
+    
+    # Update main builds page (same as Mac/Windows builds)
     source /workspaces/aesthetic-computer/false.work/unreal-builder/scripts/shared/update-builds-page.fish
-    update_builds_page "ios" "$build_version" "$iso_timestamp" "$file_size" "$start_level" "$ue_version" "$download_url"
+    
+    # Get the dated IPA filename  
+    set ipa_dated_name spiderlily-ios-$build_type-$build_version.ipa
+    
+    # Build the download URL
+    set download_url "https://builds.false.work/ios/$ipa_dated_name"
+    
+    # Get current timestamp in ISO format
+    set build_timestamp (date -Iseconds)
+    
+    # Update builds page with iOS build entry (platform version timestamp size level ue_version url)
+    update_builds_page "ios" "$build_version" "$build_timestamp" "$file_size_mb" "L_VerticalSlice_Demo" "UE_5.6" "$download_url"
 
     echo ""
     echo "========================================="
@@ -167,7 +157,7 @@ if test $local_mode = false
 
     cd /workspaces/aesthetic-computer
     git add system/public/builds.false.work/index.html
-    git commit -m "Add SpiderLily iOS ($build_type) build $build_version"
+    git commit -m "Add SpiderLily iOS ($build_type) build $build_version to builds page"
 
     # Try to push, if it fails due to remote changes, pull and retry
     if not git push
@@ -195,8 +185,10 @@ if test $local_mode = false
     echo "✅ Build complete and deployed!"
     echo "📦 Build: $build_version"
     echo "📱 Type: iOS $build_type"
-    echo "🔗 Download: $download_url"
-    echo "🌐 Page: https://builds.false.work"
+    echo "💾 Size: $file_size_mb MB"
+    echo "🌐 Builds page: https://builds.false.work/"
+    echo "📱 Install via Safari: https://builds.false.work/ios/"
+    echo "📥 Direct download: https://builds.false.work/ios/$ipa_dated_name"
 
 else
     # ============================================
