@@ -1,24 +1,24 @@
 #!/usr/bin/env node
 
-// Ultra-minimal bundler for simple KidLisp pieces
-// Aggressively removes ALL unused systems to fit 256 KB Tezos limit
-// Based on bundle-minimal-keep.mjs but with maximum pruning
-// Usage: node bundle-ultra-minimal-keep.mjs <piece-name>
+// KidLisp Bundle Generator
+// Creates self-contained .lisp.html files for KidLisp pieces
+// Usage: node bundle-keep-html.mjs <piece-name>
 
 import { promises as fs } from "fs";
 import fsSync from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import { minify } from "terser";
 import swc from "@swc/core";
 import { execSync } from "child_process";
-import { gzipSync, brotliCompressSync, constants } from "zlib";
+import { gzipSync } from "zlib";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const PIECE_NAME = process.argv[2] || "$wwi";
-const PIECE_NAME_NO_DOLLAR = PIECE_NAME.replace(/^\$/, '');
+// Normalize piece name to always have $ prefix
+const rawPieceName = process.argv[2] || "wwi";
+const PIECE_NAME_NO_DOLLAR = rawPieceName.replace(/^\$/, '');
+const PIECE_NAME = '$' + PIECE_NAME_NO_DOLLAR;
 const OUTPUT_DIR = path.join(__dirname, "keep-bundles");
 const SOURCE_DIR = path.resolve(__dirname, "..");
 const MINIFY_JS = true;
@@ -97,6 +97,21 @@ const packDate = new Date().toLocaleString("en-US", {
   second: "2-digit",
   hour12: true,
 });
+
+// Generate timestamp matching lib/num.mjs format: YYYY.M.D.H.M.S.mmm
+function timestamp(date = new Date()) {
+  const pad = (n, digits = 2) => n.toString().padStart(digits, "0");
+  return `${date.getFullYear()}.${date.getMonth() + 1}.${date.getDate()}.${date.getHours()}.${date.getMinutes()}.${date.getSeconds()}.${pad(date.getMilliseconds(), 3)}`;
+}
+
+// Piece author handle (later could be dynamic based on piece metadata)
+const AUTHOR_HANDLE = '@jeffrey';
+
+// Generate filename: $piece-@author-timestamp
+const BUNDLE_TIMESTAMP = timestamp();
+function bundleFilename(extension) {
+  return `$${PIECE_NAME_NO_DOLLAR}-${AUTHOR_HANDLE}-${BUNDLE_TIMESTAMP}.${extension}`;
+}
 
 // ULTRA-MINIMAL file set - only what's absolutely required for basic KidLisp visuals
 const ESSENTIAL_FILES = [
@@ -539,7 +554,7 @@ async function createMinimalBundle(kidlispSources) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${PIECE_NAME} • Aesthetic Computer</title>
+  <title>${PIECE_NAME} · Aesthetic Computer</title>
   <script>
     // CRITICAL: Console suppression MUST happen first, before any other code
     (function() {
@@ -623,7 +638,7 @@ async function createMinimalBundle(kidlispSources) {
         isKidLisp: true
       },
       build: {
-        author: '@jeffrey',
+        author: '${AUTHOR_HANDLE}',
         packTime: ${packTime},
         gitCommit: '${gitHash}',
         gitIsDirty: ${gitDirty ? 'true' : 'false'},
@@ -789,76 +804,11 @@ async function createMinimalBundle(kidlispSources) {
 </body>
 </html>`;
 
-  // Write uncompressed output
+  // Create output directory
   await fs.mkdir(OUTPUT_DIR, { recursive: true });
-  const outputPath = path.join(OUTPUT_DIR, `${PIECE_NAME.replace('$', '')}-ultra-minimal-nft.html`);
-  await fs.writeFile(outputPath, htmlContent);
   
-  const stats = await fs.stat(outputPath);
-  const sizeKB = (stats.size / 1024).toFixed(2);
-  
-  console.log(`\n✅ ULTRA-MINIMAL bundle created!`);
-  console.log(`   📄 ${outputPath}`);
-  console.log(`   💾 Size: ${sizeKB} KB (uncompressed)`);
-  
-  // Compress with Brotli (much better than gzip!)
-  console.log(`\n📦 Compressing bundle with Brotli (level 11)...`);
-  const compressed = brotliCompressSync(htmlContent, {
-    params: {
-      [constants.BROTLI_PARAM_QUALITY]: 11, // Maximum quality
-      [constants.BROTLI_PARAM_SIZE_HINT]: htmlContent.length
-    }
-  });
-  const base64 = compressed.toString('base64');
-  
-  const selfContained = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <title>${PIECE_NAME} • Aesthetic Computer</title>
-  <style>
-    body{margin:0;background:#000;overflow:hidden}
-  </style>
-</head>
-<body>
-  <script>
-    fetch('data:application/octet-stream;base64,${base64}')
-      .then(r=>r.blob())
-      .then(b=>b.stream().pipeThrough(new DecompressionStream('br')))
-      .then(s=>new Response(s).text())
-      .then(h=>{document.open();document.write(h);document.close();});
-  </script>
-</body>
-</html>`;
-
-  const compressedPath = path.join(OUTPUT_DIR, `${PIECE_NAME.replace('$', '')}-ultra-self-contained.html`);
-  await fs.writeFile(compressedPath, selfContained);
-  
-  const finalSizeKB = Math.round(selfContained.length / 1024);
-  const tezosLimitKB = 256;
-  
-  console.log(`\n📊 Compression results (Brotli):`);
-  console.log(`   Original:   ${htmlContent.length.toLocaleString()} bytes`);
-  console.log(`   Brotli:     ${compressed.length.toLocaleString()} bytes`);
-  console.log(`   Base64:     ${base64.length.toLocaleString()} bytes`);
-  console.log(`   Final:      ${selfContained.length.toLocaleString()} bytes = ${finalSizeKB} KB`);
-  console.log(`   Target:     ${tezosLimitKB} KB`);
-  console.log(`   vs gzip:    ~${Math.round((200 - compressed.length/1024))} KB smaller!`);
-  
-  if (selfContained.length <= 256000) {
-    const headroom = tezosLimitKB - finalSizeKB;
-    console.log(`\n✅ ✅ ✅ FITS IN 256 KB TEZOS LIMIT! ✅ ✅ ✅`);
-    console.log(`   Headroom: ${headroom} KB`);
-  } else {
-    const overage = finalSizeKB - tezosLimitKB;
-    console.log(`\n⚠️  Still over by ${overage} KB`);
-    console.log(`   Need to remove ${Math.ceil(overage)} more KB of code`);
-  }
-  
-  console.log(`\n📝 Written to: ${compressedPath}`);
-  
-  // Also create gzip version for browser testing (VS Code Simple Browser doesn't support Brotli)
-  console.log(`\n📦 Creating gzip version for browser testing...`);
+  // Create gzip-compressed .lisp.html bundle
+  console.log(`\n📦 Creating .lisp.html bundle...`);
   const gzipCompressed = gzipSync(htmlContent, { level: 9 });
   const gzipBase64 = gzipCompressed.toString('base64');
   
@@ -866,7 +816,7 @@ async function createMinimalBundle(kidlispSources) {
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>${PIECE_NAME} • Aesthetic Computer</title>
+  <title>${PIECE_NAME} · Aesthetic Computer</title>
   <style>
     body{margin:0;background:#000;overflow:hidden}
   </style>
@@ -882,14 +832,22 @@ async function createMinimalBundle(kidlispSources) {
 </body>
 </html>`;
 
-  const gzipPath = path.join(OUTPUT_DIR, `${PIECE_NAME.replace('$', '')}-ultra-gzip.html`);
-  await fs.writeFile(gzipPath, gzipSelfContained);
+  const lispFilename = bundleFilename('lisp.html');
+  const lispPath = path.join(OUTPUT_DIR, lispFilename);
+  await fs.writeFile(lispPath, gzipSelfContained);
   
-  const gzipSizeKB = Math.round(gzipSelfContained.length / 1024);
-  console.log(`   Gzip version: ${gzipSizeKB} KB (for browser testing)`);
-  console.log(`   Written to: ${gzipPath}`);
+  const lispSizeKB = Math.round(gzipSelfContained.length / 1024);
+  const uncompressedKB = Math.round(htmlContent.length / 1024);
   
-  return compressedPath;
+  console.log(`\n✅ Bundle created: ${lispFilename}`);
+  console.log(`   📄 ${lispPath}`);
+  console.log(`   💾 Size: ${lispSizeKB} KB (${uncompressedKB} KB uncompressed)`);
+  
+  // Return info for CLI tools
+  return {
+    lisp: lispFilename,
+    timestamp: BUNDLE_TIMESTAMP
+  };
 }
 
 async function main() {
