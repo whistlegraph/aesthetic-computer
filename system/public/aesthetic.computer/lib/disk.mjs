@@ -7199,21 +7199,25 @@ async function load(
     $commonApi.rec.loadCallback = null;
 
     // 📤 Send ready signal to parent window (e.g., kidlisp.com editor)
-    if (!window.acPACK_MODE) {
+    // Note: disk.mjs runs in a Web Worker, so window may not exist
+    const hasWindow = typeof window !== 'undefined';
+    const packMode = hasWindow && window.acPACK_MODE;
+    
+    if (hasWindow && !packMode) {
       console.log('🔍 hotSwap: checking if we can send ready message...');
-      console.log('🔍 typeof window:', typeof window);
     }
     try {
-      if (typeof window !== 'undefined' && window.parent && window.parent !== window) {
-        if (!window.acPACK_MODE) console.log('📤 Sending kidlisp-ready to parent window');
+      if (hasWindow && window.parent && window.parent !== window) {
+        if (!packMode) console.log('📤 Sending kidlisp-ready to parent window');
         window.parent.postMessage({ type: "kidlisp-ready" }, "*");
-        if (!window.acPACK_MODE) console.log('✅ kidlisp-ready message sent');
-      } else {
-        if (!window.acPACK_MODE) console.log('⚠️ Not in iframe context, skipping ready message');
+        if (!packMode) console.log('✅ kidlisp-ready message sent');
+      } else if (hasWindow) {
+        if (!packMode) console.log('⚠️ Not in iframe context, skipping ready message');
       }
+      // If no window (worker context), silently skip
     } catch (e) {
       // Silently fail if in worker context or cross-origin
-      if (!window.acPACK_MODE) console.log('⚠️ Could not send ready message:', e.message);
+      if (hasWindow && !packMode) console.log('⚠️ Could not send ready message:', e.message);
     }
 
     module = loadedModule;
