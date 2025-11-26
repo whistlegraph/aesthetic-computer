@@ -16030,7 +16030,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           
           if (source) {
             // Extract piece name from filename: $piece-@author-timestamp.lisp.html
-            const nameMatch = file.name.match(/^\$([^-]+)/);
+            // Keep the $ prefix for KidLisp pieces
+            const nameMatch = file.name.match(/^(\$[^-]+)/);
             const pieceName = nameMatch ? nameMatch[1] : file.name.replace('.lisp.html', '');
             
             console.log("📦 Extracted KidLisp source from bundle:", pieceName, source.substring(0, 50) + "...");
