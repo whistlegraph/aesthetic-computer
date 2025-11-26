@@ -1411,24 +1411,23 @@
     #preview-qr {
       cursor: pointer;
       transition: transform 0.2s, opacity 0.2s;
-      margin-left: 4px;
+      margin-left: 0px;
       margin-right: 0;
       padding: 1px;
       display: block;
-      border: 1px solid rgba(0, 0, 0, 0.3);
-      border-radius: 2px;
+      border: 1px solid rgb(88, 78, 108);
       box-sizing: content-box;
-      height: 42px !important; /* Slightly smaller to account for minimal padding */
+      height: 32px !important; /* Smaller QR with more padding */
     }
     
     @media (prefers-color-scheme: dark) {
       #preview-qr {
-        border-color: rgba(255, 255, 255, 0.2);
+        border-color: rgb(188, 168, 218);
       }
     }
     
     [data-theme="dark"] #preview-qr {
-      border-color: rgba(255, 255, 255, 0.2);
+      border-color: rgb(188, 168, 218);
     }
     
     @media (hover: hover) {
@@ -2240,15 +2239,19 @@
       }
       
       const cleanCode = code.startsWith('$') ? code.substring(1) : code;
-      const url = `https://aesthetic.computer/$${cleanCode}`;
+      const url = `https://prompt.ac/$${cleanCode}`;
       
       try {
+        // Detect dark mode
+        const isDarkMode = document.documentElement.getAttribute('data-theme') === 'dark' || 
+                         (!document.documentElement.getAttribute('data-theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        
         // Generate QR code with lowest error correction for smallest size
         const cells = window.qr(url, { errorCorrectLevel: window.ErrorCorrectLevel.L }).modules;
         
-        // Scale QR to fit within header with minimal padding and border
-        // Header is 44px, minus 1px padding top/bottom and 1px border = 42px
-        const targetHeight = 42;
+        // Scale QR to smaller size with more padding
+        // Target 32px QR code (was 42px)
+        const targetHeight = 32;
         const cellSize = Math.floor(targetHeight / cells.length);
         const qrSize = cells.length * cellSize;
         
@@ -2258,16 +2261,14 @@
         canvas.height = qrSize;
         const ctx = canvas.getContext('2d');
         
-        // Draw QR code with transparency - black squares, transparent background
-        // This allows the header background color to show through
-        ctx.clearRect(0, 0, qrSize, qrSize); // Start with transparent canvas
+        // Draw QR code - use actual colors instead of transparency for better contrast
+        const bgColor = isDarkMode ? 'rgb(188, 168, 218)' : 'rgb(240, 235, 250)';
+        const fgColor = isDarkMode ? 'rgb(48, 43, 58)' : 'rgb(88, 78, 108)';
+        
         for (let y = 0; y < cells.length; y++) {
           for (let x = 0; x < cells.length; x++) {
-            if (cells[y][x]) {
-              // Only draw black squares, leave white squares transparent
-              ctx.fillStyle = 'rgba(0, 0, 0, 0.7)'; // Semi-transparent black
-              ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
-            }
+            ctx.fillStyle = cells[y][x] ? fgColor : bgColor;
+            ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
           }
         }
         
