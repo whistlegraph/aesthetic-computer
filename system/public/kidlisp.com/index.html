@@ -1404,16 +1404,14 @@
         padding: 6px;
       }
       
-      /* Mobile panels - no gutters, use headers for interaction */
+      /* Mobile panels - use height transitions for smooth accordion */
       .editor-panel, .preview-panel, .reference-section, .console-section {
-        transition: flex 0.3s ease-out;
+        transition: height 0.25s ease-out;
+        overflow: hidden;
       }
       
       /* Collapsed panel state */
       .panel-collapsed {
-        flex: 0 0 40px !important;
-        min-height: 40px !important;
-        max-height: 40px !important;
         overflow: hidden !important;
       }
       
@@ -1425,29 +1423,32 @@
         display: none !important;
       }
       
-      /* Draggable header indicator on mobile */
+      /* Clickable header on mobile */
       .editor-header, .docs-header {
-        cursor: ns-resize;
+        cursor: pointer;
         position: relative;
-        touch-action: none;
         user-select: none;
         -webkit-user-select: none;
+      }
+      
+      .editor-header:active, .docs-header:active {
+        background: var(--bg-tertiary);
       }
       
       /* Collapse/expand indicator */
       .mobile-collapse-indicator {
         position: absolute;
-        right: 8px;
+        right: 12px;
         top: 50%;
         transform: translateY(-50%);
-        font-size: 10px;
-        opacity: 0.5;
+        font-size: 12px;
+        opacity: 0.6;
         pointer-events: none;
-        transition: transform 0.3s;
+        transition: transform 0.25s ease-out;
       }
       
       .panel-collapsed .mobile-collapse-indicator {
-        transform: translateY(-50%) rotate(180deg);
+        transform: translateY(-50%);
       }
       
       /* Hide Split.js gutters on mobile - we use headers instead */
@@ -2199,29 +2200,32 @@
       }
     }
     
-    // Mobile header interactions - drag to resize, tap to toggle
+    // Mobile header interactions - tap to toggle accordion style
     function setupMobileHeaders() {
       const panels = [
-        { id: 'editor-panel', headerClass: '.editor-header' },
-        { id: 'preview-panel', headerClass: '.docs-header' },
-        { id: 'console-panel', headerClass: '.docs-header' },
-        { id: 'reference-panel', headerClass: '.docs-header' }
+        { id: 'editor-panel', headerClass: '.editor-header', defaultHeight: 250 },
+        { id: 'preview-panel', headerClass: '.docs-header', defaultHeight: 300 },
+        { id: 'console-panel', headerClass: '.docs-header', defaultHeight: 150 },
+        { id: 'reference-panel', headerClass: '.docs-header', defaultHeight: 200 }
       ];
       
       const mainSplit = document.getElementById('main-split');
       if (!mainSplit) return;
       
-      // Track panel flex values
-      let panelFlexValues = {
-        'editor-panel': 35,
-        'preview-panel': 40,
-        'console-panel': 15,
-        'reference-panel': 10
-      };
+      const HEADER_HEIGHT = 40;
+      
+      // Store last expanded heights for each panel
+      const savedHeights = {};
+      panels.forEach(p => savedHeights[p.id] = p.defaultHeight);
       
       // Track collapsed state
-      let collapsedPanels = new Set();
+      const collapsedPanels = new Set();
       
+      // Initially collapse console and reference on mobile
+      collapsedPanels.add('console-panel');
+      collapsedPanels.add('reference-panel');
+      
+      // Apply initial state
       panels.forEach(({ id, headerClass }) => {
         const panel = document.getElementById(id);
         if (!panel) return;
@@ -2229,7 +2233,12 @@
         const header = panel.querySelector(headerClass);
         if (!header) return;
         
-        // Add collapse indicator
+        // Style header as clickable
+        header.style.cursor = 'pointer';
+        header.style.userSelect = 'none';
+        header.style.webkitUserSelect = 'none';
+        
+        // Add collapse indicator if not present
         if (!header.querySelector('.mobile-collapse-indicator')) {
           const indicator = document.createElement('span');
           indicator.className = 'mobile-collapse-indicator';
@@ -2237,115 +2246,74 @@
           header.appendChild(indicator);
         }
         
-        let isDragging = false;
-        let startY = 0;
-        let startFlex = 0;
-        let dragThreshold = 10;
-        let hasMoved = false;
+        // Set initial heights
+        if (collapsedPanels.has(id)) {
+          panel.style.height = `${HEADER_HEIGHT}px`;
+          panel.style.minHeight = `${HEADER_HEIGHT}px`;
+          panel.style.flex = 'none';
+          panel.classList.add('panel-collapsed');
+        } else {
+          panel.style.height = `${savedHeights[id]}px`;
+          panel.style.minHeight = `${HEADER_HEIGHT}px`;
+          panel.style.flex = 'none';
+        }
         
-        // Touch start
-        header.addEventListener('touchstart', (e) => {
-          // Don't interfere with buttons
+        // Tap to toggle
+        const handleTap = (e) => {
+          // Don't interfere with buttons or interactive elements
           if (e.target.tagName === 'BUTTON' || e.target.closest('button')) return;
+          if (e.target.tagName === 'SELECT' || e.target.closest('select')) return;
+          if (e.target.tagName === 'INPUT' || e.target.closest('input')) return;
           
-          startY = e.touches[0].clientY;
-          startFlex = panelFlexValues[id];
-          hasMoved = false;
-          isDragging = true;
+          e.preventDefault();
+          e.stopPropagation();
+          
+          togglePanel(id, panel);
+        };
+        
+        header.addEventListener('click', handleTap);
+        
+        // Also handle touch end for better mobile response
+        let touchStartY = 0;
+        header.addEventListener('touchstart', (e) => {
+          if (e.target.tagName === 'BUTTON' || e.target.closest('button')) return;
+          touchStartY = e.touches[0].clientY;
         }, { passive: true });
         
-        // Touch move - drag to resize
-        header.addEventListener('touchmove', (e) => {
-          if (!isDragging) return;
-          
-          const currentY = e.touches[0].clientY;
-          const deltaY = currentY - startY;
-          
-          if (Math.abs(deltaY) > dragThreshold) {
-            hasMoved = true;
-            e.preventDefault();
-            
-            // If panel was collapsed, expand it first
-            if (collapsedPanels.has(id)) {
-              collapsedPanels.delete(id);
-              panel.classList.remove('panel-collapsed');
-            }
-            
-            // Calculate new flex value based on drag
-            // 1 pixel = 0.5 flex units
-            const newFlex = Math.max(10, startFlex + (deltaY * 0.3));
-            panelFlexValues[id] = newFlex;
-            panel.style.flex = `${newFlex} 1 0`;
-          }
-        }, { passive: false });
-        
-        // Touch end - tap to toggle if didn't drag
         header.addEventListener('touchend', (e) => {
-          if (!isDragging) return;
-          isDragging = false;
+          if (e.target.tagName === 'BUTTON' || e.target.closest('button')) return;
+          if (e.target.tagName === 'SELECT' || e.target.closest('select')) return;
           
-          // If didn't move much, it's a tap - toggle collapse
-          if (!hasMoved) {
+          // Only toggle if it wasn't a scroll gesture
+          const touchEndY = e.changedTouches[0].clientY;
+          if (Math.abs(touchEndY - touchStartY) < 10) {
+            e.preventDefault();
             togglePanel(id, panel);
           }
         });
-        
-        // Mouse support for testing
-        header.addEventListener('mousedown', (e) => {
-          if (e.target.tagName === 'BUTTON' || e.target.closest('button')) return;
-          
-          startY = e.clientY;
-          startFlex = panelFlexValues[id];
-          hasMoved = false;
-          isDragging = true;
-          
-          const onMouseMove = (e) => {
-            if (!isDragging) return;
-            
-            const deltaY = e.clientY - startY;
-            
-            if (Math.abs(deltaY) > dragThreshold) {
-              hasMoved = true;
-              
-              if (collapsedPanels.has(id)) {
-                collapsedPanels.delete(id);
-                panel.classList.remove('panel-collapsed');
-              }
-              
-              const newFlex = Math.max(10, startFlex + (deltaY * 0.3));
-              panelFlexValues[id] = newFlex;
-              panel.style.flex = `${newFlex} 1 0`;
-            }
-          };
-          
-          const onMouseUp = () => {
-            document.removeEventListener('mousemove', onMouseMove);
-            document.removeEventListener('mouseup', onMouseUp);
-            
-            if (!hasMoved) {
-              togglePanel(id, panel);
-            }
-            isDragging = false;
-          };
-          
-          document.addEventListener('mousemove', onMouseMove);
-          document.addEventListener('mouseup', onMouseUp);
-        });
-        
-        function togglePanel(panelId, panelEl) {
-          if (collapsedPanels.has(panelId)) {
-            // Expand
-            collapsedPanels.delete(panelId);
-            panelEl.classList.remove('panel-collapsed');
-            panelEl.style.flex = `${panelFlexValues[panelId]} 1 0`;
-          } else {
-            // Collapse
-            collapsedPanels.add(panelId);
-            panelEl.classList.add('panel-collapsed');
-            panelEl.style.flex = '0 0 40px';
-          }
-        }
       });
+      
+      function togglePanel(panelId, panelEl) {
+        const indicator = panelEl.querySelector('.mobile-collapse-indicator');
+        
+        if (collapsedPanels.has(panelId)) {
+          // Expand - restore saved height with animation
+          collapsedPanels.delete(panelId);
+          panelEl.classList.remove('panel-collapsed');
+          panelEl.style.height = `${savedHeights[panelId]}px`;
+          if (indicator) indicator.textContent = '▼';
+        } else {
+          // Collapse - save current height first, then animate to header-only
+          const currentHeight = panelEl.offsetHeight;
+          if (currentHeight > HEADER_HEIGHT) {
+            savedHeights[panelId] = currentHeight;
+          }
+          collapsedPanels.add(panelId);
+          panelEl.classList.add('panel-collapsed');
+          panelEl.style.height = `${HEADER_HEIGHT}px`;
+          if (indicator) indicator.textContent = '▶';
+        }
+      }
     }
     
     // Initialize on load
