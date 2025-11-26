@@ -2453,20 +2453,34 @@
           header.insertBefore(handle, header.firstChild);
         }
         
-        // Mouse events
+        // Mouse events - allow dragging from anywhere on header
         header.addEventListener('mousedown', (e) => {
-          // Don't start drag if clicking on interactive elements
-          if (e.target.tagName === 'BUTTON' || e.target.closest('button') || 
-              e.target.closest('.language-tab') || e.target.closest('.tab')) {
+          // Only block dragging if clicking directly on a button or dropdown
+          // Allow dragging from tabs, spans, titles, etc.
+          if (e.target.tagName === 'BUTTON' || e.target.closest('button')) {
             return;
           }
+          // Block if clicking inside the language dropdown menu itself
+          if (e.target.closest('.language-dropdown')) {
+            return;
+          }
+          // Block if clicking on theme toggle
+          if (e.target.id === 'theme-toggle' || e.target.closest('#theme-toggle')) {
+            return;
+          }
+          e.preventDefault(); // Prevent text selection while dragging
           startDrag(e, panel);
         });
         
         // Touch events
         header.addEventListener('touchstart', (e) => {
-          if (e.target.tagName === 'BUTTON' || e.target.closest('button') || 
-              e.target.closest('.language-tab') || e.target.closest('.tab')) {
+          if (e.target.tagName === 'BUTTON' || e.target.closest('button')) {
+            return;
+          }
+          if (e.target.closest('.language-dropdown')) {
+            return;
+          }
+          if (e.target.id === 'theme-toggle' || e.target.closest('#theme-toggle')) {
             return;
           }
           startDrag(e.touches[0], panel);
