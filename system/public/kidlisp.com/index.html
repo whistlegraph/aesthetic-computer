@@ -896,6 +896,97 @@
       box-sizing: border-box;
       overflow: hidden;
       flex-shrink: 0; /* Prevent header from shrinking */
+      /* Draggable header styles */
+      cursor: grab;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none; /* Prevent scrolling while dragging */
+    }
+    
+    .docs-header:active {
+      cursor: grabbing;
+    }
+    
+    /* Dragging state for headers */
+    .docs-header.dragging {
+      opacity: 0.8;
+      cursor: grabbing;
+      background: var(--bg-tertiary);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      z-index: 1000;
+    }
+    
+    /* Drop target indicator */
+    .panel-drop-target {
+      position: relative;
+    }
+    
+    .panel-drop-target::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: rgb(205, 92, 155);
+      z-index: 100;
+      animation: dropTargetPulse 0.5s ease-in-out infinite;
+    }
+    
+    .panel-drop-target.drop-above::before {
+      top: 0;
+    }
+    
+    .panel-drop-target.drop-below::before {
+      bottom: 0;
+      top: auto;
+    }
+    
+    @keyframes dropTargetPulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    
+    /* Drag handle icon for headers */
+    .drag-handle {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 100%;
+      opacity: 0.3;
+      margin-right: 4px;
+      flex-shrink: 0;
+    }
+    
+    .drag-handle::before {
+      content: '⋮⋮';
+      font-size: 10px;
+      letter-spacing: -2px;
+    }
+    
+    @media (hover: hover) {
+      .docs-header:hover .drag-handle {
+        opacity: 0.6;
+      }
+    }
+    
+    /* Editor header also draggable */
+    .editor-header {
+      cursor: grab;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
+    }
+    
+    .editor-header:active {
+      cursor: grabbing;
+    }
+    
+    .editor-header.dragging {
+      opacity: 0.8;
+      cursor: grabbing;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      z-index: 1000;
     }
 
     /* Remove padding when header contains tabs */
@@ -1405,56 +1496,54 @@
       }
     }
     
-    /* Touch-friendly gutters on mobile */
+    /* Touch-friendly gutters on mobile - smaller since headers handle reordering */
     @media (max-width: 768px) {
       .gutter {
         background-color: var(--border-color) !important;
         position: relative;
-        /* Critical: Allow vertical touch dragging on gutters */
+        /* Still allow resizing via gutter */
         touch-action: pan-y !important;
         -webkit-user-select: none;
         user-select: none;
       }
       
       .gutter.gutter-vertical {
-        height: 12px !important;
+        height: 6px !important;
+        min-height: 6px !important;
         cursor: row-resize;
-        /* Expand touch target */
-        min-height: 12px;
-        /* Allow vertical dragging */
-        touch-action: pan-y !important;
       }
       
-      /* Visual grab indicator for mobile gutters */
+      /* Subtle resize indicator */
       .gutter.gutter-vertical::before {
         content: '';
         position: absolute;
         left: 50%;
         top: 50%;
         transform: translate(-50%, -50%);
-        width: 40px;
-        height: 4px;
+        width: 30px;
+        height: 2px;
         background: var(--text-tertiary);
-        border-radius: 2px;
-        opacity: 0.5;
-      }
-      
-      .gutter.gutter-vertical::after {
-        content: '';
-        position: absolute;
-        left: 50%;
-        top: 50%;
-        transform: translate(-50%, -50%);
-        width: 100%;
-        height: 24px; /* Larger touch target */
+        border-radius: 1px;
+        opacity: 0.4;
       }
     }
 
-    /* Split.js Gutter Styles */
+    /* Split.js Gutter Styles - smaller since headers handle reordering */
     .gutter {
       transition: all 0.2s;
       position: relative;
       z-index: 1;
+      background-color: var(--border-color) !important;
+    }
+    
+    .gutter.gutter-vertical {
+      height: 4px !important;
+      min-height: 4px !important;
+    }
+    
+    .gutter.gutter-horizontal {
+      width: 4px !important;
+      min-width: 4px !important;
     }
 
     /* Main vertical gutter (between top and bottom rows) */
@@ -1976,7 +2065,7 @@
         splits.push(Split(['#editor-panel', '#preview-panel', '#console-panel', '#reference-panel'], {
           sizes: [35, 40, 15, 10], // Editor 35%, Preview 40%, Console 15%, Reference 10%
           direction: 'vertical',
-          gutterSize: 12, // Larger gutters for touch
+          gutterSize: 6, // Smaller gutters - headers handle reordering
           cursor: 'row-resize',
           minSize: 40, // Minimum size to keep header visible and tappable
           snapOffset: 0, // Disable snapping on mobile
@@ -2297,6 +2386,7 @@
     setTimeout(() => {
       updateCenterSquarePosition();
       setupCenterSquareDrag();
+      setupDraggableHeaders(); // Add draggable header reordering
       
       // Update center square position when splits are dragged
       const observer = new MutationObserver(() => {
@@ -2312,6 +2402,221 @@
         });
       }
     }, 500);
+    
+    // Draggable header reordering system
+    function setupDraggableHeaders() {
+      const panels = ['editor-panel', 'preview-panel', 'console-panel', 'reference-panel'];
+      let draggedPanel = null;
+      let dragStartY = 0;
+      let dragStartX = 0;
+      let isDraggingHeader = false;
+      let currentDropTarget = null;
+      let dropPosition = null; // 'above' or 'below'
+      
+      // Get the header element for a panel
+      function getHeader(panel) {
+        if (panel.id === 'editor-panel') {
+          return panel.querySelector('.editor-header');
+        }
+        return panel.querySelector('.docs-header');
+      }
+      
+      // Get all panel elements in current order
+      function getPanelsInOrder() {
+        const mainSplit = document.getElementById('main-split');
+        return panels.map(id => document.getElementById(id)).filter(p => p && mainSplit.contains(p));
+      }
+      
+      // Set up each header
+      panels.forEach(panelId => {
+        const panel = document.getElementById(panelId);
+        if (!panel) return;
+        
+        const header = getHeader(panel);
+        if (!header) return;
+        
+        // Add drag handle indicator
+        if (!header.querySelector('.drag-handle')) {
+          const handle = document.createElement('div');
+          handle.className = 'drag-handle';
+          header.insertBefore(handle, header.firstChild);
+        }
+        
+        // Mouse events
+        header.addEventListener('mousedown', (e) => {
+          // Don't start drag if clicking on interactive elements
+          if (e.target.tagName === 'BUTTON' || e.target.closest('button') || 
+              e.target.closest('.language-tab') || e.target.closest('.tab')) {
+            return;
+          }
+          startDrag(e, panel);
+        });
+        
+        // Touch events
+        header.addEventListener('touchstart', (e) => {
+          if (e.target.tagName === 'BUTTON' || e.target.closest('button') || 
+              e.target.closest('.language-tab') || e.target.closest('.tab')) {
+            return;
+          }
+          startDrag(e.touches[0], panel);
+        }, { passive: false });
+      });
+      
+      function startDrag(e, panel) {
+        draggedPanel = panel;
+        dragStartY = e.clientY;
+        dragStartX = e.clientX;
+        isDraggingHeader = false; // Not dragging until moved
+        
+        document.addEventListener('mousemove', onDrag);
+        document.addEventListener('mouseup', endDrag);
+        document.addEventListener('touchmove', onTouchDrag, { passive: false });
+        document.addEventListener('touchend', endDrag);
+      }
+      
+      function onTouchDrag(e) {
+        e.preventDefault();
+        onDrag(e.touches[0]);
+      }
+      
+      function onDrag(e) {
+        if (!draggedPanel) return;
+        
+        const deltaY = Math.abs(e.clientY - dragStartY);
+        const deltaX = Math.abs(e.clientX - dragStartX);
+        
+        // Start dragging after moving 10px (prevents accidental drags)
+        if (!isDraggingHeader && (deltaY > 10 || deltaX > 10)) {
+          isDraggingHeader = true;
+          const header = getHeader(draggedPanel);
+          if (header) header.classList.add('dragging');
+        }
+        
+        if (!isDraggingHeader) return;
+        
+        // Find drop target
+        const panelsInOrder = getPanelsInOrder();
+        let newDropTarget = null;
+        let newDropPosition = null;
+        
+        panelsInOrder.forEach(panel => {
+          if (panel === draggedPanel) return;
+          
+          const rect = panel.getBoundingClientRect();
+          const midY = rect.top + rect.height / 2;
+          
+          if (e.clientY >= rect.top && e.clientY <= rect.bottom) {
+            newDropTarget = panel;
+            newDropPosition = e.clientY < midY ? 'above' : 'below';
+          }
+        });
+        
+        // Update drop target visuals
+        if (currentDropTarget !== newDropTarget || dropPosition !== newDropPosition) {
+          // Remove old indicator
+          if (currentDropTarget) {
+            currentDropTarget.classList.remove('panel-drop-target', 'drop-above', 'drop-below');
+          }
+          
+          // Add new indicator
+          if (newDropTarget) {
+            newDropTarget.classList.add('panel-drop-target', `drop-${newDropPosition}`);
+          }
+          
+          currentDropTarget = newDropTarget;
+          dropPosition = newDropPosition;
+        }
+      }
+      
+      function endDrag() {
+        document.removeEventListener('mousemove', onDrag);
+        document.removeEventListener('mouseup', endDrag);
+        document.removeEventListener('touchmove', onTouchDrag);
+        document.removeEventListener('touchend', endDrag);
+        
+        if (draggedPanel && isDraggingHeader && currentDropTarget && dropPosition) {
+          // Perform the reorder
+          reorderPanels(draggedPanel, currentDropTarget, dropPosition);
+        }
+        
+        // Clean up
+        if (draggedPanel) {
+          const header = getHeader(draggedPanel);
+          if (header) header.classList.remove('dragging');
+        }
+        
+        if (currentDropTarget) {
+          currentDropTarget.classList.remove('panel-drop-target', 'drop-above', 'drop-below');
+        }
+        
+        draggedPanel = null;
+        currentDropTarget = null;
+        dropPosition = null;
+        isDraggingHeader = false;
+      }
+      
+      function reorderPanels(draggedPanel, targetPanel, position) {
+        const mainSplit = document.getElementById('main-split');
+        const isMobile = window.innerWidth <= 768;
+        
+        if (isMobile) {
+          // Mobile: All panels are direct children of main-split
+          // Get current sizes before destroying split
+          const currentSizes = splits[0]?.getSizes() || [25, 25, 25, 25];
+          const panelsInOrder = getPanelsInOrder();
+          
+          // Find indices
+          const draggedIndex = panelsInOrder.indexOf(draggedPanel);
+          const targetIndex = panelsInOrder.indexOf(targetPanel);
+          
+          if (draggedIndex === -1 || targetIndex === -1) return;
+          
+          // Calculate new index
+          let newIndex = position === 'above' ? targetIndex : targetIndex + 1;
+          if (draggedIndex < newIndex) newIndex--;
+          
+          if (draggedIndex === newIndex) return; // No change
+          
+          // Reorder sizes array
+          const draggedSize = currentSizes.splice(draggedIndex, 1)[0];
+          currentSizes.splice(newIndex, 0, draggedSize);
+          
+          // Reorder DOM - remove dragged panel and insert at new position
+          draggedPanel.remove();
+          const reorderedPanels = getPanelsInOrder();
+          
+          if (newIndex >= reorderedPanels.length) {
+            mainSplit.appendChild(draggedPanel);
+          } else {
+            mainSplit.insertBefore(draggedPanel, reorderedPanels[newIndex]);
+          }
+          
+          // Reinitialize Split.js with new order
+          splits.forEach(s => s.destroy());
+          splits = [];
+          
+          const newPanelOrder = getPanelsInOrder().map(p => `#${p.id}`);
+          splits.push(Split(newPanelOrder, {
+            sizes: currentSizes,
+            direction: 'vertical',
+            gutterSize: 6,
+            cursor: 'row-resize',
+            minSize: 40,
+            snapOffset: 0,
+            dragInterval: 1,
+          }));
+          
+          // Re-setup draggable headers
+          setTimeout(() => setupDraggableHeaders(), 100);
+          
+          console.log(`📦 Reordered: ${draggedPanel.id} moved ${position} ${targetPanel.id}`);
+        } else {
+          // Desktop: More complex - panels are in top-row and bottom-row
+          // For now, just log that reordering on desktop isn't implemented
+          console.log('🖥️ Desktop reordering coming soon');
+        }
+      }
+    }
 
     import { tokenize } from 'https://aesthetic.computer/aesthetic.computer/lib/kidlisp.mjs';
     import { KidLisp } from 'https://aesthetic.computer/aesthetic.computer/lib/kidlisp.mjs';
