@@ -8141,9 +8141,11 @@ async function makeFrame({ data: { type, content } }) {
   // return;
   // }
 
-  // Load the source code for a dropped `.mjs` file.
+  // Load the source code for a dropped `.mjs` or KidLisp file.
   if (type === "dropped:piece") {
-    load(content, false, false, true);
+    // Pass forceKidlisp=true if this was detected as KidLisp (e.g., from .lisp.html bundle)
+    const forceKidlisp = content.isKidLisp === true;
+    load(content, false, false, true, undefined, forceKidlisp);
     return;
   }
 
