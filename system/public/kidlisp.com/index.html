@@ -1423,19 +1423,20 @@
         display: none !important;
       }
       
-      /* Clickable header on mobile */
+      /* Clickable/draggable header on mobile */
       .editor-header, .docs-header {
-        cursor: pointer;
+        cursor: ns-resize;
         position: relative;
         user-select: none;
         -webkit-user-select: none;
+        touch-action: none;
       }
       
       .editor-header:active, .docs-header:active {
         background: var(--bg-tertiary);
       }
       
-      /* Collapse/expand indicator */
+      /* Collapse/expand indicator - only shown on non-editor panels */
       .mobile-collapse-indicator {
         position: absolute;
         right: 12px;
@@ -1444,9 +1445,9 @@
         font-size: 12px;
         opacity: 0.6;
         pointer-events: none;
-        transition: transform 0.25s ease-out;
       }
       
+      /* No indicator rotation needed - we swap ▼/▶ in JS */
       .panel-collapsed .mobile-collapse-indicator {
         transform: translateY(-50%);
       }
@@ -2200,13 +2201,13 @@
       }
     }
     
-    // Mobile header interactions - tap to toggle accordion style
+    // Mobile header interactions - tap to toggle, drag to resize
     function setupMobileHeaders() {
       const panels = [
-        { id: 'editor-panel', headerClass: '.editor-header', defaultHeight: 250 },
-        { id: 'preview-panel', headerClass: '.docs-header', defaultHeight: 300 },
-        { id: 'console-panel', headerClass: '.docs-header', defaultHeight: 150 },
-        { id: 'reference-panel', headerClass: '.docs-header', defaultHeight: 200 }
+        { id: 'editor-panel', headerClass: '.editor-header', defaultHeight: 250, showIndicator: false },
+        { id: 'preview-panel', headerClass: '.docs-header', defaultHeight: 300, showIndicator: true },
+        { id: 'console-panel', headerClass: '.docs-header', defaultHeight: 150, showIndicator: true },
+        { id: 'reference-panel', headerClass: '.docs-header', defaultHeight: 200, showIndicator: true }
       ];
       
       const mainSplit = document.getElementById('main-split');
@@ -2226,20 +2227,20 @@
       collapsedPanels.add('reference-panel');
       
       // Apply initial state
-      panels.forEach(({ id, headerClass }) => {
+      panels.forEach(({ id, headerClass, showIndicator }) => {
         const panel = document.getElementById(id);
         if (!panel) return;
         
         const header = panel.querySelector(headerClass);
         if (!header) return;
         
-        // Style header as clickable
-        header.style.cursor = 'pointer';
+        // Style header as interactive
+        header.style.cursor = 'ns-resize';
         header.style.userSelect = 'none';
         header.style.webkitUserSelect = 'none';
         
-        // Add collapse indicator if not present
-        if (!header.querySelector('.mobile-collapse-indicator')) {
+        // Add collapse indicator only for panels that should show it (not editor)
+        if (showIndicator && !header.querySelector('.mobile-collapse-indicator')) {
           const indicator = document.createElement('span');
           indicator.className = 'mobile-collapse-indicator';
           indicator.textContent = '▼';
@@ -2252,44 +2253,117 @@
           panel.style.minHeight = `${HEADER_HEIGHT}px`;
           panel.style.flex = 'none';
           panel.classList.add('panel-collapsed');
+          const indicator = panel.querySelector('.mobile-collapse-indicator');
+          if (indicator) indicator.textContent = '▶';
         } else {
           panel.style.height = `${savedHeights[id]}px`;
           panel.style.minHeight = `${HEADER_HEIGHT}px`;
           panel.style.flex = 'none';
         }
         
-        // Tap to toggle
-        const handleTap = (e) => {
-          // Don't interfere with buttons or interactive elements
-          if (e.target.tagName === 'BUTTON' || e.target.closest('button')) return;
-          if (e.target.tagName === 'SELECT' || e.target.closest('select')) return;
-          if (e.target.tagName === 'INPUT' || e.target.closest('input')) return;
-          
-          e.preventDefault();
-          e.stopPropagation();
-          
-          togglePanel(id, panel);
-        };
+        // Drag and tap handling
+        let isDragging = false;
+        let startY = 0;
+        let startHeight = 0;
+        let hasDragged = false;
+        const DRAG_THRESHOLD = 8;
         
-        header.addEventListener('click', handleTap);
-        
-        // Also handle touch end for better mobile response
-        let touchStartY = 0;
+        // Touch handlers
         header.addEventListener('touchstart', (e) => {
           if (e.target.tagName === 'BUTTON' || e.target.closest('button')) return;
-          touchStartY = e.touches[0].clientY;
+          if (e.target.tagName === 'SELECT' || e.target.closest('select')) return;
+          
+          isDragging = true;
+          hasDragged = false;
+          startY = e.touches[0].clientY;
+          startHeight = panel.offsetHeight;
+          
+          // Disable transition during drag
+          panel.style.transition = 'none';
         }, { passive: true });
         
+        header.addEventListener('touchmove', (e) => {
+          if (!isDragging) return;
+          if (e.target.tagName === 'BUTTON' || e.target.closest('button')) return;
+          
+          const currentY = e.touches[0].clientY;
+          const deltaY = currentY - startY;
+          
+          if (Math.abs(deltaY) > DRAG_THRESHOLD) {
+            hasDragged = true;
+            e.preventDefault();
+            
+            // If collapsed, expand first
+            if (collapsedPanels.has(id)) {
+              collapsedPanels.delete(id);
+              panel.classList.remove('panel-collapsed');
+              startHeight = HEADER_HEIGHT;
+            }
+            
+            // Resize panel
+            const newHeight = Math.max(HEADER_HEIGHT, startHeight + deltaY);
+            panel.style.height = `${newHeight}px`;
+            savedHeights[id] = newHeight;
+          }
+        }, { passive: false });
+        
         header.addEventListener('touchend', (e) => {
+          if (!isDragging) return;
+          isDragging = false;
+          
+          // Re-enable transition
+          panel.style.transition = '';
+          
+          // If didn't drag, it's a tap - toggle collapse
+          if (!hasDragged) {
+            togglePanel(id, panel);
+          }
+        });
+        
+        // Mouse handlers for desktop testing
+        header.addEventListener('mousedown', (e) => {
           if (e.target.tagName === 'BUTTON' || e.target.closest('button')) return;
           if (e.target.tagName === 'SELECT' || e.target.closest('select')) return;
           
-          // Only toggle if it wasn't a scroll gesture
-          const touchEndY = e.changedTouches[0].clientY;
-          if (Math.abs(touchEndY - touchStartY) < 10) {
-            e.preventDefault();
-            togglePanel(id, panel);
-          }
+          isDragging = true;
+          hasDragged = false;
+          startY = e.clientY;
+          startHeight = panel.offsetHeight;
+          panel.style.transition = 'none';
+          
+          const onMouseMove = (e) => {
+            if (!isDragging) return;
+            
+            const deltaY = e.clientY - startY;
+            
+            if (Math.abs(deltaY) > DRAG_THRESHOLD) {
+              hasDragged = true;
+              
+              if (collapsedPanels.has(id)) {
+                collapsedPanels.delete(id);
+                panel.classList.remove('panel-collapsed');
+                startHeight = HEADER_HEIGHT;
+              }
+              
+              const newHeight = Math.max(HEADER_HEIGHT, startHeight + deltaY);
+              panel.style.height = `${newHeight}px`;
+              savedHeights[id] = newHeight;
+            }
+          };
+          
+          const onMouseUp = () => {
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
+            panel.style.transition = '';
+            
+            if (!hasDragged) {
+              togglePanel(id, panel);
+            }
+            isDragging = false;
+          };
+          
+          document.addEventListener('mousemove', onMouseMove);
+          document.addEventListener('mouseup', onMouseUp);
         });
       });
       
@@ -2312,6 +2386,7 @@
           panelEl.classList.add('panel-collapsed');
           panelEl.style.height = `${HEADER_HEIGHT}px`;
           if (indicator) indicator.textContent = '▶';
+        }
         }
       }
     }
