@@ -14,7 +14,7 @@
  * - Edge case pitches
  */
 
-import Artery from '../artery.mjs';
+import Artery from '../../artery/artery.mjs';
 
 const PURPLE_BG = '\x1b[45m';
 const WHITE = '\x1b[97m';
