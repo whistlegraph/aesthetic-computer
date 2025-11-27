@@ -13100,6 +13100,39 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     // Load a bitmap off the network.
     if (type === "load-bitmap") {
+      // 🖼️ Check for embedded painting bitmaps first (pack mode / bundled HTML)
+      console.log("🖼️ BIOS load-bitmap received:", content);
+      console.log("🖼️ acEMBEDDED_PAINTING_BITMAPS:", window.acEMBEDDED_PAINTING_BITMAPS ? Object.keys(window.acEMBEDDED_PAINTING_BITMAPS) : "NOT SET");
+      console.log("🖼️ acPAINTING_CODE_MAP:", window.acPAINTING_CODE_MAP || "NOT SET");
+      if (window.acEMBEDDED_PAINTING_BITMAPS && window.acPAINTING_CODE_MAP) {
+        // Try to find this URL in the embedded paintings by matching the slug
+        for (const [code, info] of Object.entries(window.acPAINTING_CODE_MAP)) {
+          console.log("🖼️ Checking code:", code, "slug:", info.slug, "includes:", content.includes(info.slug));
+          if (content.includes(info.slug)) {
+            const embeddedBitmap = window.acEMBEDDED_PAINTING_BITMAPS[code] ||
+                                  window.acEMBEDDED_PAINTING_BITMAPS['#' + code];
+            console.log("🖼️ Found slug match! embeddedBitmap:", embeddedBitmap ? `${embeddedBitmap.width}x${embeddedBitmap.height}` : "NOT FOUND");
+            if (embeddedBitmap) {
+              console.log("🖼️ Serving embedded painting for:", content, "→ #" + code);
+              // Clone the pixels buffer since it will be transferred
+              const pixelsCopy = new Uint8ClampedArray(embeddedBitmap.pixels);
+              send(
+                {
+                  type: "loaded-bitmap-success",
+                  content: { url: content, img: {
+                    width: embeddedBitmap.width,
+                    height: embeddedBitmap.height,
+                    pixels: pixelsCopy
+                  }},
+                },
+                [pixelsCopy.buffer],
+              );
+              return;
+            }
+          }
+        }
+      }
+      
       const controller = new AbortController();
       mediaPathsLoading[content] = controller;
 
