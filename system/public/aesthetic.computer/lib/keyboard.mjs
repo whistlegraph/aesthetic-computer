@@ -106,6 +106,7 @@ export class Keyboard {
         shift: e.shiftKey,
         alt: e.altKey,
         ctrl: e.ctrlKey,
+        velocity: e.velocity ?? 127, // Support velocity from custom events (0-127)
       });
 
       if (e.key === "ArrowUp" || e.key === "Tab") e.preventDefault();

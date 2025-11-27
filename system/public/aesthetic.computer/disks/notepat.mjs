@@ -2704,7 +2704,7 @@ function act({
 
       const tone = tapped;
       if (tappedOctave) tapped = tappedOctave + tapped;
-  if (!reset) sounds[tapped] = makeNoteSound(octave + tone, 127); // synth({
+  if (!reset) sounds[tapped] = makeNoteSound(octave + tone, e.velocity ?? 127); // Use velocity from event
       // type: wave,
       // tone: octave + tone,
       // attack,
@@ -2924,7 +2924,7 @@ function act({
           sounds[buttonNote] = {
             note: buttonNote,
             count: active.length + 1,
-            sound: makeNoteSound(tone, 127), // synth({
+            sound: makeNoteSound(tone, e.velocity ?? 127), // Use velocity from event
             // type: wave,
             // attack,
             // decay,
