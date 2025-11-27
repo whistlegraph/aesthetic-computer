@@ -643,6 +643,83 @@ async function main() {
     }
   }
   
+  // Performance monitoring command
+  if (command === 'perf') {
+    const client = new Artery();
+    try {
+      await client.connect(true);
+      await client.enableConsole();
+      
+      const duration = parseInt(args[0]) || 5; // Default 5 seconds
+      brightLog(`🩸 WEBGPU PERFORMANCE MONITOR (${duration}s)`);
+      console.log('═'.repeat(50));
+      
+      const samples = [];
+      const startTime = Date.now();
+      
+      // Sample performance every 100ms
+      const interval = setInterval(async () => {
+        try {
+          const stats = await client.eval(`
+            (function() {
+              // Try to get WebGPU stats from the renderer
+              const webgpu = window.WebGPU;
+              if (webgpu && typeof webgpu.getPerfStats === 'function') {
+                return webgpu.getPerfStats();
+              }
+              return null;
+            })()
+          `);
+          
+          if (stats) {
+            samples.push(stats);
+            const bar = '█'.repeat(Math.min(50, Math.floor(stats.fps / 2)));
+            const msBar = stats.frameDelta < 16.67 ? '🟢' : stats.frameDelta < 33.33 ? '🟡' : '🔴';
+            console.log(`${msBar} FPS: ${String(stats.fps).padStart(3)} | MS: ${stats.frameDelta.toFixed(1).padStart(5)} | DC: ${String(stats.drawCalls).padStart(4)} | ${bar}`);
+          }
+        } catch (e) {
+          // Ignore eval errors during sampling
+        }
+      }, 100);
+      
+      // Stop after duration
+      setTimeout(() => {
+        clearInterval(interval);
+        
+        console.log('═'.repeat(50));
+        
+        if (samples.length > 0) {
+          const avgFps = samples.reduce((a, s) => a + s.fps, 0) / samples.length;
+          const avgMs = samples.reduce((a, s) => a + s.frameDelta, 0) / samples.length;
+          const minFps = Math.min(...samples.map(s => s.fps));
+          const maxFps = Math.max(...samples.map(s => s.fps));
+          const avgDc = samples.reduce((a, s) => a + s.drawCalls, 0) / samples.length;
+          
+          brightLog('📊 SUMMARY');
+          console.log(`   Samples: ${samples.length}`);
+          console.log(`   Avg FPS: ${avgFps.toFixed(1)}`);
+          console.log(`   Min FPS: ${minFps}`);
+          console.log(`   Max FPS: ${maxFps}`);
+          console.log(`   Avg MS:  ${avgMs.toFixed(2)}`);
+          console.log(`   Avg DC:  ${avgDc.toFixed(0)}`);
+        } else {
+          darkLog('💔 No WebGPU stats available. Make sure:');
+          console.log('   1. WebGPU mode is enabled (api.webgpu.enabled = true)');
+          console.log('   2. Perf overlay is on (api.webgpu.perf(true))');
+        }
+        
+        console.log('═'.repeat(50));
+        client.close();
+        process.exit(0);
+      }, duration * 1000);
+      
+      return; // Keep process alive
+    } catch (error) {
+      redLog(`💔 ${error.message}`);
+      process.exit(1);
+    }
+  }
+  
   const client = new Artery();
   
   try {
@@ -830,15 +907,16 @@ async function main() {
       default:
         brightLog('🩸 ARTERY');
         console.log('');
-        console.log('artery jump <piece>');
-        console.log('artery current');
-        console.log('artery eval <expr>');
-        console.log('artery type <text>');
-        console.log('artery key <key>');
-        console.log('artery click <x> <y>');
-        console.log('artery audio');
-        console.log('artery panel');
-        console.log('artery repl');
+        console.log('artery jump <piece>    - Navigate to piece');
+        console.log('artery current         - Show current piece');
+        console.log('artery eval <expr>     - Evaluate JavaScript in AC');
+        console.log('artery type <text>     - Type text into AC');
+        console.log('artery key <key>       - Press key');
+        console.log('artery click <x> <y>   - Click at coordinates');
+        console.log('artery audio           - Activate audio context');
+        console.log('artery panel           - Open AC sidebar panel');
+        console.log('artery perf [seconds]  - Monitor WebGPU performance');
+        console.log('artery repl            - Interactive REPL mode');
     }
     
     setTimeout(() => {

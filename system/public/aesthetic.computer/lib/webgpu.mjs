@@ -6,6 +6,7 @@
   - Handles basic 2D primitives: clear, line, circle, rect
   - Uses WebGPU for hardware acceleration
   - Falls back gracefully if WebGPU unavailable
+  - Commands are batched per frame and executed together
 #endregion */
 
 let device = null;
@@ -16,11 +17,52 @@ let linePipeline = null;
 let isInitialized = false;
 let canvas = null;
 
+// Track configured canvas size to avoid unnecessary reconfiguration
+let configuredWidth = 0;
+let configuredHeight = 0;
+
+// Frame state - track current frame's texture and clear color
+let currentFrameTexture = null;
+let currentFrameTextureView = null;
+let frameClearColor = null; // If set, clear with this color at start of frame
+
 // Command queue for batching
 const commandQueue = [];
 
 // Current drawing color
 let currentColor = [255, 255, 255, 255];
+
+// 📊 Performance overlay state
+let perfOverlayEnabled = false;
+let frameCount = 0;
+let lastFpsUpdate = 0;
+let currentFps = 0;
+let frameTimestamps = []; // Rolling window for FPS calculation
+let drawCallsThisFrame = 0;
+let lastFrameTime = 0;
+let frameDelta = 0;
+
+// Helper to ensure context is configured for current canvas size
+function ensureContextConfigured() {
+  if (canvas.width !== configuredWidth || canvas.height !== configuredHeight) {
+    if (canvas.width > 0 && canvas.height > 0) {
+      try {
+        context.configure({
+          device,
+          format: canvasFormat,
+          alphaMode: "opaque",
+        });
+        configuredWidth = canvas.width;
+        configuredHeight = canvas.height;
+        console.log(`🎨 WebGPU context configured for ${configuredWidth}x${configuredHeight}`);
+      } catch (err) {
+        console.error("❌ WebGPU context.configure failed:", err);
+      }
+    } else {
+      console.warn(`⚠️ WebGPU canvas size is ${canvas.width}x${canvas.height}, skipping configure`);
+    }
+  }
+}
 
 // 🔧 Initialize WebGPU
 async function init(targetCanvas) {
@@ -57,11 +99,16 @@ async function init(targetCanvas) {
     
     canvasFormat = navigator.gpu.getPreferredCanvasFormat();
     
-    context.configure({
-      device,
-      format: canvasFormat,
-      alphaMode: "premultiplied",
-    });
+    // Initial configuration (may be 0x0, will reconfigure on first draw)
+    if (canvas.width > 0 && canvas.height > 0) {
+      context.configure({
+        device,
+        format: canvasFormat,
+        alphaMode: "opaque", // Use opaque to fully replace what's behind
+      });
+      configuredWidth = canvas.width;
+      configuredHeight = canvas.height;
+    }
     
     // Create basic render pipeline for clear operations
     await createClearPipeline();
@@ -231,71 +278,126 @@ function handleCommand(command) {
   
   switch (command.type) {
     case "clear":
-      executeClear(command.color);
+      queueClear(command.color);
       break;
     case "line":
-      executeLine(command.x1, command.y1, command.x2, command.y2, command.color);
+      queueLine(command.x1, command.y1, command.x2, command.y2, command.color);
       break;
-    case "render":
-      render();
+    case "frame-end":
+      flushFrame();
+      break;
+    case "perf-overlay":
+      perfOverlayEnabled = command.enabled ?? !perfOverlayEnabled;
+      console.log(`📊 WebGPU perf overlay: ${perfOverlayEnabled ? "ON" : "OFF"}`);
       break;
     default:
       console.warn("⚠️ Unknown WebGPU command:", command.type);
   }
 }
 
-// 🎨 Execute clear command
-function executeClear(color) {
-  // Make canvas visible and ensure it's sized correctly
+// 🎨 Queue a clear command (will be executed at frame start)
+function queueClear(color) {
+  // Make canvas visible
   if (canvas.style.display === "none") {
     canvas.style.display = "block";
     console.log("🎨 WebGPU canvas now visible");
   }
   
-  // Normalize color to [0, 1] range
-  const r = color[0] / 255;
-  const g = color[1] / 255;
-  const b = color[2] / 255;
-  const a = color[3] !== undefined ? color[3] / 255 : 1.0;
-  
-  console.log(`🎨 WebGPU clear: rgba(${color[0]}, ${color[1]}, ${color[2]}, ${color[3] || 255})`);
-  
-  // Simple clear using render pass clearValue
-  const encoder = device.createCommandEncoder();
-  
-  const pass = encoder.beginRenderPass({
-    colorAttachments: [{
-      view: context.getCurrentTexture().createView(),
-      loadOp: "clear",
-      storeOp: "store",
-      clearValue: { r, g, b, a },
-    }],
-  });
-  
-  pass.end();
-  
-  // Submit commands
-  device.queue.submit([encoder.finish()]);
+  // Store clear color for this frame
+  frameClearColor = [color[0] / 255, color[1] / 255, color[2] / 255, (color[3] ?? 255) / 255];
 }
 
-// 🎨 Execute line command
-function executeLine(x1, y1, x2, y2, color) {
+// 🎨 Queue a line command
+function queueLine(x1, y1, x2, y2, color) {
   // Make canvas visible
   if (canvas.style.display === "none") {
     canvas.style.display = "block";
   }
   
-  // Normalize color to [0, 1] range
-  const r = color[0] / 255;
-  const g = color[1] / 255;
-  const b = color[2] / 255;
-  const a = color[3] !== undefined ? color[3] / 255 : 1.0;
+  commandQueue.push({
+    type: "line",
+    x1, y1, x2, y2,
+    color: [color[0] / 255, color[1] / 255, color[2] / 255, (color[3] ?? 255) / 255]
+  });
+}
+
+// 🎨 Flush all queued commands for this frame
+function flushFrame() {
+  ensureContextConfigured();
   
-  // Create vertex buffer with line endpoints in pixel coordinates
-  const vertices = new Float32Array([
-    x1, y1,
-    x2, y2,
-  ]);
+  // Skip if canvas has no size
+  if (canvas.width === 0 || canvas.height === 0) {
+    commandQueue.length = 0;
+    frameClearColor = null;
+    return;
+  }
+  
+  // 📊 Track frame timing
+  const now = performance.now();
+  frameDelta = lastFrameTime ? now - lastFrameTime : 16.67;
+  lastFrameTime = now;
+  frameCount++;
+  
+  // Update FPS calculation using rolling window
+  frameTimestamps.push(now);
+  // Keep only last second of timestamps
+  while (frameTimestamps.length > 0 && frameTimestamps[0] < now - 1000) {
+    frameTimestamps.shift();
+  }
+  currentFps = frameTimestamps.length;
+  
+  // Track draw calls for this frame
+  drawCallsThisFrame = commandQueue.length;
+  
+  // Get texture for this frame (used by all operations)
+  const texture = context.getCurrentTexture();
+  const textureView = texture.createView();
+  
+  // Create command encoder for all frame operations
+  const encoder = device.createCommandEncoder();
+  
+  // Determine load operation - clear if we have a clear color, otherwise load
+  const loadOp = frameClearColor ? "clear" : "load";
+  const clearValue = frameClearColor 
+    ? { r: frameClearColor[0], g: frameClearColor[1], b: frameClearColor[2], a: frameClearColor[3] }
+    : { r: 0, g: 0, b: 0, a: 1 };
+  
+  // Start render pass
+  const pass = encoder.beginRenderPass({
+    colorAttachments: [{
+      view: textureView,
+      loadOp,
+      storeOp: "store",
+      clearValue,
+    }],
+  });
+  
+  // Execute all queued draw commands
+  for (const cmd of commandQueue) {
+    if (cmd.type === "line") {
+      drawLineInPass(pass, cmd.x1, cmd.y1, cmd.x2, cmd.y2, cmd.color);
+    }
+  }
+  
+  // 📊 Render performance overlay if enabled
+  if (perfOverlayEnabled) {
+    drawPerfOverlay(pass);
+  }
+  
+  pass.end();
+  
+  // Submit all commands
+  device.queue.submit([encoder.finish()]);
+  
+  // Clear queue for next frame
+  commandQueue.length = 0;
+  frameClearColor = null;
+}
+
+// 🎨 Draw a line within an existing render pass
+function drawLineInPass(pass, x1, y1, x2, y2, color) {
+  // Create vertex buffer with line endpoints
+  const vertices = new Float32Array([x1, y1, x2, y2]);
   
   const vertexBuffer = device.createBuffer({
     size: vertices.byteLength,
@@ -305,13 +407,13 @@ function executeLine(x1, y1, x2, y2, color) {
   
   // Create uniform buffer for color and resolution
   const uniformData = new Float32Array([
-    r, g, b, a,                    // color (16 bytes)
-    canvas.width, canvas.height,   // resolution (8 bytes)
-    0, 0,                          // padding (8 bytes)
+    color[0], color[1], color[2], color[3],  // color (16 bytes)
+    canvas.width, canvas.height,              // resolution (8 bytes)
+    0, 0,                                     // padding (8 bytes)
   ]);
   
   const uniformBuffer = device.createBuffer({
-    size: 32, // Fixed size to match minimum binding requirement
+    size: 32,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
   device.queue.writeBuffer(uniformBuffer, 0, uniformData);
@@ -325,44 +427,123 @@ function executeLine(x1, y1, x2, y2, color) {
     }],
   });
   
-  // Create command encoder
-  const encoder = device.createCommandEncoder();
-  
-  const pass = encoder.beginRenderPass({
-    colorAttachments: [{
-      view: context.getCurrentTexture().createView(),
-      loadOp: "load", // Preserve existing content
-      storeOp: "store",
-    }],
-  });
-  
+  // Draw
   pass.setPipeline(linePipeline);
   pass.setVertexBuffer(0, vertexBuffer);
   pass.setBindGroup(0, bindGroup);
-  pass.draw(2); // 2 vertices for a line
-  pass.end();
+  pass.draw(2);
   
-  // Submit commands
-  device.queue.submit([encoder.finish()]);
-  
-  // Cleanup temporary buffers
-  vertexBuffer.destroy();
-  uniformBuffer.destroy();
+  // Note: buffers will be garbage collected, but for production we should pool them
 }
 
-// 🎨 Render frame (for future batching)
-function render() {
-  // Future: batch multiple primitives here
-  console.log("🎨 WebGPU render frame");
+// 📊 Draw performance overlay using simple line-based digits
+function drawPerfOverlay(pass) {
+  const padding = 4;
+  const charWidth = 6;
+  const charHeight = 10;
+  const lineSpacing = 2;
+  
+  // Position in top-left corner
+  let x = padding;
+  let y = padding;
+  
+  // Background box (using lines to draw filled rect)
+  const bgColor = [0, 0, 0, 0.75];
+  const boxWidth = 62;
+  const boxHeight = 36;
+  
+  // Draw background as horizontal lines (simple fill)
+  for (let i = 0; i < boxHeight; i++) {
+    drawLineInPass(pass, x - 2, y + i - 2, x + boxWidth, y + i - 2, bgColor);
+  }
+  
+  // Text color (bright green for classic perf overlay look)
+  const textColor = [0.3, 1.0, 0.3, 1.0];
+  const labelColor = [0.5, 0.85, 0.5, 1.0];
+  const valueColor = [1.0, 1.0, 1.0, 1.0];
+  
+  // Draw "FPS" label and value
+  drawBitmapText(pass, "FPS", x, y, labelColor);
+  const fpsStr = String(Math.round(currentFps));
+  drawBitmapText(pass, fpsStr, x + 24, y, valueColor);
+  
+  // Move to next line
+  y += charHeight + lineSpacing;
+  
+  // Draw "MS" and frame time
+  drawBitmapText(pass, "MS", x, y, labelColor);
+  const msStr = frameDelta.toFixed(1);
+  drawBitmapText(pass, msStr, x + 18, y, valueColor);
+  
+  // Move to next line
+  y += charHeight + lineSpacing;
+  
+  // Draw "DC" (draw calls)
+  drawBitmapText(pass, "DC", x, y, labelColor);
+  const dcStr = String(drawCallsThisFrame);
+  drawBitmapText(pass, dcStr, x + 18, y, valueColor);
+}
+
+// 📊 Embedded bitmap font data (5x7 pixel glyphs, stored as line segments)
+// Each glyph is an array of [x1,y1,x2,y2] line segments
+const BITMAP_FONT = {
+  "0": [[1,0,3,0],[0,1,0,6],[4,1,4,6],[1,7,3,7],[0,1,1,0],[3,0,4,1],[0,6,1,7],[3,7,4,6]],
+  "1": [[2,0,2,7],[1,1,2,0],[1,7,3,7]],
+  "2": [[0,0,3,0],[3,0,4,1],[4,1,4,3],[4,3,3,4],[3,4,1,4],[1,4,0,5],[0,5,0,7],[0,7,4,7]],
+  "3": [[0,0,3,0],[3,0,4,1],[4,1,4,3],[3,3,4,3],[4,3,4,6],[3,7,4,6],[0,7,3,7],[1,3,3,3]],
+  "4": [[0,0,0,3],[0,3,4,3],[4,0,4,7]],
+  "5": [[0,0,4,0],[0,0,0,3],[0,3,3,3],[3,3,4,4],[4,4,4,6],[3,7,4,6],[0,7,3,7]],
+  "6": [[1,0,3,0],[0,1,0,6],[1,7,3,7],[4,4,4,6],[3,7,4,6],[0,3,3,3],[3,3,4,4],[0,1,1,0]],
+  "7": [[0,0,4,0],[4,0,4,2],[4,2,2,7]],
+  "8": [[1,0,3,0],[0,1,0,3],[4,1,4,3],[1,3,3,3],[0,4,0,6],[4,4,4,6],[1,7,3,7],[0,1,1,0],[3,0,4,1],[0,3,1,3],[3,3,4,4],[0,6,1,7],[3,7,4,6]],
+  "9": [[1,0,3,0],[0,1,0,3],[4,1,4,6],[1,3,3,3],[1,7,3,7],[0,1,1,0],[3,0,4,1],[0,3,1,3],[3,7,4,6]],
+  "F": [[0,0,4,0],[0,0,0,7],[0,3,3,3]],
+  "P": [[0,0,3,0],[3,0,4,1],[4,1,4,3],[3,4,4,3],[0,4,3,4],[0,0,0,7]],
+  "S": [[1,0,4,0],[0,1,1,0],[0,1,0,3],[0,3,3,3],[3,3,4,4],[4,4,4,6],[3,7,4,6],[0,7,3,7]],
+  "M": [[0,0,0,7],[0,0,2,3],[2,3,4,0],[4,0,4,7]],
+  "D": [[0,0,2,0],[2,0,4,2],[4,2,4,5],[2,7,4,5],[0,7,2,7],[0,0,0,7]],
+  "C": [[1,0,4,0],[0,1,1,0],[0,1,0,6],[0,6,1,7],[1,7,4,7]],
+  ".": [[2,6,2,7]],
+};
+
+// 📊 Draw text using embedded bitmap font
+function drawBitmapText(pass, text, startX, startY, color) {
+  let x = startX;
+  const scale = 1;
+  const spacing = 6 * scale;
+  
+  for (const char of text) {
+    const glyph = BITMAP_FONT[char];
+    if (glyph) {
+      for (const [x1, y1, x2, y2] of glyph) {
+        drawLineInPass(pass, 
+          x + x1 * scale, startY + y1 * scale,
+          x + x2 * scale, startY + y2 * scale,
+          color
+        );
+      }
+    }
+    x += spacing;
+  }
 }
 
 // 🎨 Resize canvas to match display dimensions
 function resize(width, height) {
-  if (!canvas) return;
+  if (!canvas || !device || !context) return;
   
   if (canvas.width !== width || canvas.height !== height) {
     canvas.width = width;
     canvas.height = height;
+    
+    // Reconfigure context after resize (required for WebGPU)
+    context.configure({
+      device,
+      format: canvasFormat,
+      alphaMode: "opaque", // Use opaque to fully replace what's behind
+    });
+    configuredWidth = width;
+    configuredHeight = height;
+    
     console.log(`🎨 WebGPU canvas resized to ${width}x${height}`);
   }
 }
@@ -373,8 +554,33 @@ function destroy() {
     device.destroy();
     device = null;
   }
+  commandQueue.length = 0;
+  frameClearColor = null;
+  frameTimestamps = [];
   isInitialized = false;
   console.log("🎨 WebGPU renderer destroyed");
 }
 
-export { init, handleCommand, resize, destroy };
+// 📊 Toggle performance overlay
+function togglePerfOverlay(enabled) {
+  if (enabled !== undefined) {
+    perfOverlayEnabled = enabled;
+  } else {
+    perfOverlayEnabled = !perfOverlayEnabled;
+  }
+  console.log(`📊 WebGPU perf overlay: ${perfOverlayEnabled ? "ON" : "OFF"}`);
+  return perfOverlayEnabled;
+}
+
+// 📊 Get current performance stats
+function getPerfStats() {
+  return {
+    fps: currentFps,
+    frameDelta,
+    frameCount,
+    drawCalls: drawCallsThisFrame,
+    overlayEnabled: perfOverlayEnabled,
+  };
+}
+
+export { init, handleCommand, resize, destroy, togglePerfOverlay, getPerfStats };
