@@ -1613,6 +1613,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     webGPUInitialized = await WebGPU.init(canvas);
     if (webGPUInitialized) {
       console.log("🎨 WebGPU 2D renderer ready");
+      // Expose WebGPU module globally for debugging/artery access
+      window.WebGPU = WebGPU;
     }
   }
 
