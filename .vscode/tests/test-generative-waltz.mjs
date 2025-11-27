@@ -5,7 +5,7 @@
  * Algorithmically generates waltzes with proper harmony and structure
  */
 
-import Artery from '../artery.mjs';
+import Artery from '../../artery/artery.mjs';
 import { noteToKey } from './melodies.mjs';
 
 const PURPLE_BG = '\x1b[45m';
