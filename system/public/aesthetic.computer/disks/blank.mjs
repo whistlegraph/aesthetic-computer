@@ -1,55 +1,130 @@
-// $NAME, $TIMESTAMP
-// $THIS_IS_A_TEMPLATE_FOR_MAKING_NEW_PIECES
+// WebGPU Stress Test
+// Testing WebGPU renderer performance with many lines
 
 /* 📝 Engineering Notes
-  The `paint` function runs every animation frame.
-  `screen.pixels` is a Uint8ClampedArray with direct access.
-  `screen.width` and `screen.height` is also available for aspect ratio / limits.
-  Special note: `Use screen.pixels / direct pixel array access for any automated drawing.`
+  Press UP/DOWN to adjust line count
+  Press P to toggle performance overlay
+  Press SPACE to toggle animation
 */
 
+let frame = 0;
+let perfEnabled = true;
+let animating = true;
+let lineCount = 500; // Start with 500 lines
+const LINE_STEP = 100; // Increment/decrement by 100
+const MAX_LINES = 10000;
+const MIN_LINES = 10;
+
 function boot({ api }) {
-  // Enable WebGPU rendering and disable CPU renderer
   api.webgpu.enabled = true;
+  api.webgpu.perf(true);
+}
+
+function act({ event: e, api }) {
+  if (e.is("keyboard:down:p")) {
+    perfEnabled = !perfEnabled;
+    api.webgpu.perf(perfEnabled);
+  }
+  if (e.is("keyboard:down:space")) {
+    animating = !animating;
+  }
+  if (e.is("keyboard:down:arrowup")) {
+    lineCount = Math.min(MAX_LINES, lineCount + LINE_STEP);
+    console.log("Lines:", lineCount);
+  }
+  if (e.is("keyboard:down:arrowdown")) {
+    lineCount = Math.max(MIN_LINES, lineCount - LINE_STEP);
+    console.log("Lines:", lineCount);
+  }
 }
 
 function paint({ wipe, ink, line, screen }) {
-  // Clear with dark blue/purple background (fully opaque)
-  wipe(32, 32, 64, 255);
+  if (animating) frame += 1;
   
-  // Draw a yellow diagonal line
-  ink(255, 255, 0, 255);
-  line(screen.width, 0, 0, screen.height);
+  // Dark animated background
+  const bgR = Math.floor(15 + Math.sin(frame * 0.005) * 10);
+  const bgG = Math.floor(10 + Math.sin(frame * 0.007) * 8);
+  const bgB = Math.floor(25 + Math.sin(frame * 0.009) * 12);
+  wipe(bgR, bgG, bgB);
+  
+  const w = screen.width;
+  const h = screen.height;
+  const cx = w / 2;
+  const cy = h / 2;
+  const time = frame * 0.02;
+  
+  // Draw many lines in various patterns
+  for (let i = 0; i < lineCount; i++) {
+    const t = i / lineCount;
+    
+    // Pattern selection based on line index
+    const pattern = i % 4;
+    let x1, y1, x2, y2;
+    
+    if (pattern === 0) {
+      // Rotating spokes from center
+      const angle = t * Math.PI * 8 + time;
+      const len = Math.min(w, h) * 0.45 * (0.3 + 0.7 * Math.sin(t * Math.PI * 4 + time));
+      x1 = cx;
+      y1 = cy;
+      x2 = cx + Math.cos(angle) * len;
+      y2 = cy + Math.sin(angle) * len;
+    } else if (pattern === 1) {
+      // Horizontal wave lines
+      const yPos = t * h;
+      const wave = Math.sin(yPos * 0.1 + time) * 30;
+      x1 = wave;
+      y1 = yPos;
+      x2 = w + wave;
+      y2 = yPos;
+    } else if (pattern === 2) {
+      // Spiral pattern
+      const spiral = t * Math.PI * 6 + time * 0.5;
+      const r1 = t * Math.min(w, h) * 0.4;
+      const r2 = r1 + 20;
+      x1 = cx + Math.cos(spiral) * r1;
+      y1 = cy + Math.sin(spiral) * r1;
+      x2 = cx + Math.cos(spiral + 0.2) * r2;
+      y2 = cy + Math.sin(spiral + 0.2) * r2;
+    } else {
+      // Random bouncing lines
+      const seed = i * 1234.5678;
+      const bx = (Math.sin(seed) * 0.5 + 0.5) * w;
+      const by = (Math.cos(seed * 1.1) * 0.5 + 0.5) * h;
+      const angle = seed + time;
+      const len = 20 + Math.sin(seed * 2 + time) * 15;
+      x1 = bx;
+      y1 = by;
+      x2 = bx + Math.cos(angle) * len;
+      y2 = by + Math.sin(angle) * len;
+    }
+    
+    // Rainbow color based on position and time
+    const hue = (t + frame * 0.002) % 1;
+    const rgb = hslToRgb(hue, 0.8, 0.55);
+    ink(rgb[0], rgb[1], rgb[2]);
+    line(x1, y1, x2, y2);
+  }
 }
 
-// 📚 Library
-
-// function boot() {
-// Runs once at the start.
-// }
-
-// function act({ event: e }) {
-//  // Respond to user input here.
-// }
-
-// function sim() {
-//  // Runs once per logic frame. (120fps locked.)
-// }
-
-// function beat() {
-//   // Runs once per system metronome (BPM) tick.
-// }
-
-// function leave() {
-//  // Runs once before the piece is unloaded.
-// }
-
-// function preview({ ink, wipe }) {
-// Render a custom thumbnail image.
-// }
-
-// function icon() {
-// Render an application icon, aka favicon.
-// }
-
-// ⚠️ Also available: `brush` and `filter`.
+function hslToRgb(h, s, l) {
+  let r, g, b;
+  if (s === 0) {
+    r = g = b = l;
+  } else {
+    const hue2rgb = (p, q, t) => {
+      if (t < 0) t += 1;
+      if (t > 1) t -= 1;
+      if (t < 1/6) return p + (q - p) * 6 * t;
+      if (t < 1/2) return q;
+      if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+      return p;
+    };
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+    const p = 2 * l - q;
+    r = hue2rgb(p, q, h + 1/3);
+    g = hue2rgb(p, q, h);
+    b = hue2rgb(p, q, h - 1/3);
+  }
+  return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+}

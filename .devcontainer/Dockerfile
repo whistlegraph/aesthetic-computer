@@ -11,7 +11,7 @@ RUN set -eux; \
 
 ENV NODE_OPTIONS=--max_old_space_size=8192
 ENV DENO_DIR=/home/me/.cache/deno
-ENV NETLIFY_DENO_VERSION=2.4.5
+ENV NETLIFY_DENO_VERSION=1.45.0
 # Prevent paging for LLM/agentic use
 ENV PAGER=cat
 ENV GIT_PAGER=cat
@@ -83,8 +83,12 @@ RUN set -eux; \
 # This allows us to use tezos/tezos:master which supports current Ghostnet protocol
 RUN dnf install -y docker && dnf clean all && rm -rf /var/cache/dnf
 
-# Note: Docker image pre-pulling is skipped during build to avoid API version conflicts
-# Images will be pulled on first use instead via the entry script
+# Pre-pull Tezos & SmartPy Docker images during build (saves time later)
+# Note: This requires BuildKit and may fail in some build environments
+# If it fails, the images will be pulled on first use instead
+RUN --mount=type=cache,target=/var/cache/buildkit \
+    docker pull tezos/tezos:master 2>/dev/null || echo "Octez image will be pulled on first use" && \
+    docker pull bakingbad/smartpy-cli:latest 2>/dev/null || echo "SmartPy image will be pulled on first use"
 
 # --- Stripe CLI (architecture-aware) -----------------------------------------
 RUN set -eux; \
@@ -191,7 +195,7 @@ RUN echo 'fnm env --use-on-cd --shell fish | source' > /home/me/.config/fish/con
     /home/me/.fnm/fnm install 20.5.0 && \
     /home/me/.fnm/fnm default lts-jod && \
     /home/me/.fnm/fnm use lts-jod && \
-    npm i -g prettier typescript typescript-language-server npm-check-updates @anthropic-ai/claude-code @openai/codex netlify-cli wrangler puppeteer-mcp-server && \
+    npm i -g prettier typescript typescript-language-server npm-check-updates @anthropic-ai/claude-code @openai/codex netlify-cli wrangler && \
     echo 'fnm use lts-jod' >> /home/me/.config/fish/config.fish && \
     chown -R me:me /home/me/.config/fish
 
@@ -214,7 +218,7 @@ RUN curl -fsSLO https://beta.quicklisp.org/quicklisp.lisp && \
 RUN curl https://ops.city/get.sh -sSfL | bash
 
 # --- Deno ---------------------------------------------------------------------
-RUN curl -fsSL https://deno.land/install.sh | DENO_INSTALL=/home/me/.deno sh -s v2.4.5 && \
+RUN curl -fsSL https://deno.land/install.sh | DENO_INSTALL=/home/me/.deno sh -s v1.45.5 && \
     /home/me/.deno/bin/deno --version && \
     /home/me/.deno/bin/deno cache https://v2-13-0--edge.netlify.com/bootstrap/index-combined.ts 2>/dev/null || true && \
     /home/me/.deno/bin/deno cache https://v2-13-0--edge.netlify.com/bootstrap/handler.ts 2>/dev/null || true && \

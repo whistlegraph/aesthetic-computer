@@ -50,7 +50,7 @@ Get-Process Code -ErrorAction SilentlyContinue | ForEach-Object {
 
 # Launch new VS Code instance in current directory
 Write-Host "Launching fresh VS Code inside Dev Container..."
-Start-Process -WindowStyle Hidden -FilePath "code" -ArgumentList "--folder", "\\wsl.localhost\Ubuntu\home\me\aesthetic-computer"
+Start-Process -WindowStyle Hidden -FilePath "code" -ArgumentList "--remote-debugging-port=9222", "--folder", "\\wsl.localhost\Ubuntu\home\me\aesthetic-computer"
 
 # Clipboard loop
 while ($true) {
