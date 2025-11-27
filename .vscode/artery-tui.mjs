@@ -6,6 +6,9 @@
 
 import Artery from './artery.mjs';
 import http from 'http';
+import https from 'https';
+import fs from 'fs';
+import path from 'path';
 import readline from 'readline';
 
 // ANSI escape codes
@@ -93,8 +96,10 @@ class ArteryTUI {
     this.connected = false;
     this.currentPiece = null;
     this.selectedIndex = 0;
-    this.mode = 'menu'; // 'menu', 'repl', 'pieces', 'tests', 'logs'
+    this.mode = 'menu'; // 'menu', 'repl', 'pieces', 'piece-input', 'tests', 'test-params', 'logs'
     this.logs = [];
+    this.allPieces = []; // Loaded from disks directory
+    this.filteredPieces = []; // Filtered by search
     this.maxLogs = 100;
     this.width = process.stdout.columns || 80;
     this.height = process.stdout.rows || 24;
@@ -103,6 +108,14 @@ class ArteryTUI {
     this.statusTimeout = null;
     this.unreadLogs = 0;
     this.logRenderTimeout = null;
+    
+    // Server status
+    this.serverStatus = { local: null, production: null }; // null = unknown, true = up, false = down
+    this.serverMode = null; // 'local' or 'production' based on what AC is connected to
+    
+    // Test running state (defers live updates)
+    this.testRunning = false;
+    this.pendingRender = false;
     
     // Screen margins
     this.marginX = 2; // Left/right margin
@@ -122,13 +135,28 @@ class ArteryTUI {
       { key: 'q', label: 'Quit', desc: 'Exit Artery TUI', action: () => this.quit() },
     ];
     
-    // Quick pieces for jump menu
-    this.quickPieces = [
-      'prompt', 'notepat', 'wand', 'botce', 'painting', 'whistlegraph',
-      'bleep', 'melody', 'tracker', 'metronome', 'microphone',
-      'plot', 'line', 'rect', 'oval', 'starfield',
-      'land', 'world', 'walk', 'stage',
-    ];
+    // Load pieces from disk directory
+    this.loadPieces();
+  }
+  
+  loadPieces() {
+    try {
+      const disksPath = path.join(process.cwd(), 'system/public/aesthetic.computer/disks');
+      const files = fs.readdirSync(disksPath);
+      this.allPieces = files
+        .filter(f => f.endsWith('.mjs') && !f.startsWith('.') && !f.includes('test'))
+        .map(f => f.replace('.mjs', ''))
+        .sort();
+      this.filteredPieces = [...this.allPieces];
+    } catch (e) {
+      // Fallback to common pieces if directory read fails
+      this.allPieces = [
+        'prompt', 'notepat', 'wand', 'botce', 'painting', 'whistlegraph',
+        'bleep', 'melody', 'tracker', 'metronome', 'microphone',
+        'plot', 'line', 'rect', 'oval', 'starfield', 'toss'
+      ];
+      this.filteredPieces = [...this.allPieces];
+    }
   }
 
   async start() {
@@ -163,7 +191,14 @@ class ArteryTUI {
   }
 
   async connect() {
+    this.setStatus('Checking servers...', 'info');
+    this.render();
+    
+    // Check server availability in parallel
+    await this.checkServers();
+    
     this.setStatus('Connecting to AC...', 'info');
+    this.render();
     
     try {
       // First check if CDP is available
@@ -175,8 +210,24 @@ class ArteryTUI {
       
       if (!acTarget) {
         this.connected = false;
-        this.setStatus('AC not found - press [p] to open panel', 'warn');
+        // Provide helpful status based on server availability
+        if (this.serverStatus.local === false && this.serverStatus.production === false) {
+          this.setStatus('No servers available - start local dev or check network', 'error');
+        } else if (this.serverStatus.local === false && this.serverStatus.production === true) {
+          this.setStatus('AC not found - press [p] to open panel (production ready)', 'warn');
+        } else if (this.serverStatus.local === true) {
+          this.setStatus('AC not found - press [p] to open panel (local ready)', 'warn');
+        } else {
+          this.setStatus('AC not found - press [p] to open panel', 'warn');
+        }
         return;
+      }
+      
+      // Determine which mode we're in based on the URL
+      if (acTarget.url?.includes('localhost:8888')) {
+        this.serverMode = 'local';
+      } else if (acTarget.url?.includes('aesthetic.computer')) {
+        this.serverMode = 'production';
       }
       
       this.client = new Artery();
@@ -209,11 +260,57 @@ class ArteryTUI {
         this.addLog(text, params.type || 'log');
       });
       
-      this.setStatus('Connected to AC!', 'success');
+      const modeLabel = this.serverMode === 'local' ? '💻 Local' : '🌐 Production';
+      this.setStatus(`Connected to AC! (${modeLabel})`, 'success');
     } catch (e) {
       this.connected = false;
       this.setStatus(`Connection failed: ${e.message}`, 'error');
     }
+  }
+  
+  async checkServers() {
+    // Check both servers in parallel
+    const [localStatus, prodStatus] = await Promise.all([
+      this.checkServer('https://localhost:8888', false),  // false = allow self-signed certs
+      this.checkServer('https://aesthetic.computer', true) // true = require valid certs
+    ]);
+    
+    this.serverStatus.local = localStatus;
+    this.serverStatus.production = prodStatus;
+  }
+  
+  async checkServer(url, requireValidCert = true) {
+    return new Promise((resolve) => {
+      const timeout = setTimeout(() => resolve(false), 3000);
+      
+      const urlObj = new URL(url);
+      const options = {
+        hostname: urlObj.hostname,
+        port: urlObj.port || 443,
+        path: '/',
+        method: 'HEAD',
+        rejectUnauthorized: requireValidCert, // false allows self-signed certs
+        timeout: 3000
+      };
+      
+      const req = https.request(options, (res) => {
+        clearTimeout(timeout);
+        resolve(res.statusCode < 500);
+      });
+      
+      req.on('error', () => {
+        clearTimeout(timeout);
+        resolve(false);
+      });
+      
+      req.on('timeout', () => {
+        clearTimeout(timeout);
+        req.destroy();
+        resolve(false);
+      });
+      
+      req.end();
+    });
   }
 
   async getTargets() {
@@ -247,10 +344,15 @@ class ArteryTUI {
     }
     
     // Throttled render for all modes to show log activity
+    // But defer render if a test is currently running (to avoid flickering)
     if (!this.logRenderTimeout) {
       this.logRenderTimeout = setTimeout(() => {
         this.logRenderTimeout = null;
-        this.render();
+        if (this.testRunning) {
+          this.pendingRender = true;
+        } else {
+          this.render();
+        }
       }, 100); // Throttle to 10fps max
     }
   }
@@ -290,6 +392,15 @@ class ArteryTUI {
         break;
       case 'pieces':
         this.handlePiecesInput(key);
+        break;
+      case 'piece-input':
+        this.handlePieceInputMode(key);
+        break;
+      case 'tests':
+        this.handleTestsInput(key);
+        break;
+      case 'test-params':
+        this.handleTestParamsInput(key);
         break;
       case 'logs':
         this.handleLogsInput(key);
@@ -356,23 +467,225 @@ class ArteryTUI {
       return;
     }
     if (key === '\u001b[B') { // Down
-      this.selectedIndex = Math.min(this.quickPieces.length - 1, this.selectedIndex + 1);
+      this.selectedIndex = Math.min(this.filteredPieces.length - 1, this.selectedIndex + 1);
       this.render();
       return;
     }
     
     // Enter to jump
     if (key === '\r' || key === '\n') {
-      this.jumpToPiece(this.quickPieces[this.selectedIndex]);
+      const piece = this.filteredPieces[this.selectedIndex];
+      if (piece) this.jumpToPiece(piece);
       return;
     }
     
-    // Type to filter/custom piece
-    if (key === '/') {
-      this.mode = 'piece-input';
-      this.inputBuffer = '';
+    // Tab to autocomplete
+    if (key === '\t') {
+      const piece = this.filteredPieces[this.selectedIndex];
+      if (piece) {
+        this.inputBuffer = piece;
+        this.render();
+      }
+      return;
+    }
+    
+    // Backspace
+    if (key === '\u007f' || key === '\b') {
+      this.inputBuffer = this.inputBuffer.slice(0, -1);
+      this.filterPieces();
       this.render();
       return;
+    }
+    
+    // Regular character - start filtering
+    if (key.length === 1 && key.charCodeAt(0) >= 32) {
+      this.inputBuffer += key;
+      this.filterPieces();
+      this.render();
+    }
+  }
+  
+  handlePieceInputMode(key) {
+    // Enter to jump to typed piece
+    if (key === '\r' || key === '\n') {
+      if (this.inputBuffer.trim()) {
+        this.jumpToPiece(this.inputBuffer.trim());
+      }
+      return;
+    }
+    
+    // Tab to autocomplete from filtered list
+    if (key === '\t') {
+      if (this.filteredPieces.length > 0) {
+        this.inputBuffer = this.filteredPieces[0];
+        this.filterPieces();
+        this.render();
+      }
+      return;
+    }
+    
+    // Backspace
+    if (key === '\u007f' || key === '\b') {
+      this.inputBuffer = this.inputBuffer.slice(0, -1);
+      this.filterPieces();
+      this.render();
+      return;
+    }
+    
+    // Regular character
+    if (key.length === 1 && key.charCodeAt(0) >= 32) {
+      this.inputBuffer += key;
+      this.filterPieces();
+      this.render();
+    }
+  }
+  
+  filterPieces() {
+    const search = this.inputBuffer.toLowerCase();
+    if (!search) {
+      this.filteredPieces = [...this.allPieces];
+    } else {
+      this.filteredPieces = this.allPieces.filter(p => p.toLowerCase().includes(search));
+    }
+    this.selectedIndex = 0;
+  }
+
+  handleTestsInput(key) {
+    // Arrow keys
+    if (key === '\u001b[A') { // Up
+      this.selectedIndex = Math.max(0, this.selectedIndex - 1);
+      this.render();
+      return;
+    }
+    if (key === '\u001b[B') { // Down
+      this.selectedIndex = Math.min((this.testFiles?.length || 1) - 1, this.selectedIndex + 1);
+      this.render();
+      return;
+    }
+    
+    // Enter to run test (or open params for parametric tests)
+    if (key === '\r' || key === '\n') {
+      const test = this.testFiles?.[this.selectedIndex];
+      if (test) {
+        if (test.params) {
+          // Show parameter input mode
+          this.currentTest = test;
+          this.testParams = { ...test.defaults };
+          this.paramIndex = 0;
+          this.inputBuffer = '';
+          this.mode = 'test-params';
+          this.render();
+        } else {
+          this.executeTest(test.file);
+        }
+      }
+      return;
+    }
+  }
+  
+  handleTestParamsInput(key) {
+    const params = this.currentTest?.params || [];
+    const param = params[this.paramIndex];
+    
+    // Arrow Up - move to previous param
+    if (key === '\u001b[A') {
+      // Save current value first
+      if (param && this.inputBuffer !== undefined) {
+        this.testParams[param.key] = this.inputBuffer;
+      }
+      this.paramIndex = Math.max(0, this.paramIndex - 1);
+      if (this.paramIndex < params.length) {
+        this.inputBuffer = String(this.testParams[params[this.paramIndex]?.key] || '');
+      }
+      this.render();
+      return;
+    }
+    
+    // Arrow Down - move to next param
+    if (key === '\u001b[B') {
+      // Save current value first
+      if (param && this.inputBuffer !== undefined) {
+        this.testParams[param.key] = this.inputBuffer;
+      }
+      this.paramIndex = Math.min(params.length, this.paramIndex + 1);
+      if (this.paramIndex < params.length) {
+        this.inputBuffer = String(this.testParams[params[this.paramIndex]?.key] || '');
+      } else {
+        this.inputBuffer = '';
+      }
+      this.render();
+      return;
+    }
+    
+    // Arrow Left/Right - cycle through options for params that have them
+    if (key === '\u001b[D' || key === '\u001b[C') { // Left or Right
+      if (param && param.options) {
+        const options = param.options;
+        const currentVal = this.inputBuffer || this.testParams[param.key] || param.default;
+        let idx = options.indexOf(currentVal);
+        if (idx === -1) idx = 0;
+        
+        if (key === '\u001b[C') { // Right - next option
+          idx = (idx + 1) % options.length;
+        } else { // Left - previous option
+          idx = (idx - 1 + options.length) % options.length;
+        }
+        
+        this.inputBuffer = options[idx];
+        this.testParams[param.key] = options[idx];
+        this.render();
+        return;
+      } else if (param && param.type === 'number') {
+        // For number params, increment/decrement
+        let val = parseInt(this.inputBuffer) || parseInt(param.default) || 0;
+        const step = param.step || 1;
+        const min = param.min ?? 1;
+        const max = param.max ?? 100;
+        
+        if (key === '\u001b[C') { // Right - increment
+          val = Math.min(max, val + step);
+        } else { // Left - decrement
+          val = Math.max(min, val - step);
+        }
+        
+        this.inputBuffer = String(val);
+        this.testParams[param.key] = String(val);
+        this.render();
+        return;
+      }
+    }
+    
+    // Enter to confirm param or run test
+    if (key === '\r' || key === '\n') {
+      if (this.paramIndex < params.length && param) {
+        // Save current param and move to next
+        this.testParams[param.key] = this.inputBuffer || param.default;
+        this.paramIndex++;
+        if (this.paramIndex < params.length) {
+          this.inputBuffer = String(this.testParams[params[this.paramIndex]?.key] || '');
+        } else {
+          this.inputBuffer = '';
+        }
+        this.render();
+      } else {
+        // Run the test with params
+        const args = params.map(p => this.testParams[p.key] || p.default).join(' ');
+        this.executeTest(this.currentTest.file, args);
+      }
+      return;
+    }
+    
+    // Backspace
+    if (key === '\u007f' || key === '\b') {
+      this.inputBuffer = this.inputBuffer.slice(0, -1);
+      this.render();
+      return;
+    }
+    
+    // Regular character
+    if (key.length === 1 && key.charCodeAt(0) >= 32) {
+      this.inputBuffer += key;
+      this.render();
     }
   }
 
@@ -420,70 +733,35 @@ class ArteryTUI {
   // Actions
   async openPanel() {
     this.setStatus('Opening AC panel...', 'info');
+    this.render();
+    
     try {
-      // Use the panel opening logic from artery
-      const targets = await this.getTargets();
-      const workbenchTarget = targets.find(t => 
-        t.type === 'page' && t.url && t.url.includes('workbench.html')
-      );
+      // Use the standalone panel opener from Artery which uses the Enter key method
+      await Artery.openPanelStandalone();
       
-      if (!workbenchTarget) {
-        this.setStatus('VS Code workbench not found', 'error');
-        return;
-      }
-      
-      // Import WebSocket dynamically
-      const { default: WebSocket } = await import('ws');
-      
-      let wsUrl = workbenchTarget.webSocketDebuggerUrl;
-      if (CDP_HOST !== 'localhost') {
-        wsUrl = wsUrl.replace('localhost', `${CDP_HOST}:9222`).replace(':9222:9222', ':9222');
-      }
-      
-      const ws = new WebSocket(wsUrl);
-      
-      await new Promise((resolve, reject) => {
-        ws.on('open', resolve);
-        ws.on('error', reject);
-      });
-      
-      // Click on the AC icon in sidebar or execute command
-      ws.send(JSON.stringify({
-        id: 1,
-        method: 'Runtime.evaluate',
-        params: {
-          expression: `
-            (function() {
-              // Try to find and click AC panel button
-              const buttons = document.querySelectorAll('.action-item');
-              for (const btn of buttons) {
-                if (btn.title?.includes('Aesthetic') || btn.getAttribute('aria-label')?.includes('Aesthetic')) {
-                  btn.click();
-                  return 'clicked';
-                }
-              }
-              // Try command palette approach
-              return 'not found';
-            })()
-          `,
-          returnByValue: true
-        }
-      }));
-      
-      await new Promise(r => setTimeout(r, 1500));
-      ws.close();
+      // Wait a moment for panel to initialize
+      await new Promise(r => setTimeout(r, 500));
       
       // Reconnect after panel opens
       await this.connect();
-      this.setStatus('Panel opened!', 'success');
+      
+      if (this.connected) {
+        this.setStatus('Panel opened and connected!', 'success');
+      } else {
+        this.setStatus('Panel opened - connecting...', 'info');
+      }
     } catch (e) {
       this.setStatus(`Failed to open panel: ${e.message}`, 'error');
     }
+    
+    this.render();
   }
 
   enterPieceMode() {
     this.mode = 'pieces';
     this.selectedIndex = 0;
+    this.inputBuffer = '';
+    this.filteredPieces = [...this.allPieces];
     this.render();
   }
 
@@ -501,24 +779,107 @@ class ArteryTUI {
   }
 
   async runTests() {
-    this.setStatus('Running tests...', 'info');
-    if (!this.connected) {
-      this.setStatus('Not connected', 'error');
-      return;
-    }
+    // Show available tests
+    this.mode = 'tests';
+    
+    // Available melodies from melodies.mjs
+    const melodyOptions = [
+      'twinkle', 'mary', 'old-macdonald', 'yankee-doodle', 'frere-jacques',
+      'london-bridge', 'row-row-row', 'skip-to-my-lou', 'camptown-races',
+      'oh-susanna', 'amazing-grace', 'auld-lang-syne', 'shenandoah',
+      'home-on-the-range', 'red-river-valley', 'scarborough-fair',
+      'greensleeves', 'when-the-saints', 'danny-boy'
+    ];
+    
+    this.testFiles = [
+      { name: 'notepat', file: 'test-notepat.mjs', desc: 'Notepat fuzzing test' },
+      {
+        name: 'melody',
+        file: 'test-melody.mjs',
+        desc: 'Melody playback [configurable]',
+        params: [
+          { key: 'melody', label: 'Melody', desc: '←→ to cycle', default: 'twinkle', options: melodyOptions },
+        ],
+        defaults: { melody: 'twinkle' }
+      },
+      { name: 'chords', file: 'test-chords.mjs', desc: 'Chord progression test' },
+      { name: 'line', file: 'test-line.mjs', desc: 'Line drawing test' },
+      { name: 'toss', file: 'test-toss.mjs', desc: 'Comprehensive toss test' },
+      { name: 'playlist', file: 'test-playlist.mjs', desc: 'Playlist test' },
+      { 
+        name: 'waltz', 
+        file: 'test-generative-waltz.mjs', 
+        desc: 'Generative waltz [configurable]',
+        params: [
+          { key: 'bars', label: 'Bars', desc: '←→ to adjust', default: '8', type: 'number', min: 4, max: 32, step: 4 },
+          { key: 'scale', label: 'Scale', desc: '←→ to cycle', default: 'major', options: ['major', 'minor', 'dorian'] },
+          { key: 'seed', label: 'Seed', desc: 'Random seed (type or ←→)', default: String(Date.now()), type: 'number', min: 1, max: 999999, step: 111 },
+          { key: 'tempo', label: 'Tempo', desc: '←→ to cycle', default: 'slow', options: ['slow', 'medium', 'viennese'] },
+          { key: 'topline', label: 'Top Line', desc: '←→ toggle', default: '', options: ['', 'topline'] },
+          { key: 'infinite', label: 'Infinite', desc: '←→ toggle', default: '', options: ['', 'infinite'] },
+          { key: 'frolic', label: 'Frolic', desc: '←→ toggle (fast RH)', default: '', options: ['', 'frolic'] },
+          { key: 'beat', label: 'Beat', desc: '←→ toggle (drums)', default: '', options: ['', 'beat'] },
+        ],
+        defaults: { bars: '8', scale: 'major', seed: String(Date.now()), tempo: 'slow', topline: '', infinite: '', frolic: '', beat: '' }
+      },
+    ];
+    this.selectedIndex = 0;
+    this.setStatus('Select a test to run (Enter for params)', 'info');
+    this.render();
+  }
+  
+  async executeTest(testFile, args = '') {
+    this.mode = 'logs';
+    this.testRunning = true;
+    this.pendingRender = false;
+    const argsDisplay = args ? ` (${args})` : '';
+    this.setStatus(`Running ${testFile}${argsDisplay}...`, 'info');
+    this.render();
+    
     try {
-      // Execute test command in AC
-      const result = await this.client.eval(`
-        if (window.api && window.api.test) {
-          window.api.test();
-          'Tests started';
+      const { spawn } = await import('child_process');
+      const testPath = `.vscode/tests/${testFile}`;
+      
+      // Build command args
+      const cmdArgs = [testPath];
+      if (args) {
+        cmdArgs.push(...args.split(' ').filter(a => a.trim()));
+      }
+      
+      // Run the test in a subprocess
+      const proc = spawn('node', cmdArgs, {
+        cwd: process.cwd(),
+        stdio: ['ignore', 'pipe', 'pipe']
+      });
+      
+      proc.stdout.on('data', (data) => {
+        const lines = data.toString().split('\n').filter(l => l.trim());
+        lines.forEach(line => this.addLog(line, 'log'));
+      });
+      
+      proc.stderr.on('data', (data) => {
+        const lines = data.toString().split('\n').filter(l => l.trim());
+        lines.forEach(line => this.addLog(line, 'error'));
+      });
+      
+      proc.on('close', (code) => {
+        this.testRunning = false;
+        if (code === 0) {
+          this.setStatus(`Test ${testFile} completed!`, 'success');
         } else {
-          'Test API not available';
+          this.setStatus(`Test ${testFile} exited with code ${code}`, 'error');
         }
-      `);
-      this.setStatus(result, 'info');
+        // Do the deferred render now that test is complete
+        if (this.pendingRender) {
+          this.pendingRender = false;
+        }
+        this.render();
+      });
+      
     } catch (e) {
+      this.testRunning = false;
       this.setStatus(`Test error: ${e.message}`, 'error');
+      this.render();
     }
   }
 
@@ -639,7 +1000,14 @@ class ArteryTUI {
         this.renderRepl();
         break;
       case 'pieces':
+      case 'piece-input':
         this.renderPieces();
+        break;
+      case 'tests':
+        this.renderTests();
+        break;
+      case 'test-params':
+        this.renderTestParams();
         break;
       case 'logs':
         this.renderLogs();
@@ -653,13 +1021,23 @@ class ArteryTUI {
       ? `${FG_GREEN}● Connected${RESET}` 
       : `${FG_RED}○ Disconnected${RESET}`;
     const piece = this.currentPiece ? ` | ${FG_CYAN}${this.currentPiece}${RESET}` : '';
+    
+    // Server status indicators
+    const localIcon = this.serverStatus.local === true ? `${FG_GREEN}●${RESET}` 
+                    : this.serverStatus.local === false ? `${FG_RED}○${RESET}` 
+                    : `${DIM}?${RESET}`;
+    const prodIcon = this.serverStatus.production === true ? `${FG_GREEN}●${RESET}` 
+                   : this.serverStatus.production === false ? `${FG_RED}○${RESET}` 
+                   : `${DIM}?${RESET}`;
+    const serverInfo = ` | ${DIM}L:${RESET}${localIcon} ${DIM}P:${RESET}${prodIcon}`;
+    
     const boxWidth = this.innerWidth;
     
     // Top border
     this.writeLine(`${FG_BRIGHT_MAGENTA}${BOX.topLeft}${BOX.horizontal.repeat(boxWidth - 2)}${BOX.topRight}${RESET}`);
     
     // Title line
-    const titleLine = `${BOX.vertical} ${BG_MAGENTA}${FG_WHITE}${BOLD}${title}${RESET} ${status}${piece}`;
+    const titleLine = `${BOX.vertical} ${BG_MAGENTA}${FG_WHITE}${BOLD}${title}${RESET} ${status}${piece}${serverInfo}`;
     const padding = boxWidth - this.stripAnsi(titleLine).length - 1;
     this.writeLine(`${FG_BRIGHT_MAGENTA}${titleLine}${' '.repeat(Math.max(0, padding))}${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET}`);
     
@@ -804,23 +1182,45 @@ class ArteryTUI {
     this.renderHeader();
     const boxWidth = this.innerWidth;
     
-    // Title
-    const pieceTitle = `${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET} ${BOLD}${FG_CYAN}Jump to Piece${RESET} ${DIM}(↑↓ to select, Enter to jump, / for custom)${RESET}`;
+    // Title with piece count
+    const countInfo = `${DIM}(${this.filteredPieces.length}/${this.allPieces.length} pieces)${RESET}`;
+    const pieceTitle = `${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET} ${BOLD}${FG_CYAN}Jump to Piece${RESET} ${countInfo}`;
     const piecePadding = boxWidth - this.stripAnsi(pieceTitle).length - 1;
     this.writeLine(`${pieceTitle}${' '.repeat(Math.max(0, piecePadding))}${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET}`);
+    
+    // Search input line
+    const searchPrompt = `${FG_YELLOW}🔍${RESET} `;
+    const searchDisplay = this.inputBuffer || `${DIM}Type to search...${RESET}`;
+    const searchLine = `${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET} ${searchPrompt}${searchDisplay}`;
+    const searchPadding = boxWidth - this.stripAnsi(searchLine).length - 1;
+    this.writeLine(`${searchLine}${' '.repeat(Math.max(0, searchPadding))}${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET}`);
+    
     this.writeLine(`${FG_BRIGHT_MAGENTA}${BOX.teeRight}${BOX.lightH.repeat(boxWidth - 2)}${BOX.teeLeft}${RESET}`);
     
     // Pieces list
-    const visibleCount = this.innerHeight - 8;
+    const visibleCount = this.innerHeight - 10;
     const startIdx = Math.max(0, this.selectedIndex - Math.floor(visibleCount / 2));
-    const endIdx = Math.min(this.quickPieces.length, startIdx + visibleCount);
+    const endIdx = Math.min(this.filteredPieces.length, startIdx + visibleCount);
     
     for (let i = startIdx; i < endIdx; i++) {
-      const piece = this.quickPieces[i];
+      const piece = this.filteredPieces[i];
       const selected = i === this.selectedIndex;
       const prefix = selected ? `${BG_MAGENTA}${FG_WHITE} ▸ ` : '   ';
       const suffix = selected ? ` ${RESET}` : '';
-      const label = selected ? `${BOLD}${piece}${RESET}` : piece;
+      
+      // Highlight matching part of name
+      let label;
+      if (this.inputBuffer && piece.toLowerCase().includes(this.inputBuffer.toLowerCase())) {
+        const idx = piece.toLowerCase().indexOf(this.inputBuffer.toLowerCase());
+        const before = piece.slice(0, idx);
+        const match = piece.slice(idx, idx + this.inputBuffer.length);
+        const after = piece.slice(idx + this.inputBuffer.length);
+        label = selected 
+          ? `${BOLD}${before}${FG_YELLOW}${match}${FG_WHITE}${after}${RESET}` 
+          : `${before}${FG_YELLOW}${match}${RESET}${after}`;
+      } else {
+        label = selected ? `${BOLD}${piece}${RESET}` : piece;
+      }
       
       const line = `${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET}${prefix}${label}${suffix}`;
       const padding = boxWidth - this.stripAnsi(line).length - 1;
@@ -833,6 +1233,123 @@ class ArteryTUI {
     }
     
     this.renderFooter();
+    
+    // Show cursor at search position
+    this.write(CURSOR_SHOW);
+    this.write(moveTo(this.marginY + 2, this.marginX + 5 + this.inputBuffer.length));
+  }
+
+  renderTests() {
+    this.renderHeader();
+    const boxWidth = this.innerWidth;
+    
+    // Title
+    const testTitle = `${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET} ${BOLD}${FG_CYAN}🧪 Test Suite${RESET} ${DIM}(↑↓ to select, Enter to run/configure)${RESET}`;
+    const testPadding = boxWidth - this.stripAnsi(testTitle).length - 1;
+    this.writeLine(`${testTitle}${' '.repeat(Math.max(0, testPadding))}${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET}`);
+    this.writeLine(`${FG_BRIGHT_MAGENTA}${BOX.teeRight}${BOX.lightH.repeat(boxWidth - 2)}${BOX.teeLeft}${RESET}`);
+    
+    // Tests list
+    const tests = this.testFiles || [];
+    const visibleCount = this.innerHeight - 8;
+    
+    for (let i = 0; i < Math.min(tests.length, visibleCount); i++) {
+      const test = tests[i];
+      const selected = i === this.selectedIndex;
+      const prefix = selected ? `${BG_MAGENTA}${FG_WHITE} ▸ ` : '   ';
+      const suffix = selected ? `${RESET}` : '';
+      const configIcon = test.params ? `${FG_YELLOW}⚙${RESET} ` : '';
+      const label = selected ? `${BOLD}${test.name}${RESET}` : test.name;
+      const desc = `${DIM}${test.desc}${RESET}`;
+      
+      const line = `${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET}${prefix}${configIcon}${label}${suffix} ${desc}`;
+      const padding = boxWidth - this.stripAnsi(line).length - 1;
+      this.writeLine(`${line}${' '.repeat(Math.max(0, padding))}${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET}`);
+    }
+    
+    // Fill remaining
+    for (let i = tests.length; i < visibleCount; i++) {
+      this.writeLine(`${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET}${' '.repeat(boxWidth - 2)}${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET}`);
+    }
+    
+    this.renderFooter();
+  }
+  
+  renderTestParams() {
+    this.renderHeader();
+    const boxWidth = this.innerWidth;
+    const test = this.currentTest;
+    const params = test?.params || [];
+    
+    // Title
+    const testTitle = `${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET} ${BOLD}${FG_CYAN}⚙ Configure: ${test?.name}${RESET} ${DIM}(↑↓ move, ←→ change value, Enter confirm)${RESET}`;
+    const testPadding = boxWidth - this.stripAnsi(testTitle).length - 1;
+    this.writeLine(`${testTitle}${' '.repeat(Math.max(0, testPadding))}${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET}`);
+    this.writeLine(`${FG_BRIGHT_MAGENTA}${BOX.teeRight}${BOX.lightH.repeat(boxWidth - 2)}${BOX.teeLeft}${RESET}`);
+    
+    // Parameters list
+    for (let i = 0; i < params.length; i++) {
+      const param = params[i];
+      const selected = i === this.paramIndex;
+      const prefix = selected ? `${BG_MAGENTA}${FG_WHITE} ▸ ` : '   ';
+      const suffix = selected ? `${RESET}` : '';
+      
+      const value = selected ? this.inputBuffer : (this.testParams[param.key] || param.default);
+      
+      // Show value with arrows if it has options or is a number
+      let valueDisplay;
+      if (selected && (param.options || param.type === 'number')) {
+        const leftArrow = `${FG_YELLOW}◀${RESET}`;
+        const rightArrow = `${FG_YELLOW}▶${RESET}`;
+        valueDisplay = value ? `${leftArrow} ${FG_GREEN}${value}${RESET} ${rightArrow}` : `${leftArrow} ${DIM}(empty)${RESET} ${rightArrow}`;
+      } else {
+        valueDisplay = value ? `${FG_GREEN}${value}${RESET}` : `${DIM}(empty)${RESET}`;
+      }
+      
+      const label = selected ? `${BOLD}${param.label}${RESET}` : param.label;
+      const desc = `${DIM}${param.desc}${RESET}`;
+      
+      const line = `${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET}${prefix}${label}:${suffix} ${valueDisplay} ${desc}`;
+      const padding = boxWidth - this.stripAnsi(line).length - 1;
+      this.writeLine(`${line}${' '.repeat(Math.max(0, padding))}${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET}`);
+    }
+    
+    // Run button
+    this.writeLine(`${FG_BRIGHT_MAGENTA}${BOX.teeRight}${BOX.lightH.repeat(boxWidth - 2)}${BOX.teeLeft}${RESET}`);
+    const runSelected = this.paramIndex >= params.length;
+    const runPrefix = runSelected ? `${BG_GREEN}${FG_WHITE} ▸ ` : '   ';
+    const runSuffix = runSelected ? `${RESET}` : '';
+    const runLabel = runSelected ? `${BOLD}🚀 RUN TEST${RESET}` : `${FG_GREEN}🚀 RUN TEST${RESET}`;
+    const runLine = `${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET}${runPrefix}${runLabel}${runSuffix}`;
+    const runPadding = boxWidth - this.stripAnsi(runLine).length - 1;
+    this.writeLine(`${runLine}${' '.repeat(Math.max(0, runPadding))}${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET}`);
+    
+    // Preview command
+    const args = params.map(p => this.testParams[p.key] || p.default).filter(a => a).join(' ');
+    const cmdPreview = `${DIM}Command: node .vscode/tests/${test?.file} ${args}${RESET}`;
+    const previewLine = `${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET} ${cmdPreview}`;
+    const previewPadding = boxWidth - this.stripAnsi(previewLine).length - 1;
+    this.writeLine(`${previewLine}${' '.repeat(Math.max(0, previewPadding))}${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET}`);
+    
+    // Fill remaining
+    const usedLines = params.length + 4;
+    const visibleCount = this.innerHeight - 8;
+    for (let i = usedLines; i < visibleCount; i++) {
+      this.writeLine(`${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET}${' '.repeat(boxWidth - 2)}${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET}`);
+    }
+    
+    this.renderFooter();
+    
+    // Show cursor at input position if editing a param (only for non-option params)
+    if (this.paramIndex < params.length) {
+      const param = params[this.paramIndex];
+      if (!param.options && param.type !== 'number') {
+        this.write(CURSOR_SHOW);
+        // Approximate cursor position
+        const labelLen = param.label.length + 3;
+        this.write(moveTo(this.marginY + 3 + this.paramIndex, this.marginX + 4 + labelLen + this.inputBuffer.length));
+      }
+    }
   }
 
   renderLogs() {

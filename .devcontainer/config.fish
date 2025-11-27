@@ -642,6 +642,12 @@ function ac-artery
     node /workspaces/aesthetic-computer/.vscode/artery-tui.mjs
 end
 
+# Artery with hot-reload for development
+# Watches artery-tui.mjs and artery.mjs for changes and auto-restarts
+function ac-artery-dev
+    node /workspaces/aesthetic-computer/.vscode/artery-dev.mjs
+end
+
 function artery-tui
     ac-artery
 end
