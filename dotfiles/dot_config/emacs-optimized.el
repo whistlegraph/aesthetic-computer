@@ -426,7 +426,7 @@ TARGET-TAB: which tab to switch to after setup."
            ("stripe-ticket" . "🎫") ("chat-system" . "🤖") ("chat-sotce" . "🧠")
            ("chat-clock" . "⏰") ("site" . "🌐") ("session" . "📋")
            ("redis" . "🔴") ("bookmarks" . "🔖") ("kidlisp" . "🧪")
-           ("oven" . "🔥"))))
+           ("oven" . "🔥") ("artery" . "🩸"))))
     
     ;; Clean up buffers (with error handling)
     (condition-case nil
@@ -438,7 +438,16 @@ TARGET-TAB: which tab to switch to after setup."
             (kill-buffer buf)))
       (error nil))
     
-    ;; Initialize first tab
+    ;; Initialize first tab - Artery TUI
+    (tab-rename "artery")
+    (let ((default-directory directory-path))
+      (eat "fish -c 'ac-artery'")
+      (when (get-buffer "*eat*")
+        (with-current-buffer "*eat*"
+          (rename-buffer "🩸-artery" t))))
+    
+    ;; Create code tab with agent
+    (tab-new)
     (tab-rename "code")
     (let ((default-directory directory-path))
       (eat "fish -c 'ac-agent'")
@@ -505,7 +514,7 @@ TARGET-TAB: which tab to switch to after setup."
     
     ;; Switch to target tab
     (condition-case nil
-        (if (member target-tab '("code" "status" "stripe" "chat" "web 1/2" "web 2/2" "tests"))
+        (if (member target-tab '("artery" "code" "status" "stripe" "chat" "web 1/2" "web 2/2" "tests"))
             (tab-bar-switch-to-tab target-tab)
           (message "No such tab: %s" target-tab))
       (error nil))))
