@@ -4719,6 +4719,26 @@ async function prefetchPicture(code) {
     }
   }
 
+  // Level 3.5: Check for embedded painting bitmaps (pack mode / bundled HTML)
+  const globalScope = (function() {
+    if (typeof globalThis !== 'undefined') return globalThis;
+    if (typeof self !== 'undefined') return self;
+    if (typeof window !== 'undefined') return window;
+    return {};
+  })();
+  
+  if (globalScope.acEMBEDDED_PAINTING_BITMAPS) {
+    // Check with various key formats
+    const embeddedBitmap = globalScope.acEMBEDDED_PAINTING_BITMAPS[code] ||
+                          globalScope.acEMBEDDED_PAINTING_BITMAPS['#' + actualCode] ||
+                          globalScope.acEMBEDDED_PAINTING_BITMAPS[actualCode];
+    if (embeddedBitmap) {
+      console.log("🖼️ Loaded from embedded bundle:", code);
+      paintings[code] = embeddedBitmap;
+      return;
+    }
+  }
+
   // Level 4: Fetch from network
   // console.log("🖼️ Prefetching from network...", code);
   paintings[code] = "fetching";
