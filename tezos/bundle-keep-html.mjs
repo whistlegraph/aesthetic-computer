@@ -104,13 +104,81 @@ function timestamp(date = new Date()) {
   return `${date.getFullYear()}.${date.getMonth() + 1}.${date.getDate()}.${date.getHours()}.${date.getMinutes()}.${date.getSeconds()}.${pad(date.getMilliseconds(), 3)}`;
 }
 
-// Piece author handle (later could be dynamic based on piece metadata)
-const AUTHOR_HANDLE = '@jeffrey';
+// Extract painting short codes from KidLisp source (e.g., #dgs, #92b)
+function extractPaintingCodes(source) {
+  const codes = [];
+  // Match #XXX patterns (3-char alphanumeric painting codes)
+  const regex = /#([a-zA-Z0-9]{3})\b/g;
+  let match;
+  while ((match = regex.exec(source)) !== null) {
+    const code = match[1];
+    if (!codes.includes(code)) {
+      codes.push(code);
+    }
+  }
+  return codes;
+}
+
+// Resolve painting code to handle+slug via API
+async function resolvePaintingCode(code) {
+  try {
+    const response = await fetch(`https://aesthetic.computer/api/painting-code?code=${code}`);
+    if (!response.ok) {
+      console.warn(`⚠️ Painting code ${code} not found`);
+      return null;
+    }
+    const data = await response.json();
+    return {
+      code,
+      handle: data.handle || 'anon',
+      slug: data.slug
+    };
+  } catch (err) {
+    console.warn(`⚠️ Failed to resolve painting code ${code}:`, err.message);
+    return null;
+  }
+}
+
+// Fetch painting PNG as base64 from media endpoint
+async function fetchPaintingImage(handle, slug) {
+  const handlePath = handle === 'anon' ? '' : `@${handle}/`;
+  const url = `https://aesthetic.computer/media/${handlePath}painting/${slug}.png`;
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      console.warn(`⚠️ Failed to fetch painting image: ${url}`);
+      return null;
+    }
+    const buffer = await response.arrayBuffer();
+    return Buffer.from(buffer).toString('base64');
+  } catch (err) {
+    console.warn(`⚠️ Failed to fetch painting image: ${url}`, err.message);
+    return null;
+  }
+}
+
+// Fetch author handle from user ID (Auth0 sub)
+async function fetchAuthorHandle(userId) {
+  if (!userId) return null;
+  try {
+    const response = await fetch(`https://aesthetic.computer/handle?for=${encodeURIComponent(userId)}`);
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data.handle ? `@${data.handle}` : null;
+  } catch (err) {
+    console.warn(`⚠️ Failed to fetch author handle:`, err.message);
+    return null;
+  }
+}
+
+// Piece author handle (will be dynamically fetched)
+let AUTHOR_HANDLE = null;
 
 // Generate filename: $piece-@author-timestamp
 const BUNDLE_TIMESTAMP = timestamp();
 function bundleFilename(extension) {
-  return `$${PIECE_NAME_NO_DOLLAR}-${AUTHOR_HANDLE}-${BUNDLE_TIMESTAMP}.${extension}`;
+  const author = AUTHOR_HANDLE || '@anon';
+  return `$${PIECE_NAME_NO_DOLLAR}-${author}-${BUNDLE_TIMESTAMP}.${extension}`;
 }
 
 // ULTRA-MINIMAL file set - only what's absolutely required for basic KidLisp visuals
@@ -375,7 +443,8 @@ async function fetchKidLispFromAPI(pieceName) {
       throw new Error(`Piece '$${cleanName}' not found`);
     }
     
-    return data.source;
+    // Return both source and user ID for author attribution
+    return { source: data.source, userId: data.user || null };
   } catch (error) {
     throw new Error(`Failed to fetch $${cleanName}: ${error.message}`);
   }
@@ -402,6 +471,7 @@ async function getKidLispSourceWithDeps(pieceName) {
   const allSources = {};
   const toProcess = [pieceName];
   const processed = new Set();
+  let mainPieceUserId = null;
   
   while (toProcess.length > 0) {
     const current = toProcess.shift();
@@ -411,8 +481,13 @@ async function getKidLispSourceWithDeps(pieceName) {
     processed.add(cleanName);
     
     console.log(`   📥 Fetching: $${cleanName}`);
-    const source = await fetchKidLispFromAPI(cleanName);
+    const { source, userId } = await fetchKidLispFromAPI(cleanName);
     allSources[cleanName] = source;
+    
+    // Capture the main piece's user ID for author attribution
+    if (cleanName === pieceName.replace('$', '') && userId) {
+      mainPieceUserId = userId;
+    }
     
     const refs = extractKidLispRefs(source);
     if (refs.length > 0) {
@@ -424,6 +499,22 @@ async function getKidLispSourceWithDeps(pieceName) {
         }
       }
     }
+  }
+  
+  // Resolve author handle from user ID
+  if (mainPieceUserId) {
+    console.log(`\n👤 Resolving author from user ID...`);
+    const handle = await fetchAuthorHandle(mainPieceUserId);
+    if (handle) {
+      AUTHOR_HANDLE = handle;
+      console.log(`   ✅ Author: ${AUTHOR_HANDLE}`);
+    } else {
+      AUTHOR_HANDLE = '@anon';
+      console.log(`   ⚠️  Could not resolve author, using @anon`);
+    }
+  } else {
+    AUTHOR_HANDLE = '@anon';
+    console.log(`\n👤 No user ID found, using @anon`);
   }
   
   console.log(`✅ Resolved ${Object.keys(allSources).length} KidLisp pieces total`);
@@ -532,6 +623,68 @@ async function createMinimalBundle(kidlispSources) {
     }
   }
   
+  // Extract and embed painting images from KidLisp source
+  console.log("🖼️ Resolving and embedding painting images...");
+  const allKidlispSource = Object.values(kidlispSources).join('\\n');
+  const paintingCodes = extractPaintingCodes(allKidlispSource);
+  const paintingData = {}; // Map code -> { handle, slug }
+  
+  if (paintingCodes.length > 0) {
+    console.log(`   Found ${paintingCodes.length} painting codes: ${paintingCodes.map(c => '#' + c).join(', ')}`);
+    
+    for (const code of paintingCodes) {
+      const resolved = await resolvePaintingCode(code);
+      if (resolved) {
+        paintingData[code] = resolved;
+        console.log(`   📍 #${code} → @${resolved.handle}/${resolved.slug}`);
+        
+        // Fetch and embed the actual PNG
+        const imageBase64 = await fetchPaintingImage(resolved.handle, resolved.slug);
+        if (imageBase64) {
+          // Store in VFS at a predictable path
+          const vfsPath = `paintings/${code}.png`;
+          files[vfsPath] = {
+            content: imageBase64,
+            binary: true,
+            type: 'png'
+          };
+          console.log(`   ✅ Embedded painting #${code} as ${vfsPath}`);
+        }
+      }
+    }
+  } else {
+    console.log("   No painting codes found in KidLisp source");
+  }
+  
+  // Load font_1 glyphs for text rendering
+  console.log("🔤 Loading font_1 glyphs...");
+  const font1Dir = path.join(acDir, 'disks/drawings/font_1');
+  const fontCategories = ['lowercase', 'uppercase', 'numbers', 'symbols'];
+  let glyphCount = 0;
+  
+  for (const category of fontCategories) {
+    const categoryDir = path.join(font1Dir, category);
+    try {
+      if (fsSync.existsSync(categoryDir)) {
+        const glyphFiles = fsSync.readdirSync(categoryDir).filter(f => f.endsWith('.json'));
+        for (const glyphFile of glyphFiles) {
+          const glyphPath = path.join(categoryDir, glyphFile);
+          const content = await fs.readFile(glyphPath, 'utf8');
+          const vfsPath = `disks/drawings/font_1/${category}/${glyphFile}`;
+          files[vfsPath] = {
+            content,
+            binary: false,
+            type: 'json'
+          };
+          glyphCount++;
+        }
+      }
+    } catch (err) {
+      console.warn(`   ⚠️  Could not load font category ${category}:`, err.message);
+    }
+  }
+  console.log(`   ✅ Loaded ${glyphCount} font glyphs`);
+  
   // Create synthetic .lisp files for KidLisp pieces
   for (const [pieceName, source] of Object.entries(kidlispSources)) {
     const pieceLispPath = `disks/${pieceName}.lisp`;
@@ -633,18 +786,76 @@ async function createMinimalBundle(kidlispSources) {
     // Set colophon data for headers.mjs to display
     window.acPACK_COLOPHON = {
       piece: {
-        name: '${PIECE_NAME}',
+        name: '${PIECE_NAME_NO_DOLLAR}',
         sourceCode: ${JSON.stringify(mainSource)},
         isKidLisp: true
       },
       build: {
-        author: '${AUTHOR_HANDLE}',
+        author: '${AUTHOR_HANDLE || '@anon'}',
         packTime: ${packTime},
         gitCommit: '${gitHash}',
         gitIsDirty: ${gitDirty ? 'true' : 'false'},
         fileCount: ${Object.keys(files).length}
       }
     };
+    
+    // Embedded painting code resolution (for offline stamp)
+    window.acPAINTING_CODE_MAP = ${JSON.stringify(paintingData)};
+    
+    // Virtual File System - MUST be defined before decode promise runs
+    window.VFS = ${JSON.stringify(files).replace(/<\/script>/g, '<\\/script>')};
+    
+    // Pre-decode embedded painting images to bitmap format
+    // This will be used by disk.mjs to prefill the paintings cache
+    window.acEMBEDDED_PAINTING_BITMAPS = {};
+    window.acPAINTING_BITMAPS_READY = false;
+    
+    // Function to decode a base64 PNG to bitmap format
+    async function decodePaintingToBitmap(code, base64Data) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = function() {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0);
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          resolve({
+            width: imageData.width,
+            height: imageData.height,
+            pixels: imageData.data
+          });
+        };
+        img.onerror = reject;
+        img.src = 'data:image/png;base64,' + base64Data;
+      });
+    }
+    
+    // Pre-decode all embedded paintings at startup
+    // This returns a promise we await before starting boot.mjs
+    window.acDecodePaintingsPromise = (async function() {
+      const paintingPromises = [];
+      for (const [code, info] of Object.entries(window.acPAINTING_CODE_MAP || {})) {
+        const vfsPath = 'paintings/' + code + '.png';
+        if (window.VFS && window.VFS[vfsPath]) {
+          const promise = decodePaintingToBitmap(code, window.VFS[vfsPath].content)
+            .then(bitmap => {
+              // Store with both #code and resolved slug as keys for lookup
+              window.acEMBEDDED_PAINTING_BITMAPS['#' + code] = bitmap;
+              window.acEMBEDDED_PAINTING_BITMAPS[code] = bitmap;
+              console.log('🖼️ Pre-decoded painting #' + code);
+            })
+            .catch(err => {
+              console.warn('⚠️ Failed to decode painting #' + code + ':', err);
+            });
+          paintingPromises.push(promise);
+        }
+      }
+      await Promise.all(paintingPromises);
+      window.acPAINTING_BITMAPS_READY = true;
+      console.log('🖼️ All embedded paintings decoded:', Object.keys(window.acEMBEDDED_PAINTING_BITMAPS));
+    })();
     
     // Embedded KidLisp sources
     window.EMBEDDED_KIDLISP_SOURCE = ${JSON.stringify(mainSource)};
@@ -672,10 +883,7 @@ async function createMinimalBundle(kidlispSources) {
       return originalBodyAppend.call(this, ...filteredNodes);
     };
     
-    // Virtual File System
-    window.VFS = ${JSON.stringify(files).replace(/<\/script>/g, '<\\/script>')};
-    
-    // Create blob URLs
+    // Create blob URLs (VFS already defined above before decode promise)
     window.VFS_BLOB_URLS = {};
     window.modulePaths = [];
     
@@ -719,6 +927,27 @@ async function createMinimalBundle(kidlispSources) {
     window.fetch = function(url, options) {
       const urlStr = typeof url === 'string' ? url : url.toString();
       
+      // Intercept painting-code API calls and return embedded data
+      if (urlStr.includes('/api/painting-code')) {
+        const codeMatch = urlStr.match(/[?&]code=([^&]+)/);
+        if (codeMatch) {
+          const code = codeMatch[1];
+          const paintingInfo = window.acPAINTING_CODE_MAP[code];
+          if (paintingInfo) {
+            return Promise.resolve(new Response(JSON.stringify({
+              code: paintingInfo.code,
+              handle: paintingInfo.handle,
+              slug: paintingInfo.slug
+            }), {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' }
+            }));
+          }
+        }
+        // Return 404 for unknown painting codes
+        return Promise.resolve(new Response(JSON.stringify({ error: 'Not found' }), { status: 404 }));
+      }
+      
       let vfsPath = decodeURIComponent(urlStr)
         .replace(/^https?:\\/\\/[^\\/]+\\//g, '')
         .replace(/^aesthetic\\.computer\\//g, '')
@@ -727,13 +956,61 @@ async function createMinimalBundle(kidlispSources) {
       
       vfsPath = vfsPath.replace(/^\\.\\.\\/+/g, '').replace(/^\\.\\//g, '').replace(/^\\//g, '');
       
+      // Handle painting image requests - try embedded VFS
+      if (urlStr.includes('/media/') && urlStr.includes('/painting/')) {
+        console.log('🖼️ VFS intercept: Painting request:', urlStr);
+        console.log('🖼️ VFS intercept: PAINTING_CODE_MAP:', window.acPAINTING_CODE_MAP);
+        // Extract code from media URL (e.g., /media/@handle/painting/slug.png)
+        // Try to find by matching the painting code map
+        for (const [code, info] of Object.entries(window.acPAINTING_CODE_MAP || {})) {
+          console.log('🖼️ VFS intercept: Checking code', code, 'slug', info.slug, 'against URL');
+          if (urlStr.includes(info.slug)) {
+            const paintingVfsPath = 'paintings/' + code + '.png';
+            console.log('🖼️ VFS intercept: Match! Looking for', paintingVfsPath, 'in VFS');
+            console.log('🖼️ VFS intercept: VFS keys:', Object.keys(window.VFS).filter(k => k.includes('painting')));
+            if (window.VFS[paintingVfsPath]) {
+              console.log('🖼️ VFS intercept: Found! Serving from VFS');
+              const file = window.VFS[paintingVfsPath];
+              const binaryStr = atob(file.content);
+              const bytes = new Uint8Array(binaryStr.length);
+              for (let i = 0; i < binaryStr.length; i++) {
+                bytes[i] = binaryStr.charCodeAt(i);
+              }
+              return Promise.resolve(new Response(bytes, {
+                status: 200,
+                headers: { 'Content-Type': 'image/png' }
+              }));
+            } else {
+              console.log('🖼️ VFS intercept: NOT FOUND in VFS!');
+            }
+          }
+        }
+        console.log('🖼️ VFS intercept: No match found, falling through to network');
+      }
+      
       if (window.VFS[vfsPath]) {
         const file = window.VFS[vfsPath];
-        const content = file.binary ? atob(file.content) : file.content;
+        let content;
+        let contentType = 'text/plain';
+        
+        if (file.binary) {
+          const binaryStr = atob(file.content);
+          const bytes = new Uint8Array(binaryStr.length);
+          for (let i = 0; i < binaryStr.length; i++) {
+            bytes[i] = binaryStr.charCodeAt(i);
+          }
+          content = bytes;
+          if (file.type === 'png') contentType = 'image/png';
+          else if (file.type === 'jpg' || file.type === 'jpeg') contentType = 'image/jpeg';
+        } else {
+          content = file.content;
+          if (file.type === 'mjs' || file.type === 'js') contentType = 'application/javascript';
+          else if (file.type === 'json') contentType = 'application/json';
+        }
         
         return Promise.resolve(new Response(content, {
           status: 200,
-          headers: { 'Content-Type': file.type === 'mjs' || file.type === 'js' ? 'application/javascript' : 'text/plain' }
+          headers: { 'Content-Type': contentType }
         }));
       }
       
@@ -796,10 +1073,20 @@ async function createMinimalBundle(kidlispSources) {
       return originalXHRSend.call(this, ...args);
     };
     
-    // Start the system
-    import(window.VFS_BLOB_URLS['boot.mjs']).catch(err => {
-      console.error('❌ Failed to load boot.mjs:', err);
-    });
+    // Wait for embedded paintings to decode, THEN start the system
+    (async function() {
+      // Wait for paintings to be pre-decoded to bitmap format
+      if (window.acDecodePaintingsPromise) {
+        console.log('⏳ Waiting for embedded paintings to decode...');
+        await window.acDecodePaintingsPromise;
+        console.log('✅ Paintings ready, starting boot...');
+      }
+      
+      // Now start the system
+      import(window.VFS_BLOB_URLS['boot.mjs']).catch(err => {
+        console.error('❌ Failed to load boot.mjs:', err);
+      });
+    })();
   </script>
 </body>
 </html>`;
