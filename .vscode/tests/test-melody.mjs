@@ -5,7 +5,7 @@
  * Plays famous melodies through notepat
  */
 
-import Artery from '../artery.mjs';
+import Artery from '../../artery/artery.mjs';
 import { melodies, noteToKey } from './melodies.mjs';
 
 const PURPLE_BG = '\x1b[45m';

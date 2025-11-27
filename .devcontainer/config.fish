@@ -607,10 +607,10 @@ end
 function artery
     if test (count $argv) -eq 0
         # No args - show help
-        node /workspaces/aesthetic-computer/.vscode/artery.mjs
+        node /workspaces/aesthetic-computer/artery/artery.mjs
     else
         # Pass through to artery
-        node /workspaces/aesthetic-computer/.vscode/artery.mjs $argv
+        node /workspaces/aesthetic-computer/artery/artery.mjs $argv
     end
 end
 
@@ -639,13 +639,13 @@ end
 #   - Live REPL with console log output
 #   - WebGPU performance monitoring
 function ac-artery
-    node /workspaces/aesthetic-computer/.vscode/artery-tui.mjs
+    node /workspaces/aesthetic-computer/artery/artery-tui.mjs
 end
 
 # Artery with hot-reload for development
 # Watches artery-tui.mjs and artery.mjs for changes and auto-restarts
 function ac-artery-dev
-    node /workspaces/aesthetic-computer/.vscode/artery-dev.mjs
+    node /workspaces/aesthetic-computer/artery/artery-dev.mjs
 end
 
 function artery-tui

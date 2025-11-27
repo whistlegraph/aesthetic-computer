@@ -14,7 +14,7 @@
  *   test-line 30000  # Run for 30 seconds
  */
 
-import Artery from '../artery.mjs';
+import Artery from '../../artery/artery.mjs';
 
 async function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
