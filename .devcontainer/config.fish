@@ -631,6 +631,21 @@ function ac-repl
     artery repl
 end
 
+# 🩸 Artery TUI - Interactive curses-style interface for AC
+# Usage: ac-artery or artery-tui
+# Features:
+#   - Menu-driven interface with keyboard navigation
+#   - Open AC panel, jump to pieces, run tests
+#   - Live REPL with console log output
+#   - WebGPU performance monitoring
+function ac-artery
+    node /workspaces/aesthetic-computer/.vscode/artery-tui.mjs
+end
+
+function artery-tui
+    ac-artery
+end
+
 # Automated testing for AC pieces
 # Usage: test-notepat [duration_ms]
 # Example: test-notepat 60000  (runs for 60 seconds)
