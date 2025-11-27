@@ -332,6 +332,29 @@
 (setq-default eat-shell "/usr/bin/fish"
               eat-term-name "xterm-256color")
 
+;; Disable evil mode in artery buffer
+;; Use buffer-list-update-hook to catch the rename
+(defun my/disable-evil-in-artery ()
+  "Switch to emacs state in artery buffers."
+  (when (and (eq major-mode 'eat-mode)
+             (boundp 'evil-mode) evil-mode
+             (string-match-p "artery" (buffer-name))
+             (not (eq evil-state 'emacs)))
+    (evil-emacs-state)))
+
+(add-hook 'buffer-list-update-hook #'my/disable-evil-in-artery)
+
+;; Also add to eat-mode-hook with a timer to catch post-rename
+(add-hook 'eat-mode-hook
+          (lambda ()
+            (run-with-timer 0.5 nil
+              (lambda ()
+                (when (and (buffer-live-p (current-buffer))
+                           (string-match-p "artery" (buffer-name)))
+                  (with-current-buffer (current-buffer)
+                    (when (and (boundp 'evil-mode) evil-mode)
+                      (evil-emacs-state))))))))
+
 ;; Eat tab integration (temporarily disabled for debugging)
 ;; (defun eat-tab-change (original-fun &rest args)
 ;;   (interactive)
@@ -399,7 +422,7 @@
   
   (let ((directory-path "~/aesthetic-computer")
         (emoji-for-command
-         '(("code" . "📂") ("status" . "📡") ("url" . "⚡") 
+         '(("artery" . "🩸") ("status" . "📡") ("url" . "⚡") 
            ("tunnel" . "🚇") ("agent" . "⚡") ("stripe-print" . "💳")
            ("stripe-ticket" . "🎫") ("chat-system" . "🤖") ("chat-sotce" . "🧠")
            ("chat-clock" . "⏰") ("site" . "🌐") ("session" . "📋")
@@ -416,13 +439,16 @@
             (kill-buffer buf)))
       (error nil))
 
-    ;; Initialize the first tab as "code" with ac-agent terminal
-    (tab-rename "code")
+    ;; Initialize the first tab as "artery" with artery CLI (dev mode with hot-reload)
+    (tab-rename "artery")
     (let ((default-directory directory-path))
-      (eat "fish -c 'ac-agent'")
+      (eat "fish -c 'ac-artery-dev'")
       (when (get-buffer "*eat*")
         (with-current-buffer "*eat*"
-          (rename-buffer "⚡-agent" t))))
+          (rename-buffer "🩸-artery" t)
+          ;; Disable evil mode for artery - use emacs state
+          (when (and (boundp 'evil-mode) evil-mode)
+            (evil-emacs-state)))))
 
     ;; Helper function to create split tabs safely
     (defun create-split-tab (tab-name commands)
@@ -494,7 +520,7 @@
 
     ;; Switch to the requested tab if it exists
     (condition-case nil
-        (if (member target-tab '("code" "status" "stripe" "chat" "web 1/2" "web 2/2" "tests"))
+        (if (member target-tab '("artery" "status" "stripe" "chat" "web 1/2" "web 2/2" "tests"))
             (tab-bar-switch-to-tab target-tab)
           (message "No such tab: %s" target-tab))
       (error nil))))

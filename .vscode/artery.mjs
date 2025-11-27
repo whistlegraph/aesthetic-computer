@@ -373,36 +373,45 @@ class Artery {
       }
     });
     
-    // Check panel state and click if needed
+    // Check panel state and toggle if needed using Enter key (which works!)
     ws.send(JSON.stringify({
       id: 1000,
       method: 'Runtime.evaluate',
       params: {
         expression: `
           (function() {
-            const selectors = [
-              '.pane-header[aria-label*="Aesthetic Computer"]',
-              '[aria-label*="Aesthetic Computer"]',
-              '[role="button"][aria-label*="Aesthetic"]'
-            ];
+            const header = document.querySelector('.pane-header[aria-label*="Aesthetic Computer"]');
+            if (!header) return { found: false };
             
-            for (const selector of selectors) {
-              const el = document.querySelector(selector);
-              if (el) {
-                const rect = el.getBoundingClientRect();
-                // Check if panel is expanded by looking at aria-expanded
-                const isExpanded = el.getAttribute('aria-expanded') === 'true';
-                return {
-                  found: true,
-                  isExpanded: isExpanded,
-                  selector: selector,
-                  x: Math.floor(rect.left + rect.width / 2),
-                  y: Math.floor(rect.top + rect.height / 2)
-                };
-              }
+            const isExpanded = header.getAttribute('aria-expanded') === 'true';
+            
+            if (!isExpanded) {
+              // Focus and press Enter to expand
+              header.focus();
+              const enterEvent = new KeyboardEvent('keydown', {
+                key: 'Enter',
+                code: 'Enter',
+                keyCode: 13,
+                which: 13,
+                bubbles: true,
+                cancelable: true
+              });
+              header.dispatchEvent(enterEvent);
+              
+              const keyupEvent = new KeyboardEvent('keyup', {
+                key: 'Enter',
+                code: 'Enter',
+                keyCode: 13,
+                which: 13,
+                bubbles: true,
+                cancelable: true
+              });
+              header.dispatchEvent(keyupEvent);
+              
+              return { found: true, toggled: true };
+            } else {
+              return { found: true, isExpanded: true };
             }
-            
-            return { found: false };
           })()
         `,
         returnByValue: true
@@ -412,40 +421,13 @@ class Artery {
     const response = await responsePromise;
     
     if (response.result && response.result.result && response.result.result.value && response.result.result.value.found) {
-      const { x, y, selector, isExpanded } = response.result.result.value;
+      const { isExpanded, toggled } = response.result.result.value;
       
-      if (isExpanded) {
+      if (toggled) {
+        await new Promise(resolve => setTimeout(resolve, 300)); // Wait for panel to open
+        brightLog('🩸 AC panel opened');
+      } else if (isExpanded) {
         darkLog(`🩸 Panel already open`);
-      } else {
-        darkLog(`🩸 Found panel at (${x}, ${y}), opening...`);
-        
-        // Click to open
-        ws.send(JSON.stringify({
-          id: 1001,
-          method: 'Input.dispatchMouseEvent',
-          params: {
-            type: 'mousePressed',
-            x, y,
-            button: 'left',
-            clickCount: 1
-          }
-        }));
-        
-        await new Promise(resolve => setTimeout(resolve, 50));
-        
-        ws.send(JSON.stringify({
-          id: 1002,
-          method: 'Input.dispatchMouseEvent',
-          params: {
-            type: 'mouseReleased',
-            x, y,
-            button: 'left',
-            clickCount: 1
-          }
-        }));
-        
-        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait for panel to open
-        brightLog('🩸 AC sidebar panel opened');
       }
     } else {
       darkLog('💔 Could not find Aesthetic Computer panel');
@@ -501,25 +483,36 @@ class Artery {
       }
     });
     
-    // Find panel and click if expanded
+    // Find panel and toggle if expanded using Enter key
     ws.send(JSON.stringify({
       id: 1000,
       method: 'Runtime.evaluate',
       params: {
         expression: `
           (function() {
-            const el = document.querySelector('.pane-header[aria-label*="Aesthetic Computer"]');
-            if (el) {
-              const isExpanded = el.getAttribute('aria-expanded') === 'true';
-              const rect = el.getBoundingClientRect();
-              return {
-                found: true,
-                isExpanded: isExpanded,
-                x: Math.floor(rect.left + rect.width / 2),
-                y: Math.floor(rect.top + rect.height / 2)
-              };
+            const header = document.querySelector('.pane-header[aria-label*="Aesthetic Computer"]');
+            if (!header) return { found: false };
+            
+            const isExpanded = header.getAttribute('aria-expanded') === 'true';
+            if (isExpanded) {
+              // Focus and press Enter to collapse
+              header.focus();
+              const enterEvent = new KeyboardEvent('keydown', {
+                key: 'Enter',
+                code: 'Enter',
+                keyCode: 13,
+                which: 13,
+                bubbles: true,
+                cancelable: true
+              });
+              header.dispatchEvent(enterEvent);
+              header.dispatchEvent(new KeyboardEvent('keyup', {
+                key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true
+              }));
+              return { found: true, closed: true };
+            } else {
+              return { found: true, alreadyClosed: true };
             }
-            return { found: false };
           })()
         `,
         returnByValue: true
@@ -529,27 +522,12 @@ class Artery {
     const response = await responsePromise;
     
     if (response.result?.result?.value?.found) {
-      const { x, y, isExpanded } = response.result.result.value;
+      const { closed, alreadyClosed } = response.result.result.value;
       
-      if (isExpanded) {
-        // Click to close
-        ws.send(JSON.stringify({
-          id: 1001,
-          method: 'Input.dispatchMouseEvent',
-          params: { type: 'mousePressed', x, y, button: 'left', clickCount: 1 }
-        }));
-        
-        await new Promise(resolve => setTimeout(resolve, 50));
-        
-        ws.send(JSON.stringify({
-          id: 1002,
-          method: 'Input.dispatchMouseEvent',
-          params: { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 }
-        }));
-        
-        await new Promise(resolve => setTimeout(resolve, 500));
+      if (closed) {
+        await new Promise(resolve => setTimeout(resolve, 300));
         brightLog('🩸 AC panel closed');
-      } else {
+      } else if (alreadyClosed) {
         darkLog('🩸 Panel already closed');
       }
     }
