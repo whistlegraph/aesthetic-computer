@@ -11,7 +11,7 @@ RUN set -eux; \
 
 ENV NODE_OPTIONS=--max_old_space_size=8192
 ENV DENO_DIR=/home/me/.cache/deno
-ENV NETLIFY_DENO_VERSION=1.45.0
+ENV NETLIFY_DENO_VERSION=2.4.5
 # Prevent paging for LLM/agentic use
 ENV PAGER=cat
 ENV GIT_PAGER=cat
@@ -218,7 +218,7 @@ RUN curl -fsSLO https://beta.quicklisp.org/quicklisp.lisp && \
 RUN curl https://ops.city/get.sh -sSfL | bash
 
 # --- Deno ---------------------------------------------------------------------
-RUN curl -fsSL https://deno.land/install.sh | DENO_INSTALL=/home/me/.deno sh -s v1.45.5 && \
+RUN curl -fsSL https://deno.land/install.sh | DENO_INSTALL=/home/me/.deno sh -s v2.4.5 && \
     /home/me/.deno/bin/deno --version && \
     /home/me/.deno/bin/deno cache https://v2-13-0--edge.netlify.com/bootstrap/index-combined.ts 2>/dev/null || true && \
     /home/me/.deno/bin/deno cache https://v2-13-0--edge.netlify.com/bootstrap/handler.ts 2>/dev/null || true && \
