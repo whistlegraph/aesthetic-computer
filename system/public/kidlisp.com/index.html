@@ -1431,6 +1431,9 @@
         -webkit-user-select: none;
         touch-action: none;
         transition: background-color 0.15s ease;
+        /* Stacked card effect - shadow on top edge */
+        box-shadow: 0 -3px 6px rgba(0, 0, 0, 0.15);
+        z-index: 1;
       }
       
       /* Editor header is just for collapse, not resize */
@@ -1439,6 +1442,15 @@
         position: relative;
         user-select: none;
         -webkit-user-select: none;
+        /* First card also gets shadow for consistency */
+        box-shadow: 0 -3px 6px rgba(0, 0, 0, 0.15);
+        z-index: 1;
+      }
+      
+      /* Stronger shadow in dark mode */
+      [data-theme="dark"] .docs-header,
+      [data-theme="dark"] .editor-header {
+        box-shadow: 0 -4px 8px rgba(0, 0, 0, 0.4);
       }
       
       /* Hover state for docs headers only */
@@ -1453,14 +1465,29 @@
       }
       
       /* Collapse/expand indicator - base styles */
+      /* Collapse/expand indicator - CSS equilateral triangles */
       .mobile-collapse-indicator {
         position: absolute;
         right: 12px;
         top: 50%;
         transform: translateY(-50%);
-        font-size: 12px;
-        opacity: 0.85;
+        width: 0;
+        height: 0;
         pointer-events: none;
+        /* Down-pointing triangle (expanded state) */
+        border-left: 5px solid transparent;
+        border-right: 5px solid transparent;
+        border-top: 8px solid currentColor;
+        opacity: 0.85;
+      }
+      
+      /* Right-pointing triangle (collapsed state) */
+      .panel-collapsed .mobile-collapse-indicator {
+        border-left: 8px solid currentColor;
+        border-right: none;
+        border-top: 5px solid transparent;
+        border-bottom: 5px solid transparent;
+        transform: translateY(-50%);
       }
       
       /* Per-panel arrow colors to match their themes */
@@ -1491,9 +1518,41 @@
         color: rgb(200, 190, 220); /* Lighter purple */
       }
       
-      /* No indicator rotation needed - we swap ▼/▶ in JS */
-      .panel-collapsed .mobile-collapse-indicator {
-        transform: translateY(-50%);
+      /* Backdrop that fills remaining space - shows when panels collapsed */
+      .mobile-checkerboard {
+        display: none;
+        flex: 1;
+        min-height: 40px;
+        background: rgba(100, 149, 237, 0.25); /* More visible blue */
+        border-top: 2px dashed rgba(100, 149, 237, 0.5);
+      }
+      
+      /* When ALL panels collapsed - distinct checkerboard pattern */
+      .mobile-checkerboard.all-collapsed {
+        background: repeating-linear-gradient(
+          45deg,
+          rgba(128, 128, 128, 0.1),
+          rgba(128, 128, 128, 0.1) 10px,
+          rgba(128, 128, 128, 0.2) 10px,
+          rgba(128, 128, 128, 0.2) 20px
+        );
+        border-top: 2px dashed rgba(128, 128, 128, 0.5);
+      }
+      
+      [data-theme="dark"] .mobile-checkerboard {
+        background: rgba(100, 149, 237, 0.15);
+        border-top: 2px dashed rgba(100, 149, 237, 0.3);
+      }
+      
+      [data-theme="dark"] .mobile-checkerboard.all-collapsed {
+        background: repeating-linear-gradient(
+          45deg,
+          rgba(200, 200, 200, 0.05),
+          rgba(200, 200, 200, 0.05) 10px,
+          rgba(200, 200, 200, 0.1) 10px,
+          rgba(200, 200, 200, 0.1) 20px
+        );
+        border-top: 2px dashed rgba(200, 200, 200, 0.3);
       }
       
       /* Hide Split.js gutters on mobile - we use headers instead */
@@ -1785,7 +1844,7 @@
             <span class="baby-colors" style="margin-top: 4px;"><span>K</span><span>i</span><span>d</span><span>L</span><span>i</span><span>s</span><span>p</span><span class="connectivity-dot disconnected">.</span><span class="com-part">com</span></span>
             <span style="font-size: 9px; opacity: 0.5; margin-top: -2px; margin-bottom: 8px; font-family: monospace;">friendly coding for everyone</span>
           </div>
-          <div class="tab language-tab" id="language-tab" style="border: none; height: 100%; padding: 0 6px; background: transparent; display: flex; align-items: center; margin-left: auto; margin-right: 8px;">
+          <div class="tab language-tab" id="language-tab" style="border: none; height: 100%; padding: 0 6px; background: transparent; display: flex; align-items: center; margin-left: 8px; margin-right: 8px;">
             <span class="lang-flag" id="lang-flag" style="font-size: 10px; margin-right: 4px;">🇺🇸</span>
             <span class="lang-text" style="font-size: 10px; opacity: 0.7;">English</span>
             <span class="lang-arrow" style="font-size: 8px; opacity: 0.5; margin-left: 3px;">▼</span>
@@ -1797,7 +1856,7 @@
             </div>
           </div>
           <button id="theme-toggle" title="Toggle light/dark mode">○</button>
-          <div id="local-indicator" style="display: none; padding: 4px 8px; background: transparent; font-size: 9px; color: #4caf50; opacity: 0.6; margin-left: auto;">LOCAL</div>
+          <span id="local-indicator" style="display: none; position: absolute; right: 40px; top: 50%; transform: translateY(-50%); font-size: 9px; color: #4caf50; opacity: 0.7; font-family: monospace; pointer-events: none;">LOCAL</span>
         </div>
         <div id="kidlisp-editor">
           <button id="send-button" aria-label="Play"></button>
@@ -1850,6 +1909,8 @@
         <div class="console-output" id="console-output"></div>
       </div>
     </div>
+    <!-- Checkerboard backdrop for when panels are collapsed on mobile -->
+    <div class="mobile-checkerboard" id="mobile-checkerboard"></div>
   </main>
   
   <!-- QR Code Modal -->
@@ -2039,6 +2100,15 @@
           mainSplit.appendChild(previewPanel);
           mainSplit.appendChild(consolePanel);
           mainSplit.appendChild(referencePanel);
+          
+          // Re-add the checkerboard backdrop at the end
+          let checkerboard = document.getElementById('mobile-checkerboard');
+          if (!checkerboard) {
+            checkerboard = document.createElement('div');
+            checkerboard.className = 'mobile-checkerboard';
+            checkerboard.id = 'mobile-checkerboard';
+          }
+          mainSplit.appendChild(checkerboard);
           
           // Set up flexbox layout instead of Split.js
           mainSplit.style.display = 'flex';
@@ -2249,6 +2319,7 @@
     function setupMobileHeaders() {
       const HEADER_HEIGHT = 40;
       const DRAG_THRESHOLD = 5;
+      const MIN_EXPANDED_HEIGHT = 80; // Minimum height when expanded (header + some content)
       
       // Panel order (top to bottom)
       const panelOrder = ['editor-panel', 'preview-panel', 'console-panel', 'reference-panel'];
@@ -2267,6 +2338,48 @@
       
       // Get iframe to disable during drag
       const previewIframe = document.getElementById('preview-iframe');
+      
+      // Get checkerboard element
+      const checkerboard = document.getElementById('mobile-checkerboard');
+      
+      // Update checkerboard visibility based on collapsed state
+      // Make globally accessible for tab click handlers
+      window.updateCheckerboard = function() {
+        if (!checkerboard) {
+          console.log('🔲 No checkerboard element found');
+          return;
+        }
+        const isMobile = window.innerWidth <= 768;
+        console.log('🔲 updateCheckerboard called, isMobile:', isMobile, 'width:', window.innerWidth);
+        
+        if (!isMobile) {
+          checkerboard.style.display = 'none';
+          return;
+        }
+        
+        // Check collapsed state of all panels
+        const panelStates = panels.map(p => ({ id: p?.id, collapsed: p?.dataset.collapsed }));
+        console.log('🔲 Panel states:', panelStates);
+        
+        const allCollapsed = panels.every(p => p && p.dataset.collapsed === 'true');
+        const anyCollapsed = panels.some(p => p && p.dataset.collapsed === 'true');
+        
+        console.log('🔲 allCollapsed:', allCollapsed, 'anyCollapsed:', anyCollapsed);
+        
+        if (anyCollapsed) {
+          checkerboard.style.display = 'block';
+          // Use different style when ALL panels collapsed vs just some
+          if (allCollapsed) {
+            checkerboard.classList.add('all-collapsed');
+          } else {
+            checkerboard.classList.remove('all-collapsed');
+          }
+          console.log('🔲 Checkerboard shown, all-collapsed:', allCollapsed);
+        } else {
+          checkerboard.style.display = 'none';
+          console.log('🔲 Checkerboard hidden');
+        }
+      }
       
       // Disable transitions and iframe pointer events during drag
       function setDragMode(dragging) {
@@ -2300,6 +2413,9 @@
         }
       });
       
+      // Initial checkerboard state
+      window.updateCheckerboard();
+      
       // Now set up header interactions
       panelConfigs.forEach((config, index) => {
         const panel = document.getElementById(config.id);
@@ -2321,24 +2437,9 @@
         if (config.showIndicator && !header.querySelector('.mobile-collapse-indicator')) {
           const indicator = document.createElement('span');
           indicator.className = 'mobile-collapse-indicator';
-          indicator.textContent = panel.dataset.collapsed === 'true' ? '▶' : '▼';
-          
-          if (config.indicatorPosition === 'after-tagline') {
-            // For editor: insert after the tagline div
-            const taglineContainer = header.querySelector('div');
-            if (taglineContainer) {
-              indicator.style.position = 'relative';
-              indicator.style.right = 'auto';
-              indicator.style.top = 'auto';
-              indicator.style.transform = 'none';
-              indicator.style.marginLeft = '8px';
-              indicator.style.alignSelf = 'center';
-              taglineContainer.parentNode.insertBefore(indicator, taglineContainer.nextSibling);
-            }
-          } else {
-            // Default: absolute position on right
-            header.appendChild(indicator);
-          }
+          // CSS handles triangle shape via .panel-collapsed class
+          // Always use absolute positioning on right side for consistency
+          header.appendChild(indicator);
         }
         
         // Drag state
@@ -2383,36 +2484,185 @@
           
           if (!dragState.dragging) return false;
           
-          // Cascade resize: this panel and all panels above get adjusted
-          // Dragging down = this panel moves down, panel above grows
-          // All panels below this one stay same size but shift position (automatic via flow)
+          // Stacked card resize logic:
+          // - Dragging DOWN: panel above grows, panels below get pushed/compressed
+          // - Dragging UP: panels above get compressed (from bottom to top), current panel can grow
+          // - Collapsed panels move together as a stack
+          
+          const container = panels[0].parentElement;
+          const totalHeight = container.offsetHeight;
           
           if (index > 0) {
-            // Resize the panel directly above
-            const abovePanel = panels[index - 1];
-            if (abovePanel) {
-              const newAboveHeight = Math.max(HEADER_HEIGHT, dragState.startHeights[abovePanel.id] + deltaY);
-              abovePanel.style.height = `${newAboveHeight}px`;
+            // We're dragging a header that's not the top panel
+            // This header is the TOP EDGE of panel[index]
+            // Dragging it moves the boundary between panel[index-1] and panel[index]
+            
+            if (deltaY < 0) {
+              // DRAGGING UP - compress panels above, give space to this panel and below
+              // Calculate how much we want to take from above
+              const takeFromAbove = -deltaY;
               
-              // Update collapsed state if expanded by drag
-              if (newAboveHeight > HEADER_HEIGHT && abovePanel.dataset.collapsed === 'true') {
+              // Compress panels above from bottom to top (closest first)
+              let totalTaken = 0;
+              for (let i = index - 1; i >= 0; i--) {
+                const p = panels[i];
+                if (!p) continue;
+                
+                const currentH = dragState.startHeights[p.id];
+                const minH = HEADER_HEIGHT;
+                const canTake = currentH - minH;
+                const needToTake = takeFromAbove - totalTaken;
+                const actualTake = Math.min(canTake, needToTake);
+                
+                const newHeight = currentH - actualTake;
+                p.style.height = `${newHeight}px`;
+                
+                // Update collapsed state
+                if (newHeight <= HEADER_HEIGHT) {
+                  if (p.dataset.collapsed !== 'true') {
+                    p.dataset.collapsed = 'true';
+                    p.classList.add('panel-collapsed');
+                  }
+                } else {
+                  if (p.dataset.collapsed === 'true') {
+                    p.dataset.collapsed = 'false';
+                    p.classList.remove('panel-collapsed');
+                  }
+                  p.dataset.savedHeight = newHeight;
+                }
+                
+                totalTaken += actualTake;
+                if (totalTaken >= takeFromAbove) break;
+              }
+              
+              // Give the taken space to the current panel (the one whose header we're dragging)
+              const currentPanelNewHeight = dragState.startHeights[panel.id] + totalTaken;
+              panel.style.height = `${currentPanelNewHeight}px`;
+              if (currentPanelNewHeight > HEADER_HEIGHT) {
+                panel.dataset.collapsed = 'false';
+                panel.classList.remove('panel-collapsed');
+                panel.dataset.savedHeight = currentPanelNewHeight;
+              }
+              
+            } else {
+              // DRAGGING DOWN - panel above grows, compress panels at and below current
+              const giveToAbove = deltaY;
+              
+              // Calculate how much space we can take from current panel and below
+              let availableBelow = 0;
+              for (let i = index; i < panels.length; i++) {
+                const p = panels[i];
+                if (!p) continue;
+                availableBelow += dragState.startHeights[p.id] - HEADER_HEIGHT;
+              }
+              
+              const actualGive = Math.min(giveToAbove, availableBelow);
+              
+              // Give space to the panel above
+              const abovePanel = panels[index - 1];
+              const newAboveHeight = dragState.startHeights[abovePanel.id] + actualGive;
+              abovePanel.style.height = `${newAboveHeight}px`;
+              if (newAboveHeight > HEADER_HEIGHT) {
                 abovePanel.dataset.collapsed = 'false';
                 abovePanel.classList.remove('panel-collapsed');
-                const ind = abovePanel.querySelector('.mobile-collapse-indicator');
-                if (ind) ind.textContent = '▼';
-              }
-              
-              if (newAboveHeight > HEADER_HEIGHT) {
                 abovePanel.dataset.savedHeight = newAboveHeight;
               }
+              
+              // Take space from current panel and below (from top to bottom)
+              let totalToTake = actualGive;
+              for (let i = index; i < panels.length && totalToTake > 0; i++) {
+                const p = panels[i];
+                if (!p) continue;
+                
+                const currentH = dragState.startHeights[p.id];
+                const minH = HEADER_HEIGHT;
+                const canTake = currentH - minH;
+                const actualTake = Math.min(canTake, totalToTake);
+                
+                const newHeight = currentH - actualTake;
+                p.style.height = `${newHeight}px`;
+                
+                if (newHeight <= HEADER_HEIGHT) {
+                  if (p.dataset.collapsed !== 'true') {
+                    p.dataset.collapsed = 'true';
+                    p.classList.add('panel-collapsed');
+                  }
+                } else {
+                  if (p.dataset.collapsed === 'true') {
+                    p.dataset.collapsed = 'false';
+                    p.classList.remove('panel-collapsed');
+                  }
+                  p.dataset.savedHeight = newHeight;
+                }
+                
+                totalToTake -= actualTake;
+              }
             }
+            
+            window.updateCheckerboard();
+            
           } else {
-            // This is the top panel (editor) - resize itself
-            const newHeight = Math.max(HEADER_HEIGHT, dragState.startHeights[panel.id] + deltaY);
-            panel.style.height = `${newHeight}px`;
-            if (newHeight > HEADER_HEIGHT) {
-              panel.dataset.savedHeight = newHeight;
+            // This is the top panel (editor) - can only resize itself
+            // Dragging down grows editor, compresses below
+            // Dragging up shrinks editor, gives space below
+            
+            if (deltaY > 0) {
+              // Grow editor, compress below
+              let availableBelow = 0;
+              for (let i = 1; i < panels.length; i++) {
+                availableBelow += dragState.startHeights[panels[i].id] - HEADER_HEIGHT;
+              }
+              const actualGrow = Math.min(deltaY, availableBelow);
+              
+              panel.style.height = `${dragState.startHeights[panel.id] + actualGrow}px`;
+              if (panel.offsetHeight > HEADER_HEIGHT) {
+                panel.dataset.savedHeight = panel.offsetHeight;
+              }
+              
+              // Take from panels below
+              let toTake = actualGrow;
+              for (let i = 1; i < panels.length && toTake > 0; i++) {
+                const p = panels[i];
+                const currentH = dragState.startHeights[p.id];
+                const canTake = currentH - HEADER_HEIGHT;
+                const take = Math.min(canTake, toTake);
+                const newH = currentH - take;
+                p.style.height = `${newH}px`;
+                
+                if (newH <= HEADER_HEIGHT) {
+                  p.dataset.collapsed = 'true';
+                  p.classList.add('panel-collapsed');
+                } else {
+                  p.dataset.savedHeight = newH;
+                }
+                toTake -= take;
+              }
+            } else {
+              // Shrink editor, give space to first non-collapsed panel below
+              const shrinkBy = Math.min(-deltaY, dragState.startHeights[panel.id] - HEADER_HEIGHT);
+              const newHeight = dragState.startHeights[panel.id] - shrinkBy;
+              panel.style.height = `${newHeight}px`;
+              
+              if (newHeight <= HEADER_HEIGHT) {
+                panel.dataset.collapsed = 'true';
+                panel.classList.add('panel-collapsed');
+              } else {
+                panel.dataset.savedHeight = newHeight;
+              }
+              
+              // Give space to panel directly below
+              if (panels[1]) {
+                const belowH = dragState.startHeights[panels[1].id] + shrinkBy;
+                panels[1].style.height = `${belowH}px`;
+                if (belowH > HEADER_HEIGHT) {
+                  panels[1].dataset.collapsed = 'false';
+                  panels[1].classList.remove('panel-collapsed');
+                  panels[1].dataset.savedHeight = belowH;
+                }
+              }
             }
+            
+            window.updateCheckerboard();
           }
           
           return true;
@@ -2427,6 +2677,26 @@
           setDragMode(false);
           header.classList.remove('dragging');
           
+          // After dragging, snap panels in the dead zone to collapsed
+          if (wasDragging) {
+            panels.forEach(p => {
+              if (!p) return;
+              const height = p.offsetHeight;
+              // If in dead zone (between header and minimum expanded), snap to collapsed
+              if (height > HEADER_HEIGHT && height < MIN_EXPANDED_HEIGHT) {
+                p.dataset.collapsed = 'true';
+                p.classList.add('panel-collapsed');
+                p.style.height = `${HEADER_HEIGHT}px`;
+              } else if (height >= MIN_EXPANDED_HEIGHT && p.dataset.collapsed === 'true') {
+                // If above minimum and marked collapsed, mark as expanded
+                p.dataset.collapsed = 'false';
+                p.classList.remove('panel-collapsed');
+                p.dataset.savedHeight = height;
+              }
+            });
+            window.updateCheckerboard();
+          }
+          
           // Only toggle if it was a clean tap (pending but never started dragging)
           if (wasPending && !wasDragging) {
             toggleCollapse();
@@ -2434,14 +2704,13 @@
         }
         
         function toggleCollapse() {
-          const indicator = header.querySelector('.mobile-collapse-indicator');
-          
           if (panel.dataset.collapsed === 'true') {
-            // Expand
+            // Expand - use saved height but ensure at least minimum
             panel.dataset.collapsed = 'false';
             panel.classList.remove('panel-collapsed');
-            panel.style.height = `${panel.dataset.savedHeight}px`;
-            if (indicator) indicator.textContent = '▼';
+            const savedHeight = parseInt(panel.dataset.savedHeight) || 200;
+            panel.style.height = `${Math.max(savedHeight, MIN_EXPANDED_HEIGHT)}px`;
+            // CSS handles triangle via .panel-collapsed class
           } else {
             // Collapse - save current height first
             const currentHeight = panel.offsetHeight;
@@ -2451,18 +2720,18 @@
             panel.dataset.collapsed = 'true';
             panel.classList.add('panel-collapsed');
             panel.style.height = `${HEADER_HEIGHT}px`;
-            if (indicator) indicator.textContent = '▶';
+            // CSS handles triangle via .panel-collapsed class
           }
+          window.updateCheckerboard();
         }
         
-        // Touch events - track on document for touchmove/end
+        // Touch events - single touchstart that handles both pending state and document listeners
         header.addEventListener('touchstart', (e) => {
-          if (e.target.closest('button, select, input')) return;
+          // Skip interactive elements including tabs
+          if (e.target.closest('button, select, input, .language-tab, #theme-toggle, .tab')) return;
+          
           startPending(e.touches[0].clientY);
-        }, { passive: true });
-        
-        // Use document-level listeners for touch to continue tracking outside header
-        header.addEventListener('touchstart', () => {
+          
           const onTouchMove = (e) => {
             if (moveDrag(e.touches[0].clientY)) {
               e.preventDefault();
@@ -2483,7 +2752,8 @@
         
         // Mouse events - track on document for move/up
         header.addEventListener('mousedown', (e) => {
-          if (e.target.closest('button, select, input')) return;
+          // Skip interactive elements including tabs
+          if (e.target.closest('button, select, input, .language-tab, #theme-toggle, .tab')) return;
           e.preventDefault();
           startPending(e.clientY);
           
@@ -2516,6 +2786,7 @@
       resizeTimeout = setTimeout(() => {
         initSplits();
         updateCenterSquarePosition();
+        if (window.updateCheckerboard) window.updateCheckerboard();
       }, 200);
     });
 
@@ -2758,9 +3029,11 @@
     // Create KidLisp instance for syntax highlighting
     const kidlisp = new KidLisp();
     let editor;
+    let currentQRCode = null; // Track current code for QR regeneration on theme change
 
     // Function to generate and display QR code
     function generateAndDisplayQR(code) {
+      currentQRCode = code; // Store for regeneration
       // Wait for QR library to be loaded
       if (!window.qr || !window.ErrorCorrectLevel) {
         console.warn('⚠️ QR library not loaded yet');
@@ -3773,6 +4046,11 @@
         if (editor) {
           applyColorNameDecorations();
         }
+        
+        // Regenerate QR code with new theme colors
+        if (currentQRCode) {
+          generateAndDisplayQR(currentQRCode);
+        }
       }
       
       // Load saved theme preference or default to system
@@ -4481,6 +4759,25 @@
     });
     
     if (codeTab && examplesTab && referenceContent && examplesContent) {
+      // Helper to expand reference panel on mobile if collapsed (never collapse from tab tap)
+      function expandReferencePanelOnMobile() {
+        if (window.innerWidth <= 768) {
+          const refPanel = document.getElementById('reference-panel');
+          if (!refPanel) return;
+          
+          // Only expand if collapsed - tapping tabs should never collapse
+          if (refPanel.dataset.collapsed === 'true') {
+            refPanel.dataset.collapsed = 'false';
+            refPanel.classList.remove('panel-collapsed');
+            // Ensure at least minimum expanded height (80px)
+            const savedHeight = parseInt(refPanel.dataset.savedHeight) || 200;
+            const MIN_EXPANDED_HEIGHT = 80; // Match the constant in setupMobileHeaders
+            refPanel.style.height = `${Math.max(savedHeight, MIN_EXPANDED_HEIGHT)}px`;
+            if (window.updateCheckerboard) window.updateCheckerboard();
+          }
+        }
+      }
+      
       codeTab.addEventListener('click', function(e) {
         console.log('🎯 Code tab clicked!');
         e.stopPropagation();
@@ -4488,6 +4785,7 @@
         examplesTab.classList.remove('active');
         referenceContent.classList.remove('hidden');
         examplesContent.classList.add('hidden');
+        expandReferencePanelOnMobile();
         console.log('🎯 After Code tab click:', {
           codeTabActive: codeTab.classList.contains('active'),
           examplesTabActive: examplesTab.classList.contains('active'),
@@ -4508,6 +4806,7 @@
         codeTab.classList.remove('active');
         examplesContent.classList.remove('hidden');
         referenceContent.classList.add('hidden');
+        expandReferencePanelOnMobile();
         
         console.log('🎯 After Examples tab click:', {
           codeTabActive: codeTab.classList.contains('active'),
