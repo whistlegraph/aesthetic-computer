@@ -6,7 +6,7 @@
     PowerShell wrapper for artery.mjs - control Aesthetic Computer via Chrome DevTools Protocol
 
 .PARAMETER Command
-    Command to run: repl, panel, toggle-local, jump, type, eval
+    Command to run: repl, panel, toggle-local, jump, type, eval, perf
 
 .PARAMETER Args
     Additional arguments for the command
@@ -16,6 +16,7 @@
     .\artery.ps1 toggle-local
     .\artery.ps1 jump notepat
     .\artery.ps1 repl
+    .\artery.ps1 perf 10        # Monitor WebGPU performance for 10 seconds
 
 .NOTES
     Requires Node.js and VS Code with --remote-debugging-port=9222

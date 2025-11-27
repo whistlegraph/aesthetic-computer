@@ -2970,6 +2970,13 @@ const $commonApi = {
         content: { type: "render" } 
       });
     },
+    // 📊 Toggle performance overlay
+    perf: (enabled) => {
+      send({
+        type: "webgpu-command",
+        content: { type: "perf-overlay", enabled }
+      });
+    },
   },
   // Deprecated in favor of `bios` -> `hitboxes`. (To support iOS)
   // clipboard: {
@@ -12713,7 +12720,11 @@ async function makeFrame({ data: { type, content } }) {
       if (loading === true) sendData.loading = true;
       
       // WebGPU state (tell main thread whether to skip CPU rendering)
-      if ($commonApi.webgpu.enabled) sendData.webgpuEnabled = true;
+      if ($commonApi.webgpu.enabled) {
+        sendData.webgpuEnabled = true;
+        // Signal end of frame to flush WebGPU command queue
+        send({ type: "webgpu-command", content: { type: "frame-end" } });
+      }
 
       // These fields are one time `signals`.
       if (reframe || glazeAfterReframe) {
