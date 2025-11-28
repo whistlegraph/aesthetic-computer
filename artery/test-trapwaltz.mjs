@@ -4,6 +4,7 @@
  * 
  * Combines classical waltz elegance (3/4 time) with trap production
  * Rolling hats, syncopated kicks, but in waltz time signature
+ * Uses actual trap drum sounds from notepat
  */
 
 import Artery from './artery.mjs';
@@ -22,6 +23,14 @@ const DIM = '\x1b[2m';
 const testLog = (msg) => console.log(`${PURPLE_BG}${WHITE}🧪${RESET} ${msg}`);
 const successLog = (msg) => console.log(`${GREEN}✅ ${msg}${RESET}`);
 const playingLog = (msg) => console.log(`${YELLOW}🎵 ${msg}${RESET}`);
+
+// Drum key mappings (matching notepat.mjs)
+const DRUM_KEYS = {
+  'kick': { key: 'ArrowDown', code: 'ArrowDown', keyCode: 40 },
+  'snare': { key: ' ', code: 'Space', keyCode: 32 },
+  'hat': { key: 'ArrowUp', code: 'ArrowUp', keyCode: 38 },
+  'hatOpen': { key: 'Alt', code: 'AltRight', keyCode: 18 },
+};
 
 // Trap Waltz patterns (12 steps = one bar of 3/4 in 16th note grid)
 // Each beat gets 4 16th notes, 3 beats per bar
@@ -100,116 +109,120 @@ const SCALES = {
   'major': [0, 2, 4, 5, 7, 9, 11],
 };
 
-// Chord progressions in waltz style (8 bars)
+// Chord progressions in waltz style
 const PROGRESSIONS = {
-  'classical': [
-    [0, 3, 4, 4], // i - iv - V - V
-    [0, 5, 3, 4], // i - vi - iv - V
-  ],
-  'dark': [
-    [0, 5, 6, 4], // i - VI - VII - V (borrowed chords)
-    [0, 3, 6, 4], // i - iv - VII - V
-  ],
-  'romantic': [
-    [0, 3, 4, 0], // i - iv - V - i
-    [0, 2, 4, 0], // i - iii - V - i
-  ],
-  'trap': [
-    [0, 6, 3, 4], // i - VII - iv - V
-    [0, 0, 3, 4], // i - i - iv - V (emphasis on tonic)
-  ],
+  'classical': [0, 3, 4, 4], // i - iv - V - V
+  'dark': [0, 5, 6, 4], // i - VI - VII - V
+  'romantic': [0, 3, 4, 0], // i - iv - V - i
+  'trap': [0, 6, 3, 4], // i - VII - iv - V
 };
 
-// Note names for display
-const NOTE_NAMES = ['c', 'c#', 'd', 'd#', 'e', 'f', 'f#', 'g', 'g#', 'a', 'a#', 'b'];
+// Note names
+const NOTE_NAMES = ['c', 'd', 'e', 'f', 'g', 'a', 'b'];
 
-// Get note from scale degree
-function getScaleNote(degree, scale = 'minor', rootNote = 'a', octave = 4) {
+// Get note from scale degree (returns note for octave 4 or 5)
+function getScaleNote(degree, scale = 'minor', octave = 4) {
   const scaleIntervals = SCALES[scale];
-  const noteIndex = ((degree % 7) + 7) % 7; // Handle negative
-  const octaveShift = Math.floor(degree / 7);
+  const noteIndex = ((degree % 7) + 7) % 7;
   const semitones = scaleIntervals[noteIndex];
   
-  // Get root note index
-  const rootIndex = NOTE_NAMES.indexOf(rootNote.toLowerCase());
-  const chromaticIndex = (rootIndex + semitones) % 12;
-  
-  const note = NOTE_NAMES[chromaticIndex].replace('#', 's'); // ac uses 'cs' not 'c#'
-  return { note, octave: octave + octaveShift };
-}
-
-// Generate waltz bass pattern (oom-pah-pah style but with trap character)
-function generateWaltzBass(chordDegree, scale, rootNote, seededRandom, style = 'classic') {
-  const bass = [];
-  const octave = 2;
-  
-  if (style === 'classic' || style === 'baroque') {
-    // Traditional oom-pah-pah
-    bass.push({ beat: 1, note: getScaleNote(chordDegree, scale, rootNote, octave), duration: 'quarter' });
-    bass.push({ beat: 2, note: getScaleNote(chordDegree + 2, scale, rootNote, octave + 1), duration: 'quarter' });
-    bass.push({ beat: 3, note: getScaleNote(chordDegree + 4, scale, rootNote, octave + 1), duration: 'quarter' });
-  } else if (style === 'dark' || style === 'drill') {
-    // Just root, let it ring
-    bass.push({ beat: 1, note: getScaleNote(chordDegree, scale, rootNote, octave), duration: 'half' });
-  } else if (style === 'phonk') {
-    // Bouncy bass
-    bass.push({ beat: 1, note: getScaleNote(chordDegree, scale, rootNote, octave), duration: 'eighth' });
-    bass.push({ beat: 1.5, note: getScaleNote(chordDegree, scale, rootNote, octave), duration: 'eighth' });
-    bass.push({ beat: 3, note: getScaleNote(chordDegree - 2, scale, rootNote, octave), duration: 'quarter' });
-  } else {
-    // Minimal
-    bass.push({ beat: 1, note: getScaleNote(chordDegree, scale, rootNote, octave), duration: 'dotted-half' });
-  }
-  
-  return bass;
-}
-
-// Generate melodic content - elegant but with trap flair
-function generateMelody(chordDegree, scale, rootNote, seededRandom, style, bar) {
-  const melody = [];
-  const octave = 5;
-  
-  // Probability of playing based on style
-  const densityMap = {
-    'classic': 0.7,
-    'dark': 0.5,
-    'dreamy': 0.3,
-    'baroque': 0.9,
-    'minimal': 0.2,
-    'phonk': 0.6,
-    'viennese': 0.8,
-    'drill': 0.4,
+  // Map semitones to diatonic notes
+  const semitoneToNote = {
+    0: 'c', 2: 'd', 3: 'e', 4: 'e', 5: 'f', 7: 'g', 8: 'a', 9: 'a', 10: 'b', 11: 'b'
   };
   
-  const density = densityMap[style] || 0.5;
+  const note = semitoneToNote[semitones] || 'c';
+  return { note, octave };
+}
+
+// Press drum key
+async function pressDrumKey(client, drumType, velocity = 100) {
+  const drum = DRUM_KEYS[drumType];
+  if (!drum) return;
   
-  // Beat 1 - often play chord tone
-  if (seededRandom() < density) {
-    const degrees = [chordDegree + 4, chordDegree + 2, chordDegree]; // 5th, 3rd, root
-    const degree = degrees[Math.floor(seededRandom() * degrees.length)];
-    melody.push({ beat: 1, note: getScaleNote(degree, scale, rootNote, octave), duration: 'quarter' });
-  }
+  await client.send('Runtime.evaluate', {
+    expression: `
+      (function() {
+        const event = new KeyboardEvent('keydown', {
+          key: '${drum.key}',
+          code: '${drum.code}',
+          keyCode: ${drum.keyCode},
+          which: ${drum.keyCode},
+          bubbles: true,
+          cancelable: true
+        });
+        event.velocity = ${velocity};
+        window.dispatchEvent(event);
+      })()
+    `
+  });
+}
+
+// Release drum key
+async function releaseDrumKey(client, drumType) {
+  const drum = DRUM_KEYS[drumType];
+  if (!drum) return;
   
-  // Beat 2 - passing tones or rest
-  if (seededRandom() < density * 0.7) {
-    const degree = chordDegree + 1 + Math.floor(seededRandom() * 4);
-    melody.push({ beat: 2, note: getScaleNote(degree, scale, rootNote, octave), duration: 'eighth' });
-  }
+  await client.send('Runtime.evaluate', {
+    expression: `
+      (function() {
+        const event = new KeyboardEvent('keyup', {
+          key: '${drum.key}',
+          code: '${drum.code}',
+          keyCode: ${drum.keyCode},
+          which: ${drum.keyCode},
+          bubbles: true,
+          cancelable: true
+        });
+        window.dispatchEvent(event);
+      })()
+    `
+  });
+}
+
+// Press note key
+async function pressNoteKey(client, key, velocity = 100) {
+  const code = `Key${key.toUpperCase()}`;
+  const keyCode = key.toUpperCase().charCodeAt(0);
   
-  // Beat 3 - anticipation or resolution
-  if (seededRandom() < density * 0.8) {
-    const degree = chordDegree + 2 + Math.floor(seededRandom() * 3);
-    const duration = seededRandom() < 0.5 ? 'quarter' : 'eighth';
-    melody.push({ beat: 3, note: getScaleNote(degree, scale, rootNote, octave), duration });
-  }
+  await client.send('Runtime.evaluate', {
+    expression: `
+      (function() {
+        const event = new KeyboardEvent('keydown', {
+          key: '${key}',
+          code: '${code}',
+          keyCode: ${keyCode},
+          which: ${keyCode},
+          bubbles: true,
+          cancelable: true
+        });
+        event.velocity = ${velocity};
+        window.dispatchEvent(event);
+      })()
+    `
+  });
+}
+
+// Release note key
+async function releaseNoteKey(client, key) {
+  const code = `Key${key.toUpperCase()}`;
+  const keyCode = key.toUpperCase().charCodeAt(0);
   
-  // Baroque style gets extra ornaments
-  if (style === 'baroque' && seededRandom() < 0.5) {
-    const degree = chordDegree + 3 + Math.floor(seededRandom() * 4);
-    melody.push({ beat: 2.5, note: getScaleNote(degree, scale, rootNote, octave + 1), duration: 'sixteenth' });
-  }
-  
-  return melody;
+  await client.send('Runtime.evaluate', {
+    expression: `
+      (function() {
+        const event = new KeyboardEvent('keyup', {
+          key: '${key}',
+          code: '${code}',
+          keyCode: ${keyCode},
+          which: ${keyCode},
+          bubbles: true,
+          cancelable: true
+        });
+        window.dispatchEvent(event);
+      })()
+    `
+  });
 }
 
 // Generate a complete trap waltz
@@ -219,7 +232,6 @@ function generateTrapWaltz(opts = {}) {
     bpm = 140,
     style = 'classic',
     scale = 'minor',
-    rootNote = 'a',
     seed = Date.now(),
     progression = 'classical',
   } = opts;
@@ -231,7 +243,7 @@ function generateTrapWaltz(opts = {}) {
   };
   
   const drumPattern = TRAPWALTZ_PATTERNS[style] || TRAPWALTZ_PATTERNS['classic'];
-  const chordProg = PROGRESSIONS[progression]?.[Math.floor(seededRandom() * 2)] || [0, 3, 4, 0];
+  const chordProg = PROGRESSIONS[progression] || [0, 3, 4, 0];
   
   const events = [];
   const msPerBeat = 60000 / bpm;
@@ -247,87 +259,104 @@ function generateTrapWaltz(opts = {}) {
     for (let step = 0; step < 12; step++) {
       const stepTime = barStart + (step * msPerStep);
       
-      // Kick
+      // Kick - uses 'kick' drum type
       if (drumPattern.kick[step]) {
         events.push({
           time: stepTime,
-          type: 'drum',
-          note: 'c2',
-          velocity: step === 0 ? 1.0 : 0.85,
+          type: 'kick',
+          velocity: step === 0 ? 127 : 100,
           duration: msPerStep * 2,
         });
       }
       
-      // Snare
+      // Snare - uses 'snare' drum type
       if (drumPattern.snare[step]) {
-        const velocity = step === 4 ? 1.0 : 0.75; // Beat 2 is strongest
+        const velocity = step === 4 ? 127 : 90; // Beat 2 is strongest
         events.push({
           time: stepTime,
-          type: 'drum',
-          note: 'd2',
+          type: 'snare',
           velocity,
           duration: msPerStep,
         });
       }
       
-      // Hi-hat
+      // Hi-hat - uses 'hat' drum type
       if (drumPattern.hat[step]) {
         // Trap-style velocity variation
-        const accent = (step % 4 === 0) ? 0.9 : 0.5 + seededRandom() * 0.3;
+        const accent = (step % 4 === 0) ? 100 : Math.floor(50 + seededRandom() * 40);
         events.push({
           time: stepTime,
-          type: 'drum',
-          note: 'fs2', // f#2 for closed hat
+          type: 'hat',
           velocity: accent,
-          duration: msPerStep * 0.5,
+          duration: msPerStep * 0.3,
         });
       }
       
-      // Open hat
+      // Open hat - uses 'hatOpen' drum type
       if (drumPattern.hatOpen?.[step]) {
         events.push({
           time: stepTime,
-          type: 'drum',
-          note: 'gs2', // g#2 for open hat
-          velocity: 0.7,
+          type: 'hatOpen',
+          velocity: 90,
           duration: msPerStep * 1.5,
         });
       }
     }
     
-    // === BASS (waltz pattern) ===
-    const bassNotes = generateWaltzBass(chordDegree, scale, rootNote, seededRandom, style);
-    for (const bass of bassNotes) {
-      const beatTime = barStart + ((bass.beat - 1) * msPerBeat);
-      const duration = bass.duration === 'half' ? msPerBeat * 2 :
-                       bass.duration === 'dotted-half' ? msPerBeat * 3 :
-                       bass.duration === 'eighth' ? msPerBeat * 0.5 :
-                       msPerBeat;
+    // === MELODY (waltz-style on beats 1, 2, 3) ===
+    // Beat 1 - chord tone
+    if (seededRandom() < 0.8) {
+      const degrees = [chordDegree + 4, chordDegree + 2, chordDegree];
+      const degree = degrees[Math.floor(seededRandom() * degrees.length)];
+      const note = getScaleNote(degree, scale, 5); // Octave 5
       events.push({
-        time: beatTime,
-        type: 'bass',
-        note: `${bass.note.note}${bass.note.octave}`,
-        velocity: 0.8,
-        duration,
+        time: barStart,
+        type: 'melody',
+        note: note.note,
+        octave: note.octave,
+        velocity: 90,
+        duration: msPerBeat * 0.8,
       });
     }
     
-    // === MELODY ===
-    const melodyNotes = generateMelody(chordDegree, scale, rootNote, seededRandom, style, bar);
-    for (const mel of melodyNotes) {
-      const beatTime = barStart + ((mel.beat - 1) * msPerBeat);
-      const duration = mel.duration === 'half' ? msPerBeat * 2 :
-                       mel.duration === 'quarter' ? msPerBeat :
-                       mel.duration === 'eighth' ? msPerBeat * 0.5 :
-                       msPerBeat * 0.25;
+    // Beat 2 - passing tone
+    if (seededRandom() < 0.6) {
+      const degree = chordDegree + 1 + Math.floor(seededRandom() * 4);
+      const note = getScaleNote(degree, scale, 5);
       events.push({
-        time: beatTime,
+        time: barStart + msPerBeat,
         type: 'melody',
-        note: `${mel.note.note}${mel.note.octave}`,
-        velocity: 0.6 + seededRandom() * 0.2,
-        duration,
+        note: note.note,
+        octave: note.octave,
+        velocity: 70,
+        duration: msPerBeat * 0.5,
       });
     }
+    
+    // Beat 3 - resolution
+    if (seededRandom() < 0.7) {
+      const degree = chordDegree + 2 + Math.floor(seededRandom() * 3);
+      const note = getScaleNote(degree, scale, 5);
+      events.push({
+        time: barStart + msPerBeat * 2,
+        type: 'melody',
+        note: note.note,
+        octave: note.octave,
+        velocity: 80,
+        duration: msPerBeat * 0.7,
+      });
+    }
+    
+    // Bass on beat 1
+    const bassNote = getScaleNote(chordDegree, scale, 4);
+    events.push({
+      time: barStart,
+      type: 'melody',
+      note: bassNote.note,
+      octave: bassNote.octave,
+      velocity: 100,
+      duration: msPerBeat * 2,
+    });
   }
   
   // Sort by time
@@ -372,6 +401,9 @@ async function playTrapWaltz(client, waltz) {
   // Visual symbols
   const symbols = ['🎭', '💃', '🕺', '🌙', '✨', '🎪', '🦇', '🌹'];
   
+  // Track active notes for release
+  const activeNotes = new Map();
+  
   return new Promise((resolve) => {
     const interval = setInterval(async () => {
       const elapsed = Date.now() - startTime;
@@ -387,25 +419,22 @@ async function playTrapWaltz(client, waltz) {
       // Play events
       while (eventIndex < events.length && events[eventIndex].time <= elapsed) {
         const event = events[eventIndex];
-        const key = noteToKey(event.note);
         
-        if (key) {
-          // Velocity affects duration
-          const holdTime = Math.min(event.duration * event.velocity, 500);
-          
-          await client.send('Input.dispatchKeyEvent', {
-            type: 'keyDown',
-            key: key,
-            code: `Key${key.toUpperCase()}`,
-          });
-          
+        if (event.type === 'kick' || event.type === 'snare' || event.type === 'hat' || event.type === 'hatOpen') {
+          // Drum event - use drum keys
+          await pressDrumKey(client, event.type, event.velocity);
           setTimeout(async () => {
-            await client.send('Input.dispatchKeyEvent', {
-              type: 'keyUp',
-              key: key,
-              code: `Key${key.toUpperCase()}`,
-            });
-          }, holdTime);
+            await releaseDrumKey(client, event.type);
+          }, event.duration);
+        } else if (event.type === 'melody') {
+          // Melody event - use note keys
+          const key = noteToKey(event.note, event.octave);
+          if (key) {
+            await pressNoteKey(client, key, event.velocity);
+            setTimeout(async () => {
+              await releaseNoteKey(client, key);
+            }, event.duration);
+          }
         }
         
         eventIndex++;
