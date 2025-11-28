@@ -23,9 +23,14 @@ const { abs, round, floor } = Math;
 // TODO: Use parameters to change properties of square over time and eventually add more nodes.
 
 // Global reverb constants!
-const delayTime = 0.1; // 200ms delay
-const feedback = 0.4; // 50% feedback
-const mix = 0.25; // 30% wet/dry mix
+const delayTime = 0.12; // 120ms base delay for more obvious reflections
+const feedback = 0.6; // 60% feedback for long tail
+const mix = 0.5; // 50% reverb added (now additive, not replacing dry)
+
+// Global room/reverb state
+let roomEnabled = false;
+let roomMix = 0.5; // Default reverb amount when enabled (additive)
+let roomFeedback = 0.6; // Default feedback (long tail)
 
 const sampleStore = {}; // A global store for sample buffers previously added.
 
@@ -249,6 +254,37 @@ class SpeakerProcessor extends AudioWorkletProcessor {
           running[key]?.kill();
           delete running[key];
         });
+        return;
+      }
+
+      // 🏠 Room/Reverb control
+      if (msg.type === "room:toggle") {
+        roomEnabled = !roomEnabled;
+        console.log("🏠 ROOM TOGGLE:", roomEnabled ? "ON" : "OFF");
+        // Update reverb parameters when toggling on
+        if (roomEnabled) {
+          this.#reverbLeft = new Reverb(sampleRate, delayTime, roomFeedback, roomMix);
+          this.#reverbRight = new Reverb(sampleRate, delayTime, roomFeedback, roomMix);
+          console.log("🏠 Reverb created with mix:", roomMix, "feedback:", roomFeedback);
+        }
+        this.#report("room:state", { enabled: roomEnabled, mix: roomMix, feedback: roomFeedback });
+        return;
+      }
+
+      if (msg.type === "room:set") {
+        const data = msg.data || {};
+        if (data.enabled !== undefined) roomEnabled = data.enabled;
+        if (data.mix !== undefined) roomMix = clamp(data.mix, 0, 1);
+        if (data.feedback !== undefined) roomFeedback = clamp(data.feedback, 0, 0.95);
+        // Recreate reverbs with new parameters
+        this.#reverbLeft = new Reverb(sampleRate, delayTime, roomFeedback, roomMix);
+        this.#reverbRight = new Reverb(sampleRate, delayTime, roomFeedback, roomMix);
+        this.#report("room:state", { enabled: roomEnabled, mix: roomMix, feedback: roomFeedback });
+        return;
+      }
+
+      if (msg.type === "room:get") {
+        this.#report("room:state", { enabled: roomEnabled, mix: roomMix, feedback: roomFeedback });
         return;
       }
 
@@ -526,7 +562,6 @@ class SpeakerProcessor extends AudioWorkletProcessor {
       for (const instrument of this.#queue) {
         // For now, all sounds are maxed out and mixing happens by dividing by the total length.
         const amplitude = instrument.next(s); // this.#queue.length;
-        // 😱 TODO: How can I mix reverb into the instrument here?
 
         output[0][s] += instrument.pan(0, amplitude);
         output[1][s] += instrument.pan(1, amplitude);
@@ -560,6 +595,17 @@ class SpeakerProcessor extends AudioWorkletProcessor {
 
       output[0][s] = volume.apply(output[0][s] / this.#mixDivisor);
       output[1][s] = volume.apply(output[1][s] / this.#mixDivisor);
+
+      // 🏠 Apply room reverb if enabled
+      if (roomEnabled) {
+        // Debug: log once per second that reverb is active
+        if (s === 0 && Math.floor(currentTime) !== this._lastReverbLogTime) {
+          this._lastReverbLogTime = Math.floor(currentTime);
+          console.log("🏠 REVERB ACTIVE - processing sample, roomEnabled:", roomEnabled);
+        }
+        output[0][s] = this.#reverbLeft.processSample(output[0][s]);
+        output[1][s] = this.#reverbRight.processSample(output[1][s]);
+      }
 
       // Track the current amplitude of both channels, and get waveform data.
       ampLeft = abs(output[0][s]) > ampLeft ? abs(output[0][s]) : ampLeft;
@@ -849,6 +895,7 @@ class SpeakerProcessor extends AudioWorkletProcessor {
 
 registerProcessor("speaker-processor", SpeakerProcessor);
 
+// Multi-tap reverb for richer room sound - EXTREME settings
 class Reverb {
   constructor(sampleRate, delayTime, feedback, mix) {
     this.sampleRate = sampleRate;
@@ -856,25 +903,57 @@ class Reverb {
     this.feedback = feedback;
     this.mix = mix;
 
-    // Convert delay time to samples
-    this.delaySamples = Math.floor(delayTime * sampleRate);
-
-    // Initialize the delay buffer
-    this.delayBuffer = new Float32Array(this.delaySamples);
+    // Multiple delay taps for big hall reverb sound
+    this.tapDelays = [
+      Math.floor(delayTime * 0.23 * sampleRate),  // ~28ms - first reflection
+      Math.floor(delayTime * 0.41 * sampleRate),  // ~49ms - early reflection
+      Math.floor(delayTime * 0.67 * sampleRate),  // ~80ms - early reflection  
+      Math.floor(delayTime * sampleRate),          // ~120ms - main delay
+      Math.floor(delayTime * 1.43 * sampleRate),  // ~172ms - late reflection
+      Math.floor(delayTime * 1.97 * sampleRate),  // ~236ms - reverb tail
+      Math.floor(delayTime * 2.71 * sampleRate),  // ~325ms - long tail
+      Math.floor(delayTime * 3.47 * sampleRate),  // ~416ms - very long tail
+    ];
+    
+    // Tap gains (decreasing for natural decay, but still loud)
+    this.tapGains = [0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2];
+    
+    // Create delay buffers for each tap
+    const maxDelay = Math.max(...this.tapDelays);
+    this.delayBuffer = new Float32Array(maxDelay + 1);
     this.bufferIndex = 0;
+    this.bufferSize = maxDelay + 1;
   }
 
   processSample(inputSample) {
-    // Get the delayed sample from the buffer
-    const delayedSample = this.delayBuffer[this.bufferIndex];
-    // Calculate the output sample (dry + wet mix)
-    const outputSample =
-      inputSample * (1 - this.mix) + delayedSample * this.mix;
-    // Write the current sample + feedback into the buffer
-    this.delayBuffer[this.bufferIndex] =
-      inputSample + delayedSample * this.feedback;
-    // Advance the buffer index
-    this.bufferIndex = (this.bufferIndex + 1) % this.delaySamples;
+    // Sum contributions from all delay taps
+    let wetSample = 0;
+    for (let i = 0; i < this.tapDelays.length; i++) {
+      const readIndex = (this.bufferIndex - this.tapDelays[i] + this.bufferSize) % this.bufferSize;
+      wetSample += this.delayBuffer[readIndex] * this.tapGains[i];
+    }
+    
+    // Normalize wet signal
+    wetSample *= 0.25;
+    
+    // ADDITIVE mix: keep dry at full volume, ADD wet reverb on top
+    // mix controls how much reverb is added (0 = no reverb, 1 = full reverb added)
+    let outputSample = inputSample + wetSample * this.mix;
+    
+    // Soft limiter to prevent clipping/peaking
+    // Using tanh-style soft clip for musical compression
+    if (outputSample > 0.95) {
+      outputSample = 0.95 + 0.05 * Math.tanh((outputSample - 0.95) * 10);
+    } else if (outputSample < -0.95) {
+      outputSample = -0.95 + 0.05 * Math.tanh((outputSample + 0.95) * 10);
+    }
+    
+    // Write input + feedback to buffer (more feedback = longer decay)
+    this.delayBuffer[this.bufferIndex] = inputSample + wetSample * this.feedback;
+    
+    // Advance buffer index
+    this.bufferIndex = (this.bufferIndex + 1) % this.bufferSize;
+    
     return outputSample;
   }
 }

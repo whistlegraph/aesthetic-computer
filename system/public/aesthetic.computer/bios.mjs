@@ -1677,6 +1677,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     requestSpeakerWaveforms,
     requestSpeakerAmplitudes,
     requestSpeakerFrequencies,
+    sendRoomMessage,
     attachMicrophone,
     detachMicrophone,
     audioContext,
@@ -2141,6 +2142,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         clearSoundSampleCache = function () {
           speakerProcessor.port.postMessage({ type: "cache:clear" });
           for (const k in sfxLoaded) delete sfxLoaded[k];
+        };
+
+        // 🏠 Room/Reverb control
+        sendRoomMessage = function (type, data) {
+          speakerProcessor.port.postMessage({ type, data });
         };
 
         // Request data / send message to the mic processor thread.
@@ -10631,6 +10637,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (type === "bubble:update") {
       updateSound?.(content);
+      return;
+    }
+
+    // 🏠 Room/Reverb control messages
+    if (type === "room:toggle" || type === "room:set" || type === "room:get") {
+      sendRoomMessage?.(type, content);
       return;
     }
 

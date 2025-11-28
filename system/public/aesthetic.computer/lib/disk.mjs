@@ -9868,6 +9868,30 @@ async function makeFrame({ data: { type, content } }) {
       sound.kills.push({ id, fade });
     };
 
+    // 🏠 Room/Reverb API - global reverb effect
+    $sound.room = {
+      // Toggle room reverb on/off
+      toggle: function () {
+        send({ type: "room:toggle" });
+      },
+      // Enable room reverb
+      on: function () {
+        send({ type: "room:set", content: { enabled: true } });
+      },
+      // Disable room reverb
+      off: function () {
+        send({ type: "room:set", content: { enabled: false } });
+      },
+      // Set room parameters: { enabled, mix (0-1), feedback (0-0.95) }
+      set: function (options = {}) {
+        send({ type: "room:set", content: options });
+      },
+      // Get current room state (async via callback)
+      get: function () {
+        send({ type: "room:get" });
+      },
+    };
+
     $commonApi.sound = $sound;
 
     // System beep.
