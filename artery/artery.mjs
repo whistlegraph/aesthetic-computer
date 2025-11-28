@@ -807,6 +807,14 @@ async function main() {
         process.argv = ['node', 'test-hiphop.mjs', ...args];
         await runHiphop();
         return;
+      
+      case 'trapwaltz':
+        // Close the client we just opened (trapwaltz manages its own)
+        client.close();
+        const { main: runTrapwaltz } = await import('./test-trapwaltz.mjs');
+        process.argv = ['node', 'test-trapwaltz.mjs', ...args];
+        await runTrapwaltz();
+        return;
         
       case 'repl':
         // Clear screen and show header
@@ -940,6 +948,7 @@ async function main() {
         console.log('');
         console.log('🎵 Tests:');
         console.log('artery hiphop [opts]   - Hip-hop beat generator test');
+        console.log('artery trapwaltz [opts] - Trap waltz generator (3/4 + trap)');
     }
     
     setTimeout(() => {
