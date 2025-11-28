@@ -36,6 +36,7 @@ class Artery {
     this.debuggerUrl = null;
     this.reconnectInterval = null;
     this.shouldReconnect = false;
+    this.consoleCallback = null; // Store console callback for reconnects
   }
 
   async findAestheticTarget() {
@@ -153,6 +154,46 @@ class Artery {
     this.eventHandlers.get(eventMethod).push(handler);
   }
 
+  // Clear handlers for an event method
+  off(eventMethod) {
+    this.eventHandlers.delete(eventMethod);
+  }
+
+  // Enable console log tracking from the browser
+  async enableConsole(callback) {
+    // Store callback for use on reconnects
+    if (callback !== undefined) this.consoleCallback = callback;
+    const cb = this.consoleCallback;
+    
+    await this.send('Runtime.enable');
+    // Clear any existing console handlers to avoid duplicates
+    this.off('Runtime.consoleAPICalled');
+    this.on('Runtime.consoleAPICalled', (params) => {
+      const { type, args } = params;
+      const message = args.map(arg => {
+        if (arg.type === 'string') return arg.value;
+        if (arg.type === 'number') return arg.value;
+        if (arg.type === 'boolean') return arg.value;
+        if (arg.type === 'undefined') return 'undefined';
+        if (arg.type === 'object' && arg.preview) {
+          return JSON.stringify(arg.preview.properties?.reduce((obj, p) => {
+            obj[p.name] = p.value;
+            return obj;
+          }, {}) || arg.preview);
+        }
+        return arg.description || arg.value || `[${arg.type}]`;
+      }).join(' ');
+      
+      if (cb) {
+        cb(type, message);
+      } else {
+        // Default: print to console with prefix
+        const prefix = type === 'error' ? '❌' : type === 'warn' ? '⚠️' : '📝';
+        consoleLog(`${prefix} ${message}`);
+      }
+    });
+  }
+
   async eval(expr) {
     const result = await this.send('Runtime.evaluate', {
       expression: expr,
@@ -234,15 +275,6 @@ class Artery {
     // Click the canvas to activate audio
     await this.click(100, 100);
     await new Promise(r => setTimeout(r, 300));
-  }
-
-  async enableConsole() {
-    await this.send('Runtime.enable');
-    await this.send('Console.enable');
-    this.on('Console.messageAdded', (params) => {
-      const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false });
-      consoleLog(`[${timestamp}] ${params.message.text}`);
-    });
   }
 
   async type(text) {
@@ -766,6 +798,16 @@ async function main() {
         brightLog('🩸 Audio activated!');
         break;
         
+      case 'hiphop':
+        // Close the client we just opened (hiphop manages its own)
+        client.close();
+        // Dynamically import and run the hiphop test with remaining args
+        const { main: runHiphop } = await import('./test-hiphop.mjs');
+        // Override process.argv for the test to parse
+        process.argv = ['node', 'test-hiphop.mjs', ...args];
+        await runHiphop();
+        return;
+        
       case 'repl':
         // Clear screen and show header
         console.clear();
@@ -895,6 +937,9 @@ async function main() {
         console.log('artery panel           - Open AC sidebar panel');
         console.log('artery perf [seconds]  - Monitor WebGPU performance');
         console.log('artery repl            - Interactive REPL mode');
+        console.log('');
+        console.log('🎵 Tests:');
+        console.log('artery hiphop [opts]   - Hip-hop beat generator test');
     }
     
     setTimeout(() => {
