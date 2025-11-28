@@ -14,8 +14,8 @@
     - [x] Test it and see if it's fun.
     - [] Touch?
     - [x] Keyboard shortcuts.
-  - [🍉] Add reverb that's only activated for the notepat sounds.
-       (Sound tagging?)
+  - [x] Add reverb that's only activated for the notepat sounds.
+       (Implemented via sound.room API and / key toggle)
   - [] Add tappable touch bar for toggling the visualizer view. 
   - [🟠] Only show keyboard shortcuts once any keyboard key is pressed (on Android or iOS).
   *** Song ***
@@ -229,8 +229,9 @@ const wavetypes = [
   "triangle", // 1
   "sawtooth", // 2
   "square", // 3
-  "composite", // 4
-  "sample", // 5
+  "noise", // 4 - white noise filtered by pitch
+  "composite", // 5
+  "sample", // 6
 ];
 let waveIndex = 0; // 0;
 const STARTING_WAVE = wavetypes[waveIndex]; //"sine";
@@ -238,6 +239,7 @@ let wave = STARTING_WAVE;
 // let hold = false;
 let slide = false;
 let quickFade = false;
+let roomMode = false; // 🏠 Global reverb toggle
 let octave = STARTING_OCTAVE;
 let keys = "";
 let tap = false;
@@ -671,8 +673,10 @@ function boot({
   //   editable = false;
   // }
 
-  const wavetypes = ["square", "sine", "triangle", "sawtooth", "noise-white"];
+  const wavetypes = ["square", "sine", "triangle", "sawtooth", "noise-white", "noise"];
   wave = wavetypes.indexOf(colon[0]) > -1 ? colon[0] : wave;
+  // Map 'noise' shorthand to 'noise-white' for the synth
+  if (wave === "noise") wave = "noise-white";
   // slide = true; // colon[0] === "slide" || colon[1] === "slide";
 
   buildWaveButton(api);
@@ -997,6 +1001,11 @@ function paint({
 
   if (quickFade) {
     ink(undefined).write("quick", { left: 6, top: 24 });
+  }
+
+  // 🏠 Room mode indicator
+  if (roomMode) {
+    ink(undefined).write("room", { center: "x", top: 24 });
   }
 
   // wipe(!projector ? bg : 64);
@@ -1787,7 +1796,7 @@ const percDowns = {};
 
 function act({
   event: e,
-  sound: { synth, speaker, play, freq, midi: midiUtil },
+  sound: { synth, speaker, play, freq, midi: midiUtil, room },
   num,
   pens,
   hud,
@@ -1813,6 +1822,12 @@ function act({
 
   if (e.is("keyboard:down:,") && !e.repeat) {
     upperOctaveShift -= 1;
+  }
+
+  // 🏠 Room mode toggle (/ key) - global reverb
+  if (e.is("keyboard:down:/") && !e.repeat) {
+    roomMode = !roomMode;
+    room.toggle();
   }
 
   if (
@@ -1914,26 +1929,219 @@ function act({
   // if (e.is("keyboard:up:alt")) flats = false;
   //}
 
-  // TODO: This (makePerc) can be factored out of the event loop. 24.11.12.02.10
+  // 🥁 Percussion Sound Design
+  // Each drum uses layered synthesis for a more musical sound
+  // Velocity (0-127) scales volume for expressive playing
   const pc = "maroon";
-  const lowvol = 0.95;
-  const hivol = 1;
+  
+  // Kick drum - low thump with body and click
+  const makeKick = (velocity = 127) => {
+    const vel = velocity / 127; // Normalize to 0-1
+    // Sub bass thump (pitch drops from 150 to 50Hz feel)
+    synth({
+      type: "sine",
+      tone: 55,
+      duration: 0.2,
+      attack: 0.001,
+      decay: 0.95,
+      volume: 0.85 * vel,
+    });
+    // Punch/mid body
+    synth({
+      type: "triangle",
+      tone: 100,
+      duration: 0.08,
+      attack: 0,
+      decay: 0.9,
+      volume: 0.4 * vel,
+    });
+    // Click transient - filtered noise for attack
+    synth({
+      type: "noise-white",
+      tone: 300, // Low-mid filtered noise for thump
+      duration: 0.02,
+      attack: 0,
+      decay: 0.8,
+      volume: 0.25 * vel,
+    });
+  };
+  
+  // Snare - layered noise at different pitches for character
+  const makeSnare = (velocity = 127) => {
+    const vel = velocity / 127;
+    // High "snap" - bright filtered noise
+    synth({
+      type: "noise-white",
+      tone: 5000,
+      duration: 0.1,
+      attack: 0,
+      decay: 0.85,
+      volume: 0.5 * vel,
+    });
+    // Mid "body" - pitched noise around snare resonance
+    synth({
+      type: "noise-white",
+      tone: 250, // Pitched noise for snare body character
+      duration: 0.15,
+      attack: 0.001,
+      decay: 0.88,
+      volume: 0.45 * vel,
+    });
+    // Fundamental tone - the "drum" part
+    synth({
+      type: "triangle",
+      tone: 180,
+      duration: 0.1,
+      attack: 0,
+      decay: 0.9,
+      volume: 0.35 * vel,
+    });
+  };
+  
+  // Hi-hat - layered high-pitched noise for shimmer
+  const makeHihat = (velocity = 127) => {
+    const vel = velocity / 127;
+    // Main hat - very high pitched noise
+    synth({
+      type: "noise-white",
+      tone: 10000,
+      duration: 0.05,
+      attack: 0,
+      decay: 0.8,
+      volume: 0.3 * vel,
+    });
+    // Shimmer layer - slightly lower for body
+    synth({
+      type: "noise-white",
+      tone: 7000,
+      duration: 0.04,
+      attack: 0,
+      decay: 0.75,
+      volume: 0.2 * vel,
+    });
+  };
+  
+  // Open hi-hat / ride - longer decay with bell character
+  const makeRide = (velocity = 127) => {
+    const vel = velocity / 127;
+    // Main body - mid-high pitched noise
+    synth({
+      type: "noise-white",
+      tone: 6000,
+      duration: 0.3,
+      attack: 0.005,
+      decay: 0.65,
+      volume: 0.25 * vel,
+    });
+    // Shimmer - higher pitched noise
+    synth({
+      type: "noise-white",
+      tone: 9000,
+      duration: 0.2,
+      attack: 0.01,
+      decay: 0.6,
+      volume: 0.2 * vel,
+    });
+    // Bell tone - adds pitch character
+    synth({
+      type: "sine",
+      tone: 800,
+      duration: 0.18,
+      attack: 0.005,
+      decay: 0.75,
+      volume: 0.12 * vel,
+    });
+  };
+  
+  // Crash cymbal - wide frequency spread
+  const makeCrash = (velocity = 127) => {
+    const vel = velocity / 127;
+    // Low body
+    synth({
+      type: "noise-white",
+      tone: 3000,
+      duration: 0.5,
+      attack: 0.001,
+      decay: 0.55,
+      volume: 0.35 * vel,
+    });
+    // Mid shimmer
+    synth({
+      type: "noise-white",
+      tone: 6000,
+      duration: 0.45,
+      attack: 0.001,
+      decay: 0.5,
+      volume: 0.4 * vel,
+    });
+    // High sparkle
+    synth({
+      type: "noise-white",
+      tone: 10000,
+      duration: 0.35,
+      attack: 0,
+      decay: 0.45,
+      volume: 0.3 * vel,
+    });
+  };
+  
+  // Low tom
+  const makeTomLow = (velocity = 127) => {
+    const vel = velocity / 127;
+    synth({
+      type: "sine",
+      tone: 100,
+      duration: 0.2,
+      attack: 0.001,
+      decay: 0.9,
+      volume: 0.7 * vel,
+    });
+    synth({
+      type: "triangle",
+      tone: 180,
+      duration: 0.1,
+      attack: 0,
+      decay: 0.85,
+      volume: 0.3 * vel,
+    });
+  };
+  
+  // High tom  
+  const makeTomHigh = (velocity = 127) => {
+    const vel = velocity / 127;
+    synth({
+      type: "sine",
+      tone: 160,
+      duration: 0.15,
+      attack: 0.001,
+      decay: 0.88,
+      volume: 0.6 * vel,
+    });
+    synth({
+      type: "triangle",
+      tone: 280,
+      duration: 0.08,
+      attack: 0,
+      decay: 0.82,
+      volume: 0.25 * vel,
+    });
+  };
+  
+  // Legacy makePerc for backwards compatibility (clicky sounds)
   const makePerc = (hz) => {
     synth({
       type: "triangle",
       tone: hz / 2,
       duration: 0.01,
       attack: 0,
-      volume: hivol / 2,
+      volume: 0.5,
     });
-
-    synth({ type: "sawtooth", tone: hz, duration: 0.0025, volume: hivol });
-
+    synth({ type: "sawtooth", tone: hz, duration: 0.0025, volume: 1 });
     synth({
       type: "square",
       tone: hz / 4,
       duration: 0.005,
-      volume: lowvol,
+      volume: 0.95,
       decay: 0.999,
     });
   };
@@ -2042,8 +2250,10 @@ function act({
         },
       };
     } else {
+      // Map 'noise' shorthand to 'noise-white' for the synth
+      const synthType = wave === "noise" ? "noise-white" : wave;
       return synth({
-        type: wave,
+        type: synthType,
         attack: quickFade ? 0.0015 : attack,
         // decay,
         tone,
@@ -2361,42 +2571,42 @@ function act({
   if (!tap) {
     if (e.is("keyboard:down:space") && !e.repeat) {
       perc = pc; //"cyan";
-      makePerc(2000);
+      makeSnare(e.velocity);
     }
   }
 
   if (e.is("keyboard:down:alt") && !e.repeat && e.code === "AltLeft") {
     perc = pc; //"cyan";
-    makePerc(3000);
+    makeCrash(e.velocity);
   }
 
   if (e.is("keyboard:down:alt") && !e.repeat && e.code === "AltRight") {
     perc = pc; //"cyan";
-    makePerc(4000);
+    makeRide(e.velocity);
   }
 
   if (e.is("keyboard:down:arrowleft") && !e.repeat && !percDowns.left) {
     perc = "brown";
     percDowns.left = true;
-    makePerc(5000);
+    makeTomLow(e.velocity);
   }
 
   if (e.is("keyboard:down:arrowdown") && !e.repeat && !percDowns.down) {
     perc = "pink";
     percDowns.down = true;
-    makePerc(6000);
+    makeKick(e.velocity);
   }
 
   if (e.is("keyboard:down:arrowright") && !e.repeat && !percDowns.right) {
     perc = "orange";
     percDowns.right = true;
-    makePerc(7000);
+    makeTomHigh(e.velocity);
   }
 
   if (e.is("keyboard:down:arrowup") && !e.repeat && !percDowns.up) {
     percDowns.up = true;
     perc = "cyan";
-    makePerc(8000);
+    makeHihat(e.velocity);
   }
   if (e.is("keyboard:up:arrowleft")) {
     delete percDowns.left;
