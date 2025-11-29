@@ -92,6 +92,17 @@ function acd
     end
     set container_id (pwd | tr -d '\n' | xxd -c 256 -p)
     set workspace_name (basename (pwd))
+    
+    # Kill any existing socat forwarder for CDP
+    pkill -f "socat.*9224" 2>/dev/null
+    sleep 0.5
+    
+    # Forward CDP port from localhost:9222 (VS Code) to 0.0.0.0:9224 so container can reach it
+    # VS Code binds to 127.0.0.1:9222, container accesses via docker bridge (172.17.0.1:9224)
+    # Using 9224 because VS Code also grabs 9223
+    socat TCP-LISTEN:9224,bind=0.0.0.0,fork,reuseaddr TCP:127.0.0.1:9222 &
+    echo "🔌 CDP port forwarded: 0.0.0.0:9224 -> 127.0.0.1:9222"
+    
     # Launch VS Code with Chrome DevTools Protocol enabled on port 9222
     # Allow remote origins so dev container can connect via host.docker.internal
     code --remote-debugging-port=9222 --remote-allow-origins="*" --folder-uri="vscode-remote://dev-container+$container_id/workspaces/$workspace_name"
