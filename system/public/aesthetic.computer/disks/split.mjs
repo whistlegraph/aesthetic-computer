@@ -18,16 +18,19 @@
 function boot({ params, dom: { html } }) {
   html`
     <style>
-      #content 
-        display; flex;
+      #content {
+        display: flex;
         flex-direction: column;
-        padding-top: 3em;
+        height: 100vh;
+        width: 100vw;
         box-sizing: border-box;
+        margin: 0;
+        padding: 0;
       }
       iframe {
         box-sizing: border-box;
         width: 100%;
-        height: 50%;
+        flex: 1;
         border: none;
       }
       #split-top {
@@ -36,7 +39,7 @@ function boot({ params, dom: { html } }) {
       }
     </style>
     <iframe id="split-top" src="/${params[0] || ''}?nogap"></iframe>
-    <iframe src="/${params[0] || params[1] || ''}?nogap"></iframe>
+    <iframe src="/${params[1] || params[0] || ''}?nogap"></iframe>
   `;
 }
 
