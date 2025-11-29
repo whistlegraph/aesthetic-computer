@@ -755,12 +755,22 @@ class ArteryTUI {
   handleTestsInput(key) {
     // Arrow keys
     if (key === '\u001b[A') { // Up
-      this.selectedIndex = Math.max(0, this.selectedIndex - 1);
+      let newIndex = this.selectedIndex - 1;
+      // Skip separators
+      while (newIndex >= 0 && this.testFiles?.[newIndex]?.isSeparator) {
+        newIndex--;
+      }
+      this.selectedIndex = Math.max(0, newIndex);
       this.render();
       return;
     }
     if (key === '\u001b[B') { // Down
-      this.selectedIndex = Math.min((this.testFiles?.length || 1) - 1, this.selectedIndex + 1);
+      let newIndex = this.selectedIndex + 1;
+      // Skip separators
+      while (newIndex < (this.testFiles?.length || 0) && this.testFiles?.[newIndex]?.isSeparator) {
+        newIndex++;
+      }
+      this.selectedIndex = Math.min((this.testFiles?.length || 1) - 1, newIndex);
       this.render();
       return;
     }
@@ -768,7 +778,7 @@ class ArteryTUI {
     // Enter to run test (or open params for parametric tests)
     if (key === '\r' || key === '\n') {
       const test = this.testFiles?.[this.selectedIndex];
-      if (test) {
+      if (test && !test.isSeparator) {
         if (test.params) {
           // Show parameter input mode
           this.currentTest = test;
@@ -989,6 +999,9 @@ class ArteryTUI {
     // Show available tests
     this.mode = 'tests';
     
+    // Auto-discover test files from artery/ directory
+    const arteryTests = await this.discoverArteryTests();
+    
     // Available melodies from melodies.mjs
     const melodyOptions = [
       'twinkle', 'mary', 'old-macdonald', 'yankee-doodle', 'frere-jacques',
@@ -1002,13 +1015,11 @@ class ArteryTUI {
     const hiphopStyles = ['trap', 'boombap', 'lofi', '808', 'halftime', 'phonk', 'drill', 'gfunk'];
     const waltzStyles = ['classic', 'dark', 'dreamy', 'baroque', 'minimal', 'phonk', 'viennese', 'drill'];
     
-    this.testFiles = [
-      { name: 'notepat', file: 'test-notepat.mjs', desc: 'Notepat fuzzing test' },
-      {
+    // Special configs for known tests (params, descriptions, etc.)
+    const testConfigs = {
+      'test-notepat.mjs': {
         name: 'composition',
-        file: 'artery/test-notepat.mjs',
         desc: '🎹 Full composition [waltz/hiphop]',
-        isArtery: true, // Flag to use artery/ path
         params: [
           { key: 'genre', label: 'Genre', desc: '←→ to cycle', default: 'waltz', options: ['waltz', 'hiphop'] },
           { key: 'style', label: 'Style', desc: '←→ to cycle (depends on genre)', default: 'classic', options: [...waltzStyles, ...hiphopStyles] },
@@ -1019,7 +1030,6 @@ class ArteryTUI {
           { key: 'waves', label: 'Waves', desc: '←→ toggle wave changes', default: '', options: ['', 'waves'] },
         ],
         defaults: { genre: 'waltz', style: 'classic', bars: '24', bpm: '140', scale: 'minor', room: '', waves: '' },
-        // Custom arg formatter for composition test
         formatArgs: (params, values) => {
           const parts = [values.genre, values.style];
           if (values.bars !== '24') parts.push(`bars=${values.bars}`);
@@ -1030,6 +1040,54 @@ class ArteryTUI {
           return parts.join(' ');
         }
       },
+      'test-hiphop.mjs': {
+        name: 'hiphop',
+        desc: '🎤 Hip-hop beat generator',
+      },
+      'test-trapwaltz.mjs': {
+        name: 'trapwaltz', 
+        desc: '🩰 Trap waltz (3/4 + trap)',
+      },
+      'test-1v1-split.mjs': {
+        name: '1v1-split',
+        desc: '🎮 Split view for 1v1 dueling',
+        params: [
+          { key: 'piece1', label: 'Top Piece', desc: 'Type piece name', default: 'prompt', type: 'string' },
+          { key: 'piece2', label: 'Bottom Piece', desc: 'Type piece name (or same)', default: '', type: 'string' },
+        ],
+        defaults: { piece1: 'prompt', piece2: '' },
+        formatArgs: (params, values) => {
+          const parts = [values.piece1];
+          if (values.piece2 && values.piece2 !== values.piece1) parts.push(values.piece2);
+          return parts.join(' ');
+        }
+      },
+    };
+    
+    // Build test list from discovered files + legacy .vscode tests
+    this.testFiles = [];
+    
+    // Add discovered artery tests (with configs if available)
+    for (const file of arteryTests) {
+      const config = testConfigs[file] || {};
+      const baseName = file.replace('test-', '').replace('.mjs', '');
+      this.testFiles.push({
+        name: config.name || baseName,
+        file: `artery/${file}`,
+        desc: config.desc || `Artery test: ${baseName}`,
+        isArtery: true,
+        params: config.params,
+        defaults: config.defaults,
+        formatArgs: config.formatArgs,
+      });
+    }
+    
+    // Add separator
+    this.testFiles.push({ name: '───────────', file: null, desc: 'Legacy .vscode tests', isSeparator: true });
+    
+    // Legacy .vscode/tests
+    this.testFiles.push(
+      { name: 'notepat-fuzz', file: 'test-notepat.mjs', desc: 'Notepat fuzzing test' },
       {
         name: 'melody',
         file: 'test-melody.mjs',
@@ -1059,10 +1117,23 @@ class ArteryTUI {
         ],
         defaults: { bars: '8', scale: 'major', seed: String(Date.now()), tempo: 'slow', topline: '', infinite: '', frolic: '', beat: '' }
       },
-    ];
+    );
     this.selectedIndex = 0;
     this.setStatus('Select a test to run (Enter for params)', 'info');
     this.render();
+  }
+  
+  // Auto-discover test-*.mjs files in artery/ directory
+  async discoverArteryTests() {
+    try {
+      const arteryDir = path.dirname(new URL(import.meta.url).pathname);
+      const files = fs.readdirSync(arteryDir);
+      return files
+        .filter(f => f.startsWith('test-') && f.endsWith('.mjs'))
+        .sort();
+    } catch (e) {
+      return [];
+    }
   }
   
   async executeTest(testFile, args = '', isArtery = false) {
@@ -1766,6 +1837,15 @@ class ArteryTUI {
     for (let i = 0; i < Math.min(tests.length, visibleCount); i++) {
       const test = tests[i];
       const selected = i === this.selectedIndex;
+      
+      // Handle separator rows
+      if (test.isSeparator) {
+        const sepLine = `${DOS_BORDER}║${RESET}${BG_BLUE}${DIM}${FG_CYAN}  ─── ${test.desc} ───${RESET}`;
+        const sepPadding = boxWidth - this.stripAnsi(sepLine).length - 1;
+        this.writeLine(`${sepLine}${BG_BLUE}${' '.repeat(Math.max(0, sepPadding))}${DOS_BORDER}║${RESET}`);
+        continue;
+      }
+      
       const prefix = selected ? `${DOS_HIGHLIGHT}▸ ` : `${BG_BLUE}  `;
       const suffix = selected ? `${RESET}` : `${RESET}`;
       const configIcon = test.params ? `${selected ? FG_BLACK : FG_YELLOW}⚙${RESET}${selected ? DOS_HIGHLIGHT : BG_BLUE}` : '';
