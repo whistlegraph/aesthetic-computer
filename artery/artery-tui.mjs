@@ -1051,16 +1051,7 @@ class ArteryTUI {
       'test-1v1-split.mjs': {
         name: '1v1-split',
         desc: '🎮 Split view for 1v1 dueling',
-        params: [
-          { key: 'piece1', label: 'Top Piece', desc: 'Type piece name', default: 'prompt', type: 'string' },
-          { key: 'piece2', label: 'Bottom Piece', desc: 'Type piece name (or same)', default: '', type: 'string' },
-        ],
-        defaults: { piece1: 'prompt', piece2: '' },
-        formatArgs: (params, values) => {
-          const parts = [values.piece1];
-          if (values.piece2 && values.piece2 !== values.piece1) parts.push(values.piece2);
-          return parts.join(' ');
-        }
+        // No params needed - just runs with default 1v1~1v1
       },
     };
     
