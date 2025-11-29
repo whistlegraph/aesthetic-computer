@@ -242,6 +242,12 @@ fastify.post("/update", (request, reply) => {
   reply.send({ status: "ok" });
 });
 
+// *** Robots.txt - prevent crawling ***
+fastify.get("/robots.txt", async (req, reply) => {
+  reply.type("text/plain");
+  return "User-agent: *\nDisallow: /";
+});
+
 // *** Build Stream - pipe terminal output to WebSocket clients ***
 // Available in both dev and production for build progress streaming
 fastify.post("/build-stream", async (req) => {
@@ -473,7 +479,7 @@ function getFullStatus() {
   const chatStatus = chatManager.getStatus();
   const chatWithMessages = chatStatus.map(instance => {
     const recentMessages = instance.messages > 0 
-      ? chatManager.getRecentMessages(instance.host, 10)
+      ? chatManager.getRecentMessages(instance.host, 5)
       : [];
     return {
       ...instance,
@@ -533,6 +539,7 @@ fastify.get("/", async (request, reply) => {
 <html>
 <head>
   <meta charset="utf-8">
+  <meta name="robots" content="noindex, nofollow">
   <title>session-server</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
