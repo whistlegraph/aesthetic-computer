@@ -2325,6 +2325,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       // console.log("👮 Sample ID:", id, "Sound data:", soundData);
 
+      // Calculate speed from pitch if pitch is provided (frequency in Hz)
+      // Assumes sample's base pitch is A4 (440 Hz) - speed = pitch / 440
+      let speed = 1;
+      if (isFinite(options?.speed)) {
+        speed = options.speed;
+      } else if (isFinite(options?.pitch)) {
+        const basePitch = options?.basePitch || 440; // Default to A4
+        speed = options.pitch / basePitch;
+      }
+
       const playResult = triggerSound?.({
         id,
         type: "sample",
@@ -2334,7 +2344,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           // TODO: 🚩 Cached speaker sounds need to be dumped on a piece swap.
           from: isFinite(options?.from) ? options.from : 0,
           to: isFinite(options?.to) ? options.to : 1,
-          speed: isFinite(options?.speed) ? options.speed : 1,
+          speed,
           loop: options?.loop || false,
         },
         // options: { buffer: sample },
