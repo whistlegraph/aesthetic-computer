@@ -5,7 +5,6 @@
 import dotenv from "dotenv";
 dotenv.config({ path: "../aesthetic-computer-vault/nanos/conductor.env" });
 
-const CLOUDFLARE_EMAIL = process.env.CLOUDFLARE_EMAIL;
 const CLOUDFLARE_API_TOKEN = process.env.CLOUDFLARE_API_TOKEN;
 const CLOUDFLARE_BASE_URL = "https://api.cloudflare.com/client/v4";
 
@@ -13,8 +12,7 @@ const CLOUDFLARE_BASE_URL = "https://api.cloudflare.com/client/v4";
 const SESSION_SERVER_IP = "157.245.134.225";
 
 const headers = {
-  "X-Auth-Email": CLOUDFLARE_EMAIL,
-  "X-Auth-Key": CLOUDFLARE_API_TOKEN,
+  "Authorization": `Bearer ${CLOUDFLARE_API_TOKEN}`,
   "Content-Type": "application/json",
 };
 
@@ -103,15 +101,14 @@ async function main() {
   console.log("==========================");
   console.log(`Target IP: ${SESSION_SERVER_IP}`);
   
-  if (!CLOUDFLARE_EMAIL || !CLOUDFLARE_API_TOKEN) {
-    console.error("\n❌ Missing Cloudflare credentials!");
+  if (!CLOUDFLARE_API_TOKEN) {
+    console.error("\n❌ Missing Cloudflare API token!");
     console.log("Make sure aesthetic-computer-vault/nanos/conductor.env exists with:");
-    console.log("  CLOUDFLARE_EMAIL=...");
     console.log("  CLOUDFLARE_API_TOKEN=...");
     process.exit(1);
   }
 
-  console.log(`\nCloudflare Email: ${CLOUDFLARE_EMAIL}`);
+  console.log(`\nUsing Bearer token authentication`);
 
   const dryRun = process.argv.includes("--dry-run");
   if (dryRun) {
