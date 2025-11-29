@@ -43,10 +43,29 @@ const FG_BRIGHT_CYAN = `${CSI}96m`;
 const BG_BLACK = `${CSI}40m`;
 const BG_RED = `${CSI}41m`;
 const BG_GREEN = `${CSI}42m`;
+const BG_BLUE = `${CSI}44m`;
 const BG_MAGENTA = `${CSI}45m`;
 const BG_CYAN = `${CSI}46m`;
 const BG_WHITE = `${CSI}47m`;
 const BG_BRIGHT_BLACK = `${CSI}100m`;
+const BG_BRIGHT_BLUE = `${CSI}104m`;
+
+// DOS-style color combos
+const DOS_TITLE = `${BG_BLUE}${FG_WHITE}${BOLD}`;
+const DOS_MENU = `${BG_BLUE}${FG_BRIGHT_CYAN}`;
+const DOS_HIGHLIGHT = `${BG_CYAN}${FG_BLACK}`;
+const DOS_BORDER = `${BG_BLUE}${FG_BRIGHT_CYAN}`;
+const DOS_STATUS = `${BG_BLUE}${FG_BRIGHT_YELLOW}`;
+
+// ASCII Art title - each character position for animation
+const ARTERY_ASCII = [
+  '█▀█ █▀█ ▀█▀ █▀▀ █▀█ █▄█',
+  '█▀█ █▀▄  █  ██▄ █▀▄  █ ',
+];
+
+// Blood flow animation frames - positions that light up red
+const BLOOD_FLOW_LENGTH = ARTERY_ASCII[0].length;
+const BLOOD_PULSE_WIDTH = 4; // Width of the "blood pulse"
 
 // Cursor control
 const CURSOR_HIDE = `${CSI}?25l`;
@@ -112,6 +131,8 @@ class ArteryTUI {
     // Server status
     this.serverStatus = { local: null, production: null }; // null = unknown, true = up, false = down
     this.serverMode = null; // 'local' or 'production' based on what AC is connected to
+    this.localStatusMessage = ''; // Transient status message for local server
+    this.serverPollInterval = null; // Polling interval for server status
     
     // Test running state (defers live updates)
     this.testRunning = false;
@@ -134,6 +155,19 @@ class ArteryTUI {
       { key: 'x', label: 'Reconnect', desc: 'Reconnect to AC', action: () => this.reconnect() },
       { key: 'q', label: 'Quit', desc: 'Exit Artery TUI', action: () => this.quit() },
     ];
+    
+    // Site monitoring state
+    this.siteProcess = null;
+    this.siteLogs = [];
+    this.maxSiteLogs = 200;
+    this.siteStatus = 'stopped'; // 'stopped', 'starting', 'running', 'error'
+    this.siteStartTime = null;
+    
+    // Blood flow animation state
+    this.bloodPosition = 0; // Current position of blood pulse (0 to BLOOD_FLOW_LENGTH)
+    this.bloodAnimInterval = null;
+    this.networkActivity = 0; // Activity level 0-10 (affects speed/intensity)
+    this.lastNetworkTime = 0; // Last time we saw network activity
     
     // Load pieces from disk directory
     this.loadPieces();
@@ -179,11 +213,171 @@ class ArteryTUI {
     this.write(CURSOR_HIDE);
     this.write(CLEAR_SCREEN);
     
+    // Start polling local server status
+    this.startServerPolling();
+    
+    // Start blood flow animation
+    this.startBloodAnimation();
+    
     // Try to connect
     await this.connect();
     
     // Main render
     this.render();
+  }
+  
+  startBloodAnimation() {
+    // Animate blood flow - speed varies with network activity
+    this.bloodAnimInterval = setInterval(() => {
+      // Decay network activity over time
+      const now = Date.now();
+      if (now - this.lastNetworkTime > 500) {
+        this.networkActivity = Math.max(0, this.networkActivity - 0.5);
+      }
+      
+      // Move blood pulse - faster with more activity
+      const speed = 0.5 + (this.networkActivity * 0.3);
+      this.bloodPosition = (this.bloodPosition + speed) % (BLOOD_FLOW_LENGTH + BLOOD_PULSE_WIDTH * 2);
+      
+      // Only re-render header area if in menu mode to show animation
+      if (this.mode === 'menu' && !this.testRunning) {
+        this.renderHeaderOnly();
+      }
+    }, 80); // ~12fps for smooth animation
+  }
+  
+  // Trigger network activity pulse
+  pulseNetwork(intensity = 1) {
+    this.networkActivity = Math.min(10, this.networkActivity + intensity);
+    this.lastNetworkTime = Date.now();
+  }
+  
+  // Render just the header without full screen clear (for animation)
+  renderHeaderOnly() {
+    if (this.width < 80) return; // Skip animation in compact mode
+    
+    const boxWidth = this.innerWidth;
+    const artY = this.marginY + 2; // Position of ASCII art lines
+    
+    for (let lineIdx = 0; lineIdx < ARTERY_ASCII.length; lineIdx++) {
+      const artLine = ARTERY_ASCII[lineIdx];
+      const artPadding = Math.floor((boxWidth - artLine.length - 4) / 2);
+      
+      // Build the line with blood animation
+      let coloredLine = '';
+      for (let i = 0; i < artLine.length; i++) {
+        const char = artLine[i];
+        const globalPos = i;
+        
+        // Calculate distance from blood pulse center
+        const pulseCenter = this.bloodPosition - BLOOD_PULSE_WIDTH;
+        const dist = Math.abs(globalPos - pulseCenter);
+        
+        // Always show subtle pulse, more intense with network activity
+        const baseActivity = 0.2;
+        const effectiveActivity = baseActivity + (this.networkActivity * 0.1);
+        
+        // Color based on distance from pulse
+        if (char !== ' ') {
+          if (dist < BLOOD_PULSE_WIDTH / 2 && effectiveActivity > 0.3) {
+            // Core of pulse - bright red
+            coloredLine += `${FG_BRIGHT_RED}${char}`;
+          } else if (dist < BLOOD_PULSE_WIDTH && effectiveActivity > 0.2) {
+            // Edge of pulse - dim red
+            coloredLine += `${FG_RED}${char}`;
+          } else if (dist < BLOOD_PULSE_WIDTH * 1.5 && effectiveActivity > 0.1) {
+            // Fading edge - magenta tint
+            coloredLine += `${FG_MAGENTA}${char}`;
+          } else {
+            // Normal cyan
+            coloredLine += `${FG_BRIGHT_CYAN}${char}`;
+          }
+        } else {
+          coloredLine += char;
+        }
+      }
+      
+      // Position cursor and write the line
+      const row = artY + lineIdx;
+      const col = this.adaptiveMarginX + 2 + artPadding;
+      this.write(`${moveTo(row, col)}${BG_BLUE}${coloredLine}${RESET}`);
+    }
+  }
+
+  startServerPolling() {
+    // Poll every 2 seconds for server status
+    this.serverPollInterval = setInterval(async () => {
+      const wasUp = this.serverStatus.local;
+      await this.checkLocalServerWithDetails();
+      
+      // Pulse on server status change
+      if (wasUp !== this.serverStatus.local) {
+        this.pulseNetwork(2);
+      }
+      
+      // Only re-render if status changed or we have a new message
+      if (wasUp !== this.serverStatus.local || this.localStatusMessage) {
+        this.render();
+      }
+    }, 2000);
+  }
+
+  async checkLocalServerWithDetails() {
+    return new Promise((resolve) => {
+      const timeout = setTimeout(() => {
+        this.serverStatus.local = false;
+        this.localStatusMessage = 'waiting...';
+        resolve(false);
+      }, 2000);
+      
+      const options = {
+        hostname: 'localhost',
+        port: 8888,
+        path: '/',
+        method: 'GET',
+        rejectUnauthorized: false,
+        timeout: 2000
+      };
+      
+      const req = https.request(options, (res) => {
+        clearTimeout(timeout);
+        if (res.statusCode < 500) {
+          this.serverStatus.local = true;
+          this.localStatusMessage = ''; // Clear message when ready
+          resolve(true);
+        } else {
+          this.serverStatus.local = false;
+          this.localStatusMessage = `HTTP ${res.statusCode}`;
+          resolve(false);
+        }
+      });
+      
+      req.on('error', (err) => {
+        clearTimeout(timeout);
+        this.serverStatus.local = false;
+        // Parse error for helpful status
+        if (err.code === 'ECONNREFUSED') {
+          this.localStatusMessage = 'starting...';
+        } else if (err.code === 'ECONNRESET') {
+          this.localStatusMessage = 'restarting...';
+        } else if (err.code === 'ETIMEDOUT') {
+          this.localStatusMessage = 'timeout';
+        } else {
+          this.localStatusMessage = err.code || 'error';
+        }
+        resolve(false);
+      });
+      
+      req.on('timeout', () => {
+        clearTimeout(timeout);
+        req.destroy();
+        this.serverStatus.local = false;
+        this.localStatusMessage = 'slow...';
+        resolve(false);
+      });
+      
+      req.end();
+    });
   }
 
   write(str) {
@@ -233,6 +427,7 @@ class ArteryTUI {
       this.client = new Artery();
       await this.client.connect();
       this.connected = true;
+      this.pulseNetwork(5); // Big pulse on connect!
       
       // Get current piece
       try {
@@ -264,6 +459,7 @@ class ArteryTUI {
       this.setStatus(`Connected to AC! (${modeLabel})`, 'success');
     } catch (e) {
       this.connected = false;
+      this.pulseNetwork(3); // Pulse on connection failure
       this.setStatus(`Connection failed: ${e.message}`, 'error');
     }
   }
@@ -338,6 +534,9 @@ class ArteryTUI {
       this.logs.pop();
     }
     
+    // Pulse blood animation on log activity
+    this.pulseNetwork(level === 'error' ? 3 : 1);
+    
     // Track unread logs when not in logs mode
     if (this.mode !== 'logs' && this.mode !== 'repl') {
       this.unreadLogs = (this.unreadLogs || 0) + 1;
@@ -404,6 +603,9 @@ class ArteryTUI {
         break;
       case 'logs':
         this.handleLogsInput(key);
+        break;
+      case 'site':
+        this.handleSiteInput(key);
         break;
     }
   }
@@ -576,7 +778,7 @@ class ArteryTUI {
           this.mode = 'test-params';
           this.render();
         } else {
-          this.executeTest(test.file);
+          this.executeTest(test.file, '', test.isArtery || false);
         }
       }
       return;
@@ -669,8 +871,13 @@ class ArteryTUI {
         this.render();
       } else {
         // Run the test with params
-        const args = params.map(p => this.testParams[p.key] || p.default).join(' ');
-        this.executeTest(this.currentTest.file, args);
+        let args;
+        if (this.currentTest.formatArgs) {
+          args = this.currentTest.formatArgs(params, this.testParams);
+        } else {
+          args = params.map(p => this.testParams[p.key] || p.default).join(' ');
+        }
+        this.executeTest(this.currentTest.file, args, this.currentTest.isArtery || false);
       }
       return;
     }
@@ -791,8 +998,38 @@ class ArteryTUI {
       'greensleeves', 'when-the-saints', 'danny-boy'
     ];
     
+    // Genre + style options for composition test
+    const hiphopStyles = ['trap', 'boombap', 'lofi', '808', 'halftime', 'phonk', 'drill', 'gfunk'];
+    const waltzStyles = ['classic', 'dark', 'dreamy', 'baroque', 'minimal', 'phonk', 'viennese', 'drill'];
+    
     this.testFiles = [
       { name: 'notepat', file: 'test-notepat.mjs', desc: 'Notepat fuzzing test' },
+      {
+        name: 'composition',
+        file: 'artery/test-notepat.mjs',
+        desc: '🎹 Full composition [waltz/hiphop]',
+        isArtery: true, // Flag to use artery/ path
+        params: [
+          { key: 'genre', label: 'Genre', desc: '←→ to cycle', default: 'waltz', options: ['waltz', 'hiphop'] },
+          { key: 'style', label: 'Style', desc: '←→ to cycle (depends on genre)', default: 'classic', options: [...waltzStyles, ...hiphopStyles] },
+          { key: 'bars', label: 'Bars', desc: '←→ to adjust', default: '24', type: 'number', min: 8, max: 64, step: 4 },
+          { key: 'bpm', label: 'BPM', desc: '←→ to adjust', default: '140', type: 'number', min: 80, max: 200, step: 10 },
+          { key: 'scale', label: 'Scale', desc: '←→ to cycle', default: 'minor', options: ['minor', 'dorian', 'phrygian', 'harmonic', 'major'] },
+          { key: 'room', label: 'Room', desc: '←→ toggle reverb', default: '', options: ['', 'room'] },
+          { key: 'waves', label: 'Waves', desc: '←→ toggle wave changes', default: '', options: ['', 'waves'] },
+        ],
+        defaults: { genre: 'waltz', style: 'classic', bars: '24', bpm: '140', scale: 'minor', room: '', waves: '' },
+        // Custom arg formatter for composition test
+        formatArgs: (params, values) => {
+          const parts = [values.genre, values.style];
+          if (values.bars !== '24') parts.push(`bars=${values.bars}`);
+          if (values.bpm !== '140') parts.push(`bpm=${values.bpm}`);
+          if (values.scale !== 'minor') parts.push(`scale=${values.scale}`);
+          if (values.room) parts.push('room');
+          if (values.waves) parts.push('waves');
+          return parts.join(' ');
+        }
+      },
       {
         name: 'melody',
         file: 'test-melody.mjs',
@@ -828,7 +1065,7 @@ class ArteryTUI {
     this.render();
   }
   
-  async executeTest(testFile, args = '') {
+  async executeTest(testFile, args = '', isArtery = false) {
     this.mode = 'logs';
     this.testRunning = true;
     this.pendingRender = false;
@@ -838,7 +1075,8 @@ class ArteryTUI {
     
     try {
       const { spawn } = await import('child_process');
-      const testPath = `.vscode/tests/${testFile}`;
+      // Use artery/ path for artery tests, otherwise .vscode/tests/
+      const testPath = isArtery ? testFile : `.vscode/tests/${testFile}`;
       
       // Build command args
       const cmdArgs = [testPath];
@@ -887,6 +1125,168 @@ class ArteryTUI {
     this.mode = 'logs';
     this.unreadLogs = 0; // Clear unread count
     this.render();
+  }
+
+  enterSiteMode() {
+    this.mode = 'site';
+    this.render();
+  }
+
+  handleSiteInput(key) {
+    // 's' to start site
+    if (key === 's' || key === 'S') {
+      this.startSite();
+      return;
+    }
+    // 'k' to kill/stop site
+    if (key === 'k' || key === 'K') {
+      this.stopSite();
+      return;
+    }
+    // 'r' to restart
+    if (key === 'r' || key === 'R') {
+      this.restartSite();
+      return;
+    }
+    // 'c' to clear logs
+    if (key === 'c' || key === 'C') {
+      this.siteLogs = [];
+      this.render();
+      return;
+    }
+  }
+
+  async startSite() {
+    if (this.siteProcess) {
+      this.setStatus('Site already running', 'warn');
+      return;
+    }
+    
+    this.siteStatus = 'starting';
+    this.siteStartTime = Date.now();
+    this.siteLogs = [];
+    this.addSiteLog('🚀 Starting ac-site...', 'info');
+    this.render();
+    
+    try {
+      const { spawn } = await import('child_process');
+      
+      // Determine if we're in codespaces
+      const isCodespaces = !!process.env.CODESPACES;
+      const npmScript = isCodespaces ? 'codespaces-dev' : 'local-dev';
+      
+      this.addSiteLog(`📦 Using npm run ${npmScript}`, 'info');
+      
+      // First kill any existing processes
+      try {
+        const { execSync } = await import('child_process');
+        execSync('pkill -f "netlify dev" 2>/dev/null || true', { stdio: 'ignore' });
+        execSync('pkill -f "esbuild" 2>/dev/null || true', { stdio: 'ignore' });
+        execSync('npx kill-port 8880 8888 8889 8080 8000 8111 3333 3000 3001 2>/dev/null || true', { stdio: 'ignore' });
+      } catch (e) {
+        // Ignore cleanup errors
+      }
+      
+      // Start netlify dev
+      this.siteProcess = spawn('npm', ['run', npmScript], {
+        cwd: path.join(process.cwd(), 'system'),
+        stdio: ['ignore', 'pipe', 'pipe'],
+        env: { ...process.env, DENO_LOG_LEVEL: 'info', DEBUG: '' }
+      });
+      
+      this.siteProcess.stdout.on('data', (data) => {
+        const lines = data.toString().split('\n').filter(l => l.trim());
+        lines.forEach(line => {
+          // Filter out noisy debug lines
+          if (!line.includes('DEBUG RS') && !line.includes('[DEBUG]')) {
+            this.addSiteLog(line, 'log');
+            
+            // Check for ready indicators
+            if (line.includes('Server now ready') || line.includes('Local:') || line.includes('https://localhost:8888')) {
+              this.siteStatus = 'running';
+              const elapsed = ((Date.now() - this.siteStartTime) / 1000).toFixed(1);
+              this.addSiteLog(`✅ Site ready in ${elapsed}s!`, 'success');
+              this.setStatus(`ac-site running (started in ${elapsed}s)`, 'success');
+            }
+          }
+        });
+        this.render();
+      });
+      
+      this.siteProcess.stderr.on('data', (data) => {
+        const lines = data.toString().split('\n').filter(l => l.trim());
+        lines.forEach(line => {
+          if (!line.includes('DEBUG RS') && !line.includes('[DEBUG]')) {
+            this.addSiteLog(line, 'error');
+          }
+        });
+        this.render();
+      });
+      
+      this.siteProcess.on('close', (code) => {
+        this.siteProcess = null;
+        if (code === 0) {
+          this.siteStatus = 'stopped';
+          this.addSiteLog('🛑 Site stopped normally', 'info');
+        } else {
+          this.siteStatus = 'error';
+          this.addSiteLog(`❌ Site crashed with code ${code}`, 'error');
+        }
+        this.render();
+      });
+      
+      this.siteProcess.on('error', (err) => {
+        this.siteProcess = null;
+        this.siteStatus = 'error';
+        this.addSiteLog(`❌ Failed to start: ${err.message}`, 'error');
+        this.render();
+      });
+      
+    } catch (e) {
+      this.siteStatus = 'error';
+      this.addSiteLog(`❌ Error: ${e.message}`, 'error');
+      this.render();
+    }
+  }
+
+  async stopSite() {
+    if (!this.siteProcess) {
+      // Try to kill any orphan processes anyway
+      try {
+        const { execSync } = await import('child_process');
+        execSync('pkill -f "netlify dev" 2>/dev/null || true', { stdio: 'ignore' });
+        this.addSiteLog('🧹 Cleaned up orphan processes', 'info');
+      } catch (e) {}
+      this.siteStatus = 'stopped';
+      this.setStatus('Site stopped', 'info');
+      this.render();
+      return;
+    }
+    
+    this.addSiteLog('🛑 Stopping site...', 'info');
+    this.siteProcess.kill('SIGTERM');
+    
+    // Force kill after 3 seconds if still running
+    setTimeout(() => {
+      if (this.siteProcess) {
+        this.siteProcess.kill('SIGKILL');
+      }
+    }, 3000);
+  }
+
+  async restartSite() {
+    this.addSiteLog('🔄 Restarting site...', 'info');
+    await this.stopSite();
+    await new Promise(r => setTimeout(r, 1000));
+    await this.startSite();
+  }
+
+  addSiteLog(text, level = 'log') {
+    const timestamp = new Date().toLocaleTimeString();
+    this.siteLogs.push({ text, level, time: timestamp });
+    if (this.siteLogs.length > this.maxSiteLogs) {
+      this.siteLogs.shift();
+    }
   }
 
   enterReplMode() {
@@ -957,6 +1357,13 @@ class ArteryTUI {
   }
 
   quit() {
+    // Clean up polling and animation
+    if (this.serverPollInterval) {
+      clearInterval(this.serverPollInterval);
+    }
+    if (this.bloodAnimInterval) {
+      clearInterval(this.bloodAnimInterval);
+    }
     this.write(CURSOR_SHOW);
     this.write(CLEAR_SCREEN);
     this.write(CURSOR_HOME);
@@ -968,28 +1375,46 @@ class ArteryTUI {
 
   // Helper to get inner width (accounting for margins)
   get innerWidth() {
-    return this.width - (this.marginX * 2);
+    // Minimum width of 40, use full width minus margins
+    return Math.max(40, this.width - (this.marginX * 2));
   }
   
   // Helper to get inner height (accounting for margins)  
   get innerHeight() {
-    return this.height - (this.marginY * 2);
+    return Math.max(10, this.height - (this.marginY * 2));
   }
   
-  // Write a line with margins
+  // Get adaptive margin based on terminal width
+  get adaptiveMarginX() {
+    if (this.width < 60) return 0;
+    if (this.width < 80) return 1;
+    return this.marginX;
+  }
+  
+  // Write a line with margins and full background fill
   writeLine(content) {
-    const margin = ' '.repeat(this.marginX);
-    this.write(`${margin}${content}\n`);
+    const margin = ' '.repeat(this.adaptiveMarginX);
+    const lineContent = `${BG_BLUE}${margin}${RESET}${content}`;
+    // Fill rest of line with background
+    const contentLen = this.stripAnsi(lineContent).length;
+    const fill = this.width - contentLen;
+    this.write(`${lineContent}${fill > 0 ? BG_BLUE + ' '.repeat(fill) + RESET : ''}\n`);
   }
 
   // Rendering
   render() {
     this.write(CURSOR_HOME);
-    this.write(CLEAR_SCREEN);
     
-    // Top margin
+    // Fill entire screen with DOS blue background
+    const bgFill = `${BG_BLUE}${' '.repeat(this.width)}${RESET}`;
+    for (let i = 0; i < this.height; i++) {
+      this.write(`${moveTo(i + 1, 1)}${bgFill}`);
+    }
+    this.write(CURSOR_HOME);
+    
+    // Top margin with background
     for (let i = 0; i < this.marginY; i++) {
-      this.write('\n');
+      this.write(`${BG_BLUE}${' '.repeat(this.width)}${RESET}\n`);
     }
     
     switch (this.mode) {
@@ -1012,98 +1437,175 @@ class ArteryTUI {
       case 'logs':
         this.renderLogs();
         break;
+      case 'site':
+        this.renderSite();
+        break;
     }
   }
 
   renderHeader() {
-    const title = ' 🩸 ARTERY TUI ';
-    const status = this.connected 
-      ? `${FG_GREEN}● Connected${RESET}` 
-      : `${FG_RED}○ Disconnected${RESET}`;
-    const piece = this.currentPiece ? ` | ${FG_CYAN}${this.currentPiece}${RESET}` : '';
-    
-    // Server status indicators
-    const localIcon = this.serverStatus.local === true ? `${FG_GREEN}●${RESET}` 
-                    : this.serverStatus.local === false ? `${FG_RED}○${RESET}` 
-                    : `${DIM}?${RESET}`;
-    const prodIcon = this.serverStatus.production === true ? `${FG_GREEN}●${RESET}` 
-                   : this.serverStatus.production === false ? `${FG_RED}○${RESET}` 
-                   : `${DIM}?${RESET}`;
-    const serverInfo = ` | ${DIM}L:${RESET}${localIcon} ${DIM}P:${RESET}${prodIcon}`;
-    
     const boxWidth = this.innerWidth;
+    const compact = this.width < 80;
     
-    // Top border
-    this.writeLine(`${FG_BRIGHT_MAGENTA}${BOX.topLeft}${BOX.horizontal.repeat(boxWidth - 2)}${BOX.topRight}${RESET}`);
+    // AC status - Open/Closed (keep BG_BLUE throughout)
+    const acStatus = this.connected 
+      ? `${BG_BLUE}${FG_BRIGHT_GREEN}AC Open` 
+      : `${BG_BLUE}${FG_BRIGHT_RED}AC Closed`;
+    const piece = this.currentPiece ? ` ${FG_BRIGHT_CYAN}│ ${FG_BRIGHT_YELLOW}${this.currentPiece}` : '';
     
-    // Title line
-    const titleLine = `${BOX.vertical} ${BG_MAGENTA}${FG_WHITE}${BOLD}${title}${RESET} ${status}${piece}${serverInfo}`;
-    const padding = boxWidth - this.stripAnsi(titleLine).length - 1;
-    this.writeLine(`${FG_BRIGHT_MAGENTA}${titleLine}${' '.repeat(Math.max(0, padding))}${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET}`);
+    // Server status indicators with transient message (keep BG_BLUE)
+    const localIcon = this.serverStatus.local === true ? `${FG_BRIGHT_GREEN}●` 
+                    : this.serverStatus.local === false ? `${FG_BRIGHT_YELLOW}◐` 
+                    : `${DIM}?`;
+    const localMsg = this.localStatusMessage ? ` ${FG_BRIGHT_YELLOW}${this.localStatusMessage}` : '';
+    const prodIcon = this.serverStatus.production === true ? `${FG_BRIGHT_GREEN}●` 
+                   : this.serverStatus.production === false ? `${FG_BRIGHT_RED}○` 
+                   : `${DIM}?`;
+    const serverInfo = compact 
+      ? ` ${localIcon}${prodIcon}` 
+      : ` ${FG_BRIGHT_CYAN}│ ${FG_CYAN}L${localIcon}${localMsg} ${FG_CYAN}P${prodIcon}`;
+    
+    // Top border - DOS style double line
+    this.writeLine(`${DOS_BORDER}╔${'═'.repeat(boxWidth - 2)}╗${RESET}`);
+    
+    // ASCII art title - only show if wide enough
+    if (!compact) {
+      for (const artLine of ARTERY_ASCII) {
+        const artPadding = Math.floor((boxWidth - artLine.length - 4) / 2);
+        const rightPad = boxWidth - artLine.length - artPadding - 2;
+        
+        // Animate blood flow through the ASCII art
+        let animatedLine = '';
+        for (let i = 0; i < artLine.length; i++) {
+          const char = artLine[i];
+          // Calculate distance from blood pulse position
+          const pulseCenter = this.bloodPosition - BLOOD_PULSE_WIDTH;
+          const distance = Math.abs(i - pulseCenter);
+          
+          // Always show subtle pulse, more intense with network activity
+          const baseActivity = 0.2; // Always have some animation
+          const effectiveActivity = baseActivity + (this.networkActivity * 0.1);
+          const inPulse = distance < BLOOD_PULSE_WIDTH;
+          
+          if (inPulse && char !== ' ') {
+            // Blood pulse - red color intensity based on distance from center
+            const intensity = 1 - (distance / BLOOD_PULSE_WIDTH);
+            if (intensity > 0.6 && effectiveActivity > 0.3) {
+              animatedLine += `${FG_BRIGHT_RED}${char}${FG_BRIGHT_CYAN}`;
+            } else if (intensity > 0.3 && effectiveActivity > 0.2) {
+              animatedLine += `${FG_RED}${char}${FG_BRIGHT_CYAN}`;
+            } else if (intensity > 0 && effectiveActivity > 0.1) {
+              animatedLine += `${FG_MAGENTA}${char}${FG_BRIGHT_CYAN}`;
+            } else {
+              animatedLine += char;
+            }
+          } else {
+            animatedLine += char;
+          }
+        }
+        
+        this.writeLine(`${DOS_BORDER}║${BG_BLUE}${' '.repeat(Math.max(0, artPadding))}${FG_BRIGHT_CYAN}${animatedLine}${' '.repeat(Math.max(0, rightPad))}${DOS_BORDER}║${RESET}`);
+      }
+    } else {
+      // Compact title
+      const compactTitle = `${FG_BRIGHT_CYAN}${BOLD}ARTERY`;
+      const titlePad = Math.floor((boxWidth - 10) / 2);
+      this.writeLine(`${DOS_BORDER}║${BG_BLUE}${' '.repeat(Math.max(0, titlePad))}${compactTitle}${' '.repeat(Math.max(0, boxWidth - titlePad - 10))}${DOS_BORDER}║${RESET}`);
+    }
+    
+    // Status line - all on blue background
+    const statusLine = `${acStatus}${piece}${serverInfo}`;
+    const statusPadding = boxWidth - this.stripAnsi(statusLine).length - 2;
+    this.writeLine(`${DOS_BORDER}║${BG_BLUE}${statusLine}${' '.repeat(Math.max(0, statusPadding))}${DOS_BORDER}║${RESET}`);
     
     // Separator
-    this.writeLine(`${FG_BRIGHT_MAGENTA}${BOX.teeRight}${BOX.horizontal.repeat(boxWidth - 2)}${BOX.teeLeft}${RESET}`);
+    this.writeLine(`${DOS_BORDER}╠${'═'.repeat(boxWidth - 2)}╣${RESET}`);
   }
 
   renderFooter() {
     const boxWidth = this.innerWidth;
+    const compact = this.width < 80;
     
-    // Status message
+    // Status message (truncate if needed) - keep BG_BLUE throughout
     let statusLine = '';
     if (this.statusMessage) {
       const colors = {
-        info: FG_CYAN,
-        success: FG_GREEN,
-        warn: FG_YELLOW,
-        error: FG_RED,
+        info: FG_BRIGHT_CYAN,
+        success: FG_BRIGHT_GREEN,
+        warn: FG_BRIGHT_YELLOW,
+        error: FG_BRIGHT_RED,
       };
-      statusLine = `${colors[this.statusType] || FG_WHITE}${this.statusMessage}${RESET}`;
+      const maxMsgLen = boxWidth - 6;
+      const truncMsg = this.statusMessage.length > maxMsgLen 
+        ? this.statusMessage.slice(0, maxMsgLen - 3) + '...' 
+        : this.statusMessage;
+      statusLine = `${BG_BLUE}${colors[this.statusType] || FG_WHITE}${truncMsg}`;
     }
     
-    // Bottom border with status
-    this.writeLine(`${FG_BRIGHT_MAGENTA}${BOX.teeRight}${BOX.horizontal.repeat(boxWidth - 2)}${BOX.teeLeft}${RESET}`);
+    // Bottom border with status - DOS style
+    this.writeLine(`${DOS_BORDER}╠${'═'.repeat(boxWidth - 2)}╣${RESET}`);
     
-    const footerContent = statusLine || `${DIM}Press [q] to quit | [Esc] for menu${RESET}`;
-    const footerPadding = boxWidth - this.stripAnsi(footerContent).length - 4;
-    this.writeLine(`${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET} ${footerContent}${' '.repeat(Math.max(0, footerPadding))}${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET}`);
+    const footerHint = compact ? `${BG_BLUE}${FG_CYAN}Q${FG_WHITE}uit ${FG_CYAN}Esc` : `${BG_BLUE}${FG_CYAN}[Q]${FG_WHITE}uit ${FG_CYAN}[Esc]${FG_WHITE}Menu`;
+    const footerContent = statusLine || footerHint;
+    const footerPadding = boxWidth - this.stripAnsi(footerContent).length - 2;
+    this.writeLine(`${DOS_BORDER}║${BG_BLUE}${footerContent}${' '.repeat(Math.max(0, footerPadding))}${DOS_BORDER}║${RESET}`);
     
-    this.writeLine(`${FG_BRIGHT_MAGENTA}${BOX.bottomLeft}${BOX.horizontal.repeat(boxWidth - 2)}${BOX.bottomRight}${RESET}`);
+    this.writeLine(`${DOS_BORDER}╚${'═'.repeat(boxWidth - 2)}╝${RESET}`);
   }
 
   renderMenu() {
     this.renderHeader();
     const boxWidth = this.innerWidth;
+    const compact = this.width < 80;
     
-    // Menu items - update logs item to show unread count
-    this.menuItems.forEach((item, i) => {
+    // Calculate how many menu items we can show
+    const headerLines = compact ? 4 : 5;
+    const footerLines = 3;
+    const logPreviewMinLines = 2;
+    const availableLines = this.innerHeight - headerLines - footerLines - logPreviewMinLines - 2;
+    const visibleMenuItems = Math.min(this.menuItems.length, Math.max(3, availableLines));
+    
+    // Menu items - DOS style with highlight
+    for (let i = 0; i < visibleMenuItems; i++) {
+      const item = this.menuItems[i];
       const selected = i === this.selectedIndex;
-      const prefix = selected ? `${BG_MAGENTA}${FG_WHITE} ▸ ` : '   ';
-      const suffix = selected ? ` ${RESET}` : '';
-      const key = `${FG_YELLOW}[${item.key}]${RESET}`;
-      let label = selected ? `${BOLD}${item.label}${RESET}` : item.label;
-      let desc = `${DIM}${item.desc}${RESET}`;
+      const prefix = selected ? `${DOS_HIGHLIGHT}► ` : `${BG_BLUE}  `;
+      const suffix = selected ? `${RESET}` : `${RESET}`;
+      const key = selected ? `${FG_BLACK}[${item.key}]` : `${FG_BRIGHT_YELLOW}[${item.key}]${RESET}${BG_BLUE}`;
+      let label = selected ? `${FG_BLACK}${BOLD}${item.label}` : `${FG_WHITE}${item.label}`;
+      // Only show description if wide enough
+      let desc = compact ? '' : (selected ? `${FG_BLACK}${item.desc}` : `${FG_CYAN}${item.desc}`);
       
       // Add unread badge to logs item
       if (item.key === 'l' && this.unreadLogs > 0) {
-        label = `${label} ${BG_RED}${FG_WHITE} ${this.unreadLogs} ${RESET}`;
+        label = `${label}${RESET}${selected ? DOS_HIGHLIGHT : BG_BLUE} ${BG_RED}${FG_WHITE}${this.unreadLogs}${RESET}${selected ? DOS_HIGHLIGHT : BG_BLUE}`;
       }
       
-      const line = `${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET}${prefix}${key} ${label} ${desc}${suffix}`;
+      const line = `${DOS_BORDER}║${RESET}${prefix}${key} ${label}${desc ? ' ' + desc : ''}${suffix}`;
       const padding = boxWidth - this.stripAnsi(line).length - 1;
-      this.writeLine(`${line}${' '.repeat(Math.max(0, padding))}${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET}`);
-    });
+      this.writeLine(`${line}${BG_BLUE}${' '.repeat(Math.max(0, padding))}${DOS_BORDER}║${RESET}`);
+    }
     
-    // Separator before live log preview
-    this.writeLine(`${FG_BRIGHT_MAGENTA}${BOX.teeRight}${BOX.lightH.repeat(boxWidth - 2)}${BOX.teeLeft}${RESET}`);
+    // Show scroll indicator if more items
+    if (visibleMenuItems < this.menuItems.length) {
+      const moreText = `${FG_CYAN}...${this.menuItems.length - visibleMenuItems} more${RESET}`;
+      const moreLine = `${DOS_BORDER}║${RESET}${BG_BLUE}  ${moreText}`;
+      const morePad = boxWidth - this.stripAnsi(moreLine).length - 1;
+      this.writeLine(`${moreLine}${BG_BLUE}${' '.repeat(Math.max(0, morePad))}${DOS_BORDER}║${RESET}`);
+    }
     
-    // Show recent logs preview at bottom
-    const logPreviewTitle = `${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET} ${DIM}📋 Recent Logs (${this.logs.length} total)${RESET}`;
+    // Separator before live log preview - DOS style
+    this.writeLine(`${DOS_BORDER}╟${'─'.repeat(boxWidth - 2)}╢${RESET}`);
+    
+    // Show recent logs preview at bottom - DOS style
+    const logPreviewTitle = `${DOS_BORDER}║${RESET}${BG_BLUE}${FG_BRIGHT_YELLOW}► Logs${FG_CYAN}(${this.logs.length})${RESET}`;
     const titlePadding = boxWidth - this.stripAnsi(logPreviewTitle).length - 1;
-    this.writeLine(`${logPreviewTitle}${' '.repeat(Math.max(0, titlePadding))}${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET}`);
+    this.writeLine(`${logPreviewTitle}${BG_BLUE}${' '.repeat(Math.max(0, titlePadding))}${DOS_BORDER}║${RESET}`);
     
-    // Calculate space for log preview
-    const usedLines = 3 + this.menuItems.length + 2 + 3 + (this.marginY * 2); // header + items + separator + title + footer + margins
-    const logPreviewLines = Math.max(0, this.height - usedLines - 1);
+    // Calculate space for log preview dynamically
+    const menuShown = visibleMenuItems + (visibleMenuItems < this.menuItems.length ? 1 : 0);
+    const usedLines = headerLines + menuShown + 2 + 3 + (this.marginY * 2); // header + items + separator + title + footer + margins
+    const logPreviewLines = Math.max(1, this.height - usedLines - 1);
     const recentLogs = this.logs.slice(0, logPreviewLines);
     
     for (let i = 0; i < logPreviewLines; i++) {
@@ -1111,18 +1613,20 @@ class ArteryTUI {
         const log = recentLogs[i];
         const colors = {
           log: FG_WHITE,
-          info: FG_CYAN,
-          warn: FG_YELLOW,
-          error: FG_RED,
-          warning: FG_YELLOW,
+          info: FG_BRIGHT_CYAN,
+          warn: FG_BRIGHT_YELLOW,
+          error: FG_BRIGHT_RED,
+          warning: FG_BRIGHT_YELLOW,
         };
         const color = colors[log.level] || FG_WHITE;
-        const line = `${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET} ${DIM}${log.timestamp}${RESET} ${color}${log.text}${RESET}`;
-        const truncated = this.truncate(line, boxWidth - 2);
+        // Compact: skip timestamp
+        const timeStamp = compact ? '' : `${FG_CYAN}${log.timestamp}${RESET}${BG_BLUE} `;
+        const line = `${DOS_BORDER}║${RESET}${BG_BLUE}${timeStamp}${color}${log.text}${RESET}`;
+        const truncated = this.truncate(line, boxWidth - 1);
         const padding = boxWidth - this.stripAnsi(truncated).length - 1;
-        this.writeLine(`${truncated}${' '.repeat(Math.max(0, padding))}${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET}`);
+        this.writeLine(`${truncated}${BG_BLUE}${' '.repeat(Math.max(0, padding))}${DOS_BORDER}║${RESET}`);
       } else {
-        this.writeLine(`${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET}${' '.repeat(boxWidth - 2)}${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET}`);
+        this.writeLine(`${DOS_BORDER}║${BG_BLUE}${' '.repeat(boxWidth - 2)}${DOS_BORDER}║${RESET}`);
       }
     }
     
@@ -1132,81 +1636,85 @@ class ArteryTUI {
   renderRepl() {
     this.renderHeader();
     const boxWidth = this.innerWidth;
+    const compact = this.width < 80;
     
-    // REPL title
-    const replTitle = `${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET} ${BOLD}${FG_CYAN}JavaScript REPL${RESET} ${DIM}(type .help for commands)${RESET}`;
+    // REPL title - DOS style
+    const helpHint = compact ? '' : ` ${FG_CYAN}(.help)${RESET}`;
+    const replTitle = `${DOS_BORDER}║${RESET}${BG_BLUE}${FG_BRIGHT_YELLOW}►${FG_WHITE}REPL${helpHint}`;
     const replPadding = boxWidth - this.stripAnsi(replTitle).length - 1;
-    this.writeLine(`${replTitle}${' '.repeat(Math.max(0, replPadding))}${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET}`);
-    this.writeLine(`${FG_BRIGHT_MAGENTA}${BOX.teeRight}${BOX.lightH.repeat(boxWidth - 2)}${BOX.teeLeft}${RESET}`);
+    this.writeLine(`${replTitle}${BG_BLUE}${' '.repeat(Math.max(0, replPadding))}${DOS_BORDER}║${RESET}`);
+    this.writeLine(`${DOS_BORDER}╟${'─'.repeat(boxWidth - 2)}╢${RESET}`);
     
     // Show recent logs
-    const logLines = this.innerHeight - 10;
+    const logLines = Math.max(1, this.innerHeight - 10);
     const recentLogs = this.logs.slice(0, logLines).reverse();
     
     for (const log of recentLogs) {
       const colors = {
         log: FG_WHITE,
-        info: FG_CYAN,
-        warn: FG_YELLOW,
-        error: FG_RED,
+        info: FG_BRIGHT_CYAN,
+        warn: FG_BRIGHT_YELLOW,
+        error: FG_BRIGHT_RED,
         input: FG_BRIGHT_MAGENTA,
-        result: FG_GREEN,
+        result: FG_BRIGHT_GREEN,
       };
       const color = colors[log.level] || FG_WHITE;
-      const line = `${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET} ${DIM}${log.timestamp}${RESET} ${color}${log.text}${RESET}`;
-      const truncated = this.truncate(line, boxWidth - 2);
+      const timeStamp = compact ? '' : `${FG_CYAN}${log.timestamp}${RESET}${BG_BLUE} `;
+      const line = `${DOS_BORDER}║${RESET}${BG_BLUE}${timeStamp}${color}${log.text}${RESET}`;
+      const truncated = this.truncate(line, boxWidth - 1);
       const padding = boxWidth - this.stripAnsi(truncated).length - 1;
-      this.writeLine(`${truncated}${' '.repeat(Math.max(0, padding))}${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET}`);
+      this.writeLine(`${truncated}${BG_BLUE}${' '.repeat(Math.max(0, padding))}${DOS_BORDER}║${RESET}`);
     }
     
     // Fill remaining
     for (let i = recentLogs.length; i < logLines; i++) {
-      this.writeLine(`${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET}${' '.repeat(boxWidth - 2)}${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET}`);
+      this.writeLine(`${DOS_BORDER}║${BG_BLUE}${' '.repeat(boxWidth - 2)}${DOS_BORDER}║${RESET}`);
     }
     
     // Input line
-    this.writeLine(`${FG_BRIGHT_MAGENTA}${BOX.teeRight}${BOX.lightH.repeat(boxWidth - 2)}${BOX.teeLeft}${RESET}`);
-    const prompt = `${FG_BRIGHT_MAGENTA}🩸${RESET} `;
-    const inputLine = `${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET} ${prompt}${this.inputBuffer}`;
+    this.writeLine(`${DOS_BORDER}╟${'─'.repeat(boxWidth - 2)}╢${RESET}`);
+    const prompt = `${FG_BRIGHT_MAGENTA}🩸${RESET}${BG_BLUE}`;
+    const inputLine = `${DOS_BORDER}║${RESET}${BG_BLUE}${prompt}${FG_WHITE}${this.inputBuffer}${RESET}`;
     const inputPadding = boxWidth - this.stripAnsi(inputLine).length - 1;
-    this.writeLine(`${inputLine}${' '.repeat(Math.max(0, inputPadding))}${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET}`);
+    this.writeLine(`${inputLine}${BG_BLUE}${' '.repeat(Math.max(0, inputPadding))}${DOS_BORDER}║${RESET}`);
     
     this.renderFooter();
     
     // Show cursor at input position
     this.write(CURSOR_SHOW);
-    this.write(moveTo(this.height - 3, this.marginX + 6 + this.inputBuffer.length));
+    this.write(moveTo(this.height - 3, this.adaptiveMarginX + 6 + this.inputBuffer.length));
   }
 
   renderPieces() {
     this.renderHeader();
     const boxWidth = this.innerWidth;
+    const compact = this.width < 80;
     
     // Title with piece count
-    const countInfo = `${DIM}(${this.filteredPieces.length}/${this.allPieces.length} pieces)${RESET}`;
-    const pieceTitle = `${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET} ${BOLD}${FG_CYAN}Jump to Piece${RESET} ${countInfo}`;
+    const countInfo = compact ? '' : ` ${DIM}(${this.filteredPieces.length}/${this.allPieces.length})${RESET}`;
+    const pieceTitle = `${DOS_BORDER}║${RESET}${BG_BLUE}${FG_BRIGHT_YELLOW}►${FG_WHITE}Pieces${countInfo}`;
     const piecePadding = boxWidth - this.stripAnsi(pieceTitle).length - 1;
-    this.writeLine(`${pieceTitle}${' '.repeat(Math.max(0, piecePadding))}${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET}`);
+    this.writeLine(`${pieceTitle}${BG_BLUE}${' '.repeat(Math.max(0, piecePadding))}${DOS_BORDER}║${RESET}`);
     
     // Search input line
-    const searchPrompt = `${FG_YELLOW}🔍${RESET} `;
-    const searchDisplay = this.inputBuffer || `${DIM}Type to search...${RESET}`;
-    const searchLine = `${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET} ${searchPrompt}${searchDisplay}`;
+    const searchPrompt = `${FG_YELLOW}🔍${RESET}${BG_BLUE}`;
+    const searchDisplay = this.inputBuffer || `${DIM}search...${RESET}`;
+    const searchLine = `${DOS_BORDER}║${RESET}${BG_BLUE}${searchPrompt}${searchDisplay}`;
     const searchPadding = boxWidth - this.stripAnsi(searchLine).length - 1;
-    this.writeLine(`${searchLine}${' '.repeat(Math.max(0, searchPadding))}${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET}`);
+    this.writeLine(`${searchLine}${BG_BLUE}${' '.repeat(Math.max(0, searchPadding))}${DOS_BORDER}║${RESET}`);
     
-    this.writeLine(`${FG_BRIGHT_MAGENTA}${BOX.teeRight}${BOX.lightH.repeat(boxWidth - 2)}${BOX.teeLeft}${RESET}`);
+    this.writeLine(`${DOS_BORDER}╟${'─'.repeat(boxWidth - 2)}╢${RESET}`);
     
     // Pieces list
-    const visibleCount = this.innerHeight - 10;
+    const visibleCount = Math.max(1, this.innerHeight - 10);
     const startIdx = Math.max(0, this.selectedIndex - Math.floor(visibleCount / 2));
     const endIdx = Math.min(this.filteredPieces.length, startIdx + visibleCount);
     
     for (let i = startIdx; i < endIdx; i++) {
       const piece = this.filteredPieces[i];
       const selected = i === this.selectedIndex;
-      const prefix = selected ? `${BG_MAGENTA}${FG_WHITE} ▸ ` : '   ';
-      const suffix = selected ? ` ${RESET}` : '';
+      const prefix = selected ? `${DOS_HIGHLIGHT}▸ ` : `${BG_BLUE}  `;
+      const suffix = selected ? `${RESET}` : `${RESET}`;
       
       // Highlight matching part of name
       let label;
@@ -1216,60 +1724,62 @@ class ArteryTUI {
         const match = piece.slice(idx, idx + this.inputBuffer.length);
         const after = piece.slice(idx + this.inputBuffer.length);
         label = selected 
-          ? `${BOLD}${before}${FG_YELLOW}${match}${FG_WHITE}${after}${RESET}` 
-          : `${before}${FG_YELLOW}${match}${RESET}${after}`;
+          ? `${FG_BLACK}${BOLD}${before}${FG_YELLOW}${match}${FG_BLACK}${after}${RESET}` 
+          : `${FG_WHITE}${before}${FG_YELLOW}${match}${FG_WHITE}${after}${RESET}`;
       } else {
-        label = selected ? `${BOLD}${piece}${RESET}` : piece;
+        label = selected ? `${FG_BLACK}${BOLD}${piece}${RESET}` : `${FG_WHITE}${piece}${RESET}`;
       }
       
-      const line = `${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET}${prefix}${label}${suffix}`;
+      const line = `${DOS_BORDER}║${RESET}${prefix}${label}${suffix}`;
       const padding = boxWidth - this.stripAnsi(line).length - 1;
-      this.writeLine(`${line}${' '.repeat(Math.max(0, padding))}${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET}`);
+      this.writeLine(`${line}${BG_BLUE}${' '.repeat(Math.max(0, padding))}${DOS_BORDER}║${RESET}`);
     }
     
     // Fill remaining
     for (let i = endIdx - startIdx; i < visibleCount; i++) {
-      this.writeLine(`${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET}${' '.repeat(boxWidth - 2)}${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET}`);
+      this.writeLine(`${DOS_BORDER}║${BG_BLUE}${' '.repeat(boxWidth - 2)}${DOS_BORDER}║${RESET}`);
     }
     
     this.renderFooter();
     
     // Show cursor at search position
     this.write(CURSOR_SHOW);
-    this.write(moveTo(this.marginY + 2, this.marginX + 5 + this.inputBuffer.length));
+    this.write(moveTo(this.marginY + 2, this.adaptiveMarginX + 5 + this.inputBuffer.length));
   }
 
   renderTests() {
     this.renderHeader();
     const boxWidth = this.innerWidth;
+    const compact = this.width < 80;
     
     // Title
-    const testTitle = `${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET} ${BOLD}${FG_CYAN}🧪 Test Suite${RESET} ${DIM}(↑↓ to select, Enter to run/configure)${RESET}`;
+    const hint = compact ? '' : ` ${DIM}(↑↓,Enter)${RESET}`;
+    const testTitle = `${DOS_BORDER}║${RESET}${BG_BLUE}${FG_BRIGHT_YELLOW}►${FG_WHITE}Tests${hint}`;
     const testPadding = boxWidth - this.stripAnsi(testTitle).length - 1;
-    this.writeLine(`${testTitle}${' '.repeat(Math.max(0, testPadding))}${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET}`);
-    this.writeLine(`${FG_BRIGHT_MAGENTA}${BOX.teeRight}${BOX.lightH.repeat(boxWidth - 2)}${BOX.teeLeft}${RESET}`);
+    this.writeLine(`${testTitle}${BG_BLUE}${' '.repeat(Math.max(0, testPadding))}${DOS_BORDER}║${RESET}`);
+    this.writeLine(`${DOS_BORDER}╟${'─'.repeat(boxWidth - 2)}╢${RESET}`);
     
     // Tests list
     const tests = this.testFiles || [];
-    const visibleCount = this.innerHeight - 8;
+    const visibleCount = Math.max(1, this.innerHeight - 8);
     
     for (let i = 0; i < Math.min(tests.length, visibleCount); i++) {
       const test = tests[i];
       const selected = i === this.selectedIndex;
-      const prefix = selected ? `${BG_MAGENTA}${FG_WHITE} ▸ ` : '   ';
-      const suffix = selected ? `${RESET}` : '';
-      const configIcon = test.params ? `${FG_YELLOW}⚙${RESET} ` : '';
-      const label = selected ? `${BOLD}${test.name}${RESET}` : test.name;
-      const desc = `${DIM}${test.desc}${RESET}`;
+      const prefix = selected ? `${DOS_HIGHLIGHT}▸ ` : `${BG_BLUE}  `;
+      const suffix = selected ? `${RESET}` : `${RESET}`;
+      const configIcon = test.params ? `${selected ? FG_BLACK : FG_YELLOW}⚙${RESET}${selected ? DOS_HIGHLIGHT : BG_BLUE}` : '';
+      const label = selected ? `${FG_BLACK}${BOLD}${test.name}${RESET}` : `${FG_WHITE}${test.name}${RESET}`;
+      const desc = compact ? '' : ` ${DIM}${test.desc}${RESET}`;
       
-      const line = `${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET}${prefix}${configIcon}${label}${suffix} ${desc}`;
+      const line = `${DOS_BORDER}║${RESET}${prefix}${configIcon}${label}${suffix}${desc}`;
       const padding = boxWidth - this.stripAnsi(line).length - 1;
-      this.writeLine(`${line}${' '.repeat(Math.max(0, padding))}${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET}`);
+      this.writeLine(`${line}${BG_BLUE}${' '.repeat(Math.max(0, padding))}${DOS_BORDER}║${RESET}`);
     }
     
     // Fill remaining
     for (let i = tests.length; i < visibleCount; i++) {
-      this.writeLine(`${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET}${' '.repeat(boxWidth - 2)}${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET}`);
+      this.writeLine(`${DOS_BORDER}║${BG_BLUE}${' '.repeat(boxWidth - 2)}${DOS_BORDER}║${RESET}`);
     }
     
     this.renderFooter();
@@ -1278,64 +1788,69 @@ class ArteryTUI {
   renderTestParams() {
     this.renderHeader();
     const boxWidth = this.innerWidth;
+    const compact = this.width < 80;
     const test = this.currentTest;
     const params = test?.params || [];
     
     // Title
-    const testTitle = `${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET} ${BOLD}${FG_CYAN}⚙ Configure: ${test?.name}${RESET} ${DIM}(↑↓ move, ←→ change value, Enter confirm)${RESET}`;
+    const hint = compact ? '' : ` ${DIM}(←→,Enter)${RESET}`;
+    const testTitle = `${DOS_BORDER}║${RESET}${BG_BLUE}${FG_BRIGHT_YELLOW}⚙${FG_WHITE}${test?.name}${hint}`;
     const testPadding = boxWidth - this.stripAnsi(testTitle).length - 1;
-    this.writeLine(`${testTitle}${' '.repeat(Math.max(0, testPadding))}${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET}`);
-    this.writeLine(`${FG_BRIGHT_MAGENTA}${BOX.teeRight}${BOX.lightH.repeat(boxWidth - 2)}${BOX.teeLeft}${RESET}`);
+    this.writeLine(`${testTitle}${BG_BLUE}${' '.repeat(Math.max(0, testPadding))}${DOS_BORDER}║${RESET}`);
+    this.writeLine(`${DOS_BORDER}╟${'─'.repeat(boxWidth - 2)}╢${RESET}`);
     
     // Parameters list
     for (let i = 0; i < params.length; i++) {
       const param = params[i];
       const selected = i === this.paramIndex;
-      const prefix = selected ? `${BG_MAGENTA}${FG_WHITE} ▸ ` : '   ';
-      const suffix = selected ? `${RESET}` : '';
+      const prefix = selected ? `${DOS_HIGHLIGHT}▸ ` : `${BG_BLUE}  `;
+      const suffix = selected ? `${RESET}` : `${RESET}`;
       
       const value = selected ? this.inputBuffer : (this.testParams[param.key] || param.default);
       
       // Show value with arrows if it has options or is a number
       let valueDisplay;
       if (selected && (param.options || param.type === 'number')) {
-        const leftArrow = `${FG_YELLOW}◀${RESET}`;
-        const rightArrow = `${FG_YELLOW}▶${RESET}`;
-        valueDisplay = value ? `${leftArrow} ${FG_GREEN}${value}${RESET} ${rightArrow}` : `${leftArrow} ${DIM}(empty)${RESET} ${rightArrow}`;
+        const leftArrow = `${FG_BLACK}◀`;
+        const rightArrow = `${FG_BLACK}▶`;
+        valueDisplay = value ? `${leftArrow} ${FG_YELLOW}${value}${RESET}${DOS_HIGHLIGHT} ${rightArrow}` : `${leftArrow} ${DIM}(empty)${RESET}${DOS_HIGHLIGHT} ${rightArrow}`;
       } else {
-        valueDisplay = value ? `${FG_GREEN}${value}${RESET}` : `${DIM}(empty)${RESET}`;
+        valueDisplay = value ? `${selected ? FG_YELLOW : FG_GREEN}${value}${RESET}` : `${DIM}(empty)${RESET}`;
       }
       
-      const label = selected ? `${BOLD}${param.label}${RESET}` : param.label;
-      const desc = `${DIM}${param.desc}${RESET}`;
+      const label = selected ? `${FG_BLACK}${BOLD}${param.label}${RESET}` : `${FG_WHITE}${param.label}${RESET}`;
+      const desc = compact ? '' : ` ${DIM}${param.desc}${RESET}`;
       
-      const line = `${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET}${prefix}${label}:${suffix} ${valueDisplay} ${desc}`;
+      const line = `${DOS_BORDER}║${RESET}${prefix}${label}:${suffix} ${valueDisplay}${desc}`;
       const padding = boxWidth - this.stripAnsi(line).length - 1;
-      this.writeLine(`${line}${' '.repeat(Math.max(0, padding))}${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET}`);
+      this.writeLine(`${line}${BG_BLUE}${' '.repeat(Math.max(0, padding))}${DOS_BORDER}║${RESET}`);
     }
     
     // Run button
-    this.writeLine(`${FG_BRIGHT_MAGENTA}${BOX.teeRight}${BOX.lightH.repeat(boxWidth - 2)}${BOX.teeLeft}${RESET}`);
+    this.writeLine(`${DOS_BORDER}╟${'─'.repeat(boxWidth - 2)}╢${RESET}`);
     const runSelected = this.paramIndex >= params.length;
-    const runPrefix = runSelected ? `${BG_GREEN}${FG_WHITE} ▸ ` : '   ';
-    const runSuffix = runSelected ? `${RESET}` : '';
-    const runLabel = runSelected ? `${BOLD}🚀 RUN TEST${RESET}` : `${FG_GREEN}🚀 RUN TEST${RESET}`;
-    const runLine = `${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET}${runPrefix}${runLabel}${runSuffix}`;
+    const runPrefix = runSelected ? `${BG_GREEN}${FG_WHITE}▸ ` : `${BG_BLUE}  `;
+    const runSuffix = runSelected ? `${RESET}` : `${RESET}`;
+    const runLabel = runSelected ? `${BOLD}🚀RUN${RESET}` : `${FG_GREEN}🚀RUN${RESET}`;
+    const runLine = `${DOS_BORDER}║${RESET}${runPrefix}${runLabel}${runSuffix}`;
     const runPadding = boxWidth - this.stripAnsi(runLine).length - 1;
-    this.writeLine(`${runLine}${' '.repeat(Math.max(0, runPadding))}${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET}`);
+    this.writeLine(`${runLine}${BG_BLUE}${' '.repeat(Math.max(0, runPadding))}${DOS_BORDER}║${RESET}`);
     
-    // Preview command
-    const args = params.map(p => this.testParams[p.key] || p.default).filter(a => a).join(' ');
-    const cmdPreview = `${DIM}Command: node .vscode/tests/${test?.file} ${args}${RESET}`;
-    const previewLine = `${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET} ${cmdPreview}`;
-    const previewPadding = boxWidth - this.stripAnsi(previewLine).length - 1;
-    this.writeLine(`${previewLine}${' '.repeat(Math.max(0, previewPadding))}${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET}`);
+    // Preview command (skip on compact)
+    if (!compact) {
+      const args = params.map(p => this.testParams[p.key] || p.default).filter(a => a).join(' ');
+      const cmdText = `node ${test?.file} ${args}`.slice(0, boxWidth - 10);
+      const cmdPreview = `${DIM}>${cmdText}${RESET}`;
+      const previewLine = `${DOS_BORDER}║${RESET}${BG_BLUE}${cmdPreview}`;
+      const previewPadding = boxWidth - this.stripAnsi(previewLine).length - 1;
+      this.writeLine(`${previewLine}${BG_BLUE}${' '.repeat(Math.max(0, previewPadding))}${DOS_BORDER}║${RESET}`);
+    }
     
     // Fill remaining
-    const usedLines = params.length + 4;
-    const visibleCount = this.innerHeight - 8;
+    const usedLines = params.length + (compact ? 3 : 4);
+    const visibleCount = Math.max(1, this.innerHeight - 8);
     for (let i = usedLines; i < visibleCount; i++) {
-      this.writeLine(`${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET}${' '.repeat(boxWidth - 2)}${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET}`);
+      this.writeLine(`${DOS_BORDER}║${BG_BLUE}${' '.repeat(boxWidth - 2)}${DOS_BORDER}║${RESET}`);
     }
     
     this.renderFooter();
@@ -1345,9 +1860,8 @@ class ArteryTUI {
       const param = params[this.paramIndex];
       if (!param.options && param.type !== 'number') {
         this.write(CURSOR_SHOW);
-        // Approximate cursor position
         const labelLen = param.label.length + 3;
-        this.write(moveTo(this.marginY + 3 + this.paramIndex, this.marginX + 4 + labelLen + this.inputBuffer.length));
+        this.write(moveTo(this.marginY + 3 + this.paramIndex, this.adaptiveMarginX + 4 + labelLen + this.inputBuffer.length));
       }
     }
   }
@@ -1355,34 +1869,110 @@ class ArteryTUI {
   renderLogs() {
     this.renderHeader();
     const boxWidth = this.innerWidth;
+    const compact = this.width < 80;
     
     // Title
-    const logsTitle = `${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET} ${BOLD}${FG_CYAN}AC Console Logs${RESET} ${DIM}(${this.logs.length} entries)${RESET}`;
+    const countInfo = compact ? '' : `${DIM}(${this.logs.length})${RESET}`;
+    const logsTitle = `${DOS_BORDER}║${RESET}${BG_BLUE}${FG_BRIGHT_YELLOW}►${FG_WHITE}Logs${countInfo}`;
     const logsPadding = boxWidth - this.stripAnsi(logsTitle).length - 1;
-    this.writeLine(`${logsTitle}${' '.repeat(Math.max(0, logsPadding))}${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET}`);
-    this.writeLine(`${FG_BRIGHT_MAGENTA}${BOX.teeRight}${BOX.lightH.repeat(boxWidth - 2)}${BOX.teeLeft}${RESET}`);
+    this.writeLine(`${logsTitle}${BG_BLUE}${' '.repeat(Math.max(0, logsPadding))}${DOS_BORDER}║${RESET}`);
+    this.writeLine(`${DOS_BORDER}╟${'─'.repeat(boxWidth - 2)}╢${RESET}`);
     
     // Logs
-    const logLines = this.innerHeight - 7;
+    const logLines = Math.max(1, this.innerHeight - 7);
     const recentLogs = this.logs.slice(0, logLines);
     
     for (const log of recentLogs) {
       const colors = {
         log: FG_WHITE,
-        info: FG_CYAN,
-        warn: FG_YELLOW,
-        error: FG_RED,
+        info: FG_BRIGHT_CYAN,
+        warn: FG_BRIGHT_YELLOW,
+        error: FG_BRIGHT_RED,
       };
       const color = colors[log.level] || FG_WHITE;
-      const line = `${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET} ${DIM}${log.timestamp}${RESET} ${color}${log.text}${RESET}`;
-      const truncated = this.truncate(line, boxWidth - 2);
+      const timeStamp = compact ? '' : `${FG_CYAN}${log.timestamp}${RESET}${BG_BLUE} `;
+      const line = `${DOS_BORDER}║${RESET}${BG_BLUE}${timeStamp}${color}${log.text}${RESET}`;
+      const truncated = this.truncate(line, boxWidth - 1);
       const padding = boxWidth - this.stripAnsi(truncated).length - 1;
-      this.writeLine(`${truncated}${' '.repeat(Math.max(0, padding))}${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET}`);
+      this.writeLine(`${truncated}${BG_BLUE}${' '.repeat(Math.max(0, padding))}${DOS_BORDER}║${RESET}`);
     }
     
     // Fill remaining
     for (let i = recentLogs.length; i < logLines; i++) {
-      this.writeLine(`${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET}${' '.repeat(boxWidth - 2)}${FG_BRIGHT_MAGENTA}${BOX.vertical}${RESET}`);
+      this.writeLine(`${DOS_BORDER}║${BG_BLUE}${' '.repeat(boxWidth - 2)}${DOS_BORDER}║${RESET}`);
+    }
+    
+    this.renderFooter();
+  }
+
+  renderSite() {
+    this.renderHeader();
+    const boxWidth = this.innerWidth;
+    const compact = this.width < 80;
+    
+    // Status indicator
+    const statusColors = {
+      stopped: FG_BRIGHT_RED,
+      starting: FG_BRIGHT_YELLOW,
+      running: FG_BRIGHT_GREEN,
+      error: FG_BRIGHT_RED,
+    };
+    const statusIcons = {
+      stopped: '○',
+      starting: '◐',
+      running: '●',
+      error: '✗',
+    };
+    const statusColor = statusColors[this.siteStatus] || FG_WHITE;
+    const statusIcon = statusIcons[this.siteStatus] || '?';
+    
+    // Calculate uptime if running
+    let uptimeStr = '';
+    if (!compact && this.siteStatus === 'running' && this.siteStartTime) {
+      const elapsed = Math.floor((Date.now() - this.siteStartTime) / 1000);
+      const mins = Math.floor(elapsed / 60);
+      const secs = elapsed % 60;
+      uptimeStr = ` ${DIM}${mins}m${secs}s${RESET}`;
+    }
+    
+    // Title with status
+    const siteTitle = `${DOS_BORDER}║${RESET}${BG_BLUE}${FG_BRIGHT_YELLOW}►${FG_WHITE}Site ${statusColor}${statusIcon}${this.siteStatus.toUpperCase()}${RESET}${uptimeStr}`;
+    const sitePadding = boxWidth - this.stripAnsi(siteTitle).length - 1;
+    this.writeLine(`${siteTitle}${BG_BLUE}${' '.repeat(Math.max(0, sitePadding))}${DOS_BORDER}║${RESET}`);
+    
+    // Controls bar
+    const controls = compact 
+      ? `${FG_CYAN}S${FG_WHITE}tart ${FG_CYAN}K${FG_WHITE}ill`
+      : `${FG_CYAN}[S]${FG_WHITE}tart ${FG_CYAN}[K]${FG_WHITE}ill ${FG_CYAN}[R]${FG_WHITE}estart ${FG_CYAN}[C]${FG_WHITE}lear${RESET}`;
+    const controlsLine = `${DOS_BORDER}║${RESET}${BG_BLUE}${controls}`;
+    const controlsPadding = boxWidth - this.stripAnsi(controlsLine).length - 1;
+    this.writeLine(`${controlsLine}${BG_BLUE}${' '.repeat(Math.max(0, controlsPadding))}${DOS_BORDER}║${RESET}`);
+    
+    this.writeLine(`${DOS_BORDER}╟${'─'.repeat(boxWidth - 2)}╢${RESET}`);
+    
+    // Site logs
+    const logLines = Math.max(1, this.innerHeight - 8);
+    const recentLogs = this.siteLogs.slice(-logLines);
+    
+    for (const log of recentLogs) {
+      const colors = {
+        log: FG_WHITE,
+        info: FG_BRIGHT_CYAN,
+        warn: FG_BRIGHT_YELLOW,
+        error: FG_BRIGHT_RED,
+        success: FG_BRIGHT_GREEN,
+      };
+      const color = colors[log.level] || FG_WHITE;
+      const timeStamp = compact ? '' : `${FG_CYAN}${log.time}${RESET}${BG_BLUE} `;
+      const line = `${DOS_BORDER}║${RESET}${BG_BLUE}${timeStamp}${color}${log.text}${RESET}`;
+      const truncated = this.truncate(line, boxWidth - 1);
+      const padding = boxWidth - this.stripAnsi(truncated).length - 1;
+      this.writeLine(`${truncated}${BG_BLUE}${' '.repeat(Math.max(0, padding))}${DOS_BORDER}║${RESET}`);
+    }
+    
+    // Fill remaining
+    for (let i = recentLogs.length; i < logLines; i++) {
+      this.writeLine(`${DOS_BORDER}║${BG_BLUE}${' '.repeat(boxWidth - 2)}${DOS_BORDER}║${RESET}`);
     }
     
     this.renderFooter();

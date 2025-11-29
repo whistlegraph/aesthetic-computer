@@ -1934,35 +1934,80 @@ function act({
   // Velocity (0-127) scales volume for expressive playing
   const pc = "maroon";
   
-  // Kick drum - low thump with body and click
+  // Kick drum - 808-style with BIG sustained BOOOOOOM
   const makeKick = (velocity = 127) => {
     const vel = velocity / 127; // Normalize to 0-1
-    // Sub bass thump (pitch drops from 150 to 50Hz feel)
+    
+    // === LAYER 1: THE BIG BOOM - long sustained sub ===
+    // This is the BOOOOOooooom that sustains and rumbles
     synth({
       type: "sine",
-      tone: 55,
-      duration: 0.2,
+      tone: 38, // Very deep sub
+      duration: 0.6, // LONG tail for that 808 sustain
       attack: 0.001,
-      decay: 0.95,
-      volume: 0.85 * vel,
+      decay: 0.5, // Slower decay = longer boom
+      volume: 1.0 * vel,
     });
-    // Punch/mid body
+    
+    // === LAYER 2: Sub harmonic for warmth ===
     synth({
-      type: "triangle",
-      tone: 100,
-      duration: 0.08,
-      attack: 0,
-      decay: 0.9,
-      volume: 0.4 * vel,
+      type: "sine",
+      tone: 55, // Octave-ish above for body
+      duration: 0.5,
+      attack: 0.001,
+      decay: 0.55,
+      volume: 0.7 * vel,
     });
-    // Click transient - filtered noise for attack
+    
+    // === LAYER 3: Punch body (the THUMP) ===
+    synth({
+      type: "sine", 
+      tone: 90,
+      duration: 0.07,
+      attack: 0,
+      decay: 0.85,
+      volume: 0.8 * vel,
+    });
+    
+    // === LAYER 4: Click transient (the SNAP) ===
+    synth({
+      type: "square",
+      tone: 1200,
+      duration: 0.008,
+      attack: 0,
+      decay: 0.99,
+      volume: 0.5 * vel,
+    });
+    
+    // === LAYER 5: Noise burst for attack presence ===
     synth({
       type: "noise-white",
-      tone: 300, // Low-mid filtered noise for thump
-      duration: 0.02,
+      tone: 800,
+      duration: 0.012,
       attack: 0,
-      decay: 0.8,
-      volume: 0.25 * vel,
+      decay: 0.95,
+      volume: 0.4 * vel,
+    });
+    
+    // === LAYER 6: Mid knock (beater sound) ===
+    synth({
+      type: "triangle",
+      tone: 150,
+      duration: 0.04,
+      attack: 0,
+      decay: 0.9,
+      volume: 0.5 * vel,
+    });
+    
+    // === LAYER 7: Extra low end sustain ===
+    // Second sub layer that decays even slower
+    synth({
+      type: "sine",
+      tone: 42,
+      duration: 0.8, // Even longer!
+      attack: 0.01,
+      decay: 0.4, // Very slow decay
+      volume: 0.6 * vel,
     });
   };
   
