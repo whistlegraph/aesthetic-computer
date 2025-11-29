@@ -40,21 +40,7 @@ class Artery {
   }
 
   async findAestheticTarget() {
-    const targets = await new Promise((resolve, reject) => {
-      http.get({
-        hostname: CDP_HOST,
-        port: 9222,
-        path: '/json',
-        headers: { 'Host': 'localhost' }
-      }, (res) => {
-        let data = '';
-        res.on('data', (chunk) => data += chunk);
-        res.on('end', () => {
-          try { resolve(JSON.parse(data)); }
-          catch (e) { reject(new Error('Parse failed')); }
-        });
-      }).on('error', reject);
-    });
+    const targets = await this.getAllTargets();
     
     // Look for AC iframe - either localhost or aesthetic.computer
     const acTarget = targets.find(t => 
@@ -73,6 +59,68 @@ class Artery {
         .replace(':9222:9222', ':9222');
     }
     return acTarget;
+  }
+  
+  // Get all CDP targets
+  async getAllTargets() {
+    return new Promise((resolve, reject) => {
+      http.get({
+        hostname: CDP_HOST,
+        port: 9222,
+        path: '/json',
+        headers: { 'Host': 'localhost' }
+      }, (res) => {
+        let data = '';
+        res.on('data', (chunk) => data += chunk);
+        res.on('end', () => {
+          try { resolve(JSON.parse(data)); }
+          catch (e) { reject(new Error('Parse failed')); }
+        });
+      }).on('error', reject);
+    });
+  }
+  
+  // List all AC frames (main + split players)
+  async listACFrames() {
+    const targets = await this.getAllTargets();
+    const acFrames = targets.filter(t => 
+      t.type === 'iframe' && 
+      (t.url?.includes('localhost:8888') || t.url?.includes('aesthetic.computer'))
+    );
+    
+    return acFrames.map(t => {
+      const url = new URL(t.url);
+      const player = url.searchParams.get('player');
+      const piece = url.pathname.replace('/', '') || 'prompt';
+      return {
+        id: t.id,
+        url: t.url,
+        piece,
+        player: player ? parseInt(player) : 0, // 0 = main, 1 = top, 2 = bottom
+        label: player ? `Player ${player} (${piece})` : `Main (${piece})`,
+        webSocketDebuggerUrl: t.webSocketDebuggerUrl
+      };
+    });
+  }
+  
+  // Connect to a specific player frame (1 = top, 2 = bottom, 0 = main)
+  async connectToPlayer(playerNum) {
+    const frames = await this.listACFrames();
+    const target = frames.find(f => f.player === playerNum);
+    
+    if (!target) {
+      throw new Error(`Player ${playerNum} not found. Available: ${frames.map(f => f.label).join(', ')}`);
+    }
+    
+    brightLog(`🩸 Connecting to ${target.label}`);
+    this.debuggerUrl = target.webSocketDebuggerUrl;
+    if (CDP_HOST !== 'localhost') {
+      this.debuggerUrl = this.debuggerUrl
+        .replace('localhost', `${CDP_HOST}:9222`)
+        .replace(':9222:9222', ':9222');
+    }
+    this.currentPlayer = playerNum;
+    return this.connect();
   }
 
   async connect(enableReconnect = false) {
@@ -734,6 +782,39 @@ async function main() {
   
   try {
     const isRepl = command === 'repl';
+    // Handle frames command before connecting (needs raw target listing)
+    if (command === 'frames') {
+      const frames = await client.listACFrames();
+      if (frames.length === 0) {
+        redLog('💔 No AC frames found');
+        process.exit(1);
+      }
+      brightLog('🩸 AC Frames:');
+      for (const frame of frames) {
+        const prefix = frame.player === 0 ? '  📺' : `  🎮`;
+        console.log(`${prefix} ${frame.label}`);
+        console.log(`     ${PINK}${frame.url}${RESET}`);
+      }
+      process.exit(0);
+    }
+    
+    // Handle player-specific connection
+    if (command === 'player') {
+      const playerNum = parseInt(args[0]);
+      if (isNaN(playerNum) || playerNum < 0 || playerNum > 2) {
+        redLog('💔 Usage: artery player <0|1|2>');
+        console.log('   0 = Main frame');
+        console.log('   1 = Player 1 (top split)');
+        console.log('   2 = Player 2 (bottom split)');
+        process.exit(1);
+      }
+      await client.connectToPlayer(playerNum);
+      await client.enableConsole();
+      brightLog(`🩸 Connected to Player ${playerNum}, streaming console...`);
+      // Keep alive for console streaming
+      return;
+    }
+    
     await client.connect(isRepl);
     if (isRepl) await client.enableConsole();
     
@@ -954,6 +1035,11 @@ async function main() {
         console.log('artery panel           - Open AC sidebar panel');
         console.log('artery perf [seconds]  - Monitor WebGPU performance');
         console.log('artery repl            - Interactive REPL mode');
+        console.log('');
+        console.log('🎮 Split/Multiplayer:');
+        console.log('artery frames          - List all AC frames (main + players)');
+        console.log('artery player <0|1|2>  - Connect to specific player frame');
+        console.log('                         0=main, 1=player1 (top), 2=player2 (bottom)');
         console.log('');
         console.log('🎵 Tests:');
         console.log('artery hiphop [opts]   - Hip-hop beat generator test');
