@@ -135,49 +135,33 @@ function getScaleNote(degree, scale = 'minor', octave = 4) {
   return { note, octave };
 }
 
-// Press drum key
+// Press drum key using CDP Input.dispatchKeyEvent
 async function pressDrumKey(client, drumType, velocity = 100) {
   const drum = DRUM_KEYS[drumType];
   if (!drum) return;
   
-  await client.send('Runtime.evaluate', {
-    expression: `
-      (function() {
-        const event = new KeyboardEvent('keydown', {
-          key: '${drum.key}',
-          code: '${drum.code}',
-          keyCode: ${drum.keyCode},
-          which: ${drum.keyCode},
-          bubbles: true,
-          cancelable: true
-        });
-        event.velocity = ${velocity};
-        window.dispatchEvent(event);
-      })()
-    `
+  // Use CDP's Input.dispatchKeyEvent for reliable key dispatch
+  await client.send('Input.dispatchKeyEvent', {
+    type: 'keyDown',
+    key: drum.key,
+    code: drum.code,
+    windowsVirtualKeyCode: drum.keyCode,
   });
+  
+  // Auto-release after short delay
+  setTimeout(async () => {
+    await client.send('Input.dispatchKeyEvent', {
+      type: 'keyUp', 
+      key: drum.key,
+      code: drum.code,
+      windowsVirtualKeyCode: drum.keyCode,
+    });
+  }, 30);
 }
 
-// Release drum key
+// Release drum key (now handled by auto-release in pressDrumKey)
 async function releaseDrumKey(client, drumType) {
-  const drum = DRUM_KEYS[drumType];
-  if (!drum) return;
-  
-  await client.send('Runtime.evaluate', {
-    expression: `
-      (function() {
-        const event = new KeyboardEvent('keyup', {
-          key: '${drum.key}',
-          code: '${drum.code}',
-          keyCode: ${drum.keyCode},
-          which: ${drum.keyCode},
-          bubbles: true,
-          cancelable: true
-        });
-        window.dispatchEvent(event);
-      })()
-    `
-  });
+  // No-op - auto-release is built into pressDrumKey
 }
 
 // Press note key
@@ -482,12 +466,13 @@ async function main() {
   
   // Show help
   console.log(`\n${MAGENTA}🎭 Trap Waltz Generator${RESET}`);
-  console.log(`${DIM}Usage: test-trapwaltz [style] [bars=N] [bpm=N] [scale=X] [progression=X] [room] [all]${RESET}`);
+  console.log(`${DIM}Usage: test-trapwaltz [style] [bars=N] [bpm=N] [scale=X] [progression=X] [room] [all] [suite]${RESET}`);
   console.log(`  ${DIM}styles: classic, dark, dreamy, baroque, minimal, phonk, viennese, drill${RESET}`);
   console.log(`  ${DIM}scales: minor, dorian, phrygian, harmonic, major${RESET}`);
   console.log(`  ${DIM}progressions: classical, dark, romantic, trap${RESET}`);
   console.log(`  ${DIM}room: enable reverb${RESET}`);
-  console.log(`  ${DIM}all: play all styles${RESET}\n`);
+  console.log(`  ${DIM}all: play all styles (4 bars each)${RESET}`);
+  console.log(`  ${DIM}suite: full suite - all styles with 16 bars each${RESET}\n`);
   
   for (const arg of args) {
     if (arg.startsWith('bars=')) {
@@ -504,6 +489,9 @@ async function main() {
       roomMode = true;
     } else if (arg === 'all') {
       playAll = true;
+    } else if (arg === 'suite') {
+      playAll = true;
+      bars = 16; // Suite mode uses 16 bars per style
     } else if (TRAPWALTZ_PATTERNS[arg]) {
       style = arg;
     } else if (SCALES[arg]) {
@@ -515,7 +503,7 @@ async function main() {
   
   try {
     await Artery.openPanelStandalone();
-    await new Promise(r => setTimeout(r, 500));
+    await new Promise(r => setTimeout(r, 1500)); // Longer wait for panel to open
     
     const client = new Artery();
     await client.connect();
@@ -556,8 +544,11 @@ async function main() {
     }
     
     if (playAll) {
+      const suiteMode = bars === 16;
+      const barsPerStyle = suiteMode ? 16 : 4;
+      
       console.log(`${MAGENTA}╔═══════════════════════════════════════════════════════╗${RESET}`);
-      console.log(`${MAGENTA}║  🎭 PLAYING ALL TRAP WALTZ STYLES                     ║${RESET}`);
+      console.log(`${MAGENTA}║  🎭 ${suiteMode ? 'TRAP WALTZ SUITE - 16 BARS EACH' : 'PLAYING ALL TRAP WALTZ STYLES'}           ║${RESET}`);
       console.log(`${MAGENTA}╚═══════════════════════════════════════════════════════╝${RESET}\n`);
       
       const styles = Object.keys(TRAPWALTZ_PATTERNS);
@@ -565,7 +556,7 @@ async function main() {
       
       for (const s of styles) {
         const waltz = generateTrapWaltz({
-          bars: 4,
+          bars: barsPerStyle,
           bpm,
           style: s,
           scale,
@@ -574,11 +565,11 @@ async function main() {
         });
         const elapsed = await playTrapWaltz(client, waltz);
         totalTime += parseFloat(elapsed);
-        await new Promise(r => setTimeout(r, 1000));
+        await new Promise(r => setTimeout(r, 1500)); // Brief pause between styles
       }
       
       console.log(`\n${MAGENTA}════════════════════════════════════════════════════════════${RESET}`);
-      console.log(`${GREEN}✅ All styles complete! Total: ${totalTime.toFixed(1)}s${RESET}`);
+      console.log(`${GREEN}✅ ${suiteMode ? 'Suite' : 'All styles'} complete! Total: ${(totalTime / 60).toFixed(1)} minutes (${totalTime.toFixed(1)}s)${RESET}`);
       console.log(`${MAGENTA}════════════════════════════════════════════════════════════${RESET}\n`);
     } else {
       const waltz = generateTrapWaltz({ bars, bpm, style, scale, seed, progression });
@@ -588,7 +579,8 @@ async function main() {
     console.log(`\n${MAGENTA}════════════════════════════════════════════════════════════${RESET}\n`);
     console.log(`${DIM}💡 Try: test-trapwaltz dark room bpm=120${RESET}`);
     console.log(`${DIM}💡 Try: test-trapwaltz baroque harmonic progression=romantic${RESET}`);
-    console.log(`${DIM}💡 Try: test-trapwaltz all room${RESET}\n`);
+    console.log(`${DIM}💡 Try: test-trapwaltz all room (4 bars each)${RESET}`);
+    console.log(`${DIM}💡 Try: test-trapwaltz suite room (16 bars each!)${RESET}\n`);
     
     if (roomMode) {
       await pressRoom(client);

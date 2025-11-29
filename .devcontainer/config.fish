@@ -762,7 +762,7 @@ fish_add_path ~/.ops/bin
 
 # For fast config reloading - simple approach
 function platform
-    emacsclient -nw -c --eval '(aesthetic-backend (quote "status"))'
+    emacsclient -nw -c --eval '(aesthetic-backend (quote "artery"))'
 end
 
 function ensure-emacs-daemon-ready
@@ -901,7 +901,7 @@ function aesthetic
     
     # Connect to emacs with aesthetic-backend
     echo "🚀 Connecting to aesthetic platform..."
-    emacsclient -nw -c --eval '(aesthetic-backend (quote "status"))'
+    emacsclient -nw -c --eval '(aesthetic-backend (quote "artery"))'
 end
 
 # Convenience alias for skipping the wait
@@ -919,7 +919,7 @@ function aesthetic-direct
     end
     
     # Connect to emacs with aesthetic-backend
-    emacsclient -nw -c --eval '(aesthetic-backend (quote "status"))'
+    emacsclient -nw -c --eval '(aesthetic-backend (quote "artery"))'
 end
 
 # TODO: Automatically kill online mode and go to offline mode if necessary.
