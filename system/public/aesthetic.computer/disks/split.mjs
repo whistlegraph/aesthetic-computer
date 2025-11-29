@@ -38,8 +38,8 @@ function boot({ params, dom: { html } }) {
         border-bottom: 6px solid rgb(64, 64, 96);
       }
     </style>
-    <iframe id="split-top" src="/${params[0] || ''}?nogap"></iframe>
-    <iframe src="/${params[1] || params[0] || ''}?nogap"></iframe>
+    <iframe id="split-top" src="/${params[0] || ''}?nogap&player=1"></iframe>
+    <iframe id="split-bottom" src="/${params[1] || params[0] || ''}?nogap&player=2"></iframe>
   `;
 }
 
