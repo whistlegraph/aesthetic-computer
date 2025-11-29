@@ -17,12 +17,74 @@ const consoleLog = (msg) => console.log(`${PURPLE_BG}${WHITE}💉${RESET} ${msg}
 
 // Auto-detect CDP host based on environment
 function getCDPHost() {
-  // Check if we're in a dev container (Docker)
-  if (process.env.REMOTE_CONTAINERS === 'true' || process.env.CODESPACES === 'true') {
-    return 'host.docker.internal';
+  // Not in a container - use localhost
+  if (process.env.REMOTE_CONTAINERS !== 'true' && process.env.CODESPACES !== 'true') {
+    return 'localhost';
   }
-  // Otherwise use localhost (native Windows/Mac/Linux)
-  return 'localhost';
+  
+  // In a container - need to reach the host
+  // On Mac/Windows Docker Desktop, host.docker.internal works
+  // On Linux, we need HOST_IP env var or to detect the gateway
+  
+  // First check if HOST_IP is set (common in devcontainer setups)
+  if (process.env.HOST_IP) {
+    return process.env.HOST_IP;
+  }
+  
+  // Try host.docker.internal (works on Docker Desktop for Mac/Windows)
+  // This will be validated at connection time
+  return 'host.docker.internal';
+}
+
+// Try multiple hosts to find CDP - returns first working one
+// Returns { host, port } object
+async function findWorkingCDPHost() {
+  const candidates = [];
+  
+  // Not in a container - only try localhost
+  if (process.env.REMOTE_CONTAINERS !== 'true' && process.env.CODESPACES !== 'true') {
+    return { host: 'localhost', port: 9222 };
+  }
+  
+  // In a container - try multiple host:port combinations
+  // Order matters: try most reliable options first
+  candidates.push({ host: 'host.docker.internal', port: 9222 }); // Mac/Windows Docker Desktop
+  candidates.push({ host: '172.17.0.1', port: 9224 }); // Docker bridge + socat (Linux) - use 9224 to avoid VS Code conflict
+  candidates.push({ host: '172.17.0.1', port: 9223 }); // Docker bridge + socat alt
+  candidates.push({ host: '172.17.0.1', port: 9222 }); // Docker bridge direct
+  if (process.env.HOST_IP) {
+    candidates.push({ host: process.env.HOST_IP, port: 9223 }); // socat forwarded port
+    candidates.push({ host: process.env.HOST_IP, port: 9222 });
+  }
+  candidates.push({ host: 'localhost', port: 9222 }); // VS Code might forward the port
+  
+  for (const { host, port } of candidates) {
+    try {
+      const works = await new Promise((resolve) => {
+        const req = http.get({
+          hostname: host,
+          port: port,
+          path: '/json',
+          timeout: 1000,
+          headers: { 'Host': 'localhost' }
+        }, (res) => {
+          let data = '';
+          res.on('data', (chunk) => data += chunk);
+          res.on('end', () => resolve(data.length > 0));
+        });
+        req.on('error', () => resolve(false));
+        req.on('timeout', () => { req.destroy(); resolve(false); });
+      });
+      if (works) {
+        return { host, port };
+      }
+    } catch (e) {
+      // Continue to next candidate
+    }
+  }
+  
+  // Return the first candidate as fallback (will fail with better error)
+  return candidates[0] || { host: 'localhost', port: 9222 };
 }
 
 const CDP_HOST = getCDPHost();
@@ -40,6 +102,12 @@ class Artery {
   }
 
   async findAestheticTarget() {
+    // Try to find a working CDP host dynamically
+    const { host: cdpHost, port: cdpPort } = await findWorkingCDPHost();
+    // Store for getAllTargets and other methods
+    this.cdpHost = cdpHost;
+    this.cdpPort = cdpPort;
+    
     const targets = await this.getAllTargets();
     
     // Look for AC iframe - either localhost or aesthetic.computer
@@ -51,22 +119,27 @@ class Artery {
     if (!acTarget) throw new Error('AC not found');
     
     redLog('🩸 Found AC');
-    // Fix WebSocket URL based on environment
+    // Fix WebSocket URL based on environment - only replace if localhost is in URL
     this.debuggerUrl = acTarget.webSocketDebuggerUrl;
-    if (CDP_HOST !== 'localhost') {
-      this.debuggerUrl = this.debuggerUrl
-        .replace('localhost', `${CDP_HOST}:9222`)
-        .replace(':9222:9222', ':9222');
+    this.cdpHost = cdpHost; // Store for later use
+    this.cdpPort = cdpPort;
+    if (this.debuggerUrl.includes('localhost')) {
+      // Handle both localhost:PORT and localhost (without port)
+      this.debuggerUrl = this.debuggerUrl.replace(/localhost(:\d+)?/, `${cdpHost}:${cdpPort}`);
     }
     return acTarget;
   }
   
-  // Get all CDP targets
+  // Get all CDP targets (uses dynamic host/port from findAestheticTarget)
   async getAllTargets() {
+    // Use stored CDP host/port or detect dynamically
+    const cdpHost = this.cdpHost || (await findWorkingCDPHost()).host;
+    const cdpPort = this.cdpPort || (await findWorkingCDPHost()).port;
+    
     return new Promise((resolve, reject) => {
       http.get({
-        hostname: CDP_HOST,
-        port: 9222,
+        hostname: cdpHost,
+        port: cdpPort,
         path: '/json',
         headers: { 'Host': 'localhost' }
       }, (res) => {
@@ -265,12 +338,16 @@ class Artery {
 
   async openPanel() {
     brightLog('🩸 Opening AC panel...');
+    // Use stored CDP host/port from findAestheticTarget, or find dynamically
+    const cdpHost = this.cdpHost || (await findWorkingCDPHost()).host;
+    const cdpPort = this.cdpPort || (await findWorkingCDPHost()).port;
+    
     // We need to execute the VS Code command in the main workbench context
     // First, get all targets
     const targetsJson = await new Promise((resolve, reject) => {
       const req = http.get({
-        hostname: CDP_HOST,
-        port: 9222,
+        hostname: cdpHost,
+        port: cdpPort,
         path: '/json',
         headers: { 'Host': 'localhost' }
       }, (res) => {
@@ -292,8 +369,12 @@ class Artery {
       return;
     }
     
-    // Connect to workbench and execute command
-    const wsUrl = workbenchTarget.webSocketDebuggerUrl.replace('localhost', `${CDP_HOST}:9222`);
+    // Connect to workbench and execute command - URL might already have correct host
+    let wsUrl = workbenchTarget.webSocketDebuggerUrl;
+    if (wsUrl.includes('localhost')) {
+      // Handle both localhost:PORT and localhost (without port)
+      wsUrl = wsUrl.replace(/localhost(:\d+)?/, `${cdpHost}:${cdpPort}`);
+    }
     const ws = new WebSocket(wsUrl);
     
     await new Promise((resolve, reject) => {
@@ -405,11 +486,14 @@ class Artery {
   // Static method to open panel without needing AC connection
   static async openPanelStandalone() {
     brightLog('🩸 Opening AC panel...');
+    // Find working CDP host dynamically
+    const { host: cdpHost, port: cdpPort } = await findWorkingCDPHost();
+    
     // Get all targets
     const targetsJson = await new Promise((resolve, reject) => {
       const req = http.get({
-        hostname: CDP_HOST,
-        port: 9222,
+        hostname: cdpHost,
+        port: cdpPort,
         path: '/json',
         headers: { 'Host': 'localhost' }
       }, (res) => {
@@ -430,8 +514,12 @@ class Artery {
       throw new Error('Could not find VS Code workbench target');
     }
     
-    // Connect to workbench
-    const wsUrl = workbenchTarget.webSocketDebuggerUrl.replace('localhost', `${CDP_HOST}:9222`);
+    // Connect to workbench - URL might already have correct host from socat
+    let wsUrl = workbenchTarget.webSocketDebuggerUrl;
+    if (wsUrl.includes('localhost')) {
+      // Handle both localhost:PORT and localhost (without port)
+      wsUrl = wsUrl.replace(/localhost(:\d+)?/, `${cdpHost}:${cdpPort}`);
+    }
     const ws = new WebSocket(wsUrl);
     
     await new Promise((resolve, reject) => {
@@ -519,10 +607,12 @@ class Artery {
   // Static method to close the panel
   static async closePanelStandalone() {
     brightLog('🩸 Closing AC panel...');
+    const { host: cdpHost, port: cdpPort } = await findWorkingCDPHost();
+    
     const targetsJson = await new Promise((resolve, reject) => {
       const req = http.get({
-        hostname: CDP_HOST,
-        port: 9222,
+        hostname: cdpHost,
+        port: cdpPort,
         path: '/json',
         headers: { 'Host': 'localhost' }
       }, (res) => {
@@ -542,7 +632,11 @@ class Artery {
       throw new Error('Could not find VS Code workbench target');
     }
     
-    const wsUrl = workbenchTarget.webSocketDebuggerUrl.replace('localhost', `${CDP_HOST}:9222`);
+    let wsUrl = workbenchTarget.webSocketDebuggerUrl;
+    if (wsUrl.includes('localhost')) {
+      // Handle both localhost:PORT and localhost (without port)
+      wsUrl = wsUrl.replace(/localhost(:\d+)?/, `${cdpHost}:${cdpPort}`);
+    }
     const ws = new WebSocket(wsUrl);
     
     await new Promise((resolve, reject) => {
@@ -618,11 +712,12 @@ class Artery {
   // Toggle local development mode (localhost:8888 vs aesthetic.computer)
   static async toggleLocalDevelopment() {
     brightLog('🩸 Toggling local development mode...');
+    const { host: cdpHost, port: cdpPort } = await findWorkingCDPHost();
     
     const targetsJson = await new Promise((resolve, reject) => {
       const req = http.get({
-        hostname: CDP_HOST,
-        port: 9222,
+        hostname: cdpHost,
+        port: cdpPort,
         path: '/json',
         headers: { 'Host': 'localhost' }
       }, (res) => {
@@ -642,7 +737,11 @@ class Artery {
       throw new Error('Could not find VS Code workbench target');
     }
     
-    const wsUrl = workbenchTarget.webSocketDebuggerUrl.replace('localhost', `${CDP_HOST}:9222`);
+    let wsUrl = workbenchTarget.webSocketDebuggerUrl;
+    if (wsUrl.includes('localhost')) {
+      // Handle both localhost:PORT and localhost (without port)
+      wsUrl = wsUrl.replace(/localhost(:\d+)?/, `${cdpHost}:${cdpPort}`);
+    }
     const ws = new WebSocket(wsUrl);
     
     await new Promise((resolve, reject) => {

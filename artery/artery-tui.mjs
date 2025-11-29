@@ -101,13 +101,74 @@ const BOX = {
 
 // CDP Host detection (same as artery.mjs)
 function getCDPHost() {
-  if (process.env.REMOTE_CONTAINERS === 'true' || process.env.CODESPACES === 'true') {
-    return 'host.docker.internal';
+  // Not in a container - use localhost
+  if (process.env.REMOTE_CONTAINERS !== 'true' && process.env.CODESPACES !== 'true') {
+    return 'localhost';
   }
-  return 'localhost';
+  
+  // In a container - need to reach the host
+  // First check if HOST_IP is set (common in devcontainer setups)
+  if (process.env.HOST_IP) {
+    return process.env.HOST_IP;
+  }
+  
+  // Try host.docker.internal (works on Docker Desktop for Mac/Windows)
+  return 'host.docker.internal';
 }
 
-const CDP_HOST = getCDPHost();
+// Try multiple hosts to find CDP - returns first working one
+// Returns { host, port } object
+async function findWorkingCDPHost() {
+  const candidates = [];
+  
+  // Not in a container - only try localhost
+  if (process.env.REMOTE_CONTAINERS !== 'true' && process.env.CODESPACES !== 'true') {
+    return { host: 'localhost', port: 9222 };
+  }
+  
+  // In a container - try multiple host:port combinations
+  // Order matters: try most reliable options first
+  candidates.push({ host: 'host.docker.internal', port: 9222 }); // Mac/Windows Docker Desktop
+  candidates.push({ host: '172.17.0.1', port: 9224 }); // Docker bridge + socat (Linux) - use 9224 to avoid VS Code conflict
+  candidates.push({ host: '172.17.0.1', port: 9223 }); // Docker bridge + socat alt
+  candidates.push({ host: '172.17.0.1', port: 9222 }); // Docker bridge direct
+  if (process.env.HOST_IP) {
+    candidates.push({ host: process.env.HOST_IP, port: 9223 }); // socat forwarded port
+    candidates.push({ host: process.env.HOST_IP, port: 9222 });
+  }
+  candidates.push({ host: 'localhost', port: 9222 }); // VS Code might forward the port
+  
+  for (const { host, port } of candidates) {
+    try {
+      const works = await new Promise((resolve) => {
+        const req = http.get({
+          hostname: host,
+          port: port,
+          path: '/json',
+          timeout: 1000,
+          headers: { 'Host': 'localhost' }
+        }, (res) => {
+          let data = '';
+          res.on('data', (chunk) => data += chunk);
+          res.on('end', () => resolve(data.length > 0));
+        });
+        req.on('error', () => resolve(false));
+        req.on('timeout', () => { req.destroy(); resolve(false); });
+      });
+      if (works) {
+        return { host, port };
+      }
+    } catch (e) {
+      // Continue to next candidate
+    }
+  }
+  
+  // Return the first candidate as fallback (will fail with better error)
+  return candidates[0] || { host: 'localhost', port: 9222 };
+}
+
+let CDP_HOST = getCDPHost(); // Will be updated dynamically
+let CDP_PORT = 9222; // Will be updated dynamically
 
 class ArteryTUI {
   constructor() {
@@ -510,10 +571,15 @@ class ArteryTUI {
   }
 
   async getTargets() {
+    // Update CDP host/port dynamically
+    const cdpInfo = await findWorkingCDPHost();
+    CDP_HOST = cdpInfo.host;
+    CDP_PORT = cdpInfo.port;
+    
     return new Promise((resolve, reject) => {
       http.get({
         hostname: CDP_HOST,
-        port: 9222,
+        port: CDP_PORT,
         path: '/json',
         headers: { 'Host': 'localhost' }
       }, (res) => {
