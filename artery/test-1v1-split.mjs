@@ -41,8 +41,8 @@ const warnLog = (msg) => console.log(`${YELLOW}⚠️  ${msg}${RESET}`);
 export async function main() {
   const args = process.argv.slice(2);
   
-  // Parse pieces from args
-  let piece1 = 'prompt';
+  // Parse pieces from args - default to '1v1' for dueling
+  let piece1 = '1v1';
   let piece2 = null;
   
   for (const arg of args) {
@@ -50,7 +50,8 @@ export async function main() {
       showHelp();
       return;
     }
-    if (!piece1 || piece1 === 'prompt') {
+    // First non-help arg becomes piece1
+    if (piece1 === '1v1') {
       piece1 = arg;
     } else if (!piece2) {
       piece2 = arg;
