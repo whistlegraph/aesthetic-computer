@@ -815,6 +815,15 @@ async function main() {
         process.argv = ['node', 'test-trapwaltz.mjs', ...args];
         await runTrapwaltz();
         return;
+      
+      case '1v1':
+      case 'split':
+        // Close the client we just opened (1v1 manages its own)
+        client.close();
+        const { main: run1v1 } = await import('./test-1v1-split.mjs');
+        process.argv = ['node', 'test-1v1-split.mjs', ...args];
+        await run1v1();
+        return;
         
       case 'repl':
         // Clear screen and show header
@@ -949,6 +958,7 @@ async function main() {
         console.log('🎵 Tests:');
         console.log('artery hiphop [opts]   - Hip-hop beat generator test');
         console.log('artery trapwaltz [opts] - Trap waltz generator (3/4 + trap)');
+        console.log('artery 1v1 [p1] [p2]   - Test split view for 1v1 dueling');
     }
     
     setTimeout(() => {
