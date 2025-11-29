@@ -1,0 +1,670 @@
+// Chat Manager, 25.11.28
+// Multi-instance chat support for session-server
+// Adapted from nanos/chat.mjs to run multiple chat instances in one process
+
+import { WebSocket } from "ws";
+import { promises as fs } from "fs";
+import fetch from "node-fetch";
+import https from "https";
+
+import { filter } from "./filter.mjs";
+import { redact, unredact } from "./redact.mjs";
+
+import { MongoClient } from "mongodb";
+import { getMessaging } from "firebase-admin/messaging";
+
+const MAX_MESSAGES = 500;
+
+// Chat instance configurations
+export const chatInstances = {
+  "chat-system.aesthetic.computer": {
+    name: "chat-system",
+    allowedHost: "chat-system.aesthetic.computer",
+    userInfoEndpoint: "https://aesthetic.us.auth0.com/userinfo",
+    topic: "mood",
+  },
+  "chat.sotce.net": {
+    name: "chat-sotce",
+    allowedHost: "chat.sotce.net",
+    userInfoEndpoint: "https://sotce.us.auth0.com/userinfo",
+    topic: "mood",
+  },
+  "chat-clock.aesthetic.computer": {
+    name: "chat-clock",
+    allowedHost: "chat-clock.aesthetic.computer",
+    userInfoEndpoint: "https://aesthetic.us.auth0.com/userinfo",
+    topic: "mood",
+  },
+};
+
+// Development host mappings (localhost ports)
+const devHostMappings = {
+  "localhost:8083": "chat-system.aesthetic.computer",
+  "localhost:8084": "chat-sotce.aesthetic.computer",
+  "localhost:8085": "chat-clock.aesthetic.computer",
+};
+
+export class ChatManager {
+  constructor(options = {}) {
+    this.dev = options.dev || false;
+    this.filterDebug = options.filterDebug || false;
+    this.loggerKey = options.loggerKey || process.env.LOGGER_KEY;
+    
+    // MongoDB
+    this.mongoClient = null;
+    this.db = null;
+    this.mongoConnectionString = options.mongoConnectionString || process.env.MONGODB_CONNECTION_STRING;
+    this.mongoDbName = options.mongoDbName || process.env.MONGODB_NAME || "aesthetic";
+    
+    // HTTPS agent for dev mode
+    this.agent = this.dev ? new https.Agent({ rejectUnauthorized: false }) : null;
+    
+    // Per-instance state
+    this.instances = {};
+    for (const [host, config] of Object.entries(chatInstances)) {
+      this.instances[host] = {
+        config,
+        messages: [],
+        connections: {},
+        connectionId: 0,
+        authorizedConnections: {},
+        subsToHandles: {},
+        subsToSubscribers: {},
+      };
+    }
+    
+    console.log("💬 ChatManager initialized with instances:", Object.keys(chatInstances).join(", "));
+  }
+
+  async init() {
+    // Connect to MongoDB
+    if (this.mongoConnectionString) {
+      try {
+        console.log("💬 Connecting to MongoDB...");
+        this.mongoClient = new MongoClient(this.mongoConnectionString);
+        await this.mongoClient.connect();
+        this.db = this.mongoClient.db(this.mongoDbName);
+        console.log("💬 MongoDB connected!");
+        
+        // Load messages for each instance
+        for (const [host, instance] of Object.entries(this.instances)) {
+          await this.loadMessages(instance);
+        }
+      } catch (err) {
+        console.error("💬 MongoDB connection failed:", err);
+      }
+    } else {
+      console.log("💬 No MongoDB connection string, running without persistence");
+    }
+  }
+
+  async loadMessages(instance) {
+    if (!this.db) return;
+    
+    const collectionName = instance.config.name;
+    console.log(`💬 Loading messages for ${collectionName}...`);
+    
+    try {
+      const chatCollection = this.db.collection(collectionName);
+      let combinedMessages;
+
+      if (collectionName === "chat-sotce") {
+        combinedMessages = await chatCollection
+          .find({})
+          .sort({ when: -1 })
+          .limit(MAX_MESSAGES)
+          .toArray();
+      } else if (collectionName !== "chat-system") {
+        combinedMessages = (await chatCollection
+          .find({})
+          .sort({ when: -1 })
+          .limit(MAX_MESSAGES)
+          .toArray()).reverse();
+      } else {
+        // chat-system includes logs
+        combinedMessages = (
+          await chatCollection
+            .aggregate([
+              {
+                $unionWith: {
+                  coll: "logs",
+                  pipeline: [{ $match: {} }],
+                },
+              },
+              { $sort: { when: -1 } },
+              { $limit: MAX_MESSAGES },
+            ])
+            .toArray()
+        ).reverse();
+      }
+
+      // Check mutes for chat-system
+      if (collectionName === "chat-system") {
+        for (const msg of combinedMessages) {
+          if (await this.isMuted(instance, msg.user)) {
+            redact(msg);
+          }
+        }
+      }
+
+      instance.messages = [];
+      for (const message of combinedMessages) {
+        let from;
+        if (message.user) {
+          from = await this.getHandleFromSub(instance, message.user);
+        } else {
+          from = message.from || "deleted";
+        }
+
+        instance.messages.push({
+          from,
+          text: filter(message.text, this.filterDebug) || "message forgotten",
+          redactedText: message.redactedText,
+          when: message.when,
+        });
+      }
+      
+      console.log(`💬 Loaded ${instance.messages.length} messages for ${collectionName}`);
+    } catch (err) {
+      console.error(`💬 Failed to load messages for ${collectionName}:`, err);
+    }
+  }
+
+  // Check if a host should be handled by chat manager
+  isChatHost(host) {
+    // Direct match
+    if (chatInstances[host]) return true;
+    // Dev mapping
+    if (this.dev && devHostMappings[host]) return true;
+    return false;
+  }
+
+  // Get the instance for a host
+  getInstance(host) {
+    // Direct match
+    if (this.instances[host]) return this.instances[host];
+    // Dev mapping
+    if (this.dev && devHostMappings[host]) {
+      return this.instances[devHostMappings[host]];
+    }
+    return null;
+  }
+
+  // Handle a new WebSocket connection
+  handleConnection(ws, req) {
+    const host = req.headers.host;
+    const instance = this.getInstance(host);
+    
+    if (!instance) {
+      console.log("💬 Unknown chat host:", host);
+      ws.close(1008, "Unknown host");
+      return;
+    }
+
+    // Validate host in production
+    if (!this.dev && host !== instance.config.allowedHost) {
+      ws.close(1008, "Policy violation");
+      return;
+    }
+
+    const id = instance.connectionId++;
+    instance.connections[id] = ws;
+    
+    const ip = req.socket.remoteAddress || "localhost";
+    ws.isAlive = true;
+
+    ws.on("pong", () => {
+      ws.isAlive = true;
+    });
+
+    console.log(
+      `💬 [${instance.config.name}] Connection ${id} from ${ip}, online: ${Object.keys(instance.connections).length}`
+    );
+
+    // Set up ping interval for this connection
+    const pingInterval = setInterval(() => {
+      if (ws.isAlive === false) {
+        clearInterval(pingInterval);
+        return ws.terminate();
+      }
+      ws.isAlive = false;
+      ws.ping();
+    }, 15000);
+
+    ws.on("message", async (data) => {
+      await this.handleMessage(instance, ws, id, data);
+    });
+
+    ws.on("close", () => {
+      clearInterval(pingInterval);
+      delete instance.connections[id];
+      delete instance.authorizedConnections[id];
+
+      console.log(
+        `💬 [${instance.config.name}] Connection ${id} closed, online: ${Object.keys(instance.connections).length}`
+      );
+
+      this.broadcast(instance, this.pack("left", { chatters: Object.keys(instance.connections).length }, id));
+    });
+
+    // Send welcome message
+    ws.send(
+      this.pack(
+        "connected",
+        {
+          message: `Joined \`${instance.config.name}\` • 🧑‍🤝‍🧑 ${Object.keys(instance.connections).length}`,
+          chatters: Object.keys(instance.connections).length,
+          messages: instance.messages,
+          id,
+        },
+        id,
+      ),
+    );
+
+    // Notify others
+    this.broadcastOthers(instance, ws, this.pack(
+      "joined",
+      {
+        text: `${id} has joined. Connections open: ${Object.keys(instance.connections).length}`,
+        chatters: Object.keys(instance.connections).length,
+      },
+      id,
+    ));
+  }
+
+  async handleMessage(instance, ws, id, data) {
+    let msg;
+    try {
+      msg = JSON.parse(data.toString());
+    } catch (err) {
+      console.log("💬 Failed to parse message:", err);
+      return;
+    }
+
+    msg.id = id;
+
+    if (msg.type === "logout") {
+      console.log(`💬 [${instance.config.name}] User logged out`);
+      delete instance.authorizedConnections[id];
+    } else if (msg.type === "chat:message") {
+      await this.handleChatMessage(instance, ws, id, msg);
+    }
+  }
+
+  async handleChatMessage(instance, ws, id, msg) {
+    console.log(
+      `💬 [${instance.config.name}] Message from ${msg.content.sub}: "${msg.content.text}"`
+    );
+
+    // Mute check
+    if (await this.isMuted(instance, msg.content.sub)) {
+      ws.send(this.pack("muted", { message: "Your user has been muted." }));
+      return;
+    }
+
+    // Length limit
+    const len = 128;
+    if (msg.content.text.length > len) {
+      ws.send(this.pack("too-long", { message: `Please limit to ${len} characters.` }));
+      return;
+    }
+
+    // Authorization
+    let authorized;
+    if (instance.authorizedConnections[id]?.token === msg.content.token) {
+      authorized = instance.authorizedConnections[id].user;
+      console.log("💬 Pre-authorized");
+    } else {
+      console.log("💬 Authorizing...");
+      authorized = await this.authorize(instance, msg.content.token);
+      if (authorized) {
+        instance.authorizedConnections[id] = {
+          token: msg.content.token,
+          user: authorized,
+        };
+      }
+    }
+
+    // Get handle
+    let handle, subscribed;
+    if (authorized) {
+      handle = await this.getHandleFromSub(instance, authorized.sub);
+      
+      // Subscription check for sotce
+      if (instance.config.name === "chat-sotce") {
+        subscribed = await this.checkSubscription(instance, authorized.sub, msg.content.token);
+      } else {
+        subscribed = true;
+      }
+    }
+
+    if (!authorized || !handle || !subscribed) {
+      console.error("💬 Unauthorized:", { authorized: !!authorized, handle, subscribed });
+      ws.send(this.pack("unauthorized", { message: "Please login and/or subscribe." }, id));
+      return;
+    }
+
+    // Process and store message
+    try {
+      const message = msg.content;
+      const fromSub = message.sub;
+      let filteredText;
+      const userIsMuted = await this.isMuted(instance, fromSub);
+
+      if (userIsMuted) {
+        redact(message);
+        filteredText = message.text;
+      } else {
+        filteredText = filter(message.text, this.filterDebug);
+      }
+
+      // Get server time
+      let when = new Date();
+      if (!this.dev) {
+        try {
+          const clockResponse = await fetch("https://aesthetic.computer/api/clock");
+          if (clockResponse.ok) {
+            const serverTimeISO = await clockResponse.text();
+            when = new Date(serverTimeISO);
+          }
+        } catch (err) {
+          console.log("💬 Clock fetch failed, using local time");
+        }
+      }
+
+      // Store in MongoDB (production only, non-muted users)
+      if (!this.dev && !userIsMuted && this.db) {
+        const dbmsg = {
+          user: message.sub,
+          text: message.text,
+          when,
+        };
+        const collection = this.db.collection(instance.config.name);
+        await collection.createIndex({ when: 1 });
+        await collection.insertOne(dbmsg);
+        console.log("💬 Message stored");
+      }
+
+      const out = {
+        from: handle,
+        text: filteredText,
+        redactedText: message.redactedText,
+        when,
+        sub: fromSub,
+      };
+
+      // Duplicate detection
+      const lastMsg = instance.messages[instance.messages.length - 1];
+      if (lastMsg && lastMsg.sub === out.sub && lastMsg.text === out.text && !lastMsg.count) {
+        lastMsg.count = (lastMsg.count || 1) + 1;
+        this.broadcast(instance, this.pack("message:update", { index: instance.messages.length - 1, count: lastMsg.count }));
+      } else {
+        instance.messages.push(out);
+        if (instance.messages.length > MAX_MESSAGES) instance.messages.shift();
+        this.broadcast(instance, this.pack("message", out));
+      }
+
+      // Push notification (production only, non-muted)
+      if (!this.dev && !userIsMuted) {
+        this.notify(instance, handle, filteredText, when);
+      }
+    } catch (err) {
+      console.error("💬 Message handling error:", err);
+    }
+  }
+
+  async authorize(instance, token) {
+    try {
+      const response = await fetch(instance.config.userInfoEndpoint, {
+        headers: {
+          Authorization: "Bearer " + token,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (response.status === 200) {
+        return response.json();
+      }
+      return undefined;
+    } catch (err) {
+      console.error("💬 Authorization error:", err);
+      return undefined;
+    }
+  }
+
+  async getHandleFromSub(instance, fromSub) {
+    if (instance.subsToHandles[fromSub]) {
+      return "@" + instance.subsToHandles[fromSub];
+    }
+
+    try {
+      let prefix = instance.config.name === "chat-sotce" ? "sotce-" : "";
+      let host = this.dev ? "https://localhost:8888" : 
+        (instance.config.name === "chat-sotce" ? "https://sotce.net" : "https://aesthetic.computer");
+
+      const options = {};
+      if (this.dev) options.agent = this.agent;
+
+      const response = await fetch(`${host}/handle?for=${prefix}${fromSub}`, options);
+      if (response.status === 200) {
+        const data = await response.json();
+        instance.subsToHandles[fromSub] = data.handle;
+        return "@" + data.handle;
+      }
+    } catch (err) {
+      console.error("💬 Handle lookup error:", err);
+    }
+
+    return "@unknown";
+  }
+
+  async checkSubscription(instance, sub, token) {
+    if (instance.subsToSubscribers[sub] !== undefined) {
+      return instance.subsToSubscribers[sub];
+    }
+
+    const host = this.dev ? "https://localhost:8888" : "https://sotce.net";
+    const options = {
+      method: "POST",
+      body: JSON.stringify({ retrieve: "subscription" }),
+      headers: {
+        Authorization: "Bearer " + token,
+        "Content-Type": "application/json",
+      },
+    };
+
+    if (this.dev) options.agent = this.agent;
+
+    try {
+      const response = await fetch(`${host}/sotce-net/subscribed`, options);
+      if (response.status === 200) {
+        const data = await response.json();
+        instance.subsToSubscribers[sub] = data.subscribed;
+        return data.subscribed;
+      }
+    } catch (err) {
+      console.error("💬 Subscription check error:", err);
+    }
+
+    instance.subsToSubscribers[sub] = false;
+    return false;
+  }
+
+  async isMuted(instance, sub) {
+    if (!sub || !this.db) return false;
+    try {
+      const mutesCollection = this.db.collection(instance.config.name + "-mutes");
+      const mute = await mutesCollection.findOne({ user: sub });
+      return !!mute;
+    } catch (err) {
+      return false;
+    }
+  }
+
+  notify(instance, handle, text, when) {
+    let title = handle + " 💬";
+    
+    if (instance.config.name === "chat-clock") {
+      const getClockEmoji = (date) => {
+        let hour = date.getHours() % 12 || 12;
+        const minutes = date.getMinutes();
+        const emojiCode = minutes < 30 ? (0x1f550 + hour - 1) : (0x1f55c + hour - 1);
+        return String.fromCodePoint(emojiCode);
+      };
+      title = handle + " " + getClockEmoji(when);
+    }
+
+    try {
+      getMessaging().send({
+        notification: { title, body: text },
+        apns: {
+          payload: {
+            aps: {
+              "mutable-content": 1,
+              "interruption-level": "time-sensitive",
+              priority: 10,
+              "content-available": 1,
+            },
+          },
+          headers: {
+            "apns-priority": "10",
+            "apns-push-type": "alert",
+            "apns-expiration": "0",
+          },
+        },
+        webpush: {
+          headers: {
+            Urgency: "high",
+            TTL: "0",
+            image: "https://aesthetic.computer/api/logo.png",
+          },
+        },
+        topic: instance.config.topic,
+        data: { piece: "chat" },
+      }).then((response) => {
+        console.log("💬 Notification sent:", response);
+      }).catch((err) => {
+        console.log("💬 Notification error:", err);
+      });
+    } catch (err) {
+      console.error("💬 Notification error:", err);
+    }
+  }
+
+  // Handle HTTP log endpoint
+  async handleLog(instance, body, authHeader) {
+    const token = authHeader?.split(" ")[1];
+    if (token !== this.loggerKey) {
+      return { status: 403, body: { status: "error", message: "Forbidden" } };
+    }
+
+    try {
+      const parsed = typeof body === "string" ? JSON.parse(body) : body;
+      console.log(`💬 [${instance.config.name}] Log received:`, parsed);
+
+      instance.messages.push(parsed);
+      if (instance.messages.length > MAX_MESSAGES) instance.messages.shift();
+
+      // Handle actions (mute/unmute, handle updates)
+      if (parsed.action) {
+        await this.handleLogAction(instance, parsed);
+      }
+
+      this.broadcast(instance, this.pack("message", parsed));
+
+      if (instance.config.name === "chat-system") {
+        this.notify(instance, "log 🪵", parsed.text, new Date());
+      }
+
+      return { status: 200, body: { status: "success", message: "Log received" } };
+    } catch (err) {
+      return { status: 400, body: { status: "error", message: "Malformed log JSON" } };
+    }
+  }
+
+  async handleLogAction(instance, parsed) {
+    let [object, behavior] = (parsed.action || "").split(":");
+    if (!behavior) {
+      behavior = object;
+      object = null;
+    }
+
+    if (object === "chat-system" && (behavior === "mute" || behavior === "unmute")) {
+      const user = parsed.users[0];
+      if (behavior === "mute") {
+        instance.messages.forEach((msg) => {
+          if (msg.sub === user) redact(msg);
+        });
+      } else {
+        instance.messages.forEach((msg) => {
+          if (msg.sub === user) unredact(msg);
+        });
+      }
+      this.broadcast(instance, this.pack(parsed.action, { user }));
+    }
+
+    if (object === "handle") {
+      instance.subsToHandles[parsed.users[0]] = parsed.value;
+
+      if (behavior === "update" || behavior === "strip") {
+        const from = behavior === "update" ? "@" + parsed.value : "nohandle";
+        instance.messages.forEach((msg) => {
+          if (msg.sub === parsed.users[0]) {
+            msg.from = from;
+          }
+        });
+        this.broadcast(instance, this.pack(parsed.action, { user: parsed.users[0], handle: from }));
+      }
+    }
+  }
+
+  pack(type, content, id) {
+    if (typeof content === "object") content = JSON.stringify(content);
+    return JSON.stringify({ type, content, id });
+  }
+
+  broadcast(instance, message) {
+    Object.values(instance.connections).forEach((c) => {
+      if (c?.readyState === WebSocket.OPEN) c.send(message);
+    });
+  }
+
+  broadcastOthers(instance, exclude, message) {
+    Object.values(instance.connections).forEach((c) => {
+      if (c !== exclude && c?.readyState === WebSocket.OPEN) c.send(message);
+    });
+  }
+
+  // Get status for a specific instance or all
+  getStatus(host = null) {
+    if (host) {
+      const instance = this.getInstance(host);
+      if (!instance) return null;
+      return {
+        name: instance.config.name,
+        connections: Object.keys(instance.connections).length,
+        messages: instance.messages.length,
+      };
+    }
+
+    return Object.entries(this.instances).map(([host, instance]) => ({
+      host,
+      name: instance.config.name,
+      connections: Object.keys(instance.connections).length,
+      messages: instance.messages.length,
+    }));
+  }
+
+  // Get recent messages for a specific instance (for dashboard)
+  getRecentMessages(host, count = 10) {
+    const instance = this.getInstance(host);
+    if (!instance) return [];
+    
+    // Return the most recent messages, but don't expose sensitive data
+    return instance.messages.slice(-count).map(msg => ({
+      from: msg.from || 'unknown',
+      text: msg.text || '',
+      when: msg.when
+    })).reverse(); // Most recent first
+  }
+}
