@@ -38,6 +38,32 @@ import crypto from "crypto";
 import dotenv from "dotenv";
 dotenv.config();
 
+// Error logging ring buffer (for dashboard display)
+const errorLog = [];
+const MAX_ERRORS = 50;
+const ERROR_RETENTION_MS = 60 * 60 * 1000; // 1 hour
+
+function logError(level, message) {
+  const entry = {
+    level,
+    message: typeof message === 'string' ? message : JSON.stringify(message),
+    timestamp: new Date().toISOString()
+  };
+  errorLog.push(entry);
+  if (errorLog.length > MAX_ERRORS) errorLog.shift();
+}
+
+// Capture uncaught errors
+process.on('uncaughtException', (err) => {
+  logError('error', `Uncaught: ${err.message}`);
+  console.error('Uncaught Exception:', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  logError('error', `Unhandled Rejection: ${reason}`);
+  console.error('Unhandled Rejection:', reason);
+});
+
 import { exec } from "child_process";
 
 // FCM (Firebase Cloud Messaging)
@@ -62,7 +88,12 @@ initializeApp(
   //"aesthetic" + ~~performance.now(),
 );
 
+// Initialize ChatManager for multi-instance chat support
+const chatManager = new ChatManager({ dev: process.env.NODE_ENV === "development" });
+await chatManager.init();
+
 import { filter } from "./filter.mjs"; // Profanity filtering.
+import { ChatManager } from "./chat-manager.mjs"; // Multi-instance chat support.
 
 import { createClient } from "redis";
 const redisConnectionString = process.env.REDIS_CONNECTION_STRING;
@@ -143,12 +174,18 @@ const clients = {}; // Map of connection ID to { handle, user, location, websock
 const sub = !dev
   ? createClient({ url: redisConnectionString })
   : createClient();
-sub.on("error", (err) => log("🔴 Redis subscriber client error!", err));
+sub.on("error", (err) => {
+  log("🔴 Redis subscriber client error!", err);
+  logError('error', `Redis sub: ${err.message}`);
+});
 
 const pub = !dev
   ? createClient({ url: redisConnectionString })
   : createClient();
-pub.on("error", (err) => log("🔴 Redis publisher client error!", err));
+pub.on("error", (err) => {
+  log("🔴 Redis publisher client error!", err);
+  logError('error', `Redis pub: ${err.message}`);
+});
 
 try {
   await sub.connect();
@@ -216,6 +253,28 @@ fastify.post("/build-stream", async (req) => {
 fastify.post("/build-status", async (req) => {
   everyone(pack("build:status", { ...req.body, timestamp: Date.now() }));
   return { status: "ok" };
+});
+
+// *** Chat Log Endpoint (for system logs from other services) ***
+fastify.post("/chat/log", async (req, reply) => {
+  const host = req.headers.host;
+  // Determine which chat instance based on a header or default to chat-system
+  const chatHost = req.headers["x-chat-instance"] || "chat-system.aesthetic.computer";
+  const instance = chatManager.getInstance(chatHost);
+  
+  if (!instance) {
+    reply.status(404);
+    return { status: "error", message: "Unknown chat instance" };
+  }
+  
+  const result = await chatManager.handleLog(instance, req.body, req.headers.authorization);
+  reply.status(result.status);
+  return result.body;
+});
+
+// *** Chat Status Endpoint ***
+fastify.get("/chat/status", async (req) => {
+  return chatManager.getStatus();
 });
 
 // *** Live Reload of Pieces in Development ***
@@ -408,7 +467,24 @@ function findCodeChannel(connectionId) {
 }
 
 function getFullStatus() {
-  const clients = getClientStatus();
+  const clientList = getClientStatus();
+  
+  // Get chat status with recent messages
+  const chatStatus = chatManager.getStatus();
+  const chatWithMessages = chatStatus.map(instance => {
+    const recentMessages = instance.messages > 0 
+      ? chatManager.getRecentMessages(instance.host, 10)
+      : [];
+    return {
+      ...instance,
+      recentMessages
+    };
+  });
+  
+  // Filter old errors
+  const cutoff = Date.now() - ERROR_RETENTION_MS;
+  const recentErrors = errorLog.filter(e => new Date(e.timestamp).getTime() > cutoff);
+  
   return {
     timestamp: Date.now(),
     server: {
@@ -419,9 +495,11 @@ function getFullStatus() {
     totals: {
       websocket: wss.clients.size,
       udp: Object.keys(udpChannels).length,
-      unique_clients: clients.length
+      unique_clients: clientList.length
     },
-    clients: clients,
+    clients: clientList,
+    chat: chatWithMessages,
+    errors: recentErrors.slice(-20).reverse() // Most recent first
   };
 }
 
@@ -462,13 +540,13 @@ fastify.get("/", async (request, reply) => {
       font-family: monospace;
       background: #000;
       color: #0f0;
-      padding: 2rem;
-      line-height: 1.6;
+      padding: 1.5rem;
+      line-height: 1.5;
     }
     .header {
       border-bottom: 1px solid #333;
       padding-bottom: 1rem;
-      margin-bottom: 2rem;
+      margin-bottom: 1.5rem;
     }
     .header h1 {
       color: #0ff;
@@ -479,11 +557,32 @@ fastify.get("/", async (request, reply) => {
       font-size: 0.9rem;
       margin-top: 0.5rem;
     }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+    }
+    @media (max-width: 900px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+    .section {
+      background: #0a0a0a;
+      border: 1px solid #222;
+      border-radius: 4px;
+      padding: 1rem;
+    }
+    .section h2 {
+      color: #0ff;
+      font-size: 0.95rem;
+      margin-bottom: 0.75rem;
+      border-bottom: 1px solid #222;
+      padding-bottom: 0.5rem;
+    }
     .client {
       background: #111;
       border-left: 3px solid #0f0;
-      padding: 1rem;
-      margin-bottom: 1rem;
+      padding: 0.75rem;
+      margin-bottom: 0.75rem;
     }
     .name {
       color: #0ff;
@@ -492,10 +591,65 @@ fastify.get("/", async (request, reply) => {
     .ping { color: yellow; }
     .detail {
       color: #888;
-      margin-top: 0.3rem;
-      font-size: 0.9rem;
+      margin-top: 0.2rem;
+      font-size: 0.85rem;
     }
     .empty { color: #555; font-style: italic; }
+    .chat-instance {
+      background: #111;
+      border-left: 3px solid #f0f;
+      padding: 0.75rem;
+      margin-bottom: 0.75rem;
+    }
+    .chat-instance.offline { border-left-color: #f00; opacity: 0.6; }
+    .chat-instance .name { color: #f0f; }
+    .chat-msg {
+      background: #0a0a0a;
+      padding: 0.4rem 0.6rem;
+      margin-top: 0.4rem;
+      font-size: 0.8rem;
+      border-radius: 3px;
+    }
+    .chat-msg .from { color: #0ff; }
+    .chat-msg .text { color: #aaa; }
+    .chat-msg .time { color: #555; font-size: 0.75rem; }
+    .error-log {
+      background: #1a0000;
+      border-left: 3px solid #f00;
+      padding: 0.5rem;
+      margin-bottom: 0.5rem;
+      font-size: 0.8rem;
+    }
+    .error-log .time { color: #555; }
+    .error-log .msg { color: #f66; }
+    .warn-log {
+      background: #1a1a00;
+      border-left: 3px solid #ff0;
+    }
+    .warn-log .msg { color: #ff6; }
+    .no-errors { color: #0f0; font-style: italic; }
+    .tabs {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+    .tab {
+      padding: 0.4rem 0.8rem;
+      background: #111;
+      border: 1px solid #333;
+      color: #888;
+      cursor: pointer;
+      border-radius: 3px;
+      font-family: monospace;
+      font-size: 0.85rem;
+    }
+    .tab.active {
+      background: #0f0;
+      color: #000;
+      border-color: #0f0;
+    }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
   </style>
 </head>
 <body>
@@ -504,13 +658,65 @@ fastify.get("/", async (request, reply) => {
     <div class="status">
       <span id="ws-status">🔴</span> | 
       Uptime: <span id="uptime">--</span> | 
-      Online: <span id="client-count">0</span>
+      Online: <span id="client-count">0</span> |
+      Chat: <span id="chat-count">0</span>
     </div>
   </div>
   
-  <div id="clients"></div>
+  <div class="tabs">
+    <button class="tab active" data-tab="overview">Overview</button>
+    <button class="tab" data-tab="chat">💬 Chat</button>
+    <button class="tab" data-tab="errors">⚠️ Errors</button>
+  </div>
+  
+  <div id="overview" class="tab-content active">
+    <div class="grid">
+      <div class="section">
+        <h2>🧑‍💻 Connected Clients</h2>
+        <div id="clients"></div>
+      </div>
+      <div class="section">
+        <h2>💬 Chat Instances</h2>
+        <div id="chat-status"></div>
+      </div>
+    </div>
+  </div>
+  
+  <div id="chat" class="tab-content">
+    <div class="grid">
+      <div class="section" id="chat-system-section">
+        <h2>💬 chat-system</h2>
+        <div id="chat-system-messages"></div>
+      </div>
+      <div class="section" id="chat-clock-section">
+        <h2>🕐 chat-clock</h2>
+        <div id="chat-clock-messages"></div>
+      </div>
+      <div class="section" id="chat-sotce-section">
+        <h2>🌸 chat-sotce</h2>
+        <div id="chat-sotce-messages"></div>
+      </div>
+    </div>
+  </div>
+  
+  <div id="errors" class="tab-content">
+    <div class="section">
+      <h2>⚠️ Recent Errors & Warnings</h2>
+      <div id="error-log"></div>
+    </div>
+  </div>
 
   <script>
+    // Tab switching
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById(tab.dataset.tab).classList.add('active');
+      });
+    });
+    
     const ws = new WebSocket(\`\${location.protocol === 'https:' ? 'wss:' : 'ws:'}//\${location.host}/status-stream\`);
     
     ws.onopen = () => {
@@ -527,39 +733,51 @@ fastify.get("/", async (request, reply) => {
       if (data.type === 'status') update(data.data);
     };
     
+    function formatTime(dateStr) {
+      if (!dateStr) return '';
+      const d = new Date(dateStr);
+      return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    }
+    
+    function escapeHtml(str) {
+      if (!str) return '';
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+    
     function update(s) {
       const hrs = Math.floor(s.server.uptime / 3600);
       const min = Math.floor((s.server.uptime % 3600) / 60);
       document.getElementById('uptime').textContent = \`\${hrs}h \${min}m\`;
       document.getElementById('client-count').textContent = s.totals.unique_clients;
       
-      const html = s.clients.length === 0 
+      // Chat instance count
+      const totalChatters = s.chat ? s.chat.reduce((sum, c) => sum + c.connections, 0) : 0;
+      document.getElementById('chat-count').textContent = totalChatters;
+      
+      // Clients section
+      const clientsHtml = s.clients.length === 0 
         ? '<div class="empty">Nobody online</div>'
         : s.clients.map(c => {
             let out = '<div class="client">';
             out += '<div class="name">';
-            out += c.handle || '(anonymous)';
+            out += escapeHtml(c.handle) || '(anonymous)';
             if (c.multipleTabs && c.connectionCount.total > 1) out += \` (×\${c.connectionCount.total})\`;
             if (c.websocket?.ping) out += \` <span class="ping">(\${c.websocket.ping}ms)</span>\`;
             out += '</div>';
-            if (c.location && c.location !== '*keep-alive*') out += \`<div class="detail">📍 \${c.location}</div>\`;
-            
-            // Show geolocation if available
+            if (c.location && c.location !== '*keep-alive*') out += \`<div class="detail">📍 \${escapeHtml(c.location)}</div>\`;
             if (c.geo) {
               let geo = '🗺️ ';
               if (c.geo.city) geo += c.geo.city + ', ';
               if (c.geo.region) geo += c.geo.region + ', ';
               geo += c.geo.country;
-              if (c.geo.timezone) geo += \` (\${c.geo.timezone})\`;
               out += \`<div class="detail">\${geo}</div>\`;
             } else if (c.ip) {
               out += \`<div class="detail">🌐 \${c.ip}</div>\`;
             }
-            
             if (c.websocket?.worlds?.length > 0) {
               const w = c.websocket.worlds[0];
-              out += \`<div class="detail">🌍 \${w.piece}\`;
-              if (w.showing) out += \` (viewing \${w.showing})\`;
+              out += \`<div class="detail">🌍 \${escapeHtml(w.piece)}\`;
+              if (w.showing) out += \` (viewing \${escapeHtml(w.showing)})\`;
               if (w.ghost) out += ' 👻';
               out += '</div>';
             }
@@ -570,8 +788,51 @@ fastify.get("/", async (request, reply) => {
             out += '</div>';
             return out;
           }).join('');
+      document.getElementById('clients').innerHTML = clientsHtml;
       
-      document.getElementById('clients').innerHTML = html;
+      // Chat status section (overview)
+      if (s.chat) {
+        const chatHtml = s.chat.map(c => {
+          const isOnline = c.messages >= 0;
+          return \`<div class="chat-instance \${isOnline ? '' : 'offline'}">
+            <div class="name">\${escapeHtml(c.name)} \${isOnline ? '🟢' : '🔴'}</div>
+            <div class="detail">🧑‍🤝‍🧑 \${c.connections} connected</div>
+            <div class="detail">💾 \${c.messages} messages loaded</div>
+          </div>\`;
+        }).join('');
+        document.getElementById('chat-status').innerHTML = chatHtml;
+      } else {
+        document.getElementById('chat-status').innerHTML = '<div class="empty">Chat not initialized</div>';
+      }
+      
+      // Chat messages (detailed view)
+      if (s.chat) {
+        s.chat.forEach(c => {
+          const name = c.name.replace('chat-', '');
+          const el = document.getElementById(\`chat-\${name}-messages\`) || document.getElementById(\`chat-\${c.name}-messages\`);
+          if (el && c.recentMessages) {
+            const msgsHtml = c.recentMessages.length === 0
+              ? '<div class="empty">No recent messages</div>'
+              : c.recentMessages.map(m => \`<div class="chat-msg">
+                  <span class="from">\${escapeHtml(m.from)}</span>
+                  <span class="text">\${escapeHtml(m.text)}</span>
+                  <span class="time">\${formatTime(m.when)}</span>
+                </div>\`).join('');
+            el.innerHTML = msgsHtml;
+          }
+        });
+      }
+      
+      // Error log
+      if (s.errors && s.errors.length > 0) {
+        const errHtml = s.errors.map(e => \`<div class="\${e.level === 'error' ? 'error-log' : 'warn-log error-log'}">
+          <span class="time">[\${formatTime(e.timestamp)}]</span>
+          <span class="msg">\${escapeHtml(e.message)}</span>
+        </div>\`).join('');
+        document.getElementById('error-log').innerHTML = errHtml;
+      } else {
+        document.getElementById('error-log').innerHTML = '<div class="no-errors">✅ No errors in the last hour</div>';
+      }
     }
   </script>
 </body>
@@ -639,6 +900,14 @@ wss.on("connection", (ws, req) => {
       statusClients.delete(ws);
     });
     
+    return; // Don't process as a game client
+  }
+  
+  // Route chat connections to ChatManager based on host
+  const host = req.headers.host;
+  if (chatManager.isChatHost(host)) {
+    log('💬 Chat client connection from:', host);
+    chatManager.handleConnection(ws, req);
     return; // Don't process as a game client
   }
   
