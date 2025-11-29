@@ -83,15 +83,11 @@ export async function main() {
     
     testLog(`Navigating to: ${splitPath}`);
     
-    // Navigate to split view
-    await client.send('piece:load', { path: splitPath });
+    // Navigate to split view using jump
+    await client.jump(splitPath);
     
     // Wait for navigation
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Reconnect after navigation
-    await client.connect();
-    testLog('Reconnected after navigation\n');
+    await new Promise(resolve => setTimeout(resolve, 2000));
     
     successLog('Split view loaded!\n');
     
