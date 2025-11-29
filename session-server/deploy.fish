@@ -19,10 +19,10 @@ if test $status -ne 0
     exit 1
 end
 
-# Step 2: Install dependencies (force install for new deps)
+# Step 2: Install dependencies (skip if node_modules exists)
 echo ""
-echo "📦 Step 2/4: Installing dependencies..."
-ssh -i $SSH_KEY $SERVER "cd $REPO_PATH/session-server && npm install"
+echo "📦 Step 2/4: Checking dependencies..."
+ssh -i $SSH_KEY $SERVER "cd $REPO_PATH/session-server && if [ ! -d node_modules ]; then echo 'Installing...'; npm install; else echo 'Dependencies already installed'; fi"
 
 if test $status -ne 0
     echo ""
