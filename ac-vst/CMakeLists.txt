@@ -73,5 +73,14 @@ if(APPLE)
     set_target_properties(ACNotepat PROPERTIES
         BUNDLE_IDENTIFIER "computer.aesthetic.notepat"
         MACOSX_BUNDLE_GUI_IDENTIFIER "computer.aesthetic.notepat"
+        MACOSX_BUNDLE_BUNDLE_NAME "AC Notepat"
+        MACOSX_BUNDLE_BUNDLE_VERSION "0.1.0"
+        MACOSX_BUNDLE_SHORT_VERSION_STRING "0.1.0"
+    )
+    
+    # Fix: VST3 must be BNDL, not APPL
+    add_custom_command(TARGET ACNotepat POST_BUILD
+        COMMAND /usr/libexec/PlistBuddy -c "Set :CFBundlePackageType BNDL" "$<TARGET_BUNDLE_DIR:ACNotepat>/Contents/Info.plist"
+        COMMENT "Fixing CFBundlePackageType to BNDL"
     )
 endif()

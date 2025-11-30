@@ -351,6 +351,8 @@ SMTG_ENABLE_WAYLAND_SUPPORT:BOOL=OFF
 //Build the MDA examples as a replacement for their VST2 counterpart
 SMTG_MDA_VST3_VST2_COMPATIBLE:BOOL=ON
 
+SMTG_PLUGIN_TARGET_PATH:PATH=/Users/jas/Desktop/code/aesthetic-computer/ac-vst/plugins
+
 //Here you can redefine the VST3 Plug-ins folder
 SMTG_PLUGIN_TARGET_USER_PATH:PATH=
 
