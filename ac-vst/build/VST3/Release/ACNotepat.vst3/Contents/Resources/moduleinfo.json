@@ -15,7 +15,7 @@
     {
       "CID": "12345678ABCD123456789ABCDEF01234",
       "Category": "Audio Module Class",
-      "Name": "AC Notepat",
+      "Name": "AC Notepat 1342",
       "Vendor": "Aesthetic Computer",
       "Version": "0.1.0.1",
       "SDKVersion": "VST 3.8.0",
@@ -31,7 +31,7 @@
     {
       "CID": "87654321DCBA4321CBA987654321FEDC",
       "Category": "Component Controller Class",
-      "Name": "AC NotepatController",
+      "Name": "AC Notepat 1342Controller",
       "Vendor": "Aesthetic Computer",
       "Version": "0.1.0.1",
       "SDKVersion": "VST 3.8.0",
