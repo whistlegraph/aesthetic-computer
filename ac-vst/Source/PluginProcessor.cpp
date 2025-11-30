@@ -54,8 +54,41 @@ void ACNotepatProcessor::releaseResources()
 
 void ACNotepatProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
-    // Clear output buffer (audio comes from WebView, not here)
-    buffer.clear();
+    // Get write pointers for output
+    auto* leftChannel = buffer.getWritePointer(0);
+    auto* rightChannel = buffer.getWritePointer(1);
+    int numSamples = buffer.getNumSamples();
+    
+    // Read audio from ring buffer if VST bridge is active
+    if (vstBridgeActive.load())
+    {
+        int readIdx = audioReadIndex.load();
+        int writeIdx = audioWriteIndex.load();
+        
+        for (int i = 0; i < numSamples; ++i)
+        {
+            // Check if we have samples available
+            if (readIdx != writeIdx)
+            {
+                leftChannel[i] = audioRingBufferLeft[readIdx];
+                rightChannel[i] = audioRingBufferRight[readIdx];
+                readIdx = (readIdx + 1) % audioRingBufferSize;
+            }
+            else
+            {
+                // Buffer underrun - output silence
+                leftChannel[i] = 0.0f;
+                rightChannel[i] = 0.0f;
+            }
+        }
+        
+        audioReadIndex.store(readIdx);
+    }
+    else
+    {
+        // No VST bridge - clear output
+        buffer.clear();
+    }
     
     // Process MIDI messages and convert to keyboard events for notepat
     for (const auto metadata : midiMessages)
@@ -175,6 +208,21 @@ juce::String ACNotepatProcessor::midiNoteToNotepatKey(int midiNote)
     }
     
     return {};
+}
+
+void ACNotepatProcessor::writeAudioSamples(const float* left, const float* right, int numSamples)
+{
+    int writeIdx = audioWriteIndex.load();
+    
+    for (int i = 0; i < numSamples; ++i)
+    {
+        audioRingBufferLeft[writeIdx] = left[i];
+        audioRingBufferRight[writeIdx] = right[i];
+        writeIdx = (writeIdx + 1) % audioRingBufferSize;
+    }
+    
+    audioWriteIndex.store(writeIdx);
+    vstBridgeActive.store(true);
 }
 
 juce::AudioProcessorEditor* ACNotepatProcessor::createEditor()
