@@ -15,6 +15,10 @@ endif()
 set(SMTG_ADD_VSTGUI OFF CACHE BOOL "" FORCE)  # We use WKWebView, not VSTGUI
 set(SMTG_ADD_VST3_PLUGINS_SAMPLES OFF CACHE BOOL "" FORCE)
 set(SMTG_ADD_VST3_HOSTING_SAMPLES OFF CACHE BOOL "" FORCE)
+
+# Custom plugin output folder (visible in Finder)
+set(SMTG_PLUGIN_TARGET_PATH "${CMAKE_CURRENT_SOURCE_DIR}/plugins" CACHE PATH "" FORCE)
+
 add_subdirectory(${vst3sdk_SOURCE_DIR})
 
 # Our plugin sources
