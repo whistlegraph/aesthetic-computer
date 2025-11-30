@@ -5,6 +5,8 @@ file(REMOVE_RECURSE
   "CMakeFiles/ACNotepat.dir/source/acnotepat_controller.mm.o.d"
   "CMakeFiles/ACNotepat.dir/source/acnotepat_entry.cpp.o"
   "CMakeFiles/ACNotepat.dir/source/acnotepat_entry.cpp.o.d"
+  "CMakeFiles/ACNotepat.dir/vst3sdk/public.sdk/source/main/macmain.cpp.o"
+  "CMakeFiles/ACNotepat.dir/vst3sdk/public.sdk/source/main/macmain.cpp.o.d"
   "VST3/Release/ACNotepat.vst3/Contents/MacOS/ACNotepat"
   "VST3/Release/ACNotepat.vst3/Contents/MacOS/ACNotepat.pdb"
 )

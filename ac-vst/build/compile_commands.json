@@ -18,6 +18,12 @@
   "output": "CMakeFiles/ACNotepat.dir/source/acnotepat_entry.cpp.o"
 },
 {
+  "directory": "/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build",
+  "command": "/usr/bin/c++ -DACNotepat_EXPORTS -I/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build -I/Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk -O3 -DNDEBUG -std=gnu++17 -arch arm64 -fPIC -DRELEASE=1 -o CMakeFiles/ACNotepat.dir/vst3sdk/public.sdk/source/main/macmain.cpp.o -c /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/source/main/macmain.cpp",
+  "file": "/Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/source/main/macmain.cpp",
+  "output": "CMakeFiles/ACNotepat.dir/vst3sdk/public.sdk/source/main/macmain.cpp.o"
+},
+{
   "directory": "/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/vst3sdk",
   "command": "/usr/bin/c++  -I/Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk  -stdlib=libc++ -O3 -DNDEBUG -std=gnu++17 -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.1.sdk -fPIC -fvisibility=hidden -fvisibility-inlines-hidden -DSMTG_RENAME_ASSERT=1 -DRELEASE=1 -o CMakeFiles/base.dir/base/source/baseiids.cpp.o -c /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/base/source/baseiids.cpp",
   "file": "/Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/base/source/baseiids.cpp",

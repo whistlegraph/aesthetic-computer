@@ -1644,12 +1644,12 @@ vst3sdk/public.sdk/samples/vst/again/CMakeFiles/again.dir/all: vst3sdk/public.sd
 vst3sdk/public.sdk/samples/vst/again/CMakeFiles/again.dir/all: vst3sdk/public.sdk/samples/vst-utilities/moduleinfotool/CMakeFiles/moduleinfotool.dir/all
 	$(MAKE) $(MAKESILENT) -f vst3sdk/public.sdk/samples/vst/again/CMakeFiles/again.dir/build.make vst3sdk/public.sdk/samples/vst/again/CMakeFiles/again.dir/depend
 	$(MAKE) $(MAKESILENT) -f vst3sdk/public.sdk/samples/vst/again/CMakeFiles/again.dir/build.make vst3sdk/public.sdk/samples/vst/again/CMakeFiles/again.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/CMakeFiles --progress-num=4 "Built target again"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/CMakeFiles --progress-num=4,5 "Built target again"
 .PHONY : vst3sdk/public.sdk/samples/vst/again/CMakeFiles/again.dir/all
 
 # Build rule for subdir invocation for target.
 vst3sdk/public.sdk/samples/vst/again/CMakeFiles/again.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/CMakeFiles 57
+	$(CMAKE_COMMAND) -E cmake_progress_start /Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/CMakeFiles 58
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 vst3sdk/public.sdk/samples/vst/again/CMakeFiles/again.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/CMakeFiles 0
 .PHONY : vst3sdk/public.sdk/samples/vst/again/CMakeFiles/again.dir/rule
@@ -1662,7 +1662,7 @@ again: vst3sdk/public.sdk/samples/vst/again/CMakeFiles/again.dir/rule
 vst3sdk/public.sdk/samples/vst/again/CMakeFiles/again.dir/codegen: vst3sdk/public.sdk/samples/vst-hosting/validator/CMakeFiles/validator.dir/all
 vst3sdk/public.sdk/samples/vst/again/CMakeFiles/again.dir/codegen: vst3sdk/public.sdk/samples/vst-utilities/moduleinfotool/CMakeFiles/moduleinfotool.dir/all
 	$(MAKE) $(MAKESILENT) -f vst3sdk/public.sdk/samples/vst/again/CMakeFiles/again.dir/build.make vst3sdk/public.sdk/samples/vst/again/CMakeFiles/again.dir/codegen
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/CMakeFiles --progress-num=4 "Finished codegen for target again"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/CMakeFiles --progress-num=4,5 "Finished codegen for target again"
 .PHONY : vst3sdk/public.sdk/samples/vst/again/CMakeFiles/again.dir/codegen
 
 # clean rule for target.
@@ -1724,12 +1724,12 @@ vst3sdk/public.sdk/samples/vst/again_sampleaccurate/CMakeFiles/again-sample-accu
 vst3sdk/public.sdk/samples/vst/again_sampleaccurate/CMakeFiles/again-sample-accurate.dir/all: vst3sdk/public.sdk/samples/vst-utilities/moduleinfotool/CMakeFiles/moduleinfotool.dir/all
 	$(MAKE) $(MAKESILENT) -f vst3sdk/public.sdk/samples/vst/again_sampleaccurate/CMakeFiles/again-sample-accurate.dir/build.make vst3sdk/public.sdk/samples/vst/again_sampleaccurate/CMakeFiles/again-sample-accurate.dir/depend
 	$(MAKE) $(MAKESILENT) -f vst3sdk/public.sdk/samples/vst/again_sampleaccurate/CMakeFiles/again-sample-accurate.dir/build.make vst3sdk/public.sdk/samples/vst/again_sampleaccurate/CMakeFiles/again-sample-accurate.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/CMakeFiles --progress-num=5,6 "Built target again-sample-accurate"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/CMakeFiles --progress-num=6 "Built target again-sample-accurate"
 .PHONY : vst3sdk/public.sdk/samples/vst/again_sampleaccurate/CMakeFiles/again-sample-accurate.dir/all
 
 # Build rule for subdir invocation for target.
 vst3sdk/public.sdk/samples/vst/again_sampleaccurate/CMakeFiles/again-sample-accurate.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/CMakeFiles 24
+	$(CMAKE_COMMAND) -E cmake_progress_start /Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/CMakeFiles 23
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 vst3sdk/public.sdk/samples/vst/again_sampleaccurate/CMakeFiles/again-sample-accurate.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/CMakeFiles 0
 .PHONY : vst3sdk/public.sdk/samples/vst/again_sampleaccurate/CMakeFiles/again-sample-accurate.dir/rule
@@ -1742,7 +1742,7 @@ again-sample-accurate: vst3sdk/public.sdk/samples/vst/again_sampleaccurate/CMake
 vst3sdk/public.sdk/samples/vst/again_sampleaccurate/CMakeFiles/again-sample-accurate.dir/codegen: vst3sdk/public.sdk/samples/vst-hosting/validator/CMakeFiles/validator.dir/all
 vst3sdk/public.sdk/samples/vst/again_sampleaccurate/CMakeFiles/again-sample-accurate.dir/codegen: vst3sdk/public.sdk/samples/vst-utilities/moduleinfotool/CMakeFiles/moduleinfotool.dir/all
 	$(MAKE) $(MAKESILENT) -f vst3sdk/public.sdk/samples/vst/again_sampleaccurate/CMakeFiles/again-sample-accurate.dir/build.make vst3sdk/public.sdk/samples/vst/again_sampleaccurate/CMakeFiles/again-sample-accurate.dir/codegen
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/CMakeFiles --progress-num=5,6 "Finished codegen for target again-sample-accurate"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/CMakeFiles --progress-num=6 "Finished codegen for target again-sample-accurate"
 .PHONY : vst3sdk/public.sdk/samples/vst/again_sampleaccurate/CMakeFiles/again-sample-accurate.dir/codegen
 
 # clean rule for target.

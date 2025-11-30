@@ -114,11 +114,26 @@ CMakeFiles/ACNotepat.dir/source/acnotepat_entry.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/ACNotepat.dir/source/acnotepat_entry.cpp.s"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/jas/Desktop/code/aesthetic-computer/ac-vst/source/acnotepat_entry.cpp -o CMakeFiles/ACNotepat.dir/source/acnotepat_entry.cpp.s
 
+CMakeFiles/ACNotepat.dir/vst3sdk/public.sdk/source/main/macmain.cpp.o: CMakeFiles/ACNotepat.dir/flags.make
+CMakeFiles/ACNotepat.dir/vst3sdk/public.sdk/source/main/macmain.cpp.o: /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/source/main/macmain.cpp
+CMakeFiles/ACNotepat.dir/vst3sdk/public.sdk/source/main/macmain.cpp.o: CMakeFiles/ACNotepat.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object CMakeFiles/ACNotepat.dir/vst3sdk/public.sdk/source/main/macmain.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/ACNotepat.dir/vst3sdk/public.sdk/source/main/macmain.cpp.o -MF CMakeFiles/ACNotepat.dir/vst3sdk/public.sdk/source/main/macmain.cpp.o.d -o CMakeFiles/ACNotepat.dir/vst3sdk/public.sdk/source/main/macmain.cpp.o -c /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/source/main/macmain.cpp
+
+CMakeFiles/ACNotepat.dir/vst3sdk/public.sdk/source/main/macmain.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/ACNotepat.dir/vst3sdk/public.sdk/source/main/macmain.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/source/main/macmain.cpp > CMakeFiles/ACNotepat.dir/vst3sdk/public.sdk/source/main/macmain.cpp.i
+
+CMakeFiles/ACNotepat.dir/vst3sdk/public.sdk/source/main/macmain.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/ACNotepat.dir/vst3sdk/public.sdk/source/main/macmain.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/source/main/macmain.cpp -o CMakeFiles/ACNotepat.dir/vst3sdk/public.sdk/source/main/macmain.cpp.s
+
 # Object files for target ACNotepat
 ACNotepat_OBJECTS = \
 "CMakeFiles/ACNotepat.dir/source/acnotepat.cpp.o" \
 "CMakeFiles/ACNotepat.dir/source/acnotepat_controller.mm.o" \
-"CMakeFiles/ACNotepat.dir/source/acnotepat_entry.cpp.o"
+"CMakeFiles/ACNotepat.dir/source/acnotepat_entry.cpp.o" \
+"CMakeFiles/ACNotepat.dir/vst3sdk/public.sdk/source/main/macmain.cpp.o"
 
 # External object files for target ACNotepat
 ACNotepat_EXTERNAL_OBJECTS =
@@ -126,13 +141,14 @@ ACNotepat_EXTERNAL_OBJECTS =
 VST3/Release/ACNotepat.vst3/Contents/MacOS/ACNotepat: CMakeFiles/ACNotepat.dir/source/acnotepat.cpp.o
 VST3/Release/ACNotepat.vst3/Contents/MacOS/ACNotepat: CMakeFiles/ACNotepat.dir/source/acnotepat_controller.mm.o
 VST3/Release/ACNotepat.vst3/Contents/MacOS/ACNotepat: CMakeFiles/ACNotepat.dir/source/acnotepat_entry.cpp.o
+VST3/Release/ACNotepat.vst3/Contents/MacOS/ACNotepat: CMakeFiles/ACNotepat.dir/vst3sdk/public.sdk/source/main/macmain.cpp.o
 VST3/Release/ACNotepat.vst3/Contents/MacOS/ACNotepat: CMakeFiles/ACNotepat.dir/build.make
 VST3/Release/ACNotepat.vst3/Contents/MacOS/ACNotepat: lib/Release/libsdk.a
 VST3/Release/ACNotepat.vst3/Contents/MacOS/ACNotepat: lib/Release/libsdk_common.a
 VST3/Release/ACNotepat.vst3/Contents/MacOS/ACNotepat: lib/Release/libbase.a
 VST3/Release/ACNotepat.vst3/Contents/MacOS/ACNotepat: lib/Release/libpluginterfaces.a
 VST3/Release/ACNotepat.vst3/Contents/MacOS/ACNotepat: CMakeFiles/ACNotepat.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Linking CXX CFBundle shared module VST3/Release/ACNotepat.vst3/Contents/MacOS/ACNotepat"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Linking CXX CFBundle shared module VST3/Release/ACNotepat.vst3/Contents/MacOS/ACNotepat"
 	/opt/homebrew/bin/cmake -E make_directory /Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/VST3/Release/ACNotepat.vst3/Contents/Resources
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/ACNotepat.dir/link.txt --verbose=$(VERBOSE)
 	bin/Release/moduleinfotool -create -version 0.1.0 -path /Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/VST3/Release/ACNotepat.vst3 -output /Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/VST3/Release/ACNotepat.vst3/Contents/Resources/moduleinfo.json
