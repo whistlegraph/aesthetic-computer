@@ -20,12 +20,15 @@ juce_add_plugin(ACNotepat
     PRODUCT_NAME "AC Notepat"
     COMPANY_NAME "Aesthetic Computer"
     
-    # Plugin characteristics
+    # Plugin characteristics - Instrument/Synth
     IS_SYNTH TRUE
     NEEDS_MIDI_INPUT TRUE
     NEEDS_MIDI_OUTPUT FALSE
     IS_MIDI_EFFECT FALSE
     EDITOR_WANTS_KEYBOARD_FOCUS TRUE
+    
+    # VST3 category - marks this as an Instrument
+    VST3_CATEGORIES "Instrument" "Synth"
     
     # Bundle ID for macOS
     BUNDLE_ID "computer.aesthetic.notepat"
