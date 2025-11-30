@@ -24,7 +24,7 @@ set(CMAKE_DEPENDS_DEPENDENCY_FILES
   "/Users/jas/Desktop/code/aesthetic-computer/ac-vst/JUCE/modules/juce_graphics/juce_graphics_Harfbuzz.cpp" "CMakeFiles/ACNotepat.dir/JUCE/modules/juce_graphics/juce_graphics_Harfbuzz.cpp.o" "gcc" "CMakeFiles/ACNotepat.dir/JUCE/modules/juce_graphics/juce_graphics_Harfbuzz.cpp.o.d"
   "/Users/jas/Desktop/code/aesthetic-computer/ac-vst/JUCE/modules/juce_gui_basics/juce_gui_basics.mm" "CMakeFiles/ACNotepat.dir/JUCE/modules/juce_gui_basics/juce_gui_basics.mm.o" "gcc" "CMakeFiles/ACNotepat.dir/JUCE/modules/juce_gui_basics/juce_gui_basics.mm.o.d"
   "/Users/jas/Desktop/code/aesthetic-computer/ac-vst/JUCE/modules/juce_gui_extra/juce_gui_extra.mm" "CMakeFiles/ACNotepat.dir/JUCE/modules/juce_gui_extra/juce_gui_extra.mm.o" "gcc" "CMakeFiles/ACNotepat.dir/JUCE/modules/juce_gui_extra/juce_gui_extra.mm.o.d"
-  "/Users/jas/Desktop/code/aesthetic-computer/ac-vst/Source/PluginEditor.cpp" "CMakeFiles/ACNotepat.dir/Source/PluginEditor.cpp.o" "gcc" "CMakeFiles/ACNotepat.dir/Source/PluginEditor.cpp.o.d"
+  "/Users/jas/Desktop/code/aesthetic-computer/ac-vst/Source/PluginEditor.mm" "CMakeFiles/ACNotepat.dir/Source/PluginEditor.mm.o" "gcc" "CMakeFiles/ACNotepat.dir/Source/PluginEditor.mm.o.d"
   "/Users/jas/Desktop/code/aesthetic-computer/ac-vst/Source/PluginProcessor.cpp" "CMakeFiles/ACNotepat.dir/Source/PluginProcessor.cpp.o" "gcc" "CMakeFiles/ACNotepat.dir/Source/PluginProcessor.cpp.o.d"
   )
 

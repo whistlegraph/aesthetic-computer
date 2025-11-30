@@ -33,8 +33,8 @@ file(REMOVE_RECURSE
   "CMakeFiles/ACNotepat.dir/JUCE/modules/juce_gui_basics/juce_gui_basics.mm.o.d"
   "CMakeFiles/ACNotepat.dir/JUCE/modules/juce_gui_extra/juce_gui_extra.mm.o"
   "CMakeFiles/ACNotepat.dir/JUCE/modules/juce_gui_extra/juce_gui_extra.mm.o.d"
-  "CMakeFiles/ACNotepat.dir/Source/PluginEditor.cpp.o"
-  "CMakeFiles/ACNotepat.dir/Source/PluginEditor.cpp.o.d"
+  "CMakeFiles/ACNotepat.dir/Source/PluginEditor.mm.o"
+  "CMakeFiles/ACNotepat.dir/Source/PluginEditor.mm.o.d"
   "CMakeFiles/ACNotepat.dir/Source/PluginProcessor.cpp.o"
   "CMakeFiles/ACNotepat.dir/Source/PluginProcessor.cpp.o.d"
 )
