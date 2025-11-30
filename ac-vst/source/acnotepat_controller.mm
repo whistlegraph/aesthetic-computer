@@ -8,13 +8,17 @@
 using namespace Steinberg;
 using namespace Steinberg::Vst;
 
+// Forward declaration
 namespace AestheticComputer {
+    class ACNotepatController;
+}
 
 //------------------------------------------------------------------------
 // Objective-C message handler for WKWebView -> Native communication
+// Must be declared at global scope (outside C++ namespace)
 //------------------------------------------------------------------------
 @interface ACWebViewHandler : NSObject <WKScriptMessageHandler, WKNavigationDelegate>
-@property (nonatomic, assign) ACNotepatController* controller;
+@property (nonatomic, assign) AestheticComputer::ACNotepatController* controller;
 @end
 
 @implementation ACWebViewHandler
@@ -68,6 +72,8 @@ namespace AestheticComputer {
 }
 
 @end
+
+namespace AestheticComputer {
 
 //------------------------------------------------------------------------
 // ACNotepatController implementation

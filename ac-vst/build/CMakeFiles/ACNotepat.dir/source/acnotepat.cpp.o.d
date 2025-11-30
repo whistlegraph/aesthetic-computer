@@ -778,4 +778,7 @@ CMakeFiles/ACNotepat.dir/source/acnotepat.cpp.o: \
   /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/source/vst/utility/processcontextrequirements.h \
   /Users/jas/Desktop/code/aesthetic-computer/ac-vst/source/acnotepat_cids.h \
   /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/base/source/fstreamer.h \
-  /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/pluginterfaces/vst/ivstparameterchanges.h
+  /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/pluginterfaces/vst/ivstparameterchanges.h \
+  /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/pluginterfaces/vst/ivstevents.h \
+  /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/pluginterfaces/vst/ivstprocesscontext.h \
+  /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/pluginterfaces/vst/ivstnoteexpression.h
