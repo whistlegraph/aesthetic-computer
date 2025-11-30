@@ -13,11 +13,11 @@ CXX_FLAGS =  -stdlib=libc++ -O3 -DNDEBUG -std=gnu++17 -arch arm64 -isysroot /App
 
 OBJCXX_DEFINES = -DNDEBUG -DRELEASE -DVSTGUI_ENABLE_DEPRECATED_METHODS=1 -DVSTGUI_ENABLE_XML_PARSER=1 -DVSTGUI_OPENGL_SUPPORT=1 -DVSTGUI_STANDALONE_APP_URI=\"com.steinberg.vstsdk.vst3inspector\"
 
-OBJCXX_INCLUDES = /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/vstgui4
+OBJCXX_INCLUDES = -I/Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk -I/Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/vstgui4
 
-OBJCXX_FLAGSarm64 = -O3 -DNDEBUG -arch arm64 -DSMTG_RENAME_ASSERT=1 -stdlib=libc++ -DRELEASE=1
+OBJCXX_FLAGSarm64 = -O3 -DNDEBUG -std=gnu++17 -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.1.sdk -fPIE -fvisibility-inlines-hidden -DSMTG_RENAME_ASSERT=1 -stdlib=libc++ -DRELEASE=1
 
-OBJCXX_FLAGS = -O3 -DNDEBUG -arch arm64 -DSMTG_RENAME_ASSERT=1 -stdlib=libc++ -DRELEASE=1
+OBJCXX_FLAGS = -O3 -DNDEBUG -std=gnu++17 -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.1.sdk -fPIE -fvisibility-inlines-hidden -DSMTG_RENAME_ASSERT=1 -stdlib=libc++ -DRELEASE=1
 
 # Custom flags: vst3sdk/public.sdk/samples/vst-hosting/inspectorapp/CMakeFiles/VST3Inspector.dir/__/__/__/source/vst/hosting/module_mac.mm.o_FLAGS = -fobjc-arc
 

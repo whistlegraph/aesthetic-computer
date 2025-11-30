@@ -116,15 +116,17 @@ vst3sdk/public.sdk/samples/vst-utilities/moduleinfotool/CMakeFiles/moduleinfotoo
 
 vst3sdk/public.sdk/samples/vst-utilities/moduleinfotool/CMakeFiles/moduleinfotool.dir/__/__/__/source/vst/hosting/module_mac.mm.o: vst3sdk/public.sdk/samples/vst-utilities/moduleinfotool/CMakeFiles/moduleinfotool.dir/flags.make
 vst3sdk/public.sdk/samples/vst-utilities/moduleinfotool/CMakeFiles/moduleinfotool.dir/__/__/__/source/vst/hosting/module_mac.mm.o: /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/source/vst/hosting/module_mac.mm
+vst3sdk/public.sdk/samples/vst-utilities/moduleinfotool/CMakeFiles/moduleinfotool.dir/__/__/__/source/vst/hosting/module_mac.mm.o: vst3sdk/public.sdk/samples/vst-utilities/moduleinfotool/CMakeFiles/moduleinfotool.dir/compiler_depend.ts
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building OBJCXX object vst3sdk/public.sdk/samples/vst-utilities/moduleinfotool/CMakeFiles/moduleinfotool.dir/__/__/__/source/vst/hosting/module_mac.mm.o"
+	cd /Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/vst3sdk/public.sdk/samples/vst-utilities/moduleinfotool && /usr/bin/c++ $(OBJCXX_DEFINES) $(OBJCXX_INCLUDES) -x objective-c++ $(OBJCXX_FLAGS) -fobjc-arc -MD -MT vst3sdk/public.sdk/samples/vst-utilities/moduleinfotool/CMakeFiles/moduleinfotool.dir/__/__/__/source/vst/hosting/module_mac.mm.o -MF CMakeFiles/moduleinfotool.dir/__/__/__/source/vst/hosting/module_mac.mm.o.d -o CMakeFiles/moduleinfotool.dir/__/__/__/source/vst/hosting/module_mac.mm.o -c /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/source/vst/hosting/module_mac.mm
 
 vst3sdk/public.sdk/samples/vst-utilities/moduleinfotool/CMakeFiles/moduleinfotool.dir/__/__/__/source/vst/hosting/module_mac.mm.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing OBJCXX source to CMakeFiles/moduleinfotool.dir/__/__/__/source/vst/hosting/module_mac.mm.i"
-	$(CMAKE_COMMAND) -E cmake_unimplemented_variable CMAKE_OBJCXX_CREATE_PREPROCESSED_SOURCE
+	cd /Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/vst3sdk/public.sdk/samples/vst-utilities/moduleinfotool && /usr/bin/c++ $(OBJCXX_DEFINES) $(OBJCXX_INCLUDES) $(OBJCXX_FLAGS) -fobjc-arc -E /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/source/vst/hosting/module_mac.mm > CMakeFiles/moduleinfotool.dir/__/__/__/source/vst/hosting/module_mac.mm.i
 
 vst3sdk/public.sdk/samples/vst-utilities/moduleinfotool/CMakeFiles/moduleinfotool.dir/__/__/__/source/vst/hosting/module_mac.mm.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling OBJCXX source to assembly CMakeFiles/moduleinfotool.dir/__/__/__/source/vst/hosting/module_mac.mm.s"
-	$(CMAKE_COMMAND) -E cmake_unimplemented_variable CMAKE_OBJCXX_CREATE_ASSEMBLY_SOURCE
+	cd /Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/vst3sdk/public.sdk/samples/vst-utilities/moduleinfotool && /usr/bin/c++ $(OBJCXX_DEFINES) $(OBJCXX_INCLUDES) $(OBJCXX_FLAGS) -fobjc-arc -S /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/source/vst/hosting/module_mac.mm -o CMakeFiles/moduleinfotool.dir/__/__/__/source/vst/hosting/module_mac.mm.s
 
 # Object files for target moduleinfotool
 moduleinfotool_OBJECTS = \

@@ -22,11 +22,11 @@ CXX_FLAGS =  -stdlib=libc++ -O3 -DNDEBUG -std=gnu++17 -arch arm64 -isysroot /App
 
 OBJCXX_DEFINES = -DVSTGUI_ENABLE_DEPRECATED_METHODS=1 -Ddata_exchange_EXPORTS
 
-OBJCXX_INCLUDES = /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/samples/vst/dataexchange/source/3rdparty/nanovg/src /Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/vst3sdk/public.sdk/samples/vst/dataexchange /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/samples/vst/dataexchange/source/3rdparty/MetalNanoVG/src /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/vstgui4
+OBJCXX_INCLUDES = -I/Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk -I/Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/samples/vst/dataexchange/source/3rdparty/nanovg/src -I/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/vst3sdk/public.sdk/samples/vst/dataexchange -I/Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/samples/vst/dataexchange/source/3rdparty/MetalNanoVG/src -I/Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/vstgui4
 
-OBJCXX_FLAGSarm64 = -O3 -DNDEBUG -arch arm64 -DSMTG_RENAME_ASSERT=1 -DRELEASE=1 -stdlib=libc++
+OBJCXX_FLAGSarm64 = -O3 -DNDEBUG -std=gnu++17 -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.1.sdk -fPIC -fvisibility-inlines-hidden -DSMTG_RENAME_ASSERT=1 -DRELEASE=1 -stdlib=libc++
 
-OBJCXX_FLAGS = -O3 -DNDEBUG -arch arm64 -DSMTG_RENAME_ASSERT=1 -DRELEASE=1 -stdlib=libc++
+OBJCXX_FLAGS = -O3 -DNDEBUG -std=gnu++17 -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.1.sdk -fPIC -fvisibility-inlines-hidden -DSMTG_RENAME_ASSERT=1 -DRELEASE=1 -stdlib=libc++
 
 # Custom flags: vst3sdk/public.sdk/samples/vst/dataexchange/CMakeFiles/data-exchange.dir/source/3rdparty/MetalNanoVG/src/nanovg_mtl.m.o_FLAGS = -fobjc-arc
 

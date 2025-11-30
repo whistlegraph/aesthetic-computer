@@ -5,6 +5,7 @@ file(REMOVE_RECURSE
   "CMakeFiles/data-exchange.dir/__/__/__/source/main/macmain.cpp.o"
   "CMakeFiles/data-exchange.dir/__/__/__/source/main/macmain.cpp.o.d"
   "CMakeFiles/data-exchange.dir/source/3rdparty/MetalNanoVG/src/nanovg_mtl.m.o"
+  "CMakeFiles/data-exchange.dir/source/3rdparty/MetalNanoVG/src/nanovg_mtl.m.o.d"
   "CMakeFiles/data-exchange.dir/source/3rdparty/nanovg/src/nanovg.c.o"
   "CMakeFiles/data-exchange.dir/source/3rdparty/nanovg/src/nanovg.c.o.d"
   "CMakeFiles/data-exchange.dir/source/controller.cpp.o"
@@ -16,6 +17,7 @@ file(REMOVE_RECURSE
   "CMakeFiles/data-exchange.dir/source/waveformview.cpp.o"
   "CMakeFiles/data-exchange.dir/source/waveformview.cpp.o.d"
   "CMakeFiles/data-exchange.dir/source/waveformview_metal.mm.o"
+  "CMakeFiles/data-exchange.dir/source/waveformview_metal.mm.o.d"
 )
 
 # Per-language clean rules from dependency scanning.

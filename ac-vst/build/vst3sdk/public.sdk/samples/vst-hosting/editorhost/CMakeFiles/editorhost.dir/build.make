@@ -116,39 +116,45 @@ vst3sdk/public.sdk/samples/vst-hosting/editorhost/CMakeFiles/editorhost.dir/sour
 
 vst3sdk/public.sdk/samples/vst-hosting/editorhost/CMakeFiles/editorhost.dir/source/platform/mac/platform.mm.o: vst3sdk/public.sdk/samples/vst-hosting/editorhost/CMakeFiles/editorhost.dir/flags.make
 vst3sdk/public.sdk/samples/vst-hosting/editorhost/CMakeFiles/editorhost.dir/source/platform/mac/platform.mm.o: /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/samples/vst-hosting/editorhost/source/platform/mac/platform.mm
+vst3sdk/public.sdk/samples/vst-hosting/editorhost/CMakeFiles/editorhost.dir/source/platform/mac/platform.mm.o: vst3sdk/public.sdk/samples/vst-hosting/editorhost/CMakeFiles/editorhost.dir/compiler_depend.ts
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building OBJCXX object vst3sdk/public.sdk/samples/vst-hosting/editorhost/CMakeFiles/editorhost.dir/source/platform/mac/platform.mm.o"
+	cd /Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/vst3sdk/public.sdk/samples/vst-hosting/editorhost && /usr/bin/c++ $(OBJCXX_DEFINES) $(OBJCXX_INCLUDES) -x objective-c++ $(OBJCXX_FLAGS) -fobjc-arc -MD -MT vst3sdk/public.sdk/samples/vst-hosting/editorhost/CMakeFiles/editorhost.dir/source/platform/mac/platform.mm.o -MF CMakeFiles/editorhost.dir/source/platform/mac/platform.mm.o.d -o CMakeFiles/editorhost.dir/source/platform/mac/platform.mm.o -c /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/samples/vst-hosting/editorhost/source/platform/mac/platform.mm
 
 vst3sdk/public.sdk/samples/vst-hosting/editorhost/CMakeFiles/editorhost.dir/source/platform/mac/platform.mm.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing OBJCXX source to CMakeFiles/editorhost.dir/source/platform/mac/platform.mm.i"
-	$(CMAKE_COMMAND) -E cmake_unimplemented_variable CMAKE_OBJCXX_CREATE_PREPROCESSED_SOURCE
+	cd /Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/vst3sdk/public.sdk/samples/vst-hosting/editorhost && /usr/bin/c++ $(OBJCXX_DEFINES) $(OBJCXX_INCLUDES) $(OBJCXX_FLAGS) -fobjc-arc -E /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/samples/vst-hosting/editorhost/source/platform/mac/platform.mm > CMakeFiles/editorhost.dir/source/platform/mac/platform.mm.i
 
 vst3sdk/public.sdk/samples/vst-hosting/editorhost/CMakeFiles/editorhost.dir/source/platform/mac/platform.mm.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling OBJCXX source to assembly CMakeFiles/editorhost.dir/source/platform/mac/platform.mm.s"
-	$(CMAKE_COMMAND) -E cmake_unimplemented_variable CMAKE_OBJCXX_CREATE_ASSEMBLY_SOURCE
+	cd /Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/vst3sdk/public.sdk/samples/vst-hosting/editorhost && /usr/bin/c++ $(OBJCXX_DEFINES) $(OBJCXX_INCLUDES) $(OBJCXX_FLAGS) -fobjc-arc -S /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/samples/vst-hosting/editorhost/source/platform/mac/platform.mm -o CMakeFiles/editorhost.dir/source/platform/mac/platform.mm.s
 
 vst3sdk/public.sdk/samples/vst-hosting/editorhost/CMakeFiles/editorhost.dir/source/platform/mac/window.mm.o: vst3sdk/public.sdk/samples/vst-hosting/editorhost/CMakeFiles/editorhost.dir/flags.make
 vst3sdk/public.sdk/samples/vst-hosting/editorhost/CMakeFiles/editorhost.dir/source/platform/mac/window.mm.o: /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/samples/vst-hosting/editorhost/source/platform/mac/window.mm
+vst3sdk/public.sdk/samples/vst-hosting/editorhost/CMakeFiles/editorhost.dir/source/platform/mac/window.mm.o: vst3sdk/public.sdk/samples/vst-hosting/editorhost/CMakeFiles/editorhost.dir/compiler_depend.ts
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Building OBJCXX object vst3sdk/public.sdk/samples/vst-hosting/editorhost/CMakeFiles/editorhost.dir/source/platform/mac/window.mm.o"
+	cd /Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/vst3sdk/public.sdk/samples/vst-hosting/editorhost && /usr/bin/c++ $(OBJCXX_DEFINES) $(OBJCXX_INCLUDES) -x objective-c++ $(OBJCXX_FLAGS) -fobjc-arc -MD -MT vst3sdk/public.sdk/samples/vst-hosting/editorhost/CMakeFiles/editorhost.dir/source/platform/mac/window.mm.o -MF CMakeFiles/editorhost.dir/source/platform/mac/window.mm.o.d -o CMakeFiles/editorhost.dir/source/platform/mac/window.mm.o -c /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/samples/vst-hosting/editorhost/source/platform/mac/window.mm
 
 vst3sdk/public.sdk/samples/vst-hosting/editorhost/CMakeFiles/editorhost.dir/source/platform/mac/window.mm.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing OBJCXX source to CMakeFiles/editorhost.dir/source/platform/mac/window.mm.i"
-	$(CMAKE_COMMAND) -E cmake_unimplemented_variable CMAKE_OBJCXX_CREATE_PREPROCESSED_SOURCE
+	cd /Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/vst3sdk/public.sdk/samples/vst-hosting/editorhost && /usr/bin/c++ $(OBJCXX_DEFINES) $(OBJCXX_INCLUDES) $(OBJCXX_FLAGS) -fobjc-arc -E /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/samples/vst-hosting/editorhost/source/platform/mac/window.mm > CMakeFiles/editorhost.dir/source/platform/mac/window.mm.i
 
 vst3sdk/public.sdk/samples/vst-hosting/editorhost/CMakeFiles/editorhost.dir/source/platform/mac/window.mm.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling OBJCXX source to assembly CMakeFiles/editorhost.dir/source/platform/mac/window.mm.s"
-	$(CMAKE_COMMAND) -E cmake_unimplemented_variable CMAKE_OBJCXX_CREATE_ASSEMBLY_SOURCE
+	cd /Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/vst3sdk/public.sdk/samples/vst-hosting/editorhost && /usr/bin/c++ $(OBJCXX_DEFINES) $(OBJCXX_INCLUDES) $(OBJCXX_FLAGS) -fobjc-arc -S /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/samples/vst-hosting/editorhost/source/platform/mac/window.mm -o CMakeFiles/editorhost.dir/source/platform/mac/window.mm.s
 
 vst3sdk/public.sdk/samples/vst-hosting/editorhost/CMakeFiles/editorhost.dir/__/__/__/source/vst/hosting/module_mac.mm.o: vst3sdk/public.sdk/samples/vst-hosting/editorhost/CMakeFiles/editorhost.dir/flags.make
 vst3sdk/public.sdk/samples/vst-hosting/editorhost/CMakeFiles/editorhost.dir/__/__/__/source/vst/hosting/module_mac.mm.o: /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/source/vst/hosting/module_mac.mm
+vst3sdk/public.sdk/samples/vst-hosting/editorhost/CMakeFiles/editorhost.dir/__/__/__/source/vst/hosting/module_mac.mm.o: vst3sdk/public.sdk/samples/vst-hosting/editorhost/CMakeFiles/editorhost.dir/compiler_depend.ts
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Building OBJCXX object vst3sdk/public.sdk/samples/vst-hosting/editorhost/CMakeFiles/editorhost.dir/__/__/__/source/vst/hosting/module_mac.mm.o"
+	cd /Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/vst3sdk/public.sdk/samples/vst-hosting/editorhost && /usr/bin/c++ $(OBJCXX_DEFINES) $(OBJCXX_INCLUDES) -x objective-c++ $(OBJCXX_FLAGS) -fobjc-arc -MD -MT vst3sdk/public.sdk/samples/vst-hosting/editorhost/CMakeFiles/editorhost.dir/__/__/__/source/vst/hosting/module_mac.mm.o -MF CMakeFiles/editorhost.dir/__/__/__/source/vst/hosting/module_mac.mm.o.d -o CMakeFiles/editorhost.dir/__/__/__/source/vst/hosting/module_mac.mm.o -c /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/source/vst/hosting/module_mac.mm
 
 vst3sdk/public.sdk/samples/vst-hosting/editorhost/CMakeFiles/editorhost.dir/__/__/__/source/vst/hosting/module_mac.mm.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing OBJCXX source to CMakeFiles/editorhost.dir/__/__/__/source/vst/hosting/module_mac.mm.i"
-	$(CMAKE_COMMAND) -E cmake_unimplemented_variable CMAKE_OBJCXX_CREATE_PREPROCESSED_SOURCE
+	cd /Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/vst3sdk/public.sdk/samples/vst-hosting/editorhost && /usr/bin/c++ $(OBJCXX_DEFINES) $(OBJCXX_INCLUDES) $(OBJCXX_FLAGS) -fobjc-arc -E /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/source/vst/hosting/module_mac.mm > CMakeFiles/editorhost.dir/__/__/__/source/vst/hosting/module_mac.mm.i
 
 vst3sdk/public.sdk/samples/vst-hosting/editorhost/CMakeFiles/editorhost.dir/__/__/__/source/vst/hosting/module_mac.mm.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling OBJCXX source to assembly CMakeFiles/editorhost.dir/__/__/__/source/vst/hosting/module_mac.mm.s"
-	$(CMAKE_COMMAND) -E cmake_unimplemented_variable CMAKE_OBJCXX_CREATE_ASSEMBLY_SOURCE
+	cd /Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/vst3sdk/public.sdk/samples/vst-hosting/editorhost && /usr/bin/c++ $(OBJCXX_DEFINES) $(OBJCXX_INCLUDES) $(OBJCXX_FLAGS) -fobjc-arc -S /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/source/vst/hosting/module_mac.mm -o CMakeFiles/editorhost.dir/__/__/__/source/vst/hosting/module_mac.mm.s
 
 # Object files for target editorhost
 editorhost_OBJECTS = \

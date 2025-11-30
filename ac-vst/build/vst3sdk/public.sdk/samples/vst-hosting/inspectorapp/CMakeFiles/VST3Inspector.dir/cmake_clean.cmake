@@ -5,6 +5,7 @@ file(REMOVE_RECURSE
   "CMakeFiles/VST3Inspector.dir/__/__/__/__/pluginterfaces/base/coreiids.cpp.o"
   "CMakeFiles/VST3Inspector.dir/__/__/__/__/pluginterfaces/base/coreiids.cpp.o.d"
   "CMakeFiles/VST3Inspector.dir/__/__/__/source/vst/hosting/module_mac.mm.o"
+  "CMakeFiles/VST3Inspector.dir/__/__/__/source/vst/hosting/module_mac.mm.o.d"
   "CMakeFiles/VST3Inspector.dir/__/__/__/source/vst/moduleinfo/moduleinfocreator.cpp.o"
   "CMakeFiles/VST3Inspector.dir/__/__/__/source/vst/moduleinfo/moduleinfocreator.cpp.o.d"
   "CMakeFiles/VST3Inspector.dir/__/__/__/source/vst/moduleinfo/moduleinfoparser.cpp.o"
