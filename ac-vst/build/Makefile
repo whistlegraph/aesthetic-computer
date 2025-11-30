@@ -640,6 +640,30 @@ source/acnotepat_entry.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat.dir/build.make CMakeFiles/ACNotepat.dir/source/acnotepat_entry.cpp.s
 .PHONY : source/acnotepat_entry.cpp.s
 
+vst3sdk/public.sdk/source/main/macmain.o: vst3sdk/public.sdk/source/main/macmain.cpp.o
+.PHONY : vst3sdk/public.sdk/source/main/macmain.o
+
+# target to build an object file
+vst3sdk/public.sdk/source/main/macmain.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat.dir/build.make CMakeFiles/ACNotepat.dir/vst3sdk/public.sdk/source/main/macmain.cpp.o
+.PHONY : vst3sdk/public.sdk/source/main/macmain.cpp.o
+
+vst3sdk/public.sdk/source/main/macmain.i: vst3sdk/public.sdk/source/main/macmain.cpp.i
+.PHONY : vst3sdk/public.sdk/source/main/macmain.i
+
+# target to preprocess a source file
+vst3sdk/public.sdk/source/main/macmain.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat.dir/build.make CMakeFiles/ACNotepat.dir/vst3sdk/public.sdk/source/main/macmain.cpp.i
+.PHONY : vst3sdk/public.sdk/source/main/macmain.cpp.i
+
+vst3sdk/public.sdk/source/main/macmain.s: vst3sdk/public.sdk/source/main/macmain.cpp.s
+.PHONY : vst3sdk/public.sdk/source/main/macmain.s
+
+# target to generate assembly for a file
+vst3sdk/public.sdk/source/main/macmain.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat.dir/build.make CMakeFiles/ACNotepat.dir/vst3sdk/public.sdk/source/main/macmain.cpp.s
+.PHONY : vst3sdk/public.sdk/source/main/macmain.cpp.s
+
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -691,6 +715,9 @@ help:
 	@echo "... source/acnotepat_entry.o"
 	@echo "... source/acnotepat_entry.i"
 	@echo "... source/acnotepat_entry.s"
+	@echo "... vst3sdk/public.sdk/source/main/macmain.o"
+	@echo "... vst3sdk/public.sdk/source/main/macmain.i"
+	@echo "... vst3sdk/public.sdk/source/main/macmain.s"
 .PHONY : help
 
 
