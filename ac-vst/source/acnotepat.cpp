@@ -3,6 +3,7 @@
 
 #include "base/source/fstreamer.h"
 #include "pluginterfaces/vst/ivstparameterchanges.h"
+#include "pluginterfaces/vst/ivstevents.h"
 
 using namespace Steinberg;
 using namespace Steinberg::Vst;
