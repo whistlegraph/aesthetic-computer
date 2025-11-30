@@ -404,8 +404,9 @@ export class ChatManager {
         this.broadcast(instance, this.pack("message", out));
       }
 
-      // Push notification (production only, non-muted)
-      if (!this.dev && !userIsMuted) {
+      // Push notification (production only, non-muted, chat-system and chat-clock only)
+      // Note: chat-sotce is intentionally excluded from push notifications
+      if (!this.dev && !userIsMuted && instance.config.name !== "chat-sotce") {
         this.notify(instance, handle, filteredText, when);
       }
     } catch (err) {
