@@ -932,29 +932,29 @@ JUCE/modules/juce_gui_extra/juce_gui_extra.mm.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat.dir/build.make CMakeFiles/ACNotepat.dir/JUCE/modules/juce_gui_extra/juce_gui_extra.mm.s
 .PHONY : JUCE/modules/juce_gui_extra/juce_gui_extra.mm.s
 
-Source/PluginEditor.o: Source/PluginEditor.cpp.o
+Source/PluginEditor.o: Source/PluginEditor.mm.o
 .PHONY : Source/PluginEditor.o
 
 # target to build an object file
-Source/PluginEditor.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat.dir/build.make CMakeFiles/ACNotepat.dir/Source/PluginEditor.cpp.o
-.PHONY : Source/PluginEditor.cpp.o
+Source/PluginEditor.mm.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat.dir/build.make CMakeFiles/ACNotepat.dir/Source/PluginEditor.mm.o
+.PHONY : Source/PluginEditor.mm.o
 
-Source/PluginEditor.i: Source/PluginEditor.cpp.i
+Source/PluginEditor.i: Source/PluginEditor.mm.i
 .PHONY : Source/PluginEditor.i
 
 # target to preprocess a source file
-Source/PluginEditor.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat.dir/build.make CMakeFiles/ACNotepat.dir/Source/PluginEditor.cpp.i
-.PHONY : Source/PluginEditor.cpp.i
+Source/PluginEditor.mm.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat.dir/build.make CMakeFiles/ACNotepat.dir/Source/PluginEditor.mm.i
+.PHONY : Source/PluginEditor.mm.i
 
-Source/PluginEditor.s: Source/PluginEditor.cpp.s
+Source/PluginEditor.s: Source/PluginEditor.mm.s
 .PHONY : Source/PluginEditor.s
 
 # target to generate assembly for a file
-Source/PluginEditor.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat.dir/build.make CMakeFiles/ACNotepat.dir/Source/PluginEditor.cpp.s
-.PHONY : Source/PluginEditor.cpp.s
+Source/PluginEditor.mm.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat.dir/build.make CMakeFiles/ACNotepat.dir/Source/PluginEditor.mm.s
+.PHONY : Source/PluginEditor.mm.s
 
 Source/PluginProcessor.o: Source/PluginProcessor.cpp.o
 .PHONY : Source/PluginProcessor.o

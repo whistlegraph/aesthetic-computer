@@ -86,19 +86,19 @@ CMakeFiles/ACNotepat.dir/Source/PluginProcessor.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/ACNotepat.dir/Source/PluginProcessor.cpp.s"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/jas/Desktop/code/aesthetic-computer/ac-vst/Source/PluginProcessor.cpp -o CMakeFiles/ACNotepat.dir/Source/PluginProcessor.cpp.s
 
-CMakeFiles/ACNotepat.dir/Source/PluginEditor.cpp.o: CMakeFiles/ACNotepat.dir/flags.make
-CMakeFiles/ACNotepat.dir/Source/PluginEditor.cpp.o: /Users/jas/Desktop/code/aesthetic-computer/ac-vst/Source/PluginEditor.cpp
-CMakeFiles/ACNotepat.dir/Source/PluginEditor.cpp.o: CMakeFiles/ACNotepat.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/ACNotepat.dir/Source/PluginEditor.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/ACNotepat.dir/Source/PluginEditor.cpp.o -MF CMakeFiles/ACNotepat.dir/Source/PluginEditor.cpp.o.d -o CMakeFiles/ACNotepat.dir/Source/PluginEditor.cpp.o -c /Users/jas/Desktop/code/aesthetic-computer/ac-vst/Source/PluginEditor.cpp
+CMakeFiles/ACNotepat.dir/Source/PluginEditor.mm.o: CMakeFiles/ACNotepat.dir/flags.make
+CMakeFiles/ACNotepat.dir/Source/PluginEditor.mm.o: /Users/jas/Desktop/code/aesthetic-computer/ac-vst/Source/PluginEditor.mm
+CMakeFiles/ACNotepat.dir/Source/PluginEditor.mm.o: CMakeFiles/ACNotepat.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/ACNotepat.dir/Source/PluginEditor.mm.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/ACNotepat.dir/Source/PluginEditor.mm.o -MF CMakeFiles/ACNotepat.dir/Source/PluginEditor.mm.o.d -o CMakeFiles/ACNotepat.dir/Source/PluginEditor.mm.o -c /Users/jas/Desktop/code/aesthetic-computer/ac-vst/Source/PluginEditor.mm
 
-CMakeFiles/ACNotepat.dir/Source/PluginEditor.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/ACNotepat.dir/Source/PluginEditor.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/jas/Desktop/code/aesthetic-computer/ac-vst/Source/PluginEditor.cpp > CMakeFiles/ACNotepat.dir/Source/PluginEditor.cpp.i
+CMakeFiles/ACNotepat.dir/Source/PluginEditor.mm.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/ACNotepat.dir/Source/PluginEditor.mm.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/jas/Desktop/code/aesthetic-computer/ac-vst/Source/PluginEditor.mm > CMakeFiles/ACNotepat.dir/Source/PluginEditor.mm.i
 
-CMakeFiles/ACNotepat.dir/Source/PluginEditor.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/ACNotepat.dir/Source/PluginEditor.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/jas/Desktop/code/aesthetic-computer/ac-vst/Source/PluginEditor.cpp -o CMakeFiles/ACNotepat.dir/Source/PluginEditor.cpp.s
+CMakeFiles/ACNotepat.dir/Source/PluginEditor.mm.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/ACNotepat.dir/Source/PluginEditor.mm.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/jas/Desktop/code/aesthetic-computer/ac-vst/Source/PluginEditor.mm -o CMakeFiles/ACNotepat.dir/Source/PluginEditor.mm.s
 
 CMakeFiles/ACNotepat.dir/JUCE/modules/juce_audio_processors/juce_audio_processors_ara.cpp.o: CMakeFiles/ACNotepat.dir/flags.make
 CMakeFiles/ACNotepat.dir/JUCE/modules/juce_audio_processors/juce_audio_processors_ara.cpp.o: /Users/jas/Desktop/code/aesthetic-computer/ac-vst/JUCE/modules/juce_audio_processors/juce_audio_processors_ara.cpp
@@ -327,7 +327,7 @@ CMakeFiles/ACNotepat.dir/JUCE/modules/juce_audio_utils/juce_audio_utils.mm.s: cm
 # Object files for target ACNotepat
 ACNotepat_OBJECTS = \
 "CMakeFiles/ACNotepat.dir/Source/PluginProcessor.cpp.o" \
-"CMakeFiles/ACNotepat.dir/Source/PluginEditor.cpp.o" \
+"CMakeFiles/ACNotepat.dir/Source/PluginEditor.mm.o" \
 "CMakeFiles/ACNotepat.dir/JUCE/modules/juce_audio_processors/juce_audio_processors_ara.cpp.o" \
 "CMakeFiles/ACNotepat.dir/JUCE/modules/juce_audio_processors/juce_audio_processors_lv2_libs.cpp.o" \
 "CMakeFiles/ACNotepat.dir/JUCE/modules/juce_audio_processors/juce_audio_processors.mm.o" \
@@ -349,7 +349,7 @@ ACNotepat_OBJECTS = \
 ACNotepat_EXTERNAL_OBJECTS =
 
 ACNotepat_artefacts/Release/libAC\ Notepat_SharedCode.a: CMakeFiles/ACNotepat.dir/Source/PluginProcessor.cpp.o
-ACNotepat_artefacts/Release/libAC\ Notepat_SharedCode.a: CMakeFiles/ACNotepat.dir/Source/PluginEditor.cpp.o
+ACNotepat_artefacts/Release/libAC\ Notepat_SharedCode.a: CMakeFiles/ACNotepat.dir/Source/PluginEditor.mm.o
 ACNotepat_artefacts/Release/libAC\ Notepat_SharedCode.a: CMakeFiles/ACNotepat.dir/JUCE/modules/juce_audio_processors/juce_audio_processors_ara.cpp.o
 ACNotepat_artefacts/Release/libAC\ Notepat_SharedCode.a: CMakeFiles/ACNotepat.dir/JUCE/modules/juce_audio_processors/juce_audio_processors_lv2_libs.cpp.o
 ACNotepat_artefacts/Release/libAC\ Notepat_SharedCode.a: CMakeFiles/ACNotepat.dir/JUCE/modules/juce_audio_processors/juce_audio_processors.mm.o
