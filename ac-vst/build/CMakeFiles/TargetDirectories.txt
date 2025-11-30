@@ -1,7 +1,6 @@
 /Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/CMakeFiles/ACNotepat.dir
 /Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/CMakeFiles/ACNotepat_All.dir
 /Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/CMakeFiles/ACNotepat_Standalone.dir
-/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/CMakeFiles/ACNotepat_AU.dir
 /Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/CMakeFiles/ACNotepat_VST3.dir
 /Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/CMakeFiles/ACNotepat_vst3_helper.dir
 /Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/CMakeFiles/edit_cache.dir

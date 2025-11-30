@@ -65,7 +65,6 @@ CMAKE_BINARY_DIR = /Users/jas/Desktop/code/aesthetic-computer/ac-vst/build
 # The main recursive "all" target.
 all: CMakeFiles/ACNotepat.dir/all
 all: CMakeFiles/ACNotepat_Standalone.dir/all
-all: CMakeFiles/ACNotepat_AU.dir/all
 all: CMakeFiles/ACNotepat_VST3.dir/all
 all: CMakeFiles/ACNotepat_vst3_helper.dir/all
 all: JUCE/all
@@ -74,7 +73,6 @@ all: JUCE/all
 # The main recursive "codegen" target.
 codegen: CMakeFiles/ACNotepat.dir/codegen
 codegen: CMakeFiles/ACNotepat_Standalone.dir/codegen
-codegen: CMakeFiles/ACNotepat_AU.dir/codegen
 codegen: CMakeFiles/ACNotepat_VST3.dir/codegen
 codegen: CMakeFiles/ACNotepat_vst3_helper.dir/codegen
 codegen: JUCE/codegen
@@ -88,7 +86,6 @@ preinstall: JUCE/preinstall
 clean: CMakeFiles/ACNotepat.dir/clean
 clean: CMakeFiles/ACNotepat_All.dir/clean
 clean: CMakeFiles/ACNotepat_Standalone.dir/clean
-clean: CMakeFiles/ACNotepat_AU.dir/clean
 clean: CMakeFiles/ACNotepat_VST3.dir/clean
 clean: CMakeFiles/ACNotepat_vst3_helper.dir/clean
 clean: JUCE/clean
@@ -211,7 +208,6 @@ CMakeFiles/ACNotepat.dir/clean:
 
 # All Build rule for target.
 CMakeFiles/ACNotepat_All.dir/all: CMakeFiles/ACNotepat_Standalone.dir/all
-CMakeFiles/ACNotepat_All.dir/all: CMakeFiles/ACNotepat_AU.dir/all
 CMakeFiles/ACNotepat_All.dir/all: CMakeFiles/ACNotepat_VST3.dir/all
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_All.dir/build.make CMakeFiles/ACNotepat_All.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_All.dir/build.make CMakeFiles/ACNotepat_All.dir/build
@@ -220,7 +216,7 @@ CMakeFiles/ACNotepat_All.dir/all: CMakeFiles/ACNotepat_VST3.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/ACNotepat_All.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/CMakeFiles 60
+	$(CMAKE_COMMAND) -E cmake_progress_start /Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/CMakeFiles 47
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/ACNotepat_All.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/CMakeFiles 0
 .PHONY : CMakeFiles/ACNotepat_All.dir/rule
@@ -231,7 +227,6 @@ ACNotepat_All: CMakeFiles/ACNotepat_All.dir/rule
 
 # codegen rule for target.
 CMakeFiles/ACNotepat_All.dir/codegen: CMakeFiles/ACNotepat_Standalone.dir/all
-CMakeFiles/ACNotepat_All.dir/codegen: CMakeFiles/ACNotepat_AU.dir/all
 CMakeFiles/ACNotepat_All.dir/codegen: CMakeFiles/ACNotepat_VST3.dir/all
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_All.dir/build.make CMakeFiles/ACNotepat_All.dir/codegen
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/CMakeFiles --progress-num= "Finished codegen for target ACNotepat_All"
@@ -249,7 +244,7 @@ CMakeFiles/ACNotepat_All.dir/clean:
 CMakeFiles/ACNotepat_Standalone.dir/all: CMakeFiles/ACNotepat.dir/all
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_Standalone.dir/build.make CMakeFiles/ACNotepat_Standalone.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_Standalone.dir/build.make CMakeFiles/ACNotepat_Standalone.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/CMakeFiles --progress-num=33,34,35,36,37,38,39,40,41,42,43,44,45 "Built target ACNotepat_Standalone"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/CMakeFiles --progress-num=20,21,22,23,24,25,26,27,28,29,30,31,32 "Built target ACNotepat_Standalone"
 .PHONY : CMakeFiles/ACNotepat_Standalone.dir/all
 
 # Build rule for subdir invocation for target.
@@ -266,45 +261,13 @@ ACNotepat_Standalone: CMakeFiles/ACNotepat_Standalone.dir/rule
 # codegen rule for target.
 CMakeFiles/ACNotepat_Standalone.dir/codegen:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_Standalone.dir/build.make CMakeFiles/ACNotepat_Standalone.dir/codegen
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/CMakeFiles --progress-num=33,34,35,36,37,38,39,40,41,42,43,44,45 "Finished codegen for target ACNotepat_Standalone"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/CMakeFiles --progress-num=20,21,22,23,24,25,26,27,28,29,30,31,32 "Finished codegen for target ACNotepat_Standalone"
 .PHONY : CMakeFiles/ACNotepat_Standalone.dir/codegen
 
 # clean rule for target.
 CMakeFiles/ACNotepat_Standalone.dir/clean:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_Standalone.dir/build.make CMakeFiles/ACNotepat_Standalone.dir/clean
 .PHONY : CMakeFiles/ACNotepat_Standalone.dir/clean
-
-#=============================================================================
-# Target rules for target CMakeFiles/ACNotepat_AU.dir
-
-# All Build rule for target.
-CMakeFiles/ACNotepat_AU.dir/all: CMakeFiles/ACNotepat.dir/all
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_AU.dir/build.make CMakeFiles/ACNotepat_AU.dir/depend
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_AU.dir/build.make CMakeFiles/ACNotepat_AU.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/CMakeFiles --progress-num=20,21,22,23,24,25,26,27,28,29,30,31,32 "Built target ACNotepat_AU"
-.PHONY : CMakeFiles/ACNotepat_AU.dir/all
-
-# Build rule for subdir invocation for target.
-CMakeFiles/ACNotepat_AU.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/CMakeFiles 32
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/ACNotepat_AU.dir/all
-	$(CMAKE_COMMAND) -E cmake_progress_start /Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/CMakeFiles 0
-.PHONY : CMakeFiles/ACNotepat_AU.dir/rule
-
-# Convenience name for target.
-ACNotepat_AU: CMakeFiles/ACNotepat_AU.dir/rule
-.PHONY : ACNotepat_AU
-
-# codegen rule for target.
-CMakeFiles/ACNotepat_AU.dir/codegen:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_AU.dir/build.make CMakeFiles/ACNotepat_AU.dir/codegen
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/CMakeFiles --progress-num=20,21,22,23,24,25,26,27,28,29,30,31,32 "Finished codegen for target ACNotepat_AU"
-.PHONY : CMakeFiles/ACNotepat_AU.dir/codegen
-
-# clean rule for target.
-CMakeFiles/ACNotepat_AU.dir/clean:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_AU.dir/build.make CMakeFiles/ACNotepat_AU.dir/clean
-.PHONY : CMakeFiles/ACNotepat_AU.dir/clean
 
 #=============================================================================
 # Target rules for target CMakeFiles/ACNotepat_VST3.dir
@@ -314,7 +277,7 @@ CMakeFiles/ACNotepat_VST3.dir/all: CMakeFiles/ACNotepat.dir/all
 CMakeFiles/ACNotepat_VST3.dir/all: CMakeFiles/ACNotepat_vst3_helper.dir/all
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_VST3.dir/build.make CMakeFiles/ACNotepat_VST3.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_VST3.dir/build.make CMakeFiles/ACNotepat_VST3.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/CMakeFiles --progress-num=46,47,48,49,50,51,52,53,54,55,56,57,58 "Built target ACNotepat_VST3"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/CMakeFiles --progress-num=33,34,35,36,37,38,39,40,41,42,43,44,45 "Built target ACNotepat_VST3"
 .PHONY : CMakeFiles/ACNotepat_VST3.dir/all
 
 # Build rule for subdir invocation for target.
@@ -331,7 +294,7 @@ ACNotepat_VST3: CMakeFiles/ACNotepat_VST3.dir/rule
 # codegen rule for target.
 CMakeFiles/ACNotepat_VST3.dir/codegen:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_VST3.dir/build.make CMakeFiles/ACNotepat_VST3.dir/codegen
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/CMakeFiles --progress-num=46,47,48,49,50,51,52,53,54,55,56,57,58 "Finished codegen for target ACNotepat_VST3"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/CMakeFiles --progress-num=33,34,35,36,37,38,39,40,41,42,43,44,45 "Finished codegen for target ACNotepat_VST3"
 .PHONY : CMakeFiles/ACNotepat_VST3.dir/codegen
 
 # clean rule for target.
@@ -346,7 +309,7 @@ CMakeFiles/ACNotepat_VST3.dir/clean:
 CMakeFiles/ACNotepat_vst3_helper.dir/all:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_vst3_helper.dir/build.make CMakeFiles/ACNotepat_vst3_helper.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_vst3_helper.dir/build.make CMakeFiles/ACNotepat_vst3_helper.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/CMakeFiles --progress-num=59,60 "Built target ACNotepat_vst3_helper"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/CMakeFiles --progress-num=46,47 "Built target ACNotepat_vst3_helper"
 .PHONY : CMakeFiles/ACNotepat_vst3_helper.dir/all
 
 # Build rule for subdir invocation for target.
@@ -363,7 +326,7 @@ ACNotepat_vst3_helper: CMakeFiles/ACNotepat_vst3_helper.dir/rule
 # codegen rule for target.
 CMakeFiles/ACNotepat_vst3_helper.dir/codegen:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_vst3_helper.dir/build.make CMakeFiles/ACNotepat_vst3_helper.dir/codegen
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/CMakeFiles --progress-num=59,60 "Finished codegen for target ACNotepat_vst3_helper"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/CMakeFiles --progress-num=46,47 "Finished codegen for target ACNotepat_vst3_helper"
 .PHONY : CMakeFiles/ACNotepat_vst3_helper.dir/codegen
 
 # clean rule for target.

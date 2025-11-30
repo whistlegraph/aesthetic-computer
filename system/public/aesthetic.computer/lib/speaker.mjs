@@ -85,6 +85,11 @@ class SpeakerProcessor extends AudioWorkletProcessor {
 
   #reverbLeft;
   #reverbRight;
+  
+  // VST Bridge Mode - sends samples to plugin instead of Web Audio output
+  #vstBridgeEnabled = false;
+  #vstSampleBuffer = { left: [], right: [] };
+  #vstBufferSize = 128; // Send samples in chunks
 
   constructor(options) {
     // if (options.processorOptions.debug) console.log("🔊 Sound Synthesis Worklet Started");
@@ -142,6 +147,34 @@ class SpeakerProcessor extends AudioWorkletProcessor {
             }
           },
         });
+        return;
+      }
+
+      // 🎛️ VST Bridge Mode - enable/disable sending samples to native plugin
+      if (msg.type === "vst:enable") {
+        this.#vstBridgeEnabled = true;
+        console.log("🎛️ VST Bridge Mode ENABLED - routing audio to plugin");
+        this.#report("vst:enabled", { enabled: true, sampleRate });
+        return;
+      }
+      
+      if (msg.type === "vst:disable") {
+        this.#vstBridgeEnabled = false;
+        this.#vstSampleBuffer = { left: [], right: [] };
+        console.log("🎛️ VST Bridge Mode DISABLED - routing audio to Web Audio");
+        this.#report("vst:disabled", { enabled: false });
+        return;
+      }
+      
+      if (msg.type === "vst:get-samples") {
+        // Return buffered samples and clear buffer
+        const samples = { 
+          left: [...this.#vstSampleBuffer.left], 
+          right: [...this.#vstSampleBuffer.right] 
+        };
+        this.#vstSampleBuffer.left = [];
+        this.#vstSampleBuffer.right = [];
+        this.port.postMessage({ type: "vst:samples", content: samples });
         return;
       }
 
@@ -605,6 +638,27 @@ class SpeakerProcessor extends AudioWorkletProcessor {
         }
         output[0][s] = this.#reverbLeft.processSample(output[0][s]);
         output[1][s] = this.#reverbRight.processSample(output[1][s]);
+      }
+
+      // 🎛️ VST Bridge Mode - collect samples for native plugin
+      if (this.#vstBridgeEnabled) {
+        this.#vstSampleBuffer.left.push(output[0][s]);
+        this.#vstSampleBuffer.right.push(output[1][s]);
+        
+        // Send samples when buffer is full
+        if (this.#vstSampleBuffer.left.length >= this.#vstBufferSize) {
+          this.#report("vst:samples", {
+            left: this.#vstSampleBuffer.left.slice(),
+            right: this.#vstSampleBuffer.right.slice(),
+            sampleRate: sampleRate
+          });
+          this.#vstSampleBuffer.left = [];
+          this.#vstSampleBuffer.right = [];
+        }
+        
+        // In VST mode, silence the Web Audio output (audio goes to DAW instead)
+        output[0][s] = 0;
+        output[1][s] = 0;
       }
 
       // Track the current amplitude of both channels, and get waveform data.
