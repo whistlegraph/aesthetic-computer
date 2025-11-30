@@ -2,14 +2,13 @@
   ==============================================================================
     AC Notepat VST Plugin - Editor (UI)
     
-    Embeds aesthetic.computer/notepat directly in the plugin window.
+    Uses native WKWebView directly for proper DAW embedding.
   ==============================================================================
 */
 
 #pragma once
 
 #include <juce_audio_processors/juce_audio_processors.h>
-#include <juce_gui_extra/juce_gui_extra.h>
 #include "PluginProcessor.h"
 
 class ACNotepatEditor : public juce::AudioProcessorEditor,
@@ -24,15 +23,17 @@ public:
 
 private:
     void timerCallback() override;
+    void createNativeWebView();
+    void destroyNativeWebView();
     void dispatchKeyEvent(const juce::String& key, bool isDown);
-    void setupAudioBridge();
     
     ACNotepatProcessor& processorRef;
     
-    // WebView for embedding notepat
-    std::unique_ptr<juce::WebBrowserComponent> webView;
+    // Native WebView (macOS) - stored as void* to avoid ObjC in header
+    void* webView = nullptr;
+    void* webViewDelegate = nullptr;
     
-    // URL to load - use localhost:8888 for dev, production URL otherwise
+    // URL to load
     #if JUCE_DEBUG
     juce::String notepatUrl = "https://localhost:8888/notepat?vst=true";
     #else
