@@ -200,27 +200,31 @@ vst3sdk/CMakeFiles/sdk_common.dir/public.sdk/source/vst/vstpresetfile.cpp.s: cma
 
 vst3sdk/CMakeFiles/sdk_common.dir/public.sdk/source/common/threadchecker_mac.mm.o: vst3sdk/CMakeFiles/sdk_common.dir/flags.make
 vst3sdk/CMakeFiles/sdk_common.dir/public.sdk/source/common/threadchecker_mac.mm.o: /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/source/common/threadchecker_mac.mm
+vst3sdk/CMakeFiles/sdk_common.dir/public.sdk/source/common/threadchecker_mac.mm.o: vst3sdk/CMakeFiles/sdk_common.dir/compiler_depend.ts
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_10) "Building OBJCXX object vst3sdk/CMakeFiles/sdk_common.dir/public.sdk/source/common/threadchecker_mac.mm.o"
+	cd /Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/vst3sdk && /usr/bin/c++ $(OBJCXX_DEFINES) $(OBJCXX_INCLUDES) -x objective-c++ $(OBJCXX_FLAGS) -MD -MT vst3sdk/CMakeFiles/sdk_common.dir/public.sdk/source/common/threadchecker_mac.mm.o -MF CMakeFiles/sdk_common.dir/public.sdk/source/common/threadchecker_mac.mm.o.d -o CMakeFiles/sdk_common.dir/public.sdk/source/common/threadchecker_mac.mm.o -c /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/source/common/threadchecker_mac.mm
 
 vst3sdk/CMakeFiles/sdk_common.dir/public.sdk/source/common/threadchecker_mac.mm.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing OBJCXX source to CMakeFiles/sdk_common.dir/public.sdk/source/common/threadchecker_mac.mm.i"
-	$(CMAKE_COMMAND) -E cmake_unimplemented_variable CMAKE_OBJCXX_CREATE_PREPROCESSED_SOURCE
+	cd /Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/vst3sdk && /usr/bin/c++ $(OBJCXX_DEFINES) $(OBJCXX_INCLUDES) $(OBJCXX_FLAGS) -E /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/source/common/threadchecker_mac.mm > CMakeFiles/sdk_common.dir/public.sdk/source/common/threadchecker_mac.mm.i
 
 vst3sdk/CMakeFiles/sdk_common.dir/public.sdk/source/common/threadchecker_mac.mm.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling OBJCXX source to assembly CMakeFiles/sdk_common.dir/public.sdk/source/common/threadchecker_mac.mm.s"
-	$(CMAKE_COMMAND) -E cmake_unimplemented_variable CMAKE_OBJCXX_CREATE_ASSEMBLY_SOURCE
+	cd /Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/vst3sdk && /usr/bin/c++ $(OBJCXX_DEFINES) $(OBJCXX_INCLUDES) $(OBJCXX_FLAGS) -S /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/source/common/threadchecker_mac.mm -o CMakeFiles/sdk_common.dir/public.sdk/source/common/threadchecker_mac.mm.s
 
 vst3sdk/CMakeFiles/sdk_common.dir/public.sdk/source/common/systemclipboard_mac.mm.o: vst3sdk/CMakeFiles/sdk_common.dir/flags.make
 vst3sdk/CMakeFiles/sdk_common.dir/public.sdk/source/common/systemclipboard_mac.mm.o: /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/source/common/systemclipboard_mac.mm
+vst3sdk/CMakeFiles/sdk_common.dir/public.sdk/source/common/systemclipboard_mac.mm.o: vst3sdk/CMakeFiles/sdk_common.dir/compiler_depend.ts
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_11) "Building OBJCXX object vst3sdk/CMakeFiles/sdk_common.dir/public.sdk/source/common/systemclipboard_mac.mm.o"
+	cd /Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/vst3sdk && /usr/bin/c++ $(OBJCXX_DEFINES) $(OBJCXX_INCLUDES) -x objective-c++ $(OBJCXX_FLAGS) -MD -MT vst3sdk/CMakeFiles/sdk_common.dir/public.sdk/source/common/systemclipboard_mac.mm.o -MF CMakeFiles/sdk_common.dir/public.sdk/source/common/systemclipboard_mac.mm.o.d -o CMakeFiles/sdk_common.dir/public.sdk/source/common/systemclipboard_mac.mm.o -c /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/source/common/systemclipboard_mac.mm
 
 vst3sdk/CMakeFiles/sdk_common.dir/public.sdk/source/common/systemclipboard_mac.mm.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing OBJCXX source to CMakeFiles/sdk_common.dir/public.sdk/source/common/systemclipboard_mac.mm.i"
-	$(CMAKE_COMMAND) -E cmake_unimplemented_variable CMAKE_OBJCXX_CREATE_PREPROCESSED_SOURCE
+	cd /Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/vst3sdk && /usr/bin/c++ $(OBJCXX_DEFINES) $(OBJCXX_INCLUDES) $(OBJCXX_FLAGS) -E /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/source/common/systemclipboard_mac.mm > CMakeFiles/sdk_common.dir/public.sdk/source/common/systemclipboard_mac.mm.i
 
 vst3sdk/CMakeFiles/sdk_common.dir/public.sdk/source/common/systemclipboard_mac.mm.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling OBJCXX source to assembly CMakeFiles/sdk_common.dir/public.sdk/source/common/systemclipboard_mac.mm.s"
-	$(CMAKE_COMMAND) -E cmake_unimplemented_variable CMAKE_OBJCXX_CREATE_ASSEMBLY_SOURCE
+	cd /Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/vst3sdk && /usr/bin/c++ $(OBJCXX_DEFINES) $(OBJCXX_INCLUDES) $(OBJCXX_FLAGS) -S /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/source/common/systemclipboard_mac.mm -o CMakeFiles/sdk_common.dir/public.sdk/source/common/systemclipboard_mac.mm.s
 
 # Object files for target sdk_common
 sdk_common_OBJECTS = \

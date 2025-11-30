@@ -13,11 +13,11 @@ CXX_FLAGS = -O3 -DNDEBUG -std=gnu++17 -arch arm64 -fPIC -DRELEASE=1
 
 OBJCXX_DEFINES = -DACNotepat_EXPORTS
 
-OBJCXX_INCLUDES = /Users/jas/Desktop/code/aesthetic-computer/ac-vst/build /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk
+OBJCXX_INCLUDES = -I/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build -I/Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk
 
-OBJCXX_FLAGSarm64 = -O3 -DNDEBUG -arch arm64 -DRELEASE=1
+OBJCXX_FLAGSarm64 = -O3 -DNDEBUG -std=gnu++17 -arch arm64 -fPIC -DRELEASE=1
 
-OBJCXX_FLAGS = -O3 -DNDEBUG -arch arm64 -DRELEASE=1
+OBJCXX_FLAGS = -O3 -DNDEBUG -std=gnu++17 -arch arm64 -fPIC -DRELEASE=1
 
 # Custom flags: CMakeFiles/ACNotepat.dir/source/acnotepat_controller.mm.o_FLAGS = -x objective-c++
 

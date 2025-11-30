@@ -6,6 +6,7 @@ file(REMOVE_RECURSE
   "CMakeFiles/validator.dir/__/__/__/source/main/moduleinit.cpp.o"
   "CMakeFiles/validator.dir/__/__/__/source/main/moduleinit.cpp.o.d"
   "CMakeFiles/validator.dir/__/__/__/source/vst/hosting/module_mac.mm.o"
+  "CMakeFiles/validator.dir/__/__/__/source/vst/hosting/module_mac.mm.o.d"
   "CMakeFiles/validator.dir/__/__/__/source/vst/hosting/plugprovider.cpp.o"
   "CMakeFiles/validator.dir/__/__/__/source/vst/hosting/plugprovider.cpp.o.d"
   "CMakeFiles/validator.dir/__/__/__/source/vst/hosting/test/connectionproxytest.cpp.o"

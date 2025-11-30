@@ -88,15 +88,17 @@ CMakeFiles/ACNotepat.dir/source/acnotepat.cpp.s: cmake_force
 
 CMakeFiles/ACNotepat.dir/source/acnotepat_controller.mm.o: CMakeFiles/ACNotepat.dir/flags.make
 CMakeFiles/ACNotepat.dir/source/acnotepat_controller.mm.o: /Users/jas/Desktop/code/aesthetic-computer/ac-vst/source/acnotepat_controller.mm
+CMakeFiles/ACNotepat.dir/source/acnotepat_controller.mm.o: CMakeFiles/ACNotepat.dir/compiler_depend.ts
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building OBJCXX object CMakeFiles/ACNotepat.dir/source/acnotepat_controller.mm.o"
+	/usr/bin/c++ $(OBJCXX_DEFINES) $(OBJCXX_INCLUDES) -x objective-c++ $(OBJCXX_FLAGS) -x objective-c++ -MD -MT CMakeFiles/ACNotepat.dir/source/acnotepat_controller.mm.o -MF CMakeFiles/ACNotepat.dir/source/acnotepat_controller.mm.o.d -o CMakeFiles/ACNotepat.dir/source/acnotepat_controller.mm.o -c /Users/jas/Desktop/code/aesthetic-computer/ac-vst/source/acnotepat_controller.mm
 
 CMakeFiles/ACNotepat.dir/source/acnotepat_controller.mm.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing OBJCXX source to CMakeFiles/ACNotepat.dir/source/acnotepat_controller.mm.i"
-	$(CMAKE_COMMAND) -E cmake_unimplemented_variable CMAKE_OBJCXX_CREATE_PREPROCESSED_SOURCE
+	/usr/bin/c++ $(OBJCXX_DEFINES) $(OBJCXX_INCLUDES) $(OBJCXX_FLAGS) -x objective-c++ -E /Users/jas/Desktop/code/aesthetic-computer/ac-vst/source/acnotepat_controller.mm > CMakeFiles/ACNotepat.dir/source/acnotepat_controller.mm.i
 
 CMakeFiles/ACNotepat.dir/source/acnotepat_controller.mm.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling OBJCXX source to assembly CMakeFiles/ACNotepat.dir/source/acnotepat_controller.mm.s"
-	$(CMAKE_COMMAND) -E cmake_unimplemented_variable CMAKE_OBJCXX_CREATE_ASSEMBLY_SOURCE
+	/usr/bin/c++ $(OBJCXX_DEFINES) $(OBJCXX_INCLUDES) $(OBJCXX_FLAGS) -x objective-c++ -S /Users/jas/Desktop/code/aesthetic-computer/ac-vst/source/acnotepat_controller.mm -o CMakeFiles/ACNotepat.dir/source/acnotepat_controller.mm.s
 
 CMakeFiles/ACNotepat.dir/source/acnotepat_entry.cpp.o: CMakeFiles/ACNotepat.dir/flags.make
 CMakeFiles/ACNotepat.dir/source/acnotepat_entry.cpp.o: /Users/jas/Desktop/code/aesthetic-computer/ac-vst/source/acnotepat_entry.cpp

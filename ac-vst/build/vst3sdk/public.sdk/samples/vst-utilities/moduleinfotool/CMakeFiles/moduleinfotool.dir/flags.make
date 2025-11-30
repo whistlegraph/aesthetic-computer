@@ -13,11 +13,11 @@ CXX_FLAGS =  -stdlib=libc++ -O3 -DNDEBUG -std=gnu++17 -arch arm64 -isysroot /App
 
 OBJCXX_DEFINES = 
 
-OBJCXX_INCLUDES = /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk -F/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks
+OBJCXX_INCLUDES = -I/Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk -F/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks
 
-OBJCXX_FLAGSarm64 = -O3 -DNDEBUG -arch arm64 -DSMTG_RENAME_ASSERT=1 -DRELEASE=1
+OBJCXX_FLAGSarm64 = -O3 -DNDEBUG -std=gnu++17 -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.1.sdk -fPIE -fvisibility-inlines-hidden -DSMTG_RENAME_ASSERT=1 -DRELEASE=1
 
-OBJCXX_FLAGS = -O3 -DNDEBUG -arch arm64 -DSMTG_RENAME_ASSERT=1 -DRELEASE=1
+OBJCXX_FLAGS = -O3 -DNDEBUG -std=gnu++17 -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.1.sdk -fPIE -fvisibility-inlines-hidden -DSMTG_RENAME_ASSERT=1 -DRELEASE=1
 
 # Custom flags: vst3sdk/public.sdk/samples/vst-utilities/moduleinfotool/CMakeFiles/moduleinfotool.dir/__/__/__/source/vst/hosting/module_mac.mm.o_FLAGS = -fobjc-arc
 

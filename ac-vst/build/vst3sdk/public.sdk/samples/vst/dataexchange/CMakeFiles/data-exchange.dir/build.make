@@ -162,27 +162,31 @@ vst3sdk/public.sdk/samples/vst/dataexchange/CMakeFiles/data-exchange.dir/__/__/_
 
 vst3sdk/public.sdk/samples/vst/dataexchange/CMakeFiles/data-exchange.dir/source/waveformview_metal.mm.o: vst3sdk/public.sdk/samples/vst/dataexchange/CMakeFiles/data-exchange.dir/flags.make
 vst3sdk/public.sdk/samples/vst/dataexchange/CMakeFiles/data-exchange.dir/source/waveformview_metal.mm.o: /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/samples/vst/dataexchange/source/waveformview_metal.mm
+vst3sdk/public.sdk/samples/vst/dataexchange/CMakeFiles/data-exchange.dir/source/waveformview_metal.mm.o: vst3sdk/public.sdk/samples/vst/dataexchange/CMakeFiles/data-exchange.dir/compiler_depend.ts
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Building OBJCXX object vst3sdk/public.sdk/samples/vst/dataexchange/CMakeFiles/data-exchange.dir/source/waveformview_metal.mm.o"
+	cd /Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/vst3sdk/public.sdk/samples/vst/dataexchange && /usr/bin/c++ $(OBJCXX_DEFINES) $(OBJCXX_INCLUDES) -x objective-c++ $(OBJCXX_FLAGS) -MD -MT vst3sdk/public.sdk/samples/vst/dataexchange/CMakeFiles/data-exchange.dir/source/waveformview_metal.mm.o -MF CMakeFiles/data-exchange.dir/source/waveformview_metal.mm.o.d -o CMakeFiles/data-exchange.dir/source/waveformview_metal.mm.o -c /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/samples/vst/dataexchange/source/waveformview_metal.mm
 
 vst3sdk/public.sdk/samples/vst/dataexchange/CMakeFiles/data-exchange.dir/source/waveformview_metal.mm.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing OBJCXX source to CMakeFiles/data-exchange.dir/source/waveformview_metal.mm.i"
-	$(CMAKE_COMMAND) -E cmake_unimplemented_variable CMAKE_OBJCXX_CREATE_PREPROCESSED_SOURCE
+	cd /Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/vst3sdk/public.sdk/samples/vst/dataexchange && /usr/bin/c++ $(OBJCXX_DEFINES) $(OBJCXX_INCLUDES) $(OBJCXX_FLAGS) -E /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/samples/vst/dataexchange/source/waveformview_metal.mm > CMakeFiles/data-exchange.dir/source/waveformview_metal.mm.i
 
 vst3sdk/public.sdk/samples/vst/dataexchange/CMakeFiles/data-exchange.dir/source/waveformview_metal.mm.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling OBJCXX source to assembly CMakeFiles/data-exchange.dir/source/waveformview_metal.mm.s"
-	$(CMAKE_COMMAND) -E cmake_unimplemented_variable CMAKE_OBJCXX_CREATE_ASSEMBLY_SOURCE
+	cd /Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/vst3sdk/public.sdk/samples/vst/dataexchange && /usr/bin/c++ $(OBJCXX_DEFINES) $(OBJCXX_INCLUDES) $(OBJCXX_FLAGS) -S /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/samples/vst/dataexchange/source/waveformview_metal.mm -o CMakeFiles/data-exchange.dir/source/waveformview_metal.mm.s
 
 vst3sdk/public.sdk/samples/vst/dataexchange/CMakeFiles/data-exchange.dir/source/3rdparty/MetalNanoVG/src/nanovg_mtl.m.o: vst3sdk/public.sdk/samples/vst/dataexchange/CMakeFiles/data-exchange.dir/flags.make
 vst3sdk/public.sdk/samples/vst/dataexchange/CMakeFiles/data-exchange.dir/source/3rdparty/MetalNanoVG/src/nanovg_mtl.m.o: /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/samples/vst/dataexchange/source/3rdparty/MetalNanoVG/src/nanovg_mtl.m
+vst3sdk/public.sdk/samples/vst/dataexchange/CMakeFiles/data-exchange.dir/source/3rdparty/MetalNanoVG/src/nanovg_mtl.m.o: vst3sdk/public.sdk/samples/vst/dataexchange/CMakeFiles/data-exchange.dir/compiler_depend.ts
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_8) "Building OBJCXX object vst3sdk/public.sdk/samples/vst/dataexchange/CMakeFiles/data-exchange.dir/source/3rdparty/MetalNanoVG/src/nanovg_mtl.m.o"
+	cd /Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/vst3sdk/public.sdk/samples/vst/dataexchange && /usr/bin/c++ $(OBJCXX_DEFINES) $(OBJCXX_INCLUDES) -x objective-c++ $(OBJCXX_FLAGS) -fobjc-arc -MD -MT vst3sdk/public.sdk/samples/vst/dataexchange/CMakeFiles/data-exchange.dir/source/3rdparty/MetalNanoVG/src/nanovg_mtl.m.o -MF CMakeFiles/data-exchange.dir/source/3rdparty/MetalNanoVG/src/nanovg_mtl.m.o.d -o CMakeFiles/data-exchange.dir/source/3rdparty/MetalNanoVG/src/nanovg_mtl.m.o -c /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/samples/vst/dataexchange/source/3rdparty/MetalNanoVG/src/nanovg_mtl.m
 
 vst3sdk/public.sdk/samples/vst/dataexchange/CMakeFiles/data-exchange.dir/source/3rdparty/MetalNanoVG/src/nanovg_mtl.m.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing OBJCXX source to CMakeFiles/data-exchange.dir/source/3rdparty/MetalNanoVG/src/nanovg_mtl.m.i"
-	$(CMAKE_COMMAND) -E cmake_unimplemented_variable CMAKE_OBJCXX_CREATE_PREPROCESSED_SOURCE
+	cd /Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/vst3sdk/public.sdk/samples/vst/dataexchange && /usr/bin/c++ $(OBJCXX_DEFINES) $(OBJCXX_INCLUDES) $(OBJCXX_FLAGS) -fobjc-arc -E /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/samples/vst/dataexchange/source/3rdparty/MetalNanoVG/src/nanovg_mtl.m > CMakeFiles/data-exchange.dir/source/3rdparty/MetalNanoVG/src/nanovg_mtl.m.i
 
 vst3sdk/public.sdk/samples/vst/dataexchange/CMakeFiles/data-exchange.dir/source/3rdparty/MetalNanoVG/src/nanovg_mtl.m.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling OBJCXX source to assembly CMakeFiles/data-exchange.dir/source/3rdparty/MetalNanoVG/src/nanovg_mtl.m.s"
-	$(CMAKE_COMMAND) -E cmake_unimplemented_variable CMAKE_OBJCXX_CREATE_ASSEMBLY_SOURCE
+	cd /Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/vst3sdk/public.sdk/samples/vst/dataexchange && /usr/bin/c++ $(OBJCXX_DEFINES) $(OBJCXX_INCLUDES) $(OBJCXX_FLAGS) -fobjc-arc -S /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/samples/vst/dataexchange/source/3rdparty/MetalNanoVG/src/nanovg_mtl.m -o CMakeFiles/data-exchange.dir/source/3rdparty/MetalNanoVG/src/nanovg_mtl.m.s
 
 # Object files for target data-exchange
 data__exchange_OBJECTS = \

@@ -13,9 +13,9 @@ CXX_FLAGS =  -stdlib=libc++ -O3 -DNDEBUG -std=gnu++17 -arch arm64 -isysroot /App
 
 OBJCXX_DEFINES = 
 
-OBJCXX_INCLUDES = /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk
+OBJCXX_INCLUDES = -I/Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk
 
-OBJCXX_FLAGSarm64 = -O3 -DNDEBUG -arch arm64 -DSMTG_RENAME_ASSERT=1 -DRELEASE=1
+OBJCXX_FLAGSarm64 = -O3 -DNDEBUG -std=gnu++17 -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.1.sdk -fPIC -fvisibility-inlines-hidden -DSMTG_RENAME_ASSERT=1 -DRELEASE=1
 
-OBJCXX_FLAGS = -O3 -DNDEBUG -arch arm64 -DSMTG_RENAME_ASSERT=1 -DRELEASE=1
+OBJCXX_FLAGS = -O3 -DNDEBUG -std=gnu++17 -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.1.sdk -fPIC -fvisibility-inlines-hidden -DSMTG_RENAME_ASSERT=1 -DRELEASE=1
 

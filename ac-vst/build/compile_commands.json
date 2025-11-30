@@ -7,6 +7,12 @@
 },
 {
   "directory": "/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build",
+  "command": "/usr/bin/c++ -DACNotepat_EXPORTS -I/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build -I/Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk -x objective-c++ -O3 -DNDEBUG -std=gnu++17 -arch arm64 -fPIC -DRELEASE=1 -x objective-c++ -o CMakeFiles/ACNotepat.dir/source/acnotepat_controller.mm.o -c /Users/jas/Desktop/code/aesthetic-computer/ac-vst/source/acnotepat_controller.mm",
+  "file": "/Users/jas/Desktop/code/aesthetic-computer/ac-vst/source/acnotepat_controller.mm",
+  "output": "CMakeFiles/ACNotepat.dir/source/acnotepat_controller.mm.o"
+},
+{
+  "directory": "/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build",
   "command": "/usr/bin/c++ -DACNotepat_EXPORTS -I/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build -I/Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk -O3 -DNDEBUG -std=gnu++17 -arch arm64 -fPIC -DRELEASE=1 -o CMakeFiles/ACNotepat.dir/source/acnotepat_entry.cpp.o -c /Users/jas/Desktop/code/aesthetic-computer/ac-vst/source/acnotepat_entry.cpp",
   "file": "/Users/jas/Desktop/code/aesthetic-computer/ac-vst/source/acnotepat_entry.cpp",
   "output": "CMakeFiles/ACNotepat.dir/source/acnotepat_entry.cpp.o"
@@ -154,6 +160,18 @@
   "command": "/usr/bin/c++  -I/Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk  -stdlib=libc++ -O3 -DNDEBUG -std=gnu++17 -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.1.sdk -fPIC -fvisibility=hidden -fvisibility-inlines-hidden -DSMTG_RENAME_ASSERT=1 -DRELEASE=1 -o CMakeFiles/sdk_common.dir/public.sdk/source/vst/vstpresetfile.cpp.o -c /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/source/vst/vstpresetfile.cpp",
   "file": "/Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/source/vst/vstpresetfile.cpp",
   "output": "vst3sdk/CMakeFiles/sdk_common.dir/public.sdk/source/vst/vstpresetfile.cpp.o"
+},
+{
+  "directory": "/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/vst3sdk",
+  "command": "/usr/bin/c++  -I/Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk -x objective-c++ -O3 -DNDEBUG -std=gnu++17 -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.1.sdk -fPIC -fvisibility-inlines-hidden -DSMTG_RENAME_ASSERT=1 -DRELEASE=1 -o CMakeFiles/sdk_common.dir/public.sdk/source/common/threadchecker_mac.mm.o -c /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/source/common/threadchecker_mac.mm",
+  "file": "/Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/source/common/threadchecker_mac.mm",
+  "output": "vst3sdk/CMakeFiles/sdk_common.dir/public.sdk/source/common/threadchecker_mac.mm.o"
+},
+{
+  "directory": "/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/vst3sdk",
+  "command": "/usr/bin/c++  -I/Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk -x objective-c++ -O3 -DNDEBUG -std=gnu++17 -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.1.sdk -fPIC -fvisibility-inlines-hidden -DSMTG_RENAME_ASSERT=1 -DRELEASE=1 -o CMakeFiles/sdk_common.dir/public.sdk/source/common/systemclipboard_mac.mm.o -c /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/source/common/systemclipboard_mac.mm",
+  "file": "/Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/source/common/systemclipboard_mac.mm",
+  "output": "vst3sdk/CMakeFiles/sdk_common.dir/public.sdk/source/common/systemclipboard_mac.mm.o"
 },
 {
   "directory": "/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/vst3sdk",
@@ -1458,6 +1476,24 @@
   "output": "vst3sdk/public.sdk/samples/vst-hosting/editorhost/CMakeFiles/editorhost.dir/source/usediids.cpp.o"
 },
 {
+  "directory": "/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/vst3sdk/public.sdk/samples/vst-hosting/editorhost",
+  "command": "/usr/bin/c++  -I/Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk -x objective-c++ -O3 -DNDEBUG -std=gnu++17 -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.1.sdk -fPIE -fvisibility-inlines-hidden -DSMTG_RENAME_ASSERT=1 -DRELEASE=1 -fobjc-arc -o CMakeFiles/editorhost.dir/source/platform/mac/platform.mm.o -c /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/samples/vst-hosting/editorhost/source/platform/mac/platform.mm",
+  "file": "/Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/samples/vst-hosting/editorhost/source/platform/mac/platform.mm",
+  "output": "vst3sdk/public.sdk/samples/vst-hosting/editorhost/CMakeFiles/editorhost.dir/source/platform/mac/platform.mm.o"
+},
+{
+  "directory": "/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/vst3sdk/public.sdk/samples/vst-hosting/editorhost",
+  "command": "/usr/bin/c++  -I/Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk -x objective-c++ -O3 -DNDEBUG -std=gnu++17 -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.1.sdk -fPIE -fvisibility-inlines-hidden -DSMTG_RENAME_ASSERT=1 -DRELEASE=1 -fobjc-arc -o CMakeFiles/editorhost.dir/source/platform/mac/window.mm.o -c /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/samples/vst-hosting/editorhost/source/platform/mac/window.mm",
+  "file": "/Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/samples/vst-hosting/editorhost/source/platform/mac/window.mm",
+  "output": "vst3sdk/public.sdk/samples/vst-hosting/editorhost/CMakeFiles/editorhost.dir/source/platform/mac/window.mm.o"
+},
+{
+  "directory": "/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/vst3sdk/public.sdk/samples/vst-hosting/editorhost",
+  "command": "/usr/bin/c++  -I/Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk -x objective-c++ -O3 -DNDEBUG -std=gnu++17 -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.1.sdk -fPIE -fvisibility-inlines-hidden -DSMTG_RENAME_ASSERT=1 -DRELEASE=1 -fobjc-arc -o CMakeFiles/editorhost.dir/__/__/__/source/vst/hosting/module_mac.mm.o -c /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/source/vst/hosting/module_mac.mm",
+  "file": "/Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/source/vst/hosting/module_mac.mm",
+  "output": "vst3sdk/public.sdk/samples/vst-hosting/editorhost/CMakeFiles/editorhost.dir/__/__/__/source/vst/hosting/module_mac.mm.o"
+},
+{
   "directory": "/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/vst3sdk/public.sdk/samples/vst-hosting/inspectorapp",
   "command": "/usr/bin/c++ -DNDEBUG -DRELEASE -DVSTGUI_ENABLE_DEPRECATED_METHODS=1 -DVSTGUI_ENABLE_XML_PARSER=1 -DVSTGUI_OPENGL_SUPPORT=1 -DVSTGUI_STANDALONE_APP_URI=\\\"com.steinberg.vstsdk.vst3inspector\\\" -I/Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk -I/Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/vstgui4  -stdlib=libc++ -O3 -DNDEBUG -std=gnu++17 -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.1.sdk -fPIE -fvisibility=hidden -fvisibility-inlines-hidden -DSMTG_RENAME_ASSERT=1 -stdlib=libc++ -DRELEASE=1 -o CMakeFiles/VST3Inspector.dir/__/__/__/__/pluginterfaces/base/coreiids.cpp.o -c /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/pluginterfaces/base/coreiids.cpp",
   "file": "/Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/pluginterfaces/base/coreiids.cpp",
@@ -1486,6 +1522,12 @@
   "command": "/usr/bin/c++ -DNDEBUG -DRELEASE -DVSTGUI_ENABLE_DEPRECATED_METHODS=1 -DVSTGUI_ENABLE_XML_PARSER=1 -DVSTGUI_OPENGL_SUPPORT=1 -DVSTGUI_STANDALONE_APP_URI=\\\"com.steinberg.vstsdk.vst3inspector\\\" -I/Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk -I/Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/vstgui4  -stdlib=libc++ -O3 -DNDEBUG -std=gnu++17 -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.1.sdk -fPIE -fvisibility=hidden -fvisibility-inlines-hidden -DSMTG_RENAME_ASSERT=1 -stdlib=libc++ -DRELEASE=1 -o CMakeFiles/VST3Inspector.dir/source/window.cpp.o -c /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/samples/vst-hosting/inspectorapp/source/window.cpp",
   "file": "/Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/samples/vst-hosting/inspectorapp/source/window.cpp",
   "output": "vst3sdk/public.sdk/samples/vst-hosting/inspectorapp/CMakeFiles/VST3Inspector.dir/source/window.cpp.o"
+},
+{
+  "directory": "/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/vst3sdk/public.sdk/samples/vst-hosting/inspectorapp",
+  "command": "/usr/bin/c++ -DNDEBUG -DRELEASE -DVSTGUI_ENABLE_DEPRECATED_METHODS=1 -DVSTGUI_ENABLE_XML_PARSER=1 -DVSTGUI_OPENGL_SUPPORT=1 -DVSTGUI_STANDALONE_APP_URI=\\\"com.steinberg.vstsdk.vst3inspector\\\" -I/Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk -I/Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/vstgui4 -x objective-c++ -O3 -DNDEBUG -std=gnu++17 -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.1.sdk -fPIE -fvisibility-inlines-hidden -DSMTG_RENAME_ASSERT=1 -stdlib=libc++ -DRELEASE=1 -fobjc-arc -o CMakeFiles/VST3Inspector.dir/__/__/__/source/vst/hosting/module_mac.mm.o -c /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/source/vst/hosting/module_mac.mm",
+  "file": "/Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/source/vst/hosting/module_mac.mm",
+  "output": "vst3sdk/public.sdk/samples/vst-hosting/inspectorapp/CMakeFiles/VST3Inspector.dir/__/__/__/source/vst/hosting/module_mac.mm.o"
 },
 {
   "directory": "/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/vst3sdk/public.sdk/samples/vst-hosting/validator",
@@ -1782,6 +1824,12 @@
   "output": "vst3sdk/public.sdk/samples/vst-hosting/validator/CMakeFiles/validator.dir/source/validator.cpp.o"
 },
 {
+  "directory": "/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/vst3sdk/public.sdk/samples/vst-hosting/validator",
+  "command": "/usr/bin/c++  -I/Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk -F/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks -x objective-c++ -O3 -DNDEBUG -std=gnu++17 -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.1.sdk -fPIE -fvisibility-inlines-hidden -DSMTG_RENAME_ASSERT=1 -DRELEASE=1 -fobjc-arc -o CMakeFiles/validator.dir/__/__/__/source/vst/hosting/module_mac.mm.o -c /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/source/vst/hosting/module_mac.mm",
+  "file": "/Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/source/vst/hosting/module_mac.mm",
+  "output": "vst3sdk/public.sdk/samples/vst-hosting/validator/CMakeFiles/validator.dir/__/__/__/source/vst/hosting/module_mac.mm.o"
+},
+{
   "directory": "/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/vst3sdk/public.sdk/samples/vst-utilities/moduleinfotool",
   "command": "/usr/bin/c++  -I/Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk -F/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks  -stdlib=libc++ -O3 -DNDEBUG -std=gnu++17 -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.1.sdk -fPIE -fvisibility=hidden -fvisibility-inlines-hidden -DSMTG_RENAME_ASSERT=1 -DRELEASE=1 -o CMakeFiles/moduleinfotool.dir/source/main.cpp.o -c /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/samples/vst-utilities/moduleinfotool/source/main.cpp",
   "file": "/Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/samples/vst-utilities/moduleinfotool/source/main.cpp",
@@ -1798,6 +1846,12 @@
   "command": "/usr/bin/c++  -I/Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk -F/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks  -stdlib=libc++ -O3 -DNDEBUG -std=gnu++17 -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.1.sdk -fPIE -fvisibility=hidden -fvisibility-inlines-hidden -DSMTG_RENAME_ASSERT=1 -DRELEASE=1 -o CMakeFiles/moduleinfotool.dir/__/__/__/source/vst/moduleinfo/moduleinfoparser.cpp.o -c /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/source/vst/moduleinfo/moduleinfoparser.cpp",
   "file": "/Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/source/vst/moduleinfo/moduleinfoparser.cpp",
   "output": "vst3sdk/public.sdk/samples/vst-utilities/moduleinfotool/CMakeFiles/moduleinfotool.dir/__/__/__/source/vst/moduleinfo/moduleinfoparser.cpp.o"
+},
+{
+  "directory": "/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/vst3sdk/public.sdk/samples/vst-utilities/moduleinfotool",
+  "command": "/usr/bin/c++  -I/Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk -F/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks -x objective-c++ -O3 -DNDEBUG -std=gnu++17 -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.1.sdk -fPIE -fvisibility-inlines-hidden -DSMTG_RENAME_ASSERT=1 -DRELEASE=1 -fobjc-arc -o CMakeFiles/moduleinfotool.dir/__/__/__/source/vst/hosting/module_mac.mm.o -c /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/source/vst/hosting/module_mac.mm",
+  "file": "/Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/source/vst/hosting/module_mac.mm",
+  "output": "vst3sdk/public.sdk/samples/vst-utilities/moduleinfotool/CMakeFiles/moduleinfotool.dir/__/__/__/source/vst/hosting/module_mac.mm.o"
 },
 {
   "directory": "/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/vst3sdk/public.sdk/samples/vst/adelay",
@@ -1990,6 +2044,18 @@
   "command": "/usr/bin/c++ -DVSTGUI_ENABLE_DEPRECATED_METHODS=1 -Ddata_exchange_EXPORTS -I/Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk -I/Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/samples/vst/dataexchange/source/3rdparty/nanovg/src -I/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/vst3sdk/public.sdk/samples/vst/dataexchange -I/Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/samples/vst/dataexchange/source/3rdparty/MetalNanoVG/src -I/Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/vstgui4  -stdlib=libc++ -O3 -DNDEBUG -std=gnu++17 -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.1.sdk -fPIC -fvisibility=hidden -fvisibility-inlines-hidden -DSMTG_RENAME_ASSERT=1 -DRELEASE=1 -stdlib=libc++ -o CMakeFiles/data-exchange.dir/__/__/__/source/main/macmain.cpp.o -c /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/source/main/macmain.cpp",
   "file": "/Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/source/main/macmain.cpp",
   "output": "vst3sdk/public.sdk/samples/vst/dataexchange/CMakeFiles/data-exchange.dir/__/__/__/source/main/macmain.cpp.o"
+},
+{
+  "directory": "/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/vst3sdk/public.sdk/samples/vst/dataexchange",
+  "command": "/usr/bin/c++ -DVSTGUI_ENABLE_DEPRECATED_METHODS=1 -Ddata_exchange_EXPORTS -I/Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk -I/Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/samples/vst/dataexchange/source/3rdparty/nanovg/src -I/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/vst3sdk/public.sdk/samples/vst/dataexchange -I/Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/samples/vst/dataexchange/source/3rdparty/MetalNanoVG/src -I/Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/vstgui4 -x objective-c++ -O3 -DNDEBUG -std=gnu++17 -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.1.sdk -fPIC -fvisibility-inlines-hidden -DSMTG_RENAME_ASSERT=1 -DRELEASE=1 -stdlib=libc++ -o CMakeFiles/data-exchange.dir/source/waveformview_metal.mm.o -c /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/samples/vst/dataexchange/source/waveformview_metal.mm",
+  "file": "/Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/samples/vst/dataexchange/source/waveformview_metal.mm",
+  "output": "vst3sdk/public.sdk/samples/vst/dataexchange/CMakeFiles/data-exchange.dir/source/waveformview_metal.mm.o"
+},
+{
+  "directory": "/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/vst3sdk/public.sdk/samples/vst/dataexchange",
+  "command": "/usr/bin/c++ -DVSTGUI_ENABLE_DEPRECATED_METHODS=1 -Ddata_exchange_EXPORTS -I/Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk -I/Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/samples/vst/dataexchange/source/3rdparty/nanovg/src -I/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/vst3sdk/public.sdk/samples/vst/dataexchange -I/Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/samples/vst/dataexchange/source/3rdparty/MetalNanoVG/src -I/Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/vstgui4 -x objective-c++ -O3 -DNDEBUG -std=gnu++17 -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.1.sdk -fPIC -fvisibility-inlines-hidden -DSMTG_RENAME_ASSERT=1 -DRELEASE=1 -stdlib=libc++ -fobjc-arc -o CMakeFiles/data-exchange.dir/source/3rdparty/MetalNanoVG/src/nanovg_mtl.m.o -c /Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/samples/vst/dataexchange/source/3rdparty/MetalNanoVG/src/nanovg_mtl.m",
+  "file": "/Users/jas/Desktop/code/aesthetic-computer/ac-vst/vst3sdk/public.sdk/samples/vst/dataexchange/source/3rdparty/MetalNanoVG/src/nanovg_mtl.m",
+  "output": "vst3sdk/public.sdk/samples/vst/dataexchange/CMakeFiles/data-exchange.dir/source/3rdparty/MetalNanoVG/src/nanovg_mtl.m.o"
 },
 {
   "directory": "/Users/jas/Desktop/code/aesthetic-computer/ac-vst/build/vst3sdk/public.sdk/samples/vst/hostchecker",
