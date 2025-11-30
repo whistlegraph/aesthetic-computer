@@ -56,6 +56,17 @@ public:
     // Pending key events for the editor to dispatch
     std::queue<std::pair<juce::String, bool>> pendingKeyEvents; // key, isDown
     juce::CriticalSection keyEventLock;
+    
+    // Audio ring buffer for VST bridge (samples from WebView)
+    static constexpr int audioRingBufferSize = 8192;
+    std::array<float, audioRingBufferSize> audioRingBufferLeft{};
+    std::array<float, audioRingBufferSize> audioRingBufferRight{};
+    std::atomic<int> audioWriteIndex{0};
+    std::atomic<int> audioReadIndex{0};
+    std::atomic<bool> vstBridgeActive{false};
+    
+    // Write samples from WebView (called from editor)
+    void writeAudioSamples(const float* left, const float* right, int numSamples);
 
 private:
     juce::AudioProcessorValueTreeState parameters;

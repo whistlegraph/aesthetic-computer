@@ -2204,6 +2204,42 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             send({ type: "sfx:killed", content: msg.content });
             return;
           }
+          
+          // 🎛️ VST Bridge Mode - forward audio samples to native plugin
+          if (msg.type === "vst:samples") {
+            // Call the VST sample callback if registered
+            if (window.__vstSampleCallback) {
+              window.__vstSampleCallback(msg.content.left, msg.content.right);
+            }
+            return;
+          }
+          
+          if (msg.type === "vst:enabled") {
+            console.log("🎛️ VST Bridge Mode enabled in speaker worklet");
+            return;
+          }
+          
+          if (msg.type === "vst:disabled") {
+            console.log("🎛️ VST Bridge Mode disabled in speaker worklet");
+            return;
+          }
+        };
+        
+        // 🎛️ Expose VST Bridge API on window.AC for native plugin integration
+        window.AC = window.AC || {};
+        window.AC.enableVSTBridge = function(sampleCallback) {
+          console.log("🎛️ Enabling VST Audio Bridge...");
+          window.__vstSampleCallback = sampleCallback;
+          speakerProcessor.port.postMessage({ type: "vst:enable" });
+        };
+        window.AC.disableVSTBridge = function() {
+          console.log("🎛️ Disabling VST Audio Bridge...");
+          window.__vstSampleCallback = null;
+          speakerProcessor.port.postMessage({ type: "vst:disable" });
+        };
+        window.AC.isVSTMode = function() {
+          // Check if we're running inside a VST plugin
+          return new URLSearchParams(window.location.search).get('vst') === 'true';
         };
 
         speakerProcessor.connect(sfxStreamGain); // Connect to the mediaStream.
