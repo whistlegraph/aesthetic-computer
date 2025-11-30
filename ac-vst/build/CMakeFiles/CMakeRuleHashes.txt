@@ -1,3 +1,0 @@
-# Hashes of file build rules.
-adc4c010b23b2b5bd4df0a0cf1b0afc2 ACNotepat_artefacts/JuceLibraryCode/ACNotepat_Standalone/PkgInfo
-599b311243e8901ddeb927ffce0a5257 ACNotepat_artefacts/JuceLibraryCode/ACNotepat_VST3/PkgInfo
