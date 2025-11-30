@@ -202,19 +202,6 @@ ACNotepat_Standalone/fast:
 .PHONY : ACNotepat_Standalone/fast
 
 #=============================================================================
-# Target rules for targets named ACNotepat_AU
-
-# Build rule for target.
-ACNotepat_AU: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 ACNotepat_AU
-.PHONY : ACNotepat_AU
-
-# fast build rule for target.
-ACNotepat_AU/fast:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_AU.dir/build.make CMakeFiles/ACNotepat_AU.dir/build
-.PHONY : ACNotepat_AU/fast
-
-#=============================================================================
 # Target rules for targets named ACNotepat_VST3
 
 # Build rule for target.
@@ -342,7 +329,6 @@ JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.o: JUCE/modul
 # target to build an object file
 JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.mm.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_Standalone.dir/build.make CMakeFiles/ACNotepat_Standalone.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.mm.o
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_AU.dir/build.make CMakeFiles/ACNotepat_AU.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.mm.o
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_VST3.dir/build.make CMakeFiles/ACNotepat_VST3.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.mm.o
 .PHONY : JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.mm.o
 
@@ -352,7 +338,6 @@ JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.i: JUCE/modul
 # target to preprocess a source file
 JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.mm.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_Standalone.dir/build.make CMakeFiles/ACNotepat_Standalone.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.mm.i
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_AU.dir/build.make CMakeFiles/ACNotepat_AU.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.mm.i
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_VST3.dir/build.make CMakeFiles/ACNotepat_VST3.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.mm.i
 .PHONY : JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.mm.i
 
@@ -362,7 +347,6 @@ JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.s: JUCE/modul
 # target to generate assembly for a file
 JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.mm.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_Standalone.dir/build.make CMakeFiles/ACNotepat_Standalone.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.mm.s
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_AU.dir/build.make CMakeFiles/ACNotepat_AU.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.mm.s
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_VST3.dir/build.make CMakeFiles/ACNotepat_VST3.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.mm.s
 .PHONY : JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.mm.s
 
@@ -372,7 +356,6 @@ JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX_utils.o: JUCE
 # target to build an object file
 JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX_utils.cpp.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_Standalone.dir/build.make CMakeFiles/ACNotepat_Standalone.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX_utils.cpp.o
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_AU.dir/build.make CMakeFiles/ACNotepat_AU.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX_utils.cpp.o
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_VST3.dir/build.make CMakeFiles/ACNotepat_VST3.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX_utils.cpp.o
 .PHONY : JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX_utils.cpp.o
 
@@ -382,7 +365,6 @@ JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX_utils.i: JUCE
 # target to preprocess a source file
 JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX_utils.cpp.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_Standalone.dir/build.make CMakeFiles/ACNotepat_Standalone.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX_utils.cpp.i
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_AU.dir/build.make CMakeFiles/ACNotepat_AU.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX_utils.cpp.i
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_VST3.dir/build.make CMakeFiles/ACNotepat_VST3.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX_utils.cpp.i
 .PHONY : JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX_utils.cpp.i
 
@@ -392,7 +374,6 @@ JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX_utils.s: JUCE
 # target to generate assembly for a file
 JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX_utils.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_Standalone.dir/build.make CMakeFiles/ACNotepat_Standalone.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX_utils.cpp.s
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_AU.dir/build.make CMakeFiles/ACNotepat_AU.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX_utils.cpp.s
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_VST3.dir/build.make CMakeFiles/ACNotepat_VST3.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX_utils.cpp.s
 .PHONY : JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX_utils.cpp.s
 
@@ -402,7 +383,6 @@ JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_ARA.o: JUCE/modul
 # target to build an object file
 JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_ARA.cpp.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_Standalone.dir/build.make CMakeFiles/ACNotepat_Standalone.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_ARA.cpp.o
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_AU.dir/build.make CMakeFiles/ACNotepat_AU.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_ARA.cpp.o
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_VST3.dir/build.make CMakeFiles/ACNotepat_VST3.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_ARA.cpp.o
 .PHONY : JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_ARA.cpp.o
 
@@ -412,7 +392,6 @@ JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_ARA.i: JUCE/modul
 # target to preprocess a source file
 JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_ARA.cpp.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_Standalone.dir/build.make CMakeFiles/ACNotepat_Standalone.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_ARA.cpp.i
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_AU.dir/build.make CMakeFiles/ACNotepat_AU.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_ARA.cpp.i
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_VST3.dir/build.make CMakeFiles/ACNotepat_VST3.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_ARA.cpp.i
 .PHONY : JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_ARA.cpp.i
 
@@ -422,7 +401,6 @@ JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_ARA.s: JUCE/modul
 # target to generate assembly for a file
 JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_ARA.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_Standalone.dir/build.make CMakeFiles/ACNotepat_Standalone.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_ARA.cpp.s
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_AU.dir/build.make CMakeFiles/ACNotepat_AU.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_ARA.cpp.s
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_VST3.dir/build.make CMakeFiles/ACNotepat_VST3.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_ARA.cpp.s
 .PHONY : JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_ARA.cpp.s
 
@@ -432,7 +410,6 @@ JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_1.o: JUCE/modu
 # target to build an object file
 JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_1.mm.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_Standalone.dir/build.make CMakeFiles/ACNotepat_Standalone.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_1.mm.o
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_AU.dir/build.make CMakeFiles/ACNotepat_AU.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_1.mm.o
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_VST3.dir/build.make CMakeFiles/ACNotepat_VST3.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_1.mm.o
 .PHONY : JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_1.mm.o
 
@@ -442,7 +419,6 @@ JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_1.i: JUCE/modu
 # target to preprocess a source file
 JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_1.mm.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_Standalone.dir/build.make CMakeFiles/ACNotepat_Standalone.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_1.mm.i
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_AU.dir/build.make CMakeFiles/ACNotepat_AU.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_1.mm.i
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_VST3.dir/build.make CMakeFiles/ACNotepat_VST3.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_1.mm.i
 .PHONY : JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_1.mm.i
 
@@ -452,7 +428,6 @@ JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_1.s: JUCE/modu
 # target to generate assembly for a file
 JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_1.mm.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_Standalone.dir/build.make CMakeFiles/ACNotepat_Standalone.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_1.mm.s
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_AU.dir/build.make CMakeFiles/ACNotepat_AU.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_1.mm.s
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_VST3.dir/build.make CMakeFiles/ACNotepat_VST3.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_1.mm.s
 .PHONY : JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_1.mm.s
 
@@ -462,7 +437,6 @@ JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_2.o: JUCE/modu
 # target to build an object file
 JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_2.mm.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_Standalone.dir/build.make CMakeFiles/ACNotepat_Standalone.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_2.mm.o
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_AU.dir/build.make CMakeFiles/ACNotepat_AU.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_2.mm.o
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_VST3.dir/build.make CMakeFiles/ACNotepat_VST3.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_2.mm.o
 .PHONY : JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_2.mm.o
 
@@ -472,7 +446,6 @@ JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_2.i: JUCE/modu
 # target to preprocess a source file
 JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_2.mm.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_Standalone.dir/build.make CMakeFiles/ACNotepat_Standalone.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_2.mm.i
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_AU.dir/build.make CMakeFiles/ACNotepat_AU.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_2.mm.i
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_VST3.dir/build.make CMakeFiles/ACNotepat_VST3.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_2.mm.i
 .PHONY : JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_2.mm.i
 
@@ -482,7 +455,6 @@ JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_2.s: JUCE/modu
 # target to generate assembly for a file
 JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_2.mm.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_Standalone.dir/build.make CMakeFiles/ACNotepat_Standalone.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_2.mm.s
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_AU.dir/build.make CMakeFiles/ACNotepat_AU.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_2.mm.s
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_VST3.dir/build.make CMakeFiles/ACNotepat_VST3.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_2.mm.s
 .PHONY : JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_2.mm.s
 
@@ -492,7 +464,6 @@ JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AUv3.o: JUCE/modu
 # target to build an object file
 JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AUv3.mm.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_Standalone.dir/build.make CMakeFiles/ACNotepat_Standalone.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AUv3.mm.o
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_AU.dir/build.make CMakeFiles/ACNotepat_AU.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AUv3.mm.o
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_VST3.dir/build.make CMakeFiles/ACNotepat_VST3.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AUv3.mm.o
 .PHONY : JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AUv3.mm.o
 
@@ -502,7 +473,6 @@ JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AUv3.i: JUCE/modu
 # target to preprocess a source file
 JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AUv3.mm.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_Standalone.dir/build.make CMakeFiles/ACNotepat_Standalone.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AUv3.mm.i
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_AU.dir/build.make CMakeFiles/ACNotepat_AU.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AUv3.mm.i
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_VST3.dir/build.make CMakeFiles/ACNotepat_VST3.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AUv3.mm.i
 .PHONY : JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AUv3.mm.i
 
@@ -512,7 +482,6 @@ JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AUv3.s: JUCE/modu
 # target to generate assembly for a file
 JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AUv3.mm.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_Standalone.dir/build.make CMakeFiles/ACNotepat_Standalone.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AUv3.mm.s
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_AU.dir/build.make CMakeFiles/ACNotepat_AU.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AUv3.mm.s
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_VST3.dir/build.make CMakeFiles/ACNotepat_VST3.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AUv3.mm.s
 .PHONY : JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AUv3.mm.s
 
@@ -522,7 +491,6 @@ JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_LV2.o: JUCE/modul
 # target to build an object file
 JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_LV2.mm.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_Standalone.dir/build.make CMakeFiles/ACNotepat_Standalone.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_LV2.mm.o
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_AU.dir/build.make CMakeFiles/ACNotepat_AU.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_LV2.mm.o
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_VST3.dir/build.make CMakeFiles/ACNotepat_VST3.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_LV2.mm.o
 .PHONY : JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_LV2.mm.o
 
@@ -532,7 +500,6 @@ JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_LV2.i: JUCE/modul
 # target to preprocess a source file
 JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_LV2.mm.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_Standalone.dir/build.make CMakeFiles/ACNotepat_Standalone.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_LV2.mm.i
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_AU.dir/build.make CMakeFiles/ACNotepat_AU.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_LV2.mm.i
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_VST3.dir/build.make CMakeFiles/ACNotepat_VST3.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_LV2.mm.i
 .PHONY : JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_LV2.mm.i
 
@@ -542,7 +509,6 @@ JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_LV2.s: JUCE/modul
 # target to generate assembly for a file
 JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_LV2.mm.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_Standalone.dir/build.make CMakeFiles/ACNotepat_Standalone.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_LV2.mm.s
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_AU.dir/build.make CMakeFiles/ACNotepat_AU.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_LV2.mm.s
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_VST3.dir/build.make CMakeFiles/ACNotepat_VST3.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_LV2.mm.s
 .PHONY : JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_LV2.mm.s
 
@@ -552,7 +518,6 @@ JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.o: JUC
 # target to build an object file
 JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_Standalone.dir/build.make CMakeFiles/ACNotepat_Standalone.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp.o
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_AU.dir/build.make CMakeFiles/ACNotepat_AU.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp.o
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_VST3.dir/build.make CMakeFiles/ACNotepat_VST3.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp.o
 .PHONY : JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp.o
 
@@ -562,7 +527,6 @@ JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.i: JUC
 # target to preprocess a source file
 JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_Standalone.dir/build.make CMakeFiles/ACNotepat_Standalone.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp.i
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_AU.dir/build.make CMakeFiles/ACNotepat_AU.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp.i
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_VST3.dir/build.make CMakeFiles/ACNotepat_VST3.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp.i
 .PHONY : JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp.i
 
@@ -572,7 +536,6 @@ JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.s: JUC
 # target to generate assembly for a file
 JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_Standalone.dir/build.make CMakeFiles/ACNotepat_Standalone.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp.s
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_AU.dir/build.make CMakeFiles/ACNotepat_AU.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp.s
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_VST3.dir/build.make CMakeFiles/ACNotepat_VST3.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp.s
 .PHONY : JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp.s
 
@@ -582,7 +545,6 @@ JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_Unity.o: JUCE/mod
 # target to build an object file
 JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_Unity.cpp.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_Standalone.dir/build.make CMakeFiles/ACNotepat_Standalone.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_Unity.cpp.o
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_AU.dir/build.make CMakeFiles/ACNotepat_AU.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_Unity.cpp.o
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_VST3.dir/build.make CMakeFiles/ACNotepat_VST3.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_Unity.cpp.o
 .PHONY : JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_Unity.cpp.o
 
@@ -592,7 +554,6 @@ JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_Unity.i: JUCE/mod
 # target to preprocess a source file
 JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_Unity.cpp.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_Standalone.dir/build.make CMakeFiles/ACNotepat_Standalone.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_Unity.cpp.i
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_AU.dir/build.make CMakeFiles/ACNotepat_AU.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_Unity.cpp.i
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_VST3.dir/build.make CMakeFiles/ACNotepat_VST3.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_Unity.cpp.i
 .PHONY : JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_Unity.cpp.i
 
@@ -602,7 +563,6 @@ JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_Unity.s: JUCE/mod
 # target to generate assembly for a file
 JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_Unity.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_Standalone.dir/build.make CMakeFiles/ACNotepat_Standalone.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_Unity.cpp.s
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_AU.dir/build.make CMakeFiles/ACNotepat_AU.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_Unity.cpp.s
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_VST3.dir/build.make CMakeFiles/ACNotepat_VST3.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_Unity.cpp.s
 .PHONY : JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_Unity.cpp.s
 
@@ -612,7 +572,6 @@ JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST2.o: JUCE/modu
 # target to build an object file
 JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST2.mm.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_Standalone.dir/build.make CMakeFiles/ACNotepat_Standalone.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST2.mm.o
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_AU.dir/build.make CMakeFiles/ACNotepat_AU.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST2.mm.o
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_VST3.dir/build.make CMakeFiles/ACNotepat_VST3.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST2.mm.o
 .PHONY : JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST2.mm.o
 
@@ -622,7 +581,6 @@ JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST2.i: JUCE/modu
 # target to preprocess a source file
 JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST2.mm.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_Standalone.dir/build.make CMakeFiles/ACNotepat_Standalone.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST2.mm.i
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_AU.dir/build.make CMakeFiles/ACNotepat_AU.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST2.mm.i
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_VST3.dir/build.make CMakeFiles/ACNotepat_VST3.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST2.mm.i
 .PHONY : JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST2.mm.i
 
@@ -632,7 +590,6 @@ JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST2.s: JUCE/modu
 # target to generate assembly for a file
 JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST2.mm.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_Standalone.dir/build.make CMakeFiles/ACNotepat_Standalone.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST2.mm.s
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_AU.dir/build.make CMakeFiles/ACNotepat_AU.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST2.mm.s
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_VST3.dir/build.make CMakeFiles/ACNotepat_VST3.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST2.mm.s
 .PHONY : JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST2.mm.s
 
@@ -642,7 +599,6 @@ JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.o: JUCE/modu
 # target to build an object file
 JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.mm.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_Standalone.dir/build.make CMakeFiles/ACNotepat_Standalone.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.mm.o
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_AU.dir/build.make CMakeFiles/ACNotepat_AU.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.mm.o
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_VST3.dir/build.make CMakeFiles/ACNotepat_VST3.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.mm.o
 .PHONY : JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.mm.o
 
@@ -652,7 +608,6 @@ JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.i: JUCE/modu
 # target to preprocess a source file
 JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.mm.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_Standalone.dir/build.make CMakeFiles/ACNotepat_Standalone.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.mm.i
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_AU.dir/build.make CMakeFiles/ACNotepat_AU.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.mm.i
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_VST3.dir/build.make CMakeFiles/ACNotepat_VST3.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.mm.i
 .PHONY : JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.mm.i
 
@@ -662,7 +617,6 @@ JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.s: JUCE/modu
 # target to generate assembly for a file
 JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.mm.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_Standalone.dir/build.make CMakeFiles/ACNotepat_Standalone.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.mm.s
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_AU.dir/build.make CMakeFiles/ACNotepat_AU.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.mm.s
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ACNotepat_VST3.dir/build.make CMakeFiles/ACNotepat_VST3.dir/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.mm.s
 .PHONY : JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.mm.s
 
@@ -1040,7 +994,6 @@ help:
 	@echo "... rebuild_cache"
 	@echo "... ACNotepat_All"
 	@echo "... ACNotepat"
-	@echo "... ACNotepat_AU"
 	@echo "... ACNotepat_Standalone"
 	@echo "... ACNotepat_VST3"
 	@echo "... ACNotepat_vst3_helper"

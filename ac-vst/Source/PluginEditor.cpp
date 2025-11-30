@@ -12,23 +12,69 @@ ACNotepatEditor::ACNotepatEditor(ACNotepatProcessor& p)
     : AudioProcessorEditor(&p), processorRef(p)
 {
     // Set plugin window size - good for DAW integration
-    setSize(600, 400);
+    setSize(800, 600);
     setResizable(true, true);
-    setResizeLimits(300, 200, 1920, 1080);
+    setResizeLimits(400, 300, 1920, 1080);
     
-    // Create WebView with native embedding options
+    // Create WebView with options optimized for plugin hosting
     juce::WebBrowserComponent::Options options;
+    
+    #if JUCE_MAC
+    // macOS: Use default WebKit backend
     options = options
-        .withBackend(juce::WebBrowserComponent::Options::Backend::webview2) // Use modern backend
-        .withNativeIntegrationEnabled()  // Enable native window integration
+        .withNativeIntegrationEnabled()
         .withKeepPageLoadedWhenBrowserIsHidden();
+    #else
+    // Windows: Use WebView2
+    options = options
+        .withBackend(juce::WebBrowserComponent::Options::Backend::webview2)
+        .withNativeIntegrationEnabled()
+        .withKeepPageLoadedWhenBrowserIsHidden();
+    #endif
+    
+    // Add native function binding for audio data from JS
+    options = options.withNativeFunction("sendAudioSamples", 
+        [this](const juce::Array<juce::var>& args, 
+               juce::WebBrowserComponent::NativeFunctionCompletion completion) {
+            // Receive audio samples from JavaScript and write to processor's ring buffer
+            if (args.size() >= 2) {
+                auto* leftArray = args[0].getArray();
+                auto* rightArray = args[1].getArray();
+                if (leftArray && rightArray) {
+                    // Convert to float arrays
+                    std::vector<float> leftSamples, rightSamples;
+                    leftSamples.reserve(leftArray->size());
+                    rightSamples.reserve(rightArray->size());
+                    
+                    for (int i = 0; i < leftArray->size(); ++i) {
+                        leftSamples.push_back((float)(*leftArray)[i]);
+                        rightSamples.push_back((float)(*rightArray)[i]);
+                    }
+                    
+                    // Write to processor's ring buffer
+                    processorRef.writeAudioSamples(leftSamples.data(), rightSamples.data(), 
+                                                   (int)leftSamples.size());
+                }
+            }
+            completion({});
+        });
+    
+    // Notify plugin that audio bridge is ready
+    options = options.withNativeFunction("vstReady",
+        [this](const juce::Array<juce::var>& args,
+               juce::WebBrowserComponent::NativeFunctionCompletion completion) {
+            DBG("VST Audio Bridge Ready!");
+            setupAudioBridge();
+            completion(juce::var(true));
+        });
     
     webView = std::make_unique<juce::WebBrowserComponent>(options);
     
-    // CRITICAL: Add as child component for inline display
+    // CRITICAL: Add as child component BEFORE going to URL
     addAndMakeVisible(*webView);
     
-    // Load notepat
+    // Load notepat with VST mode parameter
+    DBG("Loading URL: " + notepatUrl);
     webView->goToURL(notepatUrl);
     
     // Start timer to poll for MIDI->key events
@@ -91,6 +137,30 @@ void ACNotepatEditor::dispatchKeyEvent(const juce::String& key, bool isDown)
         "  var canvas = document.querySelector('canvas');"
         "  if (canvas) canvas.dispatchEvent(event);"
         "})();";
+    
+    webView->evaluateJavascript(jsCode, nullptr);
+}
+
+void ACNotepatEditor::setupAudioBridge()
+{
+    if (!webView) return;
+    
+    // Tell the web app to enable VST audio bridge mode
+    // This will route audio samples back to the plugin instead of Web Audio output
+    juce::String jsCode = R"(
+        (function() {
+            if (window.AC && window.AC.enableVSTBridge) {
+                window.AC.enableVSTBridge(function(leftSamples, rightSamples) {
+                    // Send samples to native plugin
+                    window.webkit.messageHandlers.sendAudioSamples.postMessage([leftSamples, rightSamples]);
+                });
+                console.log('VST Audio Bridge enabled!');
+            } else {
+                console.log('Waiting for AC to load...');
+                setTimeout(arguments.callee, 100);
+            }
+        })();
+    )";
     
     webView->evaluateJavascript(jsCode, nullptr);
 }
