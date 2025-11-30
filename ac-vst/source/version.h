@@ -15,7 +15,7 @@
 #define FULL_VERSION_STR MAJOR_VERSION_STR "." SUB_VERSION_STR "." RELEASE_NUMBER_STR "." BUILD_NUMBER_STR
 #define VERSION_STR MAJOR_VERSION_STR "." SUB_VERSION_STR "." RELEASE_NUMBER_STR
 
-#define stringPluginName "AC Notepat"
+#define stringPluginName "AC Notepat 1342"
 #define stringOriginalFilename "AC Notepat.vst3"
 #define stringFileDescription "Aesthetic Computer Notepat Synthesizer"
 #define stringCompanyName "Aesthetic Computer"
