@@ -1,0 +1,48 @@
+{
+  "Name": "AC Notepat",
+  "Version": "0.1.0",
+  "Factory Info": {
+    "Vendor": "Aesthetic Computer",
+    "URL": "",
+    "E-Mail": "",
+    "Flags": {
+      "Unicode": true,
+      "Classes Discardable": false,
+      "Component Non Discardable": false,
+    },
+  },
+  "Classes": [
+    {
+      "CID": "ABCDEF019182FAEB41636D70416E7074",
+      "Category": "Audio Module Class",
+      "Name": "AC Notepat",
+      "Vendor": "Aesthetic Computer",
+      "Version": "0.1.0",
+      "SDKVersion": "VST 3.7.12",
+      "Sub Categories": [
+        "Instrument",
+        "Synth",
+      ],
+      "Class Flags": 2,
+      "Cardinality": 2147483647,
+      "Snapshots": [
+      ],
+    },
+    {
+      "CID": "ABCDEF011234ABCD41636D70416E7074",
+      "Category": "Component Controller Class",
+      "Name": "AC Notepat",
+      "Vendor": "Aesthetic Computer",
+      "Version": "0.1.0",
+      "SDKVersion": "VST 3.7.12",
+      "Sub Categories": [
+        "Instrument",
+        "Synth",
+      ],
+      "Class Flags": 2,
+      "Cardinality": 2147483647,
+      "Snapshots": [
+      ],
+    },
+  ],
+}
