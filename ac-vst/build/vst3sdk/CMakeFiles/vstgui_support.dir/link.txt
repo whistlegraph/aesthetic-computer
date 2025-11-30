@@ -1,0 +1,2 @@
+/usr/bin/ar qc ../lib/Release/libvstgui_support.a "CMakeFiles/vstgui_support.dir/vstgui4/vstgui/plugin-bindings/vst3groupcontroller.cpp.o" "CMakeFiles/vstgui_support.dir/vstgui4/vstgui/plugin-bindings/vst3padcontroller.cpp.o" "CMakeFiles/vstgui_support.dir/vstgui4/vstgui/plugin-bindings/vst3editor.cpp.o" CMakeFiles/vstgui_support.dir/public.sdk/source/vst/vstguieditor.cpp.o
+/usr/bin/ranlib ../lib/Release/libvstgui_support.a
