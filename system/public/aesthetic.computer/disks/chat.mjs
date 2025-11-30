@@ -898,7 +898,7 @@ function paint(
   );
 
   if (!input.canType) {
-    ink(160).write("Online: " + client.chatterCount, {
+    ink(160).write("Online: " + (client?.chatterCount ?? 0), {
       right: leftMargin,
       top: 6,
     }); // Use default font for online count
