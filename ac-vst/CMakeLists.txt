@@ -38,13 +38,22 @@ juce_add_plugin(ACNotepat
 target_sources(ACNotepat
     PRIVATE
         Source/PluginProcessor.cpp
-        Source/PluginEditor.cpp
+        Source/PluginEditor.mm
 )
+
+# macOS frameworks for native WKWebView
+if(APPLE)
+    target_link_libraries(ACNotepat
+        PRIVATE
+            "-framework WebKit"
+            "-framework Cocoa"
+    )
+endif()
 
 # JUCE modules we need
 target_compile_definitions(ACNotepat
     PUBLIC
-        JUCE_WEB_BROWSER=1
+        JUCE_WEB_BROWSER=0
         JUCE_USE_CURL=0
         JUCE_VST3_CAN_REPLACE_VST2=0
         JUCE_DISPLAY_SPLASH_SCREEN=0
