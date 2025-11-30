@@ -28,6 +28,13 @@ set(PLUGIN_SOURCES
     source/version.h
 )
 
+# Add macOS-specific module init
+if(APPLE)
+    list(APPEND PLUGIN_SOURCES
+        ${vst3sdk_SOURCE_DIR}/public.sdk/source/main/macmain.cpp
+    )
+endif()
+
 # Create the VST3 plugin
 smtg_add_vst3plugin(ACNotepat ${PLUGIN_SOURCES})
 
