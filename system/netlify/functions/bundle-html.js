@@ -621,7 +621,7 @@ function generateHTMLBundle(opts) {
   </script>
   <style>
     body { margin: 0; padding: 0; background: black; overflow: hidden; }
-    canvas { display: block; }
+    canvas { display: block; image-rendering: pixelated; }
   </style>
 </head>
 <body>
