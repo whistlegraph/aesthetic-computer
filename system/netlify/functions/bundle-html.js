@@ -1,20 +1,18 @@
-// bundle-html.mjs - Netlify Function
+// bundle-html.js - Netlify Function
 // Generates KidLisp .lisp.html bundles on-demand via API
 // Ported from tezos/bundle-keep-html.mjs CLI tool
 //
 // Usage: GET /api/bundle-html?code=39j
 // Returns: Self-extracting gzip-compressed .lisp.html file
 
-import { promises as fs } from "fs";
-import fsSync from "fs";
-import path from "path";
-import { gzipSync } from "zlib";
-import https from "https";
-import { minify } from "@swc/wasm";
-import { respond } from "../../backend/http.mjs";
+const { promises: fs } = require("fs");
+const fsSync = require("fs");
+const path = require("path");
+const { gzipSync } = require("zlib");
+const https = require("https");
 
 // Netlify streaming support
-import { stream } from "@netlify/functions";
+const { stream } = require("@netlify/functions");
 
 // Get git commit from build-time env var or fallback
 const GIT_COMMIT = process.env.GIT_COMMIT || "unknown";
@@ -266,6 +264,7 @@ async function minifyJS(content, relativePath) {
   let processedContent = rewriteImports(content, relativePath);
   
   try {
+    const { minify } = require("@swc/wasm");
     const result = await minify(processedContent, {
       compress: {
         dead_code: true,
@@ -808,7 +807,7 @@ function generateHTMLBundle(opts) {
 }
 
 // Main handler - uses Netlify streaming adapter
-export const handler = stream(async (event) => {
+exports.handler = stream(async (event) => {
   const code = event.queryStringParameters?.code;
   const format = event.queryStringParameters?.format || 'html';
   
