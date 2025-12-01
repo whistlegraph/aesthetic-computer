@@ -1615,6 +1615,82 @@ async function halt($, text) {
 
     makeFlash($);
     return true;
+  } else if (text.startsWith("html ") || text.startsWith("bundle ")) {
+    // Generate a self-contained .lisp.html bundle for a KidLisp piece
+    const pieceCode = params[0];
+    if (!pieceCode) {
+      notice("Usage: html $code", ["red"]);
+      flashColor = [255, 0, 0];
+      makeFlash($);
+      return true;
+    }
+    
+    // Normalize piece code (ensure it starts with $)
+    const code = pieceCode.startsWith("$") ? pieceCode.slice(1) : pieceCode;
+    
+    notice("Bundling $" + code + "...", ["yellow"]);
+    needsPaint();
+    
+    try {
+      // Use streaming endpoint for progress updates
+      const response = await fetch(`/api/bundle-html?code=$${code}&format=stream`);
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let result = null;
+      
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        buffer += decoder.decode(value, { stream: true });
+        
+        // Parse SSE events from buffer
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || ''; // Keep incomplete line in buffer
+        
+        let eventType = null;
+        for (const line of lines) {
+          if (line.startsWith('event: ')) {
+            eventType = line.slice(7);
+          } else if (line.startsWith('data: ') && eventType) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              
+              if (eventType === 'progress') {
+                notice(data.message, ["yellow"]);
+                needsPaint();
+              } else if (eventType === 'complete') {
+                result = data;
+              } else if (eventType === 'error') {
+                throw new Error(data.error);
+              }
+            } catch (parseErr) {
+              console.warn("SSE parse error:", parseErr);
+            }
+            eventType = null;
+          }
+        }
+      }
+      
+      if (!result) {
+        throw new Error("No result received from bundle API");
+      }
+      
+      // Decode base64 content and download
+      const htmlContent = atob(result.content);
+      download(result.filename, htmlContent, { type: "text/html" });
+      
+      notice("Downloaded " + result.filename + " (" + result.sizeKB + "KB)", ["lime"]);
+      flashColor = [0, 255, 0];
+    } catch (err) {
+      console.error("Bundle error:", err);
+      notice("Bundle failed: " + err.message, ["red"]);
+      flashColor = [255, 0, 0];
+    }
+    
+    makeFlash($);
+    return true;
   } else if (text.startsWith("email")) {
     // Set user email.
     const email = text.split(" ")[1];

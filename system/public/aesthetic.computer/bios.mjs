@@ -15198,6 +15198,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     } else if (ext === "mjs") {
       MIME = "application/javascript; charset=utf-8";
       object = URL.createObjectURL(new Blob([data], { type: MIME }));
+    } else if (ext === "html" || ext === "htm") {
+      // 🌐 HTML files
+      MIME = "text/html; charset=utf-8";
+      object = URL.createObjectURL(new Blob([data], { type: MIME }));
     } else if (ext === "zip") {
       MIME = "application/zip";
       object = URL.createObjectURL(data, { type: MIME });
