@@ -900,12 +900,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   const REFRAME_DELAY = 80; //250;
   let curReframeDelay = REFRAME_DELAY;
   let lastGap = undefined;
-  // Use URL parameter, or acPACK_DENSITY (for bundles), or default to devicePixelRatio
+  // Use URL parameter, or acPACK_DENSITY (for bundles), or default to 2
   let density = resolution.density !== undefined 
     ? resolution.density 
     : (window.acPACK_DENSITY !== undefined 
         ? window.acPACK_DENSITY 
-        : window.devicePixelRatio);
+        : 2);
 
   const startGap =
     location.host.indexOf("botce") > -1 || AestheticExtension ? 0 : 8;
