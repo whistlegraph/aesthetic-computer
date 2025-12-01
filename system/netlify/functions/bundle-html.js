@@ -374,8 +374,12 @@ async function createBundle(pieceName, onProgress = () => {}) {
   // Build VFS
   const files = {};
   
-  // Determine acDir - in Netlify function context, use process.cwd()
-  const acDir = path.join(process.cwd(), "public/aesthetic.computer");
+  // Determine acDir - in Netlify function context, use __dirname to find bundled files
+  // __dirname points to the function's directory, go up two levels to reach public/
+  const acDir = path.join(__dirname, "..", "..", "public", "aesthetic.computer");
+  
+  console.log("[bundle-html] acDir:", acDir);
+  console.log("[bundle-html] acDir exists:", fsSync.existsSync(acDir));
   
   onProgress({ stage: 'discover', message: 'Discovering dependencies...' });
   
