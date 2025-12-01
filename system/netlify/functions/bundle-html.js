@@ -634,8 +634,7 @@ function generateHTMLBundle(opts) {
     window.acPACK_GIT = "${gitVersion}";
     window.acKIDLISP_SOURCE = ${JSON.stringify(mainSource)};
     
-    // Use density=2 (same as AC default)
-    window.acPACK_DENSITY = 2;
+    // Don't set acPACK_DENSITY - let bios.mjs use its default logic
     
     window.acPACK_COLOPHON = {
       piece: {
