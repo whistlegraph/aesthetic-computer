@@ -4,6 +4,10 @@
 //
 // Usage: GET /api/bundle-html?code=39j
 // Returns: Self-extracting gzip-compressed .lisp.html file
+//
+// Optimization: Core system files are cached per git commit to speed up
+// subsequent bundle requests. Only piece-specific data (KidLisp source,
+// paintings) are fetched per request.
 
 const { promises: fs } = require("fs");
 const fsSync = require("fs");
@@ -17,6 +21,11 @@ const { stream } = require("@netlify/functions");
 // Get git commit from build-time env var or fallback
 const GIT_COMMIT = process.env.GIT_COMMIT || "unknown";
 const CONTEXT = process.env.CONTEXT || "production";
+
+// In-memory cache for core bundle (persists across warm function invocations)
+// Key: git commit, Value: { coreFiles, fontFiles, timestamp }
+let coreBundleCache = null;
+let coreBundleCacheCommit = null;
 
 // Custom fetch that ignores self-signed certs in dev mode
 const devAgent = new https.Agent({ rejectUnauthorized: false });
@@ -343,6 +352,84 @@ async function discoverDependencies(acDir, essentialFiles, skipFiles) {
   return Array.from(discovered);
 }
 
+// Build or retrieve cached core bundle (minified system files + fonts)
+async function getCoreBundle(acDir, onProgress = () => {}) {
+  // Check if we have a valid cache for this git commit
+  if (coreBundleCache && coreBundleCacheCommit === GIT_COMMIT) {
+    console.log(`[bundle-html] Using cached core bundle for commit ${GIT_COMMIT}`);
+    onProgress({ stage: 'cache-hit', message: 'Using cached core files...' });
+    return coreBundleCache;
+  }
+  
+  console.log(`[bundle-html] Building core bundle for commit ${GIT_COMMIT}...`);
+  const coreFiles = {};
+  
+  onProgress({ stage: 'discover', message: 'Discovering dependencies...' });
+  
+  // Discover all dependencies
+  const allFiles = await discoverDependencies(acDir, ESSENTIAL_FILES, SKIP_FILES);
+  
+  onProgress({ stage: 'minify', message: `Minifying ${allFiles.length} files...` });
+  
+  // Load and minify files
+  let minifiedCount = 0;
+  for (const file of allFiles) {
+    const fullPath = path.join(acDir, file);
+    try {
+      if (!fsSync.existsSync(fullPath)) continue;
+      let content = await fs.readFile(fullPath, 'utf8');
+      content = await minifyJS(content, file);
+      coreFiles[file] = { content, binary: false, type: path.extname(file).slice(1) };
+      minifiedCount++;
+      // Progress update every 10 files
+      if (minifiedCount % 10 === 0) {
+        onProgress({ stage: 'minify', message: `Minified ${minifiedCount}/${allFiles.length} files...` });
+      }
+    } catch {
+      // Skip files that can't be loaded
+    }
+  }
+  
+  // Load nanoid
+  const nanoidPath = 'dep/nanoid/index.js';
+  const nanoidFullPath = path.join(acDir, nanoidPath);
+  if (fsSync.existsSync(nanoidFullPath)) {
+    let content = await fs.readFile(nanoidFullPath, 'utf8');
+    content = await minifyJS(content, nanoidPath);
+    coreFiles[nanoidPath] = { content, binary: false, type: 'js' };
+  }
+  
+  onProgress({ stage: 'fonts', message: 'Loading fonts...' });
+  
+  // Load font_1 glyphs
+  const font1Dir = path.join(acDir, 'disks/drawings/font_1');
+  const fontCategories = ['lowercase', 'uppercase', 'numbers', 'symbols'];
+  
+  for (const category of fontCategories) {
+    const categoryDir = path.join(font1Dir, category);
+    try {
+      if (fsSync.existsSync(categoryDir)) {
+        const glyphFiles = fsSync.readdirSync(categoryDir).filter(f => f.endsWith('.json'));
+        for (const glyphFile of glyphFiles) {
+          const glyphPath = path.join(categoryDir, glyphFile);
+          const content = await fs.readFile(glyphPath, 'utf8');
+          const vfsPath = `disks/drawings/font_1/${category}/${glyphFile}`;
+          coreFiles[vfsPath] = { content, binary: false, type: 'json' };
+        }
+      }
+    } catch {
+      // Skip
+    }
+  }
+  
+  // Cache the result
+  coreBundleCache = coreFiles;
+  coreBundleCacheCommit = GIT_COMMIT;
+  console.log(`[bundle-html] Cached core bundle: ${Object.keys(coreFiles).length} files`);
+  
+  return coreFiles;
+}
+
 // Main bundle creation
 async function createBundle(pieceName, onProgress = () => {}) {
   const PIECE_NAME_NO_DOLLAR = pieceName.replace(/^\$/, '');
@@ -371,52 +458,19 @@ async function createBundle(pieceName, onProgress = () => {}) {
   
   const bundleTimestamp = timestamp();
   
-  // Build VFS
-  const files = {};
-  
   // Determine acDir - in Netlify function context, use __dirname to find bundled files
-  // __dirname points to the function's directory, go up two levels to reach public/
   const acDir = path.join(__dirname, "..", "..", "public", "aesthetic.computer");
   
   console.log("[bundle-html] acDir:", acDir);
   console.log("[bundle-html] acDir exists:", fsSync.existsSync(acDir));
   
-  onProgress({ stage: 'discover', message: 'Discovering dependencies...' });
+  // Get core bundle (cached per git commit)
+  const coreFiles = await getCoreBundle(acDir, onProgress);
   
-  // Discover all dependencies
-  const allFiles = await discoverDependencies(acDir, ESSENTIAL_FILES, SKIP_FILES);
+  // Build VFS starting with core files
+  const files = { ...coreFiles };
   
-  onProgress({ stage: 'minify', message: `Minifying ${allFiles.length} files...` });
-  
-  // Load files
-  let minifiedCount = 0;
-  for (const file of allFiles) {
-    const fullPath = path.join(acDir, file);
-    try {
-      if (!fsSync.existsSync(fullPath)) continue;
-      let content = await fs.readFile(fullPath, 'utf8');
-      content = await minifyJS(content, file);
-      files[file] = { content, binary: false, type: path.extname(file).slice(1) };
-      minifiedCount++;
-      // Progress update every 10 files
-      if (minifiedCount % 10 === 0) {
-        onProgress({ stage: 'minify', message: `Minified ${minifiedCount}/${allFiles.length} files...` });
-      }
-    } catch {
-      // Skip files that can't be loaded
-    }
-  }
-  
-  // Load nanoid
-  const nanoidPath = 'dep/nanoid/index.js';
-  const nanoidFullPath = path.join(acDir, nanoidPath);
-  if (fsSync.existsSync(nanoidFullPath)) {
-    let content = await fs.readFile(nanoidFullPath, 'utf8');
-    content = await minifyJS(content, nanoidPath);
-    files[nanoidPath] = { content, binary: false, type: 'js' };
-  }
-  
-  // Extract and embed painting images
+  // Extract and embed painting images (per-piece)
   const allKidlispSource = Object.values(kidlispSources).join('\n');
   const paintingCodes = extractPaintingCodes(allKidlispSource);
   const paintingData = {};
@@ -437,30 +491,7 @@ async function createBundle(pieceName, onProgress = () => {}) {
     }
   }
   
-  onProgress({ stage: 'fonts', message: 'Loading fonts...' });
-  
-  // Load font_1 glyphs
-  const font1Dir = path.join(acDir, 'disks/drawings/font_1');
-  const fontCategories = ['lowercase', 'uppercase', 'numbers', 'symbols'];
-  
-  for (const category of fontCategories) {
-    const categoryDir = path.join(font1Dir, category);
-    try {
-      if (fsSync.existsSync(categoryDir)) {
-        const glyphFiles = fsSync.readdirSync(categoryDir).filter(f => f.endsWith('.json'));
-        for (const glyphFile of glyphFiles) {
-          const glyphPath = path.join(categoryDir, glyphFile);
-          const content = await fs.readFile(glyphPath, 'utf8');
-          const vfsPath = `disks/drawings/font_1/${category}/${glyphFile}`;
-          files[vfsPath] = { content, binary: false, type: 'json' };
-        }
-      }
-    } catch {
-      // Skip
-    }
-  }
-  
-  // Create synthetic .lisp files
+  // Create synthetic .lisp files (per-piece)
   for (const [name, source] of Object.entries(kidlispSources)) {
     const pieceLispPath = `disks/${name}.lisp`;
     files[pieceLispPath] = { content: source, binary: false, type: 'lisp' };

@@ -112,7 +112,7 @@ let progressPercentage = 0; // 0-100
 
 // 📦 Bundle progress state
 let bundleProgress = null; // { stage, message, startTime, animPhase }
-const BUNDLE_STAGES = ['fetch', 'deps', 'discover', 'minify', 'paintings', 'fonts', 'generate', 'compress', 'complete'];
+const BUNDLE_STAGES = ['fetch', 'deps', 'cache-hit', 'discover', 'minify', 'paintings', 'fonts', 'generate', 'compress', 'complete'];
 
 let login, // A login button in the center of the display.
   signup, // A Sign-up button.
