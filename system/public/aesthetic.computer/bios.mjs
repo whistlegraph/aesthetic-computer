@@ -903,7 +903,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // Use URL parameter, or acPACK_DENSITY (for bundles), or default to devicePixelRatio
   let density = resolution.density !== undefined 
     ? resolution.density 
-    : (window.acPACK_DENSITY !== undefined ? window.acPACK_DENSITY : undefined);
+    : (window.acPACK_DENSITY !== undefined 
+        ? window.acPACK_DENSITY 
+        : window.devicePixelRatio);
 
   const startGap =
     location.host.indexOf("botce") > -1 || AestheticExtension ? 0 : 8;
