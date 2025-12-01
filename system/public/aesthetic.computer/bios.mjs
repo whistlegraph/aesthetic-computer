@@ -907,15 +907,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         ? window.acPACK_DENSITY 
         : 2);
 
-  // 🐛 Debug density values
-  console.log("🔍 DENSITY DEBUG:", {
-    "resolution.density": resolution.density,
-    "window.acPACK_DENSITY": window.acPACK_DENSITY,
-    "window.acPACK_MODE": window.acPACK_MODE,
-    "window.devicePixelRatio": window.devicePixelRatio,
-    "final density": density
-  });
-
   const startGap =
     location.host.indexOf("botce") > -1 || AestheticExtension ? 0 : 8;
 
@@ -1024,21 +1015,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       projectedWidth = round(width * density);
       projectedHeight = round(height * density);
-      
-      // 🐛 Debug frame calculation
-      console.log("🔍 FRAME DEBUG:", {
-        density,
-        ratio,
-        subdivisions,
-        gapSize,
-        gap,
-        "window.innerWidth": window.innerWidth,
-        "window.innerHeight": window.innerHeight,
-        width,
-        height,
-        projectedWidth,
-        projectedHeight
-      });
     } else {
       // Or do it manually if both width and height are defined.
       fixedWidth = width;
