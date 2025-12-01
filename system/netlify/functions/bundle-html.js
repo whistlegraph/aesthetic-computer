@@ -634,6 +634,10 @@ function generateHTMLBundle(opts) {
     window.acPACK_GIT = "${gitVersion}";
     window.acKIDLISP_SOURCE = ${JSON.stringify(mainSource)};
     
+    // Use native devicePixelRatio for proper density (same as AC default)
+    // This ensures crisp rendering on high-DPI displays
+    window.acPACK_DENSITY = window.devicePixelRatio;
+    
     window.acPACK_COLOPHON = {
       piece: {
         name: '${PIECE_NAME_NO_DOLLAR}',
