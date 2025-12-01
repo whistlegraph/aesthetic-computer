@@ -9,12 +9,26 @@ import { promises as fs } from "fs";
 import fsSync from "fs";
 import path from "path";
 import { gzipSync } from "zlib";
+import https from "https";
 import { minify } from "@swc/wasm";
 import { respond } from "../../backend/http.mjs";
+
+// Netlify streaming support
+import { stream } from "@netlify/functions";
 
 // Get git commit from build-time env var or fallback
 const GIT_COMMIT = process.env.GIT_COMMIT || "unknown";
 const CONTEXT = process.env.CONTEXT || "production";
+
+// Custom fetch that ignores self-signed certs in dev mode
+const devAgent = new https.Agent({ rejectUnauthorized: false });
+async function devFetch(url, options = {}) {
+  if (CONTEXT === 'dev' && url.startsWith('https://localhost')) {
+    const { default: nodeFetch } = await import('node-fetch');
+    return nodeFetch(url, { ...options, agent: devAgent });
+  }
+  return fetch(url, options);
+}
 
 // Essential files for KidLisp bundles (same as CLI)
 const ESSENTIAL_FILES = [
@@ -98,8 +112,8 @@ function extractPaintingCodes(source) {
 // Resolve painting code to handle+slug via API
 async function resolvePaintingCode(code) {
   try {
-    const baseUrl = CONTEXT === 'dev' ? 'http://localhost:8888' : 'https://aesthetic.computer';
-    const response = await fetch(`${baseUrl}/api/painting-code?code=${code}`);
+    const baseUrl = CONTEXT === 'dev' ? 'https://localhost:8888' : 'https://aesthetic.computer';
+    const response = await devFetch(`${baseUrl}/api/painting-code?code=${code}`);
     if (!response.ok) return null;
     const data = await response.json();
     return { code, handle: data.handle || 'anon', slug: data.slug };
@@ -113,7 +127,7 @@ async function fetchPaintingImage(handle, slug) {
   const handlePath = handle === 'anon' ? '' : `@${handle}/`;
   const url = `https://aesthetic.computer/media/${handlePath}painting/${slug}.png`;
   try {
-    const response = await fetch(url);
+    const response = await devFetch(url);
     if (!response.ok) return null;
     const buffer = await response.arrayBuffer();
     return Buffer.from(buffer).toString('base64');
@@ -126,8 +140,8 @@ async function fetchPaintingImage(handle, slug) {
 async function fetchAuthorHandle(userId) {
   if (!userId) return null;
   try {
-    const baseUrl = CONTEXT === 'dev' ? 'http://localhost:8888' : 'https://aesthetic.computer';
-    const response = await fetch(`${baseUrl}/handle?for=${encodeURIComponent(userId)}`);
+    const baseUrl = CONTEXT === 'dev' ? 'https://localhost:8888' : 'https://aesthetic.computer';
+    const response = await devFetch(`${baseUrl}/handle?for=${encodeURIComponent(userId)}`);
     if (!response.ok) return null;
     const data = await response.json();
     return data.handle ? `@${data.handle}` : null;
@@ -139,8 +153,8 @@ async function fetchAuthorHandle(userId) {
 // Fetch KidLisp source from API
 async function fetchKidLispFromAPI(pieceName) {
   const cleanName = pieceName.replace('$', '');
-  const baseUrl = CONTEXT === 'dev' ? 'http://localhost:8888' : 'https://aesthetic.computer';
-  const response = await fetch(`${baseUrl}/api/store-kidlisp?code=${cleanName}`);
+  const baseUrl = CONTEXT === 'dev' ? 'https://localhost:8888' : 'https://aesthetic.computer';
+  const response = await devFetch(`${baseUrl}/api/store-kidlisp?code=${cleanName}`);
   const data = await response.json();
   
   if (data.error || !data.source) {
@@ -235,6 +249,12 @@ function rewriteImports(code, filepath) {
     return 'import("' + resolved + '")';
   });
   
+  // Handle template literal imports like import(`./lib/disk.mjs`)
+  code = code.replace(/import\s*\(\`(\.\.\/[^\`]+|\.\/[^\`]+)\`\)/g, (match, p) => {
+    const resolved = resolvePath(filepath, p);
+    return 'import("' + resolved + '")';
+  });
+  
   return code;
 }
 
@@ -325,13 +345,18 @@ async function discoverDependencies(acDir, essentialFiles, skipFiles) {
 }
 
 // Main bundle creation
-async function createBundle(pieceName) {
+async function createBundle(pieceName, onProgress = () => {}) {
   const PIECE_NAME_NO_DOLLAR = pieceName.replace(/^\$/, '');
   const PIECE_NAME = '$' + PIECE_NAME_NO_DOLLAR;
+  
+  onProgress({ stage: 'fetch', message: `Fetching $${PIECE_NAME_NO_DOLLAR}...` });
   
   // Fetch KidLisp source with dependencies
   const { sources: kidlispSources, authorHandle } = await getKidLispSourceWithDeps(PIECE_NAME_NO_DOLLAR);
   const mainSource = kidlispSources[PIECE_NAME_NO_DOLLAR];
+  const depCount = Object.keys(kidlispSources).length - 1;
+  
+  onProgress({ stage: 'deps', message: `Found ${depCount} dependenc${depCount === 1 ? 'y' : 'ies'}` });
   
   const packTime = Date.now();
   const packDate = new Date().toLocaleString("en-US", {
@@ -353,10 +378,15 @@ async function createBundle(pieceName) {
   // Determine acDir - in Netlify function context, use process.cwd()
   const acDir = path.join(process.cwd(), "public/aesthetic.computer");
   
+  onProgress({ stage: 'discover', message: 'Discovering dependencies...' });
+  
   // Discover all dependencies
   const allFiles = await discoverDependencies(acDir, ESSENTIAL_FILES, SKIP_FILES);
   
+  onProgress({ stage: 'minify', message: `Minifying ${allFiles.length} files...` });
+  
   // Load files
+  let minifiedCount = 0;
   for (const file of allFiles) {
     const fullPath = path.join(acDir, file);
     try {
@@ -364,6 +394,11 @@ async function createBundle(pieceName) {
       let content = await fs.readFile(fullPath, 'utf8');
       content = await minifyJS(content, file);
       files[file] = { content, binary: false, type: path.extname(file).slice(1) };
+      minifiedCount++;
+      // Progress update every 10 files
+      if (minifiedCount % 10 === 0) {
+        onProgress({ stage: 'minify', message: `Minified ${minifiedCount}/${allFiles.length} files...` });
+      }
     } catch {
       // Skip files that can't be loaded
     }
@@ -383,6 +418,10 @@ async function createBundle(pieceName) {
   const paintingCodes = extractPaintingCodes(allKidlispSource);
   const paintingData = {};
   
+  if (paintingCodes.length > 0) {
+    onProgress({ stage: 'paintings', message: `Embedding ${paintingCodes.length} painting${paintingCodes.length === 1 ? '' : 's'}...` });
+  }
+  
   for (const code of paintingCodes) {
     const resolved = await resolvePaintingCode(code);
     if (resolved) {
@@ -394,6 +433,8 @@ async function createBundle(pieceName) {
       }
     }
   }
+  
+  onProgress({ stage: 'fonts', message: 'Loading fonts...' });
   
   // Load font_1 glyphs
   const font1Dir = path.join(acDir, 'disks/drawings/font_1');
@@ -422,6 +463,8 @@ async function createBundle(pieceName) {
     files[pieceLispPath] = { content: source, binary: false, type: 'lisp' };
   }
   
+  onProgress({ stage: 'generate', message: 'Generating HTML bundle...' });
+  
   // Generate HTML bundle (same template as CLI)
   const htmlContent = generateHTMLBundle({
     PIECE_NAME,
@@ -435,6 +478,8 @@ async function createBundle(pieceName) {
     packTime,
     gitVersion: GIT_COMMIT,
   });
+  
+  onProgress({ stage: 'compress', message: 'Compressing...' });
   
   // Create gzip-compressed self-extracting bundle
   const gzipCompressed = gzipSync(htmlContent, { level: 9 });
@@ -624,6 +669,18 @@ function generateHTMLBundle(opts) {
       return originalAppendChild.call(this, child);
     };
     
+    // Also intercept HTMLBodyElement.append for font CSS loading
+    const originalBodyAppend = HTMLBodyElement.prototype.append;
+    HTMLBodyElement.prototype.append = function(...nodes) {
+      const filteredNodes = nodes.filter(node => {
+        if (node.tagName === 'LINK' && node.rel === 'stylesheet') {
+          return false;
+        }
+        return true;
+      });
+      return originalBodyAppend.call(this, ...filteredNodes);
+    };
+    
     window.VFS_BLOB_URLS = {};
     window.modulePaths = [];
     
@@ -729,8 +786,9 @@ function generateHTMLBundle(opts) {
         }));
       }
       
-      if (vfsPath.includes('disks/drawings/font_') || vfsPath.endsWith('.mjs') || vfsPath.includes('cursors/') || vfsPath.endsWith('.svg')) {
-        return Promise.resolve(new Response('{}', { status: 404 }));
+      // Silently handle expected missing files (fonts, .mjs pieces, cursors, SVGs, and CSS)
+      if (vfsPath.includes('disks/drawings/font_') || vfsPath.endsWith('.mjs') || vfsPath.includes('cursors/') || vfsPath.endsWith('.svg') || vfsPath.endsWith('.css') || urlStr.includes('/type/webfonts/')) {
+        return Promise.resolve(new Response('', { status: 200, headers: { 'Content-Type': 'text/css' } }));
       }
       
       return originalFetch.call(this, url, options);
@@ -749,24 +807,83 @@ function generateHTMLBundle(opts) {
 </html>`;
 }
 
-// Netlify Function handler
-export async function handler(event) {
+// Main handler - uses Netlify streaming adapter
+export const handler = stream(async (event) => {
   const code = event.queryStringParameters?.code;
   const format = event.queryStringParameters?.format || 'html';
   
   if (!code) {
-    return respond(400, { error: "Missing 'code' parameter. Usage: /api/bundle-html?code=39j" });
+    return {
+      statusCode: 400,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ error: "Missing 'code' parameter. Usage: /api/bundle-html?code=39j" }),
+    };
   }
   
+  // Streaming mode with SSE progress updates
+  if (format === 'stream') {
+    const readable = new ReadableStream({
+      async start(controller) {
+        const encoder = new TextEncoder();
+        
+        const sendEvent = (eventType, data) => {
+          controller.enqueue(encoder.encode(`event: ${eventType}\ndata: ${JSON.stringify(data)}\n\n`));
+        };
+        
+        try {
+          const onProgress = (progress) => {
+            sendEvent('progress', progress);
+          };
+          
+          const { html, filename, sizeKB } = await createBundle(code, onProgress);
+          
+          sendEvent('complete', {
+            filename,
+            content: Buffer.from(html).toString('base64'),
+            sizeKB,
+          });
+          
+          controller.close();
+        } catch (error) {
+          console.error("Bundle creation failed:", error);
+          sendEvent('error', { error: error.message });
+          controller.close();
+        }
+      }
+    });
+    
+    return {
+      statusCode: 200,
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+      },
+      body: readable,
+    };
+  }
+  
+  // Non-streaming modes
   try {
-    const { html, filename, sizeKB } = await createBundle(code);
+    const progressLog = [];
+    const onProgress = (progress) => {
+      progressLog.push(progress.message);
+      console.log(`[bundle-html] ${progress.stage}: ${progress.message}`);
+    };
+    
+    const { html, filename, sizeKB } = await createBundle(code, onProgress);
     
     if (format === 'json' || format === 'base64') {
-      return respond(200, {
-        filename,
-        content: Buffer.from(html).toString('base64'),
-        sizeKB,
-      });
+      return {
+        statusCode: 200,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          filename,
+          content: Buffer.from(html).toString('base64'),
+          sizeKB,
+          progress: progressLog,
+        }),
+      };
     }
     
     // Default: return as downloadable HTML file
@@ -782,6 +899,10 @@ export async function handler(event) {
     
   } catch (error) {
     console.error("Bundle creation failed:", error);
-    return respond(500, { error: error.message });
+    return {
+      statusCode: 500,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ error: error.message }),
+    };
   }
-}
+});
