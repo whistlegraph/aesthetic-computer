@@ -1667,7 +1667,11 @@ async function halt($, text) {
       
       while (true) {
         const { done, value } = await reader.read();
-        if (done) break;
+        if (done) {
+          // Flush the decoder to get any remaining bytes
+          buffer += decoder.decode();
+          break;
+        }
         
         buffer += decoder.decode(value, { stream: true });
         
@@ -1680,8 +1684,11 @@ async function halt($, text) {
       
       // Process any remaining data in buffer after stream ends
       if (buffer.trim()) {
+        console.log("Processing final buffer, length:", buffer.length);
         const finalLines = buffer.split('\n');
+        console.log("Final lines count:", finalLines.length, "First line starts with:", finalLines[0]?.slice(0, 50));
         parseSSELines(finalLines);
+        console.log("After final parse, result:", result ? "found" : "null");
       }
       
       if (!result) {
