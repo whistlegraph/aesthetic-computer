@@ -1639,16 +1639,8 @@ async function halt($, text) {
       let buffer = '';
       let result = null;
       
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        
-        buffer += decoder.decode(value, { stream: true });
-        
-        // Parse SSE events from buffer
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || ''; // Keep incomplete line in buffer
-        
+      // Helper to parse SSE lines
+      const parseSSELines = (lines) => {
         let eventType = null;
         for (const line of lines) {
           if (line.startsWith('event: ')) {
@@ -1671,6 +1663,25 @@ async function halt($, text) {
             eventType = null;
           }
         }
+      };
+      
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        buffer += decoder.decode(value, { stream: true });
+        
+        // Parse SSE events from buffer
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || ''; // Keep incomplete line in buffer
+        
+        parseSSELines(lines);
+      }
+      
+      // Process any remaining data in buffer after stream ends
+      if (buffer.trim()) {
+        const finalLines = buffer.split('\n');
+        parseSSELines(finalLines);
       }
       
       if (!result) {
