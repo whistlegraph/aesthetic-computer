@@ -1638,29 +1638,29 @@ async function halt($, text) {
       const decoder = new TextDecoder();
       let buffer = '';
       let result = null;
+      let currentEventType = null; // Persist across chunk boundaries
       
       // Helper to parse SSE lines
       const parseSSELines = (lines) => {
-        let eventType = null;
         for (const line of lines) {
           if (line.startsWith('event: ')) {
-            eventType = line.slice(7);
-          } else if (line.startsWith('data: ') && eventType) {
+            currentEventType = line.slice(7);
+          } else if (line.startsWith('data: ') && currentEventType) {
             try {
               const data = JSON.parse(line.slice(6));
               
-              if (eventType === 'progress') {
+              if (currentEventType === 'progress') {
                 notice(data.message, ["yellow"]);
                 needsPaint();
-              } else if (eventType === 'complete') {
+              } else if (currentEventType === 'complete') {
                 result = data;
-              } else if (eventType === 'error') {
+              } else if (currentEventType === 'error') {
                 throw new Error(data.error);
               }
             } catch (parseErr) {
-              console.warn("SSE parse error:", parseErr);
+              console.warn("SSE parse error:", parseErr, "line:", line.slice(0, 100));
             }
-            eventType = null;
+            currentEventType = null;
           }
         }
       };
