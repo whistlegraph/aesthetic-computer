@@ -110,6 +110,10 @@ let cachedGizmo; // Reference to gizmo for use in act() function
 let progressPhase = ""; // Current phase of upload (e.g., "ZIPPING", "UPLOADING IMAGE")
 let progressPercentage = 0; // 0-100
 
+// 📦 Bundle progress state
+let bundleProgress = null; // { stage, message, startTime, animPhase }
+const BUNDLE_STAGES = ['fetch', 'deps', 'cache-hit', 'discover', 'minify', 'paintings', 'fonts', 'generate', 'compress', 'complete'];
+
 let login, // A login button in the center of the display.
   signup, // A Sign-up button.
   profile, // A profile page button.
@@ -1615,6 +1619,114 @@ async function halt($, text) {
 
     makeFlash($);
     return true;
+  } else if (text.startsWith("html ") || text.startsWith("bundle ")) {
+    // Generate a self-contained .lisp.html bundle for a KidLisp piece
+    const pieceCode = params[0];
+    if (!pieceCode) {
+      notice("Usage: html $code", ["red"]);
+      flashColor = [255, 0, 0];
+      makeFlash($);
+      return true;
+    }
+    
+    // Normalize piece code (ensure it starts with $)
+    const code = pieceCode.startsWith("$") ? pieceCode.slice(1) : pieceCode;
+    
+    // Initialize bundle progress UI
+    bundleProgress = { 
+      stage: 'fetch', 
+      message: `Bundling $${code}...`, 
+      startTime: performance.now(),
+      animPhase: 0,
+      code
+    };
+    needsPaint();
+    
+    try {
+      // Use streaming endpoint for progress updates
+      const response = await fetch(`/api/bundle-html?code=$${code}&format=stream`);
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let result = null;
+      let currentEventType = null; // Persist across chunk boundaries
+      
+      // Helper to parse SSE lines
+      const parseSSELines = (lines) => {
+        for (const line of lines) {
+          if (line.startsWith('event: ')) {
+            currentEventType = line.slice(7);
+          } else if (line.startsWith('data: ') && currentEventType) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              
+              if (currentEventType === 'progress') {
+                // Update bundle progress state
+                bundleProgress = {
+                  ...bundleProgress,
+                  stage: data.stage || bundleProgress.stage,
+                  message: data.message
+                };
+                needsPaint();
+              } else if (currentEventType === 'complete') {
+                result = data;
+                bundleProgress = { ...bundleProgress, stage: 'complete', message: 'Complete!' };
+                needsPaint();
+              } else if (currentEventType === 'error') {
+                throw new Error(data.error);
+              }
+            } catch (parseErr) {
+              console.warn("SSE parse error:", parseErr, "line:", line.slice(0, 100));
+            }
+            currentEventType = null;
+          }
+        }
+      };
+      
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          // Flush the decoder to get any remaining bytes
+          buffer += decoder.decode();
+          break;
+        }
+        
+        buffer += decoder.decode(value, { stream: true });
+        
+        // Parse SSE events from buffer
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || ''; // Keep incomplete line in buffer
+        
+        parseSSELines(lines);
+      }
+      
+      // Process any remaining data in buffer after stream ends
+      if (buffer.trim()) {
+        const finalLines = buffer.split('\n');
+        parseSSELines(finalLines);
+      }
+      
+      if (!result) {
+        throw new Error("No result received from bundle API");
+      }
+      
+      // Decode base64 content and download
+      const htmlContent = atob(result.content);
+      download(result.filename, htmlContent, { type: "text/html" });
+      
+      notice("Downloaded " + result.filename + " (" + result.sizeKB + "KB)", ["lime"]);
+      flashColor = [0, 255, 0];
+    } catch (err) {
+      console.error("Bundle error:", err);
+      notice("Bundle failed: " + err.message, ["red"]);
+      flashColor = [255, 0, 0];
+    }
+    
+    // Clear bundle progress
+    bundleProgress = null;
+    
+    makeFlash($);
+    return true;
   } else if (text.startsWith("email")) {
     // Set user email.
     const email = text.split(" ")[1];
@@ -2861,6 +2973,108 @@ function paint($) {
         });
       }
     }
+  }
+
+  // 📦 Bundle progress overlay
+  if (bundleProgress) {
+    const { stage, message, startTime, code } = bundleProgress;
+    const elapsed = performance.now() - startTime;
+    
+    // Stage index for progress calculation
+    const stageIndex = BUNDLE_STAGES.indexOf(stage);
+    const totalStages = BUNDLE_STAGES.length - 1; // Exclude 'complete'
+    const baseProgress = stageIndex >= 0 ? stageIndex / totalStages : 0;
+    
+    // Animate within current stage
+    const stageProgress = Math.min(1, (elapsed % 2000) / 2000); // Smooth animation per stage
+    const visualProgress = Math.min(1, baseProgress + (stageProgress * 0.1)); // Small animation within stage
+    
+    // Color cycling (pink -> purple -> green)
+    const colorPhase = (elapsed * 0.003) % 3;
+    let progressColor;
+    if (colorPhase < 1) {
+      progressColor = [255, 100, 200]; // Pink
+    } else if (colorPhase < 2) {
+      progressColor = [200, 100, 255]; // Purple
+    } else {
+      progressColor = [100, 255, 150]; // Green
+    }
+    
+    // Semi-transparent overlay
+    const overlayAlpha = Math.floor(120 + Math.sin(elapsed * 0.005) * 20);
+    ink(0, 0, 0, overlayAlpha).box(0, 0, screen.width, screen.height);
+    
+    // 🎯 Progress bar at top - marching ants style
+    const barY = 1;
+    const barHeight = 2;
+    const fullWidth = screen.width - 2;
+    const filledWidth = Math.floor(fullWidth * visualProgress);
+    
+    // Background track (dark)
+    ink(40, 40, 40).box(1, barY, fullWidth, barHeight);
+    
+    // Filled portion with marching ants pattern
+    const antOffset = Math.floor(elapsed / 50) % 4;
+    for (let x = 0; x < filledWidth; x++) {
+      const pattern = (x + antOffset) % 4;
+      if (pattern < 2) {
+        ink(...progressColor).box(1 + x, barY, 1, barHeight);
+      } else {
+        ink(...progressColor, 150).box(1 + x, barY, 1, barHeight);
+      }
+    }
+    
+    // Animated leading edge sparkle
+    if (filledWidth > 0 && filledWidth < fullWidth) {
+      const sparkle = Math.sin(elapsed * 0.02) * 0.5 + 0.5;
+      ink(255, 255, 255, Math.floor(100 + sparkle * 155)).box(1 + filledWidth - 1, barY, 2, barHeight);
+    }
+    
+    // 📝 Message box in center
+    const textPadding = 8;
+    const lineHeight = 10;
+    const boxWidth = Math.max(message.length * 6 + textPadding * 2, 100);
+    const boxHeight = lineHeight * 2 + textPadding * 2;
+    const boxX = (screen.width - boxWidth) / 2;
+    const boxY = screen.height / 2 - boxHeight / 2;
+    
+    // Box background with pulsing border
+    ink(0, 0, 0, 200).box(boxX, boxY, boxWidth, boxHeight);
+    
+    // Dotted border (marching ants)
+    const dotSpacing = 3;
+    for (let x = boxX; x < boxX + boxWidth; x += dotSpacing) {
+      const offset = Math.floor(elapsed / 100) % dotSpacing;
+      if ((x + offset) % dotSpacing === 0) {
+        ink(...progressColor).box(x, boxY, 1, 1);
+        ink(...progressColor).box(x, boxY + boxHeight - 1, 1, 1);
+      }
+    }
+    for (let y = boxY; y < boxY + boxHeight; y += dotSpacing) {
+      const offset = Math.floor(elapsed / 100) % dotSpacing;
+      if ((y + offset) % dotSpacing === 0) {
+        ink(...progressColor).box(boxX, y, 1, 1);
+        ink(...progressColor).box(boxX + boxWidth - 1, y, 1, 1);
+      }
+    }
+    
+    // Title line: "BUNDLING $code"
+    const titleText = `BUNDLING $${code}`;
+    ink(...progressColor).write(titleText, { center: "x", y: boxY + textPadding });
+    
+    // Status line: current message
+    const statusText = message.toUpperCase();
+    ink(255, 255, 255, 200).write(statusText, { center: "x", y: boxY + textPadding + lineHeight });
+    
+    // Animated dots after status
+    const dots = Math.floor((elapsed / 300) % 4);
+    ink(255, 255, 255, 150).write(".".repeat(dots), { 
+      x: (screen.width + statusText.length * 6) / 2 + 2, 
+      y: boxY + textPadding + lineHeight 
+    });
+    
+    // Keep animating
+    $.needsPaint();
   }
 
   // Calculate MOTD offset (do this before book rendering so it's always available)
