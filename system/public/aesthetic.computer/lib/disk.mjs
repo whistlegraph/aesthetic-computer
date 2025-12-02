@@ -9735,7 +9735,7 @@ async function makeFrame({ data: { type, content } }) {
           return prom;
         },
         update: function (properties) {
-          if (properties.shift) {
+          if (properties.shift || properties.sampleSpeed !== undefined) {
             send({
               type: "sfx:update",
               content: { id, properties },
