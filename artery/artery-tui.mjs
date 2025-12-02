@@ -206,6 +206,8 @@ class ArteryTUI {
     // Menu items
     this.menuItems = [
       { key: 'p', label: 'Open Panel', desc: 'Open AC sidebar in VS Code', action: () => this.openPanel() },
+      { key: 'k', label: 'KidLisp.com', desc: 'Open KidLisp editor window', action: () => this.openKidLisp() },
+      { key: 'e', label: 'Emacs', desc: 'Execute elisp in Emacs', action: () => this.enterEmacsMode() },
       { key: 'j', label: 'Jump to Piece', desc: 'Navigate to a piece', action: () => this.enterPieceMode() },
       { key: 'c', label: 'Current Piece', desc: 'Show current piece', action: () => this.showCurrent() },
       { key: 'r', label: 'REPL Mode', desc: 'Interactive JavaScript console', action: () => this.enterReplMode() },
@@ -655,6 +657,9 @@ class ArteryTUI {
       case 'repl':
         this.handleReplInput(key);
         break;
+      case 'emacs':
+        this.handleEmacsInput(key);
+        break;
       case 'pieces':
         this.handlePiecesInput(key);
         break;
@@ -724,6 +729,87 @@ class ArteryTUI {
     if (key.length === 1 && key.charCodeAt(0) >= 32) {
       this.inputBuffer += key;
       this.render();
+    }
+  }
+
+  handleEmacsInput(key) {
+    // Escape to go back
+    if (key === '\u001b' && this.emacsSubMode === 'menu') {
+      this.mode = 'menu';
+      this.render();
+      return;
+    }
+    
+    if (key === '\u001b' && (this.emacsSubMode === 'eval' || this.emacsSubMode === 'buffers')) {
+      this.emacsSubMode = 'menu';
+      this.render();
+      return;
+    }
+    
+    if (this.emacsSubMode === 'menu') {
+      // Menu shortcuts
+      if (key === 'e' || key === 'E') {
+        this.emacsSubMode = 'eval';
+        this.emacsInput = '';
+        this.render();
+        return;
+      }
+      if (key === 'b' || key === 'B') {
+        this.emacsListBuffers();
+        return;
+      }
+      if (key === 'v' || key === 'V') {
+        this.emacsEval('(emacs-version)');
+        return;
+      }
+    }
+    
+    if (this.emacsSubMode === 'eval') {
+      // Enter to execute
+      if (key === '\r' || key === '\n') {
+        if (this.emacsInput.trim()) {
+          this.emacsEval(this.emacsInput);
+          this.emacsInput = '';
+        }
+        return;
+      }
+      
+      // Backspace
+      if (key === '\u007f' || key === '\b') {
+        this.emacsInput = this.emacsInput.slice(0, -1);
+        this.render();
+        return;
+      }
+      
+      // Regular character
+      if (key.length === 1 && key.charCodeAt(0) >= 32) {
+        this.emacsInput += key;
+        this.render();
+      }
+      return;
+    }
+    
+    if (this.emacsSubMode === 'buffers') {
+      // Arrow keys to select buffer
+      if (key === '\u001b[A') { // Up
+        this.emacsSelectedBuffer = Math.max(0, this.emacsSelectedBuffer - 1);
+        this.render();
+        return;
+      }
+      if (key === '\u001b[B') { // Down
+        this.emacsSelectedBuffer = Math.min(this.emacsBuffers.length - 1, this.emacsSelectedBuffer + 1);
+        this.render();
+        return;
+      }
+      
+      // Enter to switch to buffer
+      if (key === '\r' || key === '\n') {
+        const buffer = this.emacsBuffers[this.emacsSelectedBuffer];
+        if (buffer) {
+          this.emacsSwitchBuffer(buffer);
+        }
+        return;
+      }
     }
   }
 
@@ -1037,6 +1123,79 @@ class ArteryTUI {
       this.setStatus(`Failed to open panel: ${e.message}`, 'error');
     }
     
+    this.render();
+  }
+
+  // 🌈 Open KidLisp.com editor window
+  async openKidLisp() {
+    this.setStatus('Opening KidLisp.com editor...', 'info');
+    this.render();
+    
+    try {
+      await Artery.openKidLispWindow();
+      this.setStatus('KidLisp.com editor opened!', 'success');
+    } catch (e) {
+      this.setStatus(`Failed to open KidLisp: ${e.message}`, 'error');
+    }
+    
+    this.render();
+  }
+
+  // 🧠 Emacs Integration Mode
+  async enterEmacsMode() {
+    this.mode = 'emacs';
+    this.emacsInput = '';
+    this.emacsOutput = '';
+    this.emacsBuffers = [];
+    this.emacsSelectedBuffer = 0;
+    this.emacsSubMode = 'menu'; // 'menu', 'eval', 'buffers'
+    
+    // Check if Emacs is running
+    try {
+      const version = await Artery.emacsVersion();
+      this.emacsOutput = `Connected to ${version}`;
+      this.setStatus('Emacs connected!', 'success');
+    } catch (e) {
+      this.emacsOutput = `Error: ${e.message}`;
+      this.setStatus('Emacs not running or emacsclient failed', 'error');
+    }
+    
+    this.render();
+  }
+  
+  async emacsEval(code) {
+    try {
+      const result = await Artery.execEmacs(code);
+      this.emacsOutput = result;
+      this.setStatus('Elisp executed', 'success');
+    } catch (e) {
+      this.emacsOutput = `Error: ${e.message}`;
+      this.setStatus('Elisp error', 'error');
+    }
+    this.render();
+  }
+  
+  async emacsListBuffers() {
+    try {
+      const result = await Artery.execEmacs('(mapcar #\'buffer-name (buffer-list))');
+      // Parse lisp list
+      this.emacsBuffers = result.slice(1, -1).split(' ').map(s => s.replace(/^"|"$/g, ''));
+      this.emacsSubMode = 'buffers';
+      this.emacsSelectedBuffer = 0;
+    } catch (e) {
+      this.emacsOutput = `Error: ${e.message}`;
+    }
+    this.render();
+  }
+  
+  async emacsSwitchBuffer(bufferName) {
+    try {
+      await Artery.emacsSwitchBuffer(bufferName);
+      this.setStatus(`Switched to ${bufferName}`, 'success');
+      this.emacsSubMode = 'menu';
+    } catch (e) {
+      this.setStatus(`Error: ${e.message}`, 'error');
+    }
     this.render();
   }
 
@@ -1552,6 +1711,9 @@ class ArteryTUI {
       case 'repl':
         this.renderRepl();
         break;
+      case 'emacs':
+        this.renderEmacs();
+        break;
       case 'pieces':
       case 'piece-input':
         this.renderPieces();
@@ -1811,6 +1973,106 @@ class ArteryTUI {
     // Show cursor at input position
     this.write(CURSOR_SHOW);
     this.write(moveTo(this.height - 3, this.adaptiveMarginX + 6 + this.inputBuffer.length));
+  }
+
+  renderEmacs() {
+    this.renderHeader();
+    const boxWidth = this.innerWidth;
+    const compact = this.width < 80;
+    
+    // Emacs title - DOS style
+    const emacsTitle = `${DOS_BORDER}║${RESET}${BG_BLUE}${FG_BRIGHT_GREEN}🧠${FG_WHITE} Emacs${RESET}`;
+    const emacsPadding = boxWidth - this.stripAnsi(emacsTitle).length - 1;
+    this.writeLine(`${emacsTitle}${BG_BLUE}${' '.repeat(Math.max(0, emacsPadding))}${DOS_BORDER}║${RESET}`);
+    this.writeLine(`${DOS_BORDER}╟${'─'.repeat(boxWidth - 2)}╢${RESET}`);
+    
+    if (this.emacsSubMode === 'menu') {
+      // Emacs menu options
+      const menuOptions = [
+        { key: 'e', label: 'Eval Elisp', desc: 'Execute Emacs Lisp code' },
+        { key: 'b', label: 'Buffers', desc: 'List and switch buffers' },
+        { key: 'v', label: 'Version', desc: 'Show Emacs version' },
+      ];
+      
+      for (const opt of menuOptions) {
+        const line = `${DOS_BORDER}║${RESET}${BG_BLUE}  ${FG_BRIGHT_YELLOW}[${opt.key}]${RESET}${BG_BLUE} ${FG_WHITE}${opt.label}${RESET}${BG_BLUE} ${DIM}${opt.desc}${RESET}`;
+        const linePadding = boxWidth - this.stripAnsi(line).length - 1;
+        this.writeLine(`${line}${BG_BLUE}${' '.repeat(Math.max(0, linePadding))}${DOS_BORDER}║${RESET}`);
+      }
+      
+      // Show output
+      this.writeLine(`${DOS_BORDER}╟${'─'.repeat(boxWidth - 2)}╢${RESET}`);
+      const outputTitle = `${DOS_BORDER}║${RESET}${BG_BLUE}${FG_CYAN}Output:${RESET}`;
+      const outputPadding = boxWidth - this.stripAnsi(outputTitle).length - 1;
+      this.writeLine(`${outputTitle}${BG_BLUE}${' '.repeat(Math.max(0, outputPadding))}${DOS_BORDER}║${RESET}`);
+      
+      // Wrap output to fit
+      const outputLines = (this.emacsOutput || '(no output)').split('\n').slice(0, 5);
+      for (const outLine of outputLines) {
+        const truncated = this.truncate(outLine, boxWidth - 4);
+        const line = `${DOS_BORDER}║${RESET}${BG_BLUE}  ${FG_BRIGHT_GREEN}${truncated}${RESET}`;
+        const linePadding = boxWidth - this.stripAnsi(line).length - 1;
+        this.writeLine(`${line}${BG_BLUE}${' '.repeat(Math.max(0, linePadding))}${DOS_BORDER}║${RESET}`);
+      }
+    } else if (this.emacsSubMode === 'eval') {
+      // Elisp input mode
+      const helpLine = `${DOS_BORDER}║${RESET}${BG_BLUE}  ${DIM}Type elisp and press Enter. ESC to go back.${RESET}`;
+      const helpPadding = boxWidth - this.stripAnsi(helpLine).length - 1;
+      this.writeLine(`${helpLine}${BG_BLUE}${' '.repeat(Math.max(0, helpPadding))}${DOS_BORDER}║${RESET}`);
+      
+      // Input line
+      const prompt = `${FG_BRIGHT_GREEN}λ${RESET}${BG_BLUE}`;
+      const inputLine = `${DOS_BORDER}║${RESET}${BG_BLUE}${prompt}${FG_WHITE}${this.emacsInput}${RESET}`;
+      const inputPadding = boxWidth - this.stripAnsi(inputLine).length - 1;
+      this.writeLine(`${inputLine}${BG_BLUE}${' '.repeat(Math.max(0, inputPadding))}${DOS_BORDER}║${RESET}`);
+      
+      // Show output
+      this.writeLine(`${DOS_BORDER}╟${'─'.repeat(boxWidth - 2)}╢${RESET}`);
+      const outputLines = (this.emacsOutput || '').split('\n').slice(0, 8);
+      for (const outLine of outputLines) {
+        const truncated = this.truncate(outLine, boxWidth - 4);
+        const line = `${DOS_BORDER}║${RESET}${BG_BLUE}  ${FG_BRIGHT_GREEN}${truncated}${RESET}`;
+        const linePadding = boxWidth - this.stripAnsi(line).length - 1;
+        this.writeLine(`${line}${BG_BLUE}${' '.repeat(Math.max(0, linePadding))}${DOS_BORDER}║${RESET}`);
+      }
+    } else if (this.emacsSubMode === 'buffers') {
+      // Buffer list
+      const helpLine = `${DOS_BORDER}║${RESET}${BG_BLUE}  ${DIM}↑↓ to select, Enter to switch. ESC to go back.${RESET}`;
+      const helpPadding = boxWidth - this.stripAnsi(helpLine).length - 1;
+      this.writeLine(`${helpLine}${BG_BLUE}${' '.repeat(Math.max(0, helpPadding))}${DOS_BORDER}║${RESET}`);
+      this.writeLine(`${DOS_BORDER}╟${'─'.repeat(boxWidth - 2)}╢${RESET}`);
+      
+      const visibleCount = Math.max(1, this.innerHeight - 12);
+      const startIdx = Math.max(0, this.emacsSelectedBuffer - Math.floor(visibleCount / 2));
+      const endIdx = Math.min(this.emacsBuffers.length, startIdx + visibleCount);
+      
+      for (let i = startIdx; i < endIdx; i++) {
+        const buffer = this.emacsBuffers[i];
+        const isSelected = i === this.emacsSelectedBuffer;
+        const prefix = isSelected ? `${DOS_HIGHLIGHT}►` : ` ${BG_BLUE}`;
+        const color = isSelected ? `${DOS_HIGHLIGHT}` : `${BG_BLUE}${FG_WHITE}`;
+        const line = `${DOS_BORDER}║${RESET}${prefix}${color} ${buffer}${RESET}`;
+        const linePadding = boxWidth - this.stripAnsi(line).length - 1;
+        const bg = isSelected ? DOS_HIGHLIGHT : BG_BLUE;
+        this.writeLine(`${line}${bg}${' '.repeat(Math.max(0, linePadding))}${DOS_BORDER}║${RESET}`);
+      }
+    }
+    
+    // Fill remaining space
+    const usedLines = this.emacsSubMode === 'buffers' 
+      ? Math.min(this.emacsBuffers.length, this.innerHeight - 12) + 5
+      : 12;
+    for (let i = usedLines; i < this.innerHeight - 4; i++) {
+      this.writeLine(`${DOS_BORDER}║${BG_BLUE}${' '.repeat(boxWidth - 2)}${DOS_BORDER}║${RESET}`);
+    }
+    
+    this.renderFooter();
+    
+    // Show cursor in eval mode
+    if (this.emacsSubMode === 'eval') {
+      this.write(CURSOR_SHOW);
+      this.write(moveTo(this.marginY + 6, this.adaptiveMarginX + 4 + this.emacsInput.length));
+    }
   }
 
   renderPieces() {
