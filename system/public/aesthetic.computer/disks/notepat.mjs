@@ -761,11 +761,15 @@ function resolveMatrixGlyphMetrics(fallbackTypeface) {
   return { width: 6, height: 8 };
 }
 
-function computeMidiBadgeMetrics(screen, glyphMetrics = resolveMatrixGlyphMetrics()) {
+function computeMidiBadgeMetrics(screen, glyphMetrics = resolveMatrixGlyphMetrics(), compactMode = false) {
   const textWidth = MIDI_BADGE_TEXT.length * glyphMetrics.width;
   const width = textWidth + MIDI_BADGE_PADDING_X * 2;
   const height = glyphMetrics.height + MIDI_BADGE_PADDING_Y * 2;
-  const x = screen.width - width - MIDI_BADGE_MARGIN;
+  
+  // In compact mode, center the badge at bottom
+  const x = compactMode 
+    ? (screen.width - width) / 2 
+    : screen.width - width - MIDI_BADGE_MARGIN;
   const y = screen.height - height - MIDI_BADGE_MARGIN;
 
   return { x, y, width, height };
@@ -820,6 +824,9 @@ function getButtonLayoutMetrics(
   const compactMode = screen.height < 200;
   
   if (compactMode) {
+    // Recompute badge metrics for compact mode (centered)
+    const compactBadgeMetrics = computeMidiBadgeMetrics(screen, undefined, true);
+    
     // Split layout: 4x3 grid per octave (12 notes each)
     // Left side: first octave (c to b), Right side: second octave (+c to +b)
     const notesPerSide = 12;
@@ -869,8 +876,8 @@ function getButtonLayoutMetrics(
     const centerX = leftOctaveX + buttonBlockWidth + sideMargin;
     const centerAreaWidth = rightOctaveX - centerX - sideMargin;
     
-    // Bottom center area for unified active note display
-    const bottomCenterY = topButtonY + buttonBlockHeight + 2;
+    // Bottom center area for unified active note display - position above MIDI badge
+    const bottomCenterY = screen.height - compactBadgeMetrics.height - MIDI_BADGE_MARGIN - 14;
     
     return {
       buttonWidth,
@@ -885,7 +892,7 @@ function getButtonLayoutMetrics(
       trackSpacing: 0,
       reservedTop: hudReserved,
       melodyButtonRect: null,
-      midiBadge: badgeMetrics,
+      midiBadge: compactBadgeMetrics,  // Use centered badge metrics
       compactMode: true,
       // Split layout info
       splitLayout: true,
