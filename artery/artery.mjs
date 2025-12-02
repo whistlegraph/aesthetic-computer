@@ -709,6 +709,62 @@ class Artery {
     ws.close();
   }
   
+  // Static method to open KidLisp.com window in VS Code
+  static async openKidLispWindow() {
+    brightLog('🌈 Opening KidLisp.com window...');
+    const { host: cdpHost, port: cdpPort } = await findWorkingCDPHost();
+    
+    const targetsJson = await new Promise((resolve, reject) => {
+      const req = http.get({
+        hostname: cdpHost,
+        port: cdpPort,
+        path: '/json',
+        headers: { 'Host': 'localhost' }
+      }, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => resolve(JSON.parse(data)));
+      });
+      req.on('error', reject);
+      req.end();
+    });
+    
+    const workbenchTarget = targetsJson.find(t => 
+      t.type === 'page' && t.url && t.url.includes('workbench.html')
+    );
+    
+    if (!workbenchTarget) {
+      throw new Error('Could not find VS Code workbench target');
+    }
+    
+    let wsUrl = workbenchTarget.webSocketDebuggerUrl;
+    if (wsUrl.includes('localhost')) {
+      wsUrl = wsUrl.replace(/localhost(:\d+)?/, `${cdpHost}:${cdpPort}`);
+    }
+    const ws = new WebSocket(wsUrl);
+    
+    await new Promise((resolve, reject) => {
+      ws.on('open', () => resolve());
+      ws.on('error', reject);
+      setTimeout(() => reject(new Error('Timeout connecting to workbench')), 5000);
+    });
+    
+    // Execute the KidLisp window command
+    ws.send(JSON.stringify({
+      id: 3000,
+      method: 'Runtime.evaluate',
+      params: {
+        expression: `vscode.commands.executeCommand('aestheticComputer.openKidLispWindow')`,
+        awaitPromise: true
+      }
+    }));
+    
+    await new Promise(resolve => setTimeout(resolve, 1500)); // Wait for window to open
+    ws.close();
+    
+    brightLog('🌈 KidLisp.com window opened');
+  }
+  
   // Toggle local development mode (localhost:8888 vs aesthetic.computer)
   static async toggleLocalDevelopment() {
     brightLog('🩸 Toggling local development mode...');
@@ -772,6 +828,105 @@ class Artery {
     
     ws.close();
   }
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 🧠 Emacs Integration - Execute elisp via emacsclient
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  /**
+   * Execute Emacs Lisp code via emacsclient
+   * @param {string} code - The elisp code to execute
+   * @returns {Promise<string>} - The result from Emacs
+   */
+  static async execEmacs(code) {
+    const { spawn } = await import('child_process');
+    const emacsclient = process.env.EMACSCLIENT || '/usr/sbin/emacsclient';
+    
+    return new Promise((resolve, reject) => {
+      const proc = spawn(emacsclient, ['--eval', code]);
+      let stdout = '';
+      let stderr = '';
+      
+      proc.stdout.on('data', (data) => { stdout += data.toString(); });
+      proc.stderr.on('data', (data) => { stderr += data.toString(); });
+      
+      proc.on('close', (exitCode) => {
+        if (exitCode === 0) {
+          resolve(stdout.trim());
+        } else {
+          reject(new Error(stderr.trim() || `emacsclient exited with code ${exitCode}`));
+        }
+      });
+      
+      proc.on('error', (err) => {
+        reject(new Error(`Failed to start emacsclient: ${err.message}`));
+      });
+    });
+  }
+  
+  /**
+   * Get list of Emacs buffers
+   * @returns {Promise<string[]>} - Array of buffer names
+   */
+  static async emacsListBuffers() {
+    const result = await Artery.execEmacs(`
+      (mapcar #'buffer-name (buffer-list))
+    `);
+    // Parse the lisp list format: (#<buffer name> ...)
+    // The output is like: ("buffer1" "buffer2" ...)
+    const match = result.match(/\("([^"]+)"(?:\s+"([^"]+)")*\)/);
+    if (match) {
+      return result.slice(1, -1).split('" "').map(s => s.replace(/^"|"$/g, ''));
+    }
+    return result.split('\n').filter(Boolean);
+  }
+  
+  /**
+   * Switch to a buffer in Emacs
+   * @param {string} bufferName - Name of the buffer to switch to
+   */
+  static async emacsSwitchBuffer(bufferName) {
+    return Artery.execEmacs(`(switch-to-buffer "${bufferName}")`);
+  }
+  
+  /**
+   * Open a file in Emacs
+   * @param {string} filePath - Path to the file to open
+   */
+  static async emacsOpenFile(filePath) {
+    return Artery.execEmacs(`(find-file "${filePath}")`);
+  }
+  
+  /**
+   * Get current buffer content (first N characters)
+   * @param {string} bufferName - Buffer name
+   * @param {number} maxChars - Maximum characters to return (default 1000)
+   */
+  static async emacsGetBufferContent(bufferName, maxChars = 1000) {
+    return Artery.execEmacs(`
+      (with-current-buffer "${bufferName}"
+        (buffer-substring-no-properties 
+          (point-min) 
+          (min (point-max) (+ (point-min) ${maxChars}))))
+    `);
+  }
+  
+  /**
+   * Insert text at cursor position in Emacs
+   * @param {string} text - Text to insert
+   */
+  static async emacsInsert(text) {
+    // Escape quotes and backslashes in the text
+    const escaped = text.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    return Artery.execEmacs(`(insert "${escaped}")`);
+  }
+  
+  /**
+   * Get Emacs version and check if server is running
+   */
+  static async emacsVersion() {
+    return Artery.execEmacs('(emacs-version)');
+  }
 }
 
 async function main() {
@@ -782,6 +937,42 @@ async function main() {
   if (command === 'panel') {
     try {
       await Artery.openPanelStandalone();
+      process.exit(0);
+    } catch (error) {
+      redLog(`💔 ${error.message}`);
+      process.exit(1);
+    }
+  }
+  
+  // Emacs commands - don't need AC connection
+  if (command === 'emacs') {
+    try {
+      const elisp = args.join(' ');
+      if (!elisp) {
+        // Show Emacs version if no args
+        const version = await Artery.emacsVersion();
+        brightLog('🧠 Emacs connected');
+        console.log(version);
+      } else {
+        // Execute the elisp
+        brightLog(`🧠 Executing: ${elisp}`);
+        const result = await Artery.execEmacs(elisp);
+        console.log(result);
+      }
+      process.exit(0);
+    } catch (error) {
+      redLog(`💔 ${error.message}`);
+      process.exit(1);
+    }
+  }
+  
+  if (command === 'emacs-buffers') {
+    try {
+      const result = await Artery.execEmacs('(mapcar #\'buffer-name (buffer-list))');
+      brightLog('🧠 Emacs Buffers:');
+      // Parse and display buffers
+      const buffers = result.slice(1, -1).split(' ').map(s => s.replace(/^"|"$/g, ''));
+      buffers.forEach(b => console.log(`  ${b}`));
       process.exit(0);
     } catch (error) {
       redLog(`💔 ${error.message}`);
@@ -1134,6 +1325,11 @@ async function main() {
         console.log('artery panel           - Open AC sidebar panel');
         console.log('artery perf [seconds]  - Monitor WebGPU performance');
         console.log('artery repl            - Interactive REPL mode');
+        console.log('');
+        console.log('🧠 Emacs:');
+        console.log('artery emacs           - Show Emacs version');
+        console.log('artery emacs <elisp>   - Execute elisp in Emacs');
+        console.log('artery emacs-buffers   - List Emacs buffers');
         console.log('');
         console.log('🎮 Split/Multiplayer:');
         console.log('artery frames          - List all AC frames (main + players)');
