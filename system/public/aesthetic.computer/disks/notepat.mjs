@@ -825,13 +825,18 @@ function getButtonLayoutMetrics(
     const totalRows = 2;
     const hudReserved = TOP_BAR_BOTTOM;
     
-    // Calculate button dimensions to fit horizontally
+    // Calculate button dimensions - use square buttons
     const availableWidth = screen.width - margin * 2;
-    const buttonWidth = floor(availableWidth / buttonsPerRow);
+    const maxButtonWidth = floor(availableWidth / buttonsPerRow);
     
     // Use remaining height for buttons
     const availableHeight = screen.height - hudReserved - bottomPadding - margin;
-    const buttonHeight = floor(availableHeight / totalRows);
+    const maxButtonHeight = floor(availableHeight / totalRows);
+    
+    // Make buttons square by using the smaller dimension
+    const buttonSize = min(maxButtonWidth, maxButtonHeight);
+    const buttonWidth = buttonSize;
+    const buttonHeight = buttonSize;
     
     const topButtonY = hudReserved + margin;
     
