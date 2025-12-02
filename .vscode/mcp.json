@@ -1,12 +1,14 @@
 {
-  "mcpServers": {
-    "chrome-devtools": {
-      "command": "npx",
+  "servers": {
+    "emacs": {
+      "type": "stdio",
+      "command": "node",
       "args": [
-        "-y",
-        "chrome-devtools-mcp@latest",
-        "--browserUrl=http://host.docker.internal:9222"
-      ]
+        "${workspaceFolder}/artery/emacs-mcp.mjs"
+      ],
+      "env": {
+        "EMACSCLIENT": "/usr/sbin/emacsclient"
+      }
     }
   }
 }
