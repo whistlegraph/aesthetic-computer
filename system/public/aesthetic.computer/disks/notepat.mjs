@@ -820,11 +820,11 @@ function getButtonLayoutMetrics(
   const compactMode = screen.height < 200;
   
   if (compactMode) {
-    // Split layout: 3 notes per row on each side (6 rows total per octave = 12 notes)
+    // Split layout: 4x3 grid per octave (12 notes each)
     // Left side: first octave (c to b), Right side: second octave (+c to +b)
     const notesPerSide = 12;
-    const buttonsPerRow = 3;  // 3 notes per row on each side
-    const totalRows = Math.ceil(notesPerSide / buttonsPerRow);  // 4 rows
+    const buttonsPerRow = 4;  // 4 notes per row on each side
+    const totalRows = Math.ceil(notesPerSide / buttonsPerRow);  // 3 rows
     const hudReserved = TOP_BAR_BOTTOM;
     
     // Piano dimensions (2 octaves = 14 white keys)
@@ -855,8 +855,9 @@ function getButtonLayoutMetrics(
     
     const topButtonY = hudReserved + margin;
     
-    // Calculate actual button block width
+    // Calculate actual button block width and height
     const buttonBlockWidth = buttonsPerRow * buttonWidth;
+    const buttonBlockHeight = totalRows * buttonHeight;
     
     // Left octave starts at left margin
     const leftOctaveX = sideMargin;
@@ -867,6 +868,9 @@ function getButtonLayoutMetrics(
     // Center area position
     const centerX = leftOctaveX + buttonBlockWidth + sideMargin;
     const centerAreaWidth = rightOctaveX - centerX - sideMargin;
+    
+    // Bottom center area for unified active note display
+    const bottomCenterY = topButtonY + buttonBlockHeight + 2;
     
     return {
       buttonWidth,
@@ -890,6 +894,8 @@ function getButtonLayoutMetrics(
       centerX,
       centerAreaWidth,
       notesPerSide,
+      bottomCenterY,
+      buttonBlockHeight,
     };
   }
 
@@ -1417,8 +1423,8 @@ function paint({
       { primaryColor, secondaryColor },
     );
 
-    // Draw active notes to the right of the mini piano (not in song mode)
-    if (!song) {
+    // Draw active notes to the right of the mini piano (not in song mode, not in compact mode)
+    if (!song && !layout.compactMode) {
       const activeNotes = orderedByCount(sounds);
       if (activeNotes.length > 0) {
         // Position to the right of the piano (piano is 14 white keys * 7px = 98px wide)
@@ -1436,6 +1442,22 @@ function paint({
           const noteX = notesStartX + 4 + index * 14;
           ink(255, 255, 0).write(note.toUpperCase(), noteX, pianoY + 4);
         });
+      }
+    }
+    
+    // In compact mode: unified active note display at bottom center
+    if (layout.compactMode && layout.splitLayout) {
+      const activeNotes = orderedByCount(sounds);
+      if (activeNotes.length > 0) {
+        const displayY = layout.bottomCenterY;
+        const displayText = activeNotes.map(n => n.toUpperCase()).join(" ");
+        const textWidth = displayText.length * 6; // Approximate glyph width
+        const displayX = (screen.width - textWidth) / 2;
+        
+        // Draw background
+        ink(0, 0, 0, 180).box(displayX - 4, displayY, textWidth + 8, 12);
+        // Draw active notes
+        ink(255, 255, 0).write(displayText, displayX, displayY + 2);
       }
     }
 
@@ -1601,8 +1623,8 @@ function paint({
     ink("orange").line(screen.width / 2, 0, screen.width / 2, screen.height);
 
   if (!paintPictureOverlay) {
-    if (!tap && !song) {
-      // Write all the active keys.
+    if (!tap && !song && !layout.compactMode) {
+      // Write all the active keys (not in compact mode - handled separately)
       ink("lime");
       write(
         active.map((key) => sounds[key]?.note.toUpperCase()).join(" "),
