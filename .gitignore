@@ -248,3 +248,4 @@ secrets/
 .secret/
 .secrets/
 system/.env
+ac-vst/vst3sdk/
