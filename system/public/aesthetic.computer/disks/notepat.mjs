@@ -1110,176 +1110,171 @@ function paint({
     }
   }
   
-  // Skip piano and qwerty minimap in compact/DAW mode (height < 200)
-  const compactMode = screen.height < 200;
-  
-  // Draw tiny piano layout and QWERTY minimap (hidden in compact/DAW mode)
-  if (!compactMode) {
-    // Position it dynamically based on available space
-    // Position piano below track if in song mode, otherwise higher and left
-    let pianoY, pianoStartX;
-    if (song) {
-      const effectiveTrackY = trackY ?? TOP_BAR_BOTTOM;
-      pianoY = effectiveTrackY + trackHeight + 2; // Just below the track
+  // Draw tiny piano layout and QWERTY minimap
+  // Position it dynamically based on available space
+  // Position piano below track if in song mode, otherwise higher and left
+  let pianoY, pianoStartX;
+  if (song) {
+    const effectiveTrackY = trackY ?? TOP_BAR_BOTTOM;
+    pianoY = effectiveTrackY + trackHeight + 2; // Just below the track
+  } else {
+    pianoY = TOP_BAR_BOTTOM; // Below HUD label when no track
+  }
+
+  const whiteKeyWidth = 7;
+  const whiteKeyHeight = MINI_KEYBOARD_HEIGHT;
+  const blackKeyWidth = 5;
+  const blackKeyHeight = 10;
+
+  // Two octaves: 14 white keys total
+  const totalWhiteKeys = 14;
+  const pianoWidth = totalWhiteKeys * whiteKeyWidth;
+
+  if (song) {
+    pianoStartX = screen.width - pianoWidth - 2; // Align with right edge (2px margin)
+  } else {
+    pianoStartX = 58; // Align with visualizer start when no track
+  }
+
+  // Two octaves: notes in order
+  const whiteKeys = ['C', 'D', 'E', 'F', 'G', 'A', 'B', '+C', '+D', '+E', '+F', '+G', '+A', '+B'];
+  const blackKeys = [
+    {note: 'C#', afterWhite: 0},
+    {note: 'D#', afterWhite: 1},
+    {note: 'F#', afterWhite: 3},
+    {note: 'G#', afterWhite: 4},
+    {note: 'A#', afterWhite: 5},
+    {note: '+C#', afterWhite: 7},
+    {note: '+D#', afterWhite: 8},
+    {note: '+F#', afterWhite: 10},
+    {note: '+G#', afterWhite: 11},
+    {note: '+A#', afterWhite: 12}
+  ];
+
+  // Draw white keys
+  whiteKeys.forEach((note, index) => {
+    const x = pianoStartX + index * whiteKeyWidth;
+    const noteKey = note.toLowerCase();
+    const isCurrentNote = song && note === song?.[songIndex][0];
+    const isActivePlaying = sounds[noteKey] !== undefined;
+    const isCurrentAndPlaying = isCurrentNote && isActivePlaying;
+    const isCurrentAwaiting = isCurrentNote && !isActivePlaying;
+
+    if (isCurrentAndPlaying) {
+      ink(0, 255, 234).box(x, pianoY, whiteKeyWidth - 1, whiteKeyHeight); // Bright cyan for current note sounding
+    } else if (isCurrentAwaiting) {
+      ink(0, 120, 140).box(x, pianoY, whiteKeyWidth - 1, whiteKeyHeight); // Muted teal for expected note
+    } else if (isActivePlaying) {
+      ink(255, 255, 0).box(x, pianoY, whiteKeyWidth - 1, whiteKeyHeight); // Yellow for other active notes
     } else {
-      pianoY = TOP_BAR_BOTTOM; // Below HUD label when no track
+      ink(200, 200, 200).box(x, pianoY, whiteKeyWidth - 1, whiteKeyHeight); // Default white
     }
-  
-    const whiteKeyWidth = 7;
-    const whiteKeyHeight = MINI_KEYBOARD_HEIGHT;
-    const blackKeyWidth = 5;
-    const blackKeyHeight = 10;
-  
-    // Two octaves: 14 white keys total
-    const totalWhiteKeys = 14;
-    const pianoWidth = totalWhiteKeys * whiteKeyWidth;
-  
-    if (song) {
-      pianoStartX = screen.width - pianoWidth - 2; // Align with right edge (2px margin)
+    ink(100, 100, 100).box(x, pianoY, whiteKeyWidth - 1, whiteKeyHeight, "outline"); // Border
+  });
+
+  // Draw black keys on top
+  blackKeys.forEach(({note, afterWhite}) => {
+    const x = pianoStartX + afterWhite * whiteKeyWidth + whiteKeyWidth - blackKeyWidth / 2;
+    const noteKey = note.toLowerCase();
+    const isCurrentNote = song && note === song?.[songIndex][0];
+    const isActivePlaying = sounds[noteKey] !== undefined;
+    const isCurrentAndPlaying = isCurrentNote && isActivePlaying;
+    const isCurrentAwaiting = isCurrentNote && !isActivePlaying;
+
+    if (isCurrentAndPlaying) {
+      ink(0, 220, 210).box(x, pianoY, blackKeyWidth, blackKeyHeight); // Bright teal for current sounding
+    } else if (isCurrentAwaiting) {
+      ink(0, 100, 110).box(x, pianoY, blackKeyWidth, blackKeyHeight); // Muted teal for expected
+    } else if (isActivePlaying) {
+      ink(200, 200, 0).box(x, pianoY, blackKeyWidth, blackKeyHeight); // Dark yellow for other actives
     } else {
-      pianoStartX = 58; // Align with visualizer start when no track
+      ink(40, 40, 40).box(x, pianoY, blackKeyWidth, blackKeyHeight); // Default black
     }
-  
-    // Two octaves: notes in order
-    const whiteKeys = ['C', 'D', 'E', 'F', 'G', 'A', 'B', '+C', '+D', '+E', '+F', '+G', '+A', '+B'];
-    const blackKeys = [
-      {note: 'C#', afterWhite: 0},
-      {note: 'D#', afterWhite: 1},
-      {note: 'F#', afterWhite: 3},
-      {note: 'G#', afterWhite: 4},
-      {note: 'A#', afterWhite: 5},
-      {note: '+C#', afterWhite: 7},
-      {note: '+D#', afterWhite: 8},
-      {note: '+F#', afterWhite: 10},
-      {note: '+G#', afterWhite: 11},
-      {note: '+A#', afterWhite: 12}
-    ];
-  
-    // Draw white keys
-    whiteKeys.forEach((note, index) => {
-      const x = pianoStartX + index * whiteKeyWidth;
-      const noteKey = note.toLowerCase();
-      const isCurrentNote = song && note === song?.[songIndex][0];
-      const isActivePlaying = sounds[noteKey] !== undefined;
-      const isCurrentAndPlaying = isCurrentNote && isActivePlaying;
-      const isCurrentAwaiting = isCurrentNote && !isActivePlaying;
+  });
 
-      if (isCurrentAndPlaying) {
-        ink(0, 255, 234).box(x, pianoY, whiteKeyWidth - 1, whiteKeyHeight); // Bright cyan for current note sounding
-      } else if (isCurrentAwaiting) {
-        ink(0, 120, 140).box(x, pianoY, whiteKeyWidth - 1, whiteKeyHeight); // Muted teal for expected note
-      } else if (isActivePlaying) {
-        ink(255, 255, 0).box(x, pianoY, whiteKeyWidth - 1, whiteKeyHeight); // Yellow for other active notes
-      } else {
-        ink(200, 200, 200).box(x, pianoY, whiteKeyWidth - 1, whiteKeyHeight); // Default white
-      }
-      ink(100, 100, 100).box(x, pianoY, whiteKeyWidth - 1, whiteKeyHeight, "outline"); // Border
-    });
-  
-    // Draw black keys on top
-    blackKeys.forEach(({note, afterWhite}) => {
-      const x = pianoStartX + afterWhite * whiteKeyWidth + whiteKeyWidth - blackKeyWidth / 2;
-      const noteKey = note.toLowerCase();
-      const isCurrentNote = song && note === song?.[songIndex][0];
-      const isActivePlaying = sounds[noteKey] !== undefined;
-      const isCurrentAndPlaying = isCurrentNote && isActivePlaying;
-      const isCurrentAwaiting = isCurrentNote && !isActivePlaying;
+  if (song) {
+    const currentKeyLetter = noteToKeyboardKey(song?.[songIndex]?.[0]);
+    const nextKeyLetter = noteToKeyboardKey(song?.[songIndex + 1]?.[0]);
+    const activeKeyLetters = new Set(
+      Object.keys(sounds)
+        .map((activeNote) => noteToKeyboardKey(activeNote))
+        .filter(Boolean),
+    );
 
-      if (isCurrentAndPlaying) {
-        ink(0, 220, 210).box(x, pianoY, blackKeyWidth, blackKeyHeight); // Bright teal for current sounding
-      } else if (isCurrentAwaiting) {
-        ink(0, 100, 110).box(x, pianoY, blackKeyWidth, blackKeyHeight); // Muted teal for expected
-      } else if (isActivePlaying) {
-        ink(200, 200, 0).box(x, pianoY, blackKeyWidth, blackKeyHeight); // Dark yellow for other actives
-      } else {
-        ink(40, 40, 40).box(x, pianoY, blackKeyWidth, blackKeyHeight); // Default black
-      }
-    });
+    const qKeyWidth = 9;
+    const qKeyHeight = 8;
+    const qKeySpacing = 1;
+    const qwertyStartX = pianoStartX;
+    const qwertyStartY = pianoY + whiteKeyHeight + QWERTY_MINIMAP_SPACING;
 
-    if (song) {
-      const currentKeyLetter = noteToKeyboardKey(song?.[songIndex]?.[0]);
-      const nextKeyLetter = noteToKeyboardKey(song?.[songIndex + 1]?.[0]);
-      const activeKeyLetters = new Set(
-        Object.keys(sounds)
-          .map((activeNote) => noteToKeyboardKey(activeNote))
-          .filter(Boolean),
-      );
+    QWERTY_LAYOUT_ROWS.forEach((row, rowIndex) => {
+      const rowOffset =
+        rowIndex === 0
+          ? 0
+          : rowIndex === 1
+          ? (qKeyWidth + qKeySpacing) / 2
+          : qKeyWidth;
+      const y = qwertyStartY + rowIndex * (qKeyHeight + qKeySpacing);
 
-      const qKeyWidth = 9;
-      const qKeyHeight = 8;
-      const qKeySpacing = 1;
-      const qwertyStartX = pianoStartX;
-      const qwertyStartY = pianoY + whiteKeyHeight + QWERTY_MINIMAP_SPACING;
+      row.forEach((keyLetter, keyIndex) => {
+        const x =
+          qwertyStartX +
+          rowOffset +
+          keyIndex * (qKeyWidth + qKeySpacing);
 
-      QWERTY_LAYOUT_ROWS.forEach((row, rowIndex) => {
-        const rowOffset =
-          rowIndex === 0
-            ? 0
-            : rowIndex === 1
-            ? (qKeyWidth + qKeySpacing) / 2
-            : qKeyWidth;
-        const y = qwertyStartY + rowIndex * (qKeyHeight + qKeySpacing);
+        const mappedNote = keyboardKeyToNote(keyLetter);
+        const isMapped = Boolean(mappedNote);
+        const isCurrentKey = keyLetter === currentKeyLetter;
+        const isActiveKey = activeKeyLetters.has(keyLetter);
+        const isCurrentAndActive = isCurrentKey && isActiveKey;
+        const isNextKey = keyLetter === nextKeyLetter;
 
-        row.forEach((keyLetter, keyIndex) => {
-          const x =
-            qwertyStartX +
-            rowOffset +
-            keyIndex * (qKeyWidth + qKeySpacing);
+        let fillColor;
+        if (isCurrentAndActive) {
+          fillColor = [0, 255, 234, 220];
+        } else if (isCurrentKey) {
+          fillColor = [0, 120, 140, 200];
+        } else if (isActiveKey) {
+          fillColor = [255, 255, 0, 210];
+        } else if (isNextKey) {
+          fillColor = [0, 200, 220, 120];
+        } else if (isMapped) {
+          fillColor = [40, 40, 40, 180];
+        } else {
+          fillColor = [20, 20, 20, 140];
+        }
 
-          const mappedNote = keyboardKeyToNote(keyLetter);
-          const isMapped = Boolean(mappedNote);
-          const isCurrentKey = keyLetter === currentKeyLetter;
-          const isActiveKey = activeKeyLetters.has(keyLetter);
-          const isCurrentAndActive = isCurrentKey && isActiveKey;
-          const isNextKey = keyLetter === nextKeyLetter;
+        ink(...fillColor).box(x, y, qKeyWidth, qKeyHeight);
+        ink(100, 100, 100, 220).box(x, y, qKeyWidth, qKeyHeight, "outline");
 
-          let fillColor;
-          if (isCurrentAndActive) {
-            fillColor = [0, 255, 234, 220];
-          } else if (isCurrentKey) {
-            fillColor = [0, 120, 140, 200];
-          } else if (isActiveKey) {
-            fillColor = [255, 255, 0, 210];
-          } else if (isNextKey) {
-            fillColor = [0, 200, 220, 120];
-          } else if (isMapped) {
-            fillColor = [40, 40, 40, 180];
-          } else {
-            fillColor = [20, 20, 20, 140];
-          }
+        const label = keyLetter.toUpperCase();
+        const glyphWidth = matrixGlyphMetrics.width;
+        const glyphHeight = matrixGlyphMetrics.height;
+        const labelWidth = label.length * glyphWidth;
+        const labelX = x + (qKeyWidth - labelWidth) / 2;
+        const labelY = y + (qKeyHeight - glyphHeight) / 2;
 
-          ink(...fillColor).box(x, y, qKeyWidth, qKeyHeight);
-          ink(100, 100, 100, 220).box(x, y, qKeyWidth, qKeyHeight, "outline");
+        let textColor;
+        if (isCurrentAndActive || isActiveKey) {
+          textColor = [0, 0, 0, 240];
+        } else if (isMapped) {
+          textColor = [230, 230, 230, 230];
+        } else {
+          textColor = [150, 150, 150, 200];
+        }
 
-          const label = keyLetter.toUpperCase();
-          const glyphWidth = matrixGlyphMetrics.width;
-          const glyphHeight = matrixGlyphMetrics.height;
-          const labelWidth = label.length * glyphWidth;
-          const labelX = x + (qKeyWidth - labelWidth) / 2;
-          const labelY = y + (qKeyHeight - glyphHeight) / 2;
+        ink(...textColor).write(
+          label,
+          { x: labelX, y: labelY },
+          undefined,
+          undefined,
+          false,
+          "MatrixChunky8",
+        );
 
-          let textColor;
-          if (isCurrentAndActive || isActiveKey) {
-            textColor = [0, 0, 0, 240];
-          } else if (isMapped) {
-            textColor = [230, 230, 230, 230];
-          } else {
-            textColor = [150, 150, 150, 200];
-          }
-
-          ink(...textColor).write(
-            label,
-            { x: labelX, y: labelY },
-            undefined,
-            undefined,
-            false,
-            "MatrixChunky8",
-          );
-
-        });
       });
-    }
-  } // End of !compactMode block for piano/qwerty
+    });
+  }
 
   const initialBadgeMetrics = computeMidiBadgeMetrics(screen, matrixGlyphMetrics);
   const layout = getButtonLayoutMetrics(screen, {
