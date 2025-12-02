@@ -35,13 +35,17 @@
 
 let mic,
   btn,
+  flipBtn,
   sample,
   sampleData,
+  sampleId,
+  compressedWaveform, // Cached compressed waveform for faster rendering
   connected = false,
   connecting = false,
   capturing = false,
   playing = false,
-  progress;
+  progress,
+  reversed = true; // Start reversed (backwards) by default for BakTok
 
 let hideButton = false,
   hideButtonTimeout;
@@ -52,6 +56,10 @@ const { max } = Math;
 function boot({ ui, screen, sound: { microphone } }) {
   // Runs once at the start.
   btn = new ui.TextButton(`Start`, { center: "xy", screen });
+  flipBtn = new ui.TextButton(`< Backwards`, { bottom: 8, right: 8, screen });
+  // Prevent button conflict when dragging between buttons
+  btn.btn.stickyScrubbing = true;
+  flipBtn.btn.stickyScrubbing = true;
 
   mic = microphone;
   if (mic.connected) {
@@ -94,19 +102,23 @@ function paint({
       paintSound(api, mic.amplitude, mic.waveform, 0, 0, width, height);
     }
   } else if (!connecting) {
-    paintSound(
-      api,
-      num.arrMax(sampleData),
-      num.arrCompress(sampleData, 32),
-      0,
-      0,
-      width,
-      height,
-      [0, 0, 255, 32],
-    );
+    if (compressedWaveform) {
+      paintSound(
+        api,
+        1, // Use full amplitude for display
+        compressedWaveform,
+        0,
+        0,
+        width,
+        height,
+        [0, 0, 255, 32],
+      );
+    }
 
     if (typeof progress === "number") {
-      const p = (1 - progress) * width;
+      // Backwards: progress goes 1→0, so bar at progress*width moves right→left
+      // Forwards: progress goes 0→1, so bar at progress*width moves left→right
+      const p = progress * width;
       ink().line(p, 0, p, height);
     }
   }
@@ -151,6 +163,15 @@ function paint({
     if (btn.txt === "Repeat") scheme = pressAndHoldScheme;
     if (btn.txt !== "Capture") btn.paint({ ink }, ...scheme);
   }
+
+  // Show Flip button during playback (duotone theme: red/yellow)
+  if (playing) {
+    const flipScheme = [
+      ["red", "yellow", "yellow", "red"],
+      ["yellow", "red", "red", "yellow"],
+    ];
+    flipBtn.paint({ ink }, ...flipScheme);
+  }
 }
 
 // 🧮 Sim
@@ -176,87 +197,108 @@ async function act({
   event: e,
   screen,
   sound: { microphone, play, synth },
+  num,
   rec,
   delay,
 }) {
   if (e.is("reframed")) {
     btn.reposition({ center: "xy", screen });
+    flipBtn.reposition({ bottom: 8, right: 8, screen });
   }
 
-  if (e.is("touch") && !connected && !connecting) {
-    btn.down = true;
-    synth({
-      tone: 400,
-      beats: 0.1,
-      attack: 0.01,
-      decay: 0.5,
-      volume: 0.15,
+  // Handle flip button during playback (check first to prevent fall-through)
+  if (playing && flipBtn?.btn?.box?.contains(e)) {
+    flipBtn.btn.act(e, {
+      push: () => {
+        reversed = !reversed;
+        // Update button text to show current direction with arrow
+        flipBtn.reposition({ bottom: 8, right: 8, screen }, reversed ? "< Backwards" : "Forwards >");
+        // Flip direction seamlessly without restarting, keeping current position
+        sample?.update({ sampleSpeed: reversed ? -1 : 1 });
+        synth({
+          tone: reversed ? 300 : 500,
+          beats: 0.1,
+          attack: 0.01,
+          decay: 0.3,
+          volume: 0.1,
+        });
+      },
     });
+    return; // Don't process other events when on flip button
   }
 
-  if (e.is("lift") && btn.down && !connected && !connecting) {
-    synth({
-      tone: 600,
-      beats: 0.1,
-      attack: 0.01,
-      decay: 0.5,
-      volume: 0.15,
+  // Handle main button based on state
+  if (!connected && !connecting) {
+    // Start button - activates microphone
+    btn.btn.act(e, {
+      down: () => {
+        synth({
+          tone: 400,
+          beats: 0.1,
+          attack: 0.01,
+          decay: 0.5,
+          volume: 0.15,
+        });
+      },
+      push: () => {
+        synth({
+          tone: 600,
+          beats: 0.1,
+          attack: 0.01,
+          decay: 0.5,
+          volume: 0.15,
+        });
+        btn.btn.disabled = true;
+        btn.reposition({ center: "xy", screen }, "Activating Microphone");
+        microphone.connect();
+        connecting = true;
+      },
     });
-    btn.disabled = true;
-    btn.reposition({ center: "xy", screen }, "Activating Microphone");
-    microphone.connect();
-    connecting = true;
-    btn.down = false;
-  }
-
-  btn.act(e); // Pass user events through to the button.
-
-  // Start a microphone recording.
-  if (e.is("touch") && !capturing && connected && !playing) {
-    sample?.kill(); // Stop any existing sample.
-    microphone.rec(); // Start recording.
-    btn.down = true;
-    capturing = true;
-    playing = false;
-    progress = null;
-  }
-
-  if (e.is("touch") && playing) {
-    btn.down = true;
-  }
-
-  // Stop playback.
-  if (e.is("lift") && playing) {
-    sample?.kill(); // Stop any existing sample.
-    playing = false;
-    progress = null;
-    btn.reposition({ center: "xy", screen }, "Capture");
+  } else if (connected && !capturing && !playing) {
+    // Capture mode - full screen touch to record (hold to record)
+    if (e.is("touch")) {
+      sample?.kill(); // Stop any existing sample.
+      microphone.rec(); // Start recording.
+      btn.btn.down = true; // Set down state for visual feedback
+      capturing = true;
+      playing = false;
+      progress = null;
+    }
+  } else if (capturing) {
+    // Release to stop recording and play back
+    if (e.is("lift")) {
+      btn.btn.down = false; // Clear down state
+      const { id, data } = await microphone.cut(); // End recording and get the sample.
+      sampleData = data;
+      sampleId = id;
+      // Cache compressed waveform for faster rendering (compress once)
+      compressedWaveform = num.arrCompress(sampleData, 64);
+      reversed = true; // Reset to backwards when starting new recording
+      flipBtn.reposition({ bottom: 8, right: 8, screen }, "< Backwards"); // Reset flip button text
+      sample = play(sampleId, { speed: -1, loop: true, volume: 1 });
+      capturing = false;
+      playing = true;
+      hideButton = false;
+      btn.reposition({ center: "xy", screen }, "Repeat");
+    }
+  } else if (playing) {
+    // Full screen touch to stop playback (except flip button area)
+    if (e.is("touch")) {
+      sample?.kill(); // Stop any existing sample.
+      playing = false;
+      progress = null;
+      btn.reposition({ center: "xy", screen }, "Capture");
+    }
   }
 
   if (e.is("microphone-connect:success")) {
-    // TODO: I need my own version of `setTimeout` called `delay` that instantiates an Hourglass Timer in `disk`. 23.09.07.16.26
-    // setTimeout(() => {
     delay(() => {
       connecting = false;
       connected = true;
-      btn.disabled = false;
+      btn.btn.disabled = false;
       hideButton = false;
       btn.reposition({ center: "xy", screen }, "Capture");
     }, 60);
-  }
-
-  if (e.is("lift") && capturing) {
-    btn.down = false;
-    const { id, data } = await microphone.cut(); // End recording and get the sample.
-    sampleData = data;
-    sample = play(id, { speed: -1, loop: true });
-    capturing = false;
-    playing = true;
-
-    // TODO: Queue / trigger video to record...
-
-    hideButton = false;
-    btn.reposition({ center: "xy", screen }, "Repeat");
   }
 }
 

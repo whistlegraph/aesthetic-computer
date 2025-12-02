@@ -900,7 +900,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   const REFRAME_DELAY = 80; //250;
   let curReframeDelay = REFRAME_DELAY;
   let lastGap = undefined;
-  let density = resolution.density !== undefined ? resolution.density : 2; // Use URL parameter or default to 2
+  // Use URL parameter, or acPACK_DENSITY (for bundles), or default to 2
+  let density = resolution.density !== undefined 
+    ? resolution.density 
+    : (window.acPACK_DENSITY !== undefined 
+        ? window.acPACK_DENSITY 
+        : 2);
 
   const startGap =
     location.host.indexOf("botce") > -1 || AestheticExtension ? 0 : 8;
@@ -15197,6 +15202,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
     } else if (ext === "mjs") {
       MIME = "application/javascript; charset=utf-8";
+      object = URL.createObjectURL(new Blob([data], { type: MIME }));
+    } else if (ext === "html" || ext === "htm") {
+      // 🌐 HTML files
+      MIME = "text/html; charset=utf-8";
       object = URL.createObjectURL(new Blob([data], { type: MIME }));
     } else if (ext === "zip") {
       MIME = "application/zip";
