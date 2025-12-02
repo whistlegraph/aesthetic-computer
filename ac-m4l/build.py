@@ -1,0 +1,681 @@
+#!/usr/bin/env python3
+"""
+Build script for Aesthetic Computer Max for Live device suite.
+
+This script builds all AC M4L devices from a single configuration file.
+Each device is a jweb~ instance pointing to a different AC piece URL,
+with Ableton tempo/transport sync built in.
+
+Usage:
+    python3 build.py              # Build all devices (dev/localhost)
+    python3 build.py --production # Build all devices (production URLs)
+    python3 build.py notepat      # Build specific device
+    python3 build.py --install    # Build all and install to Ableton
+    python3 build.py --list       # List available devices
+    
+Examples:
+    python3 build.py
+    python3 build.py --production
+    python3 build.py metronome --install
+"""
+
+import json
+import struct
+import sys
+import os
+from pathlib import Path
+
+# M4L binary header - required for Ableton to recognize the file
+M4L_HEADER = b"ampf\x04\x00\x00\x00iiiimeta\x04\x00\x00\x00\x00\x00\x00\x00ptch"
+
+def generate_patcher(device: dict, defaults: dict, production: bool = False) -> dict:
+    """Generate a complete M4L patcher for a device."""
+    
+    piece = device["piece"]
+    width = device.get("width", 400)
+    height = device.get("height", 169)
+    description = device.get("description", f"Aesthetic Computer {piece}")
+    density = defaults.get("density", 1.5)
+    latency = defaults.get("latency", 32.0)
+    
+    # Use production URL or localhost
+    if production:
+        base_url = "https://aesthetic.computer"
+    else:
+        base_url = defaults.get("baseUrl", "https://localhost:8888")
+    
+    # Include width/height in URL for zoom compensation
+    url = f"{base_url}/{piece}?daw=1&density={density}&nogap&width={width}&height={height}"
+    
+    return {
+        "patcher": {
+            "fileversion": 1,
+            "appversion": {
+                "major": 9,
+                "minor": 0,
+                "revision": 7,
+                "architecture": "x64",
+                "modernui": 1
+            },
+            "classnamespace": "box",
+            "rect": [134.0, 174.0, 500.0, 300.0],
+            "openrect": [0.0, 0.0, float(width), float(height)],
+            "openinpresentation": 1,
+            "gridsize": [15.0, 15.0],
+            "enablehscroll": 0,
+            "enablevscroll": 0,
+            "devicewidth": float(width),
+            "description": description,
+            "boxes": [
+                # jweb~ - the main web view with audio
+                {
+                    "box": {
+                        "disablefind": 0,
+                        "id": "obj-jweb",
+                        "latency": latency,
+                        "maxclass": "jweb~",
+                        "numinlets": 1,
+                        "numoutlets": 3,
+                        "outlettype": ["signal", "signal", ""],
+                        "patching_rect": [0.0, 0.0, 320.0, 240.0],
+                        "presentation": 1,
+                        "presentation_rect": [0.0, 0.0, float(width + 1), float(height + 1)],
+                        "rendermode": 1,
+                        "url": url
+                    }
+                },
+                # plugout~ - routes audio to Ableton mixer
+                {
+                    "box": {
+                        "id": "obj-out",
+                        "maxclass": "newobj",
+                        "numinlets": 2,
+                        "numoutlets": 2,
+                        "outlettype": ["signal", "signal"],
+                        "patching_rect": [10.0, 200.0, 85.0, 22.0],
+                        "text": "plugout~"
+                    }
+                },
+                # live.thisdevice - triggers on device load
+                {
+                    "box": {
+                        "id": "obj-thisdevice",
+                        "maxclass": "newobj",
+                        "numinlets": 1,
+                        "numoutlets": 3,
+                        "outlettype": ["bang", "int", "int"],
+                        "patching_rect": [150.0, 200.0, 85.0, 22.0],
+                        "text": "live.thisdevice"
+                    }
+                },
+                # Debug: print when device loads
+                {
+                    "box": {
+                        "id": "obj-load-print",
+                        "maxclass": "newobj",
+                        "numinlets": 1,
+                        "numoutlets": 0,
+                        "patching_rect": [150.0, 230.0, 100.0, 22.0],
+                        "text": "print [AC-LOADED]"
+                    }
+                },
+                # Route 'ready' messages from jweb~ to trigger Live API sync
+                {
+                    "box": {
+                        "id": "obj-ready-route",
+                        "maxclass": "newobj",
+                        "numinlets": 1,
+                        "numoutlets": 2,
+                        "outlettype": ["", ""],
+                        "patching_rect": [200.0, 80.0, 60.0, 22.0],
+                        "text": "route ready"
+                    }
+                },
+                # Debug: print when page is ready
+                {
+                    "box": {
+                        "id": "obj-ready-print",
+                        "maxclass": "newobj",
+                        "numinlets": 1,
+                        "numoutlets": 0,
+                        "patching_rect": [200.0, 110.0, 90.0, 22.0],
+                        "text": "print [AC-READY]"
+                    }
+                },
+                # Debug: print what getid message outputs
+                {
+                    "box": {
+                        "id": "obj-getid-print",
+                        "maxclass": "newobj",
+                        "numinlets": 1,
+                        "numoutlets": 0,
+                        "patching_rect": [320.0, 170.0, 80.0, 22.0],
+                        "text": "print [AC-GETID]"
+                    }
+                },
+                # Message to send getid to live.path
+                {
+                    "box": {
+                        "id": "obj-getid-msg",
+                        "maxclass": "message",
+                        "numinlets": 2,
+                        "numoutlets": 1,
+                        "outlettype": [""],
+                        "patching_rect": [320.0, 200.0, 40.0, 22.0],
+                        "text": "getid"
+                    }
+                },
+                # Tempo: live.path to get live_set id
+                {
+                    "box": {
+                        "id": "obj-tempo-path",
+                        "maxclass": "newobj",
+                        "numinlets": 1,
+                        "numoutlets": 3,
+                        "outlettype": ["", "", ""],
+                        "patching_rect": [320.0, 260.0, 100.0, 22.0],
+                        "text": "live.path live_set"
+                    }
+                },
+                # Debug: print the id from live.path (left outlet)
+                {
+                    "box": {
+                        "id": "obj-path-print",
+                        "maxclass": "newobj",
+                        "numinlets": 1,
+                        "numoutlets": 0,
+                        "patching_rect": [320.0, 290.0, 80.0, 22.0],
+                        "text": "print [AC-PATH-L]"
+                    }
+                },
+                # Debug: print the id from live.path (middle outlet)
+                {
+                    "box": {
+                        "id": "obj-path-print-m",
+                        "maxclass": "newobj",
+                        "numinlets": 1,
+                        "numoutlets": 0,
+                        "patching_rect": [430.0, 290.0, 85.0, 22.0],
+                        "text": "print [AC-PATH-M]"
+                    }
+                },
+                # Debug: print the id from live.path (right outlet - errors)
+                {
+                    "box": {
+                        "id": "obj-path-print-r",
+                        "maxclass": "newobj",
+                        "numinlets": 1,
+                        "numoutlets": 0,
+                        "patching_rect": [520.0, 290.0, 85.0, 22.0],
+                        "text": "print [AC-PATH-R]"
+                    }
+                },
+                # Tempo: observer with property argument
+                {
+                    "box": {
+                        "id": "obj-tempo-observer",
+                        "maxclass": "newobj",
+                        "numinlets": 2,
+                        "numoutlets": 3,
+                        "outlettype": ["", "", ""],
+                        "patching_rect": [260.0, 290.0, 130.0, 22.0],
+                        "text": "live.observer tempo"
+                    }
+                },
+                # Tempo: format message for jweb - use bindInlet pattern
+                {
+                    "box": {
+                        "id": "obj-tempo-fmt",
+                        "maxclass": "message",
+                        "numinlets": 2,
+                        "numoutlets": 1,
+                        "outlettype": [""],
+                        "patching_rect": [260.0, 350.0, 80.0, 22.0],
+                        "text": "tempo $1"
+                    }
+                },
+                # Debug: Print tempo to Max console
+                {
+                    "box": {
+                        "id": "obj-tempo-print",
+                        "maxclass": "newobj",
+                        "numinlets": 1,
+                        "numoutlets": 0,
+                        "patching_rect": [400.0, 320.0, 80.0, 22.0],
+                        "text": "print [AC-TEMPO]"
+                    }
+                },
+                # Transport: observer with property argument
+                {
+                    "box": {
+                        "id": "obj-transport-observer",
+                        "maxclass": "newobj",
+                        "numinlets": 2,
+                        "numoutlets": 3,
+                        "outlettype": ["", "", ""],
+                        "patching_rect": [260.0, 350.0, 150.0, 22.0],
+                        "text": "live.observer is_playing"
+                    }
+                },
+                # Transport: format message for jweb - use bindInlet pattern
+                {
+                    "box": {
+                        "id": "obj-transport-fmt",
+                        "maxclass": "message",
+                        "numinlets": 2,
+                        "numoutlets": 1,
+                        "outlettype": [""],
+                        "patching_rect": [260.0, 420.0, 90.0, 22.0],
+                        "text": "transport $1"
+                    }
+                },
+                # Debug: Print transport to Max console
+                {
+                    "box": {
+                        "id": "obj-transport-print",
+                        "maxclass": "newobj",
+                        "numinlets": 1,
+                        "numoutlets": 0,
+                        "patching_rect": [420.0, 380.0, 100.0, 22.0],
+                        "text": "print [AC-TRANSPORT]"
+                    }
+                },
+                # Beat phase: observer for current_song_time (beat position for phase sync)
+                {
+                    "box": {
+                        "id": "obj-phase-observer",
+                        "maxclass": "newobj",
+                        "numinlets": 2,
+                        "numoutlets": 3,
+                        "outlettype": ["", "", ""],
+                        "patching_rect": [260.0, 450.0, 180.0, 22.0],
+                        "text": "live.observer current_song_time"
+                    }
+                },
+                # Beat phase: format message for jweb
+                {
+                    "box": {
+                        "id": "obj-phase-fmt",
+                        "maxclass": "message",
+                        "numinlets": 2,
+                        "numoutlets": 1,
+                        "outlettype": [""],
+                        "patching_rect": [260.0, 520.0, 70.0, 22.0],
+                        "text": "phase $1"
+                    }
+                },
+                # Sample rate: live.path to get master_track for sample_rate property
+                # Note: sample_rate is on Song, same as tempo, so we can use obj-tempo-path
+                {
+                    "box": {
+                        "id": "obj-samplerate-observer",
+                        "maxclass": "newobj",
+                        "numinlets": 2,
+                        "numoutlets": 3,
+                        "outlettype": ["", "", ""],
+                        "patching_rect": [460.0, 350.0, 150.0, 22.0],
+                        "text": "live.observer sample_rate"
+                    }
+                },
+                # Sample rate: format message for jweb
+                {
+                    "box": {
+                        "id": "obj-samplerate-fmt",
+                        "maxclass": "message",
+                        "numinlets": 2,
+                        "numoutlets": 1,
+                        "outlettype": [""],
+                        "patching_rect": [460.0, 420.0, 90.0, 22.0],
+                        "text": "samplerate $1"
+                    }
+                },
+                # Debug: Print sample rate to Max console
+                {
+                    "box": {
+                        "id": "obj-samplerate-print",
+                        "maxclass": "newobj",
+                        "numinlets": 1,
+                        "numoutlets": 0,
+                        "patching_rect": [620.0, 380.0, 110.0, 22.0],
+                        "text": "print [AC-SAMPLERATE]"
+                    }
+                },
+                # Debug: Print messages from jweb~ (outlet 2 = third outlet)
+                {
+                    "box": {
+                        "id": "obj-jweb-print",
+                        "maxclass": "newobj",
+                        "numinlets": 1,
+                        "numoutlets": 0,
+                        "patching_rect": [200.0, 50.0, 100.0, 22.0],
+                        "text": "print [AC-JWEB]"
+                    }
+                },
+                # Activate message to auto-resume AudioContext in DAW mode
+                {
+                    "box": {
+                        "id": "obj-activate-msg",
+                        "maxclass": "message",
+                        "numinlets": 2,
+                        "numoutlets": 1,
+                        "outlettype": [""],
+                        "patching_rect": [200.0, 140.0, 60.0, 22.0],
+                        "text": "activate 1"
+                    }
+                },
+                # Debug: print activate
+                {
+                    "box": {
+                        "id": "obj-activate-print",
+                        "maxclass": "newobj",
+                        "numinlets": 1,
+                        "numoutlets": 0,
+                        "patching_rect": [270.0, 140.0, 95.0, 22.0],
+                        "text": "print [AC-ACTIVATE]"
+                    }
+                },
+                # MIDI input - receives MIDI from Ableton track
+                {
+                    "box": {
+                        "id": "obj-midiin",
+                        "maxclass": "newobj",
+                        "numinlets": 1,
+                        "numoutlets": 1,
+                        "outlettype": ["int"],
+                        "patching_rect": [10.0, 260.0, 50.0, 22.0],
+                        "text": "midiin"
+                    }
+                },
+                # Parse MIDI messages into status, data1, data2
+                {
+                    "box": {
+                        "id": "obj-midiparse",
+                        "maxclass": "newobj",
+                        "numinlets": 1,
+                        "numoutlets": 8,
+                        "outlettype": ["", "", "", "int", "int", "", "int", ""],
+                        "patching_rect": [10.0, 290.0, 120.0, 22.0],
+                        "text": "midiparse"
+                    }
+                },
+                # Pack note-on: note, velocity -> midi message for jweb
+                {
+                    "box": {
+                        "id": "obj-noteon-pack",
+                        "maxclass": "newobj",
+                        "numinlets": 2,
+                        "numoutlets": 1,
+                        "outlettype": [""],
+                        "patching_rect": [10.0, 320.0, 50.0, 22.0],
+                        "text": "pack i i"
+                    }
+                },
+                # Format note-on as midi message for jweb: midi <status> <note> <velocity>
+                {
+                    "box": {
+                        "id": "obj-noteon-fmt",
+                        "maxclass": "message",
+                        "numinlets": 2,
+                        "numoutlets": 1,
+                        "outlettype": [""],
+                        "patching_rect": [10.0, 350.0, 80.0, 22.0],
+                        "text": "midi 144 $1 $2"
+                    }
+                },
+                # Pack poly aftertouch (note off): note, pressure -> also used for note-off with velocity 0
+                {
+                    "box": {
+                        "id": "obj-noteoff-pack",
+                        "maxclass": "newobj",
+                        "numinlets": 2,
+                        "numoutlets": 1,
+                        "outlettype": [""],
+                        "patching_rect": [70.0, 320.0, 50.0, 22.0],
+                        "text": "pack i i"
+                    }
+                },
+                # Format note-off as midi message for jweb: midi <status> <note> <velocity>
+                {
+                    "box": {
+                        "id": "obj-noteoff-fmt",
+                        "maxclass": "message",
+                        "numinlets": 2,
+                        "numoutlets": 1,
+                        "outlettype": [""],
+                        "patching_rect": [70.0, 350.0, 80.0, 22.0],
+                        "text": "midi 128 $1 $2"
+                    }
+                },
+                # Pack pitch bend: LSB, MSB -> midi message for jweb
+                {
+                    "box": {
+                        "id": "obj-pitchbend-pack",
+                        "maxclass": "newobj",
+                        "numinlets": 2,
+                        "numoutlets": 1,
+                        "outlettype": [""],
+                        "patching_rect": [140.0, 320.0, 50.0, 22.0],
+                        "text": "pack i i"
+                    }
+                },
+                # Format pitch bend as midi message for jweb
+                {
+                    "box": {
+                        "id": "obj-pitchbend-fmt",
+                        "maxclass": "message",
+                        "numinlets": 2,
+                        "numoutlets": 1,
+                        "outlettype": [""],
+                        "patching_rect": [140.0, 350.0, 80.0, 22.0],
+                        "text": "midi 224 $1 $2"
+                    }
+                },
+                # Debug: print MIDI messages
+                {
+                    "box": {
+                        "id": "obj-midi-print",
+                        "maxclass": "newobj",
+                        "numinlets": 1,
+                        "numoutlets": 0,
+                        "patching_rect": [10.0, 380.0, 80.0, 22.0],
+                        "text": "print [AC-MIDI]"
+                    }
+                }
+            ],
+            "lines": [
+                # Audio routing: jweb~ -> plugout~
+                {"patchline": {"destination": ["obj-out", 1], "source": ["obj-jweb", 1]}},
+                {"patchline": {"destination": ["obj-out", 0], "source": ["obj-jweb", 0]}},
+                
+                # Route messages from jweb~ (outlet 2) through ready router
+                {"patchline": {"destination": ["obj-ready-route", 0], "source": ["obj-jweb", 2]}},
+                {"patchline": {"destination": ["obj-jweb-print", 0], "source": ["obj-jweb", 2]}},
+                
+                # When page signals 'ready', trigger getid to start Live API sync
+                {"patchline": {"destination": ["obj-ready-print", 0], "source": ["obj-ready-route", 0]}},
+                {"patchline": {"destination": ["obj-getid-msg", 0], "source": ["obj-ready-route", 0]}},
+                {"patchline": {"destination": ["obj-activate-msg", 0], "source": ["obj-ready-route", 0]}},
+                
+                # Activate message -> jweb + print (to auto-resume AudioContext)
+                {"patchline": {"destination": ["obj-jweb", 0], "source": ["obj-activate-msg", 0]}},
+                {"patchline": {"destination": ["obj-activate-print", 0], "source": ["obj-activate-msg", 0]}},
+                
+                # Debug: print when device loads
+                {"patchline": {"destination": ["obj-load-print", 0], "source": ["obj-thisdevice", 0]}},
+                
+                # getid message -> live.path (now triggered by ready signal, not device load)
+                {"patchline": {"destination": ["obj-getid-print", 0], "source": ["obj-getid-msg", 0]}},
+                {"patchline": {"destination": ["obj-tempo-path", 0], "source": ["obj-getid-msg", 0]}},
+                
+                # Debug: print path id from all three outlets
+                {"patchline": {"destination": ["obj-path-print", 0], "source": ["obj-tempo-path", 0]}},
+                {"patchline": {"destination": ["obj-path-print-m", 0], "source": ["obj-tempo-path", 1]}},
+                {"patchline": {"destination": ["obj-path-print-r", 0], "source": ["obj-tempo-path", 2]}},
+                
+                # live.path left outlet (id from getid) -> live.observer right inlet
+                {"patchline": {"destination": ["obj-tempo-observer", 1], "source": ["obj-tempo-path", 0]}},
+                {"patchline": {"destination": ["obj-transport-observer", 1], "source": ["obj-tempo-path", 0]}},
+                {"patchline": {"destination": ["obj-phase-observer", 1], "source": ["obj-tempo-path", 0]}},
+                {"patchline": {"destination": ["obj-samplerate-observer", 1], "source": ["obj-tempo-path", 0]}},
+                
+                # Tempo observer -> format -> jweb + print
+                {"patchline": {"destination": ["obj-tempo-fmt", 0], "source": ["obj-tempo-observer", 0]}},
+                {"patchline": {"destination": ["obj-jweb", 0], "source": ["obj-tempo-fmt", 0]}},
+                {"patchline": {"destination": ["obj-tempo-print", 0], "source": ["obj-tempo-observer", 0]}},
+                
+                # Transport observer -> format -> jweb + print
+                {"patchline": {"destination": ["obj-transport-fmt", 0], "source": ["obj-transport-observer", 0]}},
+                {"patchline": {"destination": ["obj-jweb", 0], "source": ["obj-transport-fmt", 0]}},
+                {"patchline": {"destination": ["obj-transport-print", 0], "source": ["obj-transport-observer", 0]}},
+                
+                # Phase observer -> format -> jweb (for beat position sync)
+                {"patchline": {"destination": ["obj-phase-fmt", 0], "source": ["obj-phase-observer", 0]}},
+                {"patchline": {"destination": ["obj-jweb", 0], "source": ["obj-phase-fmt", 0]}},
+                
+                # Sample rate observer -> format -> jweb + print
+                {"patchline": {"destination": ["obj-samplerate-fmt", 0], "source": ["obj-samplerate-observer", 0]}},
+                {"patchline": {"destination": ["obj-jweb", 0], "source": ["obj-samplerate-fmt", 0]}},
+                {"patchline": {"destination": ["obj-samplerate-print", 0], "source": ["obj-samplerate-observer", 0]}},
+                
+                # MIDI routing: midiin -> midiparse
+                {"patchline": {"destination": ["obj-midiparse", 0], "source": ["obj-midiin", 0]}},
+                
+                # Note-on (outlet 0): note, velocity pair -> pack -> format -> jweb
+                {"patchline": {"destination": ["obj-noteon-pack", 0], "source": ["obj-midiparse", 0]}},
+                {"patchline": {"destination": ["obj-noteon-fmt", 0], "source": ["obj-noteon-pack", 0]}},
+                {"patchline": {"destination": ["obj-jweb", 0], "source": ["obj-noteon-fmt", 0]}},
+                {"patchline": {"destination": ["obj-midi-print", 0], "source": ["obj-noteon-fmt", 0]}},
+                
+                # Poly aftertouch / note-off (outlet 1): note, pressure -> pack -> format -> jweb
+                {"patchline": {"destination": ["obj-noteoff-pack", 0], "source": ["obj-midiparse", 1]}},
+                {"patchline": {"destination": ["obj-noteoff-fmt", 0], "source": ["obj-noteoff-pack", 0]}},
+                {"patchline": {"destination": ["obj-jweb", 0], "source": ["obj-noteoff-fmt", 0]}},
+                {"patchline": {"destination": ["obj-midi-print", 0], "source": ["obj-noteoff-fmt", 0]}},
+                
+                # Pitch bend (outlet 6): bend value -> format -> jweb
+                {"patchline": {"destination": ["obj-pitchbend-pack", 0], "source": ["obj-midiparse", 6]}},
+                {"patchline": {"destination": ["obj-pitchbend-fmt", 0], "source": ["obj-pitchbend-pack", 0]}},
+                {"patchline": {"destination": ["obj-jweb", 0], "source": ["obj-pitchbend-fmt", 0]}},
+                {"patchline": {"destination": ["obj-midi-print", 0], "source": ["obj-pitchbend-fmt", 0]}}
+            ],
+            "dependency_cache": [],
+            "latency": 0,
+            "is_mpe": 0,
+            "external_mpe_tuning_enabled": 0,
+            "minimum_live_version": "",
+            "minimum_max_version": "",
+            "platform_compatibility": 0,
+            "autosave": 0
+        }
+    }
+
+def build_amxd(patcher: dict, output_amxd: Path) -> int:
+    """Convert patcher dict to .amxd binary format."""
+    
+    # Serialize to JSON string (compact)
+    json_data = json.dumps(patcher)
+    json_bytes = json_data.encode('utf-8')
+    
+    # Build the .amxd file
+    # Format: 32-byte header + 4-byte length (little-endian) + JSON data
+    length_bytes = struct.pack('<I', len(json_bytes))
+    
+    with open(output_amxd, 'wb') as f:
+        f.write(M4L_HEADER)
+        f.write(length_bytes)
+        f.write(json_bytes)
+    
+    return os.path.getsize(output_amxd)
+
+def install_to_ableton(amxd_path: Path, remote_host: str = None) -> None:
+    """Copy .amxd to Ableton User Library."""
+    
+    if remote_host:
+        # Remote install via SSH
+        dest = f"/Users/jas/Music/Ableton/User Library/Presets/Instruments/Max Instrument/{amxd_path.name}"
+        os.system(f'scp "{amxd_path}" {remote_host}:"{dest}"')
+        print(f"   📦 Installed to: {remote_host}")
+    else:
+        # Local install
+        user_library = Path.home() / "Music" / "Ableton" / "User Library" / "Presets" / "Instruments" / "Max Instrument"
+        
+        if not user_library.exists():
+            print(f"   ⚠️  Ableton User Library not found at: {user_library}")
+            return
+        
+        dest = user_library / amxd_path.name
+        import shutil
+        shutil.copy2(amxd_path, dest)
+        print(f"   📦 Installed to: {dest}")
+
+def main():
+    script_dir = Path(__file__).parent
+    config_path = script_dir / "devices.json"
+    
+    if not config_path.exists():
+        print(f"❌ Config file not found: {config_path}")
+        sys.exit(1)
+    
+    with open(config_path, 'r') as f:
+        config = json.load(f)
+    
+    devices = config.get("devices", [])
+    defaults = config.get("defaults", {})
+    
+    # Parse arguments
+    install = "--install" in sys.argv
+    list_only = "--list" in sys.argv
+    production = "--production" in sys.argv or "--prod" in sys.argv
+    remote = None
+    
+    for arg in sys.argv[1:]:
+        if arg.startswith("--remote="):
+            remote = arg.split("=", 1)[1]
+    
+    # Get specific device filter
+    device_filter = None
+    for arg in sys.argv[1:]:
+        if not arg.startswith("--"):
+            device_filter = arg.lower()
+            break
+    
+    if list_only:
+        print("📦 Available AC M4L Devices:")
+        for d in devices:
+            print(f"   • {d['name']} ({d['piece']})")
+        return
+    
+    mode = "PRODUCTION" if production else "DEV"
+    print(f"🎹 Building AC M4L Device Suite [{mode}]")
+    print("=" * 40)
+    
+    built = []
+    for device in devices:
+        name = device["name"]
+        piece = device["piece"]
+        
+        # Filter if specified
+        if device_filter and device_filter not in piece.lower() and device_filter not in name.lower():
+            continue
+        
+        print(f"\n🔧 {name}")
+        
+        # Generate patcher
+        patcher = generate_patcher(device, defaults, production=production)
+        
+        # Build .amxd - use piece name for filename (avoid emoji issues)
+        output_path = script_dir / f"AC {piece.title()}.amxd"
+        size = build_amxd(patcher, output_path)
+        print(f"   ✅ Built: {output_path.name} ({size} bytes)")
+        
+        built.append(output_path)
+        
+        # Install if requested
+        if install:
+            install_to_ableton(output_path, remote)
+    
+    print(f"\n{'=' * 40}")
+    print(f"✨ Built {len(built)} device(s)")
+
+if __name__ == "__main__":
+    main()

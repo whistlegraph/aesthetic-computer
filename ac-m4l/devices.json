@@ -1,0 +1,30 @@
+{
+  "devices": [
+    {
+      "name": "🩷 AC Notepat",
+      "piece": "notepat",
+      "description": "Aesthetic Computer Notepat with Ableton Sync",
+      "width": 500,
+      "height": 169
+    },
+    {
+      "name": "🩷 AC Metronome",
+      "piece": "metronome",
+      "description": "Aesthetic Computer Metronome with Ableton Sync",
+      "width": 200,
+      "height": 169
+    },
+    {
+      "name": "🩷 AC Prompt",
+      "piece": "prompt",
+      "description": "Aesthetic Computer Prompt with Ableton Sync",
+      "width": 200,
+      "height": 200
+    }
+  ],
+  "defaults": {
+    "density": 1.5,
+    "latency": 0,
+    "baseUrl": "https://localhost:8888"
+  }
+}

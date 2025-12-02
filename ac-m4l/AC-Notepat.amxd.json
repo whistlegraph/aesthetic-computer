@@ -1,0 +1,247 @@
+{
+  "patcher": {
+    "fileversion": 1,
+    "appversion": {
+      "major": 9,
+      "minor": 0,
+      "revision": 7,
+      "architecture": "x64",
+      "modernui": 1
+    },
+    "classnamespace": "box",
+    "rect": [134.0, 174.0, 500.0, 300.0],
+    "openrect": [0.0, 0.0, 400.0, 169.0],
+    "openinpresentation": 1,
+    "gridsize": [15.0, 15.0],
+    "enablehscroll": 0,
+    "enablevscroll": 0,
+    "devicewidth": 400.0,
+    "description": "Aesthetic Computer Notepat with Ableton Sync",
+    "boxes": [
+      {
+        "box": {
+          "disablefind": 0,
+          "id": "obj-jweb",
+          "latency": 32.0,
+          "maxclass": "jweb~",
+          "numinlets": 1,
+          "numoutlets": 3,
+          "outlettype": ["signal", "signal", ""],
+          "patching_rect": [0.0, 0.0, 320.0, 240.0],
+          "presentation": 1,
+          "presentation_rect": [0.0, 0.0, 401.0, 170.0],
+          "rendermode": 1,
+          "url": "https://localhost:8888/notepat?daw=1&density=1.5&nogap"
+        }
+      },
+      {
+        "box": {
+          "id": "obj-out",
+          "maxclass": "newobj",
+          "numinlets": 2,
+          "numoutlets": 2,
+          "outlettype": ["signal", "signal"],
+          "patching_rect": [10.0, 200.0, 85.0, 22.0],
+          "text": "plugout~"
+        }
+      },
+      {
+        "box": {
+          "id": "obj-live-thisdevice",
+          "maxclass": "newobj",
+          "numinlets": 1,
+          "numoutlets": 3,
+          "outlettype": ["bang", "int", "int"],
+          "patching_rect": [120.0, 200.0, 85.0, 22.0],
+          "text": "live.thisdevice"
+        }
+      },
+      {
+        "box": {
+          "comment": "Get path to live_set",
+          "id": "obj-tempo-path",
+          "maxclass": "newobj",
+          "numinlets": 1,
+          "numoutlets": 3,
+          "outlettype": ["", "", ""],
+          "patching_rect": [220.0, 200.0, 120.0, 22.0],
+          "text": "live.path live_set"
+        }
+      },
+      {
+        "box": {
+          "comment": "Observe tempo property",
+          "id": "obj-tempo-observer",
+          "maxclass": "newobj",
+          "numinlets": 2,
+          "numoutlets": 3,
+          "outlettype": ["", "", ""],
+          "patching_rect": [220.0, 230.0, 120.0, 22.0],
+          "text": "live.observer"
+        }
+      },
+      {
+        "box": {
+          "id": "obj-tempo-prop",
+          "maxclass": "message",
+          "numinlets": 2,
+          "numoutlets": 1,
+          "outlettype": [""],
+          "patching_rect": [280.0, 170.0, 80.0, 22.0],
+          "text": "property tempo"
+        }
+      },
+      {
+        "box": {
+          "id": "obj-tempo-fmt",
+          "maxclass": "message",
+          "numinlets": 2,
+          "numoutlets": 1,
+          "outlettype": [""],
+          "patching_rect": [220.0, 260.0, 200.0, 22.0],
+          "text": "script window.postMessage({type:'daw:tempo',bpm:$1},'*')"
+        }
+      },
+      {
+        "box": {
+          "comment": "Observe transport playing state",
+          "id": "obj-playing-path",
+          "maxclass": "newobj",
+          "numinlets": 1,
+          "numoutlets": 3,
+          "outlettype": ["", "", ""],
+          "patching_rect": [350.0, 200.0, 120.0, 22.0],
+          "text": "live.path live_set"
+        }
+      },
+      {
+        "box": {
+          "comment": "Observe is_playing property",
+          "id": "obj-playing-observer",
+          "maxclass": "newobj",
+          "numinlets": 2,
+          "numoutlets": 3,
+          "outlettype": ["", "", ""],
+          "patching_rect": [350.0, 230.0, 120.0, 22.0],
+          "text": "live.observer"
+        }
+      },
+      {
+        "box": {
+          "id": "obj-playing-prop",
+          "maxclass": "message",
+          "numinlets": 2,
+          "numoutlets": 1,
+          "outlettype": [""],
+          "patching_rect": [420.0, 170.0, 100.0, 22.0],
+          "text": "property is_playing"
+        }
+      },
+      {
+        "box": {
+          "id": "obj-playing-fmt",
+          "maxclass": "message",
+          "numinlets": 2,
+          "numoutlets": 1,
+          "outlettype": [""],
+          "patching_rect": [350.0, 260.0, 230.0, 22.0],
+          "text": "script window.postMessage({type:'daw:transport',playing:$1},'*')"
+        }
+      }
+    ],
+    "lines": [
+      {
+        "patchline": {
+          "destination": ["obj-out", 1],
+          "source": ["obj-jweb", 1]
+        }
+      },
+      {
+        "patchline": {
+          "destination": ["obj-out", 0],
+          "source": ["obj-jweb", 0]
+        }
+      },
+      {
+        "patchline": {
+          "destination": ["obj-tempo-path", 0],
+          "source": ["obj-live-thisdevice", 0]
+        }
+      },
+      {
+        "patchline": {
+          "destination": ["obj-playing-path", 0],
+          "source": ["obj-live-thisdevice", 0]
+        }
+      },
+      {
+        "patchline": {
+          "destination": ["obj-tempo-observer", 0],
+          "source": ["obj-tempo-path", 1]
+        }
+      },
+      {
+        "patchline": {
+          "destination": ["obj-tempo-prop", 0],
+          "source": ["obj-tempo-path", 0]
+        }
+      },
+      {
+        "patchline": {
+          "destination": ["obj-tempo-observer", 0],
+          "source": ["obj-tempo-prop", 0]
+        }
+      },
+      {
+        "patchline": {
+          "destination": ["obj-tempo-fmt", 0],
+          "source": ["obj-tempo-observer", 1]
+        }
+      },
+      {
+        "patchline": {
+          "destination": ["obj-jweb", 0],
+          "source": ["obj-tempo-fmt", 0]
+        }
+      },
+      {
+        "patchline": {
+          "destination": ["obj-playing-observer", 0],
+          "source": ["obj-playing-path", 1]
+        }
+      },
+      {
+        "patchline": {
+          "destination": ["obj-playing-prop", 0],
+          "source": ["obj-playing-path", 0]
+        }
+      },
+      {
+        "patchline": {
+          "destination": ["obj-playing-observer", 0],
+          "source": ["obj-playing-prop", 0]
+        }
+      },
+      {
+        "patchline": {
+          "destination": ["obj-playing-fmt", 0],
+          "source": ["obj-playing-observer", 1]
+        }
+      },
+      {
+        "patchline": {
+          "destination": ["obj-jweb", 0],
+          "source": ["obj-playing-fmt", 0]
+        }
+      }
+    ],
+    "dependency_cache": [],
+    "latency": 0,
+    "is_mpe": 0,
+    "external_mpe_tuning_enabled": 0,
+    "minimum_live_version": "",
+    "minimum_max_version": "",
+    "platform_compatibility": 0,
+    "autosave": 0
+  }
+}
