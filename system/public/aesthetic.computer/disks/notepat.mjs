@@ -816,29 +816,57 @@ function getButtonLayoutMetrics(
   const totalButtons = buttonNotes.length;
   const margin = 2;
 
-  // Compact/DAW mode: horizontal strip layout when height is limited
+  // Compact/DAW mode: split layout - octaves on sides, piano/qwerty in center
   const compactMode = screen.height < 200;
   
   if (compactMode) {
-    // Two rows of 12 buttons each (octave per row)
-    const buttonsPerRow = 12;
-    const totalRows = 2;
+    // Split layout: 3 notes per row on each side (6 rows total per octave = 12 notes)
+    // Left side: first octave (c to b), Right side: second octave (+c to +b)
+    const notesPerSide = 12;
+    const buttonsPerRow = 3;  // 3 notes per row on each side
+    const totalRows = Math.ceil(notesPerSide / buttonsPerRow);  // 4 rows
     const hudReserved = TOP_BAR_BOTTOM;
     
-    // Calculate button dimensions - use square buttons
-    const availableWidth = screen.width - margin * 2;
-    const maxButtonWidth = floor(availableWidth / buttonsPerRow);
+    // Piano dimensions (2 octaves = 14 white keys)
+    const whiteKeyWidth = 7;
+    const pianoWidth = 14 * whiteKeyWidth;  // 98px
     
-    // Use remaining height for buttons
+    // QWERTY minimap dimensions (10 keys per row roughly)
+    const qKeyWidth = 9;
+    const qKeySpacing = 1;
+    const qwertyWidth = 10 * (qKeyWidth + qKeySpacing);  // ~100px
+    
+    // Center area for piano + qwerty
+    const centerWidth = Math.max(pianoWidth, qwertyWidth) + 4;  // ~102px with padding
+    
+    // Available width for buttons on each side
+    const sideMargin = margin;
+    const availableSideWidth = (screen.width - centerWidth) / 2 - sideMargin * 2;
+    
+    // Calculate square button size based on available space
+    const maxButtonWidth = floor(availableSideWidth / buttonsPerRow);
     const availableHeight = screen.height - hudReserved - bottomPadding - margin;
     const maxButtonHeight = floor(availableHeight / totalRows);
     
-    // Make buttons square by using the smaller dimension
+    // Make buttons square
     const buttonSize = min(maxButtonWidth, maxButtonHeight);
     const buttonWidth = buttonSize;
     const buttonHeight = buttonSize;
     
     const topButtonY = hudReserved + margin;
+    
+    // Calculate actual button block width
+    const buttonBlockWidth = buttonsPerRow * buttonWidth;
+    
+    // Left octave starts at left margin
+    const leftOctaveX = sideMargin;
+    
+    // Right octave starts after center area
+    const rightOctaveX = screen.width - sideMargin - buttonBlockWidth;
+    
+    // Center area position
+    const centerX = leftOctaveX + buttonBlockWidth + sideMargin;
+    const centerAreaWidth = rightOctaveX - centerX - sideMargin;
     
     return {
       buttonWidth,
@@ -855,6 +883,13 @@ function getButtonLayoutMetrics(
       melodyButtonRect: null,
       midiBadge: badgeMetrics,
       compactMode: true,
+      // Split layout info
+      splitLayout: true,
+      leftOctaveX,
+      rightOctaveX,
+      centerX,
+      centerAreaWidth,
+      notesPerSide,
     };
   }
 
@@ -1110,31 +1145,42 @@ function paint({
     }
   }
   
+  // Get layout info early for positioning piano/qwerty in compact mode
+  const initialBadgeMetrics = computeMidiBadgeMetrics(screen, matrixGlyphMetrics);
+  const layout = getButtonLayoutMetrics(screen, {
+    songMode: Boolean(song),
+    pictureOverlay: paintPictureOverlay,
+    midiMetrics: initialBadgeMetrics,
+  });
+  
   // Draw tiny piano layout and QWERTY minimap
   // Position it dynamically based on available space
-  // Position piano below track if in song mode, otherwise higher and left
   let pianoY, pianoStartX;
-  if (song) {
+  
+  // Compact mode: center the piano/qwerty between the split button octaves
+  if (layout.compactMode && layout.splitLayout) {
+    pianoY = TOP_BAR_BOTTOM + 2;
+    // Center the piano in the center area
+    const totalWhiteKeys = 14;
+    const whiteKeyWidth = 7;
+    const pianoWidth = totalWhiteKeys * whiteKeyWidth;
+    pianoStartX = layout.centerX + (layout.centerAreaWidth - pianoWidth) / 2;
+  } else if (song) {
     const effectiveTrackY = trackY ?? TOP_BAR_BOTTOM;
     pianoY = effectiveTrackY + trackHeight + 2; // Just below the track
+    const pianoWidth = 14 * 7;  // 14 white keys * 7px each
+    pianoStartX = screen.width - pianoWidth - 2; // Align with right edge (2px margin)
   } else {
     pianoY = TOP_BAR_BOTTOM; // Below HUD label when no track
+    pianoStartX = 58; // Align with visualizer start when no track
   }
 
   const whiteKeyWidth = 7;
   const whiteKeyHeight = MINI_KEYBOARD_HEIGHT;
   const blackKeyWidth = 5;
   const blackKeyHeight = 10;
-
-  // Two octaves: 14 white keys total
   const totalWhiteKeys = 14;
   const pianoWidth = totalWhiteKeys * whiteKeyWidth;
-
-  if (song) {
-    pianoStartX = screen.width - pianoWidth - 2; // Align with right edge (2px margin)
-  } else {
-    pianoStartX = 58; // Align with visualizer start when no track
-  }
 
   // Two octaves: notes in order
   const whiteKeys = ['C', 'D', 'E', 'F', 'G', 'A', 'B', '+C', '+D', '+E', '+F', '+G', '+A', '+B'];
@@ -1192,9 +1238,10 @@ function paint({
     }
   });
 
-  if (song) {
-    const currentKeyLetter = noteToKeyboardKey(song?.[songIndex]?.[0]);
-    const nextKeyLetter = noteToKeyboardKey(song?.[songIndex + 1]?.[0]);
+  // Show QWERTY minimap in compact mode (always) or in song mode
+  if (layout.compactMode || song) {
+    const currentKeyLetter = song ? noteToKeyboardKey(song?.[songIndex]?.[0]) : null;
+    const nextKeyLetter = song ? noteToKeyboardKey(song?.[songIndex + 1]?.[0]) : null;
     const activeKeyLetters = new Set(
       Object.keys(sounds)
         .map((activeNote) => noteToKeyboardKey(activeNote))
@@ -1276,13 +1323,7 @@ function paint({
     });
   }
 
-  const initialBadgeMetrics = computeMidiBadgeMetrics(screen, matrixGlyphMetrics);
-  const layout = getButtonLayoutMetrics(screen, {
-    songMode: Boolean(song),
-    pictureOverlay: paintPictureOverlay,
-    midiMetrics: initialBadgeMetrics,
-  });
-
+  // layout already computed above for piano/qwerty positioning
   const midiBadgeMetrics = layout.midiBadge ?? initialBadgeMetrics;
   const melodyButtonRect = layout.melodyButtonRect;
 
@@ -3654,13 +3695,36 @@ function setupButtons({ ui, screen, geo }) {
     totalRows,
     margin,
     melodyButtonRect,
+    splitLayout,
+    leftOctaveX,
+    rightOctaveX,
+    notesPerSide,
   } = layout;
 
   buttonNotes.forEach((label, i) => {
-    const row = floor(i / buttonsPerRow);
-    const col = i % buttonsPerRow;
-    const y = topButtonY + row * buttonHeight;
-    const x = ceil(margin + col * buttonWidth);
+    let x, y;
+    
+    if (splitLayout) {
+      // Split layout: first 12 notes on left, second 12 on right
+      const isSecondOctave = i >= notesPerSide;
+      const localIndex = isSecondOctave ? i - notesPerSide : i;
+      const row = floor(localIndex / buttonsPerRow);
+      const col = localIndex % buttonsPerRow;
+      
+      y = topButtonY + row * buttonHeight;
+      if (isSecondOctave) {
+        x = rightOctaveX + col * buttonWidth;
+      } else {
+        x = leftOctaveX + col * buttonWidth;
+      }
+    } else {
+      // Normal grid layout
+      const row = floor(i / buttonsPerRow);
+      const col = i % buttonsPerRow;
+      y = topButtonY + row * buttonHeight;
+      x = ceil(margin + col * buttonWidth);
+    }
+    
     const geometry = [x, y, buttonWidth, buttonHeight];
     if (!buttons[label]) {
       buttons[label] = new ui.Button(...geometry);
