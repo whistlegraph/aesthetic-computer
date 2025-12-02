@@ -118,6 +118,19 @@ included_env_vars = ["MONGODB_CONNECTION_STRING", "MONGODB_NAME", "NETLIFY_DEV",
 [functions.ask]
 included_env_vars = ["CONTEXT", "ANTHROPIC_API_KEY", "OPENAI_API_KEY"]
 
+[functions.bundle-html]
+# Generates KidLisp .lisp.html bundles on-demand via API
+# Migrated from tezos/bundle-keep-html.mjs CLI tool
+included_files = [
+  "public/aesthetic.computer/**/*.mjs",
+  "public/aesthetic.computer/**/*.js",
+  "public/aesthetic.computer/disks/drawings/font_1/**/*.json",
+  "public/aesthetic.computer/dep/**/*.mjs",
+  "backend/**/*.mjs"
+]
+external_node_modules = ["@swc/wasm"]
+included_env_vars = ["GIT_COMMIT", "CONTEXT"]
+
 [functions.run]
 included_env_vars = ["NETLIFY_DEV", "REDIS_CONNECTION_STRING"]
 
@@ -521,6 +534,10 @@ status = 200
 [[redirects]]
 from = "/api/store-kidlisp"
 to = "/.netlify/functions/store-kidlisp"
+status = 200
+[[redirects]]
+from = "/api/bundle-html"
+to = "/.netlify/functions/bundle-html"
 status = 200
 [[redirects]]
 from = "/api/delete-erase-and-forget-me"
