@@ -21,6 +21,7 @@ import { AestheticAuthenticationProvider } from "./aestheticAuthenticationProvid
 const { keys } = Object;
 
 let local: boolean = false;
+let localServerAvailable: boolean = false;
 let codeChannel: string | undefined;
 
 // Detect if we're in GitHub Codespaces
@@ -34,6 +35,73 @@ let docs: any;
 let extContext: any;
 let webWindow: any;
 let kidlispWindow: any;
+let localServerCheckInterval: NodeJS.Timeout | undefined;
+let provider: AestheticViewProvider;
+
+// Check if the local server is available
+async function checkLocalServer(): Promise<boolean> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2000);
+    
+    const response = await fetch("https://localhost:8888/", {
+      method: "HEAD",
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    return response.ok || response.status === 200;
+  } catch (e) {
+    return false;
+  }
+}
+
+// Start polling for local server availability
+function startLocalServerCheck() {
+  if (localServerCheckInterval) {
+    clearInterval(localServerCheckInterval);
+  }
+  
+  // Check immediately
+  checkLocalServer().then((available) => {
+    const wasAvailable = localServerAvailable;
+    localServerAvailable = available;
+    if (available && !wasAvailable) {
+      console.log("✅ Local server is now available");
+      // Refresh webviews when server becomes available
+      if (provider) provider.refreshWebview();
+      refreshWebWindow();
+      refreshKidLispWindow();
+    }
+  });
+  
+  // Then check every 3 seconds
+  localServerCheckInterval = setInterval(async () => {
+    const wasAvailable = localServerAvailable;
+    localServerAvailable = await checkLocalServer();
+    
+    if (localServerAvailable && !wasAvailable) {
+      console.log("✅ Local server is now available");
+      // Refresh webviews when server becomes available
+      if (provider) provider.refreshWebview();
+      refreshWebWindow();
+      refreshKidLispWindow();
+    } else if (!localServerAvailable && wasAvailable) {
+      console.log("❌ Local server disconnected");
+      // Optionally refresh to show waiting state
+      if (provider) provider.refreshWebview();
+      refreshWebWindow();
+      refreshKidLispWindow();
+    }
+  }, 3000);
+}
+
+// Stop polling for local server
+function stopLocalServerCheck() {
+  if (localServerCheckInterval) {
+    clearInterval(localServerCheckInterval);
+    localServerCheckInterval = undefined;
+  }
+}
 
 async function activate(context: vscode.ExtensionContext): Promise<void> {
   // local = context.globalState.get("aesthetic:local", false); // Retrieve env.
@@ -50,6 +118,11 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
   } else {
     // console.log("❌ 🥡 Not in container.");
     // Keep the user's preference even when not in container
+  }
+
+  // Start checking for local server if local mode is enabled
+  if (local) {
+    startLocalServerCheck();
   }
 
   // console.log("🟢 Aesthetic Computer Extension: Activated");
@@ -585,7 +658,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
 
   // GUI
 
-  const provider = new AestheticViewProvider();
+  provider = new AestheticViewProvider();
   
   // Connect to session server for jump commands
   provider.connectToSessionServer();
@@ -649,6 +722,16 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     vscode.commands.registerCommand("aestheticComputer.localServer", () => {
       local = !local;
       context.globalState.update("aesthetic:local", local);
+      
+      // Start or stop local server checking
+      if (local) {
+        localServerAvailable = false; // Reset until we confirm
+        startLocalServerCheck();
+      } else {
+        stopLocalServerCheck();
+        localServerAvailable = false;
+      }
+      
       // Refresh the webview with the new local state
       provider.refreshWebview();
       refreshWebWindow();
@@ -1134,6 +1217,72 @@ function getWebViewContent(webview: any, slug: string) {
     const codespaceWildcard = `https://*.${codespacesDomain}`;
     cspFrameSrc += ` ${codespaceWildcard}`;
     cspChildSrc += ` ${codespaceWildcard}`;
+  }
+
+  // Show waiting UI if local mode is enabled but server isn't available yet
+  if (local && !localServerAvailable && !isCodespaces) {
+    return `<!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link href="${styleUri}" rel="stylesheet">
+        <link href="${resetStyleUri}" rel="stylesheet">
+        <link href="${vscodeStyleUri}" rel="stylesheet">
+        <title>aesthetic.computer</title>
+        <style>
+          body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #fff;
+            font-family: system-ui, -apple-system, sans-serif;
+          }
+          .waiting {
+            text-align: center;
+            animation: pulse 2s ease-in-out infinite;
+          }
+          .emoji {
+            font-size: 48px;
+            margin-bottom: 16px;
+          }
+          .title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+          }
+          .subtitle {
+            font-size: 14px;
+            opacity: 0.7;
+          }
+          .dots::after {
+            content: '';
+            animation: dots 1.5s steps(4, end) infinite;
+          }
+          @keyframes dots {
+            0%, 20% { content: ''; }
+            40% { content: '.'; }
+            60% { content: '..'; }
+            80%, 100% { content: '...'; }
+          }
+          @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="waiting">
+          <div class="emoji">🔌</div>
+          <div class="title">Waiting for local server<span class="dots"></span></div>
+          <div class="subtitle">Run ac-site to start localhost:8888</div>
+        </div>
+      </body>
+      </html>`;
   }
 
   return `<!DOCTYPE html>
