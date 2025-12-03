@@ -950,33 +950,33 @@ function restart-daemon
 end
 
 function ac-site
-    # Check if running inside Emacs to avoid infinite loops
-    if test -n "$INSIDE_EMACS"
-        echo "🌐 Starting ac-site (non-blocking mode for Emacs)..."
+    # Run in foreground for Emacs eat terminals (shows logs)
+    # Skip auto-restart loop when in Emacs - just run once
+    # Use AC_EMACS_MODE instead of INSIDE_EMACS to avoid conflicts with tools
+    if test -n "$AC_EMACS_MODE"
+        echo "🌐 Starting ac-site (foreground mode for Emacs)..."
         ac
         cd system
-        # Start in background without auto-restart loop
         echo "🔍 Cleaning up any stuck processes..."
         pkill -f "netlify dev" 2>/dev/null
         pkill -f "esbuild" 2>/dev/null
         sleep 1
-        npx kill-port 8880 8888 8889 8080 8000 8111 3333 3000 3001 >/dev/null 2>&1
+        # Use timeout to prevent npx kill-port from hanging
+        timeout 3 npx kill-port 8880 8888 8889 8080 8000 8111 3333 3000 3001 >/dev/null 2>&1; or true
         netlify link --id $NETLIFY_SITE_ID >/dev/null 2>&1
         set -e DEBUG
         set -e DENO_V8_FLAGS
         if test -n "$CODESPACES"
             echo "🌐 Starting in Codespaces mode..."
-            env DENO_LOG_LEVEL=info npm run codespaces-dev 2>&1 | grep -v "^DEBUG RS" &
+            env DENO_NO_PROMPT=1 DENO_LOG_LEVEL=info npm run codespaces-dev
         else
-            echo "� Starting in local mode..."
-            env DENO_LOG_LEVEL=info npm run local-dev 2>&1 | grep -v "^DEBUG RS" &
+            echo "💻 Starting in local mode..."
+            env DENO_NO_PROMPT=1 DENO_LOG_LEVEL=info npm run local-dev
         end
-        disown
-        echo "✅ Site started in background"
         return
     end
     
-    echo "�🐱 Starting online mode with auto-restart..."
+    echo "🐱 Starting online mode with auto-restart..."
     ac
     cd system
     set restart_count 0
@@ -1002,10 +1002,10 @@ function ac-site
         # Detect if running in GitHub Codespaces and use appropriate command
         if test -n "$CODESPACES"
             echo "🌐 Detected GitHub Codespaces - running without SSL..."
-            env DENO_LOG_LEVEL=info npm run codespaces-dev 2>&1 | grep -v "^DEBUG RS"
+            env DENO_NO_PROMPT=1 DENO_LOG_LEVEL=info npm run codespaces-dev 2>&1 | grep -v "^DEBUG RS"
         else
             echo "💻 Running on local machine - using SSL..."
-            env DENO_LOG_LEVEL=info npm run local-dev 2>&1 | grep -v "^DEBUG RS"
+            env DENO_NO_PROMPT=1 DENO_LOG_LEVEL=info npm run local-dev 2>&1 | grep -v "^DEBUG RS"
         end
         
         set exit_code $status
@@ -1601,13 +1601,13 @@ end
 # set up an ngrok tunnel
 
 function ac-tunnel
-    # Check if running inside Emacs to avoid infinite loops
-    if test -n "$INSIDE_EMACS"
-        echo "🚇 Starting tunnel (non-blocking mode for Emacs)..."
+    # Run in foreground for Emacs eat terminals (shows logs)
+    # Skip auto-restart loop when in Emacs - just run once
+    # Use AC_EMACS_MODE instead of INSIDE_EMACS to avoid conflicts with tools
+    if test -n "$AC_EMACS_MODE"
+        echo "🚇 Starting tunnel (foreground mode for Emacs)..."
         ac
-        npm run tunnel >/dev/null 2>&1 &
-        disown
-        echo "✅ Tunnel process started in background"
+        npm run tunnel
         return
     end
     
