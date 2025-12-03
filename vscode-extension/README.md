@@ -1,11 +1,75 @@
-Live code and publish pieces on `aesthetic.computer` from inside your editor.
-icon.
+# Aesthetic Computer - VS Code Extension
 
-1. Activate the sidebar icon to open the `aesthetic.computer` prompt.
-2. Save any active editor pane to run a piece while the panel is open.
-3. Enter `publish` from the prompt to publish a piece after running it.
-4. Open the `Help` -> `Toggle Developer Tools` menu for console output.
-5. Use the `channel` command on `aesthetic.computer` to
-   get the generated channel name or set a new one, for syncing multiple devices.
+Live code, preview, and publish interactive pieces on [aesthetic.computer](https://aesthetic.computer) directly from VS Code.
 
-Need assistance? Reach out to `mail@aesthetic.computer`.
+## ✨ Features
+
+### 🎨 Live Preview Panel
+- Embedded `aesthetic.computer` preview right in your sidebar
+- Real-time piece execution as you save files
+- Seamless authentication with your Aesthetic Computer account
+
+### 💻 Local Development Mode
+- Connect to your local Netlify dev server (`localhost:8888`)
+- Smart server detection - shows "Waiting for server..." until ready
+- Auto-refreshes when local server becomes available
+- Toggle with command: `Aesthetic Computer: Local Server`
+
+### 🚀 One-Click Publishing
+- Run a piece and type `publish` in the prompt to go live
+- Your piece gets a unique URL on `aesthetic.computer`
+
+### 🔗 Jump Integration
+- Connect VSCode to your browser via WebSocket
+- Use the `ac` command to jump between pieces seamlessly
+
+### 🌈 KidLisp.com Window
+- Open a dedicated KidLisp editor window
+- Perfect for creative coding with Lisp-style syntax
+
+### 📚 Documentation Hover
+- Hover over API functions for inline documentation
+- Quick access to the full docs via command palette
+
+## 🛠️ Commands
+
+| Command | Description |
+|---------|-------------|
+| `Aesthetic Computer: Run Piece` | Execute the current file as a piece |
+| `Aesthetic Computer: Local Server` | Toggle local development mode |
+| `Aesthetic Computer: Clear Slug` | Clear the stored piece URL |
+| `Aesthetic Computer: Open Docs` | Browse system documentation |
+| `Aesthetic Computer: Open Aesthetic Window` | Open piece in separate window |
+| `Aesthetic Computer: Open KidLisp Window` | Open KidLisp.com editor |
+
+## 🏁 Getting Started
+
+1. **Install** the extension from the VS Code Marketplace
+2. **Click** the Aesthetic Computer icon in the sidebar
+3. **Save** any `.mjs` file to run it as a piece
+4. **Authenticate** to publish and save your work
+
+## 💡 Tips
+
+- Use `channel` command in the prompt to sync multiple devices
+- Open Developer Tools (`Help > Toggle Developer Tools`) for debugging
+- In local mode, run `ac-site` to start your dev server
+
+## 🔧 Local Development Setup
+
+For local development with the full Aesthetic Computer stack:
+
+```bash
+# Start the local server
+ac-site
+
+# The extension will auto-detect when localhost:8888 is ready
+```
+
+## 📬 Support
+
+Need help? Reach out to `mail@aesthetic.computer`
+
+---
+
+Made with 💜 by [Aesthetic Computer](https://aesthetic.computer)
