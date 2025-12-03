@@ -428,7 +428,7 @@
            ("stripe-ticket" . "🎫") ("chat-system" . "🤖") ("chat-sotce" . "🧠")
            ("chat-clock" . "⏰") ("site" . "🌐") ("session" . "📋")
            ("redis" . "🔴") ("bookmarks" . "🔖") ("kidlisp" . "🧪")
-           ("oven" . "🔥"))))
+           ("oven" . "🔥") ("media" . "📦"))))
 
     ;; Clean up unwanted buffers before starting (with error handling)
     (condition-case nil
@@ -524,7 +524,7 @@
     (sit-for 0.5)
     (create-split-tab "web 1/2"  '("site" "session"))
     (sit-for 0.5)
-    (create-split-tab "web 2/2"  '("redis" "bookmarks" "oven"))
+    (create-split-tab "web 2/2"  '("redis" "bookmarks" "oven" "media"))
     (sit-for 0.5)
     (create-split-tab "tests"    '("kidlisp"))
 
