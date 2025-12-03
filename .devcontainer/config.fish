@@ -963,6 +963,13 @@ function ac-site
     echo "🚀 Starting server..."
     npm run local-dev
 end
+
+function ac-media
+    cd ~/aesthetic-computer/system
+    echo "📦 Starting Caddy media server on :8111..."
+    npm run media-server-caddy
+end
+
 # ac - Smart command: cd with no args, jump to piece with args  
 function ac --description 'cd to aesthetic-computer or jump to piece'
     if test (count $argv) -eq 0
