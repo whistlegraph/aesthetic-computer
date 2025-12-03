@@ -412,7 +412,8 @@
   (ac-debug-log (format "Starting aesthetic-backend with target-tab: %s" target-tab))
   
   ;; Set environment variable to tell fish it's running inside Emacs
-  (setenv "INSIDE_EMACS" "t")
+  ;; Use AC_EMACS_MODE instead of INSIDE_EMACS to avoid conflicts with tools that check INSIDE_EMACS
+  (setenv "AC_EMACS_MODE" "t")
   
   ;; Set up a watchdog timer to detect hangs (30 seconds)
   (run-with-timer 30 nil
@@ -496,6 +497,8 @@
                   
                   (let ((actual-cmd (if (string= cmd "bookmarks") "servers" cmd)))
                     (ac-debug-log (format "Running command: ac-%s" actual-cmd))
+                    ;; Just run the ac command directly - no special env vars needed
+                    ;; The regular mode works fine in eat terminals
                     (eat (format "fish -c 'ac-%s'" actual-cmd)))
                   
                   (when (get-buffer "*eat*")
