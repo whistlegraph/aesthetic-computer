@@ -70,6 +70,19 @@ ac-site
 
 Need help? Reach out to `mail@aesthetic.computer`
 
----
+## 📜 History
 
-Made with 💜 by [Aesthetic Computer](https://aesthetic.computer)
+This extension has evolved significantly since its inception:
+
+- **January 2023** - Initial development began with VS Code integration exploration
+- **June 2023** - First published version with live reload, code channels, and publish functionality
+- **July 2023** - Added guest piece routing and publish button improvements
+- **2024** - Major updates including Codespaces support, painting upload progress, ATProto federation
+- **v1.190.0** - Full GitHub Codespaces support with SSL fixes
+- **v1.191.0** - CSP violation fixes and improved URL construction
+- **v1.194.0** - Game Boy ROM support and Option E implementation
+- **v1.195.0** - KidLisp.com dedicated window, pointer lock support
+- **v1.198.0** - Local server detection with "waiting for server" UI
+- **v1.199.0** - This comprehensive documentation update
+
+The extension is actively maintained as part of the [Aesthetic Computer](https://github.com/whistlegraph/aesthetic-computer) project.
