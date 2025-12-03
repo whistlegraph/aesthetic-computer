@@ -3,8 +3,9 @@
   "version": "1.0.0",
   "description": "My virtual computer system for loading and running pieces.",
   "scripts": {
-    "dev": "netlify dev --debug -o",
-    "local-dev": "netlify dev --context local --debug -o",
+    "dev": "netlify dev -o",
+    "local-dev": "netlify dev --context local -o",
+    "local-dev-debug": "netlify dev --context local --debug -o",
     "dev-debug": "netlify dev --debug",
     "upgrade": "ncu -u",
     "watch": "netlify watch",
