@@ -215,7 +215,8 @@ RUN curl -fsSLO https://beta.quicklisp.org/quicklisp.lisp && \
          --eval '(quit)'
 
 # --- OPS (nanos) --------------------------------------------------------------
-RUN curl https://ops.city/get.sh -sSfL | bash
+# Allow failure - ops.city can have intermittent TLS issues
+RUN curl https://ops.city/get.sh -sSfL | bash || echo "OPS installation failed, skipping..."
 
 # --- uv (fast Python package manager for MCP servers) -------------------------
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh

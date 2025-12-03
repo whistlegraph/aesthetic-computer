@@ -507,18 +507,25 @@
                        (format "%s-%s"
                                (or (cdr (assoc cmd emoji-for-command)) "🔧")
                                cmd) t)))
-                  (goto-char (point-max)))
+                  (goto-char (point-max))
+                  ;; Small delay between commands to let eat process output
+                  (sit-for 0.2))
                 
                 (balance-windows)
                 (other-window 1))))
         (error (message "Error creating tab %s: %s" tab-name err))))
 
-    ;; Create all the split tabs
+    ;; Create all the split tabs with delays to prevent overwhelming eat/Emacs
     (create-split-tab "status"   '("url" "tunnel"))
+    (sit-for 0.5)
     (create-split-tab "stripe"   '("stripe-print" "stripe-ticket"))
+    (sit-for 0.5)
     (create-split-tab "chat"     '("chat-system" "chat-sotce" "chat-clock"))
+    (sit-for 0.5)
     (create-split-tab "web 1/2"  '("site" "session"))
+    (sit-for 0.5)
     (create-split-tab "web 2/2"  '("redis" "bookmarks" "oven"))
+    (sit-for 0.5)
     (create-split-tab "tests"    '("kidlisp"))
 
     ;; Switch to the requested tab if it exists
