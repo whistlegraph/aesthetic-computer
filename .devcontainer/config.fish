@@ -950,80 +950,19 @@ function restart-daemon
 end
 
 function ac-site
-    # Run in foreground for Emacs eat terminals (shows logs)
-    # Skip auto-restart loop when in Emacs - just run once
-    # Use AC_EMACS_MODE instead of INSIDE_EMACS to avoid conflicts with tools
-    if test -n "$AC_EMACS_MODE"
-        echo "🌐 Starting ac-site (foreground mode for Emacs)..."
-        ac
-        cd system
-        echo "🔍 Cleaning up any stuck processes..."
-        pkill -f "netlify dev" 2>/dev/null
-        pkill -f "esbuild" 2>/dev/null
-        sleep 1
-        # Use timeout to prevent npx kill-port from hanging
-        timeout 3 npx kill-port 8880 8888 8889 8080 8000 8111 3333 3000 3001 >/dev/null 2>&1; or true
-        netlify link --id $NETLIFY_SITE_ID >/dev/null 2>&1
-        set -e DEBUG
-        set -e DENO_V8_FLAGS
-        if test -n "$CODESPACES"
-            echo "🌐 Starting in Codespaces mode..."
-            env DENO_NO_PROMPT=1 DENO_LOG_LEVEL=info npm run codespaces-dev
-        else
-            echo "💻 Starting in local mode..."
-            env DENO_NO_PROMPT=1 DENO_LOG_LEVEL=info npm run local-dev
-        end
-        return
-    end
-    
-    echo "🐱 Starting online mode with auto-restart..."
-    ac
-    cd system
-    set restart_count 0
-    set max_restarts 10  # Prevent infinite restart loops
-    while test $restart_count -lt $max_restarts
-        echo "🚀 Starting ac-site... (attempt "(math $restart_count + 1)"/$max_restarts)"
-        echo "🔍 Cleaning up any stuck processes..."
-        # Kill any stuck netlify or esbuild processes
-        pkill -f "netlify dev" 2>/dev/null
-        pkill -f "esbuild" 2>/dev/null
-        sleep 1
-        
-        # Kill ports before starting (suppress verbose output)
-        npx kill-port 8880 8888 8889 8080 8000 8111 3333 3000 3001 >/dev/null 2>&1
-        
-        # Link netlify (suppress output if already linked)
-        netlify link --id $NETLIFY_SITE_ID >/dev/null 2>&1
-        
-        # Suppress verbose debug logs from Deno and Express
-    set -e DEBUG
-    set -e DENO_V8_FLAGS
-        
-        # Detect if running in GitHub Codespaces and use appropriate command
-        if test -n "$CODESPACES"
-            echo "🌐 Detected GitHub Codespaces - running without SSL..."
-            env DENO_NO_PROMPT=1 DENO_LOG_LEVEL=info npm run codespaces-dev 2>&1 | grep -v "^DEBUG RS"
-        else
-            echo "💻 Running on local machine - using SSL..."
-            env DENO_NO_PROMPT=1 DENO_LOG_LEVEL=info npm run local-dev 2>&1 | grep -v "^DEBUG RS"
-        end
-        
-        set exit_code $status
-        
-        # If the exit code is 130 (Ctrl+C), jump back to fish to keep shell alive
-        if test $exit_code -eq 130
-            echo "🛑 Stopped by user (Ctrl+C)"
-            return
-        end
-        
-        set restart_count (math $restart_count + 1)
-        echo "⚠️  ac-site crashed with exit code $exit_code"
-        echo "🔄 Restarting in 3 seconds... (Ctrl+C to stop)"
-        sleep 3
-    end
-    echo "❌ Maximum restart attempts reached ($max_restarts). Exiting to prevent infinite loop."
+    cd ~/aesthetic-computer/system
+    echo "🐱 Starting site..."
+    echo "🔍 Cleaning up any stuck processes..."
+    pkill -f "netlify dev" 2>/dev/null
+    pkill -f "esbuild" 2>/dev/null
+    sleep 1
+    echo "🔌 Killing ports..."
+    timeout 5 npx kill-port 8880 8888 8889 8080 8000 8111 3333 3000 3001 2>/dev/null; or true
+    echo "🔗 Linking netlify..."
+    timeout 10 netlify link --id $NETLIFY_SITE_ID 2>/dev/null; or true
+    echo "🚀 Starting server..."
+    npm run local-dev
 end
-
 # ac - Smart command: cd with no args, jump to piece with args  
 function ac --description 'cd to aesthetic-computer or jump to piece'
     if test (count $argv) -eq 0
@@ -1351,7 +1290,7 @@ function ac-oven
     npx kill-port 3002 2>/dev/null
     
     echo "🚀 Starting oven server on https://localhost:3002..."
-    npm run dev
+    npm run local-dev
 end
 
 alias ac-stripe-print 'ac; npm run stripe-print-micro'

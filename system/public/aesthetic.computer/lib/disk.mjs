@@ -6260,7 +6260,9 @@ async function load(
         path === "(...)" ||
         (path && path.endsWith(".lisp")) ||
         (slug && slug.startsWith("$") && slug.length > 1) || // Cached codes are always kidlisp
-        (typeof window !== 'undefined' && window.acPACK_PIECE && slug === window.acPACK_PIECE) // Pack mode KidLisp pieces
+        // Pack mode KidLisp pieces - but NOT if acPACK_COLOPHON explicitly says isKidLisp: false
+        (typeof window !== 'undefined' && window.acPACK_PIECE && slug === window.acPACK_PIECE &&
+          window.acPACK_COLOPHON?.piece?.isKidLisp !== false)
       ) {
         // Only use basic detection, not the broader isKidlispSource function
         // which can incorrectly detect JavaScript as kidlisp, unless forceKidlisp is true
