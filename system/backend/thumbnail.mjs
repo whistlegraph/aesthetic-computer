@@ -126,8 +126,7 @@ export async function getThumbnailStats(thumbnail) {
 }
 
 // CLI usage: node thumbnail.mjs <slug> [handle]
-// Note: Wrapped in try-catch to prevent esbuild bundling issues
-if (typeof import.meta !== 'undefined' && import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1]?.endsWith('thumbnail.mjs')) {
   (async () => {
     const slug = process.argv[2];
     const handle = process.argv[3];

@@ -59,5 +59,11 @@
         "@modelcontextprotocol/server-chrome-devtools"
       ]
     }
-  }
+  },
+  "deno.enable": true,
+  "deno.enablePaths": [
+    "system/netlify/edge-functions"
+  ],
+  "deno.unstable": true,
+  "deno.importMap": ".netlify/edge-functions-import-map.json"
 }

@@ -163,9 +163,10 @@ export function headers(isDarkMode) {
       
       console.log(titleFormatted, ...titleStyles);
       
-      // Third line: Piece info with colored piece name (include $ prefix)
+      // Third line: Piece info with colored piece name ($ prefix only for KidLisp)
+      const piecePrefix = piece.isKidLisp ? '$' : '';
       console.log(
-        `%c$${piece.name} %cis a %cpiece%c by %c${build.author}`,
+        `%c${piecePrefix}${piece.name} %cis a %cpiece%c by %c${build.author}`,
         "color: #ffc107; font-weight: bold; font-size: 11px;",
         "color: #6c757d; font-size: 10px;",
         "color: #343a40; font-weight: bold; font-size: 10px;",

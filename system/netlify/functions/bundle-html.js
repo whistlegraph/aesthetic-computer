@@ -1,13 +1,15 @@
 // bundle-html.js - Netlify Function
-// Generates KidLisp .lisp.html bundles on-demand via API
-// Ported from tezos/bundle-keep-html.mjs CLI tool
+// Generates self-contained HTML bundles on-demand via API
+// Supports both KidLisp pieces ($code) and JavaScript pieces (piece=name)
 //
-// Usage: GET /api/bundle-html?code=39j
-// Returns: Self-extracting gzip-compressed .lisp.html file
+// Usage:
+//   GET /api/bundle-html?code=39j       - Bundle a KidLisp piece
+//   GET /api/bundle-html?piece=notepat  - Bundle a JavaScript .mjs piece
+//
+// Returns: Self-extracting gzip-compressed HTML file
 //
 // Optimization: Core system files are cached per git commit to speed up
-// subsequent bundle requests. Only piece-specific data (KidLisp source,
-// paintings) are fetched per request.
+// subsequent bundle requests. Only piece-specific data is fetched per request.
 
 const { promises: fs } = require("fs");
 const fsSync = require("fs");
@@ -83,6 +85,9 @@ const ESSENTIAL_FILES = [
   
   // Sound dependencies
   'lib/sound/sound-whitelist.mjs',
+  
+  // Audio worklet bundled for PACK mode
+  'lib/speaker-bundled.mjs',
   
   // gl-matrix dependencies
   'dep/gl-matrix/common.mjs',
@@ -353,15 +358,19 @@ async function discoverDependencies(acDir, essentialFiles, skipFiles) {
 }
 
 // Build or retrieve cached core bundle (minified system files + fonts)
-async function getCoreBundle(acDir, onProgress = () => {}) {
+async function getCoreBundle(acDir, onProgress = () => {}, forceRefresh = false) {
   // Check if we have a valid cache for this git commit
-  if (coreBundleCache && coreBundleCacheCommit === GIT_COMMIT) {
+  if (!forceRefresh && coreBundleCache && coreBundleCacheCommit === GIT_COMMIT) {
     console.log(`[bundle-html] Using cached core bundle for commit ${GIT_COMMIT}`);
     onProgress({ stage: 'cache-hit', message: 'Using cached core files...' });
     return coreBundleCache;
   }
   
-  console.log(`[bundle-html] Building core bundle for commit ${GIT_COMMIT}...`);
+  if (forceRefresh) {
+    console.log(`[bundle-html] Force refresh - rebuilding core bundle...`);
+  } else {
+    console.log(`[bundle-html] Building core bundle for commit ${GIT_COMMIT}...`);
+  }
   const coreFiles = {};
   
   onProgress({ stage: 'discover', message: 'Discovering dependencies...' });
@@ -430,7 +439,337 @@ async function getCoreBundle(acDir, onProgress = () => {}) {
   return coreFiles;
 }
 
-// Main bundle creation
+// Create bundle for JavaScript .mjs pieces (notepat, metronome, etc.)
+async function createJSPieceBundle(pieceName, onProgress = () => {}) {
+  onProgress({ stage: 'init', message: `Bundling ${pieceName}...` });
+  
+  const packTime = Date.now();
+  const packDate = new Date().toLocaleString("en-US", {
+    timeZone: "America/Los_Angeles",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  });
+  
+  const bundleTimestamp = timestamp();
+  
+  // Determine acDir
+  const acDir = path.join(__dirname, "..", "..", "public", "aesthetic.computer");
+  
+  console.log("[bundle-html] JS piece bundle - acDir:", acDir);
+  
+  // Get core bundle (cached per git commit)
+  const coreFiles = await getCoreBundle(acDir, onProgress);
+  
+  // Build VFS starting with core files
+  const files = { ...coreFiles };
+  
+  // Check if the piece exists
+  const piecePath = `disks/${pieceName}.mjs`;
+  const pieceFullPath = path.join(acDir, piecePath);
+  
+  if (!fsSync.existsSync(pieceFullPath)) {
+    throw new Error(`Piece '${pieceName}' not found at ${piecePath}`);
+  }
+  
+  onProgress({ stage: 'piece', message: `Loading ${pieceName}.mjs...` });
+  
+  // Load the piece file - DO NOT minify the actual piece source code!
+  // Only platform/system code gets minified. Piece code stays readable.
+  const pieceContent = await fs.readFile(pieceFullPath, 'utf8');
+  // Only rewrite imports, don't minify
+  const rewrittenPiece = rewriteImports(pieceContent, piecePath);
+  files[piecePath] = { content: rewrittenPiece, binary: false, type: 'mjs' };
+  
+  // Discover piece-specific dependencies
+  const pieceDepFiles = await discoverDependencies(acDir, [piecePath], SKIP_FILES);
+  
+  onProgress({ stage: 'deps', message: `Found ${pieceDepFiles.length} dependencies...` });
+  
+  // Track which files are piece dependencies (in disks/ folder) vs platform code
+  for (const depFile of pieceDepFiles) {
+    if (files[depFile]) continue; // Already in core bundle
+    
+    const depFullPath = path.join(acDir, depFile);
+    try {
+      if (!fsSync.existsSync(depFullPath)) continue;
+      let content = await fs.readFile(depFullPath, 'utf8');
+      
+      // Don't minify files in disks/ folder (piece code), only platform code
+      const isPieceCode = depFile.startsWith('disks/');
+      if (isPieceCode) {
+        content = rewriteImports(content, depFile);
+      } else {
+        content = await minifyJS(content, depFile);
+      }
+      
+      files[depFile] = { content, binary: false, type: path.extname(depFile).slice(1) };
+    } catch {
+      // Skip files that can't be loaded
+    }
+  }
+  
+  onProgress({ stage: 'generate', message: 'Generating HTML bundle...' });
+  
+  // Generate HTML bundle for JS piece
+  const htmlContent = generateJSPieceHTMLBundle({
+    pieceName,
+    files,
+    packDate,
+    packTime,
+    gitVersion: GIT_COMMIT,
+  });
+  
+  onProgress({ stage: 'compress', message: 'Compressing...' });
+  
+  // Create gzip-compressed self-extracting bundle
+  const gzipCompressed = gzipSync(htmlContent, { level: 9 });
+  const gzipBase64 = gzipCompressed.toString('base64');
+  
+  const finalHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>${pieceName} · Aesthetic Computer</title>
+  <style>body{margin:0;background:#000;overflow:hidden}</style>
+</head>
+<body>
+  <script>
+    fetch('data:application/gzip;base64,${gzipBase64}')
+      .then(r=>r.blob())
+      .then(b=>b.stream().pipeThrough(new DecompressionStream('gzip')))
+      .then(s=>new Response(s).text())
+      .then(h=>{document.open();document.write(h);document.close();});
+  </script>
+</body>
+</html>`;
+
+  const filename = `${pieceName}-${bundleTimestamp}.html`;
+  
+  return { html: finalHtml, filename, sizeKB: Math.round(finalHtml.length / 1024) };
+}
+
+// Generate HTML bundle for JavaScript pieces
+function generateJSPieceHTMLBundle(opts) {
+  const {
+    pieceName,
+    files,
+    packDate,
+    packTime,
+    gitVersion,
+  } = opts;
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>${pieceName} · Aesthetic Computer</title>
+  <script>
+    // Console suppression for cleaner output
+    (function() {
+      const originalWarn = console.warn;
+      const originalLog = console.log;
+      const originalError = console.error;
+      const originalInfo = console.info;
+      
+      const shouldSuppress = (...args) => {
+        const fullMessage = args.map(a => {
+          if (typeof a === 'string') return a;
+          if (a instanceof Error) return a.message + a.stack;
+          try { return String(a); } catch { return ''; }
+        }).join(' ');
+        
+        return fullMessage.includes('WebGPU') ||
+               fullMessage.includes('Implementation Status') ||
+               fullMessage.includes('experimental on this platform') ||
+               fullMessage.includes('gpuweb') ||
+               fullMessage.includes('Context Provider') ||
+               fullMessage.includes('VFS fetch:') ||
+               fullMessage.includes('VFS miss:') ||
+               fullMessage.includes('Boot completed') ||
+               fullMessage.includes('🥾') ||
+               fullMessage.includes('🟡 Error loading mjs') ||
+               fullMessage.includes('hotSwap:') ||
+               fullMessage.includes('🔍') ||
+               fullMessage.includes('📤') ||
+               fullMessage.includes('✅') ||
+               fullMessage.includes('Initializing WebGPU') ||
+               fullMessage.includes('🎨') ||
+               fullMessage.includes('🎹 MIDI') ||
+               fullMessage.includes('requestMIDIAccess') ||
+               fullMessage.includes('permissions policy');
+      };
+      
+      console.warn = function(...args) {
+        if (shouldSuppress(...args)) return;
+        return originalWarn.apply(console, args);
+      };
+      console.info = function(...args) {
+        if (shouldSuppress(...args)) return;
+        return originalInfo.apply(console, args);
+      };
+      console.log = function(...args) {
+        if (shouldSuppress(...args)) return;
+        return originalLog.apply(console, args);
+      };
+      console.error = function(...args) {
+        if (shouldSuppress(...args)) return;
+        return originalError.apply(console, args);
+      };
+    })();
+  </script>
+  <style>
+    body { margin: 0; padding: 0; background: black; overflow: hidden; }
+    canvas { display: block; image-rendering: pixelated; }
+  </style>
+</head>
+<body>
+  <script type="module">
+    window.acPACK_MODE = true;
+    window.acSTARTING_PIECE = "${pieceName}";
+    window.acPACK_PIECE = "${pieceName}";
+    window.acPACK_DATE = "${packDate}";
+    window.acPACK_GIT = "${gitVersion}";
+    
+    window.acPACK_COLOPHON = {
+      piece: {
+        name: '${pieceName}',
+        isKidLisp: false
+      },
+      build: {
+        author: '@jeffrey',
+        packTime: ${packTime},
+        gitCommit: '${gitVersion}',
+        gitIsDirty: false,
+        fileCount: ${Object.keys(files).length}
+      }
+    };
+    
+    window.VFS = ${JSON.stringify(files).replace(/<\/script>/g, '<\\/script>')};
+    
+    const originalAppendChild = Element.prototype.appendChild;
+    Element.prototype.appendChild = function(child) {
+      if (child.tagName === 'LINK' && child.rel === 'stylesheet' && child.href && child.href.includes('.css')) {
+        return child;
+      }
+      return originalAppendChild.call(this, child);
+    };
+    
+    const originalBodyAppend = HTMLBodyElement.prototype.append;
+    HTMLBodyElement.prototype.append = function(...nodes) {
+      const filteredNodes = nodes.filter(node => {
+        if (node.tagName === 'LINK' && node.rel === 'stylesheet') {
+          return false;
+        }
+        return true;
+      });
+      return originalBodyAppend.call(this, ...filteredNodes);
+    };
+    
+    window.VFS_BLOB_URLS = {};
+    window.modulePaths = [];
+    
+    Object.entries(window.VFS).forEach(([path, file]) => {
+      if (path.endsWith('.mjs') || path.endsWith('.js')) {
+        const blob = new Blob([file.content], { type: 'application/javascript' });
+        const blobUrl = URL.createObjectURL(blob);
+        window.VFS_BLOB_URLS[path] = blobUrl;
+        window.modulePaths.push(path);
+      }
+    });
+    
+    const importMapEntries = {};
+    for (const filepath of window.modulePaths) {
+      if (window.VFS_BLOB_URLS[filepath]) {
+        importMapEntries[filepath] = window.VFS_BLOB_URLS[filepath];
+        importMapEntries['/' + filepath] = window.VFS_BLOB_URLS[filepath];
+        importMapEntries[\`aesthetic.computer/\${filepath}\`] = window.VFS_BLOB_URLS[filepath];
+        importMapEntries[\`/aesthetic.computer/\${filepath}\`] = window.VFS_BLOB_URLS[filepath];
+        importMapEntries[\`./aesthetic.computer/\${filepath}\`] = window.VFS_BLOB_URLS[filepath];
+        importMapEntries[\`https://aesthetic.computer/\${filepath}\`] = window.VFS_BLOB_URLS[filepath];
+        importMapEntries[\`./\${filepath}\`] = window.VFS_BLOB_URLS[filepath];
+        // Add relative paths that disk.mjs might use in pack mode (../disks/piece.mjs)
+        importMapEntries[\`../\${filepath}\`] = window.VFS_BLOB_URLS[filepath];
+        importMapEntries[\`../../\${filepath}\`] = window.VFS_BLOB_URLS[filepath];
+      }
+    }
+    
+    const importMap = { imports: importMapEntries };
+    const importMapScript = document.createElement('script');
+    importMapScript.type = 'importmap';
+    importMapScript.textContent = JSON.stringify(importMap);
+    document.head.appendChild(importMapScript);
+    
+    const originalFetch = window.fetch;
+    window.fetch = function(url, options) {
+      const urlStr = typeof url === 'string' ? url : url.toString();
+      
+      let vfsPath = decodeURIComponent(urlStr)
+        .replace(/^https?:\\/\\/[^\\/]+\\//g, '')
+        .replace(/^aesthetic\\.computer\\//g, '')
+        .replace(/#.*$/g, '')
+        .replace(/\\?.*$/g, '');
+      
+      vfsPath = vfsPath.replace(/^\\.\\.\\/+/g, '').replace(/^\\.\\//g, '').replace(/^\\//g, '');
+      
+      // Debug: log what we're looking for
+      console.log('[VFS] fetch:', urlStr, '->', vfsPath, 'exists:', !!window.VFS[vfsPath]);
+      
+      if (window.VFS[vfsPath]) {
+        const file = window.VFS[vfsPath];
+        let content;
+        let contentType = 'text/plain';
+        
+        if (file.binary) {
+          const binaryStr = atob(file.content);
+          const bytes = new Uint8Array(binaryStr.length);
+          for (let i = 0; i < binaryStr.length; i++) {
+            bytes[i] = binaryStr.charCodeAt(i);
+          }
+          content = bytes;
+          if (file.type === 'png') contentType = 'image/png';
+          else if (file.type === 'jpg' || file.type === 'jpeg') contentType = 'image/jpeg';
+        } else {
+          content = file.content;
+          if (file.type === 'mjs' || file.type === 'js') contentType = 'application/javascript';
+          else if (file.type === 'json') contentType = 'application/json';
+        }
+        
+        return Promise.resolve(new Response(content, {
+          status: 200,
+          headers: { 'Content-Type': contentType }
+        }));
+      }
+      
+      // Silently handle expected missing files (fonts, cursors, SVGs, CSS) - but NOT .mjs files
+      if (vfsPath.includes('disks/drawings/font_') || vfsPath.includes('cursors/') || vfsPath.endsWith('.svg') || vfsPath.endsWith('.css') || urlStr.includes('/type/webfonts/')) {
+        return Promise.resolve(new Response('', { status: 200, headers: { 'Content-Type': 'text/css' } }));
+      }
+      
+      // Log missing .mjs files for debugging
+      if (vfsPath.endsWith('.mjs')) {
+        console.warn('[VFS] Missing .mjs file:', vfsPath);
+      }
+      
+      return originalFetch.call(this, url, options);
+    };
+    
+    (async function() {
+      import(window.VFS_BLOB_URLS['boot.mjs']).catch(err => {
+        console.error('Failed to load boot.mjs:', err);
+      });
+    })();
+  </script>
+</body>
+</html>`;
+}
+
+// Main bundle creation for KidLisp pieces
 async function createBundle(pieceName, onProgress = () => {}) {
   const PIECE_NAME_NO_DOLLAR = pieceName.replace(/^\$/, '');
   const PIECE_NAME = '$' + PIECE_NAME_NO_DOLLAR;
@@ -846,13 +1185,31 @@ function generateHTMLBundle(opts) {
 // Main handler - uses Netlify streaming adapter
 exports.handler = stream(async (event) => {
   const code = event.queryStringParameters?.code;
+  const piece = event.queryStringParameters?.piece;
   const format = event.queryStringParameters?.format || 'html';
+  const nocache = event.queryStringParameters?.nocache === '1' || event.queryStringParameters?.nocache === 'true';
   
-  if (!code) {
+  // Force cache refresh if requested
+  if (nocache) {
+    coreBundleCache = null;
+    coreBundleCacheCommit = null;
+  }
+  
+  // Determine which type of bundle to create
+  const isJSPiece = !!piece;
+  const bundleTarget = piece || code;
+  
+  if (!bundleTarget) {
     return {
       statusCode: 400,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ error: "Missing 'code' parameter. Usage: /api/bundle-html?code=39j" }),
+      body: JSON.stringify({ 
+        error: "Missing 'code' or 'piece' parameter.",
+        usage: {
+          kidlisp: "/api/bundle-html?code=39j",
+          javascript: "/api/bundle-html?piece=notepat"
+        }
+      }),
     };
   }
   
@@ -871,7 +1228,9 @@ exports.handler = stream(async (event) => {
             sendEvent('progress', progress);
           };
           
-          const { html, filename, sizeKB } = await createBundle(code, onProgress);
+          const { html, filename, sizeKB } = isJSPiece
+            ? await createJSPieceBundle(bundleTarget, onProgress)
+            : await createBundle(bundleTarget, onProgress);
           
           sendEvent('complete', {
             filename,
@@ -907,7 +1266,9 @@ exports.handler = stream(async (event) => {
       console.log(`[bundle-html] ${progress.stage}: ${progress.message}`);
     };
     
-    const { html, filename, sizeKB } = await createBundle(code, onProgress);
+    const { html, filename, sizeKB } = isJSPiece
+      ? await createJSPieceBundle(bundleTarget, onProgress)
+      : await createBundle(bundleTarget, onProgress);
     
     if (format === 'json' || format === 'base64') {
       return {

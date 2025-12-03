@@ -386,7 +386,7 @@ export async function convertTapeToMp4(zipUrl) {
 }
 
 // CLI usage: node tape-to-mp4.mjs <zip-url>
-if (typeof import.meta !== 'undefined' && import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1]?.endsWith('tape-to-mp4.mjs')) {
   (async () => {
     const zipUrl = process.argv[2];
     
