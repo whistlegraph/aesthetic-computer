@@ -5,10 +5,15 @@ param(
     [string]$Platform = "Win64",
     [string]$Config = "Shipping",
     [string]$Version = (Get-Date -Format "yyyy.MM.dd-HHmm"),
+    [ValidateSet("auto", "ultra", "high", "medium")]
+    [string]$Quality = "auto",
     [switch]$AutoPackage
 )
 
 $ErrorActionPreference = "Stop"
+
+# Quality preset suffix for filename
+$QualitySuffix = if ($Quality -ne "auto") { "-$Quality" } else { "" }
 
 Write-Host "=========================================" -ForegroundColor Cyan
 Write-Host "false.work Local Windows Build" -ForegroundColor Cyan
@@ -16,6 +21,7 @@ Write-Host "=========================================" -ForegroundColor Cyan
 Write-Host "Platform: $Platform"
 Write-Host "Config: $Config"
 Write-Host "Version: $Version"
+Write-Host "Quality: $Quality" -ForegroundColor $(if ($Quality -eq "ultra") { "Magenta" } elseif ($Quality -eq "high") { "Yellow" } else { "White" })
 Write-Host "AutoPackage: $AutoPackage"
 Write-Host ""
 
@@ -85,6 +91,63 @@ Write-Host "Building $Platform package..." -ForegroundColor Yellow
 Write-Host "   This may take 10-30 minutes depending on your hardware..." -ForegroundColor Gray
 Write-Host ""
 
+# Create temporary GameUserSettings.ini for quality preset if not "auto"
+$TempSettingsCreated = $false
+$GameUserSettingsPath = "$ProjectRoot\Config\DefaultGameUserSettings.ini"
+
+if ($Quality -ne "auto") {
+    Write-Host "Applying $Quality quality preset..." -ForegroundColor Cyan
+    
+    # Quality level mapping: 0=Low, 1=Medium, 2=High, 3=Epic, 4=Cinematic
+    $QualityLevel = switch ($Quality) {
+        "medium" { 1 }
+        "high"   { 3 }  # Epic
+        "ultra"  { 4 }  # Cinematic
+        default  { 3 }
+    }
+    
+    $SettingsContent = @"
+[ScalabilityGroups]
+sg.ResolutionQuality=100
+sg.ViewDistanceQuality=$QualityLevel
+sg.AntiAliasingQuality=$QualityLevel
+sg.ShadowQuality=$QualityLevel
+sg.GlobalIlluminationQuality=$QualityLevel
+sg.ReflectionQuality=$QualityLevel
+sg.PostProcessQuality=$QualityLevel
+sg.TextureQuality=$QualityLevel
+sg.EffectsQuality=$QualityLevel
+sg.FoliageQuality=$QualityLevel
+sg.ShadingQuality=$QualityLevel
+
+[/Script/Engine.GameUserSettings]
+bUseDesiredScreenHeight=False
+DesiredScreenWidth=1920
+DesiredScreenHeight=1080
+LastUserConfirmedDesiredScreenWidth=1920
+LastUserConfirmedDesiredScreenHeight=1080
+LastRecommendedScreenWidth=-1
+LastRecommendedScreenHeight=-1
+LastCPUBenchmarkResult=-1
+LastGPUBenchmarkResult=-1
+LastCPUBenchmarkSteps=0
+LastGPUBenchmarkSteps=0
+LastGPUBenchmarkMultiplier=1
+bUseDynamicResolution=False
+bUseHDRDisplayOutput=True
+HDRDisplayOutputNits=1000
+"@
+    
+    # Backup existing if present
+    if (Test-Path $GameUserSettingsPath) {
+        Copy-Item $GameUserSettingsPath "$GameUserSettingsPath.backup" -Force
+    }
+    
+    Set-Content -Path $GameUserSettingsPath -Value $SettingsContent -Encoding UTF8
+    $TempSettingsCreated = $true
+    Write-Host "Created quality preset config: $GameUserSettingsPath" -ForegroundColor Green
+}
+
 $RunUAT = "$UE5Path\Engine\Build\BatchFiles\RunUAT.bat"
 
 & $RunUAT BuildCookRun `
@@ -105,9 +168,25 @@ $RunUAT = "$UE5Path\Engine\Build\BatchFiles\RunUAT.bat"
     -IgnoreCookErrors
 
 if ($LASTEXITCODE -ne 0) {
+    # Cleanup temp settings on failure
+    if ($TempSettingsCreated -and (Test-Path "$GameUserSettingsPath.backup")) {
+        Move-Item "$GameUserSettingsPath.backup" $GameUserSettingsPath -Force
+    } elseif ($TempSettingsCreated) {
+        Remove-Item $GameUserSettingsPath -Force -ErrorAction SilentlyContinue
+    }
     Write-Host ""
     Write-Host "[ERROR] Build failed!" -ForegroundColor Red
     exit 1
+}
+
+# Cleanup temp settings after successful build
+if ($TempSettingsCreated) {
+    if (Test-Path "$GameUserSettingsPath.backup") {
+        Move-Item "$GameUserSettingsPath.backup" $GameUserSettingsPath -Force
+    } else {
+        Remove-Item $GameUserSettingsPath -Force -ErrorAction SilentlyContinue
+    }
+    Write-Host "Cleaned up temporary quality preset config" -ForegroundColor Gray
 }
 
 Write-Host ""
@@ -121,7 +200,7 @@ Write-Host ""
 if ($AutoPackage) {
     Write-Host ""
     Write-Host "Auto: Compressing build to ZIP..." -ForegroundColor Yellow
-    $ArchiveName = "spiderlily-windows-$Version.zip"
+    $ArchiveName = "spiderlily-windows-$Version$QualitySuffix.zip"
     $ArchivePath = "$env:USERPROFILE\Desktop\$ArchiveName"
 
     if (Test-Path "C:\Program Files\7-Zip\7z.exe") {
