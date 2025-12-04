@@ -1,4 +1,4 @@
-import Geckos from "../dep/geckos.io-client.2.3.2.min.js";
+import Geckos from "../dep/geckos.io-client.3.0.2.min.js";
 import { logs } from "./logs.mjs";
 
 /* #region 🏁 todo
@@ -77,6 +77,11 @@ function connect(port = 8889, url = undefined, send) {
 
     channel.on("fairy:point", (content) => {
       respond("fairy:point", content);
+    });
+
+    // 🎮 1v1 FPS game position updates
+    channel.on("1v1:move", (content) => {
+      respond("1v1:move", content);
     });
   });
 
