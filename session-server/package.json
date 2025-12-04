@@ -36,6 +36,7 @@
     "ws": "^8.18.1"
   },
   "devDependencies": {
+    "@geckos.io/client": "^3.0.2",
     "kill-port": "^2.0.1",
     "nodemon": "^3.1.9",
     "terminal-kit": "^3.1.2",
