@@ -1642,6 +1642,18 @@ io.onConnection((channel) => {
       console.log(channel.webrtcConnection.state);
     }
   });
+
+  // 🎮 1v1 FPS game position updates over UDP (low latency)
+  channel.on("1v1:move", (data) => {
+    if (channel.webrtcConnection.state === "open") {
+      try {
+        // Broadcast position to all other players except sender
+        channel.broadcast.emit("1v1:move", data);
+      } catch (err) {
+        console.warn("1v1:move broadcast error:", err);
+      }
+    }
+  });
 });
 
 // #endregion

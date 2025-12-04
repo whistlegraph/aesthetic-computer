@@ -51,6 +51,9 @@ let paintingTextureLoaded = false; // Track if we've loaded the painting
 let globalSign;
 let globalGlyphs;
 
+// 🩰 UDP channel for low-latency position updates
+let udpChannel;
+
 // Combat
 const SHOOT_COOLDOWN = 200; // ms between shots
 const DAMAGE_PER_HIT = 20;
@@ -154,8 +157,8 @@ function logSceneDebug() {
 }
 
 
-function boot({ Form, CUBEL, QUAD, penLock, system, get, net: { socket }, handle, help, sign, glyphs }) {
-  console.log("🎮 1v1 boot", { hasForm: !!Form, hasSocket: !!socket, hasHandle: !!handle, hasSign: !!sign });
+function boot({ Form, CUBEL, QUAD, penLock, system, get, net: { socket, udp }, handle, help, sign, glyphs }) {
+  console.log("🎮 1v1 boot", { hasForm: !!Form, hasSocket: !!socket, hasHandle: !!handle, hasSign: !!sign, hasUdp: !!udp });
   
   // Store sign and glyphs for use in networking callbacks
   globalSign = sign;
@@ -170,7 +173,32 @@ function boot({ Form, CUBEL, QUAD, penLock, system, get, net: { socket }, handle
   // Set player handle
   self.handle = handle() || help.choose("red", "blue", "green", "yellow") + "_player";
   
-  // Initialize networking
+  // 🩰 Initialize UDP for low-latency position updates
+  udpChannel = udp((type, content) => {
+    if (type === "1v1:move") {
+      // Parse content if it's a string
+      const data = typeof content === 'string' ? JSON.parse(content) : content;
+      
+      // Find player by handle (UDP doesn't use WebSocket IDs)
+      if (data.handle && data.handle !== self.handle) {
+        const playerId = Object.keys(others).find(id => others[id].handle === data.handle);
+        if (playerId && others[playerId]) {
+          others[playerId].pos = data.pos;
+          others[playerId].rot = data.rot;
+          
+          // Update player box position
+          if (playerBoxes[playerId]) {
+            playerBoxes[playerId].position = [data.pos.x, data.pos.y, data.pos.z];
+          }
+        }
+      }
+    }
+  });
+  console.log("🩰 UDP channel initialized for position updates");
+  
+  // Initialize WebSocket networking (for reliable events: join/leave/combat)
+  
+  // Initialize WebSocket networking (for reliable events: join/leave/combat)
   server = socket((id, type, content) => {
     if (type === "left") {
       console.log("👋 Player left:", id);
@@ -318,6 +346,7 @@ function boot({ Form, CUBEL, QUAD, penLock, system, get, net: { socket }, handle
         gameState = "playing";
       }
       
+      // WebSocket fallback for position (UDP is primary, but WS works if UDP fails)
       if (type === "1v1:move") {
         if (others[id]) {
           others[id].pos = content.pos;
@@ -518,8 +547,8 @@ function boot({ Form, CUBEL, QUAD, penLock, system, get, net: { socket }, handle
 }
 
 function sim() {
-  // Network update - send position every frame (throttled on server if needed)
-  if (server && gameState === "playing" && graphInstance) {
+  // Network update - send position via UDP for low latency
+  if (gameState === "playing" && graphInstance) {
     self.pos = { 
       x: graphInstance.x, 
       y: graphInstance.y, 
@@ -531,10 +560,14 @@ function sim() {
       z: graphInstance.rotZ 
     };
     
-    server.send("1v1:move", {
-      pos: self.pos,
-      rot: self.rot,
-    });
+    // 🩰 Send position over UDP (low latency, unreliable but fast)
+    if (udpChannel?.connected) {
+      udpChannel.send("1v1:move", {
+        handle: self.handle,  // Use handle to identify player (links WS and UDP)
+        pos: self.pos,
+        rot: self.rot,
+      });
+    }
   }
   
   // Rotate the cube around its local center
