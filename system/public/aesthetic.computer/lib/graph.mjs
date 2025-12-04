@@ -32,7 +32,7 @@ import { any, repeat, nonvalue, flip } from "./help.mjs";
 import { Box } from "./geo.mjs";
 import { nanoid } from "../dep/nanoid/nanoid.js";
 
-const { round, sign, abs, ceil, floor, sin, cos, min, max, sqrt, PI } = Math;
+const { round, sign: mathSign, abs, ceil, floor, sin, cos, min, max, sqrt, PI } = Math;
 
 let width, height, pixels;
 const depthBuffer = [];
@@ -3296,7 +3296,7 @@ function box() {
     //   "global fadeColors": fadeColors.length > 0 ? fadeColors : "empty"
     // });
     
-    if (sign(height) === 1) {
+    if (mathSign(height) === 1) {
       for (let row = 0; row < h; row += 1) {
         if (isLocalFade) {
           // Use local fade info instead of global fade state
@@ -4056,17 +4056,17 @@ function grid(
   // Make off by 1 adjustments for specific scale inverstions.
   // (This is kind of hacky. 23.07.20.13.44)
   if (scale.x < 0 && scale.y > 0) {
-    if (angle >= 90 && angle < 270) ymod += 1 * sign(-scale.y);
-    if (angle >= 180 && angle <= 270) xmod += 1 * sign(-scale.x);
+    if (angle >= 90 && angle < 270) ymod += 1 * mathSign(-scale.y);
+    if (angle >= 180 && angle <= 270) xmod += 1 * mathSign(-scale.x);
   } else if (scale.x > 0 && scale.y > 0) {
-    if (angle >= 90 && angle < 270) xmod += 1 * sign(-scale.x);
-    if (angle >= 180 && angle <= 270) ymod += 1 * sign(-scale.y);
+    if (angle >= 90 && angle < 270) xmod += 1 * mathSign(-scale.x);
+    if (angle >= 180 && angle <= 270) ymod += 1 * mathSign(-scale.y);
   } else if (scale.y < 0 && scale.x > 0) {
-    if (angle >= 90 && angle < 270) ymod += 1 * sign(-scale.y);
-    if (angle >= 180 && angle <= 270) xmod += 1 * sign(-scale.x);
+    if (angle >= 90 && angle < 270) ymod += 1 * mathSign(-scale.y);
+    if (angle >= 180 && angle <= 270) xmod += 1 * mathSign(-scale.x);
   } else if (scale.y < 0 && scale.x < 0) {
-    if (angle >= 90 && angle < 270) xmod += 1 * sign(-scale.x);
-    if (angle >= 180 && angle <= 270) ymod += 1 * sign(-scale.y);
+    if (angle >= 90 && angle < 270) xmod += 1 * mathSign(-scale.x);
+    if (angle >= 180 && angle <= 270) ymod += 1 * mathSign(-scale.y);
   }
 
   x += xmod;
@@ -7000,6 +7000,168 @@ function drawBufferedWireframes() {
   }
 }
 
+// 🪧 sign - Create 3D text as a line-based Form
+// Converts text into line geometry that can be positioned/rotated in 3D space
+// 
+// Usage:
+//   const label = sign("Player1", { scale: 0.05, color: [0,1,0,1] });
+//   label.position = [x, y, z];
+//   ink(255).form(label);
+//
+// Options:
+//   scale: number - Size in world units (default: 0.1)
+//   color: [r,g,b,a] - Normalized RGBA color (default: [1,1,1,1])
+//   align: "left" | "center" | "right" - Text alignment (default: "left")
+//   glyphs: object - Pre-loaded glyph data (required, from Typeface.glyphs)
+//
+let signGlyphCache = {};  // Cache for loaded glyphs
+
+function sign(text, options = {}) {
+  const {
+    scale = 0.1,
+    color = [1, 1, 1, 1],
+    align = "left",
+    glyphs = {},  // Pass in typeface.glyphs from the piece
+  } = options;
+  
+  const positions = [];
+  const colors = [];
+  
+  // Normalize color to [r,g,b,a] format with values 0-1
+  const [r, g, b, a = 1] = Array.isArray(color) 
+    ? color.map(c => c > 1 ? c / 255 : c)  // Convert 0-255 to 0-1 if needed
+    : [1, 1, 1, 1];
+  const lineColor = [r, g, b, a];
+  
+  let cursorX = 0;
+  let totalWidth = 0;
+  const charData = [];
+  
+  // First pass: calculate total width and collect glyph data
+  for (const char of text) {
+    const charCode = char.charCodeAt(0);
+    let glyph = glyphs[char] || glyphs[charCode] || signGlyphCache[charCode];
+    
+    // Fallback for space
+    if (char === ' ') {
+      charData.push({ char, glyph: null, advance: 3 * scale });
+      totalWidth += 3 * scale;
+      continue;
+    }
+    
+    if (glyph) {
+      const advance = (glyph.advance || glyph.dwidth?.x || 4) * scale;
+      charData.push({ char, glyph, advance });
+      totalWidth += advance;
+    } else {
+      // Missing glyph - use a placeholder box
+      charData.push({ char, glyph: null, advance: 4 * scale, missing: true });
+      totalWidth += 4 * scale;
+    }
+  }
+  
+  // Calculate starting X based on alignment
+  if (align === "center") {
+    cursorX = -totalWidth / 2;
+  } else if (align === "right") {
+    cursorX = -totalWidth;
+  }
+  
+  // Second pass: generate line geometry
+  for (const { char, glyph, advance, missing } of charData) {
+    if (char === ' ') {
+      cursorX += advance;
+      continue;
+    }
+    
+    if (missing) {
+      // Draw a small box for missing glyphs
+      const s = 3 * scale;
+      const h = 6 * scale;
+      positions.push(
+        [cursorX, 0, 0, 1], [cursorX + s, 0, 0, 1],
+        [cursorX + s, 0, 0, 1], [cursorX + s, -h, 0, 1],
+        [cursorX + s, -h, 0, 1], [cursorX, -h, 0, 1],
+        [cursorX, -h, 0, 1], [cursorX, 0, 0, 1]
+      );
+      colors.push(lineColor, lineColor, lineColor, lineColor, lineColor, lineColor, lineColor, lineColor);
+      cursorX += advance;
+      continue;
+    }
+    
+    // Get glyph offset for positioning
+    const offsetX = (glyph.offset?.[0] || 0) * scale;
+    const offsetY = (glyph.offset?.[1] || 0) * scale;
+    
+    // Process glyph commands
+    if (glyph.commands) {
+      for (const cmd of glyph.commands) {
+        if (cmd.name === "line") {
+          const [x1, y1, x2, y2] = cmd.args;
+          positions.push(
+            [cursorX + offsetX + x1 * scale, -(offsetY + y1 * scale), 0, 1],
+            [cursorX + offsetX + x2 * scale, -(offsetY + y2 * scale), 0, 1]
+          );
+          colors.push(lineColor, lineColor);
+        } else if (cmd.name === "point") {
+          // Convert points to tiny crosses for visibility in 3D
+          const [x, y] = cmd.args;
+          const px = cursorX + offsetX + x * scale;
+          const py = -(offsetY + y * scale);
+          const ps = scale * 0.3;  // Point size
+          positions.push(
+            [px - ps, py, 0, 1], [px + ps, py, 0, 1],
+            [px, py - ps, 0, 1], [px, py + ps, 0, 1]
+          );
+          colors.push(lineColor, lineColor, lineColor, lineColor);
+        }
+      }
+    } else if (glyph.pixels) {
+      // Fallback for pixel-based glyphs: convert to dot pattern
+      const [charWidth, charHeight] = glyph.resolution || [4, 8];
+      for (let row = 0; row < glyph.pixels.length; row++) {
+        const pixelRow = glyph.pixels[row];
+        if (!Array.isArray(pixelRow)) continue;
+        for (let col = 0; col < pixelRow.length; col++) {
+          if (pixelRow[col] === 1) {
+            const px = cursorX + offsetX + col * scale;
+            const py = -(offsetY + row * scale);
+            const ps = scale * 0.25;
+            // Small cross for each pixel
+            positions.push(
+              [px, py - ps, 0, 1], [px, py + ps, 0, 1]
+            );
+            colors.push(lineColor, lineColor);
+          }
+        }
+      }
+    }
+    
+    cursorX += advance;
+  }
+  
+  // Create and return the Form
+  if (positions.length === 0) {
+    // Empty text - return minimal form
+    positions.push([0, 0, 0, 1], [0, 0, 0, 1]);
+    colors.push([0, 0, 0, 0], [0, 0, 0, 0]);
+  }
+  
+  return new Form(
+    { type: "line", positions, colors },
+    { pos: [0, 0, 0], scale: 1 }
+  );
+}
+
+// Helper to cache glyph data for sign() 
+function cacheSignGlyph(charCode, glyphData) {
+  signGlyphCache[charCode] = glyphData;
+}
+
+function clearSignGlyphCache() {
+  signGlyphCache = {};
+}
+
 // Mesh
 class Form {
   primitive = "triangle";
@@ -8014,6 +8176,9 @@ export {
   Camera,
   Form,
   Dolly,
+  sign,
+  cacheSignGlyph,
+  clearSignGlyphCache,
   clipInClipSpace,
   setShowClippedWireframes,
   clearWireframeBuffer,

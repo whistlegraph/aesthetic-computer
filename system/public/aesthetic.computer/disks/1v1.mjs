@@ -36,6 +36,7 @@ let gameState = "connecting"; // connecting, lobby, playing, dead, gameover
 
 // 3D Scene
 let cube, triangle, filledTriangle, texturedQuad, quadTexture, groundPlane, groundTexture, groundWireframe, penLocked = false;
+// Camera frustums are now created dynamically per player in playerBoxes
 let showWireframes = true; // Toggle with 'V' key (start with wireframes ON)
 let graphAPI; // Store graph API reference
 let graphInstance; // Store graph instance for camera access
@@ -45,6 +46,10 @@ let frameTimes = []; // Track frame times for FPS calculation
 let lastFrameTime = performance.now();
 let paintingTextureFetchPromise; // Track ongoing painting texture fetch
 let paintingTextureLoaded = false; // Track if we've loaded the painting
+
+// 3D Text (sign) - stored from boot for use in networking callbacks
+let globalSign;
+let globalGlyphs;
 
 // Combat
 const SHOOT_COOLDOWN = 200; // ms between shots
@@ -149,8 +154,12 @@ function logSceneDebug() {
 }
 
 
-function boot({ Form, CUBEL, QUAD, penLock, system, get, net: { socket }, handle, help }) {
-  console.log("🎮 1v1 boot", { hasForm: !!Form, hasSocket: !!socket, hasHandle: !!handle });
+function boot({ Form, CUBEL, QUAD, penLock, system, get, net: { socket }, handle, help, sign, glyphs }) {
+  console.log("🎮 1v1 boot", { hasForm: !!Form, hasSocket: !!socket, hasHandle: !!handle, hasSign: !!sign });
+  
+  // Store sign and glyphs for use in networking callbacks
+  globalSign = sign;
+  globalGlyphs = glyphs;
   
   penLock();
   
@@ -206,12 +215,104 @@ function boot({ Form, CUBEL, QUAD, penLock, system, get, net: { socket }, handle
           health: self.health,
         });
         
-        // Create visual box for this player
+        // Create CAMERA FRUSTUM visualization for this player
+        // Shows where their camera is and what direction they're looking
         if (!playerBoxes[id]) {
-          playerBoxes[id] = new Form(
-            { type: "cube" },
-            { pos: [content.pos.x, content.pos.y, content.pos.z], scale: 0.5 }
-          );
+          // Assign a color to this player based on index
+          const playerColors = [
+            [0, 1, 0],      // Lime
+            [1, 0.5, 0],    // Orange  
+            [0, 1, 1],      // Cyan
+            [1, 0, 1],      // Magenta
+            [1, 1, 0],      // Yellow
+            [0.5, 0.5, 1],  // Light blue
+          ];
+          const colorIndex = Object.keys(playerBoxes).length % playerColors.length;
+          const playerColor = playerColors[colorIndex];
+          const [r, g, b] = playerColor;
+          
+          // Camera frustum visualization
+          // A small box at camera position + pyramid showing view direction
+          const boxSize = 0.15;  // Size of camera "head" box
+          const frustumLength = 0.5;  // How far the view cone extends
+          const frustumSpread = 0.3;  // Width of frustum at far end
+          
+          playerBoxes[id] = {
+            color: playerColor,
+            // Camera box (cube wireframe at camera position)
+            cameraBox: new Form(
+              { type: "line", positions: [
+                // Front face
+                [-boxSize, -boxSize, -boxSize, 1], [boxSize, -boxSize, -boxSize, 1],
+                [boxSize, -boxSize, -boxSize, 1], [boxSize, boxSize, -boxSize, 1],
+                [boxSize, boxSize, -boxSize, 1], [-boxSize, boxSize, -boxSize, 1],
+                [-boxSize, boxSize, -boxSize, 1], [-boxSize, -boxSize, -boxSize, 1],
+                // Back face
+                [-boxSize, -boxSize, boxSize, 1], [boxSize, -boxSize, boxSize, 1],
+                [boxSize, -boxSize, boxSize, 1], [boxSize, boxSize, boxSize, 1],
+                [boxSize, boxSize, boxSize, 1], [-boxSize, boxSize, boxSize, 1],
+                [-boxSize, boxSize, boxSize, 1], [-boxSize, -boxSize, boxSize, 1],
+                // Connecting edges
+                [-boxSize, -boxSize, -boxSize, 1], [-boxSize, -boxSize, boxSize, 1],
+                [boxSize, -boxSize, -boxSize, 1], [boxSize, -boxSize, boxSize, 1],
+                [boxSize, boxSize, -boxSize, 1], [boxSize, boxSize, boxSize, 1],
+                [-boxSize, boxSize, -boxSize, 1], [-boxSize, boxSize, boxSize, 1],
+              ], colors: [
+                // All edges in player color
+                [r, g, b, 1], [r, g, b, 1], [r, g, b, 1], [r, g, b, 1],
+                [r, g, b, 1], [r, g, b, 1], [r, g, b, 1], [r, g, b, 1],
+                [r, g, b, 1], [r, g, b, 1], [r, g, b, 1], [r, g, b, 1],
+                [r, g, b, 1], [r, g, b, 1], [r, g, b, 1], [r, g, b, 1],
+                [r, g, b, 1], [r, g, b, 1], [r, g, b, 1], [r, g, b, 1],
+                [r, g, b, 1], [r, g, b, 1], [r, g, b, 1], [r, g, b, 1],
+              ]},
+              { pos: [content.pos.x, content.pos.y, content.pos.z], scale: 1 }
+            ),
+            // View frustum (pyramid pointing in look direction, -Z is forward)
+            frustum: new Form(
+              { type: "line", positions: [
+                // Lines from camera to frustum corners
+                [0, 0, 0, 1], [-frustumSpread, -frustumSpread, -frustumLength, 1],
+                [0, 0, 0, 1], [frustumSpread, -frustumSpread, -frustumLength, 1],
+                [0, 0, 0, 1], [frustumSpread, frustumSpread, -frustumLength, 1],
+                [0, 0, 0, 1], [-frustumSpread, frustumSpread, -frustumLength, 1],
+                // Far plane rectangle
+                [-frustumSpread, -frustumSpread, -frustumLength, 1], [frustumSpread, -frustumSpread, -frustumLength, 1],
+                [frustumSpread, -frustumSpread, -frustumLength, 1], [frustumSpread, frustumSpread, -frustumLength, 1],
+                [frustumSpread, frustumSpread, -frustumLength, 1], [-frustumSpread, frustumSpread, -frustumLength, 1],
+                [-frustumSpread, frustumSpread, -frustumLength, 1], [-frustumSpread, -frustumSpread, -frustumLength, 1],
+              ], colors: [
+                // Frustum edges - use red for visibility
+                [1, 0, 0, 1], [1, 0, 0, 1],
+                [1, 0, 0, 1], [1, 0, 0, 1],
+                [1, 0, 0, 1], [1, 0, 0, 1],
+                [1, 0, 0, 1], [1, 0, 0, 1],
+                // Far plane in player color
+                [r, g, b, 1], [r, g, b, 1],
+                [r, g, b, 1], [r, g, b, 1],
+                [r, g, b, 1], [r, g, b, 1],
+                [r, g, b, 1], [r, g, b, 1],
+              ]},
+              { pos: [content.pos.x, content.pos.y, content.pos.z], scale: 1 }
+            ),
+            // Vertical line to ground (so you can see where they are standing)
+            groundLine: new Form(
+              { type: "line", positions: [
+                [0, 0, 0, 1], [0, -2, 0, 1],  // Line down to ground
+              ], colors: [
+                [r, g, b, 0.5], [r, g, b, 0.5],  // Semi-transparent
+              ]},
+              { pos: [content.pos.x, content.pos.y, content.pos.z], scale: 1 }
+            ),
+            // Name sign above player (using 3D text)
+            nameSign: globalSign ? globalSign(content.handle || id.slice(0, 6), {
+              scale: 0.03,
+              color: playerColor,
+              align: "center",
+              glyphs: globalGlyphs?.("MatrixChunky8") || {},
+            }) : null,
+          };
+          console.log("🎮 Created camera frustum for:", id, content.handle, "color:", playerColor);
         }
         
         gameState = "playing";
@@ -407,6 +508,8 @@ function boot({ Form, CUBEL, QUAD, penLock, system, get, net: { socket }, handle
     { pos: [-2, 0.5, -4], rot: [0, 0, 0], scale: 0.7 }
   );
   
+  // Player camera frustums are created dynamically when players join
+  
   // Load the latest painting texture from TV endpoint
   if (get) {
     console.log("🎨 Starting to load painting from TV endpoint...");
@@ -532,12 +635,51 @@ function paint({ wipe, ink, painting, screen, line: drawLine, box: drawBox, clea
     texturedQuad.texture = quadTexture;
   }
   
-  wipe("gray")
-    .form(groundPlane) // Large textured ground plane
-    .form(texturedQuad) // Textured quad with perspective-correct mapping
-    .ink("red").form(cube)
-    .ink("cyan").form(triangle)
-    .ink("yellow").form(filledTriangle);
+  // Dark background for FPS arena
+  wipe(20, 20, 30)
+    .form(groundPlane); // Ground plane only
+  
+  // Render camera debug markers (height reference)
+  // Player camera frustums are rendered below in the playerBoxes loop
+  
+  // Render other players as camera frustums
+  for (const [id, playerModel] of Object.entries(playerBoxes)) {
+    const other = others[id];
+    if (other && playerModel) {
+      const px = other.pos.x;
+      const py = -other.pos.y;  // NEGATE Y - camera Y is inverted in the coordinate system
+      const pz = other.pos.z;
+      const pitch = -(other.rot?.x || 0);  // NEGATED - camera pitch is inverted
+      const yaw = other.rot?.y || 0;       // Player's yaw (look left/right)
+      
+      // Position camera box at player's exact camera position
+      playerModel.cameraBox.position = [px, py, pz];
+      
+      // Frustum follows camera position and FULL rotation (pitch + yaw)
+      playerModel.frustum.position = [px, py, pz];
+      playerModel.frustum.rotation = [pitch, yaw, 0];  // Pitch and yaw
+      
+      // Ground line shows where they're standing
+      playerModel.groundLine.position = [px, py, pz];
+      
+      // Name sign above player (billboard - always face camera)
+      if (playerModel.nameSign) {
+        playerModel.nameSign.position = [px, py + 0.35, pz];  // Above the camera box
+        // Billboard rotation: face toward our camera by using inverse of our yaw
+        playerModel.nameSign.rotation = [0, (self.rot?.y || 0) + 180, 0];
+      }
+      
+      // Render camera visualization (colors come from vertex colors)
+      ink(255, 255, 255).form(playerModel.cameraBox);
+      ink(255, 255, 255).form(playerModel.frustum);
+      ink(255, 255, 255).form(playerModel.groundLine);
+      
+      // Render name sign
+      if (playerModel.nameSign) {
+        ink(255, 255, 255).form(playerModel.nameSign);
+      }
+    }
+  }
   
   // Draw wireframes on top AFTER all other forms to ensure they're always visible
   if (showWireframes) {
@@ -550,62 +692,81 @@ function paint({ wipe, ink, painting, screen, line: drawLine, box: drawBox, clea
     }
   }
   
-  const debugFont = "MatrixChunky8";
+  const hudFont = "MatrixChunky8";
   
   // === 2D HUD OVERLAY ===
   
-  // Draw game state indicator
-  ink(255, 255, 255).write(gameState.toUpperCase(), { x: 10, y: 10 });
-  
-  // Draw health bar (bottom left)
-  const healthBarX = 10;
-  const healthBarY = screen.height - 30;
-  const healthBarWidth = 200;
-  const healthBarHeight = 20;
-  
-  // Health bar background
-  ink(50, 50, 50).box(healthBarX, healthBarY, healthBarWidth, healthBarHeight);
-  
-  // Health bar fill (green to red gradient based on health)
-  const healthPercent = self.health / 100;
-  const healthColor = healthPercent > 0.5 
-    ? [0, 255, 0] // Green
-    : healthPercent > 0.25
-    ? [255, 255, 0] // Yellow
-    : [255, 0, 0]; // Red
-  
-  ink(...healthColor).box(
-    healthBarX + 2, 
-    healthBarY + 2, 
-    (healthBarWidth - 4) * healthPercent, 
-    healthBarHeight - 4
-  );
-  
-  // Health text
-  ink(255, 255, 255).write(`HP: ${Math.ceil(self.health)}`, { 
-    x: healthBarX + 5, 
-    y: healthBarY + 5 
-  });
-  
-  // Draw score (top center)
-  ink(255, 255, 255).write(
-    `${self.handle} | K:${self.kills} D:${self.deaths}`, 
-    { x: screen.width / 2 - 80, y: 10 }
-  );
-  
-  // Draw crosshair (center of screen)
+  // Draw crosshair FIRST (center of screen)
   const centerX = screen.width / 2;
   const centerY = screen.height / 2;
-  const crosshairSize = 10;
-  
+  const crosshairSize = 8;
   ink(255, 255, 255, 200)
     .line(centerX - crosshairSize, centerY, centerX + crosshairSize, centerY)
     .line(centerX, centerY - crosshairSize, centerX, centerY + crosshairSize);
   
-  // Draw other players count
+  // === TOP LEFT: Game state + handle ===
+  ink(255, 255, 255).write(gameState.toUpperCase(), { x: 6, y: 4 }, undefined, undefined, false, hudFont);
+  ink(200, 200, 200).write(self.handle, { x: 6, y: 14 }, undefined, undefined, false, hudFont);
+  
+  // DEBUG: Show camera Y position
+  const camYText = `CAM Y:${self.pos.y.toFixed(2)}`;
+  ink(255, 100, 255).write(camYText, { x: 6, y: 24 }, undefined, undefined, false, hudFont);
+  
+  // === TOP RIGHT: Player list (compact) ===
   const playerCount = Object.keys(others).length;
-  if (playerCount > 0) {
-    ink(255, 255, 0).write(`Players: ${playerCount + 1}`, { x: 10, y: 30 });
+  const rightMargin = 6;
+  let rightY = 4;
+  
+  // Player count
+  const countText = `${playerCount + 1}P`;
+  ink(255, 255, 0).write(countText, { x: screen.width - rightMargin - countText.length * 4, y: rightY }, undefined, undefined, false, hudFont);
+  rightY += 10;
+  
+  // Your position (compact) - now with Y
+  const selfPosText = `YOU ${self.pos.x.toFixed(0)},${self.pos.y.toFixed(1)},${self.pos.z.toFixed(0)}`;
+  ink(100, 255, 100).write(selfPosText, { x: screen.width - rightMargin - selfPosText.length * 4, y: rightY }, undefined, undefined, false, hudFont);
+  rightY += 10;
+  
+  // Other players (compact) - use their assigned color, show Y and pitch
+  for (const [id, other] of Object.entries(others)) {
+    const name = (other.handle || id.slice(0, 4)).slice(0, 6);
+    const pitch = other.rot?.x?.toFixed(0) || "?";
+    const otherText = `${name} Y${other.pos.y.toFixed(1)} P${pitch}`;
+    // Get color from playerBoxes if available
+    const pColor = playerBoxes[id]?.color;
+    if (pColor) {
+      ink(pColor[0] * 255, pColor[1] * 255, pColor[2] * 255).write(otherText, { x: screen.width - rightMargin - otherText.length * 4, y: rightY }, undefined, undefined, false, hudFont);
+    } else {
+      ink(255, 150, 50).write(otherText, { x: screen.width - rightMargin - otherText.length * 4, y: rightY }, undefined, undefined, false, hudFont);
+    }
+    rightY += 10;
+  }
+  
+  // === BOTTOM LEFT: Health bar (slim) ===
+  const healthBarX = 6;
+  const healthBarY = screen.height - 16;
+  const healthBarWidth = 80;
+  const healthBarHeight = 10;
+  const healthPercent = self.health / 100;
+  
+  // Background
+  ink(30, 30, 30).box(healthBarX, healthBarY, healthBarWidth, healthBarHeight);
+  
+  // Fill color based on health
+  const healthColor = healthPercent > 0.5 ? [0, 220, 0] : healthPercent > 0.25 ? [220, 220, 0] : [220, 0, 0];
+  ink(...healthColor).box(healthBarX + 1, healthBarY + 1, (healthBarWidth - 2) * healthPercent, healthBarHeight - 2);
+  
+  // HP text to the right of bar
+  ink(255, 255, 255).write(`${Math.ceil(self.health)}`, { x: healthBarX + healthBarWidth + 4, y: healthBarY + 1 }, undefined, undefined, false, hudFont);
+  
+  // === BOTTOM RIGHT: K/D ===
+  const kdText = `K${self.kills} D${self.deaths}`;
+  ink(255, 255, 255).write(kdText, { x: screen.width - rightMargin - kdText.length * 4, y: screen.height - 14 }, undefined, undefined, false, hudFont);
+  
+  // === BOTTOM CENTER: Instructions when solo ===
+  if (playerCount === 0) {
+    const soloText = "WAITING...";
+    ink(150, 150, 150).write(soloText, { x: centerX - soloText.length * 2, y: screen.height - 14 }, undefined, undefined, false, hudFont);
   }
   
   // Show "Waiting for opponent" message in lobby

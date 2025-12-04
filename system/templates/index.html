@@ -14,6 +14,49 @@
     <meta name="twitter:title" content="aesthetic.computer" />
     <meta name="twitter:site" content="aesthetic.computer" />
     <meta name="twitter:image" content="https://aesthetic.computer/preview/800x800"/>
+    <script>
+      // Global error handler for fatal boot errors
+      window.onerror = function(message, source, lineno, colno, error) {
+        // Only show if we haven't booted yet (canvas not present)
+        if (!document.querySelector('canvas')) {
+          const errorDiv = document.createElement('div');
+          errorDiv.id = 'boot-error';
+          errorDiv.style.cssText = `
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: #111; color: #f88; padding: 2rem;
+            font-family: monospace; font-size: 14px; white-space: pre-wrap;
+            overflow: auto; z-index: 99999;
+          `;
+          const sourcePath = source ? source.replace(window.location.origin, '') : 'unknown';
+          errorDiv.innerHTML = `<h2 style="color:#ff6666;margin:0 0 1rem 0;">⚠️ Boot Error</h2>` +
+            `<strong style="color:#ffcc66;">${message}</strong>\n\n` +
+            `File: ${sourcePath}\n` +
+            `Line: ${lineno}, Column: ${colno}\n\n` +
+            (error?.stack ? `<span style="color:#888;">${error.stack}</span>` : '') +
+            `\n\n<span style="color:#666;">Check the browser console (F12) for more details.</span>`;
+          document.body.appendChild(errorDiv);
+        }
+        return false;
+      };
+      // Also catch unhandled promise rejections
+      window.onunhandledrejection = function(event) {
+        if (!document.querySelector('canvas')) {
+          const errorDiv = document.createElement('div');
+          errorDiv.id = 'boot-error';
+          errorDiv.style.cssText = `
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: #111; color: #f88; padding: 2rem;
+            font-family: monospace; font-size: 14px; white-space: pre-wrap;
+            overflow: auto; z-index: 99999;
+          `;
+          errorDiv.innerHTML = `<h2 style="color:#ff6666;margin:0 0 1rem 0;">⚠️ Boot Error (Promise)</h2>` +
+            `<strong style="color:#ffcc66;">${event.reason}</strong>\n\n` +
+            (event.reason?.stack ? `<span style="color:#888;">${event.reason.stack}</span>` : '') +
+            `\n\n<span style="color:#666;">Check the browser console (F12) for more details.</span>`;
+          document.body.appendChild(errorDiv);
+        }
+      };
+    </script>
   </head>
   <body class="native-cursor"> <!-- Hides the 2D UI on first boot. -->
   <script>
