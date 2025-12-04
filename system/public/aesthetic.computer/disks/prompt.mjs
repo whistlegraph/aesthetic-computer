@@ -735,7 +735,8 @@ async function halt($, text) {
 
     if (params.length > 0) {
       if (shop.indexOf(params[0]) > -1) {
-        openShopPath("/" + params[0]);
+        // Use /shop~code pattern for signed product codes
+        openShopPath("/shop~" + params[0]);
       } else {
         openShopPath("/shop/" + params.join("/"));
       }
@@ -749,8 +750,9 @@ async function halt($, text) {
     jump(target);
     return true;
   } else if (shop.indexOf(slug) > -1) {
-    if (openExternalFromIframe(toAbsoluteSiteUrl("/" + slug))) return true; // Matches a product so jump to a new page / redirect.
-    jump("/" + slug); // Matches a product so jump to a new page / redirect.
+    // Use /shop~code pattern for signed product codes
+    if (openExternalFromIframe(toAbsoluteSiteUrl("/shop~" + slug))) return true;
+    jump("/shop~" + slug);
     return true;
   } else if (slug === "at") {
     // Jump to ATProto user pages landing
