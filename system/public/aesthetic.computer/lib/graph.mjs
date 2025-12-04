@@ -3537,56 +3537,60 @@ function fillShape(points) {
 // Draws a filled triangle with vertex colors using barycentric interpolation for smooth gradients
 // Now includes Z-depth testing for proper occlusion
 function drawGradientTriangle(x1, y1, color1, z1, x2, y2, color2, z2, x3, y3, color3, z3) {
+  // Skip triangles with any vertex having extreme coordinates (clipping failure)
+  const maxCoord = max(width, height) * 10;
+  if (abs(x1) > maxCoord || abs(y1) > maxCoord ||
+      abs(x2) > maxCoord || abs(y2) > maxCoord ||
+      abs(x3) > maxCoord || abs(y3) > maxCoord) {
+    return; // Skip triangles with extreme coordinates
+  }
+
   // Calculate bounding box
   const minX = floor(min(x1, x2, x3));
   const maxX = ceil(max(x1, x2, x3));
   const minY = floor(min(y1, y2, y3));
   const maxY = ceil(max(y1, y2, y3));
   
-  // Clip to screen bounds to avoid rendering huge off-screen triangles
-  // Use inclusive bounds to ensure we fill all the way to screen edges
+  // Clip to screen bounds
   const screenMinX = max(0, minX);
   const screenMaxX = min(width, maxX);
   const screenMinY = max(0, minY);
   const screenMaxY = min(height, maxY);
   
-  const clippedWidth = screenMaxX - screenMinX;
-  const clippedHeight = screenMaxY - screenMinY;
-  
   // Skip if triangle is completely off-screen
   if (screenMinX >= screenMaxX || screenMinY >= screenMaxY) return;
-  
-  // Skip if the bounding box is excessively large compared to what's on screen
-  // This happens when huge triangles extend far off-screen
-  const origWidth = maxX - minX;
-  const origHeight = maxY - minY;
-  const onScreenRatio = (clippedWidth * clippedHeight) / (origWidth * origHeight);
-  
-  // If less than 1% of the triangle's bounding box is on screen and it's huge, skip it
-  // This prevents wasting CPU on triangles that are mostly off-screen
-  if (onScreenRatio < 0.01 && (origWidth > width * 2 || origHeight > height * 2)) {
-    return;
-  }
 
   // Calculate area of the whole triangle (for barycentric coordinates)
   const areaABC = (x2 - x1) * (y3 - y1) - (x3 - x1) * (y2 - y1);
 
   // Avoid degenerate triangles
-  if (abs(areaABC) < 0.0001) return;
+  if (abs(areaABC) < 0.5) return;
+
+  // Precompute edge vectors for faster barycentric calculation
+  const v0x = x3 - x1, v0y = y3 - y1;
+  const v1x = x2 - x1, v1y = y2 - y1;
 
   // Iterate over bounding box and check if each pixel is inside the triangle
   for (let y = screenMinY; y < screenMaxY; y++) {
     for (let x = screenMinX; x < screenMaxX; x++) {
-      // Calculate barycentric coordinates
-      const areaPBC = (x2 - x) * (y3 - y) - (x3 - x) * (y2 - y);
-      const areaPCA = (x3 - x) * (y1 - y) - (x1 - x) * (y3 - y);
+      // Calculate barycentric coordinates using edge function
+      const v2x = x - x1, v2y = y - y1;
       
-      const u = areaPBC / areaABC; // Weight for vertex 1
-      const v = areaPCA / areaABC; // Weight for vertex 2
-      const w = 1 - u - v;          // Weight for vertex 3
+      // Dot products for barycentric calculation
+      const dot00 = v0x * v0x + v0y * v0y;
+      const dot01 = v0x * v1x + v0y * v1y;
+      const dot02 = v0x * v2x + v0y * v2y;
+      const dot11 = v1x * v1x + v1y * v1y;
+      const dot12 = v1x * v2x + v1y * v2y;
+      
+      // Compute barycentric coordinates
+      const invDenom = 1.0 / (dot00 * dot11 - dot01 * dot01);
+      const v = (dot11 * dot02 - dot01 * dot12) * invDenom;
+      const w = (dot00 * dot12 - dot01 * dot02) * invDenom;
+      const u = 1.0 - v - w;
 
-      // Check if point is inside triangle (use small epsilon for edge cases)
-      if (u >= -0.0001 && v >= -0.0001 && w >= -0.0001) {
+      // Check if point is inside triangle (strict bounds)
+      if (u >= 0 && v >= 0 && w >= 0) {
         // Interpolate Z value for depth testing
         const interpZ = u * z1 + v * z2 + w * z3;
         const depth = interpZ * -1;
@@ -3698,44 +3702,33 @@ function subdivideTriangleIfNeeded(x1, y1, uv1, z1, w1, x2, y2, uv2, z2, w2, x3,
 // Uses perspective-correct interpolation with clip-space W values (not NDC Z!)
 // Also interpolates Z values for depth buffering
 function drawTexturedTriangle(x1, y1, uv1, z1, w1, x2, y2, uv2, z2, w2, x3, y3, uv3, z3, w3, texture, alphaMultiplier = 1.0) {
+  // Safety check: avoid division by zero or negative W values
+  if (w1 <= 0.001 || w2 <= 0.001 || w3 <= 0.001) {
+    return; // Skip triangles with invalid depth
+  }
+  
+  // Skip triangles with any vertex having extreme coordinates (clipping failure)
+  const maxCoord = max(width, height) * 10;
+  if (abs(x1) > maxCoord || abs(y1) > maxCoord ||
+      abs(x2) > maxCoord || abs(y2) > maxCoord ||
+      abs(x3) > maxCoord || abs(y3) > maxCoord) {
+    return; // Skip triangles with extreme coordinates
+  }
+
   // Calculate bounding box
   const minX = floor(min(x1, x2, x3));
   const maxX = ceil(max(x1, x2, x3));
   const minY = floor(min(y1, y2, y3));
   const maxY = ceil(max(y1, y2, y3));
   
-  // Clip to screen bounds to avoid rendering huge off-screen triangles
-  // Use inclusive bounds to ensure we fill all the way to screen edges
+  // Clip to screen bounds
   const screenMinX = max(0, minX);
   const screenMaxX = min(width, maxX);
   const screenMinY = max(0, minY);
   const screenMaxY = min(height, maxY);
   
-  const clippedWidth = screenMaxX - screenMinX;
-  const clippedHeight = screenMaxY - screenMinY;
-  
   // Skip if triangle is completely off-screen
   if (screenMinX >= screenMaxX || screenMinY >= screenMaxY) return;
-  
-  // Skip if the bounding box is excessively large compared to what's on screen
-  // This happens when huge triangles extend far off-screen
-  const origWidth = maxX - minX;
-  const origHeight = maxY - minY;
-  const onScreenRatio = (clippedWidth * clippedHeight) / (origWidth * origHeight);
-  
-  // If less than 1% of the triangle's bounding box is on screen and it's huge, skip it
-  // This prevents wasting CPU on triangles that are mostly off-screen
-  if (onScreenRatio < 0.01 && (origWidth > width * 2 || origHeight > height * 2)) {
-    renderStats.trianglesRejected++;
-    if (showBoundingBoxes) {
-      boundingBoxes.push({
-        minX, maxX, minY, maxY,
-        screenMinX, screenMaxX, screenMinY, screenMaxY,
-        rejected: true
-      });
-    }
-    return;
-  }
   
   // Store bounding box info for debug visualization
   if (showBoundingBoxes) {
@@ -3750,15 +3743,10 @@ function drawTexturedTriangle(x1, y1, uv1, z1, w1, x2, y2, uv2, z2, w2, x3, y3, 
   const areaABC = (x2 - x1) * (y3 - y1) - (x3 - x1) * (y2 - y1);
 
   // Avoid degenerate triangles
-  if (abs(areaABC) < 0.0001) return;
+  if (abs(areaABC) < 0.5) return;
 
   const texWidth = texture.width;
   const texHeight = texture.height;
-  
-  // Safety check: avoid division by zero or negative W values
-  if (w1 <= 0.001 || w2 <= 0.001 || w3 <= 0.001) {
-    return; // Skip triangles with invalid depth
-  }
   
   // Perspective-correct texture mapping: interpolate 1/w, u/w, v/w
   // Use clip-space W (not NDC Z) for proper perspective correction!
@@ -3773,19 +3761,32 @@ function drawTexturedTriangle(x1, y1, uv1, z1, w1, x2, y2, uv2, z2, w2, x3, y3, 
   const u3OverW = uv3[0] * invW3;
   const v3OverW = uv3[1] * invW3;
 
+  // Precompute edge vectors for faster barycentric calculation
+  const v0x = x3 - x1, v0y = y3 - y1;
+  const v1x = x2 - x1, v1y = y2 - y1;
+  const invAreaABC = 1.0 / areaABC;
+  
   // Iterate over bounding box and check if each pixel is inside the triangle
   for (let y = screenMinY; y < screenMaxY; y++) {
     for (let x = screenMinX; x < screenMaxX; x++) {
-      // Calculate barycentric coordinates
-      const areaPBC = (x2 - x) * (y3 - y) - (x3 - x) * (y2 - y);
-      const areaPCA = (x3 - x) * (y1 - y) - (x1 - x) * (y3 - y);
+      // Calculate barycentric coordinates using edge function
+      const v2x = x - x1, v2y = y - y1;
       
-      const u = areaPBC / areaABC; // Weight for vertex 1
-      const v = areaPCA / areaABC; // Weight for vertex 2
-      const w = 1 - u - v;          // Weight for vertex 3
+      // Dot products for barycentric calculation
+      const dot00 = v0x * v0x + v0y * v0y;
+      const dot01 = v0x * v1x + v0y * v1y;
+      const dot02 = v0x * v2x + v0y * v2y;
+      const dot11 = v1x * v1x + v1y * v1y;
+      const dot12 = v1x * v2x + v1y * v2y;
+      
+      // Compute barycentric coordinates
+      const invDenom = 1.0 / (dot00 * dot11 - dot01 * dot01);
+      const v = (dot11 * dot02 - dot01 * dot12) * invDenom;
+      const w = (dot00 * dot12 - dot01 * dot02) * invDenom;
+      const u = 1.0 - v - w;
 
-      // Check if point is inside triangle (use small epsilon for edge cases)
-      if (u >= -0.0001 && v >= -0.0001 && w >= -0.0001) {
+      // Check if point is inside triangle (strict bounds, no epsilon)
+      if (u >= 0 && v >= 0 && w >= 0) {
         // Interpolate Z value for depth testing
         const interpZ = u * z1 + v * z2 + w * z3;
         const depth = interpZ * -1;
@@ -3802,19 +3803,24 @@ function drawTexturedTriangle(x1, y1, uv1, z1, w1, x2, y2, uv2, z2, w2, x3, y3, 
         
         // Interpolate 1/w and uv/w using barycentric weights
         const interpInvW = u * invW1 + v * invW2 + w * invW3;
+        
+        // Guard against very small interpInvW which causes UV explosion
+        if (interpInvW < 0.0001) continue;
+        
         const interpUOverW = u * u1OverW + v * u2OverW + w * u3OverW;
         const interpVOverW = u * v1OverW + v * v2OverW + w * v3OverW;
         
         // Recover perspective-correct UV by dividing by interpolated 1/w
         const texU = interpUOverW / interpInvW;
         const texV = interpVOverW / interpInvW;
+        
+        // Skip pixels with extreme UV values (clipping artifacts)
+        if (abs(texU) > 1000 || abs(texV) > 1000) continue;
 
         // Sample texture at UV coordinates (with wrapping)
-        // Handle negative UVs properly with modulo
-        let texX = floor(texU * texWidth) % texWidth;
-        let texY = floor(texV * texHeight) % texHeight;
-        if (texX < 0) texX += texWidth;
-        if (texY < 0) texY += texHeight;
+        // Use proper modulo for negative values
+        let texX = ((floor(texU * texWidth) % texWidth) + texWidth) % texWidth;
+        let texY = ((floor(texV * texHeight) % texHeight) + texHeight) % texHeight;
         
         // Get pixel from texture buffer
         const pixelIndex = (texY * texWidth + texX) * 4;
@@ -7789,30 +7795,43 @@ function clipInClipSpace(vertices, clippingBoundary) {
     const p1 = v1.pos;
     const p2 = v2.pos;
     let t;
+    let denom;
     
+    // Compute intersection parameter t with careful handling of degenerate cases
     switch (edge) {
       case "left":
-        t = (-p1[W] - p1[X]) / ((p2[X] - p1[X]) + (p2[W] - p1[W]));
+        // Plane: x = -w, so x + w = 0
+        // p1.x + p1.w + t * ((p2.x - p1.x) + (p2.w - p1.w)) = 0
+        denom = (p2[X] - p1[X]) + (p2[W] - p1[W]);
+        t = abs(denom) > 0.0001 ? -(p1[X] + p1[W]) / denom : 0.5;
         break;
       case "right":
-        t = (p1[W] - p1[X]) / ((p2[X] - p1[X]) - (p2[W] - p1[W]));
+        // Plane: x = w, so x - w = 0
+        denom = (p2[X] - p1[X]) - (p2[W] - p1[W]);
+        t = abs(denom) > 0.0001 ? (p1[W] - p1[X]) / denom : 0.5;
         break;
       case "bottom":
-        t = (-p1[W] - p1[Y]) / ((p2[Y] - p1[Y]) + (p2[W] - p1[W]));
+        // Plane: y = -w, so y + w = 0
+        denom = (p2[Y] - p1[Y]) + (p2[W] - p1[W]);
+        t = abs(denom) > 0.0001 ? -(p1[Y] + p1[W]) / denom : 0.5;
         break;
       case "top":
-        t = (p1[W] - p1[Y]) / ((p2[Y] - p1[Y]) - (p2[W] - p1[W]));
+        // Plane: y = w, so y - w = 0
+        denom = (p2[Y] - p1[Y]) - (p2[W] - p1[W]);
+        t = abs(denom) > 0.0001 ? (p1[W] - p1[Y]) / denom : 0.5;
         break;
       case "near":
-        t = (0.01 - p1[Z]) / (p2[Z] - p1[Z]);
+        denom = p2[Z] - p1[Z];
+        t = abs(denom) > 0.0001 ? (0.01 - p1[Z]) / denom : 0.5;
         break;
       case "far":
-        t = (p1[W] - p1[Z]) / ((p2[Z] - p1[Z]) - (p2[W] - p1[W]));
+        denom = (p2[Z] - p1[Z]) - (p2[W] - p1[W]);
+        t = abs(denom) > 0.0001 ? (p1[W] - p1[Z]) / denom : 0.5;
         break;
     }
 
-    // Clamp t to valid range
-    t = max(0, min(1, t));
+    // Clamp t to valid range with small epsilon for numerical stability
+    t = max(0.0001, min(0.9999, t));
     
     // Interpolate position (all components linear in clip space)
     const newPos = vec4.lerp(vec4.create(), p1, p2, t);
