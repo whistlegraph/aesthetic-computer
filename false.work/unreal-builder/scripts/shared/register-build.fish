@@ -1,13 +1,14 @@
 #!/usr/bin/env fish
 # Register a new build via Netlify function (stores in MongoDB)
 # Usage: source this file, then call:
-#   register_build PLATFORM VERSION TIMESTAMP SIZE_MB DOWNLOAD_URL [LEVEL] [UE_VERSION] [LOG_URL] [CHANGELIST] [BUILD_TYPE]
+#   register_build PLATFORM VERSION TIMESTAMP SIZE_MB DOWNLOAD_URL [LEVEL] [UE_VERSION] [LOG_URL] [CHANGELIST] [BUILD_TYPE] [TAGS]
 #
 # Example:
 #   register_build "windows" "2025.11.26-1500" "2025-11-26T15:00:00" "1342" \
 #     "https://assets.aesthetic.computer/false.work/spiderlily-windows-2025.11.26-1500.zip" \
 #     "L_VerticalSlice_Demo" "UE_5.6" \
-#     "https://assets.aesthetic.computer/false.work/spiderlily-windows-2025.11.26-1500.txt"
+#     "https://assets.aesthetic.computer/false.work/spiderlily-windows-2025.11.26-1500.txt" \
+#     "" "" "ultra,cinematic"
 
 function register_build
     set build_platform $argv[1]
@@ -20,10 +21,11 @@ function register_build
     set log_url $argv[8]
     set changelist $argv[9]
     set build_type $argv[10]
+    set tags $argv[11]
 
     # Validate required args
     if test -z "$build_platform" -o -z "$build_version" -o -z "$build_timestamp" -o -z "$size_mb" -o -z "$download_url"
-        echo "❌ Usage: register_build PLATFORM VERSION TIMESTAMP SIZE_MB DOWNLOAD_URL [LEVEL] [UE_VERSION] [LOG_URL] [CHANGELIST] [BUILD_TYPE]"
+        echo "❌ Usage: register_build PLATFORM VERSION TIMESTAMP SIZE_MB DOWNLOAD_URL [LEVEL] [UE_VERSION] [LOG_URL] [CHANGELIST] [BUILD_TYPE] [TAGS]"
         return 1
     end
 
@@ -45,6 +47,12 @@ function register_build
 
     echo "📤 Registering build: $build_platform $build_version"
 
+    # Convert comma-separated tags to JSON array
+    set tags_json "[]"
+    if test -n "$tags"
+        set tags_json (echo "$tags" | tr ',' '\n' | jq -R . | jq -s .)
+    end
+
     # Build JSON payload using jq for proper escaping
     set json_payload (jq -n \
         --arg platform "$build_platform" \
@@ -57,6 +65,7 @@ function register_build
         --arg logUrl "$log_url" \
         --arg changelist "$changelist" \
         --arg buildType "$build_type" \
+        --argjson tags "$tags_json" \
         '{
             platform: $platform,
             version: $version,
@@ -67,7 +76,8 @@ function register_build
           + (if $ueVersion != "" then {ueVersion: $ueVersion} else {} end)
           + (if $logUrl != "" then {logUrl: $logUrl} else {} end)
           + (if $changelist != "" then {changelist: $changelist} else {} end)
-          + (if $buildType != "" then {buildType: $buildType} else {} end)')
+          + (if $buildType != "" then {buildType: $buildType} else {} end)
+          + (if ($tags | length) > 0 then {tags: $tags} else {} end)')
 
     # Call Netlify function - use temp file to separate body and http_code
     set tmp_file (mktemp)

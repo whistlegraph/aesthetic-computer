@@ -327,6 +327,48 @@
       margin-top: 0.5rem;
       font-style: italic;
     }
+    /* Build tags */
+    .build-tags {
+      display: inline-flex;
+      gap: 0.3rem;
+      margin-left: 0.5rem;
+    }
+    .build-tag {
+      display: inline-block;
+      padding: 0.15rem 0.4rem;
+      background: var(--tag-bg);
+      border: 1px solid var(--border-secondary);
+      border-radius: 3px;
+      font-size: 0.65rem;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .build-tag.ultra {
+      background: linear-gradient(135deg, #f0f 0%, #90f 100%);
+      border-color: #f0f;
+      color: #fff;
+    }
+    .build-tag.cinematic {
+      background: linear-gradient(135deg, #fa0 0%, #f60 100%);
+      border-color: #fa0;
+      color: #000;
+    }
+    .build-tag.high, .build-tag.epic {
+      background: linear-gradient(135deg, #0f0 0%, #0a0 100%);
+      border-color: #0f0;
+      color: #000;
+    }
+    .build-tag.medium {
+      background: #555;
+      border-color: #666;
+      color: #fff;
+    }
+    .build-tag.auto-detect {
+      background: var(--tag-bg);
+      border-color: var(--border-secondary);
+      color: var(--text-secondary);
+    }
   </style>
 </head>
 <body>
@@ -484,6 +526,17 @@
             <span class="project-name">SpiderLily</span>
             <a href="${build.downloadUrl}">${build.version}.${fileExt}</a>
       `;
+      
+      // Render tags
+      if (build.tags && build.tags.length > 0) {
+        html += `<span class="build-tags">`;
+        build.tags.forEach(tag => {
+          const tagClass = tag.toLowerCase().replace(/[^a-z0-9]/g, '-');
+          const tagLabel = tag === 'auto-detect' ? 'Auto' : tag.charAt(0).toUpperCase() + tag.slice(1);
+          html += `<span class="build-tag ${tagClass}">${tagLabel}</span>`;
+        });
+        html += `</span>`;
+      }
       
       if (build.status && build.status !== 'ok') {
         html += `<span class="status-badge ${build.status}">${build.status}</span>`;
