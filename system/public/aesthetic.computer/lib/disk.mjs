@@ -12971,6 +12971,7 @@ async function handle() {
     }
 
     try {
+      console.log("🤚 Fetching handle for:", USER.sub);
       const response = await fetch(`/handle?for=${USER.sub}`);
       if (response.status === 200) {
         const data = await response.json();
@@ -12983,11 +12984,11 @@ async function handle() {
         store["handle"] = data.handle;
         // store.persist("handle"); // Maybe this shouldn't persist.
       } else {
-        // console.warn(await response.text());
+        console.warn("🤚 Handle fetch failed:", response.status, await response.text());
         store["handle:failed"] = true;
       }
     } catch (error) {
-      console.error(error);
+      console.error("🤚 Handle fetch error:", error);
       store["handle:failed"] = true;
     }
   }
