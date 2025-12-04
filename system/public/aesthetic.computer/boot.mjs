@@ -347,9 +347,47 @@ window.safeSessionStorageRemove = safeSessionStorageRemove;
 }
 
 // Included as a <script> tag to boot the system on a webpage. (Loads `bios`)
-bootLog("loading bios");
-import { boot } from "./bios.mjs";
-import { parse, slug } from "./lib/parse.mjs";
+// Dynamic import with retry for network resilience
+const IMPORT_MAX_RETRIES = 3;
+const IMPORT_RETRY_DELAY = 1500;
+
+async function importWithRetry(modulePath, retries = IMPORT_MAX_RETRIES) {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      bootLog(`loading ${modulePath.split('/').pop()}${attempt > 1 ? ` (retry ${attempt}/${retries})` : ''}`);
+      const module = await import(modulePath);
+      return module;
+    } catch (err) {
+      const isNetworkError = err.message?.includes('net::ERR_') || 
+                             err.message?.includes('Failed to fetch') ||
+                             err.message?.includes('timed out') ||
+                             err.message?.includes('NetworkError');
+      
+      if (attempt < retries && isNetworkError) {
+        bootLog(`⚠️ ${modulePath.split('/').pop()} load failed - retrying in ${IMPORT_RETRY_DELAY}ms...`);
+        await new Promise(resolve => setTimeout(resolve, IMPORT_RETRY_DELAY));
+      } else {
+        throw err;
+      }
+    }
+  }
+}
+
+// Load core modules with retry support
+let boot, parse, slug;
+try {
+  const [biosModule, parseModule] = await Promise.all([
+    importWithRetry("./bios.mjs"),
+    importWithRetry("./lib/parse.mjs")
+  ]);
+  boot = biosModule.boot;
+  parse = parseModule.parse;
+  slug = parseModule.slug;
+} catch (err) {
+  bootLog(`❌ critical module load failed`);
+  showConnectionError(err);
+  throw err;
+}
 
 // 0. Environment Configuration
 
