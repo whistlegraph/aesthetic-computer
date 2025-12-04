@@ -5,6 +5,7 @@
 /* #region 🏁 TODO
   - [x] Add visualizer via BIOS streaming API
   - [x] Show current program info
+  - [x] Fix iOS Safari visualization (use time-domain fallback)
   + Done
 #endregion */
 
@@ -17,10 +18,13 @@ let isLoading = false;
 let loadError = null;
 let volume = 0.5; // Start at 50%
 let frequencyData = []; // For audio visualization
+let waveformData = []; // Time-domain data (fallback for iOS)
 let animPhase = 0;
 let currentTrack = ""; // Current track/program title
 let lastMetadataFetch = 0;
 const METADATA_INTERVAL = 15000; // Fetch metadata every 15 seconds
+let noAnalyserDataCount = 0; // Track consecutive empty data responses
+const USE_WAVEFORM_THRESHOLD = 10; // Switch to waveform after this many empty responses
 
 // Volume slider state
 let isDraggingVolume = false;
@@ -206,9 +210,13 @@ function paint({
 function sim({ num: { lerp }, send, net }) {
   animPhase += 0.05;
   
-  // Request frequency data for visualization
+  // Request frequency data for visualization (and waveform as fallback for iOS)
   if (isPlaying && send) {
     send({ type: "stream:frequencies", content: { id: STREAM_ID } });
+    // Also request waveform data as fallback for iOS Safari
+    if (noAnalyserDataCount >= USE_WAVEFORM_THRESHOLD) {
+      send({ type: "stream:waveform", content: { id: STREAM_ID } });
+    }
   }
   
   // Periodically fetch metadata for current track info
@@ -220,9 +228,16 @@ function sim({ num: { lerp }, send, net }) {
   // Update bars
   for (let i = 0; i < BAR_COUNT; i++) {
     if (isPlaying && frequencyData.length > 0) {
-      // Use real audio data
+      // Use real frequency data
       const dataIndex = Math.floor((i / BAR_COUNT) * frequencyData.length);
       bars[i].targetHeight = (frequencyData[dataIndex] || 0) / 255;
+      noAnalyserDataCount = 0; // Reset counter when we get data
+    } else if (isPlaying && waveformData.length > 0) {
+      // Use waveform data as fallback (iOS Safari)
+      const dataIndex = Math.floor((i / BAR_COUNT) * waveformData.length);
+      // Waveform is centered at 128, convert to 0-1 amplitude
+      const sample = waveformData[dataIndex] || 128;
+      bars[i].targetHeight = Math.abs(sample - 128) / 128;
     } else if (isPlaying) {
       // Fake animation while playing without analyser data
       const wave = Math.sin(animPhase + i * 0.3) * 0.3 + 0.4;
@@ -330,7 +345,21 @@ function receive({ type, content }) {
   
   if (type === "stream:frequencies-data") {
     if (content.id === STREAM_ID) {
-      frequencyData = content.data || [];
+      const data = content.data || [];
+      if (data.length > 0 && data.some(v => v > 0)) {
+        frequencyData = data;
+        noAnalyserDataCount = 0;
+      } else {
+        // Track consecutive empty responses (iOS Safari issue)
+        noAnalyserDataCount++;
+        frequencyData = [];
+      }
+    }
+  }
+  
+  if (type === "stream:waveform-data") {
+    if (content.id === STREAM_ID) {
+      waveformData = content.data || [];
     }
   }
 }
@@ -410,6 +439,8 @@ function leave({ send }) {
   // Stop the stream when leaving the piece
   stopPlayback(send);
   frequencyData = [];
+  waveformData = [];
+  noAnalyserDataCount = 0;
   bars = [];
   for (let i = 0; i < BAR_COUNT; i++) {
     bars.push({ height: 0, targetHeight: 0 });
