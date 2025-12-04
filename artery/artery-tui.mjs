@@ -74,6 +74,14 @@ const CURSOR_HOME = `${CSI}H`;
 const CLEAR_SCREEN = `${CSI}2J`;
 const CLEAR_LINE = `${CSI}2K`;
 
+// Alternate screen buffer (prevents flicker and preserves scrollback)
+const ALT_SCREEN_ON = `${CSI}?1049h`;
+const ALT_SCREEN_OFF = `${CSI}?1049l`;
+
+// Mouse support
+const MOUSE_ENABLE = `${CSI}?1000h${CSI}?1006h`; // Enable mouse tracking + SGR extended mode
+const MOUSE_DISABLE = `${CSI}?1000l${CSI}?1006l`; // Disable mouse tracking
+
 // Move cursor
 const moveTo = (row, col) => `${CSI}${row};${col}H`;
 
@@ -199,6 +207,15 @@ class ArteryTUI {
     this.testRunning = false;
     this.pendingRender = false;
     
+    // Frame buffer for double-buffering (prevents flicker)
+    this.frameBuffer = [];
+    this.forceFullRedraw = true; // First render is always full
+    this.resizeTimeout = null; // For debouncing resize
+    
+    // Detect eat terminal (Emacs Application Terminal)
+    this.isEatTerminal = process.env.TERM_PROGRAM === 'eat' || 
+                         (process.env.INSIDE_EMACS && process.env.INSIDE_EMACS.includes('eat'));
+    
     // Screen margins
     this.marginX = 2; // Left/right margin
     this.marginY = 1; // Top/bottom margin
@@ -262,19 +279,29 @@ class ArteryTUI {
     process.stdin.resume();
     process.stdin.setEncoding('utf8');
     
-    // Handle resize
+    // Handle resize with debouncing to prevent jank
     process.stdout.on('resize', () => {
-      this.width = process.stdout.columns || 80;
-      this.height = process.stdout.rows || 24;
-      this.render();
+      // Clear any pending resize
+      if (this.resizeTimeout) {
+        clearTimeout(this.resizeTimeout);
+      }
+      // Debounce resize events - wait for them to settle
+      this.resizeTimeout = setTimeout(() => {
+        this.width = process.stdout.columns || 80;
+        this.height = process.stdout.rows || 24;
+        this.forceFullRedraw = true; // Force complete redraw on resize
+        this.lastRenderedBuffer = []; // Clear buffer to force full redraw
+        this.render();
+      }, 50); // 50ms debounce - fast enough to feel responsive
     });
     
     // Handle input
     process.stdin.on('data', (key) => this.handleInput(key));
     
-    // Initial render
+    // Initial render - use alternate screen buffer to prevent flicker
+    this.write(ALT_SCREEN_ON); // Switch to alternate screen (preserves scrollback)
     this.write(CURSOR_HIDE);
-    this.write(CLEAR_SCREEN);
+    this.write(MOUSE_ENABLE); // Enable mouse tracking
     
     // Start polling local server status
     this.startServerPolling();
@@ -290,8 +317,14 @@ class ArteryTUI {
   }
   
   startBloodAnimation() {
+    // In eat terminal, use slower animation rate to reduce rendering issues
+    const animInterval = this.isEatTerminal ? 150 : 80; // ~7fps for eat, ~12fps normal
+    
     // Animate blood flow - speed varies with network activity
     this.bloodAnimInterval = setInterval(() => {
+      // Skip animation entirely if a resize is pending
+      if (this.resizeTimeout) return;
+      
       // Decay network activity over time
       const now = Date.now();
       if (now - this.lastNetworkTime > 500) {
@@ -303,10 +336,15 @@ class ArteryTUI {
       this.bloodPosition = (this.bloodPosition + speed) % (BLOOD_FLOW_LENGTH + BLOOD_PULSE_WIDTH * 2);
       
       // Only re-render header area if in menu mode to show animation
+      // In eat terminal, do full render instead of partial to avoid artifacts
       if (this.mode === 'menu' && !this.testRunning) {
-        this.renderHeaderOnly();
+        if (this.isEatTerminal) {
+          this.render(); // Full render in eat terminal
+        } else {
+          this.renderHeaderOnly();
+        }
       }
-    }, 80); // ~12fps for smooth animation
+    }, animInterval);
   }
   
   // Trigger network activity pulse
@@ -317,6 +355,8 @@ class ArteryTUI {
   
   // Render just the header without full screen clear (for animation)
   renderHeaderOnly() {
+    // Skip partial render if resize is pending - will do full render after
+    if (this.resizeTimeout) return;
     if (this.width < 80) return; // Skip animation in compact mode
     
     const boxWidth = this.innerWidth;
@@ -642,7 +682,22 @@ class ArteryTUI {
       return;
     }
     
-    // Escape to go back to menu
+    // Parse mouse events (SGR extended mode: \x1b[<button;col;rowM or m)
+    const mouseMatch = key.match(/\x1b\[<(\d+);(\d+);(\d+)([Mm])/);
+    if (mouseMatch) {
+      const button = parseInt(mouseMatch[1]);
+      const col = parseInt(mouseMatch[2]);
+      const row = parseInt(mouseMatch[3]);
+      const release = mouseMatch[4] === 'm';
+      
+      // Only handle left click release (button 0)
+      if (button === 0 && release) {
+        this.handleMouseClick(col, row);
+      }
+      return;
+    }
+    
+    // Escape to go back to menu (but ignore if part of mouse/arrow sequence)
     if (key === '\u001b' && this.mode !== 'menu') {
       this.mode = 'menu';
       this.inputBuffer = '';
@@ -681,6 +736,100 @@ class ArteryTUI {
     }
   }
 
+  // Handle mouse click events
+  handleMouseClick(col, row) {
+    const compact = this.width < 80;
+    const headerLines = compact ? 4 : 6; // Header height varies by mode
+    const marginTop = this.marginY;
+    
+    switch (this.mode) {
+      case 'menu': {
+        // Calculate which menu item was clicked
+        // Menu items start after header (marginY + header lines)
+        const menuStartRow = marginTop + headerLines;
+        const clickedItemIndex = row - menuStartRow;
+        
+        if (clickedItemIndex >= 0 && clickedItemIndex < this.menuItems.length) {
+          this.selectedIndex = clickedItemIndex;
+          this.menuItems[clickedItemIndex].action();
+        }
+        break;
+      }
+      
+      case 'pieces': {
+        // Pieces list starts after header + search box
+        const listStartRow = marginTop + headerLines + 1;
+        const visibleCount = Math.max(1, this.innerHeight - 10);
+        const startIdx = Math.max(0, this.selectedIndex - Math.floor(visibleCount / 2));
+        const clickedOffset = row - listStartRow;
+        
+        if (clickedOffset >= 0 && clickedOffset < visibleCount) {
+          const clickedItemIndex = startIdx + clickedOffset;
+          if (clickedItemIndex < this.filteredPieces.length) {
+            this.selectedIndex = clickedItemIndex;
+            this.render();
+            // Double-click effect: if same item, jump to it
+            // (for now, single click just selects)
+          }
+        }
+        break;
+      }
+      
+      case 'tests': {
+        // Tests list starts after header
+        const listStartRow = marginTop + headerLines;
+        const clickedOffset = row - listStartRow;
+        const tests = this.testFiles || [];
+        
+        if (clickedOffset >= 0 && clickedOffset < tests.length) {
+          const test = tests[clickedOffset];
+          if (test && !test.isSeparator) {
+            this.selectedIndex = clickedOffset;
+            // Execute the test on click
+            if (test.params) {
+              this.currentTest = test;
+              this.testParams = { ...test.defaults };
+              this.paramIndex = 0;
+              this.inputBuffer = '';
+              this.mode = 'test-params';
+            } else {
+              this.executeTest(test.file, '', test.isArtery || false);
+            }
+          }
+        }
+        break;
+      }
+      
+      case 'test-params': {
+        const params = this.currentTest?.params || [];
+        const listStartRow = marginTop + headerLines;
+        const clickedOffset = row - listStartRow;
+        
+        if (clickedOffset >= 0 && clickedOffset < params.length) {
+          this.paramIndex = clickedOffset;
+          this.inputBuffer = String(this.testParams[params[clickedOffset]?.key] || '');
+          this.render();
+        } else if (clickedOffset === params.length + 1) {
+          // Clicked "RUN" button
+          let args;
+          if (this.currentTest.formatArgs) {
+            args = this.currentTest.formatArgs(params, this.testParams);
+          } else {
+            args = params.map(p => this.testParams[p.key] || p.default).join(' ');
+          }
+          this.executeTest(this.currentTest.file, args, this.currentTest.isArtery || false);
+        }
+        break;
+      }
+      
+      default:
+        // Other modes: click anywhere to go back to menu
+        this.mode = 'menu';
+        this.inputBuffer = '';
+        this.render();
+        break;
+    }
+  }
   handleMenuInput(key) {
     // Arrow keys
     if (key === '\u001b[A') { // Up
@@ -1651,9 +1800,9 @@ class ArteryTUI {
     if (this.bloodAnimInterval) {
       clearInterval(this.bloodAnimInterval);
     }
+    this.write(MOUSE_DISABLE); // Disable mouse tracking
     this.write(CURSOR_SHOW);
-    this.write(CLEAR_SCREEN);
-    this.write(CURSOR_HOME);
+    this.write(ALT_SCREEN_OFF); // Switch back to main screen (restores scrollback)
     if (this.client) {
       try { this.client.close(); } catch (e) {}
     }
@@ -1678,30 +1827,25 @@ class ArteryTUI {
     return this.marginX;
   }
   
-  // Write a line with margins and full background fill
+  // Write a line with margins and full background fill (to buffer)
   writeLine(content) {
     const margin = ' '.repeat(this.adaptiveMarginX);
     const lineContent = `${BG_BLUE}${margin}${RESET}${content}`;
     // Fill rest of line with background
     const contentLen = this.stripAnsi(lineContent).length;
     const fill = this.width - contentLen;
-    this.write(`${lineContent}${fill > 0 ? BG_BLUE + ' '.repeat(fill) + RESET : ''}\n`);
+    const line = `${lineContent}${fill > 0 ? BG_BLUE + ' '.repeat(Math.max(0, fill)) + RESET : ''}`;
+    this.frameBuffer.push(line);
   }
 
-  // Rendering
+  // Rendering - uses double buffering to prevent flicker
   render() {
-    this.write(CURSOR_HOME);
-    
-    // Fill entire screen with DOS blue background
-    const bgFill = `${BG_BLUE}${' '.repeat(this.width)}${RESET}`;
-    for (let i = 0; i < this.height; i++) {
-      this.write(`${moveTo(i + 1, 1)}${bgFill}`);
-    }
-    this.write(CURSOR_HOME);
+    // Build frame in buffer first
+    this.frameBuffer = [];
     
     // Top margin with background
     for (let i = 0; i < this.marginY; i++) {
-      this.write(`${BG_BLUE}${' '.repeat(this.width)}${RESET}\n`);
+      this.frameBuffer.push(`${BG_BLUE}${' '.repeat(Math.max(1, this.width))}${RESET}`);
     }
     
     switch (this.mode) {
@@ -1731,6 +1875,22 @@ class ArteryTUI {
         this.renderSite();
         break;
     }
+    
+    // Fill remaining lines with blue background
+    while (this.frameBuffer.length < this.height) {
+      this.frameBuffer.push(`${BG_BLUE}${' '.repeat(Math.max(1, this.width))}${RESET}`);
+    }
+    
+    // Now output the entire frame at once (minimizes flicker)
+    // On resize, do a hard clear first
+    if (this.forceFullRedraw) {
+      this.write(CLEAR_SCREEN);
+      this.forceFullRedraw = false;
+    }
+    
+    // Move to home and output all lines
+    this.write(CURSOR_HOME);
+    this.write(this.frameBuffer.join('\n'));
   }
 
   renderHeader() {
@@ -2415,7 +2575,39 @@ class ArteryTUI {
 
 // Main
 async function main() {
+  // Parse CLI flags
+  const args = process.argv.slice(2);
+  const noAnimation = args.includes('--no-animation') || args.includes('-n');
+  const simpleMode = args.includes('--simple') || args.includes('-s');
+  
+  if (args.includes('--help') || args.includes('-h')) {
+    console.log(`
+🩸 Artery TUI - Terminal UI for Aesthetic Computer
+
+Usage: artery-tui [options]
+
+Options:
+  --no-animation, -n   Disable blood flow animation (reduces rendering issues)
+  --simple, -s         Simple mode: no animation, basic rendering
+  --help, -h           Show this help
+
+Environment:
+  TERM_PROGRAM=eat     Auto-detected, uses slower animation
+  INSIDE_EMACS=eat     Auto-detected, uses slower animation
+`);
+    process.exit(0);
+  }
+  
   const tui = new ArteryTUI();
+  
+  // Apply CLI options
+  if (noAnimation || simpleMode) {
+    tui.animationDisabled = true;
+  }
+  if (simpleMode) {
+    tui.simpleMode = true;
+  }
+  
   await tui.start();
 }
 
