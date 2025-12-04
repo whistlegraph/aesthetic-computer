@@ -1,5 +1,26 @@
 #!/usr/bin/env fish
 
+# Fast path for VS Code "Reload Window" - if .waiter exists and key processes running, skip setup
+if test -f /home/me/.waiter
+    echo "🔄 Detected reload (found .waiter file)"
+    
+    # Check if key processes are already running
+    set -l dockerd_running (pgrep -x dockerd 2>/dev/null)
+    set -l emacs_running (pgrep -f "emacs.*daemon" 2>/dev/null)
+    
+    if test -n "$dockerd_running"
+        echo "✅ Docker daemon already running (PID: $dockerd_running)"
+        if test -n "$emacs_running"
+            echo "✅ Emacs daemon already running (PID: $emacs_running)"
+        end
+        echo "⚡ Skipping full setup - container already configured"
+        echo "✅ Ready! (fast reload path)"
+        exit 0
+    else
+        echo "⚠️  Docker daemon not found, running full setup..."
+    end
+end
+
 # Fix fish path if needed (Fedora installs to /usr/sbin instead of /usr/bin)
 if not test -f /usr/bin/fish; and test -f /usr/sbin/fish
     sudo ln -sf /usr/sbin/fish /usr/bin/fish
