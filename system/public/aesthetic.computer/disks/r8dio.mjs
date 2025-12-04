@@ -64,23 +64,23 @@ function paint({
   const centerX = Math.floor(screen.width / 2);
   const centerY = Math.floor(screen.height / 2);
   
-  // Layout constants - work from top and bottom to avoid overlaps
-  // unifont at scale 1 is 16px tall
-  const titleY = 10;
-  const subtitleY = 30; // After title (10 + 16 + 4 padding)
-  const visualizerTopY = 46;
-  const visualizerBottomY = screen.height - 90;
-  const statusY = screen.height - 78;
-  const trackInfoY = screen.height - 66;
-  const btnY = screen.height - 52;
-  const volSliderYPos = screen.height - 14;
+  // Layout constants - centered play button like baktok
+  const titleY = 6;
+  const subtitleY = 24;
+  const visualizerTopY = 38;
+  const btnSize = 32;
+  const btnY = centerY - btnSize / 2; // Centered vertically
+  const volSliderYPos = btnY + btnSize + 8; // Volume right below button
+  const visualizerBottomY = btnY - 12; // Visualizer ends above button
+  const statusY = screen.height - 28;
+  const trackInfoY = screen.height - 14;
   
-  // Draw visualizer bars (in the middle section)
+  // Draw visualizer bars (fills space between subtitle and button)
   const barWidth = Math.max(2, Math.floor((screen.width - 40) / BAR_COUNT));
   const barGap = 1;
   const totalWidth = (barWidth + barGap) * BAR_COUNT - barGap;
   const startX = Math.floor((screen.width - totalWidth) / 2);
-  const maxBarHeight = Math.min(80, visualizerBottomY - visualizerTopY - 10);
+  const maxBarHeight = Math.max(20, visualizerBottomY - visualizerTopY - 10);
   const barBaseY = visualizerBottomY;
   
   for (let i = 0; i < BAR_COUNT; i++) {
@@ -111,7 +111,61 @@ function paint({
   // Subtitle
   ink(150, 120, 160).write("Danmarks snakke-radio", { center: "x", y: subtitleY }, undefined, undefined, false, "MatrixChunky8");
   
-  // Status indicator (above track info)
+  // Play/Pause button - centered on screen like baktok
+  const btnX = centerX - btnSize / 2;
+  
+  // Button background
+  const isHovering = pen && 
+    pen.x >= btnX && pen.x < btnX + btnSize &&
+    pen.y >= btnY && pen.y < btnY + btnSize;
+  
+  ink(isHovering ? [80, 60, 100] : [50, 40, 70]).box(btnX, btnY, btnSize, btnSize);
+  ink(isHovering ? [140, 100, 160] : [100, 80, 120]).box(btnX, btnY, btnSize, btnSize, "outline");
+  
+  // Play/Pause icon
+  const iconColor = isHovering ? [255, 220, 255] : [200, 180, 220];
+  const iconCenterY = btnY + btnSize / 2;
+  if (isPlaying) {
+    // Pause icon (two bars)
+    const barW = 5;
+    const barH = 14;
+    const gap = 6;
+    ink(...iconColor).box(centerX - gap/2 - barW, iconCenterY - barH/2, barW, barH);
+    ink(...iconColor).box(centerX + gap/2, iconCenterY - barH/2, barW, barH);
+  } else {
+    // Play icon (triangle)
+    const triX = centerX - 5;
+    const triY = iconCenterY - 7;
+    ink(...iconColor).box(triX, triY, 3, 14);
+    ink(...iconColor).box(triX + 3, triY + 2, 3, 10);
+    ink(...iconColor).box(triX + 6, triY + 4, 3, 6);
+    ink(...iconColor).box(triX + 9, triY + 6, 2, 2);
+  }
+  
+  // Volume slider - centered, right below play button
+  volSliderY = volSliderYPos;
+  const volSliderCenterX = centerX - volSliderW / 2;
+  const isHoveringVol = pen && 
+    pen.x >= volSliderCenterX && pen.x < volSliderCenterX + volSliderW &&
+    pen.y >= volSliderY - 4 && pen.y < volSliderY + volSliderH + 4;
+  
+  // Volume background track
+  ink(50, 40, 70).box(volSliderCenterX, volSliderY, volSliderW, volSliderH);
+  
+  // Volume fill
+  const fillColor = isDraggingVolume || isHoveringVol ? [180, 140, 220] : [150, 120, 180];
+  ink(...fillColor).box(volSliderCenterX, volSliderY, Math.floor(volSliderW * volume), volSliderH);
+  
+  // Volume handle
+  const handleX = volSliderCenterX + Math.floor(volSliderW * volume) - 2;
+  const handleColor = isDraggingVolume || isHoveringVol ? [255, 220, 255] : [200, 180, 220];
+  ink(...handleColor).box(handleX, volSliderY - 2, 4, volSliderH + 4);
+  
+  // Volume percentage (to the right of slider)
+  const volPercent = Math.round(volume * 100);
+  ink(100, 80, 120).write(`${volPercent}%`, { x: volSliderCenterX + volSliderW + 6, y: volSliderY + 2 }, undefined, undefined, false, "MatrixChunky8");
+  
+  // Status indicator (bottom area)
   let statusText, statusColor;
   if (loadError) {
     statusText = "Connection error";
@@ -129,69 +183,16 @@ function paint({
   
   ink(...statusColor).write(statusText, { center: "x", y: statusY }, undefined, undefined, false, "MatrixChunky8");
   
-  // Current track info (below status, above play button)
+  // Current track info (bottom)
   if (currentTrack) {
     // Truncate if too long
     let displayTrack = currentTrack;
-    const maxChars = Math.floor((screen.width - 20) / 5); // Approximate for small font
+    const maxChars = Math.floor((screen.width - 20) / 5);
     if (displayTrack.length > maxChars) {
       displayTrack = displayTrack.substring(0, maxChars - 3) + "...";
     }
     ink(180, 150, 200).write(displayTrack, { center: "x", y: trackInfoY }, undefined, undefined, false, "MatrixChunky8");
   }
-  
-  // Play/Pause button area (smaller, positioned better)
-  const btnSize = 28;
-  const btnX = centerX - btnSize / 2;
-  
-  // Button background
-  const isHovering = pen && 
-    pen.x >= btnX && pen.x < btnX + btnSize &&
-    pen.y >= btnY && pen.y < btnY + btnSize;
-  
-  ink(isHovering ? [80, 60, 100] : [50, 40, 70]).box(btnX, btnY, btnSize, btnSize);
-  ink(isHovering ? [140, 100, 160] : [100, 80, 120]).box(btnX, btnY, btnSize, btnSize, "outline");
-  
-  // Play/Pause icon (scaled for smaller button)
-  const iconColor = isHovering ? [255, 220, 255] : [200, 180, 220];
-  if (isPlaying) {
-    // Pause icon (two bars)
-    const barW = 4;
-    const barH = 12;
-    const gap = 5;
-    ink(...iconColor).box(centerX - gap/2 - barW, btnY + 8, barW, barH);
-    ink(...iconColor).box(centerX + gap/2, btnY + 8, barW, barH);
-  } else {
-    // Play icon (triangle)
-    const triX = centerX - 4;
-    const triY = btnY + 8;
-    ink(...iconColor).box(triX, triY, 3, 12);
-    ink(...iconColor).box(triX + 3, triY + 2, 3, 8);
-    ink(...iconColor).box(triX + 6, triY + 3, 2, 6);
-    ink(...iconColor).box(triX + 8, triY + 5, 2, 2);
-  }
-  
-  // Volume slider (bottom left, below play button)
-  volSliderY = volSliderYPos;
-  const isHoveringVol = pen && 
-    pen.x >= volSliderX && pen.x < volSliderX + volSliderW &&
-    pen.y >= volSliderY - 4 && pen.y < volSliderY + volSliderH + 4;
-  
-  // Volume background track
-  ink(50, 40, 70).box(volSliderX, volSliderY, volSliderW, volSliderH);
-  
-  // Volume fill
-  const fillColor = isDraggingVolume || isHoveringVol ? [180, 140, 220] : [150, 120, 180];
-  ink(...fillColor).box(volSliderX, volSliderY, Math.floor(volSliderW * volume), volSliderH);
-  
-  // Volume handle
-  const handleX = volSliderX + Math.floor(volSliderW * volume) - 2;
-  const handleColor = isDraggingVolume || isHoveringVol ? [255, 220, 255] : [200, 180, 220];
-  ink(...handleColor).box(handleX, volSliderY - 2, 4, volSliderH + 4);
-  
-  // Volume percentage
-  const volPercent = Math.round(volume * 100);
-  ink(100, 80, 120).write(`${volPercent}%`, { x: volSliderX + volSliderW + 6, y: volSliderY + 2 }, undefined, undefined, false, "MatrixChunky8");
 }
 
 function sim({ num: { lerp }, send, net }) {
@@ -243,11 +244,18 @@ function act({ event: e, jump, screen, num: { clamp }, send }) {
   // Store send function globally for use in other functions
   globalSend = send;
   
-  // Play/Pause button click (must match paint function)
-  const btnSize = 28;
   const centerX = Math.floor(screen.width / 2);
+  const centerY = Math.floor(screen.height / 2);
+  
+  // Play/Pause button - centered on screen (must match paint)
+  const btnSize = 32;
   const btnX = centerX - btnSize / 2;
-  const btnY = screen.height - 52;
+  const btnY = centerY - btnSize / 2;
+  
+  // Volume slider - centered below button (must match paint)
+  const volSliderCenterX = centerX - volSliderW / 2;
+  const volSliderYPos = btnY + btnSize + 8;
+  volSliderY = volSliderYPos;
   
   // Volume slider interaction
   const volHitY = volSliderY - 4;
@@ -255,16 +263,16 @@ function act({ event: e, jump, screen, num: { clamp }, send }) {
   
   // Start dragging volume
   if (e.is("touch")) {
-    if (e.x >= volSliderX && e.x < volSliderX + volSliderW &&
+    if (e.x >= volSliderCenterX && e.x < volSliderCenterX + volSliderW &&
         e.y >= volHitY && e.y < volHitY + volHitH) {
       isDraggingVolume = true;
-      updateVolumeFromX(e.x, clamp, send);
+      updateVolumeFromX(e.x, volSliderCenterX, clamp, send);
     }
   }
   
   // Continue dragging volume
   if (e.is("draw") && isDraggingVolume) {
-    updateVolumeFromX(e.x, clamp, send);
+    updateVolumeFromX(e.x, volSliderCenterX, clamp, send);
   }
   
   // Stop dragging volume
@@ -291,8 +299,8 @@ function act({ event: e, jump, screen, num: { clamp }, send }) {
   }
 }
 
-function updateVolumeFromX(x, clamp, send) {
-  const newVol = clamp((x - volSliderX) / volSliderW, 0, 1);
+function updateVolumeFromX(x, sliderX, clamp, send) {
+  const newVol = clamp((x - sliderX) / volSliderW, 0, 1);
   volume = newVol;
   if (globalSend) {
     globalSend({ type: "stream:volume", content: { id: STREAM_ID, volume } });
