@@ -227,6 +227,9 @@ function boot({ Form, CUBEL, QUAD, penLock, system, get, net: { socket, udp }, h
     // Handle messages from other players
     if (server.id !== id) {
       if (type === "1v1:join") {
+        // Only respond if we don't already know about this player
+        const isNewPlayer = !others[id];
+        
         console.log(`Player joined:`, content.handle, id);
         others[id] = {
           handle: content.handle,
@@ -235,13 +238,15 @@ function boot({ Form, CUBEL, QUAD, penLock, system, get, net: { socket, udp }, h
           health: content.health || 100,
         };
         
-        // Send our state back to new player
-        server.send("1v1:join", {
-          handle: self.handle,
-          pos: self.pos,
-          rot: self.rot,
-          health: self.health,
-        });
+        // Only send our state back to truly NEW players (not in response to their response)
+        if (isNewPlayer) {
+          server.send("1v1:state", {
+            handle: self.handle,
+            pos: self.pos,
+            rot: self.rot,
+            health: self.health,
+          });
+        }
         
         // Create CAMERA FRUSTUM visualization for this player
         // Shows where their camera is and what direction they're looking
@@ -341,6 +346,85 @@ function boot({ Form, CUBEL, QUAD, penLock, system, get, net: { socket, udp }, h
             }) : null,
           };
           console.log("🎮 Created camera frustum for:", id, content.handle, "color:", playerColor);
+        }
+        
+        gameState = "playing";
+      }
+      
+      // Handle state response (sent by existing players to new joiners)
+      // This does NOT trigger a response back - breaks the infinite loop
+      if (type === "1v1:state") {
+        console.log(`Player state received:`, content.handle, id);
+        
+        // Update or create player entry
+        if (!others[id]) {
+          others[id] = {
+            handle: content.handle,
+            pos: content.pos || { x: 0, y: 1.6, z: 0 },
+            rot: content.rot || { x: 0, y: 0, z: 0 },
+            health: content.health || 100,
+          };
+          
+          // Create player visualization (same as in 1v1:join)
+          if (!playerBoxes[id]) {
+            const playerColors = [
+              [0, 1, 0], [1, 0.5, 0], [0, 1, 1], [1, 0, 1], [1, 1, 0], [0.5, 0.5, 1],
+            ];
+            const colorIndex = Object.keys(playerBoxes).length % playerColors.length;
+            const playerColor = playerColors[colorIndex];
+            const [r, g, b] = playerColor;
+            const boxSize = 0.15;
+            const frustumLength = 0.5;
+            const frustumSpread = 0.3;
+            
+            playerBoxes[id] = {
+              color: playerColor,
+              cameraBox: new Form(
+                { type: "line", positions: [
+                  [-boxSize, -boxSize, -boxSize, 1], [boxSize, -boxSize, -boxSize, 1],
+                  [boxSize, -boxSize, -boxSize, 1], [boxSize, boxSize, -boxSize, 1],
+                  [boxSize, boxSize, -boxSize, 1], [-boxSize, boxSize, -boxSize, 1],
+                  [-boxSize, boxSize, -boxSize, 1], [-boxSize, -boxSize, -boxSize, 1],
+                  [-boxSize, -boxSize, boxSize, 1], [boxSize, -boxSize, boxSize, 1],
+                  [boxSize, -boxSize, boxSize, 1], [boxSize, boxSize, boxSize, 1],
+                  [boxSize, boxSize, boxSize, 1], [-boxSize, boxSize, boxSize, 1],
+                  [-boxSize, boxSize, boxSize, 1], [-boxSize, -boxSize, boxSize, 1],
+                  [-boxSize, -boxSize, -boxSize, 1], [-boxSize, -boxSize, boxSize, 1],
+                  [boxSize, -boxSize, -boxSize, 1], [boxSize, -boxSize, boxSize, 1],
+                  [boxSize, boxSize, -boxSize, 1], [boxSize, boxSize, boxSize, 1],
+                  [-boxSize, boxSize, -boxSize, 1], [-boxSize, boxSize, boxSize, 1],
+                ], colors: Array(24).fill([r, g, b, 1])},
+                { pos: [content.pos.x, content.pos.y, content.pos.z], scale: 1 }
+              ),
+              frustum: new Form(
+                { type: "line", positions: [
+                  [0, 0, 0, 1], [-frustumSpread, -frustumSpread, -frustumLength, 1],
+                  [0, 0, 0, 1], [frustumSpread, -frustumSpread, -frustumLength, 1],
+                  [0, 0, 0, 1], [frustumSpread, frustumSpread, -frustumLength, 1],
+                  [0, 0, 0, 1], [-frustumSpread, frustumSpread, -frustumLength, 1],
+                  [-frustumSpread, -frustumSpread, -frustumLength, 1], [frustumSpread, -frustumSpread, -frustumLength, 1],
+                  [frustumSpread, -frustumSpread, -frustumLength, 1], [frustumSpread, frustumSpread, -frustumLength, 1],
+                  [frustumSpread, frustumSpread, -frustumLength, 1], [-frustumSpread, frustumSpread, -frustumLength, 1],
+                  [-frustumSpread, frustumSpread, -frustumLength, 1], [-frustumSpread, -frustumSpread, -frustumLength, 1],
+                ], colors: Array(16).fill([1, 0, 0, 1])},
+                { pos: [content.pos.x, content.pos.y, content.pos.z], scale: 1 }
+              ),
+              groundLine: new Form(
+                { type: "line", positions: [[0, 0, 0, 1], [0, -2, 0, 1]], colors: [[r, g, b, 0.5], [r, g, b, 0.5]]},
+                { pos: [content.pos.x, content.pos.y, content.pos.z], scale: 1 }
+              ),
+              nameSign: globalSign ? globalSign(content.handle || id.slice(0, 6), {
+                scale: 0.03, color: playerColor, align: "center",
+                glyphs: globalGlyphs?.("MatrixChunky8") || {},
+              }) : null,
+            };
+            console.log("🎮 Created visualization for existing player:", id, content.handle);
+          }
+        } else {
+          // Just update position if we already know them
+          others[id].pos = content.pos;
+          others[id].rot = content.rot;
+          others[id].health = content.health;
         }
         
         gameState = "playing";
