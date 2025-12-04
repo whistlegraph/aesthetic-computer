@@ -52,6 +52,7 @@ function paint({
   screen,
   help,
   pen,
+  text,
 }) {
   // Dark background with slight purple tint (r8dio colors)
   wipe(25, 20, 35);
@@ -59,13 +60,23 @@ function paint({
   const centerX = Math.floor(screen.width / 2);
   const centerY = Math.floor(screen.height / 2);
   
-  // Draw visualizer bars
+  // Layout constants - work from top and bottom to avoid overlaps
+  const titleY = 12;
+  const subtitleY = 32;
+  const visualizerTopY = 50;
+  const visualizerBottomY = screen.height - 90;
+  const statusY = screen.height - 78;
+  const trackInfoY = screen.height - 66;
+  const btnY = screen.height - 52;
+  const volSliderYPos = screen.height - 14;
+  
+  // Draw visualizer bars (in the middle section)
   const barWidth = Math.max(2, Math.floor((screen.width - 40) / BAR_COUNT));
   const barGap = 1;
   const totalWidth = (barWidth + barGap) * BAR_COUNT - barGap;
   const startX = Math.floor((screen.width - totalWidth) / 2);
-  const maxBarHeight = Math.floor(screen.height * 0.4);
-  const barBaseY = centerY + 30;
+  const maxBarHeight = Math.min(80, visualizerBottomY - visualizerTopY - 10);
+  const barBaseY = visualizerBottomY;
   
   for (let i = 0; i < BAR_COUNT; i++) {
     const bar = bars[i];
@@ -89,39 +100,27 @@ function paint({
   // Draw base line
   ink(80, 60, 100).line(startX - 10, barBaseY, startX + totalWidth + 10, barBaseY);
   
-  // Title - "r8Dio" with "8D" in magenta
-  const titleY = 20;
-  const titleParts = [
-    { text: "r", color: [255, 200, 220] },
-    { text: "8D", color: [255, 0, 255] }, // Magenta
-    { text: "io", color: [255, 200, 220] },
-  ];
+  // Title - "r8Dio" using unifont, centered properly
+  const titleScale = 2;
+  const titleText = "r8Dio";
+  const titleBox = text.box(titleText, undefined, undefined, titleScale, "unifont").box;
+  const titleStartX = Math.floor((screen.width - titleBox.width) / 2);
   
-  // Calculate total width for centering
-  const charWidth = 8; // approximate
-  const totalTitleWidth = "r8Dio".length * charWidth;
-  let titleX = Math.floor((screen.width - totalTitleWidth) / 2);
+  // Draw "r" in light pink
+  const rBox = text.box("r", undefined, undefined, titleScale, "unifont").box;
+  ink(255, 200, 220).write("r", { x: titleStartX, y: titleY, size: titleScale }, undefined, undefined, false, "unifont");
   
-  for (const part of titleParts) {
-    ink(...part.color).write(part.text, { x: titleX, y: titleY });
-    titleX += part.text.length * charWidth;
-  }
+  // Draw "8D" in magenta
+  const dBox = text.box("8D", undefined, undefined, titleScale, "unifont").box;
+  ink(255, 0, 255).write("8D", { x: titleStartX + rBox.width, y: titleY, size: titleScale }, undefined, undefined, false, "unifont");
   
-  ink(150, 120, 160).write("Danmarks snakke-radio", { center: "x", y: 36 }, undefined, undefined, false, "MatrixChunky8");
+  // Draw "io" in light pink
+  ink(255, 200, 220).write("io", { x: titleStartX + rBox.width + dBox.width, y: titleY, size: titleScale }, undefined, undefined, false, "unifont");
   
-  // Current track info (scrolling if too long)
-  if (currentTrack) {
-    const trackY = centerY + 75;
-    // Truncate if too long
-    let displayTrack = currentTrack;
-    const maxChars = Math.floor((screen.width - 20) / 5); // Approximate for small font
-    if (displayTrack.length > maxChars) {
-      displayTrack = displayTrack.substring(0, maxChars - 3) + "...";
-    }
-    ink(180, 150, 200).write(displayTrack, { center: "x", y: trackY }, undefined, undefined, false, "MatrixChunky8");
-  }
+  // Subtitle
+  ink(150, 120, 160).write("Danmarks snakke-radio", { center: "x", y: subtitleY }, undefined, undefined, false, "MatrixChunky8");
   
-  // Status indicator
+  // Status indicator (above track info)
   let statusText, statusColor;
   if (loadError) {
     statusText = "Connection error";
@@ -137,12 +136,22 @@ function paint({
     statusColor = [150, 150, 150];
   }
   
-  ink(...statusColor).write(statusText, { center: "x", y: centerY + 60 }, undefined, undefined, false, "MatrixChunky8");
+  ink(...statusColor).write(statusText, { center: "x", y: statusY }, undefined, undefined, false, "MatrixChunky8");
   
-  // Play/Pause button area
-  const btnSize = 40;
+  // Current track info (below status, above play button)
+  if (currentTrack) {
+    // Truncate if too long
+    let displayTrack = currentTrack;
+    const maxChars = Math.floor((screen.width - 20) / 5); // Approximate for small font
+    if (displayTrack.length > maxChars) {
+      displayTrack = displayTrack.substring(0, maxChars - 3) + "...";
+    }
+    ink(180, 150, 200).write(displayTrack, { center: "x", y: trackInfoY }, undefined, undefined, false, "MatrixChunky8");
+  }
+  
+  // Play/Pause button area (smaller, positioned better)
+  const btnSize = 28;
   const btnX = centerX - btnSize / 2;
-  const btnY = screen.height - 60;
   
   // Button background
   const isHovering = pen && 
@@ -152,27 +161,27 @@ function paint({
   ink(isHovering ? [80, 60, 100] : [50, 40, 70]).box(btnX, btnY, btnSize, btnSize);
   ink(isHovering ? [140, 100, 160] : [100, 80, 120]).box(btnX, btnY, btnSize, btnSize, "outline");
   
-  // Play/Pause icon
+  // Play/Pause icon (scaled for smaller button)
   const iconColor = isHovering ? [255, 220, 255] : [200, 180, 220];
   if (isPlaying) {
     // Pause icon (two bars)
-    const barW = 6;
-    const barH = 16;
-    const gap = 6;
-    ink(...iconColor).box(centerX - gap/2 - barW, btnY + 12, barW, barH);
-    ink(...iconColor).box(centerX + gap/2, btnY + 12, barW, barH);
+    const barW = 4;
+    const barH = 12;
+    const gap = 5;
+    ink(...iconColor).box(centerX - gap/2 - barW, btnY + 8, barW, barH);
+    ink(...iconColor).box(centerX + gap/2, btnY + 8, barW, barH);
   } else {
     // Play icon (triangle)
-    const triX = centerX - 6;
-    const triY = btnY + 12;
-    ink(...iconColor).box(triX, triY, 4, 16);
-    ink(...iconColor).box(triX + 4, triY + 2, 4, 12);
-    ink(...iconColor).box(triX + 8, triY + 4, 4, 8);
-    ink(...iconColor).box(triX + 12, triY + 6, 2, 4);
+    const triX = centerX - 4;
+    const triY = btnY + 8;
+    ink(...iconColor).box(triX, triY, 3, 12);
+    ink(...iconColor).box(triX + 3, triY + 2, 3, 8);
+    ink(...iconColor).box(triX + 6, triY + 3, 2, 6);
+    ink(...iconColor).box(triX + 8, triY + 5, 2, 2);
   }
   
-  // Volume slider (bottom left)
-  volSliderY = screen.height - 18;
+  // Volume slider (bottom left, below play button)
+  volSliderY = volSliderYPos;
   const isHoveringVol = pen && 
     pen.x >= volSliderX && pen.x < volSliderX + volSliderW &&
     pen.y >= volSliderY - 4 && pen.y < volSliderY + volSliderH + 4;
@@ -232,11 +241,11 @@ function act({ event: e, jump, screen, num: { clamp }, send }) {
   // Store send function globally for use in other functions
   globalSend = send;
   
-  // Play/Pause button click
-  const btnSize = 40;
+  // Play/Pause button click (must match paint function)
+  const btnSize = 28;
   const centerX = Math.floor(screen.width / 2);
   const btnX = centerX - btnSize / 2;
-  const btnY = screen.height - 60;
+  const btnY = screen.height - 52;
   
   // Volume slider interaction
   const volHitY = volSliderY - 4;
