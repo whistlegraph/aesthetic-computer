@@ -756,6 +756,10 @@ async function halt($, text) {
     // Jump to ATProto user pages landing
     jump(`https://at.aesthetic.computer`);
     return true;
+  } else if (slug === "r8dio:web" || slug === "radio:web") {
+    // 📻 Jump to R8dio.dk website
+    jump(`https://r8dio.dk/lyt-live/`);
+    return true;
   } else if (slug === "merry" || slug === "merryo") {
     const loop = slug === "merryo";
     console.log(`🎄 ${slug.toUpperCase()} command received with params:`, params);

@@ -141,6 +141,17 @@ export function parseMessageElements(message) {
     });
   }
 
+  // Parse r8dio / r8Dio references (case insensitive) - radio player
+  const r8dioRegex = /\br8dio\b/gi;
+  while ((match = r8dioRegex.exec(message)) !== null) {
+    elements.push({
+      type: "r8dio",
+      text: match[0],
+      start: match.index,
+      end: match.index + match[0].length,
+    });
+  }
+
   // Parse !tape URLs (exclamation followed by alphanumeric)
   const tapeRegex = /![a-z0-9]+/gi;
   while ((match = tapeRegex.exec(message)) !== null) {
@@ -238,4 +249,5 @@ export const defaultColorTheme = {
   promptcontent: "cyan", // Note: type is "prompt-content" but map key has no hyphen
   painting: "orange",
   kidlisp: "magenta",
+  r8dio: [255, 0, 255], // Magenta for r8dio radio links
 };
