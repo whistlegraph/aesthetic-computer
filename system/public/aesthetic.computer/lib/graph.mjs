@@ -3566,30 +3566,18 @@ function drawGradientTriangle(x1, y1, color1, z1, x2, y2, color2, z2, x3, y3, co
   // Avoid degenerate triangles
   if (abs(areaABC) < 0.5) return;
 
-  // Precompute edge vectors for faster barycentric calculation
-  const v0x = x3 - x1, v0y = y3 - y1;
-  const v1x = x2 - x1, v1y = y2 - y1;
-
   // Iterate over bounding box and check if each pixel is inside the triangle
   for (let y = screenMinY; y < screenMaxY; y++) {
     for (let x = screenMinX; x < screenMaxX; x++) {
-      // Calculate barycentric coordinates using edge function
-      const v2x = x - x1, v2y = y - y1;
+      // Calculate barycentric coordinates using signed area method
+      const areaPBC = (x2 - x) * (y3 - y) - (x3 - x) * (y2 - y);
+      const areaPCA = (x3 - x) * (y1 - y) - (x1 - x) * (y3 - y);
       
-      // Dot products for barycentric calculation
-      const dot00 = v0x * v0x + v0y * v0y;
-      const dot01 = v0x * v1x + v0y * v1y;
-      const dot02 = v0x * v2x + v0y * v2y;
-      const dot11 = v1x * v1x + v1y * v1y;
-      const dot12 = v1x * v2x + v1y * v2y;
-      
-      // Compute barycentric coordinates
-      const invDenom = 1.0 / (dot00 * dot11 - dot01 * dot01);
-      const v = (dot11 * dot02 - dot01 * dot12) * invDenom;
-      const w = (dot00 * dot12 - dot01 * dot02) * invDenom;
-      const u = 1.0 - v - w;
+      const u = areaPBC / areaABC; // Weight for vertex 1
+      const v = areaPCA / areaABC; // Weight for vertex 2
+      const w = 1 - u - v;          // Weight for vertex 3
 
-      // Check if point is inside triangle (strict bounds)
+      // Check if point is inside triangle
       if (u >= 0 && v >= 0 && w >= 0) {
         // Interpolate Z value for depth testing
         const interpZ = u * z1 + v * z2 + w * z3;
@@ -3761,31 +3749,18 @@ function drawTexturedTriangle(x1, y1, uv1, z1, w1, x2, y2, uv2, z2, w2, x3, y3, 
   const u3OverW = uv3[0] * invW3;
   const v3OverW = uv3[1] * invW3;
 
-  // Precompute edge vectors for faster barycentric calculation
-  const v0x = x3 - x1, v0y = y3 - y1;
-  const v1x = x2 - x1, v1y = y2 - y1;
-  const invAreaABC = 1.0 / areaABC;
-  
   // Iterate over bounding box and check if each pixel is inside the triangle
   for (let y = screenMinY; y < screenMaxY; y++) {
     for (let x = screenMinX; x < screenMaxX; x++) {
-      // Calculate barycentric coordinates using edge function
-      const v2x = x - x1, v2y = y - y1;
+      // Calculate barycentric coordinates using signed area method
+      const areaPBC = (x2 - x) * (y3 - y) - (x3 - x) * (y2 - y);
+      const areaPCA = (x3 - x) * (y1 - y) - (x1 - x) * (y3 - y);
       
-      // Dot products for barycentric calculation
-      const dot00 = v0x * v0x + v0y * v0y;
-      const dot01 = v0x * v1x + v0y * v1y;
-      const dot02 = v0x * v2x + v0y * v2y;
-      const dot11 = v1x * v1x + v1y * v1y;
-      const dot12 = v1x * v2x + v1y * v2y;
-      
-      // Compute barycentric coordinates
-      const invDenom = 1.0 / (dot00 * dot11 - dot01 * dot01);
-      const v = (dot11 * dot02 - dot01 * dot12) * invDenom;
-      const w = (dot00 * dot12 - dot01 * dot02) * invDenom;
-      const u = 1.0 - v - w;
+      const u = areaPBC / areaABC; // Weight for vertex 1
+      const v = areaPCA / areaABC; // Weight for vertex 2
+      const w = 1 - u - v;          // Weight for vertex 3
 
-      // Check if point is inside triangle (strict bounds, no epsilon)
+      // Check if point is inside triangle
       if (u >= 0 && v >= 0 && w >= 0) {
         // Interpolate Z value for depth testing
         const interpZ = u * z1 + v * z2 + w * z3;
@@ -7568,6 +7543,19 @@ class Form {
             const persp = perspectiveDivide(vertex);
             return toScreenSpace(persp);
           });
+          
+          // Skip if any vertex has invalid coordinates (NaN from failed perspective divide)
+          const hasInvalidVertex = screenVertices.some(v => 
+            !Number.isFinite(v.pos[0]) || !Number.isFinite(v.pos[1])
+          );
+          if (hasInvalidVertex) continue;
+          
+          // Skip if any vertex is extremely far off screen (clipping failure)
+          const maxScreenCoord = max(width, height) * 5;
+          const hasExtremeVertex = screenVertices.some(v =>
+            abs(v.pos[0]) > maxScreenCoord || abs(v.pos[1]) > maxScreenCoord
+          );
+          if (hasExtremeVertex) continue;
 
           // Render triangles from clipped vertices (triangulate if we have more than 3 vertices)
           // After near-plane clipping, we might have 3-6 vertices forming a convex polygon
@@ -7795,43 +7783,31 @@ function clipInClipSpace(vertices, clippingBoundary) {
     const p1 = v1.pos;
     const p2 = v2.pos;
     let t;
-    let denom;
     
-    // Compute intersection parameter t with careful handling of degenerate cases
     switch (edge) {
       case "left":
-        // Plane: x = -w, so x + w = 0
-        // p1.x + p1.w + t * ((p2.x - p1.x) + (p2.w - p1.w)) = 0
-        denom = (p2[X] - p1[X]) + (p2[W] - p1[W]);
-        t = abs(denom) > 0.0001 ? -(p1[X] + p1[W]) / denom : 0.5;
+        t = (-p1[W] - p1[X]) / ((p2[X] - p1[X]) + (p2[W] - p1[W]));
         break;
       case "right":
-        // Plane: x = w, so x - w = 0
-        denom = (p2[X] - p1[X]) - (p2[W] - p1[W]);
-        t = abs(denom) > 0.0001 ? (p1[W] - p1[X]) / denom : 0.5;
+        t = (p1[W] - p1[X]) / ((p2[X] - p1[X]) - (p2[W] - p1[W]));
         break;
       case "bottom":
-        // Plane: y = -w, so y + w = 0
-        denom = (p2[Y] - p1[Y]) + (p2[W] - p1[W]);
-        t = abs(denom) > 0.0001 ? -(p1[Y] + p1[W]) / denom : 0.5;
+        t = (-p1[W] - p1[Y]) / ((p2[Y] - p1[Y]) + (p2[W] - p1[W]));
         break;
       case "top":
-        // Plane: y = w, so y - w = 0
-        denom = (p2[Y] - p1[Y]) - (p2[W] - p1[W]);
-        t = abs(denom) > 0.0001 ? (p1[W] - p1[Y]) / denom : 0.5;
+        t = (p1[W] - p1[Y]) / ((p2[Y] - p1[Y]) - (p2[W] - p1[W]));
         break;
       case "near":
-        denom = p2[Z] - p1[Z];
-        t = abs(denom) > 0.0001 ? (0.01 - p1[Z]) / denom : 0.5;
+        t = (0.01 - p1[Z]) / (p2[Z] - p1[Z]);
         break;
       case "far":
-        denom = (p2[Z] - p1[Z]) - (p2[W] - p1[W]);
-        t = abs(denom) > 0.0001 ? (p1[W] - p1[Z]) / denom : 0.5;
+        t = (p1[W] - p1[Z]) / ((p2[Z] - p1[Z]) - (p2[W] - p1[W]));
         break;
     }
 
-    // Clamp t to valid range with small epsilon for numerical stability
-    t = max(0.0001, min(0.9999, t));
+    // Handle NaN/Inf and clamp t to valid range
+    if (!Number.isFinite(t)) t = 0.5;
+    t = max(0, min(1, t));
     
     // Interpolate position (all components linear in clip space)
     const newPos = vec4.lerp(vec4.create(), p1, p2, t);
@@ -8055,11 +8031,21 @@ function clipLineToFrustum(v1, v2) {
 }
 
 function perspectiveDivide(vertex) {
+  // Safety check: avoid division by very small W values
+  const w = vertex.pos[W];
+  if (abs(w) < 0.001) {
+    // Return a vertex marked as invalid (will be filtered out)
+    const vert = new Vertex([NaN, NaN, NaN, w]);
+    vert.color = vertex.color;
+    vert.texCoords = vertex.texCoords;
+    return vert;
+  }
+  
   const vert = new Vertex([
-    vertex.pos[X] / vertex.pos[W],
-    vertex.pos[Y] / vertex.pos[W],
-    vertex.pos[Z] / vertex.pos[W],
-    vertex.pos[W],
+    vertex.pos[X] / w,
+    vertex.pos[Y] / w,
+    vertex.pos[Z] / w,
+    w,
   ]);
 
   vert.color = vertex.color;
