@@ -7550,23 +7550,18 @@ class Form {
           );
           if (hasInvalidVertex) continue;
           
-          // Skip if any vertex is extremely far off screen (clipping failure)
-          const maxScreenCoord = max(width, height) * 5;
-          const hasExtremeVertex = screenVertices.some(v =>
-            abs(v.pos[0]) > maxScreenCoord || abs(v.pos[1]) > maxScreenCoord
-          );
-          if (hasExtremeVertex) continue;
+          // Apply screen-space clipping to handle edge cases
+          const finalVertices = clipToScreen(screenVertices);
+          
+          // Skip if triangle was completely clipped away
+          if (finalVertices.length < 3) continue;
 
           // Render triangles from clipped vertices (triangulate if we have more than 3 vertices)
-          // After near-plane clipping, we might have 3-6 vertices forming a convex polygon
-          for (let j = 1; j < screenVertices.length - 1; j++) {
-            const s0 = screenVertices[0];
-            const s1 = screenVertices[j];
-            const s2 = screenVertices[j + 1];
-            
-            const cv0 = clippedVertices[0];
-            const cv1 = clippedVertices[j];
-            const cv2 = clippedVertices[j + 1];
+          // After screen-space clipping, we have a convex polygon to triangulate
+          for (let j = 1; j < finalVertices.length - 1; j++) {
+            const s0 = finalVertices[0];
+            const s1 = finalVertices[j];
+            const s2 = finalVertices[j + 1];
 
             // Extract screen coordinates
             const x0 = s0.pos[0], y0 = s0.pos[1];
@@ -7578,9 +7573,9 @@ class Form {
               // Subdivide triangle if it's too large in screen space
               // Pass W component for perspective-correct UV interpolation
               const subdivided = subdivideTriangleIfNeeded(
-                x0, y0, cv0.texCoords, cv0.pos[2], cv0.pos[3], // x, y, uv, z, w
-                x1, y1, cv1.texCoords, cv1.pos[2], cv1.pos[3],
-                x2, y2, cv2.texCoords, cv2.pos[2], cv2.pos[3],
+                x0, y0, s0.texCoords, s0.pos[2], s0.pos[3], // x, y, uv, z, w
+                x1, y1, s1.texCoords, s1.pos[2], s1.pos[3],
+                x2, y2, s2.texCoords, s2.pos[2], s2.pos[3],
                 300 // Subdivide triangles larger than 300px to reduce overdraw
               );
               
@@ -7619,37 +7614,37 @@ class Form {
             } else {
               // Get vertex colors (RGBA 0-1 range from vertex, convert to 0-255)
               const color0 = [
-                floor(cv0.color[0] * 255),
-                floor(cv0.color[1] * 255),
-                floor(cv0.color[2] * 255),
-                floor(cv0.color[3] * 255 * alphaMultiplier)
+                floor(s0.color[0] * 255),
+                floor(s0.color[1] * 255),
+                floor(s0.color[2] * 255),
+                floor(s0.color[3] * 255 * alphaMultiplier)
               ];
               const color1 = [
-                floor(cv1.color[0] * 255),
-                floor(cv1.color[1] * 255),
-                floor(cv1.color[2] * 255),
-                floor(cv1.color[3] * 255 * alphaMultiplier)
+                floor(s1.color[0] * 255),
+                floor(s1.color[1] * 255),
+                floor(s1.color[2] * 255),
+                floor(s1.color[3] * 255 * alphaMultiplier)
               ];
               const color2 = [
-                floor(cv2.color[0] * 255),
-                floor(cv2.color[1] * 255),
-                floor(cv2.color[2] * 255),
-                floor(cv2.color[3] * 255 * alphaMultiplier)
+                floor(s2.color[0] * 255),
+                floor(s2.color[1] * 255),
+                floor(s2.color[2] * 255),
+                floor(s2.color[3] * 255 * alphaMultiplier)
               ];
 
               // Draw filled gradient triangle using barycentric interpolation with Z-depth testing
               drawGradientTriangle(
-                x0, y0, color0, cv0.pos[2],  // x, y, color, z
-                x1, y1, color1, cv1.pos[2],
-                x2, y2, color2, cv2.pos[2]
+                x0, y0, color0, s0.pos[2],  // x, y, color, z
+                x1, y1, color1, s1.pos[2],
+                x2, y2, color2, s2.pos[2]
               );
               
               // Buffer wireframe overlay for gradient triangles
               if (showWireframes) {
                 // Only add wireframes if all vertices have positive W (in front of camera)
-                const w0 = cv0.pos[3];
-                const w1 = cv1.pos[3];
-                const w2 = cv2.pos[3];
+                const w0 = s0.pos[3];
+                const w1 = s1.pos[3];
+                const w2 = s2.pos[3];
                 
                 if (w0 > 0.01 && w1 > 0.01 && w2 > 0.01) {
                   const green = [0, 255, 0, 255]; // Green for gradient triangles
@@ -7662,16 +7657,14 @@ class Form {
           }
           
           // Buffer wireframe for the clipped polygon boundary (if clipping created extra vertices)
-          if (showWireframes && clippedVertices.length > 3) {
+          if (showWireframes && finalVertices.length > 3) {
             const red = [255, 0, 0, 255];
-            for (let k = 0; k < screenVertices.length; k++) {
-              const vA = screenVertices[k];
-              const vB = screenVertices[(k + 1) % screenVertices.length];
-              const cvA = clippedVertices[k];
-              const cvB = clippedVertices[(k + 1) % clippedVertices.length];
+            for (let k = 0; k < finalVertices.length; k++) {
+              const vA = finalVertices[k];
+              const vB = finalVertices[(k + 1) % finalVertices.length];
               
               // Only add wireframe if both vertices are in front of camera
-              if (cvA.pos[3] > 0.01 && cvB.pos[3] > 0.01) {
+              if (vA.pos[3] > 0.01 && vB.pos[3] > 0.01) {
                 addWireframeLine(vA.pos[0], vA.pos[1], vB.pos[0], vB.pos[1], red, "clipped");
               }
             }
@@ -8066,6 +8059,83 @@ function toScreenSpace(vertex) {
   const vert = new Vertex([sX, sY, z, vertex.pos[W]]);
   vert.color = vertex.color;
   vert.texCoords = vertex.texCoords;
+  return vert;
+}
+
+// Sutherland-Hodgman screen-space clipping for triangles
+// Clips polygon to screen bounds [0, width] x [0, height] and interpolates attributes
+function clipToScreen(vertices) {
+  if (vertices.length < 3) return vertices;
+  
+  const edges = [
+    { axis: 'x', sign: 1, bound: 0 },        // left: x >= 0
+    { axis: 'x', sign: -1, bound: width },   // right: x <= width  
+    { axis: 'y', sign: 1, bound: 0 },        // top: y >= 0
+    { axis: 'y', sign: -1, bound: height }   // bottom: y <= height
+  ];
+  
+  let polygon = vertices;
+  
+  for (const edge of edges) {
+    if (polygon.length < 3) break;
+    
+    const clipped = [];
+    const prev = polygon[polygon.length - 1];
+    
+    for (let i = 0; i < polygon.length; i++) {
+      const curr = polygon[i];
+      
+      const prevVal = edge.axis === 'x' ? prev.pos[0] : prev.pos[1];
+      const currVal = edge.axis === 'x' ? curr.pos[0] : curr.pos[1];
+      
+      const prevInside = edge.sign > 0 ? prevVal >= edge.bound : prevVal <= edge.bound;
+      const currInside = edge.sign > 0 ? currVal >= edge.bound : currVal <= edge.bound;
+      
+      if (currInside) {
+        if (!prevInside) {
+          // Entering: add intersection
+          const t = (edge.bound - prevVal) / (currVal - prevVal);
+          if (Number.isFinite(t) && t >= 0 && t <= 1) {
+            clipped.push(lerpVertex(prev, curr, t));
+          }
+        }
+        clipped.push(curr);
+      } else if (prevInside) {
+        // Leaving: add intersection
+        const t = (edge.bound - prevVal) / (currVal - prevVal);
+        if (Number.isFinite(t) && t >= 0 && t <= 1) {
+          clipped.push(lerpVertex(prev, curr, t));
+        }
+      }
+    }
+    
+    polygon = clipped;
+  }
+  
+  return polygon;
+}
+
+// Linear interpolation between two vertices
+function lerpVertex(v1, v2, t) {
+  const vert = new Vertex([
+    v1.pos[0] + (v2.pos[0] - v1.pos[0]) * t,
+    v1.pos[1] + (v2.pos[1] - v1.pos[1]) * t,
+    v1.pos[2] + (v2.pos[2] - v1.pos[2]) * t,
+    v1.pos[3] + (v2.pos[3] - v1.pos[3]) * t
+  ]);
+  
+  vert.color = [
+    v1.color[0] + (v2.color[0] - v1.color[0]) * t,
+    v1.color[1] + (v2.color[1] - v1.color[1]) * t,
+    v1.color[2] + (v2.color[2] - v1.color[2]) * t,
+    v1.color[3] + (v2.color[3] - v1.color[3]) * t
+  ];
+  
+  vert.texCoords = [
+    v1.texCoords[0] + (v2.texCoords[0] - v1.texCoords[0]) * t,
+    v1.texCoords[1] + (v2.texCoords[1] - v1.texCoords[1]) * t
+  ];
+  
   return vert;
 }
 
