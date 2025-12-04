@@ -59,6 +59,11 @@
     </script>
   </head>
   <body class="native-cursor"> <!-- Hides the 2D UI on first boot. -->
+  <!-- Boot Log Overlay -->
+  <div id="boot-log" style="position:fixed;top:1em;left:1em;font-family:'Courier New',Courier,monospace;font-size:clamp(14px,2.5vmin,18px);color:rgb(150,60,120);z-index:99999;text-shadow:0 0 4px rgba(0,0,0,0.5);line-height:1.4;">
+    <div id="boot-log-lines"><div style="animation:boot-line-fade 0.8s ease-out forwards">initializing<span class="blink">_</span></div></div>
+  </div>
+  <style>@keyframes boot-line-fade{0%{color:rgb(255,180,255);text-shadow:0 0 8px rgba(255,100,200,0.8)}100%{color:rgb(150,60,120);text-shadow:0 0 4px rgba(0,0,0,0.5)}}</style>
   <script>
     if (window.self !== window.top) document.body.classList.add("embed");
     // Apply nogap class immediately if parameter is present to prevent flash
