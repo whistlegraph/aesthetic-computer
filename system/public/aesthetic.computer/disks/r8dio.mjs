@@ -65,10 +65,10 @@ function paint({
   const centerY = Math.floor(screen.height / 2);
   
   // Layout constants - work from top and bottom to avoid overlaps
-  // unifont at scale 2 is 32px tall, so title needs more space
-  const titleY = 8;
-  const subtitleY = 46; // After title (8 + 32 + 6 padding)
-  const visualizerTopY = 62;
+  // unifont at scale 1 is 16px tall
+  const titleY = 10;
+  const subtitleY = 30; // After title (10 + 16 + 4 padding)
+  const visualizerTopY = 46;
   const visualizerBottomY = screen.height - 90;
   const statusY = screen.height - 78;
   const trackInfoY = screen.height - 66;
@@ -105,22 +105,25 @@ function paint({
   // Draw base line
   ink(80, 60, 100).line(startX - 10, barBaseY, startX + totalWidth + 10, barBaseY);
   
-  // Title - "r8Dio" using unifont, centered properly
-  const titleScale = 2;
+  // Title - "r8Dio" using unifont at scale 1 (unifont is already 16px)
+  const titleScale = 1;
   const titleText = "r8Dio";
   const titleBox = text.box(titleText, undefined, undefined, titleScale, "unifont").box;
   const titleStartX = Math.floor((screen.width - titleBox.width) / 2);
   
-  // Draw "r" in light pink
-  const rBox = text.box("r", undefined, undefined, titleScale, "unifont").box;
-  ink(255, 200, 220).write("r", { x: titleStartX, y: titleY, size: titleScale }, undefined, undefined, false, "unifont");
+  // Draw title with colored segments
+  let curX = titleStartX;
   
-  // Draw "8D" in magenta
-  const dBox = text.box("8D", undefined, undefined, titleScale, "unifont").box;
-  ink(255, 0, 255).write("8D", { x: titleStartX + rBox.width, y: titleY, size: titleScale }, undefined, undefined, false, "unifont");
+  // "r" in light pink
+  ink(255, 200, 220).write("r", { x: curX, y: titleY, size: titleScale }, undefined, undefined, false, "unifont");
+  curX += text.box("r", undefined, undefined, titleScale, "unifont").box.width;
   
-  // Draw "io" in light pink
-  ink(255, 200, 220).write("io", { x: titleStartX + rBox.width + dBox.width, y: titleY, size: titleScale }, undefined, undefined, false, "unifont");
+  // "8D" in magenta
+  ink(255, 0, 255).write("8D", { x: curX, y: titleY, size: titleScale }, undefined, undefined, false, "unifont");
+  curX += text.box("8D", undefined, undefined, titleScale, "unifont").box.width;
+  
+  // "io" in light pink
+  ink(255, 200, 220).write("io", { x: curX, y: titleY, size: titleScale }, undefined, undefined, false, "unifont");
   
   // Subtitle
   ink(150, 120, 160).write("Danmarks snakke-radio", { center: "x", y: subtitleY }, undefined, undefined, false, "MatrixChunky8");
