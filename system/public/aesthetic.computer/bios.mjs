@@ -604,8 +604,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   window.acPAUSE = Loop.pause;
   window.acRESUME = Loop.resume;
 
-  // Notify parent of boot progress
-  if (window.parent) {
+  // Notify parent of boot progress and update the boot log overlay
+  if (window.acBOOT_LOG) {
+    window.acBOOT_LOG("initializing graphics");
+  } else if (window.parent) {
     window.parent.postMessage({ 
       type: "boot-log", 
       message: "initializing graphics" 
@@ -913,11 +915,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // Runs one on boot & every time display resizes to adjust the framebuffer.
   function frame(width, height, gap) {
     // Notify parent on first frame setup
-    if (!imageData && window.parent) {
-      window.parent.postMessage({ 
-        type: "boot-log", 
-        message: "setting up display" 
-      }, "*");
+    if (!imageData) {
+      if (window.acBOOT_LOG) {
+        window.acBOOT_LOG("setting up display");
+      } else if (window.parent) {
+        window.parent.postMessage({ 
+          type: "boot-log", 
+          message: "setting up display" 
+        }, "*");
+      }
     }
 
     gap === 0
@@ -1757,7 +1763,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (navigator.audioSession) navigator.audioSession.type = "ambient";
 
     // Notify parent of boot progress
-    if (window.parent) {
+    if (window.acBOOT_LOG) {
+      window.acBOOT_LOG("starting audio system");
+    } else if (window.parent) {
       window.parent.postMessage({ 
         type: "boot-log", 
         message: "starting audio system" 
@@ -2583,7 +2591,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // Notify parent that we're loading the disk
   const diskLoadStartTime = performance.now();
   const bootElapsed = Math.round(diskLoadStartTime - bootStartTime);
-  if (window.parent) {
+  if (window.acBOOT_LOG) {
+    window.acBOOT_LOG(`loading disk: ${parsed.text || 'prompt'} (${bootElapsed}ms)`);
+  } else if (window.parent) {
     window.parent.postMessage({ 
       type: "boot-log", 
       message: `loading disk: ${parsed.text || 'prompt'} (${bootElapsed}ms)` 
@@ -2630,7 +2640,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // Notify parent that worker is connected
       const workerConnectTime = performance.now();
       const workerElapsed = Math.round(workerConnectTime - diskLoadStartTime);
-      if (window.parent) {
+      if (window.acBOOT_LOG) {
+        window.acBOOT_LOG(`connecting to worker (${workerElapsed}ms)`);
+      } else if (window.parent) {
         window.parent.postMessage({ 
           type: "boot-log", 
           message: `connecting to worker (${workerElapsed}ms)` 
@@ -3049,9 +3061,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // *** Received Frame ***
   async function receivedChange({ data: { type, content } }) {
-    // Relay boot-log messages to parent window
+    // Relay boot-log messages to parent window and update the overlay
     if (type === "boot-log") {
       // console.log("📢 BIOS relaying boot-log:", content);
+      // Update the boot log overlay
+      if (window.acBOOT_LOG) {
+        window.acBOOT_LOG(content);
+      }
+      // Also relay to parent for embedded contexts
       if (window.parent) {
         window.parent.postMessage({ type: "boot-log", message: content }, "*");
       }
@@ -13503,6 +13520,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         window.preloaded = true;
       //if (debug && logs.loading)
       //  console.log("⏳ Preloaded:", window.preloaded ? "✅" : "❌");
+      
+      // Hide the boot log overlay now that boot is complete
+      if (window.acHIDE_BOOT_LOG) {
+        window.acHIDE_BOOT_LOG();
+      }
       
       // Notify parent that disk is ready
       if (window.parent) {

@@ -365,3 +365,47 @@ canvas[data-type="3d"].visible {
   left: 0;
   z-index: 10;
 }
+
+/* Boot Log Overlay */
+#boot-log {
+  position: fixed;
+  top: 1em;
+  left: 1em;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: clamp(14px, 2.5vmin, 18px);
+  color: rgb(150, 60, 120);
+  z-index: 99999;
+  pointer-events: none;
+  transition: opacity 0.5s ease-out;
+  text-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
+  line-height: 1.4;
+}
+
+#boot-log.hidden {
+  opacity: 0 !important;
+  visibility: hidden;
+}
+
+#boot-log .blink {
+  animation: boot-blink 0.5s infinite;
+}
+
+#boot-log-lines div {
+  animation: boot-line-fade 0.8s ease-out forwards;
+}
+
+@keyframes boot-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+@keyframes boot-line-fade {
+  0% {
+    color: rgb(255, 180, 255);
+    text-shadow: 0 0 8px rgba(255, 100, 200, 0.8);
+  }
+  100% {
+    color: rgb(150, 60, 120);
+    text-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
+  }
+}

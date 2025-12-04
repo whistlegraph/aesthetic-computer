@@ -109,7 +109,7 @@
   // ♻️ Refresh the iframe's src url until it loads successfully.
   let readyTimeout = setTimeout(refresh, 5000);
   let refreshCount = 0;
-  const maxRefreshAttempts = 3; // Limit refresh attempts to prevent infinite loop
+  const maxRefreshAttempts = 5; // Increased retry attempts
 
   function refresh() {
     refreshCount++;
@@ -119,6 +119,18 @@
       return;
     }
     console.log(`🫐 Awaiting... (attempt ${refreshCount}/${maxRefreshAttempts})`);
+    
+    // Post a message to the iframe to show retry status in boot log
+    try {
+      iframe.contentWindow?.postMessage({ 
+        type: "boot-retry", 
+        attempt: refreshCount, 
+        maxAttempts: maxRefreshAttempts 
+      }, "*");
+    } catch (e) {
+      // Iframe might not be ready yet
+    }
+    
     const url = new URL(iframe.src);
     url.searchParams.set("ac-timestamp", new Date().getTime());
     iframe.src = url.href;
