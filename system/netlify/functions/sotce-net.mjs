@@ -4380,7 +4380,13 @@ export const handler = async (event, context) => {
                 if (result.error) console.error(result.error.message);
               } else {
                 const error = await response.json();
-                console.error("💳", error.message);
+                if (error.alreadySubscribed) {
+                  // User already has an active subscription, refresh to show their status
+                  console.log("💳 Already subscribed, refreshing...");
+                  window.location.reload();
+                } else {
+                  console.error("💳", error.message);
+                }
               }
             }
 
@@ -4642,6 +4648,29 @@ export const handler = async (event, context) => {
         //  metadata: { sub },
         // });
         customer = customers.data[0];
+
+        // 🛡️ Check if the customer already has an active sotce-net subscription
+        // This prevents duplicate subscriptions from being created (bug fix 2025.12.03)
+        const existingSubscriptions = await stripe.subscriptions.list({
+          customer: customer.id,
+          status: "active",
+          limit: 10,
+        });
+
+        const hasActiveSotceNetSub = existingSubscriptions.data.some((sub) =>
+          sub.items.data.some((item) => item.price.product === productId),
+        );
+
+        if (hasActiveSotceNetSub) {
+          shell.log(
+            "⚠️ Customer already has an active sotce-net subscription:",
+            customer.id,
+          );
+          return respond(400, {
+            message: "You already have an active subscription.",
+            alreadySubscribed: true,
+          });
+        }
       } else {
         // Customer doesn't exist, create a new one
         customer = await stripe.customers.create({
