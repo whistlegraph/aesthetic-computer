@@ -613,6 +613,11 @@ async function fun(event, context) {
         />
       </head>
       <body class="native-cursor" ${lanHost ? " data-lan-host=" + lanHost : ""}>
+        <!-- Boot Log Overlay -->
+        <div id="boot-log" style="position:fixed;top:1em;left:1em;font-family:'Courier New',Courier,monospace;font-size:clamp(14px,2.5vmin,18px);color:rgb(150,60,120);z-index:99999;text-shadow:0 0 4px rgba(0,0,0,0.5);line-height:1.4;">
+          <div id="boot-log-lines"><div style="animation:boot-line-fade 0.8s ease-out forwards">initializing<span class="blink" style="animation:boot-blink 0.5s infinite">_</span></div></div>
+        </div>
+        <style>@keyframes boot-blink{0%,49%{opacity:1}50%,100%{opacity:0}}@keyframes boot-line-fade{0%{color:rgb(255,180,255);text-shadow:0 0 8px rgba(255,100,200,0.8)}100%{color:rgb(150,60,120);text-shadow:0 0 4px rgba(0,0,0,0.5)}}</style>
         <div id="console" class="hidden">booting...</div>
         <script>
           if (window.self !== window.top) document.body.classList.add("embed");

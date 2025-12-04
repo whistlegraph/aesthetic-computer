@@ -8,14 +8,110 @@ if (window === window.top) {
 const bootStartTime = performance.now();
 window.acBOOT_START_TIME = bootStartTime;
 
-// Helper to send boot progress messages to parent
+// Get the boot log overlay element (if present in the DOM)
+const bootLogEl = document.getElementById("boot-log");
+const bootLogLinesEl = document.getElementById("boot-log-lines");
+const MAX_BOOT_LINES = 12; // Maximum lines to show
+let lastBootMessage = ""; // Track last message to prevent duplicates
+
+// Helper to send boot progress messages to parent and update the UI overlay
 function bootLog(message) {
+  // Prevent duplicate messages
+  if (message === lastBootMessage) return;
+  lastBootMessage = message;
+  
   const elapsed = Math.round(performance.now() - bootStartTime);
   // console.log(`🚀 ${message} (${elapsed}ms)`);
+  
+  // Update the boot log overlay in the DOM - prepend new line (newest on top)
+  if (bootLogLinesEl) {
+    // Remove the blinking cursor from previous first line
+    const prevCursor = bootLogLinesEl.querySelector('.blink');
+    if (prevCursor) prevCursor.remove();
+    
+    // Create new line with cursor
+    const newLine = document.createElement('div');
+    newLine.innerHTML = `${message}<span class="blink" style="animation:boot-blink 0.5s infinite">_</span>`;
+    bootLogLinesEl.insertBefore(newLine, bootLogLinesEl.firstChild);
+    
+    // Keep only the last N lines
+    while (bootLogLinesEl.children.length > MAX_BOOT_LINES) {
+      bootLogLinesEl.removeChild(bootLogLinesEl.lastChild);
+    }
+  }
+  
+  // Also send to parent for embedded contexts
   if (window.parent) {
     window.parent.postMessage({ type: "boot-log", message }, "*");
   }
 }
+
+// Hide the boot log overlay (called when boot completes)
+function hideBootLog() {
+  if (bootLogEl) {
+    bootLogEl.classList.add("hidden");
+    // Remove from DOM after transition
+    setTimeout(() => {
+      bootLogEl.remove();
+    }, 500);
+  }
+}
+
+// Show connection error and retry UI
+let retryCount = 0;
+const MAX_RETRIES = 5;
+const RETRY_DELAY = 2000;
+
+function showConnectionError(error) {
+  retryCount++;
+  const message = retryCount <= MAX_RETRIES 
+    ? `⚠️ connection error - retrying (${retryCount}/${MAX_RETRIES})...`
+    : `❌ connection failed - please refresh`;
+  bootLog(message);
+  
+  if (retryCount <= MAX_RETRIES) {
+    setTimeout(() => {
+      bootLog(`🔄 retry attempt ${retryCount}...`);
+      window.location.reload();
+    }, RETRY_DELAY);
+  }
+}
+
+// Global error handler for module load failures
+window.addEventListener('error', (event) => {
+  if (event.message?.includes('net::ERR_') || 
+      event.message?.includes('Failed to fetch') ||
+      event.message?.includes('timed out') ||
+      event.message?.includes('NetworkError')) {
+    showConnectionError(event.error || event.message);
+    event.preventDefault();
+  }
+});
+
+// Handle unhandled promise rejections (for dynamic imports)
+window.addEventListener('unhandledrejection', (event) => {
+  const reason = event.reason?.message || String(event.reason);
+  if (reason.includes('net::ERR_') || 
+      reason.includes('Failed to fetch') ||
+      reason.includes('timed out') ||
+      reason.includes('NetworkError')) {
+    showConnectionError(event.reason);
+    event.preventDefault();
+  }
+});
+
+// Expose hideBootLog globally so bios can call it when fully ready
+window.acHIDE_BOOT_LOG = hideBootLog;
+
+// Expose bootLog globally so bios and disk can update the overlay
+window.acBOOT_LOG = bootLog;
+
+// Listen for retry messages from parent (VS Code extension)
+window.addEventListener('message', (event) => {
+  if (event.data?.type === 'boot-retry') {
+    bootLog(`🔄 reconnecting (${event.data.attempt}/${event.data.maxAttempts})...`);
+  }
+});
 
 bootLog("initializing aesthetic.computer");
 
