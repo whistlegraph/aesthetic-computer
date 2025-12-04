@@ -105,8 +105,8 @@ function paint({
   // Draw base line
   ink(80, 60, 100).line(startX - 10, barBaseY, startX + totalWidth + 10, barBaseY);
   
-  // Title - "r8Dio" using unifont
-  ink(255, 100, 255).write("r8Dio", { center: "x", y: titleY }, undefined, undefined, false, "unifont");
+  // Title - "r8Dio" using unifont with color codes
+  ink(255, 200, 220).write("\\pink\\r\\magenta\\8D\\pink\\io\\reset\\", { center: "x", y: titleY }, undefined, undefined, false, "unifont");
   
   // Subtitle
   ink(150, 120, 160).write("Danmarks snakke-radio", { center: "x", y: subtitleY }, undefined, undefined, false, "MatrixChunky8");
