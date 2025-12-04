@@ -814,3 +814,7 @@ from = "/*"
 to = "/.netlify/functions/index"
 status = 200
 force = false
+# Bikes
+# TODO: Add 'Kids Bike' and 'Adult Bike' from shopify.
+# Tools
+# https://shop.aesthetic.computer/products/tools__25-12-4-11-21
