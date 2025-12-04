@@ -13592,6 +13592,20 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
       return;
     }
+    
+    // Get waveform (time-domain) data for visualization (fallback for iOS Safari)
+    if (type === "stream:waveform") {
+      const { id } = content;
+      if (streamAudio[id]?.analyser) {
+        const analyser = streamAudio[id].analyser;
+        const dataArray = new Uint8Array(analyser.frequencyBinCount);
+        analyser.getByteTimeDomainData(dataArray);
+        send({ type: "stream:waveform-data", content: { id, data: Array.from(dataArray) } });
+      } else {
+        send({ type: "stream:waveform-data", content: { id, data: [] } });
+      }
+      return;
+    }
 
     if (type === "fullscreen-enable") {
       curReframeDelay = 0;
