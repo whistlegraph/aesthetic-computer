@@ -4453,6 +4453,13 @@ const $paintApi = {
   Camera: graph.Camera,
   Form: graph.Form,
   Dolly: graph.Dolly,
+  sign: graph.sign,
+  cacheSignGlyph: graph.cacheSignGlyph,
+  // Helper to get glyphs from a typeface for use with sign()
+  glyphs: (fontName = "MatrixChunky8") => {
+    const typeface = typefaceCache.get(fontName);
+    return typeface?.glyphs || {};
+  },
   TRI,
   QUAD,
   LINE,

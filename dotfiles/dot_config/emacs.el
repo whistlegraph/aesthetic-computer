@@ -29,6 +29,31 @@
       tab-bar-close-button-show nil
       tab-line-tab-max-width 20)
 
+;; Custom colored tab bar - each tab gets its own background color
+(defun ac-tab-bar-tab-name-format (tab i)
+  "Format TAB name with custom colors based on tab name."
+  (let* ((current-p (eq (car tab) 'current-tab))
+         (tab-name (alist-get 'name tab))
+         ;; Define colors for each tab type (bg . fg)
+         (tab-colors '(("artery"  . ("#8B0000" . "#FFFFFF"))  ; Dark red
+                       ("status"  . ("#006400" . "#FFFFFF"))  ; Dark green  
+                       ("stripe"  . ("#4B0082" . "#FFFFFF"))  ; Indigo
+                       ("chat"    . ("#00008B" . "#FFFFFF"))  ; Dark blue
+                       ("web 1/2" . ("#008B8B" . "#FFFFFF"))  ; Dark cyan
+                       ("web 2/2" . ("#2F4F4F" . "#FFFFFF"))  ; Dark slate gray
+                       ("tests"   . ("#8B4513" . "#FFFFFF")))) ; Saddle brown
+         (colors (or (cdr (assoc tab-name tab-colors))
+                     '("#333333" . "#FFFFFF")))  ; Default dark gray
+         (bg-color (car colors))
+         (fg-color (cdr colors))
+         ;; Make current tab brighter
+         (face-spec (if current-p
+                        `(:background ,bg-color :foreground ,fg-color :weight bold :box (:line-width 2 :color "#FFFFFF"))
+                      `(:background ,bg-color :foreground ,fg-color :weight normal))))
+    (propertize (format " %d:%s " i tab-name) 'face face-spec)))
+
+(setq tab-bar-tab-name-format-function #'ac-tab-bar-tab-name-format)
+
 ;; Display settings
 (setq scroll-step 1)
 (global-auto-revert-mode 1)
