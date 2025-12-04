@@ -65,9 +65,10 @@ function paint({
   const centerY = Math.floor(screen.height / 2);
   
   // Layout constants - work from top and bottom to avoid overlaps
-  const titleY = 12;
-  const subtitleY = 32;
-  const visualizerTopY = 50;
+  // unifont at scale 2 is 32px tall, so title needs more space
+  const titleY = 8;
+  const subtitleY = 46; // After title (8 + 32 + 6 padding)
+  const visualizerTopY = 62;
   const visualizerBottomY = screen.height - 90;
   const statusY = screen.height - 78;
   const trackInfoY = screen.height - 66;
