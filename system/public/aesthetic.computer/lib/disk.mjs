@@ -7753,7 +7753,15 @@ async function load(
 
     if (!alias) {
       currentHUDTxt = slug; // Update hud if this is not an alias.
-      currentHUDPlainTxt = stripColorCodes(slug);
+      
+      // Special HUD label formatting for specific pieces
+      if (slug === "r8dio") {
+        // Display as "r8Dio" with "8D" in magenta
+        currentHUDTxt = "r\\255,0,255\\8D\\255,200,220\\io";
+        currentHUDPlainTxt = "r8Dio";
+      } else {
+        currentHUDPlainTxt = stripColorCodes(slug);
+      }
       
       // Hide HUD label for RGB-only kidlisp pieces (e.g., "255 0 0")
       // since they're just background colors and don't need to be displayed
@@ -8730,6 +8738,22 @@ async function makeFrame({ data: { type, content } }) {
 
   if (type === "sfx:got-duration") {
     sfxDurationReceivers[content.id]?.(content.duration);
+    return;
+  }
+
+  // 🎵 Streaming Audio messages - forward to piece receive function
+  if (type === "stream:playing" || 
+      type === "stream:paused" || 
+      type === "stream:stopped" || 
+      type === "stream:error" || 
+      type === "stream:frequencies-data") {
+    if (typeof receive === "function") {
+      try {
+        receive({ type, content });
+      } catch (e) {
+        console.warn("🎵 Stream receive error:", e);
+      }
+    }
     return;
   }
 

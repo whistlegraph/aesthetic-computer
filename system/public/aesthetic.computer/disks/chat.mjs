@@ -34,6 +34,7 @@ const { max, floor, ceil } = Math;
 
 import { isKidlispSource, tokenize, KidLisp } from "../lib/kidlisp.mjs";
 import { parseMessageElements as parseMessageElementsShared } from "../lib/chat-highlighting.mjs";
+import { getCommandDescription, isPromptOnlyCommand } from "../lib/prompt-commands.mjs";
 
 let input, inputBtn, handleBtn, token;
 let messagesNeedLayout = true;
@@ -60,6 +61,10 @@ let paintingLoadProgress = new Map(); // Track loading progress (0-1) for each p
 let paintingAnimations = new Map(); // Track Ken Burns animation state for each painting
 let modalPainting = null; // Track fullscreen modal painting { painting, code, metadata }
 let draftMessage = ""; // Store draft message text persistently
+
+// 🔗 Link confirmation modal system
+// { type: "prompt"|"url"|"handle"|"kidlisp"|"painting", text: string, action: function }
+let linkConfirmModal = null;
 
 async function boot(
   {
@@ -278,6 +283,8 @@ function paint(
     paintingHover: "yellow",
     kidlisp: "magenta",
     kidlispHover: "yellow",
+    r8dio: [255, 0, 255], // Magenta for r8dio radio links
+    r8dioHover: "yellow",
     timestamp: [100 / 1.3, 100 / 1.3, 145 / 1.3],
     timestampHover: "yellow",
   };
@@ -466,6 +473,8 @@ function paint(
             color = isHovered ? theme.paintingHover : theme.painting;
           } else if (element.type === "kidlisp") {
             color = isHovered ? theme.kidlispHover : theme.kidlisp;
+          } else if (element.type === "r8dio") {
+            color = isHovered ? theme.r8dioHover : theme.r8dio;
           }
           
           if (color) {
@@ -964,6 +973,92 @@ function paint(
     
     needsPaint(); // Keep modal visible
   }
+  
+  // 🔗 Render link confirmation modal (overlay over everything)
+  if (linkConfirmModal) {
+    const { type, text: linkText, displayText, description } = linkConfirmModal;
+    
+    // Semi-transparent black backdrop with slight purple tint
+    ink(20, 15, 30, 230).box(0, 0, screen.width, screen.height);
+    
+    // Calculate modal dimensions based on content
+    const hasDescription = description && description.length > 0;
+    const modalW = Math.min(screen.width - 24, 180);
+    const modalH = hasDescription ? 72 : 58;
+    const modalX = Math.floor((screen.width - modalW) / 2);
+    const modalY = Math.floor((screen.height - modalH) / 2);
+    
+    // Draw modal background with gradient-like effect
+    ink(35, 30, 50).box(modalX, modalY, modalW, modalH); // Dark base
+    ink(45, 40, 65).box(modalX + 1, modalY + 1, modalW - 2, modalH - 2); // Slightly lighter inner
+    ink(80, 70, 110).box(modalX, modalY, modalW, modalH, "outline"); // Border
+    ink(100, 90, 140).box(modalX + 1, modalY, modalW - 2, 1); // Top highlight
+    
+    // Draw action text based on type (using default font for header)
+    let actionLabel;
+    let actionColor;
+    if (type === "url") {
+      actionLabel = "Open URL?";
+      actionColor = [120, 200, 255]; // Cyan for URLs
+    } else if (type === "handle") {
+      actionLabel = "Go to profile?";
+      actionColor = [255, 150, 200]; // Pink for handles
+    } else if (type === "painting") {
+      actionLabel = "View painting?";
+      actionColor = [255, 180, 100]; // Orange for paintings
+    } else if (type === "kidlisp") {
+      actionLabel = "Run code?";
+      actionColor = [200, 150, 255]; // Purple for kidlisp
+    } else {
+      actionLabel = "Run?";
+      actionColor = [150, 255, 150]; // Green for commands
+    }
+    
+    ink(...actionColor).write(actionLabel, { x: modalX + 6, y: modalY + 4 }, undefined, undefined, false, "MatrixChunky8");
+    
+    // Show the link/command text (truncated if needed)
+    const maxDisplayLen = 22;
+    const showText = displayText || linkText;
+    const truncatedText = showText.length > maxDisplayLen 
+      ? showText.slice(0, maxDisplayLen - 1) + "…" 
+      : showText;
+    ink(255, 255, 255).write(truncatedText, { x: modalX + 6, y: modalY + 16 });
+    
+    // Show command description if available (using MatrixChunky8 for compact look)
+    if (hasDescription) {
+      const maxDescLen = 28;
+      const truncatedDesc = description.length > maxDescLen
+        ? description.slice(0, maxDescLen - 1) + "…"
+        : description;
+      ink(140, 180, 140).write(truncatedDesc, { x: modalX + 6, y: modalY + 32 }, undefined, undefined, false, "MatrixChunky8");
+    }
+    
+    // Draw Yes/No buttons (compact)
+    const btnW = 36;
+    const btnH = 14;
+    const btnY = modalY + modalH - btnH - 6;
+    const btnGap = 12;
+    const totalBtnW = btnW * 2 + btnGap;
+    const btnStartX = modalX + Math.floor((modalW - totalBtnW) / 2);
+    
+    // Store button positions for hit detection
+    linkConfirmModal.yesBtn = { x: btnStartX, y: btnY, w: btnW, h: btnH };
+    linkConfirmModal.noBtn = { x: btnStartX + btnW + btnGap, y: btnY, w: btnW, h: btnH };
+    
+    // Yes button - green theme
+    const yesHover = linkConfirmModal.hoverYes;
+    ink(yesHover ? [60, 140, 60] : [40, 90, 40]).box(btnStartX, btnY, btnW, btnH);
+    ink(yesHover ? [100, 200, 100] : [70, 130, 70]).box(btnStartX, btnY, btnW, btnH, "outline");
+    ink(yesHover ? [180, 255, 180] : [150, 220, 150]).write("yes", { x: btnStartX + 8, y: btnY + 3 }, undefined, undefined, false, "MatrixChunky8");
+    
+    // No button - red theme  
+    const noHover = linkConfirmModal.hoverNo;
+    ink(noHover ? [140, 50, 50] : [90, 35, 35]).box(btnStartX + btnW + btnGap, btnY, btnW, btnH);
+    ink(noHover ? [200, 90, 90] : [130, 60, 60]).box(btnStartX + btnW + btnGap, btnY, btnW, btnH, "outline");
+    ink(noHover ? [255, 180, 180] : [220, 150, 150]).write("no", { x: btnStartX + btnW + btnGap + 11, y: btnY + 3 }, undefined, undefined, false, "MatrixChunky8");
+    
+    needsPaint(); // Keep modal animating
+  }
 }
 
 function act(
@@ -990,6 +1085,54 @@ function act(
   
   // Calculate rowHeight based on the typeface being used
   const currentRowHeight = typefaceName === "unifont" ? 17 : (typeface.blockHeight + 1);
+  
+  // 🔗 Link confirmation modal intercepts all events
+  if (linkConfirmModal) {
+    const { yesBtn, noBtn, action } = linkConfirmModal;
+    
+    // Handle hover states
+    if (e.is("move") || e.is("draw")) {
+      if (yesBtn && noBtn) {
+        linkConfirmModal.hoverYes = pen.x >= yesBtn.x && pen.x < yesBtn.x + yesBtn.w &&
+                                     pen.y >= yesBtn.y && pen.y < yesBtn.y + yesBtn.h;
+        linkConfirmModal.hoverNo = pen.x >= noBtn.x && pen.x < noBtn.x + noBtn.w &&
+                                    pen.y >= noBtn.y && pen.y < noBtn.y + noBtn.h;
+      }
+    }
+    
+    // Handle clicks
+    if (e.is("lift") || e.is("touch")) {
+      if (yesBtn && noBtn) {
+        const clickedYes = pen.x >= yesBtn.x && pen.x < yesBtn.x + yesBtn.w &&
+                           pen.y >= yesBtn.y && pen.y < yesBtn.y + yesBtn.h;
+        const clickedNo = pen.x >= noBtn.x && pen.x < noBtn.x + noBtn.w &&
+                          pen.y >= noBtn.y && pen.y < noBtn.y + noBtn.h;
+        
+        if (clickedYes) {
+          beep();
+          hud.label(piece); // Set back label to current piece
+          if (action) action(); // Execute the stored action
+          linkConfirmModal = null;
+        } else if (clickedNo) {
+          beep();
+          linkConfirmModal = null; // Just close
+        }
+        // Clicking outside buttons also closes the modal
+        else {
+          beep();
+          linkConfirmModal = null;
+        }
+      }
+    }
+    
+    // Escape key closes modal
+    if (e.is("keyboard:down:escape")) {
+      beep();
+      linkConfirmModal = null;
+    }
+    
+    return; // Block all other interactions when modal is open
+  }
   
   // 🖼️ Modal painting intercepts all events
   if (modalPainting) {
@@ -1162,37 +1305,62 @@ function act(
             if (elementPosition && isClickInsideElement(relativeX, relativeY, elementPosition)) {
               if (element.type === "handle") {
                 beep();
-                hud.label(piece); // Set back label to current piece
-                jump(element.text);
+                // Show confirmation modal for handle navigation
+                linkConfirmModal = {
+                  type: "handle",
+                  text: element.text,
+                  displayText: element.text,
+                  description: "View this user's profile",
+                  action: () => jump(element.text)
+                };
                 break;
               } else if (element.type === "prompt") {
                 // Skip individual quote marks - only handle full prompts
                 if (element.text === "'") continue;
                 
                 beep();
-                hud.label(piece); // Set back label to current piece
                 const innerPrompt = element.text.slice(1, -1); // Unquote prompt text.
+                let jumpTarget;
                 if (innerPrompt.startsWith(">")) {
-                  jump("prompt " + innerPrompt.slice(1));
+                  jumpTarget = "prompt " + innerPrompt.slice(1);
                 } else if (innerPrompt.startsWith("#")) {
-                  // If it's a painting code in quotes, strip the # and use painting format
-                  jump("painting#" + innerPrompt.slice(1));
+                  jumpTarget = "painting#" + innerPrompt.slice(1);
                 } else {
-                  jump(innerPrompt);
+                  jumpTarget = "prompt " + innerPrompt;
                 }
+                // Get command description from registry
+                const cmdDescription = getCommandDescription(innerPrompt);
+                // Show confirmation modal
+                linkConfirmModal = {
+                  type: "prompt",
+                  text: jumpTarget,
+                  displayText: innerPrompt,
+                  description: cmdDescription,
+                  action: () => jump(jumpTarget)
+                };
                 break;
               } else if (element.type === "prompt-content") {
                 // Click on content inside quotes - treat as prompt
                 beep();
-                hud.label(piece); // Set back label to current piece
                 const innerPrompt = element.text;
+                let jumpTarget;
                 if (innerPrompt.startsWith(">")) {
-                  jump("prompt " + innerPrompt.slice(1));
+                  jumpTarget = "prompt " + innerPrompt.slice(1);
                 } else if (innerPrompt.startsWith("#")) {
-                  jump("painting#" + innerPrompt.slice(1));
+                  jumpTarget = "painting#" + innerPrompt.slice(1);
                 } else {
-                  jump(innerPrompt);
+                  jumpTarget = "prompt " + innerPrompt;
                 }
+                // Get command description from registry
+                const cmdDescription = getCommandDescription(innerPrompt);
+                // Show confirmation modal
+                linkConfirmModal = {
+                  type: "prompt",
+                  text: jumpTarget,
+                  displayText: innerPrompt,
+                  description: cmdDescription,
+                  action: () => jump(jumpTarget)
+                };
                 break;
               } else if (element.type === "kidlisp-token") {
                 // Find the full kidlisp code block (all tokens between the quotes)
@@ -1204,26 +1372,59 @@ function act(
                   const fullKidlispCode = message.fullMessage.substring(firstToken.start, lastToken.end);
                   
                   beep();
-                  hud.label(piece); // Set back label to current piece
-                  jump(fullKidlispCode);
+                  // Show confirmation modal for kidlisp
+                  linkConfirmModal = {
+                    type: "kidlisp",
+                    text: fullKidlispCode,
+                    displayText: fullKidlispCode.slice(0, 30),
+                    description: "Execute KidLisp code",
+                    action: () => jump(fullKidlispCode)
+                  };
                 }
                 break;
               } else if (element.type === "url") {
                 beep();
-                hud.label(piece); // Set back label to current piece
-                jump("out:" + element.text);
+                // Show confirmation modal for external URL
+                linkConfirmModal = {
+                  type: "url",
+                  text: element.text,
+                  displayText: element.text,
+                  description: "Open in browser",
+                  action: () => jump("out:" + element.text)
+                };
                 break;
               } else if (element.type === "painting") {
                 beep();
-                hud.label(piece); // Set back label to current piece
-                // Navigate to the painting using its code (e.g., #k3d -> painting#k3d)
-                jump("painting" + element.text);
+                // Show confirmation modal for painting
+                linkConfirmModal = {
+                  type: "painting",
+                  text: element.text,
+                  displayText: element.text,
+                  description: "View this painting",
+                  action: () => jump("painting" + element.text)
+                };
                 break;
               } else if (element.type === "kidlisp") {
                 beep();
-                hud.label(piece); // Set back label to current piece
-                // Navigate to kidlisp reference - keep the $ for proper kidlisp piece syntax
-                jump(element.text); // Keep the $ (e.g., $ceo)
+                // Show confirmation modal for kidlisp reference
+                linkConfirmModal = {
+                  type: "kidlisp",
+                  text: element.text,
+                  displayText: element.text,
+                  description: "Open KidLisp piece",
+                  action: () => jump(element.text)
+                };
+                break;
+              } else if (element.type === "r8dio") {
+                beep();
+                // Show confirmation modal for r8dio radio
+                linkConfirmModal = {
+                  type: "r8dio",
+                  text: "r8dio",
+                  displayText: "r8Dio",
+                  description: "Listen to Danish talk radio",
+                  action: () => jump("r8dio")
+                };
                 break;
               }
             }
@@ -1966,6 +2167,9 @@ function generateDynamicColorMessage(message, theme) {
       colorCodedText = `\\${getColorString(color)}\\${elementText}\\${getColorString(theme.messageText)}\\`;
     } else if (element.type === "painting") {
       const color = isHovered ? theme.paintingHover : theme.painting;
+      colorCodedText = `\\${getColorString(color)}\\${elementText}\\${getColorString(theme.messageText)}\\`;
+    } else if (element.type === "r8dio") {
+      const color = isHovered ? theme.r8dioHover : theme.r8dio;
       colorCodedText = `\\${getColorString(color)}\\${elementText}\\${getColorString(theme.messageText)}\\`;
     }
     

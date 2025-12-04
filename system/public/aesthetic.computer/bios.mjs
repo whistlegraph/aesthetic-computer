@@ -1667,6 +1667,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   const sfxPlaying = {}; // Sound sources that are currently playing.
   const sfxLoaded = {}; // Sound sources that have been buffered and loaded.
   const sfxCompletionCallbacks = {}; // Completion callbacks for sound effects.
+  const streamAudio = {}; // HTML5 Audio elements for streaming audio (e.g., radio).
 
   // const sfX // ...
 
@@ -13487,6 +13488,108 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Report progress of a playing sound back to the disk.
     if (type === "sfx:progress") {
       sfxPlaying[content.id]?.progress();
+      return;
+    }
+
+    // 🎵 Streaming Audio (Radio, etc.)
+    // Start playing a streaming audio URL
+    if (type === "stream:play") {
+      const { id, url, volume } = content;
+      
+      // Stop any existing stream with this id
+      if (streamAudio[id]) {
+        streamAudio[id].audio.pause();
+        streamAudio[id].audio.src = "";
+        delete streamAudio[id];
+      }
+      
+      const audio = new Audio();
+      audio.crossOrigin = "anonymous";
+      audio.src = url;
+      audio.volume = volume ?? 1;
+      
+      // Connect to AudioContext for analysis if available
+      if (audioContext) {
+        try {
+          const source = audioContext.createMediaElementSource(audio);
+          const analyser = audioContext.createAnalyser();
+          analyser.fftSize = 256;
+          source.connect(analyser);
+          analyser.connect(audioContext.destination);
+          streamAudio[id] = { audio, analyser, source };
+        } catch (e) {
+          // If already connected, just store the audio
+          streamAudio[id] = { audio };
+        }
+      } else {
+        streamAudio[id] = { audio };
+      }
+      
+      audio.play().then(() => {
+        send({ type: "stream:playing", content: { id } });
+      }).catch(err => {
+        console.warn("🎵 Stream play failed:", err);
+        send({ type: "stream:error", content: { id, error: err.message } });
+      });
+      
+      return;
+    }
+    
+    // Pause a streaming audio
+    if (type === "stream:pause") {
+      const { id } = content;
+      if (streamAudio[id]?.audio) {
+        streamAudio[id].audio.pause();
+        send({ type: "stream:paused", content: { id } });
+      }
+      return;
+    }
+    
+    // Resume a paused streaming audio
+    if (type === "stream:resume") {
+      const { id } = content;
+      if (streamAudio[id]?.audio) {
+        streamAudio[id].audio.play().then(() => {
+          send({ type: "stream:playing", content: { id } });
+        }).catch(err => {
+          send({ type: "stream:error", content: { id, error: err.message } });
+        });
+      }
+      return;
+    }
+    
+    // Stop and remove streaming audio
+    if (type === "stream:stop") {
+      const { id } = content;
+      if (streamAudio[id]) {
+        streamAudio[id].audio.pause();
+        streamAudio[id].audio.src = "";
+        delete streamAudio[id];
+        send({ type: "stream:stopped", content: { id } });
+      }
+      return;
+    }
+    
+    // Set volume of streaming audio
+    if (type === "stream:volume") {
+      const { id, volume } = content;
+      if (streamAudio[id]?.audio) {
+        streamAudio[id].audio.volume = Math.max(0, Math.min(1, volume));
+      }
+      return;
+    }
+    
+    // Get frequency data for visualization
+    if (type === "stream:frequencies") {
+      const { id } = content;
+      if (streamAudio[id]?.analyser) {
+        const analyser = streamAudio[id].analyser;
+        const dataArray = new Uint8Array(analyser.frequencyBinCount);
+        analyser.getByteFrequencyData(dataArray);
+        send({ type: "stream:frequencies-data", content: { id, data: Array.from(dataArray) } });
+      } else {
+        send({ type: "stream:frequencies-data", content: { id, data: [] } });
+      }
       return;
     }
 
