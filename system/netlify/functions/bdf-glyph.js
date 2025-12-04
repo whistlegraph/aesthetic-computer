@@ -344,6 +344,91 @@ async function cacheGlyph(charCode, glyphData, fontName = "unifont-16.0.03") {
   }
 }
 
+// Parse a single character and return glyph data from BDF text
+async function parseGlyphFromBDF(charCodeToFind, charToFind, bdfText, fontParam) {
+  const lines = bdfText.split(/\r?\n/);
+  let inChar = false;
+  let currentCharCode = -1;
+  let bbx = null;
+  let dwidth = null;
+  let bitmapLines = [];
+  
+  let fontAscent = 8;
+  let fontDescent = 0;
+
+  for (const line of lines) {
+    if (line.startsWith("FONT_ASCENT")) {
+      fontAscent = parseInt(line.split(" ")[1]);
+    } else if (line.startsWith("FONT_DESCENT")) {
+      fontDescent = parseInt(line.split(" ")[1]);
+    } else if (line.startsWith("STARTCHAR")) {
+      inChar = true;
+      currentCharCode = -1;
+      bbx = null;
+      dwidth = null;
+      bitmapLines = [];
+    } else if (inChar && line.startsWith("ENCODING")) {
+      currentCharCode = parseInt(line.split(" ")[1]);
+    } else if (inChar && line.startsWith("DWIDTH")) {
+      const parts = line.split(" ");
+      dwidth = { x: parseInt(parts[1]), y: parseInt(parts[2]) };
+    } else if (inChar && line.startsWith("BBX")) {
+      const parts = line.split(" ");
+      bbx = {
+        width: parseInt(parts[1]),
+        height: parseInt(parts[2]),
+        xOffset: parseInt(parts[3]),
+        yOffset: parseInt(parts[4]),
+      };
+    } else if (inChar && line.startsWith("ENDCHAR")) {
+      if (currentCharCode === charCodeToFind && bbx && bbx.width > 0 && bbx.height > 0) {
+        const pointCommands = [];
+        const bytesPerRow = Math.ceil(bbx.width / 8);
+
+        for (let r = 0; r < bbx.height; r++) {
+          if (r >= bitmapLines.length) break;
+          const hexRow = bitmapLines[r].trim();
+          const paddedHexRow = hexRow.length % 2 !== 0 ? hexRow + "0" : hexRow;
+          const rowBytes = Buffer.from(paddedHexRow, "hex");
+
+          for (let c = 0; c < bbx.width; c++) {
+            const byteIndex = Math.floor(c / 8);
+            const bitIndex = c % 8;
+            if (byteIndex < rowBytes.length) {
+              if ((rowBytes[byteIndex] >> (7 - bitIndex)) & 1) {
+                pointCommands.push({ name: "point", args: [c, r] });
+              }
+            }
+          }
+        }
+
+        const commands = optimizePointsToLines(pointCommands);
+
+        const glyphData = {
+          resolution: [bbx.width, bbx.height],
+          offset: [bbx.xOffset, bbx.yOffset],
+          baselineOffset: [bbx.xOffset, fontAscent - bbx.height - bbx.yOffset],
+          advance: dwidth ? dwidth.x : 4,
+          bbx: { width: bbx.width, height: bbx.height, xOffset: bbx.xOffset, yOffset: bbx.yOffset },
+          dwidth: dwidth,
+          fontMetrics: { ascent: fontAscent, descent: fontDescent },
+          commands: commands,
+        };
+
+        // Cache for future single-char requests
+        await cacheGlyph(charCodeToFind, glyphData, fontParam);
+        
+        return glyphData;
+      }
+      inChar = false;
+    } else if (inChar && bbx && bitmapLines.length < bbx.height) {
+      bitmapLines.push(line.trim());
+    }
+  }
+  
+  return null; // Glyph not found
+}
+
 export const handler = async (event) => {
   // Handle OPTIONS preflight requests
   if (event.httpMethod === "OPTIONS") {
@@ -355,6 +440,7 @@ export const handler = async (event) => {
   }
 
   const charParam = event.queryStringParameters.char;
+  const charsParam = event.queryStringParameters.chars; // Batch mode: comma-separated code points
   let fontParam = event.queryStringParameters.font || "unifont-16.0.03";
   
   // Add extensive logging for debugging
@@ -366,6 +452,106 @@ export const handler = async (event) => {
     fontParam = "unifont-16.0.03";
   }
   
+  // BATCH MODE: Handle multiple characters in one request
+  if (charsParam) {
+    const codePoints = charsParam.split(",").map(s => s.trim()).filter(s => s.length > 0);
+    
+    if (codePoints.length === 0) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: "Empty 'chars' parameter." }),
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      };
+    }
+    
+    shell.log(`📦 Batch glyph request: ${codePoints.length} characters for font ${fontParam}`);
+    
+    // Results map: codePoint -> glyphData or null
+    const results = {};
+    const needsFetch = []; // Code points not in cache
+    
+    // Check cache for each character
+    for (const codePointStr of codePoints) {
+      const charCode = parseInt(codePointStr, 16);
+      if (isNaN(charCode)) continue;
+      
+      const cachedGlyph = await getCachedGlyph(charCode, fontParam);
+      if (cachedGlyph) {
+        results[codePointStr] = cachedGlyph.data;
+      } else {
+        needsFetch.push({ codePointStr, charCode });
+      }
+    }
+    
+    // If any need fetching from BDF, load the BDF file once
+    if (needsFetch.length > 0) {
+      const assetsBaseUrl = dev
+        ? process.env.URL || "http://localhost:8888"
+        : "https://assets.aesthetic.computer";
+      
+      let bdfFileName;
+      if (fontParam === "unifont-16.0.03" || fontParam === "unifont") {
+        bdfFileName = "unifont-16.0.03.bdf.gz";
+      } else {
+        bdfFileName = `${fontParam}.bdf`;
+      }
+      
+      const bdfFileUrl = dev
+        ? `${assetsBaseUrl}/assets/type/${bdfFileName}`
+        : `${assetsBaseUrl}/type/${bdfFileName}`;
+      
+      try {
+        let fetchOptions = {};
+        if (dev && bdfFileUrl.startsWith("https://localhost")) {
+          const agent = new https.Agent({ rejectUnauthorized: false });
+          fetchOptions.agent = agent;
+        }
+        
+        const response = await fetch(bdfFileUrl, fetchOptions);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch BDF file: ${response.statusText}`);
+        }
+        
+        let bdfText;
+        if (bdfFileName.endsWith('.gz')) {
+          const compressedData = await response.buffer();
+          bdfText = (await gunzip(compressedData)).toString("utf-8");
+        } else {
+          bdfText = await response.text();
+        }
+        
+        // Parse each needed character from the BDF
+        for (const { codePointStr, charCode } of needsFetch) {
+          let charToFind;
+          try {
+            charToFind = String.fromCodePoint(charCode);
+          } catch (e) {
+            results[codePointStr] = null;
+            continue;
+          }
+          
+          const glyphData = await parseGlyphFromBDF(charCode, charToFind, bdfText, fontParam);
+          results[codePointStr] = glyphData;
+        }
+      } catch (error) {
+        shell.error("Error in batch bdf-glyph:", error);
+        // Mark unfetched as null
+        for (const { codePointStr } of needsFetch) {
+          if (!(codePointStr in results)) {
+            results[codePointStr] = null;
+          }
+        }
+      }
+    }
+    
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ glyphs: results }),
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    };
+  }
+  
+  // SINGLE CHARACTER MODE (existing behavior)
   if (!charParam) {
     return {
       statusCode: 400,
