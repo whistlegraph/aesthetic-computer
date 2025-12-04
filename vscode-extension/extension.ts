@@ -41,15 +41,29 @@ let provider: AestheticViewProvider;
 // Check if the local server is available
 async function checkLocalServer(): Promise<boolean> {
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2000);
-    
-    const response = await fetch("https://localhost:8888/", {
-      method: "HEAD",
-      signal: controller.signal,
+    // Use https module directly to allow self-signed certificates
+    const https = await import("https");
+    return new Promise((resolve) => {
+      const req = https.request(
+        {
+          hostname: "localhost",
+          port: 8888,
+          path: "/",
+          method: "HEAD",
+          rejectUnauthorized: false, // Allow self-signed certs
+          timeout: 2000,
+        },
+        (res) => {
+          resolve(res.statusCode === 200 || res.statusCode === 304);
+        }
+      );
+      req.on("error", () => resolve(false));
+      req.on("timeout", () => {
+        req.destroy();
+        resolve(false);
+      });
+      req.end();
     });
-    clearTimeout(timeoutId);
-    return response.ok || response.status === 200;
   } catch (e) {
     return false;
   }
