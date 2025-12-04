@@ -307,6 +307,78 @@ class Typeface {
       // Create a set to track failed glyphs to avoid repeated requests
       const failedGlyphs = new Set();
 
+      // Batch queue for glyph requests - collects characters and flushes periodically
+      const batchQueue = [];
+      let batchTimeout = null;
+      const BATCH_DELAY = 16; // ms to wait before flushing batch (roughly 1 frame)
+      const MAX_BATCH_SIZE = 50; // Max characters per batch request
+      
+      const flushBatch = async () => {
+        if (batchQueue.length === 0) return;
+        
+        // Take items from queue
+        const batch = batchQueue.splice(0, MAX_BATCH_SIZE);
+        batchTimeout = null;
+        
+        // Build comma-separated code points for batch API
+        const codePointStrs = batch.map(item => item.codePointStr);
+        
+        try {
+          const apiUrl = (typeof window !== 'undefined' && window.acSPIDER)
+            ? `https://aesthetic.computer/api/bdf-glyph?chars=${codePointStrs.join(',')}&font=${this.name}`
+            : `/api/bdf-glyph?chars=${codePointStrs.join(',')}&font=${this.name}`;
+          
+          const response = await fetch(apiUrl);
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          
+          const data = await response.json();
+          const glyphs = data.glyphs || {};
+          
+          // Process results
+          for (const item of batch) {
+            const glyphData = glyphs[item.codePointStr];
+            if (glyphData) {
+              item.target[item.char] = glyphData;
+              this.invalidateAdvance(item.char);
+              if (needsPaintCallback && typeof needsPaintCallback === "function") {
+                needsPaintCallback();
+              }
+            } else {
+              failedGlyphs.add(item.char);
+            }
+            loadingGlyphs.delete(item.char);
+          }
+        } catch (err) {
+          console.warn(`Batch glyph fetch failed:`, err);
+          // Mark all as failed
+          for (const item of batch) {
+            failedGlyphs.add(item.char);
+            loadingGlyphs.delete(item.char);
+          }
+        }
+        
+        // If more items were added while fetching, flush again
+        if (batchQueue.length > 0 && !batchTimeout) {
+          batchTimeout = setTimeout(flushBatch, BATCH_DELAY);
+        }
+      };
+      
+      const queueGlyphFetch = (char, codePointStr, target) => {
+        batchQueue.push({ char, codePointStr, target });
+        
+        // Flush immediately if we hit max batch size
+        if (batchQueue.length >= MAX_BATCH_SIZE) {
+          if (batchTimeout) {
+            clearTimeout(batchTimeout);
+            batchTimeout = null;
+          }
+          flushBatch();
+        } else if (!batchTimeout) {
+          // Schedule a flush after a short delay to collect more requests
+          batchTimeout = setTimeout(flushBatch, BATCH_DELAY);
+        }
+      };
+
       // Wrap the glyphs object with a Proxy for automatic loading
       this.glyphs = new Proxy(this.glyphs, {
         get: (target, char) => {
@@ -437,64 +509,8 @@ class Typeface {
           
           // Only make API calls when NOT in OBJKT mode
           if (!isObjktMode) {
-            try {
-              // In spider mode, use absolute URL to aesthetic.computer
-              const apiUrl = (typeof window !== 'undefined' && window.acSPIDER)
-                ? `https://aesthetic.computer/api/bdf-glyph?char=${codePointStr}&font=${this.name}`
-                : `/api/bdf-glyph?char=${codePointStr}&font=${this.name}`;
-              fetch(apiUrl)
-                .then((response) => {
-                  if (!response.ok) {
-                    if (response.status === 404) {
-                      console.info(
-                        `Glyph "${char}" (${codePointStr}) not available in ${this.name}`,
-                      );
-                    } else {
-                      console.warn(
-                        `Failed to load glyph "${char}" (${codePointStr}): HTTP ${response.status}`,
-                      );
-                    }
-                    throw new Error(`Failed to load glyph: ${response.status}`);
-                  }
-                  return response.json();
-                })
-                .then((glyphData) => {
-                  // Store the loaded glyph
-                  target[char] = glyphData;
-                  this.invalidateAdvance(char);
-                  
-                  loadingGlyphs.delete(char);
-
-                  // Trigger a repaint to show the newly loaded glyph
-                  if (
-                    needsPaintCallback &&
-                    typeof needsPaintCallback === "function"
-                  ) {
-                    needsPaintCallback();
-                  }
-                })
-                .catch((err) => {
-                  // Mark this glyph as failed to avoid future requests
-                  failedGlyphs.add(char);
-                  loadingGlyphs.delete(char);
-
-                  // Don't log as error for 404s, just info
-                  if (!err.message.includes("404")) {
-                    console.warn(
-                      `Failed to load glyph "${char}" (${codePointStr}):`,
-                      err,
-                    );
-                  }
-                });
-            } catch (err) {
-              // Handle synchronous fetch errors (e.g., network issues, security errors)
-              failedGlyphs.add(char);
-              loadingGlyphs.delete(char);
-              console.warn(
-                `Failed to initiate glyph fetch "${char}" (${codePointStr}):`,
-                err,
-              );
-            }
+            // Queue the glyph for batch fetching instead of individual requests
+            queueGlyphFetch(char, codePointStr, target);
           } else {
             // In OBJKT mode for non-MatrixChunky8 fonts, create simple fallback
             const simpleFallback = {
