@@ -105,25 +105,8 @@ function paint({
   // Draw base line
   ink(80, 60, 100).line(startX - 10, barBaseY, startX + totalWidth + 10, barBaseY);
   
-  // Title - "r8Dio" using unifont at scale 1 (unifont is already 16px)
-  const titleScale = 1;
-  const titleText = "r8Dio";
-  const titleBox = text.box(titleText, undefined, undefined, titleScale, "unifont").box;
-  const titleStartX = Math.floor((screen.width - titleBox.width) / 2);
-  
-  // Draw title with colored segments
-  let curX = titleStartX;
-  
-  // "r" in light pink
-  ink(255, 200, 220).write("r", { x: curX, y: titleY, size: titleScale }, undefined, undefined, false, "unifont");
-  curX += text.box("r", undefined, undefined, titleScale, "unifont").box.width;
-  
-  // "8D" in magenta
-  ink(255, 0, 255).write("8D", { x: curX, y: titleY, size: titleScale }, undefined, undefined, false, "unifont");
-  curX += text.box("8D", undefined, undefined, titleScale, "unifont").box.width;
-  
-  // "io" in light pink
-  ink(255, 200, 220).write("io", { x: curX, y: titleY, size: titleScale }, undefined, undefined, false, "unifont");
+  // Title - "r8Dio" using unifont
+  ink(255, 100, 255).write("r8Dio", { center: "x", y: titleY }, undefined, undefined, false, "unifont");
   
   // Subtitle
   ink(150, 120, 160).write("Danmarks snakke-radio", { center: "x", y: subtitleY }, undefined, undefined, false, "MatrixChunky8");
