@@ -134,6 +134,6 @@
     "-c",
     ".devcontainer/scripts/prepare-host.sh"
   ],
-  "postStartCommand": "fish /entry.fish"
+  "postStartCommand": "fish .devcontainer/entry.fish"
   // .waiter file is now created inside entry.fish to avoid terminal popup in Codespaces
 }

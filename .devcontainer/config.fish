@@ -1720,3 +1720,8 @@ end
 #     end
 
 # end
+
+# ac-shop - Shopify CLI for Aesthetic Computer
+function ac-shop
+    node /workspaces/aesthetic-computer/ac-shop/shopify.mjs $argv
+end
