@@ -1,3 +1,4 @@
+;; -*- lexical-binding: t; -*-
 ;; Aesthetic Computer Emacs Configuration, 2024.3.13.12.51
 
 ;; Debug logging
@@ -432,12 +433,69 @@
                       nil t)))
 
 ;; Main backend function
+(defvar ac--directory-path "~/aesthetic-computer")
+(defvar ac--emoji-for-command
+  '(("artery" . "🩸") ("status" . "📡") ("url" . "⚡") 
+    ("tunnel" . "🚇") ("agent" . "⚡") ("stripe-print" . "💳")
+    ("stripe-ticket" . "🎫") ("chat-system" . "🤖") ("chat-sotce" . "🧠")
+    ("chat-clock" . "⏰") ("site" . "🌐") ("session" . "📋")
+    ("redis" . "🔴") ("bookmarks" . "🔖") ("kidlisp" . "🧪")
+    ("oven" . "🔥") ("media" . "📦")))
+
+(defun ac--create-split-tab (tab-name commands)
+  "Create a new tab with split windows running the specified commands."
+  (ac-debug-log (format "Creating tab: %s with commands: %s" tab-name commands))
+  (condition-case err
+      (progn
+        (tab-new)
+        (tab-rename tab-name)
+        (let ((default-directory ac--directory-path))
+          (delete-other-windows)
+          
+          ;; Try vertical splits first, then horizontal if needed
+          (let* ((window-height (window-height))
+                 (window-width (window-width))
+                 (min-height-per-window 8)
+                 (min-width-per-window 40)
+                 (max-vertical-splits (/ window-height min-height-per-window))
+                 (use-horizontal (< max-vertical-splits (length commands)))
+                 (first t))
+            
+            (dolist (cmd commands)
+              (unless first 
+                (condition-case nil
+                    (if use-horizontal
+                        (progn (split-window-right) (other-window 1))
+                      (progn (split-window-below) (other-window 1)))
+                  (error 
+                   (condition-case nil
+                       (if use-horizontal
+                           (progn (split-window-below) (other-window 1))
+                         (progn (split-window-right) (other-window 1)))
+                     (error (message "Cannot split for %s" cmd))))))
+              (setq first nil)
+              
+              (let ((actual-cmd (if (string= cmd "bookmarks") "servers" cmd)))
+                (ac-debug-log (format "Running command: ac-%s" actual-cmd))
+                (eat (format "fish -c 'ac-%s'" actual-cmd)))
+              
+              (when (get-buffer "*eat*")
+                (with-current-buffer "*eat*"
+                  (rename-buffer
+                   (format "%s-%s"
+                           (or (cdr (assoc cmd ac--emoji-for-command)) "🔧")
+                           cmd) t)))
+              (goto-char (point-max)))
+            
+            (balance-windows)
+            (other-window 1))))
+    (error (message "Error creating tab %s: %s" tab-name err))))
+
 (defun aesthetic-backend (target-tab)
   (interactive)
   (ac-debug-log (format "Starting aesthetic-backend with target-tab: %s" target-tab))
   
   ;; Set environment variable to tell fish it's running inside Emacs
-  ;; Use AC_EMACS_MODE instead of INSIDE_EMACS to avoid conflicts with tools that check INSIDE_EMACS
   (setenv "AC_EMACS_MODE" "t")
   
   ;; Set up a watchdog timer to detect hangs (30 seconds)
@@ -445,15 +503,6 @@
                   (lambda ()
                     (ac-debug-log "WARNING: aesthetic-backend has been running for 30+ seconds")
                     (message "⚠️ Backend initialization taking longer than expected. Check /tmp/emacs-debug.log")))
-  
-  (let ((directory-path "~/aesthetic-computer")
-        (emoji-for-command
-         '(("artery" . "🩸") ("status" . "📡") ("url" . "⚡") 
-           ("tunnel" . "🚇") ("agent" . "⚡") ("stripe-print" . "💳")
-           ("stripe-ticket" . "🎫") ("chat-system" . "🤖") ("chat-sotce" . "🧠")
-           ("chat-clock" . "⏰") ("site" . "🌐") ("session" . "📋")
-           ("redis" . "🔴") ("bookmarks" . "🔖") ("kidlisp" . "🧪")
-           ("oven" . "🔥") ("media" . "📦"))))
 
     ;; Clean up unwanted buffers before starting (with error handling)
     (condition-case nil
@@ -467,7 +516,7 @@
 
     ;; Initialize the first tab as "artery" with artery CLI (dev mode with hot-reload)
     (tab-rename "artery")
-    (let ((default-directory directory-path))
+    (let ((default-directory ac--directory-path))
       (eat "fish -c 'ac-artery-dev'")
       (when (get-buffer "*eat*")
         (with-current-buffer "*eat*"
@@ -476,89 +525,29 @@
           (when (and (boundp 'evil-mode) evil-mode)
             (evil-emacs-state)))))
 
-    ;; Helper function to create split tabs safely
-    (defun create-split-tab (tab-name commands)
-      (ac-debug-log (format "Creating tab: %s with commands: %s" tab-name commands))
-      (condition-case err
-          (progn
-            (tab-new)
-            (tab-rename tab-name)
-            (let ((default-directory directory-path))
-              (delete-other-windows)
-              
-              ;; Try vertical splits first, then horizontal if needed
-              (let* ((window-height (window-height))
-                     (window-width (window-width))
-                     (min-height-per-window 8) ; Minimum 8 lines per window
-                     (min-width-per-window 40) ; Minimum 40 characters per window
-                     (max-vertical-splits (/ window-height min-height-per-window))
-                     (max-horizontal-splits (/ window-width min-width-per-window))
-                     (use-horizontal (< max-vertical-splits (length commands)))
-                     (first t))
-                
-                (dolist (cmd commands)
-                  (unless first 
-                    (condition-case split-err
-                        (if use-horizontal
-                            (progn
-                              (split-window-right)
-                              (other-window 1))
-                          (progn
-                            (split-window-below)
-                            (other-window 1)))
-                      (error 
-                       ;; If one split direction fails, try the other
-                       (condition-case split-err-2
-                           (if use-horizontal
-                               (progn
-                                 (split-window-below)
-                                 (other-window 1))
-                             (progn
-                               (split-window-right)
-                               (other-window 1)))
-                         (error 
-                          (message "Warning: Cannot split window for %s - continuing in current window" cmd))))))
-                  (setq first nil)
-                  
-                  (let ((actual-cmd (if (string= cmd "bookmarks") "servers" cmd)))
-                    (ac-debug-log (format "Running command: ac-%s" actual-cmd))
-                    ;; Just run the ac command directly - no special env vars needed
-                    ;; The regular mode works fine in eat terminals
-                    (eat (format "fish -c 'ac-%s'" actual-cmd)))
-                  
-                  (when (get-buffer "*eat*")
-                    (with-current-buffer "*eat*"
-                      (rename-buffer
-                       (format "%s-%s"
-                               (or (cdr (assoc cmd emoji-for-command)) "🔧")
-                               cmd) t)))
-                  (goto-char (point-max))
-                  ;; Small delay between commands to let eat process output
-                  (sit-for 0.2))
-                
-                (balance-windows)
-                (other-window 1))))
-        (error (message "Error creating tab %s: %s" tab-name err))))
-
     ;; Create all the split tabs with delays to prevent overwhelming eat/Emacs
-    (create-split-tab "status"   '("url" "tunnel"))
-    (sit-for 0.5)
-    (create-split-tab "stripe"   '("stripe-print" "stripe-ticket"))
-    (sit-for 0.5)
-    (create-split-tab "chat"     '("chat-system" "chat-sotce" "chat-clock"))
-    (sit-for 0.5)
-    (create-split-tab "web 1/2"  '("site" "session"))
-    (sit-for 0.5)
-    (create-split-tab "web 2/2"  '("redis" "bookmarks" "oven" "media"))
-    (sit-for 0.5)
-    (create-split-tab "tests"    '("kidlisp"))
+    ;; Use run-with-timer for reliable delays (sit-for doesn't work in daemon mode)
+    (let ((delay 0))
+      (dolist (tab-spec '(("status"   ("url" "tunnel"))
+                          ("stripe"   ("stripe-print" "stripe-ticket"))
+                          ("chat"     ("chat-system" "chat-sotce" "chat-clock"))
+                          ("web 1/2"  ("site" "session"))
+                          ("web 2/2"  ("redis" "bookmarks" "oven" "media"))
+                          ("tests"    ("kidlisp"))))
+        (let ((tab-name (car tab-spec))
+              (commands (cadr tab-spec)))
+          (run-with-timer delay nil #'ac--create-split-tab tab-name commands))
+        (setq delay (+ delay 1.5))))  ; 1.5 seconds between each tab
 
-    ;; Switch to the requested tab if it exists
-    (condition-case nil
-        (if (member target-tab '("artery" "status" "stripe" "chat" "web 1/2" "web 2/2" "tests"))
-            (tab-bar-switch-to-tab target-tab)
-          (message "No such tab: %s" target-tab))
-      (error nil))))
+    ;; Switch to the requested tab after all tabs are created
+    (run-with-timer (* 1.5 7) nil
+                    (lambda (target)
+                      (condition-case nil
+                          (if (member target '("artery" "status" "stripe" "chat" "web 1/2" "web 2/2" "tests"))
+                              (tab-bar-switch-to-tab target)
+                            (message "No such tab: %s" target))
+                        (error nil)))
+                    target-tab))
 
 ;;; ===================================================================
 ;;; END OF AESTHETIC COMPUTER EMACS CONFIGURATION

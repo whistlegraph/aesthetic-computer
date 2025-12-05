@@ -143,6 +143,9 @@ let ruler = false; // Paint a line down the center of the display.
 // let firstCommandSent = false; // 🏳️
 let firstActivation = true; // 🏳️ Used to trigger a startup 🔊🎆
 
+// 🚫 DEBUG: Disable content ticker/TV preview while debugging carousel
+const DISABLE_CONTENT_TICKER = false;
+
 let startupSfx, keyboardSfx;
 
 // 🎆 Corner particles (for cursor effect)
@@ -735,7 +738,8 @@ async function halt($, text) {
 
     if (params.length > 0) {
       if (shop.indexOf(params[0]) > -1) {
-        openShopPath("/" + params[0]);
+        // Use /shop~code pattern for signed product codes
+        openShopPath("/shop~" + params[0]);
       } else {
         openShopPath("/shop/" + params.join("/"));
       }
@@ -749,12 +753,17 @@ async function halt($, text) {
     jump(target);
     return true;
   } else if (shop.indexOf(slug) > -1) {
-    if (openExternalFromIframe(toAbsoluteSiteUrl("/" + slug))) return true; // Matches a product so jump to a new page / redirect.
-    jump("/" + slug); // Matches a product so jump to a new page / redirect.
+    // Use /shop~code pattern for signed product codes
+    if (openExternalFromIframe(toAbsoluteSiteUrl("/shop~" + slug))) return true;
+    jump("/shop~" + slug);
     return true;
   } else if (slug === "at") {
     // Jump to ATProto user pages landing
     jump(`https://at.aesthetic.computer`);
+    return true;
+  } else if (slug === "r8dio:web" || slug === "radio:web") {
+    // 📻 Jump to R8dio.dk website
+    jump(`https://r8dio.dk/lyt-live/`);
     return true;
   } else if (slug === "merry" || slug === "merryo") {
     const loop = slug === "merryo";
@@ -4334,7 +4343,7 @@ function paint($) {
     }
     
     // 2. CONTENT TICKER (combined $kidlisp, #painting, !tape)
-    const showContentTicker = screen.height >= 220;
+    const showContentTicker = !DISABLE_CONTENT_TICKER && screen.height >= 220;
     const contentIsLoading = contentItems.length === 0;
     
     if (showContentTicker && (contentItems.length > 0 || contentIsLoading)) {

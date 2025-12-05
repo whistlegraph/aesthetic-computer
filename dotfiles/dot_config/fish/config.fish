@@ -37,6 +37,11 @@ alias mongodb-compass 'mongodb-compass --enable-features=UseOzonePlatform,Waylan
 # reload fish config
 alias reload 'source ~/.config/fish/config.fish'
 
+# xdg-open wrapper for dev container (opens URLs on Windows host)
+function xdg-open
+    "$BROWSER" $argv
+end
+
 # learn about a command with 't' -> tldr
 alias t 'tldr'
 
@@ -379,6 +384,11 @@ bind \t complete-select-first
 # bun
 set --export BUN_INSTALL "$HOME/.bun"
 set --export PATH $BUN_INSTALL/bin $PATH
+
+# ac-shop - Shopify CLI for Aesthetic Computer
+function ac-shop
+    node /workspaces/aesthetic-computer/ac-shop/shopify.mjs $argv
+end
 
 # ac-notify function - Send notifications to ac-event-daemon
 function ac-notify

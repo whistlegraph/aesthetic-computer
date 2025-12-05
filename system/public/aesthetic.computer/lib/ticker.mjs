@@ -21,8 +21,17 @@ export class Ticker {
 
   // Set the text content for the ticker
   setText(text) {
+    // Only update if text actually changed
+    if (this.#text === text) return this;
+    
     this.#text = text;
     this.#updateMeasurements();
+    
+    // Ensure offset is within bounds of new cycle width
+    if (this.#cycleWidth > 0 && this.#offset >= this.#cycleWidth) {
+      this.#offset = this.#offset % this.#cycleWidth;
+    }
+    
     return this;
   }
 
@@ -60,8 +69,8 @@ export class Ticker {
   update(api) {
     this.#api = api;
     
-    // Update measurements if this is the first update or API changed
-    if (this.#cycleWidth === 0) {
+    // Update measurements if this is the first update or text changed
+    if (this.#cycleWidth === 0 && this.#text) {
       this.#updateMeasurements();
     }
 
@@ -87,8 +96,8 @@ export class Ticker {
       this.#offset += this.#speed * framesPassed;
       this.#lastUpdateTime = timeMs;
       
-      // Reset when one complete cycle has passed
-      if (this.#offset >= this.#cycleWidth) {
+      // Reset when one complete cycle has passed (only if cycleWidth is valid)
+      if (this.#cycleWidth > 0 && this.#offset >= this.#cycleWidth) {
         this.#offset = this.#offset % this.#cycleWidth;
       }
     }
@@ -105,6 +114,9 @@ export class Ticker {
     if (this.#cycleWidth === 0 || font) {
       this.#updateMeasurements(font);
     }
+    
+    // Exit if we still don't have valid measurements
+    if (this.#cycleWidth <= 0) return;
 
     const displayWidth = options.width || api.screen.width;
 
