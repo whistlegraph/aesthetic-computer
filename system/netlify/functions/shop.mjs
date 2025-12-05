@@ -1,24 +1,42 @@
 // Shop API, 25.12.04
 // Fetch products from Shopify for the products carousel
+// Credentials stored in MongoDB to avoid Netlify's 4KB env var limit
 
 import { respond } from "../../backend/http.mjs";
-
-const SHOPIFY_STORE_DOMAIN = process.env.SHOPIFY_STORE_DOMAIN;
-const SHOPIFY_ADMIN_ACCESS_TOKEN = process.env.SHOPIFY_ADMIN_ACCESS_TOKEN;
+import { connect } from "../../backend/mongo.mjs";
 
 // Collection ID for "Home page" (frontpage)
 const HOME_COLLECTION_ID = 369657512117;
+
+// Cache credentials in memory for warm function invocations
+let cachedCredentials = null;
+
+async function getShopifyCredentials() {
+  if (cachedCredentials) return cachedCredentials;
+  
+  const db = await connect();
+  const secrets = await db.collection("secrets").findOne({ _id: "shopify" });
+  
+  if (!secrets) {
+    throw new Error("Shopify credentials not found in database");
+  }
+  
+  cachedCredentials = {
+    domain: secrets.storeDomain,
+    token: secrets.adminAccessToken,
+  };
+  
+  return cachedCredentials;
+}
 
 export async function handler(event, context) {
   if (event.httpMethod !== "GET") {
     return respond(405, { message: "Method Not Allowed" });
   }
 
-  if (!SHOPIFY_STORE_DOMAIN || !SHOPIFY_ADMIN_ACCESS_TOKEN) {
-    return respond(500, { message: "Shopify credentials not configured" });
-  }
-
   try {
+    const { domain: SHOPIFY_STORE_DOMAIN, token: SHOPIFY_ADMIN_ACCESS_TOKEN } = 
+      await getShopifyCredentials();
     // Get products from the Home page collection
     const productsRes = await fetch(
       `https://${SHOPIFY_STORE_DOMAIN}/admin/api/2024-10/collections/${HOME_COLLECTION_ID}/products.json?limit=50`,
