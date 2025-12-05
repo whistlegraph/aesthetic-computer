@@ -321,15 +321,36 @@ class Typeface {
         batchTimeout = null;
         
         // Build comma-separated code points for batch API
-        const codePointStrs = batch.map(item => item.codePointStr);
+        // Filter out empty or invalid code point strings
+        const codePointStrs = batch
+          .map(item => item.codePointStr)
+          .filter(s => s && s.length > 0 && /^[0-9A-F_]+$/i.test(s));
+        
+        // Skip if nothing valid to fetch
+        if (codePointStrs.length === 0) {
+          console.warn("Batch glyph fetch skipped: no valid code points. Raw batch:", batch.map(b => ({ char: b.char, str: b.codePointStr })));
+          for (const item of batch) {
+            failedGlyphs.add(item.char);
+            loadingGlyphs.delete(item.char);
+          }
+          return;
+        }
+        
+        // Debug log the actual URL being constructed
+        const charsParam = codePointStrs.join(',');
+        console.log(`🔤 Batch glyph fetch: ${codePointStrs.length} chars, font=${this.name}, chars="${charsParam.substring(0, 100)}..."`);
         
         try {
           const apiUrl = (typeof window !== 'undefined' && window.acSPIDER)
-            ? `https://aesthetic.computer/api/bdf-glyph?chars=${codePointStrs.join(',')}&font=${this.name}`
-            : `/api/bdf-glyph?chars=${codePointStrs.join(',')}&font=${this.name}`;
+            ? `https://aesthetic.computer/api/bdf-glyph?chars=${charsParam}&font=${this.name}`
+            : `/api/bdf-glyph?chars=${charsParam}&font=${this.name}`;
           
           const response = await fetch(apiUrl);
-          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`🔤 Batch glyph API error (${response.status}):`, errorText, `URL: ${apiUrl}`);
+            throw new Error(`HTTP ${response.status}`);
+          }
           
           const data = await response.json();
           const glyphs = data.glyphs || {};

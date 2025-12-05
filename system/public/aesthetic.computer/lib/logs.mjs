@@ -7,7 +7,7 @@ export const logs = {
   frame: false, // Screen information / rendering framing.
   loading: false, // Preloading
   session: false, // Socket session.
-  udp: false, // UDP message logs.
+  udp: true, // UDP message logs. (ENABLED FOR DEBUGGING)
   download: false, // Download progress, etc. (JSON)
   audio: false,
   hid: false, // Keyboard, Pen, etc.

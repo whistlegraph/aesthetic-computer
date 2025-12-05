@@ -33,6 +33,7 @@ let self = {
 };
 let others = {}; // Map of other players by ID
 let gameState = "connecting"; // connecting, lobby, playing, dead, gameover
+let frameCount = 0; // Global frame counter for throttling
 
 // 3D Scene
 let cube, triangle, filledTriangle, texturedQuad, quadTexture, groundPlane, groundTexture, groundWireframe, penLocked = false;
@@ -175,6 +176,7 @@ function boot({ Form, CUBEL, QUAD, penLock, system, get, net: { socket, udp }, h
   
   // 🩰 Initialize UDP for low-latency position updates
   udpChannel = udp((type, content) => {
+    console.log("🩰 1v1 UDP received:", type, content);
     if (type === "1v1:move") {
       // Parse content if it's a string
       const data = typeof content === 'string' ? JSON.parse(content) : content;
@@ -194,7 +196,8 @@ function boot({ Form, CUBEL, QUAD, penLock, system, get, net: { socket, udp }, h
       }
     }
   });
-  console.log("🩰 UDP channel initialized for position updates");
+  console.log("🩰 UDP channel initialized:", udpChannel);
+  console.log("🩰 UDP connected:", udpChannel?.connected);
   
   // Initialize WebSocket networking (for reliable events: join/leave/combat)
   
@@ -631,6 +634,8 @@ function boot({ Form, CUBEL, QUAD, penLock, system, get, net: { socket, udp }, h
 }
 
 function sim() {
+  frameCount++; // Increment global frame counter
+  
   // Network update - send position via UDP for low latency
   if (gameState === "playing" && graphInstance) {
     self.pos = { 
@@ -644,13 +649,26 @@ function sim() {
       z: graphInstance.rotZ 
     };
     
-    // 🩰 Send position over UDP (low latency, unreliable but fast)
+    // Send position updates - try UDP first (low latency), fall back to WebSocket
+    const moveData = {
+      handle: self.handle,  // Use handle to identify player (links WS and UDP)
+      pos: self.pos,
+      rot: self.rot,
+    };
+    
     if (udpChannel?.connected) {
-      udpChannel.send("1v1:move", {
-        handle: self.handle,  // Use handle to identify player (links WS and UDP)
-        pos: self.pos,
-        rot: self.rot,
-      });
+      // 🩰 Send position over UDP (low latency, unreliable but fast)
+      // Log every ~60 frames (roughly once per second at 60fps)
+      if (Math.random() < 0.016) {
+        console.log("🩰 Sending 1v1:move via UDP:", moveData);
+      }
+      udpChannel.send("1v1:move", moveData);
+    } else if (server) {
+      // 🕸️ Fallback: Send position over WebSocket (reliable but higher latency)
+      // Only send every 3rd frame to reduce bandwidth (~20 updates/sec at 60fps)
+      if (frameCount % 3 === 0) {
+        server.send("1v1:move", moveData);
+      }
     }
   }
   

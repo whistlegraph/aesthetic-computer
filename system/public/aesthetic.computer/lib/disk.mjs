@@ -6638,11 +6638,16 @@ async function load(
         // console.log("Session URL:", url);
 
         // 🩰 UDP... (via `bios`)
+        // Use the protocol from the session response (http for localhost, https for prod)
+        console.log("🩰 DISK sending udp:connect request to BIOS:", {
+          url: `${udpUrl.protocol}//${udpUrl.hostname}`,
+          port: udpUrl.port || (udpUrl.protocol === 'https:' ? '443' : '80'),
+        });
         send({
           type: "udp:connect",
           content: {
-            url: `https://${udpUrl.hostname}`,
-            port: udpUrl.port, //debug && !forceProd ? 8889 : 443,
+            url: `${udpUrl.protocol}//${udpUrl.hostname}`,
+            port: udpUrl.port || (udpUrl.protocol === 'https:' ? '443' : '80'),
           },
         });
 
@@ -8154,6 +8159,7 @@ async function makeFrame({ data: { type, content } }) {
   }
 
   if (type === "udp:connected") {
+    console.log("🩰 DISK received udp:connected! Setting udp.connected = true");
     udp.connected = true;
     updateHUDStatus();
     $commonApi.needsPaint();
@@ -8161,6 +8167,7 @@ async function makeFrame({ data: { type, content } }) {
   }
 
   if (type === "udp:disconnected") {
+    console.log("🩰 DISK received udp:disconnected! Setting udp.connected = false");
     udp.connected = false;
     updateHUDStatus();
     $commonApi.needsPaint();
