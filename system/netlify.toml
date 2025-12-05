@@ -817,19 +817,19 @@ status = 301
 # 🛠️ Tools
 [[redirects]]
 from = "/25.12.4.11.21"
-to = "https://shop.aesthetic.computer/products/tools_I-welcome-new-experiences-every-single-day_25-12-4-11-21"
+to = "https://shop.aesthetic.computer/products/tools_i-welcome-new-experiences-every-single-day_25-12-4-11-21"
 status = 301
 [[redirects]]
 from = "/shop~25.12.4.11.21"
-to = "https://shop.aesthetic.computer/products/tools_I-welcome-new-experiences-every-single-day_25-12-4-11-21"
+to = "https://shop.aesthetic.computer/products/tools_i-welcome-new-experiences-every-single-day_25-12-4-11-21"
 status = 301
 [[redirects]]
 from = "/25.12.4.11.22"
-to = "https://shop.aesthetic.computer/products/tools_prompt.ac_25-12-4-11-22"
+to = "https://shop.aesthetic.computer/products/tools_prompt-ac_25-12-4-11-22"
 status = 301
 [[redirects]]
 from = "/shop~25.12.4.11.22"
-to = "https://shop.aesthetic.computer/products/tools_prompt.ac_25-12-4-11-22"
+to = "https://shop.aesthetic.computer/products/tools_prompt-ac_25-12-4-11-22"
 status = 301
 [[redirects]]
 from = "/25.12.4.11.23"
