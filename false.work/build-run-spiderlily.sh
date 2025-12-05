@@ -6,8 +6,25 @@
 
 set -e
 
-# Accept version parameter (for automated builds)
-BUILD_VERSION="${1:-$(date +%Y.%m.%d-%H%M)}"
+# Parse arguments
+SKIP_SYNC=false
+BUILD_VERSION=""
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --no-sync|--skip-sync)
+            SKIP_SYNC=true
+            shift
+            ;;
+        *)
+            BUILD_VERSION="$1"
+            shift
+            ;;
+    esac
+done
+
+# Default version if not provided
+BUILD_VERSION="${BUILD_VERSION:-$(date +%Y.%m.%d-%H%M)}"
 
 # Mac paths
 PROJECT_ROOT="$HOME/Perforce/spiderlily_build_workspace_macmini/SL_main"
@@ -19,6 +36,7 @@ echo "========================================="
 echo "SpiderLily - Mac Build"
 echo "========================================="
 echo "Version: $BUILD_VERSION"
+echo "Skip Sync: $SKIP_SYNC"
 echo ""
 
 # Verify paths
@@ -32,17 +50,22 @@ if [ ! -d "$UE_ROOT" ]; then
     exit 1
 fi
 
-# Sync latest from Perforce
-echo "📥 Syncing latest from Perforce..."
-cd "$PROJECT_ROOT"
-export P4PORT=ssl:falsework.helixcore.io:1666
-export P4USER=machine
-export P4CLIENT=spiderlily_build_workspace_macmini
+# Sync latest from Perforce (unless --no-sync)
+if [ "$SKIP_SYNC" = false ]; then
+    echo "📥 Syncing latest from Perforce..."
+    cd "$PROJECT_ROOT"
+    export P4PORT=ssl:falsework.helixcore.io:1666
+    export P4USER=machine
+    export P4CLIENT=spiderlily_build_workspace_macmini
 
-/opt/homebrew/bin/p4 sync
+    /opt/homebrew/bin/p4 sync
 
-if [ $? -ne 0 ]; then
-    echo "⚠️  P4 sync failed, continuing with existing files..."
+    if [ $? -ne 0 ]; then
+        echo "⚠️  P4 sync failed, continuing with existing files..."
+    fi
+else
+    echo "⏭️  Skipping Perforce sync (--no-sync flag)"
+    cd "$PROJECT_ROOT"
 fi
 
 # Fix FMOD compilation bug (uninitialized variable)
