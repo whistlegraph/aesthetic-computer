@@ -2,6 +2,7 @@
 # Run from Windows host to build UE5 project locally (not on GCP)
 
 param(
+    [switch]$NoSync,
     [string]$Platform = "Win64",
     [string]$Config = "Shipping",
     [string]$Version = (Get-Date -Format "yyyy.MM.dd-HHmm"),
@@ -23,6 +24,7 @@ Write-Host "Config: $Config"
 Write-Host "Version: $Version"
 Write-Host "Quality: $Quality" -ForegroundColor $(if ($Quality -eq "ultra") { "Magenta" } elseif ($Quality -eq "high") { "Yellow" } else { "White" })
 Write-Host "AutoPackage: $AutoPackage"
+Write-Host "NoSync: $NoSync" -ForegroundColor $(if ($NoSync) { "Green" } else { "Gray" })
 Write-Host ""
 
 # Configuration - Update these paths for your local setup
@@ -58,8 +60,11 @@ Write-Host "[OK] Found UE5: $UE5Path" -ForegroundColor Green
 Write-Host "[OK] Found Project: $ProjectFile" -ForegroundColor Green
 Write-Host ""
 
-# Optional: Sync from Perforce if configured
-if (Get-Command p4 -ErrorAction SilentlyContinue) {
+# Optional: Sync from Perforce if configured (skip if -NoSync)
+if ($NoSync) {
+    Write-Host "[SKIP] Perforce sync skipped (-NoSync flag). Using local changes." -ForegroundColor Yellow
+    Write-Host ""
+} elseif (Get-Command p4 -ErrorAction SilentlyContinue) {
     if ($AutoPackage) {
         # Auto mode: sync without prompting
         Write-Host "Auto: Syncing from Perforce..." -ForegroundColor Yellow
