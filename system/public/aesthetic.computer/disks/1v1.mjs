@@ -35,6 +35,28 @@ let others = {}; // Map of other players by ID
 let gameState = "connecting"; // connecting, lobby, playing, dead, gameover
 let frameCount = 0; // Global frame counter for throttling
 
+// 🎭 Spectator mode - activated when same handle joins from another tab/device
+let isSpectator = false;
+let spectatorReason = null; // Why we're in spectator mode
+
+// 🩰 Network connectivity tracking
+let udpConnected = false;
+let wsConnected = false;
+let lastUdpReceiveTime = 0;
+let lastWsReceiveTime = 0;
+let udpMessageCount = 0;
+let wsMessageCount = 0;
+let networkDebugLog = []; // Rolling log of recent network events
+const MAX_DEBUG_LOG = 20;
+
+function logNetwork(msg, level = "info") {
+  const entry = { time: Date.now(), msg, level };
+  networkDebugLog.push(entry);
+  if (networkDebugLog.length > MAX_DEBUG_LOG) networkDebugLog.shift();
+  const prefix = level === "error" ? "❌" : level === "warn" ? "⚠️" : "📡";
+  console.log(`${prefix} [1v1 NET] ${msg}`);
+}
+
 // 3D Scene
 let cube, triangle, filledTriangle, texturedQuad, quadTexture, groundPlane, groundTexture, groundWireframe, penLocked = false;
 // Camera frustums are now created dynamically per player in playerBoxes
@@ -176,7 +198,9 @@ function boot({ Form, CUBEL, QUAD, penLock, system, get, net: { socket, udp }, h
   
   // 🩰 Initialize UDP for low-latency position updates
   udpChannel = udp((type, content) => {
-    console.log("🩰 1v1 UDP received:", type, content);
+    udpMessageCount++;
+    lastUdpReceiveTime = Date.now();
+    logNetwork(`UDP recv: ${type} from ${content?.handle || 'unknown'}`);
     if (type === "1v1:move") {
       // Parse content if it's a string
       const data = typeof content === 'string' ? JSON.parse(content) : content;
@@ -196,27 +220,32 @@ function boot({ Form, CUBEL, QUAD, penLock, system, get, net: { socket, udp }, h
       }
     }
   });
-  console.log("🩰 UDP channel initialized:", udpChannel);
-  console.log("🩰 UDP connected:", udpChannel?.connected);
+  logNetwork(`UDP channel initialized, connected: ${udpChannel?.connected}`);
+  udpConnected = udpChannel?.connected || false;
   
   // Initialize WebSocket networking (for reliable events: join/leave/combat)
   
   // Initialize WebSocket networking (for reliable events: join/leave/combat)
   server = socket((id, type, content) => {
+    // Track WebSocket connectivity
+    wsMessageCount++;
+    lastWsReceiveTime = Date.now();
+    
     if (type === "left") {
-      console.log("👋 Player left:", id);
+      logNetwork(`Player left: ${others[id]?.handle || id}`);
       delete others[id];
       delete playerBoxes[id];
     }
     
     if (type === "joined") {
-      console.log("👋 Player joined:", id);
+      logNetwork(`Player joined notification: ${id}`);
     }
     
     if (type.startsWith("connected")) {
       self.id = id;
+      wsConnected = true;
       gameState = "lobby";
-      console.log("🎮 Connected as:", self.handle, `(${id})`);
+      logNetwork(`WebSocket connected as: ${self.handle} (${id})`);
       
       // Send initial join message
       server.send("1v1:join", {
@@ -233,7 +262,15 @@ function boot({ Form, CUBEL, QUAD, penLock, system, get, net: { socket, udp }, h
         // Only respond if we don't already know about this player
         const isNewPlayer = !others[id];
         
-        console.log(`Player joined:`, content.handle, id);
+        logNetwork(`Player join request: ${content.handle} (${id})`);
+        
+        // 🎭 Check if this is a duplicate handle (same user from another tab/device)
+        if (content.handle === self.handle) {
+          isSpectator = true;
+          spectatorReason = "Same handle connected from another location";
+          logNetwork(`SPECTATOR MODE: ${spectatorReason}`, "warn");
+        }
+        
         others[id] = {
           handle: content.handle,
           pos: content.pos || { x: 0, y: 1.6, z: 0 },
@@ -435,6 +472,9 @@ function boot({ Form, CUBEL, QUAD, penLock, system, get, net: { socket, udp }, h
       
       // WebSocket fallback for position (UDP is primary, but WS works if UDP fails)
       if (type === "1v1:move") {
+        // Log occasionally for debugging
+        if (Math.random() < 0.05) {
+          logNetwork(`WS recv 1v1:move from ${content.handle || id} pos=${content.pos?.x?.toFixed(1)},${content.pos?.y?.toFixed(1)},${content.pos?.z?.toFixed(1)}`);\n        }
         if (others[id]) {
           others[id].pos = content.pos;
           others[id].rot = content.rot;
@@ -443,6 +483,9 @@ function boot({ Form, CUBEL, QUAD, penLock, system, get, net: { socket, udp }, h
           if (playerBoxes[id]) {
             playerBoxes[id].position = [content.pos.x, content.pos.y, content.pos.z];
           }
+        } else {
+          // We got a move from someone we don't know about yet
+          logNetwork(`WS 1v1:move from unknown player ${id}, handle=${content.handle}`, \"warn\");
         }
       }
       
@@ -650,17 +693,26 @@ function sim() {
     };
     
     // Send position updates - try UDP first (low latency), fall back to WebSocket
+    // 🎭 Skip sending updates if we're in spectator mode
+    if (isSpectator) {
+      // Spectators don't send position updates
+      return;
+    }
+    
     const moveData = {
       handle: self.handle,  // Use handle to identify player (links WS and UDP)
       pos: self.pos,
       rot: self.rot,
     };
     
+    // Track UDP connected state for HUD
+    udpConnected = udpChannel?.connected || false;
+    
     if (udpChannel?.connected) {
       // 🩰 Send position over UDP (low latency, unreliable but fast)
       // Log every ~60 frames (roughly once per second at 60fps)
       if (Math.random() < 0.016) {
-        console.log("🩰 Sending 1v1:move via UDP:", moveData);
+        logNetwork(`UDP send: pos=${moveData.pos.x.toFixed(1)},${moveData.pos.y.toFixed(1)},${moveData.pos.z.toFixed(1)}`);
       }
       udpChannel.send("1v1:move", moveData);
     } else if (server) {
@@ -991,6 +1043,33 @@ function paint({ wipe, ink, painting, screen, line: drawLine, box: drawBox, clea
       textY += lineHeight;
     });
   }
+  
+  // === NETWORK STATUS OVERLAY (always visible, bottom-left above health) ===
+  const netY = screen.height - 70;
+  const netX = 6;
+  const now = Date.now();
+  
+  // UDP status
+  const udpStatus = udpChannel?.connected ? "UDP:ON" : "UDP:OFF";
+  const udpAge = lastUdpReceiveTime ? Math.floor((now - lastUdpReceiveTime) / 1000) : "?";
+  const udpColor = udpChannel?.connected ? (udpAge < 5 ? [0, 255, 0] : [255, 255, 0]) : [255, 0, 0];
+  ink(...udpColor).write(`${udpStatus} (${udpMessageCount}msg ${udpAge}s)`, { x: netX, y: netY }, undefined, undefined, false, hudFont);
+  
+  // WebSocket status  
+  const wsStatus = wsConnected ? "WS:ON" : "WS:OFF";
+  const wsAge = lastWsReceiveTime ? Math.floor((now - lastWsReceiveTime) / 1000) : "?";
+  const wsColor = wsConnected ? (wsAge < 10 ? [0, 255, 0] : [255, 255, 0]) : [255, 0, 0];
+  ink(...wsColor).write(`${wsStatus} (${wsMessageCount}msg ${wsAge}s)`, { x: netX, y: netY + 10 }, undefined, undefined, false, hudFont);
+  
+  // Spectator mode indicator
+  if (isSpectator) {
+    ink(255, 165, 0).write("SPECTATOR MODE", { x: netX, y: netY + 20 }, undefined, undefined, false, hudFont);
+    ink(200, 200, 200).write(spectatorReason || "", { x: netX, y: netY + 30 }, undefined, undefined, false, hudFont);
+  }
+  
+  // Identity
+  const idText = `ID: ${self.handle} (${self.id?.slice(0, 6) || "..."})`;
+  ink(150, 150, 255).write(idText, { x: netX, y: netY + (isSpectator ? 40 : 20) }, undefined, undefined, false, hudFont);
   
   // Note: Crosshair is now rendered via DOM element in bios.mjs when pointer lock is enabled
 }

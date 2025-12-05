@@ -1364,6 +1364,10 @@ wss.on("connection", (ws, req) => {
 
       // 🎮 1v1 game position updates should only go to others (not back to sender)
       if (msg.type === "1v1:move") {
+        // Log occasionally in production for debugging (1 in 100 messages)
+        if (Math.random() < 0.01) {
+          log(`🎮 1v1:move relay: ${msg.content?.handle || id} -> ${wss.clients.size - 1} others`);
+        }
         others(JSON.stringify(msg));
         return;
       }
@@ -1670,6 +1674,11 @@ io.onConnection((channel) => {
   channel.on("1v1:move", (data) => {
     if (channel.webrtcConnection.state === "open") {
       try {
+        // Log occasionally for production debugging (1 in 100)
+        if (Math.random() < 0.01) {
+          const parsed = typeof data === 'string' ? JSON.parse(data) : data;
+          log(`🩰 UDP 1v1:move: ${parsed?.handle || channel.id} broadcasting`);
+        }
         // Broadcast position to all other players except sender
         channel.broadcast.emit("1v1:move", data);
       } catch (err) {
