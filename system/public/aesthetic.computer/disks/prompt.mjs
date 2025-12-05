@@ -143,6 +143,9 @@ let ruler = false; // Paint a line down the center of the display.
 // let firstCommandSent = false; // 🏳️
 let firstActivation = true; // 🏳️ Used to trigger a startup 🔊🎆
 
+// 🚫 DEBUG: Disable content ticker/TV preview while debugging carousel
+const DISABLE_CONTENT_TICKER = false;
+
 let startupSfx, keyboardSfx;
 
 // 🎆 Corner particles (for cursor effect)
@@ -4340,7 +4343,7 @@ function paint($) {
     }
     
     // 2. CONTENT TICKER (combined $kidlisp, #painting, !tape)
-    const showContentTicker = screen.height >= 220;
+    const showContentTicker = !DISABLE_CONTENT_TICKER && screen.height >= 220;
     const contentIsLoading = contentItems.length === 0;
     
     if (showContentTicker && (contentItems.length > 0 || contentIsLoading)) {
