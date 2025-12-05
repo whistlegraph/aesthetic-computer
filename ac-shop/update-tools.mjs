@@ -32,13 +32,40 @@ const tools = [
   { id: 10307732766901, title: 'play', code: '25.12.4.11.25' },
 ];
 
-// Updated description without whistlegraph stamp
-const newDescription = `<p>Sketchbook customized by <a href="https://aesthetic.computer/@fifi">@fifi</a></p>
-<p>Dated December 4th, 2025</p>
+// Parse timecode to readable date/time string
+function formatDateFromCode(code) {
+  const [year, month, day, hour, minute] = code.split('.').map(Number);
+  const fullYear = 2000 + year;
+  const months = ['January', 'February', 'March', 'April', 'May', 'June',
+                  'July', 'August', 'September', 'October', 'November', 'December'];
+  const monthName = months[month - 1];
+  
+  // Ordinal suffix for day
+  const ordinal = (n) => {
+    if (n > 3 && n < 21) return 'th';
+    switch (n % 10) { case 1: return 'st'; case 2: return 'nd'; case 3: return 'rd'; default: return 'th'; }
+  };
+  
+  // Format time as 12-hour with AM/PM
+  const period = hour >= 12 ? 'PM' : 'AM';
+  const hour12 = hour % 12 || 12;
+  const timeStr = `${hour12}:${minute.toString().padStart(2, '0')} ${period}`;
+  
+  return `${monthName} ${day}${ordinal(day)}, ${fullYear} at ${timeStr}`;
+}
+
+// Generate description with time from code
+function makeDescription(code) {
+  const dateStr = formatDateFromCode(code);
+  return `<p>Sketchbook customized by <a href="https://aesthetic.computer/@fifi">@fifi</a></p>
+<p>Dated ${dateStr}</p>
 <p>This customized sketchbook ships from Los Angeles and includes a QR code.</p>
 <p>Every Midori MD A5 Sketchbook comes with a clear plastic cover.</p>`;
+}
 
 async function updateProduct(tool) {
+  const description = makeDescription(tool.code);
+  
   // Update product metadata
   const res = await fetch(`${BASE_URL}/products/${tool.id}.json`, {
     method: 'PUT',
@@ -49,7 +76,7 @@ async function updateProduct(tool) {
     body: JSON.stringify({
       product: {
         id: tool.id,
-        body_html: newDescription,
+        body_html: description,
         product_type: 'Sketchbook',
         tags: 'tool, sketchbook, fifi',
       },
