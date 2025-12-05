@@ -244,6 +244,13 @@ set -gx NODE_DISABLE_COMPILE_CACHE 1
 
 set -gx TERM xterm-256color
 
+# Create xdg-open wrapper to open URLs on Windows host from dev container
+if not test -f /usr/local/bin/xdg-open
+    echo "🌐 Creating xdg-open wrapper for host browser..."
+    printf '#!/bin/bash\n"\$BROWSER" "\$@"\n' | sudo tee /usr/local/bin/xdg-open >/dev/null
+    sudo chmod +x /usr/local/bin/xdg-open
+end
+
 # Start dbus-run-session for the keryring and execute the command passed to the script
 # dbus-run-session -- sh -c "eval \$(echo \$DBUS_SESSION_BUS_ADDRESS); exec $argv"
 

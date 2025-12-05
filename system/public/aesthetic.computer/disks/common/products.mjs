@@ -6,6 +6,11 @@ const { abs, max, min, sin, cos, floor } = Math;
 // 📦 Product Registry
 const products = {};
 
+// 🌐 Live shop data cache
+let liveShopData = null;
+let liveShopLastFetch = 0;
+const LIVE_SHOP_CACHE_DURATION = 60 * 1000; // Cache for 1 minute
+
 // 🎚️ Curtain state tracking for volume ducking
 let previousCurtainState = null;
 
@@ -20,6 +25,7 @@ class Product {
     this.imageScale = config.imageScale || 0.05;
     this.shopUrl = config.shopUrl;
     this.audioUrl = config.audioUrl; // Optional audio URL for records
+    this.soldOut = config.soldOut || false; // Whether item is sold out
     
     // Animation state
     this.rotation = 0;
@@ -46,12 +52,19 @@ class Product {
     try {
       this.image = await net.preload(this.imageUrl);
       
-      // Pre-scale the image for caching
-      const scaledW = floor(this.image.img.width * this.imageScale);
-      const scaledH = floor(this.image.img.height * this.imageScale);
+      // Pre-scale the image to a consistent TARGET SIZE (not percentage)
+      // This ensures all products display at similar sizes regardless of source image dimensions
+      const targetMaxDimension = this.type === 'record' ? 100 : 80; // records 100px, others 80px
+      const imgW = this.image.img.width;
+      const imgH = this.image.img.height;
+      
+      // Calculate scale to fit within target max dimension while preserving aspect ratio
+      const scaleFactor = Math.min(targetMaxDimension / imgW, targetMaxDimension / imgH);
+      const scaledW = floor(imgW * scaleFactor);
+      const scaledH = floor(imgH * scaleFactor);
       
       this.imageScaled = api.painting(scaledW, scaledH, (p) => {
-        p.paste(this.image.img, 0, 0, this.imageScale);
+        p.paste(this.image.img, 0, 0, scaleFactor);
       });
       
       // Load audio if this is a record with an audioUrl
@@ -311,10 +324,13 @@ class Product {
     
     // Dispatch to type-specific painter and get BUY button bounds
     let buyButtonBounds = null;
-    if (this.type === 'book') {
+    if (this.type === 'book' || this.type === 'sketchbook' || this.type === 'painting') {
       buyButtonBounds = this.paintBook($, screen);
     } else if (this.type === 'record') {
       buyButtonBounds = this.paintRecord($, screen);
+    } else {
+      // Fallback: use book painter for unknown types
+      buyButtonBounds = this.paintBook($, screen);
     }
     
     // 🎨 Paint progress bar as underline on BUY button (if we have bounds)
@@ -323,52 +339,66 @@ class Product {
     }
   }
   
-  // Paint loading animation (sine wave pattern)
+  // Paint loading animation with product info (title, byline, price)
   paintLoading($, screen) {
     const rightEdge = screen.width - 6;
-    const loadingW = 60; // Width of loading area
-    const loadingH = 80; // Height of loading area
+    const loadingW = 60;
+    const loadingH = 80;
     const loadingX = rightEdge - loadingW;
     const loadingY = 8;
     
-    // Pulsing sine wave
-    const pulse = (sin(Date.now() / 200) + 1) / 2; // 0-1 sine wave
-    const alpha = floor(100 + pulse * 155); // 100-255 alpha
+    const pulse = (sin(Date.now() / 200) + 1) / 2;
+    const alpha = floor(100 + pulse * 155);
     
-    // Draw multiple sine wave lines
-    const numWaves = 5;
-    for (let i = 0; i < numWaves; i++) {
-      const yOffset = loadingY + 20 + i * 12;
-      const phase = Date.now() / 300 + i * 0.5; // Offset each wave
+    // Draw spinning loader in place of image
+    const time = Date.now() / 1000;
+    const centerX = loadingX + loadingW / 2;
+    const centerY = loadingY + 30;
+    const spinSize = 15;
+    
+    for (let i = 0; i < 4; i++) {
+      const angle = time * 3 + (i * Math.PI / 2);
+      const x = centerX + cos(angle) * spinSize;
+      const y = centerY + sin(angle) * spinSize;
       
-      // Color cycling
-      const colorPhase = (pulse + i * 0.2) % 1;
+      const colorPhase = (i / 4 + time * 0.5) % 1;
       const r = floor(100 + sin(colorPhase * Math.PI * 2) * 155);
       const g = floor(100 + sin((colorPhase + 0.33) * Math.PI * 2) * 155);
       const b = floor(100 + sin((colorPhase + 0.66) * Math.PI * 2) * 155);
       
       $.ink(r, g, b, alpha);
-      
-      // Draw sine wave as connected line segments
-      for (let x = 0; x < loadingW - 1; x++) {
-        const amplitude = 6;
-        const y1 = yOffset + sin((x / 10) + phase) * amplitude;
-        const y2 = yOffset + sin(((x + 1) / 10) + phase) * amplitude;
-        $.line(loadingX + x, floor(y1), loadingX + x + 1, floor(y2));
-      }
+      $.box(floor(x - 2), floor(y - 2), 4, 4);
     }
     
-    // Loading text with pulsing color
-    const textY = loadingY + loadingH - 16;
-    const colorPhase = pulse;
-    const textR = floor(100 + sin(colorPhase * Math.PI * 2) * 155);
-    const textG = floor(100 + sin((colorPhase + 0.33) * Math.PI * 2) * 155);
-    const textB = floor(100 + sin((colorPhase + 0.66) * Math.PI * 2) * 155);
+    // Show title and price while loading
+    const isDark = $.dark;
+    const shadowColor = isDark ? [0, 0, 0] : [255, 255, 255];
     
-    $.ink(textR, textG, textB, alpha)
-      .write("Loading", { center: "xy", x: loadingX + loadingW / 2, y: textY }, undefined, undefined, false, "MatrixChunky8");
+    // Title with color cycling
+    const titleY = loadingY + 55;
+    const titleColorCycle = [
+      [0, 255, 255], [255, 0, 255], [255, 255, 0], [0, 255, 128],
+    ];
+    const titleColorIndex = floor((Date.now() / 200) % titleColorCycle.length);
+    const titleColor = titleColorCycle[titleColorIndex];
     
-    // Keep animating
+    // Truncate title if too long
+    let displayTitle = this.title;
+    if (displayTitle.length > 12) displayTitle = displayTitle.slice(0, 11) + '…';
+    const titleW = displayTitle.length * 4;
+    const titleX = rightEdge - titleW;
+    
+    $.ink(...shadowColor).write(displayTitle, { x: titleX + 1, y: titleY + 1 }, undefined, undefined, false, "MatrixChunky8");
+    $.ink(...titleColor).write(displayTitle, { x: titleX, y: titleY }, undefined, undefined, false, "MatrixChunky8");
+    
+    // Price
+    const priceY = titleY + 12;
+    const priceW = this.price.length * 4;
+    const priceX = rightEdge - priceW;
+    
+    $.ink(...shadowColor).write(this.price, { x: priceX + 1, y: priceY + 1 }, undefined, undefined, false, "MatrixChunky8");
+    $.ink(100, 255, 100).write(this.price, { x: priceX, y: priceY }, undefined, undefined, false, "MatrixChunky8");
+    
     $.needsPaint?.();
   }
 
@@ -377,11 +407,19 @@ class Product {
     const bookW = this.imageScaled.width;
     const bookH = this.imageScaled.height;
     
+    // Use full title - will wrap with bounds
     const titleText = this.title;
-    const authorText = this.byline;
+    
+    // Truncate byline if too long
+    let authorText = this.byline;
+    const maxAuthorChars = floor((screen.width - 20) / 4);
+    if (authorText.length > maxAuthorChars) authorText = authorText.slice(0, maxAuthorChars - 1) + '…';
+    
     const priceText = this.price;
     
-    const titleW = titleText.length * 4;
+    // Calculate title width (max is screen width - some margin for wrapping bounds)
+    const maxTitleWidth = screen.width - 20;
+    const titleW = min(titleText.length * 4, maxTitleWidth);
     const authorW = authorText.length * 4;
     const textH = 8;
     
@@ -391,10 +429,14 @@ class Product {
     const bookX = rightEdge - bookW;
     const bookY = 8;
     
-    const titleX = bookX + (bookW / 2) - (titleW / 2) - 4;
+    // Clamp title position to not go off left edge
+    let titleX = bookX + (bookW / 2) - (titleW / 2) - 4;
+    titleX = max(4, titleX); // Keep at least 4px from left edge
     const titleY = bookY + (bookH / 2) - (textH / 2) - 20;
     
-    const authorX = rightEdge - authorW + 3;
+    // Clamp author position to not go off left edge
+    let authorX = rightEdge - authorW + 3;
+    authorX = max(4, authorX);
     const authorY = titleY + textH + 6;
     
     // Check for overlaps (using bottom edge of book for height calculation)
@@ -472,10 +514,14 @@ class Product {
     ];
     const finalTitleColor = this.cycleColors(titleColorCycle, titleBlinkSpeed);
     
+    // Calculate bounds for title wrapping (right-aligned, clamped to screen)
+    const titleBoundsWidth = rightEdge - titleX - 4;
+    const titleBounds = { width: titleBoundsWidth };
+    
     $.ink(shadowColor[0], shadowColor[1], shadowColor[2])
-      .write(titleText, { x: titleX + titleSwayX + 1, y: titleY + titleSwayY + 1 }, undefined, undefined, false, "MatrixChunky8");
+      .write(titleText, { x: titleX + titleSwayX + 1, y: titleY + titleSwayY + 1 }, undefined, titleBounds, true, "MatrixChunky8");
     $.ink(finalTitleColor[0], finalTitleColor[1], finalTitleColor[2])
-      .write(titleText, { x: titleX + titleSwayX, y: titleY + titleSwayY }, undefined, undefined, false, "MatrixChunky8");
+      .write(titleText, { x: titleX + titleSwayX, y: titleY + titleSwayY }, undefined, titleBounds, true, "MatrixChunky8");
     
     // Author color cycling
     const authorBlinkSpeed = 0.04;
@@ -493,9 +539,11 @@ class Product {
       .write(authorText, { x: authorX + authorSwayX, y: authorY + authorSwayY }, undefined, undefined, false, "MatrixChunky8");
     
     // Price and BUY button side-by-side (horizontal layout like vinyl)
+    // Price has its own sway animation
     const priceDriftX = floor(sin(this.rotation * 0.05) * 3);
+    const priceDriftY = floor(cos(this.rotation * 0.04) * 2);
     const priceX = rightEdge - priceActualW - 34 + priceDriftX; // Position for side-by-side layout
-    const priceY = bookY + bookH - 4; // Below book
+    const priceY = bookY + bookH - 4 + priceDriftY; // Below book with sway
     const pricePaddingLeft = 2;
     const pricePaddingTop = 2;
     const pricePaddingRight = 1;
@@ -532,40 +580,45 @@ class Product {
     $.ink(...priceFinalColor).write(priceText, { x: priceTextX, y: priceTextY }, undefined, undefined, false, 'MatrixChunky8');
     
     // BUY button to the right of price (horizontal layout like vinyl)
-    const buyText = "BUY";
+    // BUY has its own separate sway animation (different phase)
+    // Show SOLD in red for sold out items
+    const buyDriftX = floor(sin(this.rotation * 0.07 + 1.5) * 3);
+    const buyDriftY = floor(cos(this.rotation * 0.06 + 2.0) * 2);
+    const buyText = this.soldOut ? "SOLD" : "BUY";
     const buyCharWidth = 4;
     const buyTextW = buyText.length * buyCharWidth;
-    const buyX = priceX + priceActualW + 6; // To the right of price with 6px gap
-    const buyY = priceY; // Same vertical level as price
+    const buyBaseX = rightEdge - buyTextW - 8; // Base position at right edge
+    const buyX = buyBaseX + buyDriftX; // With its own sway
+    const buyY = bookY + bookH - 4 + buyDriftY; // Same base Y as price but own sway
     const buyPaddingLeft = 5;
     const buyPaddingRight = 3;
     const buyPaddingTop = 4;
     const buyPaddingBottom = 2;
     
-    // Create or update BUY button for book
+    // Create or update BUY/SOLD button for book
     if (!this.buyButton) {
       this.buyButton = new $.ui.Button(buyX, buyY, buyTextW + buyPaddingLeft + buyPaddingRight, priceH + buyPaddingTop + buyPaddingBottom);
       this.buyButton.stickyScrubbing = true;
     } else {
-      this.buyButton.disabled = false;
+      this.buyButton.disabled = this.soldOut; // Disable button if sold out
       this.buyButton.box.x = buyX;
       this.buyButton.box.y = buyY;
       this.buyButton.box.w = buyTextW + buyPaddingLeft + buyPaddingRight;
       this.buyButton.box.h = priceH + buyPaddingTop + buyPaddingBottom;
     }
     
-    // Colored background that cycles with the text (dark green)
+    // Background color: dark green for BUY, dark red for SOLD
     const bgColorPhase = (this.rotation * 0.1) % 5;
     const bgIndex = floor(bgColorPhase);
     const bgNextIndex = (bgIndex + 1) % 5;
     const bgMix = bgColorPhase - bgIndex;
-    const bgColors = [
-      [0, 50, 0],
-      [20, 60, 20], 
-      [0, 40, 0],
-      [10, 55, 10],
-      [30, 70, 30]
+    const bgColorsGreen = [
+      [0, 50, 0], [20, 60, 20], [0, 40, 0], [10, 55, 10], [30, 70, 30]
     ];
+    const bgColorsRed = [
+      [50, 0, 0], [60, 20, 20], [40, 0, 0], [55, 10, 10], [70, 30, 30]
+    ];
+    const bgColors = this.soldOut ? bgColorsRed : bgColorsGreen;
     const buyBg = [
       floor(bgColors[bgIndex][0] * (1 - bgMix) + bgColors[bgNextIndex][0] * bgMix),
       floor(bgColors[bgIndex][1] * (1 - bgMix) + bgColors[bgNextIndex][1] * bgMix),
@@ -579,26 +632,26 @@ class Product {
     $.ink(...buyOutline, 150).line(buyX, buyY, buyX, buyY + priceH + buyPaddingTop + buyPaddingBottom); // Left
     $.ink(...buyOutline, 150).line(buyX + buyTextW + buyPaddingLeft + buyPaddingRight, buyY, buyX + buyTextW + buyPaddingLeft + buyPaddingRight, buyY + priceH + buyPaddingTop + buyPaddingBottom); // Right
     
-    // Color cycle each character individually with green blinking
-    const buyColors = [
-      [0, 255, 0], 
-      [100, 255, 100], 
-      [0, 200, 0],
-      [50, 255, 50],
-      [150, 255, 150]
+    // Color cycle each character: green for BUY, red for SOLD
+    const buyColorsGreen = [
+      [0, 255, 0], [100, 255, 100], [0, 200, 0], [50, 255, 50], [150, 255, 150]
     ];
+    const buyColorsRed = [
+      [255, 0, 0], [255, 100, 100], [200, 0, 0], [255, 50, 50], [255, 150, 150]
+    ];
+    const charColors = this.soldOut ? buyColorsRed : buyColorsGreen;
     for (let i = 0; i < buyText.length; i++) {
       const charX = buyX + buyPaddingLeft + i * buyCharWidth;
       const charY = buyY + buyPaddingTop;
-      const colorPhase = (this.rotation * 0.1 + i * 0.5) % (buyColors.length);
+      const colorPhase = (this.rotation * 0.1 + i * 0.5) % (charColors.length);
       const colorIndex = floor(colorPhase);
-      const nextColorIndex = (colorIndex + 1) % buyColors.length;
+      const nextColorIndex = (colorIndex + 1) % charColors.length;
       const mix = colorPhase - colorIndex;
       
       const charColor = [
-        floor(buyColors[colorIndex][0] * (1 - mix) + buyColors[nextColorIndex][0] * mix),
-        floor(buyColors[colorIndex][1] * (1 - mix) + buyColors[nextColorIndex][1] * mix),
-        floor(buyColors[colorIndex][2] * (1 - mix) + buyColors[nextColorIndex][2] * mix)
+        floor(charColors[colorIndex][0] * (1 - mix) + charColors[nextColorIndex][0] * mix),
+        floor(charColors[colorIndex][1] * (1 - mix) + charColors[nextColorIndex][1] * mix),
+        floor(charColors[colorIndex][2] * (1 - mix) + charColors[nextColorIndex][2] * mix)
       ];
       
       $.ink(...charColor).write(buyText[i], { x: charX, y: charY }, undefined, undefined, false, 'MatrixChunky8');
@@ -618,11 +671,19 @@ class Product {
     const recordW = this.imageScaled.width;
     const recordH = this.imageScaled.height;
     
+    // Use full title - will wrap with bounds
     const titleText = this.title;
-    const artistText = this.byline;
+    
+    // Truncate byline if too long
+    let artistText = this.byline;
+    const maxArtistChars = floor((screen.width - 20) / 4);
+    if (artistText.length > maxArtistChars) artistText = artistText.slice(0, maxArtistChars - 1) + '…';
+    
     const priceText = this.price;
     
-    const titleW = titleText.length * 4;
+    // Calculate title width (max is screen width - some margin for wrapping bounds)
+    const maxTitleWidth = screen.width - 20;
+    const titleW = min(titleText.length * 4, maxTitleWidth);
     const artistW = artistText.length * 4;
     const textH = 8;
     
@@ -632,13 +693,15 @@ class Product {
     const recordX = rightEdge - recordW;
     const recordY = 8;
     
-    // Position text for better layout:
+    // Position text for better layout - clamp to screen edges
     // Title slightly left and down from center
-    const titleX = recordX + (recordW / 2) - (titleW / 2) - 8; // Shift left
+    let titleX = recordX + (recordW / 2) - (titleW / 2) - 8; // Shift left
+    titleX = max(4, titleX); // Keep at least 4px from left edge
     const titleY = recordY - 2; // Move down 2px more (was -4)
     
-    // Artist/byline to the right
-    const artistX = recordX + (recordW / 2) - (artistW / 2) + 10; // Shift right
+    // Artist/byline to the right - clamp to screen edge
+    let artistX = recordX + (recordW / 2) - (artistW / 2) + 10; // Shift right
+    artistX = max(4, artistX); // Keep at least 4px from left edge
     const artistY = titleY + textH + 6; // Move down 4px (was +2, now +6)
     
     // Price to the left, BUY button to the right of it
@@ -898,7 +961,11 @@ class Product {
     }
     
     // Draw BUY button to the right of price (always visible, proper text button with MatrixChunky8)
-    const buyText = 'BUY';
+    // BUY has its own separate sway animation
+    // Show SOLD in red for sold out items
+    const buyDriftX = floor(sin(this.rotation * 0.07 + 1.5) * 3);
+    const buyDriftY = floor(cos(this.rotation * 0.06 + 2.0) * 2);
+    const buyText = this.soldOut ? 'SOLD' : 'BUY';
     const buyCharWidth = 4; // MatrixChunky8 char width
     const buyW = buyText.length * buyCharWidth;
     const buyH = 8;
@@ -907,33 +974,34 @@ class Product {
     const buyPaddingTop = 4; // Top padding (1 more pixel)
     const buyPaddingBottom = 2; // Bottom padding
     
-    const buyX = priceX + priceActualW + 6; // To the right of price
-    const buyY = priceY; // Same level as price
+    const buyBaseX = rightEdge - buyW - buyPaddingLeft - buyPaddingRight - 8;
+    const buyX = buyBaseX + buyDriftX; // With separate sway
+    const buyY = priceY + buyDriftY; // Same base Y as price but own sway
     
-    // Create or update BUY button
+    // Create or update BUY/SOLD button
     if (!this.buyButton) {
       this.buyButton = new $.ui.Button(buyX, buyY, buyW + buyPaddingLeft + buyPaddingRight, buyH + buyPaddingTop + buyPaddingBottom);
       this.buyButton.stickyScrubbing = true; // Prevent drag-off from closing curtain
     } else {
-      this.buyButton.disabled = false;
+      this.buyButton.disabled = this.soldOut; // Disable button if sold out
       this.buyButton.box.x = buyX;
       this.buyButton.box.y = buyY;
       this.buyButton.box.w = buyW + buyPaddingLeft + buyPaddingRight;
       this.buyButton.box.h = buyH + buyPaddingTop + buyPaddingBottom;
     }
     
-    // Colored background that cycles with the text
+    // Background color: dark green for BUY, dark red for SOLD
     const bgColorPhase = (this.rotation * 0.1) % 5;
     const bgIndex = floor(bgColorPhase);
     const bgNextIndex = (bgIndex + 1) % 5;
     const bgMix = bgColorPhase - bgIndex;
-    const bgColors = [
-      [0, 50, 0],
-      [20, 60, 20], 
-      [0, 40, 0],
-      [10, 55, 10],
-      [30, 70, 30]
+    const bgColorsGreen = [
+      [0, 50, 0], [20, 60, 20], [0, 40, 0], [10, 55, 10], [30, 70, 30]
     ];
+    const bgColorsRed = [
+      [50, 0, 0], [60, 20, 20], [40, 0, 0], [55, 10, 10], [70, 30, 30]
+    ];
+    const bgColors = this.soldOut ? bgColorsRed : bgColorsGreen;
     const buyBg = [
       floor(bgColors[bgIndex][0] * (1 - bgMix) + bgColors[bgNextIndex][0] * bgMix),
       floor(bgColors[bgIndex][1] * (1 - bgMix) + bgColors[bgNextIndex][1] * bgMix),
@@ -947,26 +1015,26 @@ class Product {
     $.ink(...buyOutline, 150).line(buyX, buyY, buyX, buyY + buyH + buyPaddingTop + buyPaddingBottom); // Left
     $.ink(...buyOutline, 150).line(buyX + buyW + buyPaddingLeft + buyPaddingRight, buyY, buyX + buyW + buyPaddingLeft + buyPaddingRight, buyY + buyH + buyPaddingTop + buyPaddingBottom); // Right
     
-    // Color cycle each character individually with more dramatic blinking
-    const buyColors = [
-      [0, 255, 0], 
-      [100, 255, 100], 
-      [0, 200, 0],
-      [50, 255, 50],
-      [150, 255, 150]
+    // Color cycle each character: green for BUY, red for SOLD
+    const buyColorsGreen = [
+      [0, 255, 0], [100, 255, 100], [0, 200, 0], [50, 255, 50], [150, 255, 150]
     ];
+    const buyColorsRed = [
+      [255, 0, 0], [255, 100, 100], [200, 0, 0], [255, 50, 50], [255, 150, 150]
+    ];
+    const charColors = this.soldOut ? buyColorsRed : buyColorsGreen;
     for (let i = 0; i < buyText.length; i++) {
       const charX = buyX + buyPaddingLeft + i * buyCharWidth;
       const charY = buyY + buyPaddingTop;
-      const colorPhase = (this.rotation * 0.1 + i * 0.5) % (buyColors.length); // Faster blinking
+      const colorPhase = (this.rotation * 0.1 + i * 0.5) % (charColors.length); // Faster blinking
       const colorIndex = floor(colorPhase);
-      const nextColorIndex = (colorIndex + 1) % buyColors.length;
+      const nextColorIndex = (colorIndex + 1) % charColors.length;
       const mix = colorPhase - colorIndex;
       
       const charColor = [
-        floor(buyColors[colorIndex][0] * (1 - mix) + buyColors[nextColorIndex][0] * mix),
-        floor(buyColors[colorIndex][1] * (1 - mix) + buyColors[nextColorIndex][1] * mix),
-        floor(buyColors[colorIndex][2] * (1 - mix) + buyColors[nextColorIndex][2] * mix)
+        floor(charColors[colorIndex][0] * (1 - mix) + charColors[nextColorIndex][0] * mix),
+        floor(charColors[colorIndex][1] * (1 - mix) + charColors[nextColorIndex][1] * mix),
+        floor(charColors[colorIndex][2] * (1 - mix) + charColors[nextColorIndex][2] * mix)
       ];
       
       $.ink(...charColor).write(buyText[i], { x: charX, y: charY }, undefined, undefined, false, 'MatrixChunky8');
@@ -1002,11 +1070,15 @@ class Product {
     ];
     const finalTitleColor = this.cycleColors(titleColorCycle, titleBlinkSpeed);
     
+    // Calculate bounds for title wrapping (right-aligned, clamped to screen)
+    const titleBoundsWidth = rightEdge - titleX - 4;
+    const titleBounds = { width: titleBoundsWidth };
+    
     // No background boxes - shadows for contrast instead
     $.ink(shadowColor[0], shadowColor[1], shadowColor[2])
-      .write(titleText, { x: titleX + titleSwayX + 1, y: titleY + titleSwayY + 1 }, undefined, undefined, false, "MatrixChunky8");
+      .write(titleText, { x: titleX + titleSwayX + 1, y: titleY + titleSwayY + 1 }, undefined, titleBounds, true, "MatrixChunky8");
     $.ink(finalTitleColor[0], finalTitleColor[1], finalTitleColor[2])
-      .write(titleText, { x: titleX + titleSwayX, y: titleY + titleSwayY }, undefined, undefined, false, "MatrixChunky8");
+      .write(titleText, { x: titleX + titleSwayX, y: titleY + titleSwayY }, undefined, titleBounds, true, "MatrixChunky8");
     
     // Artist color cycling (no background)
     const artistBlinkSpeed = 0.04;
@@ -1024,10 +1096,11 @@ class Product {
     $.ink(...finalArtistColor)
       .write(artistText, { x: artistX + artistSwayX, y: artistY + artistSwayY }, undefined, undefined, false, "MatrixChunky8");
     
-    // Price
+    // Price - has its own sway animation
     const priceDriftX = floor(sin(this.rotation * 0.05) * 3);
+    const priceDriftY = floor(cos(this.rotation * 0.04) * 2);
     const priceTextX = priceX + priceDriftX;
-    const priceTextY = priceY;
+    const priceTextY = priceY + priceDriftY;
     const pricePaddingLeft = 2;
     const pricePaddingTop = 2;
     const pricePaddingRight = 1; // 1 less on right
@@ -1074,7 +1147,8 @@ class Product {
     if (!buyButtonBounds) return; // No BUY button to draw under
     
     // Calculate remaining time (1 to 0) - time running out
-    const remaining = 1 - (cycleTimer / CYCLE_DURATION);
+    const elapsed = performance.now() - lastCycleTime;
+    const remaining = 1 - Math.min(elapsed / CYCLE_DURATION_MS, 1);
     
     // Progress bar flush with bottom border inside the BUY button
     const progressY = buyButtonBounds.y + buyButtonBounds.h - 1; // Flush with bottom
@@ -1196,62 +1270,188 @@ class Product {
   }
 }
 
-// 📦 Product Definitions
+// 🎵 Special audio URLs for records (keyed by Shopify product handle)
+// These enable the vinyl playback feature for specific products
+const RECORD_AUDIO_URLS = {
+  'music_baktok-7-inch_25-11-3-14-17': 'https://assets.aesthetic.computer/pruttipal/laer-klokken/baktok-single-no24-instrumental.ogg',
+  // Add more records here as needed:
+  // 'handle-of-record': 'https://url-to-audio-file.ogg',
+};
 
-// Book Product - What is Landscape?
-products.book = new Product({
-  type: 'book',
-  title: 'What is Landscape?',
-  byline: 'by John R. Stilgoe',
-  price: '$60 USD',
-  imageUrl: 'https://shop.aesthetic.computer/cdn/shop/files/IMG-1176.png?v=1761673860&width=1646',
-  imageScale: 0.05,
-  shopUrl: 'https://shop.aesthetic.computer/products/books_what-is-landscape-by-john-r-stilgoe_25-4-8-21-08'
-});
-
-// Book Product - Radical Computer Music
-products.radicalComputerMusic = new Product({
-  type: 'book',
-  title: 'Radical Computer Music',
-  byline: 'by Goodiepal',
-  price: '$60 USD',
-  imageUrl: 'https://shop.aesthetic.computer/cdn/shop/files/20251104_203646_70c81da4-34a3-41a7-a9ba-2c924488b19e.png?v=1763435420&width=1646',
-  imageScale: 0.05,
-  shopUrl: 'https://shop.aesthetic.computer/products/books_radical-computer-music-by-goodiepal_25-11-17-19-03'
-});
-
-// Record Product
-products.record = new Product({
-  type: 'record',
-  title: 'BakTok 7" Vinyl',
-  byline: 'by @prutti',
-  price: '$50 USD',
-  imageUrl: 'https://assets.aesthetic.computer/pruttipal/laer-klokken/baktok-record.png',
-  imageScale: 0.065, // Bigger record
-  audioUrl: 'https://assets.aesthetic.computer/pruttipal/laer-klokken/baktok-single-no24-instrumental.ogg', // Audio file
-  shopUrl: 'https://shop.aesthetic.computer/products/music_baktok-7-inch_25-11-3-14-17'
-});
+// 🖼️ Custom image URLs (override Shopify images for specific products)
+const CUSTOM_IMAGE_URLS = {
+  'music_baktok-7-inch_25-11-3-14-17': 'https://assets.aesthetic.computer/pruttipal/laer-klokken/baktok-record.png',
+};
 
 // 🎯 Active product (can be switched)
-// Randomize on load: equal chance between all products
-const productKeys = ['book', 'radicalComputerMusic', 'record'];
-let activeProductKey = productKeys[Math.floor(Math.random() * productKeys.length)];
+let productKeys = [];
+let activeProductKey = null;
 
 // ⏱️ Auto-cycling state
-let cycleTimer = 0;
-const CYCLE_DURATION = 9 * 60; // 9 seconds at 60fps
-let currentProductIndex = productKeys.indexOf(activeProductKey);
+let lastCycleTime = 0;
+const CYCLE_DURATION_MS = 9000; // 9 seconds in milliseconds
+let currentProductIndex = 0;
+
+// 🌐 Fetch live shop data from API
+async function fetchLiveShopData() {
+  const now = Date.now();
+  if (liveShopData && now - liveShopLastFetch < LIVE_SHOP_CACHE_DURATION) {
+    return liveShopData;
+  }
+  
+  try {
+    const res = await fetch('/.netlify/functions/shop');
+    if (!res.ok) throw new Error(`Shop API error: ${res.status}`);
+    liveShopData = await res.json();
+    liveShopLastFetch = now;
+    console.log(`🛒 Fetched ${liveShopData.products.length} live products from shop`);
+    return liveShopData;
+  } catch (err) {
+    console.warn('🛒 Could not fetch live shop data:', err);
+    return null;
+  }
+}
+
+// 🔄 Determine product type from Shopify data
+function getProductType(shopProduct) {
+  const type = shopProduct.productType?.toLowerCase() || '';
+  const tags = shopProduct.tags?.map(t => t.toLowerCase()) || [];
+  const handle = shopProduct.handle || '';
+  
+  // Check if it has a custom audio URL (it's a playable record)
+  if (RECORD_AUDIO_URLS[handle]) return 'record';
+  
+  if (type === 'music' || tags.includes('vinyl') || tags.includes('record')) return 'record';
+  if (type === 'book' || tags.includes('book')) return 'book';
+  if (type === 'sketchbook' || tags.includes('sketchbook') || tags.includes('tool')) return 'sketchbook';
+  if (type === 'painting' || tags.includes('painting') || tags.includes('artwork')) return 'painting';
+  return 'book'; // Default fallback
+}
 
 // 📚 API
 
+// Store api reference for lazy loading
+let bootApi = null;
+let isBooting = false; // Track if we're currently loading shop data
+
 export async function boot(api) {
-  // Eagerly load ALL product images
-  const loadPromises = [];
-  for (const key in products) {
-    loadPromises.push(products[key].load(api.net, api));
+  console.log(`📦 Booting products carousel (live shop mode)...`);
+  bootApi = api;
+  isBooting = true;
+  
+  // Start fetching in background - DON'T await, return immediately
+  fetchAndLoadProducts(api);
+  
+  console.log(`📦 Boot returned immediately, loading in background...`);
+}
+
+// Background loader - fetches shop data and loads products without blocking
+async function fetchAndLoadProducts(api) {
+  try {
+    const data = await fetchLiveShopData();
+    
+    if (!data || !data.products || data.products.length === 0) {
+      console.warn('🛒 No live products found, carousel will be empty');
+      isBooting = false;
+      return;
+    }
+    
+    // Create product configs - include ALL products (available and sold)
+    for (const shopProduct of data.products) {
+      const key = `shop_${shopProduct.id}`;
+      if (products[key]) continue; // Already loaded
+      
+      const productType = getProductType(shopProduct);
+      const handle = shopProduct.handle;
+      
+      // Use custom image if available, otherwise use Shopify image
+      const imageUrl = CUSTOM_IMAGE_URLS[handle] || shopProduct.imageUrl;
+      
+      // Get audio URL for records (if configured)
+      const audioUrl = RECORD_AUDIO_URLS[handle] || null;
+      
+      const config = {
+        type: productType,
+        title: shopProduct.title,
+        byline: `by ${shopProduct.vendor}`,
+        price: shopProduct.price,
+        imageUrl: imageUrl,
+        imageScale: productType === 'record' ? 0.065 : 0.05,
+        shopUrl: shopProduct.shopUrl,
+        audioUrl: audioUrl,
+        shopData: shopProduct,
+        soldOut: !shopProduct.available, // Mark as sold if not available
+      };
+      
+      products[key] = new Product(config);
+      productKeys.push(key);
+    }
+    
+    if (productKeys.length > 0) {
+      // Randomize starting product
+      currentProductIndex = Math.floor(Math.random() * productKeys.length);
+      activeProductKey = productKeys[currentProductIndex];
+      
+      console.log(`🛒 Registered ${productKeys.length} live products. Starting with: ${products[activeProductKey]?.title}`);
+      
+      // Start loading images in background (sequential with delays)
+      loadProductImagesInBackground(api);
+    }
+  } catch (err) {
+    console.warn('📦 Failed to fetch shop data:', err);
+  } finally {
+    isBooting = false;
   }
-  await Promise.all(loadPromises);
-  console.log(`📦 All products preloaded. Active product on load: ${activeProductKey}`);
+}
+
+// Lazy load a single product image on demand
+// Returns true if already loaded, false if not yet loaded (will load in background)
+async function ensureProductLoaded(key, api, triggerRepaint = false) {
+  const product = products[key];
+  if (!product) return false;
+  
+  // Already loaded or currently loading
+  if (product.imageScaled) return true;
+  if (product.isLoading) return false;
+  
+  // Start loading
+  product.isLoading = true;
+  const startTime = performance.now();
+  
+  try {
+    await product.load(api.net, api);
+    product.isLoading = false;
+    const elapsed = (performance.now() - startTime).toFixed(0);
+    console.log(`📦 Lazy loaded: ${product.title} (${elapsed}ms)`);
+    
+    if (triggerRepaint && api.needsPaint) {
+      api.needsPaint();
+    }
+    return true;
+  } catch (err) {
+    product.isLoading = false;
+    console.warn(`📦 Failed to load ${product.title}:`, err);
+    return false;
+  }
+}
+
+// Load only the active product at boot (lazy load the rest on demand)
+async function loadProductImagesInBackground(api) {
+  // Only load the CURRENT product at boot - others load lazily when needed
+  if (activeProductKey) {
+    console.log(`📦 Loading active product: ${products[activeProductKey]?.title}`);
+    await ensureProductLoaded(activeProductKey, api, true);
+    
+    // Pre-load the NEXT product so first cycle is smooth
+    if (productKeys.length > 1) {
+      const nextIndex = (currentProductIndex + 1) % productKeys.length;
+      const nextKey = productKeys[nextIndex];
+      console.log(`📦 Pre-loading next product: ${products[nextKey]?.title}`);
+      ensureProductLoaded(nextKey, api); // Don't await - load in background
+    }
+  }
+  
+  console.log(`📦 Boot complete. Other products will load lazily on demand.`);
 }
 
 export function setActiveProduct(key) {
@@ -1268,16 +1468,22 @@ export function getActiveProduct() {
 }
 
 export function sim($) {
+  const now = performance.now();
   const product = getActiveProduct();
-  if (product) product.sim(performance.now());
+  if (product) product.sim(now);
   
   // Poll speaker for audio data (amplitude and waveform)
   $.sound?.speaker?.poll();
   
-  // ⏱️ Auto-cycle products every 9 seconds
-  cycleTimer++;
-  if (cycleTimer >= CYCLE_DURATION) {
-    cycleTimer = 0;
+  // ⏱️ Auto-cycle products every 9 seconds (only if we have products)
+  if (productKeys.length === 0) return;
+  
+  // Initialize cycle timer on first call
+  if (lastCycleTime === 0) lastCycleTime = now;
+  
+  const elapsed = now - lastCycleTime;
+  if (elapsed >= CYCLE_DURATION_MS) {
+    lastCycleTime = now;
     
     // Gracefully stop any playing audio before switching
     const currentProduct = getActiveProduct();
@@ -1302,7 +1508,20 @@ export function sim($) {
     // Switch to next product
     currentProductIndex = (currentProductIndex + 1) % productKeys.length;
     activeProductKey = productKeys[currentProductIndex];
-    console.log(`📦 Auto-cycled to product: ${activeProductKey}`);
+    console.log(`📦 Auto-cycled to product: ${products[activeProductKey]?.title}`);
+    
+    // 🦥 Lazy load: ensure new product and next one are loaded
+    const newProduct = products[activeProductKey];
+    if (newProduct && !newProduct.imageScaled && !newProduct.isLoading && bootApi) {
+      ensureProductLoaded(activeProductKey, bootApi, true);
+    }
+    // Pre-load next product in queue
+    const nextIndex = (currentProductIndex + 1) % productKeys.length;
+    const nextKey = productKeys[nextIndex];
+    if (nextKey && products[nextKey] && !products[nextKey].imageScaled && !products[nextKey].isLoading && bootApi) {
+      // Delay preload slightly to not compete with current
+      setTimeout(() => ensureProductLoaded(nextKey, bootApi), 500);
+    }
   }
 }
 
@@ -1313,6 +1532,14 @@ export function act($, event, callbacks) {
 
 export function paint($, screen, showLoginCurtain) {
   const product = getActiveProduct();
+  
+  // Show loading animation if we're still booting (fetching shop data) or no products yet
+  if (!product) {
+    if (isBooting || productKeys.length === 0) {
+      paintBootingAnimation($, screen, showLoginCurtain);
+    }
+    return;
+  }
   
   // 🎚️ Volume ducking: Adjust audio volume when curtain state changes
   if (product && product.audioSfx && product.isPlaying && !product.audioSfx.killed) {
@@ -1336,4 +1563,94 @@ export function paint($, screen, showLoginCurtain) {
   if (product) product.paint($, screen, showLoginCurtain);
 }
 
-export { products };
+// 🌀 Paint loading animation while booting (fetching shop data)
+function paintBootingAnimation($, screen, showLoginCurtain) {
+  if (!showLoginCurtain) return; // Hidden when curtain is down
+  
+  const rightEdge = screen.width - 6;
+  const loadingW = 60;
+  const loadingH = 80;
+  const loadingX = rightEdge - loadingW;
+  const loadingY = 8;
+  
+  const pulse = (sin(Date.now() / 200) + 1) / 2;
+  const alpha = floor(100 + pulse * 155);
+  
+  // Spinning box animation
+  const time = Date.now() / 1000;
+  const centerX = loadingX + loadingW / 2;
+  const centerY = loadingY + loadingH / 2 - 10;
+  const boxSize = 20 + sin(time * 2) * 5;
+  
+  // Draw rotating square corners
+  for (let corner = 0; corner < 4; corner++) {
+    const angle = time * 2 + (corner * Math.PI / 2);
+    const dist = boxSize;
+    const x = centerX + cos(angle) * dist;
+    const y = centerY + sin(angle) * dist;
+    
+    const colorPhase = (corner / 4 + time * 0.5) % 1;
+    const r = floor(100 + sin(colorPhase * Math.PI * 2) * 155);
+    const g = floor(100 + sin((colorPhase + 0.33) * Math.PI * 2) * 155);
+    const b = floor(100 + sin((colorPhase + 0.66) * Math.PI * 2) * 155);
+    
+    $.ink(r, g, b, alpha);
+    
+    // Draw small squares at corners
+    const sz = 4;
+    $.box(floor(x - sz/2), floor(y - sz/2), sz, sz);
+  }
+  
+  // Draw connecting lines
+  for (let i = 0; i < 4; i++) {
+    const angle1 = time * 2 + (i * Math.PI / 2);
+    const angle2 = time * 2 + ((i + 1) * Math.PI / 2);
+    const x1 = centerX + cos(angle1) * boxSize;
+    const y1 = centerY + sin(angle1) * boxSize;
+    const x2 = centerX + cos(angle2) * boxSize;
+    const y2 = centerY + sin(angle2) * boxSize;
+    
+    const lineAlpha = floor(50 + pulse * 100);
+    $.ink(200, 200, 200, lineAlpha);
+    $.line(floor(x1), floor(y1), floor(x2), floor(y2));
+  }
+  
+  // "Shop" text
+  const textY = loadingY + loadingH - 10;
+  const textR = floor(100 + sin(time * 3) * 155);
+  const textG = floor(100 + sin(time * 3 + 2) * 155);
+  const textB = floor(100 + sin(time * 3 + 4) * 155);
+  
+  $.ink(textR, textG, textB, alpha)
+    .write("Shop", { center: "xy", x: centerX, y: textY }, undefined, undefined, false, "MatrixChunky8");
+  
+  $.needsPaint?.();
+}
+
+// 🛒 Get live shop data (for external use)
+export function getLiveShopData() {
+  return liveShopData;
+}
+
+// 🔄 Force refresh live shop data
+export async function refreshShopData() {
+  liveShopLastFetch = 0; // Clear cache
+  return fetchLiveShopData();
+}
+
+// 📊 Get product stats
+export function getProductStats() {
+  const elapsed = performance.now() - lastCycleTime;
+  return {
+    total: productKeys.length,
+    current: activeProductKey,
+    currentIndex: currentProductIndex,
+    cycleProgress: Math.min(elapsed / CYCLE_DURATION_MS, 1),
+    hasLiveData: !!liveShopData,
+    liveProductCount: liveShopData?.products?.length || 0,
+    availableCount: liveShopData?.available?.length || 0,
+    soldCount: liveShopData?.sold?.length || 0,
+  };
+}
+
+export { products, fetchLiveShopData };
