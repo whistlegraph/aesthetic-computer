@@ -43,7 +43,8 @@ async function fun(event, context) {
     } else if (host === "local.aesthetic.computer") {
       out = { url: `https://session.${host}`, udp: `https://session.${host}` };
     } else {
-      out = { url: `http://${host}:8889`, udp: `http://${host}:8889` };
+      // Dev session server uses HTTPS (with local SSL certs)
+      out = { url: `https://${host}:8889`, udp: `https://${host}:8889` };
     }
 
   } else if (event.queryStringParameters.service === "monolith") {
