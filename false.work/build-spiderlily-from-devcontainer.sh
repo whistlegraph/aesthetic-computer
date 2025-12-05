@@ -2,11 +2,25 @@
 
 # Wrapper script to build SpiderLily on Mac from dev container
 # Loads credentials from vault and executes build remotely
+#
+# Usage:
+#   ./build-spiderlily-from-devcontainer.sh              # Normal build with P4 sync
+#   ./build-spiderlily-from-devcontainer.sh --no-sync    # Build using local files (no sync)
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 VAULT_DIR="$SCRIPT_DIR/../aesthetic-computer-vault"
+
+# Parse arguments
+EXTRA_ARGS=""
+for arg in "$@"; do
+    case $arg in
+        --no-sync|--skip-sync)
+            EXTRA_ARGS="$EXTRA_ARGS --no-sync"
+            ;;
+    esac
+done
 
 # Load Mac credentials
 if [ -f "$VAULT_DIR/false.work/mac-builder-credentials.env" ]; then
@@ -39,4 +53,4 @@ echo "🚀 Starting build on Mac..."
 echo ""
 sshpass -p "$MAC_PASSWORD" ssh \
     "$MAC_USERNAME@$MAC_HOST" \
-    "chmod +x ~/build-run-spiderlily.sh && ~/build-run-spiderlily.sh"
+    "chmod +x ~/build-run-spiderlily.sh && ~/build-run-spiderlily.sh $EXTRA_ARGS"
