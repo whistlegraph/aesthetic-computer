@@ -797,6 +797,65 @@ status = 301
 from = "/shop~25.4.13.18.54"
 to = "https://shop.aesthetic.computer/products/pictures_25-4-13-18-54"
 status = 301
+# 🚲 Bikes
+[[redirects]]
+from = "/25.12.4.10.09"
+to = "https://shop.aesthetic.computer/products/bikes_adult-bike_25-12-4-10-09"
+status = 301
+[[redirects]]
+from = "/shop~25.12.4.10.09"
+to = "https://shop.aesthetic.computer/products/bikes_adult-bike_25-12-4-10-09"
+status = 301
+[[redirects]]
+from = "/25.12.4.10.08"
+to = "https://shop.aesthetic.computer/products/bikes_kids-bike_25-12-4-10-08"
+status = 301
+[[redirects]]
+from = "/shop~25.12.4.10.08"
+to = "https://shop.aesthetic.computer/products/bikes_kids-bike_25-12-4-10-08"
+status = 301
+# 🛠️ Tools
+[[redirects]]
+from = "/25.12.4.11.21"
+to = "https://shop.aesthetic.computer/products/tools_i-welcome-new-experiences-every-single-day_25-12-4-11-21"
+status = 301
+[[redirects]]
+from = "/shop~25.12.4.11.21"
+to = "https://shop.aesthetic.computer/products/tools_i-welcome-new-experiences-every-single-day_25-12-4-11-21"
+status = 301
+[[redirects]]
+from = "/25.12.4.11.22"
+to = "https://shop.aesthetic.computer/products/tools_prompt-ac_25-12-4-11-22"
+status = 301
+[[redirects]]
+from = "/shop~25.12.4.11.22"
+to = "https://shop.aesthetic.computer/products/tools_prompt-ac_25-12-4-11-22"
+status = 301
+[[redirects]]
+from = "/25.12.4.11.23"
+to = "https://shop.aesthetic.computer/products/tools_my-songs_25-12-4-11-23"
+status = 301
+[[redirects]]
+from = "/shop~25.12.4.11.23"
+to = "https://shop.aesthetic.computer/products/tools_my-songs_25-12-4-11-23"
+status = 301
+[[redirects]]
+from = "/25.12.4.11.24"
+to = "https://shop.aesthetic.computer/products/tools_pretty-pictures_25-12-4-11-24"
+status = 301
+[[redirects]]
+from = "/shop~25.12.4.11.24"
+to = "https://shop.aesthetic.computer/products/tools_pretty-pictures_25-12-4-11-24"
+status = 301
+[[redirects]]
+from = "/25.12.4.11.25"
+to = "https://shop.aesthetic.computer/products/tools_play_25-12-4-11-25"
+status = 301
+[[redirects]]
+from = "/shop~25.12.4.11.25"
+to = "https://shop.aesthetic.computer/products/tools_play_25-12-4-11-25"
+status = 301
+# END SHOP
 [[redirects]]
 from = "/api/bdf-glyph"
 to = "/.netlify/functions/bdf-glyph"
