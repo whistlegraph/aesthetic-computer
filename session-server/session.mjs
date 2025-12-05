@@ -28,6 +28,7 @@
 // Add redis pub/sub here...
 
 import Fastify from "fastify";
+import geckos from "@geckos.io/server";
 import geoip from "geoip-lite";
 import { WebSocket, WebSocketServer } from "ws";
 import ip from "ip";
@@ -313,6 +314,29 @@ if (dev) {
 }
 
 // *** HTTP Server Initialization ***
+
+// Track UDP channels manually (geckos.io doesn't expose this)
+const udpChannels = {};
+
+// 🩰 Initialize geckos.io BEFORE server starts listening
+// Configure for devcontainer/Docker environment:
+// - iceServers: [] for local development (no STUN/TURN needed)
+// - portRange: constrain UDP to small range that can be exposed from container
+// - cors: allow from any origin in dev mode
+const io = geckos({
+  iceServers: dev ? [] : undefined, // Empty array for local dev, default for production
+  portRange: {
+    min: 10000,
+    max: 10007,
+  },
+  cors: {
+    allowAuthorization: true,
+    origin: dev ? "*" : "https://aesthetic.computer",
+  },
+});
+io.addServer(server); // Hook up to the HTTP Server - must be before listen()
+console.log("🩰 Geckos.io server attached to fastify server (UDP ports 10000-10007)");
+
 const start = async () => {
   try {
     if (dev) {
@@ -332,8 +356,6 @@ const start = async () => {
 await start();
 
 // *** Status Page Data Collection ***
-// Track UDP channels manually (geckos.io doesn't expose this)
-const udpChannels = {};
 
 // Get unified client status - user-centric view
 function getClientStatus() {
@@ -1340,6 +1362,12 @@ wss.on("connection", (ws, req) => {
         return;
       }
 
+      // 🎮 1v1 game position updates should only go to others (not back to sender)
+      if (msg.type === "1v1:move") {
+        others(JSON.stringify(msg));
+        return;
+      }
+
       everyone(JSON.stringify(msg)); // Relay any other message to every user.
     }
   });
@@ -1522,12 +1550,7 @@ setInterval(() => {
 // Note: This currently works off of a monolith via `udp.aesthetic.computer`
 //       as the ports are blocked on jamsocket.
 
-import geckos from "@geckos.io/server";
-
-const io = geckos();
-
-io.addServer(server); // Hook up to the HTTP Server.
-// io.listen(9208); // default port is 9208
+// geckos.io is imported at top and initialized before server.listen()
 
 io.onConnection((channel) => {
   // Track this UDP channel

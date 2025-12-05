@@ -443,9 +443,9 @@ export const handler = async (event) => {
   const charsParam = event.queryStringParameters.chars; // Batch mode: comma-separated code points
   let fontParam = event.queryStringParameters.font || "unifont-16.0.03";
   
-  // Add extensive logging for debugging
-  // shell.log(`🔍 BDF-GLYPH CALLED: char=${charParam}, font=${fontParam}`);
-  // shell.log(`🔍 Query params:`, event.queryStringParameters);
+  // Debug logging for all requests
+  shell.log(`🔍 BDF-GLYPH CALLED: char=${charParam}, chars=${charsParam}, font=${fontParam}`);
+  shell.log(`🔍 Query params:`, JSON.stringify(event.queryStringParameters));
   
   // Normalize font name for unifont
   if (fontParam === "unifont") {

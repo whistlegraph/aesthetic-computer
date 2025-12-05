@@ -26,11 +26,46 @@ function connect(port = 8889, url = undefined, send) {
     return;
   }
 
-  if (logs.udp) console.log("🩰 Connecting to UDP:", url, "on:", port);
+  console.log("🩰 Connecting to UDP:", url, "on:", port);
 
   dontreconnect = false;
 
-  channel = Geckos({ url, port }); // default port is 9208
+  try {
+    channel = Geckos({ url, port }); // default port is 9208
+    console.log("🩰 Geckos channel created:", channel);
+    console.log("🩰 Calling channel.onConnect...");
+    
+    // Debug: Log if onConnect doesn't fire within 5 seconds
+    const connectTimeout = setTimeout(() => {
+      console.error("🩰 ⚠️ onConnect callback never fired after 5 seconds!");
+      console.log("🩰 Channel state:", channel);
+      console.log("🩰 connectionsManager:", channel.connectionsManager);
+      // Try to check the peerConnection state
+      if (channel.peerConnection) {
+        console.log("🩰 peerConnection:", channel.peerConnection);
+        console.log("🩰 peerConnection.localPeerConnection:", channel.peerConnection?.localPeerConnection);
+      }
+    }, 5000);
+    
+    // Manually trigger the connection to see what happens
+    console.log("🩰 Manually checking connectionsManager.connect()...");
+    if (channel.connectionsManager && channel.connectionsManager.connect) {
+      channel.connectionsManager.connect().then(result => {
+        console.log("🩰 connectionsManager.connect() result:", result);
+        if (result.error) {
+          console.error("🩰 Connection error:", result.error);
+        }
+      }).catch(err => {
+        console.error("🩰 connectionsManager.connect() threw:", err);
+      });
+    }
+    
+    // Store timeout so we can clear it
+    channel._debugTimeout = connectTimeout;
+  } catch (e) {
+    console.error("🩰 Failed to create Geckos channel:", e);
+    return;
+  }
 
   reconnect = () => {
     reconnectingTimeout = setTimeout(() => {
@@ -40,12 +75,17 @@ function connect(port = 8889, url = undefined, send) {
   };
 
   channel.onConnect((error) => {
+    // Clear the debug timeout
+    if (channel._debugTimeout) clearTimeout(channel._debugTimeout);
+    
+    console.log("🩰 onConnect callback fired! error:", error);
     if (error) {
-      console.log('%cUDP connection failed, retrying in ' + (reconnectTime / 1000) + 's...', 'color: orange; background: black; padding: 2px;');
+      console.log('%cUDP connection failed: ' + (error.message || error) + ', retrying in ' + (reconnectTime / 1000) + 's...', 'color: orange; background: black; padding: 2px;');
       reconnect();
       return;
     }
 
+    console.log("🩰 UDP onConnect SUCCESS! Sending udp:connected to disk...");
     if (logs.udp) console.log("🩰 Connected to UDP:", channel.url);
     reconnectIn = DEFAULT_RECONNECT_IN;
     reconnectTime = reconnectIn;
@@ -108,7 +148,11 @@ export const UDP = {
     if (connected) channel.close();
   },
   send: ({ type, content }) => {
-    if (logs.udp) console.log(`🩰 UDP Sent:`, { type, content });
-    if (connected) channel.emit(type, JSON.stringify(content));
+    if (connected) {
+      if (logs.udp) console.log(`🩰 UDP Sent:`, { type, content });
+      channel.emit(type, JSON.stringify(content));
+    } else {
+      if (logs.udp) console.log(`🩰 UDP NOT sent (not connected):`, { type, content });
+    }
   },
 };
