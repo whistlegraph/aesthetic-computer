@@ -514,14 +514,13 @@ class Product {
     ];
     const finalTitleColor = this.cycleColors(titleColorCycle, titleBlinkSpeed);
     
-    // Calculate bounds for title wrapping (right-aligned, clamped to screen)
-    const titleBoundsWidth = rightEdge - titleX - 4;
-    const titleBounds = { width: titleBoundsWidth };
+    // Calculate bounds for title wrapping (from title position to right edge)
+    const titleBoundsWidth = screen.width - titleX - 4;
     
     $.ink(shadowColor[0], shadowColor[1], shadowColor[2])
-      .write(titleText, { x: titleX + titleSwayX + 1, y: titleY + titleSwayY + 1 }, undefined, titleBounds, true, "MatrixChunky8");
+      .write(titleText, { x: titleX + titleSwayX + 1, y: titleY + titleSwayY + 1 }, undefined, titleBoundsWidth, true, "MatrixChunky8");
     $.ink(finalTitleColor[0], finalTitleColor[1], finalTitleColor[2])
-      .write(titleText, { x: titleX + titleSwayX, y: titleY + titleSwayY }, undefined, titleBounds, true, "MatrixChunky8");
+      .write(titleText, { x: titleX + titleSwayX, y: titleY + titleSwayY }, undefined, titleBoundsWidth, true, "MatrixChunky8");
     
     // Author color cycling
     const authorBlinkSpeed = 0.04;
@@ -1070,15 +1069,14 @@ class Product {
     ];
     const finalTitleColor = this.cycleColors(titleColorCycle, titleBlinkSpeed);
     
-    // Calculate bounds for title wrapping (right-aligned, clamped to screen)
-    const titleBoundsWidth = rightEdge - titleX - 4;
-    const titleBounds = { width: titleBoundsWidth };
+    // Calculate bounds for title wrapping (from title position to right edge)
+    const titleBoundsWidth = screen.width - titleX - 4;
     
     // No background boxes - shadows for contrast instead
     $.ink(shadowColor[0], shadowColor[1], shadowColor[2])
-      .write(titleText, { x: titleX + titleSwayX + 1, y: titleY + titleSwayY + 1 }, undefined, titleBounds, true, "MatrixChunky8");
+      .write(titleText, { x: titleX + titleSwayX + 1, y: titleY + titleSwayY + 1 }, undefined, titleBoundsWidth, true, "MatrixChunky8");
     $.ink(finalTitleColor[0], finalTitleColor[1], finalTitleColor[2])
-      .write(titleText, { x: titleX + titleSwayX, y: titleY + titleSwayY }, undefined, titleBounds, true, "MatrixChunky8");
+      .write(titleText, { x: titleX + titleSwayX, y: titleY + titleSwayY }, undefined, titleBoundsWidth, true, "MatrixChunky8");
     
     // Artist color cycling (no background)
     const artistBlinkSpeed = 0.04;

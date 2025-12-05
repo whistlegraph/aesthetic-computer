@@ -35,7 +35,8 @@ const tools = [
 // Updated description without whistlegraph stamp
 const newDescription = `<p>Sketchbook customized by <a href="https://aesthetic.computer/@fifi">@fifi</a></p>
 <p>Dated December 4th, 2025</p>
-<p>This customized sketchbook ships from Los Angeles and includes a QR code linking to the product page.</p>`;
+<p>This customized sketchbook ships from Los Angeles and includes a QR code linking to the product page.</p>
+<p><strong>Every Midori MD A5 Sketchbook comes with a clear plastic cover.</strong></p>`;
 
 async function updateProduct(tool) {
   // Update product metadata
