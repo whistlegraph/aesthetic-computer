@@ -3,7 +3,7 @@
 // Credentials stored in MongoDB to avoid Netlify's 4KB env var limit
 
 import { respond } from "../../backend/http.mjs";
-import { connect } from "../../backend/mongo.mjs";
+import { connect } from "../../backend/database.mjs";
 
 // Collection ID for "Home page" (frontpage)
 const HOME_COLLECTION_ID = 369657512117;
