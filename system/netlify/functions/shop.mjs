@@ -14,7 +14,7 @@ let cachedCredentials = null;
 async function getShopifyCredentials() {
   if (cachedCredentials) return cachedCredentials;
   
-  const db = await connect();
+  const { db } = await connect();
   const secrets = await db.collection("secrets").findOne({ _id: "shopify" });
   
   if (!secrets) {
