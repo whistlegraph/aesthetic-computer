@@ -48,9 +48,9 @@ Get-Process Code -ErrorAction SilentlyContinue | ForEach-Object {
     }
 }
 
-# Launch new VS Code instance in current directory
+# Launch new VS Code instance in current directory with Chrome debugging enabled
 Write-Host "Launching fresh VS Code inside Dev Container..."
-Start-Process -WindowStyle Hidden -FilePath "code" -ArgumentList "--remote-debugging-port=9222", "--folder", "\\wsl.localhost\Ubuntu\home\me\aesthetic-computer"
+Start-Process -WindowStyle Hidden -FilePath "code" -ArgumentList "--remote-debugging-port=9222", "--remote-debugging-address=0.0.0.0", "--folder", "\\wsl.localhost\Ubuntu\home\me\aesthetic-computer"
 
 # Clipboard loop
 while ($true) {
