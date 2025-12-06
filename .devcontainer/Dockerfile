@@ -146,6 +146,12 @@ RUN set -eux; \
     tar -xzf /tmp/doctl.tar.gz -C /usr/local/bin && rm /tmp/doctl.tar.gz && \
     chmod +x /usr/local/bin/doctl
 
+# --- PowerShell (for running Windows scripts on Linux) -----------------------
+RUN dnf install -y curl && \
+    curl -sSL -o /etc/yum.repos.d/microsoft-prod.repo https://packages.microsoft.com/config/fedora/$(rpm -E %fedora)/prod.repo && \
+    dnf install -y powershell && \
+    dnf clean all && rm -rf /var/cache/dnf
+
 # --- s3cmd (for DigitalOcean Spaces management) -------------------------------
 RUN dnf install -y s3cmd && dnf clean all
 
