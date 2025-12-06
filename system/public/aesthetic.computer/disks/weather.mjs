@@ -242,24 +242,38 @@ let snowForms = [];
 let use3D = false;
 let Form3D = null;
 
-// Smooth galaxy fly-through camera
+// Smooth galaxy fly-through with orbital visits
 let targetStarIndex = 0;
 let prevStarIndex = -1;
-let starFocusTimer = 0;
-const STAR_GAZE_DURATION = 360;      // Frames to focus on one star (~6 sec at 60fps)
-const STAR_DRIFT_SPEED = 0.008;      // Slow continuous drift speed
-let cameraMode = "cruise";           // Single smooth cruise mode
+let phaseTimer = 0;
+let cameraMode = "cruise";  // "cruise", "approach", "orbit", "depart"
 
-// Camera path - continuous smooth movement through space
-let cruiseAngle = 0;                 // Angle around the galaxy center
-let cruiseRadius = 8;                // Distance from center of star field
-let cruiseHeight = 2;                // Vertical offset
-let cruiseSpeed = 0.003;             // Very slow rotation speed
+// Timing for each phase (in frames, ~60fps)
+const CRUISE_DURATION = 300;    // ~5 sec cruising between visits
+const APPROACH_DURATION = 180;  // ~3 sec flying toward star
+const ORBIT_DURATION = 360;     // ~6 sec orbiting around star
+const DEPART_DURATION = 120;    // ~2 sec flying away
+
+// Camera position (smooth interpolated)
+let camX = 0, camY = 2, camZ = 5;
+let camTargetX = 0, camTargetY = 2, camTargetZ = 5;
+let camVelX = 0, camVelY = 0, camVelZ = 0;
+
+// Cruise path
+let cruiseAngle = 0;
+const CRUISE_SPEED = 0.002;     // Slow drift
+const CRUISE_RADIUS = 6;
+const CRUISE_HEIGHT = 3;
+
+// Orbit parameters
+let orbitAngle = 0;
+let orbitRadius = 1.5;          // Distance from star when orbiting
+let orbitCenterX = 0, orbitCenterY = 0, orbitCenterZ = 0;
 
 // Look-at interpolation for smooth focus shifts
-let lookTargetX = 0, lookTargetY = 0, lookTargetZ = -10;
-let lookCurrentX = 0, lookCurrentY = 0, lookCurrentZ = -10;
-const LOOK_SMOOTHING = 0.015;        // Very smooth look interpolation
+let lookTargetX = 0, lookTargetY = 2, lookTargetZ = -10;
+let lookCurrentX = 0, lookCurrentY = 2, lookCurrentZ = -10;
+const LOOK_SMOOTHING = 0.025;   // Smooth look interpolation
 
 // Camera roll for cinematic feel
 let targetRoll = 0;
@@ -511,44 +525,6 @@ function init3DBackdrop({ Form, Camera, Dolly, TRI, QUAD, painting }) {
       cloudForms.push(wisp);
     }
   }
-  
-  // === ADD MORE ELEMENTS TO FILL THE SCREEN ===
-  
-  // Horizon grid lines (perspective lines converging to horizon)
-  const horizonLines = [];
-  const horizonColors = [];
-  for (let i = 0; i < 12; i++) {
-    const x = (i - 5.5) * 3;
-    horizonLines.push(
-      [x * 0.3, -4, -3, 1],
-      [x, -1, -20, 1]
-    );
-    const alpha = 0.15 + Math.random() * 0.1;
-    horizonColors.push(
-      [0.5, 0.6, 0.8, alpha],
-      [0.3, 0.4, 0.6, alpha * 0.3]
-    );
-  }
-  // Horizontal horizon lines
-  for (let i = 0; i < 6; i++) {
-    const z = -5 - i * 3;
-    const spread = 8 + i * 2;
-    horizonLines.push(
-      [-spread, -2 + i * 0.3, z, 1],
-      [spread, -2 + i * 0.3, z, 1]
-    );
-    const alpha = 0.2 - i * 0.025;
-    horizonColors.push(
-      [0.4, 0.5, 0.7, alpha],
-      [0.4, 0.5, 0.7, alpha]
-    );
-  }
-  const horizonForm = new Form(
-    { type: "line", positions: horizonLines, colors: horizonColors },
-    { pos: [0, 0, 0], rot: [0, 0, 0], scale: 1 }
-  );
-  horizonForm.isHorizon = true;
-  cloudForms.push(horizonForm);
   
   // Floating atmospheric particles throughout the view
   for (let i = 0; i < 30; i++) {
@@ -932,12 +908,15 @@ async function boot({ params, screen, Form, Camera, Dolly, TRI, QUAD, painting }
   cameraMode = "cruise";
   targetStarIndex = 0;
   prevStarIndex = -1;
-  starFocusTimer = 0;
+  phaseTimer = 0;
   cruiseAngle = 0;
-  cruiseRadius = 8;
-  cruiseHeight = 2;
+  orbitAngle = 0;
+  camX = camTargetX = 0;
+  camY = camTargetY = CRUISE_HEIGHT;
+  camZ = camTargetZ = 5;
+  camVelX = camVelY = camVelZ = 0;
   lookTargetX = lookCurrentX = 0;
-  lookTargetY = lookCurrentY = 0;
+  lookTargetY = lookCurrentY = 2;
   lookTargetZ = lookCurrentZ = -10;
   targetRoll = currentRoll = 0;
   
@@ -1085,8 +1064,8 @@ function sim({ screen }) {
     
     // Drift 3D clouds across the sky with gentle wobble
     for (const cloudForm of cloudForms) {
-      // Skip static elements like horizon and haze
-      if (cloudForm.isHorizon || cloudForm.isHaze) continue;
+      // Skip static elements like haze layers
+      if (cloudForm.isHaze) continue;
       
       if (cloudForm.driftSpeed !== undefined && cloudForm.position) {
         cloudForm.position[0] += cloudForm.driftSpeed;
@@ -1124,75 +1103,173 @@ function sim({ screen }) {
       }
     }
     
-    // Smooth galaxy fly-through camera (only at night)
-    // Camera cruises in a gentle arc while focusing on different stars
+    // Smooth galaxy fly-through with orbital star visits (only at night)
     if (cam && isNight && starForms.length > 0) {
-      starFocusTimer++;
+      phaseTimer++;
       
-      // Continuous slow cruise through the star field
-      cruiseAngle += cruiseSpeed;
+      // === CRUISE MODE: Drift through space, looking around ===
+      if (cameraMode === "cruise") {
+        cruiseAngle += CRUISE_SPEED;
+        
+        // Smooth elliptical cruise path
+        camTargetX = Math.sin(cruiseAngle) * CRUISE_RADIUS;
+        camTargetZ = Math.cos(cruiseAngle) * CRUISE_RADIUS * 0.5 - 6;
+        camTargetY = CRUISE_HEIGHT + Math.sin(cruiseAngle * 0.5) * 1;
+        
+        // Look generally forward with slight wander
+        const forwardX = Math.sin(cruiseAngle + 0.3) * 5;
+        const forwardZ = Math.cos(cruiseAngle + 0.3) * 5 - 15;
+        lookTargetX = forwardX;
+        lookTargetY = 2 + Math.sin(cruiseAngle * 0.7) * 1;
+        lookTargetZ = forwardZ;
+        
+        targetRoll = Math.sin(cruiseAngle * 1.5) * 4;
+        
+        // Time to visit a star?
+        if (phaseTimer >= CRUISE_DURATION) {
+          phaseTimer = 0;
+          cameraMode = "approach";
+          prevStarIndex = targetStarIndex;
+          
+          // Find a nice star to visit (prefer ones ahead and not too far)
+          let bestIndex = 0;
+          let bestScore = -Infinity;
+          for (let i = 0; i < starForms.length; i++) {
+            if (i === prevStarIndex) continue;
+            const star = starForms[i];
+            const dx = star.position[0] - camX;
+            const dy = star.position[1] - camY;
+            const dz = star.position[2] - camZ;
+            const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+            
+            // Score based on being ahead and reachable
+            const score = -dz * 0.3 + (8 - Math.abs(dist - 5)) + Math.random() * 2;
+            if (score > bestScore && dist > 1.5 && dist < 12) {
+              bestScore = score;
+              bestIndex = i;
+            }
+          }
+          targetStarIndex = bestIndex;
+          
+          // Set orbit center to target star
+          const star = starForms[targetStarIndex];
+          if (star) {
+            orbitCenterX = star.position[0];
+            orbitCenterY = star.position[1];
+            orbitCenterZ = star.position[2];
+          }
+        }
+      }
       
-      // Camera follows a smooth elliptical path through the galaxy
-      const camX = Math.sin(cruiseAngle) * cruiseRadius;
-      const camZ = Math.cos(cruiseAngle) * cruiseRadius * 0.6 - 8;  // Offset into the scene
-      const camY = cruiseHeight + Math.sin(cruiseAngle * 0.7) * 1.5;  // Gentle vertical wave
+      // === APPROACH MODE: Fly toward the target star ===
+      else if (cameraMode === "approach") {
+        const t = Math.min(1, phaseTimer / APPROACH_DURATION);
+        const ease = t * t * (3 - 2 * t);  // Smoothstep
+        
+        // Target position: orbit distance behind the star
+        const approachX = orbitCenterX;
+        const approachY = orbitCenterY;
+        const approachZ = orbitCenterZ + orbitRadius;
+        
+        // Interpolate toward orbit start position
+        camTargetX = camX + (approachX - camX) * ease * 0.05;
+        camTargetY = camY + (approachY - camY) * ease * 0.05;
+        camTargetZ = camZ + (approachZ - camZ) * ease * 0.05;
+        
+        // Look at the star we're approaching
+        lookTargetX = orbitCenterX;
+        lookTargetY = orbitCenterY;
+        lookTargetZ = orbitCenterZ;
+        
+        targetRoll = Math.sin(t * Math.PI) * 5;
+        
+        // Transition to orbit when close enough or time's up
+        const distToOrbit = Math.sqrt(
+          Math.pow(camX - approachX, 2) + 
+          Math.pow(camY - approachY, 2) + 
+          Math.pow(camZ - approachZ, 2)
+        );
+        if (phaseTimer >= APPROACH_DURATION || distToOrbit < 0.5) {
+          phaseTimer = 0;
+          cameraMode = "orbit";
+          orbitAngle = Math.atan2(camX - orbitCenterX, camZ - orbitCenterZ);
+        }
+      }
       
-      // Set camera position
+      // === ORBIT MODE: Circle around the star while looking at it ===
+      else if (cameraMode === "orbit") {
+        orbitAngle += 0.012;  // Slow orbit speed
+        
+        // Circular orbit around the star
+        camTargetX = orbitCenterX + Math.sin(orbitAngle) * orbitRadius;
+        camTargetZ = orbitCenterZ + Math.cos(orbitAngle) * orbitRadius;
+        camTargetY = orbitCenterY + Math.sin(orbitAngle * 2) * 0.3;  // Gentle vertical wave
+        
+        // Always look at the star
+        lookTargetX = orbitCenterX;
+        lookTargetY = orbitCenterY;
+        lookTargetZ = orbitCenterZ;
+        
+        // Bank into the turn
+        targetRoll = Math.sin(orbitAngle) * 8;
+        
+        // Time to depart?
+        if (phaseTimer >= ORBIT_DURATION) {
+          phaseTimer = 0;
+          cameraMode = "depart";
+        }
+      }
+      
+      // === DEPART MODE: Fly away from the star back to cruise ===
+      else if (cameraMode === "depart") {
+        const t = Math.min(1, phaseTimer / DEPART_DURATION);
+        const ease = t * t * (3 - 2 * t);
+        
+        // Ease back toward cruise path
+        const cruiseX = Math.sin(cruiseAngle) * CRUISE_RADIUS;
+        const cruiseZ = Math.cos(cruiseAngle) * CRUISE_RADIUS * 0.5 - 6;
+        const cruiseY = CRUISE_HEIGHT;
+        
+        camTargetX = camX + (cruiseX - camX) * ease * 0.03;
+        camTargetY = camY + (cruiseY - camY) * ease * 0.03;
+        camTargetZ = camZ + (cruiseZ - camZ) * ease * 0.03;
+        
+        // Transition look from star to forward
+        const forwardZ = camZ - 10;
+        lookTargetX = orbitCenterX * (1 - ease) + camX * ease;
+        lookTargetY = orbitCenterY * (1 - ease) + cruiseY * ease;
+        lookTargetZ = orbitCenterZ * (1 - ease) + forwardZ * ease;
+        
+        targetRoll = (1 - ease) * currentRoll;
+        
+        if (phaseTimer >= DEPART_DURATION) {
+          phaseTimer = 0;
+          cameraMode = "cruise";
+        }
+      }
+      
+      // === Apply smooth camera movement ===
+      // Smooth position interpolation
+      const posSmoothness = 0.04;
+      camX += (camTargetX - camX) * posSmoothness;
+      camY += (camTargetY - camY) * posSmoothness;
+      camZ += (camTargetZ - camZ) * posSmoothness;
+      
       cam.x = camX;
       cam.y = camY;
       cam.z = camZ;
       
-      // Update target star periodically
-      if (starFocusTimer >= STAR_GAZE_DURATION) {
-        starFocusTimer = 0;
-        prevStarIndex = targetStarIndex;
-        
-        // Find a star that's roughly ahead of us for natural look
-        let bestIndex = 0;
-        let bestScore = -Infinity;
-        
-        for (let i = 0; i < starForms.length; i++) {
-          if (i === prevStarIndex) continue;
-          const star = starForms[i];
-          const dx = star.position[0] - camX;
-          const dz = star.position[2] - camZ;
-          const dist = Math.sqrt(dx * dx + dz * dz);
-          
-          // Prefer stars that are ahead (negative Z direction) and not too far
-          const forwardness = -dz;  // Higher is more ahead
-          const proximity = Math.max(0, 15 - dist);  // Closer is better, up to a point
-          const score = forwardness * 0.5 + proximity + Math.random() * 3;  // Add variety
-          
-          if (score > bestScore && dist > 2) {  // Don't pick stars too close
-            bestScore = score;
-            bestIndex = i;
-          }
-        }
-        targetStarIndex = bestIndex;
-      }
-      
-      // Set look target to the current focus star
-      const star = starForms[targetStarIndex];
-      if (star) {
-        lookTargetX = star.position[0];
-        lookTargetY = star.position[1];
-        lookTargetZ = star.position[2];
-      }
-      
-      // Smoothly interpolate where we're looking (very gradual)
+      // Smooth look interpolation
       lookCurrentX += (lookTargetX - lookCurrentX) * LOOK_SMOOTHING;
       lookCurrentY += (lookTargetY - lookCurrentY) * LOOK_SMOOTHING;
       lookCurrentZ += (lookTargetZ - lookCurrentZ) * LOOK_SMOOTHING;
       
-      // Calculate camera rotation to look at interpolated target
       const look = lookAtAngles(camX, camY, camZ, lookCurrentX, lookCurrentY, lookCurrentZ);
-      
       cam.rotX = look.rotX;
       cam.rotY = look.rotY;
       
-      // Very gentle roll based on horizontal movement for cinematic feel
-      targetRoll = Math.sin(cruiseAngle * 2) * 3;
-      currentRoll += (targetRoll - currentRoll) * 0.02;
+      // Smooth roll
+      currentRoll += (targetRoll - currentRoll) * 0.03;
       cam.rotZ = currentRoll;
       
     } else if (cam) {
