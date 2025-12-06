@@ -571,7 +571,9 @@ class Artery {
       params: {
         expression: `
           (function() {
-            const header = document.querySelector('.pane-header[aria-label*="Aesthetic Computer"]');
+            // Find AC panel by text content since aria-label doesn't contain 'Aesthetic Computer'
+            const headers = Array.from(document.querySelectorAll('.pane-header'));
+            const header = headers.find(h => h.textContent?.includes('Aesthetic Computer'));
             if (!header) return { found: false };
             
             const isExpanded = header.getAttribute('aria-expanded') === 'true';
@@ -687,7 +689,9 @@ class Artery {
       params: {
         expression: `
           (function() {
-            const header = document.querySelector('.pane-header[aria-label*="Aesthetic Computer"]');
+            // Find AC panel by text content since aria-label doesn't contain 'Aesthetic Computer'
+            const headers = Array.from(document.querySelectorAll('.pane-header'));
+            const header = headers.find(h => h.textContent?.includes('Aesthetic Computer'));
             if (!header) return { found: false };
             
             const isExpanded = header.getAttribute('aria-expanded') === 'true';
@@ -730,6 +734,114 @@ class Artery {
     }
     
     ws.close();
+  }
+  
+  // Static method to toggle the panel open/closed
+  static async togglePanelStandalone() {
+    const { host: cdpHost, port: cdpPort } = await findWorkingCDPHost();
+    
+    const targetsJson = await new Promise((resolve, reject) => {
+      const req = http.get({
+        hostname: cdpHost,
+        port: cdpPort,
+        path: '/json',
+        headers: { 'Host': 'localhost' }
+      }, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => resolve(JSON.parse(data)));
+      });
+      req.on('error', reject);
+      req.end();
+    });
+    
+    const workbenchTarget = targetsJson.find(t => 
+      t.type === 'page' && t.url && t.url.includes('workbench.html')
+    );
+    
+    if (!workbenchTarget) {
+      throw new Error('Could not find VS Code workbench target');
+    }
+    
+    let wsUrl = workbenchTarget.webSocketDebuggerUrl;
+    if (wsUrl.includes('localhost')) {
+      wsUrl = wsUrl.replace(/localhost(:\d+)?/, `${cdpHost}:${cdpPort}`);
+    }
+    const ws = new WebSocket(wsUrl);
+    
+    await new Promise((resolve, reject) => {
+      ws.on('open', () => resolve());
+      ws.on('error', reject);
+      setTimeout(() => reject(new Error('Timeout')), 5000);
+    });
+    
+    let resolveResponse;
+    const responsePromise = new Promise(resolve => {
+      resolveResponse = resolve;
+    });
+    
+    ws.on('message', (data) => {
+      const msg = JSON.parse(data);
+      if (msg.id === 1000) {
+        resolveResponse(msg);
+      }
+    });
+    
+    // Toggle panel state using Enter key
+    ws.send(JSON.stringify({
+      id: 1000,
+      method: 'Runtime.evaluate',
+      params: {
+        expression: `
+          (function() {
+            // Find AC panel by text content since aria-label doesn't contain 'Aesthetic Computer'
+            const headers = Array.from(document.querySelectorAll('.pane-header'));
+            const header = headers.find(h => h.textContent?.includes('Aesthetic Computer'));
+            if (!header) return { found: false };
+            
+            const wasExpanded = header.getAttribute('aria-expanded') === 'true';
+            
+            // Focus and press Enter to toggle
+            header.focus();
+            const enterEvent = new KeyboardEvent('keydown', {
+              key: 'Enter',
+              code: 'Enter',
+              keyCode: 13,
+              which: 13,
+              bubbles: true,
+              cancelable: true
+            });
+            header.dispatchEvent(enterEvent);
+            header.dispatchEvent(new KeyboardEvent('keyup', {
+              key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true
+            }));
+            
+            return { found: true, wasExpanded, nowExpanded: !wasExpanded };
+          })()
+        `,
+        returnByValue: true
+      }
+    }));
+    
+    const response = await responsePromise;
+    let result = { toggled: false, nowExpanded: false };
+    
+    if (response.result?.result?.value?.found) {
+      const { wasExpanded, nowExpanded } = response.result.result.value;
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      if (nowExpanded) {
+        brightLog('🩸 AC panel opened');
+      } else {
+        brightLog('🩸 AC panel closed');
+      }
+      result = { toggled: true, nowExpanded };
+    } else {
+      darkLog('💔 Could not find Aesthetic Computer panel');
+    }
+    
+    ws.close();
+    return result;
   }
   
   // Static method to open KidLisp.com window in VS Code

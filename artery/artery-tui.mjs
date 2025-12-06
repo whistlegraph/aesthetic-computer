@@ -11,7 +11,7 @@ import fs from 'fs';
 import path from 'path';
 import readline from 'readline';
 import os from 'os';
-import { execSync } from 'child_process';
+import { execSync, spawn } from 'child_process';
 
 // ANSI escape codes
 const ESC = '\x1b';
@@ -126,6 +126,56 @@ function getCDPHost() {
   return 'host.docker.internal';
 }
 
+// Test if CDP is accessible at a given host:port
+async function testCDPConnection(host, port) {
+  return new Promise((resolve) => {
+    const req = http.get({
+      hostname: host,
+      port: port,
+      path: '/json',
+      timeout: 1000,
+      headers: { 'Host': 'localhost' }
+    }, (res) => {
+      let data = '';
+      res.on('data', (chunk) => data += chunk);
+      res.on('end', () => resolve(data.length > 0));
+    });
+    req.on('error', () => resolve(false));
+    req.on('timeout', () => { req.destroy(); resolve(false); });
+  });
+}
+
+// Try to start SSH tunnel for CDP port forwarding
+async function tryStartSSHTunnel() {
+  // Check if tunnel already exists
+  try {
+    const existing = execSync('pgrep -f "ssh.*9333.*host.docker.internal" 2>/dev/null', { encoding: 'utf8' });
+    if (existing.trim()) return true; // Already running
+  } catch (e) {
+    // No existing tunnel
+  }
+  
+  // Try to start the tunnel
+  return new Promise((resolve) => {
+    const tunnel = spawn('ssh', [
+      '-f', '-N',
+      '-o', 'StrictHostKeyChecking=no',
+      '-o', 'ConnectTimeout=5',
+      '-L', '9333:127.0.0.1:9333',
+      'me@host.docker.internal'
+    ], {
+      detached: true,
+      stdio: 'ignore'
+    });
+    
+    tunnel.on('error', () => resolve(false));
+    tunnel.unref();
+    
+    // Give it a moment to establish
+    setTimeout(() => resolve(true), 300);
+  });
+}
+
 // Try multiple hosts to find CDP - returns first working one
 // Returns { host, port } object
 async function findWorkingCDPHost() {
@@ -133,38 +183,51 @@ async function findWorkingCDPHost() {
   
   // Not in a container - only try localhost
   if (process.env.REMOTE_CONTAINERS !== 'true' && process.env.CODESPACES !== 'true') {
-    return { host: 'localhost', port: 9222 };
+    // Try multiple ports in case 9222 is taken
+    for (const port of [9333, 9222]) {
+      try {
+        const works = await testCDPConnection('localhost', port);
+        if (works) return { host: 'localhost', port };
+      } catch (e) {}
+    }
+    return { host: 'localhost', port: 9333 };
+  }
+  
+  // In a container - first try localhost:9333 (SSH tunnel)
+  // If that fails, try to start the tunnel
+  const tunnelWorks = await testCDPConnection('localhost', 9333);
+  if (tunnelWorks) {
+    return { host: 'localhost', port: 9333 };
+  }
+  
+  // Try to start SSH tunnel
+  const tunnelStarted = await tryStartSSHTunnel();
+  if (tunnelStarted) {
+    // Give it a moment then test again
+    await new Promise(r => setTimeout(r, 500));
+    const tunnelNowWorks = await testCDPConnection('localhost', 9333);
+    if (tunnelNowWorks) {
+      return { host: 'localhost', port: 9333 };
+    }
   }
   
   // In a container - try multiple host:port combinations
   // Order matters: try most reliable options first
+  candidates.push({ host: 'host.docker.internal', port: 9333 }); // Windows with new port
   candidates.push({ host: 'host.docker.internal', port: 9222 }); // Mac/Windows Docker Desktop
-  candidates.push({ host: '172.17.0.1', port: 9224 }); // Docker bridge + socat (Linux) - use 9224 to avoid VS Code conflict
+  candidates.push({ host: 'localhost', port: 9222 }); // VS Code might forward the port
+  candidates.push({ host: '172.17.0.1', port: 9224 }); // Docker bridge + socat (Linux)
   candidates.push({ host: '172.17.0.1', port: 9223 }); // Docker bridge + socat alt
   candidates.push({ host: '172.17.0.1', port: 9222 }); // Docker bridge direct
   if (process.env.HOST_IP) {
-    candidates.push({ host: process.env.HOST_IP, port: 9223 }); // socat forwarded port
+    candidates.push({ host: process.env.HOST_IP, port: 9333 });
+    candidates.push({ host: process.env.HOST_IP, port: 9223 });
     candidates.push({ host: process.env.HOST_IP, port: 9222 });
   }
-  candidates.push({ host: 'localhost', port: 9222 }); // VS Code might forward the port
   
   for (const { host, port } of candidates) {
     try {
-      const works = await new Promise((resolve) => {
-        const req = http.get({
-          hostname: host,
-          port: port,
-          path: '/json',
-          timeout: 1000,
-          headers: { 'Host': 'localhost' }
-        }, (res) => {
-          let data = '';
-          res.on('data', (chunk) => data += chunk);
-          res.on('end', () => resolve(data.length > 0));
-        });
-        req.on('error', () => resolve(false));
-        req.on('timeout', () => { req.destroy(); resolve(false); });
-      });
+      const works = await testCDPConnection(host, port);
       if (works) {
         return { host, port };
       }
@@ -174,7 +237,7 @@ async function findWorkingCDPHost() {
   }
   
   // Return the first candidate as fallback (will fail with better error)
-  return candidates[0] || { host: 'localhost', port: 9222 };
+  return candidates[0] || { host: 'localhost', port: 9333 };
 }
 
 let CDP_HOST = getCDPHost(); // Will be updated dynamically
@@ -224,7 +287,7 @@ class ArteryTUI {
     
     // Menu items
     this.menuItems = [
-      { key: 'p', label: 'Open Panel', desc: 'Open AC sidebar in VS Code', action: () => this.openPanel() },
+      { key: 'p', label: 'Toggle Panel', desc: 'Toggle AC sidebar in VS Code', action: () => this.togglePanel() },
       { key: 'k', label: 'KidLisp.com', desc: 'Open KidLisp editor window', action: () => this.openKidLisp() },
       { key: 'e', label: 'Emacs', desc: 'Execute elisp in Emacs', action: () => this.enterEmacsMode() },
       { key: 'j', label: 'Jump to Piece', desc: 'Navigate to a piece', action: () => this.enterPieceMode() },
@@ -540,9 +603,9 @@ class ArteryTUI {
         this.serverStatus.local = false;
         // Parse error for helpful status
         if (err.code === 'ECONNREFUSED') {
-          this.localStatusMessage = 'starting...';
+          this.localStatusMessage = 'offline';
         } else if (err.code === 'ECONNRESET') {
-          this.localStatusMessage = 'restarting...';
+          this.localStatusMessage = 'interrupted';
         } else if (err.code === 'ETIMEDOUT') {
           this.localStatusMessage = 'timeout';
         } else {
@@ -1329,27 +1392,35 @@ class ArteryTUI {
   }
 
   // Actions
-  async openPanel() {
-    this.setStatus('Opening AC panel...', 'info');
+  async togglePanel() {
+    this.setStatus('Toggling AC panel...', 'info');
     this.render();
     
     try {
-      // Use the standalone panel opener from Artery which uses the Enter key method
-      await Artery.openPanelStandalone();
+      // Use the standalone panel toggler from Artery
+      const result = await Artery.togglePanelStandalone();
       
-      // Wait a moment for panel to initialize
-      await new Promise(r => setTimeout(r, 500));
-      
-      // Reconnect after panel opens
-      await this.connect();
-      
-      if (this.connected) {
-        this.setStatus('Panel opened and connected!', 'success');
+      if (result.toggled) {
+        if (result.nowExpanded) {
+          // Wait a moment for panel to initialize
+          await new Promise(r => setTimeout(r, 500));
+          
+          // Reconnect after panel opens
+          await this.connect();
+          
+          if (this.connected) {
+            this.setStatus('Panel opened and connected!', 'success');
+          } else {
+            this.setStatus('Panel opened - connecting...', 'info');
+          }
+        } else {
+          this.setStatus('Panel closed', 'info');
+        }
       } else {
-        this.setStatus('Panel opened - connecting...', 'info');
+        this.setStatus('Could not find AC panel', 'warn');
       }
     } catch (e) {
-      this.setStatus(`Failed to open panel: ${e.message}`, 'error');
+      this.setStatus(`Failed to toggle panel: ${e.message}`, 'error');
     }
     
     this.render();
@@ -2000,7 +2071,7 @@ class ArteryTUI {
     if (this.hostInfo.inContainer && !compact) {
       const containerLabel = this.hostInfo.containerDistro || 'Container';
       const hostLabel = this.hostInfo.hostLabel || this.hostInfo.hostOS || 'Host';
-      hostInfoLine = `${FG_BRIGHT_MAGENTA}📦 ${containerLabel} ${FG_BRIGHT_CYAN}→ ${this.hostInfo.hostEmoji} ${FG_BRIGHT_WHITE}${hostLabel}`;
+      hostInfoLine = `${FG_BRIGHT_MAGENTA}📦 ${containerLabel} ${FG_BRIGHT_CYAN}→ ${this.hostInfo.hostEmoji} ${FG_WHITE}${BOLD}${hostLabel}${RESET}${BG_BLUE}`;
     }
     
     // Top border - DOS style double line
