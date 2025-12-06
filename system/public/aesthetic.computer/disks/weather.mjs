@@ -475,6 +475,137 @@ function init3DBackdrop({ Form, Camera, Dolly, TRI, QUAD, painting }) {
       cloudForms.push(wisp);
     }
   }
+  
+  // === ADD MORE ELEMENTS TO FILL THE SCREEN ===
+  
+  // Horizon grid lines (perspective lines converging to horizon)
+  const horizonLines = [];
+  const horizonColors = [];
+  for (let i = 0; i < 12; i++) {
+    const x = (i - 5.5) * 3;
+    horizonLines.push(
+      [x * 0.3, -4, -3, 1],
+      [x, -1, -20, 1]
+    );
+    const alpha = 0.15 + Math.random() * 0.1;
+    horizonColors.push(
+      [0.5, 0.6, 0.8, alpha],
+      [0.3, 0.4, 0.6, alpha * 0.3]
+    );
+  }
+  // Horizontal horizon lines
+  for (let i = 0; i < 6; i++) {
+    const z = -5 - i * 3;
+    const spread = 8 + i * 2;
+    horizonLines.push(
+      [-spread, -2 + i * 0.3, z, 1],
+      [spread, -2 + i * 0.3, z, 1]
+    );
+    const alpha = 0.2 - i * 0.025;
+    horizonColors.push(
+      [0.4, 0.5, 0.7, alpha],
+      [0.4, 0.5, 0.7, alpha]
+    );
+  }
+  const horizonForm = new Form(
+    { type: "line", positions: horizonLines, colors: horizonColors },
+    { pos: [0, 0, 0], rot: [0, 0, 0], scale: 1 }
+  );
+  horizonForm.isHorizon = true;
+  cloudForms.push(horizonForm);
+  
+  // Floating atmospheric particles throughout the view
+  for (let i = 0; i < 30; i++) {
+    const x = (Math.random() - 0.5) * 20;
+    const y = (Math.random() - 0.5) * 10; // Full vertical range
+    const z = -3 - Math.random() * 15;
+    const size = 0.01 + Math.random() * 0.02;
+    
+    // Small floating dust/atmosphere motes
+    const motePositions = [
+      [-size, 0, 0, 1], [size, 0, 0, 1],
+      [0, -size, 0, 1], [0, size, 0, 1],
+    ];
+    const alpha = 0.1 + Math.random() * 0.2;
+    const moteColors = [
+      [0.8, 0.85, 1, alpha], [0.8, 0.85, 1, alpha * 0.5],
+      [0.8, 0.85, 1, alpha], [0.8, 0.85, 1, alpha * 0.5],
+    ];
+    
+    const mote = new Form(
+      { type: "line", positions: motePositions, colors: moteColors },
+      { pos: [x, y, z], rot: [0, 0, Math.random() * 360], scale: 1 }
+    );
+    mote.driftSpeed = 0.001 + Math.random() * 0.002;
+    mote.floatPhase = Math.random() * Math.PI * 2;
+    mote.floatSpeed = 0.01 + Math.random() * 0.02;
+    mote.baseY = y;
+    mote.isMote = true;
+    cloudForms.push(mote);
+  }
+  
+  // Lower atmosphere haze layers (triangular bands)
+  for (let i = 0; i < 4; i++) {
+    const y = -3 + i * 0.8;
+    const z = -8 - i * 2;
+    const width = 15 + i * 3;
+    const alpha = 0.08 + i * 0.02;
+    
+    const hazePositions = [
+      [-width, y - 0.5, z, 1],
+      [0, y + 0.3, z, 1],
+      [width, y - 0.5, z, 1],
+    ];
+    const hazeColors = [
+      [0.6, 0.65, 0.8, alpha * 0.5],
+      [0.7, 0.75, 0.9, alpha],
+      [0.6, 0.65, 0.8, alpha * 0.5],
+    ];
+    
+    const haze = new Form(
+      { type: "triangle", positions: hazePositions, colors: hazeColors },
+      { pos: [0, 0, 0], rot: [0, 0, 0], scale: 1 }
+    );
+    haze.isHaze = true;
+    cloudForms.push(haze);
+  }
+  
+  // Add some low clouds/fog near bottom
+  for (let i = 0; i < 5; i++) {
+    const cx = (Math.random() - 0.5) * 25;
+    const cy = -2 - Math.random() * 2; // Below center
+    const cz = -4 - Math.random() * 8;
+    const fogScale = 1.5 + Math.random() * 2;
+    
+    const fogPositions = [];
+    const fogColors = [];
+    const segments = 5;
+    const alpha = 0.15 + Math.random() * 0.15;
+    
+    for (let s = 0; s < segments; s++) {
+      const a1 = (s / segments) * Math.PI;
+      const a2 = ((s + 1) / segments) * Math.PI;
+      const r = 0.8;
+      fogPositions.push(
+        [0, 0, 0, 1],
+        [Math.cos(a1) * r, Math.sin(a1) * r * 0.3, 0, 1],
+        [Math.cos(a2) * r, Math.sin(a2) * r * 0.3, 0, 1]
+      );
+      fogColors.push(
+        [0.8, 0.82, 0.88, alpha],
+        [0.7, 0.72, 0.78, alpha * 0.6],
+        [0.7, 0.72, 0.78, alpha * 0.6]
+      );
+    }
+    
+    const fog = new Form(
+      { type: "triangle", positions: fogPositions, colors: fogColors },
+      { pos: [cx, cy, cz], rot: [0, 0, 0], scale: fogScale }
+    );
+    fog.driftSpeed = 0.002 + Math.random() * 0.002;
+    fog.isLowFog = true;
+    cloudForms.push(fog);
+  }
 }
 
 // Initialize 2D backdrop particles (fallback)
@@ -905,16 +1036,32 @@ function sim({ screen }) {
     
     // Drift 3D clouds across the sky with gentle wobble
     for (const cloudForm of cloudForms) {
+      // Skip static elements like horizon and haze
+      if (cloudForm.isHorizon || cloudForm.isHaze) continue;
+      
       if (cloudForm.driftSpeed !== undefined && cloudForm.position) {
         cloudForm.position[0] += cloudForm.driftSpeed;
+        
         // Gentle vertical wobble for organic feel
         if (cloudForm.wobblePhase !== undefined && cloudForm.baseY !== undefined) {
           cloudForm.wobblePhase += cloudForm.wobbleSpeed || 0.02;
           cloudForm.position[1] = cloudForm.baseY + Math.sin(cloudForm.wobblePhase) * 0.05;
         }
-        // Reset cloud position when it drifts too far right
-        if (cloudForm.position[0] > 14) {
-          cloudForm.position[0] = -14;
+        
+        // Floating motes have gentle float animation
+        if (cloudForm.isMote && cloudForm.floatPhase !== undefined) {
+          cloudForm.floatPhase += cloudForm.floatSpeed || 0.01;
+          cloudForm.position[1] = cloudForm.baseY + Math.sin(cloudForm.floatPhase) * 0.15;
+          // Motes also slowly rotate
+          if (cloudForm.rotation) {
+            cloudForm.rotation[2] += 0.3;
+          }
+        }
+        
+        // Reset cloud/fog/mote position when it drifts too far right
+        const resetX = cloudForm.isLowFog ? 18 : (cloudForm.isMote ? 12 : 14);
+        if (cloudForm.position[0] > resetX) {
+          cloudForm.position[0] = -resetX;
         }
       }
     }
