@@ -210,13 +210,17 @@ let locationTimezone = "UTC"; // Timezone of the location (from API)
 let currentView = 0;
 let viewTimer = 0;
 const VIEW_DURATION = 600;
-const NUM_VIEWS = 4;
+const NUM_VIEWS = 5; // Added scrolling text forecast view
 
 // Animation
 let frameCount = 0;
 let crawlX = 0;
 let crawlAccum = 0;
 let crawlText = "";
+
+// Scrolling text forecast
+let textForecastScroll = 0;
+let textForecastLines = [];
 
 // Animated backdrop particles (2D fallback)
 let particles = [];
@@ -257,96 +261,218 @@ function init3DBackdrop({ Form, Camera, Dolly, TRI, QUAD, painting }) {
   cam = new Camera(60, { x: 0, y: 0, z: 0 });
   dolly = new Dolly(cam);
   
-  // Create 3D stars (small triangles scattered in space)
+  // Create 3D stars - mix of triangles and line crosses
   starForms = [];
-  for (let i = 0; i < 40; i++) {
-    const x = (Math.random() - 0.5) * 20;
-    const y = (Math.random() - 0.5) * 10 + 3;
-    const z = -5 - Math.random() * 15;
-    const size = 0.02 + Math.random() * 0.03;
+  for (let i = 0; i < 60; i++) {
+    const x = (Math.random() - 0.5) * 24;
+    const y = (Math.random() - 0.5) * 12 + 4;
+    const z = -5 - Math.random() * 20;
+    const size = 0.03 + Math.random() * 0.05;
     
-    const starPositions = [
-      [0, size, 0, 1],
-      [-size * 0.5, -size * 0.5, 0, 1],
-      [size * 0.5, -size * 0.5, 0, 1],
-    ];
-    const starColors = [
-      [1, 1, 0.9, 1],
-      [1, 1, 0.8, 1],
-      [1, 1, 0.85, 1],
-    ];
-    
-    const star = new Form(
-      { type: "triangle", positions: starPositions, colors: starColors },
-      { pos: [x, y, z], rot: [0, 0, Math.random() * 360], scale: 1 }
-    );
+    let star;
+    if (Math.random() < 0.4) {
+      // Line cross star (+ shape)
+      const linePositions = [
+        [-size, 0, 0, 1], [size, 0, 0, 1],  // horizontal
+        [0, -size, 0, 1], [0, size, 0, 1],  // vertical
+      ];
+      const lineColors = [
+        [1, 1, 0.9, 1], [1, 1, 0.7, 1],
+        [1, 1, 0.8, 1], [1, 1, 0.6, 1],
+      ];
+      star = new Form(
+        { type: "line", positions: linePositions, colors: lineColors },
+        { pos: [x, y, z], rot: [0, 0, Math.random() * 45], scale: 1 }
+      );
+      star.rotSpeed = (Math.random() - 0.5) * 2;
+    } else if (Math.random() < 0.5) {
+      // Diamond star (4 triangles)
+      const d = size;
+      const diamondPositions = [
+        [0, d, 0, 1], [-d*0.6, 0, 0, 1], [0, 0, 0, 1],
+        [0, d, 0, 1], [0, 0, 0, 1], [d*0.6, 0, 0, 1],
+        [0, -d, 0, 1], [0, 0, 0, 1], [-d*0.6, 0, 0, 1],
+        [0, -d, 0, 1], [d*0.6, 0, 0, 1], [0, 0, 0, 1],
+      ];
+      const diamondColors = [
+        [1, 1, 0.95, 1], [1, 0.95, 0.8, 1], [1, 1, 1, 1],
+        [1, 1, 0.95, 1], [1, 1, 1, 1], [1, 0.95, 0.8, 1],
+        [1, 0.9, 0.7, 1], [1, 1, 1, 1], [1, 0.95, 0.8, 1],
+        [1, 0.9, 0.7, 1], [1, 0.95, 0.8, 1], [1, 1, 1, 1],
+      ];
+      star = new Form(
+        { type: "triangle", positions: diamondPositions, colors: diamondColors },
+        { pos: [x, y, z], rot: [0, 0, Math.random() * 360], scale: 1 }
+      );
+      star.rotSpeed = (Math.random() - 0.5) * 1.5;
+    } else {
+      // Simple triangle star
+      const starPositions = [
+        [0, size, 0, 1],
+        [-size * 0.6, -size * 0.4, 0, 1],
+        [size * 0.6, -size * 0.4, 0, 1],
+      ];
+      const starColors = [
+        [1, 1, 0.9, 1],
+        [1, 1, 0.8, 1],
+        [1, 1, 0.85, 1],
+      ];
+      star = new Form(
+        { type: "triangle", positions: starPositions, colors: starColors },
+        { pos: [x, y, z], rot: [0, 0, Math.random() * 360], scale: 1 }
+      );
+      star.rotSpeed = (Math.random() - 0.5) * 0.8;
+    }
     star.twinklePhase = Math.random() * Math.PI * 2;
-    star.twinkleSpeed = 0.02 + Math.random() * 0.03;
+    star.twinkleSpeed = 0.015 + Math.random() * 0.025;
     starForms.push(star);
   }
   
-  // Create moon (a larger triangle)
+  // Create moon (layered triangles for depth)
   const moonPositions = [
-    [0, 0.5, 0, 1],
-    [-0.35, -0.35, 0, 1],
-    [0.35, -0.35, 0, 1],
+    // Main moon disc (2 triangles forming quad)
+    [-0.4, -0.4, 0, 1], [-0.4, 0.4, 0, 1], [0.4, 0.4, 0, 1],
+    [-0.4, -0.4, 0, 1], [0.4, 0.4, 0, 1], [0.4, -0.4, 0, 1],
+    // Crescent shadow overlay
+    [0.1, -0.35, 0.01, 1], [0.1, 0.35, 0.01, 1], [0.45, 0, 0.01, 1],
   ];
   const moonColors = [
-    [1, 1, 0.9, 1],
-    [0.95, 0.95, 0.85, 1],
-    [0.95, 0.95, 0.85, 1],
+    [1, 1, 0.92, 1], [0.98, 0.98, 0.88, 1], [0.95, 0.95, 0.85, 1],
+    [1, 1, 0.92, 1], [0.95, 0.95, 0.85, 1], [0.92, 0.92, 0.82, 1],
+    [0.3, 0.3, 0.35, 0.6], [0.3, 0.3, 0.35, 0.6], [0.2, 0.2, 0.25, 0.4],
   ];
   moonForm = new Form(
     { type: "triangle", positions: moonPositions, colors: moonColors },
-    { pos: [4, 3, -8], rot: [0, 0, 0], scale: 1 }
+    { pos: [5, 4, -10], rot: [0, 0, -15], scale: 1.2 }
   );
   
-  // Create sun (a quad/2 triangles)
-  const sunPositions = [
-    [-0.5, -0.5, 0, 1], [-0.5, 0.5, 0, 1], [0.5, 0.5, 0, 1],
-    [-0.5, -0.5, 0, 1], [0.5, 0.5, 0, 1], [0.5, -0.5, 0, 1],
-  ];
-  const sunColors = [
-    [1, 0.9, 0.3, 1], [1, 0.95, 0.5, 1], [1, 0.85, 0.2, 1],
-    [1, 0.9, 0.3, 1], [1, 0.85, 0.2, 1], [1, 0.8, 0.1, 1],
-  ];
-  sunForm = new Form(
-    { type: "triangle", positions: sunPositions, colors: sunColors },
-    { pos: [5, 4, -10], rot: [0, 0, 0], scale: 1.5 }
+  // Create sun with rays (central disc + radiating lines)
+  sunForm = [];
+  // Sun disc (hexagon made of triangles)
+  const sunDiscPositions = [];
+  const sunDiscColors = [];
+  const sunSegments = 8;
+  for (let i = 0; i < sunSegments; i++) {
+    const a1 = (i / sunSegments) * Math.PI * 2;
+    const a2 = ((i + 1) / sunSegments) * Math.PI * 2;
+    const r = 0.4;
+    sunDiscPositions.push(
+      [0, 0, 0, 1],
+      [Math.cos(a1) * r, Math.sin(a1) * r, 0, 1],
+      [Math.cos(a2) * r, Math.sin(a2) * r, 0, 1]
+    );
+    const bright = 0.9 + Math.random() * 0.1;
+    sunDiscColors.push(
+      [1, 0.95, 0.6, 1],
+      [1, bright, 0.3, 1],
+      [1, bright - 0.05, 0.25, 1]
+    );
+  }
+  const sunDisc = new Form(
+    { type: "triangle", positions: sunDiscPositions, colors: sunDiscColors },
+    { pos: [6, 5, -12], rot: [0, 0, 0], scale: 1.5 }
   );
+  sunDisc.rotSpeed = 0.3;
+  sunForm.push(sunDisc);
   
-  // Create 3D clouds (multiple layered triangles)
+  // Sun rays (lines radiating outward)
+  const rayPositions = [];
+  const rayColors = [];
+  for (let i = 0; i < 12; i++) {
+    const angle = (i / 12) * Math.PI * 2;
+    const innerR = 0.5;
+    const outerR = 0.8 + Math.random() * 0.3;
+    rayPositions.push(
+      [Math.cos(angle) * innerR, Math.sin(angle) * innerR, 0, 1],
+      [Math.cos(angle) * outerR, Math.sin(angle) * outerR, 0, 1]
+    );
+    rayColors.push(
+      [1, 0.9, 0.4, 0.9],
+      [1, 0.8, 0.2, 0.3]
+    );
+  }
+  const sunRays = new Form(
+    { type: "line", positions: rayPositions, colors: rayColors },
+    { pos: [6, 5, -12], rot: [0, 0, 0], scale: 1.5 }
+  );
+  sunRays.rotSpeed = -0.5;
+  sunForm.push(sunRays);
+  
+  // Create 3D clouds (billowy shapes with triangles and soft edges)
   cloudForms = [];
-  for (let i = 0; i < 5; i++) {
-    const cx = (Math.random() - 0.5) * 16;
-    const cy = 2 + Math.random() * 3;
-    const cz = -6 - Math.random() * 8;
-    const cloudScale = 0.8 + Math.random() * 1.2;
+  for (let i = 0; i < 8; i++) {
+    const cx = (Math.random() - 0.5) * 20 - 5;
+    const cy = 1.5 + Math.random() * 4;
+    const cz = -5 - Math.random() * 10;
+    const cloudScale = 0.6 + Math.random() * 1.0;
+    const baseSpeed = 0.003 + Math.random() * 0.004;
     
-    // Each cloud is 3 overlapping triangles
-    for (let j = 0; j < 3; j++) {
-      const ox = (Math.random() - 0.5) * 0.8;
-      const oy = (Math.random() - 0.5) * 0.3;
-      const cloudPositions = [
-        [0, 0.3, 0, 1],
-        [-0.5, -0.2, 0, 1],
-        [0.5, -0.2, 0, 1],
-      ];
-      const alpha = 0.5 + Math.random() * 0.3;
-      const gray = 0.7 + Math.random() * 0.2;
-      const cloudColors = [
-        [gray, gray, gray + 0.1, alpha],
-        [gray - 0.1, gray - 0.1, gray, alpha],
-        [gray - 0.1, gray - 0.1, gray, alpha],
-      ];
+    // Each cloud is multiple overlapping rounded shapes
+    const puffs = 4 + Math.floor(Math.random() * 3);
+    for (let j = 0; j < puffs; j++) {
+      const ox = (Math.random() - 0.5) * 1.2;
+      const oy = (Math.random() - 0.5) * 0.4;
+      const oz = j * 0.05;
+      const puffScale = 0.7 + Math.random() * 0.5;
+      
+      // Create rounded puff shape (6 triangles in a fan)
+      const puffPositions = [];
+      const puffColors = [];
+      const segments = 6;
+      const alpha = 0.4 + Math.random() * 0.3;
+      const gray = 0.75 + Math.random() * 0.2;
+      
+      for (let s = 0; s < segments; s++) {
+        const a1 = (s / segments) * Math.PI * 2;
+        const a2 = ((s + 1) / segments) * Math.PI * 2;
+        const r = 0.3 * puffScale;
+        puffPositions.push(
+          [0, 0, 0, 1],
+          [Math.cos(a1) * r, Math.sin(a1) * r * 0.6, 0, 1],
+          [Math.cos(a2) * r, Math.sin(a2) * r * 0.6, 0, 1]
+        );
+        const edgeGray = gray - 0.1;
+        puffColors.push(
+          [gray + 0.1, gray + 0.1, gray + 0.15, alpha],
+          [edgeGray, edgeGray, edgeGray + 0.05, alpha * 0.8],
+          [edgeGray, edgeGray, edgeGray + 0.05, alpha * 0.8]
+        );
+      }
       
       const cloud = new Form(
-        { type: "triangle", positions: cloudPositions, colors: cloudColors },
-        { pos: [cx + ox, cy + oy, cz + j * 0.1], rot: [0, 0, Math.random() * 30 - 15], scale: cloudScale }
+        { type: "triangle", positions: puffPositions, colors: puffColors },
+        { pos: [cx + ox, cy + oy, cz + oz], rot: [0, 0, Math.random() * 360], scale: cloudScale }
       );
-      cloud.driftSpeed = 0.002 + Math.random() * 0.003;
-      cloud.baseX = cx + ox;
+      cloud.driftSpeed = baseSpeed;
+      cloud.wobblePhase = Math.random() * Math.PI * 2;
+      cloud.wobbleSpeed = 0.02 + Math.random() * 0.02;
+      cloud.baseY = cy + oy;
       cloudForms.push(cloud);
+    }
+    
+    // Add wispy line trails to some clouds
+    if (Math.random() < 0.4) {
+      const wispPositions = [];
+      const wispColors = [];
+      const wispCount = 2 + Math.floor(Math.random() * 3);
+      for (let w = 0; w < wispCount; w++) {
+        const wx = (Math.random() - 0.5) * 0.8;
+        const wy = -0.2 - Math.random() * 0.3;
+        wispPositions.push(
+          [wx, 0, 0, 1],
+          [wx + (Math.random() - 0.5) * 0.3, wy, 0, 1]
+        );
+        wispColors.push(
+          [0.9, 0.9, 0.95, 0.4],
+          [0.85, 0.85, 0.9, 0.1]
+        );
+      }
+      const wisp = new Form(
+        { type: "line", positions: wispPositions, colors: wispColors },
+        { pos: [cx, cy - 0.2, cz + 0.1], rot: [0, 0, 0], scale: cloudScale }
+      );
+      wisp.driftSpeed = baseSpeed;
+      cloudForms.push(wisp);
     }
   }
 }
@@ -454,6 +580,177 @@ function spawn3DParticle(type) {
   return null;
 }
 
+// Draw an analog clock graphic
+function drawClock({ ink, line, box }, cx, cy, radius, hours, minutes, color, bgColor) {
+  // Clock face background
+  ink(...bgColor, 180);
+  for (let dy = -radius; dy <= radius; dy++) {
+    const w = Math.floor(Math.sqrt(radius * radius - dy * dy));
+    box(cx - w, cy + dy, w * 2, 1);
+  }
+  
+  // Clock rim
+  ink(...color);
+  for (let a = 0; a < Math.PI * 2; a += 0.15) {
+    const x = cx + Math.cos(a) * radius;
+    const y = cy + Math.sin(a) * radius;
+    box(Math.floor(x), Math.floor(y), 1, 1);
+  }
+  
+  // Hour markers
+  for (let h = 0; h < 12; h++) {
+    const a = (h / 12) * Math.PI * 2 - Math.PI / 2;
+    const x1 = cx + Math.cos(a) * (radius - 2);
+    const y1 = cy + Math.sin(a) * (radius - 2);
+    const x2 = cx + Math.cos(a) * (radius - 4);
+    const y2 = cy + Math.sin(a) * (radius - 4);
+    line(x1, y1, x2, y2);
+  }
+  
+  // Hour hand
+  const hourAngle = ((hours % 12) + minutes / 60) / 12 * Math.PI * 2 - Math.PI / 2;
+  const hourLen = radius * 0.5;
+  ink(...color);
+  line(cx, cy, cx + Math.cos(hourAngle) * hourLen, cy + Math.sin(hourAngle) * hourLen);
+  
+  // Minute hand
+  const minAngle = (minutes / 60) * Math.PI * 2 - Math.PI / 2;
+  const minLen = radius * 0.75;
+  line(cx, cy, cx + Math.cos(minAngle) * minLen, cy + Math.sin(minAngle) * minLen);
+  
+  // Center dot
+  box(cx - 1, cy - 1, 2, 2);
+}
+
+// Draw a thermometer graphic
+function drawThermometer({ ink, line, box }, x, y, height, temp, minT, maxT, hotColor, coldColor, bgColor) {
+  const bulbR = 5;
+  const tubeW = 4;
+  const tubeH = height - bulbR * 2;
+  
+  // Normalize temp to 0-1 range
+  const range = Math.max(maxT - minT, 1);
+  const fillPct = Math.max(0, Math.min(1, (temp - minT) / range));
+  const fillH = Math.floor(tubeH * fillPct);
+  
+  // Choose color based on temp
+  const t = fillPct;
+  const r = Math.round(coldColor[0] * (1 - t) + hotColor[0] * t);
+  const g = Math.round(coldColor[1] * (1 - t) + hotColor[1] * t);
+  const b = Math.round(coldColor[2] * (1 - t) + hotColor[2] * t);
+  
+  // Tube background
+  ink(...bgColor, 200);
+  box(x - tubeW / 2, y, tubeW, tubeH);
+  
+  // Bulb background  
+  ink(...bgColor, 200);
+  for (let dy = -bulbR; dy <= bulbR; dy++) {
+    const w = Math.floor(Math.sqrt(bulbR * bulbR - dy * dy));
+    box(x - w, y + tubeH + bulbR + dy, w * 2, 1);
+  }
+  
+  // Fill
+  ink(r, g, b);
+  box(x - tubeW / 2 + 1, y + tubeH - fillH, tubeW - 2, fillH);
+  
+  // Bulb fill
+  for (let dy = -bulbR + 1; dy <= bulbR - 1; dy++) {
+    const w = Math.floor(Math.sqrt((bulbR - 1) * (bulbR - 1) - dy * dy));
+    box(x - w, y + tubeH + bulbR + dy, w * 2, 1);
+  }
+  
+  // Tick marks
+  ink(...colors.textDim);
+  for (let i = 0; i <= 4; i++) {
+    const tickY = y + tubeH - (tubeH * i / 4);
+    line(x + tubeW / 2 + 1, tickY, x + tubeW / 2 + 3, tickY);
+  }
+}
+
+// Draw a horizontal bar graph
+function drawBarGraph({ ink, box }, x, y, width, height, value, maxVal, fillColor, bgColor) {
+  const fillW = Math.floor((value / maxVal) * width);
+  ink(...bgColor, 150);
+  box(x, y, width, height);
+  ink(...fillColor);
+  box(x, y, fillW, height);
+}
+
+// Build text forecast narrative
+function buildTextForecast() {
+  if (!weatherData || !location) return [];
+  
+  const lines = [];
+  const daily = weatherData.daily;
+  const current = weatherData.current;
+  
+  // Header
+  lines.push("═══════════════════════════════════");
+  lines.push("    LOCAL FORECAST DISCUSSION");
+  lines.push("═══════════════════════════════════");
+  lines.push("");
+  
+  // Current conditions summary
+  const code = current?.weather_code || 0;
+  const weather = WEATHER_CODES[code] || { text: "Unknown" };
+  const temp = Math.round(current.temperature_2m * 9/5 + 32);
+  const humidity = Math.round(current.relative_humidity_2m);
+  const wind = Math.round(current.wind_speed_10m * 0.621371);
+  const windDir = getWindDirection(current.wind_direction_10m);
+  
+  lines.push("CURRENT CONDITIONS:");
+  lines.push(`  ${weather.text}. Temperature ${temp}°F.`);
+  lines.push(`  Humidity ${humidity}%. Wind ${windDir} ${wind} mph.`);
+  lines.push("");
+  
+  // Today's outlook
+  if (daily?.time?.length > 0) {
+    const todayHi = Math.round(daily.temperature_2m_max[0] * 9/5 + 32);
+    const todayLo = Math.round(daily.temperature_2m_min[0] * 9/5 + 32);
+    const todayCode = daily.weather_code[0];
+    const todayWeather = WEATHER_CODES[todayCode] || { text: "Variable" };
+    const todayPrecip = daily.precipitation_probability_max?.[0] || 0;
+    
+    lines.push("TODAY:");
+    lines.push(`  ${todayWeather.text}. High ${todayHi}°F, Low ${todayLo}°F.`);
+    if (todayPrecip > 20) {
+      lines.push(`  ${todayPrecip}% chance of precipitation.`);
+    }
+    lines.push("");
+  }
+  
+  // Extended narrative
+  lines.push("───────────────────────────────────");
+  lines.push("    EXTENDED FORECAST");
+  lines.push("───────────────────────────────────");
+  lines.push("");
+  
+  for (let i = 1; i < Math.min(7, daily?.time?.length || 0); i++) {
+    const date = new Date(daily.time[i]);
+    const dayName = FULL_DAYS[date.getDay()];
+    const hi = Math.round(daily.temperature_2m_max[i] * 9/5 + 32);
+    const lo = Math.round(daily.temperature_2m_min[i] * 9/5 + 32);
+    const code = daily.weather_code[i];
+    const weather = WEATHER_CODES[code] || { text: "Variable" };
+    const precip = daily.precipitation_probability_max?.[i] || 0;
+    
+    lines.push(`${dayName.toUpperCase()}:`);
+    let desc = `  ${weather.text}. High ${hi}°F, Low ${lo}°F.`;
+    lines.push(desc);
+    if (precip > 20) {
+      lines.push(`  Precipitation: ${precip}% chance.`);
+    }
+    lines.push("");
+  }
+  
+  lines.push("───────────────────────────────────");
+  lines.push("     END OF FORECAST");
+  lines.push("═══════════════════════════════════");
+  
+  return lines;
+}
+
 async function boot({ params, screen, Form, Camera, Dolly, TRI, QUAD, painting }) {
   loading = true;
   error = null;
@@ -464,9 +761,12 @@ async function boot({ params, screen, Form, Camera, Dolly, TRI, QUAD, painting }
   rainForms = [];
   snowForms = [];
   
-  // Disable 3D for now - requires more complex dolly/camera pipeline setup
-  // The 2D animated backdrop works well and is more reliable
-  use3D = false;
+  // Initialize 3D backdrop (if Form and Camera are available)
+  if (Form && Camera && Dolly) {
+    init3DBackdrop({ Form, Camera, Dolly, TRI, QUAD, painting });
+  } else {
+    use3D = false;
+  }
   
   // Initialize 2D backdrop with screen size
   if (screen) initBackdrop(screen.width, screen.height);
@@ -499,6 +799,8 @@ async function boot({ params, screen, Form, Camera, Dolly, TRI, QUAD, painting }
     // Store timezone from API response
     locationTimezone = weatherData.timezone || "UTC";
     buildCrawlText();
+    textForecastLines = buildTextForecast();
+    textForecastScroll = 0;
     
   } catch (err) {
     console.error("Weather error:", err);
@@ -523,9 +825,9 @@ function sim({ screen }) {
     currentView = (currentView + 1) % NUM_VIEWS;
   }
   
-  // Slower crawl: 0.5 pixels per frame instead of 1
+  // Very slow crawl: 0.25 pixels per frame for leisurely reading
   if (crawlText) {
-    crawlAccum += 0.5;
+    crawlAccum += 0.25;
     if (crawlAccum >= 1) {
       crawlX -= 1;
       crawlAccum = 0;
@@ -589,6 +891,56 @@ function sim({ screen }) {
   } else {
     lightningFlash = false;
   }
+  
+  // Update 3D elements if active
+  if (use3D) {
+    // Twinkle 3D stars and rotate them
+    for (const star of starForms) {
+      star.twinklePhase += star.twinkleSpeed;
+      // Individual rotation speeds
+      if (star.rotation && star.rotSpeed !== undefined) {
+        star.rotation[2] += star.rotSpeed;
+      }
+    }
+    
+    // Drift 3D clouds across the sky with gentle wobble
+    for (const cloudForm of cloudForms) {
+      if (cloudForm.driftSpeed !== undefined && cloudForm.position) {
+        cloudForm.position[0] += cloudForm.driftSpeed;
+        // Gentle vertical wobble for organic feel
+        if (cloudForm.wobblePhase !== undefined && cloudForm.baseY !== undefined) {
+          cloudForm.wobblePhase += cloudForm.wobbleSpeed || 0.02;
+          cloudForm.position[1] = cloudForm.baseY + Math.sin(cloudForm.wobblePhase) * 0.05;
+        }
+        // Reset cloud position when it drifts too far right
+        if (cloudForm.position[0] > 14) {
+          cloudForm.position[0] = -14;
+        }
+      }
+    }
+    
+    // Rotate sun disc and rays (sunForm is now an array)
+    if (sunForm && Array.isArray(sunForm)) {
+      for (const part of sunForm) {
+        if (part.rotation && part.rotSpeed !== undefined) {
+          part.rotation[2] += part.rotSpeed;
+        }
+      }
+    }
+    
+    // Update dolly if active
+    if (dolly) dolly.sim();
+  }
+  
+  // Scroll text forecast when on that view
+  if (currentView === 4 && textForecastLines.length > 0) {
+    textForecastScroll += 0.3;
+    const lineH = 12;
+    const maxScroll = textForecastLines.length * lineH;
+    if (textForecastScroll > maxScroll) {
+      textForecastScroll = -sh + 60;
+    }
+  }
 }
 
 function updateColorTheme() {
@@ -641,33 +993,37 @@ function updateColorTheme() {
 
 // Paint 3D backdrop forms (must be defined before paint)
 function paint3DBackdrop({ ink, form }) {
+  if (!cam) return;
+  
   // Night: render 3D stars and moon
   if (isNight) {
     for (const star of starForms) {
       const brightness = 0.5 + 0.5 * Math.sin(star.twinklePhase);
       const alpha = Math.floor(150 + brightness * 105);
-      ink(255, 255, 220, alpha).form(star);
+      ink(255, 255, 220, alpha).form(star, cam);
     }
-    if (moonForm) ink(255, 255, 230).form(moonForm);
+    if (moonForm) ink(255, 255, 230).form(moonForm, cam);
   }
   
-  // Daytime clear: render 3D sun
-  if (!isNight && visualState === "clear" && sunForm) {
-    ink(255, 220, 100).form(sunForm);
+  // Daytime clear: render 3D sun (now an array of disc + rays)
+  if (!isNight && visualState === "clear" && sunForm && Array.isArray(sunForm)) {
+    for (const part of sunForm) {
+      ink(255, 220, 100).form(part, cam);
+    }
   }
   
   // Clouds
   if (visualState === "cloudy" || visualState === "fog" || visualState === "rain" || visualState === "storm") {
     const cloudColor = visualState === "storm" ? [80, 70, 90, 200] : [220, 230, 240, 180];
-    for (const cloudForm of cloudForms) ink(...cloudColor).form(cloudForm);
+    for (const cloudForm of cloudForms) ink(...cloudColor).form(cloudForm, cam);
   }
   
   // 3D Rain/Snow particles
   if (visualState === "rain" || visualState === "storm") {
-    for (const rain of rainForms) ink(150, 180, 255, 180).form(rain);
+    for (const rain of rainForms) ink(150, 180, 255, 180).form(rain, cam);
   }
   if (visualState === "snow") {
-    for (const snow of snowForms) ink(255, 255, 255, 220).form(snow);
+    for (const snow of snowForms) ink(255, 255, 255, 220).form(snow, cam);
   }
 }
 
@@ -690,8 +1046,13 @@ function paint({ wipe, ink, screen, line, box, text, form }) {
     ink(r, g, b).line(0, y, sw, y);
   }
   
-  // Draw 2D animated backdrop elements
-  paintBackdrop({ ink, box, line, screen });
+  // Draw 3D backdrop if available, otherwise fall back to 2D
+  if (use3D && cam) {
+    paint3DBackdrop({ ink, form });
+  } else {
+    // Draw 2D animated backdrop elements
+    paintBackdrop({ ink, box, line, screen });
+  }
   
   if (loading) {
     ink(...colors.text).write("Loading weather data...", { center: "xy" }, 
@@ -743,6 +1104,7 @@ function paint({ wipe, ink, screen, line, box, text, form }) {
     case 1: paintForecast({ ink, box, line, screen, contentY, text }); break;
     case 2: paintDetails({ ink, box, line, screen, contentY, text }); break;
     case 3: paintExtendedForecast({ ink, box, line, screen, contentY, text }); break;
+    case 4: paintTextForecast({ ink, box, line, screen, contentY, text }); break;
   }
   
   // Crawl bar at bottom
@@ -847,7 +1209,7 @@ function paintBackdrop({ ink, box, line, screen }) {
   }
 }
 
-function paintCurrentConditions({ ink, box, screen, contentY, text }) {
+function paintCurrentConditions({ ink, box, line, screen, contentY, text }) {
   const { width: sw, height: sh } = screen;
   const current = weatherData.current;
   const code = current.weather_code;
@@ -859,62 +1221,114 @@ function paintCurrentConditions({ ink, box, screen, contentY, text }) {
   const margin = isNarrow ? 4 : 10;
   const panelH = isVertical ? sh - contentY - 30 : 120;
   
+  // Main panel background
   ink(...colors.panelBg).box(margin, contentY + 6, sw - margin * 2, panelH);
+  ink(...colors.divider).line(margin, contentY + 6, sw - margin, contentY + 6);
+  ink(...colors.divider).line(margin, contentY + 6 + panelH, sw - margin, contentY + 6 + panelH);
   
-  // Title with accent color
-  ink(...colors.accent).write("CURRENT CONDITIONS", { x: margin + 4, y: contentY + 10 },
+  // Title bar with background
+  ink(...colors.headerBg, 200).box(margin, contentY + 6, sw - margin * 2, 14);
+  ink(...colors.accent).write("CURRENT CONDITIONS", { x: margin + 4, y: contentY + 8 },
     undefined, undefined, false, "MatrixChunky8");
+  ink(...colors.divider).line(margin, contentY + 20, sw - margin, contentY + 20);
   
-  // Big temperature
+  // Get temperature values
   const temp = Math.round(current.temperature_2m * 9/5 + 32);
-  const tempSize = isNarrow ? 3 : 4;
-  const tempX = isNarrow ? margin + 4 : 20;
-  ink(...colors.temp).write("" + temp, { x: tempX, y: contentY + 28, size: tempSize },
-    undefined, undefined, false);
-  
-  // Degree symbol offset based on temp digits
-  const degOffset = temp >= 100 ? 65 : (temp >= 10 ? 50 : 35);
-  ink(...colors.text).write("°F", { x: tempX + degOffset * (tempSize / 4), y: contentY + 33, size: 2 },
-    undefined, undefined, false);
-  
-  // Weather condition with icon - colorful!
-  const icon = weather.icon || "";
-  const condY = isVertical ? contentY + 75 : contentY + 90;
-  ink(...weather.color).write(icon + " " + (isNarrow ? weather.short : weather.text), 
-    { x: margin + 4, y: condY }, undefined, undefined, false, "unifont");
-  
-  // Details - stack vertically on narrow screens
   const feelsLike = Math.round(current.apparent_temperature * 9/5 + 32);
   const humidity = Math.round(current.relative_humidity_2m);
   const wind = Math.round(current.wind_speed_10m * 0.621371);
   const windDir = getWindDirection(current.wind_direction_10m);
+  const { hours, mins } = getLocationTime();
   
-  if (isNarrow || isVertical) {
-    // Vertical stack below temp
-    let detailY = condY + 18;
-    ink(...colors.textDim).write("FEELS", { x: margin + 4, y: detailY }, undefined, undefined, false, "MatrixChunky8");
-    ink(...(colors.accent2 || colors.accent)).write(feelsLike + "°", { x: margin + 50, y: detailY }, undefined, undefined, false, "unifont");
-    detailY += 14;
-    ink(...colors.textDim).write("HUM", { x: margin + 4, y: detailY }, undefined, undefined, false, "MatrixChunky8");
-    ink(...(colors.accent2 || colors.accent)).write(humidity + "%", { x: margin + 40, y: detailY }, undefined, undefined, false, "unifont");
-    detailY += 14;
-    ink(...colors.textDim).write("WIND", { x: margin + 4, y: detailY }, undefined, undefined, false, "MatrixChunky8");
-    ink(...(colors.accent2 || colors.accent)).write(windDir + " " + wind, { x: margin + 45, y: detailY }, undefined, undefined, false, "unifont");
+  if (isNarrow) {
+    // Compact layout for narrow screens
+    // Big temperature with small thermometer
+    ink(...colors.temp).write("" + temp + "°", { x: margin + 4, y: contentY + 28, size: 3 },
+      undefined, undefined, false);
+    
+    // Mini thermometer
+    const thermoX = margin + 55;
+    const thermoY = contentY + 28;
+    drawThermometer({ ink, line, box }, thermoX, thermoY, 35, temp, 0, 100, 
+      [255, 80, 60], [60, 150, 255], [40, 40, 60]);
+    
+    // Weather condition
+    ink(...weather.color).write(weather.icon + " " + weather.short, 
+      { x: margin + 4, y: contentY + 68 }, undefined, undefined, false, "unifont");
+    
+    // Details with separators
+    let detailY = contentY + 85;
+    ink(...colors.divider, 100).line(margin + 4, detailY - 4, sw - margin - 4, detailY - 4);
+    ink(...colors.textDim).write("FEELS " + feelsLike + "°  HUM " + humidity + "%", 
+      { x: margin + 4, y: detailY }, undefined, undefined, false, "unifont");
+    detailY += 12;
+    ink(...colors.textDim).write("WIND " + windDir + " " + wind + " MPH", 
+      { x: margin + 4, y: detailY }, undefined, undefined, false, "unifont");
   } else {
-    // Right side column
-    const rightX = sw - 100;
-    ink(...colors.textDim).write("FEELS LIKE", { x: rightX, y: contentY + 35 }, undefined, undefined, false, "MatrixChunky8");
-    ink(...(colors.accent2 || colors.text)).write(feelsLike + "°F", { x: rightX, y: contentY + 47 }, undefined, undefined, false, "unifont");
+    // Full layout - left side: temp + thermometer
+    const leftPanelW = isVertical ? sw - margin * 2 : (sw - margin * 2) / 2 - 10;
     
-    ink(...colors.textDim).write("HUMIDITY", { x: rightX, y: contentY + 65 }, undefined, undefined, false, "MatrixChunky8");
-    ink(...(colors.accent2 || colors.text)).write(humidity + "%", { x: rightX, y: contentY + 77 }, undefined, undefined, false, "unifont");
+    // Big temperature
+    ink(...colors.temp).write("" + temp, { x: margin + 8, y: contentY + 28, size: 4 },
+      undefined, undefined, false);
+    const degX = temp >= 100 ? margin + 73 : (temp >= 10 ? margin + 57 : margin + 40);
+    ink(...colors.text).write("°F", { x: degX, y: contentY + 35, size: 2 },
+      undefined, undefined, false);
     
-    ink(...colors.textDim).write("WIND", { x: rightX, y: contentY + 95 }, undefined, undefined, false, "MatrixChunky8");
-    ink(...(colors.accent2 || colors.text)).write(windDir + " " + wind + " mph", { x: rightX, y: contentY + 107 }, undefined, undefined, false, "unifont");
+    // Thermometer graphic
+    const thermoX = margin + 95;
+    const thermoY = contentY + 28;
+    drawThermometer({ ink, line, box }, thermoX, thermoY, 55, temp, 0, 100, 
+      [255, 80, 60], [60, 150, 255], [40, 40, 60]);
+    
+    // Weather condition with colorful icon
+    const icon = weather.icon || "";
+    ink(...weather.color).write(icon + " " + weather.text, 
+      { x: margin + 8, y: contentY + 90 }, undefined, undefined, false, "unifont");
+    
+    // Divider line
+    if (!isVertical) {
+      const divX = sw / 2;
+      ink(...colors.divider).line(divX, contentY + 22, divX, contentY + panelH);
+    }
+    
+    // Right side: clock + details
+    const rightX = isVertical ? margin + 8 : sw / 2 + 10;
+    const rightStartY = isVertical ? contentY + 105 : contentY + 24;
+    
+    // Clock graphic
+    if (!isVertical) {
+      const clockX = rightX + 30;
+      const clockY = rightStartY + 25;
+      drawClock({ ink, line, box }, clockX, clockY, 20, hours, mins, 
+        colors.accent, [30, 40, 60]);
+    }
+    
+    // Details table with row backgrounds
+    let detailY = isVertical ? rightStartY + 5 : rightStartY + 55;
+    const detailW = isVertical ? sw - margin * 2 - 8 : (sw - margin * 2) / 2 - 20;
+    
+    // Row 1: Feels like
+    ink(...colors.headerBg, 100).box(rightX - 2, detailY - 2, detailW, 14);
+    ink(...colors.textDim).write("FEELS LIKE", { x: rightX, y: detailY }, undefined, undefined, false, "MatrixChunky8");
+    ink(...(colors.accent2 || colors.accent)).write(feelsLike + "°F", { x: rightX + detailW - 40, y: detailY }, undefined, undefined, false, "unifont");
+    detailY += 16;
+    
+    // Row 2: Humidity with bar
+    ink(...colors.panelBg, 150).box(rightX - 2, detailY - 2, detailW, 14);
+    ink(...colors.textDim).write("HUMIDITY", { x: rightX, y: detailY }, undefined, undefined, false, "MatrixChunky8");
+    ink(...(colors.accent2 || colors.accent)).write(humidity + "%", { x: rightX + detailW - 35, y: detailY }, undefined, undefined, false, "unifont");
+    drawBarGraph({ ink, box }, rightX + 55, detailY + 2, 40, 8, humidity, 100, colors.accent2 || colors.accent, [30, 40, 60]);
+    detailY += 16;
+    
+    // Row 3: Wind
+    ink(...colors.headerBg, 100).box(rightX - 2, detailY - 2, detailW, 14);
+    ink(...colors.textDim).write("WIND", { x: rightX, y: detailY }, undefined, undefined, false, "MatrixChunky8");
+    ink(...(colors.accent2 || colors.accent)).write(windDir + " " + wind + " mph", { x: rightX + detailW - 70, y: detailY }, undefined, undefined, false, "unifont");
   }
 }
 
-function paintForecast({ ink, box, screen, contentY }) {
+function paintForecast({ ink, box, line, screen, contentY }) {
   const { width: sw, height: sh } = screen;
   const daily = weatherData.daily;
   
@@ -922,19 +1336,41 @@ function paintForecast({ ink, box, screen, contentY }) {
   const isVertical = sh > sw;
   const margin = isNarrow ? 4 : 10;
   const panelH = isVertical ? sh - contentY - 30 : 120;
+  const panelW = sw - margin * 2;
   
-  ink(...colors.panelBg).box(margin, contentY + 6, sw - margin * 2, panelH);
+  // Main panel with borders
+  ink(...colors.panelBg).box(margin, contentY + 6, panelW, panelH);
+  ink(...colors.divider).line(margin, contentY + 6, margin + panelW, contentY + 6);
+  ink(...colors.divider).line(margin, contentY + 6 + panelH, margin + panelW, contentY + 6 + panelH);
   
-  // Title
-  ink(...colors.accent).write("7-DAY FORECAST", { x: margin + 4, y: contentY + 10 },
+  // Title bar
+  ink(...colors.headerBg, 200).box(margin, contentY + 6, panelW, 14);
+  ink(...colors.accent).write("7-DAY FORECAST", { x: margin + 4, y: contentY + 8 },
     undefined, undefined, false, "MatrixChunky8");
+  ink(...colors.divider).line(margin, contentY + 20, margin + panelW, contentY + 20);
+  
+  // Column headers
+  const startY = contentY + 23;
+  ink(...colors.textDim).write("DAY", { x: margin + 4, y: startY }, undefined, undefined, false, "MatrixChunky8");
+  if (!isNarrow) ink(...colors.textDim).write("CONDITIONS", { x: margin + 55, y: startY }, undefined, undefined, false, "MatrixChunky8");
+  ink(...colors.textDim).write("HI/LO", { x: sw - margin - 55, y: startY }, undefined, undefined, false, "MatrixChunky8");
+  ink(...colors.divider, 100).line(margin + 4, startY + 10, margin + panelW - 4, startY + 10);
   
   const numDays = isNarrow ? 4 : Math.min(5, daily.time?.length || 0);
-  const rowH = isVertical ? Math.min(22, (panelH - 30) / numDays) : 18;
-  const startY = contentY + 28;
+  const rowH = isVertical ? Math.min(18, (panelH - 40) / numDays) : 16;
+  const dataStartY = startY + 13;
+  
+  // Find temp range for bar graphs
+  let minTemp = 999, maxTemp = -999;
+  for (let i = 0; i < numDays; i++) {
+    const lo = Math.round(daily.temperature_2m_min[i] * 9/5 + 32);
+    const hi = Math.round(daily.temperature_2m_max[i] * 9/5 + 32);
+    if (lo < minTemp) minTemp = lo;
+    if (hi > maxTemp) maxTemp = hi;
+  }
   
   for (let i = 0; i < numDays; i++) {
-    const y = startY + i * rowH;
+    const y = dataStartY + i * rowH;
     const date = new Date(daily.time[i]);
     const dayName = i === 0 ? "TODAY" : DAYS[date.getDay()];
     const code = daily.weather_code[i];
@@ -942,20 +1378,39 @@ function paintForecast({ ink, box, screen, contentY }) {
     const hi = Math.round(daily.temperature_2m_max[i] * 9/5 + 32);
     const lo = Math.round(daily.temperature_2m_min[i] * 9/5 + 32);
     
+    // Alternating row backgrounds
+    if (i % 2 === 0) {
+      ink(...colors.headerBg, 60).box(margin + 2, y - 1, panelW - 4, rowH);
+    }
+    
     // Day name
     ink(...colors.text).write(isNarrow ? dayName.slice(0,3) : dayName.padEnd(6), 
       { x: margin + 4, y }, undefined, undefined, false, "MatrixChunky8");
     
-    // Weather icon + short (colorful!)
+    // Weather icon + condition (colorful!)
     const icon = weather.icon || "";
-    const iconX = isNarrow ? margin + 30 : 65;
+    const iconX = isNarrow ? margin + 30 : 55;
     ink(...weather.color).write(icon + (isNarrow ? "" : " " + weather.short), { x: iconX, y },
       undefined, undefined, false, "unifont");
     
-    // Temps - colorful hi, dim lo
-    const tempX = isNarrow ? sw - 45 : sw - 70;
+    // Temperature range bar
+    if (!isNarrow) {
+      const barX = sw - margin - 100;
+      const barW = 35;
+      const range = maxTemp - minTemp || 1;
+      const loPos = Math.floor(((lo - minTemp) / range) * barW);
+      const hiPos = Math.floor(((hi - minTemp) / range) * barW);
+      
+      // Background bar
+      ink(...colors.textDim, 80).box(barX, y + 3, barW, 6);
+      // Temperature range bar
+      ink(...colors.accent2 || colors.accent).box(barX + loPos, y + 3, hiPos - loPos + 2, 6);
+    }
+    
+    // Temps
+    const tempX = sw - margin - (isNarrow ? 45 : 55);
     ink(...colors.temp).write(hi + "°", { x: tempX, y }, undefined, undefined, false, "unifont");
-    ink(...colors.textDim).write(lo + "°", { x: tempX + 30, y }, undefined, undefined, false, "unifont");
+    ink(...colors.textDim).write(lo + "°", { x: tempX + 25, y }, undefined, undefined, false, "unifont");
   }
 }
 
