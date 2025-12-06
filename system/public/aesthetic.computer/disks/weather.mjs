@@ -209,7 +209,7 @@ let locationTimezone = "UTC"; // Timezone of the location (from API)
 // View cycling
 let currentView = 0;
 let viewTimer = 0;
-const VIEW_DURATION = 600;
+const VIEW_DURATION = 900; // ~15 seconds per view at 60fps
 const NUM_VIEWS = 5; // Added scrolling text forecast view
 
 // Animation
@@ -231,6 +231,8 @@ let lightningFlash = false;
 
 // 3D System
 let cam, dolly;
+let camRotY = 0;  // Camera Y rotation for world spin
+let camBobPhase = 0;  // Camera bob for organic movement
 let starForms = [];
 let moonForm = null;
 let sunForm = null;
@@ -1075,6 +1077,14 @@ function sim({ screen }) {
       }
     }
     
+    // Slowly spin the camera to make the world rotate
+    if (cam) {
+      camRotY += 0.08;  // Slow rotation speed
+      camBobPhase += 0.015;  // Gentle bob
+      cam.rotY = Math.sin(camRotY * 0.02) * 8;  // Gentle back-and-forth pan
+      cam.rotX = Math.sin(camBobPhase) * 2 - 5;  // Slight tilt with bob, looking slightly up
+    }
+    
     // Update dolly if active
     if (dolly) dolly.sim();
   }
@@ -1254,24 +1264,31 @@ function paint({ wipe, ink, screen, line, box, text, form }) {
     case 4: paintTextForecast({ ink, box, line, screen, contentY, text }); break;
   }
   
-  // Crawl bar at bottom
-  const crawlH = isNarrow ? 14 : 18;
+  // Crawl bar at bottom - increased height to prevent text cutoff
+  const crawlH = isNarrow ? 16 : 22;
   const crawlY = sh - crawlH;
   ink(...colors.crawlBg).box(0, crawlY, sw, crawlH);
   ink(...colors.divider).line(0, crawlY, sw, crawlY);
-  ink(...colors.crawlText).write(crawlText, { x: crawlX, y: crawlY + (isNarrow ? 2 : 4) },
+  ink(...colors.crawlText).write(crawlText, { x: crawlX, y: crawlY + (isNarrow ? 3 : 5) },
     undefined, undefined, false, "unifont");
   
-  // View indicator dots
-  const dotY = crawlY - 8;
+  // Progress bar showing time until next view
+  const progressY = crawlY - 3;
+  const progressW = Math.floor((viewTimer / VIEW_DURATION) * sw);
+  ink(...colors.divider, 80).box(0, progressY, sw, 2);
+  ink(...colors.accent, 200).box(0, progressY, progressW, 2);
+  
+  // View indicator dots with labels
+  const dotY = crawlY - 12;
   const dotSize = isNarrow ? 3 : 4;
   const dotSpacing = isNarrow ? 8 : 12;
+  const viewLabels = ["NOW", "3HR", "DTL", "7DY", "TXT"];
   for (let i = 0; i < NUM_VIEWS; i++) {
     const dotX = sw/2 - (NUM_VIEWS * (dotSpacing/2)) + i * dotSpacing;
     if (i === currentView) {
       ink(...colors.accent).box(dotX, dotY, dotSize, dotSize);
     } else {
-      ink(...colors.textDim).box(dotX, dotY, dotSize, dotSize);
+      ink(...colors.textDim, 150).box(dotX, dotY, dotSize, dotSize);
     }
   }
 }
@@ -1385,7 +1402,7 @@ function paintCurrentConditions({ ink, box, line, screen, contentY, text }) {
   const humidity = Math.round(current.relative_humidity_2m);
   const wind = Math.round(current.wind_speed_10m * 0.621371);
   const windDir = getWindDirection(current.wind_direction_10m);
-  const { hours, mins } = getLocationTime();
+  const { hour: hours, minute: mins } = getLocationTime();
   
   if (isNarrow) {
     // Compact layout for narrow screens
@@ -1561,7 +1578,7 @@ function paintForecast({ ink, box, line, screen, contentY }) {
   }
 }
 
-function paintDetails({ ink, box, screen, contentY }) {
+function paintDetails({ ink, box, line, screen, contentY }) {
   const { width: sw, height: sh } = screen;
   const current = weatherData.current;
   const daily = weatherData.daily;
@@ -1579,8 +1596,18 @@ function paintDetails({ ink, box, screen, contentY }) {
   
   const col1X = margin + 4;
   const col2X = isNarrow ? col1X : sw / 2 + 4;
-  let y = contentY + 30;
-  const lineH = isNarrow ? 16 : 20;
+  let y = contentY + 28;
+  const lineH = isNarrow ? 14 : 18;
+  const rowW = isNarrow ? sw - margin * 2 - 8 : (sw - margin * 2) / 2 - 10;
+  
+  // Row backgrounds for table look
+  let rowIdx = 0;
+  const drawRow = (x, w) => {
+    if (rowIdx % 2 === 0) {
+      ink(...colors.headerBg, 60).box(x, y - 1, w, lineH - 1);
+    }
+    rowIdx++;
+  };
   
   if (daily.sunrise && daily.sunset) {
     const sunriseDate = new Date(daily.sunrise[0]);
@@ -1592,11 +1619,10 @@ function paintDetails({ ink, box, screen, contentY }) {
       timeZone: locationTimezone, hour: "2-digit", minute: "2-digit" 
     });
     
+    drawRow(col1X - 2, isNarrow ? rowW + 4 : rowW);
     if (isNarrow) {
-      ink(...colors.textDim).write("☀", { x: col1X, y }, undefined, undefined, false, "unifont");
-      ink(...(colors.accent2 || colors.accent)).write(sunrise, { x: col1X + 16, y }, undefined, undefined, false, "unifont");
-      ink(...colors.textDim).write("🌅", { x: col1X + 65, y }, undefined, undefined, false, "unifont");
-      ink(...(colors.accent2 || colors.accent)).write(sunset, { x: col1X + 80, y }, undefined, undefined, false, "unifont");
+      ink(...colors.textDim).write("☀ RISE", { x: col1X, y }, undefined, undefined, false, "unifont");
+      ink(...(colors.accent2 || colors.accent)).write(sunrise, { x: col1X + 50, y }, undefined, undefined, false, "unifont");
     } else {
       ink(...colors.textDim).write("SUNRISE", { x: col1X, y }, undefined, undefined, false, "MatrixChunky8");
       ink(...(colors.accent2 || colors.accent)).write("☀ " + sunrise, { x: col1X + 60, y }, undefined, undefined, false, "unifont");
@@ -1604,17 +1630,23 @@ function paintDetails({ ink, box, screen, contentY }) {
       ink(...(colors.accent2 || colors.accent)).write("🌅 " + sunset, { x: col2X + 55, y }, undefined, undefined, false, "unifont");
     }
     y += lineH;
+    if (isNarrow) {
+      drawRow(col1X - 2, rowW + 4);
+      ink(...colors.textDim).write("🌅 SET", { x: col1X, y }, undefined, undefined, false, "unifont");
+      ink(...(colors.accent2 || colors.accent)).write(sunset, { x: col1X + 50, y }, undefined, undefined, false, "unifont");
+      y += lineH;
+    }
   }
   
   if (daily.temperature_2m_max && daily.temperature_2m_min) {
     const hi = Math.round(daily.temperature_2m_max[0] * 9/5 + 32);
     const lo = Math.round(daily.temperature_2m_min[0] * 9/5 + 32);
     
+    drawRow(col1X - 2, isNarrow ? rowW + 4 : rowW);
     if (isNarrow) {
-      ink(...colors.textDim).write("HI", { x: col1X, y }, undefined, undefined, false, "MatrixChunky8");
-      ink(...colors.temp).write(hi + "°", { x: col1X + 22, y }, undefined, undefined, false, "unifont");
-      ink(...colors.textDim).write("LO", { x: col1X + 55, y }, undefined, undefined, false, "MatrixChunky8");
-      ink(...colors.textDim).write(lo + "°", { x: col1X + 75, y }, undefined, undefined, false, "unifont");
+      ink(...colors.textDim).write("HI/LO", { x: col1X, y }, undefined, undefined, false, "MatrixChunky8");
+      ink(...colors.temp).write(hi + "°", { x: col1X + 40, y }, undefined, undefined, false, "unifont");
+      ink(...colors.textDim).write("/" + lo + "°", { x: col1X + 62, y }, undefined, undefined, false, "unifont");
     } else {
       ink(...colors.textDim).write("HIGH", { x: col1X, y }, undefined, undefined, false, "MatrixChunky8");
       ink(...colors.temp).write(hi + "°F", { x: col1X + 45, y }, undefined, undefined, false, "unifont");
@@ -1624,20 +1656,49 @@ function paintDetails({ ink, box, screen, contentY }) {
     y += lineH;
   }
   
+  // Precipitation and wind row
+  drawRow(col1X - 2, isNarrow ? rowW + 4 : rowW);
   if (daily.precipitation_probability_max) {
     const precip = daily.precipitation_probability_max[0];
-    ink(...colors.textDim).write(isNarrow ? "💧" : "PRECIP", { x: col1X, y }, undefined, undefined, false, isNarrow ? "unifont" : "MatrixChunky8");
-    ink(...(colors.accent2 || colors.text)).write((isNarrow ? "" : "💧 ") + precip + "%", { x: col1X + (isNarrow ? 16 : 50), y }, undefined, undefined, false, "unifont");
+    ink(...colors.textDim).write(isNarrow ? "💧 RAIN" : "PRECIP", { x: col1X, y }, undefined, undefined, false, isNarrow ? "unifont" : "MatrixChunky8");
+    ink(...(colors.accent2 || colors.text)).write(precip + "%", { x: col1X + (isNarrow ? 55 : 50), y }, undefined, undefined, false, "unifont");
   }
   
   const wind = Math.round(current.wind_speed_10m * 0.621371);
   const windDir = getWindDirection(current.wind_direction_10m);
-  if (isNarrow) {
-    ink(...colors.textDim).write("💨", { x: col1X + 55, y }, undefined, undefined, false, "unifont");
-    ink(...(colors.accent2 || colors.text)).write(windDir + " " + wind, { x: col1X + 70, y }, undefined, undefined, false, "unifont");
-  } else {
+  if (!isNarrow) {
     ink(...colors.textDim).write("WIND", { x: col2X, y }, undefined, undefined, false, "MatrixChunky8");
     ink(...(colors.accent2 || colors.text)).write("💨 " + windDir + " " + wind + " mph", { x: col2X + 40, y }, undefined, undefined, false, "unifont");
+  }
+  y += lineH;
+  
+  // New row: cloud cover and visibility
+  drawRow(col1X - 2, isNarrow ? rowW + 4 : rowW);
+  const cloudCover = Math.round(current.cloud_cover || 0);
+  ink(...colors.textDim).write(isNarrow ? "☁ CLOUD" : "CLOUDS", { x: col1X, y }, undefined, undefined, false, isNarrow ? "unifont" : "MatrixChunky8");
+  ink(...(colors.accent2 || colors.text)).write(cloudCover + "%", { x: col1X + (isNarrow ? 55 : 50), y }, undefined, undefined, false, "unifont");
+  
+  if (!isNarrow && current.visibility) {
+    const visMiles = Math.round(current.visibility / 1609.34);
+    ink(...colors.textDim).write("VISIB", { x: col2X, y }, undefined, undefined, false, "MatrixChunky8");
+    ink(...(colors.accent2 || colors.text)).write(visMiles + " mi", { x: col2X + 45, y }, undefined, undefined, false, "unifont");
+  }
+  y += lineH;
+  
+  // New row: UV index and wind gusts
+  if (daily.uv_index_max?.[0] !== undefined || current.wind_gusts_10m) {
+    drawRow(col1X - 2, isNarrow ? rowW + 4 : rowW);
+    if (daily.uv_index_max?.[0] !== undefined) {
+      const uvIndex = Math.round(daily.uv_index_max[0]);
+      const uvColor = uvIndex <= 2 ? colors.textDim : uvIndex <= 5 ? [255, 200, 50] : [255, 100, 50];
+      ink(...colors.textDim).write(isNarrow ? "☀ UV" : "UV INDEX", { x: col1X, y }, undefined, undefined, false, isNarrow ? "unifont" : "MatrixChunky8");
+      ink(...uvColor).write("" + uvIndex, { x: col1X + (isNarrow ? 45 : 65), y }, undefined, undefined, false, "unifont");
+    }
+    if (!isNarrow && current.wind_gusts_10m) {
+      const gusts = Math.round(current.wind_gusts_10m * 0.621371);
+      ink(...colors.textDim).write("GUSTS", { x: col2X, y }, undefined, undefined, false, "MatrixChunky8");
+      ink(...(colors.accent2 || colors.text)).write(gusts + " mph", { x: col2X + 45, y }, undefined, undefined, false, "unifont");
+    }
   }
 }
 
@@ -1685,6 +1746,127 @@ function paintExtendedForecast({ ink, box, screen, contentY }) {
       ink(...colors.temp).write("Hi " + hi + "°", { x: sw - 90, y }, undefined, undefined, false, "unifont");
       ink(...colors.textDim).write("Lo " + lo + "°", { x: sw - 90, y: y + 12 }, undefined, undefined, false, "unifont");
     }
+  }
+}
+
+// Scrolling text forecast (Weather Channel style)
+function paintTextForecast({ ink, box, line, screen, contentY }) {
+  const { width: sw, height: sh } = screen;
+  const isNarrow = sw < 200;
+  const margin = isNarrow ? 4 : 10;
+  const panelH = sh - contentY - 25;
+  
+  // Panel background
+  ink(...colors.panelBg).box(margin, contentY + 6, sw - margin * 2, panelH);
+  
+  // Title bar
+  ink(...colors.headerBg).box(margin, contentY + 6, sw - margin * 2, 16);
+  ink(...colors.accent).write("LOCAL FORECAST", { x: margin + 4, y: contentY + 10 },
+    undefined, undefined, false, "MatrixChunky8");
+  
+  if (!weatherData?.daily || !location) return;
+  
+  const daily = weatherData.daily;
+  const current = weatherData.current;
+  const lineH = 12;
+  const textStartY = contentY + 28;
+  const visibleH = panelH - 28;
+  
+  // Build forecast text lines
+  const lines = [];
+  
+  // Current conditions summary with more detail
+  const code = current?.weather_code || 0;
+  const weather = WEATHER_CODES[code] || { text: "Unknown", icon: "?" };
+  const temp = Math.round((current?.temperature_2m || 0) * 9/5 + 32);
+  const feelsLike = Math.round((current?.apparent_temperature || 0) * 9/5 + 32);
+  const humidity = Math.round(current?.relative_humidity_2m || 0);
+  const wind = Math.round((current?.wind_speed_10m || 0) * 0.621371);
+  const gusts = Math.round((current?.wind_gusts_10m || 0) * 0.621371);
+  const cloudCover = Math.round(current?.cloud_cover || 0);
+  const visibility = current?.visibility ? Math.round(current.visibility / 1609.34) : null; // meters to miles
+  
+  lines.push({ text: "══════ CURRENT CONDITIONS ══════", color: colors.accent });
+  lines.push({ text: "", color: colors.text });
+  lines.push({ text: weather.icon + " " + weather.text, color: weather.color });
+  lines.push({ text: "Temperature: " + temp + "°F", color: colors.temp });
+  lines.push({ text: "Feels like: " + feelsLike + "°F", color: colors.textDim });
+  lines.push({ text: "", color: colors.text });
+  lines.push({ text: "Humidity: " + humidity + "%", color: colors.textDim });
+  lines.push({ text: "Cloud Cover: " + cloudCover + "%", color: colors.textDim });
+  if (visibility) {
+    lines.push({ text: "Visibility: " + visibility + " mi", color: colors.textDim });
+  }
+  lines.push({ text: "Wind: " + wind + " mph, Gusts: " + gusts + " mph", color: colors.textDim });
+  lines.push({ text: "", color: colors.text });
+  
+  // Today's summary
+  if (daily.uv_index_max?.[0] !== undefined) {
+    const uvIndex = Math.round(daily.uv_index_max[0]);
+    const uvLevel = uvIndex <= 2 ? "Low" : uvIndex <= 5 ? "Moderate" : uvIndex <= 7 ? "High" : uvIndex <= 10 ? "Very High" : "Extreme";
+    lines.push({ text: "UV Index: " + uvIndex + " (" + uvLevel + ")", color: uvIndex > 5 ? [255, 150, 50] : colors.textDim });
+  }
+  if (daily.sunshine_duration?.[0] !== undefined) {
+    const sunHours = Math.round(daily.sunshine_duration[0] / 3600);
+    lines.push({ text: "Sunshine: " + sunHours + " hours today", color: [255, 220, 100] });
+  }
+  lines.push({ text: "", color: colors.text });
+  lines.push({ text: "", color: colors.text });
+  
+  // Extended forecast with more data
+  lines.push({ text: "══════ 7-DAY FORECAST ══════", color: colors.accent });
+  lines.push({ text: "", color: colors.text });
+  
+  for (let i = 0; i < Math.min(7, daily.time?.length || 0); i++) {
+    const date = new Date(daily.time[i]);
+    const dayName = i === 0 ? "TODAY" : FULL_DAYS[date.getDay()].toUpperCase();
+    const dayCode = daily.weather_code[i];
+    const dayWeather = WEATHER_CODES[dayCode] || { text: "Unknown", short: "???", icon: "?" };
+    const hi = Math.round(daily.temperature_2m_max[i] * 9/5 + 32);
+    const lo = Math.round(daily.temperature_2m_min[i] * 9/5 + 32);
+    const precip = daily.precipitation_probability_max?.[i] || 0;
+    const precipAmt = daily.precipitation_sum?.[i] || 0;
+    const windMax = Math.round((daily.wind_speed_10m_max?.[i] || 0) * 0.621371);
+    const gustMax = Math.round((daily.wind_gusts_10m_max?.[i] || 0) * 0.621371);
+    const uvDay = daily.uv_index_max?.[i];
+    
+    lines.push({ text: "── " + dayName + " ──", color: colors.accent2 || colors.accent });
+    lines.push({ text: dayWeather.icon + " " + dayWeather.text, color: dayWeather.color });
+    lines.push({ text: "High " + hi + "°F  Low " + lo + "°F", color: colors.temp });
+    if (precip > 0) {
+      const precipText = precipAmt > 0 ? " (" + precipAmt.toFixed(1) + "mm)" : "";
+      lines.push({ text: "Precip chance: " + precip + "%" + precipText, color: [100, 180, 255] });
+    }
+    lines.push({ text: "Wind: up to " + windMax + " mph, gusts " + gustMax + " mph", color: colors.textDim });
+    if (uvDay !== undefined) {
+      lines.push({ text: "UV Index: " + Math.round(uvDay), color: colors.textDim });
+    }
+    lines.push({ text: "", color: colors.text });
+  }
+  
+  // Footer
+  lines.push({ text: "", color: colors.text });
+  lines.push({ text: "════════════════════════════════", color: colors.divider });
+  lines.push({ text: "Data: Open-Meteo API", color: colors.textDim });
+  lines.push({ text: "", color: colors.text });
+  
+  // Scroll through lines
+  const totalH = lines.length * lineH;
+  const scrollOffset = Math.floor(textForecastScroll) % (totalH + visibleH);
+  
+  for (let i = 0; i < lines.length; i++) {
+    const y = textStartY + i * lineH - scrollOffset;
+    if (y >= textStartY - lineH && y < textStartY + visibleH) {
+      ink(...lines[i].color).write(lines[i].text, { x: margin + 6, y },
+        undefined, undefined, false, "unifont");
+    }
+  }
+  
+  // Gradient fade at top and bottom
+  for (let i = 0; i < 8; i++) {
+    const alpha = 255 - i * 30;
+    ink(...colors.panelBg.slice(0, 3), alpha).box(margin + 1, textStartY + i, sw - margin * 2 - 2, 1);
+    ink(...colors.panelBg.slice(0, 3), alpha).box(margin + 1, textStartY + visibleH - i - 1, sw - margin * 2 - 2, 1);
   }
 }
 
@@ -1740,8 +1922,8 @@ async function getWeather(lat, lon) {
   const params = new URLSearchParams({
     latitude: lat,
     longitude: lon,
-    current: "temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m,precipitation",
-    daily: "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset",
+    current: "temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m,precipitation,cloud_cover,visibility,is_day",
+    daily: "weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,precipitation_sum,precipitation_probability_max,sunrise,sunset,uv_index_max,wind_speed_10m_max,wind_gusts_10m_max,sunshine_duration",
     timezone: "auto",
     forecast_days: 7,
   });
