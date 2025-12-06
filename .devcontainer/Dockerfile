@@ -147,9 +147,14 @@ RUN set -eux; \
     chmod +x /usr/local/bin/doctl
 
 # --- PowerShell (for running Windows scripts on Linux) -----------------------
+# Note: PowerShell is only available for x86_64, skip on ARM64
 RUN dnf install -y curl && \
-    curl -sSL -o /etc/yum.repos.d/microsoft-prod.repo https://packages.microsoft.com/config/fedora/$(rpm -E %fedora)/prod.repo && \
-    dnf install -y powershell && \
+    if [ "$(uname -m)" = "x86_64" ]; then \
+        curl -sSL -o /etc/yum.repos.d/microsoft-prod.repo https://packages.microsoft.com/config/fedora/$(rpm -E %fedora)/prod.repo && \
+        dnf install -y powershell || echo "PowerShell not available, skipping..."; \
+    else \
+        echo "PowerShell not available for $(uname -m), skipping..."; \
+    fi && \
     dnf clean all && rm -rf /var/cache/dnf
 
 # --- s3cmd (for DigitalOcean Spaces management) -------------------------------

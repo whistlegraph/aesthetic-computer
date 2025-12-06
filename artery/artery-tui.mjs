@@ -160,6 +160,7 @@ async function tryStartSSHTunnel() {
     const tunnel = spawn('ssh', [
       '-f', '-N',
       '-o', 'StrictHostKeyChecking=no',
+      '-o', 'BatchMode=yes',
       '-o', 'ConnectTimeout=5',
       '-L', '9333:127.0.0.1:9333',
       'me@host.docker.internal'
@@ -342,7 +343,8 @@ class ArteryTUI {
     // Try to detect host OS via SSH
     if (info.inContainer) {
       try {
-        const hostOS = execSync('ssh -o ConnectTimeout=2 -o StrictHostKeyChecking=no me@host.docker.internal "echo %OS% 2>nul || uname -s" 2>/dev/null', { encoding: 'utf8', timeout: 3000 }).trim();
+        // Use stdin: 'ignore' to prevent SSH from stealing terminal input if it prompts for password
+        const hostOS = execSync('ssh -o ConnectTimeout=2 -o StrictHostKeyChecking=no -o BatchMode=yes me@host.docker.internal "echo %OS% 2>nul || uname -s" 2>/dev/null', { encoding: 'utf8', timeout: 3000, stdio: ['ignore', 'pipe', 'pipe'] }).trim();
         if (hostOS.includes('Windows')) {
           info.hostOS = 'Windows';
           info.hostEmoji = '🪟';
@@ -359,8 +361,31 @@ class ArteryTUI {
           info.hostOS = hostOS || 'Unknown';
         }
       } catch (e) {
-        // SSH failed, try to detect from HOST_IP env
-        if (process.env.HOST_IP) {
+        // SSH failed - try alternative detection methods
+        // Check for VS Code remote container environment variables
+        const remoteContainersDir = process.env.REMOTE_CONTAINERS_IPC;
+        
+        // Try to detect host from VS Code's remote-containers extension
+        // On macOS Docker Desktop, host.docker.internal resolves via special gateway
+        try {
+          const hostResult = execSync('getent hosts host.docker.internal 2>/dev/null', { encoding: 'utf8', timeout: 1000, stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+          if (hostResult) {
+            // host.docker.internal exists - this is typically macOS or Windows Docker Desktop
+            // Check if it's IPv6 (fdc4:...) which is common on macOS
+            if (hostResult.includes('fdc4:') || hostResult.includes('fd00:')) {
+              // Likely macOS with Docker Desktop
+              info.hostOS = 'macOS';
+              info.hostEmoji = '🍎';
+              info.hostLabel = 'MacBook';
+            } else if (hostResult.includes('192.168.')) {
+              // Could be Windows or macOS - default to showing generic
+              info.hostLabel = 'Host';
+            }
+          }
+        } catch (e2) {}
+        
+        // Final fallback: check HOST_IP env
+        if (!info.hostOS && process.env.HOST_IP) {
           info.hostLabel = `Host @ ${process.env.HOST_IP}`;
         }
       }
