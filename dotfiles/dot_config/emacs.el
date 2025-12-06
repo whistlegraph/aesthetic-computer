@@ -531,6 +531,8 @@
       (when (get-buffer "*eat*")
         (with-current-buffer "*eat*"
           (rename-buffer "🩸-artery" t)
+          ;; Enable semi-char mode so TUI gets individual keypresses
+          (eat-semi-char-mode)
           ;; Disable evil mode for artery - use emacs state
           (when (and (boundp 'evil-mode) evil-mode)
             (evil-emacs-state)))))
