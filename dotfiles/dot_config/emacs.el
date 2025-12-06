@@ -14,9 +14,19 @@
 (ac-debug-log "Setting performance options...")
 (setq native-comp-async-report-warnings-errors nil
       native-comp-deferred-compilation nil
+      native-comp-jit-compilation nil           ; Disable JIT native compilation
+      native-comp-async-jobs-number 1           ; Limit async jobs if any do run
+      native-comp-async-query-on-exit nil       ; Don't query on exit
+      comp-async-report-warnings-errors nil     ; Suppress comp warnings
+      comp-deferred-compilation nil             ; Also disable via comp- prefix
       x-gtk-use-system-tooltips nil
       mac-option-modifier 'meta
       warning-minimum-level :emergency)
+
+;; Kill any runaway native comp processes on startup
+(when (fboundp 'native-comp-available-p)
+  (advice-add 'native-compile-async :override
+              (lambda (&rest _) nil)))          ; Completely disable async native comp
 
 (ac-debug-log "Performance settings loaded")
 
