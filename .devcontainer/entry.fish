@@ -496,6 +496,21 @@ sudo chmod 777 /home/me/.waiter
 sudo chmod +w /home/me
 echo "✅ Container ready signal created (.waiter)"
 
+# 🩸 Setup SSH tunnel for CDP (Chrome DevTools Protocol) to host
+# This allows artery-tui to control VS Code on the host machine
+if test -n "$HOST_IP"; or test (uname -s) != "Linux"
+    # Kill any existing CDP tunnels
+    pkill -f "ssh.*9333.*host.docker.internal" 2>/dev/null
+    
+    # Create tunnel in background (port 9333 to avoid conflicts with svchost.exe on 9222)
+    ssh -f -N -o StrictHostKeyChecking=no -o ConnectTimeout=5 -L 9333:127.0.0.1:9333 me@host.docker.internal 2>/dev/null
+    if test $status -eq 0
+        echo "🩸 CDP tunnel established (localhost:9333 → host:9333)"
+    else
+        echo "⚠️  CDP tunnel failed (artery may not work)"
+    end
+end
+
 # echo "Initializing 📋 Clipboard Service" | lolcat -x -r
 
 # ❤️‍🔥
