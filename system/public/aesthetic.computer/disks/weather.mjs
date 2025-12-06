@@ -242,6 +242,40 @@ let snowForms = [];
 let use3D = false;
 let Form3D = null;
 
+// Smooth galaxy fly-through camera
+let targetStarIndex = 0;
+let prevStarIndex = -1;
+let starFocusTimer = 0;
+const STAR_GAZE_DURATION = 360;      // Frames to focus on one star (~6 sec at 60fps)
+const STAR_DRIFT_SPEED = 0.008;      // Slow continuous drift speed
+let cameraMode = "cruise";           // Single smooth cruise mode
+
+// Camera path - continuous smooth movement through space
+let cruiseAngle = 0;                 // Angle around the galaxy center
+let cruiseRadius = 8;                // Distance from center of star field
+let cruiseHeight = 2;                // Vertical offset
+let cruiseSpeed = 0.003;             // Very slow rotation speed
+
+// Look-at interpolation for smooth focus shifts
+let lookTargetX = 0, lookTargetY = 0, lookTargetZ = -10;
+let lookCurrentX = 0, lookCurrentY = 0, lookCurrentZ = -10;
+const LOOK_SMOOTHING = 0.015;        // Very smooth look interpolation
+
+// Camera roll for cinematic feel
+let targetRoll = 0;
+let currentRoll = 0;
+
+// Helper: Calculate angles to look at a 3D point from camera position
+function lookAtAngles(camX, camY, camZ, targetX, targetY, targetZ) {
+  const dx = targetX - camX;
+  const dy = targetY - camY;
+  const dz = targetZ - camZ;
+  const distXZ = Math.sqrt(dx * dx + dz * dz);
+  const rotY = Math.atan2(dx, -dz) * (180 / Math.PI);
+  const rotX = Math.atan2(dy, distXZ) * (180 / Math.PI);
+  return { rotX, rotY };
+}
+
 // Current visual state
 let visualState = "clear"; // clear, cloudy, rain, snow, storm, fog
 let isNight = false;
@@ -894,6 +928,19 @@ async function boot({ params, screen, Form, Camera, Dolly, TRI, QUAD, painting }
   rainForms = [];
   snowForms = [];
   
+  // Reset camera navigation state
+  cameraMode = "cruise";
+  targetStarIndex = 0;
+  prevStarIndex = -1;
+  starFocusTimer = 0;
+  cruiseAngle = 0;
+  cruiseRadius = 8;
+  cruiseHeight = 2;
+  lookTargetX = lookCurrentX = 0;
+  lookTargetY = lookCurrentY = 0;
+  lookTargetZ = lookCurrentZ = -10;
+  targetRoll = currentRoll = 0;
+  
   // Initialize 3D backdrop (if Form and Camera are available)
   if (Form && Camera && Dolly) {
     init3DBackdrop({ Form, Camera, Dolly, TRI, QUAD, painting });
@@ -1077,12 +1124,86 @@ function sim({ screen }) {
       }
     }
     
-    // Slowly spin the camera to make the world rotate
-    if (cam) {
-      camRotY += 0.08;  // Slow rotation speed
-      camBobPhase += 0.015;  // Gentle bob
-      cam.rotY = Math.sin(camRotY * 0.02) * 8;  // Gentle back-and-forth pan
-      cam.rotX = Math.sin(camBobPhase) * 2 - 5;  // Slight tilt with bob, looking slightly up
+    // Smooth galaxy fly-through camera (only at night)
+    // Camera cruises in a gentle arc while focusing on different stars
+    if (cam && isNight && starForms.length > 0) {
+      starFocusTimer++;
+      
+      // Continuous slow cruise through the star field
+      cruiseAngle += cruiseSpeed;
+      
+      // Camera follows a smooth elliptical path through the galaxy
+      const camX = Math.sin(cruiseAngle) * cruiseRadius;
+      const camZ = Math.cos(cruiseAngle) * cruiseRadius * 0.6 - 8;  // Offset into the scene
+      const camY = cruiseHeight + Math.sin(cruiseAngle * 0.7) * 1.5;  // Gentle vertical wave
+      
+      // Set camera position
+      cam.x = camX;
+      cam.y = camY;
+      cam.z = camZ;
+      
+      // Update target star periodically
+      if (starFocusTimer >= STAR_GAZE_DURATION) {
+        starFocusTimer = 0;
+        prevStarIndex = targetStarIndex;
+        
+        // Find a star that's roughly ahead of us for natural look
+        let bestIndex = 0;
+        let bestScore = -Infinity;
+        
+        for (let i = 0; i < starForms.length; i++) {
+          if (i === prevStarIndex) continue;
+          const star = starForms[i];
+          const dx = star.position[0] - camX;
+          const dz = star.position[2] - camZ;
+          const dist = Math.sqrt(dx * dx + dz * dz);
+          
+          // Prefer stars that are ahead (negative Z direction) and not too far
+          const forwardness = -dz;  // Higher is more ahead
+          const proximity = Math.max(0, 15 - dist);  // Closer is better, up to a point
+          const score = forwardness * 0.5 + proximity + Math.random() * 3;  // Add variety
+          
+          if (score > bestScore && dist > 2) {  // Don't pick stars too close
+            bestScore = score;
+            bestIndex = i;
+          }
+        }
+        targetStarIndex = bestIndex;
+      }
+      
+      // Set look target to the current focus star
+      const star = starForms[targetStarIndex];
+      if (star) {
+        lookTargetX = star.position[0];
+        lookTargetY = star.position[1];
+        lookTargetZ = star.position[2];
+      }
+      
+      // Smoothly interpolate where we're looking (very gradual)
+      lookCurrentX += (lookTargetX - lookCurrentX) * LOOK_SMOOTHING;
+      lookCurrentY += (lookTargetY - lookCurrentY) * LOOK_SMOOTHING;
+      lookCurrentZ += (lookTargetZ - lookCurrentZ) * LOOK_SMOOTHING;
+      
+      // Calculate camera rotation to look at interpolated target
+      const look = lookAtAngles(camX, camY, camZ, lookCurrentX, lookCurrentY, lookCurrentZ);
+      
+      cam.rotX = look.rotX;
+      cam.rotY = look.rotY;
+      
+      // Very gentle roll based on horizontal movement for cinematic feel
+      targetRoll = Math.sin(cruiseAngle * 2) * 3;
+      currentRoll += (targetRoll - currentRoll) * 0.02;
+      cam.rotZ = currentRoll;
+      
+    } else if (cam) {
+      // Daytime: gentle pan/bob (original behavior)
+      camRotY += 0.08;
+      camBobPhase += 0.015;
+      cam.rotY = Math.sin(camRotY * 0.02) * 8;
+      cam.rotX = Math.sin(camBobPhase) * 2 - 5;
+      cam.x = 0;
+      cam.y = 0;
+      cam.z = 0;
     }
     
     // Update dolly if active
@@ -1149,15 +1270,27 @@ function updateColorTheme() {
 }
 
 // Paint 3D backdrop forms (must be defined before paint)
-function paint3DBackdrop({ ink, form }) {
+function paint3DBackdrop({ ink, form, line, screen }) {
   if (!cam) return;
+  const sw = screen?.width || 320;
+  const sh = screen?.height || 200;
   
   // Night: render 3D stars and moon
   if (isNight) {
-    for (const star of starForms) {
+    // Render all stars with the target star highlighted
+    for (let i = 0; i < starForms.length; i++) {
+      const star = starForms[i];
       const brightness = 0.5 + 0.5 * Math.sin(star.twinklePhase);
-      const alpha = Math.floor(150 + brightness * 105);
-      ink(255, 255, 220, alpha).form(star, cam);
+      let alpha = Math.floor(150 + brightness * 105);
+      
+      // Make target star glow extra bright with gentle pulse
+      if (i === targetStarIndex) {
+        alpha = 255;
+        const pulse = 0.8 + 0.2 * Math.sin(frameCount * 0.05);
+        ink(255, 255, 200, Math.floor(alpha * pulse)).form(star, cam);
+      } else {
+        ink(255, 255, 220, alpha).form(star, cam);
+      }
     }
     if (moonForm) ink(255, 255, 230).form(moonForm, cam);
   }
@@ -1205,7 +1338,7 @@ function paint({ wipe, ink, screen, line, box, text, form }) {
   
   // Draw 3D backdrop if available, otherwise fall back to 2D
   if (use3D && cam) {
-    paint3DBackdrop({ ink, form });
+    paint3DBackdrop({ ink, form, line, screen });
   } else {
     // Draw 2D animated backdrop elements
     paintBackdrop({ ink, box, line, screen });
