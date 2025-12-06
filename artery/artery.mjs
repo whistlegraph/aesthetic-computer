@@ -41,22 +41,45 @@ function getCDPHost() {
 async function findWorkingCDPHost() {
   const candidates = [];
   
-  // Not in a container - only try localhost
+  // Not in a container - only try localhost with common CDP ports
   if (process.env.REMOTE_CONTAINERS !== 'true' && process.env.CODESPACES !== 'true') {
-    return { host: 'localhost', port: 9222 };
+    // Try multiple ports in case 9222 is taken
+    for (const port of [9333, 9222]) {
+      try {
+        const works = await new Promise((resolve) => {
+          const req = http.get({
+            hostname: 'localhost',
+            port: port,
+            path: '/json',
+            timeout: 1000,
+          }, (res) => {
+            let data = '';
+            res.on('data', (chunk) => data += chunk);
+            res.on('end', () => resolve(data.length > 0));
+          });
+          req.on('error', () => resolve(false));
+          req.on('timeout', () => { req.destroy(); resolve(false); });
+        });
+        if (works) return { host: 'localhost', port };
+      } catch (e) {}
+    }
+    return { host: 'localhost', port: 9333 };
   }
   
   // In a container - try multiple host:port combinations
   // Order matters: try most reliable options first
+  candidates.push({ host: 'host.docker.internal', port: 9333 }); // Windows with new port
   candidates.push({ host: 'host.docker.internal', port: 9222 }); // Mac/Windows Docker Desktop
-  candidates.push({ host: '172.17.0.1', port: 9224 }); // Docker bridge + socat (Linux) - use 9224 to avoid VS Code conflict
+  candidates.push({ host: 'localhost', port: 9333 }); // SSH tunnel with new port
+  candidates.push({ host: 'localhost', port: 9222 }); // SSH tunnel or VS Code forward
+  candidates.push({ host: '172.17.0.1', port: 9224 }); // Docker bridge + socat (Linux)
   candidates.push({ host: '172.17.0.1', port: 9223 }); // Docker bridge + socat alt
   candidates.push({ host: '172.17.0.1', port: 9222 }); // Docker bridge direct
   if (process.env.HOST_IP) {
-    candidates.push({ host: process.env.HOST_IP, port: 9223 }); // socat forwarded port
+    candidates.push({ host: process.env.HOST_IP, port: 9333 });
+    candidates.push({ host: process.env.HOST_IP, port: 9223 });
     candidates.push({ host: process.env.HOST_IP, port: 9222 });
   }
-  candidates.push({ host: 'localhost', port: 9222 }); // VS Code might forward the port
   
   for (const { host, port } of candidates) {
     try {
