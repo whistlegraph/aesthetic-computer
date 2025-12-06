@@ -10,6 +10,8 @@ import https from 'https';
 import fs from 'fs';
 import path from 'path';
 import readline from 'readline';
+import os from 'os';
+import { execSync } from 'child_process';
 
 // ANSI escape codes
 const ESC = '\x1b';
@@ -251,6 +253,84 @@ class ArteryTUI {
     
     // Load pieces from disk directory
     this.loadPieces();
+    
+    // Detect host environment
+    this.hostInfo = this.detectHostInfo();
+  }
+  
+  detectHostInfo() {
+    const info = {
+      inContainer: process.env.REMOTE_CONTAINERS === 'true' || process.env.CODESPACES === 'true',
+      containerOS: os.platform(),
+      containerDistro: '',
+      hostOS: null,
+      hostLabel: null,
+      hostEmoji: '🖥️',
+      hostUser: process.env.USER || 'unknown'
+    };
+    
+    // Get container distro
+    try {
+      const osRelease = fs.readFileSync('/etc/os-release', 'utf8');
+      const nameMatch = osRelease.match(/^PRETTY_NAME="?([^"\n]+)"?/m);
+      if (nameMatch) info.containerDistro = nameMatch[1];
+    } catch (e) {}
+    
+    // Try to detect host OS via SSH
+    if (info.inContainer) {
+      try {
+        const hostOS = execSync('ssh -o ConnectTimeout=2 -o StrictHostKeyChecking=no me@host.docker.internal "echo %OS% 2>nul || uname -s" 2>/dev/null', { encoding: 'utf8', timeout: 3000 }).trim();
+        if (hostOS.includes('Windows')) {
+          info.hostOS = 'Windows';
+          info.hostEmoji = '🪟';
+          info.hostLabel = 'Windows Tower';
+        } else if (hostOS === 'Darwin') {
+          info.hostOS = 'macOS';
+          info.hostEmoji = '🍎';
+          info.hostLabel = 'MacBook';
+        } else if (hostOS === 'Linux') {
+          info.hostOS = 'Linux';
+          info.hostEmoji = '🐧';
+          info.hostLabel = 'Linux Host';
+        } else {
+          info.hostOS = hostOS || 'Unknown';
+        }
+      } catch (e) {
+        // SSH failed, try to detect from HOST_IP env
+        if (process.env.HOST_IP) {
+          info.hostLabel = `Host @ ${process.env.HOST_IP}`;
+        }
+      }
+    }
+    
+    // Try to load cute labels from vault
+    try {
+      const machinesPath = path.join(process.cwd(), 'aesthetic-computer-vault/machines.json');
+      if (fs.existsSync(machinesPath)) {
+        const machines = JSON.parse(fs.readFileSync(machinesPath, 'utf8'));
+        // Find matching machine based on OS
+        if (info.hostOS && machines.detection) {
+          const osKey = info.hostOS.toLowerCase();
+          if (osKey.includes('windows') && machines.detection.windows) {
+            const machineId = machines.detection.windows.defaultMachine;
+            if (machines.machines[machineId]) {
+              const m = machines.machines[machineId];
+              info.hostLabel = m.label;
+              info.hostEmoji = m.emoji;
+            }
+          } else if (osKey.includes('darwin') || osKey.includes('macos')) {
+            const machineId = machines.detection.darwin?.defaultMachine;
+            if (machineId && machines.machines[machineId]) {
+              const m = machines.machines[machineId];
+              info.hostLabel = m.label;
+              info.hostEmoji = m.emoji;
+            }
+          }
+        }
+      }
+    } catch (e) {}
+    
+    return info;
   }
   
   loadPieces() {
@@ -1915,6 +1995,14 @@ class ArteryTUI {
       ? ` ${localIcon}${prodIcon}` 
       : ` ${FG_BRIGHT_CYAN}│ ${FG_CYAN}L${localIcon}${localMsg} ${FG_CYAN}P${prodIcon}`;
     
+    // Host info line (container → host)
+    let hostInfoLine = '';
+    if (this.hostInfo.inContainer && !compact) {
+      const containerLabel = this.hostInfo.containerDistro || 'Container';
+      const hostLabel = this.hostInfo.hostLabel || this.hostInfo.hostOS || 'Host';
+      hostInfoLine = `${FG_BRIGHT_MAGENTA}📦 ${containerLabel} ${FG_BRIGHT_CYAN}→ ${this.hostInfo.hostEmoji} ${FG_BRIGHT_WHITE}${hostLabel}`;
+    }
+    
     // Top border - DOS style double line
     this.writeLine(`${DOS_BORDER}╔${'═'.repeat(boxWidth - 2)}╗${RESET}`);
     
@@ -1967,6 +2055,12 @@ class ArteryTUI {
     const statusLine = `${acStatus}${piece}${serverInfo}`;
     const statusPadding = boxWidth - this.stripAnsi(statusLine).length - 2;
     this.writeLine(`${DOS_BORDER}║${BG_BLUE}${statusLine}${' '.repeat(Math.max(0, statusPadding))}${DOS_BORDER}║${RESET}`);
+    
+    // Host info line (if in container and not compact)
+    if (hostInfoLine) {
+      const hostPadding = boxWidth - this.stripAnsi(hostInfoLine).length - 2;
+      this.writeLine(`${DOS_BORDER}║${BG_BLUE}${hostInfoLine}${' '.repeat(Math.max(0, hostPadding))}${DOS_BORDER}║${RESET}`);
+    }
     
     // Separator
     this.writeLine(`${DOS_BORDER}╠${'═'.repeat(boxWidth - 2)}╣${RESET}`);
