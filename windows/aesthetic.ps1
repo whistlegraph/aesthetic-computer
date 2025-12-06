@@ -49,10 +49,9 @@ Get-Process Code -ErrorAction SilentlyContinue | ForEach-Object {
 }
 
 # Launch new VS Code instance in current directory with Chrome debugging enabled
-Write-Host "Launching fresh VS Code inside Dev Container with CDP on port 9222..."
-# Note: We use the HOST_IP for remote-debugging-address to ensure it binds to the network interface
-$debugAddress = if ($hostIp) { $hostIp } else { "0.0.0.0" }
-Start-Process -WindowStyle Hidden -FilePath "code" -ArgumentList "--remote-debugging-port=9222", "--remote-debugging-address=$debugAddress", "--folder", "\\wsl.localhost\Ubuntu\home\me\aesthetic-computer"
+# Using port 9333 to avoid conflicts with svchost.exe on 9222
+Write-Host "Launching fresh VS Code inside Dev Container with CDP on port 9333..."
+Start-Process -WindowStyle Hidden -FilePath "code" -ArgumentList "--remote-debugging-port=9333", "--folder", "\\wsl.localhost\Ubuntu\home\me\aesthetic-computer"
 
 # Clipboard loop
 while ($true) {
