@@ -34,36 +34,36 @@
   - [] Smooth jazz background music
 #endregion */
 
-// WMO Weather Code Mapping
+// WMO Weather Code Mapping - ASCII icons only for MatrixChunky8 compatibility
 const WEATHER_CODES = {
-  0: { text: "Clear", short: "CLEAR", color: [255, 220, 64], icon: "☀", type: "clear" },
-  1: { text: "Mostly Clear", short: "MSTLY CLR", color: [255, 220, 100], icon: "🌤", type: "clear" },
-  2: { text: "Partly Cloudy", short: "PTLY CLDY", color: [200, 200, 200], icon: "⛅", type: "cloudy" },
-  3: { text: "Overcast", short: "OVERCAST", color: [150, 150, 150], icon: "☁", type: "cloudy" },
-  45: { text: "Fog", short: "FOG", color: [180, 180, 180], icon: "🌫", type: "fog" },
-  48: { text: "Freezing Fog", short: "FRZG FOG", color: [180, 200, 220], icon: "🌫", type: "fog" },
-  51: { text: "Light Drizzle", short: "LT DRZL", color: [100, 150, 200], icon: "🌧", type: "rain" },
-  53: { text: "Drizzle", short: "DRIZZLE", color: [80, 130, 180], icon: "🌧", type: "rain" },
-  55: { text: "Heavy Drizzle", short: "HVY DRZL", color: [60, 110, 160], icon: "🌧", type: "rain" },
-  56: { text: "Freezing Drizzle", short: "FRZG DRZL", color: [100, 180, 220], icon: "🌧", type: "rain" },
-  57: { text: "Heavy Freezing Drizzle", short: "HVY FRZ DRZ", color: [80, 160, 200], icon: "🌧", type: "rain" },
-  61: { text: "Light Rain", short: "LT RAIN", color: [80, 140, 200], icon: "🌧", type: "rain" },
-  63: { text: "Rain", short: "RAIN", color: [60, 120, 180], icon: "🌧", type: "rain" },
-  65: { text: "Heavy Rain", short: "HVY RAIN", color: [40, 80, 140], icon: "🌧", type: "rain" },
-  66: { text: "Freezing Rain", short: "FRZG RAIN", color: [100, 180, 240], icon: "🌧", type: "rain" },
-  67: { text: "Heavy Freezing Rain", short: "HVY FRZ RN", color: [80, 160, 220], icon: "🌧", type: "rain" },
-  71: { text: "Light Snow", short: "LT SNOW", color: [220, 230, 255], icon: "❄", type: "snow" },
-  73: { text: "Snow", short: "SNOW", color: [200, 210, 240], icon: "❄", type: "snow" },
-  75: { text: "Heavy Snow", short: "HVY SNOW", color: [180, 190, 220], icon: "❄", type: "snow" },
-  77: { text: "Snow Grains", short: "SNOW GRNS", color: [210, 220, 240], icon: "❄", type: "snow" },
-  80: { text: "Light Showers", short: "LT SHWRS", color: [100, 160, 220], icon: "🌦", type: "rain" },
-  81: { text: "Showers", short: "SHOWERS", color: [80, 140, 200], icon: "🌦", type: "rain" },
-  82: { text: "Heavy Showers", short: "HVY SHWRS", color: [60, 100, 160], icon: "🌧", type: "rain" },
-  85: { text: "Light Snow Showers", short: "LT SNW SHW", color: [200, 210, 240], icon: "🌨", type: "snow" },
-  86: { text: "Heavy Snow Showers", short: "HVY SNW SHW", color: [180, 190, 220], icon: "🌨", type: "snow" },
-  95: { text: "Thunderstorm", short: "T-STORM", color: [180, 100, 200], icon: "⛈", type: "storm" },
-  96: { text: "Thunderstorm w/ Hail", short: "T-STRM HAIL", color: [200, 120, 220], icon: "⛈", type: "storm" },
-  99: { text: "Severe Thunderstorm", short: "SVR T-STRM", color: [220, 80, 180], icon: "⛈", type: "storm" },
+  0: { text: "Clear", short: "CLEAR", color: [255, 220, 64], icon: "*", type: "clear" },
+  1: { text: "Mostly Clear", short: "M.CLR", color: [255, 220, 100], icon: "*", type: "clear" },
+  2: { text: "Partly Cloudy", short: "P.CLD", color: [200, 200, 200], icon: "~", type: "cloudy" },
+  3: { text: "Overcast", short: "OVCST", color: [150, 150, 150], icon: "=", type: "cloudy" },
+  45: { text: "Fog", short: "FOG", color: [180, 180, 180], icon: "~", type: "fog" },
+  48: { text: "Freezing Fog", short: "F.FOG", color: [180, 200, 220], icon: "~", type: "fog" },
+  51: { text: "Light Drizzle", short: "L.DRZ", color: [100, 150, 200], icon: "'", type: "rain" },
+  53: { text: "Drizzle", short: "DRIZL", color: [80, 130, 180], icon: "'", type: "rain" },
+  55: { text: "Heavy Drizzle", short: "H.DRZ", color: [60, 110, 160], icon: ",", type: "rain" },
+  56: { text: "Freezing Drizzle", short: "F.DRZ", color: [100, 180, 220], icon: "'", type: "rain" },
+  57: { text: "Heavy Freezing Drizzle", short: "HF.DZ", color: [80, 160, 200], icon: ",", type: "rain" },
+  61: { text: "Light Rain", short: "L.RAN", color: [80, 140, 200], icon: "|", type: "rain" },
+  63: { text: "Rain", short: "RAIN", color: [60, 120, 180], icon: "|", type: "rain" },
+  65: { text: "Heavy Rain", short: "H.RAN", color: [40, 80, 140], icon: "#", type: "rain" },
+  66: { text: "Freezing Rain", short: "F.RAN", color: [100, 180, 240], icon: "|", type: "rain" },
+  67: { text: "Heavy Freezing Rain", short: "HF.RN", color: [80, 160, 220], icon: "#", type: "rain" },
+  71: { text: "Light Snow", short: "L.SNW", color: [220, 230, 255], icon: ".", type: "snow" },
+  73: { text: "Snow", short: "SNOW", color: [200, 210, 240], icon: "o", type: "snow" },
+  75: { text: "Heavy Snow", short: "H.SNW", color: [180, 190, 220], icon: "O", type: "snow" },
+  77: { text: "Snow Grains", short: "S.GRN", color: [210, 220, 240], icon: ".", type: "snow" },
+  80: { text: "Light Showers", short: "L.SHW", color: [100, 160, 220], icon: "|", type: "rain" },
+  81: { text: "Showers", short: "SHWRS", color: [80, 140, 200], icon: "|", type: "rain" },
+  82: { text: "Heavy Showers", short: "H.SHW", color: [60, 100, 160], icon: "#", type: "rain" },
+  85: { text: "Light Snow Showers", short: "LS.SH", color: [200, 210, 240], icon: "o", type: "snow" },
+  86: { text: "Heavy Snow Showers", short: "HS.SH", color: [180, 190, 220], icon: "O", type: "snow" },
+  95: { text: "Thunderstorm", short: "STORM", color: [180, 100, 200], icon: "!", type: "storm" },
+  96: { text: "Thunderstorm w/ Hail", short: "STM+H", color: [200, 120, 220], icon: "!", type: "storm" },
+  99: { text: "Severe Thunderstorm", short: "S.STM", color: [220, 80, 180], icon: "!", type: "storm" },
 };
 
 // Color themes based on time and weather
@@ -278,6 +278,293 @@ const LOOK_SMOOTHING = 0.025;   // Smooth look interpolation
 // Camera roll for cinematic feel
 let targetRoll = 0;
 let currentRoll = 0;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🎶 AMBIENT MUSIC SYSTEM - Weather Channel smooth jazz vibes
+// ═══════════════════════════════════════════════════════════════════════════
+
+let musicEnabled = true;
+let currentChord = null;
+let chordTimer = 0;
+let noteTimer = 0;
+let percTimer = 0;
+let activeSounds = [];
+let soundAPI = null;
+let musicStarted = false;
+
+// Display state for visualization - scrolling chord list
+let displayChord = null;      // Current chord for display
+let chordFadeAlpha = 0;       // Fade animation for chord change
+let chordDisplayTimer = 0;    // How long chord has been displayed
+let lastPlayedNotes = [];     // Recently played notes for visualization
+let chordScrollX = 0;         // Horizontal scroll position for chord display
+let chordScrollTarget = 0;    // Target scroll position (for smooth scroll)
+let chordHistory = [];        // List of all chords played for scrolling display
+const MAX_CHORD_HISTORY = 20; // Keep last N chords in history
+
+// Chord progressions for different weather moods (7th chords for smooth jazz feel)
+const CHORD_PROGRESSIONS = {
+  clear: [
+    ['C', 'E', 'G', 'B'],    // Cmaj7
+    ['D', 'F', 'A', 'C'],    // Dm7
+    ['E', 'G', 'B', 'D'],    // Em7
+    ['F', 'A', 'C', 'E'],    // Fmaj7
+    ['G', 'B', 'D', 'F'],    // G7
+    ['A', 'C', 'E', 'G'],    // Am7
+  ],
+  cloudy: [
+    ['A', 'C', 'E', 'G'],    // Am7
+    ['D', 'F', 'A', 'C'],    // Dm7
+    ['G', 'B', 'D', 'F#'],   // Gmaj7
+    ['C', 'E', 'G', 'B'],    // Cmaj7
+    ['F', 'A', 'C', 'E'],    // Fmaj7
+  ],
+  rain: [
+    ['D', 'F', 'A', 'C'],    // Dm7
+    ['G', 'B', 'D', 'F'],    // G7
+    ['C', 'E', 'G', 'B'],    // Cmaj7
+    ['F', 'A', 'C', 'E'],    // Fmaj7
+    ['A', 'C', 'E', 'G'],    // Am7
+  ],
+  snow: [
+    ['G', 'B', 'D', 'F#'],   // Gmaj7
+    ['E', 'G', 'B', 'D'],    // Em7
+    ['A', 'C', 'E', 'G'],    // Am7
+    ['D', 'F#', 'A', 'C'],   // D7
+    ['C', 'E', 'G', 'B'],    // Cmaj7
+  ],
+  storm: [
+    ['A', 'C', 'E'],         // Am
+    ['D', 'F', 'A'],         // Dm
+    ['E', 'G#', 'B', 'D'],   // E7
+    ['F', 'A', 'C'],         // F
+  ],
+  night: [
+    ['F', 'A', 'C', 'E'],    // Fmaj7
+    ['E', 'G', 'B', 'D'],    // Em7
+    ['D', 'F', 'A', 'C'],    // Dm7
+    ['C', 'E', 'G', 'B'],    // Cmaj7
+    ['A', 'C', 'E', 'G'],    // Am7
+  ],
+};
+
+let musicOctave = 3;
+let chordIndex = 0;
+
+function getMusicMood() {
+  if (isNight) return 'night';
+  if (visualState === 'storm') return 'storm';
+  if (visualState === 'rain') return 'rain';
+  if (visualState === 'snow') return 'snow';
+  if (visualState === 'cloudy' || visualState === 'fog') return 'cloudy';
+  return 'clear';
+}
+
+function noteToTone(note, octave) {
+  const noteMap = {
+    'C': 'C', 'D': 'D', 'E': 'E', 'F': 'F', 'G': 'G', 'A': 'A', 'B': 'B',
+    'C#': 'C#', 'D#': 'D#', 'F#': 'F#', 'G#': 'G#', 'A#': 'A#',
+  };
+  return `${octave}${noteMap[note] || note}`;
+}
+
+function playChord(chord, sound) {
+  if (!sound || !musicEnabled || !chord) return;
+  
+  // Fade out existing sounds
+  for (const s of activeSounds) {
+    if (s && s.kill) try { s.kill(0.5); } catch(e) {}
+  }
+  activeSounds = [];
+  
+  // Update display state
+  displayChord = chord;
+  chordFadeAlpha = 255;
+  chordDisplayTimer = 0;
+  lastPlayedNotes = [];
+  
+  // Add to chord history for scrolling display
+  const chordName = getChordName(chord);
+  chordHistory.push({ chord, name: chordName, time: Date.now() });
+  if (chordHistory.length > MAX_CHORD_HISTORY) {
+    chordHistory.shift();
+  }
+  // Scroll to show new chord (smooth animation handled in sim)
+  chordScrollTarget += 1;
+  
+  console.log(`🎶 Weather music: playing chord`, chordName);
+  
+  // Play each note with slight stagger for organic feel
+  chord.forEach((note, i) => {
+    setTimeout(() => {
+      if (!musicEnabled || !sound) return;
+      const noteOctave = musicOctave + (i < 2 ? 0 : 1);
+      const tone = noteToTone(note, noteOctave);
+      lastPlayedNotes.push({ note, octave: noteOctave, time: Date.now() });
+      try {
+        const synthSound = sound.synth({
+          type: 'triangle',
+          tone: tone,
+          duration: 6,
+          attack: 1.5,
+          decay: 0.7,
+          volume: 0.15 - (i * 0.02),
+        });
+        activeSounds.push(synthSound);
+      } catch(e) { console.warn('Music synth error:', e); }
+    }, i * 80);
+  });
+}
+
+// Get human-readable chord name (e.g., "Cmaj7", "Dm7")
+function getChordName(chord) {
+  if (!chord || chord.length < 3) return chord?.join('') || '?';
+  const root = chord[0];
+  // Simple chord detection
+  if (chord.length === 4) {
+    // 7th chord - check quality
+    if (chord[1] === 'E' || chord[1] === 'F#') return root + 'maj7';
+    if (chord[1] === 'Eb' || chord[1] === 'F') return root + 'm7';
+    return root + '7';
+  }
+  return chord.join('');
+}
+
+function playMelodyNote(chord, sound) {
+  if (!sound || !musicEnabled || !chord || Math.random() > 0.3) return;
+  const note = chord[Math.floor(Math.random() * chord.length)];
+  const tone = noteToTone(note, musicOctave + 2);
+  lastPlayedNotes.push({ note, octave: musicOctave + 2, time: Date.now(), melody: true });
+  try {
+    const melodySynth = sound.synth({
+      type: 'sine',
+      tone: tone,
+      duration: 2,
+      attack: 0.1,
+      decay: 0.9,
+      volume: 0.08,
+    });
+    activeSounds.push(melodySynth);
+  } catch(e) {}
+}
+
+// Play ambient percussion / noise based on weather
+function playPercussion(sound) {
+  if (!sound || !musicEnabled) return;
+  
+  const mood = getMusicMood();
+  
+  // Rain: soft white noise bursts like raindrops
+  if (mood === 'rain' || mood === 'storm') {
+    if (Math.random() < 0.15) {
+      try {
+        sound.synth({
+          type: 'noise',
+          tone: '2C',  // Low filtered noise
+          duration: 0.3 + Math.random() * 0.3,
+          attack: 0.01,
+          decay: 0.99,
+          volume: 0.03 + Math.random() * 0.02,
+        });
+      } catch(e) {}
+    }
+  }
+  
+  // Storm: occasional thunder rumble
+  if (mood === 'storm' && Math.random() < 0.02) {
+    try {
+      sound.synth({
+        type: 'noise',
+        tone: '1C',  // Very low rumble
+        duration: 1.5 + Math.random() * 1,
+        attack: 0.1,
+        decay: 0.9,
+        volume: 0.08 + Math.random() * 0.05,
+      });
+    } catch(e) {}
+  }
+  
+  // Snow: crystalline high-frequency sparkles
+  if (mood === 'snow' && Math.random() < 0.08) {
+    try {
+      sound.synth({
+        type: 'sine',
+        tone: `${6 + Math.floor(Math.random() * 2)}${['C', 'E', 'G'][Math.floor(Math.random() * 3)]}`,
+        duration: 0.5,
+        attack: 0.01,
+        decay: 0.99,
+        volume: 0.02,
+      });
+    } catch(e) {}
+  }
+  
+  // Clear/cloudy: subtle breath-like swooshes
+  if ((mood === 'clear' || mood === 'cloudy') && Math.random() < 0.03) {
+    try {
+      sound.synth({
+        type: 'noise',
+        tone: '4C',
+        duration: 2 + Math.random() * 2,
+        attack: 0.8,
+        decay: 0.8,
+        volume: 0.015,
+      });
+    } catch(e) {}
+  }
+  
+  // Night: soft distant tones
+  if (mood === 'night' && Math.random() < 0.05) {
+    const nightTones = ['3E', '3G', '3B', '4D'];
+    try {
+      sound.synth({
+        type: 'sine',
+        tone: nightTones[Math.floor(Math.random() * nightTones.length)],
+        duration: 3,
+        attack: 1.5,
+        decay: 0.9,
+        volume: 0.025,
+      });
+    } catch(e) {}
+  }
+}
+
+function updateMusic(sound) {
+  if (!musicEnabled || !sound) return;
+  soundAPI = sound;
+  
+  if (!musicStarted) {
+    console.log('🎶 Weather ambient music system starting...');
+    musicStarted = true;
+  }
+  
+  const mood = getMusicMood();
+  const progression = CHORD_PROGRESSIONS[mood] || CHORD_PROGRESSIONS.clear;
+  
+  // Update display fade
+  if (chordFadeAlpha > 180) chordFadeAlpha -= 0.5;
+  chordDisplayTimer++;
+  
+  chordTimer++;
+  if (chordTimer > 240 || currentChord === null) {
+    chordTimer = 0;
+    chordIndex = (chordIndex + 1) % progression.length;
+    currentChord = progression[chordIndex];
+    playChord(currentChord, sound);
+  }
+  
+  noteTimer++;
+  if (noteTimer > 60 + Math.random() * 60) {
+    noteTimer = 0;
+    playMelodyNote(currentChord, sound);
+  }
+  
+  // Percussion/ambient noise
+  percTimer++;
+  if (percTimer > 10) {
+    percTimer = 0;
+    playPercussion(sound);
+  }
+}
 
 // Helper: Calculate angles to look at a 3D point from camera position
 function lookAtAngles(camX, camY, camZ, targetX, targetY, targetZ) {
@@ -969,11 +1256,30 @@ async function boot({ params, screen, Form, Camera, Dolly, TRI, QUAD, painting }
   loading = false;
 }
 
-function sim({ screen }) {
+function sim({ screen, sound }) {
   frameCount++;
   
   if (!screen) return;
   const { width: sw, height: sh } = screen;
+  
+  // Poll speaker for waveform data
+  sound?.speaker?.poll();
+  
+  // 🎶 Update ambient music
+  if (sound) updateMusic(sound);
+  
+  // Smooth scroll for chord display
+  if (chordScrollX !== chordScrollTarget) {
+    chordScrollX += (chordScrollTarget - chordScrollX) * 0.08;
+    if (Math.abs(chordScrollX - chordScrollTarget) < 0.01) {
+      chordScrollX = chordScrollTarget;
+    }
+  }
+  
+  // Fade chord display alpha over time
+  if (chordFadeAlpha > 100) {
+    chordFadeAlpha -= 0.5;
+  }
   
   // Init backdrop if needed
   if (stars.length === 0) initBackdrop(sw, sh);
@@ -1394,14 +1700,28 @@ function paint3DBackdrop({ ink, form, line, screen }) {
   }
 }
 
-function paint({ wipe, ink, screen, line, box, text, form }) {
+function paint({ wipe, ink, screen, line, box, text, form, sound, help, api }) {
   const { width: sw, height: sh } = screen;
+  
+  // MatrixChunky8 everywhere for consistent micro aesthetic (8px tall)
+  const font = "MatrixChunky8";
+  const smallFont = "MatrixChunky8";
   
   // Lightning flash override
   if (lightningFlash) {
     wipe(255, 255, 255);
     return;
   }
+  
+  // Responsive sizing - simplified for micro design
+  const isTiny = sw < 128 || sh < 128;      // Gameboy-ish
+  const isSmall = sw < 180 || sh < 180;
+  const isNarrow = sw < 200;
+  const isVertical = sh > sw;
+  
+  // Calculate crawl bar dimensions early (needed by multiple sections)
+  const crawlH = isTiny ? 10 : (isSmall ? 14 : 20);
+  const crawlY = sh - crawlH;
   
   // Dynamic gradient background
   let chain = wipe(...colors.bgTop);
@@ -1422,30 +1742,28 @@ function paint({ wipe, ink, screen, line, box, text, form }) {
   }
   
   if (loading) {
-    ink(...colors.text).write("Loading weather data...", { center: "xy" }, 
-      undefined, undefined, false, "unifont");
+    ink(...colors.text).write("LOADING...", { center: "xy" }, 
+      undefined, undefined, false, font);
     return;
   }
   
   if (error) {
     ink(255, 100, 100).write("WEATHER", { center: "x", y: sh/2 - 20 },
-      undefined, undefined, false, "MatrixChunky8");
+      undefined, undefined, false, font);
     ink(255, 100, 100).write("UNAVAILABLE", { center: "x", y: sh/2 - 5 },
-      undefined, undefined, false, "MatrixChunky8");
+      undefined, undefined, false, font);
     ink(...colors.textDim).write(error.slice(0, 30), { center: "x", y: sh/2 + 15 },
-      undefined, undefined, false, "unifont");
+      undefined, undefined, false, font);
     return;
   }
   
   if (!weatherData || !location) return;
   
-  // Responsive layout detection
-  const isNarrow = sw < 200;
-  const isVertical = sh > sw;
-  
-  // Header bar positioned below corner label
-  const headerY = 20;
-  const headerH = isNarrow ? 18 : 24;
+  // Header bar at top (no more chord bar here - it's at the bottom now)
+  // Header bar - offset down to avoid prompt HUD corner label
+  const hudOffset = isTiny ? 8 : 12;  // Space for prompt HUD in top-left
+  const headerY = hudOffset + (isTiny ? 0 : 2);
+  const headerH = isTiny ? 10 : (isSmall ? 14 : 24);
   ink(...colors.headerBg).box(0, headerY, sw, headerH);
   ink(...colors.divider).line(0, headerY + headerH, sw, headerY + headerH);
   
@@ -1453,46 +1771,244 @@ function paint({ wipe, ink, screen, line, box, text, form }) {
   let locStr = location.region 
     ? location.name + ", " + location.region 
     : location.name;
-  if (isNarrow && locStr.length > 12) locStr = location.name.slice(0, 12);
-  ink(...colors.text).write(locStr.toUpperCase(), { x: 4, y: headerY + 3 },
-    undefined, undefined, false, "MatrixChunky8");
+  if (isTiny && locStr.length > 8) locStr = location.name.slice(0, 8);
+  else if (isSmall && locStr.length > 12) locStr = location.name.slice(0, 12);
+  ink(...colors.text).write(locStr.toUpperCase(), { x: 2, y: headerY + (isTiny ? 1 : 3) },
+    undefined, undefined, false, font);
   
   // Time - position from right edge (in location's timezone)
   const timeStr = formatLocationTime();
-  const timeBox = text?.box?.(timeStr, { x: 0, y: 0 }, undefined, 1, false, "unifont");
-  const timeWidth = timeBox?.box?.width || 45;
-  ink(...colors.accent).write(timeStr, { x: sw - timeWidth - 4, y: headerY + (isNarrow ? 4 : 6) },
-    undefined, undefined, false, "unifont");
+  const timeW = isTiny ? timeStr.length * 4 : (timeStr.length * 6);
+  ink(...colors.accent).write(timeStr, { x: sw - timeW - 2, y: headerY + (isTiny ? 1 : (isSmall ? 2 : 6)) },
+    undefined, undefined, false, smallFont);
   
-  const contentY = headerY + headerH + 2;
+  const contentY = headerY + headerH + 1;
+  
+  // Calculate available content height (between header and crawl bar)
+  const dotsH = isTiny ? 8 : 14;  // Space for progress bar and view dots
+  const maxContentY = crawlY - dotsH;  // Content must stop before this Y
+  const contentH = maxContentY - contentY;
+  
+  // Pass responsive layout vars to view painters
+  const layout = { isTiny, isSmall, isVertical, font, smallFont, contentH, maxContentY };
   
   switch (currentView) {
-    case 0: paintCurrentConditions({ ink, box, line, screen, contentY, text }); break;
-    case 1: paintForecast({ ink, box, line, screen, contentY, text }); break;
-    case 2: paintDetails({ ink, box, line, screen, contentY, text }); break;
-    case 3: paintExtendedForecast({ ink, box, line, screen, contentY, text }); break;
-    case 4: paintTextForecast({ ink, box, line, screen, contentY, text }); break;
+    case 0: paintCurrentConditions({ ink, box, line, screen, contentY, text, layout }); break;
+    case 1: paintForecast({ ink, box, line, screen, contentY, text, layout }); break;
+    case 2: paintDetails({ ink, box, line, screen, contentY, text, layout }); break;
+    case 3: paintExtendedForecast({ ink, box, line, screen, contentY, text, layout }); break;
+    case 4: paintTextForecast({ ink, box, line, screen, contentY, text, layout }); break;
   }
   
-  // Crawl bar at bottom - increased height to prevent text cutoff
-  const crawlH = isNarrow ? 16 : 22;
-  const crawlY = sh - crawlH;
+  // 🎶 FULLSCREEN WAVEFORM VISUALIZATION (overlay on content)
+  if (sound && musicEnabled) {
+    const rawWaveforms = sound.speaker?.waveforms?.left;
+    const amplitude = sound.speaker?.amplitudes?.left || 0;
+    
+    // Get mood-based colors for waveform
+    const mood = getMusicMood();
+    let waveColor;
+    if (mood === 'storm') waveColor = [255, 100, 255];
+    else if (mood === 'rain') waveColor = [100, 180, 255];
+    else if (mood === 'snow') waveColor = [220, 240, 255];
+    else if (mood === 'night') waveColor = [180, 140, 255];
+    else if (mood === 'cloudy') waveColor = [200, 210, 230];
+    else waveColor = [255, 230, 120]; // Clear/sunny
+    
+    // Use built-in sound.paint.waveform if available
+    if (sound.paint?.waveform && rawWaveforms && rawWaveforms.length > 0) {
+      const waveH = sh * 0.4;
+      const waveY = (sh - waveH) / 2;
+      try {
+        sound.paint.waveform(
+          api,
+          amplitude || 0.5,
+          help.resampleArray(rawWaveforms, Math.min(sw, 128)),
+          0,
+          waveY,
+          sw,
+          waveH,
+          [...waveColor, 100],
+          { direction: "left-to-right" }
+        );
+      } catch(e) {
+        // Fallback to manual drawing
+      }
+    } else if (rawWaveforms && rawWaveforms.length > 0 && help) {
+      // Manual fallback waveform drawing
+      const targetPoints = Math.min(sw, 128);
+      const resampled = help.resampleArray(rawWaveforms, targetPoints);
+      const xStep = sw / (resampled.length - 1);
+      const yMid = sh / 2;
+      const yMax = sh * 0.35;
+      
+      const points = resampled.map((v, i) => {
+        const val = typeof v === 'number' && Number.isFinite(v) ? v : 0;
+        return [i * xStep, yMid + val * yMax];
+      });
+      
+      if (points.length > 1) {
+        const topPoints = points.map(([x, y]) => [x, y]);
+        const bottomPoints = points.map(([x, y]) => [x, sh - (y - yMid) + yMid]).reverse();
+        ink(...waveColor, 80).poly([...topPoints, ...bottomPoints]);
+        ink(...waveColor, 150).poly(points);
+      }
+    }
+    
+    // 🎯 Draw crosshairs through recently played notes
+    const now = Date.now();
+    const recentNotes = lastPlayedNotes.filter(n => now - n.time < 3000);
+    for (const noteData of recentNotes) {
+      const age = now - noteData.time;
+      const fadeAlpha = Math.max(0, 255 - (age / 3000) * 255);
+      
+      // Map note to Y position (higher notes = higher on screen)
+      const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+      const noteIdx = noteNames.indexOf(noteData.note.replace('b', '#').replace('Db', 'C#').replace('Eb', 'D#').replace('Gb', 'F#').replace('Ab', 'G#').replace('Bb', 'A#'));
+      const octaveOffset = (noteData.octave - 3) * 12;
+      const totalSemitones = noteIdx + octaveOffset;
+      // Map semitones 0-48 to screen height (low notes at bottom, high at top)
+      const noteY = Math.floor(sh - (totalSemitones / 48) * sh * 0.8 - sh * 0.1);
+      
+      // Random X position for variety, but consistent for same note instance
+      const noteX = Math.floor((noteData.time % 1000) / 1000 * sw);
+      
+      // Draw crosshair
+      const crossSize = noteData.melody ? 6 : 10;
+      const crossColor = noteData.melody ? [255, 255, 255, fadeAlpha] : [...waveColor, fadeAlpha];
+      
+      // Horizontal line through note
+      ink(...crossColor).line(0, noteY, sw, noteY);
+      // Vertical line at note position
+      ink(...crossColor).line(noteX, 0, noteX, sh);
+      // Center dot
+      ink(...crossColor).box(noteX - 1, noteY - 1, 3, 3);
+    }
+  }
+
+  // 🎶 Scrolling chord progression display - above crawl bar with piano icon
+  if (sound && musicEnabled && chordHistory.length > 0) {
+    const chordH = isTiny ? 8 : 10;
+    const chordDisplayY = crawlY - chordH - (isTiny ? 6 : 12);
+    
+    // Get mood-based color for active chord
+    const mood = getMusicMood();
+    let activeColor;
+    if (mood === 'storm') activeColor = [255, 100, 255];
+    else if (mood === 'rain') activeColor = [100, 200, 255];
+    else if (mood === 'snow') activeColor = [200, 230, 255];
+    else if (mood === 'night') activeColor = [180, 140, 255];
+    else if (mood === 'cloudy') activeColor = [200, 220, 255];
+    else activeColor = [255, 240, 150]; // Clear/sunny
+    
+    // Calculate chord widths
+    const charW = isTiny ? 4 : (isSmall ? 5 : 6);
+    const chordGap = isTiny ? 8 : 12;
+    
+    // Get upcoming chords from progression
+    const progression = CHORD_PROGRESSIONS[getMusicMood()] || CHORD_PROGRESSIONS.clear;
+    const upcomingCount = isTiny ? 2 : 4;
+    
+    // Build chord items array
+    const chordItems = [];
+    
+    // Past chords from history (show last few)
+    const showHistory = Math.min(chordHistory.length, isTiny ? 2 : 4);
+    for (let i = chordHistory.length - showHistory; i < chordHistory.length; i++) {
+      const h = chordHistory[i];
+      const name = h.name || h.chord.join('');
+      const isCurrent = (i === chordHistory.length - 1);
+      chordItems.push({ name, isCurrent, isPast: !isCurrent, isFuture: false });
+    }
+    
+    // Future chords from progression
+    for (let i = 1; i <= upcomingCount; i++) {
+      const futureIdx = (chordIndex + i) % progression.length;
+      const chord = progression[futureIdx];
+      const name = getChordName(chord);
+      chordItems.push({ name, isCurrent: false, isPast: false, isFuture: true });
+    }
+    
+    // Draw piano icon on the left
+    const pianoX = isTiny ? 2 : 4;
+    const pianoW = isTiny ? 8 : 12;
+    const pianoH = isTiny ? 5 : 7;
+    const keyW = isTiny ? 2 : 3;
+    // White keys background
+    ink(...activeColor, 80).box(pianoX, chordDisplayY + 1, pianoW, pianoH);
+    // Black keys
+    for (let k = 0; k < 3; k++) {
+      const kx = pianoX + 1 + k * keyW;
+      if (k !== 1) { // Skip middle for piano look
+        ink(40, 40, 50, 150).box(kx, chordDisplayY + 1, keyW - 1, Math.floor(pianoH * 0.6));
+      }
+    }
+    
+    // Center the current chord
+    const currentChordIdx = showHistory - 1;
+    let preCurrentW = 0;
+    for (let i = 0; i < currentChordIdx; i++) {
+      preCurrentW += chordItems[i].name.length * charW + chordGap;
+    }
+    const currentW = chordItems[currentChordIdx]?.name.length * charW || 0;
+    
+    // Smooth scroll offset based on chordScrollX
+    const scrollOffset = (chordScrollX % 1) * (chordGap + currentW);
+    const centerX = Math.floor(sw / 2) - Math.floor(currentW / 2);
+    let drawX = centerX - preCurrentW - scrollOffset;
+    
+    // Draw each chord
+    for (let i = 0; i < chordItems.length; i++) {
+      const item = chordItems[i];
+      const itemW = item.name.length * charW;
+      
+      // Only draw if visible (and not overlapping piano icon area)
+      if (drawX + itemW > pianoX + pianoW + 4 && drawX < sw) {
+        let alpha, color;
+        if (item.isCurrent) {
+          alpha = Math.floor(chordFadeAlpha);
+          color = [...activeColor, alpha];
+          // Highlight box around current chord
+          ink(...activeColor, 40).box(drawX - 2, chordDisplayY - 1, itemW + 4, chordH + 2);
+        } else if (item.isPast) {
+          const fadeIdx = chordItems.filter((x, j) => j < i && x.isPast).length;
+          alpha = Math.max(30, 80 - fadeIdx * 20);
+          color = [200, 200, 200, alpha];
+        } else {
+          const futureIdx = chordItems.filter((x, j) => j > i && x.isFuture).length;
+          alpha = Math.max(40, 100 - futureIdx * 15);
+          color = [180, 180, 220, alpha];
+        }
+        
+        ink(...color).write(item.name, { x: Math.floor(drawX), y: chordDisplayY }, 
+          undefined, undefined, false, smallFont);
+      }
+      
+      drawX += itemW + chordGap;
+    }
+    
+    // Progress bar under chord display (time until next chord)
+    const progW = Math.floor((1 - chordTimer / 240) * (isTiny ? 20 : 40));
+    const progX = Math.floor(sw / 2) - Math.floor(progW / 2);
+    ink(...activeColor, 60).box(progX, chordDisplayY + chordH + 1, progW, 1);
+  }
+
+  // Crawl bar at bottom - compact for tiny screens
   ink(...colors.crawlBg).box(0, crawlY, sw, crawlH);
   ink(...colors.divider).line(0, crawlY, sw, crawlY);
-  ink(...colors.crawlText).write(crawlText, { x: crawlX, y: crawlY + (isNarrow ? 3 : 5) },
-    undefined, undefined, false, "unifont");
+  ink(...colors.crawlText).write(crawlText, { x: crawlX, y: crawlY + (isTiny ? 1 : (isSmall ? 2 : 4)) },
+    undefined, undefined, false, smallFont);
   
   // Progress bar showing time until next view
-  const progressY = crawlY - 3;
+  const progressY = crawlY - 2;
   const progressW = Math.floor((viewTimer / VIEW_DURATION) * sw);
-  ink(...colors.divider, 80).box(0, progressY, sw, 2);
-  ink(...colors.accent, 200).box(0, progressY, progressW, 2);
+  ink(...colors.divider, 80).box(0, progressY, sw, 1);
+  ink(...colors.accent, 200).box(0, progressY, progressW, 1);
   
   // View indicator dots with labels
   const dotY = crawlY - 12;
-  const dotSize = isNarrow ? 3 : 4;
-  const dotSpacing = isNarrow ? 8 : 12;
-  const viewLabels = ["NOW", "3HR", "DTL", "7DY", "TXT"];
+  const dotSize = isTiny ? 2 : (isSmall ? 3 : 4);
+  const dotSpacing = isTiny ? 6 : (isSmall ? 8 : 12);
   for (let i = 0; i < NUM_VIEWS; i++) {
     const dotX = sw/2 - (NUM_VIEWS * (dotSpacing/2)) + i * dotSpacing;
     if (i === currentView) {
@@ -1583,28 +2099,29 @@ function paintBackdrop({ ink, box, line, screen }) {
   }
 }
 
-function paintCurrentConditions({ ink, box, line, screen, contentY, text }) {
+function paintCurrentConditions({ ink, box, line, screen, contentY, text, layout }) {
   const { width: sw, height: sh } = screen;
+  const { isTiny, isSmall, isVertical, font, smallFont, contentH } = layout || {};
   const current = weatherData.current;
   const code = current.weather_code;
   const weather = WEATHER_CODES[code] || { text: "Unknown", short: "???", color: [200,200,200], icon: "?" };
   
   // Responsive layout
   const isNarrow = sw < 200;
-  const isVertical = sh > sw;
-  const margin = isNarrow ? 4 : 10;
-  const panelH = isVertical ? sh - contentY - 30 : 120;
+  const margin = isTiny ? 1 : (isSmall ? 2 : 6);
+  const panelH = contentH - 4;  // Use calculated content height
   
   // Main panel background
-  ink(...colors.panelBg).box(margin, contentY + 6, sw - margin * 2, panelH);
-  ink(...colors.divider).line(margin, contentY + 6, sw - margin, contentY + 6);
-  ink(...colors.divider).line(margin, contentY + 6 + panelH, sw - margin, contentY + 6 + panelH);
+  ink(...colors.panelBg).box(margin, contentY + 2, sw - margin * 2, panelH);
+  ink(...colors.divider).line(margin, contentY + 2, sw - margin, contentY + 2);
+  ink(...colors.divider).line(margin, contentY + 2 + panelH, sw - margin, contentY + 2 + panelH);
   
   // Title bar with background
-  ink(...colors.headerBg, 200).box(margin, contentY + 6, sw - margin * 2, 14);
-  ink(...colors.accent).write("CURRENT CONDITIONS", { x: margin + 4, y: contentY + 8 },
-    undefined, undefined, false, "MatrixChunky8");
-  ink(...colors.divider).line(margin, contentY + 20, sw - margin, contentY + 20);
+  const titleH = isTiny ? 7 : (isSmall ? 9 : 12);
+  ink(...colors.headerBg, 200).box(margin, contentY + 2, sw - margin * 2, titleH);
+  ink(...colors.accent).write(isTiny ? "NOW" : "CURRENT CONDITIONS", { x: margin + 2, y: contentY + (isTiny ? 2 : 4) },
+    undefined, undefined, false, font);
+  ink(...colors.divider).line(margin, contentY + 2 + titleH, sw - margin, contentY + 2 + titleH);
   
   // Get temperature values
   const temp = Math.round(current.temperature_2m * 9/5 + 32);
@@ -1614,30 +2131,41 @@ function paintCurrentConditions({ ink, box, line, screen, contentY, text }) {
   const windDir = getWindDirection(current.wind_direction_10m);
   const { hour: hours, minute: mins } = getLocationTime();
   
-  if (isNarrow) {
-    // Compact layout for narrow screens
-    // Big temperature with small thermometer
-    ink(...colors.temp).write("" + temp + "°", { x: margin + 4, y: contentY + 28, size: 3 },
+  const dataY = contentY + 2 + titleH + 2;
+  
+  if (isTiny) {
+    // Ultra compact layout for gameboy-style
+    // Just temp and condition
+    ink(...colors.temp).write(temp + "°", { x: margin + 2, y: dataY }, undefined, undefined, false, font);
+    ink(...weather.color).write(weather.icon + weather.short.slice(0,4), 
+      { x: margin + 25, y: dataY }, undefined, undefined, false, font);
+    // One line details
+    ink(...colors.textDim).write("FL:" + feelsLike + " H:" + humidity + "%", 
+      { x: margin + 2, y: dataY + 10 }, undefined, undefined, false, smallFont);
+  } else if (isNarrow || isSmall) {
+    // Compact layout for narrow/small screens
+    // Temperature
+    ink(...colors.temp).write(temp + "°", { x: margin + 2, y: dataY + 4, size: 2 },
       undefined, undefined, false);
     
     // Mini thermometer
-    const thermoX = margin + 55;
-    const thermoY = contentY + 28;
-    drawThermometer({ ink, line, box }, thermoX, thermoY, 35, temp, 0, 100, 
+    const thermoX = margin + 45;
+    const thermoY = dataY + 4;
+    drawThermometer({ ink, line, box }, thermoX, thermoY, 30, temp, 0, 100, 
       [255, 80, 60], [60, 150, 255], [40, 40, 60]);
     
     // Weather condition
     ink(...weather.color).write(weather.icon + " " + weather.short, 
-      { x: margin + 4, y: contentY + 68 }, undefined, undefined, false, "unifont");
+      { x: margin + 2, y: dataY + 32 }, undefined, undefined, false, smallFont);
     
-    // Details with separators
-    let detailY = contentY + 85;
-    ink(...colors.divider, 100).line(margin + 4, detailY - 4, sw - margin - 4, detailY - 4);
-    ink(...colors.textDim).write("FEELS " + feelsLike + "°  HUM " + humidity + "%", 
-      { x: margin + 4, y: detailY }, undefined, undefined, false, "unifont");
-    detailY += 12;
+    // Details
+    let detailY = dataY + 46;
+    ink(...colors.divider, 100).line(margin + 2, detailY - 3, sw - margin - 2, detailY - 3);
+    ink(...colors.textDim).write("FEELS " + feelsLike + "° HUM " + humidity + "%", 
+      { x: margin + 2, y: detailY }, undefined, undefined, false, smallFont);
+    detailY += 10;
     ink(...colors.textDim).write("WIND " + windDir + " " + wind + " MPH", 
-      { x: margin + 4, y: detailY }, undefined, undefined, false, "unifont");
+      { x: margin + 2, y: detailY }, undefined, undefined, false, smallFont);
   } else {
     // Full layout - left side: temp + thermometer
     const leftPanelW = isVertical ? sw - margin * 2 : (sw - margin * 2) / 2 - 10;
@@ -1658,7 +2186,7 @@ function paintCurrentConditions({ ink, box, line, screen, contentY, text }) {
     // Weather condition with colorful icon
     const icon = weather.icon || "";
     ink(...weather.color).write(icon + " " + weather.text, 
-      { x: margin + 8, y: contentY + 90 }, undefined, undefined, false, "unifont");
+      { x: margin + 8, y: contentY + 90 }, undefined, undefined, false, font);
     
     // Divider line
     if (!isVertical) {
@@ -1684,55 +2212,61 @@ function paintCurrentConditions({ ink, box, line, screen, contentY, text }) {
     
     // Row 1: Feels like
     ink(...colors.headerBg, 100).box(rightX - 2, detailY - 2, detailW, 14);
-    ink(...colors.textDim).write("FEELS LIKE", { x: rightX, y: detailY }, undefined, undefined, false, "MatrixChunky8");
-    ink(...(colors.accent2 || colors.accent)).write(feelsLike + "°F", { x: rightX + detailW - 40, y: detailY }, undefined, undefined, false, "unifont");
+    ink(...colors.textDim).write("FEELS LIKE", { x: rightX, y: detailY }, undefined, undefined, false, font);
+    ink(...(colors.accent2 || colors.accent)).write(feelsLike + "°F", { x: rightX + detailW - 40, y: detailY }, undefined, undefined, false, font);
     detailY += 16;
     
     // Row 2: Humidity with bar
     ink(...colors.panelBg, 150).box(rightX - 2, detailY - 2, detailW, 14);
-    ink(...colors.textDim).write("HUMIDITY", { x: rightX, y: detailY }, undefined, undefined, false, "MatrixChunky8");
-    ink(...(colors.accent2 || colors.accent)).write(humidity + "%", { x: rightX + detailW - 35, y: detailY }, undefined, undefined, false, "unifont");
+    ink(...colors.textDim).write("HUMIDITY", { x: rightX, y: detailY }, undefined, undefined, false, font);
+    ink(...(colors.accent2 || colors.accent)).write(humidity + "%", { x: rightX + detailW - 35, y: detailY }, undefined, undefined, false, font);
     drawBarGraph({ ink, box }, rightX + 55, detailY + 2, 40, 8, humidity, 100, colors.accent2 || colors.accent, [30, 40, 60]);
     detailY += 16;
     
     // Row 3: Wind
     ink(...colors.headerBg, 100).box(rightX - 2, detailY - 2, detailW, 14);
-    ink(...colors.textDim).write("WIND", { x: rightX, y: detailY }, undefined, undefined, false, "MatrixChunky8");
-    ink(...(colors.accent2 || colors.accent)).write(windDir + " " + wind + " mph", { x: rightX + detailW - 70, y: detailY }, undefined, undefined, false, "unifont");
+    ink(...colors.textDim).write("WIND", { x: rightX, y: detailY }, undefined, undefined, false, font);
+    ink(...(colors.accent2 || colors.accent)).write(windDir + " " + wind + " mph", { x: rightX + detailW - 70, y: detailY }, undefined, undefined, false, font);
   }
 }
 
-function paintForecast({ ink, box, line, screen, contentY }) {
+function paintForecast({ ink, box, line, screen, contentY, layout }) {
   const { width: sw, height: sh } = screen;
+  const { isTiny, isSmall, font, smallFont, contentH } = layout || {};
   const daily = weatherData.daily;
   
   const isNarrow = sw < 200;
-  const isVertical = sh > sw;
-  const margin = isNarrow ? 4 : 10;
-  const panelH = isVertical ? sh - contentY - 30 : 120;
+  const margin = isTiny ? 1 : (isSmall ? 2 : 6);
+  const panelH = contentH - 4;  // Use calculated content height
   const panelW = sw - margin * 2;
+  const titleH = isTiny ? 7 : (isSmall ? 9 : 12);
   
   // Main panel with borders
-  ink(...colors.panelBg).box(margin, contentY + 6, panelW, panelH);
-  ink(...colors.divider).line(margin, contentY + 6, margin + panelW, contentY + 6);
-  ink(...colors.divider).line(margin, contentY + 6 + panelH, margin + panelW, contentY + 6 + panelH);
+  ink(...colors.panelBg).box(margin, contentY + 2, panelW, panelH);
+  ink(...colors.divider).line(margin, contentY + 2, margin + panelW, contentY + 2);
+  ink(...colors.divider).line(margin, contentY + 2 + panelH, margin + panelW, contentY + 2 + panelH);
   
   // Title bar
-  ink(...colors.headerBg, 200).box(margin, contentY + 6, panelW, 14);
-  ink(...colors.accent).write("7-DAY FORECAST", { x: margin + 4, y: contentY + 8 },
-    undefined, undefined, false, "MatrixChunky8");
-  ink(...colors.divider).line(margin, contentY + 20, margin + panelW, contentY + 20);
+  ink(...colors.headerBg, 200).box(margin, contentY + 2, panelW, titleH);
+  ink(...colors.accent).write(isTiny ? "7D" : "7-DAY FORECAST", { x: margin + 2, y: contentY + (isTiny ? 2 : 4) },
+    undefined, undefined, false, font);
+  ink(...colors.divider).line(margin, contentY + 2 + titleH, margin + panelW, contentY + 2 + titleH);
+  
+  // Calculate how many days fit
+  const headerH = isTiny ? 0 : 10;
+  const availableH = panelH - titleH - headerH - 4;
+  const rowH = isTiny ? 9 : (isSmall ? 11 : 13);
+  const numDays = Math.min(Math.floor(availableH / rowH), daily.time?.length || 7);
   
   // Column headers
-  const startY = contentY + 23;
-  ink(...colors.textDim).write("DAY", { x: margin + 4, y: startY }, undefined, undefined, false, "MatrixChunky8");
-  if (!isNarrow) ink(...colors.textDim).write("CONDITIONS", { x: margin + 55, y: startY }, undefined, undefined, false, "MatrixChunky8");
-  ink(...colors.textDim).write("HI/LO", { x: sw - margin - 55, y: startY }, undefined, undefined, false, "MatrixChunky8");
-  ink(...colors.divider, 100).line(margin + 4, startY + 10, margin + panelW - 4, startY + 10);
+  const startY = contentY + 2 + titleH + 2;
+  if (!isTiny) {
+    ink(...colors.textDim).write("DAY", { x: margin + 2, y: startY }, undefined, undefined, false, smallFont);
+    ink(...colors.textDim).write("HI/LO", { x: sw - margin - (isSmall ? 35 : 50), y: startY }, undefined, undefined, false, smallFont);
+    ink(...colors.divider, 100).line(margin + 2, startY + 8, margin + panelW - 2, startY + 8);
+  }
   
-  const numDays = isNarrow ? 4 : Math.min(5, daily.time?.length || 0);
-  const rowH = isVertical ? Math.min(18, (panelH - 40) / numDays) : 16;
-  const dataStartY = startY + 13;
+  const dataStartY = isTiny ? startY : startY + 10;
   
   // Find temp range for bar graphs
   let minTemp = 999, maxTemp = -999;
@@ -1746,7 +2280,7 @@ function paintForecast({ ink, box, line, screen, contentY }) {
   for (let i = 0; i < numDays; i++) {
     const y = dataStartY + i * rowH;
     const date = new Date(daily.time[i]);
-    const dayName = i === 0 ? "TODAY" : DAYS[date.getDay()];
+    const dayName = i === 0 ? (isTiny ? "TD" : "TODAY") : (isTiny ? DAYS[date.getDay()].slice(0,2) : DAYS[date.getDay()]);
     const code = daily.weather_code[i];
     const weather = WEATHER_CODES[code] || { short: "???", color: [200,200,200], icon: "?" };
     const hi = Math.round(daily.temperature_2m_max[i] * 9/5 + 32);
@@ -1754,21 +2288,21 @@ function paintForecast({ ink, box, line, screen, contentY }) {
     
     // Alternating row backgrounds
     if (i % 2 === 0) {
-      ink(...colors.headerBg, 60).box(margin + 2, y - 1, panelW - 4, rowH);
+      ink(...colors.headerBg, 60).box(margin + 1, y - 1, panelW - 2, rowH);
     }
     
     // Day name
-    ink(...colors.text).write(isNarrow ? dayName.slice(0,3) : dayName.padEnd(6), 
-      { x: margin + 4, y }, undefined, undefined, false, "MatrixChunky8");
+    ink(...colors.text).write(isTiny ? dayName : (isNarrow ? dayName.slice(0,3) : dayName.padEnd(6)), 
+      { x: margin + 2, y }, undefined, undefined, false, smallFont);
     
     // Weather icon + condition (colorful!)
     const icon = weather.icon || "";
-    const iconX = isNarrow ? margin + 30 : 55;
-    ink(...weather.color).write(icon + (isNarrow ? "" : " " + weather.short), { x: iconX, y },
-      undefined, undefined, false, "unifont");
+    const iconX = isTiny ? margin + 16 : (isNarrow ? margin + 30 : 55);
+    ink(...weather.color).write(icon + ((isTiny || isNarrow) ? "" : " " + weather.short), { x: iconX, y },
+      undefined, undefined, false, smallFont);
     
-    // Temperature range bar
-    if (!isNarrow) {
+    // Temperature range bar (only on larger screens)
+    if (!isNarrow && !isTiny && !isSmall) {
       const barX = sw - margin - 100;
       const barW = 35;
       const range = maxTemp - minTemp || 1;
@@ -1782,33 +2316,35 @@ function paintForecast({ ink, box, line, screen, contentY }) {
     }
     
     // Temps
-    const tempX = sw - margin - (isNarrow ? 45 : 55);
-    ink(...colors.temp).write(hi + "°", { x: tempX, y }, undefined, undefined, false, "unifont");
-    ink(...colors.textDim).write(lo + "°", { x: tempX + 25, y }, undefined, undefined, false, "unifont");
+    const tempX = sw - margin - (isTiny ? 30 : (isNarrow ? 40 : 55));
+    ink(...colors.temp).write(hi + "°", { x: tempX, y }, undefined, undefined, false, smallFont);
+    ink(...colors.textDim).write(lo + "°", { x: tempX + (isTiny ? 15 : 22), y }, undefined, undefined, false, smallFont);
   }
 }
 
-function paintDetails({ ink, box, line, screen, contentY }) {
+function paintDetails({ ink, box, line, screen, contentY, layout }) {
   const { width: sw, height: sh } = screen;
+  const { isTiny, isSmall, font, smallFont, contentH } = layout || {};
   const current = weatherData.current;
   const daily = weatherData.daily;
   
   const isNarrow = sw < 200;
-  const isVertical = sh > sw;
-  const margin = isNarrow ? 4 : 10;
-  const panelH = isVertical ? sh - contentY - 30 : 120;
+  const margin = isTiny ? 1 : (isSmall ? 2 : 10);
+  const panelH = contentH - 4; // Use calculated content height
+  const titleH = isTiny ? 8 : (isSmall ? 10 : 14);
   
-  ink(...colors.panelBg).box(margin, contentY + 6, sw - margin * 2, panelH);
+  ink(...colors.panelBg).box(margin, contentY + 2, sw - margin * 2, panelH);
   
   // Title
-  ink(...colors.accent).write("TODAY'S DETAILS", { x: margin + 4, y: contentY + 10 },
-    undefined, undefined, false, "MatrixChunky8");
+  ink(...colors.headerBg, 200).box(margin, contentY + 2, sw - margin * 2, titleH);
+  ink(...colors.accent).write(isTiny ? "DTL" : "TODAY'S DETAILS", { x: margin + 2, y: contentY + (isTiny ? 2 : 4) },
+    undefined, undefined, false, font);
   
-  const col1X = margin + 4;
-  const col2X = isNarrow ? col1X : sw / 2 + 4;
-  let y = contentY + 28;
-  const lineH = isNarrow ? 14 : 18;
-  const rowW = isNarrow ? sw - margin * 2 - 8 : (sw - margin * 2) / 2 - 10;
+  const col1X = margin + 2;
+  const col2X = isTiny ? col1X : (isNarrow ? col1X : sw / 2 + 2);
+  let y = contentY + 2 + titleH + 2;
+  const lineH = isTiny ? 8 : (isSmall ? 10 : 16);
+  const rowW = isNarrow ? sw - margin * 2 - 4 : (sw - margin * 2) / 2 - 8;
   
   // Row backgrounds for table look
   let rowIdx = 0;
@@ -1831,19 +2367,19 @@ function paintDetails({ ink, box, line, screen, contentY }) {
     
     drawRow(col1X - 2, isNarrow ? rowW + 4 : rowW);
     if (isNarrow) {
-      ink(...colors.textDim).write("☀ RISE", { x: col1X, y }, undefined, undefined, false, "unifont");
-      ink(...(colors.accent2 || colors.accent)).write(sunrise, { x: col1X + 50, y }, undefined, undefined, false, "unifont");
+      ink(...colors.textDim).write("* RISE", { x: col1X, y }, undefined, undefined, false, font);
+      ink(...(colors.accent2 || colors.accent)).write(sunrise, { x: col1X + 50, y }, undefined, undefined, false, font);
     } else {
-      ink(...colors.textDim).write("SUNRISE", { x: col1X, y }, undefined, undefined, false, "MatrixChunky8");
-      ink(...(colors.accent2 || colors.accent)).write("☀ " + sunrise, { x: col1X + 60, y }, undefined, undefined, false, "unifont");
-      ink(...colors.textDim).write("SUNSET", { x: col2X, y }, undefined, undefined, false, "MatrixChunky8");
-      ink(...(colors.accent2 || colors.accent)).write("🌅 " + sunset, { x: col2X + 55, y }, undefined, undefined, false, "unifont");
+      ink(...colors.textDim).write("SUNRISE", { x: col1X, y }, undefined, undefined, false, font);
+      ink(...(colors.accent2 || colors.accent)).write("* " + sunrise, { x: col1X + 60, y }, undefined, undefined, false, font);
+      ink(...colors.textDim).write("SUNSET", { x: col2X, y }, undefined, undefined, false, font);
+      ink(...(colors.accent2 || colors.accent)).write("v " + sunset, { x: col2X + 55, y }, undefined, undefined, false, font);
     }
     y += lineH;
     if (isNarrow) {
       drawRow(col1X - 2, rowW + 4);
-      ink(...colors.textDim).write("🌅 SET", { x: col1X, y }, undefined, undefined, false, "unifont");
-      ink(...(colors.accent2 || colors.accent)).write(sunset, { x: col1X + 50, y }, undefined, undefined, false, "unifont");
+      ink(...colors.textDim).write("v SET", { x: col1X, y }, undefined, undefined, false, font);
+      ink(...(colors.accent2 || colors.accent)).write(sunset, { x: col1X + 50, y }, undefined, undefined, false, font);
       y += lineH;
     }
   }
@@ -1854,14 +2390,14 @@ function paintDetails({ ink, box, line, screen, contentY }) {
     
     drawRow(col1X - 2, isNarrow ? rowW + 4 : rowW);
     if (isNarrow) {
-      ink(...colors.textDim).write("HI/LO", { x: col1X, y }, undefined, undefined, false, "MatrixChunky8");
-      ink(...colors.temp).write(hi + "°", { x: col1X + 40, y }, undefined, undefined, false, "unifont");
-      ink(...colors.textDim).write("/" + lo + "°", { x: col1X + 62, y }, undefined, undefined, false, "unifont");
+      ink(...colors.textDim).write("HI/LO", { x: col1X, y }, undefined, undefined, false, font);
+      ink(...colors.temp).write(hi + "°", { x: col1X + 40, y }, undefined, undefined, false, font);
+      ink(...colors.textDim).write("/" + lo + "°", { x: col1X + 62, y }, undefined, undefined, false, font);
     } else {
-      ink(...colors.textDim).write("HIGH", { x: col1X, y }, undefined, undefined, false, "MatrixChunky8");
-      ink(...colors.temp).write(hi + "°F", { x: col1X + 45, y }, undefined, undefined, false, "unifont");
-      ink(...colors.textDim).write("LOW", { x: col2X, y }, undefined, undefined, false, "MatrixChunky8");
-      ink(...colors.textDim).write(lo + "°F", { x: col2X + 40, y }, undefined, undefined, false, "unifont");
+      ink(...colors.textDim).write("HIGH", { x: col1X, y }, undefined, undefined, false, font);
+      ink(...colors.temp).write(hi + "°F", { x: col1X + 45, y }, undefined, undefined, false, font);
+      ink(...colors.textDim).write("LOW", { x: col2X, y }, undefined, undefined, false, font);
+      ink(...colors.textDim).write(lo + "°F", { x: col2X + 40, y }, undefined, undefined, false, font);
     }
     y += lineH;
   }
@@ -1870,28 +2406,28 @@ function paintDetails({ ink, box, line, screen, contentY }) {
   drawRow(col1X - 2, isNarrow ? rowW + 4 : rowW);
   if (daily.precipitation_probability_max) {
     const precip = daily.precipitation_probability_max[0];
-    ink(...colors.textDim).write(isNarrow ? "💧 RAIN" : "PRECIP", { x: col1X, y }, undefined, undefined, false, isNarrow ? "unifont" : "MatrixChunky8");
-    ink(...(colors.accent2 || colors.text)).write(precip + "%", { x: col1X + (isNarrow ? 55 : 50), y }, undefined, undefined, false, "unifont");
+    ink(...colors.textDim).write(isNarrow ? "~ RAIN" : "PRECIP", { x: col1X, y }, undefined, undefined, false, isNarrow ? font : font);
+    ink(...(colors.accent2 || colors.text)).write(precip + "%", { x: col1X + (isNarrow ? 55 : 50), y }, undefined, undefined, false, font);
   }
   
   const wind = Math.round(current.wind_speed_10m * 0.621371);
   const windDir = getWindDirection(current.wind_direction_10m);
   if (!isNarrow) {
-    ink(...colors.textDim).write("WIND", { x: col2X, y }, undefined, undefined, false, "MatrixChunky8");
-    ink(...(colors.accent2 || colors.text)).write("💨 " + windDir + " " + wind + " mph", { x: col2X + 40, y }, undefined, undefined, false, "unifont");
+    ink(...colors.textDim).write("WIND", { x: col2X, y }, undefined, undefined, false, font);
+    ink(...(colors.accent2 || colors.text)).write("> " + windDir + " " + wind + " mph", { x: col2X + 40, y }, undefined, undefined, false, font);
   }
   y += lineH;
   
   // New row: cloud cover and visibility
   drawRow(col1X - 2, isNarrow ? rowW + 4 : rowW);
   const cloudCover = Math.round(current.cloud_cover || 0);
-  ink(...colors.textDim).write(isNarrow ? "☁ CLOUD" : "CLOUDS", { x: col1X, y }, undefined, undefined, false, isNarrow ? "unifont" : "MatrixChunky8");
-  ink(...(colors.accent2 || colors.text)).write(cloudCover + "%", { x: col1X + (isNarrow ? 55 : 50), y }, undefined, undefined, false, "unifont");
+  ink(...colors.textDim).write(isNarrow ? "= CLOUD" : "CLOUDS", { x: col1X, y }, undefined, undefined, false, isNarrow ? font : font);
+  ink(...(colors.accent2 || colors.text)).write(cloudCover + "%", { x: col1X + (isNarrow ? 55 : 50), y }, undefined, undefined, false, font);
   
   if (!isNarrow && current.visibility) {
     const visMiles = Math.round(current.visibility / 1609.34);
-    ink(...colors.textDim).write("VISIB", { x: col2X, y }, undefined, undefined, false, "MatrixChunky8");
-    ink(...(colors.accent2 || colors.text)).write(visMiles + " mi", { x: col2X + 45, y }, undefined, undefined, false, "unifont");
+    ink(...colors.textDim).write("VISIB", { x: col2X, y }, undefined, undefined, false, font);
+    ink(...(colors.accent2 || colors.text)).write(visMiles + " mi", { x: col2X + 45, y }, undefined, undefined, false, font);
   }
   y += lineH;
   
@@ -1901,86 +2437,95 @@ function paintDetails({ ink, box, line, screen, contentY }) {
     if (daily.uv_index_max?.[0] !== undefined) {
       const uvIndex = Math.round(daily.uv_index_max[0]);
       const uvColor = uvIndex <= 2 ? colors.textDim : uvIndex <= 5 ? [255, 200, 50] : [255, 100, 50];
-      ink(...colors.textDim).write(isNarrow ? "☀ UV" : "UV INDEX", { x: col1X, y }, undefined, undefined, false, isNarrow ? "unifont" : "MatrixChunky8");
-      ink(...uvColor).write("" + uvIndex, { x: col1X + (isNarrow ? 45 : 65), y }, undefined, undefined, false, "unifont");
+      ink(...colors.textDim).write(isNarrow ? "* UV" : "UV INDEX", { x: col1X, y }, undefined, undefined, false, isNarrow ? font : font);
+      ink(...uvColor).write("" + uvIndex, { x: col1X + (isNarrow ? 45 : 65), y }, undefined, undefined, false, font);
     }
     if (!isNarrow && current.wind_gusts_10m) {
       const gusts = Math.round(current.wind_gusts_10m * 0.621371);
-      ink(...colors.textDim).write("GUSTS", { x: col2X, y }, undefined, undefined, false, "MatrixChunky8");
-      ink(...(colors.accent2 || colors.text)).write(gusts + " mph", { x: col2X + 45, y }, undefined, undefined, false, "unifont");
+      ink(...colors.textDim).write("GUSTS", { x: col2X, y }, undefined, undefined, false, font);
+      ink(...(colors.accent2 || colors.text)).write(gusts + " mph", { x: col2X + 45, y }, undefined, undefined, false, font);
     }
   }
 }
 
-function paintExtendedForecast({ ink, box, screen, contentY }) {
+function paintExtendedForecast({ ink, box, screen, contentY, layout }) {
   const { width: sw, height: sh } = screen;
+  const { isTiny, isSmall, font, smallFont, contentH } = layout || {};
   const daily = weatherData.daily;
   
   const isNarrow = sw < 200;
-  const isVertical = sh > sw;
-  const margin = isNarrow ? 4 : 10;
-  const panelH = isVertical ? sh - contentY - 30 : 120;
+  const margin = isTiny ? 1 : (isSmall ? 2 : 10);
+  const panelH = contentH - 4; // Use calculated content height
+  const titleH = isTiny ? 8 : (isSmall ? 10 : 14);
   
-  ink(...colors.panelBg).box(margin, contentY + 6, sw - margin * 2, panelH);
+  ink(...colors.panelBg).box(margin, contentY + 2, sw - margin * 2, panelH);
   
   // Title
-  ink(...colors.accent).write(isNarrow ? "OUTLOOK" : "EXTENDED OUTLOOK", { x: margin + 4, y: contentY + 10 },
-    undefined, undefined, false, "MatrixChunky8");
+  ink(...colors.headerBg, 200).box(margin, contentY + 2, sw - margin * 2, titleH);
+  ink(...colors.accent).write(isTiny ? "OUT" : (isNarrow ? "OUTLOOK" : "EXTENDED OUTLOOK"), { x: margin + 2, y: contentY + (isTiny ? 2 : 4) },
+    undefined, undefined, false, font);
   
-  const numDays = isNarrow ? 3 : 3;
-  const rowH = isVertical ? Math.min(32, (panelH - 30) / numDays) : 28;
-  const startY = contentY + 30;
+  // Calculate how many rows can fit
+  const availableH = panelH - titleH - 6;
+  const rowH = isTiny ? 12 : (isSmall ? 14 : 28);
+  const numDays = Math.min(Math.floor(availableH / rowH), daily.time?.length - 4 || 3);
+  const startY = contentY + 2 + titleH + 2;
   
   for (let i = 4; i < Math.min(4 + numDays, daily.time?.length || 0); i++) {
     const idx = i - 4;
     const y = startY + idx * rowH;
     const date = new Date(daily.time[i]);
-    const dayName = isNarrow ? DAYS[date.getDay()] : FULL_DAYS[date.getDay()];
+    const dayName = isTiny ? DAYS[date.getDay()].slice(0,2) : (isNarrow ? DAYS[date.getDay()] : FULL_DAYS[date.getDay()]);
     const code = daily.weather_code[i];
     const weather = WEATHER_CODES[code] || { text: "Unknown", short: "???", color: [200,200,200], icon: "?" };
     const hi = Math.round(daily.temperature_2m_max[i] * 9/5 + 32);
     const lo = Math.round(daily.temperature_2m_min[i] * 9/5 + 32);
     
     // Day name
-    ink(...colors.text).write(dayName, { x: margin + 4, y }, undefined, undefined, false, "MatrixChunky8");
+    ink(...colors.text).write(dayName, { x: margin + 2, y }, undefined, undefined, false, smallFont);
     
     // Weather with icon (colorful!)
     const icon = weather.icon || "";
-    if (isNarrow) {
-      ink(...weather.color).write(icon, { x: margin + 35, y }, undefined, undefined, false, "unifont");
-      ink(...colors.temp).write(hi + "°", { x: sw - 45, y }, undefined, undefined, false, "unifont");
-      ink(...colors.textDim).write(lo + "°", { x: sw - 25, y }, undefined, undefined, false, "unifont");
+    if (isTiny) {
+      ink(...weather.color).write(icon, { x: margin + 20, y }, undefined, undefined, false);
+      ink(...colors.temp).write(hi + "/" + lo, { x: sw - 30, y }, undefined, undefined, false);
+    } else if (isNarrow || isSmall) {
+      ink(...weather.color).write(icon, { x: margin + 35, y }, undefined, undefined, false, smallFont);
+      ink(...colors.temp).write(hi + "°", { x: sw - 45, y }, undefined, undefined, false, smallFont);
+      ink(...colors.textDim).write(lo + "°", { x: sw - 25, y }, undefined, undefined, false, smallFont);
     } else {
-      ink(...weather.color).write(icon + " " + (isNarrow ? weather.short : weather.text), { x: 100, y },
-        undefined, undefined, false, "unifont");
-      ink(...colors.temp).write("Hi " + hi + "°", { x: sw - 90, y }, undefined, undefined, false, "unifont");
-      ink(...colors.textDim).write("Lo " + lo + "°", { x: sw - 90, y: y + 12 }, undefined, undefined, false, "unifont");
+      ink(...weather.color).write(icon + " " + weather.text, { x: 100, y },
+        undefined, undefined, false, smallFont);
+      ink(...colors.temp).write("Hi " + hi + "°", { x: sw - 90, y }, undefined, undefined, false, smallFont);
+      ink(...colors.textDim).write("Lo " + lo + "°", { x: sw - 90, y: y + 12 }, undefined, undefined, false, smallFont);
     }
   }
 }
 
 // Scrolling text forecast (Weather Channel style)
-function paintTextForecast({ ink, box, line, screen, contentY }) {
+function paintTextForecast({ ink, box, line, screen, contentY, layout }) {
   const { width: sw, height: sh } = screen;
+  const { isTiny, isSmall, font, smallFont, contentH } = layout || {};
   const isNarrow = sw < 200;
-  const margin = isNarrow ? 4 : 10;
-  const panelH = sh - contentY - 25;
+  const margin = isTiny ? 1 : (isSmall ? 2 : 10);
+  const panelH = contentH - 4; // Use calculated content height
+  const titleH = isTiny ? 8 : (isSmall ? 10 : 16);
   
   // Panel background
-  ink(...colors.panelBg).box(margin, contentY + 6, sw - margin * 2, panelH);
+  ink(...colors.panelBg).box(margin, contentY + 2, sw - margin * 2, panelH);
   
   // Title bar
-  ink(...colors.headerBg).box(margin, contentY + 6, sw - margin * 2, 16);
-  ink(...colors.accent).write("LOCAL FORECAST", { x: margin + 4, y: contentY + 10 },
-    undefined, undefined, false, "MatrixChunky8");
+  ink(...colors.headerBg).box(margin, contentY + 2, sw - margin * 2, titleH);
+  ink(...colors.accent).write(isTiny ? "TXT" : "LOCAL FORECAST", { x: margin + 2, y: contentY + (isTiny ? 2 : 4) },
+    undefined, undefined, false, font);
   
   if (!weatherData?.daily || !location) return;
   
   const daily = weatherData.daily;
   const current = weatherData.current;
-  const lineH = 12;
-  const textStartY = contentY + 28;
-  const visibleH = panelH - 28;
+  const lineH = isTiny ? 8 : (isSmall ? 10 : 12);
+  const textStartY = contentY + 2 + titleH + 2;
+  const visibleH = panelH - titleH - 4;
   
   // Build forecast text lines
   const lines = [];
@@ -2068,7 +2613,7 @@ function paintTextForecast({ ink, box, line, screen, contentY }) {
     const y = textStartY + i * lineH - scrollOffset;
     if (y >= textStartY - lineH && y < textStartY + visibleH) {
       ink(...lines[i].color).write(lines[i].text, { x: margin + 6, y },
-        undefined, undefined, false, "unifont");
+        undefined, undefined, false, font);
     }
   }
   
