@@ -544,6 +544,12 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
   // 🌈 KidLisp.com Window
   context.subscriptions.push(
     vscode.commands.registerCommand("aestheticComputer.openKidLispWindow", () => {
+      // If window already exists, reveal it instead of creating a new one
+      if (kidlispWindow) {
+        kidlispWindow.reveal(vscode.ViewColumn.One);
+        return;
+      }
+      
       const panel = vscode.window.createWebviewPanel(
         "kidlispWebView", // Identifies the type of the webview
         "KidLisp.com", // Title of the panel displayed to the user
@@ -558,6 +564,22 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
       panel.title = "KidLisp.com" + (local ? " 🧑‍🤝‍🧑" : "");
       panel.webview.html = getKidLispWebViewContent(panel.webview);
       kidlispWindow = panel;
+
+      // Handle messages from the KidLisp webview
+      panel.webview.onDidReceiveMessage(
+        async (message) => {
+          switch (message.type) {
+            case "vscode-extension:closeAllEditors":
+              await vscode.commands.executeCommand("workbench.action.closeAllEditors");
+              break;
+            case "vscode-extension:reload":
+              vscode.commands.executeCommand("workbench.action.reloadWindow");
+              break;
+          }
+        },
+        undefined,
+        context.subscriptions,
+      );
 
       panel.onDidDispose(
         () => {
@@ -763,6 +785,9 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
       vscode.window.showInformationMessage(
         "🧹 Slug data cleared successfully!",
       );
+    }),
+    vscode.commands.registerCommand("aestheticComputer.closeAllEditors", async () => {
+      await vscode.commands.executeCommand("workbench.action.closeAllEditors");
     }),
   );
 
@@ -974,6 +999,10 @@ class AestheticViewProvider implements vscode.WebviewViewProvider {
           break;
         case "vscode-extension:reload": {
           vscode.commands.executeCommand("workbench.action.reloadWindow");
+          break;
+        }
+        case "vscode-extension:closeAllEditors": {
+          await vscode.commands.executeCommand("workbench.action.closeAllEditors");
           break;
         }
         case "vscode-extension:defocus": {
@@ -1384,7 +1413,16 @@ function getKidLispWebViewContent(webview: any) {
       </style>
     </head>
     <body>
-      <iframe id="kidlisp" sandbox="allow-scripts allow-same-origin allow-modals allow-popups allow-popups-to-escape-sandbox" allow="clipboard-write; clipboard-read" src="${iframeProtocol}${iframeUrl}/kidlisp.com" border="none"></iframe>
+      <iframe id="kidlisp" class="visible" sandbox="allow-scripts allow-same-origin allow-modals allow-popups allow-popups-to-escape-sandbox" allow="clipboard-write; clipboard-read" src="${iframeProtocol}${iframeUrl}/kidlisp.com" border="none"></iframe>
+      <script nonce="${nonce}">
+        const vscode = acquireVsCodeApi();
+        // Forward messages from kidlisp.com iframe to extension
+        window.addEventListener('message', (event) => {
+          if (event.data && event.data.type && event.data.type.startsWith('vscode-extension:')) {
+            vscode.postMessage(event.data);
+          }
+        });
+      </script>
     </body>
     </html>`;
 }

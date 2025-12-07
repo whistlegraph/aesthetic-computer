@@ -884,19 +884,61 @@ class Artery {
       setTimeout(() => reject(new Error('Timeout connecting to workbench')), 5000);
     });
     
-    // Execute the KidLisp window command
-    ws.send(JSON.stringify({
-      id: 3000,
-      method: 'Runtime.evaluate',
-      params: {
-        expression: `vscode.commands.executeCommand('aestheticComputer.openKidLispWindow')`,
-        awaitPromise: true
-      }
-    }));
+    let msgId = 1;
+    const send = (method, params = {}) => {
+      const id = msgId++;
+      ws.send(JSON.stringify({ id, method, params }));
+      return id;
+    };
     
-    await new Promise(resolve => setTimeout(resolve, 1500)); // Wait for window to open
+    // Use keyboard simulation to open command palette and run the command
+    // Press F1 to open command palette
+    send('Input.dispatchKeyEvent', {
+      type: 'keyDown',
+      key: 'F1',
+      code: 'F1',
+      windowsVirtualKeyCode: 112
+    });
+    await new Promise(r => setTimeout(r, 50));
+    send('Input.dispatchKeyEvent', {
+      type: 'keyUp',
+      key: 'F1',
+      code: 'F1',
+      windowsVirtualKeyCode: 112
+    });
+    
+    await new Promise(r => setTimeout(r, 300)); // Wait for palette to open
+    
+    // Type the command
+    const cmd = '>KidLisp.com: Open';
+    for (const char of cmd) {
+      send('Input.dispatchKeyEvent', {
+        type: 'char',
+        text: char
+      });
+      await new Promise(r => setTimeout(r, 20));
+    }
+    
+    await new Promise(r => setTimeout(r, 400)); // Wait for results
+    
+    // Press Enter to execute
+    send('Input.dispatchKeyEvent', {
+      type: 'keyDown',
+      key: 'Enter',
+      code: 'Enter',
+      windowsVirtualKeyCode: 13
+    });
+    await new Promise(r => setTimeout(r, 50));
+    send('Input.dispatchKeyEvent', {
+      type: 'keyUp',
+      key: 'Enter',
+      code: 'Enter',
+      windowsVirtualKeyCode: 13
+    });
+    
+    await new Promise(resolve => setTimeout(resolve, 500)); // Wait for window to open
+    
     ws.close();
-    
     brightLog('🌈 KidLisp.com window opened');
   }
   
@@ -960,6 +1002,98 @@ class Artery {
     
     await new Promise(resolve => setTimeout(resolve, 1000));
     brightLog('🩸 Local development mode toggled');
+    
+    ws.close();
+  }
+  
+  // Close all editor tabs in VS Code
+  static async closeAllEditors() {
+    brightLog('🩸 Closing all editor tabs...');
+    const { host: cdpHost, port: cdpPort } = await findWorkingCDPHost();
+    
+    const targetsJson = await new Promise((resolve, reject) => {
+      const req = http.get({
+        hostname: cdpHost,
+        port: cdpPort,
+        path: '/json'
+      }, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => resolve(JSON.parse(data)));
+      });
+      req.on('error', reject);
+      req.end();
+    });
+    
+    // Find VS Code workbench for keyboard shortcut method
+    const workbench = targetsJson.find(t => 
+      t.url && t.url.includes('workbench.html')
+    );
+    
+    if (!workbench) {
+      redLog('💔 VS Code workbench not found');
+      process.exit(1);
+    }
+    
+    let wsUrl = workbench.webSocketDebuggerUrl;
+    if (wsUrl.includes('localhost')) {
+      wsUrl = wsUrl.replace(/localhost(:\d+)?/, `${cdpHost}:${cdpPort}`);
+    }
+    const ws = new WebSocket(wsUrl);
+    
+    await new Promise((resolve, reject) => {
+      ws.on('open', () => resolve());
+      ws.on('error', reject);
+      setTimeout(() => reject(new Error('Timeout')), 5000);
+    });
+    
+    let msgId = 1;
+    const send = (method, params = {}) => {
+      const id = msgId++;
+      ws.send(JSON.stringify({ id, method, params }));
+      return id;
+    };
+    
+    // Use CDP Input.dispatchKeyEvent to simulate Ctrl+K, W chord
+    // which is the VS Code keybinding for "Close All Editors in Group"
+    
+    // First: Ctrl+K (first part of chord)
+    send('Input.dispatchKeyEvent', {
+      type: 'keyDown',
+      modifiers: 2, // Ctrl
+      key: 'k',
+      code: 'KeyK',
+      windowsVirtualKeyCode: 75
+    });
+    await new Promise(r => setTimeout(r, 50));
+    
+    send('Input.dispatchKeyEvent', {
+      type: 'keyUp',
+      modifiers: 2,
+      key: 'k',
+      code: 'KeyK',
+      windowsVirtualKeyCode: 75
+    });
+    await new Promise(r => setTimeout(r, 50));
+    
+    // Second: W (second part of chord, no modifier)
+    send('Input.dispatchKeyEvent', {
+      type: 'keyDown',
+      key: 'w',
+      code: 'KeyW',
+      windowsVirtualKeyCode: 87
+    });
+    await new Promise(r => setTimeout(r, 50));
+    
+    send('Input.dispatchKeyEvent', {
+      type: 'keyUp',
+      key: 'w',
+      code: 'KeyW',
+      windowsVirtualKeyCode: 87
+    });
+    
+    await new Promise(resolve => setTimeout(resolve, 200));
+    brightLog('🩸 All editor tabs closed');
     
     ws.close();
   }
@@ -1240,6 +1374,18 @@ async function main() {
       return;
     }
     
+    // Handle close-editors before trying to connect to AC frame
+    if (command === 'close-editors') {
+      await Artery.closeAllEditors();
+      process.exit(0);
+    }
+    
+    // Handle kidlisp command (open KidLisp window) before connecting to AC
+    if (command === 'kidlisp') {
+      await Artery.openKidLispWindow();
+      process.exit(0);
+    }
+    
     await client.connect(isRepl);
     if (isRepl) await client.enableConsole();
     
@@ -1329,6 +1475,13 @@ async function main() {
         const { main: run1v1 } = await import('./test-1v1-split.mjs');
         process.argv = ['node', 'test-1v1-split.mjs', ...args];
         await run1v1();
+        return;
+        
+      case 'kidlisp-test':
+        // Close the client we just opened (kidlisp test manages its own)
+        client.close();
+        process.argv = ['node', 'test-kidlisp.mjs', ...args];
+        await import('./test-kidlisp.mjs');
         return;
         
       case 'repl':
@@ -1471,10 +1624,16 @@ async function main() {
         console.log('artery player <0|1|2>  - Connect to specific player frame');
         console.log('                         0=main, 1=player1 (top), 2=player2 (bottom)');
         console.log('');
-        console.log('🎵 Tests:');
+        console.log('🧪 Tests:');
         console.log('artery hiphop [opts]   - Hip-hop beat generator test');
         console.log('artery trapwaltz [opts] - Trap waltz generator (3/4 + trap)');
         console.log('artery 1v1 [p1] [p2]   - Test split view for 1v1 dueling');
+        console.log('artery kidlisp-test [suite] - Run KidLisp.com test suite');
+        console.log('                             Suites: basic, editor, playback, ui, console, examples, errors, all');
+        console.log('');
+        console.log('🛠️  Utilities:');
+        console.log('artery kidlisp         - Open KidLisp.com window in VS Code');
+        console.log('artery close-editors   - Close all VS Code editor tabs');
     }
     
     setTimeout(() => {
