@@ -1,6 +1,6 @@
 # Aesthetic Computer - Architecture Reference for LLMs
 
-> **Last Updated:** 2025-01-20  
+> **Last Updated:** 2025-12-07  
 > **Purpose:** Comprehensive guide for AI assistants working with this codebase
 
 ---
@@ -145,6 +145,15 @@ artery frames             # List all AC frames
 artery player 1           # Connect to Player 1 (top split)
 artery player 2           # Connect to Player 2 (bottom split)
 
+# KidLisp.com
+artery kidlisp            # Open KidLisp.com window in VS Code
+artery kidlisp-test       # Run all 26 KidLisp tests
+artery kidlisp-test basic # Run specific test suite
+                          # Suites: basic, editor, playback, ui, console, examples, errors
+
+# VS Code Utilities
+artery close-editors      # Close all VS Code editor tabs
+
 # Testing
 artery hiphop             # Hip-hop beat generator test
 artery 1v1                # Split-screen 1v1 test
@@ -160,6 +169,49 @@ Interactive curses-style interface with:
 - `[e]` Emacs mode
 - `[t]` Performance test
 - `[s]` Split-screen mode
+
+### KidLisp Test Suite (`test-kidlisp.mjs`)
+
+Automated test harness for KidLisp.com with 26 tests using direct CDP connection:
+
+```bash
+artery kidlisp-test              # Run all tests
+artery kidlisp-test basic        # Run basic suite only
+artery kidlisp-test editor       # Test editor operations
+artery kidlisp-test playback     # Test play/stop/clear
+artery kidlisp-test ui           # Test buttons and theme
+artery kidlisp-test console      # Test console output
+artery kidlisp-test examples     # Test loading examples
+artery kidlisp-test errors       # Test error handling
+```
+
+**Test Categories:**
+| Suite | Tests |
+|-------|-------|
+| basic | Connection, disk state, API availability |
+| editor | Code insertion, selection, clear operations |
+| playback | Play, stop, clear, state transitions |
+| ui | Theme toggle, example buttons, console visibility |
+| console | Log output, clear console, display |
+| examples | Loading spiral, bounce, ripple examples |
+| errors | Syntax errors, undefined symbols, error recovery |
+
+### CDP Keyboard Simulation
+
+Artery uses `Input.dispatchKeyEvent` CDP method to simulate VS Code keyboard shortcuts:
+
+```javascript
+// Example: Send Ctrl+K, W chord to close all editors
+send('Input.dispatchKeyEvent', {
+  type: 'keyDown',
+  modifiers: 2, // Ctrl
+  key: 'k',
+  code: 'KeyK',
+  windowsVirtualKeyCode: 75
+});
+```
+
+This allows invoking VS Code commands without needing an open webview.
 
 ---
 
