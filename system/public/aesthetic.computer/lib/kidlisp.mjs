@@ -477,7 +477,7 @@ function initPersistentCache(store) {
     for (const [cacheId, source] of Object.entries(prefillData)) {
       globalCodeCache.set(cacheId, source);
     }
-    console.log(`📦 Prefilled code cache with ${Object.keys(prefillData).length} pieces: ${Object.keys(prefillData).join(', ')}`);
+    // Silently prefill cache in PACK mode
   }
 }
 

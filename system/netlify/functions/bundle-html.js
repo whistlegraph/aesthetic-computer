@@ -16,12 +16,23 @@ const fsSync = require("fs");
 const path = require("path");
 const { gzipSync } = require("zlib");
 const https = require("https");
+const { execSync } = require("child_process");
 
 // Netlify streaming support
 const { stream } = require("@netlify/functions");
 
-// Get git commit from build-time env var or fallback
-const GIT_COMMIT = process.env.GIT_COMMIT || "unknown";
+// Get git commit from build-time env var, or dynamically from git in dev
+function getGitCommit() {
+  if (process.env.GIT_COMMIT) return process.env.GIT_COMMIT;
+  try {
+    const hash = execSync("git rev-parse --short HEAD", { encoding: "utf8" }).trim();
+    const isDirty = execSync("git status --porcelain", { encoding: "utf8" }).trim().length > 0;
+    return isDirty ? `${hash} (dirty)` : hash;
+  } catch {
+    return "unknown";
+  }
+}
+const GIT_COMMIT = getGitCommit();
 const CONTEXT = process.env.CONTEXT || "production";
 
 // In-memory cache for core bundle (persists across warm function invocations)
@@ -265,6 +276,14 @@ function rewriteImports(code, filepath) {
   code = code.replace(/import\s*\(\`(\.\.\/[^\`]+|\.\/[^\`]+)\`\)/g, (match, p) => {
     const resolved = resolvePath(filepath, p);
     return 'import("' + resolved + '")';
+  });
+  
+  // Also rewrite string literals that look like relative module paths (for wrapper functions like importWithRetry)
+  // This catches patterns like: importWithRetry("./bios.mjs") or anyFunction("./lib/parse.mjs")
+  // But be careful not to rewrite strings that aren't module paths
+  code = code.replace(/\(\s*['"](\.\.?\/[^'"]+\.m?js)['"]\s*\)/g, (match, p) => {
+    const resolved = resolvePath(filepath, p);
+    return '("' + resolved + '")';
   });
   
   return code;
@@ -715,10 +734,7 @@ function generateJSPieceHTMLBundle(opts) {
         .replace(/#.*$/g, '')
         .replace(/\\?.*$/g, '');
       
-      vfsPath = vfsPath.replace(/^\\.\\.\\/+/g, '').replace(/^\\.\\//g, '').replace(/^\\//g, '');
-      
-      // Debug: log what we're looking for
-      console.log('[VFS] fetch:', urlStr, '->', vfsPath, 'exists:', !!window.VFS[vfsPath]);
+      vfsPath = vfsPath.replace(/^\\.\\.\\/+/g, '').replace(/^\\.\\//g, '').replace(/^\\//g, '').replace(/^aesthetic\\.computer\\//g, '');
       
       if (window.VFS[vfsPath]) {
         const file = window.VFS[vfsPath];
@@ -1113,7 +1129,12 @@ function generateHTMLBundle(opts) {
         .replace(/#.*$/g, '')
         .replace(/\\?.*$/g, '');
       
-      vfsPath = vfsPath.replace(/^\\.\\.\\/+/g, '').replace(/^\\.\\//g, '').replace(/^\\//g, '');
+      vfsPath = vfsPath.replace(/^\\.\\.\\/+/g, '').replace(/^\\.\\//g, '').replace(/^\\//g, '').replace(/^aesthetic\\.computer\\//g, '');
+      
+      // Debug: log font requests
+      if (vfsPath.includes('font_1')) {
+        console.log('[VFS] Font request:', urlStr, '->', vfsPath, 'exists:', !!window.VFS[vfsPath]);
+      }
       
       if (urlStr.includes('/media/') && urlStr.includes('/painting/')) {
         for (const [code, info] of Object.entries(window.acPAINTING_CODE_MAP || {})) {

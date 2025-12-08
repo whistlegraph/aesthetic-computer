@@ -1669,6 +1669,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // UDP / Geckos Networking
   let UDP;
   async function loadUDP() {
+    // 🎒 PACK mode: Return no-op UDP to disable networking in offline bundles
+    if (window.acPACK_MODE) {
+      return {
+        connect: () => {},
+        send: () => {},
+        disconnect: () => {},
+      };
+    }
     if (!UDP) {
       // if (debug) console.log("🌐 Loading UDP networking library...");
       const udpModule = await import('./lib/udp.mjs');
@@ -14776,6 +14784,51 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (needsReappearance /* && wrapper.classList.contains("hidden")*/) {
       // wrapper.classList.remove("hidden");
       needsReappearance = false;
+    }
+
+    // 📸 PACK mode: Log frame to console every 1000 frames (after render completes)
+    if (window.acPACK_MODE && frameCount % 1000n === 0n && canvas) {
+      try {
+        const w = canvas.width;
+        const h = canvas.height;
+        
+        // Render at 2x for crisp display
+        const scaleFactor = 2;
+        const thumbW = w * scaleFactor;
+        const thumbH = h * scaleFactor;
+        
+        // Create thumbnail canvas at 2x
+        const thumbCanvas = document.createElement('canvas');
+        thumbCanvas.width = thumbW;
+        thumbCanvas.height = thumbH;
+        const thumbCtx = thumbCanvas.getContext('2d');
+        thumbCtx.imageSmoothingEnabled = false;
+        thumbCtx.drawImage(canvas, 0, 0, thumbW, thumbH);
+        const dataUrl = thumbCanvas.toDataURL('image/png');
+        
+        // Display size (fit to ~120px max dimension)
+        const displayMax = 120;
+        const aspect = w / h;
+        const displayW = aspect >= 1 ? displayMax : Math.round(displayMax * aspect);
+        const displayH = aspect >= 1 ? Math.round(displayMax / aspect) : displayMax;
+        
+        // Timestamp
+        const now = new Date();
+        const ts = now.toLocaleTimeString('en-US', { hour12: false });
+        
+        console.log(
+          `%c${ts} %cFrame ${frameCount} %c[${w}×${h}]`,
+          `color: #888; font-size: 10px; font-family: monospace;`,
+          `color: #4ecdc4; font-size: 10px; font-family: monospace;`,
+          `color: #666; font-size: 10px; font-family: monospace;`
+        );
+        console.log(
+          `%c `,
+          `font-size: 1px; padding: ${displayH/2}px ${displayW/2}px; background: url("${dataUrl}") no-repeat center; background-size: ${displayW}px ${displayH}px; image-rendering: pixelated;`
+        );
+      } catch (e) {
+        // Silently fail - frame capture is not essential
+      }
     }
 
     frameAlreadyRequested = false; // 🗨️ Signal readiness for the next frame.

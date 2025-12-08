@@ -1,5 +1,6 @@
 import { getColorTokenHighlight } from "./color-highlighting.mjs";
 import { tokenize } from "./kidlisp.mjs";
+import { qrcode, ErrorCorrectLevel } from "../dep/@akamfoad/qr/qr.mjs";
 
 // Weekly color schemes for console styling
 function getDayColorScheme(isDarkMode) {
@@ -88,6 +89,51 @@ function getDayColorScheme(isDarkMode) {
   return schemes[day];
 }
 
+/**
+ * Render a QR code to the browser console using CSS-styled block characters.
+ * Uses Unicode half-blocks to render 2 rows per line for compact display.
+ * @param {string} url - The URL to encode in the QR code
+ * @param {string} darkColor - CSS color for dark modules (default: black)
+ * @param {string} lightColor - CSS color for light modules (default: white)
+ */
+function renderQRToConsole(url, darkColor = '#4ecdc4', lightColor = '#1a1a2e') {
+  try {
+    const qr = qrcode(url, { errorCorrectLevel: ErrorCorrectLevel.L });
+    const size = qr.getModuleCount();
+    
+    // Generate QR as SVG data URL for console image display
+    const moduleSize = 4; // pixels per module
+    const margin = moduleSize; // quiet zone
+    const svgSize = size * moduleSize + margin * 2;
+    
+    // Use a single path for all dark modules to avoid gaps
+    let pathData = '';
+    for (let row = 0; row < size; row++) {
+      for (let col = 0; col < size; col++) {
+        if (qr.isDark(row, col)) {
+          const x = col * moduleSize + margin;
+          const y = row * moduleSize + margin;
+          // Add each square to the path (M = moveto, h = horizontal line, v = vertical line, z = close)
+          pathData += `M${x} ${y}h${moduleSize}v${moduleSize}h-${moduleSize}z`;
+        }
+      }
+    }
+    
+    const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 ${svgSize} ${svgSize}' shape-rendering='crispEdges'><rect width='100%' height='100%' fill='${lightColor}'/><path d='${pathData}' fill='${darkColor}'/></svg>`;
+    const dataUrl = `data:image/svg+xml,${encodeURIComponent(svg)}`;
+    
+    // Display as console image using CSS background trick
+    const displaySize = 100; // display size in pixels
+    console.log(
+      '%c ',
+      `font-size: 1px; padding: ${displaySize/2}px; background: url("${dataUrl}") no-repeat; background-size: ${displaySize}px ${displaySize}px;`
+    );
+  } catch (e) {
+    // Silently fail - QR code is not essential
+    console.warn('QR generation failed:', e);
+  }
+}
+
 export function headers(isDarkMode) {
   // Auto-detect dark mode if not provided
   if (isDarkMode === undefined) {
@@ -163,10 +209,18 @@ export function headers(isDarkMode) {
       
       console.log(titleFormatted, ...titleStyles);
       
+      // Render QR code to piece URL right after the title
+      const pieceSlugForQR = piece.isKidLisp ? `$${piece.name}` : piece.name;
+      const pieceUrlForQR = `https://aesthetic.computer/${pieceSlugForQR}`;
+      renderQRToConsole(pieceUrlForQR);
+      
       // Third line: Piece info with colored piece name ($ prefix only for KidLisp)
       const piecePrefix = piece.isKidLisp ? '$' : '';
+      // Format author: strip any leading @ and only add it back for non-anon authors
+      const authorRaw = build.author.replace(/^@/, '');
+      const authorDisplay = authorRaw === 'anon' ? 'anon' : `@${authorRaw}`;
       console.log(
-        `%c${piecePrefix}${piece.name} %cis a %cpiece%c by %c${build.author}`,
+        `%c${piecePrefix}${piece.name} %cis a %cpiece%c by %c${authorDisplay}`,
         "color: #ffc107; font-weight: bold; font-size: 11px;",
         "color: #6c757d; font-size: 10px;",
         "color: #343a40; font-weight: bold; font-size: 10px;",
@@ -179,7 +233,7 @@ export function headers(isDarkMode) {
         try {
           const highlighted = formatKidLispForConsole(piece.sourceCode);
           console.log(
-            `%cIts %cKidLisp%c source:\n%c${highlighted.text}`,
+            `%cIts %cKidLisp%c source is... %c${highlighted.text}`,
             "color: #6c757d; font-size: 10px;",
             "color: #28a745; font-weight: bold; font-size: 10px;",
             "color: #6c757d; font-size: 10px;",
@@ -188,7 +242,7 @@ export function headers(isDarkMode) {
           );
         } catch (error) {
           console.log(
-            `%cIts %cKidLisp%c source: %c${piece.sourceCode}`,
+            `%cIts %cKidLisp%c source is... %c${piece.sourceCode}`,
             "color: #6c757d; font-size: 10px;",
             "color: #28a745; font-weight: bold; font-size: 10px;",
             "color: #6c757d; font-size: 10px;",
@@ -256,8 +310,9 @@ export function headers(isDarkMode) {
       );
       
       // Links at the end with labels
+      const pieceSlug = piece.isKidLisp ? `/$${piece.name}` : `/${piece.name}`;
       console.log(
-        `%cView this piece at %chttps://aesthetic.computer`,
+        `%cView this piece at %chttps://aesthetic.computer${pieceSlug}`,
         "color: #6c757d; font-size: 10px;",
         "color: #4ecdc4; font-size: 10px; text-decoration: underline;"
       );

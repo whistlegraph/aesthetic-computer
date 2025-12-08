@@ -1,3 +1,0 @@
-parameter (or (pair (nat %token_id) (map %metadata string bytes)) (nat %freeze_id));
-storage unit;
-code { CDR; NIL operation; PAIR };
