@@ -4537,10 +4537,181 @@
     
     console.log('🎯 Setting up main message listener for kidlisp-ready...');
     
+    // 🧪 Test harness message handler
+    function handleTestMessage(data, source) {
+      const respond = (response) => {
+        if (source && source.postMessage) {
+          source.postMessage({ type: 'test:response', originalType: data.type, ...response }, '*');
+        }
+      };
+      
+      switch (data.type) {
+        case 'test:setCode':
+          if (editor && data.code !== undefined) {
+            editor.setValue(data.code);
+            console.log('🧪 Code set:', data.code.substring(0, 50) + '...');
+            respond({ success: true, length: data.code.length });
+          } else {
+            respond({ success: false, error: 'Editor not ready or no code provided' });
+          }
+          break;
+          
+        case 'test:getCode':
+          if (editor) {
+            respond({ success: true, code: editor.getValue() });
+          } else {
+            respond({ success: false, error: 'Editor not ready' });
+          }
+          break;
+          
+        case 'test:play':
+          if (sendButton && !sendButton.disabled) {
+            sendButton.click();
+            console.log('🧪 Play clicked');
+            respond({ success: true });
+          } else {
+            respond({ success: false, error: 'Play button not ready' });
+          }
+          break;
+          
+        case 'test:stop':
+          if (stopButton) {
+            stopButton.click();
+            console.log('🧪 Stop clicked');
+            respond({ success: true });
+          } else {
+            respond({ success: false, error: 'Stop button not found' });
+          }
+          break;
+          
+        case 'test:clear':
+          if (editor) {
+            editor.setValue('');
+            console.log('🧪 Editor cleared');
+            respond({ success: true });
+          } else {
+            respond({ success: false, error: 'Editor not ready' });
+          }
+          break;
+          
+        case 'test:getConsole':
+          const consoleOutput = document.getElementById('console-output');
+          if (consoleOutput) {
+            const entries = Array.from(consoleOutput.querySelectorAll('.console-entry')).map(el => ({
+              text: el.textContent,
+              level: el.classList.contains('error') ? 'error' : 
+                     el.classList.contains('warn') ? 'warn' : 'log'
+            }));
+            respond({ success: true, entries });
+          } else {
+            respond({ success: false, error: 'Console not found' });
+          }
+          break;
+          
+        case 'test:clearConsole':
+          const consoleEl = document.getElementById('console-output');
+          if (consoleEl) {
+            consoleEl.innerHTML = '';
+            console.log('🧪 Console cleared');
+            respond({ success: true });
+          } else {
+            respond({ success: false, error: 'Console not found' });
+          }
+          break;
+          
+        case 'test:togglePanel':
+          const panelMap = {
+            'editor': 'editor-panel',
+            'preview': 'preview-panel', 
+            'console': 'console-panel',
+            'reference': 'reference-panel'
+          };
+          const panelId = panelMap[data.panel];
+          if (panelId) {
+            const panel = document.getElementById(panelId);
+            if (panel) {
+              const header = panel.querySelector('.editor-header, .docs-header');
+              if (header) {
+                header.click();
+                console.log('🧪 Panel toggled:', data.panel);
+                respond({ success: true, panel: data.panel });
+              } else {
+                respond({ success: false, error: 'Panel header not found' });
+              }
+            } else {
+              respond({ success: false, error: 'Panel not found' });
+            }
+          } else {
+            respond({ success: false, error: 'Unknown panel: ' + data.panel });
+          }
+          break;
+          
+        case 'test:switchLanguage':
+          const langOption = document.querySelector(`.lang-option[data-lang="${data.lang}"]`);
+          if (langOption) {
+            langOption.click();
+            console.log('🧪 Language switched to:', data.lang);
+            respond({ success: true, lang: data.lang });
+          } else {
+            respond({ success: false, error: 'Language not found: ' + data.lang });
+          }
+          break;
+          
+        case 'test:toggleTheme':
+          const themeToggle = document.getElementById('theme-toggle');
+          if (themeToggle) {
+            themeToggle.click();
+            console.log('🧪 Theme toggled');
+            respond({ success: true });
+          } else {
+            respond({ success: false, error: 'Theme toggle not found' });
+          }
+          break;
+          
+        case 'test:getUIState':
+          respond({
+            success: true,
+            state: {
+              theme: document.documentElement.getAttribute('data-theme') || 'auto',
+              lang: document.documentElement.lang || 'en',
+              isPlaying: isPlaying,
+              isPaused: isPaused,
+              editorReady: !!editor,
+              code: editor?.getValue() || ''
+            }
+          });
+          break;
+          
+        case 'test:getStatus':
+          respond({
+            success: true,
+            status: {
+              editorReady: !!editor,
+              playButtonEnabled: sendButton && !sendButton.disabled,
+              isPlaying: isPlaying,
+              isPaused: isPaused,
+              pieceReady: pieceReady
+            }
+          });
+          break;
+          
+        default:
+          console.log('🧪 Unknown test message type:', data.type);
+          respond({ success: false, error: 'Unknown test message type: ' + data.type });
+      }
+    }
+    
     // Listen for console messages and syntax highlighting signals from iframe
     window.addEventListener('message', (event) => {
       // Ignore setCode messages - they're for other pieces, not kidlisp
       if (event.data?.type === 'setCode') {
+        return;
+      }
+      
+      // 🧪 Test harness message handlers
+      if (event.data?.type?.startsWith('test:')) {
+        console.log('🧪 Test message received:', event.data.type, event.data);
+        handleTestMessage(event.data, event.source);
         return;
       }
       
