@@ -424,6 +424,9 @@ let pendingUrlRewrite = null;
 let rewriteFocusListenerAttached = false;
 
 function performHistoryRewrite(path, historical) {
+  // Skip history manipulation in pack mode (blob/srcdoc context)
+  if (checkPackMode()) return;
+  
   if (historical) {
     console.log("Rewriting to:", path);
     history.pushState("", document.title, path);
@@ -9981,7 +9984,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             
             if (shouldShowCursor && document.body.style.cursor === 'none') {
               // Use simple CSS cursor in PACK mode to avoid SVG 404
-              document.body.style.cursor = 'crosshair';
+              document.body.style.cursor = 'default';
             } else if (!shouldShowCursor && document.body.style.cursor !== 'none') {
               document.body.style.cursor = 'none';
             }
