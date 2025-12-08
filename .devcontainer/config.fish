@@ -758,6 +758,111 @@ fish_add_path ~/.cargo/bin
 # add nanos ops binaries to the shell path
 fish_add_path ~/.ops/bin
 
+# ============================================================================
+# AC Emacs Management Commands
+# ============================================================================
+
+# Kill zombie emacs daemon and restart fresh
+function ac-emacs-restart
+    echo "🔄 Restarting emacs daemon..."
+    
+    # Kill any existing emacs processes
+    pkill -9 -f "emacs.*daemon" 2>/dev/null
+    pkill -9 emacs 2>/dev/null
+    sleep 1
+    
+    # Start fresh daemon
+    echo "🚀 Starting fresh emacs daemon..."
+    emacs --daemon 2>&1
+    
+    # Verify it's responsive
+    sleep 1
+    if emacsclient -e t >/dev/null 2>&1
+        echo "✅ Emacs daemon ready!"
+        return 0
+    else
+        echo "❌ Emacs daemon failed to start"
+        return 1
+    end
+end
+
+# Kill emacs entirely (daemon + any clients)
+function ac-emacs-kill
+    echo "💀 Killing all emacs processes..."
+    pkill -9 -f "emacs.*daemon" 2>/dev/null
+    pkill -9 emacs 2>/dev/null
+    pkill -9 emacsclient 2>/dev/null
+    echo "✅ All emacs processes killed"
+end
+
+# Check emacs daemon status
+function ac-emacs-status
+    set -l daemon_pid (pgrep -f "emacs.*daemon" 2>/dev/null)
+    if test -n "$daemon_pid"
+        echo "🟢 Emacs daemon running (PID: $daemon_pid)"
+        if emacsclient -e t >/dev/null 2>&1
+            echo "✅ Daemon is responsive"
+        else
+            echo "⚠️  Daemon process exists but NOT responsive (zombie)"
+        end
+    else
+        echo "🔴 Emacs daemon not running"
+    end
+end
+
+# Full aesthetic platform restart (emacs + reconnect artery)
+function ac-restart
+    echo "🔄 Full aesthetic platform restart..."
+    ac-emacs-restart
+    if test $status -eq 0
+        echo "🩸 Reconnecting to artery..."
+        emacsclient -nw -c --eval '(aesthetic-backend (quote "artery"))'
+    end
+end
+
+# Start/restart CDP tunnel for VS Code control
+function ac-cdp-tunnel
+    echo "🩸 Managing CDP tunnel..."
+    
+    # Kill any existing tunnel
+    set -l existing (pgrep -f "ssh.*9333.*host.docker.internal" 2>/dev/null)
+    if test -n "$existing"
+        echo "  Killing existing tunnel (PID: $existing)..."
+        kill $existing 2>/dev/null
+        sleep 1
+    end
+    
+    # Start new tunnel
+    echo "  Starting new CDP tunnel..."
+    ssh -f -N -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=5 -L 9333:127.0.0.1:9333 me@host.docker.internal 2>/dev/null
+    
+    sleep 1
+    
+    # Verify
+    if nc -zv localhost 9333 2>&1 | grep -q "Connected"
+        echo "✅ CDP tunnel online (localhost:9333 → host:9333)"
+        return 0
+    else
+        echo "❌ CDP tunnel failed - is VS Code running on host with CDP enabled?"
+        return 1
+    end
+end
+
+# Check CDP tunnel status
+function ac-cdp-status
+    set -l tunnel_pid (pgrep -f "ssh.*9333.*host.docker.internal" 2>/dev/null)
+    if test -n "$tunnel_pid"
+        echo "🟢 CDP tunnel process running (PID: $tunnel_pid)"
+        if nc -zv localhost 9333 2>&1 | grep -q "Connected"
+            echo "✅ Port 9333 is accessible"
+        else
+            echo "⚠️  Port 9333 not accessible (tunnel may be broken)"
+        end
+    else
+        echo "🔴 CDP tunnel not running"
+    end
+end
+
 # Assume the daemon is running when entering emacs.
 
 # For fast config reloading - simple approach

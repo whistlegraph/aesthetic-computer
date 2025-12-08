@@ -1,5 +1,16 @@
 #!/usr/bin/env fish
 
+# Log file for aesthetic function to tail during wait
+set -g ENTRY_LOG /tmp/entry-fish.log
+echo "" > $ENTRY_LOG
+
+# Simple wrapper: append each echo to log file too
+# We override echo within this script
+function echo
+    builtin echo $argv
+    builtin echo $argv >> $ENTRY_LOG 2>/dev/null
+end
+
 # Fast path for VS Code "Reload Window" - if .waiter exists and key processes running, skip setup
 if test -f /home/me/.waiter
     echo "🔄 Detected reload (found .waiter file)"
@@ -10,9 +21,44 @@ if test -f /home/me/.waiter
     
     if test -n "$dockerd_running"
         echo "✅ Docker daemon already running (PID: $dockerd_running)"
+        
+        # Check if emacs daemon is running AND responsive
         if test -n "$emacs_running"
-            echo "✅ Emacs daemon already running (PID: $emacs_running)"
+            if emacsclient -e t >/dev/null 2>&1
+                echo "✅ Emacs daemon running and responsive (PID: $emacs_running)"
+            else
+                echo "⚠️  Emacs daemon zombie detected (PID: $emacs_running) - restarting..."
+                pkill -9 -f "emacs.*daemon" 2>/dev/null
+                pkill -9 emacs 2>/dev/null
+                sleep 1
+                emacs --daemon 2>&1
+                sleep 1
+                if emacsclient -e t >/dev/null 2>&1
+                    echo "✅ Emacs daemon restarted successfully"
+                else
+                    echo "❌ Failed to restart emacs daemon"
+                end
+            end
+        else
+            echo "⚠️  Emacs daemon not running - starting..."
+            emacs --daemon 2>&1
+            sleep 1
         end
+        
+        # Ensure CDP tunnel is up (for artery-tui to control VS Code on host)
+        set -l cdp_tunnel (pgrep -f "ssh.*9333.*host.docker.internal" 2>/dev/null)
+        if test -n "$cdp_tunnel"
+            echo "✅ CDP tunnel already running (PID: $cdp_tunnel)"
+        else
+            echo "🩸 Starting CDP tunnel..."
+            ssh -f -N -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=5 -L 9333:127.0.0.1:9333 me@host.docker.internal 2>/dev/null
+            if test $status -eq 0
+                echo "✅ CDP tunnel established (localhost:9333 → host:9333)"
+            else
+                echo "⚠️  CDP tunnel failed (artery may not control VS Code)"
+            end
+        end
+        
         echo "⚡ Skipping full setup - container already configured"
         echo "✅ Ready! (fast reload path)"
         exit 0

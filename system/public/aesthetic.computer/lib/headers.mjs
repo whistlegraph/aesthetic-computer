@@ -295,11 +295,23 @@ export function headers(isDarkMode) {
       const gitHash = ` ${build.gitCommit}`;
       const dirtyStatus = build.gitIsDirty ? ' (dirty)' : '';
       
-      console.log(`%cThis copy was packed on %c${formattedDate}%c`, 
-        "color: #6c757d; font-size: 11px;",
-        "color: #4ecdc4; font-size: 11px;",
-        "color: #6c757d; font-size: 11px;"
-      );
+      // Show filename if available
+      const bundleFilename = build.filename || null;
+      if (bundleFilename) {
+        console.log(`%cPacked as %c${bundleFilename}%c on %c${formattedDate}%c`, 
+          "color: #6c757d; font-size: 11px;",
+          "color: #e83e8c; font-weight: bold; font-size: 11px;",
+          "color: #6c757d; font-size: 11px;",
+          "color: #4ecdc4; font-size: 11px;",
+          "color: #6c757d; font-size: 11px;"
+        );
+      } else {
+        console.log(`%cThis copy was packed on %c${formattedDate}%c`, 
+          "color: #6c757d; font-size: 11px;",
+          "color: #4ecdc4; font-size: 11px;",
+          "color: #6c757d; font-size: 11px;"
+        );
+      }
       
       console.log(`%cUsing %caesthetic-computer%c git version%c${gitHash}%c${dirtyStatus}`, 
         "color: #6c757d; font-size: 11px;",
