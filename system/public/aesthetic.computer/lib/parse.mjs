@@ -26,6 +26,9 @@ const LEGITIMATE_PARAMS = [
   "notice",
   "tv",
   "highlight",
+  "daw",
+  "width",
+  "height",
 ];
 
 const LEGITIMATE_PARAM_SET = new Set(
