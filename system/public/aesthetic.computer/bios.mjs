@@ -48,70 +48,22 @@ const { round, floor, min, max } = Math;
 const { isFinite } = Number;
 
 // 🎹 DAW Sync (for Max for Live integration)
-// These must be defined at module load time (before boot) so M4L can call them immediately.
-// Messages are queued until boot() connects the send function.
-let _dawSendFunc = null;
-let _dawMessageQueue = [];
+// The global window.acDaw* functions are defined in index.mjs HTML before modules load.
+// This allows M4L's executejavascript to call them immediately.
+// bios.mjs just connects the send function via window.acDawConnect().
 let _dawBpm = 60;
-let _dawPlaying = false;
 
-function _dawSend(msg) {
-  if (_dawSendFunc) {
-    _dawSendFunc(msg);
-  } else {
-    _dawMessageQueue.push(msg);
-  }
-}
-
-window.acDawTempo = (bpm) => {
-  const newBpm = Math.round(bpm);
-  if (newBpm !== _dawBpm && newBpm > 0) {
-    console.log(`🎹 DAW tempo: ${newBpm} BPM`);
-    _dawBpm = newBpm;
-    _dawSend({ type: "daw:tempo", content: { bpm: newBpm } });
-  }
-};
-
-window.acDawTransport = (playing) => {
-  const isPlaying = playing === 1;
-  if (isPlaying !== _dawPlaying) {
-    console.log(`🎹 DAW transport: ${isPlaying ? "playing" : "stopped"}`);
-    _dawPlaying = isPlaying;
-    _dawSend({ type: "daw:transport", content: { playing: isPlaying } });
-  }
-};
-
-window.acDawPhase = (time) => {
-  // Song position in beats - for beat-synced visuals
-  _dawSend({ type: "daw:phase", content: { time } });
-};
-
-window.acDawSamplerate = (rate) => {
-  // DAW sample rate for audio processing sync
-  _dawSend({ type: "daw:samplerate", content: { rate } });
-};
-
-// Called from boot() to connect the send function and flush queued messages
+// Called from boot() to connect the send function
 function _dawConnectSend(sendFunc, updateMetronome) {
-  _dawSendFunc = sendFunc;
-  // Update send function to also call updateMetronome for tempo changes
-  const originalTempo = window.acDawTempo;
-  window.acDawTempo = (bpm) => {
-    const newBpm = Math.round(bpm);
-    if (newBpm !== _dawBpm && newBpm > 0) {
-      console.log(`🎹 DAW tempo: ${newBpm} BPM`);
-      _dawBpm = newBpm;
-      if (updateMetronome) updateMetronome(newBpm);
-      sendFunc({ type: "daw:tempo", content: { bpm: newBpm } });
-    }
-  };
-  // Flush any queued messages
-  for (const msg of _dawMessageQueue) {
-    sendFunc(msg);
-  }
-  _dawMessageQueue = [];
-  if (window.max) {
-    console.log("🎹 Max for Live detected - DAW sync connected");
+  if (window.acDawConnect) {
+    // Wrap sendFunc to also update metronome
+    const wrappedSend = (msg) => {
+      if (msg.type === "daw:tempo" && updateMetronome) {
+        updateMetronome(msg.content.bpm);
+      }
+      sendFunc(msg);
+    };
+    window.acDawConnect(wrappedSend);
   }
 }
 
