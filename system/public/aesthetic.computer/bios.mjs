@@ -47,6 +47,74 @@ const { assign, keys } = Object;
 const { round, floor, min, max } = Math;
 const { isFinite } = Number;
 
+// 🎹 DAW Sync (for Max for Live integration)
+// These must be defined at module load time (before boot) so M4L can call them immediately.
+// Messages are queued until boot() connects the send function.
+let _dawSendFunc = null;
+let _dawMessageQueue = [];
+let _dawBpm = 60;
+let _dawPlaying = false;
+
+function _dawSend(msg) {
+  if (_dawSendFunc) {
+    _dawSendFunc(msg);
+  } else {
+    _dawMessageQueue.push(msg);
+  }
+}
+
+window.acDawTempo = (bpm) => {
+  const newBpm = Math.round(bpm);
+  if (newBpm !== _dawBpm && newBpm > 0) {
+    console.log(`🎹 DAW tempo: ${newBpm} BPM`);
+    _dawBpm = newBpm;
+    _dawSend({ type: "daw:tempo", content: { bpm: newBpm } });
+  }
+};
+
+window.acDawTransport = (playing) => {
+  const isPlaying = playing === 1;
+  if (isPlaying !== _dawPlaying) {
+    console.log(`🎹 DAW transport: ${isPlaying ? "playing" : "stopped"}`);
+    _dawPlaying = isPlaying;
+    _dawSend({ type: "daw:transport", content: { playing: isPlaying } });
+  }
+};
+
+window.acDawPhase = (time) => {
+  // Song position in beats - for beat-synced visuals
+  _dawSend({ type: "daw:phase", content: { time } });
+};
+
+window.acDawSamplerate = (rate) => {
+  // DAW sample rate for audio processing sync
+  _dawSend({ type: "daw:samplerate", content: { rate } });
+};
+
+// Called from boot() to connect the send function and flush queued messages
+function _dawConnectSend(sendFunc, updateMetronome) {
+  _dawSendFunc = sendFunc;
+  // Update send function to also call updateMetronome for tempo changes
+  const originalTempo = window.acDawTempo;
+  window.acDawTempo = (bpm) => {
+    const newBpm = Math.round(bpm);
+    if (newBpm !== _dawBpm && newBpm > 0) {
+      console.log(`🎹 DAW tempo: ${newBpm} BPM`);
+      _dawBpm = newBpm;
+      if (updateMetronome) updateMetronome(newBpm);
+      sendFunc({ type: "daw:tempo", content: { bpm: newBpm } });
+    }
+  };
+  // Flush any queued messages
+  for (const msg of _dawMessageQueue) {
+    sendFunc(msg);
+  }
+  _dawMessageQueue = [];
+  if (window.max) {
+    console.log("🎹 Max for Live detected - DAW sync connected");
+  }
+}
+
 // 📼 Tape Playback Classes (for multi-tape transitions)
 
 class Tape {
@@ -2876,6 +2944,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // Set the default bpm.
   sound.bpm = bpm;
+
+  // 🎹 DAW Sync (for Max for Live integration)
+  // Connect the send function and flush any queued messages from before boot
+  _dawConnectSend(send, updateMetronome);
 
   function requestBeat(time) {
     send({
@@ -10004,7 +10076,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         }
       } else {
         // For regular pieces, clear parameters but keep the basic path structure
-        window.history.replaceState({}, "", window.location.pathname);
+        // Preserve DAW-related params for M4L integration
+        const currentParams = new URLSearchParams(window.location.search);
+        const dawParams = new URLSearchParams();
+        for (const param of ['daw', 'density', 'nogap', 'width', 'height']) {
+          if (currentParams.has(param)) {
+            dawParams.set(param, currentParams.get(param));
+          }
+        }
+        const queryString = dawParams.toString();
+        const newUrl = window.location.pathname + (queryString ? '?' + queryString : '');
+        window.history.replaceState({}, "", newUrl);
       }
 
       // if (currentPiece !== null) firstPiece = false;
@@ -10713,7 +10795,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (type === "beat:skip") {
-      beatSkip();
+      beatSkip?.();
       return;
     }
     if (type === "synth:update") {
