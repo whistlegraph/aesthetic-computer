@@ -147,10 +147,17 @@ RUN set -eux; \
     chmod +x /usr/local/bin/doctl
 
 # --- PowerShell (for running Windows scripts on Linux) -----------------------
-RUN dnf install -y curl && \
-    curl -sSL -o /etc/yum.repos.d/microsoft-prod.repo https://packages.microsoft.com/config/fedora/$(rpm -E %fedora)/prod.repo && \
-    dnf install -y powershell && \
-    dnf clean all && rm -rf /var/cache/dnf
+# Install from GitHub releases since Microsoft's repo doesn't have Fedora 43 packages yet
+RUN ARCH=$(uname -m) && \
+    if [ "$ARCH" = "x86_64" ]; then PS_ARCH="x64"; else PS_ARCH="arm64"; fi && \
+    PS_VERSION=$(curl -s https://api.github.com/repos/PowerShell/PowerShell/releases/latest | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/') && \
+    curl -sSL -o /tmp/powershell.tar.gz "https://github.com/PowerShell/PowerShell/releases/download/v${PS_VERSION}/powershell-${PS_VERSION}-linux-${PS_ARCH}.tar.gz" && \
+    mkdir -p /opt/microsoft/powershell/7 && \
+    tar -xzf /tmp/powershell.tar.gz -C /opt/microsoft/powershell/7 && \
+    chmod +x /opt/microsoft/powershell/7/pwsh && \
+    ln -s /opt/microsoft/powershell/7/pwsh /usr/local/bin/pwsh && \
+    ln -s /opt/microsoft/powershell/7/pwsh /usr/local/bin/powershell && \
+    rm /tmp/powershell.tar.gz
 
 # --- s3cmd (for DigitalOcean Spaces management) -------------------------------
 RUN dnf install -y s3cmd && dnf clean all
