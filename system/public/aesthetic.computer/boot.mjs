@@ -124,12 +124,19 @@ if (window.parent) {
   window.parent.postMessage({ type: "kidlisp-ready", ready: true }, "*");
 }
 
+// 🎹 DAW mode: Send ready signal to Max/MSP via jweb~ outlet
+// This triggers the Live API sync (tempo, transport observers)
+if (window.max?.outlet) {
+  window.max.outlet("ready", 1);
+  console.log("🎹 Sent ready signal to Max");
+}
+
 // List of legitimate query parameters that should be preserved
 const LEGITIMATE_PARAMS = [
   'icon', 'preview', 'signup', 'supportSignUp', 'success', 'code', 
   'supportForgotPassword', 'message', 'vscode', 'nogap', 'nolabel', 
   'density', 'zoom', 'duration', 'session-aesthetic', 'session-sotce', 'notice', 'tv', 'highlight',
-  'noauth', 'nocache'
+  'noauth', 'nocache', 'daw', 'width', 'height'
 ];
 
 // Auth0 parameters that need to be temporarily processed but then removed
