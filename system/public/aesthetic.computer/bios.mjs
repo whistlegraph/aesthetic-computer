@@ -14786,8 +14786,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       needsReappearance = false;
     }
 
-    // 📸 PACK mode: Log frame to console every 1000 frames (after render completes)
-    if (window.acPACK_MODE && frameCount % 1000n === 0n && canvas) {
+    // 📸 PACK mode: Log frame to console every 500 frames (after render completes)
+    if (window.acPACK_MODE && frameCount % 500n === 0n && canvas) {
       try {
         const w = canvas.width;
         const h = canvas.height;
@@ -14812,14 +14812,18 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         const displayW = aspect >= 1 ? displayMax : Math.round(displayMax * aspect);
         const displayH = aspect >= 1 ? Math.round(displayMax / aspect) : displayMax;
         
-        // Timestamp
+        // Timestamp with time of day
         const now = new Date();
-        const ts = now.toLocaleTimeString('en-US', { hour12: false });
+        const ts = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true });
+        
+        // Get piece code from URL
+        const pieceCode = window.acPACK_URL || '$piece';
         
         console.log(
-          `%c${ts} %cFrame ${frameCount} %c[${w}×${h}]`,
+          `%c📸 ${pieceCode} %c@ ${ts} %c• Frame ${frameCount} %c[${w}×${h}]`,
+          `color: #4ecdc4; font-weight: bold; font-size: 11px; font-family: monospace;`,
+          `color: #f8b500; font-size: 10px; font-family: monospace;`,
           `color: #888; font-size: 10px; font-family: monospace;`,
-          `color: #4ecdc4; font-size: 10px; font-family: monospace;`,
           `color: #666; font-size: 10px; font-family: monospace;`
         );
         console.log(

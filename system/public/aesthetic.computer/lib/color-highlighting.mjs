@@ -413,7 +413,7 @@ export function getColorTokenHighlight(token) {
   
   // Check if this is a fade expression like "fade:red-blue-yellow" (case-insensitive)
   if (lowerToken.startsWith("fade:")) {
-    return "mediumseagreen"; // Give fade expressions a distinct emerald color
+    return `FADE:${cleanToken}`; // Return special marker with the original token for coloring
   }
 
   // Default for unrecognized colors
