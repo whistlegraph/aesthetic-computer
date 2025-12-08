@@ -33,9 +33,24 @@ let recentIntervals = [];
 let bpmHistory = [];
 const SMOOTHING_FACTOR = 0.08; // Much lower = much more smoothing
 let tapFlash = false;
+let currentBpmDisplay = 180; // Default BPM to show before first beat
 
-function boot({ sound }) {
+// DAW sync state (tracked at module level for paint access)
+let dawSynced = false;
+let dawBpm = null;
+let dawPlaying = false;
+let dawMode = false; // Set from query param
+
+function boot({ sound, hud, query }) {
+  // Check if we're in DAW mode (loaded from Ableton M4L)
+  dawMode = query?.daw === "1" || query?.daw === 1;
+  if (dawMode) {
+    console.log("🎹 Metronome: DAW mode enabled");
+  }
+  
   sound.skip(); // 💀 Send a signal to skip to the next beat.
+  // Show initial state even before audio starts
+  hud.label(`BPM: ${currentBpmDisplay} (tap to start)`);
 }
 
 let odd = false;
@@ -44,15 +59,26 @@ let odd = false;
 function beat({ api, sound, params, store, hud }) {
   // Set the system metronome using `store`.
   let newBpm;
-  if (params) {
-    if (params[0] === "fast") newBpm = 300;
-    else if (params[0] === "medium") newBpm = 120;
-    else if (params[0] === "slow") newBpm = 80;
-    else newBpm = parseInt(params[0]);
+  
+  // 🎹 Track DAW sync state for paint function
+  if (sound.daw?.bpm) {
+    dawSynced = true;
+    dawBpm = sound.daw.bpm;
+    dawPlaying = sound.daw?.playing ?? false;
+    newBpm = sound.daw.bpm;
+  } else {
+    dawSynced = false;
+    dawBpm = null;
+    if (params) {
+      if (params[0] === "fast") newBpm = 300;
+      else if (params[0] === "medium") newBpm = 120;
+      else if (params[0] === "slow") newBpm = 80;
+      else newBpm = parseInt(params[0]);
+    }
   }
 
-  // Use calculated BPM from tapping if available
-  if (bpmUpdatePending && calculatedBpm) {
+  // Use calculated BPM from tapping if available (and no DAW sync)
+  if (!dawSynced && bpmUpdatePending && calculatedBpm) {
     newBpm = calculatedBpm;
     bpmUpdatePending = false;
   }
@@ -62,7 +88,7 @@ function beat({ api, sound, params, store, hud }) {
 
   // Update HUD with current BPM and tap info
   if (hud) {
-    const tapCount = totalTapCount > 0 ? ` (${totalTapCount} taps)` : '';
+    const tapCount = !dawSynced && totalTapCount > 0 ? ` (${totalTapCount} taps)` : '';
     hud.label(`BPM: ${Math.round(currentBpm)}${tapCount}`);
   }
 
@@ -126,9 +152,20 @@ function beat({ api, sound, params, store, hud }) {
 
 let squareP = 0;
 
-function sim({ sound: { time, bpm } }) {
+function sim({ sound }) {
+  // 🎹 Update DAW state from sound.daw (updated continuously by bios.mjs)
+  if (dawMode && sound.daw) {
+    if (sound.daw.bpm !== null) {
+      dawSynced = true;
+      dawBpm = Math.round(sound.daw.bpm);
+    }
+    if (sound.daw.playing !== null) {
+      dawPlaying = sound.daw.playing;
+    }
+  }
+
   if (square) {
-    const p = square.progress(time);
+    const p = square.progress(sound.time);
     squareP = p;
     flashColor[0] = 0;
     flashColor[1] = 0;
@@ -142,22 +179,21 @@ function sim({ sound: { time, bpm } }) {
   }
 }
 
-function paint({ wipe, ink, line, screen, num: { lerp } }) {
+function paint({ wipe, ink, line, screen, num: { lerp }, text }) {
   // Combine beat flash and tap flash
   const shouldFlash = flash || tapFlash;
   const currentFlashColor = tapFlash ? [255, 200, 100] : flashColor;
   
   wipe(shouldFlash ? currentFlashColor : 0);
 
-  if (!square) return;
-
   const baseAngle = -90;
   const left = baseAngle - 20;
   const right = baseAngle + 20;
 
   let angle = melodyIndex === 0 ? lerp(left, right, squareP) : lerp(right, left, squareP);
-  if (firstBeat) angle = left;
+  if (firstBeat || !square) angle = left;
 
+  // Always draw the pendulum line (even before audio starts)
   ink(255).lineAngle(
     screen.width / 2,
     screen.height - screen.height / 4,
@@ -165,8 +201,46 @@ function paint({ wipe, ink, line, screen, num: { lerp } }) {
     angle,
   );
 
+  // 🎹 DAW mode UI - show BPM and play/stop state
+  if (dawMode) {
+    // BPM display (bottom center)
+    const bpmText = dawSynced ? `${dawBpm}` : "---";
+    const bpmColor = dawSynced ? [255, 255, 255] : [100, 100, 100];
+    ink(bpmColor).write(bpmText, { x: screen.width / 2, y: screen.height - 30, center: "x" });
+    ink(100).write("BPM", { x: screen.width / 2, y: screen.height - 18, center: "x" });
+    
+    // Play/Stop triangle (top-left)
+    const triX = 12;
+    const triY = 16;
+    const triSize = 8;
+    
+    if (dawPlaying) {
+      // Green play triangle (pointing right)
+      ink([100, 255, 100]).poly([
+        [triX, triY - triSize],
+        [triX, triY + triSize],
+        [triX + triSize * 1.5, triY]
+      ], true);
+    } else {
+      // Orange/yellow stop square
+      ink([255, 200, 100]).box(triX - 4, triY - triSize + 2, triSize + 2, triSize + 2, "fill");
+    }
+    
+    // Sync status dot
+    if (dawSynced) {
+      ink([100, 255, 100]).circle(screen.width - 10, 10, 4, true);
+    } else {
+      ink([255, 100, 100]).circle(screen.width - 10, 10, 4, true);
+    }
+  }
+
+  // If audio hasn't started yet and NOT in DAW mode, show a prompt
+  if (!square && !dawMode) {
+    ink(100).write("tap to start", { x: screen.width / 2, y: screen.height / 2 - 10, center: "xy" });
+  }
+
   // Half-step indicator - show blue dot when we're past midpoint
-  if (squareP > 0.5) {
+  if (square && squareP > 0.5) {
     const halfProgress = (squareP - 0.5) * 2; // 0-1 for second half
     const dotY = screen.height - screen.height / 3;
     const dotSize = 3 + halfProgress * 3;

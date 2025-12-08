@@ -47,6 +47,26 @@ const { assign, keys } = Object;
 const { round, floor, min, max } = Math;
 const { isFinite } = Number;
 
+// 🎹 DAW Sync (for Max for Live integration)
+// The global window.acDaw* functions are defined in index.mjs HTML before modules load.
+// This allows M4L's executejavascript to call them immediately.
+// bios.mjs just connects the send function via window.acDawConnect().
+let _dawBpm = 60;
+
+// Called from boot() to connect the send function
+function _dawConnectSend(sendFunc, updateMetronome) {
+  if (window.acDawConnect) {
+    // Wrap sendFunc to also update metronome
+    const wrappedSend = (msg) => {
+      if (msg.type === "daw:tempo" && updateMetronome) {
+        updateMetronome(msg.content.bpm);
+      }
+      sendFunc(msg);
+    };
+    window.acDawConnect(wrappedSend);
+  }
+}
+
 // 📼 Tape Playback Classes (for multi-tape transitions)
 
 class Tape {
@@ -2876,6 +2896,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // Set the default bpm.
   sound.bpm = bpm;
+
+  // 🎹 DAW Sync (for Max for Live integration)
+  // Connect the send function and flush any queued messages from before boot
+  _dawConnectSend(send, updateMetronome);
 
   function requestBeat(time) {
     send({
@@ -10004,7 +10028,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         }
       } else {
         // For regular pieces, clear parameters but keep the basic path structure
-        window.history.replaceState({}, "", window.location.pathname);
+        // Preserve DAW-related params for M4L integration
+        const currentParams = new URLSearchParams(window.location.search);
+        const dawParams = new URLSearchParams();
+        for (const param of ['daw', 'density', 'nogap', 'width', 'height']) {
+          if (currentParams.has(param)) {
+            dawParams.set(param, currentParams.get(param));
+          }
+        }
+        const queryString = dawParams.toString();
+        const newUrl = window.location.pathname + (queryString ? '?' + queryString : '');
+        window.history.replaceState({}, "", newUrl);
       }
 
       // if (currentPiece !== null) firstPiece = false;
@@ -10713,7 +10747,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (type === "beat:skip") {
-      beatSkip();
+      beatSkip?.();
       return;
     }
     if (type === "synth:update") {

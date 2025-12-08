@@ -222,16 +222,16 @@ def generate_patcher(device: dict, defaults: dict, production: bool = False) -> 
                         "text": "live.observer tempo"
                     }
                 },
-                # Tempo: format message for jweb - use bindInlet pattern
+                # Tempo: sprintf to format the JS command with actual value
                 {
                     "box": {
-                        "id": "obj-tempo-fmt",
-                        "maxclass": "message",
-                        "numinlets": 2,
+                        "id": "obj-tempo-sprintf",
+                        "maxclass": "newobj",
+                        "numinlets": 1,
                         "numoutlets": 1,
                         "outlettype": [""],
-                        "patching_rect": [260.0, 350.0, 80.0, 22.0],
-                        "text": "tempo $1"
+                        "patching_rect": [260.0, 320.0, 280.0, 22.0],
+                        "text": "sprintf executejavascript window.acDawTempo(%f)"
                     }
                 },
                 # Debug: Print tempo to Max console
@@ -243,6 +243,17 @@ def generate_patcher(device: dict, defaults: dict, production: bool = False) -> 
                         "numoutlets": 0,
                         "patching_rect": [400.0, 320.0, 80.0, 22.0],
                         "text": "print [AC-TEMPO]"
+                    }
+                },
+                # Debug: Print tempo script command to Max console
+                {
+                    "box": {
+                        "id": "obj-tempo-script-print",
+                        "maxclass": "newobj",
+                        "numinlets": 1,
+                        "numoutlets": 0,
+                        "patching_rect": [400.0, 380.0, 120.0, 22.0],
+                        "text": "print [AC-TEMPO-SCRIPT]"
                     }
                 },
                 # Transport: observer with property argument
@@ -257,16 +268,16 @@ def generate_patcher(device: dict, defaults: dict, production: bool = False) -> 
                         "text": "live.observer is_playing"
                     }
                 },
-                # Transport: format message for jweb - use bindInlet pattern
+                # Transport: sprintf to format the JS command with actual value
                 {
                     "box": {
-                        "id": "obj-transport-fmt",
-                        "maxclass": "message",
-                        "numinlets": 2,
+                        "id": "obj-transport-sprintf",
+                        "maxclass": "newobj",
+                        "numinlets": 1,
                         "numoutlets": 1,
                         "outlettype": [""],
-                        "patching_rect": [260.0, 420.0, 90.0, 22.0],
-                        "text": "transport $1"
+                        "patching_rect": [260.0, 390.0, 290.0, 22.0],
+                        "text": "sprintf executejavascript window.acDawTransport(%d)"
                     }
                 },
                 # Debug: Print transport to Max console
@@ -292,16 +303,16 @@ def generate_patcher(device: dict, defaults: dict, production: bool = False) -> 
                         "text": "live.observer current_song_time"
                     }
                 },
-                # Beat phase: format message for jweb
+                # Beat phase: sprintf to format the JS command with actual value
                 {
                     "box": {
-                        "id": "obj-phase-fmt",
-                        "maxclass": "message",
-                        "numinlets": 2,
+                        "id": "obj-phase-sprintf",
+                        "maxclass": "newobj",
+                        "numinlets": 1,
                         "numoutlets": 1,
                         "outlettype": [""],
-                        "patching_rect": [260.0, 520.0, 70.0, 22.0],
-                        "text": "phase $1"
+                        "patching_rect": [260.0, 490.0, 280.0, 22.0],
+                        "text": "sprintf executejavascript window.acDawPhase(%f)"
                     }
                 },
                 # Sample rate: live.path to get master_track for sample_rate property
@@ -317,16 +328,16 @@ def generate_patcher(device: dict, defaults: dict, production: bool = False) -> 
                         "text": "live.observer sample_rate"
                     }
                 },
-                # Sample rate: format message for jweb
+                # Sample rate: sprintf to format the JS command with actual value
                 {
                     "box": {
-                        "id": "obj-samplerate-fmt",
-                        "maxclass": "message",
-                        "numinlets": 2,
+                        "id": "obj-samplerate-sprintf",
+                        "maxclass": "newobj",
+                        "numinlets": 1,
                         "numoutlets": 1,
                         "outlettype": [""],
-                        "patching_rect": [460.0, 420.0, 90.0, 22.0],
-                        "text": "samplerate $1"
+                        "patching_rect": [460.0, 390.0, 300.0, 22.0],
+                        "text": "sprintf executejavascript window.acDawSamplerate(%d)"
                     }
                 },
                 # Debug: Print sample rate to Max console
@@ -518,23 +529,24 @@ def generate_patcher(device: dict, defaults: dict, production: bool = False) -> 
                 {"patchline": {"destination": ["obj-phase-observer", 1], "source": ["obj-tempo-path", 0]}},
                 {"patchline": {"destination": ["obj-samplerate-observer", 1], "source": ["obj-tempo-path", 0]}},
                 
-                # Tempo observer -> format -> jweb + print
-                {"patchline": {"destination": ["obj-tempo-fmt", 0], "source": ["obj-tempo-observer", 0]}},
-                {"patchline": {"destination": ["obj-jweb", 0], "source": ["obj-tempo-fmt", 0]}},
+                # Tempo observer -> sprintf -> jweb + print (also print the formatted script command)
+                {"patchline": {"destination": ["obj-tempo-sprintf", 0], "source": ["obj-tempo-observer", 0]}},
+                {"patchline": {"destination": ["obj-jweb", 0], "source": ["obj-tempo-sprintf", 0]}},
                 {"patchline": {"destination": ["obj-tempo-print", 0], "source": ["obj-tempo-observer", 0]}},
+                {"patchline": {"destination": ["obj-tempo-script-print", 0], "source": ["obj-tempo-sprintf", 0]}},
                 
-                # Transport observer -> format -> jweb + print
-                {"patchline": {"destination": ["obj-transport-fmt", 0], "source": ["obj-transport-observer", 0]}},
-                {"patchline": {"destination": ["obj-jweb", 0], "source": ["obj-transport-fmt", 0]}},
+                # Transport observer -> sprintf -> jweb + print
+                {"patchline": {"destination": ["obj-transport-sprintf", 0], "source": ["obj-transport-observer", 0]}},
+                {"patchline": {"destination": ["obj-jweb", 0], "source": ["obj-transport-sprintf", 0]}},
                 {"patchline": {"destination": ["obj-transport-print", 0], "source": ["obj-transport-observer", 0]}},
                 
-                # Phase observer -> format -> jweb (for beat position sync)
-                {"patchline": {"destination": ["obj-phase-fmt", 0], "source": ["obj-phase-observer", 0]}},
-                {"patchline": {"destination": ["obj-jweb", 0], "source": ["obj-phase-fmt", 0]}},
+                # Phase observer -> sprintf -> jweb (for beat position sync)
+                {"patchline": {"destination": ["obj-phase-sprintf", 0], "source": ["obj-phase-observer", 0]}},
+                {"patchline": {"destination": ["obj-jweb", 0], "source": ["obj-phase-sprintf", 0]}},
                 
-                # Sample rate observer -> format -> jweb + print
-                {"patchline": {"destination": ["obj-samplerate-fmt", 0], "source": ["obj-samplerate-observer", 0]}},
-                {"patchline": {"destination": ["obj-jweb", 0], "source": ["obj-samplerate-fmt", 0]}},
+                # Sample rate observer -> sprintf -> jweb + print
+                {"patchline": {"destination": ["obj-samplerate-sprintf", 0], "source": ["obj-samplerate-observer", 0]}},
+                {"patchline": {"destination": ["obj-jweb", 0], "source": ["obj-samplerate-sprintf", 0]}},
                 {"patchline": {"destination": ["obj-samplerate-print", 0], "source": ["obj-samplerate-observer", 0]}},
                 
                 # MIDI routing: midiin -> midiparse
@@ -591,10 +603,16 @@ def install_to_ableton(amxd_path: Path, remote_host: str = None) -> None:
     """Copy .amxd to Ableton User Library."""
     
     if remote_host:
-        # Remote install via SSH
+        # Remote install via SSH - use single quotes around the whole remote path
         dest = f"/Users/jas/Music/Ableton/User Library/Presets/Instruments/Max Instrument/{amxd_path.name}"
-        os.system(f'scp "{amxd_path}" {remote_host}:"{dest}"')
-        print(f"   📦 Installed to: {remote_host}")
+        # Escape single quotes in dest path and wrap in single quotes for shell
+        escaped_dest = dest.replace("'", "'\\''")
+        cmd = f"scp '{amxd_path}' '{remote_host}:{escaped_dest}'"
+        result = os.system(cmd)
+        if result == 0:
+            print(f"   📦 Installed to: {remote_host}")
+        else:
+            print(f"   ❌ Failed to install (exit code {result})")
     else:
         # Local install
         user_library = Path.home() / "Music" / "Ableton" / "User Library" / "Presets" / "Instruments" / "Max Instrument"
@@ -632,6 +650,15 @@ def main():
         if arg.startswith("--remote="):
             remote = arg.split("=", 1)[1]
     
+    # Auto-detect remote host from machines.json when in devcontainer
+    if install and not remote:
+        # Check if we're in devcontainer (Docker)
+        in_devcontainer = os.path.exists("/.dockerenv") or os.environ.get("REMOTE_CONTAINERS")
+        if in_devcontainer:
+            # Default to MacBook via Docker host gateway
+            remote = "jas@host.docker.internal"
+            print(f"📡 Auto-detected devcontainer, using remote: {remote}")
+    
     # Get specific device filter
     device_filter = None
     for arg in sys.argv[1:]:
@@ -645,26 +672,45 @@ def main():
             print(f"   • {d['name']} ({d['piece']})")
         return
     
-    mode = "PRODUCTION" if production else "DEV"
+    # Get base URL for display in device names
+    base_url = defaults.get("baseUrl", "https://localhost:8888")
+    
+    mode = "PRODUCTION" if production else f"DEV → {base_url}"
     print(f"🎹 Building AC M4L Device Suite [{mode}]")
     print("=" * 40)
     
     built = []
     for device in devices:
-        name = device["name"]
+        original_name = device["name"]
         piece = device["piece"]
         
         # Filter if specified
-        if device_filter and device_filter not in piece.lower() and device_filter not in name.lower():
+        if device_filter and device_filter not in piece.lower() and device_filter not in original_name.lower():
             continue
         
-        print(f"\n🔧 {name}")
+        # For dev builds, include the base URL in the device name
+        if production:
+            display_name = f"AC 🟪 {piece} (aesthetic.computer)"
+        else:
+            # Extract host from URL for cleaner display
+            url_host = base_url.replace("https://", "").replace("http://", "")
+            display_name = f"AC 🟪 {piece} ({url_host})"
         
-        # Generate patcher
-        patcher = generate_patcher(device, defaults, production=production)
+        print(f"\n🔧 {display_name}")
         
-        # Build .amxd - use piece name for filename (avoid emoji issues)
-        output_path = script_dir / f"AC {piece.title()}.amxd"
+        # Generate patcher with updated name
+        device_copy = device.copy()
+        device_copy["name"] = display_name
+        patcher = generate_patcher(device_copy, defaults, production=production)
+        
+        # Build .amxd - include URL in filename so it's visible in Ableton's browser
+        if production:
+            filename = f"AC 🟪 {piece} (aesthetic.computer).amxd"
+        else:
+            url_host = base_url.replace("https://", "").replace("http://", "")
+            filename = f"AC 🟪 {piece} ({url_host}).amxd"
+        
+        output_path = script_dir / filename
         size = build_amxd(patcher, output_path)
         print(f"   ✅ Built: {output_path.name} ({size} bytes)")
         
