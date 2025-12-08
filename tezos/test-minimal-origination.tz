@@ -1,3 +1,0 @@
-parameter (or nat string);
-storage (pair address nat);
-code {UNPAIR; IF_LEFT {DROP; NIL operation; PAIR} {DROP; NIL operation; PAIR}};

@@ -551,6 +551,7 @@ function generateHTML(opts) {
     window.acPACK_PIECE = "${PIECE_NAME}";
     window.acPACK_DATE = "${packDate}";
     window.acPACK_GIT = "${gitVersion}";
+    window.acPACK_URL = "https://aesthetic.computer/${PIECE_NAME}";
     window.acKIDLISP_SOURCE = ${JSON.stringify(mainSource)};
     
     // Colophon data

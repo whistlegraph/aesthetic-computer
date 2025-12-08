@@ -296,11 +296,27 @@ class ArteryTUI {
       { key: 'r', label: 'REPL Mode', desc: 'Interactive JavaScript console', action: () => this.enterReplMode() },
       { key: 't', label: 'Run Tests', desc: 'Execute test suite', action: () => this.runTests() },
       { key: 'l', label: 'View Logs', desc: 'AC console output', action: () => this.enterLogsMode() },
+      { key: 'z', label: 'Keeps (Tezos)', desc: 'Tezos FA2 NFT minting', action: () => this.enterKeepsMode() },
       { key: 'a', label: 'Activate Audio', desc: 'Click to enable audio', action: () => this.activateAudio() },
       { key: 'w', label: 'WebGPU Perf', desc: 'Monitor WebGPU performance', action: () => this.webgpuPerf() },
       { key: 'x', label: 'Reconnect', desc: 'Reconnect to AC', action: () => this.reconnect() },
       { key: 'q', label: 'Quit', desc: 'Exit Artery TUI', action: () => this.quit() },
     ];
+    
+    // Keeps (Tezos) state
+    this.keepsMenu = [
+      { key: 'd', label: 'Deploy Contract', desc: 'Deploy FA2 to Ghostnet' },
+      { key: 's', label: 'Status', desc: 'Check contract status' },
+      { key: 'b', label: 'Balance', desc: 'Check wallet balance' },
+      { key: 'u', label: 'Upload to IPFS', desc: 'Upload bundle to Pinata' },
+      { key: 'm', label: 'Mint Token', desc: 'Mint a new keep' },
+      { key: 't', label: 'List Tokens', desc: 'Show all minted tokens' },
+    ];
+    this.keepsSelectedIndex = 0;
+    this.keepsOutput = '';
+    this.keepsRunning = false;
+    this.keepsPieceInput = '';
+    this.keepsSubMode = 'menu'; // 'menu', 'piece-input', 'running'
     
     // Site monitoring state
     this.siteProcess = null;
@@ -900,6 +916,9 @@ class ArteryTUI {
         break;
       case 'site':
         this.handleSiteInput(key);
+        break;
+      case 'keeps':
+        this.handleKeepsInput(key);
         break;
     }
   }
@@ -1908,6 +1927,205 @@ class ArteryTUI {
     this.render();
   }
 
+  // 🔮 Keeps (Tezos FA2) Mode
+  enterKeepsMode() {
+    this.mode = 'keeps';
+    this.keepsSelectedIndex = 0;
+    this.keepsOutput = 'Welcome to Keeps - Tezos FA2 NFT Minting\n\nSelect an action from the menu.';
+    this.keepsRunning = false;
+    this.keepsPieceInput = '';
+    this.keepsSubMode = 'menu';
+    this.render();
+  }
+
+  handleKeepsInput(key) {
+    if (this.keepsRunning) {
+      // While running, only ESC cancels (though we can't actually cancel)
+      return;
+    }
+    
+    if (this.keepsSubMode === 'piece-input') {
+      // Handle piece name input
+      if (key === '\r') {
+        // Enter - submit
+        const piece = this.keepsPieceInput.trim();
+        if (piece) {
+          this.keepsSubMode = 'running';
+          this.executeKeepsAction(this.keepsMenu[this.keepsSelectedIndex].key, piece);
+        }
+        return;
+      } else if (key === '\u007f' || key === '\b') {
+        // Backspace
+        this.keepsPieceInput = this.keepsPieceInput.slice(0, -1);
+      } else if (key === '\u001b') {
+        // Escape - back to menu
+        this.keepsSubMode = 'menu';
+        this.keepsPieceInput = '';
+      } else if (key.length === 1 && key >= ' ') {
+        this.keepsPieceInput += key;
+      }
+      this.render();
+      return;
+    }
+    
+    // Menu navigation
+    if (key === '\u001b[A' || key === 'k') { // Up
+      this.keepsSelectedIndex = Math.max(0, this.keepsSelectedIndex - 1);
+    } else if (key === '\u001b[B' || key === 'j') { // Down
+      this.keepsSelectedIndex = Math.min(this.keepsMenu.length - 1, this.keepsSelectedIndex + 1);
+    } else if (key === '\r') { // Enter
+      const action = this.keepsMenu[this.keepsSelectedIndex];
+      if (action.key === 'u' || action.key === 'm') {
+        // Upload and Mint need piece input
+        this.keepsSubMode = 'piece-input';
+        this.keepsPieceInput = this.currentPiece || '';
+      } else {
+        this.keepsSubMode = 'running';
+        this.executeKeepsAction(action.key);
+      }
+    } else {
+      // Direct key press
+      const action = this.keepsMenu.find(m => m.key === key.toLowerCase());
+      if (action) {
+        this.keepsSelectedIndex = this.keepsMenu.indexOf(action);
+        if (action.key === 'u' || action.key === 'm') {
+          this.keepsSubMode = 'piece-input';
+          this.keepsPieceInput = this.currentPiece || '';
+        } else {
+          this.keepsSubMode = 'running';
+          this.executeKeepsAction(action.key);
+        }
+      }
+    }
+    this.render();
+  }
+
+  async executeKeepsAction(actionKey, piece = null) {
+    this.keepsRunning = true;
+    this.keepsOutput = '⏳ Running...\n';
+    this.render();
+    
+    const keepsScript = path.join(process.cwd(), 'tezos/keeps.mjs');
+    
+    let cmd;
+    switch (actionKey) {
+      case 'd':
+        cmd = `node "${keepsScript}" deploy`;
+        break;
+      case 's':
+        cmd = `node "${keepsScript}" status`;
+        break;
+      case 'b':
+        cmd = `node "${keepsScript}" balance`;
+        break;
+      case 'u':
+        cmd = `node "${keepsScript}" upload "${piece}"`;
+        break;
+      case 'm':
+        cmd = `node "${keepsScript}" mint "${piece}"`;
+        break;
+      case 't':
+        cmd = `node "${keepsScript}" status`;
+        break;
+      default:
+        this.keepsOutput = '❌ Unknown action';
+        this.keepsRunning = false;
+        this.keepsSubMode = 'menu';
+        this.render();
+        return;
+    }
+    
+    try {
+      const result = execSync(cmd, { 
+        encoding: 'utf8', 
+        timeout: 120000,
+        cwd: process.cwd(),
+        maxBuffer: 10 * 1024 * 1024
+      });
+      this.keepsOutput = result;
+      this.setStatus('Keeps operation completed', 'success');
+    } catch (error) {
+      if (error.stdout) {
+        this.keepsOutput = error.stdout + '\n' + (error.stderr || '');
+      } else {
+        this.keepsOutput = `❌ Error: ${error.message}`;
+      }
+      this.setStatus('Keeps operation failed', 'error');
+    }
+    
+    this.keepsRunning = false;
+    this.keepsSubMode = 'menu';
+    this.render();
+  }
+
+  renderKeeps() {
+    const boxWidth = this.innerWidth;
+    const compact = this.width < 80;
+    
+    // Header
+    this.writeLine(`${DOS_TITLE}${'═'.repeat(boxWidth)}${RESET}`);
+    this.writeLine(`${DOS_TITLE}  🔮 KEEPS - Tezos FA2 NFT Minting${' '.repeat(Math.max(0, boxWidth - 35))}${RESET}`);
+    this.writeLine(`${DOS_TITLE}${'═'.repeat(boxWidth)}${RESET}`);
+    this.writeLine('');
+    
+    // Menu items
+    for (let i = 0; i < this.keepsMenu.length; i++) {
+      const item = this.keepsMenu[i];
+      const selected = i === this.keepsSelectedIndex;
+      const prefix = selected ? `${FG_BRIGHT_YELLOW}▶ ` : `${FG_CYAN}  `;
+      const keyStyle = selected ? `${BG_CYAN}${FG_BLACK}` : `${FG_BRIGHT_MAGENTA}`;
+      const labelStyle = selected ? `${FG_BRIGHT_YELLOW}${BOLD}` : `${FG_WHITE}`;
+      const descStyle = `${DIM}${FG_CYAN}`;
+      
+      const line = `${prefix}${keyStyle}[${item.key}]${RESET}${BG_BLUE} ${labelStyle}${item.label}${RESET}${BG_BLUE} ${descStyle}${item.desc}${RESET}`;
+      this.writeLine(line);
+    }
+    
+    this.writeLine('');
+    
+    // Piece input if in that mode
+    if (this.keepsSubMode === 'piece-input') {
+      this.writeLine(`${FG_BRIGHT_YELLOW}Enter piece name: ${FG_WHITE}${this.keepsPieceInput}█${RESET}`);
+      this.writeLine(`${DIM}(Current piece: ${this.currentPiece || 'none'})${RESET}`);
+      this.writeLine('');
+    }
+    
+    // Output box
+    this.writeLine(`${FG_CYAN}${'─'.repeat(boxWidth)}${RESET}`);
+    this.writeLine(`${FG_BRIGHT_CYAN}Output:${RESET}`);
+    this.writeLine('');
+    
+    // Split output into lines and display
+    const outputLines = (this.keepsOutput || '').split('\n');
+    const maxOutputLines = Math.max(5, this.innerHeight - 20);
+    const startLine = Math.max(0, outputLines.length - maxOutputLines);
+    
+    for (let i = startLine; i < outputLines.length; i++) {
+      let line = outputLines[i];
+      // Color code output
+      if (line.includes('✅') || line.includes('✓')) {
+        line = `${FG_BRIGHT_GREEN}${line}${RESET}`;
+      } else if (line.includes('❌') || line.includes('Error')) {
+        line = `${FG_BRIGHT_RED}${line}${RESET}`;
+      } else if (line.includes('⏳') || line.includes('...')) {
+        line = `${FG_BRIGHT_YELLOW}${line}${RESET}`;
+      } else if (line.includes('📍') || line.includes('🔗') || line.includes('💰')) {
+        line = `${FG_BRIGHT_CYAN}${line}${RESET}`;
+      }
+      // Truncate long lines
+      if (this.stripAnsi(line).length > boxWidth - 2) {
+        line = line.slice(0, boxWidth - 5) + '...';
+      }
+      this.writeLine(`  ${line}`);
+    }
+    
+    // Status bar
+    this.writeLine('');
+    this.writeLine(`${FG_CYAN}${'─'.repeat(boxWidth)}${RESET}`);
+    const statusText = this.keepsRunning ? `${FG_BRIGHT_YELLOW}Running...` : `${FG_GREEN}Ready`;
+    this.writeLine(`${statusText}${RESET}${BG_BLUE}  ${DIM}ESC=Back  ↑↓=Navigate  Enter=Select${RESET}`);
+  }
+
   async activateAudio() {
     if (!this.connected) {
       this.setStatus('Not connected', 'error');
@@ -2049,6 +2267,9 @@ class ArteryTUI {
         break;
       case 'site':
         this.renderSite();
+        break;
+      case 'keeps':
+        this.renderKeeps();
         break;
     }
     
