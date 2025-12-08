@@ -14792,12 +14792,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         const w = canvas.width;
         const h = canvas.height;
         
-        // Render at 2x for crisp display
-        const scaleFactor = 2;
+        // Render at 3x for crisp pixelated display
+        const scaleFactor = 3;
         const thumbW = w * scaleFactor;
         const thumbH = h * scaleFactor;
         
-        // Create thumbnail canvas at 2x
+        // Create thumbnail canvas at 3x
         const thumbCanvas = document.createElement('canvas');
         thumbCanvas.width = thumbW;
         thumbCanvas.height = thumbH;
@@ -14806,8 +14806,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         thumbCtx.drawImage(canvas, 0, 0, thumbW, thumbH);
         const dataUrl = thumbCanvas.toDataURL('image/png');
         
-        // Display size (fit to ~120px max dimension)
-        const displayMax = 120;
+        // Display size (fit to ~200px max dimension for larger preview)
+        const displayMax = 200;
         const aspect = w / h;
         const displayW = aspect >= 1 ? displayMax : Math.round(displayMax * aspect);
         const displayH = aspect >= 1 ? Math.round(displayMax / aspect) : displayMax;
@@ -14816,8 +14816,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         const now = new Date();
         const ts = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true });
         
-        // Get piece code from URL
-        const pieceCode = window.acPACK_URL || '$piece';
+        // Get piece code (use acPACK_PIECE for the short name like "roz")
+        const pieceName = window.acPACK_PIECE || 'piece';
+        const pieceCode = pieceName.startsWith('$') ? pieceName : `$${pieceName}`;
         
         console.log(
           `%c📸 ${pieceCode} %c@ ${ts} %c• Frame ${frameCount} %c[${w}×${h}]`,
