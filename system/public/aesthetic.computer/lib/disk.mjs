@@ -8058,6 +8058,36 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  // 🎹 DAW Sync messages (from Max for Live via bios.mjs)
+  if (type === "daw:tempo") {
+    sound.bpm = content.bpm;
+    // Make DAW tempo available to pieces via $api.sound.daw
+    if (!$commonApi.sound.daw) $commonApi.sound.daw = {};
+    $commonApi.sound.daw.bpm = content.bpm;
+    return;
+  }
+
+  if (type === "daw:transport") {
+    // Make DAW transport state available to pieces via $api.sound.daw
+    if (!$commonApi.sound.daw) $commonApi.sound.daw = {};
+    $commonApi.sound.daw.playing = content.playing;
+    return;
+  }
+
+  if (type === "daw:phase") {
+    // Make DAW song position available to pieces via $api.sound.daw
+    if (!$commonApi.sound.daw) $commonApi.sound.daw = {};
+    $commonApi.sound.daw.time = content.time;
+    return;
+  }
+
+  if (type === "daw:samplerate") {
+    // Make DAW sample rate available to pieces via $api.sound.daw
+    if (!$commonApi.sound.daw) $commonApi.sound.daw = {};
+    $commonApi.sound.daw.sampleRate = content.rate;
+    return;
+  }
+
   // Update the logged in user after initialization.
   if (type === "session:started") {
     // console.log("🟢 Session starting...");
@@ -9485,6 +9515,16 @@ async function makeFrame({ data: { type, content } }) {
         //   console.log(`🎵 AUDIO_TIME: ${currentTime.toFixed(6)}s (getter called from ${(new Error().stack.split('\n')[2] || 'unknown').trim()})`);
         // }
         return currentTime;
+      },
+      // 🎹 DAW state (populated via daw:tempo, daw:transport, daw:phase, daw:samplerate messages from M4L)
+      // Uses getter to always return current state from $commonApi.sound.daw
+      get daw() {
+        return $commonApi.sound.daw || {
+          bpm: null,
+          playing: null,
+          time: null,
+          sampleRate: null,
+        };
       },
       // Get the bpm with bpm() or set the bpm with bpm(newBPM).
       bpm: function (newBPM) {

@@ -428,6 +428,64 @@ async function fun(event, context) {
           ? ""
           : `<!-- <script crossorigin="anonymous" src="https://js.sentry-cdn.com/ef4704c0df6a410e972bca14d69e1898.min.js"></script> -->`}
         <script>
+          // 🎹 DAW Sync for Max for Live - must be defined before any modules load
+          // These functions queue messages until bios.mjs connects via window.acDawConnect()
+          (function() {
+            var dawQueue = [];
+            var dawSend = null;
+            var dawBpm = 60;
+            var dawPlaying = false;
+            
+            function send(msg) {
+              if (dawSend) dawSend(msg);
+              else dawQueue.push(msg);
+            }
+            
+            window.acDawTempo = function(bpm) {
+              var newBpm = Math.round(bpm);
+              if (newBpm !== dawBpm && newBpm > 0) {
+                console.log("🎹 DAW tempo: " + newBpm + " BPM");
+                dawBpm = newBpm;
+                send({ type: "daw:tempo", content: { bpm: newBpm } });
+              }
+            };
+            
+            window.acDawTransport = function(playing) {
+              var isPlaying = playing === 1;
+              if (isPlaying !== dawPlaying) {
+                console.log("🎹 DAW transport: " + (isPlaying ? "playing" : "stopped"));
+                dawPlaying = isPlaying;
+                send({ type: "daw:transport", content: { playing: isPlaying } });
+              }
+            };
+            
+            window.acDawPhase = function(phase) {
+              send({ type: "daw:phase", content: { phase: phase } });
+            };
+            
+            window.acDawSamplerate = function(sr) {
+              send({ type: "daw:samplerate", content: { samplerate: sr } });
+            };
+            
+            // Called by bios.mjs to connect the message queue
+            window.acDawConnect = function(sendFunc) {
+              dawSend = sendFunc;
+              // Flush queued messages
+              for (var i = 0; i < dawQueue.length; i++) {
+                dawSend(dawQueue[i]);
+              }
+              dawQueue = [];
+              console.log("🎹 Max for Live detected - DAW sync connected");
+            };
+            
+            // Signal to M4L that we're ready
+            if (window.max) {
+              console.log("🎹 Sent ready signal to Max");
+              window.max.outlet("ready");
+            }
+          })();
+        </script>
+        <script>
           (function () {
             try {
               var rawHash = window.location && window.location.hash
