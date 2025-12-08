@@ -458,6 +458,53 @@ function formatKidLispForConsole(code) {
           return;
         }
 
+        // Handle FADE expressions like "fade:red-blue-yellow"
+        if (highlight.startsWith('FADE:')) {
+          const fadeToken = highlight.substring(5); // Remove 'FADE:' prefix
+          const parts = fadeToken.split(':');
+          // Color "fade" in emerald
+          pushSegment('fade', applyStyle('color: #3cb371; font-weight: bold;'));
+          pushSegment(':', applyStyle('color: #888;'));
+          
+          // Get the color part (could be parts[1] or parts[2] if neat is first)
+          let colorPart = parts[1] || '';
+          let remaining = parts.slice(2);
+          if (colorPart === 'neat' && parts[2]) {
+            pushSegment('neat', applyStyle('color: #888; font-style: italic;'));
+            pushSegment(':', applyStyle('color: #888;'));
+            colorPart = parts[2];
+            remaining = parts.slice(3);
+          }
+          
+          // Split colors by dash and color each one
+          const colors = colorPart.split('-');
+          colors.forEach((colorName, i) => {
+            const colorHighlight = getColorTokenHighlight(colorName);
+            let cssColor = '#888';
+            if (colorHighlight && !colorHighlight.startsWith('FADE:') && colorHighlight !== 'orange') {
+              cssColor = colorHighlight.includes(',') ? `rgb(${colorHighlight})` : colorHighlight;
+            } else if (cssColors && cssColors[colorName.toLowerCase()]) {
+              const rgb = cssColors[colorName.toLowerCase()];
+              cssColor = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+            }
+            pushSegment(colorName, applyStyle(`color: ${cssColor}; font-weight: bold;`));
+            if (i < colors.length - 1) {
+              pushSegment('-', applyStyle('color: #888;'));
+            }
+          });
+          
+          // Handle remaining parts (direction, neat suffix)
+          remaining.forEach(part => {
+            pushSegment(':', applyStyle('color: #888;'));
+            if (part === 'neat' || part === 'vertical' || part === 'horizontal') {
+              pushSegment(part, applyStyle('color: #888; font-style: italic;'));
+            } else {
+              pushSegment(part, applyStyle('color: #888;'));
+            }
+          });
+          return;
+        }
+
         const cssColor = highlight.includes(',') ? `rgb(${highlight})` : highlight;
         pushSegment(token, applyStyle(`color: ${cssColor}; font-weight: bold;`));
         return;
