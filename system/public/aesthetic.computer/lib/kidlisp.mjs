@@ -3641,9 +3641,11 @@ class KidLisp {
             api.needsPaint();
             if (hasTapHandler) this.tap(api);
           } else {
-            // No custom handlers - any tap toggles HUD
+            // No custom handlers - any tap toggles HUD (but not in pack mode)
             // console.log("🎯 No custom handlers, toggling HUD for any tap");
-            api.toggleHUD();
+            if (!getPackMode()) {
+              api.toggleHUD();
+            }
           }
         }
 
