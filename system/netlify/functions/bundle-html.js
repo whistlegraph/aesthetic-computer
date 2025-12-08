@@ -159,18 +159,36 @@ async function fetchPaintingImage(handle, slug) {
   }
 }
 
-// Fetch author handle from user ID
-async function fetchAuthorHandle(userId) {
-  if (!userId) return null;
+// Fetch author info from user ID (AC handle and permanent user code)
+async function fetchAuthorInfo(userId) {
+  if (!userId) return { handle: null, userCode: null };
+  
+  let acHandle = null;
+  let userCode = null;
+  
+  // Get AC handle via handle endpoint
   try {
     const baseUrl = CONTEXT === 'dev' ? 'https://localhost:8888' : 'https://aesthetic.computer';
     const response = await devFetch(`${baseUrl}/handle?for=${encodeURIComponent(userId)}`);
-    if (!response.ok) return null;
-    const data = await response.json();
-    return data.handle ? `@${data.handle}` : null;
-  } catch {
-    return null;
-  }
+    if (response.ok) {
+      const data = await response.json();
+      if (data.handle) acHandle = `@${data.handle}`;
+    }
+  } catch { /* ignore */ }
+  
+  // Get permanent user code from users collection
+  try {
+    const { connect } = await import('../../backend/database.mjs');
+    const database = await connect();
+    const users = database.db.collection('users');
+    const user = await users.findOne({ _id: userId }, { projection: { code: 1 } });
+    if (user?.code) {
+      userCode = user.code;
+    }
+    await database.disconnect();
+  } catch { /* ignore */ }
+  
+  return { handle: acHandle, userCode };
 }
 
 // Fetch KidLisp source from API
@@ -228,14 +246,16 @@ async function getKidLispSourceWithDeps(pieceName) {
     }
   }
   
-  // Resolve author handle
+  // Resolve author info (AC handle and permanent user code)
   let authorHandle = '@anon';
+  let userCode = null;
   if (mainPieceUserId) {
-    const handle = await fetchAuthorHandle(mainPieceUserId);
-    if (handle) authorHandle = handle;
+    const authorInfo = await fetchAuthorInfo(mainPieceUserId);
+    if (authorInfo.handle) authorHandle = authorInfo.handle;
+    if (authorInfo.userCode) userCode = authorInfo.userCode;
   }
   
-  return { sources: allSources, authorHandle };
+  return { sources: allSources, authorHandle, userCode };
 }
 
 // Resolve relative import path
@@ -558,11 +578,18 @@ async function createJSPieceBundle(pieceName, onProgress = () => {}) {
 </head>
 <body>
   <script>
-    fetch('data:application/gzip;base64,${gzipBase64}')
+    // Use blob: URL instead of data: URL for CSP compatibility (objkt sandboxing)
+    const b64='${gzipBase64}';
+    const bin=atob(b64);
+    const bytes=new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
+    const blob=new Blob([bytes],{type:'application/gzip'});
+    const url=URL.createObjectURL(blob);
+    fetch(url)
       .then(r=>r.blob())
       .then(b=>b.stream().pipeThrough(new DecompressionStream('gzip')))
       .then(s=>new Response(s).text())
-      .then(h=>{document.open();document.write(h);document.close();});
+      .then(h=>{URL.revokeObjectURL(url);document.open();document.write(h);document.close();});
   </script>
 </body>
 </html>`;
@@ -793,7 +820,7 @@ async function createBundle(pieceName, onProgress = () => {}) {
   onProgress({ stage: 'fetch', message: `Fetching $${PIECE_NAME_NO_DOLLAR}...` });
   
   // Fetch KidLisp source with dependencies
-  const { sources: kidlispSources, authorHandle } = await getKidLispSourceWithDeps(PIECE_NAME_NO_DOLLAR);
+  const { sources: kidlispSources, authorHandle, userCode } = await getKidLispSourceWithDeps(PIECE_NAME_NO_DOLLAR);
   const mainSource = kidlispSources[PIECE_NAME_NO_DOLLAR];
   const depCount = Object.keys(kidlispSources).length - 1;
   
@@ -854,6 +881,9 @@ async function createBundle(pieceName, onProgress = () => {}) {
   
   onProgress({ stage: 'generate', message: 'Generating HTML bundle...' });
   
+  // Generate filename first so it can be included in colophon
+  const filename = `$${PIECE_NAME_NO_DOLLAR}-${authorHandle}-${bundleTimestamp}.lisp.html`;
+  
   // Generate HTML bundle (same template as CLI)
   const htmlContent = generateHTMLBundle({
     PIECE_NAME,
@@ -866,6 +896,7 @@ async function createBundle(pieceName, onProgress = () => {}) {
     packDate,
     packTime,
     gitVersion: GIT_COMMIT,
+    filename,
   });
   
   onProgress({ stage: 'compress', message: 'Compressing...' });
@@ -883,18 +914,32 @@ async function createBundle(pieceName, onProgress = () => {}) {
 </head>
 <body>
   <script>
-    fetch('data:application/gzip;base64,${gzipBase64}')
+    // Use blob: URL instead of data: URL for CSP compatibility (objkt sandboxing)
+    const b64='${gzipBase64}';
+    const bin=atob(b64);
+    const bytes=new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
+    const blob=new Blob([bytes],{type:'application/gzip'});
+    const url=URL.createObjectURL(blob);
+    fetch(url)
       .then(r=>r.blob())
       .then(b=>b.stream().pipeThrough(new DecompressionStream('gzip')))
       .then(s=>new Response(s).text())
-      .then(h=>{document.open();document.write(h);document.close();});
+      .then(h=>{URL.revokeObjectURL(url);document.open();document.write(h);document.close();});
   </script>
 </body>
 </html>`;
-
-  const filename = `$${PIECE_NAME_NO_DOLLAR}-${authorHandle}-${bundleTimestamp}.lisp.html`;
   
-  return { html: finalHtml, filename, sizeKB: Math.round(finalHtml.length / 1024) };
+  return { 
+    html: finalHtml, 
+    filename, 
+    sizeKB: Math.round(finalHtml.length / 1024),
+    mainSource,
+    authorHandle,
+    userCode,
+    packDate,
+    depCount,
+  };
 }
 
 // Generate the inner HTML bundle
@@ -910,6 +955,7 @@ function generateHTMLBundle(opts) {
     packDate,
     packTime,
     gitVersion,
+    filename,
   } = opts;
 
   return `<!DOCTYPE html>
@@ -1002,7 +1048,8 @@ function generateHTMLBundle(opts) {
         packTime: ${packTime},
         gitCommit: '${gitVersion}',
         gitIsDirty: false,
-        fileCount: ${Object.keys(files).length}
+        fileCount: ${Object.keys(files).length},
+        filename: '${filename}'
       }
     };
     
@@ -1287,9 +1334,11 @@ exports.handler = stream(async (event) => {
       console.log(`[bundle-html] ${progress.stage}: ${progress.message}`);
     };
     
-    const { html, filename, sizeKB } = isJSPiece
+    const bundleResult = isJSPiece
       ? await createJSPieceBundle(bundleTarget, onProgress)
       : await createBundle(bundleTarget, onProgress);
+    
+    const { html, filename, sizeKB, mainSource, authorHandle, userCode, packDate, depCount } = bundleResult;
     
     if (format === 'json' || format === 'base64') {
       return {
@@ -1300,6 +1349,12 @@ exports.handler = stream(async (event) => {
           content: Buffer.from(html).toString('base64'),
           sizeKB,
           progress: progressLog,
+          // KidLisp-specific metadata (undefined for JS pieces)
+          sourceCode: mainSource,
+          authorHandle,
+          userCode,
+          packDate,
+          depCount,
         }),
       };
     }

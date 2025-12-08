@@ -334,6 +334,11 @@ class ArteryTUI {
     // Load pieces from disk directory
     this.loadPieces();
     
+    // CDP tunnel status
+    this.cdpStatus = 'unknown'; // 'online', 'offline', 'unknown'
+    this.cdpHost = null;
+    this.cdpPort = null;
+    
     // Detect host environment
     this.hostInfo = this.detectHostInfo();
   }
@@ -802,6 +807,10 @@ class ArteryTUI {
     CDP_HOST = cdpInfo.host;
     CDP_PORT = cdpInfo.port;
     
+    // Store CDP status for display
+    this.cdpHost = CDP_HOST;
+    this.cdpPort = CDP_PORT;
+    
     return new Promise((resolve, reject) => {
       http.get({
         hostname: CDP_HOST,
@@ -812,10 +821,19 @@ class ArteryTUI {
         let data = '';
         res.on('data', (chunk) => data += chunk);
         res.on('end', () => {
-          try { resolve(JSON.parse(data)); }
-          catch (e) { reject(new Error('Parse failed')); }
+          try { 
+            this.cdpStatus = 'online';
+            resolve(JSON.parse(data)); 
+          }
+          catch (e) { 
+            this.cdpStatus = 'offline';
+            reject(new Error('Parse failed')); 
+          }
         });
-      }).on('error', reject);
+      }).on('error', (e) => {
+        this.cdpStatus = 'offline';
+        reject(e);
+      });
     });
   }
 
@@ -2317,7 +2335,12 @@ class ArteryTUI {
     if (this.hostInfo.inContainer && !compact) {
       const containerLabel = this.hostInfo.containerDistro || 'Container';
       const hostLabel = this.hostInfo.hostLabel || this.hostInfo.hostOS || 'Host';
-      hostInfoLine = `${FG_BRIGHT_MAGENTA}📦 ${containerLabel} ${FG_BRIGHT_CYAN}→ ${this.hostInfo.hostEmoji} ${FG_WHITE}${BOLD}${hostLabel}${RESET}${BG_BLUE}`;
+      // CDP status indicator
+      const cdpIcon = this.cdpStatus === 'online' ? `${FG_BRIGHT_GREEN}●` 
+                    : this.cdpStatus === 'offline' ? `${FG_BRIGHT_RED}○` 
+                    : `${DIM}?`;
+      const cdpLabel = `${FG_CYAN}CDP${cdpIcon}`;
+      hostInfoLine = `${FG_BRIGHT_MAGENTA}📦 ${containerLabel} ${FG_BRIGHT_CYAN}→ ${this.hostInfo.hostEmoji} ${FG_WHITE}${BOLD}${hostLabel}${RESET}${BG_BLUE} ${cdpLabel}`;
     }
     
     // Top border - DOS style double line

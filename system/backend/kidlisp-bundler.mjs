@@ -407,7 +407,13 @@ export async function createBundle(options) {
       type: 'lisp'
     };
   }
-  
+
+  // Generate filename for this bundle
+  const now = new Date();
+  const dateStr = `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getDate()).padStart(2, '0')}`;
+  const timeStr = `${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
+  const filename = `${PIECE_NAME_NO_DOLLAR}-${authorHandle}-${dateStr}-${timeStr}.lisp.html`;
+
   // Generate HTML
   const htmlContent = generateHTML({
     PIECE_NAME,
@@ -433,16 +439,23 @@ export async function createBundle(options) {
   <meta charset="utf-8">
   <title>${PIECE_NAME} · Aesthetic Computer</title>
   <style>
-    body{margin:0;background:#000;overflow:hidden}
+    body{margin:0;background:#000;overflow:hidden;cursor:default}
   </style>
 </head>
 <body>
   <script>
-    fetch('data:application/gzip;base64,${gzipBase64}')
+    // Use blob: URL instead of data: URL for CSP compatibility (objkt sandboxing)
+    const b64='${gzipBase64}';
+    const bin=atob(b64);
+    const bytes=new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
+    const blob=new Blob([bytes],{type:'application/gzip'});
+    const url=URL.createObjectURL(blob);
+    fetch(url)
       .then(r=>r.blob())
       .then(b=>b.stream().pipeThrough(new DecompressionStream('gzip')))
       .then(s=>new Response(s).text())
-      .then(h=>{document.open();document.write(h);document.close();});
+      .then(h=>{URL.revokeObjectURL(url);document.open();document.write(h);document.close();});
   </script>
 </body>
 </html>`;
@@ -451,6 +464,7 @@ export async function createBundle(options) {
     html: selfExtractingHTML,
     uncompressedHtml: htmlContent,
     pieceName: PIECE_NAME,
+    filename,
     sizeKB: Math.round(selfExtractingHTML.length / 1024),
     uncompressedSizeKB: Math.round(htmlContent.length / 1024),
     fileCount: Object.keys(files).length
@@ -469,7 +483,8 @@ function generateHTML(opts) {
     gitVersion,
     gitHash,
     gitDirty,
-    authorHandle
+    authorHandle,
+    filename
   } = opts;
   
   return `<!DOCTYPE html>
@@ -538,7 +553,7 @@ function generateHTML(opts) {
     })();
   </script>
   <style>
-    body { margin: 0; padding: 0; background: black; overflow: hidden; }
+    body { margin: 0; padding: 0; background: black; overflow: hidden; cursor: default; }
     canvas { display: block; }
   </style>
 </head>
@@ -566,7 +581,8 @@ function generateHTML(opts) {
         packTime: ${packTime},
         gitCommit: '${gitHash}',
         gitIsDirty: ${gitDirty ? 'true' : 'false'},
-        fileCount: ${Object.keys(files).length}
+        fileCount: ${Object.keys(files).length},
+        filename: '${filename}'
       }
     };
     
@@ -861,16 +877,23 @@ export async function createBundleWithCache(options) {
   <meta charset="utf-8">
   <title>${PIECE_NAME} · Aesthetic Computer</title>
   <style>
-    body{margin:0;background:#000;overflow:hidden}
+    body{margin:0;background:#000;overflow:hidden;cursor:default}
   </style>
 </head>
 <body>
   <script>
-    fetch('data:application/gzip;base64,${gzipBase64}')
+    // Use blob: URL instead of data: URL for CSP compatibility (objkt sandboxing)
+    const b64='${gzipBase64}';
+    const bin=atob(b64);
+    const bytes=new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
+    const blob=new Blob([bytes],{type:'application/gzip'});
+    const url=URL.createObjectURL(blob);
+    fetch(url)
       .then(r=>r.blob())
       .then(b=>b.stream().pipeThrough(new DecompressionStream('gzip')))
       .then(s=>new Response(s).text())
-      .then(h=>{document.open();document.write(h);document.close();});
+      .then(h=>{URL.revokeObjectURL(url);document.open();document.write(h);document.close();});
   </script>
 </body>
 </html>`;

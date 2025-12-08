@@ -9,6 +9,7 @@ import http from 'http';
 import fs from 'fs';
 import { WebSocketServer } from 'ws';
 import { healthHandler, bakeHandler, statusHandler, bakeCompleteHandler, bakeStatusHandler, getActiveBakes, getIncomingBakes, getRecentBakes, subscribeToUpdates, cleanupStaleBakes } from './baker.mjs';
+import { grabHandler, grabGetHandler, grabIPFSHandler, getActiveGrabs, getRecentGrabs } from './grabber.mjs';
 
 const app = express();
 const PORT = process.env.PORT || 3002;
@@ -215,10 +216,16 @@ app.get('/', (req, res) => {
       <p class="subtitle" id="ws-status">⚪ Connecting...</p>
     </header>
   
-  <h2>� Incoming (<span id="incoming-count">0</span>)</h2>
+  <h2>📸 Grabbing (<span id="grab-active-count">0</span>)</h2>
+  <div id="active-grabs"></div>
+  
+  <h2>🖼️ Recent Grabs (<span id="grab-recent-count">0</span>)</h2>
+  <div id="recent-grabs"></div>
+  
+  <h2>📥 Incoming Bakes (<span id="incoming-count">0</span>)</h2>
   <div id="incoming-bakes"></div>
   
-  <h2>�🔨 Currently Baking (<span id="active-count">0</span>)</h2>
+  <h2>🔨 Currently Baking (<span id="active-count">0</span>)</h2>
   <div id="active-bakes"></div>
   
   <h2>✅ Recently Completed (<span id="recent-count">0</span>)</h2>
@@ -335,6 +342,19 @@ app.get('/status', statusHandler);
 app.post('/bake', bakeHandler);
 app.post('/bake-complete', bakeCompleteHandler);
 app.post('/bake-status', bakeStatusHandler);
+
+// Grab endpoint - capture screenshots/GIFs from KidLisp pieces
+app.post('/grab', grabHandler);
+app.get('/grab/:format/:width/:height/:piece', grabGetHandler);
+app.post('/grab-ipfs', grabIPFSHandler);
+
+// Grab status endpoint
+app.get('/grab-status', (req, res) => {
+  res.json({
+    active: getActiveGrabs(),
+    recent: getRecentGrabs()
+  });
+});
 
 // 404 handler
 app.use((req, res) => {

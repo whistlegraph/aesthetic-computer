@@ -47,6 +47,11 @@ const CONFIG = {
     gateway: 'https://ipfs.aesthetic.computer'
   },
   
+  // Oven service for thumbnails
+  oven: {
+    url: process.env.OVEN_URL || 'https://oven.aesthetic.computer'
+  },
+  
   // Contract paths
   paths: {
     // New SmartPy v2 contract (FA2 library based)
@@ -168,8 +173,8 @@ async function deployContract(network = 'ghostnet') {
   
   // Build contract metadata (TZIP-16)
   const contractMetadataJson = JSON.stringify({
-    name: "Aesthetic.computer Keeps",
-    description: "FA2 NFT contract for aesthetic.computer keeps",
+    name: "KidLisp Keeps",
+    description: "FA2 NFT contract for KidLisp pieces on aesthetic.computer",
     version: "2.0.0",
     interfaces: ["TZIP-012", "TZIP-016", "TZIP-021"],
     authors: ["aesthetic.computer"],
@@ -362,17 +367,44 @@ async function fetchBundleFromNetlify(piece, contentType) {
   
   console.log(`📦 Fetching bundle from Netlify (${contentType})...`);
   
+  // Use local dev server if --local flag is set or LOCAL_BUNDLE env var
+  const useLocal = process.env.LOCAL_BUNDLE === '1' || process.argv.includes('--local');
+  const baseUrl = useLocal 
+    ? 'https://localhost:8888/api/bundle-html'
+    : 'https://aesthetic.computer/api/bundle-html';
+  
   // Build the correct endpoint URL based on content type
   let url;
   if (contentType === 'kidlisp') {
-    url = `https://aesthetic.computer/api/bundle-html?code=${pieceName}&format=json`;
+    url = `${baseUrl}?code=${pieceName}&format=json`;
   } else {
-    url = `https://aesthetic.computer/api/bundle-html?piece=${pieceName}&format=json`;
+    url = `${baseUrl}?piece=${pieceName}&format=json`;
   }
   
-  console.log(`   URL: ${url}`);
+  console.log(`   URL: ${url}${useLocal ? ' (local)' : ''}`);
   
-  const response = await fetch(url);
+  let response;
+  if (useLocal) {
+    // For local dev server with self-signed cert, use https module directly
+    const https = await import('https');
+    response = await new Promise((resolve, reject) => {
+      const req = https.get(url, { rejectUnauthorized: false }, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => {
+          resolve({
+            ok: res.statusCode >= 200 && res.statusCode < 300,
+            status: res.statusCode,
+            json: () => Promise.resolve(JSON.parse(data)),
+            text: () => Promise.resolve(data)
+          });
+        });
+      });
+      req.on('error', reject);
+    });
+  } else {
+    response = await fetch(url);
+  }
   
   if (!response.ok) {
     const errorText = await response.text();
@@ -390,11 +422,28 @@ async function fetchBundleFromNetlify(piece, contentType) {
   
   console.log(`   ✓ Bundle received: ${data.sizeKB} KB`);
   console.log(`   ✓ Filename: ${data.filename}`);
+  if (data.sourceCode) {
+    console.log(`   ✓ Source lines: ${data.sourceCode.split('\n').length}`);
+  }
+  if (data.authorHandle) {
+    console.log(`   ✓ Author: ${data.authorHandle}`);
+  }
+  if (data.userCode) {
+    console.log(`   ✓ User Code: ${data.userCode}`);
+  }
+  if (data.depCount > 0) {
+    console.log(`   ✓ Dependencies: ${data.depCount}`);
+  }
   
   return {
     html,
     filename: data.filename,
-    sizeKB: data.sizeKB
+    sizeKB: data.sizeKB,
+    sourceCode: data.sourceCode,
+    authorHandle: data.authorHandle,
+    userCode: data.userCode,
+    packDate: data.packDate,
+    depCount: data.depCount,
   };
 }
 
@@ -431,6 +480,72 @@ async function uploadJsonToIPFS(jsonData, name, credentials) {
   return `ipfs://${result.IpfsHash}`;
 }
 
+/**
+ * Generate and upload thumbnail to IPFS via oven's grab-ipfs endpoint
+ */
+async function generateThumbnail(piece, credentials, options = {}) {
+  const {
+    format = 'webp',
+    width = 512,
+    height = 512,
+    duration = 12000,
+    fps = 7.5,
+    playbackFps = 15,
+    quality = 90,
+  } = options;
+  
+  console.log('\n📸 Generating thumbnail...');
+  console.log(`   Oven: ${CONFIG.oven.url}`);
+  
+  // For local dev with self-signed certs, we need to disable cert verification
+  const fetchOptions = {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      piece,
+      format,
+      width,
+      height,
+      duration,
+      fps,
+      playbackFps,
+      quality,
+      pinataKey: credentials.pinataKey,
+      pinataSecret: credentials.pinataSecret,
+    }),
+  };
+  
+  // Disable SSL verification for localhost (self-signed certs)
+  if (CONFIG.oven.url.includes('localhost')) {
+    const https = await import('https');
+    fetchOptions.agent = new https.Agent({ rejectUnauthorized: false });
+  }
+  
+  const response = await fetch(`${CONFIG.oven.url}/grab-ipfs`, fetchOptions);
+  
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Thumbnail generation failed: ${error}`);
+  }
+  
+  const result = await response.json();
+  
+  if (!result.success) {
+    throw new Error(`Thumbnail generation failed: ${result.error}`);
+  }
+  
+  console.log(`   ✅ Thumbnail uploaded: ${result.ipfsUri}`);
+  console.log(`   Size: ${(result.size / 1024).toFixed(2)} KB`);
+  
+  return {
+    ipfsUri: result.ipfsUri,
+    mimeType: result.mimeType,
+    size: result.size,
+  };
+}
+
 async function uploadToIPFS(piece, options = {}) {
   const credentials = loadCredentials();
   
@@ -456,12 +571,20 @@ async function uploadToIPFS(piece, options = {}) {
   
   // Get bundle from Netlify endpoint (proper self-contained bundle)
   let bundleHtml;
+  let bundleMeta = {};
   if (options.bundleHtml) {
     bundleHtml = options.bundleHtml;
     console.log('   Using provided bundle HTML');
   } else {
     const bundle = await fetchBundleFromNetlify(piece, contentType);
     bundleHtml = bundle.html;
+    bundleMeta = {
+      sourceCode: bundle.sourceCode,
+      authorHandle: bundle.authorHandle,
+      userCode: bundle.userCode,
+      packDate: bundle.packDate,
+      depCount: bundle.depCount,
+    };
   }
   
   // Calculate content hash
@@ -510,7 +633,9 @@ async function uploadToIPFS(piece, options = {}) {
     contentHash,
     contentType,
     gatewayUrl: `${CONFIG.pinata.gateway}/ipfs/${cid}`,
-    ipfsUri: `ipfs://${cid}`
+    ipfsUri: `ipfs://${cid}`,
+    // Bundle metadata for KidLisp pieces
+    ...bundleMeta,
   };
 }
 
@@ -524,7 +649,7 @@ function stringToBytes(str) {
 }
 
 async function mintToken(piece, options = {}) {
-  const { network = 'ghostnet' } = options;
+  const { network = 'ghostnet', generateThumbnail: shouldGenerateThumbnail = false } = options;
   
   const { tezos, credentials, config } = await createTezosClient(network);
   const allCredentials = loadCredentials(); // For Pinata access
@@ -536,7 +661,6 @@ async function mintToken(piece, options = {}) {
   
   const contractAddress = fs.readFileSync(CONFIG.paths.contractAddress, 'utf8').trim();
   const pieceName = piece.replace(/^\$/, '');
-  const acUrl = `https://aesthetic.computer/${pieceName}`;
   
   console.log('\n╔══════════════════════════════════════════════════════════════╗');
   console.log('║  🎨 Minting New Keep                                         ║');
@@ -545,6 +669,7 @@ async function mintToken(piece, options = {}) {
   console.log(`📡 Network: ${config.name}`);
   console.log(`📍 Contract: ${contractAddress}`);
   console.log(`📦 Piece: ${pieceName}`);
+  console.log(`📸 Thumbnail: ${shouldGenerateThumbnail ? 'Generate via Oven' : 'HTTP fallback'}`);
   
   // Detect content type
   let contentType = options.contentType;
@@ -559,6 +684,11 @@ async function mintToken(piece, options = {}) {
   // Upload HTML bundle to IPFS if not provided
   let artifactUri = options.ipfsUri;
   let artifactCid = options.contentHash;
+  let sourceCode = null;
+  let authorHandle = null;
+  let userCode = null;
+  let packDate = null;
+  let depCount = 0;
   
   if (!artifactUri) {
     console.log('\n📤 Uploading HTML bundle to IPFS...');
@@ -566,21 +696,78 @@ async function mintToken(piece, options = {}) {
     artifactUri = `ipfs://${upload.cid}`;  // Use ipfs:// URI for artifact
     artifactCid = upload.cid;
     contentType = upload.contentType;
+    // Capture bundle metadata for KidLisp pieces
+    sourceCode = upload.sourceCode;
+    authorHandle = upload.authorHandle;
+    userCode = upload.userCode;
+    packDate = upload.packDate;
+    depCount = upload.depCount || 0;
   }
   
   console.log(`🔗 Artifact URI: ${artifactUri}`);
   console.log(`🔐 Artifact CID: ${artifactCid}`);
   
   // Build TZIP-21 compliant JSON metadata for objkt
-  const tokenName = `Aesthetic Computer Keep - ${pieceName}`;
-  const description = `An aesthetic.computer ${contentType} piece preserved on Tezos`;
+  // Token name is just the code (e.g., "$roz")
+  const tokenName = `$${pieceName}`;
+  const acUrl = `https://aesthetic.computer/$${pieceName}`;
+  
+  // Build description: source code first, then attribution
+  // Use permanent user code if available, otherwise AC handle
+  const authorDisplayName = userCode || authorHandle || null;
+  
+  let description = '';
+  if (sourceCode) {
+    // Start with source code
+    description = sourceCode;
+    // Add attribution line
+    const byLine = [];
+    if (authorDisplayName) byLine.push(`by ${authorDisplayName}`);
+    if (packDate) byLine.push(`packed on ${packDate}`);
+    if (byLine.length > 0) {
+      description += `\n\n${byLine.join(' · ')}`;
+    }
+  } else {
+    description = `An aesthetic.computer ${contentType} piece preserved on Tezos`;
+  }
+  
+  // Build tags (no author handle in tags)
+  const tags = [
+    `$${pieceName}`,           // The code itself as a tag
+    'KidLisp',                 // Capitalized
+    'Aesthetic.Computer',      // Capitalized with dot
+    'interactive',
+  ];
+  
+  // Generate and upload thumbnail to IPFS if requested
+  let thumbnailUri = `https://grab.aesthetic.computer/preview/400x400/$${pieceName}.png`; // HTTP fallback
+  let thumbnailMimeType = 'image/png';
+  
+  if (shouldGenerateThumbnail) {
+    try {
+      const thumbnail = await generateThumbnail(piece, allCredentials, {
+        format: 'webp',
+        width: 512,
+        height: 512,
+        duration: 12000,
+        fps: 7.5,
+        playbackFps: 15,
+        quality: 90,
+      });
+      thumbnailUri = thumbnail.ipfsUri;
+      thumbnailMimeType = thumbnail.mimeType;
+    } catch (error) {
+      console.warn(`   ⚠️ Thumbnail generation failed: ${error.message}`);
+      console.warn(`   Using HTTP fallback: ${thumbnailUri}`);
+    }
+  }
   
   const metadataJson = {
     name: tokenName,
     description: description,
     artifactUri: artifactUri,
     displayUri: artifactUri,
-    thumbnailUri: `${acUrl}?thumbnail=true`,
+    thumbnailUri: thumbnailUri,
     decimals: 0,
     symbol: 'KEEP',
     isBooleanAmount: true,
@@ -594,10 +781,10 @@ async function mintToken(piece, options = {}) {
       mimeType: 'text/html',
       dimensions: { value: 'responsive', unit: 'viewport' }
     }],
-    tags: [contentType, 'aesthetic.computer', 'interactive'],
+    tags: tags,
     attributes: [
-      { name: 'Content Type', value: contentType },
-      { name: 'Piece Name', value: pieceName },
+      { name: 'Content Type', value: 'KidLisp' },
+      { name: 'Piece Name', value: `$${pieceName}` },
       { name: 'AC URL', value: acUrl }
     ]
   };
@@ -618,7 +805,7 @@ async function mintToken(piece, options = {}) {
     description: stringToBytes(description),
     artifactUri: stringToBytes(artifactUri),
     displayUri: stringToBytes(artifactUri),
-    thumbnailUri: stringToBytes(`${acUrl}?thumbnail=true`),
+    thumbnailUri: stringToBytes(thumbnailUri),
     decimals: stringToBytes('0'),
     symbol: stringToBytes('KEEP'),
     isBooleanAmount: stringToBytes('true'),
@@ -628,7 +815,7 @@ async function mintToken(piece, options = {}) {
     attributes: stringToBytes(JSON.stringify(metadataJson.attributes)),
     creators: stringToBytes(JSON.stringify([credentials.address])),
     rights: stringToBytes('© All rights reserved'),
-    content_type: stringToBytes(contentType),
+    content_type: stringToBytes('KidLisp'),
     content_hash: stringToBytes(artifactCid),
     // IMPORTANT: This is the off-chain metadata URI that objkt will fetch
     metadata_uri: stringToBytes(metadataUri),
@@ -709,7 +896,7 @@ async function updateMetadata(tokenId, piece, options = {}) {
   
   const contractAddress = fs.readFileSync(CONFIG.paths.contractAddress, 'utf8').trim();
   const pieceName = piece.replace(/^\$/, '');
-  const acUrl = `https://aesthetic.computer/${pieceName}`;
+  const acUrl = `https://aesthetic.computer/$${pieceName}`;
   
   console.log('\n╔══════════════════════════════════════════════════════════════╗');
   console.log('║  🔄 Updating Token Metadata                                  ║');
@@ -861,21 +1048,32 @@ async function lockMetadata(tokenId, options = {}) {
 // ============================================================================
 
 async function main() {
-  const args = process.argv.slice(2);
+  const rawArgs = process.argv.slice(2);
+  
+  // Separate flags from positional arguments
+  const flags = rawArgs.filter(a => a.startsWith('--'));
+  const args = rawArgs.filter(a => !a.startsWith('--'));
   const command = args[0];
+  
+  // Helper to get network from args (defaults to ghostnet)
+  const getNetwork = (argIndex) => {
+    const val = args[argIndex];
+    if (!val || val.startsWith('--')) return 'ghostnet';
+    return val;
+  };
   
   try {
     switch (command) {
       case 'deploy':
-        await deployContract(args[1] || 'ghostnet');
+        await deployContract(getNetwork(1));
         break;
         
       case 'status':
-        await getContractStatus(args[1] || 'ghostnet');
+        await getContractStatus(getNetwork(1));
         break;
         
       case 'balance':
-        await getBalance(args[1] || 'ghostnet');
+        await getBalance(getNetwork(1));
         break;
         
       case 'upload':
@@ -888,10 +1086,13 @@ async function main() {
         
       case 'mint':
         if (!args[1]) {
-          console.error('Usage: node keeps.mjs mint <piece>');
+          console.error('Usage: node keeps.mjs mint <piece> [network] [--thumbnail]');
           process.exit(1);
         }
-        await mintToken(args[1], { network: args[2] || 'ghostnet' });
+        await mintToken(args[1], { 
+          network: getNetwork(2),
+          generateThumbnail: flags.includes('--thumbnail')
+        });
         break;
       
       case 'update':
@@ -899,7 +1100,7 @@ async function main() {
           console.error('Usage: node keeps.mjs update <token_id> <piece>');
           process.exit(1);
         }
-        await updateMetadata(parseInt(args[1]), args[2], { network: args[3] || 'ghostnet' });
+        await updateMetadata(parseInt(args[1]), args[2], { network: getNetwork(3) });
         break;
       
       case 'lock':
@@ -907,7 +1108,7 @@ async function main() {
           console.error('Usage: node keeps.mjs lock <token_id>');
           process.exit(1);
         }
-        await lockMetadata(parseInt(args[1]), { network: args[2] || 'ghostnet' });
+        await lockMetadata(parseInt(args[1]), { network: getNetwork(2) });
         break;
         
       case 'help':
@@ -933,14 +1134,22 @@ Networks:
   ghostnet                      Tezos testnet (default)
   mainnet                       Tezos mainnet
 
+Flags:
+  --thumbnail                   Generate animated WebP thumbnail via Oven
+                               and upload to IPFS (requires Oven service)
+
 Examples:
   node keeps.mjs deploy
   node keeps.mjs balance
   node keeps.mjs upload wand
   node keeps.mjs mint wand
-  node keeps.mjs update 0 wand      # Re-upload bundle & update metadata
-  node keeps.mjs lock 0             # Permanently lock token 0
+  node keeps.mjs mint wand --thumbnail      # With IPFS thumbnail
+  node keeps.mjs update 0 wand              # Re-upload bundle & update metadata
+  node keeps.mjs lock 0                     # Permanently lock token 0
   node keeps.mjs status
+
+Environment:
+  OVEN_URL                      Oven service URL (default: https://oven.aesthetic.computer)
 `);
     }
   } catch (error) {

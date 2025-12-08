@@ -9412,7 +9412,8 @@ async function makeFrame({ data: { type, content } }) {
         }
 
         // [Tab] Toggle HUD label and QR overlay visibility with smooth animation
-        if (data.key === "Tab") {
+        // Disabled in pack mode (OBJKT bundles)
+        if (data.key === "Tab" && !getPackMode()) {
           const currentTime = performance.now();
           const timeSinceLastTab = currentTime - (hudAnimationState.lastTabTime || 0);
           const isDoubleTap = timeSinceLastTab < 300; // 300ms double-tap window

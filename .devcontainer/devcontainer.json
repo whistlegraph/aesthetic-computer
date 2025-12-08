@@ -5,7 +5,7 @@
   "name": "Default",
   "build": {
     "dockerfile": "Dockerfile",
-    "args": { 
+    "args": {
       "BUILDKIT_INLINE_CACHE": "1",
       "DOCKER_BUILDKIT": "1",
       "FEDORA_IMAGE": "quay.io/fedora/fedora:latest"
@@ -24,7 +24,7 @@
     "source=${localWorkspaceFolder}/.devcontainer/fish_history,target=/home/me/.local/share/fish/fish_history,type=bind,consistency=cached",
     "source=codespaces-linux-var-lib-docker,target=/var/lib/docker,type=volume",
     "source=/var/run/docker.sock,target=/var/run/docker-host.sock,type=bind",
-  "type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock",
+    "type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock",
     "source=/etc/localtime,target=/etc/localtime,type=bind,readonly"
   ],
   // "features": {
@@ -129,11 +129,7 @@
     // "--network",
     // "host"
   ],
-  "initializeCommand": [
-    "sh",
-    "-c",
-    ".devcontainer/scripts/prepare-host.sh"
-  ],
+  "initializeCommand": ["sh", "-c", ".devcontainer/scripts/prepare-host.sh"],
   "postStartCommand": "fish .devcontainer/entry.fish"
   // .waiter file is now created inside entry.fish to avoid terminal popup in Codespaces
 }
