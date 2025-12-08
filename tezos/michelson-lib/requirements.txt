@@ -1,2 +1,0 @@
-pytest>=7.4.0
-pytezos>=3.10.0

@@ -376,19 +376,22 @@ export function getColorTokenHighlight(token) {
     }
   }
 
-  // Check for valid CSS color name
-  if (cssColors && cssColors[cleanToken]) {
+  // Lowercase for case-insensitive color name matching
+  const lowerToken = cleanToken.toLowerCase();
+
+  // Check for valid CSS color name (case-insensitive)
+  if (cssColors && cssColors[lowerToken]) {
     // Return the actual color value for CSS colors like "red", "blue", etc.
-    const colorValue = cssColors[cleanToken];
+    const colorValue = cssColors[lowerToken];
     if (Array.isArray(colorValue) && colorValue.length >= 3) {
       const rgbColor = `${colorValue[0]},${colorValue[1]},${colorValue[2]}`;
       return rgbColor;
     }
   }
   
-  // Check if this is a color code like "c0", "c1", etc.
-  if (cleanToken.match(/^c\d+$/)) {
-    const index = parseInt(cleanToken.substring(1));
+  // Check if this is a color code like "c0", "c1", etc. (case-insensitive)
+  if (lowerToken.match(/^c\d+$/)) {
+    const index = parseInt(lowerToken.substring(1));
     if (staticColorMap && staticColorMap[index]) {
       const colorValue = staticColorMap[index];
       if (Array.isArray(colorValue) && colorValue.length >= 3) {
@@ -398,18 +401,18 @@ export function getColorTokenHighlight(token) {
     }
   }
 
-  // Special case for "rainbow" - return special marker for rainbow coloring
-  if (cleanToken === "rainbow") {
+  // Special case for "rainbow" - return special marker for rainbow coloring (case-insensitive)
+  if (lowerToken === "rainbow") {
     return "RAINBOW";
   }
   
-  // Special case for "zebra" - return special marker for zebra coloring
-  if (cleanToken === "zebra") {
+  // Special case for "zebra" - return special marker for zebra coloring (case-insensitive)
+  if (lowerToken === "zebra") {
     return "ZEBRA";
   }
   
-  // Check if this is a fade expression like "fade:red-blue-yellow"
-  if (cleanToken.startsWith("fade:")) {
+  // Check if this is a fade expression like "fade:red-blue-yellow" (case-insensitive)
+  if (lowerToken.startsWith("fade:")) {
     return "mediumseagreen"; // Give fade expressions a distinct emerald color
   }
 

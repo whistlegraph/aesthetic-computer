@@ -6186,7 +6186,6 @@ async function load(
         })();
         
         if (globalScope.objktKidlispCodes && globalScope.objktKidlispCodes[cacheId]) {
-          console.log("💾 Loading from objktKidlispCodes:", cacheId);
           sourceToRun = globalScope.objktKidlispCodes[cacheId];
           currentOriginalCodeId = slug;
         } else {
@@ -6860,6 +6859,47 @@ async function load(
     const rejection = (reject) => {
       reject(new DOMException("Aborted", "AbortError"));
     };
+
+    // 🎒 PACK mode: Check VFS for embedded files first (used for offline bundles)
+    if (typeof window !== 'undefined' && window.acPACK_MODE && window.VFS) {
+      let vfsPath = typeof path === "object" ? path.path : path;
+      // Normalize path: strip leading slash and "aesthetic.computer/" prefix
+      if (vfsPath.startsWith('/')) vfsPath = vfsPath.slice(1);
+      if (vfsPath.startsWith('aesthetic.computer/')) vfsPath = vfsPath.slice('aesthetic.computer/'.length);
+      
+      const vfsEntry = window.VFS[vfsPath];
+      if (vfsEntry) {
+        const ext = typeof path === "object" ? path.extension : vfsPath.split(".").pop().split("?")[0];
+        progressReport?.(1); // Report completion immediately for VFS files
+        
+        if (ext === "json") {
+          // JSON files in VFS: { content: "...", type: 'json' } or { content: "...", type: 'base64' }
+          let jsonStr;
+          if (typeof vfsEntry === 'object' && vfsEntry.content !== undefined) {
+            if (vfsEntry.type === 'base64') {
+              jsonStr = atob(vfsEntry.content);
+            } else {
+              jsonStr = vfsEntry.content; // type: 'json' stores content as string
+            }
+          } else if (typeof vfsEntry === 'string') {
+            jsonStr = vfsEntry;
+          }
+          if (jsonStr !== undefined) {
+            return parseJSON ? JSON.parse(jsonStr) : jsonStr;
+          }
+        } else if (ext === "xml") {
+          let xmlStr;
+          if (typeof vfsEntry === 'object' && vfsEntry.content !== undefined) {
+            xmlStr = vfsEntry.type === 'base64' ? atob(vfsEntry.content) : vfsEntry.content;
+          } else {
+            xmlStr = vfsEntry;
+          }
+          const parser = new DOMParser();
+          return parser.parseFromString(xmlStr, "text/xml");
+        }
+        // For other types, fall through to normal handling if not JSON/XML
+      }
+    }
 
     if (soundWhitelist.includes(path)) {
       extension = "ogg";
