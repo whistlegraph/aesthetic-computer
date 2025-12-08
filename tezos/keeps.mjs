@@ -402,6 +402,35 @@ async function fetchBundleFromNetlify(piece, contentType) {
 // IPFS Upload
 // ============================================================================
 
+/**
+ * Upload a JSON object to IPFS via Pinata
+ */
+async function uploadJsonToIPFS(jsonData, name, credentials) {
+  const jsonString = JSON.stringify(jsonData, null, 2);
+  const blob = new Blob([jsonString], { type: 'application/json' });
+  
+  const formData = new FormData();
+  formData.append('file', blob, 'metadata.json');
+  formData.append('pinataMetadata', JSON.stringify({ name }));
+  
+  const response = await fetch(`${CONFIG.pinata.apiUrl}/pinning/pinFileToIPFS`, {
+    method: 'POST',
+    headers: {
+      'pinata_api_key': credentials.pinataKey,
+      'pinata_secret_api_key': credentials.pinataSecret
+    },
+    body: formData
+  });
+  
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Pinata JSON upload failed: ${error}`);
+  }
+  
+  const result = await response.json();
+  return `ipfs://${result.IpfsHash}`;
+}
+
 async function uploadToIPFS(piece, options = {}) {
   const credentials = loadCredentials();
   
@@ -498,6 +527,7 @@ async function mintToken(piece, options = {}) {
   const { network = 'ghostnet' } = options;
   
   const { tezos, credentials, config } = await createTezosClient(network);
+  const allCredentials = loadCredentials(); // For Pinata access
   
   // Load contract address
   if (!fs.existsSync(CONFIG.paths.contractAddress)) {
@@ -526,26 +556,64 @@ async function mintToken(piece, options = {}) {
   }
   console.log(`📁 Content Type: ${contentType}`);
   
-  // Upload to IPFS if not provided
+  // Upload HTML bundle to IPFS if not provided
   let artifactUri = options.ipfsUri;
-  let hash = options.contentHash;
+  let artifactCid = options.contentHash;
   
   if (!artifactUri) {
-    console.log('\n📤 Uploading to IPFS first...');
+    console.log('\n📤 Uploading HTML bundle to IPFS...');
     const upload = await uploadToIPFS(piece, { contentType });
-    artifactUri = upload.gatewayUrl;  // Use gateway URL for artifact
-    hash = upload.cid;
-    contentType = upload.contentType;  // Use detected content type from upload
+    artifactUri = `ipfs://${upload.cid}`;  // Use ipfs:// URI for artifact
+    artifactCid = upload.cid;
+    contentType = upload.contentType;
   }
   
   console.log(`🔗 Artifact URI: ${artifactUri}`);
-  console.log(`🔐 Content Hash: ${hash}`);
+  console.log(`🔐 Artifact CID: ${artifactCid}`);
   
-  // Build TZIP-21 compliant metadata (all as raw hex-encoded strings)
+  // Build TZIP-21 compliant JSON metadata for objkt
   const tokenName = `Aesthetic Computer Keep - ${pieceName}`;
   const description = `An aesthetic.computer ${contentType} piece preserved on Tezos`;
   
-  const metadata = {
+  const metadataJson = {
+    name: tokenName,
+    description: description,
+    artifactUri: artifactUri,
+    displayUri: artifactUri,
+    thumbnailUri: `${acUrl}?thumbnail=true`,
+    decimals: 0,
+    symbol: 'KEEP',
+    isBooleanAmount: true,
+    shouldPreferSymbol: false,
+    minter: credentials.address,
+    creators: [credentials.address],
+    rights: '© All rights reserved',
+    mintingTool: 'https://aesthetic.computer',
+    formats: [{
+      uri: artifactUri,
+      mimeType: 'text/html',
+      dimensions: { value: 'responsive', unit: 'viewport' }
+    }],
+    tags: [contentType, 'aesthetic.computer', 'interactive'],
+    attributes: [
+      { name: 'Content Type', value: contentType },
+      { name: 'Piece Name', value: pieceName },
+      { name: 'AC URL', value: acUrl }
+    ]
+  };
+  
+  // Upload JSON metadata to IPFS
+  console.log('\n📤 Uploading JSON metadata to IPFS...');
+  const metadataUri = await uploadJsonToIPFS(
+    metadataJson, 
+    `aesthetic.computer-keep-${pieceName}-metadata`,
+    allCredentials
+  );
+  console.log(`📋 Metadata URI: ${metadataUri}`);
+  
+  // For the contract, we only need to store the metadata URI in the "" key
+  // All other fields will be fetched by indexers from the JSON
+  const onChainMetadata = {
     name: stringToBytes(tokenName),
     description: stringToBytes(description),
     artifactUri: stringToBytes(artifactUri),
@@ -555,52 +623,42 @@ async function mintToken(piece, options = {}) {
     symbol: stringToBytes('KEEP'),
     isBooleanAmount: stringToBytes('true'),
     shouldPreferSymbol: stringToBytes('false'),
-    formats: stringToBytes(JSON.stringify([{
-      uri: artifactUri,
-      mimeType: 'application/x-directory',
-      dimensions: { value: 'responsive', unit: 'viewport' }
-    }])),
-    tags: stringToBytes(JSON.stringify([contentType, 'aesthetic.computer', 'interactive'])),
-    attributes: stringToBytes(JSON.stringify([
-      { name: 'content_type', value: contentType },
-      { name: 'piece_name', value: pieceName },
-      { name: 'ac_url', value: acUrl },
-      { name: 'content_hash', value: hash }
-    ])),
+    formats: stringToBytes(JSON.stringify(metadataJson.formats)),
+    tags: stringToBytes(JSON.stringify(metadataJson.tags)),
+    attributes: stringToBytes(JSON.stringify(metadataJson.attributes)),
     creators: stringToBytes(JSON.stringify([credentials.address])),
     rights: stringToBytes('© All rights reserved'),
     content_type: stringToBytes(contentType),
-    content_hash: stringToBytes(hash),
-    metadata_uri: stringToBytes(acUrl),
+    content_hash: stringToBytes(artifactCid),
+    // IMPORTANT: This is the off-chain metadata URI that objkt will fetch
+    metadata_uri: stringToBytes(metadataUri),
   };
   
-  // Call keep entrypoint with all 18 parameters as a record
+  // Call keep entrypoint
   console.log('\n📤 Calling keep entrypoint...');
   
   try {
     const contract = await tezos.contract.at(contractAddress);
     
-    // The keep entrypoint expects a record with all metadata fields
-    // Use methodsObject for proper record handling
     const op = await contract.methodsObject.keep({
-      artifactUri: metadata.artifactUri,
-      attributes: metadata.attributes,
-      content_hash: metadata.content_hash,
-      content_type: metadata.content_type,
-      creators: metadata.creators,
-      decimals: metadata.decimals,
-      description: metadata.description,
-      displayUri: metadata.displayUri,
-      formats: metadata.formats,
-      isBooleanAmount: metadata.isBooleanAmount,
-      metadata_uri: metadata.metadata_uri,
-      name: metadata.name,
+      artifactUri: onChainMetadata.artifactUri,
+      attributes: onChainMetadata.attributes,
+      content_hash: onChainMetadata.content_hash,
+      content_type: onChainMetadata.content_type,
+      creators: onChainMetadata.creators,
+      decimals: onChainMetadata.decimals,
+      description: onChainMetadata.description,
+      displayUri: onChainMetadata.displayUri,
+      formats: onChainMetadata.formats,
+      isBooleanAmount: onChainMetadata.isBooleanAmount,
+      metadata_uri: onChainMetadata.metadata_uri,
+      name: onChainMetadata.name,
       owner: credentials.address,
-      rights: metadata.rights,
-      shouldPreferSymbol: metadata.shouldPreferSymbol,
-      symbol: metadata.symbol,
-      tags: metadata.tags,
-      thumbnailUri: metadata.thumbnailUri
+      rights: onChainMetadata.rights,
+      shouldPreferSymbol: onChainMetadata.shouldPreferSymbol,
+      symbol: onChainMetadata.symbol,
+      tags: onChainMetadata.tags,
+      thumbnailUri: onChainMetadata.thumbnailUri
     }).send();
     
     console.log(`   ⏳ Operation hash: ${op.hash}`);
