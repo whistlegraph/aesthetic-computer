@@ -1,3 +1,0 @@
-parameter (or (or nat string) bool);
-storage unit;
-code {UNPAIR; IF_LEFT {IF_LEFT {DROP; NIL operation; PAIR;} {DROP; NIL operation; PAIR;};} {DROP; NIL operation; PAIR;};};

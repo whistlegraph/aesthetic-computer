@@ -1,8 +1,10 @@
 {
   "dependencies": {
     "@pinata/sdk": "^2.1.0",
+    "@taquito/michel-codec": "^23.0.3",
     "@taquito/signer": "^21.0.0",
     "@taquito/taquito": "^21.0.0",
+    "bn.js": "^5.2.2",
     "dotenv": "^16.4.7"
   }
 }

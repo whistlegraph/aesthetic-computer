@@ -1,0 +1,1 @@
+sp.record(token_id = 1, token_info = {'name' : sp.bytes('0x4e6577204e616d65')})

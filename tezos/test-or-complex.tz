@@ -1,3 +1,0 @@
-parameter (or ((pair (nat %a) (string %b)) %left) ((string %x) %right));
-storage unit;
-code { CDR; NIL operation; PAIR };
