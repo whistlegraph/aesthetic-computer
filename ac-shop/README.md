@@ -1,78 +1,84 @@
-# Shopify App Template - Extension only
+# ac-shop - Aesthetic Computer Shopify Tools
 
-This is a template for building an [extension-only Shopify app](https://shopify.dev/docs/apps/build/app-extensions/build-extension-only-app). It contains the basics for building a Shopify app that uses only app extensions.
+CLI tools for managing the Aesthetic Computer Shopify store.
 
-This template doesn't include a server or the ability to embed a page in the Shopify Admin. If you want either of these capabilities, choose the [Remix app template](https://github.com/Shopify/shopify-app-template-remix) instead.
+## Quick Reference
 
-Whether you choose to use this template or another one, you can use your preferred package manager and the Shopify CLI with [these steps](#installing-the-template).
+### Theme Editing
 
-## Benefits
+The shop uses the **Spotlight** theme (ID: `141869547701`).
 
-Shopify apps are built on a variety of Shopify tools to create a great merchant experience. The [create an app](https://shopify.dev/docs/apps/getting-started/create) tutorial in our developer documentation will guide you through creating a Shopify app.
+```bash
+# Pull the theme locally
+npx shopify theme pull --theme 141869547701 --store 3pc8se-sj.myshopify.com --path ./theme
 
-This app template does little more than install the CLI and scaffold a repository.
+# Push changes (with --allow-live to skip confirmation)
+npx shopify theme push --theme 141869547701 --store 3pc8se-sj.myshopify.com --path ./theme --allow-live
 
-## Getting started
+# Push only specific files
+npx shopify theme push --theme 141869547701 --store 3pc8se-sj.myshopify.com --path ./theme --only snippets/buy-buttons.liquid --allow-live
 
-### Requirements
-
-1. You must [download and install Node.js](https://nodejs.org/en/download/) if you don't already have it.
-1. You must [create a Shopify partner account](https://partners.shopify.com/signup) if you don’t have one.
-1. You must create a store for testing if you don't have one, either a [development store](https://help.shopify.com/en/partners/dashboard/development-stores#create-a-development-store) or a [Shopify Plus sandbox store](https://help.shopify.com/en/partners/dashboard/managing-stores/plus-sandbox-store).
-
-### Installing the template
-
-This template can be installed using your preferred package manager:
-
-Using yarn:
-
-```shell
-yarn create @shopify/app
+# List available themes
+npx shopify theme list --store 3pc8se-sj.myshopify.com
 ```
 
-Using npm:
+### Key Theme Files
 
-```shell
-npm init @shopify/app@latest
+- `snippets/buy-buttons.liquid` - Buy button text (customized per product type)
+- `sections/header.liquid` - Header navigation
+- `templates/index.json` - Homepage content
+
+### Product Types & Button Text
+
+The buy button text is customized based on `product.type` in `snippets/buy-buttons.liquid`:
+
+| Product Type | Button Text |
+|-------------|-------------|
+| Sketchbook | "Buy this sketchbook" |
+| Book | "Buy this book" |
+| Bike | "Buy this bike" |
+| (record URL) | "Buy this record" |
+| (@jeffrey URL) | "Book @jeffrey now" |
+| Default | "Buy this artwork" |
+
+### Product Management CLI
+
+```bash
+# List all products
+node shopify.mjs list
+
+# List with filter
+node shopify.mjs list bikes
+
+# Show product details
+node shopify.mjs show 25.12.4.10.09
+
+# Test API connection
+node shopify.mjs test
+
+# Sync product codes
+node shopify.mjs sync
 ```
 
-Using pnpm:
+### Update Sketchbook Descriptions
 
-```shell
-pnpm create @shopify/app@latest
+```bash
+# Updates all 5 @fifi sketchbooks with current description template
+node update-tools.mjs
 ```
 
-This will clone the template and install the required dependencies.
+## Environment Setup
 
-#### Local Development
+Requires credentials in `../aesthetic-computer-vault/shop/.env`:
+- `SHOPIFY_STORE_DOMAIN` - Store domain (3pc8se-sj.myshopify.com)
+- `SHOPIFY_ADMIN_ACCESS_TOKEN` - Admin API access token
 
-[The Shopify CLI](https://shopify.dev/docs/apps/tools/cli) connects to an app in your Partners dashboard. It provides environment variables and runs commands in parallel.
+### API Permissions
 
-You can develop locally using your preferred package manager. Run one of the following commands from the root of your app.
+Manage app permissions at:
+https://admin.shopify.com/store/3pc8se-sj/settings/apps/development
 
-Using yarn:
-
-```shell
-yarn dev
-```
-
-Using npm:
-
-```shell
-npm run dev
-```
-
-Using pnpm:
-
-```shell
-pnpm run dev
-```
-
-Open the URL generated in your console. Once you grant permission to the app, you can start development (such as generating extensions).
-
-## Developer resources
-
-- [Introduction to Shopify apps](https://shopify.dev/docs/apps/getting-started)
-- [App extensions](https://shopify.dev/docs/apps/build/app-extensions)
-- [Extension only apps](https://shopify.dev/docs/apps/build/app-extensions/build-extension-only-app)
-- [Shopify CLI](https://shopify.dev/docs/apps/tools/cli)
+Required scopes:
+- `read_products`, `write_products`
+- `read_themes`, `write_themes`
+- `read_locations` (for inventory management)

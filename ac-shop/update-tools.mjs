@@ -60,7 +60,7 @@ function makeDescription(code) {
   return `<p>Sketchbook customized by <a href="https://aesthetic.computer/@fifi">@fifi</a></p>
 <p>Dated ${dateStr}</p>
 <p>This customized sketchbook ships from Los Angeles and includes a QR code.</p>
-<p>This Midori MD A5 Sketchbook comes with a clear plastic cover.</p>`;
+<p>This Midori MD A5 Sketchbook comes with a clear plastic cover and has 48 pages.</p>`;
 }
 
 async function updateProduct(tool) {

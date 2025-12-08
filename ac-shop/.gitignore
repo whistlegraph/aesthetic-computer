@@ -27,3 +27,5 @@ extensions/*/dist
 # Ignore shopify files created during app dev
 .shopify/*
 .shopify.lock
+# Shopify theme (pulled from/pushed to Shopify directly)
+theme/
