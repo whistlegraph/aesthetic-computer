@@ -1,0 +1,594 @@
+// keep-mint.mjs - Streaming NFT minting endpoint for KidLisp Keeps
+// 
+// POST /api/keep-mint - Mint a piece as an NFT (streaming SSE response)
+// Requires authentication and piece ownership
+//
+// Optimized flow:
+// 1. Validate auth/ownership/not-minted
+// 2. START thumbnail generation in parallel (oven)
+// 3. Analyze source for traits
+// 4. Generate bundle (bundle-html)
+// 5. Upload bundle to IPFS
+// 6. AWAIT thumbnail
+// 7. Upload metadata JSON to IPFS
+// 8. Mint on Tezos
+
+import { authorize, handleFor, hasAdmin } from "../../backend/authorization.mjs";
+import { connect } from "../../backend/database.mjs";
+import { analyzeKidLisp, ANALYZER_VERSION } from "../../backend/kidlisp-analyzer.mjs";
+import { stream } from "@netlify/functions";
+import { TezosToolkit } from "@taquito/taquito";
+import { InMemorySigner } from "@taquito/signer";
+
+const dev = process.env.CONTEXT === "dev";
+
+// Allow self-signed certs in dev mode
+if (dev) {
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+}
+
+// Configuration  
+const CONTRACT_ADDRESS = process.env.TEZOS_KEEPS_CONTRACT || "KT1Ah5m2kzU3GfN42hh57mVJ63kNi95XKBdM";
+const NETWORK = process.env.TEZOS_NETWORK || "ghostnet";
+const OVEN_URL = process.env.OVEN_URL || "https://oven.aesthetic.computer";
+const RPC_URL = NETWORK === "mainnet" 
+  ? "https://mainnet.ecadinfra.com"
+  : "https://ghostnet.ecadinfra.com";
+
+// Cache credentials in memory for warm function invocations
+let cachedPinataCredentials = null;
+let cachedTezosCredentials = null;
+
+async function getPinataCredentials() {
+  if (cachedPinataCredentials) return cachedPinataCredentials;
+  
+  const { db } = await connect();
+  const secrets = await db.collection("secrets").findOne({ _id: "pinata" });
+  
+  if (!secrets) {
+    throw new Error("Pinata credentials not found in database");
+  }
+  
+  cachedPinataCredentials = {
+    apiKey: secrets.apiKey,
+    apiSecret: secrets.apiSecret,
+    jwt: secrets.jwt,
+  };
+  
+  return cachedPinataCredentials;
+}
+
+async function getTezosCredentials() {
+  if (cachedTezosCredentials) return cachedTezosCredentials;
+  
+  const { db } = await connect();
+  const secrets = await db.collection("secrets").findOne({ _id: "tezos-kidlisp" });
+  
+  if (!secrets) {
+    throw new Error("Tezos KidLisp credentials not found in database");
+  }
+  
+  cachedTezosCredentials = {
+    address: secrets.address,
+    publicKey: secrets.publicKey,
+    privateKey: secrets.privateKey,
+    network: secrets.network,
+  };
+  
+  return cachedTezosCredentials;
+}
+
+// Convert string to hex bytes (for Tezos)
+function stringToBytes(str) {
+  return Buffer.from(str, "utf8").toString("hex");
+}
+
+// Check if a piece name is already minted via TzKT
+async function checkMintStatus(pieceName) {
+  const keyBytes = stringToBytes(pieceName);
+  const url = `https://api.${NETWORK}.tzkt.io/v1/contracts/${CONTRACT_ADDRESS}/bigmaps/content_hashes/keys/${keyBytes}`;
+  
+  try {
+    const response = await fetch(url);
+    if (response.status === 200) {
+      const data = await response.json();
+      if (data.active) {
+        return { 
+          minted: true, 
+          tokenId: data.value,
+          objktUrl: `https://${NETWORK === "mainnet" ? "" : "ghostnet."}objkt.com/asset/${CONTRACT_ADDRESS}/${data.value}`,
+        };
+      }
+    }
+    return { minted: false };
+  } catch (error) {
+    return { minted: false, error: error.message };
+  }
+}
+
+// Upload file to IPFS via Pinata
+async function uploadToIPFS(content, filename, mimeType = "text/html") {
+  const { apiKey, apiSecret } = await getPinataCredentials();
+  
+  const formData = new FormData();
+  const blob = new Blob([content], { type: mimeType });
+  formData.append("file", blob, filename);
+  formData.append("pinataMetadata", JSON.stringify({ name: filename }));
+  // Don't wrap with directory - we want direct access to the HTML file
+  formData.append("pinataOptions", JSON.stringify({ wrapWithDirectory: false }));
+
+  const response = await fetch("https://api.pinata.cloud/pinning/pinFileToIPFS", {
+    method: "POST",
+    headers: {
+      pinata_api_key: apiKey,
+      pinata_secret_api_key: apiSecret,
+    },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    throw new Error(`IPFS upload failed: ${response.status}`);
+  }
+
+  const result = await response.json();
+  return `ipfs://${result.IpfsHash}`;
+}
+
+// Upload JSON metadata to IPFS
+async function uploadJsonToIPFS(data, name) {
+  const { apiKey, apiSecret } = await getPinataCredentials();
+  
+  const response = await fetch("https://api.pinata.cloud/pinning/pinJSONToIPFS", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      pinata_api_key: apiKey,
+      pinata_secret_api_key: apiSecret,
+    },
+    body: JSON.stringify({
+      pinataContent: data,
+      pinataMetadata: { name },
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Metadata upload failed: ${response.status}`);
+  }
+
+  const result = await response.json();
+  return `ipfs://${result.IpfsHash}`;
+}
+
+// SSE helper
+function sse(eventType, data) {
+  return `event: ${eventType}\ndata: ${JSON.stringify(data)}\n\n`;
+}
+
+export const handler = stream(async (event, context) => {
+  const headers = {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    "Connection": "keep-alive",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  };
+
+  // Handle CORS preflight
+  if (event.httpMethod === "OPTIONS") {
+    return { statusCode: 200, headers, body: "" };
+  }
+
+  if (event.httpMethod !== "POST") {
+    return {
+      statusCode: 405,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ error: "Method not allowed" }),
+    };
+  }
+
+  // Create readable stream for SSE
+  const { readable, writable } = new TransformStream();
+  const writer = writable.getWriter();
+  const encoder = new TextEncoder();
+
+  const send = async (eventType, data) => {
+    await writer.write(encoder.encode(sse(eventType, data)));
+  };
+
+  // Track if stream is closed to prevent double-close
+  let streamClosed = false;
+  
+  const closeStream = async () => {
+    if (!streamClosed) {
+      streamClosed = true;
+      await writer.close();
+    }
+  };
+
+  // Process minting
+  (async () => {
+    try {
+      // Parse body
+      let body;
+      try {
+        body = JSON.parse(event.body || "{}");
+      } catch {
+        await send("error", { error: "Invalid JSON body" });
+        return; // finally will close
+      }
+
+      const pieceName = body.piece?.replace(/^\$/, "");
+      const mode = body.mode || "prepare"; // "prepare" (default) or "mint" (server-side)
+      
+      if (!pieceName) {
+        await send("error", { error: "Missing 'piece' in request body" });
+        return; // finally will close
+      }
+
+      // ═══════════════════════════════════════════════════════════════════
+      // STAGE 1: VALIDATE
+      // ═══════════════════════════════════════════════════════════════════
+      await send("progress", { stage: "validate", message: `Validating $${pieceName}...` });
+
+      // Check auth
+      const user = await authorize(event.headers);
+      if (!user) {
+        await send("error", { error: "Please log in first" });
+        return; // finally will close
+      }
+
+      const userHandle = await handleFor(user.sub);
+      if (!userHandle) {
+        await send("error", { error: "You need an @handle first. Enter 'handle' to claim one." });
+        return; // finally will close
+      }
+
+      await send("progress", { stage: "validate", message: `Authenticated as @${userHandle}` });
+
+      const isAdmin = await hasAdmin(user);
+
+      // Get piece from database
+      const database = await connect();
+      const collection = database.db.collection("kidlisp");
+      const piece = await collection.findOne({ code: pieceName });
+
+      if (!piece) {
+        await database.disconnect();
+        await send("error", { error: `Piece '$${pieceName}' not found` });
+        return; // finally will close
+      }
+
+      // Check ownership
+      if (!isAdmin && piece.user && piece.user !== user.sub) {
+        const ownerHandle = await handleFor(piece.user);
+        await database.disconnect();
+        await send("error", { error: `This piece belongs to @${ownerHandle || "someone else"}` });
+        return; // finally will close
+      }
+
+      // Check not already minted
+      const mintStatus = await checkMintStatus(pieceName);
+      if (mintStatus.minted) {
+        await database.disconnect();
+        await send("error", { 
+          error: "Already minted", 
+          tokenId: mintStatus.tokenId,
+          objktUrl: mintStatus.objktUrl 
+        });
+        return; // finally will close
+      }
+
+      await send("progress", { stage: "validate", message: "Validation passed ✓" });
+      await database.disconnect();
+      
+      // Get Pinata credentials early for thumbnail generation
+      const pinataCredentials = await getPinataCredentials();
+
+      // ═══════════════════════════════════════════════════════════════════
+      // STAGE 2: START THUMBNAIL IN PARALLEL
+      // ═══════════════════════════════════════════════════════════════════
+      await send("progress", { stage: "thumbnail", message: "Starting thumbnail generation..." });
+      
+      // In dev mode, oven can't reach localhost, so skip thumbnail generation
+      const thumbnailPromise = dev 
+        ? Promise.resolve(null)
+        : fetch(`${OVEN_URL}/grab-ipfs`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              url: `https://aesthetic.computer/$${pieceName}`,
+              format: "webp",
+              width: 96,
+              height: 96,
+              density: 2,
+              duration: 8000,
+              fps: 10,
+              playbackFps: 20,
+              quality: 70,
+              pinataKey: pinataCredentials.apiKey,
+              pinataSecret: pinataCredentials.apiSecret,
+            }),
+          }).then(async (res) => {
+            if (!res.ok) throw new Error(`Thumbnail failed: ${res.status}`);
+            return res.json();
+          }).catch(err => {
+            console.warn("Thumbnail generation failed:", err);
+            return null; // Non-fatal, use fallback
+          });
+
+      // ═══════════════════════════════════════════════════════════════════
+      // STAGE 3: ANALYZE SOURCE
+      // ═══════════════════════════════════════════════════════════════════
+      await send("progress", { stage: "analyze", message: "Analyzing source code..." });
+      
+      const analysis = analyzeKidLisp(piece.source);
+      
+      await send("progress", { 
+        stage: "analyze", 
+        message: `${analysis.lineCount} lines, ${analysis.complexity.tier} complexity ✓`
+      });
+
+      // ═══════════════════════════════════════════════════════════════════
+      // STAGE 4: GENERATE BUNDLE
+      // ═══════════════════════════════════════════════════════════════════
+      await send("progress", { stage: "bundle", message: "Generating HTML bundle..." });
+      
+      const bundleUrl = dev 
+        ? `https://localhost:8888/api/bundle-html?code=${pieceName}&format=json`
+        : `https://aesthetic.computer/api/bundle-html?code=${pieceName}&format=json`;
+      
+      const bundleResponse = await fetch(bundleUrl);
+      if (!bundleResponse.ok) {
+        throw new Error(`Bundle generation failed: ${bundleResponse.status}`);
+      }
+      
+      const bundleData = await bundleResponse.json();
+      if (bundleData.error) {
+        throw new Error(`Bundle error: ${bundleData.error}`);
+      }
+      
+      const bundleHtml = Buffer.from(bundleData.content, "base64").toString("utf8");
+      const bundleFilename = bundleData.filename || `$${pieceName}.lisp.html`;
+      const authorHandle = bundleData.authorHandle || `@${userHandle}`;
+      const userCode = bundleData.userCode;
+      const packDate = bundleData.packDate;
+      const depCount = bundleData.depCount || 0;
+
+      await send("progress", { stage: "bundle", message: "Bundle generated ✓" });
+
+      // ═══════════════════════════════════════════════════════════════════
+      // STAGE 5: UPLOAD BUNDLE TO IPFS
+      // ═══════════════════════════════════════════════════════════════════
+      await send("progress", { stage: "ipfs", message: "Uploading bundle to IPFS..." });
+      
+      const artifactUri = await uploadToIPFS(
+        bundleHtml, 
+        bundleFilename,
+        "text/html"
+      );
+      
+      await send("progress", { stage: "ipfs", message: "Bundle uploaded ✓" });
+
+      // ═══════════════════════════════════════════════════════════════════
+      // STAGE 6: AWAIT THUMBNAIL
+      // ═══════════════════════════════════════════════════════════════════
+      await send("progress", { stage: "thumbnail", message: "Waiting for thumbnail..." });
+      
+      const thumbResult = await thumbnailPromise;
+      const thumbnailUri = thumbResult?.ipfsUri || 
+        `https://grab.aesthetic.computer/preview/400x400/$${pieceName}.png`;
+      
+      await send("progress", { 
+        stage: "thumbnail", 
+        message: thumbResult ? "Thumbnail ready ✓" : "Using fallback thumbnail"
+      });
+
+      // ═══════════════════════════════════════════════════════════════════
+      // STAGE 7: BUILD & UPLOAD METADATA
+      // ═══════════════════════════════════════════════════════════════════
+      await send("progress", { stage: "metadata", message: "Building metadata..." });
+
+      const tokenName = `$${pieceName}`;
+      
+      // Build description
+      let description = piece.source || `A KidLisp piece preserved on Tezos`;
+      if (authorHandle && authorHandle !== "@anon") {
+        description += `\n\nby ${authorHandle}`;
+      }
+      if (userCode) description += `\n${userCode}`;
+      if (packDate) description += `\nPacked on ${packDate}`;
+
+      // Build tags
+      const tags = [`$${pieceName}`, "KidLisp", "Aesthetic.Computer", "interactive"];
+      if (userCode) tags.push(userCode);
+
+      // Use analyzer traits + add extras
+      const attributes = [
+        ...analysis.traits,
+        ...(depCount > 0 ? [{ name: "Dependencies", value: String(depCount) }] : []),
+        ...(packDate ? [{ name: "Packed", value: packDate }] : []),
+        { name: "Analyzer Version", value: ANALYZER_VERSION },
+      ];
+
+      // Creator identity for metadata (user handle or "anon")
+      const creatorIdentity = userHandle ? `@${userHandle}` : "anon";
+      
+      const metadataJson = {
+        name: tokenName,
+        description,
+        artifactUri,
+        displayUri: artifactUri,
+        thumbnailUri,
+        decimals: 0,
+        symbol: "KEEP",
+        isBooleanAmount: true,
+        shouldPreferSymbol: false,
+        minter: creatorIdentity,
+        creators: [creatorIdentity],
+        rights: "© All rights reserved",
+        mintingTool: "https://aesthetic.computer",
+        formats: [{
+          uri: artifactUri,
+          mimeType: "text/html",
+          dimensions: { value: "responsive", unit: "viewport" },
+        }],
+        tags,
+        attributes,
+      };
+
+      const metadataUri = await uploadJsonToIPFS(
+        metadataJson,
+        `$${pieceName}-metadata.json`
+      );
+      
+      await send("progress", { stage: "metadata", message: "Metadata uploaded ✓" });
+
+      // ═══════════════════════════════════════════════════════════════════
+      // STAGE 8: PREPARE OR MINT
+      // ═══════════════════════════════════════════════════════════════════
+      
+      // Build on-chain metadata (shared between prepare and mint modes)
+      const onChainMetadata = {
+        name: stringToBytes(tokenName),
+        description: stringToBytes(description),
+        artifactUri: stringToBytes(artifactUri),
+        displayUri: stringToBytes(artifactUri),
+        thumbnailUri: stringToBytes(thumbnailUri),
+        decimals: stringToBytes("0"),
+        symbol: stringToBytes("KEEP"),
+        isBooleanAmount: stringToBytes("true"),
+        shouldPreferSymbol: stringToBytes("false"),
+        formats: stringToBytes(JSON.stringify(metadataJson.formats)),
+        tags: stringToBytes(JSON.stringify(tags)),
+        attributes: stringToBytes(JSON.stringify(attributes)),
+        creators: stringToBytes(JSON.stringify([userHandle ? `@${userHandle}` : "anon"])),
+        rights: stringToBytes("© All rights reserved"),
+        content_type: stringToBytes("KidLisp"),
+        content_hash: stringToBytes(pieceName),
+        metadata_uri: stringToBytes(metadataUri),
+      };
+
+      // PREPARE MODE: Return data for client-side wallet minting
+      if (mode === "prepare") {
+        await send("progress", { stage: "ready", message: "Ready for wallet signature..." });
+        
+        // Use Taquito to generate the Michelson parameters for the contract call
+        // This ensures proper encoding that Beacon can use
+        const tezos = new TezosToolkit(RPC_URL);
+        const contract = await tezos.contract.at(CONTRACT_ADDRESS);
+        
+        // Create a placeholder operation to get the Michelson params
+        // We'll use a dummy owner that the client will replace
+        const placeholderOwner = "0000"; // Will be replaced by client with their address
+        
+        const transferParams = contract.methodsObject.keep({
+          artifactUri: onChainMetadata.artifactUri,
+          attributes: onChainMetadata.attributes,
+          content_hash: onChainMetadata.content_hash,
+          content_type: onChainMetadata.content_type,
+          creators: onChainMetadata.creators,
+          decimals: onChainMetadata.decimals,
+          description: onChainMetadata.description,
+          displayUri: onChainMetadata.displayUri,
+          formats: onChainMetadata.formats,
+          isBooleanAmount: onChainMetadata.isBooleanAmount,
+          metadata_uri: onChainMetadata.metadata_uri,
+          name: onChainMetadata.name,
+          owner: placeholderOwner,
+          rights: onChainMetadata.rights,
+          shouldPreferSymbol: onChainMetadata.shouldPreferSymbol,
+          symbol: onChainMetadata.symbol,
+          tags: onChainMetadata.tags,
+          thumbnailUri: onChainMetadata.thumbnailUri,
+        }).toTransferParams();
+        
+        await send("prepared", {
+          success: true,
+          piece: pieceName,
+          contractAddress: CONTRACT_ADDRESS,
+          network: NETWORK,
+          mintFee: 5, // 5 XTZ
+          // Send the Michelson-encoded parameters for Beacon
+          michelsonParams: transferParams.parameter,
+          entrypoint: "keep",
+          artifactUri,
+          thumbnailUri,
+          metadataUri,
+          rpcUrl: RPC_URL,
+        });
+        return;
+      }
+
+      // MINT MODE: Server-side minting (for testing/admin)
+      await send("progress", { stage: "mint", message: "Minting on Tezos..." });
+
+      // Get Tezos credentials from MongoDB
+      const tezosCredentials = await getTezosCredentials();
+      
+      const tezos = new TezosToolkit(RPC_URL);
+      tezos.setProvider({ signer: new InMemorySigner(tezosCredentials.privateKey) });
+      const adminAddress = await tezos.signer.publicKeyHash();
+
+      const contract = await tezos.contract.at(CONTRACT_ADDRESS);
+      
+      const op = await contract.methodsObject.keep({
+        artifactUri: onChainMetadata.artifactUri,
+        attributes: onChainMetadata.attributes,
+        content_hash: onChainMetadata.content_hash,
+        content_type: onChainMetadata.content_type,
+        creators: onChainMetadata.creators,
+        decimals: onChainMetadata.decimals,
+        description: onChainMetadata.description,
+        displayUri: onChainMetadata.displayUri,
+        formats: onChainMetadata.formats,
+        isBooleanAmount: onChainMetadata.isBooleanAmount,
+        metadata_uri: onChainMetadata.metadata_uri,
+        name: onChainMetadata.name,
+        owner: adminAddress,
+        rights: onChainMetadata.rights,
+        shouldPreferSymbol: onChainMetadata.shouldPreferSymbol,
+        symbol: onChainMetadata.symbol,
+        tags: onChainMetadata.tags,
+        thumbnailUri: onChainMetadata.thumbnailUri,
+      }).send();
+
+      await send("progress", { stage: "mint", message: `Tx submitted: ${op.hash.slice(0, 12)}...` });
+      
+      // Wait for confirmation
+      await op.confirmation(1);
+
+      // Get token ID
+      await new Promise(r => setTimeout(r, 3000)); // Let TzKT index
+      const tokensResponse = await fetch(
+        `https://api.${NETWORK}.tzkt.io/v1/contracts/${CONTRACT_ADDRESS}/bigmaps/token_metadata/keys?limit=100`
+      );
+      const tokens = await tokensResponse.json();
+      const tokenId = tokens.length > 0 ? tokens[tokens.length - 1].key : "?";
+
+      const objktUrl = `https://${NETWORK === "mainnet" ? "" : "ghostnet."}objkt.com/asset/${CONTRACT_ADDRESS}/${tokenId}`;
+
+      await send("complete", {
+        success: true,
+        piece: pieceName,
+        tokenId,
+        txHash: op.hash,
+        artifactUri,
+        thumbnailUri,
+        objktUrl,
+        explorerUrl: `https://${NETWORK}.tzkt.io/${op.hash}`,
+      });
+
+    } catch (error) {
+      console.error("Keep mint error:", error);
+      try {
+        await send("error", { error: error.message || "Minting failed" });
+      } catch (e) {
+        // Stream may already be closed
+      }
+    } finally {
+      await closeStream();
+    }
+  })();
+
+  return { statusCode: 200, headers, body: readable };
+});
