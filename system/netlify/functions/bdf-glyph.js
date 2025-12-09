@@ -348,6 +348,7 @@ async function cacheGlyph(charCode, glyphData, fontName = "unifont-16.0.03") {
 async function parseGlyphFromBDF(charCodeToFind, charToFind, bdfText, fontParam) {
   const lines = bdfText.split(/\r?\n/);
   let inChar = false;
+  let inBitmap = false;
   let currentCharCode = -1;
   let bbx = null;
   let dwidth = null;
@@ -363,6 +364,7 @@ async function parseGlyphFromBDF(charCodeToFind, charToFind, bdfText, fontParam)
       fontDescent = parseInt(line.split(" ")[1]);
     } else if (line.startsWith("STARTCHAR")) {
       inChar = true;
+      inBitmap = false;
       currentCharCode = -1;
       bbx = null;
       dwidth = null;
@@ -380,6 +382,8 @@ async function parseGlyphFromBDF(charCodeToFind, charToFind, bdfText, fontParam)
         xOffset: parseInt(parts[3]),
         yOffset: parseInt(parts[4]),
       };
+    } else if (inChar && line.trim() === "BITMAP") {
+      inBitmap = true;
     } else if (inChar && line.startsWith("ENDCHAR")) {
       if (currentCharCode === charCodeToFind && bbx && bbx.width > 0 && bbx.height > 0) {
         const pointCommands = [];
@@ -421,7 +425,8 @@ async function parseGlyphFromBDF(charCodeToFind, charToFind, bdfText, fontParam)
         return glyphData;
       }
       inChar = false;
-    } else if (inChar && bbx && bitmapLines.length < bbx.height) {
+      inBitmap = false;
+    } else if (inChar && inBitmap && bbx && bitmapLines.length < bbx.height) {
       bitmapLines.push(line.trim());
     }
   }

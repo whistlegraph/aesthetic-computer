@@ -24,7 +24,8 @@ export async function handler(event, context) {
     const query = code ? { code } : { slug };
     const tape = await tapes.findOne(query);
 
-    await database.disconnect();
+    // Don't disconnect - let the connection be reused across serverless invocations
+    // await database.disconnect();
 
     if (!tape) {
       return respond(404, { message: "Tape not found" });

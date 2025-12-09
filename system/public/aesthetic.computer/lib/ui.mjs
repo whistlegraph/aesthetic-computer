@@ -816,6 +816,15 @@ class TextButton {
       };
     }
 
+    if (pos.center === "x") {
+      return {
+        x: (pos.screen?.x || 0) + (pos.screen?.width || 0) / 2 - w / 2,
+        y: (pos.screen?.y || 0) + (pos.y || 0),
+        w,
+        h,
+      };
+    }
+
     // Position from top left if x and y are set on pos
     x = (pos.screen?.x || 0) + (pos.x || 0);
     y = (pos.screen?.y || 0) + (pos.y || 0);
