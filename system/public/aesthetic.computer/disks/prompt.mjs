@@ -360,33 +360,38 @@ function paintTooltip($, inputText) {
   const cursorY = cursorPos.y ?? 10;
   
   // Parse what's already typed to show remaining hint
-  const sigText = tooltipState.sig || "";
   const typed = inputText.trim();
+  const typedParts = typed.split(/[\s]+/);
+  const firstToken = typedParts[0] || "";
+  const colonParts = firstToken.split(":");
+  const numColonParams = colonParts.length - 1; // -1 for command itself
+  const numSpaceParams = typedParts.length - 1; // -1 for first token
   
-  // Extract the part after what's typed as ghost hint
-  // e.g., if sig is "tezos <action> [network]" and typed is "tezos co"
-  // show ghost text for remaining params
   let ghostText = "";
   let descText = doc.desc || "";
   
-  // Find where we are in the signature
-  const sigLower = sigText.toLowerCase();
-  const typedLower = typed.toLowerCase();
+  // Build ghost text from remaining colon params first
+  if (doc.colon && doc.colon.length > 0) {
+    const remainingColon = doc.colon.slice(numColonParams);
+    if (remainingColon.length > 0) {
+      ghostText = remainingColon.map(p => {
+        const name = p.name || "?";
+        return `:${name}`;
+      }).join("");
+    }
+  }
   
-  // Simple approach: show param hints after typed text
+  // Then add remaining space params
   if (doc.params && doc.params.length > 0) {
-    const typedParts = typed.split(/[\s:]+/);
-    const numTypedParams = typedParts.length - 1; // -1 for command itself
-    
-    // Build ghost text from remaining params
-    const remainingParams = doc.params.slice(numTypedParams);
+    const remainingParams = doc.params.slice(numSpaceParams);
     if (remainingParams.length > 0) {
-      ghostText = remainingParams.map(p => {
+      const spaceHints = remainingParams.map(p => {
         if (p.values) {
-          return p.values.join("|");
+          return p.values.slice(0, 3).join("|");
         }
         return p.required ? `<${p.name}>` : `[${p.name}]`;
       }).join(" ");
+      ghostText += (ghostText ? " " : "") + spaceHints;
     }
   }
   
