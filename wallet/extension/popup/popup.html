@@ -261,6 +261,44 @@
       background: #1a2a1a;
       color: #32dc64;
     }
+    
+    /* Import tabs */
+    .import-tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 16px;
+    }
+    
+    .import-tab {
+      flex: 1;
+      padding: 10px;
+      background: #1a2040;
+      border: 1px solid #2a3050;
+      border-radius: 6px;
+      color: #6a7a9a;
+      font-family: inherit;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    
+    .import-tab:hover {
+      background: #2a3050;
+    }
+    
+    .import-tab.active {
+      background: #00b4ff;
+      color: #000;
+      border-color: #00b4ff;
+    }
+    
+    .import-content {
+      display: none;
+    }
+    
+    .import-content.active {
+      display: block;
+    }
   </style>
 </head>
 <body>
@@ -281,7 +319,7 @@
         Create a new wallet or import an existing one.
       </p>
       <button class="btn btn-primary" id="btn-create">Create New Wallet</button>
-      <button class="btn btn-secondary" id="btn-import">Import Seed Phrase</button>
+      <button class="btn btn-secondary" id="btn-import">Import Existing Wallet</button>
     </div>
     
     <!-- Locked View -->
@@ -338,13 +376,29 @@
     <!-- Import Wallet View -->
     <div class="view" id="view-import">
       <h2 class="welcome-title">Import Wallet</h2>
-      <div class="input-group">
-        <label class="input-label">Seed Phrase (24 words)</label>
-        <textarea class="input" id="import-mnemonic" placeholder="Enter your 24-word seed phrase"></textarea>
+      
+      <div class="import-tabs">
+        <button class="import-tab active" data-tab="mnemonic">Seed Phrase</button>
+        <button class="import-tab" data-tab="privatekey">Private Key</button>
       </div>
+      
+      <div class="import-content active" id="import-mnemonic-content">
+        <div class="input-group">
+          <label class="input-label">Seed Phrase (12 or 24 words)</label>
+          <textarea class="input" id="import-mnemonic" placeholder="Enter your seed phrase from Temple or other wallet"></textarea>
+        </div>
+      </div>
+      
+      <div class="import-content" id="import-privatekey-content">
+        <div class="input-group">
+          <label class="input-label">Private Key (edsk...)</label>
+          <input type="password" class="input" id="import-privatekey" placeholder="edsk...">
+        </div>
+      </div>
+      
       <div class="input-group">
         <label class="input-label">Password</label>
-        <input type="password" class="input" id="import-password" placeholder="Create a password">
+        <input type="password" class="input" id="import-password" placeholder="Create a password to encrypt wallet">
       </div>
       <button class="btn btn-primary" id="btn-import-confirm">Import Wallet</button>
       <button class="btn btn-secondary" id="btn-import-back">Back</button>

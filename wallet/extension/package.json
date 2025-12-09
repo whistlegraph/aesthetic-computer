@@ -15,7 +15,10 @@
     "@taquito/taquito": "^21.0.0",
     "@taquito/utils": "^21.0.0",
     "bip39": "^3.1.0",
-    "libsodium-wrappers-sumo": "^0.7.15"
+    "libsodium-wrappers-sumo": "^0.7.15",
+    "scrypt-js": "^3.0.1",
+    "tweetnacl": "^1.0.3",
+    "tweetnacl-util": "^0.15.1"
   },
   "devDependencies": {
     "esbuild": "^0.24.0",
