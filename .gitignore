@@ -48,6 +48,12 @@ aesthetic-computer-vault/
 # any instance of the aesthetic-computer-code repository
 aesthetic-computer-code/
 
+# SSH deploy keys (secrets)
+oven/ssh/
+
+# Wallet extension node_modules
+wallet/extension/node_modules/
+
 # built vscode extension packages
 vscode-extension/*.vsix
 

@@ -1,0 +1,24 @@
+{
+  "name": "keeps-wallet",
+  "version": "0.1.0",
+  "description": "Tezos wallet for aesthetic.computer keeps (NFTs)",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "build:icons": "node scripts/generate-icons.mjs",
+    "dev": "node scripts/build.mjs --watch",
+    "test": "echo 'Load extension in chrome://extensions as unpacked'"
+  },
+  "dependencies": {
+    "@taquito/signer": "^21.0.0",
+    "@taquito/taquito": "^21.0.0",
+    "@taquito/utils": "^21.0.0",
+    "bip39": "^3.1.0",
+    "libsodium-wrappers-sumo": "^0.7.15"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0",
+    "sharp": "^0.33.5"
+  }
+}

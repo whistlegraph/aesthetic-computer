@@ -1606,6 +1606,10 @@ let fileOpenRequest;
 let fileEncodeRequest;
 let gpuResponse;
 let web3Response;
+let tezosConnectResponse;
+let tezosDisconnectResponse;
+let tezosAddressResponse;
+let tezosCallResponse;
 
 // Other
 let activeVideo; // TODO: Eventually this can be a bank to store video textures.
@@ -2291,6 +2295,46 @@ const $commonApi = {
     },
     current: {}, // Will get replaced by an update event.
   },
+  // 🔷 Tezos wallet management (via bios.mjs Beacon SDK)
+  wallet: {
+    _state: {
+      connected: false,
+      address: null,
+      balance: null,
+      network: "ghostnet",
+      domain: null, // .tez domain if resolved
+    },
+    _stateRequested: false, // Track if we've requested state from bios
+    // Get current wallet state (requests from bios if not yet synced)
+    get: function () {
+      // Request fresh state from bios on first call
+      if (!$commonApi.wallet._stateRequested) {
+        $commonApi.wallet._stateRequested = true;
+        send({ type: "wallet:get-state" });
+      }
+      return { ...$commonApi.wallet._state };
+    },
+    // Connect wallet (triggers Beacon popup)
+    connect: function (network = "ghostnet") {
+      send({ type: "wallet:connect", content: { network } });
+    },
+    // Disconnect wallet
+    disconnect: function () {
+      send({ type: "wallet:disconnect" });
+    },
+    // Refresh balance from RPC
+    refreshBalance: function () {
+      send({ type: "wallet:refresh-balance" });
+    },
+    // Check if connected
+    isConnected: function () {
+      return $commonApi.wallet._state.connected;
+    },
+    // Request state sync from bios
+    sync: function () {
+      send({ type: "wallet:get-state" });
+    },
+  },
   // Speak an `utterance` aloud.
   speak: function speak(utterance, voice = "female:18", mode = "cloud", opts) {
     return send({ type: "speak", content: { utterance, voice, mode, opts } });
@@ -2924,6 +2968,41 @@ const $commonApi = {
     send({ type: "web3-connect" });
     return p;
   },
+  // Tezos Wallet API
+  tezos: {
+    // Connect to a Tezos wallet (opens Beacon popup)
+    connect: (network = "ghostnet") => {
+      const p = new Promise((resolve, reject) => {
+        tezosConnectResponse = { resolve, reject };
+      });
+      send({ type: "tezos-connect", content: { network } });
+      return p;
+    },
+    // Disconnect from Tezos wallet
+    disconnect: () => {
+      const p = new Promise((resolve, reject) => {
+        tezosDisconnectResponse = { resolve, reject };
+      });
+      send({ type: "tezos-disconnect" });
+      return p;
+    },
+    // Get current wallet address (null if not connected)
+    address: () => {
+      const p = new Promise((resolve, reject) => {
+        tezosAddressResponse = { resolve, reject };
+      });
+      send({ type: "tezos-address" });
+      return p;
+    },
+    // Call a contract method
+    call: (contractAddress, method, args, amount = 0) => {
+      const p = new Promise((resolve, reject) => {
+        tezosCallResponse = { resolve, reject };
+      });
+      send({ type: "tezos-call", content: { contractAddress, method, args, amount } });
+      return p;
+    },
+  },
   wiggle: function (n, level = 0.2, speed = 6) {
     wiggleAngle = (wiggleAngle + 1 * speed) % 360;
     const osc = sin(num.radians(wiggleAngle));
@@ -3376,6 +3455,15 @@ const $commonApi = {
           return docs;
         })
         .catch((err) => console.error("🔴 📚 Couldn't get docs:", err));
+    },
+    // Get the authorization token for the current user (for streaming/custom requests)
+    getToken: async () => {
+      try {
+        return await $commonApi.authorize();
+      } catch (error) {
+        console.error("🚫 getToken error:", error);
+        return null;
+      }
     },
     userRequest: async (method, endpoint, body) => {
       try {
@@ -8510,6 +8598,16 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  // 🔷 Tezos wallet state updates from bios.mjs
+  if (type === "wallet:state") {
+    // Update the wallet state from bios (full state broadcast)
+    Object.assign($commonApi.wallet._state, content);
+    // Clear any error after successful update
+    if (content.connected) delete $commonApi.wallet._state.error;
+    console.log("🔷 Wallet state updated:", $commonApi.wallet._state);
+    return;
+  }
+
   if (type === "gpu-rendered-once") {
     $commonApi.gpuReady = true;
     return;
@@ -8920,6 +9018,50 @@ async function makeFrame({ data: { type, content } }) {
       web3Response?.reject("error");
     }
     web3Response = undefined;
+    return;
+  }
+
+  // Resolve Tezos wallet connection
+  if (type === "tezos-connect-response" && tezosConnectResponse) {
+    if (content.result === "success") {
+      tezosConnectResponse?.resolve(content.address);
+    } else {
+      tezosConnectResponse?.reject(content.error || "Connection failed");
+    }
+    tezosConnectResponse = undefined;
+    return;
+  }
+
+  // Resolve Tezos wallet disconnection
+  if (type === "tezos-disconnect-response" && tezosDisconnectResponse) {
+    if (content.result === "success") {
+      tezosDisconnectResponse?.resolve();
+    } else {
+      tezosDisconnectResponse?.reject(content.error || "Disconnect failed");
+    }
+    tezosDisconnectResponse = undefined;
+    return;
+  }
+
+  // Resolve Tezos address request
+  if (type === "tezos-address-response" && tezosAddressResponse) {
+    if (content.result === "success") {
+      tezosAddressResponse?.resolve(content.address);
+    } else {
+      tezosAddressResponse?.reject(content.error || "Failed to get address");
+    }
+    tezosAddressResponse = undefined;
+    return;
+  }
+
+  // Resolve Tezos contract call
+  if (type === "tezos-call-response" && tezosCallResponse) {
+    if (content.result === "success") {
+      tezosCallResponse?.resolve(content.opHash);
+    } else {
+      tezosCallResponse?.reject(content.error || "Contract call failed");
+    }
+    tezosCallResponse = undefined;
     return;
   }
 
