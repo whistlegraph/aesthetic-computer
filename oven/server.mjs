@@ -9,7 +9,7 @@ import http from 'http';
 import fs from 'fs';
 import { WebSocketServer } from 'ws';
 import { healthHandler, bakeHandler, statusHandler, bakeCompleteHandler, bakeStatusHandler, getActiveBakes, getIncomingBakes, getRecentBakes, subscribeToUpdates, cleanupStaleBakes } from './baker.mjs';
-import { grabHandler, grabGetHandler, grabIPFSHandler, getActiveGrabs, getRecentGrabs } from './grabber.mjs';
+import { grabHandler, grabGetHandler, grabIPFSHandler, getActiveGrabs, getRecentGrabs, getLatestKeepThumbnail, getLatestIPFSUpload, getAllLatestIPFSUploads, IPFS_GATEWAY } from './grabber.mjs';
 
 const app = express();
 const PORT = process.env.PORT || 3002;
@@ -250,6 +250,34 @@ app.get('/', (req, res) => {
     };
     
     function updateDashboard(data) {
+      // Update active grabs
+      const activeGrabs = data.grabs?.active || [];
+      document.getElementById('grab-active-count').textContent = activeGrabs.length;
+      const activeGrabsHtml = activeGrabs.length === 0
+        ? '<p class="empty">No active grabs</p>'
+        : activeGrabs.map(grab => \`
+          <div class="bake-card active">
+            <div class="slug">$\${grab.piece}</div>
+            <div class="status-badge status-\${grab.status}"><span class="spinner"></span>\${grab.status}</div>
+            <div class="meta">\${grab.format} · \${formatDuration(Date.now() - grab.startTime)}</div>
+          </div>
+        \`).join('');
+      document.getElementById('active-grabs').innerHTML = activeGrabsHtml;
+      
+      // Update recent grabs
+      const recentGrabs = data.grabs?.recent || [];
+      document.getElementById('grab-recent-count').textContent = recentGrabs.length;
+      const recentGrabsHtml = recentGrabs.length === 0
+        ? '<p class="empty">No recent grabs</p>'
+        : recentGrabs.map(grab => \`
+          <div class="bake-card \${grab.status === 'failed' ? 'error' : ''}">
+            <div class="slug">$\${grab.piece}</div>
+            <div class="meta">\${grab.format} · \${grab.size ? (grab.size / 1024).toFixed(1) + ' KB' : grab.error || 'unknown'}</div>
+            \${grab.duration ? \`<div class="meta">Took \${formatDuration(grab.duration)}</div>\` : ''}
+          </div>
+        \`).join('');
+      document.getElementById('recent-grabs').innerHTML = recentGrabsHtml;
+      
       // Update incoming bakes
       const incomingBakes = data.incoming || [];
       document.getElementById('incoming-count').textContent = incomingBakes.length;
@@ -356,6 +384,44 @@ app.get('/grab-status', (req, res) => {
   });
 });
 
+// Live collection thumbnail endpoint - redirects to most recent kept WebP
+// Use this as the collection imageUri for a dynamic thumbnail
+app.get('/keeps/latest', (req, res) => {
+  const latest = getLatestKeepThumbnail();
+  if (!latest) {
+    return res.status(404).json({ 
+      error: 'No keeps have been captured yet',
+      hint: 'Mint a keep with --thumbnail flag to populate this endpoint'
+    });
+  }
+  
+  // Redirect to IPFS gateway
+  const gatewayUrl = `${IPFS_GATEWAY}/ipfs/${latest.ipfsCid}`;
+  res.redirect(302, gatewayUrl);
+});
+
+// Get latest thumbnail for a specific piece
+app.get('/keeps/latest/:piece', (req, res) => {
+  const latest = getLatestIPFSUpload(req.params.piece);
+  if (!latest) {
+    return res.status(404).json({ 
+      error: `No keeps captured for piece: ${req.params.piece}`,
+      hint: `Mint ${req.params.piece} with --thumbnail flag to populate this endpoint`
+    });
+  }
+  
+  const gatewayUrl = `${IPFS_GATEWAY}/ipfs/${latest.ipfsCid}`;
+  res.redirect(302, gatewayUrl);
+});
+
+// Get all latest thumbnails as JSON (for debugging/monitoring)
+app.get('/keeps/all', (req, res) => {
+  res.json({
+    latest: getLatestKeepThumbnail(),
+    byPiece: getAllLatestIPFSUploads()
+  });
+});
+
 // 404 handler
 app.use((req, res) => {
   res.status(404).json({ error: 'Not found' });
@@ -401,7 +467,11 @@ wss.on('connection', async (ws) => {
   ws.send(JSON.stringify({
     incoming: Array.from(getIncomingBakes().values()),
     active: Array.from(getActiveBakes().values()),
-    recent: getRecentBakes()
+    recent: getRecentBakes(),
+    grabs: {
+      active: getActiveGrabs(),
+      recent: getRecentGrabs()
+    }
   }));
   
   // Subscribe to updates
@@ -410,7 +480,11 @@ wss.on('connection', async (ws) => {
       ws.send(JSON.stringify({
         incoming: Array.from(getIncomingBakes().values()),
         active: Array.from(getActiveBakes().values()),
-        recent: getRecentBakes()
+        recent: getRecentBakes(),
+        grabs: {
+          active: getActiveGrabs(),
+          recent: getRecentGrabs()
+        }
       }));
     }
   });

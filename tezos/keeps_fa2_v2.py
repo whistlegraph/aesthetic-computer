@@ -52,6 +52,9 @@ def keeps_module():
                 sp.big_map(),
                 sp.big_map[sp.nat, sp.bool]
             )
+            
+            # Contract-level metadata lock flag
+            self.data.contract_metadata_locked = False
         
         @sp.entrypoint
         def keep(self, params):
@@ -159,6 +162,26 @@ def keeps_module():
             assert self.data.token_metadata.contains(token_id), "FA2_TOKEN_UNDEFINED"
             
             self.data.metadata_locked[token_id] = True
+
+        @sp.entrypoint
+        def set_contract_metadata(self, params):
+            """Update contract-level metadata (admin only, if not locked). 
+            Use this to set collection icon, banner, description etc.
+            params: list of (key, value) pairs to set in the metadata big_map
+            """
+            sp.cast(params, sp.list[sp.record(key=sp.string, value=sp.bytes)])
+            
+            assert self.is_administrator_(), "FA2_NOT_ADMIN"
+            assert not self.data.contract_metadata_locked, "CONTRACT_METADATA_LOCKED"
+            
+            for item in params:
+                self.data.metadata[item.key] = item.value
+        
+        @sp.entrypoint
+        def lock_contract_metadata(self):
+            """Permanently lock contract-level metadata (admin only)."""
+            assert self.is_administrator_(), "FA2_NOT_ADMIN"
+            self.data.contract_metadata_locked = True
 
 
 def _get_balance(fa2_contract, args):
