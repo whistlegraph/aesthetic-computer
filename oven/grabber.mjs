@@ -798,13 +798,13 @@ export async function grabIPFSHandler(req, res) {
   const { 
     piece, 
     format = 'webp',
-    width = 512,
-    height = 512,
-    duration = 8000,  // 8 seconds default (was 12)
-    fps = 10,         // 10fps capture (was 7.5) 
+    width = 96,       // Small thumbnail (was 512)
+    height = 96,
+    duration = 8000,  // 8 seconds
+    fps = 10,         // 10fps capture
     playbackFps = 20, // 20fps playback = 2x speed
-    density = 1,
-    quality = 70,     // Lower quality for smaller files (was 90)
+    density = 2,      // 2x density for crisp pixels (was 1)
+    quality = 70,     // Lower quality for smaller files
     pinataKey,
     pinataSecret,
   } = req.body;
