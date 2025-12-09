@@ -394,11 +394,13 @@ async function framesToWebp(frames, options = {}) {
         '-vf', `scale=${width}:${height}:flags=neighbor`, // Pixel-perfect scaling
         '-c:v', 'libwebp',
         '-lossless', '0',
-        '-compression_level', '4', // Lower = faster encoding, less compression artifacts
+        '-compression_level', '6', // Higher = better compression (0-6)
+        '-qmin', '50',             // Minimum quality
+        '-qmax', String(quality),  // Maximum quality 
         '-quality', String(quality),
         '-loop', String(loop),
-        '-preset', 'picture',
-        '-pix_fmt', 'yuva420p', // Preserve sharp edges
+        '-preset', 'drawing',      // Better for graphics/art (was 'picture')
+        '-pix_fmt', 'yuv420p',     // Standard pixel format (smaller than yuva420p)
         '-an',
         outputPath
       ]);
@@ -798,11 +800,11 @@ export async function grabIPFSHandler(req, res) {
     format = 'webp',
     width = 512,
     height = 512,
-    duration = 12000,
-    fps = 7.5,
-    playbackFps = 15,
+    duration = 8000,  // 8 seconds default (was 12)
+    fps = 10,         // 10fps capture (was 7.5) 
+    playbackFps = 20, // 20fps playback = 2x speed
     density = 1,
-    quality = 90,
+    quality = 70,     // Lower quality for smaller files (was 90)
     pinataKey,
     pinataSecret,
   } = req.body;
