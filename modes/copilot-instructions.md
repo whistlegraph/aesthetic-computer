@@ -20,12 +20,48 @@
 - Never expose or copy vault secrets
 - **NEVER** call `get_task_output` on the "💻 Aesthetic" task — it freezes the devcontainer
 
-## Emacs/Artery Recovery
+## Emacs/Artery Platform Management
+
+### Architecture
+The aesthetic platform runs as:
+1. **Emacs daemon** — background process managing multiple terminal tabs
+2. **"💻 Aesthetic" VS Code task** — keeps emacsclient connected, displays the TUI
+3. **Artery TUI** — interactive interface in the first emacs tab
+
+### Starting the Platform
+- **Normal start**: The "💻 Aesthetic" task auto-runs on folder open
+- **Manual start**: Run the task from VS Code's Task menu or command palette
+- The task runs `./aesthetic-launch.sh` which:
+  1. Waits for `.waiter` file (created by `entry.fish` during container init)
+  2. Ensures emacs daemon is ready
+  3. Connects `emacsclient -nw -c` with `aesthetic-backend`
+
+### Stopping the Platform
+- **Stop task only**: Kill the "💻 Aesthetic" task in VS Code (emacs daemon stays running)
+- **Full stop**: `pkill -9 emacs; pkill -9 emacsclient` or use `ac-emacs-kill`
+
+### Restarting After Issues
 If emacs MCP tools fail or the "💻 Aesthetic" task is frozen:
-- **`ac-emacs-status`** — check if daemon is running & responsive
-- **`ac-emacs-restart`** — kill zombie emacs and restart daemon
-- **`ac-restart`** — full restart: emacs daemon + reconnect artery TUI
-- After `ac-emacs-restart`, user must restart the "💻 Aesthetic" task in VS Code
+1. **Check status**: `ac-emacs-status` — is daemon running & responsive?
+2. **If unresponsive**: `ac-emacs-restart` — kills zombie emacs, starts fresh daemon
+3. **Restart task**: Must manually restart "💻 Aesthetic" task in VS Code
+4. **If `.waiter` missing**: `touch /home/me/.waiter` before restarting task
+
+### Quick Reference Commands (fish shell)
+| Command | Description |
+|---------|-------------|
+| `ac-emacs-status` | Check daemon status (running/responsive) |
+| `ac-emacs-restart` | Kill & restart emacs daemon |
+| `ac-emacs-kill` | Kill all emacs processes |
+| `ac-restart` | Full restart: daemon + reconnect artery |
+| `check-daemon` | Alias for status check |
+| `restart-daemon` | Alias for restart |
+
+### Troubleshooting
+- **Task shows "Configuring..." forever**: `.waiter` file missing — run `touch /home/me/.waiter`
+- **Emacs unresponsive**: `ac-emacs-restart` then restart VS Code task
+- **MCP tools hang**: Emacs daemon frozen — same fix as above
+- **Tabs not created**: `emacsclient` exited before timers completed — restart task
 
 ## CDP Tunnel (VS Code on Windows Host)
 The CDP tunnel forwards localhost:9333 to host's VS Code for remote control:
