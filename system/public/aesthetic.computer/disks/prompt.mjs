@@ -114,10 +114,14 @@ let progressPercentage = 0; // 0-100
 let bundleProgress = null; // { stage, message, startTime, animPhase }
 const BUNDLE_STAGES = ['fetch', 'deps', 'cache-hit', 'discover', 'minify', 'paintings', 'fonts', 'generate', 'compress', 'complete'];
 
+// Manual adjustment for ꜩ symbol (unifont has yOffset: -2 which shifts it down)
+const TEZ_Y_ADJUST = -5;
+
 let login, // A login button in the center of the display.
   signup, // A Sign-up button.
   profile, // A profile page button.
-  profileAction;
+  profileAction,
+  walletBtn; // Tezos wallet button (shown when connected)
 let resendVerificationText;
 let ellipsisTicker;
 let chatTicker; // Ticker instance for chat messages
@@ -236,6 +240,276 @@ const activeCompletions = [];
 let fetchingUser = false,
   fetchUserAPI;
 
+// 💡 Tooltip System State
+// AC has two distinct param systems:
+// - Space params: `command arg1 arg2` → params[0], params[1]
+// - Colon params: `command:opt1:opt2` → colon[0], colon[1]
+let tooltipState = {
+  visible: false,
+  command: null,        // Doc entry for current command
+  commandName: null,    // Raw command name (without colon suffix)
+  colonParams: [],      // Colon param values (after `:` in command)
+  spaceParams: [],      // Space param values (after command)
+  cursorContext: "command", // "command" | "colon" | "space"
+  currentIndex: -1,     // Index within current context
+  suggestions: [],      // Valid suggestions for current position
+  error: null,          // Validation error
+  sig: null,            // Command signature string
+  desc: null,           // Current description to show
+};
+let tooltipDocs = null; // Cached docs.prompts from server
+
+// 💡 Parse current input text for tooltip display
+function updateTooltipState(text, cursorPos) {
+  if (!text || text.length === 0) {
+    tooltipState.visible = false;
+    tooltipState.command = null;
+    tooltipState.commandName = null;
+    return;
+  }
+  
+  // Parse: "command:colon1:colon2 space1 space2"
+  const tokens = text.split(" ");
+  const firstToken = tokens[0]; // e.g. "notepat:square:5"
+  const colonParts = firstToken.split(":");
+  const commandName = colonParts[0].toLowerCase();
+  const colonParams = colonParts.slice(1);
+  const spaceParams = tokens.slice(1);
+  
+  // Find matching doc entry
+  let doc = tooltipDocs?.[commandName];
+  
+  // Also check for exact match with colon (e.g. "tape:add")
+  if (!doc && colonParams.length > 0) {
+    const fullKey = `${commandName}:${colonParams[0]}`;
+    doc = tooltipDocs?.[fullKey];
+  }
+  
+  tooltipState.commandName = commandName;
+  tooltipState.command = doc;
+  tooltipState.colonParams = colonParams;
+  tooltipState.spaceParams = spaceParams;
+  tooltipState.visible = commandName.length > 0;
+  
+  // Determine cursor context and index based on cursor position
+  // cursorPos is the character index in the text
+  if (cursorPos <= firstToken.length) {
+    // Cursor is in the first token (command + colon params)
+    const beforeCursor = firstToken.slice(0, cursorPos);
+    const colonsBeforeCursor = (beforeCursor.match(/:/g) || []).length;
+    if (colonsBeforeCursor === 0) {
+      tooltipState.cursorContext = "command";
+      tooltipState.currentIndex = -1;
+    } else {
+      tooltipState.cursorContext = "colon";
+      tooltipState.currentIndex = colonsBeforeCursor - 1;
+    }
+  } else {
+    // Cursor is after the first token (in space params)
+    tooltipState.cursorContext = "space";
+    // Count which space param we're in
+    let charCount = firstToken.length + 1; // +1 for space
+    let paramIndex = 0;
+    for (let i = 0; i < spaceParams.length; i++) {
+      if (cursorPos <= charCount + spaceParams[i].length) {
+        paramIndex = i;
+        break;
+      }
+      charCount += spaceParams[i].length + 1; // +1 for space
+      paramIndex = i + 1;
+    }
+    tooltipState.currentIndex = paramIndex;
+  }
+  
+  // Set description based on context
+  if (doc) {
+    tooltipState.sig = doc.sig || commandName;
+    tooltipState.desc = doc.desc || "";
+    
+    // Get contextual suggestions
+    tooltipState.suggestions = [];
+    if (tooltipState.cursorContext === "colon" && doc.colon) {
+      const colonDef = doc.colon[tooltipState.currentIndex];
+      if (colonDef?.values) {
+        tooltipState.suggestions = colonDef.values;
+      }
+    } else if (tooltipState.cursorContext === "space" && doc.params) {
+      const paramDef = doc.params[tooltipState.currentIndex];
+      if (paramDef?.values) {
+        tooltipState.suggestions = paramDef.values;
+      }
+    }
+  } else {
+    tooltipState.sig = null;
+    tooltipState.desc = null;
+    tooltipState.suggestions = [];
+  }
+}
+
+// 💡 Paint the tooltip overlay
+function paintTooltip($, inputText) {
+  const { ink, screen } = $;
+  const doc = tooltipState.command;
+  if (!doc) return;
+  
+  // Position tooltip near cursor (above the input line)
+  const cursorPos = $.system.prompt.input.prompt?.pos?.(undefined, true);
+  const tooltipY = cursorPos?.y ? cursorPos.y - 24 : screen.height / 2;
+  const tooltipX = 6;
+  
+  // Build tooltip content
+  let sigText = tooltipState.sig || tooltipState.commandName;
+  let descText = doc.desc || "";
+  
+  // Highlight current param in signature
+  // For now, just show signature and description
+  
+  // Background box
+  const padding = 4;
+  const charWidth = 6; // Default font width
+  const lineHeight = 10;
+  const sigWidth = sigText.length * charWidth + padding * 2;
+  const descWidth = descText.length * charWidth + padding * 2;
+  const boxWidth = Math.max(sigWidth, descWidth, 100);
+  const boxHeight = (descText ? lineHeight * 2 : lineHeight) + padding * 2;
+  
+  // Semi-transparent background
+  ink(0, 0, 0, 180).box(tooltipX, tooltipY - boxHeight, boxWidth, boxHeight);
+  
+  // Signature line (highlighted)
+  ink($.dark ? [100, 200, 255] : [0, 100, 200]).write(sigText, {
+    x: tooltipX + padding,
+    y: tooltipY - boxHeight + padding,
+  });
+  
+  // Description line (dimmer)
+  if (descText) {
+    ink($.dark ? [180, 180, 180] : [80, 80, 80]).write(descText, {
+      x: tooltipX + padding,
+      y: tooltipY - boxHeight + padding + lineHeight,
+    });
+  }
+  
+  // Show suggestions if available
+  if (tooltipState.suggestions.length > 0) {
+    const suggestionsText = tooltipState.suggestions.slice(0, 5).join(" | ");
+    const sugY = tooltipY - boxHeight - lineHeight - 2;
+    ink($.dark ? [150, 255, 150] : [0, 150, 0], 180).write(suggestionsText, {
+      x: tooltipX + padding,
+      y: sugY,
+    });
+  }
+}
+
+// Tezos wallet connection state
+let tezosWalletAddress = null;
+let tezosWalletBalance = null; // Balance in tez
+let tezosNetwork = "ghostnet"; // "ghostnet" or "mainnet"
+let tezosBalanceLastFetch = 0; // Timestamp of last balance fetch
+let tezosDomainName = null; // Resolved .tez domain (if any)
+
+// Fetch Tezos wallet balance from RPC
+async function fetchTezosBalance(address, network = "ghostnet") {
+  try {
+    const rpcUrl = network === "mainnet" 
+      ? "https://mainnet.api.tez.ie"
+      : "https://ghostnet.ecadinfra.com";
+    const res = await fetch(`${rpcUrl}/chains/main/blocks/head/context/contracts/${address}/balance`);
+    if (res.ok) {
+      const balanceMutez = await res.json();
+      return parseInt(balanceMutez) / 1_000_000; // Convert mutez to tez
+    }
+  } catch (e) {
+    console.warn("Failed to fetch Tezos balance:", e);
+  }
+  return null;
+}
+
+// Resolve .tez domain for an address using TzKT API (more reliable)
+async function fetchTezosDomain(address, network = "ghostnet") {
+  try {
+    // Use TzKT API - works for both mainnet and ghostnet
+    const apiBase = network === "mainnet"
+      ? "https://api.tzkt.io"
+      : "https://api.ghostnet.tzkt.io";
+    
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000); // 5s timeout
+    
+    // Look for domains where this address is set AND has reverse=true (primary domain)
+    const res = await fetch(
+      `${apiBase}/v1/domains?address=${address}&reverse=true&select=name`,
+      { signal: controller.signal }
+    );
+    
+    clearTimeout(timeout);
+    
+    if (res.ok) {
+      const data = await res.json();
+      // Returns array of domains, take the first one with reverse=true
+      if (data && data.length > 0 && data[0].name) {
+        const domain = data[0].name;
+        console.log(`🔷 Resolved .tez domain: ${domain}`);
+        return domain;
+      }
+    }
+  } catch (e) {
+    // Silently fail - .tez domain resolution is optional
+    if (e.name !== 'AbortError') {
+      console.log("🔷 .tez domain lookup skipped (API unavailable)");
+    }
+  }
+  return null;
+}
+
+// 🎹 QWERTY keyboard musical mapping (notepat-style two octaves)
+// Maps keyboard keys to semitone offsets (0-23 for two octaves) and pan positions
+// Left octave (lower): c, c#, d, d#, e, f, f#, g, g#, a, a#, b
+// Right octave (upper): +c, +c#, +d, +d#, +e, +f, +f#, +g, +g#, +a, +a#, +b
+const QWERTY_MUSIC_MAP = {
+  // Lower octave (left side - pan left)
+  c: { semitone: 0, pan: -0.7 },    // C
+  v: { semitone: 1, pan: -0.5 },    // C#
+  d: { semitone: 2, pan: -0.6 },    // D
+  s: { semitone: 3, pan: -0.4 },    // D#
+  e: { semitone: 4, pan: -0.5 },    // E
+  f: { semitone: 5, pan: -0.4 },    // F
+  w: { semitone: 6, pan: -0.3 },    // F#
+  g: { semitone: 7, pan: -0.3 },    // G
+  r: { semitone: 8, pan: -0.2 },    // G#
+  a: { semitone: 9, pan: -0.2 },    // A
+  q: { semitone: 10, pan: -0.1 },   // A#
+  b: { semitone: 11, pan: -0.1 },   // B
+  // Upper octave (right side - pan right)
+  h: { semitone: 12, pan: 0.1 },    // +C
+  t: { semitone: 13, pan: 0.1 },    // +C#
+  i: { semitone: 14, pan: 0.2 },    // +D
+  y: { semitone: 15, pan: 0.2 },    // +D#
+  j: { semitone: 16, pan: 0.3 },    // +E
+  k: { semitone: 17, pan: 0.4 },    // +F
+  u: { semitone: 18, pan: 0.3 },    // +F#
+  l: { semitone: 19, pan: 0.5 },    // +G
+  o: { semitone: 20, pan: 0.4 },    // +G#
+  m: { semitone: 21, pan: 0.6 },    // +A
+  p: { semitone: 22, pan: 0.5 },    // +A#
+  n: { semitone: 23, pan: 0.7 },    // +B
+  // Extra keys (z, x for lower notes, ;' for higher)
+  z: { semitone: -2, pan: -0.9 },   // A# (below)
+  x: { semitone: -1, pan: -0.8 },   // B (below)
+};
+
+// Convert semitone offset to pitch ratio (for sample playback)
+// Base pitch is 1.0, each semitone is 2^(1/12) ratio
+function semitoneToPlaybackRate(semitone) {
+  // Center around middle of keyboard (semitone 11-12)
+  const centerSemitone = 11;
+  const offset = semitone - centerSemitone;
+  return Math.pow(2, offset / 12);
+}
+
+// Track last pressed key for musical keyboard sounds
+let lastPressedKey = null;
+
 // 🥾 Boot
 async function boot({
   glaze,
@@ -266,6 +540,7 @@ async function boot({
 
   net.requestDocs().then((d) => {
     autocompletions = { ...d.pieces, ...d.prompts };
+    tooltipDocs = d.prompts; // Cache prompts for tooltip system
     // Remove hidden autocompleteions.
     keys(autocompletions).forEach((key) => {
       if (autocompletions[key].hidden) delete autocompletions[key];
@@ -1736,6 +2011,271 @@ async function halt($, text) {
     
     makeFlash($);
     return true;
+  } else if (text === "tezos" || text.startsWith("tezos ")) {
+    // Tezos wallet management: connect, disconnect, status
+    const subcommand = params[0]?.toLowerCase();
+    
+    try {
+      if (!subcommand || subcommand === "status") {
+        // Check current wallet status and refresh balance
+        const address = await api.tezos.address();
+        if (address) {
+          tezosWalletAddress = address;
+          // Fetch balance and domain in parallel
+          const [balance, domain] = await Promise.all([
+            fetchTezosBalance(address, tezosNetwork),
+            fetchTezosDomain(address, tezosNetwork)
+          ]);
+          tezosWalletBalance = balance;
+          tezosDomainName = domain;
+          tezosBalanceLastFetch = Date.now();
+          const balanceStr = balance !== null ? `${balance.toFixed(2)}ꜩ` : "?ꜩ";
+          const displayName = domain || `${address.slice(0, 8)}...${address.slice(-4)}`;
+          notice(`ꜩ ${displayName}`, ["cyan"]);
+          notice(`${balanceStr} • ${tezosNetwork}`, ["gray"]);
+        } else {
+          notice("ꜩ Tezos: Not connected", ["gray"]);
+          notice("Use 'tezos connect' to link wallet", ["gray"]);
+          tezosWalletAddress = null;
+          tezosWalletBalance = null;
+        }
+        flashColor = address ? [0, 200, 255] : [100, 100, 100];
+      } else if (subcommand === "connect") {
+        notice("ꜩ Connecting Tezos wallet...", ["cyan"]);
+        needsPaint();
+        const network = params[1]?.toLowerCase() === "mainnet" ? "mainnet" : "ghostnet";
+        tezosNetwork = network;
+        const address = await api.tezos.connect(network);
+        tezosWalletAddress = address;
+        // Fetch balance and .tez domain in parallel
+        const [balance, domain] = await Promise.all([
+          fetchTezosBalance(address, network),
+          fetchTezosDomain(address, network)
+        ]);
+        tezosWalletBalance = balance;
+        tezosDomainName = domain;
+        tezosBalanceLastFetch = Date.now();
+        const balanceStr = balance !== null ? `${balance.toFixed(2)}ꜩ` : "";
+        const displayName = domain || `${address.slice(0, 8)}...${address.slice(-4)}`;
+        notice(`ꜩ Connected: ${displayName}`, ["lime"]);
+        notice(`${balanceStr} • ${network}`, ["gray"]);
+        flashColor = [0, 255, 100];
+        
+        // Jump to wallet piece after successful connection
+        makeFlash($);
+        jump("wallet");
+        return true;
+      } else if (subcommand === "disconnect") {
+        await api.tezos.disconnect();
+        tezosWalletAddress = null;
+        tezosWalletBalance = null;
+        notice("ꜩ Tezos wallet disconnected", ["yellow"]);
+        flashColor = [255, 200, 0];
+      } else {
+        notice("Usage: tezos [connect|disconnect|status]", ["yellow"]);
+        notice("  tezos connect [ghostnet|mainnet]", ["gray"]);
+        flashColor = [255, 200, 0];
+      }
+    } catch (err) {
+      console.error("Tezos error:", err);
+      notice("Tezos error: " + err.message, ["red"]);
+      flashColor = [255, 0, 0];
+    }
+    
+    makeFlash($);
+    return true;
+  } else if (text.startsWith("keep ")) {
+    // Mint a KidLisp piece as an NFT on Tezos (user pays with their wallet)
+    const pieceCode = params[0];
+    if (!pieceCode) {
+      notice("Usage: keep $code", ["red"]);
+      flashColor = [255, 0, 0];
+      makeFlash($);
+      return true;
+    }
+    
+    // Check if user is logged in (to AC)
+    if (!user) {
+      notice("Please log in first to mint keeps", ["yellow"]);
+      flashColor = [255, 200, 0];
+      makeFlash($);
+      return true;
+    }
+    
+    // Normalize piece code (ensure it starts with $)
+    const code = pieceCode.startsWith("$") ? pieceCode.slice(1) : pieceCode;
+    
+    // Initialize mint progress UI
+    bundleProgress = { 
+      stage: 'wallet', 
+      message: tezosWalletAddress ? `Using wallet ${tezosWalletAddress.slice(0, 8)}...` : `Connecting Tezos wallet...`, 
+      startTime: performance.now(),
+      animPhase: 0,
+      code,
+      isMint: true
+    };
+    needsPaint();
+    
+    try {
+      // PHASE 1: Connect Tezos wallet FIRST (so user knows upfront they'll pay 5ꜩ)
+      const network = "ghostnet"; // TODO: make configurable for mainnet
+      let walletAddress = tezosWalletAddress || await api.tezos.address();
+      if (!walletAddress) {
+        // Prompt user to connect wallet (opens Beacon popup)
+        walletAddress = await api.tezos.connect(network);
+        tezosWalletAddress = walletAddress; // Store for future use
+      }
+      
+      bundleProgress = { ...bundleProgress, stage: 'validate', message: `Wallet: ${walletAddress.slice(0, 8)}... Preparing...` };
+      needsPaint();
+      
+      // Get fresh auth token
+      const token = await net.getToken();
+      if (!token) {
+        throw new Error("Not logged in - please run 'login' first");
+      }
+      
+      // PHASE 2: Server prepares metadata and uploads to IPFS
+      const response = await fetch(`/api/keep-mint`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify({ piece: code, mode: "prepare" }),
+      });
+      
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let preparedData = null;
+      let currentEventType = null;
+      
+      // Helper to parse SSE lines
+      const parseSSELines = (lines) => {
+        for (const line of lines) {
+          if (line.startsWith('event: ')) {
+            currentEventType = line.slice(7);
+          } else if (line.startsWith('data: ') && currentEventType) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              
+              if (currentEventType === 'progress') {
+                bundleProgress = {
+                  ...bundleProgress,
+                  stage: data.stage || bundleProgress.stage,
+                  message: data.message
+                };
+                needsPaint();
+              } else if (currentEventType === 'prepared') {
+                preparedData = data;
+              } else if (currentEventType === 'error') {
+                throw new Error(data.error);
+              }
+            } catch (parseErr) {
+              if (parseErr.message && !parseErr.message.includes("Unexpected")) {
+                throw parseErr;
+              }
+              console.warn("SSE parse error:", parseErr, "line:", line.slice(0, 100));
+            }
+            currentEventType = null;
+          }
+        }
+      };
+      
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          buffer += decoder.decode();
+          break;
+        }
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+        parseSSELines(lines);
+      }
+      
+      if (buffer.trim()) {
+        parseSSELines(buffer.split('\n'));
+      }
+      
+      if (!preparedData) {
+        throw new Error("Failed to prepare minting data");
+      }
+      
+      console.log("🎨 Prepared mint data:", preparedData);
+      
+      // PHASE 3: Call contract to mint
+      bundleProgress = { ...bundleProgress, stage: 'mint', message: `Minting to ${walletAddress.slice(0, 8)}... (5ꜩ)` };
+      needsPaint();
+      
+      // The server sends pre-encoded Michelson params with a placeholder owner
+      // We need to replace the placeholder owner "0000" with the actual wallet address
+      const ownerBytes = Array.from(new TextEncoder().encode(walletAddress))
+        .map(b => b.toString(16).padStart(2, '0')).join('');
+      
+      // Deep clone and update the owner in the Michelson params
+      const michelsonParams = JSON.parse(JSON.stringify(preparedData.michelsonParams));
+      console.log("🔷 Michelson params structure:", michelsonParams);
+      console.log("🔷 Owner bytes:", ownerBytes);
+      
+      // The Michelson structure has the owner as a bytes field - find and replace it
+      // The structure is complex but the owner placeholder "0000" should be unique
+      const updateOwner = (obj) => {
+        if (typeof obj === 'object' && obj !== null) {
+          if (obj.bytes === "0000") {
+            console.log("🔷 Found owner placeholder, replacing with:", ownerBytes);
+            obj.bytes = ownerBytes;
+            return true;
+          }
+          for (const key of Object.keys(obj)) {
+            if (updateOwner(obj[key])) return true;
+          }
+        }
+        if (Array.isArray(obj)) {
+          for (const item of obj) {
+            if (updateOwner(item)) return true;
+          }
+        }
+        return false;
+      };
+      const ownerUpdated = updateOwner(michelsonParams);
+      console.log("🔷 Owner updated:", ownerUpdated);
+      
+      // Call the contract using bios-level Tezos API with pre-encoded Michelson
+      const opHash = await api.tezos.call(
+        preparedData.contractAddress,
+        preparedData.entrypoint,
+        michelsonParams.value, // The Michelson value from server
+        preparedData.mintFee // 5 XTZ
+      );
+      
+      bundleProgress = { ...bundleProgress, stage: 'confirm', message: `Tx: ${opHash.slice(0, 12)}...` };
+      needsPaint();
+      
+      // The bios call already waits for confirmation
+      bundleProgress = { ...bundleProgress, stage: 'complete', message: 'Minted! ✓' };
+      needsPaint();
+      
+      // Success!
+      const objktUrl = `https://${preparedData.network === "mainnet" ? "" : "ghostnet."}objkt.com/asset/${preparedData.contractAddress}`;
+      
+      notice(`Minted $${code}!`, ["lime"]);
+      notice(`Tx: ${opHash.slice(0, 16)}...`, ["cyan"]);
+      console.log("🎨 Keep minted:", { hash: opHash, owner: walletAddress });
+      
+      flashColor = [0, 255, 0];
+    } catch (err) {
+      console.error("Mint error:", err);
+      notice("Mint failed: " + err.message, ["red"]);
+      flashColor = [255, 0, 0];
+    }
+    
+    // Clear progress
+    bundleProgress = null;
+    
+    makeFlash($);
+    return true;
   } else if (text.startsWith("email")) {
     // Set user email.
     const email = text.split(" ")[1];
@@ -2807,6 +3347,12 @@ function paint($) {
   
   if ($.system.prompt.input.canType) {
     const currentInputText = $.system.prompt.input.text;
+    
+    // 💡 Update tooltip state for current text
+    // Get cursor position as text index using prompt.textPos()
+    const prompt = $.system.prompt.input.prompt;
+    const cursorCharPos = prompt?.textPos?.() ?? currentInputText.length;
+    updateTooltipState(currentInputText, cursorCharPos);
 
     // 🤖 Check if we're in kidlisp mode (for syntax highlighting)
     const inKidlispMode = isPromptInKidlispMode(currentInputText);
@@ -2934,6 +3480,15 @@ function paint($) {
           null,
           screen.width - 8,
         );
+      }
+      
+      // 💡 Paint tooltip when we have a recognized command
+      // Show tooltip even with activeCompletions if we're typing params (have a space)
+      // or if the command is fully typed (exact match in activeCompletions)
+      const hasSpace = currentInputText.includes(" ") || currentInputText.includes(":");
+      const isExactMatch = activeCompletions.length === 1 && activeCompletions[0] === currentInputText.split(/[: ]/)[0];
+      if (tooltipState.visible && tooltipState.command && (activeCompletions.length === 0 || hasSpace || isExactMatch)) {
+        paintTooltip($, currentInputText);
       }
     }
   }
@@ -5173,6 +5728,61 @@ function paint($) {
       );
     }
     profile?.paint($);
+    
+    // ꜩ Tezos wallet button (positioned above handles count at bottom)
+    if (tezosWalletAddress) {
+      // Format balance
+      const balanceText = tezosWalletBalance !== null 
+        ? `${tezosWalletBalance.toFixed(2)}` 
+        : "...";
+      
+      // Build button text (space for ꜩ symbol drawn separately)
+      const btnTextWithSymbol = "  " + balanceText; // 2 spaces for the ꜩ symbol
+      
+      // Calculate position - above handles text  
+      let walletBtnY = screen.height - 60; // Position higher up
+      
+      // Create or update wallet button
+      if (!walletBtn) {
+        walletBtn = new $.ui.TextButton(btnTextWithSymbol, { 
+          y: walletBtnY,
+          center: "x",
+          screen 
+        });
+        walletBtn.stickyScrubbing = true; // Prevent drag-between-button behavior
+        walletBtn.noRolloverActivation = true; // Don't interfere with tickers
+      } else {
+        walletBtn.reposition({ y: walletBtnY, center: "x", screen }, btnTextWithSymbol);
+      }
+      
+      // Color schemes: [fill, outline, text, textBackground]
+      const normalFill = [20, 50, 70];
+      const hoverFill = [30, 80, 100];
+      
+      // Paint the wallet button with cyan theme
+      walletBtn?.paint($,
+        [normalFill, [0, 150, 200], [0, 200, 255], normalFill],  // normal: textBg matches fill
+        [hoverFill, [0, 200, 255], [255, 255, 255], hoverFill]   // hover: textBg matches fill
+      );
+      
+      // Draw ꜩ symbol using unifont on top of button (aligned with button text)
+      const tezSymbolX = walletBtn.btn.box.x + 4; // Inside button padding
+      const tezSymbolY = walletBtn.btn.box.y + 2; // Align with button text
+      const tezColor = walletBtn.btn.down ? [255, 255, 255] : [0, 200, 255];
+      const tezBg = walletBtn.btn.down ? hoverFill : normalFill;
+      ink(...tezColor).write("ꜩ", { x: tezSymbolX, y: tezSymbolY + TEZ_Y_ADJUST, bg: tezBg }, undefined, undefined, false, "unifont");
+      
+      // Draw full wallet address below the button in MatrixChunky8, centered (teal color)
+      const addrY = walletBtnY + walletBtn.height + 4; // Below button with gap
+      ink(0, 200, 255).write(tezosWalletAddress, { x: screen.width / 2, y: addrY, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+      
+      // Draw domain name if available (below address)
+      if (tezosDomainName) {
+        ink(0, 200, 255).write(tezosDomainName, { x: screen.width / 2, y: addrY + 10, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+      }
+    } else {
+      walletBtn = null; // Clear button when disconnected
+    }
   }
   //}
 
@@ -5209,6 +5819,33 @@ function paint($) {
 function sim($) {
   ellipsisTicker?.sim();
   progressTrick?.step();
+  
+  // 🔷 Sync Tezos wallet state from bios (for restored sessions)
+  const biosWallet = $.wallet?.get();
+  if (biosWallet?.connected && !tezosWalletAddress) {
+    // Wallet connected in bios but prompt doesn't know about it yet
+    tezosWalletAddress = biosWallet.address;
+    tezosWalletBalance = biosWallet.balance;
+    tezosDomainName = biosWallet.domain;
+    tezosNetwork = biosWallet.network || "ghostnet";
+    $.needsPaint();
+  } else if (!biosWallet?.connected && tezosWalletAddress) {
+    // Wallet disconnected in bios
+    tezosWalletAddress = null;
+    tezosWalletBalance = null;
+    tezosDomainName = null;
+    $.needsPaint();
+  } else if (biosWallet?.connected && tezosWalletAddress) {
+    // Both connected - sync balance/domain if updated
+    if (biosWallet.balance !== tezosWalletBalance) {
+      tezosWalletBalance = biosWallet.balance;
+      $.needsPaint();
+    }
+    if (biosWallet.domain !== tezosDomainName) {
+      tezosDomainName = biosWallet.domain;
+      $.needsPaint();
+    }
+  }
   
   // Poll audio speaker for waveform visualization
   if ($.sound.speaker) {
@@ -5720,6 +6357,18 @@ function act({
   });
   }
 
+  // 🔷 Tezos wallet button - navigate to wallet piece
+  if (walletBtn && !walletBtn.btn.disabled) {
+    walletBtn.btn.act(e, {
+      down: () => downSound(),
+      push: () => {
+        pushSound();
+        jump("wallet");
+      },
+      cancel: () => cancelSound(),
+    });
+  }
+
   // 🖥️ Screen
   if (e.is("reframed")) {
     positionWelcomeButtons(screen, net.iframe);
@@ -5733,6 +6382,11 @@ function act({
     // console.log("⌨️ First keyboard activation completed!");
   }
 
+  // 🎹 Track keyboard key presses for musical sound pitch/pan
+  if (e.name?.indexOf("keyboard:down:") === 0 && e.key?.length === 1) {
+    lastPressedKey = e.key.toLowerCase();
+  }
+
   // if (e.is("pasted:text")) firstActivation = false;
 
   // Whenever the text input is edited.
@@ -5742,7 +6396,21 @@ function act({
     system.prompt.input.canType
   ) {
     if (!e.mute) {
-      play(keyboardSfx, { volume: 0.2 + (num.randInt(100) / 100) * 0.4 });
+      // 🎹 Apply notepat-style pitch and pan based on QWERTY layout
+      const musicData = lastPressedKey ? QWERTY_MUSIC_MAP[lastPressedKey] : null;
+      const baseVolume = 0.2 + (num.randInt(100) / 100) * 0.4;
+      
+      if (musicData) {
+        const speed = semitoneToPlaybackRate(musicData.semitone);
+        play(keyboardSfx, { 
+          volume: baseVolume, 
+          speed: speed,
+          pan: musicData.pan 
+        });
+      } else {
+        // Fallback for unmapped keys (numbers, punctuation, etc.)
+        play(keyboardSfx, { volume: baseVolume });
+      }
     }
 
     // Compute autocompletions...
