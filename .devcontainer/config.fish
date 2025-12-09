@@ -777,7 +777,7 @@ function ac-emacs-restart
     
     # Verify it's responsive
     sleep 1
-    if emacsclient -e t >/dev/null 2>&1
+    if timeout 5 emacsclient -e t >/dev/null 2>&1
         echo "✅ Emacs daemon ready!"
         return 0
     else
@@ -800,7 +800,7 @@ function ac-emacs-status
     set -l daemon_pid (pgrep -f "emacs.*daemon" 2>/dev/null)
     if test -n "$daemon_pid"
         echo "🟢 Emacs daemon running (PID: $daemon_pid)"
-        if emacsclient -e t >/dev/null 2>&1
+        if timeout 3 emacsclient -e t >/dev/null 2>&1
             echo "✅ Daemon is responsive"
         else
             echo "⚠️  Daemon process exists but NOT responsive (zombie)"
@@ -899,7 +899,7 @@ function ensure-emacs-daemon-ready
         pkill -f "emacs.*daemon" 2>/dev/null
         sleep 2
     else if pgrep -f "emacs.*daemon" >/dev/null
-        if emacsclient -e t >/dev/null 2>&1
+        if timeout 3 emacsclient -e t >/dev/null 2>&1
             if test $silent -ne 1
                 echo "✅ Emacs daemon already running"
             end
@@ -932,7 +932,7 @@ function ensure-emacs-daemon-ready
 
     set -l elapsed 0
     while test $elapsed -lt $timeout
-        if emacsclient -e t >/dev/null 2>&1
+        if timeout 3 emacsclient -e t >/dev/null 2>&1
             if test $silent -ne 1
                 echo "✅ Emacs daemon is ready!"
             end
