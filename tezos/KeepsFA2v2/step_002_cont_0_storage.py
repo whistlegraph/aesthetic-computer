@@ -1,1 +1,1 @@
-sp.record(administrator = sp.address('tz1SfRoaCkrBkXqTzhz67QYVPJAU9Y2g48kq'), contract_metadata_locked = False, ledger = {}, metadata = {'' : sp.bytes('0x697066733a2f2f6578616d706c65')}, metadata_locked = {}, next_token_id = 0, operators = {}, token_metadata = {})
+sp.record(administrator = sp.address('tz1SfRoaCkrBkXqTzhz67QYVPJAU9Y2g48kq'), content_hashes = {}, contract_metadata_locked = False, ledger = {}, metadata = {'' : sp.bytes('0x697066733a2f2f6578616d706c65')}, metadata_locked = {}, next_token_id = 0, operators = {}, token_metadata = {})
