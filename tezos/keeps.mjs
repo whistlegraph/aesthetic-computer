@@ -162,13 +162,15 @@ async function deployContract(network = 'ghostnet') {
   
   // Create initial storage
   // Storage structure from SmartPy FA2 library:
+  // Storage layout from SmartPy:
   // (pair %administrator address 
-  //   (pair %ledger (big_map nat address)
-  //     (pair %metadata (big_map string bytes)
-  //       (pair %metadata_locked (big_map nat bool)
-  //         (pair %next_token_id nat
-  //           (pair %operators (big_map (pair address address nat) unit)
-  //             %token_metadata (big_map nat (pair nat (map string bytes)))))))))
+  //   (pair %contract_metadata_locked bool
+  //     (pair %ledger (big_map nat address)
+  //       (pair %metadata (big_map string bytes)
+  //         (pair %metadata_locked (big_map nat bool)
+  //           (pair %next_token_id nat
+  //             (pair %operators (big_map (pair address address nat) unit)
+  //               %token_metadata (big_map nat (pair nat (map string bytes))))))))))
   console.log('\n💾 Creating initial storage...');
   
   // Build contract metadata (TZIP-16)
@@ -182,15 +184,16 @@ async function deployContract(network = 'ghostnet') {
   const contractMetadataBytes = stringToBytes(contractMetadataJson);
   const tezosStoragePointer = stringToBytes("tezos-storage:content");
   
-  // Initial storage Michelson
-  // Format: (Pair admin (Pair ledger (Pair metadata (Pair metadata_locked (Pair next_token_id (Pair operators token_metadata))))))
-  const initialStorageMichelson = `(Pair "${credentials.address}" (Pair {} (Pair {Elt "" 0x${tezosStoragePointer}; Elt "content" 0x${contractMetadataBytes}} (Pair {} (Pair 0 (Pair {} {}))))))`;
+  // Initial storage Michelson - includes contract_metadata_locked = False
+  // Format: (Pair admin (Pair contract_metadata_locked (Pair ledger (Pair metadata (Pair metadata_locked (Pair next_token_id (Pair operators token_metadata)))))))
+  const initialStorageMichelson = `(Pair "${credentials.address}" (Pair False (Pair {} (Pair {Elt "" 0x${tezosStoragePointer}; Elt "content" 0x${contractMetadataBytes}} (Pair {} (Pair 0 (Pair {} {})))))))`;
   
   const parsedStorage = parser.parseMichelineExpression(initialStorageMichelson);
   
   console.log(`   ✓ Administrator: ${credentials.address}`);
   console.log('   ✓ Initial token ID: 0');
   console.log('   ✓ Contract metadata: TZIP-16 compliant');
+  console.log('   ✓ Contract metadata locked: false');
   
   // Deploy
   console.log('\n📤 Deploying contract...');
@@ -712,31 +715,40 @@ async function mintToken(piece, options = {}) {
   const acUrl = `https://aesthetic.computer/$${pieceName}`;
   
   // Build description: source code first, then attribution
-  // Use permanent user code if available, otherwise AC handle (but skip @anon)
-  const authorDisplayName = userCode || (authorHandle && authorHandle !== '@anon' ? authorHandle : null);
+  // Build author display for description
+  let authorDisplayName = null;
+  if (authorHandle && authorHandle !== '@anon') {
+    authorDisplayName = authorHandle;
+  }
   
   let description = '';
   if (sourceCode) {
     // Start with source code
     description = sourceCode;
-    // Add attribution line (only if we have real author info)
-    const byLine = [];
-    if (authorDisplayName) byLine.push(`by ${authorDisplayName}`);
-    if (packDate) byLine.push(`packed on ${packDate}`);
-    if (byLine.length > 0) {
-      description += `\n\n${byLine.join(' · ')}`;
+    // Add attribution on separate lines
+    if (authorDisplayName) {
+      description += `\n\nby ${authorDisplayName}`;
+    }
+    if (userCode) {
+      description += `\n${userCode}`;
+    }
+    if (packDate) {
+      description += `\nThis copy was packed on ${packDate}`;
     }
   } else {
     description = `A KidLisp piece preserved on Tezos`;
   }
   
-  // Build tags (no author handle in tags)
+  // Build tags (include userCode if available)
   const tags = [
     `$${pieceName}`,           // The code itself as a tag
     'KidLisp',                 // Capitalized
     'Aesthetic.Computer',      // Capitalized with dot
     'interactive',
   ];
+  if (userCode) {
+    tags.push(userCode);       // Add permanent user code as tag
+  }
   
   // Generate and upload thumbnail to IPFS if requested
   let thumbnailUri = `https://grab.aesthetic.computer/preview/400x400/$${pieceName}.png`; // HTTP fallback
@@ -991,6 +1003,153 @@ async function updateMetadata(tokenId, piece, options = {}) {
 }
 
 // ============================================================================
+// Set Collection Media (Contract-level Metadata)
+// ============================================================================
+
+async function setCollectionMedia(options = {}) {
+  const { 
+    network = 'ghostnet',
+    imageUri,       // Collection icon/logo (IPFS URI or URL)
+    description,    // Collection description
+    raw = {}        // Raw key-value pairs to set
+  } = options;
+  
+  const { tezos, credentials, config } = await createTezosClient(network);
+  
+  // Load contract address
+  if (!fs.existsSync(CONFIG.paths.contractAddress)) {
+    throw new Error('❌ No contract deployed. Run: node keeps.mjs deploy');
+  }
+  
+  const contractAddress = fs.readFileSync(CONFIG.paths.contractAddress, 'utf8').trim();
+  
+  console.log('\n╔══════════════════════════════════════════════════════════════╗');
+  console.log('║  🎨 Setting Collection Media                                 ║');
+  console.log('╚══════════════════════════════════════════════════════════════╝\n');
+  
+  console.log(`📡 Network: ${config.name}`);
+  console.log(`📍 Contract: ${contractAddress}\n`);
+  
+  // Build the metadata updates
+  const updates = [];
+  
+  // Build new contract metadata JSON
+  const currentMetadata = {
+    name: "KidLisp Keeps",
+    version: "2.0.0",
+    interfaces: ["TZIP-012", "TZIP-016", "TZIP-021"],
+    authors: ["aesthetic.computer"],
+    homepage: "https://aesthetic.computer"
+  };
+  
+  if (imageUri) {
+    currentMetadata.imageUri = imageUri;
+    console.log(`   🖼️  Image URI: ${imageUri}`);
+  }
+  
+  if (description) {
+    currentMetadata.description = description;
+    console.log(`   📝 Description: ${description.substring(0, 50)}...`);
+  }
+  
+  // Add any raw fields
+  for (const [key, value] of Object.entries(raw)) {
+    currentMetadata[key] = value;
+    console.log(`   📦 ${key}: ${String(value).substring(0, 50)}`);
+  }
+  
+  // Update the "content" key with new metadata JSON
+  const metadataJson = JSON.stringify(currentMetadata);
+  const metadataBytes = stringToBytes(metadataJson);
+  
+  updates.push({ key: 'content', value: metadataBytes });
+  
+  console.log(`\n📤 Updating contract metadata...`);
+  
+  try {
+    const contract = await tezos.contract.at(contractAddress);
+    
+    // Format for set_contract_metadata: list of { key: string, value: bytes }
+    // Bytes must be hex string prefixed with 0x for Taquito
+    const params = updates.map(u => ({
+      key: u.key,
+      value: '0x' + u.value
+    }));
+    
+    const op = await contract.methods.set_contract_metadata(params).send();
+    
+    console.log(`   ⏳ Operation hash: ${op.hash}`);
+    console.log('   ⏳ Waiting for confirmation...');
+    
+    await op.confirmation(1);
+    
+    console.log('\n╔══════════════════════════════════════════════════════════════╗');
+    console.log('║  ✅ Collection Media Updated!                                ║');
+    console.log('╚══════════════════════════════════════════════════════════════╝\n');
+    
+    console.log(`   📝 Operation: ${config.explorer}/${op.hash}\n`);
+    
+    return { hash: op.hash, metadata: currentMetadata };
+    
+  } catch (error) {
+    console.error('\n❌ Update failed!');
+    console.error(`   Error: ${error.message}`);
+    throw error;
+  }
+}
+
+// ============================================================================
+// Lock Collection Metadata
+// ============================================================================
+
+async function lockCollectionMetadata(options = {}) {
+  const { network = 'ghostnet' } = options;
+  
+  const { tezos, credentials, config } = await createTezosClient(network);
+  
+  // Load contract address
+  if (!fs.existsSync(CONFIG.paths.contractAddress)) {
+    throw new Error('❌ No contract deployed. Run: node keeps.mjs deploy');
+  }
+  
+  const contractAddress = fs.readFileSync(CONFIG.paths.contractAddress, 'utf8').trim();
+  
+  console.log('\n╔══════════════════════════════════════════════════════════════╗');
+  console.log('║  🔒 Locking Collection Metadata                              ║');
+  console.log('╚══════════════════════════════════════════════════════════════╝\n');
+  
+  console.log(`📡 Network: ${config.name}`);
+  console.log(`📍 Contract: ${contractAddress}`);
+  console.log('\n⚠️  WARNING: This action is PERMANENT.');
+  console.log('   Collection metadata (name, description, image) cannot be updated after locking.\n');
+  
+  try {
+    const contract = await tezos.contract.at(contractAddress);
+    
+    const op = await contract.methods.lock_contract_metadata().send();
+    
+    console.log(`   ⏳ Operation hash: ${op.hash}`);
+    console.log('   ⏳ Waiting for confirmation...');
+    
+    await op.confirmation(1);
+    
+    console.log('\n╔══════════════════════════════════════════════════════════════╗');
+    console.log('║  ✅ Collection Metadata Locked!                              ║');
+    console.log('╚══════════════════════════════════════════════════════════════╝\n');
+    
+    console.log(`   🔒 Status: PERMANENTLY LOCKED`);
+    console.log(`   📝 Operation: ${config.explorer}/${op.hash}\n`);
+    
+    return { hash: op.hash, locked: true };
+    
+  } catch (error) {
+    console.error('\n❌ Lock failed!');
+    console.error(`   Error: ${error.message}`);
+    throw error;
+  }
+}
+
+// ============================================================================
 // Lock Metadata
 // ============================================================================
 
@@ -1109,6 +1268,36 @@ async function main() {
         }
         await lockMetadata(parseInt(args[1]), { network: getNetwork(2) });
         break;
+      
+      case 'set-collection-media': {
+        // Parse --image=<uri> and --description=<text> flags
+        const imageFlag = flags.find(f => f.startsWith('--image='));
+        const descFlag = flags.find(f => f.startsWith('--description='));
+        
+        const imageUri = imageFlag ? imageFlag.split('=').slice(1).join('=') : undefined;
+        const description = descFlag ? descFlag.split('=').slice(1).join('=') : undefined;
+        
+        if (!imageUri && !description) {
+          console.error('Usage: node keeps.mjs set-collection-media --image=<ipfs-uri> [--description=<text>]');
+          console.error('');
+          console.error('Examples:');
+          console.error('  node keeps.mjs set-collection-media --image=ipfs://Qm...');
+          console.error('  node keeps.mjs set-collection-media --image=https://oven.aesthetic.computer/keeps/latest');
+          console.error('  node keeps.mjs set-collection-media --description="KidLisp generative art collection"');
+          process.exit(1);
+        }
+        
+        await setCollectionMedia({ 
+          network: getNetwork(1),
+          imageUri,
+          description 
+        });
+        break;
+      }
+      
+      case 'lock-collection':
+        await lockCollectionMetadata({ network: getNetwork(1) });
+        break;
         
       case 'help':
       default:
@@ -1127,6 +1316,8 @@ Commands:
   mint <piece> [network]        Mint a new keep
   update <token_id> <piece>     Update token metadata (re-upload bundle)
   lock <token_id>               Permanently lock token metadata
+  set-collection-media          Set collection icon/description
+  lock-collection               Permanently lock collection metadata
   help                          Show this help
 
 Networks:
@@ -1136,16 +1327,20 @@ Networks:
 Flags:
   --thumbnail                   Generate animated WebP thumbnail via Oven
                                and upload to IPFS (requires Oven service)
+  --image=<uri>                 Collection image URI (IPFS or URL)
+  --description=<text>          Collection description
 
 Examples:
   node keeps.mjs deploy
   node keeps.mjs balance
-  node keeps.mjs upload wand
-  node keeps.mjs mint wand
   node keeps.mjs mint wand --thumbnail      # With IPFS thumbnail
   node keeps.mjs update 0 wand              # Re-upload bundle & update metadata
   node keeps.mjs lock 0                     # Permanently lock token 0
-  node keeps.mjs status
+  
+  # Collection media (use live endpoint for dynamic thumbnail)
+  node keeps.mjs set-collection-media --image=https://oven.aesthetic.computer/keeps/latest
+  node keeps.mjs set-collection-media --image=ipfs://QmXxx --description="KidLisp art"
+  node keeps.mjs lock-collection            # Lock collection metadata forever
 
 Environment:
   OVEN_URL                      Oven service URL (default: https://oven.aesthetic.computer)
@@ -1172,6 +1367,8 @@ export {
   mintToken,
   updateMetadata,
   lockMetadata,
+  setCollectionMedia,
+  lockCollectionMetadata,
   detectContentType,
   loadCredentials,
   CONFIG
