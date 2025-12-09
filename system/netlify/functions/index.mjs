@@ -18,10 +18,10 @@ import { networkInterfaces } from "os";
 const dev = process.env.CONTEXT === "dev" || process.env.NETLIFY_DEV === "true";
 
 async function fun(event, context) {
+  const _startTime = Date.now();
   try {
     // TODO: Return a 500 or 404 for everything that does not exist...
     //       - [] Like for example if the below import fails...
-    console.log("📁 index ➡️", event.path);
 
     if (
       event.path === "/favicon.ico" ||
@@ -313,12 +313,6 @@ async function fun(event, context) {
       const tempPath = path.join("/tmp", `${slug.replaceAll("/", "-")}.mjs`);
 
       try {
-        console.log(
-          "📖 Writing to:",
-          tempPath,
-          "Source length:",
-          sourceCode?.length,
-        );
         await fs.writeFile(tempPath, sourceCode);
         if (language === "javascript")
           module = await import(`file://${tempPath}`);
@@ -340,7 +334,6 @@ async function fun(event, context) {
           // console.warn("⚠️ Failed to delete temp file:", e);
         }
       }
-      console.log("🧊 Module:", module?.meta, tempPath);
       
       // Get initial metadata from module or infer it
       meta = module?.meta?.({ ...parsed, num }) || inferTitleDesc(originalCode);
@@ -355,7 +348,6 @@ async function fun(event, context) {
           }
         }
       }
-      console.log("📰 Metadata:", meta, "Path:", parsed.text);
     } else if (parsed.source) {
       // Handle inline kidlisp code that doesn't need file loading
       console.log("[kidlisp] Using inline kidlisp source for metadata");
@@ -371,13 +363,6 @@ async function fun(event, context) {
           meta = { ...meta, title, standaloneTitle: true };
         }
       }
-      
-      console.log(
-        "📰 Kidlisp Metadata:",
-        meta,
-        "Source:",
-        parsed.source?.substring(0, 100) + "...",
-      );
     }
   } catch (err) {
     // If either module doesn't load, then we can fallback to the main route.
@@ -688,6 +673,10 @@ async function fun(event, context) {
       </body>
     </html>
   `;
+  // 🌸 Cute compact log
+  const _ms = Date.now() - _startTime;
+  const _path = event.path === "/" ? "🏠" : event.path.slice(0, 20);
+  console.log(`✨ ${_path} ${meta?.title || "~"} ${_ms}ms`);
   return {
     statusCode,
     headers: {

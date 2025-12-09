@@ -1416,10 +1416,33 @@ export async function handler(event, context) {
     },
     // 😱 Commands for entering into the prompt.
     prompts: {
+      // 🔷 Tezos Wallet
+      tezos: {
+        sig: "tezos <action> [network]",
+        desc: "Manage Tezos wallet.",
+        params: [
+          { name: "action", type: "enum", values: ["connect", "disconnect", "status"], required: true },
+          { name: "network", type: "enum", values: ["ghostnet", "mainnet"], required: false, default: "ghostnet" }
+        ],
+        done: true,
+      },
+      // 🎨 KidLisp NFT Minting
+      keep: {
+        sig: "keep $code",
+        desc: "Mint KidLisp as NFT (5ꜩ).",
+        params: [
+          { name: "code", type: "string", prefix: "$", required: true, desc: "KidLisp piece code" }
+        ],
+        done: true,
+      },
       tape: {
-        sig: "tape",
+        sig: "tape [duration] [flags]",
         desc: "Record your screen.",
-        done: false,
+        params: [
+          { name: "duration", type: "number", required: false, default: 5, desc: "Seconds (add 'f' for frames)" },
+          { name: "flags", type: "flags", values: ["mic", "nomic", "baktok"], required: false }
+        ],
+        done: true,
       },
       "tape:add": {
         sig: "tape:add",
@@ -1468,9 +1491,12 @@ export async function handler(event, context) {
         done: false,
       },
       scream: {
-        sig: "scream",
+        sig: "scream <message>",
         desc: "Scream at all users.",
-        done: false,
+        params: [
+          { name: "message", type: "string", required: true, desc: "Your scream text" }
+        ],
+        done: true,
       },
       nonotifs: {
         sig: "nonotifs",
@@ -1602,14 +1628,20 @@ export async function handler(event, context) {
         hidden: true,
       },
       mood: {
-        sig: "mood",
+        sig: "mood [emoji]",
         desc: "Set your mood.",
-        done: false,
+        params: [
+          { name: "emoji", type: "string", required: false, desc: "Emoji or text mood" }
+        ],
+        done: true,
       },
       channel: {
-        sig: "channel",
+        sig: "channel [name]",
         desc: "View or set a piece code channel.",
-        done: false,
+        params: [
+          { name: "name", type: "string", required: false, desc: "Channel name to join" }
+        ],
+        done: true,
       },
       "code-channel": {
         sig: "code-channel",
@@ -1629,24 +1661,36 @@ export async function handler(event, context) {
         done: false,
       },
       code: {
-        sig: "code",
+        sig: "code [name]",
         desc: "Write a piece.",
-        done: false,
+        params: [
+          { name: "name", type: "string", required: false, desc: "Piece name (creates new)" }
+        ],
+        done: true,
       },
       edit: {
-        sig: "edit",
+        sig: "edit <piece>",
         desc: "Edit a piece.",
-        done: false,
+        params: [
+          { name: "piece", type: "string", required: true, desc: "Piece name to edit" }
+        ],
+        done: true,
       },
       source: {
-        sig: "source",
+        sig: "source [piece]",
         desc: "Download piece code.",
-        done: false,
+        params: [
+          { name: "piece", type: "string", required: false, desc: "Piece name (or current)" }
+        ],
+        done: true,
       },
       email: {
-        sig: "email",
+        sig: "email <address>",
         desc: "Update your email.",
-        done: false,
+        params: [
+          { name: "address", type: "email", required: true, desc: "New email address" }
+        ],
+        done: true,
         hidden: false,
       },
       "admin:migrate-": {
@@ -1656,9 +1700,12 @@ export async function handler(event, context) {
         hidden: true,
       },
       handle: {
-        sig: "handle",
+        sig: "handle <name>",
         desc: "Set your user handle.",
-        done: false,
+        params: [
+          { name: "name", type: "string", required: true, desc: "New handle (alphanumeric)" }
+        ],
+        done: true,
       },
       handles: {
         sig: "handles",
@@ -1696,24 +1743,38 @@ export async function handler(event, context) {
         done: false,
       },
       resize: {
-        sig: "resize",
+        sig: "resize <w> [h]",
         desc: "Resize by x and y pixel #s.",
-        done: false,
+        params: [
+          { name: "w", type: "number", required: true, desc: "Width in pixels" },
+          { name: "h", type: "number", required: false, desc: "Height (defaults to w)" }
+        ],
+        done: true,
       },
       res: {
-        sig: "res",
+        sig: "res <w> [h]",
         desc: "Resize by x and y pixel #s.",
-        done: false,
+        params: [
+          { name: "w", type: "number", required: true, desc: "Width in pixels" },
+          { name: "h", type: "number", required: false, desc: "Height (defaults to w)" }
+        ],
+        done: true,
       },
       dl: {
-        sig: "dl",
+        sig: "dl [scale]",
         desc: "Download your painting.",
-        done: false,
+        params: [
+          { name: "scale", type: "number", required: false, default: 1, desc: "Scale multiplier" }
+        ],
+        done: true,
       },
       download: {
-        sig: "download",
+        sig: "download [scale]",
         desc: "Download your painting.",
-        done: false,
+        params: [
+          { name: "scale", type: "number", required: false, default: 1, desc: "Scale multiplier" }
+        ],
+        done: true,
       },
       gutter: {
         sig: "gutter",
@@ -1828,10 +1889,12 @@ export async function handler(event, context) {
         //TODO: can this open in a new tab?
       },
       google: {
-        sig: "google",
+        sig: "google <query>",
         desc: "Search google.",
-        done: false,
-        //TODO: can this open in a new tab?
+        params: [
+          { name: "query", type: "string", required: true, desc: "Search query" }
+        ],
+        done: true,
       },
       github: {
         sig: "github",
@@ -2074,6 +2137,14 @@ export async function handler(event, context) {
         desc: "Blur pixels.",
         done: false,
       },
+      box: {
+        sig: "box[:color]",
+        desc: "Draw rectangles with brush gestures.",
+        colon: [
+          { name: "color", values: ["red", "green", "blue", "yellow", "white", "black", "orange", "purple", "pink", "cyan"] },
+        ],
+        done: true,
+      },
       "booted-by": {
         sig: "booted-by",
         desc: "Special thanks to early patrons.",
@@ -2119,9 +2190,13 @@ export async function handler(event, context) {
         done: false,
       },
       camera: {
-        sig: "camera",
+        sig: "camera[:mode]",
         desc: "Take a picture.",
-        done: false,
+        colon: [
+          { name: "mode", type: "enum", values: ["under", "u"], required: false, desc: "Put camera under drawing" }
+        ],
+        examples: ["camera", "camera:under"],
+        done: true,
       },
       chat: {
         sig: "chat",
@@ -2153,9 +2228,17 @@ export async function handler(event, context) {
         hidden: true,
       },
       clock: {
-        sig: "clock",
-        desc: "Every computer needs a clock.",
-        done: false
+        sig: "clock[:divisor] [melody] [sync]",
+        desc: "Musical clock with melody, waveforms, Hz shifts, and parallel tracks.",
+        colon: [
+          { name: "divisor", type: "number", required: false, default: 1, desc: "Time divisor (0.5 = faster, 2 = slower)" }
+        ],
+        params: [
+          { name: "melody", type: "string", required: false, desc: "Notes like cdefg, {square}cde, (ceg) (dfa)" },
+          { name: "sync", type: "enum", values: ["sync"], required: false, desc: "UTC sync mode" }
+        ],
+        examples: ["clock cdefg", "clock:0.5 {square}cdefgab", "clock (ceg) (dfa)", "clock ^cdefg"],
+        done: true
       },
       crop: {
         sig: "crop",
@@ -2411,9 +2494,13 @@ export async function handler(event, context) {
         done: false,
       },
       line: {
-        sig: "line",
-        desc: "Draw a 1px line.",
-        done: false,
+        sig: "line[:thickness]",
+        desc: "Draw lines with your finger.",
+        colon: [
+          { name: "thickness", type: "number", required: false, default: 1, desc: "Line width in pixels" }
+        ],
+        examples: ["line", "line:2", "line:5"],
+        done: true,
       },
       list: {
         sig: "list",
@@ -2506,9 +2593,19 @@ export async function handler(event, context) {
         //TODO: shouldnt this go to nopaint site? nopaint.art
       },
       notepat: {
-        sig: "notepat",
+        sig: "notepat[:wave][:octave] [melody...]",
         desc: "A melodic keyboard instrument.",
-        done: false,
+        // Colon params: command:opt1:opt2 → colon[0], colon[1]
+        colon: [
+          { name: "wave", type: "enum", values: ["sine", "square", "triangle", "sawtooth", "noise"], required: false, default: "sine" },
+          { name: "octave", type: "number", values: [1, 2, 3, 4, 5, 6, 7, 8, 9], required: false, default: 4 }
+        ],
+        // Space params: command arg1 arg2 → params[0], params[1]
+        params: [
+          { name: "melody", type: "string", required: false, desc: "Melody in note:word format (e.g. C:twin- C:-kle)" }
+        ],
+        examples: ["notepat", "notepat:square", "notepat:sine:5", "notepat twinkle"],
+        done: true,
       },
       stample: {
         sig: "stample",
@@ -2828,14 +2925,25 @@ export async function handler(event, context) {
         done: false,
       },
       tone: {
-        sig: "tone",
+        sig: "tone[:wave] [frequency]",
         desc: "Listen to a tone.",
-        done: false,
+        colon: [
+          { name: "wave", type: "enum", values: ["sine", "triangle", "square", "sawtooth", "cycle"], required: false, default: "sine" }
+        ],
+        params: [
+          { name: "frequency", type: "number", required: false, desc: "Tone frequency in Hz (50-4000)" }
+        ],
+        examples: ["tone", "tone 440", "tone:square 880", "tone:cycle"],
+        done: true,
       },
       toss: {
-        sig: "toss",
+        sig: "toss[:wave][:tempo]",
         desc: "Play microtonal oscillators.",
-        done: false,
+        colon: [
+          { name: "wave", type: "enum", values: ["sine", "square", "triangle", "sawtooth"], required: false, default: "sine" },
+          { name: "tempo", type: "number", values: [60, 80, 100, 120, 140, 160], required: false, default: 120 }
+        ],
+        done: true,
       },
       tracker: {
         sig: "tracker",
@@ -2875,6 +2983,11 @@ export async function handler(event, context) {
         desc: "Sculpt in XR.",
         done: false,
         hidden: false,
+      },
+      wallet: {
+        sig: "wallet",
+        desc: "View your Tezos wallet.",
+        done: true,
       },
       wave: {
         sig: "wave",
