@@ -92,7 +92,7 @@ class SpeakerProcessor extends AudioWorkletProcessor {
   #vstBufferSize = 128; // Send samples in chunks
 
   constructor(options) {
-    // if (options.processorOptions.debug) console.log("🔊 Sound Synthesis Worklet Started");
+    console.log("🔊 Sound Synthesis Worklet CONSTRUCTOR, bpm:", options.processorOptions.bpm);
     // console.log("🎼 Sample rate:", sampleRate);
 
     super();
@@ -102,6 +102,7 @@ class SpeakerProcessor extends AudioWorkletProcessor {
     this.#bpm = options.processorOptions.bpm;
     this.#bpmInSec = 60 / this.#bpm;
     this.#ticks = this.#bpmInSec;
+    console.log("🔊 Worklet initialized: bpm=", this.#bpm, "bpmInSec=", this.#bpmInSec, "ticks=", this.#ticks);
 
     volume.amount.val = 0.9; // Set global volume.
 
@@ -474,11 +475,12 @@ class SpeakerProcessor extends AudioWorkletProcessor {
       }
     };
   }
-
+  
   process(inputs, outputs) {
     try {
-      const currentTime = this.currentTime; // Get current time from AudioWorkletProcessor
-      const startTime = currentTime * 1000; // Use currentTime instead of performance.now()
+      // Use global currentTime from AudioWorkletGlobalScope (not this.currentTime which doesn't exist)
+      const time = currentTime;
+      const startTime = time * 1000;
       
       // Memory monitoring - check every 2 seconds
       this.#memoryCheckCounter++;
@@ -526,10 +528,10 @@ class SpeakerProcessor extends AudioWorkletProcessor {
         }
       }
       
-      const result = this.#processAudio(inputs, outputs, currentTime);
+      const result = this.#processAudio(inputs, outputs, time);
       
       // Track processing time for performance monitoring
-      const processingTime = (currentTime * 1000) - startTime;
+      const processingTime = (time * 1000) - startTime;
       this.#processingTimeHistory.push(processingTime);
       if (this.#processingTimeHistory.length > 100) {
         this.#processingTimeHistory.shift(); // Keep only last 100 measurements
@@ -542,12 +544,17 @@ class SpeakerProcessor extends AudioWorkletProcessor {
     }
   }
 
-  #processAudio(inputs, outputs, currentTime) {
+  #processAudio(inputs, outputs, time) {
+    
+    // DEBUG: Log that process is running (once per second)
+    if (this.#lastTime && Math.floor(time) !== Math.floor(this.#lastTime)) {
+      console.log("🔊 Worklet process running, time:", time.toFixed(2), "ticks:", this.#ticks?.toFixed(3), "bpmInSec:", this.#bpmInSec);
+    }
     
     // 🎵 TIMELINE SYNC LOGGING - Track audio worklet timing for mini timeline sync
     // Log audio timing every few seconds to monitor sync drift
-    if (Math.floor(currentTime * 10) % 50 === 0) { // Every 5 seconds
-      console.log(`🎵 WORKLET_TIME: ${currentTime.toFixed(6)}s, sampleRate=${sampleRate}, frame=${currentFrame}`);
+    if (Math.floor(time * 10) % 50 === 0) { // Every 5 seconds
+      console.log(`🎵 WORKLET_TIME: ${time.toFixed(6)}s, sampleRate=${sampleRate}, frame=${currentFrame}`);
     }
     
     // 0️⃣ Waveform Tracking
@@ -556,16 +563,16 @@ class SpeakerProcessor extends AudioWorkletProcessor {
 
     // 1️⃣ Metronome
     const previousTicks = this.#ticks;
-    this.#ticks += currentTime - this.#lastTime;
-    this.#lastTime = currentTime;
+    this.#ticks += time - this.#lastTime;
+    this.#lastTime = time;
 
     // const timeTillNextBeat = this.#ticks / this.#bpmInSec;
 
     if (this.#ticks >= this.#bpmInSec) {
       // 🎵 BEAT SYNC LOGGING - Critical for timeline sync
-      console.log(`🎵 BEAT: ${currentTime.toFixed(6)}s, bpm=${this.#bpm}, interval=${this.#bpmInSec.toFixed(3)}s, tick_overflow=${(this.#ticks - this.#bpmInSec).toFixed(6)}s`);
+      console.log(`🎵 BEAT: ${time.toFixed(6)}s, bpm=${this.#bpm}, interval=${this.#bpmInSec.toFixed(3)}s, tick_overflow=${(this.#ticks - this.#bpmInSec).toFixed(6)}s`);
       this.#ticks = 0;
-      this.#report("metronome", currentTime);
+      this.#report("metronome", time);
     }
 
     // 2️⃣ Sound generation

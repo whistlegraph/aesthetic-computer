@@ -1,6 +1,13 @@
 # entire ac-pill directory
 ac-pill/
 
+# SSH keys (keep in aesthetic-computer-vault only)
+oven/ssh/
+**/oven-deploy-key*
+**/*-deploy-key*
+**/id_rsa*
+**/id_ed25519*
+
 # ignore tokens dir (static outputs of ac pieces for archival purposes)
 tokens/*.zip
 tokens/*/

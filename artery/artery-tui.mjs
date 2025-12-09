@@ -45,14 +45,18 @@ const FG_BRIGHT_CYAN = `${CSI}96m`;
 const BG_BLACK = `${CSI}40m`;
 const BG_RED = `${CSI}41m`;
 const BG_GREEN = `${CSI}42m`;
+const BG_YELLOW = `${CSI}43m`;
 const BG_BLUE = `${CSI}44m`;
 const BG_MAGENTA = `${CSI}45m`;
 const BG_CYAN = `${CSI}46m`;
 const BG_WHITE = `${CSI}47m`;
 const BG_BRIGHT_BLACK = `${CSI}100m`;
+const BG_BRIGHT_RED = `${CSI}101m`;
+const BG_BRIGHT_GREEN = `${CSI}102m`;
+const BG_BRIGHT_YELLOW = `${CSI}103m`;
 const BG_BRIGHT_BLUE = `${CSI}104m`;
 
-// DOS-style color combos
+// DOS-style color combos (defaults - see getThemeColors() for dynamic versions)
 const DOS_TITLE = `${BG_BLUE}${FG_WHITE}${BOLD}`;
 const DOS_MENU = `${BG_BLUE}${FG_BRIGHT_CYAN}`;
 const DOS_HIGHLIGHT = `${BG_CYAN}${FG_BLACK}`;
@@ -343,6 +347,58 @@ class ArteryTUI {
     this.hostInfo = this.detectHostInfo();
   }
   
+  // Get dynamic theme colors based on connectivity status
+  // Returns { bg, border, fg } for current state
+  getThemeColors() {
+    // Priority: AC connected > local server > production server > nothing
+    if (this.connected) {
+      // Fully connected - green tint
+      return {
+        bg: BG_GREEN,
+        border: `${BG_GREEN}${FG_WHITE}`,
+        fill: BG_GREEN,
+        text: FG_WHITE,
+        accent: FG_BRIGHT_YELLOW
+      };
+    } else if (this.serverStatus.local === true) {
+      // Local server up but AC not connected - cyan/blue (ready state)
+      return {
+        bg: BG_CYAN,
+        border: `${BG_CYAN}${FG_BLACK}`,
+        fill: BG_CYAN,
+        text: FG_BLACK,
+        accent: FG_BLUE
+      };
+    } else if (this.serverStatus.production === true) {
+      // Only production available - magenta (remote state)
+      return {
+        bg: BG_MAGENTA,
+        border: `${BG_MAGENTA}${FG_WHITE}`,
+        fill: BG_MAGENTA,
+        text: FG_WHITE,
+        accent: FG_BRIGHT_YELLOW
+      };
+    } else if (this.serverStatus.local === false && this.serverStatus.production === false) {
+      // Nothing available - red (error state)
+      return {
+        bg: BG_RED,
+        border: `${BG_RED}${FG_WHITE}`,
+        fill: BG_RED,
+        text: FG_WHITE,
+        accent: FG_BRIGHT_YELLOW
+      };
+    } else {
+      // Unknown/checking - default blue
+      return {
+        bg: BG_BLUE,
+        border: `${BG_BLUE}${FG_BRIGHT_CYAN}`,
+        fill: BG_BLUE,
+        text: FG_BRIGHT_CYAN,
+        accent: FG_BRIGHT_YELLOW
+      };
+    }
+  }
+  
   detectHostInfo() {
     const info = {
       inContainer: process.env.REMOTE_CONTAINERS === 'true' || process.env.CODESPACES === 'true',
@@ -492,10 +548,13 @@ class ArteryTUI {
     this.write(CURSOR_HIDE);
     this.write(MOUSE_ENABLE); // Enable mouse tracking
     
+    // Initialize UTC clock
+    this.utcTime = this.getUTCTimeString();
+    
     // Start polling local server status
     this.startServerPolling();
     
-    // Start blood flow animation
+    // Start blood flow animation (also updates clock)
     this.startBloodAnimation();
     
     // Try to connect
@@ -523,6 +582,9 @@ class ArteryTUI {
       // Move blood pulse - faster with more activity
       const speed = 0.5 + (this.networkActivity * 0.3);
       this.bloodPosition = (this.bloodPosition + speed) % (BLOOD_FLOW_LENGTH + BLOOD_PULSE_WIDTH * 2);
+      
+      // Update UTC clock
+      this.utcTime = this.getUTCTimeString();
       
       // Only re-render header area if in menu mode to show animation
       // In eat terminal, do full render instead of partial to avoid artifacts
@@ -2312,13 +2374,20 @@ class ArteryTUI {
     const boxWidth = this.innerWidth;
     const compact = this.width < 80;
     
-    // AC status - Open/Closed (keep BG_BLUE throughout)
-    const acStatus = this.connected 
-      ? `${BG_BLUE}${FG_BRIGHT_GREEN}AC Open` 
-      : `${BG_BLUE}${FG_BRIGHT_RED}AC Closed`;
-    const piece = this.currentPiece ? ` ${FG_BRIGHT_CYAN}│ ${FG_BRIGHT_YELLOW}${this.currentPiece}` : '';
+    // Get dynamic theme colors based on connectivity
+    const theme = this.getThemeColors();
+    const themeBorder = theme.border;
+    const themeFill = theme.fill;
+    const themeText = theme.text;
+    const themeAccent = theme.accent;
     
-    // Server status indicators with transient message (keep BG_BLUE)
+    // AC status - Open/Closed
+    const acStatus = this.connected 
+      ? `${themeFill}${FG_BRIGHT_GREEN}AC Open` 
+      : `${themeFill}${FG_BRIGHT_RED}AC Closed`;
+    const piece = this.currentPiece ? ` ${themeText}│ ${themeAccent}${this.currentPiece}` : '';
+    
+    // Server status indicators with transient message
     const localIcon = this.serverStatus.local === true ? `${FG_BRIGHT_GREEN}●` 
                     : this.serverStatus.local === false ? `${FG_BRIGHT_YELLOW}◐` 
                     : `${DIM}?`;
@@ -2328,7 +2397,7 @@ class ArteryTUI {
                    : `${DIM}?`;
     const serverInfo = compact 
       ? ` ${localIcon}${prodIcon}` 
-      : ` ${FG_BRIGHT_CYAN}│ ${FG_CYAN}L${localIcon}${localMsg} ${FG_CYAN}P${prodIcon}`;
+      : ` ${themeText}│ ${themeText}L${localIcon}${localMsg} ${themeText}P${prodIcon}`;
     
     // Host info line (container → host)
     let hostInfoLine = '';
@@ -2343,8 +2412,8 @@ class ArteryTUI {
       hostInfoLine = `${FG_BRIGHT_MAGENTA}📦 ${containerLabel} ${FG_BRIGHT_CYAN}→ ${this.hostInfo.hostEmoji} ${FG_WHITE}${BOLD}${hostLabel}${RESET}${BG_BLUE} ${cdpLabel}`;
     }
     
-    // Top border - DOS style double line
-    this.writeLine(`${DOS_BORDER}╔${'═'.repeat(boxWidth - 2)}╗${RESET}`);
+    // Top border - DOS style double line with dynamic color
+    this.writeLine(`${themeBorder}╔${'═'.repeat(boxWidth - 2)}╗${RESET}`);
     
     // ASCII art title - only show if wide enough
     if (!compact) {
@@ -2369,11 +2438,11 @@ class ArteryTUI {
             // Blood pulse - red color intensity based on distance from center
             const intensity = 1 - (distance / BLOOD_PULSE_WIDTH);
             if (intensity > 0.6 && effectiveActivity > 0.3) {
-              animatedLine += `${FG_BRIGHT_RED}${char}${FG_BRIGHT_CYAN}`;
+              animatedLine += `${FG_BRIGHT_RED}${char}${themeText}`;
             } else if (intensity > 0.3 && effectiveActivity > 0.2) {
-              animatedLine += `${FG_RED}${char}${FG_BRIGHT_CYAN}`;
+              animatedLine += `${FG_RED}${char}${themeText}`;
             } else if (intensity > 0 && effectiveActivity > 0.1) {
-              animatedLine += `${FG_MAGENTA}${char}${FG_BRIGHT_CYAN}`;
+              animatedLine += `${FG_MAGENTA}${char}${themeText}`;
             } else {
               animatedLine += char;
             }
@@ -2382,35 +2451,41 @@ class ArteryTUI {
           }
         }
         
-        this.writeLine(`${DOS_BORDER}║${BG_BLUE}${' '.repeat(Math.max(0, artPadding))}${FG_BRIGHT_CYAN}${animatedLine}${' '.repeat(Math.max(0, rightPad))}${DOS_BORDER}║${RESET}`);
+        this.writeLine(`${themeBorder}║${themeFill}${' '.repeat(Math.max(0, artPadding))}${themeText}${animatedLine}${' '.repeat(Math.max(0, rightPad))}${themeBorder}║${RESET}`);
       }
     } else {
       // Compact title
-      const compactTitle = `${FG_BRIGHT_CYAN}${BOLD}ARTERY`;
+      const compactTitle = `${themeText}${BOLD}ARTERY`;
       const titlePad = Math.floor((boxWidth - 10) / 2);
-      this.writeLine(`${DOS_BORDER}║${BG_BLUE}${' '.repeat(Math.max(0, titlePad))}${compactTitle}${' '.repeat(Math.max(0, boxWidth - titlePad - 10))}${DOS_BORDER}║${RESET}`);
+      this.writeLine(`${themeBorder}║${themeFill}${' '.repeat(Math.max(0, titlePad))}${compactTitle}${' '.repeat(Math.max(0, boxWidth - titlePad - 10))}${themeBorder}║${RESET}`);
     }
     
-    // Status line - all on blue background
+    // Status line
     const statusLine = `${acStatus}${piece}${serverInfo}`;
     const statusPadding = boxWidth - this.stripAnsi(statusLine).length - 2;
-    this.writeLine(`${DOS_BORDER}║${BG_BLUE}${statusLine}${' '.repeat(Math.max(0, statusPadding))}${DOS_BORDER}║${RESET}`);
+    this.writeLine(`${themeBorder}║${themeFill}${statusLine}${' '.repeat(Math.max(0, statusPadding))}${themeBorder}║${RESET}`);
     
     // Host info line (if in container and not compact)
     if (hostInfoLine) {
       const hostPadding = boxWidth - this.stripAnsi(hostInfoLine).length - 2;
-      this.writeLine(`${DOS_BORDER}║${BG_BLUE}${hostInfoLine}${' '.repeat(Math.max(0, hostPadding))}${DOS_BORDER}║${RESET}`);
+      this.writeLine(`${themeBorder}║${themeFill}${hostInfoLine}${' '.repeat(Math.max(0, hostPadding))}${themeBorder}║${RESET}`);
     }
     
     // Separator
-    this.writeLine(`${DOS_BORDER}╠${'═'.repeat(boxWidth - 2)}╣${RESET}`);
+    this.writeLine(`${themeBorder}╠${'═'.repeat(boxWidth - 2)}╣${RESET}`);
   }
 
   renderFooter() {
     const boxWidth = this.innerWidth;
     const compact = this.width < 80;
     
-    // Status message (truncate if needed) - keep BG_BLUE throughout
+    // Get dynamic theme colors
+    const theme = this.getThemeColors();
+    const themeBorder = theme.border;
+    const themeFill = theme.fill;
+    const themeText = theme.text;
+    
+    // Status message (truncate if needed)
     let statusLine = '';
     if (this.statusMessage) {
       const colors = {
@@ -2423,24 +2498,35 @@ class ArteryTUI {
       const truncMsg = this.statusMessage.length > maxMsgLen 
         ? this.statusMessage.slice(0, maxMsgLen - 3) + '...' 
         : this.statusMessage;
-      statusLine = `${BG_BLUE}${colors[this.statusType] || FG_WHITE}${truncMsg}`;
+      statusLine = `${themeFill}${colors[this.statusType] || FG_WHITE}${truncMsg}`;
     }
     
-    // Bottom border with status - DOS style
-    this.writeLine(`${DOS_BORDER}╠${'═'.repeat(boxWidth - 2)}╣${RESET}`);
+    // Bottom border with status - DOS style with dynamic color
+    this.writeLine(`${themeBorder}╠${'═'.repeat(boxWidth - 2)}╣${RESET}`);
     
-    const footerHint = compact ? `${BG_BLUE}${FG_CYAN}Q${FG_WHITE}uit ${FG_CYAN}Esc` : `${BG_BLUE}${FG_CYAN}[Q]${FG_WHITE}uit ${FG_CYAN}[Esc]${FG_WHITE}Menu`;
+    const footerHint = compact ? `${themeFill}${themeText}Q${FG_WHITE}uit ${themeText}Esc` : `${themeFill}${themeText}[Q]${FG_WHITE}uit ${themeText}[Esc]${FG_WHITE}Menu`;
     const footerContent = statusLine || footerHint;
-    const footerPadding = boxWidth - this.stripAnsi(footerContent).length - 2;
-    this.writeLine(`${DOS_BORDER}║${BG_BLUE}${footerContent}${' '.repeat(Math.max(0, footerPadding))}${DOS_BORDER}║${RESET}`);
     
-    this.writeLine(`${DOS_BORDER}╚${'═'.repeat(boxWidth - 2)}╝${RESET}`);
+    // Analog clock widget on the right
+    const clockWidget = compact ? '' : `${FG_BRIGHT_YELLOW}${this.getAnalogClockWidget()}${DIM}Z`;
+    const clockLen = compact ? 0 : this.stripAnsi(clockWidget).length + 1; // +1 for emoji width
+    const contentLen = this.stripAnsi(footerContent).length;
+    const middlePadding = boxWidth - contentLen - clockLen - 2;
+    this.writeLine(`${themeBorder}║${themeFill}${footerContent}${' '.repeat(Math.max(0, middlePadding))}${clockWidget}${themeBorder}║${RESET}`);
+    
+    this.writeLine(`${themeBorder}╚${'═'.repeat(boxWidth - 2)}╝${RESET}`);
   }
 
   renderMenu() {
     this.renderHeader();
     const boxWidth = this.innerWidth;
     const compact = this.width < 80;
+    
+    // Get dynamic theme colors
+    const theme = this.getThemeColors();
+    const themeBorder = theme.border;
+    const themeFill = theme.fill;
+    const themeText = theme.text;
     
     // Calculate how many menu items we can show
     const headerLines = compact ? 4 : 5;
@@ -2453,38 +2539,38 @@ class ArteryTUI {
     for (let i = 0; i < visibleMenuItems; i++) {
       const item = this.menuItems[i];
       const selected = i === this.selectedIndex;
-      const prefix = selected ? `${DOS_HIGHLIGHT}► ` : `${BG_BLUE}  `;
+      const prefix = selected ? `${DOS_HIGHLIGHT}► ` : `${themeFill}  `;
       const suffix = selected ? `${RESET}` : `${RESET}`;
-      const key = selected ? `${FG_BLACK}[${item.key}]` : `${FG_BRIGHT_YELLOW}[${item.key}]${RESET}${BG_BLUE}`;
+      const key = selected ? `${FG_BLACK}[${item.key}]` : `${FG_BRIGHT_YELLOW}[${item.key}]${RESET}${themeFill}`;
       let label = selected ? `${FG_BLACK}${BOLD}${item.label}` : `${FG_WHITE}${item.label}`;
       // Only show description if wide enough
       let desc = compact ? '' : (selected ? `${FG_BLACK}${item.desc}` : `${FG_CYAN}${item.desc}`);
       
       // Add unread badge to logs item
       if (item.key === 'l' && this.unreadLogs > 0) {
-        label = `${label}${RESET}${selected ? DOS_HIGHLIGHT : BG_BLUE} ${BG_RED}${FG_WHITE}${this.unreadLogs}${RESET}${selected ? DOS_HIGHLIGHT : BG_BLUE}`;
+        label = `${label}${RESET}${selected ? DOS_HIGHLIGHT : themeFill} ${BG_RED}${FG_WHITE}${this.unreadLogs}${RESET}${selected ? DOS_HIGHLIGHT : themeFill}`;
       }
       
-      const line = `${DOS_BORDER}║${RESET}${prefix}${key} ${label}${desc ? ' ' + desc : ''}${suffix}`;
+      const line = `${themeBorder}║${RESET}${prefix}${key} ${label}${desc ? ' ' + desc : ''}${suffix}`;
       const padding = boxWidth - this.stripAnsi(line).length - 1;
-      this.writeLine(`${line}${BG_BLUE}${' '.repeat(Math.max(0, padding))}${DOS_BORDER}║${RESET}`);
+      this.writeLine(`${line}${themeFill}${' '.repeat(Math.max(0, padding))}${themeBorder}║${RESET}`);
     }
     
     // Show scroll indicator if more items
     if (visibleMenuItems < this.menuItems.length) {
       const moreText = `${FG_CYAN}...${this.menuItems.length - visibleMenuItems} more${RESET}`;
-      const moreLine = `${DOS_BORDER}║${RESET}${BG_BLUE}  ${moreText}`;
+      const moreLine = `${themeBorder}║${RESET}${themeFill}  ${moreText}`;
       const morePad = boxWidth - this.stripAnsi(moreLine).length - 1;
-      this.writeLine(`${moreLine}${BG_BLUE}${' '.repeat(Math.max(0, morePad))}${DOS_BORDER}║${RESET}`);
+      this.writeLine(`${moreLine}${themeFill}${' '.repeat(Math.max(0, morePad))}${themeBorder}║${RESET}`);
     }
     
     // Separator before live log preview - DOS style
-    this.writeLine(`${DOS_BORDER}╟${'─'.repeat(boxWidth - 2)}╢${RESET}`);
+    this.writeLine(`${themeBorder}╟${'─'.repeat(boxWidth - 2)}╢${RESET}`);
     
     // Show recent logs preview at bottom - DOS style
-    const logPreviewTitle = `${DOS_BORDER}║${RESET}${BG_BLUE}${FG_BRIGHT_YELLOW}► Logs${FG_CYAN}(${this.logs.length})${RESET}`;
+    const logPreviewTitle = `${themeBorder}║${RESET}${themeFill}${FG_BRIGHT_YELLOW}► Logs${FG_CYAN}(${this.logs.length})${RESET}`;
     const titlePadding = boxWidth - this.stripAnsi(logPreviewTitle).length - 1;
-    this.writeLine(`${logPreviewTitle}${BG_BLUE}${' '.repeat(Math.max(0, titlePadding))}${DOS_BORDER}║${RESET}`);
+    this.writeLine(`${logPreviewTitle}${themeFill}${' '.repeat(Math.max(0, titlePadding))}${themeBorder}║${RESET}`);
     
     // Calculate space for log preview dynamically
     const menuShown = visibleMenuItems + (visibleMenuItems < this.menuItems.length ? 1 : 0);
@@ -2504,13 +2590,13 @@ class ArteryTUI {
         };
         const color = colors[log.level] || FG_WHITE;
         // Compact: skip timestamp
-        const timeStamp = compact ? '' : `${FG_CYAN}${log.timestamp}${RESET}${BG_BLUE} `;
-        const line = `${DOS_BORDER}║${RESET}${BG_BLUE}${timeStamp}${color}${log.text}${RESET}`;
+        const timeStamp = compact ? '' : `${FG_CYAN}${log.timestamp}${RESET}${themeFill} `;
+        const line = `${themeBorder}║${RESET}${themeFill}${timeStamp}${color}${log.text}${RESET}`;
         const truncated = this.truncate(line, boxWidth - 1);
         const padding = boxWidth - this.stripAnsi(truncated).length - 1;
-        this.writeLine(`${truncated}${BG_BLUE}${' '.repeat(Math.max(0, padding))}${DOS_BORDER}║${RESET}`);
+        this.writeLine(`${truncated}${themeFill}${' '.repeat(Math.max(0, padding))}${themeBorder}║${RESET}`);
       } else {
-        this.writeLine(`${DOS_BORDER}║${BG_BLUE}${' '.repeat(boxWidth - 2)}${DOS_BORDER}║${RESET}`);
+        this.writeLine(`${themeBorder}║${themeFill}${' '.repeat(boxWidth - 2)}${themeBorder}║${RESET}`);
       }
     }
     
@@ -2522,12 +2608,17 @@ class ArteryTUI {
     const boxWidth = this.innerWidth;
     const compact = this.width < 80;
     
+    // Get dynamic theme colors
+    const theme = this.getThemeColors();
+    const themeBorder = theme.border;
+    const themeFill = theme.fill;
+    
     // REPL title - DOS style
     const helpHint = compact ? '' : ` ${FG_CYAN}(.help)${RESET}`;
-    const replTitle = `${DOS_BORDER}║${RESET}${BG_BLUE}${FG_BRIGHT_YELLOW}►${FG_WHITE}REPL${helpHint}`;
+    const replTitle = `${themeBorder}║${RESET}${themeFill}${FG_BRIGHT_YELLOW}►${FG_WHITE}REPL${helpHint}`;
     const replPadding = boxWidth - this.stripAnsi(replTitle).length - 1;
-    this.writeLine(`${replTitle}${BG_BLUE}${' '.repeat(Math.max(0, replPadding))}${DOS_BORDER}║${RESET}`);
-    this.writeLine(`${DOS_BORDER}╟${'─'.repeat(boxWidth - 2)}╢${RESET}`);
+    this.writeLine(`${replTitle}${themeFill}${' '.repeat(Math.max(0, replPadding))}${themeBorder}║${RESET}`);
+    this.writeLine(`${themeBorder}╟${'─'.repeat(boxWidth - 2)}╢${RESET}`);
     
     // Show recent logs
     const logLines = Math.max(1, this.innerHeight - 10);
@@ -2543,24 +2634,24 @@ class ArteryTUI {
         result: FG_BRIGHT_GREEN,
       };
       const color = colors[log.level] || FG_WHITE;
-      const timeStamp = compact ? '' : `${FG_CYAN}${log.timestamp}${RESET}${BG_BLUE} `;
-      const line = `${DOS_BORDER}║${RESET}${BG_BLUE}${timeStamp}${color}${log.text}${RESET}`;
+      const timeStamp = compact ? '' : `${FG_CYAN}${log.timestamp}${RESET}${themeFill} `;
+      const line = `${themeBorder}║${RESET}${themeFill}${timeStamp}${color}${log.text}${RESET}`;
       const truncated = this.truncate(line, boxWidth - 1);
       const padding = boxWidth - this.stripAnsi(truncated).length - 1;
-      this.writeLine(`${truncated}${BG_BLUE}${' '.repeat(Math.max(0, padding))}${DOS_BORDER}║${RESET}`);
+      this.writeLine(`${truncated}${themeFill}${' '.repeat(Math.max(0, padding))}${themeBorder}║${RESET}`);
     }
     
     // Fill remaining
     for (let i = recentLogs.length; i < logLines; i++) {
-      this.writeLine(`${DOS_BORDER}║${BG_BLUE}${' '.repeat(boxWidth - 2)}${DOS_BORDER}║${RESET}`);
+      this.writeLine(`${themeBorder}║${themeFill}${' '.repeat(boxWidth - 2)}${themeBorder}║${RESET}`);
     }
     
     // Input line
-    this.writeLine(`${DOS_BORDER}╟${'─'.repeat(boxWidth - 2)}╢${RESET}`);
-    const prompt = `${FG_BRIGHT_MAGENTA}🩸${RESET}${BG_BLUE}`;
-    const inputLine = `${DOS_BORDER}║${RESET}${BG_BLUE}${prompt}${FG_WHITE}${this.inputBuffer}${RESET}`;
+    this.writeLine(`${themeBorder}╟${'─'.repeat(boxWidth - 2)}╢${RESET}`);
+    const prompt = `${FG_BRIGHT_MAGENTA}🩸${RESET}${themeFill}`;
+    const inputLine = `${themeBorder}║${RESET}${themeFill}${prompt}${FG_WHITE}${this.inputBuffer}${RESET}`;
     const inputPadding = boxWidth - this.stripAnsi(inputLine).length - 1;
-    this.writeLine(`${inputLine}${BG_BLUE}${' '.repeat(Math.max(0, inputPadding))}${DOS_BORDER}║${RESET}`);
+    this.writeLine(`${inputLine}${themeFill}${' '.repeat(Math.max(0, inputPadding))}${themeBorder}║${RESET}`);
     
     this.renderFooter();
     
@@ -2574,11 +2665,16 @@ class ArteryTUI {
     const boxWidth = this.innerWidth;
     const compact = this.width < 80;
     
+    // Get dynamic theme colors
+    const theme = this.getThemeColors();
+    const themeBorder = theme.border;
+    const themeFill = theme.fill;
+    
     // Emacs title - DOS style
-    const emacsTitle = `${DOS_BORDER}║${RESET}${BG_BLUE}${FG_BRIGHT_GREEN}🧠${FG_WHITE} Emacs${RESET}`;
+    const emacsTitle = `${themeBorder}║${RESET}${themeFill}${FG_BRIGHT_GREEN}🧠${FG_WHITE} Emacs${RESET}`;
     const emacsPadding = boxWidth - this.stripAnsi(emacsTitle).length - 1;
-    this.writeLine(`${emacsTitle}${BG_BLUE}${' '.repeat(Math.max(0, emacsPadding))}${DOS_BORDER}║${RESET}`);
-    this.writeLine(`${DOS_BORDER}╟${'─'.repeat(boxWidth - 2)}╢${RESET}`);
+    this.writeLine(`${emacsTitle}${themeFill}${' '.repeat(Math.max(0, emacsPadding))}${themeBorder}║${RESET}`);
+    this.writeLine(`${themeBorder}╟${'─'.repeat(boxWidth - 2)}╢${RESET}`);
     
     if (this.emacsSubMode === 'menu') {
       // Emacs menu options
@@ -2589,52 +2685,52 @@ class ArteryTUI {
       ];
       
       for (const opt of menuOptions) {
-        const line = `${DOS_BORDER}║${RESET}${BG_BLUE}  ${FG_BRIGHT_YELLOW}[${opt.key}]${RESET}${BG_BLUE} ${FG_WHITE}${opt.label}${RESET}${BG_BLUE} ${DIM}${opt.desc}${RESET}`;
+        const line = `${themeBorder}║${RESET}${themeFill}  ${FG_BRIGHT_YELLOW}[${opt.key}]${RESET}${themeFill} ${FG_WHITE}${opt.label}${RESET}${themeFill} ${DIM}${opt.desc}${RESET}`;
         const linePadding = boxWidth - this.stripAnsi(line).length - 1;
-        this.writeLine(`${line}${BG_BLUE}${' '.repeat(Math.max(0, linePadding))}${DOS_BORDER}║${RESET}`);
+        this.writeLine(`${line}${themeFill}${' '.repeat(Math.max(0, linePadding))}${themeBorder}║${RESET}`);
       }
       
       // Show output
-      this.writeLine(`${DOS_BORDER}╟${'─'.repeat(boxWidth - 2)}╢${RESET}`);
-      const outputTitle = `${DOS_BORDER}║${RESET}${BG_BLUE}${FG_CYAN}Output:${RESET}`;
+      this.writeLine(`${themeBorder}╟${'─'.repeat(boxWidth - 2)}╢${RESET}`);
+      const outputTitle = `${themeBorder}║${RESET}${themeFill}${FG_CYAN}Output:${RESET}`;
       const outputPadding = boxWidth - this.stripAnsi(outputTitle).length - 1;
-      this.writeLine(`${outputTitle}${BG_BLUE}${' '.repeat(Math.max(0, outputPadding))}${DOS_BORDER}║${RESET}`);
+      this.writeLine(`${outputTitle}${themeFill}${' '.repeat(Math.max(0, outputPadding))}${themeBorder}║${RESET}`);
       
       // Wrap output to fit
       const outputLines = (this.emacsOutput || '(no output)').split('\n').slice(0, 5);
       for (const outLine of outputLines) {
         const truncated = this.truncate(outLine, boxWidth - 4);
-        const line = `${DOS_BORDER}║${RESET}${BG_BLUE}  ${FG_BRIGHT_GREEN}${truncated}${RESET}`;
+        const line = `${themeBorder}║${RESET}${themeFill}  ${FG_BRIGHT_GREEN}${truncated}${RESET}`;
         const linePadding = boxWidth - this.stripAnsi(line).length - 1;
-        this.writeLine(`${line}${BG_BLUE}${' '.repeat(Math.max(0, linePadding))}${DOS_BORDER}║${RESET}`);
+        this.writeLine(`${line}${themeFill}${' '.repeat(Math.max(0, linePadding))}${themeBorder}║${RESET}`);
       }
     } else if (this.emacsSubMode === 'eval') {
       // Elisp input mode
-      const helpLine = `${DOS_BORDER}║${RESET}${BG_BLUE}  ${DIM}Type elisp and press Enter. ESC to go back.${RESET}`;
+      const helpLine = `${themeBorder}║${RESET}${themeFill}  ${DIM}Type elisp and press Enter. ESC to go back.${RESET}`;
       const helpPadding = boxWidth - this.stripAnsi(helpLine).length - 1;
-      this.writeLine(`${helpLine}${BG_BLUE}${' '.repeat(Math.max(0, helpPadding))}${DOS_BORDER}║${RESET}`);
+      this.writeLine(`${helpLine}${themeFill}${' '.repeat(Math.max(0, helpPadding))}${themeBorder}║${RESET}`);
       
       // Input line
-      const prompt = `${FG_BRIGHT_GREEN}λ${RESET}${BG_BLUE}`;
-      const inputLine = `${DOS_BORDER}║${RESET}${BG_BLUE}${prompt}${FG_WHITE}${this.emacsInput}${RESET}`;
+      const prompt = `${FG_BRIGHT_GREEN}λ${RESET}${themeFill}`;
+      const inputLine = `${themeBorder}║${RESET}${themeFill}${prompt}${FG_WHITE}${this.emacsInput}${RESET}`;
       const inputPadding = boxWidth - this.stripAnsi(inputLine).length - 1;
-      this.writeLine(`${inputLine}${BG_BLUE}${' '.repeat(Math.max(0, inputPadding))}${DOS_BORDER}║${RESET}`);
+      this.writeLine(`${inputLine}${themeFill}${' '.repeat(Math.max(0, inputPadding))}${themeBorder}║${RESET}`);
       
       // Show output
-      this.writeLine(`${DOS_BORDER}╟${'─'.repeat(boxWidth - 2)}╢${RESET}`);
+      this.writeLine(`${themeBorder}╟${'─'.repeat(boxWidth - 2)}╢${RESET}`);
       const outputLines = (this.emacsOutput || '').split('\n').slice(0, 8);
       for (const outLine of outputLines) {
         const truncated = this.truncate(outLine, boxWidth - 4);
-        const line = `${DOS_BORDER}║${RESET}${BG_BLUE}  ${FG_BRIGHT_GREEN}${truncated}${RESET}`;
+        const line = `${themeBorder}║${RESET}${themeFill}  ${FG_BRIGHT_GREEN}${truncated}${RESET}`;
         const linePadding = boxWidth - this.stripAnsi(line).length - 1;
-        this.writeLine(`${line}${BG_BLUE}${' '.repeat(Math.max(0, linePadding))}${DOS_BORDER}║${RESET}`);
+        this.writeLine(`${line}${themeFill}${' '.repeat(Math.max(0, linePadding))}${themeBorder}║${RESET}`);
       }
     } else if (this.emacsSubMode === 'buffers') {
       // Buffer list
-      const helpLine = `${DOS_BORDER}║${RESET}${BG_BLUE}  ${DIM}↑↓ to select, Enter to switch. ESC to go back.${RESET}`;
+      const helpLine = `${themeBorder}║${RESET}${themeFill}  ${DIM}↑↓ to select, Enter to switch. ESC to go back.${RESET}`;
       const helpPadding = boxWidth - this.stripAnsi(helpLine).length - 1;
-      this.writeLine(`${helpLine}${BG_BLUE}${' '.repeat(Math.max(0, helpPadding))}${DOS_BORDER}║${RESET}`);
-      this.writeLine(`${DOS_BORDER}╟${'─'.repeat(boxWidth - 2)}╢${RESET}`);
+      this.writeLine(`${helpLine}${themeFill}${' '.repeat(Math.max(0, helpPadding))}${themeBorder}║${RESET}`);
+      this.writeLine(`${themeBorder}╟${'─'.repeat(boxWidth - 2)}╢${RESET}`);
       
       const visibleCount = Math.max(1, this.innerHeight - 12);
       const startIdx = Math.max(0, this.emacsSelectedBuffer - Math.floor(visibleCount / 2));
@@ -2643,12 +2739,12 @@ class ArteryTUI {
       for (let i = startIdx; i < endIdx; i++) {
         const buffer = this.emacsBuffers[i];
         const isSelected = i === this.emacsSelectedBuffer;
-        const prefix = isSelected ? `${DOS_HIGHLIGHT}►` : ` ${BG_BLUE}`;
-        const color = isSelected ? `${DOS_HIGHLIGHT}` : `${BG_BLUE}${FG_WHITE}`;
-        const line = `${DOS_BORDER}║${RESET}${prefix}${color} ${buffer}${RESET}`;
+        const prefix = isSelected ? `${DOS_HIGHLIGHT}►` : ` ${themeFill}`;
+        const color = isSelected ? `${DOS_HIGHLIGHT}` : `${themeFill}${FG_WHITE}`;
+        const line = `${themeBorder}║${RESET}${prefix}${color} ${buffer}${RESET}`;
         const linePadding = boxWidth - this.stripAnsi(line).length - 1;
-        const bg = isSelected ? DOS_HIGHLIGHT : BG_BLUE;
-        this.writeLine(`${line}${bg}${' '.repeat(Math.max(0, linePadding))}${DOS_BORDER}║${RESET}`);
+        const bg = isSelected ? DOS_HIGHLIGHT : themeFill;
+        this.writeLine(`${line}${bg}${' '.repeat(Math.max(0, linePadding))}${themeBorder}║${RESET}`);
       }
     }
     
@@ -2657,7 +2753,7 @@ class ArteryTUI {
       ? Math.min(this.emacsBuffers.length, this.innerHeight - 12) + 5
       : 12;
     for (let i = usedLines; i < this.innerHeight - 4; i++) {
-      this.writeLine(`${DOS_BORDER}║${BG_BLUE}${' '.repeat(boxWidth - 2)}${DOS_BORDER}║${RESET}`);
+      this.writeLine(`${themeBorder}║${themeFill}${' '.repeat(boxWidth - 2)}${themeBorder}║${RESET}`);
     }
     
     this.renderFooter();
@@ -2674,20 +2770,25 @@ class ArteryTUI {
     const boxWidth = this.innerWidth;
     const compact = this.width < 80;
     
+    // Get dynamic theme colors
+    const theme = this.getThemeColors();
+    const themeBorder = theme.border;
+    const themeFill = theme.fill;
+    
     // Title with piece count
     const countInfo = compact ? '' : ` ${DIM}(${this.filteredPieces.length}/${this.allPieces.length})${RESET}`;
-    const pieceTitle = `${DOS_BORDER}║${RESET}${BG_BLUE}${FG_BRIGHT_YELLOW}►${FG_WHITE}Pieces${countInfo}`;
+    const pieceTitle = `${themeBorder}║${RESET}${themeFill}${FG_BRIGHT_YELLOW}►${FG_WHITE}Pieces${countInfo}`;
     const piecePadding = boxWidth - this.stripAnsi(pieceTitle).length - 1;
-    this.writeLine(`${pieceTitle}${BG_BLUE}${' '.repeat(Math.max(0, piecePadding))}${DOS_BORDER}║${RESET}`);
+    this.writeLine(`${pieceTitle}${themeFill}${' '.repeat(Math.max(0, piecePadding))}${themeBorder}║${RESET}`);
     
     // Search input line
-    const searchPrompt = `${FG_YELLOW}🔍${RESET}${BG_BLUE}`;
+    const searchPrompt = `${FG_YELLOW}🔍${RESET}${themeFill}`;
     const searchDisplay = this.inputBuffer || `${DIM}search...${RESET}`;
-    const searchLine = `${DOS_BORDER}║${RESET}${BG_BLUE}${searchPrompt}${searchDisplay}`;
+    const searchLine = `${themeBorder}║${RESET}${themeFill}${searchPrompt}${searchDisplay}`;
     const searchPadding = boxWidth - this.stripAnsi(searchLine).length - 1;
-    this.writeLine(`${searchLine}${BG_BLUE}${' '.repeat(Math.max(0, searchPadding))}${DOS_BORDER}║${RESET}`);
+    this.writeLine(`${searchLine}${themeFill}${' '.repeat(Math.max(0, searchPadding))}${themeBorder}║${RESET}`);
     
-    this.writeLine(`${DOS_BORDER}╟${'─'.repeat(boxWidth - 2)}╢${RESET}`);
+    this.writeLine(`${themeBorder}╟${'─'.repeat(boxWidth - 2)}╢${RESET}`);
     
     // Pieces list
     const visibleCount = Math.max(1, this.innerHeight - 10);
@@ -2697,7 +2798,7 @@ class ArteryTUI {
     for (let i = startIdx; i < endIdx; i++) {
       const piece = this.filteredPieces[i];
       const selected = i === this.selectedIndex;
-      const prefix = selected ? `${DOS_HIGHLIGHT}▸ ` : `${BG_BLUE}  `;
+      const prefix = selected ? `${theme.highlight}▸ ` : `${themeFill}  `;
       const suffix = selected ? `${RESET}` : `${RESET}`;
       
       // Highlight matching part of name
@@ -2714,14 +2815,14 @@ class ArteryTUI {
         label = selected ? `${FG_BLACK}${BOLD}${piece}${RESET}` : `${FG_WHITE}${piece}${RESET}`;
       }
       
-      const line = `${DOS_BORDER}║${RESET}${prefix}${label}${suffix}`;
+      const line = `${themeBorder}║${RESET}${prefix}${label}${suffix}`;
       const padding = boxWidth - this.stripAnsi(line).length - 1;
-      this.writeLine(`${line}${BG_BLUE}${' '.repeat(Math.max(0, padding))}${DOS_BORDER}║${RESET}`);
+      this.writeLine(`${line}${themeFill}${' '.repeat(Math.max(0, padding))}${themeBorder}║${RESET}`);
     }
     
     // Fill remaining
     for (let i = endIdx - startIdx; i < visibleCount; i++) {
-      this.writeLine(`${DOS_BORDER}║${BG_BLUE}${' '.repeat(boxWidth - 2)}${DOS_BORDER}║${RESET}`);
+      this.writeLine(`${themeBorder}║${themeFill}${' '.repeat(boxWidth - 2)}${themeBorder}║${RESET}`);
     }
     
     this.renderFooter();
@@ -2736,12 +2837,17 @@ class ArteryTUI {
     const boxWidth = this.innerWidth;
     const compact = this.width < 80;
     
+    // Get dynamic theme colors
+    const theme = this.getThemeColors();
+    const themeBorder = theme.border;
+    const themeFill = theme.fill;
+    
     // Title
     const hint = compact ? '' : ` ${DIM}(↑↓,Enter)${RESET}`;
-    const testTitle = `${DOS_BORDER}║${RESET}${BG_BLUE}${FG_BRIGHT_YELLOW}►${FG_WHITE}Tests${hint}`;
+    const testTitle = `${themeBorder}║${RESET}${themeFill}${FG_BRIGHT_YELLOW}►${FG_WHITE}Tests${hint}`;
     const testPadding = boxWidth - this.stripAnsi(testTitle).length - 1;
-    this.writeLine(`${testTitle}${BG_BLUE}${' '.repeat(Math.max(0, testPadding))}${DOS_BORDER}║${RESET}`);
-    this.writeLine(`${DOS_BORDER}╟${'─'.repeat(boxWidth - 2)}╢${RESET}`);
+    this.writeLine(`${testTitle}${themeFill}${' '.repeat(Math.max(0, testPadding))}${themeBorder}║${RESET}`);
+    this.writeLine(`${themeBorder}╟${'─'.repeat(boxWidth - 2)}╢${RESET}`);
     
     // Tests list
     const tests = this.testFiles || [];
@@ -2753,26 +2859,26 @@ class ArteryTUI {
       
       // Handle separator rows
       if (test.isSeparator) {
-        const sepLine = `${DOS_BORDER}║${RESET}${BG_BLUE}${DIM}${FG_CYAN}  ─── ${test.desc} ───${RESET}`;
+        const sepLine = `${themeBorder}║${RESET}${themeFill}${DIM}${FG_CYAN}  ─── ${test.desc} ───${RESET}`;
         const sepPadding = boxWidth - this.stripAnsi(sepLine).length - 1;
-        this.writeLine(`${sepLine}${BG_BLUE}${' '.repeat(Math.max(0, sepPadding))}${DOS_BORDER}║${RESET}`);
+        this.writeLine(`${sepLine}${themeFill}${' '.repeat(Math.max(0, sepPadding))}${themeBorder}║${RESET}`);
         continue;
       }
       
-      const prefix = selected ? `${DOS_HIGHLIGHT}▸ ` : `${BG_BLUE}  `;
+      const prefix = selected ? `${theme.highlight}▸ ` : `${themeFill}  `;
       const suffix = selected ? `${RESET}` : `${RESET}`;
-      const configIcon = test.params ? `${selected ? FG_BLACK : FG_YELLOW}⚙${RESET}${selected ? DOS_HIGHLIGHT : BG_BLUE}` : '';
+      const configIcon = test.params ? `${selected ? FG_BLACK : FG_YELLOW}⚙${RESET}${selected ? theme.highlight : themeFill}` : '';
       const label = selected ? `${FG_BLACK}${BOLD}${test.name}${RESET}` : `${FG_WHITE}${test.name}${RESET}`;
       const desc = compact ? '' : ` ${DIM}${test.desc}${RESET}`;
       
-      const line = `${DOS_BORDER}║${RESET}${prefix}${configIcon}${label}${suffix}${desc}`;
+      const line = `${themeBorder}║${RESET}${prefix}${configIcon}${label}${suffix}${desc}`;
       const padding = boxWidth - this.stripAnsi(line).length - 1;
-      this.writeLine(`${line}${BG_BLUE}${' '.repeat(Math.max(0, padding))}${DOS_BORDER}║${RESET}`);
+      this.writeLine(`${line}${themeFill}${' '.repeat(Math.max(0, padding))}${themeBorder}║${RESET}`);
     }
     
     // Fill remaining
     for (let i = tests.length; i < visibleCount; i++) {
-      this.writeLine(`${DOS_BORDER}║${BG_BLUE}${' '.repeat(boxWidth - 2)}${DOS_BORDER}║${RESET}`);
+      this.writeLine(`${themeBorder}║${themeFill}${' '.repeat(boxWidth - 2)}${themeBorder}║${RESET}`);
     }
     
     this.renderFooter();
@@ -2785,18 +2891,23 @@ class ArteryTUI {
     const test = this.currentTest;
     const params = test?.params || [];
     
+    // Get dynamic theme colors
+    const theme = this.getThemeColors();
+    const themeBorder = theme.border;
+    const themeFill = theme.fill;
+    
     // Title
     const hint = compact ? '' : ` ${DIM}(←→,Enter)${RESET}`;
-    const testTitle = `${DOS_BORDER}║${RESET}${BG_BLUE}${FG_BRIGHT_YELLOW}⚙${FG_WHITE}${test?.name}${hint}`;
+    const testTitle = `${themeBorder}║${RESET}${themeFill}${FG_BRIGHT_YELLOW}⚙${FG_WHITE}${test?.name}${hint}`;
     const testPadding = boxWidth - this.stripAnsi(testTitle).length - 1;
-    this.writeLine(`${testTitle}${BG_BLUE}${' '.repeat(Math.max(0, testPadding))}${DOS_BORDER}║${RESET}`);
-    this.writeLine(`${DOS_BORDER}╟${'─'.repeat(boxWidth - 2)}╢${RESET}`);
+    this.writeLine(`${testTitle}${themeFill}${' '.repeat(Math.max(0, testPadding))}${themeBorder}║${RESET}`);
+    this.writeLine(`${themeBorder}╟${'─'.repeat(boxWidth - 2)}╢${RESET}`);
     
     // Parameters list
     for (let i = 0; i < params.length; i++) {
       const param = params[i];
       const selected = i === this.paramIndex;
-      const prefix = selected ? `${DOS_HIGHLIGHT}▸ ` : `${BG_BLUE}  `;
+      const prefix = selected ? `${theme.highlight}▸ ` : `${themeFill}  `;
       const suffix = selected ? `${RESET}` : `${RESET}`;
       
       const value = selected ? this.inputBuffer : (this.testParams[param.key] || param.default);
@@ -2806,7 +2917,7 @@ class ArteryTUI {
       if (selected && (param.options || param.type === 'number')) {
         const leftArrow = `${FG_BLACK}◀`;
         const rightArrow = `${FG_BLACK}▶`;
-        valueDisplay = value ? `${leftArrow} ${FG_YELLOW}${value}${RESET}${DOS_HIGHLIGHT} ${rightArrow}` : `${leftArrow} ${DIM}(empty)${RESET}${DOS_HIGHLIGHT} ${rightArrow}`;
+        valueDisplay = value ? `${leftArrow} ${FG_YELLOW}${value}${RESET}${theme.highlight} ${rightArrow}` : `${leftArrow} ${DIM}(empty)${RESET}${theme.highlight} ${rightArrow}`;
       } else {
         valueDisplay = value ? `${selected ? FG_YELLOW : FG_GREEN}${value}${RESET}` : `${DIM}(empty)${RESET}`;
       }
@@ -2814,36 +2925,36 @@ class ArteryTUI {
       const label = selected ? `${FG_BLACK}${BOLD}${param.label}${RESET}` : `${FG_WHITE}${param.label}${RESET}`;
       const desc = compact ? '' : ` ${DIM}${param.desc}${RESET}`;
       
-      const line = `${DOS_BORDER}║${RESET}${prefix}${label}:${suffix} ${valueDisplay}${desc}`;
+      const line = `${themeBorder}║${RESET}${prefix}${label}:${suffix} ${valueDisplay}${desc}`;
       const padding = boxWidth - this.stripAnsi(line).length - 1;
-      this.writeLine(`${line}${BG_BLUE}${' '.repeat(Math.max(0, padding))}${DOS_BORDER}║${RESET}`);
+      this.writeLine(`${line}${themeFill}${' '.repeat(Math.max(0, padding))}${themeBorder}║${RESET}`);
     }
     
     // Run button
-    this.writeLine(`${DOS_BORDER}╟${'─'.repeat(boxWidth - 2)}╢${RESET}`);
+    this.writeLine(`${themeBorder}╟${'─'.repeat(boxWidth - 2)}╢${RESET}`);
     const runSelected = this.paramIndex >= params.length;
-    const runPrefix = runSelected ? `${BG_GREEN}${FG_WHITE}▸ ` : `${BG_BLUE}  `;
+    const runPrefix = runSelected ? `${BG_GREEN}${FG_WHITE}▸ ` : `${themeFill}  `;
     const runSuffix = runSelected ? `${RESET}` : `${RESET}`;
     const runLabel = runSelected ? `${BOLD}🚀RUN${RESET}` : `${FG_GREEN}🚀RUN${RESET}`;
-    const runLine = `${DOS_BORDER}║${RESET}${runPrefix}${runLabel}${runSuffix}`;
+    const runLine = `${themeBorder}║${RESET}${runPrefix}${runLabel}${runSuffix}`;
     const runPadding = boxWidth - this.stripAnsi(runLine).length - 1;
-    this.writeLine(`${runLine}${BG_BLUE}${' '.repeat(Math.max(0, runPadding))}${DOS_BORDER}║${RESET}`);
+    this.writeLine(`${runLine}${themeFill}${' '.repeat(Math.max(0, runPadding))}${themeBorder}║${RESET}`);
     
     // Preview command (skip on compact)
     if (!compact) {
       const args = params.map(p => this.testParams[p.key] || p.default).filter(a => a).join(' ');
       const cmdText = `node ${test?.file} ${args}`.slice(0, boxWidth - 10);
       const cmdPreview = `${DIM}>${cmdText}${RESET}`;
-      const previewLine = `${DOS_BORDER}║${RESET}${BG_BLUE}${cmdPreview}`;
+      const previewLine = `${themeBorder}║${RESET}${themeFill}${cmdPreview}`;
       const previewPadding = boxWidth - this.stripAnsi(previewLine).length - 1;
-      this.writeLine(`${previewLine}${BG_BLUE}${' '.repeat(Math.max(0, previewPadding))}${DOS_BORDER}║${RESET}`);
+      this.writeLine(`${previewLine}${themeFill}${' '.repeat(Math.max(0, previewPadding))}${themeBorder}║${RESET}`);
     }
     
     // Fill remaining
     const usedLines = params.length + (compact ? 3 : 4);
     const visibleCount = Math.max(1, this.innerHeight - 8);
     for (let i = usedLines; i < visibleCount; i++) {
-      this.writeLine(`${DOS_BORDER}║${BG_BLUE}${' '.repeat(boxWidth - 2)}${DOS_BORDER}║${RESET}`);
+      this.writeLine(`${themeBorder}║${themeFill}${' '.repeat(boxWidth - 2)}${themeBorder}║${RESET}`);
     }
     
     this.renderFooter();
@@ -2972,6 +3083,51 @@ class ArteryTUI {
   }
 
   // Utilities
+  getUTCTimeString() {
+    const now = new Date();
+    const h = String(now.getUTCHours()).padStart(2, '0');
+    const m = String(now.getUTCMinutes()).padStart(2, '0');
+    const s = String(now.getUTCSeconds()).padStart(2, '0');
+    const ms = String(now.getUTCMilliseconds()).padStart(3, '0');
+    return `${h}:${m}:${s}.${ms}`;
+  }
+
+  // Get analog clock widget - a tiny visual clock
+  getAnalogClockWidget() {
+    const now = new Date();
+    const h = now.getUTCHours() % 12;
+    const m = now.getUTCMinutes();
+    const s = now.getUTCSeconds();
+    const ms = now.getUTCMilliseconds();
+    
+    // Clock face characters for each hour (Unicode clock faces)
+    // 🕐🕑🕒🕓🕔🕕🕖🕗🕘🕙🕚🕛 (on the hour)
+    // 🕜🕝🕞🕟🕠🕡🕢🕣🕤🕥🕦🕧 (half past)
+    const clocksOnHour = ['🕛','🕐','🕑','🕒','🕓','🕔','🕕','🕖','🕗','🕘','🕙','🕚'];
+    const clocksHalfPast = ['🕧','🕜','🕝','🕞','🕟','🕠','🕡','🕢','🕣','🕤','🕥','🕦'];
+    
+    // Choose clock face based on hour and whether past 30 min
+    const clockFace = m >= 30 ? clocksHalfPast[h] : clocksOnHour[h];
+    
+    // Spinning second hand using braille/box chars that rotate
+    const secondChars = ['│','╱','─','╲','│','╱','─','╲'];
+    const secIdx = Math.floor((s * 8) / 60);
+    const secHand = secondChars[secIdx];
+    
+    // Millisecond spinner (fast spinning dots)
+    const msSpinner = ['⠋','⠙','⠹','⠸','⠼','⠴','⠦','⠧','⠇','⠏'];
+    const msIdx = Math.floor((ms * 10) / 1000);
+    const spinner = msSpinner[msIdx];
+    
+    // Digital time compact
+    const hh = String(now.getUTCHours()).padStart(2, '0');
+    const mm = String(m).padStart(2, '0');
+    const ss = String(s).padStart(2, '0');
+    
+    // Return: clock face + spinner + digital time
+    return `${clockFace}${spinner}${hh}:${mm}:${ss}`;
+  }
+
   stripAnsi(str) {
     return str.replace(/\x1b\[[0-9;]*m/g, '');
   }

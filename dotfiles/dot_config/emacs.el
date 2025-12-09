@@ -451,6 +451,122 @@
 
 (add-hook 'kill-emacs-hook #'kill-eat-processes)
 
+;;; --- Aesthetic Computer Restart Functions ---
+
+(defvar ac--tab-names '("artery" "status" "stripe" "chat" "web 1/2" "web 2/2" "tests")
+  "List of all AC tab names.")
+
+(defvar ac--buffer-prefixes '("🩸" "📡" "⚡" "🚇" "💳" "🎫" "🤖" "🧠" "⏰" "🌐" "📋" "🔴" "🔖" "🧪" "🔥" "📦")
+  "Emoji prefixes used for AC buffers.")
+
+(defun ac-kill-all ()
+  "Kill all AC processes, buffers, and tabs. Use before ac-restart."
+  (interactive)
+  (message "🛑 Killing all AC processes and buffers...")
+  
+  ;; 1. Stop artery bridge if running
+  (when (and (boundp 'artery--process) artery--process (process-live-p artery--process))
+    (condition-case nil (artery-stop) (error nil)))
+  
+  ;; 2. Kill all eat processes first (sends SIGTERM)
+  (kill-eat-processes)
+  
+  ;; 3. Kill all AC emoji-prefixed buffers
+  (dolist (buffer (buffer-list))
+    (let ((name (buffer-name buffer)))
+      (when (cl-some (lambda (prefix) (string-prefix-p prefix name)) ac--buffer-prefixes)
+        (condition-case nil
+            (progn
+              ;; Kill any process attached to buffer
+              (when (get-buffer-process buffer)
+                (delete-process (get-buffer-process buffer)))
+              (kill-buffer buffer))
+          (error nil)))))
+  
+  ;; 4. Kill artery-specific buffers
+  (dolist (bufname '("🩸-artery" "🩸-daw-log" "🩸-bridge" "🩸-server"
+                     "*artery*" "*artery-daw*" "*artery-bridge*" "*artery-server*"))
+    (when-let ((buf (get-buffer bufname)))
+      (condition-case nil
+          (progn
+            (when (get-buffer-process buf)
+              (delete-process (get-buffer-process buf)))
+            (kill-buffer buf))
+        (error nil))))
+  
+  ;; 5. Close all AC tabs except current, then close that
+  (let ((current-tab (alist-get 'name (tab-bar--current-tab))))
+    ;; Close all other tabs first
+    (dolist (tab-name ac--tab-names)
+      (unless (string= tab-name current-tab)
+        (condition-case nil
+            (tab-bar-close-tab-by-name tab-name)
+          (error nil))))
+    ;; Try to close current tab (might fail if it's the last one)
+    (when (member current-tab ac--tab-names)
+      (condition-case nil
+          (tab-bar-close-tab)
+        (error nil))))
+  
+  ;; 6. Ensure we have at least scratch buffer
+  (unless (get-buffer "*scratch*")
+    (get-buffer-create "*scratch*"))
+  (switch-to-buffer "*scratch*")
+  
+  (message "✅ All AC processes and buffers killed. Run M-x ac-restart to start fresh."))
+
+(defun ac-restart (&optional target-tab)
+  "Restart all AC tabs and processes from scratch.
+Optional TARGET-TAB specifies which tab to land on (default: artery)."
+  (interactive)
+  (let ((target (or target-tab "artery")))
+    (message "🔄 Restarting Aesthetic Computer...")
+    ;; Kill everything first
+    (ac-kill-all)
+    ;; Wait a moment for processes to fully terminate
+    (run-with-timer 1 nil
+                    (lambda (tgt)
+                      (message "🚀 Starting AC backend...")
+                      (aesthetic-backend tgt))
+                    target)))
+
+(defun ac-restart-artery ()
+  "Restart just the artery tab/process."
+  (interactive)
+  (message "🔄 Restarting artery...")
+  
+  ;; Stop artery bridge
+  (when (and (boundp 'artery--process) artery--process)
+    (condition-case nil (artery-stop) (error nil)))
+  
+  ;; Kill artery buffers
+  (dolist (bufname '("🩸-artery" "🩸-daw-log" "🩸-bridge"))
+    (when-let ((buf (get-buffer bufname)))
+      (when (get-buffer-process buf)
+        (delete-process (get-buffer-process buf)))
+      (kill-buffer buf)))
+  
+  ;; Recreate artery tab
+  (condition-case nil (tab-bar-close-tab-by-name "artery") (error nil))
+  
+  (run-with-timer 0.5 nil
+                  (lambda ()
+                    (tab-new)
+                    (tab-rename "artery")
+                    (let ((default-directory ac--directory-path))
+                      (eat "fish -c 'ac-artery-dev'")
+                      (when (get-buffer "*eat*")
+                        (with-current-buffer "*eat*"
+                          (rename-buffer "🩸-artery" t)
+                          (eat-semi-char-mode)
+                          (when (and (boundp 'evil-mode) evil-mode)
+                            (evil-emacs-state)))))
+                    (message "✅ Artery restarted"))))
+
+;; Keybindings for restart functions
+(global-set-key (kbd "C-c C-k") 'ac-kill-all)
+(global-set-key (kbd "C-c C-S-r") 'ac-restart)
+
 ;; Aesthetic functions
 (defun aesthetic ()
   (interactive)
