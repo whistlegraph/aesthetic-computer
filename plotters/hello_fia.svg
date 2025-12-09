@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="180mm" height="40mm" viewBox="0 0 180 40">
+  <title>Single-stroke \"hello fia\" (~1 inch high letters)</title>
+  <!-- Baseline at y=30mm; letters ~25mm tall -->
+  <!-- h -->
+  <path d="M10 30 L10 5 M10 17.5 L22.5 17.5 L22.5 30" stroke="black" stroke-width="0.4" fill="none"/>
+  <!-- e -->
+  <path d="M45 17.5 L35 17.5 L35 10 L45 10 L45 5 L35 5 L30 10 L30 25 L35 30 L45 30" stroke="black" stroke-width="0.4" fill="none"/>
+  <!-- l -->
+  <path d="M70 5 L70 30" stroke="black" stroke-width="0.4" fill="none"/>
+  <!-- l -->
+  <path d="M85 5 L85 30" stroke="black" stroke-width="0.4" fill="none"/>
+  <!-- o -->
+  <path d="M100 17.5 L100 12 L105 5 L115 5 L120 12 L120 23 L115 30 L105 30 L100 23 Z" stroke="black" stroke-width="0.4" fill="none"/>
+  <!-- space -->
+  <!-- f -->
+  <path d="M135 5 L135 30 M129 12 L141 12" stroke="black" stroke-width="0.4" fill="none"/>
+  <!-- i -->
+  <path d="M150 5 L150 8 M150 12 L150 30" stroke="black" stroke-width="0.4" fill="none"/>
+  <!-- a -->
+  <path d="M165 17.5 L165 12 L170 5 L180 5 L185 12 L185 23 L180 30 L170 30 L165 23 Z M165 17.5 L185 17.5" stroke="black" stroke-width="0.4" fill="none"/>
+</svg>
