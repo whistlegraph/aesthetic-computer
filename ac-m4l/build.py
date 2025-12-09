@@ -210,6 +210,19 @@ def generate_patcher(device: dict, defaults: dict, production: bool = False) -> 
                         "text": "print [AC-PATH-R]"
                     }
                 },
+                # Delay + bang to trigger initial value output from observers
+                # The delay ensures the ID has been set before we request the value
+                {
+                    "box": {
+                        "id": "obj-init-delay",
+                        "maxclass": "newobj",
+                        "numinlets": 2,
+                        "numoutlets": 1,
+                        "outlettype": ["bang"],
+                        "patching_rect": [450.0, 260.0, 60.0, 22.0],
+                        "text": "delay 100"
+                    }
+                },
                 # Tempo: observer with property argument
                 {
                     "box": {
@@ -291,6 +304,17 @@ def generate_patcher(device: dict, defaults: dict, production: bool = False) -> 
                         "text": "print [AC-TRANSPORT]"
                     }
                 },
+                # Debug: Print transport script command to Max console
+                {
+                    "box": {
+                        "id": "obj-transport-script-print",
+                        "maxclass": "newobj",
+                        "numinlets": 1,
+                        "numoutlets": 0,
+                        "patching_rect": [420.0, 420.0, 140.0, 22.0],
+                        "text": "print [AC-TRANSPORT-SCRIPT]"
+                    }
+                },
                 # Beat phase: observer for current_song_time (beat position for phase sync)
                 {
                     "box": {
@@ -315,17 +339,30 @@ def generate_patcher(device: dict, defaults: dict, production: bool = False) -> 
                         "text": "sprintf executejavascript window.acDawPhase(%f)"
                     }
                 },
-                # Sample rate: live.path to get master_track for sample_rate property
-                # Note: sample_rate is on Song, same as tempo, so we can use obj-tempo-path
+                # Sample rate: Use adstatus~ to get Max's audio sample rate (matches Ableton)
+                # adstatus sr outputs the sample rate directly when banged
+                # NOTE: adstatus outputs "clear" initially, so we filter with [sel clear]
                 {
                     "box": {
-                        "id": "obj-samplerate-observer",
+                        "id": "obj-samplerate-adstatus",
+                        "maxclass": "newobj",
+                        "numinlets": 1,
+                        "numoutlets": 1,
+                        "outlettype": [""],
+                        "patching_rect": [460.0, 350.0, 65.0, 22.0],
+                        "text": "adstatus sr"
+                    }
+                },
+                # Filter out "clear" messages from adstatus, only pass numeric values
+                {
+                    "box": {
+                        "id": "obj-samplerate-filter",
                         "maxclass": "newobj",
                         "numinlets": 2,
-                        "numoutlets": 3,
-                        "outlettype": ["", "", ""],
-                        "patching_rect": [460.0, 350.0, 150.0, 22.0],
-                        "text": "live.observer sample_rate"
+                        "numoutlets": 2,
+                        "outlettype": ["", ""],
+                        "patching_rect": [460.0, 370.0, 55.0, 22.0],
+                        "text": "sel clear"
                     }
                 },
                 # Sample rate: sprintf to format the JS command with actual value
@@ -349,6 +386,17 @@ def generate_patcher(device: dict, defaults: dict, production: bool = False) -> 
                         "numoutlets": 0,
                         "patching_rect": [620.0, 380.0, 110.0, 22.0],
                         "text": "print [AC-SAMPLERATE]"
+                    }
+                },
+                # Debug: Print sample rate script command to Max console
+                {
+                    "box": {
+                        "id": "obj-samplerate-script-print",
+                        "maxclass": "newobj",
+                        "numinlets": 1,
+                        "numoutlets": 0,
+                        "patching_rect": [620.0, 420.0, 140.0, 22.0],
+                        "text": "print [AC-SAMPLERATE-SCRIPT]"
                     }
                 },
                 # Debug: Print messages from jweb~ (outlet 2 = third outlet)
@@ -527,7 +575,17 @@ def generate_patcher(device: dict, defaults: dict, production: bool = False) -> 
                 {"patchline": {"destination": ["obj-tempo-observer", 1], "source": ["obj-tempo-path", 0]}},
                 {"patchline": {"destination": ["obj-transport-observer", 1], "source": ["obj-tempo-path", 0]}},
                 {"patchline": {"destination": ["obj-phase-observer", 1], "source": ["obj-tempo-path", 0]}},
-                {"patchline": {"destination": ["obj-samplerate-observer", 1], "source": ["obj-tempo-path", 0]}},
+                
+                # Delay trigger: live.path output also triggers delay for initial value fetch
+                {"patchline": {"destination": ["obj-init-delay", 0], "source": ["obj-tempo-path", 0]}},
+                
+                # After delay, bang the LEFT inlet of observers to get initial values
+                {"patchline": {"destination": ["obj-tempo-observer", 0], "source": ["obj-init-delay", 0]}},
+                {"patchline": {"destination": ["obj-transport-observer", 0], "source": ["obj-init-delay", 0]}},
+                {"patchline": {"destination": ["obj-phase-observer", 0], "source": ["obj-init-delay", 0]}},
+                
+                # Also trigger sample rate query after delay (audio engine should be ready by then)
+                {"patchline": {"destination": ["obj-samplerate-adstatus", 0], "source": ["obj-init-delay", 0]}},
                 
                 # Tempo observer -> sprintf -> jweb + print (also print the formatted script command)
                 {"patchline": {"destination": ["obj-tempo-sprintf", 0], "source": ["obj-tempo-observer", 0]}},
@@ -538,16 +596,21 @@ def generate_patcher(device: dict, defaults: dict, production: bool = False) -> 
                 # Transport observer -> sprintf -> jweb + print
                 {"patchline": {"destination": ["obj-transport-sprintf", 0], "source": ["obj-transport-observer", 0]}},
                 {"patchline": {"destination": ["obj-jweb", 0], "source": ["obj-transport-sprintf", 0]}},
+                {"patchline": {"destination": ["obj-transport-script-print", 0], "source": ["obj-transport-sprintf", 0]}},
                 {"patchline": {"destination": ["obj-transport-print", 0], "source": ["obj-transport-observer", 0]}},
                 
                 # Phase observer -> sprintf -> jweb (for beat position sync)
                 {"patchline": {"destination": ["obj-phase-sprintf", 0], "source": ["obj-phase-observer", 0]}},
                 {"patchline": {"destination": ["obj-jweb", 0], "source": ["obj-phase-sprintf", 0]}},
                 
-                # Sample rate observer -> sprintf -> jweb + print
-                {"patchline": {"destination": ["obj-samplerate-sprintf", 0], "source": ["obj-samplerate-observer", 0]}},
+                # Sample rate: adstatus sr -> filter "clear" -> sprintf -> jweb + print
+                # (triggered directly by ready signal, not init-delay, to ensure it arrives first)
+                # sel clear: left outlet = matched "clear" (ignored), right outlet = non-matching (sample rate)
+                {"patchline": {"destination": ["obj-samplerate-filter", 0], "source": ["obj-samplerate-adstatus", 0]}},
+                {"patchline": {"destination": ["obj-samplerate-sprintf", 0], "source": ["obj-samplerate-filter", 1]}},
                 {"patchline": {"destination": ["obj-jweb", 0], "source": ["obj-samplerate-sprintf", 0]}},
-                {"patchline": {"destination": ["obj-samplerate-print", 0], "source": ["obj-samplerate-observer", 0]}},
+                {"patchline": {"destination": ["obj-samplerate-print", 0], "source": ["obj-samplerate-filter", 1]}},
+                {"patchline": {"destination": ["obj-samplerate-script-print", 0], "source": ["obj-samplerate-sprintf", 0]}},
                 
                 # MIDI routing: midiin -> midiparse
                 {"patchline": {"destination": ["obj-midiparse", 0], "source": ["obj-midiin", 0]}},

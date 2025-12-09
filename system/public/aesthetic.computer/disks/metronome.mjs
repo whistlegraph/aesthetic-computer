@@ -39,24 +39,49 @@ let currentBpmDisplay = 180; // Default BPM to show before first beat
 let dawSynced = false;
 let dawBpm = null;
 let dawPlaying = false;
-let dawMode = false; // Set from query param
+let dawMode = false; // Set from query param OR auto-detected from DAW messages
+let dawAutoDetected = false; // True if we auto-detected DAW mode from messages
+let persistentDawTime = 0; // Track DAW time for beat alternation
+
+// DAW time interpolation state (smooth animation between infrequent updates)
+let lastDawTimeUpdate = 0; // When we last received a time update (performance.now())
+let lastDawTimeValue = 0; // The time value we received
+let interpolatedDawTime = 0; // Locally interpolated time (beats)
+let audioSampleRate = null; // AudioContext sample rate in Hz
 
 function boot({ sound, hud, query }) {
   // Check if we're in DAW mode (loaded from Ableton M4L)
-  dawMode = query?.daw === "1" || query?.daw === 1;
-  if (dawMode) {
-    console.log("🎹 Metronome: DAW mode enabled");
+  console.log("🎹 Metronome boot() - query:", JSON.stringify(query));
+  dawMode = query?.daw === "1" || query?.daw === 1 || query?.daw === true;
+  console.log("🎹 Metronome: dawMode =", dawMode, "query.daw =", query?.daw, typeof query?.daw);
+  
+  // Also check if we already have DAW data (survives hot reload)
+  if (!dawMode && sound.daw?.bpm) {
+    dawMode = true;
+    dawAutoDetected = true;
+    console.log("🎹 Metronome: DAW mode AUTO-DETECTED from existing sound.daw:", sound.daw);
   }
   
-  sound.skip(); // 💀 Send a signal to skip to the next beat.
-  // Show initial state even before audio starts
-  hud.label(`BPM: ${currentBpmDisplay} (tap to start)`);
+  if (dawMode) {
+    console.log("🎹 Metronome: DAW mode enabled", dawAutoDetected ? "(auto-detected)" : "(from query)");
+  }
+  // Note: Don't call sound.bpm() or sound.skip() here - audio worklet isn't ready yet.
+  // BPM is set in the beat() function on first call.
 }
 
 let odd = false;
+let beatCount = 0; // Debug counter
 
 // 💗 Beat
 function beat({ api, sound, params, store, hud }) {
+  beatCount++;
+  
+  // Set BPM on first beat (audio worklet is now ready)
+  if (beatCount === 1) {
+    console.log("🥁 First beat! Setting BPM to 180...");
+    sound.bpm(180);
+  }
+  
   // Set the system metronome using `store`.
   let newBpm;
   
@@ -85,40 +110,43 @@ function beat({ api, sound, params, store, hud }) {
 
   const currentBpm = sound.bpm(newBpm || store["metronome:bpm"] || 180);
   store["metronome:bpm"] = currentBpm;
-
-  // Update HUD with current BPM and tap info
-  if (hud) {
-    const tapCount = !dawSynced && totalTapCount > 0 ? ` (${totalTapCount} taps)` : '';
-    hud.label(`BPM: ${Math.round(currentBpm)}${tapCount}`);
+  
+  // Update display BPM for non-DAW mode
+  if (!dawSynced) {
+    currentBpmDisplay = currentBpm;
   }
 
   // console.log("🎼 BPM:", sound.bpm(), "Time:", sound.time.toFixed(2));
   odd = !odd;
 
-  const tick = sound.synth({
-    type: "sawtooth",
-    tone: melody[melodyIndex],
-    duration: 0.0025,
-    volume: 0.35 * 1.5,
-    pan: odd ? -0.75 : 0.75,
-  });
+  // 🎹 In DAW mode with sync, skip internal tick sounds (DAW triggers them via sim())
+  // But still create the square synth for animation tracking in non-DAW mode
+  if (!dawSynced) {
+    const tick = sound.synth({
+      type: "sawtooth",
+      tone: melody[melodyIndex],
+      duration: 0.0025,
+      volume: 0.35 * 1.5,
+      pan: odd ? -0.75 : 0.75,
+    });
 
-  const lotick = sound.synth({
-    type: "square",
-    tone: melody[melodyIndex] / 4,
-    duration: 0.005,
-    volume: 0.15 * 2,
-    decay: 0.999,
-    pan: odd ? -0.8 : 0.8,
-  });
+    const lotick = sound.synth({
+      type: "square",
+      tone: melody[melodyIndex] / 4,
+      duration: 0.005,
+      volume: 0.15 * 2,
+      decay: 0.999,
+      pan: odd ? -0.8 : 0.8,
+    });
 
-  square = sound.synth({
-    type: "square",
-    tone: melody[melodyIndex],
-    beats: 1,
-    volume: 0.0001,
-    pan: 0,
-  });
+    square = sound.synth({
+      type: "square",
+      tone: melody[melodyIndex],
+      beats: 1,
+      volume: 0.0001,
+      pan: 0,
+    });
+  }
 
   /*
   // Schedule half-step sound to play at 0.5 beats
@@ -151,17 +179,110 @@ function beat({ api, sound, params, store, hud }) {
 }
 
 let squareP = 0;
+let debugLogCount = 0;
+let dawPhaseProgress = 0; // 0-1 progress within current beat from DAW
+let lastDawBeatNumber = -1; // Track beat crossings for DAW-triggered ticks
+let dawBeatOdd = false; // Alternate for pan
 
 function sim({ sound }) {
+  // 🎹 Capture AudioContext sample rate
+  if (sound.sampleRate && !audioSampleRate) {
+    audioSampleRate = sound.sampleRate;
+    console.log("🎹 AudioContext sample rate:", audioSampleRate, "Hz");
+  }
+  
   // 🎹 Update DAW state from sound.daw (updated continuously by bios.mjs)
-  if (dawMode && sound.daw) {
-    if (sound.daw.bpm !== null) {
+  // Check for DAW data even if dawMode wasn't set - allows auto-detection
+  if (sound.daw) {
+    // Auto-enable DAW mode if we receive DAW data
+    if (!dawMode && sound.daw.bpm !== undefined && sound.daw.bpm !== null) {
+      dawMode = true;
+      dawAutoDetected = true;
+      console.log("🎹 sim() AUTO-DETECTED DAW mode from sound.daw:", JSON.stringify(sound.daw));
+    }
+    
+    // Debug: Log sound.daw every 60 frames (~1 second)
+    if (dawMode && debugLogCount % 60 === 0) {
+      console.log("🎹 sim() sound.daw:", JSON.stringify(sound.daw), "interpolated:", interpolatedDawTime.toFixed(3));
+    }
+    if (sound.daw.bpm !== undefined && sound.daw.bpm !== null) {
       dawSynced = true;
       dawBpm = Math.round(sound.daw.bpm);
     }
-    if (sound.daw.playing !== null) {
+    if (sound.daw.playing !== undefined && sound.daw.playing !== null) {
+      if (dawPlaying !== sound.daw.playing) {
+        console.log("🎹 TRANSPORT STATE CHANGED:", dawPlaying, "->", sound.daw.playing);
+      }
       dawPlaying = sound.daw.playing;
     }
+    
+    // 🎹 TIME INTERPOLATION: Ableton's current_song_time only updates ~2Hz,
+    // so we interpolate locally based on BPM for smooth animation
+    if (sound.daw.time !== undefined && sound.daw.time !== null) {
+      const now = performance.now();
+      const incomingTime = sound.daw.time;
+      
+      // Detect if this is a new time update from Ableton
+      if (incomingTime !== lastDawTimeValue) {
+        lastDawTimeUpdate = now;
+        lastDawTimeValue = incomingTime;
+        // Snap interpolated time to actual time when we get an update
+        interpolatedDawTime = incomingTime;
+      } else if (dawPlaying && dawBpm) {
+        // No new data - interpolate time based on BPM
+        const elapsedMs = now - lastDawTimeUpdate;
+        const beatsPerMs = dawBpm / 60000;
+        interpolatedDawTime = lastDawTimeValue + (elapsedMs * beatsPerMs);
+      }
+      
+      // Use interpolated time for everything
+      persistentDawTime = interpolatedDawTime;
+      dawPhaseProgress = interpolatedDawTime % 1; // 0-1 within current beat
+      
+      // 🎹 DAW Beat Detection - trigger tick sounds when crossing beat boundaries
+      const currentBeatNumber = Math.floor(interpolatedDawTime);
+      if (dawPlaying && currentBeatNumber !== lastDawBeatNumber && lastDawBeatNumber >= 0) {
+        // Beat boundary crossed! Trigger tick sound
+        dawBeatOdd = !dawBeatOdd;
+        flash = true;
+        flashColor.fill(255);
+        
+        console.log("🎹 BEAT", currentBeatNumber, "odd:", dawBeatOdd, "time:", interpolatedDawTime.toFixed(3));
+        
+        // Play tick sounds (same as in beat() but triggered from DAW)
+        sound.synth({
+          type: "sawtooth",
+          tone: melody[dawBeatOdd ? 0 : 1],
+          duration: 0.0025,
+          volume: 0.35 * 1.5,
+          pan: dawBeatOdd ? -0.75 : 0.75,
+        });
+        
+        sound.synth({
+          type: "square",
+          tone: melody[dawBeatOdd ? 0 : 1] / 4,
+          duration: 0.005,
+          volume: 0.15 * 2,
+          decay: 0.999,
+          pan: dawBeatOdd ? -0.8 : 0.8,
+        });
+        
+        // Update square for pendulum animation sync
+        square = sound.synth({
+          type: "square",
+          tone: melody[dawBeatOdd ? 0 : 1],
+          beats: 1,
+          volume: 0.0001,
+          pan: 0,
+        });
+      }
+      lastDawBeatNumber = currentBeatNumber;
+    }
+  }
+  
+  // Reset interpolation when stopped
+  if (!dawPlaying) {
+    lastDawTimeUpdate = 0;
   }
 
   if (square) {
@@ -190,8 +311,23 @@ function paint({ wipe, ink, line, screen, num: { lerp }, text }) {
   const left = baseAngle - 20;
   const right = baseAngle + 20;
 
-  let angle = melodyIndex === 0 ? lerp(left, right, squareP) : lerp(right, left, squareP);
-  if (firstBeat || !square) angle = left;
+  let angle;
+  // In DAW mode, only animate when actively playing
+  const dawIsPlaying = dawMode && dawPlaying === true && dawSynced;
+  
+  if (dawIsPlaying) {
+    // 🎹 DAW mode playing: Use interpolated DAW phase for pendulum
+    const beatNumber = Math.floor(interpolatedDawTime);
+    angle = beatNumber % 2 === 0 ? lerp(left, right, dawPhaseProgress) : lerp(right, left, dawPhaseProgress);
+  } else if (dawMode) {
+    // 🎹 DAW mode stopped or not synced: Reset pendulum to left (start position)
+    angle = left;
+  } else {
+    // Standard mode: Use square synth progress for pendulum animation
+    angle = melodyIndex === 0 ? lerp(left, right, squareP) : lerp(right, left, squareP);
+    // Hold at start position before first beat
+    if (firstBeat) angle = left;
+  }
 
   // Always draw the pendulum line (even before audio starts)
   ink(255).lineAngle(
@@ -201,42 +337,49 @@ function paint({ wipe, ink, line, screen, num: { lerp }, text }) {
     angle,
   );
 
-  // 🎹 DAW mode UI - show BPM and play/stop state
+  // BPM display (bottom center) - show in all modes
   if (dawMode) {
-    // BPM display (bottom center)
+    // BPM display (bottom center) - show DAW BPM or "---" if not synced
     const bpmText = dawSynced ? `${dawBpm}` : "---";
     const bpmColor = dawSynced ? [255, 255, 255] : [100, 100, 100];
     ink(bpmColor).write(bpmText, { x: screen.width / 2, y: screen.height - 30, center: "x" });
     ink(100).write("BPM", { x: screen.width / 2, y: screen.height - 18, center: "x" });
     
-    // Play/Stop triangle (top-left)
-    const triX = 12;
+    // Play/Stop indicator (top-right)
+    const triX = screen.width - 16;
     const triY = 16;
     const triSize = 8;
     
-    if (dawPlaying) {
+    if (dawPlaying === true) {
       // Green play triangle (pointing right)
       ink([100, 255, 100]).poly([
-        [triX, triY - triSize],
-        [triX, triY + triSize],
-        [triX + triSize * 1.5, triY]
+        [triX - triSize, triY - triSize],
+        [triX - triSize, triY + triSize],
+        [triX + triSize * 0.5, triY]
       ], true);
     } else {
-      // Orange/yellow stop square
-      ink([255, 200, 100]).box(triX - 4, triY - triSize + 2, triSize + 2, triSize + 2, "fill");
+      // Orange/yellow stop square (when stopped or null/unknown)
+      ink([255, 200, 100]).box(triX - triSize, triY - triSize + 2, triSize + 4, triSize + 4, "fill");
     }
     
-    // Sync status dot
-    if (dawSynced) {
-      ink([100, 255, 100]).circle(screen.width - 10, 10, 4, true);
-    } else {
-      ink([255, 100, 100]).circle(screen.width - 10, 10, 4, true);
+    // Sample rate display (bottom-left)
+    if (audioSampleRate) {
+      const khz = (audioSampleRate / 1000).toFixed(1);
+      ink(100).write(`${khz}kHz`, { x: 8, y: screen.height - 18 });
     }
   }
 
-  // If audio hasn't started yet and NOT in DAW mode, show a prompt
-  if (!square && !dawMode) {
-    ink(100).write("tap to start", { x: screen.width / 2, y: screen.height / 2 - 10, center: "xy" });
+  // Non-DAW mode: show BPM and tap prompt
+  if (!dawMode) {
+    // Show current BPM
+    const displayBpm = currentBpmDisplay || 180;
+    ink(255).write(`${displayBpm}`, { x: screen.width / 2, y: screen.height - 30, center: "x" });
+    ink(100).write("BPM", { x: screen.width / 2, y: screen.height - 18, center: "x" });
+    
+    // If audio hasn't started yet, show a prompt
+    if (!square) {
+      ink(100).write("tap to start", { x: screen.width / 2, y: screen.height / 2 - 10, center: "xy" });
+    }
   }
 
   // Half-step indicator - show blue dot when we're past midpoint

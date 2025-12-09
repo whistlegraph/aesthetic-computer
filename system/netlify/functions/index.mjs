@@ -419,11 +419,18 @@ async function fun(event, context) {
             var dawQueue = [];
             var dawSend = null;
             var dawBpm = 60;
-            var dawPlaying = false;
+            var dawPlaying = null; // null so first update always fires
+            var dawSampleRateReceived = false; // Track if we've received sample rate from M4L
+            var dawWaitingForSampleRate = false; // Track if transport started before sample rate arrived
             
             function send(msg) {
-              if (dawSend) dawSend(msg);
-              else dawQueue.push(msg);
+              if (dawSend) {
+                console.log("🎹 HTML send() forwarding to bios:", msg.type);
+                dawSend(msg);
+              } else {
+                console.log("🎹 HTML send() queueing (no bios yet):", msg.type);
+                dawQueue.push(msg);
+              }
             }
             
             window.acDawTempo = function(bpm) {
@@ -441,21 +448,89 @@ async function fun(event, context) {
                 console.log("🎹 DAW transport: " + (isPlaying ? "playing" : "stopped"));
                 dawPlaying = isPlaying;
                 send({ type: "daw:transport", content: { playing: isPlaying } });
+                
+                // 🎹 When DAW starts playing, activate audio by simulating a click
+                // This resumes the AudioContext which is suspended by default in jweb~
+                // BUT: Wait for sample rate to arrive first so AudioContext uses correct rate
+                if (isPlaying) {
+                  if (dawSampleRateReceived) {
+                    console.log("🎹 DAW play: Activating audio (sample rate already received)...");
+                    // Try dispatching to canvas first (where bios listens), then document
+                    var canvas = document.querySelector('canvas');
+                    var target = canvas || document.body;
+                    console.log("🎹 Dispatching pointer event to:", target.tagName);
+                    
+                    // Dispatch both pointerdown and click events
+                    var pointerEvent = new PointerEvent('pointerdown', {
+                      bubbles: true,
+                      cancelable: true,
+                      view: window,
+                      clientX: 100,
+                      clientY: 100,
+                      pointerId: 1,
+                      pointerType: 'mouse',
+                      isPrimary: true,
+                      button: 0,
+                      buttons: 1
+                    });
+                    target.dispatchEvent(pointerEvent);
+                    
+                    // Also dispatch a regular click as backup
+                    var clickEvent = new MouseEvent('click', {
+                      bubbles: true,
+                      cancelable: true,
+                      view: window,
+                      clientX: 100,
+                      clientY: 100,
+                      button: 0,
+                      buttons: 1
+                    });
+                    target.dispatchEvent(clickEvent);
+                  } else {
+                    console.log("🎹 DAW play: Waiting for sample rate before activating audio...");
+                    dawWaitingForSampleRate = true;
+                  }
+                }
               }
             };
             
             window.acDawPhase = function(phase) {
-              send({ type: "daw:phase", content: { phase: phase } });
+              send({ type: "daw:phase", content: { time: phase } });
             };
             
             window.acDawSamplerate = function(sr) {
+              console.log("🎹 DAW sample rate received:", sr);
+              dawSampleRateReceived = true;
               send({ type: "daw:samplerate", content: { samplerate: sr } });
+              
+              // If we were waiting for sample rate to activate audio, do it now
+              if (dawWaitingForSampleRate) {
+                console.log("🎹 Sample rate received, now activating audio...");
+                dawWaitingForSampleRate = false;
+                var canvas = document.querySelector('canvas');
+                var target = canvas || document.body;
+                var pointerEvent = new PointerEvent('pointerdown', {
+                  bubbles: true,
+                  cancelable: true,
+                  view: window,
+                  clientX: 100,
+                  clientY: 100,
+                  pointerId: 1,
+                  pointerType: 'mouse',
+                  isPrimary: true,
+                  button: 0,
+                  buttons: 1
+                });
+                target.dispatchEvent(pointerEvent);
+              }
             };
             
             // Called by bios.mjs to connect the message queue
             window.acDawConnect = function(sendFunc) {
+              console.log("🎹 acDawConnect called, sendFunc type:", typeof sendFunc);
               dawSend = sendFunc;
               // Flush queued messages
+              console.log("🎹 Flushing", dawQueue.length, "queued messages");
               for (var i = 0; i < dawQueue.length; i++) {
                 dawSend(dawQueue[i]);
               }
