@@ -1669,6 +1669,299 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     });
   }
 
+  // Tezos Wallet (Beacon SDK + Taquito)
+  let tezosWallet = null;
+  let tezosTk = null;
+  let tezosLoading = null;
+  
+  // 🔷 Persistent wallet state (survives piece transitions)
+  const walletState = {
+    connected: false,
+    address: null,
+    balance: null,
+    network: "ghostnet",
+    domain: null,
+  };
+  
+  // Broadcast wallet state to disk.mjs
+  function broadcastWalletState() {
+    send({ type: "wallet:state", content: { ...walletState } });
+  }
+  
+  // 🔷 Auto-restore wallet session from Beacon storage
+  // Beacon SDK stores session data in localStorage automatically
+  // We just need to check getActiveAccount() on page load
+  async function restoreWalletSession() {
+    try {
+      // Load Tezos SDK (doesn't prompt user)
+      const { wallet } = await loadTezos();
+      
+      // Check if there's an existing session
+      const activeAccount = await wallet.getActiveAccount();
+      if (activeAccount) {
+        if (debug) console.log("🔷 Restoring wallet session:", activeAccount.address);
+        
+        // Update wallet state
+        walletState.connected = true;
+        walletState.address = activeAccount.address;
+        walletState.network = wallet._network || "ghostnet";
+        
+        // Fetch balance and domain in background
+        Promise.all([
+          fetchTezosBalanceForBios(activeAccount.address, walletState.network),
+          fetchTezosDomain(activeAccount.address, walletState.network)
+        ]).then(([balance, domain]) => {
+          walletState.balance = balance;
+          walletState.domain = domain;
+          broadcastWalletState();
+        });
+        
+        broadcastWalletState();
+        return true;
+      }
+    } catch (err) {
+      if (debug) console.log("🔷 No wallet session to restore:", err.message);
+    }
+    return false;
+  }
+  
+  async function loadTezos(network = "ghostnet") {
+    if (tezosWallet && tezosTk) return { wallet: tezosWallet, tezos: tezosTk };
+    
+    // Prevent multiple simultaneous loads
+    if (tezosLoading) return tezosLoading;
+    
+    tezosLoading = (async () => {
+      try {
+        // Load beacon-dapp (includes both Beacon wallet and Taquito integration)
+        await new Promise((resolve, reject) => {
+          if (window.beaconDapp) {
+            resolve();
+            return;
+          }
+          
+          const script = document.createElement("script");
+          script.src = "https://unpkg.com/@airgap/beacon-dapp@4.3.0/dist/walletbeacon.dapp.min.js";
+          script.onload = () => {
+            console.log("🔷 Beacon dApp loaded, globals:", Object.keys(window).filter(k => k.toLowerCase().includes('beacon') || k.toLowerCase().includes('tezos') || k.toLowerCase().includes('taquito')));
+            resolve();
+          };
+          script.onerror = reject;
+          document.head.appendChild(script);
+        });
+        
+        // beacon-dapp exposes window.beacon with DAppClient
+        const { DAppClient, NetworkType, ColorMode } = window.beacon;
+        
+        const rpcUrl = network === "mainnet" 
+          ? "https://mainnet.api.tez.ie"
+          : "https://ghostnet.ecadinfra.com";
+        
+        // Use DAppClient directly (simpler than full Taquito for basic contract calls)
+        tezosWallet = new DAppClient({
+          name: "Aesthetic Computer",
+          preferredNetwork: network === "mainnet" ? NetworkType.MAINNET : NetworkType.GHOSTNET,
+          colorMode: ColorMode.DARK,
+          // Explicitly enable desktop extension support
+          disableDefaultEvents: false,
+          featuredWallets: ["temple", "kukai"], // Prioritize Temple and Kukai
+        });
+        
+        // Store RPC URL for contract calls
+        tezosWallet._rpcUrl = rpcUrl;
+        tezosWallet._network = network;
+        
+        // We'll use fetch for contract calls instead of Taquito
+        tezosTk = { rpcUrl, network };
+        
+        if (debug) console.log("🔷 Tezos Ready (Beacon DAppClient)...");
+        return { wallet: tezosWallet, tezos: tezosTk };
+      } catch (err) {
+        console.error("🔴 Failed to load Tezos:", err);
+        tezosLoading = null;
+        throw err;
+      }
+    })();
+    
+    return tezosLoading;
+  }
+  
+  async function connectTezosWallet(network = "ghostnet") {
+    const { wallet } = await loadTezos(network);
+    
+    // Check if already connected
+    const activeAccount = await wallet.getActiveAccount();
+    if (activeAccount) {
+      // Update wallet state for already connected account
+      walletState.connected = true;
+      walletState.address = activeAccount.address;
+      walletState.network = network;
+      // Fetch balance and domain in background
+      Promise.all([
+        fetchTezosBalanceForBios(activeAccount.address, network),
+        fetchTezosDomain(activeAccount.address, network)
+      ]).then(([balance, domain]) => {
+        walletState.balance = balance;
+        walletState.domain = domain;
+        broadcastWalletState();
+      });
+      broadcastWalletState();
+      return activeAccount.address;
+    }
+    
+    // Request permissions (opens wallet popup)
+    const permissions = await wallet.requestPermissions({
+      network: { 
+        type: network === "mainnet" ? "mainnet" : "ghostnet",
+        rpcUrl: wallet._rpcUrl,
+      },
+    });
+    
+    const address = permissions.address;
+    if (debug) console.log("🔷 Tezos connected:", address);
+    
+    // Update wallet state
+    walletState.connected = true;
+    walletState.address = address;
+    walletState.network = network;
+    walletState.balance = null;
+    walletState.domain = null;
+    
+    // Fetch balance and domain in background
+    Promise.all([
+      fetchTezosBalanceForBios(address, network),
+      fetchTezosDomain(address, network)
+    ]).then(([balance, domain]) => {
+      walletState.balance = balance;
+      walletState.domain = domain;
+      broadcastWalletState();
+    });
+    
+    broadcastWalletState();
+    return address;
+  }
+  
+  async function disconnectTezosWallet() {
+    if (tezosWallet) {
+      await tezosWallet.clearActiveAccount();
+      if (debug) console.log("🔷 Tezos disconnected");
+      
+      // Clear wallet state
+      walletState.connected = false;
+      walletState.address = null;
+      walletState.balance = null;
+      walletState.domain = null;
+      broadcastWalletState();
+    }
+  }
+  
+  async function getTezosAddress() {
+    if (!tezosWallet) return null;
+    const activeAccount = await tezosWallet.getActiveAccount();
+    return activeAccount?.address || null;
+  }
+  
+  // Fetch Tezos balance from RPC (for bios.mjs wallet API)
+  async function fetchTezosBalanceForBios(address, network = "ghostnet") {
+    try {
+      const rpcUrl = network === "mainnet" 
+        ? "https://mainnet.api.tez.ie"
+        : "https://ghostnet.ecadinfra.com";
+      const res = await fetch(`${rpcUrl}/chains/main/blocks/head/context/contracts/${address}/balance`);
+      if (res.ok) {
+        const balanceMutez = await res.json();
+        return parseInt(balanceMutez) / 1_000_000; // Convert mutez to tez
+      }
+    } catch (e) {
+      console.warn("Failed to fetch Tezos balance:", e);
+    }
+    return null;
+  }
+  
+  // Resolve .tez domain for an address using TzKT API (more reliable than Tezos Domains GraphQL)
+  async function fetchTezosDomain(address, network = "ghostnet") {
+    try {
+      // Use TzKT API - works for both mainnet and ghostnet
+      const apiBase = network === "mainnet"
+        ? "https://api.tzkt.io"
+        : "https://api.ghostnet.tzkt.io";
+      
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5000);
+      
+      // Look for domains where this address is set AND has reverse=true (primary domain)
+      const res = await fetch(
+        `${apiBase}/v1/domains?address=${address}&reverse=true&select=name`,
+        { signal: controller.signal }
+      );
+      
+      clearTimeout(timeout);
+      
+      if (res.ok) {
+        const data = await res.json();
+        // Returns array of domains, take the first one with reverse=true
+        if (data && data.length > 0 && data[0].name) {
+          const domain = data[0].name;
+          if (debug) console.log(`🔷 Resolved .tez domain: ${domain}`);
+          return domain;
+        }
+      }
+    } catch (e) {
+      if (e.name !== 'AbortError') {
+        console.log("🔷 .tez domain lookup failed:", e.message);
+      }
+    }
+    return null;
+  }
+  
+  async function callTezosContract(contractAddress, method, args, amount = 0) {
+    if (!tezosWallet) throw new Error("Tezos wallet not initialized");
+    
+    const activeAccount = await tezosWallet.getActiveAccount();
+    if (!activeAccount) throw new Error("No active Tezos account - please connect wallet first");
+    
+    // For contract calls with Beacon, we need to use requestOperation
+    // Build the operation parameters
+    const amountMutez = Math.floor(amount * 1_000_000); // Convert tez to mutez
+    
+    const result = await tezosWallet.requestOperation({
+      operationDetails: [{
+        kind: "transaction",
+        destination: contractAddress,
+        amount: String(amountMutez),
+        parameters: {
+          entrypoint: method,
+          value: args, // This needs to be Michelson-encoded
+        },
+      }],
+    });
+    
+    if (debug) console.log("🔷 Tezos tx submitted:", result.transactionHash);
+    
+    // Wait for confirmation by polling
+    const rpcUrl = tezosWallet._rpcUrl;
+    let confirmed = false;
+    for (let i = 0; i < 60; i++) { // Wait up to 60 seconds
+      await new Promise(r => setTimeout(r, 1000));
+      try {
+        const res = await fetch(`${rpcUrl}/chains/main/blocks/head/operations/3`);
+        const ops = await res.json();
+        for (const opGroup of ops) {
+          if (opGroup.hash === result.transactionHash) {
+            confirmed = true;
+            break;
+          }
+        }
+        if (confirmed) break;
+      } catch (e) {
+        // Ignore polling errors
+      }
+    }
+    
+    if (debug) console.log("🔷 Tezos tx confirmed:", result.transactionHash);
+    return result.transactionHash;
+  }
+
   // UDP / Geckos Networking
   let UDP;
   async function loadUDP() {
@@ -2445,6 +2738,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           speed,
           loop: options?.loop || false,
         },
+        volume: isFinite(options?.volume) ? options.volume : 1,
+        pan: isFinite(options?.pan) ? options.pan : 0,
         // options: { buffer: sample },
         // ⏰ TODO: If duration / 'beats' is not specified then use speed.
         // beats: undefined, // ((sample.length / sample.sampleRate) * sound.bpm / 60),
@@ -2909,8 +3204,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   sound.bpm = bpm;
 
   // 🎹 DAW Sync (for Max for Live integration)
-  // Connect the send function and flush any queued messages from before boot
-  _dawConnectSend(send, updateMetronome);
+  // Only connect if ?daw query param is present (for M4L browser-based embedding)
+  const hasDawParam = new URLSearchParams(window.location.search).has("daw");
+  if (hasDawParam) {
+    _dawConnectSend(send, updateMetronome);
+  }
 
   function requestBeat(time) {
     send({
@@ -9489,6 +9787,122 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    // Connect to a Tezos wallet (Beacon SDK)
+    if (type === "tezos-connect") {
+      try {
+        const network = content?.network || "ghostnet";
+        const address = await connectTezosWallet(network);
+        send({
+          type: "tezos-connect-response",
+          content: { result: "success", address },
+        });
+      } catch (err) {
+        console.error("🔴 Tezos connect error:", err);
+        send({
+          type: "tezos-connect-response",
+          content: { result: "error", error: err.message },
+        });
+      }
+      return;
+    }
+
+    // Disconnect Tezos wallet
+    if (type === "tezos-disconnect") {
+      try {
+        await disconnectTezosWallet();
+        send({
+          type: "tezos-disconnect-response",
+          content: { result: "success" },
+        });
+      } catch (err) {
+        send({
+          type: "tezos-disconnect-response",
+          content: { result: "error", error: err.message },
+        });
+      }
+      return;
+    }
+
+    // Get current Tezos wallet address
+    if (type === "tezos-address") {
+      try {
+        const address = await getTezosAddress();
+        send({
+          type: "tezos-address-response",
+          content: { result: "success", address },
+        });
+      } catch (err) {
+        send({
+          type: "tezos-address-response",
+          content: { result: "error", error: err.message },
+        });
+      }
+      return;
+    }
+
+    // Call a Tezos contract method
+    if (type === "tezos-call") {
+      try {
+        const { contractAddress, method, args, amount } = content;
+        const opHash = await callTezosContract(contractAddress, method, args, amount || 0);
+        send({
+          type: "tezos-call-response",
+          content: { result: "success", opHash },
+        });
+      } catch (err) {
+        console.error("🔴 Tezos call error:", err);
+        send({
+          type: "tezos-call-response",
+          content: { result: "error", error: err.message },
+        });
+      }
+      return;
+    }
+
+    // 🔷 Wallet API messages (for wallet.mjs piece)
+    // Get current wallet state (used when pieces load)
+    if (type === "wallet:get-state") {
+      broadcastWalletState();
+      return;
+    }
+    
+    if (type === "wallet:connect") {
+      try {
+        const network = content?.network || "ghostnet";
+        const address = await connectTezosWallet(network);
+        // connectTezosWallet already updates walletState and broadcasts
+      } catch (err) {
+        console.error("🔴 Wallet connect error:", err);
+        walletState.connected = false;
+        walletState.error = err.message;
+        broadcastWalletState();
+      }
+      return;
+    }
+
+    if (type === "wallet:disconnect") {
+      try {
+        await disconnectTezosWallet();
+        // disconnectTezosWallet already updates walletState and broadcasts
+      } catch (err) {
+        console.error("🔴 Wallet disconnect error:", err);
+      }
+      return;
+    }
+
+    if (type === "wallet:refresh-balance") {
+      try {
+        if (walletState.address && walletState.connected) {
+          const balance = await fetchTezosBalanceForBios(walletState.address, walletState.network);
+          walletState.balance = balance;
+          broadcastWalletState();
+        }
+      } catch (err) {
+        console.error("🔴 Wallet balance refresh error:", err);
+      }
+      return;
+    }
+
     if (type === "rewrite-url-path") {
       const newPath = content.path;
       const historical = !!content.historical;
@@ -13687,6 +14101,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (window.acHIDE_BOOT_LOG) {
         window.acHIDE_BOOT_LOG();
       }
+      
+      // 🔷 Auto-restore Tezos wallet session (Beacon stores in localStorage)
+      restoreWalletSession().catch(() => {}); // Fire and forget, errors logged inside
       
       // Notify parent that disk is ready
       if (window.parent) {
