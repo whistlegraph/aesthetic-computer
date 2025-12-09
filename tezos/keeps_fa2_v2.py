@@ -53,6 +53,13 @@ def keeps_module():
                 sp.big_map[sp.nat, sp.bool]
             )
             
+            # Track content hashes to prevent duplicate mints
+            # Maps content_hash (bytes) -> token_id (nat)
+            self.data.content_hashes = sp.cast(
+                sp.big_map(),
+                sp.big_map[sp.bytes, sp.nat]
+            )
+            
             # Contract-level metadata lock flag
             self.data.contract_metadata_locked = False
         
@@ -92,6 +99,9 @@ def keeps_module():
             # Only admin can mint
             assert self.is_administrator_(), "FA2_NOT_ADMIN"
             
+            # Check for duplicate content hash
+            assert not self.data.content_hashes.contains(params.content_hash), "DUPLICATE_CONTENT_HASH"
+            
             # Get next token ID from the library's counter
             token_id = self.data.next_token_id
             
@@ -128,6 +138,9 @@ def keeps_module():
             
             # Initialize as not locked
             self.data.metadata_locked[token_id] = False
+            
+            # Store content hash to prevent future duplicates
+            self.data.content_hashes[params.content_hash] = token_id
             
             # Increment token counter
             self.data.next_token_id = token_id + 1
@@ -182,6 +195,37 @@ def keeps_module():
             """Permanently lock contract-level metadata (admin only)."""
             assert self.is_administrator_(), "FA2_NOT_ADMIN"
             self.data.contract_metadata_locked = True
+
+        @sp.entrypoint
+        def burn_keep(self, token_id):
+            """
+            Burn a token and remove its content_hash from the registry.
+            This allows the same piece name to be minted again.
+            Admin only.
+            """
+            sp.cast(token_id, sp.nat)
+            
+            assert self.is_administrator_(), "FA2_NOT_ADMIN"
+            assert self.data.token_metadata.contains(token_id), "FA2_TOKEN_UNDEFINED"
+            
+            # Get the content_hash before burning so we can remove it
+            token_info = self.data.token_metadata[token_id].token_info
+            content_hash = token_info.get("content_hash", default=sp.bytes("0x"))
+            
+            # Remove from content_hashes registry (allows re-minting this piece)
+            if self.data.content_hashes.contains(content_hash):
+                del self.data.content_hashes[content_hash]
+            
+            # Remove from ledger
+            if self.data.ledger.contains(token_id):
+                del self.data.ledger[token_id]
+            
+            # Remove token metadata
+            del self.data.token_metadata[token_id]
+            
+            # Remove metadata lock entry
+            if self.data.metadata_locked.contains(token_id):
+                del self.data.metadata_locked[token_id]
 
 
 def _get_balance(fa2_contract, args):

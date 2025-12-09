@@ -184,15 +184,16 @@ async function deployContract(network = 'ghostnet') {
   const contractMetadataBytes = stringToBytes(contractMetadataJson);
   const tezosStoragePointer = stringToBytes("tezos-storage:content");
   
-  // Initial storage Michelson - includes contract_metadata_locked = False
-  // Format: (Pair admin (Pair contract_metadata_locked (Pair ledger (Pair metadata (Pair metadata_locked (Pair next_token_id (Pair operators token_metadata)))))))
-  const initialStorageMichelson = `(Pair "${credentials.address}" (Pair False (Pair {} (Pair {Elt "" 0x${tezosStoragePointer}; Elt "content" 0x${contractMetadataBytes}} (Pair {} (Pair 0 (Pair {} {})))))))`;
+  // Initial storage Michelson - includes content_hashes and contract_metadata_locked
+  // Format: (Pair admin (Pair content_hashes (Pair contract_metadata_locked (Pair ledger (Pair metadata (Pair metadata_locked (Pair next_token_id (Pair operators token_metadata))))))))
+  const initialStorageMichelson = `(Pair "${credentials.address}" (Pair {} (Pair False (Pair {} (Pair {Elt "" 0x${tezosStoragePointer}; Elt "content" 0x${contractMetadataBytes}} (Pair {} (Pair 0 (Pair {} {}))))))))`;
   
   const parsedStorage = parser.parseMichelineExpression(initialStorageMichelson);
   
   console.log(`   ✓ Administrator: ${credentials.address}`);
   console.log('   ✓ Initial token ID: 0');
   console.log('   ✓ Contract metadata: TZIP-16 compliant');
+  console.log('   ✓ Content hash uniqueness: enabled');
   console.log('   ✓ Contract metadata locked: false');
   
   // Deploy
@@ -364,6 +365,36 @@ async function detectContentType(piece) {
  * Fetch a proper self-contained HTML bundle from the Netlify endpoint
  * This bundles all JS, CSS, and assets into a single file that works offline
  */
+// Check if a piece name already exists in the contract
+async function checkDuplicatePiece(pieceName, network = 'ghostnet') {
+  // Load contract address
+  if (!fs.existsSync(CONFIG.paths.contractAddress)) {
+    return { exists: false }; // No contract deployed yet
+  }
+  
+  const contractAddress = fs.readFileSync(CONFIG.paths.contractAddress, 'utf8').trim();
+  
+  // Query the content_hashes big_map via TzKT
+  // Key is the piece name as hex bytes
+  const keyBytes = stringToBytes(pieceName);
+  const url = `https://api.${network}.tzkt.io/v1/contracts/${contractAddress}/bigmaps/content_hashes/keys/${keyBytes}`;
+  
+  try {
+    const response = await fetch(url);
+    if (response.status === 200) {
+      const data = await response.json();
+      // Check if the key is still active (not burned)
+      if (data.active) {
+        return { exists: true, tokenId: data.value };
+      }
+    }
+    return { exists: false };
+  } catch (error) {
+    // If query fails, assume not duplicate (will fail at contract level if it is)
+    return { exists: false };
+  }
+}
+
 async function fetchBundleFromNetlify(piece, contentType) {
   const pieceName = piece.replace(/^\$/, '');
   
@@ -488,12 +519,13 @@ async function uploadJsonToIPFS(jsonData, name, credentials) {
 async function generateThumbnail(piece, credentials, options = {}) {
   const {
     format = 'webp',
-    width = 512,
-    height = 512,
-    duration = 8000,    // 8 seconds (was 12)
-    fps = 10,           // 10fps capture (was 7.5)
+    width = 96,         // Small thumbnail (was 512)
+    height = 96,
+    duration = 8000,    // 8 seconds
+    fps = 10,           // 10fps capture
     playbackFps = 20,   // 20fps playback = 2x speed
-    quality = 70,       // Lower quality for smaller files (was 90)
+    density = 2,        // 2x density for crisp pixels
+    quality = 70,       // Lower quality for smaller files
   } = options;
   
   console.log('\n📸 Generating thumbnail...');
@@ -513,6 +545,7 @@ async function generateThumbnail(piece, credentials, options = {}) {
       duration,
       fps,
       playbackFps,
+      density,
       quality,
       pinataKey: credentials.pinataKey,
       pinataSecret: credentials.pinataSecret,
@@ -589,9 +622,18 @@ async function uploadToIPFS(piece, options = {}) {
     };
   }
   
-  // Calculate content hash
-  const contentHash = crypto.createHash('sha256').update(bundleHtml).digest('hex').slice(0, 16);
-  console.log(`🔐 Content Hash: ${contentHash}`);
+  // Use piece name as the unique identifier (simple and deterministic)
+  console.log(`🔐 Piece ID: ${pieceName}`);
+  
+  // Check for duplicate BEFORE uploading to IPFS
+  if (!options.skipDuplicateCheck) {
+    console.log('🔍 Checking for duplicates on-chain...');
+    const duplicate = await checkDuplicatePiece(pieceName);
+    if (duplicate.exists) {
+      throw new Error(`Duplicate! $${pieceName} was already minted as token #${duplicate.tokenId}`);
+    }
+    console.log('   ✓ No duplicate found');
+  }
   
   // Upload to Pinata
   const formData = new FormData();
@@ -599,7 +641,7 @@ async function uploadToIPFS(piece, options = {}) {
   formData.append('file', blob, 'index.html');
   
   formData.append('pinataMetadata', JSON.stringify({
-    name: `aesthetic.computer-keep-${pieceName}-${contentHash}`
+    name: `aesthetic.computer-keep-${pieceName}`
   }));
   
   formData.append('pinataOptions', JSON.stringify({
@@ -632,7 +674,7 @@ async function uploadToIPFS(piece, options = {}) {
   
   return {
     cid,
-    contentHash,
+    contentHash: pieceName,  // Use piece name as unique key
     contentType,
     gatewayUrl: `${CONFIG.pinata.gateway}/ipfs/${cid}`,
     ipfsUri: `ipfs://${cid}`,
@@ -686,6 +728,7 @@ async function mintToken(piece, options = {}) {
   // Upload HTML bundle to IPFS if not provided
   let artifactUri = options.ipfsUri;
   let artifactCid = options.contentHash;
+  let contentHash = null;  // Source-based hash for duplicate prevention
   let sourceCode = null;
   let authorHandle = null;
   let userCode = null;
@@ -697,6 +740,7 @@ async function mintToken(piece, options = {}) {
     const upload = await uploadToIPFS(piece, { contentType });
     artifactUri = `ipfs://${upload.cid}`;  // Use ipfs:// URI for artifact
     artifactCid = upload.cid;
+    contentHash = upload.contentHash;  // Source-based hash for uniqueness
     contentType = upload.contentType;
     // Capture bundle metadata for KidLisp pieces
     sourceCode = upload.sourceCode;
@@ -707,7 +751,8 @@ async function mintToken(piece, options = {}) {
   }
   
   console.log(`🔗 Artifact URI: ${artifactUri}`);
-  console.log(`🔐 Artifact CID: ${artifactCid}`);
+  console.log(`💾 Artifact CID: ${artifactCid}`);
+  console.log(`🔐 Content Hash: ${contentHash}`);
   
   // Build TZIP-21 compliant JSON metadata for objkt
   // Token name is just the code (e.g., "$roz")
@@ -794,9 +839,15 @@ async function mintToken(piece, options = {}) {
     }],
     tags: tags,
     attributes: [
-      { name: 'Content Type', value: 'KidLisp' },
-      { name: 'Piece Name', value: `$${pieceName}` },
-      { name: 'AC URL', value: acUrl }
+      { name: 'Language', value: 'KidLisp' },
+      { name: 'Code', value: `$${pieceName}` },
+      ...(authorDisplayName ? [{ name: 'Author', value: authorDisplayName }] : []),
+      ...(userCode ? [{ name: 'User Code', value: userCode }] : []),
+      ...(sourceCode ? [{ name: 'Lines of Code', value: String(sourceCode.split('\n').length) }] : []),
+      ...(depCount > 0 ? [{ name: 'Dependencies', value: String(depCount) }] : []),
+      ...(packDate ? [{ name: 'Packed', value: packDate }] : []),
+      { name: 'Interactive', value: 'Yes' },
+      { name: 'Platform', value: 'Aesthetic Computer' },
     ]
   };
   
@@ -827,7 +878,7 @@ async function mintToken(piece, options = {}) {
     creators: stringToBytes(JSON.stringify([credentials.address])),
     rights: stringToBytes('© All rights reserved'),
     content_type: stringToBytes('KidLisp'),
-    content_hash: stringToBytes(artifactCid),
+    content_hash: stringToBytes(contentHash),  // Source-based hash for uniqueness
     // IMPORTANT: This is the off-chain metadata URI that objkt will fetch
     metadata_uri: stringToBytes(metadataUri),
   };
@@ -924,46 +975,122 @@ async function updateMetadata(tokenId, piece, options = {}) {
   const contentType = detection.type;
   console.log(`   ✓ Detected: ${contentType}`);
   
-  // Upload new bundle to IPFS
+  // Upload new bundle to IPFS (skip duplicate check since we're updating)
   console.log('\n📤 Uploading new bundle to IPFS...');
-  const upload = await uploadToIPFS(piece, { contentType });
-  const artifactUri = upload.gatewayUrl;
-  const hash = upload.cid;
+  const upload = await uploadToIPFS(piece, { contentType, skipDuplicateCheck: true });
+  const artifactUri = `ipfs://${upload.cid}`;
+  const artifactCid = upload.cid;
+  
+  // Get bundle metadata
+  const sourceCode = upload.sourceCode;
+  const authorHandle = upload.authorHandle;
+  const userCode = upload.userCode;
+  const packDate = upload.packDate;
+  const depCount = upload.depCount || 0;
   
   console.log(`🔗 New Artifact URI: ${artifactUri}`);
-  console.log(`🔐 New Content Hash: ${hash}`);
   
-  // Build updated TZIP-21 metadata
-  const tokenName = `Aesthetic Computer Keep - ${pieceName}`;
-  const description = `An aesthetic.computer ${contentType} piece preserved on Tezos`;
+  // Build author display name
+  let authorDisplayName = null;
+  if (authorHandle && authorHandle !== '@anon') {
+    authorDisplayName = authorHandle;
+  }
   
+  // Build description with source code
+  let description = '';
+  if (sourceCode) {
+    description = sourceCode;
+    if (authorDisplayName) {
+      description += `\n\nby ${authorDisplayName}`;
+    }
+    if (userCode) {
+      description += `\n${userCode}`;
+    }
+    if (packDate) {
+      description += `\nThis copy was packed on ${packDate}`;
+    }
+  } else {
+    description = `A KidLisp piece preserved on Tezos`;
+  }
+  
+  // Build tags
+  const tags = [
+    `$${pieceName}`,
+    'KidLisp',
+    'Aesthetic.Computer',
+    'interactive',
+  ];
+  if (userCode) {
+    tags.push(userCode);
+  }
+  
+  // Build improved attributes
+  const attributes = [
+    { name: 'Language', value: 'KidLisp' },
+    { name: 'Code', value: `$${pieceName}` },
+    ...(authorDisplayName ? [{ name: 'Author', value: authorDisplayName }] : []),
+    ...(userCode ? [{ name: 'User Code', value: userCode }] : []),
+    ...(sourceCode ? [{ name: 'Lines of Code', value: String(sourceCode.split('\n').length) }] : []),
+    ...(depCount > 0 ? [{ name: 'Dependencies', value: String(depCount) }] : []),
+    ...(packDate ? [{ name: 'Packed', value: packDate }] : []),
+    { name: 'Interactive', value: 'Yes' },
+    { name: 'Platform', value: 'Aesthetic Computer' },
+  ];
+  
+  // Build metadata JSON for IPFS
+  const tokenName = `$${pieceName}`;
+  const metadataJson = {
+    name: tokenName,
+    description: description,
+    artifactUri: artifactUri,
+    displayUri: artifactUri,
+    thumbnailUri: `https://grab.aesthetic.computer/preview/400x400/$${pieceName}.png`,
+    decimals: 0,
+    symbol: 'KEEP',
+    isBooleanAmount: true,
+    shouldPreferSymbol: false,
+    minter: credentials.address,
+    creators: [credentials.address],
+    rights: '© All rights reserved',
+    mintingTool: 'https://aesthetic.computer',
+    formats: [{
+      uri: artifactUri,
+      mimeType: 'text/html',
+      dimensions: { value: 'responsive', unit: 'viewport' }
+    }],
+    tags: tags,
+    attributes: attributes
+  };
+  
+  // Upload JSON metadata to IPFS
+  console.log('\n📤 Uploading JSON metadata to IPFS...');
+  const allCredentials = loadCredentials();
+  const metadataUri = await uploadJsonToIPFS(
+    metadataJson, 
+    `aesthetic.computer-keep-${pieceName}-metadata-updated`,
+    allCredentials
+  );
+  console.log(`📋 Metadata URI: ${metadataUri}`);
+  
+  // Build on-chain token_info
   const tokenInfo = {
     name: stringToBytes(tokenName),
     description: stringToBytes(description),
     artifactUri: stringToBytes(artifactUri),
     displayUri: stringToBytes(artifactUri),
-    thumbnailUri: stringToBytes(`${acUrl}?thumbnail=true`),
+    thumbnailUri: stringToBytes(metadataJson.thumbnailUri),
     decimals: stringToBytes('0'),
     symbol: stringToBytes('KEEP'),
     isBooleanAmount: stringToBytes('true'),
     shouldPreferSymbol: stringToBytes('false'),
-    formats: stringToBytes(JSON.stringify([{
-      uri: artifactUri,
-      mimeType: 'application/x-directory',
-      dimensions: { value: 'responsive', unit: 'viewport' }
-    }])),
-    tags: stringToBytes(JSON.stringify([contentType, 'aesthetic.computer', 'interactive'])),
-    attributes: stringToBytes(JSON.stringify([
-      { name: 'content_type', value: contentType },
-      { name: 'piece_name', value: pieceName },
-      { name: 'ac_url', value: acUrl },
-      { name: 'content_hash', value: hash }
-    ])),
+    formats: stringToBytes(JSON.stringify(metadataJson.formats)),
+    tags: stringToBytes(JSON.stringify(tags)),
+    attributes: stringToBytes(JSON.stringify(attributes)),
     creators: stringToBytes(JSON.stringify([credentials.address])),
     rights: stringToBytes('© All rights reserved'),
-    content_type: stringToBytes(contentType),
-    content_hash: stringToBytes(hash),
-    '': stringToBytes(acUrl)  // metadata_uri (empty key)
+    content_type: stringToBytes('KidLisp'),
+    content_hash: stringToBytes(pieceName),
+    '': stringToBytes(metadataUri)
   };
   
   // Call edit_metadata entrypoint
@@ -997,6 +1124,264 @@ async function updateMetadata(tokenId, piece, options = {}) {
     console.error(`   Error: ${error.message}`);
     if (error.message.includes('METADATA_LOCKED')) {
       console.error('\n   💡 This token\'s metadata has been locked and cannot be updated.');
+    }
+    throw error;
+  }
+}
+
+// ============================================================================
+// Redact Token (Censor)
+// ============================================================================
+
+async function redactToken(tokenId, options = {}) {
+  const { network = 'ghostnet', reason = 'Content has been redacted.' } = options;
+  
+  const { tezos, credentials, config } = await createTezosClient(network);
+  const allCredentials = loadCredentials();
+  
+  // Load contract address
+  if (!fs.existsSync(CONFIG.paths.contractAddress)) {
+    throw new Error('❌ No contract deployed. Run: node keeps.mjs deploy');
+  }
+  
+  const contractAddress = fs.readFileSync(CONFIG.paths.contractAddress, 'utf8').trim();
+  
+  console.log('\n╔══════════════════════════════════════════════════════════════╗');
+  console.log('║  🚫 Redacting Token                                          ║');
+  console.log('╚══════════════════════════════════════════════════════════════╝\n');
+  
+  console.log(`📡 Network: ${config.name}`);
+  console.log(`📍 Contract: ${contractAddress}`);
+  console.log(`🎨 Token ID: ${tokenId}`);
+  console.log(`📝 Reason: ${reason}`);
+  console.log('\n⚠️  This will replace all content with a redacted placeholder.\n');
+  
+  // Generate a red "REDACTED" image
+  console.log('🖼️  Generating redacted thumbnail...');
+  
+  // Create a simple red HTML page for the artifact
+  const redactedHtml = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>REDACTED</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #1a0000;
+      color: #ff0000;
+      font-family: monospace;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      text-align: center;
+    }
+    .container {
+      padding: 2rem;
+    }
+    h1 {
+      font-size: 3rem;
+      letter-spacing: 0.5em;
+      margin-bottom: 1rem;
+      text-shadow: 0 0 20px #ff0000;
+    }
+    p {
+      font-size: 1rem;
+      opacity: 0.7;
+    }
+    .bars {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 2rem;
+    }
+    .bar {
+      height: 20px;
+      background: #ff0000;
+      opacity: 0.3;
+    }
+    .bar:nth-child(1) { width: 80%; }
+    .bar:nth-child(2) { width: 60%; }
+    .bar:nth-child(3) { width: 90%; }
+    .bar:nth-child(4) { width: 45%; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>REDACTED</h1>
+    <p>${reason}</p>
+    <div class="bars">
+      <div class="bar"></div>
+      <div class="bar"></div>
+      <div class="bar"></div>
+      <div class="bar"></div>
+    </div>
+  </div>
+</body>
+</html>`;
+
+  // Upload redacted HTML to IPFS
+  console.log('📤 Uploading redacted artifact to IPFS...');
+  
+  const formData = new FormData();
+  const blob = new Blob([redactedHtml], { type: 'text/html' });
+  formData.append('file', blob, 'index.html');
+  formData.append('pinataMetadata', JSON.stringify({
+    name: `aesthetic.computer-redacted-${tokenId}`
+  }));
+  formData.append('pinataOptions', JSON.stringify({
+    wrapWithDirectory: true
+  }));
+  
+  const uploadResponse = await fetch(`${CONFIG.pinata.apiUrl}/pinning/pinFileToIPFS`, {
+    method: 'POST',
+    headers: {
+      'pinata_api_key': allCredentials.pinataKey,
+      'pinata_secret_api_key': allCredentials.pinataSecret
+    },
+    body: formData
+  });
+  
+  if (!uploadResponse.ok) {
+    throw new Error(`Failed to upload redacted artifact: ${await uploadResponse.text()}`);
+  }
+  
+  const uploadResult = await uploadResponse.json();
+  const artifactCid = uploadResult.IpfsHash;
+  const artifactUri = `ipfs://${artifactCid}`;
+  console.log(`   ✓ Artifact: ${artifactUri}`);
+  
+  // Generate red thumbnail via Oven
+  console.log('📸 Generating redacted thumbnail via Oven...');
+  let thumbnailUri = 'https://grab.aesthetic.computer/preview/400x400/redacted.png';
+  
+  try {
+    // Use oven to capture the redacted page
+    const ovenResponse = await fetch(`${CONFIG.oven.url}/grab-ipfs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        url: `${CONFIG.pinata.gateway}/ipfs/${artifactCid}`,
+        format: 'webp',
+        width: 96,
+        height: 96,
+        density: 2,
+        duration: 1000,
+        fps: 1,
+        quality: 80,
+        pinataKey: allCredentials.pinataKey,
+        pinataSecret: allCredentials.pinataSecret,
+      }),
+    });
+    
+    if (ovenResponse.ok) {
+      const ovenResult = await ovenResponse.json();
+      if (ovenResult.success) {
+        thumbnailUri = ovenResult.ipfsUri;
+        console.log(`   ✓ Thumbnail: ${thumbnailUri}`);
+      }
+    }
+  } catch (e) {
+    console.log(`   ⚠️ Thumbnail generation failed, using fallback`);
+  }
+  
+  // Build redacted metadata
+  const tokenName = '[REDACTED]';
+  const description = `[REDACTED]\n\n${reason}`;
+  
+  const tags = ['REDACTED', 'censored'];
+  const attributes = [
+    { name: 'Status', value: 'REDACTED' },
+    { name: 'Reason', value: reason },
+    { name: 'Platform', value: 'Aesthetic Computer' },
+  ];
+  
+  // Upload metadata JSON
+  const metadataJson = {
+    name: tokenName,
+    description: description,
+    artifactUri: artifactUri,
+    displayUri: artifactUri,
+    thumbnailUri: thumbnailUri,
+    decimals: 0,
+    symbol: 'KEEP',
+    isBooleanAmount: true,
+    shouldPreferSymbol: false,
+    minter: credentials.address,
+    creators: [credentials.address],
+    rights: '© All rights reserved',
+    mintingTool: 'https://aesthetic.computer',
+    formats: [{
+      uri: artifactUri,
+      mimeType: 'text/html',
+      dimensions: { value: 'responsive', unit: 'viewport' }
+    }],
+    tags: tags,
+    attributes: attributes
+  };
+  
+  console.log('📤 Uploading redacted metadata to IPFS...');
+  const metadataUri = await uploadJsonToIPFS(
+    metadataJson, 
+    `aesthetic.computer-redacted-${tokenId}-metadata`,
+    allCredentials
+  );
+  console.log(`   ✓ Metadata: ${metadataUri}`);
+  
+  // Build on-chain token_info
+  const tokenInfo = {
+    name: stringToBytes(tokenName),
+    description: stringToBytes(description),
+    artifactUri: stringToBytes(artifactUri),
+    displayUri: stringToBytes(artifactUri),
+    thumbnailUri: stringToBytes(thumbnailUri),
+    decimals: stringToBytes('0'),
+    symbol: stringToBytes('KEEP'),
+    isBooleanAmount: stringToBytes('true'),
+    shouldPreferSymbol: stringToBytes('false'),
+    formats: stringToBytes(JSON.stringify(metadataJson.formats)),
+    tags: stringToBytes(JSON.stringify(tags)),
+    attributes: stringToBytes(JSON.stringify(attributes)),
+    creators: stringToBytes(JSON.stringify([credentials.address])),
+    rights: stringToBytes('© All rights reserved'),
+    content_type: stringToBytes('REDACTED'),
+    content_hash: stringToBytes('REDACTED'),
+    '': stringToBytes(metadataUri)
+  };
+  
+  // Call edit_metadata entrypoint
+  console.log('\n📤 Calling edit_metadata entrypoint...');
+  
+  try {
+    const contract = await tezos.contract.at(contractAddress);
+    
+    const op = await contract.methodsObject.edit_metadata({
+      token_id: tokenId,
+      token_info: tokenInfo
+    }).send();
+    
+    console.log(`   ⏳ Operation hash: ${op.hash}`);
+    console.log('   ⏳ Waiting for confirmation...');
+    
+    await op.confirmation(1);
+    
+    console.log('\n╔══════════════════════════════════════════════════════════════╗');
+    console.log('║  🚫 Token Redacted Successfully!                             ║');
+    console.log('╚══════════════════════════════════════════════════════════════╝\n');
+    
+    console.log(`   🎨 Token ID: ${tokenId}`);
+    console.log(`   🚫 Status: REDACTED`);
+    console.log(`   📝 Operation: ${config.explorer}/${op.hash}\n`);
+    
+    return { tokenId, hash: op.hash, redacted: true };
+    
+  } catch (error) {
+    console.error('\n❌ Redaction failed!');
+    console.error(`   Error: ${error.message}`);
+    if (error.message.includes('METADATA_LOCKED')) {
+      console.error('\n   💡 This token\'s metadata has been locked and cannot be redacted.');
     }
     throw error;
   }
@@ -1202,6 +1587,58 @@ async function lockMetadata(tokenId, options = {}) {
 }
 
 // ============================================================================
+// Burn Token
+// ============================================================================
+
+async function burnToken(tokenId, options = {}) {
+  const { network = 'ghostnet' } = options;
+  
+  const { tezos, credentials, config } = await createTezosClient(network);
+  
+  // Load contract address
+  if (!fs.existsSync(CONFIG.paths.contractAddress)) {
+    throw new Error('❌ No contract deployed. Run: node keeps.mjs deploy');
+  }
+  
+  const contractAddress = fs.readFileSync(CONFIG.paths.contractAddress, 'utf8').trim();
+  
+  console.log('\n╔══════════════════════════════════════════════════════════════╗');
+  console.log('║  🔥 Burning Token                                            ║');
+  console.log('╚══════════════════════════════════════════════════════════════╝\n');
+  
+  console.log(`📡 Network: ${config.name}`);
+  console.log(`📍 Contract: ${contractAddress}`);
+  console.log(`🎨 Token ID: ${tokenId}`);
+  console.log('\n⚠️  WARNING: This action is PERMANENT. The token will be destroyed.\n');
+  console.log('   The piece name will become available for re-minting.\n');
+  
+  try {
+    const contract = await tezos.contract.at(contractAddress);
+    
+    const op = await contract.methods.burn_keep(tokenId).send();
+    
+    console.log(`   ⏳ Operation hash: ${op.hash}`);
+    console.log('   ⏳ Waiting for confirmation...');
+    
+    await op.confirmation(1);
+    
+    console.log('\n╔══════════════════════════════════════════════════════════════╗');
+    console.log('║  ✅ Token Burned Successfully!                               ║');
+    console.log('╚══════════════════════════════════════════════════════════════╝\n');
+    
+    console.log(`   🔥 Token ID: ${tokenId} - DESTROYED`);
+    console.log(`   📝 Operation: ${config.explorer}/${op.hash}\n`);
+    
+    return { tokenId, hash: op.hash, burned: true };
+    
+  } catch (error) {
+    console.error('\n❌ Burn failed!');
+    console.error(`   Error: ${error.message}`);
+    throw error;
+  }
+}
+
+// ============================================================================
 // CLI Interface
 // ============================================================================
 
@@ -1269,6 +1706,25 @@ async function main() {
         await lockMetadata(parseInt(args[1]), { network: getNetwork(2) });
         break;
       
+      case 'burn':
+        if (!args[1]) {
+          console.error('Usage: node keeps.mjs burn <token_id>');
+          process.exit(1);
+        }
+        await burnToken(parseInt(args[1]), { network: getNetwork(2) });
+        break;
+      
+      case 'redact': {
+        if (!args[1]) {
+          console.error('Usage: node keeps.mjs redact <token_id> [--reason="..."]');
+          process.exit(1);
+        }
+        const reasonFlag = flags.find(f => f.startsWith('--reason='));
+        const reason = reasonFlag ? reasonFlag.split('=').slice(1).join('=') : 'Content has been redacted.';
+        await redactToken(parseInt(args[1]), { network: getNetwork(2), reason });
+        break;
+      }
+      
       case 'set-collection-media': {
         // Parse --image=<uri> and --description=<text> flags
         const imageFlag = flags.find(f => f.startsWith('--image='));
@@ -1316,6 +1772,8 @@ Commands:
   mint <piece> [network]        Mint a new keep
   update <token_id> <piece>     Update token metadata (re-upload bundle)
   lock <token_id>               Permanently lock token metadata
+  burn <token_id>               Burn token (allows re-minting piece)
+  redact <token_id>             Censor token (replace with redacted content)
   set-collection-media          Set collection icon/description
   lock-collection               Permanently lock collection metadata
   help                          Show this help
@@ -1336,6 +1794,7 @@ Examples:
   node keeps.mjs mint wand --thumbnail      # With IPFS thumbnail
   node keeps.mjs update 0 wand              # Re-upload bundle & update metadata
   node keeps.mjs lock 0                     # Permanently lock token 0
+  node keeps.mjs burn 0                     # Burn token 0 (allows re-mint)
   
   # Collection media (use live endpoint for dynamic thumbnail)
   node keeps.mjs set-collection-media --image=https://oven.aesthetic.computer/keeps/latest
@@ -1367,6 +1826,8 @@ export {
   mintToken,
   updateMetadata,
   lockMetadata,
+  burnToken,
+  redactToken,
   setCollectionMedia,
   lockCollectionMetadata,
   detectContentType,
