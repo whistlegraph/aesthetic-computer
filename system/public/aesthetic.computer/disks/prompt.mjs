@@ -352,52 +352,67 @@ function paintTooltip($, inputText) {
   const doc = tooltipState.command;
   if (!doc) return;
   
-  // Position tooltip near cursor (above the input line)
+  // Get cursor position to draw ghost text inline
   const cursorPos = $.system.prompt.input.prompt?.pos?.(undefined, true);
-  const tooltipY = cursorPos?.y ? cursorPos.y - 24 : screen.height / 2;
-  const tooltipX = 6;
+  if (!cursorPos) return;
   
-  // Build tooltip content
-  let sigText = tooltipState.sig || tooltipState.commandName;
+  const cursorX = cursorPos.x ?? 6;
+  const cursorY = cursorPos.y ?? 10;
+  
+  // Parse what's already typed to show remaining hint
+  const sigText = tooltipState.sig || "";
+  const typed = inputText.trim();
+  
+  // Extract the part after what's typed as ghost hint
+  // e.g., if sig is "tezos <action> [network]" and typed is "tezos co"
+  // show ghost text for remaining params
+  let ghostText = "";
   let descText = doc.desc || "";
   
-  // Highlight current param in signature
-  // For now, just show signature and description
+  // Find where we are in the signature
+  const sigLower = sigText.toLowerCase();
+  const typedLower = typed.toLowerCase();
   
-  // Background box
-  const padding = 4;
-  const charWidth = 6; // Default font width
-  const lineHeight = 10;
-  const sigWidth = sigText.length * charWidth + padding * 2;
-  const descWidth = descText.length * charWidth + padding * 2;
-  const boxWidth = Math.max(sigWidth, descWidth, 100);
-  const boxHeight = (descText ? lineHeight * 2 : lineHeight) + padding * 2;
-  
-  // Semi-transparent background
-  ink(0, 0, 0, 180).box(tooltipX, tooltipY - boxHeight, boxWidth, boxHeight);
-  
-  // Signature line (highlighted)
-  ink($.dark ? [100, 200, 255] : [0, 100, 200]).write(sigText, {
-    x: tooltipX + padding,
-    y: tooltipY - boxHeight + padding,
-  });
-  
-  // Description line (dimmer)
-  if (descText) {
-    ink($.dark ? [180, 180, 180] : [80, 80, 80]).write(descText, {
-      x: tooltipX + padding,
-      y: tooltipY - boxHeight + padding + lineHeight,
-    });
+  // Simple approach: show param hints after typed text
+  if (doc.params && doc.params.length > 0) {
+    const typedParts = typed.split(/[\s:]+/);
+    const numTypedParams = typedParts.length - 1; // -1 for command itself
+    
+    // Build ghost text from remaining params
+    const remainingParams = doc.params.slice(numTypedParams);
+    if (remainingParams.length > 0) {
+      ghostText = remainingParams.map(p => {
+        if (p.values) {
+          return p.values.join("|");
+        }
+        return p.required ? `<${p.name}>` : `[${p.name}]`;
+      }).join(" ");
+    }
   }
   
-  // Show suggestions if available
-  if (tooltipState.suggestions.length > 0) {
-    const suggestionsText = tooltipState.suggestions.slice(0, 5).join(" | ");
-    const sugY = tooltipY - boxHeight - lineHeight - 2;
-    ink($.dark ? [150, 255, 150] : [0, 150, 0], 180).write(suggestionsText, {
-      x: tooltipX + padding,
-      y: sugY,
-    });
+  // Draw ghost text inline after cursor (faded)
+  if (ghostText) {
+    ink($.dark ? [100, 180, 255, 80] : [0, 100, 200, 80]).write(ghostText, {
+      x: cursorX + 2,
+      y: cursorY,
+    }, undefined, undefined, false, "MatrixChunky8");
+  }
+  
+  // Draw description as subtle underline text below
+  if (descText) {
+    ink($.dark ? [120, 120, 140, 120] : [80, 80, 100, 120]).write(descText, {
+      x: 6,
+      y: cursorY + 10,
+    }, undefined, undefined, false, "MatrixChunky8");
+  }
+  
+  // Show current param suggestions inline (highlighted options)
+  if (tooltipState.suggestions.length > 0 && tooltipState.currentIndex >= 0) {
+    const suggestionsText = tooltipState.suggestions.slice(0, 6).join(" · ");
+    ink($.dark ? [100, 255, 150, 150] : [0, 150, 50, 150]).write(suggestionsText, {
+      x: cursorX + 2,
+      y: cursorY + 10,
+    }, undefined, undefined, false, "MatrixChunky8");
   }
 }
 
@@ -540,12 +555,11 @@ async function boot({
 
   net.requestDocs().then((d) => {
     autocompletions = { ...d.pieces, ...d.prompts };
-    tooltipDocs = d.prompts; // Cache prompts for tooltip system
+    tooltipDocs = { ...d.pieces, ...d.prompts }; // Include both pieces and prompts for tooltips
     // Remove hidden autocompleteions.
     keys(autocompletions).forEach((key) => {
       if (autocompletions[key].hidden) delete autocompletions[key];
     });
-    // console.log("✍️ Autocompletions built:", autocompletions);
   });
 
   server = socket((id, type, content) => {

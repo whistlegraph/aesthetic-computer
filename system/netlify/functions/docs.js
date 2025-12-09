@@ -2137,6 +2137,14 @@ export async function handler(event, context) {
         desc: "Blur pixels.",
         done: false,
       },
+      box: {
+        sig: "box[:color]",
+        desc: "Draw rectangles with brush gestures.",
+        colon: [
+          { name: "color", values: ["red", "green", "blue", "yellow", "white", "black", "orange", "purple", "pink", "cyan"] },
+        ],
+        done: true,
+      },
       "booted-by": {
         sig: "booted-by",
         desc: "Special thanks to early patrons.",
@@ -2925,9 +2933,13 @@ export async function handler(event, context) {
         done: true,
       },
       toss: {
-        sig: "toss",
+        sig: "toss[:wave][:tempo]",
         desc: "Play microtonal oscillators.",
-        done: false,
+        colon: [
+          { name: "wave", type: "enum", values: ["sine", "square", "triangle", "sawtooth"], required: false, default: "sine" },
+          { name: "tempo", type: "number", values: [60, 80, 100, 120, 140, 160], required: false, default: 120 }
+        ],
+        done: true,
       },
       tracker: {
         sig: "tracker",
