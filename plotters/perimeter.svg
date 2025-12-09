@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="300mm" height="200mm" viewBox="0 0 300 200">
+  <title>AxiDraw Perimeter Rectangle</title>
+  <!-- Shrunk to leave a 20 mm margin on all sides to avoid edge grinding -->
+  <rect x="20" y="20" width="260" height="160" fill="none" stroke="black" stroke-width="0.4"/>
+</svg>
