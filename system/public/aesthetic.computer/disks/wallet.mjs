@@ -58,6 +58,13 @@ const colors = {
 
 const TEZ_Y_ADJUST = -2;
 
+// Get API base URL based on network
+function getApiBase(network) {
+  return network === "mainnet" 
+    ? "https://api.tzkt.io" 
+    : "https://api.ghostnet.tzkt.io";
+}
+
 async function boot({ wallet, wipe, hud, ui, screen }) {
   wipe(colors.bg);
   hud.label("wallet");
@@ -74,8 +81,8 @@ async function boot({ wallet, wipe, hud, ui, screen }) {
   });
   
   await Promise.all([
-    fetchTezPrice(),
-    fetchHeadBlock(),
+    fetchTezPrice(walletState?.network),
+    fetchHeadBlock(walletState?.network),
     walletState?.address ? fetchTransactions(walletState.address, walletState.network) : Promise.resolve(),
   ]);
 }
@@ -108,9 +115,10 @@ function generateStreamChars() {
   return chars;
 }
 
-async function fetchTezPrice() {
+async function fetchTezPrice(network = "ghostnet") {
   try {
-    const res = await fetch("https://api.tzkt.io/v1/quotes/last");
+    const apiBase = getApiBase(network);
+    const res = await fetch(`${apiBase}/v1/quotes/last`);
     if (res.ok) {
       const data = await res.json();
       tezPrice = { usd: data.usd, eur: data.eur, btc: data.btc };
@@ -118,9 +126,10 @@ async function fetchTezPrice() {
   } catch (e) {}
 }
 
-async function fetchHeadBlock() {
+async function fetchHeadBlock(network = "ghostnet") {
   try {
-    const res = await fetch("https://api.tzkt.io/v1/head");
+    const apiBase = getApiBase(network);
+    const res = await fetch(`${apiBase}/v1/head`);
     if (res.ok) {
       const newHead = await res.json();
       if (!headBlock || newHead.level !== headBlock.level) {
@@ -168,12 +177,12 @@ function sim({ wallet, jump, screen }) {
   
   // Data refresh
   if (now - lastPriceFetch > PRICE_REFRESH) {
-    fetchTezPrice();
+    fetchTezPrice(walletState?.network);
     lastPriceFetch = now;
   }
   
   if (now - lastBlockFetch > BLOCK_REFRESH) {
-    fetchHeadBlock();
+    fetchHeadBlock(walletState?.network);
     lastBlockFetch = now;
   }
   
