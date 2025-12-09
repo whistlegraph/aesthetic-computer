@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=400, height=600">
+  <title>Keeps Wallet</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      width: 360px;
+      min-height: 500px;
+      font-family: 'SF Mono', 'Consolas', monospace;
+      background: #0a0e1a;
+      color: #c8d0e8;
+    }
+    
+    .container {
+      padding: 16px;
+    }
+    
+    /* Header */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: 16px;
+      border-bottom: 1px solid #1a2040;
+    }
+    
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .logo-icon {
+      font-size: 24px;
+    }
+    
+    .logo-text {
+      font-size: 14px;
+      font-weight: bold;
+      color: #00b4ff;
+    }
+    
+    .network {
+      font-size: 10px;
+      padding: 4px 8px;
+      border-radius: 4px;
+      background: #2a1a10;
+      color: #ffb432;
+    }
+    
+    .network.mainnet {
+      background: #1a2a1a;
+      color: #32dc64;
+    }
+    
+    /* Views */
+    .view {
+      display: none;
+      padding-top: 20px;
+    }
+    
+    .view.active {
+      display: block;
+    }
+    
+    /* Welcome view */
+    .welcome-title {
+      font-size: 18px;
+      color: #fff;
+      margin-bottom: 8px;
+    }
+    
+    .welcome-desc {
+      font-size: 12px;
+      color: #6a7a9a;
+      margin-bottom: 24px;
+      line-height: 1.5;
+    }
+    
+    /* Buttons */
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      margin-bottom: 12px;
+      transition: all 0.15s;
+    }
+    
+    .btn-primary {
+      background: #00b4ff;
+      color: #000;
+    }
+    
+    .btn-primary:hover {
+      background: #00d4ff;
+    }
+    
+    .btn-secondary {
+      background: #1a2040;
+      color: #c8d0e8;
+      border: 1px solid #2a3050;
+    }
+    
+    .btn-secondary:hover {
+      background: #2a3050;
+    }
+    
+    /* Balance view */
+    .balance-section {
+      text-align: center;
+      padding: 24px 0;
+    }
+    
+    .balance-label {
+      font-size: 11px;
+      color: #6a7a9a;
+      margin-bottom: 4px;
+    }
+    
+    .balance-value {
+      font-size: 32px;
+      color: #fff;
+      font-weight: bold;
+    }
+    
+    .balance-symbol {
+      color: #00b4ff;
+    }
+    
+    .balance-usd {
+      font-size: 14px;
+      color: #6a7a9a;
+      margin-top: 4px;
+    }
+    
+    /* Address */
+    .address {
+      background: #1a2040;
+      border-radius: 8px;
+      padding: 12px;
+      font-size: 11px;
+      color: #6a7a9a;
+      text-align: center;
+      word-break: break-all;
+      margin-bottom: 20px;
+    }
+    
+    /* Keeps grid */
+    .keeps-section {
+      margin-top: 20px;
+    }
+    
+    .keeps-title {
+      font-size: 12px;
+      color: #6a7a9a;
+      margin-bottom: 12px;
+    }
+    
+    .keeps-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+    
+    .keep-item {
+      aspect-ratio: 1;
+      background: #1a2040;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    
+    .keep-item img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    
+    .keeps-empty {
+      text-align: center;
+      padding: 32px;
+      color: #4a5a7a;
+      font-size: 12px;
+    }
+    
+    /* Input */
+    .input-group {
+      margin-bottom: 16px;
+    }
+    
+    .input-label {
+      font-size: 11px;
+      color: #6a7a9a;
+      margin-bottom: 6px;
+    }
+    
+    .input {
+      width: 100%;
+      padding: 12px;
+      background: #1a2040;
+      border: 1px solid #2a3050;
+      border-radius: 8px;
+      color: #fff;
+      font-family: inherit;
+      font-size: 14px;
+    }
+    
+    .input:focus {
+      outline: none;
+      border-color: #00b4ff;
+    }
+    
+    textarea.input {
+      min-height: 100px;
+      resize: vertical;
+    }
+    
+    /* Lock button */
+    .lock-btn {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      background: none;
+      border: none;
+      color: #6a7a9a;
+      cursor: pointer;
+      font-size: 18px;
+    }
+    
+    .lock-btn:hover {
+      color: #fff;
+    }
+    
+    /* Status */
+    .status {
+      font-size: 11px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      margin-top: 12px;
+    }
+    
+    .status.error {
+      background: #2a1a1a;
+      color: #ff6464;
+    }
+    
+    .status.success {
+      background: #1a2a1a;
+      color: #32dc64;
+    }
+    
+    /* Import tabs */
+    .import-tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 16px;
+    }
+    
+    .import-tab {
+      flex: 1;
+      padding: 10px;
+      background: #1a2040;
+      border: 1px solid #2a3050;
+      border-radius: 6px;
+      color: #6a7a9a;
+      font-family: inherit;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    
+    .import-tab:hover {
+      background: #2a3050;
+    }
+    
+    .import-tab.active {
+      background: #00b4ff;
+      color: #000;
+      border-color: #00b4ff;
+    }
+    
+    .import-content {
+      display: none;
+    }
+    
+    .import-content.active {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div class="logo">
+        <span class="logo-icon">ꜩ</span>
+        <span class="logo-text">Keeps Wallet</span>
+      </div>
+      <span class="network" id="network">GHOSTNET</span>
+    </header>
+    
+    <!-- Welcome View (no wallet) -->
+    <div class="view active" id="view-welcome">
+      <h2 class="welcome-title">Welcome to Keeps</h2>
+      <p class="welcome-desc">
+        Your wallet for aesthetic.computer NFTs on Tezos. 
+        Create a new wallet or import an existing one.
+      </p>
+      <button class="btn btn-primary" id="btn-create">Create New Wallet</button>
+      <button class="btn btn-secondary" id="btn-import">Import Existing Wallet</button>
+    </div>
+    
+    <!-- Locked View -->
+    <div class="view" id="view-locked">
+      <h2 class="welcome-title">Unlock Wallet</h2>
+      <div class="input-group">
+        <label class="input-label">Password</label>
+        <input type="password" class="input" id="unlock-password" placeholder="Enter password">
+      </div>
+      <button class="btn btn-primary" id="btn-unlock">Unlock</button>
+      <div class="status error" id="unlock-error" style="display: none;"></div>
+    </div>
+    
+    <!-- Main View (unlocked) -->
+    <div class="view" id="view-main">
+      <button class="lock-btn" id="btn-lock" title="Lock wallet">🔒</button>
+      
+      <div class="balance-section">
+        <div class="balance-label">BALANCE</div>
+        <div class="balance-value">
+          <span class="balance-symbol">ꜩ</span>
+          <span id="balance">0.00</span>
+        </div>
+        <div class="balance-usd" id="balance-usd">$0.00 USD</div>
+      </div>
+      
+      <div class="address" id="address">tz1...</div>
+      
+      <div class="keeps-section">
+        <div class="keeps-title">YOUR KEEPS</div>
+        <div class="keeps-grid" id="keeps-grid">
+          <!-- Keeps will be loaded here -->
+        </div>
+        <div class="keeps-empty" id="keeps-empty">No keeps yet</div>
+      </div>
+    </div>
+    
+    <!-- Create Wallet View -->
+    <div class="view" id="view-create">
+      <h2 class="welcome-title">Create Wallet</h2>
+      <div class="input-group">
+        <label class="input-label">Password</label>
+        <input type="password" class="input" id="create-password" placeholder="Create a strong password">
+      </div>
+      <div class="input-group">
+        <label class="input-label">Confirm Password</label>
+        <input type="password" class="input" id="create-password-confirm" placeholder="Confirm password">
+      </div>
+      <button class="btn btn-primary" id="btn-create-confirm">Create Wallet</button>
+      <button class="btn btn-secondary" id="btn-create-back">Back</button>
+      <div class="status" id="create-status" style="display: none;"></div>
+    </div>
+    
+    <!-- Import Wallet View -->
+    <div class="view" id="view-import">
+      <h2 class="welcome-title">Import Wallet</h2>
+      
+      <div class="import-tabs">
+        <button class="import-tab active" data-tab="mnemonic">Seed Phrase</button>
+        <button class="import-tab" data-tab="privatekey">Private Key</button>
+      </div>
+      
+      <div class="import-content active" id="import-mnemonic-content">
+        <div class="input-group">
+          <label class="input-label">Seed Phrase (12 or 24 words)</label>
+          <textarea class="input" id="import-mnemonic" placeholder="Enter your seed phrase from Temple or other wallet"></textarea>
+        </div>
+      </div>
+      
+      <div class="import-content" id="import-privatekey-content">
+        <div class="input-group">
+          <label class="input-label">Private Key (edsk...)</label>
+          <input type="password" class="input" id="import-privatekey" placeholder="edsk...">
+        </div>
+      </div>
+      
+      <div class="input-group">
+        <label class="input-label">Password</label>
+        <input type="password" class="input" id="import-password" placeholder="Create a password to encrypt wallet">
+      </div>
+      <button class="btn btn-primary" id="btn-import-confirm">Import Wallet</button>
+      <button class="btn btn-secondary" id="btn-import-back">Back</button>
+      <div class="status" id="import-status" style="display: none;"></div>
+    </div>
+  </div>
+  
+  <script src="popup.js"></script>
+</body>
+</html>

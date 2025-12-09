@@ -36,7 +36,8 @@ export async function handler(event, context) {
     const db = await connect();
     const users = db.db.collection("users");
     const userDoc = await users.findOne({ code: userCode });
-    await db.disconnect();
+    // Don't disconnect - let the connection be reused across serverless invocations
+    // await db.disconnect();
     
     if (userDoc) {
       user = userDoc._id; // The user ID (sub)

@@ -131,6 +131,12 @@ included_files = [
 external_node_modules = ["@swc/wasm"]
 included_env_vars = ["GIT_COMMIT", "CONTEXT"]
 
+[functions.keep-mint]
+# Mint KidLisp pieces as NFTs on Tezos (streaming SSE)
+included_files = ["backend/**/*.mjs"]
+external_node_modules = ["mongodb", "@taquito/taquito", "@taquito/signer"]
+included_env_vars = ["CONTEXT", "TEZOS_KEEPS_CONTRACT", "TEZOS_NETWORK", "TEZOS_KIDLISP_KEY", "PINATA_API_KEY", "PINATA_API_SECRET", "OVEN_URL", "MONGODB_CONNECTION_STRING", "MONGODB_NAME", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "ADMIN_SUB"]
+
 [functions.run]
 included_env_vars = ["NETLIFY_DEV", "REDIS_CONNECTION_STRING"]
 
@@ -564,6 +570,10 @@ status = 200
 [[redirects]]
 from = "/api/bundle-html"
 to = "/.netlify/functions/bundle-html"
+status = 200
+[[redirects]]
+from = "/api/keep-mint"
+to = "/.netlify/functions/keep-mint"
 status = 200
 [[redirects]]
 from = "/api/delete-erase-and-forget-me"
