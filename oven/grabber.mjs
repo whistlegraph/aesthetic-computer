@@ -11,6 +11,9 @@ import puppeteer from 'puppeteer';
 // Pinata IPFS upload configuration
 const PINATA_API_URL = 'https://api.pinata.cloud';
 
+// IPFS gateway for serving content
+const IPFS_GATEWAY = 'https://ipfs.aesthetic.computer';
+
 // Reusable browser instance
 let browser = null;
 let browserLaunchPromise = null;
@@ -18,6 +21,10 @@ let browserLaunchPromise = null;
 // In-memory tracking (similar to baker.mjs)
 const activeGrabs = new Map();
 const recentGrabs = [];
+
+// Track most recent IPFS uploads per piece (for live collection thumbnail)
+const latestIPFSUploads = new Map(); // piece -> { ipfsCid, ipfsUri, timestamp, ... }
+let latestKeepThumbnail = null; // Most recent across all pieces
 
 /**
  * Get or launch the shared browser instance
@@ -98,8 +105,68 @@ async function captureFrames(piece, options = {}) {
     // Wait for canvas to be ready
     await page.waitForSelector('canvas', { timeout: 10000 });
     
-    // Give the piece a moment to initialize
-    await new Promise(r => setTimeout(r, 500));
+    // Wait for actual content to render (non-empty canvas)
+    console.log(`   Waiting for piece to render...`);
+    const maxWaitTime = 10000; // 10 seconds max
+    const pollInterval = 100; // Check every 100ms
+    const startWait = Date.now();
+    
+    let hasContent = false;
+    while (!hasContent && (Date.now() - startWait) < maxWaitTime) {
+      hasContent = await page.evaluate(() => {
+        const wrapper = document.getElementById('aesthetic-computer');
+        if (!wrapper) return false;
+        
+        const mainCanvas = wrapper.querySelector('canvas:not([data-type])');
+        const glazeCanvas = wrapper.querySelector('canvas[data-type="glaze"]');
+        const sourceCanvas = glazeCanvas && glazeCanvas.width > 0 ? glazeCanvas : mainCanvas;
+        
+        if (!sourceCanvas || sourceCanvas.width === 0) return false;
+        
+        // Check if canvas has any non-transparent pixels
+        const ctx = sourceCanvas.getContext('2d', { willReadFrequently: true });
+        if (!ctx) {
+          // WebGL canvas - try to check via a temp canvas
+          const tempCanvas = document.createElement('canvas');
+          tempCanvas.width = Math.min(sourceCanvas.width, 64);
+          tempCanvas.height = Math.min(sourceCanvas.height, 64);
+          const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
+          tempCtx.drawImage(sourceCanvas, 0, 0, tempCanvas.width, tempCanvas.height);
+          const data = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height).data;
+          
+          // Check if there's any visible content (non-zero alpha or color)
+          for (let i = 0; i < data.length; i += 4) {
+            // Check if any pixel has color or alpha
+            if (data[i] > 0 || data[i+1] > 0 || data[i+2] > 0 || data[i+3] > 0) {
+              return true;
+            }
+          }
+          return false;
+        }
+        
+        // 2D canvas - sample directly
+        const data = ctx.getImageData(0, 0, Math.min(sourceCanvas.width, 64), Math.min(sourceCanvas.height, 64)).data;
+        for (let i = 0; i < data.length; i += 4) {
+          if (data[i] > 0 || data[i+1] > 0 || data[i+2] > 0 || data[i+3] > 0) {
+            return true;
+          }
+        }
+        return false;
+      });
+      
+      if (!hasContent) {
+        await new Promise(r => setTimeout(r, pollInterval));
+      }
+    }
+    
+    if (hasContent) {
+      console.log(`   ✅ Content detected after ${Date.now() - startWait}ms`);
+    } else {
+      console.log(`   ⚠️ No content detected after ${maxWaitTime}ms, proceeding anyway...`);
+    }
+    
+    // Small additional buffer for any final render passes
+    await new Promise(r => setTimeout(r, 200));
     
     // Capture frames at intervals
     const frameInterval = duration / frames;
@@ -566,11 +633,26 @@ export async function grabAndUploadToIPFS(piece, credentials, options = {}) {
   
   try {
     const ipfsUri = await uploadToIPFS(grabResult.buffer, filename, credentials);
+    const ipfsCid = ipfsUri.replace('ipfs://', '');
     console.log(`✅ Thumbnail uploaded: ${ipfsUri}`);
+    
+    // Track this upload for the live endpoint
+    const uploadInfo = {
+      ipfsCid,
+      ipfsUri,
+      piece: pieceName,
+      format,
+      mimeType,
+      size: grabResult.size,
+      timestamp: Date.now(),
+    };
+    latestIPFSUploads.set(pieceName, uploadInfo);
+    latestKeepThumbnail = uploadInfo;
     
     return {
       success: true,
       ipfsUri,
+      ipfsCid,
       piece: pieceName,
       format,
       mimeType,
@@ -781,6 +863,21 @@ export function getActiveGrabs() {
 export function getRecentGrabs() {
   return recentGrabs;
 }
+
+// Latest IPFS upload exports for live collection thumbnail
+export function getLatestKeepThumbnail() {
+  return latestKeepThumbnail;
+}
+
+export function getLatestIPFSUpload(piece) {
+  return latestIPFSUploads.get(piece?.replace(/^\$/, ''));
+}
+
+export function getAllLatestIPFSUploads() {
+  return Object.fromEntries(latestIPFSUploads);
+}
+
+export { IPFS_GATEWAY };
 
 // Cleanup on exit
 process.on('SIGTERM', async () => {
