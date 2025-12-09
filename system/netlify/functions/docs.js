@@ -2228,12 +2228,16 @@ export async function handler(event, context) {
         hidden: true,
       },
       clock: {
-        sig: "clock[:divisor]",
-        desc: "Every computer needs a clock.",
+        sig: "clock[:divisor] [melody] [sync]",
+        desc: "Musical clock with melody, waveforms, Hz shifts, and parallel tracks.",
         colon: [
-          { name: "divisor", type: "number", required: false, default: 1, desc: "Time divisor (e.g. 0.5 = half speed)" }
+          { name: "divisor", type: "number", required: false, default: 1, desc: "Time divisor (0.5 = faster, 2 = slower)" }
         ],
-        examples: ["clock", "clock:0.5", "clock:2"],
+        params: [
+          { name: "melody", type: "string", required: false, desc: "Notes like cdefg, {square}cde, (ceg) (dfa)" },
+          { name: "sync", type: "enum", values: ["sync"], required: false, desc: "UTC sync mode" }
+        ],
+        examples: ["clock cdefg", "clock:0.5 {square}cdefgab", "clock (ceg) (dfa)", "clock ^cdefg"],
         done: true
       },
       crop: {
