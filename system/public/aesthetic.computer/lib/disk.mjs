@@ -1996,6 +1996,14 @@ class Robo {
   }
 }
 
+// 🎹 Persistent DAW state - survives frame updates since $commonApi.sound gets recreated each frame
+const persistentDawState = {
+  bpm: null,
+  playing: null,
+  time: null,
+  sampleRate: null,
+};
+
 const $commonApi = {
   lisp, //  A global reference to the `kidlisp` evalurator.
   undef: undefined, // A global api shorthand for undefined.
@@ -7993,6 +8001,10 @@ const isWorker = typeof importScripts === "function";
 // the message response to makeFrame.
 if (isWorker) {
   onmessage = (e) => {
+    // DEBUG: Log all incoming messages
+    if (e.data?.type?.startsWith?.("daw:")) {
+      console.log("🎹🎹🎹 WORKER onmessage received:", e.data?.type, e.data);
+    }
     // Intercept the first message to log that we received it
     if (e.data?.type === "disk:load") {
       postMessage({ type: "boot-log", content: "worker received load" });
@@ -8037,6 +8049,11 @@ let pendingExportEvents = [];
 // TODO: Try to remove as many API calls from here as possible.
 
 async function makeFrame({ data: { type, content } }) {
+  // DEBUG: Log all DAW-related messages
+  if (type?.startsWith?.("daw:")) {
+    console.log("🎹🎹🎹 makeFrame received:", type, content);
+  }
+  
   // Runs once on boot.
   if (type === "init-from-bios") {
     debug = content.debug;
@@ -8187,32 +8204,33 @@ async function makeFrame({ data: { type, content } }) {
   }
 
   // 🎹 DAW Sync messages (from Max for Live via bios.mjs)
+  // Use persistentDawState since $commonApi.sound gets recreated every frame
   if (type === "daw:tempo") {
+    // Send acknowledgement back to main thread for debugging
+    send({ type: "daw:tempo:ack", content: { bpm: content?.bpm } });
     sound.bpm = content.bpm;
-    // Make DAW tempo available to pieces via $api.sound.daw
-    if (!$commonApi.sound.daw) $commonApi.sound.daw = {};
-    $commonApi.sound.daw.bpm = content.bpm;
+    // Store in persistent state (survives frame updates)
+    persistentDawState.bpm = content.bpm;
     return;
   }
 
   if (type === "daw:transport") {
-    // Make DAW transport state available to pieces via $api.sound.daw
-    if (!$commonApi.sound.daw) $commonApi.sound.daw = {};
-    $commonApi.sound.daw.playing = content.playing;
+    // Send acknowledgement back to main thread for debugging
+    send({ type: "daw:transport:ack", content: { playing: content?.playing } });
+    // Store in persistent state (survives frame updates)
+    persistentDawState.playing = content.playing;
     return;
   }
 
   if (type === "daw:phase") {
-    // Make DAW song position available to pieces via $api.sound.daw
-    if (!$commonApi.sound.daw) $commonApi.sound.daw = {};
-    $commonApi.sound.daw.time = content.time;
+    // Store in persistent state (survives frame updates)
+    persistentDawState.time = content.time;
     return;
   }
 
   if (type === "daw:samplerate") {
-    // Make DAW sample rate available to pieces via $api.sound.daw
-    if (!$commonApi.sound.daw) $commonApi.sound.daw = {};
-    $commonApi.sound.daw.sampleRate = content.rate;
+    // Store in persistent state (survives frame updates)
+    persistentDawState.sampleRate = content.rate;
     return;
   }
 
@@ -9700,14 +9718,9 @@ async function makeFrame({ data: { type, content } }) {
         return currentTime;
       },
       // 🎹 DAW state (populated via daw:tempo, daw:transport, daw:phase, daw:samplerate messages from M4L)
-      // Uses getter to always return current state from $commonApi.sound.daw
+      // Uses persistentDawState which survives frame updates (unlike $commonApi.sound which is recreated)
       get daw() {
-        return $commonApi.sound.daw || {
-          bpm: null,
-          playing: null,
-          time: null,
-          sampleRate: null,
-        };
+        return persistentDawState;
       },
       // Get the bpm with bpm() or set the bpm with bpm(newBPM).
       bpm: function (newBPM) {
