@@ -52,16 +52,26 @@ const { isFinite } = Number;
 // This allows M4L's executejavascript to call them immediately.
 // bios.mjs just connects the send function via window.acDawConnect().
 let _dawBpm = 60;
+let _dawSampleRate = null; // 🎹 Store DAW sample rate for AudioContext creation
 
 // Called from boot() to connect the send function
 function _dawConnectSend(sendFunc, updateMetronome) {
   if (window.acDawConnect) {
-    // Wrap sendFunc to also update metronome
+    console.log("🎹 _dawConnectSend called, sendFunc:", sendFunc?.toString?.().substring(0, 100));
+    // Wrap sendFunc to also update metronome and capture sample rate
     const wrappedSend = (msg) => {
+      console.log("🎹 BIOS wrappedSend called:", msg.type);
       if (msg.type === "daw:tempo" && updateMetronome) {
         updateMetronome(msg.content.bpm);
       }
+      // 🎹 Capture DAW sample rate for AudioContext creation
+      if (msg.type === "daw:samplerate" && msg.content?.samplerate) {
+        _dawSampleRate = msg.content.samplerate;
+        console.log("🎹 BIOS captured DAW sample rate:", _dawSampleRate);
+      }
+      console.log("🎹 Calling sendFunc now...");
       sendFunc(msg);
+      console.log("🎹 sendFunc returned for:", msg.type);
     };
     window.acDawConnect(wrappedSend);
   }
@@ -854,6 +864,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   let audioContextResuming = false; // Flag to track when AudioContext resume is in progress
   let audioContextResumeTimestamps = {}; // Store resume timestamps separately
+  let dawAudioResumed = false; // Track if we've already auto-resumed AudioContext for DAW mode
   let tapeSyncPosition = null; // Position to sync tape audio to (0-1), set by video piece
   let currentTapePosition = 0; // Current tape playback position (0-1), updated by main loop
   
@@ -2102,18 +2113,23 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // console.log(`🎵 AUDIO_INIT_START: ${audioStartTimestamp.toFixed(3)}ms`);
 
     // Main audio feed
-    // Try higher sample rate on Chrome desktop for lower latency
-    const isChrome = /Chrome/.test(navigator.userAgent) && !/Edge/.test(navigator.userAgent);
-    const isDesktop = !/Mobile|Android|iPhone|iPad/.test(navigator.userAgent);
-    const tryHighSampleRate = isChrome && isDesktop;
+    // 🎹 In DAW mode, use Ableton's sample rate; otherwise try high sample rate on Chrome desktop
+    let targetSampleRate;
+    if (_dawSampleRate) {
+      // DAW mode: match Ableton's sample rate for proper sync
+      targetSampleRate = _dawSampleRate;
+      console.log("🎹 DAW mode: Using Ableton sample rate:", targetSampleRate);
+    } else {
+      // Non-DAW mode: Try higher sample rate on Chrome desktop for lower latency
+      const isChrome = /Chrome/.test(navigator.userAgent) && !/Edge/.test(navigator.userAgent);
+      const isDesktop = !/Mobile|Android|iPhone|iPad/.test(navigator.userAgent);
+      const tryHighSampleRate = isChrome && isDesktop;
+      targetSampleRate = tryHighSampleRate ? 192000 : 48000;
+    }
     
     audioContext = new AudioContext({
       latencyHint: "interactive", // "interactive" = lowest latency, "balanced" = default, "playback" = prioritize battery
-      // TODO: Eventually choose a good sample rate and/or make it settable via
-      //       the current disk.
-      // sampleRate: 44100,
-      // sampleRate: 48000,
-      sampleRate: tryHighSampleRate ? 192000 : 48000, // Try max sample rate on Chrome desktop (192kHz is highest commonly supported)
+      sampleRate: targetSampleRate,
     });
 
     // 🎵 AUDIO CONTEXT LOGGING - Track timing characteristics
@@ -2599,6 +2615,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         speakerProcessor.connect(sfxStreamGain); // Connect to the mediaStream.
         speakerProcessor.connect(speakerGain);
+        console.log("🔊 Speaker processor connected to audio graph!");
 
         activatedSoundCallback?.();
 
@@ -3405,6 +3422,48 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // Also relay to parent for embedded contexts
       if (window.parent) {
         window.parent.postMessage({ type: "boot-log", message: content }, "*");
+      }
+      return;
+    }
+
+    // 🎹 Debug messages from disk worker (DAW sync debugging)
+    if (type === "disk:debug") {
+      console.log("🎹 BIOS received disk:debug from worker:", content);
+      return;
+    }
+    
+    // 🎹 DAW phase update - auto-resume AudioContext once for DAW mode
+    if (type === "daw:phase:ack" && !dawAudioResumed) {
+      if (audioContext && audioContext.state === "suspended") {
+        dawAudioResumed = true;
+        console.log("🎹 DAW phase: Auto-resuming AudioContext...");
+        audioContext.resume().then(() => {
+          console.log("🎹 AudioContext resumed from phase! State:", audioContext.state);
+        }).catch(e => console.warn("🎹 AudioContext resume failed:", e));
+      }
+      return;
+    }
+    
+    // 🎹 DAW sync acknowledgements from disk worker
+    if (type === "daw:tempo:ack") {
+      console.log("🎹🎹🎹 BIOS received daw:tempo:ack from worker! BPM:", content?.bpm);
+      // 🎹 Auto-resume AudioContext for DAW mode (jweb~ has no user interaction)
+      if (audioContext && audioContext.state === "suspended") {
+        console.log("🎹 DAW mode: Auto-resuming AudioContext...");
+        audioContext.resume().then(() => {
+          console.log("🎹 AudioContext resumed for DAW mode! State:", audioContext.state);
+        }).catch(e => console.warn("🎹 AudioContext resume failed:", e));
+      }
+      return;
+    }
+    if (type === "daw:transport:ack") {
+      console.log("🎹🎹🎹 BIOS received daw:transport:ack from worker! Playing:", content?.playing);
+      // 🎹 Auto-resume AudioContext for DAW mode (jweb~ has no user interaction)
+      if (audioContext && audioContext.state === "suspended") {
+        console.log("🎹 DAW mode: Auto-resuming AudioContext (from transport)...");
+        audioContext.resume().then(() => {
+          console.log("🎹 AudioContext resumed for DAW mode! State:", audioContext.state);
+        }).catch(e => console.warn("🎹 AudioContext resume failed:", e));
       }
       return;
     }
