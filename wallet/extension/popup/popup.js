@@ -23,12 +23,14 @@ const el = {
   createPasswordConfirm: document.getElementById('create-password-confirm'),
   createStatus: document.getElementById('create-status'),
   importMnemonic: document.getElementById('import-mnemonic'),
+  importPrivateKey: document.getElementById('import-privatekey'),
   importPassword: document.getElementById('import-password'),
   importStatus: document.getElementById('import-status'),
 };
 
 // State
 let currentView = 'welcome';
+let currentImportTab = 'mnemonic';
 let tezPrice = null;
 
 // Show a view
@@ -186,32 +188,69 @@ document.getElementById('btn-create-back').addEventListener('click', () => {
 
 // Import wallet view
 document.getElementById('btn-import-confirm').addEventListener('click', async () => {
-  const mnemonic = el.importMnemonic.value.trim();
   const password = el.importPassword.value;
-  
-  const words = mnemonic.split(/\s+/);
-  if (words.length !== 24) {
-    showStatus('import', 'Seed phrase must be 24 words', 'error');
-    return;
-  }
   
   if (!password || password.length < 8) {
     showStatus('import', 'Password must be at least 8 characters', 'error');
     return;
   }
   
-  const res = await sendMessage('KEEPS_IMPORT_WALLET', { mnemonic, password });
-  
-  if (res.error) {
-    showStatus('import', res.error, 'error');
+  if (currentImportTab === 'mnemonic') {
+    // Import via seed phrase
+    const mnemonic = el.importMnemonic.value.trim();
+    const words = mnemonic.split(/\s+/);
+    
+    if (words.length !== 12 && words.length !== 24) {
+      showStatus('import', 'Seed phrase must be 12 or 24 words', 'error');
+      return;
+    }
+    
+    const res = await sendMessage('KEEPS_IMPORT_WALLET', { mnemonic, password });
+    
+    if (res.error) {
+      showStatus('import', res.error, 'error');
+    } else {
+      showStatus('import', 'Wallet imported successfully!', 'success');
+      setTimeout(() => init(), 2000);
+    }
   } else {
-    showStatus('import', 'Wallet imported successfully!', 'success');
-    setTimeout(() => init(), 2000);
+    // Import via private key
+    const privateKey = el.importPrivateKey.value.trim();
+    
+    if (!privateKey.startsWith('edsk')) {
+      showStatus('import', 'Private key must start with "edsk"', 'error');
+      return;
+    }
+    
+    const res = await sendMessage('KEEPS_IMPORT_PRIVATE_KEY', { privateKey, password });
+    
+    if (res.error) {
+      showStatus('import', res.error, 'error');
+    } else {
+      showStatus('import', 'Wallet imported successfully!', 'success');
+      setTimeout(() => init(), 2000);
+    }
   }
 });
 
 document.getElementById('btn-import-back').addEventListener('click', () => {
   showView('welcome');
+});
+
+// Import tab switching
+document.querySelectorAll('.import-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    const tabName = tab.dataset.tab;
+    currentImportTab = tabName;
+    
+    // Update active tab
+    document.querySelectorAll('.import-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    
+    // Update active content
+    document.querySelectorAll('.import-content').forEach(c => c.classList.remove('active'));
+    document.getElementById(`import-${tabName}-content`).classList.add('active');
+  });
 });
 
 // Helper to show status messages

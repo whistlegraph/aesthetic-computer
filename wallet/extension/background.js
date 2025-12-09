@@ -6,6 +6,7 @@ import {
   generateMnemonic,
   validateMnemonic,
   deriveKeypair,
+  importFromPrivateKey,
   encrypt,
   decrypt,
   signOperation as cryptoSignOperation,
@@ -44,6 +45,9 @@ async function handleMessage(message, sender) {
         
       case 'KEEPS_IMPORT_WALLET':
         return await importWallet(payload.mnemonic, payload.password);
+        
+      case 'KEEPS_IMPORT_PRIVATE_KEY':
+        return await importPrivateKey(payload.privateKey, payload.password);
         
       case 'KEEPS_UNLOCK':
         return await unlockWallet(payload.password);
@@ -172,10 +176,56 @@ async function importWallet(mnemonic, password) {
   };
 }
 
+// Import wallet from private key
+async function importPrivateKey(privateKey, password) {
+  if (!password || password.length < 8) {
+    return { error: 'Password must be at least 8 characters' };
+  }
+  
+  if (!privateKey || !privateKey.startsWith('edsk')) {
+    return { error: 'Invalid private key format' };
+  }
+  
+  try {
+    await initCrypto();
+    
+    // 1. Import keypair from private key
+    const keypair = await importFromPrivateKey(privateKey.trim());
+    
+    // 2. Encrypt private key with password (we store the key directly, no mnemonic)
+    const encryptedSeed = await encrypt(privateKey.trim(), password);
+    
+    // 3. Store encrypted key and public info
+    await chrome.storage.local.set({
+      encryptedSeed,
+      importType: 'privateKey', // Flag so we know to handle differently on unlock
+      address: keypair.address,
+      publicKey: keypair.publicKey,
+      network: 'ghostnet',
+    });
+    
+    // 4. Keep unlocked
+    unlockedWallet = {
+      address: keypair.address,
+      publicKey: keypair.publicKey,
+      secretKeyBytes: keypair.secretKeyBytes,
+    };
+    resetLockTimeout();
+    
+    return { 
+      success: true, 
+      address: keypair.address,
+    };
+  } catch (error) {
+    console.error('Import private key error:', error);
+    return { error: error.message || 'Failed to import private key' };
+  }
+}
+
 // Unlock wallet
 async function unlockWallet(password) {
-  const { encryptedSeed, address, publicKey } = await chrome.storage.local.get([
-    'encryptedSeed', 'address', 'publicKey'
+  const { encryptedSeed, importType, address, publicKey } = await chrome.storage.local.get([
+    'encryptedSeed', 'importType', 'address', 'publicKey'
   ]);
   
   if (!encryptedSeed) {
@@ -185,11 +235,17 @@ async function unlockWallet(password) {
   try {
     await initCrypto();
     
-    // Decrypt mnemonic
-    const mnemonic = await decrypt(encryptedSeed, password);
+    // Decrypt stored secret
+    const decrypted = await decrypt(encryptedSeed, password);
     
-    // Derive keypair
-    const keypair = await deriveKeypair(mnemonic);
+    let keypair;
+    if (importType === 'privateKey') {
+      // It's a private key
+      keypair = await importFromPrivateKey(decrypted);
+    } else {
+      // It's a mnemonic
+      keypair = await deriveKeypair(decrypted);
+    }
     
     // Verify address matches
     if (keypair.address !== address) {
@@ -203,8 +259,8 @@ async function unlockWallet(password) {
       secretKeyBytes: keypair.secretKeyBytes,
     };
     
-    // Clear mnemonic from memory (best effort)
-    clearSensitiveData(mnemonic);
+    // Clear decrypted secret from memory (best effort)
+    clearSensitiveData(decrypted);
     
     resetLockTimeout();
     
