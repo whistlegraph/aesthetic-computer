@@ -174,7 +174,6 @@ async function deployContract(network = 'ghostnet') {
   // Build contract metadata (TZIP-16)
   const contractMetadataJson = JSON.stringify({
     name: "KidLisp Keeps",
-    description: "FA2 NFT contract for KidLisp pieces on aesthetic.computer",
     version: "2.0.0",
     interfaces: ["TZIP-012", "TZIP-016", "TZIP-021"],
     authors: ["aesthetic.computer"],
@@ -713,14 +712,14 @@ async function mintToken(piece, options = {}) {
   const acUrl = `https://aesthetic.computer/$${pieceName}`;
   
   // Build description: source code first, then attribution
-  // Use permanent user code if available, otherwise AC handle
-  const authorDisplayName = userCode || authorHandle || null;
+  // Use permanent user code if available, otherwise AC handle (but skip @anon)
+  const authorDisplayName = userCode || (authorHandle && authorHandle !== '@anon' ? authorHandle : null);
   
   let description = '';
   if (sourceCode) {
     // Start with source code
     description = sourceCode;
-    // Add attribution line
+    // Add attribution line (only if we have real author info)
     const byLine = [];
     if (authorDisplayName) byLine.push(`by ${authorDisplayName}`);
     if (packDate) byLine.push(`packed on ${packDate}`);
@@ -728,7 +727,7 @@ async function mintToken(piece, options = {}) {
       description += `\n\n${byLine.join(' · ')}`;
     }
   } else {
-    description = `An aesthetic.computer ${contentType} piece preserved on Tezos`;
+    description = `A KidLisp piece preserved on Tezos`;
   }
   
   // Build tags (no author handle in tags)
