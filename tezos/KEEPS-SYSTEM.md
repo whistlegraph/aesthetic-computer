@@ -126,89 +126,178 @@ Currently only admin can mint. We want:
 2. Users can only mint **their own** pieces (pieces they authored)
 3. Minting should be self-service via web UI
 
-### Proposed Architecture
+### Existing Infrastructure
+
+#### Authentication
+- **Auth0** provides JWT tokens via `/userinfo` endpoint
+- `authorize()` in `backend/authorization.mjs` validates tokens
+- Returns `{ sub, email, email_verified, ... }`
+
+#### Piece Ownership (Already Tracked!)
+The `kidlisp-codes` MongoDB collection already stores:
+```javascript
+{
+  code: "cow",           // Piece name
+  source: "(wipe...)",   // Source code
+  hash: "...",           // SHA-256 of source
+  user: "auth0|123...",  // Creator's Auth0 sub ID ✅
+  when: Date,            // Created timestamp
+}
+```
+
+#### Handle Resolution
+- `handleFor(userId)` in `backend/authorization.mjs` gets `@handle` from `sub`
+- `fetchAuthorInfo(userId)` in `bundle-html.js` resolves handle + userCode
+
+### Architecture
 
 ```
-┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
-│   AC Frontend   │────▶│  Netlify Edge    │────▶│  Tezos Contract │
-│   (React/JS)    │     │  /api/keeps/*    │     │  (SmartPy FA2)  │
-└─────────────────┘     └──────────────────┘     └─────────────────┘
-        │                       │
-        │ Auth0 JWT             │ Verify:
-        ▼                       ▼
-┌─────────────────┐     ┌──────────────────┐
-│     Auth0       │     │   Redis/KV       │
-│  (handled user) │     │  (piece author)  │
-└─────────────────┘     └──────────────────┘
+┌─────────────────┐     ┌──────────────────────────────┐     ┌─────────────────┐
+│   AC Frontend   │────▶│  /api/kidlisp-keep           │────▶│  Tezos Contract │
+│   (user clicks  │     │  (Netlify function)          │     │  (SmartPy FA2)  │
+│    "Keep" btn)  │     │                              │     │                 │
+└─────────────────┘     │  1. Validate JWT (Auth0)     │     └─────────────────┘
+        │               │  2. Check user has @handle   │
+        │ JWT Bearer    │  3. Verify piece ownership   │
+        │ token         │  4. Check not already minted │
+        ▼               │  5. Generate bundle & thumb  │
+                        │  6. Upload to IPFS           │
+                        │  7. Sign & submit Tezos tx   │
+                        └──────────────────────────────┘
+                                      │
+                                      ▼
+                        ┌──────────────────────────────┐
+                        │  MongoDB `kidlisp-codes`     │
+                        │  - code → user mapping       │
+                        │  - piece ownership proof     │
+                        └──────────────────────────────┘
 ```
 
 ### Authorization Flow
 
 1. **User Authentication** (Auth0)
-   - User logs in via Auth0
-   - JWT contains `sub` (user ID) and custom claims
-   - Only users with a `@handle` can access minting
+   ```javascript
+   const user = await authorize({ authorization: req.headers.authorization });
+   if (!user) return 401 Unauthorized;
+   ```
 
-2. **Piece Ownership Verification**
-   - When user saves a piece, store: `piece_name → user_id` in Redis/KV
-   - API endpoint checks: Does this user own this piece?
-   - Reject if piece belongs to someone else
+2. **Handle Requirement**
+   ```javascript
+   const handle = await handleFor(user.sub);
+   if (!handle) return 403 "You need an @handle to mint";
+   ```
 
-3. **Minting Authorization**
-   - Netlify edge function validates JWT
-   - Checks piece ownership
-   - Signs transaction with admin key (server-side)
-   - Submits to Tezos
+3. **Piece Ownership Verification**
+   ```javascript
+   const piece = await db.collection('kidlisp-codes').findOne({ code: pieceName });
+   if (!piece) return 404 "Piece not found";
+   if (piece.user !== user.sub) return 403 "You don't own this piece";
+   ```
 
-### API Endpoints (Netlify)
+4. **Duplicate Check**
+   ```javascript
+   const duplicate = await checkDuplicatePiece(pieceName);
+   if (duplicate.exists) return 409 "Already minted as token #X";
+   ```
 
-| Endpoint | Method | Auth | Description |
-|----------|--------|------|-------------|
-| `/api/keeps/check` | GET | JWT | Check if piece can be minted |
-| `/api/keeps/mint` | POST | JWT | Mint piece (server signs tx) |
-| `/api/keeps/status` | GET | Public | Get token status |
-| `/api/keeps/my-keeps` | GET | JWT | List user's minted keeps |
+5. **Minting**
+   - Generate bundle via existing `bundle-html.js` logic
+   - Generate thumbnail via Oven
+   - Upload to IPFS
+   - Sign transaction with server-side admin key
+   - Submit to Tezos
 
-### Security Considerations
+### API Endpoints
+
+#### `POST /api/kidlisp-keep`
+Mint a new keep (requires auth)
+
+**Headers:**
+- `Authorization: Bearer <JWT>`
+
+**Body:**
+```json
+{
+  "piece": "cow",
+  "generateThumbnail": true
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "tokenId": 5,
+  "txHash": "op...",
+  "artifactUri": "ipfs://...",
+  "objktUrl": "https://objkt.com/asset/KT1.../5"
+}
+```
+
+**Errors:**
+- `401` - Not authenticated
+- `403` - No @handle, or not piece owner
+- `404` - Piece not found
+- `409` - Already minted
+
+#### `GET /api/kidlisp-keep?piece=cow`
+Check piece mint status (public)
+
+**Response:**
+```json
+{
+  "piece": "cow",
+  "canMint": true,
+  "owner": "@jeffrey",
+  "minted": false
+}
+// or if minted:
+{
+  "piece": "cow",
+  "canMint": false,
+  "minted": true,
+  "tokenId": 5,
+  "objktUrl": "https://..."
+}
+```
+
+### Security
 
 1. **Admin Key Protection**
-   - Tezos private key stored in Netlify env vars
+   - Tezos private key in Netlify env: `TEZOS_KIDLISP_KEY`
    - Never exposed to client
    - Server signs all transactions
 
-2. **Rate Limiting**
-   - Per-user mint limits (e.g., 5 per day)
-   - Prevent spam/abuse
+2. **Ownership Enforcement**
+   - Only `piece.user === user.sub` can mint
+   - First saver owns the piece (existing behavior)
+   - Admin can mint any piece (bypass)
 
-3. **Piece Ownership**
-   - Verify via Redis: `pieces:{piece_name}:author`
-   - Set when piece is first saved
-   - Immutable once set (first-come-first-served)
-
-4. **Handle Requirement**
-   - Check Auth0 user metadata for `handle`
-   - Only handled users can mint
-   - Prevents anonymous spam
-
-### Data Model
-
-```
-Redis Keys:
-  pieces:{name}:author     → user_id (who created it)
-  pieces:{name}:handle     → @handle (display name)
-  users:{user_id}:pieces   → Set of piece names
-  keeps:{piece_name}       → token_id (if minted)
-```
+3. **Rate Limiting** (Future)
+   - Per-user limits (e.g., 5 mints/day)
+   - Prevent spam
 
 ### Implementation Steps
 
-1. [ ] Create `/api/keeps/check` endpoint
-2. [ ] Create `/api/keeps/mint` endpoint  
-3. [ ] Add piece ownership tracking to save flow
-4. [ ] Build minting UI in AC frontend
-5. [ ] Add rate limiting
-6. [ ] Test with local dev server
-7. [ ] Deploy to production
+1. [x] Document existing infrastructure
+2. [ ] Implement `/api/kidlisp-keep` GET (check status)
+3. [ ] Implement `/api/kidlisp-keep` POST (mint)
+4. [ ] Add "Keep" button to UI when viewing own piece
+5. [ ] Test locally with dev server
+6. [ ] Deploy to production
+7. [ ] Add rate limiting
+
+### Environment Variables Needed
+
+```env
+# Netlify env vars (already have most of these)
+TEZOS_KIDLISP_KEY=edsk...       # Admin signing key
+TEZOS_CONTRACT_ADDRESS=KT1...   # Keeps contract
+TEZOS_NETWORK=ghostnet          # or mainnet
+PINATA_API_KEY=...              # For IPFS uploads
+PINATA_API_SECRET=...
+OVEN_URL=https://oven.aesthetic.computer
+```
 
 ---
 
