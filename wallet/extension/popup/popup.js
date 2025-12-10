@@ -200,8 +200,9 @@ document.getElementById('btn-import-confirm').addEventListener('click', async ()
     const mnemonic = el.importMnemonic.value.trim();
     const words = mnemonic.split(/\s+/);
     
-    if (words.length !== 12 && words.length !== 24) {
-      showStatus('import', 'Seed phrase must be 12 or 24 words', 'error');
+    const validLengths = [12, 15, 18, 21, 24];
+    if (!validLengths.includes(words.length)) {
+      showStatus('import', 'Seed phrase must be 12, 15, 18, 21, or 24 words', 'error');
       return;
     }
     

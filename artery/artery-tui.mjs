@@ -63,13 +63,26 @@ const DOS_HIGHLIGHT = `${BG_CYAN}${FG_BLACK}`;
 const DOS_BORDER = `${BG_BLUE}${FG_BRIGHT_CYAN}`;
 const DOS_STATUS = `${BG_BLUE}${FG_BRIGHT_YELLOW}`;
 
-// ASCII Art title - each character position for animation
+// ASCII Art title - AESTHETIC COMPUTER
 const ARTERY_ASCII = [
-  '█▀█ █▀█ ▀█▀ █▀▀ █▀█ █▄█',
-  '█▀█ █▀▄  █  ██▄ █▀▄  █ ',
+  'AESTHETIC  COMPUTER',
 ];
 
-// Blood flow animation frames - positions that light up red
+// Baby block colors - background colors with white/black text
+const BLOCK_COLORS = [
+  { bg: '\x1b[41m', fg: '\x1b[97m' },  // red bg, white text
+  { bg: '\x1b[43m', fg: '\x1b[30m' },  // yellow bg, black text  
+  { bg: '\x1b[42m', fg: '\x1b[97m' },  // green bg, white text
+  { bg: '\x1b[46m', fg: '\x1b[30m' },  // cyan bg, black text
+  { bg: '\x1b[44m', fg: '\x1b[97m' },  // blue bg, white text
+  { bg: '\x1b[45m', fg: '\x1b[97m' },  // magenta bg, white text
+  { bg: '\x1b[47m', fg: '\x1b[30m' },  // white bg, black text
+  { bg: '\x1b[101m', fg: '\x1b[97m' }, // bright red bg
+  { bg: '\x1b[103m', fg: '\x1b[30m' }, // bright yellow bg
+  { bg: '\x1b[104m', fg: '\x1b[97m' }, // bright blue bg
+];
+
+// Title animation - scattered colors
 const BLOOD_FLOW_LENGTH = ARTERY_ASCII[0].length;
 const BLOOD_PULSE_WIDTH = 4; // Width of the "blood pulse"
 
@@ -2370,6 +2383,16 @@ class ArteryTUI {
     this.write(this.frameBuffer.join('\n'));
   }
 
+  // Helper to render a bordered line with proper padding
+  renderBoxLine(content, boxWidth, theme) {
+    const stripped = this.stripAnsi(content);
+    // Count emojis for visual width adjustment
+    const emojiCount = (stripped.match(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]/gu) || []).length;
+    const visualLen = stripped.length + emojiCount;
+    const padding = boxWidth - 2 - visualLen;
+    this.writeLine(`${theme.border}║${theme.fill}${content}${theme.fill}${' '.repeat(Math.max(0, padding))}${theme.border}║${RESET}`);
+  }
+
   renderHeader() {
     const boxWidth = this.innerWidth;
     const compact = this.width < 80;
@@ -2381,94 +2404,87 @@ class ArteryTUI {
     const themeText = theme.text;
     const themeAccent = theme.accent;
     
-    // AC status - Open/Closed
-    const acStatus = this.connected 
-      ? `${themeFill}${FG_BRIGHT_GREEN}AC Open` 
-      : `${themeFill}${FG_BRIGHT_RED}AC Closed`;
-    const piece = this.currentPiece ? ` ${themeText}│ ${themeAccent}${this.currentPiece}` : '';
-    
-    // Server status indicators with transient message
-    const localIcon = this.serverStatus.local === true ? `${FG_BRIGHT_GREEN}●` 
-                    : this.serverStatus.local === false ? `${FG_BRIGHT_YELLOW}◐` 
-                    : `${DIM}?`;
-    const localMsg = this.localStatusMessage ? ` ${FG_BRIGHT_YELLOW}${this.localStatusMessage}` : '';
-    const prodIcon = this.serverStatus.production === true ? `${FG_BRIGHT_GREEN}●` 
-                   : this.serverStatus.production === false ? `${FG_BRIGHT_RED}○` 
-                   : `${DIM}?`;
-    const serverInfo = compact 
-      ? ` ${localIcon}${prodIcon}` 
-      : ` ${themeText}│ ${themeText}L${localIcon}${localMsg} ${themeText}P${prodIcon}`;
-    
-    // Host info line (container → host)
-    let hostInfoLine = '';
-    if (this.hostInfo.inContainer && !compact) {
-      const containerLabel = this.hostInfo.containerDistro || 'Container';
-      const hostLabel = this.hostInfo.hostLabel || this.hostInfo.hostOS || 'Host';
-      // CDP status indicator
-      const cdpIcon = this.cdpStatus === 'online' ? `${FG_BRIGHT_GREEN}●` 
-                    : this.cdpStatus === 'offline' ? `${FG_BRIGHT_RED}○` 
-                    : `${DIM}?`;
-      const cdpLabel = `${FG_CYAN}CDP${cdpIcon}`;
-      hostInfoLine = `${FG_BRIGHT_MAGENTA}📦 ${containerLabel} ${FG_BRIGHT_CYAN}→ ${this.hostInfo.hostEmoji} ${FG_WHITE}${BOLD}${hostLabel}${RESET}${BG_BLUE} ${cdpLabel}`;
-    }
-    
-    // Top border - DOS style double line with dynamic color
+    // Top border
     this.writeLine(`${themeBorder}╔${'═'.repeat(boxWidth - 2)}╗${RESET}`);
     
-    // ASCII art title - only show if wide enough
+    // === TITLE SECTION ===
     if (!compact) {
-      for (const artLine of ARTERY_ASCII) {
-        const artPadding = Math.floor((boxWidth - artLine.length - 4) / 2);
-        const rightPad = boxWidth - artLine.length - artPadding - 2;
+      // Empty line for breathing room
+      this.renderBoxLine('', boxWidth, theme);
+      
+      // Animated baby block title
+      for (let lineIdx = 0; lineIdx < ARTERY_ASCII.length; lineIdx++) {
+        const artLine = ARTERY_ASCII[lineIdx];
+        const letterCount = artLine.replace(/ /g, '').length;
+        const gapCount = (artLine.match(/  /g) || []).length;
+        const blockWidth = letterCount * 3 + gapCount * 3;
+        const artPadding = Math.floor((boxWidth - blockWidth - 2) / 2);
+        const rightPad = boxWidth - blockWidth - artPadding - 2;
         
-        // Animate blood flow through the ASCII art
         let animatedLine = '';
+        let charIdx = 0;
         for (let i = 0; i < artLine.length; i++) {
           const char = artLine[i];
-          // Calculate distance from blood pulse position
-          const pulseCenter = this.bloodPosition - BLOOD_PULSE_WIDTH;
-          const distance = Math.abs(i - pulseCenter);
-          
-          // Always show subtle pulse, more intense with network activity
-          const baseActivity = 0.2; // Always have some animation
-          const effectiveActivity = baseActivity + (this.networkActivity * 0.1);
-          const inPulse = distance < BLOOD_PULSE_WIDTH;
-          
-          if (inPulse && char !== ' ') {
-            // Blood pulse - red color intensity based on distance from center
-            const intensity = 1 - (distance / BLOOD_PULSE_WIDTH);
-            if (intensity > 0.6 && effectiveActivity > 0.3) {
-              animatedLine += `${FG_BRIGHT_RED}${char}${themeText}`;
-            } else if (intensity > 0.3 && effectiveActivity > 0.2) {
-              animatedLine += `${FG_RED}${char}${themeText}`;
-            } else if (intensity > 0 && effectiveActivity > 0.1) {
-              animatedLine += `${FG_MAGENTA}${char}${themeText}`;
-            } else {
-              animatedLine += char;
+          if (char === ' ') {
+            if (i + 1 < artLine.length && artLine[i + 1] === ' ') {
+              animatedLine += '   ';
+              i++;
             }
           } else {
-            animatedLine += char;
+            const timeOffset = Math.floor(this.bloodPosition / 3);
+            const waveOffset = Math.floor(Math.sin((charIdx + timeOffset) * 0.5) * 2);
+            const colorIdx = Math.abs((charIdx + timeOffset + waveOffset) % BLOCK_COLORS.length);
+            const block = BLOCK_COLORS[colorIdx];
+            animatedLine += `${block.bg}${block.fg}${BOLD} ${char} ${RESET}${themeFill}`;
+            charIdx++;
           }
         }
         
-        this.writeLine(`${themeBorder}║${themeFill}${' '.repeat(Math.max(0, artPadding))}${themeText}${animatedLine}${' '.repeat(Math.max(0, rightPad))}${themeBorder}║${RESET}`);
+        this.writeLine(`${themeBorder}║${themeFill}${' '.repeat(Math.max(0, artPadding))}${animatedLine}${' '.repeat(Math.max(0, rightPad))}${themeBorder}║${RESET}`);
       }
+      
+      // Empty line for breathing room
+      this.renderBoxLine('', boxWidth, theme);
     } else {
-      // Compact title
-      const compactTitle = `${themeText}${BOLD}ARTERY`;
-      const titlePad = Math.floor((boxWidth - 10) / 2);
-      this.writeLine(`${themeBorder}║${themeFill}${' '.repeat(Math.max(0, titlePad))}${compactTitle}${' '.repeat(Math.max(0, boxWidth - titlePad - 10))}${themeBorder}║${RESET}`);
+      // Compact: simple centered title
+      const title = `${themeAccent}${BOLD}AESTHETIC COMPUTER${RESET}${themeFill}`;
+      const titleLen = 18; // "AESTHETIC COMPUTER"
+      const leftPad = Math.floor((boxWidth - 2 - titleLen) / 2);
+      const rightPad = boxWidth - 2 - titleLen - leftPad;
+      this.writeLine(`${themeBorder}║${themeFill}${' '.repeat(leftPad)}${title}${' '.repeat(rightPad)}${themeBorder}║${RESET}`);
     }
     
-    // Status line
-    const statusLine = `${acStatus}${piece}${serverInfo}`;
-    const statusPadding = boxWidth - this.stripAnsi(statusLine).length - 2;
-    this.writeLine(`${themeBorder}║${themeFill}${statusLine}${' '.repeat(Math.max(0, statusPadding))}${themeBorder}║${RESET}`);
+    // === STATUS SECTION ===
+    // AC status line
+    const acStatus = this.connected 
+      ? `${FG_BRIGHT_GREEN}● Open` 
+      : `${FG_BRIGHT_RED}○ Closed`;
+    const piece = this.currentPiece ? ` ${themeText}│ ${themeAccent}${this.currentPiece}` : '';
     
-    // Host info line (if in container and not compact)
-    if (hostInfoLine) {
-      const hostPadding = boxWidth - this.stripAnsi(hostInfoLine).length - 2;
-      this.writeLine(`${themeBorder}║${themeFill}${hostInfoLine}${' '.repeat(Math.max(0, hostPadding))}${themeBorder}║${RESET}`);
+    const localIcon = this.serverStatus.local === true ? `${FG_BRIGHT_GREEN}●` 
+                    : this.serverStatus.local === false ? `${FG_BRIGHT_YELLOW}◐` 
+                    : `${DIM}?`;
+    const prodIcon = this.serverStatus.production === true ? `${FG_BRIGHT_GREEN}●` 
+                   : this.serverStatus.production === false ? `${FG_BRIGHT_RED}○` 
+                   : `${DIM}?`;
+    
+    const serverInfo = compact 
+      ? ` ${localIcon}${prodIcon}` 
+      : ` ${themeText}│ L${localIcon} P${prodIcon}`;
+    
+    const statusContent = `${acStatus}${piece}${serverInfo}`;
+    this.renderBoxLine(statusContent, boxWidth, theme);
+    
+    // === PLATFORM LINE (non-compact only) ===
+    if (this.hostInfo.inContainer && !compact) {
+      const containerLabel = this.hostInfo.containerDistro || 'Container';
+      const hostLabel = this.hostInfo.hostLabel || this.hostInfo.hostOS || 'Host';
+      const cdpIcon = this.cdpStatus === 'online' ? `${FG_BRIGHT_GREEN}●` 
+                    : this.cdpStatus === 'offline' ? `${FG_BRIGHT_RED}○` 
+                    : `${DIM}?`;
+      
+      const platformContent = `${FG_BRIGHT_MAGENTA}📦 ${containerLabel} ${FG_BRIGHT_CYAN}→ ${this.hostInfo.hostEmoji} ${FG_WHITE}${BOLD}${hostLabel}${RESET}${themeFill} ${FG_CYAN}CDP${cdpIcon}${RESET}${themeFill}`;
+      this.renderBoxLine(platformContent, boxWidth, theme);
     }
     
     // Separator
@@ -2494,26 +2510,19 @@ class ArteryTUI {
         warn: FG_BRIGHT_YELLOW,
         error: FG_BRIGHT_RED,
       };
-      const maxMsgLen = boxWidth - 6;
+      const maxMsgLen = boxWidth - 20; // Leave room for clock
       const truncMsg = this.statusMessage.length > maxMsgLen 
         ? this.statusMessage.slice(0, maxMsgLen - 3) + '...' 
         : this.statusMessage;
-      statusLine = `${themeFill}${colors[this.statusType] || FG_WHITE}${truncMsg}`;
+      statusLine = `${colors[this.statusType] || FG_WHITE}${truncMsg}${RESET}`;
     }
     
-    // Bottom border with status - DOS style with dynamic color
+    const footerHint = compact ? `${themeText}Q${FG_WHITE}uit ${themeText}Esc${RESET}${themeFill}` : `${themeText}[Q]${FG_WHITE}uit ${themeText}[Esc]${FG_WHITE}Menu${RESET}${themeFill}`;
+    const footerContent = ` ${statusLine || footerHint}`;
+    
+    // Footer line with bottom border
     this.writeLine(`${themeBorder}╠${'═'.repeat(boxWidth - 2)}╣${RESET}`);
-    
-    const footerHint = compact ? `${themeFill}${themeText}Q${FG_WHITE}uit ${themeText}Esc` : `${themeFill}${themeText}[Q]${FG_WHITE}uit ${themeText}[Esc]${FG_WHITE}Menu`;
-    const footerContent = statusLine || footerHint;
-    
-    // Analog clock widget on the right
-    const clockWidget = compact ? '' : `${FG_BRIGHT_YELLOW}${this.getAnalogClockWidget()}${DIM}Z`;
-    const clockLen = compact ? 0 : this.stripAnsi(clockWidget).length + 1; // +1 for emoji width
-    const contentLen = this.stripAnsi(footerContent).length;
-    const middlePadding = boxWidth - contentLen - clockLen - 2;
-    this.writeLine(`${themeBorder}║${themeFill}${footerContent}${' '.repeat(Math.max(0, middlePadding))}${clockWidget}${themeBorder}║${RESET}`);
-    
+    this.renderBoxLine(footerContent, boxWidth, theme);
     this.writeLine(`${themeBorder}╚${'═'.repeat(boxWidth - 2)}╝${RESET}`);
   }
 

@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "build": "node scripts/build.mjs",
+    "build:zip": "node scripts/pack.mjs",
     "build:icons": "node scripts/generate-icons.mjs",
     "dev": "node scripts/build.mjs --watch",
     "test": "echo 'Load extension in chrome://extensions as unpacked'"

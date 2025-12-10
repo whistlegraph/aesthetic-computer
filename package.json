@@ -100,16 +100,21 @@
   "dependencies": {
     "@atproto/api": "^0.17.2",
     "@aws-sdk/client-s3": "^3.934.0",
+    "@babel/core": "^7.28.5",
+    "@babel/preset-react": "^7.28.5",
+    "@babel/register": "^7.28.3",
     "archiver": "^7.0.1",
     "dotenv": "^16.4.7",
     "gbasm": "^0.0.21",
     "gif-encoder-2": "^1.0.5",
+    "ink": "^6.5.1",
     "jszip": "^3.10.1",
     "mongodb": "^6.20.0",
     "node-datachannel": "^0.30.0",
     "node-fetch": "^3.3.2",
     "ntp-client": "^0.5.3",
     "obscenity": "^0.4.5",
+    "react": "^19.2.1",
     "terser": "^5.36.0",
     "ws": "^8.18.3"
   }
