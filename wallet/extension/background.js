@@ -23,6 +23,53 @@ initCrypto().then(() => {
   console.log('🔐 Keeps Wallet crypto initialized');
 });
 
+// Prefer opening the UI in the side panel (new extension UX)
+async function enableSidePanel() {
+  if (!chrome.sidePanel?.setPanelBehavior) return;
+  try {
+    await chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+    await chrome.sidePanel.setOptions({
+      path: chrome.runtime.getURL('popup/popup.html'),
+      enabled: true,
+    });
+  } catch (err) {
+    console.warn('Side panel setup failed', err);
+  }
+}
+
+// Open UI via side panel when available; otherwise fall back to popup window.
+async function openUiForClick(tab) {
+  if (chrome.sidePanel?.open) {
+    try {
+      await chrome.sidePanel.open({ windowId: tab?.windowId });
+      return;
+    } catch (err) {
+      console.warn('Side panel open failed, falling back to popup window', err);
+    }
+  }
+  
+  // Fallback: open small popup window with the same UI
+  chrome.windows.create({
+    url: chrome.runtime.getURL('popup/popup.html'),
+    type: 'popup',
+    width: 420,
+    height: 640,
+  });
+}
+
+chrome.runtime.onInstalled.addListener(() => {
+  enableSidePanel();
+});
+
+chrome.runtime.onStartup?.addListener(() => {
+  enableSidePanel();
+});
+
+// Open UI on browser action click
+chrome.action.onClicked.addListener((tab) => {
+  openUiForClick(tab);
+});
+
 // Message handler
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   handleMessage(message, sender).then(sendResponse);

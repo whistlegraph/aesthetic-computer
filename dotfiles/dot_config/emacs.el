@@ -654,6 +654,13 @@ Optional TARGET-TAB specifies which tab to land on (default: artery)."
   ;; Set environment variable to tell fish it's running inside Emacs
   (setenv "AC_EMACS_MODE" "t")
   
+  ;; Start the emacs watchdog process in background (auto-recovers from hangs)
+  (let ((watchdog-script (expand-file-name "monitor-emacs.sh" ac--directory-path)))
+    (when (file-exists-p watchdog-script)
+      (ac-debug-log "Starting emacs watchdog...")
+      (start-process "emacs-watchdog" nil "bash" watchdog-script)
+      (ac-debug-log "Emacs watchdog started")))
+  
   ;; Set up a watchdog timer to detect hangs (30 seconds)
   (run-with-timer 30 nil
                   (lambda ()

@@ -232,13 +232,15 @@ RUN curl -fsSLO https://beta.quicklisp.org/quicklisp.lisp && \
 RUN curl https://ops.city/get.sh -sSfL | bash || echo "OPS installation failed, skipping..."
 
 # --- uv (fast Python package manager for MCP servers) -------------------------
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh
-ENV PATH="/home/me/.local/bin:${PATH}"
-
 # --- emacs-mcp-server (for VS Code Copilot <-> Emacs integration) -------------
-RUN git clone https://github.com/vivekhaldar/emacs-mcp-server.git /home/me/emacs-mcp-server && \
+# Combined into single RUN to ensure uv is available immediately after install
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
+    export PATH="$HOME/.local/bin:$PATH" && \
+    uv --version && \
+    git clone https://github.com/vivekhaldar/emacs-mcp-server.git /home/me/emacs-mcp-server && \
     cd /home/me/emacs-mcp-server && \
-    /home/me/.local/bin/uv sync
+    uv sync
+ENV PATH="/home/me/.local/bin:${PATH}"
 
 # --- Deno ---------------------------------------------------------------------
 RUN curl -fsSL https://deno.land/install.sh | DENO_INSTALL=/home/me/.deno sh -s v2.4.5 && \

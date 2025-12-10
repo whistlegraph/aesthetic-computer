@@ -40,6 +40,21 @@ The aesthetic platform runs as:
 - **Stop task only**: Kill the "💻 Aesthetic" task in VS Code (emacs daemon stays running)
 - **Full stop**: `pkill -9 emacs; pkill -9 emacsclient` or use `ac-emacs-kill`
 
+### Emacs Watchdog (Auto-Recovery)
+The platform automatically starts a watchdog process that monitors emacs health:
+- **Detects unresponsive daemons** — restarts if `emacsclient` times out
+- **Detects sustained high CPU** — restarts if CPU > 85% for 30+ seconds (3 checks)
+- **Logs to** `.emacs-logs/watchdog.log`
+- **Warning file** `/tmp/emacs-watchdog-warning` — created on auto-recovery
+
+| Command | Description |
+|---------|-------------|
+| `ac-watchdog-status` | Check emacs + watchdog status |
+| `ac-watchdog-start` | Manually start watchdog |
+| `ac-watchdog-stop` | Stop the watchdog |
+| `ac-watchdog-logs` | Tail watchdog logs |
+| `ac-watchdog-ack` | Clear recovery warning |
+
 ### Restarting After Issues
 If emacs MCP tools fail or the "💻 Aesthetic" task is frozen:
 1. **Check status**: `ac-emacs-status` — is daemon running & responsive?
@@ -59,8 +74,8 @@ If emacs MCP tools fail or the "💻 Aesthetic" task is frozen:
 
 ### Troubleshooting
 - **Task shows "Configuring..." forever**: `.waiter` file missing — run `touch /home/me/.waiter`
-- **Emacs unresponsive**: `ac-emacs-restart` then restart VS Code task
-- **MCP tools hang**: Emacs daemon frozen — same fix as above
+- **Emacs unresponsive**: `ac-emacs-restart` then restart VS Code task (watchdog may auto-fix)
+- **MCP tools hang**: Emacs daemon frozen — watchdog should auto-recover, else manual restart
 - **Tabs not created**: `emacsclient` exited before timers completed — restart task
 
 ## CDP Tunnel (VS Code on Windows Host)
