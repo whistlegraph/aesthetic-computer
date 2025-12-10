@@ -308,10 +308,22 @@ cd /home/me
 
 ensure_ssl_dev_certs
 
-# Login to Github.
-if not gh auth status
-    echo "Not logged into GitHub, exiting to shell."
-    return
+# Login to Github - use GH_TOKEN from vault if available
+if not gh auth status >/dev/null 2>&1
+    if test -n "$GH_TOKEN"
+        echo "🔑 Authenticating to GitHub using GH_TOKEN..."
+        echo $GH_TOKEN | gh auth login --with-token
+        if gh auth status >/dev/null 2>&1
+            echo "✅ GitHub authentication successful"
+        else
+            echo "❌ GitHub authentication failed"
+            echo "Not logged into GitHub, exiting to shell."
+            return
+        end
+    else
+        echo "Not logged into GitHub and no GH_TOKEN available, exiting to shell."
+        return
+    end
 end
 
 if test -n "$GIT_USER_EMAIL"

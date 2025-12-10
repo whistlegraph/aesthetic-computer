@@ -46,10 +46,14 @@ function startArtery() {
       restarting = false;
       // Small delay before restart to let file system settle
       setTimeout(startArtery, 100);
-    } else if (signal !== 'SIGTERM' && signal !== 'SIGINT') {
-      // Unexpected exit - restart after delay
+    } else if (signal !== 'SIGTERM' && signal !== 'SIGINT' && code !== 42) {
+      // Unexpected exit - restart after delay (code 42 = intentional quit)
       log(`${FG_YELLOW}Process exited (${code}), restarting in 1s...${RESET}`);
       setTimeout(startArtery, 1000);
+    } else if (code === 42) {
+      // Intentional quit - restart immediately
+      log(`${FG_GREEN}Restarting TUI...${RESET}`);
+      setTimeout(startArtery, 100);
     }
   });
 
@@ -64,6 +68,19 @@ function restartArtery() {
     restarting = true;
     log(`${FG_GREEN}File changed, restarting...${RESET}`);
     child.kill('SIGTERM');
+    
+    // Force kill if process doesn't exit within 2 seconds
+    const forceKillTimeout = setTimeout(() => {
+      if (child && restarting) {
+        log(`${FG_YELLOW}Process not responding to SIGTERM, force killing...${RESET}`);
+        child.kill('SIGKILL');
+      }
+    }, 2000);
+    
+    // Clear the force kill timeout when child exits
+    child.once('exit', () => {
+      clearTimeout(forceKillTimeout);
+    });
   } else {
     startArtery();
   }

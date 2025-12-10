@@ -348,6 +348,11 @@ class ArteryTUI {
     this.networkActivity = 0; // Activity level 0-10 (affects speed/intensity)
     this.lastNetworkTime = 0; // Last time we saw network activity
     
+    // Matrix rain animation state
+    this.matrixDrops = []; // Array of { col, row, speed, char, brightness }
+    this.matrixChars = 'ARTERY'.split('');
+    this.initMatrixRain();
+    
     // Load pieces from disk directory
     this.loadPieces();
     
@@ -371,7 +376,8 @@ class ArteryTUI {
         border: `${BG_GREEN}${FG_WHITE}`,
         fill: BG_GREEN,
         text: FG_WHITE,
-        accent: FG_BRIGHT_YELLOW
+        accent: FG_BRIGHT_YELLOW,
+        highlight: BG_GREEN
       };
     } else if (this.serverStatus.local === true) {
       // Local server up but AC not connected - cyan/blue (ready state)
@@ -380,7 +386,8 @@ class ArteryTUI {
         border: `${BG_CYAN}${FG_BLACK}`,
         fill: BG_CYAN,
         text: FG_BLACK,
-        accent: FG_BLUE
+        accent: FG_BLUE,
+        highlight: BG_CYAN
       };
     } else if (this.serverStatus.production === true) {
       // Only production available - magenta (remote state)
@@ -389,7 +396,8 @@ class ArteryTUI {
         border: `${BG_MAGENTA}${FG_WHITE}`,
         fill: BG_MAGENTA,
         text: FG_WHITE,
-        accent: FG_BRIGHT_YELLOW
+        accent: FG_BRIGHT_YELLOW,
+        highlight: BG_MAGENTA
       };
     } else if (this.serverStatus.local === false && this.serverStatus.production === false) {
       // Nothing available - red (error state)
@@ -398,7 +406,8 @@ class ArteryTUI {
         border: `${BG_RED}${FG_WHITE}`,
         fill: BG_RED,
         text: FG_WHITE,
-        accent: FG_BRIGHT_YELLOW
+        accent: FG_BRIGHT_YELLOW,
+        highlight: BG_RED
       };
     } else {
       // Unknown/checking - default blue
@@ -407,11 +416,111 @@ class ArteryTUI {
         border: `${BG_BLUE}${FG_BRIGHT_CYAN}`,
         fill: BG_BLUE,
         text: FG_BRIGHT_CYAN,
-        accent: FG_BRIGHT_YELLOW
+        accent: FG_BRIGHT_YELLOW,
+        highlight: BG_BLUE
       };
     }
   }
   
+  // Initialize Matrix rain drops
+  initMatrixRain() {
+    this.matrixDrops = [];
+    // Create initial drops spread across columns - denser rain
+    const numDrops = Math.floor(this.width / 2); // One drop per ~2 columns
+    for (let i = 0; i < numDrops; i++) {
+      this.matrixDrops.push(this.createMatrixDrop());
+    }
+  }
+  
+  createMatrixDrop() {
+    return {
+      col: Math.floor(Math.random() * this.width),
+      row: Math.floor(Math.random() * -10), // Start above screen
+      speed: 0.4 + Math.random() * 0.6, // Variable fall speed (faster)
+      charIdx: Math.floor(Math.random() * this.matrixChars.length),
+      brightness: 0.5 + Math.random() * 0.5, // 0.5-1 for brighter effect
+      length: 3 + Math.floor(Math.random() * 5), // Trail length
+    };
+  }
+  
+  updateMatrixRain() {
+    try {
+      if (!this.matrixDrops || !Array.isArray(this.matrixDrops)) return;
+      for (let drop of this.matrixDrops) {
+        if (!drop) continue;
+        drop.row += drop.speed;
+        // Occasionally change the character
+        if (Math.random() < 0.1) {
+          drop.charIdx = Math.floor(Math.random() * this.matrixChars.length);
+        }
+        // Reset drop when it goes off screen or is out of bounds
+        if (drop.row > this.height + drop.length || drop.col >= this.width) {
+          drop.col = Math.floor(Math.random() * this.width);
+          drop.row = Math.floor(Math.random() * -5);
+          drop.speed = 0.4 + Math.random() * 0.6;
+          drop.brightness = 0.5 + Math.random() * 0.5;
+        }
+      }
+    } catch (e) {
+      // Silently recover from animation errors
+    }
+  }
+  
+  // Build matrix rain layer as a 2D array
+  getMatrixRainLayer() {
+    // Create empty grid
+    const grid = [];
+    for (let y = 0; y < this.height; y++) {
+      grid[y] = new Array(this.width).fill(null);
+    }
+    
+    // Place drops and trails
+    for (const drop of this.matrixDrops) {
+      const headRow = Math.floor(drop.row);
+      for (let i = 0; i < drop.length; i++) {
+        const y = headRow - i;
+        if (y >= 0 && y < this.height && drop.col >= 0 && drop.col < this.width) {
+          // Head is brightest, trail fades
+          const fade = 1 - (i / drop.length);
+          const char = this.matrixChars[(drop.charIdx + i) % this.matrixChars.length];
+          grid[y][drop.col] = { char, fade: fade * drop.brightness };
+        }
+      }
+    }
+    return grid;
+  }
+  
+  // Render a single line of matrix rain
+  renderMatrixRainLine(row, rainLayer, bg) {
+    if (!rainLayer || !rainLayer[row]) {
+      this.writeEmptyLine(bg);
+      return;
+    }
+    
+    let line = '';
+    for (let col = 0; col < this.width; col++) {
+      const cell = rainLayer[row][col];
+      if (cell) {
+        // Green color based on fade value
+        // fade 1.0 = bright green (head), fade 0.0 = dim (tail)
+        const brightness = Math.floor(cell.fade * 5); // 0-5
+        const greenCodes = [
+          '\x1b[38;5;22m',  // 0: very dark green
+          '\x1b[38;5;28m',  // 1: dark green
+          '\x1b[38;5;34m',  // 2: medium green
+          '\x1b[38;5;40m',  // 3: green
+          '\x1b[38;5;46m',  // 4: bright green
+          '\x1b[38;5;156m', // 5: very bright green/white (head)
+        ];
+        const color = greenCodes[Math.min(brightness, 5)];
+        line += `${color}${cell.char}${RESET}${bg}`;
+      } else {
+        line += ' ';
+      }
+    }
+    this.frameBuffer.push(`${bg}${line}${RESET}`);
+  }
+
   detectHostInfo() {
     const info = {
       inContainer: process.env.REMOTE_CONTAINERS === 'true' || process.env.CODESPACES === 'true',
@@ -532,6 +641,49 @@ class ArteryTUI {
   }
 
   async start() {
+    // Set up signal handlers for graceful cleanup (critical for hot-reload!)
+    const cleanup = () => {
+      // Clear intervals
+      if (this.serverPollInterval) clearInterval(this.serverPollInterval);
+      if (this.bloodAnimInterval) clearInterval(this.bloodAnimInterval);
+      if (this.resizeTimeout) clearTimeout(this.resizeTimeout);
+      
+      // Restore terminal state
+      this.write(MOUSE_DISABLE);
+      this.write(CURSOR_SHOW);
+      this.write(ALT_SCREEN_OFF);
+      
+      // Close client connection
+      if (this.client) {
+        try { this.client.close(); } catch (e) {}
+      }
+      
+      // Restore stdin
+      try {
+        process.stdin.setRawMode(false);
+        process.stdin.pause();
+      } catch (e) {}
+    };
+    
+    // Handle SIGTERM (sent by artery-dev.mjs on hot-reload)
+    process.on('SIGTERM', () => {
+      cleanup();
+      process.exit(0);
+    });
+    
+    // Handle SIGINT (Ctrl+C)
+    process.on('SIGINT', () => {
+      cleanup();
+      process.exit(0);
+    });
+    
+    // Handle uncaught errors to prevent zombie processes
+    process.on('uncaughtException', (err) => {
+      cleanup();
+      console.error('Uncaught exception:', err);
+      process.exit(1);
+    });
+    
     // Set up terminal
     process.stdin.setRawMode(true);
     process.stdin.resume();
@@ -545,10 +697,13 @@ class ArteryTUI {
       }
       // Debounce resize events - wait for them to settle
       this.resizeTimeout = setTimeout(() => {
+        this.resizeTimeout = null; // Clear the timeout reference so animation resumes
         this.width = process.stdout.columns || 80;
         this.height = process.stdout.rows || 24;
         this.forceFullRedraw = true; // Force complete redraw on resize
         this.lastRenderedBuffer = []; // Clear buffer to force full redraw
+        // Reinitialize matrix rain for new dimensions
+        this.initMatrixRain();
         this.render();
       }, 50); // 50ms debounce - fast enough to feel responsive
     });
@@ -583,21 +738,25 @@ class ArteryTUI {
     
     // Animate blood flow - speed varies with network activity
     this.bloodAnimInterval = setInterval(() => {
-      // Skip animation entirely if a resize is pending
-      if (this.resizeTimeout) return;
-      
-      // Decay network activity over time
-      const now = Date.now();
-      if (now - this.lastNetworkTime > 500) {
-        this.networkActivity = Math.max(0, this.networkActivity - 0.5);
-      }
-      
-      // Move blood pulse - faster with more activity
-      const speed = 0.5 + (this.networkActivity * 0.3);
-      this.bloodPosition = (this.bloodPosition + speed) % (BLOOD_FLOW_LENGTH + BLOOD_PULSE_WIDTH * 2);
-      
-      // Update UTC clock
-      this.utcTime = this.getUTCTimeString();
+      try {
+        // Skip animation entirely if a resize is pending
+        if (this.resizeTimeout) return;
+        
+        // Decay network activity over time
+        const now = Date.now();
+        if (now - this.lastNetworkTime > 500) {
+          this.networkActivity = Math.max(0, this.networkActivity - 0.5);
+        }
+        
+        // Move blood pulse - faster with more activity
+        const speed = 0.5 + (this.networkActivity * 0.3);
+        this.bloodPosition = (this.bloodPosition + speed) % (BLOOD_FLOW_LENGTH + BLOOD_PULSE_WIDTH * 2);
+        
+        // Update matrix rain
+        this.updateMatrixRain();
+        
+        // Update UTC clock
+        this.utcTime = this.getUTCTimeString();
       
       // Only re-render header area if in menu mode to show animation
       // In eat terminal, do full render instead of partial to avoid artifacts
@@ -607,6 +766,9 @@ class ArteryTUI {
         } else {
           this.renderHeaderOnly();
         }
+      }
+      } catch (e) {
+        // Silently recover from animation errors
       }
     }, animInterval);
   }
@@ -619,56 +781,40 @@ class ArteryTUI {
   
   // Render just the header without full screen clear (for animation)
   renderHeaderOnly() {
-    // Skip partial render if resize is pending - will do full render after
-    if (this.resizeTimeout) return;
+    // Borderless version - just update the title line with animation
     if (this.width < 80) return; // Skip animation in compact mode
     
-    const boxWidth = this.innerWidth;
-    const artY = this.marginY + 2; // Position of ASCII art lines
+    const titleBg = BG_BLACK;
+    const artLine = 'AESTHETIC  COMPUTER';
     
-    for (let lineIdx = 0; lineIdx < ARTERY_ASCII.length; lineIdx++) {
-      const artLine = ARTERY_ASCII[lineIdx];
-      const artPadding = Math.floor((boxWidth - artLine.length - 4) / 2);
-      
-      // Build the line with blood animation
-      let coloredLine = '';
-      for (let i = 0; i < artLine.length; i++) {
-        const char = artLine[i];
-        const globalPos = i;
-        
-        // Calculate distance from blood pulse center
-        const pulseCenter = this.bloodPosition - BLOOD_PULSE_WIDTH;
-        const dist = Math.abs(globalPos - pulseCenter);
-        
-        // Always show subtle pulse, more intense with network activity
-        const baseActivity = 0.2;
-        const effectiveActivity = baseActivity + (this.networkActivity * 0.1);
-        
-        // Color based on distance from pulse
-        if (char !== ' ') {
-          if (dist < BLOOD_PULSE_WIDTH / 2 && effectiveActivity > 0.3) {
-            // Core of pulse - bright red
-            coloredLine += `${FG_BRIGHT_RED}${char}`;
-          } else if (dist < BLOOD_PULSE_WIDTH && effectiveActivity > 0.2) {
-            // Edge of pulse - dim red
-            coloredLine += `${FG_RED}${char}`;
-          } else if (dist < BLOOD_PULSE_WIDTH * 1.5 && effectiveActivity > 0.1) {
-            // Fading edge - magenta tint
-            coloredLine += `${FG_MAGENTA}${char}`;
-          } else {
-            // Normal cyan
-            coloredLine += `${FG_BRIGHT_CYAN}${char}`;
-          }
-        } else {
-          coloredLine += char;
+    // Build animated title
+    let animatedLine = '';
+    let charIdx = 0;
+    for (let i = 0; i < artLine.length; i++) {
+      const char = artLine[i];
+      if (char === ' ') {
+        if (i + 1 < artLine.length && artLine[i + 1] === ' ') {
+          animatedLine += '   '; // Gap between words
+          i++;
         }
+      } else {
+        const timeOffset = Math.floor(this.bloodPosition / 3);
+        const waveOffset = Math.floor(Math.sin((charIdx + timeOffset) * 0.5) * 2);
+        const colorIdx = Math.abs((charIdx + timeOffset + waveOffset) % BLOCK_COLORS.length);
+        const block = BLOCK_COLORS[colorIdx];
+        animatedLine += `${block.bg}${block.fg}${BOLD} ${char} ${RESET}${titleBg}`;
+        charIdx++;
       }
-      
-      // Position cursor and write the line
-      const row = artY + lineIdx;
-      const col = this.adaptiveMarginX + 2 + artPadding;
-      this.write(`${moveTo(row, col)}${BG_BLUE}${coloredLine}${RESET}`);
     }
+    
+    // Calculate centering
+    const blockWidth = 17 * 3 + 3; // 17 letters * 3 chars each + 3 for gap
+    const leftPad = Math.floor((this.width - blockWidth) / 2);
+    const rightPad = this.width - blockWidth - leftPad;
+    
+    // Position cursor at title line (row 2) and write
+    const row = 2;
+    this.write(`${moveTo(row, 1)}${titleBg}${' '.repeat(Math.max(0, leftPad))}${animatedLine}${' '.repeat(Math.max(0, rightPad))}${RESET}`);
   }
 
   startServerPolling() {
@@ -919,6 +1065,12 @@ class ArteryTUI {
       this.logs.pop();
     }
     
+    // Also route to testLogs if we're in test-running mode (for CDP console capture)
+    if (this.mode === 'test-running' && this.testLogs) {
+      this.testLogs.push({ text, time: this.getUTCTimeString(), level });
+      if (this.testLogs.length > 100) this.testLogs.shift();
+    }
+    
     // Pulse blood animation on log activity
     this.pulseNetwork(level === 'error' ? 3 : 1);
     
@@ -974,9 +1126,14 @@ class ArteryTUI {
       return;
     }
     
-    // Escape to go back to menu (but ignore if part of mouse/arrow sequence)
+    // Escape to go back (but ignore if part of mouse/arrow sequence)
     if (key === '\u001b' && this.mode !== 'menu') {
-      this.mode = 'menu';
+      // From test-running or test-params, go back to tests list
+      if (this.mode === 'test-running' || this.mode === 'test-params') {
+        this.mode = 'tests';
+      } else {
+        this.mode = 'menu';
+      }
       this.inputBuffer = '';
       this.render();
       return;
@@ -1111,14 +1268,47 @@ class ArteryTUI {
     }
   }
   handleMenuInput(key) {
-    // Arrow keys
-    if (key === '\u001b[A') { // Up
-      this.selectedIndex = Math.max(0, this.selectedIndex - 1);
+    // Calculate grid dimensions for spatial navigation (must match renderMenuBorderless)
+    const itemCount = this.menuItems.length;
+    let tilesPerRow;
+    if (this.width >= 120) {
+      tilesPerRow = Math.min(6, Math.ceil(itemCount / Math.ceil(itemCount / 6)));
+    } else if (this.width >= 100) {
+      tilesPerRow = Math.min(5, Math.ceil(itemCount / Math.ceil(itemCount / 5)));
+    } else if (this.width >= 80) {
+      tilesPerRow = Math.min(4, Math.ceil(itemCount / Math.ceil(itemCount / 4)));
+    } else {
+      tilesPerRow = Math.min(3, Math.ceil(itemCount / Math.ceil(itemCount / 3)));
+    }
+    
+    // Arrow keys - spatial grid navigation
+    if (key === '\u001b[A') { // Up - move up one row
+      const newIndex = this.selectedIndex - tilesPerRow;
+      if (newIndex >= 0) {
+        this.selectedIndex = newIndex;
+      }
       this.render();
       return;
     }
-    if (key === '\u001b[B') { // Down
-      this.selectedIndex = Math.min(this.menuItems.length - 1, this.selectedIndex + 1);
+    if (key === '\u001b[B') { // Down - move down one row
+      const newIndex = this.selectedIndex + tilesPerRow;
+      if (newIndex < this.menuItems.length) {
+        this.selectedIndex = newIndex;
+      }
+      this.render();
+      return;
+    }
+    if (key === '\u001b[D') { // Left
+      if (this.selectedIndex > 0) {
+        this.selectedIndex--;
+      }
+      this.render();
+      return;
+    }
+    if (key === '\u001b[C') { // Right
+      if (this.selectedIndex < this.menuItems.length - 1) {
+        this.selectedIndex++;
+      }
       this.render();
       return;
     }
@@ -1334,24 +1524,75 @@ class ArteryTUI {
   }
 
   handleTestsInput(key) {
-    // Arrow keys
-    if (key === '\u001b[A') { // Up
-      let newIndex = this.selectedIndex - 1;
-      // Skip separators
-      while (newIndex >= 0 && this.testFiles?.[newIndex]?.isSeparator) {
-        newIndex--;
+    // Filter out separators for navigation
+    const tests = (this.testFiles || []).filter(t => !t.isSeparator);
+    
+    // Get grid dimensions (must match renderTests)
+    const testCount = tests.length;
+    let tilesPerRow;
+    if (this.width >= 120) {
+      tilesPerRow = Math.min(6, Math.ceil(testCount / Math.ceil(testCount / 6)));
+    } else if (this.width >= 100) {
+      tilesPerRow = Math.min(5, Math.ceil(testCount / Math.ceil(testCount / 5)));
+    } else if (this.width >= 80) {
+      tilesPerRow = Math.min(4, Math.ceil(testCount / Math.ceil(testCount / 4)));
+    } else {
+      tilesPerRow = Math.min(3, Math.ceil(testCount / Math.ceil(testCount / 3)));
+    }
+    
+    // Find current position in filtered list
+    let currentFilteredIdx = 0;
+    let counter = 0;
+    for (let i = 0; i < (this.testFiles || []).length; i++) {
+      if (!this.testFiles[i].isSeparator) {
+        if (i === this.selectedIndex) {
+          currentFilteredIdx = counter;
+          break;
+        }
+        counter++;
       }
-      this.selectedIndex = Math.max(0, newIndex);
+    }
+    
+    // Map filtered index back to original index
+    const filteredToOriginal = (filteredIdx) => {
+      let count = 0;
+      for (let i = 0; i < (this.testFiles || []).length; i++) {
+        if (!this.testFiles[i].isSeparator) {
+          if (count === filteredIdx) return i;
+          count++;
+        }
+      }
+      return 0;
+    };
+    
+    // Arrow keys - spatial grid navigation
+    if (key === '\u001b[A') { // Up - move up one row
+      const newFilteredIdx = currentFilteredIdx - tilesPerRow;
+      if (newFilteredIdx >= 0) {
+        this.selectedIndex = filteredToOriginal(newFilteredIdx);
+      }
       this.render();
       return;
     }
-    if (key === '\u001b[B') { // Down
-      let newIndex = this.selectedIndex + 1;
-      // Skip separators
-      while (newIndex < (this.testFiles?.length || 0) && this.testFiles?.[newIndex]?.isSeparator) {
-        newIndex++;
+    if (key === '\u001b[B') { // Down - move down one row
+      const newFilteredIdx = currentFilteredIdx + tilesPerRow;
+      if (newFilteredIdx < tests.length) {
+        this.selectedIndex = filteredToOriginal(newFilteredIdx);
       }
-      this.selectedIndex = Math.min((this.testFiles?.length || 1) - 1, newIndex);
+      this.render();
+      return;
+    }
+    if (key === '\u001b[D') { // Left
+      if (currentFilteredIdx > 0) {
+        this.selectedIndex = filteredToOriginal(currentFilteredIdx - 1);
+      }
+      this.render();
+      return;
+    }
+    if (key === '\u001b[C') { // Right
+      if (currentFilteredIdx < tests.length - 1) {
+        this.selectedIndex = filteredToOriginal(currentFilteredIdx + 1);
+      }
       this.render();
       return;
     }
@@ -1365,7 +1606,9 @@ class ArteryTUI {
           this.currentTest = test;
           this.testParams = { ...test.defaults };
           this.paramIndex = 0;
-          this.inputBuffer = '';
+          // Initialize inputBuffer with first param's default value
+          const firstParam = test.params[0];
+          this.inputBuffer = String(test.defaults?.[firstParam?.key] || firstParam?.default || '');
           this.mode = 'test-params';
           this.render();
         } else {
@@ -1705,6 +1948,15 @@ class ArteryTUI {
       'test-hiphop.mjs': {
         name: 'hiphop',
         desc: '🎤 Hip-hop beat generator',
+        params: [
+          { key: 'style', label: 'Style', desc: '←→ to cycle', default: 'trap', options: hiphopStyles },
+          { key: 'bars', label: 'Bars', desc: '←→ to adjust', default: '16', type: 'number', min: 8, max: 64, step: 4 },
+          { key: 'bpm', label: 'BPM', desc: '←→ to adjust', default: '90', type: 'number', min: 70, max: 160, step: 5 },
+          { key: 'scale', label: 'Scale', desc: '←→ to cycle', default: 'minor', options: ['minor', 'dorian', 'phrygian', 'harmonic', 'major'] },
+          { key: 'words', label: 'Words', desc: '←→ toggle dictionary', default: '', options: ['', 'words'] },
+          { key: 'room', label: 'Room', desc: '←→ toggle reverb', default: '', options: ['', 'room'] },
+        ],
+        defaults: { style: 'trap', bars: '16', bpm: '90', scale: 'minor', words: '', room: '' },
       },
       'test-trapwaltz.mjs': {
         name: 'trapwaltz', 
@@ -1790,9 +2042,14 @@ class ArteryTUI {
   }
   
   async executeTest(testFile, args = '', isArtery = false) {
-    this.mode = 'logs';
+    // Switch to split-panel test running mode
+    this.mode = 'test-running';
     this.testRunning = true;
     this.pendingRender = false;
+    this.testOutput = []; // Left panel - stdout (generative output)
+    this.testLogs = [];   // Right panel - stderr/console logs
+    this.testFile = testFile;
+    this.testArgs = args;
     const argsDisplay = args ? ` (${args})` : '';
     this.setStatus(`Running ${testFile}${argsDisplay}...`, 'info');
     this.render();
@@ -1816,24 +2073,32 @@ class ArteryTUI {
       
       proc.stdout.on('data', (data) => {
         const lines = data.toString().split('\n').filter(l => l.trim());
-        lines.forEach(line => this.addLog(line, 'log'));
+        lines.forEach(line => {
+          this.testOutput.push({ text: line, time: this.getUTCTimeString() });
+          // Keep output manageable
+          if (this.testOutput.length > 100) this.testOutput.shift();
+        });
+        this.render();
       });
       
       proc.stderr.on('data', (data) => {
         const lines = data.toString().split('\n').filter(l => l.trim());
-        lines.forEach(line => this.addLog(line, 'error'));
+        lines.forEach(line => {
+          this.testLogs.push({ text: line, time: this.getUTCTimeString(), level: 'error' });
+          this.addLog(line, 'error'); // Also add to main logs
+          if (this.testLogs.length > 100) this.testLogs.shift();
+        });
+        this.render();
       });
       
       proc.on('close', (code) => {
         this.testRunning = false;
         if (code === 0) {
           this.setStatus(`Test ${testFile} completed!`, 'success');
+          this.testLogs.push({ text: `✓ Completed successfully`, time: this.getUTCTimeString(), level: 'success' });
         } else {
           this.setStatus(`Test ${testFile} exited with code ${code}`, 'error');
-        }
-        // Do the deferred render now that test is complete
-        if (this.pendingRender) {
-          this.pendingRender = false;
+          this.testLogs.push({ text: `✗ Exited with code ${code}`, time: this.getUTCTimeString(), level: 'error' });
         }
         this.render();
       });
@@ -2293,7 +2558,8 @@ class ArteryTUI {
     if (this.client) {
       try { this.client.close(); } catch (e) {}
     }
-    process.exit(0);
+    // Exit code 42 signals intentional quit (don't auto-restart in dev mode)
+    process.exit(42);
   }
 
   // Helper to get inner width (accounting for margins)
@@ -2314,12 +2580,52 @@ class ArteryTUI {
     return this.marginX;
   }
   
+  // Calculate visual width of a string accounting for emojis
+  getVisualWidth(str) {
+    let visualWidth = 0;
+    for (const char of str) {
+      const code = char.codePointAt(0);
+      
+      // Skip zero-width characters
+      if (code === 0xFE0F ||  // Variation Selector-16 (emoji presentation)
+          code === 0xFE0E ||  // Variation Selector-15 (text presentation)
+          code === 0x200D ||  // Zero Width Joiner
+          code === 0x200B) {  // Zero Width Space
+        continue;
+      }
+      
+      // Emoji ranges (generally width 2)
+      if ((code >= 0x1F300 && code <= 0x1F9FF) ||  // Misc Symbols and Pictographs, Supplemental Symbols
+          (code >= 0x1F5A0 && code <= 0x1F5FF) ||  // Misc Symbols (extended) - includes 🖥
+          (code >= 0x2600 && code <= 0x26FF) ||    // Misc Symbols
+          (code >= 0x2700 && code <= 0x27BF) ||    // Dingbats (✓ ✗ etc)
+          (code >= 0x1F000 && code <= 0x1F02F) ||  // Mahjong
+          (code >= 0x1F0A0 && code <= 0x1F0FF) ||  // Playing Cards
+          (code >= 0x1F100 && code <= 0x1F64F) ||  // Enclosed chars, Emoticons
+          (code >= 0x1F680 && code <= 0x1F6FF) ||  // Transport and Map (🚀 rocket is 0x1F680)
+          (code >= 0x2300 && code <= 0x23FF) ||    // Misc Technical (⚙ gear is 0x2699)
+          (code >= 0x2190 && code <= 0x21FF)) {    // Arrows (← → ↑ ↓ etc)
+        visualWidth += 2;
+      }
+      // Geometric shapes and box drawing - width 1
+      else if ('●○◐◑◀▶▸▲▼→←↑↓│─═╔╗╚╝╠╣╦╩║╟╢┼'.includes(char)) {
+        visualWidth += 1;
+      }
+      // Everything else is width 1
+      else {
+        visualWidth += 1;
+      }
+    }
+    return visualWidth;
+  }
+  
   // Write a line with margins and full background fill (to buffer)
   writeLine(content) {
     const margin = ' '.repeat(this.adaptiveMarginX);
     const lineContent = `${BG_BLUE}${margin}${RESET}${content}`;
-    // Fill rest of line with background
-    const contentLen = this.stripAnsi(lineContent).length;
+    // Fill rest of line with background - use visual width for emoji support
+    const stripped = this.stripAnsi(lineContent);
+    const contentLen = this.getVisualWidth(stripped);
     const fill = this.width - contentLen;
     const line = `${lineContent}${fill > 0 ? BG_BLUE + ' '.repeat(Math.max(0, fill)) + RESET : ''}`;
     this.frameBuffer.push(line);
@@ -2330,9 +2636,14 @@ class ArteryTUI {
     // Build frame in buffer first
     this.frameBuffer = [];
     
-    // Top margin with background
-    for (let i = 0; i < this.marginY; i++) {
-      this.frameBuffer.push(`${BG_BLUE}${' '.repeat(Math.max(1, this.width))}${RESET}`);
+    // For borderless menu mode, skip margins
+    const useBorderless = (this.mode === 'menu' || this.mode === 'test-running' || this.mode === 'tests');
+    
+    if (!useBorderless) {
+      // Top margin with background (legacy modes)
+      for (let i = 0; i < this.marginY; i++) {
+        this.frameBuffer.push(`${BG_BLUE}${' '.repeat(Math.max(1, this.width))}${RESET}`);
+      }
     }
     
     switch (this.mode) {
@@ -2355,6 +2666,9 @@ class ArteryTUI {
       case 'test-params':
         this.renderTestParams();
         break;
+      case 'test-running':
+        this.renderTestRunning();
+        break;
       case 'logs':
         this.renderLogs();
         break;
@@ -2366,9 +2680,29 @@ class ArteryTUI {
         break;
     }
     
-    // Fill remaining lines with blue background
-    while (this.frameBuffer.length < this.height) {
-      this.frameBuffer.push(`${BG_BLUE}${' '.repeat(Math.max(1, this.width))}${RESET}`);
+    // Fill remaining lines with background (reserve 1 for footer if pending)
+    const fillBg = useBorderless ? BG_BLACK : BG_BLUE;
+    const reserveForFooter = (useBorderless && this.pendingFooter) ? 1 : 0;
+    const targetHeight = this.height - reserveForFooter;
+    
+    // Truncate if we have too many lines (content overflow)
+    if (this.frameBuffer.length > targetHeight) {
+      this.frameBuffer.length = targetHeight;
+    }
+    
+    // Fill remaining space up to target height
+    while (this.frameBuffer.length < targetHeight) {
+      this.frameBuffer.push(`${fillBg}${' '.repeat(Math.max(1, this.width))}${RESET}`);
+    }
+    
+    // Render footer at very bottom if pending (always exactly at row height)
+    if (useBorderless && this.pendingFooter) {
+      const { text, bg, fg } = this.pendingFooter;
+      const stripped = this.stripAnsi(text);
+      const visualWidth = this.getVisualWidth(stripped);
+      const padding = this.width - visualWidth;
+      this.frameBuffer.push(`${bg}${fg}${text}${bg}${' '.repeat(Math.max(0, padding))}${RESET}`);
+      this.pendingFooter = null;
     }
     
     // Now output the entire frame at once (minimizes flicker)
@@ -2383,14 +2717,37 @@ class ArteryTUI {
     this.write(this.frameBuffer.join('\n'));
   }
 
-  // Helper to render a bordered line with proper padding
+  // === BORDERLESS RENDERING HELPERS ===
+  
+  // Write a full-width line with background color
+  writeColorLine(content, bgColor, fgColor = FG_WHITE) {
+    const stripped = this.stripAnsi(content);
+    const visualWidth = this.getVisualWidth(stripped);
+    const padding = this.width - visualWidth;
+    // Ensure bgColor is applied after content in case content has RESET
+    this.frameBuffer.push(`${bgColor}${fgColor}${content}${bgColor}${' '.repeat(Math.max(0, padding))}${RESET}`);
+  }
+  
+  // Write a centered line
+  writeCenteredLine(content, bgColor, fgColor = FG_WHITE) {
+    const stripped = this.stripAnsi(content);
+    const visualWidth = this.getVisualWidth(stripped);
+    const leftPad = Math.floor((this.width - visualWidth) / 2);
+    const rightPad = this.width - visualWidth - leftPad;
+    this.frameBuffer.push(`${bgColor}${fgColor}${' '.repeat(Math.max(0, leftPad))}${content}${' '.repeat(Math.max(0, rightPad))}${RESET}`);
+  }
+  
+  // Write an empty line with background
+  writeEmptyLine(bgColor) {
+    this.frameBuffer.push(`${bgColor}${' '.repeat(this.width)}${RESET}`);
+  }
+
+  // Helper to render a bordered line with proper padding (LEGACY - keeping for compatibility)
   renderBoxLine(content, boxWidth, theme) {
     const stripped = this.stripAnsi(content);
-    // Count emojis for visual width adjustment
-    const emojiCount = (stripped.match(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]/gu) || []).length;
-    const visualLen = stripped.length + emojiCount;
-    const padding = boxWidth - 2 - visualLen;
-    this.writeLine(`${theme.border}║${theme.fill}${content}${theme.fill}${' '.repeat(Math.max(0, padding))}${theme.border}║${RESET}`);
+    const visualWidth = this.getVisualWidth(stripped);
+    const padding = boxWidth - 2 - visualWidth;
+    this.writeLine(`${theme.border}║${theme.fill}${content}${' '.repeat(Math.max(0, padding))}${theme.border}║${RESET}`);
   }
 
   renderHeader() {
@@ -2427,7 +2784,7 @@ class ArteryTUI {
           const char = artLine[i];
           if (char === ' ') {
             if (i + 1 < artLine.length && artLine[i + 1] === ' ') {
-              animatedLine += '   ';
+              animatedLine += `${themeFill}   `; // Gap between words
               i++;
             }
           } else {
@@ -2435,12 +2792,12 @@ class ArteryTUI {
             const waveOffset = Math.floor(Math.sin((charIdx + timeOffset) * 0.5) * 2);
             const colorIdx = Math.abs((charIdx + timeOffset + waveOffset) % BLOCK_COLORS.length);
             const block = BLOCK_COLORS[colorIdx];
-            animatedLine += `${block.bg}${block.fg}${BOLD} ${char} ${RESET}${themeFill}`;
+            animatedLine += `${block.bg}${block.fg}${BOLD} ${char} ${RESET}`;
             charIdx++;
           }
         }
         
-        this.writeLine(`${themeBorder}║${themeFill}${' '.repeat(Math.max(0, artPadding))}${animatedLine}${' '.repeat(Math.max(0, rightPad))}${themeBorder}║${RESET}`);
+        this.writeLine(`${themeBorder}║${themeFill}${' '.repeat(Math.max(0, artPadding))}${animatedLine}${themeFill}${' '.repeat(Math.max(0, rightPad))}${themeBorder}║${RESET}`);
       }
       
       // Empty line for breathing room
@@ -2483,7 +2840,8 @@ class ArteryTUI {
                     : this.cdpStatus === 'offline' ? `${FG_BRIGHT_RED}○` 
                     : `${DIM}?`;
       
-      const platformContent = `${FG_BRIGHT_MAGENTA}📦 ${containerLabel} ${FG_BRIGHT_CYAN}→ ${this.hostInfo.hostEmoji} ${FG_WHITE}${BOLD}${hostLabel}${RESET}${themeFill} ${FG_CYAN}CDP${cdpIcon}${RESET}${themeFill}`;
+      // Note: Use themeFill after RESET to maintain background color
+      const platformContent = `${themeFill}${FG_BRIGHT_MAGENTA}📦 ${containerLabel} ${FG_BRIGHT_CYAN}→ ${this.hostInfo.hostEmoji} ${FG_WHITE}${BOLD}${hostLabel}${RESET}${themeFill} ${FG_CYAN}CDP${cdpIcon}${RESET}${themeFill}`;
       this.renderBoxLine(platformContent, boxWidth, theme);
     }
     
@@ -2526,7 +2884,322 @@ class ArteryTUI {
     this.writeLine(`${themeBorder}╚${'═'.repeat(boxWidth - 2)}╝${RESET}`);
   }
 
+  // === NEW BORDERLESS MENU DESIGN ===
+  renderMenuBorderless() {
+    const theme = this.getThemeColors();
+    const compact = this.width < 80;
+    const narrow = this.width < 100;
+    
+    // Section colors
+    const titleBg = BG_BLACK;
+    const statusBg = theme.bg;
+    const boardBg = BG_BLACK;
+    const footerBg = theme.bg;
+    
+    // Get matrix rain layer for background effect
+    const rainLayer = this.getMatrixRainLayer();
+    
+    // === STATUS BAR (at very top) ===
+    const acStatus = this.connected 
+      ? `${FG_WHITE}● CONNECTED` 
+      : `${FG_WHITE}○ DISCONNECTED`;
+    const piece = this.currentPiece ? ` │ ${FG_BRIGHT_YELLOW}${this.currentPiece}${RESET}` : '';
+    const localIcon = this.serverStatus.local === true ? `${FG_BRIGHT_GREEN}●` 
+                    : this.serverStatus.local === false ? `${FG_BRIGHT_YELLOW}◐` 
+                    : `${DIM}?`;
+    const prodIcon = this.serverStatus.production === true ? `${FG_BRIGHT_GREEN}●` 
+                   : this.serverStatus.production === false ? `${FG_BRIGHT_RED}○` 
+                   : `${DIM}?`;
+    const cdpIcon = this.cdpStatus === 'online' ? `${FG_BRIGHT_GREEN}●` : `${FG_BRIGHT_RED}○`;
+    
+    let statusLine = ` ${acStatus}${piece} │ Local${localIcon} Prod${prodIcon}`;
+    if (this.hostInfo.inContainer && !compact) {
+      statusLine += ` │ CDP${cdpIcon}`;
+    }
+    statusLine += `  ${FG_CYAN}${this.utcTime}${RESET}`;
+    this.writeColorLine(statusLine, statusBg, theme.text);
+    
+    // === TITLE SECTION - Large ASCII banner with matrix rain ===
+    // Render matrix rain row (row 0)
+    this.renderMatrixRainLine(0, rainLayer, titleBg);
+    
+    // Large block letters for AESTHETIC.COMPUTER
+    if (!compact) {
+      this.renderLargeTitle(titleBg, rainLayer, 1); // start at row 1
+    } else {
+      // Compact: animated single line
+      this.renderAnimatedTitle(titleBg);
+    }
+    
+    // More matrix rain rows after title (rows 4, 5)
+    this.renderMatrixRainLine(4, rainLayer, titleBg);
+
+    // === MENU BOARD (grid of colored tiles) ===
+    this.writeEmptyLine(boardBg);
+    
+    // Tile colors for different categories
+    const tileColors = [
+      { bg: '\x1b[48;5;24m', fg: FG_WHITE },   // Deep blue - navigation
+      { bg: '\x1b[48;5;29m', fg: FG_WHITE },   // Teal - tools  
+      { bg: '\x1b[48;5;54m', fg: FG_WHITE },   // Purple - dev
+      { bg: '\x1b[48;5;94m', fg: FG_WHITE },   // Brown/orange - system
+      { bg: '\x1b[48;5;23m', fg: FG_WHITE },   // Dark cyan
+      { bg: '\x1b[48;5;52m', fg: FG_WHITE },   // Dark red
+    ];
+    
+    // Blinking selection
+    const blink = Math.floor(this.bloodPosition / 4) % 2 === 0;
+    const selectFg = blink ? '\x1b[38;5;226m' : '\x1b[38;5;228m'; // Yellow shades
+    const selectBg = blink ? '\x1b[48;5;22m' : '\x1b[48;5;28m'; // Green shades for selected
+    
+    // Responsive tile sizing - expand to fill available width
+    const availableHeight = this.height - 8;
+    const rowHeight = 2; // Each tile row takes 2 lines (content + gap)
+    const maxVisibleRows = Math.floor(availableHeight / rowHeight);
+    
+    // Determine how many columns based on item count and screen size
+    // Prefer fewer wider tiles over more narrow ones
+    const itemCount = this.menuItems.length;
+    let tilesPerRow;
+    if (this.width >= 120) {
+      tilesPerRow = Math.min(6, Math.ceil(itemCount / Math.ceil(itemCount / 6)));
+    } else if (this.width >= 100) {
+      tilesPerRow = Math.min(5, Math.ceil(itemCount / Math.ceil(itemCount / 5)));
+    } else if (this.width >= 80) {
+      tilesPerRow = Math.min(4, Math.ceil(itemCount / Math.ceil(itemCount / 4)));
+    } else {
+      tilesPerRow = Math.min(3, Math.ceil(itemCount / Math.ceil(itemCount / 3)));
+    }
+    
+    // Calculate tile width to fill available space (with 1-char gaps)
+    const availableWidth = this.width - 2; // margins
+    const tileWidth = Math.floor((availableWidth - (tilesPerRow - 1)) / tilesPerRow);
+    
+    // Calculate how many rows we need
+    const totalRows = Math.ceil(this.menuItems.length / tilesPerRow);
+    
+    // Pagination if needed
+    const currentRow = Math.floor(this.selectedIndex / tilesPerRow);
+    let startRow = 0;
+    if (totalRows > maxVisibleRows) {
+      // Keep selected row visible
+      startRow = Math.max(0, Math.min(currentRow - Math.floor(maxVisibleRows / 2), totalRows - maxVisibleRows));
+    }
+    const endRow = Math.min(startRow + maxVisibleRows, totalRows);
+    
+    const totalTileWidth = tilesPerRow * tileWidth + (tilesPerRow - 1);
+    const leftMargin = Math.floor((this.width - totalTileWidth) / 2);
+    
+    // Render visible rows
+    for (let row = startRow; row < endRow; row++) {
+      // Single line per tile (compact)
+      let tileLine = ' '.repeat(leftMargin);
+      for (let col = 0; col < tilesPerRow; col++) {
+        const idx = row * tilesPerRow + col;
+        if (idx < this.menuItems.length) {
+          const item = this.menuItems[idx];
+          const selected = idx === this.selectedIndex;
+          const tileBg = selected ? selectBg : tileColors[idx % tileColors.length].bg;
+          const tileFg = selected ? selectFg : FG_WHITE;
+          const keyColor = selected ? FG_WHITE : FG_YELLOW;
+          
+          // Build tile content: KEY label (key is prominent)
+          const keyText = item.key.toUpperCase();
+          let label = item.label;
+          const maxLabel = tileWidth - 4; // KEY + space + some label
+          if (label.length > maxLabel) label = label.slice(0, maxLabel - 2) + '..';
+          
+          // Log badge
+          if (item.key === 'l' && this.unreadLogs > 0) {
+            const badge = `(${this.unreadLogs})`;
+            const available = maxLabel - badge.length - 1;
+            if (label.length > available) label = label.slice(0, available - 2) + '..';
+            label = `${label} ${badge}`;
+          }
+          
+          // Content with key highlighted
+          const innerContent = `${keyText} ${label}`;
+          const pad = tileWidth - innerContent.length - 2;
+          
+          if (selected) {
+            tileLine += `${tileBg}${tileFg}${BOLD}▐${keyColor}${keyText}${RESET}${tileBg}${tileFg} ${label}${RESET}${tileBg}${' '.repeat(Math.max(0, pad))}${tileFg}▌${RESET}`;
+          } else {
+            tileLine += `${tileBg}${keyColor}${BOLD}${keyText}${RESET}${tileBg}${tileFg} ${label}${' '.repeat(Math.max(0, pad + 1))}${RESET}`;
+          }
+          if (col < tilesPerRow - 1) tileLine += ' ';
+        }
+      }
+      this.writeColorLine(tileLine, boardBg);
+      
+      // Gap between rows (skip on last row)
+      if (row < endRow - 1) {
+        this.writeEmptyLine(boardBg);
+      }
+    }
+    
+    // Show pagination indicator if needed
+    if (totalRows > maxVisibleRows) {
+      const pageInfo = ` ${FG_CYAN}[${startRow + 1}-${endRow}/${totalRows} rows]${RESET}`;
+      this.writeColorLine(pageInfo, boardBg);
+    } else {
+      this.writeEmptyLine(boardBg);
+    }
+    
+    // Store footer for later rendering at very bottom (handled in render())
+    this.pendingFooter = {
+      text: this.statusMessage 
+        ? ` ${this.statusMessage}` 
+        : ` ${FG_WHITE}↑↓←→${theme.text} Nav  ${FG_WHITE}Enter${theme.text} Select  ${FG_WHITE}Q${theme.text} Quit  ${FG_CYAN}${this.utcTime}`,
+      bg: footerBg,
+      fg: theme.text
+    };
+  }
+  
+  // Large animated title banner - simple block style with optional matrix rain background
+  renderLargeTitle(bg, rainLayer = null, startRow = 0) {
+    // Simple 3-row block font
+    const font = {
+      'A': ['█▀█', '█▀█', '▀ ▀'],
+      'E': ['█▀▀', '█▀ ', '▀▀▀'],
+      'S': ['█▀▀', '▀▀█', '▀▀▀'],
+      'T': ['▀█▀', ' █ ', ' ▀ '],
+      'H': ['█ █', '█▀█', '▀ ▀'],
+      'I': [' █ ', ' █ ', ' ▀ '],
+      'C': ['█▀▀', '█  ', '▀▀▀'],
+      'O': ['█▀█', '█ █', '▀▀▀'],
+      'M': ['█▄█', '█ █', '▀ ▀'],
+      'P': ['█▀█', '█▀▀', '▀  '],
+      'U': ['█ █', '█ █', '▀▀▀'],
+      'R': ['█▀█', '█▀▄', '▀ ▀'],
+      ' ': ['  ', '  ', '  '],
+    };
+    
+    const text = 'AESTHETIC COMPUTER';
+    
+    // Calculate title width for centering
+    let titleWidth = 0;
+    for (const char of text) {
+      if (char === ' ') {
+        titleWidth += 2; // space + dot
+      } else {
+        titleWidth += 4; // glyph (3) + space (1)
+      }
+    }
+    const leftPad = Math.floor((this.width - titleWidth) / 2);
+    
+    // Bouncing dot with physics - fast bounce with gravity feel
+    // Use sine for smooth acceleration/deceleration at top
+    const bounceSpeed = this.bloodPosition * 0.4; // faster
+    const bouncePhase = Math.abs(Math.sin(bounceSpeed));
+    // Map sine (0-1) to rows: 0=top, 1=mid, 2=bottom
+    // Spend more time at bottom (gravity), quick at top
+    const dotRow = bouncePhase < 0.3 ? 0 : bouncePhase < 0.6 ? 1 : 2;
+    const dotPink = '\x1b[38;5;205m'; // Bright pink
+    
+    // Filter out black from block colors for better contrast on black bg
+    const visibleColors = BLOCK_COLORS.filter(c => 
+      !c.bg.includes('40m') && !c.fg.includes('30m') // skip black bg/fg
+    );
+    
+    // Green codes for rain
+    const greenCodes = [
+      '\x1b[38;5;22m',  // 0: very dark green
+      '\x1b[38;5;28m',  // 1: dark green
+      '\x1b[38;5;34m',  // 2: medium green
+      '\x1b[38;5;40m',  // 3: green
+      '\x1b[38;5;46m',  // 4: bright green
+      '\x1b[38;5;156m', // 5: very bright green/white (head)
+    ];
+    
+    // Build 3 rows with animated colors per letter
+    for (let rowIdx = 0; rowIdx < 3; rowIdx++) {
+      // Build rain background for the entire line
+      let rainBg = '';
+      const rainRow = rainLayer ? rainLayer[startRow + rowIdx] : null;
+      if (rainRow) {
+        for (let col = 0; col < leftPad; col++) {
+          const cell = rainRow[col];
+          if (cell) {
+            const brightness = Math.floor(cell.fade * 5);
+            rainBg += `${greenCodes[Math.min(brightness, 5)]}${cell.char}${RESET}${bg}`;
+          } else {
+            rainBg += ' ';
+          }
+        }
+      } else {
+        rainBg = ' '.repeat(Math.max(0, leftPad));
+      }
+      
+      // Build title text
+      let titleLine = '';
+      let charIdx = 0;
+      for (let i = 0; i < text.length; i++) {
+        const char = text[i];
+        
+        // Handle the space between words - insert bouncing dot
+        if (char === ' ') {
+          // Bouncing pink dot
+          const dotChar = rowIdx === dotRow ? '●' : ' ';
+          titleLine += `${dotPink}${dotChar}${RESET}${bg} `;
+          continue;
+        }
+        
+        const glyph = font[char] || ['???', '???', '???'];
+        const timeOffset = Math.floor(this.bloodPosition / 4);
+        const colorIdx = Math.abs((charIdx + timeOffset) % visibleColors.length);
+        const block = visibleColors[colorIdx];
+        titleLine += `${block.fg}${glyph[rowIdx]} ${RESET}${bg}`;
+        charIdx++;
+      }
+      
+      // Build rain background for right side
+      let rainRight = '';
+      const rightStart = leftPad + titleWidth;
+      if (rainRow) {
+        for (let col = rightStart; col < this.width; col++) {
+          const cell = rainRow[col];
+          if (cell) {
+            const brightness = Math.floor(cell.fade * 5);
+            rainRight += `${greenCodes[Math.min(brightness, 5)]}${cell.char}${RESET}${bg}`;
+          } else {
+            rainRight += ' ';
+          }
+        }
+      } else {
+        rainRight = ' '.repeat(Math.max(0, this.width - rightStart));
+      }
+      
+      this.frameBuffer.push(`${bg}${rainBg}${titleLine}${rainRight}${RESET}`);
+    }
+  }
+  
+  // Compact animated single-line title
+  renderAnimatedTitle(bg) {
+    const artLine = 'AESTHETIC.COMPUTER';
+    let animatedLine = '';
+    let charIdx = 0;
+    for (const char of artLine) {
+      if (char === ' ' || char === '.') {
+        animatedLine += `${bg}${char}${RESET}`;
+      } else {
+        const timeOffset = Math.floor(this.bloodPosition / 3);
+        const waveOffset = Math.floor(Math.sin((charIdx + timeOffset) * 0.5) * 2);
+        const colorIdx = Math.abs((charIdx + timeOffset + waveOffset) % BLOCK_COLORS.length);
+        const block = BLOCK_COLORS[colorIdx];
+        animatedLine += `${block.bg}${block.fg}${BOLD} ${char} ${RESET}`;
+        charIdx++;
+      }
+    }
+    this.writeCenteredLine(animatedLine, bg);
+  }
+
   renderMenu() {
+    // Use new borderless design
+    this.renderMenuBorderless();
+  }
+
+  renderMenuLegacy() {
+    // OLD bordered menu - kept for reference
     this.renderHeader();
     const boxWidth = this.innerWidth;
     const compact = this.width < 80;
@@ -2842,55 +3515,138 @@ class ArteryTUI {
   }
 
   renderTests() {
-    this.renderHeader();
-    const boxWidth = this.innerWidth;
-    const compact = this.width < 80;
-    
-    // Get dynamic theme colors
     const theme = this.getThemeColors();
-    const themeBorder = theme.border;
-    const themeFill = theme.fill;
+    const boardBg = BG_BLACK;
+    const footerBg = theme.bg;
     
-    // Title
-    const hint = compact ? '' : ` ${DIM}(↑↓,Enter)${RESET}`;
-    const testTitle = `${themeBorder}║${RESET}${themeFill}${FG_BRIGHT_YELLOW}►${FG_WHITE}Tests${hint}`;
-    const testPadding = boxWidth - this.stripAnsi(testTitle).length - 1;
-    this.writeLine(`${testTitle}${themeFill}${' '.repeat(Math.max(0, testPadding))}${themeBorder}║${RESET}`);
-    this.writeLine(`${themeBorder}╟${'─'.repeat(boxWidth - 2)}╢${RESET}`);
+    // === TITLE SECTION ===
+    this.writeEmptyLine(boardBg);
+    const testTitle = `${FG_BRIGHT_YELLOW}🧪${RESET}${boardBg} ${FG_WHITE}${BOLD}RUN TESTS${RESET}`;
+    this.writeCenteredLine(testTitle, boardBg);
+    this.writeEmptyLine(boardBg);
     
-    // Tests list
-    const tests = this.testFiles || [];
-    const visibleCount = Math.max(1, this.innerHeight - 8);
+    // Tile colors by category
+    const arteryColor = { bg: '\x1b[48;5;22m', fg: FG_WHITE };   // Dark green
+    const musicColor = { bg: '\x1b[48;5;54m', fg: FG_WHITE };    // Purple
+    const graphicsColor = { bg: '\x1b[48;5;24m', fg: FG_WHITE }; // Blue
+    const otherColor = { bg: '\x1b[48;5;94m', fg: FG_WHITE };    // Brown
     
-    for (let i = 0; i < Math.min(tests.length, visibleCount); i++) {
-      const test = tests[i];
-      const selected = i === this.selectedIndex;
-      
-      // Handle separator rows
-      if (test.isSeparator) {
-        const sepLine = `${themeBorder}║${RESET}${themeFill}${DIM}${FG_CYAN}  ─── ${test.desc} ───${RESET}`;
-        const sepPadding = boxWidth - this.stripAnsi(sepLine).length - 1;
-        this.writeLine(`${sepLine}${themeFill}${' '.repeat(Math.max(0, sepPadding))}${themeBorder}║${RESET}`);
-        continue;
+    // Blinking selection
+    const blink = Math.floor(this.bloodPosition / 4) % 2 === 0;
+    const selectFg = blink ? '\x1b[38;5;226m' : '\x1b[38;5;228m';
+    const selectBg = blink ? '\x1b[48;5;22m' : '\x1b[48;5;28m';
+    
+    const getTileColor = (test) => {
+      if (test.isArtery) return arteryColor;
+      if (test.name.includes('melody') || test.name.includes('chord') || test.name.includes('waltz')) return musicColor;
+      if (test.name.includes('line')) return graphicsColor;
+      return otherColor;
+    };
+    
+    // Filter out separators
+    const tests = (this.testFiles || []).filter(t => !t.isSeparator);
+    
+    // Find actual selected index in filtered tests
+    let actualSelectedIdx = 0;
+    let counter = 0;
+    for (let i = 0; i < (this.testFiles || []).length; i++) {
+      if (!this.testFiles[i].isSeparator) {
+        if (i === this.selectedIndex) {
+          actualSelectedIdx = counter;
+          break;
+        }
+        counter++;
       }
-      
-      const prefix = selected ? `${theme.highlight}▸ ` : `${themeFill}  `;
-      const suffix = selected ? `${RESET}` : `${RESET}`;
-      const configIcon = test.params ? `${selected ? FG_BLACK : FG_YELLOW}⚙${RESET}${selected ? theme.highlight : themeFill}` : '';
-      const label = selected ? `${FG_BLACK}${BOLD}${test.name}${RESET}` : `${FG_WHITE}${test.name}${RESET}`;
-      const desc = compact ? '' : ` ${DIM}${test.desc}${RESET}`;
-      
-      const line = `${themeBorder}║${RESET}${prefix}${configIcon}${label}${suffix}${desc}`;
-      const padding = boxWidth - this.stripAnsi(line).length - 1;
-      this.writeLine(`${line}${themeFill}${' '.repeat(Math.max(0, padding))}${themeBorder}║${RESET}`);
     }
     
-    // Fill remaining
-    for (let i = tests.length; i < visibleCount; i++) {
-      this.writeLine(`${themeBorder}║${themeFill}${' '.repeat(boxWidth - 2)}${themeBorder}║${RESET}`);
+    // Responsive tile sizing - expand to fill width
+    const availableHeight = this.height - 7;
+    const rowHeight = 2;
+    const maxVisibleRows = Math.floor(availableHeight / rowHeight);
+    
+    // Determine columns based on test count
+    const testCount = tests.length;
+    let tilesPerRow;
+    if (this.width >= 120) {
+      tilesPerRow = Math.min(6, Math.ceil(testCount / Math.ceil(testCount / 6)));
+    } else if (this.width >= 100) {
+      tilesPerRow = Math.min(5, Math.ceil(testCount / Math.ceil(testCount / 5)));
+    } else if (this.width >= 80) {
+      tilesPerRow = Math.min(4, Math.ceil(testCount / Math.ceil(testCount / 4)));
+    } else {
+      tilesPerRow = Math.min(3, Math.ceil(testCount / Math.ceil(testCount / 3)));
     }
     
-    this.renderFooter();
+    // Calculate tile width to fill available space
+    const availableWidth = this.width - 2;
+    const tileWidth = Math.floor((availableWidth - (tilesPerRow - 1)) / tilesPerRow);
+    
+    const totalRows = Math.ceil(tests.length / tilesPerRow);
+    
+    // Pagination
+    const currentRow = Math.floor(actualSelectedIdx / tilesPerRow);
+    let startRow = 0;
+    if (totalRows > maxVisibleRows) {
+      startRow = Math.max(0, Math.min(currentRow - Math.floor(maxVisibleRows / 2), totalRows - maxVisibleRows));
+    }
+    const endRow = Math.min(startRow + maxVisibleRows, totalRows);
+    
+    const totalTileWidth = tilesPerRow * tileWidth + (tilesPerRow - 1);
+    const leftMargin = Math.floor((this.width - totalTileWidth) / 2);
+    
+    // Render visible rows
+    for (let row = startRow; row < endRow; row++) {
+      let tileLine = ' '.repeat(leftMargin);
+      for (let col = 0; col < tilesPerRow; col++) {
+        const idx = row * tilesPerRow + col;
+        if (idx < tests.length) {
+          const test = tests[idx];
+          const selected = idx === actualSelectedIdx;
+          const tileBg = selected ? selectBg : getTileColor(test).bg;
+          const tileFg = selected ? selectFg : FG_WHITE;
+          
+          const configIcon = test.params ? '⚙' : '';
+          let name = test.name;
+          const maxName = tileWidth - 3 - configIcon.length;
+          if (name.length > maxName) name = name.slice(0, maxName - 2) + '..';
+          
+          const content = configIcon ? `${configIcon}${name}` : name;
+          const pad = tileWidth - content.length - 1;
+          
+          if (selected) {
+            tileLine += `${tileBg}${tileFg}${BOLD}▐${content}${RESET}${tileBg}${' '.repeat(Math.max(0, pad))}${tileFg}▌${RESET}`;
+          } else {
+            tileLine += `${tileBg}${tileFg} ${content}${' '.repeat(Math.max(0, pad))}${RESET}`;
+          }
+          if (col < tilesPerRow - 1) tileLine += ' ';
+        }
+      }
+      this.writeColorLine(tileLine, boardBg);
+      
+      if (row < endRow - 1) {
+        this.writeEmptyLine(boardBg);
+      }
+    }
+    
+    // Pagination indicator
+    if (totalRows > maxVisibleRows) {
+      this.writeColorLine(` ${FG_CYAN}[${startRow + 1}-${endRow}/${totalRows}]${RESET}`, boardBg);
+    } else {
+      this.writeEmptyLine(boardBg);
+    }
+    
+    // Selected test description
+    const selectedTest = tests[actualSelectedIdx];
+    if (selectedTest) {
+      const desc = selectedTest.desc.length > this.width - 4 
+        ? selectedTest.desc.slice(0, this.width - 7) + '...'
+        : selectedTest.desc;
+      this.writeColorLine(` ${FG_CYAN}${desc}${RESET}`, boardBg);
+    }
+    
+    // Footer - use pendingFooter to ensure it's at very bottom
+    const footerText = ` ${FG_WHITE}↑↓←→${theme.text} Nav  ${FG_WHITE}Enter${theme.text} Run  ${FG_WHITE}Esc${theme.text} Back  ${FG_CYAN}${this.utcTime}`;
+    this.pendingFooter = { text: footerText, bg: footerBg, fg: theme.text };
   }
   
   renderTestParams() {
@@ -2902,68 +3658,73 @@ class ArteryTUI {
     
     // Get dynamic theme colors
     const theme = this.getThemeColors();
-    const themeBorder = theme.border;
-    const themeFill = theme.fill;
+    const headerBg = '\x1b[48;5;236m';  // Subtle header background
+    const rowBg = theme.bg;
+    const selectedBg = '\x1b[48;5;239m'; // Highlight row
+    const accentColor = FG_BRIGHT_CYAN;
     
-    // Title
-    const hint = compact ? '' : ` ${DIM}(←→,Enter)${RESET}`;
-    const testTitle = `${themeBorder}║${RESET}${themeFill}${FG_BRIGHT_YELLOW}⚙${FG_WHITE}${test?.name}${hint}`;
-    const testPadding = boxWidth - this.stripAnsi(testTitle).length - 1;
-    this.writeLine(`${testTitle}${themeFill}${' '.repeat(Math.max(0, testPadding))}${themeBorder}║${RESET}`);
-    this.writeLine(`${themeBorder}╟${'─'.repeat(boxWidth - 2)}╢${RESET}`);
+    // Title bar - modern flat style
+    const hint = compact ? '' : `  ${DIM}↑↓ select  ←→ adjust  Enter run${RESET}`;
+    const testTitle = `${headerBg} ${FG_BRIGHT_YELLOW}⚙ ${FG_WHITE}${BOLD}${test?.name}${RESET}${headerBg}${hint}`;
+    const testPadding = boxWidth - this.getVisualWidth(this.stripAnsi(testTitle));
+    this.writeLine(`${testTitle}${headerBg}${' '.repeat(Math.max(0, testPadding))}${RESET}`);
     
-    // Parameters list
+    // Subtle separator
+    this.writeLine(`${DIM}${'─'.repeat(boxWidth)}${RESET}`);
+    
+    // Parameters list - cleaner rows
     for (let i = 0; i < params.length; i++) {
       const param = params[i];
       const selected = i === this.paramIndex;
-      const prefix = selected ? `${theme.highlight}▸ ` : `${themeFill}  `;
-      const suffix = selected ? `${RESET}` : `${RESET}`;
+      const bg = selected ? selectedBg : rowBg;
       
       const value = selected ? this.inputBuffer : (this.testParams[param.key] || param.default);
       
-      // Show value with arrows if it has options or is a number
+      // Modern value display with subtle arrows
       let valueDisplay;
       if (selected && (param.options || param.type === 'number')) {
-        const leftArrow = `${FG_BLACK}◀`;
-        const rightArrow = `${FG_BLACK}▶`;
-        valueDisplay = value ? `${leftArrow} ${FG_YELLOW}${value}${RESET}${theme.highlight} ${rightArrow}` : `${leftArrow} ${DIM}(empty)${RESET}${theme.highlight} ${rightArrow}`;
+        const leftArrow = `${DIM}◀${RESET}`;
+        const rightArrow = `${DIM}▶${RESET}`;
+        valueDisplay = value ? `${leftArrow} ${FG_BRIGHT_YELLOW}${BOLD}${value}${RESET}${bg} ${rightArrow}` : `${leftArrow} ${DIM}empty${RESET}${bg} ${rightArrow}`;
       } else {
-        valueDisplay = value ? `${selected ? FG_YELLOW : FG_GREEN}${value}${RESET}` : `${DIM}(empty)${RESET}`;
+        valueDisplay = value ? `${selected ? `${FG_BRIGHT_YELLOW}${BOLD}` : FG_GREEN}${value}${RESET}` : `${DIM}─${RESET}`;
       }
       
-      const label = selected ? `${FG_BLACK}${BOLD}${param.label}${RESET}` : `${FG_WHITE}${param.label}${RESET}`;
-      const desc = compact ? '' : ` ${DIM}${param.desc}${RESET}`;
+      const indicator = selected ? `${accentColor}▸${RESET}` : ` `;
+      const label = selected ? `${FG_WHITE}${BOLD}${param.label}${RESET}` : `${FG_WHITE}${param.label}${RESET}`;
       
-      const line = `${themeBorder}║${RESET}${prefix}${label}:${suffix} ${valueDisplay}${desc}`;
-      const padding = boxWidth - this.stripAnsi(line).length - 1;
-      this.writeLine(`${line}${themeFill}${' '.repeat(Math.max(0, padding))}${themeBorder}║${RESET}`);
+      const line = `${bg} ${indicator} ${label} ${DIM}│${RESET}${bg} ${valueDisplay}`;
+      const padding = boxWidth - this.getVisualWidth(this.stripAnsi(line));
+      this.writeLine(`${line}${bg}${' '.repeat(Math.max(0, padding))}${RESET}`);
     }
     
-    // Run button
-    this.writeLine(`${themeBorder}╟${'─'.repeat(boxWidth - 2)}╢${RESET}`);
-    const runSelected = this.paramIndex >= params.length;
-    const runPrefix = runSelected ? `${BG_GREEN}${FG_WHITE}▸ ` : `${themeFill}  `;
-    const runSuffix = runSelected ? `${RESET}` : `${RESET}`;
-    const runLabel = runSelected ? `${BOLD}🚀RUN${RESET}` : `${FG_GREEN}🚀RUN${RESET}`;
-    const runLine = `${themeBorder}║${RESET}${runPrefix}${runLabel}${runSuffix}`;
-    const runPadding = boxWidth - this.stripAnsi(runLine).length - 1;
-    this.writeLine(`${runLine}${themeFill}${' '.repeat(Math.max(0, runPadding))}${themeBorder}║${RESET}`);
+    // Spacer before run button
+    this.writeLine(`${rowBg}${' '.repeat(boxWidth)}${RESET}`);
     
-    // Preview command (skip on compact)
+    // Run button - prominent but clean
+    const runSelected = this.paramIndex >= params.length;
+    const runBg = runSelected ? BG_GREEN : rowBg;
+    const runFg = runSelected ? FG_WHITE : FG_GREEN;
+    const runIndicator = runSelected ? `${FG_WHITE}▸` : ` `;
+    const runLabel = `${runBg}${runFg}${BOLD} RUN ${RESET}`;
+    const runLine = `${runSelected ? runBg : rowBg} ${runIndicator} ${runLabel}`;
+    const runPadding = boxWidth - this.getVisualWidth(this.stripAnsi(runLine));
+    this.writeLine(`${runLine}${runSelected ? runBg : rowBg}${' '.repeat(Math.max(0, runPadding))}${RESET}`);
+    
+    // Preview command - subtle at bottom
     if (!compact) {
       const args = params.map(p => this.testParams[p.key] || p.default).filter(a => a).join(' ');
-      const cmdText = `node ${test?.file} ${args}`.slice(0, boxWidth - 10);
-      const cmdPreview = `${DIM}>${cmdText}${RESET}`;
-      const previewLine = `${themeBorder}║${RESET}${themeFill}${cmdPreview}`;
-      const previewPadding = boxWidth - this.stripAnsi(previewLine).length - 1;
-      this.writeLine(`${previewLine}${themeFill}${' '.repeat(Math.max(0, previewPadding))}${themeBorder}║${RESET}`);
+      const cmdText = `node ${test?.file} ${args}`.slice(0, boxWidth - 4);
+      const previewLine = `${rowBg}${DIM}  $ ${cmdText}${RESET}`;
+      const previewPadding = boxWidth - this.getVisualWidth(this.stripAnsi(previewLine));
+      this.writeLine(`${previewLine}${rowBg}${' '.repeat(Math.max(0, previewPadding))}${RESET}`);
     }
     
-    // Fill remaining
+    // Fill remaining with empty rows
     const usedLines = params.length + (compact ? 3 : 4);
     const visibleCount = Math.max(1, this.innerHeight - 8);
     for (let i = usedLines; i < visibleCount; i++) {
-      this.writeLine(`${themeBorder}║${themeFill}${' '.repeat(boxWidth - 2)}${themeBorder}║${RESET}`);
+      this.writeLine(`${rowBg}${' '.repeat(boxWidth)}${RESET}`);
     }
     
     this.renderFooter();
@@ -2977,6 +3738,113 @@ class ArteryTUI {
         this.write(moveTo(this.marginY + 3 + this.paramIndex, this.adaptiveMarginX + 4 + labelLen + this.inputBuffer.length));
       }
     }
+  }
+
+  // Split-panel test running view (borderless)
+  renderTestRunning() {
+    const theme = this.getThemeColors();
+    
+    // Colors for the two panels
+    const leftBg = BG_BLACK;                    // Dark - output panel
+    const leftFg = FG_WHITE;
+    const rightBg = '\x1b[48;5;234m';           // Slightly lighter gray - logs panel  
+    const rightFg = FG_WHITE;
+    const headerBg = '\x1b[48;5;236m';          // Header bar
+    const footerBg = theme.bg;
+    
+    // Calculate panel widths (split roughly 60/40 for output/logs)
+    const dividerWidth = 1;
+    const leftWidth = Math.floor((this.width - dividerWidth) * 0.6);
+    const rightWidth = this.width - leftWidth - dividerWidth;
+    
+    // Available height for content (minus header and footer)
+    const headerHeight = 2;
+    const footerHeight = 1;
+    const contentHeight = this.height - headerHeight - footerHeight;
+    
+    // === HEADER ROW ===
+    const testName = this.testFile ? this.testFile.split('/').pop().replace('.mjs', '') : 'Test';
+    const runningIcon = this.testRunning ? '◐' : '●';
+    const runningColor = this.testRunning ? FG_BRIGHT_YELLOW : FG_BRIGHT_GREEN;
+    const leftHeader = ` ${runningColor}${runningIcon}${RESET}${headerBg}${FG_WHITE} ${testName}`;
+    const rightHeader = `${FG_CYAN}Console Logs`;
+    
+    // Build header line (use getVisualWidth for proper emoji measurement)
+    const leftHeaderPad = leftWidth - this.getVisualWidth(this.stripAnsi(leftHeader));
+    const rightHeaderPad = rightWidth - this.getVisualWidth(this.stripAnsi(rightHeader)) - 1;
+    const headerLine = `${headerBg}${leftHeader}${' '.repeat(Math.max(0, leftHeaderPad))}${FG_BLACK}│${rightHeader}${' '.repeat(Math.max(0, rightHeaderPad))}${RESET}`;
+    this.frameBuffer.push(headerLine);
+    
+    // Divider line under header
+    const dividerLine = `${headerBg}${'─'.repeat(leftWidth)}┼${'─'.repeat(rightWidth)}${RESET}`;
+    this.frameBuffer.push(dividerLine);
+    
+    // === CONTENT ROWS ===
+    const outputLines = this.testOutput || [];
+    const logLines = this.testLogs || [];
+    
+    // Get visible portion (most recent lines that fit)
+    const visibleOutput = outputLines.slice(-(contentHeight));
+    const visibleLogs = logLines.slice(-(contentHeight));
+    
+    for (let row = 0; row < contentHeight; row++) {
+      // Left panel - test output
+      let leftContent = '';
+      if (row < visibleOutput.length) {
+        const line = visibleOutput[row];
+        let text = line.text || '';
+        // Truncate if too long (use visual width)
+        const maxWidth = leftWidth - 2;
+        if (this.getVisualWidth(text) > maxWidth) {
+          // Truncate char by char until it fits
+          while (this.getVisualWidth(text) > maxWidth - 3 && text.length > 0) {
+            text = text.slice(0, -1);
+          }
+          text = text + '...';
+        }
+        leftContent = ` ${text}`;
+      }
+      const leftPad = leftWidth - this.getVisualWidth(leftContent);
+      
+      // Right panel - console logs
+      let rightContent = '';
+      let rightText = '';
+      if (row < visibleLogs.length) {
+        const log = visibleLogs[row];
+        const levelColors = {
+          error: FG_BRIGHT_RED,
+          warn: FG_BRIGHT_YELLOW,
+          success: FG_BRIGHT_GREEN,
+          log: FG_WHITE,
+          info: FG_BRIGHT_CYAN,
+          input: FG_BRIGHT_MAGENTA,
+          result: FG_BRIGHT_GREEN,
+        };
+        const color = levelColors[log.level] || FG_WHITE;
+        let text = log.text || '';
+        const maxRightWidth = rightWidth - 2;
+        if (this.getVisualWidth(text) > maxRightWidth) {
+          while (this.getVisualWidth(text) > maxRightWidth - 3 && text.length > 0) {
+            text = text.slice(0, -1);
+          }
+          text = text + '...';
+        }
+        rightText = text;
+        rightContent = `${color}${text}${RESET}`;
+      }
+      const rightPad = rightWidth - this.getVisualWidth(rightText) - 1;
+      
+      // Combine panels with divider
+      const rowLine = `${leftBg}${leftFg}${leftContent}${' '.repeat(Math.max(0, leftPad))}${RESET}${DIM}│${RESET}${rightBg}${rightContent}${rightBg}${' '.repeat(Math.max(0, rightPad))}${RESET}`;
+      this.frameBuffer.push(rowLine);
+    }
+    
+    // === FOOTER ===
+    const statusText = this.testRunning 
+      ? `${FG_BRIGHT_YELLOW}Running...${RESET}` 
+      : (this.statusMessage || 'Complete');
+    const footerText = ` ${statusText}  ${FG_WHITE}Esc${theme.text} Back  ${FG_CYAN}${this.utcTime}`;
+    this.pendingFooter = { text: footerText, bg: footerBg, fg: theme.text };
   }
 
   renderLogs() {

@@ -690,9 +690,24 @@ Optional TARGET-TAB specifies which tab to land on (default: artery)."
           (when (and (boundp 'evil-mode) evil-mode)
             (evil-emacs-state)))))
 
+    ;; Create a plain fish shell tab right after artery (for quick terminal access)
+    ;; This is "fishy" - the go-to terminal for running shell commands via LLM
+    (run-with-timer 0.5 nil
+                    (lambda ()
+                      (tab-new)
+                      (tab-rename "fishy")
+                      (let ((default-directory ac--directory-path))
+                        (eat "fish")
+                        (when (get-buffer "*eat*")
+                          (with-current-buffer "*eat*"
+                            (rename-buffer "🐟-fishy" t)
+                            (eat-semi-char-mode)
+                            (when (and (boundp 'evil-mode) evil-mode)
+                              (evil-emacs-state)))))))
+
     ;; Create all the split tabs with delays to prevent overwhelming eat/Emacs
     ;; Use run-with-timer for reliable delays (sit-for doesn't work in daemon mode)
-    (let ((delay 0))
+    (let ((delay 2))  ; Start at 2 seconds to account for shell tab
       (dolist (tab-spec '(("status"   ("url" "tunnel"))
                           ("stripe"   ("stripe-print" "stripe-ticket"))
                           ("chat"     ("chat-system" "chat-sotce" "chat-clock"))
@@ -705,10 +720,10 @@ Optional TARGET-TAB specifies which tab to land on (default: artery)."
         (setq delay (+ delay 1.5))))  ; 1.5 seconds between each tab
 
     ;; Switch to the requested tab after all tabs are created
-    (run-with-timer (* 1.5 7) nil
+    (run-with-timer (* 1.5 8) nil  ; Increased to account for shell tab
                     (lambda (target)
                       (condition-case nil
-                          (if (member target '("artery" "status" "stripe" "chat" "web 1/2" "web 2/2" "tests"))
+                          (if (member target '("artery" "fishy" "status" "stripe" "chat" "web 1/2" "web 2/2" "tests"))
                               (tab-bar-switch-to-tab target)
                             (message "No such tab: %s" target))
                         (error nil)))
