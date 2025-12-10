@@ -20,6 +20,19 @@
 - Never expose or copy vault secrets
 - **NEVER** call `get_task_output` on the "💻 Aesthetic" task — it freezes the devcontainer
 
+## Fishy Terminal 🐟
+When user says **"tell the fishy"** or **"fishy run"**, execute commands in the `🐟-fishy` emacs buffer:
+```elisp
+;; Send command to fishy
+(mcp_emacs_emacs_send_keys buffer="🐟-fishy" keys="your-command-here\n")
+;; Or use process-send-string for reliability
+(process-send-string (get-process "fishy") "command\n")
+```
+- **Buffer name**: `🐟-fishy`
+- **Tab name**: `fishy` (second tab after artery)
+- **Use case**: Quick shell commands, file operations, git, npm, etc.
+- Prefer fishy over `run_in_terminal` when user explicitly mentions it
+
 ## Emacs/Artery Platform Management
 
 ### Architecture
