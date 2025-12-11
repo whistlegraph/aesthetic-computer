@@ -2,6 +2,12 @@
 /**
  * 🧠 Emacs MCP Server - Simple MCP server for Emacs integration
  * Runs via stdio and provides tools to execute elisp via emacsclient
+ * 
+ * TODO: Add ability to highlight/color a buffer's background when being
+ *       observed/watched by an AI agent. Could add tools like:
+ *       - emacs_watch_buffer(buffer, color) - set background highlight
+ *       - emacs_unwatch_buffer(buffer) - restore normal background
+ *       This would give visual feedback when Copilot is monitoring logs.
  */
 
 import { spawn } from 'child_process';

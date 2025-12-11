@@ -1699,28 +1699,31 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     send({ type: "wallet:state", content: { ...walletState } });
   }
   
-  // 🔷 Auto-restore wallet session from Beacon storage
-  // Beacon SDK stores session data in localStorage automatically
-  // We just need to check getActiveAccount() on page load
+  // 🔷 Tezos Wallet Connection (Beacon-free)
+  // Uses direct communication with wallet extensions and localStorage for session persistence
+  
+  const TEZOS_RPC = {
+    mainnet: "https://mainnet.api.tez.ie",
+    ghostnet: "https://ghostnet.ecadinfra.com",
+  };
+  
+  // Restore wallet session from localStorage
   async function restoreWalletSession() {
     try {
-      // Load Tezos SDK (doesn't prompt user)
-      const { wallet } = await loadTezos();
-      
-      // Check if there's an existing session
-      const activeAccount = await wallet.getActiveAccount();
-      if (activeAccount) {
-        if (debug) console.log("🔷 Restoring wallet session:", activeAccount.address);
+      const savedSession = localStorage.getItem("ac:tezos:session");
+      if (savedSession) {
+        const session = JSON.parse(savedSession);
+        console.log("🔷 Restoring wallet session:", session.address);
         
-        // Update wallet state
         walletState.connected = true;
-        walletState.address = activeAccount.address;
-        walletState.network = wallet._network || "ghostnet";
+        walletState.address = session.address;
+        walletState.network = session.network || "ghostnet";
+        walletState.walletType = session.walletType || "unknown";
         
-        // Fetch balance and domain in background
+        // Fetch fresh balance and domain
         Promise.all([
-          fetchTezosBalanceForBios(activeAccount.address, walletState.network),
-          fetchTezosDomain(activeAccount.address, walletState.network)
+          fetchTezosBalanceForBios(session.address, walletState.network),
+          fetchTezosDomain(session.address, walletState.network)
         ]).then(([balance, domain]) => {
           walletState.balance = balance;
           walletState.domain = domain;
@@ -1730,146 +1733,140 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         broadcastWalletState();
         return true;
       }
+      console.log("🔷 No saved wallet session");
     } catch (err) {
-      if (debug) console.log("🔷 No wallet session to restore:", err.message);
+      console.log("🔷 restoreWalletSession error:", err.message);
     }
     return false;
   }
   
-  async function loadTezos(network = "ghostnet") {
-    if (tezosWallet && tezosTk) return { wallet: tezosWallet, tezos: tezosTk };
-    
-    // Prevent multiple simultaneous loads
-    if (tezosLoading) return tezosLoading;
-    
-    tezosLoading = (async () => {
-      try {
-        // Load beacon-dapp (includes both Beacon wallet and Taquito integration)
-        await new Promise((resolve, reject) => {
-          if (window.beaconDapp) {
-            resolve();
-            return;
-          }
-          
-          const script = document.createElement("script");
-          script.src = "https://unpkg.com/@airgap/beacon-dapp@4.3.0/dist/walletbeacon.dapp.min.js";
-          script.onload = () => {
-            console.log("🔷 Beacon dApp loaded, globals:", Object.keys(window).filter(k => k.toLowerCase().includes('beacon') || k.toLowerCase().includes('tezos') || k.toLowerCase().includes('taquito')));
-            resolve();
-          };
-          script.onerror = reject;
-          document.head.appendChild(script);
-        });
-        
-        // beacon-dapp exposes window.beacon with DAppClient
-        const { DAppClient, NetworkType, ColorMode } = window.beacon;
-        
-        const rpcUrl = network === "mainnet" 
-          ? "https://mainnet.api.tez.ie"
-          : "https://ghostnet.ecadinfra.com";
-        
-        // Use DAppClient directly (simpler than full Taquito for basic contract calls)
-        tezosWallet = new DAppClient({
-          name: "Aesthetic Computer",
-          preferredNetwork: network === "mainnet" ? NetworkType.MAINNET : NetworkType.GHOSTNET,
-          colorMode: ColorMode.DARK,
-          // Explicitly enable desktop extension support
-          disableDefaultEvents: false,
-          featuredWallets: ["temple", "kukai"], // Prioritize Temple and Kukai
-        });
-        
-        // Store RPC URL for contract calls
-        tezosWallet._rpcUrl = rpcUrl;
-        tezosWallet._network = network;
-        
-        // We'll use fetch for contract calls instead of Taquito
-        tezosTk = { rpcUrl, network };
-        
-        if (debug) console.log("🔷 Tezos Ready (Beacon DAppClient)...");
-        return { wallet: tezosWallet, tezos: tezosTk };
-      } catch (err) {
-        console.error("🔴 Failed to load Tezos:", err);
-        tezosLoading = null;
-        throw err;
-      }
-    })();
-    
-    return tezosLoading;
+  // Save wallet session to localStorage
+  function saveWalletSession(address, network, walletType) {
+    localStorage.setItem("ac:tezos:session", JSON.stringify({
+      address,
+      network,
+      walletType,
+      timestamp: Date.now(),
+    }));
   }
   
-  async function connectTezosWallet(network = "ghostnet") {
-    const { wallet } = await loadTezos(network);
+  // Clear wallet session
+  function clearWalletSession() {
+    localStorage.removeItem("ac:tezos:session");
+  }
+  
+  // Initialize Tezos (no external SDK needed for basic operations)
+  async function loadTezos(network = "ghostnet") {
+    const rpcUrl = TEZOS_RPC[network] || TEZOS_RPC.ghostnet;
     
-    // Check if already connected
-    const activeAccount = await wallet.getActiveAccount();
-    if (activeAccount) {
-      // Update wallet state for already connected account
+    // Create a minimal wallet interface for RPC operations
+    if (!tezosWallet) {
+      tezosWallet = {
+        _rpcUrl: rpcUrl,
+        _network: network,
+      };
+      tezosTk = { rpcUrl, network };
+      console.log("🔷 Tezos RPC ready:", network);
+    }
+    
+    return { wallet: tezosWallet, tezos: tezosTk };
+  }
+  
+  // Connect wallet via Temple Wallet browser extension
+  async function connectTezosWallet(network = "ghostnet", options = {}) {
+    const rpcUrl = TEZOS_RPC[network] || TEZOS_RPC.ghostnet;
+    
+    console.log("🔷 Attempting Temple Wallet connection...");
+    
+    // Load Temple dapp SDK dynamically
+    if (!window.TempleWallet) {
+      console.log("🔷 Loading Temple dapp SDK...");
+      try {
+        // Use esm.run which is faster than skypack
+        const module = await Promise.race([
+          import("https://esm.run/@temple-wallet/dapp@6.0.1"),
+          new Promise((_, reject) => setTimeout(() => reject(new Error("SDK load timeout")), 10000))
+        ]);
+        console.log("🔷 Temple module loaded:", Object.keys(module));
+        window.TempleWallet = module.TempleWallet;
+        
+        if (!window.TempleWallet) {
+          throw new Error("Temple SDK loaded but TempleWallet export not found");
+        }
+        console.log("🔷 Temple SDK loaded successfully");
+      } catch (err) {
+        console.log("🔷 Failed to load Temple SDK:", err);
+        throw new Error("Failed to load Temple Wallet SDK: " + (err?.message || err));
+      }
+    }
+    
+    // Check if Temple extension is available
+    const available = await window.TempleWallet.isAvailable();
+    console.log("🔷 Temple Wallet available:", available);
+    
+    if (!available) {
+      throw new Error("Temple Wallet not installed. Get it at templewallet.com");
+    }
+    
+    try {
+      // Create wallet instance and connect
+      const wallet = new window.TempleWallet("Aesthetic Computer");
+      await wallet.connect(network === "mainnet" ? "mainnet" : "ghostnet");
+      
+      const address = wallet.pkh;
+      console.log("🔷 Temple connected:", address);
+      
       walletState.connected = true;
-      walletState.address = activeAccount.address;
+      walletState.address = address;
       walletState.network = network;
-      // Fetch balance and domain in background
+      walletState.walletType = "temple";
+      
+      // Store wallet reference for signing operations
+      tezosWallet = {
+        _temple: wallet,
+        _rpcUrl: rpcUrl,
+        _network: network,
+        sign: (payload) => wallet.sign(payload),
+        toTezos: () => wallet.toTezos(),
+        pkh: () => wallet.pkh,
+      };
+      
+      saveWalletSession(address, network, "temple");
+      
+      // Fetch balance and domain
       Promise.all([
-        fetchTezosBalanceForBios(activeAccount.address, network),
-        fetchTezosDomain(activeAccount.address, network)
+        fetchTezosBalanceForBios(address, network),
+        fetchTezosDomain(address, network)
       ]).then(([balance, domain]) => {
         walletState.balance = balance;
         walletState.domain = domain;
         broadcastWalletState();
       });
+      
       broadcastWalletState();
-      return activeAccount.address;
+      return address;
+      
+    } catch (err) {
+      console.log("🔷 Temple connection error:", err?.message || err);
+      throw new Error(err?.message || "Temple connection cancelled");
     }
-    
-    // Request permissions (opens wallet popup)
-    const permissions = await wallet.requestPermissions({
-      network: { 
-        type: network === "mainnet" ? "mainnet" : "ghostnet",
-        rpcUrl: wallet._rpcUrl,
-      },
-    });
-    
-    const address = permissions.address;
-    if (debug) console.log("🔷 Tezos connected:", address);
-    
-    // Update wallet state
-    walletState.connected = true;
-    walletState.address = address;
-    walletState.network = network;
-    walletState.balance = null;
-    walletState.domain = null;
-    
-    // Fetch balance and domain in background
-    Promise.all([
-      fetchTezosBalanceForBios(address, network),
-      fetchTezosDomain(address, network)
-    ]).then(([balance, domain]) => {
-      walletState.balance = balance;
-      walletState.domain = domain;
-      broadcastWalletState();
-    });
-    
-    broadcastWalletState();
-    return address;
   }
   
   async function disconnectTezosWallet() {
-    if (tezosWallet) {
-      await tezosWallet.clearActiveAccount();
-      if (debug) console.log("🔷 Tezos disconnected");
-      
-      // Clear wallet state
-      walletState.connected = false;
-      walletState.address = null;
-      walletState.balance = null;
-      walletState.domain = null;
-      broadcastWalletState();
-    }
+    console.log("🔷 Disconnecting Tezos wallet");
+    clearWalletSession();
+    
+    walletState.connected = false;
+    walletState.address = null;
+    walletState.balance = null;
+    walletState.domain = null;
+    walletState.walletType = null;
+    
+    broadcastWalletState();
   }
   
   async function getTezosAddress() {
-    if (!tezosWallet) return null;
-    const activeAccount = await tezosWallet.getActiveAccount();
-    return activeAccount?.address || null;
+    return walletState.address;
   }
   
   // Fetch Tezos balance from RPC (for bios.mjs wallet API)
@@ -1926,51 +1923,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   }
   
   async function callTezosContract(contractAddress, method, args, amount = 0) {
-    if (!tezosWallet) throw new Error("Tezos wallet not initialized");
+    // Without Beacon, we can't sign transactions directly from the browser
+    // Contract calls need to go through a server function that uses an admin key
+    // OR we need to integrate a signing solution
     
-    const activeAccount = await tezosWallet.getActiveAccount();
-    if (!activeAccount) throw new Error("No active Tezos account - please connect wallet first");
-    
-    // For contract calls with Beacon, we need to use requestOperation
-    // Build the operation parameters
-    const amountMutez = Math.floor(amount * 1_000_000); // Convert tez to mutez
-    
-    const result = await tezosWallet.requestOperation({
-      operationDetails: [{
-        kind: "transaction",
-        destination: contractAddress,
-        amount: String(amountMutez),
-        parameters: {
-          entrypoint: method,
-          value: args, // This needs to be Michelson-encoded
-        },
-      }],
-    });
-    
-    if (debug) console.log("🔷 Tezos tx submitted:", result.transactionHash);
-    
-    // Wait for confirmation by polling
-    const rpcUrl = tezosWallet._rpcUrl;
-    let confirmed = false;
-    for (let i = 0; i < 60; i++) { // Wait up to 60 seconds
-      await new Promise(r => setTimeout(r, 1000));
-      try {
-        const res = await fetch(`${rpcUrl}/chains/main/blocks/head/operations/3`);
-        const ops = await res.json();
-        for (const opGroup of ops) {
-          if (opGroup.hash === result.transactionHash) {
-            confirmed = true;
-            break;
-          }
-        }
-        if (confirmed) break;
-      } catch (e) {
-        // Ignore polling errors
-      }
+    if (!walletState.connected) {
+      throw new Error("Wallet not connected - use 'wallet' command first");
     }
     
-    if (debug) console.log("🔷 Tezos tx confirmed:", result.transactionHash);
-    return result.transactionHash;
+    // For the "keeps" minting flow, the actual signing happens server-side
+    // This function should be called after getting the operation params from the server
+    throw new Error("Direct contract calls require server-side signing. Use keep-mint endpoint.");
   }
 
   // UDP / Geckos Networking
@@ -9928,7 +9891,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (type === "wallet:connect") {
       try {
         const network = content?.network || "ghostnet";
-        const address = await connectTezosWallet(network);
+        const options = {
+          address: content?.address,
+          network,
+          walletType: content?.walletType || "manual",
+          useTemple: content?.useTemple,
+        };
+        const address = await connectTezosWallet(network, options);
         // connectTezosWallet already updates walletState and broadcasts
       } catch (err) {
         console.error("🔴 Wallet connect error:", err);
