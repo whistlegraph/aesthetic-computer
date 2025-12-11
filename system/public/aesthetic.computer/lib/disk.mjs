@@ -2303,7 +2303,7 @@ const $commonApi = {
     },
     current: {}, // Will get replaced by an update event.
   },
-  // 🔷 Tezos wallet management (via bios.mjs Beacon SDK)
+  // 🔷 Tezos wallet management (via bios.mjs)
   wallet: {
     _state: {
       connected: false,
@@ -2322,9 +2322,14 @@ const $commonApi = {
       }
       return { ...$commonApi.wallet._state };
     },
-    // Connect wallet (triggers Beacon popup)
-    connect: function (network = "ghostnet") {
-      send({ type: "wallet:connect", content: { network } });
+    // Connect wallet (with optional address for manual entry)
+    connect: function (options = {}) {
+      // Support both connect(network) and connect({ address, network })
+      if (typeof options === "string") {
+        send({ type: "wallet:connect", content: { network: options } });
+      } else {
+        send({ type: "wallet:connect", content: options });
+      }
     },
     // Disconnect wallet
     disconnect: function () {
