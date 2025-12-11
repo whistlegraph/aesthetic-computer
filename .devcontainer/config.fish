@@ -1140,7 +1140,13 @@ function aesthetic
     else
         clear
         set -l config_count 0
+        set -l last_log_lines 0
+        set -l entry_log /tmp/entry-fish.log
+        
         while not test -f /home/me/.waiter
+            clear
+            
+            # Show banner
             set -l message
             if test (math $config_count % 2) -eq 0
                 set message "Configuring..."
@@ -1148,11 +1154,23 @@ function aesthetic
                 set message "Configuring. . ."
             end
             toilet $message -f future | lolcat -x -r
-            sleep 0.25
-            clear
+            
+            # Show entry.fish progress if log exists
+            if test -f $entry_log
+                set -l log_lines (wc -l < $entry_log 2>/dev/null | string trim)
+                if test -n "$log_lines" -a "$log_lines" -gt 0
+                    echo ""
+                    echo "─────────────────────────────────────────"
+                    # Show last 8 lines of entry log
+                    tail -n 8 $entry_log 2>/dev/null
+                    echo "─────────────────────────────────────────"
+                end
+            end
+            
+            sleep 0.5
             set config_count (math $config_count + 1)
         end
-        sudo rm /home/me/.waiter
+        sudo rm /home/me/.waiter 2>/dev/null
     end
     
     if not ensure-emacs-daemon-ready --timeout=360
