@@ -4,6 +4,8 @@
 /* #region 📚 README 
   A live wallet display showing real-time blockchain activity.
   All info on one dynamic screen with block progress visualization.
+  
+  When not connected, shows an address input to manually enter a wallet address.
 #endregion */
 
 // State
@@ -33,6 +35,9 @@ let dataStreams = [];
 
 // UI
 let disconnectBtn;
+let connectTempleBtn;
+let connectError = null;
+let connecting = false; // Connection in progress
 
 // Color scheme - Tezos blue/cyan
 const colors = {
@@ -72,12 +77,21 @@ async function boot({ wallet, wipe, hud, ui, screen }) {
   wallet.sync();
   walletState = wallet.get();
   
+  connectError = null;
+  connecting = false;
+  
   initDataStreams(screen);
   
   disconnectBtn = new ui.TextButton("Disconnect", { 
     bottom: 6,
     right: 6,
     screen 
+  });
+  
+  connectTempleBtn = new ui.TextButton("Connect Temple Wallet", {
+    center: "xy",
+    y: -30,
+    screen
   });
   
   await Promise.all([
@@ -162,10 +176,13 @@ function sim({ wallet, jump, screen }) {
   frameCount++;
   
   const newState = wallet.get();
-  if (!newState?.connected && walletState?.connected) {
-    jump("prompt");
-    return;
+  
+  // If we just got connected, clear error
+  if (newState?.connected && !walletState?.connected) {
+    connectError = null;
+    connecting = false;
   }
+  
   walletState = newState;
   
   const now = Date.now();
@@ -337,19 +354,39 @@ function paint($) {
     );
     
   } else {
-    // Not connected
-    const cy = h / 2 - 20;
-    ink(...colors.primary).write("ꜩ", { x: w/2, y: cy - 25 + TEZ_Y_ADJUST, center: "x" }, undefined, undefined, false, "unifont");
-    ink(...colors.textDim).write("NO WALLET", { x: w/2, y: cy, center: "x" });
+    // Not connected - show connection UI
+    const cy = h / 2 - 30;
     
+    // Title
+    ink(...colors.primary).write("ꜩ", { x: w/2, y: cy - 40 + TEZ_Y_ADJUST, center: "x" }, undefined, undefined, false, "unifont");
+    ink(...colors.text).write("CONNECT WALLET", { x: w/2, y: cy - 10, center: "x" });
+    
+    // Connect Temple button
+    connectTempleBtn?.reposition({ center: "x", y: cy + 15, screen });
+    connectTempleBtn?.paint($,
+      [[0, 60, 100], [0, 140, 200], [200, 230, 255], [0, 60, 100]],
+      [[0, 80, 130], [0, 180, 255], [255, 255, 255], [0, 80, 130]]
+    );
+    
+    // Show connecting state or error
+    if (connecting) {
+      ink(...colors.primaryBright).write("Connecting...", { x: w/2, y: cy + 45, center: "x" });
+    } else if (connectError) {
+      ink(...colors.negative).write(connectError, { x: w/2, y: cy + 45, center: "x" });
+    }
+    
+    // Hint
+    ink(...colors.textDim).write("ESC to go back", { x: w/2, y: cy + 65, center: "x" });
+    
+    // Chain info at bottom
     if (headBlock) {
-      ink(...colors.block).write(`BLOCK ${headBlock.level}`, { x: w/2, y: cy + 20, center: "x" });
-      ink(...colors.textDim).write(`CYCLE ${headBlock.cycle}`, { x: w/2, y: cy + 32, center: "x" });
+      ink(...colors.block).write(`BLOCK ${headBlock.level}`, { x: w/2, y: h - 40, center: "x" });
+      ink(...colors.textDim).write(`CYCLE ${headBlock.cycle}`, { x: w/2, y: h - 28, center: "x" });
     }
     
     if (tezPrice?.usd) {
-      ink(...colors.primary).write("ꜩ", { x: w/2 - 30, y: cy + 50 + TEZ_Y_ADJUST }, undefined, undefined, false, "unifont");
-      ink(...colors.text).write(`$${tezPrice.usd.toFixed(4)}`, { x: w/2 - 18, y: cy + 50 });
+      ink(...colors.primary).write("ꜩ", { x: w/2 - 30, y: h - 12 + TEZ_Y_ADJUST }, undefined, undefined, false, "unifont");
+      ink(...colors.text).write(`$${tezPrice.usd.toFixed(4)}`, { x: w/2 - 18, y: h - 12 });
     }
   }
   
@@ -371,14 +408,30 @@ function getTimeAgo(date) {
 function act({ event: e, wallet, jump, screen }) {
   if (e.is("reframed")) {
     disconnectBtn?.reposition({ bottom: 6, right: 6, screen });
+    connectTempleBtn?.reposition({ center: "x", y: screen.height / 2 - 60 + 25, screen });
     initDataStreams(screen);
+  }
+  
+  // Handle Temple connect button when not connected
+  if (!walletState?.connected && !connecting) {
+    connectTempleBtn?.btn.act(e, {
+      push: async () => {
+        connecting = true;
+        connectError = null;
+        try {
+          await wallet.connect({ network: "ghostnet" });
+        } catch (err) {
+          connectError = err.message || "Connection failed";
+          connecting = false;
+        }
+      }
+    });
   }
   
   if (walletState?.connected) {
     disconnectBtn?.btn.act(e, {
       push: () => {
         wallet.disconnect();
-        jump("prompt");
       }
     });
   }

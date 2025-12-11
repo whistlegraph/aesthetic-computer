@@ -2030,77 +2030,80 @@ async function halt($, text) {
     
     makeFlash($);
     return true;
-  } else if (text === "tezos" || text.startsWith("tezos ")) {
-    // Tezos wallet management: connect, disconnect, status
+  } else if (text === "wallet" || text.startsWith("wallet ")) {
+    // Tezos wallet: connect, view, disconnect
     const subcommand = params[0]?.toLowerCase();
     
     try {
-      if (!subcommand || subcommand === "status") {
-        // Check current wallet status and refresh balance
-        const address = await api.tezos.address();
-        if (address) {
-          tezosWalletAddress = address;
-          // Fetch balance and domain in parallel
+      // Check if already connected (from localStorage session)
+      const existingAddress = tezosWalletAddress || await api.tezos.address();
+      
+      if (subcommand === "disconnect") {
+        // Disconnect wallet
+        await api.tezos.disconnect();
+        tezosWalletAddress = null;
+        tezosWalletBalance = null;
+        tezosDomainName = null;
+        notice("ꜩ Wallet disconnected", ["yellow"]);
+        flashColor = [255, 200, 0];
+      } else if (subcommand === "status") {
+        // Show status without connecting
+        if (existingAddress) {
+          tezosWalletAddress = existingAddress;
           const [balance, domain] = await Promise.all([
-            fetchTezosBalance(address, tezosNetwork),
-            fetchTezosDomain(address, tezosNetwork)
+            fetchTezosBalance(existingAddress, tezosNetwork),
+            fetchTezosDomain(existingAddress, tezosNetwork)
           ]);
           tezosWalletBalance = balance;
           tezosDomainName = domain;
           tezosBalanceLastFetch = Date.now();
           const balanceStr = balance !== null ? `${balance.toFixed(2)}ꜩ` : "?ꜩ";
-          const displayName = domain || `${address.slice(0, 8)}...${address.slice(-4)}`;
+          const displayName = domain || `${existingAddress.slice(0, 8)}...${existingAddress.slice(-4)}`;
           notice(`ꜩ ${displayName}`, ["cyan"]);
           notice(`${balanceStr} • ${tezosNetwork}`, ["gray"]);
+          flashColor = [0, 200, 255];
         } else {
-          notice("ꜩ Tezos: Not connected", ["gray"]);
-          notice("Use 'tezos connect' to link wallet", ["gray"]);
-          tezosWalletAddress = null;
-          tezosWalletBalance = null;
+          notice("ꜩ No wallet connected", ["gray"]);
+          notice("Type 'wallet' to connect", ["gray"]);
+          flashColor = [100, 100, 100];
         }
-        flashColor = address ? [0, 200, 255] : [100, 100, 100];
-      } else if (subcommand === "connect") {
-        notice("ꜩ Connecting Tezos wallet...", ["cyan"]);
-        needsPaint();
-        const network = params[1]?.toLowerCase() === "mainnet" ? "mainnet" : "ghostnet";
-        tezosNetwork = network;
-        const address = await api.tezos.connect(network);
-        tezosWalletAddress = address;
-        // Fetch balance and .tez domain in parallel
-        const [balance, domain] = await Promise.all([
-          fetchTezosBalance(address, network),
-          fetchTezosDomain(address, network)
-        ]);
-        tezosWalletBalance = balance;
-        tezosDomainName = domain;
-        tezosBalanceLastFetch = Date.now();
-        const balanceStr = balance !== null ? `${balance.toFixed(2)}ꜩ` : "";
-        const displayName = domain || `${address.slice(0, 8)}...${address.slice(-4)}`;
-        notice(`ꜩ Connected: ${displayName}`, ["lime"]);
-        notice(`${balanceStr} • ${network}`, ["gray"]);
-        flashColor = [0, 255, 100];
-        
-        // Jump to wallet piece after successful connection
+      } else if (!subcommand || subcommand === "connect") {
+        // Jump to wallet piece for connection UI
+        // The /wallet piece will handle address entry and connection
         makeFlash($);
         jump("wallet");
         return true;
-      } else if (subcommand === "disconnect") {
-        await api.tezos.disconnect();
-        tezosWalletAddress = null;
-        tezosWalletBalance = null;
-        notice("ꜩ Tezos wallet disconnected", ["yellow"]);
-        flashColor = [255, 200, 0];
       } else {
-        notice("Usage: tezos [connect|disconnect|status]", ["yellow"]);
-        notice("  tezos connect [ghostnet|mainnet]", ["gray"]);
+        notice("Usage: wallet [disconnect|status]", ["yellow"]);
+        notice("  wallet - connect & view", ["gray"]);
+        notice("  wallet mainnet - use mainnet", ["gray"]);
         flashColor = [255, 200, 0];
       }
     } catch (err) {
-      console.error("Tezos error:", err);
-      notice("Tezos error: " + err.message, ["red"]);
-      flashColor = [255, 0, 0];
+      console.error("Wallet error:", err);
+      // Handle user cancellation gracefully (various error messages from Beacon)
+      const errMsg = (err.message || err || "").toLowerCase();
+      if (errMsg.includes("aborted") || 
+          errMsg.includes("cancel") || 
+          errMsg.includes("reject") ||
+          errMsg.includes("denied") ||
+          errMsg.includes("closed") ||
+          errMsg.includes("dismissed") ||
+          errMsg.includes("user")) {
+        notice("ꜩ Connection cancelled", ["gray"]);
+        flashColor = [100, 100, 100];
+      } else {
+        notice("Wallet error: " + (err.message || err), ["red"]);
+        flashColor = [255, 0, 0];
+      }
     }
     
+    makeFlash($);
+    return true;
+  } else if (text === "tezos" || text.startsWith("tezos ")) {
+    // Legacy alias - redirect to wallet
+    notice("Use 'wallet' command instead", ["yellow"]);
+    flashColor = [255, 200, 0];
     makeFlash($);
     return true;
   } else if (text.startsWith("keep ")) {
