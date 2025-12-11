@@ -1089,9 +1089,10 @@ function ensure-emacs-daemon-ready
             if test $silent -ne 1
                 echo "✅ Emacs daemon is ready!"
             end
-            # Start crash monitor
-            ac-emacs-crash-monitor &
-            disown
+            # Start crash monitor in background (don't let it block)
+            fish -c "ac-emacs-crash-monitor" &>/dev/null &
+            disown %last 2>/dev/null
+            echo "[DEBUG] ensure-emacs-daemon-ready returning 0"
             return 0
         end
 
@@ -1140,47 +1141,69 @@ function aesthetic
     else
         clear
         set -l config_count 0
-        set -l last_log_lines 0
+        set -l last_log_hash ""
         set -l entry_log /tmp/entry-fish.log
         
         while not test -f /home/me/.waiter
-            clear
-            
-            # Show banner
-            set -l message
-            if test (math $config_count % 2) -eq 0
-                set message "Configuring..."
-            else
-                set message "Configuring. . ."
-            end
-            toilet $message -f future | lolcat -x -r
-            
-            # Show entry.fish progress if log exists
+            # Only redraw if log content changed (reduces flicker)
+            set -l current_log_hash ""
             if test -f $entry_log
-                set -l log_lines (wc -l < $entry_log 2>/dev/null | string trim)
-                if test -n "$log_lines" -a "$log_lines" -gt 0
-                    echo ""
-                    echo "─────────────────────────────────────────"
-                    # Show last 8 lines of entry log
-                    tail -n 8 $entry_log 2>/dev/null
-                    echo "─────────────────────────────────────────"
-                end
+                set current_log_hash (tail -n 8 $entry_log 2>/dev/null | md5sum 2>/dev/null | cut -d' ' -f1)
             end
             
-            sleep 0.5
+            if test "$current_log_hash" != "$last_log_hash" -o $config_count -eq 0
+                clear
+                
+                # Show banner (static, no animation to reduce flicker)
+                toilet "Configuring..." -f future | lolcat -f
+                
+                # Show entry.fish progress if log exists
+                if test -f $entry_log
+                    set -l log_lines (wc -l < $entry_log 2>/dev/null | string trim)
+                    if test -n "$log_lines" -a "$log_lines" -gt 0
+                        echo ""
+                        echo "─────────────────────────────────────────"
+                        tail -n 8 $entry_log 2>/dev/null
+                        echo "─────────────────────────────────────────"
+                    end
+                end
+                
+                set last_log_hash $current_log_hash
+            end
+            
+            sleep 1
             set config_count (math $config_count + 1)
         end
         sudo rm /home/me/.waiter 2>/dev/null
     end
     
+    echo "[DEBUG] About to call ensure-emacs-daemon-ready..."
     if not ensure-emacs-daemon-ready --timeout=360
         echo "❌ Cannot connect to emacs daemon. Please check your emacs configuration."
         return 1
     end
     
+    echo "[DEBUG] ensure-emacs-daemon-ready succeeded!"
+    echo "[DEBUG] TTY: "(tty 2>&1)
+    echo "[DEBUG] TERM: $TERM"
+    echo "[DEBUG] AC_TASK_LAUNCH: $AC_TASK_LAUNCH"
+    
     # Connect to emacs with aesthetic-backend
     echo "🚀 Connecting to aesthetic platform..."
-    emacsclient -nw -c --eval '(aesthetic-backend (quote "artery"))'
+    echo "[DEBUG] Running: emacsclient -nw -c --eval '(aesthetic-backend (quote \"artery\"))'"
+    
+    # Capture both stdout and stderr
+    set -l emacs_output (emacsclient -nw -c --eval '(aesthetic-backend (quote "artery"))' 2>&1)
+    set -l emacs_exit $status
+    
+    echo "[DEBUG] emacsclient exited with status: $emacs_exit"
+    echo "[DEBUG] emacsclient output: $emacs_output"
+    
+    if test $emacs_exit -ne 0
+        echo "❌ emacsclient failed. Trying to diagnose..."
+        echo "[DEBUG] emacsclient version: "(emacsclient --version 2>&1 | head -1)
+        echo "[DEBUG] Can connect to daemon: "(timeout 2 emacsclient -e t 2>&1)
+    end
 end
 
 # Convenience alias for skipping the wait
@@ -2003,4 +2026,11 @@ end
 # ac-shop - Shopify CLI for Aesthetic Computer
 function ac-shop
     node /workspaces/aesthetic-computer/ac-shop/shopify.mjs $argv
+end
+
+# Auto-start aesthetic when fish runs in the VS Code task context
+# aesthetic-launch.sh sets AC_TASK_LAUNCH=1 before exec fish --login
+if set -q AC_TASK_LAUNCH
+    set -e AC_TASK_LAUNCH  # Clear it so nested shells don't re-trigger
+    aesthetic
 end
