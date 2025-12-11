@@ -2339,6 +2339,19 @@ const $commonApi = {
     refreshBalance: function () {
       send({ type: "wallet:refresh-balance" });
     },
+    // Sign a message with the connected wallet
+    sign: function (message, callback) {
+      if (callback) $commonApi.wallet._signCallback = callback;
+      send({ type: "wallet:sign", content: { message } });
+    },
+    // Get pairing URI for mobile wallet QR code
+    getPairingUri: function (network = "ghostnet", callback) {
+      if (callback) $commonApi.wallet._pairingCallback = callback;
+      send({ type: "wallet:get-pairing-uri", content: { network } });
+    },
+    // Internal callbacks
+    _pairingCallback: null,
+    _signCallback: null,
     // Check if connected
     isConnected: function () {
       return $commonApi.wallet._state.connected;
@@ -8628,6 +8641,24 @@ async function makeFrame({ data: { type, content } }) {
     // Clear any error after successful update
     if (content.connected) delete $commonApi.wallet._state.error;
     console.log("🔷 Wallet state updated:", $commonApi.wallet._state);
+    return;
+  }
+
+  // 🔷 Wallet pairing URI response (for mobile QR code)
+  if (type === "wallet:pairing-uri-response") {
+    if ($commonApi.wallet._pairingCallback) {
+      $commonApi.wallet._pairingCallback(content);
+      $commonApi.wallet._pairingCallback = null;
+    }
+    return;
+  }
+
+  // 🔷 Wallet sign response
+  if (type === "wallet:sign-response") {
+    if ($commonApi.wallet._signCallback) {
+      $commonApi.wallet._signCallback(content);
+      $commonApi.wallet._signCallback = null;
+    }
     return;
   }
 
