@@ -1,0 +1,98 @@
+{
+  "presets": {
+    "scales": ["minor", "dorian", "phrygian", "harmonic", "major"],
+    "hiphopStyles": ["trap", "boombap", "lofi", "808", "halftime", "phonk", "drill", "gfunk"],
+    "waltzStyles": ["classic", "dark", "dreamy", "baroque", "minimal", "phonk", "viennese", "drill"],
+    "melodies": [
+      "twinkle", "mary", "old-macdonald", "yankee-doodle", "frere-jacques",
+      "london-bridge", "row-row-row", "skip-to-my-lou", "camptown-races",
+      "oh-susanna", "amazing-grace", "auld-lang-syne", "shenandoah",
+      "home-on-the-range", "red-river-valley", "scarborough-fair",
+      "greensleeves", "when-the-saints", "danny-boy"
+    ]
+  },
+  "tests": {
+    "test-notepat.mjs": {
+      "name": "composition",
+      "icon": "🎹",
+      "desc": "Full composition generator",
+      "params": {
+        "genre":  { "type": "select", "options": ["waltz", "hiphop"], "default": "waltz" },
+        "style":  { "type": "select", "options": "$waltzStyles+$hiphopStyles", "default": "classic" },
+        "bars":   { "type": "range", "min": 8, "max": 64, "step": 4, "default": 24 },
+        "bpm":    { "type": "range", "min": 80, "max": 200, "step": 10, "default": 140 },
+        "scale":  { "type": "select", "options": "$scales", "default": "minor" },
+        "room":   { "type": "toggle", "default": false },
+        "waves":  { "type": "toggle", "default": false }
+      }
+    },
+    "test-hiphop.mjs": {
+      "name": "hiphop",
+      "icon": "🎤",
+      "desc": "Hip-hop beat generator",
+      "params": {
+        "style":  { "type": "select", "options": "$hiphopStyles", "default": "trap" },
+        "bars":   { "type": "range", "min": 8, "max": 64, "step": 4, "default": 16 },
+        "bpm":    { "type": "range", "min": 70, "max": 160, "step": 5, "default": 90 },
+        "scale":  { "type": "select", "options": "$scales", "default": "minor" },
+        "words":  { "type": "toggle", "default": false },
+        "room":   { "type": "toggle", "default": false }
+      }
+    },
+    "test-trapwaltz.mjs": {
+      "name": "trapwaltz",
+      "icon": "🩰",
+      "desc": "Trap waltz (3/4 + trap)"
+    },
+    "test-1v1-split.mjs": {
+      "name": "1v1-split",
+      "icon": "🎮",
+      "desc": "Split view for 1v1 dueling"
+    }
+  },
+  "legacy": {
+    "test-notepat.mjs": {
+      "name": "notepat-fuzz",
+      "desc": "Notepat fuzzing test"
+    },
+    "test-melody.mjs": {
+      "name": "melody",
+      "icon": "🎵",
+      "desc": "Melody playback",
+      "params": {
+        "melody": { "type": "select", "options": "$melodies", "default": "twinkle" }
+      }
+    },
+    "test-chords.mjs": {
+      "name": "chords",
+      "desc": "Chord progression test"
+    },
+    "test-line.mjs": {
+      "name": "line",
+      "desc": "Line drawing test"
+    },
+    "test-toss.mjs": {
+      "name": "toss",
+      "desc": "Comprehensive toss test"
+    },
+    "test-playlist.mjs": {
+      "name": "playlist",
+      "desc": "Playlist test"
+    },
+    "test-generative-waltz.mjs": {
+      "name": "waltz",
+      "icon": "🎼",
+      "desc": "Generative waltz",
+      "params": {
+        "bars":     { "type": "range", "min": 4, "max": 32, "step": 4, "default": 8 },
+        "scale":    { "type": "select", "options": ["major", "minor", "dorian"], "default": "major" },
+        "seed":     { "type": "range", "min": 1, "max": 999999, "step": 111, "default": "now" },
+        "tempo":    { "type": "select", "options": ["slow", "medium", "viennese"], "default": "slow" },
+        "topline":  { "type": "toggle", "default": false },
+        "infinite": { "type": "toggle", "default": false },
+        "frolic":   { "type": "toggle", "default": false },
+        "beat":     { "type": "toggle", "default": false }
+      }
+    }
+  }
+}
