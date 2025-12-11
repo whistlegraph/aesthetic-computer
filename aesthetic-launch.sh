@@ -42,7 +42,9 @@ echo "→ Current directory: $(pwd)"
 if [[ "$SHELL" == *fish* ]]; then
     echo "🐟 Detected Fish shell"
     echo "🎬 Launching 'aesthetic' via Fish (login shell)"
-    exec fish --login -c "aesthetic"
+    # Set marker so config.fish knows to auto-run aesthetic
+    export AC_TASK_LAUNCH=1
+    exec fish --login
 else
     echo "🐚 Detected non-Fish shell"
     if command -v aesthetic > /dev/null; then

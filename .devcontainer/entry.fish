@@ -11,6 +11,29 @@ function echo
     builtin echo $argv >> $ENTRY_LOG 2>/dev/null
 end
 
+# --- Sync secrets from vault to devcontainer env ---
+# The vault stores the canonical secrets; copy them to devcontainer on startup
+set -l vault_env ~/aesthetic-computer-vault/.devcontainer/envs/devcontainer.env
+set -l devcontainer_env ~/aesthetic-computer/.devcontainer/envs/devcontainer.env
+if test -f $vault_env
+    if test -f $devcontainer_env
+        # Merge: update devcontainer.env with any keys from vault (vault wins)
+        for line in (cat $vault_env)
+            set -l key (string split -m1 '=' -- $line)[1]
+            if test -n "$key"
+                # Remove old key if exists, then append new
+                sed -i "/^$key=/d" $devcontainer_env 2>/dev/null
+                echo $line >> $devcontainer_env
+            end
+        end
+        echo "🔐 Synced secrets from vault to devcontainer.env"
+    else
+        # No devcontainer.env, just copy from vault
+        cp $vault_env $devcontainer_env
+        echo "🔐 Copied secrets from vault to devcontainer.env"
+    end
+end
+
 # Fast path for VS Code "Reload Window" - if .waiter exists and key processes running, skip setup
 if test -f /home/me/.waiter
     echo "🔄 Detected reload (found .waiter file)"
