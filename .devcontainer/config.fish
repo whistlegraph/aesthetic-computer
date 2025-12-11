@@ -762,33 +762,128 @@ fish_add_path ~/.ops/bin
 # AC Emacs Management Commands
 # ============================================================================
 
+# Emacs log directory
+set -gx AC_EMACS_LOG_DIR /home/me/.emacs-logs
+
+# Initialize emacs log directory
+function ac-emacs-init-logs
+    mkdir -p $AC_EMACS_LOG_DIR
+end
+
 # Kill zombie emacs daemon and restart fresh
 function ac-emacs-restart
     echo "🔄 Restarting emacs daemon..."
+    ac-emacs-init-logs
     
     # Kill any existing emacs processes
     pkill -9 -f "emacs.*daemon" 2>/dev/null
     pkill -9 emacs 2>/dev/null
     sleep 1
     
-    # Start fresh daemon
+    # Start fresh daemon with logging
     echo "🚀 Starting fresh emacs daemon..."
-    emacs --daemon 2>&1
+    set -l timestamp (date +%Y%m%d_%H%M%S)
+    set -l log_file $AC_EMACS_LOG_DIR/daemon_$timestamp.log
+    
+    # Log startup info
+    echo "=== Emacs Daemon Start ===" > $log_file
+    echo "Timestamp: "(date -Iseconds) >> $log_file
+    echo "PID: will be captured below" >> $log_file
+    echo "===========================" >> $log_file
+    
+    # Start daemon with output redirected to log
+    emacs --daemon 2>&1 | tee -a $log_file
+    
+    # Create/update symlink to latest log
+    ln -sf $log_file $AC_EMACS_LOG_DIR/latest.log
     
     # Verify it's responsive
     sleep 1
     if timeout 5 emacsclient -e t >/dev/null 2>&1
         echo "✅ Emacs daemon ready!"
+        echo "📝 Logs: $log_file"
+        
+        # Start the crash monitor in background
+        ac-emacs-crash-monitor &
+        disown
         return 0
     else
         echo "❌ Emacs daemon failed to start"
+        echo "📝 Check logs: $log_file"
         return 1
+    end
+end
+
+# Background crash monitor - detects when emacs dies unexpectedly
+function ac-emacs-crash-monitor
+    ac-emacs-init-logs
+    set -l crash_log $AC_EMACS_LOG_DIR/crashes.log
+    set -l check_interval 10
+    
+    # Record that we started monitoring
+    echo "["(date -Iseconds)"] Crash monitor started" >> $crash_log
+    
+    # Get initial PID
+    set -l initial_pid (pgrep -f "emacs.*daemon" 2>/dev/null | head -1)
+    if test -z "$initial_pid"
+        echo "["(date -Iseconds)"] No emacs daemon to monitor" >> $crash_log
+        return 1
+    end
+    
+    echo "["(date -Iseconds)"] Monitoring emacs daemon PID: $initial_pid" >> $crash_log
+    
+    while true
+        sleep $check_interval
+        
+        set -l current_pid (pgrep -f "emacs.*daemon" 2>/dev/null | head -1)
+        
+        if test -z "$current_pid"
+            # Daemon is gone - log the crash
+            echo "" >> $crash_log
+            echo "============================================" >> $crash_log
+            echo "🔴 EMACS CRASH DETECTED" >> $crash_log
+            echo "============================================" >> $crash_log
+            echo "Time: "(date -Iseconds) >> $crash_log
+            echo "Previous PID: $initial_pid" >> $crash_log
+            echo "" >> $crash_log
+            
+            # Try to capture any useful system info
+            echo "--- System State at Crash ---" >> $crash_log
+            echo "Memory:" >> $crash_log
+            free -h 2>/dev/null >> $crash_log
+            echo "" >> $crash_log
+            echo "Load:" >> $crash_log
+            uptime >> $crash_log
+            echo "" >> $crash_log
+            
+            # Check dmesg for OOM or signals
+            echo "--- Recent kernel messages ---" >> $crash_log
+            dmesg 2>/dev/null | tail -20 | grep -iE "oom|kill|emacs|signal" >> $crash_log
+            echo "" >> $crash_log
+            
+            # Check if there's a core dump
+            echo "--- Core dumps ---" >> $crash_log
+            coredumpctl list 2>/dev/null | tail -5 >> $crash_log
+            echo "============================================" >> $crash_log
+            
+            # Create a warning file for the next shell
+            echo "Emacs crashed at "(date -Iseconds) > /tmp/emacs-crash-warning
+            
+            # Exit the monitor since there's nothing to monitor
+            break
+        else if test "$current_pid" != "$initial_pid"
+            # PID changed - daemon was restarted
+            echo "["(date -Iseconds)"] Daemon PID changed: $initial_pid -> $current_pid (restart detected)" >> $crash_log
+            set initial_pid $current_pid
+        end
     end
 end
 
 # Kill emacs entirely (daemon + any clients)
 function ac-emacs-kill
     echo "💀 Killing all emacs processes..."
+    # Also kill the crash monitor
+    pkill -f "ac-emacs-crash-monitor" 2>/dev/null
     pkill -9 -f "emacs.*daemon" 2>/dev/null
     pkill -9 emacs 2>/dev/null
     pkill -9 emacsclient 2>/dev/null
@@ -807,7 +902,51 @@ function ac-emacs-status
         end
     else
         echo "🔴 Emacs daemon not running"
+        # Check for crash warning
+        if test -f /tmp/emacs-crash-warning
+            echo "⚠️  Last crash: "(cat /tmp/emacs-crash-warning)
+        end
     end
+end
+
+# View emacs crash logs
+function ac-emacs-logs
+    ac-emacs-init-logs
+    if test "$argv[1]" = "crashes"
+        if test -f $AC_EMACS_LOG_DIR/crashes.log
+            bat $AC_EMACS_LOG_DIR/crashes.log 2>/dev/null || cat $AC_EMACS_LOG_DIR/crashes.log
+        else
+            echo "No crash logs found"
+        end
+    else if test "$argv[1]" = "latest"
+        if test -f $AC_EMACS_LOG_DIR/latest.log
+            bat $AC_EMACS_LOG_DIR/latest.log 2>/dev/null || cat $AC_EMACS_LOG_DIR/latest.log
+        else
+            echo "No daemon logs found"
+        end
+    else if test "$argv[1]" = "tail"
+        if test -f $AC_EMACS_LOG_DIR/crashes.log
+            tail -f $AC_EMACS_LOG_DIR/crashes.log
+        else
+            echo "No crash logs found"
+        end
+    else if test "$argv[1]" = "list"
+        echo "📁 Emacs logs in $AC_EMACS_LOG_DIR:"
+        ls -lth $AC_EMACS_LOG_DIR/ 2>/dev/null || echo "No logs directory"
+    else
+        echo "Usage: ac-emacs-logs [crashes|latest|tail|list]"
+        echo ""
+        echo "  crashes - View crash history"
+        echo "  latest  - View latest daemon startup log"  
+        echo "  tail    - Follow crash log in real-time"
+        echo "  list    - List all log files"
+    end
+end
+
+# Clear the crash warning
+function ac-emacs-ack
+    rm -f /tmp/emacs-crash-warning
+    echo "✅ Crash warning cleared"
 end
 
 # Full aesthetic platform restart (emacs + reconnect artery)
@@ -887,7 +1026,10 @@ function ensure-emacs-daemon-ready
         set force_restart 1
     end
 
-    set -l log_file /tmp/emacs-debug.log
+    # Initialize logging
+    ac-emacs-init-logs
+    set -l timestamp (date +%Y%m%d_%H%M%S)
+    set -l log_file $AC_EMACS_LOG_DIR/daemon_$timestamp.log
     set -l config_path /home/me/aesthetic-computer/dotfiles/dot_config/emacs.el
     set -l wait_step 2
     set -l next_report 10
@@ -920,15 +1062,26 @@ function ensure-emacs-daemon-ready
 
     if test $silent -ne 1
         echo "🚀 Bootstrapping emacs daemon (timeout: $timeout s)"
-        echo "📜 Logs will stream from $log_file"
+        echo "📜 Logs: $log_file"
     end
 
-    rm -f $log_file
-    command emacs -q --daemon -l $config_path &
+    # Log startup info
+    echo "=== Emacs Daemon Start ===" > $log_file
+    echo "Timestamp: "(date -Iseconds) >> $log_file
+    echo "Config: $config_path" >> $log_file
+    echo "===========================" >> $log_file
+    
+    # Start daemon with output to log file
+    command emacs -q --daemon -l $config_path >> $log_file 2>&1 &
     set -l daemon_pid $last_pid
     if test -z "$daemon_pid"
         set daemon_pid (jobs -l | tail -n1 | awk '{print $2}')
     end
+    
+    echo "PID: $daemon_pid" >> $log_file
+    
+    # Create symlink to latest log
+    ln -sf $log_file $AC_EMACS_LOG_DIR/latest.log
 
     set -l elapsed 0
     while test $elapsed -lt $timeout
@@ -936,6 +1089,9 @@ function ensure-emacs-daemon-ready
             if test $silent -ne 1
                 echo "✅ Emacs daemon is ready!"
             end
+            # Start crash monitor
+            ac-emacs-crash-monitor &
+            disown
             return 0
         end
 
