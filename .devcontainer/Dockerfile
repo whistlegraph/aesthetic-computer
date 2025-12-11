@@ -24,7 +24,7 @@ RUN dnf update -y && \
       awk which tree procps-ng coreutils unzip jq bat ripgrep \
       git gh gcc gcc-c++ clang make cmake \
       python3.11 python3.11-devel python3-pip python3-devel \
-      emacs-nox fish util-linux-user sshpass \
+      emacs-nox fish util-linux-user util-linux-script sshpass \
       qemu-kvm qemu-img qemu-system-x86 qemu-user-static \
       openssl openssl-devel awscli redis \
       dnf-plugins-core lolcat toilet iproute xclip nmap-ncat \
