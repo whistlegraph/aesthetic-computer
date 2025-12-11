@@ -1225,9 +1225,13 @@ class ArteryTUI {
             // Execute the test on click
             if (test.params) {
               this.currentTest = test;
-              this.testParams = { ...test.defaults };
+              // Initialize testParams from param defaults
+              this.testParams = {};
+              for (const param of test.params) {
+                this.testParams[param.key] = String(param.default || '');
+              }
               this.paramIndex = 0;
-              this.inputBuffer = '';
+              this.inputBuffer = String(this.testParams[test.params[0]?.key] || '');
               this.mode = 'test-params';
             } else {
               this.executeTest(test.file, '', test.isArtery || false);
@@ -1604,11 +1608,15 @@ class ArteryTUI {
         if (test.params) {
           // Show parameter input mode
           this.currentTest = test;
-          this.testParams = { ...test.defaults };
+          // Initialize testParams from param defaults
+          this.testParams = {};
+          for (const param of test.params) {
+            this.testParams[param.key] = String(param.default || '');
+          }
           this.paramIndex = 0;
-          // Initialize inputBuffer with first param's default value
+          // Initialize inputBuffer with first param's current value
           const firstParam = test.params[0];
-          this.inputBuffer = String(test.defaults?.[firstParam?.key] || firstParam?.default || '');
+          this.inputBuffer = String(this.testParams[firstParam?.key] || '');
           this.mode = 'test-params';
           this.render();
         } else {
@@ -1631,7 +1639,7 @@ class ArteryTUI {
       }
       this.paramIndex = Math.max(0, this.paramIndex - 1);
       if (this.paramIndex < params.length) {
-        this.inputBuffer = String(this.testParams[params[this.paramIndex]?.key] || '');
+        this.inputBuffer = String(this.testParams[params[this.paramIndex]?.key] || params[this.paramIndex]?.default || '');
       }
       this.render();
       return;
@@ -1645,7 +1653,7 @@ class ArteryTUI {
       }
       this.paramIndex = Math.min(params.length, this.paramIndex + 1);
       if (this.paramIndex < params.length) {
-        this.inputBuffer = String(this.testParams[params[this.paramIndex]?.key] || '');
+        this.inputBuffer = String(this.testParams[params[this.paramIndex]?.key] || params[this.paramIndex]?.default || '');
       } else {
         this.inputBuffer = '';
       }
@@ -1653,9 +1661,9 @@ class ArteryTUI {
       return;
     }
     
-    // Arrow Left/Right - cycle through options for params that have them
+    // Arrow Left/Right - cycle through options or adjust values
     if (key === '\u001b[D' || key === '\u001b[C') { // Left or Right
-      if (param && param.options) {
+      if (param && param.type === 'select' && param.options) {
         const options = param.options;
         const currentVal = this.inputBuffer || this.testParams[param.key] || param.default;
         let idx = options.indexOf(currentVal);
@@ -1671,9 +1679,9 @@ class ArteryTUI {
         this.testParams[param.key] = options[idx];
         this.render();
         return;
-      } else if (param && param.type === 'number') {
-        // For number params, increment/decrement
-        let val = parseInt(this.inputBuffer) || parseInt(param.default) || 0;
+      } else if (param && param.type === 'range') {
+        // For range params, increment/decrement
+        let val = parseInt(this.inputBuffer) || parseInt(param.default) || param.min || 0;
         const step = param.step || 1;
         const min = param.min ?? 1;
         const max = param.max ?? 100;
@@ -1688,29 +1696,42 @@ class ArteryTUI {
         this.testParams[param.key] = String(val);
         this.render();
         return;
+      } else if (param && param.type === 'toggle') {
+        // Toggle between on/off
+        const currentVal = this.testParams[param.key] || param.default || '';
+        const newVal = currentVal ? '' : param.key;
+        this.inputBuffer = newVal;
+        this.testParams[param.key] = newVal;
+        this.render();
+        return;
       }
+    }
+    
+    // Space bar also toggles for toggle params
+    if (key === ' ' && param && param.type === 'toggle') {
+      const currentVal = this.testParams[param.key] || param.default || '';
+      const newVal = currentVal ? '' : param.key;
+      this.inputBuffer = newVal;
+      this.testParams[param.key] = newVal;
+      this.render();
+      return;
     }
     
     // Enter to confirm param or run test
     if (key === '\r' || key === '\n') {
       if (this.paramIndex < params.length && param) {
         // Save current param and move to next
-        this.testParams[param.key] = this.inputBuffer || param.default;
+        this.testParams[param.key] = this.inputBuffer || String(param.default || '');
         this.paramIndex++;
         if (this.paramIndex < params.length) {
-          this.inputBuffer = String(this.testParams[params[this.paramIndex]?.key] || '');
+          this.inputBuffer = String(this.testParams[params[this.paramIndex]?.key] || params[this.paramIndex]?.default || '');
         } else {
           this.inputBuffer = '';
         }
         this.render();
       } else {
         // Run the test with params
-        let args;
-        if (this.currentTest.formatArgs) {
-          args = this.currentTest.formatArgs(params, this.testParams);
-        } else {
-          args = params.map(p => this.testParams[p.key] || p.default).join(' ');
-        }
+        const args = this.buildTestArgs(this.currentTest);
         this.executeTest(this.currentTest.file, args, this.currentTest.isArtery || false);
       }
       return;
@@ -1723,10 +1744,12 @@ class ArteryTUI {
       return;
     }
     
-    // Regular character
+    // Regular character (only for non-select/toggle params)
     if (key.length === 1 && key.charCodeAt(0) >= 32) {
-      this.inputBuffer += key;
-      this.render();
+      if (param && (param.type === 'range' || !param.type)) {
+        this.inputBuffer += key;
+        this.render();
+      }
     }
   }
 
@@ -1904,86 +1927,26 @@ class ArteryTUI {
     // Show available tests
     this.mode = 'tests';
     
+    // Load test configs from JSON
+    const configs = await this.loadTestConfigs();
+    
     // Auto-discover test files from artery/ directory
     const arteryTests = await this.discoverArteryTests();
-    
-    // Available melodies from melodies.mjs
-    const melodyOptions = [
-      'twinkle', 'mary', 'old-macdonald', 'yankee-doodle', 'frere-jacques',
-      'london-bridge', 'row-row-row', 'skip-to-my-lou', 'camptown-races',
-      'oh-susanna', 'amazing-grace', 'auld-lang-syne', 'shenandoah',
-      'home-on-the-range', 'red-river-valley', 'scarborough-fair',
-      'greensleeves', 'when-the-saints', 'danny-boy'
-    ];
-    
-    // Genre + style options for composition test
-    const hiphopStyles = ['trap', 'boombap', 'lofi', '808', 'halftime', 'phonk', 'drill', 'gfunk'];
-    const waltzStyles = ['classic', 'dark', 'dreamy', 'baroque', 'minimal', 'phonk', 'viennese', 'drill'];
-    
-    // Special configs for known tests (params, descriptions, etc.)
-    const testConfigs = {
-      'test-notepat.mjs': {
-        name: 'composition',
-        desc: '🎹 Full composition [waltz/hiphop]',
-        params: [
-          { key: 'genre', label: 'Genre', desc: '←→ to cycle', default: 'waltz', options: ['waltz', 'hiphop'] },
-          { key: 'style', label: 'Style', desc: '←→ to cycle (depends on genre)', default: 'classic', options: [...waltzStyles, ...hiphopStyles] },
-          { key: 'bars', label: 'Bars', desc: '←→ to adjust', default: '24', type: 'number', min: 8, max: 64, step: 4 },
-          { key: 'bpm', label: 'BPM', desc: '←→ to adjust', default: '140', type: 'number', min: 80, max: 200, step: 10 },
-          { key: 'scale', label: 'Scale', desc: '←→ to cycle', default: 'minor', options: ['minor', 'dorian', 'phrygian', 'harmonic', 'major'] },
-          { key: 'room', label: 'Room', desc: '←→ toggle reverb', default: '', options: ['', 'room'] },
-          { key: 'waves', label: 'Waves', desc: '←→ toggle wave changes', default: '', options: ['', 'waves'] },
-        ],
-        defaults: { genre: 'waltz', style: 'classic', bars: '24', bpm: '140', scale: 'minor', room: '', waves: '' },
-        formatArgs: (params, values) => {
-          const parts = [values.genre, values.style];
-          if (values.bars !== '24') parts.push(`bars=${values.bars}`);
-          if (values.bpm !== '140') parts.push(`bpm=${values.bpm}`);
-          if (values.scale !== 'minor') parts.push(`scale=${values.scale}`);
-          if (values.room) parts.push('room');
-          if (values.waves) parts.push('waves');
-          return parts.join(' ');
-        }
-      },
-      'test-hiphop.mjs': {
-        name: 'hiphop',
-        desc: '🎤 Hip-hop beat generator',
-        params: [
-          { key: 'style', label: 'Style', desc: '←→ to cycle', default: 'trap', options: hiphopStyles },
-          { key: 'bars', label: 'Bars', desc: '←→ to adjust', default: '16', type: 'number', min: 8, max: 64, step: 4 },
-          { key: 'bpm', label: 'BPM', desc: '←→ to adjust', default: '90', type: 'number', min: 70, max: 160, step: 5 },
-          { key: 'scale', label: 'Scale', desc: '←→ to cycle', default: 'minor', options: ['minor', 'dorian', 'phrygian', 'harmonic', 'major'] },
-          { key: 'words', label: 'Words', desc: '←→ toggle dictionary', default: '', options: ['', 'words'] },
-          { key: 'room', label: 'Room', desc: '←→ toggle reverb', default: '', options: ['', 'room'] },
-        ],
-        defaults: { style: 'trap', bars: '16', bpm: '90', scale: 'minor', words: '', room: '' },
-      },
-      'test-trapwaltz.mjs': {
-        name: 'trapwaltz', 
-        desc: '🩰 Trap waltz (3/4 + trap)',
-      },
-      'test-1v1-split.mjs': {
-        name: '1v1-split',
-        desc: '🎮 Split view for 1v1 dueling',
-        // No params needed - just runs with default 1v1~1v1
-      },
-    };
     
     // Build test list from discovered files + legacy .vscode tests
     this.testFiles = [];
     
     // Add discovered artery tests (with configs if available)
     for (const file of arteryTests) {
-      const config = testConfigs[file] || {};
+      const config = configs.tests[file] || {};
       const baseName = file.replace('test-', '').replace('.mjs', '');
       this.testFiles.push({
         name: config.name || baseName,
+        icon: config.icon || '▸',
         file: `artery/${file}`,
         desc: config.desc || `Artery test: ${baseName}`,
         isArtery: true,
-        params: config.params,
-        defaults: config.defaults,
-        formatArgs: config.formatArgs,
+        params: config.params ? this.expandParams(config.params, configs.presets) : null,
       });
     }
     
@@ -1991,41 +1954,75 @@ class ArteryTUI {
     this.testFiles.push({ name: '───────────', file: null, desc: 'Legacy .vscode tests', isSeparator: true });
     
     // Legacy .vscode/tests
-    this.testFiles.push(
-      { name: 'notepat-fuzz', file: 'test-notepat.mjs', desc: 'Notepat fuzzing test' },
-      {
-        name: 'melody',
-        file: 'test-melody.mjs',
-        desc: 'Melody playback [configurable]',
-        params: [
-          { key: 'melody', label: 'Melody', desc: '←→ to cycle', default: 'twinkle', options: melodyOptions },
-        ],
-        defaults: { melody: 'twinkle' }
-      },
-      { name: 'chords', file: 'test-chords.mjs', desc: 'Chord progression test' },
-      { name: 'line', file: 'test-line.mjs', desc: 'Line drawing test' },
-      { name: 'toss', file: 'test-toss.mjs', desc: 'Comprehensive toss test' },
-      { name: 'playlist', file: 'test-playlist.mjs', desc: 'Playlist test' },
-      { 
-        name: 'waltz', 
-        file: 'test-generative-waltz.mjs', 
-        desc: 'Generative waltz [configurable]',
-        params: [
-          { key: 'bars', label: 'Bars', desc: '←→ to adjust', default: '8', type: 'number', min: 4, max: 32, step: 4 },
-          { key: 'scale', label: 'Scale', desc: '←→ to cycle', default: 'major', options: ['major', 'minor', 'dorian'] },
-          { key: 'seed', label: 'Seed', desc: 'Random seed (type or ←→)', default: String(Date.now()), type: 'number', min: 1, max: 999999, step: 111 },
-          { key: 'tempo', label: 'Tempo', desc: '←→ to cycle', default: 'slow', options: ['slow', 'medium', 'viennese'] },
-          { key: 'topline', label: 'Top Line', desc: '←→ toggle', default: '', options: ['', 'topline'] },
-          { key: 'infinite', label: 'Infinite', desc: '←→ toggle', default: '', options: ['', 'infinite'] },
-          { key: 'frolic', label: 'Frolic', desc: '←→ toggle (fast RH)', default: '', options: ['', 'frolic'] },
-          { key: 'beat', label: 'Beat', desc: '←→ toggle (drums)', default: '', options: ['', 'beat'] },
-        ],
-        defaults: { bars: '8', scale: 'major', seed: String(Date.now()), tempo: 'slow', topline: '', infinite: '', frolic: '', beat: '' }
-      },
-    );
+    for (const [file, config] of Object.entries(configs.legacy)) {
+      this.testFiles.push({
+        name: config.name,
+        icon: config.icon || '▸',
+        file: file,
+        desc: config.desc,
+        isArtery: false,
+        params: config.params ? this.expandParams(config.params, configs.presets) : null,
+      });
+    }
+    
     this.selectedIndex = 0;
     this.setStatus('Select a test to run (Enter for params)', 'info');
     this.render();
+  }
+  
+  // Load test configs from JSON file
+  async loadTestConfigs() {
+    try {
+      const configPath = path.join(path.dirname(new URL(import.meta.url).pathname), 'test-configs.json');
+      const data = fs.readFileSync(configPath, 'utf-8');
+      return JSON.parse(data);
+    } catch (e) {
+      this.addLog(`Failed to load test-configs.json: ${e.message}`, 'error');
+      return { presets: {}, tests: {}, legacy: {} };
+    }
+  }
+  
+  // Expand params with preset references ($presetName)
+  expandParams(params, presets) {
+    const expanded = [];
+    for (const [key, param] of Object.entries(params)) {
+      const p = { key, ...param };
+      
+      // Expand preset references in options
+      if (p.options && typeof p.options === 'string') {
+        // Handle $preset+$preset syntax
+        const parts = p.options.split('+').map(s => s.trim());
+        p.options = parts.flatMap(part => {
+          if (part.startsWith('$')) {
+            const presetName = part.slice(1);
+            return presets[presetName] || [];
+          }
+          return [part];
+        });
+      } else if (p.options && Array.isArray(p.options)) {
+        // Expand any preset refs in array
+        p.options = p.options.flatMap(opt => {
+          if (typeof opt === 'string' && opt.startsWith('$')) {
+            return presets[opt.slice(1)] || [];
+          }
+          return [opt];
+        });
+      }
+      
+      // Handle special default values
+      if (p.default === 'now') {
+        p.default = String(Date.now());
+      }
+      
+      // Convert toggle defaults
+      if (p.type === 'toggle') {
+        p.options = ['', key]; // Toggle between empty and the key name
+        p.default = p.default ? key : '';
+      }
+      
+      expanded.push(p);
+    }
+    return expanded;
   }
   
   // Auto-discover test-*.mjs files in artery/ directory
@@ -3658,86 +3655,168 @@ class ArteryTUI {
     
     // Get dynamic theme colors
     const theme = this.getThemeColors();
-    const headerBg = '\x1b[48;5;236m';  // Subtle header background
+    const headerBg = '\x1b[48;5;236m';
+    const sectionBg = '\x1b[48;5;235m';
     const rowBg = theme.bg;
-    const selectedBg = '\x1b[48;5;239m'; // Highlight row
+    const selectedBg = '\x1b[48;5;239m';
     const accentColor = FG_BRIGHT_CYAN;
     
-    // Title bar - modern flat style
-    const hint = compact ? '' : `  ${DIM}↑↓ select  ←→ adjust  Enter run${RESET}`;
-    const testTitle = `${headerBg} ${FG_BRIGHT_YELLOW}⚙ ${FG_WHITE}${BOLD}${test?.name}${RESET}${headerBg}${hint}`;
+    // Group params by type for cleaner layout
+    const selects = params.filter(p => p.type === 'select');
+    const ranges = params.filter(p => p.type === 'range');
+    const toggles = params.filter(p => p.type === 'toggle');
+    
+    // Title bar with icon
+    const icon = test?.icon || '⚙';
+    const testTitle = `${headerBg} ${icon} ${FG_WHITE}${BOLD}${test?.name}${RESET}${headerBg}  ${DIM}${test?.desc || ''}${RESET}`;
     const testPadding = boxWidth - this.getVisualWidth(this.stripAnsi(testTitle));
     this.writeLine(`${testTitle}${headerBg}${' '.repeat(Math.max(0, testPadding))}${RESET}`);
     
-    // Subtle separator
-    this.writeLine(`${DIM}${'─'.repeat(boxWidth)}${RESET}`);
+    // Flat index for navigation
+    let flatIndex = 0;
     
-    // Parameters list - cleaner rows
-    for (let i = 0; i < params.length; i++) {
-      const param = params[i];
-      const selected = i === this.paramIndex;
-      const bg = selected ? selectedBg : rowBg;
-      
-      const value = selected ? this.inputBuffer : (this.testParams[param.key] || param.default);
-      
-      // Modern value display with subtle arrows
-      let valueDisplay;
-      if (selected && (param.options || param.type === 'number')) {
-        const leftArrow = `${DIM}◀${RESET}`;
-        const rightArrow = `${DIM}▶${RESET}`;
-        valueDisplay = value ? `${leftArrow} ${FG_BRIGHT_YELLOW}${BOLD}${value}${RESET}${bg} ${rightArrow}` : `${leftArrow} ${DIM}empty${RESET}${bg} ${rightArrow}`;
-      } else {
-        valueDisplay = value ? `${selected ? `${FG_BRIGHT_YELLOW}${BOLD}` : FG_GREEN}${value}${RESET}` : `${DIM}─${RESET}`;
+    // === SELECTS SECTION ===
+    if (selects.length > 0) {
+      this.writeLine(`${sectionBg}${DIM} ─ Options ${RESET}${sectionBg}${'─'.repeat(Math.max(0, boxWidth - 11))}${RESET}`);
+      for (const param of selects) {
+        this.renderParamRow(param, flatIndex, boxWidth, rowBg, selectedBg, accentColor);
+        flatIndex++;
       }
-      
-      const indicator = selected ? `${accentColor}▸${RESET}` : ` `;
-      const label = selected ? `${FG_WHITE}${BOLD}${param.label}${RESET}` : `${FG_WHITE}${param.label}${RESET}`;
-      
-      const line = `${bg} ${indicator} ${label} ${DIM}│${RESET}${bg} ${valueDisplay}`;
-      const padding = boxWidth - this.getVisualWidth(this.stripAnsi(line));
-      this.writeLine(`${line}${bg}${' '.repeat(Math.max(0, padding))}${RESET}`);
     }
     
-    // Spacer before run button
+    // === RANGES SECTION ===
+    if (ranges.length > 0) {
+      this.writeLine(`${sectionBg}${DIM} ─ Values ${RESET}${sectionBg}${'─'.repeat(Math.max(0, boxWidth - 10))}${RESET}`);
+      for (const param of ranges) {
+        this.renderParamRow(param, flatIndex, boxWidth, rowBg, selectedBg, accentColor);
+        flatIndex++;
+      }
+    }
+    
+    // === TOGGLES SECTION (inline) ===
+    if (toggles.length > 0) {
+      this.writeLine(`${sectionBg}${DIM} ─ Flags ${RESET}${sectionBg}${'─'.repeat(Math.max(0, boxWidth - 9))}${RESET}`);
+      // Render toggles in a more compact grid-like layout
+      const togglesPerRow = compact ? 2 : 3;
+      for (let i = 0; i < toggles.length; i += togglesPerRow) {
+        const rowToggles = toggles.slice(i, i + togglesPerRow);
+        let rowContent = '';
+        for (let j = 0; j < rowToggles.length; j++) {
+          const param = rowToggles[j];
+          const idx = flatIndex + j;
+          const selected = idx === this.paramIndex;
+          const value = this.testParams[param.key] || param.default || '';
+          const isOn = value !== '';
+          
+          const bg = selected ? selectedBg : rowBg;
+          const indicator = selected ? `${accentColor}▸${RESET}` : ` `;
+          const toggleIcon = isOn ? `${FG_BRIGHT_GREEN}●${RESET}` : `${DIM}○${RESET}`;
+          const label = selected ? `${FG_WHITE}${BOLD}${param.key}${RESET}` : `${FG_WHITE}${param.key}${RESET}`;
+          
+          const cellWidth = Math.floor((boxWidth - 2) / togglesPerRow);
+          const cell = `${bg}${indicator}${toggleIcon} ${label}`;
+          const cellPad = cellWidth - this.getVisualWidth(this.stripAnsi(cell));
+          rowContent += `${cell}${bg}${' '.repeat(Math.max(0, cellPad))}`;
+        }
+        flatIndex += rowToggles.length;
+        const rowPad = boxWidth - this.getVisualWidth(this.stripAnsi(rowContent));
+        this.writeLine(`${rowBg}${rowContent}${rowBg}${' '.repeat(Math.max(0, rowPad))}${RESET}`);
+      }
+    }
+    
+    // Spacer
     this.writeLine(`${rowBg}${' '.repeat(boxWidth)}${RESET}`);
     
-    // Run button - prominent but clean
-    const runSelected = this.paramIndex >= params.length;
+    // Run button
+    const runIndex = params.length;
+    const runSelected = this.paramIndex >= runIndex;
     const runBg = runSelected ? BG_GREEN : rowBg;
     const runFg = runSelected ? FG_WHITE : FG_GREEN;
     const runIndicator = runSelected ? `${FG_WHITE}▸` : ` `;
-    const runLabel = `${runBg}${runFg}${BOLD} RUN ${RESET}`;
-    const runLine = `${runSelected ? runBg : rowBg} ${runIndicator} ${runLabel}`;
+    const runLine = `${runBg} ${runIndicator} ${runFg}${BOLD}▶ RUN${RESET}${runBg}`;
     const runPadding = boxWidth - this.getVisualWidth(this.stripAnsi(runLine));
-    this.writeLine(`${runLine}${runSelected ? runBg : rowBg}${' '.repeat(Math.max(0, runPadding))}${RESET}`);
+    this.writeLine(`${runLine}${runBg}${' '.repeat(Math.max(0, runPadding))}${RESET}`);
     
-    // Preview command - subtle at bottom
+    // Command preview
     if (!compact) {
-      const args = params.map(p => this.testParams[p.key] || p.default).filter(a => a).join(' ');
+      const args = this.buildTestArgs(test);
       const cmdText = `node ${test?.file} ${args}`.slice(0, boxWidth - 4);
       const previewLine = `${rowBg}${DIM}  $ ${cmdText}${RESET}`;
       const previewPadding = boxWidth - this.getVisualWidth(this.stripAnsi(previewLine));
       this.writeLine(`${previewLine}${rowBg}${' '.repeat(Math.max(0, previewPadding))}${RESET}`);
     }
     
-    // Fill remaining with empty rows
-    const usedLines = params.length + (compact ? 3 : 4);
+    // Fill remaining
+    const usedLines = (selects.length > 0 ? selects.length + 1 : 0) + 
+                      (ranges.length > 0 ? ranges.length + 1 : 0) +
+                      (toggles.length > 0 ? Math.ceil(toggles.length / (compact ? 2 : 3)) + 1 : 0) +
+                      (compact ? 3 : 4);
     const visibleCount = Math.max(1, this.innerHeight - 8);
     for (let i = usedLines; i < visibleCount; i++) {
       this.writeLine(`${rowBg}${' '.repeat(boxWidth)}${RESET}`);
     }
     
     this.renderFooter();
+  }
+  
+  // Render a single param row (select or range)
+  renderParamRow(param, flatIndex, boxWidth, rowBg, selectedBg, accentColor) {
+    const selected = flatIndex === this.paramIndex;
+    const bg = selected ? selectedBg : rowBg;
+    const value = selected ? this.inputBuffer : (this.testParams[param.key] || String(param.default || ''));
     
-    // Show cursor at input position if editing a param (only for non-option params)
-    if (this.paramIndex < params.length) {
-      const param = params[this.paramIndex];
-      if (!param.options && param.type !== 'number') {
-        this.write(CURSOR_SHOW);
-        const labelLen = param.label.length + 3;
-        this.write(moveTo(this.marginY + 3 + this.paramIndex, this.adaptiveMarginX + 4 + labelLen + this.inputBuffer.length));
+    let valueDisplay;
+    if (param.type === 'select') {
+      // Show current value with navigation hints when selected
+      if (selected) {
+        const leftArrow = `${DIM}◀${RESET}`;
+        const rightArrow = `${DIM}▶${RESET}`;
+        valueDisplay = `${leftArrow} ${FG_BRIGHT_YELLOW}${BOLD}${value}${RESET}${bg} ${rightArrow}`;
+      } else {
+        valueDisplay = `${FG_GREEN}${value}${RESET}`;
+      }
+    } else if (param.type === 'range') {
+      // Show value with visual range indicator
+      const numVal = parseInt(value) || param.min;
+      const pct = (numVal - param.min) / (param.max - param.min);
+      const barWidth = 8;
+      const filled = Math.round(pct * barWidth);
+      const bar = `${FG_BRIGHT_CYAN}${'━'.repeat(filled)}${DIM}${'─'.repeat(barWidth - filled)}${RESET}`;
+      
+      if (selected) {
+        const leftArrow = `${DIM}◀${RESET}`;
+        const rightArrow = `${DIM}▶${RESET}`;
+        valueDisplay = `${leftArrow}${bg} ${FG_BRIGHT_YELLOW}${BOLD}${value}${RESET}${bg} ${bar} ${rightArrow}`;
+      } else {
+        valueDisplay = `${FG_GREEN}${value}${RESET} ${bar}`;
       }
     }
+    
+    const indicator = selected ? `${accentColor}▸${RESET}` : ` `;
+    const label = selected ? `${FG_WHITE}${BOLD}${param.key}${RESET}` : `${DIM}${param.key}${RESET}`;
+    
+    const line = `${bg} ${indicator} ${label} ${DIM}│${RESET}${bg} ${valueDisplay}`;
+    const padding = boxWidth - this.getVisualWidth(this.stripAnsi(line));
+    this.writeLine(`${line}${bg}${' '.repeat(Math.max(0, padding))}${RESET}`);
+  }
+  
+  // Build test args from current params
+  buildTestArgs(test) {
+    if (!test?.params) return '';
+    const parts = [];
+    for (const param of test.params) {
+      const value = this.testParams[param.key] || String(param.default || '');
+      if (value && value !== '') {
+        if (param.type === 'toggle') {
+          parts.push(value); // Just the key name for toggles
+        } else if (param.type === 'range') {
+          parts.push(`${param.key}=${value}`);
+        } else {
+          parts.push(value); // Select values go directly
+        }
+      }
+    }
+    return parts.join(' ');
   }
 
   // Split-panel test running view (borderless)
