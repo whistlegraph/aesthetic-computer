@@ -422,6 +422,14 @@ class ArteryTUI {
     }
   }
   
+  // Get params in visual display order (selects, ranges, toggles)
+  getVisualParamOrder(params = []) {
+    const selects = params.filter(p => p.type === 'select');
+    const ranges = params.filter(p => p.type === 'range');
+    const toggles = params.filter(p => p.type === 'toggle');
+    return [...selects, ...ranges, ...toggles];
+  }
+  
   // Initialize Matrix rain drops
   initMatrixRain() {
     this.matrixDrops = [];
@@ -1161,6 +1169,9 @@ class ArteryTUI {
       case 'test-params':
         this.handleTestParamsInput(key);
         break;
+      case 'test-running':
+        this.handleTestRunningInput(key);
+        break;
       case 'logs':
         this.handleLogsInput(key);
         break;
@@ -1262,6 +1273,14 @@ class ArteryTUI {
         }
         break;
       }
+      
+      case 'test-running':
+        // Ignore mouse clicks while test is running - don't exit back to menu
+        break;
+      
+      case 'logs':
+        // Ignore mouse clicks in logs view
+        break;
       
       default:
         // Other modes: click anywhere to go back to menu
@@ -1614,8 +1633,9 @@ class ArteryTUI {
             this.testParams[param.key] = String(param.default || '');
           }
           this.paramIndex = 0;
-          // Initialize inputBuffer with first param's current value
-          const firstParam = test.params[0];
+          // Initialize inputBuffer with first param in visual order (selects first, then ranges, then toggles)
+          const visualParams = this.getVisualParamOrder(test.params);
+          const firstParam = visualParams[0];
           this.inputBuffer = String(this.testParams[firstParam?.key] || '');
           this.mode = 'test-params';
           this.render();
@@ -1628,7 +1648,9 @@ class ArteryTUI {
   }
   
   handleTestParamsInput(key) {
-    const params = this.currentTest?.params || [];
+    const originalParams = this.currentTest?.params || [];
+    // Use visual order for navigation (selects, ranges, toggles)
+    const params = this.getVisualParamOrder(originalParams);
     const param = params[this.paramIndex];
     
     // Arrow Up - move to previous param
@@ -1750,6 +1772,88 @@ class ArteryTUI {
         this.inputBuffer += key;
         this.render();
       }
+    }
+  }
+
+  handleTestRunningInput(key) {
+    // Tab - switch between panels
+    if (key === '\t') {
+      this.activePanel = this.activePanel === 'left' ? 'right' : 'left';
+      this.render();
+      return;
+    }
+    
+    // Arrow Up - scroll up in active panel
+    if (key === '\u001b[A') {
+      const outputLines = this.testOutput || [];
+      const logLines = this.testLogs || [];
+      const contentHeight = this.height - 6;
+      
+      if (this.activePanel === 'left') {
+        const maxScroll = Math.max(0, outputLines.length - contentHeight);
+        if (this.leftScrollOffset > 0) {
+          this.leftScrollOffset = Math.max(0, this.leftScrollOffset - 1);
+          this.render();
+        }
+      } else {
+        const maxScroll = Math.max(0, logLines.length - contentHeight);
+        if (this.rightScrollOffset > 0) {
+          this.rightScrollOffset = Math.max(0, this.rightScrollOffset - 1);
+          this.render();
+        }
+      }
+      return;
+    }
+    
+    // Arrow Down - scroll down in active panel
+    if (key === '\u001b[B') {
+      const outputLines = this.testOutput || [];
+      const logLines = this.testLogs || [];
+      const contentHeight = this.height - 6;
+      
+      if (this.activePanel === 'left') {
+        const maxScroll = Math.max(0, outputLines.length - contentHeight);
+        if (this.leftScrollOffset < maxScroll) {
+          this.leftScrollOffset = Math.min(maxScroll, this.leftScrollOffset + 1);
+          this.render();
+        }
+      } else {
+        const maxScroll = Math.max(0, logLines.length - contentHeight);
+        if (this.rightScrollOffset < maxScroll) {
+          this.rightScrollOffset = Math.min(maxScroll, this.rightScrollOffset + 1);
+          this.render();
+        }
+      }
+      return;
+    }
+    
+    // Page Up - scroll up by page
+    if (key === '\u001b[5~') {
+      const contentHeight = this.height - 6;
+      if (this.activePanel === 'left') {
+        this.leftScrollOffset = Math.max(0, this.leftScrollOffset - contentHeight);
+      } else {
+        this.rightScrollOffset = Math.max(0, this.rightScrollOffset - contentHeight);
+      }
+      this.render();
+      return;
+    }
+    
+    // Page Down - scroll down by page
+    if (key === '\u001b[6~') {
+      const outputLines = this.testOutput || [];
+      const logLines = this.testLogs || [];
+      const contentHeight = this.height - 6;
+      
+      if (this.activePanel === 'left') {
+        const maxScroll = Math.max(0, outputLines.length - contentHeight);
+        this.leftScrollOffset = Math.min(maxScroll, this.leftScrollOffset + contentHeight);
+      } else {
+        const maxScroll = Math.max(0, logLines.length - contentHeight);
+        this.rightScrollOffset = Math.min(maxScroll, this.rightScrollOffset + contentHeight);
+      }
+      this.render();
+      return;
     }
   }
 
@@ -3655,52 +3759,53 @@ class ArteryTUI {
     
     // Get dynamic theme colors
     const theme = this.getThemeColors();
-    const headerBg = '\x1b[48;5;236m';
-    const sectionBg = '\x1b[48;5;235m';
-    const rowBg = theme.bg;
-    const selectedBg = '\x1b[48;5;239m';
-    const accentColor = FG_BRIGHT_CYAN;
     
     // Group params by type for cleaner layout
+    const visualParams = this.getVisualParamOrder(params);
     const selects = params.filter(p => p.type === 'select');
     const ranges = params.filter(p => p.type === 'range');
     const toggles = params.filter(p => p.type === 'toggle');
     
     // Title bar with icon
     const icon = test?.icon || '⚙';
-    const testTitle = `${headerBg} ${icon} ${FG_WHITE}${BOLD}${test?.name}${RESET}${headerBg}  ${DIM}${test?.desc || ''}${RESET}`;
-    const testPadding = boxWidth - this.getVisualWidth(this.stripAnsi(testTitle));
-    this.writeLine(`${testTitle}${headerBg}${' '.repeat(Math.max(0, testPadding))}${RESET}`);
+    const testTitle = ` ${icon} ${FG_WHITE}${BOLD}${test?.name}${RESET}${theme.fill}  ${DIM}${test?.desc || ''}${RESET}`;
+    this.renderBoxLine(testTitle, boxWidth, theme);
     
     // Flat index for navigation
     let flatIndex = 0;
     
     // === SELECTS SECTION ===
     if (selects.length > 0) {
-      this.writeLine(`${sectionBg}${DIM} ─ Options ${RESET}${sectionBg}${'─'.repeat(Math.max(0, boxWidth - 11))}${RESET}`);
+      const sectionLabel = `${DIM}─── Options ${'─'.repeat(Math.max(0, boxWidth - 18))}${RESET}`;
+      this.renderBoxLine(sectionLabel, boxWidth, theme);
       for (const param of selects) {
-        this.renderParamRow(param, flatIndex, boxWidth, rowBg, selectedBg, accentColor);
+        this.renderParamRowBoxed(param, flatIndex, boxWidth, theme);
         flatIndex++;
       }
     }
     
     // === RANGES SECTION ===
     if (ranges.length > 0) {
-      this.writeLine(`${sectionBg}${DIM} ─ Values ${RESET}${sectionBg}${'─'.repeat(Math.max(0, boxWidth - 10))}${RESET}`);
+      const sectionLabel = `${DIM}─── Values ${'─'.repeat(Math.max(0, boxWidth - 17))}${RESET}`;
+      this.renderBoxLine(sectionLabel, boxWidth, theme);
       for (const param of ranges) {
-        this.renderParamRow(param, flatIndex, boxWidth, rowBg, selectedBg, accentColor);
+        this.renderParamRowBoxed(param, flatIndex, boxWidth, theme);
         flatIndex++;
       }
     }
     
-    // === TOGGLES SECTION (inline) ===
+    // === TOGGLES SECTION ===
     if (toggles.length > 0) {
-      this.writeLine(`${sectionBg}${DIM} ─ Flags ${RESET}${sectionBg}${'─'.repeat(Math.max(0, boxWidth - 9))}${RESET}`);
-      // Render toggles in a more compact grid-like layout
-      const togglesPerRow = compact ? 2 : 3;
+      const sectionLabel = `${DIM}─── Flags ${'─'.repeat(Math.max(0, boxWidth - 16))}${RESET}`;
+      this.renderBoxLine(sectionLabel, boxWidth, theme);
+      
+      // Render toggles in rows
+      const togglesPerRow = compact ? 2 : 4;
       for (let i = 0; i < toggles.length; i += togglesPerRow) {
         const rowToggles = toggles.slice(i, i + togglesPerRow);
-        let rowContent = '';
+        let rowContent = ' ';
+        const cellWidth = Math.floor((boxWidth - 4) / togglesPerRow);
+        
         for (let j = 0; j < rowToggles.length; j++) {
           const param = rowToggles[j];
           const idx = flatIndex + j;
@@ -3708,96 +3813,101 @@ class ArteryTUI {
           const value = this.testParams[param.key] || param.default || '';
           const isOn = value !== '';
           
-          const bg = selected ? selectedBg : rowBg;
-          const indicator = selected ? `${accentColor}▸${RESET}` : ` `;
-          const toggleIcon = isOn ? `${FG_BRIGHT_GREEN}●${RESET}` : `${DIM}○${RESET}`;
-          const label = selected ? `${FG_WHITE}${BOLD}${param.key}${RESET}` : `${FG_WHITE}${param.key}${RESET}`;
+          const indicator = selected ? `${theme.accent}▸` : ` `;
+          const toggleIcon = isOn ? `${FG_BRIGHT_GREEN}●` : `${DIM}○`;
+          const label = selected ? `${FG_WHITE}${BOLD}${param.key}${RESET}${theme.fill}` : `${theme.text}${param.key}`;
           
-          const cellWidth = Math.floor((boxWidth - 2) / togglesPerRow);
-          const cell = `${bg}${indicator}${toggleIcon} ${label}`;
-          const cellPad = cellWidth - this.getVisualWidth(this.stripAnsi(cell));
-          rowContent += `${cell}${bg}${' '.repeat(Math.max(0, cellPad))}`;
+          const cell = `${indicator}${toggleIcon} ${label}`;
+          const cellLen = this.getVisualWidth(this.stripAnsi(cell));
+          const pad = Math.max(0, cellWidth - cellLen);
+          rowContent += `${cell}${' '.repeat(pad)}`;
         }
         flatIndex += rowToggles.length;
-        const rowPad = boxWidth - this.getVisualWidth(this.stripAnsi(rowContent));
-        this.writeLine(`${rowBg}${rowContent}${rowBg}${' '.repeat(Math.max(0, rowPad))}${RESET}`);
+        this.renderBoxLine(rowContent, boxWidth, theme);
       }
     }
     
-    // Spacer
-    this.writeLine(`${rowBg}${' '.repeat(boxWidth)}${RESET}`);
+    // Empty line
+    this.renderBoxLine('', boxWidth, theme);
     
     // Run button
-    const runIndex = params.length;
+    const runIndex = visualParams.length;
     const runSelected = this.paramIndex >= runIndex;
-    const runBg = runSelected ? BG_GREEN : rowBg;
-    const runFg = runSelected ? FG_WHITE : FG_GREEN;
     const runIndicator = runSelected ? `${FG_WHITE}▸` : ` `;
-    const runLine = `${runBg} ${runIndicator} ${runFg}${BOLD}▶ RUN${RESET}${runBg}`;
-    const runPadding = boxWidth - this.getVisualWidth(this.stripAnsi(runLine));
-    this.writeLine(`${runLine}${runBg}${' '.repeat(Math.max(0, runPadding))}${RESET}`);
+    const runStyle = runSelected 
+      ? `${BG_GREEN}${FG_WHITE}${BOLD} ▶ RUN ${RESET}${theme.fill}` 
+      : `${FG_GREEN}${BOLD} ▶ RUN ${RESET}${theme.fill}`;
+    this.renderBoxLine(` ${runIndicator}${runStyle}`, boxWidth, theme);
     
     // Command preview
     if (!compact) {
       const args = this.buildTestArgs(test);
-      const cmdText = `node ${test?.file} ${args}`.slice(0, boxWidth - 4);
-      const previewLine = `${rowBg}${DIM}  $ ${cmdText}${RESET}`;
-      const previewPadding = boxWidth - this.getVisualWidth(this.stripAnsi(previewLine));
-      this.writeLine(`${previewLine}${rowBg}${' '.repeat(Math.max(0, previewPadding))}${RESET}`);
+      const maxCmdLen = boxWidth - 10;
+      let cmdText = `node ${test?.file} ${args}`;
+      if (cmdText.length > maxCmdLen) cmdText = cmdText.slice(0, maxCmdLen - 3) + '...';
+      this.renderBoxLine(`${DIM}  $ ${cmdText}${RESET}`, boxWidth, theme);
     }
     
-    // Fill remaining
-    const usedLines = (selects.length > 0 ? selects.length + 1 : 0) + 
+    // Fill remaining space
+    const usedLines = 1 + // title
+                      (selects.length > 0 ? selects.length + 1 : 0) + 
                       (ranges.length > 0 ? ranges.length + 1 : 0) +
-                      (toggles.length > 0 ? Math.ceil(toggles.length / (compact ? 2 : 3)) + 1 : 0) +
-                      (compact ? 3 : 4);
-    const visibleCount = Math.max(1, this.innerHeight - 8);
-    for (let i = usedLines; i < visibleCount; i++) {
-      this.writeLine(`${rowBg}${' '.repeat(boxWidth)}${RESET}`);
+                      (toggles.length > 0 ? Math.ceil(toggles.length / (compact ? 2 : 4)) + 1 : 0) +
+                      2 + // spacer + run
+                      (compact ? 0 : 1); // cmd preview
+    const availableLines = this.innerHeight - 8; // header + footer
+    for (let i = usedLines; i < availableLines; i++) {
+      this.renderBoxLine('', boxWidth, theme);
     }
+    
+    // Footer hints with color-coded buttons
+    const upDown = `${BG_BLUE}${FG_WHITE}${BOLD} ↑↓ ${RESET}`;
+    const leftRight = `${BG_BLUE}${FG_WHITE}${BOLD} ←→ ${RESET}`;
+    const spaceBtn = `${BG_MAGENTA}${FG_WHITE}${BOLD} Space ${RESET}`;
+    const enterBtn = `${BG_GREEN}${FG_WHITE}${BOLD} Enter ${RESET}`;
+    const escBtn = `${BG_RED}${FG_WHITE}${BOLD} Esc ${RESET}`;
+    
+    const hints = `${upDown}${FG_BLUE}Nav  ${leftRight}${FG_BLUE}Edit  ${spaceBtn}${FG_MAGENTA}Toggle  ${enterBtn}${FG_GREEN}Run  ${escBtn}${FG_RED}Back`;
+    this.renderBoxLine(hints, boxWidth, theme);
     
     this.renderFooter();
   }
   
-  // Render a single param row (select or range)
-  renderParamRow(param, flatIndex, boxWidth, rowBg, selectedBg, accentColor) {
+  // Render a param row inside the bordered box
+  renderParamRowBoxed(param, flatIndex, boxWidth, theme) {
     const selected = flatIndex === this.paramIndex;
-    const bg = selected ? selectedBg : rowBg;
     const value = selected ? this.inputBuffer : (this.testParams[param.key] || String(param.default || ''));
+    
+    const indicator = selected ? `${theme.accent}▸` : ` `;
+    const labelStyle = selected ? `${FG_WHITE}${BOLD}` : `${theme.text}`;
+    const label = `${labelStyle}${param.key}${RESET}${theme.fill}`;
     
     let valueDisplay;
     if (param.type === 'select') {
-      // Show current value with navigation hints when selected
       if (selected) {
-        const leftArrow = `${DIM}◀${RESET}`;
-        const rightArrow = `${DIM}▶${RESET}`;
-        valueDisplay = `${leftArrow} ${FG_BRIGHT_YELLOW}${BOLD}${value}${RESET}${bg} ${rightArrow}`;
+        valueDisplay = `${DIM}◀${RESET}${theme.fill} ${FG_BRIGHT_YELLOW}${BOLD}${value}${RESET}${theme.fill} ${DIM}▶${RESET}${theme.fill}`;
       } else {
-        valueDisplay = `${FG_GREEN}${value}${RESET}`;
+        valueDisplay = `${FG_GREEN}${value}${RESET}${theme.fill}`;
       }
     } else if (param.type === 'range') {
-      // Show value with visual range indicator
-      const numVal = parseInt(value) || param.min;
-      const pct = (numVal - param.min) / (param.max - param.min);
+      const numVal = parseInt(value) || param.min || 0;
+      const min = param.min ?? 0;
+      const max = param.max ?? 100;
+      const range = max - min || 1;
+      const pct = Math.max(0, Math.min(1, (numVal - min) / range));
       const barWidth = 8;
-      const filled = Math.round(pct * barWidth);
-      const bar = `${FG_BRIGHT_CYAN}${'━'.repeat(filled)}${DIM}${'─'.repeat(barWidth - filled)}${RESET}`;
+      const filled = Math.max(0, Math.min(barWidth, Math.round(pct * barWidth)));
+      const bar = `${FG_BRIGHT_CYAN}${'━'.repeat(filled)}${DIM}${'─'.repeat(barWidth - filled)}${RESET}${theme.fill}`;
       
       if (selected) {
-        const leftArrow = `${DIM}◀${RESET}`;
-        const rightArrow = `${DIM}▶${RESET}`;
-        valueDisplay = `${leftArrow}${bg} ${FG_BRIGHT_YELLOW}${BOLD}${value}${RESET}${bg} ${bar} ${rightArrow}`;
+        valueDisplay = `${DIM}◀${RESET}${theme.fill} ${FG_BRIGHT_YELLOW}${BOLD}${value}${RESET}${theme.fill} ${bar} ${DIM}▶${RESET}${theme.fill}`;
       } else {
-        valueDisplay = `${FG_GREEN}${value}${RESET} ${bar}`;
+        valueDisplay = `${FG_GREEN}${value}${RESET}${theme.fill} ${bar}`;
       }
     }
     
-    const indicator = selected ? `${accentColor}▸${RESET}` : ` `;
-    const label = selected ? `${FG_WHITE}${BOLD}${param.key}${RESET}` : `${DIM}${param.key}${RESET}`;
-    
-    const line = `${bg} ${indicator} ${label} ${DIM}│${RESET}${bg} ${valueDisplay}`;
-    const padding = boxWidth - this.getVisualWidth(this.stripAnsi(line));
-    this.writeLine(`${line}${bg}${' '.repeat(Math.max(0, padding))}${RESET}`);
+    const content = ` ${indicator} ${label} ${DIM}│${RESET}${theme.fill} ${valueDisplay}`;
+    this.renderBoxLine(content, boxWidth, theme);
   }
   
   // Build test args from current params
@@ -3819,75 +3929,90 @@ class ArteryTUI {
     return parts.join(' ');
   }
 
-  // Split-panel test running view (borderless)
+  // Strip emojis and special characters that mess up column alignment
+  stripEmojis(str) {
+    // Remove emoji ranges and variation selectors
+    return str.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{FE00}-\u{FE0F}]|[\u{1F000}-\u{1F02F}]|[\u{1F0A0}-\u{1F0FF}]|[\u{1F100}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]|[\u{2300}-\u{23FF}]|✨|♪|📦|🖥|🎼|🧪|⚙/gu, '').trim();
+  }
+
+  // Split-panel test running view with distinct panel colors
   renderTestRunning() {
-    const theme = this.getThemeColors();
+    const boxWidth = this.width - 2;
     
-    // Colors for the two panels
-    const leftBg = BG_BLACK;                    // Dark - output panel
+    // Panel-specific colors (distinct backgrounds)
+    const leftBg = '\x1b[48;5;234m';   // Dark gray for output
     const leftFg = FG_WHITE;
-    const rightBg = '\x1b[48;5;234m';           // Slightly lighter gray - logs panel  
+    const rightBg = '\x1b[48;5;17m';   // Dark blue for logs  
     const rightFg = FG_WHITE;
-    const headerBg = '\x1b[48;5;236m';          // Header bar
-    const footerBg = theme.bg;
+    const borderFg = FG_BRIGHT_CYAN;
+    const headerBg = '\x1b[48;5;236m'; // Slightly lighter header
     
-    // Calculate panel widths (split roughly 60/40 for output/logs)
-    const dividerWidth = 1;
-    const leftWidth = Math.floor((this.width - dividerWidth) * 0.6);
-    const rightWidth = this.width - leftWidth - dividerWidth;
+    // Calculate panel widths (true 50/50 split)
+    const leftWidth = Math.floor((boxWidth - 3) / 2);
+    const rightWidth = boxWidth - 3 - leftWidth;
     
-    // Available height for content (minus header and footer)
-    const headerHeight = 2;
-    const footerHeight = 1;
-    const contentHeight = this.height - headerHeight - footerHeight;
+    // Available height for content
+    const contentHeight = this.height - 6; // top border, header, divider, bottom divider, footer, bottom border
+    
+    // Initialize scroll positions if needed
+    if (this.leftScrollOffset === undefined) this.leftScrollOffset = 0;
+    if (this.rightScrollOffset === undefined) this.rightScrollOffset = 0;
+    if (this.activePanel === undefined) this.activePanel = 'left';
+    
+    // === TOP BORDER ===
+    this.frameBuffer.push(` ${borderFg}╔${'═'.repeat(leftWidth)}╦${'═'.repeat(rightWidth)}╗${RESET}`);
     
     // === HEADER ROW ===
     const testName = this.testFile ? this.testFile.split('/').pop().replace('.mjs', '') : 'Test';
     const runningIcon = this.testRunning ? '◐' : '●';
     const runningColor = this.testRunning ? FG_BRIGHT_YELLOW : FG_BRIGHT_GREEN;
-    const leftHeader = ` ${runningColor}${runningIcon}${RESET}${headerBg}${FG_WHITE} ${testName}`;
-    const rightHeader = `${FG_CYAN}Console Logs`;
+    const activeLeft = this.activePanel === 'left';
     
-    // Build header line (use getVisualWidth for proper emoji measurement)
-    const leftHeaderPad = leftWidth - this.getVisualWidth(this.stripAnsi(leftHeader));
-    const rightHeaderPad = rightWidth - this.getVisualWidth(this.stripAnsi(rightHeader)) - 1;
-    const headerLine = `${headerBg}${leftHeader}${' '.repeat(Math.max(0, leftHeaderPad))}${FG_BLACK}│${rightHeader}${' '.repeat(Math.max(0, rightHeaderPad))}${RESET}`;
-    this.frameBuffer.push(headerLine);
+    // Left header with test name
+    const leftTitle = `${runningColor}${runningIcon}${RESET}${headerBg} ${FG_BRIGHT_GREEN}${BOLD}OUTPUT${RESET}${headerBg} ${FG_WHITE}${testName}`;
+    const leftTitleStripped = this.stripAnsi(leftTitle);
+    const leftTitlePad = Math.max(0, leftWidth - this.getVisualWidth(leftTitleStripped) - 1);
     
-    // Divider line under header
-    const dividerLine = `${headerBg}${'─'.repeat(leftWidth)}┼${'─'.repeat(rightWidth)}${RESET}`;
-    this.frameBuffer.push(dividerLine);
+    // Right header
+    const rightTitle = `${FG_BRIGHT_MAGENTA}${BOLD}LOGS${RESET}${headerBg} ${FG_CYAN}Console`;
+    const rightTitleStripped = this.stripAnsi(rightTitle);
+    const rightTitlePad = Math.max(0, rightWidth - this.getVisualWidth(rightTitleStripped) - 1);
+    
+    this.frameBuffer.push(` ${borderFg}║${headerBg} ${leftTitle}${' '.repeat(leftTitlePad)}${borderFg}║${headerBg} ${rightTitle}${' '.repeat(rightTitlePad)}${borderFg}║${RESET}`);
+    
+    // === HEADER DIVIDER ===
+    this.frameBuffer.push(` ${borderFg}╠${'─'.repeat(leftWidth)}╬${'─'.repeat(rightWidth)}╣${RESET}`);
     
     // === CONTENT ROWS ===
     const outputLines = this.testOutput || [];
     const logLines = this.testLogs || [];
     
-    // Get visible portion (most recent lines that fit)
-    const visibleOutput = outputLines.slice(-(contentHeight));
-    const visibleLogs = logLines.slice(-(contentHeight));
+    // Auto-scroll to bottom (follow mode)
+    const maxLeftScroll = Math.max(0, outputLines.length - contentHeight);
+    const maxRightScroll = Math.max(0, logLines.length - contentHeight);
+    this.leftScrollOffset = maxLeftScroll; // Auto-follow
+    this.rightScrollOffset = maxRightScroll; // Auto-follow
+    
+    // Get visible portion based on scroll
+    const visibleOutput = outputLines.slice(this.leftScrollOffset, this.leftScrollOffset + contentHeight);
+    const visibleLogs = logLines.slice(this.rightScrollOffset, this.rightScrollOffset + contentHeight);
     
     for (let row = 0; row < contentHeight; row++) {
-      // Left panel - test output
-      let leftContent = '';
+      // Left panel - test output (dark gray bg)
+      let leftText = '';
       if (row < visibleOutput.length) {
         const line = visibleOutput[row];
-        let text = line.text || '';
-        // Truncate if too long (use visual width)
-        const maxWidth = leftWidth - 2;
-        if (this.getVisualWidth(text) > maxWidth) {
-          // Truncate char by char until it fits
-          while (this.getVisualWidth(text) > maxWidth - 3 && text.length > 0) {
-            text = text.slice(0, -1);
-          }
-          text = text + '...';
-        }
-        leftContent = ` ${text}`;
+        let text = this.stripAnsi(line.text || '');
+        text = this.stripEmojis(text); // Remove emojis for alignment
+        const maxW = leftWidth - 1;
+        if (text.length > maxW) text = text.slice(0, maxW - 2) + '..';
+        leftText = text;
       }
-      const leftPad = leftWidth - this.getVisualWidth(leftContent);
+      const leftPad = Math.max(0, leftWidth - leftText.length);
       
-      // Right panel - console logs
-      let rightContent = '';
+      // Right panel - console logs (dark blue bg)
       let rightText = '';
+      let rightColor = rightFg;
       if (row < visibleLogs.length) {
         const log = visibleLogs[row];
         const levelColors = {
@@ -3899,31 +4024,40 @@ class ArteryTUI {
           input: FG_BRIGHT_MAGENTA,
           result: FG_BRIGHT_GREEN,
         };
-        const color = levelColors[log.level] || FG_WHITE;
-        let text = log.text || '';
-        const maxRightWidth = rightWidth - 2;
-        if (this.getVisualWidth(text) > maxRightWidth) {
-          while (this.getVisualWidth(text) > maxRightWidth - 3 && text.length > 0) {
-            text = text.slice(0, -1);
-          }
-          text = text + '...';
-        }
+        rightColor = levelColors[log.level] || FG_WHITE;
+        let text = this.stripAnsi(log.text || '');
+        text = this.stripEmojis(text);
+        const maxW = rightWidth - 1;
+        if (text.length > maxW) text = text.slice(0, maxW - 2) + '..';
         rightText = text;
-        rightContent = `${color}${text}${RESET}`;
       }
-      const rightPad = rightWidth - this.getVisualWidth(rightText) - 1;
+      const rightPad = Math.max(0, rightWidth - rightText.length);
       
-      // Combine panels with divider
-      const rowLine = `${leftBg}${leftFg}${leftContent}${' '.repeat(Math.max(0, leftPad))}${RESET}${DIM}│${RESET}${rightBg}${rightContent}${rightBg}${' '.repeat(Math.max(0, rightPad))}${RESET}`;
-      this.frameBuffer.push(rowLine);
+      // Combine with distinct backgrounds
+      this.frameBuffer.push(` ${borderFg}║${leftBg}${leftFg}${leftText}${' '.repeat(leftPad)}${RESET}${borderFg}│${rightBg}${rightColor}${rightText}${' '.repeat(rightPad)}${RESET}${borderFg}║${RESET}`);
     }
     
-    // === FOOTER ===
+    // === BOTTOM DIVIDER ===
+    this.frameBuffer.push(` ${borderFg}╠${'═'.repeat(leftWidth)}╩${'═'.repeat(rightWidth)}╣${RESET}`);
+    
+    // === FOOTER with color-coded buttons ===
     const statusText = this.testRunning 
-      ? `${FG_BRIGHT_YELLOW}Running...${RESET}` 
-      : (this.statusMessage || 'Complete');
-    const footerText = ` ${statusText}  ${FG_WHITE}Esc${theme.text} Back  ${FG_CYAN}${this.utcTime}`;
-    this.pendingFooter = { text: footerText, bg: footerBg, fg: theme.text };
+      ? `${FG_BRIGHT_YELLOW}${BOLD}● RUNNING${RESET}` 
+      : `${FG_BRIGHT_GREEN}${BOLD}✓ COMPLETE${RESET}`;
+    
+    // Color-coded keyboard hints
+    const escBtn = `${BG_RED}${FG_WHITE}${BOLD} Esc ${RESET}`;
+    const escLabel = `${FG_RED}Back`;
+    const tabBtn = `${BG_BLUE}${FG_WHITE}${BOLD} Tab ${RESET}`;
+    const tabLabel = `${FG_BLUE}Switch`;
+    const scrollHint = `${DIM}↑↓ Scroll${RESET}`;
+    
+    const footerContent = ` ${statusText}  ${escBtn}${escLabel}  ${tabBtn}${tabLabel}  ${scrollHint}  ${FG_CYAN}${this.utcTime}`;
+    const footerStripped = this.stripAnsi(footerContent);
+    const footerPad = Math.max(0, boxWidth - 2 - this.getVisualWidth(footerStripped));
+    
+    this.frameBuffer.push(` ${borderFg}║${BG_BLACK}${footerContent}${' '.repeat(footerPad)}${borderFg}║${RESET}`);
+    this.frameBuffer.push(` ${borderFg}╚${'═'.repeat(boxWidth - 2)}╝${RESET}`);
   }
 
   renderLogs() {
