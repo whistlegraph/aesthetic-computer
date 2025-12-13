@@ -4,6 +4,7 @@
 ;; Debug logging - persistent location that survives container rebuilds
 (defvar ac-debug-log-file "/workspaces/aesthetic-computer/.emacs-logs/emacs-debug.log")
 (defvar ac-perf-log-file "/workspaces/aesthetic-computer/.emacs-logs/emacs-perf.log")
+(defvar ac-profile-log-file "/workspaces/aesthetic-computer/.emacs-logs/emacs-profile.log")
 (defvar ac--startup-time (current-time))
 (defvar ac--last-perf-time (current-time))
 
@@ -31,6 +32,94 @@
     (insert (format "\n=== NEW SESSION: %s ===\n" (format-time-string "%Y-%m-%d %H:%M:%S")))
     (append-to-file (point-min) (point-max) ac-perf-log-file)))
 
+;;; ===================================================================
+;;; PROFILING & DIAGNOSTICS
+;;; ===================================================================
+
+(defvar ac--profiling-active nil "Whether CPU profiling is currently running.")
+
+(defun ac-profile-start ()
+  "Start CPU profiler and log to file."
+  (interactive)
+  (unless ac--profiling-active
+    (profiler-start 'cpu)
+    (setq ac--profiling-active t)
+    (ac-debug-log "PROFILER: Started CPU profiling")))
+
+(defun ac-profile-stop ()
+  "Stop profiler and write report to log file."
+  (interactive)
+  (when ac--profiling-active
+    (let ((report (profiler-report-cpu)))
+      (with-temp-buffer
+        (insert (format "\n=== PROFILE REPORT: %s ===\n" (format-time-string "%Y-%m-%d %H:%M:%S")))
+        (profiler-report)
+        (append-to-file (point-min) (point-max) ac-profile-log-file)))
+    (profiler-stop)
+    (setq ac--profiling-active nil)
+    (ac-debug-log "PROFILER: Stopped, report written")))
+
+(defun ac-profile-report ()
+  "Show profiler report interactively."
+  (interactive)
+  (profiler-report))
+
+(defun ac-diagnose-eat ()
+  "Diagnose all eat terminal buffers - log their state."
+  (interactive)
+  (let ((eat-buffers (seq-filter (lambda (b) (with-current-buffer b (eq major-mode 'eat-mode)))
+                                  (buffer-list))))
+    (ac-debug-log (format "DIAGNOSE: Found %d eat buffers" (length eat-buffers)))
+    (dolist (buf eat-buffers)
+      (with-current-buffer buf
+        (let* ((proc (get-buffer-process buf))
+               (proc-status (if proc (process-status proc) 'no-process))
+               (buf-size (buffer-size)))
+          (ac-debug-log (format "  BUFFER: %s | size=%d | proc=%s"
+                                (buffer-name) buf-size proc-status)))))
+    (message "Diagnosed %d eat buffers - see debug log" (length eat-buffers))))
+
+(defun ac-diagnose-timers ()
+  "Log all active timers."
+  (interactive)
+  (ac-debug-log (format "DIAGNOSE: %d active timers" (length timer-list)))
+  (dolist (timer timer-list)
+    (ac-debug-log (format "  TIMER: %s repeat=%s" 
+                          (timer--function timer)
+                          (timer--repeat-delay timer))))
+  (message "Logged %d timers" (length timer-list)))
+
+(defun ac-diagnose-processes ()
+  "Log all active processes."
+  (interactive)
+  (let ((procs (process-list)))
+    (ac-debug-log (format "DIAGNOSE: %d active processes" (length procs)))
+    (dolist (proc procs)
+      (ac-debug-log (format "  PROC: %s | status=%s | buffer=%s"
+                            (process-name proc)
+                            (process-status proc)
+                            (if (process-buffer proc) (buffer-name (process-buffer proc)) "none"))))
+    (message "Logged %d processes" (length procs))))
+
+(defun ac-diagnose-all ()
+  "Run all diagnostics."
+  (interactive)
+  (ac-debug-log "=== FULL DIAGNOSTIC START ===")
+  (ac-diagnose-eat)
+  (ac-diagnose-timers)
+  (ac-diagnose-processes)
+  (ac-debug-log "=== FULL DIAGNOSTIC END ===")
+  (message "Full diagnostic complete - see .emacs-logs/emacs-debug.log"))
+
+;; Keybindings for diagnostics
+(global-set-key (kbd "C-c d e") 'ac-diagnose-eat)
+(global-set-key (kbd "C-c d t") 'ac-diagnose-timers)
+(global-set-key (kbd "C-c d p") 'ac-diagnose-processes)
+(global-set-key (kbd "C-c d a") 'ac-diagnose-all)
+(global-set-key (kbd "C-c d s") 'ac-profile-start)
+(global-set-key (kbd "C-c d x") 'ac-profile-stop)
+(global-set-key (kbd "C-c d r") 'ac-profile-report)
+
 (ac-perf-session-start)
 (ac-debug-log "=== Starting Emacs Configuration Load ===")
 (ac-perf-log "Config load started")
@@ -46,7 +135,14 @@
       comp-deferred-compilation nil             ; Also disable via comp- prefix
       x-gtk-use-system-tooltips nil
       mac-option-modifier 'meta
-      warning-minimum-level :emergency)
+      warning-minimum-level :emergency
+      ;; Terminal/process output throttling
+      read-process-output-max (* 16 1024)       ; 16KB chunks instead of 64KB
+      process-adaptive-read-buffering t         ; Let emacs batch reads
+      redisplay-dont-pause nil                  ; Allow redisplay interruption
+      fast-but-imprecise-scrolling t            ; Faster scroll in terminals
+      bidi-inhibit-bpa t                        ; Disable bidi for terminals
+      bidi-paragraph-direction 'left-to-right)  ; No bidi scanning
 
 ;; Kill any runaway native comp processes on startup
 (when (fboundp 'native-comp-available-p)
@@ -239,7 +335,51 @@
     (load bootstrap-file nil 'nomessage)))
 
 (setq straight-use-package-by-default t
-      straight-vc-git-default-clone-depth 1)  ; Shallow clones for faster setup
+      straight-vc-git-default-clone-depth 1   ; Shallow clones for faster setup
+      straight-check-for-modifications '(check-on-save find-when-checking))
+
+;; Auto-update packages weekly (non-blocking, on idle)
+(defvar ac--last-package-check-file "~/.emacs.d/last-package-check")
+(defvar ac--package-check-interval (* 7 24 60 60))  ; 7 days in seconds
+
+(defun ac-maybe-update-packages ()
+  "Check for package updates if more than a week since last check."
+  (let* ((last-check (if (file-exists-p ac--last-package-check-file)
+                         (string-to-number
+                          (with-temp-buffer
+                            (insert-file-contents ac--last-package-check-file)
+                            (buffer-string)))
+                       0))
+         (now (float-time))
+         (days-since (/ (- now last-check) 86400)))
+    (when (> (- now last-check) ac--package-check-interval)
+      (ac-debug-log (format "Package check due (%.1f days since last)" days-since))
+      (message "🔄 Checking for package updates...")
+      (condition-case err
+          (progn
+            (straight-pull-all)
+            (straight-rebuild-all)
+            (with-temp-file ac--last-package-check-file
+              (insert (number-to-string (float-time))))
+            (ac-debug-log "Package update complete")
+            (message "✅ Packages updated"))
+        (error
+         (ac-debug-log (format "Package update failed: %s" err))
+         (message "⚠️ Package update failed: %s" err))))))
+
+;; Manual update command
+(defun ac-update-packages ()
+  "Manually update all packages now."
+  (interactive)
+  (message "🔄 Updating packages...")
+  (straight-pull-all)
+  (straight-rebuild-all)
+  (with-temp-file ac--last-package-check-file
+    (insert (number-to-string (float-time))))
+  (message "✅ All packages updated"))
+
+;; Check for updates 60 seconds after startup (non-blocking)
+(run-with-idle-timer 60 nil #'ac-maybe-update-packages)
 
 (ac-debug-log "Straight.el configured, starting package loads")
 (ac-perf-log "Straight.el configured")
@@ -396,13 +536,17 @@
 (setq-default eat-shell "/usr/bin/fish"
               eat-term-name "xterm-256color")
 
-;; Performance: Disable features we don't need with 16+ terminals
+;; Performance: Aggressively limit eat overhead for 16+ terminals
 (setq eat-enable-directory-tracking nil      ; Reduces overhead
       eat-enable-shell-command-history nil   ; We use fish history
       eat-enable-shell-prompt-annotation nil ; Reduces processing
       eat-show-title-on-mode-line nil        ; We name buffers ourselves
-      eat-term-scrollback-size 65536         ; 64KB instead of 128KB
-      eat-enable-auto-line-mode nil)         ; Keep in semi-char mode
+      eat-term-scrollback-size 8192          ; 8KB - minimal scrollback
+      eat-enable-auto-line-mode nil          ; Keep in semi-char mode
+      eat-minimum-latency 0.1                ; Batch output updates (100ms)
+      eat-maximum-latency 0.2                ; Max batch delay (200ms)
+      eat-enable-blinking-text nil           ; Disable blinking
+      eat-enable-mouse nil)                  ; Disable mouse support
 
 ;; Disable evil mode in artery buffer
 ;; REMOVED: buffer-list-update-hook was causing performance issues
@@ -727,7 +871,7 @@ Skips creation if tab already exists."
 
     ;; Create all the split tabs with tiny delays to let event loop breathe
     ;; This prevents emacs from getting overwhelmed by terminal output
-    (let ((delay 0.2))
+    (let ((delay 2.0))  ; Start first tab after 2 seconds
       (dolist (tab-spec '(("status"   ("url" "tunnel"))
                           ("stripe"   ("stripe-print" "stripe-ticket"))
                           ("chat"     ("chat-system" "chat-sotce" "chat-clock"))
@@ -737,7 +881,7 @@ Skips creation if tab already exists."
         (let ((tab-name (car tab-spec))
               (commands (cadr tab-spec)))
           (run-with-timer delay nil #'ac--create-split-tab tab-name commands))
-        (setq delay (+ delay 0.2))))  ; 200ms between each tab
+        (setq delay (+ delay 2.0))))  ; 2 seconds between each tab
 
     ;; Switch to the requested tab
     (run-with-timer 0.5 nil
