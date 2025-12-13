@@ -42,7 +42,14 @@
     "test-trapwaltz.mjs": {
       "name": "trapwaltz",
       "icon": "🩰",
-      "desc": "Trap waltz (3/4 + trap)"
+      "desc": "Trap waltz (3/4 + trap)",
+      "params": {
+        "style": { "type": "select", "options": "$waltzStyles", "default": "classic" },
+        "bars": { "type": "range", "min": 4, "max": 32, "step": 4, "default": 8 },
+        "bpm": { "type": "range", "min": 100, "max": 180, "step": 10, "default": 140 },
+        "scale": { "type": "select", "options": "$scales", "default": "minor" },
+        "room": { "type": "toggle", "default": false }
+      }
     },
     "test-1v1-split.mjs": {
       "name": "1v1-split",
@@ -65,7 +72,11 @@
     },
     "test-chords.mjs": {
       "name": "chords",
-      "desc": "Chord progression test"
+      "icon": "🎹",
+      "desc": "Chord progression test",
+      "params": {
+        "waltz": { "type": "select", "options": ["simple-waltz", "arpeggio-waltz", "harmony-waltz"], "default": "simple-waltz" }
+      }
     },
     "test-line.mjs": {
       "name": "line",
