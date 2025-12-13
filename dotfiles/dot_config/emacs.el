@@ -391,24 +391,25 @@
 (global-set-key (kbd "C-c C-r") 'restart-emacs)
 (global-set-key (kbd "C-c C-o") 'browse-url-at-point)
 
-;; Eat terminal
+;; Eat terminal - with performance optimizations for many terminals
 (use-package eat)
 (setq-default eat-shell "/usr/bin/fish"
               eat-term-name "xterm-256color")
 
+;; Performance: Disable features we don't need with 16+ terminals
+(setq eat-enable-directory-tracking nil      ; Reduces overhead
+      eat-enable-shell-command-history nil   ; We use fish history
+      eat-enable-shell-prompt-annotation nil ; Reduces processing
+      eat-show-title-on-mode-line nil        ; We name buffers ourselves
+      eat-term-scrollback-size 65536         ; 64KB instead of 128KB
+      eat-enable-auto-line-mode nil)         ; Keep in semi-char mode
+
 ;; Disable evil mode in artery buffer
-;; Use buffer-list-update-hook to catch the rename
-(defun my/disable-evil-in-artery ()
-  "Switch to emacs state in artery buffers."
-  (when (and (eq major-mode 'eat-mode)
-             (boundp 'evil-mode) evil-mode
-             (string-match-p "artery" (buffer-name))
-             (not (eq evil-state 'emacs)))
-    (evil-emacs-state)))
+;; REMOVED: buffer-list-update-hook was causing performance issues
+;; The hook fired constantly with 16+ terminals causing CPU spike
+;; Just use eat-mode-hook with timer instead
 
-(add-hook 'buffer-list-update-hook #'my/disable-evil-in-artery)
-
-;; Also add to eat-mode-hook with a timer to catch post-rename
+;; Use eat-mode-hook with a timer to catch post-rename
 (add-hook 'eat-mode-hook
           (lambda ()
             (run-with-timer 0.5 nil
@@ -576,15 +577,17 @@ Optional TARGET-TAB specifies which tab to land on (default: artery)."
 
 (setq confirm-kill-processes nil)
 
-(add-hook 'eat-mode-hook
-          (lambda ()
-            (setq-local comint-scroll-to-bottom-on-output t
-                        comint-show-maximum-output t
-                        comint-move-point-for-output t
-                        window-point-insertion-type t)
-            (add-hook 'comint-output-filter-functions
-                      #'comint-postoutput-scroll-to-bottom
-                      nil t)))
+;; DISABLED: These hooks were causing CPU spikes with 16+ terminals
+;; Each terminal output triggers filter functions, overwhelming emacs
+;; (add-hook 'eat-mode-hook
+;;           (lambda ()
+;;             (setq-local comint-scroll-to-bottom-on-output t
+;;                         comint-show-maximum-output t
+;;                         comint-move-point-for-output t
+;;                         window-point-insertion-type t)
+;;             (add-hook 'comint-output-filter-functions
+;;                       #'comint-postoutput-scroll-to-bottom
+;;                       nil t)))
 
 ;; Main backend function
 (defvar ac--directory-path "~/aesthetic-computer")
@@ -596,8 +599,27 @@ Optional TARGET-TAB specifies which tab to land on (default: artery)."
     ("redis" . "🔴") ("bookmarks" . "🔖") ("kidlisp" . "🧪")
     ("oven" . "🔥") ("media" . "📦")))
 
+(defun ac--tab-exists-p (tab-name)
+  "Check if a tab with TAB-NAME already exists."
+  (cl-find tab-name (tab-bar-tabs) 
+           :key (lambda (tab) (alist-get 'name tab))
+           :test #'string=))
+
+(defun ac--buffer-exists-p (buffer-name)
+  "Check if a buffer with BUFFER-NAME already exists and has a live process."
+  (when-let ((buf (get-buffer buffer-name)))
+    (and (buffer-live-p buf)
+         (or (get-buffer-process buf)
+             (> (buffer-size buf) 0)))))
+
 (defun ac--create-split-tab (tab-name commands)
-  "Create a new tab with split windows running the specified commands."
+  "Create a new tab with split windows running the specified commands.
+Skips creation if tab already exists."
+  ;; Guard: Skip if tab already exists
+  (when (ac--tab-exists-p tab-name)
+    (ac-debug-log (format "Tab '%s' already exists, skipping creation" tab-name))
+    (cl-return-from ac--create-split-tab nil))
+  
   (ac-debug-log (format "Creating tab: %s with commands: %s" tab-name commands))
   (ac-perf-log (format "Creating tab: %s" tab-name))
   (condition-case err
@@ -654,12 +676,13 @@ Optional TARGET-TAB specifies which tab to land on (default: artery)."
   ;; Set environment variable to tell fish it's running inside Emacs
   (setenv "AC_EMACS_MODE" "t")
   
-  ;; Start the emacs watchdog process in background (auto-recovers from hangs)
-  (let ((watchdog-script (expand-file-name "monitor-emacs.sh" ac--directory-path)))
-    (when (file-exists-p watchdog-script)
-      (ac-debug-log "Starting emacs watchdog...")
-      (start-process "emacs-watchdog" nil "bash" watchdog-script)
-      (ac-debug-log "Emacs watchdog started")))
+  ;; NOTE: Disabled the bash watchdog - it may contribute to instability
+  ;; The fish-based crash monitor in config.fish handles recovery instead
+  ;; (let ((watchdog-script (expand-file-name "monitor-emacs.sh" ac--directory-path)))
+  ;;   (when (file-exists-p watchdog-script)
+  ;;     (ac-debug-log "Starting emacs watchdog...")
+  ;;     (start-process "emacs-watchdog" nil "bash" watchdog-script)
+  ;;     (ac-debug-log "Emacs watchdog started")))
   
   ;; Set up a watchdog timer to detect hangs (30 seconds)
   (run-with-timer 30 nil
@@ -690,24 +713,21 @@ Optional TARGET-TAB specifies which tab to land on (default: artery)."
           (when (and (boundp 'evil-mode) evil-mode)
             (evil-emacs-state)))))
 
-    ;; Create a plain fish shell tab right after artery (for quick terminal access)
-    ;; This is "fishy" - the go-to terminal for running shell commands via LLM
-    (run-with-timer 0.5 nil
-                    (lambda ()
-                      (tab-new)
-                      (tab-rename "fishy")
-                      (let ((default-directory ac--directory-path))
-                        (eat "fish")
-                        (when (get-buffer "*eat*")
-                          (with-current-buffer "*eat*"
-                            (rename-buffer "🐟-fishy" t)
-                            (eat-semi-char-mode)
-                            (when (and (boundp 'evil-mode) evil-mode)
-                              (evil-emacs-state)))))))
+    ;; Create fishy tab (plain fish shell for quick terminal access via LLM)
+    (tab-new)
+    (tab-rename "fishy")
+    (let ((default-directory ac--directory-path))
+      (eat "fish")
+      (when (get-buffer "*eat*")
+        (with-current-buffer "*eat*"
+          (rename-buffer "🐟-fishy" t)
+          (eat-semi-char-mode)
+          (when (and (boundp 'evil-mode) evil-mode)
+            (evil-emacs-state)))))
 
-    ;; Create all the split tabs with delays to prevent overwhelming eat/Emacs
-    ;; Use run-with-timer for reliable delays (sit-for doesn't work in daemon mode)
-    (let ((delay 2))  ; Start at 2 seconds to account for shell tab
+    ;; Create all the split tabs with tiny delays to let event loop breathe
+    ;; This prevents emacs from getting overwhelmed by terminal output
+    (let ((delay 0.2))
       (dolist (tab-spec '(("status"   ("url" "tunnel"))
                           ("stripe"   ("stripe-print" "stripe-ticket"))
                           ("chat"     ("chat-system" "chat-sotce" "chat-clock"))
@@ -717,10 +737,10 @@ Optional TARGET-TAB specifies which tab to land on (default: artery)."
         (let ((tab-name (car tab-spec))
               (commands (cadr tab-spec)))
           (run-with-timer delay nil #'ac--create-split-tab tab-name commands))
-        (setq delay (+ delay 1.5))))  ; 1.5 seconds between each tab
+        (setq delay (+ delay 0.2))))  ; 200ms between each tab
 
-    ;; Switch to the requested tab after all tabs are created
-    (run-with-timer (* 1.5 8) nil  ; Increased to account for shell tab
+    ;; Switch to the requested tab
+    (run-with-timer 0.5 nil
                     (lambda (target)
                       (condition-case nil
                           (if (member target '("artery" "fishy" "status" "stripe" "chat" "web 1/2" "web 2/2" "tests"))
@@ -728,6 +748,90 @@ Optional TARGET-TAB specifies which tab to land on (default: artery)."
                             (message "No such tab: %s" target))
                         (error nil)))
                     target-tab))
+
+;;; ===================================================================
+;;; AUTO-START AESTHETIC-BACKEND ON FIRST TERMINAL FRAME
+;;; ===================================================================
+
+(defvar ac--backend-started nil
+  "Flag to ensure aesthetic-backend only runs once.")
+
+(defun ac--maybe-start-backend (frame)
+  "Start aesthetic-backend when first terminal frame connects."
+  (when (and (not ac--backend-started)
+             (not (display-graphic-p frame))  ; Terminal frame
+             (frame-live-p frame))
+    (setq ac--backend-started t)
+    (ac-debug-log "First terminal frame detected, starting full aesthetic-backend")
+    ;; Delay to ensure frame is fully ready
+    (run-with-timer 1 nil
+                    (lambda ()
+                      (condition-case err
+                          (aesthetic-backend "artery")
+                        (error (message "Error starting aesthetic-backend: %s" err)))))))
+
+;; Auto-start full backend on first terminal frame
+(add-hook 'after-make-frame-functions #'ac--maybe-start-backend)
+
+(defun aesthetic-backend-minimal ()
+  "Minimal version - start artery and fishy only. Use M-x aesthetic-backend for all tabs."
+  (interactive)
+  (ac-debug-log "Starting aesthetic-backend-minimal")
+  (setenv "AC_EMACS_MODE" "t")
+  
+  ;; Start with artery in the first tab
+  (tab-rename "artery")
+  (let ((default-directory ac--directory-path))
+    (eat "fish -c 'ac-artery-dev'")
+    (when (get-buffer "*eat*")
+      (with-current-buffer "*eat*"
+        (rename-buffer "🩸-artery" t)
+        (eat-semi-char-mode))))
+  
+  ;; Add fishy tab after 2 seconds
+  (run-with-timer 2 nil
+    (lambda ()
+      (condition-case nil
+          (progn
+            (tab-new)
+            (tab-rename "fishy")
+            (let ((default-directory ac--directory-path))
+              (eat "fish")
+              (when (get-buffer "*eat*")
+                (with-current-buffer "*eat*"
+                  (rename-buffer "🐟-fishy" t)
+                  (eat-semi-char-mode))))
+            ;; Switch back to artery
+            (run-with-timer 1 nil (lambda () (tab-bar-switch-to-tab "artery"))))
+        (error nil))))
+  
+  (message "🚀 Artery started! Use M-x aesthetic-backend-full to load all tabs.")
+  (ac-debug-log "aesthetic-backend-minimal complete"))
+
+(defun aesthetic-backend-full ()
+  "Load all remaining tabs (status, stripe, chat, web, tests)."
+  (interactive)
+  (message "Loading additional tabs...")
+  (let ((delay 0))
+    (dolist (tab-spec '(("status"   ("url" "tunnel"))
+                        ("stripe"   ("stripe-print" "stripe-ticket"))
+                        ("chat"     ("chat-system" "chat-sotce" "chat-clock"))
+                        ("web 1/2"  ("site" "session"))
+                        ("web 2/2"  ("redis" "bookmarks" "oven" "media"))
+                        ("tests"    ("kidlisp"))))
+      (let ((tab-name (car tab-spec))
+            (commands (cadr tab-spec))
+            (current-delay delay))
+        (run-with-timer current-delay nil
+          (lambda (name cmds)
+            (condition-case err
+                (progn
+                  (ac--create-split-tab name cmds)
+                  (message "Created tab: %s" name))
+              (error (message "Error creating tab %s: %s" name err))))
+          tab-name commands))
+      (setq delay (+ delay 8))))  ; 8 seconds between tabs
+  (message "All tabs will be loaded over the next ~50 seconds"))
 
 ;;; ===================================================================
 ;;; END OF AESTHETIC COMPUTER EMACS CONFIGURATION
