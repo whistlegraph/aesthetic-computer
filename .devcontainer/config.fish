@@ -976,6 +976,68 @@ function ac-restart
     end
 end
 
+# === EMACS TAB TESTING & DIAGNOSTICS ===
+
+# Run emacs tab unit tests
+function ac-test-tabs
+    /workspaces/aesthetic-computer/scripts/test-emacs-tabs.fish $argv
+end
+
+# Quick diagnose current daemon state
+function ac-diagnose
+    if timeout 3 emacsclient -e '(ac-diagnose-all)' >/dev/null 2>&1
+        echo "✅ Diagnostics logged to .emacs-logs/emacs-debug.log"
+        echo ""
+        tail -30 /workspaces/aesthetic-computer/.emacs-logs/emacs-debug.log | grep -E "DIAGNOSE|BUFFER|TIMER|PROC"
+    else
+        echo "❌ Daemon not responsive - cannot run diagnostics"
+    end
+end
+
+# Start emacs CPU profiler
+function ac-profile-start
+    if emacsclient -e '(ac-profile-start)' >/dev/null 2>&1
+        echo "🔬 CPU profiler started"
+    else
+        echo "❌ Could not start profiler - daemon not responsive?"
+    end
+end
+
+# Stop profiler and show summary
+function ac-profile-stop
+    if emacsclient -e '(ac-profile-stop)' >/dev/null 2>&1
+        echo "🔬 Profiler stopped - report in .emacs-logs/emacs-profile.log"
+        echo ""
+        if test -f /workspaces/aesthetic-computer/.emacs-logs/emacs-profile.log
+            tail -50 /workspaces/aesthetic-computer/.emacs-logs/emacs-profile.log
+        end
+    else
+        echo "❌ Could not stop profiler - daemon not responsive?"
+    end
+end
+
+# Show emacs profiler report interactively
+function ac-profile-report
+    emacsclient -e '(ac-profile-report)'
+end
+
+# Watch daemon CPU in real-time
+function ac-watch-cpu
+    echo "Watching emacs CPU usage (Ctrl+C to stop)..."
+    while true
+        set cpu (ps aux | grep "emacs.*daemon" | grep -v grep | awk '{print $3}')
+        set mem (ps aux | grep "emacs.*daemon" | grep -v grep | awk '{print $4}')
+        set responsive "?"
+        if timeout 1 emacsclient -e t >/dev/null 2>&1
+            set responsive "✓"
+        else
+            set responsive "✗"
+        end
+        echo (date '+%H:%M:%S')" CPU: $cpu% MEM: $mem% Responsive: $responsive"
+        sleep 2
+    end
+end
+
 # Start/restart CDP tunnel for VS Code control
 function ac-cdp-tunnel
     echo "🩸 Managing CDP tunnel..."
