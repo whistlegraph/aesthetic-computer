@@ -778,40 +778,57 @@ function ac-emacs-restart
     # Kill any existing emacs processes
     pkill -9 -f "emacs.*daemon" 2>/dev/null
     pkill -9 emacs 2>/dev/null
+    pkill -9 emacsclient 2>/dev/null
     sleep 1
     
     # Start fresh daemon with logging
     echo "🚀 Starting fresh emacs daemon..."
     set -l timestamp (date +%Y%m%d_%H%M%S)
     set -l log_file $AC_EMACS_LOG_DIR/daemon_$timestamp.log
+    set -l config_path /home/me/aesthetic-computer/dotfiles/dot_config/emacs.el
     
     # Log startup info
     echo "=== Emacs Daemon Start ===" > $log_file
     echo "Timestamp: "(date -Iseconds) >> $log_file
-    echo "PID: will be captured below" >> $log_file
+    echo "Config: $config_path" >> $log_file
     echo "===========================" >> $log_file
     
-    # Start daemon with output redirected to log
-    emacs --daemon 2>&1 | tee -a $log_file
+    # Start daemon in background with timeout (don't use tee - it hangs)
+    emacs -q --daemon -l $config_path >> $log_file 2>&1 &
+    set -l daemon_pid $last_pid
     
     # Create/update symlink to latest log
     ln -sf $log_file $AC_EMACS_LOG_DIR/latest.log
     
-    # Verify it's responsive
-    sleep 1
-    if timeout 5 emacsclient -e t >/dev/null 2>&1
-        echo "✅ Emacs daemon ready!"
-        echo "📝 Logs: $log_file"
-        
-        # Start the crash monitor in background
-        ac-emacs-crash-monitor &
-        disown
-        return 0
-    else
-        echo "❌ Emacs daemon failed to start"
-        echo "📝 Check logs: $log_file"
-        return 1
+    # Wait for daemon to be responsive (max 30 seconds)
+    echo "⏳ Waiting for daemon..."
+    set -l attempts 0
+    while test $attempts -lt 30
+        if timeout 2 emacsclient -e t >/dev/null 2>&1
+            echo "✅ Emacs daemon ready!"
+            echo "📝 Logs: $log_file"
+            
+            # Start the crash monitor in background
+            fish -c "ac-emacs-crash-monitor" &>/dev/null &
+            disown
+            
+            echo ""
+            echo "💡 To connect UI: aesthetic-now (or ac-aesthetic)"
+            return 0
+        end
+        sleep 1
+        set attempts (math $attempts + 1)
     end
+    
+    echo "❌ Emacs daemon failed to start (timeout)"
+    echo "📝 Check logs: $log_file"
+    return 1
+end
+
+# Full restart including UI reconnection
+function ac-emacs-full-restart
+    ac-emacs-restart
+    and aesthetic-now
 end
 
 # Background crash monitor - detects when emacs dies unexpectedly
@@ -964,32 +981,39 @@ function ac-cdp-tunnel
     echo "🩸 Managing CDP tunnel..."
     
     # Kill any existing tunnel
-    set -l existing (pgrep -f "ssh.*9333.*host.docker.internal" 2>/dev/null)
+    set -l existing (pgrep -f "ssh.*9333.*(host.docker.internal|172.17.0.1)" 2>/dev/null)
     if test -n "$existing"
         echo "  Killing existing tunnel (PID: $existing)..."
         kill $existing 2>/dev/null
         sleep 1
     end
     
+    # Determine host address - try host.docker.internal first, fallback to gateway
+    set -l host_addr "host.docker.internal"
+    if not getent hosts host.docker.internal >/dev/null 2>&1
+        # Use Docker gateway IP as fallback
+        set host_addr "172.17.0.1"
+    end
+    
     # Start new tunnel
-    echo "  Starting new CDP tunnel..."
-    ssh -f -N -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=5 -L 9333:127.0.0.1:9333 me@host.docker.internal 2>/dev/null
+    echo "  Starting new CDP tunnel to $host_addr..."
+    ssh -f -N -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=5 -L 9333:127.0.0.1:9333 me@$host_addr 2>/dev/null
     
     sleep 1
     
     # Verify
     if nc -zv localhost 9333 2>&1 | grep -q "Connected"
-        echo "✅ CDP tunnel online (localhost:9333 → host:9333)"
+        echo "✅ CDP tunnel online (localhost:9333 → $host_addr:9333)"
         return 0
     else
-        echo "❌ CDP tunnel failed - is VS Code running on host with CDP enabled?"
+        echo "❌ CDP tunnel failed - is VS Code running on host with --remote-debugging-port=9333?"
         return 1
     end
 end
 
 # Check CDP tunnel status
 function ac-cdp-status
-    set -l tunnel_pid (pgrep -f "ssh.*9333.*host.docker.internal" 2>/dev/null)
+    set -l tunnel_pid (pgrep -f "ssh.*9333" 2>/dev/null)
     if test -n "$tunnel_pid"
         echo "🟢 CDP tunnel process running (PID: $tunnel_pid)"
         if nc -zv localhost 9333 2>&1 | grep -q "Connected"
@@ -1186,24 +1210,11 @@ function aesthetic
     echo "[DEBUG] ensure-emacs-daemon-ready succeeded!"
     echo "[DEBUG] TTY: "(tty 2>&1)
     echo "[DEBUG] TERM: $TERM"
-    echo "[DEBUG] AC_TASK_LAUNCH: $AC_TASK_LAUNCH"
     
-    # Connect to emacs with aesthetic-backend
+    # Connect to emacs - aesthetic-backend will be called via after-make-frame-functions
+    # which is set up in emacs.el to auto-run on first terminal frame
     echo "🚀 Connecting to aesthetic platform..."
-    echo "[DEBUG] Running: emacsclient -nw -c --eval '(aesthetic-backend (quote \"artery\"))'"
-    
-    # Capture both stdout and stderr
-    set -l emacs_output (emacsclient -nw -c --eval '(aesthetic-backend (quote "artery"))' 2>&1)
-    set -l emacs_exit $status
-    
-    echo "[DEBUG] emacsclient exited with status: $emacs_exit"
-    echo "[DEBUG] emacsclient output: $emacs_output"
-    
-    if test $emacs_exit -ne 0
-        echo "❌ emacsclient failed. Trying to diagnose..."
-        echo "[DEBUG] emacsclient version: "(emacsclient --version 2>&1 | head -1)
-        echo "[DEBUG] Can connect to daemon: "(timeout 2 emacsclient -e t 2>&1)
-    end
+    emacsclient -nw -c
 end
 
 # Convenience alias for skipping the wait
@@ -1778,6 +1789,10 @@ function ac-ff-playlist
     cd ~/aesthetic-computer
     ./rebroadcast.sh
 end
+
+# Connect to the aesthetic platform (emacs TUI)
+alias ac-aesthetic 'aesthetic-now'
+
 alias ac-servers 'clear; ac; npm run -s servers; env nogreet=true fish'
 alias ac-chat-system 'clear; ac; npm run -s chat; cd nanos; npm run chat-system:dev; fish'
 alias ac-chat-sotce 'clear; ac; npm run -s chat; cd nanos; npm run chat-sotce:dev; fish'
