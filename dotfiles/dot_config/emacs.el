@@ -338,34 +338,20 @@
       straight-vc-git-default-clone-depth 1   ; Shallow clones for faster setup
       straight-check-for-modifications '(check-on-save find-when-checking))
 
-;; Auto-update packages weekly (non-blocking, on idle)
-(defvar ac--last-package-check-file "~/.emacs.d/last-package-check")
-(defvar ac--package-check-interval (* 7 24 60 60))  ; 7 days in seconds
-
-(defun ac-maybe-update-packages ()
-  "Check for package updates if more than a week since last check."
-  (let* ((last-check (if (file-exists-p ac--last-package-check-file)
-                         (string-to-number
-                          (with-temp-buffer
-                            (insert-file-contents ac--last-package-check-file)
-                            (buffer-string)))
-                       0))
-         (now (float-time))
-         (days-since (/ (- now last-check) 86400)))
-    (when (> (- now last-check) ac--package-check-interval)
-      (ac-debug-log (format "Package check due (%.1f days since last)" days-since))
-      (message "🔄 Checking for package updates...")
-      (condition-case err
-          (progn
-            (straight-pull-all)
-            (straight-rebuild-all)
-            (with-temp-file ac--last-package-check-file
-              (insert (number-to-string (float-time))))
-            (ac-debug-log "Package update complete")
-            (message "✅ Packages updated"))
-        (error
-         (ac-debug-log (format "Package update failed: %s" err))
-         (message "⚠️ Package update failed: %s" err))))))
+;; Auto-update packages on each launch (non-blocking, on idle)
+(defun ac-update-packages-async ()
+  "Update all packages asynchronously in background."
+  (ac-debug-log "Checking for package updates...")
+  (message "🔄 Checking for package updates...")
+  (condition-case err
+      (progn
+        (straight-pull-all)
+        (straight-rebuild-all)
+        (ac-debug-log "Package update complete")
+        (message "✅ Packages up to date"))
+    (error
+     (ac-debug-log (format "Package update failed: %s" err))
+     (message "⚠️ Package update skipped: %s" (error-message-string err)))))
 
 ;; Manual update command
 (defun ac-update-packages ()
@@ -374,12 +360,10 @@
   (message "🔄 Updating packages...")
   (straight-pull-all)
   (straight-rebuild-all)
-  (with-temp-file ac--last-package-check-file
-    (insert (number-to-string (float-time))))
   (message "✅ All packages updated"))
 
-;; Check for updates 60 seconds after startup (non-blocking)
-(run-with-idle-timer 60 nil #'ac-maybe-update-packages)
+;; Check for updates 30 seconds after startup (non-blocking, when idle)
+(run-with-idle-timer 30 nil #'ac-update-packages-async)
 
 (ac-debug-log "Straight.el configured, starting package loads")
 (ac-perf-log "Straight.el configured")
