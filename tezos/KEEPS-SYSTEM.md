@@ -57,6 +57,35 @@
 | `redact <token_id> [--reason="..."]` | Censor token content |
 | `set-collection-media --image=<uri>` | Set collection thumbnail |
 | `lock-collection` | Permanently lock collection metadata |
+| `fee` | Show current keep fee |
+| `set-fee <tez>` | Set keep fee (admin only) |
+| `withdraw [dest]` | Withdraw fees to wallet (admin only) |
+
+---
+
+## Fee System
+
+The contract supports configurable mint fees. See [KEEPS-FEE-SYSTEM.md](./KEEPS-FEE-SYSTEM.md) for full documentation.
+
+### Quick Reference
+
+```bash
+# Check current fee
+node keeps.mjs fee
+
+# Set fee to 5 XTZ
+node keeps.mjs set-fee 5
+
+# Withdraw accumulated fees
+node keeps.mjs withdraw
+```
+
+### Storage & Entrypoints
+- `keep_fee` (mutez) - Required payment to keep
+- `set_keep_fee(new_fee)` - Admin updates fee
+- `withdraw_fees(destination)` - Admin withdraws balance
+
+⚠️ **Note**: Fee system requires contract v2.1+ (with fee entrypoints). Existing contracts need redeployment.
 
 ---
 
@@ -273,9 +302,36 @@ Check piece mint status (public)
    - First saver owns the piece (existing behavior)
    - Admin can mint any piece (bypass)
 
-3. **Rate Limiting** (Future)
+3. **On-Chain Protection**
+   - SmartPy contract: `assert self.is_administrator_()` on all mutations
+   - `content_hashes` big_map prevents duplicate minting
+   - Metadata locking is permanent once applied
+
+4. **Rate Limiting** (Future)
    - Per-user limits (e.g., 5 mints/day)
    - Prevent spam
+
+### Scalability (Designed for Millions of Pieces)
+
+1. **Token ID Retrieval** - O(1)
+   - Uses `next_token_id - 1` from storage, not pagination
+   - Works at any scale
+
+2. **Duplicate Check** - O(1)
+   - `content_hashes` big_map lookup by key
+   - Big maps are hash tables, constant-time access
+
+3. **Status Command** - O(1) with pagination
+   - Uses TzKT API with `limit` and `sort.desc`
+   - Shows only recent tokens, total count from storage
+
+4. **Gas Costs** - Constant
+   - Big map operations don't increase with collection size
+   - ~0.05 tez per mint regardless of token count
+
+5. **IPFS Storage**
+   - ~50KB per piece average (bundle + metadata + thumb)
+   - 1M pieces ≈ 50GB = ~$7.50/month on Pinata
 
 ### Implementation Steps
 
