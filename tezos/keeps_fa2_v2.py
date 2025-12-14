@@ -62,6 +62,11 @@ def keeps_module():
             
             # Contract-level metadata lock flag
             self.data.contract_metadata_locked = False
+            
+            # Mint fee configuration (admin-adjustable)
+            # Default: 0 tez (free minting via admin key)
+            # Can be set to require payment when users mint via their wallets
+            self.data.keep_fee = sp.tez(0)
         
         @sp.entrypoint
         def keep(self, params):
@@ -98,6 +103,10 @@ def keeps_module():
             
             # Only admin can mint
             assert self.is_administrator_(), "FA2_NOT_ADMIN"
+            
+            # Validate mint fee payment (if fee is set)
+            # Note: Admin can call with 0 tez if keep_fee is 0
+            assert sp.amount >= self.data.keep_fee, "INSUFFICIENT_FEE"
             
             # Check for duplicate content hash
             assert not self.data.content_hashes.contains(params.content_hash), "DUPLICATE_CONTENT_HASH"
@@ -195,6 +204,27 @@ def keeps_module():
             """Permanently lock contract-level metadata (admin only)."""
             assert self.is_administrator_(), "FA2_NOT_ADMIN"
             self.data.contract_metadata_locked = True
+
+        @sp.entrypoint
+        def set_keep_fee(self, new_fee):
+            """
+            Set the keep fee required for keeping new tokens.
+            Admin only. Fee is in mutez (1 tez = 1,000,000 mutez).
+            Set to 0 for free keeping.
+            """
+            sp.cast(new_fee, sp.mutez)
+            assert self.is_administrator_(), "FA2_NOT_ADMIN"
+            self.data.keep_fee = new_fee
+
+        @sp.entrypoint
+        def withdraw_fees(self, destination):
+            """
+            Withdraw accumulated fees from the contract.
+            Admin only. Sends the entire contract balance to the destination.
+            """
+            sp.cast(destination, sp.address)
+            assert self.is_administrator_(), "FA2_NOT_ADMIN"
+            sp.send(destination, sp.balance)
 
         @sp.entrypoint
         def burn_keep(self, token_id):

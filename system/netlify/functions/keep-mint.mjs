@@ -557,13 +557,10 @@ export const handler = stream(async (event, context) => {
       // Wait for confirmation
       await op.confirmation(1);
 
-      // Get token ID
-      await new Promise(r => setTimeout(r, 3000)); // Let TzKT index
-      const tokensResponse = await fetch(
-        `https://api.${NETWORK}.tzkt.io/v1/contracts/${CONTRACT_ADDRESS}/bigmaps/token_metadata/keys?limit=100`
-      );
-      const tokens = await tokensResponse.json();
-      const tokenId = tokens.length > 0 ? tokens[tokens.length - 1].key : "?";
+      // Get token ID from contract storage (next_token_id - 1)
+      // This is O(1) and scales to millions of tokens
+      const updatedStorage = await contract.storage();
+      const tokenId = updatedStorage.next_token_id.toNumber() - 1;
 
       const objktUrl = `https://${NETWORK === "mainnet" ? "" : "ghostnet."}objkt.com/asset/${CONTRACT_ADDRESS}/${tokenId}`;
 
