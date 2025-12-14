@@ -434,6 +434,14 @@ end
 # Fix all permissions AFTER vault setup (vault copies files as root with sudo)
 echo "🔧 Fixing permissions after vault setup..."
 
+# First, ensure the home directory itself is owned by me (critical for .emacs-logs etc)
+sudo chown me:me /home/me 2>/dev/null
+echo "✅ Fixed ownership of /home/me"
+
+# Create .emacs-logs directory if it doesn't exist
+mkdir -p /home/me/.emacs-logs 2>/dev/null
+echo "✅ Ensured /home/me/.emacs-logs exists"
+
 # Fix fish config permissions (vault may have overwritten with root-owned files)
 ensure_fish_config_permissions
 
