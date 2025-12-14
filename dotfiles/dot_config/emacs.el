@@ -338,20 +338,15 @@
       straight-vc-git-default-clone-depth 1   ; Shallow clones for faster setup
       straight-check-for-modifications '(check-on-save find-when-checking))
 
-;; Auto-update packages on each launch (non-blocking, on idle)
+;; Auto-update packages in background (daemon only, not on client connect)
 (defun ac-update-packages-async ()
-  "Update all packages asynchronously in background."
-  (ac-debug-log "Checking for package updates...")
-  (message "🔄 Checking for package updates...")
-  (condition-case err
-      (progn
-        (straight-pull-all)
-        (straight-rebuild-all)
-        (ac-debug-log "Package update complete")
-        (message "✅ Packages up to date"))
-    (error
-     (ac-debug-log (format "Package update failed: %s" err))
-     (message "⚠️ Package update skipped: %s" (error-message-string err)))))
+  "Update all packages asynchronously in background subprocess."
+  (ac-debug-log "Checking for package updates in background...")
+  (let ((default-directory user-emacs-directory))
+    ;; Run in a subprocess so it doesn't block anything
+    (start-process "straight-update" "*straight-update*"
+                   "emacs" "--batch" "-l" user-init-file
+                   "--eval" "(progn (straight-pull-all) (straight-rebuild-all))")))
 
 ;; Manual update command
 (defun ac-update-packages ()
@@ -362,8 +357,10 @@
   (straight-rebuild-all)
   (message "✅ All packages updated"))
 
-;; Check for updates 30 seconds after startup (non-blocking, when idle)
-(run-with-idle-timer 30 nil #'ac-update-packages-async)
+;; Only check for updates during daemon startup, not on every client connection
+;; This prevents UI blocking when connecting emacsclient
+(when (daemonp)
+  (run-with-timer 60 nil #'ac-update-packages-async))
 
 (ac-debug-log "Straight.el configured, starting package loads")
 (ac-perf-log "Straight.el configured")
