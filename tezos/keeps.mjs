@@ -269,17 +269,36 @@ async function getContractStatus(network = 'ghostnet') {
     console.log(`   Next Token ID: ${storage.next_token_id.toString()}`);
     console.log(`   Tokens Minted: ${storage.next_token_id.toString()}`);
     
-    // List all tokens
-    if (storage.next_token_id.toNumber() > 0) {
-      console.log('\n🎨 Minted Tokens:');
-      for (let i = 0; i < storage.next_token_id.toNumber(); i++) {
-        const metadata = await storage.token_metadata.get(i);
-        if (metadata) {
-          const info = metadata.token_info;
-          const contentType = info.get('content_type');
-          const frozen = info.has('__frozen') ? ' 🔒' : '';
-          console.log(`   [${i}] ${contentType ? Buffer.from(contentType.slice(2), 'hex').toString() : 'unknown'}${frozen}`);
+    const totalTokens = storage.next_token_id.toNumber();
+    
+    // For large collections, use TzKT API with pagination
+    // Only show recent tokens to avoid O(n) RPC calls
+    const MAX_DISPLAY = 10;
+    if (totalTokens > 0) {
+      console.log(`\n🎨 Recent Tokens (showing last ${Math.min(MAX_DISPLAY, totalTokens)} of ${totalTokens}):`);
+      
+      // Fetch recent tokens via TzKT (efficient, paginated)
+      const tzktUrl = `https://api.${network}.tzkt.io/v1/contracts/${contractAddress}/bigmaps/token_metadata/keys?limit=${MAX_DISPLAY}&sort.desc=id`;
+      try {
+        const response = await fetch(tzktUrl);
+        if (response.ok) {
+          const tokens = await response.json();
+          for (const token of tokens.reverse()) {
+            const tokenId = token.key;
+            const tokenInfo = token.value?.token_info || {};
+            const name = tokenInfo.name ? Buffer.from(tokenInfo.name, 'hex').toString() : `#${tokenId}`;
+            const locked = storage.metadata_locked?.get?.(parseInt(tokenId)) ? ' 🔒' : '';
+            console.log(`   [${tokenId}] ${name}${locked}`);
+          }
+        } else {
+          console.log('   (Use TzKT explorer to view all tokens)');
         }
+      } catch (e) {
+        console.log('   (Could not fetch token list from TzKT)');
+      }
+      
+      if (totalTokens > MAX_DISPLAY) {
+        console.log(`   ... and ${totalTokens - MAX_DISPLAY} more`);
       }
     }
     
@@ -915,13 +934,10 @@ async function mintToken(piece, options = {}) {
     
     await op.confirmation(1);
     
-    // Get the new token ID from TzKT
-    console.log('   ⏳ Fetching token ID...');
-    await new Promise(r => setTimeout(r, 3000)); // Wait for indexing
-    
-    const response = await fetch(`https://api.ghostnet.tzkt.io/v1/contracts/${contractAddress}/bigmaps/token_metadata/keys?limit=100`);
-    const tokens = await response.json();
-    const tokenId = tokens.length > 0 ? tokens[tokens.length - 1].key : '?';
+    // Get the token ID from contract storage (next_token_id - 1)
+    // This is O(1) and scales to millions of tokens
+    const updatedStorage = await contract.storage();
+    const tokenId = updatedStorage.next_token_id.toNumber() - 1;
     
     console.log('\n╔══════════════════════════════════════════════════════════════╗');
     console.log('║  ✅ Token Minted Successfully!                               ║');
@@ -1639,6 +1655,131 @@ async function burnToken(tokenId, options = {}) {
 }
 
 // ============================================================================
+// Fee Management
+// ============================================================================
+
+async function getKeepFee(network = 'ghostnet') {
+  const { tezos, config } = await createTezosClient(network);
+  
+  if (!fs.existsSync(CONFIG.paths.contractAddress)) {
+    throw new Error('❌ No contract deployed. Run: node keeps.mjs deploy');
+  }
+  
+  const contractAddress = fs.readFileSync(CONFIG.paths.contractAddress, 'utf8').trim();
+  const contract = await tezos.contract.at(contractAddress);
+  const storage = await contract.storage();
+  
+  // keep_fee is stored in mutez
+  const feeInMutez = storage.keep_fee?.toNumber?.() ?? storage.keep_fee ?? 0;
+  const feeInTez = feeInMutez / 1_000_000;
+  
+  return { feeInMutez, feeInTez, contractAddress };
+}
+
+async function setKeepFee(feeInTez, options = {}) {
+  const { network = 'ghostnet' } = options;
+  
+  const { tezos, config } = await createTezosClient(network);
+  
+  if (!fs.existsSync(CONFIG.paths.contractAddress)) {
+    throw new Error('❌ No contract deployed. Run: node keeps.mjs deploy');
+  }
+  
+  const contractAddress = fs.readFileSync(CONFIG.paths.contractAddress, 'utf8').trim();
+  const feeInMutez = Math.floor(feeInTez * 1_000_000);
+  
+  console.log('\n╔══════════════════════════════════════════════════════════════╗');
+  console.log('║  💰 Setting Keep Fee                                         ║');
+  console.log('╚══════════════════════════════════════════════════════════════╝\n');
+  
+  console.log(`📡 Network: ${config.name}`);
+  console.log(`📍 Contract: ${contractAddress}`);
+  console.log(`💵 New Fee: ${feeInTez} XTZ (${feeInMutez} mutez)\n`);
+  
+  try {
+    const contract = await tezos.contract.at(contractAddress);
+    
+    const op = await contract.methods.set_keep_fee(feeInMutez).send();
+    
+    console.log(`   ⏳ Operation hash: ${op.hash}`);
+    console.log('   ⏳ Waiting for confirmation...');
+    
+    await op.confirmation(1);
+    
+    console.log('\n╔══════════════════════════════════════════════════════════════╗');
+  console.log('║  ✅ Keep Fee Updated Successfully!                           ║');
+    console.log('╚══════════════════════════════════════════════════════════════╝\n');
+    
+    console.log(`   💵 New keep fee: ${feeInTez} XTZ`);
+    console.log(`   📝 Operation: ${config.explorer}/${op.hash}\n`);
+    
+    return { feeInTez, feeInMutez, hash: op.hash };
+    
+  } catch (error) {
+    console.error('\n❌ Set fee failed!');
+    console.error(`   Error: ${error.message}`);
+    throw error;
+  }
+}
+
+async function withdrawFees(destination, options = {}) {
+  const { network = 'ghostnet' } = options;
+  
+  const { tezos, credentials, config } = await createTezosClient(network);
+  
+  if (!fs.existsSync(CONFIG.paths.contractAddress)) {
+    throw new Error('❌ No contract deployed. Run: node keeps.mjs deploy');
+  }
+  
+  const contractAddress = fs.readFileSync(CONFIG.paths.contractAddress, 'utf8').trim();
+  const dest = destination || credentials.address; // Default to admin address
+  
+  // Check contract balance first
+  const contractBalance = await tezos.tz.getBalance(contractAddress);
+  const balanceXTZ = contractBalance.toNumber() / 1_000_000;
+  
+  console.log('\n╔══════════════════════════════════════════════════════════════╗');
+  console.log('║  💸 Withdrawing Fees                                         ║');
+  console.log('╚══════════════════════════════════════════════════════════════╝\n');
+  
+  console.log(`📡 Network: ${config.name}`);
+  console.log(`📍 Contract: ${contractAddress}`);
+  console.log(`💰 Contract Balance: ${balanceXTZ.toFixed(6)} XTZ`);
+  console.log(`📤 Destination: ${dest}\n`);
+  
+  if (balanceXTZ === 0) {
+    console.log('   ℹ️  No fees to withdraw (balance is 0)\n');
+    return { withdrawn: 0, hash: null };
+  }
+  
+  try {
+    const contract = await tezos.contract.at(contractAddress);
+    
+    const op = await contract.methods.withdraw_fees(dest).send();
+    
+    console.log(`   ⏳ Operation hash: ${op.hash}`);
+    console.log('   ⏳ Waiting for confirmation...');
+    
+    await op.confirmation(1);
+    
+    console.log('\n╔══════════════════════════════════════════════════════════════╗');
+    console.log('║  ✅ Fees Withdrawn Successfully!                             ║');
+    console.log('╚══════════════════════════════════════════════════════════════╝\n');
+    
+    console.log(`   💸 Withdrawn: ${balanceXTZ.toFixed(6)} XTZ`);
+    console.log(`   📤 To: ${dest}`);
+    console.log(`   📝 Operation: ${config.explorer}/${op.hash}\n`);
+    
+    return { withdrawn: balanceXTZ, destination: dest, hash: op.hash };
+    
+  } catch (error) {
+    console.error('\n❌ Withdrawal failed!');
+    console.error(`   Error: ${error.message}`);
+    throw error;
+  }
+}
+
+// ============================================================================
 // CLI Interface
 // ============================================================================
 
@@ -1754,6 +1895,41 @@ async function main() {
       case 'lock-collection':
         await lockCollectionMetadata({ network: getNetwork(1) });
         break;
+      
+      case 'fee':
+        // Show current keep fee
+        const feeInfo = await getKeepFee(getNetwork(1));
+        console.log('\n╔══════════════════════════════════════════════════════════════╗');
+        console.log('║  💰 Current Keep Fee                                         ║');
+        console.log('╚══════════════════════════════════════════════════════════════╝\n');
+        console.log(`   Contract: ${feeInfo.contractAddress}`);
+        console.log(`   Keep Fee: ${feeInfo.feeInTez} XTZ (${feeInfo.feeInMutez} mutez)\n`);
+        break;
+      
+      case 'set-fee': {
+        if (!args[1]) {
+          console.error('Usage: node keeps.mjs set-fee <amount_in_tez>');
+          console.error('');
+          console.error('Examples:');
+          console.error('  node keeps.mjs set-fee 5       # Set fee to 5 XTZ');
+          console.error('  node keeps.mjs set-fee 0       # Free minting');
+          console.error('  node keeps.mjs set-fee 0.5     # Set fee to 0.5 XTZ');
+          process.exit(1);
+        }
+        const feeAmount = parseFloat(args[1]);
+        if (isNaN(feeAmount) || feeAmount < 0) {
+          console.error('❌ Invalid fee amount. Must be a non-negative number.');
+          process.exit(1);
+        }
+        await setKeepFee(feeAmount, { network: getNetwork(2) });
+        break;
+      }
+      
+      case 'withdraw': {
+        const dest = args[1]; // Optional destination address
+        await withdrawFees(dest, { network: getNetwork(dest ? 2 : 1) });
+        break;
+      }
         
       case 'help':
       default:
@@ -1776,6 +1952,9 @@ Commands:
   redact <token_id>             Censor token (replace with redacted content)
   set-collection-media          Set collection icon/description
   lock-collection               Permanently lock collection metadata
+  fee [network]                 Show current keep fee
+  set-fee <tez> [network]       Set keep fee (admin only)
+  withdraw [dest] [network]     Withdraw accumulated fees to address
   help                          Show this help
 
 Networks:
@@ -1795,6 +1974,13 @@ Examples:
   node keeps.mjs update 0 wand              # Re-upload bundle & update metadata
   node keeps.mjs lock 0                     # Permanently lock token 0
   node keeps.mjs burn 0                     # Burn token 0 (allows re-mint)
+  
+  # Fee management
+  node keeps.mjs fee                        # Show current keep fee
+  node keeps.mjs set-fee 5                  # Set keep fee to 5 XTZ
+  node keeps.mjs set-fee 0                  # Make keeping free
+  node keeps.mjs withdraw                   # Withdraw fees to admin wallet
+  node keeps.mjs withdraw tz1abc...         # Withdraw fees to specific address
   
   # Collection media (use live endpoint for dynamic thumbnail)
   node keeps.mjs set-collection-media --image=https://oven.aesthetic.computer/keeps/latest
@@ -1830,6 +2016,9 @@ export {
   redactToken,
   setCollectionMedia,
   lockCollectionMetadata,
+  getKeepFee,
+  setKeepFee,
+  withdrawFees,
   detectContentType,
   loadCredentials,
   CONFIG
