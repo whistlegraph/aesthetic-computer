@@ -1,0 +1,1176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🔮 Keeps Multitool</title>
+  <script src="https://unpkg.com/@taquito/taquito@19.2.0/dist/taquito.min.js"></script>
+  <script src="https://unpkg.com/@airgap/beacon-sdk@4.2.2/dist/walletbeacon.min.js"></script>
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --surface: #12121a;
+      --surface2: #1a1a25;
+      --border: #2a2a3a;
+      --text: #e0e0e8;
+      --text-dim: #8888a0;
+      --accent: #7c3aed;
+      --accent-dim: #5b21b6;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --error: #ef4444;
+    }
+    
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    body {
+      font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 20px;
+      line-height: 1.6;
+    }
+    
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 30px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+    }
+    
+    h1 span { opacity: 0.6; }
+    
+    .wallet-section {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+    
+    .wallet-info {
+      text-align: right;
+      font-size: 0.85rem;
+    }
+    
+    .wallet-address {
+      color: var(--accent);
+      font-family: monospace;
+    }
+    
+    .wallet-balance {
+      color: var(--text-dim);
+    }
+    
+    button {
+      background: var(--accent);
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.9rem;
+      transition: all 0.2s;
+    }
+    
+    button:hover { background: var(--accent-dim); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    button.secondary {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+    }
+    button.secondary:hover { background: var(--border); }
+    button.danger { background: var(--error); }
+    button.success { background: var(--success); }
+    
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+      gap: 20px;
+    }
+    
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+    }
+    
+    .card h2 {
+      font-size: 1rem;
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .card h2 .icon { font-size: 1.2rem; }
+    
+    .form-group {
+      margin-bottom: 15px;
+    }
+    
+    label {
+      display: block;
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      margin-bottom: 5px;
+    }
+    
+    input, select, textarea {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 0.9rem;
+    }
+    
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    
+    textarea { min-height: 80px; resize: vertical; }
+    
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+    
+    .status-badge.connected {
+      background: rgba(16, 185, 129, 0.2);
+      color: var(--success);
+    }
+    
+    .status-badge.disconnected {
+      background: rgba(239, 68, 68, 0.2);
+      color: var(--error);
+    }
+    
+    .status-badge .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+    
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    
+    .info-item {
+      background: var(--surface2);
+      padding: 12px;
+      border-radius: 8px;
+    }
+    
+    .info-item label {
+      margin-bottom: 4px;
+    }
+    
+    .info-item .value {
+      font-size: 1.1rem;
+      font-weight: 600;
+      word-break: break-all;
+    }
+    
+    .info-item .value.mono {
+      font-size: 0.85rem;
+      font-weight: 400;
+    }
+    
+    .log-area {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 15px;
+      max-height: 300px;
+      overflow-y: auto;
+      font-size: 0.8rem;
+    }
+    
+    .log-entry {
+      padding: 6px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    
+    .log-entry:last-child { border-bottom: none; }
+    
+    .log-entry.error { color: var(--error); }
+    .log-entry.success { color: var(--success); }
+    .log-entry.info { color: var(--text-dim); }
+    
+    .log-time {
+      color: var(--text-dim);
+      margin-right: 10px;
+    }
+    
+    .network-select {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+    
+    .network-btn {
+      flex: 1;
+      padding: 8px;
+      background: var(--surface2);
+      border: 2px solid var(--border);
+      color: var(--text-dim);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .network-btn.active {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: rgba(124, 58, 237, 0.1);
+    }
+    
+    .token-list {
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    
+    .token-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px;
+      background: var(--surface2);
+      border-radius: 6px;
+      margin-bottom: 8px;
+    }
+    
+    .token-item .id { font-weight: 600; color: var(--accent); }
+    .token-item .name { color: var(--text); }
+    .token-item .owner { font-size: 0.75rem; color: var(--text-dim); }
+    
+    .actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+    }
+    
+    .actions button { flex: 1; }
+    
+    .full-width { grid-column: 1 / -1; }
+    
+    .tabs {
+      display: flex;
+      gap: 5px;
+      margin-bottom: 15px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 10px;
+    }
+    
+    .tab {
+      padding: 8px 16px;
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      cursor: pointer;
+      border-radius: 6px 6px 0 0;
+      transition: all 0.2s;
+    }
+    
+    .tab:hover { color: var(--text); }
+    .tab.active {
+      background: var(--surface2);
+      color: var(--accent);
+    }
+    
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    
+    @media (max-width: 768px) {
+      .grid { grid-template-columns: 1fr; }
+      header { flex-direction: column; gap: 15px; text-align: center; }
+      .wallet-info { text-align: center; }
+    }
+    
+    .warning-badge {
+      background: rgba(245, 158, 11, 0.2);
+      color: var(--warning);
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      margin-top: 10px;
+    }
+    
+    .entrypoint-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 10px;
+    }
+    
+    .entrypoint-tag {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      color: var(--text-dim);
+    }
+    
+    .entrypoint-tag.available {
+      border-color: var(--success);
+      color: var(--success);
+    }
+    
+    .entrypoint-tag.missing {
+      border-color: var(--error);
+      color: var(--error);
+      opacity: 0.6;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🔮 Keeps Multitool <span>v1.0</span></h1>
+      <div class="wallet-section">
+        <div class="wallet-info" id="walletInfo">
+          <div class="status-badge disconnected">
+            <span class="dot"></span>
+            <span>Not Connected</span>
+          </div>
+        </div>
+        <button id="connectBtn" onclick="toggleWallet()">Connect Wallet</button>
+      </div>
+    </header>
+    
+    <div class="card" style="margin-bottom: 20px;">
+      <h2><span class="icon">⚙️</span> Configuration</h2>
+      <div class="network-select">
+        <button class="network-btn active" data-network="ghostnet" onclick="setNetwork('ghostnet')">
+          👻 Ghostnet
+        </button>
+        <button class="network-btn" data-network="mainnet" onclick="setNetwork('mainnet')">
+          🌐 Mainnet
+        </button>
+      </div>
+      <div class="form-group">
+        <label>Contract Address</label>
+        <input type="text" id="contractAddress" value="KT1Ah5m2kzU3GfN42hh57mVJ63kNi95XKBdM" placeholder="KT1...">
+      </div>
+      <button onclick="loadContractInfo()">🔄 Load Contract Info</button>
+      <div id="entrypointsList" class="entrypoint-list" style="display: none;"></div>
+    </div>
+    
+    <div class="grid">
+      <!-- Contract Info -->
+      <div class="card">
+        <h2><span class="icon">📊</span> Contract Status</h2>
+        <div class="info-grid">
+          <div class="info-item">
+            <label>Next Token ID</label>
+            <div class="value" id="nextTokenId">-</div>
+          </div>
+          <div class="info-item">
+            <label>Keep Fee</label>
+            <div class="value" id="keepFee">-</div>
+          </div>
+          <div class="info-item">
+            <label>Contract Balance</label>
+            <div class="value" id="contractBalance">-</div>
+          </div>
+          <div class="info-item">
+            <label>Metadata Locked</label>
+            <div class="value" id="metadataLocked">-</div>
+          </div>
+        </div>
+        <div class="info-item" style="margin-top: 10px;">
+          <label>Administrator</label>
+          <div class="value mono" id="adminAddress">-</div>
+        </div>
+      </div>
+      
+      <!-- Fee Management -->
+      <div class="card">
+        <h2><span class="icon">💰</span> Fee Management</h2>
+        <div class="form-group">
+          <label>Current Fee</label>
+          <div style="font-size: 1.5rem; font-weight: 600; color: var(--accent);" id="currentFeeDisplay">0 XTZ</div>
+        </div>
+        <div class="form-group">
+          <label>New Fee (XTZ)</label>
+          <input type="number" id="newFee" placeholder="0.5" step="0.1" min="0">
+        </div>
+        <div class="actions">
+          <button onclick="setKeepFee()">Set Fee</button>
+          <button class="success" onclick="withdrawFees()">Withdraw</button>
+        </div>
+      </div>
+      
+      <!-- Mint Token -->
+      <div class="card">
+        <h2><span class="icon">✨</span> Keep (Mint)</h2>
+        <div class="form-group">
+          <label>Piece Name (e.g., "cow")</label>
+          <input type="text" id="pieceName" placeholder="cow">
+        </div>
+        <div class="form-group">
+          <label>Owner Address</label>
+          <input type="text" id="ownerAddress" placeholder="tz1... (leave empty for connected wallet)">
+        </div>
+        <div class="form-group">
+          <label>Artifact URI</label>
+          <input type="text" id="artifactUri" placeholder="ipfs://Qm...">
+        </div>
+        <div class="form-group">
+          <label>Description</label>
+          <textarea id="tokenDescription" placeholder="(wipe &quot;blue&quot;)&#10;(ink &quot;yellow&quot;)..."></textarea>
+        </div>
+        <button onclick="mintToken()" style="width: 100%;">🔮 Keep This Piece</button>
+      </div>
+      
+      <!-- Token Management -->
+      <div class="card">
+        <h2><span class="icon">🎨</span> Token Management</h2>
+        <div class="tabs">
+          <button class="tab active" onclick="showTab('tokens', this)">Tokens</button>
+          <button class="tab" onclick="showTab('edit', this)">Edit</button>
+          <button class="tab" onclick="showTab('burn', this)">Burn</button>
+        </div>
+        
+        <div id="tokens-tab" class="tab-content active">
+          <div class="token-list" id="tokenList">
+            <div style="color: var(--text-dim); text-align: center; padding: 20px;">
+              Click "Load Contract Info" to fetch tokens
+            </div>
+          </div>
+        </div>
+        
+        <div id="edit-tab" class="tab-content">
+          <div class="form-group">
+            <label>Token ID</label>
+            <input type="number" id="editTokenId" placeholder="0" min="0">
+          </div>
+          <div class="form-group">
+            <label>New Name</label>
+            <input type="text" id="editName" placeholder="$newname">
+          </div>
+          <button onclick="editMetadata()">Update Metadata</button>
+        </div>
+        
+        <div id="burn-tab" class="tab-content">
+          <div class="form-group">
+            <label>Token ID to Burn</label>
+            <input type="number" id="burnTokenId" placeholder="0" min="0">
+          </div>
+          <p style="font-size: 0.8rem; color: var(--warning); margin-bottom: 15px;">
+            ⚠️ This will permanently destroy the token and allow the piece name to be re-minted.
+          </p>
+          <button class="danger" onclick="burnToken()">🔥 Burn Token</button>
+        </div>
+      </div>
+      
+      <!-- Lock Controls -->
+      <div class="card">
+        <h2><span class="icon">🔒</span> Lock Controls</h2>
+        <div class="form-group">
+          <label>Lock Token Metadata</label>
+          <div style="display: flex; gap: 10px;">
+            <input type="number" id="lockTokenId" placeholder="Token ID" min="0" style="flex: 1;">
+            <button onclick="lockTokenMetadata()">Lock</button>
+          </div>
+        </div>
+        <hr style="border: none; border-top: 1px solid var(--border); margin: 20px 0;">
+        <div class="form-group">
+          <label>Contract Metadata</label>
+          <p style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 10px;">
+            Permanently freeze the collection name, description, and image.
+          </p>
+          <button class="danger" onclick="lockContractMetadata()">🔒 Lock Collection Metadata</button>
+        </div>
+      </div>
+      
+      <!-- Query Tools -->
+      <div class="card">
+        <h2><span class="icon">🔍</span> Query Tools</h2>
+        <div class="form-group">
+          <label>Check if Piece Exists</label>
+          <div style="display: flex; gap: 10px;">
+            <input type="text" id="checkPieceName" placeholder="cow" style="flex: 1;">
+            <button onclick="checkPieceExists()">Check</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Get Token Owner</label>
+          <div style="display: flex; gap: 10px;">
+            <input type="number" id="ownerTokenId" placeholder="Token ID" min="0" style="flex: 1;">
+            <button onclick="getTokenOwner()">Query</button>
+          </div>
+        </div>
+        <div id="queryResult" style="margin-top: 15px; padding: 10px; background: var(--surface2); border-radius: 6px; display: none;">
+          <label>Result</label>
+          <div class="value mono" id="queryResultValue">-</div>
+        </div>
+      </div>
+      
+      <!-- Activity Log -->
+      <div class="card full-width">
+        <h2><span class="icon">📜</span> Activity Log</h2>
+        <div class="log-area" id="logArea">
+          <div class="log-entry info">
+            <span class="log-time">[--:--:--]</span>
+            Keeps Multitool initialized. Connect wallet to begin.
+          </div>
+        </div>
+        <button class="secondary" style="margin-top: 10px;" onclick="clearLog()">Clear Log</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ========================================================================
+    // State
+    // ========================================================================
+    let state = {
+      network: 'ghostnet',
+      wallet: null,
+      tezos: null,
+      contract: null,
+      address: null,
+      connected: false,
+      entrypoints: [] // Available contract entrypoints
+    };
+
+    const NETWORKS = {
+      ghostnet: {
+        rpc: 'https://ghostnet.ecadinfra.com',
+        tzkt: 'https://api.ghostnet.tzkt.io',
+        explorer: 'https://ghostnet.tzkt.io',
+        name: 'Ghostnet'
+      },
+      mainnet: {
+        rpc: 'https://mainnet.ecadinfra.com',
+        tzkt: 'https://api.tzkt.io',
+        explorer: 'https://tzkt.io',
+        name: 'Mainnet'
+      }
+    };
+
+    // ========================================================================
+    // Logging
+    // ========================================================================
+    function log(message, type = 'info') {
+      const logArea = document.getElementById('logArea');
+      const time = new Date().toLocaleTimeString();
+      const entry = document.createElement('div');
+      entry.className = `log-entry ${type}`;
+      entry.innerHTML = `<span class="log-time">[${time}]</span> ${message}`;
+      logArea.insertBefore(entry, logArea.firstChild);
+    }
+
+    function clearLog() {
+      document.getElementById('logArea').innerHTML = '';
+      log('Log cleared', 'info');
+    }
+
+    // ========================================================================
+    // Network
+    // ========================================================================
+    function setNetwork(network) {
+      state.network = network;
+      document.querySelectorAll('.network-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.network === network);
+      });
+      log(`Switched to ${NETWORKS[network].name}`, 'info');
+      
+      // Reinitialize Tezos toolkit
+      if (window.taquito) {
+        state.tezos = new taquito.TezosToolkit(NETWORKS[network].rpc);
+        if (state.wallet) {
+          state.tezos.setWalletProvider(state.wallet);
+        }
+      }
+    }
+
+    // ========================================================================
+    // Wallet Connection
+    // ========================================================================
+    async function toggleWallet() {
+      if (state.connected) {
+        await disconnectWallet();
+      } else {
+        await connectWallet();
+      }
+    }
+
+    async function connectWallet() {
+      try {
+        log('Connecting wallet...', 'info');
+        
+        const network = state.network === 'mainnet' 
+          ? { type: 'mainnet' } 
+          : { type: 'ghostnet' };
+        
+        state.wallet = new beacon.DAppClient({ 
+          name: 'Keeps Multitool',
+          preferredNetwork: network.type
+        });
+        
+        const permissions = await state.wallet.requestPermissions({ network });
+        state.address = permissions.address;
+        state.connected = true;
+        
+        // Set up Taquito with wallet
+        state.tezos = new taquito.TezosToolkit(NETWORKS[state.network].rpc);
+        state.tezos.setWalletProvider(state.wallet);
+        
+        updateWalletUI();
+        log(`Connected: ${state.address.slice(0, 8)}...${state.address.slice(-6)}`, 'success');
+        
+        // Auto-fill owner address
+        document.getElementById('ownerAddress').placeholder = state.address;
+        
+      } catch (err) {
+        log(`Connection failed: ${err.message}`, 'error');
+      }
+    }
+
+    async function disconnectWallet() {
+      try {
+        if (state.wallet) {
+          await state.wallet.clearActiveAccount();
+        }
+        state.connected = false;
+        state.address = null;
+        state.wallet = null;
+        updateWalletUI();
+        log('Wallet disconnected', 'info');
+      } catch (err) {
+        log(`Disconnect error: ${err.message}`, 'error');
+      }
+    }
+
+    function updateWalletUI() {
+      const walletInfo = document.getElementById('walletInfo');
+      const connectBtn = document.getElementById('connectBtn');
+      
+      if (state.connected) {
+        walletInfo.innerHTML = `
+          <div class="wallet-address">${state.address.slice(0, 8)}...${state.address.slice(-6)}</div>
+          <div class="status-badge connected">
+            <span class="dot"></span>
+            <span>Connected</span>
+          </div>
+        `;
+        connectBtn.textContent = 'Disconnect';
+        connectBtn.className = 'secondary';
+      } else {
+        walletInfo.innerHTML = `
+          <div class="status-badge disconnected">
+            <span class="dot"></span>
+            <span>Not Connected</span>
+          </div>
+        `;
+        connectBtn.textContent = 'Connect Wallet';
+        connectBtn.className = '';
+      }
+    }
+
+    // ========================================================================
+    // Contract Interaction
+    // ========================================================================
+    async function loadContractInfo() {
+      const contractAddress = document.getElementById('contractAddress').value;
+      if (!contractAddress) {
+        log('Please enter a contract address', 'error');
+        return;
+      }
+      
+      try {
+        log(`Loading contract ${contractAddress}...`, 'info');
+        
+        const tzkt = NETWORKS[state.network].tzkt;
+        
+        // Fetch entrypoints first
+        const entrypointsRes = await fetch(`${tzkt}/v1/contracts/${contractAddress}/entrypoints`);
+        if (entrypointsRes.ok) {
+          const entrypoints = await entrypointsRes.json();
+          state.entrypoints = entrypoints.map(e => e.name);
+          log(`Entrypoints: ${state.entrypoints.join(', ')}`, 'info');
+          updateEntrypointUI();
+        }
+        
+        // Fetch storage
+        const storageRes = await fetch(`${tzkt}/v1/contracts/${contractAddress}/storage`);
+        if (!storageRes.ok) throw new Error('Contract not found');
+        const storage = await storageRes.json();
+        
+        // Fetch balance
+        const balanceRes = await fetch(`${tzkt}/v1/contracts/${contractAddress}`);
+        const contractInfo = await balanceRes.json();
+        
+        // Update UI
+        document.getElementById('nextTokenId').textContent = storage.next_token_id || '0';
+        document.getElementById('adminAddress').textContent = storage.administrator || '-';
+        document.getElementById('metadataLocked').textContent = storage.contract_metadata_locked ? 'Yes 🔒' : 'No';
+        
+        // Format fee (stored in mutez) - may not exist in older contracts
+        const feeXTZ = (storage.keep_fee || 0) / 1_000_000;
+        document.getElementById('keepFee').textContent = storage.keep_fee !== undefined ? `${feeXTZ} XTZ` : 'N/A (v2.1 required)';
+        document.getElementById('currentFeeDisplay').textContent = storage.keep_fee !== undefined ? `${feeXTZ} XTZ` : 'N/A';
+        
+        // Contract balance
+        const balanceXTZ = (contractInfo.balance || 0) / 1_000_000;
+        document.getElementById('contractBalance').textContent = `${balanceXTZ.toFixed(6)} XTZ`;
+        
+        log(`Contract loaded: ${storage.next_token_id || 0} tokens`, 'success');
+        
+        // Fetch tokens
+        await loadTokens(contractAddress);
+        
+      } catch (err) {
+        log(`Failed to load contract: ${err.message}`, 'error');
+      }
+    }
+    
+    function updateEntrypointUI() {
+      // Expected entrypoints for full functionality
+      const expectedEntrypoints = [
+        'keep', 'burn_keep', 'edit_metadata', 'lock_metadata',
+        'set_contract_metadata', 'lock_contract_metadata',
+        'set_keep_fee', 'withdraw_fees',
+        'transfer', 'balance_of', 'update_operators'
+      ];
+      
+      const listEl = document.getElementById('entrypointsList');
+      listEl.style.display = 'flex';
+      listEl.innerHTML = expectedEntrypoints.map(ep => {
+        const available = state.entrypoints.includes(ep);
+        return `<span class="entrypoint-tag ${available ? 'available' : 'missing'}">${available ? '✓' : '✗'} ${ep}</span>`;
+      }).join('');
+      
+      // Show warning if fee entrypoints missing
+      const hasFeeEntrypoints = state.entrypoints.includes('set_keep_fee');
+      if (!hasFeeEntrypoints) {
+        log('⚠️ Fee entrypoints not found - contract needs redeployment for v2.1 features', 'warning');
+      }
+    }
+
+    async function loadTokens(contractAddress) {
+      try {
+        const tzkt = NETWORKS[state.network].tzkt;
+        const res = await fetch(`${tzkt}/v1/tokens?contract=${contractAddress}&limit=50`);
+        const tokens = await res.json();
+        
+        const tokenList = document.getElementById('tokenList');
+        
+        if (tokens.length === 0) {
+          tokenList.innerHTML = '<div style="color: var(--text-dim); text-align: center; padding: 20px;">No tokens minted yet</div>';
+          return;
+        }
+        
+        tokenList.innerHTML = tokens.map(t => `
+          <div class="token-item">
+            <div>
+              <div class="id">#${t.tokenId}</div>
+              <div class="name">${t.metadata?.name || 'Unnamed'}</div>
+            </div>
+            <div style="text-align: right;">
+              <div class="owner">${t.holders?.[0]?.address?.slice(0, 8) || 'Unknown'}...</div>
+            </div>
+          </div>
+        `).join('');
+        
+        log(`Loaded ${tokens.length} tokens`, 'success');
+      } catch (err) {
+        log(`Failed to load tokens: ${err.message}`, 'error');
+      }
+    }
+
+    // ========================================================================
+    // Contract Operations
+    // ========================================================================
+    async function setKeepFee() {
+      if (!state.connected) {
+        log('Please connect wallet first', 'error');
+        return;
+      }
+      
+      if (!state.entrypoints.includes('set_keep_fee')) {
+        log('⚠️ This contract does not have set_keep_fee entrypoint. Redeploy with v2.1+', 'error');
+        return;
+      }
+      
+      const feeXTZ = parseFloat(document.getElementById('newFee').value);
+      if (isNaN(feeXTZ) || feeXTZ < 0) {
+        log('Invalid fee amount', 'error');
+        return;
+      }
+      
+      try {
+        const contractAddress = document.getElementById('contractAddress').value;
+        const contract = await state.tezos.wallet.at(contractAddress);
+        
+        log(`Setting keep fee to ${feeXTZ} XTZ...`, 'info');
+        
+        const op = await contract.methods.set_keep_fee(feeXTZ * 1_000_000).send();
+        log(`Operation submitted: ${op.opHash}`, 'info');
+        
+        await op.confirmation();
+        log(`Fee updated to ${feeXTZ} XTZ ✓`, 'success');
+        
+        loadContractInfo();
+      } catch (err) {
+        log(`Failed to set fee: ${err.message}`, 'error');
+      }
+    }
+
+    async function withdrawFees() {
+      if (!state.connected) {
+        log('Please connect wallet first', 'error');
+        return;
+      }
+      
+      if (!state.entrypoints.includes('withdraw_fees')) {
+        log('⚠️ This contract does not have withdraw_fees entrypoint. Redeploy with v2.1+', 'error');
+        return;
+      }
+      
+      try {
+        const contractAddress = document.getElementById('contractAddress').value;
+        const contract = await state.tezos.wallet.at(contractAddress);
+        
+        const destination = state.address; // Withdraw to connected wallet
+        
+        log(`Withdrawing fees to ${destination.slice(0, 8)}...`, 'info');
+        
+        const op = await contract.methods.withdraw_fees(destination).send();
+        log(`Operation submitted: ${op.opHash}`, 'info');
+        
+        await op.confirmation();
+        log('Fees withdrawn ✓', 'success');
+        
+        loadContractInfo();
+      } catch (err) {
+        log(`Withdraw failed: ${err.message}`, 'error');
+      }
+    }
+
+    async function mintToken() {
+      if (!state.connected) {
+        log('Please connect wallet first', 'error');
+        return;
+      }
+      
+      const pieceName = document.getElementById('pieceName').value.trim();
+      if (!pieceName) {
+        log('Please enter a piece name', 'error');
+        return;
+      }
+      
+      try {
+        const contractAddress = document.getElementById('contractAddress').value;
+        const contract = await state.tezos.wallet.at(contractAddress);
+        
+        const owner = document.getElementById('ownerAddress').value || state.address;
+        const artifactUri = document.getElementById('artifactUri').value || `ipfs://placeholder`;
+        const description = document.getElementById('tokenDescription').value || `$${pieceName}`;
+        
+        // Helper to convert string to bytes (hex)
+        const strToBytes = (str) => {
+          const encoder = new TextEncoder();
+          const bytes = encoder.encode(str);
+          return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+        };
+        
+        log(`Minting $${pieceName} to ${owner.slice(0, 8)}...`, 'info');
+        
+        // Get current fee
+        const tzkt = NETWORKS[state.network].tzkt;
+        const storageRes = await fetch(`${tzkt}/v1/contracts/${contractAddress}/storage`);
+        const storage = await storageRes.json();
+        const fee = storage.keep_fee || 0;
+        
+        const params = {
+          name: strToBytes(`$${pieceName}`),
+          description: strToBytes(description),
+          artifactUri: strToBytes(artifactUri),
+          displayUri: strToBytes(artifactUri),
+          thumbnailUri: strToBytes(''),
+          decimals: strToBytes('0'),
+          symbol: strToBytes('KEEP'),
+          isBooleanAmount: strToBytes('true'),
+          shouldPreferSymbol: strToBytes('false'),
+          formats: strToBytes('[]'),
+          tags: strToBytes(`["$${pieceName}","KidLisp"]`),
+          attributes: strToBytes('[]'),
+          creators: strToBytes(`["${owner}"]`),
+          rights: strToBytes(''),
+          content_type: strToBytes('text/plain'),
+          content_hash: strToBytes(pieceName),
+          metadata_uri: strToBytes(''),
+          owner: owner
+        };
+        
+        const op = await contract.methods.keep(
+          params.artifactUri,
+          params.attributes,
+          params.content_hash,
+          params.content_type,
+          params.creators,
+          params.decimals,
+          params.description,
+          params.displayUri,
+          params.formats,
+          params.isBooleanAmount,
+          params.metadata_uri,
+          params.name,
+          params.owner,
+          params.rights,
+          params.shouldPreferSymbol,
+          params.symbol,
+          params.tags,
+          params.thumbnailUri
+        ).send({ amount: fee, mutez: true });
+        
+        log(`Operation submitted: ${op.opHash}`, 'info');
+        await op.confirmation();
+        log(`Token minted ✓`, 'success');
+        
+        loadContractInfo();
+      } catch (err) {
+        log(`Mint failed: ${err.message}`, 'error');
+        console.error(err);
+      }
+    }
+
+    async function burnToken() {
+      if (!state.connected) {
+        log('Please connect wallet first', 'error');
+        return;
+      }
+      
+      const tokenId = parseInt(document.getElementById('burnTokenId').value);
+      if (isNaN(tokenId) || tokenId < 0) {
+        log('Invalid token ID', 'error');
+        return;
+      }
+      
+      if (!confirm(`Are you sure you want to burn token #${tokenId}? This cannot be undone.`)) {
+        return;
+      }
+      
+      try {
+        const contractAddress = document.getElementById('contractAddress').value;
+        const contract = await state.tezos.wallet.at(contractAddress);
+        
+        log(`Burning token #${tokenId}...`, 'info');
+        
+        const op = await contract.methods.burn_keep(tokenId).send();
+        log(`Operation submitted: ${op.opHash}`, 'info');
+        
+        await op.confirmation();
+        log(`Token #${tokenId} burned ✓`, 'success');
+        
+        loadContractInfo();
+      } catch (err) {
+        log(`Burn failed: ${err.message}`, 'error');
+      }
+    }
+
+    async function lockTokenMetadata() {
+      if (!state.connected) {
+        log('Please connect wallet first', 'error');
+        return;
+      }
+      
+      const tokenId = parseInt(document.getElementById('lockTokenId').value);
+      if (isNaN(tokenId) || tokenId < 0) {
+        log('Invalid token ID', 'error');
+        return;
+      }
+      
+      if (!confirm(`Lock metadata for token #${tokenId}? This is permanent!`)) {
+        return;
+      }
+      
+      try {
+        const contractAddress = document.getElementById('contractAddress').value;
+        const contract = await state.tezos.wallet.at(contractAddress);
+        
+        log(`Locking token #${tokenId} metadata...`, 'info');
+        
+        const op = await contract.methods.lock_metadata(tokenId).send();
+        log(`Operation submitted: ${op.opHash}`, 'info');
+        
+        await op.confirmation();
+        log(`Token #${tokenId} metadata locked ✓`, 'success');
+      } catch (err) {
+        log(`Lock failed: ${err.message}`, 'error');
+      }
+    }
+
+    async function lockContractMetadata() {
+      if (!state.connected) {
+        log('Please connect wallet first', 'error');
+        return;
+      }
+      
+      if (!confirm('Lock collection metadata permanently? This cannot be undone!')) {
+        return;
+      }
+      
+      try {
+        const contractAddress = document.getElementById('contractAddress').value;
+        const contract = await state.tezos.wallet.at(contractAddress);
+        
+        log('Locking contract metadata...', 'info');
+        
+        const op = await contract.methods.lock_contract_metadata().send();
+        log(`Operation submitted: ${op.opHash}`, 'info');
+        
+        await op.confirmation();
+        log('Contract metadata locked ✓', 'success');
+        
+        loadContractInfo();
+      } catch (err) {
+        log(`Lock failed: ${err.message}`, 'error');
+      }
+    }
+
+    async function editMetadata() {
+      if (!state.connected) {
+        log('Please connect wallet first', 'error');
+        return;
+      }
+      
+      const tokenId = parseInt(document.getElementById('editTokenId').value);
+      const newName = document.getElementById('editName').value.trim();
+      
+      if (isNaN(tokenId) || tokenId < 0) {
+        log('Invalid token ID', 'error');
+        return;
+      }
+      
+      log('Edit metadata not fully implemented yet - use CLI', 'info');
+    }
+
+    // ========================================================================
+    // Query Tools
+    // ========================================================================
+    async function checkPieceExists() {
+      const pieceName = document.getElementById('checkPieceName').value.trim();
+      if (!pieceName) {
+        log('Enter a piece name', 'error');
+        return;
+      }
+      
+      try {
+        const contractAddress = document.getElementById('contractAddress').value;
+        const tzkt = NETWORKS[state.network].tzkt;
+        
+        log(`Checking if "$${pieceName}" exists...`, 'info');
+        
+        // Query content_hashes big_map
+        const res = await fetch(`${tzkt}/v1/contracts/${contractAddress}/bigmaps/content_hashes/keys`);
+        const keys = await res.json();
+        
+        // Convert piece name to hex for comparison
+        const encoder = new TextEncoder();
+        const bytes = encoder.encode(pieceName);
+        const hex = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+        
+        const found = keys.find(k => k.key === hex || k.key === pieceName);
+        
+        const resultDiv = document.getElementById('queryResult');
+        const resultValue = document.getElementById('queryResultValue');
+        resultDiv.style.display = 'block';
+        
+        if (found) {
+          resultValue.innerHTML = `<span style="color: var(--warning);">✓ Exists as token #${found.value}</span>`;
+          log(`"$${pieceName}" exists as token #${found.value}`, 'info');
+        } else {
+          resultValue.innerHTML = `<span style="color: var(--success);">✗ Available for minting</span>`;
+          log(`"$${pieceName}" is available`, 'success');
+        }
+      } catch (err) {
+        log(`Query failed: ${err.message}`, 'error');
+      }
+    }
+
+    async function getTokenOwner() {
+      const tokenId = parseInt(document.getElementById('ownerTokenId').value);
+      if (isNaN(tokenId) || tokenId < 0) {
+        log('Invalid token ID', 'error');
+        return;
+      }
+      
+      try {
+        const contractAddress = document.getElementById('contractAddress').value;
+        const tzkt = NETWORKS[state.network].tzkt;
+        
+        log(`Querying owner of token #${tokenId}...`, 'info');
+        
+        const res = await fetch(`${tzkt}/v1/tokens?contract=${contractAddress}&tokenId=${tokenId}`);
+        const tokens = await res.json();
+        
+        const resultDiv = document.getElementById('queryResult');
+        const resultValue = document.getElementById('queryResultValue');
+        resultDiv.style.display = 'block';
+        
+        if (tokens.length > 0 && tokens[0].holders?.length > 0) {
+          const owner = tokens[0].holders[0].address;
+          resultValue.innerHTML = `<a href="${NETWORKS[state.network].explorer}/${owner}" target="_blank" style="color: var(--accent);">${owner}</a>`;
+          log(`Token #${tokenId} owned by ${owner.slice(0, 12)}...`, 'success');
+        } else {
+          resultValue.innerHTML = '<span style="color: var(--error);">Token not found or no owner</span>';
+          log(`Token #${tokenId} not found`, 'error');
+        }
+      } catch (err) {
+        log(`Query failed: ${err.message}`, 'error');
+      }
+    }
+
+    // ========================================================================
+    // UI Helpers
+    // ========================================================================
+    function showTab(tabName, btn) {
+      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.getElementById(`${tabName}-tab`).classList.add('active');
+      btn.classList.add('active');
+    }
+
+    // ========================================================================
+    // Initialize
+    // ========================================================================
+    window.addEventListener('load', () => {
+      // Initialize Tezos toolkit (read-only until wallet connects)
+      if (window.taquito) {
+        state.tezos = new taquito.TezosToolkit(NETWORKS[state.network].rpc);
+      }
+      log('Keeps Multitool ready', 'success');
+    });
+  </script>
+</body>
+</html>
