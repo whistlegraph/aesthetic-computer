@@ -765,7 +765,7 @@
         <div class="platform-filters">
           <button data-platform="reports" onclick="filterPlatform('reports')">📝 Reports</button>
           <button data-platform="all" class="active" onclick="filterPlatform('all')">All Builds</button>
-          <button data-platform="windows" onclick="filterPlatform('windows')'">🪟 Windows</button>
+          <button data-platform="windows" onclick="filterPlatform('windows')">🪟 Windows</button>
           <button data-platform="mac" onclick="filterPlatform('mac')">🍎 Mac</button>
           <button data-platform="ios" onclick="filterPlatform('ios')">📱 iOS</button>
           <button class="disabled" title="Coming soon">🎮 Gameboy</button>
@@ -1196,6 +1196,10 @@
 
     function renderReports() {
       const container = document.getElementById('reports-content');
+      if (!container) {
+        console.error('reports-content element not found');
+        return;
+      }
       
       if (allReports.length === 0) {
         container.innerHTML = '<div class="no-reports">No playtest reports yet. Click "+ New Report" to create one!</div>';
