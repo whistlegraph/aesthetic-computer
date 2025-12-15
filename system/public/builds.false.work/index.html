@@ -466,12 +466,12 @@
       border-color: var(--accent);
       transform: translateX(4px);
     }
-    /* Report cards in unified feed */
+    /* Report cards in unified feed - dark theme default */
     .report-feed-card {
       cursor: default;
-      background: linear-gradient(to bottom, #fdfbf5 0%, #f8f4e8 100%);
-      border: 2px solid #d4c4a0;
-      border-left: 4px solid #c85050;
+      background: linear-gradient(to bottom, #2d2820 0%, #252015 100%);
+      border: 2px solid #4a4030;
+      border-left: 4px solid #804040;
       position: relative;
       padding: 1rem 1.25rem;
     }
@@ -482,48 +482,56 @@
       top: 0;
       bottom: 0;
       width: 1px;
-      background: rgba(200, 80, 80, 0.2);
+      background: rgba(160, 80, 80, 0.15);
     }
     .report-feed-card:hover {
       transform: none;
-      border-color: #c4b490;
+      border-color: #5a5040;
     }
     .report-feed-card .build-header {
-      color: #4a3a2a;
+      color: #d4c4a4;
     }
     .report-feed-card .meta {
-      color: #5a4a3a;
+      color: #b4a484;
     }
     .report-feed-card .report-summary {
       font-family: Arial, Helvetica, sans-serif !important;
       font-style: italic;
-    }
-    .dark-mode .report-feed-card {
-      background: linear-gradient(to bottom, #2d2820 0%, #252015 100%);
-      border-color: #4a4030;
-      border-left-color: #804040;
-    }
-    .dark-mode .report-feed-card::before {
-      background: rgba(160, 80, 80, 0.15);
-    }
-    .dark-mode .report-feed-card .build-header {
-      color: #d4c4a4;
-    }
-    .dark-mode .report-feed-card .meta {
-      color: #b4a484;
-    }
-    .dark-mode .report-feed-card .report-summary {
       color: #c4b494;
     }
-    .platform-tag.platform-report {
-      background: linear-gradient(135deg, #f5e6d3 0%, #e8d4b8 100%);
-      color: #5a4030;
-      border: 1px solid #c4a882;
+    @media (prefers-color-scheme: light) {
+      .report-feed-card {
+        background: linear-gradient(to bottom, #fdfbf5 0%, #f8f4e8 100%);
+        border-color: #d4c4a0;
+        border-left-color: #c85050;
+      }
+      .report-feed-card::before {
+        background: rgba(200, 80, 80, 0.2);
+      }
+      .report-feed-card:hover {
+        border-color: #c4b490;
+      }
+      .report-feed-card .build-header {
+        color: #4a3a2a;
+      }
+      .report-feed-card .meta {
+        color: #5a4a3a;
+      }
+      .report-feed-card .report-summary {
+        color: #5a4a3a;
+      }
     }
-    .dark-mode .platform-tag.platform-report {
+    .platform-tag.platform-report {
       background: linear-gradient(135deg, #4a3d2a 0%, #3d3220 100%);
       color: #e8d4b8;
-      border-color: #6a5a40;
+      border: 1px solid #6a5a40;
+    }
+    @media (prefers-color-scheme: light) {
+      .platform-tag.platform-report {
+        background: linear-gradient(135deg, #f5e6d3 0%, #e8d4b8 100%);
+        color: #5a4030;
+        border-color: #c4a882;
+      }
     }
     .report-view-link {
       color: var(--accent);
