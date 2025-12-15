@@ -938,7 +938,7 @@
       const platformLabel = { windows: 'Windows', mac: 'Mac', ios: 'iOS' };
       const fileExt = build.platform === 'ios' ? 'ipa' : 'zip';
       const isFailed = build.status === 'failed' || build.status === 'stale';
-      const hasReport = allReports.some(r => r.buildPlatform === build.platform && r.buildVersion === build.version);
+      const buildReport = allReports.find(r => r.buildPlatform === build.platform && r.buildVersion === build.version);
       
       let html = `
         <div class="build-card ${build.platform}${isFailed ? ' failed' : ''}">
@@ -967,8 +967,12 @@
       }
       
       // Report button
-      if (hasReport) {
-        html += `<button class="report-btn has-report" onclick="viewReportForBuild('${build.platform}', '${build.version}')">📝 Report</button>`;
+      if (buildReport) {
+        const tester = buildReport.tester || 'Anonymous';
+        const time = new Date(buildReport.createdAt).toLocaleTimeString('en-US', {
+          hour: 'numeric', minute: '2-digit', hour12: true
+        });
+        html += `<button class="report-btn has-report" onclick="viewReportForBuild('${build.platform}', '${build.version}')" title="Report by ${tester}">📝 ${tester} @ ${time}</button>`;
       } else if (!isFailed) {
         html += `<button class="report-btn" onclick="openReportModalForBuild('${build.platform}', '${build.version}')">+ Report</button>`;
       }
