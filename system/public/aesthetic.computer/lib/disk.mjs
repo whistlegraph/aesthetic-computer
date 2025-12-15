@@ -1609,6 +1609,7 @@ let web3Response;
 let tezosConnectResponse;
 let tezosDisconnectResponse;
 let tezosAddressResponse;
+let tezosSignResponse;
 let tezosCallResponse;
 
 // Other
@@ -3018,6 +3019,14 @@ const $commonApi = {
         tezosAddressResponse = { resolve, reject };
       });
       send({ type: "tezos-address" });
+      return p;
+    },
+    // Sign a message with the connected wallet
+    sign: (message) => {
+      const p = new Promise((resolve, reject) => {
+        tezosSignResponse = { resolve, reject };
+      });
+      send({ type: "tezos-sign", content: { message } });
       return p;
     },
     // Call a contract method
@@ -7180,6 +7189,14 @@ async function load(
     }
   };
 
+  // 🎬 Load animated WebP and decode all frames
+  $commonApi.net.preloadAnimatedWebp = async function (url) {
+    return new Promise((resolve, reject) => {
+      send({ type: "load-animated-webp", content: url });
+      preloadPromises[url] = { resolve, reject };
+    });
+  };
+
   $commonApi.slug = slug;
   $commonApi.piece = slug?.split("~")[0].split(":")[0];
   $commonApi.query = Object.fromEntries(new URLSearchParams(search));
@@ -9108,6 +9125,17 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  // Resolve Tezos message signing
+  if (type === "tezos-sign-response" && tezosSignResponse) {
+    if (content.result === "success") {
+      tezosSignResponse?.resolve(content.signature);
+    } else {
+      tezosSignResponse?.reject(content.error || "Signing cancelled");
+    }
+    tezosSignResponse = undefined;
+    return;
+  }
+
   // Resolve Tezos contract call
   if (type === "tezos-call-response" && tezosCallResponse) {
     if (content.result === "success") {
@@ -9294,6 +9322,21 @@ async function makeFrame({ data: { type, content } }) {
   if (type === "loaded-bitmap-rejection") {
     if (debug) console.error("🖼️ Bitmap load failure:", content);
     preloadPromises[content.url]?.reject(content.url);
+    delete preloadPromises[content.url];
+    return;
+  }
+
+  // 1d2. Loading Animated WebP
+  if (type === "loaded-animated-webp-success") {
+    console.log("🎬 Animated WebP loaded:", content.frameCount, "frames");
+    preloadPromises[content.url]?.resolve(content);
+    delete preloadPromises[content.url];
+    return;
+  }
+
+  if (type === "loaded-animated-webp-rejection") {
+    console.error("🎬 Animated WebP load failure:", content);
+    preloadPromises[content.url]?.reject(content.error);
     delete preloadPromises[content.url];
     return;
   }
