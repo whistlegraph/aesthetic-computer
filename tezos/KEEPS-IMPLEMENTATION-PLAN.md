@@ -10,6 +10,103 @@ keep $ceo → Preview bundle → Connect wallet → Upload to IPFS → Mint NFT
 
 ---
 
+## Launch Plan (Ghostnet → Mainnet)
+
+### Goals
+- Ship a KEEP flow that is reliable, debuggable, and resistant to accidental duplicate IPFS uploads.
+- Keep the “happy path” simple for creators while preserving an escape hatch (“rekeep” / regenerate media) for when runtime-dependent outputs change.
+
+### Current Reality (Dec 2025)
+- The minting endpoint is implemented as an SSE Netlify function (see `system/netlify/functions/keep-mint.mjs`).
+- IPFS artifacts are pinned via Pinata credentials stored in MongoDB (`secrets.pinata`).
+- Tezos minter credentials are stored in MongoDB (`secrets.tezos-kidlisp`) for server-side signing when using server-mint mode.
+- Client UX uses the dedicated `keep` piece rather than doing mint logic inside `prompt`.
+- IPFS media caching exists: `kidlisp.ipfsMedia` can be reused when source is unchanged; request can force refresh with `regenerate: true`.
+
+### Phase A — Ghostnet hardening
+- Success criteria: 20+ keeps across a spread of pieces; no stuck SSE sessions; no obvious duplicate Pinata spam for repeated prepares.
+- Verify:
+  - Wallet connect + keep flow end-to-end
+  - SSE progress staging (“validate/analyze/thumbnail/bundle/ipfs/metadata/ready/sign/complete”)
+  - Cached IPFS media reuse works (prepare twice; second run should skip uploads)
+  - `regenerate` forces new media
+
+### Phase B — Mainnet staging (real XTZ)
+- Use the `staging` wallet (mainnet) to deploy and test with a small set of keeps.
+- Success criteria: 3–5 keeps, confirmed on tzkt + discoverable on objkt.
+- Verify:
+  - Contract address + network routing are correct
+  - Metadata renders correctly on marketplaces
+  - Gas/storage costs are acceptable and repeatable
+
+### Phase C — Mainnet production
+- Deploy the final contract using the `kidlisp` wallet.
+- Freeze any mutable metadata policy decisions before public launch (what can be edited, for how long).
+
+### Operational checklist
+- Pinata:
+  - Ensure `secrets.pinata` exists and has working API key/secret/JWT
+  - Confirm `ipfs.aesthetic.computer` gateway performance/uptime
+- Tezos:
+  - Ensure `secrets.tezos-kidlisp` exists and matches intended network
+  - Confirm RPC health (mainnet/ghostnet)
+  - Confirm contract storage/entrypoints match expected features (fee system, admin ops)
+- Mongo:
+  - Ensure indexes/fields won’t explode doc size (`ipfsMedia` should stay small)
+  - Confirm writes on prepare/mint are safe (no secrets logged)
+- Rollback plan:
+  - If marketplace display breaks: regenerate only metadata + thumbnail (don’t redeploy contract)
+  - If a contract bug exists: stop minting endpoint; redeploy contract; keep old contract viewable
+
+---
+
+## User Stories (Launch Quality)
+
+### Creator (happy path)
+**As a creator**, I want to keep my KidLisp piece as an NFT so I can share it as a collectible.
+- Acceptance:
+  - I can enter `keep $piece` and see a clear progress timeline.
+  - I can review what will be minted (name/preview/network/fee) before signing.
+  - After success I get links to tzkt + objkt.
+
+### Creator (repeat attempts without IPFS spam)
+**As a creator**, I want re-running “prepare” to reuse already-generated IPFS media so I don’t create duplicates.
+- Acceptance:
+  - Running prepare twice for the same unchanged source reuses `kidlisp.ipfsMedia`.
+  - The UI indicates when cached media is used.
+
+### Creator (rekeep / regenerate)
+**As a creator**, I want a “Regenerate Media” action when the runtime output changed, without changing my source.
+- Acceptance:
+  - The client can request `regenerate: true` to force new thumbnail/bundle pins.
+  - The resulting cached media is updated in MongoDB.
+  - Old media is still addressable (IPFS is content-addressed) but is no longer referenced.
+
+### Operator / Support
+**As an operator**, I want enough telemetry to diagnose failures quickly.
+- Acceptance:
+  - SSE stages map clearly to server logs.
+  - User-facing errors are specific (auth vs ownership vs oven vs pinata vs contract).
+  - We can identify if failures cluster on a specific stage.
+
+### Security
+**As AC**, we need to ensure “keep” cannot be used to exfiltrate secrets or mint other users’ pieces.
+- Acceptance:
+  - Auth/ownership checks block non-owners (admin exception is explicit).
+  - Pinata and Tezos secrets never leave the server; no client-visible leakage.
+  - “Already minted” returns a safe response including public links only.
+
+---
+
+## Notes on IPFS duplicates and mutability
+- IPFS is content-addressed, but the bundle/thumbnail can change even when the source is unchanged (runtime/version/environment changes).
+- Strategy:
+  - Default: reuse cached media for unchanged source to avoid spam.
+  - Escape hatch: “rekeep” regenerates and updates references.
+  - Optional future: record runtime/version metadata alongside `ipfsMedia` so cache invalidation can be smarter than “30 days”.
+
+---
+
 ## Credentials & Resources (from vault)
 
 ### Pinata IPFS
