@@ -504,6 +504,10 @@ from = "/api/auth0-events"
 to = "/.netlify/functions/auth0-events"
 status = 200
 [[redirects]]
+from = "/api/auth/cli-callback"
+to = "/.netlify/functions/auth-cli-callback"
+status = 200
+[[redirects]]
 from = "/api/metrics"
 to = "/.netlify/functions/metrics"
 status = 200
