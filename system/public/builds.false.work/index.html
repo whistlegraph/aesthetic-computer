@@ -892,6 +892,7 @@
           document.getElementById('footer-lock').textContent = '🔓';
           document.getElementById('logout-link').style.display = 'inline';
           await Promise.all([loadBuilds(), loadReports()]);
+          handleRoute(); // Handle URL routing after data loads
         } else {
           document.getElementById('error').textContent = 'Incorrect password';
           document.getElementById('password').value = '';
@@ -901,20 +902,46 @@
       }
     }
 
-    // Tab navigation
-    function showMainTab(tabName) {
+    // Tab navigation with URL routing
+    function showMainTab(tabName, updateHash = true) {
       currentTab = tabName;
       document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
       document.querySelectorAll('.main-tab').forEach(t => t.classList.remove('active'));
       
       if (tabName === 'report-view') {
         document.getElementById('report-view').classList.add('active');
+        if (updateHash && currentViewingReportId) {
+          history.pushState(null, '', `#report/${currentViewingReportId}`);
+        }
       } else {
         document.getElementById(tabName + '-tab').classList.add('active');
         const tabBtn = document.querySelector(`.main-tab[onclick="showMainTab('${tabName}')"]`);
         if (tabBtn) tabBtn.classList.add('active');
+        if (updateHash) {
+          history.pushState(null, '', tabName === 'builds' ? '#' : `#${tabName}`);
+        }
       }
     }
+    
+    // Handle URL routing
+    function handleRoute() {
+      const hash = window.location.hash.slice(1); // remove #
+      if (!hash || hash === 'builds') {
+        showMainTab('builds', false);
+      } else if (hash === 'reports') {
+        showMainTab('reports', false);
+      } else if (hash.startsWith('report/')) {
+        const reportId = hash.slice(7);
+        const report = allReports.find(r => r._id === reportId);
+        if (report) {
+          viewReport(reportId);
+        } else {
+          showMainTab('reports', false);
+        }
+      }
+    }
+    
+    window.addEventListener('popstate', handleRoute);
 
     // === BUILDS ===
     async function loadBuilds() {
