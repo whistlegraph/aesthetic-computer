@@ -28,9 +28,10 @@ if (dev) {
 }
 
 // Configuration  
-const CONTRACT_ADDRESS = process.env.TEZOS_KEEPS_CONTRACT || "KT1Ah5m2kzU3GfN42hh57mVJ63kNi95XKBdM";
+const CONTRACT_ADDRESS = process.env.TEZOS_KEEPS_CONTRACT || "KT1NeytR5BHDfGBjG9ZuLkPd7nmufmH1icVc";
 const NETWORK = process.env.TEZOS_NETWORK || "ghostnet";
 const OVEN_URL = process.env.OVEN_URL || "https://oven.aesthetic.computer";
+const OVEN_FALLBACK_URL = "https://oven.aesthetic.computer"; // Always available fallback
 const RPC_URL = NETWORK === "mainnet" 
   ? "https://mainnet.ecadinfra.com"
   : "https://ghostnet.ecadinfra.com";
@@ -258,8 +259,14 @@ export const handler = stream(async (event, context) => {
         return; // finally will close
       }
 
-      // Check ownership
-      if (!isAdmin && piece.user && piece.user !== user.sub) {
+      // Check ownership - anonymous pieces cannot be kept
+      if (!piece.user) {
+        await database.disconnect();
+        await send("error", { error: "Anonymous pieces cannot be kept. Log in and save it first." });
+        return; // finally will close
+      }
+      
+      if (!isAdmin && piece.user !== user.sub) {
         const ownerHandle = await handleFor(piece.user);
         await database.disconnect();
         await send("error", { error: `This piece belongs to @${ownerHandle || "someone else"}` });
@@ -279,7 +286,7 @@ export const handler = stream(async (event, context) => {
       }
 
       await send("progress", { stage: "validate", message: "Validation passed ✓" });
-      await database.disconnect();
+      // Note: Keep database connection open - we need it later for user lookup and status update
       
       // Get Pinata credentials early for thumbnail generation
       const pinataCredentials = await getPinataCredentials();
@@ -289,32 +296,47 @@ export const handler = stream(async (event, context) => {
       // ═══════════════════════════════════════════════════════════════════
       await send("progress", { stage: "thumbnail", message: "Starting thumbnail generation..." });
       
-      // In dev mode, oven can't reach localhost, so skip thumbnail generation
-      const thumbnailPromise = dev 
-        ? Promise.resolve(null)
-        : fetch(`${OVEN_URL}/grab-ipfs`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              url: `https://aesthetic.computer/$${pieceName}`,
-              format: "webp",
-              width: 96,
-              height: 96,
-              density: 2,
-              duration: 8000,
-              fps: 10,
-              playbackFps: 20,
-              quality: 70,
-              pinataKey: pinataCredentials.apiKey,
-              pinataSecret: pinataCredentials.apiSecret,
-            }),
-          }).then(async (res) => {
-            if (!res.ok) throw new Error(`Thumbnail failed: ${res.status}`);
-            return res.json();
-          }).catch(err => {
-            console.warn("Thumbnail generation failed:", err);
-            return null; // Non-fatal, use fallback
-          });
+      // Helper to try oven thumbnail generation
+      const tryOvenThumbnail = async (ovenUrl) => {
+        const res = await fetch(`${ovenUrl}/grab-ipfs`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            piece: `$${pieceName}`,
+            format: "webp",
+            width: 96,
+            height: 96,
+            density: 2,
+            duration: 8000,
+            fps: 10,
+            playbackFps: 20,
+            quality: 70,
+            pinataKey: pinataCredentials.apiKey,
+            pinataSecret: pinataCredentials.apiSecret,
+          }),
+        });
+        if (!res.ok) throw new Error(`Thumbnail failed: ${res.status}`);
+        return res.json();
+      };
+      
+      // Try local oven first, then fallback to production
+      const thumbnailPromise = (async () => {
+        try {
+          return await tryOvenThumbnail(OVEN_URL);
+        } catch (localErr) {
+          console.warn(`Local oven failed (${OVEN_URL}):`, localErr.message);
+          if (OVEN_URL !== OVEN_FALLBACK_URL) {
+            console.log(`Trying fallback oven: ${OVEN_FALLBACK_URL}`);
+            try {
+              return await tryOvenThumbnail(OVEN_FALLBACK_URL);
+            } catch (fallbackErr) {
+              console.warn(`Fallback oven failed:`, fallbackErr.message);
+              return null;
+            }
+          }
+          return null;
+        }
+      })();
 
       // ═══════════════════════════════════════════════════════════════════
       // STAGE 3: ANALYZE SOURCE
@@ -375,12 +397,16 @@ export const handler = stream(async (event, context) => {
       await send("progress", { stage: "thumbnail", message: "Waiting for thumbnail..." });
       
       const thumbResult = await thumbnailPromise;
-      const thumbnailUri = thumbResult?.ipfsUri || 
-        `https://grab.aesthetic.computer/preview/400x400/$${pieceName}.png`;
+      
+      if (!thumbResult?.ipfsUri) {
+        throw new Error("Thumbnail generation failed - oven unavailable");
+      }
+      
+      const thumbnailUri = thumbResult.ipfsUri;
       
       await send("progress", { 
         stage: "thumbnail", 
-        message: thumbResult ? "Thumbnail ready ✓" : "Using fallback thumbnail"
+        message: "Thumbnail ready ✓"
       });
 
       // ═══════════════════════════════════════════════════════════════════
@@ -477,9 +503,12 @@ export const handler = stream(async (event, context) => {
         const tezos = new TezosToolkit(RPC_URL);
         const contract = await tezos.contract.at(CONTRACT_ADDRESS);
         
-        // Create a placeholder operation to get the Michelson params
-        // We'll use a dummy owner that the client will replace
-        const placeholderOwner = "0000"; // Will be replaced by client with their address
+        // Get the wallet address from the request for proper encoding
+        // The owner field is type 'address' in the contract, so Taquito validates it
+        const ownerAddress = body.walletAddress;
+        if (!ownerAddress || !ownerAddress.startsWith('tz')) {
+          throw new Error('Valid Tezos wallet address required for minting');
+        }
         
         const transferParams = contract.methodsObject.keep({
           artifactUri: onChainMetadata.artifactUri,
@@ -494,7 +523,7 @@ export const handler = stream(async (event, context) => {
           isBooleanAmount: onChainMetadata.isBooleanAmount,
           metadata_uri: onChainMetadata.metadata_uri,
           name: onChainMetadata.name,
-          owner: placeholderOwner,
+          owner: ownerAddress,
           rights: onChainMetadata.rights,
           shouldPreferSymbol: onChainMetadata.shouldPreferSymbol,
           symbol: onChainMetadata.symbol,
@@ -529,6 +558,19 @@ export const handler = stream(async (event, context) => {
       tezos.setProvider({ signer: new InMemorySigner(tezosCredentials.privateKey) });
       const adminAddress = await tezos.signer.publicKeyHash();
 
+      // Get user's Tezos destination address from their profile
+      // Fall back to admin address if not set
+      const usersCollection = database.db.collection("users");
+      const userDoc = await usersCollection.findOne({ _id: user.sub });
+      const destinationAddress = userDoc?.tezos?.address || adminAddress;
+      
+      if (destinationAddress !== adminAddress) {
+        await send("progress", { 
+          stage: "mint", 
+          message: `Minting to ${destinationAddress.slice(0, 8)}...${destinationAddress.slice(-6)}` 
+        });
+      }
+
       const contract = await tezos.contract.at(CONTRACT_ADDRESS);
       
       const op = await contract.methodsObject.keep({
@@ -544,7 +586,7 @@ export const handler = stream(async (event, context) => {
         isBooleanAmount: onChainMetadata.isBooleanAmount,
         metadata_uri: onChainMetadata.metadata_uri,
         name: onChainMetadata.name,
-        owner: adminAddress,
+        owner: destinationAddress,
         rights: onChainMetadata.rights,
         shouldPreferSymbol: onChainMetadata.shouldPreferSymbol,
         symbol: onChainMetadata.symbol,
@@ -563,6 +605,26 @@ export const handler = stream(async (event, context) => {
       const tokenId = updatedStorage.next_token_id.toNumber() - 1;
 
       const objktUrl = `https://${NETWORK === "mainnet" ? "" : "ghostnet."}objkt.com/asset/${CONTRACT_ADDRESS}/${tokenId}`;
+
+      // Update MongoDB to mark piece as minted
+      const piecesCollection = database.db.collection("kidlisp");
+      await piecesCollection.updateOne(
+        { user: user.sub, code: pieceName },
+        { 
+          $set: { 
+            "tezos.minted": true,
+            "tezos.tokenId": tokenId,
+            "tezos.txHash": op.hash,
+            "tezos.contract": CONTRACT_ADDRESS,
+            "tezos.network": NETWORK,
+            "tezos.mintedAt": new Date(),
+            "tezos.owner": destinationAddress,
+            "tezos.artifactUri": artifactUri,
+            "tezos.thumbnailUri": thumbnailUri,
+            "tezos.metadataUri": metadataUri,
+          }
+        }
+      );
 
       await send("complete", {
         success: true,
