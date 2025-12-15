@@ -1713,12 +1713,70 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       const savedSession = localStorage.getItem("ac:tezos:session");
       if (savedSession) {
         const session = JSON.parse(savedSession);
-        console.log("🔷 Restoring wallet session:", session.address);
+        console.log("🔷 Restoring wallet session:", session.address, "walletType:", session.walletType);
         
         walletState.connected = true;
         walletState.address = session.address;
         walletState.network = session.network || "ghostnet";
         walletState.walletType = session.walletType || "unknown";
+        
+        const rpcUrl = TEZOS_RPC[walletState.network] || TEZOS_RPC.ghostnet;
+        
+        // Recreate the tezosWallet object with sendOperations for signing
+        if (session.walletType === "temple") {
+          // Recreate Temple client for signing operations
+          const templeClient = createTempleClient();
+          templeClient.init();
+          
+          // Verify Temple is still available
+          const available = await templeClient.isAvailable();
+          if (available) {
+            tezosWallet = {
+              _client: templeClient,
+              _rpcUrl: rpcUrl,
+              _network: walletState.network,
+              pkh: () => session.address,
+              sign: async (payload) => {
+                const result = await templeClient.request({
+                  type: "SIGN_REQUEST",
+                  payload,
+                  sourcePkh: session.address
+                });
+                return result?.signature;
+              },
+              sendOperations: async (operations) => {
+                const result = await templeClient.request({
+                  type: "OPERATION_REQUEST",
+                  sourcePkh: session.address,
+                  opParams: operations
+                });
+                return result?.opHash;
+              }
+            };
+            console.log("🔷 Temple wallet restored with signing capability");
+          } else {
+            console.log("🔷 Temple extension not available, session stale");
+            walletState.connected = false;
+            clearWalletSession();
+            broadcastWalletState();
+            return false;
+          }
+        } else if (session.walletType === "kukai") {
+          // For Kukai, we need to re-import Beacon SDK
+          // This is lazy - it will be re-established on first signing attempt
+          tezosWallet = {
+            _rpcUrl: rpcUrl,
+            _network: walletState.network,
+            _needsReconnect: true, // Flag to trigger reconnection on first use
+            pkh: () => session.address,
+            sendOperations: async (operations) => {
+              // Reconnect via Beacon on first signing attempt
+              console.log("🥝 Kukai needs reconnection for signing...");
+              throw new Error("Kukai session expired - please reconnect wallet");
+            }
+          };
+          console.log("🔷 Kukai wallet session restored (signing will require reconnection)");
+        }
         
         // Fetch fresh balance and domain
         Promise.all([
@@ -1738,6 +1796,96 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       console.log("🔷 restoreWalletSession error:", err.message);
     }
     return false;
+  }
+  
+  // Helper to create Temple client (used by both connect and restore)
+  function createTempleClient() {
+    return {
+      _reqId: 0,
+      _pending: new Map(),
+      
+      init() {
+        window.addEventListener("message", this._handleMessage.bind(this));
+      },
+      
+      _handleMessage(event) {
+        if (event.source !== window || event.origin !== window.origin) return;
+        const data = event.data || {};
+        
+        if (data.type === "TEMPLE_PAGE_RESPONSE") {
+          const { payload, reqId } = data;
+          if (this._pending.has(reqId)) {
+            const { resolve, reject } = this._pending.get(reqId);
+            this._pending.delete(reqId);
+            if (payload?.error) {
+              reject(new Error(payload.error.message || payload.error));
+            } else {
+              resolve(payload);
+            }
+          }
+        }
+        
+        if (data.type === "TEMPLE_PAGE_ERROR_RESPONSE") {
+          const { payload, reqId } = data;
+          if (this._pending.has(reqId)) {
+            const { reject } = this._pending.get(reqId);
+            this._pending.delete(reqId);
+            reject(new Error(payload?.message || "Temple error"));
+          }
+        }
+      },
+      
+      async request(payload) {
+        const reqId = ++this._reqId;
+        return new Promise((resolve, reject) => {
+          this._pending.set(reqId, { resolve, reject });
+          
+          window.postMessage({
+            type: "TEMPLE_PAGE_REQUEST",
+            payload,
+            reqId
+          }, window.origin);
+          
+          setTimeout(() => {
+            if (this._pending.has(reqId)) {
+              this._pending.delete(reqId);
+              reject(new Error("Temple request timeout"));
+            }
+          }, 120000);
+        });
+      },
+      
+      async isAvailable() {
+        try {
+          const response = await Promise.race([
+            this.request("PING"),
+            new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 3000))
+          ]);
+          return response === "PONG";
+        } catch {
+          return false;
+        }
+      },
+      
+      async connect(networkType) {
+        const response = await this.request({
+          type: "PERMISSION_REQUEST",
+          network: networkType,
+          appMeta: { name: "Aesthetic Computer" },
+          force: true
+        });
+        return response;
+      },
+      
+      async getCurrentPermission() {
+        try {
+          const response = await this.request({ type: "GET_CURRENT_PERMISSION_REQUEST" });
+          return response;
+        } catch {
+          return null;
+        }
+      }
+    };
   }
   
   // Save wallet session to localStorage
@@ -1785,102 +1933,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return connectKukaiWallet(network, rpcUrl);
     }
     
-    // Temple wallet via direct postMessage
-    
-    // Create a minimal Temple client that communicates via postMessage
-    // Message format based on TemplePageMessage from @temple-wallet/dapp
-    const templeClient = {
-      _reqId: 0,
-      _pending: new Map(),
-      
-      init() {
-        window.addEventListener("message", this._handleMessage.bind(this));
-      },
-      
-      _handleMessage(event) {
-        if (event.source !== window || event.origin !== window.origin) return;
-        const data = event.data || {};
-        
-        // Handle Temple response format
-        if (data.type === "TEMPLE_PAGE_RESPONSE") {
-          const { payload, reqId } = data;
-          if (this._pending.has(reqId)) {
-            const { resolve, reject } = this._pending.get(reqId);
-            this._pending.delete(reqId);
-            if (payload?.error) {
-              reject(new Error(payload.error.message || payload.error));
-            } else {
-              resolve(payload);
-            }
-          }
-        }
-        
-        // Handle error response
-        if (data.type === "TEMPLE_PAGE_ERROR_RESPONSE") {
-          const { payload, reqId } = data;
-          if (this._pending.has(reqId)) {
-            const { reject } = this._pending.get(reqId);
-            this._pending.delete(reqId);
-            reject(new Error(payload?.message || "Temple error"));
-          }
-        }
-      },
-      
-      async request(payload) {
-        const reqId = ++this._reqId;
-        return new Promise((resolve, reject) => {
-          this._pending.set(reqId, { resolve, reject });
-          
-          // Temple expects this exact format
-          window.postMessage({
-            type: "TEMPLE_PAGE_REQUEST",
-            payload,
-            reqId
-          }, window.origin);
-          
-          // Timeout after 120 seconds (wallet approval can take time)
-          setTimeout(() => {
-            if (this._pending.has(reqId)) {
-              this._pending.delete(reqId);
-              reject(new Error("Temple request timeout"));
-            }
-          }, 120000);
-        });
-      },
-      
-      async isAvailable() {
-        try {
-          const response = await Promise.race([
-            this.request("PING"),
-            new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 3000))
-          ]);
-          return response === "PONG";
-        } catch {
-          return false;
-        }
-      },
-      
-      async connect(networkType) {
-        // Use exact TempleDAppMessageType values from @temple-wallet/dapp
-        const response = await this.request({
-          type: "PERMISSION_REQUEST",
-          network: networkType,
-          appMeta: { name: "Aesthetic Computer" },
-          force: true
-        });
-        return response;
-      },
-      
-      async getCurrentPermission() {
-        try {
-          const response = await this.request({ type: "GET_CURRENT_PERMISSION_REQUEST" });
-          return response;
-        } catch {
-          return null;
-        }
-      }
-    };
-    
+    // Temple wallet via direct postMessage - use shared client creator
+    const templeClient = createTempleClient();
     templeClient.init();
     
     // Check if Temple extension is available
@@ -1956,6 +2010,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       };
       
       saveWalletSession(address, network, "temple");
+      
+      // Update user profile with Tezos address (if logged in)
+      updateUserTezosAddress(address, network).catch(err => 
+        console.warn("Failed to save Tezos address to profile:", err)
+      );
       
       // Fetch balance and domain
       Promise.all([
@@ -2050,6 +2109,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       
       saveWalletSession(address, network, "kukai");
       
+      // Update user profile with Tezos address (if logged in)
+      updateUserTezosAddress(address, network).catch(err => 
+        console.warn("Failed to save Tezos address to profile:", err)
+      );
+      
       // Fetch balance and domain
       Promise.all([
         fetchTezosBalanceForBios(address, network),
@@ -2128,13 +2192,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
   }
   
-  // Sign a message with the connected wallet (for testing)
+  // Sign a message with the connected wallet
+  // NOTE: Temple wallet doesn't support message signing via postMessage API
+  // This function is kept for future use with wallets that support it
   async function signTezosMessage(message) {
     if (!walletState.connected || !tezosWallet) {
       throw new Error("Wallet not connected");
     }
     
-    // Convert message to hex payload
+    // Convert message to hex payload (Micheline format)
     const encoder = new TextEncoder();
     const bytes = encoder.encode(message);
     const hexPayload = "05" + "01" + bytes.length.toString(16).padStart(8, "0") + 
@@ -2194,6 +2260,34 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     return null;
   }
   
+  // Update user's Tezos address in MongoDB profile (called after wallet connection)
+  async function updateUserTezosAddress(address, network) {
+    try {
+      const token = await getToken();
+      if (!token) {
+        console.log("⚠️  Not logged in - skipping Tezos address save");
+        return;
+      }
+
+      const response = await fetch("/api/update-tezos-address", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify({ address, network }),
+      });
+
+      if (response.ok) {
+        console.log(`✅ Saved Tezos address to profile: ${address}`);
+      } else {
+        console.warn("Failed to save Tezos address:", await response.text());
+      }
+    } catch (err) {
+      console.warn("Error saving Tezos address:", err);
+    }
+  }
+
   // Resolve .tez domain for an address using TzKT API (more reliable than Tezos Domains GraphQL)
   async function fetchTezosDomain(address, network = "ghostnet") {
     try {
@@ -2231,17 +2325,33 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   }
   
   async function callTezosContract(contractAddress, method, args, amount = 0) {
-    // Without Beacon, we can't sign transactions directly from the browser
-    // Contract calls need to go through a server function that uses an admin key
-    // OR we need to integrate a signing solution
-    
-    if (!walletState.connected) {
+    // Use the connected wallet to send operations
+    if (!walletState.connected || !tezosWallet) {
       throw new Error("Wallet not connected - use 'wallet' command first");
     }
     
-    // For the "keeps" minting flow, the actual signing happens server-side
-    // This function should be called after getting the operation params from the server
-    throw new Error("Direct contract calls require server-side signing. Use keep-mint endpoint.");
+    console.log("🔷 Calling contract:", contractAddress, method, "amount:", amount);
+    
+    // Build the operation in Temple/Beacon format
+    // Temple expects: to, amount (number), mutez: true, parameter (singular)
+    const operation = {
+      kind: "transaction",
+      to: contractAddress,
+      amount: Math.floor(amount * 1_000_000), // Convert XTZ to mutez (as number)
+      mutez: true,
+      parameter: {
+        entrypoint: method,
+        value: args
+      }
+    };
+    
+    console.log("🔷 Operation:", JSON.stringify(operation, null, 2).slice(0, 500));
+    
+    // Use wallet's sendOperations method (works for both Temple and Beacon)
+    const opHash = await tezosWallet.sendOperations([operation]);
+    
+    console.log("🔷 Transaction submitted:", opHash);
+    return opHash;
   }
 
   // UDP / Geckos Networking
@@ -10170,6 +10280,25 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    // Sign a message with connected Tezos wallet
+    if (type === "tezos-sign") {
+      try {
+        const { message } = content;
+        const signature = await signTezosMessage(message);
+        send({
+          type: "tezos-sign-response",
+          content: { result: "success", signature, message },
+        });
+      } catch (err) {
+        console.error("🔴 Tezos sign error:", err);
+        send({
+          type: "tezos-sign-response",
+          content: { result: "error", error: err.message },
+        });
+      }
+      return;
+    }
+
     // Call a Tezos contract method
     if (type === "tezos-call") {
       try {
@@ -14107,6 +14236,92 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         delete mediaPathsLoading[content];
       });
 
+      return;
+    }
+
+    // 🎬 Load an animated WebP and decode all frames
+    if (type === "load-animated-webp") {
+      console.log("🎬 BIOS load-animated-webp received:", content);
+      
+      (async () => {
+        try {
+          // Fetch the WebP data
+          const response = await fetch(content);
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const webpData = new Uint8Array(await response.arrayBuffer());
+          console.log("🎬 Fetched WebP data:", webpData.length, "bytes");
+          
+          // Load webpxmux if not already loaded
+          if (!window.WebPXMux) {
+            console.log("🎬 Loading webpxmux library...");
+            await new Promise((resolve, reject) => {
+              const script = document.createElement("script");
+              script.src = "/aesthetic.computer/dep/webpxmux/webpxmux.min.js";
+              script.onload = resolve;
+              script.onerror = reject;
+              document.head.appendChild(script);
+            });
+          }
+          
+          const xMux = window.WebPXMux("/aesthetic.computer/dep/webpxmux/webpxmux.wasm");
+          await xMux.waitRuntime();
+          
+          const frames = await xMux.decodeFrames(webpData);
+          console.log("🎬 Decoded animated WebP:", frames.frameCount, "frames,", frames.width, "x", frames.height);
+          
+          if (frames.frameCount > 1) {
+            // Convert frames to transferable format
+            const frameData = frames.frames.map(f => ({
+              duration: f.duration,
+              isKeyframe: f.isKeyframe,
+              // Convert Uint32Array to Uint8ClampedArray for pixel data
+              pixels: new Uint8ClampedArray(f.rgba.buffer.slice(0))
+            }));
+            
+            // Transfer all pixel buffers
+            const transfers = frameData.map(f => f.pixels.buffer);
+            
+            send({
+              type: "loaded-animated-webp-success",
+              content: {
+                url: content,
+                width: frames.width,
+                height: frames.height,
+                frameCount: frames.frameCount,
+                loopCount: frames.loopCount,
+                frames: frameData
+              }
+            }, transfers);
+          } else {
+            // Single frame - just decode as bitmap
+            const bitmap = await xMux.decodeWebP(webpData);
+            const pixels = new Uint8ClampedArray(bitmap.rgba.buffer.slice(0));
+            
+            send({
+              type: "loaded-animated-webp-success",
+              content: {
+                url: content,
+                width: bitmap.width,
+                height: bitmap.height,
+                frameCount: 1,
+                loopCount: 0,
+                frames: [{
+                  duration: 0,
+                  isKeyframe: true,
+                  pixels: pixels
+                }]
+              }
+            }, [pixels.buffer]);
+          }
+        } catch (err) {
+          console.error("🎬 Animated WebP decode failed:", err);
+          send({
+            type: "loaded-animated-webp-rejection",
+            content: { url: content, error: err.message }
+          });
+        }
+      })();
+      
       return;
     }
 
