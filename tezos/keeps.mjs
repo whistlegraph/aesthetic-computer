@@ -68,17 +68,34 @@ const CONFIG = {
 // Credential Loading
 // ============================================================================
 
+// Current wallet selection (can be changed via --wallet flag)
+let currentWallet = 'kidlisp'; // default
+
+function setWallet(wallet) {
+  currentWallet = wallet;
+}
+
 function loadCredentials() {
   const credentials = {};
   
-  // Load Tezos wallet credentials
-  const tezosEnvPath = path.join(CONFIG.paths.vault, 'tezos/kidlisp/.env');
+  // Load Tezos wallet credentials based on current wallet selection
+  // Note: aesthetic wallet keys are stored in kidlisp/.env for convenience
+  const walletPaths = {
+    kidlisp: { path: 'tezos/kidlisp/.env', addressKey: 'KIDLISP_ADDRESS', secretKey: 'KIDLISP_KEY' },
+    aesthetic: { path: 'tezos/kidlisp/.env', addressKey: 'AESTHETIC_ADDRESS', secretKey: 'AESTHETIC_KEY' },
+    staging: { path: 'tezos/staging/.env', addressKey: 'STAGING_ADDRESS', secretKey: 'STAGING_KEY' }
+  };
+  
+  const walletConfig = walletPaths[currentWallet] || walletPaths.kidlisp;
+  const tezosEnvPath = path.join(CONFIG.paths.vault, walletConfig.path);
+  
   if (fs.existsSync(tezosEnvPath)) {
     const content = fs.readFileSync(tezosEnvPath, 'utf8');
     for (const line of content.split('\n')) {
-      if (line.startsWith('KIDLISP_ADDRESS=')) {
+      // Try both specific keys and generic ADDRESS/KEY patterns
+      if (line.startsWith(walletConfig.addressKey + '=') || line.startsWith('ADDRESS=')) {
         credentials.address = line.split('=')[1].trim().replace(/"/g, '');
-      } else if (line.startsWith('KIDLISP_KEY=')) {
+      } else if (line.startsWith(walletConfig.secretKey + '=') || line.startsWith('KEY=') || line.startsWith('SECRET_KEY=')) {
         credentials.secretKey = line.split('=')[1].trim().replace(/"/g, '');
       }
     }
@@ -97,6 +114,7 @@ function loadCredentials() {
     }
   }
   
+  credentials.wallet = currentWallet;
   return credentials;
 }
 
@@ -1790,6 +1808,19 @@ async function main() {
   const flags = rawArgs.filter(a => a.startsWith('--'));
   const args = rawArgs.filter(a => !a.startsWith('--'));
   const command = args[0];
+  
+  // Parse --wallet flag
+  const walletFlag = flags.find(f => f.startsWith('--wallet='));
+  if (walletFlag) {
+    const wallet = walletFlag.split('=')[1];
+    if (['kidlisp', 'aesthetic', 'staging'].includes(wallet)) {
+      setWallet(wallet);
+      console.log(`🔑 Using wallet: ${wallet}\n`);
+    } else {
+      console.error(`❌ Unknown wallet: ${wallet}. Use: kidlisp, aesthetic, or staging`);
+      process.exit(1);
+    }
+  }
   
   // Helper to get network from args (defaults to ghostnet)
   const getNetwork = (argIndex) => {

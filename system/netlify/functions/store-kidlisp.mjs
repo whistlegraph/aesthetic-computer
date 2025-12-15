@@ -76,6 +76,13 @@ async function ensureIndexes(collection) {
       name: 'kidlisp_user'
     });
     
+    // Create index on kept.network for filtering kept pieces by network
+    await collection.createIndex({ "kept.network": 1 }, { 
+      background: true,
+      sparse: true, // Only index documents that have the kept field
+      name: 'kidlisp_kept_network'
+    });
+    
     console.log('📦 Kidlisp indexes ensured');
   } catch (error) {
     // Ignore index creation errors (they're likely already created)
@@ -380,6 +387,8 @@ export async function handler(event, context) {
               when: 1,
               hits: 1,
               user: 1,
+              kept: 1,    // Include kept status
+              tezos: 1,   // Include legacy tezos field
               handle: { 
                 $cond: {
                   if: { $gt: [{ $size: "$handleInfo" }, 0] },
@@ -394,15 +403,34 @@ export async function handler(event, context) {
         const docs = await collection.aggregate(pipeline).toArray();
         
         // Create preview versions of source code (truncate long sources)
-        const recentCodes = docs.map(doc => ({
-          code: doc.code,
-          source: doc.source,
-          preview: doc.source.length > 40 ? doc.source.substring(0, 37) + "..." : doc.source,
-          when: doc.when,
-          hits: doc.hits,
-          user: doc.user || null,
-          handle: doc.handle || null
-        }));
+        const recentCodes = docs.map(doc => {
+          const result = {
+            code: doc.code,
+            source: doc.source,
+            preview: doc.source.length > 40 ? doc.source.substring(0, 37) + "..." : doc.source,
+            when: doc.when,
+            hits: doc.hits,
+            user: doc.user || null,
+            handle: doc.handle || null
+          };
+          
+          // Include kept status if the piece was minted as a KEEP NFT
+          if (doc.kept) {
+            result.kept = {
+              tokenId: doc.kept.tokenId,
+              network: doc.kept.network || "ghostnet",
+            };
+          }
+          
+          // Also check legacy tezos field (from server-side mints)
+          if (doc.tezos?.minted) {
+            result.kept = result.kept || {};
+            result.kept.tokenId = result.kept.tokenId || doc.tezos.tokenId;
+            result.kept.network = result.kept.network || doc.tezos.network || "ghostnet";
+          }
+          
+          return result;
+        });
         
         console.log(`📤 Recent codes retrieved: ${recentCodes.length} codes`);
         
@@ -463,12 +491,33 @@ export async function handler(event, context) {
         codeList.forEach(requestedCode => {
           const doc = docs.find(d => d.code === requestedCode);
           if (doc) {
-            results[requestedCode] = {
+            const result = {
               source: doc.source,
               when: doc.when,
               hits: doc.hits + 1,
               user: doc.user || null
             };
+            
+            // Include kept status if the piece was minted as a KEEP NFT
+            if (doc.kept) {
+              result.kept = {
+                tokenId: doc.kept.tokenId,
+                network: doc.kept.network || "ghostnet",
+                txHash: doc.kept.txHash,
+                keptAt: doc.kept.keptAt,
+              };
+            }
+            
+            // Also check legacy tezos field (from server-side mints)
+            if (doc.tezos?.minted) {
+              result.kept = result.kept || {};
+              result.kept.tokenId = result.kept.tokenId || doc.tezos.tokenId;
+              result.kept.network = result.kept.network || doc.tezos.network || "ghostnet";
+              result.kept.txHash = result.kept.txHash || doc.tezos.txHash;
+              result.kept.keptAt = result.kept.keptAt || doc.tezos.mintedAt;
+            }
+            
+            results[requestedCode] = result;
             found.push(requestedCode);
           } else {
             results[requestedCode] = null;
@@ -517,12 +566,37 @@ export async function handler(event, context) {
       console.log(`📤 Retrieved source: ${code} (${doc.source.length} chars, ${doc.hits + 1} hits)`);
 
       await database.disconnect();
-      return respond(200, { 
+      
+      // Build response with kept status if present
+      const response = { 
         source: doc.source,
         when: doc.when,
         hits: doc.hits + 1,
-        user: doc.user || null
-      });
+        user: doc.user || null,
+      };
+      
+      // Include kept status if the piece was minted as a KEEP NFT
+      if (doc.kept) {
+        response.kept = {
+          tokenId: doc.kept.tokenId,
+          network: doc.kept.network || "ghostnet",
+          txHash: doc.kept.txHash,
+          contractAddress: doc.kept.contractAddress,
+          keptAt: doc.kept.keptAt,
+        };
+      }
+      
+      // Also check legacy tezos field (from server-side mints)
+      if (doc.tezos?.minted) {
+        response.kept = response.kept || {};
+        response.kept.tokenId = response.kept.tokenId || doc.tezos.tokenId;
+        response.kept.network = response.kept.network || doc.tezos.network || "ghostnet";
+        response.kept.txHash = response.kept.txHash || doc.tezos.txHash;
+        response.kept.contractAddress = response.kept.contractAddress || doc.tezos.contract;
+        response.kept.keptAt = response.kept.keptAt || doc.tezos.mintedAt;
+      }
+      
+      return respond(200, response);
     }
 
     await database.disconnect();
