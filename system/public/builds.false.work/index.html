@@ -38,6 +38,8 @@
       --fruit-color: #0f0;
       --side-color: #09f;
       --big-color: #f0f;
+      --font-mono: 'Courier New', Consolas, monospace;
+      --font-sans: Arial, Helvetica, sans-serif;
     }
 
     @media (prefers-color-scheme: light) {
@@ -489,10 +491,9 @@
     .report-feed-card .build-header {
       color: #4a3a2a;
     }
-    .report-feed-card .meta,
-    .report-feed-card .report-prose {
-      color: #5a4a3a;
+    .report-feed-card .report-summary {
       font-family: var(--font-sans);
+      font-style: italic;
     }
     .dark-mode .report-feed-card {
       background: linear-gradient(to bottom, #2d2820 0%, #252015 100%);
@@ -505,8 +506,7 @@
     .dark-mode .report-feed-card .build-header {
       color: #d4c4a4;
     }
-    .dark-mode .report-feed-card .meta,
-    .dark-mode .report-feed-card .report-prose {
+    .dark-mode .report-feed-card .report-summary {
       color: #c4b494;
     }
     .platform-tag.platform-report {
@@ -1222,11 +1222,11 @@
               <span class="build-tag">${platformEmoji[report.buildPlatform] || '📦'} ${report.buildPlatform}</span>
             </span>
           </div>
-          <div class="report-prose" style="margin-top: 0.75rem;">
-            by <strong>${tester}</strong> · <em>"${report.summary || 'No summary'}"</em>
+          <div class="meta" style="margin-top: 0.75rem;">
+            by <strong>${tester}</strong> · <span class="report-summary">"${report.summary || 'No summary'}"</span>
           </div>
-          <div class="report-prose" style="margin-top: 0.5rem; font-size: 0.9rem;">
-            🍎 ${fruitCount} low-hanging · 🍟 ${sideCount} on the side · 💭 ${bigCount} bigger thoughts · ${time}
+          <div class="meta" style="margin-top: 0.5rem; font-size: 0.9rem;">
+            🍎 ${fruitCount} · 🍟 ${sideCount} · 💭 ${bigCount} · ${time}
           </div>
         </div>
       `;
