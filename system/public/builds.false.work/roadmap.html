@@ -151,6 +151,59 @@
     <h1>🗺️ builds.false.work Roadmap</h1>
     <p class="subtitle">Build distribution & playtest reporting system</p>
     
+    <!-- PHASE 2: IN PROGRESS (shown first) -->own first) -->
+    <div class="phase">
+      <div class="phase-header">
+        <span class="phase-status status-progress">🔨 In Progress</span>
+        <h2>Phase 2: Playtest Reports</h2>
+      </div>
+      <p class="phase-desc">Structured feedback with fun categories for each build.</p>
+      <ul class="tasks">
+        <li class="task-done">
+          <span class="task-check">✓</span>
+          <div>
+            <div class="task-title">Reports UI design</div>
+            <div class="task-desc">Tabs, report cards, detail view with 🍎🍟💭 sections</div>
+          </div>
+        </li>
+        <li class="task-done">
+          <span class="task-check">✓</span>
+          <div>
+            <div class="task-title">Combined reports.mjs endpoint</div>
+            <div class="task-desc">GET/POST handler with respond() pattern, false.work-reports collection</div>
+          </div>
+        </li>
+        <li class="task-done">
+          <span class="task-check">✓</span>
+          <div>
+            <div class="task-title">In-browser report submission form</div>
+            <div class="task-desc">Modal form with tester name, summary, and 🍎🍟💭 categories</div>
+          </div>
+        </li>
+        <li class="task-done">
+          <span class="task-check">✓</span>
+          <div>
+            <div class="task-title">Report attribution display</div>
+            <div class="task-desc">Shows who submitted and when on build cards and report cards</div>
+          </div>
+        </li>
+        <li class="task-pending">
+          <span class="task-check">○</span>
+          <div>
+            <div class="task-title">Report editing</div>
+            <div class="task-desc">Edit existing reports after submission</div>
+          </div>
+        </li>
+        <li class="task-pending">
+          <span class="task-check">○</span>
+          <div>
+            <div class="task-title">Report soft-delete</div>
+            <div class="task-desc">deleted: true flag, hidden from UI but preserved in DB</div>
+          </div>
+        </li>
+      </ul>
+    </div>
+    
     <!-- PHASE 1: DONE -->
     <div class="phase">
       <div class="phase-header">
@@ -192,59 +245,6 @@
           <div>
             <div class="task-title">Platform filtering & build tags</div>
             <div class="task-desc">Quality presets (ultra, high, auto-detect), date grouping</div>
-          </div>
-        </li>
-      </ul>
-    </div>
-    
-    <!-- PHASE 2: IN PROGRESS -->
-    <div class="phase">
-      <div class="phase-header">
-        <span class="phase-status status-progress">🔨 In Progress</span>
-        <h2>Phase 2: Playtest Reports</h2>
-      </div>
-      <p class="phase-desc">Structured feedback with fun categories for each build.</p>
-      <ul class="tasks">
-        <li class="task-done">
-          <span class="task-check">✓</span>
-          <div>
-            <div class="task-title">Reports UI design</div>
-            <div class="task-desc">Tabs, report cards, detail view with 🍎🍟💭 sections</div>
-          </div>
-        </li>
-        <li class="task-done">
-          <span class="task-check">✓</span>
-          <div>
-            <div class="task-title">Backend functions (get/save report)</div>
-            <div class="task-desc">get-build-report.mjs, save-build-report.mjs</div>
-          </div>
-        </li>
-        <li class="task-progress">
-          <span class="task-check">◐</span>
-          <div>
-            <div class="task-title">Separate false.work-reports collection</div>
-            <div class="task-desc">Reports linked to builds by platform+version, soft delete support</div>
-          </div>
-        </li>
-        <li class="task-pending">
-          <span class="task-check">○</span>
-          <div>
-            <div class="task-title">In-browser report submission form</div>
-            <div class="task-desc">Authorized users can create/edit reports directly on site</div>
-          </div>
-        </li>
-        <li class="task-pending">
-          <span class="task-check">○</span>
-          <div>
-            <div class="task-title">Report soft-delete</div>
-            <div class="task-desc">deleted: true flag, hidden from UI but preserved in DB</div>
-          </div>
-        </li>
-        <li class="task-pending">
-          <span class="task-check">○</span>
-          <div>
-            <div class="task-title">Integrate into production index.html</div>
-            <div class="task-desc">Merge preview code into main builds page</div>
           </div>
         </li>
       </ul>
@@ -337,6 +337,59 @@
           <div>
             <div class="task-title">Multi-project support</div>
             <div class="task-desc">Support projects beyond SpiderLily</div>
+          </div>
+        </li>
+      </ul>
+    </div>
+    
+    <!-- PHASE 5: STEAM -->
+    <div class="phase">
+      <div class="phase-header">
+        <span class="phase-status status-future">🔮 Future</span>
+        <h2>Phase 5: Steam Integration</h2>
+      </div>
+      <p class="phase-desc">Steamworks integration for beta distribution and branch management.</p>
+      <ul class="tasks">
+        <li class="task-pending">
+          <span class="task-check">○</span>
+          <div>
+            <div class="task-title">Steam depot/branch configuration</div>
+            <div class="task-desc">app_build.vdf templates for default, beta, playtest branches</div>
+          </div>
+        </li>
+        <li class="task-pending">
+          <span class="task-check">○</span>
+          <div>
+            <div class="task-title">SteamCMD upload automation</div>
+            <div class="task-desc">Script to upload builds to Steam after local build completes</div>
+          </div>
+        </li>
+        <li class="task-pending">
+          <span class="task-check">○</span>
+          <div>
+            <div class="task-title">Branch selector in UI</div>
+            <div class="task-desc">Choose target Steam branch (default, beta, playtest) when uploading</div>
+          </div>
+        </li>
+        <li class="task-pending">
+          <span class="task-check">○</span>
+          <div>
+            <div class="task-title">Steam build status tracking</div>
+            <div class="task-desc">Show Steam upload status and branch info on build cards</div>
+          </div>
+        </li>
+        <li class="task-pending">
+          <span class="task-check">○</span>
+          <div>
+            <div class="task-title">Set live branch from UI</div>
+            <div class="task-desc">Promote builds between branches (playtest → beta → default)</div>
+          </div>
+        </li>
+        <li class="task-pending">
+          <span class="task-check">○</span>
+          <div>
+            <div class="task-title">Steam playtest invites</div>
+            <div class="task-desc">Generate and track Steam playtest access codes</div>
           </div>
         </li>
       </ul>
@@ -435,7 +488,7 @@
     </div>
 
     <footer>
-      <a href="reports-preview.html">← Back to builds.false.work</a>
+      <a href="/">← Back to builds.false.work</a>
       <br><br>
       <em>Last updated: December 15, 2025</em>
     </footer>
