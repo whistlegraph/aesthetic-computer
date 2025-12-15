@@ -107,6 +107,31 @@ async function checkMintStatus(pieceName) {
   }
 }
 
+// Simple hash for source code to detect changes
+function hashSource(source) {
+  let hash = 0;
+  for (let i = 0; i < source.length; i++) {
+    const char = source.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  return hash.toString(16);
+}
+
+// Check if cached IPFS media is valid (source hasn't changed)
+function isCachedMediaValid(piece) {
+  if (!piece.ipfsMedia) return false;
+  const { artifactUri, thumbnailUri, sourceHash, createdAt } = piece.ipfsMedia;
+  if (!artifactUri || !thumbnailUri) return false;
+  // Check if source code has changed
+  const currentHash = hashSource(piece.source || "");
+  if (currentHash !== sourceHash) return false;
+  // Cache is valid for 30 days max (runtime may have changed)
+  const maxAge = 30 * 24 * 60 * 60 * 1000;
+  if (createdAt && Date.now() - new Date(createdAt).getTime() > maxAge) return false;
+  return true;
+}
+
 // Upload file to IPFS via Pinata
 async function uploadToIPFS(content, filename, mimeType = "text/html") {
   const { apiKey, apiSecret } = await getPinataCredentials();
@@ -220,6 +245,7 @@ export const handler = stream(async (event, context) => {
 
       const pieceName = body.piece?.replace(/^\$/, "");
       const mode = body.mode || "prepare"; // "prepare" (default) or "mint" (server-side)
+      const regenerate = body.regenerate === true; // Force regenerate IPFS media
       
       if (!pieceName) {
         await send("error", { error: "Missing 'piece' in request body" });
@@ -288,16 +314,30 @@ export const handler = stream(async (event, context) => {
       await send("progress", { stage: "validate", message: "Validation passed ✓" });
       // Note: Keep database connection open - we need it later for user lookup and status update
       
+      // Check for cached IPFS media (reuse if source hasn't changed)
+      let useCachedMedia = !regenerate && isCachedMediaValid(piece);
+      let artifactUri, thumbnailUri, metadataUri;
+      
+      if (useCachedMedia) {
+        artifactUri = piece.ipfsMedia.artifactUri;
+        thumbnailUri = piece.ipfsMedia.thumbnailUri;
+        await send("progress", { stage: "ipfs", message: "Using cached IPFS media ✓" });
+        console.log(`🪙 KEEP: Reusing cached IPFS media for $${pieceName}`);
+      }
+      
       // Get Pinata credentials early for thumbnail generation
       const pinataCredentials = await getPinataCredentials();
 
       // ═══════════════════════════════════════════════════════════════════
-      // STAGE 2: START THUMBNAIL IN PARALLEL
+      // STAGE 2: START THUMBNAIL IN PARALLEL (skip if cached)
       // ═══════════════════════════════════════════════════════════════════
-      await send("progress", { stage: "thumbnail", message: "Starting thumbnail generation..." });
+      let thumbnailPromise = null;
       
-      // Helper to try oven thumbnail generation
-      const tryOvenThumbnail = async (ovenUrl) => {
+      if (!useCachedMedia) {
+        await send("progress", { stage: "thumbnail", message: "Starting thumbnail generation..." });
+        
+        // Helper to try oven thumbnail generation
+        const tryOvenThumbnail = async (ovenUrl) => {
         const res = await fetch(`${ovenUrl}/grab-ipfs`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -320,7 +360,7 @@ export const handler = stream(async (event, context) => {
       };
       
       // Try local oven first, then fallback to production
-      const thumbnailPromise = (async () => {
+      thumbnailPromise = !useCachedMedia ? (async () => {
         try {
           return await tryOvenThumbnail(OVEN_URL);
         } catch (localErr) {
@@ -336,7 +376,8 @@ export const handler = stream(async (event, context) => {
           }
           return null;
         }
-      })();
+      })() : Promise.resolve({ ipfsUri: thumbnailUri });
+      }
 
       // ═══════════════════════════════════════════════════════════════════
       // STAGE 3: ANALYZE SOURCE
@@ -351,63 +392,100 @@ export const handler = stream(async (event, context) => {
       });
 
       // ═══════════════════════════════════════════════════════════════════
-      // STAGE 4: GENERATE BUNDLE
+      // STAGE 4: GENERATE BUNDLE (skip if cached)
       // ═══════════════════════════════════════════════════════════════════
-      await send("progress", { stage: "bundle", message: "Generating HTML bundle..." });
+      let bundleHtml, bundleFilename, authorHandle, userCode, packDate, depCount;
       
-      const bundleUrl = dev 
-        ? `https://localhost:8888/api/bundle-html?code=${pieceName}&format=json`
-        : `https://aesthetic.computer/api/bundle-html?code=${pieceName}&format=json`;
-      
-      const bundleResponse = await fetch(bundleUrl);
-      if (!bundleResponse.ok) {
-        throw new Error(`Bundle generation failed: ${bundleResponse.status}`);
-      }
-      
-      const bundleData = await bundleResponse.json();
-      if (bundleData.error) {
-        throw new Error(`Bundle error: ${bundleData.error}`);
-      }
-      
-      const bundleHtml = Buffer.from(bundleData.content, "base64").toString("utf8");
-      const bundleFilename = bundleData.filename || `$${pieceName}.lisp.html`;
-      const authorHandle = bundleData.authorHandle || `@${userHandle}`;
-      const userCode = bundleData.userCode;
-      const packDate = bundleData.packDate;
-      const depCount = bundleData.depCount || 0;
+      if (!useCachedMedia) {
+        await send("progress", { stage: "bundle", message: "Generating HTML bundle..." });
+        
+        const bundleUrl = dev 
+          ? `https://localhost:8888/api/bundle-html?code=${pieceName}&format=json`
+          : `https://aesthetic.computer/api/bundle-html?code=${pieceName}&format=json`;
+        
+        const bundleResponse = await fetch(bundleUrl);
+        if (!bundleResponse.ok) {
+          throw new Error(`Bundle generation failed: ${bundleResponse.status}`);
+        }
+        
+        const bundleData = await bundleResponse.json();
+        if (bundleData.error) {
+          throw new Error(`Bundle error: ${bundleData.error}`);
+        }
+        
+        bundleHtml = Buffer.from(bundleData.content, "base64").toString("utf8");
+        bundleFilename = bundleData.filename || `$${pieceName}.lisp.html`;
+        authorHandle = bundleData.authorHandle || `@${userHandle}`;
+        userCode = bundleData.userCode;
+        packDate = bundleData.packDate;
+        depCount = bundleData.depCount || 0;
 
-      await send("progress", { stage: "bundle", message: "Bundle generated ✓" });
-
-      // ═══════════════════════════════════════════════════════════════════
-      // STAGE 5: UPLOAD BUNDLE TO IPFS
-      // ═══════════════════════════════════════════════════════════════════
-      await send("progress", { stage: "ipfs", message: "Uploading bundle to IPFS..." });
-      
-      const artifactUri = await uploadToIPFS(
-        bundleHtml, 
-        bundleFilename,
-        "text/html"
-      );
-      
-      await send("progress", { stage: "ipfs", message: "Bundle uploaded ✓" });
+        await send("progress", { stage: "bundle", message: "Bundle generated ✓" });
+      } else {
+        // Use cached values
+        authorHandle = piece.ipfsMedia.authorHandle || `@${userHandle}`;
+        userCode = piece.ipfsMedia.userCode;
+        packDate = piece.ipfsMedia.packDate;
+        depCount = piece.ipfsMedia.depCount || 0;
+        await send("progress", { stage: "bundle", message: "Using cached bundle ✓" });
+      }
 
       // ═══════════════════════════════════════════════════════════════════
-      // STAGE 6: AWAIT THUMBNAIL
+      // STAGE 5: UPLOAD BUNDLE TO IPFS (skip if cached)
       // ═══════════════════════════════════════════════════════════════════
-      await send("progress", { stage: "thumbnail", message: "Waiting for thumbnail..." });
-      
-      const thumbResult = await thumbnailPromise;
-      
-      if (!thumbResult?.ipfsUri) {
-        throw new Error("Thumbnail generation failed - oven unavailable");
+      if (!useCachedMedia) {
+        await send("progress", { stage: "ipfs", message: "Uploading bundle to IPFS..." });
+        
+        artifactUri = await uploadToIPFS(
+          bundleHtml, 
+          bundleFilename,
+          "text/html"
+        );
+        
+        await send("progress", { stage: "ipfs", message: "Bundle uploaded ✓" });
       }
-      
-      const thumbnailUri = thumbResult.ipfsUri;
-      
-      await send("progress", { 
-        stage: "thumbnail", 
-        message: "Thumbnail ready ✓"
-      });
+
+      // ═══════════════════════════════════════════════════════════════════
+      // STAGE 6: AWAIT THUMBNAIL (skip if cached)
+      // ═══════════════════════════════════════════════════════════════════
+      if (!useCachedMedia) {
+        await send("progress", { stage: "thumbnail", message: "Waiting for thumbnail..." });
+        
+        const thumbResult = await thumbnailPromise;
+        
+        if (!thumbResult?.ipfsUri) {
+          throw new Error("Thumbnail generation failed - oven unavailable");
+        }
+        
+        thumbnailUri = thumbResult.ipfsUri;
+        
+        await send("progress", { 
+          stage: "thumbnail", 
+          message: "Thumbnail ready ✓"
+        });
+        
+        // Cache the IPFS media in MongoDB for future use
+        await collection.updateOne(
+          { code: pieceName },
+          { 
+            $set: { 
+              ipfsMedia: {
+                artifactUri,
+                thumbnailUri,
+                sourceHash: hashSource(piece.source || ""),
+                authorHandle,
+                userCode,
+                packDate,
+                depCount,
+                createdAt: new Date(),
+              }
+            }
+          }
+        );
+        console.log(`🪙 KEEP: Cached IPFS media for $${pieceName}`);
+      } else {
+        await send("progress", { stage: "thumbnail", message: "Using cached thumbnail ✓" });
+      }
 
       // ═══════════════════════════════════════════════════════════════════
       // STAGE 7: BUILD & UPLOAD METADATA
