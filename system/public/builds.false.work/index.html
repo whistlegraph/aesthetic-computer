@@ -763,8 +763,8 @@
       <!-- Single content view with platform filters including Reports -->
       <div id="main-content">
         <div class="platform-filters">
+          <button data-platform="all" class="active" onclick="filterPlatform('all')">All</button>
           <button data-platform="reports" onclick="filterPlatform('reports')">📝 Reports</button>
-          <button data-platform="all" class="active" onclick="filterPlatform('all')">All Builds</button>
           <button data-platform="windows" onclick="filterPlatform('windows')">🪟 Windows</button>
           <button data-platform="mac" onclick="filterPlatform('mac')">🍎 Mac</button>
           <button data-platform="ios" onclick="filterPlatform('ios')">📱 iOS</button>
@@ -1024,7 +1024,7 @@
         ? allBuilds 
         : allBuilds.filter(b => b.platform === currentFilter);
       
-      if (filtered.length === 0) {
+      if (filtered.length === 0 && (currentFilter !== 'all' || allReports.length === 0)) {
         container.innerHTML = '<p style="color: #666; font-style: italic;">No builds available.</p>';
         return;
       }
@@ -1032,31 +1032,85 @@
       const grouped = {};
       const today = new Date().toDateString();
       const yesterday = new Date(Date.now() - 86400000).toDateString();
+      
+      function getDateLabel(date) {
+        const dateStr = date.toDateString();
+        if (dateStr === today) return 'Today';
+        if (dateStr === yesterday) return 'Yesterday';
+        return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+      }
 
+      // Add builds to grouped
       filtered.forEach(build => {
-        const date = new Date(build.timestamp).toDateString();
-        let label;
-        if (date === today) label = 'Today';
-        else if (date === yesterday) label = 'Yesterday';
-        else label = new Date(build.timestamp).toLocaleDateString('en-US', { 
-          month: 'long', day: 'numeric', year: 'numeric' 
-        });
-        
+        const label = getDateLabel(new Date(build.timestamp));
         if (!grouped[label]) grouped[label] = [];
-        grouped[label].push(build);
+        grouped[label].push({ type: 'build', data: build, timestamp: new Date(build.timestamp) });
+      });
+      
+      // Add reports to grouped if showing "all"
+      if (currentFilter === 'all') {
+        allReports.forEach(report => {
+          const label = getDateLabel(new Date(report.createdAt));
+          if (!grouped[label]) grouped[label] = [];
+          grouped[label].push({ type: 'report', data: report, timestamp: new Date(report.createdAt) });
+        });
+      }
+      
+      // Sort groups by date (most recent first)
+      const sortedLabels = Object.keys(grouped).sort((a, b) => {
+        if (a === 'Today') return -1;
+        if (b === 'Today') return 1;
+        if (a === 'Yesterday') return -1;
+        if (b === 'Yesterday') return 1;
+        return new Date(b) - new Date(a);
       });
 
       let html = '';
-      Object.keys(grouped).forEach(dateLabel => {
+      sortedLabels.forEach(dateLabel => {
         const isToday = dateLabel === 'Today';
         html += `<h3 class="date-header ${isToday ? 'today' : 'previous'}">${dateLabel}</h3>`;
-        grouped[dateLabel].forEach(build => {
-          html += renderBuildCard(build);
+        
+        // Sort items within each day by timestamp descending
+        grouped[dateLabel].sort((a, b) => b.timestamp - a.timestamp);
+        
+        grouped[dateLabel].forEach(item => {
+          if (item.type === 'build') {
+            html += renderBuildCard(item.data);
+          } else {
+            html += renderReportCardInFeed(item.data);
+          }
         });
       });
 
       container.innerHTML = html;
       updateBuildTimes();
+    }
+    
+    function renderReportCardInFeed(report) {
+      const platformEmoji = { windows: '🪟', mac: '🍎', ios: '📱' };
+      const fruitCount = (report.lowHangingFruit || []).length;
+      const sideCount = (report.onTheSide || []).length;
+      const bigCount = (report.biggerThoughts || []).length;
+      
+      const time = new Date(report.createdAt).toLocaleTimeString('en-US', {
+        hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/Los_Angeles'
+      }) + ' PT';
+      
+      const tester = report.tester || 'Anonymous';
+      
+      return `
+        <div class="build-card report-feed-card" onclick="viewReport('${report._id}')" style="cursor: pointer;">
+          <div class="build-header">
+            <span class="platform-tag" style="background: var(--accent); color: white;">📝 Report</span>
+            <span class="project-name">${platformEmoji[report.buildPlatform] || '📦'} SpiderLily ${report.buildVersion}</span>
+            <span style="color: var(--text-muted);">by <strong>${tester}</strong> @ ${time}</span>
+          </div>
+          <div class="meta" style="margin-top: 0.5rem;">${report.summary || 'No summary'}</div>
+          <div style="margin-top: 0.5rem; font-size: 0.85rem; color: var(--text-muted);">
+            🍎 ${fruitCount} low-hanging · 🍟 ${sideCount} on the side · 💭 ${bigCount} bigger thoughts
+          </div>
+        </div>
+      `;
     }
 
     function renderBuildCard(build) {
@@ -1064,7 +1118,7 @@
       const platformLabel = { windows: 'Windows', mac: 'Mac', ios: 'iOS' };
       const fileExt = build.platform === 'ios' ? 'ipa' : 'zip';
       const isFailed = build.status === 'failed' || build.status === 'stale';
-      const buildReport = allReports.find(r => r.buildPlatform === build.platform && r.buildVersion === build.version);
+      const buildReports = allReports.filter(r => r.buildPlatform === build.platform && r.buildVersion === build.version);
       
       let html = `
         <div class="build-card ${build.platform}${isFailed ? ' failed' : ''}">
@@ -1092,13 +1146,15 @@
         html += `<span style="margin-left: 0.5rem; color: #666; font-size: 0.9rem;">(<a href="${build.logUrl}" style="color: #888;">log</a>)</span>`;
       }
       
-      // Report buttons
-      if (buildReport) {
-        const tester = buildReport.tester || 'Anonymous';
-        const time = new Date(buildReport.createdAt).toLocaleTimeString('en-US', {
-          hour: 'numeric', minute: '2-digit', hour12: true
+      // Show all reports for this build
+      if (buildReports.length > 0) {
+        buildReports.forEach(report => {
+          const tester = report.tester || 'Anonymous';
+          const time = new Date(report.createdAt).toLocaleTimeString('en-US', {
+            hour: 'numeric', minute: '2-digit', hour12: true
+          });
+          html += `<button class="report-btn has-report" onclick="viewReport('${report._id}')" title="Report by ${tester}">📝 ${tester} @ ${time}</button>`;
         });
-        html += `<button class="report-btn has-report" onclick="viewReportForBuild('${build.platform}', '${build.version}')" title="Report by ${tester}">📝 ${tester} @ ${time}</button>`;
       }
       if (!isFailed) {
         html += `<button class="report-btn add-report" onclick="openReportModalForBuild('${build.platform}', '${build.version}')" title="Write a report">+</button>`;
