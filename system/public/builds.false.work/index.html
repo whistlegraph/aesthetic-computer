@@ -1206,28 +1206,38 @@
         return;
       }
 
+      const platformEmoji = { windows: '🪟', mac: '🍎', ios: '📱' };
+      
+      // Group reports by build (platform + version)
       const grouped = {};
-      const today = new Date().toDateString();
-      const yesterday = new Date(Date.now() - 86400000).toDateString();
-
       allReports.forEach(report => {
-        const date = new Date(report.createdAt).toDateString();
-        let label;
-        if (date === today) label = 'Today';
-        else if (date === yesterday) label = 'Yesterday';
-        else label = new Date(report.createdAt).toLocaleDateString('en-US', { 
-          month: 'long', day: 'numeric', year: 'numeric' 
-        });
-        
-        if (!grouped[label]) grouped[label] = [];
-        grouped[label].push(report);
+        const buildKey = `${report.buildPlatform}|${report.buildVersion}`;
+        if (!grouped[buildKey]) {
+          grouped[buildKey] = {
+            platform: report.buildPlatform,
+            version: report.buildVersion,
+            reports: []
+          };
+        }
+        grouped[buildKey].reports.push(report);
+      });
+
+      // Sort builds by newest report first, then render
+      const sortedBuilds = Object.values(grouped).sort((a, b) => {
+        const aLatest = Math.max(...a.reports.map(r => new Date(r.createdAt).getTime()));
+        const bLatest = Math.max(...b.reports.map(r => new Date(r.createdAt).getTime()));
+        return bLatest - aLatest;
       });
 
       let html = '';
-      Object.keys(grouped).forEach(dateLabel => {
-        const isToday = dateLabel === 'Today';
-        html += `<h3 class="date-header ${isToday ? 'today' : 'previous'}">${dateLabel}</h3>`;
-        grouped[dateLabel].forEach(report => {
+      sortedBuilds.forEach(build => {
+        const emoji = platformEmoji[build.platform] || '📦';
+        const reportCount = build.reports.length;
+        html += `<h3 class="date-header">${emoji} SpiderLily ${build.version} <span style="font-weight: normal; color: var(--text-muted);">(${reportCount} report${reportCount !== 1 ? 's' : ''})</span></h3>`;
+        
+        // Sort reports within build by date descending
+        build.reports.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        build.reports.forEach(report => {
           html += renderReportCard(report);
         });
       });
@@ -1236,12 +1246,24 @@
     }
 
     function renderReportCard(report) {
-      const platformEmoji = { windows: '🪟', mac: '🍎', ios: '📱' };
       const fruitCount = (report.lowHangingFruit || []).length;
       const sideCount = (report.onTheSide || []).length;
       const bigCount = (report.biggerThoughts || []).length;
       
-      const time = new Date(report.createdAt).toLocaleTimeString('en-US', {
+      const reportDate = new Date(report.createdAt);
+      const today = new Date().toDateString();
+      const yesterday = new Date(Date.now() - 86400000).toDateString();
+      
+      let dateLabel;
+      if (reportDate.toDateString() === today) {
+        dateLabel = 'Today';
+      } else if (reportDate.toDateString() === yesterday) {
+        dateLabel = 'Yesterday';
+      } else {
+        dateLabel = reportDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      }
+      
+      const time = reportDate.toLocaleTimeString('en-US', {
         hour: 'numeric',
         minute: '2-digit',
         hour12: true,
@@ -1253,8 +1275,8 @@
       return `
         <div class="report-card" onclick="viewReport('${report._id}')">
           <div class="report-card-header">
-            <span class="report-card-title">${platformEmoji[report.buildPlatform] || '📦'} SpiderLily ${report.buildVersion}</span>
-            <span class="report-card-date">by <strong>${tester}</strong> @ ${time}</span>
+            <span class="report-card-title">📝 Report by <strong>${tester}</strong></span>
+            <span class="report-card-date">${dateLabel} @ ${time}</span>
           </div>
           <div class="report-card-summary">${report.summary || 'No summary'}</div>
           <div class="report-card-stats">
