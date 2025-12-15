@@ -498,6 +498,41 @@ class ArteryTUI {
     return grid;
   }
   
+  // Get matrix rain color palette based on connectivity status
+  getMatrixColorPalette() {
+    if (this.serverStatus.local === true) {
+      // 🟢 Local server up - green rain
+      return [
+        '\x1b[38;5;22m',  // 0: very dark green
+        '\x1b[38;5;28m',  // 1: dark green
+        '\x1b[38;5;34m',  // 2: medium green
+        '\x1b[38;5;40m',  // 3: green
+        '\x1b[38;5;46m',  // 4: bright green
+        '\x1b[38;5;156m', // 5: very bright green/white (head)
+      ];
+    } else if (this.serverStatus.local === false) {
+      // 🔴 Local server down - red rain
+      return [
+        '\x1b[38;5;52m',  // 0: very dark red
+        '\x1b[38;5;88m',  // 1: dark red
+        '\x1b[38;5;124m', // 2: medium red
+        '\x1b[38;5;160m', // 3: red
+        '\x1b[38;5;196m', // 4: bright red
+        '\x1b[38;5;217m', // 5: very bright red/pink (head)
+      ];
+    } else {
+      // 🟡 Unknown/checking - yellow rain
+      return [
+        '\x1b[38;5;58m',  // 0: very dark yellow/olive
+        '\x1b[38;5;100m', // 1: dark yellow
+        '\x1b[38;5;142m', // 2: medium yellow
+        '\x1b[38;5;184m', // 3: yellow
+        '\x1b[38;5;226m', // 4: bright yellow
+        '\x1b[38;5;229m', // 5: very bright yellow/white (head)
+      ];
+    }
+  }
+  
   // Render a single line of matrix rain
   renderMatrixRainLine(row, rainLayer, bg) {
     if (!rainLayer || !rainLayer[row]) {
@@ -506,21 +541,15 @@ class ArteryTUI {
     }
     
     let line = '';
+    const colorPalette = this.getMatrixColorPalette();
+    
     for (let col = 0; col < this.width; col++) {
       const cell = rainLayer[row][col];
       if (cell) {
-        // Green color based on fade value
-        // fade 1.0 = bright green (head), fade 0.0 = dim (tail)
+        // Color based on fade value and server status
+        // fade 1.0 = bright (head), fade 0.0 = dim (tail)
         const brightness = Math.floor(cell.fade * 5); // 0-5
-        const greenCodes = [
-          '\x1b[38;5;22m',  // 0: very dark green
-          '\x1b[38;5;28m',  // 1: dark green
-          '\x1b[38;5;34m',  // 2: medium green
-          '\x1b[38;5;40m',  // 3: green
-          '\x1b[38;5;46m',  // 4: bright green
-          '\x1b[38;5;156m', // 5: very bright green/white (head)
-        ];
-        const color = greenCodes[Math.min(brightness, 5)];
+        const color = colorPalette[Math.min(brightness, 5)];
         line += `${color}${cell.char}${RESET}${bg}`;
       } else {
         line += ' ';

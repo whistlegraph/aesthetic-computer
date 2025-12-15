@@ -236,6 +236,88 @@ function ac-pack
     cd $current_dir
 end
 
+# AC Login - Authenticate with Aesthetic Computer (OAuth Device Code Flow)
+# Usage: ac-login [status|logout|token]
+# Stores access token in $AC_TOKEN environment variable for use in scripts
+function ac-login
+    set -l cmd $argv[1]
+    
+    if test "$cmd" = "status"
+        node /workspaces/aesthetic-computer/tezos/ac-login.mjs status
+        return $status
+    else if test "$cmd" = "logout"
+        node /workspaces/aesthetic-computer/tezos/ac-login.mjs logout
+        set -e AC_TOKEN
+        set -e AC_USER_EMAIL
+        return 0
+    else if test "$cmd" = "token"
+        node /workspaces/aesthetic-computer/tezos/ac-login.mjs token
+        return $status
+    else
+        # Login and capture token
+        node /workspaces/aesthetic-computer/tezos/ac-login.mjs
+        
+        if test $status -eq 0
+            # Read token from file and export to environment
+            if test -f ~/.ac-token
+                set -l token_json (cat ~/.ac-token)
+                set -gx AC_TOKEN (echo $token_json | jq -r '.access_token')
+                set -gx AC_USER_EMAIL (echo $token_json | jq -r '.user.email // .user.name // .user.sub')
+                echo ""
+                echo "🔑 Token exported to \$AC_TOKEN"
+                echo "👤 User exported to \$AC_USER_EMAIL"
+                echo ""
+                echo "Example usage:"
+                echo "  curl -H \"Authorization: Bearer \$AC_TOKEN\" https://aesthetic.computer/api/keep-mint"
+            end
+        end
+        
+        return $status
+    end
+end
+
+# AC Token - Get current access token (shortcut)
+# Usage: ac-token [--refresh]
+function ac-token
+    if test "$argv[1]" = "--refresh"
+        # Re-read from file
+        if test -f ~/.ac-token
+            set -l token_json (cat ~/.ac-token)
+            set -gx AC_TOKEN (echo $token_json | jq -r '.access_token')
+            set -gx AC_USER_EMAIL (echo $token_json | jq -r '.user.email // .user.name // .user.sub')
+            echo "✅ Token refreshed from ~/.ac-token"
+        else
+            echo "❌ No token file found. Run: ac-login"
+            return 1
+        end
+    else if test -n "$AC_TOKEN"
+        echo $AC_TOKEN
+    else
+        # Try to load from file
+        if test -f ~/.ac-token
+            set -l token_json (cat ~/.ac-token)
+            set -gx AC_TOKEN (echo $token_json | jq -r '.access_token')
+            echo $AC_TOKEN
+        else
+            echo "❌ Not logged in. Run: ac-login" >&2
+            return 1
+        end
+    end
+end
+
+# AC Keeps - Interactive CLI for keeping KidLisp pieces on Tezos
+# Usage: ac-keeps [list|keep|wallet|status] [args...]
+# Commands:
+#   ac-keeps              - Interactive mode
+#   ac-keeps list         - List your pieces
+#   ac-keeps list --top   - List by popularity
+#   ac-keeps keep $code   - Keep a piece (you pay 5ꜩ)
+#   ac-keeps wallet       - Connect Tezos wallet
+#   ac-keeps status $code - Check if piece is kept
+function ac-keeps
+    node /workspaces/aesthetic-computer/tezos/ac-keeps.mjs $argv
+end
+
 # AC Keep - Create self-contained HTML bundles for Tezos KEEPS
 # Usage: ac-keep '$bop' or ac-keep 'bop' (from any directory)
 # Creates a single HTML file that runs offline with all dependencies embedded
@@ -1672,7 +1754,7 @@ function ac-oven
     npx kill-port 3002 2>/dev/null
     
     echo "🚀 Starting oven server on https://localhost:3002..."
-    npm run local-dev
+    npm run dev
 end
 
 alias ac-stripe-print 'ac; npm run stripe-print-micro'
