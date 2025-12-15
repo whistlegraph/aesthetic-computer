@@ -760,17 +760,12 @@
         <img class="logo" src="https://assets.aesthetic.computer/false.work/falsework-logo.png" alt="false.work" style="width: 200px;">
       </div>
       
-      <!-- Main Tabs -->
-      <div class="main-tabs">
-        <button class="main-tab active" onclick="showMainTab('builds')">Builds</button>
-        <button class="main-tab" onclick="showMainTab('reports')">📝 Reports</button>
-      </div>
-      
-      <!-- BUILDS TAB -->
-      <div id="builds-tab" class="tab-content active">
+      <!-- Single content view with platform filters including Reports -->
+      <div id="main-content">
         <div class="platform-filters">
-          <button data-platform="all" class="active" onclick="filterPlatform('all')">All</button>
-          <button data-platform="windows" onclick="filterPlatform('windows')">🪟 Windows</button>
+          <button data-platform="reports" onclick="filterPlatform('reports')">📝 Reports</button>
+          <button data-platform="all" class="active" onclick="filterPlatform('all')">All Builds</button>
+          <button data-platform="windows" onclick="filterPlatform('windows')'">🪟 Windows</button>
           <button data-platform="mac" onclick="filterPlatform('mac')">🍎 Mac</button>
           <button data-platform="ios" onclick="filterPlatform('ios')">📱 iOS</button>
           <button class="disabled" title="Coming soon">🎮 Gameboy</button>
@@ -778,27 +773,28 @@
           <button class="disabled" title="Coming soon">🕹️ N64</button>
         </div>
         
+        <!-- Builds list (shown for all/windows/mac/ios) -->
         <div id="builds-list">
           <div class="loading">Loading builds</div>
         </div>
-      </div>
-      
-      <!-- REPORTS TAB -->
-      <div id="reports-tab" class="tab-content">
-        <button class="new-report-btn" onclick="openReportModal()">+ New Report</button>
-        <div id="reports-list">
-          <div class="loading">Loading reports</div>
+        
+        <!-- Reports list (shown for reports filter) -->
+        <div id="reports-list" style="display: none;">
+          <button class="new-report-btn" onclick="openReportModal()">+ New Report</button>
+          <div id="reports-content">
+            <div class="loading">Loading reports</div>
+          </div>
         </div>
       </div>
       
       <!-- REPORT DETAIL VIEW -->
-      <div id="report-view" class="tab-content">
+      <div id="report-view" style="display: none;">
         <div class="report-view">
           <div class="report-header">
             <h2>📝 Playtest Report</h2>
             <div class="report-header-buttons">
               <button class="copy-llm-btn" onclick="copyReportForLLM()">📋 Copy for LLM</button>
-              <button class="back-btn" onclick="showMainTab('reports')">← Back to Reports</button>
+              <button class="back-btn" onclick="hideReportDetail()">← Back to Reports</button>
             </div>
           </div>
           <div id="report-detail-content"></div>
@@ -868,11 +864,41 @@
   </div>
 
   <script>
-    let sessionPassword = null;
+    let sessionPassword = localStorage.getItem('builds-session') || null;
     let allBuilds = [];
     let allReports = [];
     let currentFilter = 'all';
     let currentTab = 'builds';
+    
+    // Auto-login on page load if session exists
+    (async function init() {
+      if (sessionPassword) {
+        try {
+          const res = await fetch('/.netlify/functions/verify-builds-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: sessionPassword })
+          });
+          const data = await res.json();
+          if (data.success) {
+            showAuthenticatedUI();
+            await Promise.all([loadBuilds(), loadReports()]);
+            handleRoute();
+            return;
+          }
+        } catch (err) {}
+        // Session invalid, clear it
+        localStorage.removeItem('builds-session');
+        sessionPassword = null;
+      }
+    })();
+    
+    function showAuthenticatedUI() {
+      document.getElementById('auth-container').style.display = 'none';
+      document.body.classList.add('authenticated');
+      document.getElementById('footer-lock').textContent = '🔓';
+      document.getElementById('logout-link').style.display = 'inline';
+    }
 
     async function checkPassword() {
       const password = document.getElementById('password').value;
@@ -887,12 +913,10 @@
         
         if (data.success) {
           sessionPassword = password;
-          document.getElementById('auth-container').style.display = 'none';
-          document.body.classList.add('authenticated');
-          document.getElementById('footer-lock').textContent = '🔓';
-          document.getElementById('logout-link').style.display = 'inline';
+          localStorage.setItem('builds-session', password);
+          showAuthenticatedUI();
           await Promise.all([loadBuilds(), loadReports()]);
-          handleRoute(); // Handle URL routing after data loads
+          handleRoute();
         } else {
           document.getElementById('error').textContent = 'Incorrect password';
           document.getElementById('password').value = '';
@@ -902,43 +926,46 @@
       }
     }
 
-    // Tab navigation with URL routing
-    function showMainTab(tabName, updateHash = true) {
-      currentTab = tabName;
-      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.main-tab').forEach(t => t.classList.remove('active'));
-      
-      if (tabName === 'report-view') {
-        document.getElementById('report-view').classList.add('active');
-        if (updateHash && currentViewingReportId) {
-          history.pushState(null, '', `#report/${currentViewingReportId}`);
-        }
-      } else {
-        document.getElementById(tabName + '-tab').classList.add('active');
-        const tabBtn = document.querySelector(`.main-tab[onclick="showMainTab('${tabName}')"]`);
-        if (tabBtn) tabBtn.classList.add('active');
-        if (updateHash) {
-          history.pushState(null, '', tabName === 'builds' ? '#' : `#${tabName}`);
-        }
+    // View management
+    function showReportDetail(updateHash = true) {
+      document.getElementById('main-content').style.display = 'none';
+      document.getElementById('report-view').style.display = 'block';
+      if (updateHash && currentViewingReportId) {
+        history.pushState(null, '', `#report/${currentViewingReportId}`);
       }
+    }
+    
+    function hideReportDetail() {
+      document.getElementById('report-view').style.display = 'none';
+      document.getElementById('main-content').style.display = 'block';
+      filterPlatform('reports');
     }
     
     // Handle URL routing
     function handleRoute() {
       const hash = window.location.hash.slice(1); // remove #
-      if (!hash || hash === 'builds') {
-        showMainTab('builds', false);
-      } else if (hash === 'reports') {
-        showMainTab('reports', false);
-      } else if (hash.startsWith('report/')) {
+      
+      // Handle report detail view
+      if (hash.startsWith('report/')) {
         const reportId = hash.slice(7);
         const report = allReports.find(r => r._id === reportId);
         if (report) {
           viewReport(reportId);
-        } else {
-          showMainTab('reports', false);
+          return;
         }
       }
+      
+      // Handle platform filters
+      const platformMap = {
+        '': 'all',
+        'reports': 'reports',
+        'windows': 'windows',
+        'mac': 'mac',
+        'ios': 'ios'
+      };
+      
+      const platform = platformMap[hash] || 'all';
+      filterPlatform(platform, false);
     }
     
     window.addEventListener('popstate', handleRoute);
@@ -965,12 +992,30 @@
       }
     }
 
-    function filterPlatform(platform) {
+    function filterPlatform(platform, updateHash = true) {
       currentFilter = platform;
       document.querySelectorAll('.platform-filters button').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.platform === platform);
       });
-      renderBuilds();
+      
+      // Show/hide builds vs reports
+      const buildsList = document.getElementById('builds-list');
+      const reportsList = document.getElementById('reports-list');
+      
+      if (platform === 'reports') {
+        buildsList.style.display = 'none';
+        reportsList.style.display = 'block';
+        renderReports();
+      } else {
+        buildsList.style.display = 'block';
+        reportsList.style.display = 'none';
+        renderBuilds();
+      }
+      
+      if (updateHash) {
+        const hashMap = { all: '', reports: 'reports', windows: 'windows', mac: 'mac', ios: 'ios' };
+        history.pushState(null, '', platform === 'all' ? '#' : `#${hashMap[platform]}`);
+      }
     }
 
     function renderBuilds() {
@@ -1150,7 +1195,7 @@
     }
 
     function renderReports() {
-      const container = document.getElementById('reports-list');
+      const container = document.getElementById('reports-content');
       
       if (allReports.length === 0) {
         container.innerHTML = '<div class="no-reports">No playtest reports yet. Click "+ New Report" to create one!</div>';
@@ -1261,7 +1306,7 @@
       
       document.getElementById('report-detail-content').innerHTML = html;
       currentViewingReportId = reportId;
-      showMainTab('report-view');
+      showReportDetail();
     }
 
     let currentViewingReportId = null;
@@ -1449,7 +1494,7 @@
         
         closeReportModal();
         await loadReports();
-        showMainTab('reports');
+        filterPlatform('reports');
       } catch (err) {
         console.error('Save report error:', err);
         alert('Failed to save report. Please try again.');
@@ -1459,6 +1504,7 @@
     // === UTILITY ===
     function logout() {
       sessionPassword = null;
+      localStorage.removeItem('builds-session');
       allBuilds = [];
       allReports = [];
       document.getElementById('footer-lock').textContent = '🔒';
