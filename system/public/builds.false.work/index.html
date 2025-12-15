@@ -35,6 +35,9 @@
       --card-ios-bg: linear-gradient(135deg, #0a0a0a 0%, #1a0a1a 100%);
       --ios-note-bg: #1a0a1a;
       --tag-bg: #222;
+      --fruit-color: #0f0;
+      --side-color: #09f;
+      --big-color: #f0f;
     }
 
     @media (prefers-color-scheme: light) {
@@ -64,6 +67,9 @@
         --card-ios-bg: linear-gradient(135deg, #fff 0%, #ffe8ff 100%);
         --ios-note-bg: #fef0fe;
         --tag-bg: #f0f0f0;
+        --fruit-color: #080;
+        --side-color: #07d;
+        --big-color: #c0c;
       }
       .logo {
         filter: invert(1);
@@ -369,6 +375,324 @@
       border-color: var(--border-secondary);
       color: var(--text-secondary);
     }
+    /* Main tabs */
+    .main-tabs {
+      display: flex;
+      gap: 0;
+      margin-bottom: 1.5rem;
+      border-bottom: 1px solid var(--border-primary);
+    }
+    .main-tab {
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 1rem;
+      padding: 0.75rem 1.5rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-bottom: -1px;
+    }
+    .main-tab:hover { color: var(--text-secondary); }
+    .main-tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    /* Report button on build cards */
+    .report-btn {
+      display: inline-block;
+      background: linear-gradient(135deg, var(--accent) 0%, #f60 100%);
+      color: #000 !important;
+      padding: 0.3rem 0.75rem;
+      border-radius: 4px;
+      text-decoration: none !important;
+      font-weight: bold;
+      font-size: 0.8rem;
+      margin-left: 0.5rem;
+      cursor: pointer;
+      border: none;
+      font-family: inherit;
+      transition: all 0.2s;
+    }
+    .report-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 2px 8px rgba(255, 170, 0, 0.3);
+    }
+    .report-btn.has-report { background: linear-gradient(135deg, var(--fruit-color) 0%, #0a0 100%); }
+    /* Report cards */
+    .report-card {
+      padding: 1.5rem;
+      background: var(--bg-card);
+      border-radius: 4px;
+      margin-bottom: 1rem;
+      border: 1px solid var(--border-primary);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .report-card:hover {
+      border-color: var(--accent);
+      transform: translateX(4px);
+    }
+    .report-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    .report-card-title { color: var(--accent); font-weight: bold; }
+    .report-card-date { color: var(--text-muted); font-size: 0.85rem; }
+    .report-card-summary { color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 0.75rem; }
+    .report-card-stats { display: flex; gap: 1rem; font-size: 0.8rem; flex-wrap: wrap; }
+    .stat { color: var(--text-muted); }
+    .stat-fruit { color: var(--fruit-color); }
+    .stat-side { color: var(--side-color); }
+    .stat-big { color: var(--big-color); }
+    /* Report detail view */
+    .report-view {
+      background: var(--bg-card);
+      border-radius: 8px;
+      padding: 2rem;
+      border: 1px solid var(--border-primary);
+    }
+    .report-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid var(--border-primary);
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    .report-header h2 { color: var(--accent); font-size: 1.3rem; }
+    .back-btn {
+      background: var(--bg-button);
+      border: 1px solid var(--border-secondary);
+      color: var(--text-secondary);
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+      font-family: inherit;
+      border-radius: 4px;
+    }
+    .back-btn:hover { background: var(--bg-button-hover); }
+    .report-meta {
+      display: flex;
+      gap: 2rem;
+      margin-bottom: 2rem;
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+      flex-wrap: wrap;
+    }
+    .report-meta span { display: flex; align-items: center; gap: 0.3rem; }
+    .report-summary {
+      background: var(--bg-secondary);
+      padding: 1rem;
+      border-radius: 4px;
+      margin-bottom: 2rem;
+      border-left: 3px solid var(--accent);
+    }
+    .report-section { margin-bottom: 2rem; }
+    .report-section h3 {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+      font-size: 1.1rem;
+    }
+    .section-fruit h3 { color: var(--fruit-color); }
+    .section-side h3 { color: var(--side-color); }
+    .section-big h3 { color: var(--big-color); }
+    .report-items { list-style: none; }
+    .report-items li {
+      padding: 0.75rem 1rem;
+      margin-bottom: 0.5rem;
+      background: var(--bg-secondary);
+      border-radius: 4px;
+      border-left: 3px solid var(--border-primary);
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+    }
+    .section-fruit .report-items li { border-left-color: var(--fruit-color); }
+    .section-side .report-items li { border-left-color: var(--side-color); }
+    .section-big .report-items li { border-left-color: var(--big-color); }
+    .item-icon { font-size: 1.1rem; flex-shrink: 0; }
+    .item-content { flex: 1; }
+    .item-title { font-weight: bold; margin-bottom: 0.25rem; }
+    .item-desc { color: var(--text-secondary); font-size: 0.9rem; }
+    /* New report button */
+    .new-report-btn {
+      background: linear-gradient(135deg, var(--accent) 0%, #f60 100%);
+      border: none;
+      color: #000;
+      padding: 0.6rem 1.25rem;
+      cursor: pointer;
+      font-family: inherit;
+      font-weight: bold;
+      font-size: 0.9rem;
+      border-radius: 4px;
+      margin-bottom: 1.5rem;
+    }
+    .new-report-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 2px 8px rgba(255, 170, 0, 0.3);
+    }
+    /* Modal */
+    .modal {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.85);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 1rem;
+    }
+    .modal-content {
+      background: var(--bg-card);
+      border: 1px solid var(--border-primary);
+      border-radius: 8px;
+      width: 100%;
+      max-width: 600px;
+      max-height: 90vh;
+      overflow-y: auto;
+      padding: 1.5rem;
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid var(--border-primary);
+    }
+    .modal-header h2 { color: var(--accent); font-size: 1.2rem; }
+    .close-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1.5rem;
+      cursor: pointer;
+      padding: 0;
+      line-height: 1;
+    }
+    .close-btn:hover { color: var(--text-primary); }
+    .form-row { margin-bottom: 1rem; }
+    .form-row label {
+      display: block;
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+      margin-bottom: 0.25rem;
+    }
+    .form-row input, .form-row textarea, .form-row select {
+      width: 100%;
+      background: var(--bg-input);
+      border: 1px solid var(--border-input);
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: 0.95rem;
+      padding: 0.6rem;
+      border-radius: 4px;
+    }
+    .form-row input:focus, .form-row textarea:focus, .form-row select:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    .form-section {
+      margin: 1.5rem 0;
+      padding: 1rem;
+      background: var(--bg-secondary);
+      border-radius: 6px;
+    }
+    .form-section h3 { font-size: 1rem; margin-bottom: 0.25rem; }
+    .form-hint { color: var(--text-muted); font-size: 0.8rem; margin-bottom: 0.75rem; }
+    .item-list { margin-bottom: 0.5rem; }
+    .item-row {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 0.5rem;
+      align-items: center;
+    }
+    .item-row .item-title-input {
+      flex: 1;
+      background: var(--bg-input);
+      border: 1px solid var(--border-input);
+      color: var(--text-primary);
+      font-family: inherit;
+      padding: 0.5rem;
+      border-radius: 4px;
+      font-size: 0.9rem;
+    }
+    .item-row .item-desc-input {
+      flex: 1.5;
+      background: var(--bg-input);
+      border: 1px solid var(--border-input);
+      color: var(--text-primary);
+      font-family: inherit;
+      padding: 0.5rem;
+      border-radius: 4px;
+      font-size: 0.9rem;
+    }
+    .item-row input:focus { outline: none; border-color: var(--accent); }
+    .remove-item-btn {
+      background: none;
+      border: none;
+      color: var(--error);
+      cursor: pointer;
+      font-size: 1rem;
+      padding: 0.25rem;
+      opacity: 0.6;
+    }
+    .remove-item-btn:hover { opacity: 1; }
+    .add-item-btn {
+      background: none;
+      border: 1px dashed var(--border-secondary);
+      color: var(--text-muted);
+      padding: 0.4rem 0.75rem;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.85rem;
+      border-radius: 4px;
+    }
+    .add-item-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .form-actions {
+      display: flex;
+      gap: 1rem;
+      justify-content: flex-end;
+      margin-top: 1.5rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border-primary);
+    }
+    .cancel-btn {
+      background: var(--bg-button);
+      border: 1px solid var(--border-secondary);
+      color: var(--text-secondary);
+      padding: 0.6rem 1.25rem;
+      cursor: pointer;
+      font-family: inherit;
+      border-radius: 4px;
+    }
+    .cancel-btn:hover { background: var(--bg-button-hover); }
+    .submit-btn {
+      background: linear-gradient(135deg, var(--accent) 0%, #f60 100%);
+      border: none;
+      color: #000;
+      padding: 0.6rem 1.5rem;
+      cursor: pointer;
+      font-family: inherit;
+      font-weight: bold;
+      border-radius: 4px;
+    }
+    .submit-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 2px 8px rgba(255, 170, 0, 0.4);
+    }
+    .no-reports { color: var(--text-muted); font-style: italic; padding: 2rem; text-align: center; }
   </style>
 </head>
 <body>
@@ -385,31 +709,116 @@
         <img class="logo" src="https://assets.aesthetic.computer/false.work/falsework-logo.png" alt="false.work" style="width: 200px;">
       </div>
       
-      <div class="platform-filters">
-        <button data-platform="all" class="active" onclick="filterPlatform('all')">All</button>
-        <button data-platform="windows" onclick="filterPlatform('windows')">🪟 Windows</button>
-        <button data-platform="mac" onclick="filterPlatform('mac')">🍎 Mac</button>
-        <button data-platform="ios" onclick="filterPlatform('ios')">📱 iOS</button>
-        <button class="disabled" title="Coming soon">🎮 Gameboy</button>
-        <button class="disabled" title="Coming soon">🟡 Playdate</button>
-        <button class="disabled" title="Coming soon">🕹️ N64</button>
+      <!-- Main Tabs -->
+      <div class="main-tabs">
+        <button class="main-tab active" onclick="showMainTab('builds')">Builds</button>
+        <button class="main-tab" onclick="showMainTab('reports')">📝 Reports</button>
       </div>
       
-      <div id="builds-list">
-        <div class="loading">Loading builds</div>
+      <!-- BUILDS TAB -->
+      <div id="builds-tab" class="tab-content active">
+        <div class="platform-filters">
+          <button data-platform="all" class="active" onclick="filterPlatform('all')">All</button>
+          <button data-platform="windows" onclick="filterPlatform('windows')">🪟 Windows</button>
+          <button data-platform="mac" onclick="filterPlatform('mac')">🍎 Mac</button>
+          <button data-platform="ios" onclick="filterPlatform('ios')">📱 iOS</button>
+          <button class="disabled" title="Coming soon">🎮 Gameboy</button>
+          <button class="disabled" title="Coming soon">🟡 Playdate</button>
+          <button class="disabled" title="Coming soon">🕹️ N64</button>
+        </div>
+        
+        <div id="builds-list">
+          <div class="loading">Loading builds</div>
+        </div>
+      </div>
+      
+      <!-- REPORTS TAB -->
+      <div id="reports-tab" class="tab-content">
+        <button class="new-report-btn" onclick="openReportModal()">+ New Report</button>
+        <div id="reports-list">
+          <div class="loading">Loading reports</div>
+        </div>
+      </div>
+      
+      <!-- REPORT DETAIL VIEW -->
+      <div id="report-view" class="tab-content">
+        <div class="report-view">
+          <div class="report-header">
+            <h2>📝 Playtest Report</h2>
+            <button class="back-btn" onclick="showMainTab('reports')">← Back to Reports</button>
+          </div>
+          <div id="report-detail-content"></div>
+        </div>
       </div>
 
       <footer>
         <span id="footer-lock">🔒</span> <a href="https://builds.false.work">builds.false.work</a>
-        <span id="logout-link" style="display: none;"> · <a href="#" onclick="logout(); return false;">logout</a></span>
+        <span id="logout-link" style="display: none;"> · <a href="#" onclick="logout(); return false;">logout</a> · <a href="roadmap.html">🗺️ roadmap</a></span>
       </footer>
+    </div>
+  </div>
+
+  <!-- REPORT FORM MODAL -->
+  <div id="report-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>📝 Submit Playtest Report</h2>
+        <button class="close-btn" onclick="closeReportModal()">✕</button>
+      </div>
+      
+      <form id="report-form" onsubmit="submitReport(event)">
+        <div class="form-row">
+          <label>Build</label>
+          <select id="form-build" required>
+            <option value="">Select a build...</option>
+          </select>
+        </div>
+        
+        <div class="form-row">
+          <label>Your Name</label>
+          <input type="text" id="form-tester" placeholder="Who tested this build?" required>
+        </div>
+        
+        <div class="form-row">
+          <label>Summary</label>
+          <textarea id="form-summary" rows="2" placeholder="Brief overview of your playtest session..." required></textarea>
+        </div>
+        
+        <div class="form-section">
+          <h3 style="color: var(--fruit-color);">🍎 Low Hanging Fruit</h3>
+          <p class="form-hint">Quick fixes, obvious bugs, easy wins</p>
+          <div id="fruit-items" class="item-list"></div>
+          <button type="button" class="add-item-btn" onclick="addItem('fruit-items')">+ Add item</button>
+        </div>
+        
+        <div class="form-section">
+          <h3 style="color: var(--side-color);">🍟 A Little on the Side</h3>
+          <p class="form-hint">Nice-to-haves, polish suggestions, extra ideas</p>
+          <div id="side-items" class="item-list"></div>
+          <button type="button" class="add-item-btn" onclick="addItem('side-items')">+ Add item</button>
+        </div>
+        
+        <div class="form-section">
+          <h3 style="color: var(--big-color);">💭 Bigger Thoughts</h3>
+          <p class="form-hint">Deeper considerations, design thoughts, major issues</p>
+          <div id="big-items" class="item-list"></div>
+          <button type="button" class="add-item-btn" onclick="addItem('big-items')">+ Add item</button>
+        </div>
+        
+        <div class="form-actions">
+          <button type="button" class="cancel-btn" onclick="closeReportModal()">Cancel</button>
+          <button type="submit" class="submit-btn">Submit Report</button>
+        </div>
+      </form>
     </div>
   </div>
 
   <script>
     let sessionPassword = null;
     let allBuilds = [];
+    let allReports = [];
     let currentFilter = 'all';
+    let currentTab = 'builds';
 
     async function checkPassword() {
       const password = document.getElementById('password').value;
@@ -428,7 +837,7 @@
           document.body.classList.add('authenticated');
           document.getElementById('footer-lock').textContent = '🔓';
           document.getElementById('logout-link').style.display = 'inline';
-          await loadBuilds();
+          await Promise.all([loadBuilds(), loadReports()]);
         } else {
           document.getElementById('error').textContent = 'Incorrect password';
           document.getElementById('password').value = '';
@@ -438,6 +847,22 @@
       }
     }
 
+    // Tab navigation
+    function showMainTab(tabName) {
+      currentTab = tabName;
+      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.main-tab').forEach(t => t.classList.remove('active'));
+      
+      if (tabName === 'report-view') {
+        document.getElementById('report-view').classList.add('active');
+      } else {
+        document.getElementById(tabName + '-tab').classList.add('active');
+        const tabBtn = document.querySelector(`.main-tab[onclick="showMainTab('${tabName}')"]`);
+        if (tabBtn) tabBtn.classList.add('active');
+      }
+    }
+
+    // === BUILDS ===
     async function loadBuilds() {
       const container = document.getElementById('builds-list');
       container.innerHTML = '<div class="loading">Loading builds</div>';
@@ -447,13 +872,12 @@
           headers: { 'Authorization': `Bearer ${sessionPassword}` }
         });
         
-        if (!res.ok) {
-          throw new Error('Failed to load builds');
-        }
+        if (!res.ok) throw new Error('Failed to load builds');
         
         const data = await res.json();
         allBuilds = data.builds || [];
         renderBuilds();
+        populateBuildSelector();
       } catch (err) {
         container.innerHTML = '<div class="error">Failed to load builds. Please try again.</div>';
         console.error(err);
@@ -479,7 +903,6 @@
         return;
       }
 
-      // Group builds by date
       const grouped = {};
       const today = new Date().toDateString();
       const yesterday = new Date(Date.now() - 86400000).toDateString();
@@ -498,12 +921,9 @@
       });
 
       let html = '';
-      const dateOrder = Object.keys(grouped);
-      
-      dateOrder.forEach((dateLabel, idx) => {
+      Object.keys(grouped).forEach(dateLabel => {
         const isToday = dateLabel === 'Today';
         html += `<h3 class="date-header ${isToday ? 'today' : 'previous'}">${dateLabel}</h3>`;
-        
         grouped[dateLabel].forEach(build => {
           html += renderBuildCard(build);
         });
@@ -518,6 +938,7 @@
       const platformLabel = { windows: 'Windows', mac: 'Mac', ios: 'iOS' };
       const fileExt = build.platform === 'ios' ? 'ipa' : 'zip';
       const isFailed = build.status === 'failed' || build.status === 'stale';
+      const hasReport = allReports.some(r => r.buildPlatform === build.platform && r.buildVersion === build.version);
       
       let html = `
         <div class="build-card ${build.platform}${isFailed ? ' failed' : ''}">
@@ -527,7 +948,6 @@
             <a href="${build.downloadUrl}">${build.version}.${fileExt}</a>
       `;
       
-      // Render tags
       if (build.tags && build.tags.length > 0) {
         html += `<span class="build-tags">`;
         build.tags.forEach(tag => {
@@ -546,13 +966,19 @@
         html += `<span style="margin-left: 0.5rem; color: #666; font-size: 0.9rem;">(<a href="${build.logUrl}" style="color: #888;">log</a>)</span>`;
       }
       
+      // Report button
+      if (hasReport) {
+        html += `<button class="report-btn has-report" onclick="viewReportForBuild('${build.platform}', '${build.version}')">📝 Report</button>`;
+      } else if (!isFailed) {
+        html += `<button class="report-btn" onclick="openReportModalForBuild('${build.platform}', '${build.version}')">+ Report</button>`;
+      }
+      
       if (build.platform === 'ios' && !isFailed) {
         html += `<a href="itms-services://?action=download-manifest&url=https://builds.false.work/ios/manifest.plist" class="ios-install-btn">📲 Install</a>`;
       }
       
       html += `</div>`;
       
-      // Meta line
       const parts = [];
       parts.push(`${build.sizeMB} MB`);
       if (build.changelist) parts.push(build.changelist);
@@ -585,7 +1011,6 @@
         
         el.style.color = dayColors[buildDate.getDay()];
         
-        // Format time in Pacific timezone
         const ptTime = buildDate.toLocaleTimeString('en-US', {
           hour: 'numeric',
           minute: '2-digit',
@@ -609,20 +1034,270 @@
       });
     }
 
+    // === REPORTS ===
+    async function loadReports() {
+      const container = document.getElementById('reports-list');
+      container.innerHTML = '<div class="loading">Loading reports</div>';
+      
+      try {
+        const res = await fetch('/.netlify/functions/reports', {
+          headers: { 'Authorization': `Bearer ${sessionPassword}` }
+        });
+        
+        if (!res.ok) {
+          // Reports endpoint may not exist yet
+          allReports = [];
+          renderReports();
+          return;
+        }
+        
+        const data = await res.json();
+        allReports = (data.reports || []).filter(r => !r.deleted);
+        renderReports();
+        // Re-render builds to show report buttons
+        renderBuilds();
+      } catch (err) {
+        allReports = [];
+        renderReports();
+        console.error('Reports not available yet:', err);
+      }
+    }
+
+    function renderReports() {
+      const container = document.getElementById('reports-list');
+      
+      if (allReports.length === 0) {
+        container.innerHTML = '<div class="no-reports">No playtest reports yet. Click "+ New Report" to create one!</div>';
+        return;
+      }
+
+      const grouped = {};
+      const today = new Date().toDateString();
+      const yesterday = new Date(Date.now() - 86400000).toDateString();
+
+      allReports.forEach(report => {
+        const date = new Date(report.createdAt).toDateString();
+        let label;
+        if (date === today) label = 'Today';
+        else if (date === yesterday) label = 'Yesterday';
+        else label = new Date(report.createdAt).toLocaleDateString('en-US', { 
+          month: 'long', day: 'numeric', year: 'numeric' 
+        });
+        
+        if (!grouped[label]) grouped[label] = [];
+        grouped[label].push(report);
+      });
+
+      let html = '';
+      Object.keys(grouped).forEach(dateLabel => {
+        const isToday = dateLabel === 'Today';
+        html += `<h3 class="date-header ${isToday ? 'today' : 'previous'}">${dateLabel}</h3>`;
+        grouped[dateLabel].forEach(report => {
+          html += renderReportCard(report);
+        });
+      });
+
+      container.innerHTML = html;
+    }
+
+    function renderReportCard(report) {
+      const platformEmoji = { windows: '🪟', mac: '🍎', ios: '📱' };
+      const fruitCount = (report.lowHangingFruit || []).length;
+      const sideCount = (report.onTheSide || []).length;
+      const bigCount = (report.biggerThoughts || []).length;
+      
+      const time = new Date(report.createdAt).toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+        timeZone: 'America/Los_Angeles'
+      }) + ' PT';
+      
+      const tester = report.tester || 'Anonymous';
+      
+      return `
+        <div class="report-card" onclick="viewReport('${report._id}')">
+          <div class="report-card-header">
+            <span class="report-card-title">${platformEmoji[report.buildPlatform] || '📦'} SpiderLily ${report.buildVersion}</span>
+            <span class="report-card-date">by <strong>${tester}</strong> @ ${time}</span>
+          </div>
+          <div class="report-card-summary">${report.summary || 'No summary'}</div>
+          <div class="report-card-stats">
+            <span class="stat stat-fruit">🍎 ${fruitCount} low-hanging</span>
+            <span class="stat stat-side">🍟 ${sideCount} on the side</span>
+            <span class="stat stat-big">💭 ${bigCount} bigger thought${bigCount !== 1 ? 's' : ''}</span>
+          </div>
+        </div>
+      `;
+    }
+
+    function viewReport(reportId) {
+      const report = allReports.find(r => r._id === reportId);
+      if (!report) return;
+      
+      const platformEmoji = { windows: '🪟', mac: '🍎', ios: '📱' };
+      const dateStr = new Date(report.createdAt).toLocaleDateString('en-US', {
+        month: 'long', day: 'numeric', year: 'numeric'
+      });
+      
+      let html = `
+        <div class="report-meta">
+          <span>${platformEmoji[report.buildPlatform] || '📦'} <strong>${report.buildPlatform}</strong> ${report.buildVersion}</span>
+          <span>👤 <strong>${report.tester || 'Anonymous'}</strong></span>
+          <span>📅 ${dateStr}</span>
+        </div>
+        <div class="report-summary"><strong>Summary:</strong> ${report.summary || 'No summary provided.'}</div>
+      `;
+      
+      if (report.lowHangingFruit && report.lowHangingFruit.length > 0) {
+        html += `<div class="report-section section-fruit"><h3>🍎 Low Hanging Fruit</h3><ul class="report-items">`;
+        report.lowHangingFruit.forEach(item => {
+          html += `<li><span class="item-icon">🔧</span><div class="item-content"><div class="item-title">${item.title}</div>${item.desc ? `<div class="item-desc">${item.desc}</div>` : ''}</div></li>`;
+        });
+        html += `</ul></div>`;
+      }
+      
+      if (report.onTheSide && report.onTheSide.length > 0) {
+        html += `<div class="report-section section-side"><h3>🍟 A Little on the Side</h3><ul class="report-items">`;
+        report.onTheSide.forEach(item => {
+          html += `<li><span class="item-icon">✨</span><div class="item-content"><div class="item-title">${item.title}</div>${item.desc ? `<div class="item-desc">${item.desc}</div>` : ''}</div></li>`;
+        });
+        html += `</ul></div>`;
+      }
+      
+      if (report.biggerThoughts && report.biggerThoughts.length > 0) {
+        html += `<div class="report-section section-big"><h3>💭 Bigger Thoughts</h3><ul class="report-items">`;
+        report.biggerThoughts.forEach(item => {
+          html += `<li><span class="item-icon">🌟</span><div class="item-content"><div class="item-title">${item.title}</div>${item.desc ? `<div class="item-desc">${item.desc}</div>` : ''}</div></li>`;
+        });
+        html += `</ul></div>`;
+      }
+      
+      document.getElementById('report-detail-content').innerHTML = html;
+      showMainTab('report-view');
+    }
+
+    function viewReportForBuild(platform, version) {
+      const report = allReports.find(r => r.buildPlatform === platform && r.buildVersion === version);
+      if (report) viewReport(report._id);
+    }
+
+    // === REPORT FORM ===
+    function populateBuildSelector() {
+      const select = document.getElementById('form-build');
+      select.innerHTML = '<option value="">Select a build...</option>';
+      
+      allBuilds.forEach(build => {
+        const platformEmoji = { windows: '🪟', mac: '🍎', ios: '📱' };
+        const opt = document.createElement('option');
+        opt.value = `${build.platform}|${build.version}`;
+        opt.textContent = `${platformEmoji[build.platform]} ${build.version}`;
+        select.appendChild(opt);
+      });
+    }
+
+    function openReportModal() {
+      document.getElementById('report-modal').style.display = 'flex';
+      // Clear form
+      document.getElementById('report-form').reset();
+      ['fruit-items', 'side-items', 'big-items'].forEach(id => {
+        document.getElementById(id).innerHTML = '';
+      });
+    }
+
+    function openReportModalForBuild(platform, version) {
+      openReportModal();
+      document.getElementById('form-build').value = `${platform}|${version}`;
+    }
+
+    function closeReportModal() {
+      document.getElementById('report-modal').style.display = 'none';
+    }
+
+    function addItem(containerId) {
+      const container = document.getElementById(containerId);
+      const row = document.createElement('div');
+      row.className = 'item-row';
+      row.innerHTML = `
+        <input type="text" placeholder="Title" class="item-title-input">
+        <input type="text" placeholder="Description (optional)" class="item-desc-input">
+        <button type="button" class="remove-item-btn" onclick="this.parentElement.remove()">✕</button>
+      `;
+      container.appendChild(row);
+      row.querySelector('.item-title-input').focus();
+    }
+
+    function collectItems(containerId) {
+      const items = [];
+      document.querySelectorAll(`#${containerId} .item-row`).forEach(row => {
+        const title = row.querySelector('.item-title-input').value.trim();
+        const desc = row.querySelector('.item-desc-input').value.trim();
+        if (title) items.push({ title, desc });
+      });
+      return items;
+    }
+
+    async function submitReport(e) {
+      e.preventDefault();
+      
+      const buildValue = document.getElementById('form-build').value;
+      if (!buildValue) {
+        alert('Please select a build');
+        return;
+      }
+      
+      const [buildPlatform, buildVersion] = buildValue.split('|');
+      
+      const report = {
+        buildPlatform,
+        buildVersion,
+        tester: document.getElementById('form-tester').value.trim(),
+        summary: document.getElementById('form-summary').value.trim(),
+        lowHangingFruit: collectItems('fruit-items'),
+        onTheSide: collectItems('side-items'),
+        biggerThoughts: collectItems('big-items')
+      };
+      
+      try {
+        const res = await fetch('/.netlify/functions/reports', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${sessionPassword}`
+          },
+          body: JSON.stringify(report)
+        });
+        
+        if (!res.ok) throw new Error('Failed to save report');
+        
+        closeReportModal();
+        await loadReports();
+        showMainTab('reports');
+      } catch (err) {
+        console.error('Save report error:', err);
+        alert('Failed to save report. Please try again.');
+      }
+    }
+
+    // === UTILITY ===
     function logout() {
       sessionPassword = null;
       allBuilds = [];
+      allReports = [];
       document.getElementById('footer-lock').textContent = '🔒';
       document.getElementById('logout-link').style.display = 'none';
       location.reload();
     }
 
-    // Allow Enter key to submit
+    // Event listeners
     document.getElementById('password').addEventListener('keypress', function(e) {
       if (e.key === 'Enter') checkPassword();
     });
 
-    // Update times every minute
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeReportModal();
+    });
+
     setInterval(updateBuildTimes, 60000);
   </script>
 </body>
