@@ -540,7 +540,7 @@ export const handler = stream(async (event, context) => {
         attributes,
       };
 
-      const metadataUri = await uploadJsonToIPFS(
+      metadataUri = await uploadJsonToIPFS(
         metadataJson,
         `$${pieceName}-metadata.json`
       );
