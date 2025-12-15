@@ -464,55 +464,30 @@
       border-color: var(--accent);
       transform: translateX(4px);
     }
-    /* Report cards in unified feed - notebook style */
+    /* Report cards in unified feed */
     .report-feed-card {
-      background: linear-gradient(to bottom, #fffef5 0%, #faf8e8 100%);
-      border: 2px solid #d4c9a8;
-      border-radius: 2px;
-      box-shadow: 
-        2px 2px 4px rgba(0,0,0,0.1),
-        inset 0 0 20px rgba(255,250,220,0.5);
-      position: relative;
-    }
-    .report-feed-card::before {
-      content: '';
-      position: absolute;
-      left: 30px;
-      top: 0;
-      bottom: 0;
-      width: 1px;
-      background: rgba(220, 80, 80, 0.3);
+      cursor: default;
     }
     .report-feed-card:hover {
-      border-color: #b8a878;
-      transform: translateY(-2px);
-      box-shadow: 3px 3px 8px rgba(0,0,0,0.15);
+      transform: none;
     }
-    .report-feed-card .build-header {
-      color: #5a4a3a;
+    .platform-tag.platform-report {
+      background: linear-gradient(135deg, #f5e6d3 0%, #e8d4b8 100%);
+      color: #5a4030;
+      border: 1px solid #c4a882;
     }
-    .report-feed-card .meta {
-      color: #6a5a4a;
-      font-style: italic;
+    .dark-mode .platform-tag.platform-report {
+      background: linear-gradient(135deg, #4a3d2a 0%, #3d3220 100%);
+      color: #e8d4b8;
+      border-color: #6a5a40;
     }
-    .dark-mode .report-feed-card {
-      background: linear-gradient(to bottom, #3a3520 0%, #2d2818 100%);
-      border-color: #5a4a30;
-      box-shadow: 
-        2px 2px 4px rgba(0,0,0,0.3),
-        inset 0 0 20px rgba(60,50,30,0.3);
+    .report-view-link {
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 500;
     }
-    .dark-mode .report-feed-card::before {
-      background: rgba(180, 80, 80, 0.25);
-    }
-    .dark-mode .report-feed-card:hover {
-      border-color: #7a6a40;
-    }
-    .dark-mode .report-feed-card .build-header {
-      color: #d4c4a4;
-    }
-    .dark-mode .report-feed-card .meta {
-      color: #b4a484;
+    .report-view-link:hover {
+      text-decoration: underline;
     }
     .report-card-header {
       display: flex;
@@ -1149,20 +1124,20 @@
       const tester = report.tester || 'Anonymous';
       
       return `
-        <div class="build-card report-feed-card" onclick="viewReport('${report._id}')">
-          <div class="build-header" style="padding-left: 20px;">
-            <span style="font-size: 1.1rem;">📝</span>
-            <span style="font-weight: bold;">Playtest Report</span>
-            <span style="color: inherit; opacity: 0.7;">by <strong>${tester}</strong></span>
+        <div class="build-card report-feed-card">
+          <div class="build-header">
+            <span class="platform-tag platform-report">📝 Report</span>
+            <span class="project-name">SpiderLily ${report.buildVersion}</span>
+            <a href="#report/${report._id}" class="report-view-link" onclick="event.preventDefault(); viewReport('${report._id}')">View Report</a>
+            <span class="build-tags">
+              <span class="build-tag">${platformEmoji[report.buildPlatform] || '📦'} ${report.buildPlatform}</span>
+            </span>
           </div>
-          <div class="meta" style="margin-top: 0.75rem; padding-left: 20px; font-size: 0.95rem;">
-            ${platformEmoji[report.buildPlatform] || '📦'} SpiderLily <strong>${report.buildVersion}</strong> · ${time}
+          <div class="meta">
+            by <strong>${tester}</strong> | "${report.summary || 'No summary'}" | ${time}
           </div>
-          <div class="meta" style="margin-top: 0.5rem; padding-left: 20px;">
-            "${report.summary || 'No summary provided'}"
-          </div>
-          <div style="margin-top: 0.75rem; padding-left: 20px; font-size: 0.85rem; opacity: 0.8;">
-            🍎 ${fruitCount} · 🍟 ${sideCount} · 💭 ${bigCount}
+          <div class="meta" style="margin-top: 0.25rem; font-size: 0.85rem;">
+            🍎 ${fruitCount} low-hanging | 🍟 ${sideCount} on the side | 💭 ${bigCount} bigger thoughts
           </div>
         </div>
       `;
