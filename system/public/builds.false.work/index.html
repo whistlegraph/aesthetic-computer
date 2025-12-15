@@ -428,6 +428,12 @@
       border-left: 3px solid var(--accent);
       color: #d4c8a0 !important;
     }
+    .report-btn.add-report {
+      padding: 0.3rem 0.5rem;
+      font-size: 1rem;
+      line-height: 1;
+      min-width: 1.5rem;
+    }
     @media (prefers-color-scheme: light) {
       .report-btn {
         background: linear-gradient(135deg, #fffef0 0%, #f5f4e8 100%);
@@ -988,15 +994,16 @@
         html += `<span style="margin-left: 0.5rem; color: #666; font-size: 0.9rem;">(<a href="${build.logUrl}" style="color: #888;">log</a>)</span>`;
       }
       
-      // Report button
+      // Report buttons
       if (buildReport) {
         const tester = buildReport.tester || 'Anonymous';
         const time = new Date(buildReport.createdAt).toLocaleTimeString('en-US', {
           hour: 'numeric', minute: '2-digit', hour12: true
         });
         html += `<button class="report-btn has-report" onclick="viewReportForBuild('${build.platform}', '${build.version}')" title="Report by ${tester}">📝 ${tester} @ ${time}</button>`;
-      } else if (!isFailed) {
-        html += `<button class="report-btn" onclick="openReportModalForBuild('${build.platform}', '${build.version}')">✏️ Write Report</button>`;
+      }
+      if (!isFailed) {
+        html += `<button class="report-btn add-report" onclick="openReportModalForBuild('${build.platform}', '${build.version}')" title="Write a report">+</button>`;
       }
       
       if (build.platform === 'ios' && !isFailed) {
