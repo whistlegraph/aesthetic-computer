@@ -498,6 +498,29 @@
       gap: 1rem;
     }
     .report-header h2 { color: var(--accent); font-size: 1.3rem; }
+    .report-header-buttons { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    .copy-llm-btn {
+      background: linear-gradient(135deg, #2a2920 0%, #1f1e18 100%);
+      border: 1px solid #3a3930;
+      color: #c0b890;
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+      font-family: inherit;
+      border-radius: 4px;
+      font-size: 0.85rem;
+      transition: all 0.2s;
+    }
+    .copy-llm-btn:hover { background: linear-gradient(135deg, #353428 0%, #2a291f 100%); }
+    .copy-llm-btn.copied { background: #1a3a1a; border-color: #2a5a2a; color: #8f8; }
+    @media (prefers-color-scheme: light) {
+      .copy-llm-btn {
+        background: linear-gradient(135deg, #f5f5f0 0%, #eaeae5 100%);
+        border: 1px solid #ccc;
+        color: #555;
+      }
+      .copy-llm-btn:hover { background: linear-gradient(135deg, #fff 0%, #f5f5f0 100%); }
+      .copy-llm-btn.copied { background: #e5f5e5; border-color: #afa; color: #060; }
+    }
     .back-btn {
       background: var(--bg-button);
       border: 1px solid var(--border-secondary);
@@ -773,7 +796,10 @@
         <div class="report-view">
           <div class="report-header">
             <h2>📝 Playtest Report</h2>
-            <button class="back-btn" onclick="showMainTab('reports')">← Back to Reports</button>
+            <div class="report-header-buttons">
+              <button class="copy-llm-btn" onclick="copyReportForLLM()">📋 Copy for LLM</button>
+              <button class="back-btn" onclick="showMainTab('reports')">← Back to Reports</button>
+            </div>
           </div>
           <div id="report-detail-content"></div>
         </div>
@@ -1207,7 +1233,66 @@
       }
       
       document.getElementById('report-detail-content').innerHTML = html;
+      currentViewingReportId = reportId;
       showMainTab('report-view');
+    }
+
+    let currentViewingReportId = null;
+
+    function copyReportForLLM() {
+      const report = allReports.find(r => r._id === currentViewingReportId);
+      if (!report) return;
+      
+      const platformLabel = { windows: 'Windows', mac: 'Mac', ios: 'iOS' };
+      const dateStr = new Date(report.createdAt).toLocaleDateString('en-US', {
+        weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
+      });
+      
+      let text = `# SpiderLily Playtest Report\n\n`;
+      text += `**Platform:** ${platformLabel[report.buildPlatform] || report.buildPlatform}\n`;
+      text += `**Build:** ${report.buildVersion}\n`;
+      text += `**Tester:** ${report.tester || 'Anonymous'}\n`;
+      text += `**Date:** ${dateStr}\n\n`;
+      text += `## Summary\n${report.summary || 'No summary provided.'}\n\n`;
+      
+      if (report.lowHangingFruit && report.lowHangingFruit.length > 0) {
+        text += `## Low Hanging Fruit (Quick Fixes)\n`;
+        report.lowHangingFruit.forEach((item, i) => {
+          text += `${i + 1}. **${item.title}**`;
+          if (item.desc) text += `\n   ${item.desc}`;
+          text += `\n`;
+        });
+        text += `\n`;
+      }
+      
+      if (report.onTheSide && report.onTheSide.length > 0) {
+        text += `## On the Side (Nice-to-Haves)\n`;
+        report.onTheSide.forEach((item, i) => {
+          text += `${i + 1}. **${item.title}**`;
+          if (item.desc) text += `\n   ${item.desc}`;
+          text += `\n`;
+        });
+        text += `\n`;
+      }
+      
+      if (report.biggerThoughts && report.biggerThoughts.length > 0) {
+        text += `## Bigger Thoughts (Design/Architecture)\n`;
+        report.biggerThoughts.forEach((item, i) => {
+          text += `${i + 1}. **${item.title}**`;
+          if (item.desc) text += `\n   ${item.desc}`;
+          text += `\n`;
+        });
+      }
+      
+      navigator.clipboard.writeText(text).then(() => {
+        const btn = document.querySelector('.copy-llm-btn');
+        btn.textContent = '✓ Copied!';
+        btn.classList.add('copied');
+        setTimeout(() => {
+          btn.textContent = '📋 Copy for LLM';
+          btn.classList.remove('copied');
+        }, 2000);
+      });
     }
 
     function viewReportForBuild(platform, version) {
