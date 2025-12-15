@@ -464,6 +464,56 @@
       border-color: var(--accent);
       transform: translateX(4px);
     }
+    /* Report cards in unified feed - notebook style */
+    .report-feed-card {
+      background: linear-gradient(to bottom, #fffef5 0%, #faf8e8 100%);
+      border: 2px solid #d4c9a8;
+      border-radius: 2px;
+      box-shadow: 
+        2px 2px 4px rgba(0,0,0,0.1),
+        inset 0 0 20px rgba(255,250,220,0.5);
+      position: relative;
+    }
+    .report-feed-card::before {
+      content: '';
+      position: absolute;
+      left: 30px;
+      top: 0;
+      bottom: 0;
+      width: 1px;
+      background: rgba(220, 80, 80, 0.3);
+    }
+    .report-feed-card:hover {
+      border-color: #b8a878;
+      transform: translateY(-2px);
+      box-shadow: 3px 3px 8px rgba(0,0,0,0.15);
+    }
+    .report-feed-card .build-header {
+      color: #5a4a3a;
+    }
+    .report-feed-card .meta {
+      color: #6a5a4a;
+      font-style: italic;
+    }
+    .dark-mode .report-feed-card {
+      background: linear-gradient(to bottom, #3a3520 0%, #2d2818 100%);
+      border-color: #5a4a30;
+      box-shadow: 
+        2px 2px 4px rgba(0,0,0,0.3),
+        inset 0 0 20px rgba(60,50,30,0.3);
+    }
+    .dark-mode .report-feed-card::before {
+      background: rgba(180, 80, 80, 0.25);
+    }
+    .dark-mode .report-feed-card:hover {
+      border-color: #7a6a40;
+    }
+    .dark-mode .report-feed-card .build-header {
+      color: #d4c4a4;
+    }
+    .dark-mode .report-feed-card .meta {
+      color: #b4a484;
+    }
     .report-card-header {
       display: flex;
       justify-content: space-between;
@@ -763,7 +813,7 @@
       <!-- Single content view with platform filters including Reports -->
       <div id="main-content">
         <div class="platform-filters">
-          <button data-platform="all" class="active" onclick="filterPlatform('all')">All</button>
+          <button data-platform="all" class="active" onclick="filterPlatform('all')">✨ New</button>
           <button data-platform="reports" onclick="filterPlatform('reports')">📝 Reports</button>
           <button data-platform="windows" onclick="filterPlatform('windows')">🪟 Windows</button>
           <button data-platform="mac" onclick="filterPlatform('mac')">🍎 Mac</button>
@@ -1099,15 +1149,20 @@
       const tester = report.tester || 'Anonymous';
       
       return `
-        <div class="build-card report-feed-card" onclick="viewReport('${report._id}')" style="cursor: pointer;">
-          <div class="build-header">
-            <span class="platform-tag" style="background: var(--accent); color: white;">📝 Report</span>
-            <span class="project-name">${platformEmoji[report.buildPlatform] || '📦'} SpiderLily ${report.buildVersion}</span>
-            <span style="color: var(--text-muted);">by <strong>${tester}</strong> @ ${time}</span>
+        <div class="build-card report-feed-card" onclick="viewReport('${report._id}')">
+          <div class="build-header" style="padding-left: 20px;">
+            <span style="font-size: 1.1rem;">📝</span>
+            <span style="font-weight: bold;">Playtest Report</span>
+            <span style="color: inherit; opacity: 0.7;">by <strong>${tester}</strong></span>
           </div>
-          <div class="meta" style="margin-top: 0.5rem;">${report.summary || 'No summary'}</div>
-          <div style="margin-top: 0.5rem; font-size: 0.85rem; color: var(--text-muted);">
-            🍎 ${fruitCount} low-hanging · 🍟 ${sideCount} on the side · 💭 ${bigCount} bigger thoughts
+          <div class="meta" style="margin-top: 0.75rem; padding-left: 20px; font-size: 0.95rem;">
+            ${platformEmoji[report.buildPlatform] || '📦'} SpiderLily <strong>${report.buildVersion}</strong> · ${time}
+          </div>
+          <div class="meta" style="margin-top: 0.5rem; padding-left: 20px;">
+            "${report.summary || 'No summary provided'}"
+          </div>
+          <div style="margin-top: 0.75rem; padding-left: 20px; font-size: 0.85rem; opacity: 0.8;">
+            🍎 ${fruitCount} · 🍟 ${sideCount} · 💭 ${bigCount}
           </div>
         </div>
       `;
