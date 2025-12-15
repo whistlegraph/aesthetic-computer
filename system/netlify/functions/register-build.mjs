@@ -1,76 +1,45 @@
 // Register a new build in MongoDB for builds.false.work
 // Called by build scripts with API key authentication
 
-import { MongoClient } from "mongodb";
+import { connect } from "../../backend/database.mjs";
+import { respond } from "../../backend/http.mjs";
 
-const MONGODB_CONNECTION_STRING = process.env.MONGODB_CONNECTION_STRING;
-const MONGODB_NAME = process.env.MONGODB_NAME || "aesthetic";
 const BUILDS_API_KEY = process.env.BUILDS_API_KEY;
 
-export default async (req, context) => {
-  const headers = {
-    "Content-Type": "application/json",
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "X-API-Key, Content-Type",
-    "Access-Control-Allow-Methods": "POST, OPTIONS"
-  };
-
-  // Handle CORS preflight
-  if (req.method === "OPTIONS") {
-    return new Response(null, { status: 204, headers });
+export async function handler(event, context) {
+  if (event.httpMethod === "OPTIONS") {
+    return respond(204, "");
   }
 
-  if (req.method !== "POST") {
-    return new Response(JSON.stringify({ error: "Method not allowed" }), {
-      status: 405,
-      headers
-    });
+  if (event.httpMethod !== "POST") {
+    return respond(405, { error: "Method not allowed" });
   }
 
   // Verify API key
-  const apiKey = req.headers.get("X-API-Key");
+  const apiKey = event.headers["x-api-key"] || event.headers["X-API-Key"];
   if (!apiKey || apiKey !== BUILDS_API_KEY) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401,
-      headers
-    });
+    return respond(401, { error: "Unauthorized" });
   }
-
-  if (!MONGODB_CONNECTION_STRING) {
-    return new Response(JSON.stringify({ error: "Database not configured" }), {
-      status: 500,
-      headers
-    });
-  }
-
-  const client = new MongoClient(MONGODB_CONNECTION_STRING);
 
   try {
-    const build = await req.json();
+    const build = JSON.parse(event.body);
 
     // Validate required fields
     const required = ["platform", "version", "timestamp", "sizeMB", "downloadUrl"];
     for (const field of required) {
       if (build[field] === undefined || build[field] === null) {
-        return new Response(JSON.stringify({ error: `Missing required field: ${field}` }), {
-          status: 400,
-          headers
-        });
+        return respond(400, { error: `Missing required field: ${field}` });
       }
     }
 
     // Validate platform
     const validPlatforms = ["windows", "mac", "ios"];
     if (!validPlatforms.includes(build.platform)) {
-      return new Response(JSON.stringify({ error: `Invalid platform: ${build.platform}. Must be one of: ${validPlatforms.join(", ")}` }), {
-        status: 400,
-        headers
-      });
+      return respond(400, { error: `Invalid platform: ${build.platform}. Must be one of: ${validPlatforms.join(", ")}` });
     }
 
-    await client.connect();
-    const db = client.db(MONGODB_NAME);
-    const builds = db.collection("false.work-builds");
+    const database = await connect();
+    const builds = database.db.collection("false.work-builds");
 
     // Ensure index exists (idempotent)
     await builds.createIndex({ timestamp: -1 });
@@ -90,46 +59,34 @@ export default async (req, context) => {
     });
 
     if (existing) {
-      return new Response(JSON.stringify({
+      await database.disconnect();
+      return respond(409, {
         error: "Build already exists",
         existingId: existing._id.toString()
-      }), {
-        status: 409,
-        headers
       });
     }
 
     const result = await builds.insertOne(buildDoc);
+    await database.disconnect();
 
     console.log(`✅ Build registered: ${build.platform} ${build.version}`);
 
-    return new Response(JSON.stringify({
+    return respond(201, {
       success: true,
       insertedId: result.insertedId.toString(),
       build: {
         ...buildDoc,
         _id: result.insertedId.toString()
       }
-    }), {
-      status: 201,
-      headers
     });
   } catch (error) {
     console.error("Error registering build:", error);
 
     // Handle duplicate key error
     if (error.code === 11000) {
-      return new Response(JSON.stringify({ error: "Build already exists (duplicate key)" }), {
-        status: 409,
-        headers
-      });
+      return respond(409, { error: "Build already exists (duplicate key)" });
     }
 
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers
-    });
-  } finally {
-    await client.close();
+    return respond(500, { error: error.message });
   }
-};
+}
