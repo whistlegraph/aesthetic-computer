@@ -82,7 +82,7 @@
       box-sizing: border-box;
     }
     body {
-      font-family: 'Courier New', monospace;
+      font-family: var(--font-mono);
       background: var(--bg-primary);
       color: var(--text-primary);
       line-height: 1.6;
@@ -467,9 +467,47 @@
     /* Report cards in unified feed */
     .report-feed-card {
       cursor: default;
+      background: linear-gradient(to bottom, #fdfbf5 0%, #f8f4e8 100%);
+      border: 2px solid #d4c4a0;
+      border-left: 4px solid #c85050;
+      position: relative;
+      padding: 1rem 1.25rem;
+    }
+    .report-feed-card::before {
+      content: '';
+      position: absolute;
+      left: 28px;
+      top: 0;
+      bottom: 0;
+      width: 1px;
+      background: rgba(200, 80, 80, 0.2);
     }
     .report-feed-card:hover {
       transform: none;
+      border-color: #c4b490;
+    }
+    .report-feed-card .build-header {
+      color: #4a3a2a;
+    }
+    .report-feed-card .meta,
+    .report-feed-card .report-prose {
+      color: #5a4a3a;
+      font-family: var(--font-sans);
+    }
+    .dark-mode .report-feed-card {
+      background: linear-gradient(to bottom, #2d2820 0%, #252015 100%);
+      border-color: #4a4030;
+      border-left-color: #804040;
+    }
+    .dark-mode .report-feed-card::before {
+      background: rgba(160, 80, 80, 0.15);
+    }
+    .dark-mode .report-feed-card .build-header {
+      color: #d4c4a4;
+    }
+    .dark-mode .report-feed-card .meta,
+    .dark-mode .report-feed-card .report-prose {
+      color: #c4b494;
     }
     .platform-tag.platform-report {
       background: linear-gradient(135deg, #f5e6d3 0%, #e8d4b8 100%);
@@ -488,6 +526,43 @@
     }
     .report-view-link:hover {
       text-decoration: underline;
+    }
+    /* Log modal */
+    .log-modal-content {
+      max-width: 900px;
+      max-height: 85vh;
+    }
+    .log-content {
+      background: #1a1a1a;
+      color: #c0c0c0;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      padding: 1rem;
+      border-radius: 4px;
+      overflow: auto;
+      max-height: 60vh;
+      white-space: pre-wrap;
+      word-break: break-word;
+      line-height: 1.4;
+    }
+    .log-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+    .log-header a {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+    }
+    .log-link {
+      margin-left: 0.5rem;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      text-decoration: none;
+    }
+    .log-link:hover {
+      color: var(--accent);
     }
     .report-card-header {
       display: flex;
@@ -888,6 +963,20 @@
     </div>
   </div>
 
+  <!-- LOG MODAL -->
+  <div id="log-modal" class="modal" style="display: none;">
+    <div class="modal-content log-modal-content">
+      <div class="log-header">
+        <h2 style="color: var(--accent); font-size: 1.1rem;">📜 Build Log</h2>
+        <div>
+          <a id="log-download-link" href="#" target="_blank">Download .txt ↗</a>
+          <button class="close-btn" onclick="closeLogModal()" style="margin-left: 1rem;">✕</button>
+        </div>
+      </div>
+      <div id="log-content" class="log-content">Loading...</div>
+    </div>
+  </div>
+
   <script>
     let sessionPassword = localStorage.getItem('builds-session') || null;
     let allBuilds = [];
@@ -1133,11 +1222,11 @@
               <span class="build-tag">${platformEmoji[report.buildPlatform] || '📦'} ${report.buildPlatform}</span>
             </span>
           </div>
-          <div class="meta">
-            by <strong>${tester}</strong> | "${report.summary || 'No summary'}" | ${time}
+          <div class="report-prose" style="margin-top: 0.75rem;">
+            by <strong>${tester}</strong> · <em>"${report.summary || 'No summary'}"</em>
           </div>
-          <div class="meta" style="margin-top: 0.25rem; font-size: 0.85rem;">
-            🍎 ${fruitCount} low-hanging | 🍟 ${sideCount} on the side | 💭 ${bigCount} bigger thoughts
+          <div class="report-prose" style="margin-top: 0.5rem; font-size: 0.9rem;">
+            🍎 ${fruitCount} low-hanging · 🍟 ${sideCount} on the side · 💭 ${bigCount} bigger thoughts · ${time}
           </div>
         </div>
       `;
@@ -1173,7 +1262,7 @@
       }
       
       if (build.logUrl) {
-        html += `<span style="margin-left: 0.5rem; color: #666; font-size: 0.9rem;">(<a href="${build.logUrl}" style="color: #888;">log</a>)</span>`;
+        html += `<a href="${build.logUrl}" class="log-link" onclick="event.preventDefault(); openLogModal('${build.logUrl}')" title="Right-click to download">(log)</a>`;
       }
       
       // Show all reports for this build
@@ -1544,6 +1633,25 @@
 
     function closeReportModal() {
       document.getElementById('report-modal').style.display = 'none';
+    }
+
+    // Log modal functions
+    async function openLogModal(logUrl) {
+      document.getElementById('log-modal').style.display = 'flex';
+      document.getElementById('log-download-link').href = logUrl;
+      document.getElementById('log-content').textContent = 'Loading...';
+      
+      try {
+        const res = await fetch(logUrl);
+        const text = await res.text();
+        document.getElementById('log-content').textContent = text;
+      } catch (err) {
+        document.getElementById('log-content').textContent = 'Failed to load log file.';
+      }
+    }
+
+    function closeLogModal() {
+      document.getElementById('log-modal').style.display = 'none';
     }
 
     function addItem(containerId) {
