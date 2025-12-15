@@ -1167,9 +1167,6 @@
 
     // === REPORTS ===
     async function loadReports() {
-      const container = document.getElementById('reports-list');
-      container.innerHTML = '<div class="loading">Loading reports</div>';
-      
       try {
         const res = await fetch('/.netlify/functions/reports', {
           headers: { 'Authorization': `Bearer ${sessionPassword}` }
@@ -1178,18 +1175,19 @@
         if (!res.ok) {
           // Reports endpoint may not exist yet
           allReports = [];
-          renderReports();
           return;
         }
         
         const data = await res.json();
         allReports = (data.reports || []).filter(r => !r.deleted);
-        renderReports();
+        // Only render if reports view is currently active
+        if (currentFilter === 'reports') {
+          renderReports();
+        }
         // Re-render builds to show report buttons
         renderBuilds();
       } catch (err) {
         allReports = [];
-        renderReports();
         console.error('Reports not available yet:', err);
       }
     }
