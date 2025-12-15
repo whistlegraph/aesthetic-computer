@@ -38,16 +38,16 @@ let timeline = [];
 
 function resetTimeline() {
   timeline = [
-    { id: "wallet", label: "Connect Wallet", status: "pending", detail: null, time: null },
-    { id: "validate", label: "Validate Piece", status: "pending", detail: null, time: null },
-    { id: "analyze", label: "Analyze Source", status: "pending", detail: null, time: null },
-    { id: "thumbnail", label: "Generate Preview", status: "pending", detail: null, time: null },
-    { id: "bundle", label: "Bundle Assets", status: "pending", detail: null, time: null },
-    { id: "ipfs", label: "Upload to IPFS", status: "pending", detail: null, time: null },
-    { id: "metadata", label: "Create Metadata", status: "pending", detail: null, time: null },
-    { id: "review", label: "Review & Confirm", status: "pending", detail: null, time: null },
-    { id: "sign", label: "Sign Transaction", status: "pending", detail: null, time: null },
-    { id: "complete", label: "Mint Complete!", status: "pending", detail: null, time: null },
+    { id: "wallet", label: "Connect Wallet", status: "pending", detail: null, time: null, startedAt: null, duration: 500 },
+    { id: "validate", label: "Validate Piece", status: "pending", detail: null, time: null, startedAt: null, duration: 2000 },
+    { id: "analyze", label: "Analyze Source", status: "pending", detail: null, time: null, startedAt: null, duration: 1500 },
+    { id: "thumbnail", label: "Generate Preview", status: "pending", detail: null, time: null, startedAt: null, duration: 8000 },
+    { id: "bundle", label: "Bundle Assets", status: "pending", detail: null, time: null, startedAt: null, duration: 3000 },
+    { id: "ipfs", label: "Upload to IPFS", status: "pending", detail: null, time: null, startedAt: null, duration: 5000 },
+    { id: "metadata", label: "Create Metadata", status: "pending", detail: null, time: null, startedAt: null, duration: 2000 },
+    { id: "review", label: "Review & Confirm", status: "pending", detail: null, time: null, startedAt: null, duration: null },
+    { id: "sign", label: "Sign Transaction", status: "pending", detail: null, time: null, startedAt: null, duration: 30000 },
+    { id: "complete", label: "Mint Complete!", status: "pending", detail: null, time: null, startedAt: null, duration: 500 },
   ];
 }
 
@@ -59,6 +59,10 @@ function getElapsedTime() {
 function setStep(id, status, detail = null) {
   const item = timeline.find(t => t.id === id);
   if (item) {
+    // Track when step becomes active
+    if (status === "active" && item.status !== "active") {
+      item.startedAt = Date.now();
+    }
     item.status = status;
     if (detail !== null) item.detail = detail;
     // Always record time when status changes
@@ -667,6 +671,45 @@ function mc8ButtonSize(text) {
   };
 }
 
+// Large button constants (6x10 font)
+const LG_CHAR_WIDTH = 6;
+const LG_CHAR_HEIGHT = 10;
+const LG_PAD_X = 12;
+const LG_PAD_Y = 8;
+
+// Calculate button dimensions for large text
+function lgButtonSize(text) {
+  return {
+    w: text.length * LG_CHAR_WIDTH + LG_PAD_X * 2,
+    h: LG_CHAR_HEIGHT + LG_PAD_Y * 2
+  };
+}
+
+// Paint a large button with proper padding
+function paintLgBtn(x, y, text, $, scheme, isHover = false, isDisabled = false) {
+  const { w, h } = lgButtonSize(text);
+  const s = isDisabled ? scheme.disabled : (isHover ? scheme.hover : scheme.normal);
+  
+  // Background
+  $.ink(s.bg[0], s.bg[1], s.bg[2]).box(x, y, w, h);
+  
+  // Outline (thicker, 2px effect)
+  $.ink(s.outline[0], s.outline[1], s.outline[2], s.outlineAlpha || 180)
+    .line(x, y, x + w, y)                    // Top
+    .line(x, y + 1, x + w, y + 1)            // Top inner
+    .line(x, y + h - 1, x + w, y + h - 1)    // Bottom inner
+    .line(x, y + h, x + w, y + h)            // Bottom
+    .line(x, y, x, y + h)                    // Left
+    .line(x + 1, y, x + 1, y + h)            // Left inner
+    .line(x + w - 1, y, x + w - 1, y + h)    // Right inner
+    .line(x + w, y, x + w, y + h);           // Right
+  
+  // Text (centered)
+  $.ink(s.text[0], s.text[1], s.text[2]).write(text, { x: x + LG_PAD_X, y: y + LG_PAD_Y });
+  
+  return { x, y, w, h };
+}
+
 // Paint a MatrixChunky8 button with proper padding (like products.mjs)
 // scheme format: [[bg r,g,b], [outline r,g,b], [text r,g,b]]
 function paintMC8Btn(x, y, text, $, scheme, isHover = false, isDisabled = false) {
@@ -926,6 +969,16 @@ function paint({ wipe, ink, box, screen, paste }) {
       else if (isActive) stripeColor = phase.stripe.map(c => c + 15);
       else stripeColor = phase.stripe;
       ink(stripeColor[0], stripeColor[1], stripeColor[2], isDone ? 60 : 100).box(0, y, w, stripeH);
+      
+      // Progress bar for active items
+      if (isActive && item.startedAt && item.duration) {
+        const elapsed = Date.now() - item.startedAt;
+        const progress = min(1, elapsed / item.duration);
+        const barW = floor((w - 4) * progress);
+        // Glowing progress bar
+        const glow = sin(rotation * 4) * 20 + 30;
+        ink(phase.label[0], phase.label[1], phase.label[2], 40 + glow).box(2, y + stripeH - 3, barW, 2);
+      }
     }
     
     // Label
@@ -1003,9 +1056,7 @@ function paint({ wipe, ink, box, screen, paste }) {
   y += 4;
   
   if (reviewStep?.status === "active" && preparedData) {
-    // Fee + network
-    ink(255, 220, 100).write(`${preparedData.mintFee} XTZ`, { x: margin, y }, undefined, undefined, false, "MatrixChunky8");
-    
+    // Network label (small, right-aligned)
     const netLabel = (preparedData.network || "ghostnet").toUpperCase();
     const netScheme = {
       normal: { bg: [35, 50, 60], outline: [100, 140, 160], outlineAlpha: 150, text: [100, 140, 160] },
@@ -1019,22 +1070,23 @@ function paint({ wipe, ink, box, screen, paste }) {
     networkBtn.btn.box.h = netSize.h;
     networkBtn.txt = netLabel;
     paintMC8Btn(netX, y, netLabel, { ink, line: ink }, netScheme, networkBtn.btn.down);
-    y += netSize.h + 4;
+    y += netSize.h + 8;
     
-    // Mint button
-    const mintScheme = {
-      normal: { bg: [80, 50, 130], outline: [200, 150, 255], outlineAlpha: 150, text: [255, 255, 255] },
-      hover: { bg: [120, 80, 180], outline: [255, 200, 255], outlineAlpha: 200, text: [255, 255, 255] },
+    // KEEP button with price (large, centered)
+    const keepLabel = `KEEP ꜩ${preparedData.mintFee || 5}`;
+    const keepScheme = {
+      normal: { bg: [70, 40, 120], outline: [180, 130, 255], outlineAlpha: 200, text: [255, 255, 255] },
+      hover: { bg: [100, 60, 160], outline: [220, 180, 255], outlineAlpha: 255, text: [255, 255, 255] },
       disabled: { bg: [50, 40, 60], outline: [100, 80, 120], outlineAlpha: 100, text: [120, 120, 140] }
     };
-    const mintSize = mc8ButtonSize("MINT NOW");
-    const mintX = floor((w - mintSize.w) / 2);
-    btn.btn.box.x = mintX;
+    const keepSize = lgButtonSize(keepLabel);
+    const keepX = floor((w - keepSize.w) / 2);
+    btn.btn.box.x = keepX;
     btn.btn.box.y = y;
-    btn.btn.box.w = mintSize.w;
-    btn.btn.box.h = mintSize.h;
-    btn.txt = "MINT NOW";
-    paintMC8Btn(mintX, y, "MINT NOW", { ink, line: ink }, mintScheme, btn.btn.down);
+    btn.btn.box.w = keepSize.w;
+    btn.btn.box.h = keepSize.h;
+    btn.txt = keepLabel;
+    paintLgBtn(keepX, y, keepLabel, { ink, line: ink }, keepScheme, btn.btn.down);
     
   } else if (completeStep?.status === "done") {
     const viewScheme = {
