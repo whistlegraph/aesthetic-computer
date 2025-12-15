@@ -404,8 +404,8 @@
     /* Report button on build cards */
     .report-btn {
       display: inline-block;
-      background: linear-gradient(135deg, var(--accent) 0%, #f60 100%);
-      color: #000 !important;
+      background: linear-gradient(135deg, #fffef0 0%, #f5f4e8 100%);
+      color: #555 !important;
       padding: 0.3rem 0.75rem;
       border-radius: 4px;
       text-decoration: none !important;
@@ -413,15 +413,21 @@
       font-size: 0.8rem;
       margin-left: 0.5rem;
       cursor: pointer;
-      border: none;
+      border: 1px solid #d0cfc0;
       font-family: inherit;
       transition: all 0.2s;
+      box-shadow: 1px 1px 3px rgba(0,0,0,0.1);
     }
     .report-btn:hover {
       transform: translateY(-1px);
-      box-shadow: 0 2px 8px rgba(255, 170, 0, 0.3);
+      box-shadow: 2px 2px 6px rgba(0,0,0,0.15);
+      background: linear-gradient(135deg, #fffff8 0%, #faf9ed 100%);
     }
-    .report-btn.has-report { background: linear-gradient(135deg, var(--fruit-color) 0%, #0a0 100%); }
+    .report-btn.has-report {
+      background: linear-gradient(135deg, #fefef5 0%, #f8f7e5 100%);
+      border-left: 3px solid var(--accent);
+      color: #333 !important;
+    }
     /* Report cards */
     .report-card {
       padding: 1.5rem;
@@ -974,7 +980,7 @@
         });
         html += `<button class="report-btn has-report" onclick="viewReportForBuild('${build.platform}', '${build.version}')" title="Report by ${tester}">📝 ${tester} @ ${time}</button>`;
       } else if (!isFailed) {
-        html += `<button class="report-btn" onclick="openReportModalForBuild('${build.platform}', '${build.version}')">+ Report</button>`;
+        html += `<button class="report-btn" onclick="openReportModalForBuild('${build.platform}', '${build.version}')">✏️ Write Report</button>`;
       }
       
       if (build.platform === 'ios' && !isFailed) {
