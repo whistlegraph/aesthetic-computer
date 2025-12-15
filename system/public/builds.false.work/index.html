@@ -1220,11 +1220,43 @@
       const select = document.getElementById('form-build');
       select.innerHTML = '<option value="">Select a build...</option>';
       
-      allBuilds.forEach(build => {
-        const platformEmoji = { windows: '🪟', mac: '🍎', ios: '📱' };
+      const platformEmoji = { windows: '🪟', mac: '🍎', ios: '📱' };
+      const platformLabel = { windows: 'Win', mac: 'Mac', ios: 'iOS' };
+      
+      // Group builds by date
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const yesterday = new Date(today.getTime() - 86400000);
+      
+      // Sort by timestamp descending (newest first)
+      const sortedBuilds = [...allBuilds].sort((a, b) => 
+        new Date(b.timestamp) - new Date(a.timestamp)
+      );
+      
+      sortedBuilds.forEach(build => {
+        const buildDate = new Date(build.timestamp);
+        const buildDay = new Date(buildDate.getFullYear(), buildDate.getMonth(), buildDate.getDate());
+        
+        let recency = '';
+        if (buildDay.getTime() === today.getTime()) {
+          recency = 'Today';
+        } else if (buildDay.getTime() === yesterday.getTime()) {
+          recency = 'Yesterday';
+        } else {
+          recency = buildDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        }
+        
+        const time = buildDate.toLocaleTimeString('en-US', {
+          hour: 'numeric', minute: '2-digit', hour12: true
+        });
+        
+        const tags = build.tags && build.tags.length > 0 
+          ? ` [${build.tags.map(t => t === 'auto-detect' ? 'Auto' : t).join(', ')}]`
+          : '';
+        
         const opt = document.createElement('option');
         opt.value = `${build.platform}|${build.version}`;
-        opt.textContent = `${platformEmoji[build.platform]} ${build.version}`;
+        opt.textContent = `${platformEmoji[build.platform]} ${platformLabel[build.platform]} ${build.version} — ${recency} ${time}${tags}`;
         select.appendChild(opt);
       });
     }
