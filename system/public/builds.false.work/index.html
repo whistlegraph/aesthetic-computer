@@ -3,7 +3,9 @@
 <head>
   <title>Builds - false.work</title>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
@@ -89,6 +91,7 @@
       color: var(--text-primary);
       line-height: 1.6;
       padding: 2rem;
+      padding: env(safe-area-inset-top, 2rem) env(safe-area-inset-right, 2rem) env(safe-area-inset-bottom, 2rem) env(safe-area-inset-left, 2rem);
     }
     .container {
       max-width: 800px;
@@ -988,6 +991,200 @@
       box-shadow: 0 2px 8px rgba(255, 170, 0, 0.4);
     }
     .no-stories { color: var(--text-muted); font-style: italic; padding: 2rem; text-align: center; }
+
+    /* Mobile-friendly styles */
+    @media (max-width: 768px) {
+      body {
+        padding: 1rem;
+        font-size: 15px;
+        -webkit-text-size-adjust: 100%;
+      }
+      h1 { font-size: 1.25rem; }
+      h2 { font-size: 1.1rem; }
+      .container { padding: 0; }
+      
+      /* Platform filter tabs */
+      .platform-filters {
+        gap: 0.35rem;
+        margin-bottom: 1rem;
+      }
+      .platform-filters button {
+        padding: 0.5rem 0.6rem;
+        font-size: 0.8rem;
+        flex: 1;
+        min-width: 0;
+      }
+      
+      /* Build cards */
+      .build-card {
+        padding: 1rem;
+        margin-bottom: 1rem;
+      }
+      .build-header {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+      }
+      .platform-tag {
+        font-size: 0.7rem;
+        padding: 0.15rem 0.4rem;
+      }
+      .project-name {
+        font-size: 0.9rem;
+      }
+      .build-tags {
+        width: 100%;
+        margin-top: 0.25rem;
+      }
+      .meta {
+        font-size: 0.8rem;
+      }
+      
+      /* Story cards */
+      .story-feed-card {
+        padding: 0.875rem 1rem;
+      }
+      .story-feed-card .build-header {
+        gap: 0.4rem;
+      }
+      .story-feed-card .project-name {
+        font-size: 0.85rem;
+      }
+      .story-view-link {
+        font-size: 0.8rem;
+      }
+      .copy-llm-btn.copy-llm-feed {
+        font-size: 0.7rem;
+        padding: 0.2rem 0.4rem;
+      }
+      .story-summary {
+        font-size: 0.85rem;
+      }
+      .story-time {
+        font-size: 0.75rem;
+      }
+      
+      /* Nested stories container */
+      .build-stories-container {
+        margin-left: 1rem;
+        padding-left: 0.75rem;
+      }
+      
+      /* Modals */
+      .modal-content {
+        padding: 1.25rem;
+        margin: 0.5rem;
+        max-height: calc(100vh - 1rem);
+      }
+      .modal-content h2 {
+        font-size: 1.1rem;
+      }
+      .form-group label {
+        font-size: 0.85rem;
+      }
+      .form-group input,
+      .form-group textarea,
+      .form-group select {
+        font-size: 16px; /* Prevents iOS zoom on focus */
+        padding: 0.6rem;
+      }
+      .modal-actions {
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+      .modal-actions button {
+        width: 100%;
+      }
+      
+      /* Story detail view */
+      .story-meta {
+        flex-direction: column;
+        gap: 0.5rem;
+        font-size: 0.85rem;
+      }
+      .story-section h3 {
+        font-size: 1rem;
+      }
+      .story-items li {
+        font-size: 0.9rem;
+      }
+      .item-title {
+        font-size: 0.9rem;
+      }
+      .item-desc {
+        font-size: 0.8rem;
+      }
+      
+      /* Date headers */
+      .date-header {
+        font-size: 0.9rem;
+        padding: 0.5rem 0;
+      }
+      
+      /* Footer */
+      .footer {
+        font-size: 0.75rem;
+        padding: 1rem 0;
+      }
+      
+      /* iOS install button - larger touch target */
+      .ios-install-btn {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.85rem;
+      }
+      
+      /* New story button */
+      .new-story-btn {
+        padding: 0.5rem 1rem;
+        font-size: 0.85rem;
+      }
+    }
+
+    /* Extra small screens (phones in portrait) */
+    @media (max-width: 480px) {
+      body {
+        padding: 0.75rem;
+      }
+      .platform-filters button {
+        padding: 0.4rem 0.5rem;
+        font-size: 0.75rem;
+      }
+      .build-card {
+        padding: 0.875rem;
+      }
+      .story-feed-card {
+        padding: 0.75rem;
+      }
+      .build-stories-container {
+        margin-left: 0.5rem;
+        padding-left: 0.5rem;
+      }
+      .copy-llm-btn.copy-llm-feed {
+        display: none; /* Hide on very small screens */
+      }
+    }
+
+    /* Ensure touch targets are at least 44px for iOS accessibility */
+    @media (pointer: coarse) {
+      button, a, .story-btn {
+        min-height: 44px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .platform-filters button {
+        min-height: 40px;
+      }
+    }
+
+    /* Improve contrast for outdoor/bright viewing */
+    @media (prefers-color-scheme: light) {
+      .meta, .story-time {
+        color: #444;
+      }
+      .text-muted, .story-card-date {
+        color: #666;
+      }
+    }
   </style>
 </head>
 <body>

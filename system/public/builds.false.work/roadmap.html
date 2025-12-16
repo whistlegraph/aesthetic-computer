@@ -3,7 +3,9 @@
 <head>
   <title>Roadmap - builds.false.work</title>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <style>
     :root {
       --bg-primary: #000;
@@ -140,6 +142,83 @@
       font-size: 0.85rem;
     }
     footer a { color: var(--text-secondary); }
+
+    /* Mobile-friendly styles */
+    @media (max-width: 768px) {
+      body {
+        padding: 1rem;
+        font-size: 14px;
+        -webkit-text-size-adjust: 100%;
+      }
+      h1 { font-size: 1.25rem; }
+      .subtitle { font-size: 0.85rem; margin-bottom: 1.5rem; }
+      
+      .phase {
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+      }
+      .phase-header {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+      }
+      .phase-status {
+        font-size: 0.7rem;
+        padding: 0.2rem 0.5rem;
+      }
+      .phase h2 { font-size: 1rem; }
+      .phase-desc { font-size: 0.85rem; }
+      
+      .tasks li {
+        padding: 0.4rem 0;
+        gap: 0.5rem;
+      }
+      .task-check { font-size: 1rem; }
+      .task-title { font-size: 0.9rem; }
+      .task-desc { font-size: 0.8rem; }
+      
+      .architecture {
+        padding: 1rem;
+      }
+      .architecture h3 { font-size: 1rem; }
+      .arch-diagram {
+        font-size: 0.7rem;
+      }
+      
+      .collections {
+        grid-template-columns: 1fr;
+        gap: 0.75rem;
+      }
+      .collection {
+        padding: 0.75rem;
+      }
+      .collection h4 { font-size: 0.85rem; }
+      .collection code { font-size: 0.7rem; }
+      
+      footer {
+        margin-top: 2rem;
+        font-size: 0.75rem;
+      }
+    }
+
+    @media (max-width: 480px) {
+      body { padding: 0.75rem; }
+      h1 { font-size: 1.1rem; }
+      .phase { padding: 0.75rem; }
+      .phase h2 { font-size: 0.95rem; }
+      .arch-diagram { font-size: 0.6rem; }
+    }
+
+    /* Touch-friendly targets */
+    @media (pointer: coarse) {
+      .tasks li {
+        min-height: 44px;
+        padding: 0.6rem 0;
+      }
+      footer a {
+        display: inline-block;
+        padding: 0.5rem;
+      }
+    }
   </style>
 </head>
 <body>
