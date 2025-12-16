@@ -33,7 +33,7 @@ import {
   AestheticExtension,
 } from "./lib/platform.mjs";
 import { headers } from "./lib/headers.mjs";
-import { logs } from "./lib/logs.mjs";
+import { logs, log } from "./lib/logs.mjs";
 import { checkPackMode } from "./lib/pack-mode.mjs";
 import { soundWhitelist } from "./lib/sound/sound-whitelist.mjs";
 import { timestamp, radians } from "./lib/num.mjs";
@@ -1657,7 +1657,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (webGPUInitialized) return;
     webGPUInitialized = await WebGPU.init(canvas);
     if (webGPUInitialized) {
-      console.log("🎨 WebGPU 2D renderer ready");
+      log.gpu.success("WebGPU 2D renderer ready");
       // Expose WebGPU module globally for debugging/artery access
       window.WebGPU = WebGPU;
     }
@@ -1713,7 +1713,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       const savedSession = localStorage.getItem("ac:tezos:session");
       if (savedSession) {
         const session = JSON.parse(savedSession);
-        console.log("🔷 Restoring wallet session:", session.address, "walletType:", session.walletType);
+        log.wallet.debug("Restoring wallet session:", session.address.slice(0, 8) + "...", "walletType:", session.walletType);
         
         walletState.connected = true;
         walletState.address = session.address;
@@ -1753,9 +1753,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 return result?.opHash;
               }
             };
-            console.log("🔷 Temple wallet restored with signing capability");
+            log.wallet.success("Temple wallet restored");
           } else {
-            console.log("🔷 Temple extension not available, session stale");
+            log.wallet.debug("Temple extension not available, session stale");
             walletState.connected = false;
             clearWalletSession();
             broadcastWalletState();
@@ -1771,11 +1771,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             pkh: () => session.address,
             sendOperations: async (operations) => {
               // Reconnect via Beacon on first signing attempt
-              console.log("🥝 Kukai needs reconnection for signing...");
+              log.wallet.log("Kukai needs reconnection for signing...");
               throw new Error("Kukai session expired - please reconnect wallet");
             }
           };
-          console.log("🔷 Kukai wallet session restored (signing will require reconnection)");
+          log.wallet.debug("Kukai wallet session restored (signing requires reconnection)");
         }
         
         // Fetch fresh balance and domain
@@ -1791,9 +1791,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         broadcastWalletState();
         return true;
       }
-      console.log("🔷 No saved wallet session");
+      log.wallet.verbose("No saved wallet session");
     } catch (err) {
-      console.log("🔷 restoreWalletSession error:", err.message);
+      log.wallet.debug("restoreWalletSession error:", err.message);
     }
     return false;
   }
@@ -10832,7 +10832,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // See also: https://flaviocopes.com/javascript-detect-dark-mode,
       //           https://developer.mozilla.org/en-US/docs/Web/CSS/@media/prefers-color-scheme
 
-      if (window.matchMedia) {
+      // Skip initial OS theme detection if embedded in kidlisp.com (will receive theme from parent)
+      if (window.matchMedia && !window.acWAIT_FOR_PARENT_THEME) {
         if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
           document.documentElement.style.setProperty("color-scheme", "dark");
           send({ type: "dark-mode", content: { enabled: true } });
@@ -10840,10 +10841,18 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           document.documentElement.style.setProperty("color-scheme", "light");
           send({ type: "dark-mode", content: { enabled: false } });
         }
+      }
 
+      // Listen for OS theme changes (but respect manual override from kidlisp.com)
+      if (window.matchMedia) {
         window
           .matchMedia("(prefers-color-scheme: dark)")
           .addEventListener("change", (event) => {
+            // Skip if theme was manually set from kidlisp.com
+            if (window.acMANUAL_THEME_OVERRIDE) {
+              console.log('🎨 [bios.mjs] Ignoring OS theme change - manual override active');
+              return;
+            }
             if (event.matches) {
               document.documentElement.style.setProperty(
                 "color-scheme",
