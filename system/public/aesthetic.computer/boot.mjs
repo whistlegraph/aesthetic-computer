@@ -963,12 +963,17 @@ function receive(event) {
     return;
   } else if (event.data?.type === "kidlisp-theme") {
     // Theme sync from kidlisp.com editor
+    console.log('🎨 [boot.mjs] Received kidlisp-theme:', event.data);
     const theme = event.data.theme; // 'light' or 'dark'
     const isDark = theme === 'dark';
+    console.log('🎨 [boot.mjs] isDark:', isDark, 'toggling body.light-theme');
     document.body.classList.toggle('light-theme', !isDark);
     document.documentElement.style.setProperty("color-scheme", theme);
+    console.log('🎨 [boot.mjs] Set color-scheme to:', theme);
     // Tell bios.mjs/worker about the theme change
+    console.log('🎨 [boot.mjs] window.acSEND available:', !!window.acSEND);
     window.acSEND?.({ type: "dark-mode", content: { enabled: isDark } });
+    console.log('🎨 [boot.mjs] Sent dark-mode message:', { enabled: isDark });
     return;
   } else if (event.data?.type === "keep-mint-prepare") {
     // Handle mint preparation request from kidlisp.com
