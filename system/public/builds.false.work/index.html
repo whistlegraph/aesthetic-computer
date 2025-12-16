@@ -484,16 +484,38 @@
       border-left: 2px dashed rgba(128, 64, 64, 0.3);
       margin-top: -0.5rem;
       margin-bottom: 1rem;
+      padding-top: 0.75rem;
+      padding-bottom: 0.5rem;
     }
     .build-stories-container .story-feed-card {
       margin-bottom: 0.75rem;
     }
-    .build-stories-container .story-feed-card:last-child {
-      margin-bottom: 0;
+    .build-stories-container .story-btn.add-story {
+      display: inline-block;
+      padding: 0.4rem 0.75rem;
+      margin-top: 0.5rem;
+      font-size: 0.8rem;
+      border: 1px dashed rgba(128, 64, 64, 0.4);
+      background: transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-radius: 3px;
+      transition: all 0.2s;
+    }
+    .build-stories-container .story-btn.add-story:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: rgba(128, 64, 64, 0.1);
     }
     @media (prefers-color-scheme: light) {
       .build-stories-container {
         border-left-color: rgba(200, 80, 80, 0.25);
+      }
+      .build-stories-container .story-btn.add-story {
+        border-color: rgba(200, 80, 80, 0.3);
+      }
+      .build-stories-container .story-btn.add-story:hover {
+        background: rgba(200, 80, 80, 0.1);
       }
     }
     /* Story cards in unified feed - dark theme default */
@@ -1071,7 +1093,7 @@
         </div>
         
         <div class="form-section">
-          <h3 style="color: var(--big-color);">💭 Bigger Thoughts</h3>
+          <h3 style="color: var(--big-color);">💡 Bigger Ideas</h3>
           <p class="form-hint">Deeper considerations, design thoughts, major issues</p>
           <div id="big-items" class="item-list"></div>
           <button type="button" class="add-item-btn" onclick="addItem('big-items')">+ Add item</button>
@@ -1320,17 +1342,23 @@
         
         grouped[dateLabel].forEach(item => {
           if (item.type === 'build') {
-            html += renderBuildCard(item.data);
+            const build = item.data;
+            const isFailed = build.status === 'failed' || build.status === 'stale';
+            html += renderBuildCard(build);
             // Render nested stories under build
+            html += `<div class="build-stories-container">`;
             if (item.stories && item.stories.length > 0) {
               // Sort stories by date descending
               item.stories.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-              html += `<div class="build-stories-container">`;
               item.stories.forEach(story => {
                 html += renderStoryCardInFeed(story);
               });
-              html += `</div>`;
             }
+            // Add + button at end of stories container
+            if (!isFailed) {
+              html += `<button class="story-btn add-story" onclick="openStoryModalForBuild('${build.platform}', '${build.version}')" title="Write a story for this build">+ Add Story</button>`;
+            }
+            html += `</div>`;
           } else if (item.type === 'orphan-story') {
             html += renderStoryCardInFeed(item.data);
           }
@@ -1361,16 +1389,6 @@
             <a href="${build.downloadUrl}">${build.version}.${fileExt}</a>
       `;
       
-      if (build.tags && build.tags.length > 0) {
-        html += `<span class="build-tags">`;
-        build.tags.forEach(tag => {
-          const tagClass = tag.toLowerCase().replace(/[^a-z0-9]/g, '-');
-          const tagLabel = tag === 'auto-detect' ? 'Auto' : tag.charAt(0).toUpperCase() + tag.slice(1);
-          html += `<span class="build-tag ${tagClass}">${tagLabel}</span>`;
-        });
-        html += `</span>`;
-      }
-      
       if (build.status && build.status !== 'ok') {
         html += `<span class="status-badge ${build.status}">${build.status}</span>`;
       }
@@ -1379,19 +1397,7 @@
         html += `<a href="${build.logUrl}" class="log-link" onclick="event.preventDefault(); openLogModal('${build.logUrl}')" title="Right-click to download">(log)</a>`;
       }
       
-      // Show all stories for this build
-      if (buildStories.length > 0) {
-        buildStories.forEach(story => {
-          const tester = story.tester || 'Anonymous';
-          const time = new Date(story.createdAt).toLocaleTimeString('en-US', {
-            hour: 'numeric', minute: '2-digit', hour12: true
-          });
-          html += `<button class="story-btn has-story" onclick="viewStory('${story._id}')" title="Story by ${tester}">📝 ${tester} @ ${time}</button>`;
-        });
-      }
-      if (!isFailed) {
-        html += `<button class="story-btn add-story" onclick="openStoryModalForBuild('${build.platform}', '${build.version}')" title="Write a story">+</button>`;
-      }
+      // Stories are now rendered in nested container below build card
       
       if (build.platform === 'ios' && !isFailed) {
         html += `<a href="itms-services://?action=download-manifest&url=https://builds.false.work/ios/manifest.plist" class="ios-install-btn">📲 Install</a>`;
@@ -1544,24 +1550,6 @@
       
       const tester = story.tester || 'Anonymous';
       
-      // Build item previews (show first 2-3 items from each category)
-      let itemsHtml = '';
-      if (fruitItems.length > 0) {
-        const preview = fruitItems.slice(0, 2).map(i => i.title).join(', ');
-        const more = fruitItems.length > 2 ? ` +${fruitItems.length - 2}` : '';
-        itemsHtml += `<div class="story-items-preview fruit">🍎 ${preview}${more}</div>`;
-      }
-      if (sideItems.length > 0) {
-        const preview = sideItems.slice(0, 2).map(i => i.title).join(', ');
-        const more = sideItems.length > 2 ? ` +${sideItems.length - 2}` : '';
-        itemsHtml += `<div class="story-items-preview side">🍟 ${preview}${more}</div>`;
-      }
-      if (bigItems.length > 0) {
-        const preview = bigItems.slice(0, 2).map(i => i.title).join(', ');
-        const more = bigItems.length > 2 ? ` +${bigItems.length - 2}` : '';
-        itemsHtml += `<div class="story-items-preview big">💭 ${preview}${more}</div>`;
-      }
-      
       return `
         <div class="build-card story-feed-card" data-story-id="${story._id}" onclick="viewStory('${story._id}')">
           <div class="build-header">
@@ -1576,9 +1564,8 @@
           <div class="meta" style="margin-top: 0.75rem;">
             by <strong>${tester}</strong> · <span class="story-summary">"${story.summary || 'No summary'}"</span>
           </div>
-          ${itemsHtml ? `<div class="story-items-container">${itemsHtml}</div>` : ''}
           <div class="meta story-time">
-            🍎 ${fruitItems.length} · 🍟 ${sideItems.length} · 💭 ${bigItems.length} · ${time}
+            🍎 ${fruitItems.length} fruit · 🍟 ${sideItems.length} side · 💡 ${bigItems.length} ideas · ${time}
           </div>
         </div>
       `;
@@ -1619,7 +1606,7 @@
       }
       
       if (story.biggerThoughts && story.biggerThoughts.length > 0) {
-        html += `<div class="story-section section-big"><h3>💭 Bigger Thoughts</h3><ul class="story-items">`;
+        html += `<div class="story-section section-big"><h3>💡 Bigger Ideas</h3><ul class="story-items">`;
         story.biggerThoughts.forEach(item => {
           html += `<li><span class="item-icon">🌟</span><div class="item-content"><div class="item-title">${item.title}</div>${item.desc ? `<div class="item-desc">${item.desc}</div>` : ''}</div></li>`;
         });
