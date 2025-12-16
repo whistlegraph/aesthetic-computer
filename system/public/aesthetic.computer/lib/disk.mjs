@@ -36,7 +36,7 @@ import { getPreserveFadeAlpha, setPreserveFadeAlpha } from "./fade-state.mjs";
 import * as prompt from "../systems/prompt-system.mjs";
 import * as world from "../systems/world.mjs";
 import { headers } from "./headers.mjs";
-import { logs } from "./logs.mjs";
+import { logs, log } from "./logs.mjs";
 import { soundWhitelist } from "./sound/sound-whitelist.mjs";
 
 import { CamDoll } from "./cam-doll.mjs";
@@ -1676,7 +1676,7 @@ class Recorder {
       this.tapeTimerStart = null;
       this.tapeTimerDuration = null;
       
-      console.log(`🎬 Starting frame-based recording: ${durationOrFrames} frames (starting at frame ${this.tapeFrameStart})`);
+      log.tape.log(`Starting frame-based recording: ${durationOrFrames} frames`);
       
       // Set a longer failsafe for frame-based recording (frames could take a while)
       if (this.failsafeTimeout) {
@@ -1684,7 +1684,7 @@ class Recorder {
       }
       
       this.failsafeTimeout = setTimeout(() => {
-        console.warn(`🎬 ⚠️ Frame-based failsafe triggered! Recording may have stalled.`);
+        log.tape.warn("Frame-based failsafe triggered! Recording may have stalled.");
         this.tapeProgress = 0;
         this.tapeFrameMode = false;
         this.tapeFrameStart = 0;
@@ -1695,7 +1695,7 @@ class Recorder {
             $commonApi.jump("video");
           });
         } else {
-          console.warn(`🎬 ⚠️ Cut function not available in failsafe, manual jump to video`);
+          log.tape.warn("Cut function not available in failsafe");
           $commonApi.jump("video");
         }
         this.failsafeTimeout = null;
@@ -1713,7 +1713,7 @@ class Recorder {
       
       // Set a failsafe that will trigger cut if the normal timer fails
       this.failsafeTimeout = setTimeout(() => {
-        console.warn(`🎬 ⚠️ Failsafe timer triggered! Normal timer may have failed.`);
+        log.tape.warn("Failsafe timer triggered! Normal timer may have failed.");
         if (this.tapeTimerDuration && this.tapeTimerStart) {
           this.tapeProgress = 0;
           this.tapeTimerStart = null;
@@ -1757,7 +1757,7 @@ class Recorder {
         this.tapeFrameStart = 0;
         this.tapeFrameTarget = 0;
         
-        console.log(`🎬 Frame-based recording complete: ${framesPassed} frames recorded`);
+        log.tape.success(`Frame-based recording complete: ${framesPassed} frames`);
         
         // Add safety check for callback existence
         if (typeof this.cut === 'function') {
@@ -1765,7 +1765,7 @@ class Recorder {
             $commonApi.jump("video");
           });
         } else {
-          console.warn(`🎬 ⚠️ Cut function not available, manual jump to video`);
+          log.tape.warn("Cut function not available");
           $commonApi.jump("video");
         }
       }
@@ -1798,7 +1798,7 @@ class Recorder {
             $commonApi.jump("video");
           });
         } else {
-          console.warn(`🎬 ⚠️ Cut function not available, manual jump to video`);
+          log.tape.warn("Cut function not available");
           $commonApi.jump("video");
         }
       }
@@ -6409,7 +6409,7 @@ async function load(
         sourceCode = sourceToRun;
         originalCode = sourceCode;
         
-        console.log("🎨 Initializing KidLisp piece...");
+        log.lisp.log("Initializing KidLisp piece...");
         
         // Notify boot progress
         const compileStartTime = performance.now();
@@ -6422,7 +6422,7 @@ async function load(
             content: `compiling kidlisp (fetch: ${fetchElapsed}ms)`
           });
         } else {
-          console.warn("⚠️ send function not available for boot-log");
+          log.lisp.warn("send function not available for boot-log");
         }
         
         // Initialize persistent cache for $codes (only needs to be done once)
@@ -6435,7 +6435,7 @@ async function load(
         
         const compileEndTime = performance.now();
         const compileElapsed = Math.round(compileEndTime - compileStartTime);
-        console.log(`✅ KidLisp module loaded successfully (${compileElapsed}ms)`);
+        log.lisp.success(`KidLisp module loaded (${compileElapsed}ms)`);
         
         // Notify boot progress
         // console.log("📢 Disk sending boot-log: kidlisp compiled");
@@ -6617,13 +6617,14 @@ async function load(
     source,
     codeChannel,
     createCode,
+    authToken,  // Auth token from kidlisp.com login
   } = {}) {
     // console.log("⚠️ Reloading:", piece, name, source);
 
     if (loading && source && !name && !piece) {
       // If a piece is loading and we have new source code, queue the reload
       console.log("🟡 Queueing reload until current load completes...");
-      setTimeout(() => reload({ source, createCode }), 100);
+      setTimeout(() => reload({ source, createCode, authToken }), 100);
       return;
     }
 
@@ -6663,6 +6664,11 @@ async function load(
       } else {
         // console.log('⚠️ createCode flag is false or undefined:', createCode);
         $commonApi.kidlispCreateCode = false;
+      }
+      
+      // Store auth token globally so kidlisp can use it for saving
+      if (authToken) {
+        $commonApi.kidlispAuthToken = authToken;
       }
       
       $commonApi.load(
@@ -6761,7 +6767,7 @@ async function load(
 
         // 🩰 UDP... (via `bios`)
         // Use the protocol from the session response (http for localhost, https for prod)
-        console.log("🩰 DISK sending udp:connect request to BIOS:", {
+        log.socket.debug("Sending udp:connect to BIOS:", {
           url: `${udpUrl.protocol}//${udpUrl.hostname}`,
           port: udpUrl.port || (udpUrl.protocol === 'https:' ? '443' : '80'),
         });
@@ -8280,10 +8286,7 @@ async function makeFrame({ data: { type, content } }) {
       // console.log("Getting handle...");
       await handle(); // Get the user's handle.
       // console.log("Handle recived:", HANDLE);
-      console.log(
-        `👋 Welcome back %c${HANDLE || USER.email}`,
-        `color: yellow; background: rgba(10, 20, 40);`,
-      );
+      log.auth.log(`Welcome back ${HANDLE || USER.email}`);
       // Log tab ID for debugging
       if (!$commonApi._tabId) {
         $commonApi._tabId = Math.random().toString(36).substr(2, 9);
@@ -8303,14 +8306,15 @@ async function makeFrame({ data: { type, content } }) {
 
   // Handle live reload from kidlisp.com editor
   if (type === "piece-reload") {
-    console.log("🔄 Reloading piece with new code:", content.source?.substring(0, 50), "createCode:", content.createCode);
+    log.piece.log("Reloading with new code:", content.source?.substring(0, 30) + "...");
     if ($commonApi.reload) {
       $commonApi.reload({ 
         source: content.source, 
-        createCode: content.createCode 
+        createCode: content.createCode,
+        authToken: content.authToken  // Pass token from kidlisp.com login
       });
     } else {
-      console.warn("⚠️ Reload function not ready yet, ignoring reload request");
+      log.piece.warn("Reload function not ready yet");
     }
     return;
   }
@@ -8657,7 +8661,7 @@ async function makeFrame({ data: { type, content } }) {
     Object.assign($commonApi.wallet._state, content);
     // Clear any error after successful update
     if (content.connected) delete $commonApi.wallet._state.error;
-    console.log("🔷 Wallet state updated:", $commonApi.wallet._state);
+    log.wallet.debug("Wallet state updated:", $commonApi.wallet._state);
     return;
   }
 
@@ -11020,21 +11024,21 @@ async function makeFrame({ data: { type, content } }) {
           if (system === "nopaint") nopaint_boot({ ...$api, params: $api.params, colon: $api.colon });
           await boot($api);
           const bootEndTime = performance.now();
-          // console.log(`⏰ boot() completed in ${Math.round(bootEndTime - bootStartTime)}ms`);
+          // console.log(`⏰ boot() completed in ${Math.round(bootStartTime - bootEndTime)}ms`);
           booted = true;
-          console.log("🥾 ✅ Boot completed, booted =", booted, "pending events:", pendingExportEvents.length);
+          log.boot.success("Boot completed, booted =", booted, "pending events:", pendingExportEvents.length);
           
           // 📨 Flush any pending export events that arrived during boot
           if (pendingExportEvents.length > 0) {
-            console.log(`📼 🚀 Flushing ${pendingExportEvents.length} pending export events after boot`);
-            console.log(`📼 receive === defaults.receive:`, receive === defaults.receive);
-            console.log(`📼 typeof receive:`, typeof receive);
+            log.boot.debug(`Flushing ${pendingExportEvents.length} pending export events`);
+            log.boot.verbose("receive === defaults.receive:", receive === defaults.receive);
+            log.boot.verbose("typeof receive:", typeof receive);
             const eventsToFlush = [...pendingExportEvents];
             pendingExportEvents = [];
             eventsToFlush.forEach(event => {
               if (typeof receive === "function" && receive !== defaults.receive) {
                 try {
-                  console.log("📼 ✅ Flushing queued event:", event.type);
+                  log.boot.verbose("Flushing queued event:", event.type);
                   receive(event);
                 } catch (e) {
                   console.warn("📼 ❌ Error flushing event:", event.type, e);
@@ -11362,7 +11366,7 @@ async function makeFrame({ data: { type, content } }) {
                 $commonApi.jump("video");
               });
             } else {
-              console.warn(`🎬 ⚠️ Cut function not available, manual jump to video`);
+              log.tape.warn("Cut function not available");
               $commonApi.jump("video");
             }
           }
@@ -13293,7 +13297,7 @@ async function handle() {
     }
 
     try {
-      console.log("🤚 Fetching handle for:", USER.sub);
+      log.auth.debug("Fetching handle for:", USER.sub);
       const response = await fetch(`/handle?for=${USER.sub}`);
       if (response.status === 200) {
         const data = await response.json();

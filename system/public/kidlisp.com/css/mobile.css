@@ -1,0 +1,282 @@
+/* KidLisp Editor - Mobile Styles */
+
+@media (max-width: 768px) {
+  /* Normalize text sizing for iOS */
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+  
+  body {
+    font-size: 16px;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+    overscroll-behavior: none;
+    overflow: hidden;
+    position: fixed;
+    width: 100%;
+    height: 100%;
+  }
+  
+  main {
+    flex-direction: column;
+    height: 100%;
+    height: calc(100% - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  }
+  
+  .top-row, .bottom-row {
+    flex-direction: column !important;
+  }
+  
+  .editor-panel, .preview-panel, .reference-section, .console-section {
+    width: 100% !important;
+    min-height: 44px;
+  }
+  
+  /* Compact headers */
+  .editor-header, .docs-header {
+    height: var(--mobile-header-height);
+    padding: 0 8px;
+    font-size: 12px;
+  }
+  
+  /* KidLisp logo smaller */
+  .baby-colors {
+    font-size: 16px !important;
+    line-height: 28px !important;
+  }
+  
+  .baby-colors + span {
+    font-size: 8px !important;
+    margin-top: -1px !important;
+    margin-bottom: 6px !important;
+  }
+  
+  /* Compact language selector */
+  .language-tab {
+    padding: 0 4px !important;
+  }
+  
+  .lang-flag { font-size: 9px !important; }
+  .lang-text { font-size: 9px !important; min-width: 40px !important; }
+  
+  /* Compact theme toggle */
+  #theme-toggle {
+    width: 28px;
+    height: 28px;
+    font-size: 14px;
+  }
+  
+  /* Touch-friendly tabs */
+  .tab {
+    padding: 0 12px;
+    font-size: 12px;
+    min-height: 40px;
+  }
+  
+  /* Preview title */
+  #preview-title {
+    font-size: 13px !important;
+  }
+  
+  #preview-title .code-display {
+    font-size: 11px !important;
+  }
+  
+  @media (max-width: 380px) {
+    #preview-qr {
+      display: none !important;
+    }
+  }
+  
+  #console-title {
+    font-size: 12px;
+  }
+  
+  /* Remove borders */
+  .editor-panel {
+    border-right: none;
+    border-bottom: none;
+  }
+  
+  .reference-section {
+    border-right: none;
+  }
+  
+  /* Play/Stop buttons */
+  #send-button, #stop-button {
+    width: 44px;
+    height: 44px;
+    bottom: 6px;
+    right: 6px;
+  }
+  
+  #send-button.playing {
+    right: 56px;
+  }
+  
+  /* Clear button */
+  #clear-button {
+    font-size: 10px;
+    padding: 4px 8px;
+    bottom: 6px;
+    left: 6px;
+  }
+  
+  /* Monaco editor */
+  #kidlisp-editor {
+    padding-left: 8px;
+  }
+  
+  /* Docs content */
+  .docs-content {
+    padding: 8px;
+    font-size: 12px;
+  }
+  
+  /* Function grid */
+  .function-item {
+    padding: 3px 8px;
+    font-size: 13px;
+  }
+  
+  /* Console */
+  .console-output {
+    font-size: 12px;
+    padding: 6px;
+  }
+  
+  /* Panel transitions */
+  .editor-panel, .preview-panel, .reference-section, .console-section {
+    transition: height 0.25s ease-out;
+    overflow: hidden;
+  }
+  
+  /* Collapsed panel state */
+  .panel-collapsed {
+    overflow: hidden !important;
+  }
+  
+  .panel-collapsed .docs-content,
+  .panel-collapsed .console-output,
+  .panel-collapsed #kidlisp-editor,
+  .panel-collapsed #preview-iframe,
+  .panel-collapsed .boot-screen {
+    display: none !important;
+  }
+  
+  /* Draggable headers */
+  .docs-header {
+    cursor: ns-resize;
+    position: relative;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+    transition: background-color 0.15s ease;
+    box-shadow: 0 -3px 6px rgba(0, 0, 0, 0.15);
+    z-index: 1;
+  }
+  
+  .editor-header {
+    cursor: pointer;
+    position: relative;
+    user-select: none;
+    -webkit-user-select: none;
+    box-shadow: 0 -3px 6px rgba(0, 0, 0, 0.15);
+    z-index: 1;
+  }
+  
+  [data-theme="dark"] .docs-header,
+  [data-theme="dark"] .editor-header {
+    box-shadow: 0 -4px 8px rgba(0, 0, 0, 0.4);
+  }
+  
+  .docs-header:hover {
+    background: rgba(128, 128, 128, 0.15);
+  }
+  
+  .docs-header:active,
+  .docs-header.dragging {
+    background: rgba(128, 128, 128, 0.25);
+  }
+  
+  /* Collapse indicator triangles */
+  .mobile-collapse-indicator {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 0;
+    height: 0;
+    pointer-events: none;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 8px solid currentColor;
+    opacity: 0.85;
+  }
+  
+  .panel-collapsed .mobile-collapse-indicator {
+    border-left: 8px solid currentColor;
+    border-right: none;
+    border-top: 5px solid transparent;
+    border-bottom: 5px solid transparent;
+    transform: translateY(-50%);
+  }
+  
+  /* Panel-specific arrow colors */
+  #preview-panel .mobile-collapse-indicator { color: rgb(88, 78, 108); }
+  #console-panel .mobile-collapse-indicator { color: #ff9f43; }
+  #reference-panel .mobile-collapse-indicator { color: rgb(100, 149, 237); }
+  #editor-panel .mobile-collapse-indicator { color: var(--text-primary); }
+  
+  @media (prefers-color-scheme: dark) {
+    #preview-panel .mobile-collapse-indicator { color: rgb(200, 190, 220); }
+  }
+  
+  [data-theme="dark"] #preview-panel .mobile-collapse-indicator {
+    color: rgb(200, 190, 220);
+  }
+  
+  /* Mobile checkerboard backdrop */
+  .mobile-checkerboard {
+    display: none;
+    flex: 1;
+    min-height: 40px;
+    background: rgba(100, 149, 237, 0.25);
+    border-top: 2px dashed rgba(100, 149, 237, 0.5);
+  }
+  
+  .mobile-checkerboard.all-collapsed {
+    background: repeating-linear-gradient(
+      45deg,
+      rgba(128, 128, 128, 0.1),
+      rgba(128, 128, 128, 0.1) 10px,
+      rgba(128, 128, 128, 0.2) 10px,
+      rgba(128, 128, 128, 0.2) 20px
+    );
+    border-top: 2px dashed rgba(128, 128, 128, 0.5);
+  }
+  
+  [data-theme="dark"] .mobile-checkerboard {
+    background: rgba(100, 149, 237, 0.15);
+    border-top: 2px dashed rgba(100, 149, 237, 0.3);
+  }
+  
+  [data-theme="dark"] .mobile-checkerboard.all-collapsed {
+    background: repeating-linear-gradient(
+      45deg,
+      rgba(200, 200, 200, 0.05),
+      rgba(200, 200, 200, 0.05) 10px,
+      rgba(200, 200, 200, 0.1) 10px,
+      rgba(200, 200, 200, 0.1) 20px
+    );
+    border-top: 2px dashed rgba(200, 200, 200, 0.3);
+  }
+  
+  /* Hide Split.js gutters on mobile */
+  .gutter {
+    display: none !important;
+  }
+}

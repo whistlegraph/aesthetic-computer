@@ -9,6 +9,8 @@
   - Commands are batched per frame and executed together
 #endregion */
 
+import { log } from "./logs.mjs";
+
 let device = null;
 let context = null;
 let canvasFormat = null;
@@ -54,12 +56,12 @@ function ensureContextConfigured() {
         });
         configuredWidth = canvas.width;
         configuredHeight = canvas.height;
-        console.log(`🎨 WebGPU context configured for ${configuredWidth}x${configuredHeight}`);
+        log.gpu.debug(`Context configured for ${configuredWidth}x${configuredHeight}`);
       } catch (err) {
-        console.error("❌ WebGPU context.configure failed:", err);
+        log.gpu.error("Context configure failed:", err);
       }
     } else {
-      console.warn(`⚠️ WebGPU canvas size is ${canvas.width}x${canvas.height}, skipping configure`);
+      log.gpu.verbose(`Canvas size is ${canvas.width}x${canvas.height}, skipping configure`);
     }
   }
 }
@@ -68,11 +70,11 @@ function ensureContextConfigured() {
 async function init(targetCanvas) {
   if (isInitialized) return true;
   
-  console.log("🎨 Initializing WebGPU renderer...");
+  log.gpu.log("Initializing WebGPU renderer...");
   
   // Check for WebGPU support
   if (!navigator.gpu) {
-    console.warn("⚠️ WebGPU not supported in this browser");
+    log.gpu.warn("WebGPU not supported in this browser");
     return false;
   }
   
@@ -80,7 +82,7 @@ async function init(targetCanvas) {
     // Request adapter
     const adapter = await navigator.gpu.requestAdapter();
     if (!adapter) {
-      console.warn("⚠️ No WebGPU adapter found");
+      log.gpu.warn("No WebGPU adapter found");
       return false;
     }
     
@@ -93,7 +95,7 @@ async function init(targetCanvas) {
     // Configure canvas context
     context = canvas.getContext("webgpu");
     if (!context) {
-      console.warn("⚠️ Failed to get WebGPU context from canvas");
+      log.gpu.warn("Failed to get WebGPU context from canvas");
       return false;
     }
     
@@ -117,10 +119,10 @@ async function init(targetCanvas) {
     await createLinePipeline();
     
     isInitialized = true;
-    console.log("✅ WebGPU renderer initialized");
+    log.gpu.success("WebGPU renderer initialized");
     return true;
   } catch (error) {
-    console.error("❌ Failed to initialize WebGPU:", error);
+    log.gpu.error("Failed to initialize WebGPU:", error);
     return false;
   }
 }
@@ -558,7 +560,7 @@ function destroy() {
   frameClearColor = null;
   frameTimestamps = [];
   isInitialized = false;
-  console.log("🎨 WebGPU renderer destroyed");
+  log.gpu.debug("WebGPU renderer destroyed");
 }
 
 // 📊 Toggle performance overlay
@@ -568,7 +570,7 @@ function togglePerfOverlay(enabled) {
   } else {
     perfOverlayEnabled = !perfOverlayEnabled;
   }
-  console.log(`📊 WebGPU perf overlay: ${perfOverlayEnabled ? "ON" : "OFF"}`);
+  log.gpu.debug(`Perf overlay: ${perfOverlayEnabled ? "ON" : "OFF"}`);
   return perfOverlayEnabled;
 }
 
