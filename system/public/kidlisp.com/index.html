@@ -6886,23 +6886,36 @@
           return;
         }
         
-        // Completely hide define to prevent UMD scripts from using AMD
-        // Monaco's loader uses define, but we need to hide it entirely during script load
+        // Hide define temporarily to prevent UMD scripts from using AMD
+        // Can't delete non-configurable properties, so set to undefined instead
         const originalDefine = window.define;
-        delete window.define;
+        try {
+          window.define = undefined;
+        } catch (e) {
+          // If we can't modify define, proceed anyway - the script may still work
+          console.warn('Could not hide define for script load:', e);
+        }
         
         const script = document.createElement('script');
         script.src = src;
         script.onload = () => {
           // Restore define after script loads
           if (originalDefine) {
-            window.define = originalDefine;
+            try {
+              window.define = originalDefine;
+            } catch (e) {
+              console.warn('Could not restore define:', e);
+            }
           }
           resolve();
         };
         script.onerror = () => {
           if (originalDefine) {
-            window.define = originalDefine;
+            try {
+              window.define = originalDefine;
+            } catch (e) {
+              console.warn('Could not restore define:', e);
+            }
           }
           reject(new Error(`Failed to load ${src}`));
         };
