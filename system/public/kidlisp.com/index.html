@@ -129,33 +129,31 @@
     
     /* Custom scrollbars for console and reference panels */
     .console-output::-webkit-scrollbar,
-    .function-list::-webkit-scrollbar {
+    .docs-content::-webkit-scrollbar {
       display: block;
       width: 8px;
       height: 8px;
     }
     
     .console-output::-webkit-scrollbar-track,
-    .function-list::-webkit-scrollbar-track {
+    .docs-content::-webkit-scrollbar-track {
       background: rgba(0, 0, 0, 0.1);
-      border-radius: 4px;
     }
     
     .console-output::-webkit-scrollbar-thumb,
-    .function-list::-webkit-scrollbar-thumb {
+    .docs-content::-webkit-scrollbar-thumb {
       background: rgba(255, 159, 67, 0.4);
-      border-radius: 4px;
     }
     
     .console-output::-webkit-scrollbar-thumb:hover,
-    .function-list::-webkit-scrollbar-thumb:hover {
+    .docs-content::-webkit-scrollbar-thumb:hover {
       background: rgba(255, 159, 67, 0.6);
     }
     
     /* Dark mode scrollbar colors */
     @media (prefers-color-scheme: dark) {
       .console-output::-webkit-scrollbar-track,
-      .function-list::-webkit-scrollbar-track {
+      .docs-content::-webkit-scrollbar-track {
         background: rgba(0, 0, 0, 0.2);
       }
       
@@ -163,13 +161,13 @@
         background: rgba(255, 159, 67, 0.5);
       }
       
-      .function-list::-webkit-scrollbar-thumb {
+      .docs-content::-webkit-scrollbar-thumb {
         background: rgba(100, 149, 237, 0.5);
       }
     }
     
     [data-theme="dark"] .console-output::-webkit-scrollbar-track,
-    [data-theme="dark"] .function-list::-webkit-scrollbar-track {
+    [data-theme="dark"] .docs-content::-webkit-scrollbar-track {
       background: rgba(0, 0, 0, 0.2);
     }
     
@@ -177,12 +175,12 @@
       background: rgba(255, 159, 67, 0.5);
     }
     
-    [data-theme="dark"] .function-list::-webkit-scrollbar-thumb {
+    [data-theme="dark"] .docs-content::-webkit-scrollbar-thumb {
       background: rgba(100, 149, 237, 0.5);
     }
     
     [data-theme="light"] .console-output::-webkit-scrollbar-track,
-    [data-theme="light"] .function-list::-webkit-scrollbar-track {
+    [data-theme="light"] .docs-content::-webkit-scrollbar-track {
       background: rgba(0, 0, 0, 0.1);
     }
     
@@ -190,7 +188,7 @@
       background: rgba(255, 159, 67, 0.4);
     }
     
-    [data-theme="light"] .function-list::-webkit-scrollbar-thumb {
+    [data-theme="light"] .docs-content::-webkit-scrollbar-thumb {
       background: rgba(100, 149, 237, 0.4);
     }
 
@@ -844,11 +842,11 @@
       color: white;
     }
     [data-theme="light"] #preview-panel[data-platform="ableton"] .docs-header {
-      background: rgb(255, 109, 0); /* Ableton orange */
-      border-bottom-color: rgb(200, 85, 0);
+      background: rgb(255, 255, 255); /* White */
+      border-bottom-color: rgb(230, 230, 230);
     }
     [data-theme="light"] #preview-panel[data-platform="ableton"] .docs-header #preview-title {
-      color: white;
+      color: black;
     }
     [data-theme="light"] #preview-panel[data-platform="playdate"] .docs-header {
       background: rgb(255, 204, 0); /* Playdate yellow */
@@ -886,11 +884,11 @@
       color: white;
     }
     [data-theme="dark"] #preview-panel[data-platform="ableton"] .docs-header {
-      background: rgb(255, 109, 0); /* Ableton orange */
-      border-bottom-color: rgb(200, 85, 0);
+      background: rgb(255, 255, 255); /* White */
+      border-bottom-color: rgb(230, 230, 230);
     }
     [data-theme="dark"] #preview-panel[data-platform="ableton"] .docs-header #preview-title {
-      color: white;
+      color: black;
     }
     [data-theme="dark"] #preview-panel[data-platform="playdate"] .docs-header {
       background: rgb(255, 204, 0); /* Playdate yellow */
@@ -1002,10 +1000,27 @@
       }
     }
 
+    [data-theme="light"] .console-output {
+      background: #f5ebe0; /* Much lighter beige for light mode */
+      color: #c87137; /* Darker orange text for better contrast */
+    }
+
+    [data-theme="dark"] .console-output {
+      background: #4a3020;
+      color: #ff9f43;
+    }
+
     .console-entry {
-      padding: 4px 8px; /* Added horizontal padding */
+      padding: 4px 8px;
       border-bottom: 1px solid var(--border-subtle);
-      display: flex; /* Flex layout for line number alignment */
+      line-height: 1.5;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+    
+    /* Only use flex for entries with line numbers */
+    .console-entry:has(.console-line) {
+      display: flex;
       align-items: flex-start;
     }
 
@@ -1030,6 +1045,85 @@
     .console-entry.error { color: #ff6b6b; }
     .console-entry.warn { color: #ffd93d; }
     .console-entry.info { color: #6bcfff; }
+    .console-entry.state { color: #9370db; opacity: 0.8; }
+    .console-entry.code { color: #c9b896; font-size: 12px; }
+    
+    /* State change styles */
+    .console-entry.state-play { color: #689068; } /* Dark muted green */
+    .console-entry.state-pause { color: #a0983a; } /* Dark muted yellow */
+    .console-entry.state-stop { color: #a07038; } /* Dark muted orange */
+    .console-entry.state-load { color: #6090a0; } /* Dark muted blue */
+    .console-entry.state-run { color: #689068; } /* Dark muted green */
+    
+    /* Console code display - matches Monaco editor styling */
+    .console-label { color: #9080a0; font-weight: 500; }
+    .console-code { 
+      font-family: 'Berkeley Mono', 'Fira Code', 'SF Mono', monospace;
+      background: #2a2520; /* Dark mode: matches editor.background */
+      padding: 2px 6px;
+      border-radius: 3px;
+      color: #d4d4d4; /* Dark mode: matches editor.foreground */
+    }
+    
+    /* Syntax highlighting in console - dark mode (default) */
+    /* Uses same colors as Monaco decorations: yellow, cyan, lime, pink, orange */
+    .hl-comment { color: gray; font-style: italic; }
+    .hl-string { color: orange; }
+    .hl-number { color: lime; }
+    .hl-keyword { color: pink; }
+    .hl-api { color: cyan; }
+    .hl-color { color: magenta; }
+    
+    /* Light mode console code styling */
+    [data-theme="light"] .console-code {
+      background: #fffacd; /* Legal pad yellow - matches light editor */
+      color: #333333;
+    }
+    [data-theme="light"] .console-label { color: #666688; }
+    /* Light mode uses high-contrast colors matching Monaco decorator lightModeColorMap */
+    [data-theme="light"] .hl-comment { color: #666666; }
+    [data-theme="light"] .hl-string { color: #cc6600; }
+    [data-theme="light"] .hl-number { color: #00aa00; }
+    [data-theme="light"] .hl-keyword { color: #cc0066; }
+    [data-theme="light"] .hl-api { color: #0099cc; }
+    [data-theme="light"] .hl-color { color: #cc00cc; }
+    
+    /* Error decorations in Monaco editor */
+    .kidlisp-error-word {
+      text-decoration: underline wavy #ff6b6b;
+      text-decoration-skip-ink: none;
+      background-color: rgba(255, 107, 107, 0.15);
+    }
+    .kidlisp-error-glyph {
+      background-color: #ff6b6b;
+      border-radius: 50%;
+      margin-left: 3px;
+    }
+    
+    /* Welcome message styling */
+    .console-entry.welcome-message {
+      color: #a0a090; /* Muted warm gray */
+      padding: 8px 8px;
+      border-bottom: 1px solid rgba(160, 160, 140, 0.15);
+    }
+    .welcome-title {
+      font-weight: 600;
+      color: #889078; /* Dark sage */
+    }
+    .console-entry.hint-message {
+      color: #908898; /* Muted lavender-gray */
+      font-size: 11px;
+      padding: 6px 8px;
+      opacity: 0.9;
+    }
+    .hint-text {
+      color: #908898; /* Muted lavender-gray */
+    }
+    .inline-btn-icon {
+      display: inline-block;
+      vertical-align: middle;
+      margin: 0 3px;
+    }
 
     /* Dark mode keeps same colors */
     @media (prefers-color-scheme: dark) {
@@ -1073,8 +1167,13 @@
       }
     }
     
+    [data-theme="light"] #console-panel .docs-header {
+      background: #e8dcc8; /* Light tan for light mode */
+      border-bottom-color: #d4c4a8;
+    }
+    
     [data-theme="dark"] #console-panel .docs-header {
-      background: #3d2817; /* Same in dark mode - already dark */
+      background: #3d2817; /* Darker brown in dark mode */
       border-bottom-color: #2a1a0f;
     }
 
@@ -1085,6 +1184,15 @@
     @media (prefers-color-scheme: dark) {
       #console-title {
         color: #ff9f43; /* Same in dark mode - already bright */
+      }
+    }
+    
+    [data-theme="light"] #console-title {
+      color: #b85c2a; /* Darker orange for light mode contrast */
+    }
+    
+    [data-theme="dark"] #console-title {
+      color: #ff9f43; /* Bright orange in dark mode */
       }
     }
     
@@ -1977,13 +2085,13 @@
     }
     
     .platform-option[data-platform="ableton"] {
-      background: rgb(255, 109, 0);
+      background: rgb(255, 255, 255);
     }
     .platform-option[data-platform="ableton"]:hover {
-      background: rgb(255, 130, 40);
+      background: rgb(240, 240, 240);
     }
     .platform-option[data-platform="ableton"] .platform-opt-name {
-      color: white;
+      color: black;
     }
     
     .platform-option[data-platform="playdate"] {
@@ -2037,11 +2145,11 @@
       position: fixed; /* Fixed to escape overflow:hidden containers */
       background: var(--bg-primary);
       border: 1px solid var(--border-color);
-      border-radius: 8px;
+      border-radius: 0;
       box-shadow: 0 8px 24px rgba(0,0,0,0.4);
       min-width: 220px;
       z-index: 99999;
-      padding: 4px 0;
+      padding: 0;
       /* Use visibility + opacity for smooth open without flash */
       visibility: hidden;
       opacity: 0;
@@ -2083,9 +2191,9 @@
     }
 
     .platform-opt-name {
-      font-size: 13px;
       color: var(--text-primary);
       flex: 1;
+      font-size: 16px;
     }
 
     .platform-status {
@@ -2132,9 +2240,7 @@
     }
 
     .platform-divider {
-      height: 1px;
-      background: var(--border-color);
-      margin: 4px 0;
+      display: none;
     }
 
     /* Keeps logged out state */
@@ -3124,7 +3230,7 @@
               </div>
               <div class="platform-divider"></div>
               <div class="platform-option coming-soon" data-platform="playdate">
-                <span class="platform-opt-name">Playdate</span>
+                <span class="platform-opt-name">playdate</span>
                 <span class="platform-status">soon</span>
               </div>
               <div class="platform-option coming-soon" data-platform="gameboy">
@@ -3174,7 +3280,7 @@
           </div>
           <div class="boot-screen hidden" id="boot-screen-playdate" data-platform="playdate" style="background: #ffcc00; flex-direction: column; align-items: center; justify-content: center;">
             <div style="font-size: 64px; margin-bottom: 16px;">🎮</div>
-            <div class="boot-text" style="font-size: 18px; font-weight: bold; color: #000;">Playdate</div>
+            <div class="boot-text" style="font-size: 18px; font-weight: bold; color: #000;">playdate</div>
             <div class="boot-text boot-text-status" style="font-size: 12px; opacity: 0.6; margin-top: 8px; color: #000;" data-i18n="comingSoon">Coming Soon</div>
           </div>
           <div class="boot-screen hidden" id="boot-screen-gameboy" data-platform="gameboy" style="background: #9bbc0f; flex-direction: column; align-items: center; justify-content: center;">
@@ -3268,8 +3374,19 @@
   <!-- Split.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/split.js/1.6.0/split.min.js"></script>
 
-  <!-- Monaco Editor -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
+  <!-- Monaco Editor ESM - using jsDelivr for modern ESM support -->
+  <script type="module">
+    // Configure Monaco Environment before loading
+    window.MonacoEnvironment = {
+      getWorkerUrl: function(moduleId, label) {
+        // Use data URLs for workers to avoid CORS issues
+        const workerCode = `self.MonacoEnvironment = { baseUrl: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.52.0/min/' };
+          importScripts('https://cdn.jsdelivr.net/npm/monaco-editor@0.52.0/min/vs/base/worker/workerMain.js');`;
+        return 'data:text/javascript;charset=utf-8,' + encodeURIComponent(workerCode);
+      }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.0/min/vs/loader.min.js"></script>
   
   <script type="module">
     // Import QR code library
@@ -4417,29 +4534,153 @@
     let pieceReady = false;
     let shouldAutoPlay = false;
     
-    function addConsoleEntry(message, type = 'log', line = null) {
+    // Simple KidLisp syntax highlighting for console (lighter than Monaco)
+    function highlightKidlispCode(code) {
+      // Escape HTML first
+      let html = code
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+      
+      // Simple token-based highlighting
+      // Comments (lines starting with ;)
+      html = html.replace(/(^|\n)(;[^\n]*)/g, '$1<span class="hl-comment">$2</span>');
+      // Strings
+      html = html.replace(/"([^"\\]|\\.)*"/g, '<span class="hl-string">$&</span>');
+      // Numbers
+      html = html.replace(/\b(\d+\.?\d*)\b/g, '<span class="hl-number">$1</span>');
+      // Keywords (known commands)
+      const keywords = ['def', 'fn', 'if', 'cond', 'let', 'loop', 'repeat', 'later', 'tap', 'drag', 'lift', 'key', 'draw'];
+      keywords.forEach(kw => {
+        html = html.replace(new RegExp(`\\b(${kw})\\b`, 'g'), '<span class="hl-keyword">$1</span>');
+      });
+      // API calls (common ones)
+      const apiCalls = ['wipe', 'ink', 'line', 'box', 'circle', 'text', 'pan', 'zoom', 'blur', 'noise', 'frame', 'width', 'height', 'rainbow', 'wiggle'];
+      apiCalls.forEach(api => {
+        html = html.replace(new RegExp(`\\b(${api})\\b`, 'g'), '<span class="hl-api">$1</span>');
+      });
+      // Colors
+      const colors = ['black', 'white', 'red', 'green', 'blue', 'yellow', 'cyan', 'magenta', 'orange', 'purple', 'pink', 'brown', 'gray', 'grey'];
+      colors.forEach(c => {
+        html = html.replace(new RegExp(`\\b(${c})\\b`, 'g'), '<span class="hl-color">$1</span>');
+      });
+      return html;
+    }
+    
+    function addConsoleEntry(message, type = 'log', locOrLine = null, options = {}) {
       const entry = document.createElement('div');
       entry.className = `console-entry ${type}`;
-      
-      if (line) {
+
+      let loc = null;
+      if (typeof locOrLine === 'number') {
+        loc = { line: locOrLine };
+      } else if (locOrLine && typeof locOrLine === 'object') {
+        loc = locOrLine;
+      }
+
+      if (loc && loc.line) {
         const lineSpan = document.createElement('span');
         lineSpan.className = 'console-line';
-        lineSpan.textContent = `:${line}`;
+        lineSpan.textContent = loc.col ? `:${loc.line}:${loc.col}` : `:${loc.line}`;
+        lineSpan.style.cursor = 'pointer';
+        lineSpan.title = 'Jump to line';
+        lineSpan.addEventListener('click', () => {
+          if (editor) {
+            editor.revealLineInCenter(loc.line);
+            editor.setPosition({ lineNumber: loc.line, column: loc.col || 1 });
+            editor.focus();
+          }
+        });
         entry.appendChild(lineSpan);
         
         const msgSpan = document.createElement('span');
         msgSpan.textContent = ' ' + message;
         entry.appendChild(msgSpan);
+      } else if (options.html) {
+        // Allow HTML content (for syntax-highlighted code)
+        entry.innerHTML = message;
       } else {
         entry.textContent = message;
+      }
+      
+      // Support custom CSS classes
+      if (options.className) {
+        entry.classList.add(options.className);
       }
       
       consoleOutput.appendChild(entry);
       consoleOutput.scrollTop = consoleOutput.scrollHeight;
       return entry;
     }
+    
+    // Add state change entry to console (play/pause/stop)
+    function addStateEntry(state, code = null) {
+      const icons = { play: '▶️', pause: '⏸️', stop: '⏹️', load: '📥', run: '🔄' };
+      const labels = { play: 'Playing', pause: 'Paused', stop: 'Stopped', load: 'Loaded', run: 'Running' };
+      const icon = icons[state] || '●';
+      const label = labels[state] || state;
+      const codeStr = code ? ` $${code}` : '';
+      addConsoleEntry(`${icon} ${label}${codeStr}`, 'state', null, { className: `state-${state}` });
+    }
+    
+    // Add code display entry with syntax highlighting
+    function addCodeEntry(code, label = 'Code') {
+      // Truncate if too long
+      const maxLen = 200;
+      let displayCode = code;
+      if (code.length > maxLen) {
+        displayCode = code.substring(0, maxLen) + '...';
+      }
+      // Single-line display (collapse newlines)
+      displayCode = displayCode.replace(/\n/g, ' ↵ ').replace(/\s+/g, ' ').trim();
+      const highlighted = highlightKidlispCode(displayCode);
+      addConsoleEntry(`<span class="console-label">${label}:</span> <span class="console-code">${highlighted}</span>`, 'code', null, { html: true });
+    }
+    
+    // Stub for clearErrorDecorations - will be overwritten inside Monaco require block
+    let clearErrorDecorations = function() {};
+    let addErrorDecoration = function() {};
+    
+    // Inline SVG for play/pause/stop button icons with colored circular backgrounds
+    const playButtonSVG = `<svg class="inline-btn-icon" viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="11" fill="#90EE90"/><polygon points="10,7 17,12 10,17" fill="#1a2f1a"/></svg>`;
+    const pauseButtonSVG = `<svg class="inline-btn-icon" viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="11" fill="#ffd93d"/><rect x="8" y="7" width="3" height="10" rx="1" fill="#2f2f1a"/><rect x="13" y="7" width="3" height="10" rx="1" fill="#2f2f1a"/></svg>`;
+    const stopButtonSVG = `<svg class="inline-btn-icon" viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="11" fill="#ff9f43"/><rect x="8" y="8" width="8" height="8" rx="1" fill="#2f261a"/></svg>`;
+    
+    // Show welcome message - shows autoplay state with code preview
+    let hasShownWelcome = false;
+    function showWelcomeMessage() {
+      if (hasShownWelcome) return;
+      hasShownWelcome = true;
+      
+      // Get current code to display
+      const currentCode = editor?.getValue()?.trim() || '';
+      const codePreview = currentCode ? highlightKidlispCode(
+        currentCode.length > 120 
+          ? currentCode.substring(0, 120).replace(/\n/g, ' ↵ ').replace(/\s+/g, ' ').trim() + '...'
+          : currentCode.replace(/\n/g, ' ↵ ').replace(/\s+/g, ' ').trim()
+      ) : '';
+      
+      // Add welcome message showing autoplay state
+      addConsoleEntry(
+        `🎨 <span class="welcome-title">Playing</span>` + 
+        (codePreview ? ` <span class="console-code">${codePreview}</span>` : ''),
+        'welcome',
+        null,
+        { html: true, className: 'welcome-message' }
+      );
+      
+      // Add helpful hints about pause/stop
+      addConsoleEntry(
+        `<span class="hint-text">💡 ${pauseButtonSVG} pause ${stopButtonSVG} stop to edit while running · errors appear here</span>`,
+        'hint',
+        null,
+        { html: true, className: 'hint-message' }
+      );
+    }
 
-    // Listen for boot progress messages
+    // Console tab should be KidLisp output only; avoid status/boot chatter here.
+
+    // Listen for boot progress messages (do not write these into the Console tab)
     let bootComplete = false;
     let hasReceivedLogs = false;
     let fallbackTimeout = null;
@@ -4455,14 +4696,7 @@
         
         hasReceivedLogs = true;
         
-        // Format boot message: capitalize and add styling
-        const formattedMessage = event.data.message.toUpperCase();
-        
-        if (bootLogEntry) {
-          bootLogEntry.textContent = formattedMessage;
-        } else {
-          bootLogEntry = addConsoleEntry(formattedMessage, 'info');
-        }
+        // Keep internal readiness state, but don't spam the Console output.
         
         // Check if this is the final "ready: aesthetic.computer/disks/kidlisp" message
         if (event.data.message.includes('ready: aesthetic.computer/disks/kidlisp')) {
@@ -4679,8 +4913,17 @@
       }
     }
 
-    // Configure Monaco
-    require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' }});
+    // Define aestheticUrl early - used for iframe communication and API calls throughout
+    // Note: only use localhost for true localhost, not for Codespaces (app.github.dev)
+    const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname.includes('local.');
+    const aestheticUrl = isLocalDev ? 'https://localhost:8888' : 'https://aesthetic.computer';
+
+    // Configure Monaco with jsDelivr CDN (modern, well-supported)
+    require.config({ 
+      paths: { 
+        vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.52.0/min/vs'
+      }
+    });
     
     require(['vs/editor/editor.main'], function () {
       // Register KidLisp language
@@ -4775,6 +5018,16 @@
         cursorStyle: 'line',
         cursorBlinking: 'blink',
         padding: { top: 12 },
+        // Disable features that load additional modules (prevents marked.js loading errors)
+        hover: { enabled: false },
+        parameterHints: { enabled: false },
+        quickSuggestions: false,
+        suggestOnTriggerCharacters: false,
+        codeLens: false,
+        lightbulb: { enabled: 'off' },
+        inlayHints: { enabled: 'off' },
+        links: false,
+        contextmenu: false,
       });
       
       // Log editor initialization
@@ -4794,6 +5047,9 @@
           if (source && editor) {
             logCodeOperation('load', source, code);
             editor.setValue(source);
+            // Add to console
+            addStateEntry('load', code);
+            addCodeEntry(source);
             // Update URL and title (only on AC platform)
             if (currentPlatform === 'aesthetic-computer') {
               updateURLForCode(code);
@@ -4891,14 +5147,47 @@
         enforceLineLimit();
       });
 
-      // Listen for theme changes
-      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
-        // Use setTheme instead of updateOptions for proper theme application
-        monaco.editor.setTheme(e.matches ? 'kidlisp-dark' : 'kidlisp-light');
-      });
+      // Note: OS theme change listener is in applyTheme section below
+      // to avoid duplicate listeners and respect manual theme selection
 
       // Track decorations for syntax highlighting blinks
       let currentDecorations = [];
+      let errorDecorations = []; // Track error underlines separately
+      
+      // Reassign the stub functions to real implementations
+      addErrorDecoration = function(word, loc) {
+        if (!editor || !loc || !loc.line) return;
+        const model = editor.getModel();
+        if (!model) return;
+        
+        // Find the word in the line
+        const lineContent = model.getLineContent(loc.line);
+        const col = loc.col || lineContent.indexOf(word) + 1;
+        const endCol = col + (word ? word.length : 1);
+        
+        // Create error decoration
+        const decoration = {
+          range: new monaco.Range(loc.line, col, loc.line, endCol),
+          options: {
+            inlineClassName: 'kidlisp-error-word',
+            hoverMessage: { value: `Unknown word: ${word}` },
+            glyphMarginClassName: 'kidlisp-error-glyph'
+          }
+        };
+        
+        // Add to error decorations
+        errorDecorations = editor.deltaDecorations(errorDecorations, [...errorDecorations.map(() => ({})), decoration].slice(-10));
+        
+        // Also scroll to the error
+        editor.revealLineInCenter(loc.line);
+      };
+      
+      // Reassign clearErrorDecorations to real implementation
+      clearErrorDecorations = function() {
+        if (editor) {
+          errorDecorations = editor.deltaDecorations(errorDecorations, []);
+        }
+      };
       
       // Helper function to get shadow color for dark text (from disk.mjs approach)
       function getShadowForColor(colorStr) {
@@ -5495,12 +5784,13 @@
       
       // Theme toggle functionality
       const themeToggle = document.getElementById('theme-toggle');
-      let currentTheme = 'system'; // 'system', 'light', or 'dark'
+      let currentTheme = 'system'; // Start with system preference
+      let manualThemeSet = false; // Session-only tracking - resets on refresh
       
       function applyTheme(theme) {
         console.log('🎨 [index.html] applyTheme called:', theme);
         currentTheme = theme;
-        localStorage.setItem('kidlisp-theme', theme);
+        // Don't persist to localStorage - theme override is session-only
         
         // Determine the actual visual theme to apply
         let visualTheme;
@@ -5545,15 +5835,15 @@
         }
       }
       
-      // Load saved theme preference or default to system
-      const savedTheme = localStorage.getItem('kidlisp-theme') || 'system';
-      applyTheme(savedTheme);
+      // Always start with system preference on page load (no persistence)
+      applyTheme('system');
       
       // Theme toggle click - simple 2-way toggle between light and dark
       if (themeToggle) {
         themeToggle.addEventListener('click', (e) => {
           e.preventDefault();
           e.stopPropagation();
+          manualThemeSet = true; // Mark that user manually changed theme this session
           // Simple toggle: if currently showing dark, switch to light and vice versa
           const currentVisual = document.documentElement.getAttribute('data-theme');
           applyTheme(currentVisual === 'dark' ? 'light' : 'dark');
@@ -5565,9 +5855,10 @@
         });
       }
       
-      // Listen for system theme changes when in system mode
+      // Listen for system theme changes - only respond if user hasn't manually toggled this session
       window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
-        if (currentTheme === 'system') {
+        // Only respond to OS theme if user hasn't manually set a preference this session
+        if (!manualThemeSet) {
           applyTheme('system'); // Re-apply to update icon and theme
         }
       });
@@ -5782,10 +6073,6 @@
     let isInitialLoad = true;
     let hasInitialPreviewRun = false; // Guard against duplicate initial runs
     
-    // Detect if we're in development mode
-    const isDev = window.location.hostname === 'localhost' || window.location.hostname.includes('local.');
-    const aestheticUrl = isDev ? 'https://localhost:8888' : 'https://aesthetic.computer';
-    
     // Load KidLisp with empty code (should show default pattern/checkerboard)
     previewIframe.src = `${aestheticUrl}/kidlisp?nogap=true&nolabel=true&noauth=true`;
     
@@ -5871,11 +6158,13 @@
     function updatePreview(shouldCreateCode = false) {
       if (!editor) return;
       
+      // Clear previous error decorations when running new code
+      clearErrorDecorations();
+      
       const code = editor.getValue().trim();
       log.playback.verbose(`Sending code (${code.length} chars)`);
       if (code) {
         // Send code via postMessage for instant reload (no network!)
-        addConsoleEntry(t('running'), 'info');
         if (previewIframe.contentWindow) {
           previewIframe.contentWindow.postMessage({
             type: 'kidlisp-reload',
@@ -5904,7 +6193,7 @@
         const platformNames = {
           'ff1': 'FF1',
           'ableton': 'Ableton',
-          'playdate': 'Playdate',
+          'playdate': 'playdate',
           'gameboy': 'Game Boy',
           'n64': 'N64'
         };
@@ -5919,6 +6208,10 @@
         const existingCode = localStorage.getItem('kidlisp-current-code');
         const shouldCreateCode = !existingCode; // Only create if no existing code
         log.playback.log(existingCode ? `Playing $${existingCode}` : 'Starting new playback');
+        
+        // Add to console
+        addStateEntry('play', existingCode);
+        addCodeEntry(editor.getValue().trim());
         
         // Hide boot screen when starting playback
         hideAllBootScreens();
@@ -5942,6 +6235,7 @@
       } else if (isPaused) {
         // Resume
         log.playback.debug('Resuming');
+        addStateEntry('play'); // Resume shows as play
         if (previewIframe.contentWindow) {
           previewIframe.contentWindow.postMessage({ type: 'kidlisp-resume' }, aestheticUrl);
         }
@@ -5950,6 +6244,7 @@
       } else {
         // Pause
         log.playback.debug('Pausing');
+        addStateEntry('pause');
         if (previewIframe.contentWindow) {
           previewIframe.contentWindow.postMessage({ type: 'kidlisp-pause' }, aestheticUrl);
         }
@@ -5973,6 +6268,7 @@
         }
         
         log.playback.log('Stopping');
+        addStateEntry('stop');
         
         // Prevent any bubbling
         e.stopPropagation();
@@ -6011,7 +6307,8 @@
       log.ui.error('Stop button not found in DOM');
     }
 
-    // Inject console forwarding into iframe once it loads
+    // Enable KidLisp-only console messages from the preview iframe
+    let hasRequestedKidlispConsole = false;
     previewIframe.addEventListener('load', () => {
       log.iframe.debug('Iframe loaded, checking readiness');
       
@@ -6020,78 +6317,16 @@
         previewIframe.contentWindow.postMessage({ 
           type: 'kidlisp-ping' 
         }, aestheticUrl);
-      }
-      
-      try {
-        const iframeWindow = previewIframe.contentWindow;
-        if (iframeWindow) {
-          // Store original console methods
-          const originalLog = iframeWindow.console.log;
-          const originalError = iframeWindow.console.error;
-          const originalWarn = iframeWindow.console.warn;
-          const originalInfo = iframeWindow.console.info;
-          
-          // Override console methods to forward to parent
-          function getLineNumber() {
-            try {
-              const stack = new Error().stack;
-              if (stack) {
-                // Parse stack trace to find the line number
-                // Format is usually: "at functionName (url:line:column)"
-                const lines = stack.split('\n');
-                // Look for the first line that isn't this function or the console wrapper
-                for (let i = 2; i < lines.length; i++) {
-                  const match = lines[i].match(/:(\d+):\d+/);
-                  if (match) return match[1];
-                }
-              }
-            } catch (e) {}
-            return null;
-          }
+        
+        // Send current visual theme to iframe
+        const initialTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+        previewIframe.contentWindow.postMessage({ type: 'kidlisp-theme', theme: initialTheme }, aestheticUrl);
 
-          iframeWindow.console.log = function(...args) {
-            originalLog.apply(iframeWindow.console, args);
-            window.postMessage({
-              type: 'console',
-              level: 'log',
-              message: args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' '),
-              line: getLineNumber()
-            }, '*');
-          };
-          
-          iframeWindow.console.error = function(...args) {
-            originalError.apply(iframeWindow.console, args);
-            window.postMessage({
-              type: 'console',
-              level: 'error',
-              message: args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' '),
-              line: getLineNumber()
-            }, '*');
-          };
-          
-          iframeWindow.console.warn = function(...args) {
-            originalWarn.apply(iframeWindow.console, args);
-            window.postMessage({
-              type: 'console',
-              level: 'warn',
-              message: args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' '),
-              line: getLineNumber()
-            }, '*');
-          };
-          
-          iframeWindow.console.info = function(...args) {
-            originalInfo.apply(iframeWindow.console, args);
-            window.postMessage({
-              type: 'console',
-              level: 'info',
-              message: args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' '),
-              line: getLineNumber()
-            }, '*');
-          };
+        // Ask the iframe to enable the KidLisp-only console channel
+        if (!hasRequestedKidlispConsole) {
+          hasRequestedKidlispConsole = true;
+          previewIframe.contentWindow.postMessage({ type: 'kidlisp-console-enable' }, aestheticUrl);
         }
-      } catch (e) {
-        // Cross-origin iframes will throw an error, that's expected for production
-        log.iframe.verbose('Console forwarding not available (cross-origin)');
       }
     });
 
@@ -6274,6 +6509,12 @@
         handleTestMessage(event.data, event.source);
         return;
       }
+
+      // Some runtimes send messages via BIOS relay as { type: 'post-to-parent', content: {...} }.
+      // Normalize those so the rest of this handler can treat them as direct events.
+      if (event.data?.type === 'post-to-parent' && event.data?.content?.type) {
+        event = { ...event, data: event.data.content };
+      }
       
       log.message.verbose('Message:', event.data?.type);
       
@@ -6289,9 +6530,17 @@
         sendButton.style.cursor = 'pointer';
         stopButton.style.cursor = 'pointer';
         
+        // Show welcome message in console (only once)
+        showWelcomeMessage();
+        
         // Send current theme to iframe
         const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
         previewIframe.contentWindow.postMessage({ type: 'kidlisp-theme', theme: currentTheme }, aestheticUrl);
+
+        // Always (re-)send enable when iframe signals ready - the worker is now definitely wired.
+        if (previewIframe.contentWindow) {
+          previewIframe.contentWindow.postMessage({ type: 'kidlisp-console-enable' }, aestheticUrl);
+        }
         
         // Mark that we want to auto-play, but wait for piece to be ready
         // Only auto-play on aesthetic-computer platform
@@ -6312,8 +6561,19 @@
             shouldAutoPlay = false; // Clear the flag so we don't auto-play again
           }
         }
-      } else if (event.data && event.data.type === 'console') {
-        addConsoleEntry(event.data.message, event.data.level, event.data.line);
+      } else if (event.data && event.data.type === 'kidlisp-console-enabled') {
+        // Intentionally do not write connection status to the Console tab.
+      } else if (event.data && event.data.type === 'kidlisp-console') {
+        addConsoleEntry(event.data.message, event.data.level, event.data.loc);
+        
+        // If it's an error with a location, highlight it in the editor
+        if (event.data.level === 'error' && event.data.loc) {
+          // Extract the word from the error message
+          const wordMatch = event.data.message.match(/Unknown KidLisp word: (\w+)/);
+          if (wordMatch) {
+            addErrorDecoration(wordMatch[1], event.data.loc);
+          }
+        }
       } else if (event.data && event.data.type === 'kidlisp-highlight') {
         // Syntax highlighting signals from KidLisp execution
         if (editor && event.data.highlights) {
@@ -6626,23 +6886,24 @@
           return;
         }
         
-        // Temporarily disable AMD define to avoid conflicts with Monaco's loader
+        // Completely hide define to prevent UMD scripts from using AMD
+        // Monaco's loader uses define, but we need to hide it entirely during script load
         const originalDefine = window.define;
-        const originalRequire = window.require;
-        window.define = undefined;
-        window.require = undefined;
+        delete window.define;
         
         const script = document.createElement('script');
         script.src = src;
         script.onload = () => {
-          // Restore AMD after script loads
-          window.define = originalDefine;
-          window.require = originalRequire;
+          // Restore define after script loads
+          if (originalDefine) {
+            window.define = originalDefine;
+          }
           resolve();
         };
         script.onerror = () => {
-          window.define = originalDefine;
-          window.require = originalRequire;
+          if (originalDefine) {
+            window.define = originalDefine;
+          }
           reject(new Error(`Failed to load ${src}`));
         };
         document.head.appendChild(script);
