@@ -1333,14 +1333,11 @@ let bootApi = null;
 let isBooting = false; // Track if we're currently loading shop data
 
 export async function boot(api) {
-  console.log(`📦 Booting products carousel (live shop mode)...`);
   bootApi = api;
   isBooting = true;
   
   // Start fetching in background - DON'T await, return immediately
   fetchAndLoadProducts(api);
-  
-  console.log(`📦 Boot returned immediately, loading in background...`);
 }
 
 // Background loader - fetches shop data and loads products without blocking

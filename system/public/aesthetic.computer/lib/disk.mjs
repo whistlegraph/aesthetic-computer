@@ -8308,7 +8308,12 @@ async function makeFrame({ data: { type, content } }) {
       // console.log("Getting handle...");
       await handle(); // Get the user's handle.
       // console.log("Handle recived:", HANDLE);
-      log.auth.log(`Welcome back ${HANDLE || USER.email}`);
+      const displayName = HANDLE ? `@${HANDLE}` : USER.email;
+      console.log(`%c🔐 auth%c Welcome back %c${displayName}`, 
+        'background: #ec4899; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: bold;',
+        'color: inherit;',
+        'color: #ec4899; font-weight: bold;'
+      );
       // Log tab ID for debugging
       if (!$commonApi._tabId) {
         $commonApi._tabId = Math.random().toString(36).substr(2, 9);
