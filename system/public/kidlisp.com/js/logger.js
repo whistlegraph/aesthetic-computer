@@ -13,12 +13,12 @@ const LOG_LEVELS = {
 
 // Categories that can be individually toggled
 const CATEGORIES = {
-  boot: true,        // Boot sequence (important)
-  splash: true,      // Splash screen animation
-  platform: true,    // Platform switching
+  boot: false,       // Boot sequence
+  splash: false,     // Splash screen animation
+  platform: true,    // Platform switching (useful to see)
   code: true,        // Code loading/saving (important)
-  editor: true,      // Monaco editor events
-  auth: true,        // Auth0/login
+  editor: false,     // Monaco editor events
+  auth: false,       // Auth0/login
   playback: false,   // Play/pause/stop controls
   iframe: false,     // Iframe communication
   message: false,    // PostMessage logs (very noisy)
@@ -396,30 +396,6 @@ export function showHeader() {
   });
   
   console.log(formatStr, ...styles);
-  
-  // Tagline
-  console.log(
-    '%c✨ friendly coding for everyone 🌈',
-    `color: ${colors.tagline}; font-size: 11px; font-style: italic; padding-left: 4px;`
-  );
-  
-  // Separator line
-  console.log(
-    '%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
-    `color: ${colors.accent}44; font-size: 10px;`
-  );
-  
-  // Day info & help hint
-  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  const today = dayNames[new Date().getDay()];
-  console.log(
-    `%c🗓️ ${today}'s theme • %ckidlispDebug.help()%c for options`,
-    'color: #666; font-size: 10px;',
-    `color: ${colors.accent}; font-size: 10px; font-family: monospace;`,
-    'color: #666; font-size: 10px;'
-  );
-  
-  console.log(''); // blank line
 }
 
 // Log a platform switch with nice formatting
