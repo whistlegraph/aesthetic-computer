@@ -1,0 +1,72 @@
+/* KidLisp Editor - Split.js & Gutters */
+
+/* ============================================
+   SPLIT.JS GUTTERS
+   ============================================ */
+
+.gutter {
+  transition: all 0.2s;
+  position: relative;
+  z-index: 1;
+  background-color: var(--border-color) !important;
+}
+
+.gutter.gutter-vertical {
+  height: var(--gutter-size) !important;
+  min-height: var(--gutter-size) !important;
+}
+
+.gutter.gutter-horizontal {
+  width: var(--gutter-size) !important;
+  min-width: var(--gutter-size) !important;
+}
+
+/* Main vertical gutter (between top and bottom rows) */
+#top-row + .gutter.gutter-vertical {
+  background: linear-gradient(to right, rgba(255, 140, 0, 0.3) 0%, rgba(255, 140, 0, 0.3) 50%, rgba(100, 149, 237, 0.3) 50%, rgba(100, 149, 237, 0.3) 100%) !important;
+  z-index: 2;
+}
+
+/* Top row horizontal gutter (between editor and preview) */
+#editor-panel + .gutter.gutter-horizontal {
+  background-color: var(--ac-purple-light) !important;
+  z-index: 1;
+}
+
+@media (prefers-color-scheme: dark) {
+  #editor-panel + .gutter.gutter-horizontal {
+    background-color: var(--ac-purple-dark) !important;
+  }
+}
+
+[data-theme="dark"] #editor-panel + .gutter.gutter-horizontal {
+  background-color: var(--ac-purple-dark) !important;
+}
+
+/* Bottom row horizontal gutter (between reference and console) */
+#reference-panel + .gutter.gutter-horizontal {
+  background-color: rgba(100, 149, 237, 0.3) !important;
+  z-index: 1;
+}
+
+@media (hover: hover) {
+  .gutter:hover {
+    opacity: 0.6;
+  }
+}
+
+/* Default cursors for gutters */
+.gutter.gutter-horizontal {
+  cursor: col-resize;
+}
+
+.gutter.gutter-vertical {
+  cursor: row-resize;
+}
+
+/* Desktop gutters - use Split.js */
+@media (min-width: 769px) {
+  .gutter {
+    display: block !important;
+  }
+}

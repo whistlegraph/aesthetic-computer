@@ -1,0 +1,354 @@
+/* KidLisp Editor - Monaco Editor & Playback Controls */
+
+/* ============================================
+   EDITOR CONTAINER
+   ============================================ */
+
+#kidlisp-editor {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+  padding-left: 12px;
+  transition: box-shadow 0.3s ease;
+  z-index: 1;
+}
+
+/* Live running state - green outline */
+#kidlisp-editor.live-running::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border: 4px solid #00ff00;
+  pointer-events: none;
+  z-index: 999999;
+  animation: live-pulse 2s ease-in-out infinite;
+  box-shadow: inset 0 0 30px rgba(0, 255, 0, 0.2), 0 0 10px rgba(0, 255, 0, 0.3);
+}
+
+@media (prefers-color-scheme: dark) {
+  #kidlisp-editor.live-running::before {
+    border-color: #44ff44;
+    box-shadow: inset 0 0 40px rgba(68, 255, 68, 0.25), 0 0 15px rgba(68, 255, 68, 0.4);
+  }
+}
+
+[data-theme="dark"] #kidlisp-editor.live-running::before {
+  border-color: #44ff44;
+  box-shadow: inset 0 0 40px rgba(68, 255, 68, 0.25), 0 0 15px rgba(68, 255, 68, 0.4);
+}
+
+@keyframes live-pulse {
+  0%, 100% { border-color: #00ff00; }
+  50% { border-color: #00cc00; }
+}
+
+/* ============================================
+   PLAYBACK BUTTONS
+   ============================================ */
+
+#send-button {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  z-index: 100;
+  width: 48px;
+  height: 48px;
+  background: var(--btn-play);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  font-family: monospace;
+  font-size: 20px;
+  cursor: pointer;
+  box-shadow: 0 3px 6px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin: 0;
+}
+
+@media (prefers-color-scheme: dark) {
+  #send-button {
+    background: rgb(102, 187, 106);
+    box-shadow: 0 3px 6px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.3);
+  }
+}
+
+[data-theme="dark"] #send-button {
+  background: rgb(102, 187, 106);
+  box-shadow: 0 3px 6px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.3);
+}
+
+/* Play icon (triangle) */
+#send-button::before {
+  content: '';
+  width: 0;
+  height: 0;
+  border-left: 12px solid white;
+  border-top: 8px solid transparent;
+  border-bottom: 8px solid transparent;
+  margin-left: 3px;
+}
+
+/* Playing state (yellow / pause) */
+#send-button.playing {
+  background: rgb(255, 193, 7);
+  cursor: pointer;
+}
+
+@media (prefers-color-scheme: dark) {
+  #send-button.playing { background: rgb(255, 213, 79); }
+}
+
+[data-theme="dark"] #send-button.playing { background: rgb(255, 213, 79); }
+
+/* Pause icon (double bars) */
+#send-button.playing::before {
+  width: 10px;
+  height: 16px;
+  border: none;
+  border-left: 3px solid white;
+  border-right: 3px solid white;
+  background: transparent;
+  margin-left: 0;
+}
+
+@media (hover: hover) {
+  #send-button:hover {
+    background: rgb(102, 187, 106);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.3);
+    transform: scale(1.05);
+  }
+  
+  #send-button.playing:hover {
+    background: rgb(255, 213, 79);
+    transform: scale(1.05);
+  }
+}
+
+#send-button:active {
+  background: rgb(56, 142, 60);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.1);
+  transform: scale(0.95);
+}
+
+#send-button.playing:active {
+  background: rgb(245, 183, 0);
+  transform: scale(0.95);
+}
+
+#send-button:disabled,
+#stop-button:disabled {
+  cursor: not-allowed !important;
+  opacity: 0.4 !important;
+  pointer-events: auto;
+}
+
+#send-button:disabled:hover,
+#send-button:disabled:active {
+  background: var(--btn-play) !important;
+  transform: scale(1) !important;
+}
+
+/* Stop button */
+#stop-button {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  z-index: 101;
+  width: 48px;
+  height: 48px;
+  background: var(--btn-stop);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 3px 6px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: none;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin: 0;
+  pointer-events: auto;
+}
+
+@media (prefers-color-scheme: dark) {
+  #stop-button {
+    background: rgb(239, 83, 80);
+    box-shadow: 0 3px 6px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.3);
+  }
+}
+
+[data-theme="dark"] #stop-button {
+  background: rgb(239, 83, 80);
+  box-shadow: 0 3px 6px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.3);
+}
+
+/* Stop icon (square) */
+#stop-button::before {
+  content: '';
+  width: 14px;
+  height: 14px;
+  background: white;
+  border-radius: 2px;
+}
+
+@media (hover: hover) {
+  #stop-button:hover {
+    background: rgb(239, 83, 80);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.3);
+    transform: scale(1.05);
+  }
+}
+
+#stop-button:active {
+  background: rgb(211, 47, 47);
+  transform: scale(0.95);
+}
+
+/* Clear button */
+#clear-button {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  z-index: 100;
+  padding: 6px 12px;
+  background: transparent;
+  color: var(--text-tertiary);
+  border: none;
+  font-family: monospace;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s;
+  opacity: 0.6;
+}
+
+@media (hover: hover) {
+  #clear-button:hover {
+    color: var(--ac-purple);
+    opacity: 1;
+    text-decoration: underline;
+  }
+}
+
+/* ============================================
+   MONACO EDITOR OVERRIDES
+   ============================================ */
+
+/* Zebra striping for editor rows */
+.monaco-editor.vs-dark .view-lines .view-line:nth-child(even) {
+  background-color: #332f28 !important;
+}
+
+.monaco-editor.vs-dark .view-lines .view-line:nth-child(odd) {
+  background-color: #2a2520 !important;
+}
+
+/* Selection highlighting */
+.monaco-editor *::selection {
+  background-color: rgba(255, 140, 0, 0.6) !important;
+  color: inherit !important;
+}
+
+.monaco-editor .view-line::selection,
+.monaco-editor .view-line *::selection {
+  background-color: rgba(255, 140, 0, 0.6) !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  .monaco-editor *::selection,
+  .monaco-editor .view-line::selection,
+  .monaco-editor .view-line *::selection {
+    background-color: rgba(100, 149, 237, 0.6) !important;
+  }
+}
+
+[data-theme="light"] .monaco-editor *::selection,
+[data-theme="light"] .monaco-editor .view-line::selection,
+[data-theme="light"] .monaco-editor .view-line *::selection {
+  background-color: rgba(255, 140, 0, 0.6) !important;
+}
+
+[data-theme="dark"] .monaco-editor *::selection,
+[data-theme="dark"] .monaco-editor .view-line::selection,
+[data-theme="dark"] .monaco-editor .view-line *::selection {
+  background-color: rgba(100, 149, 237, 0.6) !important;
+}
+
+/* Text shadow for editor */
+@media (prefers-color-scheme: light) {
+  .monaco-editor .view-line span {
+    text-shadow: 0.5px 0.5px 0px rgba(0, 0, 0, 0.25);
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .monaco-editor .view-line span {
+    text-shadow: 1px 1px 0px rgba(0, 0, 0, 0.5);
+  }
+}
+
+/* ============================================
+   PREVIEW IFRAME
+   ============================================ */
+
+#preview-iframe {
+  flex: 1;
+  border: none;
+  background: #1a1a1a;
+}
+
+/* Boot screen / loading state */
+.boot-screen {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: row;
+  z-index: 1000;
+  transition: opacity 0.5s;
+}
+
+.boot-screen.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.color-bar {
+  flex: 1;
+  height: 100%;
+}
+
+.boot-text {
+  color: #fff;
+  font-family: monospace;
+  font-size: 14px;
+  text-align: center;
+  line-height: 1.6;
+  opacity: 0.8;
+}
+
+@media (prefers-color-scheme: light) {
+  .boot-screen { background: #fff; }
+  .boot-text { color: #000; }
+  #preview-iframe { background: #e8e8e8; }
+  
+  .bar-1 { background: #000000 !important; }
+  .bar-2 { background: #0000aa !important; }
+  .bar-3 { background: #aa0000 !important; }
+  .bar-4 { background: #aa00aa !important; }
+  .bar-5 { background: #00aa00 !important; }
+  .bar-6 { background: #00aaaa !important; }
+  .bar-7 { background: #aaaa00 !important; }
+  .bar-8 { background: #ffffff !important; }
+}

@@ -931,10 +931,11 @@ function receive(event) {
     // Live reload from kidlisp.com editor
     const code = event.data.code;
     const createCode = event.data.createCode; // Flag to enable code creation
+    const authToken = event.data.authToken; // Token from kidlisp.com login
     if (code) {
       window.acSEND({
         type: "piece-reload",
-        content: { source: code, createCode: createCode }
+        content: { source: code, createCode: createCode, authToken: authToken }
       });
     }
     return;
@@ -960,6 +961,11 @@ function receive(event) {
       }, '*');
     }
     return;
+  } else if (event.data?.type === "keep-mint-prepare") {
+    // Handle mint preparation request from kidlisp.com
+    // This runs in the iframe which has auth cookies
+    handleKeepMintPrepare(event.data);
+    return;
   } else if (event.data?.startsWith?.("docs:")) {
     window.acSEND({
       type: "docs:link",
@@ -968,6 +974,54 @@ function receive(event) {
     return;
   }
 }
+
+// Handle keep-mint-prepare from kidlisp.com
+// Makes authenticated API call since iframe has session cookies
+async function handleKeepMintPrepare(data) {
+  const { imageDataUrl, imageFilename, metadataJson, tezosAddress, requestId } = data;
+  
+  try {
+    // Create FormData for the API request
+    const formData = new FormData();
+    
+    // Convert dataURL to blob
+    const imageBlob = await fetch(imageDataUrl).then(r => r.blob());
+    formData.append('image', imageBlob, imageFilename || 'mint-image.png');
+    formData.append('metadata', metadataJson);
+    formData.append('tezosAddress', tezosAddress);
+    
+    // Make authenticated API call
+    const response = await fetch('/api/keep-mint', {
+      method: 'POST',
+      credentials: 'include',
+      body: formData
+    });
+    
+    const result = await response.json();
+    
+    if (response.ok && result.success) {
+      // Send prepared data back to parent
+      window.parent.postMessage({
+        type: 'keep-mint-prepared',
+        requestId,
+        ...result
+      }, '*');
+    } else {
+      window.parent.postMessage({
+        type: 'keep-mint-error',
+        requestId,
+        error: result.message || result.error || 'Mint preparation failed'
+      }, '*');
+    }
+  } catch (error) {
+    window.parent.postMessage({
+      type: 'keep-mint-error',
+      requestId,
+      error: error.message || 'Network error during mint preparation'
+    }, '*');
+  }
+}
+
 window.addEventListener("message", receive);
 
 // 🔔 Subscribe to web / client notifications.
