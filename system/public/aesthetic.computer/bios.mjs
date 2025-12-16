@@ -10832,7 +10832,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // See also: https://flaviocopes.com/javascript-detect-dark-mode,
       //           https://developer.mozilla.org/en-US/docs/Web/CSS/@media/prefers-color-scheme
 
-      if (window.matchMedia) {
+      // Skip initial OS theme detection if embedded in kidlisp.com (will receive theme from parent)
+      if (window.matchMedia && !window.acWAIT_FOR_PARENT_THEME) {
         if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
           document.documentElement.style.setProperty("color-scheme", "dark");
           send({ type: "dark-mode", content: { enabled: true } });
@@ -10840,7 +10841,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           document.documentElement.style.setProperty("color-scheme", "light");
           send({ type: "dark-mode", content: { enabled: false } });
         }
+      }
 
+      // Listen for OS theme changes (but respect manual override from kidlisp.com)
+      if (window.matchMedia) {
         window
           .matchMedia("(prefers-color-scheme: dark)")
           .addEventListener("change", (event) => {
