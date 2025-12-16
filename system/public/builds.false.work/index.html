@@ -439,6 +439,23 @@
       line-height: 1;
       min-width: 1.5rem;
     }
+    /* Small inline + button in build card header */
+    .story-btn.add-story-inline {
+      padding: 0.15rem 0.4rem;
+      font-size: 0.9rem;
+      line-height: 1;
+      min-width: auto;
+      background: transparent;
+      border: 1px dashed var(--text-muted);
+      color: var(--text-muted) !important;
+      border-radius: 3px;
+      margin-left: 0.5rem;
+    }
+    .story-btn.add-story-inline:hover {
+      border-color: var(--accent);
+      color: var(--accent) !important;
+      background: rgba(255, 170, 0, 0.1);
+    }
     @media (prefers-color-scheme: light) {
       .story-btn {
         background: linear-gradient(135deg, #fffef0 0%, #f5f4e8 100%);
@@ -523,7 +540,7 @@
     }
     /* Story cards in unified feed - dark theme default */
     .story-feed-card {
-      cursor: pointer;
+      cursor: default;
       background: linear-gradient(to bottom, #2d2820 0%, #252015 100%);
       border: 2px solid #4a4030;
       border-left: 4px solid #804040;
@@ -541,7 +558,6 @@
       background: rgba(160, 80, 80, 0.15);
     }
     .story-feed-card:hover {
-      transform: translateX(4px);
       border-color: #5a5040;
     }
     .story-feed-card .build-header {
@@ -553,6 +569,18 @@
       color: #b4a484;
       line-height: 1.5;
       margin-top: 0.5rem;
+    }
+    .story-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 0.75rem;
+      gap: 1rem;
+    }
+    .story-stats {
+      color: #b4a484;
+      font-size: 0.85rem;
+      opacity: 0.8;
     }
     .story-feed-card .story-summary {
       font-family: Arial, Helvetica, sans-serif !important;
@@ -613,6 +641,9 @@
         color: #5a4a3a;
       }
       .story-feed-card .story-summary {
+        color: #5a4a3a;
+      }
+      .story-stats {
         color: #5a4a3a;
       }
     }
@@ -823,23 +854,6 @@
     .item-content { flex: 1; font-family: Arial, Helvetica, sans-serif; }
     .item-title { font-weight: bold; margin-bottom: 0.25rem; }
     .item-desc { color: var(--text-secondary); font-size: 0.9rem; line-height: 1.5; }
-    /* New story button */
-    .new-story-btn {
-      background: linear-gradient(135deg, var(--accent) 0%, #f60 100%);
-      border: none;
-      color: #000;
-      padding: 0.6rem 1.25rem;
-      cursor: pointer;
-      font-family: inherit;
-      font-weight: bold;
-      font-size: 0.9rem;
-      border-radius: 4px;
-      margin-bottom: 1.5rem;
-    }
-    .new-story-btn:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 2px 8px rgba(255, 170, 0, 0.3);
-    }
     /* Modal */
     .modal {
       position: fixed;
@@ -1003,16 +1017,15 @@
       h2 { font-size: 1.1rem; }
       .container { padding: 0; }
       
-      /* Platform filter tabs */
+      /* Platform filter tabs - wrap on mobile */
       .platform-filters {
-        gap: 0.35rem;
+        gap: 0.4rem;
         margin-bottom: 1rem;
+        flex-wrap: wrap;
       }
       .platform-filters button {
-        padding: 0.5rem 0.6rem;
+        padding: 0.4rem 0.6rem;
         font-size: 0.8rem;
-        flex: 1;
-        min-width: 0;
       }
       
       /* Build cards */
@@ -1131,12 +1144,6 @@
         padding: 0.5rem 0.75rem;
         font-size: 0.85rem;
       }
-      
-      /* New story button */
-      .new-story-btn {
-        padding: 0.5rem 1rem;
-        font-size: 0.85rem;
-      }
     }
 
     /* Extra small screens (phones in portrait) */
@@ -1145,8 +1152,8 @@
         padding: 0.75rem;
       }
       .platform-filters button {
-        padding: 0.4rem 0.5rem;
-        font-size: 0.75rem;
+        padding: 0.4rem 0.6rem;
+        font-size: 0.8rem;
       }
       .build-card {
         padding: 0.875rem;
@@ -1163,16 +1170,13 @@
       }
     }
 
-    /* Ensure touch targets are at least 44px for iOS accessibility */
+    /* Touch-friendly tap targets */
     @media (pointer: coarse) {
-      button, a, .story-btn {
-        min-height: 44px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-      }
       .platform-filters button {
-        min-height: 40px;
+        padding: 0.6rem 0.9rem;
+      }
+      .story-btn, .ios-install-btn, .log-link {
+        padding: 0.5rem 0.75rem;
       }
     }
 
@@ -1221,7 +1225,6 @@
         
         <!-- Stories list (shown for stories filter) -->
         <div id="stories-list" style="display: none;">
-          <button class="new-story-btn" onclick="openStoryModal()">+ New Story</button>
           <div id="stories-content">
             <div class="loading">Loading stories</div>
           </div>
@@ -1541,21 +1544,22 @@
           if (item.type === 'build') {
             const build = item.data;
             const isFailed = build.status === 'failed' || build.status === 'stale';
-            html += renderBuildCard(build);
-            // Render nested stories under build
-            html += `<div class="build-stories-container">`;
+            const hasStories = item.stories && item.stories.length > 0;
+            html += renderBuildCard(build, hasStories);
+            // Render nested stories under build (only if there are stories)
             if (item.stories && item.stories.length > 0) {
+              html += `<div class="build-stories-container">`;
               // Sort stories by date descending
               item.stories.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
               item.stories.forEach(story => {
                 html += renderStoryCardInFeed(story);
               });
+              // Add + button at end of stories container
+              if (!isFailed) {
+                html += `<button class="story-btn add-story" onclick="openStoryModalForBuild('${build.platform}', '${build.version}')" title="Write a story for this build">+ Add Story</button>`;
+              }
+              html += `</div>`;
             }
-            // Add + button at end of stories container
-            if (!isFailed) {
-              html += `<button class="story-btn add-story" onclick="openStoryModalForBuild('${build.platform}', '${build.version}')" title="Write a story for this build">+ Add Story</button>`;
-            }
-            html += `</div>`;
           } else if (item.type === 'orphan-story') {
             html += renderStoryCardInFeed(item.data);
           }
@@ -1571,12 +1575,11 @@
       return renderStoryCard(story);
     }
 
-    function renderBuildCard(build) {
+    function renderBuildCard(build, hasStories = false) {
       const platformEmoji = { windows: '🪟', mac: '🍎', ios: '📱' };
       const platformLabel = { windows: 'Windows', mac: 'Mac', ios: 'iOS' };
       const fileExt = build.platform === 'ios' ? 'ipa' : 'zip';
       const isFailed = build.status === 'failed' || build.status === 'stale';
-      const buildStories = allStories.filter(r => r.buildPlatform === build.platform && r.buildVersion === build.version);
       
       let html = `
         <div class="build-card ${build.platform}${isFailed ? ' failed' : ''}">
@@ -1594,7 +1597,10 @@
         html += `<a href="${build.logUrl}" class="log-link" onclick="event.preventDefault(); openLogModal('${build.logUrl}')" title="Right-click to download">(log)</a>`;
       }
       
-      // Stories are now rendered in nested container below build card
+      // Small inline + button when no stories exist yet
+      if (!isFailed && !hasStories) {
+        html += `<button class="story-btn add-story-inline" onclick="openStoryModalForBuild('${build.platform}', '${build.version}')" title="Write a story">+</button>`;
+      }
       
       if (build.platform === 'ios' && !isFailed) {
         html += `<a href="itms-services://?action=download-manifest&url=https://builds.false.work/ios/manifest.plist" class="ios-install-btn">📲 Install</a>`;
@@ -1748,12 +1754,11 @@
       const tester = story.tester || 'Anonymous';
       
       return `
-        <div class="build-card story-feed-card" data-story-id="${story._id}" onclick="viewStory('${story._id}')">
+        <div class="build-card story-feed-card" data-story-id="${story._id}">
           <div class="build-header">
             <span class="platform-tag platform-story">📝 Story</span>
             <span class="project-name">SpiderLily ${story.buildVersion}</span>
-            <a href="#story/${story._id}" class="story-view-link" onclick="event.preventDefault(); event.stopPropagation(); viewStory('${story._id}')">Read Story →</a>
-            <button class="copy-llm-btn copy-llm-feed" onclick="event.stopPropagation(); copyStoryForLLMById('${story._id}')">📋 Copy for LLM</button>
+            <button class="copy-llm-btn copy-llm-feed" onclick="copyStoryForLLMById('${story._id}')">📋 Copy for LLM</button>
             <span class="build-tags">
               <span class="build-tag">${platformEmoji[story.buildPlatform] || '📦'} ${story.buildPlatform}</span>
             </span>
@@ -1761,8 +1766,9 @@
           <div class="meta" style="margin-top: 0.75rem;">
             by <strong>${tester}</strong> · <span class="story-summary">"${story.summary || 'No summary'}"</span>
           </div>
-          <div class="meta story-time">
-            🍎 ${fruitItems.length} fruit · 🍟 ${sideItems.length} side · 💡 ${bigItems.length} ideas · ${time}
+          <div class="story-footer">
+            <span class="story-stats">🍎 ${fruitItems.length} fruit · 🍟 ${sideItems.length} side · 💡 ${bigItems.length} ideas · ${time}</span>
+            <a href="#story/${story._id}" class="story-view-link" onclick="event.preventDefault(); viewStory('${story._id}')">Read Story →</a>
           </div>
         </div>
       `;
