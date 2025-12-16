@@ -243,14 +243,8 @@
    MONACO EDITOR OVERRIDES
    ============================================ */
 
-/* Zebra striping for editor rows */
-.monaco-editor.vs-dark .view-lines .view-line:nth-child(even) {
-  background-color: #332f28 !important;
-}
-
-.monaco-editor.vs-dark .view-lines .view-line:nth-child(odd) {
-  background-color: #2a2520 !important;
-}
+/* Zebra striping REMOVED - was blocking Monaco's selection overlay in dark mode */
+/* The .view-lines backgrounds paint over .view-overlays where selection is rendered */
 
 /* Selection highlighting - Let Monaco's theme handle it via editor.selectionBackground */
 /* Only use CSS as fallback for ::selection pseudo-element */
