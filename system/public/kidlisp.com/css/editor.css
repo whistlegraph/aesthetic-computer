@@ -274,6 +274,13 @@
   background-color: rgba(255, 140, 0, 0.8) !important;
 }
 
+/* Light mode override - needed when system is dark but user selects light */
+[data-theme="light"] .monaco-editor *::selection,
+[data-theme="light"] .monaco-editor .view-line::selection,
+[data-theme="light"] .monaco-editor .view-line *::selection {
+  background-color: rgba(255, 140, 0, 0.6) !important;
+}
+
 /* Text shadow for editor */
 @media (prefers-color-scheme: light) {
   .monaco-editor .view-line span {
@@ -285,6 +292,15 @@
   .monaco-editor .view-line span {
     text-shadow: 1px 1px 0px rgba(0, 0, 0, 0.5);
   }
+}
+
+/* Manual theme overrides for text shadow */
+[data-theme="light"] .monaco-editor .view-line span {
+  text-shadow: 0.5px 0.5px 0px rgba(0, 0, 0, 0.25);
+}
+
+[data-theme="dark"] .monaco-editor .view-line span {
+  text-shadow: 1px 1px 0px rgba(0, 0, 0, 0.5);
 }
 
 /* ============================================

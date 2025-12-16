@@ -959,6 +959,11 @@
       background: #3a3530; /* Dark brown for dark mode */
       border-bottom-color: #2a2520;
     }
+    
+    [data-theme="light"] .editor-header {
+      background: #fffacd; /* Legal pad yellow background for light mode */
+      border-bottom-color: #f0e68c;
+    }
 
     #console-panel .docs-header {
       background: #3d2817; /* Darker brown background for Console tab bar */
@@ -2576,6 +2581,13 @@
     [data-theme="dark"] .monaco-editor .view-line *::selection {
       background-color: rgba(255, 140, 0, 0.8) !important;
     }
+    
+    /* Light mode override - must come after dark media query */
+    [data-theme="light"] .monaco-editor *::selection,
+    [data-theme="light"] .monaco-editor .view-line::selection,
+    [data-theme="light"] .monaco-editor .view-line *::selection {
+      background-color: rgba(255, 140, 0, 0.6) !important;
+    }
 
     /* Text shadow for editor - matches prompt HUD preview */
     @media (prefers-color-scheme: light) {
@@ -2597,6 +2609,23 @@
       }
     }
     
+    /* Manual theme overrides for text shadow - must come after media queries */
+    [data-theme="light"] .monaco-editor .view-line span {
+      text-shadow: 0.5px 0.5px 0px rgba(0, 0, 0, 0.25);
+    }
+    [data-theme="light"] .function-item {
+      text-shadow: 0.5px 0.5px 0px rgba(0, 0, 0, 0.25);
+      background: var(--bg-tertiary);
+    }
+    
+    [data-theme="dark"] .monaco-editor .view-line span {
+      text-shadow: 1px 1px 0px rgba(0, 0, 0, 0.5);
+    }
+    [data-theme="dark"] .function-item {
+      background: #2d2d30;
+      text-shadow: 1px 1px 0px rgba(0, 0, 0, 0.5);
+    }
+
     /* QR Code in header - border is drawn into the image */
     #preview-qr {
       cursor: pointer;
