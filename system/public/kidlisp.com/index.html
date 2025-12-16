@@ -1938,7 +1938,6 @@
     }
 
     .platform-dropdown {
-      display: none;
       position: fixed; /* Fixed to escape overflow:hidden containers */
       background: var(--bg-primary);
       border: 1px solid var(--border-color);
@@ -1947,10 +1946,17 @@
       min-width: 220px;
       z-index: 99999;
       padding: 4px 0;
+      /* Use visibility + opacity for smooth open without flash */
+      visibility: hidden;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s ease, visibility 0.15s ease;
     }
 
     .platform-selector.open .platform-dropdown {
-      display: block;
+      visibility: visible;
+      opacity: 1;
+      pointer-events: auto;
     }
 
     .platform-option {
@@ -6848,13 +6854,13 @@
         // Toggle dropdown on click
         selector.addEventListener('click', (e) => {
           e.stopPropagation();
-          selector.classList.toggle('open');
-          // Position the fixed dropdown
-          if (selector.classList.contains('open') && dropdown) {
+          // Position dropdown BEFORE opening to prevent flash
+          if (!selector.classList.contains('open') && dropdown) {
             const rect = selector.getBoundingClientRect();
             dropdown.style.top = (rect.bottom + 4) + 'px';
             dropdown.style.left = rect.left + 'px';
           }
+          selector.classList.toggle('open');
         });
         
         // Handle platform selection - create a shared handler function
