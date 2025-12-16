@@ -3408,6 +3408,25 @@
   </style>
   
   <script>
+    // Check if coming from prompt for back navigation
+    (function() {
+      try {
+        const labelBackSource = sessionStorage.getItem('aesthetic-labelBack-source');
+        if (labelBackSource === 'prompt') {
+          // Clear the source since we've captured it
+          sessionStorage.removeItem('aesthetic-labelBack-source');
+          // Determine back URL based on environment
+          const isLocal = window.location.hostname === 'localhost' || 
+                          window.location.hostname.includes('127.0.0.1');
+          window.kidlispBackToPrompt = isLocal ? '/' : 'https://aesthetic.computer';
+        }
+      } catch (e) {
+        // sessionStorage not available
+      }
+    })();
+  </script>
+  
+  <script>
     // Splash animation - must be inline to run early
     (function() {
       let animationTriggered = false;
@@ -3499,6 +3518,15 @@
             
             // Show tagline
             if (tagline) tagline.style.opacity = '0.5';
+            
+            // Add click handler for back navigation if coming from prompt
+            if (window.kidlispBackToPrompt) {
+              splashLogo.style.cursor = 'pointer';
+              splashLogo.title = 'Back to prompt';
+              splashLogo.addEventListener('click', () => {
+                window.location.href = window.kidlispBackToPrompt;
+              });
+            }
           }, 550);
           
           // Fade out splash background
@@ -3517,6 +3545,15 @@
             splashLogo.classList.add('landed');
             splashLogo.style.cssText = '';
             landingZone.appendChild(splashLogo);
+            
+            // Add click handler for back navigation if coming from prompt
+            if (window.kidlispBackToPrompt) {
+              splashLogo.style.cursor = 'pointer';
+              splashLogo.title = 'Back to prompt';
+              splashLogo.addEventListener('click', () => {
+                window.location.href = window.kidlispBackToPrompt;
+              });
+            }
           }
           if (tagline) tagline.style.opacity = '0.5';
         }
