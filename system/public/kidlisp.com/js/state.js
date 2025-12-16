@@ -145,15 +145,20 @@ export const actions = {
   
   // Theme actions
   setTheme(theme) {
+    console.log('🎨 [state.js] setTheme called:', theme);
     setState('theme', theme);
     localStorage.setItem('kidlisp-theme', theme);
     document.documentElement.setAttribute('data-theme', theme);
     // Send theme to iframe directly (avoiding circular import)
+    console.log('🎨 [state.js] previewIframe:', state.previewIframe, 'aestheticUrl:', state.aestheticUrl);
     if (state.previewIframe?.contentWindow) {
+      console.log('🎨 [state.js] Sending kidlisp-theme to iframe:', { type: 'kidlisp-theme', theme });
       state.previewIframe.contentWindow.postMessage(
         { type: 'kidlisp-theme', theme },
         state.aestheticUrl
       );
+    } else {
+      console.warn('🎨 [state.js] No previewIframe.contentWindow available!');
     }
   },
   
