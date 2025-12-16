@@ -104,10 +104,13 @@ const actionHandlers = {
   
   // Theme toggle
   'toggle-theme': (e, el) => {
+    console.log('🎨 [events.js] toggle-theme clicked, current:', state.theme);
     const current = state.theme;
     const newTheme = current === 'dark' ? 'light' : 'dark';
+    console.log('🎨 [events.js] calling actions.setTheme with:', newTheme);
     actions.setTheme(newTheme);
     el.textContent = newTheme === 'dark' ? '●' : '○';
+    console.log('🎨 [events.js] toggle-theme done');
   },
   
   // Auth
