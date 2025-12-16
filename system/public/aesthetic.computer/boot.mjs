@@ -115,13 +115,49 @@ window.addEventListener('message', (event) => {
 
 bootLog("initializing aesthetic.computer");
 
+// Check if we're embedded in kidlisp.com or similar iframe context
+// If so, we'll wait for theme from parent instead of using OS preference
+const isEmbeddedInKidlisp = window.parent !== window && 
+  (window.location.search.includes('nolabel=true') || window.location.search.includes('nogap=true'));
+if (isEmbeddedInKidlisp) {
+  window.acWAIT_FOR_PARENT_THEME = true;
+}
+
 // Alert the parent we are initialized (but not fully ready yet).
-if (window.parent) {
+if (window.parent !== window) {
   window.parent.postMessage({ type: "init" }, "*");
   // Send ready message early so VS Code extension doesn't keep reloading
   window.parent.postMessage({ type: "ready" }, "*");
   // Send kidlisp-ready for editor controls (boot is complete enough to accept commands)
   window.parent.postMessage({ type: "kidlisp-ready", ready: true }, "*");
+}
+
+// Early message listener for kidlisp messages that arrive before full boot
+// (The main `receive` listener is added at the end of boot.mjs)
+const earlyKidlispQueue = [];
+function earlyKidlispReceiver(e) {
+  const type = e.data?.type;
+  if (type === "kidlisp-console-enable") {
+    earlyKidlispQueue.push({ type: "kidlisp-console-enable" });
+  }
+}
+window.addEventListener("message", earlyKidlispReceiver);
+
+// Process early queued messages once acSEND is available
+function processEarlyKidlispQueue() {
+  if (earlyKidlispQueue.length === 0) return;
+  if (window.acSEND) {
+    for (const msg of earlyKidlispQueue) {
+      if (msg.type === "kidlisp-console-enable") {
+        window.__acKidlispConsoleEnabled = true;
+        window.acSEND({ type: "kidlisp-console-enable" });
+        window.parent.postMessage({ type: "kidlisp-console-enabled" }, "*");
+      }
+    }
+    earlyKidlispQueue.length = 0;
+  } else {
+    setTimeout(processEarlyKidlispQueue, 50);
+  }
 }
 
 // 🎹 DAW mode: Send ready signal to Max/MSP via jweb~ outlet
@@ -609,6 +645,9 @@ if (window.acVSCODE) {
 bootLog(`booting: ${parsed?.text || 'prompt'}`);
 boot(parsed, bpm, { gap: nogap ? 0 : undefined, nolabel, density, zoom, duration, tv, highlight }, debug);
 
+// Start processing any early kidlisp messages that arrived before boot completed
+processEarlyKidlispQueue();
+
 let sandboxed = (window.origin === "null" && !window.acVSCODE) || localStorageBlocked || sessionStorageBlocked || window.acPACK_MODE || window.acSPIDER;
 
 // #region 🔐 Auth0: Universal Login & Authentication
@@ -931,10 +970,11 @@ function receive(event) {
     // Live reload from kidlisp.com editor
     const code = event.data.code;
     const createCode = event.data.createCode; // Flag to enable code creation
+    const authToken = event.data.authToken; // Token from kidlisp.com login
     if (code) {
       window.acSEND({
         type: "piece-reload",
-        content: { source: code, createCode: createCode }
+        content: { source: code, createCode: createCode, authToken: authToken }
       });
     }
     return;
@@ -948,7 +988,7 @@ function receive(event) {
     window.acRESUME?.(); // Ensure we are running so we can load the empty piece.
     window.acSEND({
       type: "piece-reload",
-      content: { source: "prompt", createCode: false }
+      content: { source: "kidlisp", createCode: false }
     });
     return;
   } else if (event.data?.type === "kidlisp-ping") {
@@ -960,6 +1000,48 @@ function receive(event) {
       }, '*');
     }
     return;
+  } else if (event.data?.type === "kidlisp-console-enable") {
+    // Enable KidLisp-only console channel for kidlisp.com.
+    // Check if already enabled (may have been handled by early listener)
+    if (window.__acKidlispConsoleEnabled) {
+      return;
+    }
+    window.__acKidlispConsoleEnabled = true;
+    if (window.parent !== window) {
+      window.parent.postMessage({ type: "kidlisp-console-enabled" }, "*");
+    }
+
+    // Forward into the disk worker too (KidLisp evaluation usually runs there).
+    if (window.acSEND) {
+      window.acSEND({ type: "kidlisp-console-enable" });
+    } else {
+      // Worker not ready yet - queue and retry when acSEND becomes available.
+      const tryQueue = () => {
+        if (window.acSEND) {
+          window.acSEND({ type: "kidlisp-console-enable" });
+        } else {
+          setTimeout(tryQueue, 50);
+        }
+      };
+      tryQueue();
+    }
+    return;
+  } else if (event.data?.type === "kidlisp-theme") {
+    // Theme sync from kidlisp.com editor
+    const theme = event.data.theme; // 'light' or 'dark'
+    const isDark = theme === 'dark';
+    document.body.classList.toggle('light-theme', !isDark);
+    document.documentElement.style.setProperty("color-scheme", theme);
+    // Set flag to prevent OS theme changes from overriding
+    window.acMANUAL_THEME_OVERRIDE = true;
+    // Tell bios.mjs/worker about the theme change
+    window.acSEND?.({ type: "dark-mode", content: { enabled: isDark } });
+    return;
+  } else if (event.data?.type === "keep-mint-prepare") {
+    // Handle mint preparation request from kidlisp.com
+    // This runs in the iframe which has auth cookies
+    handleKeepMintPrepare(event.data);
+    return;
   } else if (event.data?.startsWith?.("docs:")) {
     window.acSEND({
       type: "docs:link",
@@ -968,6 +1050,54 @@ function receive(event) {
     return;
   }
 }
+
+// Handle keep-mint-prepare from kidlisp.com
+// Makes authenticated API call since iframe has session cookies
+async function handleKeepMintPrepare(data) {
+  const { imageDataUrl, imageFilename, metadataJson, tezosAddress, requestId } = data;
+  
+  try {
+    // Create FormData for the API request
+    const formData = new FormData();
+    
+    // Convert dataURL to blob
+    const imageBlob = await fetch(imageDataUrl).then(r => r.blob());
+    formData.append('image', imageBlob, imageFilename || 'mint-image.png');
+    formData.append('metadata', metadataJson);
+    formData.append('tezosAddress', tezosAddress);
+    
+    // Make authenticated API call
+    const response = await fetch('/api/keep-mint', {
+      method: 'POST',
+      credentials: 'include',
+      body: formData
+    });
+    
+    const result = await response.json();
+    
+    if (response.ok && result.success) {
+      // Send prepared data back to parent
+      window.parent.postMessage({
+        type: 'keep-mint-prepared',
+        requestId,
+        ...result
+      }, '*');
+    } else {
+      window.parent.postMessage({
+        type: 'keep-mint-error',
+        requestId,
+        error: result.message || result.error || 'Mint preparation failed'
+      }, '*');
+    }
+  } catch (error) {
+    window.parent.postMessage({
+      type: 'keep-mint-error',
+      requestId,
+      error: error.message || 'Network error during mint preparation'
+    }, '*');
+  }
+}
+
 window.addEventListener("message", receive);
 
 // 🔔 Subscribe to web / client notifications.

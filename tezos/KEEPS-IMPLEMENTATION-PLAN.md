@@ -568,7 +568,24 @@ KEEPS_CONTRACT_MAINNET=KT1...   # Future
 | IPFS Endpoint | ❌ TODO | Create `upload-ipfs.js` | |
 | Wallet Module | ❌ TODO | Create `lib/tezos.mjs` | |
 | `keep` Command | ❌ TODO | `prompt.mjs` line 1735 | |
-| kidlisp.com Button | ❌ TODO | `index.html` line 1867 | |
+| kidlisp.com Button | ⏳ Partial | `index.html` | UI polish done, button logic pending |
+| kidlisp.com Console | ✅ Done | `index.html` | Console, Auth0 fixed Dec 16 |
+
+### December 16, 2025 - Session Status
+
+**What happened**: Got ahead of ourselves working on Phase 5 (kidlisp.com UI) before completing Phases 1-4. 
+
+**Completed Phase 5 work**:
+- Console panel now shows KidLisp-only output
+- Welcome message, play/pause/stop states, syntax highlighting
+- Error line/column display with Monaco decorations
+- Fixed Auth0 SDK loading (AMD/Monaco conflict)
+
+**Next priority**: Return to Phase 1 - Deploy contract to Ghostnet
+```bash
+cd /workspaces/aesthetic-computer/tezos
+python3 deploy-to-ghostnet.py
+```
 
 ---
 

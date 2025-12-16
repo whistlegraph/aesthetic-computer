@@ -1,0 +1,273 @@
+/* KidLisp Editor - Keeps (Tezos/NFT) Styles */
+
+/* ============================================
+   KEEPS CONTAINER
+   ============================================ */
+
+#keeps-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 8px 0;
+}
+
+.keeps-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.keeps-icon { font-size: 20px; }
+
+.keeps-title {
+  font-size: 16px;
+  font-weight: bold;
+  color: var(--text-primary);
+}
+
+.keeps-network {
+  margin-left: auto;
+  font-size: 11px;
+  padding: 2px 8px;
+  background: #4a9c5d;
+  color: white;
+  border-radius: 10px;
+  font-family: monospace;
+}
+
+/* ============================================
+   WALLET CONNECTION
+   ============================================ */
+
+.keeps-wallet {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.keeps-connect-btn {
+  padding: 12px 20px;
+  background: linear-gradient(135deg, #0066ff 0%, #0044cc 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.keeps-connect-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 102, 255, 0.3);
+}
+
+.keeps-connect-btn.connected {
+  background: linear-gradient(135deg, #4a9c5d 0%, #3a7c4d 100%);
+}
+
+.keeps-address {
+  font-family: monospace;
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding: 8px 12px;
+  background: var(--bg-secondary);
+  border-radius: 6px;
+  word-break: break-all;
+}
+
+/* ============================================
+   MINTING
+   ============================================ */
+
+.keeps-mint-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.keeps-code-preview {
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  padding: 12px;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.keeps-code-label {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+#keeps-code-text {
+  font-family: monospace;
+  font-size: 12px;
+  color: var(--text-primary);
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.keeps-mint-btn {
+  padding: 14px 24px;
+  background: linear-gradient(135deg, var(--ac-purple) 0%, rgb(175, 62, 125) 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.keeps-mint-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(205, 92, 155, 0.4);
+}
+
+.keeps-mint-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ============================================
+   STATUS & INFO
+   ============================================ */
+
+.keeps-status {
+  font-size: 13px;
+  color: var(--text-secondary);
+  min-height: 20px;
+}
+
+.keeps-status.error { color: #e74c3c; }
+.keeps-status.success { color: #4a9c5d; }
+
+.keeps-info {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  line-height: 1.5;
+}
+
+.keeps-info p {
+  margin: 0 0 8px 0;
+}
+
+.keeps-hint {
+  font-family: monospace;
+  font-size: 12px;
+}
+
+/* ============================================
+   LOGIN SECTION
+   ============================================ */
+
+.keeps-login-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.keeps-login-btn {
+  padding: 12px 20px;
+  background: linear-gradient(135deg, var(--ac-purple) 0%, rgb(175, 62, 125) 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.keeps-login-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(205, 92, 155, 0.3);
+}
+
+.keeps-login-btn.logged-in {
+  background: linear-gradient(135deg, #4a9c5d 0%, #3a7c4d 100%);
+}
+
+.keeps-user-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--bg-secondary);
+  border-radius: 6px;
+}
+
+.keeps-user-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.keeps-user-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.keeps-logout-btn {
+  margin-left: auto;
+  padding: 4px 10px;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.keeps-logout-btn:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+/* ============================================
+   LOGGED OUT/IN STATES
+   ============================================ */
+
+.keeps-logged-out {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.keeps-login-prompt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.keeps-login-prompt .keeps-icon {
+  font-size: 32px;
+}
+
+.keeps-login-prompt p {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.keeps-logged-in {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 8px 0;
+}
