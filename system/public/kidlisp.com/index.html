@@ -6278,7 +6278,7 @@
         
         // Send current theme to iframe
         const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
-        previewIframe.contentWindow.postMessage({ type: 'kidlisp-theme', theme: currentTheme }, AESTHETIC_URL);
+        previewIframe.contentWindow.postMessage({ type: 'kidlisp-theme', theme: currentTheme }, aestheticUrl);
         
         // Mark that we want to auto-play, but wait for piece to be ready
         // Only auto-play on aesthetic-computer platform
