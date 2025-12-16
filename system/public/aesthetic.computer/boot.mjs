@@ -964,7 +964,11 @@ function receive(event) {
   } else if (event.data?.type === "kidlisp-theme") {
     // Theme sync from kidlisp.com editor
     const theme = event.data.theme; // 'light' or 'dark'
-    document.body.classList.toggle('light-theme', theme === 'light');
+    const isDark = theme === 'dark';
+    document.body.classList.toggle('light-theme', !isDark);
+    document.documentElement.style.setProperty("color-scheme", theme);
+    // Tell bios.mjs/worker about the theme change
+    window.acSEND?.({ type: "dark-mode", content: { enabled: isDark } });
     return;
   } else if (event.data?.type === "keep-mint-prepare") {
     // Handle mint preparation request from kidlisp.com
