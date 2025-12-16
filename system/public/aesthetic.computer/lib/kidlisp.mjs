@@ -330,6 +330,14 @@ function postKidlispConsole(level, message, meta) {
   if (meta && typeof meta === "object") {
     if (meta.loc) payload.loc = meta.loc;
     if (meta.kind) payload.kind = meta.kind;
+    if (meta.embeddedSource) {
+      payload.embeddedSource = meta.embeddedSource;
+      // Include the actual source code for tooltip display
+      const source = globalCodeCache.get(meta.embeddedSource);
+      if (source) {
+        payload.embeddedSourceCode = source;
+      }
+    }
   }
   postToParent(payload);
 }
