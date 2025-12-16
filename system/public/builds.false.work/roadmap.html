@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Roadmap - builds.false.work</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <style>
+    :root {
+      --bg-primary: #000;
+      --bg-secondary: #0a0a0a;
+      --bg-card: #111;
+      --text-primary: #fff;
+      --text-secondary: #888;
+      --text-muted: #666;
+      --border-primary: #333;
+      --accent: #fa0;
+      --done: #0f0;
+      --progress: #fa0;
+      --planned: #09f;
+      --future: #f0f;
+    }
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg-primary: #fff;
+        --bg-secondary: #fafafa;
+        --bg-card: #f5f5f5;
+        --text-primary: #111;
+        --text-secondary: #555;
+        --text-muted: #888;
+        --border-primary: #ddd;
+        --accent: #d90;
+        --done: #080;
+        --progress: #d90;
+        --planned: #07d;
+        --future: #c0c;
+      }
+      .logo { filter: invert(1); }
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Courier New', monospace;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      line-height: 1.6;
+      padding: 2rem;
+    }
+    .container { max-width: 900px; margin: 0 auto; }
+    h1 { color: var(--accent); margin-bottom: 0.5rem; }
+    .subtitle { color: var(--text-muted); margin-bottom: 2rem; }
+    
+    .phase {
+      margin-bottom: 2.5rem;
+      padding: 1.5rem;
+      background: var(--bg-card);
+      border-radius: 8px;
+      border: 1px solid var(--border-primary);
+    }
+    .phase-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    .phase-status {
+      padding: 0.25rem 0.75rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: bold;
+      text-transform: uppercase;
+    }
+    .status-done { background: var(--done); color: #000; }
+    .status-progress { background: var(--progress); color: #000; }
+    .status-planned { background: var(--planned); color: #fff; }
+    .status-future { background: var(--future); color: #fff; }
+    
+    .phase h2 { font-size: 1.2rem; }
+    .phase-desc { color: var(--text-secondary); margin-bottom: 1rem; font-size: 0.95rem; }
+    
+    .tasks { list-style: none; }
+    .tasks li {
+      padding: 0.5rem 0;
+      border-bottom: 1px solid var(--border-primary);
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+    }
+    .tasks li:last-child { border-bottom: none; }
+    .task-check { font-size: 1.1rem; }
+    .task-done .task-check { color: var(--done); }
+    .task-progress .task-check { color: var(--progress); }
+    .task-pending .task-check { color: var(--text-muted); }
+    .task-title { font-weight: bold; }
+    .task-desc { color: var(--text-secondary); font-size: 0.9rem; }
+    
+    .architecture {
+      background: var(--bg-secondary);
+      padding: 1.5rem;
+      border-radius: 8px;
+      margin: 2rem 0;
+      border: 1px solid var(--border-primary);
+    }
+    .architecture h3 { color: var(--accent); margin-bottom: 1rem; }
+    .arch-diagram {
+      font-family: monospace;
+      white-space: pre;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      overflow-x: auto;
+    }
+    
+    .collections {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+    .collection {
+      background: var(--bg-secondary);
+      padding: 1rem;
+      border-radius: 4px;
+      border-left: 3px solid var(--accent);
+    }
+    .collection h4 { color: var(--accent); margin-bottom: 0.5rem; font-size: 0.95rem; }
+    .collection code {
+      display: block;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      background: var(--bg-primary);
+      padding: 0.5rem;
+      border-radius: 3px;
+      margin-top: 0.5rem;
+    }
+    
+    footer {
+      margin-top: 3rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border-primary);
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+    }
+    footer a { color: var(--text-secondary); }
+
+    /* Mobile-friendly styles */
+    @media (max-width: 768px) {
+      body {
+        padding: 1rem;
+        font-size: 14px;
+        -webkit-text-size-adjust: 100%;
+      }
+      h1 { font-size: 1.25rem; }
+      .subtitle { font-size: 0.85rem; margin-bottom: 1.5rem; }
+      
+      .phase {
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+      }
+      .phase-header {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+      }
+      .phase-status {
+        font-size: 0.7rem;
+        padding: 0.2rem 0.5rem;
+      }
+      .phase h2 { font-size: 1rem; }
+      .phase-desc { font-size: 0.85rem; }
+      
+      .tasks li {
+        padding: 0.4rem 0;
+        gap: 0.5rem;
+      }
+      .task-check { font-size: 1rem; }
+      .task-title { font-size: 0.9rem; }
+      .task-desc { font-size: 0.8rem; }
+      
+      .architecture {
+        padding: 1rem;
+      }
+      .architecture h3 { font-size: 1rem; }
+      .arch-diagram {
+        font-size: 0.7rem;
+      }
+      
+      .collections {
+        grid-template-columns: 1fr;
+        gap: 0.75rem;
+      }
+      .collection {
+        padding: 0.75rem;
+      }
+      .collection h4 { font-size: 0.85rem; }
+      .collection code { font-size: 0.7rem; }
+      
+      footer {
+        margin-top: 2rem;
+        font-size: 0.75rem;
+      }
+    }
+
+    @media (max-width: 480px) {
+      body { padding: 0.75rem; }
+      h1 { font-size: 1.1rem; }
+      .phase { padding: 0.75rem; }
+      .phase h2 { font-size: 0.95rem; }
+      .arch-diagram { font-size: 0.6rem; }
+    }
+
+    /* Touch-friendly targets */
+    @media (pointer: coarse) {
+      .tasks li {
+        min-height: 44px;
+        padding: 0.6rem 0;
+      }
+      footer a {
+        display: inline-block;
+        padding: 0.5rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div style="display: flex; justify-content: center; margin-bottom: 2rem;">
+      <img class="logo" src="https://assets.aesthetic.computer/false.work/falsework-logo.png" alt="false.work" style="width: 180px;">
+    </div>
+    
+    <h1>🗺️ builds.false.work Roadmap</h1>
+    <p class="subtitle">Build distribution & playtest reporting system</p>
+    
+    <!-- PHASE 2: IN PROGRESS -->
+    <div class="phase">
+      <div class="phase-header">
+        <span class="phase-status status-progress">🔨 In Progress</span>
+        <h2>Phase 2: Playtest Reports</h2>
+      </div>
+      <p class="phase-desc">Structured feedback with fun categories for each build.</p>
+      <ul class="tasks">
+        <li class="task-done">
+          <span class="task-check">✓</span>
+          <div>
+            <div class="task-title">Reports UI design</div>
+            <div class="task-desc">Tabs, report cards, detail view with 🍎🍟💭 sections</div>
+          </div>
+        </li>
+        <li class="task-done">
+          <span class="task-check">✓</span>
+          <div>
+            <div class="task-title">Combined reports.mjs endpoint</div>
+            <div class="task-desc">GET/POST handler with respond() pattern, false.work-reports collection</div>
+          </div>
+        </li>
+        <li class="task-done">
+          <span class="task-check">✓</span>
+          <div>
+            <div class="task-title">In-browser report submission form</div>
+            <div class="task-desc">Modal form with tester name, summary, and 🍎🍟💭 categories</div>
+          </div>
+        </li>
+        <li class="task-done">
+          <span class="task-check">✓</span>
+          <div>
+            <div class="task-title">Report attribution display</div>
+            <div class="task-desc">Shows who submitted and when on build cards and report cards</div>
+          </div>
+        </li>
+        <li class="task-pending">
+          <span class="task-check">○</span>
+          <div>
+            <div class="task-title">Report editing</div>
+            <div class="task-desc">Edit existing reports after submission</div>
+          </div>
+        </li>
+        <li class="task-pending">
+          <span class="task-check">○</span>
+          <div>
+            <div class="task-title">Report soft-delete</div>
+            <div class="task-desc">deleted: true flag, hidden from UI but preserved in DB</div>
+          </div>
+        </li>
+      </ul>
+    </div>
+    
+    <!-- PHASE 1: DONE -->
+    <div class="phase">
+      <div class="phase-header">
+        <span class="phase-status status-done">✓ Complete</span>
+        <h2>Phase 1: Core Build System</h2>
+      </div>
+      <p class="phase-desc">Automated builds, uploads, and password-protected distribution.</p>
+      <ul class="tasks">
+        <li class="task-done">
+          <span class="task-check">✓</span>
+          <div>
+            <div class="task-title">Automated Windows/Mac builds via SSH</div>
+            <div class="task-desc">remote-update-and-build.fish triggers builds on remote machines</div>
+          </div>
+        </li>
+        <li class="task-done">
+          <span class="task-check">✓</span>
+          <div>
+            <div class="task-title">DigitalOcean Spaces upload</div>
+            <div class="task-desc">Builds uploaded to assets.aesthetic.computer/false.work/</div>
+          </div>
+        </li>
+        <li class="task-done">
+          <span class="task-check">✓</span>
+          <div>
+            <div class="task-title">MongoDB build registry</div>
+            <div class="task-desc">false.work-builds collection with platform, version, timestamps</div>
+          </div>
+        </li>
+        <li class="task-done">
+          <span class="task-check">✓</span>
+          <div>
+            <div class="task-title">Password-protected builds.false.work</div>
+            <div class="task-desc">Netlify functions for auth + build list fetching</div>
+          </div>
+        </li>
+        <li class="task-done">
+          <span class="task-check">✓</span>
+          <div>
+            <div class="task-title">Platform filtering & build tags</div>
+            <div class="task-desc">Quality presets (ultra, high, auto-detect), date grouping</div>
+          </div>
+        </li>
+      </ul>
+    </div>
+    
+    <!-- PHASE 3: PLANNED -->
+    <div class="phase">
+      <div class="phase-header">
+        <span class="phase-status status-planned">📋 Planned</span>
+        <h2>Phase 3: Manual Build Uploads</h2>
+      </div>
+      <p class="phase-desc">Allow authorized users to upload custom builds directly via the web.</p>
+      <ul class="tasks">
+        <li class="task-pending">
+          <span class="task-check">○</span>
+          <div>
+            <div class="task-title">Build upload form</div>
+            <div class="task-desc">Drag-drop .zip upload with progress indicator</div>
+          </div>
+        </li>
+        <li class="task-pending">
+          <span class="task-check">○</span>
+          <div>
+            <div class="task-title">Platform selector</div>
+            <div class="task-desc">Windows, Mac, iOS + custom platform support</div>
+          </div>
+        </li>
+        <li class="task-pending">
+          <span class="task-check">○</span>
+          <div>
+            <div class="task-title">Build metadata form</div>
+            <div class="task-desc">Version, description, tags, level/changelist</div>
+          </div>
+        </li>
+        <li class="task-pending">
+          <span class="task-check">○</span>
+          <div>
+            <div class="task-title">Direct-to-Spaces upload</div>
+            <div class="task-desc">Pre-signed URL upload, bypasses Netlify function limits</div>
+          </div>
+        </li>
+        <li class="task-pending">
+          <span class="task-check">○</span>
+          <div>
+            <div class="task-title">User attribution</div>
+            <div class="task-desc">Track who uploaded each build (tester name)</div>
+          </div>
+        </li>
+      </ul>
+    </div>
+    
+    <!-- PHASE 4: FUTURE -->
+    <div class="phase">
+      <div class="phase-header">
+        <span class="phase-status status-future">🔮 Future</span>
+        <h2>Phase 4: Advanced Features</h2>
+      </div>
+      <p class="phase-desc">Nice-to-haves for a complete build management system.</p>
+      <ul class="tasks">
+        <li class="task-pending">
+          <span class="task-check">○</span>
+          <div>
+            <div class="task-title">Build diff viewer</div>
+            <div class="task-desc">Compare two builds, show what changed</div>
+          </div>
+        </li>
+        <li class="task-pending">
+          <span class="task-check">○</span>
+          <div>
+            <div class="task-title">Report export (PDF/Markdown)</div>
+            <div class="task-desc">Download formatted playtest reports</div>
+          </div>
+        </li>
+        <li class="task-pending">
+          <span class="task-check">○</span>
+          <div>
+            <div class="task-title">Discord webhook notifications</div>
+            <div class="task-desc">Ping channel when new builds or reports are added</div>
+          </div>
+        </li>
+        <li class="task-pending">
+          <span class="task-check">○</span>
+          <div>
+            <div class="task-title">Build retention/cleanup</div>
+            <div class="task-desc">Auto-archive old builds after N days</div>
+          </div>
+        </li>
+        <li class="task-pending">
+          <span class="task-check">○</span>
+          <div>
+            <div class="task-title">Multi-project support</div>
+            <div class="task-desc">Support projects beyond SpiderLily</div>
+          </div>
+        </li>
+      </ul>
+    </div>
+    
+    <!-- PHASE 5: STEAM -->
+    <div class="phase">
+      <div class="phase-header">
+        <span class="phase-status status-future">🔮 Future</span>
+        <h2>Phase 5: Steam Integration</h2>
+      </div>
+      <p class="phase-desc">Steamworks integration for beta distribution and branch management.</p>
+      <ul class="tasks">
+        <li class="task-pending">
+          <span class="task-check">○</span>
+          <div>
+            <div class="task-title">Steam depot/branch configuration</div>
+            <div class="task-desc">app_build.vdf templates for default, beta, playtest branches</div>
+          </div>
+        </li>
+        <li class="task-pending">
+          <span class="task-check">○</span>
+          <div>
+            <div class="task-title">SteamCMD upload automation</div>
+            <div class="task-desc">Script to upload builds to Steam after local build completes</div>
+          </div>
+        </li>
+        <li class="task-pending">
+          <span class="task-check">○</span>
+          <div>
+            <div class="task-title">Branch selector in UI</div>
+            <div class="task-desc">Choose target Steam branch (default, beta, playtest) when uploading</div>
+          </div>
+        </li>
+        <li class="task-pending">
+          <span class="task-check">○</span>
+          <div>
+            <div class="task-title">Steam build status tracking</div>
+            <div class="task-desc">Show Steam upload status and branch info on build cards</div>
+          </div>
+        </li>
+        <li class="task-pending">
+          <span class="task-check">○</span>
+          <div>
+            <div class="task-title">Set live branch from UI</div>
+            <div class="task-desc">Promote builds between branches (playtest → beta → default)</div>
+          </div>
+        </li>
+        <li class="task-pending">
+          <span class="task-check">○</span>
+          <div>
+            <div class="task-title">Steam playtest invites</div>
+            <div class="task-desc">Generate and track Steam playtest access codes</div>
+          </div>
+        </li>
+      </ul>
+    </div>
+    
+    <!-- ARCHITECTURE -->
+    <div class="architecture">
+      <h3>📐 System Architecture</h3>
+      <div class="arch-diagram">
+┌─────────────────────────────────────────────────────────────────┐
+│                        builds.false.work                         │
+├─────────────────────────────────────────────────────────────────┤
+│  [Builds Tab]     [Reports Tab]     [Upload Tab]*    [Roadmap]  │
+│       │                 │                 │                     │
+│       ▼                 ▼                 ▼                     │
+│  ┌─────────┐      ┌──────────┐      ┌──────────┐               │
+│  │ Build   │      │ Report   │      │ Upload   │               │
+│  │ Cards   │      │ Cards    │      │ Form     │               │
+│  │ + DL    │      │ + View   │      │ + Meta   │               │
+│  └────┬────┘      └────┬─────┘      └────┬─────┘               │
+└───────┼────────────────┼─────────────────┼──────────────────────┘
+        │                │                 │
+        ▼                ▼                 ▼
+┌───────────────────────────────────────────────────────────────┐
+│                    Netlify Functions                           │
+├───────────────┬───────────────┬───────────────┬───────────────┤
+│ get-builds    │ get-report    │ save-report   │ upload-build* │
+│ register-build│ list-reports* │ delete-report*│ presign-url*  │
+└───────┬───────┴───────┬───────┴───────┬───────┴───────┬───────┘
+        │               │               │               │
+        ▼               ▼               ▼               ▼
+┌───────────────────────────────────────────────────────────────┐
+│                         MongoDB                                │
+├─────────────────────────┬─────────────────────────────────────┤
+│   false.work-builds     │       false.work-reports            │
+│   ─────────────────     │       ──────────────────            │
+│   platform, version     │       buildPlatform, buildVersion   │
+│   timestamp, sizeMB     │       tester, summary               │
+│   downloadUrl, tags     │       lowHangingFruit[]             │
+│   level, ueVersion      │       onTheSide[]                   │
+│   uploadedBy*           │       biggerThoughts[]              │
+│   description*          │       deleted, createdAt            │
+└─────────────────────────┴─────────────────────────────────────┘
+        │
+        ▼
+┌───────────────────────────────────────────────────────────────┐
+│               DigitalOcean Spaces (CDN)                        │
+│         assets.aesthetic.computer/false.work/                  │
+│    spiderlily-windows-2025.12.15-1430.zip  (builds)           │
+│    spiderlily-windows-2025.12.15-1430.txt  (logs)             │
+└───────────────────────────────────────────────────────────────┘
+
+* = Planned features
+      </div>
+    </div>
+    
+    <!-- DATA MODELS -->
+    <h3 style="color: var(--accent); margin: 2rem 0 1rem;">📦 MongoDB Collections</h3>
+    <div class="collections">
+      <div class="collection">
+        <h4>false.work-builds</h4>
+        <p style="font-size: 0.85rem; color: var(--text-secondary);">Build artifacts & metadata</p>
+        <code>{
+  platform: "windows",
+  version: "2025.12.15-1430",
+  timestamp: ISODate,
+  sizeMB: 1342,
+  downloadUrl: "https://...",
+  logUrl: "https://...",
+  tags: ["auto-detect"],
+  level: "L_VerticalSlice_Demo",
+  ueVersion: "UE_5.6",
+  uploadedBy: "jeffrey",  // Phase 3
+  description: "...",     // Phase 3
+  createdAt: ISODate
+}</code>
+      </div>
+      <div class="collection">
+        <h4>false.work-reports</h4>
+        <p style="font-size: 0.85rem; color: var(--text-secondary);">Playtest feedback</p>
+        <code>{
+  buildPlatform: "windows",
+  buildVersion: "2025.12.15-1430",
+  tester: "Jeffrey",
+  summary: "Quick playthrough...",
+  lowHangingFruit: [
+    { title: "...", desc: "..." }
+  ],
+  onTheSide: [...],
+  biggerThoughts: [...],
+  deleted: false,
+  createdAt: ISODate,
+  updatedAt: ISODate
+}</code>
+      </div>
+    </div>
+
+    <footer>
+      <a href="./">← Back to builds.false.work</a>
+      <br><br>
+      <em>Last updated: December 15, 2025</em>
+    </footer>
+  </div>
+</body>
+</html>
