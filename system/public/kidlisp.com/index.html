@@ -3397,8 +3397,10 @@
   
   <!-- Development reload logic. -->
   <script type="module">
-    // Import KidLisp logger
-    import { 
+    // Import KidLisp logger - use full URL to work on both localhost and production domains
+    const loggerBase = (window.location.hostname === 'localhost' || window.location.hostname.includes('local.'))
+      ? 'https://localhost:8888' : 'https://aesthetic.computer';
+    const { 
       log, 
       showHeader, 
       logPlatformSwitch, 
@@ -3407,7 +3409,7 @@
       logAuth, 
       logBoot,
       debug 
-    } from './js/logger.js';
+    } = await import(`${loggerBase}/kidlisp.com/js/logger.js`);
     
     // Show beautiful header on load
     showHeader();
