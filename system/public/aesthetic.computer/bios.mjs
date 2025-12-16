@@ -633,6 +633,27 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   const bootStartTime = performance.now();
   headers(); // Print console headers with auto-detected theme.
 
+  // 🎬 Preload webpxmux library in background for animated WebP support
+  // This runs async and doesn't block boot
+  (async () => {
+    if (!window.WebPXMux) {
+      const script = document.createElement("script");
+      script.src = "/aesthetic.computer/dep/webpxmux/webpxmux.min.js";
+      document.head.appendChild(script);
+      await new Promise(r => script.onload = r);
+    }
+    if (!window._webpxMuxInstance) {
+      try {
+        const xMux = window.WebPXMux("/aesthetic.computer/dep/webpxmux/webpxmux.wasm");
+        await xMux.waitRuntime();
+        window._webpxMuxInstance = xMux;
+        console.log("🎬 WebPXMux preloaded and ready");
+      } catch (e) {
+        console.warn("🎬 WebPXMux preload failed (will retry on demand):", e.message);
+      }
+    }
+  })();
+
   // Expose Loop control to window for boot.mjs
   window.acPAUSE = Loop.pause;
   window.acRESUME = Loop.resume;
@@ -14254,13 +14275,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       
       (async () => {
         try {
-          // Fetch the WebP data
-          const response = await fetch(content);
-          if (!response.ok) throw new Error(`HTTP ${response.status}`);
-          const webpData = new Uint8Array(await response.arrayBuffer());
-          console.log("🎬 Fetched WebP data:", webpData.length, "bytes");
+          // Start fetch immediately (don't wait for library)
+          const fetchPromise = fetch(content).then(async (response) => {
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return new Uint8Array(await response.arrayBuffer());
+          });
           
-          // Load webpxmux if not already loaded
+          // Load webpxmux library in parallel with fetch
           if (!window.WebPXMux) {
             console.log("🎬 Loading webpxmux library...");
             await new Promise((resolve, reject) => {
@@ -14272,8 +14293,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             });
           }
           
-          const xMux = window.WebPXMux("/aesthetic.computer/dep/webpxmux/webpxmux.wasm");
-          await xMux.waitRuntime();
+          // Cache the initialized xMux instance for reuse
+          if (!window._webpxMuxInstance) {
+            const xMux = window.WebPXMux("/aesthetic.computer/dep/webpxmux/webpxmux.wasm");
+            await xMux.waitRuntime();
+            window._webpxMuxInstance = xMux;
+          }
+          const xMux = window._webpxMuxInstance;
+          
+          // Wait for fetch to complete
+          const webpData = await fetchPromise;
+          console.log("🎬 Fetched WebP data:", webpData.length, "bytes");
           
           const frames = await xMux.decodeFrames(webpData);
           console.log("🎬 Decoded animated WebP:", frames.frameCount, "frames,", frames.width, "x", frames.height);
