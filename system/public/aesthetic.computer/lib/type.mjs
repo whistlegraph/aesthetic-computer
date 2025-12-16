@@ -11,6 +11,7 @@ import { repeat } from "../lib/help.mjs";
 import { checkPackMode } from "./pack-mode.mjs";
 import { KidLisp, tokenize } from "./kidlisp.mjs";
 import { cssColors } from "./num.mjs";
+import { log } from "./logs.mjs";
 function matrixDebugEnabled() {
   if (typeof window !== "undefined" && window?.acMatrixDebug) return true;
   if (typeof globalThis !== "undefined" && globalThis?.acMatrixDebug) return true;
@@ -338,7 +339,7 @@ class Typeface {
         
         // Debug log the actual URL being constructed
         const charsParam = codePointStrs.join(',');
-        console.log(`🔤 Batch glyph fetch: ${codePointStrs.length} chars, font=${this.name}, chars="${charsParam.substring(0, 100)}..."`);
+        log.net.verbose(`Batch glyph fetch: ${codePointStrs.length} chars, font=${this.name}`);
         
         try {
           const apiUrl = (typeof window !== 'undefined' && window.acSPIDER)
