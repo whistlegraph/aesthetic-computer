@@ -184,10 +184,7 @@
 .platform-arrow { font-size: 8px; color: var(--text-tertiary); margin-left: 2px; }
 
 .platform-dropdown {
-  display: none;
-  position: absolute;
-  top: 100%;
-  left: 0;
+  position: fixed;
   background: var(--bg-primary);
   border: 1px solid var(--border-color);
   border-radius: 8px;
@@ -195,11 +192,17 @@
   min-width: 220px;
   z-index: 99999;
   padding: 4px 0;
-  margin-top: 4px;
+  /* Use visibility + opacity for smooth open without flash */
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease, visibility 0.15s ease;
 }
 
 .platform-selector.open .platform-dropdown {
-  display: block;
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .platform-option {
