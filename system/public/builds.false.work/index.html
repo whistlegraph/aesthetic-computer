@@ -403,8 +403,8 @@
     }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
-    /* Report button on build cards */
-    .report-btn {
+    /* Story button on build cards */
+    .story-btn {
       display: inline-block;
       background: linear-gradient(135deg, #2a2920 0%, #1f1e18 100%);
       color: #c0b890 !important;
@@ -420,54 +420,65 @@
       transition: all 0.2s;
       box-shadow: 1px 1px 3px rgba(0,0,0,0.3);
     }
-    .report-btn:hover {
+    .story-btn:hover {
       transform: translateY(-1px);
       box-shadow: 2px 2px 6px rgba(0,0,0,0.4);
       background: linear-gradient(135deg, #353428 0%, #2a291f 100%);
     }
-    .report-btn.has-report {
+    .story-btn.has-story {
       background: linear-gradient(135deg, #2a2920 0%, #1f1e18 100%);
       border-left: 3px solid var(--accent);
       color: #d4c8a0 !important;
     }
-    .report-btn.add-report {
+    .story-btn.add-story {
       padding: 0.3rem 0.5rem;
       font-size: 1rem;
       line-height: 1;
       min-width: 1.5rem;
     }
     @media (prefers-color-scheme: light) {
-      .report-btn {
+      .story-btn {
         background: linear-gradient(135deg, #fffef0 0%, #f5f4e8 100%);
         color: #555 !important;
         border: 1px solid #d0cfc0;
         box-shadow: 1px 1px 3px rgba(0,0,0,0.1);
       }
-      .report-btn:hover {
+      .story-btn:hover {
         box-shadow: 2px 2px 6px rgba(0,0,0,0.15);
         background: linear-gradient(135deg, #fffff8 0%, #faf9ed 100%);
       }
-      .report-btn.has-report {
+      .story-btn.has-story {
         background: linear-gradient(135deg, #fefef5 0%, #f8f7e5 100%);
         color: #333 !important;
       }
     }
-    /* Report cards */
-    .report-card {
+    /* Story cards */
+    .story-card {
       padding: 1.5rem;
-      background: var(--bg-card);
+      background: linear-gradient(to bottom, #2d2820 0%, #252015 100%);
       border-radius: 4px;
       margin-bottom: 1rem;
-      border: 1px solid var(--border-primary);
+      border: 2px solid #4a4030;
+      border-left: 4px solid #804040;
       cursor: pointer;
       transition: all 0.2s;
     }
-    .report-card:hover {
-      border-color: var(--accent);
+    .story-card:hover {
+      border-color: #5a5040;
       transform: translateX(4px);
     }
-    /* Report cards in unified feed - dark theme default */
-    .report-feed-card {
+    @media (prefers-color-scheme: light) {
+      .story-card {
+        background: linear-gradient(to bottom, #fdfbf5 0%, #f8f4e8 100%);
+        border-color: #d4c4a0;
+        border-left-color: #c85050;
+      }
+      .story-card:hover {
+        border-color: #c4b490;
+      }
+    }
+    /* Story cards in unified feed - dark theme default */
+    .story-feed-card {
       cursor: default;
       background: linear-gradient(to bottom, #2d2820 0%, #252015 100%);
       border: 2px solid #4a4030;
@@ -476,7 +487,7 @@
       padding: 1rem 1.25rem 1.25rem 1.25rem;
       line-height: 1.5;
     }
-    .report-feed-card::before {
+    .story-feed-card::before {
       content: '';
       position: absolute;
       left: 28px;
@@ -485,23 +496,22 @@
       width: 1px;
       background: rgba(160, 80, 80, 0.15);
     }
-    .report-feed-card:hover {
+    .story-feed-card:hover {
       transform: none;
       border-color: #5a5040;
     }
-    .report-feed-card .build-header {
+    .story-feed-card .build-header {
       color: #d4c4a4;
       line-height: 1.6;
       margin-bottom: 0.5rem;
     }
-    .report-feed-card .meta {
+    .story-feed-card .meta {
       color: #b4a484;
       line-height: 1.5;
       margin-top: 0.5rem;
     }
-    .report-feed-card .report-summary {
+    .story-feed-card .story-summary {
       font-family: Arial, Helvetica, sans-serif !important;
-      font-style: italic;
       color: #c4b494;
       line-height: 1.4;
       background: transparent;
@@ -510,47 +520,90 @@
       margin: 0;
       border-radius: 0;
     }
+    .story-items-container {
+      margin-top: 0.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+    .story-items-preview {
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 0.85rem;
+      color: #a89878;
+      padding: 0.4rem 0.6rem;
+      background: rgba(0,0,0,0.15);
+      border-radius: 3px;
+      border-left: 2px solid;
+      line-height: 1.4;
+    }
+    .story-items-preview.fruit { border-left-color: var(--fruit-color); }
+    .story-items-preview.side { border-left-color: var(--side-color); }
+    .story-items-preview.big { border-left-color: var(--big-color); }
+    .story-time {
+      margin-top: 0.5rem;
+      font-size: 0.85rem;
+      opacity: 0.7;
+    }
     @media (prefers-color-scheme: light) {
-      .report-feed-card {
+      .story-items-preview {
+        background: rgba(0,0,0,0.05);
+        color: #5a4a3a;
+      }
+    }
+    @media (prefers-color-scheme: light) {
+      .story-feed-card {
         background: linear-gradient(to bottom, #fdfbf5 0%, #f8f4e8 100%);
         border-color: #d4c4a0;
         border-left-color: #c85050;
       }
-      .report-feed-card::before {
+      .story-feed-card::before {
         background: rgba(200, 80, 80, 0.2);
       }
-      .report-feed-card:hover {
+      .story-feed-card:hover {
         border-color: #c4b490;
       }
-      .report-feed-card .build-header {
+      .story-feed-card .build-header {
         color: #4a3a2a;
       }
-      .report-feed-card .meta {
+      .story-feed-card .meta {
         color: #5a4a3a;
       }
-      .report-feed-card .report-summary {
+      .story-feed-card .story-summary {
         color: #5a4a3a;
       }
     }
-    .platform-tag.platform-report {
+    .platform-tag.platform-story {
       background: linear-gradient(135deg, #4a3d2a 0%, #3d3220 100%);
       color: #e8d4b8;
       border: 1px solid #6a5a40;
     }
     @media (prefers-color-scheme: light) {
-      .platform-tag.platform-report {
+      .platform-tag.platform-story {
         background: linear-gradient(135deg, #f5e6d3 0%, #e8d4b8 100%);
         color: #5a4030;
         border-color: #c4a882;
       }
     }
-    .report-view-link {
-      color: var(--accent);
+    .story-view-link {
+      background: transparent;
+      color: var(--accent) !important;
       text-decoration: none;
       font-weight: 500;
+      padding: 0.2rem 0;
+      border-radius: 0;
+      font-size: 0.9rem;
+      border-bottom: 1px dashed var(--accent);
+      transition: all 0.2s;
     }
-    .report-view-link:hover {
-      text-decoration: underline;
+    .story-view-link:hover {
+      text-decoration: none;
+      border-bottom-style: solid;
+      color: #fff !important;
+    }
+    @media (prefers-color-scheme: light) {
+      .story-view-link:hover {
+        color: #000 !important;
+      }
     }
     /* Log modal */
     .log-modal-content {
@@ -589,7 +642,7 @@
     .log-link:hover {
       color: var(--accent);
     }
-    .report-card-header {
+    .story-card-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -597,22 +650,30 @@
       flex-wrap: wrap;
       gap: 0.5rem;
     }
-    .report-card-title { color: var(--accent); font-weight: bold; }
-    .report-card-date { color: var(--text-muted); font-size: 0.85rem; }
-    .report-card-summary { color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 0.75rem; }
-    .report-card-stats { display: flex; gap: 1rem; font-size: 0.8rem; flex-wrap: wrap; }
+    .story-card-title { color: var(--accent); font-weight: bold; }
+    .story-card-date { color: var(--text-muted); font-size: 0.85rem; }
+    .story-card-summary { color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 0.75rem; }
+    .story-card-stats { display: flex; gap: 1rem; font-size: 0.8rem; flex-wrap: wrap; }
     .stat { color: var(--text-muted); }
     .stat-fruit { color: var(--fruit-color); }
     .stat-side { color: var(--side-color); }
     .stat-big { color: var(--big-color); }
-    /* Report detail view */
-    .report-view {
-      background: var(--bg-card);
+    /* Story detail view */
+    .story-view {
+      background: linear-gradient(to bottom, #2d2820 0%, #252015 100%);
       border-radius: 8px;
       padding: 2rem;
-      border: 1px solid var(--border-primary);
+      border: 2px solid #4a4030;
+      border-left: 4px solid #804040;
     }
-    .report-header {
+    @media (prefers-color-scheme: light) {
+      .story-view {
+        background: linear-gradient(to bottom, #fdfbf5 0%, #f8f4e8 100%);
+        border-color: #d4c4a0;
+        border-left-color: #c85050;
+      }
+    }
+    .story-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -622,8 +683,8 @@
       flex-wrap: wrap;
       gap: 1rem;
     }
-    .report-header h2 { color: var(--accent); font-size: 1.3rem; }
-    .report-header-buttons { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    .story-header h2 { color: var(--accent); font-size: 1.3rem; }
+    .story-header-buttons { display: flex; gap: 0.5rem; flex-wrap: wrap; }
     .copy-llm-btn {
       background: linear-gradient(135deg, #2a2920 0%, #1f1e18 100%);
       border: 1px solid #3a3930;
@@ -637,6 +698,10 @@
     }
     .copy-llm-btn:hover { background: linear-gradient(135deg, #353428 0%, #2a291f 100%); }
     .copy-llm-btn.copied { background: #1a3a1a; border-color: #2a5a2a; color: #8f8; }
+    .copy-llm-feed {
+      padding: 0.25rem 0.5rem;
+      font-size: 0.75rem;
+    }
     @media (prefers-color-scheme: light) {
       .copy-llm-btn {
         background: linear-gradient(135deg, #f5f5f0 0%, #eaeae5 100%);
@@ -656,53 +721,66 @@
       border-radius: 4px;
     }
     .back-btn:hover { background: var(--bg-button-hover); }
-    .report-meta {
+    .story-meta {
       display: flex;
       gap: 2rem;
       margin-bottom: 2rem;
       color: var(--text-secondary);
       font-size: 0.9rem;
       flex-wrap: wrap;
+      font-family: Arial, Helvetica, sans-serif;
     }
-    .report-meta span { display: flex; align-items: center; gap: 0.3rem; }
-    .report-summary {
-      background: var(--bg-secondary);
+    .story-meta span { display: flex; align-items: center; gap: 0.3rem; }
+    .story-summary {
+      background: rgba(0,0,0,0.15);
       padding: 1rem;
       border-radius: 4px;
       margin-bottom: 2rem;
       border-left: 3px solid var(--accent);
+      font-family: Arial, Helvetica, sans-serif;
     }
-    .report-section { margin-bottom: 2rem; }
-    .report-section h3 {
+    @media (prefers-color-scheme: light) {
+      .story-summary {
+        background: rgba(0,0,0,0.05);
+      }
+    }
+    .story-section { margin-bottom: 2rem; }
+    .story-section h3 {
       display: flex;
       align-items: center;
       gap: 0.5rem;
       margin-bottom: 1rem;
       font-size: 1.1rem;
+      font-family: Arial, Helvetica, sans-serif;
     }
     .section-fruit h3 { color: var(--fruit-color); }
     .section-side h3 { color: var(--side-color); }
     .section-big h3 { color: var(--big-color); }
-    .report-items { list-style: none; }
-    .report-items li {
+    .story-items { list-style: none; }
+    .story-items li {
       padding: 0.75rem 1rem;
       margin-bottom: 0.5rem;
-      background: var(--bg-secondary);
+      background: rgba(0,0,0,0.15);
       border-radius: 4px;
       border-left: 3px solid var(--border-primary);
       display: flex;
       align-items: flex-start;
       gap: 0.75rem;
     }
-    .section-fruit .report-items li { border-left-color: var(--fruit-color); }
-    .section-side .report-items li { border-left-color: var(--side-color); }
-    .section-big .report-items li { border-left-color: var(--big-color); }
+    @media (prefers-color-scheme: light) {
+      .story-items li {
+        background: rgba(0,0,0,0.05);
+      }
+    }
+    .section-fruit .story-items li { border-left-color: var(--fruit-color); }
+    .section-side .story-items li { border-left-color: var(--side-color); }
+    .section-big .story-items li { border-left-color: var(--big-color); }
     .item-icon { font-size: 1.1rem; flex-shrink: 0; }
-    .item-content { flex: 1; }
+    .item-content { flex: 1; font-family: Arial, Helvetica, sans-serif; }
     .item-title { font-weight: bold; margin-bottom: 0.25rem; }
-    .item-desc { color: var(--text-secondary); font-size: 0.9rem; }
-    /* New report button */
-    .new-report-btn {
+    .item-desc { color: var(--text-secondary); font-size: 0.9rem; line-height: 1.5; }
+    /* New story button */
+    .new-story-btn {
       background: linear-gradient(135deg, var(--accent) 0%, #f60 100%);
       border: none;
       color: #000;
@@ -714,7 +792,7 @@
       border-radius: 4px;
       margin-bottom: 1.5rem;
     }
-    .new-report-btn:hover {
+    .new-story-btn:hover {
       transform: translateY(-1px);
       box-shadow: 0 2px 8px rgba(255, 170, 0, 0.3);
     }
@@ -868,7 +946,7 @@
       transform: translateY(-1px);
       box-shadow: 0 2px 8px rgba(255, 170, 0, 0.4);
     }
-    .no-reports { color: var(--text-muted); font-style: italic; padding: 2rem; text-align: center; }
+    .no-stories { color: var(--text-muted); font-style: italic; padding: 2rem; text-align: center; }
   </style>
 </head>
 <body>
@@ -885,11 +963,11 @@
         <img class="logo" src="https://assets.aesthetic.computer/false.work/falsework-logo.png" alt="false.work" style="width: 200px;">
       </div>
       
-      <!-- Single content view with platform filters including Reports -->
+      <!-- Single content view with platform filters including Stories -->
       <div id="main-content">
         <div class="platform-filters">
           <button data-platform="all" class="active" onclick="filterPlatform('all')">✨ New</button>
-          <button data-platform="reports" onclick="filterPlatform('reports')">📝 Reports</button>
+          <button data-platform="stories" onclick="filterPlatform('stories')">📝 Stories</button>
           <button data-platform="windows" onclick="filterPlatform('windows')">🪟 Windows</button>
           <button data-platform="mac" onclick="filterPlatform('mac')">🍎 Mac</button>
           <button data-platform="ios" onclick="filterPlatform('ios')">📱 iOS</button>
@@ -903,26 +981,26 @@
           <div class="loading">Loading builds</div>
         </div>
         
-        <!-- Reports list (shown for reports filter) -->
-        <div id="reports-list" style="display: none;">
-          <button class="new-report-btn" onclick="openReportModal()">+ New Report</button>
-          <div id="reports-content">
-            <div class="loading">Loading reports</div>
+        <!-- Stories list (shown for stories filter) -->
+        <div id="stories-list" style="display: none;">
+          <button class="new-story-btn" onclick="openStoryModal()">+ New Story</button>
+          <div id="stories-content">
+            <div class="loading">Loading stories</div>
           </div>
         </div>
       </div>
       
-      <!-- REPORT DETAIL VIEW -->
-      <div id="report-view" style="display: none;">
-        <div class="report-view">
-          <div class="report-header">
-            <h2>📝 Playtest Report</h2>
-            <div class="report-header-buttons">
-              <button class="copy-llm-btn" onclick="copyReportForLLM()">📋 Copy for LLM</button>
-              <button class="back-btn" onclick="hideReportDetail()">← Back to Reports</button>
+      <!-- STORY DETAIL VIEW -->
+      <div id="story-view" style="display: none;">
+        <div class="story-view">
+          <div class="story-header">
+            <h2>📝 Playtest Story</h2>
+            <div class="story-header-buttons">
+              <button class="copy-llm-btn" onclick="copyStoryForLLM()">📋 Copy for LLM</button>
+              <button class="back-btn" onclick="hideStoryDetail()">← Back to Stories</button>
             </div>
           </div>
-          <div id="report-detail-content"></div>
+          <div id="story-detail-content"></div>
         </div>
       </div>
 
@@ -933,15 +1011,15 @@
     </div>
   </div>
 
-  <!-- REPORT FORM MODAL -->
-  <div id="report-modal" class="modal" style="display: none;">
+  <!-- STORY FORM MODAL -->
+  <div id="story-modal" class="modal" style="display: none;">
     <div class="modal-content">
       <div class="modal-header">
-        <h2>📝 Submit Playtest Report</h2>
-        <button class="close-btn" onclick="closeReportModal()">✕</button>
+        <h2>📝 Submit Playtest Story</h2>
+        <button class="close-btn" onclick="closeStoryModal()">✕</button>
       </div>
       
-      <form id="report-form" onsubmit="submitReport(event)">
+      <form id="story-form" onsubmit="submitStory(event)">
         <div class="form-row">
           <label>Build</label>
           <select id="form-build" required>
@@ -981,8 +1059,8 @@
         </div>
         
         <div class="form-actions">
-          <button type="button" class="cancel-btn" onclick="closeReportModal()">Cancel</button>
-          <button type="submit" class="submit-btn">Submit Report</button>
+          <button type="button" class="cancel-btn" onclick="closeStoryModal()">Cancel</button>
+          <button type="submit" class="submit-btn">Submit Story</button>
         </div>
       </form>
     </div>
@@ -1005,7 +1083,7 @@
   <script>
     let sessionPassword = localStorage.getItem('builds-session') || null;
     let allBuilds = [];
-    let allReports = [];
+    let allStories = [];
     let currentFilter = 'all';
     let currentTab = 'builds';
     
@@ -1021,7 +1099,7 @@
           const data = await res.json();
           if (data.success) {
             showAuthenticatedUI();
-            await Promise.all([loadBuilds(), loadReports()]);
+            await Promise.all([loadBuilds(), loadStories()]);
             handleRoute();
             return;
           }
@@ -1054,7 +1132,7 @@
           sessionPassword = password;
           localStorage.setItem('builds-session', password);
           showAuthenticatedUI();
-          await Promise.all([loadBuilds(), loadReports()]);
+          await Promise.all([loadBuilds(), loadStories()]);
           handleRoute();
         } else {
           document.getElementById('error').textContent = 'Incorrect password';
@@ -1066,30 +1144,30 @@
     }
 
     // View management
-    function showReportDetail(updateHash = true) {
+    function showStoryDetail(updateHash = true) {
       document.getElementById('main-content').style.display = 'none';
-      document.getElementById('report-view').style.display = 'block';
-      if (updateHash && currentViewingReportId) {
-        history.pushState(null, '', `#report/${currentViewingReportId}`);
+      document.getElementById('story-view').style.display = 'block';
+      if (updateHash && currentViewingStoryId) {
+        history.pushState(null, '', `#story/${currentViewingStoryId}`);
       }
     }
     
-    function hideReportDetail() {
-      document.getElementById('report-view').style.display = 'none';
+    function hideStoryDetail() {
+      document.getElementById('story-view').style.display = 'none';
       document.getElementById('main-content').style.display = 'block';
-      filterPlatform('reports');
+      filterPlatform('stories');
     }
     
     // Handle URL routing
     function handleRoute() {
       const hash = window.location.hash.slice(1); // remove #
       
-      // Handle report detail view
-      if (hash.startsWith('report/')) {
-        const reportId = hash.slice(7);
-        const report = allReports.find(r => r._id === reportId);
-        if (report) {
-          viewReport(reportId);
+      // Handle story detail view
+      if (hash.startsWith('story/')) {
+        const storyId = hash.slice(6);
+        const story = allStories.find(r => r._id === storyId);
+        if (story) {
+          viewStory(storyId);
           return;
         }
       }
@@ -1097,7 +1175,7 @@
       // Handle platform filters
       const platformMap = {
         '': 'all',
-        'reports': 'reports',
+        'stories': 'stories',
         'windows': 'windows',
         'mac': 'mac',
         'ios': 'ios'
@@ -1137,22 +1215,22 @@
         btn.classList.toggle('active', btn.dataset.platform === platform);
       });
       
-      // Show/hide builds vs reports
+      // Show/hide builds vs stories
       const buildsList = document.getElementById('builds-list');
-      const reportsList = document.getElementById('reports-list');
+      const storiesList = document.getElementById('stories-list');
       
-      if (platform === 'reports') {
+      if (platform === 'stories') {
         buildsList.style.display = 'none';
-        reportsList.style.display = 'block';
-        renderReports();
+        storiesList.style.display = 'block';
+        renderStories();
       } else {
         buildsList.style.display = 'block';
-        reportsList.style.display = 'none';
+        storiesList.style.display = 'none';
         renderBuilds();
       }
       
       if (updateHash) {
-        const hashMap = { all: '', reports: 'reports', windows: 'windows', mac: 'mac', ios: 'ios' };
+        const hashMap = { all: '', stories: 'stories', windows: 'windows', mac: 'mac', ios: 'ios' };
         history.pushState(null, '', platform === 'all' ? '#' : `#${hashMap[platform]}`);
       }
     }
@@ -1163,7 +1241,7 @@
         ? allBuilds 
         : allBuilds.filter(b => b.platform === currentFilter);
       
-      if (filtered.length === 0 && (currentFilter !== 'all' || allReports.length === 0)) {
+      if (filtered.length === 0 && (currentFilter !== 'all' || allStories.length === 0)) {
         container.innerHTML = '<p style="color: #666; font-style: italic;">No builds available.</p>';
         return;
       }
@@ -1186,12 +1264,12 @@
         grouped[label].push({ type: 'build', data: build, timestamp: new Date(build.timestamp) });
       });
       
-      // Add reports to grouped if showing "all"
+      // Add stories to grouped if showing "all"
       if (currentFilter === 'all') {
-        allReports.forEach(report => {
-          const label = getDateLabel(new Date(report.createdAt));
+        allStories.forEach(story => {
+          const label = getDateLabel(new Date(story.createdAt));
           if (!grouped[label]) grouped[label] = [];
-          grouped[label].push({ type: 'report', data: report, timestamp: new Date(report.createdAt) });
+          grouped[label].push({ type: 'story', data: story, timestamp: new Date(story.createdAt) });
         });
       }
       
@@ -1216,7 +1294,7 @@
           if (item.type === 'build') {
             html += renderBuildCard(item.data);
           } else {
-            html += renderReportCardInFeed(item.data);
+            html += renderStoryCardInFeed(item.data);
           }
         });
       });
@@ -1225,33 +1303,53 @@
       updateBuildTimes();
     }
     
-    function renderReportCardInFeed(report) {
+    function renderStoryCardInFeed(story) {
       const platformEmoji = { windows: '🪟', mac: '🍎', ios: '📱' };
-      const fruitCount = (report.lowHangingFruit || []).length;
-      const sideCount = (report.onTheSide || []).length;
-      const bigCount = (report.biggerThoughts || []).length;
+      const fruitItems = story.lowHangingFruit || [];
+      const sideItems = story.onTheSide || [];
+      const bigItems = story.biggerThoughts || [];
       
-      const time = new Date(report.createdAt).toLocaleTimeString('en-US', {
+      const time = new Date(story.createdAt).toLocaleTimeString('en-US', {
         hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/Los_Angeles'
       }) + ' PT';
       
-      const tester = report.tester || 'Anonymous';
+      const tester = story.tester || 'Anonymous';
+      
+      // Build item previews (show first 2-3 items from each category)
+      let itemsHtml = '';
+      if (fruitItems.length > 0) {
+        const preview = fruitItems.slice(0, 2).map(i => i.title).join(', ');
+        const more = fruitItems.length > 2 ? ` +${fruitItems.length - 2}` : '';
+        itemsHtml += `<div class="story-items-preview fruit">🍎 ${preview}${more}</div>`;
+      }
+      if (sideItems.length > 0) {
+        const preview = sideItems.slice(0, 2).map(i => i.title).join(', ');
+        const more = sideItems.length > 2 ? ` +${sideItems.length - 2}` : '';
+        itemsHtml += `<div class="story-items-preview side">🍟 ${preview}${more}</div>`;
+      }
+      if (bigItems.length > 0) {
+        const preview = bigItems.slice(0, 2).map(i => i.title).join(', ');
+        const more = bigItems.length > 2 ? ` +${bigItems.length - 2}` : '';
+        itemsHtml += `<div class="story-items-preview big">💭 ${preview}${more}</div>`;
+      }
       
       return `
-        <div class="build-card report-feed-card">
+        <div class="build-card story-feed-card" data-story-id="${story._id}">
           <div class="build-header">
-            <span class="platform-tag platform-report">📝 Report</span>
-            <span class="project-name">SpiderLily ${report.buildVersion}</span>
-            <a href="#report/${report._id}" class="report-view-link" onclick="event.preventDefault(); viewReport('${report._id}')">View Report</a>
+            <span class="platform-tag platform-story">📝 Story</span>
+            <span class="project-name">SpiderLily ${story.buildVersion}</span>
+            <a href="#story/${story._id}" class="story-view-link" onclick="event.preventDefault(); viewStory('${story._id}')">Read Story →</a>
+            <button class="copy-llm-btn copy-llm-feed" onclick="event.stopPropagation(); copyStoryForLLMById('${story._id}')">📋 Copy for LLM</button>
             <span class="build-tags">
-              <span class="build-tag">${platformEmoji[report.buildPlatform] || '📦'} ${report.buildPlatform}</span>
+              <span class="build-tag">${platformEmoji[story.buildPlatform] || '📦'} ${story.buildPlatform}</span>
             </span>
           </div>
           <div class="meta" style="margin-top: 0.75rem;">
-            by <strong>${tester}</strong> · <span class="report-summary">"${report.summary || 'No summary'}"</span>
+            by <strong>${tester}</strong> · <span class="story-summary">"${story.summary || 'No summary'}"</span>
           </div>
-          <div class="meta" style="margin-top: 0.5rem; font-size: 0.9rem;">
-            🍎 ${fruitCount} · 🍟 ${sideCount} · 💭 ${bigCount} · ${time}
+          ${itemsHtml ? `<div class="story-items-container">${itemsHtml}</div>` : ''}
+          <div class="meta story-time">
+            🍎 ${fruitItems.length} · 🍟 ${sideItems.length} · 💭 ${bigItems.length} · ${time}
           </div>
         </div>
       `;
@@ -1262,7 +1360,7 @@
       const platformLabel = { windows: 'Windows', mac: 'Mac', ios: 'iOS' };
       const fileExt = build.platform === 'ios' ? 'ipa' : 'zip';
       const isFailed = build.status === 'failed' || build.status === 'stale';
-      const buildReports = allReports.filter(r => r.buildPlatform === build.platform && r.buildVersion === build.version);
+      const buildStories = allStories.filter(r => r.buildPlatform === build.platform && r.buildVersion === build.version);
       
       let html = `
         <div class="build-card ${build.platform}${isFailed ? ' failed' : ''}">
@@ -1290,18 +1388,18 @@
         html += `<a href="${build.logUrl}" class="log-link" onclick="event.preventDefault(); openLogModal('${build.logUrl}')" title="Right-click to download">(log)</a>`;
       }
       
-      // Show all reports for this build
-      if (buildReports.length > 0) {
-        buildReports.forEach(report => {
-          const tester = report.tester || 'Anonymous';
-          const time = new Date(report.createdAt).toLocaleTimeString('en-US', {
+      // Show all stories for this build
+      if (buildStories.length > 0) {
+        buildStories.forEach(story => {
+          const tester = story.tester || 'Anonymous';
+          const time = new Date(story.createdAt).toLocaleTimeString('en-US', {
             hour: 'numeric', minute: '2-digit', hour12: true
           });
-          html += `<button class="report-btn has-report" onclick="viewReport('${report._id}')" title="Report by ${tester}">📝 ${tester} @ ${time}</button>`;
+          html += `<button class="story-btn has-story" onclick="viewStory('${story._id}')" title="Story by ${tester}">📝 ${tester} @ ${time}</button>`;
         });
       }
       if (!isFailed) {
-        html += `<button class="report-btn add-report" onclick="openReportModalForBuild('${build.platform}', '${build.version}')" title="Write a report">+</button>`;
+        html += `<button class="story-btn add-story" onclick="openStoryModalForBuild('${build.platform}', '${build.version}')" title="Write a story">+</button>`;
       }
       
       if (build.platform === 'ios' && !isFailed) {
@@ -1365,119 +1463,119 @@
       });
     }
 
-    // === REPORTS ===
-    async function loadReports() {
+    // === STORIES ===
+    async function loadStories() {
       try {
-        const res = await fetch('/.netlify/functions/reports', {
+        const res = await fetch('/.netlify/functions/stories', {
           headers: { 'Authorization': `Bearer ${sessionPassword}` }
         });
         
         if (!res.ok) {
-          // Reports endpoint may not exist yet
-          allReports = [];
+          // Stories endpoint may not exist yet
+          allStories = [];
           return;
         }
         
         const data = await res.json();
-        allReports = (data.reports || []).filter(r => !r.deleted);
-        // Only render if reports view is currently active
-        if (currentFilter === 'reports') {
-          renderReports();
+        allStories = (data.stories || []).filter(r => !r.deleted);
+        // Only render if stories view is currently active
+        if (currentFilter === 'stories') {
+          renderStories();
         }
-        // Re-render builds to show report buttons
+        // Re-render builds to show story buttons
         renderBuilds();
       } catch (err) {
-        allReports = [];
-        console.error('Reports not available yet:', err);
+        allStories = [];
+        console.error('Stories not available yet:', err);
       }
     }
 
-    function renderReports() {
-      const container = document.getElementById('reports-content');
+    function renderStories() {
+      const container = document.getElementById('stories-content');
       if (!container) {
-        console.error('reports-content element not found');
+        console.error('stories-content element not found');
         return;
       }
       
-      if (allReports.length === 0) {
-        container.innerHTML = '<div class="no-reports">No playtest reports yet. Click "+ New Report" to create one!</div>';
+      if (allStories.length === 0) {
+        container.innerHTML = '<div class="no-stories">No playtest stories yet. Click "+ New Story" to create one!</div>';
         return;
       }
 
       const platformEmoji = { windows: '🪟', mac: '🍎', ios: '📱' };
       
-      // Group reports by build (platform + version)
+      // Group stories by build (platform + version)
       const grouped = {};
-      allReports.forEach(report => {
-        const buildKey = `${report.buildPlatform}|${report.buildVersion}`;
+      allStories.forEach(story => {
+        const buildKey = `${story.buildPlatform}|${story.buildVersion}`;
         if (!grouped[buildKey]) {
           grouped[buildKey] = {
-            platform: report.buildPlatform,
-            version: report.buildVersion,
-            reports: []
+            platform: story.buildPlatform,
+            version: story.buildVersion,
+            stories: []
           };
         }
-        grouped[buildKey].reports.push(report);
+        grouped[buildKey].stories.push(story);
       });
 
-      // Sort builds by newest report first, then render
+      // Sort builds by newest story first, then render
       const sortedBuilds = Object.values(grouped).sort((a, b) => {
-        const aLatest = Math.max(...a.reports.map(r => new Date(r.createdAt).getTime()));
-        const bLatest = Math.max(...b.reports.map(r => new Date(r.createdAt).getTime()));
+        const aLatest = Math.max(...a.stories.map(r => new Date(r.createdAt).getTime()));
+        const bLatest = Math.max(...b.stories.map(r => new Date(r.createdAt).getTime()));
         return bLatest - aLatest;
       });
 
       let html = '';
       sortedBuilds.forEach(build => {
         const emoji = platformEmoji[build.platform] || '📦';
-        const reportCount = build.reports.length;
-        html += `<h3 class="date-header">${emoji} SpiderLily ${build.version} <span style="font-weight: normal; color: var(--text-muted);">(${reportCount} report${reportCount !== 1 ? 's' : ''})</span></h3>`;
+        const storyCount = build.stories.length;
+        html += `<h3 class="date-header">${emoji} SpiderLily ${build.version} <span style="font-weight: normal; color: var(--text-muted);">(${storyCount} stor${storyCount !== 1 ? 'ies' : 'y'})</span></h3>`;
         
-        // Sort reports within build by date descending
-        build.reports.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-        build.reports.forEach(report => {
-          html += renderReportCard(report);
+        // Sort stories within build by date descending
+        build.stories.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        build.stories.forEach(story => {
+          html += renderStoryCard(story);
         });
       });
 
       container.innerHTML = html;
     }
 
-    function renderReportCard(report) {
-      const fruitCount = (report.lowHangingFruit || []).length;
-      const sideCount = (report.onTheSide || []).length;
-      const bigCount = (report.biggerThoughts || []).length;
+    function renderStoryCard(story) {
+      const fruitCount = (story.lowHangingFruit || []).length;
+      const sideCount = (story.onTheSide || []).length;
+      const bigCount = (story.biggerThoughts || []).length;
       
-      const reportDate = new Date(report.createdAt);
+      const storyDate = new Date(story.createdAt);
       const today = new Date().toDateString();
       const yesterday = new Date(Date.now() - 86400000).toDateString();
       
       let dateLabel;
-      if (reportDate.toDateString() === today) {
+      if (storyDate.toDateString() === today) {
         dateLabel = 'Today';
-      } else if (reportDate.toDateString() === yesterday) {
+      } else if (storyDate.toDateString() === yesterday) {
         dateLabel = 'Yesterday';
       } else {
-        dateLabel = reportDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        dateLabel = storyDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
       }
       
-      const time = reportDate.toLocaleTimeString('en-US', {
+      const time = storyDate.toLocaleTimeString('en-US', {
         hour: 'numeric',
         minute: '2-digit',
         hour12: true,
         timeZone: 'America/Los_Angeles'
       }) + ' PT';
       
-      const tester = report.tester || 'Anonymous';
+      const tester = story.tester || 'Anonymous';
       
       return `
-        <div class="report-card" onclick="viewReport('${report._id}')">
-          <div class="report-card-header">
-            <span class="report-card-title">📝 Report by <strong>${tester}</strong></span>
-            <span class="report-card-date">${dateLabel} @ ${time}</span>
+        <div class="story-card" onclick="viewStory('${story._id}')">
+          <div class="story-card-header">
+            <span class="story-card-title">📝 Story by <strong>${tester}</strong></span>
+            <span class="story-card-date">${dateLabel} @ ${time}</span>
           </div>
-          <div class="report-card-summary">${report.summary || 'No summary'}</div>
-          <div class="report-card-stats">
+          <div class="story-card-summary">${story.summary || 'No summary'}</div>
+          <div class="story-card-stats">
             <span class="stat stat-fruit">🍎 ${fruitCount} low-hanging</span>
             <span class="stat stat-side">🍟 ${sideCount} on the side</span>
             <span class="stat stat-big">💭 ${bigCount} bigger thought${bigCount !== 1 ? 's' : ''}</span>
@@ -1486,74 +1584,74 @@
       `;
     }
 
-    function viewReport(reportId) {
-      const report = allReports.find(r => r._id === reportId);
-      if (!report) return;
+    function viewStory(storyId) {
+      const story = allStories.find(r => r._id === storyId);
+      if (!story) return;
       
       const platformEmoji = { windows: '🪟', mac: '🍎', ios: '📱' };
-      const dateStr = new Date(report.createdAt).toLocaleDateString('en-US', {
+      const dateStr = new Date(story.createdAt).toLocaleDateString('en-US', {
         month: 'long', day: 'numeric', year: 'numeric'
       });
       
       let html = `
-        <div class="report-meta">
-          <span>${platformEmoji[report.buildPlatform] || '📦'} <strong>${report.buildPlatform}</strong> ${report.buildVersion}</span>
-          <span>👤 <strong>${report.tester || 'Anonymous'}</strong></span>
+        <div class="story-meta">
+          <span>${platformEmoji[story.buildPlatform] || '📦'} <strong>${story.buildPlatform}</strong> ${story.buildVersion}</span>
+          <span>👤 <strong>${story.tester || 'Anonymous'}</strong></span>
           <span>📅 ${dateStr}</span>
         </div>
-        <div class="report-summary"><strong>Summary:</strong> ${report.summary || 'No summary provided.'}</div>
+        <div class="story-summary"><strong>Summary:</strong> ${story.summary || 'No summary provided.'}</div>
       `;
       
-      if (report.lowHangingFruit && report.lowHangingFruit.length > 0) {
-        html += `<div class="report-section section-fruit"><h3>🍎 Low Hanging Fruit</h3><ul class="report-items">`;
-        report.lowHangingFruit.forEach(item => {
+      if (story.lowHangingFruit && story.lowHangingFruit.length > 0) {
+        html += `<div class="story-section section-fruit"><h3>🍎 Low Hanging Fruit</h3><ul class="story-items">`;
+        story.lowHangingFruit.forEach(item => {
           html += `<li><span class="item-icon">🔧</span><div class="item-content"><div class="item-title">${item.title}</div>${item.desc ? `<div class="item-desc">${item.desc}</div>` : ''}</div></li>`;
         });
         html += `</ul></div>`;
       }
       
-      if (report.onTheSide && report.onTheSide.length > 0) {
-        html += `<div class="report-section section-side"><h3>🍟 A Little on the Side</h3><ul class="report-items">`;
-        report.onTheSide.forEach(item => {
+      if (story.onTheSide && story.onTheSide.length > 0) {
+        html += `<div class="story-section section-side"><h3>🍟 A Little on the Side</h3><ul class="story-items">`;
+        story.onTheSide.forEach(item => {
           html += `<li><span class="item-icon">✨</span><div class="item-content"><div class="item-title">${item.title}</div>${item.desc ? `<div class="item-desc">${item.desc}</div>` : ''}</div></li>`;
         });
         html += `</ul></div>`;
       }
       
-      if (report.biggerThoughts && report.biggerThoughts.length > 0) {
-        html += `<div class="report-section section-big"><h3>💭 Bigger Thoughts</h3><ul class="report-items">`;
-        report.biggerThoughts.forEach(item => {
+      if (story.biggerThoughts && story.biggerThoughts.length > 0) {
+        html += `<div class="story-section section-big"><h3>💭 Bigger Thoughts</h3><ul class="story-items">`;
+        story.biggerThoughts.forEach(item => {
           html += `<li><span class="item-icon">🌟</span><div class="item-content"><div class="item-title">${item.title}</div>${item.desc ? `<div class="item-desc">${item.desc}</div>` : ''}</div></li>`;
         });
         html += `</ul></div>`;
       }
       
-      document.getElementById('report-detail-content').innerHTML = html;
-      currentViewingReportId = reportId;
-      showReportDetail();
+      document.getElementById('story-detail-content').innerHTML = html;
+      currentViewingStoryId = storyId;
+      showStoryDetail();
     }
 
-    let currentViewingReportId = null;
+    let currentViewingStoryId = null;
 
-    function copyReportForLLM() {
-      const report = allReports.find(r => r._id === currentViewingReportId);
-      if (!report) return;
+    function copyStoryForLLM() {
+      const story = allStories.find(r => r._id === currentViewingStoryId);
+      if (!story) return;
       
       const platformLabel = { windows: 'Windows', mac: 'Mac', ios: 'iOS' };
-      const dateStr = new Date(report.createdAt).toLocaleDateString('en-US', {
+      const dateStr = new Date(story.createdAt).toLocaleDateString('en-US', {
         weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
       });
       
-      let text = `# SpiderLily Playtest Report\n\n`;
-      text += `**Platform:** ${platformLabel[report.buildPlatform] || report.buildPlatform}\n`;
-      text += `**Build:** ${report.buildVersion}\n`;
-      text += `**Tester:** ${report.tester || 'Anonymous'}\n`;
+      let text = `# SpiderLily Playtest Story\n\n`;
+      text += `**Platform:** ${platformLabel[story.buildPlatform] || story.buildPlatform}\n`;
+      text += `**Build:** ${story.buildVersion}\n`;
+      text += `**Tester:** ${story.tester || 'Anonymous'}\n`;
       text += `**Date:** ${dateStr}\n\n`;
-      text += `## Summary\n${report.summary || 'No summary provided.'}\n\n`;
+      text += `## Summary\n${story.summary || 'No summary provided.'}\n\n`;
       
-      if (report.lowHangingFruit && report.lowHangingFruit.length > 0) {
+      if (story.lowHangingFruit && story.lowHangingFruit.length > 0) {
         text += `## Low Hanging Fruit (Quick Fixes)\n`;
-        report.lowHangingFruit.forEach((item, i) => {
+        story.lowHangingFruit.forEach((item, i) => {
           text += `${i + 1}. **${item.title}**`;
           if (item.desc) text += `\n   ${item.desc}`;
           text += `\n`;
@@ -1561,9 +1659,9 @@
         text += `\n`;
       }
       
-      if (report.onTheSide && report.onTheSide.length > 0) {
+      if (story.onTheSide && story.onTheSide.length > 0) {
         text += `## On the Side (Nice-to-Haves)\n`;
-        report.onTheSide.forEach((item, i) => {
+        story.onTheSide.forEach((item, i) => {
           text += `${i + 1}. **${item.title}**`;
           if (item.desc) text += `\n   ${item.desc}`;
           text += `\n`;
@@ -1571,9 +1669,9 @@
         text += `\n`;
       }
       
-      if (report.biggerThoughts && report.biggerThoughts.length > 0) {
+      if (story.biggerThoughts && story.biggerThoughts.length > 0) {
         text += `## Bigger Thoughts (Design/Architecture)\n`;
-        report.biggerThoughts.forEach((item, i) => {
+        story.biggerThoughts.forEach((item, i) => {
           text += `${i + 1}. **${item.title}**`;
           if (item.desc) text += `\n   ${item.desc}`;
           text += `\n`;
@@ -1591,12 +1689,70 @@
       });
     }
 
-    function viewReportForBuild(platform, version) {
-      const report = allReports.find(r => r.buildPlatform === platform && r.buildVersion === version);
-      if (report) viewReport(report._id);
+    function copyStoryForLLMById(storyId) {
+      const story = allStories.find(r => r._id === storyId);
+      if (!story) return;
+      
+      const platformLabel = { windows: 'Windows', mac: 'Mac', ios: 'iOS' };
+      const dateStr = new Date(story.createdAt).toLocaleDateString('en-US', {
+        weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
+      });
+      
+      let text = `# SpiderLily Playtest Story\n\n`;
+      text += `**Platform:** ${platformLabel[story.buildPlatform] || story.buildPlatform}\n`;
+      text += `**Build:** ${story.buildVersion}\n`;
+      text += `**Tester:** ${story.tester || 'Anonymous'}\n`;
+      text += `**Date:** ${dateStr}\n\n`;
+      text += `## Summary\n${story.summary || 'No summary provided.'}\n\n`;
+      
+      if (story.lowHangingFruit && story.lowHangingFruit.length > 0) {
+        text += `## Low Hanging Fruit (Quick Fixes)\n`;
+        story.lowHangingFruit.forEach((item, i) => {
+          text += `${i + 1}. **${item.title}**`;
+          if (item.desc) text += `\n   ${item.desc}`;
+          text += `\n`;
+        });
+        text += `\n`;
+      }
+      
+      if (story.onTheSide && story.onTheSide.length > 0) {
+        text += `## On the Side (Nice-to-Haves)\n`;
+        story.onTheSide.forEach((item, i) => {
+          text += `${i + 1}. **${item.title}**`;
+          if (item.desc) text += `\n   ${item.desc}`;
+          text += `\n`;
+        });
+        text += `\n`;
+      }
+      
+      if (story.biggerThoughts && story.biggerThoughts.length > 0) {
+        text += `## Bigger Thoughts (Design/Architecture)\n`;
+        story.biggerThoughts.forEach((item, i) => {
+          text += `${i + 1}. **${item.title}**`;
+          if (item.desc) text += `\n   ${item.desc}`;
+          text += `\n`;
+        });
+      }
+      
+      navigator.clipboard.writeText(text).then(() => {
+        const btn = document.querySelector(`[data-story-id="${storyId}"] .copy-llm-feed`);
+        if (btn) {
+          btn.textContent = '✓ Copied!';
+          btn.classList.add('copied');
+          setTimeout(() => {
+            btn.textContent = '📋 Copy for LLM';
+            btn.classList.remove('copied');
+          }, 2000);
+        }
+      });
     }
 
-    // === REPORT FORM ===
+    function viewStoryForBuild(platform, version) {
+      const story = allStories.find(r => r.buildPlatform === platform && r.buildVersion === version);
+      if (story) viewStory(story._id);
+    }
+
+    // === STORY FORM ===
     function populateBuildSelector() {
       const select = document.getElementById('form-build');
       select.innerHTML = '<option value="">Select a build...</option>';
@@ -1642,22 +1798,22 @@
       });
     }
 
-    function openReportModal() {
-      document.getElementById('report-modal').style.display = 'flex';
+    function openStoryModal() {
+      document.getElementById('story-modal').style.display = 'flex';
       // Clear form
-      document.getElementById('report-form').reset();
+      document.getElementById('story-form').reset();
       ['fruit-items', 'side-items', 'big-items'].forEach(id => {
         document.getElementById(id).innerHTML = '';
       });
     }
 
-    function openReportModalForBuild(platform, version) {
-      openReportModal();
+    function openStoryModalForBuild(platform, version) {
+      openStoryModal();
       document.getElementById('form-build').value = `${platform}|${version}`;
     }
 
-    function closeReportModal() {
-      document.getElementById('report-modal').style.display = 'none';
+    function closeStoryModal() {
+      document.getElementById('story-modal').style.display = 'none';
     }
 
     // Log modal functions
@@ -1702,7 +1858,7 @@
       return items;
     }
 
-    async function submitReport(e) {
+    async function submitStory(e) {
       e.preventDefault();
       
       const buildValue = document.getElementById('form-build').value;
@@ -1713,7 +1869,7 @@
       
       const [buildPlatform, buildVersion] = buildValue.split('|');
       
-      const report = {
+      const story = {
         buildPlatform,
         buildVersion,
         tester: document.getElementById('form-tester').value.trim(),
@@ -1724,23 +1880,23 @@
       };
       
       try {
-        const res = await fetch('/.netlify/functions/reports', {
+        const res = await fetch('/.netlify/functions/stories', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${sessionPassword}`
           },
-          body: JSON.stringify(report)
+          body: JSON.stringify(story)
         });
         
-        if (!res.ok) throw new Error('Failed to save report');
+        if (!res.ok) throw new Error('Failed to save story');
         
-        closeReportModal();
-        await loadReports();
-        filterPlatform('reports');
+        closeStoryModal();
+        await loadStories();
+        filterPlatform('stories');
       } catch (err) {
-        console.error('Save report error:', err);
-        alert('Failed to save report. Please try again.');
+        console.error('Save story error:', err);
+        alert('Failed to save story. Please try again.');
       }
     }
 
@@ -1749,7 +1905,7 @@
       sessionPassword = null;
       localStorage.removeItem('builds-session');
       allBuilds = [];
-      allReports = [];
+      allStories = [];
       document.getElementById('footer-lock').textContent = '🔒';
       document.getElementById('logout-link').style.display = 'none';
       location.reload();
@@ -1761,7 +1917,7 @@
     });
 
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') closeReportModal();
+      if (e.key === 'Escape') closeStoryModal();
     });
 
     setInterval(updateBuildTimes, 60000);
