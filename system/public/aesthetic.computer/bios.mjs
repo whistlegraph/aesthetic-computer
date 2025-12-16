@@ -10844,6 +10844,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         window
           .matchMedia("(prefers-color-scheme: dark)")
           .addEventListener("change", (event) => {
+            // Skip if theme was manually set from kidlisp.com
+            if (window.acMANUAL_THEME_OVERRIDE) {
+              console.log('🎨 [bios.mjs] Ignoring OS theme change - manual override active');
+              return;
+            }
             if (event.matches) {
               document.documentElement.style.setProperty(
                 "color-scheme",
