@@ -1235,7 +1235,7 @@
       <div id="story-view" style="display: none;">
         <div class="story-view">
           <div class="story-header">
-            <h2>📝 Playtest Story</h2>
+            <h2>📝 Story</h2>
             <div class="story-header-buttons">
               <button class="copy-llm-btn" onclick="copyStoryForLLM()">📋 Copy for LLM</button>
               <button class="back-btn" onclick="hideStoryDetail()">← Back to Stories</button>
@@ -1256,7 +1256,7 @@
   <div id="story-modal" class="modal" style="display: none;">
     <div class="modal-content">
       <div class="modal-header">
-        <h2>📝 Submit Playtest Story</h2>
+        <h2>📝 Write a Story</h2>
         <button class="close-btn" onclick="closeStoryModal()">✕</button>
       </div>
       
@@ -1270,12 +1270,12 @@
         
         <div class="form-row">
           <label>Your Name</label>
-          <input type="text" id="form-tester" placeholder="Who tested this build?" required>
+          <input type="text" id="form-tester" placeholder="Who played this build?" required>
         </div>
         
         <div class="form-row">
           <label>Summary</label>
-          <textarea id="form-summary" rows="2" placeholder="Brief overview of your playtest session..." required></textarea>
+          <textarea id="form-summary" rows="2" placeholder="What was your experience like?" required></textarea>
         </div>
         
         <div class="form-section">
@@ -1698,7 +1698,7 @@
       }
       
       if (allStories.length === 0) {
-        container.innerHTML = '<div class="no-stories">No playtest stories yet. Click "+ New Story" to create one!</div>';
+        container.innerHTML = '<div class="no-stories">No stories yet. Play a build and write about your experience!</div>';
         return;
       }
 
@@ -1832,10 +1832,10 @@
         weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
       });
       
-      let text = `# SpiderLily Playtest Story\n\n`;
+      let text = `# SpiderLily Story\n\n`;
       text += `**Platform:** ${platformLabel[story.buildPlatform] || story.buildPlatform}\n`;
       text += `**Build:** ${story.buildVersion}\n`;
-      text += `**Tester:** ${story.tester || 'Anonymous'}\n`;
+      text += `**Player:** ${story.tester || 'Anonymous'}\n`;
       text += `**Date:** ${dateStr}\n\n`;
       text += `## Summary\n${story.summary || 'No summary provided.'}\n\n`;
       
@@ -1888,10 +1888,10 @@
         weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
       });
       
-      let text = `# SpiderLily Playtest Story\n\n`;
+      let text = `# SpiderLily Story\n\n`;
       text += `**Platform:** ${platformLabel[story.buildPlatform] || story.buildPlatform}\n`;
       text += `**Build:** ${story.buildVersion}\n`;
-      text += `**Tester:** ${story.tester || 'Anonymous'}\n`;
+      text += `**Player:** ${story.tester || 'Anonymous'}\n`;
       text += `**Date:** ${dateStr}\n\n`;
       text += `## Summary\n${story.summary || 'No summary provided.'}\n\n`;
       
