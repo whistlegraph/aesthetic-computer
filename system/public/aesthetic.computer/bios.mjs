@@ -647,7 +647,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         const xMux = window.WebPXMux("/aesthetic.computer/dep/webpxmux/webpxmux.wasm");
         await xMux.waitRuntime();
         window._webpxMuxInstance = xMux;
-        console.log("🎬 WebPXMux preloaded and ready");
       } catch (e) {
         console.warn("🎬 WebPXMux preload failed (will retry on demand):", e.message);
       }
