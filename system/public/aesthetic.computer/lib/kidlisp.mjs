@@ -4123,7 +4123,8 @@ class KidLisp {
     
     // Store validation errors for syntax highlighting, but don't block execution
     if (validationErrors.length > 0) {
-      console.error('❌ KidLisp Validation Failed:', validationErrors.join(', '));
+      const sourcePrefix = this.embeddedSourceId ? `[$${this.embeddedSourceId}] ` : '';
+      console.error(`❌ ${sourcePrefix}KidLisp Validation Failed:`, validationErrors.join(', '));
 
       if (isKidlispConsoleEnabled()) {
         let firstPos = null;
@@ -4133,8 +4134,8 @@ class KidLisp {
         const loc = typeof firstPos === "number" ? kidlispOffsetToLineCol(input, firstPos) : undefined;
         postKidlispConsole(
           "error",
-          `❌ KidLisp validation failed: ${validationErrors.join(', ')}`,
-          loc ? { kind: "validation", loc } : { kind: "validation" },
+          `❌ ${sourcePrefix}KidLisp validation failed: ${validationErrors.join(', ')}`,
+          loc ? { kind: "validation", loc, embeddedSource: this.embeddedSourceId } : { kind: "validation", embeddedSource: this.embeddedSourceId },
         );
       }
 
@@ -4153,9 +4154,10 @@ class KidLisp {
       const missingCountMatch = validationErrors.join(' ').match(/Missing (\d+) closing parenthes/);
       const missingCount = missingCountMatch ? parseInt(missingCountMatch[1], 10) : 0;
       if (missingCount > 0) {
+        const sourcePrefix = this.embeddedSourceId ? `[$${this.embeddedSourceId}] ` : '';
         parserInput = `${input}\n${')'.repeat(missingCount)}`;
         // Only log to dev console, not to KidLisp console (Monaco editor handles the visual)
-        console.warn(`⚠️ KidLisp auto-balanced ${missingCount} missing parenthesis${missingCount === 1 ? '' : 'es'}`);
+        console.warn(`⚠️ ${sourcePrefix}KidLisp auto-balanced ${missingCount} missing parenthesis${missingCount === 1 ? '' : 'es'}`);
 
         // Skip console output for auto-balance - it's noise when code still runs
         // Monaco editor decorations handle the visual feedback
@@ -4171,15 +4173,16 @@ class KidLisp {
       this.endTiming('parse', parseStart);
       return parsed;
     } catch (error) {
-      console.error('❌ KidLisp Parse Error:', error.message);
+      const sourcePrefix = this.embeddedSourceId ? `[$${this.embeddedSourceId}] ` : '';
+      console.error(`❌ ${sourcePrefix}KidLisp Parse Error:`, error.message);
 
       if (isKidlispConsoleEnabled()) {
         const offset = typeof error?.kidlispOffset === "number" ? error.kidlispOffset : null;
         const loc = typeof offset === "number" ? kidlispOffsetToLineCol(parserInput, offset) : undefined;
         postKidlispConsole(
           "error",
-          `❌ KidLisp parse error: ${error.message}`,
-          loc ? { kind: "parse", loc } : { kind: "parse" },
+          `❌ ${sourcePrefix}KidLisp parse error: ${error.message}`,
+          loc ? { kind: "parse", loc, embeddedSource: this.embeddedSourceId } : { kind: "parse", embeddedSource: this.embeddedSourceId },
         );
       }
 
