@@ -43,6 +43,10 @@
   background-color: var(--ac-purple-dark) !important;
 }
 
+[data-theme="light"] #editor-panel + .gutter.gutter-horizontal {
+  background-color: var(--ac-purple-light) !important;
+}
+
 /* Bottom row horizontal gutter (between reference and console) */
 #reference-panel + .gutter.gutter-horizontal {
   background-color: rgba(100, 149, 237, 0.3) !important;
