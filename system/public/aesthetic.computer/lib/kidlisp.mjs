@@ -4154,15 +4154,11 @@ class KidLisp {
       const missingCount = missingCountMatch ? parseInt(missingCountMatch[1], 10) : 0;
       if (missingCount > 0) {
         parserInput = `${input}\n${')'.repeat(missingCount)}`;
+        // Only log to dev console, not to KidLisp console (Monaco editor handles the visual)
         console.warn(`⚠️ KidLisp auto-balanced ${missingCount} missing parenthesis${missingCount === 1 ? '' : 'es'}`);
 
-        if (isKidlispConsoleEnabled()) {
-          postKidlispConsole(
-            "warn",
-            `⚠️ KidLisp auto-balanced ${missingCount} missing parenthesis${missingCount === 1 ? '' : 'es'}`,
-            { kind: "autobalance" },
-          );
-        }
+        // Skip console output for auto-balance - it's noise when code still runs
+        // Monaco editor decorations handle the visual feedback
       }
     }
 
@@ -5378,6 +5374,33 @@ class KidLisp {
         }
 
         drawCircle();
+      },
+      point: (api, args = []) => {
+        // Point drawing at x, y with current ink
+        // Usage: (point x y)
+        if (args.length >= 2) {
+          const drawPoint = () => {
+            api.point(args[0], args[1]);
+          };
+
+          if (this.suppressDrawingBeforeBake) {
+            this.executePreBakeDraw(api, drawPoint);
+            return;
+          }
+
+          // Check if we should defer this command
+          if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase) {
+            this.postEmbedCommands = this.postEmbedCommands || [];
+            this.postEmbedCommands.push({
+              name: 'point',
+              func: api.point,
+              args: [args[0], args[1]]
+            });
+            return;
+          }
+
+          drawPoint();
+        }
       },
       tri: (api, args = []) => {
         // Triangle function with 6 coordinates and optional mode
@@ -7873,7 +7896,9 @@ class KidLisp {
           !this.unknownWordsLogged?.has(expr) &&
           expr !== "fps" && expr !== "s" && expr.length > 1) {
         this.unknownWordsLogged?.add(expr);
-        const msg = `❌ Unknown KidLisp word: ${expr}`;
+        // Include embedded source ID if this is from an embedded piece
+        const sourcePrefix = this.embeddedSourceId ? `[$${this.embeddedSourceId}] ` : '';
+        const msg = `❌ ${sourcePrefix}Unknown KidLisp word: ${expr}`;
         
         // Try to find location in source
         let loc = null;
@@ -7889,7 +7914,7 @@ class KidLisp {
         }
         
         if (isKidlispConsoleEnabled()) {
-          postKidlispConsole("error", msg, { kind: "unknown-word", loc });
+          postKidlispConsole("error", msg, { kind: "unknown-word", loc, embeddedSource: this.embeddedSourceId });
         }
         console.error(msg);
       }
@@ -9170,7 +9195,9 @@ class KidLisp {
             !this.unknownWordsLogged?.has(head)
           ) {
             this.unknownWordsLogged?.add(head);
-            const msg = `❌ Unknown KidLisp word: ${head}`;
+            // Include embedded source ID if this is from an embedded piece
+            const sourcePrefix = this.embeddedSourceId ? `[$${this.embeddedSourceId}] ` : '';
+            const msg = `❌ ${sourcePrefix}Unknown KidLisp word: ${head}`;
             
             // Try to find location in source
             let loc = null;
@@ -9187,7 +9214,7 @@ class KidLisp {
             }
             
             if (isKidlispConsoleEnabled()) {
-              postKidlispConsole("error", msg, { kind: "unknown-word", loc });
+              postKidlispConsole("error", msg, { kind: "unknown-word", loc, embeddedSource: this.embeddedSourceId });
             }
             console.error(msg);
           }
@@ -11408,6 +11435,9 @@ class KidLisp {
 
     // Create new embedded layer
     const embeddedKidLisp = new KidLisp();
+    
+    // Track which embedded code this instance is running (for console error attribution)
+    embeddedKidLisp.embeddedSourceId = cacheId;
     
     // CRITICAL: Give each embedded layer a unique random seed for isolated random state
     embeddedKidLisp.randomSeed = Date.now() + Math.random() + (source.hashCode?.() || 0);
