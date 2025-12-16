@@ -4,6 +4,8 @@
 const tests = ["addition", "subtraction", "timing-highlight", "complex-timing"];
 
 import fs from "fs/promises";
+import path from "path";
+import { fileURLToPath } from "url";
 import {
   parse,
   evaluate,
@@ -13,77 +15,80 @@ import {
   decodeKidlispFromUrl,
 } from "../system/public/aesthetic.computer/lib/kidlisp.mjs";
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 // ANSI color codes for terminal output
 const colors = {
-  reset: '\x1b[0m',
-  bright: '\x1b[1m',
-  red: '\x1b[31m',
-  green: '\x1b[32m',
-  yellow: '\x1b[33m',
-  blue: '\x1b[34m',
-  magenta: '\x1b[35m',
-  cyan: '\x1b[36m',
-  white: '\x1b[37m',
-  orange: '\x1b[38;5;208m',
-  lime: '\x1b[38;5;10m',
-  purple: '\x1b[38;5;93m',
-  olive: '\x1b[38;5;58m',
-  gray: '\x1b[90m'
+  reset: "\x1b[0m",
+  bright: "\x1b[1m",
+  red: "\x1b[31m",
+  green: "\x1b[32m",
+  yellow: "\x1b[33m",
+  blue: "\x1b[34m",
+  magenta: "\x1b[35m",
+  cyan: "\x1b[36m",
+  white: "\x1b[37m",
+  orange: "\x1b[38;5;208m",
+  lime: "\x1b[38;5;10m",
+  purple: "\x1b[38;5;93m",
+  olive: "\x1b[38;5;58m",
+  gray: "\x1b[90m",
 };
 
-// Function to convert kidlisp color codes to ANSI terminal colors
+function isRgbEscape(text) {
+  return /^\d{1,3},\d{1,3},\d{1,3}(,\d{1,3})?$/.test(text);
+}
+
+function rgbEscapeToAnsi(text) {
+  const parts = text.split(",").map((p) => Number.parseInt(p.trim(), 10));
+  if (parts.length < 3) return "";
+  const [r, g, b] = parts;
+  if ([r, g, b].some((n) => Number.isNaN(n))) return "";
+  return `\x1b[38;2;${Math.max(0, Math.min(255, r))};${Math.max(0, Math.min(255, g))};${Math.max(0, Math.min(255, b))}m`;
+}
+
+// Convert kidlisp color escapes (e.g. \yellow\ or \255,0,0,255\) to ANSI.
+function kidlispColoredToAnsi(coloredText) {
+  if (!coloredText) return "";
+
+  let output = "";
+  let currentPos = 0;
+
+  const colorRegex = /\\([^\\]+)\\/g;
+  let match;
+
+  while ((match = colorRegex.exec(coloredText)) !== null) {
+    output += coloredText.substring(currentPos, match.index);
+
+    const colorName = match[1];
+    if (colors[colorName]) {
+      output += colors[colorName];
+    } else if (isRgbEscape(colorName)) {
+      output += rgbEscapeToAnsi(colorName);
+    }
+
+    currentPos = match.index + match[0].length;
+  }
+
+  output += coloredText.substring(currentPos);
+  output += colors.reset;
+  return output;
+}
+
 function printColoredOutput(coloredText) {
   if (!coloredText) {
     console.log("(no colored output)");
     return;
   }
-  
-  let output = "";
-  let currentPos = 0;
-  
-  // Parse color escape sequences like \red\, \green\, etc.
-  const colorRegex = /\\([^\\]+)\\/g;
-  let match;
-  
-  while ((match = colorRegex.exec(coloredText)) !== null) {
-    // Add any text before this color code
-    output += coloredText.substring(currentPos, match.index);
-    
-    // Add the ANSI color code
-    const colorName = match[1];
-    if (colors[colorName]) {
-      output += colors[colorName];
-    } else if (colorName.includes(',')) {
-      // Handle RGB colors like "255,255,255,0" (transparent)
-      const [r, g, b, a] = colorName.split(',').map(Number);
-      if (a === 0) {
-        // Transparent - use dark gray
-        output += colors.gray;
-      } else {
-        // Other RGB - try to map to closest ANSI color
-        if (r > 200 && g < 100 && b < 100) output += colors.red;
-        else if (r < 100 && g > 200 && b < 100) output += colors.green;
-        else if (r < 100 && g < 100 && b > 200) output += colors.blue;
-        else if (r > 200 && g > 200 && b < 100) output += colors.yellow;
-        else if (r > 200 && g < 100 && b > 200) output += colors.magenta;
-        else if (r < 100 && g > 200 && b > 200) output += colors.cyan;
-        else output += colors.white;
-      }
-    } else {
-      // Unknown color, use default
-      output += colors.white;
-    }
-    
-    currentPos = match.index + match[0].length;
-  }
-  
-  // Add any remaining text
-  output += coloredText.substring(currentPos);
-  
-  // Reset color at the end
-  output += colors.reset;
-  
-  console.log(output);
+  console.log(kidlispColoredToAnsi(coloredText));
+}
+
+function printSyntaxHighlightedKidlisp(source) {
+  const lisp = new KidLisp();
+  lisp.initializeSyntaxHighlighting(source);
+  const colored = lisp.buildColoredKidlispString();
+  printColoredOutput(colored);
 }
 
 describe("🤖 Kid Lisp", () => {
@@ -98,7 +103,8 @@ describe("🤖 Kid Lisp", () => {
       load(name).then((data) => {
         if (data) {
           console.log(`✅ Loaded test: ${name} - ${data.desc}`);
-          console.log(`📝 Source code: ${data.src}`);
+          console.log("📝 Source code (syntax highlighted):");
+          printSyntaxHighlightedKidlisp(data.src);
           pieces[name] = data;
         } else {
           throw new Error(`Failed to load file: ${name}`);
@@ -132,8 +138,9 @@ describe("🤖 Kid Lisp", () => {
     });
     console.log(`\n⏰ Tests completed at: ${timestamp}`);
     
-    // List all items in the KidLisp globalEnv
-    console.log(`\n📚 Kid Lisp Library:`);
+    // List all items in the KidLisp globalEnv (colorized)
+    console.log("\n");
+    printColoredOutput("\\bright\\\\cyan\\📚 Kid Lisp Library:\\reset\\");
     const lisp = new KidLisp();
     const globalEnv = lisp.getGlobalEnv();
     const envKeys = Object.keys(globalEnv).sort();
@@ -148,12 +155,54 @@ describe("🤖 Kid Lisp", () => {
       'audio': ['overtone'],
       'utility': ['len']
     };
+
+    const categoryColors = {
+      math: "yellow",
+      logic: "lime",
+      control: "orange",
+      graphics: "cyan",
+      system: "purple",
+      audio: "magenta",
+      utility: "olive",
+      other: "gray",
+    };
+
+    const isRgbArray = (v) =>
+      Array.isArray(v) &&
+      (v.length === 3 || v.length === 4) &&
+      v.slice(0, 3).every((n) => Number.isFinite(n));
+
+    const clamp255 = (n) => Math.max(0, Math.min(255, Math.round(n)));
+
+    const formatLibraryItem = (item, fallbackColor) => {
+      const value = globalEnv[item];
+
+      // If this identifier is a color constant in the env, show it in that exact RGB.
+      if (isRgbArray(value)) {
+        const r = clamp255(value[0]);
+        const g = clamp255(value[1]);
+        const b = clamp255(value[2]);
+        return `\\${r},${g},${b},255\\${item}\\reset\\`;
+      }
+
+      // Otherwise colorize by category.
+      const color = fallbackColor || "white";
+      return `\\${color}\\${item}\\reset\\`;
+    };
+
+    const joinStyled = (items, fallbackColor) => {
+      const sep = "\\gray\\, \\reset\\";
+      return items.map((i) => formatLibraryItem(i, fallbackColor)).join(sep);
+    };
     
-    // Display by categories as tag clouds
+    // Display by categories as tag clouds (colorized)
     Object.entries(categories).forEach(([category, categoryItems]) => {
-      const availableItems = categoryItems.filter(item => envKeys.includes(item));
+      const availableItems = categoryItems.filter((item) => envKeys.includes(item));
       if (availableItems.length > 0) {
-        console.log(`${category}: ${availableItems.join(', ')}`);
+        const color = categoryColors[category] || "white";
+        printColoredOutput(
+          `\\${color}\\${category}\\reset\\: ${joinStyled(availableItems, color)}`,
+        );
       }
     });
     
@@ -162,8 +211,96 @@ describe("🤖 Kid Lisp", () => {
     const uncategorized = envKeys.filter(key => !categorizedItems.includes(key));
     
     if (uncategorized.length > 0) {
-      console.log(`other: ${uncategorized.join(', ')}`);
+      printColoredOutput(
+        `\\${categoryColors.other}\\other\\reset\\: ${joinStyled(uncategorized, categoryColors.other)}`,
+      );
     }
+
+    // --- Syntax-highlighted preview (uses kidlisp.mjs highlighter) ---
+    // This makes the library dump reflect exactly what the client highlighter does.
+    const snippetForItem = (item, category) => {
+      // Operators and math-ish tokens
+      if (["+", "-", "*", "/", "%", "max", "min", "mod"].includes(item)) {
+        return `(${item} 1 2)`;
+      }
+
+      // Control forms
+      if (item === "def") return "(def x 1)";
+      if (item === "later") return "(later 1 (write \"HI\"))";
+      if (item === "die") return "(die)";
+      if (item === "now") return "(now)";
+      if (item === "range") return "(range 5)";
+
+      // Logic
+      if ([">", "<", "="] .includes(item)) return `(${item} 2 1)`;
+      if (item === "if") return "(if yes (write \"Y\") (write \"N\"))";
+      if (item === "not") return "(not yes)";
+
+      // Drawing/system-ish
+      if (item === "resolution") return "(resolution 64 64)";
+      if (item === "wipe") return "(wipe black)";
+      if (item === "ink") return "(ink white)";
+      if (item === "line") return "(line 0 0 width height)";
+      if (item === "box") return "(box 1 1 10 10)";
+      if (item === "write") return "(write \"HELLO\")";
+      if (item === "wiggle") return "(wiggle 0.1)";
+      if (item === "tap") return "(tap (write \"TAP\"))";
+      if (item === "draw") return "(draw (line 0 0 width height))";
+      if (item === "net") return "(net)";
+      if (item === "source") return "(source)";
+      if (item === "width") return "width";
+      if (item === "height") return "height";
+
+      // Audio
+      if (item === "overtone") return "(overtone 220)";
+
+      // Utility
+      if (item === "len") return "(len \"abc\")";
+
+      // Colors/constants
+      const value = globalEnv[item];
+      if (isRgbArray(value)) {
+        return `(ink ${item})`;
+      }
+
+      // Fallback: present it as a call so it gets tokenized
+      // (works for identifiers like resetSpin, smoothspin, ready?, etc.)
+      if (typeof item === "string" && item.length > 0) {
+        return `(${item})`;
+      }
+
+      // Shouldn't happen, but keep it safe.
+      return "; (unknown)";
+    };
+
+    const buildLibraryPreviewSource = () => {
+      const lines = [];
+      lines.push("; kidlisp library — syntax highlight preview");
+
+      Object.entries(categories).forEach(([category, categoryItems]) => {
+        const availableItems = categoryItems.filter((item) => envKeys.includes(item));
+        if (availableItems.length === 0) return;
+
+        lines.push("");
+        lines.push(`; ${category}`);
+        availableItems.forEach((item) => {
+          lines.push(snippetForItem(item, category));
+        });
+      });
+
+      if (uncategorized.length > 0) {
+        lines.push("");
+        lines.push(`; other (${uncategorized.length})`);
+        uncategorized.forEach((item) => {
+          lines.push(snippetForItem(item, "other"));
+        });
+      }
+
+      return lines.join("\n");
+    };
+
+    printColoredOutput("\\bright\\\\cyan\\\\n📚 Kid Lisp Library (syntax preview)\\reset\\");
+    printSyntaxHighlightedKidlisp(buildLibraryPreviewSource());
   });
 
   it("Add numbers", () => {
@@ -250,7 +387,8 @@ box 5 5 10 10`;
 
   it("Test timing expression syntax highlighting", () => {
     console.log("🎨 Running timing expression syntax highlighting test...");
-    console.log(`📄 Test source: ${pieces["timing-highlight"].src}`);
+    console.log("📄 Test source (syntax highlighted):");
+    printSyntaxHighlightedKidlisp(pieces["timing-highlight"].src);
     
     const lisp = new KidLisp();
     
@@ -259,7 +397,10 @@ box 5 5 10 10`;
     
     // Mock API for evaluation
     const mockApi = {
-      write: (...args) => console.log('Write:', args.join(' '))
+      write: (...args) => console.log('Write:', args.join(' ')),
+      clock: {
+        time: () => new Date(),
+      },
     };
     
     // Parse and evaluate to trigger AST tagging
@@ -278,10 +419,6 @@ box 5 5 10 10`;
     const finalHighlight = lisp.buildColoredKidlispString();
     console.log("🎨 Final highlighting:", finalHighlight);
     
-    // Test AST-based highlighting specifically
-    const astHighlight = lisp.buildASTBasedHighlighting();
-    console.log("🧠 AST-based highlighting:", astHighlight);
-    
     // Test with colored terminal output
     console.log("\n🌈 COLORED TERMINAL OUTPUT:");
     printColoredOutput(finalHighlight);
@@ -292,7 +429,8 @@ box 5 5 10 10`;
 
   it("Test complex timing expression highlighting", () => {
     console.log("🎨 Running complex timing expression highlighting test...");
-    console.log(`📄 Test source: ${pieces["complex-timing"].src}`);
+    console.log("📄 Test source (syntax highlighted):");
+    printSyntaxHighlightedKidlisp(pieces["complex-timing"].src);
     
     const lisp = new KidLisp();
     
@@ -381,7 +519,15 @@ box 5 5 10 10`;
 });
 
 async function load(name) {
-  const filePath = `./system/public/aesthetic.computer/disks/${name}.lisp`;
+  const filePath = path.resolve(
+    __dirname,
+    "..",
+    "system",
+    "public",
+    "aesthetic.computer",
+    "disks",
+    `${name}.lisp`,
+  );
   try {
     console.log(`📂 Loading test file: ${filePath}`);
     const src = await fs.readFile(filePath, "utf8");
