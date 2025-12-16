@@ -68,3 +68,43 @@
 - Google Fonts (Comic Relief)
 - Custom Berkeley Mono Variable font
 - i18n support (English, Spanish, Chinese)
+---
+
+## Session Waypoint: December 16, 2025
+
+### Console Panel Stabilization
+**Goal**: Console should show KidLisp-only output, not JavaScript/browser noise
+
+#### Problem Solved
+- `kidlisp-console-enable` messages were getting lost because they arrived before the message listener was attached in boot.mjs
+- Added **early message queue pattern**: capture messages that arrive before handler ready, process them once `acSEND` is available
+
+#### Console Features Added
+1. **Welcome message** - Shows "🎨 Playing" with code preview since it autoplays
+2. **Helpful hints** - Shows pause/stop button icons for editing while running
+3. **Play/Pause/Stop state entries** - Visual indicators with colored SVG icons
+4. **Code display** - Syntax-highlighted code blocks in console
+5. **Error line/column numbers** - Clickable to jump to location in editor
+6. **Monaco error decorations** - Wavy underlines on error words
+
+#### Console Styling
+- **Dark mode**: `#2a2520` background, `#d4d4d4` text (matches Monaco)
+- **Light mode**: `#fffacd` background, `#333333` text (legal pad yellow)
+- **Syntax colors match Monaco decorator colors**:
+  - Dark: gray (comments), orange (strings), lime (numbers), pink (keywords), cyan (API), magenta (colors)
+  - Light: High-contrast versions (#666666, #cc6600, #00aa00, #cc0066, #0099cc, #cc00cc)
+
+#### Bug Fixes
+- **clearErrorDecorations scoping**: Function was defined inside Monaco require block but called from outside - added stub functions outside that get reassigned inside
+- **Console text wrapping**: Fixed CSS flex issue preventing text from wrapping properly
+- **Auth0 SDK loading**: Completely hide `define` during SDK load to prevent Monaco AMD interference
+
+### Files Modified
+- `system/public/kidlisp.com/index.html` - Console features, styling, Auth0 fix
+- `system/public/aesthetic.computer/boot.mjs` - Early message queue for kidlisp-console-enable
+- `system/public/aesthetic.computer/lib/kidlisp.mjs` - Error location lookup, removed debug logs
+- `system/public/aesthetic.computer/lib/disk.mjs` - Sets currentSource for error location
+
+### Next Steps
+- Focus on **Keeps contract deployment** (Phase 1 of KEEPS-IMPLEMENTATION-PLAN.md)
+- Need to verify Auth0 fix works after refresh
