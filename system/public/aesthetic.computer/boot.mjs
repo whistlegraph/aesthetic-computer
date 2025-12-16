@@ -961,6 +961,11 @@ function receive(event) {
       }, '*');
     }
     return;
+  } else if (event.data?.type === "kidlisp-theme") {
+    // Theme sync from kidlisp.com editor
+    const theme = event.data.theme; // 'light' or 'dark'
+    document.body.classList.toggle('light-theme', theme === 'light');
+    return;
   } else if (event.data?.type === "keep-mint-prepare") {
     // Handle mint preparation request from kidlisp.com
     // This runs in the iframe which has auth cookies

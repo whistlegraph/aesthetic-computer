@@ -24,6 +24,12 @@ body {
   cursor: url('cursors/precise.svg') 12 12, auto;
 }
 
+/* Light theme checkerboard (from kidlisp.com editor) */
+body.light-theme {
+  background-color: rgb(232, 232, 232);
+  background-image: url("data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3QgeD0iMCIgeT0iMCIgd2lkdGg9IjEwIiBoZWlnaHQ9IjEwIiBmaWxsPSIjZDBkMGQwIj48L3JlY3Q+PHJlY3QgeD0iMTAiIHk9IjEwIiB3aWR0aD0iMTAiIGhlaWdodD0iMTAiIGZpbGw9IiNkMGQwZDAiPjwvcmVjdD48L3N2Zz4=");
+}
+
 /* Remove checkerboard for embedded contexts (like VS Code notebooks) */
 
 body.nogap {
