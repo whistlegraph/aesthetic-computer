@@ -3,7 +3,9 @@
 <head>
   <title>Builds - false.work</title>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
@@ -35,6 +37,11 @@
       --card-ios-bg: linear-gradient(135deg, #0a0a0a 0%, #1a0a1a 100%);
       --ios-note-bg: #1a0a1a;
       --tag-bg: #222;
+      --fruit-color: #0f0;
+      --side-color: #09f;
+      --big-color: #f0f;
+      --font-mono: 'Courier New', Consolas, monospace;
+      --font-sans: Arial, Helvetica, sans-serif;
     }
 
     @media (prefers-color-scheme: light) {
@@ -64,6 +71,9 @@
         --card-ios-bg: linear-gradient(135deg, #fff 0%, #ffe8ff 100%);
         --ios-note-bg: #fef0fe;
         --tag-bg: #f0f0f0;
+        --fruit-color: #080;
+        --side-color: #07d;
+        --big-color: #c0c;
       }
       .logo {
         filter: invert(1);
@@ -76,11 +86,12 @@
       box-sizing: border-box;
     }
     body {
-      font-family: 'Courier New', monospace;
+      font-family: var(--font-mono);
       background: var(--bg-primary);
       color: var(--text-primary);
       line-height: 1.6;
       padding: 2rem;
+      padding: env(safe-area-inset-top, 2rem) env(safe-area-inset-right, 2rem) env(safe-area-inset-bottom, 2rem) env(safe-area-inset-left, 2rem);
     }
     .container {
       max-width: 800px;
@@ -369,6 +380,815 @@
       border-color: var(--border-secondary);
       color: var(--text-secondary);
     }
+    /* Main tabs */
+    .main-tabs {
+      display: flex;
+      gap: 0;
+      margin-bottom: 1.5rem;
+      border-bottom: 1px solid var(--border-primary);
+    }
+    .main-tab {
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 1rem;
+      padding: 0.75rem 1.5rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-bottom: -1px;
+    }
+    .main-tab:hover { color: var(--text-secondary); }
+    .main-tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    /* Story button on build cards */
+    .story-btn {
+      display: inline-block;
+      background: linear-gradient(135deg, #2a2920 0%, #1f1e18 100%);
+      color: #c0b890 !important;
+      padding: 0.3rem 0.75rem;
+      border-radius: 4px;
+      text-decoration: none !important;
+      font-weight: bold;
+      font-size: 0.8rem;
+      margin-left: 0.5rem;
+      cursor: pointer;
+      border: 1px solid #3a3930;
+      font-family: inherit;
+      transition: all 0.2s;
+      box-shadow: 1px 1px 3px rgba(0,0,0,0.3);
+    }
+    .story-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 2px 2px 6px rgba(0,0,0,0.4);
+      background: linear-gradient(135deg, #353428 0%, #2a291f 100%);
+    }
+    .story-btn.has-story {
+      background: linear-gradient(135deg, #2a2920 0%, #1f1e18 100%);
+      border-left: 3px solid var(--accent);
+      color: #d4c8a0 !important;
+    }
+    .story-btn.add-story {
+      padding: 0.3rem 0.5rem;
+      font-size: 1rem;
+      line-height: 1;
+      min-width: 1.5rem;
+    }
+    /* Small inline + button in build card header */
+    .story-btn.add-story-inline {
+      padding: 0.15rem 0.4rem;
+      font-size: 0.9rem;
+      line-height: 1;
+      min-width: auto;
+      background: transparent;
+      border: 1px dashed var(--text-muted);
+      color: var(--text-muted) !important;
+      border-radius: 3px;
+      margin-left: 0.5rem;
+    }
+    .story-btn.add-story-inline:hover {
+      border-color: var(--accent);
+      color: var(--accent) !important;
+      background: rgba(255, 170, 0, 0.1);
+    }
+    @media (prefers-color-scheme: light) {
+      .story-btn {
+        background: linear-gradient(135deg, #fffef0 0%, #f5f4e8 100%);
+        color: #555 !important;
+        border: 1px solid #d0cfc0;
+        box-shadow: 1px 1px 3px rgba(0,0,0,0.1);
+      }
+      .story-btn:hover {
+        box-shadow: 2px 2px 6px rgba(0,0,0,0.15);
+        background: linear-gradient(135deg, #fffff8 0%, #faf9ed 100%);
+      }
+      .story-btn.has-story {
+        background: linear-gradient(135deg, #fefef5 0%, #f8f7e5 100%);
+        color: #333 !important;
+      }
+    }
+    /* Story cards */
+    .story-card {
+      padding: 1.5rem;
+      background: linear-gradient(to bottom, #2d2820 0%, #252015 100%);
+      border-radius: 4px;
+      margin-bottom: 1rem;
+      border: 2px solid #4a4030;
+      border-left: 4px solid #804040;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .story-card:hover {
+      border-color: #5a5040;
+      transform: translateX(4px);
+    }
+    @media (prefers-color-scheme: light) {
+      .story-card {
+        background: linear-gradient(to bottom, #fdfbf5 0%, #f8f4e8 100%);
+        border-color: #d4c4a0;
+        border-left-color: #c85050;
+      }
+      .story-card:hover {
+        border-color: #c4b490;
+      }
+    }
+    /* Container for stories nested under builds */
+    .build-stories-container {
+      margin-left: 2rem;
+      padding-left: 1rem;
+      border-left: 2px dashed rgba(128, 64, 64, 0.3);
+      margin-top: -0.5rem;
+      margin-bottom: 1rem;
+      padding-top: 0.75rem;
+      padding-bottom: 0.5rem;
+    }
+    .build-stories-container .story-feed-card {
+      margin-bottom: 0.75rem;
+    }
+    .build-stories-container .story-btn.add-story {
+      display: inline-block;
+      padding: 0.4rem 0.75rem;
+      margin-top: 0.5rem;
+      font-size: 0.8rem;
+      border: 1px dashed rgba(128, 64, 64, 0.4);
+      background: transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-radius: 3px;
+      transition: all 0.2s;
+    }
+    .build-stories-container .story-btn.add-story:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: rgba(128, 64, 64, 0.1);
+    }
+    @media (prefers-color-scheme: light) {
+      .build-stories-container {
+        border-left-color: rgba(200, 80, 80, 0.25);
+      }
+      .build-stories-container .story-btn.add-story {
+        border-color: rgba(200, 80, 80, 0.3);
+      }
+      .build-stories-container .story-btn.add-story:hover {
+        background: rgba(200, 80, 80, 0.1);
+      }
+    }
+    /* Story cards in unified feed - dark theme default */
+    .story-feed-card {
+      cursor: default;
+      background: linear-gradient(to bottom, #2d2820 0%, #252015 100%);
+      border: 2px solid #4a4030;
+      border-left: 4px solid #804040;
+      position: relative;
+      padding: 1rem 1.25rem 1.25rem 1.25rem;
+      line-height: 1.5;
+    }
+    .story-feed-card::before {
+      content: '';
+      position: absolute;
+      left: 28px;
+      top: 0;
+      bottom: 0;
+      width: 1px;
+      background: rgba(160, 80, 80, 0.15);
+    }
+    .story-feed-card:hover {
+      border-color: #5a5040;
+    }
+    .story-feed-card .build-header {
+      color: #d4c4a4;
+      line-height: 1.6;
+      margin-bottom: 0.5rem;
+    }
+    .story-feed-card .meta {
+      color: #b4a484;
+      line-height: 1.5;
+      margin-top: 0.5rem;
+    }
+    .story-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 0.75rem;
+      gap: 1rem;
+    }
+    .story-stats {
+      color: #b4a484;
+      font-size: 0.85rem;
+      opacity: 0.8;
+    }
+    .story-feed-card .story-summary {
+      font-family: Arial, Helvetica, sans-serif !important;
+      color: #c4b494;
+      line-height: 1.4;
+      background: transparent;
+      padding: 0;
+      border: none;
+      margin: 0;
+      border-radius: 0;
+    }
+    .story-items-container {
+      margin-top: 0.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+    .story-items-preview {
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 0.85rem;
+      color: #a89878;
+      padding: 0.4rem 0.6rem;
+      background: rgba(0,0,0,0.15);
+      border-radius: 3px;
+      border-left: 2px solid;
+      line-height: 1.4;
+    }
+    .story-items-preview.fruit { border-left-color: var(--fruit-color); }
+    .story-items-preview.side { border-left-color: var(--side-color); }
+    .story-items-preview.big { border-left-color: var(--big-color); }
+    .story-time {
+      margin-top: 0.5rem;
+      font-size: 0.85rem;
+      opacity: 0.7;
+    }
+    @media (prefers-color-scheme: light) {
+      .story-items-preview {
+        background: rgba(0,0,0,0.05);
+        color: #5a4a3a;
+      }
+    }
+    @media (prefers-color-scheme: light) {
+      .story-feed-card {
+        background: linear-gradient(to bottom, #fdfbf5 0%, #f8f4e8 100%);
+        border-color: #d4c4a0;
+        border-left-color: #c85050;
+      }
+      .story-feed-card::before {
+        background: rgba(200, 80, 80, 0.2);
+      }
+      .story-feed-card:hover {
+        border-color: #c4b490;
+      }
+      .story-feed-card .build-header {
+        color: #4a3a2a;
+      }
+      .story-feed-card .meta {
+        color: #5a4a3a;
+      }
+      .story-feed-card .story-summary {
+        color: #5a4a3a;
+      }
+      .story-stats {
+        color: #5a4a3a;
+      }
+    }
+    .platform-tag.platform-story {
+      background: linear-gradient(135deg, #4a3d2a 0%, #3d3220 100%);
+      color: #e8d4b8;
+      border: 1px solid #6a5a40;
+    }
+    @media (prefers-color-scheme: light) {
+      .platform-tag.platform-story {
+        background: linear-gradient(135deg, #f5e6d3 0%, #e8d4b8 100%);
+        color: #5a4030;
+        border-color: #c4a882;
+      }
+    }
+    .story-view-link {
+      background: transparent;
+      color: var(--accent) !important;
+      text-decoration: none;
+      font-weight: 500;
+      padding: 0.2rem 0;
+      border-radius: 0;
+      font-size: 0.9rem;
+      border-bottom: 1px dashed var(--accent);
+      transition: all 0.2s;
+    }
+    .story-view-link:hover {
+      text-decoration: none;
+      border-bottom-style: solid;
+      color: #fff !important;
+    }
+    @media (prefers-color-scheme: light) {
+      .story-view-link:hover {
+        color: #000 !important;
+      }
+    }
+    /* Log modal */
+    .log-modal-content {
+      max-width: 900px;
+      max-height: 85vh;
+    }
+    .log-content {
+      background: #1a1a1a;
+      color: #c0c0c0;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      padding: 1rem;
+      border-radius: 4px;
+      overflow: auto;
+      max-height: 60vh;
+      white-space: pre-wrap;
+      word-break: break-word;
+      line-height: 1.4;
+    }
+    .log-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+    .log-header a {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+    }
+    .log-link {
+      margin-left: 0.5rem;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      text-decoration: none;
+    }
+    .log-link:hover {
+      color: var(--accent);
+    }
+    .story-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    .story-card-title { color: var(--accent); font-weight: bold; }
+    .story-card-date { color: var(--text-muted); font-size: 0.85rem; }
+    .story-card-summary { color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 0.75rem; }
+    .story-card-stats { display: flex; gap: 1rem; font-size: 0.8rem; flex-wrap: wrap; }
+    .stat { color: var(--text-muted); }
+    .stat-fruit { color: var(--fruit-color); }
+    .stat-side { color: var(--side-color); }
+    .stat-big { color: var(--big-color); }
+    /* Story detail view */
+    .story-view {
+      background: linear-gradient(to bottom, #2d2820 0%, #252015 100%);
+      border-radius: 8px;
+      padding: 2rem;
+      border: 2px solid #4a4030;
+      border-left: 4px solid #804040;
+    }
+    @media (prefers-color-scheme: light) {
+      .story-view {
+        background: linear-gradient(to bottom, #fdfbf5 0%, #f8f4e8 100%);
+        border-color: #d4c4a0;
+        border-left-color: #c85050;
+      }
+    }
+    .story-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid var(--border-primary);
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    .story-header h2 { color: var(--accent); font-size: 1.3rem; }
+    .story-header-buttons { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    .copy-llm-btn {
+      background: linear-gradient(135deg, #2a2920 0%, #1f1e18 100%);
+      border: 1px solid #3a3930;
+      color: #c0b890;
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+      font-family: inherit;
+      border-radius: 4px;
+      font-size: 0.85rem;
+      transition: all 0.2s;
+    }
+    .copy-llm-btn:hover { background: linear-gradient(135deg, #353428 0%, #2a291f 100%); }
+    .copy-llm-btn.copied { background: #1a3a1a; border-color: #2a5a2a; color: #8f8; }
+    .copy-llm-feed {
+      padding: 0.25rem 0.5rem;
+      font-size: 0.75rem;
+    }
+    @media (prefers-color-scheme: light) {
+      .copy-llm-btn {
+        background: linear-gradient(135deg, #f5f5f0 0%, #eaeae5 100%);
+        border: 1px solid #ccc;
+        color: #555;
+      }
+      .copy-llm-btn:hover { background: linear-gradient(135deg, #fff 0%, #f5f5f0 100%); }
+      .copy-llm-btn.copied { background: #e5f5e5; border-color: #afa; color: #060; }
+    }
+    .back-btn {
+      background: var(--bg-button);
+      border: 1px solid var(--border-secondary);
+      color: var(--text-secondary);
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+      font-family: inherit;
+      border-radius: 4px;
+    }
+    .back-btn:hover { background: var(--bg-button-hover); }
+    .story-meta {
+      display: flex;
+      gap: 2rem;
+      margin-bottom: 2rem;
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+      flex-wrap: wrap;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+    .story-meta span { display: flex; align-items: center; gap: 0.3rem; }
+    .story-summary {
+      background: rgba(0,0,0,0.15);
+      padding: 1rem;
+      border-radius: 4px;
+      margin-bottom: 2rem;
+      border-left: 3px solid var(--accent);
+      font-family: Arial, Helvetica, sans-serif;
+    }
+    @media (prefers-color-scheme: light) {
+      .story-summary {
+        background: rgba(0,0,0,0.05);
+      }
+    }
+    .story-section { margin-bottom: 2rem; }
+    .story-section h3 {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+      font-size: 1.1rem;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+    .section-fruit h3 { color: var(--fruit-color); }
+    .section-side h3 { color: var(--side-color); }
+    .section-big h3 { color: var(--big-color); }
+    .story-items { list-style: none; }
+    .story-items li {
+      padding: 0.75rem 1rem;
+      margin-bottom: 0.5rem;
+      background: rgba(0,0,0,0.15);
+      border-radius: 4px;
+      border-left: 3px solid var(--border-primary);
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+    }
+    @media (prefers-color-scheme: light) {
+      .story-items li {
+        background: rgba(0,0,0,0.05);
+      }
+    }
+    .section-fruit .story-items li { border-left-color: var(--fruit-color); }
+    .section-side .story-items li { border-left-color: var(--side-color); }
+    .section-big .story-items li { border-left-color: var(--big-color); }
+    .item-icon { font-size: 1.1rem; flex-shrink: 0; }
+    .item-content { flex: 1; font-family: Arial, Helvetica, sans-serif; }
+    .item-title { font-weight: bold; margin-bottom: 0.25rem; }
+    .item-desc { color: var(--text-secondary); font-size: 0.9rem; line-height: 1.5; }
+    /* Modal */
+    .modal {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.85);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 1rem;
+    }
+    .modal-content {
+      background: var(--bg-card);
+      border: 1px solid var(--border-primary);
+      border-radius: 8px;
+      width: 100%;
+      max-width: 600px;
+      max-height: 90vh;
+      overflow-y: auto;
+      padding: 1.5rem;
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid var(--border-primary);
+    }
+    .modal-header h2 { color: var(--accent); font-size: 1.2rem; }
+    .close-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1.5rem;
+      cursor: pointer;
+      padding: 0;
+      line-height: 1;
+    }
+    .close-btn:hover { color: var(--text-primary); }
+    .form-row { margin-bottom: 1rem; }
+    .form-row label {
+      display: block;
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+      margin-bottom: 0.25rem;
+    }
+    .form-row input, .form-row textarea, .form-row select {
+      width: 100%;
+      background: var(--bg-input);
+      border: 1px solid var(--border-input);
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: 0.95rem;
+      padding: 0.6rem;
+      border-radius: 4px;
+    }
+    .form-row input:focus, .form-row textarea:focus, .form-row select:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    .form-section {
+      margin: 1.5rem 0;
+      padding: 1rem;
+      background: var(--bg-secondary);
+      border-radius: 6px;
+    }
+    .form-section h3 { font-size: 1rem; margin-bottom: 0.25rem; }
+    .form-hint { color: var(--text-muted); font-size: 0.8rem; margin-bottom: 0.75rem; }
+    .item-list { margin-bottom: 0.5rem; }
+    .item-row {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 0.5rem;
+      align-items: center;
+    }
+    .item-row .item-title-input {
+      flex: 1;
+      background: var(--bg-input);
+      border: 1px solid var(--border-input);
+      color: var(--text-primary);
+      font-family: inherit;
+      padding: 0.5rem;
+      border-radius: 4px;
+      font-size: 0.9rem;
+    }
+    .item-row .item-desc-input {
+      flex: 1.5;
+      background: var(--bg-input);
+      border: 1px solid var(--border-input);
+      color: var(--text-primary);
+      font-family: inherit;
+      padding: 0.5rem;
+      border-radius: 4px;
+      font-size: 0.9rem;
+    }
+    .item-row input:focus { outline: none; border-color: var(--accent); }
+    .remove-item-btn {
+      background: none;
+      border: none;
+      color: var(--error);
+      cursor: pointer;
+      font-size: 1rem;
+      padding: 0.25rem;
+      opacity: 0.6;
+    }
+    .remove-item-btn:hover { opacity: 1; }
+    .add-item-btn {
+      background: none;
+      border: 1px dashed var(--border-secondary);
+      color: var(--text-muted);
+      padding: 0.4rem 0.75rem;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.85rem;
+      border-radius: 4px;
+    }
+    .add-item-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .form-actions {
+      display: flex;
+      gap: 1rem;
+      justify-content: flex-end;
+      margin-top: 1.5rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border-primary);
+    }
+    .cancel-btn {
+      background: var(--bg-button);
+      border: 1px solid var(--border-secondary);
+      color: var(--text-secondary);
+      padding: 0.6rem 1.25rem;
+      cursor: pointer;
+      font-family: inherit;
+      border-radius: 4px;
+    }
+    .cancel-btn:hover { background: var(--bg-button-hover); }
+    .submit-btn {
+      background: linear-gradient(135deg, var(--accent) 0%, #f60 100%);
+      border: none;
+      color: #000;
+      padding: 0.6rem 1.5rem;
+      cursor: pointer;
+      font-family: inherit;
+      font-weight: bold;
+      border-radius: 4px;
+    }
+    .submit-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 2px 8px rgba(255, 170, 0, 0.4);
+    }
+    .no-stories { color: var(--text-muted); font-style: italic; padding: 2rem; text-align: center; }
+
+    /* Mobile-friendly styles */
+    @media (max-width: 768px) {
+      body {
+        padding: 1rem;
+        font-size: 15px;
+        -webkit-text-size-adjust: 100%;
+      }
+      h1 { font-size: 1.25rem; }
+      h2 { font-size: 1.1rem; }
+      .container { padding: 0; }
+      
+      /* Platform filter tabs - wrap on mobile */
+      .platform-filters {
+        gap: 0.4rem;
+        margin-bottom: 1rem;
+        flex-wrap: wrap;
+      }
+      .platform-filters button {
+        padding: 0.4rem 0.6rem;
+        font-size: 0.8rem;
+      }
+      
+      /* Build cards */
+      .build-card {
+        padding: 1rem;
+        margin-bottom: 1rem;
+      }
+      .build-header {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+      }
+      .platform-tag {
+        font-size: 0.7rem;
+        padding: 0.15rem 0.4rem;
+      }
+      .project-name {
+        font-size: 0.9rem;
+      }
+      .build-tags {
+        width: 100%;
+        margin-top: 0.25rem;
+      }
+      .meta {
+        font-size: 0.8rem;
+      }
+      
+      /* Story cards */
+      .story-feed-card {
+        padding: 0.875rem 1rem;
+      }
+      .story-feed-card .build-header {
+        gap: 0.4rem;
+      }
+      .story-feed-card .project-name {
+        font-size: 0.85rem;
+      }
+      .story-view-link {
+        font-size: 0.8rem;
+      }
+      .copy-llm-btn.copy-llm-feed {
+        font-size: 0.7rem;
+        padding: 0.2rem 0.4rem;
+      }
+      .story-summary {
+        font-size: 0.85rem;
+      }
+      .story-time {
+        font-size: 0.75rem;
+      }
+      
+      /* Nested stories container */
+      .build-stories-container {
+        margin-left: 1rem;
+        padding-left: 0.75rem;
+      }
+      
+      /* Modals */
+      .modal-content {
+        padding: 1.25rem;
+        margin: 0.5rem;
+        max-height: calc(100vh - 1rem);
+      }
+      .modal-content h2 {
+        font-size: 1.1rem;
+      }
+      .form-group label {
+        font-size: 0.85rem;
+      }
+      .form-group input,
+      .form-group textarea,
+      .form-group select {
+        font-size: 16px; /* Prevents iOS zoom on focus */
+        padding: 0.6rem;
+      }
+      .modal-actions {
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+      .modal-actions button {
+        width: 100%;
+      }
+      
+      /* Story detail view */
+      .story-meta {
+        flex-direction: column;
+        gap: 0.5rem;
+        font-size: 0.85rem;
+      }
+      .story-section h3 {
+        font-size: 1rem;
+      }
+      .story-items li {
+        font-size: 0.9rem;
+      }
+      .item-title {
+        font-size: 0.9rem;
+      }
+      .item-desc {
+        font-size: 0.8rem;
+      }
+      
+      /* Date headers */
+      .date-header {
+        font-size: 0.9rem;
+        padding: 0.5rem 0;
+      }
+      
+      /* Footer */
+      .footer {
+        font-size: 0.75rem;
+        padding: 1rem 0;
+      }
+      
+      /* iOS install button - larger touch target */
+      .ios-install-btn {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.85rem;
+      }
+    }
+
+    /* Extra small screens (phones in portrait) */
+    @media (max-width: 480px) {
+      body {
+        padding: 0.75rem;
+      }
+      .platform-filters button {
+        padding: 0.4rem 0.6rem;
+        font-size: 0.8rem;
+      }
+      .build-card {
+        padding: 0.875rem;
+      }
+      .story-feed-card {
+        padding: 0.75rem;
+      }
+      .build-stories-container {
+        margin-left: 0.5rem;
+        padding-left: 0.5rem;
+      }
+      .copy-llm-btn.copy-llm-feed {
+        display: none; /* Hide on very small screens */
+      }
+    }
+
+    /* Touch-friendly tap targets */
+    @media (pointer: coarse) {
+      .platform-filters button {
+        padding: 0.6rem 0.9rem;
+      }
+      .story-btn, .ios-install-btn, .log-link {
+        padding: 0.5rem 0.75rem;
+      }
+    }
+
+    /* Improve contrast for outdoor/bright viewing */
+    @media (prefers-color-scheme: light) {
+      .meta, .story-time {
+        color: #444;
+      }
+      .text-muted, .story-card-date {
+        color: #666;
+      }
+    }
   </style>
 </head>
 <body>
@@ -385,31 +1205,158 @@
         <img class="logo" src="https://assets.aesthetic.computer/false.work/falsework-logo.png" alt="false.work" style="width: 200px;">
       </div>
       
-      <div class="platform-filters">
-        <button data-platform="all" class="active" onclick="filterPlatform('all')">All</button>
-        <button data-platform="windows" onclick="filterPlatform('windows')">🪟 Windows</button>
-        <button data-platform="mac" onclick="filterPlatform('mac')">🍎 Mac</button>
-        <button data-platform="ios" onclick="filterPlatform('ios')">📱 iOS</button>
-        <button class="disabled" title="Coming soon">🎮 Gameboy</button>
-        <button class="disabled" title="Coming soon">🟡 Playdate</button>
-        <button class="disabled" title="Coming soon">🕹️ N64</button>
+      <!-- Single content view with platform filters including Stories -->
+      <div id="main-content">
+        <div class="platform-filters">
+          <button data-platform="all" class="active" onclick="filterPlatform('all')">✨ New</button>
+          <button data-platform="stories" onclick="filterPlatform('stories')">📝 Stories</button>
+          <button data-platform="windows" onclick="filterPlatform('windows')">🪟 Windows</button>
+          <button data-platform="mac" onclick="filterPlatform('mac')">🍎 Mac</button>
+          <button data-platform="ios" onclick="filterPlatform('ios')">📱 iOS</button>
+          <button class="disabled" title="Coming soon">🎮 Gameboy</button>
+          <button class="disabled" title="Coming soon">🟡 Playdate</button>
+          <button class="disabled" title="Coming soon">🕹️ N64</button>
+        </div>
+        
+        <!-- Builds list (shown for all/windows/mac/ios) -->
+        <div id="builds-list">
+          <div class="loading">Loading builds</div>
+        </div>
+        
+        <!-- Stories list (shown for stories filter) -->
+        <div id="stories-list" style="display: none;">
+          <div id="stories-content">
+            <div class="loading">Loading stories</div>
+          </div>
+        </div>
       </div>
       
-      <div id="builds-list">
-        <div class="loading">Loading builds</div>
+      <!-- STORY DETAIL VIEW -->
+      <div id="story-view" style="display: none;">
+        <div class="story-view">
+          <div class="story-header">
+            <h2>📝 Playtest Story</h2>
+            <div class="story-header-buttons">
+              <button class="copy-llm-btn" onclick="copyStoryForLLM()">📋 Copy for LLM</button>
+              <button class="back-btn" onclick="hideStoryDetail()">← Back to Stories</button>
+            </div>
+          </div>
+          <div id="story-detail-content"></div>
+        </div>
       </div>
 
       <footer>
         <span id="footer-lock">🔒</span> <a href="https://builds.false.work">builds.false.work</a>
-        <span id="logout-link" style="display: none;"> · <a href="#" onclick="logout(); return false;">logout</a></span>
+        <span id="logout-link" style="display: none;"> · <a href="#" onclick="logout(); return false;">logout</a> · <a href="roadmap.html">🗺️ roadmap</a></span>
       </footer>
     </div>
   </div>
 
+  <!-- STORY FORM MODAL -->
+  <div id="story-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>📝 Submit Playtest Story</h2>
+        <button class="close-btn" onclick="closeStoryModal()">✕</button>
+      </div>
+      
+      <form id="story-form" onsubmit="submitStory(event)">
+        <div class="form-row">
+          <label>Build</label>
+          <select id="form-build" required>
+            <option value="">Select a build...</option>
+          </select>
+        </div>
+        
+        <div class="form-row">
+          <label>Your Name</label>
+          <input type="text" id="form-tester" placeholder="Who tested this build?" required>
+        </div>
+        
+        <div class="form-row">
+          <label>Summary</label>
+          <textarea id="form-summary" rows="2" placeholder="Brief overview of your playtest session..." required></textarea>
+        </div>
+        
+        <div class="form-section">
+          <h3 style="color: var(--fruit-color);">🍎 Low Hanging Fruit</h3>
+          <p class="form-hint">Quick fixes, obvious bugs, easy wins</p>
+          <div id="fruit-items" class="item-list"></div>
+          <button type="button" class="add-item-btn" onclick="addItem('fruit-items')">+ Add item</button>
+        </div>
+        
+        <div class="form-section">
+          <h3 style="color: var(--side-color);">🍟 A Little on the Side</h3>
+          <p class="form-hint">Nice-to-haves, polish suggestions, extra ideas</p>
+          <div id="side-items" class="item-list"></div>
+          <button type="button" class="add-item-btn" onclick="addItem('side-items')">+ Add item</button>
+        </div>
+        
+        <div class="form-section">
+          <h3 style="color: var(--big-color);">💡 Bigger Ideas</h3>
+          <p class="form-hint">Deeper considerations, design thoughts, major issues</p>
+          <div id="big-items" class="item-list"></div>
+          <button type="button" class="add-item-btn" onclick="addItem('big-items')">+ Add item</button>
+        </div>
+        
+        <div class="form-actions">
+          <button type="button" class="cancel-btn" onclick="closeStoryModal()">Cancel</button>
+          <button type="submit" class="submit-btn">Submit Story</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- LOG MODAL -->
+  <div id="log-modal" class="modal" style="display: none;">
+    <div class="modal-content log-modal-content">
+      <div class="log-header">
+        <h2 style="color: var(--accent); font-size: 1.1rem;">📜 Build Log</h2>
+        <div>
+          <a id="log-download-link" href="#" target="_blank">Download .txt ↗</a>
+          <button class="close-btn" onclick="closeLogModal()" style="margin-left: 1rem;">✕</button>
+        </div>
+      </div>
+      <div id="log-content" class="log-content">Loading...</div>
+    </div>
+  </div>
+
   <script>
-    let sessionPassword = null;
+    let sessionPassword = localStorage.getItem('builds-session') || null;
     let allBuilds = [];
+    let allStories = [];
     let currentFilter = 'all';
+    let currentTab = 'builds';
+    
+    // Auto-login on page load if session exists
+    (async function init() {
+      if (sessionPassword) {
+        try {
+          const res = await fetch('/.netlify/functions/verify-builds-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: sessionPassword })
+          });
+          const data = await res.json();
+          if (data.success) {
+            showAuthenticatedUI();
+            await Promise.all([loadBuilds(), loadStories()]);
+            handleRoute();
+            return;
+          }
+        } catch (err) {}
+        // Session invalid, clear it
+        localStorage.removeItem('builds-session');
+        sessionPassword = null;
+      }
+    })();
+    
+    function showAuthenticatedUI() {
+      document.getElementById('auth-container').style.display = 'none';
+      document.body.classList.add('authenticated');
+      document.getElementById('footer-lock').textContent = '🔓';
+      document.getElementById('logout-link').style.display = 'inline';
+    }
 
     async function checkPassword() {
       const password = document.getElementById('password').value;
@@ -424,11 +1371,10 @@
         
         if (data.success) {
           sessionPassword = password;
-          document.getElementById('auth-container').style.display = 'none';
-          document.body.classList.add('authenticated');
-          document.getElementById('footer-lock').textContent = '🔓';
-          document.getElementById('logout-link').style.display = 'inline';
-          await loadBuilds();
+          localStorage.setItem('builds-session', password);
+          showAuthenticatedUI();
+          await Promise.all([loadBuilds(), loadStories()]);
+          handleRoute();
         } else {
           document.getElementById('error').textContent = 'Incorrect password';
           document.getElementById('password').value = '';
@@ -438,6 +1384,51 @@
       }
     }
 
+    // View management
+    function showStoryDetail(updateHash = true) {
+      document.getElementById('main-content').style.display = 'none';
+      document.getElementById('story-view').style.display = 'block';
+      if (updateHash && currentViewingStoryId) {
+        history.pushState(null, '', `#story/${currentViewingStoryId}`);
+      }
+    }
+    
+    function hideStoryDetail() {
+      document.getElementById('story-view').style.display = 'none';
+      document.getElementById('main-content').style.display = 'block';
+      filterPlatform('stories');
+    }
+    
+    // Handle URL routing
+    function handleRoute() {
+      const hash = window.location.hash.slice(1); // remove #
+      
+      // Handle story detail view
+      if (hash.startsWith('story/')) {
+        const storyId = hash.slice(6);
+        const story = allStories.find(r => r._id === storyId);
+        if (story) {
+          viewStory(storyId);
+          return;
+        }
+      }
+      
+      // Handle platform filters
+      const platformMap = {
+        '': 'all',
+        'stories': 'stories',
+        'windows': 'windows',
+        'mac': 'mac',
+        'ios': 'ios'
+      };
+      
+      const platform = platformMap[hash] || 'all';
+      filterPlatform(platform, false);
+    }
+    
+    window.addEventListener('popstate', handleRoute);
+
+    // === BUILDS ===
     async function loadBuilds() {
       const container = document.getElementById('builds-list');
       container.innerHTML = '<div class="loading">Loading builds</div>';
@@ -447,25 +1438,42 @@
           headers: { 'Authorization': `Bearer ${sessionPassword}` }
         });
         
-        if (!res.ok) {
-          throw new Error('Failed to load builds');
-        }
+        if (!res.ok) throw new Error('Failed to load builds');
         
         const data = await res.json();
         allBuilds = data.builds || [];
         renderBuilds();
+        populateBuildSelector();
       } catch (err) {
         container.innerHTML = '<div class="error">Failed to load builds. Please try again.</div>';
         console.error(err);
       }
     }
 
-    function filterPlatform(platform) {
+    function filterPlatform(platform, updateHash = true) {
       currentFilter = platform;
       document.querySelectorAll('.platform-filters button').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.platform === platform);
       });
-      renderBuilds();
+      
+      // Show/hide builds vs stories
+      const buildsList = document.getElementById('builds-list');
+      const storiesList = document.getElementById('stories-list');
+      
+      if (platform === 'stories') {
+        buildsList.style.display = 'none';
+        storiesList.style.display = 'block';
+        renderStories();
+      } else {
+        buildsList.style.display = 'block';
+        storiesList.style.display = 'none';
+        renderBuilds();
+      }
+      
+      if (updateHash) {
+        const hashMap = { all: '', stories: 'stories', windows: 'windows', mac: 'mac', ios: 'ios' };
+        history.pushState(null, '', platform === 'all' ? '#' : `#${hashMap[platform]}`);
+      }
     }
 
     function renderBuilds() {
@@ -474,46 +1482,100 @@
         ? allBuilds 
         : allBuilds.filter(b => b.platform === currentFilter);
       
-      if (filtered.length === 0) {
+      if (filtered.length === 0 && (currentFilter !== 'all' || allStories.length === 0)) {
         container.innerHTML = '<p style="color: #666; font-style: italic;">No builds available.</p>';
         return;
       }
 
-      // Group builds by date
       const grouped = {};
       const today = new Date().toDateString();
       const yesterday = new Date(Date.now() - 86400000).toDateString();
+      
+      function getDateLabel(date) {
+        const dateStr = date.toDateString();
+        if (dateStr === today) return 'Today';
+        if (dateStr === yesterday) return 'Yesterday';
+        return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+      }
 
+      // Add builds to grouped (stories will be nested under builds)
       filtered.forEach(build => {
-        const date = new Date(build.timestamp).toDateString();
-        let label;
-        if (date === today) label = 'Today';
-        else if (date === yesterday) label = 'Yesterday';
-        else label = new Date(build.timestamp).toLocaleDateString('en-US', { 
-          month: 'long', day: 'numeric', year: 'numeric' 
-        });
-        
+        const label = getDateLabel(new Date(build.timestamp));
         if (!grouped[label]) grouped[label] = [];
-        grouped[label].push(build);
+        // Find stories for this build
+        const buildStories = currentFilter === 'all' 
+          ? allStories.filter(s => s.buildPlatform === build.platform && s.buildVersion === build.version)
+          : [];
+        grouped[label].push({ type: 'build', data: build, stories: buildStories, timestamp: new Date(build.timestamp) });
+      });
+      
+      // Add orphan stories (stories without a matching build in view) if showing "all"
+      if (currentFilter === 'all') {
+        const buildKeys = new Set(filtered.map(b => `${b.platform}:${b.version}`));
+        allStories.forEach(story => {
+          const key = `${story.buildPlatform}:${story.buildVersion}`;
+          if (!buildKeys.has(key)) {
+            // Orphan story - no matching build
+            const label = getDateLabel(new Date(story.createdAt));
+            if (!grouped[label]) grouped[label] = [];
+            grouped[label].push({ type: 'orphan-story', data: story, timestamp: new Date(story.createdAt) });
+          }
+        });
+      }
+      
+      // Sort groups by date (most recent first)
+      const sortedLabels = Object.keys(grouped).sort((a, b) => {
+        if (a === 'Today') return -1;
+        if (b === 'Today') return 1;
+        if (a === 'Yesterday') return -1;
+        if (b === 'Yesterday') return 1;
+        return new Date(b) - new Date(a);
       });
 
       let html = '';
-      const dateOrder = Object.keys(grouped);
-      
-      dateOrder.forEach((dateLabel, idx) => {
+      sortedLabels.forEach(dateLabel => {
         const isToday = dateLabel === 'Today';
         html += `<h3 class="date-header ${isToday ? 'today' : 'previous'}">${dateLabel}</h3>`;
         
-        grouped[dateLabel].forEach(build => {
-          html += renderBuildCard(build);
+        // Sort items within each day by timestamp descending
+        grouped[dateLabel].sort((a, b) => b.timestamp - a.timestamp);
+        
+        grouped[dateLabel].forEach(item => {
+          if (item.type === 'build') {
+            const build = item.data;
+            const isFailed = build.status === 'failed' || build.status === 'stale';
+            const hasStories = item.stories && item.stories.length > 0;
+            html += renderBuildCard(build, hasStories);
+            // Render nested stories under build (only if there are stories)
+            if (item.stories && item.stories.length > 0) {
+              html += `<div class="build-stories-container">`;
+              // Sort stories by date descending
+              item.stories.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+              item.stories.forEach(story => {
+                html += renderStoryCardInFeed(story);
+              });
+              // Add + button at end of stories container
+              if (!isFailed) {
+                html += `<button class="story-btn add-story" onclick="openStoryModalForBuild('${build.platform}', '${build.version}')" title="Write a story for this build">+ Add Story</button>`;
+              }
+              html += `</div>`;
+            }
+          } else if (item.type === 'orphan-story') {
+            html += renderStoryCardInFeed(item.data);
+          }
         });
       });
 
       container.innerHTML = html;
       updateBuildTimes();
     }
+    
+    function renderStoryCardInFeed(story) {
+      // Delegate to shared renderStoryCard function
+      return renderStoryCard(story);
+    }
 
-    function renderBuildCard(build) {
+    function renderBuildCard(build, hasStories = false) {
       const platformEmoji = { windows: '🪟', mac: '🍎', ios: '📱' };
       const platformLabel = { windows: 'Windows', mac: 'Mac', ios: 'iOS' };
       const fileExt = build.platform === 'ios' ? 'ipa' : 'zip';
@@ -527,23 +1589,17 @@
             <a href="${build.downloadUrl}">${build.version}.${fileExt}</a>
       `;
       
-      // Render tags
-      if (build.tags && build.tags.length > 0) {
-        html += `<span class="build-tags">`;
-        build.tags.forEach(tag => {
-          const tagClass = tag.toLowerCase().replace(/[^a-z0-9]/g, '-');
-          const tagLabel = tag === 'auto-detect' ? 'Auto' : tag.charAt(0).toUpperCase() + tag.slice(1);
-          html += `<span class="build-tag ${tagClass}">${tagLabel}</span>`;
-        });
-        html += `</span>`;
-      }
-      
       if (build.status && build.status !== 'ok') {
         html += `<span class="status-badge ${build.status}">${build.status}</span>`;
       }
       
       if (build.logUrl) {
-        html += `<span style="margin-left: 0.5rem; color: #666; font-size: 0.9rem;">(<a href="${build.logUrl}" style="color: #888;">log</a>)</span>`;
+        html += `<a href="${build.logUrl}" class="log-link" onclick="event.preventDefault(); openLogModal('${build.logUrl}')" title="Right-click to download">(log)</a>`;
+      }
+      
+      // Small inline + button when no stories exist yet
+      if (!isFailed && !hasStories) {
+        html += `<button class="story-btn add-story-inline" onclick="openStoryModalForBuild('${build.platform}', '${build.version}')" title="Write a story">+</button>`;
       }
       
       if (build.platform === 'ios' && !isFailed) {
@@ -552,7 +1608,6 @@
       
       html += `</div>`;
       
-      // Meta line
       const parts = [];
       parts.push(`${build.sizeMB} MB`);
       if (build.changelist) parts.push(build.changelist);
@@ -585,7 +1640,6 @@
         
         el.style.color = dayColors[buildDate.getDay()];
         
-        // Format time in Pacific timezone
         const ptTime = buildDate.toLocaleTimeString('en-US', {
           hour: 'numeric',
           minute: '2-digit',
@@ -609,20 +1663,453 @@
       });
     }
 
+    // === STORIES ===
+    async function loadStories() {
+      try {
+        const res = await fetch('/.netlify/functions/stories', {
+          headers: { 'Authorization': `Bearer ${sessionPassword}` }
+        });
+        
+        if (!res.ok) {
+          // Stories endpoint may not exist yet
+          allStories = [];
+          return;
+        }
+        
+        const data = await res.json();
+        allStories = (data.stories || []).filter(r => !r.deleted);
+        // Only render if stories view is currently active
+        if (currentFilter === 'stories') {
+          renderStories();
+        }
+        // Re-render builds to show story buttons
+        renderBuilds();
+      } catch (err) {
+        allStories = [];
+        console.error('Stories not available yet:', err);
+      }
+    }
+
+    function renderStories() {
+      const container = document.getElementById('stories-content');
+      if (!container) {
+        console.error('stories-content element not found');
+        return;
+      }
+      
+      if (allStories.length === 0) {
+        container.innerHTML = '<div class="no-stories">No playtest stories yet. Click "+ New Story" to create one!</div>';
+        return;
+      }
+
+      const platformEmoji = { windows: '🪟', mac: '🍎', ios: '📱' };
+      
+      // Group stories by build (platform + version)
+      const grouped = {};
+      allStories.forEach(story => {
+        const buildKey = `${story.buildPlatform}|${story.buildVersion}`;
+        if (!grouped[buildKey]) {
+          grouped[buildKey] = {
+            platform: story.buildPlatform,
+            version: story.buildVersion,
+            stories: []
+          };
+        }
+        grouped[buildKey].stories.push(story);
+      });
+
+      // Sort builds by newest story first, then render
+      const sortedBuilds = Object.values(grouped).sort((a, b) => {
+        const aLatest = Math.max(...a.stories.map(r => new Date(r.createdAt).getTime()));
+        const bLatest = Math.max(...b.stories.map(r => new Date(r.createdAt).getTime()));
+        return bLatest - aLatest;
+      });
+
+      let html = '';
+      sortedBuilds.forEach(build => {
+        const emoji = platformEmoji[build.platform] || '📦';
+        const storyCount = build.stories.length;
+        html += `<h3 class="date-header">${emoji} SpiderLily ${build.version} <span style="font-weight: normal; color: var(--text-muted);">(${storyCount} stor${storyCount !== 1 ? 'ies' : 'y'})</span></h3>`;
+        
+        // Sort stories within build by date descending
+        build.stories.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        build.stories.forEach(story => {
+          html += renderStoryCard(story);
+        });
+      });
+
+      container.innerHTML = html;
+    }
+
+    function renderStoryCard(story) {
+      const platformEmoji = { windows: '🪟', mac: '🍎', ios: '📱' };
+      const fruitItems = story.lowHangingFruit || [];
+      const sideItems = story.onTheSide || [];
+      const bigItems = story.biggerThoughts || [];
+      
+      const time = new Date(story.createdAt).toLocaleTimeString('en-US', {
+        hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/Los_Angeles'
+      }) + ' PT';
+      
+      const tester = story.tester || 'Anonymous';
+      
+      return `
+        <div class="build-card story-feed-card" data-story-id="${story._id}">
+          <div class="build-header">
+            <span class="platform-tag platform-story">📝 Story</span>
+            <span class="project-name">SpiderLily ${story.buildVersion}</span>
+            <button class="copy-llm-btn copy-llm-feed" onclick="copyStoryForLLMById('${story._id}')">📋 Copy for LLM</button>
+            <span class="build-tags">
+              <span class="build-tag">${platformEmoji[story.buildPlatform] || '📦'} ${story.buildPlatform}</span>
+            </span>
+          </div>
+          <div class="meta" style="margin-top: 0.75rem;">
+            by <strong>${tester}</strong> · <span class="story-summary">"${story.summary || 'No summary'}"</span>
+          </div>
+          <div class="story-footer">
+            <span class="story-stats">🍎 ${fruitItems.length} fruit · 🍟 ${sideItems.length} side · 💡 ${bigItems.length} ideas · ${time}</span>
+            <a href="#story/${story._id}" class="story-view-link" onclick="event.preventDefault(); viewStory('${story._id}')">Read Story →</a>
+          </div>
+        </div>
+      `;
+    }
+
+    function viewStory(storyId) {
+      const story = allStories.find(r => r._id === storyId);
+      if (!story) return;
+      
+      const platformEmoji = { windows: '🪟', mac: '🍎', ios: '📱' };
+      const dateStr = new Date(story.createdAt).toLocaleDateString('en-US', {
+        month: 'long', day: 'numeric', year: 'numeric'
+      });
+      
+      let html = `
+        <div class="story-meta">
+          <span>${platformEmoji[story.buildPlatform] || '📦'} <strong>${story.buildPlatform}</strong> ${story.buildVersion}</span>
+          <span>👤 <strong>${story.tester || 'Anonymous'}</strong></span>
+          <span>📅 ${dateStr}</span>
+        </div>
+        <div class="story-summary"><strong>Summary:</strong> ${story.summary || 'No summary provided.'}</div>
+      `;
+      
+      if (story.lowHangingFruit && story.lowHangingFruit.length > 0) {
+        html += `<div class="story-section section-fruit"><h3>🍎 Low Hanging Fruit</h3><ul class="story-items">`;
+        story.lowHangingFruit.forEach(item => {
+          html += `<li><span class="item-icon">🔧</span><div class="item-content"><div class="item-title">${item.title}</div>${item.desc ? `<div class="item-desc">${item.desc}</div>` : ''}</div></li>`;
+        });
+        html += `</ul></div>`;
+      }
+      
+      if (story.onTheSide && story.onTheSide.length > 0) {
+        html += `<div class="story-section section-side"><h3>🍟 A Little on the Side</h3><ul class="story-items">`;
+        story.onTheSide.forEach(item => {
+          html += `<li><span class="item-icon">✨</span><div class="item-content"><div class="item-title">${item.title}</div>${item.desc ? `<div class="item-desc">${item.desc}</div>` : ''}</div></li>`;
+        });
+        html += `</ul></div>`;
+      }
+      
+      if (story.biggerThoughts && story.biggerThoughts.length > 0) {
+        html += `<div class="story-section section-big"><h3>💡 Bigger Ideas</h3><ul class="story-items">`;
+        story.biggerThoughts.forEach(item => {
+          html += `<li><span class="item-icon">🌟</span><div class="item-content"><div class="item-title">${item.title}</div>${item.desc ? `<div class="item-desc">${item.desc}</div>` : ''}</div></li>`;
+        });
+        html += `</ul></div>`;
+      }
+      
+      document.getElementById('story-detail-content').innerHTML = html;
+      currentViewingStoryId = storyId;
+      showStoryDetail();
+    }
+
+    let currentViewingStoryId = null;
+
+    function copyStoryForLLM() {
+      const story = allStories.find(r => r._id === currentViewingStoryId);
+      if (!story) return;
+      
+      const platformLabel = { windows: 'Windows', mac: 'Mac', ios: 'iOS' };
+      const dateStr = new Date(story.createdAt).toLocaleDateString('en-US', {
+        weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
+      });
+      
+      let text = `# SpiderLily Playtest Story\n\n`;
+      text += `**Platform:** ${platformLabel[story.buildPlatform] || story.buildPlatform}\n`;
+      text += `**Build:** ${story.buildVersion}\n`;
+      text += `**Tester:** ${story.tester || 'Anonymous'}\n`;
+      text += `**Date:** ${dateStr}\n\n`;
+      text += `## Summary\n${story.summary || 'No summary provided.'}\n\n`;
+      
+      if (story.lowHangingFruit && story.lowHangingFruit.length > 0) {
+        text += `## Low Hanging Fruit (Quick Fixes)\n`;
+        story.lowHangingFruit.forEach((item, i) => {
+          text += `${i + 1}. **${item.title}**`;
+          if (item.desc) text += `\n   ${item.desc}`;
+          text += `\n`;
+        });
+        text += `\n`;
+      }
+      
+      if (story.onTheSide && story.onTheSide.length > 0) {
+        text += `## On the Side (Nice-to-Haves)\n`;
+        story.onTheSide.forEach((item, i) => {
+          text += `${i + 1}. **${item.title}**`;
+          if (item.desc) text += `\n   ${item.desc}`;
+          text += `\n`;
+        });
+        text += `\n`;
+      }
+      
+      if (story.biggerThoughts && story.biggerThoughts.length > 0) {
+        text += `## Bigger Thoughts (Design/Architecture)\n`;
+        story.biggerThoughts.forEach((item, i) => {
+          text += `${i + 1}. **${item.title}**`;
+          if (item.desc) text += `\n   ${item.desc}`;
+          text += `\n`;
+        });
+      }
+      
+      navigator.clipboard.writeText(text).then(() => {
+        const btn = document.querySelector('.copy-llm-btn');
+        btn.textContent = '✓ Copied!';
+        btn.classList.add('copied');
+        setTimeout(() => {
+          btn.textContent = '📋 Copy for LLM';
+          btn.classList.remove('copied');
+        }, 2000);
+      });
+    }
+
+    function copyStoryForLLMById(storyId) {
+      const story = allStories.find(r => r._id === storyId);
+      if (!story) return;
+      
+      const platformLabel = { windows: 'Windows', mac: 'Mac', ios: 'iOS' };
+      const dateStr = new Date(story.createdAt).toLocaleDateString('en-US', {
+        weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
+      });
+      
+      let text = `# SpiderLily Playtest Story\n\n`;
+      text += `**Platform:** ${platformLabel[story.buildPlatform] || story.buildPlatform}\n`;
+      text += `**Build:** ${story.buildVersion}\n`;
+      text += `**Tester:** ${story.tester || 'Anonymous'}\n`;
+      text += `**Date:** ${dateStr}\n\n`;
+      text += `## Summary\n${story.summary || 'No summary provided.'}\n\n`;
+      
+      if (story.lowHangingFruit && story.lowHangingFruit.length > 0) {
+        text += `## Low Hanging Fruit (Quick Fixes)\n`;
+        story.lowHangingFruit.forEach((item, i) => {
+          text += `${i + 1}. **${item.title}**`;
+          if (item.desc) text += `\n   ${item.desc}`;
+          text += `\n`;
+        });
+        text += `\n`;
+      }
+      
+      if (story.onTheSide && story.onTheSide.length > 0) {
+        text += `## On the Side (Nice-to-Haves)\n`;
+        story.onTheSide.forEach((item, i) => {
+          text += `${i + 1}. **${item.title}**`;
+          if (item.desc) text += `\n   ${item.desc}`;
+          text += `\n`;
+        });
+        text += `\n`;
+      }
+      
+      if (story.biggerThoughts && story.biggerThoughts.length > 0) {
+        text += `## Bigger Thoughts (Design/Architecture)\n`;
+        story.biggerThoughts.forEach((item, i) => {
+          text += `${i + 1}. **${item.title}**`;
+          if (item.desc) text += `\n   ${item.desc}`;
+          text += `\n`;
+        });
+      }
+      
+      navigator.clipboard.writeText(text).then(() => {
+        const btn = document.querySelector(`[data-story-id="${storyId}"] .copy-llm-feed`);
+        if (btn) {
+          btn.textContent = '✓ Copied!';
+          btn.classList.add('copied');
+          setTimeout(() => {
+            btn.textContent = '📋 Copy for LLM';
+            btn.classList.remove('copied');
+          }, 2000);
+        }
+      });
+    }
+
+    function viewStoryForBuild(platform, version) {
+      const story = allStories.find(r => r.buildPlatform === platform && r.buildVersion === version);
+      if (story) viewStory(story._id);
+    }
+
+    // === STORY FORM ===
+    function populateBuildSelector() {
+      const select = document.getElementById('form-build');
+      select.innerHTML = '<option value="">Select a build...</option>';
+      
+      const platformEmoji = { windows: '🪟', mac: '🍎', ios: '📱' };
+      const platformLabel = { windows: 'Win', mac: 'Mac', ios: 'iOS' };
+      
+      // Group builds by date
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const yesterday = new Date(today.getTime() - 86400000);
+      
+      // Sort by timestamp descending (newest first)
+      const sortedBuilds = [...allBuilds].sort((a, b) => 
+        new Date(b.timestamp) - new Date(a.timestamp)
+      );
+      
+      sortedBuilds.forEach(build => {
+        const buildDate = new Date(build.timestamp);
+        const buildDay = new Date(buildDate.getFullYear(), buildDate.getMonth(), buildDate.getDate());
+        
+        let recency = '';
+        if (buildDay.getTime() === today.getTime()) {
+          recency = 'Today';
+        } else if (buildDay.getTime() === yesterday.getTime()) {
+          recency = 'Yesterday';
+        } else {
+          recency = buildDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        }
+        
+        const time = buildDate.toLocaleTimeString('en-US', {
+          hour: 'numeric', minute: '2-digit', hour12: true
+        });
+        
+        const tags = build.tags && build.tags.length > 0 
+          ? ` [${build.tags.map(t => t === 'auto-detect' ? 'Auto' : t).join(', ')}]`
+          : '';
+        
+        const opt = document.createElement('option');
+        opt.value = `${build.platform}|${build.version}`;
+        opt.textContent = `${platformEmoji[build.platform]} ${platformLabel[build.platform]} ${build.version} — ${recency} ${time}${tags}`;
+        select.appendChild(opt);
+      });
+    }
+
+    function openStoryModal() {
+      document.getElementById('story-modal').style.display = 'flex';
+      // Clear form
+      document.getElementById('story-form').reset();
+      ['fruit-items', 'side-items', 'big-items'].forEach(id => {
+        document.getElementById(id).innerHTML = '';
+      });
+    }
+
+    function openStoryModalForBuild(platform, version) {
+      openStoryModal();
+      document.getElementById('form-build').value = `${platform}|${version}`;
+    }
+
+    function closeStoryModal() {
+      document.getElementById('story-modal').style.display = 'none';
+    }
+
+    // Log modal functions
+    async function openLogModal(logUrl) {
+      document.getElementById('log-modal').style.display = 'flex';
+      document.getElementById('log-download-link').href = logUrl;
+      document.getElementById('log-content').textContent = 'Loading...';
+      
+      try {
+        const res = await fetch(logUrl);
+        const text = await res.text();
+        document.getElementById('log-content').textContent = text;
+      } catch (err) {
+        document.getElementById('log-content').textContent = 'Failed to load log file.';
+      }
+    }
+
+    function closeLogModal() {
+      document.getElementById('log-modal').style.display = 'none';
+    }
+
+    function addItem(containerId) {
+      const container = document.getElementById(containerId);
+      const row = document.createElement('div');
+      row.className = 'item-row';
+      row.innerHTML = `
+        <input type="text" placeholder="Title" class="item-title-input">
+        <input type="text" placeholder="Description (optional)" class="item-desc-input">
+        <button type="button" class="remove-item-btn" onclick="this.parentElement.remove()">✕</button>
+      `;
+      container.appendChild(row);
+      row.querySelector('.item-title-input').focus();
+    }
+
+    function collectItems(containerId) {
+      const items = [];
+      document.querySelectorAll(`#${containerId} .item-row`).forEach(row => {
+        const title = row.querySelector('.item-title-input').value.trim();
+        const desc = row.querySelector('.item-desc-input').value.trim();
+        if (title) items.push({ title, desc });
+      });
+      return items;
+    }
+
+    async function submitStory(e) {
+      e.preventDefault();
+      
+      const buildValue = document.getElementById('form-build').value;
+      if (!buildValue) {
+        alert('Please select a build');
+        return;
+      }
+      
+      const [buildPlatform, buildVersion] = buildValue.split('|');
+      
+      const story = {
+        buildPlatform,
+        buildVersion,
+        tester: document.getElementById('form-tester').value.trim(),
+        summary: document.getElementById('form-summary').value.trim(),
+        lowHangingFruit: collectItems('fruit-items'),
+        onTheSide: collectItems('side-items'),
+        biggerThoughts: collectItems('big-items')
+      };
+      
+      try {
+        const res = await fetch('/.netlify/functions/stories', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${sessionPassword}`
+          },
+          body: JSON.stringify(story)
+        });
+        
+        if (!res.ok) throw new Error('Failed to save story');
+        
+        closeStoryModal();
+        await loadStories();
+        filterPlatform('stories');
+      } catch (err) {
+        console.error('Save story error:', err);
+        alert('Failed to save story. Please try again.');
+      }
+    }
+
+    // === UTILITY ===
     function logout() {
       sessionPassword = null;
+      localStorage.removeItem('builds-session');
       allBuilds = [];
+      allStories = [];
       document.getElementById('footer-lock').textContent = '🔒';
       document.getElementById('logout-link').style.display = 'none';
       location.reload();
     }
 
-    // Allow Enter key to submit
+    // Event listeners
     document.getElementById('password').addEventListener('keypress', function(e) {
       if (e.key === 'Enter') checkPassword();
     });
 
-    // Update times every minute
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeStoryModal();
+    });
+
     setInterval(updateBuildTimes, 60000);
   </script>
 </body>

@@ -1,26 +1,27 @@
-export default async (req, context) => {
-  if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ success: false }), {
-      status: 405,
-      headers: { 'Content-Type': 'application/json' }
-    });
+// Verify builds password for builds.false.work
+import { respond } from "../../backend/http.mjs";
+
+const BUILDS_PASSWORD = process.env.BUILDS_PASSWORD;
+
+export async function handler(event, context) {
+  if (event.httpMethod === "OPTIONS") {
+    return respond(204, "");
+  }
+
+  if (event.httpMethod !== "POST") {
+    return respond(405, { success: false });
   }
 
   try {
-    const { password } = await req.json();
-    const correctPassword = process.env.BUILDS_PASSWORD || 'BuildM@chine1@';
+    const { password } = JSON.parse(event.body);
 
-    return new Response(
-      JSON.stringify({ success: password === correctPassword }),
-      {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      }
-    );
+    if (!BUILDS_PASSWORD) {
+      console.error("BUILDS_PASSWORD env var not set");
+      return respond(500, { success: false, error: "Server misconfigured" });
+    }
+
+    return respond(200, { success: password === BUILDS_PASSWORD });
   } catch (error) {
-    return new Response(JSON.stringify({ success: false }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return respond(400, { success: false });
   }
-};
+}
