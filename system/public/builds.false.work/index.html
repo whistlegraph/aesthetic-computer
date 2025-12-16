@@ -477,9 +477,28 @@
         border-color: #c4b490;
       }
     }
+    /* Container for stories nested under builds */
+    .build-stories-container {
+      margin-left: 2rem;
+      padding-left: 1rem;
+      border-left: 2px dashed rgba(128, 64, 64, 0.3);
+      margin-top: -0.5rem;
+      margin-bottom: 1rem;
+    }
+    .build-stories-container .story-feed-card {
+      margin-bottom: 0.75rem;
+    }
+    .build-stories-container .story-feed-card:last-child {
+      margin-bottom: 0;
+    }
+    @media (prefers-color-scheme: light) {
+      .build-stories-container {
+        border-left-color: rgba(200, 80, 80, 0.25);
+      }
+    }
     /* Story cards in unified feed - dark theme default */
     .story-feed-card {
-      cursor: default;
+      cursor: pointer;
       background: linear-gradient(to bottom, #2d2820 0%, #252015 100%);
       border: 2px solid #4a4030;
       border-left: 4px solid #804040;
@@ -497,7 +516,7 @@
       background: rgba(160, 80, 80, 0.15);
     }
     .story-feed-card:hover {
-      transform: none;
+      transform: translateX(4px);
       border-color: #5a5040;
     }
     .story-feed-card .build-header {
@@ -1257,19 +1276,28 @@
         return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
       }
 
-      // Add builds to grouped
+      // Add builds to grouped (stories will be nested under builds)
       filtered.forEach(build => {
         const label = getDateLabel(new Date(build.timestamp));
         if (!grouped[label]) grouped[label] = [];
-        grouped[label].push({ type: 'build', data: build, timestamp: new Date(build.timestamp) });
+        // Find stories for this build
+        const buildStories = currentFilter === 'all' 
+          ? allStories.filter(s => s.buildPlatform === build.platform && s.buildVersion === build.version)
+          : [];
+        grouped[label].push({ type: 'build', data: build, stories: buildStories, timestamp: new Date(build.timestamp) });
       });
       
-      // Add stories to grouped if showing "all"
+      // Add orphan stories (stories without a matching build in view) if showing "all"
       if (currentFilter === 'all') {
+        const buildKeys = new Set(filtered.map(b => `${b.platform}:${b.version}`));
         allStories.forEach(story => {
-          const label = getDateLabel(new Date(story.createdAt));
-          if (!grouped[label]) grouped[label] = [];
-          grouped[label].push({ type: 'story', data: story, timestamp: new Date(story.createdAt) });
+          const key = `${story.buildPlatform}:${story.buildVersion}`;
+          if (!buildKeys.has(key)) {
+            // Orphan story - no matching build
+            const label = getDateLabel(new Date(story.createdAt));
+            if (!grouped[label]) grouped[label] = [];
+            grouped[label].push({ type: 'orphan-story', data: story, timestamp: new Date(story.createdAt) });
+          }
         });
       }
       
@@ -1293,7 +1321,17 @@
         grouped[dateLabel].forEach(item => {
           if (item.type === 'build') {
             html += renderBuildCard(item.data);
-          } else {
+            // Render nested stories under build
+            if (item.stories && item.stories.length > 0) {
+              // Sort stories by date descending
+              item.stories.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+              html += `<div class="build-stories-container">`;
+              item.stories.forEach(story => {
+                html += renderStoryCardInFeed(story);
+              });
+              html += `</div>`;
+            }
+          } else if (item.type === 'orphan-story') {
             html += renderStoryCardInFeed(item.data);
           }
         });
@@ -1304,55 +1342,8 @@
     }
     
     function renderStoryCardInFeed(story) {
-      const platformEmoji = { windows: '🪟', mac: '🍎', ios: '📱' };
-      const fruitItems = story.lowHangingFruit || [];
-      const sideItems = story.onTheSide || [];
-      const bigItems = story.biggerThoughts || [];
-      
-      const time = new Date(story.createdAt).toLocaleTimeString('en-US', {
-        hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/Los_Angeles'
-      }) + ' PT';
-      
-      const tester = story.tester || 'Anonymous';
-      
-      // Build item previews (show first 2-3 items from each category)
-      let itemsHtml = '';
-      if (fruitItems.length > 0) {
-        const preview = fruitItems.slice(0, 2).map(i => i.title).join(', ');
-        const more = fruitItems.length > 2 ? ` +${fruitItems.length - 2}` : '';
-        itemsHtml += `<div class="story-items-preview fruit">🍎 ${preview}${more}</div>`;
-      }
-      if (sideItems.length > 0) {
-        const preview = sideItems.slice(0, 2).map(i => i.title).join(', ');
-        const more = sideItems.length > 2 ? ` +${sideItems.length - 2}` : '';
-        itemsHtml += `<div class="story-items-preview side">🍟 ${preview}${more}</div>`;
-      }
-      if (bigItems.length > 0) {
-        const preview = bigItems.slice(0, 2).map(i => i.title).join(', ');
-        const more = bigItems.length > 2 ? ` +${bigItems.length - 2}` : '';
-        itemsHtml += `<div class="story-items-preview big">💭 ${preview}${more}</div>`;
-      }
-      
-      return `
-        <div class="build-card story-feed-card" data-story-id="${story._id}">
-          <div class="build-header">
-            <span class="platform-tag platform-story">📝 Story</span>
-            <span class="project-name">SpiderLily ${story.buildVersion}</span>
-            <a href="#story/${story._id}" class="story-view-link" onclick="event.preventDefault(); viewStory('${story._id}')">Read Story →</a>
-            <button class="copy-llm-btn copy-llm-feed" onclick="event.stopPropagation(); copyStoryForLLMById('${story._id}')">📋 Copy for LLM</button>
-            <span class="build-tags">
-              <span class="build-tag">${platformEmoji[story.buildPlatform] || '📦'} ${story.buildPlatform}</span>
-            </span>
-          </div>
-          <div class="meta" style="margin-top: 0.75rem;">
-            by <strong>${tester}</strong> · <span class="story-summary">"${story.summary || 'No summary'}"</span>
-          </div>
-          ${itemsHtml ? `<div class="story-items-container">${itemsHtml}</div>` : ''}
-          <div class="meta story-time">
-            🍎 ${fruitItems.length} · 🍟 ${sideItems.length} · 💭 ${bigItems.length} · ${time}
-          </div>
-        </div>
-      `;
+      // Delegate to shared renderStoryCard function
+      return renderStoryCard(story);
     }
 
     function renderBuildCard(build) {
@@ -1542,43 +1533,52 @@
     }
 
     function renderStoryCard(story) {
-      const fruitCount = (story.lowHangingFruit || []).length;
-      const sideCount = (story.onTheSide || []).length;
-      const bigCount = (story.biggerThoughts || []).length;
+      const platformEmoji = { windows: '🪟', mac: '🍎', ios: '📱' };
+      const fruitItems = story.lowHangingFruit || [];
+      const sideItems = story.onTheSide || [];
+      const bigItems = story.biggerThoughts || [];
       
-      const storyDate = new Date(story.createdAt);
-      const today = new Date().toDateString();
-      const yesterday = new Date(Date.now() - 86400000).toDateString();
-      
-      let dateLabel;
-      if (storyDate.toDateString() === today) {
-        dateLabel = 'Today';
-      } else if (storyDate.toDateString() === yesterday) {
-        dateLabel = 'Yesterday';
-      } else {
-        dateLabel = storyDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-      }
-      
-      const time = storyDate.toLocaleTimeString('en-US', {
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true,
-        timeZone: 'America/Los_Angeles'
+      const time = new Date(story.createdAt).toLocaleTimeString('en-US', {
+        hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/Los_Angeles'
       }) + ' PT';
       
       const tester = story.tester || 'Anonymous';
       
+      // Build item previews (show first 2-3 items from each category)
+      let itemsHtml = '';
+      if (fruitItems.length > 0) {
+        const preview = fruitItems.slice(0, 2).map(i => i.title).join(', ');
+        const more = fruitItems.length > 2 ? ` +${fruitItems.length - 2}` : '';
+        itemsHtml += `<div class="story-items-preview fruit">🍎 ${preview}${more}</div>`;
+      }
+      if (sideItems.length > 0) {
+        const preview = sideItems.slice(0, 2).map(i => i.title).join(', ');
+        const more = sideItems.length > 2 ? ` +${sideItems.length - 2}` : '';
+        itemsHtml += `<div class="story-items-preview side">🍟 ${preview}${more}</div>`;
+      }
+      if (bigItems.length > 0) {
+        const preview = bigItems.slice(0, 2).map(i => i.title).join(', ');
+        const more = bigItems.length > 2 ? ` +${bigItems.length - 2}` : '';
+        itemsHtml += `<div class="story-items-preview big">💭 ${preview}${more}</div>`;
+      }
+      
       return `
-        <div class="story-card" onclick="viewStory('${story._id}')">
-          <div class="story-card-header">
-            <span class="story-card-title">📝 Story by <strong>${tester}</strong></span>
-            <span class="story-card-date">${dateLabel} @ ${time}</span>
+        <div class="build-card story-feed-card" data-story-id="${story._id}" onclick="viewStory('${story._id}')">
+          <div class="build-header">
+            <span class="platform-tag platform-story">📝 Story</span>
+            <span class="project-name">SpiderLily ${story.buildVersion}</span>
+            <a href="#story/${story._id}" class="story-view-link" onclick="event.preventDefault(); event.stopPropagation(); viewStory('${story._id}')">Read Story →</a>
+            <button class="copy-llm-btn copy-llm-feed" onclick="event.stopPropagation(); copyStoryForLLMById('${story._id}')">📋 Copy for LLM</button>
+            <span class="build-tags">
+              <span class="build-tag">${platformEmoji[story.buildPlatform] || '📦'} ${story.buildPlatform}</span>
+            </span>
           </div>
-          <div class="story-card-summary">${story.summary || 'No summary'}</div>
-          <div class="story-card-stats">
-            <span class="stat stat-fruit">🍎 ${fruitCount} low-hanging</span>
-            <span class="stat stat-side">🍟 ${sideCount} on the side</span>
-            <span class="stat stat-big">💭 ${bigCount} bigger thought${bigCount !== 1 ? 's' : ''}</span>
+          <div class="meta" style="margin-top: 0.75rem;">
+            by <strong>${tester}</strong> · <span class="story-summary">"${story.summary || 'No summary'}"</span>
+          </div>
+          ${itemsHtml ? `<div class="story-items-container">${itemsHtml}</div>` : ''}
+          <div class="meta story-time">
+            🍎 ${fruitItems.length} · 🍟 ${sideItems.length} · 💭 ${bigItems.length} · ${time}
           </div>
         </div>
       `;
