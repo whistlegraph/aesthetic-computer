@@ -6886,36 +6886,26 @@
           return;
         }
         
-        // Hide define temporarily to prevent UMD scripts from using AMD
-        // Can't delete non-configurable properties, so set to undefined instead
-        const originalDefine = window.define;
-        try {
-          window.define = undefined;
-        } catch (e) {
-          // If we can't modify define, proceed anyway - the script may still work
-          console.warn('Could not hide define for script load:', e);
+        // Temporarily hide define.amd to prevent UMD scripts from using AMD
+        // We preserve the define function itself since Monaco may be using it async
+        const hadAmd = window.define && window.define.amd;
+        const originalAmd = hadAmd ? window.define.amd : undefined;
+        if (window.define && window.define.amd) {
+          window.define.amd = undefined;
         }
         
         const script = document.createElement('script');
         script.src = src;
         script.onload = () => {
-          // Restore define after script loads
-          if (originalDefine) {
-            try {
-              window.define = originalDefine;
-            } catch (e) {
-              console.warn('Could not restore define:', e);
-            }
+          // Restore define.amd after script loads
+          if (hadAmd && window.define) {
+            window.define.amd = originalAmd;
           }
           resolve();
         };
         script.onerror = () => {
-          if (originalDefine) {
-            try {
-              window.define = originalDefine;
-            } catch (e) {
-              console.warn('Could not restore define:', e);
-            }
+          if (hadAmd && window.define) {
+            window.define.amd = originalAmd;
           }
           reject(new Error(`Failed to load ${src}`));
         };
