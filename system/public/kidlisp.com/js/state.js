@@ -4,8 +4,6 @@
  * All application state in one place with reactive updates via events.
  */
 
-import { sendTheme } from './playback.js';
-
 // ============================================
 // STATE OBJECT
 // ============================================
@@ -150,7 +148,13 @@ export const actions = {
     setState('theme', theme);
     localStorage.setItem('kidlisp-theme', theme);
     document.documentElement.setAttribute('data-theme', theme);
-    sendTheme(theme); // Sync theme to iframe
+    // Send theme to iframe directly (avoiding circular import)
+    if (state.previewIframe?.contentWindow) {
+      state.previewIframe.contentWindow.postMessage(
+        { type: 'kidlisp-theme', theme },
+        state.aestheticUrl
+      );
+    }
   },
   
   // Language actions
