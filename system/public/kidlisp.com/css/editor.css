@@ -252,51 +252,8 @@
   background-color: #2a2520 !important;
 }
 
-/* Selection highlighting - Monaco uses .selected-text divs for selection */
-/* Force visibility for ALL themes with high specificity */
-.monaco-editor .selected-text,
-.monaco-editor .view-overlays .selected-text,
-.monaco-editor .selections .selected-text,
-.monaco-editor .view-overlays > div > .selected-text,
-.monaco-editor.vs .selected-text,
-.monaco-editor.vs-dark .selected-text {
-  background-color: rgba(255, 140, 0, 0.6) !important;
-  background: rgba(255, 140, 0, 0.6) !important;
-}
-
-/* Ensure selection layer is visible above line backgrounds */
-.monaco-editor .view-overlays {
-  z-index: 10;
-}
-
-/* Dark mode - prefers-color-scheme */
-@media (prefers-color-scheme: dark) {
-  .monaco-editor .selected-text,
-  .monaco-editor .view-overlays .selected-text,
-  .monaco-editor .selections .selected-text,
-  .monaco-editor .view-overlays > div > .selected-text,
-  .monaco-editor.vs-dark .selected-text {
-    background-color: rgba(255, 140, 0, 0.8) !important;
-    background: rgba(255, 140, 0, 0.8) !important;
-  }
-}
-
-/* Theme-specific overrides using data-theme attribute */
-[data-theme="light"] .monaco-editor .selected-text,
-[data-theme="light"] .monaco-editor .view-overlays .selected-text,
-[data-theme="light"] .monaco-editor .selections .selected-text,
-[data-theme="light"] .monaco-editor .view-overlays > div > .selected-text {
-  background-color: rgba(255, 140, 0, 0.5) !important;
-  background: rgba(255, 140, 0, 0.5) !important;
-}
-
-[data-theme="dark"] .monaco-editor .selected-text,
-[data-theme="dark"] .monaco-editor .view-overlays .selected-text,
-[data-theme="dark"] .monaco-editor .selections .selected-text,
-[data-theme="dark"] .monaco-editor .view-overlays > div > .selected-text {
-  background-color: rgba(255, 140, 0, 0.8) !important;
-  background: rgba(255, 140, 0, 0.8) !important;
-}
+/* Selection highlighting - Let Monaco's theme handle it via editor.selectionBackground */
+/* Only use CSS as fallback for ::selection pseudo-element */
 
 /* Fallback ::selection for copy/paste operations */
 .monaco-editor *::selection {
@@ -315,12 +272,6 @@
   .monaco-editor .view-line *::selection {
     background-color: rgba(255, 140, 0, 0.8) !important;
   }
-}
-
-[data-theme="light"] .monaco-editor *::selection,
-[data-theme="light"] .monaco-editor .view-line::selection,
-[data-theme="light"] .monaco-editor .view-line *::selection {
-  background-color: rgba(255, 140, 0, 0.6) !important;
 }
 
 [data-theme="dark"] .monaco-editor *::selection,
