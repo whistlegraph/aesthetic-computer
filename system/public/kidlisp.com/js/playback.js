@@ -44,6 +44,10 @@ export function sendStop() {
   return sendToIframe('kidlisp-stop');
 }
 
+export function sendTheme(theme) {
+  return sendToIframe('kidlisp-theme', { theme });
+}
+
 // ============================================
 // PLAYBACK ACTIONS
 // ============================================
