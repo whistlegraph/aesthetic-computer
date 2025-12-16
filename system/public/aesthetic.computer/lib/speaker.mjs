@@ -102,7 +102,6 @@ class SpeakerProcessor extends AudioWorkletProcessor {
     this.#bpm = options.processorOptions.bpm;
     this.#bpmInSec = 60 / this.#bpm;
     this.#ticks = this.#bpmInSec;
-    console.log("🔊 Worklet initialized: bpm=", this.#bpm, "bpmInSec=", this.#bpmInSec, "ticks=", this.#ticks);
 
     volume.amount.val = 0.9; // Set global volume.
 
@@ -546,17 +545,6 @@ class SpeakerProcessor extends AudioWorkletProcessor {
 
   #processAudio(inputs, outputs, time) {
     
-    // DEBUG: Log that process is running (once per second)
-    if (this.#lastTime && Math.floor(time) !== Math.floor(this.#lastTime)) {
-      console.log("🔊 Worklet process running, time:", time.toFixed(2), "ticks:", this.#ticks?.toFixed(3), "bpmInSec:", this.#bpmInSec);
-    }
-    
-    // 🎵 TIMELINE SYNC LOGGING - Track audio worklet timing for mini timeline sync
-    // Log audio timing every few seconds to monitor sync drift
-    if (Math.floor(time * 10) % 50 === 0) { // Every 5 seconds
-      console.log(`🎵 WORKLET_TIME: ${time.toFixed(6)}s, sampleRate=${sampleRate}, frame=${currentFrame}`);
-    }
-    
     // 0️⃣ Waveform Tracking
     let waveformLeft = [];
     let waveformRight = [];
@@ -569,8 +557,6 @@ class SpeakerProcessor extends AudioWorkletProcessor {
     // const timeTillNextBeat = this.#ticks / this.#bpmInSec;
 
     if (this.#ticks >= this.#bpmInSec) {
-      // 🎵 BEAT SYNC LOGGING - Critical for timeline sync
-      console.log(`🎵 BEAT: ${time.toFixed(6)}s, bpm=${this.#bpm}, interval=${this.#bpmInSec.toFixed(3)}s, tick_overflow=${(this.#ticks - this.#bpmInSec).toFixed(6)}s`);
       this.#ticks = 0;
       this.#report("metronome", time);
     }

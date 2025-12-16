@@ -312,6 +312,19 @@ export const handler = stream(async (event, context) => {
       }
 
       await send("progress", { stage: "validate", message: "Validation passed ✓" });
+      
+      // Send piece details for client display
+      const ownerHandle = await handleFor(piece.user);
+      await send("progress", { 
+        stage: "details", 
+        piece: pieceName,
+        source: piece.source,
+        author: ownerHandle || userHandle,
+        createdAt: piece.createdAt || piece.when,
+        updatedAt: piece.updatedAt,
+        sourceLength: piece.source?.length || 0,
+      });
+      
       // Note: Keep database connection open - we need it later for user lookup and status update
       
       // Check for cached IPFS media (reuse if source hasn't changed)
@@ -333,8 +346,25 @@ export const handler = stream(async (event, context) => {
       // ═══════════════════════════════════════════════════════════════════
       let thumbnailPromise = null;
       
+      // Calculate thumbnail dimensions based on screen aspect ratio
+      // Max 128px on longest side at 2x density = 256px actual
+      const screenW = body.screenWidth || 128;
+      const screenH = body.screenHeight || 128;
+      const maxSize = 128; // Base size (will be 2x for density)
+      const aspect = screenW / screenH;
+      let thumbW, thumbH;
+      if (aspect >= 1) {
+        // Landscape or square
+        thumbW = maxSize;
+        thumbH = Math.round(maxSize / aspect);
+      } else {
+        // Portrait
+        thumbH = maxSize;
+        thumbW = Math.round(maxSize * aspect);
+      }
+      
       if (!useCachedMedia) {
-        await send("progress", { stage: "thumbnail", message: "Starting thumbnail generation..." });
+        await send("progress", { stage: "thumbnail", message: `Baking ${thumbW * 2}x${thumbH * 2} WebP...` });
         
         // Helper to try oven thumbnail generation
         const tryOvenThumbnail = async (ovenUrl) => {
@@ -344,8 +374,8 @@ export const handler = stream(async (event, context) => {
           body: JSON.stringify({
             piece: `$${pieceName}`,
             format: "webp",
-            width: 96,
-            height: 96,
+            width: thumbW,
+            height: thumbH,
             density: 2,
             duration: 8000,
             fps: 10,
@@ -397,7 +427,7 @@ export const handler = stream(async (event, context) => {
       let bundleHtml, bundleFilename, authorHandle, userCode, packDate, depCount;
       
       if (!useCachedMedia) {
-        await send("progress", { stage: "bundle", message: "Generating HTML bundle..." });
+        await send("progress", { stage: "bundle", message: "Packing HTML bundle..." });
         
         const bundleUrl = dev 
           ? `https://localhost:8888/api/bundle-html?code=${pieceName}&format=json`
@@ -419,22 +449,26 @@ export const handler = stream(async (event, context) => {
         userCode = bundleData.userCode;
         packDate = bundleData.packDate;
         depCount = bundleData.depCount || 0;
-
-        await send("progress", { stage: "bundle", message: "Bundle generated ✓" });
+        
+        // Calculate bundle size
+        const bundleSize = Math.round(bundleHtml.length / 1024);
+        await send("progress", { stage: "bundle", message: `Packed ${bundleSize}KB · ${depCount} deps` });
       } else {
         // Use cached values
         authorHandle = piece.ipfsMedia.authorHandle || `@${userHandle}`;
         userCode = piece.ipfsMedia.userCode;
         packDate = piece.ipfsMedia.packDate;
         depCount = piece.ipfsMedia.depCount || 0;
-        await send("progress", { stage: "bundle", message: "Using cached bundle ✓" });
+        // Show cache date
+        const cacheDate = piece.ipfsMedia.createdAt ? new Date(piece.ipfsMedia.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "cached";
+        await send("progress", { stage: "bundle", message: `Using cached · ${cacheDate}` });
       }
 
       // ═══════════════════════════════════════════════════════════════════
       // STAGE 5: UPLOAD BUNDLE TO IPFS (skip if cached)
       // ═══════════════════════════════════════════════════════════════════
       if (!useCachedMedia) {
-        await send("progress", { stage: "ipfs", message: "Uploading bundle to IPFS..." });
+        await send("progress", { stage: "ipfs", message: "Pinning bundle..." });
         
         artifactUri = await uploadToIPFS(
           bundleHtml, 
@@ -442,14 +476,20 @@ export const handler = stream(async (event, context) => {
           "text/html"
         );
         
-        await send("progress", { stage: "ipfs", message: "Bundle uploaded ✓" });
+        // Show full IPFS hash
+        const hash = artifactUri.replace("ipfs://", "");
+        await send("progress", { stage: "ipfs", message: `Pinned ${hash}` });
+      } else {
+        // Show cached IPFS hash (full)
+        const hash = artifactUri.replace("ipfs://", "");
+        await send("progress", { stage: "ipfs", message: `Cached ${hash}` });
       }
 
       // ═══════════════════════════════════════════════════════════════════
       // STAGE 6: AWAIT THUMBNAIL (skip if cached)
       // ═══════════════════════════════════════════════════════════════════
       if (!useCachedMedia) {
-        await send("progress", { stage: "thumbnail", message: "Waiting for thumbnail..." });
+        await send("progress", { stage: "thumbnail", message: "Baking 256x256 WebP..." });
         
         const thumbResult = await thumbnailPromise;
         
@@ -458,10 +498,11 @@ export const handler = stream(async (event, context) => {
         }
         
         thumbnailUri = thumbResult.ipfsUri;
+        const thumbHash = thumbnailUri.replace("ipfs://", "");
         
         await send("progress", { 
           stage: "thumbnail", 
-          message: "Thumbnail ready ✓"
+          message: `Baked ${thumbHash.slice(0, 12)}..`
         });
         
         // Cache the IPFS media in MongoDB for future use
@@ -484,7 +525,8 @@ export const handler = stream(async (event, context) => {
         );
         console.log(`🪙 KEEP: Cached IPFS media for $${pieceName}`);
       } else {
-        await send("progress", { stage: "thumbnail", message: "Using cached thumbnail ✓" });
+        const thumbHash = thumbnailUri.replace("ipfs://", "");
+        await send("progress", { stage: "thumbnail", message: `Cached ${thumbHash.slice(0, 12)}..` });
       }
 
       // ═══════════════════════════════════════════════════════════════════
@@ -622,6 +664,8 @@ export const handler = stream(async (event, context) => {
           thumbnailUri,
           metadataUri,
           rpcUrl: RPC_URL,
+          usedCachedMedia: useCachedMedia, // Tell client if we reused IPFS pins
+          cacheGeneratedAt: useCachedMedia ? piece.ipfsMedia?.createdAt : null, // When cache was generated
         });
         return;
       }
