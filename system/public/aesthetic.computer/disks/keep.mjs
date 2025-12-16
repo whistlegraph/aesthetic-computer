@@ -2,7 +2,7 @@
 // Mint a piece as a KEEP NFT on Tezos with live timeline feedback.
 // Usage: `keep piece-name` or `keep $piece-name`
 
-import { tokenize } from "../lib/kidlisp.mjs";
+import { tokenize, KidLisp } from "../lib/kidlisp.mjs";
 
 const { min, max, floor, sin, cos, PI, abs } = Math;
 
@@ -18,6 +18,8 @@ let tokenId = null;
 let userHandle = null;
 let sourceCode = null;
 let pieceAuthor = null;
+let pieceCreatedAt = null; // When piece was created
+let pieceSourceLength = null; // Character count
 
 let rotation = 0;
 let startTime = null;
@@ -33,6 +35,11 @@ let thumbnailLastFrameTime = 0; // Time of last frame change
 let kidlispSource = null; // Source code for syntax highlighting
 let tickerOffset = 0; // For scrolling ticker
 
+// Carousel animation state
+let carouselTargetIndex = 0; // Target step index
+let carouselCurrentX = 0; // Animated X position for smooth sliding
+let lastActiveIndex = -1; // Track when active step changes
+
 // Timeline - the heart of the UX
 let timeline = [];
 
@@ -41,11 +48,11 @@ function resetTimeline() {
     { id: "wallet", label: "Connect Wallet", status: "pending", detail: null, time: null, startedAt: null, duration: 500 },
     { id: "validate", label: "Validate Piece", status: "pending", detail: null, time: null, startedAt: null, duration: 2000 },
     { id: "analyze", label: "Analyze Source", status: "pending", detail: null, time: null, startedAt: null, duration: 1500 },
-    { id: "thumbnail", label: "Generate Preview", status: "pending", detail: null, time: null, startedAt: null, duration: 8000 },
-    { id: "bundle", label: "Bundle Assets", status: "pending", detail: null, time: null, startedAt: null, duration: 3000 },
-    { id: "ipfs", label: "Upload to IPFS", status: "pending", detail: null, time: null, startedAt: null, duration: 5000 },
-    { id: "metadata", label: "Create Metadata", status: "pending", detail: null, time: null, startedAt: null, duration: 2000 },
-    { id: "review", label: "Review & Confirm", status: "pending", detail: null, time: null, startedAt: null, duration: null },
+    { id: "thumbnail", label: "Bake Thumbnail", status: "pending", detail: null, time: null, startedAt: null, duration: 8000 },
+    { id: "bundle", label: "Pack HTML Bundle", status: "pending", detail: null, time: null, startedAt: null, duration: 3000 },
+    { id: "ipfs", label: "Pin to IPFS", status: "pending", detail: null, time: null, startedAt: null, duration: 5000 },
+    { id: "metadata", label: "Build Metadata", status: "pending", detail: null, time: null, startedAt: null, duration: 2000 },
+    { id: "review", label: "Pay Keep Toll", status: "pending", detail: null, time: null, startedAt: null, duration: null },
     { id: "sign", label: "Sign Transaction", status: "pending", detail: null, time: null, startedAt: null, duration: 30000 },
     { id: "complete", label: "Mint Complete!", status: "pending", detail: null, time: null, startedAt: null, duration: 500 },
   ];
@@ -341,7 +348,103 @@ async function loadKidlispSource() {
   }
 }
 
-// Syntax highlight KidLisp source code
+// Parse color name/string to RGB (like prompt.mjs)
+function parseColorName(colorName) {
+  if (!colorName) return { r: 200, g: 200, b: 200 };
+  
+  // Handle RGB format colors (like "192,192,192")
+  if (colorName.includes(',')) {
+    const parts = colorName.split(',').map(p => parseInt(p.trim()));
+    return { r: parts[0] || 200, g: parts[1] || 200, b: parts[2] || 200 };
+  }
+  
+  // Handle named colors
+  const colorMap = {
+    'cyan': { r: 64, g: 224, b: 208 },
+    'teal': { r: 64, g: 224, b: 208 },
+    'lime': { r: 50, g: 205, b: 50 },
+    'green': { r: 34, g: 139, b: 34 },
+    'mediumseagreen': { r: 60, g: 179, b: 113 },
+    'yellow': { r: 255, g: 255, b: 0 },
+    'orange': { r: 255, g: 165, b: 0 },
+    'purple': { r: 128, g: 0, b: 128 },
+    'magenta': { r: 255, g: 0, b: 255 },
+    'red': { r: 255, g: 0, b: 0 },
+    'gray': { r: 128, g: 128, b: 128 },
+    'grey': { r: 128, g: 128, b: 128 },
+    'white': { r: 255, g: 255, b: 255 },
+    'pink': { r: 255, g: 182, b: 193 },
+    'blue': { r: 70, g: 130, b: 180 },
+    'navy': { r: 0, g: 0, b: 128 },
+    'gold': { r: 255, g: 215, b: 0 },
+    'silver': { r: 192, g: 192, b: 192 },
+  };
+  
+  return colorMap[colorName.toLowerCase()] || { r: 200, g: 200, b: 200 };
+}
+
+// Build a color-coded string for write() using \r,g,b\text syntax
+// This lets the write() function handle natural spacing
+function buildColoredSourceString(source) {
+  if (!source) return "";
+  
+  try {
+    const tokens = tokenize(source);
+    let result = "";
+    
+    // Create KidLisp instance for proper color mapping
+    const tempKidlisp = new KidLisp();
+    tempKidlisp.syntaxHighlightSource = source;
+    tempKidlisp.isEditMode = true;
+    
+    // Track position in original source to preserve spacing
+    let sourceIdx = 0;
+    
+    for (let i = 0; i < tokens.length; i++) {
+      const token = tokens[i];
+      
+      // Find this token in the source to get any preceding whitespace
+      const tokenPos = source.indexOf(token, sourceIdx);
+      if (tokenPos > sourceIdx) {
+        // Add any whitespace between tokens (use gray color)
+        const ws = source.slice(sourceIdx, tokenPos);
+        result += `\\128,128,128\\${ws}`;
+      }
+      sourceIdx = tokenPos + token.length;
+      
+      // Handle fade: expressions specially
+      if (token.startsWith('fade:')) {
+        const coloredFadeString = tempKidlisp.colorFadeExpression(token);
+        // The colorFadeExpression returns \colorname\text format - convert to RGB
+        const segments = coloredFadeString.split('\\').filter(s => s);
+        for (let j = 0; j < segments.length; j += 2) {
+          const segmentColor = segments[j];
+          const segmentText = segments[j + 1] || '';
+          const rgb = parseColorName(segmentColor);
+          result += `\\${rgb.r},${rgb.g},${rgb.b}\\${segmentText}`;
+        }
+      } else {
+        // Get color from KidLisp instance
+        const colorName = tempKidlisp.getTokenColor(token, tokens, i);
+        const rgb = parseColorName(colorName);
+        
+        // Special override for @handles
+        if (token.startsWith("@")) {
+          result += `\\100,255,200\\${token}`; // Bright teal
+        } else {
+          result += `\\${rgb.r},${rgb.g},${rgb.b}\\${token}`;
+        }
+      }
+    }
+    
+    return result;
+  } catch (e) {
+    console.error("🪙 KEEP: Color string build error:", e);
+    return source; // Return plain source on error
+  }
+}
+
+// Legacy function for compatibility - returns token array
 function syntaxHighlightKidlisp(source) {
   if (!source) return [];
   
@@ -349,39 +452,38 @@ function syntaxHighlightKidlisp(source) {
     const tokens = tokenize(source);
     const highlighted = [];
     
-    // Color mapping for different token types
-    const isFunction = (t) => ["wipe", "ink", "line", "box", "circle", "write", "paste", 
-      "stamp", "point", "poly", "embed", "def", "if", "cond", "repeat", "later", "once",
-      "lambda", "let", "do", "+", "-", "*", "/", "%", "=", ">", "<", "sin", "cos", "tan",
-      "floor", "ceil", "round", "random", "abs", "sqrt", "min", "max", "now", "frame",
-      "width", "height", "tap", "draw", "bake", "jump", "wiggle", "rainbow", "zoom"].includes(t);
+    // Create KidLisp instance for proper color mapping (like prompt.mjs)
+    const tempKidlisp = new KidLisp();
+    tempKidlisp.syntaxHighlightSource = source;
+    tempKidlisp.isEditMode = true; // Enable edit mode to prevent transparent text
     
-    const isNumber = (t) => /^-?\d+(\.\d+)?$/.test(t);
-    const isString = (t) => (t.startsWith('"') && t.endsWith('"')) || (t.startsWith("'") && t.endsWith("'"));
-    const isColor = (t) => ["red", "green", "blue", "yellow", "orange", "purple", "pink",
-      "cyan", "magenta", "white", "black", "gray", "lime", "teal", "navy", "maroon"].includes(t);
-    const isTiming = (t) => /^\d*\.?\d+s\.?\.?\.?!?$/.test(t);
-    
-    for (const token of tokens) {
-      let color;
-      if (token === "(" || token === ")") {
-        color = [150, 150, 150]; // Gray parens
-      } else if (isFunction(token)) {
-        color = [100, 220, 255]; // Cyan for functions
-      } else if (isNumber(token)) {
-        color = [255, 200, 100]; // Orange for numbers
-      } else if (isString(token)) {
-        color = [150, 255, 150]; // Green for strings
-      } else if (isColor(token)) {
-        color = [255, 150, 255]; // Pink for color names
-      } else if (isTiming(token)) {
-        color = [255, 255, 100]; // Yellow for timing
-      } else if (token.startsWith("$")) {
-        color = [100, 255, 180]; // Teal for $codes
+    for (let i = 0; i < tokens.length; i++) {
+      const token = tokens[i];
+      
+      // Handle fade: expressions specially (like prompt.mjs)
+      if (token.startsWith('fade:')) {
+        const coloredFadeString = tempKidlisp.colorFadeExpression(token);
+        // Parse the colored fade string format: \color1\text1\color2\text2...
+        const segments = coloredFadeString.split('\\').filter(s => s);
+        
+        for (let j = 0; j < segments.length; j += 2) {
+          const segmentColor = segments[j];
+          const segmentText = segments[j + 1] || '';
+          const rgb = parseColorName(segmentColor);
+          highlighted.push({ token: segmentText, color: [rgb.r, rgb.g, rgb.b] });
+        }
       } else {
-        color = [200, 200, 220]; // Light gray for variables
+        // Get color from KidLisp instance
+        const colorName = tempKidlisp.getTokenColor(token, tokens, i);
+        const rgb = parseColorName(colorName);
+        
+        // Special override for @handles
+        if (token.startsWith("@")) {
+          highlighted.push({ token, color: [100, 255, 200] }); // Bright teal
+        } else {
+          highlighted.push({ token, color: [rgb.r, rgb.g, rgb.b] });
+        }
       }
-      highlighted.push({ token, color });
     }
     
     return highlighted;
@@ -395,6 +497,12 @@ async function runProcess() {
   console.log("🪙 KEEP: Starting mint process for $" + piece);
   
   // === STEP 1: Connect Wallet ===
+  // Reset timer when process actually starts (not counting initial checks)
+  startTime = Date.now();
+  
+  // Start getting auth token in parallel (don't await yet)
+  const tokenPromise = _net?.getToken?.();
+  
   setStep("wallet", "active", "Checking wallet...");
   try {
     walletAddress = await _api.tezos.address();
@@ -406,7 +514,9 @@ async function runProcess() {
       setStep("wallet", "error", "Connection cancelled");
       return;
     }
-    setStep("wallet", "done", walletAddress);
+    // Show truncated address with network
+    const shortAddr = walletAddress.slice(0, 6) + ".." + walletAddress.slice(-4);
+    setStep("wallet", "done", `${shortAddr} on Ghostnet`);
   } catch (e) {
     setStep("wallet", "error", e.message);
     return;
@@ -415,15 +525,26 @@ async function runProcess() {
   // === STEPS 2-7: Server Preparation ===
   setStep("validate", "active", `Validating $${piece}...`);
   
+  // Get current screen dimensions for thumbnail aspect ratio
+  const screenWidth = _screen?.width || 128;
+  const screenHeight = _screen?.height || 128;
+  
   try {
-    const token = await _net?.getToken?.();
+    // Await the token that was fetching in parallel
+    const token = await tokenPromise;
     const response = await fetch("/api/keep-mint", {
       method: "POST",
       headers: { 
         "Content-Type": "application/json",
         ...(token ? { "Authorization": `Bearer ${token}` } : {}),
       },
-      body: JSON.stringify({ piece, walletAddress, network: "ghostnet" }),
+      body: JSON.stringify({ 
+        piece, 
+        walletAddress, 
+        network: "ghostnet",
+        screenWidth,
+        screenHeight,
+      }),
     });
     
     if (!response.ok) {
@@ -458,41 +579,73 @@ async function runProcess() {
         if (!firstEvent) await delay(STEP_DELAY);
         firstEvent = false;
         
+        // Check if message indicates cached/reused content
+        const isCached = message?.includes("cached") || message?.includes("Cached");
+        
+        // Handle each stage - server may send in any order when using cache
         if (stage === "validate") {
-          setStep("validate", "done", `$${piece} exists`);
-          await delay(STEP_DELAY);
-          setStep("analyze", "active", "Reading source...");
+          // Only mark done on final validation message
+          if (message?.includes("passed") || message?.includes("✓")) {
+            setStep("validate", "done", `$${piece} verified`);
+          } else if (message?.includes("Authenticated")) {
+            setStep("validate", "active", message);
+          } else {
+            setStep("validate", "active", message || "Validating...");
+          }
+        } else if (stage === "details") {
+          // Capture piece details from server
+          if (eventData.source) sourceCode = eventData.source;
+          if (eventData.author) pieceAuthor = eventData.author;
+          if (eventData.createdAt) pieceCreatedAt = eventData.createdAt;
+          if (eventData.sourceLength) pieceSourceLength = eventData.sourceLength;
+          console.log("🪙 KEEP: Piece details received", { pieceAuthor, pieceCreatedAt, pieceSourceLength });
         } else if (stage === "analyze") {
           if (source) sourceCode = source;
           if (author) pieceAuthor = author;
-          const authorInfo = pieceAuthor ? `by @${pieceAuthor}` : "Source analyzed";
-          setStep("analyze", "done", authorInfo);
-          await delay(STEP_DELAY);
-          setStep("thumbnail", "active", "Rendering preview...");
+          // Mark done if we have complexity info or it's done
+          if (message?.includes("complexity") || message?.includes("✓")) {
+            const authorInfo = pieceAuthor ? `by @${pieceAuthor}` : "Analyzed";
+            setStep("analyze", "done", authorInfo);
+          } else {
+            setStep("analyze", "active", "Analyzing...");
+          }
         } else if (stage === "thumbnail") {
-          setStep("thumbnail", "done", "256x256 PNG");
-          await delay(STEP_DELAY);
-          setStep("bundle", "active", "Bundling HTML...");
+          const detail = isCached ? "Cached" : message || "WebP ready";
+          setStep("thumbnail", "done", detail);
         } else if (stage === "bundle") {
-          setStep("bundle", "done", "Standalone HTML");
-          await delay(STEP_DELAY);
-          setStep("ipfs", "active", "Pinning to IPFS...");
+          const detail = isCached ? "Cached" : message || "HTML packed";
+          setStep("bundle", "done", detail);
         } else if (stage === "ipfs") {
-          setStep("ipfs", "done", "3 files pinned");
-          await delay(STEP_DELAY);
-          setStep("metadata", "active", "Building metadata...");
+          const detail = isCached ? "Cached" : message || "Pinned";
+          setStep("ipfs", "done", detail);
         } else if (stage === "metadata") {
-          setStep("metadata", "done", "FA2 metadata ready");
+          // Mark done if uploaded
+          if (message?.includes("uploaded") || message?.includes("✓")) {
+            setStep("metadata", "done", "FA2 ready");
+          } else {
+            setStep("metadata", "active", "Building...");
+          }
         } else if (stage === "ready") {
+          // Mark all intermediate steps done if not already
+          for (const stepId of ["validate", "analyze", "thumbnail", "bundle", "ipfs", "metadata"]) {
+            const step = timeline.find(t => t.id === stepId);
+            if (step && step.status !== "done") {
+              setStep(stepId, "done", step.detail || "Done");
+            }
+          }
           await delay(STEP_DELAY);
-          setStep("review", "active", "Review & confirm");
+          setStep("review", "active", null); // Button speaks for itself
         }
       }
       
       if (eventType === "prepared" && eventData) {
         preparedData = eventData;
         await delay(STEP_DELAY);
-        setStep("review", "active", `${preparedData.mintFee} XTZ · Review below`);
+        setStep("review", "active", null); // No detail text - button speaks for itself
+        // Load thumbnail for preview during minting
+        if (preparedData.thumbnailUri) {
+          loadThumbnail(preparedData.thumbnailUri);
+        }
       } else if (eventType === "error" && eventData) {
         const active = getActiveStep();
         if (active) setStep(active.id, "error", eventData.error || eventData.message);
@@ -511,7 +664,7 @@ async function runProcess() {
 }
 
 async function signAndMint() {
-  setStep("review", "done", "Confirmed");
+  setStep("review", "done", "Toll paid");
   setStep("sign", "active", "Check your wallet...");
   
   try {
@@ -522,7 +675,7 @@ async function signAndMint() {
       preparedData.mintFee
     );
     
-    setStep("sign", "done", `TX: ${txHash.slice(0, 8)}...`);
+    setStep("sign", "done", `TX: ${txHash}`);
     setStep("complete", "active", "Confirming on-chain...");
     
     // Wait and fetch token ID
@@ -629,6 +782,16 @@ function sim() {
   if (alreadyMinted && kidlispSource) {
     tickerOffset += 0.5;
   }
+  
+  // Carousel animation - smoothly slide to current step
+  const activeIdx = timeline.findIndex(t => t.status === "active");
+  if (activeIdx >= 0 && activeIdx !== lastActiveIndex) {
+    carouselTargetIndex = activeIdx;
+    lastActiveIndex = activeIdx;
+  }
+  // Smooth interpolation toward target
+  const targetX = carouselTargetIndex * 100; // 100 units per step
+  carouselCurrentX += (targetX - carouselCurrentX) * 0.08; // Ease toward target
   
   // Animate thumbnail frames if we have an animated WebP
   if (thumbnailFrames && thumbnailFrames.frameCount > 1) {
@@ -810,33 +973,25 @@ function paint({ wipe, ink, box, screen, paste }) {
     
     // Syntax-highlighted source code ticker
     if (kidlispSource) {
-      const highlighted = syntaxHighlightKidlisp(kidlispSource);
-      
       // Ticker background
       ink(25, 35, 40, 200).box(0, y, w, 14);
       
-      // Calculate total width and draw ticker
-      let totalWidth = 0;
-      for (const { token } of highlighted) {
-        totalWidth += token.length * 4 + 2; // Approximate char width
-      }
+      // Build colored string with natural spacing
+      const coloredSource = buildColoredSourceString(kidlispSource);
+      const sourceLen = kidlispSource.length * 4;
       
       // Add gap between repeats
       const gap = 40;
-      const repeatWidth = totalWidth + gap;
+      const repeatWidth = sourceLen + gap;
       
       // Calculate starting x position (scrolling)
       let startX = -(tickerOffset % repeatWidth);
       
-      // Draw tokens (repeat for seamless scroll)
+      // Draw colored source using write() for natural spacing
       for (let repeat = 0; repeat < 3; repeat++) {
-        let x = startX + repeat * repeatWidth;
-        for (const { token, color } of highlighted) {
-          if (x > w) break;
-          if (x + token.length * 4 > 0) {
-            ink(color[0], color[1], color[2]).write(token, { x, y: y + 3 }, undefined, undefined, false, "MatrixChunky8");
-          }
-          x += token.length * 4 + 2;
+        const x = startX + repeat * repeatWidth;
+        if (x < w && x + sourceLen > 0) {
+          ink(200, 200, 200).write(coloredSource, { x, y: y + 3 }, undefined, undefined, false, "MatrixChunky8");
         }
       }
       y += 18;
@@ -939,12 +1094,115 @@ function paint({ wipe, ink, box, screen, paste }) {
   }
   
   const margin = 6;
-  let y = 4;
+  const HUD_RESERVED = 21; // Space reserved for HUD label (matches notepat.mjs TOP_BAR_BOTTOM)
+  let y = HUD_RESERVED;
   
-  // Header
-  ink(100, 220, 180).write(`KEEP $${piece}`, { x: w/2, y, center: "x" }, undefined, undefined, false, "MatrixChunky8");
-  y += 14;
+  // === Current Task & Progress Bar (below HUD) ===
+  const activeStep = getActiveStep();
+  const doneCount = timeline.filter(t => t.status === "done").length;
+  const totalSteps = timeline.length;
   
+  // Progress bar - color-coded by phase segments
+  const barY = y;
+  const barH = 4;
+  ink(30, 35, 45).box(0, barY, w, barH);
+  
+  // Draw each segment with its phase color
+  for (let i = 0; i < totalSteps; i++) {
+    const step = timeline[i];
+    const phase = PHASE_COLORS[step.id] || PHASE_COLORS.validate;
+    const segmentStart = floor(w * (i / totalSteps));
+    const segmentEnd = floor(w * ((i + 1) / totalSteps));
+    const segmentW = segmentEnd - segmentStart;
+    
+    if (step.status === "done") {
+      // Done: use phase label color at full brightness
+      ink(phase.label[0], phase.label[1], phase.label[2], 200).box(segmentStart, barY, segmentW, barH);
+    } else if (step.status === "active") {
+      // Active: pulsing phase color
+      const pulse = sin(rotation * 4) * 0.3 + 0.7;
+      ink(phase.label[0], phase.label[1], phase.label[2], floor(200 * pulse)).box(segmentStart, barY, segmentW, barH);
+    } else if (step.status === "error") {
+      // Error: red segment
+      ink(255, 100, 100, 200).box(segmentStart, barY, segmentW, barH);
+    }
+    // Segment divider
+    ink(50, 55, 65).box(segmentEnd - 1, barY, 1, barH);
+  }
+  y += barH + 4;
+  
+  // === STEP CAROUSEL (prev | CURRENT | next) ===
+  const carouselH = 20;
+  const carouselY = y;
+  ink(25, 30, 40).box(0, carouselY, w, carouselH); // Dark bg for carousel
+  
+  // Calculate which steps to show based on animated position
+  const stepSpacing = 100; // Virtual spacing between steps
+  const centerX = w / 2;
+  
+  // Draw each step label, positioned based on carousel animation
+  for (let i = 0; i < totalSteps; i++) {
+    const step = timeline[i];
+    const phase = PHASE_COLORS[step.id] || PHASE_COLORS.validate;
+    
+    // Calculate X position relative to carousel scroll
+    const stepVirtualX = i * stepSpacing;
+    const offsetFromCurrent = stepVirtualX - carouselCurrentX;
+    const screenX = centerX + offsetFromCurrent * 0.8; // Scale down for tighter spacing
+    
+    // Skip if way off screen
+    if (screenX < -80 || screenX > w + 80) continue;
+    
+    // Calculate opacity based on distance from center
+    const distFromCenter = abs(offsetFromCurrent);
+    const opacity = max(0, 1 - distFromCenter / 150);
+    
+    // Determine color and style
+    let labelColor, labelAlpha;
+    if (step.status === "active") {
+      labelColor = phase.label;
+      labelAlpha = 255;
+    } else if (step.status === "done") {
+      labelColor = phase.label.map(c => floor(c * 0.6));
+      labelAlpha = floor(180 * opacity);
+    } else if (step.status === "error") {
+      labelColor = [255, 100, 100];
+      labelAlpha = floor(200 * opacity);
+    } else {
+      labelColor = [80, 90, 110];
+      labelAlpha = floor(120 * opacity);
+    }
+    
+    // Draw step label
+    const label = step.status === "active" ? step.label.toUpperCase() : step.label;
+    const labelW = label.length * (step.status === "active" ? 6 : 4);
+    const textX = screenX - labelW / 2;
+    
+    if (step.status === "active") {
+      // Active step: larger, brighter, with glow
+      const pulse = sin(rotation * 3) * 0.15 + 0.85;
+      ink(labelColor[0], labelColor[1], labelColor[2], floor(255 * pulse)).write(label, { x: textX, y: carouselY + 5 });
+    } else {
+      // Other steps: smaller MatrixChunky8 font
+      ink(labelColor[0], labelColor[1], labelColor[2], labelAlpha).write(label, { x: textX, y: carouselY + 6 }, undefined, undefined, false, "MatrixChunky8");
+    }
+  }
+  
+  // Arrows indicating more steps
+  if (carouselTargetIndex > 0) {
+    ink(100, 110, 130, 150).write("<", { x: 4, y: carouselY + 6 }, undefined, undefined, false, "MatrixChunky8");
+  }
+  if (carouselTargetIndex < totalSteps - 1) {
+    ink(100, 110, 130, 150).write(">", { x: w - 8, y: carouselY + 6 }, undefined, undefined, false, "MatrixChunky8");
+  }
+  
+  y += carouselH + 2;
+  
+  // Step counter (small, centered)
+  const stepText = `${doneCount}/${totalSteps}`;
+  ink(100, 110, 130).write(stepText, { x: w/2, y, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+  y += 10;
+
   // Timeline with striped sections
   let shownPending = false;
   
@@ -996,19 +1254,82 @@ function paint({ wipe, ink, box, screen, paste }) {
       ink(...timeColor).write(item.time, { x: w - margin - 20, y: y + 2 }, undefined, undefined, false, "MatrixChunky8");
     }
     
-    // Detail line
-    if (item.detail && !isPending) {
+    // Detail line (with better contrast) - skip for review step when active (has custom button UI)
+    if (item.detail && !isPending && !(item.id === "review" && isActive && preparedData)) {
       let detailColor;
-      if (isItemError) detailColor = [200, 90, 90];
-      else if (isActive) detailColor = phase.detail.map(c => c + 30);
-      else detailColor = phase.detail;
+      if (isItemError) detailColor = [255, 120, 120];
+      else if (isActive) detailColor = [255, 255, 200]; // Bright yellow for active
+      else detailColor = [200, 210, 220]; // Light gray for done
       
       const maxLen = floor((w - 20) / 4);
       const truncated = item.detail.length > maxLen ? item.detail.slice(0, maxLen - 2) + ".." : item.detail;
+      // Dark background strip for readability
+      ink(0, 0, 0, 120).box(margin - 2, y + 10, truncated.length * 4 + 4, 10);
       ink(...detailColor).write(truncated, { x: margin, y: y + 11 }, undefined, undefined, false, "MatrixChunky8");
     }
     
     y += stripeH + 2; // Gap between stripes
+    
+    // === INLINE SOURCE MARQUEE (after analyze row) ===
+    if (item.id === "analyze" && (isDone || isActive) && sourceCode) {
+      const marqueeH = 12;
+      ink(35, 40, 50).box(0, y, w, marqueeH);
+      
+      // Build colored string with natural spacing preserved
+      const coloredSource = buildColoredSourceString(sourceCode);
+      const sourceLen = sourceCode.length * 4; // Approximate width
+      
+      // Only scroll if content is wider than screen
+      const needsScroll = sourceLen > w - margin * 2;
+      const gap = 40;
+      const repeatWidth = sourceLen + gap;
+      let startX = needsScroll ? (margin - (tickerOffset % repeatWidth)) : margin;
+      
+      // Draw colored source using write() for natural spacing
+      const repeats = needsScroll ? 2 : 1;
+      for (let repeat = 0; repeat < repeats; repeat++) {
+        const tx = startX + repeat * repeatWidth;
+        if (tx < w && tx + sourceLen > 0) {
+          ink(200, 200, 200).write(coloredSource, { x: tx, y: y + 2 }, undefined, undefined, false, "MatrixChunky8");
+        }
+      }
+      
+      // Author/stats on right
+      if (pieceAuthor || pieceSourceLength) {
+        const statsStr = pieceAuthor ? `@${pieceAuthor}` : (pieceSourceLength ? `${pieceSourceLength}c` : "");
+        const statsW = statsStr.length * 4;
+        ink(20, 25, 35).box(w - statsW - margin - 4, y, statsW + 8, marqueeH); // bg to cover ticker
+        // Bright teal for @author handles
+        const authorColor = pieceAuthor ? [100, 255, 200] : [100, 130, 150];
+        ink(authorColor[0], authorColor[1], authorColor[2]).write(statsStr, { x: w - margin - statsW, y: y + 2 }, undefined, undefined, false, "MatrixChunky8");
+      }
+      
+      y += marqueeH + 2;
+    }
+    
+    // === INLINE THUMBNAIL PREVIEW (only during review step) ===
+    if (item.id === "review" && isActive && thumbnailBitmap) {
+      const thumbH = 40;
+      const thumbSize = min(36, w - 20);
+      ink(30, 35, 45).box(0, y, w, thumbH);
+      const thumbX = margin;
+      paste(thumbnailBitmap, thumbX, y + 2, { scale: thumbSize / (thumbnailBitmap.width || 256) });
+      
+      // Show cache info or IPFS hash
+      let infoLabel = "";
+      if (preparedData?.usedCachedMedia && preparedData.cacheGeneratedAt) {
+        const date = new Date(preparedData.cacheGeneratedAt);
+        infoLabel = `Baked ${date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+      } else if (preparedData?.thumbnailUri) {
+        // Show full IPFS hash
+        const hash = preparedData.thumbnailUri.replace("ipfs://", "");
+        infoLabel = hash;
+      }
+      if (infoLabel) {
+        ink(80, 140, 120).write(infoLabel, { x: thumbX + thumbSize + 8, y: y + 14 }, undefined, undefined, false, "MatrixChunky8");
+      }
+      y += thumbH + 2;
+    }
     
     // IPFS links after metadata (inline text buttons)
     if (item.id === "metadata" && isDone && preparedData) {
@@ -1047,48 +1368,65 @@ function paint({ wipe, ink, box, screen, paste }) {
       }
       y += mc8ButtonSize("X").h + 4;
     }
+    
+    // === INLINE KEEP TOLL BUTTON (in review row) ===
+    if (item.id === "review" && isActive && preparedData) {
+      // Skip the normal detail rendering for review - button is the UI
+      const tollH = 24; // Bigger button
+      ink(40, 60, 45).box(0, y, w, tollH); // Darker green-tinted bg
+      
+      // Pay toll button centered (mixed font for ꜩ)
+      const tollText = `Pay ${preparedData.mintFee || 5}`;
+      const tezSymbol = "ꜩ";
+      const tollSuffix = " Toll";
+      const textW = tollText.length * 6; // default font
+      const symbolW = 8;
+      const suffixW = tollSuffix.length * 6; // default font
+      const totalTollW = textW + symbolW + suffixW + 16; // padding
+      const tollX = floor((w - totalTollW) / 2);
+      
+      // Button background
+      const tollScheme = btn.btn.down ? { bg: [80, 150, 100], text: [255, 255, 255] } : { bg: [60, 120, 80], text: [200, 255, 220] };
+      ink(tollScheme.bg[0], tollScheme.bg[1], tollScheme.bg[2]).box(tollX, y + 3, totalTollW, tollH - 6);
+      ink(100, 200, 140).box(tollX, y + 3, totalTollW, 1).box(tollX, y + tollH - 4, totalTollW, 1); // outline
+      
+      // Update button hitbox
+      btn.btn.box.x = tollX;
+      btn.btn.box.y = y + 3;
+      btn.btn.box.w = totalTollW;
+      btn.btn.box.h = tollH - 6;
+      btn.txt = tollText + tezSymbol + tollSuffix;
+      
+      // Draw text in default font (bigger): "Pay 5" + ꜩ + " Toll"
+      let textX = tollX + 8;
+      ink(tollScheme.text[0], tollScheme.text[1], tollScheme.text[2]).write(tollText, { x: textX, y: y + 7 });
+      textX += textW + 1;
+      ink(tollScheme.text[0], tollScheme.text[1], tollScheme.text[2]).write(tezSymbol, { x: textX, y: y + 4 }, undefined, undefined, false, "unifont");
+      textX += symbolW;
+      ink(tollScheme.text[0], tollScheme.text[1], tollScheme.text[2]).write(tollSuffix, { x: textX, y: y + 7 });
+      
+      y += tollH + 2;
+    }
   }
   
-  // === Bottom section ===
+  // === Network badge in TOP RIGHT (when review active) ===
   const reviewStep = timeline.find(t => t.id === "review");
+  if (reviewStep?.status === "active" && preparedData) {
+    const netLabel = (preparedData.network || "ghostnet").toUpperCase();
+    const netW = netLabel.length * 4 + 8;
+    const netX = w - margin - netW;
+    const netY = 4; // Top of screen
+    const netScheme = networkBtn.btn.down ? { bg: [50, 70, 80], text: [160, 200, 220] } : { bg: [35, 50, 60], text: [100, 140, 160] };
+    ink(netScheme.bg[0], netScheme.bg[1], netScheme.bg[2]).box(netX, netY, netW, 12);
+    ink(netScheme.text[0], netScheme.text[1], netScheme.text[2]).write(netLabel, { x: netX + 4, y: netY + 2 }, undefined, undefined, false, "MatrixChunky8");
+    networkBtn.btn.box.x = netX;
+    networkBtn.btn.box.y = netY;
+    networkBtn.btn.box.w = netW;
+    networkBtn.btn.box.h = 12;
+  }
   const completeStep = timeline.find(t => t.id === "complete");
   
-  y += 4;
-  
-  if (reviewStep?.status === "active" && preparedData) {
-    // Network label (small, right-aligned)
-    const netLabel = (preparedData.network || "ghostnet").toUpperCase();
-    const netScheme = {
-      normal: { bg: [35, 50, 60], outline: [100, 140, 160], outlineAlpha: 150, text: [100, 140, 160] },
-      hover: { bg: [50, 75, 90], outline: [160, 220, 255], outlineAlpha: 200, text: [160, 220, 255] }
-    };
-    const netSize = mc8ButtonSize(netLabel);
-    const netX = w - margin - netSize.w;
-    networkBtn.btn.box.x = netX;
-    networkBtn.btn.box.y = y;
-    networkBtn.btn.box.w = netSize.w;
-    networkBtn.btn.box.h = netSize.h;
-    networkBtn.txt = netLabel;
-    paintMC8Btn(netX, y, netLabel, { ink, line: ink }, netScheme, networkBtn.btn.down);
-    y += netSize.h + 8;
-    
-    // KEEP button with price (large, centered)
-    const keepLabel = `KEEP ꜩ${preparedData.mintFee || 5}`;
-    const keepScheme = {
-      normal: { bg: [70, 40, 120], outline: [180, 130, 255], outlineAlpha: 200, text: [255, 255, 255] },
-      hover: { bg: [100, 60, 160], outline: [220, 180, 255], outlineAlpha: 255, text: [255, 255, 255] },
-      disabled: { bg: [50, 40, 60], outline: [100, 80, 120], outlineAlpha: 100, text: [120, 120, 140] }
-    };
-    const keepSize = lgButtonSize(keepLabel);
-    const keepX = floor((w - keepSize.w) / 2);
-    btn.btn.box.x = keepX;
-    btn.btn.box.y = y;
-    btn.btn.box.w = keepSize.w;
-    btn.btn.box.h = keepSize.h;
-    btn.txt = keepLabel;
-    paintLgBtn(keepX, y, keepLabel, { ink, line: ink }, keepScheme, btn.btn.down);
-    
-  } else if (completeStep?.status === "done") {
+  if (completeStep?.status === "done") {
     const viewScheme = {
       normal: { bg: [40, 80, 60], outline: [100, 220, 150], outlineAlpha: 150, text: [255, 255, 255] },
       hover: { bg: [60, 120, 90], outline: [150, 255, 200], outlineAlpha: 200, text: [255, 255, 255] },
