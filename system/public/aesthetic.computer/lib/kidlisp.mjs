@@ -7867,6 +7867,33 @@ class KidLisp {
         }
       }
 
+      // If we get here and expr looks like an identifier but wasn't found,
+      // flag it as an unknown word (same as function head detection)
+      if (value === undefined && validIdentifierRegex.test(expr) && 
+          !this.unknownWordsLogged?.has(expr) &&
+          expr !== "fps" && expr !== "s" && expr.length > 1) {
+        this.unknownWordsLogged?.add(expr);
+        const msg = `❌ Unknown KidLisp word: ${expr}`;
+        
+        // Try to find location in source
+        let loc = null;
+        if (this.currentSource && typeof this.currentSource === "string") {
+          const regex = new RegExp(`\\b${expr}\\b`);
+          const match = this.currentSource.match(regex);
+          if (match) {
+            const offset = this.currentSource.indexOf(match[0]);
+            if (offset >= 0) {
+              loc = kidlispOffsetToLineCol(this.currentSource, offset);
+            }
+          }
+        }
+        
+        if (isKidlispConsoleEnabled()) {
+          postKidlispConsole("error", msg, { kind: "unknown-word", loc });
+        }
+        console.error(msg);
+      }
+
       const result = value !== undefined ? value : expr;
       return result;
     }
