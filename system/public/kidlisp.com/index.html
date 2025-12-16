@@ -511,16 +511,8 @@
       50% { border-color: #00cc00; }
     }
 
-    /* Zebra striping for editor rows - removed to allow selection highlighting to work */
-    /* The background colors were blocking Monaco's selection overlay */
-
-    .monaco-editor.vs-dark .view-lines .view-line:nth-child(even) {
-      background-color: #332f28 !important; /* Darker brown for dark mode */
-    }
-
-    .monaco-editor.vs-dark .view-lines .view-line:nth-child(odd) {
-      background-color: #2a2520 !important; /* Warm dark brown for dark mode */
-    }
+    /* Zebra striping REMOVED - was blocking Monaco's selection overlay in dark mode */
+    /* The .view-lines backgrounds paint over .view-overlays where selection is rendered */
 
     #preview-iframe {
       flex: 1;
