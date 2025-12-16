@@ -126,6 +126,73 @@
     ::-webkit-scrollbar {
       display: none;
     }
+    
+    /* Custom scrollbars for console and reference panels */
+    .console-output::-webkit-scrollbar,
+    .function-list::-webkit-scrollbar {
+      display: block;
+      width: 8px;
+      height: 8px;
+    }
+    
+    .console-output::-webkit-scrollbar-track,
+    .function-list::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.1);
+      border-radius: 4px;
+    }
+    
+    .console-output::-webkit-scrollbar-thumb,
+    .function-list::-webkit-scrollbar-thumb {
+      background: rgba(255, 159, 67, 0.4);
+      border-radius: 4px;
+    }
+    
+    .console-output::-webkit-scrollbar-thumb:hover,
+    .function-list::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 159, 67, 0.6);
+    }
+    
+    /* Dark mode scrollbar colors */
+    @media (prefers-color-scheme: dark) {
+      .console-output::-webkit-scrollbar-track,
+      .function-list::-webkit-scrollbar-track {
+        background: rgba(0, 0, 0, 0.2);
+      }
+      
+      .console-output::-webkit-scrollbar-thumb {
+        background: rgba(255, 159, 67, 0.5);
+      }
+      
+      .function-list::-webkit-scrollbar-thumb {
+        background: rgba(100, 149, 237, 0.5);
+      }
+    }
+    
+    [data-theme="dark"] .console-output::-webkit-scrollbar-track,
+    [data-theme="dark"] .function-list::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.2);
+    }
+    
+    [data-theme="dark"] .console-output::-webkit-scrollbar-thumb {
+      background: rgba(255, 159, 67, 0.5);
+    }
+    
+    [data-theme="dark"] .function-list::-webkit-scrollbar-thumb {
+      background: rgba(100, 149, 237, 0.5);
+    }
+    
+    [data-theme="light"] .console-output::-webkit-scrollbar-track,
+    [data-theme="light"] .function-list::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.1);
+    }
+    
+    [data-theme="light"] .console-output::-webkit-scrollbar-thumb {
+      background: rgba(255, 159, 67, 0.4);
+    }
+    
+    [data-theme="light"] .function-list::-webkit-scrollbar-thumb {
+      background: rgba(100, 149, 237, 0.4);
+    }
 
     * {
       box-sizing: border-box;
@@ -2500,6 +2567,10 @@
     
     [data-theme="dark"] #editor-panel + .gutter.gutter-horizontal {
       background-color: rgb(48, 43, 58) !important; /* Dark muted purple for dark mode */
+    }
+    
+    [data-theme="light"] #editor-panel + .gutter.gutter-horizontal {
+      background-color: rgb(240, 235, 250) !important; /* Light muted purple for light mode */
     }
 
     /* Bottom row horizontal gutter (between reference and console) */
@@ -5436,19 +5507,14 @@
       const savedTheme = localStorage.getItem('kidlisp-theme') || 'system';
       applyTheme(savedTheme);
       
-      // Theme toggle click - cycle through: system → light → dark → system
+      // Theme toggle click - simple 2-way toggle between light and dark
       if (themeToggle) {
         themeToggle.addEventListener('click', (e) => {
           e.preventDefault();
           e.stopPropagation();
-          if (currentTheme === 'system') {
-            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-            applyTheme(prefersDark ? 'light' : 'dark');
-          } else if (currentTheme === 'light') {
-            applyTheme('dark');
-          } else {
-            applyTheme('system');
-          }
+          // Simple toggle: if currently showing dark, switch to light and vice versa
+          const currentVisual = document.documentElement.getAttribute('data-theme');
+          applyTheme(currentVisual === 'dark' ? 'light' : 'dark');
         });
         // Also handle touch events for better mobile support
         themeToggle.addEventListener('touchend', (e) => {
