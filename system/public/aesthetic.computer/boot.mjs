@@ -970,6 +970,8 @@ function receive(event) {
     document.body.classList.toggle('light-theme', !isDark);
     document.documentElement.style.setProperty("color-scheme", theme);
     console.log('🎨 [boot.mjs] Set color-scheme to:', theme);
+    // Set flag to prevent OS theme changes from overriding
+    window.acMANUAL_THEME_OVERRIDE = true;
     // Tell bios.mjs/worker about the theme change
     console.log('🎨 [boot.mjs] window.acSEND available:', !!window.acSEND);
     window.acSEND?.({ type: "dark-mode", content: { enabled: isDark } });
