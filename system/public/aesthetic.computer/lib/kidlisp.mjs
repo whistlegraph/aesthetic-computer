@@ -10,6 +10,7 @@ import { qrcode as qr } from "../dep/@akamfoad/qr/qr.mjs";
 import { cssColors, rainbow, zebra, resetZebraCache, resetRainbowCache, staticColorMap } from "./num.mjs";
 import { setFadeAlpha, clearFadeAlpha } from "./fade-state.mjs";
 import { checkPackMode, getPackMode } from "./pack-mode.mjs";
+import { log } from "./logs.mjs";
 
 /* #region 🤖 LLM API SPECIFICATION
    This section provides a structured specification for Large Language Models
@@ -2699,9 +2700,18 @@ class KidLisp {
       const headers = { "Content-Type": "application/json" };
 
       try {
-        // Include authorization token if logged in (like the print API)
-        const token = await api.authorize(); // Get user token
-        if (token) headers.Authorization = `Bearer ${token}`;
+        // First check for token passed from kidlisp.com (via postMessage)
+        let token = api.kidlispAuthToken;
+        
+        // If not, try to get from authorize() (for native AC login)
+        if (!token) {
+          token = await api.authorize(); // Get user token
+        }
+        
+        if (token) {
+          headers.Authorization = `Bearer ${token}`;
+          log.auth.debug("Using auth token for store-kidlisp");
+        }
       } catch (err) { } // Handled up-stream
 
       const endpoints = ['/api/store-kidlisp'];
@@ -2721,7 +2731,7 @@ class KidLisp {
 
       for (const endpoint of endpoints) {
         const attemptLabel = endpoint.includes('aesthetic.computer') ? 'production' : 'local';
-        console.log(`🛰️ store-kidlisp attempt (${attemptLabel}):`, endpoint);
+        log.store.debug(`store-kidlisp attempt (${attemptLabel}):`, endpoint);
         try {
           const attempt = await fetch(endpoint, {
             method: 'POST',
@@ -2731,15 +2741,15 @@ class KidLisp {
 
           if (attempt.ok) {
             response = attempt;
-            console.log(`✅ store-kidlisp success via ${attemptLabel}`);
+            log.store.success(`store-kidlisp success via ${attemptLabel}`);
             break;
           }
 
           lastError = new Error(`HTTP ${attempt.status}: ${attempt.statusText || 'Unknown'} (${endpoint})`);
-          console.warn(`⚠️ store-kidlisp ${attemptLabel} failed:`, attempt.status, attempt.statusText);
+          log.store.warn(`store-kidlisp ${attemptLabel} failed:`, attempt.status, attempt.statusText);
         } catch (err) {
           lastError = err;
-          console.warn(`⚠️ store-kidlisp ${attemptLabel} fetch error:`, err?.message || err);
+          log.store.warn(`store-kidlisp ${attemptLabel} fetch error:`, err?.message || err);
         }
       }
 
@@ -2810,7 +2820,7 @@ class KidLisp {
         // Update browser URL to show the short code
         this.updateBrowserUrl(data.code, api);
       } else {
-        console.warn('❌ store-kidlisp failed on all endpoints:', lastError?.message || lastError);
+        log.store.warn('store-kidlisp failed on all endpoints:', lastError?.message || lastError);
 
         // As a fallback, generate a deterministic local code so QR overlay still works offline/dev
         const fallbackCode = Math.abs(source.split('').reduce((hash, ch) => {
@@ -2821,7 +2831,7 @@ class KidLisp {
         this.shortUrl = `local/$${fallbackCode}`;
         this.cachedCode = fallbackCode;
         setCachedCode(source, fallbackCode);
-        console.warn(`⚠️ Using local fallback code $${fallbackCode} (not stored remotely)`);
+        log.store.warn(`Using local fallback code $${fallbackCode} (not stored remotely)`);
       }
     } catch (error) {
       // console.log("❌ Cache error:", error);
@@ -2999,7 +3009,7 @@ class KidLisp {
         if (fps && typeof fps === "function") {
           fps(this.targetFps);
           if (!getPackMode()) {
-            console.log(`🎬 KidLisp piece default FPS set to: ${this.targetFps}`);
+            log.lisp.debug(`Default FPS set to: ${this.targetFps}`);
           }
         }
 

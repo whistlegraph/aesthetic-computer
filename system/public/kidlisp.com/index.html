@@ -14,7 +14,47 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Comic+Relief:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+Mono:wght@400;700&display=swap" rel="stylesheet">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <!-- Modular CSS Architecture -->
+  <link rel="stylesheet" href="/kidlisp.com/css/main.css" />
   <style>
+    /* Platform-specific fonts */
+    @font-face {
+      font-family: 'PP Mori';
+      src: url('https://assets.aesthetic.computer/fonts/PPMori-Regular.woff2') format('woff2');
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'PP Mori';
+      src: url('https://assets.aesthetic.computer/fonts/PPMori-SemiBold.woff2') format('woff2');
+      font-weight: 600;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Roobert';
+      src: url('https://assets.aesthetic.computer/fonts/Roobert-Regular.woff2') format('woff2');
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Roobert';
+      src: url('https://assets.aesthetic.computer/fonts/Roobert-Bold.woff2') format('woff2');
+      font-weight: 700;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Futura PT';
+      src: url('https://assets.aesthetic.computer/fonts/FuturaPT-Book.woff2') format('woff2');
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    /* Remaining inline styles not yet extracted - TODO: migrate these */
     :root {
       /* Light mode (default) */
       --bg-primary: #f7f7f7;
@@ -675,20 +715,95 @@
     }
 
     #preview-panel .docs-header {
-      background: rgb(240, 235, 250); /* Light muted purple backdrop */
+      background: rgb(240, 235, 250); /* Light muted purple backdrop - AC default */
+      border-bottom-color: rgb(220, 215, 230);
+      position: relative;
+      z-index: 99998; /* Ensure dropdown appears above iframe */
+      overflow: visible; /* Allow dropdown to overflow */
+      transition: background 0.3s ease;
+    }
+    
+    /* Platform-specific header colors - Light mode (explicit) */
+    [data-theme="light"] #preview-panel[data-platform="aesthetic-computer"] .docs-header {
+      background: rgb(240, 235, 250); /* Muted purple */
       border-bottom-color: rgb(220, 215, 230);
     }
-    
-    @media (prefers-color-scheme: dark) {
-      #preview-panel .docs-header {
-        background: rgb(48, 43, 58); /* Dark muted purple */
-        border-bottom-color: rgb(62, 56, 72);
-      }
+    [data-theme="light"] #preview-panel[data-platform="ff1"] .docs-header {
+      background: rgb(26, 26, 26); /* Black */
+      border-bottom-color: rgb(50, 50, 50);
+    }
+    [data-theme="light"] #preview-panel[data-platform="ff1"] .docs-header #preview-title {
+      color: white;
+    }
+    [data-theme="light"] #preview-panel[data-platform="ableton"] .docs-header {
+      background: rgb(255, 109, 0); /* Ableton orange */
+      border-bottom-color: rgb(200, 85, 0);
+    }
+    [data-theme="light"] #preview-panel[data-platform="ableton"] .docs-header #preview-title {
+      color: white;
+    }
+    [data-theme="light"] #preview-panel[data-platform="playdate"] .docs-header {
+      background: rgb(255, 204, 0); /* Playdate yellow */
+      border-bottom-color: rgb(230, 180, 0);
+    }
+    [data-theme="light"] #preview-panel[data-platform="playdate"] .docs-header #preview-title {
+      color: black;
+    }
+    [data-theme="light"] #preview-panel[data-platform="gameboy"] .docs-header {
+      background: rgb(155, 188, 15); /* Game Boy green */
+      border-bottom-color: rgb(130, 160, 10);
+    }
+    [data-theme="light"] #preview-panel[data-platform="gameboy"] .docs-header #preview-title {
+      color: rgb(15, 56, 15);
+    }
+    [data-theme="light"] #preview-panel[data-platform="n64"] .docs-header {
+      background: rgb(200, 50, 50); /* N64 red */
+      border-bottom-color: rgb(170, 40, 40);
+    }
+    [data-theme="light"] #preview-panel[data-platform="n64"] .docs-header #preview-title {
+      color: white;
     }
     
-    [data-theme="dark"] #preview-panel .docs-header {
-      background: rgb(48, 43, 58); /* Dark muted purple */
+    /* Platform-specific header colors - Dark mode (explicit) */
+    [data-theme="dark"] #preview-panel .docs-header,
+    [data-theme="dark"] #preview-panel[data-platform="aesthetic-computer"] .docs-header {
+      background: rgb(48, 43, 58);
       border-bottom-color: rgb(62, 56, 72);
+    }
+    [data-theme="dark"] #preview-panel[data-platform="ff1"] .docs-header {
+      background: rgb(26, 26, 26); /* Black */
+      border-bottom-color: rgb(50, 50, 50);
+    }
+    [data-theme="dark"] #preview-panel[data-platform="ff1"] .docs-header #preview-title {
+      color: white;
+    }
+    [data-theme="dark"] #preview-panel[data-platform="ableton"] .docs-header {
+      background: rgb(255, 109, 0); /* Ableton orange */
+      border-bottom-color: rgb(200, 85, 0);
+    }
+    [data-theme="dark"] #preview-panel[data-platform="ableton"] .docs-header #preview-title {
+      color: white;
+    }
+    [data-theme="dark"] #preview-panel[data-platform="playdate"] .docs-header {
+      background: rgb(255, 204, 0); /* Playdate yellow */
+      border-bottom-color: rgb(230, 180, 0);
+    }
+    [data-theme="dark"] #preview-panel[data-platform="playdate"] .docs-header #preview-title {
+      color: black;
+    }
+    [data-theme="dark"] #preview-panel[data-platform="gameboy"] .docs-header {
+      background: rgb(155, 188, 15); /* Game Boy green */
+      border-bottom-color: rgb(130, 160, 10);
+    }
+    [data-theme="dark"] #preview-panel[data-platform="gameboy"] .docs-header #preview-title {
+      color: rgb(15, 56, 15);
+    }
+    [data-theme="dark"] #preview-panel[data-platform="n64"] .docs-header {
+      background: rgb(200, 50, 50); /* N64 red */
+      border-bottom-color: rgb(170, 40, 40);
+    }
+    [data-theme="dark"] #preview-panel[data-platform="n64"] .docs-header #preview-title {
+      color: white;
     }
 
     #preview-title {
@@ -894,8 +1009,9 @@
       color: var(--text-primary);
       height: 44px;
       box-sizing: border-box;
-      overflow: hidden;
+      overflow: visible; /* Allow dropdowns to overflow */
       flex-shrink: 0; /* Prevent header from shrinking */
+      position: relative; /* For z-index context */
     }
 
     /* Remove padding when header contains tabs */
@@ -917,18 +1033,80 @@
 
     @media (hover: hover) {
       .tab:hover {
-        background: var(--bg-primary);
-        color: var(--text-primary);
+        filter: brightness(1.1);
+      }
+      #examples-tab:hover {
+        background: rgba(59, 130, 246, 0.35);
+      }
+      #keeps-tab:hover {
+        background: rgba(205, 92, 155, 0.35);
+      }
+      #reference-tab:hover {
+        background: rgba(34, 197, 94, 0.35);
       }
     }
 
     .tab.active {
-      background: var(--bg-primary);
       color: var(--text-primary);
       border-bottom: 1px solid var(--bg-primary); /* Blend with content */
       margin-bottom: -1px; /* Cover the header border */
       position: relative;
       z-index: 1;
+      font-weight: 600;
+    }
+
+    /* Color-coded tabs for accessibility - full background colors */
+    #examples-tab {
+      background: rgba(59, 130, 246, 0.2); /* Blue - discovery/examples */
+      color: #1e40af;
+    }
+    #examples-tab.active {
+      background: rgba(59, 130, 246, 0.4);
+      color: #1e3a8a;
+    }
+
+    #keeps-tab {
+      background: rgba(205, 92, 155, 0.2); /* Tezos pink - NFT minting */
+      color: #9d174d;
+    }
+    #keeps-tab.active {
+      background: rgba(205, 92, 155, 0.4);
+      color: #831843;
+    }
+
+    #reference-tab {
+      background: rgba(34, 197, 94, 0.2); /* Green - code reference */
+      color: #166534;
+    }
+    #reference-tab.active {
+      background: rgba(34, 197, 94, 0.4);
+      color: #14532d;
+    }
+
+    /* Dark mode adjustments for tab colors - higher contrast */
+    :root.dark #examples-tab {
+      background: rgba(59, 130, 246, 0.35);
+      color: #60a5fa;
+    }
+    :root.dark #examples-tab.active {
+      background: rgba(59, 130, 246, 0.55);
+      color: #ffffff;
+    }
+    :root.dark #keeps-tab {
+      background: rgba(205, 92, 155, 0.35);
+      color: #f472b6;
+    }
+    :root.dark #keeps-tab.active {
+      background: rgba(205, 92, 155, 0.55);
+      color: #ffffff;
+    }
+    :root.dark #reference-tab {
+      background: rgba(34, 197, 94, 0.35);
+      color: #4ade80;
+    }
+    :root.dark #reference-tab.active {
+      background: rgba(34, 197, 94, 0.55);
+      color: #ffffff;
     }
 
     .language-tab {
@@ -970,7 +1148,7 @@
       border: 1px solid var(--border-color);
       border-radius: 4px;
       box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-      z-index: 1000;
+      z-index: 99999;
       min-width: 120px;
       margin-top: 2px;
     }
@@ -1021,6 +1199,10 @@
       line-height: 1.5;
       background: var(--bg-primary);
       color: var(--text-primary);
+    }
+
+    .hidden {
+      display: none !important;
     }
 
     .docs-content.hidden {
@@ -1219,6 +1401,658 @@
       box-shadow: 0 1px 2px rgba(0,0,0,0.1);
     }
 
+    /* Keeps tab styles */
+    #keeps-container {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding: 8px 0;
+    }
+
+    .keeps-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .keeps-icon {
+      font-size: 20px;
+    }
+
+    .keeps-title {
+      font-size: 16px;
+      font-weight: bold;
+      color: var(--text-primary);
+    }
+
+    .keeps-network {
+      margin-left: auto;
+      font-size: 11px;
+      padding: 2px 8px;
+      background: #4a9c5d;
+      color: white;
+      border-radius: 10px;
+      font-family: monospace;
+    }
+
+    .keeps-wallet {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .keeps-connect-btn {
+      padding: 12px 20px;
+      background: linear-gradient(135deg, #0066ff 0%, #0044cc 100%);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .keeps-connect-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0, 102, 255, 0.3);
+    }
+
+    .keeps-connect-btn.connected {
+      background: linear-gradient(135deg, #4a9c5d 0%, #3a7c4d 100%);
+    }
+
+    .keeps-address {
+      font-family: monospace;
+      font-size: 12px;
+      color: var(--text-secondary);
+      padding: 8px 12px;
+      background: var(--bg-secondary);
+      border-radius: 6px;
+      word-break: break-all;
+    }
+
+    .keeps-mint-section {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .keeps-code-preview {
+      background: var(--bg-secondary);
+      border-radius: 8px;
+      padding: 12px;
+      max-height: 120px;
+      overflow-y: auto;
+    }
+
+    .keeps-code-label {
+      font-size: 11px;
+      color: var(--text-tertiary);
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    #keeps-code-text {
+      font-family: monospace;
+      font-size: 12px;
+      color: var(--text-primary);
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .keeps-mint-btn {
+      padding: 14px 24px;
+      background: linear-gradient(135deg, rgb(205, 92, 155) 0%, rgb(175, 62, 125) 100%);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .keeps-mint-btn:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(205, 92, 155, 0.4);
+    }
+
+    .keeps-mint-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .keeps-status {
+      font-size: 13px;
+      color: var(--text-secondary);
+      min-height: 20px;
+    }
+
+    .keeps-status.error {
+      color: #e74c3c;
+    }
+
+    .keeps-status.success {
+      color: #4a9c5d;
+    }
+
+    .keeps-info {
+      font-size: 13px;
+      color: var(--text-tertiary);
+      line-height: 1.5;
+    }
+
+    .keeps-info p {
+      margin: 0 0 8px 0;
+    }
+
+    .keeps-hint {
+      font-family: monospace;
+      font-size: 12px;
+    }
+
+    /* AC Login section */
+    .keeps-login-section {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .keeps-login-btn {
+      padding: 12px 20px;
+      background: linear-gradient(135deg, rgb(205, 92, 155) 0%, rgb(175, 62, 125) 100%);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .keeps-login-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(205, 92, 155, 0.3);
+    }
+
+    .keeps-login-btn.logged-in {
+      background: linear-gradient(135deg, #4a9c5d 0%, #3a7c4d 100%);
+    }
+
+    .keeps-user-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      background: var(--bg-secondary);
+      border-radius: 6px;
+    }
+
+    .keeps-user-avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+
+    .keeps-user-name {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+
+    .keeps-logout-btn {
+      margin-left: auto;
+      padding: 4px 10px;
+      background: transparent;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      font-size: 11px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .keeps-logout-btn:hover {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+    }
+
+    /* Header auth buttons container */
+    .header-auth-buttons {
+      display: flex;
+      gap: 8px;
+      margin-left: auto;
+      margin-right: 8px; /* Space before the collapse arrow */
+      flex-shrink: 0;
+    }
+    
+    /* Header login button - matching prompt.mjs blue style */
+    .header-login-btn {
+      padding: 6px 14px;
+      background: rgb(0, 0, 128); /* Blue like prompt.mjs login */
+      color: white;
+      border: 2px solid white;
+      border-radius: 0; /* Square like TextButton */
+      font-size: 12px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .header-login-btn:hover {
+      background: rgb(0, 0, 160); /* Brighter blue on hover */
+      box-shadow: 0 0 8px rgba(0, 0, 255, 0.5);
+    }
+    
+    /* Header signup button - matching prompt.mjs green style */
+    .header-signup-btn {
+      padding: 6px 14px;
+      background: rgb(0, 128, 0); /* Green like prompt.mjs signup */
+      color: white;
+      border: 2px solid white;
+      border-radius: 0; /* Square like TextButton */
+      font-size: 12px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    
+    .header-signup-btn:hover {
+      background: rgb(0, 160, 0); /* Brighter green on hover */
+      box-shadow: 0 0 8px rgba(0, 255, 0, 0.5);
+    }
+    
+    /* Dark mode auth buttons */
+    [data-theme="dark"] .header-login-btn,
+    :root.dark .header-login-btn {
+      background: rgb(0, 0, 64); /* Darker blue for dark mode like prompt.mjs */
+    }
+    
+    [data-theme="dark"] .header-login-btn:hover,
+    :root.dark .header-login-btn:hover {
+      background: rgb(0, 0, 100);
+    }
+    
+    [data-theme="dark"] .header-signup-btn,
+    :root.dark .header-signup-btn {
+      background: rgb(0, 64, 0); /* Darker green for dark mode */
+    }
+    
+    [data-theme="dark"] .header-signup-btn:hover,
+    :root.dark .header-signup-btn:hover {
+      background: rgb(0, 100, 0);
+    }
+
+    /* Header user menu - black box with white border like prompt.mjs handle */
+    .header-user-menu {
+      margin-left: auto;
+      margin-right: 8px; /* Space before the collapse arrow */
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      padding: 6px 12px;
+      background: black;
+      border: 2px solid white;
+      border-radius: 0; /* Square like TextButton */
+      transition: all 0.15s;
+    }
+
+    .header-user-menu:hover {
+      background: rgb(30, 30, 30);
+      box-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
+    }
+
+    .header-user-handle {
+      font-size: 12px;
+      color: white;
+      font-weight: bold;
+    }
+
+    /* header-menu-arrow removed - no longer used */
+
+    .header-user-dropdown {
+      display: none;
+      position: fixed; /* Fixed to escape overflow:hidden containers */
+      background: black;
+      border: 2px solid white;
+      border-radius: 0;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      min-width: 100px;
+      z-index: 99999;
+    }
+
+    .header-user-menu.open .header-user-dropdown {
+      display: block;
+    }
+
+    .header-logout-btn {
+      width: 100%;
+      padding: 8px 12px;
+      background: black;
+      border: none;
+      text-align: left;
+      font-size: 12px;
+      color: white;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    .header-logout-btn:hover {
+      background: rgb(60, 60, 60);
+    }
+
+    /* Platform selector dropdown */
+    .platform-selector {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 4px;
+      transition: background 0.2s;
+      position: relative;
+    }
+
+    .platform-selector:hover {
+      background: rgba(0, 0, 0, 0.1);
+    }
+    
+    @media (prefers-color-scheme: dark) {
+      .platform-selector:hover {
+        background: rgba(255, 255, 255, 0.1);
+      }
+    }
+    
+    [data-theme="dark"] .platform-selector:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    /* Platform name font styling - each platform has its own typography */
+    .platform-opt-name {
+      font-weight: 500;
+    }
+
+    /* Preview title inherits platform font styling */
+    #preview-title[data-platform="aesthetic-computer"] {
+      font-family: 'YWFTProcessing-Regular', monospace;
+    }
+    #preview-title[data-platform="ff1"] {
+      font-family: 'PP Mori', 'Futura', 'Century Gothic', sans-serif;
+      font-weight: 400;
+    }
+    #preview-title[data-platform="ableton"] {
+      font-family: 'Futura PT', 'Futura', 'Century Gothic', sans-serif;
+    }
+    #preview-title[data-platform="playdate"] {
+      font-family: 'Roobert', 'Varela Round', sans-serif;
+    }
+    #preview-title[data-platform="gameboy"] {
+      font-family: 'Press Start 2P', 'Courier New', monospace;
+      font-size: 12px;
+    }
+    #preview-title[data-platform="n64"] {
+      font-family: 'Impact', 'Haettenschweiler', sans-serif;
+    }
+
+    /* Aesthetic.Computer - uses our YWFTProcessing font */
+    .platform-option[data-platform="aesthetic-computer"] .platform-opt-name {
+      font-family: 'YWFTProcessing-Regular', monospace;
+      font-weight: bold;
+    }
+
+    /* FF1 Art Computer - PP Mori style (geometric sans) */
+    .platform-option[data-platform="ff1"] .platform-opt-name {
+      font-family: 'PP Mori', 'Futura', 'Century Gothic', sans-serif;
+      font-weight: 400;
+      letter-spacing: 0.02em;
+    }
+
+    /* Ableton Live - Futura PT */
+    .platform-option[data-platform="ableton"] .platform-opt-name {
+      font-family: 'Futura PT', 'Futura', 'Century Gothic', sans-serif;
+      font-weight: 400;
+    }
+
+    /* Playdate - Roobert font */
+    .platform-option[data-platform="playdate"] .platform-opt-name {
+      font-family: 'Roobert', 'Varela Round', sans-serif;
+      font-weight: 700;
+    }
+
+    /* Game Boy - pixel/retro style */
+    .platform-option[data-platform="gameboy"] .platform-opt-name {
+      font-family: 'Press Start 2P', 'Courier New', monospace;
+      font-size: 11px;
+      letter-spacing: -0.02em;
+    }
+
+    /* Nintendo 64 - bold condensed */
+    .platform-option[data-platform="n64"] .platform-opt-name {
+      font-family: 'Impact', 'Haettenschweiler', sans-serif;
+      font-weight: bold;
+      letter-spacing: 0.01em;
+    }
+
+    /* Platform dropdown option colors */
+    .platform-option[data-platform="aesthetic-computer"] {
+      background: rgb(240, 235, 250);
+    }
+    .platform-option[data-platform="aesthetic-computer"]:hover {
+      background: rgb(230, 220, 245);
+    }
+    .platform-option[data-platform="aesthetic-computer"] .platform-opt-name {
+      color: rgb(88, 78, 108);
+    }
+    
+    .platform-option[data-platform="ff1"] {
+      background: rgb(26, 26, 26);
+    }
+    .platform-option[data-platform="ff1"]:hover {
+      background: rgb(40, 40, 40);
+    }
+    .platform-option[data-platform="ff1"] .platform-opt-name {
+      color: white;
+    }
+    
+    .platform-option[data-platform="ableton"] {
+      background: rgb(255, 109, 0);
+    }
+    .platform-option[data-platform="ableton"]:hover {
+      background: rgb(255, 130, 40);
+    }
+    .platform-option[data-platform="ableton"] .platform-opt-name {
+      color: white;
+    }
+    
+    .platform-option[data-platform="playdate"] {
+      background: rgb(255, 204, 0);
+    }
+    .platform-option[data-platform="playdate"]:hover {
+      background: rgb(255, 215, 50);
+    }
+    .platform-option[data-platform="playdate"] .platform-opt-name {
+      color: black;
+    }
+    
+    .platform-option[data-platform="gameboy"] {
+      background: rgb(155, 188, 15);
+    }
+    .platform-option[data-platform="gameboy"]:hover {
+      background: rgb(170, 200, 40);
+    }
+    .platform-option[data-platform="gameboy"] .platform-opt-name {
+      color: rgb(15, 56, 15);
+    }
+    
+    .platform-option[data-platform="n64"] {
+      background: rgb(200, 50, 50);
+    }
+    .platform-option[data-platform="n64"]:hover {
+      background: rgb(220, 70, 70);
+    }
+    .platform-option[data-platform="n64"] .platform-opt-name {
+      color: white;
+    }
+    
+    /* Dark mode dropdown colors - same as light for brand consistency */
+    [data-theme="dark"] .platform-option[data-platform="aesthetic-computer"] {
+      background: rgb(48, 43, 58);
+    }
+    [data-theme="dark"] .platform-option[data-platform="aesthetic-computer"]:hover {
+      background: rgb(60, 54, 72);
+    }
+    [data-theme="dark"] .platform-option[data-platform="aesthetic-computer"] .platform-opt-name {
+      color: rgb(188, 168, 218);
+    }
+
+    .platform-arrow {
+      font-size: 8px;
+      color: var(--text-tertiary);
+      margin-left: 2px;
+    }
+
+    .platform-dropdown {
+      display: none;
+      position: fixed; /* Fixed to escape overflow:hidden containers */
+      background: var(--bg-primary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+      min-width: 220px;
+      z-index: 99999;
+      padding: 4px 0;
+    }
+
+    .platform-selector.open .platform-dropdown {
+      display: block;
+    }
+
+    .platform-option {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .platform-option:hover {
+      background: var(--bg-secondary);
+    }
+
+    .platform-option.active {
+      background: rgba(205, 92, 155, 0.15);
+    }
+
+    .platform-option.active:hover {
+      background: rgba(205, 92, 155, 0.25);
+    }
+
+    .platform-opt-icon {
+      font-size: 16px;
+      width: 24px;
+      text-align: center;
+    }
+
+    .platform-opt-name {
+      font-size: 13px;
+      color: var(--text-primary);
+      flex: 1;
+    }
+
+    .platform-status {
+      font-size: 9px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      font-weight: bold;
+    }
+
+    .platform-option.coming-soon {
+      opacity: 0.5;
+    }
+
+    .platform-option.coming-soon .platform-status {
+      background: rgba(59, 130, 246, 0.2);
+      color: rgb(59, 130, 246);
+    }
+
+    .platform-option.experimental {
+      opacity: 0.4;
+    }
+
+    .platform-option.experimental .platform-status {
+      background: rgba(234, 179, 8, 0.2);
+      color: rgb(180, 140, 0);
+    }
+    
+    @media (prefers-color-scheme: dark) {
+      .platform-option.coming-soon .platform-status {
+        color: rgb(147, 197, 253);
+      }
+      .platform-option.experimental .platform-status {
+        color: rgb(253, 224, 71);
+      }
+    }
+    
+    [data-theme="dark"] .platform-option.coming-soon .platform-status {
+      color: rgb(147, 197, 253);
+    }
+    
+    [data-theme="dark"] .platform-option.experimental .platform-status {
+      color: rgb(253, 224, 71);
+    }
+
+    .platform-divider {
+      height: 1px;
+      background: var(--border-color);
+      margin: 4px 0;
+    }
+
+    /* Keeps logged out state */
+    .keeps-logged-out {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+      text-align: center;
+    }
+
+    .keeps-login-prompt {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .keeps-login-prompt .keeps-icon {
+      font-size: 32px;
+    }
+
+    .keeps-login-prompt p {
+      font-size: 14px;
+      color: var(--text-secondary);
+      margin: 0;
+    }
+
+    .keeps-logged-in {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding: 8px 0;
+    }
+
     a {
       color: inherit;
       text-decoration: none;
@@ -1334,6 +2168,52 @@
       #preview-title .code-display {
         font-size: 11px !important;
       }
+      
+      /* Compact platform selector on mobile */
+      .platform-selector {
+        flex-shrink: 1;
+        min-width: 0;
+        /* Allow dropdown to overflow - only hide text overflow in children */
+      }
+      
+      #preview-title {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      
+      /* Auth buttons compact on mobile */
+      .header-auth-buttons {
+        gap: 6px;
+        margin-left: auto;
+        margin-right: 6px;
+      }
+      
+      .header-login-btn,
+      .header-signup-btn {
+        padding: 4px 8px;
+        font-size: 10px;
+        border-width: 1px;
+      }
+      
+      /* User menu compact on mobile */
+      .header-user-menu {
+        flex-shrink: 0;
+        margin-left: auto;
+        margin-right: 28px; /* More space for the collapse arrow */
+        padding: 4px 8px;
+        border-width: 1px;
+      }
+      
+      .header-user-handle {
+        max-width: 50px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 10px;
+      }
+      
+      /* header-menu-arrow removed */
       
       /* QR code hidden on very small screens */
       @media (max-width: 380px) {
@@ -1666,15 +2546,19 @@
 
     /* Monaco Editor Selection Highlighting */
     /* CRITICAL: Force Monaco's selection to be visible */
-    /* Monaco uses CSS variables from the theme, but we need to ensure they're applied */
+    /* Monaco uses .selected-text divs for selection, NOT ::selection pseudo-element */
     
-    /* Override ::selection for all Monaco content */
+    /* Monaco selection overlay - light mode (default) */
+    .monaco-editor .selected-text {
+      background-color: rgba(255, 140, 0, 0.5) !important; /* Orange for light mode */
+    }
+    
+    /* Fallback ::selection for copy/paste operations */
     .monaco-editor *::selection {
-      background-color: rgba(255, 140, 0, 0.6) !important; /* Orange for light mode */
+      background-color: rgba(255, 140, 0, 0.6) !important;
       color: inherit !important;
     }
     
-    /* Specific targeting for view lines */
     .monaco-editor .view-line::selection,
     .monaco-editor .view-line *::selection {
       background-color: rgba(255, 140, 0, 0.6) !important;
@@ -1685,10 +2569,14 @@
       background-color: transparent !important;
     }
     
-    /* Dark mode */
+    /* Dark mode - prefers-color-scheme */
     @media (prefers-color-scheme: dark) {
-      .monaco-editor *::selection {
+      .monaco-editor .selected-text {
         background-color: rgba(100, 149, 237, 0.6) !important; /* Blue for dark mode */
+      }
+      
+      .monaco-editor *::selection {
+        background-color: rgba(100, 149, 237, 0.6) !important;
       }
       
       .monaco-editor .view-line::selection,
@@ -1697,16 +2585,35 @@
       }
     }
     
-    /* Theme-specific overrides */
+    /* Theme-specific overrides using data-theme attribute */
+    [data-theme="light"] .monaco-editor .selected-text {
+      background-color: rgba(255, 140, 0, 0.5) !important;
+    }
+    
     [data-theme="light"] .monaco-editor *::selection,
     [data-theme="light"] .monaco-editor .view-line::selection,
     [data-theme="light"] .monaco-editor .view-line *::selection {
       background-color: rgba(255, 140, 0, 0.6) !important;
     }
     
+    [data-theme="dark"] .monaco-editor .selected-text {
+      background-color: rgba(100, 149, 237, 0.6) !important; /* Bright blue for dark mode */
+    }
+    
     [data-theme="dark"] .monaco-editor *::selection,
     [data-theme="dark"] .monaco-editor .view-line::selection,
     [data-theme="dark"] .monaco-editor .view-line *::selection {
+      background-color: rgba(100, 149, 237, 0.6) !important;
+    }
+    
+    /* Also handle :root.dark for dark mode toggle */
+    :root.dark .monaco-editor .selected-text {
+      background-color: rgba(100, 149, 237, 0.6) !important;
+    }
+    
+    :root.dark .monaco-editor *::selection,
+    :root.dark .monaco-editor .view-line::selection,
+    :root.dark .monaco-editor .view-line *::selection {
       background-color: rgba(100, 149, 237, 0.6) !important;
     }
 
@@ -1761,7 +2668,7 @@
       }
     }
     
-    /* QR Modal */
+    /* QR Modal - Aesthetic Computer style */
     #qr-modal {
       display: none;
       position: fixed;
@@ -1769,21 +2676,15 @@
       left: 0;
       width: 100%;
       height: 100%;
-      background: rgba(0, 0, 0, 0.9);
-      z-index: 10000;
+      background: rgba(0, 0, 0, 0.95);
+      z-index: 999999; /* Above everything */
       justify-content: center;
       align-items: center;
       cursor: pointer;
-      animation: fadeIn 0.2s ease-out;
     }
     
     #qr-modal.show {
       display: flex;
-    }
-    
-    @keyframes fadeIn {
-      from { opacity: 0; }
-      to { opacity: 1; }
     }
     
     #qr-modal-content {
@@ -1791,49 +2692,294 @@
       flex-direction: column;
       align-items: center;
       gap: 16px;
-      animation: scaleIn 0.2s ease-out;
-    }
-    
-    @keyframes scaleIn {
-      from { transform: scale(0.9); opacity: 0; }
-      to { transform: scale(1); opacity: 1; }
+      background: black;
+      border: 3px solid white;
+      padding: 24px;
     }
     
     #qr-modal canvas {
       image-rendering: pixelated;
       image-rendering: -moz-crisp-edges;
       image-rendering: crisp-edges;
-      border: 8px solid white;
-      border-radius: 8px;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+      border: 3px solid white;
     }
     
     #qr-modal-url {
       color: white;
-      font-family: monospace;
-      font-size: 18px;
-      background: rgba(0, 0, 0, 0.5);
-      padding: 12px 24px;
-      border-radius: 8px;
+      font-family: 'YWFTProcessing-Regular', monospace;
+      font-size: 14px;
+      background: black;
+      padding: 8px 16px;
+      border: 2px solid white;
       user-select: all;
+      word-break: break-all;
+      max-width: 350px;
+      text-align: center;
     }
     
     #qr-modal-close {
-      color: rgba(255, 255, 255, 0.7);
-      font-family: monospace;
-      font-size: 14px;
-      margin-top: 8px;
+      color: rgba(255, 255, 255, 0.6);
+      font-family: 'YWFTProcessing-Regular', monospace;
+      font-size: 11px;
+      margin-top: 4px;
     }
   </style>
 </head>
 
 <body>
+  <!-- Loading splash - logo starts here, flies to header and stays -->
+  <div id="loading-splash" style="
+    position: fixed;
+    inset: 0;
+    z-index: 99999;
+    background: var(--bg-primary);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+  ">
+  </div>
+  
+  <!-- The actual logo - starts centered, flies to header -->
+  <div id="splash-logo" class="baby-colors" style="
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-family: 'Comic Relief', 'Comic Sans MS', cursive;
+    font-weight: bold;
+    font-size: 48px;
+    display: inline-flex;
+    width: fit-content;
+    height: fit-content;
+    z-index: 100000;
+    will-change: transform, font-size, top, left;
+  ">
+    <span class="splash-letter" style="color: #FF6B6B;">K</span>
+    <span class="splash-letter" style="color: #4ECDC4;">i</span>
+    <span class="splash-letter" style="color: #FFE66D;">d</span>
+    <span class="splash-letter" style="color: #95E1D3;">L</span>
+    <span class="splash-letter" style="color: #F38181;">i</span>
+    <span class="splash-letter" style="color: #AA96DA;">s</span>
+    <span class="splash-letter" style="color: #70D6FF;">p</span>
+    <span class="splash-letter splash-dot connectivity-dot disconnected" style="color: var(--text-tertiary);">.</span>
+    <span class="splash-letter com-part" style="color: #70D6FF;">c</span>
+    <span class="splash-letter com-part" style="color: #70D6FF;">o</span>
+    <span class="splash-letter com-part" style="color: #70D6FF;">m</span>
+  </div>
+  
+  <style>
+    /* Splash animation styles */
+    @keyframes letterWiggle {
+      0%, 100% { transform: translateY(0) rotate(0deg); }
+      25% { transform: translateY(-3px) rotate(-3deg); }
+      75% { transform: translateY(2px) rotate(2deg); }
+    }
+    
+    @keyframes dotBounce {
+      0%, 100% { transform: translateY(0) scale(1); }
+      50% { transform: translateY(-8px) scale(1.2); }
+    }
+    
+    .splash-letter {
+      display: inline-block;
+      animation: letterWiggle 0.4s ease-in-out infinite;
+      text-shadow: 2px 2px 0px rgba(0, 0, 0, 0.2);
+    }
+    
+    .splash-letter:nth-child(1) { animation-delay: 0ms; }
+    .splash-letter:nth-child(2) { animation-delay: 50ms; }
+    .splash-letter:nth-child(3) { animation-delay: 100ms; }
+    .splash-letter:nth-child(4) { animation-delay: 150ms; }
+    .splash-letter:nth-child(5) { animation-delay: 200ms; }
+    .splash-letter:nth-child(6) { animation-delay: 250ms; }
+    .splash-letter:nth-child(7) { animation-delay: 300ms; }
+    .splash-letter.splash-dot { 
+      animation: dotBounce 0.6s ease-in-out infinite;
+      animation-delay: 350ms;
+    }
+    .splash-letter:nth-child(9) { animation-delay: 400ms; }
+    .splash-letter:nth-child(10) { animation-delay: 450ms; }
+    .splash-letter:nth-child(11) { animation-delay: 500ms; }
+    
+    #splash-logo.flying {
+      transition: top 0.5s ease-out,
+                  left 0.5s ease-out,
+                  font-size 0.5s ease-out,
+                  transform 0.5s ease-out;
+    }
+    
+    #splash-logo.flying .splash-letter {
+      animation: none !important;
+    }
+    
+    #splash-logo.landed {
+      position: relative !important;
+      top: auto !important;
+      left: auto !important;
+      transform: none !important;
+      font-size: 20px;
+      z-index: 1 !important;
+      line-height: 32px;
+    }
+    
+    #splash-logo.landed .splash-letter {
+      animation: none !important;
+    }
+    
+    @media (max-width: 768px) {
+      #splash-logo.landed {
+        font-size: 16px !important;
+        line-height: 28px !important;
+      }
+    }
+    
+    #loading-splash.fading {
+      transition: opacity 0.3s ease;
+      opacity: 0;
+    }
+  </style>
+  
+  <script>
+    // Splash animation - must be inline to run early
+    (function() {
+      let animationTriggered = false;
+      
+      window.triggerSplashAnimation = function() {
+        if (animationTriggered) return;
+        animationTriggered = true;
+        
+        const splash = document.getElementById('loading-splash');
+        const splashLogo = document.getElementById('splash-logo');
+        const mainEl = document.getElementById('main-split');
+        const landingZone = document.getElementById('logo-landing-zone');
+        const tagline = document.getElementById('tagline');
+        
+        if (splash && splashLogo && mainEl && landingZone) {
+          const startFontSize = 48;
+          const endFontSize = 20;
+          
+          // Calculate start position - logo starts centered with transform
+          const logoWidth = splashLogo.offsetWidth;
+          const logoHeight = splashLogo.offsetHeight;
+          const startTop = (window.innerHeight / 2) - (logoHeight / 2);
+          const startLeft = (window.innerWidth / 2) - (logoWidth / 2);
+          
+          // Stop the wiggle animation immediately
+          const letters = splashLogo.querySelectorAll('.splash-letter');
+          letters.forEach(letter => {
+            letter.style.animation = 'none';
+          });
+          
+          // Convert from percentage + transform to absolute pixel position
+          splashLogo.style.top = startTop + 'px';
+          splashLogo.style.left = startLeft + 'px';
+          splashLogo.style.transform = 'none';
+          
+          // Show main content (logo still visible on top)
+          mainEl.style.opacity = '1';
+          
+          // Force reflow to apply position lock and get landing zone position
+          void landingZone.offsetHeight;
+          const landingRect = landingZone.getBoundingClientRect();
+          
+          // Calculate target - center logo vertically in landing zone
+          const targetTop = landingRect.top + (landingRect.height - endFontSize) / 2;
+          const targetLeft = landingRect.left + 12;
+          
+          // Enable transitions
+          splashLogo.classList.add('flying');
+          
+          // Animate to target position (use double rAF for reliable transition)
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              splashLogo.style.top = targetTop + 'px';
+              splashLogo.style.left = targetLeft + 'px';
+              splashLogo.style.fontSize = endFontSize + 'px';
+            });
+          });
+          
+          // After animation completes, snap into place
+          setTimeout(() => {
+            splashLogo.classList.remove('flying');
+            splashLogo.classList.add('landed');
+            
+            // Move into DOM and clear inline styles
+            landingZone.appendChild(splashLogo);
+            splashLogo.style.cssText = '';
+            
+            // Re-apply stochastic coloring
+            const colors = ['#FF7096', '#FFB870', '#FFEA70', '#8AFF8A', '#70D6FF', '#C596FF', '#FF96C5'];
+            let lastColorIndex = -1;
+            letters.forEach(letter => {
+              let randomIndex;
+              do {
+                randomIndex = Math.floor(Math.random() * colors.length);
+              } while (randomIndex === lastColorIndex && colors.length > 1);
+              lastColorIndex = randomIndex;
+              const color = colors[randomIndex];
+              letter.style.color = color;
+              
+              // Add subtle shadow
+              const rgb = color.match(/\w\w/g);
+              if (rgb) {
+                const r = Math.max(0, parseInt(rgb[0], 16) - 80);
+                const g = Math.max(0, parseInt(rgb[1], 16) - 80);
+                const b = Math.max(0, parseInt(rgb[2], 16) - 80);
+                letter.style.textShadow = `1px 1px 0px rgb(${r}, ${g}, ${b})`;
+              }
+            });
+            
+            // Show tagline
+            if (tagline) tagline.style.opacity = '0.5';
+          }, 550);
+          
+          // Fade out splash background
+          setTimeout(() => {
+            splash.classList.add('fading');
+            setTimeout(() => splash.remove(), 300);
+          }, 200);
+        } else {
+          // Fallback: just show everything
+          if (mainEl) mainEl.style.opacity = '1';
+          if (splash) {
+            splash.classList.add('fading');
+            setTimeout(() => splash.remove(), 300);
+          }
+          if (splashLogo && landingZone) {
+            splashLogo.classList.add('landed');
+            splashLogo.style.cssText = '';
+            landingZone.appendChild(splashLogo);
+          }
+          if (tagline) tagline.style.opacity = '0.5';
+        }
+      };
+      
+      // Safety timeout - never leave splash stuck for more than 5 seconds
+      setTimeout(() => {
+        if (!animationTriggered) {
+          window.triggerSplashAnimation();
+        }
+      }, 5000);
+      
+      // Also try on window load as backup
+      window.addEventListener('load', () => {
+        setTimeout(() => {
+          if (!animationTriggered && window.kidlispReady) {
+            window.triggerSplashAnimation();
+          }
+        }, 100);
+      });
+    })();
+  </script>
+
   <!-- <header>
     <h1>kidlisp</h1>
     <div class="tagline">transmedia pattern programming for everybody</div>
   </header> -->
 
-  <main id="main-split">
+  <main id="main-split" style="opacity: 0; transition: opacity 0.4s ease 0.2s;">
     <!-- Center square for simultaneous 4-panel resize -->
     <div id="center-square" title="Drag to resize all panels"></div>
     
@@ -1841,8 +2987,9 @@
       <div class="editor-panel" id="editor-panel">
         <div class="editor-header">
           <div style="display: flex; flex-direction: column; align-items: flex-start;">
-            <span class="baby-colors" style="margin-top: 4px;"><span>K</span><span>i</span><span>d</span><span>L</span><span>i</span><span>s</span><span>p</span><span class="connectivity-dot disconnected">.</span><span class="com-part">com</span></span>
-            <span style="font-size: 9px; opacity: 0.5; margin-top: -2px; margin-bottom: 8px; font-family: monospace;">friendly coding for everyone</span>
+            <!-- Logo landing zone - splash logo will fly here and stay -->
+            <div id="logo-landing-zone" style="margin-top: 4px; height: 24px; display: flex; align-items: center;"></div>
+            <span id="tagline" style="font-size: 9px; opacity: 0; margin-top: -2px; margin-bottom: 8px; font-family: monospace; transition: opacity 0.4s ease;">friendly coding for everyone</span>
           </div>
           <div class="tab language-tab" id="language-tab" style="border: none; height: 100%; padding: 0 6px; background: transparent; display: flex; align-items: center; margin-left: 8px; margin-right: 8px;">
             <span class="lang-flag" id="lang-flag" style="font-size: 10px; margin-right: 4px;">🇺🇸</span>
@@ -1865,13 +3012,51 @@
         </div>
       </div>
       
-      <div class="preview-panel" id="preview-panel" style="display: flex; flex-direction: column; overflow: hidden;">
+      <div class="preview-panel" id="preview-panel" style="display: flex; flex-direction: column;">
         <div class="docs-header" style="display: flex; align-items: center; gap: 8px;">
-          <span id="preview-title">Aesthetic<span class="bounce-dot">.</span>Computer</span>
+          <div id="platform-selector" class="platform-selector">
+            <span id="preview-title">Aesthetic<span class="bounce-dot">.</span>Computer</span>
+            <span class="platform-arrow">▼</span>
+            <div class="platform-dropdown" id="platform-dropdown">
+              <div class="platform-option active" data-platform="aesthetic-computer">
+                <span class="platform-opt-name">Aesthetic.Computer</span>
+              </div>
+              <div class="platform-option" data-platform="ff1">
+                <span class="platform-opt-name">FF1 Art Computer</span>
+              </div>
+              <div class="platform-option" data-platform="ableton">
+                <span class="platform-opt-name">Ableton Live</span>
+              </div>
+              <div class="platform-divider"></div>
+              <div class="platform-option coming-soon" data-platform="playdate">
+                <span class="platform-opt-name">Playdate</span>
+                <span class="platform-status">soon</span>
+              </div>
+              <div class="platform-option coming-soon" data-platform="gameboy">
+                <span class="platform-opt-name">Game Boy</span>
+                <span class="platform-status">soon</span>
+              </div>
+              <div class="platform-option experimental" data-platform="n64">
+                <span class="platform-opt-name">Nintendo 64</span>
+                <span class="platform-status">exp</span>
+              </div>
+            </div>
+          </div>
           <img id="preview-qr" src="" alt="QR Code" title="Click to enlarge" style="display: none; width: auto; image-rendering: pixelated;" />
+          <div id="header-auth-buttons" class="header-auth-buttons" style="display: none;">
+            <button id="header-login-btn" class="header-login-btn">Log in</button>
+            <button id="header-signup-btn" class="header-signup-btn">I'm new</button>
+          </div>
+          <div id="header-user-menu" class="header-user-menu" style="display: none;">
+            <span id="header-user-handle" class="header-user-handle"></span>
+            <div class="header-user-dropdown" id="header-user-dropdown">
+              <button id="header-logout-btn" class="header-logout-btn">Logout</button>
+            </div>
+          </div>
         </div>
         <div style="position: relative; flex: 1;">
-          <div class="boot-screen" id="boot-screen">
+          <!-- Platform-specific boot screens -->
+          <div class="boot-screen" id="boot-screen" data-platform="aesthetic-computer">
             <div class="color-bar bar-1" style="background: #ffffff;"></div>
             <div class="color-bar bar-2" style="background: #ffff00;"></div>
             <div class="color-bar bar-3" style="background: #00ffff;"></div>
@@ -1880,6 +3065,32 @@
             <div class="color-bar bar-6" style="background: #ff0000;"></div>
             <div class="color-bar bar-7" style="background: #0000ff;"></div>
             <div class="color-bar bar-8" style="background: #000000;"></div>
+          </div>
+          <div class="boot-screen hidden" id="boot-screen-ff1" data-platform="ff1" style="background: #1a1a1a; flex-direction: column; align-items: center; justify-content: center;">
+            <div style="font-size: 64px; margin-bottom: 16px;">🖼️</div>
+            <div class="boot-text" style="font-size: 18px; font-weight: bold;">FF1 Art Computer</div>
+            <div class="boot-text boot-text-action" style="font-size: 12px; opacity: 0.6; margin-top: 8px;" data-i18n="pressToRun">Press <span class="blink">▶</span> to run</div>
+          </div>
+          <div class="boot-screen hidden" id="boot-screen-ableton" data-platform="ableton" style="background: linear-gradient(135deg, #ff6d00 0%, #ff8800 100%); flex-direction: column; align-items: center; justify-content: center;">
+            <div style="font-size: 64px; margin-bottom: 16px;">🎹</div>
+            <div class="boot-text" style="font-size: 18px; font-weight: bold; color: #000;">Ableton Live</div>
+            <div class="boot-text" style="font-size: 12px; opacity: 0.7; margin-top: 8px; color: #000;">Max for Live Integration</div>
+            <div class="boot-text boot-text-action" style="font-size: 11px; opacity: 0.5; margin-top: 16px; color: #000;" data-i18n="pressToSend">Press <span class="blink">▶</span> to send to device</div>
+          </div>
+          <div class="boot-screen hidden" id="boot-screen-playdate" data-platform="playdate" style="background: #ffcc00; flex-direction: column; align-items: center; justify-content: center;">
+            <div style="font-size: 64px; margin-bottom: 16px;">🎮</div>
+            <div class="boot-text" style="font-size: 18px; font-weight: bold; color: #000;">Playdate</div>
+            <div class="boot-text boot-text-status" style="font-size: 12px; opacity: 0.6; margin-top: 8px; color: #000;" data-i18n="comingSoon">Coming Soon</div>
+          </div>
+          <div class="boot-screen hidden" id="boot-screen-gameboy" data-platform="gameboy" style="background: #9bbc0f; flex-direction: column; align-items: center; justify-content: center;">
+            <div style="font-size: 64px; margin-bottom: 16px; filter: grayscale(1);">👾</div>
+            <div class="boot-text" style="font-size: 18px; font-weight: bold; color: #0f380f;">Game Boy</div>
+            <div class="boot-text boot-text-status" style="font-size: 12px; opacity: 0.6; margin-top: 8px; color: #0f380f;" data-i18n="comingSoon">Coming Soon</div>
+          </div>
+          <div class="boot-screen hidden" id="boot-screen-n64" data-platform="n64" style="background: #1a1a1a; flex-direction: column; align-items: center; justify-content: center;">
+            <div style="font-size: 64px; margin-bottom: 16px;">🕹️</div>
+            <div class="boot-text" style="font-size: 18px; font-weight: bold; color: #fff;">Nintendo 64</div>
+            <div class="boot-text boot-text-status" style="font-size: 11px; opacity: 0.5; margin-top: 8px; color: #ff3333;" data-i18n="experimental">⚠️ Experimental</div>
           </div>
           <iframe id="preview-iframe" frameborder="0" style="flex: 1; width: 100%; height: 100%;"></iframe>
         </div>
@@ -1890,10 +3101,47 @@
       <div class="reference-section" id="reference-panel">
         <div class="docs-header">
           <div class="tab active" data-tab="examples" id="examples-tab">Top Hits</div>
-          <div class="tab" data-tab="reference" id="reference-tab">Code</div>
+          <div class="tab" data-tab="keeps" id="keeps-tab">Keeps</div>
+          <div class="tab" data-tab="reference" id="reference-tab">Book</div>
         </div>
         <div class="docs-content" id="examples-content">
           <div id="examples-list">Loading examples...</div>
+        </div>
+        <div class="docs-content hidden" id="keeps-content">
+          <div id="keeps-container">
+            <!-- Logged out state -->
+            <div class="keeps-logged-out" id="keeps-logged-out">
+              <div class="keeps-login-prompt">
+                <span class="keeps-icon">🔒</span>
+                <p>Log in to Aesthetic Computer to play for keeps!</p>
+                <button class="keeps-login-btn" id="keeps-login-btn">Login</button>
+              </div>
+            </div>
+            <!-- Logged in state -->
+            <div class="keeps-logged-in hidden" id="keeps-logged-in">
+              <div class="keeps-header">
+                <span class="keeps-icon">🔓</span>
+                <span class="keeps-title">Keeps</span>
+                <span class="keeps-network" id="keeps-network">ghostnet</span>
+              </div>
+              <div class="keeps-wallet" id="keeps-wallet">
+              <button class="keeps-connect-btn" id="keeps-connect-btn">Connect Wallet</button>
+              <div class="keeps-address hidden" id="keeps-address"></div>
+            </div>
+            <div class="keeps-mint-section hidden" id="keeps-mint-section">
+              <div class="keeps-code-preview" id="keeps-code-preview">
+                <div class="keeps-code-label">Your code:</div>
+                <pre id="keeps-code-text"></pre>
+              </div>
+              <button class="keeps-mint-btn" id="keeps-mint-btn">Mint as Keep</button>
+              <div class="keeps-status" id="keeps-status"></div>
+            </div>
+              <div class="keeps-info">
+                <p>Turn your KidLisp creation into an NFT on Tezos.</p>
+                <p class="keeps-hint">Write code → Connect wallet → Mint</p>
+              </div>
+            </div>
+          </div>
         </div>
         <div class="docs-content hidden" id="reference-content">
           <div id="wizard-container">
@@ -1941,6 +3189,22 @@
   
   <!-- Development reload logic. -->
   <script type="module">
+    // Import KidLisp logger
+    import { 
+      log, 
+      showHeader, 
+      logPlatformSwitch, 
+      logCodeOperation, 
+      logEditorInit, 
+      logAuth, 
+      logBoot,
+      debug 
+    } from '/kidlisp.com/js/logger.js';
+    
+    // Show beautiful header on load
+    showHeader();
+    logBoot('start', window.location.pathname);
+    
     // Internationalization
     const i18n = {
       en: {
@@ -1949,8 +3213,18 @@
         playButton: 'Play',
         previewTitle: 'Aesthetic.Computer',
         consoleTitle: 'Console',
-        referenceTab: 'Code',
+        referenceTab: 'Book',
         examplesTab: 'Top Hits',
+        keepsTab: 'Keeps',
+        keepsConnectWallet: 'Connect Wallet',
+        keepsConnecting: 'Connecting...',
+        keepsDisconnect: 'Disconnect',
+        keepsMintBtn: 'Mint as Keep',
+        keepsMinting: 'Minting...',
+        keepsYourCode: 'Your code:',
+        keepsInfo: 'Turn your KidLisp creation into an NFT on Tezos.',
+        keepsHint: 'Write code → Connect wallet → Mint',
+        keepsNetwork: 'ghostnet',
         examplesLoading: 'Loading examples...',
         examplesNone: 'No examples found.',
         examplesError: 'Error loading examples.',
@@ -1963,6 +3237,15 @@
         categoryNumbers: 'Numbers',
         wizardPrompt: 'Tap to build your KidLisp program:',
         wizardEmpty: 'Start by selecting a form below',
+        pressToRun: 'Press ▶ to run',
+        pressToSend: 'Press ▶ to send to device',
+        comingSoon: 'Coming Soon',
+        experimental: '⚠️ Experimental',
+        platformComingSoon: 'support coming soon!',
+        platformExperimental: 'is experimental - features may be limited',
+        mintPreparing: 'Preparing mint...',
+        mintSigning: 'Please sign in your wallet...',
+        mintConfirming: 'Confirming transaction...',
       },
       es: {
         editorTitle: 'KidLisp',
@@ -1970,8 +3253,17 @@
         playButton: 'Ejecutar',
         previewTitle: 'Aesthetic.Computer',
         consoleTitle: 'Consola',
-        referenceTab: 'Código',
+        referenceTab: 'Libro',
         examplesTab: 'Más Populares',
+        keepsTab: 'Keeps',
+        keepsConnectWallet: 'Conectar Cartera',
+        keepsDisconnect: 'Desconectar',
+        keepsMintBtn: 'Acuñar como Keep',
+        keepsMinting: 'Acuñando...',
+        keepsYourCode: 'Tu código:',
+        keepsInfo: 'Convierte tu creación KidLisp en un NFT en Tezos.',
+        keepsHint: 'Escribe código → Conecta cartera → Acuña',
+        keepsNetwork: 'ghostnet',
         examplesLoading: 'Cargando ejemplos...',
         examplesNone: 'No se encontraron ejemplos.',
         examplesError: 'Error al cargar ejemplos.',
@@ -1984,6 +3276,15 @@
         categoryNumbers: 'Números',
         wizardPrompt: 'Toca para construir tu programa KidLisp:',
         wizardEmpty: 'Comienza seleccionando una forma a continuación',
+        pressToRun: 'Presiona ▶ para ejecutar',
+        pressToSend: 'Presiona ▶ para enviar al dispositivo',
+        comingSoon: 'Próximamente',
+        experimental: '⚠️ Experimental',
+        platformComingSoon: '¡soporte próximamente!',
+        platformExperimental: 'es experimental - funciones limitadas',
+        mintPreparing: 'Preparando mint...',
+        mintSigning: 'Por favor firma en tu cartera...',
+        mintConfirming: 'Confirmando transacción...',
       },
       zh: {
         editorTitle: 'KidLisp',
@@ -1991,8 +3292,17 @@
         playButton: '运行',
         previewTitle: 'Aesthetic.Computer',
         consoleTitle: '控制台',
-        referenceTab: '代码',
+        referenceTab: '手册',
         examplesTab: '热门',
+        keepsTab: 'Keeps',
+        keepsConnectWallet: '连接钱包',
+        keepsDisconnect: '断开连接',
+        keepsMintBtn: '铸造为 Keep',
+        keepsMinting: '铸造中...',
+        keepsYourCode: '你的代码：',
+        keepsInfo: '将你的 KidLisp 创作铸造为 Tezos NFT。',
+        keepsHint: '编写代码 → 连接钱包 → 铸造',
+        keepsNetwork: 'ghostnet',
         examplesLoading: '加载示例中...',
         examplesNone: '未找到示例。',
         examplesError: '加载示例时出错。',
@@ -2005,6 +3315,15 @@
         categoryNumbers: '数字',
         wizardPrompt: '点击构建你的 KidLisp 程序：',
         wizardEmpty: '从下面选择一个形式开始',
+        pressToRun: '按 ▶ 运行',
+        pressToSend: '按 ▶ 发送到设备',
+        comingSoon: '即将推出',
+        experimental: '⚠️ 实验性',
+        platformComingSoon: '支持即将推出！',
+        platformExperimental: '是实验性的 - 功能可能有限',
+        mintPreparing: '准备铸造中...',
+        mintSigning: '请在钱包中签名...',
+        mintConfirming: '确认交易中...',
       },
       da: {
         editorTitle: 'KidLisp',
@@ -2012,8 +3331,17 @@
         playButton: 'Kør',
         previewTitle: 'Aesthetic.Computer',
         consoleTitle: 'Konsol',
-        referenceTab: 'Kode',
+        referenceTab: 'Bog',
         examplesTab: 'Top Hits',
+        keepsTab: 'Keeps',
+        keepsConnectWallet: 'Forbind Wallet',
+        keepsDisconnect: 'Afbryd',
+        keepsMintBtn: 'Mint som Keep',
+        keepsMinting: 'Minter...',
+        keepsYourCode: 'Din kode:',
+        keepsInfo: 'Lav din KidLisp-skabelse til en NFT på Tezos.',
+        keepsHint: 'Skriv kode → Forbind wallet → Mint',
+        keepsNetwork: 'ghostnet',
         examplesLoading: 'Indlæser eksempler...',
         examplesNone: 'Ingen eksempler fundet.',
         examplesError: 'Fejl ved indlæsning af eksempler.',
@@ -2026,6 +3354,15 @@
         categoryNumbers: 'Tal',
         wizardPrompt: 'Tryk for at bygge dit KidLisp program:',
         wizardEmpty: 'Start med at vælge en form nedenfor',
+        pressToRun: 'Tryk ▶ for at køre',
+        pressToSend: 'Tryk ▶ for at sende til enhed',
+        comingSoon: 'Kommer snart',
+        experimental: '⚠️ Eksperimentel',
+        platformComingSoon: 'understøttelse kommer snart!',
+        platformExperimental: 'er eksperimentel - funktioner kan være begrænsede',
+        mintPreparing: 'Forbereder mint...',
+        mintSigning: 'Venligst underskriv i din wallet...',
+        mintConfirming: 'Bekræfter transaktion...',
       }
     };
 
@@ -2066,6 +3403,60 @@
           header.textContent = t(categories[index]);
         }
       });
+      
+      // Update boot screen text (data-i18n attributes)
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        const translated = t(key);
+        // Preserve the blink span for action text
+        if (key === 'pressToRun' || key === 'pressToSend') {
+          el.innerHTML = translated.replace('▶', '<span class="blink">▶</span>');
+        } else {
+          el.textContent = translated;
+        }
+      });
+    }
+    
+    // Simple toast notification system
+    function showToast(message, type = 'info') {
+      // Remove existing toast if any
+      const existing = document.querySelector('.kidlisp-toast');
+      if (existing) existing.remove();
+      
+      const toast = document.createElement('div');
+      toast.className = `kidlisp-toast toast-${type}`;
+      toast.textContent = message;
+      
+      // Style the toast
+      Object.assign(toast.style, {
+        position: 'fixed',
+        bottom: '20px',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        padding: '12px 24px',
+        borderRadius: '8px',
+        backgroundColor: type === 'warning' ? '#f59e0b' : type === 'error' ? '#ef4444' : '#8b5cf6',
+        color: 'white',
+        fontFamily: 'var(--font-mono)',
+        fontSize: '14px',
+        zIndex: '10000',
+        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
+        opacity: '0',
+        transition: 'opacity 0.3s ease'
+      });
+      
+      document.body.appendChild(toast);
+      
+      // Animate in
+      requestAnimationFrame(() => {
+        toast.style.opacity = '1';
+      });
+      
+      // Remove after 3 seconds
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 300);
+      }, 3000);
     }
     
     // Initialize Split.js
@@ -2345,12 +3736,8 @@
       // Update checkerboard visibility based on collapsed state
       // Make globally accessible for tab click handlers
       window.updateCheckerboard = function() {
-        if (!checkerboard) {
-          console.log('🔲 No checkerboard element found');
-          return;
-        }
+        if (!checkerboard) return;
         const isMobile = window.innerWidth <= 768;
-        console.log('🔲 updateCheckerboard called, isMobile:', isMobile, 'width:', window.innerWidth);
         
         if (!isMobile) {
           checkerboard.style.display = 'none';
@@ -2358,13 +3745,8 @@
         }
         
         // Check collapsed state of all panels
-        const panelStates = panels.map(p => ({ id: p?.id, collapsed: p?.dataset.collapsed }));
-        console.log('🔲 Panel states:', panelStates);
-        
         const allCollapsed = panels.every(p => p && p.dataset.collapsed === 'true');
         const anyCollapsed = panels.some(p => p && p.dataset.collapsed === 'true');
-        
-        console.log('🔲 allCollapsed:', allCollapsed, 'anyCollapsed:', anyCollapsed);
         
         if (anyCollapsed) {
           checkerboard.style.display = 'block';
@@ -2374,10 +3756,8 @@
           } else {
             checkerboard.classList.remove('all-collapsed');
           }
-          console.log('🔲 Checkerboard shown, all-collapsed:', allCollapsed);
         } else {
           checkerboard.style.display = 'none';
-          console.log('🔲 Checkerboard hidden');
         }
       }
       
@@ -2727,8 +4107,8 @@
         
         // Touch events - single touchstart that handles both pending state and document listeners
         header.addEventListener('touchstart', (e) => {
-          // Skip interactive elements including tabs
-          if (e.target.closest('button, select, input, .language-tab, #theme-toggle, .tab')) return;
+          // Skip interactive elements including tabs, dropdowns, and auth buttons
+          if (e.target.closest('button, select, input, .language-tab, #theme-toggle, .tab, .platform-selector, .header-user-menu, .header-auth-buttons, #preview-qr')) return;
           
           startPending(e.touches[0].clientY);
           
@@ -2752,8 +4132,8 @@
         
         // Mouse events - track on document for move/up
         header.addEventListener('mousedown', (e) => {
-          // Skip interactive elements including tabs
-          if (e.target.closest('button, select, input, .language-tab, #theme-toggle, .tab')) return;
+          // Skip interactive elements including tabs, dropdowns, and auth buttons
+          if (e.target.closest('button, select, input, .language-tab, #theme-toggle, .tab, .platform-selector, .header-user-menu, .header-auth-buttons, #preview-qr')) return;
           e.preventDefault();
           startPending(e.clientY);
           
@@ -2966,7 +4346,6 @@
       if (event.data?.type === 'boot-log') {
         // If we receive a log, cancel the fallback timeout immediately
         if (fallbackTimeout) {
-          console.log("Log received, cancelling fallback hide.");
           clearTimeout(fallbackTimeout);
           fallbackTimeout = null;
         }
@@ -2984,12 +4363,12 @@
         
         // Check if this is the final "ready: aesthetic.computer/disks/kidlisp" message
         if (event.data.message.includes('ready: aesthetic.computer/disks/kidlisp')) {
-          console.log('🎯 Piece is fully loaded and ready!');
           pieceReady = true;
           
-          // If we were waiting to auto-play, do it now
-          if (shouldAutoPlay && !isPlaying) {
-            console.log('🎬 Auto-playing initial code now that piece is ready...');
+          // If we were waiting to auto-play, do it now (but only once)
+          // Only auto-play on aesthetic-computer platform
+          if (shouldAutoPlay && !isPlaying && hasInitialPreviewRun && currentPlatform === 'aesthetic-computer') {
+            log.playback.log('Auto-playing (piece ready)...');
             updatePreview();
             isPlaying = true;
             isPaused = false;
@@ -2997,7 +4376,7 @@
             sendButton.style.right = '64px';
             stopButton.style.display = 'flex';
             document.getElementById('kidlisp-editor').classList.add('live-running');
-            shouldAutoPlay = false;
+            shouldAutoPlay = false; // Clear the flag so we don't auto-play again
           }
         }
       } else if (event.data?.type === 'ready') {
@@ -3015,12 +4394,8 @@
 
     // Fallback: Hide boot screen when iframe loads (if no messages received)
     previewIframe.addEventListener('load', () => {
-      console.log("Iframe loaded. Boot status:", { bootComplete, hasReceivedLogs });
-
       if (!bootComplete && !hasReceivedLogs) {
-        console.log("⚠️ No boot logs received yet, scheduling fallback hide...");
         fallbackTimeout = setTimeout(() => {
-          console.log("Executing fallback hide.");
           bootScreen.classList.add('hidden');
         }, 1500);
       }
@@ -3036,7 +4411,7 @@
       currentQRCode = code; // Store for regeneration
       // Wait for QR library to be loaded
       if (!window.qr || !window.ErrorCorrectLevel) {
-        console.warn('⚠️ QR library not loaded yet');
+        log.qr.verbose('QR library not loaded yet, retrying...');
         setTimeout(() => generateAndDisplayQR(code), 100);
         return;
       }
@@ -3051,7 +4426,7 @@
         
         // Generate QR code with lowest error correction for smallest size
         const cells = window.qr(url, { errorCorrectLevel: window.ErrorCorrectLevel.L }).modules;
-        console.log(`📱 QR Code: ${cells.length}×${cells.length} modules for URL: ${url} (${url.length} chars)`);
+        log.qr.verbose(`Generated ${cells.length}×${cells.length} QR`);
         
         // Scale QR to fit 34px height (compact but scannable)
         const targetSize = 34;
@@ -3090,18 +4465,19 @@
           }
         }
         
-        // Display in header
+        // Display in header (only for aesthetic-computer platform)
         const previewQR = document.getElementById('preview-qr');
         previewQR.src = canvas.toDataURL();
-        previewQR.style.display = 'block';
+        // Only show QR on aesthetic-computer platform
+        if (currentPlatform === 'aesthetic-computer') {
+          previewQR.style.display = 'block';
+        }
         
         // Store for modal
         previewQR.dataset.url = url;
         previewQR.dataset.qrSize = qrSize;
-        
-        console.log(`✅ Generated QR code for $${cleanCode}`);
       } catch (error) {
-        console.error('❌ Error generating QR code:', error);
+        log.qr.error('Error generating QR:', error);
       }
     }
     
@@ -3168,7 +4544,6 @@
       if (window.location.pathname !== newPath) {
         window.history.pushState({ code: cleanCode }, newTitle, newPath);
         document.title = newTitle;
-        console.log(`🔄 Updated URL to: ${newPath}`);
       }
       
       // Generate QR code
@@ -3184,24 +4559,22 @@
         // Fetch from the same API that aesthetic.computer uses
         const url = `${aestheticUrl}/api/store-kidlisp?code=${cleanCode}`;
         
-        console.log(`🔍 Loading kidlisp code from database: ${cleanCode}`);
         const response = await fetch(url);
         
         if (response.ok) {
           const data = await response.json();
           if (data.source) {
-            console.log(`✅ Loaded kidlisp code: ${cleanCode}`);
             return data.source;
           } else {
-            console.error(`❌ No source found for code: ${cleanCode}`);
+            log.code.error(`No source for code: $${cleanCode}`);
             return null;
           }
         } else {
-          console.error(`❌ Failed to load code ${cleanCode}: HTTP ${response.status}`);
+          log.code.error(`Failed to load $${cleanCode}: HTTP ${response.status}`);
           return null;
         }
       } catch (error) {
-        console.error(`❌ Error loading kidlisp code:`, error);
+        log.code.error(`Error loading code:`, error);
         return null;
       }
     }
@@ -3303,6 +4676,10 @@
         cursorBlinking: 'blink',
         padding: { top: 12 },
       });
+      
+      // Log editor initialization
+      logEditorInit('Monaco', { theme: initialTheme, language: 'kidlisp' });
+      logBoot('editor', 'Monaco ready');
 
       // Check URL path for a kidlisp code (e.g., /kidlisp.com/$46k or /$46k)
       const urlPath = window.location.pathname;
@@ -3310,32 +4687,34 @@
       
       if (codeMatch) {
         const code = codeMatch[1];
-        console.log(`🔍 Detected kidlisp code in URL: $${code}`);
+        log.code.log(`Detected code in URL: $${code}`);
         
         // Load code from database
         loadKidlispFromDatabase(code).then(source => {
           if (source && editor) {
-            console.log(`📝 Full source from database (${source.length} chars):`, source);
+            logCodeOperation('load', source, code);
             editor.setValue(source);
-            console.log(`✅ Loaded code into editor: $${code}`);
-            console.log(`📝 Code now in editor (${editor.getValue().length} chars):`, editor.getValue());
-            // Update URL and title
-            updateURLForCode(code);
-            // Store code identifier in localStorage
-            localStorage.setItem('kidlisp-current-code', code);
-            // Update preview pane title
-            const previewTitle = document.getElementById('preview-title');
-            previewTitle.innerHTML = `Aesthetic<span class="bounce-dot" style="color: #9370DB !important;">.</span>Computer<span class="code-display">/$${code}</span>`;
+            // Update URL and title (only on AC platform)
+            if (currentPlatform === 'aesthetic-computer') {
+              updateURLForCode(code);
+              // Store code identifier in localStorage
+              localStorage.setItem('kidlisp-current-code', code);
+              // Update preview pane title
+              const previewTitle = document.getElementById('preview-title');
+              previewTitle.innerHTML = `Aesthetic<span class="bounce-dot" style="color: #9370DB !important;">.</span>Computer<span class="code-display">/$${code}</span>`;
+            }
             // Don't save to localStorage when loading from URL
-            // Trigger initial preview
-            updatePreview();
+            // Mark that we've handled the initial preview (don't run again later)
+            hasInitialPreviewRun = true;
+            // Don't trigger preview here - wait for iframe ready + auto-play
           }
         });
       } else {
         // No code in URL - check if we have a saved code identifier from localStorage
+        // Only restore on AC platform
         const savedCode = localStorage.getItem('kidlisp-current-code');
-        if (savedCode && editor.getValue().trim()) {
-          console.log(`🔍 Found saved code identifier in localStorage: $${savedCode}`);
+        if (savedCode && editor.getValue().trim() && currentPlatform === 'aesthetic-computer') {
+          log.code.debug(`Restored code from localStorage: $${savedCode}`);
           // Update URL and title to match the saved code
           updateURLForCode(savedCode);
           // Update preview pane title
@@ -3821,7 +5200,7 @@
           
         } catch (error) {
           // Silently handle errors to avoid console spam during typing
-          console.warn('Decoration error:', error);
+          log.editor.verbose('Decoration error:', error.message);
         }
         
         // Safely apply decorations with error handling
@@ -3830,7 +5209,7 @@
             currentDecorations = editor.deltaDecorations(currentDecorations, decorations);
           }
         } catch (error) {
-          console.warn('Failed to apply decorations:', error);
+          log.editor.verbose('Failed to apply decorations:', error.message);
           currentDecorations = [];
         }
       }
@@ -4021,25 +5400,24 @@
         currentTheme = theme;
         localStorage.setItem('kidlisp-theme', theme);
         
+        // Determine the actual visual theme to apply
+        let visualTheme;
         if (theme === 'system') {
-          document.documentElement.removeAttribute('data-theme');
-          const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-          themeToggle.textContent = prefersDark ? '🌙' : '☀️';
-          if (editor) {
-            monaco.editor.setTheme(prefersDark ? 'kidlisp-dark' : 'kidlisp-light');
-          }
-        } else if (theme === 'light') {
-          document.documentElement.setAttribute('data-theme', 'light');
-          themeToggle.textContent = '☀️';
-          if (editor) {
-            monaco.editor.setTheme('kidlisp-light');
-          }
-        } else if (theme === 'dark') {
-          document.documentElement.setAttribute('data-theme', 'dark');
-          themeToggle.textContent = '🌙';
-          if (editor) {
-            monaco.editor.setTheme('kidlisp-dark');
-          }
+          visualTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        } else {
+          visualTheme = theme;
+        }
+        
+        // Always set data-theme to ensure consistent styling
+        // This overrides the @media (prefers-color-scheme) fallbacks
+        document.documentElement.setAttribute('data-theme', visualTheme);
+        
+        // Update toggle icon based on current visual theme
+        themeToggle.textContent = visualTheme === 'dark' ? '🌙' : '☀️';
+        
+        // Update Monaco editor theme
+        if (editor) {
+          monaco.editor.setTheme(visualTheme === 'dark' ? 'kidlisp-dark' : 'kidlisp-light');
         }
         
         // Re-apply decorations with new theme
@@ -4279,11 +5657,21 @@
         });
       }
 
-      // Initial preview - load the iframe once
-      updatePreview();
+      // Initial preview - only if we haven't already loaded from URL
+      if (!hasInitialPreviewRun) {
+        updatePreview();
+        hasInitialPreviewRun = true;
+      }
+      
+      // App is ready - trigger the splash animation
+      window.kidlispReady = true;
+      if (window.triggerSplashAnimation) {
+        window.triggerSplashAnimation();
+      }
     });
 
     let isInitialLoad = true;
+    let hasInitialPreviewRun = false; // Guard against duplicate initial runs
     
     // Detect if we're in development mode
     const isDev = window.location.hostname === 'localhost' || window.location.hostname.includes('local.');
@@ -4292,16 +5680,71 @@
     // Load KidLisp with empty code (should show default pattern/checkerboard)
     previewIframe.src = `${aestheticUrl}/kidlisp?nogap=true&nolabel=true&noauth=true`;
     
-    // Hide boot screen after iframe loads
-    previewIframe.addEventListener('load', () => {
-      setTimeout(() => {
-        bootScreen.classList.add('hidden');
-      }, 500);
-    }, { once: true });
-    
     let isPlaying = false;
     let isPaused = false;
     let lastCode = ''; // Track last code for auto-reload
+    
+    // Track current platform globally
+    let currentPlatform = localStorage.getItem('kidlisp-platform') || 'aesthetic-computer';
+    
+    // Forward declare acToken (initialized later in Auth section)
+    let acToken = null;
+    
+    // Show the boot screen for a specific platform
+    function showBootScreen(platform) {
+      // Hide all boot screens first
+      document.querySelectorAll('.boot-screen').forEach(screen => {
+        screen.classList.add('hidden');
+      });
+      
+      // Map platform to boot screen ID
+      const screenId = platform === 'aesthetic-computer' ? 'boot-screen' : `boot-screen-${platform}`;
+      const bootScreen = document.getElementById(screenId);
+      if (bootScreen) {
+        bootScreen.classList.remove('hidden');
+      } else {
+        // Fallback to main boot screen
+        document.getElementById('boot-screen').classList.remove('hidden');
+      }
+    }
+    
+    // Hide all boot screens
+    function hideAllBootScreens() {
+      document.querySelectorAll('.boot-screen').forEach(screen => {
+        screen.classList.add('hidden');
+      });
+    }
+    
+    // Initialize: show the correct boot screen for the saved platform
+    showBootScreen(currentPlatform);
+    
+    // Reusable stop playback function
+    function stopPlayback() {
+      log.playback.debug('Stopping playback');
+      
+      // Send stop message to the iframe
+      if (previewIframe.contentWindow) {
+        previewIframe.contentWindow.postMessage({ 
+          type: 'kidlisp-stop' 
+        }, aestheticUrl);
+      }
+      
+      // Reset state
+      isPlaying = false;
+      isPaused = false;
+      lastCode = '';
+      sendButton.classList.remove('playing');
+      sendButton.style.right = '8px';
+      stopButton.style.display = 'none';
+      document.getElementById('kidlisp-editor').classList.remove('live-running');
+      
+      // Show the current platform's boot screen
+      showBootScreen(currentPlatform);
+      
+      // Clear title
+      document.title = 'KidLisp - transmedia pattern programming for everybody';
+      localStorage.removeItem('kidlisp-current-code');
+    }
     
     // Disable controls initially until iframe signals ready
     sendButton.disabled = true;
@@ -4310,47 +5753,63 @@
     stopButton.style.opacity = '0.4';
     sendButton.style.cursor = 'not-allowed';
     stopButton.style.cursor = 'not-allowed';
-    console.log('🔒 Controls disabled until iframe ready');
+    log.iframe.debug('Controls disabled until iframe ready');
 
     function updatePreview(shouldCreateCode = false) {
       if (!editor) return;
       
       const code = editor.getValue().trim();
-      console.log(`📤 updatePreview called with code length: ${code.length}`);
-      console.log(`📤 Full code being sent:`, code);
+      log.playback.verbose(`Sending code (${code.length} chars)`);
       if (code) {
         // Send code via postMessage for instant reload (no network!)
-        console.log('🟢 Sending postMessage reload...');
         addConsoleEntry(t('running'), 'info');
         if (previewIframe.contentWindow) {
           previewIframe.contentWindow.postMessage({
             type: 'kidlisp-reload',
             code: code,
-            createCode: shouldCreateCode  // Only create code when explicitly requested
+            createCode: shouldCreateCode,  // Only create code when explicitly requested
+            authToken: acToken || null  // Pass auth token from kidlisp.com login
           }, aestheticUrl);
-          console.log('✅ PostMessage sent - code length:', code.length);
+          logCodeOperation('run', code);
         } else {
-          console.warn('⚠️ No iframe contentWindow available');
+          log.iframe.warn('No iframe contentWindow available');
         }
       } else {
-        console.warn('⚠️ No code to update');
+        log.playback.debug('No code to run');
       }
     }
 
     sendButton.addEventListener('click', () => {
       // Don't respond if disabled
       if (sendButton.disabled) {
-        console.log('⏸️ Play button clicked but disabled (iframe not ready)');
+        log.playback.verbose('Play button disabled');
         return;
       }
       
-      console.log('🎮 Play/Pause button clicked - isPlaying:', isPlaying, 'isPaused:', isPaused);
+      // Only AC platform supports live playback for now
+      if (currentPlatform !== 'aesthetic-computer') {
+        const platformNames = {
+          'ff1': 'FF1',
+          'ableton': 'Ableton',
+          'playdate': 'Playdate',
+          'gameboy': 'Game Boy',
+          'n64': 'N64'
+        };
+        const name = platformNames[currentPlatform] || currentPlatform;
+        showToast(`${name} preview coming soon!`, 'info');
+        return;
+      }
+      
       if (!isPlaying) {
         // Start playing - run the current code
         // Only create a NEW code if we don't already have one stored
         const existingCode = localStorage.getItem('kidlisp-current-code');
         const shouldCreateCode = !existingCode; // Only create if no existing code
-        console.log('▶️ Starting playback', existingCode ? `with existing code: ${existingCode}` : 'will create new code');
+        log.playback.log(existingCode ? `Playing $${existingCode}` : 'Starting new playback');
+        
+        // Hide boot screen when starting playback
+        hideAllBootScreens();
+        
         updatePreview(shouldCreateCode);
         isPlaying = true;
         isPaused = false;
@@ -4359,10 +5818,9 @@
         stopButton.style.display = 'flex';
         // Add live-running class to show green outline
         document.getElementById('kidlisp-editor').classList.add('live-running');
-        console.log('✅ Stop button shown, display:', stopButton.style.display);
       } else if (isPaused) {
         // Resume
-        console.log('▶️ Resuming playback');
+        log.playback.debug('Resuming');
         if (previewIframe.contentWindow) {
           previewIframe.contentWindow.postMessage({ type: 'kidlisp-resume' }, aestheticUrl);
         }
@@ -4370,7 +5828,7 @@
         sendButton.classList.add('playing'); // Ensure playing style (Pause icon)
       } else {
         // Pause
-        console.log('⏸️ Pausing playback');
+        log.playback.debug('Pausing');
         if (previewIframe.contentWindow) {
           previewIframe.contentWindow.postMessage({ type: 'kidlisp-pause' }, aestheticUrl);
         }
@@ -4384,21 +5842,16 @@
 
     // Stop button - sends stop message to iframe
     if (stopButton) {
-      console.log('✅ Stop button found and setting up event listener');
-      console.log('📍 Stop button current display:', stopButton.style.display);
-      console.log('📍 Stop button z-index:', window.getComputedStyle(stopButton).zIndex);
-      console.log('📍 Stop button pointer-events:', window.getComputedStyle(stopButton).pointerEvents);
+      log.ui.verbose('Stop button initialized');
       
       stopButton.addEventListener('click', (e) => {
         // Don't respond if disabled
         if (stopButton.disabled) {
-          console.log('⏸️ Stop button clicked but disabled (iframe not ready)');
+          log.playback.verbose('Stop button disabled');
           return;
         }
         
-        console.log('⏹️ Stop button CLICKED - event:', e);
-        console.log('⏹️ Stop button pressed - sending stop message to iframe');
-        console.log('📊 Current state - isPlaying:', isPlaying, 'isPaused:', isPaused);
+        log.playback.log('Stopping');
         
         // Prevent any bubbling
         e.stopPropagation();
@@ -4406,13 +5859,11 @@
         
         // Send stop message to the iframe (this triggers piece-reload with empty source)
         if (previewIframe.contentWindow) {
-          console.log('📤 Sending kidlisp-stop message to iframe');
           previewIframe.contentWindow.postMessage({ 
             type: 'kidlisp-stop' 
           }, aestheticUrl);
-          console.log('✅ Stop message sent');
         } else {
-          console.warn('⚠️ No iframe contentWindow available');
+          log.iframe.warn('No iframe contentWindow');
         }
         
         // Reset state
@@ -4432,25 +5883,14 @@
         // Reset preview title
         const previewTitle = document.getElementById('preview-title');
         previewTitle.innerHTML = `Aesthetic<span class="bounce-dot" style="color: #9370DB !important;">.</span>Computer`;
-        
-        console.log('✅ State reset complete - stop button hidden');
-      });
-      
-      // Add visual feedback on hover
-      stopButton.addEventListener('mouseenter', () => {
-        console.log('🖱️ Mouse entered stop button');
-      });
-      
-      stopButton.addEventListener('mouseleave', () => {
-        console.log('🖱️ Mouse left stop button');
       });
     } else {
-      console.error('❌ Stop button not found in DOM!');
+      log.ui.error('Stop button not found in DOM');
     }
 
     // Inject console forwarding into iframe once it loads
     previewIframe.addEventListener('load', () => {
-      console.log('🎬 Iframe loaded, sending ping to check readiness...');
+      log.iframe.debug('Iframe loaded, checking readiness');
       
       // Send ping to check if aesthetic.computer is ready
       if (previewIframe.contentWindow) {
@@ -4528,14 +5968,12 @@
         }
       } catch (e) {
         // Cross-origin iframes will throw an error, that's expected for production
-        console.log('Console forwarding not available (cross-origin iframe)');
+        log.iframe.verbose('Console forwarding not available (cross-origin)');
       }
     });
 
     // Update initial console message
     updateUILanguage();
-    
-    console.log('🎯 Setting up main message listener for kidlisp-ready...');
     
     // 🧪 Test harness message handler
     function handleTestMessage(data, source) {
@@ -4549,7 +5987,6 @@
         case 'test:setCode':
           if (editor && data.code !== undefined) {
             editor.setValue(data.code);
-            console.log('🧪 Code set:', data.code.substring(0, 50) + '...');
             respond({ success: true, length: data.code.length });
           } else {
             respond({ success: false, error: 'Editor not ready or no code provided' });
@@ -4567,7 +6004,7 @@
         case 'test:play':
           if (sendButton && !sendButton.disabled) {
             sendButton.click();
-            console.log('🧪 Play clicked');
+            log.message.debug('Test: Play clicked');
             respond({ success: true });
           } else {
             respond({ success: false, error: 'Play button not ready' });
@@ -4577,7 +6014,7 @@
         case 'test:stop':
           if (stopButton) {
             stopButton.click();
-            console.log('🧪 Stop clicked');
+            log.message.debug('Test: Stop clicked');
             respond({ success: true });
           } else {
             respond({ success: false, error: 'Stop button not found' });
@@ -4587,7 +6024,7 @@
         case 'test:clear':
           if (editor) {
             editor.setValue('');
-            console.log('🧪 Editor cleared');
+            log.message.debug('Test: Editor cleared');
             respond({ success: true });
           } else {
             respond({ success: false, error: 'Editor not ready' });
@@ -4612,7 +6049,7 @@
           const consoleEl = document.getElementById('console-output');
           if (consoleEl) {
             consoleEl.innerHTML = '';
-            console.log('🧪 Console cleared');
+            log.message.debug('Test: Console cleared');
             respond({ success: true });
           } else {
             respond({ success: false, error: 'Console not found' });
@@ -4633,7 +6070,7 @@
               const header = panel.querySelector('.editor-header, .docs-header');
               if (header) {
                 header.click();
-                console.log('🧪 Panel toggled:', data.panel);
+                log.message.debug('Test: Panel toggled:', data.panel);
                 respond({ success: true, panel: data.panel });
               } else {
                 respond({ success: false, error: 'Panel header not found' });
@@ -4650,7 +6087,7 @@
           const langOption = document.querySelector(`.lang-option[data-lang="${data.lang}"]`);
           if (langOption) {
             langOption.click();
-            console.log('🧪 Language switched to:', data.lang);
+            log.message.debug('Test: Language switched:', data.lang);
             respond({ success: true, lang: data.lang });
           } else {
             respond({ success: false, error: 'Language not found: ' + data.lang });
@@ -4661,7 +6098,7 @@
           const themeToggle = document.getElementById('theme-toggle');
           if (themeToggle) {
             themeToggle.click();
-            console.log('🧪 Theme toggled');
+            log.message.debug('Test: Theme toggled');
             respond({ success: true });
           } else {
             respond({ success: false, error: 'Theme toggle not found' });
@@ -4696,7 +6133,7 @@
           break;
           
         default:
-          console.log('🧪 Unknown test message type:', data.type);
+          log.message.warn('Unknown test message type:', data.type);
           respond({ success: false, error: 'Unknown test message type: ' + data.type });
       }
     }
@@ -4710,17 +6147,17 @@
       
       // 🧪 Test harness message handlers
       if (event.data?.type?.startsWith('test:')) {
-        console.log('🧪 Test message received:', event.data.type, event.data);
+        log.message.debug('Test message:', event.data.type);
         handleTestMessage(event.data, event.source);
         return;
       }
       
-      console.log('📨 Message received:', event.data?.type, event.data);
-      console.log('📨 Message origin:', event.origin, 'Expected:', aestheticUrl);
+      log.message.verbose('Message:', event.data?.type);
       
       // Handle ready signal from iframe
       if (event.data && event.data.type === 'kidlisp-ready') {
-        console.log('✅ Iframe is ready! Enabling controls...');
+        log.iframe.success('Iframe ready - enabling controls');
+        logBoot('iframe', 'Preview ready');
         sendButton.disabled = false;
         stopButton.disabled = false;
         sendButton.style.opacity = '1';
@@ -4728,17 +6165,16 @@
         // Remove disabled cursor
         sendButton.style.cursor = 'pointer';
         stopButton.style.cursor = 'pointer';
-        console.log('✅ Controls enabled!');
         
         // Mark that we want to auto-play, but wait for piece to be ready
+        // Only auto-play on aesthetic-computer platform
         const initialCode = editor?.getValue().trim();
-        if (initialCode && !isPlaying) {
-          console.log('🎬 Will auto-play once piece is fully loaded...');
+        if (initialCode && !isPlaying && currentPlatform === 'aesthetic-computer') {
           shouldAutoPlay = true;
           
-          // If piece is already ready, play immediately
-          if (pieceReady) {
-            console.log('🎬 Piece already ready, auto-playing now...');
+          // If piece is already ready, play immediately (but only once)
+          if (pieceReady && hasInitialPreviewRun) {
+            log.playback.log('Auto-playing (iframe ready)...');
             updatePreview();
             isPlaying = true;
             isPaused = false;
@@ -4746,7 +6182,7 @@
             sendButton.style.right = '64px';
             stopButton.style.display = 'flex';
             document.getElementById('kidlisp-editor').classList.add('live-running');
-            shouldAutoPlay = false;
+            shouldAutoPlay = false; // Clear the flag so we don't auto-play again
           }
         }
       } else if (event.data && event.data.type === 'console') {
@@ -4758,7 +6194,7 @@
         }
       } else if (event.data && event.data.type === 'kidlisp-code-created') {
         // Code was created with $ identifier - update URL and preview title
-        console.log('🎉 kidlisp-code-created message received!', event.data);
+        log.code.success(`Code created: $${event.data.code}`);
         
         if (event.data.code) {
           // Update browser URL and title
@@ -4776,8 +6212,30 @@
           const previewQR = document.getElementById('preview-qr');
           // Display QR code as data URI
           previewQR.src = event.data.qr;
-          previewQR.style.display = 'block';
-          console.log('✅ QR code displayed');
+          // Only show QR on aesthetic-computer platform
+          if (currentPlatform === 'aesthetic-computer') {
+            previewQR.style.display = 'block';
+          }
+        }
+      } else if (event.data && event.data.type === 'keep-mint-prepared') {
+        // Mint preparation response from iframe
+        log.wallet.debug('Mint prepared:', event.data.success);
+        if (event.data.success && pendingMintResolve) {
+          pendingMintResolve(event.data);
+        } else if (!event.data.success && pendingMintReject) {
+          pendingMintReject(event.data.error || 'Mint preparation failed');
+        }
+      } else if (event.data && event.data.type === 'keep-mint-progress') {
+        // Progress update from iframe during mint preparation
+        const statusEl = document.getElementById('keeps-status');
+        if (statusEl && event.data.message) {
+          statusEl.textContent = event.data.message;
+        }
+      } else if (event.data && event.data.type === 'keep-mint-error') {
+        // Error from iframe during mint preparation
+        log.wallet.error('Mint error:', event.data.error);
+        if (pendingMintReject) {
+          pendingMintReject(event.data.error || 'Mint preparation failed');
         }
       }
     });
@@ -4829,10 +6287,7 @@
     
     function populateGrid(gridId, words) {
       const grid = document.getElementById(gridId);
-      if (!grid) {
-        console.warn(`Grid element #${gridId} not found, skipping population`);
-        return;
-      }
+      if (!grid) return; // Grid is optional - silently skip if not present
       words.forEach(word => {
         const item = document.createElement('div');
         item.className = 'function-item';
@@ -4913,23 +6368,29 @@
     });
 
     // Tab functionality
-    console.log('🔍 Starting tab setup...');
     const referenceContent = document.getElementById('reference-content');
     const examplesContent = document.getElementById('examples-content');
+    const keepsContent = document.getElementById('keeps-content');
     const codeTab = document.getElementById('reference-tab');
     const examplesTab = document.getElementById('examples-tab');
+    const keepsTab = document.getElementById('keeps-tab');
     let examplesLoaded = false;
-
-    console.log('🔍 Tab elements found:', { 
-      codeTab: !!codeTab, 
-      examplesTab: !!examplesTab, 
-      referenceContent: !!referenceContent, 
-      examplesContent: !!examplesContent,
-      referenceContentClasses: referenceContent?.className,
-      examplesContentClasses: examplesContent?.className
-    });
     
-    if (codeTab && examplesTab && referenceContent && examplesContent) {
+    // Helper to hide all tab contents
+    function hideAllTabContents() {
+      referenceContent?.classList.add('hidden');
+      examplesContent?.classList.add('hidden');
+      keepsContent?.classList.add('hidden');
+    }
+    
+    // Helper to deactivate all tabs
+    function deactivateAllTabs() {
+      codeTab?.classList.remove('active');
+      examplesTab?.classList.remove('active');
+      keepsTab?.classList.remove('active');
+    }
+    
+    if (codeTab && examplesTab && keepsTab && referenceContent && examplesContent && keepsContent) {
       // Helper to expand reference panel on mobile if collapsed (never collapse from tab tap)
       function expandReferencePanelOnMobile() {
         if (window.innerWidth <= 768) {
@@ -4950,57 +6411,840 @@
       }
       
       codeTab.addEventListener('click', function(e) {
-        console.log('🎯 Code tab clicked!');
         e.stopPropagation();
+        log.tabs.debug('Book tab');
+        deactivateAllTabs();
+        hideAllTabContents();
         codeTab.classList.add('active');
-        examplesTab.classList.remove('active');
         referenceContent.classList.remove('hidden');
-        examplesContent.classList.add('hidden');
         expandReferencePanelOnMobile();
-        console.log('🎯 After Code tab click:', {
-          codeTabActive: codeTab.classList.contains('active'),
-          examplesTabActive: examplesTab.classList.contains('active'),
-          referenceHidden: referenceContent.classList.contains('hidden'),
-          examplesHidden: examplesContent.classList.contains('hidden')
-        });
       });
       
       examplesTab.addEventListener('click', function(e) {
-        console.log('🎯 Examples tab clicked!');
-        console.log('🎯 Event:', e);
-        console.log('🎯 Target:', e.target);
-        console.log('🎯 CurrentTarget:', e.currentTarget);
         e.stopPropagation();
         e.preventDefault();
+        log.tabs.debug('Top Hits tab');
         
+        deactivateAllTabs();
+        hideAllTabContents();
         examplesTab.classList.add('active');
-        codeTab.classList.remove('active');
         examplesContent.classList.remove('hidden');
-        referenceContent.classList.add('hidden');
         expandReferencePanelOnMobile();
         
-        console.log('🎯 After Examples tab click:', {
-          codeTabActive: codeTab.classList.contains('active'),
-          examplesTabActive: examplesTab.classList.contains('active'),
-          referenceHidden: referenceContent.classList.contains('hidden'),
-          examplesHidden: examplesContent.classList.contains('hidden'),
-          examplesDisplay: window.getComputedStyle(examplesContent).display
-        });
-        
         if (!examplesLoaded) {
-          console.log('🎯 Loading examples for first time...');
           loadExamples();
-        } else {
-          console.log('🎯 Examples already loaded');
         }
       });
       
-      console.log('✅ Tab event listeners attached successfully');
+      // Keeps tab click handler
+      keepsTab.addEventListener('click', function(e) {
+        log.tabs.debug('Keeps tab');
+        e.stopPropagation();
+        e.preventDefault();
+        
+        deactivateAllTabs();
+        hideAllTabContents();
+        keepsTab.classList.add('active');
+        keepsContent.classList.remove('hidden');
+        expandReferencePanelOnMobile();
+        
+        // Update code preview with current editor content
+        updateKeepsCodePreview();
+      });
+      
+      // Initialize AC Login and Keeps functionality
+      initACLogin();
+      initKeeps();
       
       // Load examples on init since Top Hits is the default active tab
       loadExamples();
+      
+      // Boot complete!
+      logBoot('complete');
     } else {
-      console.error('❌ Missing tab elements!', { codeTab, examplesTab, referenceContent, examplesContent });
+      log.boot.error('Missing tab elements');
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Keeps Tab Functionality
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    // AC Auth state
+    let acAuth0Client = null;
+    let acUser = null;
+    // Note: acToken declared earlier (forward declaration) for updatePreview()
+    let acHandle = null; // The user's AC handle (@username)
+    
+    // Keeps state
+    let keepsWalletAddress = null;
+    let keepsConnecting = false;
+    let keepsMinting = false;
+    let keepsCurrentCode = null;
+    
+    // Lazy-load Taquito/Beacon SDK only when needed
+    let TezosToolkit = null;
+    let BeaconWallet = null;
+    let keepsWallet = null;
+    let keepsTezos = null;
+    
+    const KEEPS_CONTRACT = "KT1NeytR5BHDfGBjG9ZuLkPd7nmufmH1icVc";
+    const KEEPS_NETWORK = "ghostnet";
+    const KEEPS_RPC = "https://ghostnet.ecadinfra.com";
+    
+    function loadScriptNoAMD(src) {
+      return new Promise((resolve, reject) => {
+        // Check if script already exists
+        if (document.querySelector(`script[src="${src}"]`)) {
+          resolve();
+          return;
+        }
+        
+        // Temporarily disable AMD define to avoid conflicts with Monaco's loader
+        const originalDefine = window.define;
+        const originalRequire = window.require;
+        window.define = undefined;
+        window.require = undefined;
+        
+        const script = document.createElement('script');
+        script.src = src;
+        script.onload = () => {
+          // Restore AMD after script loads
+          window.define = originalDefine;
+          window.require = originalRequire;
+          resolve();
+        };
+        script.onerror = () => {
+          window.define = originalDefine;
+          window.require = originalRequire;
+          reject(new Error(`Failed to load ${src}`));
+        };
+        document.head.appendChild(script);
+      });
+    }
+    
+    async function loadTezosSDK() {
+      if (TezosToolkit && BeaconWallet) return;
+      
+      try {
+        log.wallet.debug("Loading Tezos SDK...");
+        
+        // Load UMD bundles via script tags, disabling AMD to avoid Monaco conflicts
+        await loadScriptNoAMD("https://unpkg.com/@taquito/taquito@19.2.0/dist/taquito.min.js");
+        await loadScriptNoAMD("https://unpkg.com/@airgap/beacon-sdk@4.2.2/dist/walletbeacon.min.js");
+        
+        // Get from window globals (UMD exports)
+        // Note: beacon SDK exports DAppClient, not BeaconWallet
+        TezosToolkit = window.taquito?.TezosToolkit;
+        BeaconWallet = window.beacon?.DAppClient;
+        
+        if (!TezosToolkit || !BeaconWallet) {
+          log.wallet.error("SDK globals not found");
+          throw new Error("SDK globals not found after loading");
+        }
+        
+        log.wallet.debug("Tezos SDK loaded");
+      } catch (e) {
+        log.wallet.error("Failed to load Tezos SDK:", e);
+        throw new Error("Failed to load wallet SDK. Please refresh and try again.");
+      }
+    }
+    
+    async function initKeepsWallet() {
+      await loadTezosSDK();
+      
+      if (!keepsTezos) {
+        keepsTezos = new TezosToolkit(KEEPS_RPC);
+      }
+      
+      if (!keepsWallet) {
+        // DAppClient from @airgap/beacon-sdk
+        keepsWallet = new BeaconWallet({
+          name: "KidLisp.com",
+          preferredNetwork: KEEPS_NETWORK,
+        });
+        keepsTezos.setWalletProvider(keepsWallet);
+        
+        // Check for existing connection
+        const activeAccount = await keepsWallet.getActiveAccount();
+        if (activeAccount) {
+          keepsWalletAddress = activeAccount.address;
+          log.wallet.log("Reconnected:", keepsWalletAddress.slice(0, 8) + "...");
+          updateKeepsWalletUI();
+        }
+      }
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // AC Auth0 Authentication
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    async function loadAuth0SDK() {
+      if (window.auth0) {
+        return;
+      }
+      
+      // Use loadScriptNoAMD to avoid Monaco's AMD loader hijacking the UMD wrapper
+      const src = `${aestheticUrl}/aesthetic.computer/dep/auth0-spa-js.production.js`;
+      log.auth.debug("Loading Auth0 SDK");
+      await loadScriptNoAMD(src);
+      
+      if (window.auth0) {
+        log.auth.debug("Auth0 SDK loaded");
+      } else {
+        throw new Error('Auth0 SDK loaded but window.auth0 not defined');
+      }
+    }
+    
+    async function initAuth0() {
+      try {
+        await loadAuth0SDK();
+        
+        // Determine correct redirect URI for kidlisp.com
+        // In dev: localhost:8888/kidlisp.com, in prod: kidlisp.com
+        const isKidlispDomain = window.location.hostname === 'kidlisp.com' || window.location.hostname === 'www.kidlisp.com';
+        const redirectUri = isKidlispDomain 
+          ? window.location.origin 
+          : window.location.origin + '/kidlisp.com';
+        
+        acAuth0Client = await window.auth0.createAuth0Client({
+          domain: "https://hi.aesthetic.computer",
+          clientId: "LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt",
+          cacheLocation: "localstorage",
+          useRefreshTokens: true,
+          authorizationParams: { 
+            redirect_uri: redirectUri 
+          },
+        });
+        
+        // Handle redirect callback
+        if (location.search.includes("state=") && 
+            (location.search.includes("code=") || location.search.includes("error="))) {
+          try {
+            await acAuth0Client.handleRedirectCallback();
+            // Clean URL
+            const cleanUrl = window.location.origin + window.location.pathname;
+            window.history.replaceState({}, document.title, cleanUrl);
+          } catch (e) {
+            log.auth.error("Auth callback error:", e);
+          }
+        }
+        
+        // Check if already authenticated
+        const isAuthenticated = await acAuth0Client.isAuthenticated();
+        if (isAuthenticated) {
+          acUser = await acAuth0Client.getUser();
+          acToken = await acAuth0Client.getTokenSilently();
+          
+          // Fetch AC handle from user API
+          try {
+            const userRes = await fetch(
+              `${aestheticUrl}/user?from=${encodeURIComponent(acUser.email)}&withHandle=true`
+            );
+            const userData = await userRes.json();
+            if (userData.handle) {
+              acHandle = userData.handle;
+            }
+          } catch (e) {
+            log.auth.warn("Could not fetch AC handle:", e);
+          }
+          
+          logAuth('restore', acHandle || acUser?.email?.split('@')[0]);
+        }
+        
+        updateACLoginUI();
+        logBoot('auth', isAuthenticated ? 'authenticated' : 'guest');
+      } catch (e) {
+        log.auth.error("Auth0 init error:", e);
+      }
+    }
+    
+    function updateACLoginUI() {
+      // Header elements
+      const headerAuthButtons = document.getElementById('header-auth-buttons');
+      const headerUserMenu = document.getElementById('header-user-menu');
+      const headerUserHandle = document.getElementById('header-user-handle');
+      
+      // Keeps tab elements
+      const keepsLoggedOut = document.getElementById('keeps-logged-out');
+      const keepsLoggedIn = document.getElementById('keeps-logged-in');
+      
+      // Only show auth UI when on aesthetic-computer platform
+      const isACPlatform = currentPlatform === 'aesthetic-computer';
+      
+      if (acUser) {
+        // Header: show user menu with handle, hide auth buttons (only on AC platform)
+        if (headerAuthButtons) headerAuthButtons.style.display = 'none';
+        if (headerUserMenu) {
+          headerUserMenu.style.display = isACPlatform ? 'flex' : 'none';
+          const displayName = acHandle ? `@${acHandle}` : acUser.email?.split('@')[0] || 'User';
+          headerUserHandle.textContent = displayName;
+        }
+        
+        // Keeps tab: show logged in state (wallet connect)
+        if (keepsLoggedOut) keepsLoggedOut.classList.add('hidden');
+        if (keepsLoggedIn) keepsLoggedIn.classList.remove('hidden');
+      } else {
+        // Header: show auth buttons, hide user menu (only on AC platform)
+        if (headerAuthButtons) headerAuthButtons.style.display = isACPlatform ? 'flex' : 'none';
+        if (headerUserMenu) headerUserMenu.style.display = 'none';
+        
+        // Keeps tab: show logged out state
+        if (keepsLoggedOut) keepsLoggedOut.classList.remove('hidden');
+        if (keepsLoggedIn) keepsLoggedIn.classList.add('hidden');
+      }
+    }
+    
+    async function acLogin() {
+      try {
+        if (!acAuth0Client) await initAuth0();
+        if (!acAuth0Client) {
+          log.auth.error("Auth0 client not initialized");
+          return;
+        }
+        logAuth('check');
+        await acAuth0Client.loginWithRedirect({
+          authorizationParams: { prompt: "login" }
+        });
+      } catch (e) {
+        log.auth.error("Login error:", e);
+      }
+    }
+    
+    async function acLogout() {
+      if (!acAuth0Client) return;
+      logAuth('logout', acHandle || acUser?.email?.split('@')[0]);
+      acUser = null;
+      acToken = null;
+      acHandle = null;
+      
+      // Determine correct redirect URI
+      const isKidlispDomain = window.location.hostname === 'kidlisp.com' || window.location.hostname === 'www.kidlisp.com';
+      const returnTo = isKidlispDomain 
+        ? window.location.origin 
+        : window.location.origin + '/kidlisp.com';
+      
+      await acAuth0Client.logout({
+        logoutParams: { returnTo }
+      });
+    }
+    
+    function initACLogin() {
+      // Header login button
+      const headerLoginBtn = document.getElementById('header-login-btn');
+      if (headerLoginBtn) {
+        headerLoginBtn.addEventListener('click', acLogin);
+      }
+      
+      // Header signup button - same as login but with signup hint
+      const headerSignupBtn = document.getElementById('header-signup-btn');
+      if (headerSignupBtn) {
+        headerSignupBtn.addEventListener('click', async () => {
+          try {
+            if (!acAuth0Client) await initAuth0();
+            if (!acAuth0Client) {
+              log.auth.error("Auth0 client not initialized");
+              return;
+            }
+            logAuth('check');
+            await acAuth0Client.loginWithRedirect({
+              authorizationParams: { 
+                prompt: "login",
+                screen_hint: "signup"  // Tell Auth0 to show signup screen
+              }
+            });
+          } catch (e) {
+            log.auth.error("Signup error:", e);
+          }
+        });
+      }
+      
+      // Header user menu - click to toggle dropdown
+      const headerUserMenu = document.getElementById('header-user-menu');
+      if (headerUserMenu) {
+        const userDropdown = document.getElementById('header-user-dropdown');
+        headerUserMenu.addEventListener('click', (e) => {
+          e.stopPropagation();
+          headerUserMenu.classList.toggle('open');
+          // Position the fixed dropdown
+          if (headerUserMenu.classList.contains('open') && userDropdown) {
+            const rect = headerUserMenu.getBoundingClientRect();
+            userDropdown.style.top = (rect.bottom + 4) + 'px';
+            userDropdown.style.right = (window.innerWidth - rect.right) + 'px';
+          }
+        });
+      }
+      
+      // Header logout button
+      const headerLogoutBtn = document.getElementById('header-logout-btn');
+      if (headerLogoutBtn) {
+        headerLogoutBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          acLogout();
+        });
+      }
+      
+      // Close dropdown when clicking elsewhere
+      document.addEventListener('click', () => {
+        if (headerUserMenu) headerUserMenu.classList.remove('open');
+        // Also close platform selector
+        const platformSelector = document.getElementById('platform-selector');
+        if (platformSelector) platformSelector.classList.remove('open');
+      });
+      
+      // Platform selector dropdown
+      function initPlatformSelector() {
+        const selector = document.getElementById('platform-selector');
+        const previewTitle = document.getElementById('preview-title');
+        const dropdown = document.querySelector('.platform-dropdown');
+        const options = document.querySelectorAll('.platform-option');
+        
+        if (!selector || !dropdown) {
+          log.platform.warn('Platform selector elements not found');
+          return;
+        }
+        
+        // Load saved platform from localStorage
+        const savedPlatform = localStorage.getItem('kidlisp-platform') || 'aesthetic-computer';
+        const savedOption = document.querySelector(`.platform-option[data-platform="${savedPlatform}"]`);
+        if (savedOption) {
+          const name = savedOption.querySelector('.platform-opt-name')?.textContent || 'Aesthetic.Computer';
+          // Update title with platform's font styling via data attribute
+          if (previewTitle) {
+            previewTitle.innerHTML = name.replace('.', '<span class="bounce-dot">.</span>');
+            previewTitle.dataset.platform = savedPlatform;
+          }
+          // Update panel data-platform for header color styling
+          const previewPanel = document.getElementById('preview-panel');
+          if (previewPanel) previewPanel.dataset.platform = savedPlatform;
+          
+          // Update active state
+          options.forEach(o => o.classList.remove('active'));
+          savedOption.classList.add('active');
+          
+          // Update global platform state and show correct boot screen
+          currentPlatform = savedPlatform;
+          showBootScreen(savedPlatform);
+          
+          // Hide QR code and auth buttons if not aesthetic-computer
+          const previewQR = document.getElementById('preview-qr');
+          const headerAuthButtons = document.getElementById('header-auth-buttons');
+          const headerUserMenu = document.getElementById('header-user-menu');
+          if (savedPlatform !== 'aesthetic-computer') {
+            if (previewQR) previewQR.style.display = 'none';
+            if (headerAuthButtons) headerAuthButtons.style.display = 'none';
+            if (headerUserMenu) headerUserMenu.style.display = 'none';
+          }
+        }
+        
+        // Toggle dropdown on click
+        selector.addEventListener('click', (e) => {
+          e.stopPropagation();
+          selector.classList.toggle('open');
+          // Position the fixed dropdown
+          if (selector.classList.contains('open') && dropdown) {
+            const rect = selector.getBoundingClientRect();
+            dropdown.style.top = (rect.bottom + 4) + 'px';
+            dropdown.style.left = rect.left + 'px';
+          }
+        });
+        
+        // Handle platform selection - create a shared handler function
+        function handlePlatformSelect(option, e) {
+          e.stopPropagation();
+          
+          const platform = option.dataset.platform;
+          // Check if option has coming-soon or experimental class
+          const isComingSoon = option.classList.contains('coming-soon');
+          const isExperimental = option.classList.contains('experimental');
+          const name = option.querySelector('.platform-opt-name')?.textContent || 'Unknown';
+          
+          // Check if platform is available
+          if (isComingSoon) {
+            showToast(`${name} ${t('platformComingSoon')}`, 'info');
+            return;
+          }
+          if (isExperimental) {
+            showToast(`${name} ${t('platformExperimental')}`, 'warning');
+          }
+          
+          // Update title with platform's font styling via data attribute
+          if (previewTitle) {
+            previewTitle.innerHTML = name.replace('.', '<span class="bounce-dot">.</span>');
+            previewTitle.dataset.platform = platform;
+          }
+          
+          // Update panel data-platform for header color styling
+          const previewPanel = document.getElementById('preview-panel');
+          if (previewPanel) previewPanel.dataset.platform = platform;
+          
+          // Update active state
+          options.forEach(o => o.classList.remove('active'));
+          option.classList.add('active');
+          
+          // Update global current platform BEFORE stopping playback
+          currentPlatform = platform;
+          
+          // Save selection
+          localStorage.setItem('kidlisp-platform', platform);
+          
+          // Stop current playback and show new platform's boot screen
+          stopPlayback();
+          
+          // Hide QR code when not on aesthetic-computer
+          const previewQR = document.getElementById('preview-qr');
+          if (platform === 'aesthetic-computer') {
+            // Only show QR if it has a valid src (was generated)
+            if (previewQR && previewQR.src && previewQR.src !== window.location.href) {
+              previewQR.style.display = 'block';
+            }
+          } else {
+            if (previewQR) previewQR.style.display = 'none';
+          }
+          
+          // Update auth UI (respects platform check internally)
+          updateACLoginUI();
+          
+          // Close dropdown
+          selector.classList.remove('open');
+          
+          // Emit event for platform change
+          window.dispatchEvent(new CustomEvent('kidlisp-platform-change', { 
+            detail: { platform, name, isExperimental } 
+          }));
+          
+          // Log platform switch
+          const previousPlatform = localStorage.getItem('kidlisp-previous-platform') || 'aesthetic-computer';
+          logPlatformSwitch(previousPlatform, platform, { comingSoon: isComingSoon, experimental: isExperimental });
+          localStorage.setItem('kidlisp-previous-platform', platform);
+        }
+        
+        options.forEach(option => {
+          // Click handler
+          option.addEventListener('click', (e) => handlePlatformSelect(option, e));
+        });
+      }
+      
+      initPlatformSelector();
+      
+      // Keeps tab login button
+      const keepsLoginBtn = document.getElementById('keeps-login-btn');
+      if (keepsLoginBtn) {
+        keepsLoginBtn.addEventListener('click', acLogin);
+      }
+      
+      // Initialize Auth0 in background
+      initAuth0();
+    }
+    
+    function initKeeps() {
+      const connectBtn = document.getElementById('keeps-connect-btn');
+      const mintBtn = document.getElementById('keeps-mint-btn');
+      const addressEl = document.getElementById('keeps-address');
+      
+      if (!connectBtn) {
+        log.wallet.warn("Keeps UI elements not found");
+        return;
+      }
+      
+      // Connect wallet button
+      connectBtn.addEventListener('click', async () => {
+        if (keepsWalletAddress) {
+          // Disconnect
+          await disconnectKeepsWallet();
+        } else {
+          // Connect
+          await connectKeepsWallet();
+        }
+      });
+      
+      // Mint button
+      if (mintBtn) {
+        mintBtn.addEventListener('click', async () => {
+          await startKeepsMint();
+        });
+      }
+      
+      // Try to restore wallet connection from previous session
+      restoreKeepsWallet();
+      
+      log.wallet.debug("Keeps initialized");
+    }
+    
+    // Restore wallet connection on page load
+    async function restoreKeepsWallet() {
+      try {
+        await initKeepsWallet();
+        // initKeepsWallet already checks getActiveAccount and sets keepsWalletAddress
+        if (keepsWalletAddress) {
+          log.wallet.log("Wallet restored from session:", keepsWalletAddress.slice(0, 8) + "...");
+        }
+      } catch (e) {
+        log.wallet.debug("No previous wallet session to restore");
+      }
+    }
+    
+    async function connectKeepsWallet() {
+      const connectBtn = document.getElementById('keeps-connect-btn');
+      const statusEl = document.getElementById('keeps-status');
+      
+      if (keepsConnecting) return;
+      keepsConnecting = true;
+      
+      connectBtn.textContent = t('keepsConnecting') || 'Connecting...';
+      connectBtn.disabled = true;
+      
+      try {
+        await initKeepsWallet();
+        
+        // DAppClient returns permissions with address
+        const permissions = await keepsWallet.requestPermissions({
+          network: { type: KEEPS_NETWORK },
+        });
+        
+        keepsWalletAddress = permissions.address;
+        log.wallet.success("Wallet connected:", keepsWalletAddress.slice(0, 8) + "...");
+        
+        updateKeepsWalletUI();
+        
+      } catch (e) {
+        log.wallet.error("Wallet connection failed:", e.message);
+        if (statusEl) {
+          statusEl.textContent = e.message || "Connection failed";
+          statusEl.style.color = "#ef4444";
+        }
+        connectBtn.textContent = t('keepsConnectWallet') || 'Connect Wallet';
+        connectBtn.disabled = false;
+      }
+      
+      keepsConnecting = false;
+    }
+    
+    async function disconnectKeepsWallet() {
+      if (keepsWallet) {
+        // DAppClient has clearActiveAccount directly, not on .client
+        await keepsWallet.clearActiveAccount();
+      }
+      keepsWalletAddress = null;
+      updateKeepsWalletUI();
+      log.wallet.log("Wallet disconnected");
+    }
+    
+    function updateKeepsWalletUI() {
+      const connectBtn = document.getElementById('keeps-connect-btn');
+      const addressEl = document.getElementById('keeps-address');
+      const mintSection = document.getElementById('keeps-mint-section');
+      
+      if (keepsWalletAddress) {
+        // Connected state
+        connectBtn.textContent = t('keepsDisconnect') || 'Disconnect';
+        connectBtn.classList.add('connected');
+        connectBtn.disabled = false;
+        
+        if (addressEl) {
+          addressEl.textContent = keepsWalletAddress.slice(0, 8) + "..." + keepsWalletAddress.slice(-6);
+          addressEl.classList.remove('hidden');
+        }
+        
+        if (mintSection) {
+          mintSection.classList.remove('hidden');
+          updateKeepsCodePreview();
+        }
+      } else {
+        // Disconnected state
+        connectBtn.textContent = t('keepsConnectWallet') || 'Connect Wallet';
+        connectBtn.classList.remove('connected');
+        connectBtn.disabled = false;
+        
+        if (addressEl) {
+          addressEl.classList.add('hidden');
+        }
+        
+        if (mintSection) {
+          mintSection.classList.add('hidden');
+        }
+      }
+    }
+    
+    function updateKeepsCodePreview() {
+      const codeText = document.getElementById('keeps-code-text');
+      const mintBtn = document.getElementById('keeps-mint-btn');
+      
+      if (!codeText || !editor) return;
+      
+      const code = editor.getValue().trim();
+      keepsCurrentCode = code;
+      
+      if (code) {
+        // Show truncated preview
+        const preview = code.length > 200 ? code.slice(0, 200) + "..." : code;
+        codeText.textContent = preview;
+        if (mintBtn) mintBtn.disabled = false;
+      } else {
+        codeText.textContent = "(empty - write some code first!)";
+        if (mintBtn) mintBtn.disabled = true;
+      }
+    }
+    
+    // Pending mint request handler
+    let pendingMintResolve = null;
+    let pendingMintReject = null;
+    
+    async function startKeepsMint() {
+      const mintBtn = document.getElementById('keeps-mint-btn');
+      const statusEl = document.getElementById('keeps-status');
+      
+      if (keepsMinting || !keepsCurrentCode || !keepsWalletAddress) return;
+      if (!acUser || !acToken) {
+        statusEl.textContent = "❌ Please login first";
+        statusEl.style.color = "#ef4444";
+        return;
+      }
+      
+      // Get code identifier from localStorage or extract from URL
+      let codeId = localStorage.getItem('kidlisp-current-code');
+      
+      // If not in localStorage, try to get from URL
+      if (!codeId) {
+        const urlPath = window.location.pathname;
+        const codeMatch = urlPath.match(/\/\$([a-zA-Z0-9]+)$/);
+        if (codeMatch) {
+          codeId = codeMatch[1];
+          // Store it for next time
+          localStorage.setItem('kidlisp-current-code', codeId);
+          log.wallet.debug("Got code from URL:", codeId);
+        }
+      }
+      
+      if (!codeId) {
+        statusEl.textContent = "❌ Save your code first (hit ↵ in the editor)";
+        statusEl.style.color = "#ef4444";
+        return;
+      }
+      
+      keepsMinting = true;
+      mintBtn.textContent = t('keepsMinting') || 'Minting...';
+      mintBtn.disabled = true;
+      statusEl.textContent = t('mintPreparing');
+      statusEl.style.color = "var(--text-secondary)";
+      
+      try {
+        // Call API with piece ID (codeId is already validated above)
+        const preparedData = await prepareKeepsMint({
+          piece: codeId,
+          walletAddress: keepsWalletAddress,
+          network: KEEPS_NETWORK,
+        });
+        
+        if (!preparedData || !preparedData.mintParams) {
+          throw new Error("Mint preparation incomplete");
+        }
+        
+        // Sign the transaction
+        statusEl.textContent = t('mintSigning');
+        
+        const contract = await keepsTezos.wallet.at(KEEPS_CONTRACT);
+        const op = await contract.methodsObject.keep(preparedData.mintParams).send({
+          amount: 5,
+          mutez: false,
+        });
+        
+        statusEl.textContent = t('mintConfirming');
+        await op.confirmation(1);
+        
+        statusEl.textContent = `✅ Minted! TX: ${op.opHash.slice(0, 12)}...`;
+        statusEl.style.color = "#22c55e";
+        
+        log.wallet.success("Keep minted:", op.opHash.slice(0, 12) + "...");
+        
+      } catch (e) {
+        log.wallet.error("Mint failed:", e.message);
+        statusEl.textContent = `❌ ${e.message}`;
+        statusEl.style.color = "#ef4444";
+      }
+      
+      keepsMinting = false;
+      mintBtn.textContent = t('keepsMintBtn') || 'Mint as Keep';
+      mintBtn.disabled = !keepsCurrentCode;
+    }
+    
+    // Direct API call for mint preparation using Auth0 token
+    // Returns mintParams for client-side signing
+    async function prepareKeepsMint(mintRequest) {
+      const { piece, walletAddress, network } = mintRequest;
+      const statusEl = document.getElementById('keeps-status');
+      
+      // Make authenticated API call (SSE response)
+      const response = await fetch(`${aestheticUrl}/api/keep-mint`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${acToken}`,
+        },
+        body: JSON.stringify({
+          piece: piece,
+          walletAddress: walletAddress,
+          network: network,
+          mode: 'prepare', // Client-side signing
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Server error ${response.status}`);
+      }
+      
+      // Parse SSE events
+      const text = await response.text();
+      const events = text.split('\n\n').filter(e => e.trim());
+      
+      let preparedData = null;
+      
+      for (const event of events) {
+        const lines = event.split('\n');
+        let eventType = null, eventData = null;
+        
+        for (const line of lines) {
+          if (line.startsWith('event: ')) eventType = line.slice(7);
+          else if (line.startsWith('data: ')) {
+            try { eventData = JSON.parse(line.slice(6)); } catch {}
+          }
+        }
+        
+        if (!eventType || !eventData) continue;
+        
+        // Update status for each step
+        switch (eventType) {
+          case "validate":
+            if (statusEl) statusEl.textContent = eventData.message || "Validating...";
+            if (!eventData.success) throw new Error(eventData.message || "Validation failed");
+            break;
+          case "analyze":
+            if (statusEl) statusEl.textContent = eventData.message || "Analyzing...";
+            break;
+          case "thumbnail":
+            if (statusEl) statusEl.textContent = eventData.message || "Generating thumbnail...";
+            break;
+          case "bundle":
+            if (statusEl) statusEl.textContent = eventData.message || "Creating bundle...";
+            break;
+          case "ipfs":
+            if (statusEl) statusEl.textContent = eventData.message || "Uploading to IPFS...";
+            break;
+          case "metadata":
+            if (statusEl) statusEl.textContent = eventData.message || "Preparing metadata...";
+            break;
+          case "ready":
+            preparedData = eventData;
+            break;
+          case "error":
+            throw new Error(eventData.message || eventData.error || "Mint preparation failed");
+        }
+      }
+      
+      if (!preparedData || !preparedData.mintParams) {
+        throw new Error("Server preparation incomplete");
+      }
+      
+      return preparedData;
     }
 
     async function loadExamples() {
@@ -5071,7 +7315,7 @@
           examplesList.textContent = t('examplesNone');
         }
       } catch (e) {
-        console.error('Failed to load examples:', e);
+        log.code.error('Failed to load examples:', e.message);
         document.getElementById('examples-list').textContent = t('examplesError');
       }
     }
@@ -5101,19 +7345,19 @@
       }
       
       setConnectivityState('connecting');
-      console.log("🧦 Connecting to session server:", connectionUrl);
+      log.socket.debug("Connecting to session server:", connectionUrl);
       
       try {
         sessionWs = new WebSocket(connectionUrl);
       } catch (error) {
-        console.warn("🧦 Connection failed:", error);
+        log.socket.warn("Connection failed:", error.message);
         setConnectivityState('disconnected');
         scheduleReconnect();
         return;
       }
 
       sessionWs.onopen = () => {
-        console.log("🧦 Connected to session server");
+        log.socket.log("Connected to session server");
         setConnectivityState('connected');
       };
 
@@ -5126,30 +7370,30 @@
         
         try {
           const msg = JSON.parse(e.data);
-          console.log("🧦 Received message:", msg);
+          log.socket.verbose("Received message:", msg);
           
           // Handle reload messages for full page refresh
           if (msg.type === "reload") {
-            console.log("🧦 Reload message received:", msg.content.piece);
+            log.socket.log("Reload message received:", msg.content.piece);
             if (msg.content.piece === "*refresh*" || msg.content.piece === "kidlisp.com") {
-              console.log("🧦 Reloading entire page...");
+              log.socket.log("Reloading entire page...");
               setTimeout(() => {
                 window.location.reload();
               }, 150); // Wait a moment for backend to be ready
             }
           }
         } catch (error) {
-          console.warn("🧦 Error parsing message:", error);
+          log.socket.warn("Error parsing message:", error.message);
         }
       };
 
       sessionWs.onerror = (error) => {
-        console.warn("🧦 WebSocket error:", error);
+        log.socket.warn("WebSocket error");
         setConnectivityState('disconnected');
       };
 
       sessionWs.onclose = () => {
-        console.log("🧦 Disconnected from session server");
+        log.socket.debug("Disconnected from session server");
         setConnectivityState('disconnected');
         sessionWs = null;
         scheduleReconnect();
