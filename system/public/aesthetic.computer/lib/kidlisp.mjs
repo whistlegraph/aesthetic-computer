@@ -282,6 +282,178 @@ function getCachedCode(source) {
   return cacheRegistry.get(hash);
 }
 
+// --- KidLisp-only console channel (for kidlisp.com) ---
+// This avoids forwarding arbitrary JS console errors into kidlisp.com's console panel.
+let __kidlispConsoleEnabled = false;
+let __kidlispConsoleInitLogged = false;
+
+function postToParent(content) {
+  // NOTE: KidLisp code often runs in the disk worker. Support both window and worker contexts.
+  const hasWindow = typeof window !== "undefined";
+  const hasWorker = !hasWindow && typeof self !== "undefined" && typeof self.postMessage === "function";
+
+  if (hasWindow) {
+    try {
+      // In the aesthetic.computer iframe, a BIOS relay listens for
+      // { type: 'post-to-parent', content } and forwards it to the embedding page.
+      window.postMessage({ type: "post-to-parent", content }, "*");
+    } catch {
+      // ignore
+    }
+
+    // Fallback: when embedded in an iframe, also post directly to the parent.
+    try {
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage(content, "*");
+      }
+    } catch {
+      // ignore
+    }
+
+    return;
+  }
+
+  if (hasWorker) {
+    try {
+      // In the disk worker, post to the main thread; the BIOS/disk bridge already understands
+      // the { type: 'post-to-parent', content } envelope.
+      self.postMessage({ type: "post-to-parent", content });
+    } catch {
+      // ignore
+    }
+  }
+}
+
+function postKidlispConsole(level, message, meta) {
+  if (!isKidlispConsoleEnabled()) return;
+  const payload = { type: "kidlisp-console", level, message };
+  if (meta && typeof meta === "object") {
+    if (meta.loc) payload.loc = meta.loc;
+    if (meta.kind) payload.kind = meta.kind;
+  }
+  postToParent(payload);
+}
+
+function enableKidlispConsole() {
+  if (__kidlispConsoleEnabled) return;
+  __kidlispConsoleEnabled = true;
+  if (typeof window !== "undefined") {
+    window.__acKidlispConsoleEnabled = true;
+  }
+  postToParent({ type: "kidlisp-console-enabled" });
+  // Avoid spamming status lines into kidlisp.com's Console tab.
+  __kidlispConsoleInitLogged = true;
+}
+
+function isKidlispConsoleEnabled() {
+  if (__kidlispConsoleEnabled) return true;
+  try {
+    if (typeof window !== "undefined") return window.__acKidlispConsoleEnabled === true;
+    if (typeof globalThis !== "undefined") return globalThis.__acKidlispConsoleEnabled === true;
+    if (typeof self !== "undefined") return self.__acKidlispConsoleEnabled === true;
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+function kidlispOffsetToLineCol(source, offset) {
+  const clamped = Math.max(0, Math.min(Number(offset) || 0, source.length));
+  let line = 1;
+  let col = 1;
+  for (let i = 0; i < clamped; i++) {
+    if (source[i] === "\n") {
+      line++;
+      col = 1;
+    } else {
+      col++;
+    }
+  }
+  return { line, col };
+}
+
+function formatConsoleArgs(args) {
+  return args
+    .map((arg) => {
+      if (arg instanceof Error) return arg.message || String(arg);
+      if (typeof arg === "string") return arg;
+      try {
+        return JSON.stringify(arg);
+      } catch {
+        return String(arg);
+      }
+    })
+    .join(" ");
+}
+
+function withKidlispConsoleCapture(fn) {
+  if (!isKidlispConsoleEnabled() || typeof console === "undefined") return fn();
+
+  const shouldForward = (args) => {
+    if (!args || args.length === 0) return false;
+    const first = args[0];
+    if (typeof first !== "string") return false;
+    return (
+      first.startsWith("❌ KidLisp") ||
+      first.startsWith("⚠️ KidLisp") ||
+      first.startsWith("❗ Invalid `") ||
+      first.startsWith("⛔ Evaluation failure") ||
+      first.startsWith("📝 LOG:") ||
+      first.startsWith("🔧 DEBUG:")
+    );
+  };
+
+  const original = {
+    log: console.log,
+    info: console.info,
+    warn: console.warn,
+    error: console.error,
+  };
+
+  const wrap = (level, originalFn) =>
+    (...args) => {
+      try {
+        if (shouldForward(args)) {
+          postKidlispConsole(level, formatConsoleArgs(args));
+        }
+      } catch {
+        // ignore
+      }
+      return originalFn.apply(console, args);
+    };
+
+  try {
+    console.log = wrap("log", original.log);
+    console.info = wrap("info", original.info);
+    console.warn = wrap("warn", original.warn);
+    console.error = wrap("error", original.error);
+    return fn();
+  } finally {
+    console.log = original.log;
+    console.info = original.info;
+    console.warn = original.warn;
+    console.error = original.error;
+  }
+}
+
+if (typeof window !== "undefined" && !window.__acKidlispConsoleListenerInstalled) {
+  window.__acKidlispConsoleListenerInstalled = true;
+  window.addEventListener("message", (event) => {
+    if (event?.data?.type === "kidlisp-console-enable") {
+      enableKidlispConsole();
+    }
+  });
+}
+
+if (typeof window === "undefined" && typeof self !== "undefined" && !self.__acKidlispConsoleListenerInstalled) {
+  self.__acKidlispConsoleListenerInstalled = true;
+  self.addEventListener("message", (event) => {
+    if (event?.data?.type === "kidlisp-console-enable") {
+      enableKidlispConsole();
+    }
+  });
+}
+
 // Function to store cached code for a source
 function setCachedCode(source, code) {
   const hash = getSourceHash(source);
@@ -663,32 +835,73 @@ function tokenize(input) {
   return tokens;
 }
 
+function tokenizeForParser(input) {
+  if (VERBOSE) console.log("🪙 Tokenizing (pos):", input);
+
+  const regex = /\s*(;.*|[(),]|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|[^\s()";',]+)/g;
+  const tokens = [];
+  let match;
+  while ((match = regex.exec(input)) !== null) {
+    const token = match[1];
+    if (!token.startsWith(";")) {
+      const tokenStart = match.index + match[0].indexOf(token);
+      tokens.push({ value: token, pos: tokenStart });
+    }
+  }
+
+  // Keep input length for error reporting
+  tokens._inputLength = input.length;
+
+  // Auto-close incomplete expressions by counting parentheses balance
+  let parenBalance = 0;
+  for (const token of tokens) {
+    if (token.value === "(") {
+      parenBalance++;
+    } else if (token.value === ")") {
+      parenBalance--;
+    }
+  }
+
+  // Add closing parentheses for any unclosed expressions
+  while (parenBalance > 0) {
+    tokens.push({ value: ")", pos: input.length });
+    parenBalance--;
+  }
+
+  if (VERBOSE) console.log("🪙 Tokens (pos):", tokens.map((t) => t.value));
+  return tokens;
+}
+
 function readFromTokens(tokens) {
   const result = [];
   while (tokens.length > 0) {
-    if (tokens[0] === ")") {
-      throw new Error("Unexpected ')'");
+    if (tokens[0].value === ")") {
+      const err = new Error("Unexpected ')'");
+      err.kidlispOffset = tokens[0].pos;
+      throw err;
     }
 
     // Skip commas - they're expression separators, not expressions themselves
-    if (tokens[0] === ",") {
+    if (tokens[0].value === ",") {
       tokens.shift();
       continue;
     }
 
     // Check if the current token is a timing expression (both simple like "1.5s" and repeating like "2s...")
-    const currentToken = tokens[0];
+    const currentToken = tokens[0].value;
 
     if (/^\d*\.?\d+s\.\.\.?$/.test(currentToken) || /^\d*\.?\d+s!?$/.test(currentToken)) {
       // This is a timing token, collect it and all following expressions until we hit another timing token or end
       const timingExpr = [readExpression(tokens)]; // Read the timing token itself
 
       // Collect all following expressions until we hit another timing token or run out
-      while (tokens.length > 0 &&
-        tokens[0] !== ")" &&
-        tokens[0] !== "," &&  // Stop at commas too
-        !/^\d*\.?\d+s\.\.\.?$/.test(tokens[0]) &&
-        !/^\d*\.?\d+s!?$/.test(tokens[0])) {
+      while (
+        tokens.length > 0 &&
+        tokens[0].value !== ")" &&
+        tokens[0].value !== "," && // Stop at commas too
+        !/^\d*\.?\d+s\.\.\.?$/.test(tokens[0].value) &&
+        !/^\d*\.?\d+s!?$/.test(tokens[0].value)
+      ) {
         const nextExpr = readExpression(tokens);
         timingExpr.push(nextExpr);
       }
@@ -704,12 +917,15 @@ function readFromTokens(tokens) {
 
 function readExpression(tokens) {
   if (tokens.length === 0) {
-    throw new Error("Unexpected end of input");
+    const err = new Error("Unexpected end of input");
+    err.kidlispOffset = typeof tokens._inputLength === "number" ? tokens._inputLength : 0;
+    throw err;
   }
-  let token = tokens.shift();
+  const tokenObj = tokens.shift();
+  const token = tokenObj.value;
   if (token === "(") {
     const list = [];
-    while (tokens.length > 0 && tokens[0] !== ")") {
+    while (tokens.length > 0 && tokens[0].value !== ")") {
       list.push(readExpression(tokens));
     }
     if (tokens.length === 0) {
@@ -1010,6 +1226,9 @@ class KidLisp {
     this.lastExecutionTime = 0; // Last execution timestamp
     this.flashDuration = 500; // Duration for flash effects in milliseconds
     this.isEditMode = false; // Flag to disable transparency effects when editing in prompt
+
+    // Console diagnostics (per-module) to avoid spamming unknown words every frame
+    this.unknownWordsLogged = new Set();
 
     // Handle attribution cache
     this.cachedOwnerHandle = null; // Cache the resolved handle
@@ -1673,6 +1892,9 @@ class KidLisp {
     // Don't reset ink state during reset - preserve across frame transitions
     // this.inkState = undefined;
     // this.inkStateSet = false;
+
+    // Reset per-module console diagnostics
+    if (this.unknownWordsLogged) this.unknownWordsLogged.clear();
   }
 
   // Register an expression and get its unique ID
@@ -3339,7 +3561,7 @@ class KidLisp {
           }
           
           // Evaluate the entire AST - bake() calls will switch to bake buffers
-          /*const evaluated = */ this.evaluate(this.ast, $, undefined, undefined, true);
+          /*const evaluated = */ withKidlispConsoleCapture(() => this.evaluate(this.ast, $, undefined, undefined, true));
           
           // 🍞 IMPLICIT TRAILING BAKE: If we used bake and ended on a bake buffer,
           // automatically create one more empty bake buffer to finalize the current one.
@@ -3902,6 +4124,20 @@ class KidLisp {
     // Store validation errors for syntax highlighting, but don't block execution
     if (validationErrors.length > 0) {
       console.error('❌ KidLisp Validation Failed:', validationErrors.join(', '));
+
+      if (isKidlispConsoleEnabled()) {
+        let firstPos = null;
+        if (errorPositions && errorPositions.size > 0) {
+          firstPos = Math.min(...Array.from(errorPositions));
+        }
+        const loc = typeof firstPos === "number" ? kidlispOffsetToLineCol(input, firstPos) : undefined;
+        postKidlispConsole(
+          "error",
+          `❌ KidLisp validation failed: ${validationErrors.join(', ')}`,
+          loc ? { kind: "validation", loc } : { kind: "validation" },
+        );
+      }
+
       this.lastValidationErrors = validationErrors;
       this.errorPositions = errorPositions; // Store error positions for syntax highlighting
       // Don't return early - allow partial parsing to continue
@@ -3919,11 +4155,19 @@ class KidLisp {
       if (missingCount > 0) {
         parserInput = `${input}\n${')'.repeat(missingCount)}`;
         console.warn(`⚠️ KidLisp auto-balanced ${missingCount} missing parenthesis${missingCount === 1 ? '' : 'es'}`);
+
+        if (isKidlispConsoleEnabled()) {
+          postKidlispConsole(
+            "warn",
+            `⚠️ KidLisp auto-balanced ${missingCount} missing parenthesis${missingCount === 1 ? '' : 'es'}`,
+            { kind: "autobalance" },
+          );
+        }
       }
     }
 
     try {
-      const tokens = tokenize(parserInput);
+      const tokens = tokenizeForParser(parserInput);
       // console.log(`🔍 Tokenized:`, tokens);
       const parsed = readFromTokens(tokens);
       // console.log(`🔍 Parsed result:`, parsed);
@@ -3932,6 +4176,17 @@ class KidLisp {
       return parsed;
     } catch (error) {
       console.error('❌ KidLisp Parse Error:', error.message);
+
+      if (isKidlispConsoleEnabled()) {
+        const offset = typeof error?.kidlispOffset === "number" ? error.kidlispOffset : null;
+        const loc = typeof offset === "number" ? kidlispOffsetToLineCol(parserInput, offset) : undefined;
+        postKidlispConsole(
+          "error",
+          `❌ KidLisp parse error: ${error.message}`,
+          loc ? { kind: "parse", loc } : { kind: "parse" },
+        );
+      }
+
       this.lastParseError = error;
       this.endTiming('parse', parseStart);
       return []; // Return empty AST instead of crashing
@@ -3941,14 +4196,14 @@ class KidLisp {
   // 🫵 Tap
   tap(api) {
     if (this.tapper) {
-      this.evaluate(this.tapper, api);
+      withKidlispConsoleCapture(() => this.evaluate(this.tapper, api));
     }
   }
 
   // ✏️ Draw
   draw(api, env) {
     if (this.drawer) {
-      this.evaluate(this.drawer, api, env);
+      withKidlispConsoleCapture(() => this.evaluate(this.drawer, api, env));
     }
   }
 
@@ -5035,7 +5290,6 @@ class KidLisp {
 
         // If no args provided, fill with undefined to trigger randomization
         if (args.length === 0) {
-          console.log('📦 BOX: No args provided, using undefined placeholders');
           args = [undefined, undefined, undefined, undefined];
         }
 
@@ -6611,11 +6865,17 @@ class KidLisp {
       },
       // 🔧 Debug function
       debug: (api, args = []) => {
+        if (isKidlispConsoleEnabled()) {
+          postKidlispConsole("log", `🔧 DEBUG: ${formatConsoleArgs(args)}`, { kind: "debug" });
+        }
         console.log("🔧 DEBUG:", args);
         return "debug called";
       },
       log: (api, args = []) => {
         // console.clear(); // Commented out to preserve debug logs
+        if (isKidlispConsoleEnabled()) {
+          postKidlispConsole("log", `📝 LOG: ${formatConsoleArgs(args)}`, { kind: "log" });
+        }
         console.log("📝 LOG:", ...args);
         return args[0];
       },
@@ -8874,6 +9134,37 @@ class KidLisp {
               break;
           }
         } else {
+          // KidLisp-only console: flag unknown words like (scrl 50)
+          // (This is intentionally scoped to function heads; variable lookups are handled elsewhere.)
+          if (
+            typeof head === "string" &&
+            validIdentifierRegex.test(head) &&
+            head !== "fps" &&
+            !this.unknownWordsLogged?.has(head)
+          ) {
+            this.unknownWordsLogged?.add(head);
+            const msg = `❌ Unknown KidLisp word: ${head}`;
+            
+            // Try to find location in source
+            let loc = null;
+            if (this.currentSource && typeof this.currentSource === "string") {
+              // Search for the word in source (word boundary match)
+              const regex = new RegExp(`\\b${head}\\b`);
+              const match = this.currentSource.match(regex);
+              if (match) {
+                const offset = this.currentSource.indexOf(match[0]);
+                if (offset >= 0) {
+                  loc = kidlispOffsetToLineCol(this.currentSource, offset);
+                }
+              }
+            }
+            
+            if (isKidlispConsoleEnabled()) {
+              postKidlispConsole("error", msg, { kind: "unknown-word", loc });
+            }
+            console.error(msg);
+          }
+
           // console.log(
           //   "⛔ No match found for:",
           //   head,
@@ -12806,15 +13097,73 @@ function isKidlispSource(text) {
   const trimmedText = text.trim();
   const loweredTrimmedText = trimmedText.toLowerCase();
 
+  // Treat KidLisp comments as KidLisp source (used by prompt-mode detection).
+  // KidLisp uses ';' for line comments.
+  if (loweredTrimmedText.startsWith(";")) {
+    return true;
+  }
+
   // Never treat share-prefixed snippets as KidLisp; these are share metadata, not source
   if (loweredTrimmedText.startsWith("share")) {
     return false;
   }
 
-  // Check if it contains newlines (multi-line input is likely KidLisp)
-  // This check comes after JS detection (and share guard) to avoid false positives
+  // Check if it contains newlines. Multi-line input is only considered KidLisp
+  // if it contains KidLisp-like content (e.g., known functions), not just any text.
+  // This check comes after JS detection (and share guard) to avoid false positives.
   if (text.includes("\n")) {
-    return true;
+    const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    if (lines.length === 0) return false;
+
+    // Comment-only multi-line blocks count as KidLisp.
+    if (lines.every((l) => l.startsWith(";"))) {
+      return true;
+    }
+
+    const kidlispLineFunctions = new Set([
+      "wipe", "ink", "line", "box", "flood", "circle", "write", "paste", "stamp", "point", "poly",
+      "print", "debug", "random", "sin", "cos", "tan", "floor", "ceil", "round",
+      "noise", "choose", "overtone", "rainbow", "zebra", "mic", "amplitude",
+      "melody", "speaker", "resolution", "lines", "wiggle", "shape", "scroll",
+      "spin", "resetspin", "smoothspin", "sort", "zoom", "blur", "contrast", "pan", "unpan",
+      "mask", "unmask", "steal", "putback", "label", "len", "now", "die",
+      "tap", "draw", "not", "range", "mul", "log", "no", "yes", "fade", "repeat", "jump",
+      "def", "later", "frame",
+    ]);
+
+    const looksLikeKidlispLine = (line) => {
+      if (!line || line.startsWith(";")) return false;
+      if (line.startsWith("(")) return true;
+
+      // Single-line KidLisp indicators that can appear inside multi-line prompts.
+      const lowered = line.toLowerCase();
+      if (
+        lowered.startsWith("fade:") ||
+        /^c\d+$/.test(lowered) ||
+        /^p\d+$/.test(lowered) ||
+        lowered === "rainbow" ||
+        lowered === "zebra" ||
+        (cssColors && cssColors[lowered])
+      ) {
+        return true;
+      }
+
+      // RGB values like "255 0 0" or "255, 0, 0".
+      const withSpaces = lowered.replace(/_/g, " ");
+      if (isValidRGBString(withSpaces)) {
+        return true;
+      }
+
+      const firstToken = lowered.split(/\s+/)[0] || "";
+      const cleanedToken = firstToken.replace(/^[^a-z0-9]+/i, "").replace(/[^a-z0-9]+$/i, "");
+      return kidlispLineFunctions.has(cleanedToken);
+    };
+
+    if (lines.some(looksLikeKidlispLine)) {
+      return true;
+    }
+
+    return false;
   }
 
   // Check for first-line color indicators (fade strings and color codes)

@@ -5328,6 +5328,11 @@ const $paintApiUnwrapped = {
         }
       }
       
+      // Guard: if no resolved source, bail early (e.g., disk-based piece, not raw KidLisp)
+      if (!resolvedSource || typeof resolvedSource !== "string") {
+        return null;
+      }
+
       // 🎨 AUTO-DETECT ACCUMULATION: Check if source starts with a color word
       const colorWords = ['red', 'blue', 'green', 'yellow', 'purple', 'orange', 'cyan', 'magenta', 'black', 'white', 'gray', 'grey', 'brown', 'pink'];
       const firstWord = resolvedSource.trim().split(/\s+/)[0]?.toLowerCase();
@@ -5652,6 +5657,9 @@ function executeLispCode(source, api, isAccumulating = false) {
     // Clear previous first-line color state for fresh detection
 
     globalKidLispInstance.firstLineColor = null;
+    
+    // Store source for error location lookup
+    globalKidLispInstance.currentSource = source;
     
     globalKidLispInstance.parse(source);
     // console.log(`🔍 Generated AST:`, globalKidLispInstance.ast);
@@ -8196,6 +8204,20 @@ async function makeFrame({ data: { type, content } }) {
     }
 
     send({ type: "disk-defaults-loaded" });
+    return;
+  }
+
+  // Enable KidLisp-only console channel (forwarded from boot.mjs).
+  if (type === "kidlisp-console-enable") {
+    try {
+      if (typeof globalThis !== "undefined") {
+        globalThis.__acKidlispConsoleEnabled = true;
+      }
+    } catch {
+      // ignore
+    }
+
+    send({ type: "post-to-parent", content: { type: "kidlisp-console-enabled" } });
     return;
   }
 

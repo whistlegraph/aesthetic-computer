@@ -115,13 +115,49 @@ window.addEventListener('message', (event) => {
 
 bootLog("initializing aesthetic.computer");
 
+// Check if we're embedded in kidlisp.com or similar iframe context
+// If so, we'll wait for theme from parent instead of using OS preference
+const isEmbeddedInKidlisp = window.parent !== window && 
+  (window.location.search.includes('nolabel=true') || window.location.search.includes('nogap=true'));
+if (isEmbeddedInKidlisp) {
+  window.acWAIT_FOR_PARENT_THEME = true;
+}
+
 // Alert the parent we are initialized (but not fully ready yet).
-if (window.parent) {
+if (window.parent !== window) {
   window.parent.postMessage({ type: "init" }, "*");
   // Send ready message early so VS Code extension doesn't keep reloading
   window.parent.postMessage({ type: "ready" }, "*");
   // Send kidlisp-ready for editor controls (boot is complete enough to accept commands)
   window.parent.postMessage({ type: "kidlisp-ready", ready: true }, "*");
+}
+
+// Early message listener for kidlisp messages that arrive before full boot
+// (The main `receive` listener is added at the end of boot.mjs)
+const earlyKidlispQueue = [];
+function earlyKidlispReceiver(e) {
+  const type = e.data?.type;
+  if (type === "kidlisp-console-enable") {
+    earlyKidlispQueue.push({ type: "kidlisp-console-enable" });
+  }
+}
+window.addEventListener("message", earlyKidlispReceiver);
+
+// Process early queued messages once acSEND is available
+function processEarlyKidlispQueue() {
+  if (earlyKidlispQueue.length === 0) return;
+  if (window.acSEND) {
+    for (const msg of earlyKidlispQueue) {
+      if (msg.type === "kidlisp-console-enable") {
+        window.__acKidlispConsoleEnabled = true;
+        window.acSEND({ type: "kidlisp-console-enable" });
+        window.parent.postMessage({ type: "kidlisp-console-enabled" }, "*");
+      }
+    }
+    earlyKidlispQueue.length = 0;
+  } else {
+    setTimeout(processEarlyKidlispQueue, 50);
+  }
 }
 
 // 🎹 DAW mode: Send ready signal to Max/MSP via jweb~ outlet
@@ -609,6 +645,9 @@ if (window.acVSCODE) {
 bootLog(`booting: ${parsed?.text || 'prompt'}`);
 boot(parsed, bpm, { gap: nogap ? 0 : undefined, nolabel, density, zoom, duration, tv, highlight }, debug);
 
+// Start processing any early kidlisp messages that arrived before boot completed
+processEarlyKidlispQueue();
+
 let sandboxed = (window.origin === "null" && !window.acVSCODE) || localStorageBlocked || sessionStorageBlocked || window.acPACK_MODE || window.acSPIDER;
 
 // #region 🔐 Auth0: Universal Login & Authentication
@@ -949,7 +988,7 @@ function receive(event) {
     window.acRESUME?.(); // Ensure we are running so we can load the empty piece.
     window.acSEND({
       type: "piece-reload",
-      content: { source: "prompt", createCode: false }
+      content: { source: "kidlisp", createCode: false }
     });
     return;
   } else if (event.data?.type === "kidlisp-ping") {
@@ -961,21 +1000,42 @@ function receive(event) {
       }, '*');
     }
     return;
+  } else if (event.data?.type === "kidlisp-console-enable") {
+    // Enable KidLisp-only console channel for kidlisp.com.
+    // Check if already enabled (may have been handled by early listener)
+    if (window.__acKidlispConsoleEnabled) {
+      return;
+    }
+    window.__acKidlispConsoleEnabled = true;
+    if (window.parent !== window) {
+      window.parent.postMessage({ type: "kidlisp-console-enabled" }, "*");
+    }
+
+    // Forward into the disk worker too (KidLisp evaluation usually runs there).
+    if (window.acSEND) {
+      window.acSEND({ type: "kidlisp-console-enable" });
+    } else {
+      // Worker not ready yet - queue and retry when acSEND becomes available.
+      const tryQueue = () => {
+        if (window.acSEND) {
+          window.acSEND({ type: "kidlisp-console-enable" });
+        } else {
+          setTimeout(tryQueue, 50);
+        }
+      };
+      tryQueue();
+    }
+    return;
   } else if (event.data?.type === "kidlisp-theme") {
     // Theme sync from kidlisp.com editor
-    console.log('🎨 [boot.mjs] Received kidlisp-theme:', event.data);
     const theme = event.data.theme; // 'light' or 'dark'
     const isDark = theme === 'dark';
-    console.log('🎨 [boot.mjs] isDark:', isDark, 'toggling body.light-theme');
     document.body.classList.toggle('light-theme', !isDark);
     document.documentElement.style.setProperty("color-scheme", theme);
-    console.log('🎨 [boot.mjs] Set color-scheme to:', theme);
     // Set flag to prevent OS theme changes from overriding
     window.acMANUAL_THEME_OVERRIDE = true;
     // Tell bios.mjs/worker about the theme change
-    console.log('🎨 [boot.mjs] window.acSEND available:', !!window.acSEND);
     window.acSEND?.({ type: "dark-mode", content: { enabled: isDark } });
-    console.log('🎨 [boot.mjs] Sent dark-mode message:', { enabled: isDark });
     return;
   } else if (event.data?.type === "keep-mint-prepare") {
     // Handle mint preparation request from kidlisp.com
