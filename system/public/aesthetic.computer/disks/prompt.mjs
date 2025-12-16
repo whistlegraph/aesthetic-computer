@@ -148,7 +148,7 @@ let ruler = false; // Paint a line down the center of the display.
 let firstActivation = true; // 🏳️ Used to trigger a startup 🔊🎆
 
 // 🚫 DEBUG: Disable content ticker/TV preview while debugging carousel
-const DISABLE_CONTENT_TICKER = false;
+const DISABLE_CONTENT_TICKER = true;
 
 let startupSfx, keyboardSfx;
 
