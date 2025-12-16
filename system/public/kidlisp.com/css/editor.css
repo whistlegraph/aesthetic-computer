@@ -252,7 +252,37 @@
   background-color: #2a2520 !important;
 }
 
-/* Selection highlighting */
+/* Selection highlighting - Monaco uses .selected-text divs for selection */
+/* Light mode (default) */
+.monaco-editor .selected-text,
+.monaco-editor .view-overlays .selected-text,
+.monaco-editor .selections .selected-text {
+  background-color: rgba(255, 140, 0, 0.5) !important;
+}
+
+/* Dark mode - prefers-color-scheme */
+@media (prefers-color-scheme: dark) {
+  .monaco-editor .selected-text,
+  .monaco-editor .view-overlays .selected-text,
+  .monaco-editor .selections .selected-text {
+    background-color: rgba(255, 140, 0, 0.8) !important;
+  }
+}
+
+/* Theme-specific overrides using data-theme attribute */
+[data-theme="light"] .monaco-editor .selected-text,
+[data-theme="light"] .monaco-editor .view-overlays .selected-text,
+[data-theme="light"] .monaco-editor .selections .selected-text {
+  background-color: rgba(255, 140, 0, 0.5) !important;
+}
+
+[data-theme="dark"] .monaco-editor .selected-text,
+[data-theme="dark"] .monaco-editor .view-overlays .selected-text,
+[data-theme="dark"] .monaco-editor .selections .selected-text {
+  background-color: rgba(255, 140, 0, 0.8) !important;
+}
+
+/* Fallback ::selection for copy/paste operations */
 .monaco-editor *::selection {
   background-color: rgba(255, 140, 0, 0.6) !important;
   color: inherit !important;
@@ -267,7 +297,7 @@
   .monaco-editor *::selection,
   .monaco-editor .view-line::selection,
   .monaco-editor .view-line *::selection {
-    background-color: rgba(100, 149, 237, 0.6) !important;
+    background-color: rgba(255, 140, 0, 0.8) !important;
   }
 }
 
@@ -280,7 +310,7 @@
 [data-theme="dark"] .monaco-editor *::selection,
 [data-theme="dark"] .monaco-editor .view-line::selection,
 [data-theme="dark"] .monaco-editor .view-line *::selection {
-  background-color: rgba(100, 149, 237, 0.6) !important;
+  background-color: rgba(255, 140, 0, 0.8) !important;
 }
 
 /* Text shadow for editor */

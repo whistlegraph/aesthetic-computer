@@ -2560,7 +2560,9 @@
     /* Monaco uses .selected-text divs for selection, NOT ::selection pseudo-element */
     
     /* Monaco selection overlay - light mode (default) */
-    .monaco-editor .selected-text {
+    .monaco-editor .selected-text,
+    .monaco-editor .view-overlays .selected-text,
+    .monaco-editor .selections .selected-text {
       background-color: rgba(255, 140, 0, 0.5) !important; /* Orange for light mode */
     }
     
@@ -2582,22 +2584,26 @@
     
     /* Dark mode - prefers-color-scheme */
     @media (prefers-color-scheme: dark) {
-      .monaco-editor .selected-text {
-        background-color: rgba(100, 149, 237, 0.6) !important; /* Blue for dark mode */
+      .monaco-editor .selected-text,
+      .monaco-editor .view-overlays .selected-text,
+      .monaco-editor .selections .selected-text {
+        background-color: rgba(255, 140, 0, 0.8) !important; /* Bright orange for dark mode */
       }
       
       .monaco-editor *::selection {
-        background-color: rgba(100, 149, 237, 0.6) !important;
+        background-color: rgba(255, 140, 0, 0.8) !important;
       }
       
       .monaco-editor .view-line::selection,
       .monaco-editor .view-line *::selection {
-        background-color: rgba(100, 149, 237, 0.6) !important;
+        background-color: rgba(255, 140, 0, 0.8) !important;
       }
     }
     
     /* Theme-specific overrides using data-theme attribute */
-    [data-theme="light"] .monaco-editor .selected-text {
+    [data-theme="light"] .monaco-editor .selected-text,
+    [data-theme="light"] .monaco-editor .view-overlays .selected-text,
+    [data-theme="light"] .monaco-editor .selections .selected-text {
       background-color: rgba(255, 140, 0, 0.5) !important;
     }
     
@@ -2607,25 +2613,29 @@
       background-color: rgba(255, 140, 0, 0.6) !important;
     }
     
-    [data-theme="dark"] .monaco-editor .selected-text {
-      background-color: rgba(100, 149, 237, 0.6) !important; /* Bright blue for dark mode */
+    [data-theme="dark"] .monaco-editor .selected-text,
+    [data-theme="dark"] .monaco-editor .view-overlays .selected-text,
+    [data-theme="dark"] .monaco-editor .selections .selected-text {
+      background-color: rgba(255, 140, 0, 0.8) !important; /* Bright orange for dark mode */
     }
     
     [data-theme="dark"] .monaco-editor *::selection,
     [data-theme="dark"] .monaco-editor .view-line::selection,
     [data-theme="dark"] .monaco-editor .view-line *::selection {
-      background-color: rgba(100, 149, 237, 0.6) !important;
+      background-color: rgba(255, 140, 0, 0.8) !important;
     }
     
     /* Also handle :root.dark for dark mode toggle */
-    :root.dark .monaco-editor .selected-text {
-      background-color: rgba(100, 149, 237, 0.6) !important;
+    :root.dark .monaco-editor .selected-text,
+    :root.dark .monaco-editor .view-overlays .selected-text,
+    :root.dark .monaco-editor .selections .selected-text {
+      background-color: rgba(255, 140, 0, 0.8) !important;
     }
     
     :root.dark .monaco-editor *::selection,
     :root.dark .monaco-editor .view-line::selection,
     :root.dark .monaco-editor .view-line *::selection {
-      background-color: rgba(100, 149, 237, 0.6) !important;
+      background-color: rgba(255, 140, 0, 0.8) !important;
     }
 
     /* Text shadow for editor - matches prompt HUD preview */
@@ -4643,8 +4653,8 @@
           'editor.lineHighlightBackground': '#3a3530', /* Slightly lighter brown for highlight */
           'editorLineNumber.foreground': '#858585',
           'editorLineNumber.activeForeground': '#d4d4d4', /* Active line number */
-          'editor.selectionBackground': '#6495eddd', /* Cornflower blue with high opacity */
-          'editor.inactiveSelectionBackground': '#6495ed88', /* Lighter blue for inactive */
+          'editor.selectionBackground': '#ff8c00cc', /* Bright orange with high opacity for dark mode */
+          'editor.inactiveSelectionBackground': '#ff8c0066', /* Lighter orange for inactive */
         }
       });
 
