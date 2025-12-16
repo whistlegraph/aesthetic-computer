@@ -4569,6 +4569,117 @@
       return html;
     }
     
+    // Render [$code] references as styled, clickable elements with tooltips
+    function renderEmbeddedSourceRef(message, embeddedSource, embeddedSourceCode) {
+      // Look for [$code] pattern in message
+      const pattern = /\[\$([^\]]+)\]/g;
+      let lastIndex = 0;
+      const parts = [];
+      let match;
+      
+      while ((match = pattern.exec(message)) !== null) {
+        // Add text before match
+        if (match.index > lastIndex) {
+          const textSpan = document.createElement('span');
+          textSpan.textContent = message.slice(lastIndex, match.index);
+          parts.push(textSpan);
+        }
+        
+        const codeId = match[1];
+        const codeSpan = document.createElement('span');
+        codeSpan.className = 'embedded-source-ref';
+        codeSpan.textContent = `[$${codeId}]`;
+        codeSpan.style.cssText = 'color: #9370DB; font-weight: bold; cursor: pointer; text-decoration: underline; text-decoration-style: dotted;';
+        
+        // Add tooltip with source code preview
+        if (embeddedSourceCode || embeddedSource === codeId) {
+          const sourceCode = embeddedSourceCode || '';
+          const preview = sourceCode.length > 300 
+            ? sourceCode.substring(0, 300).trim() + '...' 
+            : sourceCode.trim();
+          codeSpan.title = preview || `Source: $${codeId}`;
+          
+          // Click to copy source or show in modal
+          codeSpan.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (sourceCode) {
+              // Show source in a small popup/modal
+              showEmbeddedSourcePopup(codeId, sourceCode);
+            }
+          });
+        }
+        
+        parts.push(codeSpan);
+        lastIndex = match.index + match[0].length;
+      }
+      
+      // Add remaining text
+      if (lastIndex < message.length) {
+        const textSpan = document.createElement('span');
+        textSpan.textContent = message.slice(lastIndex);
+        parts.push(textSpan);
+      }
+      
+      return parts.length > 0 ? parts : null;
+    }
+    
+    // Show embedded source code in a popup
+    function showEmbeddedSourcePopup(codeId, sourceCode) {
+      // Remove existing popup if any
+      const existing = document.getElementById('embedded-source-popup');
+      if (existing) existing.remove();
+      
+      const popup = document.createElement('div');
+      popup.id = 'embedded-source-popup';
+      popup.style.cssText = `
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: #1e1e2e;
+        border: 2px solid #9370DB;
+        border-radius: 8px;
+        padding: 16px;
+        max-width: 500px;
+        max-height: 400px;
+        overflow: auto;
+        z-index: 10000;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        font-family: monospace;
+      `;
+      
+      const header = document.createElement('div');
+      header.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid #444; padding-bottom: 8px;';
+      header.innerHTML = `<span style="color: #9370DB; font-weight: bold;">$${codeId}</span>`;
+      
+      const closeBtn = document.createElement('button');
+      closeBtn.textContent = '✕';
+      closeBtn.style.cssText = 'background: none; border: none; color: #888; cursor: pointer; font-size: 18px;';
+      closeBtn.addEventListener('click', () => popup.remove());
+      header.appendChild(closeBtn);
+      
+      const codeBlock = document.createElement('pre');
+      codeBlock.style.cssText = 'margin: 0; white-space: pre-wrap; word-break: break-word; color: #cdd6f4; font-size: 12px; line-height: 1.4;';
+      codeBlock.textContent = sourceCode;
+      
+      popup.appendChild(header);
+      popup.appendChild(codeBlock);
+      document.body.appendChild(popup);
+      
+      // Close on escape or click outside
+      const closeHandler = (e) => {
+        if (e.key === 'Escape' || (e.type === 'click' && !popup.contains(e.target))) {
+          popup.remove();
+          document.removeEventListener('keydown', closeHandler);
+          document.removeEventListener('click', closeHandler);
+        }
+      };
+      setTimeout(() => {
+        document.addEventListener('keydown', closeHandler);
+        document.addEventListener('click', closeHandler);
+      }, 100);
+    }
+    
     function addConsoleEntry(message, type = 'log', locOrLine = null, options = {}) {
       const entry = document.createElement('div');
       entry.className = `console-entry ${type}`;
@@ -4595,14 +4706,26 @@
         });
         entry.appendChild(lineSpan);
         
-        const msgSpan = document.createElement('span');
-        msgSpan.textContent = ' ' + message;
-        entry.appendChild(msgSpan);
+        // Check if message contains [$code] pattern and render specially
+        const embeddedParts = renderEmbeddedSourceRef(' ' + message, options.embeddedSource, options.embeddedSourceCode);
+        if (embeddedParts) {
+          embeddedParts.forEach(part => entry.appendChild(part));
+        } else {
+          const msgSpan = document.createElement('span');
+          msgSpan.textContent = ' ' + message;
+          entry.appendChild(msgSpan);
+        }
       } else if (options.html) {
         // Allow HTML content (for syntax-highlighted code)
         entry.innerHTML = message;
       } else {
-        entry.textContent = message;
+        // Check if message contains [$code] pattern and render specially
+        const embeddedParts = renderEmbeddedSourceRef(message, options.embeddedSource, options.embeddedSourceCode);
+        if (embeddedParts) {
+          embeddedParts.forEach(part => entry.appendChild(part));
+        } else {
+          entry.textContent = message;
+        }
       }
       
       // Support custom CSS classes
@@ -6566,7 +6689,10 @@
       } else if (event.data && event.data.type === 'kidlisp-console-enabled') {
         // Intentionally do not write connection status to the Console tab.
       } else if (event.data && event.data.type === 'kidlisp-console') {
-        addConsoleEntry(event.data.message, event.data.level, event.data.loc);
+        addConsoleEntry(event.data.message, event.data.level, event.data.loc, {
+          embeddedSource: event.data.embeddedSource,
+          embeddedSourceCode: event.data.embeddedSourceCode
+        });
         
         // If it's an error with a location, highlight it in the editor
         if (event.data.level === 'error' && event.data.loc) {
