@@ -2699,9 +2699,16 @@ async function halt($, text) {
     makeFlash($);
     return true;
   } else if (text.toLowerCase() === "kidlisp") {
-    const url = debug ? "/kidlisp.com" : "https://kidlisp.com";
-    console.log("🎨 kidlisp command - debug:", debug, "url:", url);
-    jump(url);
+    // Store labelBack source so kidlisp.com can offer back navigation
+    if (typeof window !== "undefined" && window.safeSessionStorageSet) {
+      window.safeSessionStorageSet("aesthetic-labelBack-source", "prompt");
+    }
+    const prefix = !net.iframe ? "out:" : "";
+    jump(
+      debug
+        ? prefix + "/kidlisp.com"
+        : prefix + "https://kidlisp.com",
+    );
     makeFlash($);
     return true;
   } else if (text.toLowerCase() === "support") {
