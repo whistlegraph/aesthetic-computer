@@ -5498,6 +5498,7 @@
       let currentTheme = 'system'; // 'system', 'light', or 'dark'
       
       function applyTheme(theme) {
+        console.log('🎨 [index.html] applyTheme called:', theme);
         currentTheme = theme;
         localStorage.setItem('kidlisp-theme', theme);
         
@@ -5509,6 +5510,8 @@
           visualTheme = theme;
         }
         
+        console.log('🎨 [index.html] visualTheme:', visualTheme);
+        
         // Always set data-theme to ensure consistent styling
         // This overrides the @media (prefers-color-scheme) fallbacks
         document.documentElement.setAttribute('data-theme', visualTheme);
@@ -5519,6 +5522,16 @@
         // Update Monaco editor theme
         if (editor) {
           monaco.editor.setTheme(visualTheme === 'dark' ? 'kidlisp-dark' : 'kidlisp-light');
+        }
+        
+        // Send theme to iframe
+        console.log('🎨 [index.html] previewIframe:', previewIframe, 'aestheticUrl:', aestheticUrl);
+        if (previewIframe?.contentWindow) {
+          console.log('🎨 [index.html] Sending kidlisp-theme to iframe:', visualTheme);
+          previewIframe.contentWindow.postMessage(
+            { type: 'kidlisp-theme', theme: visualTheme },
+            aestheticUrl
+          );
         }
         
         // Re-apply decorations with new theme
