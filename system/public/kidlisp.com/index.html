@@ -2557,13 +2557,18 @@
 
     /* Monaco Editor Selection Highlighting */
     /* CRITICAL: Force Monaco's selection to be visible */
-    /* Monaco uses .selected-text divs for selection, NOT ::selection pseudo-element */
+    /* Monaco renders selection via inline styles on .selected-text divs */
+    /* We need high-specificity selectors with !important to override */
     
-    /* Monaco selection overlay - light mode (default) */
+    /* Monaco selection overlay - force visibility for ALL themes */
     .monaco-editor .selected-text,
     .monaco-editor .view-overlays .selected-text,
-    .monaco-editor .selections .selected-text {
-      background-color: rgba(255, 140, 0, 0.5) !important; /* Orange for light mode */
+    .monaco-editor .selections .selected-text,
+    .monaco-editor .view-overlays > div > .selected-text,
+    .monaco-editor.vs .selected-text,
+    .monaco-editor.vs-dark .selected-text {
+      background-color: rgba(255, 140, 0, 0.6) !important; /* Orange - visible on both light and dark */
+      background: rgba(255, 140, 0, 0.6) !important; /* Also set background shorthand */
     }
     
     /* Fallback ::selection for copy/paste operations */
@@ -2582,12 +2587,20 @@
       background-color: transparent !important;
     }
     
-    /* Dark mode - prefers-color-scheme */
+    /* Ensure selection layer is visible above line backgrounds */
+    .monaco-editor .view-overlays {
+      z-index: 10;
+    }
+    
+    /* Dark mode - higher opacity for visibility */
     @media (prefers-color-scheme: dark) {
       .monaco-editor .selected-text,
       .monaco-editor .view-overlays .selected-text,
-      .monaco-editor .selections .selected-text {
-        background-color: rgba(255, 140, 0, 0.8) !important; /* Bright orange for dark mode */
+      .monaco-editor .selections .selected-text,
+      .monaco-editor .view-overlays > div > .selected-text,
+      .monaco-editor.vs-dark .selected-text {
+        background-color: rgba(255, 140, 0, 0.8) !important;
+        background: rgba(255, 140, 0, 0.8) !important;
       }
       
       .monaco-editor *::selection {
@@ -2603,8 +2616,10 @@
     /* Theme-specific overrides using data-theme attribute */
     [data-theme="light"] .monaco-editor .selected-text,
     [data-theme="light"] .monaco-editor .view-overlays .selected-text,
-    [data-theme="light"] .monaco-editor .selections .selected-text {
+    [data-theme="light"] .monaco-editor .selections .selected-text,
+    [data-theme="light"] .monaco-editor .view-overlays > div > .selected-text {
       background-color: rgba(255, 140, 0, 0.5) !important;
+      background: rgba(255, 140, 0, 0.5) !important;
     }
     
     [data-theme="light"] .monaco-editor *::selection,
@@ -2615,8 +2630,10 @@
     
     [data-theme="dark"] .monaco-editor .selected-text,
     [data-theme="dark"] .monaco-editor .view-overlays .selected-text,
-    [data-theme="dark"] .monaco-editor .selections .selected-text {
+    [data-theme="dark"] .monaco-editor .selections .selected-text,
+    [data-theme="dark"] .monaco-editor .view-overlays > div > .selected-text {
       background-color: rgba(255, 140, 0, 0.8) !important; /* Bright orange for dark mode */
+      background: rgba(255, 140, 0, 0.8) !important;
     }
     
     [data-theme="dark"] .monaco-editor *::selection,
@@ -2630,6 +2647,7 @@
     :root.dark .monaco-editor .view-overlays .selected-text,
     :root.dark .monaco-editor .selections .selected-text {
       background-color: rgba(255, 140, 0, 0.8) !important;
+      background: rgba(255, 140, 0, 0.8) !important;
     }
     
     :root.dark .monaco-editor *::selection,
@@ -4819,9 +4837,8 @@
 
       // Listen for theme changes
       window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
-        editor.updateOptions({
-          theme: e.matches ? 'kidlisp-dark' : 'kidlisp-light'
-        });
+        // Use setTheme instead of updateOptions for proper theme application
+        monaco.editor.setTheme(e.matches ? 'kidlisp-dark' : 'kidlisp-light');
       });
 
       // Track decorations for syntax highlighting blinks
