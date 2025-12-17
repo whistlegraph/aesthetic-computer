@@ -11,6 +11,7 @@ import { cssColors, rainbow, zebra, resetZebraCache, resetRainbowCache, staticCo
 import { setFadeAlpha, clearFadeAlpha } from "./fade-state.mjs";
 import { checkPackMode, getPackMode } from "./pack-mode.mjs";
 import { log } from "./logs.mjs";
+import { captureFrame, formatTimestamp, generateFilename } from "./frame-capture.mjs";
 
 /* #region 🤖 LLM API SPECIFICATION
    This section provides a structured specification for Large Language Models
@@ -339,6 +340,21 @@ function postKidlispConsole(level, message, meta) {
       }
     }
   }
+  postToParent(payload);
+}
+
+// 📸 Post image snapshot to kidlisp.com console
+function postKidlispConsoleImage(imageDataUrl, meta = {}) {
+  if (!isKidlispConsoleEnabled()) return;
+  const payload = { 
+    type: "kidlisp-console-image",
+    imageDataUrl,
+    frameCount: meta.frameCount,
+    timestamp: meta.timestamp || formatTimestamp(),
+    dimensions: meta.dimensions,
+    pieceCode: meta.pieceCode,
+    embeddedSource: meta.embeddedSource
+  };
   postToParent(payload);
 }
 
@@ -7701,7 +7717,6 @@ class KidLisp {
         return placeholderLayer;
       },
 
-      // 🚀 Navigation function - jump to another piece
       jump: (api, args = [], env) => {
         if (args.length === 0) {
           console.warn("❗ jump function requires a destination argument");
@@ -13885,4 +13900,6 @@ export {
   saveCodeToAllCaches,
   globalCodeCache,
   explainKidLisp,
+  isKidlispConsoleEnabled,
+  postKidlispConsoleImage,
 };
