@@ -97,6 +97,52 @@ The CDP tunnel forwards localhost:9333 to host's VS Code for remote control:
 - **`ac-cdp-status`** — check if tunnel is running and port accessible
 - Artery TUI header shows CDP status (● online / ○ offline)
 
+## KidLisp.com Development via CDP
+
+When modifying `system/public/kidlisp.com/index.html`, test via Chrome DevTools Protocol:
+
+### Finding the KidLisp.com Page
+```bash
+# List available CDP targets (with Host header for container)
+curl -s -H "Host: localhost" http://host.docker.internal:9222/json | jq '.[] | select(.url | contains("kidlisp.com"))'
+```
+
+Look for the iframe with `url` containing `kidlisp.com`. Note the `id` (e.g., `BDE027EA5BC03BEA659F08B7AAD3F31B`).
+
+### Connecting to KidLisp.com
+```javascript
+const ws = new (require('ws'))('ws://host.docker.internal:9222/devtools/page/<PAGE_ID>', {
+  headers: { Host: 'localhost' }
+});
+```
+
+### Test Pattern for Card Interactions
+```javascript
+// Evaluate JS in the kidlisp.com context
+const evalJS = async code => {
+  const res = await send({method:'Runtime.evaluate', params:{expression:code}});
+  return res.result?.value;
+};
+
+// Card counts
+await evalJS('document.querySelectorAll(".book-frame").length');   // main stack
+await evalJS('document.querySelectorAll(".discard-card").length'); // discard pile
+
+// Trigger interactions
+await evalJS('document.querySelector(".book-stack")?.click()');    // advance card
+await evalJS('document.querySelector(".discard-pile")?.click()');  // undo/reset
+```
+
+### Artery Test Scripts
+- `node artery/test-kidlisp.mjs` — Full test suite
+- `node artery/kidlisp-util.mjs help` — Utility commands
+- `node artery/inspect-cards.mjs` — Card system inspection
+
+### KidLisp.com Key Files
+- **Main**: `system/public/kidlisp.com/index.html` — Editor + card deck
+- **Cards SVG**: `system/public/kidlisp.com/cards/svg/` — LaTeX-generated cards
+- **Styles**: Inline `<style>` in index.html
+
 ## Development
 
 ### URLs
