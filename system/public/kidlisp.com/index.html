@@ -1431,6 +1431,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
+      min-height: 0; /* Allow proper flex shrinking */
     }
 
     #examples-content,
@@ -1592,10 +1593,11 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      min-height: 100%;
+      height: 100%;
       width: 100%;
       position: relative;
       touch-action: manipulation;
+      min-height: 0; /* Allow proper flex shrinking */
     }
 
     .book-stack {
@@ -1613,11 +1615,7 @@
       position: absolute;
       top: 50%;
       left: 50%;
-      aspect-ratio: 2.5 / 3.5; /* USPCC playing card ratio */
-      width: 100%;
-      max-width: 560px;
-      height: auto;
-      max-height: 100%;
+      /* Dimensions controlled by JS fitBookFrame() */
       display: flex;
       align-items: stretch;
       justify-content: center;
@@ -1652,8 +1650,8 @@
       border-radius: 5%;
       overflow: hidden;
       display: flex;
-      align-items: center;
-      justify-content: center;
+      align-items: flex-start;
+      justify-content: flex-start;
       box-shadow:
         inset 0 1px 0 rgba(255,255,255,0.85),
         inset 0 -1px 0 rgba(0,0,0,0.07);
@@ -1674,7 +1672,7 @@
       display: flex;
       flex-direction: column;
       gap: 8px;
-      transform-origin: top center;
+      transform-origin: top left;
       padding: 14px 14px 28px 14px;
     }
 
@@ -1862,23 +1860,6 @@
       font-size: 13px;
     }
 
-    .book-page-count {
-      font-size: 11px;
-      color: var(--text-tertiary);
-      letter-spacing: 0.5px;
-      background: rgba(0,0,0,0.04);
-      padding: 4px 8px;
-      border-radius: 8px;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.7);
-    }
-
-    :root.dark .book-page-count,
-    [data-theme="dark"] .book-page-count {
-      background: rgba(255,255,255,0.05);
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
-      color: #b9b9b9;
-    }
-
     .book-deck-button {
       width: 36px;
       height: 36px;
@@ -1888,21 +1869,6 @@
       align-items: center;
       justify-content: center;
       font-size: 16px;
-    }
-
-    @media (max-width: 700px) {
-      .book-frame {
-        width: 100%;
-        max-width: 480px;
-        aspect-ratio: 2.5 / 3.5;
-        max-height: 100%;
-      }
-      .book-page {
-        padding: 12px 12px 24px 12px;
-      }
-      .book-body {
-        font-size: clamp(12px, 3vw, 15px);
-      }
     }
 
     .book-page-count {
@@ -1927,9 +1893,7 @@
 
     @media (max-width: 700px) {
       .book-frame {
-        width: 100%;
-        aspect-ratio: unset;
-        max-height: 100%;
+        /* Dimensions controlled by JS fitBookFrame() */
       }
       .book-page {
         padding: 12px 12px 24px 12px;
@@ -4441,6 +4405,12 @@
       renderDeck();
       fitBookFrame();
       fitBookTypography();
+      
+      // Re-fit after layout settles (handles case where container has no initial size)
+      requestAnimationFrame(() => {
+        fitBookFrame();
+        fitBookTypography();
+      });
     }
 
     function fitBookFrame() {
@@ -4452,15 +4422,37 @@
       const stackGuard = 64; // Leave room for visible stack fan-out
       const availableWidth = Math.max(0, bookContainer.clientWidth - stackGuard);
       const availableHeight = Math.max(0, bookContainer.clientHeight - stackGuard);
-      if (availableWidth <= 0 || availableHeight <= 0) return;
       
-      const aspect = 2.5 / 3.5;
+      if (availableWidth <= 0 || availableHeight <= 0) {
+        // Fallback to reasonable default size
+        const fallbackWidth = 250;
+        const fallbackHeight = 350;
+        frames.forEach(frame => {
+          frame.style.width = `${fallbackWidth}px`;
+          frame.style.height = `${fallbackHeight}px`;
+        });
+        return;
+      }
+      
+      // Playing card aspect ratio: 2.5 wide x 3.5 tall (taller than wide)
+      const aspectRatio = 2.5 / 3.5; // ~0.714
+      
+      // Start with width-constrained size
       let targetWidth = availableWidth;
-      let targetHeight = targetWidth / aspect;
+      let targetHeight = targetWidth / aspectRatio; // Divide to get taller height
       
+      // If too tall, constrain by height instead
       if (targetHeight > availableHeight) {
         targetHeight = availableHeight;
-        targetWidth = targetHeight * aspect;
+        targetWidth = targetHeight * aspectRatio; // Multiply to get narrower width
+      }
+      
+      // Enforce minimum size to prevent tiny cards
+      const minWidth = 100;
+      const minHeight = 140;
+      if (targetWidth < minWidth || targetHeight < minHeight) {
+        targetWidth = Math.max(targetWidth, minWidth);
+        targetHeight = Math.max(targetHeight, minHeight);
       }
       
       frames.forEach(frame => {
@@ -4474,6 +4466,7 @@
       const scale = Math.min(targetWidth / baseW, targetHeight / baseH);
       inners.forEach(inner => {
         inner.style.transform = `scale(${scale})`;
+        inner.style.transformOrigin = 'top left';
       });
     }
 
@@ -7851,6 +7844,11 @@
         codeTab.classList.add('active');
         referenceContent.classList.remove('hidden');
         expandReferencePanelOnMobile();
+        // Refit cards when tab becomes visible (ResizeObserver may not fire immediately)
+        setTimeout(() => {
+          fitBookFrame();
+          fitBookTypography();
+        }, 50);
       });
       
       examplesTab.addEventListener('click', function(e) {
