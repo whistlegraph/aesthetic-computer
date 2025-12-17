@@ -1,0 +1,68 @@
+\documentclass[tikz,border=0pt]{standalone}
+\usepackage[utf8]{inputenc}
+\usepackage{xcolor}
+\usepackage{listings}
+
+% Card dimensions (playing card ratio 2.5:3.5 inches, scaled up for quality)
+\newcommand{\cardwidth}{250pt}
+\newcommand{\cardheight}{350pt}
+
+% Colors - warm paper background
+\definecolor{cardbg}{HTML}{FFF9C0}
+\definecolor{codebg}{HTML}{1F1B16}
+\definecolor{codetext}{HTML}{F4E9D7}
+\definecolor{titlecolor}{HTML}{2D2A24}
+\definecolor{bodycolor}{HTML}{4A4540}
+\definecolor{categorycolor}{HTML}{666666}
+
+% Code listing style for KidLisp
+\lstdefinestyle{kidlisp}{
+  basicstyle=\ttfamily\fontsize{9}{11}\selectfont\color{codetext},
+  backgroundcolor=\color{codebg},
+  frame=none,
+  breaklines=true,
+  breakatwhitespace=true,
+  showstringspaces=false,
+  tabsize=2,
+  xleftmargin=8pt,
+  xrightmargin=8pt,
+}
+
+\begin{document}
+\begin{tikzpicture}
+  % Card background with rounded corners
+  \fill[cardbg, rounded corners=12pt] (0,0) rectangle (\cardwidth, \cardheight);
+  
+  % Category badge at top
+  \node[anchor=north, font=\sffamily\fontsize{11}{13}\selectfont\color{categorycolor}] 
+    at (0.5*\cardwidth, \cardheight-12pt) {CATEGORY};
+  
+  % Card title
+  \node[anchor=north, font=\sffamily\bfseries\fontsize{18}{22}\selectfont\color{titlecolor}] 
+    at (0.5*\cardwidth, \cardheight-32pt) {TITLE};
+  
+  % Horizontal rule
+  \draw[categorycolor, line width=0.5pt] (15pt, \cardheight-55pt) -- (\cardwidth-15pt, \cardheight-55pt);
+  
+  % Description text
+  \node[anchor=north west, text width=\cardwidth-30pt, font=\sffamily\fontsize{10}{14}\selectfont\color{bodycolor}] 
+    at (15pt, \cardheight-65pt) {DESCRIPTION};
+  
+  % Code block background
+  \fill[codebg, rounded corners=8pt] (12pt, 12pt) rectangle (\cardwidth-12pt, 130pt);
+  
+  % Code block header
+  \node[anchor=north west, font=\sffamily\fontsize{8}{10}\selectfont\color{codetext}] 
+    at (18pt, 124pt) {Example};
+  
+  % Separator line in code block
+  \draw[codetext, opacity=0.2, line width=0.5pt] (18pt, 112pt) -- (\cardwidth-18pt, 112pt);
+  
+  % Code content
+  \node[anchor=north west, text width=\cardwidth-40pt] at (18pt, 105pt) {
+    \begin{lstlisting}[style=kidlisp]
+CODE
+    \end{lstlisting}
+  };
+\end{tikzpicture}
+\end{document}
