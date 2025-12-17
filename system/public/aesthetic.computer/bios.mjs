@@ -13,7 +13,7 @@ import * as Glaze from "./lib/glaze.mjs";
 import { apiObject, extension } from "./lib/helpers.mjs";
 import { choose } from "./lib/help.mjs";
 import { parse, slug } from "./lib/parse.mjs";
-import { isKidlispSource, encodeKidlispForUrl, getSyntaxHighlightingColors, isKidlispConsoleEnabled, postKidlispConsoleImage } from "./lib/kidlisp.mjs";
+import { isKidlispSource, encodeKidlispForUrl, getSyntaxHighlightingColors, isKidlispConsoleEnabled, postKidlispConsoleImage, getCachedCode } from "./lib/kidlisp.mjs";
 import * as Store from "./lib/store.mjs";
 import * as MIDI from "./lib/midi.mjs";
 import * as USB from "./lib/usb.mjs";
@@ -4145,12 +4145,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     // Post a message to a potential iframe parent, like in the VSCode extension.
     if (type === "post-to-parent") {
-      // Track current kidlisp code for console snapshots
-      if (content?.type === "kidlisp-code-created" && content?.code) {
-        window.__acCurrentKidlispCode = content.code;
-      } else if (content?.type === "setCode" && content?.value) {
-        window.__acCurrentKidlispCode = content.value;
-      }
+      // Note: kidlisp-code-created and setCode contain cached $identifiers (like "nece"),
+      // not actual source code. The actual source is set via kidlisp-reload in boot.mjs.
       // if (debug) console.log("🏃‍♂️ Posting up to parent...", content);
       if (window.parent) window.parent.postMessage(content, "*");
       return;
@@ -15879,23 +15875,39 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
     }
 
-    // 📸 KidLisp.com console: Auto-snap every 5 seconds when console is enabled and running
-    if (isKidlispConsoleEnabled() && canvas && !window.__acLoopPaused) {
+    // 📸 KidLisp.com console: Auto-snap - initial at frame 30 after play, then every 5 seconds
+    const consoleEnabled = isKidlispConsoleEnabled();
+    const notPaused = !window.__acLoopPaused;
+    if (consoleEnabled && canvas && notPaused) {
       const now = performance.now();
-      if (!window._lastKidlispSnapTime || (now - window._lastKidlispSnapTime) >= 5000) {
-        // Skip early/blank frames until a real piece is running
-        const isEarlyFrame =
-          typeof frameCount === "bigint" ? frameCount <= 1n : frameCount <= 1;
-        const hasPiece = Boolean(currentPiece);
-        // Only take snapshot if we have a piece and past early frames
-        // (Don't return early - just skip the snapshot)
-        // Also skip if there's no actual KidLisp code running (just the default blank state)
-        // Real KidLisp code should have at least one function call with parentheses
-        const kidlispCode = window.__acCurrentKidlispCode;
-        const hasKidlispCode = kidlispCode && 
-          kidlispCode.trim().length > 0 && 
-          kidlispCode.includes('(');  // Real KidLisp code has function calls
-        if (!isEarlyFrame && hasPiece && hasKidlispCode) {
+      const kidlispCode = window.__acCurrentKidlispCode;
+      const hasKidlispCode = kidlispCode && 
+        kidlispCode.trim().length > 0 && 
+        (kidlispCode.includes('(') || kidlispCode.includes(','));
+      
+      if (hasKidlispCode) {
+        // Track when code changes - reset the initial snap tracking
+        if (window._lastKidlispCodeForSnap !== kidlispCode) {
+          window._lastKidlispCodeForSnap = kidlispCode;
+          window._kidlispCodeStartFrame = frameCount;
+          window._kidlispInitialSnapTaken = false;
+        }
+        
+        const framesSinceCodeStart = typeof frameCount === "bigint" 
+          ? Number(frameCount - window._kidlispCodeStartFrame)
+          : frameCount - window._kidlispCodeStartFrame;
+        
+        // Initial snapshot at frame 30 after code starts
+        const shouldTakeInitialSnap = !window._kidlispInitialSnapTaken && framesSinceCodeStart >= 30;
+        
+        // Subsequent snapshots every 5 seconds (only after initial snap)
+        const timeSinceLastSnap = window._lastKidlispSnapTime ? (now - window._lastKidlispSnapTime) : Infinity;
+        const shouldTakePeriodicSnap = window._kidlispInitialSnapTaken && timeSinceLastSnap >= 5000;
+        
+        if (shouldTakeInitialSnap || shouldTakePeriodicSnap) {
+          if (shouldTakeInitialSnap) {
+            window._kidlispInitialSnapTaken = true;
+          }
           window._lastKidlispSnapTime = now;
           try {
             const { dataUrl, displayWidth, displayHeight, dimensions } = captureFrame(canvas, {
@@ -15904,15 +15916,37 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             });
             const ts = formatTimestamp();
           
-            // Get piece code from URL or default, preferring the tracked kidlisp code
+            // Get the source code and look up its cached $code identifier
             const embeddedSource = window.__acCurrentKidlispCode || null;
-            const pieceCode = embeddedSource || currentPiece?.split('/')?.pop() || 'piece';
+            // Try getCachedCode first, then fall back to codeId passed from kidlisp.com
+            const cachedCodeId = embeddedSource ? getCachedCode(embeddedSource) : null;
+            const codeId = cachedCodeId || window.__acCurrentKidlispCodeId || null;
+            // Get user handle if available (e.g., "jeffrey")
+            const userHandle = window.acHANDLE ? `@${window.acHANDLE}` : null;
+            
+            // Build the piece label: $code if available, otherwise fall back to piece path
+            const pieceLabel = codeId ? `$${codeId}` : (currentPiece?.split('/')?.pop() || 'piece');
+            
+            // Build filename like: $code-@user-MM-DD-HH-AMPM.png
+            // Example: $nece-@me@jas.life-12-17-02-PM.png
+            const d = new Date();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            const hour12 = d.getHours() % 12 || 12;
+            const ampm = d.getHours() >= 12 ? 'PM' : 'AM';
+            const timeStr = `${month}-${day}-${String(hour12).padStart(2, '0')}-${ampm}`;
+            
+            const filenameParts = [pieceLabel];
+            if (userHandle) filenameParts.push(userHandle);
+            filenameParts.push(timeStr);
+            const filename = filenameParts.join('-') + '.png';
+            
             const suppressSnapConsoleLogs = window.KIDLISP_SUPPRESS_SNAPSHOT_LOGS === true;
             
             // Log to browser console (optional)
             if (!suppressSnapConsoleLogs) {
               console.log(
-                `%c📸 $${pieceCode} %c@ ${ts} %c• Frame ${frameCount} %c[${dimensions.width}×${dimensions.height}]`,
+                `%c📸 ${pieceLabel} %c@ ${ts} %c• Frame ${frameCount} %c[${dimensions.width}×${dimensions.height}]`,
                 `color: #4ecdc4; font-weight: bold; font-size: 11px; font-family: monospace;`,
                 `color: #f8b500; font-size: 10px; font-family: monospace;`,
                 `color: #888; font-size: 10px; font-family: monospace;`,
@@ -15928,7 +15962,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             postKidlispConsoleImage(dataUrl, {
               frameCount: Number(frameCount),
               timestamp: ts,
-              pieceCode,
+              pieceCode: codeId, // The $code identifier (without $)
+              pieceLabel,              // Full label with $ (e.g., "$nece")
+              filename,                // Full filename (e.g., "$nece-@jeffrey-12-17-02-PM.png")
+              userHandle,              // User handle (e.g., "@jeffrey")
               dimensions,
               embeddedSource
             });

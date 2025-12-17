@@ -44,7 +44,7 @@ import { CamDoll } from "./cam-doll.mjs";
 import { TextInput, Typeface } from "../lib/type.mjs";
 
 import * as lisp from "./kidlisp.mjs";
-import { isKidlispSource, fetchCachedCode, getCachedCode, initPersistentCache, getCachedCodeMultiLevel } from "./kidlisp.mjs"; // Add lisp evaluator.
+import { isKidlispSource, fetchCachedCode, getCachedCode, initPersistentCache, getCachedCodeMultiLevel, enableKidlispConsole } from "./kidlisp.mjs"; // Add lisp evaluator.
 import { qrcode as qr, ErrorCorrectLevel } from "../dep/@akamfoad/qr/qr.mjs";
 import { microtype, MatrixChunky8 } from "../disks/common/fonts.mjs";
 import { 
@@ -8232,15 +8232,9 @@ async function makeFrame({ data: { type, content } }) {
 
   // Enable KidLisp-only console channel (forwarded from boot.mjs).
   if (type === "kidlisp-console-enable") {
-    try {
-      if (typeof globalThis !== "undefined") {
-        globalThis.__acKidlispConsoleEnabled = true;
-      }
-    } catch {
-      // ignore
-    }
-
-    send({ type: "post-to-parent", content: { type: "kidlisp-console-enabled" } });
+    // Call the kidlisp.mjs enableKidlispConsole() to set the module-level flag
+    // This is needed because bios.mjs imports isKidlispConsoleEnabled() from kidlisp.mjs
+    enableKidlispConsole();
     return;
   }
 
