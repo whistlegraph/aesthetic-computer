@@ -1439,6 +1439,23 @@ class TextInput {
           drawColor = !alt ? ti.pal.text : ti.pal.prompt || ti.pal.text;
         }
 
+        // 🌞 LIGHT MODE SHADOWS: For bright colors on light background, draw shadow first
+        const isLightMode = !$.dark;
+        if (isLightMode && charColorMap && charIndex >= 0 && charColorMap.has(charIndex)) {
+          // Calculate luminance to check if color needs shadow
+          const [r, g, b] = Array.isArray(drawColor) ? drawColor : [200, 200, 200];
+          const luminance = (0.299 * r + 0.587 * g + 0.114 * b);
+          
+          if (luminance > 120) {
+            // Draw dark purple-blue shadow offset by 1 pixel
+            $.ink([30, 20, 50, 180]).draw(
+              pic,
+              { x: pos.x + 1, y: pos.y + 1 },
+              prompt.scale,
+            );
+          }
+        }
+
         $.ink(drawColor).draw(
           pic,
           pos,

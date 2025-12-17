@@ -307,17 +307,21 @@ function isColorDark(colorStr) {
 
 // Helper function to get shadow color for a specific text color
 const BRIGHT_SHADOW_RGB = "220,220,220";
+const DARK_SHADOW_RGB = "30,20,50"; // Dark purple-blue shadow for light mode
 
 function getShadowColorForText(colorStr) {
   if (!colorStr) return "64,64,64"; // Default to dark gray shadow
+  
+  // Check if we're in light mode (need darker shadows for bright colors)
+  const isLightMode = $commonApi && !$commonApi.dark;
   
   let rgb;
   let normalizedCommand = null;
   if (typeof colorStr === "string") {
     normalizedCommand = colorStr.trim().toLowerCase();
-    // Treat complex command-based color strings (fade, scroll, random, etc.) as needing bright shadows
+    // Treat complex command-based color strings (fade, scroll, random, etc.) as needing appropriate shadows
     if (/[:(]/.test(normalizedCommand) || normalizedCommand.includes("?")) {
-      return BRIGHT_SHADOW_RGB;
+      return isLightMode ? DARK_SHADOW_RGB : BRIGHT_SHADOW_RGB;
     }
   }
   
@@ -347,6 +351,15 @@ function getShadowColorForText(colorStr) {
   // Handle very dark colors (near black) before channel-specific logic
   if (r <= 24 && g <= 24 && b <= 24) {
     return BRIGHT_SHADOW_RGB;
+  }
+  
+  // Calculate luminance to check if color is bright
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b);
+  
+  // 🌞 LIGHT MODE: For bright colors on light background, use strong dark shadows
+  if (isLightMode && luminance > 140) {
+    // Use a consistent dark shadow for all bright colors in light mode
+    return DARK_SHADOW_RGB;
   }
   
   // 🎨 Special case: Detect RGB channel colors and return channel-tinted shadows

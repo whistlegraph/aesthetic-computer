@@ -6422,9 +6422,9 @@ export const scheme = {
     focusOutline: "brown",
   },
   light: {
-    text: [255, 90, 90],
-    background: [255, 255, 0],
-    prompt: [255, 128, 128],
+    text: [40, 30, 90], // Dark purple-blue (readable on legal pad yellow)
+    background: [252, 247, 197], // Slightly deeper legal pad yellow for better contrast
+    prompt: [60, 40, 120], // Dark purple for prompt text
     block: [56, 122, 223],
     highlight: [246, 253, 195],
     guideline: [255, 207, 105],
@@ -6780,11 +6780,29 @@ function renderKidlispSource($, source, x, y, maxWidth, maxLines, fadeAlpha) {
   const lines = source.split('\n').slice(0, maxLines);
   const charWidth = 4;
   const lineHeight = 10;
+  const isLightMode = !$.dark;
   
   // Create temporary KidLisp instance for color mapping
   const tempKidlisp = new KidLisp();
   tempKidlisp.syntaxHighlightSource = source;
   tempKidlisp.isEditMode = true; // Enable edit mode to prevent transparent text
+  
+  // Helper to check if color is too bright for light mode background
+  const needsShadow = (rgb) => {
+    if (!isLightMode) return false;
+    // Calculate luminance - bright colors need shadow on light bg
+    const luminance = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b);
+    return luminance > 120; // Lower threshold to catch more bright colors like cyan
+  };
+  
+  // Helper to render a character with optional shadow
+  const writeCharWithShadow = (char, charX, charY, rgb) => {
+    if (needsShadow(rgb)) {
+      // Draw dark purple-blue shadow offset by 1 pixel (matches HUD shadow)
+      $.ink([30, 20, 50, Math.floor(fadeAlpha * 0.7)]).write(char, { x: charX + 1, y: charY + 1 }, undefined, undefined, false, "MatrixChunky8");
+    }
+    $.ink([rgb.r, rgb.g, rgb.b, fadeAlpha]).write(char, { x: charX, y: charY }, undefined, undefined, false, "MatrixChunky8");
+  };
   
   lines.forEach((line, lineIdx) => {
     const lineY = y + lineIdx * lineHeight;
@@ -6811,7 +6829,7 @@ function renderKidlispSource($, source, x, y, maxWidth, maxLines, fadeAlpha) {
           const rgb = parseColorName(segmentColor);
           for (let charIdx = 0; charIdx < segmentText.length; charIdx++) {
             const char = segmentText[charIdx];
-            $.ink([rgb.r, rgb.g, rgb.b, fadeAlpha]).write(char, { x: currentX, y: lineY }, undefined, undefined, false, "MatrixChunky8");
+            writeCharWithShadow(char, currentX, lineY, rgb);
             currentX += charWidth;
           }
         }
@@ -6820,7 +6838,7 @@ function renderKidlispSource($, source, x, y, maxWidth, maxLines, fadeAlpha) {
         const rgb = parseColorName(colorName);
         for (let charIdx = 0; charIdx < token.length; charIdx++) {
           const char = token[charIdx];
-          $.ink([rgb.r, rgb.g, rgb.b, fadeAlpha]).write(char, { x: currentX, y: lineY }, undefined, undefined, false, "MatrixChunky8");
+          writeCharWithShadow(char, currentX, lineY, rgb);
           currentX += charWidth;
         }
       }
