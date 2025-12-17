@@ -13,7 +13,7 @@ import * as Glaze from "./lib/glaze.mjs";
 import { apiObject, extension } from "./lib/helpers.mjs";
 import { choose } from "./lib/help.mjs";
 import { parse, slug } from "./lib/parse.mjs";
-import { isKidlispSource, encodeKidlispForUrl, getSyntaxHighlightingColors } from "./lib/kidlisp.mjs";
+import { isKidlispSource, encodeKidlispForUrl, getSyntaxHighlightingColors, isKidlispConsoleEnabled, postKidlispConsoleImage } from "./lib/kidlisp.mjs";
 import * as Store from "./lib/store.mjs";
 import * as MIDI from "./lib/midi.mjs";
 import * as USB from "./lib/usb.mjs";
@@ -35,6 +35,7 @@ import {
 import { headers } from "./lib/headers.mjs";
 import { logs, log } from "./lib/logs.mjs";
 import { checkPackMode } from "./lib/pack-mode.mjs";
+import { captureFrame, formatTimestamp } from "./lib/frame-capture.mjs";
 import { soundWhitelist } from "./lib/sound/sound-whitelist.mjs";
 import { timestamp, radians } from "./lib/num.mjs";
 import * as graph from "./lib/graph.mjs";
@@ -654,8 +655,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   })();
 
   // Expose Loop control to window for boot.mjs
-  window.acPAUSE = Loop.pause;
-  window.acRESUME = Loop.resume;
+  // Track pause state for kidlisp console snapshots
+  window.acPAUSE = () => {
+    window.__acLoopPaused = true;
+    Loop.pause();
+  };
+  window.acRESUME = () => {
+    window.__acLoopPaused = false;
+    // Reset snap timer so first snap happens 5s after resume
+    window._lastKidlispSnapTime = performance.now();
+    Loop.resume();
+  };
 
   // Notify parent of boot progress and update the boot log overlay
   if (window.acBOOT_LOG) {
@@ -4134,6 +4144,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     // Post a message to a potential iframe parent, like in the VSCode extension.
     if (type === "post-to-parent") {
+      // Track current kidlisp code for console snapshots
+      if (content?.type === "kidlisp-code-created" && content?.code) {
+        window.__acCurrentKidlispCode = content.code;
+      } else if (content?.type === "setCode" && content?.value) {
+        window.__acCurrentKidlispCode = content.value;
+      }
       // if (debug) console.log("🏃‍♂️ Posting up to parent...", content);
       if (window.parent) window.parent.postMessage(content, "*");
       return;
@@ -15836,39 +15852,18 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // 📸 PACK mode: Log frame to console every 500 frames (after render completes)
     if (window.acPACK_MODE && frameCount % 500n === 0n && canvas) {
       try {
-        const w = canvas.width;
-        const h = canvas.height;
-        
-        // Render at 3x for crisp pixelated display
-        const scaleFactor = 3;
-        const thumbW = w * scaleFactor;
-        const thumbH = h * scaleFactor;
-        
-        // Create thumbnail canvas at 3x
-        const thumbCanvas = document.createElement('canvas');
-        thumbCanvas.width = thumbW;
-        thumbCanvas.height = thumbH;
-        const thumbCtx = thumbCanvas.getContext('2d');
-        thumbCtx.imageSmoothingEnabled = false;
-        thumbCtx.drawImage(canvas, 0, 0, thumbW, thumbH);
-        const dataUrl = thumbCanvas.toDataURL('image/png');
-        
-        // Display size (fit to ~200px max dimension for larger preview)
-        const displayMax = 200;
-        const aspect = w / h;
-        const displayW = aspect >= 1 ? displayMax : Math.round(displayMax * aspect);
-        const displayH = aspect >= 1 ? Math.round(displayMax / aspect) : displayMax;
-        
-        // Timestamp with time of day
-        const now = new Date();
-        const ts = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true });
+        const { dataUrl, displayWidth, displayHeight, dimensions } = captureFrame(canvas, {
+          scaleFactor: 3,
+          displayMax: 200
+        });
+        const ts = formatTimestamp();
         
         // Get piece code (use acPACK_PIECE for the short name like "roz")
         const pieceName = window.acPACK_PIECE || 'piece';
         const pieceCode = pieceName.startsWith('$') ? pieceName : `$${pieceName}`;
         
         console.log(
-          `%c📸 ${pieceCode} %c@ ${ts} %c• Frame ${frameCount} %c[${w}×${h}]`,
+          `%c📸 ${pieceCode} %c@ ${ts} %c• Frame ${frameCount} %c[${dimensions.width}×${dimensions.height}]`,
           `color: #4ecdc4; font-weight: bold; font-size: 11px; font-family: monospace;`,
           `color: #f8b500; font-size: 10px; font-family: monospace;`,
           `color: #888; font-size: 10px; font-family: monospace;`,
@@ -15876,10 +15871,63 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         );
         console.log(
           `%c `,
-          `font-size: 1px; padding: ${displayH/2}px ${displayW/2}px; background: url("${dataUrl}") no-repeat center; background-size: ${displayW}px ${displayH}px; image-rendering: pixelated;`
+          `font-size: 1px; padding: ${displayHeight/2}px ${displayWidth/2}px; background: url("${dataUrl}") no-repeat center; background-size: ${displayWidth}px ${displayHeight}px; image-rendering: pixelated;`
         );
       } catch (e) {
         // Silently fail - frame capture is not essential
+      }
+    }
+
+    // 📸 KidLisp.com console: Auto-snap every 5 seconds when console is enabled and running
+    if (isKidlispConsoleEnabled() && canvas && !window.__acLoopPaused) {
+      const now = performance.now();
+      if (!window._lastKidlispSnapTime || (now - window._lastKidlispSnapTime) >= 5000) {
+        // Skip early/blank frames until a real piece is running
+        const isEarlyFrame =
+          typeof frameCount === "bigint" ? frameCount <= 1n : frameCount <= 1;
+        const hasPiece = Boolean(currentPiece);
+        if (isEarlyFrame || !hasPiece) {
+          return;
+        }
+        window._lastKidlispSnapTime = now;
+        try {
+          const { dataUrl, displayWidth, displayHeight, dimensions } = captureFrame(canvas, {
+            scaleFactor: 3,
+            displayMax: 200
+          });
+          const ts = formatTimestamp();
+          
+          // Get piece code from URL or default, preferring the tracked kidlisp code
+          const embeddedSource = window.__acCurrentKidlispCode || null;
+          const pieceCode = embeddedSource || currentPiece?.split('/')?.pop() || 'piece';
+          const suppressSnapConsoleLogs = window.KIDLISP_SUPPRESS_SNAPSHOT_LOGS === true;
+          
+          // Log to browser console (optional)
+          if (!suppressSnapConsoleLogs) {
+            console.log(
+              `%c📸 $${pieceCode} %c@ ${ts} %c• Frame ${frameCount} %c[${dimensions.width}×${dimensions.height}]`,
+              `color: #4ecdc4; font-weight: bold; font-size: 11px; font-family: monospace;`,
+              `color: #f8b500; font-size: 10px; font-family: monospace;`,
+              `color: #888; font-size: 10px; font-family: monospace;`,
+              `color: #666; font-size: 10px; font-family: monospace;`
+            );
+            console.log(
+              `%c `,
+              `font-size: 1px; padding: ${displayHeight/2}px ${displayWidth/2}px; background: url("${dataUrl}") no-repeat center; background-size: ${displayWidth}px ${displayHeight}px; image-rendering: pixelated;`
+            );
+          }
+          
+          // Send to kidlisp.com console
+          postKidlispConsoleImage(dataUrl, {
+            frameCount: Number(frameCount),
+            timestamp: ts,
+            pieceCode,
+            dimensions,
+            embeddedSource
+          });
+        } catch (e) {
+          // Silently fail - auto-snap is not essential
+        }
       }
     }
 
