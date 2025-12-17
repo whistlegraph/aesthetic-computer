@@ -1470,10 +1470,10 @@ function act({ event: e, screen }) {
     if (preparedData.thumbnailUri) thumbBtn.btn.act(e, { push: () => openUrl(preparedData.thumbnailUri) });
     if (preparedData.metadataUri) metaBtn.btn.act(e, { push: () => openUrl(preparedData.metadataUri) });
     
-    // Network button links to contract on tzkt
+    // Network button links to contract collection on objkt
     const contractAddress = preparedData.contractAddress || KEEPS_CONTRACT;
     const networkPrefix = preparedData.network === "mainnet" ? "" : "ghostnet.";
-    networkBtn.btn.act(e, { push: () => openUrl(`https://${networkPrefix}tzkt.io/${contractAddress}`) });
+    networkBtn.btn.act(e, { push: () => openUrl(`https://${networkPrefix}objkt.com/collection/${contractAddress}`) });
     
     btn.btn.act(e, { push: () => signAndMint() });
   }
