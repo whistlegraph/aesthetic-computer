@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="259.399" height="348.692" viewBox="0 0 259.399 348.692">
+  <defs>
+    <pattern id="diagonal-stripes" patternUnits="userSpaceOnUse" width="12" height="12" patternTransform="rotate(45)">
+      <rect width="6" height="12" fill="#3d2d24"/>
+      <rect x="6" width="6" height="12" fill="#2a1f1a"/>
+    </pattern>
+    <linearGradient id="card-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3d2d24"/>
+      <stop offset="100%" style="stop-color:#1a1410"/>
+    </linearGradient>
+    <filter id="inner-shadow">
+      <feOffset dx="0" dy="2"/>
+      <feGaussianBlur stdDeviation="4" result="offset-blur"/>
+      <feComposite operator="out" in="SourceGraphic" in2="offset-blur" result="inverse"/>
+      <feFlood flood-color="black" flood-opacity="0.3" result="color"/>
+      <feComposite operator="in" in="color" in2="inverse" result="shadow"/>
+      <feComposite operator="over" in="shadow" in2="SourceGraphic"/>
+    </filter>
+  </defs>
+  
+  <!-- Card background -->
+  <rect width="259.399" height="348.692" rx="12" ry="12" fill="url(#card-gradient)"/>
+  
+  <!-- Diagonal stripe pattern -->
+  <rect width="259.399" height="348.692" rx="12" ry="12" fill="url(#diagonal-stripes)" opacity="0.4"/>
+  
+  <!-- Border -->
+  <rect x="8" y="8" width="243.399" height="332.692" rx="8" ry="8" fill="none" stroke="#4a3a30" stroke-width="2"/>
+  
+  <!-- Inner decorative frame -->
+  <rect x="20" y="20" width="219.399" height="308.692" rx="6" ry="6" fill="none" stroke="#5a4a40" stroke-width="1" opacity="0.5"/>
+  
+  <!-- Center emblem circle -->
+  <circle cx="129.7" cy="174.346" r="60" fill="none" stroke="#6a5a50" stroke-width="2" opacity="0.6"/>
+  <circle cx="129.7" cy="174.346" r="45" fill="#2a1f1a" stroke="#5a4a40" stroke-width="1"/>
+  
+  <!-- KidLisp logo text -->
+  <text x="129.7" y="168" text-anchor="middle" font-family="monospace" font-size="14" font-weight="bold" fill="#8a7a70">Kid</text>
+  <text x="129.7" y="186" text-anchor="middle" font-family="monospace" font-size="14" font-weight="bold" fill="#FF6B6B">Lisp</text>
+  
+  <!-- Corner decorations -->
+  <g fill="#5a4a40" opacity="0.4">
+    <!-- Top left -->
+    <circle cx="35" cy="35" r="4"/>
+    <circle cx="35" cy="50" r="2"/>
+    <circle cx="50" cy="35" r="2"/>
+    
+    <!-- Top right -->
+    <circle cx="224.399" cy="35" r="4"/>
+    <circle cx="224.399" cy="50" r="2"/>
+    <circle cx="209.399" cy="35" r="2"/>
+    
+    <!-- Bottom left -->
+    <circle cx="35" cy="313.692" r="4"/>
+    <circle cx="35" cy="298.692" r="2"/>
+    <circle cx="50" cy="313.692" r="2"/>
+    
+    <!-- Bottom right -->
+    <circle cx="224.399" cy="313.692" r="4"/>
+    <circle cx="224.399" cy="298.692" r="2"/>
+    <circle cx="209.399" cy="313.692" r="2"/>
+  </g>
+  
+  <!-- Subtle sparkle accents -->
+  <g fill="#7a6a60" opacity="0.3">
+    <path d="M129.7 100 L131 105 L136 105 L132 108 L133.5 113 L129.7 110 L125.9 113 L127.4 108 L123.4 105 L128.4 105 Z"/>
+    <path d="M129.7 235 L131 240 L136 240 L132 243 L133.5 248 L129.7 245 L125.9 248 L127.4 243 L123.4 240 L128.4 240 Z" transform="rotate(180 129.7 241.5)"/>
+  </g>
+</svg>
