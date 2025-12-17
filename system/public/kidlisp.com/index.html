@@ -7174,6 +7174,20 @@
     let isInitialLoad = true;
     let hasInitialPreviewRun = false; // Guard against duplicate initial runs
     
+    // Debug: Track iframe src changes
+    let iframeSrcSetCount = 0;
+    const originalSrc = Object.getOwnPropertyDescriptor(HTMLIFrameElement.prototype, 'src');
+    Object.defineProperty(previewIframe, 'src', {
+      get: function() {
+        return originalSrc.get.call(this);
+      },
+      set: function(value) {
+        iframeSrcSetCount++;
+        console.log(`🔲 iframe src set (count: ${iframeSrcSetCount}):`, value, new Error().stack);
+        return originalSrc.set.call(this, value);
+      }
+    });
+    
     // Load KidLisp with empty code (should show default pattern/checkerboard)
     console.log('🔲 iframe Setting initial iframe src');
     previewIframe.src = `${aestheticUrl}/kidlisp?nogap=true&nolabel=true&noauth=true`;
@@ -7420,7 +7434,7 @@
     let iframeLoadCount = 0;
     previewIframe.addEventListener('load', () => {
       iframeLoadCount++;
-      console.log(`🔲 iframe Iframe loaded (count: ${iframeLoadCount})`);
+      console.log(`🔲 iframe Iframe loaded (count: ${iframeLoadCount})`, new Error().stack);
       log.iframe.debug('Iframe loaded, checking readiness');
       
       // Tell the iframe to suppress noisy snapshot logs (we show them in KidLisp.com console only)
