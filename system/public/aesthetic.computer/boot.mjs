@@ -986,6 +986,8 @@ function receive(event) {
     return;
   } else if (event.data?.type === "kidlisp-stop") {
     window.acRESUME?.(); // Ensure we are running so we can load the empty piece.
+    // Clear tracked kidlisp code when stopping
+    window.__acCurrentKidlispCode = null;
     window.acSEND({
       type: "piece-reload",
       content: { source: "kidlisp", createCode: false }

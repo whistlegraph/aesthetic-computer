@@ -546,8 +546,8 @@
     #kidlisp-editor.live-running::before {
       content: '';
       position: absolute;
-      top: 0;
-      left: 0;
+      top: 50%;
+      left: 50%;
       right: 0;
       bottom: 0;
       border: 4px solid #00ff00;
@@ -1244,17 +1244,20 @@
       padding: 0 16px;
       cursor: pointer;
       border-right: 1px solid var(--border-color);
+      border-left: 1px solid transparent;
       height: 100%;
       display: flex;
       align-items: center;
       background: var(--bg-secondary);
       color: var(--text-tertiary);
       transition: all 0.2s;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.5), inset 0 -1px 0 rgba(0,0,0,0.05);
     }
 
     @media (hover: hover) {
       .tab:hover {
-        filter: brightness(1.1);
+        filter: brightness(1.08);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.7), 0 6px 12px rgba(0,0,0,0.08);
       }
       #examples-tab:hover {
         background: rgba(59, 130, 246, 0.35);
@@ -1274,6 +1277,8 @@
       position: relative;
       z-index: 1;
       font-weight: 600;
+      box-shadow: inset 0 2px 0 rgba(255,255,255,0.8), 0 8px 14px rgba(0,0,0,0.12);
+      transform: translateY(-1px);
     }
 
     /* Color-coded tabs for accessibility - full background colors */
@@ -1282,8 +1287,9 @@
       color: #1e40af;
     }
     #examples-tab.active {
-      background: rgba(59, 130, 246, 0.4);
+      background: rgba(59, 130, 246, 0.55);
       color: #1e3a8a;
+      border-top: 2px solid rgba(59, 130, 246, 0.9);
     }
 
     #keeps-tab {
@@ -1291,8 +1297,9 @@
       color: #9d174d;
     }
     #keeps-tab.active {
-      background: rgba(205, 92, 155, 0.4);
+      background: rgba(205, 92, 155, 0.55);
       color: #831843;
+      border-top: 2px solid rgba(205, 92, 155, 0.9);
     }
 
     #reference-tab {
@@ -1300,8 +1307,9 @@
       color: #166534;
     }
     #reference-tab.active {
-      background: rgba(34, 197, 94, 0.4);
+      background: rgba(34, 197, 94, 0.55);
       color: #14532d;
+      border-top: 2px solid rgba(34, 197, 94, 0.9);
     }
 
     /* Dark mode adjustments for tab colors - higher contrast */
@@ -1414,12 +1422,44 @@
 
     .docs-content {
       flex: 1;
-      overflow-y: auto;
-      padding: 16px;
+      overflow: hidden;
+      padding: 12px;
       font-size: 13px;
       line-height: 1.5;
       background: var(--bg-primary);
       color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #examples-content,
+    #keeps-content {
+      align-items: flex-start;
+      justify-content: flex-start;
+      overflow-y: auto;
+    }
+
+    #examples-content > div,
+    #keeps-content > div {
+      width: 100%;
+    }
+
+    .book-deck-controls {
+      position: absolute;
+      bottom: 16px;
+      right: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(0,0,0,0.05);
+      padding: 6px 10px;
+      border-radius: 12px;
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.65),
+        inset 0 -1px 0 rgba(0,0,0,0.08),
+        0 8px 16px rgba(0,0,0,0.12);
+      z-index: 3;
     }
 
     .hidden {
@@ -1546,80 +1586,405 @@
       }
     }
 
-    /* Wizard styles */
-    #wizard-container {
+    /* Book styles */
+    #book-container {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100%;
+      width: 100%;
+      position: relative;
+      touch-action: manipulation;
+    }
+
+    .book-stack {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: all;
+      padding: 8px;
+    }
+
+    .book-frame {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      aspect-ratio: 2.5 / 3.5; /* USPCC playing card ratio */
+      width: 100%;
+      max-width: 560px;
+      height: auto;
+      max-height: 100%;
+      display: flex;
+      align-items: stretch;
+      justify-content: center;
+      filter: drop-shadow(0 10px 18px rgba(0,0,0,0.16));
+      padding: 6px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.9), rgba(240,240,240,0.9));
+      border-radius: 5%;
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.8),
+        inset 0 -1px 0 rgba(0,0,0,0.08),
+        0 12px 24px rgba(0,0,0,0.18);
+      transform-origin: center;
+      cursor: pointer;
+      transition: transform 0.18s ease, opacity 0.18s ease;
+      will-change: transform;
+    }
+
+    :root.dark .book-frame,
+    [data-theme="dark"] .book-frame {
+      background: linear-gradient(180deg, #2c2620, #1b1712);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.06),
+        inset 0 -1px 0 rgba(0,0,0,0.45),
+        0 18px 28px rgba(0,0,0,0.45);
+    }
+
+    .book-page {
+      position: relative;
+      flex: 1;
+      background: linear-gradient(135deg, rgba(255, 249, 192, 0.96), rgba(255, 255, 255, 0.98));
+      border: 1px solid rgba(0,0,0,0.06);
+      border-radius: 5%;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.85),
+        inset 0 -1px 0 rgba(0,0,0,0.07);
+    }
+
+    :root.dark .book-page,
+    [data-theme="dark"] .book-page {
+      background: linear-gradient(135deg, #231e19, #15120f);
+      border-color: #3a342f;
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.05),
+        inset 0 -1px 0 rgba(0,0,0,0.5);
+    }
+
+    .book-page-inner {
+      width: 750px;
+      height: 1050px;
       display: flex;
       flex-direction: column;
-      height: 100%;
+      gap: 8px;
+      transform-origin: top center;
+      padding: 14px 14px 28px 14px;
     }
 
-    .wizard-prompt {
-      padding: 12px 0;
-      font-size: 14px;
-      font-weight: bold;
-      color: var(--text-secondary);
-      border-bottom: 1px solid var(--border-subtle);
+    .book-titleplate {
+      text-align: center;
+      padding: 6px 10px;
+      border-radius: 12px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.65), rgba(255,255,255,0.4));
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.9),
+        inset 0 -1px 0 rgba(0,0,0,0.08);
+      margin-bottom: 10px;
     }
 
-    #wizard-suggestions {
-      flex: 1;
-      overflow-y: auto;
-      padding: 12px 0;
+    :root.dark .book-titleplate,
+    [data-theme="dark"] .book-titleplate {
+      background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.12),
+        inset 0 -1px 0 rgba(0,0,0,0.55);
     }
 
-    .wizard-category {
-      margin-bottom: 16px;
+    .book-title-main {
+      font-size: clamp(14px, 2vw, 17px);
+      font-weight: 800;
+      letter-spacing: 0.6px;
     }
 
-    .wizard-category-title {
-      font-size: 12px;
-      font-weight: bold;
+    .book-title-sub {
+      font-size: clamp(11px, 1.6vw, 13px);
       color: var(--text-tertiary);
-      margin-bottom: 8px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.4px;
     }
 
-    .wizard-suggestions-grid {
+    .book-body {
+      flex: 1;
+      overflow: hidden;
+      padding: 6px 2px 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-height: 0;
+      font-size: clamp(12px, 1.4vw, 16px);
+      line-height: 1.55;
+    }
+
+    .book-header {
       display: flex;
       flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .book-title {
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: 0.4px;
+    }
+
+    .book-runtime {
+      font-size: 12px;
+      color: var(--text-tertiary);
+    }
+
+    .book-status {
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid currentColor;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      line-height: 1;
+    }
+
+    .book-status.live { color: #16a34a; background: rgba(22, 163, 74, 0.12); }
+    .book-status.preview { color: #f97316; background: rgba(249, 115, 22, 0.14); }
+    .book-status.experimental { color: #a855f7; background: rgba(168, 85, 247, 0.14); }
+    .book-status.soon { color: #2563eb; background: rgba(37, 99, 235, 0.14); }
+
+    .book-summary {
+      margin: 0 0 6px;
+      color: var(--text-secondary);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .book-section {
+      margin-bottom: 8px;
+    }
+
+    .book-section-title {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--text-tertiary);
+      margin-bottom: 6px;
+    }
+
+    .book-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
       gap: 6px;
     }
 
-    .wizard-suggestion {
-      padding: 6px 12px;
-      background: #fff9c0;
-      border: 1px solid #f0e68c;
+    .book-list li {
+      padding: 8px 10px;
+      border: 1px dashed var(--border-subtle);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.7);
+      color: var(--text-secondary);
+      line-height: 1.4;
+      font-size: 13px;
+    }
+
+    :root.dark .book-list li,
+    [data-theme="dark"] .book-list li {
+      background: rgba(51, 47, 40, 0.9);
+      border-color: #4a4540;
+      color: #d4d4d4;
+    }
+
+    .book-snippet-block {
+      margin-top: 8px;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border-subtle);
+      background: #1f1b16;
+      color: #f4e9d7;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+    }
+
+    :root.dark .book-snippet-block,
+    [data-theme="dark"] .book-snippet-block {
+      background: #0f0c0a;
+      border-color: #4a4540;
+      color: #f4e9d7;
+    }
+
+    .book-snippet-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .book-snippet-title {
+      font-weight: 700;
+      font-size: 13px;
+      letter-spacing: 0.3px;
+    }
+
+    .book-snippet {
+      margin: 0;
+      padding: 12px;
+      font-family: 'Berkeley Mono', 'Comic Relief', monospace;
+      font-size: 13px;
+      white-space: pre-wrap;
+      background: transparent;
+      color: inherit;
+      word-break: break-word;
+    }
+
+    .book-snippet-note {
+      font-size: 12px;
+      color: rgba(244, 233, 215, 0.9);
+    }
+
+    .book-card-title {
+      font-size: 15px;
+      font-weight: 800;
+      margin: 6px 0 2px;
+      letter-spacing: 0.4px;
+    }
+
+    .book-card-text {
+      margin: 0;
+      color: var(--text-secondary);
+      line-height: 1.5;
+      font-size: 13px;
+    }
+
+    .book-page-count {
+      font-size: 11px;
+      color: var(--text-tertiary);
+      letter-spacing: 0.5px;
+      background: rgba(0,0,0,0.04);
+      padding: 4px 8px;
       border-radius: 8px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.7);
+    }
+
+    :root.dark .book-page-count,
+    [data-theme="dark"] .book-page-count {
+      background: rgba(255,255,255,0.05);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+      color: #b9b9b9;
+    }
+
+    .book-deck-button {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+    }
+
+    @media (max-width: 700px) {
+      .book-frame {
+        width: 100%;
+        max-width: 480px;
+        aspect-ratio: 2.5 / 3.5;
+        max-height: 100%;
+      }
+      .book-page {
+        padding: 12px 12px 24px 12px;
+      }
+      .book-body {
+        font-size: clamp(12px, 3vw, 15px);
+      }
+    }
+
+    .book-page-count {
+      position: absolute;
+      bottom: 10px;
+      right: 12px;
+      font-size: 11px;
+      color: var(--text-tertiary);
+      letter-spacing: 0.5px;
+      background: rgba(0,0,0,0.04);
+      padding: 4px 8px;
+      border-radius: 8px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.7);
+    }
+
+    :root.dark .book-page-count,
+    [data-theme="dark"] .book-page-count {
+      background: rgba(255,255,255,0.05);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+      color: #b9b9b9;
+    }
+
+    @media (max-width: 700px) {
+      .book-frame {
+        width: 100%;
+        aspect-ratio: unset;
+        max-height: 100%;
+      }
+      .book-page {
+        padding: 12px 12px 24px 12px;
+      }
+      .book-body {
+        font-size: clamp(12px, 3vw, 15px);
+      }
+    }
+
+    .book-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .book-cta {
+      background: rgb(205, 92, 155);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-weight: 700;
       cursor: pointer;
-      transition: all 0.15s;
-      font-size: 14px;
-      font-family: monospace;
-      color: #333333;
-      user-select: none;
+      transition: transform 0.1s ease, box-shadow 0.1s ease;
     }
 
-    @media (prefers-color-scheme: dark) {
-      .wizard-suggestion {
-        background: #332f28;
-        border-color: #4a4540;
-        color: #d4d4d4;
-      }
+    .book-cta:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
     }
 
-    @media (hover: hover) {
-      .wizard-suggestion:hover {
-        background: rgb(205, 92, 155);
-        color: white;
-        transform: translateY(-1px);
-        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-        border-color: rgb(205, 92, 155);
-      }
+    .book-cta:not(:disabled):active {
+      transform: translateY(1px);
+      box-shadow: none;
     }
 
-    .wizard-suggestion:active {
-      transform: translateY(0);
-      box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    .book-snippet-note {
+      font-size: 12px;
+      color: rgba(244, 233, 215, 0.9);
+    }
+
+    #book-container[data-platform="ff1"] .book-title,
+    #book-container[data-platform="ff1"] .book-summary {
+      font-family: 'PP Mori', 'Comic Relief', monospace;
+    }
+
+    #book-container[data-platform="playdate"] .book-title,
+    #book-container[data-platform="playdate"] .book-summary {
+      font-family: 'Roobert', 'Comic Relief', monospace;
+    }
+
+    #book-container[data-platform="ableton"] .book-title,
+    #book-container[data-platform="ableton"] .book-summary {
+      font-family: 'Futura PT', 'Comic Relief', monospace;
+      letter-spacing: 0.5px;
     }
 
     /* Keeps tab styles */
@@ -3301,11 +3666,11 @@
     <div class="bottom-row" id="bottom-row">
       <div class="reference-section" id="reference-panel">
         <div class="docs-header">
-          <div class="tab active" data-tab="examples" id="examples-tab">Top Hits</div>
+          <div class="tab active" data-tab="reference" id="reference-tab">Cards</div>
+          <div class="tab" data-tab="examples" id="examples-tab">Top Hits</div>
           <div class="tab" data-tab="keeps" id="keeps-tab">Keeps</div>
-          <div class="tab" data-tab="reference" id="reference-tab">Book</div>
         </div>
-        <div class="docs-content" id="examples-content">
+        <div class="docs-content hidden" id="examples-content">
           <div id="examples-list">Loading examples...</div>
         </div>
         <div class="docs-content hidden" id="keeps-content">
@@ -3344,10 +3709,8 @@
             </div>
           </div>
         </div>
-        <div class="docs-content hidden" id="reference-content">
-          <div id="wizard-container">
-            <div id="wizard-suggestions"></div>
-          </div>
+        <div class="docs-content" id="reference-content">
+          <div id="book-container"></div>
         </div>
       </div>
       
@@ -3423,7 +3786,7 @@
         playButton: 'Play',
         previewTitle: 'Aesthetic.Computer',
         consoleTitle: 'Console',
-        referenceTab: 'Book',
+        referenceTab: 'Cards',
         examplesTab: 'Top Hits',
         keepsTab: 'Keeps',
         keepsConnectWallet: 'Connect Wallet',
@@ -3463,7 +3826,7 @@
         playButton: 'Ejecutar',
         previewTitle: 'Aesthetic.Computer',
         consoleTitle: 'Consola',
-        referenceTab: 'Libro',
+        referenceTab: 'Tarjetas',
         examplesTab: 'Más Populares',
         keepsTab: 'Keeps',
         keepsConnectWallet: 'Conectar Cartera',
@@ -3502,7 +3865,7 @@
         playButton: '运行',
         previewTitle: 'Aesthetic.Computer',
         consoleTitle: '控制台',
-        referenceTab: '手册',
+        referenceTab: '卡片',
         examplesTab: '热门',
         keepsTab: 'Keeps',
         keepsConnectWallet: '连接钱包',
@@ -3541,7 +3904,7 @@
         playButton: 'Kør',
         previewTitle: 'Aesthetic.Computer',
         consoleTitle: 'Konsol',
-        referenceTab: 'Bog',
+        referenceTab: 'Kort',
         examplesTab: 'Top Hits',
         keepsTab: 'Keeps',
         keepsConnectWallet: 'Forbind Wallet',
@@ -3667,6 +4030,495 @@
         toast.style.opacity = '0';
         setTimeout(() => toast.remove(), 300);
       }, 3000);
+    }
+
+    // Platform-specific book content
+    let bookContainer = null;
+    const platformBooks = {
+      'aesthetic-computer': {
+        name: 'Aesthetic.Computer',
+        pageCount: 1,
+      },
+      'ff1': {
+        name: 'FF1 Art Computer',
+        pageCount: 1,
+      },
+      'ableton': {
+        name: 'Ableton Live',
+        pageCount: 1,
+      },
+      'playdate': {
+        name: 'Playdate',
+        pageCount: 1,
+      },
+      'gameboy': {
+        name: 'Game Boy',
+        pageCount: 1,
+      },
+      'n64': {
+        name: 'Nintendo 64',
+        pageCount: 1,
+      },
+    };
+
+    const cardDecks = {
+      'aesthetic-computer': [
+        {
+          title: 'KidLisp by Example',
+          lines: [
+            'One line can paint a whole mood.',
+            'Repeat small gestures to build texture.'
+          ],
+          code: `(do
+  (wipe "navy")
+  (repeat 24
+    (ink "cyan")
+    (line (random width) 0 (random width) height))
+  (ink "magenta")
+  (circle (/ width 2) (/ height 2) 56))`
+        },
+        {
+          title: 'Loops and timing',
+          lines: ['Layer delays to stagger moves.'],
+          code: `(do
+  (wipe "black")
+  (ink "white")
+  (repeat 12
+    (later (* 0.1 (index))
+      (line (/ width 2) 0 (random width) height))))`
+        },
+        {
+          title: 'Simple palette swap',
+          lines: ['Color flips on every frame.'],
+          code: `(do
+  (ink (if (even? frame) "yellow" "blue"))
+  (wipe)
+  (circle (/ width 2) (/ height 2) 80))`
+        },
+        {
+          title: 'Dummy practice card',
+          lines: [
+            'A placeholder card for the deck.',
+            'Swap in any KidLisp snippet you like.'
+          ],
+          code: `(do
+  (wipe "white")
+  (ink "black")
+  (circle (/ width 2) (/ height 2) 24))`
+        }
+      ],
+      'ff1': [
+        {
+          title: 'KidLisp by Example',
+          lines: ['Layer stripes, then frame in gold.'],
+          code: `(do
+  (wipe "black")
+  (repeat 18
+    (ink "orchid")
+    (line (random width) 0 (random width) height))
+  (ink "gold")
+  (rect 0 (- height 8) width 8))`
+        },
+        {
+          title: 'Slow pan',
+          lines: ['Ambient drift for gallery walls.'],
+          code: `(do
+  (ink "orchid")
+  (rect (mod (floor (/ frame 4)) width) 0 40 height))`
+        },
+        {
+          title: 'Dummy practice card',
+          lines: ['Fill this with FF1-specific notes.', 'Use keeps + DP-1 hooks later.'],
+          code: `(do
+  (wipe "black")
+  (ink "orchid")
+  (rect 20 20 60 60))`
+        }
+      ],
+      'ableton': [
+        {
+          title: 'KidLisp by Example',
+          lines: ['Sketch a 3-note pattern for later export.'],
+          code: `; Bridge-coming-soon idea
+(do
+  (let ((root 60))
+    (note root 100 0.5)
+    (note (+ root 7) 90 0.5)
+    (later 0.5 (note (+ root 12) 110 0.5))))`
+        },
+        {
+          title: 'Idea: hi-hat roll',
+          lines: ['Short bursts, ready for MIDI.'],
+          code: `(do
+  (let ((h 42))
+    (repeat 8
+      (later (* 0.125 (index))
+        (note h 70 0.05)))) )`
+        },
+        {
+          title: 'Dummy practice card',
+          lines: ['Sketch ideas for a future M4L bridge.'],
+          code: `(do
+  (note 60 80 0.25)
+  (later 0.25 (note 64 80 0.25)))`
+        }
+      ],
+      'playdate': [
+        {
+          title: 'KidLisp by Example',
+          lines: ['Keep it monochrome for the cranky handheld.'],
+          code: `(do
+  (wipe "white")
+  (ink "black")
+  (repeat 16
+    (line 200 120 (random 400) (random 240)))
+  (circle 200 120 48))`
+        },
+        {
+          title: 'Crank rays',
+          lines: ['Imagine crank angle driving rotation.'],
+          code: `(do
+  (wipe "white")
+  (ink "black")
+  (repeat 12
+    (line 200 120 (random 400) (random 240))))`
+        },
+        {
+          title: 'Dummy practice card',
+          lines: ['Placeholder for Playdate crank sketches.'],
+          code: `(do
+  (wipe "white")
+  (ink "black")
+  (circle 200 120 24))`
+        }
+      ],
+      'gameboy': [
+        {
+          title: 'KidLisp by Example',
+          lines: ['Think in 4 shades and tiny tiles.'],
+          code: `(do
+  (wipe "darkolivegreen")
+  (repeat 24
+    (ink "palegreen")
+    (rect (random 160) (random 144) 4 4))
+  (ink "black")
+  (circle 80 72 18))`
+        },
+        {
+          title: 'Sprite grid',
+          lines: ['Pretend tiles for future ROM builds.'],
+          code: `(do
+  (wipe "darkolivegreen")
+  (repeat 16
+    (ink "black")
+    (rect (* 10 (index)) 64 8 8)))`
+        },
+        {
+          title: 'Dummy practice card',
+          lines: ['Placeholder for more 4-shade ideas.'],
+          code: `(do
+  (wipe "darkolivegreen")
+  (ink "black")
+  (line 0 0 160 144))`
+        }
+      ],
+      'n64': [
+        {
+          title: 'KidLisp by Example',
+          lines: ['Chunky split-screen sketch for future libdragon builds.'],
+          code: `(do
+  (wipe "darkgreen")
+  (rect 20 20 280 120)
+  (rect 40 140 240 80))`
+        },
+        {
+          title: 'Quad blocks',
+          lines: ['Think split-screen fighters.'],
+          code: `(do
+  (wipe "black")
+  (ink "lime")
+  (rect 20 20 120 90)
+  (ink "purple")
+  (rect 180 20 120 90)
+  (ink "cyan")
+  (rect 20 130 120 90)
+  (ink "yellow")
+  (rect 180 130 120 90))`
+        },
+        {
+          title: 'Dummy practice card',
+          lines: ['Placeholder for more libdragon notes.'],
+          code: `(do
+  (wipe "darkgreen")
+  (ink "white")
+  (line 0 0 width height))`
+        }
+      ]
+    };
+
+    // Pad decks so the stack always feels like a full pack
+    const MIN_DECK_SIZE = 8;
+    Object.keys(cardDecks).forEach(key => {
+      const deck = cardDecks[key];
+      while (deck.length < MIN_DECK_SIZE) {
+        deck.push({
+          title: `Practice card ${deck.length + 1}`,
+          lines: [
+            'Swap this with your own KidLisp idea.',
+            'Tap cards to shuffle through the stack.'
+          ],
+          code: `(do
+  (wipe "ivory")
+  (ink "black")
+  (write "card ${deck.length + 1}" 18 28)
+  (circle (/ width 2) (/ height 2) 22))`
+        });
+      }
+    });
+
+    function createListSection(title, items) {
+      if (!items || !items.length) return null;
+      const section = document.createElement('div');
+      section.className = 'book-section';
+      const heading = document.createElement('div');
+      heading.className = 'book-section-title';
+      heading.textContent = title;
+      section.appendChild(heading);
+
+      const list = document.createElement('ul');
+      list.className = 'book-list';
+      items.forEach(item => {
+        const li = document.createElement('li');
+        li.textContent = item;
+        list.appendChild(li);
+      });
+      section.appendChild(list);
+      return section;
+    }
+
+    function renderBook(platformKey) {
+      if (!bookContainer) return;
+      const book = platformBooks[platformKey] || platformBooks['aesthetic-computer'];
+      const deck = cardDecks[platformKey] || cardDecks['aesthetic-computer'];
+      let currentIndex = 0;
+      let animatingCard = false;
+      bookContainer.dataset.platform = platformKey;
+      bookContainer.innerHTML = '';
+
+      const stack = document.createElement('div');
+      stack.className = 'book-stack';
+      bookContainer.appendChild(stack);
+
+      const buildCard = (cardData) => {
+        const frame = document.createElement('div');
+        frame.className = 'book-frame';
+
+        const page = document.createElement('div');
+        page.className = 'book-page';
+
+        const inner = document.createElement('div');
+        inner.className = 'book-page-inner';
+
+        const titleplate = document.createElement('div');
+        titleplate.className = 'book-titleplate';
+        titleplate.innerHTML = `
+          <div class="book-title-main">KidLisp</div>
+          <div class="book-title-sub">by Example — ${book.name}</div>
+        `;
+        inner.appendChild(titleplate);
+
+        const body = document.createElement('div');
+        body.className = 'book-body';
+
+        const header = document.createElement('div');
+        header.className = 'book-header';
+        const title = document.createElement('div');
+        title.className = 'book-title';
+        title.textContent = `KidLisp for ${book.name}`;
+        header.appendChild(title);
+        body.appendChild(header);
+
+        const cardTitle = document.createElement('div');
+        cardTitle.className = 'book-card-title';
+        cardTitle.textContent = cardData.title;
+        body.appendChild(cardTitle);
+
+        if (cardData.lines) {
+          cardData.lines.forEach(line => {
+            const p = document.createElement('p');
+            p.className = 'book-card-text';
+            p.textContent = line;
+            body.appendChild(p);
+          });
+        }
+
+        if (cardData.code) {
+          const snippetBlock = document.createElement('div');
+          snippetBlock.className = 'book-snippet-block';
+          const snippetHeader = document.createElement('div');
+          snippetHeader.className = 'book-snippet-header';
+          const snippetTitle = document.createElement('div');
+          snippetTitle.className = 'book-snippet-title';
+          snippetTitle.textContent = 'Example';
+          snippetHeader.appendChild(snippetTitle);
+          snippetBlock.appendChild(snippetHeader);
+          const snippetCode = document.createElement('pre');
+          snippetCode.className = 'book-snippet';
+          snippetCode.textContent = cardData.code.trim();
+          snippetBlock.appendChild(snippetCode);
+          body.appendChild(snippetBlock);
+        }
+
+        inner.appendChild(body);
+        page.appendChild(inner);
+        frame.appendChild(page);
+        return frame;
+      };
+
+      const offsets = [
+        { x: 0, y: 0, scale: 1, rotate: 0, z: 8 },
+        { x: 10, y: 12, scale: 0.992, rotate: -1.1, z: 7 },
+        { x: 20, y: 22, scale: 0.985, rotate: 1.2, z: 6 },
+        { x: 30, y: 32, scale: 0.978, rotate: -1.8, z: 5 },
+        { x: 38, y: 42, scale: 0.97, rotate: 1.6, z: 4 },
+        { x: 46, y: 50, scale: 0.962, rotate: -0.6, z: 3 },
+      ];
+
+      const renderDeck = () => {
+        stack.innerHTML = '';
+        const total = deck?.length || 1;
+        const visible = Math.min(total, offsets.length);
+        for (let i = 0; i < visible; i++) {
+          const deckIndex = (currentIndex + i) % total;
+          const cardData = deck[deckIndex];
+          const frame = buildCard(cardData);
+          const { x, y, scale, rotate, z } = offsets[i];
+          const transform = `translate(-50%, -50%) translate(${x}px, ${y}px) scale(${scale}) rotate(${rotate}deg)`;
+          frame.dataset.baseTransform = transform;
+          frame.style.transform = transform;
+          frame.style.zIndex = z;
+          stack.appendChild(frame);
+        }
+      };
+
+      const advance = () => {
+        if (!deck?.length || deck.length === 1 || animatingCard) return;
+        const topFrame = stack.querySelector('.book-frame');
+        if (!topFrame) return;
+        const baseTransform = topFrame.dataset.baseTransform || topFrame.style.transform;
+        animatingCard = true;
+
+        const animation = topFrame.animate([
+          { transform: baseTransform, opacity: 1 },
+          { transform: `${baseTransform} translate(90px, -20px) rotate(-6deg)`, opacity: 0.35 }
+        ], { duration: 240, easing: 'ease-in-out' });
+
+        if (!animation) {
+          currentIndex = (currentIndex + 1) % deck.length;
+          renderDeck();
+          fitBookFrame();
+          fitBookTypography();
+          animatingCard = false;
+          return;
+        }
+
+        const finish = () => {
+          currentIndex = (currentIndex + 1) % deck.length;
+          renderDeck();
+          fitBookFrame();
+          fitBookTypography();
+          animatingCard = false;
+        };
+
+        animation.addEventListener('finish', finish);
+        animation.addEventListener('cancel', () => {
+          animatingCard = false;
+        });
+      };
+
+      stack.addEventListener('click', advance);
+
+      renderDeck();
+      fitBookFrame();
+      fitBookTypography();
+    }
+
+    function fitBookFrame() {
+      if (!bookContainer) return;
+      const frames = Array.from(bookContainer.querySelectorAll('.book-frame'));
+      if (!frames.length) return;
+      const inners = Array.from(bookContainer.querySelectorAll('.book-page-inner'));
+
+      const stackGuard = 64; // Leave room for visible stack fan-out
+      const availableWidth = Math.max(0, bookContainer.clientWidth - stackGuard);
+      const availableHeight = Math.max(0, bookContainer.clientHeight - stackGuard);
+      if (availableWidth <= 0 || availableHeight <= 0) return;
+      
+      const aspect = 2.5 / 3.5;
+      let targetWidth = availableWidth;
+      let targetHeight = targetWidth / aspect;
+      
+      if (targetHeight > availableHeight) {
+        targetHeight = availableHeight;
+        targetWidth = targetHeight * aspect;
+      }
+      
+      frames.forEach(frame => {
+        frame.style.width = `${targetWidth}px`;
+        frame.style.height = `${targetHeight}px`;
+      });
+
+      // Scale inner content to fit while preserving aspect
+      const baseW = 750;
+      const baseH = 1050;
+      const scale = Math.min(targetWidth / baseW, targetHeight / baseH);
+      inners.forEach(inner => {
+        inner.style.transform = `scale(${scale})`;
+      });
+    }
+
+    function fitBookTypography() {
+      if (!bookContainer) return;
+      const bodies = Array.from(bookContainer.querySelectorAll('.book-body'));
+      if (!bodies.length) return;
+
+      const parent = bookContainer.getBoundingClientRect();
+      const frame = bookContainer.querySelector('.book-frame')?.getBoundingClientRect();
+      if (!frame || parent.height === 0 || parent.width === 0) return;
+
+      // Target size uses available frame size vs. a baseline (560x746 approx. for 3:4 with padding)
+      const baselineW = 750;
+      const baselineH = 1050;
+      const scaleW = frame.width / baselineW;
+      const scaleH = frame.height / baselineH;
+      const scale = Math.min(scaleW, scaleH, 1.3); // Cap upscale to avoid giant text
+
+      // Clamp font sizes to keep readability; base is 14px
+      const base = 14;
+      const min = 11;
+      const max = 18;
+      bodies.forEach(body => {
+        let size = Math.max(min, Math.min(max, base * scale));
+        let snippetSize = Math.max(11, Math.min(16, 13 * scale));
+
+        const applySizes = () => {
+          body.style.fontSize = `${size}px`;
+          body.querySelectorAll('.book-snippet').forEach(snippet => {
+            snippet.style.fontSize = `${snippetSize}px`;
+          });
+        };
+
+        applySizes();
+
+        // If content overflows, shrink until it fits
+        let guard = 0;
+        while (body.scrollHeight > body.clientHeight && guard < 5) {
+          size *= 0.9;
+          snippetSize *= 0.9;
+          applySizes();
+          guard += 1;
+        }
+      });
     }
     
     // Initialize Split.js
@@ -4678,6 +5530,173 @@
         document.addEventListener('keydown', closeHandler);
         document.addEventListener('click', closeHandler);
       }, 100);
+    }
+    
+    // 📸 Add console image entry from snap function
+    function addConsoleImageEntry(data) {
+      const { imageDataUrl, frameCount, timestamp, dimensions, pieceCode, embeddedSource } = data;
+      
+      const entry = document.createElement('div');
+      entry.className = 'console-entry console-image-entry';
+      entry.style.cssText = `
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 8px 12px;
+        border-radius: 6px;
+        background: rgba(78, 205, 196, 0.1);
+        border-left: 3px solid #4ecdc4;
+        margin: 4px 0;
+      `;
+      
+      // Thumbnail image - tap to view in modal
+      const img = document.createElement('img');
+      img.src = imageDataUrl;
+      img.className = 'console-image-thumbnail';
+      img.style.cssText = `
+        width: 120px;
+        height: auto;
+        image-rendering: pixelated;
+        border-radius: 4px;
+        cursor: pointer;
+      `;
+      img.title = 'Tap to view';
+      
+      // Use embeddedSource for filename if available
+      const effectivePieceCode = embeddedSource || pieceCode;
+      
+      // Click thumbnail to open modal
+      img.addEventListener('click', () => showConsoleImagePopup(imageDataUrl, dimensions, effectivePieceCode, frameCount));
+      
+      // Metadata column
+      const meta = document.createElement('div');
+      meta.className = 'console-image-meta';
+      meta.style.cssText = 'font-size: 11px; font-family: monospace; color: #888;';
+      
+      const pieceDisplay = embeddedSource ? `$${embeddedSource}` : (pieceCode || 'piece');
+      meta.innerHTML = `
+        <span style="color: #4ecdc4; font-weight: bold;">📸 ${pieceDisplay}</span><br>
+        <span style="color: #f8b500;">@ ${timestamp || 'now'}</span><br>
+        <span style="color: #666;">Frame ${frameCount || 0}</span><br>
+        <span style="color: #888;">[${dimensions?.width || '?'}×${dimensions?.height || '?'}]</span>
+      `;
+      
+      entry.appendChild(img);
+      entry.appendChild(meta);
+      
+      consoleOutput.appendChild(entry);
+      consoleOutput.scrollTop = consoleOutput.scrollHeight;
+    }
+    
+    // Generate timestamped filename like bios.mjs does
+    function generateConsoleImageFilename(pieceCode) {
+      const d = new Date();
+      const year = d.getFullYear();
+      const month = d.getMonth() + 1;
+      const day = d.getDate();
+      const hour = d.getHours();
+      const minute = d.getMinutes();
+      const second = d.getSeconds();
+      const ms = d.getMilliseconds().toString().padStart(3, '0');
+      const timestamp = `${year}.${month}.${day}.${hour}.${minute}.${second}.${ms}`;
+      // Add $ prefix for code identifiers (short alphanumeric strings)
+      const isCodeId = pieceCode && /^[a-zA-Z0-9]{2,6}$/.test(pieceCode);
+      const piece = isCodeId ? `$${pieceCode}` : (pieceCode || 'kidlisp');
+      return `${piece}-${timestamp}.png`;
+    }
+    
+    // Download console image as PNG
+    function downloadConsoleImage(dataUrl, pieceCode) {
+      const filename = generateConsoleImageFilename(pieceCode);
+      const link = document.createElement('a');
+      link.href = dataUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+    
+    // Show console image in fullscreen popup
+    function showConsoleImagePopup(dataUrl, dimensions, pieceCode, frameCount) {
+      const existing = document.getElementById('console-image-popup');
+      if (existing) existing.remove();
+      
+      // Backdrop overlay - click to close
+      const backdrop = document.createElement('div');
+      backdrop.id = 'console-image-popup';
+      backdrop.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+        cursor: pointer;
+      `;
+      
+      const img = document.createElement('img');
+      img.src = dataUrl;
+      img.style.cssText = `
+        image-rendering: pixelated;
+        max-width: 85vw;
+        max-height: 75vh;
+        border-radius: 4px;
+        box-shadow: 0 4px 30px rgba(0,0,0,0.5);
+      `;
+      
+      // Generate the filename that will be used
+      const filename = generateConsoleImageFilename(pieceCode);
+      
+      // Download button - shows the filename
+      const downloadBtn = document.createElement('button');
+      downloadBtn.textContent = filename;
+      downloadBtn.style.cssText = `
+        margin-top: 16px;
+        padding: 10px 18px;
+        background: #4ecdc4;
+        color: #1e1e2e;
+        border: none;
+        border-radius: 6px;
+        font-size: 13px;
+        font-family: monospace;
+        cursor: pointer;
+        transition: transform 0.1s;
+      `;
+      downloadBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        // Download with the same filename shown
+        const link = document.createElement('a');
+        link.href = dataUrl;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      });
+      downloadBtn.addEventListener('mouseenter', () => { downloadBtn.style.transform = 'scale(1.05)'; });
+      downloadBtn.addEventListener('mouseleave', () => { downloadBtn.style.transform = 'scale(1)'; });
+      
+      backdrop.appendChild(img);
+      backdrop.appendChild(downloadBtn);
+      document.body.appendChild(backdrop);
+      
+      // Click anywhere on backdrop (but not on download button) to close
+      backdrop.addEventListener('click', (e) => {
+        if (e.target === backdrop || e.target === img) backdrop.remove();
+      });
+      
+      // Close on escape
+      const closeHandler = (e) => {
+        if (e.key === 'Escape') {
+          backdrop.remove();
+          document.removeEventListener('keydown', closeHandler);
+        }
+      };
+      document.addEventListener('keydown', closeHandler);
     }
     
     function addConsoleEntry(message, type = 'log', locOrLine = null, options = {}) {
@@ -6019,142 +7038,18 @@
         });
       }
 
-      // Wizard - Contextual Structural Editor
-      const wizardSuggestions = document.getElementById('wizard-suggestions');
-      
-      // KidLisp forms and their expected arguments
-      const kidlispForms = {
-        structure: [
-          { name: 'def', args: ['name', 'value'], desc: 'Define a variable' },
-          { name: 'fn', args: ['params', '...body'], desc: 'Define a function' },
-          { name: 'if', args: ['test', 'then', 'else?'], desc: 'Conditional' },
-          { name: 'do', args: ['...body'], desc: 'Execute sequence' },
-          { name: 'let', args: ['bindings', '...body'], desc: 'Local bindings' },
-        ],
-        drawing: [
-          { name: 'line', args: ['x1', 'y1', 'x2', 'y2'], desc: 'Draw a line' },
-          { name: 'circle', args: ['x', 'y', 'radius'], desc: 'Draw a circle' },
-          { name: 'rect', args: ['x', 'y', 'w', 'h'], desc: 'Draw a rectangle' },
-          { name: 'pixel', args: ['x', 'y'], desc: 'Draw a pixel' },
-          { name: 'plot', args: ['x', 'y'], desc: 'Plot a point' },
-        ],
-        effects: [
-          { name: 'ink', args: ['color'], desc: 'Set drawing color' },
-          { name: 'wipe', args: ['color?'], desc: 'Clear screen' },
-          { name: 'noise', args: ['seed?'], desc: 'Random noise' },
-        ],
-        colors: [
-          { name: 'red', args: [], desc: 'Red color' },
-          { name: 'blue', args: [], desc: 'Blue color' },
-          { name: 'green', args: [], desc: 'Green color' },
-          { name: 'yellow', args: [], desc: 'Yellow color' },
-          { name: 'cyan', args: [], desc: 'Cyan color' },
-          { name: 'magenta', args: [], desc: 'Magenta color' },
-          { name: 'white', args: [], desc: 'White color' },
-          { name: 'black', args: [], desc: 'Black color' },
-        ],
-        numbers: [
-          { name: '+', args: ['...numbers'], desc: 'Add numbers' },
-          { name: '-', args: ['...numbers'], desc: 'Subtract numbers' },
-          { name: '*', args: ['...numbers'], desc: 'Multiply numbers' },
-          { name: '/', args: ['...numbers'], desc: 'Divide numbers' },
-          { name: 'random', args: ['min?', 'max?'], desc: 'Random number' },
-        ],
-      };
-
-      function updateWizard() {
-        if (!editor) return;
-        
-        const code = editor.getValue();
-        const position = editor.getPosition();
-        const model = editor.getModel();
-        
-        // Show all forms as a dense list without categories
-        wizardSuggestions.innerHTML = '';
-        
-        const grid = document.createElement('div');
-        grid.className = 'wizard-suggestions-grid';
-        
-        // Flatten all forms into a single list
-        const allForms = [];
-        Object.keys(kidlispForms).forEach(category => {
-          allForms.push(...kidlispForms[category]);
+      // Book - platform-specific guide
+      bookContainer = document.getElementById('book-container');
+      renderBook(currentPlatform);
+      window.addEventListener('resize', fitBookFrame);
+      window.addEventListener('resize', fitBookTypography);
+      // Resize observer keeps the frame fitting when panels are dragged on mobile
+      if (window.ResizeObserver && bookContainer) {
+        const ro = new ResizeObserver(() => {
+          fitBookFrame();
+          fitBookTypography();
         });
-        
-        allForms.forEach(form => {
-          const suggestion = document.createElement('div');
-          suggestion.className = 'wizard-suggestion';
-          suggestion.textContent = form.name;
-          suggestion.title = form.desc;
-          
-          suggestion.addEventListener('click', () => {
-            insertFormAtCursor(form);
-          });
-          
-          grid.appendChild(suggestion);
-        });
-        
-        wizardSuggestions.appendChild(grid);
-      }
-
-      function insertFormAtCursor(form) {
-        if (!editor) return;
-        
-        const position = editor.getPosition();
-        const model = editor.getModel();
-        
-        // Build the form template with placeholders
-        let template = `(${form.name}`;
-        if (form.args.length > 0) {
-          template += ' ' + form.args.map(arg => arg.startsWith('...') ? arg.slice(3) : arg).join(' ');
-        }
-        template += ')';
-        
-        // Insert at cursor position
-        const range = {
-          startLineNumber: position.lineNumber,
-          startColumn: position.column,
-          endLineNumber: position.lineNumber,
-          endColumn: position.column
-        };
-        
-        editor.executeEdits('wizard', [{
-          range: range,
-          text: template
-        }]);
-        
-        // Move cursor to first argument position
-        if (form.args.length > 0) {
-          const newPosition = {
-            lineNumber: position.lineNumber,
-            column: position.column + form.name.length + 2 // After "(" and name and space
-          };
-          editor.setPosition(newPosition);
-          
-          // Select the first argument placeholder
-          const firstArg = form.args[0].startsWith('...') ? form.args[0].slice(3) : form.args[0];
-          editor.setSelection({
-            startLineNumber: newPosition.lineNumber,
-            startColumn: newPosition.column,
-            endLineNumber: newPosition.lineNumber,
-            endColumn: newPosition.column + firstArg.length
-          });
-        }
-        
-        // Focus back on editor
-        editor.focus();
-        
-        // Update wizard for new context
-        updateWizard();
-      }
-
-      // Initialize wizard
-      updateWizard();
-      
-      // Update wizard when cursor moves or content changes
-      if (editor) {
-        editor.onDidChangeCursorPosition(() => updateWizard());
-        editor.onDidChangeModelContent(() => updateWizard());
+        ro.observe(bookContainer);
       }
       
       // Auto-reload when code changes while playing
@@ -6238,6 +7133,12 @@
     
     // Initialize: show the correct boot screen for the saved platform
     showBootScreen(currentPlatform);
+
+    // Keep book content in sync with platform changes
+    window.addEventListener('kidlisp-platform-change', (event) => {
+      const platform = event?.detail?.platform || currentPlatform;
+      renderBook(platform);
+    });
     
     // Reusable stop playback function
     function stopPlayback() {
@@ -6436,6 +7337,15 @@
     let hasRequestedKidlispConsole = false;
     previewIframe.addEventListener('load', () => {
       log.iframe.debug('Iframe loaded, checking readiness');
+      
+      // Tell the iframe to suppress noisy snapshot logs (we show them in KidLisp.com console only)
+      try {
+        if (previewIframe.contentWindow) {
+          previewIframe.contentWindow.KIDLISP_SUPPRESS_SNAPSHOT_LOGS = true;
+        }
+      } catch (e) {
+        // Ignore if cross-origin or not ready
+      }
       
       // Send ping to check if aesthetic.computer is ready
       if (previewIframe.contentWindow) {
@@ -6641,10 +7551,18 @@
         event = { ...event, data: event.data.content };
       }
       
-      log.message.verbose('Message:', event.data?.type);
+      const messageType = event.data?.type;
+      
+      // 📸 Snapshots are for the KidLisp.com console only—do not log to browser console
+      if (messageType === 'kidlisp-console-image') {
+        addConsoleImageEntry(event.data);
+        return;
+      }
+      
+      log.message.verbose('Message:', messageType);
       
       // Handle ready signal from iframe
-      if (event.data && event.data.type === 'kidlisp-ready') {
+      if (messageType === 'kidlisp-ready') {
         log.iframe.success('Iframe ready - enabling controls');
         logBoot('iframe', 'Preview ready');
         sendButton.disabled = false;
@@ -6686,9 +7604,9 @@
             shouldAutoPlay = false; // Clear the flag so we don't auto-play again
           }
         }
-      } else if (event.data && event.data.type === 'kidlisp-console-enabled') {
+      } else if (messageType === 'kidlisp-console-enabled') {
         // Intentionally do not write connection status to the Console tab.
-      } else if (event.data && event.data.type === 'kidlisp-console') {
+      } else if (messageType === 'kidlisp-console') {
         addConsoleEntry(event.data.message, event.data.level, event.data.loc, {
           embeddedSource: event.data.embeddedSource,
           embeddedSourceCode: event.data.embeddedSourceCode
@@ -6702,12 +7620,12 @@
             addErrorDecoration(wordMatch[1], event.data.loc);
           }
         }
-      } else if (event.data && event.data.type === 'kidlisp-highlight') {
+      } else if (messageType === 'kidlisp-highlight') {
         // Syntax highlighting signals from KidLisp execution
         if (editor && event.data.highlights) {
           applyHighlightDecorations(event.data.highlights);
         }
-      } else if (event.data && event.data.type === 'kidlisp-code-created') {
+      } else if (messageType === 'kidlisp-code-created') {
         // Code was created with $ identifier - update URL and preview title (AC platform only)
         log.code.success(`Code created: $${event.data.code}`);
         
@@ -6971,8 +7889,7 @@
       initACLogin();
       initKeeps();
       
-      // Load examples on init since Top Hits is the default active tab
-      loadExamples();
+      // Book is the default tab now; defer examples until the tab is opened
       
       // Boot complete!
       logBoot('complete');
