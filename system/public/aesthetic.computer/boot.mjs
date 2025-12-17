@@ -650,6 +650,15 @@ processEarlyKidlispQueue();
 
 let sandboxed = (window.origin === "null" && !window.acVSCODE) || localStorageBlocked || sessionStorageBlocked || window.acPACK_MODE || window.acSPIDER;
 
+// If noauth mode, immediately send session:started so disk can proceed
+if (window.acNOAUTH) {
+  console.log("🔕 noauth mode: sending session:started immediately");
+  window.acDISK_SEND({
+    type: "session:started",
+    content: { user: null },
+  });
+}
+
 // #region 🔐 Auth0: Universal Login & Authentication
 function loadAuth0Script() {
   return new Promise((resolve, reject) => {
