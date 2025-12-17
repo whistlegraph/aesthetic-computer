@@ -542,7 +542,7 @@
       z-index: 1; /* Base z-index */
     }
     
-    /* Live running state - green outline using pseudo-element for proper z-index */
+    /* Live running state - green outline matching play button (#90EE90) */
     #kidlisp-editor.live-running::before {
       content: '';
       position: absolute;
@@ -550,28 +550,56 @@
       left: 0;
       right: 0;
       bottom: 0;
-      border: 2px solid rgba(0, 255, 0, 0.4);
+      border: 2px solid rgba(144, 238, 144, 0.5);
       border-radius: 4px;
       pointer-events: none; /* Allow clicks through to Monaco */
       z-index: 999999; /* Very high z-index to be above everything */
       animation: live-pulse 3s ease-in-out infinite;
     }
     
+    /* Paused state - yellow outline matching pause button (#ffd93d) */
+    #kidlisp-editor.live-paused::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      border: 2px solid rgba(255, 217, 61, 0.5);
+      border-radius: 4px;
+      pointer-events: none;
+      z-index: 999999;
+      animation: pause-pulse 2s ease-in-out infinite;
+    }
+    
     /* Dark mode: slightly brighter for visibility */
     @media (prefers-color-scheme: dark) {
       #kidlisp-editor.live-running::before {
-        border-color: rgba(68, 255, 68, 0.5);
+        border-color: rgba(144, 238, 144, 0.6);
+      }
+      #kidlisp-editor.live-paused::before {
+        border-color: rgba(255, 217, 61, 0.6);
       }
     }
     
     [data-theme="dark"] #kidlisp-editor.live-running::before {
-      border-color: rgba(68, 255, 68, 0.5);
+      border-color: rgba(144, 238, 144, 0.6);
     }
     
-    /* Pulse animation for live state */
+    [data-theme="dark"] #kidlisp-editor.live-paused::before {
+      border-color: rgba(255, 217, 61, 0.6);
+    }
+    
+    /* Pulse animation for live state - green */
     @keyframes live-pulse {
-      0%, 100% { border-color: rgba(0, 255, 0, 0.4); }
-      50% { border-color: rgba(0, 255, 0, 0.2); }
+      0%, 100% { border-color: rgba(144, 238, 144, 0.5); }
+      50% { border-color: rgba(144, 238, 144, 0.25); }
+    }
+    
+    /* Pulse animation for paused state - yellow */
+    @keyframes pause-pulse {
+      0%, 100% { border-color: rgba(255, 217, 61, 0.5); }
+      50% { border-color: rgba(255, 217, 61, 0.25); }
     }
 
     /* Zebra striping REMOVED - was blocking Monaco's selection overlay in dark mode */
@@ -1430,6 +1458,7 @@
       align-items: center;
       justify-content: center;
       min-height: 0; /* Allow proper flex shrinking */
+      position: relative; /* For positioning child elements like card-controls */
     }
 
     #examples-content,
@@ -1598,6 +1627,66 @@
       min-height: 0; /* Allow proper flex shrinking */
     }
 
+    /* Card stack 3D perspective */
+    .book-stack {
+      perspective: 1200px;
+      transform-style: preserve-3d;
+    }
+    
+    .book-frame {
+      transform-style: preserve-3d;
+      cursor: pointer;
+    }
+    
+    .book-frame:hover {
+      filter: brightness(1.05);
+    }
+
+    /* Discard pile in corner */
+    .discard-pile {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      width: 70px;
+      height: 98px;
+      perspective: 800px;
+      transform-style: preserve-3d;
+      cursor: pointer;
+      z-index: 50;
+      transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease;
+    }
+    
+    .discard-pile:hover {
+      transform: scale(1.1);
+    }
+    
+    .discard-pile:active {
+      transform: scale(0.95);
+    }
+    
+    .discard-pile:empty {
+      opacity: 0;
+      pointer-events: none;
+    }
+    
+    .discard-pile .discard-card {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 6px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      transform-style: preserve-3d;
+      backface-visibility: hidden;
+      transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.4s ease;
+    }
+    
+    .discard-pile .discard-card img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      border-radius: 6px;
+    }
+
     .book-stack {
       position: relative;
       width: 100%;
@@ -1638,6 +1727,110 @@
         inset 0 1px 0 rgba(255,255,255,0.06),
         inset 0 -1px 0 rgba(0,0,0,0.45),
         0 18px 28px rgba(0,0,0,0.45);
+    }
+
+    /* SVG cards from LaTeX - simpler frame */
+    .book-frame.svg-card {
+      background: transparent;
+      padding: 0;
+      box-shadow: none;
+      filter: drop-shadow(0 12px 24px rgba(0,0,0,0.25));
+    }
+    
+    .book-frame.svg-card img {
+      border-radius: 12px;
+    }
+
+    /* Card back design - only used as fallback for non-SVG cards */
+    .book-frame .card-back {
+      position: absolute;
+      inset: 0;
+      border-radius: 12px;
+      background: 
+        repeating-linear-gradient(
+          45deg,
+          #8B4513 0px,
+          #8B4513 2px,
+          #A0522D 2px,
+          #A0522D 8px
+        ),
+        linear-gradient(135deg, #654321, #8B4513);
+      background-blend-mode: overlay;
+      backface-visibility: hidden;
+      transform: rotateY(180deg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: inset 0 0 40px rgba(0,0,0,0.3);
+    }
+    
+    /* SVG cards use the SVG image, not CSS background */
+    .book-frame.svg-card .card-back {
+      background: none;
+      box-shadow: none;
+    }
+    
+    /* Flip animation */
+    .book-stack {
+      perspective: 1000px;
+    }
+    
+    .book-frame.svg-card {
+      transform-style: preserve-3d;
+    }
+    
+    .book-frame.svg-card .card-front,
+    .book-frame.svg-card .card-back {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      backface-visibility: hidden;
+      transition: transform 0.6s ease;
+    }
+    
+    .book-frame.svg-card .card-front {
+      transform: rotateY(0deg);
+    }
+    
+    .book-frame.svg-card .card-back {
+      transform: rotateY(180deg);
+    }
+    
+    .book-frame.svg-card.flipped {
+      /* The frame itself rotates */
+    }
+
+    /* Spread view */
+    .book-stack.spread-view {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+      gap: 16px;
+      padding: 20px;
+    }
+    
+    .book-stack.spread-view .book-frame {
+      position: relative !important;
+      top: auto !important;
+      left: auto !important;
+      transform: none !important;
+      width: 120px !important;
+      height: 168px !important;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    
+    .book-stack.spread-view .book-frame:hover {
+      transform: scale(1.1) translateY(-8px) !important;
+      z-index: 100 !important;
+      filter: drop-shadow(0 16px 32px rgba(0,0,0,0.4));
+    }
+    
+    .book-stack.spread-view .book-frame.selected {
+      transform: scale(1.15) translateY(-12px) !important;
+      z-index: 101 !important;
+      outline: 3px solid #4ECDC4;
+      outline-offset: 2px;
     }
 
     .book-page {
@@ -4055,6 +4248,14 @@
       },
     };
 
+    // SVG cards generated from LaTeX (in /cards/svg/)
+    const svgCards = [
+      'drawing-line',
+      'drawing-box',
+      'colors-ink',
+      'colors-wipe',
+    ];
+
     const cardDecks = {
       'aesthetic-computer': [
         {
@@ -4296,12 +4497,73 @@
       const deck = cardDecks[platformKey] || cardDecks['aesthetic-computer'];
       let currentIndex = 0;
       let animatingCard = false;
+      let discardPile = []; // Track discarded card indices
       bookContainer.dataset.platform = platformKey;
       bookContainer.innerHTML = '';
 
       const stack = document.createElement('div');
       stack.className = 'book-stack';
       bookContainer.appendChild(stack);
+
+      // Create discard pile in corner
+      const discard = document.createElement('div');
+      discard.className = 'discard-pile';
+      bookContainer.appendChild(discard);
+
+      // Build an SVG card frame (for LaTeX-generated cards)
+      const buildSvgCard = (svgName) => {
+        const frame = document.createElement('div');
+        frame.className = 'book-frame svg-card';
+        frame.style.background = 'transparent';
+        frame.style.boxShadow = 'none';
+        
+        // Card front (the actual card content)
+        const front = document.createElement('div');
+        front.className = 'card-front';
+        front.style.width = '100%';
+        front.style.height = '100%';
+        front.style.position = 'absolute';
+        front.style.backfaceVisibility = 'hidden';
+        
+        const img = document.createElement('img');
+        img.src = `/kidlisp.com/cards/svg/${svgName}.svg`;
+        img.alt = svgName;
+        img.style.width = '100%';
+        img.style.height = '100%';
+        img.style.objectFit = 'contain';
+        img.style.borderRadius = '12px';
+        img.style.boxShadow = '0 4px 20px rgba(0,0,0,0.3)';
+        img.draggable = false;
+        front.appendChild(img);
+        
+        // Card back
+        const back = document.createElement('div');
+        back.className = 'card-back';
+        back.style.width = '100%';
+        back.style.height = '100%';
+        back.style.position = 'absolute';
+        back.style.backfaceVisibility = 'hidden';
+        back.style.transform = 'rotateY(180deg)';
+        
+        const backImg = document.createElement('img');
+        backImg.src = '/kidlisp.com/cards/svg/card-back.svg';
+        backImg.alt = 'Card Back';
+        backImg.style.width = '100%';
+        backImg.style.height = '100%';
+        backImg.style.objectFit = 'contain';
+        backImg.style.borderRadius = '12px';
+        backImg.draggable = false;
+        back.appendChild(backImg);
+        
+        frame.appendChild(front);
+        frame.appendChild(back);
+        frame.dataset.cardName = svgName;
+        return frame;
+      };
+
+      // Check if we should use SVG cards for this platform
+      const useSvgCards = platformKey === 'aesthetic-computer' && svgCards.length > 0;
+      const effectiveDeck = useSvgCards ? svgCards : deck;
 
       const buildCard = (cardData) => {
         const frame = document.createElement('div');
@@ -4377,14 +4639,41 @@
         { x: 46, y: 50, scale: 0.962, rotate: -0.6, z: 3 },
       ];
 
+      let isSpreadView = false;
+
+      // Flip card animation - rotates the card front/back
+      const flipCard = (frame) => {
+        if (!frame.classList.contains('svg-card')) return; // Only SVG cards have backs
+        
+        const front = frame.querySelector('.card-front');
+        const back = frame.querySelector('.card-back');
+        if (!front || !back) return;
+        
+        if (frame.classList.contains('flipped')) {
+          frame.classList.remove('flipped');
+          front.style.transform = 'rotateY(0deg)';
+          back.style.transform = 'rotateY(180deg)';
+        } else {
+          frame.classList.add('flipped');
+          front.style.transform = 'rotateY(-180deg)';
+          back.style.transform = 'rotateY(0deg)';
+        }
+      };
+
       const renderDeck = () => {
         stack.innerHTML = '';
-        const total = deck?.length || 1;
+        // Clear discard pile when resetting deck
+        discardPile = [];
+        if (discard) discard.innerHTML = '';
+        
+        const total = effectiveDeck?.length || 1;
         const visible = Math.min(total, offsets.length);
         for (let i = 0; i < visible; i++) {
           const deckIndex = (currentIndex + i) % total;
-          const cardData = deck[deckIndex];
-          const frame = buildCard(cardData);
+          const cardData = effectiveDeck[deckIndex];
+          // Use SVG builder for SVG cards, DOM builder for regular cards
+          const frame = useSvgCards ? buildSvgCard(cardData) : buildCard(cardData);
+          frame.dataset.deckIndex = deckIndex;
           const { x, y, scale, rotate, z } = offsets[i];
           const transform = `translate(-50%, -50%) translate(${x}px, ${y}px) scale(${scale}) rotate(${rotate}deg)`;
           frame.dataset.baseTransform = transform;
@@ -4394,42 +4683,338 @@
         }
       };
 
-      const advance = () => {
-        if (!deck?.length || deck.length === 1 || animatingCard) return;
-        const topFrame = stack.querySelector('.book-frame');
-        if (!topFrame) return;
-        const baseTransform = topFrame.dataset.baseTransform || topFrame.style.transform;
-        animatingCard = true;
-
-        const animation = topFrame.animate([
-          { transform: baseTransform, opacity: 1 },
-          { transform: `${baseTransform} translate(90px, -20px) rotate(-6deg)`, opacity: 0.35 }
-        ], { duration: 240, easing: 'ease-in-out' });
-
-        if (!animation) {
-          currentIndex = (currentIndex + 1) % deck.length;
-          renderDeck();
-          fitBookFrame();
-          fitBookTypography();
-          animatingCard = false;
-          return;
+      const renderSpread = () => {
+        stack.innerHTML = '';
+        stack.classList.add('spread-view');
+        const total = effectiveDeck?.length || 1;
+        
+        for (let i = 0; i < total; i++) {
+          const cardData = effectiveDeck[i];
+          const frame = useSvgCards ? buildSvgCard(cardData) : buildCard(cardData);
+          frame.dataset.deckIndex = i;
+          frame.dataset.baseTransform = ''; // No base transform in spread view
+          frame.style.animationDelay = `${i * 0.05}s`;
+          
+          // Click to select this card and restack
+          frame.addEventListener('click', (e) => {
+            e.stopPropagation();
+            selectCardAndRestack(i);
+          });
+          
+          stack.appendChild(frame);
         }
-
-        const finish = () => {
-          currentIndex = (currentIndex + 1) % deck.length;
-          renderDeck();
-          fitBookFrame();
-          fitBookTypography();
-          animatingCard = false;
-        };
-
-        animation.addEventListener('finish', finish);
-        animation.addEventListener('cancel', () => {
-          animatingCard = false;
+        
+        // Animate cards spreading out
+        const frames = stack.querySelectorAll('.book-frame');
+        frames.forEach((frame, i) => {
+          frame.style.opacity = '0';
+          frame.style.transform = 'scale(0.8)';
+          setTimeout(() => {
+            frame.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+            frame.style.opacity = '1';
+            frame.style.transform = 'scale(1)';
+          }, i * 50);
         });
       };
 
-      stack.addEventListener('click', advance);
+      // Internal function to collapse spread view - does NOT check animatingCard
+      const _collapseToStack = (selectedIndex) => {
+        const frames = stack.querySelectorAll('.book-frame');
+        const selectedFrame = frames[selectedIndex];
+        if (selectedFrame) {
+          selectedFrame.classList.add('selected');
+        }
+        
+        // Animate all cards collapsing back
+        setTimeout(() => {
+          frames.forEach((frame, i) => {
+            const delay = Math.abs(i - selectedIndex) * 30;
+            setTimeout(() => {
+              frame.style.transition = 'opacity 0.25s ease, transform 0.25s ease';
+              frame.style.opacity = '0';
+              frame.style.transform = 'scale(0.6) translateY(20px)';
+            }, delay);
+          });
+          
+          // After collapse animation, switch to stack view
+          setTimeout(() => {
+            isSpreadView = false;
+            stack.classList.remove('spread-view');
+            // Update spread button state
+            const spreadBtn = document.getElementById('card-spread-btn');
+            if (spreadBtn) spreadBtn.classList.remove('active');
+            currentIndex = selectedIndex;
+            renderDeck();
+            fitBookFrame();
+            fitBookTypography();
+            animatingCard = false;
+          }, 400);
+        }, 150);
+      };
+
+      const selectCardAndRestack = (selectedIndex) => {
+        if (animatingCard) return;
+        animatingCard = true;
+        _collapseToStack(selectedIndex);
+      };
+
+      const toggleSpreadView = () => {
+        if (animatingCard) return;
+        animatingCard = true;
+        
+        if (isSpreadView) {
+          // Collapse back to stack (select current top card)
+          _collapseToStack(currentIndex);
+        } else {
+          // Expand to spread view
+          isSpreadView = true;
+          
+          // Animate current stack flying apart
+          const frames = stack.querySelectorAll('.book-frame');
+          frames.forEach((frame, i) => {
+            const angle = (Math.random() - 0.5) * 30;
+            const tx = (Math.random() - 0.5) * 100;
+            const ty = (Math.random() - 0.5) * 50;
+            frame.style.transition = 'transform 0.3s ease, opacity 0.3s ease';
+            frame.style.transform = `translate(-50%, -50%) translate(${tx}px, ${ty}px) rotate(${angle}deg) scale(0.5)`;
+            frame.style.opacity = '0.5';
+          });
+          
+          setTimeout(() => {
+            renderSpread();
+            animatingCard = false;
+          }, 350);
+        }
+      };
+
+      // Add card to discard pile (face down in corner)
+      const addToDiscard = (cardIndex) => {
+        const cardData = effectiveDeck[cardIndex];
+        discardPile.push(cardIndex);
+        
+        // Create a small face-down card for the discard pile
+        const discardCard = document.createElement('div');
+        discardCard.className = 'discard-card';
+        discardCard.dataset.cardIndex = cardIndex;
+        
+        const backImg = document.createElement('img');
+        backImg.src = '/kidlisp.com/cards/svg/card-back.svg';
+        backImg.alt = 'Card Back';
+        backImg.draggable = false;
+        discardCard.appendChild(backImg);
+        
+        // Stack with slight offset
+        const stackIndex = discard.children.length;
+        const offsetX = (Math.random() - 0.5) * 4;
+        const offsetY = (Math.random() - 0.5) * 4;
+        const rotation = (Math.random() - 0.5) * 8;
+        discardCard.style.transform = `translate(${offsetX}px, ${offsetY - stackIndex * 2}px) rotate(${rotation}deg)`;
+        discardCard.style.zIndex = stackIndex;
+        
+        discard.appendChild(discardCard);
+      };
+
+      // Reset deck from discard pile with flip animation
+      const resetFromDiscard = () => {
+        if (animatingCard || discardPile.length === 0) return;
+        animatingCard = true;
+        
+        // Animate discard pile flying to center
+        discard.style.transition = 'transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)';
+        discard.style.transform = 'translate(-50%, -50%) scale(2.5)';
+        discard.style.left = '50%';
+        discard.style.top = '50%';
+        discard.style.bottom = 'auto';
+        discard.style.right = 'auto';
+        
+        setTimeout(() => {
+          // Flip animation
+          discard.style.transition = 'transform 0.4s ease-in-out';
+          discard.style.transform = 'translate(-50%, -50%) scale(2.5) rotateY(180deg)';
+          
+          setTimeout(() => {
+            // Reset position
+            discard.style.transition = 'none';
+            discard.style.transform = '';
+            discard.style.left = '';
+            discard.style.top = '';
+            discard.style.bottom = '';
+            discard.style.right = '';
+            
+            // Clear discard and rebuild main deck
+            discard.innerHTML = '';
+            currentIndex = 0;
+            discardPile = [];
+            renderDeck();
+            fitBookFrame();
+            fitBookTypography();
+            animatingCard = false;
+          }, 450);
+        }, 550);
+      };
+
+      const advance = () => {
+        if (isSpreadView) return;
+        if (animatingCard) return;
+        
+        const frames = Array.from(stack.querySelectorAll('.book-frame'));
+        if (!frames.length) {
+          // No cards in main stack - reset from discard if we have cards there
+          if (discardPile.length > 0) {
+            resetFromDiscard();
+          }
+          return;
+        }
+        
+        const topFrame = frames[0];
+        const topCardIndex = parseInt(topFrame.dataset.deckIndex);
+        const baseTransform = topFrame.dataset.baseTransform || topFrame.style.transform;
+        animatingCard = true;
+
+        // Get discard pile position for animation target
+        const discardRect = discard.getBoundingClientRect();
+        const stackRect = stack.getBoundingClientRect();
+        const targetX = discardRect.left - stackRect.left - stackRect.width / 2 + discardRect.width / 2;
+        const targetY = discardRect.top - stackRect.top - stackRect.height / 2 + discardRect.height / 2;
+
+        // Animate top card flying to discard pile with 3D arc
+        topFrame.animate([
+          { transform: baseTransform, opacity: 1, offset: 0 },
+          { transform: `${baseTransform} translateX(60px) translateZ(120px) rotateY(-30deg)`, opacity: 0.95, offset: 0.3 },
+          { transform: `translate(-50%, -50%) translateX(${targetX * 0.6}px) translateY(${targetY * 0.4}px) translateZ(80px) rotateY(-90deg) scale(0.5)`, opacity: 0.7, offset: 0.6 },
+          { transform: `translate(-50%, -50%) translateX(${targetX}px) translateY(${targetY}px) translateZ(0) rotateY(-180deg) scale(0.35)`, opacity: 0, offset: 1 }
+        ], { duration: 480, easing: 'cubic-bezier(0.33, 1, 0.68, 1)', fill: 'forwards' });
+
+        // Simultaneously animate back cards sliding forward
+        for (let i = 1; i < frames.length; i++) {
+          const frame = frames[i];
+          const currentOffset = offsets[i];
+          const targetOffset = offsets[i - 1];
+          
+          if (currentOffset && targetOffset) {
+            const currentTransform = `translate(-50%, -50%) translate(${currentOffset.x}px, ${currentOffset.y}px) scale(${currentOffset.scale}) rotate(${currentOffset.rotate}deg)`;
+            const targetTransform = `translate(-50%, -50%) translate(${targetOffset.x}px, ${targetOffset.y}px) scale(${targetOffset.scale}) rotate(${targetOffset.rotate}deg)`;
+            
+            frame.animate([
+              { transform: currentTransform, zIndex: currentOffset.z },
+              { transform: targetTransform, zIndex: targetOffset.z }
+            ], { duration: 380, easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)', fill: 'forwards' });
+          }
+        }
+
+        // After animation, update state
+        setTimeout(() => {
+          // Add to discard pile
+          addToDiscard(topCardIndex);
+          
+          // Remove from main stack
+          topFrame.remove();
+          
+          // Update remaining cards
+          const remainingFrames = Array.from(stack.querySelectorAll('.book-frame'));
+          remainingFrames.forEach((frame, i) => {
+            const offset = offsets[i];
+            if (offset) {
+              const transform = `translate(-50%, -50%) translate(${offset.x}px, ${offset.y}px) scale(${offset.scale}) rotate(${offset.rotate}deg)`;
+              frame.dataset.baseTransform = transform;
+              frame.style.transform = transform;
+              frame.style.zIndex = offset.z;
+            }
+          });
+          
+          // DON'T add new cards from back - we're depleting the deck
+          currentIndex = (currentIndex + 1) % effectiveDeck.length;
+          animatingCard = false;
+        }, 440);
+      };
+
+      // Click discard pile to undo/reverse (bring back one card)
+      discard.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (animatingCard || discardPile.length === 0) return;
+        
+        // If main stack is empty, do the full reset animation
+        const frames = stack.querySelectorAll('.book-frame');
+        if (frames.length === 0) {
+          resetFromDiscard();
+          return;
+        }
+        
+        // Otherwise bring back one card from discard
+        animatingCard = true;
+        const lastDiscardIndex = discardPile.pop();
+        const lastDiscardCard = discard.lastElementChild;
+        
+        if (lastDiscardCard) {
+          // Animate card flying back from discard to top of stack
+          lastDiscardCard.style.transition = 'transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.4s ease';
+          lastDiscardCard.style.transform = 'translateX(-200px) translateY(-100px) scale(3) rotateY(180deg)';
+          lastDiscardCard.style.opacity = '0';
+          
+          setTimeout(() => {
+            lastDiscardCard.remove();
+            
+            // Add card back to front of stack
+            currentIndex = (currentIndex - 1 + effectiveDeck.length) % effectiveDeck.length;
+            
+            // Shift existing cards back
+            const existingFrames = Array.from(stack.querySelectorAll('.book-frame'));
+            existingFrames.forEach((frame, i) => {
+              const newOffset = offsets[i + 1];
+              if (newOffset) {
+                frame.animate([
+                  { transform: frame.style.transform },
+                  { transform: `translate(-50%, -50%) translate(${newOffset.x}px, ${newOffset.y}px) scale(${newOffset.scale}) rotate(${newOffset.rotate}deg)` }
+                ], { duration: 300, easing: 'ease-out', fill: 'forwards' });
+                frame.style.zIndex = newOffset.z;
+                frame.dataset.baseTransform = `translate(-50%, -50%) translate(${newOffset.x}px, ${newOffset.y}px) scale(${newOffset.scale}) rotate(${newOffset.rotate}deg)`;
+              }
+            });
+            
+            // Create and add new top card
+            const cardData = effectiveDeck[lastDiscardIndex];
+            const newFrame = useSvgCards ? buildSvgCard(cardData) : buildCard(cardData);
+            newFrame.dataset.deckIndex = lastDiscardIndex;
+            
+            const topOffset = offsets[0];
+            const transform = `translate(-50%, -50%) translate(${topOffset.x}px, ${topOffset.y}px) scale(${topOffset.scale}) rotate(${topOffset.rotate}deg)`;
+            newFrame.dataset.baseTransform = transform;
+            newFrame.style.transform = `translate(-50%, -50%) translateX(200px) translateY(-100px) scale(0.5) rotateY(-180deg)`;
+            newFrame.style.zIndex = topOffset.z;
+            newFrame.style.opacity = '0';
+            stack.insertBefore(newFrame, stack.firstChild);
+            
+            // Animate new card flipping into place
+            requestAnimationFrame(() => {
+              newFrame.style.transition = 'transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease';
+              newFrame.style.transform = transform;
+              newFrame.style.opacity = '1';
+              
+              setTimeout(() => {
+                newFrame.style.transition = '';
+                animatingCard = false;
+              }, 450);
+            });
+          }, 350);
+        }
+      });
+
+      // Go to previous card
+      const goBack = () => {
+        if (isSpreadView || !effectiveDeck?.length || effectiveDeck.length === 1 || animatingCard) return;
+        animatingCard = true;
+        currentIndex = (currentIndex - 1 + effectiveDeck.length) % effectiveDeck.length;
+        renderDeck();
+        fitBookFrame();
+        fitBookTypography();
+        animatingCard = false;
+      };
+
+      // Simple click to advance card
+      stack.addEventListener('click', (e) => {
+        if (isSpreadView) return; // Handled by individual card clicks in spread view
+        advance();
+      });
 
       renderDeck();
       fitBookFrame();
@@ -5600,7 +6185,7 @@
     
     // 📸 Add console image entry from snap function
     function addConsoleImageEntry(data) {
-      const { imageDataUrl, frameCount, timestamp, dimensions, pieceCode, embeddedSource } = data;
+      const { imageDataUrl, frameCount, timestamp, dimensions, pieceCode, pieceLabel, filename, userHandle, embeddedSource } = data;
       
       const entry = document.createElement('div');
       entry.className = 'console-entry console-image-entry';
@@ -5628,20 +6213,24 @@
       `;
       img.title = 'Tap to view';
       
-      // Use embeddedSource for filename if available
-      const effectivePieceCode = embeddedSource || pieceCode;
+      // Use pieceLabel (e.g., "$nece") for display, or fall back to embeddedSource/pieceCode
+      const displayLabel = pieceLabel || (pieceCode ? `$${pieceCode}` : (embeddedSource?.substring(0, 20) + '...' || 'piece'));
       
-      // Click thumbnail to open modal
-      img.addEventListener('click', () => showConsoleImagePopup(imageDataUrl, dimensions, effectivePieceCode, frameCount));
+      // Use provided filename or generate one
+      const effectiveFilename = filename || generateConsoleImageFilename(pieceCode);
+      
+      // Click thumbnail to open modal (pass the $code for download filename)
+      img.addEventListener('click', () => showConsoleImagePopup(imageDataUrl, dimensions, pieceCode, frameCount, effectiveFilename));
       
       // Metadata column
       const meta = document.createElement('div');
       meta.className = 'console-image-meta';
       meta.style.cssText = 'font-size: 11px; font-family: monospace; color: #888;';
       
-      const pieceDisplay = embeddedSource ? `$${embeddedSource}` : (pieceCode || 'piece');
+      // Build display with $code and optionally @user
+      const userDisplay = userHandle ? ` <span style="color: #9370DB;">${userHandle}</span>` : '';
       meta.innerHTML = `
-        <span style="color: #4ecdc4; font-weight: bold;">📸 ${pieceDisplay}</span><br>
+        <span style="color: #4ecdc4; font-weight: bold;">📸 ${displayLabel}</span>${userDisplay}<br>
         <span style="color: #f8b500;">@ ${timestamp || 'now'}</span><br>
         <span style="color: #666;">Frame ${frameCount || 0}</span><br>
         <span style="color: #888;">[${dimensions?.width || '?'}×${dimensions?.height || '?'}]</span>
@@ -5683,7 +6272,7 @@
     }
     
     // Show console image in fullscreen popup
-    function showConsoleImagePopup(dataUrl, dimensions, pieceCode, frameCount) {
+    function showConsoleImagePopup(dataUrl, dimensions, pieceCode, frameCount, providedFilename) {
       const existing = document.getElementById('console-image-popup');
       if (existing) existing.remove();
       
@@ -5715,8 +6304,8 @@
         box-shadow: 0 4px 30px rgba(0,0,0,0.5);
       `;
       
-      // Generate the filename that will be used
-      const filename = generateConsoleImageFilename(pieceCode);
+      // Use provided filename or generate one (format: $code-@user-timestamp.png)
+      const filename = providedFilename || generateConsoleImageFilename(pieceCode);
       
       // Download button - shows the filename
       const downloadBtn = document.createElement('button');
@@ -6252,11 +6841,19 @@
         const code = codeMatch[1];
         log.code.log(`Detected code in URL: $${code}`);
         
+        // Clear editor and localStorage immediately while we load from DB
+        // This prevents old cached code from flashing or being used
+        editor.setValue('');
+        localStorage.removeItem('kidlisp-code');
+        localStorage.removeItem('kidlisp-current-code');
+        
         // Load code from database
         loadKidlispFromDatabase(code).then(source => {
           if (source && editor) {
             logCodeOperation('load', source, code);
             editor.setValue(source);
+            // Save to localStorage for persistence
+            localStorage.setItem('kidlisp-code', source);
             // Add to console
             addStateEntry('load', code);
             addCodeEntry(source);
@@ -6269,10 +6866,26 @@
               const previewTitle = document.getElementById('preview-title');
               previewTitle.innerHTML = `Aesthetic<span class="bounce-dot" style="color: #9370DB !important;">.</span>Computer<span class="code-display">/$${code}</span>`;
             }
-            // Don't save to localStorage when loading from URL
             // Mark that we've handled the initial preview (don't run again later)
             hasInitialPreviewRun = true;
-            // Don't trigger preview here - wait for iframe ready + auto-play
+            // Set shouldAutoPlay so piece auto-plays when iframe is ready
+            shouldAutoPlay = true;
+            
+            // If iframe is already ready, trigger play immediately
+            if (pieceReady && !isPlaying && currentPlatform === 'aesthetic-computer') {
+              log.playback.log('Auto-playing (code loaded, piece already ready)...');
+              updatePreview();
+              isPlaying = true;
+              isPaused = false;
+              sendButton.classList.add('playing');
+              sendButton.style.right = '64px';
+              stopButton.style.display = 'flex';
+              document.getElementById('kidlisp-editor').classList.add('live-running');
+              shouldAutoPlay = false;
+            }
+          } else {
+            log.code.error(`Failed to load code: $${code}`);
+            addConsoleEntry(`Could not load $${code} - code not found`, 'error');
           }
         });
       } else {
@@ -7142,6 +7755,13 @@
 
       // Initial preview - only if we haven't already loaded from URL
       if (!hasInitialPreviewRun) {
+        // If there's code in the editor (from localStorage), auto-play it
+        const initialCode = editor?.getValue().trim();
+        if (initialCode && currentPlatform === 'aesthetic-computer') {
+          // Set up for auto-play when iframe is ready
+          shouldAutoPlay = true;
+        }
+        // updatePreview will send the code (or empty for checkerboard)
         updatePreview();
         hasInitialPreviewRun = true;
       }
@@ -7303,10 +7923,13 @@
       const code = editor.getValue().trim();
       log.playback.verbose(`Sending code (${code.length} chars)`);
       if (code) {
+        // Get the current code identifier if we have one
+        const codeId = localStorage.getItem('kidlisp-current-code') || null;
         // Send code via postMessage for instant reload (no network!)
         sendToIframe({
           type: 'kidlisp-reload',
           code: code,
+          codeId: codeId,  // Pass the $code identifier so bios can populate cache
           createCode: shouldCreateCode,  // Only create code when explicitly requested
           authToken: acToken || null  // Pass auth token from kidlisp.com login
         });
@@ -7357,8 +7980,9 @@
         sendButton.classList.add('playing');
         sendButton.style.right = '64px'; // Move play button to the left
         stopButton.style.display = 'flex';
-        // Add live-running class to show green outline
+        // Add live-running class to show green outline, remove paused state
         document.getElementById('kidlisp-editor').classList.add('live-running');
+        document.getElementById('kidlisp-editor').classList.remove('live-paused');
         
         // Show QR code when playing on aesthetic-computer platform
         if (currentPlatform === 'aesthetic-computer') {
@@ -7374,6 +7998,9 @@
         sendToIframe({ type: 'kidlisp-resume' });
         isPaused = false;
         sendButton.classList.add('playing'); // Ensure playing style (Pause icon)
+        // Switch from paused (yellow) to running (green) outline
+        document.getElementById('kidlisp-editor').classList.add('live-running');
+        document.getElementById('kidlisp-editor').classList.remove('live-paused');
       } else {
         // Pause
         log.playback.debug('Pausing');
@@ -7381,6 +8008,9 @@
         sendToIframe({ type: 'kidlisp-pause' });
         isPaused = true;
         sendButton.classList.remove('playing'); // Revert to Play icon (Green)
+        // Switch from running (green) to paused (yellow) outline
+        document.getElementById('kidlisp-editor').classList.remove('live-running');
+        document.getElementById('kidlisp-editor').classList.add('live-paused');
         // But keep position and stop button
         sendButton.style.right = '64px';
         stopButton.style.display = 'flex';
@@ -7415,8 +8045,9 @@
         sendButton.classList.remove('playing');
         sendButton.style.right = '8px'; // Move play button back to original position
         stopButton.style.display = 'none';
-        // Remove live-running class to hide green outline
+        // Remove both live-running and live-paused classes to hide outlines
         document.getElementById('kidlisp-editor').classList.remove('live-running');
+        document.getElementById('kidlisp-editor').classList.remove('live-paused');
         
         // Clear title (but not URL, which reflects editor content)
         document.title = 'KidLisp - transmedia pattern programming for everybody';
