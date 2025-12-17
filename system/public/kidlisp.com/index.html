@@ -1669,20 +1669,21 @@
       height: 1050px;
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 0;
       transform-origin: top left;
-      padding: 14px 14px 28px 14px;
+      padding: 24px 24px 32px 24px;
     }
 
     .book-titleplate {
       text-align: center;
-      padding: 6px 10px;
-      border-radius: 12px;
+      padding: 12px 16px;
+      border-radius: 16px;
       background: linear-gradient(180deg, rgba(255,255,255,0.65), rgba(255,255,255,0.4));
       box-shadow:
         inset 0 1px 0 rgba(255,255,255,0.9),
         inset 0 -1px 0 rgba(0,0,0,0.08);
-      margin-bottom: 10px;
+      margin-bottom: 16px;
+      flex-shrink: 0;
     }
 
     :root.dark .book-titleplate,
@@ -1694,13 +1695,13 @@
     }
 
     .book-title-main {
-      font-size: clamp(22px, 3vw, 28px);
+      font-size: clamp(36px, 5vw, 48px);
       font-weight: 800;
       letter-spacing: 0.6px;
     }
 
     .book-title-sub {
-      font-size: clamp(18px, 2.4vw, 22px);
+      font-size: clamp(28px, 4vw, 38px);
       color: var(--text-tertiary);
       letter-spacing: 0.4px;
     }
@@ -1708,25 +1709,21 @@
     .book-body {
       flex: 1;
       overflow: hidden;
-      padding: 10px 6px 8px;
+      padding: 0;
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 20px;
       min-height: 0;
-      font-size: clamp(18px, 2.2vw, 26px);
-      line-height: 1.55;
+      font-size: 36px;
+      line-height: 1.4;
     }
 
     .book-header {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 6px;
+      display: none;
     }
 
     .book-title {
-      font-size: 26px;
+      font-size: 44px;
       font-weight: 800;
       letter-spacing: 0.4px;
     }
@@ -1798,13 +1795,17 @@
     }
 
     .book-snippet-block {
-      margin-top: 8px;
-      border-radius: 12px;
+      margin-top: auto;
+      border-radius: 16px;
       overflow: hidden;
-      border: 1px solid var(--border-subtle);
+      border: 2px solid var(--border-subtle);
       background: #1f1b16;
       color: #f4e9d7;
       box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+      flex-shrink: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
     }
 
     :root.dark .book-snippet-block,
@@ -1818,25 +1819,29 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 10px 12px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 14px 18px;
+      border-bottom: 2px solid rgba(255, 255, 255, 0.08);
+      flex-shrink: 0;
     }
 
     .book-snippet-title {
       font-weight: 700;
-      font-size: 20px;
+      font-size: 36px;
       letter-spacing: 0.3px;
     }
 
     .book-snippet {
       margin: 0;
-      padding: 16px;
+      padding: 18px 20px;
       font-family: 'Berkeley Mono', 'Comic Relief', monospace;
-      font-size: 22px;
+      font-size: 34px;
       white-space: pre-wrap;
       background: transparent;
       color: inherit;
       word-break: break-word;
+      flex: 1;
+      overflow: hidden;
+      min-height: 0;
     }
 
     .book-snippet-note {
@@ -1845,17 +1850,19 @@
     }
 
     .book-card-title {
-      font-size: 28px;
+      font-size: 52px;
       font-weight: 800;
-      margin: 12px 0 6px;
-      letter-spacing: 0.4px;
+      margin: 0 0 16px;
+      letter-spacing: 0.3px;
+      flex-shrink: 0;
     }
 
     .book-card-text {
-      margin: 0;
+      margin: 0 0 12px;
       color: var(--text-secondary);
-      line-height: 1.5;
-      font-size: 24px;
+      line-height: 1.35;
+      font-size: 38px;
+      flex-shrink: 1;
     }
 
     .book-deck-button {
@@ -4309,8 +4316,7 @@
         const titleplate = document.createElement('div');
         titleplate.className = 'book-titleplate';
         titleplate.innerHTML = `
-          <div class="book-title-main">KidLisp</div>
-          <div class="book-title-sub">by Example — ${book.name}</div>
+          <div class="book-title-main">${book.name}</div>
         `;
         inner.appendChild(titleplate);
 
