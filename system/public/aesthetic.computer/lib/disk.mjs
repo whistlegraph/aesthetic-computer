@@ -8308,7 +8308,7 @@ async function makeFrame({ data: { type, content } }) {
       // console.log("Getting handle...");
       await handle(); // Get the user's handle.
       // console.log("Handle recived:", HANDLE);
-      const displayName = HANDLE ? `@${HANDLE}` : USER.email;
+      const displayName = HANDLE || USER.email;
       console.log(`%c🔐 auth%c Welcome back %c${displayName}`, 
         'background: #ec4899; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: bold;',
         'color: inherit;',

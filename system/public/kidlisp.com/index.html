@@ -3372,6 +3372,25 @@
   </style>
   
   <script>
+    // Check if coming from prompt for back navigation
+    (function() {
+      try {
+        const labelBackSource = sessionStorage.getItem('aesthetic-labelBack-source');
+        if (labelBackSource === 'prompt') {
+          // Clear the source since we've captured it
+          sessionStorage.removeItem('aesthetic-labelBack-source');
+          // Determine back URL based on environment
+          const isLocal = window.location.hostname === 'localhost' || 
+                          window.location.hostname.includes('127.0.0.1');
+          window.kidlispBackToPrompt = isLocal ? '/' : 'https://aesthetic.computer';
+        }
+      } catch (e) {
+        // sessionStorage not available
+      }
+    })();
+  </script>
+  
+  <script>
     // Splash animation - must be inline to run early
     (function() {
       let animationTriggered = false;
@@ -3463,6 +3482,15 @@
             
             // Show tagline
             if (tagline) tagline.style.opacity = '0.5';
+            
+            // Add click handler for back navigation if coming from prompt
+            if (window.kidlispBackToPrompt) {
+              splashLogo.style.cursor = 'pointer';
+              splashLogo.title = 'Back to prompt';
+              splashLogo.addEventListener('click', () => {
+                window.location.href = window.kidlispBackToPrompt;
+              });
+            }
           }, 550);
           
           // Fade out splash background
@@ -3481,6 +3509,15 @@
             splashLogo.classList.add('landed');
             splashLogo.style.cssText = '';
             landingZone.appendChild(splashLogo);
+            
+            // Add click handler for back navigation if coming from prompt
+            if (window.kidlispBackToPrompt) {
+              splashLogo.style.cursor = 'pointer';
+              splashLogo.title = 'Back to prompt';
+              splashLogo.addEventListener('click', () => {
+                window.location.href = window.kidlispBackToPrompt;
+              });
+            }
           }
           if (tagline) tagline.style.opacity = '0.5';
         }
@@ -4522,6 +4559,9 @@
       horizontalBottom: false
     };
     
+    // Track current layout mode to avoid unnecessary DOM restructuring
+    let currentLayoutMode = null; // 'mobile', 'desktop-centered', 'desktop-standard'
+    
     function initSplits() {
       // Destroy existing splits
       splits.forEach(s => s.destroy());
@@ -4551,9 +4591,22 @@
       if (isMobile) {
         // Mobile: Single vertical column with 4 panels - NO Split.js gutters
         // Headers handle dragging and tap-to-toggle
+        
+        // Skip DOM restructuring if already in mobile layout
+        if (currentLayoutMode === 'mobile') {
+          console.log('🔲 layout Already in mobile mode, skipping restructure');
+          setupMobileHeaders();
+          return;
+        }
+        
+        console.log('🔲 layout Switching to mobile mode');
+        currentLayoutMode = 'mobile';
+        
         if (mainSplit && editorPanel && previewPanel && consolePanel && referencePanel) {
-          // Clear the main split first
-          mainSplit.innerHTML = '';
+          // Clear the main split first - but preserve iframe by removing children properly
+          while (mainSplit.firstChild) {
+            mainSplit.removeChild(mainSplit.firstChild);
+          }
           mainSplit.appendChild(editorPanel);
           mainSplit.appendChild(previewPanel);
           mainSplit.appendChild(consolePanel);
@@ -4590,34 +4643,47 @@
         // When off-center: Standard 2x2 grid with 1 vertical gutter
         
         const allCentered = gutterStates.vertical && gutterStates.horizontalTop && gutterStates.horizontalBottom;
+        const targetMode = allCentered ? 'desktop-centered' : 'desktop-standard';
         
         if (allCentered) {
           // PERFECT + MODE: 4 truly independent quadrants
           // Use nested splits to create independent vertical controls
           
-          // Create wrapper rows for independent vertical control
-          const leftCol = document.createElement('div');
-          leftCol.id = 'left-col';
-          leftCol.style.display = 'flex';
-          leftCol.style.flexDirection = 'column';
-          leftCol.style.height = '100%';
+          // Skip DOM restructuring if already in this mode
+          if (currentLayoutMode === 'desktop-centered') {
+            console.log('🔲 layout Already in desktop-centered mode, skipping restructure');
+            // Still need to re-create Split.js instances
+          } else {
+            console.log('🔲 layout Switching to desktop-centered mode');
+            currentLayoutMode = 'desktop-centered';
           
-          const rightCol = document.createElement('div');
-          rightCol.id = 'right-col';
-          rightCol.style.display = 'flex';
-          rightCol.style.flexDirection = 'column';
-          rightCol.style.height = '100%';
-          
-          if (mainSplit) {
-            mainSplit.innerHTML = '';
-            mainSplit.appendChild(leftCol);
-            mainSplit.appendChild(rightCol);
+            // Create wrapper rows for independent vertical control
+            const leftCol = document.createElement('div');
+            leftCol.id = 'left-col';
+            leftCol.style.display = 'flex';
+            leftCol.style.flexDirection = 'column';
+            leftCol.style.height = '100%';
             
-            leftCol.appendChild(editorPanel);
-            leftCol.appendChild(referencePanel);
+            const rightCol = document.createElement('div');
+            rightCol.id = 'right-col';
+            rightCol.style.display = 'flex';
+            rightCol.style.flexDirection = 'column';
+            rightCol.style.height = '100%';
             
-            rightCol.appendChild(previewPanel);
-            rightCol.appendChild(consolePanel);
+            if (mainSplit) {
+              // Remove children without using innerHTML to preserve iframe
+              while (mainSplit.firstChild) {
+                mainSplit.removeChild(mainSplit.firstChild);
+              }
+              mainSplit.appendChild(leftCol);
+              mainSplit.appendChild(rightCol);
+              
+              leftCol.appendChild(editorPanel);
+              leftCol.appendChild(referencePanel);
+              
+              rightCol.appendChild(previewPanel);
+              rightCol.appendChild(consolePanel);
+            }
           }
           
           const snapThreshold = 5;
@@ -4673,23 +4739,38 @@
         } else {
           // STANDARD 2x2 MODE: Traditional layout with rows
           
-          // Restore row structure
-          if (mainSplit) {
-            mainSplit.innerHTML = '';
-            mainSplit.appendChild(topRow);
-            mainSplit.appendChild(bottomRow);
-          }
+          // Skip DOM restructuring if already in this mode
+          if (currentLayoutMode === 'desktop-standard') {
+            console.log('🔲 layout Already in desktop-standard mode, skipping restructure');
+            // Still need to re-create Split.js instances
+          } else {
+            console.log('🔲 layout Switching to desktop-standard mode');
+            currentLayoutMode = 'desktop-standard';
           
-          if (topRow) {
-            topRow.innerHTML = '';
-            topRow.appendChild(editorPanel);
-            topRow.appendChild(previewPanel);
-          }
-          
-          if (bottomRow) {
-            bottomRow.innerHTML = '';
-            bottomRow.appendChild(referencePanel);
-            bottomRow.appendChild(consolePanel);
+            // Restore row structure - remove children without using innerHTML
+            if (mainSplit) {
+              while (mainSplit.firstChild) {
+                mainSplit.removeChild(mainSplit.firstChild);
+              }
+              mainSplit.appendChild(topRow);
+              mainSplit.appendChild(bottomRow);
+            }
+            
+            if (topRow) {
+              while (topRow.firstChild) {
+                topRow.removeChild(topRow.firstChild);
+              }
+              topRow.appendChild(editorPanel);
+              topRow.appendChild(previewPanel);
+            }
+            
+            if (bottomRow) {
+              while (bottomRow.firstChild) {
+                bottomRow.removeChild(bottomRow.firstChild);
+              }
+              bottomRow.appendChild(referencePanel);
+              bottomRow.appendChild(consolePanel);
+            }
           }
           
           const snapThreshold = 5;
@@ -6953,12 +7034,9 @@
         
         // Send theme to iframe
         console.log('🎨 [index.html] previewIframe:', previewIframe, 'aestheticUrl:', aestheticUrl);
-        if (previewIframe?.contentWindow) {
+        if (previewIframe) {
           console.log('🎨 [index.html] Sending kidlisp-theme to iframe:', visualTheme);
-          previewIframe.contentWindow.postMessage(
-            { type: 'kidlisp-theme', theme: visualTheme },
-            aestheticUrl
-          );
+          sendToIframe({ type: 'kidlisp-theme', theme: visualTheme });
         }
         
         // Re-apply decorations with new theme
@@ -7086,8 +7164,58 @@
     let isInitialLoad = true;
     let hasInitialPreviewRun = false; // Guard against duplicate initial runs
     
+    // Debug: Track iframe src changes
+    let iframeSrcSetCount = 0;
+    const originalSrc = Object.getOwnPropertyDescriptor(HTMLIFrameElement.prototype, 'src');
+    Object.defineProperty(previewIframe, 'src', {
+      get: function() {
+        return originalSrc.get.call(this);
+      },
+      set: function(value) {
+        iframeSrcSetCount++;
+        console.log(`🔲 iframe src set (count: ${iframeSrcSetCount}):`, value, new Error().stack);
+        return originalSrc.set.call(this, value);
+      }
+    });
+    
     // Load KidLisp with empty code (should show default pattern/checkerboard)
+    console.log('🔲 iframe Setting initial iframe src');
     previewIframe.src = `${aestheticUrl}/kidlisp?nogap=true&nolabel=true&noauth=true`;
+    
+    // Track iframe readiness for postMessage
+    let iframeReady = false;
+    let pendingMessages = [];
+    
+    function sendToIframe(message) {
+      if (iframeReady && previewIframe?.contentWindow) {
+        try {
+          previewIframe.contentWindow.postMessage(message, aestheticUrl);
+        } catch (e) {
+          console.warn('🔲 iframe postMessage failed:', e.message);
+        }
+      } else {
+        // Queue message until iframe is ready
+        pendingMessages.push(message);
+        console.log('🔲 iframe Queued message (iframe not ready):', message.type);
+      }
+    }
+    
+    // Mark iframe as ready when it loads and send queued messages
+    previewIframe.addEventListener('load', function onFirstLoad() {
+      // Small delay to ensure iframe's message handler is set up
+      setTimeout(() => {
+        iframeReady = true;
+        console.log(`🔲 iframe Ready, sending ${pendingMessages.length} queued messages`);
+        pendingMessages.forEach(msg => {
+          try {
+            previewIframe.contentWindow?.postMessage(msg, aestheticUrl);
+          } catch (e) {
+            console.warn('🔲 iframe Failed to send queued message:', e.message);
+          }
+        });
+        pendingMessages = [];
+      }, 100);
+    }, { once: true });
     
     let isPlaying = false;
     let isPaused = false;
@@ -7184,17 +7312,13 @@
       log.playback.verbose(`Sending code (${code.length} chars)`);
       if (code) {
         // Send code via postMessage for instant reload (no network!)
-        if (previewIframe.contentWindow) {
-          previewIframe.contentWindow.postMessage({
-            type: 'kidlisp-reload',
-            code: code,
-            createCode: shouldCreateCode,  // Only create code when explicitly requested
-            authToken: acToken || null  // Pass auth token from kidlisp.com login
-          }, aestheticUrl);
-          logCodeOperation('run', code);
-        } else {
-          log.iframe.warn('No iframe contentWindow available');
-        }
+        sendToIframe({
+          type: 'kidlisp-reload',
+          code: code,
+          createCode: shouldCreateCode,  // Only create code when explicitly requested
+          authToken: acToken || null  // Pass auth token from kidlisp.com login
+        });
+        logCodeOperation('run', code);
       } else {
         log.playback.debug('No code to run');
       }
@@ -7255,18 +7379,14 @@
         // Resume
         log.playback.debug('Resuming');
         addStateEntry('play'); // Resume shows as play
-        if (previewIframe.contentWindow) {
-          previewIframe.contentWindow.postMessage({ type: 'kidlisp-resume' }, aestheticUrl);
-        }
+        sendToIframe({ type: 'kidlisp-resume' });
         isPaused = false;
         sendButton.classList.add('playing'); // Ensure playing style (Pause icon)
       } else {
         // Pause
         log.playback.debug('Pausing');
         addStateEntry('pause');
-        if (previewIframe.contentWindow) {
-          previewIframe.contentWindow.postMessage({ type: 'kidlisp-pause' }, aestheticUrl);
-        }
+        sendToIframe({ type: 'kidlisp-pause' });
         isPaused = true;
         sendButton.classList.remove('playing'); // Revert to Play icon (Green)
         // But keep position and stop button
@@ -7294,13 +7414,7 @@
         e.preventDefault();
         
         // Send stop message to the iframe (this triggers piece-reload with empty source)
-        if (previewIframe.contentWindow) {
-          previewIframe.contentWindow.postMessage({ 
-            type: 'kidlisp-stop' 
-          }, aestheticUrl);
-        } else {
-          log.iframe.warn('No iframe contentWindow');
-        }
+        sendToIframe({ type: 'kidlisp-stop' });
         
         // Reset state
         isPlaying = false;
@@ -7328,7 +7442,10 @@
 
     // Enable KidLisp-only console messages from the preview iframe
     let hasRequestedKidlispConsole = false;
+    let iframeLoadCount = 0;
     previewIframe.addEventListener('load', () => {
+      iframeLoadCount++;
+      console.log(`🔲 iframe Iframe loaded (count: ${iframeLoadCount})`, new Error().stack);
       log.iframe.debug('Iframe loaded, checking readiness');
       
       // Tell the iframe to suppress noisy snapshot logs (we show them in KidLisp.com console only)
@@ -7341,20 +7458,16 @@
       }
       
       // Send ping to check if aesthetic.computer is ready
-      if (previewIframe.contentWindow) {
-        previewIframe.contentWindow.postMessage({ 
-          type: 'kidlisp-ping' 
-        }, aestheticUrl);
-        
-        // Send current visual theme to iframe
-        const initialTheme = document.documentElement.getAttribute('data-theme') || 'dark';
-        previewIframe.contentWindow.postMessage({ type: 'kidlisp-theme', theme: initialTheme }, aestheticUrl);
+      sendToIframe({ type: 'kidlisp-ping' });
+      
+      // Send current visual theme to iframe
+      const initialTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+      sendToIframe({ type: 'kidlisp-theme', theme: initialTheme });
 
-        // Ask the iframe to enable the KidLisp-only console channel
-        if (!hasRequestedKidlispConsole) {
-          hasRequestedKidlispConsole = true;
-          previewIframe.contentWindow.postMessage({ type: 'kidlisp-console-enable' }, aestheticUrl);
-        }
+      // Ask the iframe to enable the KidLisp-only console channel
+      if (!hasRequestedKidlispConsole) {
+        hasRequestedKidlispConsole = true;
+        sendToIframe({ type: 'kidlisp-console-enable' });
       }
     });
 
@@ -7571,12 +7684,10 @@
         
         // Send current theme to iframe
         const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
-        previewIframe.contentWindow.postMessage({ type: 'kidlisp-theme', theme: currentTheme }, aestheticUrl);
+        sendToIframe({ type: 'kidlisp-theme', theme: currentTheme });
 
         // Always (re-)send enable when iframe signals ready - the worker is now definitely wired.
-        if (previewIframe.contentWindow) {
-          previewIframe.contentWindow.postMessage({ type: 'kidlisp-console-enable' }, aestheticUrl);
-        }
+        sendToIframe({ type: 'kidlisp-console-enable' });
         
         // Mark that we want to auto-play, but wait for piece to be ready
         // Only auto-play on aesthetic-computer platform
@@ -8019,19 +8130,37 @@
       
       // Use loadScriptNoAMD to avoid Monaco's AMD loader hijacking the UMD wrapper
       const src = `${aestheticUrl}/aesthetic.computer/dep/auth0-spa-js.production.js`;
-      log.auth.debug("Loading Auth0 SDK");
-      await loadScriptNoAMD(src);
+      log.auth.debug("Loading Auth0 SDK from:", src);
+      
+      try {
+        await loadScriptNoAMD(src);
+      } catch (e) {
+        log.auth.error("Failed to load Auth0 script:", e.message);
+        throw e;
+      }
+      
+      // Wait a bit for the script to initialize
+      await new Promise(resolve => setTimeout(resolve, 100));
       
       if (window.auth0) {
         log.auth.debug("Auth0 SDK loaded");
       } else {
-        throw new Error('Auth0 SDK loaded but window.auth0 not defined');
+        log.auth.warn("Auth0 SDK loaded but window.auth0 not defined - auth disabled");
+        // Don't throw, just disable auth functionality
       }
     }
     
     async function initAuth0() {
       try {
         await loadAuth0SDK();
+        
+        // If auth0 didn't load, skip authentication
+        if (!window.auth0) {
+          log.auth.warn("Auth0 not available, skipping authentication");
+          updateACLoginUI();
+          logBoot('auth', 'unavailable');
+          return;
+        }
         
         // Determine correct redirect URI for kidlisp.com
         // In dev: localhost:8888/kidlisp.com, in prod: kidlisp.com
@@ -8767,7 +8896,7 @@
       if (window.location.host === "local.aesthetic.computer") {
         connectionUrl = "wss://session.local.aesthetic.computer";
       } else if (window.location.host === "kidlisp.com") {
-        connectionUrl = "wss://session.aesthetic.computer";
+        connectionUrl = "wss://session-server.aesthetic.computer";
       }
       
       setConnectivityState('connecting');
