@@ -546,34 +546,32 @@
     #kidlisp-editor.live-running::before {
       content: '';
       position: absolute;
-      top: 50%;
-      left: 50%;
+      top: 0;
+      left: 0;
       right: 0;
       bottom: 0;
-      border: 4px solid #00ff00;
+      border: 2px solid rgba(0, 255, 0, 0.4);
+      border-radius: 4px;
       pointer-events: none; /* Allow clicks through to Monaco */
       z-index: 999999; /* Very high z-index to be above everything */
-      animation: live-pulse 2s ease-in-out infinite;
-      box-shadow: inset 0 0 30px rgba(0, 255, 0, 0.2), 0 0 10px rgba(0, 255, 0, 0.3);
+      animation: live-pulse 3s ease-in-out infinite;
     }
     
-    /* Dark mode: brighter glow for visibility */
+    /* Dark mode: slightly brighter for visibility */
     @media (prefers-color-scheme: dark) {
       #kidlisp-editor.live-running::before {
-        border-color: #44ff44;
-        box-shadow: inset 0 0 40px rgba(68, 255, 68, 0.25), 0 0 15px rgba(68, 255, 68, 0.4);
+        border-color: rgba(68, 255, 68, 0.5);
       }
     }
     
     [data-theme="dark"] #kidlisp-editor.live-running::before {
-      border-color: #44ff44;
-      box-shadow: inset 0 0 40px rgba(68, 255, 68, 0.25), 0 0 15px rgba(68, 255, 68, 0.4);
+      border-color: rgba(68, 255, 68, 0.5);
     }
     
     /* Pulse animation for live state */
     @keyframes live-pulse {
-      0%, 100% { border-color: #00ff00; }
-      50% { border-color: #00cc00; }
+      0%, 100% { border-color: rgba(0, 255, 0, 0.4); }
+      50% { border-color: rgba(0, 255, 0, 0.2); }
     }
 
     /* Zebra striping REMOVED - was blocking Monaco's selection overlay in dark mode */
@@ -1696,13 +1694,13 @@
     }
 
     .book-title-main {
-      font-size: clamp(14px, 2vw, 17px);
+      font-size: clamp(22px, 3vw, 28px);
       font-weight: 800;
       letter-spacing: 0.6px;
     }
 
     .book-title-sub {
-      font-size: clamp(11px, 1.6vw, 13px);
+      font-size: clamp(18px, 2.4vw, 22px);
       color: var(--text-tertiary);
       letter-spacing: 0.4px;
     }
@@ -1710,12 +1708,12 @@
     .book-body {
       flex: 1;
       overflow: hidden;
-      padding: 6px 2px 4px;
+      padding: 10px 6px 8px;
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 12px;
       min-height: 0;
-      font-size: clamp(12px, 1.4vw, 16px);
+      font-size: clamp(18px, 2.2vw, 26px);
       line-height: 1.55;
     }
 
@@ -1728,7 +1726,7 @@
     }
 
     .book-title {
-      font-size: 15px;
+      font-size: 26px;
       font-weight: 800;
       letter-spacing: 0.4px;
     }
@@ -1826,15 +1824,15 @@
 
     .book-snippet-title {
       font-weight: 700;
-      font-size: 13px;
+      font-size: 20px;
       letter-spacing: 0.3px;
     }
 
     .book-snippet {
       margin: 0;
-      padding: 12px;
+      padding: 16px;
       font-family: 'Berkeley Mono', 'Comic Relief', monospace;
-      font-size: 13px;
+      font-size: 22px;
       white-space: pre-wrap;
       background: transparent;
       color: inherit;
@@ -1847,9 +1845,9 @@
     }
 
     .book-card-title {
-      font-size: 15px;
+      font-size: 28px;
       font-weight: 800;
-      margin: 6px 0 2px;
+      margin: 12px 0 6px;
       letter-spacing: 0.4px;
     }
 
@@ -1857,7 +1855,7 @@
       margin: 0;
       color: var(--text-secondary);
       line-height: 1.5;
-      font-size: 13px;
+      font-size: 24px;
     }
 
     .book-deck-button {
@@ -3703,10 +3701,6 @@
               <button class="keeps-mint-btn" id="keeps-mint-btn">Mint as Keep</button>
               <div class="keeps-status" id="keeps-status"></div>
             </div>
-              <div class="keeps-info">
-                <p>Turn your KidLisp creation into an NFT on Tezos.</p>
-                <p class="keeps-hint">Write code → Connect wallet → Mint</p>
-              </div>
             </div>
           </div>
         </div>
@@ -3796,8 +3790,6 @@
         keepsMintBtn: 'Mint as Keep',
         keepsMinting: 'Minting...',
         keepsYourCode: 'Your code:',
-        keepsInfo: 'Turn your KidLisp creation into an NFT on Tezos.',
-        keepsHint: 'Write code → Connect wallet → Mint',
         keepsNetwork: 'ghostnet',
         examplesLoading: 'Loading examples...',
         examplesNone: 'No examples found.',
@@ -3835,8 +3827,6 @@
         keepsMintBtn: 'Acuñar como Keep',
         keepsMinting: 'Acuñando...',
         keepsYourCode: 'Tu código:',
-        keepsInfo: 'Convierte tu creación KidLisp en un NFT en Tezos.',
-        keepsHint: 'Escribe código → Conecta cartera → Acuña',
         keepsNetwork: 'ghostnet',
         examplesLoading: 'Cargando ejemplos...',
         examplesNone: 'No se encontraron ejemplos.',
@@ -3874,8 +3864,6 @@
         keepsMintBtn: '铸造为 Keep',
         keepsMinting: '铸造中...',
         keepsYourCode: '你的代码：',
-        keepsInfo: '将你的 KidLisp 创作铸造为 Tezos NFT。',
-        keepsHint: '编写代码 → 连接钱包 → 铸造',
         keepsNetwork: 'ghostnet',
         examplesLoading: '加载示例中...',
         examplesNone: '未找到示例。',
@@ -3913,8 +3901,6 @@
         keepsMintBtn: 'Mint som Keep',
         keepsMinting: 'Minter...',
         keepsYourCode: 'Din kode:',
-        keepsInfo: 'Lav din KidLisp-skabelse til en NFT på Tezos.',
-        keepsHint: 'Skriv kode → Forbind wallet → Mint',
         keepsNetwork: 'ghostnet',
         examplesLoading: 'Indlæser eksempler...',
         examplesNone: 'Ingen eksempler fundet.',

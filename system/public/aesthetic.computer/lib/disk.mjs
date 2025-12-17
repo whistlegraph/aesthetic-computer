@@ -1353,6 +1353,7 @@ function updateHUDStatus() {
 
 let loading = false;
 let reframe;
+let pendingPieceReload = null; // Queue for piece-reload messages before $commonApi.reload is ready
 
 const sfxProgressReceivers = {},
   sfxSampleReceivers = {},
@@ -7447,6 +7448,23 @@ async function load(
       if (hasWindow && !packMode) console.log('⚠️ Could not send ready message:', e.message);
     }
 
+    // Process any queued piece-reload that arrived before piece was ready
+    console.log('🔄 hotSwap: checking pendingPieceReload:', pendingPieceReload, '$commonApi.reload:', !!$commonApi.reload);
+    if (pendingPieceReload && $commonApi.reload) {
+      log.piece.log("Processing queued piece-reload from hotSwap");
+      const pending = pendingPieceReload;
+      pendingPieceReload = null;
+      // Use setTimeout to ensure all initialization is complete
+      setTimeout(() => {
+        console.log('🔄 Actually calling $commonApi.reload with:', pending.source?.substring(0, 30));
+        $commonApi.reload({
+          source: pending.source,
+          createCode: pending.createCode,
+          authToken: pending.authToken
+        });
+      }, 50);
+    }
+
     module = loadedModule;
 
     // 🧹 Reset KidLisp baked layers when returning to the prompt to avoid stale flashes
@@ -8108,6 +8126,11 @@ async function makeFrame({ data: { type, content } }) {
     debug = content.debug;
     setDebug(content.debug);
     ROOT_PIECE = content.rootPiece;
+    
+    // Store noauth flag for iframe embedding (kidlisp.com)
+    if (content.noauth) {
+      globalThis.NOAUTH_MODE = true;
+    }
 
     USER = content.user;
     // if (USER) socket.send("login", { user: USER });
@@ -8341,7 +8364,10 @@ async function makeFrame({ data: { type, content } }) {
         authToken: content.authToken  // Pass token from kidlisp.com login
       });
     } else {
-      log.piece.warn("Reload function not ready yet");
+      // Queue the reload request to be processed once the piece is ready
+      // Always update the queue with the latest code (overwrite previous)
+      log.piece.warn("Reload function not ready yet, queuing:", content.source?.substring(0, 20));
+      pendingPieceReload = { source: content.source, createCode: content.createCode, authToken: content.authToken };
     }
     return;
   }
@@ -11076,6 +11102,7 @@ async function makeFrame({ data: { type, content } }) {
         } catch (e) {
           console.warn("🥾 Boot failure...", e);
         }
+        console.log("📀 disk-loaded-and-booted sending");
         send({ type: "disk-loaded-and-booted" });
       }
 
