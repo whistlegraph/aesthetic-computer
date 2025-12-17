@@ -4566,6 +4566,9 @@
       horizontalBottom: false
     };
     
+    // Track current layout mode to avoid unnecessary DOM restructuring
+    let currentLayoutMode = null; // 'mobile', 'desktop-centered', 'desktop-standard'
+    
     function initSplits() {
       // Destroy existing splits
       splits.forEach(s => s.destroy());
@@ -4595,9 +4598,22 @@
       if (isMobile) {
         // Mobile: Single vertical column with 4 panels - NO Split.js gutters
         // Headers handle dragging and tap-to-toggle
+        
+        // Skip DOM restructuring if already in mobile layout
+        if (currentLayoutMode === 'mobile') {
+          console.log('🔲 layout Already in mobile mode, skipping restructure');
+          setupMobileHeaders();
+          return;
+        }
+        
+        console.log('🔲 layout Switching to mobile mode');
+        currentLayoutMode = 'mobile';
+        
         if (mainSplit && editorPanel && previewPanel && consolePanel && referencePanel) {
-          // Clear the main split first
-          mainSplit.innerHTML = '';
+          // Clear the main split first - but preserve iframe by removing children properly
+          while (mainSplit.firstChild) {
+            mainSplit.removeChild(mainSplit.firstChild);
+          }
           mainSplit.appendChild(editorPanel);
           mainSplit.appendChild(previewPanel);
           mainSplit.appendChild(consolePanel);
@@ -4634,34 +4650,47 @@
         // When off-center: Standard 2x2 grid with 1 vertical gutter
         
         const allCentered = gutterStates.vertical && gutterStates.horizontalTop && gutterStates.horizontalBottom;
+        const targetMode = allCentered ? 'desktop-centered' : 'desktop-standard';
         
         if (allCentered) {
           // PERFECT + MODE: 4 truly independent quadrants
           // Use nested splits to create independent vertical controls
           
-          // Create wrapper rows for independent vertical control
-          const leftCol = document.createElement('div');
-          leftCol.id = 'left-col';
-          leftCol.style.display = 'flex';
-          leftCol.style.flexDirection = 'column';
-          leftCol.style.height = '100%';
+          // Skip DOM restructuring if already in this mode
+          if (currentLayoutMode === 'desktop-centered') {
+            console.log('🔲 layout Already in desktop-centered mode, skipping restructure');
+            // Still need to re-create Split.js instances
+          } else {
+            console.log('🔲 layout Switching to desktop-centered mode');
+            currentLayoutMode = 'desktop-centered';
           
-          const rightCol = document.createElement('div');
-          rightCol.id = 'right-col';
-          rightCol.style.display = 'flex';
-          rightCol.style.flexDirection = 'column';
-          rightCol.style.height = '100%';
-          
-          if (mainSplit) {
-            mainSplit.innerHTML = '';
-            mainSplit.appendChild(leftCol);
-            mainSplit.appendChild(rightCol);
+            // Create wrapper rows for independent vertical control
+            const leftCol = document.createElement('div');
+            leftCol.id = 'left-col';
+            leftCol.style.display = 'flex';
+            leftCol.style.flexDirection = 'column';
+            leftCol.style.height = '100%';
             
-            leftCol.appendChild(editorPanel);
-            leftCol.appendChild(referencePanel);
+            const rightCol = document.createElement('div');
+            rightCol.id = 'right-col';
+            rightCol.style.display = 'flex';
+            rightCol.style.flexDirection = 'column';
+            rightCol.style.height = '100%';
             
-            rightCol.appendChild(previewPanel);
-            rightCol.appendChild(consolePanel);
+            if (mainSplit) {
+              // Remove children without using innerHTML to preserve iframe
+              while (mainSplit.firstChild) {
+                mainSplit.removeChild(mainSplit.firstChild);
+              }
+              mainSplit.appendChild(leftCol);
+              mainSplit.appendChild(rightCol);
+              
+              leftCol.appendChild(editorPanel);
+              leftCol.appendChild(referencePanel);
+              
+              rightCol.appendChild(previewPanel);
+              rightCol.appendChild(consolePanel);
+            }
           }
           
           const snapThreshold = 5;
@@ -4717,23 +4746,38 @@
         } else {
           // STANDARD 2x2 MODE: Traditional layout with rows
           
-          // Restore row structure
-          if (mainSplit) {
-            mainSplit.innerHTML = '';
-            mainSplit.appendChild(topRow);
-            mainSplit.appendChild(bottomRow);
-          }
+          // Skip DOM restructuring if already in this mode
+          if (currentLayoutMode === 'desktop-standard') {
+            console.log('🔲 layout Already in desktop-standard mode, skipping restructure');
+            // Still need to re-create Split.js instances
+          } else {
+            console.log('🔲 layout Switching to desktop-standard mode');
+            currentLayoutMode = 'desktop-standard';
           
-          if (topRow) {
-            topRow.innerHTML = '';
-            topRow.appendChild(editorPanel);
-            topRow.appendChild(previewPanel);
-          }
-          
-          if (bottomRow) {
-            bottomRow.innerHTML = '';
-            bottomRow.appendChild(referencePanel);
-            bottomRow.appendChild(consolePanel);
+            // Restore row structure - remove children without using innerHTML
+            if (mainSplit) {
+              while (mainSplit.firstChild) {
+                mainSplit.removeChild(mainSplit.firstChild);
+              }
+              mainSplit.appendChild(topRow);
+              mainSplit.appendChild(bottomRow);
+            }
+            
+            if (topRow) {
+              while (topRow.firstChild) {
+                topRow.removeChild(topRow.firstChild);
+              }
+              topRow.appendChild(editorPanel);
+              topRow.appendChild(previewPanel);
+            }
+            
+            if (bottomRow) {
+              while (bottomRow.firstChild) {
+                bottomRow.removeChild(bottomRow.firstChild);
+              }
+              bottomRow.appendChild(referencePanel);
+              bottomRow.appendChild(consolePanel);
+            }
           }
           
           const snapThreshold = 5;
@@ -7131,6 +7175,7 @@
     let hasInitialPreviewRun = false; // Guard against duplicate initial runs
     
     // Load KidLisp with empty code (should show default pattern/checkerboard)
+    console.log('🔲 iframe Setting initial iframe src');
     previewIframe.src = `${aestheticUrl}/kidlisp?nogap=true&nolabel=true&noauth=true`;
     
     let isPlaying = false;
@@ -7372,7 +7417,10 @@
 
     // Enable KidLisp-only console messages from the preview iframe
     let hasRequestedKidlispConsole = false;
+    let iframeLoadCount = 0;
     previewIframe.addEventListener('load', () => {
+      iframeLoadCount++;
+      console.log(`🔲 iframe Iframe loaded (count: ${iframeLoadCount})`);
       log.iframe.debug('Iframe loaded, checking readiness');
       
       // Tell the iframe to suppress noisy snapshot logs (we show them in KidLisp.com console only)
