@@ -1,0 +1,11 @@
+#+TITLE: line
+#+CATEGORY: Drawing
+#+STARTUP: showall
+
+* line
+
+Draw a line from one point to another. Takes four numbers: start x, start y, end x, end y.
+
+#+begin_src lisp
+(line 0 0 width height)
+#+end_src
