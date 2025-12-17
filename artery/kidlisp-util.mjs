@@ -3,36 +3,74 @@
 import http from 'http';
 import WebSocket from 'ws';
 
-const CDP_HOST = '172.17.0.1';
-const CDP_PORT = 9224;
+// Try multiple CDP host/port combinations (same as artery.mjs)
+async function findWorkingCDPHost() {
+  const candidates = [
+    { host: 'host.docker.internal', port: 9333 },
+    { host: 'host.docker.internal', port: 9222 },
+    { host: 'localhost', port: 9333 },
+    { host: 'localhost', port: 9222 },
+    { host: '172.17.0.1', port: 9224 },
+    { host: '172.17.0.1', port: 9223 },
+    { host: '172.17.0.1', port: 9222 },
+  ];
+  
+  for (const { host, port } of candidates) {
+    try {
+      const works = await new Promise((resolve) => {
+        const req = http.get({
+          hostname: host,
+          port: port,
+          path: '/json',
+          timeout: 1000,
+          headers: { 'Host': 'localhost' }
+        }, (res) => {
+          let data = '';
+          res.on('data', (chunk) => data += chunk);
+          res.on('end', () => resolve(data.length > 0));
+        });
+        req.on('error', () => resolve(false));
+        req.on('timeout', () => { req.destroy(); resolve(false); });
+      });
+      if (works) return { host, port };
+    } catch (e) {}
+  }
+  
+  throw new Error('CDP not available - is VS Code running with --remote-debugging-port?');
+}
 
 async function getTargets() {
+  const { host, port } = await findWorkingCDPHost();
   return new Promise((resolve, reject) => {
     http.get({
-      hostname: CDP_HOST,
-      port: CDP_PORT,
-      path: '/json'
-      // Note: Don't set Host header - it causes incorrect WebSocket URLs
+      hostname: host,
+      port: port,
+      path: '/json',
+      headers: { 'Host': 'localhost' }
     }, (res) => {
       let data = '';
       res.on('data', chunk => data += chunk);
-      res.on('end', () => resolve(JSON.parse(data)));
+      res.on('end', () => {
+        const targets = JSON.parse(data);
+        // Attach the host/port for later use
+        resolve({ targets, host, port });
+      });
     }).on('error', reject);
   });
 }
 
 async function connectToKidLisp() {
-  const targets = await getTargets();
+  const { targets, host, port } = await getTargets();
   const kidlisp = targets.find(t => t.url && t.url.includes('kidlisp.com'));
   
   if (!kidlisp) {
-    throw new Error('KidLisp window not found. Open it first with: artery kidlisp');
+    throw new Error('KidLisp window not found. Open it first with: artery K');
   }
   
   let wsUrl = kidlisp.webSocketDebuggerUrl;
   // Fix localhost if needed (some CDP configs return localhost instead of the actual host)
   if (wsUrl.includes('localhost')) {
-    wsUrl = wsUrl.replace(/ws:\/\/localhost:(\d+)/, `ws://${CDP_HOST}:$1`);
+    wsUrl = wsUrl.replace(/ws:\/\/localhost:(\d+)/, `ws://${host}:${port}`);
   }
   
   const ws = new WebSocket(wsUrl);
@@ -149,6 +187,35 @@ const commands = {
     ws.close();
   },
   
+  // Card commands
+  async 'card-next'() {
+    const ws = await connectToKidLisp();
+    await evaluate(ws, `document.getElementById('card-next-btn')?.click()`);
+    console.log('✓ Next card');
+    ws.close();
+  },
+  
+  async 'card-prev'() {
+    const ws = await connectToKidLisp();
+    await evaluate(ws, `document.getElementById('card-prev-btn')?.click()`);
+    console.log('✓ Previous card');
+    ws.close();
+  },
+  
+  async 'card-flip'() {
+    const ws = await connectToKidLisp();
+    await evaluate(ws, `document.getElementById('card-flip-btn')?.click()`);
+    console.log('✓ Card flipped');
+    ws.close();
+  },
+  
+  async 'card-spread'() {
+    const ws = await connectToKidLisp();
+    await evaluate(ws, `document.getElementById('card-spread-btn')?.click()`);
+    console.log('✓ Spread toggled');
+    ws.close();
+  },
+  
   async help() {
     console.log('KidLisp Utilities');
     console.log('');
@@ -162,6 +229,13 @@ const commands = {
     console.log('  play          Start playback');
     console.log('  clear-console Clear the console');
     console.log('  theme         Toggle theme');
+    console.log('');
+    console.log('Card commands:');
+    console.log('  card-next     Go to next card');
+    console.log('  card-prev     Go to previous card');
+    console.log('  card-flip     Flip the top card');
+    console.log('  card-spread   Toggle spread view');
+    console.log('');
     console.log('  help          Show this help');
   }
 };
