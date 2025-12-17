@@ -307,6 +307,7 @@ class ArteryTUI {
     this.menuItems = [
       { key: 'p', label: 'Toggle Panel', desc: 'Toggle AC sidebar in VS Code', action: () => this.togglePanel() },
       { key: 'k', label: 'KidLisp.com', desc: 'Open KidLisp editor window', action: () => this.openKidLisp() },
+      { key: 'd', label: 'Deck Control', desc: 'Control KidLisp.com card deck via CDP', action: () => this.enterKidLispCardsMode() },
       { key: 'e', label: 'Emacs', desc: 'Execute elisp in Emacs', action: () => this.enterEmacsMode() },
       { key: 'j', label: 'Jump to Piece', desc: 'Navigate to a piece', action: () => this.enterPieceMode() },
       { key: 'c', label: 'Current Piece', desc: 'Show current piece', action: () => this.showCurrent() },
@@ -334,6 +335,19 @@ class ArteryTUI {
     this.keepsRunning = false;
     this.keepsPieceInput = '';
     this.keepsSubMode = 'menu'; // 'menu', 'piece-input', 'running'
+    
+    // KidLisp Cards state
+    this.kidlispCardsMenu = [
+      { key: 'n', label: 'Next Card', desc: 'Advance to next card' },
+      { key: 'u', label: 'Undo', desc: 'Bring back last discarded card' },
+      { key: 'r', label: 'Reset Deck', desc: 'Reset all cards from discard' },
+      { key: 's', label: 'Status', desc: 'Show card counts' },
+      { key: 'o', label: 'Open Window', desc: 'Open KidLisp.com in VS Code' },
+      { key: 't', label: 'Run Tests', desc: 'Run card test suite' },
+    ];
+    this.kidlispCardsSelectedIndex = 0;
+    this.kidlispCardsOutput = '';
+    this.kidlispCardsCdpPageId = null;
     
     // Site monitoring state
     this.siteProcess = null;
@@ -1210,6 +1224,9 @@ class ArteryTUI {
       case 'keeps':
         this.handleKeepsInput(key);
         break;
+      case 'kidlisp-cards':
+        this.handleKidLispCardsInput(key);
+        break;
     }
   }
 
@@ -1977,6 +1994,158 @@ class ArteryTUI {
     this.render();
   }
 
+  // 🃏 KidLisp Cards Mode - Control card deck via CDP
+  async enterKidLispCardsMode() {
+    this.mode = 'kidlisp-cards';
+    this.kidlispCardsSelectedIndex = 0;
+    this.kidlispCardsOutput = 'Connecting to KidLisp.com...';
+    this.render();
+    
+    // Find the kidlisp.com CDP page
+    try {
+      const pageId = await this.findKidLispCdpPage();
+      if (pageId) {
+        this.kidlispCardsCdpPageId = pageId;
+        const status = await this.getKidLispCardStatus();
+        this.kidlispCardsOutput = `✓ Connected to KidLisp.com\n${status}`;
+        this.setStatus('KidLisp Cards ready!', 'success');
+      } else {
+        this.kidlispCardsOutput = '⚠ KidLisp.com window not open\nPress [O] to open it';
+        this.setStatus('KidLisp.com not found', 'warn');
+      }
+    } catch (e) {
+      this.kidlispCardsOutput = `✗ CDP error: ${e.message}\nIs VS Code remote debugging enabled?`;
+      this.setStatus('CDP connection failed', 'error');
+    }
+    
+    this.render();
+  }
+  
+  async findKidLispCdpPage() {
+    const http = await import('http');
+    return new Promise((resolve) => {
+      const req = http.get({
+        hostname: 'host.docker.internal', port: 9222, path: '/json',
+        headers: { 'Host': 'localhost' }, timeout: 2000
+      }, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => {
+          try {
+            const targets = JSON.parse(data);
+            const kidlisp = targets.find(t => t.url?.includes('kidlisp.com'));
+            resolve(kidlisp?.id || null);
+          } catch { resolve(null); }
+        });
+      });
+      req.on('error', () => resolve(null));
+      req.on('timeout', () => { req.destroy(); resolve(null); });
+    });
+  }
+  
+  async evalKidLispJS(code) {
+    if (!this.kidlispCardsCdpPageId) return null;
+    const WebSocket = (await import('ws')).default;
+    const ws = new WebSocket(
+      `ws://host.docker.internal:9222/devtools/page/${this.kidlispCardsCdpPageId}`,
+      { headers: { Host: 'localhost' } }
+    );
+    
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => { ws.close(); reject(new Error('Timeout')); }, 3000);
+      ws.on('open', () => {
+        ws.send(JSON.stringify({ id: 1, method: 'Runtime.evaluate', params: { expression: code } }));
+      });
+      ws.on('message', (data) => {
+        clearTimeout(timeout);
+        const msg = JSON.parse(data);
+        ws.close();
+        resolve(msg.result?.result?.value);
+      });
+      ws.on('error', (e) => { clearTimeout(timeout); reject(e); });
+    });
+  }
+  
+  async getKidLispCardStatus() {
+    const mainCount = await this.evalKidLispJS('document.querySelectorAll(".book-frame").length') || 0;
+    const discardCount = await this.evalKidLispJS('document.querySelectorAll(".discard-card").length') || 0;
+    return `📚 Main Stack: ${mainCount} cards\n🗑️  Discard Pile: ${discardCount} cards`;
+  }
+  
+  async kidlispCardsAction(action) {
+    try {
+      switch (action) {
+        case 'next':
+          await this.evalKidLispJS('document.querySelector(".book-stack")?.click()');
+          this.kidlispCardsOutput = '▶ Advanced to next card\n' + await this.getKidLispCardStatus();
+          break;
+        case 'undo':
+          await this.evalKidLispJS('document.querySelector(".discard-pile")?.click()');
+          this.kidlispCardsOutput = '↩ Brought back card from discard\n' + await this.getKidLispCardStatus();
+          break;
+        case 'reset':
+          // Click discard when main stack is empty, or keep clicking until reset
+          const mainCount = await this.evalKidLispJS('document.querySelectorAll(".book-frame").length');
+          if (mainCount === 0) {
+            await this.evalKidLispJS('document.querySelector(".discard-pile")?.click()');
+          }
+          this.kidlispCardsOutput = '🔄 Reset deck\n' + await this.getKidLispCardStatus();
+          break;
+        case 'status':
+          this.kidlispCardsOutput = await this.getKidLispCardStatus();
+          break;
+        case 'open':
+          await this.openKidLisp();
+          setTimeout(() => this.enterKidLispCardsMode(), 1500);
+          return;
+        case 'test':
+          this.kidlispCardsOutput = '🧪 Running card tests...';
+          this.render();
+          const { execSync } = await import('child_process');
+          try {
+            const result = execSync('node artery/test-kidlisp.mjs card-basic', { 
+              encoding: 'utf8', cwd: '/workspaces/aesthetic-computer', timeout: 15000 
+            });
+            this.kidlispCardsOutput = result.slice(-800);
+          } catch (e) {
+            this.kidlispCardsOutput = `Test error: ${e.message}`;
+          }
+          break;
+      }
+      this.setStatus('Action complete', 'success');
+    } catch (e) {
+      this.kidlispCardsOutput = `Error: ${e.message}`;
+      this.setStatus('Action failed', 'error');
+    }
+    this.render();
+  }
+  
+  handleKidLispCardsInput(key) {
+    if (key === 'escape' || key === 'q') {
+      this.mode = 'menu';
+      this.render();
+      return;
+    }
+    
+    if (key === 'up' || key === 'k') {
+      this.kidlispCardsSelectedIndex = Math.max(0, this.kidlispCardsSelectedIndex - 1);
+    } else if (key === 'down' || key === 'j') {
+      this.kidlispCardsSelectedIndex = Math.min(this.kidlispCardsMenu.length - 1, this.kidlispCardsSelectedIndex + 1);
+    } else if (key === 'return') {
+      const actions = ['next', 'undo', 'reset', 'status', 'open', 'test'];
+      this.kidlispCardsAction(actions[this.kidlispCardsSelectedIndex]);
+      return;
+    } else {
+      const item = this.kidlispCardsMenu.find(m => m.key === key.toLowerCase());
+      if (item) {
+        const actions = { n: 'next', u: 'undo', r: 'reset', s: 'status', o: 'open', t: 'test' };
+        this.kidlispCardsAction(actions[key.toLowerCase()]);
+        return;
+      }
+    }
+    this.render();
+  }
+
   // 🧠 Emacs Integration Mode
   async enterEmacsMode() {
     this.mode = 'emacs';
@@ -2614,6 +2783,75 @@ class ArteryTUI {
     this.writeLine(`${statusText}${RESET}${BG_BLUE}  ${DIM}ESC=Back  ↑↓=Navigate  Enter=Select${RESET}`);
   }
 
+  // 🃏 Render KidLisp Cards Mode
+  renderKidLispCards() {
+    const boxWidth = this.innerWidth;
+    
+    // Header
+    this.writeLine(`${DOS_TITLE}${'═'.repeat(boxWidth)}${RESET}`);
+    this.writeLine(`${DOS_TITLE}  🃏 KidLisp Cards - CDP Remote Control${' '.repeat(Math.max(0, boxWidth - 41))}${RESET}`);
+    this.writeLine(`${DOS_TITLE}${'═'.repeat(boxWidth)}${RESET}`);
+    this.writeLine('');
+    
+    // Connection status
+    const connStatus = this.kidlispCardsCdpPageId 
+      ? `${FG_BRIGHT_GREEN}● Connected${RESET}` 
+      : `${FG_BRIGHT_RED}○ Disconnected${RESET}`;
+    this.writeLine(`${FG_CYAN}CDP Status: ${connStatus}${BG_BLUE}  ${DIM}Page: ${this.kidlispCardsCdpPageId || 'none'}${RESET}`);
+    this.writeLine('');
+    
+    // Menu items
+    for (let i = 0; i < this.kidlispCardsMenu.length; i++) {
+      const item = this.kidlispCardsMenu[i];
+      const selected = i === this.kidlispCardsSelectedIndex;
+      const prefix = selected ? `${FG_BRIGHT_YELLOW}▶ ` : `${FG_CYAN}  `;
+      const keyStyle = selected ? `${BG_CYAN}${FG_BLACK}` : `${FG_BRIGHT_MAGENTA}`;
+      const labelStyle = selected ? `${FG_BRIGHT_YELLOW}${BOLD}` : `${FG_WHITE}`;
+      const descStyle = `${DIM}${FG_CYAN}`;
+      
+      const line = `${prefix}${keyStyle}[${item.key}]${RESET}${BG_BLUE} ${labelStyle}${item.label}${RESET}${BG_BLUE} ${descStyle}${item.desc}${RESET}`;
+      this.writeLine(line);
+    }
+    
+    this.writeLine('');
+    
+    // Output box
+    this.writeLine(`${FG_CYAN}${'─'.repeat(boxWidth)}${RESET}`);
+    this.writeLine(`${FG_BRIGHT_CYAN}Output:${RESET}`);
+    this.writeLine('');
+    
+    // Split output into lines and display
+    const outputLines = (this.kidlispCardsOutput || '').split('\n');
+    const maxOutputLines = Math.max(5, this.innerHeight - 20);
+    const startLine = Math.max(0, outputLines.length - maxOutputLines);
+    
+    for (let i = startLine; i < outputLines.length; i++) {
+      let line = outputLines[i];
+      // Color code output
+      if (line.includes('✓') || line.includes('✅')) {
+        line = `${FG_BRIGHT_GREEN}${line}${RESET}`;
+      } else if (line.includes('✗') || line.includes('Error')) {
+        line = `${FG_BRIGHT_RED}${line}${RESET}`;
+      } else if (line.includes('⚠')) {
+        line = `${FG_BRIGHT_YELLOW}${line}${RESET}`;
+      } else if (line.includes('📚') || line.includes('🗑️')) {
+        line = `${FG_BRIGHT_CYAN}${line}${RESET}`;
+      } else if (line.includes('▶') || line.includes('↩') || line.includes('🔄')) {
+        line = `${FG_BRIGHT_MAGENTA}${line}${RESET}`;
+      }
+      // Truncate long lines
+      if (this.stripAnsi(line).length > boxWidth - 2) {
+        line = line.slice(0, boxWidth - 5) + '...';
+      }
+      this.writeLine(`  ${line}`);
+    }
+    
+    // Status bar
+    this.writeLine('');
+    this.writeLine(`${FG_CYAN}${'─'.repeat(boxWidth)}${RESET}`);
+    this.writeLine(`${FG_GREEN}Ready${RESET}${BG_BLUE}  ${DIM}ESC/Q=Back  ↑↓/JK=Navigate  Enter=Select${RESET}`);
+  }
+
   async activateAudio() {
     if (!this.connected) {
       this.setStatus('Not connected', 'error');
@@ -2807,6 +3045,9 @@ class ArteryTUI {
         break;
       case 'keeps':
         this.renderKeeps();
+        break;
+      case 'kidlisp-cards':
+        this.renderKidLispCards();
         break;
     }
     
