@@ -3264,6 +3264,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       microphonePermission,
       resolution,
       embeddedSource,
+      noauth: window.acNOAUTH || false,
     },
   };
 
@@ -15886,47 +15887,54 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         const isEarlyFrame =
           typeof frameCount === "bigint" ? frameCount <= 1n : frameCount <= 1;
         const hasPiece = Boolean(currentPiece);
-        if (isEarlyFrame || !hasPiece) {
-          return;
-        }
-        window._lastKidlispSnapTime = now;
-        try {
-          const { dataUrl, displayWidth, displayHeight, dimensions } = captureFrame(canvas, {
-            scaleFactor: 3,
-            displayMax: 200
-          });
-          const ts = formatTimestamp();
+        // Only take snapshot if we have a piece and past early frames
+        // (Don't return early - just skip the snapshot)
+        // Also skip if there's no actual KidLisp code running (just the default blank state)
+        // Real KidLisp code should have at least one function call with parentheses
+        const kidlispCode = window.__acCurrentKidlispCode;
+        const hasKidlispCode = kidlispCode && 
+          kidlispCode.trim().length > 0 && 
+          kidlispCode.includes('(');  // Real KidLisp code has function calls
+        if (!isEarlyFrame && hasPiece && hasKidlispCode) {
+          window._lastKidlispSnapTime = now;
+          try {
+            const { dataUrl, displayWidth, displayHeight, dimensions } = captureFrame(canvas, {
+              scaleFactor: 3,
+              displayMax: 200
+            });
+            const ts = formatTimestamp();
           
-          // Get piece code from URL or default, preferring the tracked kidlisp code
-          const embeddedSource = window.__acCurrentKidlispCode || null;
-          const pieceCode = embeddedSource || currentPiece?.split('/')?.pop() || 'piece';
-          const suppressSnapConsoleLogs = window.KIDLISP_SUPPRESS_SNAPSHOT_LOGS === true;
-          
-          // Log to browser console (optional)
-          if (!suppressSnapConsoleLogs) {
-            console.log(
-              `%c📸 $${pieceCode} %c@ ${ts} %c• Frame ${frameCount} %c[${dimensions.width}×${dimensions.height}]`,
-              `color: #4ecdc4; font-weight: bold; font-size: 11px; font-family: monospace;`,
-              `color: #f8b500; font-size: 10px; font-family: monospace;`,
-              `color: #888; font-size: 10px; font-family: monospace;`,
-              `color: #666; font-size: 10px; font-family: monospace;`
-            );
-            console.log(
-              `%c `,
-              `font-size: 1px; padding: ${displayHeight/2}px ${displayWidth/2}px; background: url("${dataUrl}") no-repeat center; background-size: ${displayWidth}px ${displayHeight}px; image-rendering: pixelated;`
-            );
+            // Get piece code from URL or default, preferring the tracked kidlisp code
+            const embeddedSource = window.__acCurrentKidlispCode || null;
+            const pieceCode = embeddedSource || currentPiece?.split('/')?.pop() || 'piece';
+            const suppressSnapConsoleLogs = window.KIDLISP_SUPPRESS_SNAPSHOT_LOGS === true;
+            
+            // Log to browser console (optional)
+            if (!suppressSnapConsoleLogs) {
+              console.log(
+                `%c📸 $${pieceCode} %c@ ${ts} %c• Frame ${frameCount} %c[${dimensions.width}×${dimensions.height}]`,
+                `color: #4ecdc4; font-weight: bold; font-size: 11px; font-family: monospace;`,
+                `color: #f8b500; font-size: 10px; font-family: monospace;`,
+                `color: #888; font-size: 10px; font-family: monospace;`,
+                `color: #666; font-size: 10px; font-family: monospace;`
+              );
+              console.log(
+                `%c `,
+                `font-size: 1px; padding: ${displayHeight/2}px ${displayWidth/2}px; background: url("${dataUrl}") no-repeat center; background-size: ${displayWidth}px ${displayHeight}px; image-rendering: pixelated;`
+              );
+            }
+            
+            // Send to kidlisp.com console
+            postKidlispConsoleImage(dataUrl, {
+              frameCount: Number(frameCount),
+              timestamp: ts,
+              pieceCode,
+              dimensions,
+              embeddedSource
+            });
+          } catch (e) {
+            // Silently fail - auto-snap is not essential
           }
-          
-          // Send to kidlisp.com console
-          postKidlispConsoleImage(dataUrl, {
-            frameCount: Number(frameCount),
-            timestamp: ts,
-            pieceCode,
-            dimensions,
-            embeddedSource
-          });
-        } catch (e) {
-          // Silently fail - auto-snap is not essential
         }
       }
     }
