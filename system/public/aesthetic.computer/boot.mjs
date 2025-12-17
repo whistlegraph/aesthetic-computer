@@ -978,12 +978,22 @@ function receive(event) {
   } else if (event.data?.type === "kidlisp-reload") {
     // Live reload from kidlisp.com editor
     const code = event.data.code;
+    const codeId = event.data.codeId; // The $code identifier (e.g., "nece")
     const createCode = event.data.createCode; // Flag to enable code creation
     const authToken = event.data.authToken; // Token from kidlisp.com login
     if (code) {
+      // Track the kidlisp code for console snapshots
+      window.__acCurrentKidlispCode = code;
+      // If we have a codeId, store in cacheRegistry so getCachedCode can find it
+      if (codeId) {
+        window.__acCurrentKidlispCodeId = codeId;
+      }
+      // Reset snap timer so first snap happens ~5s after new code loads
+      // (set to now, so the 5s countdown starts fresh)
+      window._lastKidlispSnapTime = performance.now();
       window.acSEND({
         type: "piece-reload",
-        content: { source: code, createCode: createCode, authToken: authToken }
+        content: { source: code, codeId: codeId, createCode: createCode, authToken: authToken }
       });
     }
     return;

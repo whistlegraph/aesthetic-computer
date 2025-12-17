@@ -352,7 +352,10 @@ function postKidlispConsoleImage(imageDataUrl, meta = {}) {
     frameCount: meta.frameCount,
     timestamp: meta.timestamp || formatTimestamp(),
     dimensions: meta.dimensions,
-    pieceCode: meta.pieceCode,
+    pieceCode: meta.pieceCode,       // The $code identifier without $ (e.g., "nece")
+    pieceLabel: meta.pieceLabel,     // Full label with $ (e.g., "$nece")
+    filename: meta.filename,         // Full filename (e.g., "$nece-@jeffrey-2025-12-17.png")
+    userHandle: meta.userHandle,     // User handle (e.g., "@jeffrey")
     embeddedSource: meta.embeddedSource
   };
   postToParent(payload);
@@ -13900,6 +13903,7 @@ export {
   saveCodeToAllCaches,
   globalCodeCache,
   explainKidLisp,
+  enableKidlispConsole,
   isKidlispConsoleEnabled,
   postKidlispConsoleImage,
 };
