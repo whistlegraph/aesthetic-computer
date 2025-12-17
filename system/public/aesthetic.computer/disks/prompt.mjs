@@ -2703,12 +2703,7 @@ async function halt($, text) {
     if (typeof window !== "undefined" && window.safeSessionStorageSet) {
       window.safeSessionStorageSet("aesthetic-labelBack-source", "prompt");
     }
-    const prefix = !net.iframe ? "out:" : "";
-    jump(
-      debug
-        ? prefix + "/kidlisp.com"
-        : prefix + "https://kidlisp.com",
-    );
+    jump(debug ? "/kidlisp.com" : "https://kidlisp.com");
     makeFlash($);
     return true;
   } else if (text.toLowerCase() === "support") {
