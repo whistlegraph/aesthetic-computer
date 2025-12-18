@@ -2,6 +2,7 @@
 
 // 📦 All Imports
 import * as Loop from "./lib/loop.mjs";
+import * as perf from "./lib/perf.mjs";
 import { Pen } from "./lib/pen.mjs";
 import { Box } from "./lib/geo.mjs";
 import { Keyboard } from "./lib/keyboard.mjs";
@@ -632,6 +633,7 @@ USB.initialize();
 // 💾 Boot the system and load a disk.
 async function boot(parsed, bpm = 60, resolution, debug) {
   const bootStartTime = performance.now();
+  perf.markBootStart();
   headers(); // Print console headers with auto-detected theme.
 
   // 🎬 Preload webpxmux library in background for animated WebP support
@@ -1367,6 +1369,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     // Add the canvas, modal, and uiCanvas when we first boot up.
     if (!wrapper.contains(canvas)) {
+      perf.markBoot("canvas-setup-start");
       wrapper.append(canvas);
       wrapper.append(modal);
 
@@ -1378,6 +1381,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (debug) wrapper.append(debugCanvas);
       wrapper.append(webgpuCanvas); // Add WebGPU canvas (initially hidden)
       document.body.append(wrapper);
+      perf.markBoot("dom-appended");
 
       // Initialize WebGPU 2D renderer with dedicated canvas (skip in PACK mode)
       if (!window.acPACK_MODE) {
@@ -2319,12 +2323,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   }
 
   // Resolve .tez domain for an address using TzKT API (more reliable than Tezos Domains GraphQL)
-  async function fetchTezosDomain(address, network = "ghostnet") {
+  // NOTE: Always use mainnet API since .tez domains are only registered on mainnet
+  async function fetchTezosDomain(address, _network = "ghostnet") {
     try {
-      // Use TzKT API - works for both mainnet and ghostnet
-      const apiBase = network === "mainnet"
-        ? "https://api.tzkt.io"
-        : "https://api.ghostnet.tzkt.io";
+      // Always use mainnet TzKT API - .tez domains only exist on mainnet
+      const apiBase = "https://api.tzkt.io";
       
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 5000);
@@ -3347,6 +3350,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // Notify parent that we're loading the disk
   const diskLoadStartTime = performance.now();
   const bootElapsed = Math.round(diskLoadStartTime - bootStartTime);
+  perf.markBoot("disk-load-start");
   if (window.acBOOT_LOG) {
     window.acBOOT_LOG(`loading disk: ${parsed.text || 'prompt'} (${bootElapsed}ms)`);
   } else if (window.parent) {
@@ -3357,6 +3361,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   }
 
   if (/*!MetaBrowser &&*/ workersEnabled) {
+    perf.markBoot("worker-create-start");
     const worker = new Worker(new URL(fullPath, window.location.href), {
       type: "module",
     });
@@ -3392,6 +3397,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       send = (e, shared) => worker.postMessage(e, shared);
       window.acSEND = send; // Make the message handler global, used in `speech.mjs` and also useful for debugging.
       worker.onmessage = onMessage;
+      perf.markBoot("worker-connected");
       
       // Notify parent that worker is connected
       const workerConnectTime = performance.now();
@@ -3406,6 +3412,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
 
       // Send the initial message immediately
+      perf.markBoot("first-message-sent");
       send(firstMessage);
       consumeDiskSends(send);
     }
@@ -3835,6 +3842,27 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (window.parent) {
         window.parent.postMessage({ type: "boot-log", message: content }, "*");
       }
+      return;
+    }
+
+    // 📊 Receive disk worker timing data
+    if (type === "disk-timings") {
+      console.log("⏱️ [BIOS] Received disk worker timings:", content);
+      window.acDiskTimings = content;
+      // Print formatted report
+      console.log("📊 ═══════════════════════════════════════════════════════");
+      console.log("📊 DISK WORKER TIMING BREAKDOWN");
+      console.log("📊 ═══════════════════════════════════════════════════════");
+      if (content.sessionStarted) console.log(`📊   sessionStarted: +${content.sessionStarted}ms`);
+      if (content.preambleComplete) console.log(`📊   preambleComplete (9 frames): +${content.preambleComplete}ms`);
+      if (content.loadStarted) console.log(`📊   load() started: +${content.loadStarted}ms`);
+      if (content.fetchComplete) console.log(`📊   fetch complete: +${content.fetchComplete}ms`);
+      if (content.compileComplete) console.log(`📊   compile/import complete: +${content.compileComplete}ms`);
+      if (content.bootStarted) console.log(`📊   boot() started: +${content.bootStarted}ms`);
+      if (content.bootComplete) console.log(`📊   boot() complete: +${content.bootComplete}ms`);
+      if (content.firstPaint) console.log(`📊   first paint: +${content.firstPaint}ms`);
+      if (content.firstRenderSent) console.log(`📊   first render sent: +${content.firstRenderSent}ms`);
+      console.log("📊 ═══════════════════════════════════════════════════════");
       return;
     }
 
@@ -14731,6 +14759,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (type === "disk-loaded-and-booted") {
+      perf.markBoot("disk-loaded-and-booted");
+      
       // Skip preload marker on default init piece, and toggle it if necessary.
       if (currentPiece !== null && !window.waitForPreload)
         window.preloaded = true;
@@ -14753,6 +14783,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         }, "*");
         window.parent.postMessage({ type: "ready" }, "*");
       }
+      
+      // Print perf report
+      perf.printReport();
       
       consumeDiskSends(send);
       return;
@@ -14791,6 +14824,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // 🌟 Update & Render (Compositing)
     if (!(type === "render" || type === "update")) return;
     if (!content) return;
+
+    // Mark first render message from worker
+    if (!window._firstRenderReceived) {
+      window._firstRenderReceived = true;
+      perf.markBoot("first-render-from-worker");
+    }
 
     if (content.TwoD) {
       TwoD?.pack(content.TwoD);

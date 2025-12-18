@@ -15,13 +15,17 @@ const MAX_BOOT_LINES = 12; // Maximum lines to show
 let lastBootMessage = ""; // Track last message to prevent duplicates
 
 // Helper to send boot progress messages to parent and update the UI overlay
+// Store timing data globally for debugging
+window._bootTimings = window._bootTimings || [];
+
 function bootLog(message) {
   // Prevent duplicate messages
   if (message === lastBootMessage) return;
   lastBootMessage = message;
   
   const elapsed = Math.round(performance.now() - bootStartTime);
-  // console.log(`🚀 ${message} (${elapsed}ms)`);
+  console.log(`🚀 [BOOT] ${message} (+${elapsed}ms)`);
+  window._bootTimings.push({ message, elapsed });
   
   // Update the boot log overlay in the DOM - prepend new line (newest on top)
   if (bootLogLinesEl) {
@@ -698,6 +702,7 @@ if (!sandboxed) {
         useRefreshTokens: true,
         authorizationParams: { redirect_uri: window.location.origin },
       });
+      bootLog(`auth0 client created (${Math.round(performance.now() - before)}ms)`);
 
       window.auth0Client = auth0Client;
 
@@ -744,8 +749,11 @@ if (!sandboxed) {
       let pickedUpSession;
 
       let isAuthenticated;
-      if (!encodedSession)
+      if (!encodedSession) {
+        const isAuthStart = performance.now();
         isAuthenticated = await auth0Client.isAuthenticated();
+        bootLog(`auth0 isAuthenticated check (${Math.round(performance.now() - isAuthStart)}ms): ${isAuthenticated}`);
+      }
 
       if (encodedSession) {
         const sessionJsonString = atob(decodeURIComponent(encodedSession));
@@ -873,7 +881,9 @@ if (!sandboxed) {
           // const options = localStorage.getItem("aesthetic:refresh-user")
           // ? { cacheMode: "off" }
           // : undefined;
+          const tokenStart = performance.now();
           await auth0Client.getTokenSilently();
+          bootLog(`auth0 getTokenSilently (${Math.round(performance.now() - tokenStart)}ms)`);
           // if (options) localStorage.removeItem("aesthetic:refresh-user");
 
           // console.log("🗝️ Got fresh auth token.");
@@ -891,11 +901,15 @@ if (!sandboxed) {
 
       if (isAuthenticated && !pickedUpSession) {
         // TODO: How long does this await actually take? 23.07.11.18.55
+        const getUserStart = performance.now();
         let userProfile = await auth0Client.getUser();
+        bootLog(`auth0 getUser (${Math.round(performance.now() - getUserStart)}ms)`);
+        const userExistsStart = performance.now();
         const userExists = await fetch(
           `/user?from=${encodeURIComponent(userProfile.email)}&tenant=aesthetic`,
         );
         const u = await userExists.json();
+        bootLog(`userExists fetch (${Math.round(performance.now() - userExistsStart)}ms)`);
         if (!u.sub || !userProfile.email_verified) {
           try {
             await window.auth0Client.getTokenSilently({ cacheMode: "off" });

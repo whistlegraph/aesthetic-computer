@@ -446,12 +446,11 @@ async function fetchTezosBalance(address, network = "ghostnet") {
 }
 
 // Resolve .tez domain for an address using TzKT API (more reliable)
-async function fetchTezosDomain(address, network = "ghostnet") {
+// NOTE: Always use mainnet API since .tez domains are only registered on mainnet
+async function fetchTezosDomain(address, _network = "ghostnet") {
   try {
-    // Use TzKT API - works for both mainnet and ghostnet
-    const apiBase = network === "mainnet"
-      ? "https://api.tzkt.io"
-      : "https://api.ghostnet.tzkt.io";
+    // Always use mainnet TzKT API - .tez domains only exist on mainnet
+    const apiBase = "https://api.tzkt.io";
     
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000); // 5s timeout
@@ -5459,6 +5458,39 @@ function paint($) {
       );
       
       $.needsPaint();
+    }
+    
+    // ☃️ Winter vibes snowman stamp in bottom-left corner
+    // Check if we're in December, January, or February for winter vibes
+    const month = new Date().getMonth(); // 0-indexed: 0=Jan, 11=Dec
+    const isWinter = month === 11 || month === 0 || month === 1; // Dec, Jan, Feb
+    if (isWinter && screen.height >= 120) {
+      const snowmanY = screen.height - 20; // 20px from bottom
+      const snowmanX = 6; // 6px from left edge
+      
+      // Gentle bobbing animation
+      const bobOffset = Math.sin(motdFrame * 0.03) * 1.5;
+      
+      // Draw snowman using unifont (☃ = U+2603)
+      // Cycle through cool winter colors
+      const winterColors = [
+        [200, 230, 255], // Ice blue
+        [255, 255, 255], // White
+        [180, 220, 255], // Light blue
+        [220, 240, 255], // Pale blue
+      ];
+      const colorIndex = Math.floor(motdFrame * 0.02) % winterColors.length;
+      const snowmanColor = winterColors[colorIndex];
+      const snowmanAlpha = 180 + Math.sin(motdFrame * 0.05) * 40; // 140-220 pulsing
+      
+      ink(...snowmanColor, snowmanAlpha).write(
+        "☃",
+        { x: snowmanX, y: Math.floor(snowmanY + bobOffset) },
+        undefined,
+        undefined,
+        false,
+        "unifont"
+      );
     }
   }
 

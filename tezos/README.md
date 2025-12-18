@@ -1,7 +1,7 @@
 # 🔮 Tezos Wallet Rolodex
 
 > Aesthetic Computer wallet credentials & contract registry.
-> **Last updated**: December 17, 2025
+> **Last updated**: December 18, 2025
 
 ---
 
@@ -10,7 +10,7 @@
 | Wallet | Address | Domain | Role | Network |
 |--------|---------|--------|------|---------|
 | **aesthetic** | `tz1gkf8EexComFBJvjtT1zdsisdah791KwBE` | aesthetic.tez | Personal identity, **Ghostnet contract admin** | Mainnet + Ghostnet |
-| **kidlisp** | `tz1Lc2DzTjDPyWFj1iuAVGGZWNjK67Wun2dC` | keeps.tez (pending) | Production NFT minting | Mainnet |
+| **kidlisp** | `tz1Lc2DzTjDPyWFj1iuAVGGZWNjK67Wun2dC` | keeps.tez | Production NFT minting | Mainnet |
 | **staging** | `tz1TtAufdTNEP8uqAwswAmZHAZp38QEo8hFo` | — | Mainnet testing | Mainnet |
 
 ---
@@ -64,7 +64,7 @@ node keeps.mjs mint $piece --wallet=aesthetic
 
 ```
 Address:  tz1Lc2DzTjDPyWFj1iuAVGGZWNjK67Wun2dC
-Domain:   keeps.tez (to be registered)
+Domain:   keeps.tez
 Keys in:  kidlisp/.env (KIDLISP_ADDRESS, KIDLISP_KEY)
 ```
 
