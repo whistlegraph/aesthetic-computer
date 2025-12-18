@@ -1298,7 +1298,10 @@ async function fetchLiveShopData() {
   }
   
   try {
+    const startTime = performance.now();
     const res = await fetch('/.netlify/functions/shop');
+    const duration = performance.now() - startTime;
+    
     if (!res.ok) throw new Error(`Shop API error: ${res.status}`);
     liveShopData = await res.json();
     liveShopLastFetch = now;
@@ -1416,8 +1419,8 @@ async function ensureProductLoaded(key, api, triggerRepaint = false) {
   try {
     await product.load(api.net, api);
     product.isLoading = false;
-    const elapsed = (performance.now() - startTime).toFixed(0);
-    console.log(`📦 Lazy loaded: ${product.title} (${elapsed}ms)`);
+    const elapsed = performance.now() - startTime;
+    console.log(`📦 Lazy loaded: ${product.title} (${elapsed.toFixed(0)}ms)`);
     
     if (triggerRepaint && api.needsPaint) {
       api.needsPaint();

@@ -4,6 +4,20 @@
 /* #region 🏁 todo
 #endregion */
 
+// 📊 Worker timing telemetry - stores timing data to be sent to main thread
+const diskTimings = {
+  sessionStarted: null,
+  preambleComplete: null,
+  loadStarted: null,
+  fetchComplete: null,
+  compileComplete: null,
+  bootStarted: null,
+  bootComplete: null,
+  firstPaint: null,
+  firstRenderSent: null,
+};
+const diskTimingStart = performance.now();
+
 import * as quat from "../dep/gl-matrix/quat.mjs";
 import * as mat3 from "../dep/gl-matrix/mat3.mjs";
 import * as mat4 from "../dep/gl-matrix/mat4.mjs";
@@ -6111,7 +6125,8 @@ async function load(
   forceKidlisp = false, // Force interpretation as kidlisp even without prefix
 ) {
   const loadFunctionStartTime = performance.now();
-  // console.log(`⏰ load() function started at ${loadFunctionStartTime}ms`);
+  diskTimings.loadStarted = Math.round(loadFunctionStartTime - diskTimingStart);
+  console.log(`⏱️ [DISK] load() started at +${diskTimings.loadStarted}ms`);
   
   let fullUrl, source;
   let params,
@@ -6371,7 +6386,11 @@ async function load(
           content: `fetching: ${path}`
         });
         
-        response = await fetch(fullUrl);        if (response.status === 404 || response.status === 403) {
+        response = await fetch(fullUrl);
+        const fetchEndTime = performance.now();
+        diskTimings.fetchComplete = Math.round(fetchEndTime - diskTimingStart);
+        console.log(`⏱️ [DISK] fetch completed in ${Math.round(fetchEndTime - fetchStartTime)}ms for ${path}`);
+        if (response.status === 404 || response.status === 403) {
           const extension = path.endsWith('.lisp') ? '.lisp' : '.mjs';
           // Handle sandboxed environments for anon URL construction
           const { protocol } = getSafeUrlParts();
@@ -6457,6 +6476,8 @@ async function load(
         
         const compileEndTime = performance.now();
         const compileElapsed = Math.round(compileEndTime - compileStartTime);
+        diskTimings.compileComplete = Math.round(compileEndTime - diskTimingStart);
+        console.log(`⏱️ [DISK] KidLisp compiled in ${compileElapsed}ms`);
         log.lisp.success(`KidLisp module loaded (${compileElapsed}ms)`);
         
         // Notify boot progress
@@ -6512,6 +6533,8 @@ async function load(
         
         const importEndTime = performance.now();
         const importElapsed = Math.round(importEndTime - importStartTime);
+        diskTimings.compileComplete = Math.round(importEndTime - diskTimingStart);
+        console.log(`⏱️ [DISK] JS module imported in ${importElapsed}ms`);
         if (logs.loading) console.log(`✅ Module imported (${importElapsed}ms)`);
         send({
           type: "boot-log",
@@ -8358,6 +8381,8 @@ async function makeFrame({ data: { type, content } }) {
       }
     }
     sessionStarted = true;
+    diskTimings.sessionStarted = Math.round(performance.now() - diskTimingStart);
+    console.log(`⏱️ [DISK] sessionStarted at +${diskTimings.sessionStarted}ms`);
     return;
   }
 
@@ -11069,7 +11094,8 @@ async function makeFrame({ data: { type, content } }) {
 
         try {
           const bootStartTime = performance.now();
-          // console.log("⏰ About to call boot() at", bootStartTime);
+          diskTimings.bootStarted = Math.round(bootStartTime - diskTimingStart);
+          console.log(`⏱️ [DISK] boot() starting at +${diskTimings.bootStarted}ms`);
           
           // Reset zebra cache at the beginning of boot to ensure consistent state
           $api.num.resetZebraCache();
@@ -11084,7 +11110,8 @@ async function makeFrame({ data: { type, content } }) {
           if (system === "nopaint") nopaint_boot({ ...$api, params: $api.params, colon: $api.colon });
           await boot($api);
           const bootEndTime = performance.now();
-          // console.log(`⏰ boot() completed in ${Math.round(bootStartTime - bootEndTime)}ms`);
+          diskTimings.bootComplete = Math.round(bootEndTime - diskTimingStart);
+          console.log(`⏱️ [DISK] boot() completed in ${Math.round(bootEndTime - bootStartTime)}ms`);
           booted = true;
           log.boot.success("Boot completed, booted =", booted, "pending events:", pendingExportEvents.length);
           
@@ -11267,6 +11294,12 @@ async function makeFrame({ data: { type, content } }) {
             paintOut = paint($api); // Returns `undefined`, `false`, or `DirtyBox`.
             // Increment piece frame counter only when we actually paint
             pieceFrameCount++;
+            
+            // Log first piece paint
+            if (pieceFrameCount === 1) {
+              diskTimings.firstPaint = Math.round(performance.now() - diskTimingStart);
+              console.log(`⏱️ [DISK] first piece paint at +${diskTimings.firstPaint}ms`);
+            }
             
             // TODO: Remove old embedded layer rendering - using simplified approach now
             // globalThis.renderKidlispProgrammaticLayers();
@@ -13249,6 +13282,16 @@ async function makeFrame({ data: { type, content } }) {
 
       sendData.sound = sound;
 
+      // Log first render sent back to main thread
+      if (!globalThis._firstRenderSent) {
+        globalThis._firstRenderSent = true;
+        diskTimings.firstRenderSent = Math.round(performance.now() - diskTimingStart);
+        console.log(`⏱️ [DISK] first render sent to main at +${diskTimings.firstRenderSent}ms`);
+        
+        // Send timing data to main thread
+        send({ type: "disk-timings", content: diskTimings });
+      }
+
       send({ type: "render", content: sendData }, transferredObjects);
 
       sound.sounds.length = 0; // Empty the sound command buffer.
@@ -13306,8 +13349,9 @@ async function makeFrame({ data: { type, content } }) {
       (sessionStarted || PREVIEW_OR_ICON || $commonApi.net.sandboxed)
     ) {
       if (paintCount === 9n) {
-        const preambleCompleteTime = performance.now();
-        // console.log(`⏰ Preamble complete (9 frames painted) at ${preambleCompleteTime}ms`);
+        const preambleTime = Math.round(performance.now() - diskTimingStart);
+        diskTimings.preambleComplete = preambleTime;
+        console.log(`⏱️ [DISK] preamble complete (9 frames) at +${preambleTime}ms`);
       }
       if (typeof window !== 'undefined' && window.acSPIDER) {
         console.log("🕷️ SPIDER: Calling loadAfterPreamble now!");
