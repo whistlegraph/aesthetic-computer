@@ -577,6 +577,33 @@
 
 (add-hook 'kill-emacs-hook #'kill-eat-processes)
 
+(defun ac-restart-fishy ()
+  "Restart fish process in the fishy buffer if it died."
+  (interactive)
+  (if-let ((buf (get-buffer "🐟-fishy")))
+      (with-current-buffer buf
+        (if (get-buffer-process buf)
+            (message "Fish already running in 🐟-fishy")
+          (eat-exec buf "fishy" "/usr/bin/fish" nil nil)
+          (message "Fish restarted in 🐟-fishy")))
+    (message "No 🐟-fishy buffer found")))
+
+(defun ac--fishy-sentinel (process event)
+  "Auto-restart fishy when process exits."
+  (when (and (string-match-p "\\(finished\\|exited\\|killed\\)" event)
+             (buffer-live-p (process-buffer process))
+             (string= (buffer-name (process-buffer process)) "🐟-fishy"))
+    (run-with-timer 0.1 nil #'ac-restart-fishy)))
+
+;; Hook into eat to watch fishy process
+(add-hook 'eat-mode-hook
+          (lambda ()
+            (when (string= (buffer-name) "🐟-fishy")
+              (run-with-timer 0.5 nil
+                (lambda ()
+                  (when-let ((proc (get-buffer-process "🐟-fishy")))
+                    (set-process-sentinel proc #'ac--fishy-sentinel)))))))
+
 ;;; --- Aesthetic Computer Restart Functions ---
 
 (defvar ac--tab-names '("artery" "status" "stripe" "chat" "web 1/2" "web 2/2" "tests")

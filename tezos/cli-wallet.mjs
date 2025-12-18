@@ -268,11 +268,12 @@ export function getTezos() {
 
 /**
  * Fetch .tez domain for an address (reverse lookup)
+ * NOTE: Always uses mainnet API since .tez domains only exist on mainnet
  */
-export async function fetchDomain(address, network = "ghostnet") {
+export async function fetchDomain(address, _network = "ghostnet") {
   try {
-    const tzkt = NETWORKS[network].tzkt;
-    const res = await fetch(`${tzkt}/v1/domains?address=${address}&reverse=true&select=name`);
+    // Always use mainnet TzKT - .tez domains only exist on mainnet
+    const res = await fetch(`https://api.tzkt.io/v1/domains?address=${address}&reverse=true&select=name`);
     if (res.ok) {
       const data = await res.json();
       if (data && data.length > 0) {
@@ -287,18 +288,19 @@ export async function fetchDomain(address, network = "ghostnet") {
 
 /**
  * Resolve .tez domain to address
+ * NOTE: Always uses mainnet API since .tez domains only exist on mainnet
  */
-export async function resolveDomain(domain, network = "ghostnet") {
+export async function resolveDomain(domain, _network = "ghostnet") {
   try {
     // Normalize domain - add .tez if not present
     const normalizedDomain = domain.endsWith('.tez') ? domain : `${domain}.tez`;
     
-    const tzkt = NETWORKS[network].tzkt;
-    const res = await fetch(`${tzkt}/v1/domains?name=${normalizedDomain}&select=address`);
+    // Always use mainnet TzKT - .tez domains only exist on mainnet
+    const res = await fetch(`https://api.tzkt.io/v1/domains?name=${normalizedDomain}&select=address`);
     if (res.ok) {
       const data = await res.json();
-      if (data && data.length > 0) {
-        return data[0];
+      if (data && data.length > 0 && data[0].address) {
+        return data[0].address; // Return just the address string
       }
     }
   } catch (err) {
