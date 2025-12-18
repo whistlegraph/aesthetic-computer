@@ -23,6 +23,16 @@ keep $ceo → Preview bundle → Connect wallet → Upload to IPFS → Mint NFT
 - Client UX uses the dedicated `keep` piece rather than doing mint logic inside `prompt`.
 - IPFS media caching exists: `kidlisp.ipfsMedia` can be reused when source is unchanged; request can force refresh with `regenerate: true`.
 
+**Recent Progress (Dec 18, 2025):**
+- ✅ kidlisp.com integration: Keeps tab UI with wallet connection (Temple/Kukai)
+- ✅ Beacon SDK v4.0.12 integrated (avoided v4.6.3 IndexedDB issues)
+- ✅ Temple wallet direct connection via postMessage API
+- ✅ AC login integration for keeps tab (separate from Tezos wallet)
+- ✅ MongoDB Tezos address storage and domain resolution
+- ✅ Client-side wallet state management with piece transitions
+- ⚠️ Temple wallet doesn't support message signing via postMessage
+- 📋 Next: Deploy contract to Ghostnet and test full mint flow
+
 ### Phase A — Ghostnet hardening
 - Success criteria: 20+ keeps across a spread of pieces; no stuck SSE sessions; no obvious duplicate Pinata spam for repeated prepares.
 - Verify:
@@ -581,11 +591,19 @@ KEEPS_CONTRACT_MAINNET=KT1...   # Future
 - Error line/column display with Monaco decorations
 - Fixed Auth0 SDK loading (AMD/Monaco conflict)
 
-**Next priority**: Return to Phase 1 - Deploy contract to Ghostnet
+**Next priority**: Deploy contract to Ghostnet and complete mint flow
 ```bash
 cd /workspaces/aesthetic-computer/tezos
 python3 deploy-to-ghostnet.py
 ```
+
+**Recent work completed (Dec 18, 2025)**:
+- KidLisp screenshot system with console display
+- Auto-play for URL-loaded codes  
+- Screenshot filenames: `$code-@handle-timestamp.png` format
+- Fixed codeId priority (prefer passed over cached)
+- Debug logging for code caching pipeline
+- Wallet integration in kidlisp.com Keeps tab
 
 ---
 
