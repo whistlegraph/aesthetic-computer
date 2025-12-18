@@ -24,6 +24,7 @@ keep $ceo → Preview bundle → Connect wallet → Upload to IPFS → Mint NFT
 - IPFS media caching exists: `kidlisp.ipfsMedia` can be reused when source is unchanged; request can force refresh with `regenerate: true`.
 
 **Recent Progress (Dec 18, 2025):**
+- ✅ Contract deployed to Ghostnet (KT1... address obtained)
 - ✅ kidlisp.com integration: Keeps tab UI with wallet connection (Temple/Kukai)
 - ✅ Beacon SDK v4.0.12 integrated (avoided v4.6.3 IndexedDB issues)
 - ✅ Temple wallet direct connection via postMessage API
@@ -31,15 +32,28 @@ keep $ceo → Preview bundle → Connect wallet → Upload to IPFS → Mint NFT
 - ✅ MongoDB Tezos address storage and domain resolution
 - ✅ Client-side wallet state management with piece transitions
 - ⚠️ Temple wallet doesn't support message signing via postMessage
-- 📋 Next: Deploy contract to Ghostnet and test full mint flow
+- 🔄 **CURRENT**: Testing keep flow in prompt.mjs/keep.mjs pieces
+- 📋 **NEXT**: Harden Ghostnet implementation before mainnet deploy
 
-### Phase A — Ghostnet hardening
+### Phase A — Ghostnet hardening (IN PROGRESS)
+- **Status**: Contract deployed to Ghostnet ✅
+- **Current focus**: Testing and hardening the keep flow in AC pieces
+  - `prompt.mjs` - keep command integration
+  - `keep.mjs` - dedicated keep piece UI/flow
+  - End-to-end SSE flow validation
+  - IPFS media caching behavior
 - Success criteria: 20+ keeps across a spread of pieces; no stuck SSE sessions; no obvious duplicate Pinata spam for repeated prepares.
 - Verify:
   - Wallet connect + keep flow end-to-end
-  - SSE progress staging (“validate/analyze/thumbnail/bundle/ipfs/metadata/ready/sign/complete”)
+  - SSE progress staging ("validate/analyze/thumbnail/bundle/ipfs/metadata/ready/sign/complete")
   - Cached IPFS media reuse works (prepare twice; second run should skip uploads)
   - `regenerate` forces new media
+- **Next steps**:
+  1. Test `keep $code` command in prompt.mjs
+  2. Verify keep.mjs piece flow with wallet connection
+  3. Validate SSE endpoint stages and error handling
+  4. Confirm IPFS caching behavior (reuse vs regenerate)
+  5. Achieve 20+ successful test mints on Ghostnet
 
 ### Phase B — Mainnet staging (real XTZ)
 - Use the `staging` wallet (mainnet) to deploy and test with a small set of keeps.
@@ -591,11 +605,31 @@ KEEPS_CONTRACT_MAINNET=KT1...   # Future
 - Error line/column display with Monaco decorations
 - Fixed Auth0 SDK loading (AMD/Monaco conflict)
 
-**Next priority**: Deploy contract to Ghostnet and complete mint flow
+**Next priority**: Test and harden keep flow on Ghostnet
 ```bash
-cd /workspaces/aesthetic-computer/tezos
-python3 deploy-to-ghostnet.py
+# Test keep command in aesthetic.computer
+# Navigate to https://aesthetic.computer/prompt
+keep $code
+
+# Or use dedicated keep piece
+# Navigate to https://aesthetic.computer/keep
+
+# Monitor SSE stages and IPFS uploads
+# Verify wallet connection and minting
+# Test IPFS media caching (run prepare twice)
 ```
+
+**Testing checklist:**
+- [ ] `keep $code` command works in prompt.mjs
+- [ ] keep.mjs piece loads and displays properly
+- [ ] Wallet connection successful (Temple/Kukai)
+- [ ] SSE progress stages complete without hanging
+- [ ] IPFS uploads successful (thumbnail + bundle)
+- [ ] Media caching reuses existing IPFS on second prepare
+- [ ] `regenerate: true` forces new IPFS uploads
+- [ ] Minting succeeds and returns tzkt/objkt links
+- [ ] 20+ successful mints across different pieces
+- [ ] No duplicate IPFS spam from repeated prepares
 
 **Recent work completed (Dec 18, 2025)**:
 - KidLisp screenshot system with console display
