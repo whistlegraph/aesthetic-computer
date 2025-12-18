@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import WebSocket from 'ws';
 import http from 'http';
+import CDP from './cdp.mjs';
 
 // Colors
 const RESET = '\x1b[0m';
@@ -424,9 +425,32 @@ class Artery {
 
   async activateAudio() {
     brightLog('🩸 Activating audio context...');
+    
     // Click the canvas to activate audio
     await this.click(100, 100);
-    await new Promise(r => setTimeout(r, 300));
+    
+    // Wait for audio context to actually be running
+    const maxAttempts = 20; // 4 seconds max
+    for (let i = 0; i < maxAttempts; i++) {
+      const state = await this.eval('window.sound?.bios?.audioContext?.state || "unknown"');
+      
+      if (state === 'running') {
+        brightLog('🩸 Audio context is running');
+        return;
+      }
+      
+      if (i % 5 === 0 && i > 0) {
+        darkLog(`🩸 Waiting for audio... (state: ${state})`);
+      }
+      
+      await new Promise(r => setTimeout(r, 200));
+    }
+    
+    // Final check
+    const finalState = await this.eval('window.sound?.bios?.audioContext?.state || "unknown"');
+    if (finalState !== 'running') {
+      darkLog(`⚠️  Audio context not running (state: ${finalState})`);
+    }
   }
 
   async type(text) {
@@ -1651,4 +1675,6 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   main();
 }
 
+// Export both Artery class and CDP module for convenience
 export default Artery;
+export { CDP };
