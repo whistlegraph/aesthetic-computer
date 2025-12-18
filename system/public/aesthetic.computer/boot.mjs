@@ -984,10 +984,8 @@ function receive(event) {
     if (code) {
       // Track the kidlisp code for console snapshots
       window.__acCurrentKidlispCode = code;
-      // If we have a codeId, store in cacheRegistry so getCachedCode can find it
-      if (codeId) {
-        window.__acCurrentKidlispCodeId = codeId;
-      }
+      // Always clear and then set codeId to prevent stale values from previous runs
+      window.__acCurrentKidlispCodeId = codeId || null;
       // Reset snap timer so first snap happens ~5s after new code loads
       // (set to now, so the 5s countdown starts fresh)
       window._lastKidlispSnapTime = performance.now();
