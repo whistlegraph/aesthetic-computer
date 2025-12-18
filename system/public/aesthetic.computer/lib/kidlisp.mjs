@@ -2981,6 +2981,16 @@ class KidLisp {
       for (const endpoint of endpoints) {
         const attemptLabel = endpoint.includes('aesthetic.computer') ? 'production' : 'local';
         log.store.debug(`store-kidlisp attempt (${attemptLabel}):`, endpoint);
+        
+        // Debug: Log what source is being cached (especially for createCode requests)
+        if (api.kidlispCreateCode) {
+          console.log('💾 Caching NEW code:', {
+            sourceLength: source.length,
+            sourcePreview: source.substring(0, 100),
+            endpoint: endpoint
+          });
+        }
+        
         try {
           const attempt = await fetch(endpoint, {
             method: 'POST',
@@ -3335,6 +3345,15 @@ class KidLisp {
         if (!this.isEmbeddedContext &&
           this.frameCount >= cacheDelayFrames && !this.cachedCode && !this.cacheInitiated) {
           this.cacheInitiated = true; // Only kick off caching once per module load
+          
+          // Debug: Log that we're about to cache this source
+          if ($.kidlispCreateCode) {
+            console.log('🎨 paint() triggering cache for NEW code:', {
+              sourceLength: source.length,
+              sourcePreview: source.substring(0, 100)
+            });
+          }
+          
           this.cacheKidlispSource(source, $);
         }
 

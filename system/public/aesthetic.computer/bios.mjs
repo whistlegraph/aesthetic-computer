@@ -15918,27 +15918,25 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           
             // Get the source code and look up its cached $code identifier
             const embeddedSource = window.__acCurrentKidlispCode || null;
-            // Try getCachedCode first, then fall back to codeId passed from kidlisp.com
+            // Prefer codeId passed from kidlisp.com, then fall back to getCachedCode lookup
+            // This ensures the correct $code is used when loading from URL
+            const passedCodeId = window.__acCurrentKidlispCodeId || null;
             const cachedCodeId = embeddedSource ? getCachedCode(embeddedSource) : null;
-            const codeId = cachedCodeId || window.__acCurrentKidlispCodeId || null;
+            const codeId = passedCodeId || cachedCodeId || null;
             // Get user handle if available (e.g., "jeffrey")
             const userHandle = window.acHANDLE ? `@${window.acHANDLE}` : null;
             
             // Build the piece label: $code if available, otherwise fall back to piece path
             const pieceLabel = codeId ? `$${codeId}` : (currentPiece?.split('/')?.pop() || 'piece');
             
-            // Build filename like: $code-@user-MM-DD-HH-AMPM.png
-            // Example: $nece-@me@jas.life-12-17-02-PM.png
-            const d = new Date();
-            const month = String(d.getMonth() + 1).padStart(2, '0');
-            const day = String(d.getDate()).padStart(2, '0');
-            const hour12 = d.getHours() % 12 || 12;
-            const ampm = d.getHours() >= 12 ? 'PM' : 'AM';
-            const timeStr = `${month}-${day}-${String(hour12).padStart(2, '0')}-${ampm}`;
+            // Build filename like: $code-@handle-timestamp.png
+            // Example: $nece-@jeffrey-2025.12.17.15.30.45.123.png
+            // Using the standard timestamp() format from num.mjs
+            const fileTs = timestamp();
             
             const filenameParts = [pieceLabel];
             if (userHandle) filenameParts.push(userHandle);
-            filenameParts.push(timeStr);
+            filenameParts.push(fileTs);
             const filename = filenameParts.join('-') + '.png';
             
             const suppressSnapConsoleLogs = window.KIDLISP_SUPPRESS_SNAPSHOT_LOGS === true;

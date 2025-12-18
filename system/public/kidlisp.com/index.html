@@ -7921,6 +7921,16 @@
       clearErrorDecorations();
       
       const code = editor.getValue().trim();
+      
+      // Debug: Always log what code is being sent, especially when creating new codes
+      if (shouldCreateCode) {
+        console.log('🚀 Creating NEW code - sending to iframe:', {
+          codeLength: code.length,
+          codePreview: code.substring(0, 100),
+          createCode: shouldCreateCode
+        });
+      }
+      
       log.playback.verbose(`Sending code (${code.length} chars)`);
       if (code) {
         // Get the current code identifier if we have one
