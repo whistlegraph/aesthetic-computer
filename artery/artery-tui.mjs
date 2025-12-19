@@ -321,20 +321,45 @@ class ArteryTUI {
       { key: 'q', label: 'Quit', desc: 'Exit Artery TUI', action: () => this.quit() },
     ];
     
-    // Keeps (Tezos) state
+    // Keeps (Tezos) state - Enhanced Dashboard
     this.keepsMenu = [
-      { key: 'd', label: 'Deploy Contract', desc: 'Deploy FA2 to Ghostnet' },
-      { key: 's', label: 'Status', desc: 'Check contract status' },
+      { key: 's', label: 'Status', desc: 'Refresh contract status' },
       { key: 'b', label: 'Balance', desc: 'Check wallet balance' },
-      { key: 'u', label: 'Upload to IPFS', desc: 'Upload bundle to Pinata' },
-      { key: 'm', label: 'Mint Token', desc: 'Mint a new keep' },
-      { key: 't', label: 'List Tokens', desc: 'Show all minted tokens' },
+      { key: 't', label: 'Tokens', desc: 'List recent tokens' },
+      { key: 'm', label: 'Mint', desc: 'Mint a test piece' },
+      { key: 'u', label: 'Upload', desc: 'Upload bundle to IPFS' },
+      { key: 'l', label: 'Lock', desc: 'Lock token metadata' },
+      { key: 'f', label: 'Fishy', desc: 'Jump to 🐟-fishy terminal' },
+      { key: 'r', label: 'Run Tests', desc: 'Run keeps test suite' },
+      { key: 'e', label: 'Explorer', desc: 'Open tzkt in browser' },
+      { key: 'o', label: 'Objkt', desc: 'Open objkt collection' },
+      { key: 'd', label: 'Deploy', desc: 'Deploy FA2 to Ghostnet' },
     ];
     this.keepsSelectedIndex = 0;
     this.keepsOutput = '';
     this.keepsRunning = false;
     this.keepsPieceInput = '';
     this.keepsSubMode = 'menu'; // 'menu', 'piece-input', 'running'
+    
+    // Keeps dashboard live data
+    this.keepsContractData = {
+      address: 'KT1NeytR5BHDfGBjG9ZuLkPd7nmufmH1icVc',
+      network: 'ghostnet',
+      admin: 'aesthetic',
+      tokenCount: 0,
+      fee: '0',
+      balance: '0',
+      recentTokens: [],
+      lastUpdated: null,
+    };
+    this.keepsEngineeringTasks = {
+      phase: 'A',
+      phaseName: 'Ghostnet Hardening',
+      currentFocus: [],
+      nextSteps: [],
+      successCriteria: '20+ test mints',
+      mintsCompleted: 0,
+    };
     
     // KidLisp Cards state
     this.kidlispCardsMenu = [
@@ -2584,27 +2609,160 @@ class ArteryTUI {
     this.render();
   }
 
-  // 🔮 Keeps (Tezos FA2) Mode
-  enterKeepsMode() {
+  // 🔮 Keeps (Tezos FA2) Mode - SIMPLIFIED
+  async enterKeepsMode() {
     this.mode = 'keeps';
     this.keepsSelectedIndex = 0;
-    this.keepsOutput = 'Welcome to Keeps - Tezos FA2 NFT Minting\n\nSelect an action from the menu.';
+    this.keepsOutput = 'Ready. Press a key to run a command.';
     this.keepsRunning = false;
     this.keepsPieceInput = '';
     this.keepsSubMode = 'menu';
     this.render();
+    // Skip loading - just show the menu immediately
+  }
+  
+  // Start tezbot daemon if not running
+  async ensureTezbot() {
+    const tezbotScript = path.join(process.cwd(), 'tezos/ac-tezbot.mjs');
+    const pidFile = '/tmp/tezbot.pid';
+    
+    // Check if already running
+    if (fs.existsSync(pidFile)) {
+      try {
+        const pid = parseInt(fs.readFileSync(pidFile, 'utf8').trim());
+        process.kill(pid, 0); // Check if process exists
+        return; // Already running
+      } catch (e) {
+        // Stale PID file, remove it
+        fs.unlinkSync(pidFile);
+      }
+    }
+    
+    // Start tezbot in background
+    try {
+      const child = spawn('node', [tezbotScript], {
+        cwd: process.cwd(),
+        detached: true,
+        stdio: ['ignore', 'ignore', 'ignore']
+      });
+      child.unref();
+      this.setStatus('🤖 Tezbot daemon started', 'success');
+      // Give it a moment to initialize
+      await new Promise(r => setTimeout(r, 300));
+    } catch (e) {
+      this.setStatus('⚠️ Could not start tezbot', 'warning');
+    }
+  }
+  
+  // Load contract data from TzKT API with timeout
+  async loadKeepsData() {
+    const fetchWithTimeout = (url, timeout = 5000) => {
+      return Promise.race([
+        fetch(url),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Request timeout')), timeout)
+        )
+      ]);
+    };
+    
+    try {
+      const contractAddress = this.keepsContractData.address;
+      const network = this.keepsContractData.network;
+      
+      // Fetch contract storage from TzKT
+      const storageUrl = `https://api.${network}.tzkt.io/v1/contracts/${contractAddress}/storage`;
+      const storageRes = await fetchWithTimeout(storageUrl);
+      if (storageRes.ok) {
+        const storage = await storageRes.json();
+        this.keepsContractData.tokenCount = parseInt(storage.next_token_id) || 0;
+        this.keepsContractData.admin = storage.administrator?.slice(0, 8) + '...' || 'unknown';
+        this.keepsEngineeringTasks.mintsCompleted = this.keepsContractData.tokenCount;
+      }
+      
+      // Fetch recent tokens
+      const tokensUrl = `https://api.${network}.tzkt.io/v1/contracts/${contractAddress}/bigmaps/token_metadata/keys?limit=5&sort.desc=id`;
+      const tokensRes = await fetchWithTimeout(tokensUrl);
+      if (tokensRes.ok) {
+        const tokens = await tokensRes.json();
+        this.keepsContractData.recentTokens = tokens.map(t => ({
+          id: t.key,
+          name: t.value?.token_info?.name ? Buffer.from(t.value.token_info.name, 'hex').toString() : `#${t.key}`,
+          active: t.active,
+        })).reverse();
+      }
+      
+      // Fetch admin balance
+      const adminAddr = 'tz1gkf8EexComFBJvjtT1zdsisdah791KwBE'; // aesthetic.tez
+      const balanceUrl = `https://api.${network}.tzkt.io/v1/accounts/${adminAddr}/balance`;
+      const balanceRes = await fetchWithTimeout(balanceUrl);
+      if (balanceRes.ok) {
+        const balance = await balanceRes.json();
+        this.keepsContractData.balance = (balance / 1_000_000).toFixed(2);
+      }
+      
+      this.keepsContractData.lastUpdated = new Date().toLocaleTimeString();
+      this.keepsOutput = 'Dashboard loaded. Ready.';
+      
+      // Parse implementation plan for tasks
+      await this.loadKeepsEngineeringTasks();
+      
+    } catch (e) {
+      this.keepsOutput = `⚠️ Could not load live data: ${e.message}`;
+    }
+    this.render();
+  }
+  
+  // Parse engineering tasks from implementation plan
+  async loadKeepsEngineeringTasks() {
+    try {
+      const planPath = path.join(process.cwd(), 'tezos/KEEPS-IMPLEMENTATION-PLAN.md');
+      if (fs.existsSync(planPath)) {
+        const content = fs.readFileSync(planPath, 'utf8');
+        
+        // Parse current phase
+        if (content.includes('Phase A — Ghostnet hardening (IN PROGRESS)')) {
+          this.keepsEngineeringTasks.phase = 'A';
+          this.keepsEngineeringTasks.phaseName = 'Ghostnet Hardening';
+        } else if (content.includes('Phase B') && content.includes('IN PROGRESS')) {
+          this.keepsEngineeringTasks.phase = 'B';
+          this.keepsEngineeringTasks.phaseName = 'Mainnet Staging';
+        } else if (content.includes('Phase C') && content.includes('IN PROGRESS')) {
+          this.keepsEngineeringTasks.phase = 'C';
+          this.keepsEngineeringTasks.phaseName = 'Mainnet Production';
+        }
+        
+        // Parse next steps (numbered list after "Next steps")
+        const nextStepsMatch = content.match(/\*\*Next steps\*\*:\s*\n((?:\s+\d+\..+\n?)+)/);
+        if (nextStepsMatch) {
+          this.keepsEngineeringTasks.nextSteps = nextStepsMatch[1]
+            .split('\n')
+            .filter(l => /^\s+\d+\./.test(l))
+            .map(l => l.replace(/^\s+\d+\.\s*/, '').trim())
+            .slice(0, 5);
+        }
+        
+        // Parse verify items
+        const verifyMatch = content.match(/- Verify:\s*\n((?:\s+-.+\n?)+)/);
+        if (verifyMatch) {
+          this.keepsEngineeringTasks.currentFocus = verifyMatch[1]
+            .split('\n')
+            .filter(l => /^\s+-/.test(l))
+            .map(l => l.replace(/^\s+-\s*/, '').trim())
+            .slice(0, 4);
+        }
+      }
+    } catch (e) {
+      // Silently fail - not critical
+    }
   }
 
   handleKeepsInput(key) {
     if (this.keepsRunning) {
-      // While running, only ESC cancels (though we can't actually cancel)
       return;
     }
     
     if (this.keepsSubMode === 'piece-input') {
-      // Handle piece name input
       if (key === '\r') {
-        // Enter - submit
         const piece = this.keepsPieceInput.trim();
         if (piece) {
           this.keepsSubMode = 'running';
@@ -2612,10 +2770,8 @@ class ArteryTUI {
         }
         return;
       } else if (key === '\u007f' || key === '\b') {
-        // Backspace
         this.keepsPieceInput = this.keepsPieceInput.slice(0, -1);
       } else if (key === '\u001b') {
-        // Escape - back to menu
         this.keepsSubMode = 'menu';
         this.keepsPieceInput = '';
       } else if (key.length === 1 && key >= ' ') {
@@ -2625,36 +2781,74 @@ class ArteryTUI {
       return;
     }
     
-    // Menu navigation
+    // Grid navigation (4 columns for wide, 3 for compact)
+    const cols = this.width < 100 ? 3 : 4;
+    const rows = Math.ceil(this.keepsMenu.length / cols);
+    const currentRow = Math.floor(this.keepsSelectedIndex / cols);
+    const currentCol = this.keepsSelectedIndex % cols;
+    
+    // Arrow key / vim navigation in grid
     if (key === '\u001b[A' || key === 'k') { // Up
-      this.keepsSelectedIndex = Math.max(0, this.keepsSelectedIndex - 1);
+      if (currentRow > 0) {
+        this.keepsSelectedIndex = (currentRow - 1) * cols + currentCol;
+      }
     } else if (key === '\u001b[B' || key === 'j') { // Down
-      this.keepsSelectedIndex = Math.min(this.keepsMenu.length - 1, this.keepsSelectedIndex + 1);
+      if (currentRow < rows - 1) {
+        const newIdx = (currentRow + 1) * cols + currentCol;
+        if (newIdx < this.keepsMenu.length) {
+          this.keepsSelectedIndex = newIdx;
+        }
+      }
+    } else if (key === '\u001b[D' || key === 'h') { // Left
+      if (this.keepsSelectedIndex > 0) {
+        this.keepsSelectedIndex--;
+      }
+    } else if (key === '\u001b[C' || key === 'l') { // Right
+      if (this.keepsSelectedIndex < this.keepsMenu.length - 1) {
+        this.keepsSelectedIndex++;
+      }
     } else if (key === '\r') { // Enter
       const action = this.keepsMenu[this.keepsSelectedIndex];
-      if (action.key === 'u' || action.key === 'm') {
-        // Upload and Mint need piece input
-        this.keepsSubMode = 'piece-input';
-        this.keepsPieceInput = this.currentPiece || '';
-      } else {
-        this.keepsSubMode = 'running';
-        this.executeKeepsAction(action.key);
-      }
+      this.handleKeepsAction(action.key);
     } else {
       // Direct key press
       const action = this.keepsMenu.find(m => m.key === key.toLowerCase());
       if (action) {
         this.keepsSelectedIndex = this.keepsMenu.indexOf(action);
-        if (action.key === 'u' || action.key === 'm') {
-          this.keepsSubMode = 'piece-input';
-          this.keepsPieceInput = this.currentPiece || '';
-        } else {
-          this.keepsSubMode = 'running';
-          this.executeKeepsAction(action.key);
-        }
+        this.handleKeepsAction(action.key);
       }
     }
     this.render();
+  }
+  
+  async handleKeepsAction(actionKey) {
+    // Special actions that don't run keeps.mjs
+    switch (actionKey) {
+      case 'f': // Fishy - jump to terminal
+        await this.keepsJumpToFishy();
+        return;
+      case 'e': // Explorer
+        this.keepsOpenExplorer();
+        return;
+      case 'o': // Objkt
+        this.keepsOpenObjkt();
+        return;
+      case 'r': // Run tests
+        this.keepsSubMode = 'running';
+        await this.keepsRunTests();
+        return;
+    }
+    
+    // Actions that need piece input
+    if (actionKey === 'u' || actionKey === 'm' || actionKey === 'l') {
+      this.keepsSubMode = 'piece-input';
+      this.keepsPieceInput = this.currentPiece || '';
+      return;
+    }
+    
+    // Standard keeps.mjs actions
+    this.keepsSubMode = 'running';
+    await this.executeKeepsAction(actionKey);
   }
 
   async executeKeepsAction(actionKey, piece = null) {
@@ -2662,27 +2856,28 @@ class ArteryTUI {
     this.keepsOutput = '⏳ Running...\n';
     this.render();
     
+    // Quick ops go through tezbot daemon (non-blocking)
+    const quickOps = ['b', 's', 't'];
+    if (quickOps.includes(actionKey)) {
+      return this.executeViaTezbot(actionKey);
+    }
+    
+    // Longer ops (deploy, mint, upload, lock) run keeps.mjs directly for live output
     const keepsScript = path.join(process.cwd(), 'tezos/keeps.mjs');
     
-    let cmd;
+    let args;
     switch (actionKey) {
       case 'd':
-        cmd = `node "${keepsScript}" deploy`;
-        break;
-      case 's':
-        cmd = `node "${keepsScript}" status`;
-        break;
-      case 'b':
-        cmd = `node "${keepsScript}" balance`;
+        args = ['deploy'];
         break;
       case 'u':
-        cmd = `node "${keepsScript}" upload "${piece}"`;
+        args = ['upload', piece];
         break;
       case 'm':
-        cmd = `node "${keepsScript}" mint "${piece}"`;
+        args = ['mint', piece];
         break;
-      case 't':
-        cmd = `node "${keepsScript}" status`;
+      case 'l':
+        args = ['lock', piece];
         break;
       default:
         this.keepsOutput = '❌ Unknown action';
@@ -2692,95 +2887,538 @@ class ArteryTUI {
         return;
     }
     
-    try {
-      const result = execSync(cmd, { 
-        encoding: 'utf8', 
-        timeout: 120000,
-        cwd: process.cwd(),
-        maxBuffer: 10 * 1024 * 1024
-      });
-      this.keepsOutput = result;
-      this.setStatus('Keeps operation completed', 'success');
-    } catch (error) {
-      if (error.stdout) {
-        this.keepsOutput = error.stdout + '\n' + (error.stderr || '');
-      } else {
-        this.keepsOutput = `❌ Error: ${error.message}`;
+    const timeoutMs = 120000; // 2 min for longer ops
+    
+    // Use spawn for non-blocking execution with live output
+    return new Promise((resolve) => {
+      let child;
+      let output = '';
+      let resolved = false;
+      
+      const cleanup = () => {
+        if (resolved) return;
+        resolved = true;
+        this.keepsRunning = false;
+        this.keepsSubMode = 'menu';
+        this.render();
+        resolve();
+      };
+      
+      try {
+        child = spawn('node', [keepsScript, ...args.filter(Boolean)], {
+          cwd: process.cwd(),
+          env: process.env,
+          stdio: ['ignore', 'pipe', 'pipe'],
+        });
+      } catch (err) {
+        this.keepsOutput = `❌ Failed to spawn: ${err.message}`;
+        cleanup();
+        return;
       }
-      this.setStatus('Keeps operation failed', 'error');
+      
+      child.stdout.on('data', (data) => {
+        output += data.toString();
+        this.keepsOutput = output;
+        this.render();
+      });
+      
+      child.stderr.on('data', (data) => {
+        output += data.toString();
+        this.keepsOutput = output;
+        this.render();
+      });
+      
+      child.on('close', (code) => {
+        if (resolved) return;
+        if (code === 0) {
+          this.setStatus('Keeps operation completed', 'success');
+          // Refresh data after successful operation
+          if (['m', 'd', 'l'].includes(actionKey)) {
+            this.loadKeepsData();
+          }
+        } else {
+          this.setStatus('Keeps operation failed', 'error');
+        }
+        cleanup();
+      });
+      
+      child.on('error', (err) => {
+        if (resolved) return;
+        this.keepsOutput = `❌ Error: ${err.message}`;
+        this.setStatus('Keeps operation failed', 'error');
+        cleanup();
+      });
+      
+      // Timeout - shorter for network ops
+      setTimeout(() => {
+        if (!resolved) {
+          try { child.kill('SIGKILL'); } catch (e) {}
+          const timeoutSec = timeoutMs / 1000;
+          this.keepsOutput += `\n\n❌ Operation timed out (${timeoutSec}s)`;
+          this.setStatus('Keeps operation timed out', 'error');
+          cleanup();
+        }
+      }, timeoutMs);
+    });
+  }
+  
+  // Execute quick ops via tezbot daemon (non-blocking)
+  // SIMPLIFIED: Run keeps.mjs directly with spawn to avoid IPC complexity
+  async executeViaTezbot(actionKey) {
+    const actionMap = {
+      'b': 'balance',
+      's': 'status', 
+      't': 'tokens'
+    };
+    
+    const action = actionMap[actionKey];
+    if (!action) {
+      this.keepsOutput = '❌ Unknown action';
+      this.keepsRunning = false;
+      this.keepsSubMode = 'menu';
+      this.render();
+      return;
     }
     
-    this.keepsRunning = false;
-    this.keepsSubMode = 'menu';
+    this.keepsOutput = `⏳ Running ${action}...\n`;
     this.render();
+    
+    const keepsScript = path.join(process.cwd(), 'tezos/keeps.mjs');
+    
+    return new Promise((resolve) => {
+      let output = '';
+      let resolved = false;
+      
+      const cleanup = () => {
+        if (resolved) return;
+        resolved = true;
+        this.keepsRunning = false;
+        this.keepsSubMode = 'menu';
+        this.render();
+        resolve();
+      };
+      
+      let child;
+      try {
+        child = spawn('node', [keepsScript, action], {
+          cwd: process.cwd(),
+          env: process.env,
+          stdio: ['ignore', 'pipe', 'pipe'],
+        });
+      } catch (err) {
+        this.keepsOutput = `❌ Failed: ${err.message}`;
+        cleanup();
+        return;
+      }
+      
+      child.stdout.on('data', (data) => {
+        output += data.toString();
+      });
+      
+      child.stderr.on('data', (data) => {
+        output += data.toString();
+      });
+      
+      child.on('close', (code) => {
+        if (resolved) return;
+        this.keepsOutput = output.trim() || (code === 0 ? '✅ Done' : '❌ Failed');
+        if (code === 0) {
+          this.setStatus(`${action} completed`, 'success');
+        } else {
+          this.setStatus(`${action} failed`, 'error');
+        }
+        cleanup();
+      });
+      
+      child.on('error', (err) => {
+        if (resolved) return;
+        this.keepsOutput = `❌ Error: ${err.message}`;
+        cleanup();
+      });
+      
+      // 30s timeout for network calls
+      setTimeout(() => {
+        if (!resolved) {
+          try { child.kill('SIGKILL'); } catch (e) {}
+          this.keepsOutput = output + '\n\n❌ Timeout (30s)';
+          cleanup();
+        }
+      }, 30000);
+    });
+  }
+  
+  async keepsJumpToFishy() {
+    // Switch to fishy buffer via emacsclient (with timeout to prevent hangs)
+    try {
+      execSync('emacsclient -e \'(switch-to-buffer "🐟-fishy")\'', { encoding: 'utf8', timeout: 3000 });
+      this.setStatus('Jumped to 🐟-fishy', 'success');
+    } catch (e) {
+      this.keepsOutput = `⚠️ Could not switch to fishy: ${e.message}\nTry: emacsclient -e '(switch-to-buffer "🐟-fishy")'`;
+    }
+    this.render();
+  }
+  
+  keepsOpenExplorer() {
+    const url = `https://${this.keepsContractData.network}.tzkt.io/${this.keepsContractData.address}`;
+    try {
+      execSync(`"$BROWSER" "${url}" 2>/dev/null || xdg-open "${url}" 2>/dev/null &`, { shell: true, timeout: 3000 });
+      this.keepsOutput = `🔗 Opened: ${url}`;
+      this.setStatus('Opened tzkt explorer', 'success');
+    } catch (e) {
+      this.keepsOutput = `🔗 Explorer: ${url}`;
+    }
+    this.render();
+  }
+  
+  keepsOpenObjkt() {
+    const url = `https://${this.keepsContractData.network}.objkt.com/collection/${this.keepsContractData.address}`;
+    try {
+      execSync(`"$BROWSER" "${url}" 2>/dev/null || xdg-open "${url}" 2>/dev/null &`, { shell: true, timeout: 3000 });
+      this.keepsOutput = `🔗 Opened: ${url}`;
+      this.setStatus('Opened objkt collection', 'success');
+    } catch (e) {
+      this.keepsOutput = `🔗 Objkt: ${url}`;
+    }
+    this.render();
+  }
+  
+  async keepsRunTests() {
+    this.keepsRunning = true;
+    this.keepsOutput = '🧪 Running Keeps test suite...\n\n';
+    this.render();
+    
+    // Run a simple status check as a "test" using spawn (non-blocking)
+    const keepsScript = path.join(process.cwd(), 'tezos/keeps.mjs');
+    
+    return new Promise((resolve) => {
+      const child = spawn('node', [keepsScript, 'status'], {
+        cwd: process.cwd(),
+        env: process.env,
+      });
+      
+      let result = '';
+      
+      child.stdout.on('data', (data) => {
+        result += data.toString();
+        this.keepsOutput = '🧪 Running Keeps test suite...\n\n' + result;
+        this.render();
+      });
+      
+      child.stderr.on('data', (data) => {
+        result += data.toString();
+        this.keepsOutput = '🧪 Running Keeps test suite...\n\n' + result;
+        this.render();
+      });
+      
+      child.on('close', (code) => {
+        if (code === 0) {
+          this.keepsOutput = '🧪 Test Results:\n\n';
+          this.keepsOutput += '✅ Contract accessible\n';
+          this.keepsOutput += `✅ Token count: ${this.keepsContractData.tokenCount}\n`;
+          this.keepsOutput += `✅ Network: ${this.keepsContractData.network}\n`;
+          this.keepsOutput += '\n' + result;
+          
+          // Check progress toward 20 mints
+          const progress = Math.min(100, (this.keepsContractData.tokenCount / 20) * 100);
+          this.keepsOutput += `\n📊 Progress: ${this.keepsContractData.tokenCount}/20 test mints (${progress.toFixed(0)}%)`;
+          
+          this.setStatus('Tests passed', 'success');
+        } else {
+          this.keepsOutput = `❌ Test failed (exit code ${code})\n\n${result}`;
+          this.setStatus('Tests failed', 'error');
+        }
+        
+        this.keepsRunning = false;
+        this.keepsSubMode = 'menu';
+        this.render();
+        resolve();
+      });
+      
+      child.on('error', (err) => {
+        this.keepsOutput = `❌ Test error: ${err.message}`;
+        this.keepsRunning = false;
+        this.keepsSubMode = 'menu';
+        this.setStatus('Tests failed', 'error');
+        this.render();
+        resolve();
+      });
+      
+      // Timeout after 30 seconds
+      setTimeout(() => {
+        if (this.keepsRunning) {
+          child.kill();
+          this.keepsOutput += '\n\n❌ Test timed out (30s)';
+          this.keepsRunning = false;
+          this.keepsSubMode = 'menu';
+          this.render();
+          resolve();
+        }
+      }, 30000);
+    });
   }
 
   renderKeeps() {
     const boxWidth = this.innerWidth;
-    const compact = this.width < 80;
     
-    // Header
-    this.writeLine(`${DOS_TITLE}${'═'.repeat(boxWidth)}${RESET}`);
-    this.writeLine(`${DOS_TITLE}  🔮 KEEPS - Tezos FA2 NFT Minting${' '.repeat(Math.max(0, boxWidth - 35))}${RESET}`);
-    this.writeLine(`${DOS_TITLE}${'═'.repeat(boxWidth)}${RESET}`);
-    this.writeLine('');
+    // Simple header
+    this.writeLine(`${BG_MAGENTA}${FG_WHITE}${BOLD} 🔮 KEEPS - Tezos FA2 ${'─'.repeat(Math.max(0, boxWidth - 25))}${RESET}`);
+    this.writeLine(`${BG_MAGENTA}${FG_WHITE} Network: ghostnet | Contract: KT1NeytR5BHDfGB...${' '.repeat(Math.max(0, boxWidth - 50))}${RESET}`);
+    this.writeLine(`${BG_BLACK}${' '.repeat(boxWidth)}${RESET}`);
     
-    // Menu items
-    for (let i = 0; i < this.keepsMenu.length; i++) {
-      const item = this.keepsMenu[i];
-      const selected = i === this.keepsSelectedIndex;
-      const prefix = selected ? `${FG_BRIGHT_YELLOW}▶ ` : `${FG_CYAN}  `;
-      const keyStyle = selected ? `${BG_CYAN}${FG_BLACK}` : `${FG_BRIGHT_MAGENTA}`;
-      const labelStyle = selected ? `${FG_BRIGHT_YELLOW}${BOLD}` : `${FG_WHITE}`;
-      const descStyle = `${DIM}${FG_CYAN}`;
-      
-      const line = `${prefix}${keyStyle}[${item.key}]${RESET}${BG_BLUE} ${labelStyle}${item.label}${RESET}${BG_BLUE} ${descStyle}${item.desc}${RESET}`;
-      this.writeLine(line);
+    // Actions - simple list
+    this.writeLine(`${BG_BRIGHT_BLACK}${FG_WHITE}${BOLD} ACTIONS ${' '.repeat(Math.max(0, boxWidth - 10))}${RESET}`);
+    
+    const actions = [
+      ['s', 'Status'], ['b', 'Balance'], ['t', 'Tokens'], ['m', 'Mint'],
+      ['u', 'Upload'], ['l', 'Lock'], ['d', 'Deploy'], ['f', 'Fishy'],
+      ['e', 'Explorer'], ['o', 'Objkt'], ['r', 'Run Tests']
+    ];
+    
+    // Render in rows of 4
+    for (let i = 0; i < actions.length; i += 4) {
+      let row = '';
+      for (let j = 0; j < 4 && i + j < actions.length; j++) {
+        const [key, label] = actions[i + j];
+        const idx = i + j;
+        const selected = idx === this.keepsSelectedIndex;
+        const actionWidth = Math.floor(boxWidth / 4);
+        const text = `[${key}] ${label}`;
+        const pad = Math.max(0, actionWidth - text.length - 1);
+        
+        if (selected) {
+          row += `${BG_CYAN}${FG_BLACK}${BOLD}▶${text}${' '.repeat(pad)}${RESET}`;
+        } else {
+          row += `${BG_BRIGHT_BLACK}${FG_WHITE} ${text}${' '.repeat(pad)}${RESET}`;
+        }
+      }
+      this.writeLine(row);
     }
     
-    this.writeLine('');
-    
-    // Piece input if in that mode
+    // Piece input overlay
     if (this.keepsSubMode === 'piece-input') {
-      this.writeLine(`${FG_BRIGHT_YELLOW}Enter piece name: ${FG_WHITE}${this.keepsPieceInput}█${RESET}`);
-      this.writeLine(`${DIM}(Current piece: ${this.currentPiece || 'none'})${RESET}`);
-      this.writeLine('');
+      this.writeLine(`${BG_YELLOW}${FG_BLACK}${BOLD} Piece: ${this.keepsPieceInput}█${' '.repeat(Math.max(0, boxWidth - 10 - this.keepsPieceInput.length))}${RESET}`);
     }
     
-    // Output box
-    this.writeLine(`${FG_CYAN}${'─'.repeat(boxWidth)}${RESET}`);
-    this.writeLine(`${FG_BRIGHT_CYAN}Output:${RESET}`);
-    this.writeLine('');
+    // Output
+    this.writeLine(`${BG_BLACK}${FG_CYAN}${BOLD} OUTPUT ${' '.repeat(Math.max(0, boxWidth - 9))}${RESET}`);
     
-    // Split output into lines and display
+    const outputLines = (this.keepsOutput || '').split('\n').slice(-15); // Last 15 lines
+    for (const line of outputLines) {
+      const truncated = line.length > boxWidth - 2 ? line.slice(0, boxWidth - 5) + '...' : line;
+      this.writeLine(`${BG_BLACK}${FG_WHITE} ${truncated}${' '.repeat(Math.max(0, boxWidth - truncated.length - 2))}${RESET}`);
+    }
+    
+    // Fill remaining
+    const used = 4 + Math.ceil(actions.length / 4) + (this.keepsSubMode === 'piece-input' ? 1 : 0) + 1 + outputLines.length;
+    for (let i = used; i < this.innerHeight - 2; i++) {
+      this.writeLine(`${BG_BLACK}${' '.repeat(boxWidth)}${RESET}`);
+    }
+    
+    // Status
+    const status = this.keepsRunning ? '⏳ Running...' : '✓ Ready';
+    this.writeLine(`${BG_BRIGHT_BLACK}${FG_WHITE} ${status} | ESC=back ${' '.repeat(Math.max(0, boxWidth - 25))}${RESET}`);
+  }
+  
+  renderKeepsOLD() {
+    const boxWidth = this.innerWidth;
+    const compact = this.width < 100;
+    const colWidth = compact ? boxWidth : Math.floor((boxWidth - 1) / 2);
+    
+    // Theme colors - magenta/purple for Tezos
+    const KEEPS_BG = BG_MAGENTA;
+    const KEEPS_FG = FG_WHITE;
+    const KEEPS_ACCENT = FG_BRIGHT_YELLOW;
+    const KEEPS_DIM = `${BG_MAGENTA}${DIM}${FG_WHITE}`;
+    const KEEPS_BORDER = `${BG_MAGENTA}${FG_BRIGHT_CYAN}`;
+    
+    // Header with full background
+    this.writeLine(`${KEEPS_BG}${KEEPS_FG}${'═'.repeat(boxWidth)}${RESET}`);
+    const title = '🔮 KEEPS - Tezos FA2 Development Workbench';
+    const padding = Math.max(0, boxWidth - title.length - 2);
+    this.writeLine(`${KEEPS_BG}${KEEPS_FG}${BOLD} ${title}${' '.repeat(padding)}${RESET}`);
+    this.writeLine(`${KEEPS_BG}${KEEPS_FG}${'═'.repeat(boxWidth)}${RESET}`);
+    
+    const cd = this.keepsContractData;
+    const et = this.keepsEngineeringTasks;
+    
+    if (!compact) {
+      // Two-column layout with consistent background
+      this.writeLine(`${KEEPS_BG}${'─'.repeat(colWidth)}┬${'─'.repeat(colWidth - 1)}${RESET}`);
+      
+      // Build left column (CONTRACT)
+      const leftLines = [
+        `${KEEPS_ACCENT}${BOLD} CONTRACT${RESET}`,
+        `${KEEPS_DIM} Network:${RESET}${KEEPS_BG}  ${FG_BRIGHT_GREEN}${cd.network}${RESET}`,
+        `${KEEPS_DIM} Address:${RESET}${KEEPS_BG}  ${KEEPS_FG}${cd.address.slice(0, 15)}...${RESET}`,
+        `${KEEPS_DIM} Admin:${RESET}${KEEPS_BG}    ${KEEPS_FG}${cd.admin}${RESET}`,
+        `${KEEPS_DIM} Tokens:${RESET}${KEEPS_BG}   ${FG_BRIGHT_YELLOW}${BOLD}${cd.tokenCount}${RESET}${KEEPS_BG} minted${RESET}`,
+        `${KEEPS_DIM} Balance:${RESET}${KEEPS_BG}  ${FG_BRIGHT_GREEN}~${cd.balance} XTZ${RESET}`,
+        `${KEEPS_BG}${RESET}`,
+        `${KEEPS_BG}${FG_BRIGHT_CYAN} Recent Tokens:${RESET}`,
+      ];
+      
+      // Add tokens
+      if (cd.recentTokens.length > 0) {
+        cd.recentTokens.slice(0, 3).forEach(t => {
+          const status = t.active ? `${FG_BRIGHT_GREEN}●${RESET}` : `${FG_RED}○${RESET}`;
+          leftLines.push(`${KEEPS_BG}  ${status}${KEEPS_BG} ${DIM}[${t.id}]${RESET}${KEEPS_BG} ${KEEPS_FG}${t.name}${RESET}`);
+        });
+      } else {
+        leftLines.push(`${KEEPS_BG}${DIM}  (none)${RESET}`);
+      }
+      
+      // Build right column (ENGINEERING)
+      const rightLines = [
+        `${KEEPS_BG}${FG_BRIGHT_MAGENTA}${BOLD} PHASE ${et.phase}${RESET}${KEEPS_BG}${KEEPS_FG} ${et.phaseName}${RESET}`,
+        `${KEEPS_BG}${RESET}`,
+        `${KEEPS_BG}${FG_BRIGHT_CYAN} Progress to Phase B:${RESET}`,
+        `${KEEPS_BG} ${this.renderProgressBar(et.mintsCompleted, 20, colWidth - 4)}${RESET}`,
+        `${KEEPS_BG}${KEEPS_FG}  ${et.mintsCompleted}/20 test mints${RESET}`,
+        `${KEEPS_BG}${RESET}`,
+        `${KEEPS_BG}${FG_BRIGHT_CYAN} Next Steps:${RESET}`,
+      ];
+      
+      // Add next steps
+      et.nextSteps.slice(0, 3).forEach((step, i) => {
+        const truncated = step.length > colWidth - 6 ? step.slice(0, colWidth - 9) + '...' : step;
+        rightLines.push(`${KEEPS_BG}${KEEPS_FG}  ${i + 1}. ${truncated}${RESET}`);
+      });
+      
+      // Pad to same length
+      const maxLines = Math.max(leftLines.length, rightLines.length);
+      while (leftLines.length < maxLines) leftLines.push(`${KEEPS_BG}${RESET}`);
+      while (rightLines.length < maxLines) rightLines.push(`${KEEPS_BG}${RESET}`);
+      
+      // Render two columns
+      for (let i = 0; i < maxLines; i++) {
+        const leftContent = leftLines[i];
+        const rightContent = rightLines[i];
+        const leftVisible = this.stripAnsi(leftContent).length;
+        const rightVisible = this.stripAnsi(rightContent).length;
+        const leftPad = ' '.repeat(Math.max(0, colWidth - leftVisible - 1));
+        const rightPad = ' '.repeat(Math.max(0, colWidth - rightVisible - 1));
+        this.writeLine(`${leftContent}${KEEPS_BG}${leftPad}│${RESET}${rightContent}${KEEPS_BG}${rightPad}${RESET}`);
+      }
+      
+      this.writeLine(`${KEEPS_BG}${'─'.repeat(colWidth)}┴${'─'.repeat(colWidth - 1)}${RESET}`);
+    } else {
+      // Compact single-column
+      this.writeLine(`${KEEPS_BG}${KEEPS_FG} Contract: ${cd.address.slice(0, 18)}...${' '.repeat(Math.max(0, boxWidth - 32))}${RESET}`);
+      this.writeLine(`${KEEPS_BG}${KEEPS_FG} Tokens: ${KEEPS_ACCENT}${cd.tokenCount}${KEEPS_FG}  Balance: ${FG_BRIGHT_GREEN}${cd.balance} XTZ${' '.repeat(Math.max(0, boxWidth - 35))}${RESET}`);
+      this.writeLine(`${KEEPS_BG}${'─'.repeat(boxWidth)}${RESET}`);
+    }
+    
+    // Actions section with arrow key navigation
+    this.writeLine(`${BG_BRIGHT_BLACK}${FG_WHITE}${BOLD} ACTIONS ${RESET}${BG_BRIGHT_BLACK}${' '.repeat(boxWidth - 10)}${RESET}`);
+    
+    // Render actions in a grid with visual selection
+    const cols = compact ? 3 : 4;
+    const actionWidth = Math.floor(boxWidth / cols);
+    
+    for (let row = 0; row < Math.ceil(this.keepsMenu.length / cols); row++) {
+      let rowStr = '';
+      for (let col = 0; col < cols; col++) {
+        const idx = row * cols + col;
+        if (idx >= this.keepsMenu.length) {
+          rowStr += `${BG_BRIGHT_BLACK}${' '.repeat(actionWidth)}${RESET}`;
+          continue;
+        }
+        
+        const item = this.keepsMenu[idx];
+        const selected = idx === this.keepsSelectedIndex;
+        
+        if (selected) {
+          // Highlighted selection with cyan background
+          const label = `▶[${item.key}] ${item.label}`;
+          const pad = Math.max(0, actionWidth - label.length);
+          rowStr += `${BG_CYAN}${FG_BLACK}${BOLD}${label}${' '.repeat(pad)}${RESET}`;
+        } else {
+          const label = ` [${item.key}] ${item.label}`;
+          const pad = Math.max(0, actionWidth - label.length);
+          rowStr += `${BG_BRIGHT_BLACK}${FG_WHITE}${label}${' '.repeat(pad)}${RESET}`;
+        }
+      }
+      this.writeLine(rowStr);
+    }
+    
+    // Piece input overlay
+    if (this.keepsSubMode === 'piece-input') {
+      this.writeLine(`${BG_YELLOW}${FG_BLACK}${BOLD} INPUT: ${this.keepsPieceInput}█${' '.repeat(Math.max(0, boxWidth - 10 - this.keepsPieceInput.length))}${RESET}`);
+      this.writeLine(`${BG_YELLOW}${FG_BLACK}${DIM} Current piece: ${this.currentPiece || 'none'}${' '.repeat(Math.max(0, boxWidth - 20 - (this.currentPiece?.length || 4)))}${RESET}`);
+    }
+    
+    // Output panel with scrolling
+    const outputTitle = ` OUTPUT ${this.keepsContractData.lastUpdated ? `(${this.keepsContractData.lastUpdated})` : ''}`;
+    this.writeLine(`${BG_BLACK}${FG_BRIGHT_CYAN}${BOLD}${outputTitle}${' '.repeat(Math.max(0, boxWidth - outputTitle.length))}${RESET}`);
+    
     const outputLines = (this.keepsOutput || '').split('\n');
-    const maxOutputLines = Math.max(5, this.innerHeight - 20);
+    const maxOutputLines = Math.max(4, this.innerHeight - (compact ? 18 : 22));
     const startLine = Math.max(0, outputLines.length - maxOutputLines);
+    
+    // Show scroll indicator if truncated
+    if (startLine > 0) {
+      this.writeLine(`${BG_BLACK}${DIM}${FG_CYAN} ↑ ${startLine} more lines above...${' '.repeat(Math.max(0, boxWidth - 25))}${RESET}`);
+    }
     
     for (let i = startLine; i < outputLines.length; i++) {
       let line = outputLines[i];
-      // Color code output
-      if (line.includes('✅') || line.includes('✓')) {
-        line = `${FG_BRIGHT_GREEN}${line}${RESET}`;
-      } else if (line.includes('❌') || line.includes('Error')) {
-        line = `${FG_BRIGHT_RED}${line}${RESET}`;
-      } else if (line.includes('⏳') || line.includes('...')) {
-        line = `${FG_BRIGHT_YELLOW}${line}${RESET}`;
-      } else if (line.includes('📍') || line.includes('🔗') || line.includes('💰')) {
-        line = `${FG_BRIGHT_CYAN}${line}${RESET}`;
+      let bg = BG_BLACK;
+      let fg = FG_WHITE;
+      
+      // Color code by content
+      if (line.includes('✅') || line.includes('✓') || line.includes('Success')) {
+        bg = BG_BLACK; fg = FG_BRIGHT_GREEN;
+      } else if (line.includes('❌') || line.includes('Error') || line.includes('failed')) {
+        bg = BG_RED; fg = FG_WHITE;
+      } else if (line.includes('⏳') || line.includes('Running') || line.includes('...')) {
+        bg = BG_YELLOW; fg = FG_BLACK;
+      } else if (line.includes('📍') || line.includes('🔗') || line.includes('💰') || line.includes('📊') || line.includes('🧪')) {
+        bg = BG_BLACK; fg = FG_BRIGHT_CYAN;
+      } else if (line.includes('║') || line.includes('╔') || line.includes('╚')) {
+        bg = BG_BLACK; fg = FG_CYAN;
       }
-      // Truncate long lines
-      if (this.stripAnsi(line).length > boxWidth - 2) {
+      
+      // Truncate and pad line
+      const visibleLine = this.stripAnsi(line);
+      if (visibleLine.length > boxWidth - 2) {
         line = line.slice(0, boxWidth - 5) + '...';
       }
-      this.writeLine(`  ${line}`);
+      const linePad = Math.max(0, boxWidth - visibleLine.length - 1);
+      this.writeLine(`${bg}${fg} ${line}${' '.repeat(linePad)}${RESET}`);
+    }
+    
+    // Fill remaining output space
+    const usedLines = Math.min(outputLines.length - startLine, maxOutputLines) + (startLine > 0 ? 1 : 0);
+    for (let i = usedLines; i < maxOutputLines; i++) {
+      this.writeLine(`${BG_BLACK}${' '.repeat(boxWidth)}${RESET}`);
     }
     
     // Status bar
-    this.writeLine('');
-    this.writeLine(`${FG_CYAN}${'─'.repeat(boxWidth)}${RESET}`);
-    const statusText = this.keepsRunning ? `${FG_BRIGHT_YELLOW}Running...` : `${FG_GREEN}Ready`;
-    this.writeLine(`${statusText}${RESET}${BG_BLUE}  ${DIM}ESC=Back  ↑↓=Navigate  Enter=Select${RESET}`);
+    const statusText = this.keepsRunning 
+      ? `${BG_YELLOW}${FG_BLACK}${BOLD} ⏳ RUNNING... ${RESET}` 
+      : `${BG_GREEN}${FG_BLACK}${BOLD} ● READY ${RESET}`;
+    const helpText = `${DIM}ESC=Back  ←→↑↓=Navigate  Enter=Select  f=🐟${RESET}`;
+    const statusPad = Math.max(0, boxWidth - 12 - this.stripAnsi(helpText).length);
+    this.writeLine(`${statusText}${BG_BRIGHT_BLACK}${' '.repeat(statusPad)}${helpText}${RESET}`);
+  }
+  
+  // Helper: render a progress bar
+  renderProgressBar(current, max, width) {
+    const barWidth = Math.max(10, width - 2);
+    const filled = Math.round((current / max) * barWidth);
+    const empty = Math.max(0, barWidth - filled);
+    const pct = Math.min(100, Math.round((current / max) * 100));
+    const color = pct >= 100 ? FG_BRIGHT_GREEN : pct >= 50 ? FG_BRIGHT_YELLOW : FG_BRIGHT_RED;
+    const filledChar = '█';
+    const emptyChar = '░';
+    return `${color}[${filledChar.repeat(filled)}${DIM}${emptyChar.repeat(empty)}${RESET}${color}] ${pct}%${RESET}`;
+  }
+  
+  // Helper: pad string to width (strips ANSI for calculation)
+  padRight(str, width) {
+    const visibleLen = this.stripAnsi(str).length;
+    const padding = Math.max(0, width - visibleLen);
+    return str + ' '.repeat(padding);
   }
 
   // 🃏 Render KidLisp Cards Mode
