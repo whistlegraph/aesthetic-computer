@@ -446,12 +446,11 @@ async function fetchTezosBalance(address, network = "ghostnet") {
 }
 
 // Resolve .tez domain for an address using TzKT API (more reliable)
-async function fetchTezosDomain(address, network = "ghostnet") {
+// NOTE: Always use mainnet API since .tez domains are only registered on mainnet
+async function fetchTezosDomain(address, _network = "ghostnet") {
   try {
-    // Use TzKT API - works for both mainnet and ghostnet
-    const apiBase = network === "mainnet"
-      ? "https://api.tzkt.io"
-      : "https://api.ghostnet.tzkt.io";
+    // Always use mainnet TzKT API - .tez domains only exist on mainnet
+    const apiBase = "https://api.tzkt.io";
     
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000); // 5s timeout
@@ -5460,6 +5459,54 @@ function paint($) {
       
       $.needsPaint();
     }
+    
+    // ☃️ Winter vibes snowman stamp in bottom-left corner
+    // Check if we're in December, January, or February for winter vibes
+    const month = new Date().getMonth(); // 0-indexed: 0=Jan, 11=Dec
+    const isWinter = month === 11 || month === 0 || month === 1; // Dec, Jan, Feb
+    if (isWinter && screen.height >= 120) {
+      // Check if paste button is visible and would overlap
+      const pasteBtn = $.system.prompt.input?.paste;
+      const pasteVisible = pasteBtn && !pasteBtn.btn.disabled && pasteBtn.btn.box;
+      
+      // Default position: bottom-left corner
+      let snowmanX = 6;
+      let snowmanY = screen.height - 20;
+      
+      // If paste button is present, move snowman above it
+      if (pasteVisible) {
+        const pasteBox = pasteBtn.btn.box;
+        // Position snowman above the paste button with some padding
+        snowmanY = pasteBox.y - 18;
+      }
+      
+      // Only draw if there's enough space
+      if (snowmanY > 20) {
+        // Gentle bobbing animation
+        const bobOffset = Math.sin(motdFrame * 0.03) * 1.5;
+        
+        // Draw snowman using unifont (☃ = U+2603)
+        // Cycle through cool winter colors
+        const winterColors = [
+          [200, 230, 255], // Ice blue
+          [255, 255, 255], // White
+          [180, 220, 255], // Light blue
+          [220, 240, 255], // Pale blue
+        ];
+        const colorIndex = Math.floor(motdFrame * 0.02) % winterColors.length;
+        const snowmanColor = winterColors[colorIndex];
+        const snowmanAlpha = 180 + Math.sin(motdFrame * 0.05) * 40; // 140-220 pulsing
+        
+        ink(...snowmanColor, snowmanAlpha).write(
+          "☃",
+          { x: snowmanX, y: Math.floor(snowmanY + bobOffset) },
+          undefined,
+          undefined,
+          false,
+          "unifont"
+        );
+      }
+    }
   }
 
   // Paint UI Buttons
@@ -5596,8 +5643,8 @@ function paint($) {
       // Build button text (space for ꜩ symbol drawn separately)
       const btnTextWithSymbol = "  " + balanceText; // 2 spaces for the ꜩ symbol
       
-      // Calculate position - above handles text  
-      let walletBtnY = screen.height - 60; // Position higher up
+      // Calculate position - well above handles text (more space)
+      let walletBtnY = screen.height - 90; // Position higher up to clear handles message
       
       // Create or update wallet button
       if (!walletBtn) {
@@ -5606,8 +5653,6 @@ function paint($) {
           center: "x",
           screen 
         });
-        // Use default scrubbing behavior (cancel when dragging away, like login/profile buttons)
-        walletBtn.noRolloverActivation = true; // Don't interfere with tickers
       } else {
         walletBtn.reposition({ y: walletBtnY, center: "x", screen }, btnTextWithSymbol);
       }
@@ -5623,19 +5668,19 @@ function paint($) {
       );
       
       // Draw ꜩ symbol using unifont on top of button (aligned with button text)
-      const tezSymbolX = walletBtn.btn.box.x + 4; // Inside button padding
-      const tezSymbolY = walletBtn.btn.box.y + 2; // Align with button text
+      const tezSymbolX = walletBtn.btn.box.x + 3; // Inside button padding (left 1px)
+      const tezSymbolY = walletBtn.btn.box.y + 3; // Align with button text (down 1px)
       const tezColor = walletBtn.btn.down ? [255, 255, 255] : [0, 200, 255];
       const tezBg = walletBtn.btn.down ? hoverFill : normalFill;
       ink(...tezColor).write("ꜩ", { x: tezSymbolX, y: tezSymbolY + TEZ_Y_ADJUST, bg: tezBg }, undefined, undefined, false, "unifont");
       
-      // Draw full wallet address below the button in MatrixChunky8, centered (teal color)
-      const addrY = walletBtnY + walletBtn.height + 4; // Below button with gap
-      ink(0, 200, 255).write(tezosWalletAddress, { x: screen.width / 2, y: addrY, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+      // Draw full wallet address below the button in MatrixChunky8, centered (dimmer teal/gray)
+      const addrY = walletBtnY + walletBtn.height + 6; // Below button with more gap (2px more)
+      ink(0, 140, 180).write(tezosWalletAddress, { x: screen.width / 2, y: addrY, center: "x" }, undefined, undefined, false, "MatrixChunky8");
       
-      // Draw domain name if available (below address)
+      // Draw domain name if available (below address, brighter cyan/magenta)
       if (tezosDomainName) {
-        ink(0, 200, 255).write(tezosDomainName, { x: screen.width / 2, y: addrY + 10, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+        ink(100, 180, 255).write(tezosDomainName, { x: screen.width / 2, y: addrY + 12, center: "x" }, undefined, undefined, false, "MatrixChunky8");
       }
     } else {
       walletBtn = null; // Clear button when disconnected
@@ -6150,6 +6195,7 @@ function act({
       (products.getActiveProduct()?.buyButton?.disabled === false && products.getActiveProduct()?.buyButton?.box.contains(e)) ||
       (chatTickerButton?.disabled === false && chatTickerButton?.box.contains(e)) ||
       (contentTickerButton?.disabled === false && contentTickerButton?.box.contains(e)) ||
+      (walletBtn?.btn.disabled === false && walletBtn?.btn.box.contains(e)) ||
       (profile?.btn.disabled === false &&
         profile?.btn.box.contains(e) &&
         profileAction === "profile"))
