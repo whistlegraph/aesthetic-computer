@@ -2187,6 +2187,45 @@ function ac-shop
     node /workspaces/aesthetic-computer/ac-shop/shopify.mjs $argv
 end
 
+# ac-tezbot - Tezos daemon helpers
+set -gx TEZBOT_SCRIPT /workspaces/aesthetic-computer/tezos/ac-tezbot.mjs
+
+function tezbot --description "Tezos daemon interface"
+    if test (count $argv) -eq 0
+        node $TEZBOT_SCRIPT status
+    else
+        node $TEZBOT_SCRIPT $argv
+    end
+end
+
+function tezbot-start --description "Start tezbot daemon"
+    node $TEZBOT_SCRIPT status >/dev/null 2>&1
+    if test $status -eq 0
+        echo "🟢 Tezbot already running"
+    else
+        echo "🚀 Starting tezbot..."
+        nohup node $TEZBOT_SCRIPT > /tmp/tezbot.log 2>&1 &
+        sleep 0.5
+        node $TEZBOT_SCRIPT status
+    end
+end
+
+function tezbot-stop --description "Stop tezbot daemon"
+    node $TEZBOT_SCRIPT stop
+end
+
+function tz-balance --description "Get Tezos wallet balance via tezbot"
+    node $TEZBOT_SCRIPT cmd balance
+end
+
+function tz-status --description "Get Tezos contract status via tezbot"
+    node $TEZBOT_SCRIPT cmd status
+end
+
+function tz-tokens --description "List minted tokens via tezbot"
+    node $TEZBOT_SCRIPT cmd tokens
+end
+
 # Auto-start aesthetic when fish runs in the VS Code task context
 # aesthetic-launch.sh sets AC_TASK_LAUNCH=1 before exec fish --login
 if set -q AC_TASK_LAUNCH
