@@ -10,6 +10,44 @@ const { min, max, floor, sin, cos, PI, abs } = Math;
 const KEEPS_CONTRACT = "KT1NeytR5BHDfGBjG9ZuLkPd7nmufmH1icVc";
 const NETWORK = "ghostnet";
 
+// 👻 Pac-Man Ghost Sprite (14x14, classic arcade bitmap)
+const GHOST_SPRITE = [
+  0b00000111110000, // row 0:      ████
+  0b00011111111000, // row 1:    ██████
+  0b00111111111100, // row 2:   ████████
+  0b01111111111110, // row 3:  ██████████
+  0b01111111111110, // row 4:  ██████████
+  0b11111111111111, // row 5: ████████████
+  0b11111111111111, // row 6: ████████████
+  0b11111111111111, // row 7: ████████████
+  0b11111111111111, // row 8: ████████████
+  0b11111111111111, // row 9: ████████████
+  0b11111111111111, // row 10: ████████████
+  0b11011101110111, // row 11: ██ ███ ███ ██
+  0b10001100110001, // row 12: █  ██  ██  █
+  0b00000000000000, // row 13: (wavy gap)
+];
+
+function drawGhost(ink, box, x, y, bodyColor = [255, 180, 50], size = 1) {
+  const w = 14, h = 14;
+  ink(...bodyColor);
+  for (let row = 0; row < h; row++) {
+    for (let col = 0; col < w; col++) {
+      if ((GHOST_SPRITE[row] >> (w - 1 - col)) & 1) {
+        box(x + col * size, y + row * size, size, size);
+      }
+    }
+  }
+  // White sclera
+  ink(255, 255, 255);
+  box(x + 3 * size, y + 4 * size, 2 * size, 3 * size);
+  box(x + 8 * size, y + 4 * size, 2 * size, 3 * size);
+  // Blue pupils
+  ink(50, 80, 200);
+  box(x + 4 * size, y + 5 * size, size, 2 * size);
+  box(x + 9 * size, y + 5 * size, size, 2 * size);
+}
+
 let piece;
 let walletAddress = null;
 let preparedData = null;
@@ -1413,16 +1451,25 @@ function paint({ wipe, ink, box, screen, paste }) {
   const reviewStep = timeline.find(t => t.id === "review");
   if (reviewStep?.status === "active" && preparedData) {
     const netLabel = (preparedData.network || "ghostnet").toUpperCase();
-    const netW = netLabel.length * 4 + 8;
+    const isGhostnet = netLabel === "GHOSTNET";
+    const ghostW = isGhostnet ? 16 : 0; // Space for ghost icon
+    const netW = netLabel.length * 4 + 8 + ghostW;
     const netX = w - margin - netW;
     const netY = 4; // Top of screen
     const netScheme = networkBtn.btn.down ? { bg: [50, 70, 80], text: [160, 200, 220] } : { bg: [35, 50, 60], text: [100, 140, 160] };
-    ink(netScheme.bg[0], netScheme.bg[1], netScheme.bg[2]).box(netX, netY, netW, 12);
-    ink(netScheme.text[0], netScheme.text[1], netScheme.text[2]).write(netLabel, { x: netX + 4, y: netY + 2 }, undefined, undefined, false, "MatrixChunky8");
+    ink(netScheme.bg[0], netScheme.bg[1], netScheme.bg[2]).box(netX, netY, netW, 14);
+    
+    if (isGhostnet) {
+      // Draw ghost icon first
+      drawGhost(ink, box, netX + 2, netY, [255, 180, 50], 1);
+      ink(netScheme.text[0], netScheme.text[1], netScheme.text[2]).write(netLabel, { x: netX + ghostW + 2, y: netY + 3 }, undefined, undefined, false, "MatrixChunky8");
+    } else {
+      ink(netScheme.text[0], netScheme.text[1], netScheme.text[2]).write(netLabel, { x: netX + 4, y: netY + 2 }, undefined, undefined, false, "MatrixChunky8");
+    }
     networkBtn.btn.box.x = netX;
     networkBtn.btn.box.y = netY;
     networkBtn.btn.box.w = netW;
-    networkBtn.btn.box.h = 12;
+    networkBtn.btn.box.h = 14;
   }
   const completeStep = timeline.find(t => t.id === "complete");
   
