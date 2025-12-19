@@ -341,6 +341,7 @@ class Typeface {
         const charsParam = codePointStrs.join(',');
         log.net.verbose(`Batch glyph fetch: ${codePointStrs.length} chars, font=${this.name}`);
         
+        const batchStart = performance.now();
         try {
           const apiUrl = (typeof window !== 'undefined' && window.acSPIDER)
             ? `https://aesthetic.computer/api/bdf-glyph?chars=${charsParam}&font=${this.name}`
@@ -355,6 +356,12 @@ class Typeface {
           
           const data = await response.json();
           const glyphs = data.glyphs || {};
+          const batchDuration = performance.now() - batchStart;
+          
+          // Log glyph batch timing
+          if (batchDuration > 100) {
+            console.log(`🔤 [glyph-batch] ${codePointStrs.length} glyphs in ${batchDuration.toFixed(1)}ms (font: ${this.name})`);
+          }
           
           // Process results
           for (const item of batch) {
