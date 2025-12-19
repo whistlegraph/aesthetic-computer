@@ -2045,19 +2045,20 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       
       saveWalletSession(address, network, "temple");
       
-      // Update user profile with Tezos address (if logged in)
-      updateUserTezosAddress(address, network).catch(err => 
-        console.warn("Failed to save Tezos address to profile:", err)
-      );
+      // Note: Tezos address persistence to MongoDB disabled - no auth token access in bios
+      // TODO: Implement proper auth token access if server-side persistence is needed
       
       // Fetch balance and domain
       Promise.all([
         fetchTezosBalanceForBios(address, network),
         fetchTezosDomain(address, network)
       ]).then(([balance, domain]) => {
+        console.log("🔷 Fetched balance:", balance, "domain:", domain);
         walletState.balance = balance;
         walletState.domain = domain;
         broadcastWalletState();
+      }).catch(err => {
+        console.warn("🔷 Failed to fetch balance/domain:", err);
       });
       
       broadcastWalletState();
@@ -2143,10 +2144,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       
       saveWalletSession(address, network, "kukai");
       
-      // Update user profile with Tezos address (if logged in)
-      updateUserTezosAddress(address, network).catch(err => 
-        console.warn("Failed to save Tezos address to profile:", err)
-      );
+      // Note: Tezos address persistence to MongoDB disabled - no auth token access in bios  
+      // TODO: Implement proper auth token access if server-side persistence is needed
       
       // Fetch balance and domain
       Promise.all([
@@ -2295,6 +2294,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   }
   
   // Update user's Tezos address in MongoDB profile (called after wallet connection)
+  // NOTE: Currently disabled - getToken() is not available in bios.mjs context
+  // TODO: Implement if server-side persistence is needed via proper auth flow
+  /*
   async function updateUserTezosAddress(address, network) {
     try {
       const token = await getToken();
@@ -2321,10 +2323,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       console.warn("Error saving Tezos address:", err);
     }
   }
+  */
 
   // Resolve .tez domain for an address using TzKT API (more reliable than Tezos Domains GraphQL)
   // NOTE: Always use mainnet API since .tez domains are only registered on mainnet
   async function fetchTezosDomain(address, _network = "ghostnet") {
+    console.log("🔷 fetchTezosDomain called for:", address);
     try {
       // Always use mainnet TzKT API - .tez domains only exist on mainnet
       const apiBase = "https://api.tzkt.io";
@@ -2333,27 +2337,33 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       const timeout = setTimeout(() => controller.abort(), 5000);
       
       // Look for domains where this address is set AND has reverse=true (primary domain)
-      const res = await fetch(
-        `${apiBase}/v1/domains?address=${address}&reverse=true&select=name`,
-        { signal: controller.signal }
-      );
+      const url = `${apiBase}/v1/domains?address=${address}&reverse=true&select=name`;
+      console.log("🔷 Fetching from:", url);
+      const res = await fetch(url, { signal: controller.signal });
       
       clearTimeout(timeout);
       
+      console.log("🔷 TzKT response status:", res.status);
       if (res.ok) {
         const data = await res.json();
-        // Returns array of domains, take the first one with reverse=true
-        if (data && data.length > 0 && data[0].name) {
-          const domain = data[0].name;
-          if (debug) console.log(`🔷 Resolved .tez domain: ${domain}`);
+        console.log("🔷 TzKT response data:", data);
+        // Returns array of domain strings (not objects) when using select=name
+        if (data && data.length > 0 && data[0]) {
+          const domain = data[0]; // Direct string, not data[0].name
+          console.log(`🔷 Resolved .tez domain: ${domain}`);
           return domain;
+        } else {
+          console.log("🔷 No reverse domain found in response");
         }
       }
     } catch (e) {
       if (e.name !== 'AbortError') {
         console.log("🔷 .tez domain lookup failed:", e.message);
+      } else {
+        console.log("🔷 .tez domain lookup timed out");
       }
     }
+    console.log("🔷 fetchTezosDomain returning null");
     return null;
   }
   
