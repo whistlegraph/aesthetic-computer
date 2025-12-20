@@ -1048,6 +1048,111 @@ function ac-emacs-ack
     echo "✅ Crash warning cleared"
 end
 
+# === SIXEL IMAGE DISPLAY ===
+
+# Display an image (URL or local path) as sixel in the emacs terminal
+# Usage: ac-pix <url-or-path> [size]
+# Examples:
+#   ac-pix https://example.com/image.png
+#   ac-pix /tmp/my-image.jpg
+#   ac-pix https://example.com/image.png 80  (80 pixels wide)
+function ac-pix
+    if test (count $argv) -lt 1
+        echo "Usage: ac-pix <url-or-path> [size]"
+        echo ""
+        echo "Display an image as sixel graphics in the emacs terminal."
+        echo ""
+        echo "Arguments:"
+        echo "  url-or-path  URL (http/https/ipfs) or local file path"
+        echo "  size         Max pixel dimension (default: 60)"
+        echo ""
+        echo "Examples:"
+        echo "  ac-pix https://example.com/photo.png"
+        echo "  ac-pix /tmp/thumbnail.jpg 100"
+        echo "  ac-pix ipfs://Qm... 40"
+        return 1
+    end
+
+    set -l input $argv[1]
+    set -l size 60
+    if test (count $argv) -ge 2
+        set size $argv[2]
+    end
+
+    # Find emacsclient PTY for direct sixel output
+    set -l pty (pgrep -f 'emacsclient.*-nw' | head -1 | xargs -I{} readlink /proc/{}/fd/0 2>/dev/null)
+    if test -z "$pty"
+        echo "❌ No emacsclient terminal found"
+        return 1
+    end
+
+    set -l tmpfile /tmp/ac-pix-(date +%s%N).img
+
+    # Handle different input types
+    if string match -rq '^https?://' -- $input
+        # HTTP/HTTPS URL
+        echo "📥 Fetching $input..."
+        if not curl -sL --max-time 15 -o $tmpfile $input
+            echo "❌ Failed to download image"
+            return 1
+        end
+    else if string match -rq '^ipfs://' -- $input
+        # IPFS URL - try multiple gateways
+        set -l cid (string replace 'ipfs://' '' $input)
+        set -l gateways \
+            "https://cloudflare-ipfs.com/ipfs/" \
+            "https://ipfs.io/ipfs/" \
+            "https://gateway.pinata.cloud/ipfs/" \
+            "https://w3s.link/ipfs/"
+        
+        set -l downloaded 0
+        for gateway in $gateways
+            echo "📥 Trying $gateway..."
+            if curl -sL --max-time 10 -o $tmpfile "$gateway$cid" 2>/dev/null
+                if test -s $tmpfile
+                    set downloaded 1
+                    break
+                end
+            end
+        end
+        
+        if test $downloaded -eq 0
+            echo "❌ Failed to fetch from IPFS"
+            return 1
+        end
+    else
+        # Local file path
+        if not test -f $input
+            echo "❌ File not found: $input"
+            return 1
+        end
+        set tmpfile $input
+    end
+
+    # Verify file has content
+    if not test -s $tmpfile
+        echo "❌ Empty or invalid image"
+        test "$tmpfile" != "$input"; and rm -f $tmpfile
+        return 1
+    end
+
+    # Convert to sixel and write directly to emacsclient's terminal
+    # Note: [0] is ImageMagick syntax for first frame, needs quoting to avoid fish array interpretation
+    set -l sixel (/usr/bin/magick "$tmpfile"'[0]' -resize "$size"x"$size>" sixel:- 2>/dev/null)
+    if test -z "$sixel"
+        echo "❌ Failed to convert image to sixel"
+        test "$tmpfile" != "$input"; and rm -f $tmpfile
+        return 1
+    end
+
+    # Clean up temp file if we created one
+    test "$tmpfile" != "$input"; and rm -f $tmpfile
+
+    # Output newline + sixel directly to emacsclient's PTY
+    printf '\n%s\n' $sixel > $pty
+    echo "" # Add space after sixel in eat
+end
+
 # Full aesthetic platform restart (emacs + reconnect artery)
 function ac-restart
     echo "🔄 Full aesthetic platform restart..."
