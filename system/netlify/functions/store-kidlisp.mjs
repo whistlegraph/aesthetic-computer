@@ -419,6 +419,8 @@ export async function handler(event, context) {
             result.kept = {
               tokenId: doc.kept.tokenId,
               network: doc.kept.network || "ghostnet",
+              keptBy: doc.kept.keptBy || null,
+              walletAddress: doc.kept.walletAddress || null,
             };
           }
           
@@ -505,6 +507,8 @@ export async function handler(event, context) {
                 network: doc.kept.network || "ghostnet",
                 txHash: doc.kept.txHash,
                 keptAt: doc.kept.keptAt,
+                keptBy: doc.kept.keptBy || null,
+                walletAddress: doc.kept.walletAddress || null,
               };
             }
             
@@ -583,6 +587,8 @@ export async function handler(event, context) {
           txHash: doc.kept.txHash,
           contractAddress: doc.kept.contractAddress,
           keptAt: doc.kept.keptAt,
+          keptBy: doc.kept.keptBy || null,
+          walletAddress: doc.kept.walletAddress || null,
         };
       }
       
