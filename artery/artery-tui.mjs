@@ -3054,6 +3054,27 @@ class ArteryTUI {
       return;
     }
     
+    // Confirm keep after preview
+    if (this.keepsSubMode === 'confirm-keep') {
+      if (key === '\r') {
+        // User confirmed - proceed with mint
+        const piece = this.keepsPendingPiece;
+        this.keepsPendingPiece = null;
+        this.keepsSubMode = 'running';
+        this.executeKeepMint(piece);
+        return;
+      } else if (key === '\u001b' || key === 'n' || key === 'N') {
+        // User cancelled
+        this.keepsOutput = '❌ Keep cancelled\n';
+        this.keepsPendingPiece = null;
+        this.keepsSubMode = 'menu';
+        this.render();
+        return;
+      }
+      // Ignore other keys during confirmation
+      return;
+    }
+    
     // Grid navigation (4 columns for wide, 3 for compact)
     const cols = this.width < 100 ? 3 : 4;
     const rows = Math.ceil(this.keepsMenu.length / cols);
@@ -3150,7 +3171,7 @@ class ArteryTUI {
 
   async executeKeep(piece) {
     this.keepsRunning = true;
-    this.keepsOutput = '🔒 Keep: Connecting to server...\n';
+    this.keepsOutput = '� Preview: Opening piece in AC panel...\n';
     this.render();
     
     if (!this.acAuth?.access_token) {
@@ -3160,6 +3181,34 @@ class ArteryTUI {
       this.render();
       return;
     }
+    
+    // Step 1: Preview the piece in AC panel
+    try {
+      if (this.connected && this.client) {
+        await this.client.jump(piece);
+        this.currentPiece = piece;
+        this.keepsOutput += `✅ Previewing $${piece} in AC panel\n`;
+        this.keepsOutput += `\n📋 Press ENTER to confirm mint, ESC to cancel\n`;
+        this.keepsSubMode = 'confirm-keep';
+        this.keepsPendingPiece = piece;
+        this.keepsRunning = false;
+        this.render();
+        return;
+      } else {
+        this.keepsOutput += '⚠️  AC panel not connected - minting without preview\n';
+      }
+    } catch (e) {
+      this.keepsOutput += `⚠️  Preview failed: ${e.message} - continuing anyway\n`;
+    }
+    
+    // If preview failed or no connection, mint directly
+    await this.executeKeepMint(piece);
+  }
+  
+  async executeKeepMint(piece) {
+    this.keepsRunning = true;
+    this.keepsOutput += '🔒 Keep: Connecting to server...\n';
+    this.render();
     
     // Use local dev server when available (supports https with self-signed cert)
     const apiUrl = 'https://localhost:8888/api/keep-mint';
@@ -3174,7 +3223,8 @@ class ArteryTUI {
           'Content-Type': 'application/json',
           'Accept': 'text/event-stream',
         },
-        body: JSON.stringify({ piece }),
+        // Use mode: "mint" for server-side minting (server wallet pays gas, mints to user)
+        body: JSON.stringify({ piece, mode: 'mint' }),
       });
       
       if (!response.ok) {
