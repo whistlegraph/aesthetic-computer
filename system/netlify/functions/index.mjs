@@ -59,6 +59,47 @@ async function fun(event, context) {
       return respond(500, "Error loading kidlisp.com");
     }
   }
+
+  // Serve GIF files directly as static assets (for mockup previews, etc.)
+  if (event.path.endsWith(".gif")) {
+    try {
+      const gifPath = path.join(process.cwd(), "public/aesthetic.computer", event.path.slice(1));
+      const gifBuffer = await fs.readFile(gifPath);
+      return {
+        statusCode: 200,
+        headers: { 
+          "Content-Type": "image/gif",
+          "Cache-Control": "public, max-age=60"
+        },
+        body: gifBuffer.toString("base64"),
+        isBase64Encoded: true,
+      };
+    } catch (err) {
+      console.error("❌ Error serving GIF:", event.path, err.message);
+      return respond(404, "GIF not found");
+    }
+  }
+
+  // Serve WebP files directly as static assets (for animated mockup previews with transparency)
+  if (event.path.endsWith(".webp")) {
+    try {
+      const webpPath = path.join(process.cwd(), "public/aesthetic.computer", event.path.slice(1));
+      const webpBuffer = await fs.readFile(webpPath);
+      return {
+        statusCode: 200,
+        headers: { 
+          "Content-Type": "image/webp",
+          "Cache-Control": "public, max-age=60"
+        },
+        body: webpBuffer.toString("base64"),
+        isBase64Encoded: true,
+      };
+    } catch (err) {
+      console.error("❌ Error serving WebP:", event.path, err.message);
+      return respond(404, "WebP not found");
+    }
+  }
+
   // console.log("😃", __dirname, __filename);
 
   let slug = event.path.slice(1) || "prompt";
@@ -79,7 +120,8 @@ async function fun(event, context) {
   }
 
   // Prevent loading of .json, font, or other non-code files as Lisp/JS pieces
-  const forbiddenExtensions = [".json", ".ttf", ".otf", ".woff", ".woff2", ".eot", ".svg", ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico"];
+  // Note: .gif is allowed for mockup previews served from /aesthetic.computer/
+  const forbiddenExtensions = [".json", ".ttf", ".otf", ".woff", ".woff2", ".eot", ".svg", ".png", ".jpg", ".jpeg", ".bmp", ".ico"];
   for (const ext of forbiddenExtensions) {
     if (slug.endsWith(ext)) {
       console.log(`⛔ Blocked attempt to load forbidden file type: ${slug}`);

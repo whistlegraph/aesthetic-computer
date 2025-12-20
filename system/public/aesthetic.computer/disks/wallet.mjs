@@ -24,8 +24,8 @@ let pairingUri = null; // Beacon pairing URI for mobile connection
 let pairingError = null; // Error if pairing fails
 let nftCount = 0; // Number of NFTs owned
 let userKidlisps = []; // User's KidLisp pieces
-let userKeeps = []; // User's Keeps from contract
 let userSub = null; // Current user's sub for KidLisp queries
+let userHandle = null; // Current user's AC handle
 
 // Refresh timers
 let lastPriceFetch = 0;
@@ -33,14 +33,12 @@ let lastBalanceFetch = 0;
 let lastBlockFetch = 0;
 let lastTxFetch = 0;
 let lastKidlispFetch = 0;
-let lastKeepsFetch = 0;
 const PRICE_REFRESH = 30000;
 const BALANCE_REFRESH = 30000;
 const BLOCK_REFRESH = 4000;
 const TX_REFRESH = 60000;
 const BLOCK_TIME = 8000; // Tezos block time ~8 seconds
 const KIDLISP_REFRESH = 120000; // 2 minutes
-const KEEPS_REFRESH = 60000; // 1 minute
 
 // Animation
 let frameCount = 0;
@@ -106,7 +104,7 @@ const GHOST_SPRITE = [
 
 // Draw a Pac-Man ghost at x, y with given body color
 // Size is the pixel scale (1 = 14px tall, 2 = 28px tall, etc.)
-function drawGhost(ink, box, x, y, bodyColor = [255, 180, 50], size = 1) {
+function drawGhost(ink, box, x, y, bodyColor = [255, 180, 50], size = 1, eyeOffset = { x: 0, y: 0 }) {
   const w = 14, h = 14;
   
   // Draw body from sprite
@@ -129,9 +127,9 @@ function drawGhost(ink, box, x, y, bodyColor = [255, 180, 50], size = 1) {
   // Pupils: blue (1x2 pixels, bottom-right of each eye)
   ink(50, 80, 200);
   // Left pupil
-  box(x + 4 * size, y + 5 * size, size, 2 * size);
+  box(x + (4 + eyeOffset.x) * size, y + (5 + eyeOffset.y) * size, size, 2 * size);
   // Right pupil
-  box(x + 9 * size, y + 5 * size, size, 2 * size);
+  box(x + (9 + eyeOffset.x) * size, y + (5 + eyeOffset.y) * size, size, 2 * size);
 }
 
 // Get API base URL based on network
@@ -141,15 +139,16 @@ function getApiBase(network) {
     : "https://api.ghostnet.tzkt.io";
 }
 
-async function boot({ wallet, wipe, hud, ui, screen, user }) {
+async function boot({ wallet, wipe, hud, ui, screen, user, handle }) {
   wipe(colors.bg);
   hud.label("wallet");
   
   wallet.sync();
   walletState = wallet.get();
   
-  // Get logged-in user sub for KidLisp queries
+  // Get logged-in user sub and handle
   userSub = user?.sub || null;
+  userHandle = typeof handle === "function" ? handle() : user?.handle || null;
   
   connectError = null;
   connecting = false;
@@ -186,7 +185,6 @@ async function boot({ wallet, wipe, hud, ui, screen, user }) {
     fetchHeadBlock(walletState?.network),
     walletState?.address ? fetchTransactions(walletState.address, walletState.network) : Promise.resolve(),
     walletState?.address ? fetchNFTCount(walletState.address, walletState.network) : Promise.resolve(),
-    walletState?.address ? fetchUserKeeps(walletState.address, walletState.network) : Promise.resolve(),
     userSub ? fetchUserKidlisps(userSub) : Promise.resolve(),
   ]);
 }
@@ -292,7 +290,7 @@ async function fetchUserKidlisps(userSub) {
           code: p.code,
           source: p.source || '',
           preview: p.source ? p.source.replace(/\n/g, ' ').slice(0, 60) : p.code,
-          kept: p.kept || null,
+          kept: p.kept ? { ...p.kept, keptBy: p.kept.keptBy || null } : null,
           when: p.when ? new Date(p.when) : null,
           hits: p.hits || 0,
           marqueeX: 0, // Individual marquee offset
@@ -300,30 +298,6 @@ async function fetchUserKidlisps(userSub) {
     }
   } catch (e) {
     console.log("Failed to fetch KidLisps:", e);
-  }
-}
-
-async function fetchUserKeeps(address, network = "ghostnet") {
-  if (!address) return;
-  try {
-    // Keeps contract address - from keep-mint.mjs
-    const contractAddress = network === "mainnet" 
-      ? "KT1NeytR5BHDfGBjG9ZuLkPd7nmufmH1icVc" // Mainnet (future)
-      : "KT1NeytR5BHDfGBjG9ZuLkPd7nmufmH1icVc"; // Ghostnet current
-    const apiBase = network === "mainnet" ? "https://api.tzkt.io" : "https://api.ghostnet.tzkt.io";
-    
-    // Fetch tokens owned by this address from the Keeps contract
-    const res = await fetch(`${apiBase}/v1/tokens/balances?account=${address}&token.contract=${contractAddress}&balance.gt=0&limit=100`);
-    if (res.ok) {
-      const data = await res.json();
-      userKeeps = data.map(item => ({
-        tokenId: item.token.tokenId,
-        metadata: item.token.metadata,
-        name: item.token.metadata?.name || `Keep #${item.token.tokenId}`,
-      }));
-    }
-  } catch (e) {
-    console.log("Failed to fetch Keeps:", e);
   }
 }
 
@@ -367,10 +341,6 @@ function sim({ wallet, jump, screen }) {
       fetchTransactions(walletState.address, walletState.network);
       lastTxFetch = now;
     }
-    if (now - lastKeepsFetch > KEEPS_REFRESH && walletState.address) {
-      fetchUserKeeps(walletState.address, walletState.network);
-      lastKeepsFetch = now;
-    }
   }
   
   // KidLisp refresh (uses userSub, not wallet connection)
@@ -402,7 +372,7 @@ function sim({ wallet, jump, screen }) {
 }
 
 function paint($) {
-  const { wipe, ink, screen, line, box } = $;
+  const { wipe, ink, screen, line, box, ui, write } = $;
   
   const w = screen.width;
   const h = screen.height;
@@ -428,18 +398,27 @@ function paint($) {
   for (let y = 0; y < h; y += 24) line(0, y, w, y);
   
   let y = top;
+  const topRowY = y;
+  const priceRowY = y + 12;
   
-  // === NETWORK (left) & PRICE (right, with mini graph) - TOP ROW ===
+  // === NETWORK (top row) ===
+  const priceText = tezPrice?.usd ? `$${tezPrice.usd.toFixed(2)}` : null;
+  const priceX = priceText ? w - m - (priceText.length * 6) - 2 : null;
+
   if (walletState?.connected) {
     const netColor = walletState.network === "mainnet" ? colors.positive : colors.block;
     const isGhostnet = walletState.network !== "mainnet";
     
     if (isGhostnet) {
-      // Draw Pac-Man ghost icon before "GHOSTNET" text
-      drawGhost(ink, box, m, y - 2, netColor, 1);
-      ink(...netColor).write("GHOSTNET", { x: m + 16, y });
+      // Draw label near the ghost on the top-right
+      const eyeShiftX = Math.max(0, Math.min(1, Math.round((Math.sin(frameCount / 12) + 1) / 2)));
+      const eyeShiftY = Math.max(0, Math.min(1, Math.round((Math.cos(frameCount / 16) + 1) / 2)));
+      const ghostX = priceX !== null ? Math.max(m, priceX - 18) : w - m - 14;
+      const labelX = Math.max(m, ghostX - 44);
+      ink(...netColor).write("GHOSTNET", { x: labelX, y: topRowY + 1 }, undefined, undefined, false, "MatrixChunky8");
+      drawGhost(ink, box, ghostX, 2, netColor, 1, { x: eyeShiftX, y: eyeShiftY });
     } else {
-      ink(...netColor).write(walletState.network?.toUpperCase() || "MAINNET", { x: m, y });
+      ink(...netColor).write(walletState.network?.toUpperCase() || "MAINNET", { x: m, y: topRowY });
     }
   }
   
@@ -449,7 +428,7 @@ function paint($) {
       const graphW = 40;
       const graphH = 8;
       const graphX = w - m - graphW - 55;
-      const graphY = y - 1;
+      const graphY = priceRowY - 1;
       
       const minP = Math.min(...priceHistory);
       const maxP = Math.max(...priceHistory);
@@ -469,12 +448,10 @@ function paint($) {
     }
     
     // Price text (right aligned) - move ꜩ up 3 more pixels
-    const priceText = `$${tezPrice.usd.toFixed(2)}`;
-    const priceX = w - m - (priceText.length * 6) - 2;
-    ink(...colors.primary).write("ꜩ", { x: priceX - 12, y: y + TEZ_Y_ADJUST - 4 }, undefined, undefined, false, "unifont");
-    ink(...colors.text).write(priceText, { x: priceX, y });
+    ink(...colors.primary).write("ꜩ", { x: priceX - 12, y: priceRowY + TEZ_Y_ADJUST - 4 }, undefined, undefined, false, "unifont");
+    ink(...colors.text).write(priceText, { x: priceX, y: priceRowY });
   }
-  y += 14;
+  y = priceRowY + 14;
   
   // Divider
   ink(...colors.primaryDim, 60).line(m, y, w - m, y);
@@ -485,6 +462,12 @@ function paint($) {
     if (walletState.domain) {
       ink(...colors.secondary).write(walletState.domain, { x: m, y });
       y += 12;
+    }
+
+    if (userHandle) {
+      const displayHandle = userHandle.startsWith("@") ? userHandle : `@${userHandle}`;
+      ink(...colors.primaryBright).write(displayHandle, { x: m, y }, undefined, undefined, false, "MatrixChunky8");
+      y += 10;
     }
     
     // Address (compact)
@@ -522,34 +505,15 @@ function paint($) {
     }
     y += 4;
     
-    // === RECENT TRANSACTIONS (compact) ===
-    if (transactions.length > 0) {
-      ink(...colors.textDim).write("RECENT", { x: m, y });
-      y += 10;
-      
-      const maxTx = Math.min(3, transactions.length);
-      for (let i = 0; i < maxTx; i++) {
-        const tx = transactions[i];
-        const isSent = tx.type === 'sent';
-        const color = isSent ? colors.negative : colors.positive;
-        const sign = isSent ? '-' : '+';
-        const ago = getTimeAgo(tx.timestamp);
-        
-        // Show transaction type indicator
-        const txType = tx.amount === 0 ? 'NFT' : 'XTZ';
-        
-        ink(...colors.textDim).write(ago, { x: m, y });
-        ink(...color).write(`${sign}${tx.amount.toFixed(2)}`, { x: m + 24, y });
-        ink(...colors.textDim).write(txType, { x: m + 70, y });
-        y += 10;
-      }
-      y += 6;
-    }
-    
     // === KIDLISP PIECES (two columns: Kept / Unkept) ===
     if (userKidlisps.length > 0) {
-      const keptPieces = userKidlisps.filter(p => p.kept);
-      const unkeptPieces = userKidlisps.filter(p => !p.kept);
+      const isKeptByUser = p =>
+        p.kept &&
+        (p.kept.keptBy === userSub ||
+          (walletState?.address && p.kept.walletAddress === walletState.address) ||
+          (!p.kept.keptBy && !p.kept.walletAddress));
+      const keptPieces = userKidlisps.filter(isKeptByUser);
+      const unkeptPieces = userKidlisps.filter(p => !isKeptByUser(p));
       const colW = Math.floor((w - m * 3) / 2);
       const leftX = m;
       const rightX = m + colW + m;
@@ -653,62 +617,8 @@ function paint($) {
       y += 6;
     }
     
-    // === KEEPS (from contract) ===
-    if (userKeeps.length > 0) {
-      ink(...colors.textDim).write("KEEPS", { x: m, y });
-      ink(...colors.primaryBright).write(`(${userKeeps.length})`, { x: m + 36, y });
-      y += 10;
-      
-      const maxKeeps = Math.min(3, userKeeps.length);
-      for (let i = 0; i < maxKeeps; i++) {
-        const keep = userKeeps[i];
-        // Parse the name - it's usually the $code from metadata
-        let displayName = keep.name;
-        if (!displayName.startsWith('$') && keep.metadata?.symbol) {
-          displayName = `$${keep.metadata.symbol}`;
-        }
-        displayName = displayName.length > 16 ? displayName.slice(0, 14) + '...' : displayName;
-        ink(...colors.primaryBright).write(displayName, { x: m, y }, undefined, undefined, false, "MatrixChunky8");
-        // Show token ID on the right
-        ink(...colors.textDim).write(`#${keep.tokenId}`, { x: m + 90, y });
-        y += 10;
-      }
-      if (userKeeps.length > 3) {
-        ink(...colors.textDim).write(`+${userKeeps.length - 3} more`, { x: m, y });
-        y += 10;
-      }
-    }
-    
-    // === BLOCKCHAIN STATUS BAR (at bottom) ===
-    const statusY = h - 28;
-    const barH = 4;
-    const barW = w - m * 2;
-    
-    // Block progress bar
-    ink(...colors.progressBg).box(m, statusY, barW, barH);
-    ink(...colors.progressFill).box(m, statusY, Math.floor(barW * blockProgress), barH);
-    
-    // Status row below progress bar
-    const infoY = statusY + barH + 2;
-    
-    // Left: Block level
-    if (headBlock) {
-      ink(...colors.block).write(`BLK ${headBlock.level}`, { x: m, y: infoY });
-    }
-    
-    // Center: Time
-    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    ink(...colors.textDim).write(timeStr, { x: w/2, y: infoY, center: "x" });
-    
-    // Right: Cycle
-    if (headBlock) {
-      const cycleText = `CYC ${headBlock.cycle}`;
-      const cycleX = w - m - (cycleText.length * 6);
-      ink(...colors.textDim).write(cycleText, { x: cycleX, y: infoY });
-    }
-    
-    // Disconnect button (bottom right, above status bar)
-    disconnectBtn?.reposition({ bottom: 32, right: 6, screen });
+    // Disconnect button (bottom right)
+    disconnectBtn?.reposition({ bottom: 6, right: 6, screen });
     disconnectBtn?.paint($, 
       [[50, 30, 40], [120, 70, 90], [180, 150, 170], [50, 30, 40]],
       [[80, 50, 60], [180, 100, 120], [255, 255, 255], [80, 50, 60]]
@@ -720,6 +630,10 @@ function paint($) {
     // Title
     ink(...colors.primary).write("ꜩ", { x: w/2, y: cy - 50 + TEZ_Y_ADJUST, center: "x" }, undefined, undefined, false, "unifont");
     ink(...colors.text).write("CONNECT WALLET", { x: w/2, y: cy - 20, center: "x" });
+    if (userHandle) {
+      const displayHandle = userHandle.startsWith("@") ? userHandle : `@${userHandle}`;
+      ink(...colors.primaryBright).write(displayHandle, { x: w/2, y: cy - 6, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+    }
     
     if (showConnectOptions) {
       // Show two options: Browser Extension and Mobile App
@@ -754,12 +668,6 @@ function paint($) {
     
     // Hint
     ink(...colors.textDim).write("ESC to go back", { x: w/2, y: cy + 110, center: "x" });
-    
-    // Chain info at bottom
-    if (headBlock) {
-      ink(...colors.block).write(`BLOCK ${headBlock.level}`, { x: w/2, y: h - 40, center: "x" });
-      ink(...colors.textDim).write(`CYCLE ${headBlock.cycle}`, { x: w/2, y: h - 28, center: "x" });
-    }
     
     if (tezPrice?.usd) {
       ink(...colors.primary).write("ꜩ", { x: w/2 - 30, y: h - 12 + TEZ_Y_ADJUST }, undefined, undefined, false, "unifont");
