@@ -94,10 +94,34 @@ async function checkMintStatus(pieceName) {
     if (response.status === 200) {
       const data = await response.json();
       if (data.active) {
+        const tokenId = data.value;
+        
+        // Fetch full token metadata for thumbnail
+        let thumbnailUri = null;
+        let name = null;
+        let minter = null;
+        try {
+          const tokenUrl = `https://api.${NETWORK}.tzkt.io/v1/tokens?contract=${CONTRACT_ADDRESS}&tokenId=${tokenId}`;
+          const tokenResponse = await fetch(tokenUrl);
+          if (tokenResponse.ok) {
+            const tokens = await tokenResponse.json();
+            if (tokens[0]?.metadata) {
+              thumbnailUri = tokens[0].metadata.thumbnailUri;
+              name = tokens[0].metadata.name;
+              minter = tokens[0].metadata.minter;
+            }
+          }
+        } catch (e) {
+          console.warn(`Failed to fetch token metadata: ${e.message}`);
+        }
+        
         return { 
           minted: true, 
-          tokenId: data.value,
-          objktUrl: `https://${NETWORK === "mainnet" ? "" : "ghostnet."}objkt.com/asset/${CONTRACT_ADDRESS}/${data.value}`,
+          tokenId,
+          name,
+          minter,
+          thumbnailUri,
+          objktUrl: `https://${NETWORK === "mainnet" ? "" : "ghostnet."}objkt.com/asset/${CONTRACT_ADDRESS}/${tokenId}`,
         };
       }
     }
@@ -306,6 +330,9 @@ export const handler = stream(async (event, context) => {
         await send("error", { 
           error: "Already minted", 
           tokenId: mintStatus.tokenId,
+          name: mintStatus.name,
+          minter: mintStatus.minter,
+          thumbnailUri: mintStatus.thumbnailUri,
           objktUrl: mintStatus.objktUrl 
         });
         return; // finally will close
