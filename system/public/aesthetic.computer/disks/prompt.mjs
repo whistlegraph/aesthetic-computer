@@ -762,6 +762,7 @@ async function halt($, text) {
     help,
     zip,
     print,
+    mug,
     mint,
     rec,
     sound,
@@ -1387,7 +1388,7 @@ async function halt($, text) {
     flashColor = [200, 0, 200];
     makeFlash($);
     return true;
-  } else if (slug === "print" || slug === "mint") {
+  } else if (slug === "print" || slug === "mint" || slug === "mug") {
     progressBar = 0;
 
     progressTrick = new gizmo.Hourglass(24, {
@@ -1399,6 +1400,31 @@ async function halt($, text) {
       if (slug === "print") {
         // 🏚️ Print a sticker.
         await print(system.painting, params[0], (p) => (progressBar = p));
+      } else if (slug === "mug") {
+        // ☕ Print on a ceramic mug.
+        // Usage: mug [#code] [color] [quantity]
+        // Examples: mug, mug blue, mug #abc, mug #abc blue, mug #abc blue 2
+        let picture = system.painting;
+        let color = "white";
+        let quantity = 1;
+        let paramIndex = 0;
+        
+        // Check if first param is a #code
+        if (params[0]?.startsWith("#")) {
+          picture = params[0]; // Pass the code string directly
+          paramIndex = 1;
+        }
+        
+        // Parse remaining params (color and quantity)
+        if (params[paramIndex] && isNaN(parseInt(params[paramIndex]))) {
+          color = params[paramIndex];
+          paramIndex++;
+        }
+        if (params[paramIndex]) {
+          quantity = parseInt(params[paramIndex]) || 1;
+        }
+        
+        await mug(picture, color, quantity, (p) => (progressBar = p));
       } else if (slug === "mint") {
         // 🪙 Mint on Zora.
         await mint(
@@ -5460,27 +5486,18 @@ function paint($) {
       $.needsPaint();
     }
     
-    // ☃️ Winter vibes snowman stamp in bottom-left corner
+    // ☃️ Winter vibes snowman stamp - positioned above MOTD
     // Check if we're in December, January, or February for winter vibes
     const month = new Date().getMonth(); // 0-indexed: 0=Jan, 11=Dec
     const isWinter = month === 11 || month === 0 || month === 1; // Dec, Jan, Feb
     if (isWinter && screen.height >= 120) {
-      // Check if paste button is visible and would overlap
-      const pasteBtn = $.system.prompt.input?.paste;
-      const pasteVisible = pasteBtn && !pasteBtn.btn.disabled && pasteBtn.btn.box;
+      // Position snowman centered horizontally, above the MOTD area
+      const snowmanWidth = 16; // unifont character width
+      let snowmanX = Math.floor((screen.width - snowmanWidth) / 2);
+      // MOTD is at screen.height/2 - 48, so put snowman above that
+      let snowmanY = Math.floor(screen.height / 2 - 72); // 24px above MOTD baseline
       
-      // Default position: bottom-left corner
-      let snowmanX = 6;
-      let snowmanY = screen.height - 20;
-      
-      // If paste button is present, move snowman above it
-      if (pasteVisible) {
-        const pasteBox = pasteBtn.btn.box;
-        // Position snowman above the paste button with some padding
-        snowmanY = pasteBox.y - 18;
-      }
-      
-      // Only draw if there's enough space
+      // Only draw if there's enough space from top
       if (snowmanY > 20) {
         // Gentle bobbing animation
         const bobOffset = Math.sin(motdFrame * 0.03) * 1.5;
