@@ -11,7 +11,133 @@ import fs from 'fs';
 import path from 'path';
 import readline from 'readline';
 import os from 'os';
-import { execSync, spawn } from 'child_process';
+import { execSync, spawn, spawnSync } from 'child_process';
+
+// Find the emacsclient's PTY for direct sixel output (bypasses eat terminal)
+function findEmacsclientPty() {
+  try {
+    // Find emacsclient process
+    const psResult = spawnSync('pgrep', ['-f', 'emacsclient.*-nw'], { encoding: 'utf-8' });
+    if (psResult.status !== 0 || !psResult.stdout.trim()) return null;
+    
+    const pid = psResult.stdout.trim().split('\n')[0];
+    // Get the tty from /proc/<pid>/fd/0
+    const fd0 = fs.readlinkSync(`/proc/${pid}/fd/0`);
+    if (fd0.startsWith('/dev/pts/')) {
+      return fd0;
+    }
+  } catch (err) {
+    // Fall back to null
+  }
+  return null;
+}
+
+// Write sixel directly to the parent terminal (bypassing eat)
+function writeSixelDirect(sixelData) {
+  const pty = findEmacsclientPty();
+  if (pty && sixelData) {
+    try {
+      fs.writeFileSync(pty, sixelData);
+      return true;
+    } catch (err) {
+      return false;
+    }
+  }
+  return false;
+}
+
+// Helper: Fetch image and convert to sixel using ImageMagick directly
+async function fetchTerminalImage(url, maxWidth = 20, maxHeight = 10) {
+  // Handle IPFS URLs - try multiple gateways
+  let fetchUrl = url;
+  const ipfsGateways = [
+    'https://cloudflare-ipfs.com/ipfs/',
+    'https://ipfs.io/ipfs/',
+    'https://gateway.pinata.cloud/ipfs/',
+    'https://w3s.link/ipfs/',
+  ];
+  
+  if (url.startsWith('ipfs://')) {
+    const cid = url.slice(7);
+    // Try gateways in order
+    for (const gateway of ipfsGateways) {
+      fetchUrl = `${gateway}${cid}`;
+      try {
+        const timestamp = Date.now();
+        const tmpFile = `/tmp/sixel-thumb-${timestamp}`;
+        const curlResult = spawnSync('curl', ['-sL', '--max-time', '8', '-o', `${tmpFile}.img`, fetchUrl], { timeout: 10000 });
+        
+        if (curlResult.status === 0) {
+          const stats = fs.statSync(`${tmpFile}.img`);
+          if (stats.size > 500) {
+            // Got a real image, convert to sixel
+            // Now with direct PTY output, we can use proper sizing
+            const pixelSize = 200;
+            
+            const magickResult = spawnSync('/usr/bin/magick', [
+              `${tmpFile}.img[0]`,  // [0] gets first frame of animated images
+              '-resize', `${pixelSize}x${pixelSize}>`,
+              'sixel:-'
+            ], { 
+              timeout: 5000,
+              maxBuffer: 1024 * 1024 
+            });
+            
+            try { fs.unlinkSync(`${tmpFile}.img`); } catch {}
+            
+            if (magickResult.status === 0) {
+              return magickResult.stdout.toString();
+            }
+          }
+        }
+        try { fs.unlinkSync(`${tmpFile}.img`); } catch {}
+      } catch (err) {
+        // Try next gateway
+        continue;
+      }
+    }
+    return null; // All gateways failed
+  }
+  
+  // Non-IPFS URL
+  try {
+    const timestamp = Date.now();
+    const tmpFile = `/tmp/sixel-thumb-${timestamp}`;
+    const curlResult = spawnSync('curl', ['-sL', '--max-time', '10', '-o', `${tmpFile}.img`, fetchUrl], { timeout: 12000 });
+    if (curlResult.status !== 0) {
+      return null;
+    }
+    
+    // Check file size
+    try {
+      const stats = fs.statSync(`${tmpFile}.img`);
+      if (stats.size < 500) {
+        fs.unlinkSync(`${tmpFile}.img`);
+        return null;
+      }
+    } catch { return null; }
+    
+    const pixelSize = 200;
+    const magickResult = spawnSync('/usr/bin/magick', [
+      `${tmpFile}.img[0]`,
+      '-resize', `${pixelSize}x${pixelSize}>`,
+      'sixel:-'
+    ], { 
+      timeout: 5000,
+      maxBuffer: 1024 * 1024 
+    });
+    
+    try { fs.unlinkSync(`${tmpFile}.img`); } catch {}
+    
+    if (magickResult.status !== 0) {
+      return null;
+    }
+    
+    return magickResult.stdout.toString();
+  } catch (err) {
+    return null;
+  }
+}
 
 // ANSI escape codes
 const ESC = '\x1b';
@@ -318,6 +444,7 @@ class ArteryTUI {
       { key: 'a', label: 'Activate Audio', desc: 'Click to enable audio', action: () => this.activateAudio() },
       { key: 'w', label: 'WebGPU Perf', desc: 'Monitor WebGPU performance', action: () => this.webgpuPerf() },
       { key: 'x', label: 'Reconnect', desc: 'Reconnect to AC', action: () => this.reconnect() },
+      { key: 'i', label: 'Login', desc: 'AC login/logout', action: () => this.toggleAcLogin() },
       { key: 'q', label: 'Quit', desc: 'Exit Artery TUI', action: () => this.quit() },
     ];
     
@@ -326,7 +453,8 @@ class ArteryTUI {
       { key: 's', label: 'Status', desc: 'Refresh contract status' },
       { key: 'b', label: 'Balance', desc: 'Check wallet balance' },
       { key: 't', label: 'Tokens', desc: 'List recent tokens' },
-      { key: 'm', label: 'Mint', desc: 'Mint a test piece' },
+      { key: 'K', label: 'Keep', desc: 'Keep a piece (mint via AC)' },  // New: server-side mint
+      { key: 'm', label: 'Mint (Local)', desc: 'Mint using local wallet' },
       { key: 'u', label: 'Upload', desc: 'Upload bundle to IPFS' },
       { key: 'l', label: 'Lock', desc: 'Lock token metadata' },
       { key: 'f', label: 'Fishy', desc: 'Jump to 🐟-fishy terminal' },
@@ -334,12 +462,14 @@ class ArteryTUI {
       { key: 'e', label: 'Explorer', desc: 'Open tzkt in browser' },
       { key: 'o', label: 'Objkt', desc: 'Open objkt collection' },
       { key: 'd', label: 'Deploy', desc: 'Deploy FA2 to Ghostnet' },
+      { key: 'L', label: 'Login', desc: 'AC login/logout' },  // Dynamic: Login or Logout
     ];
     this.keepsSelectedIndex = 0;
     this.keepsOutput = '';
     this.keepsRunning = false;
     this.keepsPieceInput = '';
     this.keepsSubMode = 'menu'; // 'menu', 'piece-input', 'running'
+    this.keepsPendingAction = null; // Track which action needs piece input
     
     // Keeps dashboard live data
     this.keepsContractData = {
@@ -360,6 +490,10 @@ class ArteryTUI {
       successCriteria: '20+ test mints',
       mintsCompleted: 0,
     };
+    
+    // AC Auth state
+    this.acAuth = null; // { user: { handle, email, name }, expires_at }
+    this.loadAcAuth(); // Load on startup
     
     // KidLisp Cards state
     this.kidlispCardsMenu = [
@@ -2617,8 +2751,121 @@ class ArteryTUI {
     this.keepsRunning = false;
     this.keepsPieceInput = '';
     this.keepsSubMode = 'menu';
+    this.loadAcAuth(); // Refresh auth status
     this.render();
     // Skip loading - just show the menu immediately
+  }
+  
+  // Load AC auth token from ~/.ac-token
+  loadAcAuth() {
+    try {
+      const tokenFile = path.join(os.homedir(), '.ac-token');
+      if (fs.existsSync(tokenFile)) {
+        const data = JSON.parse(fs.readFileSync(tokenFile, 'utf8'));
+        const expired = data.expires_at && Date.now() > data.expires_at;
+        this.acAuth = expired ? null : data;
+      } else {
+        this.acAuth = null;
+      }
+    } catch (e) {
+      this.acAuth = null;
+    }
+  }
+  
+  // Login to AC (opens browser)
+  async loginAc() {
+    if (this.mode === 'keeps') {
+      this.keepsOutput = '🌐 Opening browser for AC login...\n';
+      this.keepsRunning = true;
+    }
+    this.render();
+    
+    const loginScript = path.join(process.cwd(), 'tezos/ac-login.mjs');
+    
+    return new Promise((resolve) => {
+      const child = spawn('node', [loginScript], {
+        cwd: process.cwd(),
+        stdio: ['ignore', 'pipe', 'pipe'],
+        env: { ...process.env, BROWSER: process.env.BROWSER || '' }
+      });
+      
+      child.stdout.on('data', (data) => {
+        if (this.mode === 'keeps') {
+          this.keepsOutput += data.toString();
+        }
+        this.render();
+      });
+      
+      child.stderr.on('data', (data) => {
+        if (this.mode === 'keeps') {
+          this.keepsOutput += data.toString();
+        }
+        this.render();
+      });
+      
+      child.on('close', (code) => {
+        if (this.mode === 'keeps') {
+          this.keepsRunning = false;
+        }
+        this.loadAcAuth(); // Reload auth status
+        if (code === 0 && this.acAuth) {
+          const name = this.acAuth.user?.handle 
+            ? `@${this.acAuth.user.handle}` 
+            : this.acAuth.user?.email || 'unknown';
+          if (this.mode === 'keeps') {
+            this.keepsOutput += `\n✅ Logged in as ${name}\n`;
+          }
+        }
+        this.render();
+        resolve(code === 0);
+      });
+    });
+  }
+  
+  // Logout from AC
+  logoutAc() {
+    try {
+      const tokenFile = path.join(os.homedir(), '.ac-token');
+      if (fs.existsSync(tokenFile)) {
+        fs.unlinkSync(tokenFile);
+      }
+      this.acAuth = null;
+      if (this.mode === 'keeps') {
+        this.keepsOutput = '✅ Logged out from AC\n';
+      }
+    } catch (e) {
+      if (this.mode === 'keeps') {
+        this.keepsOutput = `❌ Logout error: ${e.message}\n`;
+      }
+    }
+    this.render();
+  }
+  
+  // Get auth display for header
+  getAcAuthDisplay() {
+    if (!this.acAuth) return '○ not logged in';
+    const name = this.acAuth.user?.handle 
+      ? `@${this.acAuth.user.handle}` 
+      : this.acAuth.user?.email?.split('@')[0] || '?';
+    return `● ${name}`;
+  }
+  
+  // Toggle login/logout from main menu
+  async toggleAcLogin() {
+    if (this.acAuth) {
+      this.logoutAc();
+      this.setStatus('Logged out from AC', 'info');
+    } else {
+      this.setStatus('Opening browser for AC login...', 'info');
+      await this.loginAc();
+      if (this.acAuth) {
+        const name = this.acAuth.user?.handle 
+          ? `@${this.acAuth.user.handle}` 
+          : this.acAuth.user?.email || 'unknown';
+        this.setStatus(`Logged in as ${name}`, 'success');
+      }
+    }
+    this.render();
   }
   
   // Start tezbot daemon if not running
@@ -2766,7 +3013,12 @@ class ArteryTUI {
         const piece = this.keepsPieceInput.trim();
         if (piece) {
           this.keepsSubMode = 'running';
-          this.executeKeepsAction(this.keepsMenu[this.keepsSelectedIndex].key, piece);
+          const action = this.keepsPendingAction || this.keepsMenu[this.keepsSelectedIndex].key;
+          if (action === 'keep') {
+            this.executeKeep(piece);
+          } else {
+            this.executeKeepsAction(action, piece);
+          }
         }
         return;
       } else if (key === '\u007f' || key === '\b') {
@@ -2774,6 +3026,7 @@ class ArteryTUI {
       } else if (key === '\u001b') {
         this.keepsSubMode = 'menu';
         this.keepsPieceInput = '';
+        this.keepsPendingAction = null;
       } else if (key.length === 1 && key >= ' ') {
         this.keepsPieceInput += key;
       }
@@ -2811,8 +3064,8 @@ class ArteryTUI {
       const action = this.keepsMenu[this.keepsSelectedIndex];
       this.handleKeepsAction(action.key);
     } else {
-      // Direct key press
-      const action = this.keepsMenu.find(m => m.key === key.toLowerCase());
+      // Direct key press - check both exact case and lowercase
+      const action = this.keepsMenu.find(m => m.key === key || m.key === key.toLowerCase());
       if (action) {
         this.keepsSelectedIndex = this.keepsMenu.indexOf(action);
         this.handleKeepsAction(action.key);
@@ -2837,18 +3090,161 @@ class ArteryTUI {
         this.keepsSubMode = 'running';
         await this.keepsRunTests();
         return;
+      case 'L': // Login/Logout
+        if (this.acAuth) {
+          this.logoutAc();
+        } else {
+          await this.loginAc();
+        }
+        return;
+      case 'K': // Keep via AC server (requires login)
+        if (!this.acAuth) {
+          this.keepsOutput = '❌ Must be logged in to keep. Press L to login.\n';
+          this.render();
+          return;
+        }
+        this.keepsSubMode = 'piece-input';
+        this.keepsPieceInput = this.currentPiece || '';
+        this.keepsPendingAction = 'keep'; // Track which action needs the piece
+        return;
     }
     
     // Actions that need piece input
     if (actionKey === 'u' || actionKey === 'm' || actionKey === 'l') {
       this.keepsSubMode = 'piece-input';
       this.keepsPieceInput = this.currentPiece || '';
+      this.keepsPendingAction = actionKey; // Track pending action
       return;
     }
     
     // Standard keeps.mjs actions
     this.keepsSubMode = 'running';
     await this.executeKeepsAction(actionKey);
+  }
+
+  async executeKeep(piece) {
+    this.keepsRunning = true;
+    this.keepsOutput = '🔒 Keep: Connecting to server...\n';
+    this.render();
+    
+    if (!this.acAuth?.access_token) {
+      this.keepsOutput = '❌ Not logged in. Press L to login first.';
+      this.keepsRunning = false;
+      this.keepsSubMode = 'menu';
+      this.render();
+      return;
+    }
+    
+    // Use local dev server when available (supports https with self-signed cert)
+    const apiUrl = 'https://localhost:8888/api/keep-mint';
+    
+    try {
+      // Enable fetch for self-signed certs in development
+      process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.acAuth.access_token}`,
+          'Content-Type': 'application/json',
+          'Accept': 'text/event-stream',
+        },
+        body: JSON.stringify({ piece }),
+      });
+      
+      if (!response.ok) {
+        const text = await response.text();
+        this.keepsOutput = `❌ Server error (${response.status}): ${text}`;
+        this.keepsRunning = false;
+        this.keepsSubMode = 'menu';
+        this.render();
+        return;
+      }
+      
+      // Parse SSE stream
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let tokenId = null;
+      let currentEvent = 'progress';
+      
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+        
+        for (const line of lines) {
+          // Track event type
+          if (line.startsWith('event: ')) {
+            currentEvent = line.slice(7).trim();
+            continue;
+          }
+          
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              
+              // Handle error events
+              if (currentEvent === 'error' || data.error) {
+                this.keepsOutput += `❌ Error: ${data.error}\n`;
+                if (data.tokenId) {
+                  this.keepsOutput += `   Already minted as token #${data.tokenId}\n`;
+                  this.keepsOutput += `   View: ${data.objktUrl}\n`;
+                  if (data.name) this.keepsOutput += `   Name: ${data.name}\n`;
+                  if (data.minter) this.keepsOutput += `   Minter: ${data.minter}\n`;
+                  
+                  // Show sixel thumbnail if available
+                  if (data.thumbnailUri) {
+                    this.keepsOutput += `   📷 Fetching thumbnail...\n`;
+                    this.render();
+                    const imageData = await fetchTerminalImage(data.thumbnailUri, 20, 10);
+                    if (imageData) {
+                      // Store sixel for rendering after TUI completes
+                      this.keepsSixel = imageData;
+                      this.keepsOutput = this.keepsOutput.replace('📷 Fetching thumbnail...', '✅ Thumbnail below:');
+                    } else {
+                      this.keepsOutput = this.keepsOutput.replace('📷 Fetching thumbnail...', '❌ Thumbnail unavailable');
+                    }
+                  }
+                }
+                this.setStatus('Keep failed: ' + data.error, 'error');
+              } else if (data.stage) {
+                const icon = data.success === false ? '❌' : 
+                            data.done ? '✅' : '⏳';
+                this.keepsOutput += `${icon} ${data.stage}`;
+                if (data.message) this.keepsOutput += `: ${data.message}`;
+                this.keepsOutput += '\n';
+                
+                if (data.tokenId) tokenId = data.tokenId;
+                if (data.opHash) this.keepsOutput += `   → Op: ${data.opHash}\n`;
+              }
+              
+              this.render();
+            } catch (e) {
+              // Non-JSON data, skip
+            }
+          }
+        }
+      }
+      
+      if (tokenId) {
+        this.keepsOutput += `\n🎉 Minted as token #${tokenId}!\n`;
+        this.keepsOutput += `   View: https://ghostnet.objkt.com/tokens/keeps-${tokenId}\n`;
+        this.setStatus(`Kept "${piece}" as token #${tokenId}`, 'success');
+        this.loadKeepsData();
+      }
+      
+    } catch (err) {
+      this.keepsOutput = `❌ Error: ${err.message}`;
+      this.setStatus('Keep failed', 'error');
+    }
+    
+    this.keepsRunning = false;
+    this.keepsSubMode = 'menu';
+    this.keepsPendingAction = null;
+    this.render();
   }
 
   async executeKeepsAction(actionKey, piece = null) {
@@ -3160,18 +3556,24 @@ class ArteryTUI {
   renderKeeps() {
     const boxWidth = this.innerWidth;
     
-    // Simple header
+    // Auth status
+    const authDisplay = this.getAcAuthDisplay();
+    const authColor = this.acAuth ? FG_GREEN : FG_BRIGHT_RED;
+    
+    // Simple header with auth
     this.writeLine(`${BG_MAGENTA}${FG_WHITE}${BOLD} 🔮 KEEPS - Tezos FA2 ${'─'.repeat(Math.max(0, boxWidth - 25))}${RESET}`);
-    this.writeLine(`${BG_MAGENTA}${FG_WHITE} Network: ghostnet | Contract: KT1NeytR5BHDfGB...${' '.repeat(Math.max(0, boxWidth - 50))}${RESET}`);
+    const headerInfo = `Network: ghostnet | AC: ${authDisplay}`;
+    this.writeLine(`${BG_MAGENTA}${FG_WHITE} ${headerInfo}${' '.repeat(Math.max(0, boxWidth - headerInfo.length - 2))}${RESET}`);
     this.writeLine(`${BG_BLACK}${' '.repeat(boxWidth)}${RESET}`);
     
-    // Actions - simple list
+    // Actions - simple list (with login/logout)
     this.writeLine(`${BG_BRIGHT_BLACK}${FG_WHITE}${BOLD} ACTIONS ${' '.repeat(Math.max(0, boxWidth - 10))}${RESET}`);
     
     const actions = [
-      ['s', 'Status'], ['b', 'Balance'], ['t', 'Tokens'], ['m', 'Mint'],
-      ['u', 'Upload'], ['l', 'Lock'], ['d', 'Deploy'], ['f', 'Fishy'],
-      ['e', 'Explorer'], ['o', 'Objkt'], ['r', 'Run Tests']
+      ['s', 'Status'], ['b', 'Balance'], ['t', 'Tokens'], ['K', 'Keep'],
+      ['m', 'Mint (Local)'], ['u', 'Upload'], ['l', 'Lock'], ['d', 'Deploy'],
+      ['e', 'Explorer'], ['o', 'Objkt'], ['r', 'Run Tests'], ['f', 'Fishy'],
+      this.acAuth ? ['L', 'Logout'] : ['L', 'Login']
     ];
     
     // Render in rows of 4
@@ -3683,6 +4085,17 @@ class ArteryTUI {
         break;
       case 'keeps':
         this.renderKeeps();
+        // Render sixel thumbnail directly to parent terminal (bypasses eat)
+        if (this.keepsSixel) {
+          const row = Math.min(this.height - 5, 22);
+          // Position cursor in parent terminal and write sixel directly
+          const pty = findEmacsclientPty();
+          if (pty) {
+            try {
+              fs.writeFileSync(pty, `\x1b[${row};4H${this.keepsSixel}`);
+            } catch {}
+          }
+        }
         break;
       case 'kidlisp-cards':
         this.renderKidLispCards();
@@ -3834,9 +4247,19 @@ class ArteryTUI {
                    : this.serverStatus.production === false ? `${FG_BRIGHT_RED}○` 
                    : `${DIM}?`;
     
+    // CDP status
+    const cdpIcon = this.cdpStatus === 'online' ? `${FG_BRIGHT_GREEN}●` 
+                  : this.cdpStatus === 'offline' ? `${FG_BRIGHT_RED}○` 
+                  : `${DIM}?`;
+    
+    // AC Auth status
+    const authDisplay = this.acAuth 
+      ? `${FG_BRIGHT_GREEN}●${this.acAuth.user?.handle ? `@${this.acAuth.user.handle}` : '✓'}` 
+      : `${FG_BRIGHT_RED}○`;
+    
     const serverInfo = compact 
       ? ` ${localIcon}${prodIcon}` 
-      : ` ${themeText}│ L${localIcon} P${prodIcon}`;
+      : ` ${themeText}│ Local${localIcon} Prod${prodIcon} ${themeText}│ CDP${cdpIcon}`;
     
     const statusContent = `${acStatus}${piece}${serverInfo}`;
     this.renderBoxLine(statusContent, boxWidth, theme);
@@ -4015,6 +4438,12 @@ class ArteryTUI {
           // Build tile content: KEY label (key is prominent)
           const keyText = item.key.toUpperCase();
           let label = item.label;
+          
+          // Dynamic label for Login/Logout
+          if (item.key === 'i') {
+            label = this.acAuth ? 'Logout' : 'Login';
+          }
+          
           const maxLabel = tileWidth - 4; // KEY + space + some label
           if (label.length > maxLabel) label = label.slice(0, maxLabel - 2) + '..';
           
