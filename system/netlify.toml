@@ -78,6 +78,15 @@ included_env_vars = ["NETLIFY_DEV", "CONTEXT", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M
 [functions.print]
 external_node_modules = ["got", "stripe", "nodemailer"]
 included_env_vars = ["CONTEXT", "PRINTFUL_API_TOKEN", "STRIPE_API_TEST_PRIV_KEY", "STRIPE_API_PRIV_KEY", "STRIPE_ENDPOINT_DEV_SECRET", "STRIPE_ENDPOINT_SECRET"]
+[functions.mug]
+external_node_modules = ["got", "stripe", "nodemailer", "@aws-sdk/client-s3"]
+included_env_vars = ["CONTEXT", "PRINTFUL_API_TOKEN", "STRIPE_API_TEST_PRIV_KEY", "STRIPE_API_PRIV_KEY", "STRIPE_ENDPOINT_DEV_SECRET", "STRIPE_ENDPOINT_MUG_SECRET", "DO_SPACES_KEY", "DO_SPACES_SECRET", "ART_KEY", "ART_SECRET", "MONGODB_URI"]
+[functions.mockup-gif]
+external_node_modules = ["got", "sharp", "gifenc"]
+included_env_vars = ["CONTEXT"]
+[functions.mockup-webp]
+external_node_modules = ["got", "sharp"]
+included_env_vars = ["CONTEXT"]
 [functions.pixel]
 external_node_modules = ["got", "sharp"]
 included_env_vars = ["CONTEXT"]
@@ -514,6 +523,18 @@ from = "/api/print/*"
 to = "/.netlify/functions/print"
 status = 200
 [[redirects]]
+from = "/api/mug"
+to = "/.netlify/functions/mug"
+status = 200
+[[redirects]]
+from = "/api/mockup-gif"
+to = "/.netlify/functions/mockup-gif"
+status = 200
+[[redirects]]
+from = "/api/mockup-webp"
+to = "/.netlify/functions/mockup-webp"
+status = 200
+[[redirects]]
 from = "/api/clock"
 to = "/.netlify/functions/clock"
 status = 200
@@ -930,6 +951,18 @@ status = 200
 from = "/disks/*"
 to = "/aesthetic.computer/disks/:splat"
 status = 200
+[[redirects]]
+# Allow GIF files to be served statically
+from = "/*.gif"
+to = "/aesthetic.computer/:splat.gif"
+status = 200
+force = false
+[[redirects]]
+# Allow WebP files to be served statically (animated mockups with transparency)
+from = "/*.webp"
+to = "/aesthetic.computer/:splat.webp"
+status = 200
+force = false
 [[redirects]]
 # SPA fallback for kidlisp.com routes - only for paths without file extensions
 # force = false ensures static files (js, css, etc.) are served directly

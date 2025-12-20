@@ -96,6 +96,7 @@
   "devDependencies": {
     "@aws-sdk/client-s3": "^3.932.0",
     "@aws-sdk/s3-request-presigner": "^3.932.0",
+    "gifenc": "^1.0.3",
     "http-server": "^14.1.1",
     "jest": "^30.2.0",
     "kill-port": "^2.0.1",
