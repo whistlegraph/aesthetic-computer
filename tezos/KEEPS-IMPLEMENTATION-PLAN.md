@@ -35,6 +35,17 @@ keep $ceo → Preview bundle → Connect wallet → Upload to IPFS → Mint NFT
 - 🔄 **CURRENT**: Testing keep flow in prompt.mjs/keep.mjs pieces
 - 📋 **NEXT**: Harden Ghostnet implementation before mainnet deploy
 
+**Recent Progress (Jan 2, 2025):**
+- ✅ `wallet.mjs` piece now displays user's KidLisp pieces and existing Keeps
+- ✅ Two-column layout: "Kept" (already minted) vs "Unkept" (mintable)
+- ✅ KEEP buttons implemented with `ui.TextButton` for hover/down states
+- ✅ KEEP button navigation fixed (`keep~$code` not `kept~$code`)
+- ✅ `keep.mjs` shows 10-step minting timeline with wallet connection
+- ✅ Pac-Man ghost sprites added for GHOSTNET badge in wallet.mjs and keep.mjs
+- ✅ `keep-confirm` API endpoint redirect added to netlify.toml
+- 🔄 **CURRENT**: End-to-end testing of KEEP button → keep.mjs → mint flow
+- 📋 **NEXT**: Test wallet connection + signing in keep.mjs piece
+
 ### Phase A — Ghostnet hardening (IN PROGRESS)
 - **Status**: Contract deployed to Ghostnet ✅
 - **Current focus**: Testing and hardening the keep flow in AC pieces

@@ -2271,7 +2271,11 @@ const $commonApi = {
     console.log("🖨️ Printing:", picture, "Quantity:", quantity);
     const data = await uploadPainting(picture, progress);
     let pixels;
-    if (data && data.slug) {
+    if (data && data.code) {
+      // Use the short code (2-6 chars) which pixel.js can look up in the database
+      pixels = `${data.code}.${data.ext}`;
+    } else if (data && data.slug) {
+      // Fallback to slug if code is not available
       pixels = `${data.slug}.${data.ext}`;
     } else if (data) {
       pixels = data.url;
@@ -2304,6 +2308,56 @@ const $commonApi = {
       $commonApi.jump(data.location); // Redirect to checkout.
     } catch (error) {
       console.error("🖨️ Print order error:", error);
+    }
+  },
+  // ☕ Mug - Print a painting on a ceramic mug with optional color.
+  // `picture` can be a painting object OR a code string like "abc" or "#abc"
+  mug: async (picture, color = "white", quantity = 1, progress) => {
+    console.log("☕ Mug:", picture, "Color:", color, "Quantity:", quantity);
+    let pixels;
+    
+    // Check if picture is a code string (e.g., "abc" or "#abc")
+    if (typeof picture === "string") {
+      const code = picture.startsWith("#") ? picture.slice(1) : picture;
+      pixels = `${code}.png`; // Assume PNG for existing paintings
+      console.log("☕ Using existing painting code:", code);
+    } else {
+      // Upload the painting
+      const data = await uploadPainting(picture, progress);
+      if (data && data.code) {
+        pixels = `${data.code}.${data.ext}`;
+      } else if (data && data.slug) {
+        pixels = `${data.slug}.${data.ext}`;
+      } else if (data) {
+        pixels = data.url;
+      } else {
+        $commonApi.notice("UPLOAD ERROR", ["red", "yellow"]);
+        return;
+      }
+    }
+
+    try {
+      const headers = { "Content-Type": "application/json" };
+      try {
+        const token = await $commonApi.authorize();
+        if (token) headers.Authorization = `Bearer ${token}`;
+      } catch (err) {}
+
+      const res = await fetch(`/api/mug?new=true&pixels=${pixels}&color=${color}`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ quantity, slug: $commonApi.slug }),
+      });
+
+      const data = await res.json();
+      if (!res.ok)
+        throw new Error(
+          `☕ Mug: HTTP error! Status: ${JSON.stringify(data)}`,
+        );
+      console.log("☕ Mug order:", data);
+      $commonApi.jump(data.location);
+    } catch (error) {
+      console.error("☕ Mug order error:", error);
     }
   },
   // Create a zip file of specified content. (Used for storing painting data.)
