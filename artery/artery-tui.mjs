@@ -46,6 +46,21 @@ function writeSixelDirect(sixelData) {
   return false;
 }
 
+// Clear an area of the screen where sixel was rendered (write spaces directly to PTY)
+function clearSixelArea(startRow, numRows, width) {
+  const pty = findEmacsclientPty();
+  if (pty) {
+    try {
+      const clearLine = ' '.repeat(width);
+      let clearSeq = '';
+      for (let r = startRow; r < startRow + numRows; r++) {
+        clearSeq += `\x1b[${r};1H${clearLine}`;
+      }
+      fs.writeFileSync(pty, clearSeq);
+    } catch {}
+  }
+}
+
 // Helper: Fetch image and convert to sixel using ImageMagick directly
 async function fetchTerminalImage(url, maxWidth = 20, maxHeight = 10) {
   // Handle IPFS URLs - try multiple gateways
@@ -1338,6 +1353,11 @@ class ArteryTUI {
     
     // Escape to go back (but ignore if part of mouse/arrow sequence)
     if (key === '\u001b' && this.mode !== 'menu') {
+      // Clear sixel if leaving keeps mode
+      if (this.mode === 'keeps' && this.keepsSixel) {
+        clearSixelArea(18, 15, this.width); // Clear area where sixel was rendered
+        this.keepsSixel = null;
+      }
       // From test-running or test-params, go back to tests list
       if (this.mode === 'test-running' || this.mode === 'test-params') {
         this.mode = 'tests';
@@ -3075,6 +3095,12 @@ class ArteryTUI {
   }
   
   async handleKeepsAction(actionKey) {
+    // Clear any existing sixel when taking a new action
+    if (this.keepsSixel) {
+      clearSixelArea(18, 15, this.width);
+      this.keepsSixel = null;
+    }
+    
     // Special actions that don't run keeps.mjs
     switch (actionKey) {
       case 'f': // Fishy - jump to terminal
