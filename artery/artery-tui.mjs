@@ -469,6 +469,7 @@ class ArteryTUI {
       { key: 'b', label: 'Balance', desc: 'Check wallet balance' },
       { key: 't', label: 'Tokens', desc: 'List recent tokens' },
       { key: 'K', label: 'Keep', desc: 'Keep a piece (mint via AC)' },  // New: server-side mint
+      { key: 'Q', label: 'Queue', desc: 'View/process keep queue' },
       { key: 'm', label: 'Mint (Local)', desc: 'Mint using local wallet' },
       { key: 'u', label: 'Upload', desc: 'Upload bundle to IPFS' },
       { key: 'l', label: 'Lock', desc: 'Lock token metadata' },
@@ -483,12 +484,23 @@ class ArteryTUI {
     this.keepsOutput = '';
     this.keepsRunning = false;
     this.keepsPieceInput = '';
-    this.keepsSubMode = 'menu'; // 'menu', 'piece-input', 'running'
+    this.keepsSubMode = 'menu'; // 'menu', 'piece-input', 'running', 'pieces-list', 'confirm-keep', 'queue'
     this.keepsPendingAction = null; // Track which action needs piece input
+    
+    // User pieces list for Keep mode
+    this.userPieces = [];        // Array of { code, source, kept, hits, when }
+    this.userPiecesIndex = 0;    // Selected piece in list
+    this.userPiecesLoading = false;
+    this.userPiecesError = null;
+    
+    // Keep queue - pieces to be kept in batch
+    this.keepQueue = [];          // Array of { code, hits } - pieces queued for keeping
+    this.keepQueueIndex = 0;      // Selected item in queue view
+    this.keepQueueProcessing = false; // Currently processing queue
     
     // Keeps dashboard live data
     this.keepsContractData = {
-      address: 'KT1NeytR5BHDfGBjG9ZuLkPd7nmufmH1icVc',
+      address: 'KT1KRQAkCrgbYPAxzxaFbGm1FaUJdqBACxu9',
       network: 'ghostnet',
       admin: 'aesthetic',
       tokenCount: 0,
@@ -1353,6 +1365,12 @@ class ArteryTUI {
     
     // Escape to go back (but ignore if part of mouse/arrow sequence)
     if (key === '\u001b' && this.mode !== 'menu') {
+      // In keeps mode, handle sub-mode navigation first
+      if (this.mode === 'keeps' && this.keepsSubMode !== 'menu') {
+        this.keepsSubMode = 'menu';
+        this.render();
+        return;
+      }
       // Clear sixel if leaving keeps mode
       if (this.mode === 'keeps' && this.keepsSixel) {
         clearSixelArea(18, 15, this.width); // Clear area where sixel was rendered
@@ -2776,6 +2794,109 @@ class ArteryTUI {
     // Skip loading - just show the menu immediately
   }
   
+  // Fetch user's KidLisp pieces from API
+  async fetchUserPieces() {
+    if (!this.acAuth?.user?.sub) {
+      this.userPiecesError = 'Not logged in';
+      return;
+    }
+    
+    this.userPiecesLoading = true;
+    this.userPiecesError = null;
+    this.render();
+    
+    try {
+      // Use local dev server
+      process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+      const res = await fetch('https://localhost:8888/api/store-kidlisp?recent=true&limit=100');
+      
+      if (!res.ok) {
+        throw new Error(`API error: ${res.status}`);
+      }
+      
+      const data = await res.json();
+      const userSub = this.acAuth.user.sub;
+      
+      // Filter pieces by this user
+      this.userPieces = (data.recent || [])
+        .filter(p => p.user === userSub)
+        .map(p => ({
+          code: p.code,
+          source: p.source || '',
+          preview: p.source ? p.source.replace(/\n/g, ' ').slice(0, 50) : p.code,
+          kept: !!p.tezos?.minted,
+          hits: p.hits || 0,
+          when: p.when ? new Date(p.when) : null,
+        }));
+      
+      this.userPiecesLoading = false;
+    } catch (e) {
+      this.userPiecesLoading = false;
+      this.userPiecesError = e.message;
+    }
+    this.render();
+  }
+  
+  // Fetch top pieces globally (sorted by hits)
+  async fetchTopPieces(filterHandle = null) {
+    this.userPiecesLoading = true;
+    this.userPiecesError = null;
+    this.render();
+    
+    try {
+      process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+      // Fetch top hits sorted by hits count server-side, with optional handle filter
+      let url = 'https://localhost:8888/api/store-kidlisp?recent=true&limit=500&sort=hits';
+      if (filterHandle) {
+        url += `&handle=${encodeURIComponent(filterHandle)}`;
+      }
+      const res = await fetch(url);
+      
+      if (!res.ok) {
+        throw new Error(`API error: ${res.status}`);
+      }
+      
+      const data = await res.json();
+      
+      // Pieces are already filtered by handle and sorted by hits server-side
+      let pieces = data.recent || [];
+      
+      // Check which are already kept on the current contract
+      const keptCodes = new Set();
+      try {
+        const keysRes = await fetch('https://api.ghostnet.tzkt.io/v1/contracts/KT1KRQAkCrgbYPAxzxaFbGm1FaUJdqBACxu9/bigmaps/content_hashes/keys');
+        if (keysRes.ok) {
+          const keys = await keysRes.json();
+          // Keys are hex-encoded, decode them to plain text
+          keys.forEach(k => {
+            const decoded = Buffer.from(k.key, 'hex').toString('utf8');
+            keptCodes.add(decoded);
+          });
+        }
+      } catch (e) {
+        // Ignore - can't check kept status
+      }
+      
+      this.userPieces = pieces
+        .map(p => ({
+          code: p.code,
+          source: p.source || '',
+          preview: p.source ? p.source.replace(/\n/g, ' ').slice(0, 50) : p.code,
+          kept: keptCodes.has(p.code),
+          hits: p.hits || 0,
+          when: p.when ? new Date(p.when) : null,
+          handle: p.handle || '@anon',
+        }))
+        .sort((a, b) => b.hits - a.hits); // Sort by hits descending
+      
+      this.userPiecesLoading = false;
+    } catch (e) {
+      this.userPiecesLoading = false;
+      this.userPiecesError = e.message;
+    }
+    this.render();
+  }
+  
   // Load AC auth token from ~/.ac-token
   loadAcAuth() {
     try {
@@ -2797,6 +2918,7 @@ class ArteryTUI {
     if (this.mode === 'keeps') {
       this.keepsOutput = '🌐 Opening browser for AC login...\n';
       this.keepsRunning = true;
+      this.keepsSubMode = 'running'; // Block input during login
     }
     this.render();
     
@@ -2826,6 +2948,7 @@ class ArteryTUI {
       child.on('close', (code) => {
         if (this.mode === 'keeps') {
           this.keepsRunning = false;
+          this.keepsSubMode = 'menu'; // Reset to menu after login completes
         }
         this.loadAcAuth(); // Reload auth status
         if (code === 0 && this.acAuth) {
@@ -3028,6 +3151,96 @@ class ArteryTUI {
       return;
     }
     
+    // Handle queue view navigation
+    if (this.keepsSubMode === 'queue') {
+      if (key === '\u001b') { // ESC - back to menu
+        this.keepsSubMode = 'menu';
+        this.render();
+        return;
+      } else if (key === '\u001b[A' || key === 'k') { // Up
+        if (this.keepQueueIndex > 0) {
+          this.keepQueueIndex--;
+        }
+      } else if (key === '\u001b[B' || key === 'j') { // Down
+        if (this.keepQueueIndex < this.keepQueue.length - 1) {
+          this.keepQueueIndex++;
+        }
+      } else if (key === 'x' || key === 'X' || key === '\u007f') { // x or backspace - remove from queue
+        if (this.keepQueue.length > 0) {
+          const removed = this.keepQueue.splice(this.keepQueueIndex, 1)[0];
+          this.keepsOutput = `🗑️ Removed $${removed.code} from queue\n`;
+          if (this.keepQueueIndex >= this.keepQueue.length) {
+            this.keepQueueIndex = Math.max(0, this.keepQueue.length - 1);
+          }
+        }
+      } else if (key === 'c' || key === 'C') { // Clear queue
+        this.keepQueue = [];
+        this.keepQueueIndex = 0;
+        this.keepsOutput = '🗑️ Queue cleared\n';
+      } else if (key === '\r' && this.keepQueue.length > 0) { // Enter - process next in queue
+        this.processKeepQueue();
+        return;
+      } else if (key === 'a' || key === 'A') { // Process all in queue
+        if (this.keepQueue.length > 0) {
+          this.keepQueueProcessing = true;
+          this.processKeepQueue();
+        }
+        return;
+      }
+      this.render();
+      return;
+    }
+    
+    // Handle pieces list navigation
+    if (this.keepsSubMode === 'pieces-list') {
+      if (key === '\u001b') { // ESC - back to menu
+        this.keepsSubMode = 'menu';
+        this.render();
+        return;
+      } else if (key === '\u001b[A' || key === 'k') { // Up
+        if (this.userPiecesIndex > 0) {
+          this.userPiecesIndex--;
+        }
+      } else if (key === '\u001b[B' || key === 'j') { // Down
+        if (this.userPiecesIndex < this.userPieces.length - 1) {
+          this.userPiecesIndex++;
+        }
+      } else if (key === '\r') { // Enter - keep immediately
+        const piece = this.userPieces[this.userPiecesIndex];
+        if (piece && !piece.kept) {
+          this.executeKeep(piece.code);
+        } else if (piece?.kept) {
+          this.keepsOutput = `⚠️ $${piece.code} is already kept!\n`;
+        }
+        return;
+      } else if (key === 'q' || key === ' ') { // q or space - add to queue
+        const piece = this.userPieces[this.userPiecesIndex];
+        if (piece && !piece.kept) {
+          // Check if already in queue
+          if (!this.keepQueue.find(q => q.code === piece.code)) {
+            this.keepQueue.push({ code: piece.code, hits: piece.hits });
+            this.keepsOutput = `📥 Added $${piece.code} to queue (${this.keepQueue.length} in queue)\n`;
+          } else {
+            this.keepsOutput = `⚠️ $${piece.code} is already in queue\n`;
+          }
+        } else if (piece?.kept) {
+          this.keepsOutput = `⚠️ $${piece.code} is already kept!\n`;
+        }
+      } else if (key === 'r' || key === 'R') { // Refresh list
+        this.fetchUserPieces();
+        return;
+      } else if (key === 't' || key === 'T') { // Toggle to top hits (all users or filtered)
+        this.userPiecesIndex = 0;
+        const handle = this.acAuth?.user?.handle ? `@${this.acAuth.user.handle}` : null;
+        this.keepsOutput = handle ? `📊 Loading ${handle}'s top hits...` : '📊 Loading top hits...';
+        this.render();
+        this.fetchTopPieces(handle);
+        return;
+      }
+      this.render();
+      return;
+    }
+    
     if (this.keepsSubMode === 'piece-input') {
       if (key === '\r') {
         const piece = this.keepsPieceInput.trim();
@@ -3150,9 +3363,22 @@ class ArteryTUI {
           this.render();
           return;
         }
-        this.keepsSubMode = 'piece-input';
-        this.keepsPieceInput = this.currentPiece || '';
-        this.keepsPendingAction = 'keep'; // Track which action needs the piece
+        // Show user's pieces list for selection
+        this.keepsSubMode = 'pieces-list';
+        this.userPiecesIndex = 0;
+        this.keepsOutput = `📋 Loading @${this.acAuth.user?.handle || 'user'}'s pieces...`;
+        this.render();
+        await this.fetchUserPieces();
+        return;
+      case 'Q': // Queue management
+        this.keepsSubMode = 'queue';
+        this.keepQueueIndex = 0;
+        if (this.keepQueue.length === 0) {
+          this.keepsOutput = '📭 Queue is empty. Press K to add pieces, then q to queue them.\n';
+        } else {
+          this.keepsOutput = `📋 ${this.keepQueue.length} piece(s) in queue\n`;
+        }
+        this.render();
         return;
     }
     
@@ -3171,7 +3397,7 @@ class ArteryTUI {
 
   async executeKeep(piece) {
     this.keepsRunning = true;
-    this.keepsOutput = '� Preview: Opening piece in AC panel...\n';
+    this.keepsOutput = '👁️ Preview: Opening piece in AC panel...\n';
     this.render();
     
     if (!this.acAuth?.access_token) {
@@ -3182,26 +3408,76 @@ class ArteryTUI {
       return;
     }
     
-    // Step 1: Preview the piece in AC panel
+    // Step 1: Ensure panel is open and connected
     try {
-      if (this.connected && this.client) {
-        await this.client.jump(piece);
-        this.currentPiece = piece;
-        this.keepsOutput += `✅ Previewing $${piece} in AC panel\n`;
-        this.keepsOutput += `\n📋 Press ENTER to confirm mint, ESC to cancel\n`;
-        this.keepsSubMode = 'confirm-keep';
-        this.keepsPendingPiece = piece;
-        this.keepsRunning = false;
+      if (!this.connected || !this.client) {
+        this.keepsOutput += '📺 Opening AC panel...\n';
         this.render();
-        return;
-      } else {
-        this.keepsOutput += '⚠️  AC panel not connected - minting without preview\n';
+        
+        // Try to open the panel
+        const result = await Artery.togglePanelStandalone();
+        
+        if (result.toggled && result.nowExpanded) {
+          this.keepsOutput += '✅ Panel opened!\n';
+          this.render();
+          
+          // Wait for panel to initialize
+          await new Promise(r => setTimeout(r, 800));
+          
+          // Connect to the panel
+          this.keepsOutput += '🔌 Connecting...\n';
+          this.render();
+          await this.connect();
+          
+          if (!this.connected || !this.client) {
+            this.keepsOutput += '⚠️  Could not connect to panel - minting without preview\n';
+            this.render();
+            await this.executeKeepMint(piece);
+            return;
+          }
+        } else if (result.toggled && !result.nowExpanded) {
+          // Panel was closed by toggle, open it again
+          this.keepsOutput += '📺 Re-opening panel...\n';
+          this.render();
+          await Artery.togglePanelStandalone();
+          await new Promise(r => setTimeout(r, 800));
+          await this.connect();
+          
+          if (!this.connected || !this.client) {
+            this.keepsOutput += '⚠️  Could not connect - minting without preview\n';
+            this.render();
+            await this.executeKeepMint(piece);
+            return;
+          }
+        } else {
+          this.keepsOutput += '⚠️  Could not find AC panel - minting without preview\n';
+          this.render();
+          await this.executeKeepMint(piece);
+          return;
+        }
       }
+      
+      // Step 2: Jump to piece for preview (add $ prefix for KidLisp pieces)
+      const pieceUrl = piece.startsWith('$') ? piece : `$${piece}`;
+      this.keepsOutput += `🎯 Jumping to ${pieceUrl}...\n`;
+      this.render();
+      
+      await this.client.jump(pieceUrl);
+      this.currentPiece = pieceUrl;
+      this.keepsOutput += `✅ Previewing ${pieceUrl} in AC panel\n`;
+      this.keepsOutput += `\n📋 Press ENTER to confirm mint, ESC to cancel\n`;
+      this.keepsSubMode = 'confirm-keep';
+      this.keepsPendingPiece = piece;
+      this.keepsRunning = false;
+      this.render();
+      return;
+      
     } catch (e) {
-      this.keepsOutput += `⚠️  Preview failed: ${e.message} - continuing anyway\n`;
+      this.keepsOutput += `⚠️  Preview failed: ${e.message} - minting anyway\n`;
+      this.render();
     }
     
-    // If preview failed or no connection, mint directly
+    // If preview failed, mint directly
     await this.executeKeepMint(piece);
   }
   
@@ -3229,10 +3505,16 @@ class ArteryTUI {
       
       if (!response.ok) {
         const text = await response.text();
-        this.keepsOutput = `❌ Server error (${response.status}): ${text}`;
+        this.keepsOutput += `❌ Server error (${response.status}): ${text}\n`;
         this.keepsRunning = false;
-        this.keepsSubMode = 'menu';
         this.render();
+        // Continue queue processing even on error
+        if (this.keepQueueProcessing && this.keepQueue.length > 0) {
+          this.keepsSubMode = 'queue';
+          setTimeout(() => this.processKeepQueue(), 1500);
+        } else {
+          this.keepsSubMode = 'menu';
+        }
         return;
       }
       
@@ -3242,6 +3524,7 @@ class ArteryTUI {
       let buffer = '';
       let tokenId = null;
       let currentEvent = 'progress';
+      let errorOccurred = false;
       
       while (true) {
         const { done, value } = await reader.read();
@@ -3271,8 +3554,8 @@ class ArteryTUI {
                   if (data.name) this.keepsOutput += `   Name: ${data.name}\n`;
                   if (data.minter) this.keepsOutput += `   Minter: ${data.minter}\n`;
                   
-                  // Show sixel thumbnail if available
-                  if (data.thumbnailUri) {
+                  // Skip sixel during queue processing to avoid blocking
+                  if (!this.keepQueueProcessing && data.thumbnailUri) {
                     this.keepsOutput += `   📷 Fetching thumbnail...\n`;
                     this.render();
                     const imageData = await fetchTerminalImage(data.thumbnailUri, 20, 10);
@@ -3286,6 +3569,14 @@ class ArteryTUI {
                   }
                 }
                 this.setStatus('Keep failed: ' + data.error, 'error');
+                // Mark as error to skip success handling at end
+                errorOccurred = true;
+              } else if (currentEvent === 'complete' && data.success) {
+                // Handle successful completion
+                tokenId = data.tokenId;
+                this.keepsOutput += `✅ Minted as token #${tokenId}!\n`;
+                if (data.txHash) this.keepsOutput += `   → Tx: ${data.txHash.slice(0, 20)}...\n`;
+                if (data.objktUrl) this.keepsOutput += `   → View: ${data.objktUrl}\n`;
               } else if (data.stage) {
                 const icon = data.success === false ? '❌' : 
                             data.done ? '✅' : '⏳';
@@ -3321,6 +3612,34 @@ class ArteryTUI {
     this.keepsSubMode = 'menu';
     this.keepsPendingAction = null;
     this.render();
+    
+    // Continue processing queue if active
+    if (this.keepQueueProcessing && this.keepQueue.length > 0) {
+      this.keepsSubMode = 'queue';
+      // Small delay to let user see the result
+      setTimeout(() => this.processKeepQueue(), 1500);
+    }
+  }
+  
+  // Process next item in keep queue
+  async processKeepQueue() {
+    if (this.keepQueue.length === 0) {
+      this.keepsOutput = '✅ Queue complete! All pieces kept.\n';
+      this.keepQueueProcessing = false;
+      this.keepsSubMode = 'menu';
+      this.render();
+      return;
+    }
+    
+    // Take the first item from queue
+    const item = this.keepQueue.shift();
+    this.keepQueueIndex = 0;
+    
+    this.keepsOutput = `📦 Keeping $${item.code} (${this.keepQueue.length} remaining in queue)...\n`;
+    this.render();
+    
+    // Execute keep (this will call back to processKeepQueue if keepQueueProcessing is true)
+    await this.executeKeepMint(item.code);
   }
 
   async executeKeepsAction(actionKey, piece = null) {
@@ -3647,9 +3966,9 @@ class ArteryTUI {
     
     const actions = [
       ['s', 'Status'], ['b', 'Balance'], ['t', 'Tokens'], ['K', 'Keep'],
-      ['m', 'Mint (Local)'], ['u', 'Upload'], ['l', 'Lock'], ['d', 'Deploy'],
-      ['e', 'Explorer'], ['o', 'Objkt'], ['r', 'Run Tests'], ['f', 'Fishy'],
-      this.acAuth ? ['L', 'Logout'] : ['L', 'Login']
+      ['Q', `Queue(${this.keepQueue.length})`], ['m', 'Mint (Local)'], ['u', 'Upload'], ['l', 'Lock'],
+      ['d', 'Deploy'], ['e', 'Explorer'], ['o', 'Objkt'], ['r', 'Run Tests'],
+      ['f', 'Fishy'], this.acAuth ? ['L', 'Logout'] : ['L', 'Login']
     ];
     
     // Render in rows of 4
@@ -3677,24 +3996,121 @@ class ArteryTUI {
       this.writeLine(`${BG_YELLOW}${FG_BLACK}${BOLD} Piece: ${this.keepsPieceInput}█${' '.repeat(Math.max(0, boxWidth - 10 - this.keepsPieceInput.length))}${RESET}`);
     }
     
-    // Output
-    this.writeLine(`${BG_BLACK}${FG_CYAN}${BOLD} OUTPUT ${' '.repeat(Math.max(0, boxWidth - 9))}${RESET}`);
-    
-    const outputLines = (this.keepsOutput || '').split('\n').slice(-15); // Last 15 lines
-    for (const line of outputLines) {
-      const truncated = line.length > boxWidth - 2 ? line.slice(0, boxWidth - 5) + '...' : line;
-      this.writeLine(`${BG_BLACK}${FG_WHITE} ${truncated}${' '.repeat(Math.max(0, boxWidth - truncated.length - 2))}${RESET}`);
+    // Pieces list overlay (when selecting a piece to Keep)
+    if (this.keepsSubMode === 'pieces-list') {
+      const handle = this.acAuth?.user?.handle || 'user';
+      const queueCount = this.keepQueue.length > 0 ? ` Q:${this.keepQueue.length}` : '';
+      this.writeLine(`${BG_CYAN}${FG_BLACK}${BOLD} 📋 @${handle}'s Pieces (↑↓ q=queue t=top ENTER=keep R=refresh ESC=back)${queueCount} ${' '.repeat(Math.max(0, boxWidth - 72 - handle.length - queueCount.length))}${RESET}`);
+      
+      if (this.userPiecesLoading) {
+        this.writeLine(`${BG_BLACK}${FG_YELLOW} ⏳ Loading pieces...${' '.repeat(Math.max(0, boxWidth - 22))}${RESET}`);
+      } else if (this.userPiecesError) {
+        this.writeLine(`${BG_BLACK}${FG_RED} ❌ ${this.userPiecesError}${' '.repeat(Math.max(0, boxWidth - 5 - this.userPiecesError.length))}${RESET}`);
+      } else if (this.userPieces.length === 0) {
+        this.writeLine(`${BG_BLACK}${FG_YELLOW} No pieces found. Create one at prompt.ac!${' '.repeat(Math.max(0, boxWidth - 44))}${RESET}`);
+      } else {
+        // Show list of pieces (max 12 visible)
+        const maxVisible = Math.min(12, this.innerHeight - 10);
+        const startIdx = Math.max(0, this.userPiecesIndex - Math.floor(maxVisible / 2));
+        const endIdx = Math.min(this.userPieces.length, startIdx + maxVisible);
+        
+        for (let i = startIdx; i < endIdx; i++) {
+          const p = this.userPieces[i];
+          const selected = i === this.userPiecesIndex;
+          const keptStatus = p.kept 
+            ? `${FG_GREEN}✓ KEPT  ${RESET}` 
+            : `${FG_YELLOW}○ unkept${RESET}`;
+          const hitsLabel = `💫${String(p.hits).padStart(3)}`;
+          const preview = p.preview.slice(0, Math.max(20, boxWidth - 45));
+          
+          const prefix = selected ? `${BG_CYAN}${FG_BLACK}${BOLD}▶` : `${BG_BLACK}${FG_WHITE} `;
+          const code = `$${p.code}`;
+          const info = `${keptStatus} ${code.padEnd(8)} ${hitsLabel} ${DIM}${preview}${RESET}`;
+          const lineContent = `${prefix}${info}`;
+          const stripped = this.stripAnsi(lineContent);
+          const pad = Math.max(0, boxWidth - this.getVisualWidth(stripped));
+          
+          this.writeLine(`${lineContent}${selected ? BG_CYAN : BG_BLACK}${' '.repeat(pad)}${RESET}`);
+        }
+        
+        // Scroll indicator
+        if (this.userPieces.length > maxVisible) {
+          const scrollInfo = `${startIdx + 1}-${endIdx} of ${this.userPieces.length}`;
+          this.writeLine(`${BG_BRIGHT_BLACK}${FG_WHITE}${DIM} ${scrollInfo}${' '.repeat(Math.max(0, boxWidth - scrollInfo.length - 2))}${RESET}`);
+        }
+      }
+    } else if (this.keepsSubMode === 'queue') {
+      // Queue view
+      this.writeLine(`${BG_YELLOW}${FG_BLACK}${BOLD} 📦 Keep Queue (↑↓ x=remove c=clear ENTER=keep A=keep all ESC=back) ${' '.repeat(Math.max(0, boxWidth - 70))}${RESET}`);
+      
+      if (this.keepQueue.length === 0 && !this.keepQueueProcessing) {
+        this.writeLine(`${BG_BLACK}${FG_YELLOW} Queue is empty. Press K to browse pieces, then q to add to queue.${' '.repeat(Math.max(0, boxWidth - 68))}${RESET}`);
+      } else if (this.keepQueue.length > 0) {
+        // Show queue items (compact when processing to leave room for output)
+        const maxVisible = this.keepQueueProcessing ? Math.min(4, this.keepQueue.length) : Math.min(12, this.innerHeight - 10);
+        const startIdx = Math.max(0, this.keepQueueIndex - Math.floor(maxVisible / 2));
+        const endIdx = Math.min(this.keepQueue.length, startIdx + maxVisible);
+        
+        for (let i = startIdx; i < endIdx; i++) {
+          const item = this.keepQueue[i];
+          const selected = i === this.keepQueueIndex;
+          const hitsLabel = `💫${String(item.hits || 0).padStart(4)}`;
+          const posLabel = `#${i + 1}`.padStart(3);
+          
+          const prefix = selected ? `${BG_YELLOW}${FG_BLACK}${BOLD}▶` : `${BG_BLACK}${FG_WHITE} `;
+          const code = `$${item.code}`;
+          const info = `${posLabel} ${code.padEnd(8)} ${hitsLabel}`;
+          const lineContent = `${prefix}${info}`;
+          const stripped = this.stripAnsi(lineContent);
+          const pad = Math.max(0, boxWidth - this.getVisualWidth(stripped));
+          
+          this.writeLine(`${lineContent}${selected ? BG_YELLOW : BG_BLACK}${' '.repeat(pad)}${RESET}`);
+        }
+        
+        // Queue summary
+        const totalHits = this.keepQueue.reduce((sum, q) => sum + (q.hits || 0), 0);
+        const summary = `${this.keepQueue.length} remaining | ${totalHits} total hits`;
+        this.writeLine(`${BG_BRIGHT_BLACK}${FG_WHITE}${BOLD} ${summary}${' '.repeat(Math.max(0, boxWidth - summary.length - 2))}${RESET}`);
+      }
+      
+      // Show output when processing (so user can see what's happening)
+      if (this.keepQueueProcessing || this.keepsRunning) {
+        this.writeLine(`${BG_BLACK}${FG_CYAN}${BOLD} OUTPUT ${' '.repeat(Math.max(0, boxWidth - 9))}${RESET}`);
+        const outputLines = (this.keepsOutput || '').split('\n').slice(-10); // Last 10 lines during processing
+        for (const line of outputLines) {
+          const truncated = line.length > boxWidth - 2 ? line.slice(0, boxWidth - 5) + '...' : line;
+          this.writeLine(`${BG_BLACK}${FG_WHITE} ${truncated}${' '.repeat(Math.max(0, boxWidth - truncated.length - 2))}${RESET}`);
+        }
+      }
+    } else {
+      // Output (only when not in pieces-list mode)
+      this.writeLine(`${BG_BLACK}${FG_CYAN}${BOLD} OUTPUT ${' '.repeat(Math.max(0, boxWidth - 9))}${RESET}`);
+      
+      const outputLines = (this.keepsOutput || '').split('\n').slice(-15); // Last 15 lines
+      for (const line of outputLines) {
+        const truncated = line.length > boxWidth - 2 ? line.slice(0, boxWidth - 5) + '...' : line;
+        this.writeLine(`${BG_BLACK}${FG_WHITE} ${truncated}${' '.repeat(Math.max(0, boxWidth - truncated.length - 2))}${RESET}`);
+      }
     }
     
     // Fill remaining
-    const used = 4 + Math.ceil(actions.length / 4) + (this.keepsSubMode === 'piece-input' ? 1 : 0) + 1 + outputLines.length;
+    const piecesListLines = this.keepsSubMode === 'pieces-list' ? 
+      (this.userPiecesLoading || this.userPiecesError || this.userPieces.length === 0 ? 2 : Math.min(13, this.userPieces.length + 2)) : 0;
+    const queueLines = this.keepsSubMode === 'queue' ?
+      (this.keepQueue.length === 0 ? 2 : Math.min(14, this.keepQueue.length + 3)) : 0;
+    const outputLines = (this.keepsSubMode === 'pieces-list' || this.keepsSubMode === 'queue') ? [] : (this.keepsOutput || '').split('\n').slice(-15);
+    const used = 4 + Math.ceil(actions.length / 4) + (this.keepsSubMode === 'piece-input' ? 1 : 0) + 
+                 (this.keepsSubMode === 'pieces-list' ? piecesListLines : 0) +
+                 (this.keepsSubMode === 'queue' ? queueLines : 0) +
+                 (outputLines.length > 0 ? 1 + outputLines.length : 0);
     for (let i = used; i < this.innerHeight - 2; i++) {
       this.writeLine(`${BG_BLACK}${' '.repeat(boxWidth)}${RESET}`);
     }
     
     // Status
+    const queueStatus = this.keepQueue.length > 0 ? ` | Queue: ${this.keepQueue.length}` : '';
     const status = this.keepsRunning ? '⏳ Running...' : '✓ Ready';
-    this.writeLine(`${BG_BRIGHT_BLACK}${FG_WHITE} ${status} | ESC=back ${' '.repeat(Math.max(0, boxWidth - 25))}${RESET}`);
+    this.writeLine(`${BG_BRIGHT_BLACK}${FG_WHITE} ${status}${queueStatus} | ESC=back ${' '.repeat(Math.max(0, boxWidth - 25 - queueStatus.length))}${RESET}`);
   }
   
   renderKeepsOLD() {
