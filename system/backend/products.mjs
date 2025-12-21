@@ -213,4 +213,21 @@ export async function getProduct(code) {
   return products.findOne({ code });
 }
 
+/**
+ * Get recent products of a specific type
+ * @param {string} productType - "mug", "poster", etc.
+ * @param {number} limit - Max number of products to return
+ * @returns {Array} Array of product documents
+ */
+export async function getRecentProducts(productType, limit = 20) {
+  const database = await connect();
+  const products = database.db.collection("products");
+  
+  return products
+    .find({ product: productType })
+    .sort({ createdAt: -1 })
+    .limit(limit)
+    .toArray();
+}
+
 export { uploadToS3, s3Exists, generateCode };
