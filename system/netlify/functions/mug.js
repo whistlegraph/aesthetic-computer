@@ -82,16 +82,15 @@ export async function handler(event, context) {
       let cachedWebpUrl = null;
       try {
         const { product: existingProduct, isNew } = await findOrCreateProduct({
-          sourceType: "painting",
-          sourceCode,
+          source: { type: "painting", code: sourceCode },
           product: "mug",
           variant: color,
         });
         productRecord = existingProduct;
         
         // If we have a cached WebP, use it directly
-        if (!isNew && existingProduct.assets?.webp) {
-          cachedWebpUrl = existingProduct.assets.webp;
+        if (!isNew && existingProduct.preview) {
+          cachedWebpUrl = existingProduct.preview;
           console.log(`☕ Using cached WebP: ${cachedWebpUrl}`);
         }
       } catch (e) {
@@ -194,16 +193,17 @@ export async function handler(event, context) {
             }
             
             // Build 4-frame array for smooth spinning loop:
-            // right → front → left → front → (loops back to right)
-            mockupUrl = rightView;
+            // front → right → front → left → (loops back to front)
+            // Front first so thumbnail/preview shows the main design
+            mockupUrl = frontView || rightView;
             if (rightView && frontView && leftView) {
-              allMockupUrls = [rightView, frontView, leftView, frontView];
-              console.log("☕ Built 4-frame loop: right → front → left → front");
+              allMockupUrls = [frontView, rightView, frontView, leftView];
+              console.log("☕ Built 4-frame loop: front → right → front → left");
             } else if (rightView && frontView) {
-              allMockupUrls = [rightView, frontView];
-              console.log("☕ Built 2-frame loop: right → front");
+              allMockupUrls = [frontView, rightView];
+              console.log("☕ Built 2-frame loop: front → right");
             } else {
-              allMockupUrls = [rightView];
+              allMockupUrls = [frontView || rightView];
               console.log("☕ Single frame only");
             }
             
@@ -257,12 +257,10 @@ export async function handler(event, context) {
                   timeout: { request: 30000 },
                 });
                 const s3Url = await cacheWebpPreview(productRecord.code, response.body);
-                // Also save mockup URLs and printful data
+                // Also save printful data
                 await updateProduct(productRecord.code, {
-                  "assets.mockups": allMockupUrls,
-                  "printfulData.productId": productId,
-                  "printfulData.variantId": variant,
-                  "printfulData.imageUrl": imageUrl,
+                  "printful.productId": productId,
+                  "printful.variantId": variant,
                 });
                 console.log(`☕ Cached WebP to S3: ${s3Url}`);
               } catch (e) {
@@ -294,7 +292,10 @@ export async function handler(event, context) {
       const unitAmount = 1800 * quantity; // $18.00 total per mug (all-inclusive)
       const finalAmount = unitAmount;
 
-      const productName = `Ceramic Mug 11oz (${color})`;
+      // Branded product name: "RED MUG of #oyn · 11oz Ceramic"
+      // Color is uppercase, but code stays original case (case-sensitive!)
+      const colorUpper = color.toUpperCase();
+      const productName = `${colorUpper} MUG of #${sourceCode} · 11oz Ceramic`;
       let name = productName;
       if (quantity > 1) name += " (" + quantity + " copies)";
 

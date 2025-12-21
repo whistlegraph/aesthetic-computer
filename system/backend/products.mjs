@@ -1,26 +1,22 @@
-// products.mjs, 24.12.19
+// products.mjs, 24.12.20
 // Manage product previews and cache them to S3
 // Collection: aesthetic.products
 
 // Schema:
 // {
 //   _id: ObjectId,
-//   code: string,              // Unique short code for this product
-//   sourceType: "painting" | "tape" | "upload",
-//   sourceCode: string,        // e.g., painting code "9vg"
-//   sourceId: ObjectId,        // Reference to source document
+//   code: string,              // Unique short code (6 chars, e.g., "7brmof")
+//   source: {
+//     type: "painting" | "tape" | "upload",
+//     code: string,            // e.g., painting code "hjq"
+//     user: string,            // auth0 user id (denormalized for queries)
+//   },
 //   product: "mug" | "poster" | "sticker" | etc,
 //   variant: string,           // e.g., "blue", "11oz", etc.
-//   assets: {
-//     webp: string,            // Animated WebP preview URL (S3)
-//     gif: string,             // Animated GIF preview URL (S3) 
-//     mockups: [string],       // Individual mockup frame URLs (Printful)
-//     thumbnail: string,       // Static thumbnail URL (S3)
-//   },
-//   printfulData: {            // Cached Printful response data
+//   preview: string,           // Animated WebP preview URL (S3)
+//   printful: {
 //     productId: number,
 //     variantId: number,
-//     imageUrl: string,        // Source image sent to Printful
 //   },
 //   stats: {
 //     views: number,           // Times the preview was viewed
@@ -37,6 +33,7 @@ import { connect } from "./database.mjs";
 const BUCKET = "art-aesthetic-computer";
 const REGION = "sfo3";
 const ENDPOINT = `https://${REGION}.digitaloceanspaces.com`;
+const CDN_URL = "https://art.aesthetic.computer";
 
 // Generate a short unique code for prints
 function generateCode(length = 6) {
@@ -72,7 +69,7 @@ async function uploadToS3(buffer, key, contentType) {
     ACL: "public-read",
   }));
   
-  return `https://${BUCKET}.${REGION}.digitaloceanspaces.com/${key}`;
+  return `${CDN_URL}/${key}`;
 }
 
 // Check if S3 object exists
@@ -89,20 +86,19 @@ async function s3Exists(key) {
 /**
  * Find existing product or create a new one
  * @param {Object} params
- * @param {string} params.sourceType - "painting", "tape", "upload"
- * @param {string} params.sourceCode - Source media code (e.g., "9vg")
+ * @param {Object} params.source - { type, code, user }
  * @param {string} params.product - Product type (e.g., "mug")
  * @param {string} params.variant - Product variant (e.g., "blue")
  * @returns {Object} Product document (existing or new)
  */
-export async function findOrCreateProduct({ sourceType, sourceCode, product, variant }) {
+export async function findOrCreateProduct({ source, product, variant }) {
   const database = await connect();
   const products = database.db.collection("products");
   
   // Check for existing product with same source + product + variant
   const existing = await products.findOne({
-    sourceType,
-    sourceCode,
+    "source.type": source.type,
+    "source.code": source.code,
     product,
     variant,
   });
@@ -120,12 +116,11 @@ export async function findOrCreateProduct({ sourceType, sourceCode, product, var
   
   const newProduct = {
     code,
-    sourceType,
-    sourceCode,
+    source,
     product,
     variant,
-    assets: {},
-    printfulData: {},
+    preview: null,
+    printful: {},
     stats: { views: 1, checkouts: 0, ordered: 0 },
     createdAt: now,
     updatedAt: now,
@@ -184,44 +179,12 @@ export async function incrementProductStat(code, stat) {
  * @returns {string} Public S3 URL
  */
 export async function cacheWebpPreview(productCode, webpBuffer) {
-  const key = `products/${productCode}/preview.webp`;
+  const key = `products/${productCode}.webp`;
   const url = await uploadToS3(webpBuffer, key, "image/webp");
   
-  await updateProduct(productCode, { "assets.webp": url });
+  await updateProduct(productCode, { preview: url });
   
   console.log(`📦 Cached WebP preview: ${url}`);
-  return url;
-}
-
-/**
- * Cache GIF preview to S3 and update product record
- * @param {string} productCode - Product code
- * @param {Buffer} gifBuffer - GIF image buffer
- * @returns {string} Public S3 URL
- */
-export async function cacheGifPreview(productCode, gifBuffer) {
-  const key = `products/${productCode}/preview.gif`;
-  const url = await uploadToS3(gifBuffer, key, "image/gif");
-  
-  await updateProduct(productCode, { "assets.gif": url });
-  
-  console.log(`📦 Cached GIF preview: ${url}`);
-  return url;
-}
-
-/**
- * Cache thumbnail to S3 and update product record
- * @param {string} productCode - Product code  
- * @param {Buffer} pngBuffer - PNG image buffer
- * @returns {string} Public S3 URL
- */
-export async function cacheThumbnail(productCode, pngBuffer) {
-  const key = `products/${productCode}/thumbnail.png`;
-  const url = await uploadToS3(pngBuffer, key, "image/png");
-  
-  await updateProduct(productCode, { "assets.thumbnail": url });
-  
-  console.log(`📦 Cached thumbnail: ${url}`);
   return url;
 }
 
@@ -235,7 +198,7 @@ export async function getProductsForSource(sourceType, sourceCode) {
   const database = await connect();
   const products = database.db.collection("products");
   
-  return products.find({ sourceType, sourceCode }).toArray();
+  return products.find({ "source.type": sourceType, "source.code": sourceCode }).toArray();
 }
 
 /**
