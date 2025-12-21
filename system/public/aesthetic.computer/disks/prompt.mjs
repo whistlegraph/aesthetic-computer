@@ -92,7 +92,8 @@ import {
   tokenize,
 } from "../lib/kidlisp.mjs";
 import { KidLisp } from "../lib/kidlisp.mjs";
-import { parseMessageElements, applyColorCodes } from "../lib/chat-highlighting.mjs";
+import { parseMessageElements, applyColorCodes, defaultColorTheme } from "../lib/chat-highlighting.mjs";
+import { colorizeText, hasHotlinks } from "../lib/hotlink.mjs";
 import * as products from "./common/products.mjs";
 const { abs, max, min, sin, cos } = Math;
 const { floor } = Math;
@@ -5450,15 +5451,24 @@ function paint($) {
       const swayY = Math.sin(motdFrame * 0.05) * 2; // 2 pixel sway range
       const motdY = screen.height / 2 - 48 + swayY; // Moved up 12px closer to top (changed from -36 back to -48)
       
-      // Create colorful blinking letters
-      let coloredText = "";
-      const colors = ["pink", "cyan", "yellow", "lime", "orange", "magenta"];
+      // Parse MOTD for interactive elements (handles, URLs, prompts, etc.)
+      const motdElements = parseMessageElements(motd);
+      const hasLinks = motdElements.length > 0;
       
-      for (let i = 0; i < motd.length; i++) {
-        // Each letter gets a color that changes over time based on its position
-        const colorIndex = Math.floor((i + motdFrame * 0.1) % colors.length);
-        const color = colors[colorIndex];
-        coloredText += `\\${color}\\${motd[i]}`;
+      let coloredText = "";
+      const rainbowColors = ["pink", "cyan", "yellow", "lime", "orange", "magenta"];
+      
+      if (hasLinks) {
+        // Use syntax highlighting for interactive elements
+        coloredText = colorizeText(motd, "white");
+      } else {
+        // No links - use rainbow animation
+        for (let i = 0; i < motd.length; i++) {
+          // Each letter gets a color that changes over time based on its position
+          const colorIndex = Math.floor((i + motdFrame * 0.1) % rainbowColors.length);
+          const color = rainbowColors[colorIndex];
+          coloredText += `\\${color}\\${motd[i]}`;
+        }
       }
       
       // Use more aggressive text wrapping (max 150px) to keep MOTD compact
