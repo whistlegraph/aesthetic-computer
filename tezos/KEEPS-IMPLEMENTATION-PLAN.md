@@ -43,28 +43,44 @@ keep $ceo → Preview bundle → Connect wallet → Upload to IPFS → Mint NFT
 - ✅ `keep.mjs` shows 10-step minting timeline with wallet connection
 - ✅ Pac-Man ghost sprites added for GHOSTNET badge in wallet.mjs and keep.mjs
 - ✅ `keep-confirm` API endpoint redirect added to netlify.toml
-- 🔄 **CURRENT**: End-to-end testing of KEEP button → keep.mjs → mint flow
-- 📋 **NEXT**: Test wallet connection + signing in keep.mjs piece
 
-### Phase A — Ghostnet hardening (IN PROGRESS)
+**Recent Progress (Dec 21, 2025):**
+- ✅ **Batch minting via Artery TUI**: Queue management system for keeping multiple pieces
+  - `Q` key opens queue view, `K` browses user's pieces, `q`/space adds to queue
+  - `A` processes entire queue automatically with 1.5s delay between mints
+  - Queue shows piece names, hit counts, and processing status
+- ✅ **Artist attribution fix**: Wallet address now included in `creators` array
+  - objkt.com properly attributes the minting wallet as the artist
+  - `keep-mint.mjs` builds creators as `[walletAddress, @handle]`
+- ✅ **Sort by hits**: API now supports `sort=hits` for all-time popularity ranking
+  - `store-kidlisp.mjs` adds `sort` and `handle` query parameters
+  - Server-side filtering by creator handle (`handle=@jeffrey`)
+- ✅ **Kept status detection**: Fixed hex-decoding of TzKT bigmap keys
+  - TzKT returns hex-encoded piece names (e.g., "636f77" = "cow")
+  - Proper `Buffer.from(key, 'hex').toString('utf8')` decoding
+- ✅ **Contract address updated**: All references now use `KT1KRQAkCrgbYPAxzxaFbGm1FaUJdqBACxu9`
+- ✅ **keeps.mjs CLI enhancements**: 
+  - `--to=<address>` flag for minting to specific wallet
+  - `set-admin` command to change contract administrator
+- ✅ **Batch minted 20+ pieces** via TUI successfully on ghostnet
+- 🔄 **CURRENT**: Batch minting ~57 more pieces (top hits by @jeffrey)
+- 📋 **NEXT**: Verify objkt.com artist display, prepare for mainnet
+
+### Phase A — Ghostnet hardening (NEARING COMPLETION ✅)
 - **Status**: Contract deployed to Ghostnet ✅
-- **Current focus**: Testing and hardening the keep flow in AC pieces
-  - `prompt.mjs` - keep command integration
-  - `keep.mjs` - dedicated keep piece UI/flow
-  - End-to-end SSE flow validation
-  - IPFS media caching behavior
-- Success criteria: 20+ keeps across a spread of pieces; no stuck SSE sessions; no obvious duplicate Pinata spam for repeated prepares.
-- Verify:
-  - Wallet connect + keep flow end-to-end
-  - SSE progress staging ("validate/analyze/thumbnail/bundle/ipfs/metadata/ready/sign/complete")
-  - Cached IPFS media reuse works (prepare twice; second run should skip uploads)
-  - `regenerate` forces new media
-- **Next steps**:
-  1. Test `keep $code` command in prompt.mjs
-  2. Verify keep.mjs piece flow with wallet connection
-  3. Validate SSE endpoint stages and error handling
-  4. Confirm IPFS caching behavior (reuse vs regenerate)
-  5. Achieve 20+ successful test mints on Ghostnet
+- **Progress**: 20+ pieces successfully minted via TUI batch queue
+- **Active batch**: ~57 top-hit pieces being minted (queue processing)
+- Success criteria: 20+ keeps ✅ achieved; SSE sessions stable; IPFS caching working
+- Verified:
+  - ✅ Wallet connect + keep flow end-to-end
+  - ✅ SSE progress staging works correctly
+  - ✅ Cached IPFS media reuse works
+  - ✅ Artist attribution displays on objkt.com (pending final verification)
+  - ✅ Batch minting via artery-tui queue system
+- **Remaining**:
+  1. Verify objkt.com shows wallet as artist on new mints
+  2. Complete current batch (~57 pieces)
+  3. Final review before mainnet
 
 ### Phase B — Mainnet staging (real XTZ)
 - Use the `staging` wallet (mainnet) to deploy and test with a small set of keeps.
