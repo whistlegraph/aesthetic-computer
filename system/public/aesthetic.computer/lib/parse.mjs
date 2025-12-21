@@ -204,7 +204,18 @@ function parse(text, location = self?.location) {
   // But preserve painting codes like #k3d (which aren't valid hex colors).
   // Only convert to 0x if it looks like a valid hex color (3 or 6 hex digits).
   text = text.replace(/~#([0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?)(?=~|$)/g, "~0x$1");
+  
+  // Preserve ~# patterns (painting codes) that aren't hex colors by using placeholder
+  // e.g., ~#Vcg becomes ~§HASH§Vcg, then restored after # split
+  text = text.replace(/~#([^~]*)/g, (match, code) => {
+    // If it wasn't converted to 0x above, it's a painting code - preserve it
+    return `~§HASH§${code}`;
+  });
+  
   [text, hash] = text.split("#");
+  
+  // Restore preserved # symbols in params
+  text = text.replace(/§HASH§/g, "#");
 
   // 1. Pull off any "search" from `text`, ignoring any question mark
   //    characters that were part of the piece slug.
