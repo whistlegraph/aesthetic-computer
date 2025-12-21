@@ -244,10 +244,162 @@ export function applyColorCodes(message, elements, colorMap, defaultColor = [255
 // Default color theme for chat highlighting
 export const defaultColorTheme = {
   handle: "pink",
+  handleHover: "yellow",
   url: "cyan",
+  urlHover: "yellow",
   prompt: "lime",
   promptcontent: "cyan", // Note: type is "prompt-content" but map key has no hyphen
+  promptHover: "yellow",
   painting: "orange",
+  paintingHover: "yellow",
   kidlisp: "magenta",
+  kidlispHover: "yellow",
   r8dio: [255, 0, 255], // Magenta for r8dio radio links
+  r8dioHover: "yellow",
 };
+
+// Calculate the rendered position of an interactive element in the text layout
+// Returns an array of {x, y, width, height, lineIndex} for each line the element spans
+export function calculateElementPosition(element, fullMessage, textLines, textApi, rowHeight, typefaceName) {
+  let charCount = 0;
+  const linePositions = [];
+  
+  for (let lineIndex = 0; lineIndex < textLines.length; lineIndex++) {
+    const lineText = textLines[lineIndex];
+    const lineStart = charCount;
+    const lineEnd = charCount + lineText.length;
+    
+    // Check if element overlaps with this line
+    if (element.start < lineEnd && element.end > lineStart) {
+      const startInLine = Math.max(0, element.start - lineStart);
+      const endInLine = Math.min(element.end - lineStart, lineText.length);
+      
+      // Calculate pixel position for this line segment
+      const startX = textApi.width(lineText.substring(0, startInLine), typefaceName);
+      const elementTextInLine = lineText.substring(startInLine, endInLine);
+      const width = textApi.width(elementTextInLine, typefaceName);
+      
+      linePositions.push({
+        x: startX,
+        y: lineIndex * rowHeight,
+        width: width,
+        height: rowHeight,
+        lineIndex: lineIndex
+      });
+    }
+    
+    charCount += lineText.length;
+  }
+  
+  return linePositions.length > 0 ? linePositions : null;
+}
+
+// Check if a click position is inside an element's bounds (handles multi-line elements)
+export function isClickInsideElement(clickX, clickY, elementPositions, textApi, typefaceName) {
+  if (!elementPositions) return false;
+  
+  const positions = Array.isArray(elementPositions) ? elementPositions : [elementPositions];
+  
+  // Get average character width for tolerance
+  const charWidth = textApi ? textApi.width("M", typefaceName) : 8;
+  
+  return positions.some(pos => 
+    clickX >= pos.x &&
+    clickX <= pos.x + pos.width + charWidth && // Add one character width tolerance
+    clickY >= pos.y &&
+    clickY < pos.y + pos.height
+  );
+}
+
+// Get the action info for an element type (what happens when clicked)
+// Returns { type, jumpTarget, displayText, description }
+export function getElementAction(element, fullMessage, allElements) {
+  const result = {
+    type: element.type,
+    text: element.text,
+    displayText: element.text,
+    description: "",
+    jumpTarget: null,
+  };
+  
+  switch (element.type) {
+    case "handle":
+      result.description = "View profile";
+      result.jumpTarget = element.text; // @handle navigates to profile
+      break;
+      
+    case "url":
+      result.description = "Open in browser";
+      result.jumpTarget = "out:" + element.text;
+      break;
+      
+    case "prompt":
+      // Skip individual quote marks
+      if (element.text === "'") return null;
+      const innerPrompt = element.text.slice(1, -1);
+      result.displayText = innerPrompt;
+      result.description = "Run command";
+      if (innerPrompt.startsWith(">")) {
+        result.jumpTarget = "prompt " + innerPrompt.slice(1);
+      } else if (innerPrompt.startsWith("#")) {
+        result.jumpTarget = "painting#" + innerPrompt.slice(1);
+      } else {
+        result.jumpTarget = "prompt " + innerPrompt;
+      }
+      break;
+      
+    case "prompt-content":
+      result.description = "Run command";
+      if (element.text.startsWith(">")) {
+        result.jumpTarget = "prompt " + element.text.slice(1);
+      } else if (element.text.startsWith("#")) {
+        result.jumpTarget = "painting#" + element.text.slice(1);
+      } else {
+        result.jumpTarget = "prompt " + element.text;
+      }
+      break;
+      
+    case "kidlisp-token":
+      // Collect all kidlisp tokens to get full code block
+      const kidlispTokens = allElements.filter(el => el.type === "kidlisp-token");
+      if (kidlispTokens.length > 0) {
+        const firstToken = kidlispTokens[0];
+        const lastToken = kidlispTokens[kidlispTokens.length - 1];
+        const fullKidlispCode = fullMessage.substring(firstToken.start, lastToken.end);
+        result.text = fullKidlispCode;
+        result.displayText = fullKidlispCode.length > 30 ? fullKidlispCode.slice(0, 30) + "..." : fullKidlispCode;
+        result.description = "Execute KidLisp";
+        result.jumpTarget = fullKidlispCode;
+      }
+      break;
+      
+    case "painting":
+      result.description = "View painting";
+      result.jumpTarget = "painting" + element.text;
+      break;
+      
+    case "kidlisp":
+      result.description = "Open KidLisp piece";
+      result.jumpTarget = element.text;
+      break;
+      
+    case "r8dio":
+      result.displayText = "r8Dio";
+      result.description = "Listen to radio";
+      result.jumpTarget = "r8dio";
+      break;
+      
+    default:
+      return null;
+  }
+  
+  return result;
+}
+
+// List of interactive element types that should trigger actions
+export const interactiveTypes = ["handle", "url", "prompt", "prompt-content", "kidlisp-token", "painting", "kidlisp", "r8dio"];
+
+// Check if an element type is interactive (can be clicked)
+export function isInteractiveType(type) {
+  return interactiveTypes.includes(type);
+}

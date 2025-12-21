@@ -1,6 +1,8 @@
 // Moods, 2023.9.28.01.40.14.735
 // A live list of all our moods.
 
+import { colorizeText, hasHotlinks, parseMessageElements, calculateElementPosition, isClickInsideElement, getElementAction } from "../lib/hotlink.mjs";
+
 /* #region 📚 README 
 #endregion */
 
@@ -389,8 +391,10 @@ function renderMoodItem(item, y, isFocal, { ink, text, screen, painting, paste, 
   
   const animatedBuffer = painting(moodWidth, bufferHeight, (api) => {
     const moodColor = isFocal ? currentScheme.moodTextFocal : currentScheme.moodTextDefault;
+    // Colorize mood text with hotlinks (handles, URLs, prompts, etc.)
+    const coloredMood = colorizeText(mood, moodColor);
     // Marquee text with rounded x position
-    api.ink(moodColor).write(mood, { x: textX, y: 2, size: scale }, undefined, undefined, false, "unifont");
+    api.ink(moodColor).write(coloredMood, { x: textX, y: 2, size: scale }, undefined, undefined, false, "unifont");
   });
   
   // Background colors
@@ -418,8 +422,61 @@ function renderMoodItem(item, y, isFocal, { ink, text, screen, painting, paste, 
 }
 
 // 🎪 Act
-function act({ event: e, screen }) {
+let pendingJump = null; // Store jump action for confirmation
+
+function act({ event: e, screen, jump, text }) {
   if (e.is("reframed")) calcItemPositions?.(screen);
+  
+  // Handle clicks on mood text for hotlinks
+  if (e.is("lift") && allItems.length > 0) {
+    // Find which item was clicked based on Y position
+    const clickY = e.y + Math.abs(scroll);
+    
+    for (let i = 0; i < allItems.length; i++) {
+      const item = allItems[i];
+      if (item.type !== 'mood') continue;
+      
+      const itemY = itemPositions[i];
+      const itemHeight = itemRowHeight;
+      
+      // Check if click is within this mood's bounds
+      if (clickY >= itemY && clickY < itemY + itemHeight) {
+        // Clean the mood text the same way as in render
+        const mood = item.mood
+          .trim()
+          .replace(/[\n\r]+/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+        
+        // Check if click hit a hotlink
+        const elements = parseMessageElements(mood);
+        if (elements.length > 0) {
+          // Calculate relative position within mood text area
+          const moodStartX = 4;
+          const relativeX = e.x - moodStartX;
+          const relativeY = clickY - itemY;
+          
+          // Get text lines (single line for mood)
+          const textLines = [mood];
+          
+          for (const element of elements) {
+            const positions = calculateElementPosition(
+              element, mood, textLines, text, itemRowHeight, "unifont"
+            );
+            
+            if (positions && isClickInsideElement(relativeX, relativeY, positions, text, "unifont")) {
+              const action = getElementAction(element, mood, elements);
+              if (action && action.jumpTarget) {
+                jump(action.jumpTarget);
+                break;
+              }
+            }
+          }
+        }
+        break; // Found the clicked mood, stop searching
+      }
+    }
+  }
 }
 
 // 🧮 Sim
