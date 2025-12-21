@@ -28,7 +28,7 @@ if (dev) {
 }
 
 // Configuration  
-const CONTRACT_ADDRESS = process.env.TEZOS_KEEPS_CONTRACT || "KT1NeytR5BHDfGBjG9ZuLkPd7nmufmH1icVc";
+const CONTRACT_ADDRESS = process.env.TEZOS_KEEPS_CONTRACT || "KT1KRQAkCrgbYPAxzxaFbGm1FaUJdqBACxu9";
 const NETWORK = process.env.TEZOS_NETWORK || "ghostnet";
 const OVEN_URL = process.env.OVEN_URL || "https://oven.aesthetic.computer";
 const OVEN_FALLBACK_URL = "https://oven.aesthetic.computer"; // Always available fallback
@@ -340,6 +340,27 @@ export const handler = stream(async (event, context) => {
 
       await send("progress", { stage: "validate", message: "Validation passed ✓" });
       
+      // Get user's Tezos wallet address for creator attribution
+      // For PREPARE mode: use body.walletAddress from client
+      // For MINT mode: look up from user profile, fall back to admin wallet
+      const usersCollection = database.db.collection("users");
+      const userDoc = await usersCollection.findOne({ _id: user.sub });
+      let creatorWalletAddress;
+      
+      if (mode === "prepare") {
+        // Client-side minting - wallet address must be provided
+        creatorWalletAddress = body.walletAddress;
+        if (!creatorWalletAddress || !creatorWalletAddress.startsWith('tz')) {
+          await database.disconnect();
+          await send("error", { error: "Valid Tezos wallet address required for minting" });
+          return;
+        }
+      } else {
+        // Server-side minting - use profile address or fall back to admin
+        creatorWalletAddress = userDoc?.tezos?.address;
+        // Will fall back to admin address later in MINT block if not set
+      }
+      
       // Send piece details for client display
       const ownerHandle = await handleFor(piece.user);
       await send("progress", { 
@@ -352,7 +373,7 @@ export const handler = stream(async (event, context) => {
         sourceLength: piece.source?.length || 0,
       });
       
-      // Note: Keep database connection open - we need it later for user lookup and status update
+      // Note: Keep database connection open - we need it later for status update
       
       // Check for cached IPFS media (reuse if source hasn't changed)
       let useCachedMedia = !regenerate && isCachedMediaValid(piece);
@@ -583,8 +604,14 @@ export const handler = stream(async (event, context) => {
         { name: "Analyzer Version", value: ANALYZER_VERSION },
       ];
 
-      // Creator identity for metadata (user handle or "anon")
-      const creatorIdentity = userHandle ? `@${userHandle}` : "anon";
+      // Creator identity for metadata
+      // Wallet address is required for objkt.com to attribute the artist correctly
+      // Also include handle for human readability
+      const creatorHandle = userHandle ? `@${userHandle}` : "anon";
+      // For creators array: wallet address first (for marketplace attribution), then handle
+      const creatorsArray = creatorWalletAddress 
+        ? [creatorWalletAddress, creatorHandle]
+        : [creatorHandle];
       
       const metadataJson = {
         name: tokenName,
@@ -596,8 +623,8 @@ export const handler = stream(async (event, context) => {
         symbol: "KEEP",
         isBooleanAmount: true,
         shouldPreferSymbol: false,
-        minter: creatorIdentity,
-        creators: [creatorIdentity],
+        minter: creatorWalletAddress || creatorHandle,
+        creators: creatorsArray,
         rights: "© All rights reserved",
         mintingTool: "https://aesthetic.computer",
         formats: [{
@@ -634,7 +661,7 @@ export const handler = stream(async (event, context) => {
         formats: stringToBytes(JSON.stringify(metadataJson.formats)),
         tags: stringToBytes(JSON.stringify(tags)),
         attributes: stringToBytes(JSON.stringify(attributes)),
-        creators: stringToBytes(JSON.stringify([userHandle ? `@${userHandle}` : "anon"])),
+        creators: stringToBytes(JSON.stringify(creatorsArray)),
         rights: stringToBytes("© All rights reserved"),
         content_type: stringToBytes("KidLisp"),
         content_hash: stringToBytes(pieceName),
@@ -650,12 +677,8 @@ export const handler = stream(async (event, context) => {
         const tezos = new TezosToolkit(RPC_URL);
         const contract = await tezos.contract.at(CONTRACT_ADDRESS);
         
-        // Get the wallet address from the request for proper encoding
-        // The owner field is type 'address' in the contract, so Taquito validates it
-        const ownerAddress = body.walletAddress;
-        if (!ownerAddress || !ownerAddress.startsWith('tz')) {
-          throw new Error('Valid Tezos wallet address required for minting');
-        }
+        // Use the wallet address validated earlier
+        const ownerAddress = creatorWalletAddress;
         
         const transferParams = contract.methodsObject.keep({
           artifactUri: onChainMetadata.artifactUri,
@@ -707,11 +730,8 @@ export const handler = stream(async (event, context) => {
       tezos.setProvider({ signer: new InMemorySigner(tezosCredentials.privateKey) });
       const adminAddress = await tezos.signer.publicKeyHash();
 
-      // Get user's Tezos destination address from their profile
-      // Fall back to admin address if not set
-      const usersCollection = database.db.collection("users");
-      const userDoc = await usersCollection.findOne({ _id: user.sub });
-      const destinationAddress = userDoc?.tezos?.address || adminAddress;
+      // Use destination address from profile (already fetched) or fall back to admin
+      const destinationAddress = creatorWalletAddress || adminAddress;
       
       if (destinationAddress !== adminAddress) {
         await send("progress", { 

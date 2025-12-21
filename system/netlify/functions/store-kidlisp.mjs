@@ -360,8 +360,10 @@ export async function handler(event, context) {
         const limit = parseInt(event.queryStringParameters?.limit) || 50;
         const maxLimit = 100000; // Very high limit for comprehensive searches
         const actualLimit = Math.min(limit, maxLimit);
+        const sortBy = event.queryStringParameters?.sort || 'recent'; // 'recent' or 'hits'
+        const filterHandle = event.queryStringParameters?.handle; // Optional handle filter
         
-        console.log(`📊 Recent codes request: limit=${actualLimit}`);
+        console.log(`📊 Codes request: limit=${actualLimit}, sort=${sortBy}, handle=${filterHandle || 'all'}`);
         
         // Aggregate pipeline to join with handles collection (like moods.mjs)
         const pipeline = [
@@ -373,22 +375,9 @@ export async function handler(event, context) {
               as: "handleInfo"
             }
           },
+          // Add computed handle field for filtering
           {
-            $sort: { when: -1 }
-          },
-          {
-            $limit: actualLimit
-          },
-          {
-            $project: {
-              _id: 0,
-              code: 1,
-              source: 1,
-              when: 1,
-              hits: 1,
-              user: 1,
-              kept: 1,    // Include kept status
-              tezos: 1,   // Include legacy tezos field
+            $addFields: {
               handle: { 
                 $cond: {
                   if: { $gt: [{ $size: "$handleInfo" }, 0] },
@@ -397,8 +386,38 @@ export async function handler(event, context) {
                 }
               }
             }
-          }
+          },
         ];
+        
+        // Add handle filter if specified
+        if (filterHandle) {
+          pipeline.push({
+            $match: { handle: filterHandle.startsWith('@') ? filterHandle : `@${filterHandle}` }
+          });
+        }
+        
+        // Sort by hits or recent
+        pipeline.push({
+          $sort: sortBy === 'hits' ? { hits: -1, when: -1 } : { when: -1 }
+        });
+        
+        pipeline.push({
+          $limit: actualLimit
+        });
+        
+        pipeline.push({
+          $project: {
+            _id: 0,
+            code: 1,
+            source: 1,
+            when: 1,
+            hits: 1,
+            user: 1,
+            kept: 1,    // Include kept status
+            tezos: 1,   // Include legacy tezos field
+            handle: 1   // Already computed
+          }
+        });
         
         const docs = await collection.aggregate(pipeline).toArray();
         
