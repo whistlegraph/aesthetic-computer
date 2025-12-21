@@ -13434,10 +13434,14 @@ async function makeFrame({ data: { type, content } }) {
 // Get the active user's handle from the server if one exists, updating
 // $commonApi.handle
 let HANDLE;
+let handleRetryInProgress = false;
 // TODO: Cache this in localStorage and clear it on log in and log out?
 //       24.05.23.22.16
 
-async function handle() {
+async function handle(retryCount = 0) {
+  const MAX_RETRIES = 3;
+  const RETRY_DELAYS = [500, 1000, 2000]; // Exponential backoff
+
   if (USER) {
     // TODO: Check to see if this is in localStorage or not...
     const storedHandle = store["handle"]; // || (await store.retrieve("handle"));
@@ -13467,13 +13471,37 @@ async function handle() {
         send({ type: "handle", content: HANDLE });
         store["handle:received"] = true;
         store["handle"] = data.handle;
+        store["handle:failed"] = false; // Clear any previous failure flag
         // store.persist("handle"); // Maybe this shouldn't persist.
       } else {
-        console.warn("🤚 Handle fetch failed:", response.status, await response.text());
+        const errorText = await response.text();
+        console.warn("🤚 Handle fetch failed:", response.status, errorText);
+        
+        // Retry on 5xx server errors
+        if (response.status >= 500 && retryCount < MAX_RETRIES && !handleRetryInProgress) {
+          handleRetryInProgress = true;
+          const delay = RETRY_DELAYS[retryCount] || 2000;
+          console.log(`🔄 Retrying handle fetch in ${delay}ms (attempt ${retryCount + 1}/${MAX_RETRIES})...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          handleRetryInProgress = false;
+          return handle(retryCount + 1);
+        }
+        
         store["handle:failed"] = true;
       }
     } catch (error) {
       console.error("🤚 Handle fetch error:", error);
+      
+      // Retry on network errors
+      if (retryCount < MAX_RETRIES && !handleRetryInProgress) {
+        handleRetryInProgress = true;
+        const delay = RETRY_DELAYS[retryCount] || 2000;
+        console.log(`🔄 Retrying handle fetch in ${delay}ms (attempt ${retryCount + 1}/${MAX_RETRIES})...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        handleRetryInProgress = false;
+        return handle(retryCount + 1);
+      }
+      
       store["handle:failed"] = true;
     }
   }
