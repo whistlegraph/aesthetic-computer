@@ -7,7 +7,7 @@ import { tokenize, KidLisp } from "../lib/kidlisp.mjs";
 const { min, max, floor, sin, cos, PI, abs } = Math;
 
 // Keeps contract address on ghostnet
-const KEEPS_CONTRACT = "KT1NeytR5BHDfGBjG9ZuLkPd7nmufmH1icVc";
+const KEEPS_CONTRACT = "KT1KRQAkCrgbYPAxzxaFbGm1FaUJdqBACxu9";
 const NETWORK = "ghostnet";
 
 // 👻 Pac-Man Ghost Sprite (14x14, classic arcade bitmap)

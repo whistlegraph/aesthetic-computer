@@ -730,9 +730,12 @@ function stringToBytes(str) {
 }
 
 async function mintToken(piece, options = {}) {
-  const { network = 'ghostnet', generateThumbnail: shouldGenerateThumbnail = false } = options;
+  const { network = 'ghostnet', generateThumbnail: shouldGenerateThumbnail = false, recipient = null } = options;
   
   const { tezos, credentials, config } = await createTezosClient(network);
+  
+  // Determine owner: recipient if specified, otherwise the server wallet
+  const ownerAddress = recipient || credentials.address;
   const allCredentials = loadCredentials(); // For Pinata access
   
   // Load contract address
@@ -750,6 +753,9 @@ async function mintToken(piece, options = {}) {
   console.log(`📡 Network: ${config.name}`);
   console.log(`📍 Contract: ${contractAddress}`);
   console.log(`📦 Piece: ${pieceName}`);
+  if (ownerAddress !== credentials.address) {
+    console.log(`👤 Recipient: ${ownerAddress}`);
+  }
   console.log(`📸 Thumbnail: ${shouldGenerateThumbnail ? 'Generate via Oven' : 'HTTP fallback'}`);
   
   // Detect content type
@@ -939,7 +945,7 @@ async function mintToken(piece, options = {}) {
       isBooleanAmount: onChainMetadata.isBooleanAmount,
       metadata_uri: onChainMetadata.metadata_uri,
       name: onChainMetadata.name,
-      owner: credentials.address,
+      owner: ownerAddress,
       rights: onChainMetadata.rights,
       shouldPreferSymbol: onChainMetadata.shouldPreferSymbol,
       symbol: onChainMetadata.symbol,
@@ -1740,6 +1746,52 @@ async function setKeepFee(feeInTez, options = {}) {
   }
 }
 
+async function setAdministrator(newAdmin, options = {}) {
+  const { network = 'ghostnet' } = options;
+  
+  const { tezos, config } = await createTezosClient(network);
+  
+  if (!fs.existsSync(CONFIG.paths.contractAddress)) {
+    throw new Error('❌ No contract deployed. Run: node keeps.mjs deploy');
+  }
+  
+  const contractAddress = fs.readFileSync(CONFIG.paths.contractAddress, 'utf8').trim();
+  
+  console.log('\n╔══════════════════════════════════════════════════════════════╗');
+  console.log('║  👑 Setting Contract Administrator                           ║');
+  console.log('╚══════════════════════════════════════════════════════════════╝\n');
+  
+  console.log(`📡 Network: ${config.name}`);
+  console.log(`📍 Contract: ${contractAddress}`);
+  console.log(`👤 New Admin: ${newAdmin}\n`);
+  
+  try {
+    const contract = await tezos.contract.at(contractAddress);
+    
+    const op = await contract.methods.set_administrator(newAdmin).send();
+    
+    console.log(`   ⏳ Operation hash: ${op.hash}`);
+    console.log('   ⏳ Waiting for confirmation...');
+    
+    await op.confirmation(1);
+    
+    console.log('\n╔══════════════════════════════════════════════════════════════╗');
+    console.log('║  ✅ Administrator Changed Successfully!                      ║');
+    console.log('╚══════════════════════════════════════════════════════════════╝\n');
+    
+    console.log(`   👤 New admin: ${newAdmin}`);
+    console.log(`   📝 Operation: ${config.explorer}/${op.hash}\n`);
+    console.log('   ⚠️  WARNING: Only the new admin can call admin functions now!\n');
+    
+    return { newAdmin, hash: op.hash };
+    
+  } catch (error) {
+    console.error('\n❌ Set administrator failed!');
+    console.error(`   Error: ${error.message}`);
+    throw error;
+  }
+}
+
 async function withdrawFees(destination, options = {}) {
   const { network = 'ghostnet' } = options;
   
@@ -1851,16 +1903,20 @@ async function main() {
         await uploadToIPFS(args[1]);
         break;
         
-      case 'mint':
+      case 'mint': {
         if (!args[1]) {
-          console.error('Usage: node keeps.mjs mint <piece> [network] [--thumbnail]');
+          console.error('Usage: node keeps.mjs mint <piece> [network] [--thumbnail] [--to=<address>]');
           process.exit(1);
         }
+        const toFlag = flags.find(f => f.startsWith('--to='));
+        const recipientAddr = toFlag ? toFlag.split('=')[1] : null;
         await mintToken(args[1], { 
           network: getNetwork(2),
-          generateThumbnail: flags.includes('--thumbnail')
+          generateThumbnail: flags.includes('--thumbnail'),
+          recipient: recipientAddr
         });
         break;
+      }
       
       case 'update':
         if (!args[1] || !args[2]) {
@@ -1961,6 +2017,25 @@ async function main() {
         await withdrawFees(dest, { network: getNetwork(dest ? 2 : 1) });
         break;
       }
+      
+      case 'set-admin': {
+        if (!args[1]) {
+          console.error('Usage: node keeps.mjs set-admin <new_admin_address>');
+          console.error('');
+          console.error('This changes the contract administrator. Only the current admin can call this.');
+          console.error('');
+          console.error('Examples:');
+          console.error('  node keeps.mjs set-admin tz1abc...   # Set new admin');
+          process.exit(1);
+        }
+        const newAdmin = args[1];
+        if (!newAdmin.startsWith('tz1') && !newAdmin.startsWith('tz2') && !newAdmin.startsWith('tz3')) {
+          console.error('❌ Invalid Tezos address. Must start with tz1, tz2, or tz3.');
+          process.exit(1);
+        }
+        await setAdministrator(newAdmin, { network: getNetwork(2) });
+        break;
+      }
         
       case 'help':
       default:
@@ -1985,6 +2060,7 @@ Commands:
   lock-collection               Permanently lock collection metadata
   fee [network]                 Show current keep fee
   set-fee <tez> [network]       Set keep fee (admin only)
+  set-admin <address>           Change contract administrator (admin only)
   withdraw [dest] [network]     Withdraw accumulated fees to address
   help                          Show this help
 
@@ -1995,6 +2071,7 @@ Networks:
 Flags:
   --thumbnail                   Generate animated WebP thumbnail via Oven
                                and upload to IPFS (requires Oven service)
+  --to=<address>                Recipient wallet address (default: server wallet)
   --image=<uri>                 Collection image URI (IPFS or URL)
   --description=<text>          Collection description
 
@@ -2002,6 +2079,7 @@ Examples:
   node keeps.mjs deploy
   node keeps.mjs balance
   node keeps.mjs mint wand --thumbnail      # With IPFS thumbnail
+  node keeps.mjs mint wand --to=tz1abc...   # Mint to specific wallet
   node keeps.mjs update 0 wand              # Re-upload bundle & update metadata
   node keeps.mjs lock 0                     # Permanently lock token 0
   node keeps.mjs burn 0                     # Burn token 0 (allows re-mint)
@@ -2049,6 +2127,7 @@ export {
   lockCollectionMetadata,
   getKeepFee,
   setKeepFee,
+  setAdministrator,
   withdrawFees,
   detectContentType,
   loadCredentials,
