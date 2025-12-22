@@ -251,6 +251,12 @@ const sounds = {};
 const tonestack = {}; // Temporary tone-stack that always keeps currently held
 //                       keys and pops them off the stack as keys are lifted.
 //                       (These tones will not necessarily be playing.)
+
+// 🔬 Telemetry: Expose state for stability testing
+if (typeof window !== 'undefined') {
+  window.__notepat_sounds = sounds;
+  window.__notepat_tonestack = tonestack;
+}
 //let sharps = false,
 //  flats = false;
 const notes = "cdefgab" + "vswrq" + "hijklmn" + "tyuop"; // hold shift on C D F G A for sharps.
@@ -499,6 +505,11 @@ let scope = 32; // Reduced from 64 for better visualizer performance
 let projector = false;
 
 const trail = {};
+
+// 🔬 Telemetry: Expose trail for stability testing
+if (typeof window !== 'undefined') {
+  window.__notepat_trail = trail;
+}
 
 let lastActiveNote;
 let transposeOverlay = false;
