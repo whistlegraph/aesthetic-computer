@@ -10,6 +10,10 @@
 
 import { qrcode as qr } from "../dep/@akamfoad/qr/qr.mjs";
 
+// Current Keeps contract (v3)
+const KEEPS_CONTRACT = "KT1StXrQNvRd9dNPpHdCGEstcGiBV6neq79K";
+const KEEPS_NETWORK = "ghostnet";
+
 // State
 let walletState = null;
 let tezPrice = null;
@@ -51,6 +55,8 @@ let disconnectBtn;
 let connectTempleBtn;
 let connectMobileBtn;
 let connectExtensionBtn;
+let keepsLoginBtn; // Login button for keeps section
+let keepsSignupBtn; // Signup button for keeps section
 let keepButtons = {}; // Map of code -> ui.TextButton for keeping unkept KidLisps
 let showConnectOptions = false; // Show extension vs mobile choice
 let connectError = null;
@@ -180,6 +186,12 @@ async function boot({ wallet, wipe, hud, ui, screen, user, handle }) {
     screen
   });
   
+  // Login & signup buttons for keeps section (shown when wallet connected but not logged in)
+  keepsLoginBtn = new ui.TextButton("Log in", { center: "xy", screen });
+  keepsLoginBtn.stickyScrubbing = true;
+  keepsSignupBtn = new ui.TextButton("I'm new", { center: "xy", screen });
+  keepsSignupBtn.stickyScrubbing = true;
+  
   await Promise.all([
     fetchTezPrice(walletState?.network),
     fetchHeadBlock(walletState?.network),
@@ -277,24 +289,49 @@ async function fetchNFTCount(address, network = "ghostnet") {
 
 async function fetchUserKidlisps(userSub) {
   if (!userSub) return;
+  
+  console.log(`📜 [WALLET] Fetching keeps for contract: ${KEEPS_CONTRACT} (${KEEPS_NETWORK})`);
+  
   try {
     // Fetch recent KidLisp pieces and filter by user
     const res = await fetch(`/api/store-kidlisp?recent=true&limit=200`);
     if (res.ok) {
       const data = await res.json();
       // Filter pieces by this user's sub (stored in user field)
-      userKidlisps = (data.recent || [])
-        .filter(p => p.user === userSub)
+      const allUserPieces = (data.recent || []).filter(p => p.user === userSub);
+      
+      // Log kept status details
+      const keptPieces = allUserPieces.filter(p => p.kept);
+      console.log(`📜 [WALLET] Found ${allUserPieces.length} total pieces, ${keptPieces.length} marked as kept`);
+      
+      if (keptPieces.length > 0) {
+        console.log(`📜 [WALLET] Kept pieces contract breakdown:`);
+        keptPieces.forEach(p => {
+          const contract = p.kept?.contractAddress || 'unknown';
+          const isCurrentContract = contract === KEEPS_CONTRACT;
+          console.log(`   - $${p.code}: ${contract.slice(0,10)}... ${isCurrentContract ? '✅ current' : '❌ old contract'}`);
+        });
+      }
+      
+      userKidlisps = allUserPieces
         .slice(0, 12) // Show more pieces
-        .map(p => ({
-          code: p.code,
-          source: p.source || '',
-          preview: p.source ? p.source.replace(/\n/g, ' ').slice(0, 60) : p.code,
-          kept: p.kept ? { ...p.kept, keptBy: p.kept.keptBy || null } : null,
-          when: p.when ? new Date(p.when) : null,
-          hits: p.hits || 0,
-          marqueeX: 0, // Individual marquee offset
-        }));
+        .map(p => {
+          // Only mark as "kept" if it's on the current contract
+          const isOnCurrentContract = p.kept?.contractAddress === KEEPS_CONTRACT;
+          return {
+            code: p.code,
+            source: p.source || '',
+            preview: p.source ? p.source.replace(/\n/g, ' ').slice(0, 60) : p.code,
+            kept: isOnCurrentContract ? { ...p.kept, keptBy: p.kept.keptBy || null } : null,
+            oldKept: !isOnCurrentContract && p.kept ? p.kept : null, // Track old keeps for reference
+            when: p.when ? new Date(p.when) : null,
+            hits: p.hits || 0,
+            marqueeX: 0, // Individual marquee offset
+          };
+        });
+        
+      const currentKeptCount = userKidlisps.filter(p => p.kept).length;
+      console.log(`📜 [WALLET] Displaying ${userKidlisps.length} pieces, ${currentKeptCount} kept on current contract`);
     }
   } catch (e) {
     console.log("Failed to fetch KidLisps:", e);
@@ -506,7 +543,26 @@ function paint($) {
     y += 4;
     
     // === KIDLISP PIECES (two columns: Kept / Unkept) ===
-    if (userKidlisps.length > 0) {
+    // Show login/signup buttons if wallet connected but not logged in
+    if (!userSub && walletState?.connected) {
+      y += 12;
+      
+      // Position buttons side by side like prompt.mjs
+      keepsLoginBtn.reposition({ center: "x", y, screen });
+      keepsSignupBtn.reposition({ center: "x", y, screen });
+      const offset = 5;
+      keepsSignupBtn.btn.box.x += keepsSignupBtn.btn.box.w / 2 + offset;
+      keepsLoginBtn.btn.box.x -= keepsLoginBtn.btn.box.w / 2 + offset;
+      
+      // Paint with prompt.mjs style colors (dark mode)
+      keepsLoginBtn.paint({ ink, box, write }, [[0, 0, 64], 255, 255, [0, 0, 64]]);
+      keepsSignupBtn.paint({ ink, box, write }, [[0, 64, 0], 255, 255, [0, 64, 0]]);
+      
+      y += 28;
+      // Subtitle below buttons
+      ink(...colors.textDim).write("to see your keeps", { x: w/2, y, center: "x" });
+      y += 16;
+    } else if (userKidlisps.length > 0) {
       const isKeptByUser = p =>
         p.kept &&
         (p.kept.keptBy === userSub ||
@@ -727,7 +783,7 @@ function getTimeAgo(date) {
   return `${Math.floor(hr / 24)}d`;
 }
 
-function act({ event: e, wallet, jump, screen }) {
+function act({ event: e, wallet, jump, screen, net }) {
   if (e.is("reframed")) {
     disconnectBtn?.reposition({ bottom: 6, right: 6, screen });
     connectTempleBtn?.reposition({ center: "x", y: screen.height / 2 - 60 + 25, screen });
@@ -812,6 +868,20 @@ function act({ event: e, wallet, jump, screen }) {
         showQR = false;
       }
     });
+    
+    // Login/signup buttons for keeps (when not logged in)
+    if (!userSub) {
+      keepsLoginBtn?.btn.act(e, {
+        push: () => {
+          net.login();
+        }
+      });
+      keepsSignupBtn?.btn.act(e, {
+        push: () => {
+          net.signup();
+        }
+      });
+    }
     
     // Handle KEEP button clicks using ui.TextButton
     for (const [code, btn] of Object.entries(keepButtons)) {

@@ -1,7 +1,7 @@
 {
   "prim": "Pair",
   "args": [
-    { "bytes": "697066733a2f2f516d" },
+    { "bytes": "697066733a2f2f516d55736572" },
     {
       "prim": "Pair",
       "args": [
@@ -9,15 +9,15 @@
         {
           "prim": "Pair",
           "args": [
-            { "bytes": "6f746865725f7069656365" },
+            { "bytes": "626f625f7069656365" },
             {
               "prim": "Pair",
               "args": [
-                { "bytes": "74657874" },
+                { "bytes": "4b69644c697370" },
                 {
                   "prim": "Pair",
                   "args": [
-                    { "bytes": "5b5d" },
+                    { "bytes": "5b2240626f62225d" },
                     {
                       "prim": "Pair",
                       "args": [
@@ -25,11 +25,11 @@
                         {
                           "prim": "Pair",
                           "args": [
-                            { "bytes": "53686f756c64206661696c" },
+                            { "bytes": "426f62206d696e747320746f2068696d73656c66" },
                             {
                               "prim": "Pair",
                               "args": [
-                                { "bytes": "697066733a2f2f516d" },
+                                { "bytes": "697066733a2f2f516d55736572" },
                                 {
                                   "prim": "Pair",
                                   "args": [
@@ -41,15 +41,15 @@
                                         {
                                           "prim": "Pair",
                                           "args": [
-                                            { "bytes": "" },
+                                            { "bytes": "697066733a2f2f516d426f624d65746164617461" },
                                             {
                                               "prim": "Pair",
                                               "args": [
-                                                { "bytes": "556e617574686f72697a6564" },
+                                                { "bytes": "55736572204d696e74" },
                                                 {
                                                   "prim": "Pair",
                                                   "args": [
-                                                    { "string": "tz1SfRoaCkrBkXqTzhz67QYVPJAU9Y2g48kq" },
+                                                    { "string": "tz1Rp4Bv8iUhYnNoCryHQgNzN2D7i3L1LF9C" },
                                                     {
                                                       "prim": "Pair",
                                                       "args": [
@@ -61,7 +61,11 @@
                                                             {
                                                               "prim": "Pair",
                                                               "args": [
-                                                                { "bytes": "4b454550" }, { "prim": "Pair", "args": [ { "bytes": "5b5d" }, { "bytes": "697066733a2f2f516d" } ] }
+                                                                { "bytes": "4b454550" },
+                                                                {
+                                                                  "prim": "Pair",
+                                                                  "args": [ { "bytes": "5b22757365722d6d696e746564225d" }, { "bytes": "697066733a2f2f516d557365725468756d62" } ]
+                                                                }
                                                               ]
                                                             }
                                                           ]

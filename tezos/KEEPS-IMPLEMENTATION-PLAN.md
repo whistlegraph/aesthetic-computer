@@ -49,38 +49,56 @@ keep $ceo → Preview bundle → Connect wallet → Upload to IPFS → Mint NFT
   - `Q` key opens queue view, `K` browses user's pieces, `q`/space adds to queue
   - `A` processes entire queue automatically with 1.5s delay between mints
   - Queue shows piece names, hit counts, and processing status
-- ✅ **Artist attribution fix**: Wallet address now included in `creators` array
-  - objkt.com properly attributes the minting wallet as the artist
-  - `keep-mint.mjs` builds creators as `[walletAddress, @handle]`
 - ✅ **Sort by hits**: API now supports `sort=hits` for all-time popularity ranking
   - `store-kidlisp.mjs` adds `sort` and `handle` query parameters
   - Server-side filtering by creator handle (`handle=@jeffrey`)
 - ✅ **Kept status detection**: Fixed hex-decoding of TzKT bigmap keys
   - TzKT returns hex-encoded piece names (e.g., "636f77" = "cow")
   - Proper `Buffer.from(key, 'hex').toString('utf8')` decoding
-- ✅ **Contract address updated**: All references now use `KT1KRQAkCrgbYPAxzxaFbGm1FaUJdqBACxu9`
 - ✅ **keeps.mjs CLI enhancements**: 
   - `--to=<address>` flag for minting to specific wallet
   - `set-admin` command to change contract administrator
-- ✅ **Batch minted 20+ pieces** via TUI successfully on ghostnet
-- 🔄 **CURRENT**: Batch minting ~57 more pieces (top hits by @jeffrey)
-- 📋 **NEXT**: Verify objkt.com artist display, prepare for mainnet
+- ✅ **Batch minted 189 pieces** via TUI successfully on ghostnet v2
+- ⚠️ **Artist attribution issue discovered**: v2 contract has wrong `firstMinter`
+  - TzKT sets `firstMinter` to transaction sender (admin), not token recipient
+  - objkt.com uses `firstMinter` for artist attribution when `creators` missing
+  - Fix: Contract v3 allows users to call `keep()` directly
 
-### Phase A — Ghostnet hardening (NEARING COMPLETION ✅)
-- **Status**: Contract deployed to Ghostnet ✅
-- **Progress**: 20+ pieces successfully minted via TUI batch queue
-- **Active batch**: ~57 top-hit pieces being minted (queue processing)
-- Success criteria: 20+ keeps ✅ achieved; SSE sessions stable; IPFS caching working
-- Verified:
-  - ✅ Wallet connect + keep flow end-to-end
-  - ✅ SSE progress staging works correctly
-  - ✅ Cached IPFS media reuse works
-  - ✅ Artist attribution displays on objkt.com (pending final verification)
-  - ✅ Batch minting via artery-tui queue system
+**Recent Progress (Dec 22, 2025):**
+- ✅ **Contract v3 deployed**: `KT1StXrQNvRd9dNPpHdCGEstcGiBV6neq79K`
+  - User-callable `keep()` entrypoint for proper `firstMinter` attribution
+  - Non-admins can call with fee payment, must mint to self
+  - All code references updated to new contract address
+  - Contract tracking system in `contracts.json`
+  - Deployment documented in README.md
+- ✅ **Contract tracking system**: `contracts.json` in /tezos
+  - Tracks all deployed contracts by network and version
+  - Includes deployment date, wallet, status, notes
+- ✅ **Updated README.md**: Wallet rolodex with contract history
+- ✅ **Fixed creators array**: `["@handle", walletAddress]` format
+  - Handle first for objkt.com artist display
+  - Wallet address for on-chain attribution
+- ✅ **COMPLETED**: V3 contract deployed to ghostnet
+  - Contract: `KT1StXrQNvRd9dNPpHdCGEstcGiBV6neq79K`
+  - User-callable `keep()` with `MUST_MINT_TO_SELF` enforcement
+- 🔄 **CURRENT**: Testing v3 user-callable mint flow
+- 📋 **NEXT**: Verify objkt.com shows correct artist attribution
+
+### Phase A — Ghostnet hardening ✅ MOSTLY COMPLETE
+- **Status**: Contract v3 deployed and active
+- **Progress**: 189 tokens minted on v2 (deprecated), v3 ready for testing
+- **Contract**: `KT1StXrQNvRd9dNPpHdCGEstcGiBV6neq79K`
+- Success criteria:
+  - ✅ SSE sessions stable
+  - ✅ IPFS caching working
+  - ✅ V3 contract deployed with user-callable `keep()`
+  - ⏳ User is `firstMinter` when minting (needs testing)
+  - ⏳ objkt.com shows correct artist (needs testing)
 - **Remaining**:
-  1. Verify objkt.com shows wallet as artist on new mints
-  2. Complete current batch (~57 pieces)
-  3. Final review before mainnet
+  1. ✅ Deploy v3 contract to ghostnet
+  2. ✅ Update contract addresses in code
+  3. ⏳ Test user-callable mint flow in keep.mjs
+  4. ⏳ Verify objkt.com artist attribution on v3 tokens
 
 ### Phase B — Mainnet staging (real XTZ)
 - Use the `staging` wallet (mainnet) to deploy and test with a small set of keeps.
@@ -93,6 +111,67 @@ keep $ceo → Preview bundle → Connect wallet → Upload to IPFS → Mint NFT
 ### Phase C — Mainnet production
 - Deploy the final contract using the `kidlisp` wallet.
 - Freeze any mutable metadata policy decisions before public launch (what can be edited, for how long).
+
+---
+
+## Contract Deployment Guide
+
+### Contract Source
+- **File**: `tezos/keeps_fa2_v2.py` (SmartPy)
+- **Version**: Track in `tezos/contracts.json`
+
+### Pre-deployment Checklist
+1. [ ] Verify contract source changes are committed
+2. [ ] Check wallet balance: `node keeps.mjs balance [network]`
+3. [ ] Review `contracts.json` for version history
+4. [ ] Ensure RPC is healthy (ghostnet/mainnet)
+
+### Deployment Steps
+
+```bash
+cd /workspaces/aesthetic-computer/tezos
+
+# 1. Compile contract (if using SmartPy IDE or CLI)
+# SmartPy compiles to Michelson automatically during deployment
+
+# 2. Deploy to network
+node keeps.mjs deploy [ghostnet|mainnet]
+
+# 3. Verify deployment
+node keeps.mjs status [network]
+```
+
+### Post-deployment Checklist
+1. [ ] Update `contracts.json`:
+   - Add new version entry with address, timestamp, status
+   - Mark previous version as "deprecated"
+2. [ ] Update `README.md` contract table
+3. [ ] Update environment variables:
+   - `TEZOS_KEEPS_CONTRACT` in Netlify
+   - Contract address in `keep-mint.mjs`, `kidlisp-keep.mjs`
+4. [ ] Test mint flow end-to-end
+5. [ ] Verify on tzkt.io and objkt.com
+
+### Updating Contract Address in Code
+
+```bash
+# Find all references to old contract address
+grep -rn "KT1KRQAkCrgbYPAxzxaFbGm1FaUJdqBACxu9" system/ tezos/
+
+# Files to update:
+# - system/netlify/functions/keep-mint.mjs (CONTRACT_ADDRESS)
+# - system/netlify/functions/kidlisp-keep.mjs (CONTRACT_ADDRESS)
+# - tezos/keeps.mjs (contractAddresses)
+# - Netlify env vars (TEZOS_KEEPS_CONTRACT)
+```
+
+### Contract Versioning Policy
+- **v1, v2, etc.**: Major changes requiring redeployment
+- Previous contracts remain viewable but marked deprecated
+- Old tokens remain on-chain (cannot migrate)
+- New mints go to latest contract only
+
+---
 
 ### Operational checklist
 - Pinata:
