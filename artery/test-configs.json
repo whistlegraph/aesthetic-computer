@@ -3,6 +3,7 @@
     "scales": ["minor", "dorian", "phrygian", "harmonic", "major"],
     "hiphopStyles": ["trap", "boombap", "lofi", "808", "halftime", "phonk", "drill", "gfunk"],
     "waltzStyles": ["classic", "dark", "dreamy", "baroque", "minimal", "phonk", "viennese", "drill"],
+    "intensities": ["low", "medium", "high", "extreme"],
     "melodies": [
       "twinkle", "mary", "old-macdonald", "yankee-doodle", "frere-jacques",
       "london-bridge", "row-row-row", "skip-to-my-lou", "camptown-races",
@@ -12,6 +13,15 @@
     ]
   },
   "tests": {
+    "test-notepat-stability.mjs": {
+      "name": "stability",
+      "icon": "🔬",
+      "desc": "Memory leak & performance test",
+      "params": {
+        "duration": { "type": "range", "min": 1, "max": 30, "step": 1, "default": 5 },
+        "intensity": { "type": "select", "options": "$intensities", "default": "medium" }
+      }
+    },
     "test-notepat.mjs": {
       "name": "composition",
       "icon": "🎹",
