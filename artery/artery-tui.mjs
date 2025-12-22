@@ -3074,10 +3074,12 @@ class ArteryTUI {
       const tokensRes = await fetchWithTimeout(tokensUrl);
       if (tokensRes.ok) {
         const tokens = await tokensRes.json();
+        const objktBase = network === 'ghostnet' ? 'https://ghostnet.objkt.com' : 'https://objkt.com';
         this.keepsContractData.recentTokens = tokens.map(t => ({
           id: t.key,
           name: t.value?.token_info?.name ? Buffer.from(t.value.token_info.name, 'hex').toString() : `#${t.key}`,
           active: t.active,
+          objktUrl: `${objktBase}/asset/${contractAddress}/${t.key}`,
         })).reverse();
       }
       
@@ -3185,6 +3187,9 @@ class ArteryTUI {
           this.keepQueueProcessing = true;
           this.processKeepQueue();
         }
+        return;
+      } else if (key === 'l' || key === 'L') { // Load queue from file
+        this.loadQueueFromFile();
         return;
       }
       this.render();
@@ -3641,6 +3646,78 @@ class ArteryTUI {
     // Execute keep (this will call back to processKeepQueue if keepQueueProcessing is true)
     await this.executeKeepMint(item.code);
   }
+  
+  // Load queue from file (one code per line or comma-separated)
+  async loadQueueFromFile() {
+    const queueFilePath = path.join(process.cwd(), 'keep-queue.txt');
+    
+    if (!fs.existsSync(queueFilePath)) {
+      this.keepsOutput = `❌ File not found: ${queueFilePath}\n` +
+        `Create keep-queue.txt with one code per line or comma-separated.\n`;
+      this.render();
+      return;
+    }
+    
+    try {
+      const content = fs.readFileSync(queueFilePath, 'utf8').trim();
+      // Support both newline-separated and comma-separated formats
+      const codes = content.split(/[\n,]+/)
+        .map(c => c.trim().replace(/^\$/, '')) // Strip leading $ and whitespace
+        .filter(c => c.length > 0 && c.length <= 12); // Valid code lengths
+      
+      if (codes.length === 0) {
+        this.keepsOutput = '❌ No valid codes found in keep-queue.txt\n';
+        this.render();
+        return;
+      }
+      
+      // Check which are already kept via TzKT
+      this.keepsOutput = `📂 Loading ${codes.length} codes from keep-queue.txt...\n`;
+      this.render();
+      
+      const keptCodes = new Set();
+      try {
+        const keysRes = await fetch('https://api.ghostnet.tzkt.io/v1/contracts/KT1KRQAkCrgbYPAxzxaFbGm1FaUJdqBACxu9/bigmaps/content_hashes/keys?limit=10000');
+        if (keysRes.ok) {
+          const keys = await keysRes.json();
+          keys.forEach(k => {
+            const decoded = Buffer.from(k.key, 'hex').toString('utf8');
+            keptCodes.add(decoded);
+          });
+        }
+      } catch (e) {
+        this.keepsOutput += `⚠️ Could not check kept status: ${e.message}\n`;
+      }
+      
+      // Filter out already kept and duplicates in queue
+      const existingInQueue = new Set(this.keepQueue.map(q => q.code));
+      let added = 0;
+      let skippedKept = 0;
+      let skippedDupe = 0;
+      
+      for (const code of codes) {
+        if (keptCodes.has(code)) {
+          skippedKept++;
+        } else if (existingInQueue.has(code)) {
+          skippedDupe++;
+        } else {
+          this.keepQueue.push({ code, hits: 0 });
+          existingInQueue.add(code);
+          added++;
+        }
+      }
+      
+      this.keepsOutput = `✅ Loaded ${added} pieces to queue\n`;
+      if (skippedKept > 0) this.keepsOutput += `   Skipped ${skippedKept} (already kept)\n`;
+      if (skippedDupe > 0) this.keepsOutput += `   Skipped ${skippedDupe} (already in queue)\n`;
+      this.keepsOutput += `   Queue now has ${this.keepQueue.length} pieces\n`;
+      
+    } catch (e) {
+      this.keepsOutput = `❌ Error reading file: ${e.message}\n`;
+    }
+    
+    this.render();
+  }
 
   async executeKeepsAction(actionKey, piece = null) {
     this.keepsRunning = true;
@@ -4041,10 +4118,10 @@ class ArteryTUI {
       }
     } else if (this.keepsSubMode === 'queue') {
       // Queue view
-      this.writeLine(`${BG_YELLOW}${FG_BLACK}${BOLD} 📦 Keep Queue (↑↓ x=remove c=clear ENTER=keep A=keep all ESC=back) ${' '.repeat(Math.max(0, boxWidth - 70))}${RESET}`);
+      this.writeLine(`${BG_YELLOW}${FG_BLACK}${BOLD} 📦 Keep Queue (↑↓ x=remove c=clear L=load A=all ESC=back) ${' '.repeat(Math.max(0, boxWidth - 61))}${RESET}`);
       
       if (this.keepQueue.length === 0 && !this.keepQueueProcessing) {
-        this.writeLine(`${BG_BLACK}${FG_YELLOW} Queue is empty. Press K to browse pieces, then q to add to queue.${' '.repeat(Math.max(0, boxWidth - 68))}${RESET}`);
+        this.writeLine(`${BG_BLACK}${FG_YELLOW} Queue empty. K=browse q=add, or L=load from keep-queue.txt${' '.repeat(Math.max(0, boxWidth - 60))}${RESET}`);
       } else if (this.keepQueue.length > 0) {
         // Show queue items (compact when processing to leave room for output)
         const maxVisible = this.keepQueueProcessing ? Math.min(4, this.keepQueue.length) : Math.min(12, this.innerHeight - 10);
@@ -4151,11 +4228,14 @@ class ArteryTUI {
         `${KEEPS_BG}${FG_BRIGHT_CYAN} Recent Tokens:${RESET}`,
       ];
       
-      // Add tokens
+      // Add tokens with objkt links
       if (cd.recentTokens.length > 0) {
         cd.recentTokens.slice(0, 3).forEach(t => {
           const status = t.active ? `${FG_BRIGHT_GREEN}●${RESET}` : `${FG_RED}○${RESET}`;
           leftLines.push(`${KEEPS_BG}  ${status}${KEEPS_BG} ${DIM}[${t.id}]${RESET}${KEEPS_BG} ${KEEPS_FG}${t.name}${RESET}`);
+          if (t.objktUrl) {
+            leftLines.push(`${KEEPS_BG}      ${DIM}${FG_CYAN}${t.objktUrl}${RESET}`);
+          }
         });
       } else {
         leftLines.push(`${KEEPS_BG}${DIM}  (none)${RESET}`);
