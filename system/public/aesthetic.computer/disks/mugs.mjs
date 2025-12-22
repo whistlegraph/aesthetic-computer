@@ -1,32 +1,46 @@
 // mugs, 24.12.21
-// Browse recent mugs - click to view/purchase
+// Browse recent mugs - preview on top, scrollable list below
 
-const { floor, min } = Math;
+const { floor, min, max } = Math;
 
 // Module state
 let mugs = [];
 let loading = true;
 let error = null;
 let selectedIndex = 0;
-let scrollOffset = 0;
+let scrollY = 0; // Pixel-based scroll position
+let targetScrollY = 0; // For smooth scrolling
 let preloadAnimatedWebp = null;
 let previewCache = {}; // Cache loaded previews by code
+let viewBtn = null;
+let isDragging = false;
+let lastDragY = 0;
+let velocity = 0;
 
-const itemHeight = 32; // Height of each list item
+const itemHeight = 36; // Height of each list item
 const charWidth = 8;
 const charHeight = 16;
+const btnPadding = 6;
+const previewHeight = 180; // Fixed height for preview area
 
-function boot({ net, cursor, hud }) {
+function boot({ net, cursor, hud, ui, screen }) {
   cursor("native");
   hud.labelBack();
   preloadAnimatedWebp = net.preloadAnimatedWebp;
+  
+  // Create VIEW button
+  const btnText = "☕ VIEW";
+  const btnW = btnText.length * charWidth + btnPadding * 2;
+  const btnH = charHeight + btnPadding * 2;
+  viewBtn = new ui.Button(0, 0, btnW, btnH);
+  viewBtn.text = btnText;
   
   fetchMugs();
 }
 
 async function fetchMugs() {
   try {
-    const res = await fetch("/api/mugs?limit=30");
+    const res = await fetch("/api/mugs?limit=50");
     const data = await res.json();
     
     if (data.mugs) {
@@ -60,7 +74,7 @@ async function preloadPreview(mug) {
   }
 }
 
-function paint({ wipe, ink, paste, screen, write }) {
+function paint({ wipe, ink, box, paste, screen, line }) {
   wipe(25);
   
   if (loading) {
@@ -79,66 +93,34 @@ function paint({ wipe, ink, paste, screen, write }) {
     return;
   }
   
-  // Layout: list on left, preview on right
-  const listWidth = floor(screen.width * 0.4);
-  const previewX = listWidth + 10;
-  const previewWidth = screen.width - previewX - 10;
+  // Smooth scroll animation
+  const scrollDiff = targetScrollY - scrollY;
+  scrollY += scrollDiff * 0.2;
+  if (Math.abs(scrollDiff) < 0.5) scrollY = targetScrollY;
   
-  // Title
-  ink(255).write("☕ RECENT MUGS", { x: 8, y: 6 }, undefined, undefined, false, "unifont");
-  ink(100).write(`(${mugs.length})`, { x: 8 + 14 * charWidth, y: 6 }, undefined, undefined, false, "unifont");
-  
-  // Draw list
-  const listY = 28;
-  const visibleItems = floor((screen.height - listY - 10) / itemHeight);
-  
-  // Adjust scroll to keep selected item visible
-  if (selectedIndex < scrollOffset) {
-    scrollOffset = selectedIndex;
-  } else if (selectedIndex >= scrollOffset + visibleItems) {
-    scrollOffset = selectedIndex - visibleItems + 1;
+  // Apply velocity for momentum scrolling
+  if (!isDragging && Math.abs(velocity) > 0.5) {
+    targetScrollY += velocity;
+    velocity *= 0.92; // Friction
+    clampScroll(screen);
   }
   
-  for (let i = 0; i < visibleItems && i + scrollOffset < mugs.length; i++) {
-    const idx = i + scrollOffset;
-    const mug = mugs[idx];
-    const y = listY + i * itemHeight;
-    const isSelected = idx === selectedIndex;
-    
-    // Highlight selected
-    if (isSelected) {
-      ink(50, 50, 60).box(0, y - 2, listWidth, itemHeight, "fill");
-      ink(100, 150, 255).box(0, y - 2, 3, itemHeight, "fill"); // Left accent
-    }
-    
-    // Color indicator
-    const colorRgb = getColorRgb(mug.color);
-    ink(...colorRgb).box(8, y + 4, 12, 12, "fill");
-    ink(80).box(8, y + 4, 12, 12, "outline");
-    
-    // Code and color text
-    const codeText = `#${mug.sourceCode}`;
-    const colorText = mug.color.toUpperCase();
-    
-    ink(isSelected ? 255 : 180).write(codeText, { x: 26, y: y + 2 }, undefined, undefined, false, "unifont");
-    ink(...colorRgb).write(colorText, { x: 26 + (codeText.length + 1) * charWidth, y: y + 2 }, undefined, undefined, false, "unifont");
-    
-    // Time ago
-    const timeAgo = getTimeAgo(mug.createdAt);
-    ink(80).write(timeAgo, { x: 26, y: y + 14 }, undefined, undefined, false, "unifont");
-  }
-  
-  // Scrollbar
-  if (mugs.length > visibleItems) {
-    const scrollbarHeight = floor((visibleItems / mugs.length) * (screen.height - listY - 10));
-    const scrollbarY = listY + floor((scrollOffset / mugs.length) * (screen.height - listY - 10));
-    ink(60).box(listWidth - 4, scrollbarY, 3, scrollbarHeight, "fill");
-  }
-  
-  // Draw preview of selected mug
+  // === TOP: Preview area ===
   const selectedMug = mugs[selectedIndex];
+  const previewAreaHeight = previewHeight;
+  
+  // Dark preview background
+  ink(20).box(0, 0, screen.width, previewAreaHeight, "fill");
+  
   if (selectedMug) {
     const preview = previewCache[selectedMug.code];
+    
+    // Title centered above preview
+    const titleY = 6;
+    const colorRgb = getColorRgb(selectedMug.color);
+    const titleText = selectedMug.color.toUpperCase() + " #" + selectedMug.sourceCode;
+    const titleWidth = titleText.length * charWidth;
+    ink(...colorRgb).write(titleText, { center: "x", y: titleY, screen }, undefined, undefined, false, "unifont");
     
     if (preview) {
       // Animate frames
@@ -149,7 +131,7 @@ function paint({ wipe, ink, paste, screen, write }) {
         preview.lastFrameTime = now;
       }
       
-      // Draw preview
+      // Draw preview centered
       const frame = preview.frames[preview.frameIndex];
       const bitmap = {
         width: preview.width,
@@ -157,71 +139,196 @@ function paint({ wipe, ink, paste, screen, write }) {
         pixels: frame.pixels,
       };
       
-      const maxPreviewHeight = screen.height - 60;
-      const scale = min(previewWidth / bitmap.width, maxPreviewHeight / bitmap.height);
+      const maxH = previewAreaHeight - 60;
+      const maxW = screen.width - 120;
+      const scale = min(maxW / bitmap.width, maxH / bitmap.height);
       const w = floor(bitmap.width * scale);
       const h = floor(bitmap.height * scale);
-      const x = previewX + floor((previewWidth - w) / 2);
-      const y = 30 + floor((maxPreviewHeight - h) / 2);
+      const x = floor((screen.width - w) / 2);
+      const y = 24 + floor((maxH - h) / 2);
       
       paste(bitmap, x, y, { scale });
+      
+      // VIEW button next to preview
+      const btnW = viewBtn.text.length * charWidth + btnPadding * 2;
+      const btnH = charHeight + btnPadding * 2;
+      viewBtn.box.x = screen.width - btnW - 8;
+      viewBtn.box.y = previewAreaHeight - btnH - 8;
+      viewBtn.box.w = btnW;
+      viewBtn.box.h = btnH;
+      
+      const isHover = viewBtn.down;
+      const fillColor = isHover ? [60, 80, 100] : [35, 45, 55];
+      const borderColor = isHover ? [255, 200, 100] : [100, 150, 200];
+      const textColor = isHover ? [255, 220, 150] : [255, 255, 255];
+      
+      ink(...fillColor).box(viewBtn.box, "fill");
+      ink(...borderColor).box(viewBtn.box, "outline");
+      ink(...textColor).write(viewBtn.text, {
+        x: viewBtn.box.x + btnPadding,
+        y: viewBtn.box.y + btnPadding,
+      }, undefined, undefined, false, "unifont");
     } else {
-      // Show loading for this preview
-      ink(80).write("Loading...", { x: previewX + previewWidth / 2 - 40, y: screen.height / 2 });
-      // Trigger preload
+      // Loading indicator
+      const pulse = Math.sin(performance.now() / 300) * 0.3 + 0.7;
+      ink(100 * pulse).write("☕", { center: "x", y: previewAreaHeight / 2 - 8, screen }, undefined, undefined, false, "unifont");
       preloadPreview(selectedMug);
     }
+  }
+  
+  // Divider line
+  ink(50).line(0, previewAreaHeight, screen.width, previewAreaHeight);
+  
+  // === BOTTOM: Scrollable list ===
+  const listY = previewAreaHeight + 1;
+  const listHeight = screen.height - listY;
+  const totalContentHeight = mugs.length * itemHeight;
+  const maxScroll = max(0, totalContentHeight - listHeight);
+  
+  // Draw list items (only visible ones)
+  const startIdx = max(0, floor(scrollY / itemHeight));
+  const endIdx = min(mugs.length, startIdx + Math.ceil(listHeight / itemHeight) + 1);
+  
+  for (let i = startIdx; i < endIdx; i++) {
+    const mug = mugs[i];
+    const itemY = listY + (i * itemHeight) - scrollY;
     
-    // Preview info
-    const infoY = screen.height - 24;
-    ink(150).write("↵ VIEW", { x: previewX, y: infoY }, undefined, undefined, false, "unifont");
-    ink(80).write("↑↓ NAVIGATE", { x: previewX + 70, y: infoY }, undefined, undefined, false, "unifont");
+    // Skip if off screen
+    if (itemY + itemHeight < listY || itemY > screen.height) continue;
+    
+    const isSelected = i === selectedIndex;
+    
+    // Highlight selected
+    if (isSelected) {
+      ink(45, 50, 60).box(0, itemY, screen.width, itemHeight, "fill");
+      ink(100, 150, 255).box(0, itemY, 3, itemHeight, "fill"); // Left accent
+    }
+    
+    // Color indicator
+    const colorRgb = getColorRgb(mug.color);
+    ink(...colorRgb).box(10, itemY + 8, 16, 16, "fill");
+    ink(60).box(10, itemY + 8, 16, 16, "outline");
+    
+    // Code and color text
+    const codeText = "#" + mug.sourceCode;
+    const colorText = mug.color.toUpperCase();
+    
+    ink(isSelected ? 255 : 180).write(codeText, { x: 34, y: itemY + 6 }, undefined, undefined, false, "unifont");
+    ink(...colorRgb).write(colorText, { x: 34 + (codeText.length + 1) * charWidth, y: itemY + 6 }, undefined, undefined, false, "unifont");
+    
+    // Time ago
+    const timeAgo = getTimeAgo(mug.createdAt);
+    ink(70).write(timeAgo, { x: 34, y: itemY + 20 }, undefined, undefined, false, "unifont");
+    
+    // Subtle divider between items
+    if (i < mugs.length - 1) {
+      ink(35).line(10, itemY + itemHeight - 1, screen.width - 10, itemY + itemHeight - 1);
+    }
+  }
+  
+  // Scrollbar (chat-style)
+  if (totalContentHeight > listHeight) {
+    const scrollbarTrackHeight = listHeight - 4;
+    const scrollbarHeight = max(30, floor((listHeight / totalContentHeight) * scrollbarTrackHeight));
+    const scrollProgress = scrollY / maxScroll;
+    const scrollbarY = listY + 2 + floor(scrollProgress * (scrollbarTrackHeight - scrollbarHeight));
+    
+    // Track
+    ink(30).box(screen.width - 6, listY + 2, 4, scrollbarTrackHeight, "fill");
+    // Thumb
+    ink(70).box(screen.width - 6, scrollbarY, 4, scrollbarHeight, "fill");
   }
 }
 
-function act({ event: e, jump }) {
+function act({ event: e, jump, screen }) {
   if (loading || mugs.length === 0) return;
   
+  const listY = previewHeight + 1;
+  const listHeight = screen.height - listY;
+  const totalContentHeight = mugs.length * itemHeight;
+  const maxScroll = max(0, totalContentHeight - listHeight);
+  
+  // Keyboard navigation
   if (e.is("keyboard:down:arrowup") || e.is("keyboard:down:w")) {
-    selectedIndex = Math.max(0, selectedIndex - 1);
-    // Preload nearby previews
+    selectedIndex = max(0, selectedIndex - 1);
+    scrollToSelected(screen);
     preloadNearby();
   }
   
   if (e.is("keyboard:down:arrowdown") || e.is("keyboard:down:s")) {
-    selectedIndex = Math.min(mugs.length - 1, selectedIndex + 1);
+    selectedIndex = min(mugs.length - 1, selectedIndex + 1);
+    scrollToSelected(screen);
     preloadNearby();
   }
   
+  // Enter opens
   if (e.is("keyboard:down:enter") || e.is("keyboard:down:space")) {
     openSelectedMug(jump);
   }
   
-  // Click to select + open
+  // VIEW button click
+  viewBtn?.act(e, {
+    push: () => openSelectedMug(jump),
+  });
+  
+  // Touch/drag scrolling (chat-style)
   if (e.is("touch")) {
-    const listY = 28;
-    const listWidth = floor(e.screen?.width * 0.4) || 200;
-    
-    if (e.x < listWidth && e.y > listY) {
-      const clickedIndex = floor((e.y - listY) / itemHeight) + scrollOffset;
+    if (e.y > listY) {
+      // Check if clicking on an item
+      const clickedIndex = floor((e.y - listY + scrollY) / itemHeight);
       if (clickedIndex >= 0 && clickedIndex < mugs.length) {
-        if (clickedIndex === selectedIndex) {
-          // Double-click opens
-          openSelectedMug(jump);
-        } else {
-          selectedIndex = clickedIndex;
-          preloadNearby();
-        }
+        selectedIndex = clickedIndex;
+        preloadNearby();
       }
-    } else if (e.x > listWidth) {
-      // Click on preview area opens
-      openSelectedMug(jump);
+      isDragging = true;
+      lastDragY = e.y;
+      velocity = 0;
     }
+  }
+  
+  if (e.is("draw") && isDragging) {
+    const deltaY = lastDragY - e.y;
+    targetScrollY += deltaY;
+    velocity = deltaY;
+    lastDragY = e.y;
+    clampScroll(screen);
+  }
+  
+  if (e.is("lift")) {
+    isDragging = false;
+  }
+  
+  // Scroll wheel
+  if (e.is("wheel")) {
+    targetScrollY += e.delta * 0.5;
+    clampScroll(screen);
   }
 }
 
+function clampScroll(screen) {
+  const listY = previewHeight + 1;
+  const listHeight = screen.height - listY;
+  const totalContentHeight = mugs.length * itemHeight;
+  const maxScroll = max(0, totalContentHeight - listHeight);
+  targetScrollY = max(0, min(maxScroll, targetScrollY));
+}
+
+function scrollToSelected(screen) {
+  const listY = previewHeight + 1;
+  const listHeight = screen.height - listY;
+  const itemTop = selectedIndex * itemHeight;
+  const itemBottom = itemTop + itemHeight;
+  
+  // Scroll to keep selected item visible
+  if (itemTop < targetScrollY) {
+    targetScrollY = itemTop;
+  } else if (itemBottom > targetScrollY + listHeight) {
+    targetScrollY = itemBottom - listHeight;
+  }
+  clampScroll(screen);
+}
+
 function preloadNearby() {
-  // Preload previews around the selected index
   for (let i = -1; i <= 2; i++) {
     const idx = selectedIndex + i;
     if (idx >= 0 && idx < mugs.length) {
@@ -233,8 +340,7 @@ function preloadNearby() {
 function openSelectedMug(jump) {
   const mug = mugs[selectedIndex];
   if (mug) {
-    // Jump to mug piece with this code and color
-    jump(`mug~${mug.sourceCode}~${mug.color}`);
+    jump("mug~" + mug.sourceCode + "~" + mug.color);
   }
 }
 
@@ -262,13 +368,13 @@ function getTimeAgo(dateStr) {
   
   const mins = floor(diff / 60000);
   if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
+  if (mins < 60) return mins + "m ago";
   
   const hours = floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) return hours + "h ago";
   
   const days = floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
+  if (days < 7) return days + "d ago";
   
   return date.toLocaleDateString();
 }
