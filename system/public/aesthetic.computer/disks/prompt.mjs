@@ -1402,30 +1402,30 @@ async function halt($, text) {
         // 🏚️ Print a sticker.
         await print(system.painting, params[0], (p) => (progressBar = p));
       } else if (slug === "mug") {
-        // ☕ Print on a ceramic mug.
-        // Usage: mug [#code] [color] [quantity]
-        // Examples: mug, mug blue, mug #abc, mug #abc blue, mug #abc blue 2
-        let picture = system.painting;
+        // ☕ Preview mug and purchase
+        // Usage: mug [#code] [color]
+        // Examples: mug, mug blue, mug #abc, mug #abc blue
+        let code = system.painting?.code || store["painting:code"] || "";
         let color = "white";
-        let quantity = 1;
         let paramIndex = 0;
-        
-        // Check if first param is a #code
-        if (params[0]?.startsWith("#")) {
-          picture = params[0]; // Pass the code string directly
+
+        // Check if first param is a code (with or without #)
+        if (params[0] && !/^(white|black|blue|pink|orange)$/i.test(params[0])) {
+          // Keep the # prefix if present, add it if not
+          code = params[0].startsWith("#") ? params[0] : `#${params[0]}`;
           paramIndex = 1;
+        } else if (code && !code.startsWith("#")) {
+          code = `#${code}`;
         }
-        
-        // Parse remaining params (color and quantity)
-        if (params[paramIndex] && isNaN(parseInt(params[paramIndex]))) {
-          color = params[paramIndex];
-          paramIndex++;
-        }
+
+        // Parse color
         if (params[paramIndex]) {
-          quantity = parseInt(params[paramIndex]) || 1;
+          color = params[paramIndex];
         }
-        
-        await mug(picture, color, quantity, (p) => (progressBar = p));
+
+        // Jump to mug piece for preview (code includes # prefix)
+        $.jump(`mug ${code} ${color}`.trim());
+        return true;
       } else if (slug === "mint") {
         // 🪙 Mint on Zora.
         await mint(
