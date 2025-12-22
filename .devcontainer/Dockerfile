@@ -110,15 +110,15 @@ RUN set -eux; \
     curl -fsSL "https://github.com/IBM-Cloud/redli/releases/download/v0.15.0/redli_0.15.0_linux_${ARCH}.tar.gz" \
     | tar xz -C /usr/local/bin && mv "/usr/local/bin/redli_linux_${ARCH}" /usr/local/bin/redli
 
-# --- mkcert (architecture-aware) ---------------------------------------------
+# --- mkcert (pre-built binary from GitHub) -----------------------------------
 RUN set -eux; \
     case "$(uname -m)" in \
         x86_64) ARCH=amd64 ;; \
         aarch64) ARCH=arm64 ;; \
         *) echo "Unsupported architecture: $(uname -m)" && exit 1 ;; \
     esac && \
-    curl -fsSL "https://github.com/FiloSottile/mkcert/releases/download/v1.4.4/mkcert-v1.4.4-linux-${ARCH}" \
-    -o /usr/local/bin/mkcert && chmod +x /usr/local/bin/mkcert
+    curl -fsSL "https://github.com/FiloSottile/mkcert/releases/download/v1.4.4/mkcert-v1.4.4-linux-${ARCH}" -o /usr/local/bin/mkcert && \
+    chmod +x /usr/local/bin/mkcert
 
 # --- ngrok (architecture-aware) ----------------------------------------------
 RUN set -eux; \
