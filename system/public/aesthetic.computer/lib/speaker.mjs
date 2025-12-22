@@ -150,6 +150,24 @@ class SpeakerProcessor extends AudioWorkletProcessor {
         return;
       }
 
+      // 🔬 Telemetry: Get worklet state for stability testing
+      if (msg.type === "get-telemetry") {
+        this.port.postMessage({
+          type: "telemetry",
+          content: {
+            queueLength: this.#queue?.length || 0,
+            runningCount: Object.keys(this.#running || {}).length,
+            fftBufferSize: this.#fftBufferLeft?.length || 0,
+            energyHistorySize: this.#energyHistory?.length || 0,
+            performanceMode: this.#performanceMode,
+            processingTimeAvg: this.#processingTimeHistory.length > 0 
+              ? this.#processingTimeHistory.reduce((a, b) => a + b, 0) / this.#processingTimeHistory.length 
+              : 0,
+          },
+        });
+        return;
+      }
+
       // 🎛️ VST Bridge Mode - enable/disable sending samples to native plugin
       if (msg.type === "vst:enable") {
         this.#vstBridgeEnabled = true;
