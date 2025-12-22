@@ -323,12 +323,12 @@ export const handler = stream(async (event, context) => {
         return; // finally will close
       }
 
-      // Check not already minted
+      // Check not already kept
       const mintStatus = await checkMintStatus(pieceName);
       if (mintStatus.minted) {
         await database.disconnect();
         await send("error", { 
-          error: "Already minted", 
+          error: "Already kept", 
           tokenId: mintStatus.tokenId,
           name: mintStatus.name,
           minter: mintStatus.minter,
@@ -584,21 +584,18 @@ export const handler = stream(async (event, context) => {
 
       const tokenName = `$${pieceName}`;
       
-      // Build description
-      let description = piece.source || `A KidLisp piece preserved on Tezos`;
-      if (authorHandle && authorHandle !== "@anon") {
-        description += `\n\nby ${authorHandle}`;
-      }
-      if (userCode) description += `\n${userCode}`;
-      if (packDate) description += `\nPacked on ${packDate}`;
+      // Description is ONLY the KidLisp source code (clean and simple)
+      const description = piece.source || `A KidLisp piece preserved on Tezos`;
 
       // Build tags
       const tags = [`$${pieceName}`, "KidLisp", "Aesthetic.Computer", "interactive"];
       if (userCode) tags.push(userCode);
 
-      // Use analyzer traits + add extras
+      // Use analyzer traits + add author/packed info as attributes
       const attributes = [
         ...analysis.traits,
+        ...(authorHandle && authorHandle !== "@anon" ? [{ name: "Author", value: authorHandle }] : []),
+        ...(userCode ? [{ name: "User Code", value: userCode }] : []),
         ...(depCount > 0 ? [{ name: "Dependencies", value: String(depCount) }] : []),
         ...(packDate ? [{ name: "Packed", value: packDate }] : []),
         { name: "Analyzer Version", value: ANALYZER_VERSION },
@@ -606,12 +603,26 @@ export const handler = stream(async (event, context) => {
 
       // Creator identity for metadata
       // Wallet address is required for objkt.com to attribute the artist correctly
-      // Also include handle for human readability
+      // The first minter IS the artist (how HEN/objkt contracts work)
       const creatorHandle = userHandle ? `@${userHandle}` : "anon";
-      // For creators array: wallet address first (for marketplace attribution), then handle
-      const creatorsArray = creatorWalletAddress 
-        ? [creatorWalletAddress, creatorHandle]
-        : [creatorHandle];
+      
+      // For creators array: use the user's linked wallet if available
+      // This makes the actual author the artist, same as HEN behavior
+      // If user has no linked wallet, fall back to admin wallet for server-side minting
+      let artistWalletAddress = creatorWalletAddress;
+      if (!artistWalletAddress && mode === "mint") {
+        const tezosCredentials = await getTezosCredentials();
+        const tezos = new TezosToolkit(RPC_URL);
+        tezos.setProvider({ signer: new InMemorySigner(tezosCredentials.privateKey) });
+        artistWalletAddress = await tezos.signer.publicKeyHash();
+      }
+      
+      // For creators array: ONLY wallet addresses for objkt.com compatibility
+      // objkt.com expects creators to be wallet addresses, not handles
+      // The handle is stored in the Author attribute instead
+      const creatorsArray = artistWalletAddress 
+        ? [artistWalletAddress]
+        : [];
       
       const metadataJson = {
         name: tokenName,
@@ -623,7 +634,7 @@ export const handler = stream(async (event, context) => {
         symbol: "KEEP",
         isBooleanAmount: true,
         shouldPreferSymbol: false,
-        minter: creatorWalletAddress || creatorHandle,
+        minter: artistWalletAddress || creatorHandle,
         creators: creatorsArray,
         rights: "© All rights reserved",
         mintingTool: "https://aesthetic.computer",
