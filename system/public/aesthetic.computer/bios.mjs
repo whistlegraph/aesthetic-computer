@@ -14323,6 +14323,27 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (type === "load-animated-webp") {
       console.log("🎬 BIOS load-animated-webp received:", content);
       
+      // Helper to convert webpxmux Uint32Array to RGBA Uint8ClampedArray
+      // Each Uint32 element contains one pixel in RGBA format: 0xRRGGBBAA
+      // We need RGBA for canvas: R, G, B, A bytes
+      const convertToRGBA = (u32arr) => {
+        const rgba = new Uint8ClampedArray(u32arr.length * 4);
+        for (let i = 0; i < u32arr.length; i++) {
+          const pixel = u32arr[i];
+          // RGBA format: 0xRRGGBBAA
+          const r = (pixel >>> 24) & 0xff;
+          const g = (pixel >>> 16) & 0xff;
+          const b = (pixel >>> 8) & 0xff;
+          const a = pixel & 0xff;
+          const j = i * 4;
+          rgba[j] = r;
+          rgba[j + 1] = g;
+          rgba[j + 2] = b;
+          rgba[j + 3] = a;
+        }
+        return rgba;
+      };
+      
       (async () => {
         try {
           // Start fetch immediately (don't wait for library)
@@ -14363,8 +14384,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             const frameData = frames.frames.map(f => ({
               duration: f.duration,
               isKeyframe: f.isKeyframe,
-              // Convert Uint32Array to Uint8ClampedArray for pixel data
-              pixels: new Uint8ClampedArray(f.rgba.buffer.slice(0))
+              // Convert Uint32Array BGRA to Uint8ClampedArray RGBA
+              pixels: convertToRGBA(f.rgba)
             }));
             
             // Transfer all pixel buffers
@@ -14384,7 +14405,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           } else {
             // Single frame - just decode as bitmap
             const bitmap = await xMux.decodeWebP(webpData);
-            const pixels = new Uint8ClampedArray(bitmap.rgba.buffer.slice(0));
+            // Convert Uint32Array BGRA to Uint8ClampedArray RGBA
+            const pixels = convertToRGBA(bitmap.rgba);
             
             send({
               type: "loaded-animated-webp-success",
