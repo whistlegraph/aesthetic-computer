@@ -297,6 +297,7 @@ async function getContractStatus(network = 'ghostnet') {
       
       // Fetch recent tokens via TzKT (efficient, paginated)
       const tzktUrl = `https://api.${network}.tzkt.io/v1/contracts/${contractAddress}/bigmaps/token_metadata/keys?limit=${MAX_DISPLAY}&sort.desc=id`;
+      const objktBase = network === 'ghostnet' ? 'https://ghostnet.objkt.com' : 'https://objkt.com';
       try {
         const response = await fetch(tzktUrl);
         if (response.ok) {
@@ -306,7 +307,9 @@ async function getContractStatus(network = 'ghostnet') {
             const tokenInfo = token.value?.token_info || {};
             const name = tokenInfo.name ? Buffer.from(tokenInfo.name, 'hex').toString() : `#${tokenId}`;
             const locked = storage.metadata_locked?.get?.(parseInt(tokenId)) ? ' 🔒' : '';
+            const objktUrl = `${objktBase}/asset/${contractAddress}/${tokenId}`;
             console.log(`   [${tokenId}] ${name}${locked}`);
+            console.log(`       🔗 ${objktUrl}`);
           }
         } else {
           console.log('   (Use TzKT explorer to view all tokens)');
