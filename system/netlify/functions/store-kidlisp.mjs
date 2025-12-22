@@ -438,6 +438,7 @@ export async function handler(event, context) {
             result.kept = {
               tokenId: doc.kept.tokenId,
               network: doc.kept.network || "ghostnet",
+              contractAddress: doc.kept.contractAddress || null,
               keptBy: doc.kept.keptBy || null,
               walletAddress: doc.kept.walletAddress || null,
             };
@@ -448,6 +449,7 @@ export async function handler(event, context) {
             result.kept = result.kept || {};
             result.kept.tokenId = result.kept.tokenId || doc.tezos.tokenId;
             result.kept.network = result.kept.network || doc.tezos.network || "ghostnet";
+            result.kept.contractAddress = result.kept.contractAddress || doc.tezos.contractAddress || null;
           }
           
           return result;

@@ -1,0 +1,68 @@
+{
+  "$schema": "./contracts-schema.json",
+  "version": "1.0.0",
+  "description": "Deployed Tezos smart contracts for Aesthetic Computer",
+  "contracts": {
+    "keeps": {
+      "name": "KidLisp Keeps FA2",
+      "description": "FA2 NFT contract for minting KidLisp pieces as NFTs",
+      "source": "keeps_fa2_v2.py",
+      "deployments": {
+        "ghostnet": {
+          "v1": {
+            "address": "KT1Ah5m2kzU3GfN42hh57mVJ63kNi95XKBdM",
+            "deployedAt": "2025-12-15T00:00:00Z",
+            "deployedBy": "tz1Lc2DzTjDPyWFj1iuAVGGZWNjK67Wun2dC",
+            "status": "deprecated",
+            "notes": "Initial deployment, had metadata encoding issues"
+          },
+          "v2": {
+            "address": "KT1KRQAkCrgbYPAxzxaFbGm1FaUJdqBACxu9",
+            "deployedAt": "2025-12-18T00:00:00Z",
+            "deployedBy": "tz1Lc2DzTjDPyWFj1iuAVGGZWNjK67Wun2dC",
+            "status": "deprecated",
+            "tokensMinted": 189,
+            "notes": "Fixed metadata encoding. Deprecated: admin-only mint causes wrong firstMinter attribution on objkt.com"
+          },
+          "v3": {
+            "address": "KT1StXrQNvRd9dNPpHdCGEstcGiBV6neq79K",
+            "deployedAt": "2024-12-22T00:00:00Z",
+            "deployedBy": "tz1Lc2DzTjDPyWFj1iuAVGGZWNjK67Wun2dC",
+            "status": "active",
+            "notes": "User-callable keep() entrypoint for proper artist attribution"
+          }
+        },
+        "mainnet": {
+          "v1": {
+            "address": null,
+            "deployedAt": null,
+            "deployedBy": "tz1Lc2DzTjDPyWFj1iuAVGGZWNjK67Wun2dC",
+            "status": "pending",
+            "notes": "Production deployment after ghostnet v3 validation"
+          }
+        }
+      }
+    }
+  },
+  "wallets": {
+    "kidlisp": {
+      "address": "tz1Lc2DzTjDPyWFj1iuAVGGZWNjK67Wun2dC",
+      "domain": "keeps.tez",
+      "role": "Keeps contract admin (ghostnet & mainnet)",
+      "keysLocation": "kidlisp/.env"
+    },
+    "staging": {
+      "address": "tz1...",
+      "role": "Mainnet staging/testing",
+      "keysLocation": "staging/.env"
+    }
+  },
+  "activeContracts": {
+    "ghostnet": {
+      "keeps": "pending-v3"
+    },
+    "mainnet": {
+      "keeps": null
+    }
+  }
+}

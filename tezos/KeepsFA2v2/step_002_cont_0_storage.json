@@ -13,12 +13,18 @@
             {
               "prim": "Pair",
               "args": [
-                [],
+                { "int": "0" },
                 {
                   "prim": "Pair",
                   "args": [
-                    [ { "prim": "Elt", "args": [ { "string": "" }, { "bytes": "697066733a2f2f6578616d706c65" } ] } ],
-                    { "prim": "Pair", "args": [ [], { "prim": "Pair", "args": [ { "int": "0" }, { "prim": "Pair", "args": [ [], [] ] } ] } ] }
+                    [],
+                    {
+                      "prim": "Pair",
+                      "args": [
+                        [ { "prim": "Elt", "args": [ { "string": "" }, { "bytes": "697066733a2f2f6578616d706c65" } ] } ],
+                        { "prim": "Pair", "args": [ [], { "prim": "Pair", "args": [ { "int": "0" }, { "prim": "Pair", "args": [ [], [] ] } ] } ] }
+                      ]
+                    }
                   ]
                 }
               ]
