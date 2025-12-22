@@ -4578,6 +4578,20 @@ function paint($) {
     const tickerSpacing = 0; // No space between tickers for tight stripes
     const tickerPadding = tinyTickers ? 5 : 3; // 5px padding for tiny font (more breathing room)
     
+    // Helper to ensure ticker text is long enough to fill screen without gaps
+    // Repeats the content until it's at least 4x screen width for seamless looping
+    const ensureMinTickerLength = (text, separator = " · ") => {
+      if (!text) return text;
+      const charWidth = tinyTickers ? 4 : 6; // Conservative char width estimate
+      const minWidth = screen.width * 4; // 4x screen width for smooth seamless loop
+      const textWidthApprox = text.length * charWidth;
+      if (textWidthApprox < minWidth) {
+        const repeats = Math.ceil(minWidth / textWidthApprox) + 1;
+        return Array(repeats).fill(text).join(separator);
+      }
+      return text;
+    };
+    
     let currentTickerY = loginY + 44; // Start 44px below login (moved down from 30px)
     let contentTickerY = 0; // Y position of content ticker (declared here for tooltip access)
     
@@ -4590,7 +4604,7 @@ function paint($) {
       const numMessages = Math.min(12, $.chat.messages.length);
       const recentMessages = $.chat.messages.slice(-numMessages);
       
-      const fullText = recentMessages.map(msg => {
+      let fullText = recentMessages.map(msg => {
         const sanitizedText = msg.text.replace(/[\r\n]+/g, ' ');
         const fullMessage = msg.from + ": " + sanitizedText;
         
@@ -4607,13 +4621,16 @@ function paint($) {
         
         return applyColorCodes(fullMessage, elements, colorMap, [0, 255, 255]);
       }).join(" · ");
+      
+      // Repeat content to fill screen without gaps
+      fullText = ensureMinTickerLength(fullText, " · ");
       const chatTickerY = currentTickerY;
       
       // Create or update ticker instance
       if (!chatTicker) {
         chatTicker = new $.gizmo.Ticker(fullText, {
           speed: 1, // 1px per frame
-          separator: " · ",
+          separator: "", // No extra separator - text already has · between messages
           reverse: false, // Left to right
         });
         chatTicker.paused = false;
@@ -4695,7 +4712,7 @@ function paint($) {
         const recentClockMessages = clockChatMessages.slice(-numClockMessages);
         
         // Build ticker text with syntax highlighting for @handles, URLs, 'prompts', etc.
-        const clockFullText = recentClockMessages.map(msg => {
+        let clockFullText = recentClockMessages.map(msg => {
           const sanitizedText = (msg.text || msg.message || '').replace(/[\r\n]+/g, ' ');
           const from = msg.from || msg.handle || msg.author || 'anon';
           const fullMessage = from + ": " + sanitizedText;
@@ -4714,10 +4731,13 @@ function paint($) {
           return applyColorCodes(fullMessage, elements, colorMap, [255, 200, 100]);
         }).join(" · ");
         
+        // Repeat content to fill screen without gaps
+        clockFullText = ensureMinTickerLength(clockFullText, " · ");
+        
         if (!clockChatTicker) {
           clockChatTicker = new $.gizmo.Ticker(clockFullText, {
             speed: 1,
-            separator: " · ",
+            separator: "", // No extra separator - text already has · between messages
             reverse: false,
           });
           clockChatTicker.paused = false;
