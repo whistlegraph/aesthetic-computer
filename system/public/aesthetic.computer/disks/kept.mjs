@@ -10,7 +10,7 @@
 import * as starfield from "./starfield.mjs";
 
 // Keeps contract on ghostnet
-const CONTRACT = "KT1KRQAkCrgbYPAxzxaFbGm1FaUJdqBACxu9";
+const CONTRACT = "KT1StXrQNvRd9dNPpHdCGEstcGiBV6neq79K";
 const NETWORK = "ghostnet";
 
 let result = null;

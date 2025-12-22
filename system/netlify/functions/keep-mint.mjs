@@ -28,7 +28,7 @@ if (dev) {
 }
 
 // Configuration  
-const CONTRACT_ADDRESS = process.env.TEZOS_KEEPS_CONTRACT || "KT1KRQAkCrgbYPAxzxaFbGm1FaUJdqBACxu9";
+const CONTRACT_ADDRESS = process.env.TEZOS_KEEPS_CONTRACT || "KT1StXrQNvRd9dNPpHdCGEstcGiBV6neq79K";
 const NETWORK = process.env.TEZOS_NETWORK || "ghostnet";
 const OVEN_URL = process.env.OVEN_URL || "https://oven.aesthetic.computer";
 const OVEN_FALLBACK_URL = "https://oven.aesthetic.computer"; // Always available fallback
@@ -602,27 +602,16 @@ export const handler = stream(async (event, context) => {
       ];
 
       // Creator identity for metadata
-      // Wallet address is required for objkt.com to attribute the artist correctly
-      // The first minter IS the artist (how HEN/objkt contracts work)
+      // objkt.com shows the FIRST item in creators[] as the artist
+      // Using the @handle allows objkt to link to the user's profile
+      // (HEN doesn't use creators at all - objkt infers from firstMinter)
       const creatorHandle = userHandle ? `@${userHandle}` : "anon";
       
-      // For creators array: use the user's linked wallet if available
-      // This makes the actual author the artist, same as HEN behavior
-      // If user has no linked wallet, fall back to admin wallet for server-side minting
-      let artistWalletAddress = creatorWalletAddress;
-      if (!artistWalletAddress && mode === "mint") {
-        const tezosCredentials = await getTezosCredentials();
-        const tezos = new TezosToolkit(RPC_URL);
-        tezos.setProvider({ signer: new InMemorySigner(tezosCredentials.privateKey) });
-        artistWalletAddress = await tezos.signer.publicKeyHash();
-      }
-      
-      // For creators array: ONLY wallet addresses for objkt.com compatibility
-      // objkt.com expects creators to be wallet addresses, not handles
-      // The handle is stored in the Author attribute instead
-      const creatorsArray = artistWalletAddress 
-        ? [artistWalletAddress]
-        : [];
+      // For creators array: put handle FIRST so objkt shows it as artist
+      // Wallet address second for on-chain attribution
+      const creatorsArray = creatorWalletAddress 
+        ? [creatorHandle, creatorWalletAddress]
+        : [creatorHandle];
       
       const metadataJson = {
         name: tokenName,
@@ -634,7 +623,7 @@ export const handler = stream(async (event, context) => {
         symbol: "KEEP",
         isBooleanAmount: true,
         shouldPreferSymbol: false,
-        minter: artistWalletAddress || creatorHandle,
+        minter: creatorHandle,
         creators: creatorsArray,
         rights: "© All rights reserved",
         mintingTool: "https://aesthetic.computer",
@@ -717,7 +706,7 @@ export const handler = stream(async (event, context) => {
           piece: pieceName,
           contractAddress: CONTRACT_ADDRESS,
           network: NETWORK,
-          mintFee: 5, // 5 XTZ
+          mintFee: 0, // Contract keep_fee is 0 (free minting)
           // Send the Michelson-encoded parameters for Beacon
           michelsonParams: transferParams.parameter,
           entrypoint: "keep",
