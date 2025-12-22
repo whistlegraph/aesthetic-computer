@@ -527,6 +527,10 @@ from = "/api/mug"
 to = "/.netlify/functions/mug"
 status = 200
 [[redirects]]
+from = "/api/mugs"
+to = "/.netlify/functions/mugs"
+status = 200
+[[redirects]]
 from = "/api/mockup-gif"
 to = "/.netlify/functions/mockup-gif"
 status = 200
