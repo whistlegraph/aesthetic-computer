@@ -15923,8 +15923,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       needsReappearance = false;
     }
 
-    // 📸 PACK mode: Log frame to console every 500 frames (after render completes)
-    if (window.acPACK_MODE && frameCount % 500n === 0n && canvas) {
+    // 📸 PACK mode: Log frame to console every 5 seconds (time-based, framerate independent)
+    const packNow = performance.now();
+    const packTimeSinceLastSnap = window._lastPackSnapTime ? (packNow - window._lastPackSnapTime) : Infinity;
+    const shouldTakePackSnap = packTimeSinceLastSnap >= 5000; // 5 seconds
+    
+    if (window.acPACK_MODE && shouldTakePackSnap && canvas) {
+      window._lastPackSnapTime = packNow;
       try {
         const { dataUrl, displayWidth, displayHeight, dimensions } = captureFrame(canvas, {
           scaleFactor: 3,
