@@ -995,17 +995,20 @@ function receive(event) {
     const codeId = event.data.codeId; // The $code identifier (e.g., "nece")
     const createCode = event.data.createCode; // Flag to enable code creation
     const authToken = event.data.authToken; // Token from kidlisp.com login
+    const enableTrace = event.data.enableTrace; // Flag to enable execution trace
     if (code) {
       // Track the kidlisp code for console snapshots
       window.__acCurrentKidlispCode = code;
       // Always clear and then set codeId to prevent stale values from previous runs
       window.__acCurrentKidlispCodeId = codeId || null;
+      // Enable/disable execution trace based on visualization mode
+      window.__acKidlispTraceEnabled = enableTrace || false;
       // Reset snap timer so first snap happens ~5s after new code loads
       // (set to now, so the 5s countdown starts fresh)
       window._lastKidlispSnapTime = performance.now();
       window.acSEND({
         type: "piece-reload",
-        content: { source: code, codeId: codeId, createCode: createCode, authToken: authToken }
+        content: { source: code, codeId: codeId, createCode: createCode, authToken: authToken, enableTrace: enableTrace }
       });
     }
     return;

@@ -58,7 +58,7 @@ import { CamDoll } from "./cam-doll.mjs";
 import { TextInput, Typeface } from "../lib/type.mjs";
 
 import * as lisp from "./kidlisp.mjs";
-import { isKidlispSource, fetchCachedCode, getCachedCode, initPersistentCache, getCachedCodeMultiLevel, enableKidlispConsole } from "./kidlisp.mjs"; // Add lisp evaluator.
+import { isKidlispSource, fetchCachedCode, getCachedCode, initPersistentCache, getCachedCodeMultiLevel, enableKidlispConsole, enableKidlispTrace, disableKidlispTrace, clearExecutionTrace, postExecutionTrace } from "./kidlisp.mjs"; // Add lisp evaluator.
 import { qrcode as qr, ErrorCorrectLevel } from "../dep/@akamfoad/qr/qr.mjs";
 import { microtype, MatrixChunky8 } from "../disks/common/fonts.mjs";
 import { 
@@ -5836,6 +5836,15 @@ if (typeof globalThis !== "undefined") {
 // Helper function to execute KidLisp code
 function executeLispCode(source, api, isAccumulating = false) {
   try {
+    // Check if trace is enabled (set by kidlisp.com visualization)
+    const shouldTrace = $commonApi?.kidlispEnableTrace;
+    if (shouldTrace) {
+      enableKidlispTrace();
+      clearExecutionTrace();
+    } else {
+      disableKidlispTrace();
+    }
+    
     // Parse and evaluate the source directly without going through module lifecycle
     // console.log(`🔍 Parsing KidLisp source:`, source);
     
@@ -5876,6 +5885,11 @@ function executeLispCode(source, api, isAccumulating = false) {
       // Normal KidLisp evaluation (dollar codes already resolved)
       const result = globalKidLispInstance.evaluate(globalKidLispInstance.ast, api, globalKidLispInstance.localEnv);
       // console.log(`🔍 Evaluation result:`, result);
+      
+      // Post execution trace if enabled (only on first frame to avoid spam)
+      if (shouldTrace && globalKidLispInstance.frameCount === 1) {
+        postExecutionTrace();
+      }
     } else {
       // console.log(`⚠️ No AST generated from source`);
     }
@@ -6820,13 +6834,14 @@ async function load(
     codeChannel,
     createCode,
     authToken,  // Auth token from kidlisp.com login
+    enableTrace,  // Enable execution trace for kidlisp.com visualization
   } = {}) {
     // console.log("⚠️ Reloading:", piece, name, source);
 
     if (loading && source && !name && !piece) {
       // If a piece is loading and we have new source code, queue the reload
       console.log("🟡 Queueing reload until current load completes...");
-      setTimeout(() => reload({ source, createCode, authToken }), 100);
+      setTimeout(() => reload({ source, createCode, authToken, enableTrace }), 100);
       return;
     }
 
@@ -6873,6 +6888,9 @@ async function load(
         $commonApi.kidlispAuthToken = authToken;
       }
       
+      // Store trace flag globally for kidlisp visualization
+      $commonApi.kidlispEnableTrace = enableTrace || false;
+      
       $commonApi.load(
         {
           source: source,  // Pass as source so it's used directly
@@ -6881,6 +6899,7 @@ async function load(
           colon: currentColon,
           params: currentParams,
           hash: currentHash,
+          enableTrace: enableTrace,  // Pass trace flag
         },
         true, // fromHistory - don't add to history stack
         alias,
@@ -7666,7 +7685,8 @@ async function load(
         $commonApi.reload({
           source: pending.source,
           createCode: pending.createCode,
-          authToken: pending.authToken
+          authToken: pending.authToken,
+          enableTrace: pending.enableTrace
         });
       }, 50);
     }
@@ -8563,13 +8583,14 @@ async function makeFrame({ data: { type, content } }) {
       $commonApi.reload({ 
         source: content.source, 
         createCode: content.createCode,
-        authToken: content.authToken  // Pass token from kidlisp.com login
+        authToken: content.authToken,  // Pass token from kidlisp.com login
+        enableTrace: content.enableTrace  // Enable execution trace for visualization
       });
     } else {
       // Queue the reload request to be processed once the piece is ready
       // Always update the queue with the latest code (overwrite previous)
       log.piece.warn("Reload function not ready yet, queuing:", content.source?.substring(0, 20));
-      pendingPieceReload = { source: content.source, createCode: content.createCode, authToken: content.authToken };
+      pendingPieceReload = { source: content.source, createCode: content.createCode, authToken: content.authToken, enableTrace: content.enableTrace };
     }
     return;
   }
