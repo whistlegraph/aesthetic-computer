@@ -31,6 +31,7 @@ class Product {
     this.rotation = 0;
     this.image = null;
     this.imageScaled = null;
+    this.imageScaledHover = null; // Pre-cached 1.1x scaled version for hover state
     this.button = null;
     this.buyButton = null; // Separate button for BUY action when playing
     
@@ -65,6 +66,14 @@ class Product {
       
       this.imageScaled = api.painting(scaledW, scaledH, (p) => {
         p.paste(this.image.img, 0, 0, scaleFactor);
+      });
+      
+      // Pre-cache 1.1x scaled version for hover state (avoids per-frame scaling)
+      const hoverScale = 1.1;
+      const hoverW = floor(scaledW * hoverScale);
+      const hoverH = floor(scaledH * hoverScale);
+      this.imageScaledHover = api.painting(hoverW, hoverH, (p) => {
+        p.paste(this.image.img, 0, 0, scaleFactor * hoverScale);
       });
       
       // Load audio if this is a record with an audioUrl
@@ -488,13 +497,12 @@ class Product {
     const scaleOffsetX = floor((scaledBookW - bookW) / 2);
     const scaleOffsetY = floor((scaledBookH - bookH) / 2);
     
-    // Draw book image
-    if (this.button.down && imageScale !== 1) {
+    // Draw book image using pre-cached hover version for better performance
+    if (this.button.down && this.imageScaledHover) {
       $.paste(
-        this.imageScaled,
+        this.imageScaledHover,
         floor(bookX + driftX - scaleOffsetX),
-        floor(bookY + driftY - scaleOffsetY),
-        { scale: imageScale, width: scaledBookW, height: scaledBookH }
+        floor(bookY + driftY - scaleOffsetY)
       );
     } else {
       $.paste(this.imageScaled, floor(bookX + driftX), floor(bookY + driftY));

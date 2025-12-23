@@ -7,7 +7,7 @@ import { tokenize, KidLisp } from "../lib/kidlisp.mjs";
 const { min, max, floor, sin, cos, PI, abs } = Math;
 
 // Keeps contract address on ghostnet
-const KEEPS_CONTRACT = "KT1KRQAkCrgbYPAxzxaFbGm1FaUJdqBACxu9";
+const KEEPS_CONTRACT = "KT1StXrQNvRd9dNPpHdCGEstcGiBV6neq79K";
 const NETWORK = "ghostnet";
 
 // 👻 Pac-Man Ghost Sprite (14x14, classic arcade bitmap)
@@ -128,7 +128,7 @@ function hasError() {
 }
 
 let btn;
-let htmlBtn, thumbBtn, metaBtn, networkBtn;
+let htmlBtn, thumbBtn, metaBtn, networkBtn, rebakeBtn;
 let _api, _net, _jump, _store, _needsPaint, _send, _ui, _screen, _preload, _preloadAnimatedWebp;
 
 function boot({ api, net, hud, params, store, cursor, jump, needsPaint, ui, screen, send }) {
@@ -156,10 +156,12 @@ function boot({ api, net, hud, params, store, cursor, jump, needsPaint, ui, scre
   thumbBtn = new ui.TextButton("THUMB", { x: 0, y: 0, screen });
   metaBtn = new ui.TextButton("META", { x: 0, y: 0, screen });
   networkBtn = new ui.TextButton("GHOSTNET", { x: 0, y: 0, screen });
+  rebakeBtn = new ui.TextButton("REBAKE", { x: 0, y: 0, screen });
   htmlBtn.btn.stickyScrubbing = true;
   thumbBtn.btn.stickyScrubbing = true;
   metaBtn.btn.stickyScrubbing = true;
   networkBtn.btn.stickyScrubbing = true;
+  rebakeBtn.btn.stickyScrubbing = true;
   
   let rawPiece = params[0] || store["keep:piece"];
   piece = rawPiece?.startsWith("$") ? rawPiece.slice(1) : rawPiece;
@@ -531,8 +533,8 @@ function syntaxHighlightKidlisp(source) {
   }
 }
 
-async function runProcess() {
-  console.log("🪙 KEEP: Starting mint process for $" + piece);
+async function runProcess(forceRegenerate = false) {
+  console.log("🪙 KEEP: Starting mint process for $" + piece + (forceRegenerate ? " (force regenerate)" : ""));
   
   // === STEP 1: Connect Wallet ===
   // Reset timer when process actually starts (not counting initial checks)
@@ -582,6 +584,7 @@ async function runProcess() {
         network: "ghostnet",
         screenWidth,
         screenHeight,
+        regenerate: forceRegenerate,
       }),
     });
     
@@ -1296,13 +1299,13 @@ function paint({ wipe, ink, box, screen, paste }) {
     if (item.detail && !isPending && !(item.id === "review" && isActive && preparedData)) {
       let detailColor;
       if (isItemError) detailColor = [255, 120, 120];
-      else if (isActive) detailColor = [255, 255, 200]; // Bright yellow for active
+      else if (isActive) detailColor = [255, 255, 180]; // Bright white-yellow for active
       else detailColor = [200, 210, 220]; // Light gray for done
       
       const maxLen = floor((w - 20) / 4);
       const truncated = item.detail.length > maxLen ? item.detail.slice(0, maxLen - 2) + ".." : item.detail;
-      // Dark background strip for readability
-      ink(0, 0, 0, 120).box(margin - 2, y + 10, truncated.length * 4 + 4, 10);
+      // Darker background strip for better readability
+      ink(0, 0, 0, 180).box(margin - 2, y + 10, truncated.length * 4 + 4, 10);
       ink(...detailColor).write(truncated, { x: margin, y: y + 11 }, undefined, undefined, false, "MatrixChunky8");
     }
     
@@ -1353,9 +1356,10 @@ function paint({ wipe, ink, box, screen, paste }) {
       const thumbX = margin;
       paste(thumbnailBitmap, thumbX, y + 2, { scale: thumbSize / (thumbnailBitmap.width || 256) });
       
-      // Show cache info or IPFS hash
+      // Show cache info or IPFS hash + REBAKE button
       let infoLabel = "";
-      if (preparedData?.usedCachedMedia && preparedData.cacheGeneratedAt) {
+      const isCached = preparedData?.usedCachedMedia && preparedData.cacheGeneratedAt;
+      if (isCached) {
         const date = new Date(preparedData.cacheGeneratedAt);
         infoLabel = `Baked ${date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
       } else if (preparedData?.thumbnailUri) {
@@ -1363,8 +1367,26 @@ function paint({ wipe, ink, box, screen, paste }) {
         const hash = preparedData.thumbnailUri.replace("ipfs://", "");
         infoLabel = hash;
       }
+      const infoX = thumbX + thumbSize + 8;
       if (infoLabel) {
-        ink(80, 140, 120).write(infoLabel, { x: thumbX + thumbSize + 8, y: y + 14 }, undefined, undefined, false, "MatrixChunky8");
+        // Brighter text for better visibility
+        ink(140, 220, 180).write(infoLabel, { x: infoX, y: y + 8 }, undefined, undefined, false, "MatrixChunky8");
+      }
+      // REBAKE button if using cached media
+      if (isCached) {
+        const rebakeScheme = {
+          normal: { bg: [80, 60, 40], outline: [255, 180, 100], outlineAlpha: 150, text: [255, 200, 140] },
+          hover: { bg: [120, 90, 60], outline: [255, 220, 150], outlineAlpha: 200, text: [255, 240, 200] },
+          disabled: { bg: [50, 45, 40], outline: [120, 100, 80], outlineAlpha: 100, text: [140, 120, 100] }
+        };
+        const rebakeSize = mc8ButtonSize("REBAKE");
+        const rebakeX = infoX;
+        const rebakeY = y + 20;
+        rebakeBtn.btn.box.x = rebakeX;
+        rebakeBtn.btn.box.y = rebakeY;
+        rebakeBtn.btn.box.w = rebakeSize.w;
+        rebakeBtn.btn.box.h = rebakeSize.h;
+        paintMC8Btn(rebakeX, rebakeY, "REBAKE", { ink, line: ink }, rebakeScheme, rebakeBtn.btn.down);
       }
       y += thumbH + 2;
     }
@@ -1511,11 +1533,24 @@ function act({ event: e, screen }) {
   const reviewStep = timeline.find(t => t.id === "review");
   const completeStep = timeline.find(t => t.id === "complete");
   
-  // Asset link buttons + network button
+  // Asset link buttons + network button + rebake
   if (reviewStep?.status === "active" && preparedData) {
     if (preparedData.artifactUri) htmlBtn.btn.act(e, { push: () => openUrl(preparedData.artifactUri) });
     if (preparedData.thumbnailUri) thumbBtn.btn.act(e, { push: () => openUrl(preparedData.thumbnailUri) });
     if (preparedData.metadataUri) metaBtn.btn.act(e, { push: () => openUrl(preparedData.metadataUri) });
+    
+    // REBAKE button - regenerate media from scratch
+    if (preparedData.usedCachedMedia) {
+      rebakeBtn.btn.act(e, { push: () => {
+        console.log("🪙 KEEP: Rebaking media...");
+        resetTimeline();
+        startTime = Date.now();
+        preparedData = null;
+        thumbnailBitmap = null;
+        thumbnailFrames = null;
+        runProcess(true); // Pass true to force regeneration
+      }});
+    }
     
     // Network button links to contract collection on objkt
     const contractAddress = preparedData.contractAddress || KEEPS_CONTRACT;

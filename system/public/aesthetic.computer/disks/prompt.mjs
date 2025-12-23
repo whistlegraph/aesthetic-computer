@@ -99,6 +99,9 @@ const { abs, max, min, sin, cos } = Math;
 const { floor } = Math;
 const { keys } = Object;
 
+// 🔄 Code version - 2024.12.22.v4 - lanBadge in disk.mjs shows device letter (A,B,C)
+console.log("📦 prompt.mjs loaded - products disabled, lanBadge handled by disk.mjs");
+
 // Error / feedback flash on command entry.
 let flash;
 let flashShow = false;
@@ -596,8 +599,8 @@ async function boot({
     .then((sfx) => (keyboardSfx = sfx))
     .catch((err) => console.warn(err)); // and key sounds.
 
-  // 📦 Load product images
-  await products.boot(api);
+  // 📦 Load product images (DISABLED for now)
+  // await products.boot(api);
 
   // Create login & signup buttons.
   if (!user) {
@@ -3530,9 +3533,10 @@ function paint($) {
   // � Paint product (book or record) in top-right corner (only on login curtain)
   // 📦 Paint product (book or record) in top-right corner (only on login curtain)
   // Hide carousel when prompt is editable or has text
-  const promptHasContent = $.system.prompt.input.text && $.system.prompt.input.text.length > 0;
-  const shouldShowCarousel = showLoginCurtain && !$.system.prompt.input.canType && !promptHasContent;
-  products.paint({ ...$, login, signup }, $.screen, shouldShowCarousel);
+  // DISABLED: products carousel
+  // const promptHasContent = $.system.prompt.input.text && $.system.prompt.input.text.length > 0;
+  // const shouldShowCarousel = showLoginCurtain && !$.system.prompt.input.canType && !promptHasContent;
+  // products.paint({ ...$, login, signup }, $.screen, shouldShowCarousel);
   // Old book code removed - now using products system
   /*
   if (showLoginCurtain && bookImageScaled) {
@@ -4568,7 +4572,7 @@ function paint($) {
       color: $.hud.currentStatusColor() || [255, 0, 200],
     });
 
-    // 📊 Stats / Analytics - Unified Ticker System
+    // Stats / Analytics - Unified Ticker System
     $.layer(2); // Render tickers on top of tooltips
     
     const loginY = screen.height / 2;
@@ -4577,6 +4581,20 @@ function paint($) {
     const tickerHeight = tinyTickers ? 8 : 14; // MatrixChunky8 is 8px, default is ~14px
     const tickerSpacing = 0; // No space between tickers for tight stripes
     const tickerPadding = tinyTickers ? 5 : 3; // 5px padding for tiny font (more breathing room)
+    
+    // Helper to ensure ticker text is long enough to fill screen without gaps
+    // Repeats the content until it's at least 4x screen width for seamless looping
+    const ensureMinTickerLength = (text, separator = " · ") => {
+      if (!text) return text;
+      const charWidth = tinyTickers ? 4 : 6; // Conservative char width estimate
+      const minWidth = screen.width * 4; // 4x screen width for smooth seamless loop
+      const textWidthApprox = text.length * charWidth;
+      if (textWidthApprox < minWidth) {
+        const repeats = Math.ceil(minWidth / textWidthApprox) + 1;
+        return Array(repeats).fill(text).join(separator);
+      }
+      return text;
+    };
     
     let currentTickerY = loginY + 44; // Start 44px below login (moved down from 30px)
     let contentTickerY = 0; // Y position of content ticker (declared here for tooltip access)
@@ -4590,7 +4608,7 @@ function paint($) {
       const numMessages = Math.min(12, $.chat.messages.length);
       const recentMessages = $.chat.messages.slice(-numMessages);
       
-      const fullText = recentMessages.map(msg => {
+      let fullText = recentMessages.map(msg => {
         const sanitizedText = msg.text.replace(/[\r\n]+/g, ' ');
         const fullMessage = msg.from + ": " + sanitizedText;
         
@@ -4607,13 +4625,16 @@ function paint($) {
         
         return applyColorCodes(fullMessage, elements, colorMap, [0, 255, 255]);
       }).join(" · ");
+      
+      // Repeat content to fill screen without gaps
+      fullText = ensureMinTickerLength(fullText, " · ");
       const chatTickerY = currentTickerY;
       
       // Create or update ticker instance
       if (!chatTicker) {
         chatTicker = new $.gizmo.Ticker(fullText, {
           speed: 1, // 1px per frame
-          separator: " · ",
+          separator: "", // No extra separator - text already has · between messages
           reverse: false, // Left to right
         });
         chatTicker.paused = false;
@@ -4695,7 +4716,7 @@ function paint($) {
         const recentClockMessages = clockChatMessages.slice(-numClockMessages);
         
         // Build ticker text with syntax highlighting for @handles, URLs, 'prompts', etc.
-        const clockFullText = recentClockMessages.map(msg => {
+        let clockFullText = recentClockMessages.map(msg => {
           const sanitizedText = (msg.text || msg.message || '').replace(/[\r\n]+/g, ' ');
           const from = msg.from || msg.handle || msg.author || 'anon';
           const fullMessage = from + ": " + sanitizedText;
@@ -4714,10 +4735,13 @@ function paint($) {
           return applyColorCodes(fullMessage, elements, colorMap, [255, 200, 100]);
         }).join(" · ");
         
+        // Repeat content to fill screen without gaps
+        clockFullText = ensureMinTickerLength(clockFullText, " · ");
+        
         if (!clockChatTicker) {
           clockChatTicker = new $.gizmo.Ticker(clockFullText, {
             speed: 1,
-            separator: " · ",
+            separator: "", // No extra separator - text already has · between messages
             reverse: false,
           });
           clockChatTicker.paused = false;
@@ -5733,6 +5757,9 @@ function paint($) {
     }
   }
 
+  // 🏷️ Dev Mode indicator - TEMPORARILY DISABLED for debugging
+  // TODO: Re-enable once black box source is identified
+
   // Trigger a red or green screen flash with a timer.
   if (flashShow) {
     let color = firstActivation ? scheme.dark.block : flashColor;
@@ -5786,19 +5813,19 @@ function sim($) {
     $.needsPaint();
   }
   
-  // 📦 Update product animations
-  const showLoginCurtain = 
-    (!login?.btn.disabled && !profile) || 
-    (!login && !profile?.btn.disabled);
-  const promptHasContent = $.system.prompt.input.text && $.system.prompt.input.text.length > 0;
-  const shouldShowCarousel = showLoginCurtain && !$.system.prompt.input.canType && !promptHasContent;
-  if (shouldShowCarousel) {
-    const product = products.getActiveProduct();
-    if (product && product.imageScaled) {
-      products.sim($);
-      $.needsPaint();
-    }
-  }
+  // 📦 Update product animations (DISABLED)
+  // const showLoginCurtain = 
+  //   (!login?.btn.disabled && !profile) || 
+  //   (!login && !profile?.btn.disabled);
+  // const promptHasContent = $.system.prompt.input.text && $.system.prompt.input.text.length > 0;
+  // const shouldShowCarousel = showLoginCurtain && !$.system.prompt.input.canType && !promptHasContent;
+  // if (shouldShowCarousel) {
+  //   const product = products.getActiveProduct();
+  //   if (product && product.imageScaled) {
+  //     products.sim($);
+  //     $.needsPaint();
+  //   }
+  // }
 
   if ($.store["handle:received"]) {
     profile = new $.ui.TextButton($.handle(), {
@@ -5946,35 +5973,33 @@ function act({
     }
   }
 
-  // � Product button interaction (only on login curtain, same as login/signup buttons)
-  const showLoginCurtainAct = 
-    (!login?.btn.disabled && !profile) || 
-    (!login && !profile?.btn.disabled);
-  const promptHasContentAct = system.prompt.input.text && system.prompt.input.text.length > 0;
-  const shouldShowCarouselAct = showLoginCurtainAct && !system.prompt.input.canType && !promptHasContentAct;
-
-  // Use products.act() to handle button interaction with callbacks
-  if (shouldShowCarouselAct) {
-    products.act(
-      { api, needsPaint, net, screen, num, jump, system, user, store, send, handle, glaze, canShare, notice, ui, sound: { play, synth } },
-      e,
-      {
-        over: () => needsPaint(),
-        down: () => downSound(),
-        push: () => {
-          pushSound();
-          flashColor = [0, 255, 0];
-          makeFlash({ api, needsPaint, net, screen, num, jump, system, user, store, send, handle, glaze, canShare, notice, ui });
-        },
-        cancel: () => cancelSound(),
-      }
-    );
-  } else {
-    const activeProduct = products.getActiveProduct();
-    if (activeProduct && activeProduct.button) {
-      activeProduct.button.disabled = true;
-    }
-  }
+  // 📦 Product button interaction (DISABLED)
+  // const showLoginCurtainAct = 
+  //   (!login?.btn.disabled && !profile) || 
+  //   (!login && !profile?.btn.disabled);
+  // const promptHasContentAct = system.prompt.input.text && system.prompt.input.text.length > 0;
+  // const shouldShowCarouselAct = showLoginCurtainAct && !system.prompt.input.canType && !promptHasContentAct;
+  // if (shouldShowCarouselAct) {
+  //   products.act(
+  //     { api, needsPaint, net, screen, num, jump, system, user, store, send, handle, glaze, canShare, notice, ui, sound: { play, synth } },
+  //     e,
+  //     {
+  //       over: () => needsPaint(),
+  //       down: () => downSound(),
+  //       push: () => {
+  //         pushSound();
+  //         flashColor = [0, 255, 0];
+  //         makeFlash({ api, needsPaint, net, screen, num, jump, system, user, store, send, handle, glaze, canShare, notice, ui });
+  //       },
+  //       cancel: () => cancelSound(),
+  //     }
+  //   );
+  // } else {
+  //   const activeProduct = products.getActiveProduct();
+  //   if (activeProduct && activeProduct.button) {
+  //     activeProduct.button.disabled = true;
+  //   }
+  // }
 
   // Chat ticker button (invisible, just for click interaction)
   if (chatTickerButton && !chatTickerButton.disabled) {

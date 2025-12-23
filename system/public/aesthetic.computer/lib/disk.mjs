@@ -58,7 +58,7 @@ import { CamDoll } from "./cam-doll.mjs";
 import { TextInput, Typeface } from "../lib/type.mjs";
 
 import * as lisp from "./kidlisp.mjs";
-import { isKidlispSource, fetchCachedCode, getCachedCode, initPersistentCache, getCachedCodeMultiLevel, enableKidlispConsole } from "./kidlisp.mjs"; // Add lisp evaluator.
+import { isKidlispSource, fetchCachedCode, getCachedCode, initPersistentCache, getCachedCodeMultiLevel, enableKidlispConsole, enableKidlispTrace, disableKidlispTrace, clearExecutionTrace, postExecutionTrace } from "./kidlisp.mjs"; // Add lisp evaluator.
 import { qrcode as qr, ErrorCorrectLevel } from "../dep/@akamfoad/qr/qr.mjs";
 import { microtype, MatrixChunky8 } from "../disks/common/fonts.mjs";
 import { 
@@ -1276,6 +1276,107 @@ let currentPath,
   currentHUDOffset,
   qrOverlayCache = new Map(), // Cache for QR overlays to prevent regeneration every frame
   hudLabelCache = null; // Cache for HUD label to prevent regeneration every frame
+
+// 📱 LAN Dev mode identity (set by session server in dev mode)
+let devIdentity = null; // { name, host, hostIp, mode, connectionId }
+
+// 📡 Remote log forwarding for LAN Dev mode
+let remoteLogQueue = [];
+let remoteLogSocket = null;
+const MAX_REMOTE_LOG_QUEUE = 50;
+
+function setupRemoteLogging() {
+  const originalConsole = {
+    log: console.log.bind(console),
+    warn: console.warn.bind(console),
+    error: console.error.bind(console),
+  };
+  
+  function sendRemoteLog(level, args) {
+    if (!devIdentity || !remoteLogSocket?.connected) {
+      // Queue logs until connected
+      if (remoteLogQueue.length < MAX_REMOTE_LOG_QUEUE) {
+        remoteLogQueue.push({ level, args: serializeArgs(args), time: Date.now() });
+      }
+      return;
+    }
+    
+    try {
+      const logData = {
+        level,
+        args: serializeArgs(args),
+        deviceName: devIdentity.name,
+        connectionId: devIdentity.connectionId,
+        time: Date.now(),
+      };
+      remoteLogSocket.send("dev:log", logData);
+    } catch (e) {
+      // Silently fail to avoid infinite loop
+    }
+  }
+  
+  function serializeArgs(args) {
+    return args.map(arg => {
+      if (arg === null) return 'null';
+      if (arg === undefined) return 'undefined';
+      if (typeof arg === 'string') return arg;
+      if (typeof arg === 'number' || typeof arg === 'boolean') return String(arg);
+      if (arg instanceof Error) return `${arg.name}: ${arg.message}\n${arg.stack}`;
+      try {
+        return JSON.stringify(arg, null, 2);
+      } catch (e) {
+        return String(arg);
+      }
+    });
+  }
+  
+  // Intercept console methods
+  console.log = (...args) => {
+    originalConsole.log(...args);
+    sendRemoteLog('log', args);
+  };
+  
+  console.warn = (...args) => {
+    originalConsole.warn(...args);
+    sendRemoteLog('warn', args);
+  };
+  
+  console.error = (...args) => {
+    originalConsole.error(...args);
+    sendRemoteLog('error', args);
+  };
+  
+  // Capture unhandled errors (only in main thread with window)
+  if (typeof window !== 'undefined') {
+    window.addEventListener('error', (event) => {
+      sendRemoteLog('error', [`Uncaught: ${event.message} at ${event.filename}:${event.lineno}:${event.colno}`]);
+    });
+    
+    window.addEventListener('unhandledrejection', (event) => {
+      sendRemoteLog('error', [`Unhandled Promise: ${event.reason}`]);
+    });
+  }
+}
+
+function flushRemoteLogQueue() {
+  if (!devIdentity || !remoteLogSocket?.connected) return;
+  
+  while (remoteLogQueue.length > 0) {
+    const log = remoteLogQueue.shift();
+    try {
+      remoteLogSocket.send("dev:log", {
+        level: log.level,
+        args: log.args,
+        deviceName: devIdentity.name,
+        connectionId: devIdentity.connectionId,
+        time: log.time,
+        queued: true,
+      });
+    } catch (e) {
+      break;
+    }
+  }
+}
 
 let lastMatrixChunkyHighlightLog = null;
 let lastMatrixChunkyWriteDiagnosticLog = null;
@@ -2651,6 +2752,8 @@ const $commonApi = {
       send({ type: "labelBack:source", content: { sourcePiece: $commonApi.piece } });
     },
   },
+  // 📱 LAN Dev mode identity (from session server)
+  get devIdentity() { return devIdentity; },
   send,
   platform,
   history: [], // Populated when a disk loads and sets the former piece.
@@ -5733,6 +5836,15 @@ if (typeof globalThis !== "undefined") {
 // Helper function to execute KidLisp code
 function executeLispCode(source, api, isAccumulating = false) {
   try {
+    // Check if trace is enabled (set by kidlisp.com visualization)
+    const shouldTrace = $commonApi?.kidlispEnableTrace;
+    if (shouldTrace) {
+      enableKidlispTrace();
+      clearExecutionTrace();
+    } else {
+      disableKidlispTrace();
+    }
+    
     // Parse and evaluate the source directly without going through module lifecycle
     // console.log(`🔍 Parsing KidLisp source:`, source);
     
@@ -5773,6 +5885,11 @@ function executeLispCode(source, api, isAccumulating = false) {
       // Normal KidLisp evaluation (dollar codes already resolved)
       const result = globalKidLispInstance.evaluate(globalKidLispInstance.ast, api, globalKidLispInstance.localEnv);
       // console.log(`🔍 Evaluation result:`, result);
+      
+      // Post execution trace if enabled (only on first frame to avoid spam)
+      if (shouldTrace && globalKidLispInstance.frameCount === 1) {
+        postExecutionTrace();
+      }
     } else {
       // console.log(`⚠️ No AST generated from source`);
     }
@@ -6717,13 +6834,14 @@ async function load(
     codeChannel,
     createCode,
     authToken,  // Auth token from kidlisp.com login
+    enableTrace,  // Enable execution trace for kidlisp.com visualization
   } = {}) {
     // console.log("⚠️ Reloading:", piece, name, source);
 
     if (loading && source && !name && !piece) {
       // If a piece is loading and we have new source code, queue the reload
       console.log("🟡 Queueing reload until current load completes...");
-      setTimeout(() => reload({ source, createCode, authToken }), 100);
+      setTimeout(() => reload({ source, createCode, authToken, enableTrace }), 100);
       return;
     }
 
@@ -6770,6 +6888,9 @@ async function load(
         $commonApi.kidlispAuthToken = authToken;
       }
       
+      // Store trace flag globally for kidlisp visualization
+      $commonApi.kidlispEnableTrace = enableTrace || false;
+      
       $commonApi.load(
         {
           source: source,  // Pass as source so it's used directly
@@ -6778,6 +6899,7 @@ async function load(
           colon: currentColon,
           params: currentParams,
           hash: currentHash,
+          enableTrace: enableTrace,  // Pass trace flag
         },
         true, // fromHistory - don't add to history stack
         alias,
@@ -6841,6 +6963,9 @@ async function load(
       return;
     }
     
+    // 📡 Set up remote logging for LAN Dev mode
+    setupRemoteLogging();
+    
     if (
       //parsed.search?.startsWith("preview") ||
       //parsed.search?.startsWith("icon")
@@ -6894,6 +7019,16 @@ async function load(
             // 🎯 Jump to a specific piece!
             if (type === "jump") {
               $commonApi.jump(content.piece);
+            }
+            // 📱 Handle dev identity from session server (LAN Dev mode)
+            if (type === "dev:identity") {
+              devIdentity = content;
+              remoteLogSocket = socket; // Store socket reference for remote logging
+              console.log(`📱 LAN Dev: ${content.name || 'unnamed'} → ${content.host} (${content.hostIp})`);
+              console.log(`📡 Remote logging active, socket connected: ${socket?.connected}`);
+              flushRemoteLogQueue(); // Send any queued logs
+              $commonApi?.needsPaint?.();
+              return;
             }
             // 🧩 Pieces get all other messages not caught in `Socket`.
             receiver?.(id, type, content); // Run the piece receiver.
@@ -7550,7 +7685,8 @@ async function load(
         $commonApi.reload({
           source: pending.source,
           createCode: pending.createCode,
-          authToken: pending.authToken
+          authToken: pending.authToken,
+          enableTrace: pending.enableTrace
         });
       }, 50);
     }
@@ -8447,13 +8583,14 @@ async function makeFrame({ data: { type, content } }) {
       $commonApi.reload({ 
         source: content.source, 
         createCode: content.createCode,
-        authToken: content.authToken  // Pass token from kidlisp.com login
+        authToken: content.authToken,  // Pass token from kidlisp.com login
+        enableTrace: content.enableTrace  // Enable execution trace for visualization
       });
     } else {
       // Queue the reload request to be processed once the piece is ready
       // Always update the queue with the latest code (overwrite previous)
       log.piece.warn("Reload function not ready yet, queuing:", content.source?.substring(0, 20));
-      pendingPieceReload = { source: content.source, createCode: content.createCode, authToken: content.authToken };
+      pendingPieceReload = { source: content.source, createCode: content.createCode, authToken: content.authToken, enableTrace: content.enableTrace };
     }
     return;
   }
@@ -12482,7 +12619,81 @@ async function makeFrame({ data: { type, content } }) {
         }
       }
 
-      // 🔲 Generate QR code overlay for KidLisp pieces
+      // 📡 LAN Mode Badge - shows device letter (A, B, C...) when connected to dev session server
+      if (devIdentity && devIdentity.host) {
+        // Use device letter if available, otherwise first letter of name, otherwise connection index
+        const deviceLetter = devIdentity.letter || 
+          (devIdentity.name ? devIdentity.name.charAt(0).toUpperCase() : null) ||
+          String.fromCharCode(65 + (devIdentity.connectionIndex || 0)); // A, B, C...
+        
+        const badgeWidth = 9;
+        const badgeHeight = 9;
+        
+        const lanBadge = $api.painting(badgeWidth, badgeHeight, ($) => {
+          $.unpan();
+          $.unmask();
+          // Semi-transparent dark background
+          $.ink(0, 0, 0, 200).box(0, 0, badgeWidth, badgeHeight);
+          // Cyan border
+          $.ink(0, 200, 255, 220).box(0, 0, badgeWidth, badgeHeight, "outline");
+          
+          // Draw letter as pixels (5x7 pixel font, centered in 9x9)
+          const letterPatterns = {
+            'A': [[0,1,1,1,0],[1,0,0,0,1],[1,0,0,0,1],[1,1,1,1,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1]],
+            'B': [[1,1,1,1,0],[1,0,0,0,1],[1,0,0,0,1],[1,1,1,1,0],[1,0,0,0,1],[1,0,0,0,1],[1,1,1,1,0]],
+            'C': [[0,1,1,1,0],[1,0,0,0,1],[1,0,0,0,0],[1,0,0,0,0],[1,0,0,0,0],[1,0,0,0,1],[0,1,1,1,0]],
+            'D': [[1,1,1,1,0],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[1,1,1,1,0]],
+            'E': [[1,1,1,1,1],[1,0,0,0,0],[1,0,0,0,0],[1,1,1,1,0],[1,0,0,0,0],[1,0,0,0,0],[1,1,1,1,1]],
+            'F': [[1,1,1,1,1],[1,0,0,0,0],[1,0,0,0,0],[1,1,1,1,0],[1,0,0,0,0],[1,0,0,0,0],[1,0,0,0,0]],
+            'G': [[0,1,1,1,0],[1,0,0,0,1],[1,0,0,0,0],[1,0,1,1,1],[1,0,0,0,1],[1,0,0,0,1],[0,1,1,1,0]],
+            'H': [[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[1,1,1,1,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1]],
+            'I': [[1,1,1,1,1],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0],[1,1,1,1,1]],
+            'J': [[0,0,0,0,1],[0,0,0,0,1],[0,0,0,0,1],[0,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[0,1,1,1,0]],
+            'K': [[1,0,0,0,1],[1,0,0,1,0],[1,0,1,0,0],[1,1,0,0,0],[1,0,1,0,0],[1,0,0,1,0],[1,0,0,0,1]],
+            'L': [[1,0,0,0,0],[1,0,0,0,0],[1,0,0,0,0],[1,0,0,0,0],[1,0,0,0,0],[1,0,0,0,0],[1,1,1,1,1]],
+            'M': [[1,0,0,0,1],[1,1,0,1,1],[1,0,1,0,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1]],
+            'N': [[1,0,0,0,1],[1,1,0,0,1],[1,0,1,0,1],[1,0,0,1,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1]],
+            'O': [[0,1,1,1,0],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[0,1,1,1,0]],
+            'P': [[1,1,1,1,0],[1,0,0,0,1],[1,0,0,0,1],[1,1,1,1,0],[1,0,0,0,0],[1,0,0,0,0],[1,0,0,0,0]],
+            'Q': [[0,1,1,1,0],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,1,0,1],[1,0,0,1,0],[0,1,1,0,1]],
+            'R': [[1,1,1,1,0],[1,0,0,0,1],[1,0,0,0,1],[1,1,1,1,0],[1,0,1,0,0],[1,0,0,1,0],[1,0,0,0,1]],
+            'S': [[0,1,1,1,0],[1,0,0,0,1],[1,0,0,0,0],[0,1,1,1,0],[0,0,0,0,1],[1,0,0,0,1],[0,1,1,1,0]],
+            'T': [[1,1,1,1,1],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0]],
+            'U': [[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[0,1,1,1,0]],
+            'V': [[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[0,1,0,1,0],[0,1,0,1,0],[0,0,1,0,0]],
+            'W': [[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,1,0,1],[1,0,1,0,1],[1,1,0,1,1],[1,0,0,0,1]],
+            'X': [[1,0,0,0,1],[1,0,0,0,1],[0,1,0,1,0],[0,0,1,0,0],[0,1,0,1,0],[1,0,0,0,1],[1,0,0,0,1]],
+            'Y': [[1,0,0,0,1],[1,0,0,0,1],[0,1,0,1,0],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0]],
+            'Z': [[1,1,1,1,1],[0,0,0,0,1],[0,0,0,1,0],[0,0,1,0,0],[0,1,0,0,0],[1,0,0,0,0],[1,1,1,1,1]],
+            '?': [[0,1,1,1,0],[1,0,0,0,1],[0,0,0,1,0],[0,0,1,0,0],[0,0,1,0,0],[0,0,0,0,0],[0,0,1,0,0]],
+          };
+          
+          const pattern = letterPatterns[deviceLetter] || letterPatterns['?'];
+          $.ink(0, 220, 255); // Bright cyan
+          const offsetX = 2; // Center 5px letter in 9px box
+          const offsetY = 1;
+          for (let row = 0; row < pattern.length; row++) {
+            for (let col = 0; col < pattern[row].length; col++) {
+              if (pattern[row][col]) {
+                $.box(offsetX + col, offsetY + row, 1, 1);
+              }
+            }
+          }
+        });
+        
+        // Position in top-right corner
+        const badgeX = $api.screen.width - badgeWidth - 4;
+        const badgeY = 4;
+        
+        sendData.lanBadge = {
+          x: badgeX,
+          y: badgeY,
+          opacity: 1,
+          img: (({ width, height, pixels }) => ({ width, height, pixels }))(lanBadge),
+        };
+      }
+
+      // �🔲 Generate QR code overlay for KidLisp pieces
       let qrOverlay;
       
       // Clear QR cache if caching is disabled to prevent memory buildup
@@ -13329,6 +13540,12 @@ async function makeFrame({ data: { type, content } }) {
         // 🎄 Create a copy for transfer to avoid detaching the merry progress bar buffer
         const merryPixelsCopy = new Uint8ClampedArray(sendData.merryProgressBar.img.pixels);
         transferredObjects.push(merryPixelsCopy.buffer);
+      }
+
+      if (sendData.lanBadge) {
+        // 🔗 Create a copy for transfer to avoid detaching the LAN badge buffer
+        const lanBadgePixelsCopy = new Uint8ClampedArray(sendData.lanBadge.img.pixels);
+        transferredObjects.push(lanBadgePixelsCopy.buffer);
       }
 
       // console.log("TO:", transferredObjects);
