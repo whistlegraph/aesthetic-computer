@@ -13,6 +13,7 @@ import readline from 'readline';
 import os from 'os';
 import { execSync, spawn, spawnSync } from 'child_process';
 import qrcode from 'qrcode-terminal';
+import net from 'net';
 
 // Find the emacsclient's PTY for direct sixel output (bypasses eat terminal)
 function findEmacsclientPty() {
@@ -409,7 +410,7 @@ class ArteryTUI {
     this.connected = false;
     this.currentPiece = null;
     this.selectedIndex = 0;
-    this.mode = 'menu'; // 'menu', 'repl', 'pieces', 'piece-input', 'tests', 'test-params', 'logs', 'devices'
+    this.mode = 'menu'; // 'menu', 'repl', 'pieces', 'piece-input', 'tests', 'test-params', 'logs', 'devices', 'ff1'
     this.logs = [];
     this.allPieces = []; // Loaded from disks directory
     this.filteredPieces = []; // Filtered by search
@@ -451,6 +452,7 @@ class ArteryTUI {
       { key: 'k', label: 'KidLisp.com', desc: 'Open KidLisp editor window', action: () => this.openKidLisp() },
       { key: 'd', label: 'Deck Control', desc: 'Control KidLisp.com card deck via CDP', action: () => this.enterKidLispCardsMode() },
       { key: 'v', label: 'Devices', desc: 'Connected devices (LAN)', action: () => this.enterDevicesMode() },
+      { key: 'f', label: 'FF1 Scan', desc: 'Scan network for Feral File FF1', action: () => this.enterFF1Mode() },
       { key: 'e', label: 'Emacs', desc: 'Execute elisp in Emacs', action: () => this.enterEmacsMode() },
       { key: 'j', label: 'Jump to Piece', desc: 'Navigate to a piece', action: () => this.enterPieceMode() },
       { key: 'c', label: 'Current Piece', desc: 'Show current piece', action: () => this.showCurrent() },
@@ -554,6 +556,14 @@ class ArteryTUI {
     this.devicesSubMode = 'list'; // 'list', 'jump-input', 'name-input'
     this.devicesJumpInput = '';
     this.devicesNameInput = '';
+    
+    // FF1 (Feral File) state
+    this.ff1Devices = [];  // Found FF1 devices [{ip, ssh, cdp, hostname}]
+    this.ff1Scanning = false;
+    this.ff1ScanProgress = '';
+    this.ff1SelectedIndex = 0;
+    this.ff1TunnelActive = false;
+    this.ff1Subnets = ['192.168.1', '192.168.0', '192.168.86', '10.0.0', '10.0.1'];
     
     // Site monitoring state
     this.siteProcess = null;
@@ -1477,6 +1487,9 @@ class ArteryTUI {
       case 'devices':
         this.handleDevicesInput(key);
         break;
+      case 'ff1':
+        this.handleFF1Input(key);
+        break;
     }
   }
 
@@ -2392,6 +2405,155 @@ class ArteryTUI {
       await this.fetchDevices();
     } catch (e) {
       this.setStatus(`Name failed: ${e.message}`, 'error');
+    }
+  }
+
+  // === FF1 Mode (Feral File Device Scanner) ===
+  async enterFF1Mode() {
+    this.mode = 'ff1';
+    this.ff1SelectedIndex = 0;
+    this.render();
+  }
+  
+  // Scan a single host:port for connectivity
+  async ff1ScanPort(host, port, timeout = 200) {
+    return new Promise(resolve => {
+      const socket = new net.Socket();
+      socket.setTimeout(timeout);
+      socket.on('connect', () => { socket.destroy(); resolve(true); });
+      socket.on('timeout', () => { socket.destroy(); resolve(false); });
+      socket.on('error', () => { socket.destroy(); resolve(false); });
+      socket.connect(port, host);
+    });
+  }
+  
+  // Scan network for FF1 devices
+  async ff1DoScan() {
+    this.ff1Scanning = true;
+    this.ff1Devices = [];
+    this.render();
+    
+    for (const subnet of this.ff1Subnets) {
+      this.ff1ScanProgress = `Scanning ${subnet}.x...`;
+      this.render();
+      
+      // Scan in batches for performance
+      const batchSize = 20;
+      for (let i = 1; i <= 254; i += batchSize) {
+        const batch = [];
+        for (let j = i; j < Math.min(i + batchSize, 255); j++) {
+          const ip = `${subnet}.${j}`;
+          batch.push(
+            Promise.all([
+              this.ff1ScanPort(ip, 22),   // SSH
+              this.ff1ScanPort(ip, 9222), // CDP (usually only on localhost)
+            ]).then(([ssh, cdp]) => ({ ip, ssh, cdp }))
+          );
+        }
+        const results = await Promise.all(batch);
+        for (const r of results) {
+          if (r.ssh || r.cdp) {
+            this.ff1Devices.push(r);
+            this.render();
+          }
+        }
+      }
+    }
+    
+    this.ff1ScanProgress = `Found ${this.ff1Devices.length} device(s)`;
+    this.ff1Scanning = false;
+    this.render();
+  }
+  
+  // Try to connect to FF1 via SSH and get hostname
+  async ff1GetHostname(ip) {
+    return new Promise(resolve => {
+      const { spawn } = require('child_process');
+      const ssh = spawn('ssh', [
+        '-o', 'ConnectTimeout=3',
+        '-o', 'StrictHostKeyChecking=no',
+        '-o', 'BatchMode=yes',
+        `feralfile@${ip}`,
+        'hostname'
+      ]);
+      let output = '';
+      ssh.stdout.on('data', data => output += data);
+      ssh.on('close', code => resolve(code === 0 ? output.trim() : null));
+      ssh.on('error', () => resolve(null));
+    });
+  }
+  
+  // Check CDP on FF1 via SSH tunnel
+  async ff1CheckCDP(ip) {
+    return new Promise(resolve => {
+      const { spawn } = require('child_process');
+      const ssh = spawn('ssh', [
+        '-o', 'ConnectTimeout=3',
+        '-o', 'StrictHostKeyChecking=no',
+        '-o', 'BatchMode=yes',
+        `feralfile@${ip}`,
+        'curl -s http://127.0.0.1:9222/json | head -c 100'
+      ]);
+      let output = '';
+      ssh.stdout.on('data', data => output += data);
+      ssh.on('close', code => resolve(code === 0 && output.includes('webSocketDebuggerUrl')));
+      ssh.on('error', () => resolve(false));
+    });
+  }
+  
+  handleFF1Input(key) {
+    // Navigation
+    if (key === '\u001b[A' || key === 'k') { // Up
+      if (this.ff1Devices.length > 0) {
+        this.ff1SelectedIndex = Math.max(0, this.ff1SelectedIndex - 1);
+        this.render();
+      }
+      return;
+    }
+    if (key === '\u001b[B' || key === 'j') { // Down
+      if (this.ff1Devices.length > 0) {
+        this.ff1SelectedIndex = Math.min(this.ff1Devices.length - 1, this.ff1SelectedIndex + 1);
+        this.render();
+      }
+      return;
+    }
+    
+    // Actions
+    if (key === 's' && !this.ff1Scanning) {
+      this.ff1DoScan();
+      return;
+    }
+    
+    if (key === 'c' && this.ff1Devices.length > 0 && !this.ff1Scanning) {
+      // Check CDP on selected device
+      const device = this.ff1Devices[this.ff1SelectedIndex];
+      this.setStatus(`Checking CDP on ${device.ip}...`, 'info');
+      this.ff1CheckCDP(device.ip).then(hasCdp => {
+        if (hasCdp) {
+          this.setStatus(`✓ CDP available on ${device.ip}`, 'success');
+          device.cdpVerified = true;
+        } else {
+          this.setStatus(`✗ CDP not accessible on ${device.ip}`, 'error');
+        }
+        this.render();
+      });
+      return;
+    }
+    
+    if (key === 'h' && this.ff1Devices.length > 0 && !this.ff1Scanning) {
+      // Get hostname
+      const device = this.ff1Devices[this.ff1SelectedIndex];
+      this.setStatus(`Getting hostname for ${device.ip}...`, 'info');
+      this.ff1GetHostname(device.ip).then(hostname => {
+        if (hostname) {
+          device.hostname = hostname;
+          this.setStatus(`Hostname: ${hostname}`, 'success');
+        } else {
+          this.setStatus(`Could not get hostname (SSH key needed?)`, 'error');
+        }
+        this.render();
+      });
+      return;
     }
   }
 
@@ -4966,6 +5128,9 @@ class ArteryTUI {
       case 'devices':
         this.renderDevices();
         break;
+      case 'ff1':
+        this.renderFF1();
+        break;
     }
     
     // Fill remaining lines with background (reserve 1 for footer if pending)
@@ -6401,6 +6566,77 @@ class ArteryTUI {
       const actionsPad = boxWidth - this.stripAnsi(actionsLine).length - 1;
       this.writeLine(`${actionsLine}${BG_BLUE}${' '.repeat(Math.max(0, actionsPad))}${DOS_BORDER}║${RESET}`);
     }
+    
+    this.renderFooter();
+  }
+
+  renderFF1() {
+    this.renderHeader();
+    const boxWidth = this.innerWidth;
+    const compact = this.width < 80;
+    
+    // Title
+    const scanStatus = this.ff1Scanning ? `${FG_BRIGHT_YELLOW}⟳ SCANNING${RESET}` : '';
+    const title = `${DOS_BORDER}║${RESET}${BG_BLUE}${FG_BRIGHT_MAGENTA}🎨${FG_WHITE} FF1 Scanner ${scanStatus}`;
+    const titlePad = boxWidth - this.stripAnsi(title).length - 1;
+    this.writeLine(`${title}${BG_BLUE}${' '.repeat(Math.max(0, titlePad))}${DOS_BORDER}║${RESET}`);
+    
+    // Subnets being scanned
+    const subnetsLine = `${DOS_BORDER}║${RESET}${BG_BLUE}  ${FG_CYAN}Subnets:${FG_WHITE} ${this.ff1Subnets.map(s => s + '.x').join(', ')}${RESET}`;
+    const subnetsPad = boxWidth - this.stripAnsi(subnetsLine).length - 1;
+    this.writeLine(`${subnetsLine}${BG_BLUE}${' '.repeat(Math.max(0, subnetsPad))}${DOS_BORDER}║${RESET}`);
+    
+    // Progress
+    if (this.ff1ScanProgress) {
+      const progressLine = `${DOS_BORDER}║${RESET}${BG_BLUE}  ${DIM}${this.ff1ScanProgress}${RESET}`;
+      const progressPad = boxWidth - this.stripAnsi(progressLine).length - 1;
+      this.writeLine(`${progressLine}${BG_BLUE}${' '.repeat(Math.max(0, progressPad))}${DOS_BORDER}║${RESET}`);
+    }
+    
+    this.writeLine(`${DOS_BORDER}╟${'─'.repeat(boxWidth - 2)}╢${RESET}`);
+    
+    // Device list
+    if (this.ff1Devices.length === 0 && !this.ff1Scanning) {
+      const emptyLine = `${DOS_BORDER}║${RESET}${BG_BLUE}  ${DIM}Press ${FG_CYAN}s${RESET}${DIM} to scan for FF1 devices${RESET}`;
+      const emptyPad = boxWidth - this.stripAnsi(emptyLine).length - 1;
+      this.writeLine(`${emptyLine}${BG_BLUE}${' '.repeat(Math.max(0, emptyPad))}${DOS_BORDER}║${RESET}`);
+    } else {
+      const maxDevices = Math.max(1, this.innerHeight - 12);
+      const devices = this.ff1Devices.slice(0, maxDevices);
+      
+      for (let i = 0; i < devices.length; i++) {
+        const d = devices[i];
+        const selected = i === this.ff1SelectedIndex;
+        const selectBg = selected ? BG_CYAN : BG_BLUE;
+        const selectFg = selected ? FG_BLACK : FG_WHITE;
+        const marker = selected ? '►' : ' ';
+        
+        // Status icons
+        const sshIcon = d.ssh ? `${FG_BRIGHT_GREEN}SSH${RESET}` : `${FG_BRIGHT_RED}---${RESET}`;
+        const cdpIcon = d.cdpVerified ? `${FG_BRIGHT_GREEN}CDP${RESET}` : (d.cdp ? `${FG_BRIGHT_YELLOW}CDP?${RESET}` : `${DIM}---${RESET}`);
+        const hostname = d.hostname ? `${FG_BRIGHT_CYAN}${d.hostname}${RESET}` : '';
+        
+        const deviceLine = `${DOS_BORDER}║${RESET}${selectBg}${FG_BRIGHT_YELLOW}${marker}${selectFg} ${d.ip} ${sshIcon} ${cdpIcon} ${hostname}${RESET}`;
+        const devicePad = boxWidth - this.stripAnsi(deviceLine).length - 1;
+        this.writeLine(`${deviceLine}${selectBg}${' '.repeat(Math.max(0, devicePad))}${DOS_BORDER}║${RESET}`);
+      }
+      
+      // Fill remaining space
+      const fillCount = Math.max(0, maxDevices - devices.length);
+      for (let i = 0; i < fillCount; i++) {
+        this.writeLine(`${DOS_BORDER}║${BG_BLUE}${' '.repeat(boxWidth - 2)}${DOS_BORDER}║${RESET}`);
+      }
+    }
+    
+    this.writeLine(`${DOS_BORDER}╟${'─'.repeat(boxWidth - 2)}╢${RESET}`);
+    
+    // Actions
+    const actions = compact 
+      ? `${FG_CYAN}s${FG_WHITE}can ${FG_CYAN}h${FG_WHITE}ost ${FG_CYAN}c${FG_WHITE}dp`
+      : `${FG_CYAN}s${FG_WHITE}can  ${FG_CYAN}h${FG_WHITE}ostname  ${FG_CYAN}c${FG_WHITE}heck CDP  ${FG_CYAN}↑↓${FG_WHITE} select`;
+    const actionsLine = `${DOS_BORDER}║${RESET}${BG_BLUE}  ${actions}${RESET}`;
+    const actionsPad = boxWidth - this.stripAnsi(actionsLine).length - 1;
+    this.writeLine(`${actionsLine}${BG_BLUE}${' '.repeat(Math.max(0, actionsPad))}${DOS_BORDER}║${RESET}`);
     
     this.renderFooter();
   }
