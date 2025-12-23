@@ -1,0 +1,8 @@
+# PDF outputs (regenerate from .tex source)
+*.pdf
+
+# LaTeX build artifacts
+*.aux
+*.log
+*.out
+*.synctex.gz
