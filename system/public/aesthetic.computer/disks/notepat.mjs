@@ -707,6 +707,23 @@ function boot({
 function sim({ sound, simCount, num }) {
   sound.speaker?.poll();
 
+  // 🛡️ Stuck note protection: Kill notes held longer than MAX_NOTE_LIFETIME
+  const MAX_NOTE_LIFETIME = 30; // seconds - notes shouldn't be held this long
+  const now = performance.now() / 1000;
+  Object.keys(sounds).forEach((noteKey) => {
+    const entry = sounds[noteKey];
+    if (entry?.sound?.startedAt) {
+      const age = now - entry.sound.startedAt;
+      if (age > MAX_NOTE_LIFETIME) {
+        console.warn(`🛡️ Killing stuck note: ${noteKey} (held ${age.toFixed(1)}s)`);
+        entry.sound?.kill?.(0.1);
+        delete sounds[noteKey];
+        delete tonestack[noteKey];
+        if (buttons[noteKey]) buttons[noteKey].down = false;
+      }
+    }
+  });
+
   if (songShifting) {
     songShift += !songNoteDown ? 0.5 : 1;
     if (songShift >= songStops[songIndex][1]) {
