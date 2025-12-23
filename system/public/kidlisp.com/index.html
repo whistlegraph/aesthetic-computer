@@ -3885,17 +3885,9 @@
             <span class="tab-icon">📝</span>
             <span>text</span>
           </button>
-          <button class="viz-tab" data-viz="tree" title="Tree View (2D Canvas)">
-            <span class="tab-icon">🌳</span>
-            <span>tree</span>
-          </button>
-          <button class="viz-tab" data-viz="space" title="Space View (3D WebGL)">
-            <span class="tab-icon">🌌</span>
-            <span>space</span>
-          </button>
-          <button class="viz-tab" data-viz="beads" title="Rosary Beads (Cyclic Flow)">
-            <span class="tab-icon">📿</span>
-            <span>beads</span>
+          <button class="viz-tab" data-viz="pills" title="3D Pills (Matter in Space)">
+            <span class="tab-icon">💊</span>
+            <span>pills</span>
           </button>
         </div>
         <!-- Playback Controls - persist across all views -->
@@ -3909,17 +3901,9 @@
             <button id="clear-button" style="display: none;">Clear</button>
           </div>
         </div>
-        <!-- Tree View (Canvas 2D) -->
-        <div class="viz-container" id="viz-tree">
-          <canvas id="tree-canvas"></canvas>
-        </div>
-        <!-- Space View (WebGL2) -->
-        <div class="viz-container" id="viz-space">
-          <canvas id="space-canvas"></canvas>
-        </div>
-        <!-- Beads View (Rosary/Cyclic) -->
-        <div class="viz-container" id="viz-beads">
-          <canvas id="beads-canvas"></canvas>
+        <!-- Pills View (3D Matter) -->
+        <div class="viz-container" id="viz-pills">
+          <canvas id="pills-canvas"></canvas>
         </div>
       </div>
       
@@ -8158,6 +8142,8 @@
         updatePreview(shouldCreateCode);
         isPlaying = true;
         isPaused = false;
+        vizSystem.isPlaying = true;
+        vizSystem.isPaused = false;
         sendButton.classList.add('playing');
         sendButton.style.right = '64px'; // Move play button to the left
         stopButton.style.display = 'flex';
@@ -8177,6 +8163,7 @@
         addStateEntry('play'); // Resume shows as play
         sendToIframe({ type: 'kidlisp-resume' });
         isPaused = false;
+        vizSystem.isPaused = false;
         sendButton.classList.add('playing'); // Ensure playing style (Pause icon)
         // Switch from paused (yellow) to running (green) outline
         setLiveState('running');
@@ -8186,6 +8173,7 @@
         addStateEntry('pause');
         sendToIframe({ type: 'kidlisp-pause' });
         isPaused = true;
+        vizSystem.isPaused = true;
         sendButton.classList.remove('playing'); // Revert to Play icon (Green)
         // Switch from running (green) to paused (yellow) outline
         setLiveState('paused');
@@ -8219,6 +8207,9 @@
         // Reset state
         isPlaying = false;
         isPaused = false;
+        vizSystem.isPlaying = false;
+        vizSystem.isPaused = false;
+        vizSystem.frameCount = 0;
         lastCode = '';
         sendButton.classList.remove('playing');
         sendButton.style.right = '8px'; // Move play button back to original position
@@ -8540,12 +8531,12 @@
         console.log('🔍 [TRACE] Received kidlisp-trace:', event.data.trace?.length || 0, 'entries');
         if (event.data.trace && Array.isArray(event.data.trace)) {
           vizSystem.executionTrace = event.data.trace;
-          console.log('🔍 [TRACE] Updated vizSystem.executionTrace, currentView:', vizSystem.currentView);
-          // Update visualizations if visible
-          if (vizSystem.currentView === 'tree') {
-            renderTree();
-          } else if (vizSystem.currentView === 'space') {
-            renderSpace();
+          vizSystem.frameCount++;
+          console.log('🔍 [TRACE] Updated vizSystem.executionTrace, currentView:', vizSystem.currentView, 'frame:', vizSystem.frameCount);
+          // Update pills visualization if visible
+          if (vizSystem.currentView === 'pills') {
+            // Flash pills based on trace
+            flashPillsFromTrace(event.data.trace);
           }
         }
       } else if (messageType === 'kidlisp-code-created') {
@@ -9704,8 +9695,27 @@
       ast: null,
       executionTrace: [], // Real trace from KidLisp interpreter
       traceEnabled: false,
-      tree: { canvas: null, ctx: null, nodes: [], pan: { x: 0, y: 0 }, zoom: 1, dpr: 1 },
-      space: { canvas: null, initialized: false, nodes: [], camera: { x: 0, y: 50, z: 100 }, dpr: 1 }
+      isPlaying: false,
+      isPaused: false,
+      frameCount: 0, // Increments each frame when playing
+      // 3D Pills visualization state
+      pills: {
+        canvas: null,
+        ctx: null,
+        particles: [],
+        constraints: [],
+        lastCode: '',
+        animationId: null,
+        // 3D rotation state
+        rotation: { x: 0, y: 0, z: 0 },
+        targetRotation: { x: 0, y: 0, z: 0 },
+        autoRotate: true,
+        zoom: 1,
+        pan: { x: 0, y: 0 },
+        dragging: false,
+        dragStart: { x: 0, y: 0 },
+        lastMouse: { x: 0, y: 0 }
+      }
     };
     
     // KidLisp syntax colors - matching the interpreter's getTokenColor
@@ -9979,17 +9989,15 @@
           
           // Initialize visualization if needed (delay to let CSS take effect)
           setTimeout(() => {
-            if (vizType === 'tree') initTreeView();
-            if (vizType === 'space') initSpaceView();
-            if (vizType === 'beads') initBeadsView();
+            if (vizType === 'pills') initPillsView();
             
-            // If switching TO tree/space from text, re-run code with tracing enabled
-            if (previousView === 'text' && (vizType === 'tree' || vizType === 'space')) {
+            // If switching TO pills from text, re-run code with tracing enabled
+            if (previousView === 'text' && vizType === 'pills') {
               // Re-send code to iframe with trace enabled
               if (isPlaying && editor) {
                 const code = editor.getValue();
                 if (code) {
-                  console.log('🎨 [VIZ] Re-running code with trace enabled');
+                  console.log('💊 [PILLS] Re-running code with trace enabled');
                   sendToIframe({
                     type: 'kidlisp-reload',
                     code: code,
@@ -10680,31 +10688,14 @@
         console.log('🎨 [VIZ] AST:', vizSystem.ast);
       }
       
-      if (vizSystem.currentView === 'tree') renderTree();
-      if (vizSystem.currentView === 'space') renderSpace();
-      if (vizSystem.currentView === 'beads') renderBeads();
+      // Pills is the only visualization view now
+      if (vizSystem.currentView === 'pills') {
+        // Pills has its own animation loop, just ensure it's initialized
+        if (!vizSystem.pills.initialized) initPillsView();
+      }
     }
     
-    // Beads visualization state
-    vizSystem.beads = {
-      canvas: null,
-      ctx: null,
-      dpr: 1,
-      pan: { x: 0, y: 0 },
-      zoom: 1,
-      initialized: false,
-      // Physics state
-      particles: [],
-      constraints: [],
-      animationId: null,
-      lastCode: '',
-      // Execution state
-      currentBead: -1,
-      executionPhase: 0,
-      timingFlash: new Map(), // beadIndex -> flash intensity
-    };
-    
-    // Bead type styles (Calder-inspired palette)
+    // Bead type styles (Calder-inspired palette) - used by pills too
     const BEAD_STYLES = {
       state:   { color: '#DC3C3C', symbol: '○' },   // red - wipe, ink, def
       draw:    { color: '#3C64DC', symbol: '●' },   // blue - line, box, circle, point
@@ -10731,47 +10722,74 @@
     // Color names for detecting wipe colors
     const COLOR_NAMES = ['red', 'blue', 'green', 'yellow', 'purple', 'orange', 'cyan', 'magenta', 'white', 'black', 'gray', 'navy', 'brown', 'pink', 'rainbow'];
     
-    // Verlet particle for physics
-    class BeadParticle {
-      constructor(x, y, radius, bead, index) {
+    // ═══════════════════════════════════════════════════════════════════════════
+    // 3D PILLS VISUALIZATION - Matter floating in space
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    // 3D Pill particle with physics
+    class PillParticle {
+      constructor(x, y, z, pill, index) {
         this.x = x;
         this.y = y;
+        this.z = z;
         this.oldX = x;
         this.oldY = y;
-        this.radius = radius;
-        this.bead = bead;
+        this.oldZ = z;
+        this.vx = (Math.random() - 0.5) * 0.5;
+        this.vy = (Math.random() - 0.5) * 0.5;
+        this.vz = (Math.random() - 0.5) * 0.5;
+        this.pill = pill;
         this.index = index;
-        this.mass = 1;
         this.pinned = false;
-        this.flash = 0; // Execution flash intensity
+        this.flash = 0;
+        // Ideal position for soft constraint
+        this.idealX = x;
+        this.idealY = y;
+        this.idealZ = z;
+        // Pill dimensions based on text
+        this.width = Math.max(60, pill.name.length * 10 + 20);
+        this.height = 24;
+        this.depth = 16;
       }
       
-      update(damping = 0.98) {
+      update(damping = 0.96) {
         if (this.pinned) return;
         
         const vx = (this.x - this.oldX) * damping;
         const vy = (this.y - this.oldY) * damping;
+        const vz = (this.z - this.oldZ) * damping;
         
         this.oldX = this.x;
         this.oldY = this.y;
+        this.oldZ = this.z;
         
         this.x += vx;
-        this.y += vy + 0.1; // Tiny gravity
+        this.y += vy;
+        this.z += vz;
+        
+        // Soft spring back to ideal position
+        const dx = this.idealX - this.x;
+        const dy = this.idealY - this.y;
+        const dz = this.idealZ - this.z;
+        this.x += dx * 0.02;
+        this.y += dy * 0.02;
+        this.z += dz * 0.02;
         
         // Decay flash
-        if (this.flash > 0) this.flash *= 0.92;
+        if (this.flash > 0) this.flash *= 0.9;
       }
       
-      applyForce(fx, fy) {
+      applyForce(fx, fy, fz) {
         if (this.pinned) return;
-        this.x += fx / this.mass;
-        this.y += fy / this.mass;
+        this.x += fx;
+        this.y += fy;
+        this.z += fz;
       }
     }
     
-    // Spring constraint between particles
-    class SpringConstraint {
-      constructor(p1, p2, restLength, stiffness = 0.5) {
+    // Spring constraint between pills
+    class PillConstraint {
+      constructor(p1, p2, restLength, stiffness = 0.1) {
         this.p1 = p1;
         this.p2 = p2;
         this.restLength = restLength;
@@ -10781,40 +10799,71 @@
       solve() {
         const dx = this.p2.x - this.p1.x;
         const dy = this.p2.y - this.p1.y;
-        const dist = Math.sqrt(dx * dx + dy * dy) || 0.001;
+        const dz = this.p2.z - this.p1.z;
+        const dist = Math.sqrt(dx * dx + dy * dy + dz * dz) || 0.001;
         const diff = (dist - this.restLength) / dist;
         
         const offsetX = dx * diff * this.stiffness;
         const offsetY = dy * diff * this.stiffness;
+        const offsetZ = dz * diff * this.stiffness;
         
         if (!this.p1.pinned) {
           this.p1.x += offsetX * 0.5;
           this.p1.y += offsetY * 0.5;
+          this.p1.z += offsetZ * 0.5;
         }
         if (!this.p2.pinned) {
           this.p2.x -= offsetX * 0.5;
           this.p2.y -= offsetY * 0.5;
+          this.p2.z -= offsetZ * 0.5;
         }
       }
     }
     
-    // Initialize Beads View
-    function initBeadsView() {
-      const canvas = document.getElementById('beads-canvas');
-      console.log('📿 [BEADS] initBeadsView called, canvas:', canvas);
+    // Project 3D point to 2D screen with rotation (for pills)
+    function projectPill3D(x, y, z, rotation, zoom, cx, cy) {
+      // Apply rotation around Y axis (horizontal spin)
+      const cosY = Math.cos(rotation.y);
+      const sinY = Math.sin(rotation.y);
+      let x1 = x * cosY - z * sinY;
+      let z1 = x * sinY + z * cosY;
+      
+      // Apply rotation around X axis (vertical tilt)
+      const cosX = Math.cos(rotation.x);
+      const sinX = Math.sin(rotation.x);
+      let y1 = y * cosX - z1 * sinX;
+      let z2 = y * sinX + z1 * cosX;
+      
+      // Perspective projection
+      const fov = 400;
+      const scale = fov / (fov + z2) * zoom;
+      
+      return {
+        x: cx + x1 * scale,
+        y: cy + y1 * scale,
+        z: z2,
+        scale: scale
+      };
+    }
+    
+    // Initialize Pills View
+    function initPillsView() {
+      const canvas = document.getElementById('pills-canvas');
+      console.log('💊 [PILLS] initPillsView called, canvas:', canvas);
       if (!canvas) return;
       
-      vizSystem.beads.canvas = canvas;
-      vizSystem.beads.ctx = canvas.getContext('2d');
-      vizSystem.beads.dpr = window.devicePixelRatio || 1;
+      const pills = vizSystem.pills;
+      pills.canvas = canvas;
+      pills.ctx = canvas.getContext('2d');
+      pills.dpr = window.devicePixelRatio || 1;
       
       function resizeCanvas() {
-        const container = document.getElementById('viz-beads');
+        const container = document.getElementById('viz-pills');
         if (!container) return;
         
         const rect = container.getBoundingClientRect();
         const dpr = window.devicePixelRatio || 1;
-        vizSystem.beads.dpr = dpr;
+        pills.dpr = dpr;
         
         const w = rect.width || 400;
         const h = Math.max(100, rect.height || 300);
@@ -10823,226 +10872,219 @@
         canvas.height = h * dpr;
         canvas.style.width = w + 'px';
         canvas.style.height = h + 'px';
-        vizSystem.beads.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        pills.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         
-        // Rebuild physics with new dimensions
-        rebuildBeadsPhysics();
+        rebuildPillsPhysics();
       }
       
       resizeCanvas();
       
       // ResizeObserver for panel resize
-      const resizeObserver = new ResizeObserver(() => {
-        resizeCanvas();
-      });
-      const container = document.getElementById('viz-beads');
+      const resizeObserver = new ResizeObserver(() => resizeCanvas());
+      const container = document.getElementById('viz-pills');
       if (container) resizeObserver.observe(container);
       
       window.addEventListener('resize', resizeCanvas);
       
-      // Mouse interaction - drag beads or pan
-      let dragging = null; // particle being dragged
-      let panning = false;
-      let lastPos = { x: 0, y: 0 };
-      
+      // Mouse interaction - drag to rotate, click pills, scroll zoom
       canvas.addEventListener('mousedown', (e) => {
         const rect = canvas.getBoundingClientRect();
+        pills.dragging = true;
+        pills.autoRotate = false;
+        pills.lastMouse = { x: e.clientX, y: e.clientY };
+        
+        // Check if clicking on a pill (simplified - uses 2D projection)
         const mx = e.clientX - rect.left;
         const my = e.clientY - rect.top;
+        const cx = (canvas.width / pills.dpr) / 2;
+        const cy = (canvas.height / pills.dpr) / 2;
         
-        // Check if clicking on a bead
-        for (const p of vizSystem.beads.particles) {
-          const dx = p.x - mx;
-          const dy = p.y - my;
-          if (dx * dx + dy * dy < p.radius * p.radius * 1.5) {
-            dragging = p;
-            p.pinned = true;
+        for (const p of pills.particles) {
+          const proj = projectPill3D(p.x, p.y, p.z, pills.rotation, pills.zoom, cx, cy);
+          const dx = mx - proj.x;
+          const dy = my - proj.y;
+          if (Math.abs(dx) < p.width * proj.scale / 2 && Math.abs(dy) < p.height * proj.scale / 2) {
+            // Flash the clicked pill
+            p.flash = 1.5;
+            // Bounce it
+            p.applyForce((Math.random() - 0.5) * 20, -15, (Math.random() - 0.5) * 20);
             return;
           }
         }
-        
-        // Otherwise pan
-        panning = true;
-        lastPos = { x: e.clientX, y: e.clientY };
       });
       
       canvas.addEventListener('mousemove', (e) => {
-        const rect = canvas.getBoundingClientRect();
-        const mx = e.clientX - rect.left;
-        const my = e.clientY - rect.top;
-        
-        if (dragging) {
-          dragging.x = mx;
-          dragging.y = my;
-          dragging.oldX = mx;
-          dragging.oldY = my;
-        } else if (panning) {
-          vizSystem.beads.pan.x += e.clientX - lastPos.x;
-          vizSystem.beads.pan.y += e.clientY - lastPos.y;
-          lastPos = { x: e.clientX, y: e.clientY };
-          rebuildBeadsPhysics();
+        if (pills.dragging) {
+          const dx = e.clientX - pills.lastMouse.x;
+          const dy = e.clientY - pills.lastMouse.y;
+          
+          pills.targetRotation.y += dx * 0.01;
+          pills.targetRotation.x += dy * 0.01;
+          
+          // Clamp X rotation (don't flip upside down)
+          pills.targetRotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, pills.targetRotation.x));
+          
+          pills.lastMouse = { x: e.clientX, y: e.clientY };
         }
       });
       
       canvas.addEventListener('mouseup', () => {
-        if (dragging) dragging.pinned = false;
-        dragging = null;
-        panning = false;
+        pills.dragging = false;
       });
+      
       canvas.addEventListener('mouseleave', () => {
-        if (dragging) dragging.pinned = false;
-        dragging = null;
-        panning = false;
+        pills.dragging = false;
+      });
+      
+      // Double-click to toggle auto-rotate
+      canvas.addEventListener('dblclick', () => {
+        pills.autoRotate = !pills.autoRotate;
       });
       
       // Zoom with scroll
       canvas.addEventListener('wheel', (e) => {
         e.preventDefault();
-        const delta = e.deltaY > 0 ? 0.95 : 1.05;
-        vizSystem.beads.zoom = Math.max(0.3, Math.min(3, vizSystem.beads.zoom * delta));
-        rebuildBeadsPhysics();
+        const delta = e.deltaY > 0 ? 0.92 : 1.08;
+        pills.zoom = Math.max(0.3, Math.min(3, pills.zoom * delta));
       });
       
-      vizSystem.beads.initialized = true;
-      
-      // Start physics loop
-      startBeadsPhysicsLoop();
+      pills.initialized = true;
+      startPillsPhysicsLoop();
     }
     
-    // Build/rebuild physics particles from code
-    function rebuildBeadsPhysics() {
-      const { canvas, pan, zoom, dpr } = vizSystem.beads;
+    // Build/rebuild 3D pills from code
+    function rebuildPillsPhysics() {
+      const pills = vizSystem.pills;
+      const { canvas, dpr } = pills;
       if (!canvas) return;
       
       const code = editor?.getValue() || '';
-      const beads = parseToBeads(code);
-      const n = beads.length;
+      const pillData = parseToPills(code);
+      const n = pillData.length;
       
       const width = canvas.width / (dpr || 1);
       const height = canvas.height / (dpr || 1);
       
-      const cx = width / 2 + pan.x;
-      const cy = height / 2 + pan.y;
-      const baseRadius = Math.min(width, height - 60) * 0.32;
-      const radius = baseRadius * zoom;
-      const beadRadius = Math.max(10, Math.min(28, (200 / Math.max(1, n)) * zoom));
-      const restLength = n > 0 ? (2 * Math.PI * radius) / n * 0.9 : 50;
+      // Arrange pills in a horizontal line (like reading code left to right)
+      // with slight depth variation for visual interest
+      const spacing = Math.min(100, (width * 0.8) / Math.max(1, n));
+      const startX = -(n - 1) * spacing / 2;
       
-      // Preserve old particle velocities if same number of beads
-      const oldParticles = vizSystem.beads.particles;
+      // Preserve old particle states
+      const oldParticles = pills.particles;
       
-      vizSystem.beads.particles = [];
-      vizSystem.beads.constraints = [];
+      pills.particles = [];
+      pills.constraints = [];
       
       for (let i = 0; i < n; i++) {
-        const angle = (i / n) * Math.PI * 2 - Math.PI / 2;
-        const x = cx + Math.cos(angle) * radius;
-        const y = cy + Math.sin(angle) * radius;
+        // Horizontal line arrangement - left to right like code
+        const x = startX + i * spacing;
+        const y = 0; // All on same horizontal plane
+        const z = Math.sin(i * 0.5) * 15; // Slight wave for depth
         
-        const p = new BeadParticle(x, y, beadRadius, beads[i], i);
+        const p = new PillParticle(x, y, z, pillData[i], i);
         
-        // Preserve velocity from old particle if exists
+        // Preserve momentum from old particle
         if (oldParticles[i]) {
           const old = oldParticles[i];
-          const vx = old.x - old.oldX;
-          const vy = old.y - old.oldY;
-          p.oldX = p.x - vx * 0.5;
-          p.oldY = p.y - vy * 0.5;
+          p.oldX = p.x - (old.x - old.oldX) * 0.5;
+          p.oldY = p.y - (old.y - old.oldY) * 0.5;
+          p.oldZ = p.z - (old.z - old.oldZ) * 0.5;
           p.flash = old.flash;
         }
         
-        vizSystem.beads.particles.push(p);
+        pills.particles.push(p);
       }
       
-      // Create spring constraints (elastic strings)
-      for (let i = 0; i < n; i++) {
-        const p1 = vizSystem.beads.particles[i];
-        const p2 = vizSystem.beads.particles[(i + 1) % n];
-        vizSystem.beads.constraints.push(new SpringConstraint(p1, p2, restLength, 0.3));
+      // Create spring constraints between sequential pills only (not looping)
+      for (let i = 0; i < n - 1; i++) {
+        const p1 = pills.particles[i];
+        const p2 = pills.particles[i + 1];
+        pills.constraints.push(new PillConstraint(p1, p2, spacing, 0.2));
       }
       
-      // Add radial constraints to keep rough circle shape
-      for (let i = 0; i < n; i++) {
-        // Soft constraint to ideal position
-        const p = vizSystem.beads.particles[i];
-        const angle = (i / n) * Math.PI * 2 - Math.PI / 2;
-        const idealX = cx + Math.cos(angle) * radius;
-        const idealY = cy + Math.sin(angle) * radius;
-        p.idealX = idealX;
-        p.idealY = idealY;
-      }
-      
-      vizSystem.beads.lastCode = code;
+      pills.lastCode = code;
     }
     
-    // Physics simulation loop
-    function startBeadsPhysicsLoop() {
-      if (vizSystem.beads.animationId) return;
+    // Flash pills from execution trace
+    function flashPillsFromTrace(trace) {
+      const particles = vizSystem.pills.particles;
+      if (!particles.length || !trace?.length) return;
+      
+      for (const entry of trace.slice(-10)) {
+        if (entry.type === 'enter' || entry.type === 'function-call') {
+          const exprStr = String(entry.expr || '').toLowerCase();
+          for (const p of particles) {
+            const pillName = p.pill.name.toLowerCase();
+            if (exprStr.includes(pillName) || pillName.includes(exprStr.split(' ')[0])) {
+              p.flash = Math.max(p.flash, 1.0);
+              // Bounce the pill
+              p.applyForce(0, -5, 0);
+              if (p.pill.type === 'timing') p.flash = 1.5;
+            }
+          }
+        }
+      }
+      
+      // Sequential flash based on frame count
+      const frameIdx = vizSystem.frameCount % particles.length;
+      if (particles[frameIdx]) {
+        particles[frameIdx].flash = Math.max(particles[frameIdx].flash, 0.6);
+      }
+    }
+    
+    // Physics loop for pills
+    function startPillsPhysicsLoop() {
+      const pills = vizSystem.pills;
+      if (pills.animationId) return;
       
       function loop() {
-        if (vizSystem.currentView !== 'beads') {
-          vizSystem.beads.animationId = null;
+        if (vizSystem.currentView !== 'pills') {
+          pills.animationId = null;
           return;
         }
         
         // Check if code changed
         const code = editor?.getValue() || '';
-        if (code !== vizSystem.beads.lastCode) {
-          rebuildBeadsPhysics();
+        if (code !== pills.lastCode) {
+          rebuildPillsPhysics();
         }
         
-        // Update physics
-        const particles = vizSystem.beads.particles;
-        const constraints = vizSystem.beads.constraints;
-        
-        // Apply soft radial force to maintain shape
-        for (const p of particles) {
-          if (p.idealX !== undefined) {
-            const dx = p.idealX - p.x;
-            const dy = p.idealY - p.y;
-            p.applyForce(dx * 0.02, dy * 0.02);
-          }
+        // Auto-rotate
+        if (pills.autoRotate && !pills.dragging) {
+          pills.targetRotation.y += 0.008;
         }
+        
+        // Smooth rotation interpolation
+        pills.rotation.x += (pills.targetRotation.x - pills.rotation.x) * 0.1;
+        pills.rotation.y += (pills.targetRotation.y - pills.rotation.y) * 0.1;
+        pills.rotation.z += (pills.targetRotation.z - pills.rotation.z) * 0.1;
+        
+        // When paused, add stronger damping
+        const damping = vizSystem.isPaused ? 0.8 : 0.96;
         
         // Update particles
-        for (const p of particles) {
-          p.update(0.96);
+        for (const p of pills.particles) {
+          p.update(damping);
         }
         
-        // Solve constraints multiple times for stability
-        for (let iter = 0; iter < 3; iter++) {
-          for (const c of constraints) {
+        // Solve constraints
+        for (let iter = 0; iter < 2; iter++) {
+          for (const c of pills.constraints) {
             c.solve();
           }
         }
         
-        // Advance execution animation
-        if (isPlaying && particles.length > 0) {
-          vizSystem.beads.executionPhase += 0.08;
-          const idx = Math.floor(vizSystem.beads.executionPhase) % particles.length;
-          
-          if (idx !== vizSystem.beads.currentBead) {
-            vizSystem.beads.currentBead = idx;
-            particles[idx].flash = 1.0;
-            
-            // Extra flash for timing beads
-            const bead = particles[idx].bead;
-            if (bead.type === 'timing') {
-              particles[idx].flash = 1.5;
-            }
-          }
-        }
-        
-        renderBeadsPhysics();
-        vizSystem.beads.animationId = requestAnimationFrame(loop);
+        renderPills();
+        pills.animationId = requestAnimationFrame(loop);
       }
       
-      vizSystem.beads.animationId = requestAnimationFrame(loop);
+      pills.animationId = requestAnimationFrame(loop);
     }
     
-    // Parse code into beads
-    function parseToBeads(code) {
-      const beads = [];
+    // Parse code into pill data
+    function parseToPills(code) {
+      const pills = [];
       let current = '';
       let inString = false;
       let parenDepth = 0;
@@ -11057,7 +11099,7 @@
           current += char;
         } else if (char === '(') {
           if (parenDepth === 0 && current.trim()) {
-            beads.push(parseBeadToken(current.trim()));
+            pills.push(parsePillToken(current.trim()));
             current = '';
           }
           parenDepth++;
@@ -11066,44 +11108,48 @@
           parenDepth--;
           current += char;
           if (parenDepth === 0) {
-            beads.push(parseBeadToken(current.trim()));
+            pills.push(parsePillToken(current.trim()));
             current = '';
           }
         } else if (parenDepth > 0) {
           current += char;
         } else if (char === ',' || char === '\n') {
-          if (current.trim()) beads.push(parseBeadToken(current.trim()));
+          if (current.trim()) pills.push(parsePillToken(current.trim()));
           current = '';
         } else {
           current += char;
         }
       }
       
-      if (current.trim()) beads.push(parseBeadToken(current.trim()));
-      return beads;
+      if (current.trim()) pills.push(parsePillToken(current.trim()));
+      return pills;
     }
     
-    function parseBeadToken(token) {
-      // Handle parenthesized expressions
+    function parsePillToken(token) {
       if (token.startsWith('(') && token.endsWith(')')) {
         const inner = token.slice(1, -1).trim();
-        const parts = inner.split(/\s+/);
-        const head = parts[0];
         
-        // Check for timing like (1s ...)
-        if (/^\d+(\.\d+)?s$/.test(head)) {
+        // Find the head - first token before space or nested paren
+        let head = '';
+        let i = 0;
+        while (i < inner.length && inner[i] !== ' ' && inner[i] !== '(') {
+          head += inner[i];
+          i++;
+        }
+        head = head.trim();
+        
+        // Check for timing pattern like "1s", "0.3s", "1s!"
+        if (/^\d*\.?\d+s!?\.{0,3}$/.test(head)) {
           return { type: 'timing', name: head, token, style: BEAD_STYLES.timing };
         }
         
         const type = COMMAND_TYPES[head] || 'state';
-        return { type, name: head, token, style: BEAD_STYLES[type] };
+        return { type, name: head || '(…)', token, style: BEAD_STYLES[type] };
       }
       
-      // Handle simple tokens
       const parts = token.split(/\s+/);
       const head = parts[0];
       
-      // Check if it's a color name (acts as wipe)
       if (COLOR_NAMES.includes(head) && parts.length === 1) {
         return { type: 'state', name: head, token, style: BEAD_STYLES.state, isColor: true };
       }
@@ -11112,16 +11158,22 @@
       return { type, name: head, token, style: BEAD_STYLES[type] };
     }
     
-    // Render beads with physics
-    function renderBeadsPhysics() {
-      const { canvas, ctx, dpr, particles, constraints } = vizSystem.beads;
+    // Render 3D pills
+    function renderPills() {
+      const pills = vizSystem.pills;
+      const { canvas, ctx, dpr, particles, constraints } = pills;
       if (!ctx || !canvas) return;
       
       const width = canvas.width / (dpr || 1);
       const height = canvas.height / (dpr || 1);
+      const cx = width / 2;
+      const cy = height / 2;
       
-      // Dark background
-      ctx.fillStyle = '#141420';
+      // Dark gradient background
+      const bgGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(width, height) * 0.7);
+      bgGrad.addColorStop(0, '#1a1a2e');
+      bgGrad.addColorStop(1, '#0a0a14');
+      ctx.fillStyle = bgGrad;
       ctx.fillRect(0, 0, width, height);
       
       const n = particles.length;
@@ -11130,7 +11182,10 @@
         ctx.fillStyle = '#666';
         ctx.font = '14px monospace';
         ctx.textAlign = 'center';
-        ctx.fillText('Write some KidLisp to see the rosary', width / 2, height / 2);
+        ctx.fillText('Write some KidLisp to see the pills', cx, cy);
+        ctx.fillStyle = '#444';
+        ctx.font = '11px monospace';
+        ctx.fillText('drag to rotate • scroll to zoom • dbl-click for auto-rotate', cx, cy + 24);
         return;
       }
       
@@ -11138,157 +11193,133 @@
       ctx.fillStyle = '#4ECDC4';
       ctx.font = 'bold 12px monospace';
       ctx.textAlign = 'left';
-      ctx.fillText(`ROSARY BEADS (${n} expressions)`, 16, 20);
-      ctx.fillStyle = isPlaying ? '#4CAF50' : '#666';
-      ctx.fillText(isPlaying ? '● running' : '○ stopped', 200, 20);
+      ctx.fillText(`💊 PILLS (${n} expressions)`, 16, 20);
+      
+      // Status indicator
+      let status, statusColor;
+      if (vizSystem.isPlaying && !vizSystem.isPaused) {
+        status = '● running';
+        statusColor = '#4CAF50';
+      } else if (vizSystem.isPaused) {
+        status = '◐ paused';
+        statusColor = '#FFD93D';
+      } else {
+        status = '○ stopped';
+        statusColor = '#666';
+      }
+      ctx.fillStyle = statusColor;
+      ctx.fillText(status, 180, 20);
+      
+      if (vizSystem.isPlaying) {
+        ctx.fillStyle = '#555';
+        ctx.font = '9px monospace';
+        ctx.fillText(`frame ${vizSystem.frameCount}`, 260, 20);
+      }
+      
       ctx.fillStyle = '#555';
       ctx.font = '10px monospace';
-      ctx.fillText('drag beads, scroll to zoom', 16, 34);
+      ctx.fillText(pills.autoRotate ? '◉ auto-rotate' : '○ drag to rotate', 16, 34);
       
-      // Draw elastic strings
-      ctx.strokeStyle = '#3a3a50';
+      // Sort particles by Z (back to front)
+      const projected = particles.map(p => {
+        const proj = projectPill3D(p.x, p.y, p.z, pills.rotation, pills.zoom, cx, cy);
+        return { particle: p, proj };
+      }).sort((a, b) => b.proj.z - a.proj.z);
+      
+      // Draw connecting lines between sequential pills (not looping)
       ctx.lineWidth = 2;
-      
-      for (const c of constraints) {
-        const p1 = c.p1;
-        const p2 = c.p2;
+      for (let i = 0; i < n - 1; i++) {
+        const p1 = particles[i];
+        const p2 = particles[i + 1];
+        const proj1 = projectPill3D(p1.x, p1.y, p1.z, pills.rotation, pills.zoom, cx, cy);
+        const proj2 = projectPill3D(p2.x, p2.y, p2.z, pills.rotation, pills.zoom, cx, cy);
         
-        // Calculate stretch
-        const dx = p2.x - p1.x;
-        const dy = p2.y - p1.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        const stretch = Math.abs(dist - c.restLength) / c.restLength;
-        
-        // Color based on tension
-        const tension = Math.min(1, stretch * 3);
-        const r = Math.round(58 + tension * 80);
-        const g = Math.round(58 - tension * 30);
-        const b = Math.round(80 - tension * 30);
-        ctx.strokeStyle = `rgb(${r}, ${g}, ${b})`;
-        ctx.lineWidth = 2 + tension * 2;
-        
-        // Draw curved string using quadratic bezier
-        const midX = (p1.x + p2.x) / 2;
-        const midY = (p1.y + p2.y) / 2;
-        // Sag perpendicular to line
-        const perpX = -(p2.y - p1.y) * 0.1;
-        const perpY = (p2.x - p1.x) * 0.1;
+        // Fade based on depth
+        const avgZ = (proj1.z + proj2.z) / 2;
+        const alpha = Math.max(0.2, Math.min(0.7, 0.5 - avgZ * 0.001));
+        ctx.strokeStyle = `rgba(120, 120, 160, ${alpha})`;
         
         ctx.beginPath();
-        ctx.moveTo(p1.x, p1.y);
-        ctx.quadraticCurveTo(midX + perpX, midY + perpY, p2.x, p2.y);
+        ctx.moveTo(proj1.x, proj1.y);
+        ctx.lineTo(proj2.x, proj2.y);
         ctx.stroke();
       }
       
-      // Draw flow direction indicator
-      ctx.fillStyle = '#3a3a50';
-      for (let i = 0; i < n; i++) {
-        const p1 = particles[i];
-        const p2 = particles[(i + 1) % n];
-        const midX = (p1.x + p2.x) / 2;
-        const midY = (p1.y + p2.y) / 2;
-        const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
-        
-        ctx.save();
-        ctx.translate(midX, midY);
-        ctx.rotate(angle);
-        ctx.beginPath();
-        ctx.moveTo(5, 0);
-        ctx.lineTo(-3, -4);
-        ctx.lineTo(-3, 4);
-        ctx.closePath();
-        ctx.fill();
-        ctx.restore();
-      }
-      
-      // Draw beads
-      for (const p of particles) {
-        const bead = p.bead;
-        const baseColor = bead.style.color;
+      // Draw pills (back to front)
+      for (const { particle: p, proj } of projected) {
+        const pill = p.pill;
+        const baseColor = pill.style.color;
         
         // Parse base color
         const r = parseInt(baseColor.slice(1, 3), 16);
         const g = parseInt(baseColor.slice(3, 5), 16);
         const b = parseInt(baseColor.slice(5, 7), 16);
         
-        // Flash effect
+        // Depth-based lighting
+        const depthFactor = Math.max(0.4, Math.min(1, 0.8 - proj.z * 0.002));
         const flash = p.flash;
-        const flashR = Math.min(255, r + flash * 150);
-        const flashG = Math.min(255, g + flash * 150);
-        const flashB = Math.min(255, b + flash * 150);
-        const glowRadius = p.radius * (1 + flash * 0.5);
         
-        // Glow for flashing beads
+        const finalR = Math.min(255, r * depthFactor + flash * 150);
+        const finalG = Math.min(255, g * depthFactor + flash * 150);
+        const finalB = Math.min(255, b * depthFactor + flash * 150);
+        
+        const w = p.width * proj.scale;
+        const h = p.height * proj.scale;
+        const x = proj.x;
+        const y = proj.y;
+        
+        // Glow for flashing pills
         if (flash > 0.1) {
-          const glow = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, glowRadius * 2);
-          glow.addColorStop(0, `rgba(${flashR}, ${flashG}, ${flashB}, ${flash * 0.6})`);
+          const glow = ctx.createRadialGradient(x, y, 0, x, y, w);
+          glow.addColorStop(0, `rgba(${finalR}, ${finalG}, ${finalB}, ${flash * 0.5})`);
           glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
           ctx.fillStyle = glow;
-          ctx.fillRect(p.x - glowRadius * 2, p.y - glowRadius * 2, glowRadius * 4, glowRadius * 4);
+          ctx.fillRect(x - w, y - w, w * 2, w * 2);
         }
         
         // Shadow
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-        ctx.beginPath();
-        ctx.arc(p.x + 2, p.y + 2, p.radius, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(0, 0, 0, ${0.3 * depthFactor})`;
+        drawPillShape(ctx, x + 2, y + 2, w, h);
         ctx.fill();
         
-        // Bead body with flash
-        ctx.fillStyle = `rgb(${Math.round(flashR)}, ${Math.round(flashG)}, ${Math.round(flashB)})`;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, glowRadius, 0, Math.PI * 2);
+        // Pill body
+        const pillGrad = ctx.createLinearGradient(x - w/2, y - h/2, x + w/2, y + h/2);
+        pillGrad.addColorStop(0, `rgb(${Math.min(255, finalR + 30)}, ${Math.min(255, finalG + 30)}, ${Math.min(255, finalB + 30)})`);
+        pillGrad.addColorStop(0.5, `rgb(${finalR}, ${finalG}, ${finalB})`);
+        pillGrad.addColorStop(1, `rgb(${Math.max(0, finalR - 40)}, ${Math.max(0, finalG - 40)}, ${Math.max(0, finalB - 40)})`);
+        ctx.fillStyle = pillGrad;
+        drawPillShape(ctx, x, y, w, h);
         ctx.fill();
         
         // Highlight
-        const gradient = ctx.createRadialGradient(
-          p.x - p.radius * 0.3, p.y - p.radius * 0.3, 0,
-          p.x, p.y, p.radius
-        );
-        gradient.addColorStop(0, 'rgba(255, 255, 255, 0.5)');
-        gradient.addColorStop(0.4, 'rgba(255, 255, 255, 0.1)');
-        gradient.addColorStop(1, 'rgba(0, 0, 0, 0.2)');
-        ctx.fillStyle = gradient;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255, 255, 255, ${0.3 * depthFactor})`;
+        drawPillShape(ctx, x, y - h * 0.15, w * 0.8, h * 0.4);
         ctx.fill();
         
-        // Index number
-        ctx.fillStyle = flash > 0.3 ? '#000' : '#fff';
-        ctx.font = `bold ${Math.max(9, p.radius * 0.65)}px monospace`;
-        ctx.textAlign = 'center';
+        // Inner content: just the name, colored by type
+        const fontSize = Math.max(9, 13 * proj.scale);
+        ctx.font = `bold ${fontSize}px monospace`;
         ctx.textBaseline = 'middle';
-        ctx.fillText(String(p.index + 1), p.x, p.y);
+        ctx.textAlign = 'center';
+        
+        // Name color - matches pill type, flashes bright white
+        const nameR = Math.min(255, r + flash * 150);
+        const nameG = Math.min(255, g + flash * 150);
+        const nameB = Math.min(255, b + flash * 150);
+        
+        // Truncate long names
+        const name = pill.name.length > 8 ? pill.name.substring(0, 7) + '…' : pill.name;
+        
+        // Shadow
+        ctx.fillStyle = `rgba(0, 0, 0, ${0.6 * depthFactor})`;
+        ctx.fillText(name, x + 1, y + 1);
+        
+        // Name text
+        ctx.fillStyle = `rgba(${nameR}, ${nameG}, ${nameB}, ${depthFactor})`;
+        ctx.fillText(name, x, y);
       }
       
-      // Draw labels
-      ctx.font = '11px monospace';
-      ctx.textBaseline = 'middle';
-      for (const p of particles) {
-        const bead = p.bead;
-        
-        // Position label away from center
-        const cx = width / 2 + vizSystem.beads.pan.x;
-        const cy = height / 2 + vizSystem.beads.pan.y;
-        const angle = Math.atan2(p.y - cy, p.x - cx);
-        const labelDist = p.radius + 14;
-        const lx = p.x + Math.cos(angle) * labelDist;
-        const ly = p.y + Math.sin(angle) * labelDist;
-        
-        // Align based on angle
-        if (angle > -Math.PI / 3 && angle < Math.PI / 3) {
-          ctx.textAlign = 'left';
-        } else if (angle > Math.PI * 2/3 || angle < -Math.PI * 2/3) {
-          ctx.textAlign = 'right';
-        } else {
-          ctx.textAlign = 'center';
-        }
-        
-        ctx.fillStyle = bead.style.color;
-        const label = bead.name.length > 7 ? bead.name.substring(0, 6) + '…' : bead.name;
-        ctx.fillText(label, lx, ly);
-      }
-      
-      // Legend
+      // Legend at bottom
       const legendY = height - 16;
       const legendItems = [
         { type: 'state', label: 'state' },
@@ -11306,23 +11337,34 @@
       for (const item of legendItems) {
         const style = BEAD_STYLES[item.type];
         ctx.fillStyle = style.color;
-        ctx.beginPath();
-        ctx.arc(legendX, legendY, 5, 0, Math.PI * 2);
+        drawPillShape(ctx, legendX + 12, legendY, 24, 10);
         ctx.fill();
         
         ctx.fillStyle = '#888';
-        ctx.fillText(item.label, legendX + 10, legendY);
-        legendX += ctx.measureText(item.label).width + 24;
+        ctx.fillText(item.label, legendX + 28, legendY);
+        legendX += ctx.measureText(item.label).width + 40;
       }
     }
     
-    // Legacy render function (calls physics version)
-    function renderBeads() {
-      if (!vizSystem.beads.initialized) {
-        initBeadsView();
+    // Draw a pill/capsule shape
+    function drawPillShape(ctx, x, y, w, h) {
+      const r = h / 2;
+      ctx.beginPath();
+      ctx.moveTo(x - w/2 + r, y - h/2);
+      ctx.lineTo(x + w/2 - r, y - h/2);
+      ctx.arc(x + w/2 - r, y, r, -Math.PI/2, Math.PI/2);
+      ctx.lineTo(x - w/2 + r, y + h/2);
+      ctx.arc(x - w/2 + r, y, r, Math.PI/2, -Math.PI/2);
+      ctx.closePath();
+    }
+    
+    // Legacy render function (calls pills version)
+    function renderPills_legacy() {
+      if (!vizSystem.pills.initialized) {
+        initPillsView();
       }
-      if (!vizSystem.beads.animationId) {
-        startBeadsPhysicsLoop();
+      if (!vizSystem.pills.animationId) {
+        startPillsPhysicsLoop();
       }
     }
     
