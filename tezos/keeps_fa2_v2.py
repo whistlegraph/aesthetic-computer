@@ -73,12 +73,13 @@ def keeps_module():
             """
             Mint a new Keep token with full TZIP-21 metadata.
             
+            Two modes:
+            1. Admin calling with owner param: mints to specified owner (for server-side minting)
+            2. User calling directly: mints to sender, requires fee payment
+               - This makes the USER the firstMinter for proper artist attribution
+            
             All bytes parameters should be raw hex-encoded UTF-8 strings
             (NOT Michelson-packed with 0x05 prefix).
-            
-            This uses sp.scenario_utils.bytes_of_string() style encoding,
-            which is just UTF-8 bytes encoded as hex, ensuring proper
-            indexer recognition.
             """
             sp.cast(params, sp.record(
                 name=sp.bytes,
@@ -101,12 +102,14 @@ def keeps_module():
                 owner=sp.address
             ))
             
-            # Only admin can mint
-            assert self.is_administrator_(), "FA2_NOT_ADMIN"
+            # Determine minting mode and owner
+            is_admin = self.is_administrator_()
             
-            # Validate mint fee payment (if fee is set)
-            # Note: Admin can call with 0 tez if keep_fee is 0
-            assert sp.amount >= self.data.keep_fee, "INSUFFICIENT_FEE"
+            # Non-admin callers must pay the fee and can only mint to themselves
+            if not is_admin:
+                assert sp.amount >= self.data.keep_fee, "INSUFFICIENT_FEE"
+                # User must mint to themselves (ensures they are firstMinter)
+                assert params.owner == sp.sender, "MUST_MINT_TO_SELF"
             
             # Check for duplicate content hash
             assert not self.data.content_hashes.contains(params.content_hash), "DUPLICATE_CONTENT_HASH"
@@ -406,7 +409,7 @@ def test():
         _valid=False,
     )
     
-    scenario.h2("Non-admin cannot mint")
+    scenario.h2("Non-admin cannot mint to someone else")
     contract.keep(
         name=str_to_bytes("Unauthorized"),
         description=str_to_bytes("Should fail"),
@@ -423,9 +426,36 @@ def test():
         creators=str_to_bytes("[]"),
         rights=str_to_bytes(""),
         content_type=str_to_bytes("text"),
-        content_hash=str_to_bytes(""),
+        content_hash=str_to_bytes("other_piece"),
         metadata_uri=str_to_bytes(""),
-        owner=bob.address,
+        owner=admin.address,  # Bob tries to mint to admin (not himself)
         _sender=bob,  # Bob is not admin
-        _valid=False,
+        _valid=False,  # Should fail: MUST_MINT_TO_SELF
     )
+    
+    scenario.h2("Non-admin CAN mint to self (user-callable keep)")
+    contract.keep(
+        name=str_to_bytes("User Mint"),
+        description=str_to_bytes("Bob mints to himself"),
+        artifactUri=str_to_bytes("ipfs://QmUser"),
+        displayUri=str_to_bytes("ipfs://QmUser"),
+        thumbnailUri=str_to_bytes("ipfs://QmUserThumb"),
+        decimals=str_to_bytes("0"),
+        symbol=str_to_bytes("KEEP"),
+        isBooleanAmount=str_to_bytes("true"),
+        shouldPreferSymbol=str_to_bytes("false"),
+        formats=str_to_bytes("[]"),
+        tags=str_to_bytes('["user-minted"]'),
+        attributes=str_to_bytes("[]"),
+        creators=str_to_bytes('["@bob"]'),
+        rights=str_to_bytes(""),
+        content_type=str_to_bytes("KidLisp"),
+        content_hash=str_to_bytes("bob_piece"),
+        metadata_uri=str_to_bytes("ipfs://QmBobMetadata"),
+        owner=bob.address,  # Bob mints to himself
+        _sender=bob,  # Bob is the sender
+        _valid=True,  # Should succeed - user mints to self
+    )
+    
+    # Verify Bob owns the new token
+    scenario.verify(contract.data.ledger[2] == bob.address)

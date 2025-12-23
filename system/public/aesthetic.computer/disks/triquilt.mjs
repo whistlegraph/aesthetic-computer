@@ -14,8 +14,8 @@ let colorB = "gray";
 
 function boot({ fps }) {
   // Runs once at the start.
-  w = 3;
-  h = 3;
+  w = 9;
+  h = 9;
   size = 48;
   fps(1);
 }

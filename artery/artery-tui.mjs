@@ -12,6 +12,7 @@ import path from 'path';
 import readline from 'readline';
 import os from 'os';
 import { execSync, spawn, spawnSync } from 'child_process';
+import qrcode from 'qrcode-terminal';
 
 // Find the emacsclient's PTY for direct sixel output (bypasses eat terminal)
 function findEmacsclientPty() {
@@ -408,7 +409,7 @@ class ArteryTUI {
     this.connected = false;
     this.currentPiece = null;
     this.selectedIndex = 0;
-    this.mode = 'menu'; // 'menu', 'repl', 'pieces', 'piece-input', 'tests', 'test-params', 'logs'
+    this.mode = 'menu'; // 'menu', 'repl', 'pieces', 'piece-input', 'tests', 'test-params', 'logs', 'devices'
     this.logs = [];
     this.allPieces = []; // Loaded from disks directory
     this.filteredPieces = []; // Filtered by search
@@ -449,6 +450,7 @@ class ArteryTUI {
       { key: 'p', label: 'Toggle Panel', desc: 'Toggle AC sidebar in VS Code', action: () => this.togglePanel() },
       { key: 'k', label: 'KidLisp.com', desc: 'Open KidLisp editor window', action: () => this.openKidLisp() },
       { key: 'd', label: 'Deck Control', desc: 'Control KidLisp.com card deck via CDP', action: () => this.enterKidLispCardsMode() },
+      { key: 'v', label: 'Devices', desc: 'Connected devices (LAN)', action: () => this.enterDevicesMode() },
       { key: 'e', label: 'Emacs', desc: 'Execute elisp in Emacs', action: () => this.enterEmacsMode() },
       { key: 'j', label: 'Jump to Piece', desc: 'Navigate to a piece', action: () => this.enterPieceMode() },
       { key: 'c', label: 'Current Piece', desc: 'Show current piece', action: () => this.showCurrent() },
@@ -500,7 +502,7 @@ class ArteryTUI {
     
     // Keeps dashboard live data
     this.keepsContractData = {
-      address: 'KT1KRQAkCrgbYPAxzxaFbGm1FaUJdqBACxu9',
+      address: 'KT1StXrQNvRd9dNPpHdCGEstcGiBV6neq79K',
       network: 'ghostnet',
       admin: 'aesthetic',
       tokenCount: 0,
@@ -535,6 +537,24 @@ class ArteryTUI {
     this.kidlispCardsOutput = '';
     this.kidlispCardsCdpPageId = null;
     
+    // Devices (LAN) state
+    this.devicesMenu = [
+      { key: 'r', label: 'Refresh', desc: 'Refresh device list' },
+      { key: 'j', label: 'Jump', desc: 'Jump device to piece' },
+      { key: 'R', label: 'Reload', desc: 'Reload selected device' },
+      { key: 'a', label: 'Reload All', desc: 'Reload all devices' },
+      { key: 'n', label: 'Name', desc: 'Name selected device' },
+    ];
+    this.devicesSelectedIndex = 0;
+    this.devicesList = [];
+    this.devicesHostInfo = null;
+    this.devicesLastFetch = null;
+    this.devicesLoading = false;
+    this.devicesError = null;
+    this.devicesSubMode = 'list'; // 'list', 'jump-input', 'name-input'
+    this.devicesJumpInput = '';
+    this.devicesNameInput = '';
+    
     // Site monitoring state
     this.siteProcess = null;
     this.siteLogs = [];
@@ -560,6 +580,12 @@ class ArteryTUI {
     this.cdpStatus = 'unknown'; // 'online', 'offline', 'unknown'
     this.cdpHost = null;
     this.cdpPort = null;
+    
+    // QR code for LAN URL (cached as lines)
+    this.qrCodeLines = null;
+    this.qrCodeUrl = null;
+    // Async - will update qrCodeLines when ready
+    this.generateLanQrCode().catch(() => {});
     
     // Detect host environment
     this.hostInfo = this.detectHostInfo();
@@ -855,6 +881,30 @@ class ArteryTUI {
     } catch (e) {}
     
     return info;
+  }
+  
+  // Generate QR code for LAN URL (for scanning with phones)
+  async generateLanQrCode() {
+    // Use HOST_IP env var (set by entry.fish from host machine's LAN IP)
+    const hostIp = process.env.HOST_IP;
+    
+    if (!hostIp) {
+      this.qrCodeLines = null;
+      this.qrCodeUrl = null;
+      return;
+    }
+    
+    const url = `https://${hostIp}:8888`;
+    this.qrCodeUrl = url;
+    
+    // Generate QR code as string
+    let qrOutput = '';
+    const originalWrite = process.stdout.write.bind(process.stdout);
+    process.stdout.write = (chunk) => { qrOutput += chunk; return true; };
+    qrcode.generate(url, { small: true });
+    process.stdout.write = originalWrite;
+    
+    this.qrCodeLines = qrOutput.split('\n').filter(line => line.length > 0);
   }
   
   loadPieces() {
@@ -1423,6 +1473,9 @@ class ArteryTUI {
         break;
       case 'kidlisp-cards':
         this.handleKidLispCardsInput(key);
+        break;
+      case 'devices':
+        this.handleDevicesInput(key);
         break;
     }
   }
@@ -2102,6 +2155,244 @@ class ArteryTUI {
 
   handleLogsInput(key) {
     // Just escape to exit (handled globally)
+  }
+
+  // === Devices Mode ===
+  async enterDevicesMode() {
+    this.mode = 'devices';
+    this.devicesSubMode = 'list';
+    this.devicesSelectedIndex = 0;
+    await this.fetchDevices();
+    this.render();
+  }
+  
+  async fetchDevices() {
+    this.devicesLoading = true;
+    this.devicesError = null;
+    this.render();
+    
+    try {
+      const response = await new Promise((resolve, reject) => {
+        const req = https.get('https://localhost:8889/devices', { rejectUnauthorized: false }, res => {
+          let data = '';
+          res.on('data', chunk => data += chunk);
+          res.on('end', () => {
+            try {
+              resolve(JSON.parse(data));
+            } catch (e) {
+              reject(e);
+            }
+          });
+        });
+        req.on('error', reject);
+        req.setTimeout(3000, () => {
+          req.destroy();
+          reject(new Error('Timeout'));
+        });
+      });
+      
+      this.devicesList = response.devices || [];
+      this.devicesHostInfo = response.host || null;
+      this.devicesLastFetch = Date.now();
+      this.devicesLoading = false;
+    } catch (e) {
+      this.devicesError = e.message;
+      this.devicesLoading = false;
+    }
+    this.render();
+  }
+  
+  async handleDevicesInput(key) {
+    // Handle sub-modes first
+    if (this.devicesSubMode === 'jump-input') {
+      if (key === '\r') {
+        // Submit jump
+        await this.devicesDoJump(this.devicesJumpInput);
+        this.devicesSubMode = 'list';
+        this.devicesJumpInput = '';
+        this.render();
+        return;
+      }
+      if (key === '\u001b') {
+        this.devicesSubMode = 'list';
+        this.devicesJumpInput = '';
+        this.render();
+        return;
+      }
+      if (key === '\u007f') {
+        this.devicesJumpInput = this.devicesJumpInput.slice(0, -1);
+        this.render();
+        return;
+      }
+      if (key.length === 1 && key >= ' ') {
+        this.devicesJumpInput += key;
+        this.render();
+        return;
+      }
+      return;
+    }
+    
+    if (this.devicesSubMode === 'name-input') {
+      if (key === '\r') {
+        await this.devicesDoName(this.devicesNameInput);
+        this.devicesSubMode = 'list';
+        this.devicesNameInput = '';
+        this.render();
+        return;
+      }
+      if (key === '\u001b') {
+        this.devicesSubMode = 'list';
+        this.devicesNameInput = '';
+        this.render();
+        return;
+      }
+      if (key === '\u007f') {
+        this.devicesNameInput = this.devicesNameInput.slice(0, -1);
+        this.render();
+        return;
+      }
+      if (key.length === 1 && key >= ' ') {
+        this.devicesNameInput += key;
+        this.render();
+        return;
+      }
+      return;
+    }
+    
+    // List mode
+    if (key === '\u001b[A' || key === 'k') { // Up
+      if (this.devicesList.length > 0) {
+        this.devicesSelectedIndex = Math.max(0, this.devicesSelectedIndex - 1);
+        this.render();
+      }
+      return;
+    }
+    if (key === '\u001b[B' || key === 'j') { // Down
+      if (this.devicesList.length > 0) {
+        this.devicesSelectedIndex = Math.min(this.devicesList.length - 1, this.devicesSelectedIndex + 1);
+        this.render();
+      }
+      return;
+    }
+    
+    // Menu actions
+    if (key === 'r') {
+      await this.fetchDevices();
+      return;
+    }
+    if (key === 'j' && this.devicesList.length > 0) {
+      this.devicesSubMode = 'jump-input';
+      this.devicesJumpInput = '';
+      this.render();
+      return;
+    }
+    if (key === 'R' && this.devicesList.length > 0) {
+      const device = this.devicesList[this.devicesSelectedIndex];
+      await this.devicesDoReload(device.id);
+      return;
+    }
+    if (key === 'a') {
+      await this.devicesDoReload('all');
+      return;
+    }
+    if (key === 'n' && this.devicesList.length > 0) {
+      this.devicesSubMode = 'name-input';
+      const device = this.devicesList[this.devicesSelectedIndex];
+      this.devicesNameInput = device.deviceName || '';
+      this.render();
+      return;
+    }
+  }
+  
+  async devicesDoJump(piece) {
+    const device = this.devicesList[this.devicesSelectedIndex];
+    if (!device || !piece) return;
+    
+    try {
+      await new Promise((resolve, reject) => {
+        const postData = JSON.stringify({ piece });
+        const req = https.request({
+          hostname: 'localhost',
+          port: 8889,
+          path: `/jump/${device.id}`,
+          method: 'POST',
+          rejectUnauthorized: false,
+          headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': postData.length
+          }
+        }, res => {
+          let data = '';
+          res.on('data', chunk => data += chunk);
+          res.on('end', () => resolve(JSON.parse(data)));
+        });
+        req.on('error', reject);
+        req.write(postData);
+        req.end();
+      });
+      this.setStatus(`Jumped ${device.handle || device.ip} to ${piece}`, 'success');
+    } catch (e) {
+      this.setStatus(`Jump failed: ${e.message}`, 'error');
+    }
+  }
+  
+  async devicesDoReload(target) {
+    try {
+      await new Promise((resolve, reject) => {
+        const req = https.request({
+          hostname: 'localhost',
+          port: 8889,
+          path: `/reload/${target}`,
+          method: 'POST',
+          rejectUnauthorized: false,
+          headers: { 'Content-Type': 'application/json' }
+        }, res => {
+          let data = '';
+          res.on('data', chunk => data += chunk);
+          res.on('end', () => resolve(JSON.parse(data)));
+        });
+        req.on('error', reject);
+        req.write('{}');
+        req.end();
+      });
+      this.setStatus(`Reloaded ${target === 'all' ? 'all devices' : target}`, 'success');
+      await this.fetchDevices();
+    } catch (e) {
+      this.setStatus(`Reload failed: ${e.message}`, 'error');
+    }
+  }
+  
+  async devicesDoName(name) {
+    const device = this.devicesList[this.devicesSelectedIndex];
+    if (!device) return;
+    
+    try {
+      await new Promise((resolve, reject) => {
+        const postData = JSON.stringify({ name });
+        const req = https.request({
+          hostname: 'localhost',
+          port: 8889,
+          path: `/device/${device.id}/name`,
+          method: 'POST',
+          rejectUnauthorized: false,
+          headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': postData.length
+          }
+        }, res => {
+          let data = '';
+          res.on('data', chunk => data += chunk);
+          res.on('end', () => resolve(JSON.parse(data)));
+        });
+        req.on('error', reject);
+        req.write(postData);
+        req.end();
+      });
+      this.setStatus(`Named device: ${name}`, 'success');
+      await this.fetchDevices();
+    } catch (e) {
+      this.setStatus(`Name failed: ${e.message}`, 'error');
+    }
   }
 
   async executeRepl(code) {
@@ -2864,7 +3155,7 @@ class ArteryTUI {
       // Check which are already kept on the current contract
       const keptCodes = new Set();
       try {
-        const keysRes = await fetch('https://api.ghostnet.tzkt.io/v1/contracts/KT1KRQAkCrgbYPAxzxaFbGm1FaUJdqBACxu9/bigmaps/content_hashes/keys');
+        const keysRes = await fetch('https://api.ghostnet.tzkt.io/v1/contracts/KT1StXrQNvRd9dNPpHdCGEstcGiBV6neq79K/bigmaps/content_hashes/keys');
         if (keysRes.ok) {
           const keys = await keysRes.json();
           // Keys are hex-encoded, decode them to plain text
@@ -3677,7 +3968,7 @@ class ArteryTUI {
       
       const keptCodes = new Set();
       try {
-        const keysRes = await fetch('https://api.ghostnet.tzkt.io/v1/contracts/KT1KRQAkCrgbYPAxzxaFbGm1FaUJdqBACxu9/bigmaps/content_hashes/keys?limit=10000');
+        const keysRes = await fetch('https://api.ghostnet.tzkt.io/v1/contracts/KT1StXrQNvRd9dNPpHdCGEstcGiBV6neq79K/bigmaps/content_hashes/keys?limit=10000');
         if (keysRes.ok) {
           const keys = await keysRes.json();
           keys.forEach(k => {
@@ -4672,6 +4963,9 @@ class ArteryTUI {
       case 'kidlisp-cards':
         this.renderKidLispCards();
         break;
+      case 'devices':
+        this.renderDevices();
+        break;
     }
     
     // Fill remaining lines with background (reserve 1 for footer if pending)
@@ -5053,6 +5347,22 @@ class ArteryTUI {
       this.writeColorLine(pageInfo, boardBg);
     } else {
       this.writeEmptyLine(boardBg);
+    }
+    
+    // === QR CODE SECTION (bottom right) ===
+    if (this.qrCodeLines && this.qrCodeLines.length > 0 && !compact) {
+      this.writeEmptyLine(boardBg);
+      const qrWidth = this.qrCodeLines[0].length;
+      const urlLabel = this.qrCodeUrl || 'Scan for LAN URL';
+      
+      // Render QR code lines, right-aligned
+      for (const line of this.qrCodeLines) {
+        const leftPad = Math.max(0, this.width - qrWidth - 2);
+        this.writeColorLine(`${' '.repeat(leftPad)}${FG_WHITE}${line}`, boardBg);
+      }
+      // URL label under QR code
+      const labelPad = Math.max(0, this.width - urlLabel.length - 2);
+      this.writeColorLine(`${' '.repeat(labelPad)}${FG_CYAN}${urlLabel}`, boardBg);
     }
     
     // Store footer for later rendering at very bottom (handled in render())
@@ -6003,6 +6313,93 @@ class ArteryTUI {
     // Fill remaining
     for (let i = recentLogs.length; i < logLines; i++) {
       this.writeLine(`${DOS_BORDER}║${BG_BLUE}${' '.repeat(boxWidth - 2)}${DOS_BORDER}║${RESET}`);
+    }
+    
+    this.renderFooter();
+  }
+
+  renderDevices() {
+    this.renderHeader();
+    const boxWidth = this.innerWidth;
+    const compact = this.width < 80;
+    
+    // Title with device count
+    const deviceCount = this.devicesList.length;
+    const hostName = this.devicesHostInfo?.name || 'unknown';
+    const countInfo = compact ? '' : `${DIM}(${deviceCount} devices)${RESET}`;
+    const title = `${DOS_BORDER}║${RESET}${BG_BLUE}${FG_BRIGHT_CYAN}📱${FG_WHITE} Devices ${countInfo}`;
+    const titlePad = boxWidth - this.stripAnsi(title).length - 1;
+    this.writeLine(`${title}${BG_BLUE}${' '.repeat(Math.max(0, titlePad))}${DOS_BORDER}║${RESET}`);
+    
+    // Host info
+    const hostLine = `${DOS_BORDER}║${RESET}${BG_BLUE}  ${FG_CYAN}Host:${FG_WHITE} ${hostName}${DIM} (${this.devicesHostInfo?.ip || 'N/A'})${RESET}`;
+    const hostPad = boxWidth - this.stripAnsi(hostLine).length - 1;
+    this.writeLine(`${hostLine}${BG_BLUE}${' '.repeat(Math.max(0, hostPad))}${DOS_BORDER}║${RESET}`);
+    this.writeLine(`${DOS_BORDER}╟${'─'.repeat(boxWidth - 2)}╢${RESET}`);
+    
+    // Loading/error state
+    if (this.devicesLoading) {
+      const loadLine = `${DOS_BORDER}║${RESET}${BG_BLUE}  ${FG_BRIGHT_YELLOW}Loading devices...${RESET}`;
+      const loadPad = boxWidth - this.stripAnsi(loadLine).length - 1;
+      this.writeLine(`${loadLine}${BG_BLUE}${' '.repeat(Math.max(0, loadPad))}${DOS_BORDER}║${RESET}`);
+    } else if (this.devicesError) {
+      const errLine = `${DOS_BORDER}║${RESET}${BG_BLUE}  ${FG_BRIGHT_RED}Error: ${this.devicesError}${RESET}`;
+      const errPad = boxWidth - this.stripAnsi(errLine).length - 1;
+      this.writeLine(`${errLine}${BG_BLUE}${' '.repeat(Math.max(0, errPad))}${DOS_BORDER}║${RESET}`);
+    } else if (this.devicesList.length === 0) {
+      const emptyLine = `${DOS_BORDER}║${RESET}${BG_BLUE}  ${DIM}No devices connected${RESET}`;
+      const emptyPad = boxWidth - this.stripAnsi(emptyLine).length - 1;
+      this.writeLine(`${emptyLine}${BG_BLUE}${' '.repeat(Math.max(0, emptyPad))}${DOS_BORDER}║${RESET}`);
+    } else {
+      // Device list
+      const maxDevices = Math.max(1, this.innerHeight - 12);
+      const devices = this.devicesList.slice(0, maxDevices);
+      
+      for (let i = 0; i < devices.length; i++) {
+        const d = devices[i];
+        const selected = i === this.devicesSelectedIndex;
+        const selectBg = selected ? BG_CYAN : BG_BLUE;
+        const selectFg = selected ? FG_BLACK : FG_WHITE;
+        const marker = selected ? '►' : ' ';
+        
+        // Device info with letter
+        const letter = d.letter || String.fromCharCode(65 + i); // A, B, C fallback
+        const name = d.deviceName || d.handle || d.ip || 'Unknown';
+        const ip = d.ip || '';
+        const handle = d.handle ? `@${d.handle}` : '';
+        const piece = d.currentPiece ? `[${d.currentPiece}]` : '';
+        
+        const deviceLine = `${DOS_BORDER}║${RESET}${selectBg}${FG_BRIGHT_YELLOW}${marker}${FG_BRIGHT_CYAN}${letter}${selectFg} ${name}${DIM} ${ip} ${handle} ${FG_BRIGHT_CYAN}${piece}${RESET}`;
+        const devicePad = boxWidth - this.stripAnsi(deviceLine).length - 1;
+        this.writeLine(`${deviceLine}${selectBg}${' '.repeat(Math.max(0, devicePad))}${DOS_BORDER}║${RESET}`);
+      }
+      
+      // Fill remaining space
+      const fillCount = maxDevices - devices.length;
+      for (let i = 0; i < fillCount; i++) {
+        this.writeLine(`${DOS_BORDER}║${BG_BLUE}${' '.repeat(boxWidth - 2)}${DOS_BORDER}║${RESET}`);
+      }
+    }
+    
+    this.writeLine(`${DOS_BORDER}╟${'─'.repeat(boxWidth - 2)}╢${RESET}`);
+    
+    // Actions menu or input mode
+    if (this.devicesSubMode === 'jump-input') {
+      const inputLine = `${DOS_BORDER}║${RESET}${BG_BLUE}  ${FG_BRIGHT_GREEN}Jump to piece:${FG_WHITE} ${this.devicesJumpInput}█${RESET}`;
+      const inputPad = boxWidth - this.stripAnsi(inputLine).length - 1;
+      this.writeLine(`${inputLine}${BG_BLUE}${' '.repeat(Math.max(0, inputPad))}${DOS_BORDER}║${RESET}`);
+    } else if (this.devicesSubMode === 'name-input') {
+      const inputLine = `${DOS_BORDER}║${RESET}${BG_BLUE}  ${FG_BRIGHT_GREEN}Device name:${FG_WHITE} ${this.devicesNameInput}█${RESET}`;
+      const inputPad = boxWidth - this.stripAnsi(inputLine).length - 1;
+      this.writeLine(`${inputLine}${BG_BLUE}${' '.repeat(Math.max(0, inputPad))}${DOS_BORDER}║${RESET}`);
+    } else {
+      // Action hints
+      const actions = compact 
+        ? `${FG_CYAN}r${FG_WHITE}efresh ${FG_CYAN}j${FG_WHITE}ump ${FG_CYAN}R${FG_WHITE}eload ${FG_CYAN}a${FG_WHITE}ll ${FG_CYAN}n${FG_WHITE}ame`
+        : `${FG_CYAN}r${FG_WHITE}efresh  ${FG_CYAN}j${FG_WHITE}ump  ${FG_CYAN}R${FG_WHITE}eload  ${FG_CYAN}a${FG_WHITE}ll  ${FG_CYAN}n${FG_WHITE}ame  ${FG_CYAN}↑↓${FG_WHITE} select`;
+      const actionsLine = `${DOS_BORDER}║${RESET}${BG_BLUE}  ${actions}${RESET}`;
+      const actionsPad = boxWidth - this.stripAnsi(actionsLine).length - 1;
+      this.writeLine(`${actionsLine}${BG_BLUE}${' '.repeat(Math.max(0, actionsPad))}${DOS_BORDER}║${RESET}`);
     }
     
     this.renderFooter();

@@ -194,7 +194,7 @@ async function deployContract(network = 'ghostnet') {
   // Build contract metadata (TZIP-16)
   const contractMetadataJson = JSON.stringify({
     name: "KidLisp Keeps",
-    version: "2.0.0",
+    version: "3.0.0",
     interfaces: ["TZIP-012", "TZIP-016", "TZIP-021"],
     authors: ["aesthetic.computer"],
     homepage: "https://aesthetic.computer"
@@ -202,14 +202,16 @@ async function deployContract(network = 'ghostnet') {
   const contractMetadataBytes = stringToBytes(contractMetadataJson);
   const tezosStoragePointer = stringToBytes("tezos-storage:content");
   
-  // Initial storage Michelson - includes content_hashes and contract_metadata_locked
-  // Format: (Pair admin (Pair content_hashes (Pair contract_metadata_locked (Pair ledger (Pair metadata (Pair metadata_locked (Pair next_token_id (Pair operators token_metadata))))))))
-  const initialStorageMichelson = `(Pair "${credentials.address}" (Pair {} (Pair False (Pair {} (Pair {Elt "" 0x${tezosStoragePointer}; Elt "content" 0x${contractMetadataBytes}} (Pair {} (Pair 0 (Pair {} {}))))))))`;
+  // Initial storage Michelson - matches SmartPy output
+  // Format: (Pair admin (Pair content_hashes (Pair contract_metadata_locked (Pair keep_fee (Pair ledger (Pair metadata (Pair metadata_locked (Pair next_token_id (Pair operators token_metadata)))))))))
+  // SmartPy example: (Pair "tz1..." (Pair {} (Pair False (Pair 0 (Pair {} (Pair {Elt "" 0x...} (Pair {} (Pair 0 (Pair {} {})))))))))
+  const initialStorageMichelson = `(Pair "${credentials.address}" (Pair {} (Pair False (Pair 0 (Pair {} (Pair {Elt "" 0x${tezosStoragePointer}; Elt "content" 0x${contractMetadataBytes}} (Pair {} (Pair 0 (Pair {} {})))))))))`;
   
   const parsedStorage = parser.parseMichelineExpression(initialStorageMichelson);
   
   console.log(`   ✓ Administrator: ${credentials.address}`);
   console.log('   ✓ Initial token ID: 0');
+  console.log('   ✓ Keep fee: 0 mutez (free)');
   console.log('   ✓ Contract metadata: TZIP-16 compliant');
   console.log('   ✓ Content hash uniqueness: enabled');
   console.log('   ✓ Contract metadata locked: false');
@@ -864,6 +866,11 @@ async function mintToken(piece, options = {}) {
     }
   }
   
+  // For creators array: put handle FIRST so objkt shows it as artist
+  // Wallet address second for on-chain attribution
+  const creatorHandle = authorHandle || '@anon';
+  const creatorsArray = [creatorHandle, credentials.address];
+  
   const metadataJson = {
     name: tokenName,
     description: description,
@@ -874,8 +881,8 @@ async function mintToken(piece, options = {}) {
     symbol: 'KEEP',
     isBooleanAmount: true,
     shouldPreferSymbol: false,
-    minter: credentials.address,
-    creators: [credentials.address],
+    minter: creatorHandle,
+    creators: creatorsArray,
     rights: '© All rights reserved',
     mintingTool: 'https://aesthetic.computer',
     formats: [{
@@ -921,7 +928,7 @@ async function mintToken(piece, options = {}) {
     formats: stringToBytes(JSON.stringify(metadataJson.formats)),
     tags: stringToBytes(JSON.stringify(metadataJson.tags)),
     attributes: stringToBytes(JSON.stringify(metadataJson.attributes)),
-    creators: stringToBytes(JSON.stringify([credentials.address])),
+    creators: stringToBytes(JSON.stringify(creatorsArray)),
     rights: stringToBytes('© All rights reserved'),
     content_type: stringToBytes('KidLisp'),
     content_hash: stringToBytes(contentHash),  // Source-based hash for uniqueness
@@ -1080,6 +1087,10 @@ async function updateMetadata(tokenId, piece, options = {}) {
     { name: 'Platform', value: 'Aesthetic Computer' },
   ];
   
+  // For creators array: put handle FIRST so objkt shows it as artist
+  const creatorHandle = authorHandle || '@anon';
+  const creatorsArray = [creatorHandle, credentials.address];
+  
   // Build metadata JSON for IPFS
   const tokenName = `$${pieceName}`;
   const metadataJson = {
@@ -1092,8 +1103,8 @@ async function updateMetadata(tokenId, piece, options = {}) {
     symbol: 'KEEP',
     isBooleanAmount: true,
     shouldPreferSymbol: false,
-    minter: credentials.address,
-    creators: [credentials.address],
+    minter: creatorHandle,
+    creators: creatorsArray,
     rights: '© All rights reserved',
     mintingTool: 'https://aesthetic.computer',
     formats: [{
@@ -1129,7 +1140,7 @@ async function updateMetadata(tokenId, piece, options = {}) {
     formats: stringToBytes(JSON.stringify(metadataJson.formats)),
     tags: stringToBytes(JSON.stringify(tags)),
     attributes: stringToBytes(JSON.stringify(attributes)),
-    creators: stringToBytes(JSON.stringify([credentials.address])),
+    creators: stringToBytes(JSON.stringify(creatorsArray)),
     rights: stringToBytes('© All rights reserved'),
     content_type: stringToBytes('KidLisp'),
     content_hash: stringToBytes(pieceName),
@@ -1341,6 +1352,9 @@ async function redactToken(tokenId, options = {}) {
     { name: 'Platform', value: 'Aesthetic Computer' },
   ];
   
+  // For redacted content, use admin as minter/creator (censorship action)
+  const creatorsArray = ['@aesthetic', credentials.address];
+  
   // Upload metadata JSON
   const metadataJson = {
     name: tokenName,
@@ -1352,8 +1366,8 @@ async function redactToken(tokenId, options = {}) {
     symbol: 'KEEP',
     isBooleanAmount: true,
     shouldPreferSymbol: false,
-    minter: credentials.address,
-    creators: [credentials.address],
+    minter: '@aesthetic',
+    creators: creatorsArray,
     rights: '© All rights reserved',
     mintingTool: 'https://aesthetic.computer',
     formats: [{
@@ -1387,7 +1401,7 @@ async function redactToken(tokenId, options = {}) {
     formats: stringToBytes(JSON.stringify(metadataJson.formats)),
     tags: stringToBytes(JSON.stringify(tags)),
     attributes: stringToBytes(JSON.stringify(attributes)),
-    creators: stringToBytes(JSON.stringify([credentials.address])),
+    creators: stringToBytes(JSON.stringify(creatorsArray)),
     rights: stringToBytes('© All rights reserved'),
     content_type: stringToBytes('REDACTED'),
     content_hash: stringToBytes('REDACTED'),
