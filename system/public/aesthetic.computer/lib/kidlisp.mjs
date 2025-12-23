@@ -436,9 +436,13 @@ function getExecutionTrace() {
 }
 
 function postExecutionTrace() {
-  if (!isKidlispTraceEnabled()) return;
+  if (!isKidlispTraceEnabled()) {
+    return;
+  }
   const trace = getExecutionTrace();
-  if (trace.length === 0) return;
+  if (trace.length === 0) {
+    return;
+  }
   
   postToParent({
     type: 'kidlisp-trace',
@@ -3964,6 +3968,11 @@ class KidLisp {
           const textY = $.screen.height - 10; // 10 pixels from bottom
           // Draw error text in red using MatrixChunky8 font
           $.ink("red").write(errorText, { x: 2, y: textY }, undefined, undefined, false, "MatrixChunky8");
+        }
+
+        // 🔍 Post execution trace on first frame for kidlisp.com visualization
+        if (isKidlispTraceEnabled() && this.frameCount === 1) {
+          postExecutionTrace();
         }
 
         // 🎯 End performance frame tracking
@@ -8304,7 +8313,9 @@ class KidLisp {
     
     // 📊 Execution trace for kidlisp.com visualization
     const tracing = isKidlispTraceEnabled();
-    if (tracing) traceEnter(parsed);
+    if (tracing) {
+      traceEnter(parsed);
+    }
     
     // 🐛 Track current expression for debugging
     const prevExpression = this.currentEvaluatingExpression;
