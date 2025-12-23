@@ -474,7 +474,8 @@ function boot({ Form, CUBEL, QUAD, penLock, system, get, net: { socket, udp }, h
       if (type === "1v1:move") {
         // Log occasionally for debugging
         if (Math.random() < 0.05) {
-          logNetwork(`WS recv 1v1:move from ${content.handle || id} pos=${content.pos?.x?.toFixed(1)},${content.pos?.y?.toFixed(1)},${content.pos?.z?.toFixed(1)}`);\n        }
+          logNetwork(`WS recv 1v1:move from ${content.handle || id} pos=${content.pos?.x?.toFixed(1)},${content.pos?.y?.toFixed(1)},${content.pos?.z?.toFixed(1)}`);
+        }
         if (others[id]) {
           others[id].pos = content.pos;
           others[id].rot = content.rot;
@@ -485,7 +486,7 @@ function boot({ Form, CUBEL, QUAD, penLock, system, get, net: { socket, udp }, h
           }
         } else {
           // We got a move from someone we don't know about yet
-          logNetwork(`WS 1v1:move from unknown player ${id}, handle=${content.handle}`, \"warn\");
+          logNetwork(`WS 1v1:move from unknown player ${id}, handle=${content.handle}`, "warn");
         }
       }
       
@@ -1047,17 +1048,17 @@ function paint({ wipe, ink, painting, screen, line: drawLine, box: drawBox, clea
   // === NETWORK STATUS OVERLAY (always visible, bottom-left above health) ===
   const netY = screen.height - 70;
   const netX = 6;
-  const now = Date.now();
+  const netNow = Date.now();
   
   // UDP status
   const udpStatus = udpChannel?.connected ? "UDP:ON" : "UDP:OFF";
-  const udpAge = lastUdpReceiveTime ? Math.floor((now - lastUdpReceiveTime) / 1000) : "?";
+  const udpAge = lastUdpReceiveTime ? Math.floor((netNow - lastUdpReceiveTime) / 1000) : "?";
   const udpColor = udpChannel?.connected ? (udpAge < 5 ? [0, 255, 0] : [255, 255, 0]) : [255, 0, 0];
   ink(...udpColor).write(`${udpStatus} (${udpMessageCount}msg ${udpAge}s)`, { x: netX, y: netY }, undefined, undefined, false, hudFont);
   
   // WebSocket status  
   const wsStatus = wsConnected ? "WS:ON" : "WS:OFF";
-  const wsAge = lastWsReceiveTime ? Math.floor((now - lastWsReceiveTime) / 1000) : "?";
+  const wsAge = lastWsReceiveTime ? Math.floor((netNow - lastWsReceiveTime) / 1000) : "?";
   const wsColor = wsConnected ? (wsAge < 10 ? [0, 255, 0] : [255, 255, 0]) : [255, 0, 0];
   ink(...wsColor).write(`${wsStatus} (${wsMessageCount}msg ${wsAge}s)`, { x: netX, y: netY + 10 }, undefined, undefined, false, hudFont);
   
