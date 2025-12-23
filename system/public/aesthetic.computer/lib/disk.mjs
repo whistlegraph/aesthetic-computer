@@ -6473,6 +6473,13 @@ async function load(
     hash = parsed.hash; // tood: these probably don't work? 24.07.09.23.46
     host = parsed.host;
     slug = parsed.name; // not 'text' for this.
+    
+    // 🔍 Enable tracing for kidlisp.com visualization if requested
+    if (parsed.enableTrace) {
+      enableKidlispTrace();
+    } else {
+      disableKidlispTrace();
+    }
 
     if (slug !== "(...)") path = parsed.path; //"aesthetic.computer/disks/" + slug;
     // 📓 Might need to fill in hash, path, or slug here. 23.06.24.18.49
@@ -6890,6 +6897,11 @@ async function load(
       
       // Store trace flag globally for kidlisp visualization
       $commonApi.kidlispEnableTrace = enableTrace || false;
+      
+      // Reset frameCount so trace is posted on first frame of new code
+      if (globalKidLispInstance) {
+        globalKidLispInstance.frameCount = 0;
+      }
       
       $commonApi.load(
         {
