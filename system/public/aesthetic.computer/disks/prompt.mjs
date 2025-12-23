@@ -151,6 +151,11 @@ let ruler = false; // Paint a line down the center of the display.
 // let firstCommandSent = false; // 🏳️
 let firstActivation = true; // 🏳️ Used to trigger a startup 🔊🎆
 
+// 📊 FPS Meter state
+let fpsTimestamps = [];
+let currentFps = 0;
+let showFpsMeter = false; // Toggle with backtick key
+
 // 🚫 DEBUG: Disable content ticker/TV preview while debugging carousel
 const DISABLE_CONTENT_TICKER = true;
 
@@ -3193,6 +3198,14 @@ class MediaPreviewBox {
 function paint($) {
   // Time-based animation counter (used by both MOTD and ghost hint)
   const now = performance.now();
+  
+  // 📊 FPS calculation using rolling window
+  fpsTimestamps.push(now);
+  while (fpsTimestamps.length > 0 && fpsTimestamps[0] < now - 1000) {
+    fpsTimestamps.shift();
+  }
+  currentFps = fpsTimestamps.length;
+  
   if (!lastMotdTime) lastMotdTime = now;
   const deltaTime = (now - lastMotdTime) / 1000; // Convert to seconds
   lastMotdTime = now;
@@ -5757,6 +5770,18 @@ function paint($) {
     }
   }
 
+  // 📊 FPS Meter - tiny display in bottom-right corner
+  if (showFpsMeter) {
+    const fpsText = `${currentFps}`;
+    const fpsColor = currentFps >= 55 ? [0, 200, 100, 200] : 
+                     currentFps >= 30 ? [255, 200, 0, 200] : [255, 60, 60, 200];
+    // Draw background pill
+    const textWidth = fpsText.length * 6;
+    $.ink(0, 0, 0, 150).box(screen.width - textWidth - 8, screen.height - 12, textWidth + 6, 10);
+    // Draw FPS text
+    $.ink(fpsColor).write(fpsText, { x: screen.width - textWidth - 5, y: screen.height - 11 }, undefined, undefined, false, "MatrixChunky8");
+  }
+
   // 🏷️ Dev Mode indicator - TEMPORARILY DISABLED for debugging
   // TODO: Re-enable once black box source is identified
 
@@ -6417,6 +6442,12 @@ function act({
   }
 
   if (e.is("textinput:shift-right:empty")) autocompleteChar();
+
+  // 📊 Toggle FPS meter with backtick key
+  if (e.is("keyboard:down:`")) {
+    showFpsMeter = !showFpsMeter;
+    needsPaint();
+  }
 
   // if (e.is("keyboard:down") && e.key !== "Enter") {
   // console.log("down key...");

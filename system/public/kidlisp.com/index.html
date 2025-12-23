@@ -279,6 +279,7 @@
       flex-direction: column;
       /* border-right: 2px solid var(--border-color); Removed for Split.js */
       background: #fffacd; /* Legal pad yellow */
+      position: relative; /* For live-running/live-paused ::before pseudo-element */
     }
 
     @media (prefers-color-scheme: dark) {
@@ -335,12 +336,19 @@
         text-decoration: underline;
       }
     }
-
-    #send-button {
+    
+    /* Playback controls container - persists across all viz views */
+    #playback-controls {
       position: absolute;
       bottom: 8px;
       right: 8px;
       z-index: 100;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    #send-button {
       width: 48px;
       height: 48px;
       background: rgb(76, 175, 80); /* Green by default */
@@ -451,10 +459,6 @@
     }
 
     #stop-button {
-      position: absolute;
-      bottom: 8px;
-      right: 8px; /* Same position as play button initially */
-      z-index: 101; /* Above play button to ensure it's clickable */
       width: 48px;
       height: 48px;
       background: rgb(244, 67, 54); /* Red */
@@ -543,6 +547,8 @@
     }
     
     /* Live running state - green outline matching play button (#90EE90) */
+    /* Applied to editor-panel to show across all viz views */
+    .editor-panel.live-running::before,
     #kidlisp-editor.live-running::before {
       content: '';
       position: absolute;
@@ -558,6 +564,7 @@
     }
     
     /* Paused state - yellow outline matching pause button (#ffd93d) */
+    .editor-panel.live-paused::before,
     #kidlisp-editor.live-paused::before {
       content: '';
       position: absolute;
@@ -574,18 +581,22 @@
     
     /* Dark mode: slightly brighter for visibility */
     @media (prefers-color-scheme: dark) {
+      .editor-panel.live-running::before,
       #kidlisp-editor.live-running::before {
         border-color: rgba(144, 238, 144, 0.6);
       }
+      .editor-panel.live-paused::before,
       #kidlisp-editor.live-paused::before {
         border-color: rgba(255, 217, 61, 0.6);
       }
     }
     
+    [data-theme="dark"] .editor-panel.live-running::before,
     [data-theme="dark"] #kidlisp-editor.live-running::before {
       border-color: rgba(144, 238, 144, 0.6);
     }
     
+    [data-theme="dark"] .editor-panel.live-paused::before,
     [data-theme="dark"] #kidlisp-editor.live-paused::before {
       border-color: rgba(255, 217, 61, 0.6);
     }
@@ -3873,11 +3884,14 @@
             <span>space</span>
           </button>
         </div>
+        <!-- Playback Controls - persist across all views -->
+        <div id="playback-controls">
+          <button id="send-button" aria-label="Play"></button>
+          <button id="stop-button" aria-label="Stop"></button>
+        </div>
         <!-- Text View (Monaco Editor) -->
         <div class="viz-container active" id="viz-text">
           <div id="kidlisp-editor">
-            <button id="send-button" aria-label="Play"></button>
-            <button id="stop-button" aria-label="Stop"></button>
             <button id="clear-button" style="display: none;">Clear</button>
           </div>
         </div>
@@ -6523,8 +6537,8 @@
         entry.classList.add(options.className);
       }
       
-      consoleOutput.insertBefore(entry, consoleOutput.firstChild);
-      consoleOutput.scrollTop = 0;
+      consoleOutput.appendChild(entry);
+      consoleOutput.scrollTop = consoleOutput.scrollHeight;
       return entry;
     }
     
@@ -6627,7 +6641,7 @@
             sendButton.classList.add('playing');
             sendButton.style.right = '64px';
             stopButton.style.display = 'flex';
-            document.getElementById('kidlisp-editor').classList.add('live-running');
+            setLiveState('running');
             shouldAutoPlay = false; // Clear the flag so we don't auto-play again
           }
         }
@@ -6994,7 +7008,7 @@
               sendButton.classList.add('playing');
               sendButton.style.right = '64px';
               stopButton.style.display = 'flex';
-              document.getElementById('kidlisp-editor').classList.add('live-running');
+              setLiveState('running');
               shouldAutoPlay = false;
             }
           } else {
@@ -7947,6 +7961,26 @@
     let isPaused = false;
     let lastCode = ''; // Track last code for auto-reload
     
+    // Helper to set live state on editor panel (for visibility across all viz views)
+    function setLiveState(state) {
+      const editorPanel = document.getElementById('editor-panel');
+      const kidlispEditor = document.getElementById('kidlisp-editor');
+      
+      // Remove both states first
+      editorPanel?.classList.remove('live-running', 'live-paused');
+      kidlispEditor?.classList.remove('live-running', 'live-paused');
+      
+      // Add new state if specified
+      if (state === 'running') {
+        editorPanel?.classList.add('live-running');
+        kidlispEditor?.classList.add('live-running');
+      } else if (state === 'paused') {
+        editorPanel?.classList.add('live-paused');
+        kidlispEditor?.classList.add('live-paused');
+      }
+      // 'stopped' or null removes both classes (already done above)
+    }
+    
     // Track current platform globally
     let currentPlatform = localStorage.getItem('kidlisp-platform') || 'aesthetic-computer';
     
@@ -8005,7 +8039,7 @@
       sendButton.classList.remove('playing');
       sendButton.style.right = '8px';
       stopButton.style.display = 'none';
-      document.getElementById('kidlisp-editor').classList.remove('live-running');
+      setLiveState('stopped');
       
       // Hide QR code when not playing
       const previewQR = document.getElementById('preview-qr');
@@ -8050,8 +8084,8 @@
         // Get the current code identifier if we have one
         const codeId = localStorage.getItem('kidlisp-current-code') || null;
         
-        // Check if visualization tabs are active (tree or space view)
-        const needsTrace = vizSystem.currentView !== 'text';
+        // Always enable trace - user may switch to tree/space view while running
+        const needsTrace = true;
         
         // Send code via postMessage for instant reload (no network!)
         sendToIframe({
@@ -8110,8 +8144,7 @@
         sendButton.style.right = '64px'; // Move play button to the left
         stopButton.style.display = 'flex';
         // Add live-running class to show green outline, remove paused state
-        document.getElementById('kidlisp-editor').classList.add('live-running');
-        document.getElementById('kidlisp-editor').classList.remove('live-paused');
+        setLiveState('running');
         
         // Show QR code when playing on aesthetic-computer platform
         if (currentPlatform === 'aesthetic-computer') {
@@ -8128,8 +8161,7 @@
         isPaused = false;
         sendButton.classList.add('playing'); // Ensure playing style (Pause icon)
         // Switch from paused (yellow) to running (green) outline
-        document.getElementById('kidlisp-editor').classList.add('live-running');
-        document.getElementById('kidlisp-editor').classList.remove('live-paused');
+        setLiveState('running');
       } else {
         // Pause
         log.playback.debug('Pausing');
@@ -8138,8 +8170,7 @@
         isPaused = true;
         sendButton.classList.remove('playing'); // Revert to Play icon (Green)
         // Switch from running (green) to paused (yellow) outline
-        document.getElementById('kidlisp-editor').classList.remove('live-running');
-        document.getElementById('kidlisp-editor').classList.add('live-paused');
+        setLiveState('paused');
         // But keep position and stop button
         sendButton.style.right = '64px';
         stopButton.style.display = 'flex';
@@ -8175,8 +8206,7 @@
         sendButton.style.right = '8px'; // Move play button back to original position
         stopButton.style.display = 'none';
         // Remove both live-running and live-paused classes to hide outlines
-        document.getElementById('kidlisp-editor').classList.remove('live-running');
-        document.getElementById('kidlisp-editor').classList.remove('live-paused');
+        setLiveState('stopped');
         
         // Clear title (but not URL, which reflects editor content)
         document.title = 'KidLisp - transmedia pattern programming for everybody';
@@ -8396,6 +8426,12 @@
         return;
       }
       
+      // Debug: log all message types for trace debugging
+      const msgType = event.data?.type;
+      if (msgType && msgType.includes('trace')) {
+        console.log('🔍 [MSG] Received message type:', msgType, event.data);
+      }
+      
       // 🧪 Test harness message handlers
       if (event.data?.type?.startsWith('test:')) {
         log.message.debug('Test message:', event.data.type);
@@ -8456,7 +8492,7 @@
             sendButton.classList.add('playing');
             sendButton.style.right = '64px';
             stopButton.style.display = 'flex';
-            document.getElementById('kidlisp-editor').classList.add('live-running');
+            setLiveState('running');
             shouldAutoPlay = false; // Clear the flag so we don't auto-play again
           }
         }
@@ -8483,8 +8519,10 @@
         }
       } else if (messageType === 'kidlisp-trace') {
         // Execution trace from KidLisp interpreter - update visualization
+        console.log('🔍 [TRACE] Received kidlisp-trace:', event.data.trace?.length || 0, 'entries');
         if (event.data.trace && Array.isArray(event.data.trace)) {
           vizSystem.executionTrace = event.data.trace;
+          console.log('🔍 [TRACE] Updated vizSystem.executionTrace, currentView:', vizSystem.currentView);
           // Update visualizations if visible
           if (vizSystem.currentView === 'tree') {
             renderTree();
@@ -9648,9 +9686,163 @@
       ast: null,
       executionTrace: [], // Real trace from KidLisp interpreter
       traceEnabled: false,
-      tree: { canvas: null, ctx: null, nodes: [], pan: { x: 0, y: 0 }, zoom: 1 },
-      space: { canvas: null, initialized: false, nodes: [], camera: { x: 0, y: 50, z: 100 } }
+      tree: { canvas: null, ctx: null, nodes: [], pan: { x: 0, y: 0 }, zoom: 1, dpr: 1 },
+      space: { canvas: null, initialized: false, nodes: [], camera: { x: 0, y: 50, z: 100 }, dpr: 1 }
     };
+    
+    // KidLisp syntax colors - matching the interpreter's getTokenColor
+    const syntaxColors = {
+      comment: '#888888',
+      string: '#FFD700',      // yellow
+      number: '#FFB6C1',      // pink
+      timing: '#FFFF00',      // yellow for timing like "1s", "2s..."
+      timingActive: '#00FF00', // lime when active
+      function: '#40E0D0',    // turquoise/cyan for functions
+      special: '#FF69B4',     // hotpink for special forms
+      operator: '#FF69B4',    // hotpink for operators
+      paren: '#C0C0C0',       // silver for parentheses
+      symbol: '#87CEEB',      // skyblue for symbols
+      dollarCode: '#32CD32',  // limegreen for $codes
+      hashCode: '#FFA500',    // orange for #codes
+      colorName: null,        // will be actual color
+      default: '#D4D4D4'      // light gray
+    };
+    
+    // Get color for a token using KidLisp-style syntax highlighting
+    function getTokenSyntaxColor(token, prevToken, nextToken) {
+      if (!token) return syntaxColors.default;
+      
+      // Comments
+      if (token.startsWith(';')) return syntaxColors.comment;
+      
+      // Strings
+      if ((token.startsWith('"') && token.endsWith('"')) ||
+          (token.startsWith("'") && token.endsWith("'"))) {
+        return syntaxColors.string;
+      }
+      
+      // $codes
+      if (token.startsWith('$') && /^\$[0-9A-Za-z]+$/.test(token)) {
+        return syntaxColors.dollarCode;
+      }
+      
+      // #codes (painting refs)
+      if (token.startsWith('#') && /^#[0-9A-Za-z]{1,8}$/.test(token)) {
+        return syntaxColors.hashCode;
+      }
+      
+      // Timing patterns
+      if (/^\d*\.?\d+[sf]!?\.{0,3}$/.test(token)) {
+        return syntaxColors.timing;
+      }
+      
+      // Numbers
+      if (/^-?\d+(\.\d+)?$/.test(token)) {
+        return syntaxColors.number;
+      }
+      
+      // Parentheses
+      if (token === '(' || token === ')') {
+        return syntaxColors.paren;
+      }
+      
+      // Special forms
+      const specialForms = ['def', 'if', 'cond', 'later', 'once', 'lambda', 'let', 'do', 'repeat', 'bunch', 'tap', 'drag'];
+      if (specialForms.includes(token)) {
+        return syntaxColors.special;
+      }
+      
+      // Operators
+      const operators = ['+', '-', '*', '/', '%', 'mod', '=', '>', '<', '>=', '<=', 'abs', 'sqrt', 'min', 'max', 'and', 'or', 'not'];
+      if (operators.includes(token)) {
+        return syntaxColors.operator;
+      }
+      
+      // Functions (after opening paren)
+      if (prevToken === '(') {
+        return syntaxColors.function;
+      }
+      
+      // Known graphics functions
+      const graphicsFns = ['wipe', 'ink', 'line', 'box', 'circle', 'write', 'paste', 'stamp', 'point', 'poly', 'shape', 'flood'];
+      if (graphicsFns.includes(token)) {
+        return syntaxColors.function;
+      }
+      
+      // CSS color names - return actual color
+      const cssColorNames = ['red', 'blue', 'green', 'yellow', 'orange', 'purple', 'pink', 'cyan', 'magenta', 'white', 'black', 'gray', 'lime', 'teal', 'navy', 'maroon'];
+      if (cssColorNames.includes(token.toLowerCase())) {
+        return token.toLowerCase();
+      }
+      
+      return syntaxColors.symbol;
+    }
+    
+    // Tokenize a line of KidLisp for syntax highlighting
+    function tokenizeLine(line) {
+      const tokens = [];
+      let i = 0;
+      
+      while (i < line.length) {
+        // Whitespace - preserve it
+        if (/\s/.test(line[i])) {
+          let ws = '';
+          while (i < line.length && /\s/.test(line[i])) {
+            ws += line[i];
+            i++;
+          }
+          tokens.push(ws);
+          continue;
+        }
+        
+        // Comment - rest of line
+        if (line[i] === ';') {
+          tokens.push(line.substring(i));
+          break;
+        }
+        
+        // String
+        if (line[i] === '"' || line[i] === "'") {
+          const quote = line[i];
+          let str = quote;
+          i++;
+          while (i < line.length && line[i] !== quote) {
+            if (line[i] === '\\' && i + 1 < line.length) {
+              str += line[i] + line[i + 1];
+              i += 2;
+            } else {
+              str += line[i];
+              i++;
+            }
+          }
+          if (i < line.length) {
+            str += line[i];
+            i++;
+          }
+          tokens.push(str);
+          continue;
+        }
+        
+        // Parentheses
+        if (line[i] === '(' || line[i] === ')') {
+          tokens.push(line[i]);
+          i++;
+          continue;
+        }
+        
+        // Word/symbol/number
+        let word = '';
+        while (i < line.length && !/[\s()\[\]{}]/.test(line[i])) {
+          word += line[i];
+          i++;
+        }
+        if (word) {
+          tokens.push(word);
+        }
+      }
+      
+      return tokens;
+    }
     
     // Node type colors matching the plan
     const nodeColors = {
@@ -9804,14 +9996,21 @@
       // Only initialize once
       if (vizSystem.tree.ctx) {
         console.log('🌳 [TREE] Already initialized, resizing');
-        // Already initialized, just resize and render
+        // Already initialized, just resize and render with DPR
         requestAnimationFrame(() => {
           const container = document.getElementById('viz-tree');
           if (container) {
             const rect = container.getBoundingClientRect();
-            console.log('🌳 [TREE] Container rect:', rect);
-            canvas.width = rect.width || 400;
-            canvas.height = Math.max(100, rect.height || 300);
+            const dpr = window.devicePixelRatio || 1;
+            vizSystem.tree.dpr = dpr;
+            console.log('🌳 [TREE] Container rect:', rect, 'dpr:', dpr);
+            
+            canvas.width = (rect.width || 400) * dpr;
+            canvas.height = Math.max(100, rect.height || 300) * dpr;
+            canvas.style.width = (rect.width || 400) + 'px';
+            canvas.style.height = Math.max(100, rect.height || 300) + 'px';
+            vizSystem.tree.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            
             renderTree();
           }
         });
@@ -9821,15 +10020,28 @@
       console.log('🌳 [TREE] First init, creating context');
       vizSystem.tree.canvas = canvas;
       vizSystem.tree.ctx = canvas.getContext('2d');
+      vizSystem.tree.dpr = window.devicePixelRatio || 1;
       
-      // Handle resize - delay to ensure container is visible
+      // Handle resize with devicePixelRatio for crisp rendering
       function resizeCanvas() {
         requestAnimationFrame(() => {
           const container = document.getElementById('viz-tree');
           if (container) {
             const rect = container.getBoundingClientRect();
-            canvas.width = rect.width || 400;
-            canvas.height = Math.max(100, rect.height || 300);
+            const dpr = window.devicePixelRatio || 1;
+            vizSystem.tree.dpr = dpr;
+            
+            // Set actual canvas size scaled by DPR
+            canvas.width = (rect.width || 400) * dpr;
+            canvas.height = Math.max(100, rect.height || 300) * dpr;
+            
+            // Set display size via CSS
+            canvas.style.width = (rect.width || 400) + 'px';
+            canvas.style.height = Math.max(100, rect.height || 300) + 'px';
+            
+            // Scale context to match DPR
+            vizSystem.tree.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            
             renderTree();
           }
         });
@@ -9932,12 +10144,16 @@
     
     // Render Tree View - Shows EXECUTION PATH with source code lines
     function renderTree() {
-      const { canvas, ctx, pan, zoom } = vizSystem.tree;
+      const { canvas, ctx, pan, zoom, dpr } = vizSystem.tree;
       if (!ctx || !canvas) return;
+      
+      // Use display dimensions (not canvas buffer dimensions)
+      const width = canvas.width / (dpr || 1);
+      const height = canvas.height / (dpr || 1);
       
       // Dark background
       ctx.fillStyle = '#1a1a2e';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillRect(0, 0, width, height);
       
       // Get current code from editor
       const code = editor?.getValue() || '';
@@ -9947,8 +10163,8 @@
       const trace = vizSystem.executionTrace;
       
       if (!trace || trace.length === 0) {
-        // Show source code lines with basic visualization
-        ctx.font = '12px monospace';
+        // Show source code lines with syntax highlighting
+        ctx.font = '13px monospace';
         ctx.textAlign = 'left';
         
         const lineHeight = 20;
@@ -9961,37 +10177,28 @@
         ctx.fillStyle = '#666';
         ctx.fillText('(run code to see trace)', 150, 20);
         
-        // Draw line numbers and code
-        lines.forEach((line, i) => {
-          const y = startY + i * lineHeight * zoom;
-          if (y < 0 || y > canvas.height) return;
+        // Draw line numbers and code with proper syntax highlighting
+        lines.forEach((line, lineIdx) => {
+          const y = startY + lineIdx * lineHeight * zoom;
+          if (y < 0 || y > height) return;
           
           // Line number
           ctx.fillStyle = '#666';
-          ctx.fillText(String(i + 1).padStart(3, ' '), 10, y);
+          ctx.fillText(String(lineIdx + 1).padStart(3, ' '), 10, y);
           
-          // Determine line type/color
-          const trimmed = line.trim();
-          let color = '#AAAAAA'; // default
+          // Tokenize and color each token
+          const tokens = tokenizeLine(line);
+          let x = startX;
           
-          if (trimmed.startsWith(';')) {
-            color = '#666666'; // comment
-          } else if (trimmed.startsWith('(def ')) {
-            color = '#FF9F43'; // definition
-          } else if (trimmed.startsWith('(later ')) {
-            color = '#CD5C9B'; // function def
-          } else if (trimmed.startsWith('(wipe') || trimmed.startsWith('(ink') || 
-                     trimmed.startsWith('(line') || trimmed.startsWith('(box') ||
-                     trimmed.startsWith('(circle')) {
-            color = '#9370DB'; // graphics
-          } else if (trimmed.startsWith('(repeat') || trimmed.startsWith('(bunch')) {
-            color = '#2ECC71'; // loops
-          } else if (trimmed.match(/^\(\d+(\.\d+)?s/)) {
-            color = '#4ECDC4'; // timing
-          }
-          
-          ctx.fillStyle = color;
-          ctx.fillText(line.substring(0, 80), startX, y);
+          tokens.forEach((token, i) => {
+            const prevToken = i > 0 ? tokens[i-1] : null;
+            const nextToken = i < tokens.length - 1 ? tokens[i+1] : null;
+            const color = getTokenSyntaxColor(token, prevToken, nextToken);
+            
+            ctx.fillStyle = color;
+            ctx.fillText(token, x, y);
+            x += ctx.measureText(token).width;
+          });
           
           // Draw connecting line for nested expressions
           const depth = (line.match(/^\s*/)?.[0].length || 0) / 2;
@@ -10036,7 +10243,7 @@
       
       trace.forEach((entry, i) => {
         const y = startY + displayIndex * lineHeight * zoom;
-        if (y < 0 || y > canvas.height) {
+        if (y < 0 || y > height) {
           displayIndex++;
           return;
         }
@@ -10085,14 +10292,23 @@
       // Only initialize once
       if (vizSystem.space.initialized) {
         console.log('🌌 [SPACE] Already initialized, resizing');
-        // Already initialized, just resize and render
+        // Already initialized, just resize and render with DPR
         requestAnimationFrame(() => {
           const container = document.getElementById('viz-space');
           if (container) {
             const rect = container.getBoundingClientRect();
-            console.log('🌌 [SPACE] Container rect:', rect);
-            canvas.width = rect.width || 400;
-            canvas.height = Math.max(100, rect.height || 300);
+            const dpr = window.devicePixelRatio || 1;
+            vizSystem.space.dpr = dpr;
+            console.log('🌌 [SPACE] Container rect:', rect, 'dpr:', dpr);
+            
+            canvas.width = (rect.width || 400) * dpr;
+            canvas.height = Math.max(100, rect.height || 300) * dpr;
+            canvas.style.width = (rect.width || 400) + 'px';
+            canvas.style.height = Math.max(100, rect.height || 300) + 'px';
+            
+            const ctx = canvas.getContext('2d');
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            
             renderSpace();
           }
         });
@@ -10102,6 +10318,7 @@
       console.log('🌌 [SPACE] First init, setting up');
       vizSystem.space.canvas = canvas;
       vizSystem.space.initialized = true;
+      vizSystem.space.dpr = window.devicePixelRatio || 1;
       
       // Handle resize - delay to ensure container is visible
       function resizeCanvas() {
@@ -10109,8 +10326,21 @@
           const container = document.getElementById('viz-space');
           if (container) {
             const rect = container.getBoundingClientRect();
-            canvas.width = rect.width || 400;
-            canvas.height = Math.max(100, rect.height || 300);
+            const dpr = window.devicePixelRatio || 1;
+            vizSystem.space.dpr = dpr;
+            
+            // Set actual canvas size scaled by DPR
+            canvas.width = (rect.width || 400) * dpr;
+            canvas.height = Math.max(100, rect.height || 300) * dpr;
+            
+            // Set display size via CSS
+            canvas.style.width = (rect.width || 400) + 'px';
+            canvas.style.height = Math.max(100, rect.height || 300) + 'px';
+            
+            // Scale context to match DPR
+            const ctx = canvas.getContext('2d');
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            
             renderSpace();
           }
         });
@@ -10200,15 +10430,19 @@
     
     // Render Space View - Retro wireframe showing EXECUTION FLOW in 3D
     function renderSpace() {
-      const { canvas, camera } = vizSystem.space;
+      const { canvas, camera, dpr } = vizSystem.space;
       if (!canvas) return;
       
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
       
+      // Use display dimensions (not canvas buffer dimensions)
+      const width = canvas.width / (dpr || 1);
+      const height = canvas.height / (dpr || 1);
+      
       // Pure black background
       ctx.fillStyle = '#000';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillRect(0, 0, width, height);
       
       // Draw retro grid floor
       ctx.strokeStyle = '#1a3a1a';
@@ -10218,8 +10452,8 @@
       
       // Horizontal grid lines (going into distance)
       for (let z = 0; z <= gridExtent; z += gridSize) {
-        const p1 = project3D(-gridExtent, 100, z, camera, canvas.width, canvas.height);
-        const p2 = project3D(gridExtent, 100, z, camera, canvas.width, canvas.height);
+        const p1 = project3D(-gridExtent, 100, z, camera, width, height);
+        const p2 = project3D(gridExtent, 100, z, camera, width, height);
         if (p1.depth > 0 && p2.depth > 0) {
           ctx.beginPath();
           ctx.moveTo(p1.x, p1.y);
@@ -10230,8 +10464,8 @@
       
       // Vertical grid lines (left to right)
       for (let x = -gridExtent; x <= gridExtent; x += gridSize) {
-        const p1 = project3D(x, 100, 0, camera, canvas.width, canvas.height);
-        const p2 = project3D(x, 100, gridExtent, camera, canvas.width, canvas.height);
+        const p1 = project3D(x, 100, 0, camera, width, height);
+        const p2 = project3D(x, 100, gridExtent, camera, width, height);
         if (p1.depth > 0 && p2.depth > 0) {
           ctx.beginPath();
           ctx.moveTo(p1.x, p1.y);
@@ -10248,13 +10482,13 @@
         ctx.fillStyle = '#0f0';
         ctx.font = '16px monospace';
         ctx.textAlign = 'center';
-        ctx.fillText('[ WAITING FOR TRACE ]', canvas.width / 2, canvas.height / 2);
+        ctx.fillText('[ WAITING FOR TRACE ]', width / 2, height / 2);
         ctx.fillStyle = '#888';
         ctx.font = '12px monospace';
-        ctx.fillText('run code to see execution flow', canvas.width / 2, canvas.height / 2 + 24);
+        ctx.fillText('run code to see execution flow', width / 2, height / 2 + 24);
         
         // Draw corner brackets
-        drawCornerBrackets(ctx, canvas);
+        drawCornerBrackets(ctx, width, height);
         return;
       }
       
@@ -10303,8 +10537,8 @@
         const prev = nodes[i - 1];
         const curr = nodes[i];
         
-        const p1 = project3D(prev.x, prev.y, prev.z, camera, canvas.width, canvas.height);
-        const p2 = project3D(curr.x, curr.y, curr.z, camera, canvas.width, canvas.height);
+        const p1 = project3D(prev.x, prev.y, prev.z, camera, width, height);
+        const p2 = project3D(curr.x, curr.y, curr.z, camera, width, height);
         
         if (p1.depth > 0 && p2.depth > 0) {
           // Color based on transition
@@ -10319,7 +10553,7 @@
       
       // Draw nodes
       sortedNodes.forEach(node => {
-        const p = project3D(node.x, node.y, node.z, camera, canvas.width, canvas.height);
+        const p = project3D(node.x, node.y, node.z, camera, width, height);
         if (p.depth <= 0) return;
         
         const size = Math.max(4, Math.min(20, 12 * p.scale));
@@ -10366,12 +10600,12 @@
       
       // Scanline overlay
       ctx.fillStyle = 'rgba(0,0,0,0.03)';
-      for (let y = 0; y < canvas.height; y += 3) {
-        ctx.fillRect(0, y, canvas.width, 1);
+      for (let y = 0; y < height; y += 3) {
+        ctx.fillRect(0, y, width, 1);
       }
       
       // Corner brackets
-      drawCornerBrackets(ctx, canvas);
+      drawCornerBrackets(ctx, width, height);
       
       // Status display
       ctx.fillStyle = '#0f0';
@@ -10381,7 +10615,7 @@
       ctx.fillText(`DEPTH: ${maxDepth}`, 25, 47);
     }
     
-    function drawCornerBrackets(ctx, canvas) {
+    function drawCornerBrackets(ctx, width, height) {
       ctx.strokeStyle = '#0f0';
       ctx.lineWidth = 1;
       const m = 20;
@@ -10392,15 +10626,15 @@
       ctx.stroke();
       
       ctx.beginPath();
-      ctx.moveTo(canvas.width - m - b, m); ctx.lineTo(canvas.width - m, m); ctx.lineTo(canvas.width - m, m + b);
+      ctx.moveTo(width - m - b, m); ctx.lineTo(width - m, m); ctx.lineTo(width - m, m + b);
       ctx.stroke();
       
       ctx.beginPath();
-      ctx.moveTo(m, canvas.height - m - b); ctx.lineTo(m, canvas.height - m); ctx.lineTo(m + b, canvas.height - m);
+      ctx.moveTo(m, height - m - b); ctx.lineTo(m, height - m); ctx.lineTo(m + b, height - m);
       ctx.stroke();
       
       ctx.beginPath();
-      ctx.moveTo(canvas.width - m - b, canvas.height - m); ctx.lineTo(canvas.width - m, canvas.height - m); ctx.lineTo(canvas.width - m, canvas.height - m - b);
+      ctx.moveTo(width - m - b, height - m); ctx.lineTo(width - m, height - m); ctx.lineTo(width - m, height - m - b);
       ctx.stroke();
     }
     
