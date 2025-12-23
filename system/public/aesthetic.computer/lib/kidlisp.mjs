@@ -2656,18 +2656,14 @@ class KidLisp {
         } else if (colorName.match(/^c\d+$/)) {
           const index = parseInt(colorName.substring(1));
           if (staticColorMap[index]) {
-            console.log("✅ Found color code:", colorName, "->", staticColorMap[index]);
             validColors.push(staticColorMap[index]);
           }
         } else if (colorName === "rainbow") {
-          console.log("✅ Found rainbow color");
           validColors.push([255, 0, 0]); // Just use red as representative
         } else if (colorName === "zebra") {
-          console.log("✅ Found zebra color");
           validColors.push([0, 0, 0]); // Just use black as representative
         }
       } else {
-        console.log("❌ Invalid color:", colorName);
         return null; // Invalid color
       }
     }
