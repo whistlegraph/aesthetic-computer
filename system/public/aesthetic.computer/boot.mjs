@@ -1136,6 +1136,13 @@ async function handleKeepMintPrepare(data) {
 
 window.addEventListener("message", receive);
 
+// Forward post-to-parent messages (used by kidlisp.mjs for trace and other messages)
+window.addEventListener("message", (event) => {
+  if (event.data?.type === "post-to-parent" && event.data.content && window.parent !== window) {
+    window.parent.postMessage(event.data.content, "*");
+  }
+});
+
 // 🔔 Subscribe to web / client notifications.
 // TODO: Test this to make sure it's skipped in the native apps,
 //       and factor it out. 24.02.26.19.29
