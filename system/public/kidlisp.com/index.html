@@ -698,6 +698,16 @@
       display: block;
     }
     
+    #viz-beads {
+      background: #141420;
+    }
+    
+    #viz-beads canvas {
+      flex: 1;
+      width: 100%;
+      display: block;
+    }
+    
     /* Tree view node colors */
     .tree-node-function { fill: #9370DB; }
     .tree-node-number { fill: #FF9F43; }
@@ -3883,6 +3893,10 @@
             <span class="tab-icon">🌌</span>
             <span>space</span>
           </button>
+          <button class="viz-tab" data-viz="beads" title="Rosary Beads (Cyclic Flow)">
+            <span class="tab-icon">📿</span>
+            <span>beads</span>
+          </button>
         </div>
         <!-- Playback Controls - persist across all views -->
         <div id="playback-controls">
@@ -3902,6 +3916,10 @@
         <!-- Space View (WebGL2) -->
         <div class="viz-container" id="viz-space">
           <canvas id="space-canvas"></canvas>
+        </div>
+        <!-- Beads View (Rosary/Cyclic) -->
+        <div class="viz-container" id="viz-beads">
+          <canvas id="beads-canvas"></canvas>
         </div>
       </div>
       
@@ -9963,6 +9981,7 @@
           setTimeout(() => {
             if (vizType === 'tree') initTreeView();
             if (vizType === 'space') initSpaceView();
+            if (vizType === 'beads') initBeadsView();
             
             // If switching TO tree/space from text, re-run code with tracing enabled
             if (previousView === 'text' && (vizType === 'tree' || vizType === 'space')) {
@@ -10663,6 +10682,380 @@
       
       if (vizSystem.currentView === 'tree') renderTree();
       if (vizSystem.currentView === 'space') renderSpace();
+      if (vizSystem.currentView === 'beads') renderBeads();
+    }
+    
+    // Beads visualization state
+    vizSystem.beads = {
+      canvas: null,
+      ctx: null,
+      dpr: 1,
+      pan: { x: 0, y: 0 },
+      zoom: 1,
+      initialized: false
+    };
+    
+    // Bead type styles (Calder-inspired palette)
+    const BEAD_STYLES = {
+      state:   { color: '#DC3C3C', symbol: '○' },   // red - wipe, ink, def
+      draw:    { color: '#3C64DC', symbol: '●' },   // blue - line, box, circle, point
+      effect:  { color: '#DCB428', symbol: '◆' },   // yellow - scroll, blur, zoom
+      timing:  { color: '#B450B4', symbol: '◇' },   // purple - 1s, 0.5s, later
+      branch:  { color: '#28B478', symbol: '◈' },   // green - if, ?
+      loop:    { color: '#FF8C28', symbol: '⬡' },   // orange - repeat
+      atom:    { color: '#969696', symbol: '·' },   // gray - numbers, strings
+    };
+    
+    // Command type classification
+    const COMMAND_TYPES = {
+      'wipe': 'state', 'ink': 'state', 'def': 'state', 'let': 'state',
+      'line': 'draw', 'box': 'draw', 'circle': 'draw', 'point': 'draw',
+      'write': 'draw', 'oval': 'draw', 'tri': 'draw', 'draw': 'draw',
+      'scroll': 'effect', 'blur': 'effect', 'zoom': 'effect', 'pan': 'effect',
+      'coat': 'effect', 'fade': 'effect', 'noise': 'effect',
+      '1s': 'timing', '0.5s': 'timing', '0.3s': 'timing', '2s': 'timing',
+      'later': 'timing', 'every': 'timing',
+      'if': 'branch', '?': 'branch', 'cond': 'branch',
+      'repeat': 'loop', 'loop': 'loop', 'for': 'loop',
+    };
+    
+    // Color names for detecting wipe colors
+    const COLOR_NAMES = ['red', 'blue', 'green', 'yellow', 'purple', 'orange', 'cyan', 'magenta', 'white', 'black', 'gray', 'navy', 'brown', 'pink', 'rainbow'];
+    
+    // Initialize Beads View
+    function initBeadsView() {
+      const canvas = document.getElementById('beads-canvas');
+      console.log('📿 [BEADS] initBeadsView called, canvas:', canvas);
+      if (!canvas) return;
+      
+      if (vizSystem.beads.initialized) {
+        console.log('📿 [BEADS] Already initialized, resizing');
+        requestAnimationFrame(() => {
+          const container = document.getElementById('viz-beads');
+          if (container) {
+            const rect = container.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            vizSystem.beads.dpr = dpr;
+            
+            canvas.width = (rect.width || 400) * dpr;
+            canvas.height = Math.max(100, rect.height || 300) * dpr;
+            canvas.style.width = (rect.width || 400) + 'px';
+            canvas.style.height = Math.max(100, rect.height || 300) + 'px';
+            vizSystem.beads.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            
+            renderBeads();
+          }
+        });
+        return;
+      }
+      
+      console.log('📿 [BEADS] First init, creating context');
+      vizSystem.beads.canvas = canvas;
+      vizSystem.beads.ctx = canvas.getContext('2d');
+      vizSystem.beads.dpr = window.devicePixelRatio || 1;
+      vizSystem.beads.initialized = true;
+      
+      function resizeCanvas() {
+        requestAnimationFrame(() => {
+          const container = document.getElementById('viz-beads');
+          if (container) {
+            const rect = container.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            vizSystem.beads.dpr = dpr;
+            
+            canvas.width = (rect.width || 400) * dpr;
+            canvas.height = Math.max(100, rect.height || 300) * dpr;
+            canvas.style.width = (rect.width || 400) + 'px';
+            canvas.style.height = Math.max(100, rect.height || 300) + 'px';
+            vizSystem.beads.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            
+            renderBeads();
+          }
+        });
+      }
+      
+      resizeCanvas();
+      window.addEventListener('resize', resizeCanvas);
+      
+      // Pan with mouse drag
+      let dragging = false;
+      let lastPos = { x: 0, y: 0 };
+      
+      canvas.addEventListener('mousedown', (e) => {
+        dragging = true;
+        lastPos = { x: e.clientX, y: e.clientY };
+      });
+      
+      canvas.addEventListener('mousemove', (e) => {
+        if (!dragging) return;
+        vizSystem.beads.pan.x += e.clientX - lastPos.x;
+        vizSystem.beads.pan.y += e.clientY - lastPos.y;
+        lastPos = { x: e.clientX, y: e.clientY };
+        renderBeads();
+      });
+      
+      canvas.addEventListener('mouseup', () => dragging = false);
+      canvas.addEventListener('mouseleave', () => dragging = false);
+      
+      // Zoom with scroll
+      canvas.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? 0.9 : 1.1;
+        vizSystem.beads.zoom = Math.max(0.3, Math.min(3, vizSystem.beads.zoom * delta));
+        renderBeads();
+      });
+    }
+    
+    // Parse code into beads
+    function parseToBeads(code) {
+      const beads = [];
+      let current = '';
+      let inString = false;
+      let parenDepth = 0;
+      
+      for (let i = 0; i < code.length; i++) {
+        const char = code[i];
+        
+        if (char === '"') {
+          inString = !inString;
+          current += char;
+        } else if (inString) {
+          current += char;
+        } else if (char === '(') {
+          if (parenDepth === 0 && current.trim()) {
+            beads.push(parseBeadToken(current.trim()));
+            current = '';
+          }
+          parenDepth++;
+          current += char;
+        } else if (char === ')') {
+          parenDepth--;
+          current += char;
+          if (parenDepth === 0) {
+            beads.push(parseBeadToken(current.trim()));
+            current = '';
+          }
+        } else if (parenDepth > 0) {
+          current += char;
+        } else if (char === ',' || char === '\n') {
+          if (current.trim()) beads.push(parseBeadToken(current.trim()));
+          current = '';
+        } else {
+          current += char;
+        }
+      }
+      
+      if (current.trim()) beads.push(parseBeadToken(current.trim()));
+      return beads;
+    }
+    
+    function parseBeadToken(token) {
+      // Handle parenthesized expressions
+      if (token.startsWith('(') && token.endsWith(')')) {
+        const inner = token.slice(1, -1).trim();
+        const parts = inner.split(/\s+/);
+        const head = parts[0];
+        
+        // Check for timing like (1s ...)
+        if (/^\d+(\.\d+)?s$/.test(head)) {
+          return { type: 'timing', name: head, token, style: BEAD_STYLES.timing };
+        }
+        
+        const type = COMMAND_TYPES[head] || 'state';
+        return { type, name: head, token, style: BEAD_STYLES[type] };
+      }
+      
+      // Handle simple tokens
+      const parts = token.split(/\s+/);
+      const head = parts[0];
+      
+      // Check if it's a color name (acts as wipe)
+      if (COLOR_NAMES.includes(head) && parts.length === 1) {
+        return { type: 'state', name: head, token, style: BEAD_STYLES.state, isColor: true };
+      }
+      
+      const type = COMMAND_TYPES[head] || 'state';
+      return { type, name: head, token, style: BEAD_STYLES[type] };
+    }
+    
+    // Render Beads View - Rosary visualization
+    function renderBeads() {
+      const { canvas, ctx, pan, zoom, dpr } = vizSystem.beads;
+      if (!ctx || !canvas) return;
+      
+      const width = canvas.width / (dpr || 1);
+      const height = canvas.height / (dpr || 1);
+      
+      // Dark background
+      ctx.fillStyle = '#141420';
+      ctx.fillRect(0, 0, width, height);
+      
+      // Get code and parse to beads
+      const code = editor?.getValue() || '';
+      const beads = parseToBeads(code);
+      const n = beads.length;
+      
+      if (n === 0) {
+        ctx.fillStyle = '#666';
+        ctx.font = '14px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('Write some KidLisp to see the rosary', width / 2, height / 2);
+        return;
+      }
+      
+      // Header
+      ctx.fillStyle = '#4ECDC4';
+      ctx.font = 'bold 12px monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText(`ROSARY BEADS (${n} expressions)`, 16, 20);
+      ctx.fillStyle = '#666';
+      ctx.font = '10px monospace';
+      ctx.fillText('drag to pan, scroll to zoom', 16, 34);
+      
+      // Calculate layout
+      const cx = width / 2 + pan.x;
+      const cy = height / 2 + pan.y + 20;
+      const baseRadius = Math.min(width, height - 60) * 0.35;
+      const radius = baseRadius * zoom;
+      const beadRadius = Math.max(8, Math.min(24, (180 / n) * zoom));
+      
+      // Position beads in a circle
+      const positions = [];
+      for (let i = 0; i < n; i++) {
+        const angle = (i / n) * Math.PI * 2 - Math.PI / 2; // Start from top
+        positions.push({
+          x: cx + Math.cos(angle) * radius,
+          y: cy + Math.sin(angle) * radius,
+          angle,
+          bead: beads[i]
+        });
+      }
+      
+      // Draw string (connecting line)
+      ctx.strokeStyle = '#3a3a50';
+      ctx.lineWidth = 2 * zoom;
+      ctx.beginPath();
+      for (let i = 0; i <= n; i++) {
+        const pos = positions[i % n];
+        if (i === 0) ctx.moveTo(pos.x, pos.y);
+        else ctx.lineTo(pos.x, pos.y);
+      }
+      ctx.closePath();
+      ctx.stroke();
+      
+      // Draw flow arrows on string
+      ctx.fillStyle = '#3a3a50';
+      for (let i = 0; i < n; i++) {
+        const curr = positions[i];
+        const next = positions[(i + 1) % n];
+        const midX = (curr.x + next.x) / 2;
+        const midY = (curr.y + next.y) / 2;
+        const angle = Math.atan2(next.y - curr.y, next.x - curr.x);
+        
+        // Small arrow
+        ctx.save();
+        ctx.translate(midX, midY);
+        ctx.rotate(angle);
+        ctx.beginPath();
+        ctx.moveTo(4 * zoom, 0);
+        ctx.lineTo(-2 * zoom, -3 * zoom);
+        ctx.lineTo(-2 * zoom, 3 * zoom);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+      
+      // Draw beads
+      for (let i = 0; i < n; i++) {
+        const pos = positions[i];
+        const bead = pos.bead;
+        const color = bead.style.color;
+        
+        // Shadow
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+        ctx.beginPath();
+        ctx.arc(pos.x + 2, pos.y + 2, beadRadius, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Bead body
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y, beadRadius, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Highlight
+        const gradient = ctx.createRadialGradient(
+          pos.x - beadRadius * 0.3, pos.y - beadRadius * 0.3, 0,
+          pos.x, pos.y, beadRadius
+        );
+        gradient.addColorStop(0, 'rgba(255, 255, 255, 0.4)');
+        gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0)');
+        gradient.addColorStop(1, 'rgba(0, 0, 0, 0.2)');
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y, beadRadius, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Index number
+        ctx.fillStyle = '#fff';
+        ctx.font = `bold ${Math.max(8, beadRadius * 0.7)}px monospace`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(String(i + 1), pos.x, pos.y);
+      }
+      
+      // Draw labels outside the circle
+      ctx.font = `${Math.max(9, 11 * zoom)}px monospace`;
+      ctx.textBaseline = 'middle';
+      for (let i = 0; i < n; i++) {
+        const pos = positions[i];
+        const bead = pos.bead;
+        
+        // Position label outside the circle
+        const labelDist = radius + beadRadius + 12 * zoom;
+        const lx = cx + Math.cos(pos.angle) * labelDist;
+        const ly = cy + Math.sin(pos.angle) * labelDist;
+        
+        // Align based on position
+        if (pos.angle > -Math.PI / 4 && pos.angle < Math.PI / 4) {
+          ctx.textAlign = 'left';
+        } else if (pos.angle > Math.PI * 3/4 || pos.angle < -Math.PI * 3/4) {
+          ctx.textAlign = 'right';
+        } else {
+          ctx.textAlign = 'center';
+        }
+        
+        ctx.fillStyle = bead.style.color;
+        const label = bead.name.length > 8 ? bead.name.substring(0, 7) + '…' : bead.name;
+        ctx.fillText(label, lx, ly);
+      }
+      
+      // Legend
+      const legendY = height - 20;
+      const legendItems = [
+        { type: 'state', label: 'state' },
+        { type: 'draw', label: 'draw' },
+        { type: 'effect', label: 'effect' },
+        { type: 'timing', label: 'timing' },
+        { type: 'loop', label: 'loop' }
+      ];
+      
+      ctx.font = '10px monospace';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      
+      let legendX = 16;
+      for (const item of legendItems) {
+        const style = BEAD_STYLES[item.type];
+        ctx.fillStyle = style.color;
+        ctx.beginPath();
+        ctx.arc(legendX, legendY, 5, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.fillStyle = '#888';
+        ctx.fillText(item.label, legendX + 10, legendY);
+        legendX += ctx.measureText(item.label).width + 28;
+      }
     }
     
     // Initialize visualization system
