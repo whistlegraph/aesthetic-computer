@@ -10692,7 +10692,16 @@
       dpr: 1,
       pan: { x: 0, y: 0 },
       zoom: 1,
-      initialized: false
+      initialized: false,
+      // Physics state
+      particles: [],
+      constraints: [],
+      animationId: null,
+      lastCode: '',
+      // Execution state
+      currentBead: -1,
+      executionPhase: 0,
+      timingFlash: new Map(), // beadIndex -> flash intensity
     };
     
     // Bead type styles (Calder-inspired palette)
@@ -10722,88 +10731,313 @@
     // Color names for detecting wipe colors
     const COLOR_NAMES = ['red', 'blue', 'green', 'yellow', 'purple', 'orange', 'cyan', 'magenta', 'white', 'black', 'gray', 'navy', 'brown', 'pink', 'rainbow'];
     
+    // Verlet particle for physics
+    class BeadParticle {
+      constructor(x, y, radius, bead, index) {
+        this.x = x;
+        this.y = y;
+        this.oldX = x;
+        this.oldY = y;
+        this.radius = radius;
+        this.bead = bead;
+        this.index = index;
+        this.mass = 1;
+        this.pinned = false;
+        this.flash = 0; // Execution flash intensity
+      }
+      
+      update(damping = 0.98) {
+        if (this.pinned) return;
+        
+        const vx = (this.x - this.oldX) * damping;
+        const vy = (this.y - this.oldY) * damping;
+        
+        this.oldX = this.x;
+        this.oldY = this.y;
+        
+        this.x += vx;
+        this.y += vy + 0.1; // Tiny gravity
+        
+        // Decay flash
+        if (this.flash > 0) this.flash *= 0.92;
+      }
+      
+      applyForce(fx, fy) {
+        if (this.pinned) return;
+        this.x += fx / this.mass;
+        this.y += fy / this.mass;
+      }
+    }
+    
+    // Spring constraint between particles
+    class SpringConstraint {
+      constructor(p1, p2, restLength, stiffness = 0.5) {
+        this.p1 = p1;
+        this.p2 = p2;
+        this.restLength = restLength;
+        this.stiffness = stiffness;
+      }
+      
+      solve() {
+        const dx = this.p2.x - this.p1.x;
+        const dy = this.p2.y - this.p1.y;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 0.001;
+        const diff = (dist - this.restLength) / dist;
+        
+        const offsetX = dx * diff * this.stiffness;
+        const offsetY = dy * diff * this.stiffness;
+        
+        if (!this.p1.pinned) {
+          this.p1.x += offsetX * 0.5;
+          this.p1.y += offsetY * 0.5;
+        }
+        if (!this.p2.pinned) {
+          this.p2.x -= offsetX * 0.5;
+          this.p2.y -= offsetY * 0.5;
+        }
+      }
+    }
+    
     // Initialize Beads View
     function initBeadsView() {
       const canvas = document.getElementById('beads-canvas');
       console.log('📿 [BEADS] initBeadsView called, canvas:', canvas);
       if (!canvas) return;
       
-      if (vizSystem.beads.initialized) {
-        console.log('📿 [BEADS] Already initialized, resizing');
-        requestAnimationFrame(() => {
-          const container = document.getElementById('viz-beads');
-          if (container) {
-            const rect = container.getBoundingClientRect();
-            const dpr = window.devicePixelRatio || 1;
-            vizSystem.beads.dpr = dpr;
-            
-            canvas.width = (rect.width || 400) * dpr;
-            canvas.height = Math.max(100, rect.height || 300) * dpr;
-            canvas.style.width = (rect.width || 400) + 'px';
-            canvas.style.height = Math.max(100, rect.height || 300) + 'px';
-            vizSystem.beads.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-            
-            renderBeads();
-          }
-        });
-        return;
-      }
-      
-      console.log('📿 [BEADS] First init, creating context');
       vizSystem.beads.canvas = canvas;
       vizSystem.beads.ctx = canvas.getContext('2d');
       vizSystem.beads.dpr = window.devicePixelRatio || 1;
-      vizSystem.beads.initialized = true;
       
       function resizeCanvas() {
-        requestAnimationFrame(() => {
-          const container = document.getElementById('viz-beads');
-          if (container) {
-            const rect = container.getBoundingClientRect();
-            const dpr = window.devicePixelRatio || 1;
-            vizSystem.beads.dpr = dpr;
-            
-            canvas.width = (rect.width || 400) * dpr;
-            canvas.height = Math.max(100, rect.height || 300) * dpr;
-            canvas.style.width = (rect.width || 400) + 'px';
-            canvas.style.height = Math.max(100, rect.height || 300) + 'px';
-            vizSystem.beads.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-            
-            renderBeads();
-          }
-        });
+        const container = document.getElementById('viz-beads');
+        if (!container) return;
+        
+        const rect = container.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        vizSystem.beads.dpr = dpr;
+        
+        const w = rect.width || 400;
+        const h = Math.max(100, rect.height || 300);
+        
+        canvas.width = w * dpr;
+        canvas.height = h * dpr;
+        canvas.style.width = w + 'px';
+        canvas.style.height = h + 'px';
+        vizSystem.beads.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        
+        // Rebuild physics with new dimensions
+        rebuildBeadsPhysics();
       }
       
       resizeCanvas();
+      
+      // ResizeObserver for panel resize
+      const resizeObserver = new ResizeObserver(() => {
+        resizeCanvas();
+      });
+      const container = document.getElementById('viz-beads');
+      if (container) resizeObserver.observe(container);
+      
       window.addEventListener('resize', resizeCanvas);
       
-      // Pan with mouse drag
-      let dragging = false;
+      // Mouse interaction - drag beads or pan
+      let dragging = null; // particle being dragged
+      let panning = false;
       let lastPos = { x: 0, y: 0 };
       
       canvas.addEventListener('mousedown', (e) => {
-        dragging = true;
+        const rect = canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+        
+        // Check if clicking on a bead
+        for (const p of vizSystem.beads.particles) {
+          const dx = p.x - mx;
+          const dy = p.y - my;
+          if (dx * dx + dy * dy < p.radius * p.radius * 1.5) {
+            dragging = p;
+            p.pinned = true;
+            return;
+          }
+        }
+        
+        // Otherwise pan
+        panning = true;
         lastPos = { x: e.clientX, y: e.clientY };
       });
       
       canvas.addEventListener('mousemove', (e) => {
-        if (!dragging) return;
-        vizSystem.beads.pan.x += e.clientX - lastPos.x;
-        vizSystem.beads.pan.y += e.clientY - lastPos.y;
-        lastPos = { x: e.clientX, y: e.clientY };
-        renderBeads();
+        const rect = canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+        
+        if (dragging) {
+          dragging.x = mx;
+          dragging.y = my;
+          dragging.oldX = mx;
+          dragging.oldY = my;
+        } else if (panning) {
+          vizSystem.beads.pan.x += e.clientX - lastPos.x;
+          vizSystem.beads.pan.y += e.clientY - lastPos.y;
+          lastPos = { x: e.clientX, y: e.clientY };
+          rebuildBeadsPhysics();
+        }
       });
       
-      canvas.addEventListener('mouseup', () => dragging = false);
-      canvas.addEventListener('mouseleave', () => dragging = false);
+      canvas.addEventListener('mouseup', () => {
+        if (dragging) dragging.pinned = false;
+        dragging = null;
+        panning = false;
+      });
+      canvas.addEventListener('mouseleave', () => {
+        if (dragging) dragging.pinned = false;
+        dragging = null;
+        panning = false;
+      });
       
       // Zoom with scroll
       canvas.addEventListener('wheel', (e) => {
         e.preventDefault();
-        const delta = e.deltaY > 0 ? 0.9 : 1.1;
+        const delta = e.deltaY > 0 ? 0.95 : 1.05;
         vizSystem.beads.zoom = Math.max(0.3, Math.min(3, vizSystem.beads.zoom * delta));
-        renderBeads();
+        rebuildBeadsPhysics();
       });
+      
+      vizSystem.beads.initialized = true;
+      
+      // Start physics loop
+      startBeadsPhysicsLoop();
+    }
+    
+    // Build/rebuild physics particles from code
+    function rebuildBeadsPhysics() {
+      const { canvas, pan, zoom, dpr } = vizSystem.beads;
+      if (!canvas) return;
+      
+      const code = editor?.getValue() || '';
+      const beads = parseToBeads(code);
+      const n = beads.length;
+      
+      const width = canvas.width / (dpr || 1);
+      const height = canvas.height / (dpr || 1);
+      
+      const cx = width / 2 + pan.x;
+      const cy = height / 2 + pan.y;
+      const baseRadius = Math.min(width, height - 60) * 0.32;
+      const radius = baseRadius * zoom;
+      const beadRadius = Math.max(10, Math.min(28, (200 / Math.max(1, n)) * zoom));
+      const restLength = n > 0 ? (2 * Math.PI * radius) / n * 0.9 : 50;
+      
+      // Preserve old particle velocities if same number of beads
+      const oldParticles = vizSystem.beads.particles;
+      
+      vizSystem.beads.particles = [];
+      vizSystem.beads.constraints = [];
+      
+      for (let i = 0; i < n; i++) {
+        const angle = (i / n) * Math.PI * 2 - Math.PI / 2;
+        const x = cx + Math.cos(angle) * radius;
+        const y = cy + Math.sin(angle) * radius;
+        
+        const p = new BeadParticle(x, y, beadRadius, beads[i], i);
+        
+        // Preserve velocity from old particle if exists
+        if (oldParticles[i]) {
+          const old = oldParticles[i];
+          const vx = old.x - old.oldX;
+          const vy = old.y - old.oldY;
+          p.oldX = p.x - vx * 0.5;
+          p.oldY = p.y - vy * 0.5;
+          p.flash = old.flash;
+        }
+        
+        vizSystem.beads.particles.push(p);
+      }
+      
+      // Create spring constraints (elastic strings)
+      for (let i = 0; i < n; i++) {
+        const p1 = vizSystem.beads.particles[i];
+        const p2 = vizSystem.beads.particles[(i + 1) % n];
+        vizSystem.beads.constraints.push(new SpringConstraint(p1, p2, restLength, 0.3));
+      }
+      
+      // Add radial constraints to keep rough circle shape
+      for (let i = 0; i < n; i++) {
+        // Soft constraint to ideal position
+        const p = vizSystem.beads.particles[i];
+        const angle = (i / n) * Math.PI * 2 - Math.PI / 2;
+        const idealX = cx + Math.cos(angle) * radius;
+        const idealY = cy + Math.sin(angle) * radius;
+        p.idealX = idealX;
+        p.idealY = idealY;
+      }
+      
+      vizSystem.beads.lastCode = code;
+    }
+    
+    // Physics simulation loop
+    function startBeadsPhysicsLoop() {
+      if (vizSystem.beads.animationId) return;
+      
+      function loop() {
+        if (vizSystem.currentView !== 'beads') {
+          vizSystem.beads.animationId = null;
+          return;
+        }
+        
+        // Check if code changed
+        const code = editor?.getValue() || '';
+        if (code !== vizSystem.beads.lastCode) {
+          rebuildBeadsPhysics();
+        }
+        
+        // Update physics
+        const particles = vizSystem.beads.particles;
+        const constraints = vizSystem.beads.constraints;
+        
+        // Apply soft radial force to maintain shape
+        for (const p of particles) {
+          if (p.idealX !== undefined) {
+            const dx = p.idealX - p.x;
+            const dy = p.idealY - p.y;
+            p.applyForce(dx * 0.02, dy * 0.02);
+          }
+        }
+        
+        // Update particles
+        for (const p of particles) {
+          p.update(0.96);
+        }
+        
+        // Solve constraints multiple times for stability
+        for (let iter = 0; iter < 3; iter++) {
+          for (const c of constraints) {
+            c.solve();
+          }
+        }
+        
+        // Advance execution animation
+        if (isPlaying && particles.length > 0) {
+          vizSystem.beads.executionPhase += 0.08;
+          const idx = Math.floor(vizSystem.beads.executionPhase) % particles.length;
+          
+          if (idx !== vizSystem.beads.currentBead) {
+            vizSystem.beads.currentBead = idx;
+            particles[idx].flash = 1.0;
+            
+            // Extra flash for timing beads
+            const bead = particles[idx].bead;
+            if (bead.type === 'timing') {
+              particles[idx].flash = 1.5;
+            }
+          }
+        }
+        
+        renderBeadsPhysics();
+        vizSystem.beads.animationId = requestAnimationFrame(loop);
+      }
+      
+      vizSystem.beads.animationId = requestAnimationFrame(loop);
     }
     
     // Parse code into beads
@@ -10878,9 +11112,9 @@
       return { type, name: head, token, style: BEAD_STYLES[type] };
     }
     
-    // Render Beads View - Rosary visualization
-    function renderBeads() {
-      const { canvas, ctx, pan, zoom, dpr } = vizSystem.beads;
+    // Render beads with physics
+    function renderBeadsPhysics() {
+      const { canvas, ctx, dpr, particles, constraints } = vizSystem.beads;
       if (!ctx || !canvas) return;
       
       const width = canvas.width / (dpr || 1);
@@ -10890,10 +11124,7 @@
       ctx.fillStyle = '#141420';
       ctx.fillRect(0, 0, width, height);
       
-      // Get code and parse to beads
-      const code = editor?.getValue() || '';
-      const beads = parseToBeads(code);
-      const n = beads.length;
+      const n = particles.length;
       
       if (n === 0) {
         ctx.fillStyle = '#666';
@@ -10908,130 +11139,157 @@
       ctx.font = 'bold 12px monospace';
       ctx.textAlign = 'left';
       ctx.fillText(`ROSARY BEADS (${n} expressions)`, 16, 20);
-      ctx.fillStyle = '#666';
+      ctx.fillStyle = isPlaying ? '#4CAF50' : '#666';
+      ctx.fillText(isPlaying ? '● running' : '○ stopped', 200, 20);
+      ctx.fillStyle = '#555';
       ctx.font = '10px monospace';
-      ctx.fillText('drag to pan, scroll to zoom', 16, 34);
+      ctx.fillText('drag beads, scroll to zoom', 16, 34);
       
-      // Calculate layout
-      const cx = width / 2 + pan.x;
-      const cy = height / 2 + pan.y + 20;
-      const baseRadius = Math.min(width, height - 60) * 0.35;
-      const radius = baseRadius * zoom;
-      const beadRadius = Math.max(8, Math.min(24, (180 / n) * zoom));
-      
-      // Position beads in a circle
-      const positions = [];
-      for (let i = 0; i < n; i++) {
-        const angle = (i / n) * Math.PI * 2 - Math.PI / 2; // Start from top
-        positions.push({
-          x: cx + Math.cos(angle) * radius,
-          y: cy + Math.sin(angle) * radius,
-          angle,
-          bead: beads[i]
-        });
-      }
-      
-      // Draw string (connecting line)
+      // Draw elastic strings
       ctx.strokeStyle = '#3a3a50';
-      ctx.lineWidth = 2 * zoom;
-      ctx.beginPath();
-      for (let i = 0; i <= n; i++) {
-        const pos = positions[i % n];
-        if (i === 0) ctx.moveTo(pos.x, pos.y);
-        else ctx.lineTo(pos.x, pos.y);
-      }
-      ctx.closePath();
-      ctx.stroke();
+      ctx.lineWidth = 2;
       
-      // Draw flow arrows on string
+      for (const c of constraints) {
+        const p1 = c.p1;
+        const p2 = c.p2;
+        
+        // Calculate stretch
+        const dx = p2.x - p1.x;
+        const dy = p2.y - p1.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const stretch = Math.abs(dist - c.restLength) / c.restLength;
+        
+        // Color based on tension
+        const tension = Math.min(1, stretch * 3);
+        const r = Math.round(58 + tension * 80);
+        const g = Math.round(58 - tension * 30);
+        const b = Math.round(80 - tension * 30);
+        ctx.strokeStyle = `rgb(${r}, ${g}, ${b})`;
+        ctx.lineWidth = 2 + tension * 2;
+        
+        // Draw curved string using quadratic bezier
+        const midX = (p1.x + p2.x) / 2;
+        const midY = (p1.y + p2.y) / 2;
+        // Sag perpendicular to line
+        const perpX = -(p2.y - p1.y) * 0.1;
+        const perpY = (p2.x - p1.x) * 0.1;
+        
+        ctx.beginPath();
+        ctx.moveTo(p1.x, p1.y);
+        ctx.quadraticCurveTo(midX + perpX, midY + perpY, p2.x, p2.y);
+        ctx.stroke();
+      }
+      
+      // Draw flow direction indicator
       ctx.fillStyle = '#3a3a50';
       for (let i = 0; i < n; i++) {
-        const curr = positions[i];
-        const next = positions[(i + 1) % n];
-        const midX = (curr.x + next.x) / 2;
-        const midY = (curr.y + next.y) / 2;
-        const angle = Math.atan2(next.y - curr.y, next.x - curr.x);
+        const p1 = particles[i];
+        const p2 = particles[(i + 1) % n];
+        const midX = (p1.x + p2.x) / 2;
+        const midY = (p1.y + p2.y) / 2;
+        const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
         
-        // Small arrow
         ctx.save();
         ctx.translate(midX, midY);
         ctx.rotate(angle);
         ctx.beginPath();
-        ctx.moveTo(4 * zoom, 0);
-        ctx.lineTo(-2 * zoom, -3 * zoom);
-        ctx.lineTo(-2 * zoom, 3 * zoom);
+        ctx.moveTo(5, 0);
+        ctx.lineTo(-3, -4);
+        ctx.lineTo(-3, 4);
         ctx.closePath();
         ctx.fill();
         ctx.restore();
       }
       
       // Draw beads
-      for (let i = 0; i < n; i++) {
-        const pos = positions[i];
-        const bead = pos.bead;
-        const color = bead.style.color;
+      for (const p of particles) {
+        const bead = p.bead;
+        const baseColor = bead.style.color;
+        
+        // Parse base color
+        const r = parseInt(baseColor.slice(1, 3), 16);
+        const g = parseInt(baseColor.slice(3, 5), 16);
+        const b = parseInt(baseColor.slice(5, 7), 16);
+        
+        // Flash effect
+        const flash = p.flash;
+        const flashR = Math.min(255, r + flash * 150);
+        const flashG = Math.min(255, g + flash * 150);
+        const flashB = Math.min(255, b + flash * 150);
+        const glowRadius = p.radius * (1 + flash * 0.5);
+        
+        // Glow for flashing beads
+        if (flash > 0.1) {
+          const glow = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, glowRadius * 2);
+          glow.addColorStop(0, `rgba(${flashR}, ${flashG}, ${flashB}, ${flash * 0.6})`);
+          glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+          ctx.fillStyle = glow;
+          ctx.fillRect(p.x - glowRadius * 2, p.y - glowRadius * 2, glowRadius * 4, glowRadius * 4);
+        }
         
         // Shadow
         ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
         ctx.beginPath();
-        ctx.arc(pos.x + 2, pos.y + 2, beadRadius, 0, Math.PI * 2);
+        ctx.arc(p.x + 2, p.y + 2, p.radius, 0, Math.PI * 2);
         ctx.fill();
         
-        // Bead body
-        ctx.fillStyle = color;
+        // Bead body with flash
+        ctx.fillStyle = `rgb(${Math.round(flashR)}, ${Math.round(flashG)}, ${Math.round(flashB)})`;
         ctx.beginPath();
-        ctx.arc(pos.x, pos.y, beadRadius, 0, Math.PI * 2);
+        ctx.arc(p.x, p.y, glowRadius, 0, Math.PI * 2);
         ctx.fill();
         
         // Highlight
         const gradient = ctx.createRadialGradient(
-          pos.x - beadRadius * 0.3, pos.y - beadRadius * 0.3, 0,
-          pos.x, pos.y, beadRadius
+          p.x - p.radius * 0.3, p.y - p.radius * 0.3, 0,
+          p.x, p.y, p.radius
         );
-        gradient.addColorStop(0, 'rgba(255, 255, 255, 0.4)');
-        gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0)');
+        gradient.addColorStop(0, 'rgba(255, 255, 255, 0.5)');
+        gradient.addColorStop(0.4, 'rgba(255, 255, 255, 0.1)');
         gradient.addColorStop(1, 'rgba(0, 0, 0, 0.2)');
         ctx.fillStyle = gradient;
         ctx.beginPath();
-        ctx.arc(pos.x, pos.y, beadRadius, 0, Math.PI * 2);
+        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
         ctx.fill();
         
         // Index number
-        ctx.fillStyle = '#fff';
-        ctx.font = `bold ${Math.max(8, beadRadius * 0.7)}px monospace`;
+        ctx.fillStyle = flash > 0.3 ? '#000' : '#fff';
+        ctx.font = `bold ${Math.max(9, p.radius * 0.65)}px monospace`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(String(i + 1), pos.x, pos.y);
+        ctx.fillText(String(p.index + 1), p.x, p.y);
       }
       
-      // Draw labels outside the circle
-      ctx.font = `${Math.max(9, 11 * zoom)}px monospace`;
+      // Draw labels
+      ctx.font = '11px monospace';
       ctx.textBaseline = 'middle';
-      for (let i = 0; i < n; i++) {
-        const pos = positions[i];
-        const bead = pos.bead;
+      for (const p of particles) {
+        const bead = p.bead;
         
-        // Position label outside the circle
-        const labelDist = radius + beadRadius + 12 * zoom;
-        const lx = cx + Math.cos(pos.angle) * labelDist;
-        const ly = cy + Math.sin(pos.angle) * labelDist;
+        // Position label away from center
+        const cx = width / 2 + vizSystem.beads.pan.x;
+        const cy = height / 2 + vizSystem.beads.pan.y;
+        const angle = Math.atan2(p.y - cy, p.x - cx);
+        const labelDist = p.radius + 14;
+        const lx = p.x + Math.cos(angle) * labelDist;
+        const ly = p.y + Math.sin(angle) * labelDist;
         
-        // Align based on position
-        if (pos.angle > -Math.PI / 4 && pos.angle < Math.PI / 4) {
+        // Align based on angle
+        if (angle > -Math.PI / 3 && angle < Math.PI / 3) {
           ctx.textAlign = 'left';
-        } else if (pos.angle > Math.PI * 3/4 || pos.angle < -Math.PI * 3/4) {
+        } else if (angle > Math.PI * 2/3 || angle < -Math.PI * 2/3) {
           ctx.textAlign = 'right';
         } else {
           ctx.textAlign = 'center';
         }
         
         ctx.fillStyle = bead.style.color;
-        const label = bead.name.length > 8 ? bead.name.substring(0, 7) + '…' : bead.name;
+        const label = bead.name.length > 7 ? bead.name.substring(0, 6) + '…' : bead.name;
         ctx.fillText(label, lx, ly);
       }
       
       // Legend
-      const legendY = height - 20;
+      const legendY = height - 16;
       const legendItems = [
         { type: 'state', label: 'state' },
         { type: 'draw', label: 'draw' },
@@ -11054,7 +11312,17 @@
         
         ctx.fillStyle = '#888';
         ctx.fillText(item.label, legendX + 10, legendY);
-        legendX += ctx.measureText(item.label).width + 28;
+        legendX += ctx.measureText(item.label).width + 24;
+      }
+    }
+    
+    // Legacy render function (calls physics version)
+    function renderBeads() {
+      if (!vizSystem.beads.initialized) {
+        initBeadsView();
+      }
+      if (!vizSystem.beads.animationId) {
+        startBeadsPhysicsLoop();
       }
     }
     
