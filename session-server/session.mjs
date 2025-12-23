@@ -171,6 +171,87 @@ const codeChannels = {}; // Used to filter `code` updates from redis to
 // Unified client tracking: each client has handle, user, location, and connection types
 const clients = {}; // Map of connection ID to { handle, user, location, websocket: true/false, udp: true/false }
 
+// Device naming for local dev (persisted to file)
+const DEVICE_NAMES_FILE = path.join(process.cwd(), "../.device-names.json");
+let deviceNames = {}; // Map of IP -> { name, group }
+function loadDeviceNames() {
+  try {
+    if (fs.existsSync(DEVICE_NAMES_FILE)) {
+      deviceNames = JSON.parse(fs.readFileSync(DEVICE_NAMES_FILE, 'utf8'));
+      log("📱 Loaded device names:", Object.keys(deviceNames).length);
+    }
+  } catch (e) {
+    log("📱 Could not load device names:", e.message);
+  }
+}
+function saveDeviceNames() {
+  try {
+    fs.writeFileSync(DEVICE_NAMES_FILE, JSON.stringify(deviceNames, null, 2));
+  } catch (e) {
+    log("📱 Could not save device names:", e.message);
+  }
+}
+if (dev) loadDeviceNames();
+
+// Get the dev host machine name
+import os from "os";
+const DEV_HOST_NAME = os.hostname();
+const DEV_LAN_IP = (() => {
+  const interfaces = os.networkInterfaces();
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name]) {
+      if (iface.family === 'IPv4' && !iface.internal && iface.address.startsWith('192.168.')) {
+        return iface.address;
+      }
+    }
+  }
+  return null;
+})();
+log(`🖥️ Dev host: ${DEV_HOST_NAME}, LAN IP: ${DEV_LAN_IP || 'N/A'}`);
+
+// Helper: Assign device letters (A, B, C...) based on connection order
+function getDeviceLetter(connectionId) {
+  // Get sorted list of connection IDs
+  const sortedIds = Object.keys(connections)
+    .map(id => parseInt(id))
+    .sort((a, b) => a - b);
+  const index = sortedIds.indexOf(parseInt(connectionId));
+  if (index === -1) return '?';
+  // A=65, B=66, etc. Wrap around after Z
+  return String.fromCharCode(65 + (index % 26));
+}
+
+// Helper: Find connections by ID, IP, handle, or device letter
+function targetClients(target) {
+  if (target === 'all') {
+    return Object.entries(connections)
+      .filter(([id, ws]) => ws?.readyState === WebSocket.OPEN)
+      .map(([id, ws]) => ({ id: parseInt(id), ws }));
+  }
+  
+  const results = [];
+  for (const [id, ws] of Object.entries(connections)) {
+    const client = clients[id];
+    const cleanTarget = target.replace('@', '');
+    const cleanIp = client?.ip?.replace('::ffff:', '');
+    const deviceLetter = getDeviceLetter(id);
+    
+    if (
+      String(id) === String(target) ||
+      cleanIp === target ||
+      client?.handle === `@${cleanTarget}` ||
+      client?.handle === cleanTarget ||
+      deviceNames[cleanIp]?.name?.toLowerCase() === target.toLowerCase() ||
+      deviceLetter.toLowerCase() === target.toLowerCase() // Match by letter (A, B, C...)
+    ) {
+      if (ws?.readyState === WebSocket.OPEN) {
+        results.push({ id: parseInt(id), ws });
+      }
+    }
+  }
+  return results;
+}
+
 // *** Start up two `redis` clients. (One for subscribing, and for publishing)
 const sub = !dev
   ? createClient({ url: redisConnectionString })
@@ -310,6 +391,117 @@ if (dev) {
       piece,
       vscodeConnected: vscodeClients.size > 0 
     };
+  });
+  
+  // GET /devices - List all connected clients with metadata and names
+  fastify.get("/devices", async () => {
+    const clientList = getClientStatus();
+    // Enhance with device names and letters
+    const enhanced = clientList.map((c, index) => ({
+      ...c,
+      letter: getDeviceLetter(c.id),
+      deviceName: deviceNames[c.ip]?.name || null,
+      deviceGroup: deviceNames[c.ip]?.group || null,
+    }));
+    return {
+      devices: enhanced,
+      host: { name: DEV_HOST_NAME, ip: DEV_LAN_IP },
+      timestamp: Date.now()
+    };
+  });
+  
+  // GET /dev-info - Get dev host info for client overlay
+  fastify.get("/dev-info", async () => {
+    return {
+      host: DEV_HOST_NAME,
+      ip: DEV_LAN_IP,
+      mode: "LAN Dev",
+      timestamp: Date.now()
+    };
+  });
+  
+  // POST /jump/:target - Targeted jump (by ID, IP, handle, or device name)
+  fastify.post("/jump/:target", async (req) => {
+    const { target } = req.params;
+    const { piece, ahistorical, alias } = req.body;
+    
+    const targeted = targetClients(target);
+    if (targeted.length === 0) {
+      return { error: "No matching device", target };
+    }
+    
+    targeted.forEach(({ ws }) => {
+      ws.send(pack("jump", { piece, ahistorical, alias }, "pieces"));
+    });
+    
+    return { 
+      msg: "Targeted jump sent", 
+      piece, 
+      count: targeted.length,
+      targets: targeted.map(t => t.id)
+    };
+  });
+  
+  // POST /reload/:target - Targeted reload
+  fastify.post("/reload/:target", async (req) => {
+    const { target } = req.params;
+    const targeted = targetClients(target);
+    
+    targeted.forEach(({ ws }) => {
+      ws.send(pack("reload", req.body, "pieces"));
+    });
+    
+    return { msg: "Targeted reload sent", count: targeted.length };
+  });
+  
+  // POST /piece-reload/:target - Targeted KidLisp reload
+  fastify.post("/piece-reload/:target", async (req) => {
+    const { target } = req.params;
+    const { source, createCode, authToken } = req.body;
+    const targeted = targetClients(target);
+    
+    targeted.forEach(({ ws }) => {
+      ws.send(pack("piece-reload", { source, createCode, authToken }, "kidlisp"));
+    });
+    
+    return { msg: "Targeted piece-reload sent", count: targeted.length };
+  });
+  
+  // POST /device/name - Set a friendly name for a device by IP
+  fastify.post("/device/name", async (req) => {
+    const { ip, name, group } = req.body;
+    if (!ip) return { error: "IP required" };
+    
+    const cleanIp = ip.replace('::ffff:', '');
+    if (name) {
+      deviceNames[cleanIp] = { name, group: group || null, updatedAt: Date.now() };
+    } else {
+      delete deviceNames[cleanIp];
+    }
+    saveDeviceNames();
+    
+    // Notify the device of its new name
+    const targeted = targetClients(cleanIp);
+    targeted.forEach(({ ws }) => {
+      ws.send(pack("dev:identity", { 
+        name, 
+        host: DEV_HOST_NAME, 
+        hostIp: DEV_LAN_IP,
+        mode: "LAN Dev"
+      }, "dev"));
+    });
+    
+    return { 
+      msg: name ? "Device named" : "Device name cleared", 
+      ip: cleanIp, 
+      name,
+      notified: targeted.length
+    };
+  });
+  
+  // GET /device/names - List all device names
+  fastify.get("/device/names", async () => {
+    return { names: deviceNames };
   });
 }
 
@@ -1004,6 +1196,22 @@ wss.on("connection", (ws, req) => {
     ),
   );
 
+  // In dev mode, send device identity info for LAN overlay
+  if (dev) {
+    const deviceName = deviceNames[cleanIp]?.name || null;
+    const deviceLetter = getDeviceLetter(id);
+    const identityPayload = {
+      name: deviceName,
+      letter: deviceLetter,
+      host: DEV_HOST_NAME,
+      hostIp: DEV_LAN_IP,
+      mode: "LAN Dev",
+      connectionId: id,
+    };
+    console.log(`📱 Sending dev:identity to ${cleanIp}:`, identityPayload);
+    ws.send(pack("dev:identity", identityPayload, "dev"));
+  }
+
   // Send a join message to everyone else.
   others(
     pack(
@@ -1151,6 +1359,21 @@ wss.on("connection", (ws, req) => {
         
         // Send confirmation
         ws.send(pack("identified", { type: "vscode", id }, id));
+      }
+    } else if (msg.type === "dev:log") {
+      // 📡 Remote log forwarding from connected devices (LAN Dev mode)
+      if (dev && msg.content) {
+        const { level, args, deviceName, connectionId, time, queued } = msg.content;
+        const client = clients[id];
+        const deviceLabel = deviceName || client?.ip || `conn:${connectionId}`;
+        const levelEmoji = level === 'error' ? '🔴' : level === 'warn' ? '🟡' : '🔵';
+        const queuedTag = queued ? ' [Q]' : '';
+        
+        // Format the log output
+        const timestamp = new Date(time).toLocaleTimeString();
+        const argsStr = Array.isArray(args) ? args.join(' ') : String(args);
+        
+        console.log(`${levelEmoji} [${timestamp}] ${deviceLabel}${queuedTag}: ${argsStr}`);
       }
     } else if (msg.type === "location:broadcast") {      /*
       sub

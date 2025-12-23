@@ -257,6 +257,29 @@ if (typeof window !== 'undefined') {
   window.__notepat_sounds = sounds;
   window.__notepat_tonestack = tonestack;
 }
+
+// 📊 Performance OSD (On-Screen Display)
+let perfOSD = true; // Toggle with ` (backtick) key - starts ON for testing
+const perfStats = {
+  lastKeyTime: 0,        // When the last key was pressed
+  lastSoundTime: 0,      // When the sound started playing (synth call)
+  latency: 0,            // Key-to-synth latency in ms (JS-side only)
+  latencyHistory: [],    // Rolling history of latencies
+  avgLatency: 0,         // Average latency
+  maxLatency: 0,         // Max latency seen
+  minLatency: Infinity,  // Min latency seen
+  soundCount: 0,         // Current number of active sounds
+  tonesInStack: 0,       // Tones in tonestack
+  keysLength: 0,         // Length of keys string
+  frameTime: 0,          // Last frame time
+  fps: 0,                // Estimated FPS
+  lastFrameTimestamp: 0, // For FPS calculation
+  memoryUsed: 0,         // JS heap used (if available)
+  sampleRate: 0,         // Audio context sample rate (kHz)
+  baseLatency: 0,        // AudioContext base latency (ms)
+  outputLatency: 0,      // AudioContext output latency (ms)
+};
+
 //let sharps = false,
 //  flats = false;
 const notes = "cdefgab" + "vswrq" + "hijklmn" + "tyuop"; // hold shift on C D F G A for sharps.
@@ -723,6 +746,34 @@ function sim({ sound, simCount, num }) {
       }
     }
   });
+
+  // 📊 Update performance stats
+  if (perfOSD) {
+    const perfNow = performance.now();
+    if (perfStats.lastFrameTimestamp > 0) {
+      perfStats.frameTime = perfNow - perfStats.lastFrameTimestamp;
+      perfStats.fps = Math.round(1000 / perfStats.frameTime);
+    }
+    perfStats.lastFrameTimestamp = perfNow;
+    perfStats.soundCount = Object.keys(sounds).filter(k => sounds[k]?.sound).length;
+    perfStats.tonesInStack = Object.keys(tonestack).length;
+    perfStats.keysLength = keys.length;
+    
+    // Get audio context info
+    if (sound.sampleRate) {
+      perfStats.sampleRate = sound.sampleRate / 1000; // Convert to kHz
+    }
+    // Get AudioContext latency info from window if available
+    if (typeof window !== 'undefined' && window.audioContext) {
+      perfStats.baseLatency = (window.audioContext.baseLatency || 0) * 1000;
+      perfStats.outputLatency = (window.audioContext.outputLatency || 0) * 1000;
+    }
+    
+    // Get memory usage if available
+    if (typeof performance !== 'undefined' && performance.memory) {
+      perfStats.memoryUsed = Math.round(performance.memory.usedJSHeapSize / 1024 / 1024);
+    }
+  }
 
   if (songShifting) {
     songShift += !songNoteDown ? 0.5 : 1;
@@ -1641,7 +1692,17 @@ function paint({
   }
 
   if (tap) {
-    ink("gray").write(keys, screen.width / 2 - tapIndex * 6, screen.height / 2);
+    // Only render a visible window of keys around the current tapIndex
+    // to prevent performance degradation with long key sequences
+    const glyphWidth = 6; // Approximate character width
+    const maxVisibleChars = Math.ceil(screen.width / glyphWidth) + 10;
+    const halfVisible = Math.floor(maxVisibleChars / 2);
+    const startIdx = Math.max(0, tapIndex - halfVisible);
+    const endIdx = Math.min(keys.length, tapIndex + halfVisible);
+    const visibleKeys = keys.slice(startIdx, endIdx);
+    const offsetFromStart = tapIndex - startIdx;
+    ink("gray").write(visibleKeys, screen.width / 2 - offsetFromStart * glyphWidth, screen.height / 2);
+    
     let nextToken = keys[tapIndex];
     let tempTapIndex = tapIndex;
     if (octaves.includes(nextToken)) {
@@ -1931,6 +1992,74 @@ function paint({
       }
     }
   }
+  
+  // 📊 Performance OSD (On-Screen Display) - toggle with ` key
+  // Uses MatrixChunky8 font and positions intelligently to avoid pads
+  if (perfOSD && !paintPictureOverlay && !projector) {
+    const font = "MatrixChunky8";
+    const glyphW = 6;
+    const glyphH = 8;
+    const lineHeight = glyphH + 2;
+    const osdLines = 9;
+    const osdWidth = 24 * glyphW + 8; // ~152px
+    const osdHeight = osdLines * lineHeight + 4;
+    
+    // Position OSD above the button pads, on the right side
+    // Use layout metrics to find a safe spot
+    const padTop = layout?.topButtonY || (screen.height - 120);
+    const osdX = screen.width - osdWidth - 4;
+    const osdY = Math.max(TOP_BAR_BOTTOM + 2, padTop - osdHeight - 4);
+    
+    // Semi-transparent background
+    ink(0, 0, 0, 210).box(osdX - 2, osdY - 2, osdWidth, osdHeight);
+    
+    // Border
+    ink(80, 80, 80).box(osdX - 2, osdY - 2, osdWidth, osdHeight, "outline");
+    
+    let row = 0;
+    const writeRow = (color, text) => {
+      ink(color).write(text, { x: osdX, y: osdY + row * lineHeight }, undefined, undefined, false, font);
+      row++;
+    };
+    
+    // Title
+    writeRow("orange", "PERF OSD [`]");
+    
+    // Audio sample rate
+    const srStr = perfStats.sampleRate > 0 ? `${perfStats.sampleRate.toFixed(1)}kHz` : "--";
+    writeRow("cyan", `RATE: ${srStr}`);
+    
+    // Audio context latencies (hardware)
+    const baseLatStr = perfStats.baseLatency > 0 ? `${perfStats.baseLatency.toFixed(1)}` : "--";
+    const outLatStr = perfStats.outputLatency > 0 ? `${perfStats.outputLatency.toFixed(1)}` : "--";
+    writeRow([180, 180, 180], `HW LAT: ${baseLatStr}/${outLatStr}ms`);
+    
+    // JS-side latency (key press to synth call)
+    const latStr = perfStats.latency > 0 ? `${perfStats.latency.toFixed(1)}ms` : "--";
+    const avgStr = perfStats.avgLatency > 0 ? `${perfStats.avgLatency.toFixed(1)}ms` : "--";
+    writeRow("lime", `JS LAT: ${latStr} AVG:${avgStr}`);
+    
+    // Min/Max latency
+    const minStr = perfStats.minLatency < Infinity ? `${perfStats.minLatency.toFixed(1)}` : "--";
+    const maxStr = perfStats.maxLatency > 0 ? `${perfStats.maxLatency.toFixed(1)}` : "--";
+    writeRow([120, 120, 120], `MIN/MAX: ${minStr}/${maxStr}ms`);
+    
+    // Sound counts
+    writeRow("yellow", `SND:${perfStats.soundCount} STK:${perfStats.tonesInStack} KEY:${perfStats.keysLength}`);
+    
+    // FPS and memory
+    const fpsColor = perfStats.fps >= 55 ? "lime" : perfStats.fps >= 30 ? "yellow" : "red";
+    const memStr = perfStats.memoryUsed > 0 ? ` MEM:${perfStats.memoryUsed}MB` : "";
+    writeRow(fpsColor, `FPS:${perfStats.fps}${memStr}`);
+    
+    // MIDI status
+    writeRow(midiConnected ? "lime" : [100, 100, 100], midiConnected ? "MIDI: CONNECTED" : "MIDI: --");
+    
+    // Estimated total latency
+    const totalEst = perfStats.avgLatency + perfStats.baseLatency + perfStats.outputLatency;
+    const totalStr = totalEst > 0 ? `~${totalEst.toFixed(1)}ms` : "--";
+    writeRow("white", `TOTAL EST: ${totalStr}`);
+  }
 }
 
 let anyDown = true;
@@ -2001,7 +2130,6 @@ function act({
           delete sounds[tone];
           if (buttons[tone]) buttons[tone].down = false;
         }
-        console.log(tone, index);
       });
     }
   }
@@ -2025,7 +2153,12 @@ function act({
   }
   if (e.is("keyboard:down:\\")) projector = !projector;
 
-  // 🚨 PANIC BUTTON: Press Escape to stop all stuck sounds
+  // � Performance OSD toggle (backtick key)
+  if (e.is("keyboard:down:`") && !e.repeat) {
+    perfOSD = !perfOSD;
+  }
+
+  // �🚨 PANIC BUTTON: Press Escape to stop all stuck sounds
   if (e.is("keyboard:down:escape")) {
     console.log("🚨 PANIC: Force stopping all sounds!");
     Object.keys(sounds).forEach(note => {
@@ -2335,6 +2468,18 @@ function act({
   };
 
   function makeNoteSound(tone, velocity = 127) {
+    // 📊 Track sound creation time for latency measurement
+    perfStats.lastSoundTime = performance.now();
+    if (perfStats.lastKeyTime > 0) {
+      const latency = perfStats.lastSoundTime - perfStats.lastKeyTime;
+      perfStats.latency = latency;
+      perfStats.latencyHistory.push(latency);
+      if (perfStats.latencyHistory.length > 30) perfStats.latencyHistory.shift();
+      perfStats.avgLatency = perfStats.latencyHistory.reduce((a, b) => a + b, 0) / perfStats.latencyHistory.length;
+      perfStats.maxLatency = Math.max(perfStats.maxLatency, latency);
+      perfStats.minLatency = Math.min(perfStats.minLatency, latency);
+    }
+    
     const velocityRatioRaw = velocity === undefined ? 1 : velocity / 127;
     const velocityRatio = num?.clamp
       ? num.clamp(velocityRatioRaw, 0, 1)
@@ -2738,6 +2883,9 @@ function act({
 
     if (typeof noteNumber === "number") {
       if (command === MIDI_NOTE_ON && velocity > 0) {
+        // 📊 Track MIDI key press time for latency measurement
+        perfStats.lastKeyTime = performance.now();
+        
         const buttonNote = midiNoteToButton(noteNumber);
         if (buttonNote && startMidiButtonNote(buttonNote, velocity)) {
           console.log("🎹 MIDI note on", { noteNumber, velocity, buttonNote });
@@ -2911,6 +3059,9 @@ function act({
           {
             down: (btn) => {
               anyDown = true;
+              // 📊 Track key press time for latency measurement
+              perfStats.lastKeyTime = performance.now();
+              
               // In song mode, block all notes except the current one
               if (song && note.toUpperCase() !== song?.[songIndex][0]) {
                 // Play white noise bump for wrong note
@@ -2996,7 +3147,6 @@ function act({
             // TODO: The order of over and out will be important...
             out: (btn) => {
               // Only stop the sound when dragging off, but don't affect button down state
-              console.log("🔇 Note OUT - stopping sound:", note);
               sounds[note]?.sound?.kill(killFade);
               delete tonestack[note]; // Remove from notestack  
               delete sounds[note]; // Remove sound reference
@@ -3009,7 +3159,6 @@ function act({
             },
             cancel: (btn) => {
               // Force cleanup when button gets stuck - stop the sound immediately
-              console.log("🔇 Force stopping stuck sound:", note);
               sounds[note]?.sound?.kill(fastFade); // Use fast fade for force cleanup
               delete tonestack[note]; // Remove from notestack
               delete sounds[note]; // Remove sound reference
@@ -3136,7 +3285,9 @@ function act({
   // Individual Keyboard Notes
   [...(octaves + notes + edges).split(""), "control"].forEach((key) => {
     if (e.is(`keyboard:down:${key}`) && !e.repeat && !downs[key]) {
-      // console.log("Buttons:", buttons);
+      // 📊 Track key press time for latency measurement
+      perfStats.lastKeyTime = performance.now();
+      
       downs[key] = true;
 
       if (!tap) {

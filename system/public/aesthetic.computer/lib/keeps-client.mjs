@@ -10,7 +10,7 @@ import TezosWallet from "./tezos-wallet.mjs";
 
 export const NETWORKS = {
   ghostnet: {
-    contract: "KT1KRQAkCrgbYPAxzxaFbGm1FaUJdqBACxu9",
+    contract: "KT1StXrQNvRd9dNPpHdCGEstcGiBV6neq79K",
     name: "ghostnet",
     explorer: "ghostnet.tzkt.io",
     objkt: "ghostnet.objkt.com",
