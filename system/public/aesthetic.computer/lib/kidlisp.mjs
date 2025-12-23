@@ -301,16 +301,10 @@ function postToParent(content) {
     try {
       // In the aesthetic.computer iframe, a BIOS relay listens for
       // { type: 'post-to-parent', content } and forwards it to the embedding page.
+      // The BIOS (boot.mjs) and bios.mjs both handle this relay, so we only need
+      // to post the wrapped message - no direct window.parent fallback needed.
+      // (Having both caused duplicate messages to kidlisp.com)
       window.postMessage({ type: "post-to-parent", content }, "*");
-    } catch {
-      // ignore
-    }
-
-    // Fallback: when embedded in an iframe, also post directly to the parent.
-    try {
-      if (window.parent && window.parent !== window) {
-        window.parent.postMessage(content, "*");
-      }
     } catch {
       // ignore
     }
