@@ -602,6 +602,98 @@
       50% { border-color: rgba(255, 217, 61, 0.25); }
     }
 
+    /* Visualization Tabs */
+    .viz-tabs {
+      display: flex;
+      gap: 0;
+      padding: 0 12px;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--editor-border);
+      height: 28px;
+      align-items: stretch;
+      flex-shrink: 0;
+    }
+    
+    .viz-tab {
+      padding: 4px 12px;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--text-tertiary);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    
+    .viz-tab:hover {
+      color: var(--text-primary);
+      background: rgba(147, 112, 219, 0.1);
+    }
+    
+    .viz-tab.active {
+      color: #9370DB;
+      border-bottom-color: #9370DB;
+      background: rgba(147, 112, 219, 0.05);
+    }
+    
+    .viz-tab .tab-icon {
+      font-size: 12px;
+      opacity: 0.7;
+    }
+    
+    .viz-tab.active .tab-icon {
+      opacity: 1;
+    }
+    
+    /* Visualization Containers */
+    .viz-container {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      display: none;
+    }
+    
+    .viz-container.active {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    #viz-text.active {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    #viz-tree {
+      background: var(--bg-primary);
+    }
+    
+    #viz-tree canvas {
+      flex: 1;
+      width: 100%;
+      display: block;
+    }
+    
+    #viz-space {
+      background: #0a0a0f;
+    }
+    
+    #viz-space canvas {
+      flex: 1;
+      width: 100%;
+      display: block;
+    }
+    
+    /* Tree view node colors */
+    .tree-node-function { fill: #9370DB; }
+    .tree-node-number { fill: #FF9F43; }
+    .tree-node-string { fill: #2ECC71; }
+    .tree-node-symbol { fill: #4ECDC4; }
+    .tree-node-list { fill: #CD5C9B; }
+
     /* Zebra striping REMOVED - was blocking Monaco's selection overlay in dark mode */
     /* The .view-lines backgrounds paint over .view-overlays where selection is rendered */
 
@@ -3601,7 +3693,6 @@
         const splashLogo = document.getElementById('splash-logo');
         const mainEl = document.getElementById('main-split');
         const landingZone = document.getElementById('logo-landing-zone');
-        const tagline = document.getElementById('tagline');
         
         if (splash && splashLogo && mainEl && landingZone) {
           const startFontSize = 48;
@@ -3678,8 +3769,7 @@
               }
             });
             
-            // Show tagline
-            if (tagline) tagline.style.opacity = '0.5';
+
             
             // Add click handler for back navigation if coming from prompt
             if (window.kidlispBackToPrompt) {
@@ -3717,7 +3807,6 @@
               });
             }
           }
-          if (tagline) tagline.style.opacity = '0.5';
         }
       };
       
@@ -3754,7 +3843,6 @@
           <div style="display: flex; flex-direction: column; align-items: flex-start;">
             <!-- Logo landing zone - splash logo will fly here and stay -->
             <div id="logo-landing-zone" style="margin-top: 4px; height: 24px; display: flex; align-items: center;"></div>
-            <span id="tagline" style="font-size: 9px; opacity: 0; margin-top: -2px; margin-bottom: 8px; font-family: monospace; transition: opacity 0.4s ease;">friendly coding for everyone</span>
           </div>
           <div class="tab language-tab" id="language-tab" style="border: none; height: 100%; padding: 0 6px; background: transparent; display: flex; align-items: center; margin-left: 8px; margin-right: 8px;">
             <span class="lang-flag" id="lang-flag" style="font-size: 10px; margin-right: 4px;">🇺🇸</span>
@@ -3770,10 +3858,36 @@
           <button id="theme-toggle" title="Toggle light/dark mode">○</button>
           <span id="local-indicator" style="display: none; position: absolute; right: 40px; top: 50%; transform: translateY(-50%); font-size: 9px; color: #4caf50; opacity: 0.7; font-family: monospace; pointer-events: none;">LOCAL</span>
         </div>
-        <div id="kidlisp-editor">
-          <button id="send-button" aria-label="Play"></button>
-          <button id="stop-button" aria-label="Stop"></button>
-          <button id="clear-button" style="display: none;">Clear</button>
+        <!-- Visualization Mode Tabs -->
+        <div class="viz-tabs" id="viz-tabs">
+          <button class="viz-tab active" data-viz="text" title="Text Editor (Monaco)">
+            <span class="tab-icon">📝</span>
+            <span>text</span>
+          </button>
+          <button class="viz-tab" data-viz="tree" title="Tree View (2D Canvas)">
+            <span class="tab-icon">🌳</span>
+            <span>tree</span>
+          </button>
+          <button class="viz-tab" data-viz="space" title="Space View (3D WebGL)">
+            <span class="tab-icon">🌌</span>
+            <span>space</span>
+          </button>
+        </div>
+        <!-- Text View (Monaco Editor) -->
+        <div class="viz-container active" id="viz-text">
+          <div id="kidlisp-editor">
+            <button id="send-button" aria-label="Play"></button>
+            <button id="stop-button" aria-label="Stop"></button>
+            <button id="clear-button" style="display: none;">Clear</button>
+          </div>
+        </div>
+        <!-- Tree View (Canvas 2D) -->
+        <div class="viz-container" id="viz-tree">
+          <canvas id="tree-canvas"></canvas>
+        </div>
+        <!-- Space View (WebGL2) -->
+        <div class="viz-container" id="viz-space">
+          <canvas id="space-canvas"></canvas>
         </div>
       </div>
       
@@ -4526,7 +4640,8 @@
         front.style.backfaceVisibility = 'hidden';
         
         const img = document.createElement('img');
-        img.src = `/kidlisp.com/cards/svg/${svgName}.svg`;
+        const isKidlispDomain = window.location.hostname === 'kidlisp.com' || window.location.hostname === 'www.kidlisp.com';
+        img.src = isKidlispDomain ? `/cards/svg/${svgName}.svg` : `/kidlisp.com/cards/svg/${svgName}.svg`;
         img.alt = svgName;
         img.style.width = '100%';
         img.style.height = '100%';
@@ -4546,7 +4661,7 @@
         back.style.transform = 'rotateY(180deg)';
         
         const backImg = document.createElement('img');
-        backImg.src = '/kidlisp.com/cards/svg/card-back.svg';
+        backImg.src = isKidlispDomain ? '/cards/svg/card-back.svg' : '/kidlisp.com/cards/svg/card-back.svg';
         backImg.alt = 'Card Back';
         backImg.style.width = '100%';
         backImg.style.height = '100%';
@@ -4798,7 +4913,8 @@
         discardCard.dataset.cardIndex = cardIndex;
         
         const backImg = document.createElement('img');
-        backImg.src = '/kidlisp.com/cards/svg/card-back.svg';
+        const isKidlispDomain = window.location.hostname === 'kidlisp.com' || window.location.hostname === 'www.kidlisp.com';
+        backImg.src = isKidlispDomain ? '/cards/svg/card-back.svg' : '/kidlisp.com/cards/svg/card-back.svg';
         backImg.alt = 'Card Back';
         backImg.draggable = false;
         discardCard.appendChild(backImg);
@@ -6239,8 +6355,8 @@
       entry.appendChild(img);
       entry.appendChild(meta);
       
-      consoleOutput.appendChild(entry);
-      consoleOutput.scrollTop = consoleOutput.scrollHeight;
+      consoleOutput.insertBefore(entry, consoleOutput.firstChild);
+      consoleOutput.scrollTop = 0;
     }
     
     // Generate timestamped filename like bios.mjs does
@@ -6407,8 +6523,8 @@
         entry.classList.add(options.className);
       }
       
-      consoleOutput.appendChild(entry);
-      consoleOutput.scrollTop = consoleOutput.scrollHeight;
+      consoleOutput.insertBefore(entry, consoleOutput.firstChild);
+      consoleOutput.scrollTop = 0;
       return entry;
     }
     
@@ -6671,12 +6787,10 @@
       const cleanCode = code.startsWith('$') ? code.substring(1) : code;
       const isKidlispDomain = window.location.hostname === 'kidlisp.com' || window.location.hostname === 'www.kidlisp.com';
       const newPath = isKidlispDomain ? `/$${cleanCode}` : `/kidlisp.com/$${cleanCode}`;
-      const newTitle = `aesthetic.computer/$${cleanCode}`;
       
-      // Update URL without reloading
+      // Update URL without reloading (keep KidLisp title)
       if (window.location.pathname !== newPath) {
-        window.history.pushState({ code: cleanCode }, newTitle, newPath);
-        document.title = newTitle;
+        window.history.pushState({ code: cleanCode }, document.title, newPath);
       }
       
       // Generate QR code
@@ -7935,13 +8049,18 @@
       if (code) {
         // Get the current code identifier if we have one
         const codeId = localStorage.getItem('kidlisp-current-code') || null;
+        
+        // Check if visualization tabs are active (tree or space view)
+        const needsTrace = vizSystem.currentView !== 'text';
+        
         // Send code via postMessage for instant reload (no network!)
         sendToIframe({
           type: 'kidlisp-reload',
           code: code,
           codeId: codeId,  // Pass the $code identifier so bios can populate cache
           createCode: shouldCreateCode,  // Only create code when explicitly requested
-          authToken: acToken || null  // Pass auth token from kidlisp.com login
+          authToken: acToken || null,  // Pass auth token from kidlisp.com login
+          enableTrace: needsTrace  // Enable execution trace for visualization
         });
         logCodeOperation('run', code);
       } else {
@@ -8361,6 +8480,17 @@
         // Syntax highlighting signals from KidLisp execution
         if (editor && event.data.highlights) {
           applyHighlightDecorations(event.data.highlights);
+        }
+      } else if (messageType === 'kidlisp-trace') {
+        // Execution trace from KidLisp interpreter - update visualization
+        if (event.data.trace && Array.isArray(event.data.trace)) {
+          vizSystem.executionTrace = event.data.trace;
+          // Update visualizations if visible
+          if (vizSystem.currentView === 'tree') {
+            renderTree();
+          } else if (vizSystem.currentView === 'space') {
+            renderSpace();
+          }
         }
       } else if (messageType === 'kidlisp-code-created') {
         // Code was created with $ identifier - update URL and preview title (AC platform only)
@@ -9507,6 +9637,809 @@
         document.getElementById('examples-list').textContent = t('examplesError');
       }
     }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // VISUALIZATION SYSTEM - text/tree/space views
+    // Shows EXECUTION PATH from the actual KidLisp interpreter
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    const vizSystem = {
+      currentView: 'text',
+      ast: null,
+      executionTrace: [], // Real trace from KidLisp interpreter
+      traceEnabled: false,
+      tree: { canvas: null, ctx: null, nodes: [], pan: { x: 0, y: 0 }, zoom: 1 },
+      space: { canvas: null, initialized: false, nodes: [], camera: { x: 0, y: 50, z: 100 } }
+    };
+    
+    // Node type colors matching the plan
+    const nodeColors = {
+      'function': '#9370DB',
+      'number': '#FF9F43', 
+      'string': '#2ECC71',
+      'symbol': '#4ECDC4',
+      'list': '#CD5C9B',
+      'special': '#F8B500',
+      'comment': '#888888',
+      'error': '#E74C3C',
+      'root': '#FFFFFF'
+    };
+    
+    // Parse KidLisp code into AST for visualization
+    function parseToAST(code) {
+      const tokens = [];
+      let i = 0;
+      
+      while (i < code.length) {
+        // Skip whitespace
+        if (/\s/.test(code[i])) { i++; continue; }
+        
+        // Comments
+        if (code[i] === ';') {
+          let comment = '';
+          while (i < code.length && code[i] !== '\n') comment += code[i++];
+          tokens.push({ type: 'comment', value: comment, pos: i });
+          continue;
+        }
+        
+        // Strings
+        if (code[i] === '"') {
+          let str = '"';
+          i++;
+          while (i < code.length && code[i] !== '"') {
+            if (code[i] === '\\' && i + 1 < code.length) str += code[i++];
+            str += code[i++];
+          }
+          if (i < code.length) str += code[i++];
+          tokens.push({ type: 'string', value: str, pos: i });
+          continue;
+        }
+        
+        // Parens
+        if (code[i] === '(') { tokens.push({ type: 'lparen', pos: i }); i++; continue; }
+        if (code[i] === ')') { tokens.push({ type: 'rparen', pos: i }); i++; continue; }
+        
+        // Numbers or symbols
+        let word = '';
+        const start = i;
+        while (i < code.length && !/[\s()";\[\]]/.test(code[i])) word += code[i++];
+        if (word) {
+          const isNum = /^-?\d+(\.\d+)?$/.test(word);
+          tokens.push({ type: isNum ? 'number' : 'symbol', value: word, pos: start });
+        }
+      }
+      
+      // Parse tokens into tree
+      let ti = 0;
+      function parseExpr() {
+        if (ti >= tokens.length) return null;
+        const tok = tokens[ti];
+        
+        if (tok.type === 'lparen') {
+          ti++;
+          const children = [];
+          while (ti < tokens.length && tokens[ti].type !== 'rparen') {
+            const child = parseExpr();
+            if (child) children.push(child);
+          }
+          ti++; // skip rparen
+          const nodeType = children.length > 0 && children[0].type === 'symbol' ? 'function' : 'list';
+          return { type: nodeType, children, value: children[0]?.value || 'list' };
+        }
+        
+        ti++;
+        return { type: tok.type, value: tok.value, children: [] };
+      }
+      
+      const expressions = [];
+      while (ti < tokens.length) {
+        const expr = parseExpr();
+        if (expr) expressions.push(expr);
+      }
+      
+      return { type: 'root', value: 'program', children: expressions };
+    }
+    
+    // Initialize visualization tab switching
+    function initVizTabs() {
+      const tabs = document.querySelectorAll('.viz-tab');
+      const containers = document.querySelectorAll('.viz-container');
+      
+      console.log('🎨 [VIZ] initVizTabs called, found', tabs.length, 'tabs and', containers.length, 'containers');
+      
+      tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+          const vizType = tab.dataset.viz;
+          console.log('🎨 [VIZ] Tab clicked:', vizType);
+          
+          // Update tab states
+          tabs.forEach(t => t.classList.remove('active'));
+          tab.classList.add('active');
+          
+          // Update container visibility
+          containers.forEach(c => c.classList.remove('active'));
+          const container = document.getElementById(`viz-${vizType}`);
+          if (container) {
+            container.classList.add('active');
+            console.log('🎨 [VIZ] Container activated:', container.id, container.getBoundingClientRect());
+          }
+          
+          const previousView = vizSystem.currentView;
+          vizSystem.currentView = vizType;
+          
+          // Initialize visualization if needed (delay to let CSS take effect)
+          setTimeout(() => {
+            if (vizType === 'tree') initTreeView();
+            if (vizType === 'space') initSpaceView();
+            
+            // If switching TO tree/space from text, re-run code with tracing enabled
+            if (previousView === 'text' && (vizType === 'tree' || vizType === 'space')) {
+              // Re-send code to iframe with trace enabled
+              if (isPlaying && editor) {
+                const code = editor.getValue();
+                if (code) {
+                  console.log('🎨 [VIZ] Re-running code with trace enabled');
+                  sendToIframe({
+                    type: 'kidlisp-reload',
+                    code: code,
+                    enableTrace: true
+                  });
+                }
+              }
+            }
+            
+            // Update with current code
+            updateVisualization();
+          }, 50);
+        });
+      });
+    }
+    
+    // Initialize Tree View (Canvas 2D)
+    function initTreeView() {
+      const canvas = document.getElementById('tree-canvas');
+      console.log('🌳 [TREE] initTreeView called, canvas:', canvas);
+      if (!canvas) return;
+      
+      // Only initialize once
+      if (vizSystem.tree.ctx) {
+        console.log('🌳 [TREE] Already initialized, resizing');
+        // Already initialized, just resize and render
+        requestAnimationFrame(() => {
+          const container = document.getElementById('viz-tree');
+          if (container) {
+            const rect = container.getBoundingClientRect();
+            console.log('🌳 [TREE] Container rect:', rect);
+            canvas.width = rect.width || 400;
+            canvas.height = Math.max(100, rect.height || 300);
+            renderTree();
+          }
+        });
+        return;
+      }
+      
+      console.log('🌳 [TREE] First init, creating context');
+      vizSystem.tree.canvas = canvas;
+      vizSystem.tree.ctx = canvas.getContext('2d');
+      
+      // Handle resize - delay to ensure container is visible
+      function resizeCanvas() {
+        requestAnimationFrame(() => {
+          const container = document.getElementById('viz-tree');
+          if (container) {
+            const rect = container.getBoundingClientRect();
+            canvas.width = rect.width || 400;
+            canvas.height = Math.max(100, rect.height || 300);
+            renderTree();
+          }
+        });
+      }
+      
+      resizeCanvas();
+      window.addEventListener('resize', resizeCanvas);
+      
+      // Pan with mouse drag
+      let dragging = false;
+      let lastX, lastY;
+      
+      canvas.addEventListener('mousedown', (e) => {
+        dragging = true;
+        lastX = e.clientX;
+        lastY = e.clientY;
+        canvas.style.cursor = 'grabbing';
+      });
+      
+      canvas.addEventListener('mousemove', (e) => {
+        if (!dragging) return;
+        vizSystem.tree.pan.x += e.clientX - lastX;
+        vizSystem.tree.pan.y += e.clientY - lastY;
+        lastX = e.clientX;
+        lastY = e.clientY;
+        renderTree();
+      });
+      
+      canvas.addEventListener('mouseup', () => {
+        dragging = false;
+        canvas.style.cursor = 'grab';
+      });
+      
+      canvas.addEventListener('mouseleave', () => {
+        dragging = false;
+        canvas.style.cursor = 'grab';
+      });
+      
+      // Zoom with wheel
+      canvas.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+        vizSystem.tree.zoom = Math.max(0.1, Math.min(5, vizSystem.tree.zoom * zoomFactor));
+        renderTree();
+      });
+      
+      canvas.style.cursor = 'grab';
+    }
+    
+    // Layout tree nodes using simple algorithm
+    function layoutTree(node, depth = 0, index = 0, siblingCount = 1) {
+      if (!node) return [];
+      
+      const nodeWidth = 80;
+      const nodeHeight = 32;
+      const levelHeight = 60;
+      const minSpacing = 20;
+      
+      // Calculate positions recursively
+      let nodes = [];
+      let childNodes = [];
+      let totalWidth = 0;
+      
+      if (node.children && node.children.length > 0) {
+        node.children.forEach((child, i) => {
+          const childLayout = layoutTree(child, depth + 1, i, node.children.length);
+          childNodes = childNodes.concat(childLayout);
+        });
+        
+        // Get width of all children
+        const childXPositions = childNodes.filter(n => n.depth === depth + 1).map(n => n.x);
+        if (childXPositions.length > 0) {
+          totalWidth = Math.max(...childXPositions) - Math.min(...childXPositions);
+        }
+      }
+      
+      // Position this node centered above its children
+      const childrenAtNextLevel = childNodes.filter(n => n.depth === depth + 1);
+      let x;
+      if (childrenAtNextLevel.length > 0) {
+        const minX = Math.min(...childrenAtNextLevel.map(n => n.x));
+        const maxX = Math.max(...childrenAtNextLevel.map(n => n.x));
+        x = (minX + maxX) / 2;
+      } else {
+        x = index * (nodeWidth + minSpacing);
+      }
+      
+      const thisNode = {
+        ...node,
+        x,
+        y: depth * levelHeight,
+        width: nodeWidth,
+        height: nodeHeight,
+        depth,
+        color: nodeColors[node.type] || nodeColors.symbol
+      };
+      
+      return [thisNode, ...childNodes];
+    }
+    
+    // Render Tree View - Shows EXECUTION PATH with source code lines
+    function renderTree() {
+      const { canvas, ctx, pan, zoom } = vizSystem.tree;
+      if (!ctx || !canvas) return;
+      
+      // Dark background
+      ctx.fillStyle = '#1a1a2e';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      // Get current code from editor
+      const code = editor?.getValue() || '';
+      const lines = code.split('\n');
+      
+      // If we have an execution trace, show it
+      const trace = vizSystem.executionTrace;
+      
+      if (!trace || trace.length === 0) {
+        // Show source code lines with basic visualization
+        ctx.font = '12px monospace';
+        ctx.textAlign = 'left';
+        
+        const lineHeight = 20;
+        const startY = 40 + pan.y;
+        const startX = 60 + pan.x;
+        
+        // Header
+        ctx.fillStyle = '#4ECDC4';
+        ctx.fillText('EXECUTION PATH', 20, 20);
+        ctx.fillStyle = '#666';
+        ctx.fillText('(run code to see trace)', 150, 20);
+        
+        // Draw line numbers and code
+        lines.forEach((line, i) => {
+          const y = startY + i * lineHeight * zoom;
+          if (y < 0 || y > canvas.height) return;
+          
+          // Line number
+          ctx.fillStyle = '#666';
+          ctx.fillText(String(i + 1).padStart(3, ' '), 10, y);
+          
+          // Determine line type/color
+          const trimmed = line.trim();
+          let color = '#AAAAAA'; // default
+          
+          if (trimmed.startsWith(';')) {
+            color = '#666666'; // comment
+          } else if (trimmed.startsWith('(def ')) {
+            color = '#FF9F43'; // definition
+          } else if (trimmed.startsWith('(later ')) {
+            color = '#CD5C9B'; // function def
+          } else if (trimmed.startsWith('(wipe') || trimmed.startsWith('(ink') || 
+                     trimmed.startsWith('(line') || trimmed.startsWith('(box') ||
+                     trimmed.startsWith('(circle')) {
+            color = '#9370DB'; // graphics
+          } else if (trimmed.startsWith('(repeat') || trimmed.startsWith('(bunch')) {
+            color = '#2ECC71'; // loops
+          } else if (trimmed.match(/^\(\d+(\.\d+)?s/)) {
+            color = '#4ECDC4'; // timing
+          }
+          
+          ctx.fillStyle = color;
+          ctx.fillText(line.substring(0, 80), startX, y);
+          
+          // Draw connecting line for nested expressions
+          const depth = (line.match(/^\s*/)?.[0].length || 0) / 2;
+          if (depth > 0) {
+            ctx.strokeStyle = 'rgba(147, 112, 219, 0.2)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(startX - 10 - depth * 8, y - lineHeight / 2);
+            ctx.lineTo(startX - 10 - depth * 8, y + 4);
+            ctx.lineTo(startX - 5, y + 4);
+            ctx.stroke();
+          }
+        });
+        
+        return;
+      }
+      
+      // We have a trace! Show execution flow
+      const lineHeight = 22;
+      const startY = 50 + pan.y;
+      const startX = 20 + pan.x;
+      
+      // Header
+      ctx.fillStyle = '#4ECDC4';
+      ctx.font = 'bold 14px monospace';
+      ctx.fillText(`EXECUTION TRACE (${trace.length} steps)`, 20, 25);
+      
+      // Type colors
+      const typeColors = {
+        'enter': '#9370DB',
+        'exit': '#2ECC71',
+        'function-call': '#FF9F43',
+        'special-form': '#CD5C9B',
+        'number': '#FF9F43',
+        'string': '#2ECC71',
+        'symbol': '#4ECDC4'
+      };
+      
+      // Draw trace entries
+      ctx.font = '11px monospace';
+      let displayIndex = 0;
+      
+      trace.forEach((entry, i) => {
+        const y = startY + displayIndex * lineHeight * zoom;
+        if (y < 0 || y > canvas.height) {
+          displayIndex++;
+          return;
+        }
+        
+        const indent = entry.depth * 16;
+        const x = startX + indent;
+        
+        // Draw depth line
+        if (entry.depth > 0) {
+          ctx.strokeStyle = 'rgba(147, 112, 219, 0.3)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(startX + indent - 8, y - lineHeight);
+          ctx.lineTo(startX + indent - 8, y + 4);
+          ctx.lineTo(startX + indent - 2, y + 4);
+          ctx.stroke();
+        }
+        
+        // Entry type indicator
+        const typeColor = typeColors[entry.type] || typeColors[entry.exprType] || '#AAAAAA';
+        
+        if (entry.type === 'enter') {
+          // Arrow for entering expression
+          ctx.fillStyle = typeColor;
+          ctx.fillText('→', x, y);
+          ctx.fillText(String(entry.expr), x + 16, y);
+        } else if (entry.type === 'exit') {
+          // Arrow for exiting with result
+          ctx.fillStyle = '#2ECC71';
+          ctx.fillText('←', x, y);
+          ctx.fillStyle = '#888';
+          const result = entry.result !== undefined ? ` = ${entry.result}` : '';
+          ctx.fillText(`${entry.expr}${result}`, x + 16, y);
+        }
+        
+        displayIndex++;
+      });
+    }
+    
+    // Initialize Space View (Canvas 2D with 3D projection)
+    function initSpaceView() {
+      const canvas = document.getElementById('space-canvas');
+      console.log('🌌 [SPACE] initSpaceView called, canvas:', canvas);
+      if (!canvas) return;
+      
+      // Only initialize once
+      if (vizSystem.space.initialized) {
+        console.log('🌌 [SPACE] Already initialized, resizing');
+        // Already initialized, just resize and render
+        requestAnimationFrame(() => {
+          const container = document.getElementById('viz-space');
+          if (container) {
+            const rect = container.getBoundingClientRect();
+            console.log('🌌 [SPACE] Container rect:', rect);
+            canvas.width = rect.width || 400;
+            canvas.height = Math.max(100, rect.height || 300);
+            renderSpace();
+          }
+        });
+        return;
+      }
+      
+      console.log('🌌 [SPACE] First init, setting up');
+      vizSystem.space.canvas = canvas;
+      vizSystem.space.initialized = true;
+      
+      // Handle resize - delay to ensure container is visible
+      function resizeCanvas() {
+        requestAnimationFrame(() => {
+          const container = document.getElementById('viz-space');
+          if (container) {
+            const rect = container.getBoundingClientRect();
+            canvas.width = rect.width || 400;
+            canvas.height = Math.max(100, rect.height || 300);
+            renderSpace();
+          }
+        });
+      }
+      
+      resizeCanvas();
+      window.addEventListener('resize', resizeCanvas);
+      
+      // Camera controls
+      let dragging = false;
+      let lastX, lastY;
+      
+      canvas.addEventListener('mousedown', (e) => {
+        dragging = true;
+        lastX = e.clientX;
+        lastY = e.clientY;
+      });
+      
+      canvas.addEventListener('mousemove', (e) => {
+        if (!dragging) return;
+        vizSystem.space.camera.x += (e.clientX - lastX) * 1;
+        vizSystem.space.camera.y -= (e.clientY - lastY) * 1;
+        lastX = e.clientX;
+        lastY = e.clientY;
+        renderSpace();
+      });
+      
+      canvas.addEventListener('mouseup', () => dragging = false);
+      canvas.addEventListener('mouseleave', () => dragging = false);
+      
+      canvas.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        vizSystem.space.camera.z += e.deltaY * 0.5;
+        vizSystem.space.camera.z = Math.max(-100, Math.min(300, vizSystem.space.camera.z));
+        renderSpace();
+      });
+    }
+    
+    // Simple 3D point projection - retro style with wider FOV
+    function project3D(x, y, z, camera, width, height) {
+      const cx = camera.x;
+      const cy = camera.y;
+      const cz = camera.z;
+      
+      // Wider field of view for retro feel
+      const fov = 400;
+      const scale = fov / (z + cz + 10);
+      const px = (x - cx) * scale + width / 2;
+      const py = (y - cy) * scale + height / 2;
+      
+      return { x: px, y: py, scale: scale / 50, depth: z + cz };
+    }
+    
+    // Layout nodes in 3D space - spread out more
+    function layout3D(node, depth = 0, index = 0, siblingCount = 1) {
+      if (!node) return [];
+      
+      const spacing = 80;  // Much wider spacing
+      const depthSpacing = 60;  // More depth between levels
+      
+      let nodes = [];
+      
+      // Position based on depth (z), sibling index (x), and type grouping (y)
+      const x = (index - (siblingCount - 1) / 2) * spacing;
+      const y = 0;
+      const z = depth * depthSpacing;
+      
+      nodes.push({
+        ...node,
+        x, y, z,
+        color: nodeColors[node.type] || nodeColors.symbol
+      });
+      
+      if (node.children) {
+        node.children.forEach((child, i) => {
+          const childNodes = layout3D(child, depth + 1, i, node.children.length);
+          // Offset children relative to parent
+          childNodes.forEach(cn => {
+            cn.x += x;
+          });
+          nodes = nodes.concat(childNodes);
+        });
+      }
+      
+      return nodes;
+    }
+    
+    // Render Space View - Retro wireframe showing EXECUTION FLOW in 3D
+    function renderSpace() {
+      const { canvas, camera } = vizSystem.space;
+      if (!canvas) return;
+      
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      
+      // Pure black background
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      // Draw retro grid floor
+      ctx.strokeStyle = '#1a3a1a';
+      ctx.lineWidth = 1;
+      const gridSize = 50;
+      const gridExtent = 400;
+      
+      // Horizontal grid lines (going into distance)
+      for (let z = 0; z <= gridExtent; z += gridSize) {
+        const p1 = project3D(-gridExtent, 100, z, camera, canvas.width, canvas.height);
+        const p2 = project3D(gridExtent, 100, z, camera, canvas.width, canvas.height);
+        if (p1.depth > 0 && p2.depth > 0) {
+          ctx.beginPath();
+          ctx.moveTo(p1.x, p1.y);
+          ctx.lineTo(p2.x, p2.y);
+          ctx.stroke();
+        }
+      }
+      
+      // Vertical grid lines (left to right)
+      for (let x = -gridExtent; x <= gridExtent; x += gridSize) {
+        const p1 = project3D(x, 100, 0, camera, canvas.width, canvas.height);
+        const p2 = project3D(x, 100, gridExtent, camera, canvas.width, canvas.height);
+        if (p1.depth > 0 && p2.depth > 0) {
+          ctx.beginPath();
+          ctx.moveTo(p1.x, p1.y);
+          ctx.lineTo(p2.x, p2.y);
+          ctx.stroke();
+        }
+      }
+      
+      // Get execution trace
+      const trace = vizSystem.executionTrace;
+      
+      if (!trace || trace.length === 0) {
+        // Draw "WAITING FOR TRACE" text
+        ctx.fillStyle = '#0f0';
+        ctx.font = '16px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('[ WAITING FOR TRACE ]', canvas.width / 2, canvas.height / 2);
+        ctx.fillStyle = '#888';
+        ctx.font = '12px monospace';
+        ctx.fillText('run code to see execution flow', canvas.width / 2, canvas.height / 2 + 24);
+        
+        // Draw corner brackets
+        drawCornerBrackets(ctx, canvas);
+        return;
+      }
+      
+      // Wireframe colors by type - neon retro palette
+      const wireColors = {
+        'enter': '#ff00ff',       // Magenta - entering expression
+        'exit': '#00ff00',        // Green - returning result
+        'function-call': '#ffff00', // Yellow
+        'special-form': '#ff8800',  // Orange
+        'number': '#ffff00',      // Yellow
+        'string': '#00ff00',      // Green
+        'symbol': '#00ffff',      // Cyan
+      };
+      
+      // Layout trace entries in 3D space
+      // X = horizontal spread based on expression
+      // Y = vertical (up is shallower depth)
+      // Z = time/sequence (deeper = later in trace)
+      
+      const nodes = [];
+      const spacing = 60;
+      const depthSpacing = 40;
+      let maxDepth = 0;
+      
+      trace.forEach((entry, i) => {
+        // Position based on sequence (z), depth (y), and some horizontal spread (x)
+        const x = (entry.depth - 2) * spacing;
+        const y = -entry.depth * 30; // Higher = shallower call depth
+        const z = i * depthSpacing;
+        
+        maxDepth = Math.max(maxDepth, entry.depth);
+        
+        nodes.push({
+          ...entry,
+          x, y, z,
+          nodeIndex: i
+        });
+      });
+      
+      // Sort by z for painter's algorithm (far to near)
+      const sortedNodes = [...nodes].sort((a, b) => b.z - a.z);
+      
+      // Draw connection lines between sequential entries
+      ctx.lineWidth = 1;
+      for (let i = 1; i < nodes.length; i++) {
+        const prev = nodes[i - 1];
+        const curr = nodes[i];
+        
+        const p1 = project3D(prev.x, prev.y, prev.z, camera, canvas.width, canvas.height);
+        const p2 = project3D(curr.x, curr.y, curr.z, camera, canvas.width, canvas.height);
+        
+        if (p1.depth > 0 && p2.depth > 0) {
+          // Color based on transition
+          const isEnter = curr.type === 'enter';
+          ctx.strokeStyle = isEnter ? 'rgba(255, 0, 255, 0.4)' : 'rgba(0, 255, 0, 0.4)';
+          ctx.beginPath();
+          ctx.moveTo(p1.x, p1.y);
+          ctx.lineTo(p2.x, p2.y);
+          ctx.stroke();
+        }
+      }
+      
+      // Draw nodes
+      sortedNodes.forEach(node => {
+        const p = project3D(node.x, node.y, node.z, camera, canvas.width, canvas.height);
+        if (p.depth <= 0) return;
+        
+        const size = Math.max(4, Math.min(20, 12 * p.scale));
+        const color = wireColors[node.type] || wireColors[node.exprType] || '#00ffff';
+        
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        
+        // Shape based on type
+        if (node.type === 'enter') {
+          // Right-pointing arrow/chevron for enter
+          ctx.beginPath();
+          ctx.moveTo(p.x - size, p.y - size);
+          ctx.lineTo(p.x + size, p.y);
+          ctx.lineTo(p.x - size, p.y + size);
+          ctx.stroke();
+        } else if (node.type === 'exit') {
+          // Left-pointing arrow for exit
+          ctx.beginPath();
+          ctx.moveTo(p.x + size, p.y - size);
+          ctx.lineTo(p.x - size, p.y);
+          ctx.lineTo(p.x + size, p.y + size);
+          ctx.stroke();
+        } else {
+          // Diamond for others
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y - size);
+          ctx.lineTo(p.x + size, p.y);
+          ctx.lineTo(p.x, p.y + size);
+          ctx.lineTo(p.x - size, p.y);
+          ctx.closePath();
+          ctx.stroke();
+        }
+        
+        // Label
+        if (size > 6) {
+          ctx.fillStyle = color;
+          ctx.font = `${Math.max(8, size * 0.8)}px monospace`;
+          ctx.textAlign = 'center';
+          const label = String(node.expr).substring(0, 12);
+          ctx.fillText(label, p.x, p.y + size + 10);
+        }
+      });
+      
+      // Scanline overlay
+      ctx.fillStyle = 'rgba(0,0,0,0.03)';
+      for (let y = 0; y < canvas.height; y += 3) {
+        ctx.fillRect(0, y, canvas.width, 1);
+      }
+      
+      // Corner brackets
+      drawCornerBrackets(ctx, canvas);
+      
+      // Status display
+      ctx.fillStyle = '#0f0';
+      ctx.font = '10px monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText(`TRACE: ${trace.length} steps`, 25, 35);
+      ctx.fillText(`DEPTH: ${maxDepth}`, 25, 47);
+    }
+    
+    function drawCornerBrackets(ctx, canvas) {
+      ctx.strokeStyle = '#0f0';
+      ctx.lineWidth = 1;
+      const m = 20;
+      const b = 30;
+      
+      ctx.beginPath();
+      ctx.moveTo(m, m + b); ctx.lineTo(m, m); ctx.lineTo(m + b, m);
+      ctx.stroke();
+      
+      ctx.beginPath();
+      ctx.moveTo(canvas.width - m - b, m); ctx.lineTo(canvas.width - m, m); ctx.lineTo(canvas.width - m, m + b);
+      ctx.stroke();
+      
+      ctx.beginPath();
+      ctx.moveTo(m, canvas.height - m - b); ctx.lineTo(m, canvas.height - m); ctx.lineTo(m + b, canvas.height - m);
+      ctx.stroke();
+      
+      ctx.beginPath();
+      ctx.moveTo(canvas.width - m - b, canvas.height - m); ctx.lineTo(canvas.width - m, canvas.height - m); ctx.lineTo(canvas.width - m, canvas.height - m - b);
+      ctx.stroke();
+    }
+    
+    // Update visualization with current code
+    function updateVisualization() {
+      // Get code from Monaco editor
+      let code = '';
+      if (typeof monaco !== 'undefined' && window.editor) {
+        code = window.editor.getValue();
+      }
+      
+      // Fallback: try to get code from any Monaco model
+      if (!code && typeof monaco !== 'undefined') {
+        const models = monaco.editor.getModels();
+        if (models.length > 0) {
+          code = models[0].getValue();
+        }
+      }
+      
+      console.log('🎨 [VIZ] updateVisualization, code length:', code.length, 'view:', vizSystem.currentView);
+      
+      if (code) {
+        vizSystem.ast = parseToAST(code);
+        console.log('🎨 [VIZ] AST:', vizSystem.ast);
+      }
+      
+      if (vizSystem.currentView === 'tree') renderTree();
+      if (vizSystem.currentView === 'space') renderSpace();
+    }
+    
+    // Initialize visualization system
+    initVizTabs();
+    
+    // Update visualizations when code changes (hook into Monaco later)
+    setInterval(() => {
+      if (vizSystem.currentView !== 'text') {
+        updateVisualization();
+      }
+    }, 500);
 
     // Session server connection with connectivity feedback
     let sessionWs = null;

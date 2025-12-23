@@ -287,6 +287,10 @@ function getCachedCode(source) {
 // This avoids forwarding arbitrary JS console errors into kidlisp.com's console panel.
 let __kidlispConsoleEnabled = false;
 let __kidlispConsoleInitLogged = false;
+let __kidlispTraceEnabled = false;
+let __kidlispExecutionTrace = [];
+let __kidlispTraceDepth = 0;
+const __KIDLISP_MAX_TRACE_ENTRIES = 200;
 
 function postToParent(content) {
   // NOTE: KidLisp code often runs in the disk worker. Support both window and worker contexts.
@@ -359,6 +363,127 @@ function postKidlispConsoleImage(imageDataUrl, meta = {}) {
     embeddedSource: meta.embeddedSource
   };
   postToParent(payload);
+}
+
+// --- Execution Trace System (for kidlisp.com visualization) ---
+// Records the execution path through the KidLisp interpreter
+
+function enableKidlispTrace() {
+  __kidlispTraceEnabled = true;
+  __kidlispExecutionTrace = [];
+  __kidlispTraceDepth = 0;
+  if (typeof window !== "undefined") {
+    window.__acKidlispTraceEnabled = true;
+  }
+}
+
+function disableKidlispTrace() {
+  __kidlispTraceEnabled = false;
+  if (typeof window !== "undefined") {
+    window.__acKidlispTraceEnabled = false;
+  }
+}
+
+function isKidlispTraceEnabled() {
+  if (__kidlispTraceEnabled) return true;
+  try {
+    if (typeof window !== "undefined") return window.__acKidlispTraceEnabled === true;
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+function clearExecutionTrace() {
+  __kidlispExecutionTrace = [];
+  __kidlispTraceDepth = 0;
+}
+
+function recordTraceEntry(type, expr, result, source, startPos, endPos) {
+  if (!isKidlispTraceEnabled()) return;
+  if (__kidlispExecutionTrace.length >= __KIDLISP_MAX_TRACE_ENTRIES) return;
+  
+  // Build trace entry
+  const entry = {
+    id: __kidlispExecutionTrace.length,
+    type, // 'enter', 'exit', 'call', 'primitive', 'value'
+    depth: __kidlispTraceDepth,
+    timestamp: performance.now(),
+    expr: formatExprForTrace(expr),
+    exprType: getExprType(expr),
+  };
+  
+  if (result !== undefined) entry.result = formatExprForTrace(result);
+  if (source) entry.source = source.substring(0, 100);
+  if (startPos !== undefined) entry.startPos = startPos;
+  if (endPos !== undefined) entry.endPos = endPos;
+  
+  __kidlispExecutionTrace.push(entry);
+}
+
+function traceEnter(expr, source, startPos, endPos) {
+  recordTraceEntry('enter', expr, undefined, source, startPos, endPos);
+  __kidlispTraceDepth++;
+}
+
+function traceExit(expr, result) {
+  __kidlispTraceDepth = Math.max(0, __kidlispTraceDepth - 1);
+  recordTraceEntry('exit', expr, result);
+}
+
+function getExecutionTrace() {
+  return __kidlispExecutionTrace.slice(); // Return a copy
+}
+
+function postExecutionTrace() {
+  if (!isKidlispTraceEnabled()) return;
+  const trace = getExecutionTrace();
+  if (trace.length === 0) return;
+  
+  postToParent({
+    type: 'kidlisp-trace',
+    trace,
+    timestamp: performance.now()
+  });
+}
+
+function formatExprForTrace(expr) {
+  if (expr === null || expr === undefined) return String(expr);
+  if (typeof expr === 'number' || typeof expr === 'string' || typeof expr === 'boolean') {
+    return expr;
+  }
+  if (Array.isArray(expr)) {
+    if (expr.length === 0) return '()';
+    const head = expr[0];
+    if (expr.length <= 3) {
+      return `(${expr.map(formatExprForTrace).join(' ')})`;
+    }
+    return `(${head} ...)`;
+  }
+  if (typeof expr === 'function') return '<fn>';
+  if (typeof expr === 'object') return '{...}';
+  return String(expr);
+}
+
+function getExprType(expr) {
+  if (expr === null) return 'null';
+  if (expr === undefined) return 'undefined';
+  if (typeof expr === 'number') return 'number';
+  if (typeof expr === 'string') return 'string';
+  if (typeof expr === 'boolean') return 'boolean';
+  if (Array.isArray(expr)) {
+    if (expr.length === 0) return 'empty-list';
+    const head = expr[0];
+    if (typeof head === 'string') {
+      // Check for known function types
+      const specials = ['def', 'if', 'later', 'repeat', 'once', 'tap', 'drag', 'let'];
+      if (specials.includes(head)) return 'special-form';
+      return 'function-call';
+    }
+    return 'list';
+  }
+  if (typeof expr === 'function') return 'function';
+  return 'object';
 }
 
 function enableKidlispConsole() {
@@ -8177,6 +8302,10 @@ class KidLisp {
       return undefined;
     }
     
+    // 📊 Execution trace for kidlisp.com visualization
+    const tracing = isKidlispTraceEnabled();
+    if (tracing) traceEnter(parsed);
+    
     // 🐛 Track current expression for debugging
     const prevExpression = this.currentEvaluatingExpression;
     if (!this.inkStateSet && kidlispInkLoggingEnabled()) {
@@ -8234,10 +8363,12 @@ class KidLisp {
           cacheKey = exprString + '_' + this.frameCount;
           if (!this.frameCache) this.frameCache = new Map();
           if (this.frameCache.has(cacheKey)) {
+            const cachedResult = this.frameCache.get(cacheKey);
+            if (tracing) traceExit(parsed, cachedResult);
             this.evalDepth--;
             this.endTiming('evaluate', evalStart);
             perfEnd("evaluate-total");
-            return this.frameCache.get(cacheKey);
+            return cachedResult;
           }
         }
       }
@@ -9343,7 +9474,10 @@ class KidLisp {
       this.frameCache.set(cacheKey, result);
     }
 
-    // �🚨 RECURSION LIMITER: Decrement depth counter
+    // 📊 Execution trace exit
+    if (tracing) traceExit(parsed, result);
+
+    // 🚨 RECURSION LIMITER: Decrement depth counter
     this.evalDepth--;
 
     // 🔍 DEBUG: Track completion of expensive evaluations
@@ -13925,4 +14059,11 @@ export {
   enableKidlispConsole,
   isKidlispConsoleEnabled,
   postKidlispConsoleImage,
+  // Execution trace system
+  enableKidlispTrace,
+  disableKidlispTrace,
+  isKidlispTraceEnabled,
+  clearExecutionTrace,
+  getExecutionTrace,
+  postExecutionTrace,
 };
