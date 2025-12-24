@@ -816,7 +816,7 @@ Skips creation if tab already exists."
             
             (balance-windows)
             (other-window 1))))
-    (error (message "Error creating tab %s: %s" tab-name err)))))
+    (error (message "Error creating tab %s: %s" tab-name err))))
 
 (defun aesthetic-backend (target-tab)
   (interactive)
@@ -840,7 +840,7 @@ Skips creation if tab already exists."
                     (ac-debug-log "WARNING: aesthetic-backend has been running for 30+ seconds")
                     (message "⚠️ Backend initialization taking longer than expected. Check .emacs-logs/")))
 
-    ;; Clean up unwanted buffers before starting (with error handling)
+  ;; Clean up unwanted buffers before starting (with error handling)
     (condition-case nil
         (dolist (bufname '("*scratch*" "*Messages*" "*straight-process*" "*async-native-comp*"))
           (when-let ((buf (get-buffer bufname)))
