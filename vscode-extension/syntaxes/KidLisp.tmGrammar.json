@@ -1,0 +1,164 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "KidLisp",
+  "scopeName": "source.kidlisp",
+  "patterns": [
+    { "include": "#comment" },
+    { "include": "#string" },
+    { "include": "#timing" },
+    { "include": "#embedded-code" },
+    { "include": "#painting-ref" },
+    { "include": "#special-values" },
+    { "include": "#color-names" },
+    { "include": "#number" },
+    { "include": "#builtin-functions" },
+    { "include": "#keywords" },
+    { "include": "#operators" },
+    { "include": "#parentheses" },
+    { "include": "#identifier" }
+  ],
+  "repository": {
+    "comment": {
+      "name": "comment.line.semicolon.kidlisp",
+      "match": ";.*$"
+    },
+    "string": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.kidlisp",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "name": "constant.character.escape.kidlisp",
+              "match": "\\\\."
+            }
+          ]
+        },
+        {
+          "name": "string.quoted.single.kidlisp",
+          "begin": "'",
+          "end": "'",
+          "patterns": [
+            {
+              "name": "constant.character.escape.kidlisp",
+              "match": "\\\\."
+            }
+          ]
+        }
+      ]
+    },
+    "timing": {
+      "patterns": [
+        {
+          "name": "constant.numeric.timing.cycle.kidlisp",
+          "match": "\\b\\d+\\.?\\d*[sf]\\.\\.\\.?\\b",
+          "comment": "Cycle timing: 1s..., 2f..."
+        },
+        {
+          "name": "constant.numeric.timing.delay.kidlisp",
+          "match": "\\b\\d+\\.?\\d*[sf]!?\\b",
+          "comment": "Delay timing: 1s, 0.5s, 3f, 1s!"
+        }
+      ]
+    },
+    "embedded-code": {
+      "name": "variable.other.embedded.kidlisp",
+      "match": "\\$[A-Za-z0-9]+",
+      "comment": "$codeId references"
+    },
+    "painting-ref": {
+      "name": "entity.name.tag.painting.kidlisp",
+      "match": "#[A-Za-z0-9]{1,8}",
+      "comment": "#abc painting references"
+    },
+    "special-values": {
+      "patterns": [
+        {
+          "name": "support.constant.rainbow.kidlisp",
+          "match": "\\b(rainbow|zebra)\\b"
+        },
+        {
+          "name": "variable.language.builtin.kidlisp",
+          "match": "\\b(width|height|frame|time|pi|e|true|false|nil)\\b"
+        }
+      ]
+    },
+    "color-names": {
+      "name": "support.constant.color.kidlisp",
+      "match": "\\b(red|green|blue|yellow|orange|purple|pink|cyan|magenta|white|black|gray|grey|lime|aqua|navy|teal|maroon|olive|silver|fuchsia|brown|coral|crimson|gold|indigo|ivory|khaki|lavender|lemon|mint|peach|plum|salmon|tan|tomato|turquoise|violet|wheat|darkred|darkgreen|darkblue|darkcyan|darkmagenta|darkorange|darkviolet|deeppink|deepskyblue|hotpink|lightblue|lightgreen|lightpink|lightyellow|springgreen|steelblue)\\b"
+    },
+    "number": {
+      "patterns": [
+        {
+          "name": "constant.numeric.float.kidlisp",
+          "match": "-?\\d+\\.\\d+"
+        },
+        {
+          "name": "constant.numeric.integer.kidlisp",
+          "match": "-?\\d+"
+        }
+      ]
+    },
+    "builtin-functions": {
+      "patterns": [
+        {
+          "name": "entity.name.function.graphics.kidlisp",
+          "match": "\\b(wipe|ink|line|box|circle|tri|plot|paste|stamp|draw|shape|pan|unpan|zoom|spin|scroll|resolution|grid|noise|qr)\\b"
+        },
+        {
+          "name": "entity.name.function.control.kidlisp",
+          "match": "\\b(def|now|later|repeat|bunch|once|bake|jump|page|tap|drag|lift|key|act|leave)\\b"
+        },
+        {
+          "name": "entity.name.function.math.kidlisp",
+          "match": "\\b(abs|floor|ceil|round|sqrt|pow|sin|cos|tan|min|max|random|wiggle|lerp|map|clamp|mod)\\b"
+        },
+        {
+          "name": "entity.name.function.logic.kidlisp",
+          "match": "\\b(if|cond|and|or|not|eq|neq|lt|gt|lte|gte|choose)\\b"
+        },
+        {
+          "name": "entity.name.function.list.kidlisp",
+          "match": "\\b(list|first|rest|nth|len|push|pop|concat|reverse|sort|filter|map|reduce)\\b"
+        },
+        {
+          "name": "entity.name.function.sound.kidlisp",
+          "match": "\\b(sound|synth|tone|play|stop|bpm|beat|note|chord|melody|sample)\\b"
+        },
+        {
+          "name": "entity.name.function.text.kidlisp",
+          "match": "\\b(write|text|font|print|say)\\b"
+        },
+        {
+          "name": "entity.name.function.mode.kidlisp",
+          "match": "\\b(fill|outline|stroke|nofill|nostroke)\\b"
+        }
+      ]
+    },
+    "keywords": {
+      "name": "keyword.other.kidlisp",
+      "match": "\\b(lambda|let|set|quote|eval|apply|begin|do)\\b"
+    },
+    "operators": {
+      "name": "keyword.operator.kidlisp",
+      "match": "[+\\-*/=<>!&|%]+"
+    },
+    "parentheses": {
+      "patterns": [
+        {
+          "name": "punctuation.paren.open.kidlisp",
+          "match": "\\("
+        },
+        {
+          "name": "punctuation.paren.close.kidlisp",
+          "match": "\\)"
+        }
+      ]
+    },
+    "identifier": {
+      "name": "variable.other.kidlisp",
+      "match": "[a-zA-Z_][a-zA-Z0-9_-]*"
+    }
+  }
+}
