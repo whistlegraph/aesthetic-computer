@@ -878,8 +878,116 @@ class TextButton {
   }
 }
 
+// A smaller text button using MatrixChunky8 font (4px char width, 7px height)
+class TextButtonSmall {
+  txt;
+  btn;
+  
+  // MatrixChunky8: 4px char width, 7px char height
+  #cw = 4;
+  #ch = 7;
+  #padX = 2; // Horizontal padding
+  #padY = 2; // Vertical padding
+  #offset;
+  
+  constructor(text = "Button", pos = { x: 0, y: 0 }) {
+    this.txt = text;
+    this.#offset = { x: this.#padX, y: this.#padY };
+    this.btn = new Button(this.#computePosition(text, { ...pos }));
+  }
+  
+  get act() {
+    return this.btn.act;
+  }
+  
+  set disabled(d) {
+    return (this.btn.disabled = d);
+  }
+  
+  get disabled() {
+    return this.btn.disabled;
+  }
+  
+  get down() {
+    return this.btn.down;
+  }
+  
+  set down(d) {
+    return (this.btn.down = d);
+  }
+  
+  get width() {
+    return this.txt.length * this.#cw + this.#padX * 2;
+  }
+  
+  get height() {
+    return this.#ch + this.#padY * 2;
+  }
+  
+  #computePosition(text, pos = { x: 0, y: 0 }) {
+    const w = text.length * this.#cw + this.#padX * 2;
+    const h = this.#ch + this.#padY * 2;
+    
+    let x = pos.x || 0;
+    let y = pos.y || 0;
+    
+    // Handle screen-relative positioning
+    if (pos.screen) {
+      const sx = pos.screen.x || 0;
+      const sy = pos.screen.y || 0;
+      const sw = pos.screen.width || 0;
+      const sh = pos.screen.height || 0;
+      
+      if (pos.center === "xy") {
+        return { x: sx + sw / 2 - w / 2, y: sy + sh / 2 - h / 2, w, h };
+      }
+      if (pos.center === "x") {
+        return { x: sx + sw / 2 - w / 2, y: sy + y, w, h };
+      }
+      if (pos.right !== undefined) {
+        x = sx + sw - pos.right - w;
+      } else {
+        x = sx + (pos.left || pos.x || 0);
+      }
+      if (pos.bottom !== undefined) {
+        y = sy + sh - pos.bottom - h;
+      } else {
+        y = sy + (pos.top || pos.y || 0);
+      }
+    }
+    
+    return { x, y, w, h };
+  }
+  
+  reposition(pos, txt) {
+    if (txt) this.txt = txt;
+    this.btn.box = Box.from(this.#computePosition(this.txt, pos));
+  }
+  
+  paint(
+    $,
+    scheme = [[0, 64, 0], [0, 140, 0], 255, [0, 64, 0]],      // [fill, outline, text, fill]
+    hoverScheme = [[0, 100, 0], [0, 180, 0], 255, [0, 100, 0]], // hover/down
+    disabledScheme = [[32, 32, 32], [64, 64, 64], 80, [32, 32, 32]]
+  ) {
+    let s;
+    if (this.btn.disabled) {
+      s = disabledScheme;
+    } else {
+      s = this.btn.down ? hoverScheme : scheme;
+    }
+    
+    $.ink(s[0])
+      .box(this.btn.box, "fill")
+      .ink(s[1])
+      .box(this.btn.box, "outline")
+      .ink(s[2])
+      .write(this.txt, p2.add(this.btn.box, this.#offset), undefined, undefined, false, "MatrixChunky8");
+  }
+}
+
 function setTypeface(tf) {
   TYPEFACE_UI = tf;
 }
 
-export { spinner, spinnerReset, cached, Button, TextButton, setTypeface };
+export { spinner, spinnerReset, cached, Button, TextButton, TextButtonSmall, setTypeface };

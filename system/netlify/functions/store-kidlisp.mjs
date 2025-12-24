@@ -437,7 +437,7 @@ export async function handler(event, context) {
           if (doc.kept) {
             result.kept = {
               tokenId: doc.kept.tokenId,
-              network: doc.kept.network || "ghostnet",
+              network: doc.kept.network || "mainnet",
               contractAddress: doc.kept.contractAddress || null,
               keptBy: doc.kept.keptBy || null,
               walletAddress: doc.kept.walletAddress || null,
@@ -448,7 +448,7 @@ export async function handler(event, context) {
           if (doc.tezos?.minted) {
             result.kept = result.kept || {};
             result.kept.tokenId = result.kept.tokenId || doc.tezos.tokenId;
-            result.kept.network = result.kept.network || doc.tezos.network || "ghostnet";
+            result.kept.network = result.kept.network || doc.tezos.network || "mainnet";
             result.kept.contractAddress = result.kept.contractAddress || doc.tezos.contractAddress || null;
           }
           
@@ -525,7 +525,7 @@ export async function handler(event, context) {
             if (doc.kept) {
               result.kept = {
                 tokenId: doc.kept.tokenId,
-                network: doc.kept.network || "ghostnet",
+                network: doc.kept.network || "mainnet",
                 txHash: doc.kept.txHash,
                 keptAt: doc.kept.keptAt,
                 keptBy: doc.kept.keptBy || null,
@@ -537,7 +537,7 @@ export async function handler(event, context) {
             if (doc.tezos?.minted) {
               result.kept = result.kept || {};
               result.kept.tokenId = result.kept.tokenId || doc.tezos.tokenId;
-              result.kept.network = result.kept.network || doc.tezos.network || "ghostnet";
+              result.kept.network = result.kept.network || doc.tezos.network || "mainnet";
               result.kept.txHash = result.kept.txHash || doc.tezos.txHash;
               result.kept.keptAt = result.kept.keptAt || doc.tezos.mintedAt;
             }
@@ -604,7 +604,7 @@ export async function handler(event, context) {
       if (doc.kept) {
         response.kept = {
           tokenId: doc.kept.tokenId,
-          network: doc.kept.network || "ghostnet",
+          network: doc.kept.network || "mainnet",
           txHash: doc.kept.txHash,
           contractAddress: doc.kept.contractAddress,
           keptAt: doc.kept.keptAt,
@@ -617,7 +617,7 @@ export async function handler(event, context) {
       if (doc.tezos?.minted) {
         response.kept = response.kept || {};
         response.kept.tokenId = response.kept.tokenId || doc.tezos.tokenId;
-        response.kept.network = response.kept.network || doc.tezos.network || "ghostnet";
+        response.kept.network = response.kept.network || doc.tezos.network || "mainnet";
         response.kept.txHash = response.kept.txHash || doc.tezos.txHash;
         response.kept.contractAddress = response.kept.contractAddress || doc.tezos.contract;
         response.kept.keptAt = response.kept.keptAt || doc.tezos.mintedAt;

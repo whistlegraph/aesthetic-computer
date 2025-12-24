@@ -9,9 +9,9 @@
 
 import * as starfield from "./starfield.mjs";
 
-// Keeps contract on ghostnet
-const CONTRACT = "KT1StXrQNvRd9dNPpHdCGEstcGiBV6neq79K";
-const NETWORK = "ghostnet";
+// Keeps contract (mainnet staging)
+const CONTRACT = "KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM";
+const NETWORK = "mainnet";
 
 let result = null;
 let viewButton, backButton, txButton, objktButton;

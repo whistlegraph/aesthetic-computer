@@ -600,6 +600,26 @@ if test -n "$HOST_IP"; or test (uname -s) != "Linux"
     end
 end
 
+# 🧊 Start TURN server for WebRTC relay (required for UDP in Docker)
+if which turnserver >/dev/null 2>&1
+    pkill -f "turnserver" 2>/dev/null
+    sleep 0.5
+    # Get host LAN IP from vault/machines.json or use default
+    set -l HOST_LAN_IP "192.168.1.127"
+    if test -f /workspaces/aesthetic-computer/aesthetic-computer-vault/machines.json
+        set -l detected_ip (cat /workspaces/aesthetic-computer/aesthetic-computer-vault/machines.json 2>/dev/null | jq -r '.["aesthetic-mac"].lan_ip // empty' 2>/dev/null)
+        if test -n "$detected_ip"
+            set HOST_LAN_IP $detected_ip
+        end
+    end
+    echo $HOST_LAN_IP > /tmp/host-lan-ip
+    turnserver -c /workspaces/aesthetic-computer/.devcontainer/turnserver.conf --external-ip=$HOST_LAN_IP >/dev/null 2>&1 &
+    disown
+    echo "🧊 TURN server started (localhost:3478, external-ip: $HOST_LAN_IP)"
+else
+    echo "⚠️  coturn not installed, UDP may not work across networks"
+end
+
 # echo "Initializing 📋 Clipboard Service" | lolcat -x -r
 
 # ❤️‍🔥

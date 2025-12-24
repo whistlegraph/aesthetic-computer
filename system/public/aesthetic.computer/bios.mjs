@@ -1724,13 +1724,47 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     connected: false,
     address: null,
     balance: null,
-    network: "ghostnet",
+    network: "mainnet",
     domain: null,
   };
   
+  // Pretty console log for wallet state
+  // TODO: Remove "(STAGING)" when switching to production mainnet contract
+  const KEEPS_STAGING = true; // Set to false when using production contract
+  
+  function logWalletState(context = "state") {
+    if (!walletState.connected) return;
+    
+    const addr = walletState.address;
+    const shortAddr = addr ? `${addr.slice(0, 8)}...${addr.slice(-4)}` : "unknown";
+    const domain = walletState.domain;
+    const baseNetwork = walletState.network?.toUpperCase() || "MAINNET";
+    const network = KEEPS_STAGING && baseNetwork === "MAINNET" ? "MAINNET (STAGING)" : baseNetwork;
+    const balance = walletState.balance != null ? `ꜩ${walletState.balance.toFixed(2)}` : "ꜩ...";
+    
+    const displayName = domain || shortAddr;
+    
+    console.log(
+      `%c ꜩ %c ${displayName} %c ${balance} %c ${network} `,
+      "background: #0066FF; color: white; font-weight: bold; padding: 2px 6px; border-radius: 4px 0 0 4px;",
+      "background: #1a1a2e; color: #00d4ff; font-weight: bold; padding: 2px 8px;",
+      "background: #1a1a2e; color: #00ff88; padding: 2px 8px;",
+      `background: ${baseNetwork === "MAINNET" ? (KEEPS_STAGING ? "#cc6600" : "#00aa44") : "#ff8800"}; color: white; font-weight: bold; padding: 2px 8px; border-radius: 0 4px 4px 0;`
+    );
+  }
+  
   // Broadcast wallet state to disk.mjs
+  let lastLoggedState = null;
   function broadcastWalletState() {
     send({ type: "wallet:state", content: { ...walletState } });
+    // Log wallet state with nice formatting (debounced - only log if state changed meaningfully)
+    if (walletState.connected) {
+      const stateKey = `${walletState.address}:${walletState.balance}:${walletState.domain}`;
+      if (stateKey !== lastLoggedState) {
+        lastLoggedState = stateKey;
+        logWalletState();
+      }
+    }
   }
   
   // 🔷 Tezos Wallet Connection (Beacon-free)
@@ -1751,10 +1785,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         
         walletState.connected = true;
         walletState.address = session.address;
-        walletState.network = session.network || "ghostnet";
+        // Force mainnet - ignore any legacy ghostnet sessions
+        walletState.network = "mainnet";
         walletState.walletType = session.walletType || "unknown";
         
-        const rpcUrl = TEZOS_RPC[walletState.network] || TEZOS_RPC.ghostnet;
+        const rpcUrl = TEZOS_RPC[walletState.network] || TEZOS_RPC.mainnet;
         
         // Recreate the tezosWallet object with sendOperations for signing
         if (session.walletType === "temple") {
@@ -1812,6 +1847,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           log.wallet.debug("Kukai wallet session restored (signing requires reconnection)");
         }
         
+        // Log initial wallet connection
+        const networkLabel = KEEPS_STAGING ? "MAINNET (STAGING)" : "MAINNET";
+        console.log(
+          `%c ꜩ Wallet Restored %c ${session.address.slice(0, 8)}...${session.address.slice(-4)} %c ${networkLabel} `,
+          "background: #0066FF; color: white; font-weight: bold; padding: 2px 8px; border-radius: 4px 0 0 4px;",
+          "background: #1a1a2e; color: #00d4ff; padding: 2px 8px;",
+          `background: ${KEEPS_STAGING ? "#cc6600" : "#00aa44"}; color: white; font-weight: bold; padding: 2px 8px; border-radius: 0 4px 4px 0;`
+        );
+        
         // Fetch fresh balance and domain
         Promise.all([
           fetchTezosBalanceForBios(session.address, walletState.network),
@@ -1819,6 +1863,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         ]).then(([balance, domain]) => {
           walletState.balance = balance;
           walletState.domain = domain;
+          // Log with full info now that we have balance and domain
+          logWalletState("restored");
           broadcastWalletState();
         });
         
@@ -1938,8 +1984,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   }
   
   // Initialize Tezos (no external SDK needed for basic operations)
-  async function loadTezos(network = "ghostnet") {
-    const rpcUrl = TEZOS_RPC[network] || TEZOS_RPC.ghostnet;
+  async function loadTezos(network = "mainnet") {
+    const rpcUrl = TEZOS_RPC[network] || TEZOS_RPC.mainnet;
     
     // Create a minimal wallet interface for RPC operations
     if (!tezosWallet) {
@@ -1956,8 +2002,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   
   // Connect wallet via Temple Wallet browser extension
   // Using direct postMessage communication with Temple's content script
-  async function connectTezosWallet(network = "ghostnet", options = {}) {
-    const rpcUrl = TEZOS_RPC[network] || TEZOS_RPC.ghostnet;
+  async function connectTezosWallet(network = "mainnet", options = {}) {
+    const rpcUrl = TEZOS_RPC[network] || TEZOS_RPC.mainnet;
     const walletType = options.walletType || "temple";
     
     console.log(`🔷 Attempting ${walletType} wallet connection...`);
@@ -2045,6 +2091,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       
       saveWalletSession(address, network, "temple");
       
+      // Log new wallet connection
+      const netLabel = KEEPS_STAGING && network === "mainnet" ? "MAINNET (STAGING)" : network.toUpperCase();
+      console.log(
+        `%c ꜩ Wallet Connected %c ${address.slice(0, 8)}...${address.slice(-4)} %c ${netLabel} `,
+        "background: #00aa44; color: white; font-weight: bold; padding: 2px 8px; border-radius: 4px 0 0 4px;",
+        "background: #1a1a2e; color: #00d4ff; font-weight: bold; padding: 2px 8px;",
+        `background: ${KEEPS_STAGING ? "#cc6600" : "#00aa44"}; color: white; font-weight: bold; padding: 2px 8px; border-radius: 0 4px 4px 0;`
+      );
+      
       // Note: Tezos address persistence to MongoDB disabled - no auth token access in bios
       // TODO: Implement proper auth token access if server-side persistence is needed
       
@@ -2053,7 +2108,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         fetchTezosBalanceForBios(address, network),
         fetchTezosDomain(address, network)
       ]).then(([balance, domain]) => {
-        console.log("🔷 Fetched balance:", balance, "domain:", domain);
         walletState.balance = balance;
         walletState.domain = domain;
         broadcastWalletState();
@@ -2168,7 +2222,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   
   // Generate a Beacon pairing URI for mobile wallet connection
   // This creates a QR code that Temple/Kukai mobile can scan
-  async function generatePairingUri(network = "ghostnet") {
+  async function generatePairingUri(network = "mainnet") {
     console.log("🔷 Generating pairing URI for mobile wallet...");
     
     try {
@@ -2277,7 +2331,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   }
   
   // Fetch Tezos balance from RPC (for bios.mjs wallet API)
-  async function fetchTezosBalanceForBios(address, network = "ghostnet") {
+  async function fetchTezosBalanceForBios(address, network = "mainnet") {
     try {
       const rpcUrl = network === "mainnet" 
         ? "https://mainnet.api.tez.ie"
@@ -2327,7 +2381,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // Resolve .tez domain for an address using TzKT API (more reliable than Tezos Domains GraphQL)
   // NOTE: Always use mainnet API since .tez domains are only registered on mainnet
-  async function fetchTezosDomain(address, _network = "ghostnet") {
+  async function fetchTezosDomain(address, _network = "mainnet") {
     console.log("🔷 fetchTezosDomain called for:", address);
     try {
       // Always use mainnet TzKT API - .tez domains only exist on mainnet
@@ -3227,11 +3281,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   //const worker = new Worker("./aesthetic.computer/lib/disk.js", {
   //  type: "module",
   //});
+  // Use query string for cache busting - hash fragments (#) don't bust browser cache!
+  const cacheBustParam = `?v=${Date.now()}`;
   const fullPath =
     (window.acPACK_MODE ? "./aesthetic.computer/lib/disk.mjs" : "/aesthetic.computer/lib/disk.mjs") +
-    window.location.search +
-    "#" +
-    Date.now(); // bust the cache. This prevents an error related to Safari loading workers from memory.
+    cacheBustParam +
+    window.location.search.replace('?', '&'); // Append existing search params with &
 
   const sandboxed =
     (window.origin === "null" || !window.origin || window.acPACK_MODE || window.acSPIDER) && !window.acVSCODE;
@@ -3390,7 +3445,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       console.warn("🟡 Attempting a dynamic import...");
       // https://bugzilla.mozilla.org/show_bug.cgi?id=1247687
-      const module = await import(`./lib/disk.mjs`);
+      const module = await import(`./lib/disk.mjs?v=${Date.now()}`);
       module.noWorker.postMessage = (e) => onMessage(e); // Define the disk's postMessage replacement.
       send = (e) => module.noWorker.onMessage(e); // Hook up our post method to disk's onmessage replacement.
       window.acSEND = send; // Make the message handler global, used in `speech.mjs` and also useful for debugging.
@@ -3431,7 +3486,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (debug) console.log("🔴 No Worker");
     let module;
     try {
-      module = await import(`./lib/disk.mjs`);
+      module = await import(`./lib/disk.mjs?v=${Date.now()}`);
     } catch (err) {
       console.warn("Module load error:", err);
     }
@@ -10301,7 +10356,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Connect to a Tezos wallet (Beacon SDK)
     if (type === "tezos-connect") {
       try {
-        const network = content?.network || "ghostnet";
+        const network = content?.network || "mainnet";
         const address = await connectTezosWallet(network);
         send({
           type: "tezos-connect-response",
@@ -10398,7 +10453,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     
     if (type === "wallet:connect") {
       try {
-        const network = content?.network || "ghostnet";
+        const network = content?.network || "mainnet";
         const options = {
           address: content?.address,
           network,
@@ -10442,7 +10497,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Get pairing URI for mobile wallet QR code
     if (type === "wallet:get-pairing-uri") {
       try {
-        const network = content?.network || "ghostnet";
+        const network = content?.network || "mainnet";
         const pairingInfo = await generatePairingUri(network);
         send({
           type: "wallet:pairing-uri-response",

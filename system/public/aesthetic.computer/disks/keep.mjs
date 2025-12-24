@@ -6,9 +6,11 @@ import { tokenize, KidLisp } from "../lib/kidlisp.mjs";
 
 const { min, max, floor, sin, cos, PI, abs } = Math;
 
-// Keeps contract address on ghostnet
-const KEEPS_CONTRACT = "KT1StXrQNvRd9dNPpHdCGEstcGiBV6neq79K";
-const NETWORK = "ghostnet";
+// Keeps contract (mainnet staging)
+const KEEPS_CONTRACT = "KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM";
+const NETWORK = "mainnet";
+// TODO: Set to false when switching to production mainnet contract
+const KEEPS_STAGING = true;
 
 // 👻 Pac-Man Ghost Sprite (14x14, classic arcade bitmap)
 const GHOST_SPRITE = [
@@ -1472,8 +1474,9 @@ function paint({ wipe, ink, box, screen, paste }) {
   // === Network badge in TOP RIGHT (when review active) ===
   const reviewStep = timeline.find(t => t.id === "review");
   if (reviewStep?.status === "active" && preparedData) {
-    const netLabel = (preparedData.network || "ghostnet").toUpperCase();
-    const isGhostnet = netLabel === "GHOSTNET";
+    const baseNet = (preparedData.network || "mainnet").toUpperCase();
+    const netLabel = KEEPS_STAGING && baseNet === "MAINNET" ? "MAINNET (STAGING)" : baseNet;
+    const isGhostnet = baseNet === "GHOSTNET";
     const ghostW = isGhostnet ? 16 : 0; // Space for ghost icon
     const netW = netLabel.length * 4 + 8 + ghostW;
     const netX = w - margin - netW;
