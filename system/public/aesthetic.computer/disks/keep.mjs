@@ -1118,13 +1118,18 @@ function paint({ wipe, ink, box, screen, paste }) {
       hover: { bg: [120, 70, 40], outline: [255, 180, 100], outlineAlpha: 200, text: [255, 220, 150] },
       disabled: { bg: [40, 30, 25], outline: [100, 80, 60], outlineAlpha: 100, text: [120, 100, 80] }
     };
+    const rebakingScheme = {
+      normal: { bg: [40, 30, 25], outline: [100, 80, 60], outlineAlpha: 100, text: [120, 100, 80] },
+      hover: { bg: [40, 30, 25], outline: [100, 80, 60], outlineAlpha: 100, text: [120, 100, 80] },
+      disabled: { bg: [40, 30, 25], outline: [100, 80, 60], outlineAlpha: 100, text: [120, 100, 80] }
+    };
     const rebakeSize = mc8ButtonSize("Rebake Bundle");
     const rebakeX = floor((w - rebakeSize.w) / 2);
     rebakeBtn.btn.box.x = rebakeX;
     rebakeBtn.btn.box.y = y;
     rebakeBtn.btn.box.w = rebakeSize.w;
     rebakeBtn.btn.box.h = rebakeSize.h;
-    paintMC8Btn(rebakeX, y, rebaking ? "Rebaking..." : "Rebake Bundle", { ink, line: ink }, rebaking ? rebakeScheme.disabled : rebakeScheme, rebakeBtn.btn.down);
+    paintMC8Btn(rebakeX, y, rebaking ? "Rebaking..." : "Rebake Bundle", { ink, line: ink }, rebaking ? rebakingScheme : rebakeScheme, rebakeBtn.btn.down);
     
     return;
   }
