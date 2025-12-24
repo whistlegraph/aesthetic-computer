@@ -1658,42 +1658,35 @@ function act({ event: e, screen }) {
             }),
           });
           
-          // Read SSE stream for progress
-          const reader = response.body.getReader();
-          const decoder = new TextDecoder();
-          let buffer = "";
+          // Read full response and parse SSE events
+          const text = await response.text();
+          const events = text.split('\n\n').filter(e => e.trim());
           
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            buffer += decoder.decode(value, { stream: true });
-            
-            const lines = buffer.split("\n");
-            buffer = lines.pop(); // Keep incomplete line
+          for (const event of events) {
+            const lines = event.split('\n');
+            let eventType = null, eventData = null;
             
             for (const line of lines) {
-              if (line.startsWith("data: ")) {
-                try {
-                  const data = JSON.parse(line.slice(6));
-                  console.log("🪙 REBAKE:", data.event, data.data);
-                  
-                  if (data.event === "ready" && data.data) {
-                    rebakeResult = {
-                      artifactUri: data.data.artifactUri,
-                      thumbnailUri: data.data.thumbnailUri,
-                      metadataUri: data.data.metadataUri,
-                    };
-                    // Update alreadyMinted with new URIs for display
-                    alreadyMinted.artifactUri = data.data.artifactUri;
-                    alreadyMinted.thumbnailUri = data.data.thumbnailUri;
-                    console.log("🪙 REBAKE complete! New artifact:", rebakeResult.artifactUri);
-                  } else if (data.event === "error") {
-                    console.error("🪙 REBAKE error:", data.data);
-                  }
-                } catch (parseErr) {
-                  // Skip non-JSON lines
-                }
+              if (line.startsWith('event: ')) eventType = line.slice(7);
+              else if (line.startsWith('data: ')) {
+                try { eventData = JSON.parse(line.slice(6)); } catch {}
               }
+            }
+            
+            console.log("🪙 REBAKE:", eventType, eventData);
+            
+            if (eventType === "ready" && eventData) {
+              rebakeResult = {
+                artifactUri: eventData.artifactUri,
+                thumbnailUri: eventData.thumbnailUri,
+                metadataUri: eventData.metadataUri,
+              };
+              // Update alreadyMinted with new URIs for display
+              alreadyMinted.artifactUri = eventData.artifactUri;
+              alreadyMinted.thumbnailUri = eventData.thumbnailUri;
+              console.log("🪙 REBAKE complete! New artifact:", rebakeResult.artifactUri);
+            } else if (eventType === "error") {
+              console.error("🪙 REBAKE error:", eventData);
             }
           }
         } catch (err) {
