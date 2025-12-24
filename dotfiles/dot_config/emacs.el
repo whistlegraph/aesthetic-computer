@@ -219,6 +219,49 @@ Returns: 'ready, 'restarted, 'dead, or 'not-found"
           'ready))
     'not-found))
 
+;;; --- Copilot Completion Notification ---
+;; Flash screen when Copilot response is done (called via MCP)
+
+(defvar ac-notify--flash-timer nil "Timer for flash reset.")
+(defvar ac-notify--flash-count 0 "Current flash iteration.")
+
+(defun ac-notify-done (&optional message)
+  "Flash the terminal to signal Copilot prompt completion.
+Called by MCP tools at the end of each response."
+  (interactive)
+  (let ((pty (ac-notify--find-pty)))
+    (when pty
+      ;; Cancel any existing flash
+      (when ac-notify--flash-timer (cancel-timer ac-notify--flash-timer))
+      (setq ac-notify--flash-count 0)
+      ;; Start flashing (3 quick flashes)
+      (ac-notify--do-flash pty 3)))
+  (message "🔔 %s" (or message "Done")))
+
+(defun ac-notify--find-pty ()
+  "Find the emacsclient's PTY device."
+  (let ((pty (string-trim
+              (shell-command-to-string
+               "pgrep -f 'emacsclient.*-nw' | head -1 | xargs -I{} readlink /proc/{}/fd/0 2>/dev/null"))))
+    (when (string-prefix-p "/dev/pts/" pty) pty)))
+
+(defun ac-notify--do-flash (pty count)
+  "Flash the screen COUNT times via PTY."
+  (when (and pty (> count 0) (file-exists-p pty))
+    ;; Invert screen
+    (write-region "\x1b[?5h" nil pty nil 'silent)
+    ;; Schedule un-invert and next flash
+    (setq ac-notify--flash-timer
+          (run-with-timer 0.08 nil
+            (lambda (p c)
+              (when (file-exists-p p)
+                (write-region "\x1b[?5l" nil p nil 'silent)
+                ;; Next flash after brief pause
+                (when (> c 1)
+                  (setq ac-notify--flash-timer
+                        (run-with-timer 0.08 nil #'ac-notify--do-flash p (1- c))))))
+            pty count))))
+
 (ac-perf-session-start)
 (ac-debug-log "=== Starting Emacs Configuration Load ===")
 (ac-perf-log "Config load started")
