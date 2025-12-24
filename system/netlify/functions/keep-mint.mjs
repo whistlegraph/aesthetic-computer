@@ -328,9 +328,9 @@ export const handler = stream(async (event, context) => {
         return; // finally will close
       }
 
-      // Check not already kept
+      // Check not already kept (unless regenerating bundle for existing token)
       const mintStatus = await checkMintStatus(pieceName);
-      if (mintStatus.minted) {
+      if (mintStatus.minted && !regenerate) {
         await database.disconnect();
         await send("error", { 
           error: "Already kept", 
@@ -342,6 +342,12 @@ export const handler = stream(async (event, context) => {
         });
         return; // finally will close
       }
+      
+      // Rebake mode: regenerate bundle for already-minted piece
+      const isRebake = mintStatus.minted && regenerate;
+      if (isRebake) {
+        await send("progress", { stage: "validate", message: `Rebaking bundle for token #${mintStatus.tokenId}...` });
+      }
 
       await send("progress", { stage: "validate", message: "Validation passed ✓" });
       
@@ -352,39 +358,45 @@ export const handler = stream(async (event, context) => {
       const linkedWalletAddress = userDoc?.tezos?.address;
       let creatorWalletAddress;
       
-      // Verify author has a linked Tezos wallet
-      if (!linkedWalletAddress) {
-        await database.disconnect();
-        await send("error", { 
-          error: "Connect your Tezos wallet first",
-          details: "Go to wallet.ac to link your Tezos address before keeping pieces."
-        });
-        return;
-      }
-      
-      if (mode === "prepare") {
-        // Client-side minting - wallet address must be provided AND match linked wallet
-        creatorWalletAddress = body.walletAddress;
-        if (!creatorWalletAddress || !creatorWalletAddress.startsWith('tz')) {
-          await database.disconnect();
-          await send("error", { error: "Valid Tezos wallet address required for minting" });
-          return;
-        }
-        
-        // ENFORCE: Minting wallet must match author's linked wallet
-        if (creatorWalletAddress !== linkedWalletAddress) {
+      // Skip wallet validation for rebake mode (not minting, just regenerating bundle)
+      if (!isRebake) {
+        // Verify author has a linked Tezos wallet
+        if (!linkedWalletAddress) {
           await database.disconnect();
           await send("error", { 
-            error: "Wallet mismatch",
-            details: `You must mint from your linked wallet (${linkedWalletAddress.slice(0, 8)}...${linkedWalletAddress.slice(-6)}). Connect the correct wallet and try again.`,
-            linkedWallet: linkedWalletAddress,
-            providedWallet: creatorWalletAddress
+            error: "Connect your Tezos wallet first",
+            details: "Go to wallet.ac to link your Tezos address before keeping pieces."
           });
           return;
         }
+        
+        if (mode === "prepare") {
+          // Client-side minting - wallet address must be provided AND match linked wallet
+          creatorWalletAddress = body.walletAddress;
+          if (!creatorWalletAddress || !creatorWalletAddress.startsWith('tz')) {
+            await database.disconnect();
+            await send("error", { error: "Valid Tezos wallet address required for minting" });
+            return;
+          }
+          
+          // ENFORCE: Minting wallet must match author's linked wallet
+          if (creatorWalletAddress !== linkedWalletAddress) {
+            await database.disconnect();
+            await send("error", { 
+              error: "Wallet mismatch",
+              details: `You must mint from your linked wallet (${linkedWalletAddress.slice(0, 8)}...${linkedWalletAddress.slice(-6)}). Connect the correct wallet and try again.`,
+              linkedWallet: linkedWalletAddress,
+              providedWallet: creatorWalletAddress
+            });
+            return;
+          }
+        } else {
+          // Server-side minting - use linked wallet address (admin testing only)
+          creatorWalletAddress = linkedWalletAddress;
+        }
       } else {
-        // Server-side minting - use linked wallet address (admin testing only)
-        creatorWalletAddress = linkedWalletAddress;
+        // Rebake mode - use linked wallet for metadata (or fallback)
+        creatorWalletAddress = linkedWalletAddress || "tz1burnburnburnburnburnburnburjAYjjX";
       }
       
       // Send piece details for client display
@@ -598,9 +610,41 @@ export const handler = stream(async (event, context) => {
           }
         );
         console.log(`🪙 KEEP: Cached IPFS media for $${pieceName}`);
+        
+        // REBAKE MODE: Return early with new URIs (don't proceed to minting)
+        if (isRebake) {
+          await send("progress", { stage: "ready", message: "Bundle regenerated!" });
+          await send("ready", {
+            success: true,
+            rebake: true,
+            piece: pieceName,
+            tokenId: mintStatus.tokenId,
+            artifactUri,
+            thumbnailUri,
+            objktUrl: mintStatus.objktUrl,
+          });
+          await database.disconnect();
+          return;
+        }
       } else {
         const thumbHash = thumbnailUri.replace("ipfs://", "");
         await send("progress", { stage: "thumbnail", message: `Cached ${thumbHash.slice(0, 12)}..` });
+      }
+      
+      // REBAKE MODE with cached media: Still return the cached URIs
+      if (isRebake) {
+        await send("progress", { stage: "ready", message: "Bundle info retrieved!" });
+        await send("ready", {
+          success: true,
+          rebake: true,
+          piece: pieceName,
+          tokenId: mintStatus.tokenId,
+          artifactUri,
+          thumbnailUri,
+          objktUrl: mintStatus.objktUrl,
+        });
+        await database.disconnect();
+        return;
       }
 
       // ═══════════════════════════════════════════════════════════════════
