@@ -222,45 +222,19 @@ Returns: 'ready, 'restarted, 'dead, or 'not-found"
 ;;; --- Copilot Completion Notification ---
 ;; Flash screen when Copilot response is done (called via MCP)
 
-(defvar ac-notify--flash-timer nil "Timer for flash reset.")
-(defvar ac-notify--flash-count 0 "Current flash iteration.")
-
 (defun ac-notify-done (&optional message)
-  "Flash the terminal to signal Copilot prompt completion.
+  "Notify completion by flashing colored text to the terminal PTY.
 Called by MCP tools at the end of each response."
   (interactive)
-  (let ((pty (ac-notify--find-pty)))
-    (when pty
-      ;; Cancel any existing flash
-      (when ac-notify--flash-timer (cancel-timer ac-notify--flash-timer))
-      (setq ac-notify--flash-count 0)
-      ;; Start flashing (3 quick flashes)
-      (ac-notify--do-flash pty 3)))
-  (message "🔔 %s" (or message "Done")))
-
-(defun ac-notify--find-pty ()
-  "Find the emacsclient's PTY device."
-  (let ((pty (string-trim
-              (shell-command-to-string
-               "pgrep -f 'emacsclient.*-nw' | head -1 | xargs -I{} readlink /proc/{}/fd/0 2>/dev/null"))))
-    (when (string-prefix-p "/dev/pts/" pty) pty)))
-
-(defun ac-notify--do-flash (pty count)
-  "Flash the screen COUNT times via PTY."
-  (when (and pty (> count 0) (file-exists-p pty))
-    ;; Invert screen
-    (write-region "\x1b[?5h" nil pty nil 'silent)
-    ;; Schedule un-invert and next flash
-    (setq ac-notify--flash-timer
-          (run-with-timer 0.08 nil
-            (lambda (p c)
-              (when (file-exists-p p)
-                (write-region "\x1b[?5l" nil p nil 'silent)
-                ;; Next flash after brief pause
-                (when (> c 1)
-                  (setq ac-notify--flash-timer
-                        (run-with-timer 0.08 nil #'ac-notify--do-flash p (1- c))))))
-            pty count))))
+  (let* ((pty-cmd "pgrep -f 'emacsclient.*-nw' | head -1 | xargs -I{} readlink /proc/{}/fd/0 2>/dev/null")
+         (pty (string-trim (shell-command-to-string pty-cmd)))
+         (msg (or message "Done")))
+    (when (string-prefix-p "/dev/pts/" pty)
+      ;; Flash with colored bell emojis - red/green alternating
+      (async-shell-command 
+       (format "for i in 1 2 3; printf '\\e[41;97m 🔔 \\e[0m' > %s; sleep 0.08; printf '\\e[42;97m 🔔 \\e[0m' > %s; sleep 0.08; end; echo '' > %s" pty pty pty)
+       "*ac-notify*" nil))
+    (message "🔔 %s" msg)))
 
 (ac-perf-session-start)
 (ac-debug-log "=== Starting Emacs Configuration Load ===")
