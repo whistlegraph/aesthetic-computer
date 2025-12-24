@@ -2927,6 +2927,10 @@ class KidLisp {
   // Update browser URL to show the short $prefixed code
   updateBrowserUrl(shortCode, api) {
     try {
+      // Skip in pack mode (sandboxed iframe with origin 'null')
+      if (typeof window !== 'undefined' && (window.acPACK_MODE || window.location?.origin === 'null')) {
+        return;
+      }
       // Only update if we're in a browser environment and not in an iframe
       if (typeof window !== 'undefined' && window.history && window.location && !api.net?.iframe) {
         const currentPath = window.location.pathname;

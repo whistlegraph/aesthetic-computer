@@ -68,16 +68,26 @@ let particles = []; // Vegas-style particles
 // Already minted state
 let alreadyMinted = null; // { tokenId, owner, artifactUri, thumbnailUri, metadataUri, mintedAt, name }
 let loadingExisting = false;
+let waitingConfirmation = false; // True when piece is ready to mint but awaiting user confirmation
 let rebaking = false; // True when regenerating bundle for already-minted piece
 let rebakeResult = null; // Result from rebake: { artifactUri, thumbnailUri }
+let rebakeProgress = null; // Progress message during rebake
+let originalOnChainUris = null; // Original URIs from chain before rebake { artifactUri, thumbnailUri }
+let pendingRebake = null; // Pending rebake from DB (not yet updated on chain)
+let cachedMedia = null; // Last generated bundle from DB { artifactUri, thumbnailUri, createdAt, sourceHash }
 let updatingChain = false; // True when updating on-chain metadata
 let updateChainResult = null; // Result from chain update
+let updateChainProgress = null; // Progress message during chain update
 let thumbnailBitmap = null; // Loaded thumbnail image (single frame or current frame)
 let thumbnailFrames = null; // Array of frames for animated WebP { frames, width, height, loopCount }
 let thumbnailFrameIndex = 0; // Current animation frame
 let thumbnailLastFrameTime = 0; // Time of last frame change
 let kidlispSource = null; // Source code for syntax highlighting
 let tickerOffset = 0; // For scrolling ticker
+
+// Analysis state
+let analysisData = null; // Formal Lisp analysis: { lines, expressions, depth, density, vocabulary, size, structure, varCount, funcCount, deps, behavior flags, topForms }
+let onChainAnalyzerVersion = null; // Version from on-chain attributes
 
 // Carousel animation state
 let carouselTargetIndex = 0; // Target step index
@@ -135,6 +145,10 @@ function hasError() {
 
 let btn;
 let htmlBtn, thumbBtn, metaBtn, networkBtn, rebakeBtn, updateChainBtn;
+let oldHtmlBtn, oldThumbBtn; // Buttons for original on-chain URIs
+let walletBtn; // Navigate to wallet piece
+let txBtn; // Transaction hash button after sync
+let contractBtn; // Link to contract on TzKT
 let _api, _net, _jump, _store, _needsPaint, _send, _ui, _screen, _preload, _preloadAnimatedWebp;
 
 function boot({ api, net, hud, params, store, cursor, jump, needsPaint, ui, screen, send }) {
@@ -164,12 +178,22 @@ function boot({ api, net, hud, params, store, cursor, jump, needsPaint, ui, scre
   networkBtn = new ui.TextButton("GHOSTNET", { x: 0, y: 0, screen });
   rebakeBtn = new ui.TextButton("REBAKE", { x: 0, y: 0, screen });
   updateChainBtn = new ui.TextButton("UPDATE", { x: 0, y: 0, screen });
+  oldHtmlBtn = new ui.TextButton("OLD HTML", { x: 0, y: 0, screen });
+  oldThumbBtn = new ui.TextButton("OLD THUMB", { x: 0, y: 0, screen });
+  walletBtn = new ui.TextButton("Wallet", { x: 0, y: 0, screen });
+  txBtn = new ui.TextButton("TX", { x: 0, y: 0, screen });
+  contractBtn = new ui.TextButton("Contract", { x: 0, y: 0, screen });
   htmlBtn.btn.stickyScrubbing = true;
   thumbBtn.btn.stickyScrubbing = true;
   metaBtn.btn.stickyScrubbing = true;
   networkBtn.btn.stickyScrubbing = true;
   rebakeBtn.btn.stickyScrubbing = true;
   updateChainBtn.btn.stickyScrubbing = true;
+  oldHtmlBtn.btn.stickyScrubbing = true;
+  oldThumbBtn.btn.stickyScrubbing = true;
+  walletBtn.btn.stickyScrubbing = true;
+  txBtn.btn.stickyScrubbing = true;
+  contractBtn.btn.stickyScrubbing = true;
   
   let rawPiece = params[0] || store["keep:piece"];
   piece = rawPiece?.startsWith("$") ? rawPiece.slice(1) : rawPiece;
@@ -215,15 +239,17 @@ async function checkIfAlreadyMinted() {
       }
     }
     
-    // Not minted - proceed with normal flow
-    console.log("🪙 KEEP: Not yet minted, starting mint process...");
+    // Not minted - show confirmation button
+    console.log("🪙 KEEP: Not yet minted, waiting for confirmation...");
     loadingExisting = false;
-    runProcess();
+    waitingConfirmation = true;
+    _needsPaint?.();
     
   } catch (e) {
     console.error("🪙 KEEP: Error checking mint status:", e);
     loadingExisting = false;
-    runProcess(); // Proceed anyway
+    waitingConfirmation = true; // Still show confirmation on error
+    _needsPaint?.();
   }
 }
 
@@ -273,6 +299,12 @@ async function fetchExistingTokenInfo(existingTokenId) {
       objktUrl: `https://${NETWORK === "mainnet" ? "" : "ghostnet."}objkt.com/asset/${KEEPS_CONTRACT}/${existingTokenId}`,
       tzktUrl: `https://${NETWORK}.tzkt.io/${KEEPS_CONTRACT}/tokens/${existingTokenId}`,
     };
+    
+    // Extract analyzer version from on-chain attributes
+    const attrs = meta.attributes || [];
+    const analyzerAttr = attrs.find(a => a.name === "Analyzer Version");
+    onChainAnalyzerVersion = analyzerAttr?.value || null;
+    console.log("🪙 KEEP: On-chain analyzer version:", onChainAnalyzerVersion);
     
     loadingExisting = false;
     console.log("🪙 KEEP: Loaded existing token info:", alreadyMinted);
@@ -386,14 +418,194 @@ async function loadKidlispSource() {
     if (response.ok) {
       const data = await response.json();
       if (data.source) {
-        kidlispSource = data.source;
+        // Sanitize for ticker display - replace newlines with ", "
+        kidlispSource = data.source.replace(/\n+/g, ", ").replace(/,\s*,/g, ",");
         console.log("🪙 KEEP: Loaded KidLisp source:", kidlispSource.slice(0, 100) + "...");
-        _needsPaint?.();
+        
+        // Run local analysis on source (use original with newlines)
+        analyzeSource(data.source);
       }
+      
+      // Store cached media info (last generated bundle)
+      if (data.ipfsMedia) {
+        cachedMedia = {
+          artifactUri: data.ipfsMedia.artifactUri,
+          thumbnailUri: data.ipfsMedia.thumbnailUri,
+          createdAt: data.ipfsMedia.createdAt,
+          sourceHash: data.ipfsMedia.sourceHash,
+          depCount: data.ipfsMedia.depCount,
+          packDate: data.ipfsMedia.packDate,
+        };
+        console.log("🪙 KEEP: Cached media:", cachedMedia);
+      }
+      
+      // Check for pending rebake (bundle regenerated but not updated on chain)
+      if (data.pendingRebake) {
+        pendingRebake = data.pendingRebake;
+        console.log("🪙 KEEP: Found pending rebake:", pendingRebake);
+        // Auto-populate rebakeResult so Update Chain button appears
+        rebakeResult = {
+          artifactUri: pendingRebake.artifactUri,
+          thumbnailUri: pendingRebake.thumbnailUri,
+        };
+        // Store original on-chain URIs for comparison
+        if (alreadyMinted && !originalOnChainUris) {
+          originalOnChainUris = {
+            artifactUri: alreadyMinted.artifactUri,
+            thumbnailUri: alreadyMinted.thumbnailUri,
+          };
+        }
+      }
+      _needsPaint?.();
     }
   } catch (e) {
     console.error("🪙 KEEP: Error loading KidLisp source:", e);
   }
+}
+
+// Formal local analysis of KidLisp source (matches backend analyzer v2.0.0)
+function analyzeSource(source) {
+  if (!source) return;
+  
+  const lines = source.split('\n').filter(l => l.trim() && !l.trim().startsWith(';'));
+  const lineCount = lines.length;
+  
+  // S-expression analysis
+  let depth = 0, maxDepth = 0, sexpCount = 0;
+  for (const c of source) {
+    if (c === '(') { depth++; sexpCount++; maxDepth = Math.max(maxDepth, depth); }
+    else if (c === ')') depth = Math.max(0, depth - 1);
+  }
+  const density = Math.round((sexpCount / Math.max(lineCount, 1)) * 10) / 10;
+  
+  // Form analysis
+  const funcCalls = source.match(/\([a-zA-Z][a-zA-Z0-9_-]*/g) || [];
+  const uniqueFuncs = [...new Set(funcCalls.map(f => f.slice(1)))];
+  
+  // Behavior detection
+  const behavior = {
+    interactive: /\(\s*(tap|draw)\s/.test(source),
+    drawable: /\(\s*draw\s/.test(source),
+    animated: /\(\s*(wiggle|spin|smoothspin|zoom|pan)\s/.test(source) || /\d+\.?\d*s/.test(source),
+    looping: /\d+\.?\d*s\.\.\.?/.test(source),
+    timed: /\d+\.?\d*s/.test(source),
+    hasAudio: /\(\s*(speaker|melody|overtone|mic|amplitude)\s/.test(source),
+    hasRandomness: /\(\s*(random|noise)\s/.test(source),
+    hasConditionals: /\(\s*(if|>|<|=|\?)\s/.test(source),
+    hasIteration: /\(\s*(repeat|bunch|range)\s/.test(source),
+    hasEffects: /\(\s*(blur|contrast|mask|steal)\s/.test(source),
+    hasNetwork: /\(\s*net\s/.test(source),
+    hasRainbow: /rainbow/.test(source),
+    hasGradient: /fade:/.test(source),
+  };
+  behavior.isPure = !behavior.hasAudio && !behavior.hasNetwork;
+  
+  // Count definitions
+  const varCount = (source.match(/\(\s*def\s+[a-zA-Z]/g) || []).length;
+  const funcCount = (source.match(/\(\s*later\s+[a-zA-Z]/g) || []).length;
+  
+  // Dependencies
+  const deps = [...new Set((source.match(/\$([a-zA-Z][a-zA-Z0-9]*)/g) || []).map(d => d.slice(1)))];
+  
+  // Size category (formal)
+  let size;
+  if (lineCount <= 1) size = 'Atom';
+  else if (lineCount <= 3) size = 'Molecule';
+  else if (lineCount <= 8) size = 'Cell';
+  else if (lineCount <= 20) size = 'Organism';
+  else if (lineCount <= 50) size = 'Colony';
+  else size = 'Ecosystem';
+  
+  // Structure category
+  let structure;
+  if (maxDepth <= 2) structure = 'Flat';
+  else if (maxDepth <= 4) structure = 'Nested';
+  else if (maxDepth <= 6) structure = 'Deep';
+  else structure = 'Recursive';
+  
+  analysisData = {
+    // Structural
+    lines: lineCount,
+    expressions: sexpCount,
+    depth: maxDepth,
+    density,
+    vocabulary: uniqueFuncs.length,
+    size,
+    structure,
+    // Definitions
+    varCount,
+    funcCount,
+    // Dependencies
+    deps,
+    isComposite: deps.length > 0,
+    // Behavior flags
+    ...behavior,
+    // Top forms
+    topForms: uniqueFuncs.slice(0, 5),
+  };
+  
+  // Generate natural language description
+  const descParts = [];
+  
+  // Size description
+  const sizeDesc = {
+    'Atom': 'A minimal one-liner',
+    'Molecule': 'A compact sketch',
+    'Cell': 'A small piece',
+    'Organism': 'A developed work',
+    'Colony': 'An elaborate composition',
+    'Ecosystem': 'A complex system'
+  }[size] || 'A piece';
+  descParts.push(sizeDesc);
+  
+  // Behavior adjectives
+  const adjectives = [];
+  if (behavior.interactive) adjectives.push('interactive');
+  if (behavior.animated && behavior.looping) adjectives.push('looping');
+  else if (behavior.animated) adjectives.push('animated');
+  if (behavior.hasRandomness) adjectives.push('generative');
+  if (behavior.hasAudio) adjectives.push('sonic');
+  if (behavior.isPure && !behavior.interactive && !behavior.animated) adjectives.push('static');
+  
+  if (adjectives.length > 0) {
+    descParts[0] = sizeDesc.replace('A ', 'A ' + adjectives.slice(0, 2).join(', ') + ' ').replace('An ', 'An ' + adjectives.slice(0, 2).join(', ') + ' ');
+  }
+  
+  // What it does
+  const actions = [];
+  if (behavior.drawable) actions.push('draws on touch');
+  else if (behavior.interactive) actions.push('responds to touch');
+  if (behavior.hasIteration) actions.push('repeats patterns');
+  if (behavior.hasConditionals) actions.push('makes choices');
+  
+  // Visual features
+  const visuals = [];
+  if (behavior.hasRainbow) visuals.push('rainbow colors');
+  if (behavior.hasGradient) visuals.push('color gradients');
+  if (behavior.hasEffects) visuals.push('visual effects');
+  
+  // Build second part
+  const features = [...actions, ...visuals];
+  if (features.length > 0) {
+    descParts.push('with ' + features.slice(0, 2).join(' and '));
+  }
+  
+  // Dependencies
+  if (deps.length > 0) {
+    descParts.push('embedding $' + deps.join(', $'));
+  }
+  
+  // Forms used (pick interesting ones)
+  const interestingForms = uniqueFuncs.filter(f => 
+    ['wiggle', 'spin', 'rainbow', 'repeat', 'tap', 'draw', 'melody', 'speaker', 'random', 'noise', 'blur'].includes(f)
+  );
+  if (interestingForms.length > 0 && descParts.length < 3) {
+    descParts.push('using ' + interestingForms.slice(0, 3).join(', '));
+  }
+  
+  analysisData.description = descParts.join(' ') + '.';
+  
+  console.log("🪙 KEEP: Formal analysis:", analysisData);
 }
 
 // Parse color name/string to RGB (like prompt.mjs)
@@ -644,13 +856,15 @@ async function runProcess(forceRegenerate = false) {
           }
         } else if (stage === "details") {
           // Capture piece details from server
-          if (eventData.source) sourceCode = eventData.source;
+          // Sanitize source: replace newlines with ", " for single-line ticker display
+          if (eventData.source) sourceCode = eventData.source.replace(/\n+/g, ", ").replace(/,\s*,/g, ",").trim();
           if (eventData.author) pieceAuthor = eventData.author;
           if (eventData.createdAt) pieceCreatedAt = eventData.createdAt;
           if (eventData.sourceLength) pieceSourceLength = eventData.sourceLength;
           console.log("🪙 KEEP: Piece details received", { pieceAuthor, pieceCreatedAt, pieceSourceLength });
         } else if (stage === "analyze") {
-          if (source) sourceCode = source;
+          // Sanitize source: replace newlines with ", " for single-line ticker display
+          if (source) sourceCode = source.replace(/\n+/g, ", ").replace(/,\s*,/g, ",").trim();
           if (author) pieceAuthor = author;
           // Mark done if we have complexity info or it's done
           if (message?.includes("complexity") || message?.includes("✓")) {
@@ -691,6 +905,11 @@ async function runProcess(forceRegenerate = false) {
       if (eventType === "prepared" && eventData) {
         preparedData = eventData;
         await delay(STEP_DELAY);
+        // Update timeline label with actual fee from contract
+        const reviewStep = timeline.find(t => t.id === "review");
+        if (reviewStep && preparedData.mintFee) {
+          reviewStep.label = `Pay ${preparedData.mintFee} ꜩ Toll`;
+        }
         setStep("review", "active", null); // No detail text - button speaks for itself
         // Load thumbnail for preview during minting
         if (preparedData.thumbnailUri) {
@@ -731,16 +950,18 @@ async function signAndMint() {
     // Wait and fetch token ID with retries (indexer may take a moment)
     const networkPrefix = preparedData.network === "mainnet" ? "" : "ghostnet.";
     const apiBase = `https://api.${networkPrefix}tzkt.io`;
+    const tokenName = `$${piece}`;
     
     for (let attempt = 0; attempt < 5 && !tokenId; attempt++) {
       await new Promise(r => setTimeout(r, 3000));
       try {
-        const res = await fetch(`${apiBase}/v1/tokens?contract=${preparedData.contractAddress}&sort.desc=id&limit=1`);
+        // Query for our specific token by name, with supply > 0, sorted by newest
+        const res = await fetch(`${apiBase}/v1/tokens?contract=${preparedData.contractAddress}&metadata.name=${encodeURIComponent(tokenName)}&totalSupply.gt=0&sort.desc=id&limit=1`);
         if (res.ok) {
           const tokens = await res.json();
           if (tokens.length > 0) {
             tokenId = tokens[0].tokenId;
-            console.log(`🪙 KEEP: Found token #${tokenId} on attempt ${attempt + 1}`);
+            console.log(`🪙 KEEP: Found token #${tokenId} for ${tokenName} on attempt ${attempt + 1}`);
           }
         }
       } catch (e) {
@@ -990,83 +1211,77 @@ function paint({ wipe, ink, box, screen, paste }) {
     const margin = 6;
     let y = 4;
     
-    // Header with network badge
-    const netLabel = (alreadyMinted.network || NETWORK).toUpperCase();
-    const isMainnet = netLabel === "MAINNET";
-    const netColor = isMainnet ? [100, 220, 100] : [220, 180, 100]; // green for mainnet, amber for testnet
+    // Header with network/staging badge
+    const baseNetLabel = (alreadyMinted.network || NETWORK).toUpperCase();
+    const netLabel = KEEPS_STAGING ? "STAGING" : baseNetLabel;
+    const isMainnet = baseNetLabel === "MAINNET";
+    const netColor = KEEPS_STAGING ? [255, 180, 100] : (isMainnet ? [100, 220, 100] : [220, 180, 100]);
     
-    ink(255, 220, 100).write("ALREADY KEPT", { x: w/2, y, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+    ink(255, 220, 100).write("KEPT", { x: w/2, y, center: "x" }, undefined, undefined, false, "MatrixChunky8");
     y += 10;
     // Network badge
-    ink(netColor[0], netColor[1], netColor[2]).write(`on ${netLabel}`, { x: w/2, y, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+    ink(netColor[0], netColor[1], netColor[2]).write(`${netLabel} #${alreadyMinted.tokenId}`, { x: w/2, y, center: "x" }, undefined, undefined, false, "MatrixChunky8");
     y += 10;
     ink(100, 220, 180).write(`$${piece}`, { x: w/2, y, center: "x" }, undefined, undefined, false, "MatrixChunky8");
-    y += 14;
+    y += 12;
     
-    // Thumbnail display
+    // Thumbnail display (smaller)
     if (thumbnailBitmap) {
-      const thumbSize = min(64, w - 20, h - 100);
+      const thumbSize = min(48, w - 20, h - 100);
       const thumbX = floor((w - thumbSize) / 2);
       paste(thumbnailBitmap, thumbX, y, { scale: thumbSize / (thumbnailBitmap.width || 256) });
-      y += thumbSize + 6;
+      y += thumbSize + 4;
     } else if (alreadyMinted.thumbnailUri) {
-      // Show placeholder while loading
-      ink(40, 55, 60).box(floor((w - 50) / 2), y, 50, 40);
-      ink(80, 100, 110).write("Loading...", { x: w/2, y: y + 15, center: "x" }, undefined, undefined, false, "MatrixChunky8");
-      y += 46;
+      ink(40, 55, 60).box(floor((w - 40) / 2), y, 40, 30);
+      ink(80, 100, 110).write("...", { x: w/2, y: y + 10, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+      y += 34;
+    }
+    
+    // === SYNC STATUS SECTION ===
+    // Determine sync state by comparing on-chain URIs with latest generated
+    const latestMedia = pendingRebake || cachedMedia;
+    const onChainArtifact = alreadyMinted.artifactUri;
+    const onChainThumb = alreadyMinted.thumbnailUri;
+    const latestArtifact = latestMedia?.artifactUri;
+    const latestThumb = latestMedia?.thumbnailUri;
+    
+    const artifactMatches = onChainArtifact === latestArtifact;
+    const thumbMatches = onChainThumb === latestThumb;
+    const isSynced = latestArtifact && artifactMatches && thumbMatches;
+    const hasPending = pendingRebake && (!artifactMatches || !thumbMatches);
+    // If no cached bundle but on-chain exists, assume synced (legacy mint)
+    const isLegacySynced = !latestMedia && onChainArtifact;
+    
+    // Sync status indicator
+    ink(35, 50, 55, 200).box(0, y, w, 12);
+    if (isSynced || isLegacySynced) {
+      ink(100, 220, 150).write("[ok] Synced", { x: w/2, y: y + 2, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+    } else if (hasPending) {
+      ink(255, 180, 100).write("!! Pending update", { x: w/2, y: y + 2, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+    } else if (latestMedia) {
+      ink(255, 200, 100).write("≠ Out of sync", { x: w/2, y: y + 2, center: "x" }, undefined, undefined, false, "MatrixChunky8");
     } else {
-      // No thumbnail available - show a simple placeholder
-      ink(40, 55, 60).box(floor((w - 50) / 2), y, 50, 40);
-      ink(60, 80, 85).write(`$${piece}`, { x: w/2, y: y + 15, center: "x" }, undefined, undefined, false, "MatrixChunky8");
-      y += 46;
+      ink(180, 180, 120).write(">> Not bundled", { x: w/2, y: y + 2, center: "x" }, undefined, undefined, false, "MatrixChunky8");
     }
+    y += 14;
     
-    // Token info stripe
-    ink(40, 55, 60, 180).box(0, y, w, 22);
-    ink(180, 220, 200).write(`Token #${alreadyMinted.tokenId}`, { x: margin, y: y + 2 }, undefined, undefined, false, "MatrixChunky8");
-    
-    // Owner (truncated address)
-    if (alreadyMinted.owner) {
-      const ownerShort = alreadyMinted.owner.slice(0, 8) + "..." + alreadyMinted.owner.slice(-4);
-      ink(120, 150, 140).write(ownerShort, { x: margin, y: y + 12 }, undefined, undefined, false, "MatrixChunky8");
+    // === ON-CHAIN SECTION ===
+    // Format date for on-chain
+    let onChainDateStr = "";
+    if (alreadyMinted.mintedAt) {
+      const d = new Date(alreadyMinted.mintedAt);
+      onChainDateStr = ` since ${d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" })}`;
     }
-    y += 26;
+    ink(120, 180, 200).write("ON-CHAIN" + onChainDateStr, { x: margin, y }, undefined, undefined, false, "MatrixChunky8");
+    y += 10;
     
-    // Syntax-highlighted source code ticker
-    if (kidlispSource) {
-      // Ticker background
-      ink(25, 35, 40, 200).box(0, y, w, 14);
-      
-      // Build colored string with natural spacing
-      const coloredSource = buildColoredSourceString(kidlispSource);
-      const sourceLen = kidlispSource.length * 4;
-      
-      // Add gap between repeats
-      const gap = 40;
-      const repeatWidth = sourceLen + gap;
-      
-      // Calculate starting x position (scrolling)
-      let startX = -(tickerOffset % repeatWidth);
-      
-      // Draw colored source using write() for natural spacing
-      for (let repeat = 0; repeat < 3; repeat++) {
-        const x = startX + repeat * repeatWidth;
-        if (x < w && x + sourceLen > 0) {
-          ink(200, 200, 200).write(coloredSource, { x, y: y + 3 }, undefined, undefined, false, "MatrixChunky8");
-        }
-      }
-      y += 18;
-    }
-    
-    // IPFS link buttons - styled like products.mjs MatrixChunky8 buttons
-    y += 4;
-    let linkX = margin;
     const linkScheme = {
       normal: { bg: [30, 60, 70], outline: [100, 180, 220], outlineAlpha: 150, text: [100, 180, 220] },
       hover: { bg: [50, 90, 110], outline: [180, 240, 255], outlineAlpha: 200, text: [180, 240, 255] },
       disabled: { bg: [25, 35, 40], outline: [60, 80, 90], outlineAlpha: 100, text: [60, 80, 90] }
     };
     
+    let linkX = margin;
     if (alreadyMinted.artifactUri) {
       const htmlSize = mc8ButtonSize("HTML");
       htmlBtn.btn.box.x = linkX;
@@ -1077,84 +1292,300 @@ function paint({ wipe, ink, box, screen, paste }) {
       linkX += htmlSize.w + 4;
     }
     if (alreadyMinted.thumbnailUri) {
-      const thumbSize = mc8ButtonSize("THUMB");
+      const thumbBtnSize = mc8ButtonSize("THUMB");
       thumbBtn.btn.box.x = linkX;
       thumbBtn.btn.box.y = y;
-      thumbBtn.btn.box.w = thumbSize.w;
-      thumbBtn.btn.box.h = thumbSize.h;
+      thumbBtn.btn.box.w = thumbBtnSize.w;
+      thumbBtn.btn.box.h = thumbBtnSize.h;
       paintMC8Btn(linkX, y, "THUMB", { ink, line: ink }, linkScheme, thumbBtn.btn.down);
-      linkX += thumbSize.w + 4;
+      linkX += thumbBtnSize.w + 4;
     }
-    y += mc8ButtonSize("X").h + 6;
+    // META button - link to TzKT metadata view
+    const metaBtnSize = mc8ButtonSize("META");
+    metaBtn.btn.box.x = linkX;
+    metaBtn.btn.box.y = y;
+    metaBtn.btn.box.w = metaBtnSize.w;
+    metaBtn.btn.box.h = metaBtnSize.h;
+    paintMC8Btn(linkX, y, "META", { ink, line: ink }, linkScheme, metaBtn.btn.down);
+    linkX += metaBtnSize.w + 4;
+    // Show short CID
+    if (alreadyMinted.artifactUri) {
+      const cid = alreadyMinted.artifactUri.replace("ipfs://", "").split("/")[0];
+      ink(80, 120, 140).write(cid.slice(0, 8) + "...", { x: linkX + 2, y: y + 3 }, undefined, undefined, false, "MatrixChunky8");
+    }
+    y += mc8ButtonSize("X").h + 4;
     
-    // Rebake status display
-    if (rebaking) {
-      ink(255, 200, 100).write("Regenerating bundle...", { x: w/2, y, center: "x" }, undefined, undefined, false, "MatrixChunky8");
-      y += 12;
-    } else if (rebakeResult) {
-      ink(100, 255, 150).write("✓ Bundle regenerated!", { x: w/2, y, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+    // === CACHED/GENERATED SECTION (if different from on-chain) ===
+    if (latestMedia && !isSynced) {
+      const cachedScheme = {
+        normal: { bg: [60, 50, 40], outline: [200, 160, 100], outlineAlpha: 150, text: [200, 160, 100] },
+        hover: { bg: [80, 70, 50], outline: [240, 200, 140], outlineAlpha: 200, text: [240, 200, 140] },
+        disabled: { bg: [40, 35, 30], outline: [100, 80, 60], outlineAlpha: 100, text: [100, 80, 60] }
+      };
+      
+      // Format rebaked date
+      let rebakedDateStr = "";
+      const rebakedDate = latestMedia.packDate || latestMedia.createdAt;
+      if (rebakedDate) {
+        const d = new Date(rebakedDate);
+        if (!isNaN(d.getTime())) {
+          rebakedDateStr = ` ${d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" })}`;
+        }
+      }
+      ink(200, 160, 100).write("REBAKED" + rebakedDateStr, { x: margin, y }, undefined, undefined, false, "MatrixChunky8");
       y += 10;
-      // Show new IPFS hash (shortened)
-      const hash = rebakeResult.artifactUri?.replace("ipfs://", "").slice(0, 20) + "...";
-      ink(180, 180, 180).write("New: " + hash, { x: w/2, y, center: "x" }, undefined, undefined, false, "MatrixChunky8");
-      y += 14;
+      
+      linkX = margin;
+      if (latestArtifact) {
+        const oldHtmlSize = mc8ButtonSize("HTML");
+        oldHtmlBtn.btn.box.x = linkX;
+        oldHtmlBtn.btn.box.y = y;
+        oldHtmlBtn.btn.box.w = oldHtmlSize.w;
+        oldHtmlBtn.btn.box.h = oldHtmlSize.h;
+        paintMC8Btn(linkX, y, "HTML", { ink, line: ink }, cachedScheme, oldHtmlBtn.btn.down);
+        linkX += oldHtmlSize.w + 4;
+      }
+      if (latestThumb) {
+        const oldThumbSize = mc8ButtonSize("THUMB");
+        oldThumbBtn.btn.box.x = linkX;
+        oldThumbBtn.btn.box.y = y;
+        oldThumbBtn.btn.box.w = oldThumbSize.w;
+        oldThumbBtn.btn.box.h = oldThumbSize.h;
+        paintMC8Btn(linkX, y, "THUMB", { ink, line: ink }, cachedScheme, oldThumbBtn.btn.down);
+        linkX += oldThumbSize.w + 4;
+      }
+      // Show short CID
+      if (latestArtifact) {
+        const cid = latestArtifact.replace("ipfs://", "").split("/")[0];
+        ink(120, 100, 80).write(cid.slice(0, 8) + "...", { x: linkX + 2, y: y + 3 }, undefined, undefined, false, "MatrixChunky8");
+      }
+      y += mc8ButtonSize("X").h + 4;
     }
     
-    // Action buttons
-    // View on objkt button - styled with proper MatrixChunky8 padding
+    // === ANALYSIS SECTION (Full Details) ===
+    if (analysisData) {
+      const isOutdated = onChainAnalyzerVersion && onChainAnalyzerVersion !== "2.0.0";
+      const baseHeight = 72;
+      const sectionHeight = isOutdated ? baseHeight + 12 : baseHeight;
+      
+      ink(25, 35, 45, 220).box(0, y, w, sectionHeight);
+      
+      // Row 1: Description ticker
+      if (analysisData.description) {
+        const desc = analysisData.description;
+        const descLen = desc.length * 4;
+        const gap = 60;
+        const repeatWidth = descLen + gap;
+        let startX = -(tickerOffset * 0.5 % repeatWidth);
+        for (let repeat = 0; repeat < 3; repeat++) {
+          const x = startX + repeat * repeatWidth;
+          if (x < w && x + descLen > 0) {
+            ink(180, 200, 220).write(desc, { x, y: y + 3 }, undefined, undefined, false, "MatrixChunky8");
+          }
+        }
+      }
+      
+      // Row 2: Structure info
+      const r2Y = y + 14;
+      ink(120, 160, 180).write(`${analysisData.lines} lines`, { x: margin, y: r2Y }, undefined, undefined, false, "MatrixChunky8");
+      ink(100, 140, 160).write(`${analysisData.expressions} expr`, { x: margin + 44, y: r2Y }, undefined, undefined, false, "MatrixChunky8");
+      ink(90, 130, 150).write(`depth ${analysisData.depth}`, { x: margin + 88, y: r2Y }, undefined, undefined, false, "MatrixChunky8");
+      // Size/Structure on right
+      const sizeColor = { Atom: [100, 255, 200], Molecule: [150, 220, 180], Cell: [180, 200, 160], Organism: [200, 180, 140], Colony: [220, 150, 120], Ecosystem: [255, 120, 100] }[analysisData.size] || [150, 150, 150];
+      ink(sizeColor[0], sizeColor[1], sizeColor[2]).write(analysisData.size, { x: w - margin, y: r2Y, right: true }, undefined, undefined, false, "MatrixChunky8");
+      
+      // Row 3: Behavior tags
+      const r3Y = y + 25;
+      let tagX = margin;
+      if (analysisData.interactive) { ink(100, 255, 150).write("●touch", { x: tagX, y: r3Y }, undefined, undefined, false, "MatrixChunky8"); tagX += 36; }
+      if (analysisData.drawable) { ink(100, 220, 180).write("●draw", { x: tagX, y: r3Y }, undefined, undefined, false, "MatrixChunky8"); tagX += 32; }
+      if (analysisData.animated) { ink(100, 200, 255).write("●motion", { x: tagX, y: r3Y }, undefined, undefined, false, "MatrixChunky8"); tagX += 40; }
+      if (analysisData.looping) { ink(100, 255, 255).write("●loops", { x: tagX, y: r3Y }, undefined, undefined, false, "MatrixChunky8"); tagX += 36; }
+      if (analysisData.hasAudio) { ink(255, 100, 200).write("●sound", { x: tagX, y: r3Y }, undefined, undefined, false, "MatrixChunky8"); tagX += 36; }
+      if (analysisData.hasRandomness) { ink(255, 220, 100).write("●random", { x: tagX, y: r3Y }, undefined, undefined, false, "MatrixChunky8"); tagX += 44; }
+      if (analysisData.hasNetwork) { ink(255, 100, 100).write("●network", { x: tagX, y: r3Y }, undefined, undefined, false, "MatrixChunky8"); tagX += 48; }
+      if (analysisData.isPure && tagX === margin) { ink(200, 200, 200).write("●static", { x: tagX, y: r3Y }, undefined, undefined, false, "MatrixChunky8"); }
+      
+      // Row 4: Logic and definitions
+      const r4Y = y + 36;
+      let logicX = margin;
+      if (analysisData.hasConditionals) { ink(255, 180, 100).write("if/else", { x: logicX, y: r4Y }, undefined, undefined, false, "MatrixChunky8"); logicX += 40; }
+      if (analysisData.hasIteration) { ink(255, 160, 80).write("repeat", { x: logicX, y: r4Y }, undefined, undefined, false, "MatrixChunky8"); logicX += 40; }
+      if (analysisData.varCount > 0) { ink(180, 140, 220).write(`${analysisData.varCount} var`, { x: logicX, y: r4Y }, undefined, undefined, false, "MatrixChunky8"); logicX += 32; }
+      if (analysisData.funcCount > 0) { ink(160, 120, 200).write(`${analysisData.funcCount} fn`, { x: logicX, y: r4Y }, undefined, undefined, false, "MatrixChunky8"); logicX += 28; }
+      // Colors on right
+      let colorX = w - margin;
+      if (analysisData.hasRainbow) {
+        ink(255, 100, 100).write("r", { x: colorX - 24, y: r4Y }, undefined, undefined, false, "MatrixChunky8");
+        ink(255, 200, 100).write("a", { x: colorX - 20, y: r4Y }, undefined, undefined, false, "MatrixChunky8");
+        ink(255, 255, 100).write("i", { x: colorX - 16, y: r4Y }, undefined, undefined, false, "MatrixChunky8");
+        ink(100, 255, 100).write("n", { x: colorX - 12, y: r4Y }, undefined, undefined, false, "MatrixChunky8");
+        ink(100, 200, 255).write("b", { x: colorX - 8, y: r4Y }, undefined, undefined, false, "MatrixChunky8");
+        ink(200, 100, 255).write("o", { x: colorX - 4, y: r4Y }, undefined, undefined, false, "MatrixChunky8");
+        ink(255, 100, 200).write("w", { x: colorX, y: r4Y }, undefined, undefined, false, "MatrixChunky8");
+      } else if (analysisData.hasGradient) {
+        ink(150, 150, 200).write("gradient", { x: colorX, y: r4Y, right: true }, undefined, undefined, false, "MatrixChunky8");
+      }
+      
+      // Row 5: Dependencies and top forms
+      const r5Y = y + 47;
+      if (analysisData.isComposite && analysisData.deps?.length > 0) {
+        ink(200, 180, 140).write("embeds " + analysisData.deps.map(d => '$' + d).join(' '), { x: margin, y: r5Y }, undefined, undefined, false, "MatrixChunky8");
+      } else if (analysisData.topForms?.length > 0) {
+        ink(100, 120, 140).write("uses: ", { x: margin, y: r5Y }, undefined, undefined, false, "MatrixChunky8");
+        let formX = margin + 28;
+        analysisData.topForms.slice(0, 4).forEach((f, i) => {
+          const hue = (i * 50) % 360;
+          const r = Math.round(140 + 40 * Math.cos(hue * Math.PI / 180));
+          const g = Math.round(140 + 40 * Math.cos((hue - 120) * Math.PI / 180));
+          const b = Math.round(140 + 40 * Math.cos((hue - 240) * Math.PI / 180));
+          ink(r, g, b).write(f, { x: formX, y: r5Y }, undefined, undefined, false, "MatrixChunky8");
+          formX += f.length * 4 + 6;
+        });
+      }
+      // Vocabulary count on right
+      ink(120, 140, 160).write(`${analysisData.vocabulary} forms`, { x: w - margin, y: r5Y, right: true }, undefined, undefined, false, "MatrixChunky8");
+      
+      // Row 6: Outdated warning
+      if (isOutdated) {
+        ink(255, 150, 100, 200).write(`!! Analyzer v${onChainAnalyzerVersion} outdated - Resync to update`, { x: margin, y: y + 60 }, undefined, undefined, false, "MatrixChunky8");
+      }
+      
+      y += sectionHeight + 4;
+    }
+    
+    // Syntax-highlighted source code ticker
+    if (kidlispSource) {
+      ink(25, 35, 40, 200).box(0, y, w, 14);
+      const coloredSource = buildColoredSourceString(kidlispSource);
+      const sourceLen = kidlispSource.length * 4;
+      const gap = 40;
+      const repeatWidth = sourceLen + gap;
+      let startX = -(tickerOffset % repeatWidth);
+      for (let repeat = 0; repeat < 3; repeat++) {
+        const x = startX + repeat * repeatWidth;
+        if (x < w && x + sourceLen > 0) {
+          ink(200, 200, 200).write(coloredSource, { x, y: y + 3 }, undefined, undefined, false, "MatrixChunky8");
+        }
+      }
+      y += 16;
+    }
+    
+    // === ACTION BUTTONS ===
+    y += 2;
+    
+    // View on objkt
     const objktScheme = {
       normal: { bg: [40, 80, 70], outline: [100, 200, 160], outlineAlpha: 150, text: [255, 255, 255] },
       hover: { bg: [60, 120, 100], outline: [150, 255, 200], outlineAlpha: 200, text: [255, 255, 255] },
       disabled: { bg: [35, 50, 45], outline: [70, 130, 100], outlineAlpha: 100, text: [140, 160, 150] }
     };
-    const objktSize = mc8ButtonSize("View on objkt");
-    const objktX = floor((w - objktSize.w) / 2);
-    btn.btn.box.x = objktX;
+    const objktSize = mc8ButtonSize("objkt");
+    const rebakeSize = mc8ButtonSize("Rebake");
+    // Button text changes based on sync state - also check if analyzer is outdated
+    const analyzerOutdated = onChainAnalyzerVersion && onChainAnalyzerVersion !== "2.0.0";
+    const hasPendingSync = !isSynced && !isLegacySynced || rebakeResult || analyzerOutdated;
+    const syncBtnText = hasPendingSync ? "Resync" : "Synced";
+    const updateSize = mc8ButtonSize(syncBtnText);
+    
+    // Calculate button layout - always show all 3 buttons
+    const totalWidth = objktSize.w + 4 + rebakeSize.w + 4 + updateSize.w;
+    let btnX = floor((w - totalWidth) / 2);
+    
+    // objkt button
+    btn.btn.box.x = btnX;
     btn.btn.box.y = y;
     btn.btn.box.w = objktSize.w;
     btn.btn.box.h = objktSize.h;
-    paintMC8Btn(objktX, y, "View on objkt", { ink, line: ink }, objktScheme, btn.btn.down);
-    y += objktSize.h + 4;
+    paintMC8Btn(btnX, y, "objkt", { ink, line: ink }, objktScheme, btn.btn.down);
+    btnX += objktSize.w + 4;
     
-    // Rebake button - regenerate bundle without re-minting
+    // Rebake button
     const rebakeScheme = {
       normal: { bg: [80, 50, 30], outline: [200, 140, 80], outlineAlpha: 150, text: [255, 200, 100] },
       hover: { bg: [120, 70, 40], outline: [255, 180, 100], outlineAlpha: 200, text: [255, 220, 150] },
       disabled: { bg: [40, 30, 25], outline: [100, 80, 60], outlineAlpha: 100, text: [120, 100, 80] }
     };
-    const rebakingScheme = {
-      normal: { bg: [40, 30, 25], outline: [100, 80, 60], outlineAlpha: 100, text: [120, 100, 80] },
-      hover: { bg: [40, 30, 25], outline: [100, 80, 60], outlineAlpha: 100, text: [120, 100, 80] },
-      disabled: { bg: [40, 30, 25], outline: [100, 80, 60], outlineAlpha: 100, text: [120, 100, 80] }
-    };
-    const rebakeSize = mc8ButtonSize("Rebake Bundle");
-    const rebakeX = floor((w - rebakeSize.w) / 2);
-    rebakeBtn.btn.box.x = rebakeX;
+    rebakeBtn.btn.box.x = btnX;
     rebakeBtn.btn.box.y = y;
     rebakeBtn.btn.box.w = rebakeSize.w;
     rebakeBtn.btn.box.h = rebakeSize.h;
-    paintMC8Btn(rebakeX, y, rebaking ? "Rebaking..." : "Rebake Bundle", { ink, line: ink }, rebaking ? rebakingScheme : rebakeScheme, rebakeBtn.btn.down);
-    y += rebakeSize.h + 4;
+    paintMC8Btn(btnX, y, rebaking ? "..." : "Rebake", { ink, line: ink }, rebaking ? { normal: rebakeScheme.disabled, hover: rebakeScheme.disabled, disabled: rebakeScheme.disabled } : rebakeScheme, rebakeBtn.btn.down);
+    btnX += rebakeSize.w + 4;
     
-    // Update Chain button - appears after rebake to push new metadata on-chain
-    if (rebakeResult) {
-      const updateScheme = {
-        normal: { bg: [50, 30, 80], outline: [140, 100, 200], outlineAlpha: 150, text: [200, 150, 255] },
-        hover: { bg: [70, 50, 120], outline: [180, 140, 255], outlineAlpha: 200, text: [230, 200, 255] },
-        disabled: { bg: [30, 25, 40], outline: [80, 60, 100], outlineAlpha: 100, text: [100, 80, 120] }
-      };
-      const updatingScheme = {
-        normal: { bg: [30, 25, 40], outline: [80, 60, 100], outlineAlpha: 100, text: [100, 80, 120] },
-        hover: { bg: [30, 25, 40], outline: [80, 60, 100], outlineAlpha: 100, text: [100, 80, 120] },
-        disabled: { bg: [30, 25, 40], outline: [80, 60, 100], outlineAlpha: 100, text: [100, 80, 120] }
-      };
-      const updateSize = mc8ButtonSize("Update Chain");
-      const updateX = floor((w - updateSize.w) / 2);
-      updateChainBtn.btn.box.x = updateX;
-      updateChainBtn.btn.box.y = y;
-      updateChainBtn.btn.box.w = updateSize.w;
-      updateChainBtn.btn.box.h = updateSize.h;
-      paintMC8Btn(updateX, y, updatingChain ? "Updating..." : "Update Chain", { ink, line: ink }, updatingChain ? updatingScheme : updateScheme, updateChainBtn.btn.down);
+    // Sync button - always visible, grayed out when synced
+    const canSync = hasPending || rebakeResult || !isSynced && !isLegacySynced || analyzerOutdated;
+    const syncScheme = {
+      normal: { bg: [50, 30, 80], outline: [140, 100, 200], outlineAlpha: 150, text: [200, 150, 255] },
+      hover: { bg: [70, 50, 120], outline: [180, 140, 255], outlineAlpha: 200, text: [230, 200, 255] },
+      disabled: { bg: [30, 25, 40], outline: [80, 60, 100], outlineAlpha: 100, text: [100, 80, 120] }
+    };
+    const syncDisabled = updatingChain || (isSynced || isLegacySynced) && !rebakeResult && !analyzerOutdated;
+    updateChainBtn.btn.box.x = btnX;
+    updateChainBtn.btn.box.y = y;
+    updateChainBtn.btn.box.w = updateSize.w;
+    updateChainBtn.btn.box.h = updateSize.h;
+    paintMC8Btn(btnX, y, updatingChain ? "..." : syncBtnText, { ink, line: ink }, syncDisabled ? { normal: syncScheme.disabled, hover: syncScheme.disabled, disabled: syncScheme.disabled } : syncScheme, updateChainBtn.btn.down);
+    y += objktSize.h + 4;
+    
+    // Wallet shortcut - bottom left corner
+    const walletScheme = {
+      normal: { bg: [40, 40, 55], outline: [100, 100, 140], outlineAlpha: 120, text: [140, 140, 180] },
+      hover: { bg: [55, 55, 75], outline: [140, 140, 200], outlineAlpha: 180, text: [180, 180, 220] },
+      disabled: { bg: [30, 30, 40], outline: [60, 60, 80], outlineAlpha: 80, text: [80, 80, 100] }
+    };
+    const walletSize = mc8ButtonSize("wallet");
+    walletBtn.btn.box.x = margin;
+    walletBtn.btn.box.y = h - walletSize.h - 4;
+    walletBtn.btn.box.w = walletSize.w;
+    walletBtn.btn.box.h = walletSize.h;
+    paintMC8Btn(margin, h - walletSize.h - 4, "wallet", { ink, line: ink }, walletScheme, walletBtn.btn.down);
+    
+    // Contract button - bottom right corner
+    const contractScheme = {
+      normal: { bg: [35, 45, 55], outline: [100, 140, 180], outlineAlpha: 120, text: [140, 180, 220] },
+      hover: { bg: [45, 60, 75], outline: [140, 180, 220], outlineAlpha: 180, text: [180, 220, 255] },
+      disabled: { bg: [25, 30, 35], outline: [60, 80, 100], outlineAlpha: 80, text: [80, 100, 120] }
+    };
+    const shortContract = KEEPS_CONTRACT.slice(0, 8) + "..";
+    const contractSize = mc8ButtonSize(shortContract);
+    contractBtn.btn.box.x = w - margin - contractSize.w;
+    contractBtn.btn.box.y = h - contractSize.h - 4;
+    contractBtn.btn.box.w = contractSize.w;
+    contractBtn.btn.box.h = contractSize.h;
+    paintMC8Btn(w - margin - contractSize.w, h - contractSize.h - 4, shortContract, { ink, line: ink }, contractScheme, contractBtn.btn.down);
+    
+    // Show streaming progress
+    if (rebaking && rebakeProgress) {
+      ink(200, 180, 120).write(rebakeProgress, { x: w/2, y, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+      y += 10;
+    }
+    if (updatingChain && updateChainProgress) {
+      ink(150, 150, 200).write(updateChainProgress, { x: w/2, y, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+      y += 10;
+    }
+    
+    // Success messages with transaction link
+    if (updateChainResult) {
+      ink(100, 255, 150).write("[ok] Synced!", { x: margin, y }, undefined, undefined, false, "MatrixChunky8");
+      
+      // TX button to view transaction on TzKT
+      if (updateChainResult.opHash) {
+        const txScheme = {
+          normal: { bg: [40, 70, 60], outline: [100, 200, 150], outlineAlpha: 150, text: [150, 255, 200] },
+          hover: { bg: [50, 90, 75], outline: [150, 255, 200], outlineAlpha: 200, text: [200, 255, 230] },
+          disabled: { bg: [30, 40, 35], outline: [60, 100, 80], outlineAlpha: 100, text: [80, 120, 100] }
+        };
+        const shortHash = updateChainResult.opHash.slice(0, 8) + "..";
+        const txSize = mc8ButtonSize(shortHash);
+        const txX = margin + 52;
+        txBtn.btn.box.x = txX;
+        txBtn.btn.box.y = y;
+        txBtn.btn.box.w = txSize.w;
+        txBtn.btn.box.h = txSize.h;
+        paintMC8Btn(txX, y, shortHash, { ink, line: ink }, txScheme, txBtn.btn.down);
+      }
+      y += 14;
     }
     
     return;
@@ -1164,6 +1595,71 @@ function paint({ wipe, ink, box, screen, paste }) {
   if (loadingExisting) {
     wipe(30, 35, 45);
     ink(100, 150, 180).write("Checking chain...", { x: w/2, y: h/2, center: "xy" }, undefined, undefined, false, "MatrixChunky8");
+    return;
+  }
+  
+  // === CONFIRMATION VIEW ===
+  if (waitingConfirmation) {
+    // Warm amber background
+    const pulse = sin(rotation * 1.5) * 5;
+    wipe(45 + pulse, 35 + pulse, 25);
+    
+    // Gold border shimmer
+    for (let i = 0; i < w; i += 3) {
+      const shimmer = sin(rotation * 2 + i * 0.2) * 0.5 + 0.5;
+      const alpha = floor(shimmer * 80);
+      ink(255, 200, 100, alpha).box(i, 0, 2, 1);
+      ink(255, 200, 100, alpha).box(i, h - 1, 2, 1);
+    }
+    
+    let cy = h / 2 - 30;
+    
+    // Title
+    ink(255, 220, 100).write("MINT", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+    cy += 12;
+    
+    // Piece name
+    ink(100, 220, 180).write(`$${piece}`, { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+    cy += 14;
+    
+    // Network + staging info
+    const netLabel = KEEPS_STAGING ? "STAGING" : NETWORK.toUpperCase();
+    const isMainnet = NETWORK === "mainnet";
+    const netColor = KEEPS_STAGING ? [255, 180, 100] : (isMainnet ? [100, 220, 100] : [220, 180, 100]);
+    ink(netColor[0], netColor[1], netColor[2]).write(netLabel, { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+    cy += 10;
+    
+    // Contract button (clickable link to TzKT)
+    const contractScheme = {
+      normal: { bg: [35, 45, 55], outline: [100, 140, 180], outlineAlpha: 150, text: [140, 180, 220] },
+      hover: { bg: [45, 60, 75], outline: [140, 180, 220], outlineAlpha: 200, text: [180, 220, 255] },
+      disabled: { bg: [25, 30, 35], outline: [60, 80, 100], outlineAlpha: 100, text: [80, 100, 120] }
+    };
+    const shortContract = KEEPS_CONTRACT.slice(0, 8) + "..";
+    const contractSize = mc8ButtonSize(shortContract);
+    const contractX = floor((w - contractSize.w) / 2);
+    contractBtn.btn.box.x = contractX;
+    contractBtn.btn.box.y = cy;
+    contractBtn.btn.box.w = contractSize.w;
+    contractBtn.btn.box.h = contractSize.h;
+    paintMC8Btn(contractX, cy, shortContract, { ink, line: ink }, contractScheme, contractBtn.btn.down);
+    cy += 18;
+    
+    // Confirmation button
+    const confirmScheme = {
+      normal: { bg: [40, 70, 50], outline: [100, 200, 120], outlineAlpha: 200, text: [150, 255, 180] },
+      hover: { bg: [50, 90, 65], outline: [150, 255, 180], outlineAlpha: 255, text: [200, 255, 220] },
+      disabled: { bg: [30, 40, 35], outline: [60, 100, 80], outlineAlpha: 100, text: [80, 120, 100] }
+    };
+    const confirmText = "Start Minting";
+    const confirmSize = lgButtonSize(confirmText);
+    const confirmX = floor((w - confirmSize.w) / 2);
+    btn.btn.box.x = confirmX;
+    btn.btn.box.y = cy;
+    btn.btn.box.w = confirmSize.w;
+    btn.btn.box.h = confirmSize.h;
+    paintLgBtn(confirmX, cy, confirmText, { ink, line: ink }, confirmScheme, btn.btn.down);
+    
     return;
   }
   
@@ -1606,6 +2102,21 @@ function paint({ wipe, ink, box, screen, paste }) {
 function act({ event: e, screen }) {
   if (e.is("reframed")) _needsPaint?.();
   
+  // Confirmation button handler
+  if (waitingConfirmation) {
+    btn.btn.act(e, { push: () => {
+      console.log("🪙 KEEP: User confirmed, starting mint process...");
+      waitingConfirmation = false;
+      resetTimeline();
+      startTime = Date.now();
+      runProcess();
+    }});
+    // Contract button - link to TzKT
+    const tzktContractUrl = `https://${NETWORK}.tzkt.io/${KEEPS_CONTRACT}`;
+    contractBtn.btn.act(e, { push: () => openUrl(tzktContractUrl) });
+    return;
+  }
+  
   const reviewStep = timeline.find(t => t.id === "review");
   const completeStep = timeline.find(t => t.id === "complete");
   
@@ -1615,16 +2126,83 @@ function act({ event: e, screen }) {
     if (preparedData.thumbnailUri) thumbBtn.btn.act(e, { push: () => openUrl(preparedData.thumbnailUri) });
     if (preparedData.metadataUri) metaBtn.btn.act(e, { push: () => openUrl(preparedData.metadataUri) });
     
-    // REBAKE button - regenerate media from scratch
-    if (preparedData.usedCachedMedia) {
-      rebakeBtn.btn.act(e, { push: () => {
-        console.log("🪙 KEEP: Rebaking media...");
-        resetTimeline();
-        startTime = Date.now();
-        preparedData = null;
-        thumbnailBitmap = null;
-        thumbnailFrames = null;
-        runProcess(true); // Pass true to force regeneration
+    // REBAKE button - regenerate media without resetting timeline
+    if (preparedData.usedCachedMedia && !rebaking) {
+      rebakeBtn.btn.act(e, { push: async () => {
+        console.log("🪙 KEEP: Rebaking media (in-place)...");
+        rebaking = true;
+        rebakeProgress = "Regenerating...";
+        _needsPaint?.();
+        
+        try {
+          const token = await _net?.getToken?.();
+          const response = await fetch("/api/keep-mint", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+            },
+            body: JSON.stringify({
+              piece: "$" + piece,
+              mode: "prepare",
+              regenerate: true,
+              screenWidth: _screen?.width || 128,
+              screenHeight: _screen?.height || 128,
+            }),
+          });
+          
+          // Parse SSE stream
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = "";
+          
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n");
+            buffer = lines.pop() || "";
+            
+            let eventType = null;
+            for (const line of lines) {
+              if (line.startsWith("event: ")) {
+                eventType = line.slice(7);
+              } else if (line.startsWith("data: ") && eventType) {
+                try {
+                  const eventData = JSON.parse(line.slice(6));
+                  console.log("🪙 REBAKE:", eventType, eventData);
+                  
+                  if (eventType === "progress") {
+                    rebakeProgress = eventData.message;
+                    _needsPaint?.();
+                  } else if (eventType === "ready" && eventData) {
+                    // Update preparedData with new URIs
+                    preparedData.artifactUri = eventData.artifactUri;
+                    preparedData.thumbnailUri = eventData.thumbnailUri;
+                    preparedData.metadataUri = eventData.metadataUri;
+                    preparedData.usedCachedMedia = false; // Now using fresh media
+                    thumbnailBitmap = null; // Clear cached thumbnail so it reloads
+                    rebakeProgress = "✓ Regenerated!";
+                    console.log("🪙 REBAKE complete:", eventData.artifactUri);
+                  } else if (eventType === "error") {
+                    rebakeProgress = "✗ " + (eventData.error || "Failed");
+                    console.error("🪙 REBAKE error:", eventData);
+                  }
+                } catch (e) {
+                  // Ignore JSON parse errors
+                }
+                eventType = null;
+              }
+            }
+          }
+        } catch (err) {
+          console.error("🪙 REBAKE failed:", err);
+          rebakeProgress = "✗ " + err.message;
+        } finally {
+          rebaking = false;
+          _needsPaint?.();
+        }
       }});
     }
     
@@ -1658,14 +2236,47 @@ function act({ event: e, screen }) {
   if (alreadyMinted) {
     if (alreadyMinted.artifactUri) htmlBtn.btn.act(e, { push: () => openUrl(alreadyMinted.artifactUri) });
     if (alreadyMinted.thumbnailUri) thumbBtn.btn.act(e, { push: () => openUrl(alreadyMinted.thumbnailUri) });
+    // META button - open TzKT token metadata view
+    metaBtn.btn.act(e, { push: () => openUrl(alreadyMinted.tzktUrl) });
     btn.btn.act(e, { push: () => openUrl(alreadyMinted.objktUrl) });
+    walletBtn.btn.act(e, { push: () => _jump("wallet") });
+    
+    // Contract button - open contract on TzKT
+    const tzktContractUrl = `https://${NETWORK}.tzkt.io/${KEEPS_CONTRACT}`;
+    contractBtn.btn.act(e, { push: () => openUrl(tzktContractUrl) });
+    
+    // TX button - open transaction on TzKT
+    if (updateChainResult?.opHash) {
+      const tzktTxUrl = `https://${NETWORK}.tzkt.io/${updateChainResult.opHash}`;
+      txBtn.btn.act(e, { push: () => openUrl(tzktTxUrl) });
+    }
+    
+    // Cached/Pending URI buttons (show latest generated bundle, not yet on-chain)
+    const latestMedia = pendingRebake || cachedMedia;
+    if (latestMedia?.artifactUri) {
+      oldHtmlBtn.btn.act(e, { push: () => openUrl(latestMedia.artifactUri) });
+    }
+    if (latestMedia?.thumbnailUri) {
+      oldThumbBtn.btn.act(e, { push: () => openUrl(latestMedia.thumbnailUri) });
+    }
     
     // Rebake button - regenerate bundle and thumbnail
     if (!rebaking) {
       rebakeBtn.btn.act(e, { push: async () => {
         console.log("🪙 KEEP: Starting rebake for already-minted piece $" + piece);
+        
+        // Preserve original on-chain URIs before we overwrite them
+        if (!originalOnChainUris && alreadyMinted.artifactUri) {
+          originalOnChainUris = {
+            artifactUri: alreadyMinted.artifactUri,
+            thumbnailUri: alreadyMinted.thumbnailUri,
+          };
+          console.log("🪙 KEEP: Preserved original URIs:", originalOnChainUris);
+        }
+        
         rebaking = true;
         rebakeResult = null;
+        rebakeProgress = "Starting...";
         _needsPaint?.();
         
         try {
@@ -1687,39 +2298,58 @@ function act({ event: e, screen }) {
             }),
           });
           
-          // Read full response and parse SSE events
-          const text = await response.text();
-          const events = text.split('\n\n').filter(e => e.trim());
+          // Parse SSE stream in real-time
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = "";
           
-          for (const event of events) {
-            const lines = event.split('\n');
-            let eventType = null, eventData = null;
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
             
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n");
+            buffer = lines.pop() || "";
+            
+            let eventType = null;
             for (const line of lines) {
-              if (line.startsWith('event: ')) eventType = line.slice(7);
-              else if (line.startsWith('data: ')) {
-                try { eventData = JSON.parse(line.slice(6)); } catch {}
+              if (line.startsWith("event: ")) {
+                eventType = line.slice(7);
+              } else if (line.startsWith("data: ") && eventType) {
+                try {
+                  const eventData = JSON.parse(line.slice(6));
+                  console.log("🪙 REBAKE:", eventType, eventData);
+                  
+                  if (eventType === "progress") {
+                    rebakeProgress = eventData.message;
+                    _needsPaint?.();
+                  } else if (eventType === "ready" && eventData) {
+                    rebakeResult = {
+                      artifactUri: eventData.artifactUri,
+                      thumbnailUri: eventData.thumbnailUri,
+                      metadataUri: eventData.metadataUri,
+                    };
+                    // Update pendingRebake (but NOT alreadyMinted - that stays as on-chain state)
+                    pendingRebake = {
+                      artifactUri: eventData.artifactUri,
+                      thumbnailUri: eventData.thumbnailUri,
+                    };
+                    rebakeProgress = "✓ Bundle regenerated!";
+                    console.log("🪙 REBAKE complete! New artifact:", rebakeResult.artifactUri);
+                  } else if (eventType === "error") {
+                    rebakeProgress = "✗ " + (eventData.error || "Failed");
+                    console.error("🪙 REBAKE error:", eventData);
+                  }
+                } catch (e) {
+                  // Ignore JSON parse errors
+                }
+                eventType = null;
               }
-            }
-            
-            console.log("🪙 REBAKE:", eventType, eventData);
-            
-            if (eventType === "ready" && eventData) {
-              rebakeResult = {
-                artifactUri: eventData.artifactUri,
-                thumbnailUri: eventData.thumbnailUri,
-                metadataUri: eventData.metadataUri,
-              };
-              // Update alreadyMinted with new URIs for display
-              alreadyMinted.artifactUri = eventData.artifactUri;
-              alreadyMinted.thumbnailUri = eventData.thumbnailUri;
-              console.log("🪙 REBAKE complete! New artifact:", rebakeResult.artifactUri);
-            } else if (eventType === "error") {
-              console.error("🪙 REBAKE error:", eventData);
             }
           }
         } catch (err) {
           console.error("🪙 REBAKE failed:", err);
+          rebakeProgress = "✗ " + err.message;
         } finally {
           rebaking = false;
           _needsPaint?.();
@@ -1728,11 +2358,23 @@ function act({ event: e, screen }) {
     }
     
     // Update Chain button - push new metadata on-chain (requires wallet)
-    if (rebakeResult && !updatingChain) {
+    // Can sync if: rebakeResult exists, or pendingRebake exists, or we just want to force resync
+    if (!updatingChain) {
       updateChainBtn.btn.act(e, { push: async () => {
+        // Determine which URIs to sync - prefer rebake result, then pending, then current on-chain
+        const syncArtifact = rebakeResult?.artifactUri || pendingRebake?.artifactUri || alreadyMinted.artifactUri;
+        const syncThumb = rebakeResult?.thumbnailUri || pendingRebake?.thumbnailUri || alreadyMinted.thumbnailUri;
+        
+        if (!syncArtifact) {
+          console.error("🪙 UPDATE CHAIN: No artifact URI to sync");
+          return;
+        }
+        
         console.log("🪙 UPDATE CHAIN: Starting on-chain update for token #" + alreadyMinted.tokenId);
         updatingChain = true;
         updateChainResult = null;
+        updateChainProgress = null;
+        rebakeProgress = null; // Clear rebake progress when starting chain update
         _needsPaint?.();
         
         try {
@@ -1743,10 +2385,12 @@ function act({ event: e, screen }) {
           }
           if (!walletAddress) {
             console.error("🪙 UPDATE CHAIN: Wallet connection cancelled");
+            updatingChain = false;
+            _needsPaint?.();
             return;
           }
           
-          // Call the update-metadata endpoint
+          // Call the update-metadata endpoint (streaming SSE)
           const token = await _net?.getToken?.();
           const response = await fetch("/api/keep-update", {
             method: "POST",
@@ -1757,22 +2401,66 @@ function act({ event: e, screen }) {
             body: JSON.stringify({
               piece: "$" + piece,
               tokenId: alreadyMinted.tokenId,
-              artifactUri: rebakeResult.artifactUri,
-              thumbnailUri: rebakeResult.thumbnailUri,
+              artifactUri: syncArtifact,
+              thumbnailUri: syncThumb,
               walletAddress,
             }),
           });
           
-          const result = await response.json();
+          // Parse SSE stream
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = "";
           
-          if (result.success) {
-            updateChainResult = result;
-            console.log("🪙 UPDATE CHAIN complete! Op hash:", result.opHash);
-          } else {
-            console.error("🪙 UPDATE CHAIN error:", result.error);
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n");
+            buffer = lines.pop() || "";
+            
+            let eventType = null;
+            for (const line of lines) {
+              if (line.startsWith("event: ")) {
+                eventType = line.slice(7);
+              } else if (line.startsWith("data: ") && eventType) {
+                try {
+                  const data = JSON.parse(line.slice(6));
+                  
+                  if (eventType === "progress") {
+                    updateChainProgress = data.message;
+                    console.log("🪙 UPDATE CHAIN:", data.message);
+                    _needsPaint?.();
+                  } else if (eventType === "complete") {
+                    updateChainResult = data;
+                    // Update alreadyMinted to reflect new on-chain state
+                    alreadyMinted.artifactUri = data.artifactUri;
+                    alreadyMinted.thumbnailUri = data.thumbnailUri;
+                    // Update cachedMedia to match (they're now synced)
+                    if (cachedMedia) {
+                      cachedMedia.artifactUri = data.artifactUri;
+                      cachedMedia.thumbnailUri = data.thumbnailUri;
+                    }
+                    // Clear pending state - chain is now updated
+                    pendingRebake = null;
+                    rebakeResult = null;
+                    originalOnChainUris = null;
+                    console.log("🪙 UPDATE CHAIN complete! Op hash:", data.opHash);
+                  } else if (eventType === "error") {
+                    console.error("🪙 UPDATE CHAIN error:", data.error);
+                    updateChainProgress = "✗ " + data.error;
+                  }
+                } catch (e) {
+                  // Ignore JSON parse errors
+                }
+                eventType = null;
+              }
+            }
           }
         } catch (err) {
           console.error("🪙 UPDATE CHAIN failed:", err);
+          updateChainProgress = "✗ " + err.message;
         } finally {
           updatingChain = false;
           _needsPaint?.();
