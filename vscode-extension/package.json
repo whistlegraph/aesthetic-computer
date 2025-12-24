@@ -4,8 +4,8 @@
   "displayName": "Aesthetic Computer",
   "icon": "resources/icon.png",
   "author": "Jeffrey Alan Scudder",
-  "version": "1.207.0",
-  "description": "Code, run, and publish your pieces.",
+  "version": "1.208.0",
+  "description": "Code, run, and publish your pieces. Includes Aesthetic Computer themes and KidLisp syntax highlighting.",
   "engines": {
     "vscode": "^1.105.0"
   },
@@ -34,6 +34,18 @@
     "onStartupFinished"
   ],
   "contributes": {
+    "themes": [
+      {
+        "label": "Aesthetic Computer Dark",
+        "uiTheme": "vs-dark",
+        "path": "./themes/aesthetic-dark-color-theme.json"
+      },
+      {
+        "label": "Aesthetic Computer Light",
+        "uiTheme": "vs",
+        "path": "./themes/aesthetic-light-color-theme.json"
+      }
+    ],
     "languages": [
       {
         "id": "javascript",
@@ -51,6 +63,17 @@
           ".pjs"
         ],
         "configuration": "./syntaxes/pjs-configuration.json"
+      },
+      {
+        "id": "kidlisp",
+        "aliases": [
+          "KidLisp",
+          "kidlisp"
+        ],
+        "extensions": [
+          ".lisp"
+        ],
+        "configuration": "./syntaxes/kidlisp-configuration.json"
       }
     ],
     "commands": [
@@ -112,6 +135,11 @@
         "language": "pjs",
         "scopeName": "source.pjs",
         "path": "./syntaxes/PeaceScript.tmGrammar.json"
+      },
+      {
+        "language": "kidlisp",
+        "scopeName": "source.kidlisp",
+        "path": "./syntaxes/KidLisp.tmGrammar.json"
       }
     ],
     "textMateRules": [
