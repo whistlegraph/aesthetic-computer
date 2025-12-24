@@ -12315,7 +12315,6 @@ class KidLisp {
 
   // Fallback manual alpha blending for when graph.paste is not available
   fallbackPasteWithAlpha(api, sourceBuffer, x, y, alpha) {
-    console.log(`🖌️ fallbackPasteWithAlpha called: x=${x}, y=${y}, alpha=${alpha}`);
     const srcPixels = sourceBuffer.pixels;
     const dstPixels = api.screen.pixels;
     const srcWidth = sourceBuffer.width;

@@ -433,12 +433,12 @@ function paintTooltip($, inputText) {
 // Tezos wallet connection state
 let tezosWalletAddress = null;
 let tezosWalletBalance = null; // Balance in tez
-let tezosNetwork = "ghostnet"; // "ghostnet" or "mainnet"
+let tezosNetwork = "mainnet"; // "ghostnet" or "mainnet"
 let tezosBalanceLastFetch = 0; // Timestamp of last balance fetch
 let tezosDomainName = null; // Resolved .tez domain (if any)
 
 // Fetch Tezos wallet balance from RPC
-async function fetchTezosBalance(address, network = "ghostnet") {
+async function fetchTezosBalance(address, network = "mainnet") {
   try {
     const rpcUrl = network === "mainnet" 
       ? "https://mainnet.api.tez.ie"
@@ -456,7 +456,7 @@ async function fetchTezosBalance(address, network = "ghostnet") {
 
 // Resolve .tez domain for an address using TzKT API (more reliable)
 // NOTE: Always use mainnet API since .tez domains are only registered on mainnet
-async function fetchTezosDomain(address, _network = "ghostnet") {
+async function fetchTezosDomain(address, _network = "mainnet") {
   try {
     // Always use mainnet TzKT API - .tez domains only exist on mainnet
     const apiBase = "https://api.tzkt.io";
@@ -5808,7 +5808,7 @@ function sim($) {
     tezosWalletAddress = biosWallet.address;
     tezosWalletBalance = biosWallet.balance;
     tezosDomainName = biosWallet.domain;
-    tezosNetwork = biosWallet.network || "ghostnet";
+    tezosNetwork = biosWallet.network || "mainnet";
     $.needsPaint();
   } else if (!biosWallet?.connected && tezosWalletAddress) {
     // Wallet disconnected in bios

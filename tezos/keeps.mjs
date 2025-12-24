@@ -59,6 +59,12 @@ const CONFIG = {
     storage: path.join(__dirname, 'KeepsFA2v2/step_002_cont_0_storage.tz'),
     // Legacy contract path
     legacyContract: path.join(__dirname, 'michelson-lib/keeps-fa2-complete.tz'),
+    // Network-specific contract addresses
+    contractAddresses: {
+      ghostnet: path.join(__dirname, 'contract-address-ghostnet.txt'),
+      mainnet: path.join(__dirname, 'contract-address-mainnet.txt'),
+    },
+    // Legacy single file (deprecated)
     contractAddress: path.join(__dirname, 'contract-address.txt'),
     vault: path.join(__dirname, '../aesthetic-computer-vault')
   }
@@ -69,7 +75,7 @@ const CONFIG = {
 // ============================================================================
 
 // Current wallet selection (can be changed via --wallet flag)
-let currentWallet = 'kidlisp'; // default
+let currentWallet = 'staging'; // default for mainnet staging contract
 
 function setWallet(wallet) {
   currentWallet = wallet;
@@ -118,11 +124,21 @@ function loadCredentials() {
   return credentials;
 }
 
+// Get contract address file path for a network
+function getContractAddressPath(network = 'mainnet') {
+  // Use network-specific paths if available
+  if (CONFIG.paths.contractAddresses[network]) {
+    return CONFIG.paths.contractAddresses[network];
+  }
+  // Fall back to legacy single file
+  return CONFIG.paths.contractAddress;
+}
+
 // ============================================================================
 // Tezos Client Setup
 // ============================================================================
 
-async function createTezosClient(network = 'ghostnet') {
+async function createTezosClient(network = 'mainnet') {
   const credentials = loadCredentials();
   
   if (!credentials.address || !credentials.secretKey) {
@@ -144,7 +160,7 @@ async function createTezosClient(network = 'ghostnet') {
 // Contract Deployment
 // ============================================================================
 
-async function deployContract(network = 'ghostnet') {
+async function deployContract(network = 'mainnet') {
   console.log('\n╔══════════════════════════════════════════════════════════════╗');
   console.log('║  🚀 Deploying Keeps FA2 v2 Contract                          ║');
   console.log('╚══════════════════════════════════════════════════════════════╝\n');
@@ -241,9 +257,10 @@ async function deployContract(network = 'ghostnet') {
     console.log(`   🔗 Explorer: ${config.explorer}/${contractAddress}`);
     console.log(`   📝 Operation: ${config.explorer}/${originationOp.hash}\n`);
     
-    // Save contract address
-    fs.writeFileSync(CONFIG.paths.contractAddress, contractAddress);
-    console.log(`   💾 Saved address to: ${CONFIG.paths.contractAddress}\n`);
+    // Save contract address (network-specific file)
+    const addressPath = getContractAddressPath(network);
+    fs.writeFileSync(addressPath, contractAddress);
+    console.log(`   💾 Saved address to: ${addressPath}\n`);
     
     return { address: contractAddress, hash: originationOp.hash };
     
@@ -262,15 +279,16 @@ async function deployContract(network = 'ghostnet') {
 // Contract Status
 // ============================================================================
 
-async function getContractStatus(network = 'ghostnet') {
+async function getContractStatus(network = 'mainnet') {
   const { tezos, config } = await createTezosClient(network);
   
-  // Load contract address
-  if (!fs.existsSync(CONFIG.paths.contractAddress)) {
-    throw new Error('❌ No contract deployed. Run: node keeps.mjs deploy');
+  // Load contract address (network-specific)
+  const addressPath = getContractAddressPath(network);
+  if (!fs.existsSync(addressPath)) {
+    throw new Error(`❌ No contract deployed on ${network}. Run: node keeps.mjs deploy ${network}`);
   }
   
-  const contractAddress = fs.readFileSync(CONFIG.paths.contractAddress, 'utf8').trim();
+  const contractAddress = fs.readFileSync(addressPath, 'utf8').trim();
   
   console.log('\n╔══════════════════════════════════════════════════════════════╗');
   console.log('║  📊 Contract Status                                          ║');
@@ -299,7 +317,7 @@ async function getContractStatus(network = 'ghostnet') {
       
       // Fetch recent tokens via TzKT (efficient, paginated)
       const tzktUrl = `https://api.${network}.tzkt.io/v1/contracts/${contractAddress}/bigmaps/token_metadata/keys?limit=${MAX_DISPLAY}&sort.desc=id`;
-      const objktBase = network === 'ghostnet' ? 'https://ghostnet.objkt.com' : 'https://objkt.com';
+      const objktBase = network === 'mainnet' ? 'https://objkt.com' : 'https://ghostnet.objkt.com';
       try {
         const response = await fetch(tzktUrl);
         if (response.ok) {
@@ -337,7 +355,7 @@ async function getContractStatus(network = 'ghostnet') {
 // Wallet Balance
 // ============================================================================
 
-async function getBalance(network = 'ghostnet') {
+async function getBalance(network = 'mainnet') {
   const { tezos, credentials, config } = await createTezosClient(network);
   
   console.log('\n╔══════════════════════════════════════════════════════════════╗');
@@ -408,18 +426,22 @@ async function detectContentType(piece) {
  * This bundles all JS, CSS, and assets into a single file that works offline
  */
 // Check if a piece name already exists in the contract
-async function checkDuplicatePiece(pieceName, network = 'ghostnet') {
-  // Load contract address
-  if (!fs.existsSync(CONFIG.paths.contractAddress)) {
-    return { exists: false }; // No contract deployed yet
+async function checkDuplicatePiece(pieceName, contractAddress, network = 'mainnet') {
+  if (!contractAddress) {
+    // Load contract address (network-specific) if not provided
+    const addressPath = getContractAddressPath(network);
+    if (!fs.existsSync(addressPath)) {
+      return { exists: false }; // No contract deployed yet
+    }
+    contractAddress = fs.readFileSync(addressPath, 'utf8').trim();
   }
-  
-  const contractAddress = fs.readFileSync(CONFIG.paths.contractAddress, 'utf8').trim();
   
   // Query the content_hashes big_map via TzKT
   // Key is the piece name as hex bytes
   const keyBytes = stringToBytes(pieceName);
-  const url = `https://api.${network}.tzkt.io/v1/contracts/${contractAddress}/bigmaps/content_hashes/keys/${keyBytes}`;
+  // Use network-appropriate API endpoint
+  const apiBase = network === 'mainnet' ? 'https://api.tzkt.io' : `https://api.${network}.tzkt.io`;
+  const url = `${apiBase}/v1/contracts/${contractAddress}/bigmaps/content_hashes/keys/${keyBytes}`;
   
   try {
     const response = await fetch(url);
@@ -667,16 +689,6 @@ async function uploadToIPFS(piece, options = {}) {
   // Use piece name as the unique identifier (simple and deterministic)
   console.log(`🔐 Piece ID: ${pieceName}`);
   
-  // Check for duplicate BEFORE uploading to IPFS
-  if (!options.skipDuplicateCheck) {
-    console.log('🔍 Checking for duplicates on-chain...');
-    const duplicate = await checkDuplicatePiece(pieceName);
-    if (duplicate.exists) {
-      throw new Error(`Duplicate! $${pieceName} was already minted as token #${duplicate.tokenId}`);
-    }
-    console.log('   ✓ No duplicate found');
-  }
-  
   // Upload to Pinata
   const formData = new FormData();
   const blob = new Blob([bundleHtml], { type: 'text/html' });
@@ -735,7 +747,7 @@ function stringToBytes(str) {
 }
 
 async function mintToken(piece, options = {}) {
-  const { network = 'ghostnet', generateThumbnail: shouldGenerateThumbnail = false, recipient = null } = options;
+  const { network = 'mainnet', generateThumbnail: shouldGenerateThumbnail = false, recipient = null } = options;
   
   const { tezos, credentials, config } = await createTezosClient(network);
   
@@ -743,12 +755,13 @@ async function mintToken(piece, options = {}) {
   const ownerAddress = recipient || credentials.address;
   const allCredentials = loadCredentials(); // For Pinata access
   
-  // Load contract address
-  if (!fs.existsSync(CONFIG.paths.contractAddress)) {
-    throw new Error('❌ No contract deployed. Run: node keeps.mjs deploy');
+  // Load contract address (network-specific)
+  const addressPath = getContractAddressPath(network);
+  if (!fs.existsSync(addressPath)) {
+    throw new Error(`❌ No contract deployed on ${network}. Run: node keeps.mjs deploy ${network}`);
   }
   
-  const contractAddress = fs.readFileSync(CONFIG.paths.contractAddress, 'utf8').trim();
+  const contractAddress = fs.readFileSync(addressPath, 'utf8').trim();
   const pieceName = piece.replace(/^\$/, '');
   
   console.log('\n╔══════════════════════════════════════════════════════════════╗');
@@ -762,6 +775,14 @@ async function mintToken(piece, options = {}) {
     console.log(`👤 Recipient: ${ownerAddress}`);
   }
   console.log(`📸 Thumbnail: ${shouldGenerateThumbnail ? 'Generate via Oven' : 'HTTP fallback'}`);
+  
+  // Check for duplicate BEFORE uploading to IPFS
+  console.log('🔍 Checking for duplicates on-chain...');
+  const duplicate = await checkDuplicatePiece(pieceName, contractAddress, network);
+  if (duplicate.exists) {
+    throw new Error(`Duplicate! $${pieceName} was already minted as token #${duplicate.tokenId}`);
+  }
+  console.log('   ✓ No duplicate found');
   
   // Detect content type
   let contentType = options.contentType;
@@ -807,30 +828,14 @@ async function mintToken(piece, options = {}) {
   const tokenName = `$${pieceName}`;
   const acUrl = `https://aesthetic.computer/$${pieceName}`;
   
-  // Build description: source code first, then attribution
-  // Build author display for description
+  // Build author display name for attributes
   let authorDisplayName = null;
   if (authorHandle && authorHandle !== '@anon') {
     authorDisplayName = authorHandle;
   }
   
-  let description = '';
-  if (sourceCode) {
-    // Start with source code
-    description = sourceCode;
-    // Add attribution on separate lines
-    if (authorDisplayName) {
-      description += `\n\nby ${authorDisplayName}`;
-    }
-    if (userCode) {
-      description += `\n${userCode}`;
-    }
-    if (packDate) {
-      description += `\nThis copy was packed on ${packDate}`;
-    }
-  } else {
-    description = `A KidLisp piece preserved on Tezos`;
-  }
+  // Description is ONLY the KidLisp source code (clean and simple)
+  const description = sourceCode || `A KidLisp piece preserved on Tezos`;
   
   // Build tags (include userCode if available)
   const tags = [
@@ -866,10 +871,9 @@ async function mintToken(piece, options = {}) {
     }
   }
   
-  // For creators array: put handle FIRST so objkt shows it as artist
-  // Wallet address second for on-chain attribution
-  const creatorHandle = authorHandle || '@anon';
-  const creatorsArray = [creatorHandle, credentials.address];
+  // creators array contains just the wallet address for on-chain attribution
+  // objkt.com uses firstMinter for artist display
+  const creatorsArray = [credentials.address];
   
   const metadataJson = {
     name: tokenName,
@@ -881,7 +885,7 @@ async function mintToken(piece, options = {}) {
     symbol: 'KEEP',
     isBooleanAmount: true,
     shouldPreferSymbol: false,
-    minter: creatorHandle,
+    minter: authorHandle || credentials.address,
     creators: creatorsArray,
     rights: '© All rights reserved',
     mintingTool: 'https://aesthetic.computer',
@@ -977,11 +981,12 @@ async function mintToken(piece, options = {}) {
     console.log('║  ✅ Token Minted Successfully!                               ║');
     console.log('╚══════════════════════════════════════════════════════════════╝\n');
     
+    const objktBase = network === 'mainnet' ? 'https://objkt.com' : 'https://ghostnet.objkt.com';
     console.log(`   🎨 Token ID: ${tokenId}`);
     console.log(`   📦 Piece: ${pieceName}`);
     console.log(`   🔗 Artifact: ${artifactUri}`);
     console.log(`   📝 Operation: ${config.explorer}/${op.hash}`);
-    console.log(`   🖼️  View on Objkt: https://ghostnet.objkt.com/asset/${contractAddress}/${tokenId}\n`);
+    console.log(`   🖼️  View on Objkt: ${objktBase}/asset/${contractAddress}/${tokenId}\n`);
     
     return { tokenId, hash: op.hash, artifactUri };
     
@@ -997,16 +1002,17 @@ async function mintToken(piece, options = {}) {
 // ============================================================================
 
 async function updateMetadata(tokenId, piece, options = {}) {
-  const { network = 'ghostnet' } = options;
+  const { network = 'mainnet' } = options;
   
   const { tezos, credentials, config } = await createTezosClient(network);
   
-  // Load contract address
-  if (!fs.existsSync(CONFIG.paths.contractAddress)) {
-    throw new Error('❌ No contract deployed. Run: node keeps.mjs deploy');
+  // Load contract address (network-specific)
+  const addressPath = getContractAddressPath(network);
+  if (!fs.existsSync(addressPath)) {
+    throw new Error(`❌ No contract deployed on ${network}. Run: node keeps.mjs deploy ${network}`);
   }
   
-  const contractAddress = fs.readFileSync(CONFIG.paths.contractAddress, 'utf8').trim();
+  const contractAddress = fs.readFileSync(addressPath, 'utf8').trim();
   const pieceName = piece.replace(/^\$/, '');
   const acUrl = `https://aesthetic.computer/$${pieceName}`;
   
@@ -1040,28 +1046,14 @@ async function updateMetadata(tokenId, piece, options = {}) {
   
   console.log(`🔗 New Artifact URI: ${artifactUri}`);
   
-  // Build author display name
+  // Build author display name for attributes
   let authorDisplayName = null;
   if (authorHandle && authorHandle !== '@anon') {
     authorDisplayName = authorHandle;
   }
   
-  // Build description with source code
-  let description = '';
-  if (sourceCode) {
-    description = sourceCode;
-    if (authorDisplayName) {
-      description += `\n\nby ${authorDisplayName}`;
-    }
-    if (userCode) {
-      description += `\n${userCode}`;
-    }
-    if (packDate) {
-      description += `\nThis copy was packed on ${packDate}`;
-    }
-  } else {
-    description = `A KidLisp piece preserved on Tezos`;
-  }
+  // Description is ONLY the KidLisp source code (clean and simple)
+  const description = sourceCode || `A KidLisp piece preserved on Tezos`;
   
   // Build tags
   const tags = [
@@ -1087,9 +1079,8 @@ async function updateMetadata(tokenId, piece, options = {}) {
     { name: 'Platform', value: 'Aesthetic Computer' },
   ];
   
-  // For creators array: put handle FIRST so objkt shows it as artist
-  const creatorHandle = authorHandle || '@anon';
-  const creatorsArray = [creatorHandle, credentials.address];
+  // creators array contains just the wallet address for on-chain attribution
+  const creatorsArray = [credentials.address];
   
   // Build metadata JSON for IPFS
   const tokenName = `$${pieceName}`;
@@ -1103,7 +1094,7 @@ async function updateMetadata(tokenId, piece, options = {}) {
     symbol: 'KEEP',
     isBooleanAmount: true,
     shouldPreferSymbol: false,
-    minter: creatorHandle,
+    minter: authorHandle || credentials.address,
     creators: creatorsArray,
     rights: '© All rights reserved',
     mintingTool: 'https://aesthetic.computer',
@@ -1188,17 +1179,18 @@ async function updateMetadata(tokenId, piece, options = {}) {
 // ============================================================================
 
 async function redactToken(tokenId, options = {}) {
-  const { network = 'ghostnet', reason = 'Content has been redacted.' } = options;
+  const { network = 'mainnet', reason = 'Content has been redacted.' } = options;
   
   const { tezos, credentials, config } = await createTezosClient(network);
   const allCredentials = loadCredentials();
   
-  // Load contract address
-  if (!fs.existsSync(CONFIG.paths.contractAddress)) {
-    throw new Error('❌ No contract deployed. Run: node keeps.mjs deploy');
+  // Load contract address (network-specific)
+  const addressPath = getContractAddressPath(network);
+  if (!fs.existsSync(addressPath)) {
+    throw new Error(`❌ No contract deployed on ${network}. Run: node keeps.mjs deploy ${network}`);
   }
   
-  const contractAddress = fs.readFileSync(CONFIG.paths.contractAddress, 'utf8').trim();
+  const contractAddress = fs.readFileSync(addressPath, 'utf8').trim();
   
   console.log('\n╔══════════════════════════════════════════════════════════════╗');
   console.log('║  🚫 Redacting Token                                          ║');
@@ -1352,8 +1344,8 @@ async function redactToken(tokenId, options = {}) {
     { name: 'Platform', value: 'Aesthetic Computer' },
   ];
   
-  // For redacted content, use admin as minter/creator (censorship action)
-  const creatorsArray = ['@aesthetic', credentials.address];
+  // For redacted content, use admin wallet as creator (censorship action)
+  const creatorsArray = [credentials.address];
   
   // Upload metadata JSON
   const metadataJson = {
@@ -1450,7 +1442,8 @@ async function redactToken(tokenId, options = {}) {
 
 async function setCollectionMedia(options = {}) {
   const { 
-    network = 'ghostnet',
+    network = 'mainnet',
+    name,           // Collection name
     imageUri,       // Collection icon/logo (IPFS URI or URL)
     description,    // Collection description
     raw = {}        // Raw key-value pairs to set
@@ -1458,12 +1451,13 @@ async function setCollectionMedia(options = {}) {
   
   const { tezos, credentials, config } = await createTezosClient(network);
   
-  // Load contract address
-  if (!fs.existsSync(CONFIG.paths.contractAddress)) {
-    throw new Error('❌ No contract deployed. Run: node keeps.mjs deploy');
+  // Load contract address (network-specific)
+  const addressPath = getContractAddressPath(network);
+  if (!fs.existsSync(addressPath)) {
+    throw new Error(`❌ No contract deployed on ${network}. Run: node keeps.mjs deploy ${network}`);
   }
   
-  const contractAddress = fs.readFileSync(CONFIG.paths.contractAddress, 'utf8').trim();
+  const contractAddress = fs.readFileSync(addressPath, 'utf8').trim();
   
   console.log('\n╔══════════════════════════════════════════════════════════════╗');
   console.log('║  🎨 Setting Collection Media                                 ║');
@@ -1477,12 +1471,16 @@ async function setCollectionMedia(options = {}) {
   
   // Build new contract metadata JSON
   const currentMetadata = {
-    name: "KidLisp Keeps",
+    name: options.name || "KidLisp Keeps",
     version: "2.0.0",
     interfaces: ["TZIP-012", "TZIP-016", "TZIP-021"],
     authors: ["aesthetic.computer"],
     homepage: "https://aesthetic.computer"
   };
+  
+  if (options.name) {
+    console.log(`   📛 Name: ${options.name}`);
+  }
   
   if (imageUri) {
     currentMetadata.imageUri = imageUri;
@@ -1491,7 +1489,7 @@ async function setCollectionMedia(options = {}) {
   
   if (description) {
     currentMetadata.description = description;
-    console.log(`   📝 Description: ${description.substring(0, 50)}...`);
+    console.log(`   📝 Description: ${description.substring(0, 80)}...`);
   }
   
   // Add any raw fields
@@ -1545,16 +1543,17 @@ async function setCollectionMedia(options = {}) {
 // ============================================================================
 
 async function lockCollectionMetadata(options = {}) {
-  const { network = 'ghostnet' } = options;
+  const { network = 'mainnet' } = options;
   
   const { tezos, credentials, config } = await createTezosClient(network);
   
-  // Load contract address
-  if (!fs.existsSync(CONFIG.paths.contractAddress)) {
-    throw new Error('❌ No contract deployed. Run: node keeps.mjs deploy');
+  // Load contract address (network-specific)
+  const addressPath = getContractAddressPath(network);
+  if (!fs.existsSync(addressPath)) {
+    throw new Error(`❌ No contract deployed on ${network}. Run: node keeps.mjs deploy ${network}`);
   }
   
-  const contractAddress = fs.readFileSync(CONFIG.paths.contractAddress, 'utf8').trim();
+  const contractAddress = fs.readFileSync(addressPath, 'utf8').trim();
   
   console.log('\n╔══════════════════════════════════════════════════════════════╗');
   console.log('║  🔒 Locking Collection Metadata                              ║');
@@ -1596,16 +1595,17 @@ async function lockCollectionMetadata(options = {}) {
 // ============================================================================
 
 async function lockMetadata(tokenId, options = {}) {
-  const { network = 'ghostnet' } = options;
+  const { network = 'mainnet' } = options;
   
   const { tezos, credentials, config } = await createTezosClient(network);
   
-  // Load contract address
-  if (!fs.existsSync(CONFIG.paths.contractAddress)) {
-    throw new Error('❌ No contract deployed. Run: node keeps.mjs deploy');
+  // Load contract address (network-specific)
+  const addressPath = getContractAddressPath(network);
+  if (!fs.existsSync(addressPath)) {
+    throw new Error(`❌ No contract deployed on ${network}. Run: node keeps.mjs deploy ${network}`);
   }
   
-  const contractAddress = fs.readFileSync(CONFIG.paths.contractAddress, 'utf8').trim();
+  const contractAddress = fs.readFileSync(addressPath, 'utf8').trim();
   
   console.log('\n╔══════════════════════════════════════════════════════════════╗');
   console.log('║  🔒 Locking Token Metadata                                   ║');
@@ -1648,16 +1648,17 @@ async function lockMetadata(tokenId, options = {}) {
 // ============================================================================
 
 async function burnToken(tokenId, options = {}) {
-  const { network = 'ghostnet' } = options;
+  const { network = 'mainnet' } = options;
   
   const { tezos, credentials, config } = await createTezosClient(network);
   
-  // Load contract address
-  if (!fs.existsSync(CONFIG.paths.contractAddress)) {
-    throw new Error('❌ No contract deployed. Run: node keeps.mjs deploy');
+  // Load contract address (network-specific)
+  const addressPath = getContractAddressPath(network);
+  if (!fs.existsSync(addressPath)) {
+    throw new Error(`❌ No contract deployed on ${network}. Run: node keeps.mjs deploy ${network}`);
   }
   
-  const contractAddress = fs.readFileSync(CONFIG.paths.contractAddress, 'utf8').trim();
+  const contractAddress = fs.readFileSync(addressPath, 'utf8').trim();
   
   console.log('\n╔══════════════════════════════════════════════════════════════╗');
   console.log('║  🔥 Burning Token                                            ║');
@@ -1699,14 +1700,15 @@ async function burnToken(tokenId, options = {}) {
 // Fee Management
 // ============================================================================
 
-async function getKeepFee(network = 'ghostnet') {
+async function getKeepFee(network = 'mainnet') {
   const { tezos, config } = await createTezosClient(network);
   
-  if (!fs.existsSync(CONFIG.paths.contractAddress)) {
-    throw new Error('❌ No contract deployed. Run: node keeps.mjs deploy');
+  const addressPath = getContractAddressPath(network);
+  if (!fs.existsSync(addressPath)) {
+    throw new Error(`❌ No contract deployed on ${network}. Run: node keeps.mjs deploy ${network}`);
   }
   
-  const contractAddress = fs.readFileSync(CONFIG.paths.contractAddress, 'utf8').trim();
+  const contractAddress = fs.readFileSync(addressPath, 'utf8').trim();
   const contract = await tezos.contract.at(contractAddress);
   const storage = await contract.storage();
   
@@ -1718,15 +1720,16 @@ async function getKeepFee(network = 'ghostnet') {
 }
 
 async function setKeepFee(feeInTez, options = {}) {
-  const { network = 'ghostnet' } = options;
+  const { network = 'mainnet' } = options;
   
   const { tezos, config } = await createTezosClient(network);
   
-  if (!fs.existsSync(CONFIG.paths.contractAddress)) {
-    throw new Error('❌ No contract deployed. Run: node keeps.mjs deploy');
+  const addressPath = getContractAddressPath(network);
+  if (!fs.existsSync(addressPath)) {
+    throw new Error(`❌ No contract deployed on ${network}. Run: node keeps.mjs deploy ${network}`);
   }
   
-  const contractAddress = fs.readFileSync(CONFIG.paths.contractAddress, 'utf8').trim();
+  const contractAddress = fs.readFileSync(addressPath, 'utf8').trim();
   const feeInMutez = Math.floor(feeInTez * 1_000_000);
   
   console.log('\n╔══════════════════════════════════════════════════════════════╗');
@@ -1764,15 +1767,16 @@ async function setKeepFee(feeInTez, options = {}) {
 }
 
 async function setAdministrator(newAdmin, options = {}) {
-  const { network = 'ghostnet' } = options;
+  const { network = 'mainnet' } = options;
   
   const { tezos, config } = await createTezosClient(network);
   
-  if (!fs.existsSync(CONFIG.paths.contractAddress)) {
-    throw new Error('❌ No contract deployed. Run: node keeps.mjs deploy');
+  const addressPath = getContractAddressPath(network);
+  if (!fs.existsSync(addressPath)) {
+    throw new Error(`❌ No contract deployed on ${network}. Run: node keeps.mjs deploy ${network}`);
   }
   
-  const contractAddress = fs.readFileSync(CONFIG.paths.contractAddress, 'utf8').trim();
+  const contractAddress = fs.readFileSync(addressPath, 'utf8').trim();
   
   console.log('\n╔══════════════════════════════════════════════════════════════╗');
   console.log('║  👑 Setting Contract Administrator                           ║');
@@ -1810,15 +1814,16 @@ async function setAdministrator(newAdmin, options = {}) {
 }
 
 async function withdrawFees(destination, options = {}) {
-  const { network = 'ghostnet' } = options;
+  const { network = 'mainnet' } = options;
   
   const { tezos, credentials, config } = await createTezosClient(network);
   
-  if (!fs.existsSync(CONFIG.paths.contractAddress)) {
-    throw new Error('❌ No contract deployed. Run: node keeps.mjs deploy');
+  const addressPath = getContractAddressPath(network);
+  if (!fs.existsSync(addressPath)) {
+    throw new Error(`❌ No contract deployed on ${network}. Run: node keeps.mjs deploy ${network}`);
   }
   
-  const contractAddress = fs.readFileSync(CONFIG.paths.contractAddress, 'utf8').trim();
+  const contractAddress = fs.readFileSync(addressPath, 'utf8').trim();
   const dest = destination || credentials.address; // Default to admin address
   
   // Check contract balance first
@@ -1891,10 +1896,10 @@ async function main() {
     }
   }
   
-  // Helper to get network from args (defaults to ghostnet)
+  // Helper to get network from args (defaults to mainnet)
   const getNetwork = (argIndex) => {
     const val = args[argIndex];
-    if (!val || val.startsWith('--')) return 'ghostnet';
+    if (!val || val.startsWith('--')) return 'mainnet';
     return val;
   };
   
@@ -1971,17 +1976,20 @@ async function main() {
       }
       
       case 'set-collection-media': {
-        // Parse --image=<uri> and --description=<text> flags
+        // Parse --name=<text>, --image=<uri> and --description=<text> flags
+        const nameFlag = flags.find(f => f.startsWith('--name='));
         const imageFlag = flags.find(f => f.startsWith('--image='));
         const descFlag = flags.find(f => f.startsWith('--description='));
         
+        const name = nameFlag ? nameFlag.split('=').slice(1).join('=') : undefined;
         const imageUri = imageFlag ? imageFlag.split('=').slice(1).join('=') : undefined;
         const description = descFlag ? descFlag.split('=').slice(1).join('=') : undefined;
         
-        if (!imageUri && !description) {
-          console.error('Usage: node keeps.mjs set-collection-media --image=<ipfs-uri> [--description=<text>]');
+        if (!name && !imageUri && !description) {
+          console.error('Usage: node keeps.mjs set-collection-media [--name=<text>] [--image=<ipfs-uri>] [--description=<text>]');
           console.error('');
           console.error('Examples:');
+          console.error('  node keeps.mjs set-collection-media --name="KidLisp Keeps (Staging)"');
           console.error('  node keeps.mjs set-collection-media --image=ipfs://Qm...');
           console.error('  node keeps.mjs set-collection-media --image=https://oven.aesthetic.computer/keeps/latest');
           console.error('  node keeps.mjs set-collection-media --description="KidLisp generative art collection"');
@@ -1990,6 +1998,7 @@ async function main() {
         
         await setCollectionMedia({ 
           network: getNetwork(1),
+          name,
           imageUri,
           description 
         });
@@ -2064,7 +2073,7 @@ async function main() {
 Usage: node keeps.mjs <command> [options]
 
 Commands:
-  deploy [network]              Deploy contract (default: ghostnet)
+  deploy [network]              Deploy contract (default: mainnet)
   status [network]              Show contract status
   balance [network]             Check wallet balance
   upload <piece>                Upload bundle to IPFS
@@ -2082,7 +2091,7 @@ Commands:
   help                          Show this help
 
 Networks:
-  ghostnet                      Tezos testnet (default)
+  mainnet                       Tezos mainnet (default)
   mainnet                       Tezos mainnet
 
 Flags:

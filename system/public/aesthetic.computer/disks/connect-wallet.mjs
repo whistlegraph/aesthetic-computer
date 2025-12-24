@@ -100,7 +100,7 @@ async function connectWallet(wallet, type, net) {
   error = null;
   
   try {
-    const network = "ghostnet"; // TODO: make configurable
+    const network = "mainnet"; // Now using mainnet by default
     
     if (type === "temple") {
       await wallet.connectTemple(network);

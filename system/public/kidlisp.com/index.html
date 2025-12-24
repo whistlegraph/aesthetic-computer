@@ -4015,7 +4015,7 @@
               <div class="keeps-header">
                 <span class="keeps-icon">🔓</span>
                 <span class="keeps-title">Keeps</span>
-                <span class="keeps-network" id="keeps-network">ghostnet</span>
+                <span class="keeps-network" id="keeps-network">mainnet</span>
               </div>
               <div class="keeps-wallet" id="keeps-wallet">
               <button class="keeps-connect-btn" id="keeps-connect-btn">Connect Wallet</button>
@@ -4118,7 +4118,7 @@
         keepsMintBtn: 'Mint as Keep',
         keepsMinting: 'Minting...',
         keepsYourCode: 'Your code:',
-        keepsNetwork: 'ghostnet',
+        keepsNetwork: 'mainnet',
         examplesLoading: 'Loading examples...',
         examplesNone: 'No examples found.',
         examplesError: 'Error loading examples.',
@@ -4155,7 +4155,7 @@
         keepsMintBtn: 'Acuñar como Keep',
         keepsMinting: 'Acuñando...',
         keepsYourCode: 'Tu código:',
-        keepsNetwork: 'ghostnet',
+        keepsNetwork: 'mainnet',
         examplesLoading: 'Cargando ejemplos...',
         examplesNone: 'No se encontraron ejemplos.',
         examplesError: 'Error al cargar ejemplos.',
@@ -4192,7 +4192,7 @@
         keepsMintBtn: '铸造为 Keep',
         keepsMinting: '铸造中...',
         keepsYourCode: '你的代码：',
-        keepsNetwork: 'ghostnet',
+        keepsNetwork: 'mainnet',
         examplesLoading: '加载示例中...',
         examplesNone: '未找到示例。',
         examplesError: '加载示例时出错。',
@@ -4229,7 +4229,7 @@
         keepsMintBtn: 'Mint som Keep',
         keepsMinting: 'Minter...',
         keepsYourCode: 'Din kode:',
-        keepsNetwork: 'ghostnet',
+        keepsNetwork: 'mainnet',
         examplesLoading: 'Indlæser eksempler...',
         examplesNone: 'Ingen eksempler fundet.',
         examplesError: 'Fejl ved indlæsning af eksempler.',
@@ -8829,9 +8829,10 @@
     let keepsWallet = null;
     let keepsTezos = null;
     
-    const KEEPS_CONTRACT = "KT1NeytR5BHDfGBjG9ZuLkPd7nmufmH1icVc";
-    const KEEPS_NETWORK = "ghostnet";
-    const KEEPS_RPC = "https://ghostnet.ecadinfra.com";
+    // Mainnet staging contract
+    const KEEPS_CONTRACT = "KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM";
+    const KEEPS_NETWORK = "mainnet";
+    const KEEPS_RPC = "https://mainnet.ecadinfra.com";
     
     function loadScriptNoAMD(src) {
       return new Promise((resolve, reject) => {

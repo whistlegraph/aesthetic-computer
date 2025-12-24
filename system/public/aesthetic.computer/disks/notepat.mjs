@@ -3624,7 +3624,11 @@ function act({
         //   key,
         // );
 
-        if (slide && orderedTones.length > 1 && sounds[buttonNote]) {
+        // In slide mode, the sound reference may have been moved to another key
+        // Only process if this note still has an active sound reference
+        const hasSound = sounds[buttonNote] !== undefined;
+
+        if (slide && orderedTones.length > 1 && hasSound) {
           sounds[buttonNote]?.sound?.update({
             tone: tonestack[orderedTones[orderedTones.length - 2]].tone,
             duration: 0.1,
@@ -3646,7 +3650,8 @@ function act({
           // console.log("Replaced:", buttonNote, "with:", n);
 
           // delete sounds[buttonNote];
-        } else {
+        } else if (hasSound) {
+          // Only kill the sound if we still have a reference to it
           // console.log("Killing sound:", buttonNote);
 
           if (sounds[buttonNote]?.sound) {
@@ -3661,7 +3666,10 @@ function act({
             // killFade
             sounds[buttonNote]?.sound.kill(quickFade ? fastFade : fade); // Kill a sound if it exists.
           }
+          delete sounds[buttonNote];
         }
+        // If hasSound is false in slide mode, the sound was already moved
+        // to another key, so we don't need to kill anything
 
         if (buttonNote.toUpperCase() === song?.[songIndex][0]) {
           songIndex = (songIndex + 1) % song.length;
@@ -3669,8 +3677,8 @@ function act({
           songShifting = true;
         }
 
+        // Always clean up tonestack and trail
         delete tonestack[buttonNote]; // Remove this key from the notestack.
-        delete sounds[buttonNote];
         trail[buttonNote] = 1;
         if (buttons[buttonNote]) buttons[buttonNote].down = false;
       }

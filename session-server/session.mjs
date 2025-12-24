@@ -512,11 +512,39 @@ const udpChannels = {};
 
 // 🩰 Initialize geckos.io BEFORE server starts listening
 // Configure for devcontainer/Docker environment:
-// - iceServers: [] for local development (no STUN/TURN needed)
+// - iceServers: Use local TURN server for relay (required in Docker/devcontainer)
 // - portRange: constrain UDP to small range that can be exposed from container
 // - cors: allow from any origin in dev mode
+
+// Detect external IP for TURN server (browsers need to reach TURN from outside container)
+// In devcontainer, we expose ports to the host, so use the host's LAN IP
+// Priority: TURN_HOST env var > DEV_LAN_IP > localhost
+const getExternalTurnHost = () => {
+  // Check for explicitly set TURN host
+  if (process.env.TURN_HOST) return process.env.TURN_HOST;
+  // Use the DEV_LAN_IP if available (detected earlier)
+  if (DEV_LAN_IP) return DEV_LAN_IP;
+  // Fallback to localhost (won't work for external clients but ok for local testing)
+  return 'localhost';
+};
+
+const turnHost = getExternalTurnHost();
+console.log("🩰 TURN server host for ICE:", turnHost);
+
+const devIceServers = [
+  { urls: `stun:${turnHost}:3478` },
+  { 
+    urls: `turn:${turnHost}:3478`,
+    username: 'aesthetic',
+    credential: 'computer123'
+  },
+];
+const prodIceServers = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  // TODO: Add production TURN server
+];
 const io = geckos({
-  iceServers: dev ? [] : undefined, // Empty array for local dev, default for production
+  iceServers: dev ? devIceServers : prodIceServers,
   portRange: {
     min: 10000,
     max: 10007,

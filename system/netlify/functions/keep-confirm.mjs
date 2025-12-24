@@ -80,7 +80,7 @@ export async function handler(event, context) {
             tokenId: tokenId || null,
             txHash: txHash,
             walletAddress: walletAddress || null,
-            network: network || "ghostnet",
+            network: network || "mainnet",
             contractAddress: contractAddress || null,
             artifactUri: artifactUri || null,
             thumbnailUri: thumbnailUri || null,
@@ -98,7 +98,7 @@ export async function handler(event, context) {
       return respond(500, { error: "Failed to record mint" });
     }
 
-    console.log(`✅ Recorded keep for $${cleanPiece} - Token #${tokenId || "pending"} on ${network || "ghostnet"}`);
+    console.log(`✅ Recorded keep for $${cleanPiece} - Token #${tokenId || "pending"} on ${network || "mainnet"}`);
     console.log(`   TX: ${txHash}`);
     console.log(`   Wallet: ${walletAddress || "unknown"}`);
 
@@ -108,8 +108,8 @@ export async function handler(event, context) {
       success: true,
       piece: cleanPiece,
       tokenId: tokenId || null,
-      network: network || "ghostnet",
-      message: `Recorded as kept on ${(network || "ghostnet").toUpperCase()}`,
+      network: network || "mainnet",
+      message: `Recorded as kept on ${(network || "mainnet").toUpperCase()}`,
     });
 
   } catch (error) {
