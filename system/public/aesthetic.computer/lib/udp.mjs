@@ -40,7 +40,7 @@ function connect(port = 8889, url = undefined, send) {
   const turnHost = url ? new URL(url).hostname : 'localhost';
   
   try {
-    console.log("🩰 Creating Geckos channel with:", { url, port: portNum, isLocalDev, turnHost });
+    if (logs.udp) console.log("🩰 Creating Geckos channel with:", { url, port: portNum, isLocalDev, turnHost });
     // For local dev, use local TURN server for relay (required in Docker/devcontainer)
     // TURN server relays traffic when direct P2P isn't possible
     // Use the same hostname as the session server for TURN
@@ -60,8 +60,8 @@ function connect(port = 8889, url = undefined, send) {
       port: portNum,
       iceServers: isLocalDev ? localIceServers : prodIceServers,
     });
-    console.log("🩰 Geckos channel created:", channel);
-    console.log("🩰 Channel URL will be:", `${url}:${portNum}`);
+    if (logs.udp) console.log("🩰 Geckos channel created:", channel);
+    if (logs.udp) console.log("🩰 Channel URL will be:", `${url}:${portNum}`);
   } catch (e) {
     console.error("🩰 Failed to create Geckos channel:", e);
     return;
@@ -69,8 +69,8 @@ function connect(port = 8889, url = undefined, send) {
 
   // Add timeout to detect if onConnect never fires
   const connectTimeout = setTimeout(() => {
-    console.warn("🩰 ⚠️ UDP connection timeout - onConnect never fired after 10s");
-    console.warn("🩰 This usually means WebRTC ICE gathering failed or signaling endpoint issues");
+    if (logs.udp) console.warn("🩰 ⚠️ UDP connection timeout - onConnect never fired after 10s");
+    if (logs.udp) console.warn("🩰 This usually means WebRTC ICE gathering failed or signaling endpoint issues");
   }, 10000);
 
   reconnect = () => {
