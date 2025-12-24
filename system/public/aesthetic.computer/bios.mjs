@@ -11009,44 +11009,53 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Unload some already initialized stuff if this wasn't the first load.
     if (type === "disk-loaded") {
       // Clear any active parameters once the disk has been loaded.
-      // Special handling for prompt piece with kidlisp content
-      if (
-        content.path === "aesthetic.computer/disks/prompt" &&
-        content.params &&
-        content.params.length > 0 &&
-        isKidlispSource(content.params[0])
-      ) {
-        // For prompt piece with kidlisp parameters, preserve the prompt~ URL structure
-        const encodedContent = encodeKidlispForUrl(content.params[0]);
-        const encodedPath = "/prompt~" + encodedContent;
-        // Use pushState instead of replaceState to preserve history navigation
-        if (!content.fromHistory) {
-          window.history.pushState({}, "", encodedPath);
+      // Skip URL manipulation in pack mode (sandboxed iframe)
+      if (!checkPackMode()) {
+        // Special handling for prompt piece with kidlisp content
+        if (
+          content.path === "aesthetic.computer/disks/prompt" &&
+          content.params &&
+          content.params.length > 0 &&
+          isKidlispSource(content.params[0])
+        ) {
+          // For prompt piece with kidlisp parameters, preserve the prompt~ URL structure
+          const encodedContent = encodeKidlispForUrl(content.params[0]);
+          const encodedPath = "/prompt~" + encodedContent;
+          // Use pushState instead of replaceState to preserve history navigation
+          try {
+            if (!content.fromHistory) {
+              window.history.pushState({}, "", encodedPath);
+            } else {
+              window.history.replaceState({}, "", encodedPath);
+            }
+          } catch (e) { /* Ignore in restricted context */ }
+        } else if (content.text && isKidlispSource(content.text)) {
+          // For standalone kidlisp pieces, use centralized URL encoding
+          const encodedPath = "/" + encodeKidlispForUrl(content.text);
+          // Use pushState instead of replaceState to preserve history navigation
+          try {
+            if (!content.fromHistory) {
+              window.history.pushState({}, "", encodedPath);
+            } else {
+              window.history.replaceState({}, "", encodedPath);
+            }
+          } catch (e) { /* Ignore in restricted context */ }
         } else {
-          window.history.replaceState({}, "", encodedPath);
-        }
-      } else if (content.text && isKidlispSource(content.text)) {
-        // For standalone kidlisp pieces, use centralized URL encoding
-        const encodedPath = "/" + encodeKidlispForUrl(content.text);
-        // Use pushState instead of replaceState to preserve history navigation
-        if (!content.fromHistory) {
-          window.history.pushState({}, "", encodedPath);
-        } else {
-          window.history.replaceState({}, "", encodedPath);
-        }
-      } else {
-        // For regular pieces, clear parameters but keep the basic path structure
-        // Preserve DAW-related params for M4L integration
-        const currentParams = new URLSearchParams(window.location.search);
-        const dawParams = new URLSearchParams();
-        for (const param of ['daw', 'density', 'nogap', 'width', 'height']) {
-          if (currentParams.has(param)) {
-            dawParams.set(param, currentParams.get(param));
+          // For regular pieces, clear parameters but keep the basic path structure
+          // Preserve DAW-related params for M4L integration
+          const currentParams = new URLSearchParams(window.location.search);
+          const dawParams = new URLSearchParams();
+          for (const param of ['daw', 'density', 'nogap', 'width', 'height']) {
+            if (currentParams.has(param)) {
+              dawParams.set(param, currentParams.get(param));
+            }
           }
+          const queryString = dawParams.toString();
+          const newUrl = window.location.pathname + (queryString ? '?' + queryString : '');
+          try {
+            window.history.replaceState({}, "", newUrl);
+          } catch (e) { /* Ignore in restricted context */ }
         }
-        const queryString = dawParams.toString();
-        const newUrl = window.location.pathname + (queryString ? '?' + queryString : '');
-        window.history.replaceState({}, "", newUrl);
       }
 
       // if (currentPiece !== null) firstPiece = false;
@@ -11339,7 +11348,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               urlPath = "/" + content.text;
             }
 
-            history.replaceState("", document.title, urlPath);
+            if (!checkPackMode()) {
+              history.replaceState("", document.title, urlPath);
+            }
           } catch (err) {
             console.warn("⚠️ Couldn't change url state. Going too fast!? ➿🚗");
           }

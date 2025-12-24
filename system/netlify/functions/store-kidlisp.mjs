@@ -600,6 +600,19 @@ export async function handler(event, context) {
         user: doc.user || null,
       };
       
+      // Include cached IPFS media if present (from bundle generation)
+      if (doc.ipfsMedia) {
+        response.ipfsMedia = {
+          artifactUri: doc.ipfsMedia.artifactUri,
+          thumbnailUri: doc.ipfsMedia.thumbnailUri,
+          sourceHash: doc.ipfsMedia.sourceHash,
+          createdAt: doc.ipfsMedia.createdAt,
+          authorHandle: doc.ipfsMedia.authorHandle,
+          depCount: doc.ipfsMedia.depCount,
+          packDate: doc.ipfsMedia.packDate,
+        };
+      }
+      
       // Include kept status if the piece was minted as a KEEP NFT
       if (doc.kept) {
         response.kept = {
@@ -621,6 +634,18 @@ export async function handler(event, context) {
         response.kept.txHash = response.kept.txHash || doc.tezos.txHash;
         response.kept.contractAddress = response.kept.contractAddress || doc.tezos.contract;
         response.kept.keptAt = response.kept.keptAt || doc.tezos.mintedAt;
+        // Include on-chain artifact URIs
+        response.kept.artifactUri = doc.tezos.artifactUri;
+        response.kept.thumbnailUri = doc.tezos.thumbnailUri;
+      }
+      
+      // Include pending rebake info if present (rebaked but not yet updated on chain)
+      if (doc.pendingRebake) {
+        response.pendingRebake = {
+          artifactUri: doc.pendingRebake.artifactUri,
+          thumbnailUri: doc.pendingRebake.thumbnailUri,
+          createdAt: doc.pendingRebake.createdAt,
+        };
       }
       
       return respond(200, response);
