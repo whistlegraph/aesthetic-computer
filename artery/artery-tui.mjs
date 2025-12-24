@@ -11,7 +11,150 @@ import fs from 'fs';
 import path from 'path';
 import readline from 'readline';
 import os from 'os';
-import { execSync, spawn } from 'child_process';
+import { execSync, spawn, spawnSync } from 'child_process';
+import qrcode from 'qrcode-terminal';
+import net from 'net';
+
+// Find the emacsclient's PTY for direct sixel output (bypasses eat terminal)
+function findEmacsclientPty() {
+  try {
+    // Find emacsclient process
+    const psResult = spawnSync('pgrep', ['-f', 'emacsclient.*-nw'], { encoding: 'utf-8' });
+    if (psResult.status !== 0 || !psResult.stdout.trim()) return null;
+    
+    const pid = psResult.stdout.trim().split('\n')[0];
+    // Get the tty from /proc/<pid>/fd/0
+    const fd0 = fs.readlinkSync(`/proc/${pid}/fd/0`);
+    if (fd0.startsWith('/dev/pts/')) {
+      return fd0;
+    }
+  } catch (err) {
+    // Fall back to null
+  }
+  return null;
+}
+
+// Write sixel directly to the parent terminal (bypassing eat)
+function writeSixelDirect(sixelData) {
+  const pty = findEmacsclientPty();
+  if (pty && sixelData) {
+    try {
+      fs.writeFileSync(pty, sixelData);
+      return true;
+    } catch (err) {
+      return false;
+    }
+  }
+  return false;
+}
+
+// Clear an area of the screen where sixel was rendered (write spaces directly to PTY)
+function clearSixelArea(startRow, numRows, width) {
+  const pty = findEmacsclientPty();
+  if (pty) {
+    try {
+      const clearLine = ' '.repeat(width);
+      let clearSeq = '';
+      for (let r = startRow; r < startRow + numRows; r++) {
+        clearSeq += `\x1b[${r};1H${clearLine}`;
+      }
+      fs.writeFileSync(pty, clearSeq);
+    } catch {}
+  }
+}
+
+// Helper: Fetch image and convert to sixel using ImageMagick directly
+async function fetchTerminalImage(url, maxWidth = 20, maxHeight = 10) {
+  // Handle IPFS URLs - try multiple gateways
+  let fetchUrl = url;
+  const ipfsGateways = [
+    'https://cloudflare-ipfs.com/ipfs/',
+    'https://ipfs.io/ipfs/',
+    'https://gateway.pinata.cloud/ipfs/',
+    'https://w3s.link/ipfs/',
+  ];
+  
+  if (url.startsWith('ipfs://')) {
+    const cid = url.slice(7);
+    // Try gateways in order
+    for (const gateway of ipfsGateways) {
+      fetchUrl = `${gateway}${cid}`;
+      try {
+        const timestamp = Date.now();
+        const tmpFile = `/tmp/sixel-thumb-${timestamp}`;
+        const curlResult = spawnSync('curl', ['-sL', '--max-time', '8', '-o', `${tmpFile}.img`, fetchUrl], { timeout: 10000 });
+        
+        if (curlResult.status === 0) {
+          const stats = fs.statSync(`${tmpFile}.img`);
+          if (stats.size > 500) {
+            // Got a real image, convert to sixel
+            // Now with direct PTY output, we can use proper sizing
+            const pixelSize = 200;
+            
+            const magickResult = spawnSync('/usr/bin/magick', [
+              `${tmpFile}.img[0]`,  // [0] gets first frame of animated images
+              '-resize', `${pixelSize}x${pixelSize}>`,
+              'sixel:-'
+            ], { 
+              timeout: 5000,
+              maxBuffer: 1024 * 1024 
+            });
+            
+            try { fs.unlinkSync(`${tmpFile}.img`); } catch {}
+            
+            if (magickResult.status === 0) {
+              return magickResult.stdout.toString();
+            }
+          }
+        }
+        try { fs.unlinkSync(`${tmpFile}.img`); } catch {}
+      } catch (err) {
+        // Try next gateway
+        continue;
+      }
+    }
+    return null; // All gateways failed
+  }
+  
+  // Non-IPFS URL
+  try {
+    const timestamp = Date.now();
+    const tmpFile = `/tmp/sixel-thumb-${timestamp}`;
+    const curlResult = spawnSync('curl', ['-sL', '--max-time', '10', '-o', `${tmpFile}.img`, fetchUrl], { timeout: 12000 });
+    if (curlResult.status !== 0) {
+      return null;
+    }
+    
+    // Check file size
+    try {
+      const stats = fs.statSync(`${tmpFile}.img`);
+      if (stats.size < 500) {
+        fs.unlinkSync(`${tmpFile}.img`);
+        return null;
+      }
+    } catch { return null; }
+    
+    const pixelSize = 200;
+    const magickResult = spawnSync('/usr/bin/magick', [
+      `${tmpFile}.img[0]`,
+      '-resize', `${pixelSize}x${pixelSize}>`,
+      'sixel:-'
+    ], { 
+      timeout: 5000,
+      maxBuffer: 1024 * 1024 
+    });
+    
+    try { fs.unlinkSync(`${tmpFile}.img`); } catch {}
+    
+    if (magickResult.status !== 0) {
+      return null;
+    }
+    
+    return magickResult.stdout.toString();
+  } catch (err) {
+    return null;
+  }
+}
 
 // ANSI escape codes
 const ESC = '\x1b';
@@ -63,13 +206,26 @@ const DOS_HIGHLIGHT = `${BG_CYAN}${FG_BLACK}`;
 const DOS_BORDER = `${BG_BLUE}${FG_BRIGHT_CYAN}`;
 const DOS_STATUS = `${BG_BLUE}${FG_BRIGHT_YELLOW}`;
 
-// ASCII Art title - each character position for animation
+// ASCII Art title - AESTHETIC COMPUTER
 const ARTERY_ASCII = [
-  '█▀█ █▀█ ▀█▀ █▀▀ █▀█ █▄█',
-  '█▀█ █▀▄  █  ██▄ █▀▄  █ ',
+  'AESTHETIC  COMPUTER',
 ];
 
-// Blood flow animation frames - positions that light up red
+// Baby block colors - background colors with white/black text
+const BLOCK_COLORS = [
+  { bg: '\x1b[41m', fg: '\x1b[97m' },  // red bg, white text
+  { bg: '\x1b[43m', fg: '\x1b[30m' },  // yellow bg, black text  
+  { bg: '\x1b[42m', fg: '\x1b[97m' },  // green bg, white text
+  { bg: '\x1b[46m', fg: '\x1b[30m' },  // cyan bg, black text
+  { bg: '\x1b[44m', fg: '\x1b[97m' },  // blue bg, white text
+  { bg: '\x1b[45m', fg: '\x1b[97m' },  // magenta bg, white text
+  { bg: '\x1b[47m', fg: '\x1b[30m' },  // white bg, black text
+  { bg: '\x1b[101m', fg: '\x1b[97m' }, // bright red bg
+  { bg: '\x1b[103m', fg: '\x1b[30m' }, // bright yellow bg
+  { bg: '\x1b[104m', fg: '\x1b[97m' }, // bright blue bg
+];
+
+// Title animation - scattered colors
 const BLOOD_FLOW_LENGTH = ARTERY_ASCII[0].length;
 const BLOOD_PULSE_WIDTH = 4; // Width of the "blood pulse"
 
@@ -254,7 +410,7 @@ class ArteryTUI {
     this.connected = false;
     this.currentPiece = null;
     this.selectedIndex = 0;
-    this.mode = 'menu'; // 'menu', 'repl', 'pieces', 'piece-input', 'tests', 'test-params', 'logs'
+    this.mode = 'menu'; // 'menu', 'repl', 'pieces', 'piece-input', 'tests', 'test-params', 'logs', 'devices', 'ff1'
     this.logs = [];
     this.allPieces = []; // Loaded from disks directory
     this.filteredPieces = []; // Filtered by search
@@ -294,17 +450,120 @@ class ArteryTUI {
     this.menuItems = [
       { key: 'p', label: 'Toggle Panel', desc: 'Toggle AC sidebar in VS Code', action: () => this.togglePanel() },
       { key: 'k', label: 'KidLisp.com', desc: 'Open KidLisp editor window', action: () => this.openKidLisp() },
+      { key: 'd', label: 'Deck Control', desc: 'Control KidLisp.com card deck via CDP', action: () => this.enterKidLispCardsMode() },
+      { key: 'v', label: 'Devices', desc: 'Connected devices (LAN)', action: () => this.enterDevicesMode() },
+      { key: 'f', label: 'FF1 Scan', desc: 'Scan network for Feral File FF1', action: () => this.enterFF1Mode() },
       { key: 'e', label: 'Emacs', desc: 'Execute elisp in Emacs', action: () => this.enterEmacsMode() },
       { key: 'j', label: 'Jump to Piece', desc: 'Navigate to a piece', action: () => this.enterPieceMode() },
       { key: 'c', label: 'Current Piece', desc: 'Show current piece', action: () => this.showCurrent() },
       { key: 'r', label: 'REPL Mode', desc: 'Interactive JavaScript console', action: () => this.enterReplMode() },
       { key: 't', label: 'Run Tests', desc: 'Execute test suite', action: () => this.runTests() },
       { key: 'l', label: 'View Logs', desc: 'AC console output', action: () => this.enterLogsMode() },
+      { key: 'z', label: 'Keeps (Tezos)', desc: 'Tezos FA2 NFT minting', action: () => this.enterKeepsMode() },
       { key: 'a', label: 'Activate Audio', desc: 'Click to enable audio', action: () => this.activateAudio() },
       { key: 'w', label: 'WebGPU Perf', desc: 'Monitor WebGPU performance', action: () => this.webgpuPerf() },
       { key: 'x', label: 'Reconnect', desc: 'Reconnect to AC', action: () => this.reconnect() },
+      { key: 'i', label: 'Login', desc: 'AC login/logout', action: () => this.toggleAcLogin() },
       { key: 'q', label: 'Quit', desc: 'Exit Artery TUI', action: () => this.quit() },
     ];
+    
+    // Keeps (Tezos) state - Enhanced Dashboard
+    this.keepsMenu = [
+      { key: 's', label: 'Status', desc: 'Refresh contract status' },
+      { key: 'b', label: 'Balance', desc: 'Check wallet balance' },
+      { key: 't', label: 'Tokens', desc: 'List recent tokens' },
+      { key: 'K', label: 'Keep', desc: 'Keep a piece (mint via AC)' },  // New: server-side mint
+      { key: 'Q', label: 'Queue', desc: 'View/process keep queue' },
+      { key: 'm', label: 'Mint (Local)', desc: 'Mint using local wallet' },
+      { key: 'u', label: 'Upload', desc: 'Upload bundle to IPFS' },
+      { key: 'l', label: 'Lock', desc: 'Lock token metadata' },
+      { key: 'f', label: 'Fishy', desc: 'Jump to 🐟-fishy terminal' },
+      { key: 'r', label: 'Run Tests', desc: 'Run keeps test suite' },
+      { key: 'e', label: 'Explorer', desc: 'Open tzkt in browser' },
+      { key: 'o', label: 'Objkt', desc: 'Open objkt collection' },
+      { key: 'd', label: 'Deploy', desc: 'Deploy FA2 to Ghostnet' },
+      { key: 'L', label: 'Login', desc: 'AC login/logout' },  // Dynamic: Login or Logout
+    ];
+    this.keepsSelectedIndex = 0;
+    this.keepsOutput = '';
+    this.keepsRunning = false;
+    this.keepsPieceInput = '';
+    this.keepsSubMode = 'menu'; // 'menu', 'piece-input', 'running', 'pieces-list', 'confirm-keep', 'queue'
+    this.keepsPendingAction = null; // Track which action needs piece input
+    
+    // User pieces list for Keep mode
+    this.userPieces = [];        // Array of { code, source, kept, hits, when }
+    this.userPiecesIndex = 0;    // Selected piece in list
+    this.userPiecesLoading = false;
+    this.userPiecesError = null;
+    
+    // Keep queue - pieces to be kept in batch
+    this.keepQueue = [];          // Array of { code, hits } - pieces queued for keeping
+    this.keepQueueIndex = 0;      // Selected item in queue view
+    this.keepQueueProcessing = false; // Currently processing queue
+    
+    // Keeps dashboard live data
+    this.keepsContractData = {
+      address: 'KT1StXrQNvRd9dNPpHdCGEstcGiBV6neq79K',
+      network: 'ghostnet',
+      admin: 'aesthetic',
+      tokenCount: 0,
+      fee: '0',
+      balance: '0',
+      recentTokens: [],
+      lastUpdated: null,
+    };
+    this.keepsEngineeringTasks = {
+      phase: 'A',
+      phaseName: 'Ghostnet Hardening',
+      currentFocus: [],
+      nextSteps: [],
+      successCriteria: '20+ test mints',
+      mintsCompleted: 0,
+    };
+    
+    // AC Auth state
+    this.acAuth = null; // { user: { handle, email, name }, expires_at }
+    this.loadAcAuth(); // Load on startup
+    
+    // KidLisp Cards state
+    this.kidlispCardsMenu = [
+      { key: 'n', label: 'Next Card', desc: 'Advance to next card' },
+      { key: 'u', label: 'Undo', desc: 'Bring back last discarded card' },
+      { key: 'r', label: 'Reset Deck', desc: 'Reset all cards from discard' },
+      { key: 's', label: 'Status', desc: 'Show card counts' },
+      { key: 'o', label: 'Open Window', desc: 'Open KidLisp.com in VS Code' },
+      { key: 't', label: 'Run Tests', desc: 'Run card test suite' },
+    ];
+    this.kidlispCardsSelectedIndex = 0;
+    this.kidlispCardsOutput = '';
+    this.kidlispCardsCdpPageId = null;
+    
+    // Devices (LAN) state
+    this.devicesMenu = [
+      { key: 'r', label: 'Refresh', desc: 'Refresh device list' },
+      { key: 'j', label: 'Jump', desc: 'Jump device to piece' },
+      { key: 'R', label: 'Reload', desc: 'Reload selected device' },
+      { key: 'a', label: 'Reload All', desc: 'Reload all devices' },
+      { key: 'n', label: 'Name', desc: 'Name selected device' },
+    ];
+    this.devicesSelectedIndex = 0;
+    this.devicesList = [];
+    this.devicesHostInfo = null;
+    this.devicesLastFetch = null;
+    this.devicesLoading = false;
+    this.devicesError = null;
+    this.devicesSubMode = 'list'; // 'list', 'jump-input', 'name-input'
+    this.devicesJumpInput = '';
+    this.devicesNameInput = '';
+    
+    // FF1 (Feral File) state
+    this.ff1Devices = [];  // Found FF1 devices [{ip, ssh, cdp, hostname}]
+    this.ff1Scanning = false;
+    this.ff1ScanProgress = '';
+    this.ff1SelectedIndex = 0;
+    this.ff1TunnelActive = false;
+    this.ff1Subnets = ['192.168.1', '192.168.0', '192.168.86', '10.0.0', '10.0.1'];
     
     // Site monitoring state
     this.siteProcess = null;
@@ -319,8 +578,24 @@ class ArteryTUI {
     this.networkActivity = 0; // Activity level 0-10 (affects speed/intensity)
     this.lastNetworkTime = 0; // Last time we saw network activity
     
+    // Matrix rain animation state
+    this.matrixDrops = []; // Array of { col, row, speed, char, brightness }
+    this.matrixChars = 'ARTERY'.split('');
+    this.initMatrixRain();
+    
     // Load pieces from disk directory
     this.loadPieces();
+    
+    // CDP tunnel status
+    this.cdpStatus = 'unknown'; // 'online', 'offline', 'unknown'
+    this.cdpHost = null;
+    this.cdpPort = null;
+    
+    // QR code for LAN URL (cached as lines)
+    this.qrCodeLines = null;
+    this.qrCodeUrl = null;
+    // Async - will update qrCodeLines when ready
+    this.generateLanQrCode().catch(() => {});
     
     // Detect host environment
     this.hostInfo = this.detectHostInfo();
@@ -337,7 +612,8 @@ class ArteryTUI {
         border: `${BG_GREEN}${FG_WHITE}`,
         fill: BG_GREEN,
         text: FG_WHITE,
-        accent: FG_BRIGHT_YELLOW
+        accent: FG_BRIGHT_YELLOW,
+        highlight: BG_GREEN
       };
     } else if (this.serverStatus.local === true) {
       // Local server up but AC not connected - cyan/blue (ready state)
@@ -346,7 +622,8 @@ class ArteryTUI {
         border: `${BG_CYAN}${FG_BLACK}`,
         fill: BG_CYAN,
         text: FG_BLACK,
-        accent: FG_BLUE
+        accent: FG_BLUE,
+        highlight: BG_CYAN
       };
     } else if (this.serverStatus.production === true) {
       // Only production available - magenta (remote state)
@@ -355,7 +632,8 @@ class ArteryTUI {
         border: `${BG_MAGENTA}${FG_WHITE}`,
         fill: BG_MAGENTA,
         text: FG_WHITE,
-        accent: FG_BRIGHT_YELLOW
+        accent: FG_BRIGHT_YELLOW,
+        highlight: BG_MAGENTA
       };
     } else if (this.serverStatus.local === false && this.serverStatus.production === false) {
       // Nothing available - red (error state)
@@ -364,7 +642,8 @@ class ArteryTUI {
         border: `${BG_RED}${FG_WHITE}`,
         fill: BG_RED,
         text: FG_WHITE,
-        accent: FG_BRIGHT_YELLOW
+        accent: FG_BRIGHT_YELLOW,
+        highlight: BG_RED
       };
     } else {
       // Unknown/checking - default blue
@@ -373,11 +652,148 @@ class ArteryTUI {
         border: `${BG_BLUE}${FG_BRIGHT_CYAN}`,
         fill: BG_BLUE,
         text: FG_BRIGHT_CYAN,
-        accent: FG_BRIGHT_YELLOW
+        accent: FG_BRIGHT_YELLOW,
+        highlight: BG_BLUE
       };
     }
   }
   
+  // Get params in visual display order (selects, ranges, toggles)
+  getVisualParamOrder(params = []) {
+    const selects = params.filter(p => p.type === 'select');
+    const ranges = params.filter(p => p.type === 'range');
+    const toggles = params.filter(p => p.type === 'toggle');
+    return [...selects, ...ranges, ...toggles];
+  }
+  
+  // Initialize Matrix rain drops
+  initMatrixRain() {
+    this.matrixDrops = [];
+    // Create initial drops spread across columns - denser rain
+    const numDrops = Math.floor(this.width / 2); // One drop per ~2 columns
+    for (let i = 0; i < numDrops; i++) {
+      this.matrixDrops.push(this.createMatrixDrop());
+    }
+  }
+  
+  createMatrixDrop() {
+    return {
+      col: Math.floor(Math.random() * this.width),
+      row: Math.floor(Math.random() * -10), // Start above screen
+      speed: 0.4 + Math.random() * 0.6, // Variable fall speed (faster)
+      charIdx: Math.floor(Math.random() * this.matrixChars.length),
+      brightness: 0.5 + Math.random() * 0.5, // 0.5-1 for brighter effect
+      length: 3 + Math.floor(Math.random() * 5), // Trail length
+    };
+  }
+  
+  updateMatrixRain() {
+    try {
+      if (!this.matrixDrops || !Array.isArray(this.matrixDrops)) return;
+      for (let drop of this.matrixDrops) {
+        if (!drop) continue;
+        drop.row += drop.speed;
+        // Occasionally change the character
+        if (Math.random() < 0.1) {
+          drop.charIdx = Math.floor(Math.random() * this.matrixChars.length);
+        }
+        // Reset drop when it goes off screen or is out of bounds
+        if (drop.row > this.height + drop.length || drop.col >= this.width) {
+          drop.col = Math.floor(Math.random() * this.width);
+          drop.row = Math.floor(Math.random() * -5);
+          drop.speed = 0.4 + Math.random() * 0.6;
+          drop.brightness = 0.5 + Math.random() * 0.5;
+        }
+      }
+    } catch (e) {
+      // Silently recover from animation errors
+    }
+  }
+  
+  // Build matrix rain layer as a 2D array
+  getMatrixRainLayer() {
+    // Create empty grid
+    const grid = [];
+    for (let y = 0; y < this.height; y++) {
+      grid[y] = new Array(this.width).fill(null);
+    }
+    
+    // Place drops and trails
+    for (const drop of this.matrixDrops) {
+      const headRow = Math.floor(drop.row);
+      for (let i = 0; i < drop.length; i++) {
+        const y = headRow - i;
+        if (y >= 0 && y < this.height && drop.col >= 0 && drop.col < this.width) {
+          // Head is brightest, trail fades
+          const fade = 1 - (i / drop.length);
+          const char = this.matrixChars[(drop.charIdx + i) % this.matrixChars.length];
+          grid[y][drop.col] = { char, fade: fade * drop.brightness };
+        }
+      }
+    }
+    return grid;
+  }
+  
+  // Get matrix rain color palette based on connectivity status
+  getMatrixColorPalette() {
+    if (this.serverStatus.local === true) {
+      // 🟢 Local server up - green rain
+      return [
+        '\x1b[38;5;22m',  // 0: very dark green
+        '\x1b[38;5;28m',  // 1: dark green
+        '\x1b[38;5;34m',  // 2: medium green
+        '\x1b[38;5;40m',  // 3: green
+        '\x1b[38;5;46m',  // 4: bright green
+        '\x1b[38;5;156m', // 5: very bright green/white (head)
+      ];
+    } else if (this.serverStatus.local === false) {
+      // 🔴 Local server down - red rain
+      return [
+        '\x1b[38;5;52m',  // 0: very dark red
+        '\x1b[38;5;88m',  // 1: dark red
+        '\x1b[38;5;124m', // 2: medium red
+        '\x1b[38;5;160m', // 3: red
+        '\x1b[38;5;196m', // 4: bright red
+        '\x1b[38;5;217m', // 5: very bright red/pink (head)
+      ];
+    } else {
+      // 🟡 Unknown/checking - yellow rain
+      return [
+        '\x1b[38;5;58m',  // 0: very dark yellow/olive
+        '\x1b[38;5;100m', // 1: dark yellow
+        '\x1b[38;5;142m', // 2: medium yellow
+        '\x1b[38;5;184m', // 3: yellow
+        '\x1b[38;5;226m', // 4: bright yellow
+        '\x1b[38;5;229m', // 5: very bright yellow/white (head)
+      ];
+    }
+  }
+  
+  // Render a single line of matrix rain
+  renderMatrixRainLine(row, rainLayer, bg) {
+    if (!rainLayer || !rainLayer[row]) {
+      this.writeEmptyLine(bg);
+      return;
+    }
+    
+    let line = '';
+    const colorPalette = this.getMatrixColorPalette();
+    
+    for (let col = 0; col < this.width; col++) {
+      const cell = rainLayer[row][col];
+      if (cell) {
+        // Color based on fade value and server status
+        // fade 1.0 = bright (head), fade 0.0 = dim (tail)
+        const brightness = Math.floor(cell.fade * 5); // 0-5
+        const color = colorPalette[Math.min(brightness, 5)];
+        line += `${color}${cell.char}${RESET}${bg}`;
+      } else {
+        line += ' ';
+      }
+    }
+    this.frameBuffer.push(`${bg}${line}${RESET}`);
+  }
+
   detectHostInfo() {
     const info = {
       inContainer: process.env.REMOTE_CONTAINERS === 'true' || process.env.CODESPACES === 'true',
@@ -477,6 +893,30 @@ class ArteryTUI {
     return info;
   }
   
+  // Generate QR code for LAN URL (for scanning with phones)
+  async generateLanQrCode() {
+    // Use HOST_IP env var (set by entry.fish from host machine's LAN IP)
+    const hostIp = process.env.HOST_IP;
+    
+    if (!hostIp) {
+      this.qrCodeLines = null;
+      this.qrCodeUrl = null;
+      return;
+    }
+    
+    const url = `https://${hostIp}:8888`;
+    this.qrCodeUrl = url;
+    
+    // Generate QR code as string
+    let qrOutput = '';
+    const originalWrite = process.stdout.write.bind(process.stdout);
+    process.stdout.write = (chunk) => { qrOutput += chunk; return true; };
+    qrcode.generate(url, { small: true });
+    process.stdout.write = originalWrite;
+    
+    this.qrCodeLines = qrOutput.split('\n').filter(line => line.length > 0);
+  }
+  
   loadPieces() {
     try {
       const disksPath = path.join(process.cwd(), 'system/public/aesthetic.computer/disks');
@@ -498,6 +938,49 @@ class ArteryTUI {
   }
 
   async start() {
+    // Set up signal handlers for graceful cleanup (critical for hot-reload!)
+    const cleanup = () => {
+      // Clear intervals
+      if (this.serverPollInterval) clearInterval(this.serverPollInterval);
+      if (this.bloodAnimInterval) clearInterval(this.bloodAnimInterval);
+      if (this.resizeTimeout) clearTimeout(this.resizeTimeout);
+      
+      // Restore terminal state
+      this.write(MOUSE_DISABLE);
+      this.write(CURSOR_SHOW);
+      this.write(ALT_SCREEN_OFF);
+      
+      // Close client connection
+      if (this.client) {
+        try { this.client.close(); } catch (e) {}
+      }
+      
+      // Restore stdin
+      try {
+        process.stdin.setRawMode(false);
+        process.stdin.pause();
+      } catch (e) {}
+    };
+    
+    // Handle SIGTERM (sent by artery-dev.mjs on hot-reload)
+    process.on('SIGTERM', () => {
+      cleanup();
+      process.exit(0);
+    });
+    
+    // Handle SIGINT (Ctrl+C)
+    process.on('SIGINT', () => {
+      cleanup();
+      process.exit(0);
+    });
+    
+    // Handle uncaught errors to prevent zombie processes
+    process.on('uncaughtException', (err) => {
+      cleanup();
+      console.error('Uncaught exception:', err);
+      process.exit(1);
+    });
+    
     // Set up terminal
     process.stdin.setRawMode(true);
     process.stdin.resume();
@@ -511,10 +994,13 @@ class ArteryTUI {
       }
       // Debounce resize events - wait for them to settle
       this.resizeTimeout = setTimeout(() => {
+        this.resizeTimeout = null; // Clear the timeout reference so animation resumes
         this.width = process.stdout.columns || 80;
         this.height = process.stdout.rows || 24;
         this.forceFullRedraw = true; // Force complete redraw on resize
         this.lastRenderedBuffer = []; // Clear buffer to force full redraw
+        // Reinitialize matrix rain for new dimensions
+        this.initMatrixRain();
         this.render();
       }, 50); // 50ms debounce - fast enough to feel responsive
     });
@@ -549,21 +1035,25 @@ class ArteryTUI {
     
     // Animate blood flow - speed varies with network activity
     this.bloodAnimInterval = setInterval(() => {
-      // Skip animation entirely if a resize is pending
-      if (this.resizeTimeout) return;
-      
-      // Decay network activity over time
-      const now = Date.now();
-      if (now - this.lastNetworkTime > 500) {
-        this.networkActivity = Math.max(0, this.networkActivity - 0.5);
-      }
-      
-      // Move blood pulse - faster with more activity
-      const speed = 0.5 + (this.networkActivity * 0.3);
-      this.bloodPosition = (this.bloodPosition + speed) % (BLOOD_FLOW_LENGTH + BLOOD_PULSE_WIDTH * 2);
-      
-      // Update UTC clock
-      this.utcTime = this.getUTCTimeString();
+      try {
+        // Skip animation entirely if a resize is pending
+        if (this.resizeTimeout) return;
+        
+        // Decay network activity over time
+        const now = Date.now();
+        if (now - this.lastNetworkTime > 500) {
+          this.networkActivity = Math.max(0, this.networkActivity - 0.5);
+        }
+        
+        // Move blood pulse - faster with more activity
+        const speed = 0.5 + (this.networkActivity * 0.3);
+        this.bloodPosition = (this.bloodPosition + speed) % (BLOOD_FLOW_LENGTH + BLOOD_PULSE_WIDTH * 2);
+        
+        // Update matrix rain
+        this.updateMatrixRain();
+        
+        // Update UTC clock
+        this.utcTime = this.getUTCTimeString();
       
       // Only re-render header area if in menu mode to show animation
       // In eat terminal, do full render instead of partial to avoid artifacts
@@ -573,6 +1063,9 @@ class ArteryTUI {
         } else {
           this.renderHeaderOnly();
         }
+      }
+      } catch (e) {
+        // Silently recover from animation errors
       }
     }, animInterval);
   }
@@ -585,56 +1078,40 @@ class ArteryTUI {
   
   // Render just the header without full screen clear (for animation)
   renderHeaderOnly() {
-    // Skip partial render if resize is pending - will do full render after
-    if (this.resizeTimeout) return;
+    // Borderless version - just update the title line with animation
     if (this.width < 80) return; // Skip animation in compact mode
     
-    const boxWidth = this.innerWidth;
-    const artY = this.marginY + 2; // Position of ASCII art lines
+    const titleBg = BG_BLACK;
+    const artLine = 'AESTHETIC  COMPUTER';
     
-    for (let lineIdx = 0; lineIdx < ARTERY_ASCII.length; lineIdx++) {
-      const artLine = ARTERY_ASCII[lineIdx];
-      const artPadding = Math.floor((boxWidth - artLine.length - 4) / 2);
-      
-      // Build the line with blood animation
-      let coloredLine = '';
-      for (let i = 0; i < artLine.length; i++) {
-        const char = artLine[i];
-        const globalPos = i;
-        
-        // Calculate distance from blood pulse center
-        const pulseCenter = this.bloodPosition - BLOOD_PULSE_WIDTH;
-        const dist = Math.abs(globalPos - pulseCenter);
-        
-        // Always show subtle pulse, more intense with network activity
-        const baseActivity = 0.2;
-        const effectiveActivity = baseActivity + (this.networkActivity * 0.1);
-        
-        // Color based on distance from pulse
-        if (char !== ' ') {
-          if (dist < BLOOD_PULSE_WIDTH / 2 && effectiveActivity > 0.3) {
-            // Core of pulse - bright red
-            coloredLine += `${FG_BRIGHT_RED}${char}`;
-          } else if (dist < BLOOD_PULSE_WIDTH && effectiveActivity > 0.2) {
-            // Edge of pulse - dim red
-            coloredLine += `${FG_RED}${char}`;
-          } else if (dist < BLOOD_PULSE_WIDTH * 1.5 && effectiveActivity > 0.1) {
-            // Fading edge - magenta tint
-            coloredLine += `${FG_MAGENTA}${char}`;
-          } else {
-            // Normal cyan
-            coloredLine += `${FG_BRIGHT_CYAN}${char}`;
-          }
-        } else {
-          coloredLine += char;
+    // Build animated title
+    let animatedLine = '';
+    let charIdx = 0;
+    for (let i = 0; i < artLine.length; i++) {
+      const char = artLine[i];
+      if (char === ' ') {
+        if (i + 1 < artLine.length && artLine[i + 1] === ' ') {
+          animatedLine += '   '; // Gap between words
+          i++;
         }
+      } else {
+        const timeOffset = Math.floor(this.bloodPosition / 3);
+        const waveOffset = Math.floor(Math.sin((charIdx + timeOffset) * 0.5) * 2);
+        const colorIdx = Math.abs((charIdx + timeOffset + waveOffset) % BLOCK_COLORS.length);
+        const block = BLOCK_COLORS[colorIdx];
+        animatedLine += `${block.bg}${block.fg}${BOLD} ${char} ${RESET}${titleBg}`;
+        charIdx++;
       }
-      
-      // Position cursor and write the line
-      const row = artY + lineIdx;
-      const col = this.adaptiveMarginX + 2 + artPadding;
-      this.write(`${moveTo(row, col)}${BG_BLUE}${coloredLine}${RESET}`);
     }
+    
+    // Calculate centering
+    const blockWidth = 17 * 3 + 3; // 17 letters * 3 chars each + 3 for gap
+    const leftPad = Math.floor((this.width - blockWidth) / 2);
+    const rightPad = this.width - blockWidth - leftPad;
+    
+    // Position cursor at title line (row 2) and write
+    const row = 2;
+    this.write(`${moveTo(row, 1)}${titleBg}${' '.repeat(Math.max(0, leftPad))}${animatedLine}${' '.repeat(Math.max(0, rightPad))}${RESET}`);
   }
 
   startServerPolling() {
@@ -848,6 +1325,10 @@ class ArteryTUI {
     CDP_HOST = cdpInfo.host;
     CDP_PORT = cdpInfo.port;
     
+    // Store CDP status for display
+    this.cdpHost = CDP_HOST;
+    this.cdpPort = CDP_PORT;
+    
     return new Promise((resolve, reject) => {
       http.get({
         hostname: CDP_HOST,
@@ -858,10 +1339,19 @@ class ArteryTUI {
         let data = '';
         res.on('data', (chunk) => data += chunk);
         res.on('end', () => {
-          try { resolve(JSON.parse(data)); }
-          catch (e) { reject(new Error('Parse failed')); }
+          try { 
+            this.cdpStatus = 'online';
+            resolve(JSON.parse(data)); 
+          }
+          catch (e) { 
+            this.cdpStatus = 'offline';
+            reject(new Error('Parse failed')); 
+          }
         });
-      }).on('error', reject);
+      }).on('error', (e) => {
+        this.cdpStatus = 'offline';
+        reject(e);
+      });
     });
   }
 
@@ -870,6 +1360,12 @@ class ArteryTUI {
     this.logs.unshift({ timestamp, text, level });
     if (this.logs.length > this.maxLogs) {
       this.logs.pop();
+    }
+    
+    // Also route to testLogs if we're in test-running mode (for CDP console capture)
+    if (this.mode === 'test-running' && this.testLogs) {
+      this.testLogs.push({ text, time: this.getUTCTimeString(), level });
+      if (this.testLogs.length > 100) this.testLogs.shift();
     }
     
     // Pulse blood animation on log activity
@@ -927,9 +1423,25 @@ class ArteryTUI {
       return;
     }
     
-    // Escape to go back to menu (but ignore if part of mouse/arrow sequence)
+    // Escape to go back (but ignore if part of mouse/arrow sequence)
     if (key === '\u001b' && this.mode !== 'menu') {
-      this.mode = 'menu';
+      // In keeps mode, handle sub-mode navigation first
+      if (this.mode === 'keeps' && this.keepsSubMode !== 'menu') {
+        this.keepsSubMode = 'menu';
+        this.render();
+        return;
+      }
+      // Clear sixel if leaving keeps mode
+      if (this.mode === 'keeps' && this.keepsSixel) {
+        clearSixelArea(18, 15, this.width); // Clear area where sixel was rendered
+        this.keepsSixel = null;
+      }
+      // From test-running or test-params, go back to tests list
+      if (this.mode === 'test-running' || this.mode === 'test-params') {
+        this.mode = 'tests';
+      } else {
+        this.mode = 'menu';
+      }
       this.inputBuffer = '';
       this.render();
       return;
@@ -957,11 +1469,26 @@ class ArteryTUI {
       case 'test-params':
         this.handleTestParamsInput(key);
         break;
+      case 'test-running':
+        this.handleTestRunningInput(key);
+        break;
       case 'logs':
         this.handleLogsInput(key);
         break;
       case 'site':
         this.handleSiteInput(key);
+        break;
+      case 'keeps':
+        this.handleKeepsInput(key);
+        break;
+      case 'kidlisp-cards':
+        this.handleKidLispCardsInput(key);
+        break;
+      case 'devices':
+        this.handleDevicesInput(key);
+        break;
+      case 'ff1':
+        this.handleFF1Input(key);
         break;
     }
   }
@@ -1018,9 +1545,13 @@ class ArteryTUI {
             // Execute the test on click
             if (test.params) {
               this.currentTest = test;
-              this.testParams = { ...test.defaults };
+              // Initialize testParams from param defaults
+              this.testParams = {};
+              for (const param of test.params) {
+                this.testParams[param.key] = String(param.default || '');
+              }
               this.paramIndex = 0;
-              this.inputBuffer = '';
+              this.inputBuffer = String(this.testParams[test.params[0]?.key] || '');
               this.mode = 'test-params';
             } else {
               this.executeTest(test.file, '', test.isArtery || false);
@@ -1052,6 +1583,14 @@ class ArteryTUI {
         break;
       }
       
+      case 'test-running':
+        // Ignore mouse clicks while test is running - don't exit back to menu
+        break;
+      
+      case 'logs':
+        // Ignore mouse clicks in logs view
+        break;
+      
       default:
         // Other modes: click anywhere to go back to menu
         this.mode = 'menu';
@@ -1061,14 +1600,47 @@ class ArteryTUI {
     }
   }
   handleMenuInput(key) {
-    // Arrow keys
-    if (key === '\u001b[A') { // Up
-      this.selectedIndex = Math.max(0, this.selectedIndex - 1);
+    // Calculate grid dimensions for spatial navigation (must match renderMenuBorderless)
+    const itemCount = this.menuItems.length;
+    let tilesPerRow;
+    if (this.width >= 120) {
+      tilesPerRow = Math.min(6, Math.ceil(itemCount / Math.ceil(itemCount / 6)));
+    } else if (this.width >= 100) {
+      tilesPerRow = Math.min(5, Math.ceil(itemCount / Math.ceil(itemCount / 5)));
+    } else if (this.width >= 80) {
+      tilesPerRow = Math.min(4, Math.ceil(itemCount / Math.ceil(itemCount / 4)));
+    } else {
+      tilesPerRow = Math.min(3, Math.ceil(itemCount / Math.ceil(itemCount / 3)));
+    }
+    
+    // Arrow keys - spatial grid navigation
+    if (key === '\u001b[A') { // Up - move up one row
+      const newIndex = this.selectedIndex - tilesPerRow;
+      if (newIndex >= 0) {
+        this.selectedIndex = newIndex;
+      }
       this.render();
       return;
     }
-    if (key === '\u001b[B') { // Down
-      this.selectedIndex = Math.min(this.menuItems.length - 1, this.selectedIndex + 1);
+    if (key === '\u001b[B') { // Down - move down one row
+      const newIndex = this.selectedIndex + tilesPerRow;
+      if (newIndex < this.menuItems.length) {
+        this.selectedIndex = newIndex;
+      }
+      this.render();
+      return;
+    }
+    if (key === '\u001b[D') { // Left
+      if (this.selectedIndex > 0) {
+        this.selectedIndex--;
+      }
+      this.render();
+      return;
+    }
+    if (key === '\u001b[C') { // Right
+      if (this.selectedIndex < this.menuItems.length - 1) {
+        this.selectedIndex++;
+      }
       this.render();
       return;
     }
@@ -1284,24 +1856,75 @@ class ArteryTUI {
   }
 
   handleTestsInput(key) {
-    // Arrow keys
-    if (key === '\u001b[A') { // Up
-      let newIndex = this.selectedIndex - 1;
-      // Skip separators
-      while (newIndex >= 0 && this.testFiles?.[newIndex]?.isSeparator) {
-        newIndex--;
+    // Filter out separators for navigation
+    const tests = (this.testFiles || []).filter(t => !t.isSeparator);
+    
+    // Get grid dimensions (must match renderTests)
+    const testCount = tests.length;
+    let tilesPerRow;
+    if (this.width >= 120) {
+      tilesPerRow = Math.min(6, Math.ceil(testCount / Math.ceil(testCount / 6)));
+    } else if (this.width >= 100) {
+      tilesPerRow = Math.min(5, Math.ceil(testCount / Math.ceil(testCount / 5)));
+    } else if (this.width >= 80) {
+      tilesPerRow = Math.min(4, Math.ceil(testCount / Math.ceil(testCount / 4)));
+    } else {
+      tilesPerRow = Math.min(3, Math.ceil(testCount / Math.ceil(testCount / 3)));
+    }
+    
+    // Find current position in filtered list
+    let currentFilteredIdx = 0;
+    let counter = 0;
+    for (let i = 0; i < (this.testFiles || []).length; i++) {
+      if (!this.testFiles[i].isSeparator) {
+        if (i === this.selectedIndex) {
+          currentFilteredIdx = counter;
+          break;
+        }
+        counter++;
       }
-      this.selectedIndex = Math.max(0, newIndex);
+    }
+    
+    // Map filtered index back to original index
+    const filteredToOriginal = (filteredIdx) => {
+      let count = 0;
+      for (let i = 0; i < (this.testFiles || []).length; i++) {
+        if (!this.testFiles[i].isSeparator) {
+          if (count === filteredIdx) return i;
+          count++;
+        }
+      }
+      return 0;
+    };
+    
+    // Arrow keys - spatial grid navigation
+    if (key === '\u001b[A') { // Up - move up one row
+      const newFilteredIdx = currentFilteredIdx - tilesPerRow;
+      if (newFilteredIdx >= 0) {
+        this.selectedIndex = filteredToOriginal(newFilteredIdx);
+      }
       this.render();
       return;
     }
-    if (key === '\u001b[B') { // Down
-      let newIndex = this.selectedIndex + 1;
-      // Skip separators
-      while (newIndex < (this.testFiles?.length || 0) && this.testFiles?.[newIndex]?.isSeparator) {
-        newIndex++;
+    if (key === '\u001b[B') { // Down - move down one row
+      const newFilteredIdx = currentFilteredIdx + tilesPerRow;
+      if (newFilteredIdx < tests.length) {
+        this.selectedIndex = filteredToOriginal(newFilteredIdx);
       }
-      this.selectedIndex = Math.min((this.testFiles?.length || 1) - 1, newIndex);
+      this.render();
+      return;
+    }
+    if (key === '\u001b[D') { // Left
+      if (currentFilteredIdx > 0) {
+        this.selectedIndex = filteredToOriginal(currentFilteredIdx - 1);
+      }
+      this.render();
+      return;
+    }
+    if (key === '\u001b[C') { // Right
+      if (currentFilteredIdx < tests.length - 1) {
+        this.selectedIndex = filteredToOriginal(currentFilteredIdx + 1);
+      }
       this.render();
       return;
     }
@@ -1313,9 +1936,16 @@ class ArteryTUI {
         if (test.params) {
           // Show parameter input mode
           this.currentTest = test;
-          this.testParams = { ...test.defaults };
+          // Initialize testParams from param defaults
+          this.testParams = {};
+          for (const param of test.params) {
+            this.testParams[param.key] = String(param.default || '');
+          }
           this.paramIndex = 0;
-          this.inputBuffer = '';
+          // Initialize inputBuffer with first param in visual order (selects first, then ranges, then toggles)
+          const visualParams = this.getVisualParamOrder(test.params);
+          const firstParam = visualParams[0];
+          this.inputBuffer = String(this.testParams[firstParam?.key] || '');
           this.mode = 'test-params';
           this.render();
         } else {
@@ -1327,7 +1957,9 @@ class ArteryTUI {
   }
   
   handleTestParamsInput(key) {
-    const params = this.currentTest?.params || [];
+    const originalParams = this.currentTest?.params || [];
+    // Use visual order for navigation (selects, ranges, toggles)
+    const params = this.getVisualParamOrder(originalParams);
     const param = params[this.paramIndex];
     
     // Arrow Up - move to previous param
@@ -1338,7 +1970,7 @@ class ArteryTUI {
       }
       this.paramIndex = Math.max(0, this.paramIndex - 1);
       if (this.paramIndex < params.length) {
-        this.inputBuffer = String(this.testParams[params[this.paramIndex]?.key] || '');
+        this.inputBuffer = String(this.testParams[params[this.paramIndex]?.key] || params[this.paramIndex]?.default || '');
       }
       this.render();
       return;
@@ -1352,7 +1984,7 @@ class ArteryTUI {
       }
       this.paramIndex = Math.min(params.length, this.paramIndex + 1);
       if (this.paramIndex < params.length) {
-        this.inputBuffer = String(this.testParams[params[this.paramIndex]?.key] || '');
+        this.inputBuffer = String(this.testParams[params[this.paramIndex]?.key] || params[this.paramIndex]?.default || '');
       } else {
         this.inputBuffer = '';
       }
@@ -1360,9 +1992,9 @@ class ArteryTUI {
       return;
     }
     
-    // Arrow Left/Right - cycle through options for params that have them
+    // Arrow Left/Right - cycle through options or adjust values
     if (key === '\u001b[D' || key === '\u001b[C') { // Left or Right
-      if (param && param.options) {
+      if (param && param.type === 'select' && param.options) {
         const options = param.options;
         const currentVal = this.inputBuffer || this.testParams[param.key] || param.default;
         let idx = options.indexOf(currentVal);
@@ -1378,9 +2010,9 @@ class ArteryTUI {
         this.testParams[param.key] = options[idx];
         this.render();
         return;
-      } else if (param && param.type === 'number') {
-        // For number params, increment/decrement
-        let val = parseInt(this.inputBuffer) || parseInt(param.default) || 0;
+      } else if (param && param.type === 'range') {
+        // For range params, increment/decrement
+        let val = parseInt(this.inputBuffer) || parseInt(param.default) || param.min || 0;
         const step = param.step || 1;
         const min = param.min ?? 1;
         const max = param.max ?? 100;
@@ -1395,29 +2027,42 @@ class ArteryTUI {
         this.testParams[param.key] = String(val);
         this.render();
         return;
+      } else if (param && param.type === 'toggle') {
+        // Toggle between on/off
+        const currentVal = this.testParams[param.key] || param.default || '';
+        const newVal = currentVal ? '' : param.key;
+        this.inputBuffer = newVal;
+        this.testParams[param.key] = newVal;
+        this.render();
+        return;
       }
+    }
+    
+    // Space bar also toggles for toggle params
+    if (key === ' ' && param && param.type === 'toggle') {
+      const currentVal = this.testParams[param.key] || param.default || '';
+      const newVal = currentVal ? '' : param.key;
+      this.inputBuffer = newVal;
+      this.testParams[param.key] = newVal;
+      this.render();
+      return;
     }
     
     // Enter to confirm param or run test
     if (key === '\r' || key === '\n') {
       if (this.paramIndex < params.length && param) {
         // Save current param and move to next
-        this.testParams[param.key] = this.inputBuffer || param.default;
+        this.testParams[param.key] = this.inputBuffer || String(param.default || '');
         this.paramIndex++;
         if (this.paramIndex < params.length) {
-          this.inputBuffer = String(this.testParams[params[this.paramIndex]?.key] || '');
+          this.inputBuffer = String(this.testParams[params[this.paramIndex]?.key] || params[this.paramIndex]?.default || '');
         } else {
           this.inputBuffer = '';
         }
         this.render();
       } else {
         // Run the test with params
-        let args;
-        if (this.currentTest.formatArgs) {
-          args = this.currentTest.formatArgs(params, this.testParams);
-        } else {
-          args = params.map(p => this.testParams[p.key] || p.default).join(' ');
-        }
+        const args = this.buildTestArgs(this.currentTest);
         this.executeTest(this.currentTest.file, args, this.currentTest.isArtery || false);
       }
       return;
@@ -1430,15 +2075,486 @@ class ArteryTUI {
       return;
     }
     
-    // Regular character
+    // Regular character (only for non-select/toggle params)
     if (key.length === 1 && key.charCodeAt(0) >= 32) {
-      this.inputBuffer += key;
+      if (param && (param.type === 'range' || !param.type)) {
+        this.inputBuffer += key;
+        this.render();
+      }
+    }
+  }
+
+  handleTestRunningInput(key) {
+    // Tab - switch between panels
+    if (key === '\t') {
+      this.activePanel = this.activePanel === 'left' ? 'right' : 'left';
       this.render();
+      return;
+    }
+    
+    // Arrow Up - scroll up in active panel
+    if (key === '\u001b[A') {
+      const outputLines = this.testOutput || [];
+      const logLines = this.testLogs || [];
+      const contentHeight = this.height - 6;
+      
+      if (this.activePanel === 'left') {
+        const maxScroll = Math.max(0, outputLines.length - contentHeight);
+        if (this.leftScrollOffset > 0) {
+          this.leftScrollOffset = Math.max(0, this.leftScrollOffset - 1);
+          this.render();
+        }
+      } else {
+        const maxScroll = Math.max(0, logLines.length - contentHeight);
+        if (this.rightScrollOffset > 0) {
+          this.rightScrollOffset = Math.max(0, this.rightScrollOffset - 1);
+          this.render();
+        }
+      }
+      return;
+    }
+    
+    // Arrow Down - scroll down in active panel
+    if (key === '\u001b[B') {
+      const outputLines = this.testOutput || [];
+      const logLines = this.testLogs || [];
+      const contentHeight = this.height - 6;
+      
+      if (this.activePanel === 'left') {
+        const maxScroll = Math.max(0, outputLines.length - contentHeight);
+        if (this.leftScrollOffset < maxScroll) {
+          this.leftScrollOffset = Math.min(maxScroll, this.leftScrollOffset + 1);
+          this.render();
+        }
+      } else {
+        const maxScroll = Math.max(0, logLines.length - contentHeight);
+        if (this.rightScrollOffset < maxScroll) {
+          this.rightScrollOffset = Math.min(maxScroll, this.rightScrollOffset + 1);
+          this.render();
+        }
+      }
+      return;
+    }
+    
+    // Page Up - scroll up by page
+    if (key === '\u001b[5~') {
+      const contentHeight = this.height - 6;
+      if (this.activePanel === 'left') {
+        this.leftScrollOffset = Math.max(0, this.leftScrollOffset - contentHeight);
+      } else {
+        this.rightScrollOffset = Math.max(0, this.rightScrollOffset - contentHeight);
+      }
+      this.render();
+      return;
+    }
+    
+    // Page Down - scroll down by page
+    if (key === '\u001b[6~') {
+      const outputLines = this.testOutput || [];
+      const logLines = this.testLogs || [];
+      const contentHeight = this.height - 6;
+      
+      if (this.activePanel === 'left') {
+        const maxScroll = Math.max(0, outputLines.length - contentHeight);
+        this.leftScrollOffset = Math.min(maxScroll, this.leftScrollOffset + contentHeight);
+      } else {
+        const maxScroll = Math.max(0, logLines.length - contentHeight);
+        this.rightScrollOffset = Math.min(maxScroll, this.rightScrollOffset + contentHeight);
+      }
+      this.render();
+      return;
     }
   }
 
   handleLogsInput(key) {
     // Just escape to exit (handled globally)
+  }
+
+  // === Devices Mode ===
+  async enterDevicesMode() {
+    this.mode = 'devices';
+    this.devicesSubMode = 'list';
+    this.devicesSelectedIndex = 0;
+    await this.fetchDevices();
+    this.render();
+  }
+  
+  async fetchDevices() {
+    this.devicesLoading = true;
+    this.devicesError = null;
+    this.render();
+    
+    try {
+      const response = await new Promise((resolve, reject) => {
+        const req = https.get('https://localhost:8889/devices', { rejectUnauthorized: false }, res => {
+          let data = '';
+          res.on('data', chunk => data += chunk);
+          res.on('end', () => {
+            try {
+              resolve(JSON.parse(data));
+            } catch (e) {
+              reject(e);
+            }
+          });
+        });
+        req.on('error', reject);
+        req.setTimeout(3000, () => {
+          req.destroy();
+          reject(new Error('Timeout'));
+        });
+      });
+      
+      this.devicesList = response.devices || [];
+      this.devicesHostInfo = response.host || null;
+      this.devicesLastFetch = Date.now();
+      this.devicesLoading = false;
+    } catch (e) {
+      this.devicesError = e.message;
+      this.devicesLoading = false;
+    }
+    this.render();
+  }
+  
+  async handleDevicesInput(key) {
+    // Handle sub-modes first
+    if (this.devicesSubMode === 'jump-input') {
+      if (key === '\r') {
+        // Submit jump
+        await this.devicesDoJump(this.devicesJumpInput);
+        this.devicesSubMode = 'list';
+        this.devicesJumpInput = '';
+        this.render();
+        return;
+      }
+      if (key === '\u001b') {
+        this.devicesSubMode = 'list';
+        this.devicesJumpInput = '';
+        this.render();
+        return;
+      }
+      if (key === '\u007f') {
+        this.devicesJumpInput = this.devicesJumpInput.slice(0, -1);
+        this.render();
+        return;
+      }
+      if (key.length === 1 && key >= ' ') {
+        this.devicesJumpInput += key;
+        this.render();
+        return;
+      }
+      return;
+    }
+    
+    if (this.devicesSubMode === 'name-input') {
+      if (key === '\r') {
+        await this.devicesDoName(this.devicesNameInput);
+        this.devicesSubMode = 'list';
+        this.devicesNameInput = '';
+        this.render();
+        return;
+      }
+      if (key === '\u001b') {
+        this.devicesSubMode = 'list';
+        this.devicesNameInput = '';
+        this.render();
+        return;
+      }
+      if (key === '\u007f') {
+        this.devicesNameInput = this.devicesNameInput.slice(0, -1);
+        this.render();
+        return;
+      }
+      if (key.length === 1 && key >= ' ') {
+        this.devicesNameInput += key;
+        this.render();
+        return;
+      }
+      return;
+    }
+    
+    // List mode
+    if (key === '\u001b[A' || key === 'k') { // Up
+      if (this.devicesList.length > 0) {
+        this.devicesSelectedIndex = Math.max(0, this.devicesSelectedIndex - 1);
+        this.render();
+      }
+      return;
+    }
+    if (key === '\u001b[B' || key === 'j') { // Down
+      if (this.devicesList.length > 0) {
+        this.devicesSelectedIndex = Math.min(this.devicesList.length - 1, this.devicesSelectedIndex + 1);
+        this.render();
+      }
+      return;
+    }
+    
+    // Menu actions
+    if (key === 'r') {
+      await this.fetchDevices();
+      return;
+    }
+    if (key === 'j' && this.devicesList.length > 0) {
+      this.devicesSubMode = 'jump-input';
+      this.devicesJumpInput = '';
+      this.render();
+      return;
+    }
+    if (key === 'R' && this.devicesList.length > 0) {
+      const device = this.devicesList[this.devicesSelectedIndex];
+      await this.devicesDoReload(device.id);
+      return;
+    }
+    if (key === 'a') {
+      await this.devicesDoReload('all');
+      return;
+    }
+    if (key === 'n' && this.devicesList.length > 0) {
+      this.devicesSubMode = 'name-input';
+      const device = this.devicesList[this.devicesSelectedIndex];
+      this.devicesNameInput = device.deviceName || '';
+      this.render();
+      return;
+    }
+  }
+  
+  async devicesDoJump(piece) {
+    const device = this.devicesList[this.devicesSelectedIndex];
+    if (!device || !piece) return;
+    
+    try {
+      await new Promise((resolve, reject) => {
+        const postData = JSON.stringify({ piece });
+        const req = https.request({
+          hostname: 'localhost',
+          port: 8889,
+          path: `/jump/${device.id}`,
+          method: 'POST',
+          rejectUnauthorized: false,
+          headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': postData.length
+          }
+        }, res => {
+          let data = '';
+          res.on('data', chunk => data += chunk);
+          res.on('end', () => resolve(JSON.parse(data)));
+        });
+        req.on('error', reject);
+        req.write(postData);
+        req.end();
+      });
+      this.setStatus(`Jumped ${device.handle || device.ip} to ${piece}`, 'success');
+    } catch (e) {
+      this.setStatus(`Jump failed: ${e.message}`, 'error');
+    }
+  }
+  
+  async devicesDoReload(target) {
+    try {
+      await new Promise((resolve, reject) => {
+        const req = https.request({
+          hostname: 'localhost',
+          port: 8889,
+          path: `/reload/${target}`,
+          method: 'POST',
+          rejectUnauthorized: false,
+          headers: { 'Content-Type': 'application/json' }
+        }, res => {
+          let data = '';
+          res.on('data', chunk => data += chunk);
+          res.on('end', () => resolve(JSON.parse(data)));
+        });
+        req.on('error', reject);
+        req.write('{}');
+        req.end();
+      });
+      this.setStatus(`Reloaded ${target === 'all' ? 'all devices' : target}`, 'success');
+      await this.fetchDevices();
+    } catch (e) {
+      this.setStatus(`Reload failed: ${e.message}`, 'error');
+    }
+  }
+  
+  async devicesDoName(name) {
+    const device = this.devicesList[this.devicesSelectedIndex];
+    if (!device) return;
+    
+    try {
+      await new Promise((resolve, reject) => {
+        const postData = JSON.stringify({ name });
+        const req = https.request({
+          hostname: 'localhost',
+          port: 8889,
+          path: `/device/${device.id}/name`,
+          method: 'POST',
+          rejectUnauthorized: false,
+          headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': postData.length
+          }
+        }, res => {
+          let data = '';
+          res.on('data', chunk => data += chunk);
+          res.on('end', () => resolve(JSON.parse(data)));
+        });
+        req.on('error', reject);
+        req.write(postData);
+        req.end();
+      });
+      this.setStatus(`Named device: ${name}`, 'success');
+      await this.fetchDevices();
+    } catch (e) {
+      this.setStatus(`Name failed: ${e.message}`, 'error');
+    }
+  }
+
+  // === FF1 Mode (Feral File Device Scanner) ===
+  async enterFF1Mode() {
+    this.mode = 'ff1';
+    this.ff1SelectedIndex = 0;
+    this.render();
+  }
+  
+  // Scan a single host:port for connectivity
+  async ff1ScanPort(host, port, timeout = 200) {
+    return new Promise(resolve => {
+      const socket = new net.Socket();
+      socket.setTimeout(timeout);
+      socket.on('connect', () => { socket.destroy(); resolve(true); });
+      socket.on('timeout', () => { socket.destroy(); resolve(false); });
+      socket.on('error', () => { socket.destroy(); resolve(false); });
+      socket.connect(port, host);
+    });
+  }
+  
+  // Scan network for FF1 devices
+  async ff1DoScan() {
+    this.ff1Scanning = true;
+    this.ff1Devices = [];
+    this.render();
+    
+    for (const subnet of this.ff1Subnets) {
+      this.ff1ScanProgress = `Scanning ${subnet}.x...`;
+      this.render();
+      
+      // Scan in batches for performance
+      const batchSize = 20;
+      for (let i = 1; i <= 254; i += batchSize) {
+        const batch = [];
+        for (let j = i; j < Math.min(i + batchSize, 255); j++) {
+          const ip = `${subnet}.${j}`;
+          batch.push(
+            Promise.all([
+              this.ff1ScanPort(ip, 22),   // SSH
+              this.ff1ScanPort(ip, 9222), // CDP (usually only on localhost)
+            ]).then(([ssh, cdp]) => ({ ip, ssh, cdp }))
+          );
+        }
+        const results = await Promise.all(batch);
+        for (const r of results) {
+          if (r.ssh || r.cdp) {
+            this.ff1Devices.push(r);
+            this.render();
+          }
+        }
+      }
+    }
+    
+    this.ff1ScanProgress = `Found ${this.ff1Devices.length} device(s)`;
+    this.ff1Scanning = false;
+    this.render();
+  }
+  
+  // Try to connect to FF1 via SSH and get hostname
+  async ff1GetHostname(ip) {
+    return new Promise(resolve => {
+      const { spawn } = require('child_process');
+      const ssh = spawn('ssh', [
+        '-o', 'ConnectTimeout=3',
+        '-o', 'StrictHostKeyChecking=no',
+        '-o', 'BatchMode=yes',
+        `feralfile@${ip}`,
+        'hostname'
+      ]);
+      let output = '';
+      ssh.stdout.on('data', data => output += data);
+      ssh.on('close', code => resolve(code === 0 ? output.trim() : null));
+      ssh.on('error', () => resolve(null));
+    });
+  }
+  
+  // Check CDP on FF1 via SSH tunnel
+  async ff1CheckCDP(ip) {
+    return new Promise(resolve => {
+      const { spawn } = require('child_process');
+      const ssh = spawn('ssh', [
+        '-o', 'ConnectTimeout=3',
+        '-o', 'StrictHostKeyChecking=no',
+        '-o', 'BatchMode=yes',
+        `feralfile@${ip}`,
+        'curl -s http://127.0.0.1:9222/json | head -c 100'
+      ]);
+      let output = '';
+      ssh.stdout.on('data', data => output += data);
+      ssh.on('close', code => resolve(code === 0 && output.includes('webSocketDebuggerUrl')));
+      ssh.on('error', () => resolve(false));
+    });
+  }
+  
+  handleFF1Input(key) {
+    // Navigation
+    if (key === '\u001b[A' || key === 'k') { // Up
+      if (this.ff1Devices.length > 0) {
+        this.ff1SelectedIndex = Math.max(0, this.ff1SelectedIndex - 1);
+        this.render();
+      }
+      return;
+    }
+    if (key === '\u001b[B' || key === 'j') { // Down
+      if (this.ff1Devices.length > 0) {
+        this.ff1SelectedIndex = Math.min(this.ff1Devices.length - 1, this.ff1SelectedIndex + 1);
+        this.render();
+      }
+      return;
+    }
+    
+    // Actions
+    if (key === 's' && !this.ff1Scanning) {
+      this.ff1DoScan();
+      return;
+    }
+    
+    if (key === 'c' && this.ff1Devices.length > 0 && !this.ff1Scanning) {
+      // Check CDP on selected device
+      const device = this.ff1Devices[this.ff1SelectedIndex];
+      this.setStatus(`Checking CDP on ${device.ip}...`, 'info');
+      this.ff1CheckCDP(device.ip).then(hasCdp => {
+        if (hasCdp) {
+          this.setStatus(`✓ CDP available on ${device.ip}`, 'success');
+          device.cdpVerified = true;
+        } else {
+          this.setStatus(`✗ CDP not accessible on ${device.ip}`, 'error');
+        }
+        this.render();
+      });
+      return;
+    }
+    
+    if (key === 'h' && this.ff1Devices.length > 0 && !this.ff1Scanning) {
+      // Get hostname
+      const device = this.ff1Devices[this.ff1SelectedIndex];
+      this.setStatus(`Getting hostname for ${device.ip}...`, 'info');
+      this.ff1GetHostname(device.ip).then(hostname => {
+        if (hostname) {
+          device.hostname = hostname;
+          this.setStatus(`Hostname: ${hostname}`, 'success');
+        } else {
+          this.setStatus(`Could not get hostname (SSH key needed?)`, 'error');
+        }
+        this.render();
+      });
+      return;
+    }
   }
 
   async executeRepl(code) {
@@ -1528,6 +2644,158 @@ class ArteryTUI {
     this.render();
   }
 
+  // 🃏 KidLisp Cards Mode - Control card deck via CDP
+  async enterKidLispCardsMode() {
+    this.mode = 'kidlisp-cards';
+    this.kidlispCardsSelectedIndex = 0;
+    this.kidlispCardsOutput = 'Connecting to KidLisp.com...';
+    this.render();
+    
+    // Find the kidlisp.com CDP page
+    try {
+      const pageId = await this.findKidLispCdpPage();
+      if (pageId) {
+        this.kidlispCardsCdpPageId = pageId;
+        const status = await this.getKidLispCardStatus();
+        this.kidlispCardsOutput = `✓ Connected to KidLisp.com\n${status}`;
+        this.setStatus('KidLisp Cards ready!', 'success');
+      } else {
+        this.kidlispCardsOutput = '⚠ KidLisp.com window not open\nPress [O] to open it';
+        this.setStatus('KidLisp.com not found', 'warn');
+      }
+    } catch (e) {
+      this.kidlispCardsOutput = `✗ CDP error: ${e.message}\nIs VS Code remote debugging enabled?`;
+      this.setStatus('CDP connection failed', 'error');
+    }
+    
+    this.render();
+  }
+  
+  async findKidLispCdpPage() {
+    const http = await import('http');
+    return new Promise((resolve) => {
+      const req = http.get({
+        hostname: 'host.docker.internal', port: 9222, path: '/json',
+        headers: { 'Host': 'localhost' }, timeout: 2000
+      }, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => {
+          try {
+            const targets = JSON.parse(data);
+            const kidlisp = targets.find(t => t.url?.includes('kidlisp.com'));
+            resolve(kidlisp?.id || null);
+          } catch { resolve(null); }
+        });
+      });
+      req.on('error', () => resolve(null));
+      req.on('timeout', () => { req.destroy(); resolve(null); });
+    });
+  }
+  
+  async evalKidLispJS(code) {
+    if (!this.kidlispCardsCdpPageId) return null;
+    const WebSocket = (await import('ws')).default;
+    const ws = new WebSocket(
+      `ws://host.docker.internal:9222/devtools/page/${this.kidlispCardsCdpPageId}`,
+      { headers: { Host: 'localhost' } }
+    );
+    
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => { ws.close(); reject(new Error('Timeout')); }, 3000);
+      ws.on('open', () => {
+        ws.send(JSON.stringify({ id: 1, method: 'Runtime.evaluate', params: { expression: code } }));
+      });
+      ws.on('message', (data) => {
+        clearTimeout(timeout);
+        const msg = JSON.parse(data);
+        ws.close();
+        resolve(msg.result?.result?.value);
+      });
+      ws.on('error', (e) => { clearTimeout(timeout); reject(e); });
+    });
+  }
+  
+  async getKidLispCardStatus() {
+    const mainCount = await this.evalKidLispJS('document.querySelectorAll(".book-frame").length') || 0;
+    const discardCount = await this.evalKidLispJS('document.querySelectorAll(".discard-card").length') || 0;
+    return `📚 Main Stack: ${mainCount} cards\n🗑️  Discard Pile: ${discardCount} cards`;
+  }
+  
+  async kidlispCardsAction(action) {
+    try {
+      switch (action) {
+        case 'next':
+          await this.evalKidLispJS('document.querySelector(".book-stack")?.click()');
+          this.kidlispCardsOutput = '▶ Advanced to next card\n' + await this.getKidLispCardStatus();
+          break;
+        case 'undo':
+          await this.evalKidLispJS('document.querySelector(".discard-pile")?.click()');
+          this.kidlispCardsOutput = '↩ Brought back card from discard\n' + await this.getKidLispCardStatus();
+          break;
+        case 'reset':
+          // Click discard when main stack is empty, or keep clicking until reset
+          const mainCount = await this.evalKidLispJS('document.querySelectorAll(".book-frame").length');
+          if (mainCount === 0) {
+            await this.evalKidLispJS('document.querySelector(".discard-pile")?.click()');
+          }
+          this.kidlispCardsOutput = '🔄 Reset deck\n' + await this.getKidLispCardStatus();
+          break;
+        case 'status':
+          this.kidlispCardsOutput = await this.getKidLispCardStatus();
+          break;
+        case 'open':
+          await this.openKidLisp();
+          setTimeout(() => this.enterKidLispCardsMode(), 1500);
+          return;
+        case 'test':
+          this.kidlispCardsOutput = '🧪 Running card tests...';
+          this.render();
+          const { execSync } = await import('child_process');
+          try {
+            const result = execSync('node artery/test-kidlisp.mjs card-basic', { 
+              encoding: 'utf8', cwd: '/workspaces/aesthetic-computer', timeout: 15000 
+            });
+            this.kidlispCardsOutput = result.slice(-800);
+          } catch (e) {
+            this.kidlispCardsOutput = `Test error: ${e.message}`;
+          }
+          break;
+      }
+      this.setStatus('Action complete', 'success');
+    } catch (e) {
+      this.kidlispCardsOutput = `Error: ${e.message}`;
+      this.setStatus('Action failed', 'error');
+    }
+    this.render();
+  }
+  
+  handleKidLispCardsInput(key) {
+    if (key === 'escape' || key === 'q') {
+      this.mode = 'menu';
+      this.render();
+      return;
+    }
+    
+    if (key === 'up' || key === 'k') {
+      this.kidlispCardsSelectedIndex = Math.max(0, this.kidlispCardsSelectedIndex - 1);
+    } else if (key === 'down' || key === 'j') {
+      this.kidlispCardsSelectedIndex = Math.min(this.kidlispCardsMenu.length - 1, this.kidlispCardsSelectedIndex + 1);
+    } else if (key === 'return') {
+      const actions = ['next', 'undo', 'reset', 'status', 'open', 'test'];
+      this.kidlispCardsAction(actions[this.kidlispCardsSelectedIndex]);
+      return;
+    } else {
+      const item = this.kidlispCardsMenu.find(m => m.key === key.toLowerCase());
+      if (item) {
+        const actions = { n: 'next', u: 'undo', r: 'reset', s: 'status', o: 'open', t: 'test' };
+        this.kidlispCardsAction(actions[key.toLowerCase()]);
+        return;
+      }
+    }
+    this.render();
+  }
+
   // 🧠 Emacs Integration Mode
   async enterEmacsMode() {
     this.mode = 'emacs';
@@ -1611,77 +2879,26 @@ class ArteryTUI {
     // Show available tests
     this.mode = 'tests';
     
+    // Load test configs from JSON
+    const configs = await this.loadTestConfigs();
+    
     // Auto-discover test files from artery/ directory
     const arteryTests = await this.discoverArteryTests();
-    
-    // Available melodies from melodies.mjs
-    const melodyOptions = [
-      'twinkle', 'mary', 'old-macdonald', 'yankee-doodle', 'frere-jacques',
-      'london-bridge', 'row-row-row', 'skip-to-my-lou', 'camptown-races',
-      'oh-susanna', 'amazing-grace', 'auld-lang-syne', 'shenandoah',
-      'home-on-the-range', 'red-river-valley', 'scarborough-fair',
-      'greensleeves', 'when-the-saints', 'danny-boy'
-    ];
-    
-    // Genre + style options for composition test
-    const hiphopStyles = ['trap', 'boombap', 'lofi', '808', 'halftime', 'phonk', 'drill', 'gfunk'];
-    const waltzStyles = ['classic', 'dark', 'dreamy', 'baroque', 'minimal', 'phonk', 'viennese', 'drill'];
-    
-    // Special configs for known tests (params, descriptions, etc.)
-    const testConfigs = {
-      'test-notepat.mjs': {
-        name: 'composition',
-        desc: '🎹 Full composition [waltz/hiphop]',
-        params: [
-          { key: 'genre', label: 'Genre', desc: '←→ to cycle', default: 'waltz', options: ['waltz', 'hiphop'] },
-          { key: 'style', label: 'Style', desc: '←→ to cycle (depends on genre)', default: 'classic', options: [...waltzStyles, ...hiphopStyles] },
-          { key: 'bars', label: 'Bars', desc: '←→ to adjust', default: '24', type: 'number', min: 8, max: 64, step: 4 },
-          { key: 'bpm', label: 'BPM', desc: '←→ to adjust', default: '140', type: 'number', min: 80, max: 200, step: 10 },
-          { key: 'scale', label: 'Scale', desc: '←→ to cycle', default: 'minor', options: ['minor', 'dorian', 'phrygian', 'harmonic', 'major'] },
-          { key: 'room', label: 'Room', desc: '←→ toggle reverb', default: '', options: ['', 'room'] },
-          { key: 'waves', label: 'Waves', desc: '←→ toggle wave changes', default: '', options: ['', 'waves'] },
-        ],
-        defaults: { genre: 'waltz', style: 'classic', bars: '24', bpm: '140', scale: 'minor', room: '', waves: '' },
-        formatArgs: (params, values) => {
-          const parts = [values.genre, values.style];
-          if (values.bars !== '24') parts.push(`bars=${values.bars}`);
-          if (values.bpm !== '140') parts.push(`bpm=${values.bpm}`);
-          if (values.scale !== 'minor') parts.push(`scale=${values.scale}`);
-          if (values.room) parts.push('room');
-          if (values.waves) parts.push('waves');
-          return parts.join(' ');
-        }
-      },
-      'test-hiphop.mjs': {
-        name: 'hiphop',
-        desc: '🎤 Hip-hop beat generator',
-      },
-      'test-trapwaltz.mjs': {
-        name: 'trapwaltz', 
-        desc: '🩰 Trap waltz (3/4 + trap)',
-      },
-      'test-1v1-split.mjs': {
-        name: '1v1-split',
-        desc: '🎮 Split view for 1v1 dueling',
-        // No params needed - just runs with default 1v1~1v1
-      },
-    };
     
     // Build test list from discovered files + legacy .vscode tests
     this.testFiles = [];
     
     // Add discovered artery tests (with configs if available)
     for (const file of arteryTests) {
-      const config = testConfigs[file] || {};
+      const config = configs.tests[file] || {};
       const baseName = file.replace('test-', '').replace('.mjs', '');
       this.testFiles.push({
         name: config.name || baseName,
+        icon: config.icon || '▸',
         file: `artery/${file}`,
         desc: config.desc || `Artery test: ${baseName}`,
         isArtery: true,
-        params: config.params,
-        defaults: config.defaults,
-        formatArgs: config.formatArgs,
+        params: config.params ? this.expandParams(config.params, configs.presets) : null,
       });
     }
     
@@ -1689,41 +2906,75 @@ class ArteryTUI {
     this.testFiles.push({ name: '───────────', file: null, desc: 'Legacy .vscode tests', isSeparator: true });
     
     // Legacy .vscode/tests
-    this.testFiles.push(
-      { name: 'notepat-fuzz', file: 'test-notepat.mjs', desc: 'Notepat fuzzing test' },
-      {
-        name: 'melody',
-        file: 'test-melody.mjs',
-        desc: 'Melody playback [configurable]',
-        params: [
-          { key: 'melody', label: 'Melody', desc: '←→ to cycle', default: 'twinkle', options: melodyOptions },
-        ],
-        defaults: { melody: 'twinkle' }
-      },
-      { name: 'chords', file: 'test-chords.mjs', desc: 'Chord progression test' },
-      { name: 'line', file: 'test-line.mjs', desc: 'Line drawing test' },
-      { name: 'toss', file: 'test-toss.mjs', desc: 'Comprehensive toss test' },
-      { name: 'playlist', file: 'test-playlist.mjs', desc: 'Playlist test' },
-      { 
-        name: 'waltz', 
-        file: 'test-generative-waltz.mjs', 
-        desc: 'Generative waltz [configurable]',
-        params: [
-          { key: 'bars', label: 'Bars', desc: '←→ to adjust', default: '8', type: 'number', min: 4, max: 32, step: 4 },
-          { key: 'scale', label: 'Scale', desc: '←→ to cycle', default: 'major', options: ['major', 'minor', 'dorian'] },
-          { key: 'seed', label: 'Seed', desc: 'Random seed (type or ←→)', default: String(Date.now()), type: 'number', min: 1, max: 999999, step: 111 },
-          { key: 'tempo', label: 'Tempo', desc: '←→ to cycle', default: 'slow', options: ['slow', 'medium', 'viennese'] },
-          { key: 'topline', label: 'Top Line', desc: '←→ toggle', default: '', options: ['', 'topline'] },
-          { key: 'infinite', label: 'Infinite', desc: '←→ toggle', default: '', options: ['', 'infinite'] },
-          { key: 'frolic', label: 'Frolic', desc: '←→ toggle (fast RH)', default: '', options: ['', 'frolic'] },
-          { key: 'beat', label: 'Beat', desc: '←→ toggle (drums)', default: '', options: ['', 'beat'] },
-        ],
-        defaults: { bars: '8', scale: 'major', seed: String(Date.now()), tempo: 'slow', topline: '', infinite: '', frolic: '', beat: '' }
-      },
-    );
+    for (const [file, config] of Object.entries(configs.legacy)) {
+      this.testFiles.push({
+        name: config.name,
+        icon: config.icon || '▸',
+        file: file,
+        desc: config.desc,
+        isArtery: false,
+        params: config.params ? this.expandParams(config.params, configs.presets) : null,
+      });
+    }
+    
     this.selectedIndex = 0;
     this.setStatus('Select a test to run (Enter for params)', 'info');
     this.render();
+  }
+  
+  // Load test configs from JSON file
+  async loadTestConfigs() {
+    try {
+      const configPath = path.join(path.dirname(new URL(import.meta.url).pathname), 'test-configs.json');
+      const data = fs.readFileSync(configPath, 'utf-8');
+      return JSON.parse(data);
+    } catch (e) {
+      this.addLog(`Failed to load test-configs.json: ${e.message}`, 'error');
+      return { presets: {}, tests: {}, legacy: {} };
+    }
+  }
+  
+  // Expand params with preset references ($presetName)
+  expandParams(params, presets) {
+    const expanded = [];
+    for (const [key, param] of Object.entries(params)) {
+      const p = { key, ...param };
+      
+      // Expand preset references in options
+      if (p.options && typeof p.options === 'string') {
+        // Handle $preset+$preset syntax
+        const parts = p.options.split('+').map(s => s.trim());
+        p.options = parts.flatMap(part => {
+          if (part.startsWith('$')) {
+            const presetName = part.slice(1);
+            return presets[presetName] || [];
+          }
+          return [part];
+        });
+      } else if (p.options && Array.isArray(p.options)) {
+        // Expand any preset refs in array
+        p.options = p.options.flatMap(opt => {
+          if (typeof opt === 'string' && opt.startsWith('$')) {
+            return presets[opt.slice(1)] || [];
+          }
+          return [opt];
+        });
+      }
+      
+      // Handle special default values
+      if (p.default === 'now') {
+        p.default = String(Date.now());
+      }
+      
+      // Convert toggle defaults
+      if (p.type === 'toggle') {
+        p.options = ['', key]; // Toggle between empty and the key name
+        p.default = p.default ? key : '';
+      }
+      
+      expanded.push(p);
+    }
+    return expanded;
   }
   
   // Auto-discover test-*.mjs files in artery/ directory
@@ -1740,9 +2991,14 @@ class ArteryTUI {
   }
   
   async executeTest(testFile, args = '', isArtery = false) {
-    this.mode = 'logs';
+    // Switch to split-panel test running mode
+    this.mode = 'test-running';
     this.testRunning = true;
     this.pendingRender = false;
+    this.testOutput = []; // Left panel - stdout (generative output)
+    this.testLogs = [];   // Right panel - stderr/console logs
+    this.testFile = testFile;
+    this.testArgs = args;
     const argsDisplay = args ? ` (${args})` : '';
     this.setStatus(`Running ${testFile}${argsDisplay}...`, 'info');
     this.render();
@@ -1766,24 +3022,32 @@ class ArteryTUI {
       
       proc.stdout.on('data', (data) => {
         const lines = data.toString().split('\n').filter(l => l.trim());
-        lines.forEach(line => this.addLog(line, 'log'));
+        lines.forEach(line => {
+          this.testOutput.push({ text: line, time: this.getUTCTimeString() });
+          // Keep output manageable
+          if (this.testOutput.length > 100) this.testOutput.shift();
+        });
+        this.render();
       });
       
       proc.stderr.on('data', (data) => {
         const lines = data.toString().split('\n').filter(l => l.trim());
-        lines.forEach(line => this.addLog(line, 'error'));
+        lines.forEach(line => {
+          this.testLogs.push({ text: line, time: this.getUTCTimeString(), level: 'error' });
+          this.addLog(line, 'error'); // Also add to main logs
+          if (this.testLogs.length > 100) this.testLogs.shift();
+        });
+        this.render();
       });
       
       proc.on('close', (code) => {
         this.testRunning = false;
         if (code === 0) {
           this.setStatus(`Test ${testFile} completed!`, 'success');
+          this.testLogs.push({ text: `✓ Completed successfully`, time: this.getUTCTimeString(), level: 'success' });
         } else {
           this.setStatus(`Test ${testFile} exited with code ${code}`, 'error');
-        }
-        // Do the deferred render now that test is complete
-        if (this.pendingRender) {
-          this.pendingRender = false;
+          this.testLogs.push({ text: `✗ Exited with code ${code}`, time: this.getUTCTimeString(), level: 'error' });
         }
         this.render();
       });
@@ -1970,6 +3234,1689 @@ class ArteryTUI {
     this.render();
   }
 
+  // 🔮 Keeps (Tezos FA2) Mode - SIMPLIFIED
+  async enterKeepsMode() {
+    this.mode = 'keeps';
+    this.keepsSelectedIndex = 0;
+    this.keepsOutput = 'Ready. Press a key to run a command.';
+    this.keepsRunning = false;
+    this.keepsPieceInput = '';
+    this.keepsSubMode = 'menu';
+    this.loadAcAuth(); // Refresh auth status
+    this.render();
+    // Skip loading - just show the menu immediately
+  }
+  
+  // Fetch user's KidLisp pieces from API
+  async fetchUserPieces() {
+    if (!this.acAuth?.user?.sub) {
+      this.userPiecesError = 'Not logged in';
+      return;
+    }
+    
+    this.userPiecesLoading = true;
+    this.userPiecesError = null;
+    this.render();
+    
+    try {
+      // Use local dev server
+      process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+      const res = await fetch('https://localhost:8888/api/store-kidlisp?recent=true&limit=100');
+      
+      if (!res.ok) {
+        throw new Error(`API error: ${res.status}`);
+      }
+      
+      const data = await res.json();
+      const userSub = this.acAuth.user.sub;
+      
+      // Filter pieces by this user
+      this.userPieces = (data.recent || [])
+        .filter(p => p.user === userSub)
+        .map(p => ({
+          code: p.code,
+          source: p.source || '',
+          preview: p.source ? p.source.replace(/\n/g, ' ').slice(0, 50) : p.code,
+          kept: !!p.tezos?.minted,
+          hits: p.hits || 0,
+          when: p.when ? new Date(p.when) : null,
+        }));
+      
+      this.userPiecesLoading = false;
+    } catch (e) {
+      this.userPiecesLoading = false;
+      this.userPiecesError = e.message;
+    }
+    this.render();
+  }
+  
+  // Fetch top pieces globally (sorted by hits)
+  async fetchTopPieces(filterHandle = null) {
+    this.userPiecesLoading = true;
+    this.userPiecesError = null;
+    this.render();
+    
+    try {
+      process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+      // Fetch top hits sorted by hits count server-side, with optional handle filter
+      let url = 'https://localhost:8888/api/store-kidlisp?recent=true&limit=500&sort=hits';
+      if (filterHandle) {
+        url += `&handle=${encodeURIComponent(filterHandle)}`;
+      }
+      const res = await fetch(url);
+      
+      if (!res.ok) {
+        throw new Error(`API error: ${res.status}`);
+      }
+      
+      const data = await res.json();
+      
+      // Pieces are already filtered by handle and sorted by hits server-side
+      let pieces = data.recent || [];
+      
+      // Check which are already kept on the current contract
+      const keptCodes = new Set();
+      try {
+        const keysRes = await fetch('https://api.ghostnet.tzkt.io/v1/contracts/KT1StXrQNvRd9dNPpHdCGEstcGiBV6neq79K/bigmaps/content_hashes/keys');
+        if (keysRes.ok) {
+          const keys = await keysRes.json();
+          // Keys are hex-encoded, decode them to plain text
+          keys.forEach(k => {
+            const decoded = Buffer.from(k.key, 'hex').toString('utf8');
+            keptCodes.add(decoded);
+          });
+        }
+      } catch (e) {
+        // Ignore - can't check kept status
+      }
+      
+      this.userPieces = pieces
+        .map(p => ({
+          code: p.code,
+          source: p.source || '',
+          preview: p.source ? p.source.replace(/\n/g, ' ').slice(0, 50) : p.code,
+          kept: keptCodes.has(p.code),
+          hits: p.hits || 0,
+          when: p.when ? new Date(p.when) : null,
+          handle: p.handle || '@anon',
+        }))
+        .sort((a, b) => b.hits - a.hits); // Sort by hits descending
+      
+      this.userPiecesLoading = false;
+    } catch (e) {
+      this.userPiecesLoading = false;
+      this.userPiecesError = e.message;
+    }
+    this.render();
+  }
+  
+  // Load AC auth token from ~/.ac-token
+  loadAcAuth() {
+    try {
+      const tokenFile = path.join(os.homedir(), '.ac-token');
+      if (fs.existsSync(tokenFile)) {
+        const data = JSON.parse(fs.readFileSync(tokenFile, 'utf8'));
+        const expired = data.expires_at && Date.now() > data.expires_at;
+        this.acAuth = expired ? null : data;
+      } else {
+        this.acAuth = null;
+      }
+    } catch (e) {
+      this.acAuth = null;
+    }
+  }
+  
+  // Login to AC (opens browser)
+  async loginAc() {
+    if (this.mode === 'keeps') {
+      this.keepsOutput = '🌐 Opening browser for AC login...\n';
+      this.keepsRunning = true;
+      this.keepsSubMode = 'running'; // Block input during login
+    }
+    this.render();
+    
+    const loginScript = path.join(process.cwd(), 'tezos/ac-login.mjs');
+    
+    return new Promise((resolve) => {
+      const child = spawn('node', [loginScript], {
+        cwd: process.cwd(),
+        stdio: ['ignore', 'pipe', 'pipe'],
+        env: { ...process.env, BROWSER: process.env.BROWSER || '' }
+      });
+      
+      child.stdout.on('data', (data) => {
+        if (this.mode === 'keeps') {
+          this.keepsOutput += data.toString();
+        }
+        this.render();
+      });
+      
+      child.stderr.on('data', (data) => {
+        if (this.mode === 'keeps') {
+          this.keepsOutput += data.toString();
+        }
+        this.render();
+      });
+      
+      child.on('close', (code) => {
+        if (this.mode === 'keeps') {
+          this.keepsRunning = false;
+          this.keepsSubMode = 'menu'; // Reset to menu after login completes
+        }
+        this.loadAcAuth(); // Reload auth status
+        if (code === 0 && this.acAuth) {
+          const name = this.acAuth.user?.handle 
+            ? `@${this.acAuth.user.handle}` 
+            : this.acAuth.user?.email || 'unknown';
+          if (this.mode === 'keeps') {
+            this.keepsOutput += `\n✅ Logged in as ${name}\n`;
+          }
+        }
+        this.render();
+        resolve(code === 0);
+      });
+    });
+  }
+  
+  // Logout from AC
+  logoutAc() {
+    try {
+      const tokenFile = path.join(os.homedir(), '.ac-token');
+      if (fs.existsSync(tokenFile)) {
+        fs.unlinkSync(tokenFile);
+      }
+      this.acAuth = null;
+      if (this.mode === 'keeps') {
+        this.keepsOutput = '✅ Logged out from AC\n';
+      }
+    } catch (e) {
+      if (this.mode === 'keeps') {
+        this.keepsOutput = `❌ Logout error: ${e.message}\n`;
+      }
+    }
+    this.render();
+  }
+  
+  // Get auth display for header
+  getAcAuthDisplay() {
+    if (!this.acAuth) return '○ not logged in';
+    const name = this.acAuth.user?.handle 
+      ? `@${this.acAuth.user.handle}` 
+      : this.acAuth.user?.email?.split('@')[0] || '?';
+    return `● ${name}`;
+  }
+  
+  // Toggle login/logout from main menu
+  async toggleAcLogin() {
+    if (this.acAuth) {
+      this.logoutAc();
+      this.setStatus('Logged out from AC', 'info');
+    } else {
+      this.setStatus('Opening browser for AC login...', 'info');
+      await this.loginAc();
+      if (this.acAuth) {
+        const name = this.acAuth.user?.handle 
+          ? `@${this.acAuth.user.handle}` 
+          : this.acAuth.user?.email || 'unknown';
+        this.setStatus(`Logged in as ${name}`, 'success');
+      }
+    }
+    this.render();
+  }
+  
+  // Start tezbot daemon if not running
+  async ensureTezbot() {
+    const tezbotScript = path.join(process.cwd(), 'tezos/ac-tezbot.mjs');
+    const pidFile = '/tmp/tezbot.pid';
+    
+    // Check if already running
+    if (fs.existsSync(pidFile)) {
+      try {
+        const pid = parseInt(fs.readFileSync(pidFile, 'utf8').trim());
+        process.kill(pid, 0); // Check if process exists
+        return; // Already running
+      } catch (e) {
+        // Stale PID file, remove it
+        fs.unlinkSync(pidFile);
+      }
+    }
+    
+    // Start tezbot in background
+    try {
+      const child = spawn('node', [tezbotScript], {
+        cwd: process.cwd(),
+        detached: true,
+        stdio: ['ignore', 'ignore', 'ignore']
+      });
+      child.unref();
+      this.setStatus('🤖 Tezbot daemon started', 'success');
+      // Give it a moment to initialize
+      await new Promise(r => setTimeout(r, 300));
+    } catch (e) {
+      this.setStatus('⚠️ Could not start tezbot', 'warning');
+    }
+  }
+  
+  // Load contract data from TzKT API with timeout
+  async loadKeepsData() {
+    const fetchWithTimeout = (url, timeout = 5000) => {
+      return Promise.race([
+        fetch(url),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Request timeout')), timeout)
+        )
+      ]);
+    };
+    
+    try {
+      const contractAddress = this.keepsContractData.address;
+      const network = this.keepsContractData.network;
+      
+      // Fetch contract storage from TzKT
+      const storageUrl = `https://api.${network}.tzkt.io/v1/contracts/${contractAddress}/storage`;
+      const storageRes = await fetchWithTimeout(storageUrl);
+      if (storageRes.ok) {
+        const storage = await storageRes.json();
+        this.keepsContractData.tokenCount = parseInt(storage.next_token_id) || 0;
+        this.keepsContractData.admin = storage.administrator?.slice(0, 8) + '...' || 'unknown';
+        this.keepsEngineeringTasks.mintsCompleted = this.keepsContractData.tokenCount;
+      }
+      
+      // Fetch recent tokens
+      const tokensUrl = `https://api.${network}.tzkt.io/v1/contracts/${contractAddress}/bigmaps/token_metadata/keys?limit=5&sort.desc=id`;
+      const tokensRes = await fetchWithTimeout(tokensUrl);
+      if (tokensRes.ok) {
+        const tokens = await tokensRes.json();
+        const objktBase = network === 'ghostnet' ? 'https://ghostnet.objkt.com' : 'https://objkt.com';
+        this.keepsContractData.recentTokens = tokens.map(t => ({
+          id: t.key,
+          name: t.value?.token_info?.name ? Buffer.from(t.value.token_info.name, 'hex').toString() : `#${t.key}`,
+          active: t.active,
+          objktUrl: `${objktBase}/asset/${contractAddress}/${t.key}`,
+        })).reverse();
+      }
+      
+      // Fetch admin balance
+      const adminAddr = 'tz1gkf8EexComFBJvjtT1zdsisdah791KwBE'; // aesthetic.tez
+      const balanceUrl = `https://api.${network}.tzkt.io/v1/accounts/${adminAddr}/balance`;
+      const balanceRes = await fetchWithTimeout(balanceUrl);
+      if (balanceRes.ok) {
+        const balance = await balanceRes.json();
+        this.keepsContractData.balance = (balance / 1_000_000).toFixed(2);
+      }
+      
+      this.keepsContractData.lastUpdated = new Date().toLocaleTimeString();
+      this.keepsOutput = 'Dashboard loaded. Ready.';
+      
+      // Parse implementation plan for tasks
+      await this.loadKeepsEngineeringTasks();
+      
+    } catch (e) {
+      this.keepsOutput = `⚠️ Could not load live data: ${e.message}`;
+    }
+    this.render();
+  }
+  
+  // Parse engineering tasks from implementation plan
+  async loadKeepsEngineeringTasks() {
+    try {
+      const planPath = path.join(process.cwd(), 'tezos/KEEPS-IMPLEMENTATION-PLAN.md');
+      if (fs.existsSync(planPath)) {
+        const content = fs.readFileSync(planPath, 'utf8');
+        
+        // Parse current phase
+        if (content.includes('Phase A — Ghostnet hardening (IN PROGRESS)')) {
+          this.keepsEngineeringTasks.phase = 'A';
+          this.keepsEngineeringTasks.phaseName = 'Ghostnet Hardening';
+        } else if (content.includes('Phase B') && content.includes('IN PROGRESS')) {
+          this.keepsEngineeringTasks.phase = 'B';
+          this.keepsEngineeringTasks.phaseName = 'Mainnet Staging';
+        } else if (content.includes('Phase C') && content.includes('IN PROGRESS')) {
+          this.keepsEngineeringTasks.phase = 'C';
+          this.keepsEngineeringTasks.phaseName = 'Mainnet Production';
+        }
+        
+        // Parse next steps (numbered list after "Next steps")
+        const nextStepsMatch = content.match(/\*\*Next steps\*\*:\s*\n((?:\s+\d+\..+\n?)+)/);
+        if (nextStepsMatch) {
+          this.keepsEngineeringTasks.nextSteps = nextStepsMatch[1]
+            .split('\n')
+            .filter(l => /^\s+\d+\./.test(l))
+            .map(l => l.replace(/^\s+\d+\.\s*/, '').trim())
+            .slice(0, 5);
+        }
+        
+        // Parse verify items
+        const verifyMatch = content.match(/- Verify:\s*\n((?:\s+-.+\n?)+)/);
+        if (verifyMatch) {
+          this.keepsEngineeringTasks.currentFocus = verifyMatch[1]
+            .split('\n')
+            .filter(l => /^\s+-/.test(l))
+            .map(l => l.replace(/^\s+-\s*/, '').trim())
+            .slice(0, 4);
+        }
+      }
+    } catch (e) {
+      // Silently fail - not critical
+    }
+  }
+
+  handleKeepsInput(key) {
+    if (this.keepsRunning) {
+      return;
+    }
+    
+    // Handle queue view navigation
+    if (this.keepsSubMode === 'queue') {
+      if (key === '\u001b') { // ESC - back to menu
+        this.keepsSubMode = 'menu';
+        this.render();
+        return;
+      } else if (key === '\u001b[A' || key === 'k') { // Up
+        if (this.keepQueueIndex > 0) {
+          this.keepQueueIndex--;
+        }
+      } else if (key === '\u001b[B' || key === 'j') { // Down
+        if (this.keepQueueIndex < this.keepQueue.length - 1) {
+          this.keepQueueIndex++;
+        }
+      } else if (key === 'x' || key === 'X' || key === '\u007f') { // x or backspace - remove from queue
+        if (this.keepQueue.length > 0) {
+          const removed = this.keepQueue.splice(this.keepQueueIndex, 1)[0];
+          this.keepsOutput = `🗑️ Removed $${removed.code} from queue\n`;
+          if (this.keepQueueIndex >= this.keepQueue.length) {
+            this.keepQueueIndex = Math.max(0, this.keepQueue.length - 1);
+          }
+        }
+      } else if (key === 'c' || key === 'C') { // Clear queue
+        this.keepQueue = [];
+        this.keepQueueIndex = 0;
+        this.keepsOutput = '🗑️ Queue cleared\n';
+      } else if (key === '\r' && this.keepQueue.length > 0) { // Enter - process next in queue
+        this.processKeepQueue();
+        return;
+      } else if (key === 'a' || key === 'A') { // Process all in queue
+        if (this.keepQueue.length > 0) {
+          this.keepQueueProcessing = true;
+          this.processKeepQueue();
+        }
+        return;
+      } else if (key === 'l' || key === 'L') { // Load queue from file
+        this.loadQueueFromFile();
+        return;
+      }
+      this.render();
+      return;
+    }
+    
+    // Handle pieces list navigation
+    if (this.keepsSubMode === 'pieces-list') {
+      if (key === '\u001b') { // ESC - back to menu
+        this.keepsSubMode = 'menu';
+        this.render();
+        return;
+      } else if (key === '\u001b[A' || key === 'k') { // Up
+        if (this.userPiecesIndex > 0) {
+          this.userPiecesIndex--;
+        }
+      } else if (key === '\u001b[B' || key === 'j') { // Down
+        if (this.userPiecesIndex < this.userPieces.length - 1) {
+          this.userPiecesIndex++;
+        }
+      } else if (key === '\r') { // Enter - keep immediately
+        const piece = this.userPieces[this.userPiecesIndex];
+        if (piece && !piece.kept) {
+          this.executeKeep(piece.code);
+        } else if (piece?.kept) {
+          this.keepsOutput = `⚠️ $${piece.code} is already kept!\n`;
+        }
+        return;
+      } else if (key === 'q' || key === ' ') { // q or space - add to queue
+        const piece = this.userPieces[this.userPiecesIndex];
+        if (piece && !piece.kept) {
+          // Check if already in queue
+          if (!this.keepQueue.find(q => q.code === piece.code)) {
+            this.keepQueue.push({ code: piece.code, hits: piece.hits });
+            this.keepsOutput = `📥 Added $${piece.code} to queue (${this.keepQueue.length} in queue)\n`;
+          } else {
+            this.keepsOutput = `⚠️ $${piece.code} is already in queue\n`;
+          }
+        } else if (piece?.kept) {
+          this.keepsOutput = `⚠️ $${piece.code} is already kept!\n`;
+        }
+      } else if (key === 'r' || key === 'R') { // Refresh list
+        this.fetchUserPieces();
+        return;
+      } else if (key === 't' || key === 'T') { // Toggle to top hits (all users or filtered)
+        this.userPiecesIndex = 0;
+        const handle = this.acAuth?.user?.handle ? `@${this.acAuth.user.handle}` : null;
+        this.keepsOutput = handle ? `📊 Loading ${handle}'s top hits...` : '📊 Loading top hits...';
+        this.render();
+        this.fetchTopPieces(handle);
+        return;
+      }
+      this.render();
+      return;
+    }
+    
+    if (this.keepsSubMode === 'piece-input') {
+      if (key === '\r') {
+        const piece = this.keepsPieceInput.trim();
+        if (piece) {
+          this.keepsSubMode = 'running';
+          const action = this.keepsPendingAction || this.keepsMenu[this.keepsSelectedIndex].key;
+          if (action === 'keep') {
+            this.executeKeep(piece);
+          } else {
+            this.executeKeepsAction(action, piece);
+          }
+        }
+        return;
+      } else if (key === '\u007f' || key === '\b') {
+        this.keepsPieceInput = this.keepsPieceInput.slice(0, -1);
+      } else if (key === '\u001b') {
+        this.keepsSubMode = 'menu';
+        this.keepsPieceInput = '';
+        this.keepsPendingAction = null;
+      } else if (key.length === 1 && key >= ' ') {
+        this.keepsPieceInput += key;
+      }
+      this.render();
+      return;
+    }
+    
+    // Confirm keep after preview
+    if (this.keepsSubMode === 'confirm-keep') {
+      if (key === '\r') {
+        // User confirmed - proceed with mint
+        const piece = this.keepsPendingPiece;
+        this.keepsPendingPiece = null;
+        this.keepsSubMode = 'running';
+        this.executeKeepMint(piece);
+        return;
+      } else if (key === '\u001b' || key === 'n' || key === 'N') {
+        // User cancelled
+        this.keepsOutput = '❌ Keep cancelled\n';
+        this.keepsPendingPiece = null;
+        this.keepsSubMode = 'menu';
+        this.render();
+        return;
+      }
+      // Ignore other keys during confirmation
+      return;
+    }
+    
+    // Grid navigation (4 columns for wide, 3 for compact)
+    const cols = this.width < 100 ? 3 : 4;
+    const rows = Math.ceil(this.keepsMenu.length / cols);
+    const currentRow = Math.floor(this.keepsSelectedIndex / cols);
+    const currentCol = this.keepsSelectedIndex % cols;
+    
+    // Arrow key / vim navigation in grid
+    if (key === '\u001b[A' || key === 'k') { // Up
+      if (currentRow > 0) {
+        this.keepsSelectedIndex = (currentRow - 1) * cols + currentCol;
+      }
+    } else if (key === '\u001b[B' || key === 'j') { // Down
+      if (currentRow < rows - 1) {
+        const newIdx = (currentRow + 1) * cols + currentCol;
+        if (newIdx < this.keepsMenu.length) {
+          this.keepsSelectedIndex = newIdx;
+        }
+      }
+    } else if (key === '\u001b[D' || key === 'h') { // Left
+      if (this.keepsSelectedIndex > 0) {
+        this.keepsSelectedIndex--;
+      }
+    } else if (key === '\u001b[C' || key === 'l') { // Right
+      if (this.keepsSelectedIndex < this.keepsMenu.length - 1) {
+        this.keepsSelectedIndex++;
+      }
+    } else if (key === '\r') { // Enter
+      const action = this.keepsMenu[this.keepsSelectedIndex];
+      this.handleKeepsAction(action.key);
+    } else {
+      // Direct key press - check both exact case and lowercase
+      const action = this.keepsMenu.find(m => m.key === key || m.key === key.toLowerCase());
+      if (action) {
+        this.keepsSelectedIndex = this.keepsMenu.indexOf(action);
+        this.handleKeepsAction(action.key);
+      }
+    }
+    this.render();
+  }
+  
+  async handleKeepsAction(actionKey) {
+    // Clear any existing sixel when taking a new action
+    if (this.keepsSixel) {
+      clearSixelArea(18, 15, this.width);
+      this.keepsSixel = null;
+    }
+    
+    // Special actions that don't run keeps.mjs
+    switch (actionKey) {
+      case 'f': // Fishy - jump to terminal
+        await this.keepsJumpToFishy();
+        return;
+      case 'e': // Explorer
+        this.keepsOpenExplorer();
+        return;
+      case 'o': // Objkt
+        this.keepsOpenObjkt();
+        return;
+      case 'r': // Run tests
+        this.keepsSubMode = 'running';
+        await this.keepsRunTests();
+        return;
+      case 'L': // Login/Logout
+        if (this.acAuth) {
+          this.logoutAc();
+        } else {
+          await this.loginAc();
+        }
+        return;
+      case 'K': // Keep via AC server (requires login)
+        if (!this.acAuth) {
+          this.keepsOutput = '❌ Must be logged in to keep. Press L to login.\n';
+          this.render();
+          return;
+        }
+        // Show user's pieces list for selection
+        this.keepsSubMode = 'pieces-list';
+        this.userPiecesIndex = 0;
+        this.keepsOutput = `📋 Loading @${this.acAuth.user?.handle || 'user'}'s pieces...`;
+        this.render();
+        await this.fetchUserPieces();
+        return;
+      case 'Q': // Queue management
+        this.keepsSubMode = 'queue';
+        this.keepQueueIndex = 0;
+        if (this.keepQueue.length === 0) {
+          this.keepsOutput = '📭 Queue is empty. Press K to add pieces, then q to queue them.\n';
+        } else {
+          this.keepsOutput = `📋 ${this.keepQueue.length} piece(s) in queue\n`;
+        }
+        this.render();
+        return;
+    }
+    
+    // Actions that need piece input
+    if (actionKey === 'u' || actionKey === 'm' || actionKey === 'l') {
+      this.keepsSubMode = 'piece-input';
+      this.keepsPieceInput = this.currentPiece || '';
+      this.keepsPendingAction = actionKey; // Track pending action
+      return;
+    }
+    
+    // Standard keeps.mjs actions
+    this.keepsSubMode = 'running';
+    await this.executeKeepsAction(actionKey);
+  }
+
+  async executeKeep(piece) {
+    this.keepsRunning = true;
+    this.keepsOutput = '👁️ Preview: Opening piece in AC panel...\n';
+    this.render();
+    
+    if (!this.acAuth?.access_token) {
+      this.keepsOutput = '❌ Not logged in. Press L to login first.';
+      this.keepsRunning = false;
+      this.keepsSubMode = 'menu';
+      this.render();
+      return;
+    }
+    
+    // Step 1: Ensure panel is open and connected
+    try {
+      if (!this.connected || !this.client) {
+        this.keepsOutput += '📺 Opening AC panel...\n';
+        this.render();
+        
+        // Try to open the panel
+        const result = await Artery.togglePanelStandalone();
+        
+        if (result.toggled && result.nowExpanded) {
+          this.keepsOutput += '✅ Panel opened!\n';
+          this.render();
+          
+          // Wait for panel to initialize
+          await new Promise(r => setTimeout(r, 800));
+          
+          // Connect to the panel
+          this.keepsOutput += '🔌 Connecting...\n';
+          this.render();
+          await this.connect();
+          
+          if (!this.connected || !this.client) {
+            this.keepsOutput += '⚠️  Could not connect to panel - minting without preview\n';
+            this.render();
+            await this.executeKeepMint(piece);
+            return;
+          }
+        } else if (result.toggled && !result.nowExpanded) {
+          // Panel was closed by toggle, open it again
+          this.keepsOutput += '📺 Re-opening panel...\n';
+          this.render();
+          await Artery.togglePanelStandalone();
+          await new Promise(r => setTimeout(r, 800));
+          await this.connect();
+          
+          if (!this.connected || !this.client) {
+            this.keepsOutput += '⚠️  Could not connect - minting without preview\n';
+            this.render();
+            await this.executeKeepMint(piece);
+            return;
+          }
+        } else {
+          this.keepsOutput += '⚠️  Could not find AC panel - minting without preview\n';
+          this.render();
+          await this.executeKeepMint(piece);
+          return;
+        }
+      }
+      
+      // Step 2: Jump to piece for preview (add $ prefix for KidLisp pieces)
+      const pieceUrl = piece.startsWith('$') ? piece : `$${piece}`;
+      this.keepsOutput += `🎯 Jumping to ${pieceUrl}...\n`;
+      this.render();
+      
+      await this.client.jump(pieceUrl);
+      this.currentPiece = pieceUrl;
+      this.keepsOutput += `✅ Previewing ${pieceUrl} in AC panel\n`;
+      this.keepsOutput += `\n📋 Press ENTER to confirm mint, ESC to cancel\n`;
+      this.keepsSubMode = 'confirm-keep';
+      this.keepsPendingPiece = piece;
+      this.keepsRunning = false;
+      this.render();
+      return;
+      
+    } catch (e) {
+      this.keepsOutput += `⚠️  Preview failed: ${e.message} - minting anyway\n`;
+      this.render();
+    }
+    
+    // If preview failed, mint directly
+    await this.executeKeepMint(piece);
+  }
+  
+  async executeKeepMint(piece) {
+    this.keepsRunning = true;
+    this.keepsOutput += '🔒 Keep: Connecting to server...\n';
+    this.render();
+    
+    // Use local dev server when available (supports https with self-signed cert)
+    const apiUrl = 'https://localhost:8888/api/keep-mint';
+    
+    try {
+      // Enable fetch for self-signed certs in development
+      process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.acAuth.access_token}`,
+          'Content-Type': 'application/json',
+          'Accept': 'text/event-stream',
+        },
+        // Use mode: "mint" for server-side minting (server wallet pays gas, mints to user)
+        body: JSON.stringify({ piece, mode: 'mint' }),
+      });
+      
+      if (!response.ok) {
+        const text = await response.text();
+        this.keepsOutput += `❌ Server error (${response.status}): ${text}\n`;
+        this.keepsRunning = false;
+        this.render();
+        // Continue queue processing even on error
+        if (this.keepQueueProcessing && this.keepQueue.length > 0) {
+          this.keepsSubMode = 'queue';
+          setTimeout(() => this.processKeepQueue(), 1500);
+        } else {
+          this.keepsSubMode = 'menu';
+        }
+        return;
+      }
+      
+      // Parse SSE stream
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let tokenId = null;
+      let currentEvent = 'progress';
+      let errorOccurred = false;
+      
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+        
+        for (const line of lines) {
+          // Track event type
+          if (line.startsWith('event: ')) {
+            currentEvent = line.slice(7).trim();
+            continue;
+          }
+          
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              
+              // Handle error events
+              if (currentEvent === 'error' || data.error) {
+                this.keepsOutput += `❌ Error: ${data.error}\n`;
+                if (data.tokenId) {
+                  this.keepsOutput += `   Already minted as token #${data.tokenId}\n`;
+                  this.keepsOutput += `   View: ${data.objktUrl}\n`;
+                  if (data.name) this.keepsOutput += `   Name: ${data.name}\n`;
+                  if (data.minter) this.keepsOutput += `   Minter: ${data.minter}\n`;
+                  
+                  // Skip sixel during queue processing to avoid blocking
+                  if (!this.keepQueueProcessing && data.thumbnailUri) {
+                    this.keepsOutput += `   📷 Fetching thumbnail...\n`;
+                    this.render();
+                    const imageData = await fetchTerminalImage(data.thumbnailUri, 20, 10);
+                    if (imageData) {
+                      // Store sixel for rendering after TUI completes
+                      this.keepsSixel = imageData;
+                      this.keepsOutput = this.keepsOutput.replace('📷 Fetching thumbnail...', '✅ Thumbnail below:');
+                    } else {
+                      this.keepsOutput = this.keepsOutput.replace('📷 Fetching thumbnail...', '❌ Thumbnail unavailable');
+                    }
+                  }
+                }
+                this.setStatus('Keep failed: ' + data.error, 'error');
+                // Mark as error to skip success handling at end
+                errorOccurred = true;
+              } else if (currentEvent === 'complete' && data.success) {
+                // Handle successful completion
+                tokenId = data.tokenId;
+                this.keepsOutput += `✅ Minted as token #${tokenId}!\n`;
+                if (data.txHash) this.keepsOutput += `   → Tx: ${data.txHash.slice(0, 20)}...\n`;
+                if (data.objktUrl) this.keepsOutput += `   → View: ${data.objktUrl}\n`;
+              } else if (data.stage) {
+                const icon = data.success === false ? '❌' : 
+                            data.done ? '✅' : '⏳';
+                this.keepsOutput += `${icon} ${data.stage}`;
+                if (data.message) this.keepsOutput += `: ${data.message}`;
+                this.keepsOutput += '\n';
+                
+                if (data.tokenId) tokenId = data.tokenId;
+                if (data.opHash) this.keepsOutput += `   → Op: ${data.opHash}\n`;
+              }
+              
+              this.render();
+            } catch (e) {
+              // Non-JSON data, skip
+            }
+          }
+        }
+      }
+      
+      if (tokenId) {
+        this.keepsOutput += `\n🎉 Minted as token #${tokenId}!\n`;
+        this.keepsOutput += `   View: https://ghostnet.objkt.com/tokens/keeps-${tokenId}\n`;
+        this.setStatus(`Kept "${piece}" as token #${tokenId}`, 'success');
+        this.loadKeepsData();
+      }
+      
+    } catch (err) {
+      this.keepsOutput = `❌ Error: ${err.message}`;
+      this.setStatus('Keep failed', 'error');
+    }
+    
+    this.keepsRunning = false;
+    this.keepsSubMode = 'menu';
+    this.keepsPendingAction = null;
+    this.render();
+    
+    // Continue processing queue if active
+    if (this.keepQueueProcessing && this.keepQueue.length > 0) {
+      this.keepsSubMode = 'queue';
+      // Small delay to let user see the result
+      setTimeout(() => this.processKeepQueue(), 1500);
+    }
+  }
+  
+  // Process next item in keep queue
+  async processKeepQueue() {
+    if (this.keepQueue.length === 0) {
+      this.keepsOutput = '✅ Queue complete! All pieces kept.\n';
+      this.keepQueueProcessing = false;
+      this.keepsSubMode = 'menu';
+      this.render();
+      return;
+    }
+    
+    // Take the first item from queue
+    const item = this.keepQueue.shift();
+    this.keepQueueIndex = 0;
+    
+    this.keepsOutput = `📦 Keeping $${item.code} (${this.keepQueue.length} remaining in queue)...\n`;
+    this.render();
+    
+    // Execute keep (this will call back to processKeepQueue if keepQueueProcessing is true)
+    await this.executeKeepMint(item.code);
+  }
+  
+  // Load queue from file (one code per line or comma-separated)
+  async loadQueueFromFile() {
+    const queueFilePath = path.join(process.cwd(), 'keep-queue.txt');
+    
+    if (!fs.existsSync(queueFilePath)) {
+      this.keepsOutput = `❌ File not found: ${queueFilePath}\n` +
+        `Create keep-queue.txt with one code per line or comma-separated.\n`;
+      this.render();
+      return;
+    }
+    
+    try {
+      const content = fs.readFileSync(queueFilePath, 'utf8').trim();
+      // Support both newline-separated and comma-separated formats
+      const codes = content.split(/[\n,]+/)
+        .map(c => c.trim().replace(/^\$/, '')) // Strip leading $ and whitespace
+        .filter(c => c.length > 0 && c.length <= 12); // Valid code lengths
+      
+      if (codes.length === 0) {
+        this.keepsOutput = '❌ No valid codes found in keep-queue.txt\n';
+        this.render();
+        return;
+      }
+      
+      // Check which are already kept via TzKT
+      this.keepsOutput = `📂 Loading ${codes.length} codes from keep-queue.txt...\n`;
+      this.render();
+      
+      const keptCodes = new Set();
+      try {
+        const keysRes = await fetch('https://api.ghostnet.tzkt.io/v1/contracts/KT1StXrQNvRd9dNPpHdCGEstcGiBV6neq79K/bigmaps/content_hashes/keys?limit=10000');
+        if (keysRes.ok) {
+          const keys = await keysRes.json();
+          keys.forEach(k => {
+            const decoded = Buffer.from(k.key, 'hex').toString('utf8');
+            keptCodes.add(decoded);
+          });
+        }
+      } catch (e) {
+        this.keepsOutput += `⚠️ Could not check kept status: ${e.message}\n`;
+      }
+      
+      // Filter out already kept and duplicates in queue
+      const existingInQueue = new Set(this.keepQueue.map(q => q.code));
+      let added = 0;
+      let skippedKept = 0;
+      let skippedDupe = 0;
+      
+      for (const code of codes) {
+        if (keptCodes.has(code)) {
+          skippedKept++;
+        } else if (existingInQueue.has(code)) {
+          skippedDupe++;
+        } else {
+          this.keepQueue.push({ code, hits: 0 });
+          existingInQueue.add(code);
+          added++;
+        }
+      }
+      
+      this.keepsOutput = `✅ Loaded ${added} pieces to queue\n`;
+      if (skippedKept > 0) this.keepsOutput += `   Skipped ${skippedKept} (already kept)\n`;
+      if (skippedDupe > 0) this.keepsOutput += `   Skipped ${skippedDupe} (already in queue)\n`;
+      this.keepsOutput += `   Queue now has ${this.keepQueue.length} pieces\n`;
+      
+    } catch (e) {
+      this.keepsOutput = `❌ Error reading file: ${e.message}\n`;
+    }
+    
+    this.render();
+  }
+
+  async executeKeepsAction(actionKey, piece = null) {
+    this.keepsRunning = true;
+    this.keepsOutput = '⏳ Running...\n';
+    this.render();
+    
+    // Quick ops go through tezbot daemon (non-blocking)
+    const quickOps = ['b', 's', 't'];
+    if (quickOps.includes(actionKey)) {
+      return this.executeViaTezbot(actionKey);
+    }
+    
+    // Longer ops (deploy, mint, upload, lock) run keeps.mjs directly for live output
+    const keepsScript = path.join(process.cwd(), 'tezos/keeps.mjs');
+    
+    let args;
+    switch (actionKey) {
+      case 'd':
+        args = ['deploy'];
+        break;
+      case 'u':
+        args = ['upload', piece];
+        break;
+      case 'm':
+        args = ['mint', piece];
+        break;
+      case 'l':
+        args = ['lock', piece];
+        break;
+      default:
+        this.keepsOutput = '❌ Unknown action';
+        this.keepsRunning = false;
+        this.keepsSubMode = 'menu';
+        this.render();
+        return;
+    }
+    
+    const timeoutMs = 120000; // 2 min for longer ops
+    
+    // Use spawn for non-blocking execution with live output
+    return new Promise((resolve) => {
+      let child;
+      let output = '';
+      let resolved = false;
+      
+      const cleanup = () => {
+        if (resolved) return;
+        resolved = true;
+        this.keepsRunning = false;
+        this.keepsSubMode = 'menu';
+        this.render();
+        resolve();
+      };
+      
+      try {
+        child = spawn('node', [keepsScript, ...args.filter(Boolean)], {
+          cwd: process.cwd(),
+          env: process.env,
+          stdio: ['ignore', 'pipe', 'pipe'],
+        });
+      } catch (err) {
+        this.keepsOutput = `❌ Failed to spawn: ${err.message}`;
+        cleanup();
+        return;
+      }
+      
+      child.stdout.on('data', (data) => {
+        output += data.toString();
+        this.keepsOutput = output;
+        this.render();
+      });
+      
+      child.stderr.on('data', (data) => {
+        output += data.toString();
+        this.keepsOutput = output;
+        this.render();
+      });
+      
+      child.on('close', (code) => {
+        if (resolved) return;
+        if (code === 0) {
+          this.setStatus('Keeps operation completed', 'success');
+          // Refresh data after successful operation
+          if (['m', 'd', 'l'].includes(actionKey)) {
+            this.loadKeepsData();
+          }
+        } else {
+          this.setStatus('Keeps operation failed', 'error');
+        }
+        cleanup();
+      });
+      
+      child.on('error', (err) => {
+        if (resolved) return;
+        this.keepsOutput = `❌ Error: ${err.message}`;
+        this.setStatus('Keeps operation failed', 'error');
+        cleanup();
+      });
+      
+      // Timeout - shorter for network ops
+      setTimeout(() => {
+        if (!resolved) {
+          try { child.kill('SIGKILL'); } catch (e) {}
+          const timeoutSec = timeoutMs / 1000;
+          this.keepsOutput += `\n\n❌ Operation timed out (${timeoutSec}s)`;
+          this.setStatus('Keeps operation timed out', 'error');
+          cleanup();
+        }
+      }, timeoutMs);
+    });
+  }
+  
+  // Execute quick ops via tezbot daemon (non-blocking)
+  // SIMPLIFIED: Run keeps.mjs directly with spawn to avoid IPC complexity
+  async executeViaTezbot(actionKey) {
+    const actionMap = {
+      'b': 'balance',
+      's': 'status', 
+      't': 'tokens'
+    };
+    
+    const action = actionMap[actionKey];
+    if (!action) {
+      this.keepsOutput = '❌ Unknown action';
+      this.keepsRunning = false;
+      this.keepsSubMode = 'menu';
+      this.render();
+      return;
+    }
+    
+    this.keepsOutput = `⏳ Running ${action}...\n`;
+    this.render();
+    
+    const keepsScript = path.join(process.cwd(), 'tezos/keeps.mjs');
+    
+    return new Promise((resolve) => {
+      let output = '';
+      let resolved = false;
+      
+      const cleanup = () => {
+        if (resolved) return;
+        resolved = true;
+        this.keepsRunning = false;
+        this.keepsSubMode = 'menu';
+        this.render();
+        resolve();
+      };
+      
+      let child;
+      try {
+        child = spawn('node', [keepsScript, action], {
+          cwd: process.cwd(),
+          env: process.env,
+          stdio: ['ignore', 'pipe', 'pipe'],
+        });
+      } catch (err) {
+        this.keepsOutput = `❌ Failed: ${err.message}`;
+        cleanup();
+        return;
+      }
+      
+      child.stdout.on('data', (data) => {
+        output += data.toString();
+      });
+      
+      child.stderr.on('data', (data) => {
+        output += data.toString();
+      });
+      
+      child.on('close', (code) => {
+        if (resolved) return;
+        this.keepsOutput = output.trim() || (code === 0 ? '✅ Done' : '❌ Failed');
+        if (code === 0) {
+          this.setStatus(`${action} completed`, 'success');
+        } else {
+          this.setStatus(`${action} failed`, 'error');
+        }
+        cleanup();
+      });
+      
+      child.on('error', (err) => {
+        if (resolved) return;
+        this.keepsOutput = `❌ Error: ${err.message}`;
+        cleanup();
+      });
+      
+      // 30s timeout for network calls
+      setTimeout(() => {
+        if (!resolved) {
+          try { child.kill('SIGKILL'); } catch (e) {}
+          this.keepsOutput = output + '\n\n❌ Timeout (30s)';
+          cleanup();
+        }
+      }, 30000);
+    });
+  }
+  
+  async keepsJumpToFishy() {
+    // Switch to fishy buffer via emacsclient (with timeout to prevent hangs)
+    try {
+      execSync('emacsclient -e \'(switch-to-buffer "🐟-fishy")\'', { encoding: 'utf8', timeout: 3000 });
+      this.setStatus('Jumped to 🐟-fishy', 'success');
+    } catch (e) {
+      this.keepsOutput = `⚠️ Could not switch to fishy: ${e.message}\nTry: emacsclient -e '(switch-to-buffer "🐟-fishy")'`;
+    }
+    this.render();
+  }
+  
+  keepsOpenExplorer() {
+    const url = `https://${this.keepsContractData.network}.tzkt.io/${this.keepsContractData.address}`;
+    try {
+      execSync(`"$BROWSER" "${url}" 2>/dev/null || xdg-open "${url}" 2>/dev/null &`, { shell: true, timeout: 3000 });
+      this.keepsOutput = `🔗 Opened: ${url}`;
+      this.setStatus('Opened tzkt explorer', 'success');
+    } catch (e) {
+      this.keepsOutput = `🔗 Explorer: ${url}`;
+    }
+    this.render();
+  }
+  
+  keepsOpenObjkt() {
+    const url = `https://${this.keepsContractData.network}.objkt.com/collection/${this.keepsContractData.address}`;
+    try {
+      execSync(`"$BROWSER" "${url}" 2>/dev/null || xdg-open "${url}" 2>/dev/null &`, { shell: true, timeout: 3000 });
+      this.keepsOutput = `🔗 Opened: ${url}`;
+      this.setStatus('Opened objkt collection', 'success');
+    } catch (e) {
+      this.keepsOutput = `🔗 Objkt: ${url}`;
+    }
+    this.render();
+  }
+  
+  async keepsRunTests() {
+    this.keepsRunning = true;
+    this.keepsOutput = '🧪 Running Keeps test suite...\n\n';
+    this.render();
+    
+    // Run a simple status check as a "test" using spawn (non-blocking)
+    const keepsScript = path.join(process.cwd(), 'tezos/keeps.mjs');
+    
+    return new Promise((resolve) => {
+      const child = spawn('node', [keepsScript, 'status'], {
+        cwd: process.cwd(),
+        env: process.env,
+      });
+      
+      let result = '';
+      
+      child.stdout.on('data', (data) => {
+        result += data.toString();
+        this.keepsOutput = '🧪 Running Keeps test suite...\n\n' + result;
+        this.render();
+      });
+      
+      child.stderr.on('data', (data) => {
+        result += data.toString();
+        this.keepsOutput = '🧪 Running Keeps test suite...\n\n' + result;
+        this.render();
+      });
+      
+      child.on('close', (code) => {
+        if (code === 0) {
+          this.keepsOutput = '🧪 Test Results:\n\n';
+          this.keepsOutput += '✅ Contract accessible\n';
+          this.keepsOutput += `✅ Token count: ${this.keepsContractData.tokenCount}\n`;
+          this.keepsOutput += `✅ Network: ${this.keepsContractData.network}\n`;
+          this.keepsOutput += '\n' + result;
+          
+          // Check progress toward 20 mints
+          const progress = Math.min(100, (this.keepsContractData.tokenCount / 20) * 100);
+          this.keepsOutput += `\n📊 Progress: ${this.keepsContractData.tokenCount}/20 test mints (${progress.toFixed(0)}%)`;
+          
+          this.setStatus('Tests passed', 'success');
+        } else {
+          this.keepsOutput = `❌ Test failed (exit code ${code})\n\n${result}`;
+          this.setStatus('Tests failed', 'error');
+        }
+        
+        this.keepsRunning = false;
+        this.keepsSubMode = 'menu';
+        this.render();
+        resolve();
+      });
+      
+      child.on('error', (err) => {
+        this.keepsOutput = `❌ Test error: ${err.message}`;
+        this.keepsRunning = false;
+        this.keepsSubMode = 'menu';
+        this.setStatus('Tests failed', 'error');
+        this.render();
+        resolve();
+      });
+      
+      // Timeout after 30 seconds
+      setTimeout(() => {
+        if (this.keepsRunning) {
+          child.kill();
+          this.keepsOutput += '\n\n❌ Test timed out (30s)';
+          this.keepsRunning = false;
+          this.keepsSubMode = 'menu';
+          this.render();
+          resolve();
+        }
+      }, 30000);
+    });
+  }
+
+  renderKeeps() {
+    const boxWidth = this.innerWidth;
+    
+    // Auth status
+    const authDisplay = this.getAcAuthDisplay();
+    const authColor = this.acAuth ? FG_GREEN : FG_BRIGHT_RED;
+    
+    // Simple header with auth
+    this.writeLine(`${BG_MAGENTA}${FG_WHITE}${BOLD} 🔮 KEEPS - Tezos FA2 ${'─'.repeat(Math.max(0, boxWidth - 25))}${RESET}`);
+    const headerInfo = `Network: ghostnet | AC: ${authDisplay}`;
+    this.writeLine(`${BG_MAGENTA}${FG_WHITE} ${headerInfo}${' '.repeat(Math.max(0, boxWidth - headerInfo.length - 2))}${RESET}`);
+    this.writeLine(`${BG_BLACK}${' '.repeat(boxWidth)}${RESET}`);
+    
+    // Actions - simple list (with login/logout)
+    this.writeLine(`${BG_BRIGHT_BLACK}${FG_WHITE}${BOLD} ACTIONS ${' '.repeat(Math.max(0, boxWidth - 10))}${RESET}`);
+    
+    const actions = [
+      ['s', 'Status'], ['b', 'Balance'], ['t', 'Tokens'], ['K', 'Keep'],
+      ['Q', `Queue(${this.keepQueue.length})`], ['m', 'Mint (Local)'], ['u', 'Upload'], ['l', 'Lock'],
+      ['d', 'Deploy'], ['e', 'Explorer'], ['o', 'Objkt'], ['r', 'Run Tests'],
+      ['f', 'Fishy'], this.acAuth ? ['L', 'Logout'] : ['L', 'Login']
+    ];
+    
+    // Render in rows of 4
+    for (let i = 0; i < actions.length; i += 4) {
+      let row = '';
+      for (let j = 0; j < 4 && i + j < actions.length; j++) {
+        const [key, label] = actions[i + j];
+        const idx = i + j;
+        const selected = idx === this.keepsSelectedIndex;
+        const actionWidth = Math.floor(boxWidth / 4);
+        const text = `[${key}] ${label}`;
+        const pad = Math.max(0, actionWidth - text.length - 1);
+        
+        if (selected) {
+          row += `${BG_CYAN}${FG_BLACK}${BOLD}▶${text}${' '.repeat(pad)}${RESET}`;
+        } else {
+          row += `${BG_BRIGHT_BLACK}${FG_WHITE} ${text}${' '.repeat(pad)}${RESET}`;
+        }
+      }
+      this.writeLine(row);
+    }
+    
+    // Piece input overlay
+    if (this.keepsSubMode === 'piece-input') {
+      this.writeLine(`${BG_YELLOW}${FG_BLACK}${BOLD} Piece: ${this.keepsPieceInput}█${' '.repeat(Math.max(0, boxWidth - 10 - this.keepsPieceInput.length))}${RESET}`);
+    }
+    
+    // Pieces list overlay (when selecting a piece to Keep)
+    if (this.keepsSubMode === 'pieces-list') {
+      const handle = this.acAuth?.user?.handle || 'user';
+      const queueCount = this.keepQueue.length > 0 ? ` Q:${this.keepQueue.length}` : '';
+      this.writeLine(`${BG_CYAN}${FG_BLACK}${BOLD} 📋 @${handle}'s Pieces (↑↓ q=queue t=top ENTER=keep R=refresh ESC=back)${queueCount} ${' '.repeat(Math.max(0, boxWidth - 72 - handle.length - queueCount.length))}${RESET}`);
+      
+      if (this.userPiecesLoading) {
+        this.writeLine(`${BG_BLACK}${FG_YELLOW} ⏳ Loading pieces...${' '.repeat(Math.max(0, boxWidth - 22))}${RESET}`);
+      } else if (this.userPiecesError) {
+        this.writeLine(`${BG_BLACK}${FG_RED} ❌ ${this.userPiecesError}${' '.repeat(Math.max(0, boxWidth - 5 - this.userPiecesError.length))}${RESET}`);
+      } else if (this.userPieces.length === 0) {
+        this.writeLine(`${BG_BLACK}${FG_YELLOW} No pieces found. Create one at prompt.ac!${' '.repeat(Math.max(0, boxWidth - 44))}${RESET}`);
+      } else {
+        // Show list of pieces (max 12 visible)
+        const maxVisible = Math.min(12, this.innerHeight - 10);
+        const startIdx = Math.max(0, this.userPiecesIndex - Math.floor(maxVisible / 2));
+        const endIdx = Math.min(this.userPieces.length, startIdx + maxVisible);
+        
+        for (let i = startIdx; i < endIdx; i++) {
+          const p = this.userPieces[i];
+          const selected = i === this.userPiecesIndex;
+          const keptStatus = p.kept 
+            ? `${FG_GREEN}✓ KEPT  ${RESET}` 
+            : `${FG_YELLOW}○ unkept${RESET}`;
+          const hitsLabel = `💫${String(p.hits).padStart(3)}`;
+          const preview = p.preview.slice(0, Math.max(20, boxWidth - 45));
+          
+          const prefix = selected ? `${BG_CYAN}${FG_BLACK}${BOLD}▶` : `${BG_BLACK}${FG_WHITE} `;
+          const code = `$${p.code}`;
+          const info = `${keptStatus} ${code.padEnd(8)} ${hitsLabel} ${DIM}${preview}${RESET}`;
+          const lineContent = `${prefix}${info}`;
+          const stripped = this.stripAnsi(lineContent);
+          const pad = Math.max(0, boxWidth - this.getVisualWidth(stripped));
+          
+          this.writeLine(`${lineContent}${selected ? BG_CYAN : BG_BLACK}${' '.repeat(pad)}${RESET}`);
+        }
+        
+        // Scroll indicator
+        if (this.userPieces.length > maxVisible) {
+          const scrollInfo = `${startIdx + 1}-${endIdx} of ${this.userPieces.length}`;
+          this.writeLine(`${BG_BRIGHT_BLACK}${FG_WHITE}${DIM} ${scrollInfo}${' '.repeat(Math.max(0, boxWidth - scrollInfo.length - 2))}${RESET}`);
+        }
+      }
+    } else if (this.keepsSubMode === 'queue') {
+      // Queue view
+      this.writeLine(`${BG_YELLOW}${FG_BLACK}${BOLD} 📦 Keep Queue (↑↓ x=remove c=clear L=load A=all ESC=back) ${' '.repeat(Math.max(0, boxWidth - 61))}${RESET}`);
+      
+      if (this.keepQueue.length === 0 && !this.keepQueueProcessing) {
+        this.writeLine(`${BG_BLACK}${FG_YELLOW} Queue empty. K=browse q=add, or L=load from keep-queue.txt${' '.repeat(Math.max(0, boxWidth - 60))}${RESET}`);
+      } else if (this.keepQueue.length > 0) {
+        // Show queue items (compact when processing to leave room for output)
+        const maxVisible = this.keepQueueProcessing ? Math.min(4, this.keepQueue.length) : Math.min(12, this.innerHeight - 10);
+        const startIdx = Math.max(0, this.keepQueueIndex - Math.floor(maxVisible / 2));
+        const endIdx = Math.min(this.keepQueue.length, startIdx + maxVisible);
+        
+        for (let i = startIdx; i < endIdx; i++) {
+          const item = this.keepQueue[i];
+          const selected = i === this.keepQueueIndex;
+          const hitsLabel = `💫${String(item.hits || 0).padStart(4)}`;
+          const posLabel = `#${i + 1}`.padStart(3);
+          
+          const prefix = selected ? `${BG_YELLOW}${FG_BLACK}${BOLD}▶` : `${BG_BLACK}${FG_WHITE} `;
+          const code = `$${item.code}`;
+          const info = `${posLabel} ${code.padEnd(8)} ${hitsLabel}`;
+          const lineContent = `${prefix}${info}`;
+          const stripped = this.stripAnsi(lineContent);
+          const pad = Math.max(0, boxWidth - this.getVisualWidth(stripped));
+          
+          this.writeLine(`${lineContent}${selected ? BG_YELLOW : BG_BLACK}${' '.repeat(pad)}${RESET}`);
+        }
+        
+        // Queue summary
+        const totalHits = this.keepQueue.reduce((sum, q) => sum + (q.hits || 0), 0);
+        const summary = `${this.keepQueue.length} remaining | ${totalHits} total hits`;
+        this.writeLine(`${BG_BRIGHT_BLACK}${FG_WHITE}${BOLD} ${summary}${' '.repeat(Math.max(0, boxWidth - summary.length - 2))}${RESET}`);
+      }
+      
+      // Show output when processing (so user can see what's happening)
+      if (this.keepQueueProcessing || this.keepsRunning) {
+        this.writeLine(`${BG_BLACK}${FG_CYAN}${BOLD} OUTPUT ${' '.repeat(Math.max(0, boxWidth - 9))}${RESET}`);
+        const outputLines = (this.keepsOutput || '').split('\n').slice(-10); // Last 10 lines during processing
+        for (const line of outputLines) {
+          const truncated = line.length > boxWidth - 2 ? line.slice(0, boxWidth - 5) + '...' : line;
+          this.writeLine(`${BG_BLACK}${FG_WHITE} ${truncated}${' '.repeat(Math.max(0, boxWidth - truncated.length - 2))}${RESET}`);
+        }
+      }
+    } else {
+      // Output (only when not in pieces-list mode)
+      this.writeLine(`${BG_BLACK}${FG_CYAN}${BOLD} OUTPUT ${' '.repeat(Math.max(0, boxWidth - 9))}${RESET}`);
+      
+      const outputLines = (this.keepsOutput || '').split('\n').slice(-15); // Last 15 lines
+      for (const line of outputLines) {
+        const truncated = line.length > boxWidth - 2 ? line.slice(0, boxWidth - 5) + '...' : line;
+        this.writeLine(`${BG_BLACK}${FG_WHITE} ${truncated}${' '.repeat(Math.max(0, boxWidth - truncated.length - 2))}${RESET}`);
+      }
+    }
+    
+    // Fill remaining
+    const piecesListLines = this.keepsSubMode === 'pieces-list' ? 
+      (this.userPiecesLoading || this.userPiecesError || this.userPieces.length === 0 ? 2 : Math.min(13, this.userPieces.length + 2)) : 0;
+    const queueLines = this.keepsSubMode === 'queue' ?
+      (this.keepQueue.length === 0 ? 2 : Math.min(14, this.keepQueue.length + 3)) : 0;
+    const outputLines = (this.keepsSubMode === 'pieces-list' || this.keepsSubMode === 'queue') ? [] : (this.keepsOutput || '').split('\n').slice(-15);
+    const used = 4 + Math.ceil(actions.length / 4) + (this.keepsSubMode === 'piece-input' ? 1 : 0) + 
+                 (this.keepsSubMode === 'pieces-list' ? piecesListLines : 0) +
+                 (this.keepsSubMode === 'queue' ? queueLines : 0) +
+                 (outputLines.length > 0 ? 1 + outputLines.length : 0);
+    for (let i = used; i < this.innerHeight - 2; i++) {
+      this.writeLine(`${BG_BLACK}${' '.repeat(boxWidth)}${RESET}`);
+    }
+    
+    // Status
+    const queueStatus = this.keepQueue.length > 0 ? ` | Queue: ${this.keepQueue.length}` : '';
+    const status = this.keepsRunning ? '⏳ Running...' : '✓ Ready';
+    this.writeLine(`${BG_BRIGHT_BLACK}${FG_WHITE} ${status}${queueStatus} | ESC=back ${' '.repeat(Math.max(0, boxWidth - 25 - queueStatus.length))}${RESET}`);
+  }
+  
+  renderKeepsOLD() {
+    const boxWidth = this.innerWidth;
+    const compact = this.width < 100;
+    const colWidth = compact ? boxWidth : Math.floor((boxWidth - 1) / 2);
+    
+    // Theme colors - magenta/purple for Tezos
+    const KEEPS_BG = BG_MAGENTA;
+    const KEEPS_FG = FG_WHITE;
+    const KEEPS_ACCENT = FG_BRIGHT_YELLOW;
+    const KEEPS_DIM = `${BG_MAGENTA}${DIM}${FG_WHITE}`;
+    const KEEPS_BORDER = `${BG_MAGENTA}${FG_BRIGHT_CYAN}`;
+    
+    // Header with full background
+    this.writeLine(`${KEEPS_BG}${KEEPS_FG}${'═'.repeat(boxWidth)}${RESET}`);
+    const title = '🔮 KEEPS - Tezos FA2 Development Workbench';
+    const padding = Math.max(0, boxWidth - title.length - 2);
+    this.writeLine(`${KEEPS_BG}${KEEPS_FG}${BOLD} ${title}${' '.repeat(padding)}${RESET}`);
+    this.writeLine(`${KEEPS_BG}${KEEPS_FG}${'═'.repeat(boxWidth)}${RESET}`);
+    
+    const cd = this.keepsContractData;
+    const et = this.keepsEngineeringTasks;
+    
+    if (!compact) {
+      // Two-column layout with consistent background
+      this.writeLine(`${KEEPS_BG}${'─'.repeat(colWidth)}┬${'─'.repeat(colWidth - 1)}${RESET}`);
+      
+      // Build left column (CONTRACT)
+      const leftLines = [
+        `${KEEPS_ACCENT}${BOLD} CONTRACT${RESET}`,
+        `${KEEPS_DIM} Network:${RESET}${KEEPS_BG}  ${FG_BRIGHT_GREEN}${cd.network}${RESET}`,
+        `${KEEPS_DIM} Address:${RESET}${KEEPS_BG}  ${KEEPS_FG}${cd.address.slice(0, 15)}...${RESET}`,
+        `${KEEPS_DIM} Admin:${RESET}${KEEPS_BG}    ${KEEPS_FG}${cd.admin}${RESET}`,
+        `${KEEPS_DIM} Tokens:${RESET}${KEEPS_BG}   ${FG_BRIGHT_YELLOW}${BOLD}${cd.tokenCount}${RESET}${KEEPS_BG} minted${RESET}`,
+        `${KEEPS_DIM} Balance:${RESET}${KEEPS_BG}  ${FG_BRIGHT_GREEN}~${cd.balance} XTZ${RESET}`,
+        `${KEEPS_BG}${RESET}`,
+        `${KEEPS_BG}${FG_BRIGHT_CYAN} Recent Tokens:${RESET}`,
+      ];
+      
+      // Add tokens with objkt links
+      if (cd.recentTokens.length > 0) {
+        cd.recentTokens.slice(0, 3).forEach(t => {
+          const status = t.active ? `${FG_BRIGHT_GREEN}●${RESET}` : `${FG_RED}○${RESET}`;
+          leftLines.push(`${KEEPS_BG}  ${status}${KEEPS_BG} ${DIM}[${t.id}]${RESET}${KEEPS_BG} ${KEEPS_FG}${t.name}${RESET}`);
+          if (t.objktUrl) {
+            leftLines.push(`${KEEPS_BG}      ${DIM}${FG_CYAN}${t.objktUrl}${RESET}`);
+          }
+        });
+      } else {
+        leftLines.push(`${KEEPS_BG}${DIM}  (none)${RESET}`);
+      }
+      
+      // Build right column (ENGINEERING)
+      const rightLines = [
+        `${KEEPS_BG}${FG_BRIGHT_MAGENTA}${BOLD} PHASE ${et.phase}${RESET}${KEEPS_BG}${KEEPS_FG} ${et.phaseName}${RESET}`,
+        `${KEEPS_BG}${RESET}`,
+        `${KEEPS_BG}${FG_BRIGHT_CYAN} Progress to Phase B:${RESET}`,
+        `${KEEPS_BG} ${this.renderProgressBar(et.mintsCompleted, 20, colWidth - 4)}${RESET}`,
+        `${KEEPS_BG}${KEEPS_FG}  ${et.mintsCompleted}/20 test mints${RESET}`,
+        `${KEEPS_BG}${RESET}`,
+        `${KEEPS_BG}${FG_BRIGHT_CYAN} Next Steps:${RESET}`,
+      ];
+      
+      // Add next steps
+      et.nextSteps.slice(0, 3).forEach((step, i) => {
+        const truncated = step.length > colWidth - 6 ? step.slice(0, colWidth - 9) + '...' : step;
+        rightLines.push(`${KEEPS_BG}${KEEPS_FG}  ${i + 1}. ${truncated}${RESET}`);
+      });
+      
+      // Pad to same length
+      const maxLines = Math.max(leftLines.length, rightLines.length);
+      while (leftLines.length < maxLines) leftLines.push(`${KEEPS_BG}${RESET}`);
+      while (rightLines.length < maxLines) rightLines.push(`${KEEPS_BG}${RESET}`);
+      
+      // Render two columns
+      for (let i = 0; i < maxLines; i++) {
+        const leftContent = leftLines[i];
+        const rightContent = rightLines[i];
+        const leftVisible = this.stripAnsi(leftContent).length;
+        const rightVisible = this.stripAnsi(rightContent).length;
+        const leftPad = ' '.repeat(Math.max(0, colWidth - leftVisible - 1));
+        const rightPad = ' '.repeat(Math.max(0, colWidth - rightVisible - 1));
+        this.writeLine(`${leftContent}${KEEPS_BG}${leftPad}│${RESET}${rightContent}${KEEPS_BG}${rightPad}${RESET}`);
+      }
+      
+      this.writeLine(`${KEEPS_BG}${'─'.repeat(colWidth)}┴${'─'.repeat(colWidth - 1)}${RESET}`);
+    } else {
+      // Compact single-column
+      this.writeLine(`${KEEPS_BG}${KEEPS_FG} Contract: ${cd.address.slice(0, 18)}...${' '.repeat(Math.max(0, boxWidth - 32))}${RESET}`);
+      this.writeLine(`${KEEPS_BG}${KEEPS_FG} Tokens: ${KEEPS_ACCENT}${cd.tokenCount}${KEEPS_FG}  Balance: ${FG_BRIGHT_GREEN}${cd.balance} XTZ${' '.repeat(Math.max(0, boxWidth - 35))}${RESET}`);
+      this.writeLine(`${KEEPS_BG}${'─'.repeat(boxWidth)}${RESET}`);
+    }
+    
+    // Actions section with arrow key navigation
+    this.writeLine(`${BG_BRIGHT_BLACK}${FG_WHITE}${BOLD} ACTIONS ${RESET}${BG_BRIGHT_BLACK}${' '.repeat(boxWidth - 10)}${RESET}`);
+    
+    // Render actions in a grid with visual selection
+    const cols = compact ? 3 : 4;
+    const actionWidth = Math.floor(boxWidth / cols);
+    
+    for (let row = 0; row < Math.ceil(this.keepsMenu.length / cols); row++) {
+      let rowStr = '';
+      for (let col = 0; col < cols; col++) {
+        const idx = row * cols + col;
+        if (idx >= this.keepsMenu.length) {
+          rowStr += `${BG_BRIGHT_BLACK}${' '.repeat(actionWidth)}${RESET}`;
+          continue;
+        }
+        
+        const item = this.keepsMenu[idx];
+        const selected = idx === this.keepsSelectedIndex;
+        
+        if (selected) {
+          // Highlighted selection with cyan background
+          const label = `▶[${item.key}] ${item.label}`;
+          const pad = Math.max(0, actionWidth - label.length);
+          rowStr += `${BG_CYAN}${FG_BLACK}${BOLD}${label}${' '.repeat(pad)}${RESET}`;
+        } else {
+          const label = ` [${item.key}] ${item.label}`;
+          const pad = Math.max(0, actionWidth - label.length);
+          rowStr += `${BG_BRIGHT_BLACK}${FG_WHITE}${label}${' '.repeat(pad)}${RESET}`;
+        }
+      }
+      this.writeLine(rowStr);
+    }
+    
+    // Piece input overlay
+    if (this.keepsSubMode === 'piece-input') {
+      this.writeLine(`${BG_YELLOW}${FG_BLACK}${BOLD} INPUT: ${this.keepsPieceInput}█${' '.repeat(Math.max(0, boxWidth - 10 - this.keepsPieceInput.length))}${RESET}`);
+      this.writeLine(`${BG_YELLOW}${FG_BLACK}${DIM} Current piece: ${this.currentPiece || 'none'}${' '.repeat(Math.max(0, boxWidth - 20 - (this.currentPiece?.length || 4)))}${RESET}`);
+    }
+    
+    // Output panel with scrolling
+    const outputTitle = ` OUTPUT ${this.keepsContractData.lastUpdated ? `(${this.keepsContractData.lastUpdated})` : ''}`;
+    this.writeLine(`${BG_BLACK}${FG_BRIGHT_CYAN}${BOLD}${outputTitle}${' '.repeat(Math.max(0, boxWidth - outputTitle.length))}${RESET}`);
+    
+    const outputLines = (this.keepsOutput || '').split('\n');
+    const maxOutputLines = Math.max(4, this.innerHeight - (compact ? 18 : 22));
+    const startLine = Math.max(0, outputLines.length - maxOutputLines);
+    
+    // Show scroll indicator if truncated
+    if (startLine > 0) {
+      this.writeLine(`${BG_BLACK}${DIM}${FG_CYAN} ↑ ${startLine} more lines above...${' '.repeat(Math.max(0, boxWidth - 25))}${RESET}`);
+    }
+    
+    for (let i = startLine; i < outputLines.length; i++) {
+      let line = outputLines[i];
+      let bg = BG_BLACK;
+      let fg = FG_WHITE;
+      
+      // Color code by content
+      if (line.includes('✅') || line.includes('✓') || line.includes('Success')) {
+        bg = BG_BLACK; fg = FG_BRIGHT_GREEN;
+      } else if (line.includes('❌') || line.includes('Error') || line.includes('failed')) {
+        bg = BG_RED; fg = FG_WHITE;
+      } else if (line.includes('⏳') || line.includes('Running') || line.includes('...')) {
+        bg = BG_YELLOW; fg = FG_BLACK;
+      } else if (line.includes('📍') || line.includes('🔗') || line.includes('💰') || line.includes('📊') || line.includes('🧪')) {
+        bg = BG_BLACK; fg = FG_BRIGHT_CYAN;
+      } else if (line.includes('║') || line.includes('╔') || line.includes('╚')) {
+        bg = BG_BLACK; fg = FG_CYAN;
+      }
+      
+      // Truncate and pad line
+      const visibleLine = this.stripAnsi(line);
+      if (visibleLine.length > boxWidth - 2) {
+        line = line.slice(0, boxWidth - 5) + '...';
+      }
+      const linePad = Math.max(0, boxWidth - visibleLine.length - 1);
+      this.writeLine(`${bg}${fg} ${line}${' '.repeat(linePad)}${RESET}`);
+    }
+    
+    // Fill remaining output space
+    const usedLines = Math.min(outputLines.length - startLine, maxOutputLines) + (startLine > 0 ? 1 : 0);
+    for (let i = usedLines; i < maxOutputLines; i++) {
+      this.writeLine(`${BG_BLACK}${' '.repeat(boxWidth)}${RESET}`);
+    }
+    
+    // Status bar
+    const statusText = this.keepsRunning 
+      ? `${BG_YELLOW}${FG_BLACK}${BOLD} ⏳ RUNNING... ${RESET}` 
+      : `${BG_GREEN}${FG_BLACK}${BOLD} ● READY ${RESET}`;
+    const helpText = `${DIM}ESC=Back  ←→↑↓=Navigate  Enter=Select  f=🐟${RESET}`;
+    const statusPad = Math.max(0, boxWidth - 12 - this.stripAnsi(helpText).length);
+    this.writeLine(`${statusText}${BG_BRIGHT_BLACK}${' '.repeat(statusPad)}${helpText}${RESET}`);
+  }
+  
+  // Helper: render a progress bar
+  renderProgressBar(current, max, width) {
+    const barWidth = Math.max(10, width - 2);
+    const filled = Math.round((current / max) * barWidth);
+    const empty = Math.max(0, barWidth - filled);
+    const pct = Math.min(100, Math.round((current / max) * 100));
+    const color = pct >= 100 ? FG_BRIGHT_GREEN : pct >= 50 ? FG_BRIGHT_YELLOW : FG_BRIGHT_RED;
+    const filledChar = '█';
+    const emptyChar = '░';
+    return `${color}[${filledChar.repeat(filled)}${DIM}${emptyChar.repeat(empty)}${RESET}${color}] ${pct}%${RESET}`;
+  }
+  
+  // Helper: pad string to width (strips ANSI for calculation)
+  padRight(str, width) {
+    const visibleLen = this.stripAnsi(str).length;
+    const padding = Math.max(0, width - visibleLen);
+    return str + ' '.repeat(padding);
+  }
+
+  // 🃏 Render KidLisp Cards Mode
+  renderKidLispCards() {
+    const boxWidth = this.innerWidth;
+    
+    // Header
+    this.writeLine(`${DOS_TITLE}${'═'.repeat(boxWidth)}${RESET}`);
+    this.writeLine(`${DOS_TITLE}  🃏 KidLisp Cards - CDP Remote Control${' '.repeat(Math.max(0, boxWidth - 41))}${RESET}`);
+    this.writeLine(`${DOS_TITLE}${'═'.repeat(boxWidth)}${RESET}`);
+    this.writeLine('');
+    
+    // Connection status
+    const connStatus = this.kidlispCardsCdpPageId 
+      ? `${FG_BRIGHT_GREEN}● Connected${RESET}` 
+      : `${FG_BRIGHT_RED}○ Disconnected${RESET}`;
+    this.writeLine(`${FG_CYAN}CDP Status: ${connStatus}${BG_BLUE}  ${DIM}Page: ${this.kidlispCardsCdpPageId || 'none'}${RESET}`);
+    this.writeLine('');
+    
+    // Menu items
+    for (let i = 0; i < this.kidlispCardsMenu.length; i++) {
+      const item = this.kidlispCardsMenu[i];
+      const selected = i === this.kidlispCardsSelectedIndex;
+      const prefix = selected ? `${FG_BRIGHT_YELLOW}▶ ` : `${FG_CYAN}  `;
+      const keyStyle = selected ? `${BG_CYAN}${FG_BLACK}` : `${FG_BRIGHT_MAGENTA}`;
+      const labelStyle = selected ? `${FG_BRIGHT_YELLOW}${BOLD}` : `${FG_WHITE}`;
+      const descStyle = `${DIM}${FG_CYAN}`;
+      
+      const line = `${prefix}${keyStyle}[${item.key}]${RESET}${BG_BLUE} ${labelStyle}${item.label}${RESET}${BG_BLUE} ${descStyle}${item.desc}${RESET}`;
+      this.writeLine(line);
+    }
+    
+    this.writeLine('');
+    
+    // Output box
+    this.writeLine(`${FG_CYAN}${'─'.repeat(boxWidth)}${RESET}`);
+    this.writeLine(`${FG_BRIGHT_CYAN}Output:${RESET}`);
+    this.writeLine('');
+    
+    // Split output into lines and display
+    const outputLines = (this.kidlispCardsOutput || '').split('\n');
+    const maxOutputLines = Math.max(5, this.innerHeight - 20);
+    const startLine = Math.max(0, outputLines.length - maxOutputLines);
+    
+    for (let i = startLine; i < outputLines.length; i++) {
+      let line = outputLines[i];
+      // Color code output
+      if (line.includes('✓') || line.includes('✅')) {
+        line = `${FG_BRIGHT_GREEN}${line}${RESET}`;
+      } else if (line.includes('✗') || line.includes('Error')) {
+        line = `${FG_BRIGHT_RED}${line}${RESET}`;
+      } else if (line.includes('⚠')) {
+        line = `${FG_BRIGHT_YELLOW}${line}${RESET}`;
+      } else if (line.includes('📚') || line.includes('🗑️')) {
+        line = `${FG_BRIGHT_CYAN}${line}${RESET}`;
+      } else if (line.includes('▶') || line.includes('↩') || line.includes('🔄')) {
+        line = `${FG_BRIGHT_MAGENTA}${line}${RESET}`;
+      }
+      // Truncate long lines
+      if (this.stripAnsi(line).length > boxWidth - 2) {
+        line = line.slice(0, boxWidth - 5) + '...';
+      }
+      this.writeLine(`  ${line}`);
+    }
+    
+    // Status bar
+    this.writeLine('');
+    this.writeLine(`${FG_CYAN}${'─'.repeat(boxWidth)}${RESET}`);
+    this.writeLine(`${FG_GREEN}Ready${RESET}${BG_BLUE}  ${DIM}ESC/Q=Back  ↑↓/JK=Navigate  Enter=Select${RESET}`);
+  }
+
   async activateAudio() {
     if (!this.connected) {
       this.setStatus('Not connected', 'error');
@@ -2044,7 +4991,8 @@ class ArteryTUI {
     if (this.client) {
       try { this.client.close(); } catch (e) {}
     }
-    process.exit(0);
+    // Exit code 42 signals intentional quit (don't auto-restart in dev mode)
+    process.exit(42);
   }
 
   // Helper to get inner width (accounting for margins)
@@ -2065,12 +5013,52 @@ class ArteryTUI {
     return this.marginX;
   }
   
+  // Calculate visual width of a string accounting for emojis
+  getVisualWidth(str) {
+    let visualWidth = 0;
+    for (const char of str) {
+      const code = char.codePointAt(0);
+      
+      // Skip zero-width characters
+      if (code === 0xFE0F ||  // Variation Selector-16 (emoji presentation)
+          code === 0xFE0E ||  // Variation Selector-15 (text presentation)
+          code === 0x200D ||  // Zero Width Joiner
+          code === 0x200B) {  // Zero Width Space
+        continue;
+      }
+      
+      // Emoji ranges (generally width 2)
+      if ((code >= 0x1F300 && code <= 0x1F9FF) ||  // Misc Symbols and Pictographs, Supplemental Symbols
+          (code >= 0x1F5A0 && code <= 0x1F5FF) ||  // Misc Symbols (extended) - includes 🖥
+          (code >= 0x2600 && code <= 0x26FF) ||    // Misc Symbols
+          (code >= 0x2700 && code <= 0x27BF) ||    // Dingbats (✓ ✗ etc)
+          (code >= 0x1F000 && code <= 0x1F02F) ||  // Mahjong
+          (code >= 0x1F0A0 && code <= 0x1F0FF) ||  // Playing Cards
+          (code >= 0x1F100 && code <= 0x1F64F) ||  // Enclosed chars, Emoticons
+          (code >= 0x1F680 && code <= 0x1F6FF) ||  // Transport and Map (🚀 rocket is 0x1F680)
+          (code >= 0x2300 && code <= 0x23FF) ||    // Misc Technical (⚙ gear is 0x2699)
+          (code >= 0x2190 && code <= 0x21FF)) {    // Arrows (← → ↑ ↓ etc)
+        visualWidth += 2;
+      }
+      // Geometric shapes and box drawing - width 1
+      else if ('●○◐◑◀▶▸▲▼→←↑↓│─═╔╗╚╝╠╣╦╩║╟╢┼'.includes(char)) {
+        visualWidth += 1;
+      }
+      // Everything else is width 1
+      else {
+        visualWidth += 1;
+      }
+    }
+    return visualWidth;
+  }
+  
   // Write a line with margins and full background fill (to buffer)
   writeLine(content) {
     const margin = ' '.repeat(this.adaptiveMarginX);
     const lineContent = `${BG_BLUE}${margin}${RESET}${content}`;
-    // Fill rest of line with background
-    const contentLen = this.stripAnsi(lineContent).length;
+    // Fill rest of line with background - use visual width for emoji support
+    const stripped = this.stripAnsi(lineContent);
+    const contentLen = this.getVisualWidth(stripped);
     const fill = this.width - contentLen;
     const line = `${lineContent}${fill > 0 ? BG_BLUE + ' '.repeat(Math.max(0, fill)) + RESET : ''}`;
     this.frameBuffer.push(line);
@@ -2081,9 +5069,14 @@ class ArteryTUI {
     // Build frame in buffer first
     this.frameBuffer = [];
     
-    // Top margin with background
-    for (let i = 0; i < this.marginY; i++) {
-      this.frameBuffer.push(`${BG_BLUE}${' '.repeat(Math.max(1, this.width))}${RESET}`);
+    // For borderless menu mode, skip margins
+    const useBorderless = (this.mode === 'menu' || this.mode === 'test-running' || this.mode === 'tests');
+    
+    if (!useBorderless) {
+      // Top margin with background (legacy modes)
+      for (let i = 0; i < this.marginY; i++) {
+        this.frameBuffer.push(`${BG_BLUE}${' '.repeat(Math.max(1, this.width))}${RESET}`);
+      }
     }
     
     switch (this.mode) {
@@ -2106,17 +5099,63 @@ class ArteryTUI {
       case 'test-params':
         this.renderTestParams();
         break;
+      case 'test-running':
+        this.renderTestRunning();
+        break;
       case 'logs':
         this.renderLogs();
         break;
       case 'site':
         this.renderSite();
         break;
+      case 'keeps':
+        this.renderKeeps();
+        // Render sixel thumbnail directly to parent terminal (bypasses eat)
+        if (this.keepsSixel) {
+          const row = Math.min(this.height - 5, 22);
+          // Position cursor in parent terminal and write sixel directly
+          const pty = findEmacsclientPty();
+          if (pty) {
+            try {
+              fs.writeFileSync(pty, `\x1b[${row};4H${this.keepsSixel}`);
+            } catch {}
+          }
+        }
+        break;
+      case 'kidlisp-cards':
+        this.renderKidLispCards();
+        break;
+      case 'devices':
+        this.renderDevices();
+        break;
+      case 'ff1':
+        this.renderFF1();
+        break;
     }
     
-    // Fill remaining lines with blue background
-    while (this.frameBuffer.length < this.height) {
-      this.frameBuffer.push(`${BG_BLUE}${' '.repeat(Math.max(1, this.width))}${RESET}`);
+    // Fill remaining lines with background (reserve 1 for footer if pending)
+    const fillBg = useBorderless ? BG_BLACK : BG_BLUE;
+    const reserveForFooter = (useBorderless && this.pendingFooter) ? 1 : 0;
+    const targetHeight = this.height - reserveForFooter;
+    
+    // Truncate if we have too many lines (content overflow)
+    if (this.frameBuffer.length > targetHeight) {
+      this.frameBuffer.length = targetHeight;
+    }
+    
+    // Fill remaining space up to target height
+    while (this.frameBuffer.length < targetHeight) {
+      this.frameBuffer.push(`${fillBg}${' '.repeat(Math.max(1, this.width))}${RESET}`);
+    }
+    
+    // Render footer at very bottom if pending (always exactly at row height)
+    if (useBorderless && this.pendingFooter) {
+      const { text, bg, fg } = this.pendingFooter;
+      const stripped = this.stripAnsi(text);
+      const visualWidth = this.getVisualWidth(stripped);
+      const padding = this.width - visualWidth;
+      this.frameBuffer.push(`${bg}${fg}${text}${bg}${' '.repeat(Math.max(0, padding))}${RESET}`);
+      this.pendingFooter = null;
     }
     
     // Now output the entire frame at once (minimizes flicker)
@@ -2131,6 +5170,39 @@ class ArteryTUI {
     this.write(this.frameBuffer.join('\n'));
   }
 
+  // === BORDERLESS RENDERING HELPERS ===
+  
+  // Write a full-width line with background color
+  writeColorLine(content, bgColor, fgColor = FG_WHITE) {
+    const stripped = this.stripAnsi(content);
+    const visualWidth = this.getVisualWidth(stripped);
+    const padding = this.width - visualWidth;
+    // Ensure bgColor is applied after content in case content has RESET
+    this.frameBuffer.push(`${bgColor}${fgColor}${content}${bgColor}${' '.repeat(Math.max(0, padding))}${RESET}`);
+  }
+  
+  // Write a centered line
+  writeCenteredLine(content, bgColor, fgColor = FG_WHITE) {
+    const stripped = this.stripAnsi(content);
+    const visualWidth = this.getVisualWidth(stripped);
+    const leftPad = Math.floor((this.width - visualWidth) / 2);
+    const rightPad = this.width - visualWidth - leftPad;
+    this.frameBuffer.push(`${bgColor}${fgColor}${' '.repeat(Math.max(0, leftPad))}${content}${' '.repeat(Math.max(0, rightPad))}${RESET}`);
+  }
+  
+  // Write an empty line with background
+  writeEmptyLine(bgColor) {
+    this.frameBuffer.push(`${bgColor}${' '.repeat(this.width)}${RESET}`);
+  }
+
+  // Helper to render a bordered line with proper padding (LEGACY - keeping for compatibility)
+  renderBoxLine(content, boxWidth, theme) {
+    const stripped = this.stripAnsi(content);
+    const visualWidth = this.getVisualWidth(stripped);
+    const padding = boxWidth - 2 - visualWidth;
+    this.writeLine(`${theme.border}║${theme.fill}${content}${' '.repeat(Math.max(0, padding))}${theme.border}║${RESET}`);
+  }
+
   renderHeader() {
     const boxWidth = this.innerWidth;
     const compact = this.width < 80;
@@ -2142,89 +5214,98 @@ class ArteryTUI {
     const themeText = theme.text;
     const themeAccent = theme.accent;
     
-    // AC status - Open/Closed
-    const acStatus = this.connected 
-      ? `${themeFill}${FG_BRIGHT_GREEN}AC Open` 
-      : `${themeFill}${FG_BRIGHT_RED}AC Closed`;
-    const piece = this.currentPiece ? ` ${themeText}│ ${themeAccent}${this.currentPiece}` : '';
-    
-    // Server status indicators with transient message
-    const localIcon = this.serverStatus.local === true ? `${FG_BRIGHT_GREEN}●` 
-                    : this.serverStatus.local === false ? `${FG_BRIGHT_YELLOW}◐` 
-                    : `${DIM}?`;
-    const localMsg = this.localStatusMessage ? ` ${FG_BRIGHT_YELLOW}${this.localStatusMessage}` : '';
-    const prodIcon = this.serverStatus.production === true ? `${FG_BRIGHT_GREEN}●` 
-                   : this.serverStatus.production === false ? `${FG_BRIGHT_RED}○` 
-                   : `${DIM}?`;
-    const serverInfo = compact 
-      ? ` ${localIcon}${prodIcon}` 
-      : ` ${themeText}│ ${themeText}L${localIcon}${localMsg} ${themeText}P${prodIcon}`;
-    
-    // Host info line (container → host)
-    let hostInfoLine = '';
-    if (this.hostInfo.inContainer && !compact) {
-      const containerLabel = this.hostInfo.containerDistro || 'Container';
-      const hostLabel = this.hostInfo.hostLabel || this.hostInfo.hostOS || 'Host';
-      hostInfoLine = `${FG_BRIGHT_MAGENTA}📦 ${containerLabel} ${themeText}→ ${this.hostInfo.hostEmoji} ${FG_WHITE}${BOLD}${hostLabel}${RESET}${themeFill}`;
-    }
-    
-    // Top border - DOS style double line with dynamic color
+    // Top border
     this.writeLine(`${themeBorder}╔${'═'.repeat(boxWidth - 2)}╗${RESET}`);
     
-    // ASCII art title - only show if wide enough
+    // === TITLE SECTION ===
     if (!compact) {
-      for (const artLine of ARTERY_ASCII) {
-        const artPadding = Math.floor((boxWidth - artLine.length - 4) / 2);
-        const rightPad = boxWidth - artLine.length - artPadding - 2;
+      // Empty line for breathing room
+      this.renderBoxLine('', boxWidth, theme);
+      
+      // Animated baby block title
+      for (let lineIdx = 0; lineIdx < ARTERY_ASCII.length; lineIdx++) {
+        const artLine = ARTERY_ASCII[lineIdx];
+        const letterCount = artLine.replace(/ /g, '').length;
+        const gapCount = (artLine.match(/  /g) || []).length;
+        const blockWidth = letterCount * 3 + gapCount * 3;
+        const artPadding = Math.floor((boxWidth - blockWidth - 2) / 2);
+        const rightPad = boxWidth - blockWidth - artPadding - 2;
         
-        // Animate blood flow through the ASCII art
         let animatedLine = '';
+        let charIdx = 0;
         for (let i = 0; i < artLine.length; i++) {
           const char = artLine[i];
-          // Calculate distance from blood pulse position
-          const pulseCenter = this.bloodPosition - BLOOD_PULSE_WIDTH;
-          const distance = Math.abs(i - pulseCenter);
-          
-          // Always show subtle pulse, more intense with network activity
-          const baseActivity = 0.2; // Always have some animation
-          const effectiveActivity = baseActivity + (this.networkActivity * 0.1);
-          const inPulse = distance < BLOOD_PULSE_WIDTH;
-          
-          if (inPulse && char !== ' ') {
-            // Blood pulse - red color intensity based on distance from center
-            const intensity = 1 - (distance / BLOOD_PULSE_WIDTH);
-            if (intensity > 0.6 && effectiveActivity > 0.3) {
-              animatedLine += `${FG_BRIGHT_RED}${char}${themeText}`;
-            } else if (intensity > 0.3 && effectiveActivity > 0.2) {
-              animatedLine += `${FG_RED}${char}${themeText}`;
-            } else if (intensity > 0 && effectiveActivity > 0.1) {
-              animatedLine += `${FG_MAGENTA}${char}${themeText}`;
-            } else {
-              animatedLine += char;
+          if (char === ' ') {
+            if (i + 1 < artLine.length && artLine[i + 1] === ' ') {
+              animatedLine += `${themeFill}   `; // Gap between words
+              i++;
             }
           } else {
-            animatedLine += char;
+            const timeOffset = Math.floor(this.bloodPosition / 3);
+            const waveOffset = Math.floor(Math.sin((charIdx + timeOffset) * 0.5) * 2);
+            const colorIdx = Math.abs((charIdx + timeOffset + waveOffset) % BLOCK_COLORS.length);
+            const block = BLOCK_COLORS[colorIdx];
+            animatedLine += `${block.bg}${block.fg}${BOLD} ${char} ${RESET}`;
+            charIdx++;
           }
         }
         
-        this.writeLine(`${themeBorder}║${themeFill}${' '.repeat(Math.max(0, artPadding))}${themeText}${animatedLine}${' '.repeat(Math.max(0, rightPad))}${themeBorder}║${RESET}`);
+        this.writeLine(`${themeBorder}║${themeFill}${' '.repeat(Math.max(0, artPadding))}${animatedLine}${themeFill}${' '.repeat(Math.max(0, rightPad))}${themeBorder}║${RESET}`);
       }
+      
+      // Empty line for breathing room
+      this.renderBoxLine('', boxWidth, theme);
     } else {
-      // Compact title
-      const compactTitle = `${themeText}${BOLD}ARTERY`;
-      const titlePad = Math.floor((boxWidth - 10) / 2);
-      this.writeLine(`${themeBorder}║${themeFill}${' '.repeat(Math.max(0, titlePad))}${compactTitle}${' '.repeat(Math.max(0, boxWidth - titlePad - 10))}${themeBorder}║${RESET}`);
+      // Compact: simple centered title
+      const title = `${themeAccent}${BOLD}AESTHETIC COMPUTER${RESET}${themeFill}`;
+      const titleLen = 18; // "AESTHETIC COMPUTER"
+      const leftPad = Math.floor((boxWidth - 2 - titleLen) / 2);
+      const rightPad = boxWidth - 2 - titleLen - leftPad;
+      this.writeLine(`${themeBorder}║${themeFill}${' '.repeat(leftPad)}${title}${' '.repeat(rightPad)}${themeBorder}║${RESET}`);
     }
     
-    // Status line
-    const statusLine = `${acStatus}${piece}${serverInfo}`;
-    const statusPadding = boxWidth - this.stripAnsi(statusLine).length - 2;
-    this.writeLine(`${themeBorder}║${themeFill}${statusLine}${' '.repeat(Math.max(0, statusPadding))}${themeBorder}║${RESET}`);
+    // === STATUS SECTION ===
+    // AC status line
+    const acStatus = this.connected 
+      ? `${FG_BRIGHT_GREEN}● Open` 
+      : `${FG_BRIGHT_RED}○ Closed`;
+    const piece = this.currentPiece ? ` ${themeText}│ ${themeAccent}${this.currentPiece}` : '';
     
-    // Host info line (if in container and not compact)
-    if (hostInfoLine) {
-      const hostPadding = boxWidth - this.stripAnsi(hostInfoLine).length - 2;
-      this.writeLine(`${themeBorder}║${themeFill}${hostInfoLine}${' '.repeat(Math.max(0, hostPadding))}${themeBorder}║${RESET}`);
+    const localIcon = this.serverStatus.local === true ? `${FG_BRIGHT_GREEN}●` 
+                    : this.serverStatus.local === false ? `${FG_BRIGHT_YELLOW}◐` 
+                    : `${DIM}?`;
+    const prodIcon = this.serverStatus.production === true ? `${FG_BRIGHT_GREEN}●` 
+                   : this.serverStatus.production === false ? `${FG_BRIGHT_RED}○` 
+                   : `${DIM}?`;
+    
+    // CDP status
+    const cdpIcon = this.cdpStatus === 'online' ? `${FG_BRIGHT_GREEN}●` 
+                  : this.cdpStatus === 'offline' ? `${FG_BRIGHT_RED}○` 
+                  : `${DIM}?`;
+    
+    // AC Auth status
+    const authDisplay = this.acAuth 
+      ? `${FG_BRIGHT_GREEN}●${this.acAuth.user?.handle ? `@${this.acAuth.user.handle}` : '✓'}` 
+      : `${FG_BRIGHT_RED}○`;
+    
+    const serverInfo = compact 
+      ? ` ${localIcon}${prodIcon}` 
+      : ` ${themeText}│ Local${localIcon} Prod${prodIcon} ${themeText}│ CDP${cdpIcon}`;
+    
+    const statusContent = `${acStatus}${piece}${serverInfo}`;
+    this.renderBoxLine(statusContent, boxWidth, theme);
+    
+    // === PLATFORM LINE (non-compact only) ===
+    if (this.hostInfo.inContainer && !compact) {
+      const containerLabel = this.hostInfo.containerDistro || 'Container';
+      const hostLabel = this.hostInfo.hostLabel || this.hostInfo.hostOS || 'Host';
+      const cdpIcon = this.cdpStatus === 'online' ? `${FG_BRIGHT_GREEN}●` 
+                    : this.cdpStatus === 'offline' ? `${FG_BRIGHT_RED}○` 
+                    : `${DIM}?`;
+      
+      // Note: Use themeFill after RESET to maintain background color
+      const platformContent = `${themeFill}${FG_BRIGHT_MAGENTA}📦 ${containerLabel} ${FG_BRIGHT_CYAN}→ ${this.hostInfo.hostEmoji} ${FG_WHITE}${BOLD}${hostLabel}${RESET}${themeFill} ${FG_CYAN}CDP${cdpIcon}${RESET}${themeFill}`;
+      this.renderBoxLine(platformContent, boxWidth, theme);
     }
     
     // Separator
@@ -2250,30 +5331,360 @@ class ArteryTUI {
         warn: FG_BRIGHT_YELLOW,
         error: FG_BRIGHT_RED,
       };
-      const maxMsgLen = boxWidth - 6;
+      const maxMsgLen = boxWidth - 20; // Leave room for clock
       const truncMsg = this.statusMessage.length > maxMsgLen 
         ? this.statusMessage.slice(0, maxMsgLen - 3) + '...' 
         : this.statusMessage;
-      statusLine = `${themeFill}${colors[this.statusType] || FG_WHITE}${truncMsg}`;
+      statusLine = `${colors[this.statusType] || FG_WHITE}${truncMsg}${RESET}`;
     }
     
-    // Bottom border with status - DOS style with dynamic color
+    const footerHint = compact ? `${themeText}Q${FG_WHITE}uit ${themeText}Esc${RESET}${themeFill}` : `${themeText}[Q]${FG_WHITE}uit ${themeText}[Esc]${FG_WHITE}Menu${RESET}${themeFill}`;
+    const footerContent = ` ${statusLine || footerHint}`;
+    
+    // Footer line with bottom border
     this.writeLine(`${themeBorder}╠${'═'.repeat(boxWidth - 2)}╣${RESET}`);
-    
-    const footerHint = compact ? `${themeFill}${themeText}Q${FG_WHITE}uit ${themeText}Esc` : `${themeFill}${themeText}[Q]${FG_WHITE}uit ${themeText}[Esc]${FG_WHITE}Menu`;
-    const footerContent = statusLine || footerHint;
-    
-    // Analog clock widget on the right
-    const clockWidget = compact ? '' : `${FG_BRIGHT_YELLOW}${this.getAnalogClockWidget()}${DIM}Z`;
-    const clockLen = compact ? 0 : this.stripAnsi(clockWidget).length + 1; // +1 for emoji width
-    const contentLen = this.stripAnsi(footerContent).length;
-    const middlePadding = boxWidth - contentLen - clockLen - 2;
-    this.writeLine(`${themeBorder}║${themeFill}${footerContent}${' '.repeat(Math.max(0, middlePadding))}${clockWidget}${themeBorder}║${RESET}`);
-    
+    this.renderBoxLine(footerContent, boxWidth, theme);
     this.writeLine(`${themeBorder}╚${'═'.repeat(boxWidth - 2)}╝${RESET}`);
   }
 
+  // === NEW BORDERLESS MENU DESIGN ===
+  renderMenuBorderless() {
+    const theme = this.getThemeColors();
+    const compact = this.width < 80;
+    const narrow = this.width < 100;
+    
+    // Section colors
+    const titleBg = BG_BLACK;
+    const statusBg = theme.bg;
+    const boardBg = BG_BLACK;
+    const footerBg = theme.bg;
+    
+    // Get matrix rain layer for background effect
+    const rainLayer = this.getMatrixRainLayer();
+    
+    // === STATUS BAR (at very top) ===
+    const acStatus = this.connected 
+      ? `${FG_WHITE}● CONNECTED` 
+      : `${FG_WHITE}○ DISCONNECTED`;
+    const piece = this.currentPiece ? ` │ ${FG_BRIGHT_YELLOW}${this.currentPiece}${RESET}` : '';
+    const localIcon = this.serverStatus.local === true ? `${FG_BRIGHT_GREEN}●` 
+                    : this.serverStatus.local === false ? `${FG_BRIGHT_YELLOW}◐` 
+                    : `${DIM}?`;
+    const prodIcon = this.serverStatus.production === true ? `${FG_BRIGHT_GREEN}●` 
+                   : this.serverStatus.production === false ? `${FG_BRIGHT_RED}○` 
+                   : `${DIM}?`;
+    const cdpIcon = this.cdpStatus === 'online' ? `${FG_BRIGHT_GREEN}●` : `${FG_BRIGHT_RED}○`;
+    
+    let statusLine = ` ${acStatus}${piece} │ Local${localIcon} Prod${prodIcon}`;
+    if (this.hostInfo.inContainer && !compact) {
+      statusLine += ` │ CDP${cdpIcon}`;
+    }
+    statusLine += `  ${FG_CYAN}${this.utcTime}${RESET}`;
+    this.writeColorLine(statusLine, statusBg, theme.text);
+    
+    // === TITLE SECTION - Large ASCII banner with matrix rain ===
+    // Render matrix rain row (row 0)
+    this.renderMatrixRainLine(0, rainLayer, titleBg);
+    
+    // Large block letters for AESTHETIC.COMPUTER
+    if (!compact) {
+      this.renderLargeTitle(titleBg, rainLayer, 1); // start at row 1
+    } else {
+      // Compact: animated single line
+      this.renderAnimatedTitle(titleBg);
+    }
+    
+    // More matrix rain rows after title (rows 4, 5)
+    this.renderMatrixRainLine(4, rainLayer, titleBg);
+
+    // === MENU BOARD (grid of colored tiles) ===
+    this.writeEmptyLine(boardBg);
+    
+    // Tile colors for different categories
+    const tileColors = [
+      { bg: '\x1b[48;5;24m', fg: FG_WHITE },   // Deep blue - navigation
+      { bg: '\x1b[48;5;29m', fg: FG_WHITE },   // Teal - tools  
+      { bg: '\x1b[48;5;54m', fg: FG_WHITE },   // Purple - dev
+      { bg: '\x1b[48;5;94m', fg: FG_WHITE },   // Brown/orange - system
+      { bg: '\x1b[48;5;23m', fg: FG_WHITE },   // Dark cyan
+      { bg: '\x1b[48;5;52m', fg: FG_WHITE },   // Dark red
+    ];
+    
+    // Blinking selection
+    const blink = Math.floor(this.bloodPosition / 4) % 2 === 0;
+    const selectFg = blink ? '\x1b[38;5;226m' : '\x1b[38;5;228m'; // Yellow shades
+    const selectBg = blink ? '\x1b[48;5;22m' : '\x1b[48;5;28m'; // Green shades for selected
+    
+    // Responsive tile sizing - expand to fill available width
+    const availableHeight = this.height - 8;
+    const rowHeight = 2; // Each tile row takes 2 lines (content + gap)
+    const maxVisibleRows = Math.floor(availableHeight / rowHeight);
+    
+    // Determine how many columns based on item count and screen size
+    // Prefer fewer wider tiles over more narrow ones
+    const itemCount = this.menuItems.length;
+    let tilesPerRow;
+    if (this.width >= 120) {
+      tilesPerRow = Math.min(6, Math.ceil(itemCount / Math.ceil(itemCount / 6)));
+    } else if (this.width >= 100) {
+      tilesPerRow = Math.min(5, Math.ceil(itemCount / Math.ceil(itemCount / 5)));
+    } else if (this.width >= 80) {
+      tilesPerRow = Math.min(4, Math.ceil(itemCount / Math.ceil(itemCount / 4)));
+    } else {
+      tilesPerRow = Math.min(3, Math.ceil(itemCount / Math.ceil(itemCount / 3)));
+    }
+    
+    // Calculate tile width to fill available space (with 1-char gaps)
+    const availableWidth = this.width - 2; // margins
+    const tileWidth = Math.floor((availableWidth - (tilesPerRow - 1)) / tilesPerRow);
+    
+    // Calculate how many rows we need
+    const totalRows = Math.ceil(this.menuItems.length / tilesPerRow);
+    
+    // Pagination if needed
+    const currentRow = Math.floor(this.selectedIndex / tilesPerRow);
+    let startRow = 0;
+    if (totalRows > maxVisibleRows) {
+      // Keep selected row visible
+      startRow = Math.max(0, Math.min(currentRow - Math.floor(maxVisibleRows / 2), totalRows - maxVisibleRows));
+    }
+    const endRow = Math.min(startRow + maxVisibleRows, totalRows);
+    
+    const totalTileWidth = tilesPerRow * tileWidth + (tilesPerRow - 1);
+    const leftMargin = Math.floor((this.width - totalTileWidth) / 2);
+    
+    // Render visible rows
+    for (let row = startRow; row < endRow; row++) {
+      // Single line per tile (compact)
+      let tileLine = ' '.repeat(leftMargin);
+      for (let col = 0; col < tilesPerRow; col++) {
+        const idx = row * tilesPerRow + col;
+        if (idx < this.menuItems.length) {
+          const item = this.menuItems[idx];
+          const selected = idx === this.selectedIndex;
+          const tileBg = selected ? selectBg : tileColors[idx % tileColors.length].bg;
+          const tileFg = selected ? selectFg : FG_WHITE;
+          const keyColor = selected ? FG_WHITE : FG_YELLOW;
+          
+          // Build tile content: KEY label (key is prominent)
+          const keyText = item.key.toUpperCase();
+          let label = item.label;
+          
+          // Dynamic label for Login/Logout
+          if (item.key === 'i') {
+            label = this.acAuth ? 'Logout' : 'Login';
+          }
+          
+          const maxLabel = tileWidth - 4; // KEY + space + some label
+          if (label.length > maxLabel) label = label.slice(0, maxLabel - 2) + '..';
+          
+          // Log badge
+          if (item.key === 'l' && this.unreadLogs > 0) {
+            const badge = `(${this.unreadLogs})`;
+            const available = maxLabel - badge.length - 1;
+            if (label.length > available) label = label.slice(0, available - 2) + '..';
+            label = `${label} ${badge}`;
+          }
+          
+          // Content with key highlighted
+          const innerContent = `${keyText} ${label}`;
+          const pad = tileWidth - innerContent.length - 2;
+          
+          if (selected) {
+            tileLine += `${tileBg}${tileFg}${BOLD}▐${keyColor}${keyText}${RESET}${tileBg}${tileFg} ${label}${RESET}${tileBg}${' '.repeat(Math.max(0, pad))}${tileFg}▌${RESET}`;
+          } else {
+            tileLine += `${tileBg}${keyColor}${BOLD}${keyText}${RESET}${tileBg}${tileFg} ${label}${' '.repeat(Math.max(0, pad + 1))}${RESET}`;
+          }
+          if (col < tilesPerRow - 1) tileLine += ' ';
+        }
+      }
+      this.writeColorLine(tileLine, boardBg);
+      
+      // Gap between rows (skip on last row)
+      if (row < endRow - 1) {
+        this.writeEmptyLine(boardBg);
+      }
+    }
+    
+    // Show pagination indicator if needed
+    if (totalRows > maxVisibleRows) {
+      const pageInfo = ` ${FG_CYAN}[${startRow + 1}-${endRow}/${totalRows} rows]${RESET}`;
+      this.writeColorLine(pageInfo, boardBg);
+    } else {
+      this.writeEmptyLine(boardBg);
+    }
+    
+    // === QR CODE SECTION (bottom right) ===
+    if (this.qrCodeLines && this.qrCodeLines.length > 0 && !compact) {
+      this.writeEmptyLine(boardBg);
+      const qrWidth = this.qrCodeLines[0].length;
+      const urlLabel = this.qrCodeUrl || 'Scan for LAN URL';
+      
+      // Render QR code lines, right-aligned
+      for (const line of this.qrCodeLines) {
+        const leftPad = Math.max(0, this.width - qrWidth - 2);
+        this.writeColorLine(`${' '.repeat(leftPad)}${FG_WHITE}${line}`, boardBg);
+      }
+      // URL label under QR code
+      const labelPad = Math.max(0, this.width - urlLabel.length - 2);
+      this.writeColorLine(`${' '.repeat(labelPad)}${FG_CYAN}${urlLabel}`, boardBg);
+    }
+    
+    // Store footer for later rendering at very bottom (handled in render())
+    this.pendingFooter = {
+      text: this.statusMessage 
+        ? ` ${this.statusMessage}` 
+        : ` ${FG_WHITE}↑↓←→${theme.text} Nav  ${FG_WHITE}Enter${theme.text} Select  ${FG_WHITE}Q${theme.text} Quit  ${FG_CYAN}${this.utcTime}`,
+      bg: footerBg,
+      fg: theme.text
+    };
+  }
+  
+  // Large animated title banner - simple block style with optional matrix rain background
+  renderLargeTitle(bg, rainLayer = null, startRow = 0) {
+    // Simple 3-row block font
+    const font = {
+      'A': ['█▀█', '█▀█', '▀ ▀'],
+      'E': ['█▀▀', '█▀ ', '▀▀▀'],
+      'S': ['█▀▀', '▀▀█', '▀▀▀'],
+      'T': ['▀█▀', ' █ ', ' ▀ '],
+      'H': ['█ █', '█▀█', '▀ ▀'],
+      'I': [' █ ', ' █ ', ' ▀ '],
+      'C': ['█▀▀', '█  ', '▀▀▀'],
+      'O': ['█▀█', '█ █', '▀▀▀'],
+      'M': ['█▄█', '█ █', '▀ ▀'],
+      'P': ['█▀█', '█▀▀', '▀  '],
+      'U': ['█ █', '█ █', '▀▀▀'],
+      'R': ['█▀█', '█▀▄', '▀ ▀'],
+      ' ': ['  ', '  ', '  '],
+    };
+    
+    const text = 'AESTHETIC COMPUTER';
+    
+    // Calculate title width for centering
+    let titleWidth = 0;
+    for (const char of text) {
+      if (char === ' ') {
+        titleWidth += 2; // space + dot
+      } else {
+        titleWidth += 4; // glyph (3) + space (1)
+      }
+    }
+    const leftPad = Math.floor((this.width - titleWidth) / 2);
+    
+    // Bouncing dot with physics - fast bounce with gravity feel
+    // Use sine for smooth acceleration/deceleration at top
+    const bounceSpeed = this.bloodPosition * 0.4; // faster
+    const bouncePhase = Math.abs(Math.sin(bounceSpeed));
+    // Map sine (0-1) to rows: 0=top, 1=mid, 2=bottom
+    // Spend more time at bottom (gravity), quick at top
+    const dotRow = bouncePhase < 0.3 ? 0 : bouncePhase < 0.6 ? 1 : 2;
+    const dotPink = '\x1b[38;5;205m'; // Bright pink
+    
+    // Filter out black from block colors for better contrast on black bg
+    const visibleColors = BLOCK_COLORS.filter(c => 
+      !c.bg.includes('40m') && !c.fg.includes('30m') // skip black bg/fg
+    );
+    
+    // Green codes for rain
+    const greenCodes = [
+      '\x1b[38;5;22m',  // 0: very dark green
+      '\x1b[38;5;28m',  // 1: dark green
+      '\x1b[38;5;34m',  // 2: medium green
+      '\x1b[38;5;40m',  // 3: green
+      '\x1b[38;5;46m',  // 4: bright green
+      '\x1b[38;5;156m', // 5: very bright green/white (head)
+    ];
+    
+    // Build 3 rows with animated colors per letter
+    for (let rowIdx = 0; rowIdx < 3; rowIdx++) {
+      // Build rain background for the entire line
+      let rainBg = '';
+      const rainRow = rainLayer ? rainLayer[startRow + rowIdx] : null;
+      if (rainRow) {
+        for (let col = 0; col < leftPad; col++) {
+          const cell = rainRow[col];
+          if (cell) {
+            const brightness = Math.floor(cell.fade * 5);
+            rainBg += `${greenCodes[Math.min(brightness, 5)]}${cell.char}${RESET}${bg}`;
+          } else {
+            rainBg += ' ';
+          }
+        }
+      } else {
+        rainBg = ' '.repeat(Math.max(0, leftPad));
+      }
+      
+      // Build title text
+      let titleLine = '';
+      let charIdx = 0;
+      for (let i = 0; i < text.length; i++) {
+        const char = text[i];
+        
+        // Handle the space between words - insert bouncing dot
+        if (char === ' ') {
+          // Bouncing pink dot
+          const dotChar = rowIdx === dotRow ? '●' : ' ';
+          titleLine += `${dotPink}${dotChar}${RESET}${bg} `;
+          continue;
+        }
+        
+        const glyph = font[char] || ['???', '???', '???'];
+        const timeOffset = Math.floor(this.bloodPosition / 4);
+        const colorIdx = Math.abs((charIdx + timeOffset) % visibleColors.length);
+        const block = visibleColors[colorIdx];
+        titleLine += `${block.fg}${glyph[rowIdx]} ${RESET}${bg}`;
+        charIdx++;
+      }
+      
+      // Build rain background for right side
+      let rainRight = '';
+      const rightStart = leftPad + titleWidth;
+      if (rainRow) {
+        for (let col = rightStart; col < this.width; col++) {
+          const cell = rainRow[col];
+          if (cell) {
+            const brightness = Math.floor(cell.fade * 5);
+            rainRight += `${greenCodes[Math.min(brightness, 5)]}${cell.char}${RESET}${bg}`;
+          } else {
+            rainRight += ' ';
+          }
+        }
+      } else {
+        rainRight = ' '.repeat(Math.max(0, this.width - rightStart));
+      }
+      
+      this.frameBuffer.push(`${bg}${rainBg}${titleLine}${rainRight}${RESET}`);
+    }
+  }
+  
+  // Compact animated single-line title
+  renderAnimatedTitle(bg) {
+    const artLine = 'AESTHETIC.COMPUTER';
+    let animatedLine = '';
+    let charIdx = 0;
+    for (const char of artLine) {
+      if (char === ' ' || char === '.') {
+        animatedLine += `${bg}${char}${RESET}`;
+      } else {
+        const timeOffset = Math.floor(this.bloodPosition / 3);
+        const waveOffset = Math.floor(Math.sin((charIdx + timeOffset) * 0.5) * 2);
+        const colorIdx = Math.abs((charIdx + timeOffset + waveOffset) % BLOCK_COLORS.length);
+        const block = BLOCK_COLORS[colorIdx];
+        animatedLine += `${block.bg}${block.fg}${BOLD} ${char} ${RESET}`;
+        charIdx++;
+      }
+    }
+    this.writeCenteredLine(animatedLine, bg);
+  }
+
   renderMenu() {
+    // Use new borderless design
+    this.renderMenuBorderless();
+  }
+
+  renderMenuLegacy() {
+    // OLD bordered menu - kept for reference
     this.renderHeader();
     const boxWidth = this.innerWidth;
     const compact = this.width < 80;
@@ -2589,55 +6000,138 @@ class ArteryTUI {
   }
 
   renderTests() {
-    this.renderHeader();
-    const boxWidth = this.innerWidth;
-    const compact = this.width < 80;
-    
-    // Get dynamic theme colors
     const theme = this.getThemeColors();
-    const themeBorder = theme.border;
-    const themeFill = theme.fill;
+    const boardBg = BG_BLACK;
+    const footerBg = theme.bg;
     
-    // Title
-    const hint = compact ? '' : ` ${DIM}(↑↓,Enter)${RESET}`;
-    const testTitle = `${themeBorder}║${RESET}${themeFill}${FG_BRIGHT_YELLOW}►${FG_WHITE}Tests${hint}`;
-    const testPadding = boxWidth - this.stripAnsi(testTitle).length - 1;
-    this.writeLine(`${testTitle}${themeFill}${' '.repeat(Math.max(0, testPadding))}${themeBorder}║${RESET}`);
-    this.writeLine(`${themeBorder}╟${'─'.repeat(boxWidth - 2)}╢${RESET}`);
+    // === TITLE SECTION ===
+    this.writeEmptyLine(boardBg);
+    const testTitle = `${FG_BRIGHT_YELLOW}🧪${RESET}${boardBg} ${FG_WHITE}${BOLD}RUN TESTS${RESET}`;
+    this.writeCenteredLine(testTitle, boardBg);
+    this.writeEmptyLine(boardBg);
     
-    // Tests list
-    const tests = this.testFiles || [];
-    const visibleCount = Math.max(1, this.innerHeight - 8);
+    // Tile colors by category
+    const arteryColor = { bg: '\x1b[48;5;22m', fg: FG_WHITE };   // Dark green
+    const musicColor = { bg: '\x1b[48;5;54m', fg: FG_WHITE };    // Purple
+    const graphicsColor = { bg: '\x1b[48;5;24m', fg: FG_WHITE }; // Blue
+    const otherColor = { bg: '\x1b[48;5;94m', fg: FG_WHITE };    // Brown
     
-    for (let i = 0; i < Math.min(tests.length, visibleCount); i++) {
-      const test = tests[i];
-      const selected = i === this.selectedIndex;
-      
-      // Handle separator rows
-      if (test.isSeparator) {
-        const sepLine = `${themeBorder}║${RESET}${themeFill}${DIM}${FG_CYAN}  ─── ${test.desc} ───${RESET}`;
-        const sepPadding = boxWidth - this.stripAnsi(sepLine).length - 1;
-        this.writeLine(`${sepLine}${themeFill}${' '.repeat(Math.max(0, sepPadding))}${themeBorder}║${RESET}`);
-        continue;
+    // Blinking selection
+    const blink = Math.floor(this.bloodPosition / 4) % 2 === 0;
+    const selectFg = blink ? '\x1b[38;5;226m' : '\x1b[38;5;228m';
+    const selectBg = blink ? '\x1b[48;5;22m' : '\x1b[48;5;28m';
+    
+    const getTileColor = (test) => {
+      if (test.isArtery) return arteryColor;
+      if (test.name.includes('melody') || test.name.includes('chord') || test.name.includes('waltz')) return musicColor;
+      if (test.name.includes('line')) return graphicsColor;
+      return otherColor;
+    };
+    
+    // Filter out separators
+    const tests = (this.testFiles || []).filter(t => !t.isSeparator);
+    
+    // Find actual selected index in filtered tests
+    let actualSelectedIdx = 0;
+    let counter = 0;
+    for (let i = 0; i < (this.testFiles || []).length; i++) {
+      if (!this.testFiles[i].isSeparator) {
+        if (i === this.selectedIndex) {
+          actualSelectedIdx = counter;
+          break;
+        }
+        counter++;
       }
-      
-      const prefix = selected ? `${theme.highlight}▸ ` : `${themeFill}  `;
-      const suffix = selected ? `${RESET}` : `${RESET}`;
-      const configIcon = test.params ? `${selected ? FG_BLACK : FG_YELLOW}⚙${RESET}${selected ? theme.highlight : themeFill}` : '';
-      const label = selected ? `${FG_BLACK}${BOLD}${test.name}${RESET}` : `${FG_WHITE}${test.name}${RESET}`;
-      const desc = compact ? '' : ` ${DIM}${test.desc}${RESET}`;
-      
-      const line = `${themeBorder}║${RESET}${prefix}${configIcon}${label}${suffix}${desc}`;
-      const padding = boxWidth - this.stripAnsi(line).length - 1;
-      this.writeLine(`${line}${themeFill}${' '.repeat(Math.max(0, padding))}${themeBorder}║${RESET}`);
     }
     
-    // Fill remaining
-    for (let i = tests.length; i < visibleCount; i++) {
-      this.writeLine(`${themeBorder}║${themeFill}${' '.repeat(boxWidth - 2)}${themeBorder}║${RESET}`);
+    // Responsive tile sizing - expand to fill width
+    const availableHeight = this.height - 7;
+    const rowHeight = 2;
+    const maxVisibleRows = Math.floor(availableHeight / rowHeight);
+    
+    // Determine columns based on test count
+    const testCount = tests.length;
+    let tilesPerRow;
+    if (this.width >= 120) {
+      tilesPerRow = Math.min(6, Math.ceil(testCount / Math.ceil(testCount / 6)));
+    } else if (this.width >= 100) {
+      tilesPerRow = Math.min(5, Math.ceil(testCount / Math.ceil(testCount / 5)));
+    } else if (this.width >= 80) {
+      tilesPerRow = Math.min(4, Math.ceil(testCount / Math.ceil(testCount / 4)));
+    } else {
+      tilesPerRow = Math.min(3, Math.ceil(testCount / Math.ceil(testCount / 3)));
     }
     
-    this.renderFooter();
+    // Calculate tile width to fill available space
+    const availableWidth = this.width - 2;
+    const tileWidth = Math.floor((availableWidth - (tilesPerRow - 1)) / tilesPerRow);
+    
+    const totalRows = Math.ceil(tests.length / tilesPerRow);
+    
+    // Pagination
+    const currentRow = Math.floor(actualSelectedIdx / tilesPerRow);
+    let startRow = 0;
+    if (totalRows > maxVisibleRows) {
+      startRow = Math.max(0, Math.min(currentRow - Math.floor(maxVisibleRows / 2), totalRows - maxVisibleRows));
+    }
+    const endRow = Math.min(startRow + maxVisibleRows, totalRows);
+    
+    const totalTileWidth = tilesPerRow * tileWidth + (tilesPerRow - 1);
+    const leftMargin = Math.floor((this.width - totalTileWidth) / 2);
+    
+    // Render visible rows
+    for (let row = startRow; row < endRow; row++) {
+      let tileLine = ' '.repeat(leftMargin);
+      for (let col = 0; col < tilesPerRow; col++) {
+        const idx = row * tilesPerRow + col;
+        if (idx < tests.length) {
+          const test = tests[idx];
+          const selected = idx === actualSelectedIdx;
+          const tileBg = selected ? selectBg : getTileColor(test).bg;
+          const tileFg = selected ? selectFg : FG_WHITE;
+          
+          const configIcon = test.params ? '⚙' : '';
+          let name = test.name;
+          const maxName = tileWidth - 3 - configIcon.length;
+          if (name.length > maxName) name = name.slice(0, maxName - 2) + '..';
+          
+          const content = configIcon ? `${configIcon}${name}` : name;
+          const pad = tileWidth - content.length - 1;
+          
+          if (selected) {
+            tileLine += `${tileBg}${tileFg}${BOLD}▐${content}${RESET}${tileBg}${' '.repeat(Math.max(0, pad))}${tileFg}▌${RESET}`;
+          } else {
+            tileLine += `${tileBg}${tileFg} ${content}${' '.repeat(Math.max(0, pad))}${RESET}`;
+          }
+          if (col < tilesPerRow - 1) tileLine += ' ';
+        }
+      }
+      this.writeColorLine(tileLine, boardBg);
+      
+      if (row < endRow - 1) {
+        this.writeEmptyLine(boardBg);
+      }
+    }
+    
+    // Pagination indicator
+    if (totalRows > maxVisibleRows) {
+      this.writeColorLine(` ${FG_CYAN}[${startRow + 1}-${endRow}/${totalRows}]${RESET}`, boardBg);
+    } else {
+      this.writeEmptyLine(boardBg);
+    }
+    
+    // Selected test description
+    const selectedTest = tests[actualSelectedIdx];
+    if (selectedTest) {
+      const desc = selectedTest.desc.length > this.width - 4 
+        ? selectedTest.desc.slice(0, this.width - 7) + '...'
+        : selectedTest.desc;
+      this.writeColorLine(` ${FG_CYAN}${desc}${RESET}`, boardBg);
+    }
+    
+    // Footer - use pendingFooter to ensure it's at very bottom
+    const footerText = ` ${FG_WHITE}↑↓←→${theme.text} Nav  ${FG_WHITE}Enter${theme.text} Run  ${FG_WHITE}Esc${theme.text} Back  ${FG_CYAN}${this.utcTime}`;
+    this.pendingFooter = { text: footerText, bg: footerBg, fg: theme.text };
   }
   
   renderTestParams() {
@@ -2649,81 +6143,305 @@ class ArteryTUI {
     
     // Get dynamic theme colors
     const theme = this.getThemeColors();
-    const themeBorder = theme.border;
-    const themeFill = theme.fill;
     
-    // Title
-    const hint = compact ? '' : ` ${DIM}(←→,Enter)${RESET}`;
-    const testTitle = `${themeBorder}║${RESET}${themeFill}${FG_BRIGHT_YELLOW}⚙${FG_WHITE}${test?.name}${hint}`;
-    const testPadding = boxWidth - this.stripAnsi(testTitle).length - 1;
-    this.writeLine(`${testTitle}${themeFill}${' '.repeat(Math.max(0, testPadding))}${themeBorder}║${RESET}`);
-    this.writeLine(`${themeBorder}╟${'─'.repeat(boxWidth - 2)}╢${RESET}`);
+    // Group params by type for cleaner layout
+    const visualParams = this.getVisualParamOrder(params);
+    const selects = params.filter(p => p.type === 'select');
+    const ranges = params.filter(p => p.type === 'range');
+    const toggles = params.filter(p => p.type === 'toggle');
     
-    // Parameters list
-    for (let i = 0; i < params.length; i++) {
-      const param = params[i];
-      const selected = i === this.paramIndex;
-      const prefix = selected ? `${theme.highlight}▸ ` : `${themeFill}  `;
-      const suffix = selected ? `${RESET}` : `${RESET}`;
-      
-      const value = selected ? this.inputBuffer : (this.testParams[param.key] || param.default);
-      
-      // Show value with arrows if it has options or is a number
-      let valueDisplay;
-      if (selected && (param.options || param.type === 'number')) {
-        const leftArrow = `${FG_BLACK}◀`;
-        const rightArrow = `${FG_BLACK}▶`;
-        valueDisplay = value ? `${leftArrow} ${FG_YELLOW}${value}${RESET}${theme.highlight} ${rightArrow}` : `${leftArrow} ${DIM}(empty)${RESET}${theme.highlight} ${rightArrow}`;
-      } else {
-        valueDisplay = value ? `${selected ? FG_YELLOW : FG_GREEN}${value}${RESET}` : `${DIM}(empty)${RESET}`;
+    // Title bar with icon
+    const icon = test?.icon || '⚙';
+    const testTitle = ` ${icon} ${FG_WHITE}${BOLD}${test?.name}${RESET}${theme.fill}  ${DIM}${test?.desc || ''}${RESET}`;
+    this.renderBoxLine(testTitle, boxWidth, theme);
+    
+    // Flat index for navigation
+    let flatIndex = 0;
+    
+    // === SELECTS SECTION ===
+    if (selects.length > 0) {
+      const sectionLabel = `${DIM}─── Options ${'─'.repeat(Math.max(0, boxWidth - 18))}${RESET}`;
+      this.renderBoxLine(sectionLabel, boxWidth, theme);
+      for (const param of selects) {
+        this.renderParamRowBoxed(param, flatIndex, boxWidth, theme);
+        flatIndex++;
       }
-      
-      const label = selected ? `${FG_BLACK}${BOLD}${param.label}${RESET}` : `${FG_WHITE}${param.label}${RESET}`;
-      const desc = compact ? '' : ` ${DIM}${param.desc}${RESET}`;
-      
-      const line = `${themeBorder}║${RESET}${prefix}${label}:${suffix} ${valueDisplay}${desc}`;
-      const padding = boxWidth - this.stripAnsi(line).length - 1;
-      this.writeLine(`${line}${themeFill}${' '.repeat(Math.max(0, padding))}${themeBorder}║${RESET}`);
     }
+    
+    // === RANGES SECTION ===
+    if (ranges.length > 0) {
+      const sectionLabel = `${DIM}─── Values ${'─'.repeat(Math.max(0, boxWidth - 17))}${RESET}`;
+      this.renderBoxLine(sectionLabel, boxWidth, theme);
+      for (const param of ranges) {
+        this.renderParamRowBoxed(param, flatIndex, boxWidth, theme);
+        flatIndex++;
+      }
+    }
+    
+    // === TOGGLES SECTION ===
+    if (toggles.length > 0) {
+      const sectionLabel = `${DIM}─── Flags ${'─'.repeat(Math.max(0, boxWidth - 16))}${RESET}`;
+      this.renderBoxLine(sectionLabel, boxWidth, theme);
+      
+      // Render toggles in rows
+      const togglesPerRow = compact ? 2 : 4;
+      for (let i = 0; i < toggles.length; i += togglesPerRow) {
+        const rowToggles = toggles.slice(i, i + togglesPerRow);
+        let rowContent = ' ';
+        const cellWidth = Math.floor((boxWidth - 4) / togglesPerRow);
+        
+        for (let j = 0; j < rowToggles.length; j++) {
+          const param = rowToggles[j];
+          const idx = flatIndex + j;
+          const selected = idx === this.paramIndex;
+          const value = this.testParams[param.key] || param.default || '';
+          const isOn = value !== '';
+          
+          const indicator = selected ? `${theme.accent}▸` : ` `;
+          const toggleIcon = isOn ? `${FG_BRIGHT_GREEN}●` : `${DIM}○`;
+          const label = selected ? `${FG_WHITE}${BOLD}${param.key}${RESET}${theme.fill}` : `${theme.text}${param.key}`;
+          
+          const cell = `${indicator}${toggleIcon} ${label}`;
+          const cellLen = this.getVisualWidth(this.stripAnsi(cell));
+          const pad = Math.max(0, cellWidth - cellLen);
+          rowContent += `${cell}${' '.repeat(pad)}`;
+        }
+        flatIndex += rowToggles.length;
+        this.renderBoxLine(rowContent, boxWidth, theme);
+      }
+    }
+    
+    // Empty line
+    this.renderBoxLine('', boxWidth, theme);
     
     // Run button
-    this.writeLine(`${themeBorder}╟${'─'.repeat(boxWidth - 2)}╢${RESET}`);
-    const runSelected = this.paramIndex >= params.length;
-    const runPrefix = runSelected ? `${BG_GREEN}${FG_WHITE}▸ ` : `${themeFill}  `;
-    const runSuffix = runSelected ? `${RESET}` : `${RESET}`;
-    const runLabel = runSelected ? `${BOLD}🚀RUN${RESET}` : `${FG_GREEN}🚀RUN${RESET}`;
-    const runLine = `${themeBorder}║${RESET}${runPrefix}${runLabel}${runSuffix}`;
-    const runPadding = boxWidth - this.stripAnsi(runLine).length - 1;
-    this.writeLine(`${runLine}${themeFill}${' '.repeat(Math.max(0, runPadding))}${themeBorder}║${RESET}`);
+    const runIndex = visualParams.length;
+    const runSelected = this.paramIndex >= runIndex;
+    const runIndicator = runSelected ? `${FG_WHITE}▸` : ` `;
+    const runStyle = runSelected 
+      ? `${BG_GREEN}${FG_WHITE}${BOLD} ▶ RUN ${RESET}${theme.fill}` 
+      : `${FG_GREEN}${BOLD} ▶ RUN ${RESET}${theme.fill}`;
+    this.renderBoxLine(` ${runIndicator}${runStyle}`, boxWidth, theme);
     
-    // Preview command (skip on compact)
+    // Command preview
     if (!compact) {
-      const args = params.map(p => this.testParams[p.key] || p.default).filter(a => a).join(' ');
-      const cmdText = `node ${test?.file} ${args}`.slice(0, boxWidth - 10);
-      const cmdPreview = `${DIM}>${cmdText}${RESET}`;
-      const previewLine = `${themeBorder}║${RESET}${themeFill}${cmdPreview}`;
-      const previewPadding = boxWidth - this.stripAnsi(previewLine).length - 1;
-      this.writeLine(`${previewLine}${themeFill}${' '.repeat(Math.max(0, previewPadding))}${themeBorder}║${RESET}`);
+      const args = this.buildTestArgs(test);
+      const maxCmdLen = boxWidth - 10;
+      let cmdText = `node ${test?.file} ${args}`;
+      if (cmdText.length > maxCmdLen) cmdText = cmdText.slice(0, maxCmdLen - 3) + '...';
+      this.renderBoxLine(`${DIM}  $ ${cmdText}${RESET}`, boxWidth, theme);
     }
     
-    // Fill remaining
-    const usedLines = params.length + (compact ? 3 : 4);
-    const visibleCount = Math.max(1, this.innerHeight - 8);
-    for (let i = usedLines; i < visibleCount; i++) {
-      this.writeLine(`${themeBorder}║${themeFill}${' '.repeat(boxWidth - 2)}${themeBorder}║${RESET}`);
+    // Fill remaining space
+    const usedLines = 1 + // title
+                      (selects.length > 0 ? selects.length + 1 : 0) + 
+                      (ranges.length > 0 ? ranges.length + 1 : 0) +
+                      (toggles.length > 0 ? Math.ceil(toggles.length / (compact ? 2 : 4)) + 1 : 0) +
+                      2 + // spacer + run
+                      (compact ? 0 : 1); // cmd preview
+    const availableLines = this.innerHeight - 8; // header + footer
+    for (let i = usedLines; i < availableLines; i++) {
+      this.renderBoxLine('', boxWidth, theme);
     }
+    
+    // Footer hints with color-coded buttons
+    const upDown = `${BG_BLUE}${FG_WHITE}${BOLD} ↑↓ ${RESET}`;
+    const leftRight = `${BG_BLUE}${FG_WHITE}${BOLD} ←→ ${RESET}`;
+    const spaceBtn = `${BG_MAGENTA}${FG_WHITE}${BOLD} Space ${RESET}`;
+    const enterBtn = `${BG_GREEN}${FG_WHITE}${BOLD} Enter ${RESET}`;
+    const escBtn = `${BG_RED}${FG_WHITE}${BOLD} Esc ${RESET}`;
+    
+    const hints = `${upDown}${FG_BLUE}Nav  ${leftRight}${FG_BLUE}Edit  ${spaceBtn}${FG_MAGENTA}Toggle  ${enterBtn}${FG_GREEN}Run  ${escBtn}${FG_RED}Back`;
+    this.renderBoxLine(hints, boxWidth, theme);
     
     this.renderFooter();
+  }
+  
+  // Render a param row inside the bordered box
+  renderParamRowBoxed(param, flatIndex, boxWidth, theme) {
+    const selected = flatIndex === this.paramIndex;
+    const value = selected ? this.inputBuffer : (this.testParams[param.key] || String(param.default || ''));
     
-    // Show cursor at input position if editing a param (only for non-option params)
-    if (this.paramIndex < params.length) {
-      const param = params[this.paramIndex];
-      if (!param.options && param.type !== 'number') {
-        this.write(CURSOR_SHOW);
-        const labelLen = param.label.length + 3;
-        this.write(moveTo(this.marginY + 3 + this.paramIndex, this.adaptiveMarginX + 4 + labelLen + this.inputBuffer.length));
+    const indicator = selected ? `${theme.accent}▸` : ` `;
+    const labelStyle = selected ? `${FG_WHITE}${BOLD}` : `${theme.text}`;
+    const label = `${labelStyle}${param.key}${RESET}${theme.fill}`;
+    
+    let valueDisplay;
+    if (param.type === 'select') {
+      if (selected) {
+        valueDisplay = `${DIM}◀${RESET}${theme.fill} ${FG_BRIGHT_YELLOW}${BOLD}${value}${RESET}${theme.fill} ${DIM}▶${RESET}${theme.fill}`;
+      } else {
+        valueDisplay = `${FG_GREEN}${value}${RESET}${theme.fill}`;
+      }
+    } else if (param.type === 'range') {
+      const numVal = parseInt(value) || param.min || 0;
+      const min = param.min ?? 0;
+      const max = param.max ?? 100;
+      const range = max - min || 1;
+      const pct = Math.max(0, Math.min(1, (numVal - min) / range));
+      const barWidth = 8;
+      const filled = Math.max(0, Math.min(barWidth, Math.round(pct * barWidth)));
+      const bar = `${FG_BRIGHT_CYAN}${'━'.repeat(filled)}${DIM}${'─'.repeat(barWidth - filled)}${RESET}${theme.fill}`;
+      
+      if (selected) {
+        valueDisplay = `${DIM}◀${RESET}${theme.fill} ${FG_BRIGHT_YELLOW}${BOLD}${value}${RESET}${theme.fill} ${bar} ${DIM}▶${RESET}${theme.fill}`;
+      } else {
+        valueDisplay = `${FG_GREEN}${value}${RESET}${theme.fill} ${bar}`;
       }
     }
+    
+    const content = ` ${indicator} ${label} ${DIM}│${RESET}${theme.fill} ${valueDisplay}`;
+    this.renderBoxLine(content, boxWidth, theme);
+  }
+  
+  // Build test args from current params
+  buildTestArgs(test) {
+    if (!test?.params) return '';
+    const parts = [];
+    for (const param of test.params) {
+      const value = this.testParams[param.key] || String(param.default || '');
+      if (value && value !== '') {
+        if (param.type === 'toggle') {
+          parts.push(value); // Just the key name for toggles
+        } else if (param.type === 'range') {
+          parts.push(`${param.key}=${value}`);
+        } else {
+          parts.push(value); // Select values go directly
+        }
+      }
+    }
+    return parts.join(' ');
+  }
+
+  // Strip emojis and special characters that mess up column alignment
+  stripEmojis(str) {
+    // Remove emoji ranges and variation selectors
+    return str.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{FE00}-\u{FE0F}]|[\u{1F000}-\u{1F02F}]|[\u{1F0A0}-\u{1F0FF}]|[\u{1F100}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]|[\u{2300}-\u{23FF}]|✨|♪|📦|🖥|🎼|🧪|⚙/gu, '').trim();
+  }
+
+  // Split-panel test running view with distinct panel colors
+  renderTestRunning() {
+    const boxWidth = this.width - 2;
+    
+    // Panel-specific colors (distinct backgrounds)
+    const leftBg = '\x1b[48;5;234m';   // Dark gray for output
+    const leftFg = FG_WHITE;
+    const rightBg = '\x1b[48;5;17m';   // Dark blue for logs  
+    const rightFg = FG_WHITE;
+    const borderFg = FG_BRIGHT_CYAN;
+    const headerBg = '\x1b[48;5;236m'; // Slightly lighter header
+    
+    // Calculate panel widths (true 50/50 split)
+    const leftWidth = Math.floor((boxWidth - 3) / 2);
+    const rightWidth = boxWidth - 3 - leftWidth;
+    
+    // Available height for content
+    const contentHeight = this.height - 6; // top border, header, divider, bottom divider, footer, bottom border
+    
+    // Initialize scroll positions if needed
+    if (this.leftScrollOffset === undefined) this.leftScrollOffset = 0;
+    if (this.rightScrollOffset === undefined) this.rightScrollOffset = 0;
+    if (this.activePanel === undefined) this.activePanel = 'left';
+    
+    // === TOP BORDER ===
+    this.frameBuffer.push(` ${borderFg}╔${'═'.repeat(leftWidth)}╦${'═'.repeat(rightWidth)}╗${RESET}`);
+    
+    // === HEADER ROW ===
+    const testName = this.testFile ? this.testFile.split('/').pop().replace('.mjs', '') : 'Test';
+    const runningIcon = this.testRunning ? '◐' : '●';
+    const runningColor = this.testRunning ? FG_BRIGHT_YELLOW : FG_BRIGHT_GREEN;
+    const activeLeft = this.activePanel === 'left';
+    
+    // Left header with test name
+    const leftTitle = `${runningColor}${runningIcon}${RESET}${headerBg} ${FG_BRIGHT_GREEN}${BOLD}OUTPUT${RESET}${headerBg} ${FG_WHITE}${testName}`;
+    const leftTitleStripped = this.stripAnsi(leftTitle);
+    const leftTitlePad = Math.max(0, leftWidth - this.getVisualWidth(leftTitleStripped) - 1);
+    
+    // Right header
+    const rightTitle = `${FG_BRIGHT_MAGENTA}${BOLD}LOGS${RESET}${headerBg} ${FG_CYAN}Console`;
+    const rightTitleStripped = this.stripAnsi(rightTitle);
+    const rightTitlePad = Math.max(0, rightWidth - this.getVisualWidth(rightTitleStripped) - 1);
+    
+    this.frameBuffer.push(` ${borderFg}║${headerBg} ${leftTitle}${' '.repeat(leftTitlePad)}${borderFg}║${headerBg} ${rightTitle}${' '.repeat(rightTitlePad)}${borderFg}║${RESET}`);
+    
+    // === HEADER DIVIDER ===
+    this.frameBuffer.push(` ${borderFg}╠${'─'.repeat(leftWidth)}╬${'─'.repeat(rightWidth)}╣${RESET}`);
+    
+    // === CONTENT ROWS ===
+    const outputLines = this.testOutput || [];
+    const logLines = this.testLogs || [];
+    
+    // Auto-scroll to bottom (follow mode)
+    const maxLeftScroll = Math.max(0, outputLines.length - contentHeight);
+    const maxRightScroll = Math.max(0, logLines.length - contentHeight);
+    this.leftScrollOffset = maxLeftScroll; // Auto-follow
+    this.rightScrollOffset = maxRightScroll; // Auto-follow
+    
+    // Get visible portion based on scroll
+    const visibleOutput = outputLines.slice(this.leftScrollOffset, this.leftScrollOffset + contentHeight);
+    const visibleLogs = logLines.slice(this.rightScrollOffset, this.rightScrollOffset + contentHeight);
+    
+    for (let row = 0; row < contentHeight; row++) {
+      // Left panel - test output (dark gray bg)
+      let leftText = '';
+      if (row < visibleOutput.length) {
+        const line = visibleOutput[row];
+        let text = this.stripAnsi(line.text || '');
+        text = this.stripEmojis(text); // Remove emojis for alignment
+        const maxW = leftWidth - 1;
+        if (text.length > maxW) text = text.slice(0, maxW - 2) + '..';
+        leftText = text;
+      }
+      const leftPad = Math.max(0, leftWidth - leftText.length);
+      
+      // Right panel - console logs (dark blue bg)
+      let rightText = '';
+      let rightColor = rightFg;
+      if (row < visibleLogs.length) {
+        const log = visibleLogs[row];
+        const levelColors = {
+          error: FG_BRIGHT_RED,
+          warn: FG_BRIGHT_YELLOW,
+          success: FG_BRIGHT_GREEN,
+          log: FG_WHITE,
+          info: FG_BRIGHT_CYAN,
+          input: FG_BRIGHT_MAGENTA,
+          result: FG_BRIGHT_GREEN,
+        };
+        rightColor = levelColors[log.level] || FG_WHITE;
+        let text = this.stripAnsi(log.text || '');
+        text = this.stripEmojis(text);
+        const maxW = rightWidth - 1;
+        if (text.length > maxW) text = text.slice(0, maxW - 2) + '..';
+        rightText = text;
+      }
+      const rightPad = Math.max(0, rightWidth - rightText.length);
+      
+      // Combine with distinct backgrounds
+      this.frameBuffer.push(` ${borderFg}║${leftBg}${leftFg}${leftText}${' '.repeat(leftPad)}${RESET}${borderFg}│${rightBg}${rightColor}${rightText}${' '.repeat(rightPad)}${RESET}${borderFg}║${RESET}`);
+    }
+    
+    // === BOTTOM DIVIDER ===
+    this.frameBuffer.push(` ${borderFg}╠${'═'.repeat(leftWidth)}╩${'═'.repeat(rightWidth)}╣${RESET}`);
+    
+    // === FOOTER with color-coded buttons ===
+    const statusText = this.testRunning 
+      ? `${FG_BRIGHT_YELLOW}${BOLD}● RUNNING${RESET}` 
+      : `${FG_BRIGHT_GREEN}${BOLD}✓ COMPLETE${RESET}`;
+    
+    // Color-coded keyboard hints
+    const escBtn = `${BG_RED}${FG_WHITE}${BOLD} Esc ${RESET}`;
+    const escLabel = `${FG_RED}Back`;
+    const tabBtn = `${BG_BLUE}${FG_WHITE}${BOLD} Tab ${RESET}`;
+    const tabLabel = `${FG_BLUE}Switch`;
+    const scrollHint = `${DIM}↑↓ Scroll${RESET}`;
+    
+    const footerContent = ` ${statusText}  ${escBtn}${escLabel}  ${tabBtn}${tabLabel}  ${scrollHint}  ${FG_CYAN}${this.utcTime}`;
+    const footerStripped = this.stripAnsi(footerContent);
+    const footerPad = Math.max(0, boxWidth - 2 - this.getVisualWidth(footerStripped));
+    
+    this.frameBuffer.push(` ${borderFg}║${BG_BLACK}${footerContent}${' '.repeat(footerPad)}${borderFg}║${RESET}`);
+    this.frameBuffer.push(` ${borderFg}╚${'═'.repeat(boxWidth - 2)}╝${RESET}`);
   }
 
   renderLogs() {
@@ -2761,6 +6479,164 @@ class ArteryTUI {
     for (let i = recentLogs.length; i < logLines; i++) {
       this.writeLine(`${DOS_BORDER}║${BG_BLUE}${' '.repeat(boxWidth - 2)}${DOS_BORDER}║${RESET}`);
     }
+    
+    this.renderFooter();
+  }
+
+  renderDevices() {
+    this.renderHeader();
+    const boxWidth = this.innerWidth;
+    const compact = this.width < 80;
+    
+    // Title with device count
+    const deviceCount = this.devicesList.length;
+    const hostName = this.devicesHostInfo?.name || 'unknown';
+    const countInfo = compact ? '' : `${DIM}(${deviceCount} devices)${RESET}`;
+    const title = `${DOS_BORDER}║${RESET}${BG_BLUE}${FG_BRIGHT_CYAN}📱${FG_WHITE} Devices ${countInfo}`;
+    const titlePad = boxWidth - this.stripAnsi(title).length - 1;
+    this.writeLine(`${title}${BG_BLUE}${' '.repeat(Math.max(0, titlePad))}${DOS_BORDER}║${RESET}`);
+    
+    // Host info
+    const hostLine = `${DOS_BORDER}║${RESET}${BG_BLUE}  ${FG_CYAN}Host:${FG_WHITE} ${hostName}${DIM} (${this.devicesHostInfo?.ip || 'N/A'})${RESET}`;
+    const hostPad = boxWidth - this.stripAnsi(hostLine).length - 1;
+    this.writeLine(`${hostLine}${BG_BLUE}${' '.repeat(Math.max(0, hostPad))}${DOS_BORDER}║${RESET}`);
+    this.writeLine(`${DOS_BORDER}╟${'─'.repeat(boxWidth - 2)}╢${RESET}`);
+    
+    // Loading/error state
+    if (this.devicesLoading) {
+      const loadLine = `${DOS_BORDER}║${RESET}${BG_BLUE}  ${FG_BRIGHT_YELLOW}Loading devices...${RESET}`;
+      const loadPad = boxWidth - this.stripAnsi(loadLine).length - 1;
+      this.writeLine(`${loadLine}${BG_BLUE}${' '.repeat(Math.max(0, loadPad))}${DOS_BORDER}║${RESET}`);
+    } else if (this.devicesError) {
+      const errLine = `${DOS_BORDER}║${RESET}${BG_BLUE}  ${FG_BRIGHT_RED}Error: ${this.devicesError}${RESET}`;
+      const errPad = boxWidth - this.stripAnsi(errLine).length - 1;
+      this.writeLine(`${errLine}${BG_BLUE}${' '.repeat(Math.max(0, errPad))}${DOS_BORDER}║${RESET}`);
+    } else if (this.devicesList.length === 0) {
+      const emptyLine = `${DOS_BORDER}║${RESET}${BG_BLUE}  ${DIM}No devices connected${RESET}`;
+      const emptyPad = boxWidth - this.stripAnsi(emptyLine).length - 1;
+      this.writeLine(`${emptyLine}${BG_BLUE}${' '.repeat(Math.max(0, emptyPad))}${DOS_BORDER}║${RESET}`);
+    } else {
+      // Device list
+      const maxDevices = Math.max(1, this.innerHeight - 12);
+      const devices = this.devicesList.slice(0, maxDevices);
+      
+      for (let i = 0; i < devices.length; i++) {
+        const d = devices[i];
+        const selected = i === this.devicesSelectedIndex;
+        const selectBg = selected ? BG_CYAN : BG_BLUE;
+        const selectFg = selected ? FG_BLACK : FG_WHITE;
+        const marker = selected ? '►' : ' ';
+        
+        // Device info with letter
+        const letter = d.letter || String.fromCharCode(65 + i); // A, B, C fallback
+        const name = d.deviceName || d.handle || d.ip || 'Unknown';
+        const ip = d.ip || '';
+        const handle = d.handle ? `@${d.handle}` : '';
+        const piece = d.currentPiece ? `[${d.currentPiece}]` : '';
+        
+        const deviceLine = `${DOS_BORDER}║${RESET}${selectBg}${FG_BRIGHT_YELLOW}${marker}${FG_BRIGHT_CYAN}${letter}${selectFg} ${name}${DIM} ${ip} ${handle} ${FG_BRIGHT_CYAN}${piece}${RESET}`;
+        const devicePad = boxWidth - this.stripAnsi(deviceLine).length - 1;
+        this.writeLine(`${deviceLine}${selectBg}${' '.repeat(Math.max(0, devicePad))}${DOS_BORDER}║${RESET}`);
+      }
+      
+      // Fill remaining space
+      const fillCount = maxDevices - devices.length;
+      for (let i = 0; i < fillCount; i++) {
+        this.writeLine(`${DOS_BORDER}║${BG_BLUE}${' '.repeat(boxWidth - 2)}${DOS_BORDER}║${RESET}`);
+      }
+    }
+    
+    this.writeLine(`${DOS_BORDER}╟${'─'.repeat(boxWidth - 2)}╢${RESET}`);
+    
+    // Actions menu or input mode
+    if (this.devicesSubMode === 'jump-input') {
+      const inputLine = `${DOS_BORDER}║${RESET}${BG_BLUE}  ${FG_BRIGHT_GREEN}Jump to piece:${FG_WHITE} ${this.devicesJumpInput}█${RESET}`;
+      const inputPad = boxWidth - this.stripAnsi(inputLine).length - 1;
+      this.writeLine(`${inputLine}${BG_BLUE}${' '.repeat(Math.max(0, inputPad))}${DOS_BORDER}║${RESET}`);
+    } else if (this.devicesSubMode === 'name-input') {
+      const inputLine = `${DOS_BORDER}║${RESET}${BG_BLUE}  ${FG_BRIGHT_GREEN}Device name:${FG_WHITE} ${this.devicesNameInput}█${RESET}`;
+      const inputPad = boxWidth - this.stripAnsi(inputLine).length - 1;
+      this.writeLine(`${inputLine}${BG_BLUE}${' '.repeat(Math.max(0, inputPad))}${DOS_BORDER}║${RESET}`);
+    } else {
+      // Action hints
+      const actions = compact 
+        ? `${FG_CYAN}r${FG_WHITE}efresh ${FG_CYAN}j${FG_WHITE}ump ${FG_CYAN}R${FG_WHITE}eload ${FG_CYAN}a${FG_WHITE}ll ${FG_CYAN}n${FG_WHITE}ame`
+        : `${FG_CYAN}r${FG_WHITE}efresh  ${FG_CYAN}j${FG_WHITE}ump  ${FG_CYAN}R${FG_WHITE}eload  ${FG_CYAN}a${FG_WHITE}ll  ${FG_CYAN}n${FG_WHITE}ame  ${FG_CYAN}↑↓${FG_WHITE} select`;
+      const actionsLine = `${DOS_BORDER}║${RESET}${BG_BLUE}  ${actions}${RESET}`;
+      const actionsPad = boxWidth - this.stripAnsi(actionsLine).length - 1;
+      this.writeLine(`${actionsLine}${BG_BLUE}${' '.repeat(Math.max(0, actionsPad))}${DOS_BORDER}║${RESET}`);
+    }
+    
+    this.renderFooter();
+  }
+
+  renderFF1() {
+    this.renderHeader();
+    const boxWidth = this.innerWidth;
+    const compact = this.width < 80;
+    
+    // Title
+    const scanStatus = this.ff1Scanning ? `${FG_BRIGHT_YELLOW}⟳ SCANNING${RESET}` : '';
+    const title = `${DOS_BORDER}║${RESET}${BG_BLUE}${FG_BRIGHT_MAGENTA}🎨${FG_WHITE} FF1 Scanner ${scanStatus}`;
+    const titlePad = boxWidth - this.stripAnsi(title).length - 1;
+    this.writeLine(`${title}${BG_BLUE}${' '.repeat(Math.max(0, titlePad))}${DOS_BORDER}║${RESET}`);
+    
+    // Subnets being scanned
+    const subnetsLine = `${DOS_BORDER}║${RESET}${BG_BLUE}  ${FG_CYAN}Subnets:${FG_WHITE} ${this.ff1Subnets.map(s => s + '.x').join(', ')}${RESET}`;
+    const subnetsPad = boxWidth - this.stripAnsi(subnetsLine).length - 1;
+    this.writeLine(`${subnetsLine}${BG_BLUE}${' '.repeat(Math.max(0, subnetsPad))}${DOS_BORDER}║${RESET}`);
+    
+    // Progress
+    if (this.ff1ScanProgress) {
+      const progressLine = `${DOS_BORDER}║${RESET}${BG_BLUE}  ${DIM}${this.ff1ScanProgress}${RESET}`;
+      const progressPad = boxWidth - this.stripAnsi(progressLine).length - 1;
+      this.writeLine(`${progressLine}${BG_BLUE}${' '.repeat(Math.max(0, progressPad))}${DOS_BORDER}║${RESET}`);
+    }
+    
+    this.writeLine(`${DOS_BORDER}╟${'─'.repeat(boxWidth - 2)}╢${RESET}`);
+    
+    // Device list
+    if (this.ff1Devices.length === 0 && !this.ff1Scanning) {
+      const emptyLine = `${DOS_BORDER}║${RESET}${BG_BLUE}  ${DIM}Press ${FG_CYAN}s${RESET}${DIM} to scan for FF1 devices${RESET}`;
+      const emptyPad = boxWidth - this.stripAnsi(emptyLine).length - 1;
+      this.writeLine(`${emptyLine}${BG_BLUE}${' '.repeat(Math.max(0, emptyPad))}${DOS_BORDER}║${RESET}`);
+    } else {
+      const maxDevices = Math.max(1, this.innerHeight - 12);
+      const devices = this.ff1Devices.slice(0, maxDevices);
+      
+      for (let i = 0; i < devices.length; i++) {
+        const d = devices[i];
+        const selected = i === this.ff1SelectedIndex;
+        const selectBg = selected ? BG_CYAN : BG_BLUE;
+        const selectFg = selected ? FG_BLACK : FG_WHITE;
+        const marker = selected ? '►' : ' ';
+        
+        // Status icons
+        const sshIcon = d.ssh ? `${FG_BRIGHT_GREEN}SSH${RESET}` : `${FG_BRIGHT_RED}---${RESET}`;
+        const cdpIcon = d.cdpVerified ? `${FG_BRIGHT_GREEN}CDP${RESET}` : (d.cdp ? `${FG_BRIGHT_YELLOW}CDP?${RESET}` : `${DIM}---${RESET}`);
+        const hostname = d.hostname ? `${FG_BRIGHT_CYAN}${d.hostname}${RESET}` : '';
+        
+        const deviceLine = `${DOS_BORDER}║${RESET}${selectBg}${FG_BRIGHT_YELLOW}${marker}${selectFg} ${d.ip} ${sshIcon} ${cdpIcon} ${hostname}${RESET}`;
+        const devicePad = boxWidth - this.stripAnsi(deviceLine).length - 1;
+        this.writeLine(`${deviceLine}${selectBg}${' '.repeat(Math.max(0, devicePad))}${DOS_BORDER}║${RESET}`);
+      }
+      
+      // Fill remaining space
+      const fillCount = Math.max(0, maxDevices - devices.length);
+      for (let i = 0; i < fillCount; i++) {
+        this.writeLine(`${DOS_BORDER}║${BG_BLUE}${' '.repeat(boxWidth - 2)}${DOS_BORDER}║${RESET}`);
+      }
+    }
+    
+    this.writeLine(`${DOS_BORDER}╟${'─'.repeat(boxWidth - 2)}╢${RESET}`);
+    
+    // Actions
+    const actions = compact 
+      ? `${FG_CYAN}s${FG_WHITE}can ${FG_CYAN}h${FG_WHITE}ost ${FG_CYAN}c${FG_WHITE}dp`
+      : `${FG_CYAN}s${FG_WHITE}can  ${FG_CYAN}h${FG_WHITE}ostname  ${FG_CYAN}c${FG_WHITE}heck CDP  ${FG_CYAN}↑↓${FG_WHITE} select`;
+    const actionsLine = `${DOS_BORDER}║${RESET}${BG_BLUE}  ${actions}${RESET}`;
+    const actionsPad = boxWidth - this.stripAnsi(actionsLine).length - 1;
+    this.writeLine(`${actionsLine}${BG_BLUE}${' '.repeat(Math.max(0, actionsPad))}${DOS_BORDER}║${RESET}`);
     
     this.renderFooter();
   }
