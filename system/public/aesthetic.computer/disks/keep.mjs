@@ -70,6 +70,8 @@ let alreadyMinted = null; // { tokenId, owner, artifactUri, thumbnailUri, metada
 let loadingExisting = false;
 let rebaking = false; // True when regenerating bundle for already-minted piece
 let rebakeResult = null; // Result from rebake: { artifactUri, thumbnailUri }
+let updatingChain = false; // True when updating on-chain metadata
+let updateChainResult = null; // Result from chain update
 let thumbnailBitmap = null; // Loaded thumbnail image (single frame or current frame)
 let thumbnailFrames = null; // Array of frames for animated WebP { frames, width, height, loopCount }
 let thumbnailFrameIndex = 0; // Current animation frame
@@ -132,7 +134,7 @@ function hasError() {
 }
 
 let btn;
-let htmlBtn, thumbBtn, metaBtn, networkBtn, rebakeBtn;
+let htmlBtn, thumbBtn, metaBtn, networkBtn, rebakeBtn, updateChainBtn;
 let _api, _net, _jump, _store, _needsPaint, _send, _ui, _screen, _preload, _preloadAnimatedWebp;
 
 function boot({ api, net, hud, params, store, cursor, jump, needsPaint, ui, screen, send }) {
@@ -161,11 +163,13 @@ function boot({ api, net, hud, params, store, cursor, jump, needsPaint, ui, scre
   metaBtn = new ui.TextButton("META", { x: 0, y: 0, screen });
   networkBtn = new ui.TextButton("GHOSTNET", { x: 0, y: 0, screen });
   rebakeBtn = new ui.TextButton("REBAKE", { x: 0, y: 0, screen });
+  updateChainBtn = new ui.TextButton("UPDATE", { x: 0, y: 0, screen });
   htmlBtn.btn.stickyScrubbing = true;
   thumbBtn.btn.stickyScrubbing = true;
   metaBtn.btn.stickyScrubbing = true;
   networkBtn.btn.stickyScrubbing = true;
   rebakeBtn.btn.stickyScrubbing = true;
+  updateChainBtn.btn.stickyScrubbing = true;
   
   let rawPiece = params[0] || store["keep:piece"];
   piece = rawPiece?.startsWith("$") ? rawPiece.slice(1) : rawPiece;
@@ -1130,6 +1134,28 @@ function paint({ wipe, ink, box, screen, paste }) {
     rebakeBtn.btn.box.w = rebakeSize.w;
     rebakeBtn.btn.box.h = rebakeSize.h;
     paintMC8Btn(rebakeX, y, rebaking ? "Rebaking..." : "Rebake Bundle", { ink, line: ink }, rebaking ? rebakingScheme : rebakeScheme, rebakeBtn.btn.down);
+    y += rebakeSize.h + 4;
+    
+    // Update Chain button - appears after rebake to push new metadata on-chain
+    if (rebakeResult) {
+      const updateScheme = {
+        normal: { bg: [50, 30, 80], outline: [140, 100, 200], outlineAlpha: 150, text: [200, 150, 255] },
+        hover: { bg: [70, 50, 120], outline: [180, 140, 255], outlineAlpha: 200, text: [230, 200, 255] },
+        disabled: { bg: [30, 25, 40], outline: [80, 60, 100], outlineAlpha: 100, text: [100, 80, 120] }
+      };
+      const updatingScheme = {
+        normal: { bg: [30, 25, 40], outline: [80, 60, 100], outlineAlpha: 100, text: [100, 80, 120] },
+        hover: { bg: [30, 25, 40], outline: [80, 60, 100], outlineAlpha: 100, text: [100, 80, 120] },
+        disabled: { bg: [30, 25, 40], outline: [80, 60, 100], outlineAlpha: 100, text: [100, 80, 120] }
+      };
+      const updateSize = mc8ButtonSize("Update Chain");
+      const updateX = floor((w - updateSize.w) / 2);
+      updateChainBtn.btn.box.x = updateX;
+      updateChainBtn.btn.box.y = y;
+      updateChainBtn.btn.box.w = updateSize.w;
+      updateChainBtn.btn.box.h = updateSize.h;
+      paintMC8Btn(updateX, y, updatingChain ? "Updating..." : "Update Chain", { ink, line: ink }, updatingChain ? updatingScheme : updateScheme, updateChainBtn.btn.down);
+    }
     
     return;
   }
@@ -1696,6 +1722,59 @@ function act({ event: e, screen }) {
           console.error("🪙 REBAKE failed:", err);
         } finally {
           rebaking = false;
+          _needsPaint?.();
+        }
+      }});
+    }
+    
+    // Update Chain button - push new metadata on-chain (requires wallet)
+    if (rebakeResult && !updatingChain) {
+      updateChainBtn.btn.act(e, { push: async () => {
+        console.log("🪙 UPDATE CHAIN: Starting on-chain update for token #" + alreadyMinted.tokenId);
+        updatingChain = true;
+        updateChainResult = null;
+        _needsPaint?.();
+        
+        try {
+          // Connect wallet if not connected
+          let walletAddress = await _api.tezos.address();
+          if (!walletAddress) {
+            walletAddress = await _api.tezos.connect(NETWORK);
+          }
+          if (!walletAddress) {
+            console.error("🪙 UPDATE CHAIN: Wallet connection cancelled");
+            return;
+          }
+          
+          // Call the update-metadata endpoint
+          const token = await _net?.getToken?.();
+          const response = await fetch("/api/keep-update", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+            },
+            body: JSON.stringify({
+              piece: "$" + piece,
+              tokenId: alreadyMinted.tokenId,
+              artifactUri: rebakeResult.artifactUri,
+              thumbnailUri: rebakeResult.thumbnailUri,
+              walletAddress,
+            }),
+          });
+          
+          const result = await response.json();
+          
+          if (result.success) {
+            updateChainResult = result;
+            console.log("🪙 UPDATE CHAIN complete! Op hash:", result.opHash);
+          } else {
+            console.error("🪙 UPDATE CHAIN error:", result.error);
+          }
+        } catch (err) {
+          console.error("🪙 UPDATE CHAIN failed:", err);
+        } finally {
+          updatingChain = false;
           _needsPaint?.();
         }
       }});
