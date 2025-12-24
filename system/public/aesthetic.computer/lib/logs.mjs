@@ -140,7 +140,7 @@ export const logs = {
   frame: false,
   loading: false,
   session: false,
-  udp: true,
+  udp: false,
   download: false,
   audio: false,
   hid: false,
