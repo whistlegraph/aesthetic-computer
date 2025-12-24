@@ -1643,11 +1643,14 @@ function act({ event: e, screen }) {
         _needsPaint?.();
         
         try {
+          // Get auth token the same way as main process
+          const token = await _net?.getToken?.();
+          
           const response = await fetch("/api/keep-mint", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              "Authorization": `Bearer ${_store["login-token"]}`,
+              ...(token ? { "Authorization": `Bearer ${token}` } : {}),
             },
             body: JSON.stringify({
               piece: "$" + piece,
