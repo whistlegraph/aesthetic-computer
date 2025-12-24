@@ -423,12 +423,14 @@ async function importWithRetry(modulePath, retries = IMPORT_MAX_RETRIES) {
 // Load core modules with retry support
 // Use cache-busting query params to ensure fresh code on LAN/remote devices
 // Skip cache-busting in PACK_MODE (NFT bundles use import maps with fixed paths)
+// In PACK_MODE, use bare specifiers (no ./) so import maps work from blob URLs
 const cacheBust = window.acPACK_MODE ? '' : `?v=${Date.now()}`;
+const pathPrefix = window.acPACK_MODE ? '' : './';
 let boot, parse, slug;
 try {
   const [biosModule, parseModule] = await Promise.all([
-    importWithRetry(`./bios.mjs${cacheBust}`),
-    importWithRetry(`./lib/parse.mjs${cacheBust}`)
+    importWithRetry(`${pathPrefix}bios.mjs${cacheBust}`),
+    importWithRetry(`${pathPrefix}lib/parse.mjs${cacheBust}`)
   ]);
   boot = biosModule.boot;
   parse = parseModule.parse;
