@@ -17,7 +17,7 @@ const NETWORKS = {
 };
 
 // Current network (can be switched)
-let currentNetwork = "ghostnet"; // Start on testnet
+let currentNetwork = "mainnet"; // Default to mainnet
 
 // Singleton instances
 let tezos = null;
@@ -28,7 +28,7 @@ let connectedAddress = null;
  * Initialize the Tezos toolkit and wallet
  * @param {string} network - 'mainnet' or 'ghostnet'
  */
-export async function init(network = "ghostnet") {
+export async function init(network = "mainnet") {
   currentNetwork = network;
   const config = NETWORKS[network];
   

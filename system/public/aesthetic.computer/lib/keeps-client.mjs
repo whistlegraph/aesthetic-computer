@@ -8,20 +8,25 @@ import TezosWallet from "./tezos-wallet.mjs";
 // Constants
 // ═══════════════════════════════════════════════════════════════════════════════
 
+// TODO: Set to false when switching to production mainnet contract
+export const KEEPS_STAGING = true;
+
 export const NETWORKS = {
-  ghostnet: {
-    contract: "KT1StXrQNvRd9dNPpHdCGEstcGiBV6neq79K",
-    name: "ghostnet",
-    explorer: "ghostnet.tzkt.io",
-    objkt: "ghostnet.objkt.com",
-    rpc: "https://ghostnet.ecadinfra.com",
-  },
   mainnet: {
-    contract: null, // Not yet deployed
+    contract: "KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM", // Staging contract
     name: "mainnet",
+    displayName: KEEPS_STAGING ? "Mainnet (Staging)" : "Mainnet",
     explorer: "tzkt.io",
     objkt: "objkt.com",
     rpc: "https://mainnet.ecadinfra.com",
+  },
+  ghostnet: {
+    contract: "KT1StXrQNvRd9dNPpHdCGEstcGiBV6neq79K",
+    name: "ghostnet",
+    displayName: "Ghostnet",
+    explorer: "ghostnet.tzkt.io",
+    objkt: "ghostnet.objkt.com",
+    rpc: "https://ghostnet.ecadinfra.com",
   },
 };
 
@@ -57,7 +62,7 @@ export const STEP_STATUS = {
 
 export class KeepsClient {
   constructor(options = {}) {
-    this.network = options.network || "ghostnet";
+    this.network = options.network || "mainnet";
     this.config = NETWORKS[this.network];
     this.walletAddress = null;
     this.state = this.createInitialState();
@@ -527,7 +532,7 @@ export class KeepsClient {
 
 let defaultClient = null;
 
-export function getKeepsClient(network = "ghostnet") {
+export function getKeepsClient(network = "mainnet") {
   if (!defaultClient || defaultClient.network !== network) {
     defaultClient = new KeepsClient({ network });
   }

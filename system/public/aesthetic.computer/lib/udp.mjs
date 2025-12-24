@@ -30,12 +30,48 @@ function connect(port = 8889, url = undefined, send) {
 
   dontreconnect = false;
 
+  // Ensure port is a number
+  const portNum = typeof port === 'string' ? parseInt(port, 10) : port;
+
+  // Detect if we're in local dev (localhost or LAN IP)
+  const isLocalDev = url?.includes('localhost') || url?.includes('192.168.') || url?.includes('127.0.0.1');
+  
+  // Get the hostname from URL for TURN server (use same host as session server)
+  const turnHost = url ? new URL(url).hostname : 'localhost';
+  
   try {
-    channel = Geckos({ url, port }); // default port is 9208
+    console.log("🩰 Creating Geckos channel with:", { url, port: portNum, isLocalDev, turnHost });
+    // For local dev, use local TURN server for relay (required in Docker/devcontainer)
+    // TURN server relays traffic when direct P2P isn't possible
+    // Use the same hostname as the session server for TURN
+    const localIceServers = [
+      { urls: `stun:${turnHost}:3478` },
+      { 
+        urls: `turn:${turnHost}:3478`,
+        username: 'aesthetic',
+        credential: 'computer123'
+      },
+    ];
+    const prodIceServers = [
+      { urls: 'stun:stun.l.google.com:19302' },
+    ];
+    channel = Geckos({ 
+      url, 
+      port: portNum,
+      iceServers: isLocalDev ? localIceServers : prodIceServers,
+    });
+    console.log("🩰 Geckos channel created:", channel);
+    console.log("🩰 Channel URL will be:", `${url}:${portNum}`);
   } catch (e) {
     console.error("🩰 Failed to create Geckos channel:", e);
     return;
   }
+
+  // Add timeout to detect if onConnect never fires
+  const connectTimeout = setTimeout(() => {
+    console.warn("🩰 ⚠️ UDP connection timeout - onConnect never fired after 10s");
+    console.warn("🩰 This usually means WebRTC ICE gathering failed or signaling endpoint issues");
+  }, 10000);
 
   reconnect = () => {
     reconnectingTimeout = setTimeout(() => {
@@ -45,6 +81,7 @@ function connect(port = 8889, url = undefined, send) {
   };
 
   channel.onConnect((error) => {
+    clearTimeout(connectTimeout); // Clear the timeout since onConnect fired
     if (logs.udp) console.log("🩰 onConnect callback fired! error:", error);
     if (error) {
       if (logs.udp) console.log('%cUDP connection failed: ' + (error.message || error) + ', retrying in ' + (reconnectTime / 1000) + 's...', 'color: orange; background: black; padding: 2px;');

@@ -10,9 +10,11 @@
 
 import { qrcode as qr } from "../dep/@akamfoad/qr/qr.mjs";
 
-// Current Keeps contract (v3)
-const KEEPS_CONTRACT = "KT1StXrQNvRd9dNPpHdCGEstcGiBV6neq79K";
-const KEEPS_NETWORK = "ghostnet";
+// Current Keeps contract (mainnet staging)
+const KEEPS_CONTRACT = "KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM";
+const KEEPS_NETWORK = "mainnet";
+// TODO: Set to false when switching to production mainnet contract
+const KEEPS_STAGING = true;
 
 // State
 let walletState = null;
@@ -28,6 +30,7 @@ let pairingUri = null; // Beacon pairing URI for mobile connection
 let pairingError = null; // Error if pairing fails
 let nftCount = 0; // Number of NFTs owned
 let userKidlisps = []; // User's KidLisp pieces
+let ownedKeeps = []; // Keeps tokens owned by wallet on current contract
 let userSub = null; // Current user's sub for KidLisp queries
 let userHandle = null; // Current user's AC handle
 
@@ -57,7 +60,9 @@ let connectMobileBtn;
 let connectExtensionBtn;
 let keepsLoginBtn; // Login button for keeps section
 let keepsSignupBtn; // Signup button for keeps section
-let keepButtons = {}; // Map of code -> ui.TextButton for keeping unkept KidLisps
+let keepButtons = {}; // Map of code -> ui.TextButtonSmall for keeping unkept KidLisps
+let stagingLinkBtn; // Link to staging contract on objkt
+let ownedKeepBtns = {}; // Map of tokenId -> ui.TextButtonSmall for objkt links
 let showConnectOptions = false; // Show extension vs mobile choice
 let connectError = null;
 let connecting = false; // Connection in progress
@@ -152,6 +157,26 @@ async function boot({ wallet, wipe, hud, ui, screen, user, handle }) {
   wallet.sync();
   walletState = wallet.get();
   
+  // Log wallet state on entering wallet piece
+  if (walletState?.connected) {
+    const addr = walletState.address;
+    const shortAddr = addr ? `${addr.slice(0, 8)}...${addr.slice(-4)}` : "?";
+    const baseNetwork = (walletState.network || KEEPS_NETWORK).toUpperCase();
+    const network = KEEPS_STAGING && baseNetwork === "MAINNET" ? "MAINNET (STAGING)" : baseNetwork;
+    const balance = walletState.balance != null ? `ꜩ${walletState.balance.toFixed(2)}` : "ꜩ...";
+    const domain = walletState.domain;
+    const displayName = domain || shortAddr;
+    
+    console.log(
+      `%c 💼 Wallet %c ${displayName} %c ${balance} %c ${network} %c Contract: ${KEEPS_CONTRACT.slice(0, 10)}... `,
+      "background: #0066FF; color: white; font-weight: bold; padding: 2px 8px; border-radius: 4px 0 0 4px;",
+      "background: #1a1a2e; color: #00d4ff; font-weight: bold; padding: 2px 8px;",
+      "background: #1a1a2e; color: #00ff88; padding: 2px 8px;",
+      `background: ${baseNetwork === "MAINNET" ? (KEEPS_STAGING ? "#cc6600" : "#00aa44") : "#ff8800"}; color: white; font-weight: bold; padding: 2px 8px;`,
+      "background: #333; color: #888; padding: 2px 8px; border-radius: 0 4px 4px 0;"
+    );
+  }
+  
   // Get logged-in user sub and handle
   userSub = user?.sub || null;
   userHandle = typeof handle === "function" ? handle() : user?.handle || null;
@@ -192,13 +217,16 @@ async function boot({ wallet, wipe, hud, ui, screen, user, handle }) {
   keepsSignupBtn = new ui.TextButton("I'm new", { center: "xy", screen });
   keepsSignupBtn.stickyScrubbing = true;
   
-  await Promise.all([
+  // Fire off data fetches in background (non-blocking)
+  // UI will render immediately and update as data arrives
+  Promise.all([
     fetchTezPrice(walletState?.network),
     fetchHeadBlock(walletState?.network),
     walletState?.address ? fetchTransactions(walletState.address, walletState.network) : Promise.resolve(),
     walletState?.address ? fetchNFTCount(walletState.address, walletState.network) : Promise.resolve(),
+    walletState?.address ? fetchOwnedKeeps(walletState.address, walletState.network) : Promise.resolve(),
     userSub ? fetchUserKidlisps(userSub) : Promise.resolve(),
-  ]);
+  ]).catch(err => console.warn("📜 [WALLET] Background fetch error:", err));
 }
 
 function initDataStreams(screen) {
@@ -229,7 +257,7 @@ function generateStreamChars() {
   return chars;
 }
 
-async function fetchTezPrice(network = "ghostnet") {
+async function fetchTezPrice(network = "mainnet") {
   try {
     const apiBase = getApiBase(network);
     const res = await fetch(`${apiBase}/v1/quotes/last`);
@@ -243,7 +271,7 @@ async function fetchTezPrice(network = "ghostnet") {
   } catch (e) {}
 }
 
-async function fetchHeadBlock(network = "ghostnet") {
+async function fetchHeadBlock(network = "mainnet") {
   try {
     const apiBase = getApiBase(network);
     const res = await fetch(`${apiBase}/v1/head`);
@@ -258,7 +286,7 @@ async function fetchHeadBlock(network = "ghostnet") {
   } catch (e) {}
 }
 
-async function fetchTransactions(address, network = "ghostnet") {
+async function fetchTransactions(address, network = "mainnet") {
   try {
     const apiBase = network === "mainnet" ? "https://api.tzkt.io" : "https://api.ghostnet.tzkt.io";
     const res = await fetch(`${apiBase}/v1/accounts/${address}/operations?limit=5&type=transaction`);
@@ -276,7 +304,7 @@ async function fetchTransactions(address, network = "ghostnet") {
   } catch (e) {}
 }
 
-async function fetchNFTCount(address, network = "ghostnet") {
+async function fetchNFTCount(address, network = "mainnet") {
   try {
     const apiBase = network === "mainnet" ? "https://api.tzkt.io" : "https://api.ghostnet.tzkt.io";
     const res = await fetch(`${apiBase}/v1/tokens/balances?account=${address}&balance.gt=0&limit=1000`);
@@ -285,6 +313,40 @@ async function fetchNFTCount(address, network = "ghostnet") {
       nftCount = data.length;
     }
   } catch (e) {}
+}
+
+// Fetch Keeps tokens owned by this wallet on the current contract
+async function fetchOwnedKeeps(address, network = "mainnet") {
+  if (!address) return;
+  
+  try {
+    const apiBase = network === "mainnet" ? "https://api.tzkt.io" : "https://api.ghostnet.tzkt.io";
+    // Query tokens owned by this address on the Keeps contract
+    const res = await fetch(`${apiBase}/v1/tokens/balances?account=${address}&token.contract=${KEEPS_CONTRACT}&balance.gt=0`);
+    if (res.ok) {
+      const data = await res.json();
+      console.log(`📜 [WALLET] Found ${data.length} Keeps tokens owned on contract ${KEEPS_CONTRACT.slice(0, 10)}...`);
+      
+      // TzKT returns token metadata directly in the response
+      ownedKeeps = data.map((tb) => {
+        const tokenId = tb.token.tokenId;
+        const meta = tb.token.metadata || {};
+        const name = meta.name || `#${tokenId}`;
+        
+        return {
+          tokenId,
+          name,
+          balance: tb.balance,
+          contract: KEEPS_CONTRACT,
+          objktUrl: `https://objkt.com/asset/${KEEPS_CONTRACT}/${tokenId}`,
+        };
+      });
+      
+      console.log(`📜 [WALLET] Owned Keeps:`, ownedKeeps.map(k => k.name).join(', ') || 'none');
+    }
+  } catch (e) {
+    console.warn("📜 [WALLET] Failed to fetch owned keeps:", e);
+  }
 }
 
 async function fetchUserKidlisps(userSub) {
@@ -562,7 +624,8 @@ function paint($) {
       // Subtitle below buttons
       ink(...colors.textDim).write("to see your keeps", { x: w/2, y, center: "x" });
       y += 16;
-    } else if (userKidlisps.length > 0) {
+    } else if (userKidlisps.length > 0 || ownedKeeps.length > 0) {
+      // Build unified keeps list: authored keeps + collected (owned but not authored)
       const isKeptByUser = p =>
         p.kept &&
         (p.kept.keptBy === userSub ||
@@ -570,107 +633,168 @@ function paint($) {
           (!p.kept.keptBy && !p.kept.walletAddress));
       const keptPieces = userKidlisps.filter(isKeptByUser);
       const unkeptPieces = userKidlisps.filter(p => !isKeptByUser(p));
-      const colW = Math.floor((w - m * 3) / 2);
-      const leftX = m;
-      const rightX = m + colW + m;
       
-      // Column headers
-      ink(...colors.positive).write(`KEPT (${keptPieces.length})`, { x: leftX, y });
-      ink(...colors.textDim).write(`UNKEPT (${unkeptPieces.length})`, { x: rightX, y });
-      y += 12;
+      // Build unified keeps: merge keptPieces with ownership info from ownedKeeps
+      const unifiedKeeps = keptPieces.map(p => {
+        const owned = ownedKeeps.find(o => o.tokenId === p.kept?.tokenId);
+        return {
+          code: p.code,
+          tokenId: p.kept?.tokenId,
+          owned: !!owned,
+          balance: owned?.balance || 0,
+          objktUrl: owned?.objktUrl || `https://objkt.com/tokens/${KEEPS_CONTRACT}/${p.kept?.tokenId}`,
+          authored: true
+        };
+      });
       
-      const maxRows = 4;
-      const rowH = 18;
+      // Add collected tokens (owned but not authored by user)
+      const authoredTokenIds = new Set(keptPieces.map(p => p.kept?.tokenId).filter(Boolean));
+      for (const owned of ownedKeeps) {
+        if (!authoredTokenIds.has(owned.tokenId)) {
+          unifiedKeeps.push({
+            code: owned.name?.replace('$', '') || `token${owned.tokenId}`,
+            tokenId: owned.tokenId,
+            owned: true,
+            balance: owned.balance,
+            objktUrl: owned.objktUrl,
+            authored: false,
+            collected: true
+          });
+        }
+      }
       
-      // Draw kept pieces (left column)
-      for (let i = 0; i < Math.min(maxRows, keptPieces.length); i++) {
-        const piece = keptPieces[i];
-        const rowY = y + i * rowH;
+      const sectionPad = 4;
+      const rowH = 14;
+      const headerH = 12;
+      const fullW = w - m * 2;
+      
+      // === YOUR KEEPS section (unified) ===
+      if (unifiedKeeps.length > 0) {
+        const maxKeepsRows = Math.min(6, Math.max(3, Math.floor((h - y - 80) / rowH / 2)));
+        const keepsH = headerH + Math.min(maxKeepsRows, unifiedKeeps.length) * rowH + sectionPad * 2;
         
-        // Token ID badge
-        if (piece.kept?.tokenId) {
-          ink(...colors.primaryBright).write(`#${piece.kept.tokenId}`, { x: leftX, y: rowY });
+        // Background
+        ink(0, 40, 30, 180).box(m - sectionPad, y - sectionPad, fullW + sectionPad * 2, keepsH, "fill");
+        ink(0, 100, 60, 100).box(m - sectionPad, y - sectionPad, fullW + sectionPad * 2, keepsH, "outline");
+        
+        // Header
+        ink(...colors.positive).write(KEEPS_STAGING ? "YOUR KEEPS on" : "YOUR KEEPS", { x: m, y });
+        
+        // Staging button
+        if (KEEPS_STAGING) {
+          const stagingX = m + 78;
+          if (!stagingLinkBtn) {
+            stagingLinkBtn = new ui.TextButtonSmall("STAGING", { x: stagingX, y: y - 1 });
+          } else {
+            stagingLinkBtn.reposition({ x: stagingX, y: y - 1 });
+          }
+          stagingLinkBtn.paint({ ink, box, write },
+            [[80, 60, 0], [140, 100, 0], [255, 200, 100], [80, 60, 0]],
+            [[100, 80, 0], [180, 140, 0], [255, 255, 200], [100, 80, 0]]
+          );
         }
         
-        // Code name
-        ink(...colors.positive).write(`$${piece.code}`, { x: leftX + 24, y: rowY }, undefined, undefined, false, "MatrixChunky8");
+        const keepsStartY = y + headerH;
+        const activeOwnedIds = new Set();
         
-        // Scrolling source preview
-        const previewY = rowY + 9;
-        const scrollX = piece.marqueeX || 0;
-        const previewText = piece.preview || '';
-        // Simple scroll display
-        const startChar = Math.floor(scrollX / 5) % (previewText.length + 10);
-        for (let c = 0; c < 12; c++) {
-          const charIdx = (startChar + c) % previewText.length;
-          if (charIdx < previewText.length) {
-            ink(...colors.textDim).write(previewText[charIdx] || '', { x: leftX + c * 5, y: previewY }, undefined, undefined, false, "MatrixChunky8");
+        for (let i = 0; i < Math.min(maxKeepsRows, unifiedKeeps.length); i++) {
+          const keep = unifiedKeeps[i];
+          const rowY = keepsStartY + i * rowH;
+          activeOwnedIds.add(keep.tokenId);
+          
+          // Token ID
+          ink(...colors.primaryBright).write(`#${keep.tokenId}`, { x: m, y: rowY }, undefined, undefined, false, "MatrixChunky8");
+          
+          // Code name with ownership indicator (use * and - since MatrixChunky8 lacks ● ○)
+          const nameColor = keep.owned ? colors.positive : colors.textDim;
+          const ownedMark = keep.owned ? "*" : "-";
+          ink(...nameColor).write(`$${keep.code}`, { x: m + 16, y: rowY }, undefined, undefined, false, "MatrixChunky8");
+          ink(keep.owned ? 100 : 60, keep.owned ? 255 : 100, keep.owned ? 100 : 60).write(ownedMark, { x: m + 16 + (keep.code.length + 1) * 4 + 2, y: rowY }, undefined, undefined, false, "MatrixChunky8");
+          
+          // Held by badge if not authored - show wallet address/domain
+          if (keep.collected) {
+            const holder = walletState?.domain || (walletState?.address ? walletState.address.slice(0, 8) + "..." : "you");
+            ink(...colors.secondary).write("held by ", { x: m + 60, y: rowY }, undefined, undefined, false, "MatrixChunky8");
+            ink(...colors.primaryBright).write(holder, { x: m + 60 + 8 * 4, y: rowY }, undefined, undefined, false, "MatrixChunky8");
+          }
+          
+          // objkt button (right side)
+          const objktBtnX = w - m - 24;
+          if (!ownedKeepBtns[keep.tokenId]) {
+            ownedKeepBtns[keep.tokenId] = new ui.TextButtonSmall("objkt", { x: objktBtnX, y: rowY - 1 });
+          } else {
+            ownedKeepBtns[keep.tokenId].reposition({ x: objktBtnX, y: rowY - 1 });
+          }
+          ownedKeepBtns[keep.tokenId].paint({ ink, box, write },
+            [[0, 40, 60], [0, 100, 140], [100, 200, 255], [0, 40, 60]],
+            [[0, 60, 80], [0, 140, 180], [200, 255, 255], [0, 60, 80]]
+          );
+        }
+        
+        // Clean up buttons
+        for (const tokenId of Object.keys(ownedKeepBtns)) {
+          if (!activeOwnedIds.has(parseInt(tokenId))) {
+            delete ownedKeepBtns[tokenId];
           }
         }
+        
+        y += keepsH - sectionPad;
+        
+        if (unifiedKeeps.length > maxKeepsRows) {
+          ink(...colors.textDim).write(`+${unifiedKeeps.length - maxKeepsRows} more`, { x: m, y });
+          y += 10;
+        }
+        y += sectionPad + 4;
       }
       
-      // Draw unkept pieces (right column) with KEEP buttons
-      const activeKeepCodes = new Set();
-      for (let i = 0; i < Math.min(maxRows, unkeptPieces.length); i++) {
-        const piece = unkeptPieces[i];
-        const rowY = y + i * rowH;
-        activeKeepCodes.add(piece.code);
+      // === YOUR KIDLISP section (unkept pieces) ===
+      if (unkeptPieces.length > 0) {
+        const maxRows = Math.min(4, Math.max(2, Math.floor((h - y - 40) / rowH)));
+        const kidlispH = headerH + Math.min(maxRows, unkeptPieces.length) * rowH + sectionPad * 2;
         
-        // Code name
-        ink(...colors.secondary).write(`$${piece.code}`, { x: rightX, y: rowY }, undefined, undefined, false, "MatrixChunky8");
+        // Background
+        ink(40, 20, 60, 180).box(m - sectionPad, y - sectionPad, fullW + sectionPad * 2, kidlispH, "fill");
+        ink(100, 50, 120, 100).box(m - sectionPad, y - sectionPad, fullW + sectionPad * 2, kidlispH, "outline");
         
-        // Scrolling source preview
-        const previewY = rowY + 9;
-        const scrollX = piece.marqueeX || 0;
-        const previewText = piece.preview || '';
-        const startChar = Math.floor(scrollX / 5) % (previewText.length + 10);
-        for (let c = 0; c < 10; c++) {
-          const charIdx = (startChar + c) % previewText.length;
-          if (charIdx < previewText.length) {
-            ink(...colors.textDim).write(previewText[charIdx] || '', { x: rightX + c * 5, y: previewY }, undefined, undefined, false, "MatrixChunky8");
+        // Header
+        ink(...colors.secondary).write("YOUR KIDLISP", { x: m, y });
+        const kidlispStartY = y + headerH;
+        
+        // Draw unkept pieces with KEEP buttons
+        const activeKeepCodes = new Set();
+        for (let i = 0; i < Math.min(maxRows, unkeptPieces.length); i++) {
+          const piece = unkeptPieces[i];
+          const rowY = kidlispStartY + i * rowH;
+          activeKeepCodes.add(piece.code);
+          
+          // Code name
+          ink(...colors.secondary).write(`$${piece.code}`, { x: m, y: rowY }, undefined, undefined, false, "MatrixChunky8");
+          
+          // KEEP button
+          const btnX = w - m - 20;
+          if (!keepButtons[piece.code]) {
+            keepButtons[piece.code] = new ui.TextButtonSmall("KEEP", { x: btnX, y: rowY - 1 });
+          } else {
+            keepButtons[piece.code].reposition({ x: btnX, y: rowY - 1 });
+          }
+          keepButtons[piece.code].paint({ ink, box, write });
+        }
+        
+        // Clean up buttons
+        for (const code of Object.keys(keepButtons)) {
+          if (!activeKeepCodes.has(code)) {
+            delete keepButtons[code];
           }
         }
         
-        // Create or reposition KEEP button
-        const btnX = rightX + colW - 30;
-        const btnY = rowY - 2;
-        if (!keepButtons[piece.code]) {
-          keepButtons[piece.code] = new ui.TextButton("KEEP", { x: btnX, y: btnY });
-        } else {
-          keepButtons[piece.code].reposition({ x: btnX, y: btnY });
-        }
+        y += kidlispH - sectionPad;
         
-        // Paint KEEP button with hover/down states
-        const btn = keepButtons[piece.code];
-        btn.paint(
-          { ink, box, write },
-          [colors.primary[0], colors.primary[1], colors.primary[2], 180], // normal: fill, outline, text, alpha
-          [colors.primaryBright[0], colors.primaryBright[1], colors.primaryBright[2], 255], // hover/down
-          [colors.textDim[0], colors.textDim[1], colors.textDim[2], 100] // disabled
-        );
-      }
-      
-      
-      // Clean up buttons for pieces no longer visible
-      for (const code of Object.keys(keepButtons)) {
-        if (!activeKeepCodes.has(code)) {
-          delete keepButtons[code];
-        }
-      }
-      
-      y += maxRows * rowH + 4;
-      
-      // Show overflow counts
-      if (keptPieces.length > maxRows || unkeptPieces.length > maxRows) {
-        if (keptPieces.length > maxRows) {
-          ink(...colors.textDim).write(`+${keptPieces.length - maxRows} more`, { x: leftX, y });
-        }
         if (unkeptPieces.length > maxRows) {
-          ink(...colors.textDim).write(`+${unkeptPieces.length - maxRows} more`, { x: rightX, y });
+          ink(...colors.textDim).write(`+${unkeptPieces.length - maxRows} more`, { x: m, y });
+          y += 10;
         }
-        y += 10;
+        y += sectionPad;
       }
-      y += 6;
     }
     
     // Disconnect button (bottom right)
@@ -883,12 +1007,34 @@ function act({ event: e, wallet, jump, screen, net }) {
       });
     }
     
-    // Handle KEEP button clicks using ui.TextButton
+    // Handle KEEP button clicks (TextButtonSmall has .btn property)
     for (const [code, btn] of Object.entries(keepButtons)) {
       btn.btn.act(e, {
         push: () => {
           console.log("🔷 Keep button clicked for:", code);
           jump(`keep~$${code}`);
+        }
+      });
+    }
+    
+    // Handle staging contract link click
+    if (KEEPS_STAGING && stagingLinkBtn) {
+      stagingLinkBtn.btn.act(e, {
+        push: () => {
+          const objktUrl = `https://objkt.com/collections/${KEEPS_CONTRACT}`;
+          console.log("🔗 Opening staging contract on objkt:", objktUrl);
+          net.web(objktUrl, true);
+        }
+      });
+    }
+    
+    // Handle owned keeps objkt link clicks
+    for (const [tokenId, btn] of Object.entries(ownedKeepBtns)) {
+      btn.btn.act(e, {
+        push: () => {
+          const objktUrl = `https://objkt.com/tokens/${KEEPS_CONTRACT}/${tokenId}`;
+          console.log("🔗 Opening token on objkt:", objktUrl);
+          net.web(objktUrl, true);
         }
       });
     }
