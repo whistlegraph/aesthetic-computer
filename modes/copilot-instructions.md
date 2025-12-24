@@ -119,6 +119,13 @@ Before sending commands to emacs buffers, **always check state first** using the
 (ac-restart-fishy)  ;; Restarts fish process in 🐟-fishy buffer
 ```
 
+## Prompt Completion Notification 🔔
+**IMPORTANT**: At the END of every response, call this to flash the screen:
+```elisp
+(ac-notify-done)
+```
+This flashes the terminal 3 times so the user knows Copilot is done (useful when managing multiple machines).
+
 ## CDP Tunnel (VS Code on Windows Host)
 The CDP tunnel forwards localhost:9333 to host's VS Code for remote control:
 - **`ac-cdp-tunnel`** — start/restart the CDP SSH tunnel
