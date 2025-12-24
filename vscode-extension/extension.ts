@@ -35,6 +35,7 @@ let docs: any;
 let extContext: any;
 let webWindow: any;
 let kidlispWindow: any;
+let welcomePanel: vscode.WebviewPanel | null = null;
 let localServerCheckInterval: NodeJS.Timeout | undefined;
 let provider: AestheticViewProvider;
 
@@ -362,6 +363,125 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
       },
     ),
   );
+
+  // ✨ Welcome Panel
+  function showWelcomePanel() {
+    if (welcomePanel) {
+      welcomePanel.reveal(vscode.ViewColumn.One);
+      return;
+    }
+
+    welcomePanel = vscode.window.createWebviewPanel(
+      "aestheticWelcome",
+      "✦ Aesthetic Computer",
+      vscode.ViewColumn.One,
+      { enableScripts: true }
+    );
+
+    welcomePanel.onDidDispose(() => {
+      welcomePanel = null;
+    });
+
+    const nonce = getNonce();
+
+    welcomePanel.webview.html = `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'nonce-${nonce}'; img-src https: data:; font-src https:;">
+        <style nonce="${nonce}">
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body {
+            background: #181318;
+            color: #d0c8cc;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            text-align: center;
+            padding: 2rem;
+          }
+          .logo {
+            width: 120px;
+            height: 120px;
+            margin-bottom: 2rem;
+            opacity: 0.9;
+          }
+          h1 {
+            font-size: 1.5rem;
+            font-weight: 400;
+            color: #e0d8dc;
+            margin-bottom: 0.5rem;
+            letter-spacing: 0.05em;
+          }
+          .tagline {
+            font-size: 0.9rem;
+            color: #908088;
+            margin-bottom: 2rem;
+          }
+          .shortcuts {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            margin-top: 1rem;
+          }
+          .shortcut {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-size: 0.85rem;
+            color: #a09098;
+          }
+          kbd {
+            background: #282028;
+            border: 1px solid #383038;
+            border-radius: 4px;
+            padding: 0.25rem 0.5rem;
+            font-family: monospace;
+            font-size: 0.8rem;
+            color: #c0b8bc;
+          }
+          .hint {
+            margin-top: 3rem;
+            font-size: 0.75rem;
+            color: #605860;
+          }
+        </style>
+      </head>
+      <body>
+        <svg class="logo" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="50" cy="50" r="45" fill="none" stroke="#a87090" stroke-width="2"/>
+          <circle cx="50" cy="50" r="30" fill="none" stroke="#a87090" stroke-width="1.5"/>
+          <circle cx="50" cy="50" r="15" fill="#a87090"/>
+        </svg>
+        <h1>Aesthetic Computer</h1>
+        <p class="tagline">creative coding environment</p>
+        <div class="shortcuts">
+          <div class="shortcut"><kbd>⌘</kbd> + <kbd>Shift</kbd> + <kbd>P</kbd> <span>Command Palette</span></div>
+          <div class="shortcut"><kbd>⌘</kbd> + <kbd>P</kbd> <span>Quick Open</span></div>
+        </div>
+        <p class="hint">Open a file to start coding</p>
+      </body>
+      </html>
+    `.trim();
+  }
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("aestheticComputer.welcome", showWelcomePanel)
+  );
+
+  // Show welcome on startup if no editors are open
+  if (vscode.window.visibleTextEditors.length === 0) {
+    // Delay slightly to let VS Code finish loading
+    setTimeout(() => {
+      if (vscode.window.visibleTextEditors.length === 0 && !welcomePanel) {
+        showWelcomePanel();
+      }
+    }, 500);
+  }
 
   // 🚩 Goal
   let statusBarGoal: vscode.StatusBarItem;
