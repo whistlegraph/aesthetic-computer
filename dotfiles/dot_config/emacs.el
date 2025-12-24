@@ -220,20 +220,20 @@ Returns: 'ready, 'restarted, 'dead, or 'not-found"
     'not-found))
 
 ;;; --- Copilot Completion Notification ---
-;; Flash screen when Copilot response is done (called via MCP)
+;; Flash artery-tui when Copilot response is done (called via MCP)
 
 (defun ac-notify-done (&optional message)
-  "Notify completion by flashing colored text to the terminal PTY.
+  "Notify completion by signaling artery-tui to flash and switching to artery tab.
 Called by MCP tools at the end of each response."
   (interactive)
-  (let* ((pty-cmd "pgrep -f 'emacsclient.*-nw' | head -1 | xargs -I{} readlink /proc/{}/fd/0 2>/dev/null")
-         (pty (string-trim (shell-command-to-string pty-cmd)))
-         (msg (or message "Done")))
-    (when (string-prefix-p "/dev/pts/" pty)
-      ;; Flash with colored bell emojis - red/green alternating
-      (async-shell-command 
-       (format "for i in 1 2 3; printf '\\e[41;97m 🔔 \\e[0m' > %s; sleep 0.08; printf '\\e[42;97m 🔔 \\e[0m' > %s; sleep 0.08; end; echo '' > %s" pty pty pty)
-       "*ac-notify*" nil))
+  (let ((msg (or message "Done")))
+    ;; Create signal file that artery-tui watches
+    (with-temp-file "/tmp/ac-copilot-done"
+      (insert "done"))
+    ;; Switch to artery tab so user sees the flash
+    (condition-case nil
+        (tab-bar-switch-to-tab "artery")
+      (error nil))
     (message "🔔 %s" msg)))
 
 (ac-perf-session-start)
