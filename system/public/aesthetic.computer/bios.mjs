@@ -2,7 +2,6 @@
 
 // 📦 All Imports
 import * as Loop from "./lib/loop.mjs";
-import * as perf from "./lib/perf.mjs";
 import { Pen } from "./lib/pen.mjs";
 import { Box } from "./lib/geo.mjs";
 import { Keyboard } from "./lib/keyboard.mjs";
@@ -14,7 +13,7 @@ import * as Glaze from "./lib/glaze.mjs";
 import { apiObject, extension } from "./lib/helpers.mjs";
 import { choose } from "./lib/help.mjs";
 import { parse, slug } from "./lib/parse.mjs";
-import { isKidlispSource, encodeKidlispForUrl, getSyntaxHighlightingColors, isKidlispConsoleEnabled, postKidlispConsoleImage, getCachedCode } from "./lib/kidlisp.mjs";
+import { isKidlispSource, encodeKidlispForUrl, getSyntaxHighlightingColors } from "./lib/kidlisp.mjs";
 import * as Store from "./lib/store.mjs";
 import * as MIDI from "./lib/midi.mjs";
 import * as USB from "./lib/usb.mjs";
@@ -34,9 +33,8 @@ import {
   AestheticExtension,
 } from "./lib/platform.mjs";
 import { headers } from "./lib/headers.mjs";
-import { logs, log } from "./lib/logs.mjs";
+import { logs } from "./lib/logs.mjs";
 import { checkPackMode } from "./lib/pack-mode.mjs";
-import { captureFrame, formatTimestamp } from "./lib/frame-capture.mjs";
 import { soundWhitelist } from "./lib/sound/sound-whitelist.mjs";
 import { timestamp, radians } from "./lib/num.mjs";
 import * as graph from "./lib/graph.mjs";
@@ -436,9 +434,6 @@ let pendingUrlRewrite = null;
 let rewriteFocusListenerAttached = false;
 
 function performHistoryRewrite(path, historical) {
-  // Skip history manipulation in pack mode (blob/srcdoc context)
-  if (checkPackMode()) return;
-  
   if (historical) {
     console.log("Rewriting to:", path);
     history.pushState("", document.title, path);
@@ -633,41 +628,11 @@ USB.initialize();
 // 💾 Boot the system and load a disk.
 async function boot(parsed, bpm = 60, resolution, debug) {
   const bootStartTime = performance.now();
-  perf.markBootStart();
   headers(); // Print console headers with auto-detected theme.
 
-  // 🎬 Preload webpxmux library in background for animated WebP support
-  // This runs async and doesn't block boot
-  (async () => {
-    if (!window.WebPXMux) {
-      const script = document.createElement("script");
-      script.src = "/aesthetic.computer/dep/webpxmux/webpxmux.min.js";
-      document.head.appendChild(script);
-      await new Promise(r => script.onload = r);
-    }
-    if (!window._webpxMuxInstance) {
-      try {
-        const xMux = window.WebPXMux("/aesthetic.computer/dep/webpxmux/webpxmux.wasm");
-        await xMux.waitRuntime();
-        window._webpxMuxInstance = xMux;
-      } catch (e) {
-        console.warn("🎬 WebPXMux preload failed (will retry on demand):", e.message);
-      }
-    }
-  })();
-
   // Expose Loop control to window for boot.mjs
-  // Track pause state for kidlisp console snapshots
-  window.acPAUSE = () => {
-    window.__acLoopPaused = true;
-    Loop.pause();
-  };
-  window.acRESUME = () => {
-    window.__acLoopPaused = false;
-    // Reset snap timer so first snap happens 5s after resume
-    window._lastKidlispSnapTime = performance.now();
-    Loop.resume();
-  };
+  window.acPAUSE = Loop.pause;
+  window.acRESUME = Loop.resume;
 
   // Notify parent of boot progress and update the boot log overlay
   if (window.acBOOT_LOG) {
@@ -1369,7 +1334,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     // Add the canvas, modal, and uiCanvas when we first boot up.
     if (!wrapper.contains(canvas)) {
-      perf.markBoot("canvas-setup-start");
       wrapper.append(canvas);
       wrapper.append(modal);
 
@@ -1381,7 +1345,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (debug) wrapper.append(debugCanvas);
       wrapper.append(webgpuCanvas); // Add WebGPU canvas (initially hidden)
       document.body.append(wrapper);
-      perf.markBoot("dom-appended");
 
       // Initialize WebGPU 2D renderer with dedicated canvas (skip in PACK mode)
       if (!window.acPACK_MODE) {
@@ -1691,7 +1654,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (webGPUInitialized) return;
     webGPUInitialized = await WebGPU.init(canvas);
     if (webGPUInitialized) {
-      log.gpu.success("WebGPU 2D renderer ready");
+      console.log("🎨 WebGPU 2D renderer ready");
       // Expose WebGPU module globally for debugging/artery access
       window.WebGPU = WebGPU;
     }
@@ -1714,700 +1677,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     });
   }
 
-  // Tezos Wallet (Beacon SDK + Taquito)
-  let tezosWallet = null;
-  let tezosTk = null;
-  let tezosLoading = null;
-  
-  // 🔷 Persistent wallet state (survives piece transitions)
-  const walletState = {
-    connected: false,
-    address: null,
-    balance: null,
-    network: "ghostnet",
-    domain: null,
-  };
-  
-  // Broadcast wallet state to disk.mjs
-  function broadcastWalletState() {
-    send({ type: "wallet:state", content: { ...walletState } });
-  }
-  
-  // 🔷 Tezos Wallet Connection (Beacon-free)
-  // Uses direct communication with wallet extensions and localStorage for session persistence
-  
-  const TEZOS_RPC = {
-    mainnet: "https://mainnet.api.tez.ie",
-    ghostnet: "https://ghostnet.ecadinfra.com",
-  };
-  
-  // Restore wallet session from localStorage
-  async function restoreWalletSession() {
-    try {
-      const savedSession = localStorage.getItem("ac:tezos:session");
-      if (savedSession) {
-        const session = JSON.parse(savedSession);
-        log.wallet.debug("Restoring wallet session:", session.address.slice(0, 8) + "...", "walletType:", session.walletType);
-        
-        walletState.connected = true;
-        walletState.address = session.address;
-        walletState.network = session.network || "ghostnet";
-        walletState.walletType = session.walletType || "unknown";
-        
-        const rpcUrl = TEZOS_RPC[walletState.network] || TEZOS_RPC.ghostnet;
-        
-        // Recreate the tezosWallet object with sendOperations for signing
-        if (session.walletType === "temple") {
-          // Recreate Temple client for signing operations
-          const templeClient = createTempleClient();
-          templeClient.init();
-          
-          // Verify Temple is still available
-          const available = await templeClient.isAvailable();
-          if (available) {
-            tezosWallet = {
-              _client: templeClient,
-              _rpcUrl: rpcUrl,
-              _network: walletState.network,
-              pkh: () => session.address,
-              sign: async (payload) => {
-                const result = await templeClient.request({
-                  type: "SIGN_REQUEST",
-                  payload,
-                  sourcePkh: session.address
-                });
-                return result?.signature;
-              },
-              sendOperations: async (operations) => {
-                const result = await templeClient.request({
-                  type: "OPERATION_REQUEST",
-                  sourcePkh: session.address,
-                  opParams: operations
-                });
-                return result?.opHash;
-              }
-            };
-            log.wallet.success("Temple wallet restored");
-          } else {
-            log.wallet.debug("Temple extension not available, session stale");
-            walletState.connected = false;
-            clearWalletSession();
-            broadcastWalletState();
-            return false;
-          }
-        } else if (session.walletType === "kukai") {
-          // For Kukai, we need to re-import Beacon SDK
-          // This is lazy - it will be re-established on first signing attempt
-          tezosWallet = {
-            _rpcUrl: rpcUrl,
-            _network: walletState.network,
-            _needsReconnect: true, // Flag to trigger reconnection on first use
-            pkh: () => session.address,
-            sendOperations: async (operations) => {
-              // Reconnect via Beacon on first signing attempt
-              log.wallet.log("Kukai needs reconnection for signing...");
-              throw new Error("Kukai session expired - please reconnect wallet");
-            }
-          };
-          log.wallet.debug("Kukai wallet session restored (signing requires reconnection)");
-        }
-        
-        // Fetch fresh balance and domain
-        Promise.all([
-          fetchTezosBalanceForBios(session.address, walletState.network),
-          fetchTezosDomain(session.address, walletState.network)
-        ]).then(([balance, domain]) => {
-          walletState.balance = balance;
-          walletState.domain = domain;
-          broadcastWalletState();
-        });
-        
-        broadcastWalletState();
-        return true;
-      }
-      log.wallet.verbose("No saved wallet session");
-    } catch (err) {
-      log.wallet.debug("restoreWalletSession error:", err.message);
-    }
-    return false;
-  }
-  
-  // Helper to create Temple client (used by both connect and restore)
-  function createTempleClient() {
-    return {
-      _reqId: 0,
-      _pending: new Map(),
-      
-      init() {
-        window.addEventListener("message", this._handleMessage.bind(this));
-      },
-      
-      _handleMessage(event) {
-        if (event.source !== window || event.origin !== window.origin) return;
-        const data = event.data || {};
-        
-        if (data.type === "TEMPLE_PAGE_RESPONSE") {
-          const { payload, reqId } = data;
-          if (this._pending.has(reqId)) {
-            const { resolve, reject } = this._pending.get(reqId);
-            this._pending.delete(reqId);
-            if (payload?.error) {
-              reject(new Error(payload.error.message || payload.error));
-            } else {
-              resolve(payload);
-            }
-          }
-        }
-        
-        if (data.type === "TEMPLE_PAGE_ERROR_RESPONSE") {
-          const { payload, reqId } = data;
-          if (this._pending.has(reqId)) {
-            const { reject } = this._pending.get(reqId);
-            this._pending.delete(reqId);
-            reject(new Error(payload?.message || "Temple error"));
-          }
-        }
-      },
-      
-      async request(payload) {
-        const reqId = ++this._reqId;
-        return new Promise((resolve, reject) => {
-          this._pending.set(reqId, { resolve, reject });
-          
-          window.postMessage({
-            type: "TEMPLE_PAGE_REQUEST",
-            payload,
-            reqId
-          }, window.origin);
-          
-          setTimeout(() => {
-            if (this._pending.has(reqId)) {
-              this._pending.delete(reqId);
-              reject(new Error("Temple request timeout"));
-            }
-          }, 120000);
-        });
-      },
-      
-      async isAvailable() {
-        try {
-          const response = await Promise.race([
-            this.request("PING"),
-            new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 3000))
-          ]);
-          return response === "PONG";
-        } catch {
-          return false;
-        }
-      },
-      
-      async connect(networkType) {
-        const response = await this.request({
-          type: "PERMISSION_REQUEST",
-          network: networkType,
-          appMeta: { name: "Aesthetic Computer" },
-          force: true
-        });
-        return response;
-      },
-      
-      async getCurrentPermission() {
-        try {
-          const response = await this.request({ type: "GET_CURRENT_PERMISSION_REQUEST" });
-          return response;
-        } catch {
-          return null;
-        }
-      }
-    };
-  }
-  
-  // Save wallet session to localStorage
-  function saveWalletSession(address, network, walletType) {
-    localStorage.setItem("ac:tezos:session", JSON.stringify({
-      address,
-      network,
-      walletType,
-      timestamp: Date.now(),
-    }));
-  }
-  
-  // Clear wallet session
-  function clearWalletSession() {
-    localStorage.removeItem("ac:tezos:session");
-  }
-  
-  // Initialize Tezos (no external SDK needed for basic operations)
-  async function loadTezos(network = "ghostnet") {
-    const rpcUrl = TEZOS_RPC[network] || TEZOS_RPC.ghostnet;
-    
-    // Create a minimal wallet interface for RPC operations
-    if (!tezosWallet) {
-      tezosWallet = {
-        _rpcUrl: rpcUrl,
-        _network: network,
-      };
-      tezosTk = { rpcUrl, network };
-      console.log("🔷 Tezos RPC ready:", network);
-    }
-    
-    return { wallet: tezosWallet, tezos: tezosTk };
-  }
-  
-  // Connect wallet via Temple Wallet browser extension
-  // Using direct postMessage communication with Temple's content script
-  async function connectTezosWallet(network = "ghostnet", options = {}) {
-    const rpcUrl = TEZOS_RPC[network] || TEZOS_RPC.ghostnet;
-    const walletType = options.walletType || "temple";
-    
-    console.log(`🔷 Attempting ${walletType} wallet connection...`);
-    
-    // Kukai wallet via Beacon SDK
-    if (walletType === "kukai") {
-      return connectKukaiWallet(network, rpcUrl);
-    }
-    
-    // Temple wallet via direct postMessage - use shared client creator
-    const templeClient = createTempleClient();
-    templeClient.init();
-    
-    // Check if Temple extension is available
-    console.log("🔷 Checking for Temple extension...");
-    const available = await templeClient.isAvailable();
-    console.log("🔷 Temple Wallet available:", available);
-    
-    if (!available) {
-      throw new Error("Temple Wallet not found. Install it from templewallet.com");
-    }
-    
-    try {
-      // Check for existing permission first
-      const existingPerm = await templeClient.getCurrentPermission();
-      console.log("🔷 Existing permission:", existingPerm);
-      
-      let address, publicKey;
-      
-      if (existingPerm?.pkh) {
-        // Already connected
-        address = existingPerm.pkh;
-        publicKey = existingPerm.publicKey;
-        console.log("🔷 Using existing connection:", address);
-      } else {
-        // Request new connection - this should open Temple popup
-        console.log("🔷 Requesting connection...");
-        const connectResult = await templeClient.connect(network === "mainnet" ? "mainnet" : "ghostnet");
-        console.log("🔷 Connect result:", connectResult);
-        
-        if (connectResult?.type === "PERMISSION_RESPONSE") {
-          address = connectResult.pkh;
-          publicKey = connectResult.publicKey;
-        } else if (connectResult?.pkh) {
-          address = connectResult.pkh;
-          publicKey = connectResult.publicKey;
-        }
-      }
-      
-      if (!address) {
-        throw new Error("Connection cancelled or failed");
-      }
-      
-      console.log("🔷 Temple connected:", address);
-      
-      walletState.connected = true;
-      walletState.address = address;
-      walletState.network = network;
-      walletState.walletType = "temple";
-      
-      // Store client reference for signing operations
-      tezosWallet = {
-        _client: templeClient,
-        _rpcUrl: rpcUrl,
-        _network: network,
-        _publicKey: publicKey,
-        pkh: () => address,
-        sign: async (payload) => {
-          const result = await templeClient.request({
-            type: "SIGN_REQUEST",
-            payload,
-            sourcePkh: address
-          });
-          return result?.signature;
-        },
-        sendOperations: async (operations) => {
-          const result = await templeClient.request({
-            type: "OPERATION_REQUEST",
-            sourcePkh: address,
-            opParams: operations
-          });
-          return result?.opHash;
-        }
-      };
-      
-      saveWalletSession(address, network, "temple");
-      
-      // Note: Tezos address persistence to MongoDB disabled - no auth token access in bios
-      // TODO: Implement proper auth token access if server-side persistence is needed
-      
-      // Fetch balance and domain
-      Promise.all([
-        fetchTezosBalanceForBios(address, network),
-        fetchTezosDomain(address, network)
-      ]).then(([balance, domain]) => {
-        console.log("🔷 Fetched balance:", balance, "domain:", domain);
-        walletState.balance = balance;
-        walletState.domain = domain;
-        broadcastWalletState();
-      }).catch(err => {
-        console.warn("🔷 Failed to fetch balance/domain:", err);
-      });
-      
-      broadcastWalletState();
-      return address;
-      
-    } catch (err) {
-      console.log("🔷 Temple connection error:", err?.message || err);
-      throw new Error(err?.message || "Temple connection cancelled");
-    }
-  }
-  
-  // 🥝 Kukai Wallet Connection via Beacon SDK
-  // Kukai/Other wallets via Beacon SDK
-  // NOTE: Beacon SDK v4.6.3 has IndexedDB metrics issues
-  // Using older stable version v4.0.12
-  let beaconClient = null;
-  let beaconNetwork = null;
-  
-  async function connectKukaiWallet(network, rpcUrl) {
-    console.log("🥝 Connecting via Beacon SDK...");
-    
-    try {
-      // Use older stable version that doesn't have metrics issues
-      const beacon = await import("https://esm.sh/@airgap/beacon-sdk@4.0.12?bundle");
-      const { DAppClient, NetworkType, PermissionScope } = beacon;
-      
-      const networkType = network === "mainnet" ? NetworkType.MAINNET : NetworkType.GHOSTNET;
-      
-      // Create new client if network changed or doesn't exist
-      if (!beaconClient || beaconNetwork !== network) {
-        // Clear old client if exists
-        if (beaconClient) {
-          try {
-            await beaconClient.destroy();
-          } catch (e) {}
-        }
-        
-        beaconClient = new DAppClient({
-          name: "Aesthetic Computer",
-          preferredNetwork: networkType,
-        });
-        beaconNetwork = network;
-        
-        console.log("🥝 Beacon SDK loaded");
-      }
-      
-      // Request permissions
-      const permissions = await beaconClient.requestPermissions({
-        scopes: [PermissionScope.SIGN, PermissionScope.OPERATION_REQUEST],
-      });
-      
-      const address = permissions.address;
-      const publicKey = permissions.publicKey;
-      
-      console.log("🥝 Kukai connected:", address);
-      
-      walletState.connected = true;
-      walletState.address = address;
-      walletState.network = network;
-      walletState.walletType = "kukai";
-      
-      // Store client reference for signing
-      tezosWallet = {
-        _client: beaconClient,
-        _rpcUrl: rpcUrl,
-        _network: network,
-        _publicKey: publicKey,
-        pkh: () => address,
-        sign: async (payload) => {
-          const result = await beaconClient.requestSignPayload({
-            signingType: "raw",
-            payload: payload,
-          });
-          return result.signature;
-        },
-        sendOperations: async (operations) => {
-          const result = await beaconClient.requestOperation({
-            operationDetails: operations,
-          });
-          return result.transactionHash;
-        },
-      };
-      
-      saveWalletSession(address, network, "kukai");
-      
-      // Note: Tezos address persistence to MongoDB disabled - no auth token access in bios  
-      // TODO: Implement proper auth token access if server-side persistence is needed
-      
-      // Fetch balance and domain
-      Promise.all([
-        fetchTezosBalanceForBios(address, network),
-        fetchTezosDomain(address, network)
-      ]).then(([balance, domain]) => {
-        walletState.balance = balance;
-        walletState.domain = domain;
-        broadcastWalletState();
-      });
-      
-      broadcastWalletState();
-      return address;
-      
-    } catch (err) {
-      console.log("🥝 Kukai connection error:", err?.message || err);
-      throw new Error(err?.message || "Kukai connection cancelled");
-    }
-  }
-  
-  // Generate a Beacon pairing URI for mobile wallet connection
-  // This creates a QR code that Temple/Kukai mobile can scan
-  async function generatePairingUri(network = "ghostnet") {
-    console.log("🔷 Generating pairing URI for mobile wallet...");
-    
-    try {
-      // Generate our own P2P pairing request matching Beacon SDK format
-      // Load dependencies
-      const bs58check = await import("https://esm.sh/bs58check@3.0.1");
-      const { generateKeyPairFromSeed } = await import("https://esm.sh/@stablelib/ed25519@1.0.3");
-      const { hash } = await import("https://esm.sh/@stablelib/blake2b@1.0.1");
-      
-      // Generate a seed and keypair (matches Beacon's getKeypairFromSeed)
-      const seed = crypto.randomUUID();
-      const seedHash = hash(new TextEncoder().encode(seed), 32);
-      const keyPair = generateKeyPairFromSeed(seedHash);
-      
-      // Public key as hex (32 bytes = 64 hex chars)
-      const publicKey = Array.from(keyPair.publicKey).map(b => b.toString(16).padStart(2, '0')).join('');
-      
-      // Generate a unique ID
-      const id = crypto.randomUUID();
-      
-      // Build P2P pairing request (matches Beacon SDK P2PPairingRequest class)
-      const pairingRequest = {
-        type: "p2p-pairing-request",
-        id: id,
-        name: "Aesthetic Computer",
-        publicKey: publicKey,
-        version: "3", // Beacon protocol version
-        relayServer: "beacon-node-1.sky.papers.tech"
-      };
-      
-      console.log("🔷 P2P Pairing request:", pairingRequest);
-      console.log("🔷 Public key length:", publicKey.length);
-      
-      // Serialize with bs58check (how Beacon does it in Serializer.ts)
-      const jsonStr = JSON.stringify(pairingRequest);
-      const jsonBytes = new TextEncoder().encode(jsonStr);
-      
-      // bs58check.encode expects a Uint8Array
-      const encoded = bs58check.default.encode(jsonBytes);
-      
-      console.log("🔷 Serialized pairing code:", encoded);
-      console.log("🔷 Code length:", encoded.length);
-      
-      // Store the keypair for when we receive the response
-      window._beaconPairingKeyPair = keyPair;
-      window._beaconPairingRequest = pairingRequest;
-      
-      // Return the serialized code for QR generation
-      return encoded;
-      
-    } catch (err) {
-      console.log("🔷 Pairing error:", err?.message || err);
-      throw new Error(err?.message || "Failed to generate pairing code");
-    }
-  }
-  
-  // Sign a message with the connected wallet
-  // NOTE: Temple wallet doesn't support message signing via postMessage API
-  // This function is kept for future use with wallets that support it
-  async function signTezosMessage(message) {
-    if (!walletState.connected || !tezosWallet) {
-      throw new Error("Wallet not connected");
-    }
-    
-    // Convert message to hex payload (Micheline format)
-    const encoder = new TextEncoder();
-    const bytes = encoder.encode(message);
-    const hexPayload = "05" + "01" + bytes.length.toString(16).padStart(8, "0") + 
-      Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("");
-    
-    console.log("🔷 Signing message:", message);
-    console.log("🔷 Hex payload:", hexPayload);
-    
-    try {
-      const signature = await tezosWallet.sign(hexPayload);
-      console.log("🔷 Signature:", signature);
-      return signature;
-    } catch (err) {
-      console.log("🔷 Sign error:", err?.message || err);
-      throw new Error(err?.message || "Signing cancelled");
-    }
-  }
-  
-  async function disconnectTezosWallet() {
-    console.log("🔷 Disconnecting Tezos wallet");
-    
-    // If Beacon client exists, clear its permissions
-    if (beaconClient) {
-      try {
-        await beaconClient.clearActiveAccount();
-      } catch (e) {}
-    }
-    clearWalletSession();
-    
-    walletState.connected = false;
-    walletState.address = null;
-    walletState.balance = null;
-    walletState.domain = null;
-    walletState.walletType = null;
-    
-    broadcastWalletState();
-  }
-  
-  async function getTezosAddress() {
-    return walletState.address;
-  }
-  
-  // Fetch Tezos balance from RPC (for bios.mjs wallet API)
-  async function fetchTezosBalanceForBios(address, network = "ghostnet") {
-    try {
-      const rpcUrl = network === "mainnet" 
-        ? "https://mainnet.api.tez.ie"
-        : "https://ghostnet.ecadinfra.com";
-      const res = await fetch(`${rpcUrl}/chains/main/blocks/head/context/contracts/${address}/balance`);
-      if (res.ok) {
-        const balanceMutez = await res.json();
-        return parseInt(balanceMutez) / 1_000_000; // Convert mutez to tez
-      }
-    } catch (e) {
-      console.warn("Failed to fetch Tezos balance:", e);
-    }
-    return null;
-  }
-  
-  // Update user's Tezos address in MongoDB profile (called after wallet connection)
-  // NOTE: Currently disabled - getToken() is not available in bios.mjs context
-  // TODO: Implement if server-side persistence is needed via proper auth flow
-  /*
-  async function updateUserTezosAddress(address, network) {
-    try {
-      const token = await getToken();
-      if (!token) {
-        console.log("⚠️  Not logged in - skipping Tezos address save");
-        return;
-      }
-
-      const response = await fetch("/api/update-tezos-address", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
-        },
-        body: JSON.stringify({ address, network }),
-      });
-
-      if (response.ok) {
-        console.log(`✅ Saved Tezos address to profile: ${address}`);
-      } else {
-        console.warn("Failed to save Tezos address:", await response.text());
-      }
-    } catch (err) {
-      console.warn("Error saving Tezos address:", err);
-    }
-  }
-  */
-
-  // Resolve .tez domain for an address using TzKT API (more reliable than Tezos Domains GraphQL)
-  // NOTE: Always use mainnet API since .tez domains are only registered on mainnet
-  async function fetchTezosDomain(address, _network = "ghostnet") {
-    console.log("🔷 fetchTezosDomain called for:", address);
-    try {
-      // Always use mainnet TzKT API - .tez domains only exist on mainnet
-      const apiBase = "https://api.tzkt.io";
-      
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 5000);
-      
-      // Look for domains where this address is set AND has reverse=true (primary domain)
-      const url = `${apiBase}/v1/domains?address=${address}&reverse=true&select=name`;
-      console.log("🔷 Fetching from:", url);
-      const res = await fetch(url, { signal: controller.signal });
-      
-      clearTimeout(timeout);
-      
-      console.log("🔷 TzKT response status:", res.status);
-      if (res.ok) {
-        const data = await res.json();
-        console.log("🔷 TzKT response data:", data);
-        // Returns array of domain strings (not objects) when using select=name
-        if (data && data.length > 0 && data[0]) {
-          const domain = data[0]; // Direct string, not data[0].name
-          console.log(`🔷 Resolved .tez domain: ${domain}`);
-          return domain;
-        } else {
-          console.log("🔷 No reverse domain found in response");
-        }
-      }
-    } catch (e) {
-      if (e.name !== 'AbortError') {
-        console.log("🔷 .tez domain lookup failed:", e.message);
-      } else {
-        console.log("🔷 .tez domain lookup timed out");
-      }
-    }
-    console.log("🔷 fetchTezosDomain returning null");
-    return null;
-  }
-  
-  async function callTezosContract(contractAddress, method, args, amount = 0) {
-    // Use the connected wallet to send operations
-    if (!walletState.connected || !tezosWallet) {
-      throw new Error("Wallet not connected - use 'wallet' command first");
-    }
-    
-    console.log("🔷 Calling contract:", contractAddress, method, "amount:", amount);
-    
-    // Build the operation in Temple/Beacon format
-    // Temple expects: to, amount (number), mutez: true, parameter (singular)
-    const operation = {
-      kind: "transaction",
-      to: contractAddress,
-      amount: Math.floor(amount * 1_000_000), // Convert XTZ to mutez (as number)
-      mutez: true,
-      parameter: {
-        entrypoint: method,
-        value: args
-      }
-    };
-    
-    console.log("🔷 Operation:", JSON.stringify(operation, null, 2).slice(0, 500));
-    
-    // Use wallet's sendOperations method (works for both Temple and Beacon)
-    const opHash = await tezosWallet.sendOperations([operation]);
-    
-    console.log("🔷 Transaction submitted:", opHash);
-    return opHash;
-  }
-
   // UDP / Geckos Networking
   let UDP;
   async function loadUDP() {
-    // 🎒 PACK mode: Return no-op UDP to disable networking in offline bundles
-    if (window.acPACK_MODE) {
-      return {
-        connect: () => {},
-        send: () => {},
-        disconnect: () => {},
-      };
-    }
     if (!UDP) {
       // if (debug) console.log("🌐 Loading UDP networking library...");
       const udpModule = await import('./lib/udp.mjs');
@@ -3179,8 +2451,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           speed,
           loop: options?.loop || false,
         },
-        volume: isFinite(options?.volume) ? options.volume : 1,
-        pan: isFinite(options?.pan) ? options.pan : 0,
         // options: { buffer: sample },
         // ⏰ TODO: If duration / 'beats' is not specified then use speed.
         // beats: undefined, // ((sample.length / sample.sampleRate) * sound.bpm / 60),
@@ -3277,7 +2547,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       microphonePermission,
       resolution,
       embeddedSource,
-      noauth: window.acNOAUTH || false,
     },
   };
 
@@ -3360,7 +2629,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // Notify parent that we're loading the disk
   const diskLoadStartTime = performance.now();
   const bootElapsed = Math.round(diskLoadStartTime - bootStartTime);
-  perf.markBoot("disk-load-start");
   if (window.acBOOT_LOG) {
     window.acBOOT_LOG(`loading disk: ${parsed.text || 'prompt'} (${bootElapsed}ms)`);
   } else if (window.parent) {
@@ -3371,7 +2639,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   }
 
   if (/*!MetaBrowser &&*/ workersEnabled) {
-    perf.markBoot("worker-create-start");
     const worker = new Worker(new URL(fullPath, window.location.href), {
       type: "module",
     });
@@ -3407,7 +2674,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       send = (e, shared) => worker.postMessage(e, shared);
       window.acSEND = send; // Make the message handler global, used in `speech.mjs` and also useful for debugging.
       worker.onmessage = onMessage;
-      perf.markBoot("worker-connected");
       
       // Notify parent that worker is connected
       const workerConnectTime = performance.now();
@@ -3422,7 +2688,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
 
       // Send the initial message immediately
-      perf.markBoot("first-message-sent");
       send(firstMessage);
       consumeDiskSends(send);
     }
@@ -3650,11 +2915,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   sound.bpm = bpm;
 
   // 🎹 DAW Sync (for Max for Live integration)
-  // Only connect if ?daw query param is present (for M4L browser-based embedding)
-  const hasDawParam = new URLSearchParams(window.location.search).has("daw");
-  if (hasDawParam) {
-    _dawConnectSend(send, updateMetronome);
-  }
+  // Connect the send function and flush any queued messages from before boot
+  _dawConnectSend(send, updateMetronome);
 
   function requestBeat(time) {
     send({
@@ -3852,27 +3114,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (window.parent) {
         window.parent.postMessage({ type: "boot-log", message: content }, "*");
       }
-      return;
-    }
-
-    // 📊 Receive disk worker timing data
-    if (type === "disk-timings") {
-      console.log("⏱️ [BIOS] Received disk worker timings:", content);
-      window.acDiskTimings = content;
-      // Print formatted report
-      console.log("📊 ═══════════════════════════════════════════════════════");
-      console.log("📊 DISK WORKER TIMING BREAKDOWN");
-      console.log("📊 ═══════════════════════════════════════════════════════");
-      if (content.sessionStarted) console.log(`📊   sessionStarted: +${content.sessionStarted}ms`);
-      if (content.preambleComplete) console.log(`📊   preambleComplete (9 frames): +${content.preambleComplete}ms`);
-      if (content.loadStarted) console.log(`📊   load() started: +${content.loadStarted}ms`);
-      if (content.fetchComplete) console.log(`📊   fetch complete: +${content.fetchComplete}ms`);
-      if (content.compileComplete) console.log(`📊   compile/import complete: +${content.compileComplete}ms`);
-      if (content.bootStarted) console.log(`📊   boot() started: +${content.bootStarted}ms`);
-      if (content.bootComplete) console.log(`📊   boot() complete: +${content.bootComplete}ms`);
-      if (content.firstPaint) console.log(`📊   first paint: +${content.firstPaint}ms`);
-      if (content.firstRenderSent) console.log(`📊   first render sent: +${content.firstRenderSent}ms`);
-      console.log("📊 ═══════════════════════════════════════════════════════");
       return;
     }
 
@@ -4183,8 +3424,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     // Post a message to a potential iframe parent, like in the VSCode extension.
     if (type === "post-to-parent") {
-      // Note: kidlisp-code-created and setCode contain cached $identifiers (like "nece"),
-      // not actual source code. The actual source is set via kidlisp-reload in boot.mjs.
       // if (debug) console.log("🏃‍♂️ Posting up to parent...", content);
       if (window.parent) window.parent.postMessage(content, "*");
       return;
@@ -10298,185 +9537,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
-    // Connect to a Tezos wallet (Beacon SDK)
-    if (type === "tezos-connect") {
-      try {
-        const network = content?.network || "ghostnet";
-        const address = await connectTezosWallet(network);
-        send({
-          type: "tezos-connect-response",
-          content: { result: "success", address },
-        });
-      } catch (err) {
-        console.error("🔴 Tezos connect error:", err);
-        send({
-          type: "tezos-connect-response",
-          content: { result: "error", error: err.message },
-        });
-      }
-      return;
-    }
-
-    // Disconnect Tezos wallet
-    if (type === "tezos-disconnect") {
-      try {
-        await disconnectTezosWallet();
-        send({
-          type: "tezos-disconnect-response",
-          content: { result: "success" },
-        });
-      } catch (err) {
-        send({
-          type: "tezos-disconnect-response",
-          content: { result: "error", error: err.message },
-        });
-      }
-      return;
-    }
-
-    // Get current Tezos wallet address
-    if (type === "tezos-address") {
-      try {
-        const address = await getTezosAddress();
-        send({
-          type: "tezos-address-response",
-          content: { result: "success", address },
-        });
-      } catch (err) {
-        send({
-          type: "tezos-address-response",
-          content: { result: "error", error: err.message },
-        });
-      }
-      return;
-    }
-
-    // Sign a message with connected Tezos wallet
-    if (type === "tezos-sign") {
-      try {
-        const { message } = content;
-        const signature = await signTezosMessage(message);
-        send({
-          type: "tezos-sign-response",
-          content: { result: "success", signature, message },
-        });
-      } catch (err) {
-        console.error("🔴 Tezos sign error:", err);
-        send({
-          type: "tezos-sign-response",
-          content: { result: "error", error: err.message },
-        });
-      }
-      return;
-    }
-
-    // Call a Tezos contract method
-    if (type === "tezos-call") {
-      try {
-        const { contractAddress, method, args, amount } = content;
-        const opHash = await callTezosContract(contractAddress, method, args, amount || 0);
-        send({
-          type: "tezos-call-response",
-          content: { result: "success", opHash },
-        });
-      } catch (err) {
-        console.error("🔴 Tezos call error:", err);
-        send({
-          type: "tezos-call-response",
-          content: { result: "error", error: err.message },
-        });
-      }
-      return;
-    }
-
-    // 🔷 Wallet API messages (for wallet.mjs piece)
-    // Get current wallet state (used when pieces load)
-    if (type === "wallet:get-state") {
-      broadcastWalletState();
-      return;
-    }
-    
-    if (type === "wallet:connect") {
-      try {
-        const network = content?.network || "ghostnet";
-        const options = {
-          address: content?.address,
-          network,
-          walletType: content?.walletType || "temple",
-          useTemple: content?.useTemple,
-        };
-        const address = await connectTezosWallet(network, options);
-        // connectTezosWallet already updates walletState and broadcasts
-      } catch (err) {
-        console.error("🔴 Wallet connect error:", err);
-        walletState.connected = false;
-        walletState.error = err.message;
-        broadcastWalletState();
-      }
-      return;
-    }
-
-    if (type === "wallet:disconnect") {
-      try {
-        await disconnectTezosWallet();
-        // disconnectTezosWallet already updates walletState and broadcasts
-      } catch (err) {
-        console.error("🔴 Wallet disconnect error:", err);
-      }
-      return;
-    }
-
-    if (type === "wallet:refresh-balance") {
-      try {
-        if (walletState.address && walletState.connected) {
-          const balance = await fetchTezosBalanceForBios(walletState.address, walletState.network);
-          walletState.balance = balance;
-          broadcastWalletState();
-        }
-      } catch (err) {
-        console.error("🔴 Wallet balance refresh error:", err);
-      }
-      return;
-    }
-
-    // Get pairing URI for mobile wallet QR code
-    if (type === "wallet:get-pairing-uri") {
-      try {
-        const network = content?.network || "ghostnet";
-        const pairingInfo = await generatePairingUri(network);
-        send({
-          type: "wallet:pairing-uri-response",
-          content: { result: "success", pairingInfo },
-        });
-      } catch (err) {
-        console.error("🔴 Wallet pairing error:", err);
-        send({
-          type: "wallet:pairing-uri-response",
-          content: { result: "error", error: err.message },
-        });
-      }
-      return;
-    }
-
-    // Sign a message with the connected wallet
-    if (type === "wallet:sign") {
-      try {
-        const message = content?.message || "Hello from Aesthetic Computer!";
-        const signature = await signTezosMessage(message);
-        send({
-          type: "wallet:sign-response",
-          content: { result: "success", signature, message },
-        });
-      } catch (err) {
-        console.error("🔴 Wallet sign error:", err);
-        send({
-          type: "wallet:sign-response",
-          content: { result: "error", error: err.message },
-        });
-      }
-      return;
-    }
-
     if (type === "rewrite-url-path") {
       const newPath = content.path;
       const historical = !!content.historical;
@@ -10903,8 +9963,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // See also: https://flaviocopes.com/javascript-detect-dark-mode,
       //           https://developer.mozilla.org/en-US/docs/Web/CSS/@media/prefers-color-scheme
 
-      // Skip initial OS theme detection if embedded in kidlisp.com (will receive theme from parent)
-      if (window.matchMedia && !window.acWAIT_FOR_PARENT_THEME) {
+      if (window.matchMedia) {
         if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
           document.documentElement.style.setProperty("color-scheme", "dark");
           send({ type: "dark-mode", content: { enabled: true } });
@@ -10912,18 +9971,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           document.documentElement.style.setProperty("color-scheme", "light");
           send({ type: "dark-mode", content: { enabled: false } });
         }
-      }
 
-      // Listen for OS theme changes (but respect manual override from kidlisp.com)
-      if (window.matchMedia) {
         window
           .matchMedia("(prefers-color-scheme: dark)")
           .addEventListener("change", (event) => {
-            // Skip if theme was manually set from kidlisp.com
-            if (window.acMANUAL_THEME_OVERRIDE) {
-              console.log('🎨 [bios.mjs] Ignoring OS theme change - manual override active');
-              return;
-            }
             if (event.matches) {
               document.documentElement.style.setProperty(
                 "color-scheme",
@@ -10981,7 +10032,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             
             if (shouldShowCursor && document.body.style.cursor === 'none') {
               // Use simple CSS cursor in PACK mode to avoid SVG 404
-              document.body.style.cursor = 'default';
+              document.body.style.cursor = 'crosshair';
             } else if (!shouldShowCursor && document.body.style.cursor !== 'none') {
               document.body.style.cursor = 'none';
             }
@@ -14319,123 +13370,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
-    // 🎬 Load an animated WebP and decode all frames
-    if (type === "load-animated-webp") {
-      console.log("🎬 BIOS load-animated-webp received:", content);
-      
-      // Helper to convert webpxmux Uint32Array to RGBA Uint8ClampedArray
-      // Each Uint32 element contains one pixel in RGBA format: 0xRRGGBBAA
-      // We need RGBA for canvas: R, G, B, A bytes
-      const convertToRGBA = (u32arr) => {
-        const rgba = new Uint8ClampedArray(u32arr.length * 4);
-        for (let i = 0; i < u32arr.length; i++) {
-          const pixel = u32arr[i];
-          // RGBA format: 0xRRGGBBAA
-          const r = (pixel >>> 24) & 0xff;
-          const g = (pixel >>> 16) & 0xff;
-          const b = (pixel >>> 8) & 0xff;
-          const a = pixel & 0xff;
-          const j = i * 4;
-          rgba[j] = r;
-          rgba[j + 1] = g;
-          rgba[j + 2] = b;
-          rgba[j + 3] = a;
-        }
-        return rgba;
-      };
-      
-      (async () => {
-        try {
-          // Start fetch immediately (don't wait for library)
-          const fetchPromise = fetch(content).then(async (response) => {
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            return new Uint8Array(await response.arrayBuffer());
-          });
-          
-          // Load webpxmux library in parallel with fetch
-          if (!window.WebPXMux) {
-            console.log("🎬 Loading webpxmux library...");
-            await new Promise((resolve, reject) => {
-              const script = document.createElement("script");
-              script.src = "/aesthetic.computer/dep/webpxmux/webpxmux.min.js";
-              script.onload = resolve;
-              script.onerror = reject;
-              document.head.appendChild(script);
-            });
-          }
-          
-          // Cache the initialized xMux instance for reuse
-          if (!window._webpxMuxInstance) {
-            const xMux = window.WebPXMux("/aesthetic.computer/dep/webpxmux/webpxmux.wasm");
-            await xMux.waitRuntime();
-            window._webpxMuxInstance = xMux;
-          }
-          const xMux = window._webpxMuxInstance;
-          
-          // Wait for fetch to complete
-          const webpData = await fetchPromise;
-          console.log("🎬 Fetched WebP data:", webpData.length, "bytes");
-          
-          const frames = await xMux.decodeFrames(webpData);
-          console.log("🎬 Decoded animated WebP:", frames.frameCount, "frames,", frames.width, "x", frames.height);
-          
-          if (frames.frameCount > 1) {
-            // Convert frames to transferable format
-            const frameData = frames.frames.map(f => ({
-              duration: f.duration,
-              isKeyframe: f.isKeyframe,
-              // Convert Uint32Array BGRA to Uint8ClampedArray RGBA
-              pixels: convertToRGBA(f.rgba)
-            }));
-            
-            // Transfer all pixel buffers
-            const transfers = frameData.map(f => f.pixels.buffer);
-            
-            send({
-              type: "loaded-animated-webp-success",
-              content: {
-                url: content,
-                width: frames.width,
-                height: frames.height,
-                frameCount: frames.frameCount,
-                loopCount: frames.loopCount,
-                frames: frameData
-              }
-            }, transfers);
-          } else {
-            // Single frame - just decode as bitmap
-            const bitmap = await xMux.decodeWebP(webpData);
-            // Convert Uint32Array BGRA to Uint8ClampedArray RGBA
-            const pixels = convertToRGBA(bitmap.rgba);
-            
-            send({
-              type: "loaded-animated-webp-success",
-              content: {
-                url: content,
-                width: bitmap.width,
-                height: bitmap.height,
-                frameCount: 1,
-                loopCount: 0,
-                frames: [{
-                  duration: 0,
-                  isKeyframe: true,
-                  pixels: pixels
-                }]
-              }
-            }, [pixels.buffer]);
-          }
-        } catch (err) {
-          console.error("🎬 Animated WebP decode failed:", err);
-          send({
-            type: "loaded-animated-webp-rejection",
-            content: { url: content, error: err.message }
-          });
-        }
-      })();
-      
-      return;
-    }
-
     // Abort a loading piece of media if it exists.
     // TODO: Only implemented on bitmaps for now. 23.10.02.15.13
     if (type === "load:abort") {
@@ -14791,8 +13725,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (type === "disk-loaded-and-booted") {
-      perf.markBoot("disk-loaded-and-booted");
-      
       // Skip preload marker on default init piece, and toggle it if necessary.
       if (currentPiece !== null && !window.waitForPreload)
         window.preloaded = true;
@@ -14804,9 +13736,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         window.acHIDE_BOOT_LOG();
       }
       
-      // 🔷 Auto-restore Tezos wallet session (Beacon stores in localStorage)
-      restoreWalletSession().catch(() => {}); // Fire and forget, errors logged inside
-      
       // Notify parent that disk is ready
       if (window.parent) {
         window.parent.postMessage({ 
@@ -14815,9 +13744,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         }, "*");
         window.parent.postMessage({ type: "ready" }, "*");
       }
-      
-      // Print perf report
-      perf.printReport();
       
       consumeDiskSends(send);
       return;
@@ -14856,12 +13782,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // 🌟 Update & Render (Compositing)
     if (!(type === "render" || type === "update")) return;
     if (!content) return;
-
-    // Mark first render message from worker
-    if (!window._firstRenderReceived) {
-      window._firstRenderReceived = true;
-      perf.markBoot("first-render-from-worker");
-    }
 
     if (content.TwoD) {
       TwoD?.pack(content.TwoD);
@@ -15400,7 +14320,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     buildOverlay("durationProgressBar", content.durationProgressBar);
     buildOverlay("durationTimecode", content.durationTimecode);
     buildOverlay("hitboxDebug", content.hitboxDebug); // Debug overlay for HUD hitbox visualization
-    buildOverlay("lanBadge", content.lanBadge); // 🔗 LAN mode development badge
     
     // Debug: Log overlay data reception
     if (content.durationTimecode) {
@@ -15675,11 +14594,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           paintOverlays["hitboxDebug"]();
         }
 
-        // 🔗 Paint LAN badge overlay for dev mode
-        if (!skipImmediateOverlays && paintOverlays["lanBadge"]) {
-          paintOverlays["lanBadge"]();
-        }
-
         // Paint merry progress bar immediately (at the top, green theme)
         if (paintOverlays["merryProgressBar"]) {
           paintOverlays["merryProgressBar"]();
@@ -15921,139 +14835,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (needsReappearance /* && wrapper.classList.contains("hidden")*/) {
       // wrapper.classList.remove("hidden");
       needsReappearance = false;
-    }
-
-    // 📸 PACK mode: Log frame to console every 5 seconds (time-based, framerate independent)
-    const packNow = performance.now();
-    const packTimeSinceLastSnap = window._lastPackSnapTime ? (packNow - window._lastPackSnapTime) : Infinity;
-    const shouldTakePackSnap = packTimeSinceLastSnap >= 5000; // 5 seconds
-    
-    if (window.acPACK_MODE && shouldTakePackSnap && canvas) {
-      window._lastPackSnapTime = packNow;
-      try {
-        const { dataUrl, displayWidth, displayHeight, dimensions } = captureFrame(canvas, {
-          scaleFactor: 3,
-          displayMax: 200
-        });
-        const ts = formatTimestamp();
-        
-        // Get piece code (use acPACK_PIECE for the short name like "roz")
-        const pieceName = window.acPACK_PIECE || 'piece';
-        const pieceCode = pieceName.startsWith('$') ? pieceName : `$${pieceName}`;
-        
-        console.log(
-          `%c📸 ${pieceCode} %c@ ${ts} %c• Frame ${frameCount} %c[${dimensions.width}×${dimensions.height}]`,
-          `color: #4ecdc4; font-weight: bold; font-size: 11px; font-family: monospace;`,
-          `color: #f8b500; font-size: 10px; font-family: monospace;`,
-          `color: #888; font-size: 10px; font-family: monospace;`,
-          `color: #666; font-size: 10px; font-family: monospace;`
-        );
-        console.log(
-          `%c `,
-          `font-size: 1px; padding: ${displayHeight/2}px ${displayWidth/2}px; background: url("${dataUrl}") no-repeat center; background-size: ${displayWidth}px ${displayHeight}px; image-rendering: pixelated;`
-        );
-      } catch (e) {
-        // Silently fail - frame capture is not essential
-      }
-    }
-
-    // 📸 KidLisp.com console: Auto-snap - initial at frame 30 after play, then every 5 seconds
-    const consoleEnabled = isKidlispConsoleEnabled();
-    const notPaused = !window.__acLoopPaused;
-    if (consoleEnabled && canvas && notPaused) {
-      const now = performance.now();
-      const kidlispCode = window.__acCurrentKidlispCode;
-      const hasKidlispCode = kidlispCode && 
-        kidlispCode.trim().length > 0 && 
-        (kidlispCode.includes('(') || kidlispCode.includes(','));
-      
-      if (hasKidlispCode) {
-        // Track when code changes - reset the initial snap tracking
-        if (window._lastKidlispCodeForSnap !== kidlispCode) {
-          window._lastKidlispCodeForSnap = kidlispCode;
-          window._kidlispCodeStartFrame = frameCount;
-          window._kidlispInitialSnapTaken = false;
-        }
-        
-        const framesSinceCodeStart = typeof frameCount === "bigint" 
-          ? Number(frameCount - window._kidlispCodeStartFrame)
-          : frameCount - window._kidlispCodeStartFrame;
-        
-        // Initial snapshot at frame 30 after code starts
-        const shouldTakeInitialSnap = !window._kidlispInitialSnapTaken && framesSinceCodeStart >= 30;
-        
-        // Subsequent snapshots every 5 seconds (only after initial snap)
-        const timeSinceLastSnap = window._lastKidlispSnapTime ? (now - window._lastKidlispSnapTime) : Infinity;
-        const shouldTakePeriodicSnap = window._kidlispInitialSnapTaken && timeSinceLastSnap >= 5000;
-        
-        if (shouldTakeInitialSnap || shouldTakePeriodicSnap) {
-          if (shouldTakeInitialSnap) {
-            window._kidlispInitialSnapTaken = true;
-          }
-          window._lastKidlispSnapTime = now;
-          try {
-            const { dataUrl, displayWidth, displayHeight, dimensions } = captureFrame(canvas, {
-              scaleFactor: 3,
-              displayMax: 200
-            });
-            const ts = formatTimestamp();
-          
-            // Get the source code and look up its cached $code identifier
-            const embeddedSource = window.__acCurrentKidlispCode || null;
-            // Prefer codeId passed from kidlisp.com, then fall back to getCachedCode lookup
-            // This ensures the correct $code is used when loading from URL
-            const passedCodeId = window.__acCurrentKidlispCodeId || null;
-            const cachedCodeId = embeddedSource ? getCachedCode(embeddedSource) : null;
-            const codeId = passedCodeId || cachedCodeId || null;
-            // Get user handle if available (e.g., "jeffrey")
-            const userHandle = window.acHANDLE ? `@${window.acHANDLE}` : null;
-            
-            // Build the piece label: $code if available, otherwise fall back to piece path
-            const pieceLabel = codeId ? `$${codeId}` : (currentPiece?.split('/')?.pop() || 'piece');
-            
-            // Build filename like: $code-@handle-timestamp.png
-            // Example: $nece-@jeffrey-2025.12.17.15.30.45.123.png
-            // Using the standard timestamp() format from num.mjs
-            const fileTs = timestamp();
-            
-            const filenameParts = [pieceLabel];
-            if (userHandle) filenameParts.push(userHandle);
-            filenameParts.push(fileTs);
-            const filename = filenameParts.join('-') + '.png';
-            
-            const suppressSnapConsoleLogs = window.KIDLISP_SUPPRESS_SNAPSHOT_LOGS === true;
-            
-            // Log to browser console (optional)
-            if (!suppressSnapConsoleLogs) {
-              console.log(
-                `%c📸 ${pieceLabel} %c@ ${ts} %c• Frame ${frameCount} %c[${dimensions.width}×${dimensions.height}]`,
-                `color: #4ecdc4; font-weight: bold; font-size: 11px; font-family: monospace;`,
-                `color: #f8b500; font-size: 10px; font-family: monospace;`,
-                `color: #888; font-size: 10px; font-family: monospace;`,
-                `color: #666; font-size: 10px; font-family: monospace;`
-              );
-              console.log(
-                `%c `,
-                `font-size: 1px; padding: ${displayHeight/2}px ${displayWidth/2}px; background: url("${dataUrl}") no-repeat center; background-size: ${displayWidth}px ${displayHeight}px; image-rendering: pixelated;`
-              );
-            }
-            
-            // Send to kidlisp.com console
-            postKidlispConsoleImage(dataUrl, {
-              frameCount: Number(frameCount),
-              timestamp: ts,
-              pieceCode: codeId, // The $code identifier (without $)
-              pieceLabel,              // Full label with $ (e.g., "$nece")
-              filename,                // Full filename (e.g., "$nece-@jeffrey-12-17-02-PM.png")
-              userHandle,              // User handle (e.g., "@jeffrey")
-              dimensions,
-              embeddedSource
-            });
-          } catch (e) {
-            // Silently fail - auto-snap is not essential
-          }
-        }
-      }
     }
 
     frameAlreadyRequested = false; // 🗨️ Signal readiness for the next frame.
