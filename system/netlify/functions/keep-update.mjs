@@ -1,11 +1,12 @@
 // keep-update.mjs - Update on-chain metadata for already-minted Keeps
 // 
-// POST /api/keep-update - Update token metadata on Tezos
+// POST /api/keep-update - Update token metadata on Tezos (streaming SSE)
 // Requires authentication and admin privileges (for now)
 
 import { authorize, handleFor, hasAdmin } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
-import { TezosToolkit } from "@taquito/taquito";
+import { stream } from "@netlify/functions";
+import { TezosToolkit, MichelsonMap } from "@taquito/taquito";
 import { InMemorySigner } from "@taquito/signer";
 
 const dev = process.env.CONTEXT === "dev";
@@ -27,6 +28,11 @@ function stringToBytes(str) {
   return Buffer.from(str, 'utf8').toString('hex');
 }
 
+// SSE format helper
+function sse(event, data) {
+  return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+}
+
 async function getTezosCredentials() {
   const { db } = await connect();
   const secrets = await db.collection("secrets").findOne({ _id: "tezos-kidlisp" });
@@ -43,156 +49,290 @@ async function getTezosCredentials() {
   };
 }
 
-export default async function handler(event) {
-  // Only allow POST
+// SSE headers
+const headers = {
+  "Content-Type": "text/event-stream",
+  "Cache-Control": "no-cache",
+  "Connection": "keep-alive",
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+export const handler = stream(async (event) => {
+  // Handle CORS preflight
+  if (event.httpMethod === "OPTIONS") {
+    return { statusCode: 200, headers, body: "" };
+  }
+
   if (event.httpMethod !== "POST") {
     return {
       statusCode: 405,
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ error: "Method not allowed" }),
     };
   }
 
-  try {
-    // Parse request body
-    const body = JSON.parse(event.body || "{}");
-    const { piece, tokenId, artifactUri, thumbnailUri, walletAddress } = body;
+  // Create readable stream for SSE
+  const { readable, writable } = new TransformStream();
+  const writer = writable.getWriter();
+  const encoder = new TextEncoder();
 
-    if (!piece || !tokenId || !artifactUri) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ error: "Missing required fields: piece, tokenId, artifactUri" }),
-      };
+  const send = async (eventType, data) => {
+    await writer.write(encoder.encode(sse(eventType, data)));
+  };
+
+  let streamClosed = false;
+  const closeStream = async () => {
+    if (!streamClosed) {
+      streamClosed = true;
+      await writer.close();
     }
+  };
 
-    const pieceName = piece.replace(/^\$/, "");
-
-    // Check auth - require admin for now
-    const user = await authorize(event.headers);
-    if (!user) {
-      return {
-        statusCode: 401,
-        body: JSON.stringify({ error: "Please log in first" }),
-      };
-    }
-
-    const isAdmin = await hasAdmin(user);
-    if (!isAdmin) {
-      return {
-        statusCode: 403,
-        body: JSON.stringify({ error: "Admin access required for on-chain updates" }),
-      };
-    }
-
-    console.log(`🪙 KEEP-UPDATE: Updating token #${tokenId} for $${pieceName}`);
-    console.log(`   New artifact: ${artifactUri}`);
-    console.log(`   New thumbnail: ${thumbnailUri}`);
-
-    // Get piece data from database
-    const database = await connect();
-    const collection = database.db.collection("kidlisp");
-    const pieceDoc = await collection.findOne({ code: pieceName });
-
-    if (!pieceDoc) {
-      await database.disconnect();
-      return {
-        statusCode: 404,
-        body: JSON.stringify({ error: `Piece '$${pieceName}' not found` }),
-      };
-    }
-
-    // Get author handle
-    const authorHandle = pieceDoc.user ? await handleFor(pieceDoc.user) : "@anon";
-
-    // Build metadata
-    const tokenName = `$${pieceName}`;
-    const description = pieceDoc.source || `A KidLisp piece preserved on Tezos`;
-    const tags = [`$${pieceName}`, "KidLisp", "Aesthetic.Computer", "interactive"];
+  // Process update
+  (async () => {
+    let database = null;
     
-    const attributes = [
-      { name: "Language", value: "KidLisp" },
-      { name: "Code", value: `$${pieceName}` },
-      ...(authorHandle && authorHandle !== "@anon" ? [{ name: "Author", value: authorHandle }] : []),
-      { name: "Interactive", value: "Yes" },
-      { name: "Platform", value: "Aesthetic Computer" },
-      { name: "Updated", value: new Date().toISOString().split('T')[0] },
-    ];
+    try {
+      // Parse body
+      let body;
+      try {
+        body = JSON.parse(event.body || "{}");
+      } catch {
+        await send("error", { error: "Invalid JSON body" });
+        return;
+      }
 
-    // Get Tezos credentials and set up client
-    const credentials = await getTezosCredentials();
-    const tezos = new TezosToolkit(RPC_URL);
-    const signer = new InMemorySigner(credentials.privateKey);
-    tezos.setProvider({ signer });
+      const { piece, tokenId, artifactUri, thumbnailUri, walletAddress } = body;
 
-    // Build on-chain token_info
-    const tokenInfo = new Map([
-      ["name", stringToBytes(tokenName)],
-      ["description", stringToBytes(description)],
-      ["artifactUri", stringToBytes(artifactUri)],
-      ["displayUri", stringToBytes(artifactUri)],
-      ["thumbnailUri", stringToBytes(thumbnailUri || artifactUri)],
-      ["decimals", stringToBytes("0")],
-      ["symbol", stringToBytes("KEEP")],
-      ["isBooleanAmount", stringToBytes("true")],
-      ["shouldPreferSymbol", stringToBytes("false")],
-      ["formats", stringToBytes(JSON.stringify([{
+      if (!piece || !tokenId || !artifactUri) {
+        await send("error", { error: "Missing required fields: piece, tokenId, artifactUri" });
+        return;
+      }
+
+      const pieceName = piece.replace(/^\$/, "");
+
+      await send("progress", { stage: "auth", message: "Checking authorization..." });
+
+      // Check auth - require logged in user
+      const user = await authorize(event.headers);
+      if (!user) {
+        await send("error", { error: "Please log in first" });
+        return;
+      }
+
+      // Get piece data from database first to check ownership
+      database = await connect();
+      const collection = database.db.collection("kidlisp");
+      const pieceDoc = await collection.findOne({ code: pieceName });
+
+      if (!pieceDoc) {
+        await send("error", { error: `Piece '$${pieceName}' not found` });
+        return;
+      }
+
+      // Check if user is the piece owner/creator OR an admin
+      const isAdmin = await hasAdmin(user);
+      const isPieceOwner = pieceDoc.user === user;
+      
+      // Also check if walletAddress matches the original minter (for cases where user field might differ)
+      const storedMinter = pieceDoc.tezos?.minter || pieceDoc.tezos?.owner;
+      const isOriginalMinter = walletAddress && storedMinter && walletAddress === storedMinter;
+      
+      if (!isAdmin && !isPieceOwner && !isOriginalMinter) {
+        await send("error", { error: "Only the piece owner or creator can update metadata" });
+        return;
+      }
+
+      await send("progress", { stage: "auth", message: "✓ Authorized" });
+      await send("progress", { stage: "load", message: `Loading $${pieceName}...` });
+      await send("progress", { stage: "load", message: "✓ Piece loaded" });
+      await send("progress", { stage: "metadata", message: "Building metadata..." });
+
+      // Get author handle
+      let authorHandle = pieceDoc.user ? await handleFor(pieceDoc.user) : "@anon";
+      // Ensure @ prefix for objkt artist field
+      if (authorHandle && !authorHandle.startsWith("@")) {
+        authorHandle = "@" + authorHandle;
+      }
+
+      // Build metadata
+      const tokenName = `$${pieceName}`;
+      const description = pieceDoc.source || `A KidLisp piece preserved on Tezos`;
+      const tags = [`$${pieceName}`, "KidLisp", "Aesthetic.Computer", "interactive"];
+      
+      const attributes = [
+        { name: "Language", value: "KidLisp" },
+        { name: "Code", value: `$${pieceName}` },
+        ...(authorHandle && authorHandle !== "@anon" ? [{ name: "Author", value: authorHandle }] : []),
+        { name: "Interactive", value: "Yes" },
+        { name: "Platform", value: "Aesthetic Computer" },
+        { name: "Updated", value: new Date().toISOString().split('T')[0] },
+      ];
+
+      await send("progress", { stage: "metadata", message: "✓ Metadata ready" });
+      await send("progress", { stage: "tezos", message: "Connecting to Tezos..." });
+
+      // Get Tezos credentials and set up client
+      const credentials = await getTezosCredentials();
+      const tezos = new TezosToolkit(RPC_URL);
+      const signer = new InMemorySigner(credentials.privateKey);
+      tezos.setProvider({ signer });
+
+      await send("progress", { stage: "tezos", message: `✓ Connected to ${NETWORK}` });
+      await send("progress", { stage: "contract", message: "Loading contract..." });
+
+      // Get contract-specific data from database
+      // Use contract-keyed storage: tezos.contracts[CONTRACT_ADDRESS]
+      const contractData = pieceDoc.tezos?.contracts?.[CONTRACT_ADDRESS] || {};
+      
+      // Preserve the original minter/creator from the database record
+      // Try: contract-specific minter -> contract-specific owner -> legacy flat fields -> fetch from chain
+      let originalMinter = contractData.minter || contractData.owner || 
+                           pieceDoc.tezos?.minter || pieceDoc.tezos?.owner;
+      
+      // If no minter in DB, try to fetch from TzKT
+      if (!originalMinter && tokenId) {
+        try {
+          const tzktBase = NETWORK === "mainnet" ? "https://api.tzkt.io" : `https://api.${NETWORK}.tzkt.io`;
+          const tokenUrl = `${tzktBase}/v1/tokens?contract=${CONTRACT_ADDRESS}&tokenId=${tokenId}`;
+          const tokenResponse = await fetch(tokenUrl);
+          if (tokenResponse.ok) {
+            const tokens = await tokenResponse.json();
+            if (tokens[0]?.firstMinter?.address) {
+              originalMinter = tokens[0].firstMinter.address;
+              console.log(`🪙 KEEP-UPDATE: Found minter from TzKT: ${originalMinter}`);
+            }
+          }
+        } catch (e) {
+          console.warn(`🪙 KEEP-UPDATE: Failed to fetch minter from TzKT: ${e.message}`);
+        }
+      }
+      
+      // Last resort fallback
+      if (!originalMinter) {
+        originalMinter = credentials.address;
+        console.warn(`🪙 KEEP-UPDATE: Using kidlisp wallet as fallback minter`);
+      }
+
+      // Get the metadataUri from the database (TZIP-16 off-chain JSON)
+      // This is critical - the empty string "" key must point to the metadata JSON
+      // Otherwise objkt won't resolve artist attribution correctly
+      // Try contract-specific first, then legacy flat field
+      const metadataUri = contractData.metadataUri || pieceDoc.tezos?.metadataUri;
+      if (!metadataUri) {
+        console.warn(`🪙 KEEP-UPDATE: No metadataUri found for $${pieceName} on ${CONTRACT_ADDRESS}, objkt attribution may break`);
+      }
+
+      // Build on-chain token_info using MichelsonMap (required by Taquito)
+      const tokenInfo = new MichelsonMap();
+      
+      // TZIP-16: Empty string key "" points to off-chain JSON metadata
+      // This is REQUIRED for objkt to properly resolve artist attribution
+      if (metadataUri) {
+        tokenInfo.set("", stringToBytes(metadataUri));
+      }
+      
+      tokenInfo.set("name", stringToBytes(tokenName));
+      tokenInfo.set("description", stringToBytes(description.replace(/\n+/g, ", ")));
+      tokenInfo.set("artifactUri", stringToBytes(artifactUri));
+      tokenInfo.set("displayUri", stringToBytes(artifactUri));
+      tokenInfo.set("thumbnailUri", stringToBytes(thumbnailUri || artifactUri));
+      tokenInfo.set("decimals", stringToBytes("0"));
+      tokenInfo.set("symbol", stringToBytes("KEEP"));
+      tokenInfo.set("isBooleanAmount", stringToBytes("true"));
+      tokenInfo.set("shouldPreferSymbol", stringToBytes("false"));
+      // NOTE: Don't set minter field - objkt uses creators array for artist attribution
+      // Setting minter to a display handle breaks objkt's profile resolution
+      tokenInfo.set("formats", stringToBytes(JSON.stringify([{
         uri: artifactUri,
         mimeType: "text/html",
         dimensions: { value: "responsive", unit: "viewport" }
-      }]))],
-      ["tags", stringToBytes(JSON.stringify(tags))],
-      ["attributes", stringToBytes(JSON.stringify(attributes))],
-      ["creators", stringToBytes(JSON.stringify([credentials.address]))],
-      ["rights", stringToBytes("© All rights reserved")],
-      ["content_type", stringToBytes("KidLisp")],
-      ["content_hash", stringToBytes(pieceName)],
-    ]);
+      }])));
+      tokenInfo.set("tags", stringToBytes(JSON.stringify(tags)));
+      tokenInfo.set("attributes", stringToBytes(JSON.stringify(attributes)));
+      tokenInfo.set("creators", stringToBytes(JSON.stringify([originalMinter])));
+      tokenInfo.set("rights", stringToBytes("© All rights reserved"));
+      tokenInfo.set("content_type", stringToBytes("KidLisp"));
+      tokenInfo.set("content_hash", stringToBytes(pieceName));
 
-    // Call edit_metadata entrypoint
-    console.log(`🪙 KEEP-UPDATE: Calling edit_metadata on ${CONTRACT_ADDRESS}...`);
-    const contract = await tezos.contract.at(CONTRACT_ADDRESS);
-    
-    const op = await contract.methodsObject.edit_metadata({
-      token_id: parseInt(tokenId),
-      token_info: tokenInfo,
-    }).send();
+      const contract = await tezos.contract.at(CONTRACT_ADDRESS);
+      
+      await send("progress", { stage: "contract", message: "✓ Contract loaded" });
+      await send("progress", { stage: "submit", message: "Submitting transaction..." });
 
-    console.log(`🪙 KEEP-UPDATE: Operation hash: ${op.hash}`);
-    console.log(`🪙 KEEP-UPDATE: Waiting for confirmation...`);
+      const op = await contract.methodsObject.edit_metadata({
+        token_id: parseInt(tokenId),
+        token_info: tokenInfo,
+      }).send();
 
-    await op.confirmation(1);
+      const opHashShort = op.hash.slice(0, 12) + "...";
+      await send("progress", { stage: "submit", message: `✓ Submitted: ${opHashShort}` });
+      await send("progress", { stage: "confirm", message: "Waiting for confirmation..." });
 
-    console.log(`🪙 KEEP-UPDATE: ✅ Metadata updated successfully!`);
+      await op.confirmation(1);
 
-    await database.disconnect();
+      await send("progress", { stage: "confirm", message: "✓ Confirmed on-chain!" });
+      await send("progress", { stage: "database", message: "Updating database..." });
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify({
+      // Clear pendingRebake and update on-chain URIs in the record
+      // Use contract-keyed storage: tezos.contracts[CONTRACT_ADDRESS]
+      await collection.updateOne(
+        { code: pieceName },
+        { 
+          $set: { 
+            [`tezos.contracts.${CONTRACT_ADDRESS}.artifactUri`]: artifactUri,
+            [`tezos.contracts.${CONTRACT_ADDRESS}.thumbnailUri`]: thumbnailUri,
+            [`tezos.contracts.${CONTRACT_ADDRESS}.lastUpdatedAt`]: new Date(),
+            [`tezos.contracts.${CONTRACT_ADDRESS}.lastUpdateTxHash`]: op.hash,
+          },
+          $unset: { pendingRebake: "" }
+        }
+      );
+
+      await send("progress", { stage: "database", message: "✓ Database updated" });
+
+      const explorerUrl = NETWORK === "mainnet" 
+        ? `https://tzkt.io/${op.hash}`
+        : `https://ghostnet.tzkt.io/${op.hash}`;
+
+      await send("complete", {
         success: true,
         tokenId,
         opHash: op.hash,
         artifactUri,
         thumbnailUri,
-        explorerUrl: NETWORK === "mainnet" 
-          ? `https://tzkt.io/${op.hash}`
-          : `https://ghostnet.tzkt.io/${op.hash}`,
-      }),
-    };
+        explorerUrl,
+      });
 
-  } catch (error) {
-    console.error("🪙 KEEP-UPDATE: Error:", error);
-    
-    let errorMessage = error.message;
-    if (error.message?.includes("METADATA_LOCKED")) {
-      errorMessage = "Token metadata is locked and cannot be updated";
+    } catch (error) {
+      console.error("🪙 KEEP-UPDATE: Error:", error);
+      
+      let errorMessage = error.message;
+      if (error.message?.includes("METADATA_LOCKED")) {
+        errorMessage = "Token metadata is locked and cannot be updated";
+      }
+      if (error.message?.includes("FA2_NOT_ADMIN")) {
+        errorMessage = "Not authorized to update this token (FA2_NOT_ADMIN)";
+      }
+
+      try {
+        await send("error", { error: errorMessage });
+      } catch (e) {
+        // Stream may already be closed
+      }
+    } finally {
+      if (database) {
+        try {
+          await database.disconnect();
+        } catch (e) {
+          // Ignore disconnect errors
+        }
+      }
+      await closeStream();
     }
+  })();
 
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ 
-        error: errorMessage,
-        success: false,
-      }),
-    };
-  }
-}
+  return { statusCode: 200, headers, body: readable };
+});

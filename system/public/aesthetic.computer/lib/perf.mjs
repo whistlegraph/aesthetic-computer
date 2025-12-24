@@ -1,7 +1,8 @@
 // perf.mjs - Performance telemetry for Aesthetic Computer
 // Tracks timing of boot sequence, network requests, and rendering
 
-const enabled = true; // Set to false to disable all telemetry
+// Disable telemetry in PACK_MODE (NFT bundles) or set to false manually
+const enabled = typeof window !== "undefined" && window.acPACK_MODE ? false : true;
 
 // Timing buckets
 const timings = {

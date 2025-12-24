@@ -432,22 +432,9 @@ export const handler = stream(async (event, context) => {
       // ═══════════════════════════════════════════════════════════════════
       let thumbnailPromise = null;
       
-      // Calculate thumbnail dimensions based on screen aspect ratio
-      // Max 128px on longest side at 2x density = 256px actual
-      const screenW = body.screenWidth || 128;
-      const screenH = body.screenHeight || 128;
-      const maxSize = 128; // Base size (will be 2x for density)
-      const aspect = screenW / screenH;
-      let thumbW, thumbH;
-      if (aspect >= 1) {
-        // Landscape or square
-        thumbW = maxSize;
-        thumbH = Math.round(maxSize / aspect);
-      } else {
-        // Portrait
-        thumbH = maxSize;
-        thumbW = Math.round(maxSize * aspect);
-      }
+      // Fixed 256x256 thumbnail for consistent display across platforms
+      const thumbW = 256;
+      const thumbH = 256;
       
       if (!useCachedMedia) {
         await send("progress", { stage: "thumbnail", message: `Baking ${thumbW * 2}x${thumbH * 2} WebP...` });
@@ -502,9 +489,14 @@ export const handler = stream(async (event, context) => {
       
       const analysis = analyzeKidLisp(piece.source);
       
+      // Derive a simple complexity tier from analysis
+      let tier = "simple";
+      if (analysis.sexp?.maxDepth >= 4 || analysis.behavior?.hasIteration) tier = "moderate";
+      if (analysis.sexp?.maxDepth >= 6 || analysis.behavior?.hasRecursion) tier = "complex";
+      
       await send("progress", { 
         stage: "analyze", 
-        message: `${analysis.lineCount} lines, ${analysis.complexity.tier} complexity ✓`
+        message: `${analysis.lines || 0} lines, ${tier} ✓`
       });
 
       // ═══════════════════════════════════════════════════════════════════
@@ -613,6 +605,22 @@ export const handler = stream(async (event, context) => {
         
         // REBAKE MODE: Return early with new URIs (don't proceed to minting)
         if (isRebake) {
+          // Store pending rebake info so it persists across page refreshes
+          await collection.updateOne(
+            { code: pieceName },
+            { 
+              $set: { 
+                pendingRebake: {
+                  artifactUri,
+                  thumbnailUri,
+                  createdAt: new Date(),
+                  sourceHash: hashSource(piece.source || ""),
+                }
+              }
+            }
+          );
+          console.log(`🪙 KEEP: Stored pending rebake for $${pieceName}`);
+          
           await send("progress", { stage: "ready", message: "Bundle regenerated!" });
           await send("ready", {
             success: true,
@@ -632,6 +640,7 @@ export const handler = stream(async (event, context) => {
       }
       
       // REBAKE MODE with cached media: Still return the cached URIs
+      // (pendingRebake was already stored when the bundle was first generated)
       if (isRebake) {
         await send("progress", { stage: "ready", message: "Bundle info retrieved!" });
         await send("ready", {
@@ -642,6 +651,8 @@ export const handler = stream(async (event, context) => {
           artifactUri,
           thumbnailUri,
           objktUrl: mintStatus.objktUrl,
+          // Flag that this is from cache (pending rebake may already exist)
+          fromCache: true,
         });
         await database.disconnect();
         return;
@@ -654,8 +665,8 @@ export const handler = stream(async (event, context) => {
 
       const tokenName = `$${pieceName}`;
       
-      // Description is ONLY the KidLisp source code (clean and simple)
-      const description = piece.source || `A KidLisp piece preserved on Tezos`;
+      // Description is the KidLisp source code, with newlines replaced by comma-space for readability
+      const description = (piece.source || `A KidLisp piece preserved on Tezos`).replace(/\n+/g, ", ").replace(/,\s*,/g, ",").trim();
 
       // Build tags
       const tags = [`$${pieceName}`, "KidLisp", "Aesthetic.Computer", "interactive"];
@@ -725,6 +736,8 @@ export const handler = stream(async (event, context) => {
         tags: stringToBytes(JSON.stringify(tags)),
         attributes: stringToBytes(JSON.stringify(attributes)),
         creators: stringToBytes(JSON.stringify(creatorsArray)),
+        // NOTE: Don't set minter field - objkt uses creators array for artist attribution
+        // Setting minter to a display handle breaks objkt's profile resolution
         rights: stringToBytes("© All rights reserved"),
         content_type: stringToBytes("KidLisp"),
         content_hash: stringToBytes(pieceName),
@@ -839,21 +852,24 @@ export const handler = stream(async (event, context) => {
       const objktUrl = `https://${NETWORK === "mainnet" ? "" : "ghostnet."}objkt.com/asset/${CONTRACT_ADDRESS}/${tokenId}`;
 
       // Update MongoDB to mark piece as minted
+      // Use contract-keyed storage: tezos.contracts[CONTRACT_ADDRESS]
       const piecesCollection = database.db.collection("kidlisp");
       await piecesCollection.updateOne(
         { user: user.sub, code: pieceName },
         { 
           $set: { 
-            "tezos.minted": true,
-            "tezos.tokenId": tokenId,
-            "tezos.txHash": op.hash,
-            "tezos.contract": CONTRACT_ADDRESS,
-            "tezos.network": NETWORK,
-            "tezos.mintedAt": new Date(),
-            "tezos.owner": destinationAddress,
-            "tezos.artifactUri": artifactUri,
-            "tezos.thumbnailUri": thumbnailUri,
-            "tezos.metadataUri": metadataUri,
+            [`tezos.contracts.${CONTRACT_ADDRESS}`]: {
+              minted: true,
+              tokenId: tokenId,
+              txHash: op.hash,
+              network: NETWORK,
+              mintedAt: new Date(),
+              owner: destinationAddress,
+              minter: creatorWalletAddress,
+              artifactUri: artifactUri,
+              thumbnailUri: thumbnailUri,
+              metadataUri: metadataUri,
+            }
           }
         }
       );

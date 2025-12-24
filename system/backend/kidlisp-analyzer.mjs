@@ -1,550 +1,462 @@
-// kidlisp-analyzer.mjs - Static analysis of KidLisp source code
-// Extracts traits, functions used, complexity metrics for NFT metadata
+// kidlisp-analyzer.mjs - Formal static analysis of KidLisp source code
+// Extracts structural, behavioral, and attribution traits for NFT metadata
 
-// KidLisp API Categories
-// Each category represents a major capability area
-export const KIDLISP_API = {
-  // Core Drawing Primitives
-  drawing: {
-    name: "Drawing",
-    functions: ["ink", "line", "box", "circle", "tri", "poly", "plot", "point", "shape", "lines"],
-    description: "Basic drawing primitives",
-  },
-  
-  // Screen Management
-  screen: {
-    name: "Screen",
-    functions: ["wipe", "resolution", "scroll", "bake", "coat"],
-    description: "Screen and canvas management",
-  },
-  
+// ═══════════════════════════════════════════════════════════════════════════
+// FORMAL LISP ANALYSIS - S-Expression Structure
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Special forms in KidLisp (not regular function calls)
+const SPECIAL_FORMS = ["def", "if", "later", "repeat", "bunch", "range", "tap", "draw", "once"];
+
+// Primitive forms (built-in functions)
+const PRIMITIVES = {
+  // Drawing
+  ink: "gfx", line: "gfx", box: "gfx", circle: "gfx", tri: "gfx", 
+  poly: "gfx", plot: "gfx", point: "gfx", shape: "gfx", lines: "gfx",
+  // Screen
+  wipe: "screen", resolution: "screen", scroll: "screen", bake: "screen", coat: "screen",
   // Text
-  text: {
-    name: "Text",
-    functions: ["write", "print", "label", "debug", "log"],
-    description: "Text rendering and output",
-  },
-  
-  // Images & Media
-  media: {
-    name: "Media",
-    functions: ["paste", "stamp", "embed"],
-    description: "Image and media embedding",
-  },
-  
-  // Color System
-  color: {
-    name: "Color",
-    functions: ["rainbow", "zebra", "fade", "flood"],
-    description: "Advanced color and gradients",
-  },
-  
-  // Animation & Motion
-  animation: {
-    name: "Animation",
-    functions: ["wiggle", "spin", "smoothspin", "resetSpin", "zoom", "pan", "unpan"],
-    description: "Motion and animation effects",
-  },
-  
-  // Math & Logic
-  math: {
-    name: "Math",
-    functions: ["+", "-", "*", "/", "%", "mod", "sin", "cos", "tan", "floor", "ceil", "round", "random", "noise", "min", "max"],
-    description: "Mathematical operations",
-  },
-  
-  // Control Flow
-  control: {
-    name: "Control",
-    functions: ["if", "not", "repeat", "bunch", "range", "once", "later", "def", "now", "die", "choose", "sort"],
-    description: "Program flow and logic",
-  },
-  
-  // Comparison
-  comparison: {
-    name: "Comparison",
-    functions: [">", "<", "=", "?"],
-    description: "Comparison operators",
-  },
-  
-  // Timing
-  timing: {
-    name: "Timing",
-    functions: ["delay", "hop"],
-    description: "Timing and scheduling",
-  },
-  
-  // Interaction
-  interaction: {
-    name: "Interaction",
-    functions: ["tap", "draw"],
-    description: "User interaction handlers",
-  },
-  
+  write: "text", print: "text", label: "text", debug: "io", log: "io",
+  // Media
+  paste: "media", stamp: "media", embed: "media",
+  // Color
+  rainbow: "color", zebra: "color", fade: "color", flood: "color",
+  // Transform
+  wiggle: "xform", spin: "xform", smoothspin: "xform", resetSpin: "xform",
+  zoom: "xform", pan: "xform", unpan: "xform",
+  // Math
+  sin: "math", cos: "math", tan: "math", floor: "math", ceil: "math",
+  round: "math", random: "rand", noise: "rand", min: "math", max: "math",
+  mod: "math",
+  // Logic
+  not: "logic", choose: "logic", sort: "logic",
+  // Time
+  delay: "time", hop: "time", now: "time", die: "time",
   // Audio
-  audio: {
-    name: "Audio",
-    functions: ["speaker", "melody", "overtone", "mic", "amplitude"],
-    description: "Sound and music",
-  },
-  
+  speaker: "audio", melody: "audio", overtone: "audio", mic: "audio", amplitude: "audio",
   // Effects
-  effects: {
-    name: "Effects",
-    functions: ["blur", "contrast", "mask", "unmask", "steal", "putback"],
-    description: "Visual effects and filters",
-  },
-  
+  blur: "fx", contrast: "fx", mask: "fx", unmask: "fx", steal: "fx", putback: "fx",
   // Navigation
-  navigation: {
-    name: "Navigation",
-    functions: ["jump"],
-    description: "Piece navigation",
-  },
-  
+  jump: "nav",
   // Network
-  network: {
-    name: "Network",
-    functions: ["net"],
-    description: "Network and API access",
-  },
-  
+  net: "net",
   // Utility
-  utility: {
-    name: "Utility",
-    functions: ["len", "source", "trans", "qr"],
-    description: "Utility functions",
-  },
+  len: "util", source: "util", trans: "util", qr: "util",
 };
 
-// All known functions flattened
-export const ALL_FUNCTIONS = Object.values(KIDLISP_API).flatMap(cat => cat.functions);
+// ═══════════════════════════════════════════════════════════════════════════
+// MAIN ANALYSIS FUNCTION
+// ═══════════════════════════════════════════════════════════════════════════
 
-// Timing pattern regex
-const TIMING_PATTERN = /(\d*\.?\d+)s(\.\.\.?|!)?/g;
-
-// Analyze KidLisp source code and extract rich metadata
 export function analyzeKidLisp(source, options = {}) {
   if (!source || typeof source !== "string") {
-    return { error: "Invalid source" };
+    return { error: "Invalid source", traits: [] };
   }
-  
+
+  // Basic metrics
   const lines = source.split("\n");
-  const nonEmptyLines = lines.filter(l => l.trim().length > 0);
+  const codeLines = lines.filter(l => l.trim() && !l.trim().startsWith(";"));
   const commentLines = lines.filter(l => l.trim().startsWith(";"));
-  const codeLines = nonEmptyLines.filter(l => !l.trim().startsWith(";"));
   
-  // Extract all function calls
-  const functionCalls = extractFunctionCalls(source);
+  // S-expression analysis
+  const sexp = analyzeSExpressions(source);
   
-  // Count unique functions
-  const uniqueFunctions = [...new Set(functionCalls)];
+  // Form analysis
+  const forms = analyzeForms(source);
   
-  // Categorize functions
-  const categories = categorize(uniqueFunctions);
+  // Timing patterns
+  const timing = analyzeTimingPatterns(source);
   
-  // Extract timing expressions
-  const timings = extractTimings(source);
+  // Definitions
+  const defs = analyzeDefinitions(source);
   
-  // Count definitions
-  const definitions = countDefinitions(source);
+  // Dependencies (embeds)
+  const deps = analyzeDependencies(source);
   
-  // Detect complexity indicators
-  const complexity = analyzeComplexity(source, functionCalls, definitions);
+  // Color usage
+  const colors = analyzeColors(source);
   
-  // Detect embedded references
-  const embeds = extractEmbeds(source);
+  // Behavioral traits
+  const behavior = analyzeBehavior(source, forms, timing);
   
-  // Detect colors used
-  const colors = extractColors(source);
-  
-  // Build traits list for NFT attributes
-  const categoryNames = Object.keys(categories);
-  const traits = buildTraits({
-    categories,
-    categoryNames,
-    timings,
-    definitions,
-    complexity,
-    embeds,
+  // Build formal traits for NFT
+  const traits = buildFormalTraits({
+    source,
+    lines: codeLines.length,
+    comments: commentLines.length,
+    chars: source.length,
+    sexp,
+    forms,
+    timing,
+    defs,
+    deps,
     colors,
-    lineCount: codeLines.length,
-    commentCount: commentLines.length,
-    uniqueFunctionCount: uniqueFunctions.length,
-    uniqueFunctions,
-    embedCount: embeds.length,
+    behavior,
   });
-  
+
   return {
-    // Basic metrics
-    lineCount: lines.length,
-    codeLineCount: codeLines.length,
-    commentLineCount: commentLines.length,
-    charCount: source.length,
+    // Structural metrics
+    lines: codeLines.length,
+    comments: commentLines.length,
+    chars: source.length,
     
-    // Function analysis
-    functionCalls: functionCalls.length,
-    uniqueFunctionCount: uniqueFunctions.length,
-    uniqueFunctions,
+    // S-expression structure
+    sexp,
     
-    // Categories in use
-    categories,
-    categoryNames: Object.keys(categories),
+    // Form breakdown
+    forms,
     
     // Timing
-    hasTimings: timings.length > 0,
-    timings,
+    timing,
     
     // Definitions
-    variableCount: definitions.variables.length,
-    functionDefCount: definitions.functions.length,
-    definitions,
+    defs,
     
-    // Complexity
-    complexity,
-    
-    // Embeds
-    embedCount: embeds.length,
-    embeds,
+    // Dependencies
+    deps,
     
     // Colors
-    colorCount: colors.length,
     colors,
     
-    // NFT Traits (ready for attributes array)
+    // Behavior flags
+    behavior,
+    
+    // NFT Traits
     traits,
   };
 }
 
-// Extract all function calls from source
-function extractFunctionCalls(source) {
-  const calls = [];
+// ═══════════════════════════════════════════════════════════════════════════
+// S-EXPRESSION ANALYSIS
+// ═══════════════════════════════════════════════════════════════════════════
+
+function analyzeSExpressions(source) {
+  let depth = 0;
+  let maxDepth = 0;
+  let sexpCount = 0;
+  let atomCount = 0;
   
-  // Match function calls: (functionName ...)
-  // Also match bare function names at start of comma-separated expressions
-  const patterns = [
-    /\(\s*([a-zA-Z_+\-*/%<>=?][a-zA-Z0-9_+\-*/%<>=?.:]*)/g, // (function ...)
-    /^\s*([a-zA-Z_][a-zA-Z0-9_]*)\s/gm, // bare function at line start (comma syntax)
-  ];
-  
-  for (const pattern of patterns) {
-    let match;
-    while ((match = pattern.exec(source)) !== null) {
-      const func = match[1].split(":")[0].split(".")[0]; // Strip colon params and dots
-      if (ALL_FUNCTIONS.includes(func) || isOperator(func)) {
-        calls.push(func);
-      }
+  // Count parens and track depth
+  for (let i = 0; i < source.length; i++) {
+    const c = source[i];
+    if (c === "(") {
+      depth++;
+      sexpCount++;
+      maxDepth = Math.max(maxDepth, depth);
+    } else if (c === ")") {
+      depth = Math.max(0, depth - 1);
     }
   }
   
-  return calls;
-}
-
-function isOperator(func) {
-  return ["+", "-", "*", "/", "%", ">", "<", "=", "?"].includes(func);
-}
-
-// Categorize functions by API area
-function categorize(functions) {
-  const result = {};
+  // Count atoms (identifiers, numbers, strings outside parens)
+  const atoms = source.match(/[a-zA-Z_][a-zA-Z0-9_-]*|\d+\.?\d*|"[^"]*"/g) || [];
+  atomCount = atoms.length;
   
-  for (const [key, category] of Object.entries(KIDLISP_API)) {
-    const used = functions.filter(f => category.functions.includes(f));
-    if (used.length > 0) {
-      result[key] = {
-        name: category.name,
-        functions: used,
-        count: used.length,
-      };
-    }
-  }
+  // Density = expressions per line
+  const lines = source.split("\n").filter(l => l.trim()).length || 1;
+  const density = Math.round((sexpCount / lines) * 10) / 10;
   
-  return result;
+  return {
+    expressions: sexpCount,
+    atoms: atomCount,
+    maxDepth,
+    density,
+    balanced: depth === 0,
+  };
 }
 
-// Extract timing expressions
-function extractTimings(source) {
-  const timings = [];
+// ═══════════════════════════════════════════════════════════════════════════
+// FORM ANALYSIS
+// ═══════════════════════════════════════════════════════════════════════════
+
+function analyzeForms(source) {
+  const calls = {};
+  const categories = {};
+  
+  // Match function calls: (name ...)
+  const pattern = /\(\s*([a-zA-Z_][a-zA-Z0-9_-]*)/g;
   let match;
   
-  while ((match = TIMING_PATTERN.exec(source)) !== null) {
-    const value = parseFloat(match[1]) || 1;
-    const suffix = match[2] || "";
+  while ((match = pattern.exec(source)) !== null) {
+    const name = match[1];
+    calls[name] = (calls[name] || 0) + 1;
     
+    // Categorize
+    if (SPECIAL_FORMS.includes(name)) {
+      categories.special = (categories.special || 0) + 1;
+    } else if (PRIMITIVES[name]) {
+      const cat = PRIMITIVES[name];
+      categories[cat] = (categories[cat] || 0) + 1;
+    }
+  }
+  
+  // Also check bare forms (comma syntax)
+  const barePattern = /^([a-zA-Z_][a-zA-Z0-9_-]*)\s/gm;
+  while ((match = barePattern.exec(source)) !== null) {
+    const name = match[1];
+    if (PRIMITIVES[name] || SPECIAL_FORMS.includes(name)) {
+      calls[name] = (calls[name] || 0) + 1;
+    }
+  }
+  
+  const unique = Object.keys(calls);
+  const total = Object.values(calls).reduce((a, b) => a + b, 0);
+  
+  return {
+    unique: unique.length,
+    total,
+    calls,
+    categories,
+    top: unique.sort((a, b) => calls[b] - calls[a]).slice(0, 5),
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TIMING PATTERN ANALYSIS
+// ═══════════════════════════════════════════════════════════════════════════
+
+function analyzeTimingPatterns(source) {
+  const timings = [];
+  const pattern = /(\d*\.?\d+)s(\.\.\.?|!)?/g;
+  let match;
+  
+  while ((match = pattern.exec(source)) !== null) {
+    const seconds = parseFloat(match[1]) || 1;
+    const modifier = match[2] || "";
     timings.push({
-      raw: match[0],
-      seconds: value,
-      repeating: suffix === "..." || suffix === "..",
-      once: suffix === "!",
+      seconds,
+      loop: modifier === "..." || modifier === "..",
+      once: modifier === "!",
     });
   }
   
-  return timings;
+  const hasLoops = timings.some(t => t.loop);
+  const hasOnce = timings.some(t => t.once);
+  const intervals = timings.map(t => t.seconds);
+  const fastest = intervals.length ? Math.min(...intervals) : null;
+  const slowest = intervals.length ? Math.max(...intervals) : null;
+  
+  return {
+    count: timings.length,
+    hasLoops,
+    hasOnce,
+    fastest,
+    slowest,
+    timings,
+  };
 }
 
-// Count variable and function definitions
-function countDefinitions(source) {
-  const variables = [];
-  const functions = [];
+// ═══════════════════════════════════════════════════════════════════════════
+// DEFINITION ANALYSIS
+// ═══════════════════════════════════════════════════════════════════════════
+
+function analyzeDefinitions(source) {
+  const vars = [];
+  const funcs = [];
   
   // (def name value)
-  const defPattern = /\(\s*def\s+([a-zA-Z_][a-zA-Z0-9_]*)/g;
+  const defPattern = /\(\s*def\s+([a-zA-Z_][a-zA-Z0-9_-]*)/g;
   let match;
   while ((match = defPattern.exec(source)) !== null) {
-    variables.push(match[1]);
+    vars.push(match[1]);
   }
   
-  // (later name params... body)
-  const laterPattern = /\(\s*later\s+([a-zA-Z_][a-zA-Z0-9_]*)/g;
+  // (later name ...)
+  const laterPattern = /\(\s*later\s+([a-zA-Z_][a-zA-Z0-9_-]*)/g;
   while ((match = laterPattern.exec(source)) !== null) {
-    functions.push(match[1]);
+    funcs.push(match[1]);
   }
   
   return {
-    variables: [...new Set(variables)],
-    functions: [...new Set(functions)],
+    variables: [...new Set(vars)],
+    functions: [...new Set(funcs)],
+    varCount: [...new Set(vars)].length,
+    funcCount: [...new Set(funcs)].length,
   };
 }
 
-// Analyze code complexity
-function analyzeComplexity(source, functionCalls, definitions) {
-  const nestingDepth = calculateNestingDepth(source);
-  const hasRecursion = detectRecursion(source, definitions.functions);
-  const hasConditionals = /\(\s*(if|not|>|<|=|choose|\?)\s/.test(source);
-  const hasLoops = /\(\s*(repeat|bunch|range)\s/.test(source);
-  const hasInteraction = /\(\s*(tap|draw)\s/.test(source);
-  const hasAnimation = /\(\s*(wiggle|spin|smoothspin|zoom|pan)\s/.test(source);
-  const hasAudio = /\(\s*(speaker|melody|overtone|mic|amplitude)\s/.test(source);
-  const hasNetwork = /\(\s*net\s/.test(source);
-  const hasEmbeds = /\$[a-zA-Z0-9]+/.test(source);
-  
-  // Calculate complexity score
-  let score = 0;
-  score += Math.min(functionCalls.length * 0.5, 20);
-  score += definitions.variables.length * 2;
-  score += definitions.functions.length * 5;
-  score += nestingDepth * 3;
-  if (hasRecursion) score += 10;
-  if (hasConditionals) score += 3;
-  if (hasLoops) score += 3;
-  if (hasInteraction) score += 5;
-  if (hasAnimation) score += 2;
-  if (hasAudio) score += 5;
-  if (hasNetwork) score += 5;
-  if (hasEmbeds) score += 3;
-  
-  // Determine tier
-  let tier;
-  if (score < 10) tier = "Simple";
-  else if (score < 25) tier = "Moderate";
-  else if (score < 50) tier = "Complex";
-  else tier = "Advanced";
-  
-  return {
-    score: Math.round(score),
-    tier,
-    nestingDepth,
-    hasRecursion,
-    hasConditionals,
-    hasLoops,
-    hasInteraction,
-    hasAnimation,
-    hasAudio,
-    hasNetwork,
-    hasEmbeds,
-  };
-}
+// ═══════════════════════════════════════════════════════════════════════════
+// DEPENDENCY ANALYSIS
+// ═══════════════════════════════════════════════════════════════════════════
 
-// Calculate maximum nesting depth
-function calculateNestingDepth(source) {
-  let maxDepth = 0;
-  let currentDepth = 0;
+function analyzeDependencies(source) {
+  const deps = [];
+  const pattern = /\$([a-zA-Z][a-zA-Z0-9]*)/g;
+  let match;
   
-  for (const char of source) {
-    if (char === "(") {
-      currentDepth++;
-      maxDepth = Math.max(maxDepth, currentDepth);
-    } else if (char === ")") {
-      currentDepth = Math.max(0, currentDepth - 1);
+  while ((match = pattern.exec(source)) !== null) {
+    if (!deps.includes(match[1])) {
+      deps.push(match[1]);
     }
   }
   
-  return maxDepth;
+  return {
+    count: deps.length,
+    pieces: deps,
+    isComposite: deps.length > 0,
+  };
 }
 
-// Detect recursive function calls
-function detectRecursion(source, functionNames) {
-  for (const name of functionNames) {
-    // Look for function calling itself within its body
-    const laterPattern = new RegExp(`\\(\\s*later\\s+${name}[^)]*\\([^)]*${name}`, "s");
-    if (laterPattern.test(source)) {
+// ═══════════════════════════════════════════════════════════════════════════
+// COLOR ANALYSIS
+// ═══════════════════════════════════════════════════════════════════════════
+
+function analyzeColors(source) {
+  const named = new Set();
+  const patterns = [];
+  
+  // Named colors
+  const colorNames = ["red", "blue", "green", "yellow", "orange", "purple", "pink", 
+    "cyan", "magenta", "white", "black", "gray", "grey", "lime", "navy", "teal"];
+  const namedPattern = new RegExp(`"(${colorNames.join("|")})"`, "gi");
+  let match;
+  while ((match = namedPattern.exec(source)) !== null) {
+    named.add(match[1].toLowerCase());
+  }
+  
+  // Special patterns
+  if (/rainbow/.test(source)) patterns.push("rainbow");
+  if (/zebra/.test(source)) patterns.push("zebra");
+  if (/fade:/.test(source)) patterns.push("gradient");
+  
+  return {
+    named: [...named],
+    patterns,
+    count: named.size + patterns.length,
+    hasRainbow: patterns.includes("rainbow"),
+    hasGradient: patterns.includes("gradient"),
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BEHAVIOR ANALYSIS
+// ═══════════════════════════════════════════════════════════════════════════
+
+function analyzeBehavior(source, forms, timing) {
+  const cats = forms.categories;
+  
+  return {
+    // Interactivity
+    interactive: !!(cats.special && (source.includes("(tap") || source.includes("(draw"))),
+    drawable: source.includes("(draw"),
+    tappable: source.includes("(tap"),
+    
+    // Animation
+    animated: !!(cats.xform || timing.count > 0),
+    looping: timing.hasLoops,
+    timed: timing.count > 0,
+    
+    // Media
+    hasAudio: !!cats.audio,
+    hasNetwork: !!cats.net,
+    hasEffects: !!cats.fx,
+    
+    // Complexity indicators
+    hasConditionals: /\(\s*(if|>|<|=|\?)\s/.test(source),
+    hasIteration: /\(\s*(repeat|bunch|range)\s/.test(source),
+    hasRecursion: detectRecursion(source),
+    hasRandomness: !!cats.rand,
+    
+    // Purity
+    isPure: !cats.net && !cats.audio && !cats.io,
+  };
+}
+
+function detectRecursion(source) {
+  // Check if any defined function calls itself
+  const laterPattern = /\(\s*later\s+([a-zA-Z_][a-zA-Z0-9_-]*)[^)]*\)/g;
+  let match;
+  while ((match = laterPattern.exec(source)) !== null) {
+    const name = match[1];
+    const body = match[0];
+    if (body.includes(`(${name}`) || body.includes(` ${name} `)) {
       return true;
     }
   }
   return false;
 }
 
-// Extract embedded code references
-function extractEmbeds(source) {
-  const embeds = [];
-  const pattern = /\$([a-zA-Z0-9]+)/g;
-  let match;
-  
-  while ((match = pattern.exec(source)) !== null) {
-    if (!embeds.includes(match[1])) {
-      embeds.push(match[1]);
-    }
-  }
-  
-  return embeds;
-}
+// ═══════════════════════════════════════════════════════════════════════════
+// FORMAL TRAIT BUILDER (for NFT attributes)
+// ═══════════════════════════════════════════════════════════════════════════
 
-// Extract color references
-function extractColors(source) {
-  const colors = new Set();
-  
-  // Named colors in quotes
-  const namedPattern = /"(red|blue|green|yellow|orange|purple|pink|cyan|magenta|white|black|gray|grey|lime|navy|teal|maroon|olive|silver|aqua|fuchsia|coral|salmon|gold|khaki|plum|violet|indigo|tan|sienna|peru|chocolate|crimson|tomato|turquoise)"/gi;
-  let match;
-  while ((match = namedPattern.exec(source)) !== null) {
-    colors.add(match[1].toLowerCase());
-  }
-  
-  // rainbow and zebra
-  if (/rainbow/.test(source)) colors.add("rainbow");
-  if (/zebra/.test(source)) colors.add("zebra");
-  
-  // fade patterns
-  if (/fade:/.test(source)) colors.add("fade");
-  
-  return [...colors];
-}
-
-// Build traits array for NFT attributes
-function buildTraits(analysis) {
+function buildFormalTraits(analysis) {
+  const { sexp, forms, timing, defs, deps, colors, behavior, lines, chars } = analysis;
   const traits = [];
   
-  // Language
+  // ─── CORE IDENTITY ───
   traits.push({ name: "Language", value: "KidLisp" });
   
-  // Complexity Tier
-  traits.push({ name: "Complexity", value: analysis.complexity.tier });
+  // ─── STRUCTURAL ───
+  traits.push({ name: "Lines", value: String(lines) });
+  traits.push({ name: "Expressions", value: String(sexp.expressions) });
+  traits.push({ name: "Depth", value: String(sexp.maxDepth) });
+  traits.push({ name: "Density", value: String(sexp.density) });
+  traits.push({ name: "Vocabulary", value: String(forms.unique) });
   
-  // Complexity Score (numeric for rarity)
-  traits.push({ name: "Complexity Score", value: String(analysis.complexity.score) });
+  // ─── FORM CLASSIFICATION ───
+  // Size category
+  let size;
+  if (lines <= 1) size = "Atom";
+  else if (lines <= 3) size = "Molecule";
+  else if (lines <= 8) size = "Cell";
+  else if (lines <= 20) size = "Organism";
+  else if (lines <= 50) size = "Colony";
+  else size = "Ecosystem";
+  traits.push({ name: "Size", value: size });
   
-  // Line Count Range
-  const lineRange = getLineRange(analysis.lineCount);
-  traits.push({ name: "Size", value: lineRange });
+  // Depth category
+  let depthCat;
+  if (sexp.maxDepth <= 2) depthCat = "Flat";
+  else if (sexp.maxDepth <= 4) depthCat = "Nested";
+  else if (sexp.maxDepth <= 6) depthCat = "Deep";
+  else depthCat = "Recursive";
+  traits.push({ name: "Structure", value: depthCat });
   
-  // Lines of Code (exact)
-  traits.push({ name: "Lines of Code", value: String(analysis.lineCount) });
+  // ─── BEHAVIORAL ───
+  if (behavior.interactive) traits.push({ name: "Interactive", value: "Yes" });
+  if (behavior.drawable) traits.push({ name: "Drawable", value: "Yes" });
+  if (behavior.animated) traits.push({ name: "Animated", value: "Yes" });
+  if (behavior.looping) traits.push({ name: "Looping", value: "Yes" });
+  if (behavior.hasAudio) traits.push({ name: "Audio", value: "Yes" });
+  if (behavior.hasRandomness) traits.push({ name: "Generative", value: "Yes" });
+  if (behavior.hasConditionals) traits.push({ name: "Conditional", value: "Yes" });
+  if (behavior.hasIteration) traits.push({ name: "Iterative", value: "Yes" });
+  if (behavior.hasRecursion) traits.push({ name: "Recursive", value: "Yes" });
+  if (behavior.isPure) traits.push({ name: "Pure", value: "Yes" });
+  if (behavior.hasEffects) traits.push({ name: "Effects", value: "Yes" });
+  if (behavior.hasNetwork) traits.push({ name: "Networked", value: "Yes" });
   
-  // API Categories Used
-  for (const catKey of Object.keys(analysis.categories)) {
-    const cat = analysis.categories[catKey];
-    traits.push({ name: `Uses ${cat.name}`, value: "Yes" });
-  }
-  
-  // Category Count
-  traits.push({ name: "API Breadth", value: String(analysis.categoryNames.length) });
-  
-  // Unique Functions
-  traits.push({ name: "Unique Functions", value: String(analysis.uniqueFunctionCount) });
-  
-  // Interactive?
-  if (analysis.complexity.hasInteraction) {
-    traits.push({ name: "Interactive", value: "Yes" });
-  }
-  
-  // Animated?
-  if (analysis.complexity.hasAnimation) {
-    traits.push({ name: "Animated", value: "Yes" });
-  }
-  
-  // Audio?
-  if (analysis.complexity.hasAudio) {
-    traits.push({ name: "Audio", value: "Yes" });
-  }
-  
-  // Timed?
-  if (analysis.timings.length > 0) {
+  // ─── TIMING ───
+  if (timing.count > 0) {
     traits.push({ name: "Timed", value: "Yes" });
-    if (analysis.timings.some(t => t.repeating)) {
-      traits.push({ name: "Looping", value: "Yes" });
-    }
+    if (timing.fastest) traits.push({ name: "Tempo", value: `${timing.fastest}s` });
   }
   
-  // Networked?
-  if (analysis.complexity.hasNetwork) {
-    traits.push({ name: "Networked", value: "Yes" });
-  }
-  
-  // Has Embeds?
-  if (analysis.embedCount > 0) {
+  // ─── COMPOSITION ───
+  if (deps.isComposite) {
     traits.push({ name: "Composite", value: "Yes" });
-    traits.push({ name: "Embed Count", value: String(analysis.embedCount) });
+    traits.push({ name: "Dependencies", value: String(deps.count) });
   }
   
-  // Nesting Depth (for algorithmic complexity)
-  if (analysis.complexity.nestingDepth >= 5) {
-    traits.push({ name: "Deep Nesting", value: String(analysis.complexity.nestingDepth) });
-  }
+  // ─── DEFINITIONS ───
+  if (defs.varCount > 0) traits.push({ name: "Variables", value: String(defs.varCount) });
+  if (defs.funcCount > 0) traits.push({ name: "Functions", value: String(defs.funcCount) });
   
-  // Variable Count
-  if (analysis.definitions.variables.length > 0) {
-    traits.push({ name: "Variables", value: String(analysis.definitions.variables.length) });
-  }
+  // ─── COLOR ───
+  if (colors.hasRainbow) traits.push({ name: "Rainbow", value: "Yes" });
+  if (colors.hasGradient) traits.push({ name: "Gradient", value: "Yes" });
+  if (colors.count > 0) traits.push({ name: "Colors", value: String(colors.count) });
   
-  // Custom Function Count
-  if (analysis.definitions.functions.length > 0) {
-    traits.push({ name: "Custom Functions", value: String(analysis.definitions.functions.length) });
-  }
-  
-  // Has Recursion?
-  if (analysis.complexity.hasRecursion) {
-    traits.push({ name: "Recursive", value: "Yes" });
-  }
-  
-  // Has Conditionals?
-  if (analysis.complexity.hasConditionals) {
-    traits.push({ name: "Conditional", value: "Yes" });
-  }
-  
-  // Has Loops?
-  if (analysis.complexity.hasLoops) {
-    traits.push({ name: "Iterative", value: "Yes" });
-  }
-  
-  // Color Palette
-  if (analysis.colors.length > 0) {
-    if (analysis.colors.includes("rainbow")) {
-      traits.push({ name: "Rainbow", value: "Yes" });
-    }
-    if (analysis.colors.includes("fade")) {
-      traits.push({ name: "Gradients", value: "Yes" });
-    }
-    traits.push({ name: "Color Count", value: String(analysis.colorCount) });
-  }
-  
-  // Comments
-  if (analysis.commentLineCount > 0) {
-    traits.push({ name: "Documented", value: "Yes" });
-    traits.push({ name: "Comment Lines", value: String(analysis.commentLineCount) });
-  }
+  // ─── CATEGORIES USED ───
+  const catNames = Object.keys(forms.categories);
+  if (catNames.includes("gfx")) traits.push({ name: "Graphics", value: "Yes" });
+  if (catNames.includes("xform")) traits.push({ name: "Transforms", value: "Yes" });
+  if (catNames.includes("text")) traits.push({ name: "Text", value: "Yes" });
+  if (catNames.includes("math")) traits.push({ name: "Math", value: "Yes" });
   
   return traits;
 }
 
-// Get line count range bucket
-function getLineRange(lineCount) {
-  if (lineCount <= 5) return "Micro (1-5)";
-  if (lineCount <= 15) return "Small (6-15)";
-  if (lineCount <= 30) return "Medium (16-30)";
-  if (lineCount <= 60) return "Large (31-60)";
-  if (lineCount <= 100) return "Mega (61-100)";
-  return "Epic (100+)";
-}
-
 // Export version for tracking
-export const ANALYZER_VERSION = "1.0.0";
+export const ANALYZER_VERSION = "2.0.0";
