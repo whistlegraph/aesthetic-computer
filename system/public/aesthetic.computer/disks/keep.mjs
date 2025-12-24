@@ -68,6 +68,8 @@ let particles = []; // Vegas-style particles
 // Already minted state
 let alreadyMinted = null; // { tokenId, owner, artifactUri, thumbnailUri, metadataUri, mintedAt, name }
 let loadingExisting = false;
+let rebaking = false; // True when regenerating bundle for already-minted piece
+let rebakeResult = null; // Result from rebake: { artifactUri, thumbnailUri }
 let thumbnailBitmap = null; // Loaded thumbnail image (single frame or current frame)
 let thumbnailFrames = null; // Array of frames for animated WebP { frames, width, height, loopCount }
 let thumbnailFrameIndex = 0; // Current animation frame
@@ -1081,6 +1083,19 @@ function paint({ wipe, ink, box, screen, paste }) {
     }
     y += mc8ButtonSize("X").h + 6;
     
+    // Rebake status display
+    if (rebaking) {
+      ink(255, 200, 100).write("Regenerating bundle...", { x: w/2, y, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+      y += 12;
+    } else if (rebakeResult) {
+      ink(100, 255, 150).write("✓ Bundle regenerated!", { x: w/2, y, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+      y += 10;
+      // Show new IPFS hash (shortened)
+      const hash = rebakeResult.artifactUri?.replace("ipfs://", "").slice(0, 20) + "...";
+      ink(180, 180, 180).write("New: " + hash, { x: w/2, y, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+      y += 14;
+    }
+    
     // Action buttons
     // View on objkt button - styled with proper MatrixChunky8 padding
     const objktScheme = {
@@ -1095,6 +1110,21 @@ function paint({ wipe, ink, box, screen, paste }) {
     btn.btn.box.w = objktSize.w;
     btn.btn.box.h = objktSize.h;
     paintMC8Btn(objktX, y, "View on objkt", { ink, line: ink }, objktScheme, btn.btn.down);
+    y += objktSize.h + 4;
+    
+    // Rebake button - regenerate bundle without re-minting
+    const rebakeScheme = {
+      normal: { bg: [80, 50, 30], outline: [200, 140, 80], outlineAlpha: 150, text: [255, 200, 100] },
+      hover: { bg: [120, 70, 40], outline: [255, 180, 100], outlineAlpha: 200, text: [255, 220, 150] },
+      disabled: { bg: [40, 30, 25], outline: [100, 80, 60], outlineAlpha: 100, text: [120, 100, 80] }
+    };
+    const rebakeSize = mc8ButtonSize("Rebake Bundle");
+    const rebakeX = floor((w - rebakeSize.w) / 2);
+    rebakeBtn.btn.box.x = rebakeX;
+    rebakeBtn.btn.box.y = y;
+    rebakeBtn.btn.box.w = rebakeSize.w;
+    rebakeBtn.btn.box.h = rebakeSize.h;
+    paintMC8Btn(rebakeX, y, rebaking ? "Rebaking..." : "Rebake Bundle", { ink, line: ink }, rebaking ? rebakeScheme.disabled : rebakeScheme, rebakeBtn.btn.down);
     
     return;
   }
@@ -1598,6 +1628,77 @@ function act({ event: e, screen }) {
     if (alreadyMinted.artifactUri) htmlBtn.btn.act(e, { push: () => openUrl(alreadyMinted.artifactUri) });
     if (alreadyMinted.thumbnailUri) thumbBtn.btn.act(e, { push: () => openUrl(alreadyMinted.thumbnailUri) });
     btn.btn.act(e, { push: () => openUrl(alreadyMinted.objktUrl) });
+    
+    // Rebake button - regenerate bundle and thumbnail
+    if (!rebaking) {
+      rebakeBtn.btn.act(e, { push: async () => {
+        console.log("🪙 KEEP: Starting rebake for already-minted piece $" + piece);
+        rebaking = true;
+        rebakeResult = null;
+        _needsPaint?.();
+        
+        try {
+          const response = await fetch("/api/keep-mint", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${_store["login-token"]}`,
+            },
+            body: JSON.stringify({
+              piece: "$" + piece,
+              mode: "prepare",
+              regenerate: true,
+              screenWidth: _screen?.width || 128,
+              screenHeight: _screen?.height || 128,
+            }),
+          });
+          
+          // Read SSE stream for progress
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = "";
+          
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            
+            const lines = buffer.split("\n");
+            buffer = lines.pop(); // Keep incomplete line
+            
+            for (const line of lines) {
+              if (line.startsWith("data: ")) {
+                try {
+                  const data = JSON.parse(line.slice(6));
+                  console.log("🪙 REBAKE:", data.event, data.data);
+                  
+                  if (data.event === "ready" && data.data) {
+                    rebakeResult = {
+                      artifactUri: data.data.artifactUri,
+                      thumbnailUri: data.data.thumbnailUri,
+                      metadataUri: data.data.metadataUri,
+                    };
+                    // Update alreadyMinted with new URIs for display
+                    alreadyMinted.artifactUri = data.data.artifactUri;
+                    alreadyMinted.thumbnailUri = data.data.thumbnailUri;
+                    console.log("🪙 REBAKE complete! New artifact:", rebakeResult.artifactUri);
+                  } else if (data.event === "error") {
+                    console.error("🪙 REBAKE error:", data.data);
+                  }
+                } catch (parseErr) {
+                  // Skip non-JSON lines
+                }
+              }
+            }
+          }
+        } catch (err) {
+          console.error("🪙 REBAKE failed:", err);
+        } finally {
+          rebaking = false;
+          _needsPaint?.();
+        }
+      }});
+    }
   }
   
   if (e.is("keyboard:down:enter")) {
