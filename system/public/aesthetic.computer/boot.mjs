@@ -724,8 +724,13 @@ if (!sandboxed) {
         }
         
         // Ensure Auth0 parameters are completely cleaned from URL
-        const cleanUrl = cleanAuth0Params(window.location.href);
-        window.history.replaceState({}, document.title, cleanUrl);
+        // Skip in pack mode (sandboxed iframe)
+        if (!window.acPACK_MODE && window.location?.origin !== 'null') {
+          try {
+            const cleanUrl = cleanAuth0Params(window.location.href);
+            window.history.replaceState({}, document.title, cleanUrl);
+          } catch (e) { /* Ignore in restricted context */ }
+        }
       }
 
       const params = extractLegitimateParams(window.location.href);
