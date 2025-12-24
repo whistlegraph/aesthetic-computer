@@ -27,9 +27,9 @@ if (dev) {
   process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 }
 
-// Configuration  
-const CONTRACT_ADDRESS = process.env.TEZOS_KEEPS_CONTRACT || "KT1StXrQNvRd9dNPpHdCGEstcGiBV6neq79K";
-const NETWORK = process.env.TEZOS_NETWORK || "ghostnet";
+// Configuration - Mainnet staging contract by default
+const CONTRACT_ADDRESS = process.env.TEZOS_KEEPS_CONTRACT || "KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM";
+const NETWORK = process.env.TEZOS_NETWORK || "mainnet";
 const OVEN_URL = process.env.OVEN_URL || "https://oven.aesthetic.computer";
 const OVEN_FALLBACK_URL = "https://oven.aesthetic.computer"; // Always available fallback
 const RPC_URL = NETWORK === "mainnet" 
@@ -84,10 +84,15 @@ function stringToBytes(str) {
   return Buffer.from(str, "utf8").toString("hex");
 }
 
+// Get the appropriate TzKT API base URL
+function getTzktApiBase() {
+  return NETWORK === "mainnet" ? "https://api.tzkt.io" : `https://api.${NETWORK}.tzkt.io`;
+}
+
 // Check if a piece name is already minted via TzKT
 async function checkMintStatus(pieceName) {
   const keyBytes = stringToBytes(pieceName);
-  const url = `https://api.${NETWORK}.tzkt.io/v1/contracts/${CONTRACT_ADDRESS}/bigmaps/content_hashes/keys/${keyBytes}`;
+  const url = `${getTzktApiBase()}/v1/contracts/${CONTRACT_ADDRESS}/bigmaps/content_hashes/keys/${keyBytes}`;
   
   try {
     const response = await fetch(url);
@@ -101,7 +106,7 @@ async function checkMintStatus(pieceName) {
         let name = null;
         let minter = null;
         try {
-          const tokenUrl = `https://api.${NETWORK}.tzkt.io/v1/tokens?contract=${CONTRACT_ADDRESS}&tokenId=${tokenId}`;
+          const tokenUrl = `${getTzktApiBase()}/v1/tokens?contract=${CONTRACT_ADDRESS}&tokenId=${tokenId}`;
           const tokenResponse = await fetch(tokenUrl);
           if (tokenResponse.ok) {
             const tokens = await tokenResponse.json();
@@ -341,24 +346,45 @@ export const handler = stream(async (event, context) => {
       await send("progress", { stage: "validate", message: "Validation passed ✓" });
       
       // Get user's Tezos wallet address for creator attribution
-      // For PREPARE mode: use body.walletAddress from client
-      // For MINT mode: look up from user profile, fall back to admin wallet
+      // RULE: The minting wallet MUST match the author's linked Tezos address
       const usersCollection = database.db.collection("users");
       const userDoc = await usersCollection.findOne({ _id: user.sub });
+      const linkedWalletAddress = userDoc?.tezos?.address;
       let creatorWalletAddress;
       
+      // Verify author has a linked Tezos wallet
+      if (!linkedWalletAddress) {
+        await database.disconnect();
+        await send("error", { 
+          error: "Connect your Tezos wallet first",
+          details: "Go to wallet.ac to link your Tezos address before keeping pieces."
+        });
+        return;
+      }
+      
       if (mode === "prepare") {
-        // Client-side minting - wallet address must be provided
+        // Client-side minting - wallet address must be provided AND match linked wallet
         creatorWalletAddress = body.walletAddress;
         if (!creatorWalletAddress || !creatorWalletAddress.startsWith('tz')) {
           await database.disconnect();
           await send("error", { error: "Valid Tezos wallet address required for minting" });
           return;
         }
+        
+        // ENFORCE: Minting wallet must match author's linked wallet
+        if (creatorWalletAddress !== linkedWalletAddress) {
+          await database.disconnect();
+          await send("error", { 
+            error: "Wallet mismatch",
+            details: `You must mint from your linked wallet (${linkedWalletAddress.slice(0, 8)}...${linkedWalletAddress.slice(-6)}). Connect the correct wallet and try again.`,
+            linkedWallet: linkedWalletAddress,
+            providedWallet: creatorWalletAddress
+          });
+          return;
+        }
       } else {
-        // Server-side minting - use profile address or fall back to admin
-        creatorWalletAddress = userDoc?.tezos?.address;
-        // Will fall back to admin address later in MINT block if not set
+        // Server-side minting - use linked wallet address (admin testing only)
+        creatorWalletAddress = linkedWalletAddress;
       }
       
       // Send piece details for client display
@@ -602,16 +628,9 @@ export const handler = stream(async (event, context) => {
       ];
 
       // Creator identity for metadata
-      // objkt.com shows the FIRST item in creators[] as the artist
-      // Using the @handle allows objkt to link to the user's profile
-      // (HEN doesn't use creators at all - objkt infers from firstMinter)
-      const creatorHandle = userHandle ? `@${userHandle}` : "anon";
-      
-      // For creators array: put handle FIRST so objkt shows it as artist
-      // Wallet address second for on-chain attribution
-      const creatorsArray = creatorWalletAddress 
-        ? [creatorHandle, creatorWalletAddress]
-        : [creatorHandle];
+      // objkt.com uses firstMinter for artist attribution
+      // creators array contains just the wallet address for on-chain attribution
+      const creatorsArray = [creatorWalletAddress];
       
       const metadataJson = {
         name: tokenName,
@@ -623,7 +642,7 @@ export const handler = stream(async (event, context) => {
         symbol: "KEEP",
         isBooleanAmount: true,
         shouldPreferSymbol: false,
-        minter: creatorHandle,
+        minter: authorHandle,
         creators: creatorsArray,
         rights: "© All rights reserved",
         mintingTool: "https://aesthetic.computer",

@@ -1,4 +1,4 @@
-// 1v1, 2025.11.25.04.50.00
+// 1v1, 2024.12.24.10.00 - Fixed self.id.slice error
 // Multiplayer Quake-like FPS game.
 
 /* #region 📚 README 
@@ -16,7 +16,206 @@
   - [x] Clone fps.mjs as foundation
   - [x] Add socket networking
   - [x] Basic player state management
+  - [x] Add gamepad debug HUD panel
 #endregion */
+
+// 🎮 Gamepad mapping utilities (shared with gamepad.mjs)
+import { 
+  getButtonName, 
+  getAxisName, 
+  getButtonColors, 
+  getAxisColors,
+  getGamepadMapping
+} from "../lib/gamepad-mappings.mjs";
+
+// 🎮 Mini gamepad diagram for HUD (simplified from gamepad.mjs)
+function drawMiniControllerDiagram(ink, gp, x, y) {
+  const baseX = x;
+  const baseY = y;
+  const gamepadId = gp.id || "standard";
+  const is8BitDo = gamepadId.includes("8BitDo") || gamepadId.includes("2dc8");
+  
+  // Get button colors from mapping
+  const getColors = (btnIndex) => {
+    const colors = getButtonColors(gamepadId, btnIndex);
+    const isPressed = gp.pressedButtons.includes(btnIndex);
+    return isPressed ? colors.active : colors.inactive;
+  };
+  
+  const width = is8BitDo ? 40 : 48;
+  const height = is8BitDo ? 20 : 24;
+  
+  // Check if any input is active
+  const hasActiveInput = gp.pressedButtons.length > 0 || 
+    Object.values(gp.axes).some(v => Math.abs(parseFloat(v)) > 0.3);
+  
+  // Background
+  ink(hasActiveInput ? "slategray" : "dimgray").box(baseX, baseY, width, height);
+  
+  if (is8BitDo) {
+    // 8BitDo Micro layout - D-pad left, face buttons right
+    // D-Pad (using axes)
+    const dpadX = baseX + 8;
+    const dpadY = baseY + 10;
+    const dpadSize = 4;
+    
+    const axisX = parseFloat(gp.axes["0"] || 0);
+    const axisY = parseFloat(gp.axes["1"] || 0);
+    
+    ink(axisY < -0.3 ? "lime" : "gray").box(dpadX, dpadY - 5, dpadSize, dpadSize);  // Up
+    ink(axisY > 0.3 ? "lime" : "gray").box(dpadX, dpadY + 5, dpadSize, dpadSize);   // Down
+    ink(axisX < -0.3 ? "lime" : "gray").box(dpadX - 5, dpadY, dpadSize, dpadSize);  // Left
+    ink(axisX > 0.3 ? "lime" : "gray").box(dpadX + 5, dpadY, dpadSize, dpadSize);   // Right
+    ink("black").box(dpadX, dpadY, dpadSize, dpadSize);  // Center
+    
+    // Face buttons (ABXY diamond) - right side
+    const faceX = baseX + 30;
+    const faceY = baseY + 10;
+    const btnSize = 4;
+    
+    ink(getColors(3)).box(faceX, faceY - 5, btnSize, btnSize);    // X (top)
+    ink(getColors(1)).box(faceX, faceY + 5, btnSize, btnSize);    // B (bottom)
+    ink(getColors(4)).box(faceX - 5, faceY, btnSize, btnSize);    // Y (left)
+    ink(getColors(0)).box(faceX + 5, faceY, btnSize, btnSize);    // A (right)
+    
+    // Shoulder buttons
+    ink(getColors(6)).box(baseX, baseY, 12, 2);      // L
+    ink(getColors(7)).box(baseX + 28, baseY, 12, 2); // R
+  } else {
+    // Standard Xbox-style layout
+    // Left stick position
+    const lStickX = baseX + 10;
+    const lStickY = baseY + 8;
+    const axisX = parseFloat(gp.axes["0"] || 0);
+    const axisY = parseFloat(gp.axes["1"] || 0);
+    const lStickActive = Math.abs(axisX) > 0.1 || Math.abs(axisY) > 0.1;
+    
+    ink(lStickActive ? "cyan" : "gray").box(lStickX - 3, lStickY - 3, 6, 6, "line");
+    const dotX = lStickX + Math.round(axisX * 2);
+    const dotY = lStickY + Math.round(axisY * 2);
+    ink("cyan").box(dotX, dotY, 1, 1);
+    
+    // D-pad (buttons 12-15)
+    const dpadX = baseX + 10;
+    const dpadY = baseY + 18;
+    const dpadSize = 3;
+    
+    ink(getColors(12)).box(dpadX, dpadY - 4, dpadSize, dpadSize);  // Up
+    ink(getColors(13)).box(dpadX, dpadY + 4, dpadSize, dpadSize);  // Down
+    ink(getColors(14)).box(dpadX - 4, dpadY, dpadSize, dpadSize);  // Left
+    ink(getColors(15)).box(dpadX + 4, dpadY, dpadSize, dpadSize);  // Right
+    
+    // Face buttons (right side)
+    const faceX = baseX + 38;
+    const faceY = baseY + 10;
+    const btnSize = 4;
+    
+    ink(getColors(3)).box(faceX, faceY - 5, btnSize, btnSize);    // Y (top)
+    ink(getColors(0)).box(faceX, faceY + 5, btnSize, btnSize);    // A (bottom)
+    ink(getColors(2)).box(faceX - 5, faceY, btnSize, btnSize);    // X (left)
+    ink(getColors(1)).box(faceX + 5, faceY, btnSize, btnSize);    // B (right)
+    
+    // Right stick
+    const rStickX = baseX + 28;
+    const rStickY = baseY + 18;
+    const axis2 = parseFloat(gp.axes["2"] || 0);
+    const axis3 = parseFloat(gp.axes["3"] || 0);
+    const rStickActive = Math.abs(axis2) > 0.1 || Math.abs(axis3) > 0.1;
+    
+    ink(rStickActive ? "yellow" : "gray").box(rStickX - 3, rStickY - 3, 6, 6, "line");
+    const dot2X = rStickX + Math.round(axis2 * 2);
+    const dot2Y = rStickY + Math.round(axis3 * 2);
+    ink("yellow").box(dot2X, dot2Y, 1, 1);
+    
+    // Bumpers/Triggers
+    ink(getColors(4)).box(baseX + 2, baseY, 10, 2);       // LB
+    ink(getColors(6)).box(baseX + 2, baseY + 2, 8, 2);    // LT
+    ink(getColors(5)).box(baseX + 36, baseY, 10, 2);      // RB
+    ink(getColors(7)).box(baseX + 38, baseY + 2, 8, 2);   // RT
+  }
+}
+
+// Draw mini keyboard controls display (WASD + Arrows + Mouse)
+function drawKeyboardControls(ink, baseX, baseY, pressedKeys = {}) {
+  const keySize = 9;
+  const keySpacing = 1;
+  const hudFont = "MatrixChunky8";
+  
+  // Helper to draw a key
+  const drawKey = (x, y, label, isPressed) => {
+    const bgColor = isPressed ? [255, 255, 0, 220] : [40, 40, 40, 180];
+    const textColor = isPressed ? [0, 0, 0] : [200, 200, 200];
+    ink(...bgColor).box(x, y, keySize, keySize);
+    ink(100, 100, 100).box(x, y, keySize, keySize, "outline");
+    ink(...textColor).write(label, { x: x + 2, y: y + 1 }, undefined, undefined, false, hudFont);
+  };
+  
+  // WASD cluster (movement)
+  let wx = baseX;
+  let wy = baseY;
+  
+  // Label
+  ink(150, 150, 150).write("MOVE", { x: wx, y: wy - 8 }, undefined, undefined, false, hudFont);
+  
+  //     W
+  //   A S D
+  drawKey(wx + keySize + keySpacing, wy, "W", pressedKeys.w);
+  drawKey(wx, wy + keySize + keySpacing, "A", pressedKeys.a);
+  drawKey(wx + keySize + keySpacing, wy + keySize + keySpacing, "S", pressedKeys.s);
+  drawKey(wx + (keySize + keySpacing) * 2, wy + keySize + keySpacing, "D", pressedKeys.d);
+  
+  // Arrow keys cluster (look)
+  const arrowX = baseX + 50;
+  const arrowY = baseY;
+  
+  // Label
+  ink(150, 150, 150).write("LOOK", { x: arrowX, y: arrowY - 8 }, undefined, undefined, false, hudFont);
+  
+  //     ↑
+  //   ← ↓ →
+  drawKey(arrowX + keySize + keySpacing, arrowY, "^", pressedKeys.arrowup);
+  drawKey(arrowX, arrowY + keySize + keySpacing, "<", pressedKeys.arrowleft);
+  drawKey(arrowX + keySize + keySpacing, arrowY + keySize + keySpacing, "v", pressedKeys.arrowdown);
+  drawKey(arrowX + (keySize + keySpacing) * 2, arrowY + keySize + keySpacing, ">", pressedKeys.arrowright);
+  
+  // Mouse indicator
+  const mouseX = baseX + 100;
+  const mouseY = baseY;
+  
+  ink(150, 150, 150).write("MOUSE", { x: mouseX, y: mouseY - 8 }, undefined, undefined, false, hudFont);
+  ink(80, 80, 80).box(mouseX, mouseY, 14, 20); // Mouse body
+  ink(100, 100, 100).box(mouseX, mouseY, 14, 20, "outline");
+  ink(pressedKeys.lmb ? "yellow" : "gray").box(mouseX + 1, mouseY + 1, 5, 6); // Left button
+  ink(pressedKeys.rmb ? "yellow" : "gray").box(mouseX + 8, mouseY + 1, 5, 6); // Right button
+  ink(200, 200, 200).box(mouseX + 6, mouseY + 2, 2, 4); // Scroll wheel
+  
+  // Labels below
+  ink(100, 100, 100).write("AIM", { x: mouseX + 2, y: mouseY + 22 }, undefined, undefined, false, hudFont);
+  
+  // Spacebar
+  const spaceX = baseX;
+  const spaceY = baseY + 28;
+  const spaceWidth = 35;
+  const spaceBg = pressedKeys.space ? [255, 255, 0, 220] : [40, 40, 40, 180];
+  const spaceText = pressedKeys.space ? [0, 0, 0] : [200, 200, 200];
+  ink(...spaceBg).box(spaceX, spaceY, spaceWidth, keySize);
+  ink(100, 100, 100).box(spaceX, spaceY, spaceWidth, keySize, "outline");
+  ink(...spaceText).write("SPACE", { x: spaceX + 4, y: spaceY + 1 }, undefined, undefined, false, hudFont);
+  ink(100, 100, 100).write("JUMP", { x: spaceX + spaceWidth + 4, y: spaceY + 1 }, undefined, undefined, false, hudFont);
+  
+  // Shift for sprint
+  const shiftX = baseX + 55;
+  const shiftY = spaceY;
+  const shiftBg = pressedKeys.shift ? [255, 255, 0, 220] : [40, 40, 40, 180];
+  const shiftText = pressedKeys.shift ? [0, 0, 0] : [200, 200, 200];
+  ink(...shiftBg).box(shiftX, shiftY, 20, keySize);
+  ink(100, 100, 100).box(shiftX, shiftY, 20, keySize, "outline");
+  ink(...shiftText).write("SH", { x: shiftX + 4, y: shiftY + 1 }, undefined, undefined, false, hudFont);
+  ink(100, 100, 100).write("RUN", { x: shiftX + 24, y: shiftY + 1 }, undefined, undefined, false, hudFont);
+}
+
+// Track keyboard state for display
+let pressedKeys = {};
 
 // Networking
 let server;
@@ -35,6 +234,29 @@ let others = {}; // Map of other players by ID
 let gameState = "connecting"; // connecting, lobby, playing, dead, gameover
 let frameCount = 0; // Global frame counter for throttling
 
+// 🤖 Bot system
+let bot = {
+  enabled: true,
+  pos: { x: 3, y: 1.6, z: -5 },
+  rot: { x: 0, y: 0, z: 0 },
+  vel: { x: 0, y: 0, z: 0 },
+  health: 100,
+  state: "patrol", // patrol, chase, flee, dead
+  targetPos: null,
+  patrolPoints: [
+    { x: 3, z: -5 },
+    { x: -3, z: -5 },
+    { x: -3, z: -8 },
+    { x: 3, z: -8 },
+  ],
+  patrolIndex: 0,
+  speed: 0.02,
+  turnSpeed: 2,
+  lastStateChange: 0,
+  respawnTimer: 0,
+};
+let botModel = null; // Visual representation
+
 // 🎭 Spectator mode - activated when same handle joins from another tab/device
 let isSpectator = false;
 let spectatorReason = null; // Why we're in spectator mode
@@ -48,6 +270,50 @@ let udpMessageCount = 0;
 let wsMessageCount = 0;
 let networkDebugLog = []; // Rolling log of recent network events
 const MAX_DEBUG_LOG = 20;
+
+// 🎮 Gamepad state tracking for HUD display
+let showGamepadPanel = true; // Toggle with 'G' key (default ON)
+const connectedGamepads = {};
+
+// Action mappings - what each control does in FPS mode
+const FPS_ACTIONS = {
+  buttons: {
+    // 8BitDo Micro mappings (when no right stick)
+    "8bitdo_0": "Look Right",   // A - right face button
+    "8bitdo_1": "Look Down",    // B - bottom face button
+    "8bitdo_3": "Look Up",      // X - top face button
+    "8bitdo_4": "Look Left",    // Y - left face button
+    "8bitdo_6": "L Shoulder",   // L
+    "8bitdo_7": "R Shoulder",   // R
+    "8bitdo_10": "Select",      // Select
+    "8bitdo_11": "Start",       // Start
+    // Standard controller mappings
+    "standard_0": "A/Jump",     
+    "standard_1": "B/Back",     
+    "standard_2": "X/Action",   
+    "standard_3": "Y/Reload",   
+    "standard_4": "LB",         
+    "standard_5": "RB",         
+    "standard_6": "LT",         
+    "standard_7": "RT/Shoot",   
+    "standard_10": "LS Click",  
+    "standard_11": "RS Click",  
+    "standard_12": "D-Up",      
+    "standard_13": "D-Down",    
+    "standard_14": "D-Left",    
+    "standard_15": "D-Right",   
+  },
+  axes: {
+    // For 8BitDo Micro (D-pad on axes)
+    "8bitdo_0": { neg: "Strafe Left", pos: "Strafe Right" },
+    "8bitdo_1": { neg: "Move Forward", pos: "Move Back" },
+    // Standard controller (left stick move, right stick look)
+    "standard_0": { neg: "Strafe Left", pos: "Strafe Right" },
+    "standard_1": { neg: "Move Forward", pos: "Move Back" },
+    "standard_2": { neg: "Look Left", pos: "Look Right" },
+    "standard_3": { neg: "Look Up", pos: "Look Down" },
+  }
+};
 
 function logNetwork(msg, level = "info") {
   const entry = { time: Date.now(), msg, level };
@@ -668,6 +934,64 @@ function boot({ Form, CUBEL, QUAD, penLock, system, get, net: { socket, udp }, h
     { pos: [-2, 0.5, -4], rot: [0, 0, 0], scale: 0.7 }
   );
   
+  // 🤖 Create bot model (red/orange color scheme to distinguish from players)
+  if (bot.enabled) {
+    const boxSize = 0.2;
+    const frustumLength = 0.6;
+    const frustumSpread = 0.35;
+    const r = 1, g = 0.3, b = 0; // Orange-red color
+    
+    botModel = {
+      color: [r, g, b],
+      // Camera box (cube wireframe at bot position)
+      cameraBox: new Form(
+        { type: "line", positions: [
+          // Front face
+          [-boxSize, -boxSize, -boxSize, 1], [boxSize, -boxSize, -boxSize, 1],
+          [boxSize, -boxSize, -boxSize, 1], [boxSize, boxSize, -boxSize, 1],
+          [boxSize, boxSize, -boxSize, 1], [-boxSize, boxSize, -boxSize, 1],
+          [-boxSize, boxSize, -boxSize, 1], [-boxSize, -boxSize, -boxSize, 1],
+          // Back face
+          [-boxSize, -boxSize, boxSize, 1], [boxSize, -boxSize, boxSize, 1],
+          [boxSize, -boxSize, boxSize, 1], [boxSize, boxSize, boxSize, 1],
+          [boxSize, boxSize, boxSize, 1], [-boxSize, boxSize, boxSize, 1],
+          [-boxSize, boxSize, boxSize, 1], [-boxSize, -boxSize, boxSize, 1],
+          // Connecting edges
+          [-boxSize, -boxSize, -boxSize, 1], [-boxSize, -boxSize, boxSize, 1],
+          [boxSize, -boxSize, -boxSize, 1], [boxSize, -boxSize, boxSize, 1],
+          [boxSize, boxSize, -boxSize, 1], [boxSize, boxSize, boxSize, 1],
+          [-boxSize, boxSize, -boxSize, 1], [-boxSize, boxSize, boxSize, 1],
+        ], colors: Array(24).fill([r, g, b, 1])},
+        { pos: [bot.pos.x, bot.pos.y, bot.pos.z], scale: 1 }
+      ),
+      // View frustum (shows where bot is looking)
+      frustum: new Form(
+        { type: "line", positions: [
+          [0, 0, 0, 1], [-frustumSpread, -frustumSpread, -frustumLength, 1],
+          [0, 0, 0, 1], [frustumSpread, -frustumSpread, -frustumLength, 1],
+          [0, 0, 0, 1], [frustumSpread, frustumSpread, -frustumLength, 1],
+          [0, 0, 0, 1], [-frustumSpread, frustumSpread, -frustumLength, 1],
+          [-frustumSpread, -frustumSpread, -frustumLength, 1], [frustumSpread, -frustumSpread, -frustumLength, 1],
+          [frustumSpread, -frustumSpread, -frustumLength, 1], [frustumSpread, frustumSpread, -frustumLength, 1],
+          [frustumSpread, frustumSpread, -frustumLength, 1], [-frustumSpread, frustumSpread, -frustumLength, 1],
+          [-frustumSpread, frustumSpread, -frustumLength, 1], [-frustumSpread, -frustumSpread, -frustumLength, 1],
+        ], colors: Array(16).fill([1, 0.5, 0, 1])},  // Bright orange frustum
+        { pos: [bot.pos.x, bot.pos.y, bot.pos.z], scale: 1 }
+      ),
+      // Ground line
+      groundLine: new Form(
+        { type: "line", positions: [[0, 0, 0, 1], [0, -2, 0, 1]], colors: [[r, g, b, 0.5], [r, g, b, 0.5]]},
+        { pos: [bot.pos.x, bot.pos.y, bot.pos.z], scale: 1 }
+      ),
+      // Name sign
+      nameSign: sign ? sign("🤖 BOT", {
+        scale: 0.03, color: [r, g, b], align: "center",
+        glyphs: glyphs?.("MatrixChunky8") || {},
+      }) : null,
+    };
+    console.log("🤖 Bot model created at", bot.pos);
+  }
+  
   // Player camera frustums are created dynamically when players join
   
   // Load the latest painting texture from TV endpoint
@@ -681,7 +1005,8 @@ function sim() {
   frameCount++; // Increment global frame counter
   
   // Network update - send position via UDP for low latency
-  if (gameState === "playing" && graphInstance) {
+  // Send in both lobby and playing states so players can see each other
+  if ((gameState === "playing" || gameState === "lobby") && graphInstance) {
     self.pos = { 
       x: graphInstance.x, 
       y: graphInstance.y, 
@@ -694,33 +1019,30 @@ function sim() {
     };
     
     // Send position updates - try UDP first (low latency), fall back to WebSocket
-    // 🎭 Skip sending updates if we're in spectator mode
-    if (isSpectator) {
-      // Spectators don't send position updates
-      return;
-    }
-    
-    const moveData = {
-      handle: self.handle,  // Use handle to identify player (links WS and UDP)
-      pos: self.pos,
-      rot: self.rot,
-    };
-    
-    // Track UDP connected state for HUD
-    udpConnected = udpChannel?.connected || false;
-    
-    if (udpChannel?.connected) {
-      // 🩰 Send position over UDP (low latency, unreliable but fast)
-      // Log every ~60 frames (roughly once per second at 60fps)
-      if (Math.random() < 0.016) {
-        logNetwork(`UDP send: pos=${moveData.pos.x.toFixed(1)},${moveData.pos.y.toFixed(1)},${moveData.pos.z.toFixed(1)}`);
-      }
-      udpChannel.send("1v1:move", moveData);
-    } else if (server) {
-      // 🕸️ Fallback: Send position over WebSocket (reliable but higher latency)
-      // Only send every 3rd frame to reduce bandwidth (~20 updates/sec at 60fps)
-      if (frameCount % 3 === 0) {
-        server.send("1v1:move", moveData);
+    // 🎭 Skip sending updates if we're in spectator mode (but don't skip rest of sim)
+    if (!isSpectator) {
+      const moveData = {
+        handle: self.handle,  // Use handle to identify player (links WS and UDP)
+        pos: self.pos,
+        rot: self.rot,
+      };
+      
+      // Track UDP connected state for HUD
+      udpConnected = udpChannel?.connected || false;
+      
+      if (udpChannel?.connected) {
+        // 🩰 Send position over UDP (low latency, unreliable but fast)
+        // Log every ~60 frames (roughly once per second at 60fps)
+        if (Math.random() < 0.016) {
+          logNetwork(`UDP send: pos=${moveData.pos.x.toFixed(1)},${moveData.pos.y.toFixed(1)},${moveData.pos.z.toFixed(1)}`);
+        }
+        udpChannel.send("1v1:move", moveData);
+      } else if (server) {
+        // 🕸️ Fallback: Send position over WebSocket (reliable but higher latency)
+        // Only send every 3rd frame to reduce bandwidth (~20 updates/sec at 60fps)
+        if (frameCount % 3 === 0) {
+          server.send("1v1:move", moveData);
+        }
       }
     }
   }
@@ -739,6 +1061,87 @@ function sim() {
   
   // Rotate the textured quad
   texturedQuad.rotation[1] += 0.5; // Spin on Y axis
+  
+  // 🤖 Bot AI simulation
+  if (bot.enabled && botModel) {
+    // Handle respawn timer
+    if (bot.state === "dead") {
+      bot.respawnTimer--;
+      if (bot.respawnTimer <= 0) {
+        bot.state = "patrol";
+        bot.health = 100;
+        bot.pos = { ...bot.patrolPoints[0], y: 1.6 };
+        console.log("🤖 Bot respawned!");
+      }
+    } else {
+      // Calculate distance and direction to player
+      const dx = self.pos.x - bot.pos.x;
+      const dz = self.pos.z - bot.pos.z;
+      const distToPlayer = Math.sqrt(dx * dx + dz * dz);
+      const angleToPlayer = Math.atan2(dx, dz) * (180 / Math.PI);
+      
+      // State machine
+      if (bot.state === "patrol") {
+        // Move toward current patrol point
+        const target = bot.patrolPoints[bot.patrolIndex];
+        const tdx = target.x - bot.pos.x;
+        const tdz = target.z - bot.pos.z;
+        const distToTarget = Math.sqrt(tdx * tdx + tdz * tdz);
+        
+        if (distToTarget < 0.5) {
+          // Reached patrol point, go to next
+          bot.patrolIndex = (bot.patrolIndex + 1) % bot.patrolPoints.length;
+        } else {
+          // Move toward patrol point
+          const angle = Math.atan2(tdx, tdz) * (180 / Math.PI);
+          bot.rot.y = angle;
+          bot.pos.x += Math.sin(angle * Math.PI / 180) * bot.speed;
+          bot.pos.z += Math.cos(angle * Math.PI / 180) * bot.speed;
+        }
+        
+        // Switch to chase if player is close
+        if (distToPlayer < 8) {
+          bot.state = "chase";
+          console.log("🤖 Bot spotted player!");
+        }
+      } else if (bot.state === "chase") {
+        // Turn toward player
+        const angleDiff = angleToPlayer - bot.rot.y;
+        let normalizedDiff = angleDiff;
+        while (normalizedDiff > 180) normalizedDiff -= 360;
+        while (normalizedDiff < -180) normalizedDiff += 360;
+        bot.rot.y += Math.sign(normalizedDiff) * Math.min(Math.abs(normalizedDiff), bot.turnSpeed);
+        
+        // Move toward player (but stop if too close)
+        if (distToPlayer > 2) {
+          bot.pos.x += Math.sin(bot.rot.y * Math.PI / 180) * bot.speed * 1.2;
+          bot.pos.z += Math.cos(bot.rot.y * Math.PI / 180) * bot.speed * 1.2;
+        }
+        
+        // Return to patrol if player is far
+        if (distToPlayer > 15) {
+          bot.state = "patrol";
+          console.log("🤖 Bot lost sight of player");
+        }
+      }
+      
+      // Update bot model positions
+      const px = bot.pos.x;
+      const py = -bot.pos.y;  // Negate Y like other players
+      const pz = bot.pos.z;
+      const pitch = 0;
+      const yaw = bot.rot.y;
+      
+      botModel.cameraBox.position = [px, py, pz];
+      botModel.frustum.position = [px, py, pz];
+      botModel.frustum.rotation = [pitch, yaw, 0];
+      botModel.groundLine.position = [px, py, pz];
+      if (botModel.nameSign) {
+        botModel.nameSign.position = [px, py + 0.4, pz];
+        botModel.nameSign.rotation = [0, (self.rot?.y || 0) + 180, 0];
+      }
+    }
+  }
 }
 
 function paint({ wipe, ink, painting, screen, line: drawLine, box: drawBox, clearWireframeBuffer, drawBufferedWireframes, getRenderStats, setShowClippedWireframes }) {
@@ -869,6 +1272,16 @@ function paint({ wipe, ink, painting, screen, line: drawLine, box: drawBox, clea
     }
   }
   
+  // 🤖 Render bot
+  if (bot.enabled && botModel && bot.state !== "dead") {
+    ink(255, 255, 255).form(botModel.cameraBox);
+    ink(255, 255, 255).form(botModel.frustum);
+    ink(255, 255, 255).form(botModel.groundLine);
+    if (botModel.nameSign) {
+      ink(255, 255, 255).form(botModel.nameSign);
+    }
+  }
+  
   // Draw wireframes on top AFTER all other forms to ensure they're always visible
   if (showWireframes) {
     // Note: Ground plane wireframes are now generated automatically via buffered system
@@ -892,13 +1305,22 @@ function paint({ wipe, ink, painting, screen, line: drawLine, box: drawBox, clea
     .line(centerX - crosshairSize, centerY, centerX + crosshairSize, centerY)
     .line(centerX, centerY - crosshairSize, centerX, centerY + crosshairSize);
   
-  // === TOP LEFT: Game state + handle ===
-  ink(255, 255, 255).write(gameState.toUpperCase(), { x: 6, y: 4 }, undefined, undefined, false, hudFont);
-  ink(200, 200, 200).write(self.handle, { x: 6, y: 14 }, undefined, undefined, false, hudFont);
+  // === TOP LEFT: Game state + handle (offset to avoid prompt label) ===
+  const hudStartY = 24; // Start below prompt HUD corner label
+  ink(255, 255, 255).write(gameState.toUpperCase(), { x: 6, y: hudStartY }, undefined, undefined, false, hudFont);
+  ink(200, 200, 200).write(self.handle, { x: 6, y: hudStartY + 10 }, undefined, undefined, false, hudFont);
   
   // DEBUG: Show camera Y position
   const camYText = `CAM Y:${self.pos.y.toFixed(2)}`;
-  ink(255, 100, 255).write(camYText, { x: 6, y: 24 }, undefined, undefined, false, hudFont);
+  ink(255, 100, 255).write(camYText, { x: 6, y: hudStartY + 20 }, undefined, undefined, false, hudFont);
+  
+  // Gamepad status indicator (small, always visible)
+  const gpCount = Object.keys(connectedGamepads).length;
+  if (gpCount > 0) {
+    const gpStatusX = 6 + camYText.length * 4 + 8;
+    const gpIndicator = showGamepadPanel ? `🎮${gpCount}` : `🎮${gpCount} [G]`;
+    ink(0, 200, 200).write(gpIndicator, { x: gpStatusX, y: hudStartY + 20 }, undefined, undefined, false, hudFont);
+  }
   
   // === TOP RIGHT: Player list (compact) ===
   const playerCount = Object.keys(others).length;
@@ -927,6 +1349,17 @@ function paint({ wipe, ink, painting, screen, line: drawLine, box: drawBox, clea
     } else {
       ink(255, 150, 50).write(otherText, { x: screen.width - rightMargin - otherText.length * 4, y: rightY }, undefined, undefined, false, hudFont);
     }
+    rightY += 10;
+  }
+  
+  // 🤖 Bot status in player list
+  if (bot.enabled) {
+    const botStateText = bot.state === "dead" ? "DEAD" : bot.state.toUpperCase();
+    const botHealthText = bot.state !== "dead" ? ` HP${bot.health}` : "";
+    const botText = `🤖BOT ${botStateText}${botHealthText}`;
+    const botColor = bot.state === "dead" ? [128, 128, 128] : 
+                     bot.state === "chase" ? [255, 100, 50] : [255, 150, 50];
+    ink(...botColor).write(botText, { x: screen.width - rightMargin - botText.length * 4, y: rightY }, undefined, undefined, false, hudFont);
     rightY += 10;
   }
   
@@ -1011,6 +1444,7 @@ function paint({ wipe, ink, painting, screen, line: drawLine, box: drawBox, clea
       { color: "white", text: `- Gradient: ${stats.wireframeSegmentsGradient}` },
       { color: "gray", text: "V: Wireframe" },
       { color: "gray", text: "P: Panel" },
+      { color: "gray", text: "G: Gamepad" },
       { color: "gray", text: "L: Log Debug" },
     ];
 
@@ -1045,6 +1479,152 @@ function paint({ wipe, ink, painting, screen, line: drawLine, box: drawBox, clea
     });
   }
   
+  // === GAMEPAD DEBUG PANEL (toggle with 'G' key) ===
+  if (showGamepadPanel) {
+    const gpPanelX = 6;
+    const gpPanelY = 58; // Below game state info + debug text
+    const gpCharWidth = 4;
+    const gpLineHeight = 9;
+    const gpPadding = 4;
+    
+    const gpIndices = Object.keys(connectedGamepads).map(k => parseInt(k));
+    
+    if (gpIndices.length === 0) {
+      // No gamepad - show keyboard controls instead
+      const kbPanelWidth = 130;
+      const kbPanelHeight = 55;
+      ink(0, 0, 0, 180).box(gpPanelX, gpPanelY, kbPanelWidth, kbPanelHeight);
+      ink(0, 200, 200, 255)
+        .line(gpPanelX, gpPanelY, gpPanelX + kbPanelWidth, gpPanelY)
+        .line(gpPanelX + kbPanelWidth, gpPanelY, gpPanelX + kbPanelWidth, gpPanelY + kbPanelHeight)
+        .line(gpPanelX + kbPanelWidth, gpPanelY + kbPanelHeight, gpPanelX, gpPanelY + kbPanelHeight)
+        .line(gpPanelX, gpPanelY + kbPanelHeight, gpPanelX, gpPanelY);
+      ink("cyan").write("⌨️ KEYBOARD", { x: gpPanelX + gpPadding, y: gpPanelY + gpPadding }, undefined, undefined, false, hudFont);
+      drawKeyboardControls(ink, gpPanelX + gpPadding, gpPanelY + gpPadding + 12, pressedKeys);
+    } else {
+      // Draw gamepad info for each connected controller
+      gpIndices.forEach((gpIndex, slotNum) => {
+        const gp = connectedGamepads[gpIndex];
+        if (!gp) return;
+        
+        const slotY = gpPanelY + slotNum * 120;
+        const mapping = getGamepadMapping(gp.id || "standard");
+        const is8BitDo = gp.id?.includes("8BitDo") || gp.id?.includes("2dc8");
+        const controllerType = is8BitDo ? "8bitdo" : "standard";
+        
+        // Build content
+        const contentLines = [];
+        
+        // Controller type
+        let displayName = gp.id || "Unknown";
+        if (displayName.includes("8BitDo Micro") || (displayName.includes("2dc8") && displayName.includes("9020"))) {
+          displayName = "8BitDo Micro";
+        } else if (displayName.includes("045e") && displayName.includes("0b13")) {
+          displayName = "Xbox Controller";
+        } else {
+          displayName = displayName.slice(0, 24);
+        }
+        contentLines.push({ color: "cyan", text: displayName });
+        
+        // Pressed buttons with mapped actions
+        if (gp.pressedButtons.length > 0) {
+          const btnParts = gp.pressedButtons.map(bi => {
+            const btnName = getButtonName(gp.id, bi);
+            const actionKey = `${controllerType}_${bi}`;
+            const action = FPS_ACTIONS.buttons[actionKey] || "";
+            return action ? `${btnName}→${action}` : btnName;
+          });
+          contentLines.push({ color: "lime", text: `BTN: ${btnParts.join(" ")}` });
+        } else {
+          contentLines.push({ color: "gray", text: "BTN: (none)" });
+        }
+        
+        // Active axes with mapped actions
+        const activeAxes = Object.keys(gp.axes);
+        if (activeAxes.length > 0) {
+          activeAxes.forEach(ai => {
+            const axisIndex = parseInt(ai);
+            const value = parseFloat(gp.axes[ai]);
+            const axisName = getAxisName(gp.id, axisIndex);
+            const actionKey = `${controllerType}_${axisIndex}`;
+            const axisAction = FPS_ACTIONS.axes[actionKey];
+            let actionStr = "";
+            if (axisAction) {
+              actionStr = value < 0 ? `→${axisAction.neg}` : `→${axisAction.pos}`;
+            }
+            
+            // Visual bar for axis value
+            const barWidth = 20;
+            const barFill = Math.abs(value) * barWidth;
+            contentLines.push({ 
+              color: value < 0 ? "yellow" : "orange", 
+              text: `${axisName}: ${value > 0 ? "+" : ""}${value}${actionStr}`,
+              axisValue: value
+            });
+          });
+        } else {
+          contentLines.push({ color: "gray", text: "AXES: (centered)" });
+        }
+        
+        // Calculate panel size - include space for mini diagram
+        const diagramHeight = is8BitDo ? 24 : 28;
+        const maxTextWidth = Math.max(...contentLines.map(l => l.text.length)) * gpCharWidth;
+        const gpPanelWidth = Math.max(160, maxTextWidth + gpPadding * 2);
+        const gpPanelHeight = gpPadding * 2 + contentLines.length * gpLineHeight + gpLineHeight + diagramHeight + 4; // +title + diagram
+        
+        // Draw panel background
+        ink(0, 0, 0, 200).box(gpPanelX, slotY, gpPanelWidth, gpPanelHeight);
+        
+        // Panel border (cyan for gamepad theme)
+        ink(0, 200, 200, 255)
+          .line(gpPanelX, slotY, gpPanelX + gpPanelWidth, slotY)
+          .line(gpPanelX + gpPanelWidth, slotY, gpPanelX + gpPanelWidth, slotY + gpPanelHeight)
+          .line(gpPanelX + gpPanelWidth, slotY + gpPanelHeight, gpPanelX, slotY + gpPanelHeight)
+          .line(gpPanelX, slotY + gpPanelHeight, gpPanelX, slotY);
+        
+        // Title
+        let gpTextY = slotY + gpPadding;
+        ink("white").write(`🎮 P${gpIndex + 1}`, { x: gpPanelX + gpPadding, y: gpTextY }, undefined, undefined, false, hudFont);
+        gpTextY += gpLineHeight;
+        
+        // Mini controller diagram
+        const diagramX = gpPanelX + gpPadding;
+        drawMiniControllerDiagram(ink, gp, diagramX, gpTextY);
+        gpTextY += diagramHeight + 4;
+        
+        // Content
+        contentLines.forEach(({ color, text, axisValue }) => {
+          ink(color).write(text, { x: gpPanelX + gpPadding, y: gpTextY }, undefined, undefined, false, hudFont);
+          
+          // Draw axis visual bar if present
+          if (axisValue !== undefined) {
+            const barX = gpPanelX + gpPanelWidth - 30;
+            const barY = gpTextY + 1;
+            const barWidth = 24;
+            const barHeight = 6;
+            const centerX = barX + barWidth / 2;
+            
+            // Background bar
+            ink(40, 40, 40).box(barX, barY, barWidth, barHeight);
+            
+            // Value indicator
+            const fillWidth = Math.abs(axisValue) * (barWidth / 2);
+            if (axisValue < 0) {
+              ink("yellow").box(centerX - fillWidth, barY, fillWidth, barHeight);
+            } else {
+              ink("orange").box(centerX, barY, fillWidth, barHeight);
+            }
+            
+            // Center line
+            ink("white").line(centerX, barY, centerX, barY + barHeight);
+          }
+          
+          gpTextY += gpLineHeight;
+        });
+      });
+    }
+  }
+  
   // === NETWORK STATUS OVERLAY (always visible, bottom-left above health) ===
   const netY = screen.height - 70;
   const netX = 6;
@@ -1069,7 +1649,8 @@ function paint({ wipe, ink, painting, screen, line: drawLine, box: drawBox, clea
   }
   
   // Identity
-  const idText = `ID: ${self.handle} (${self.id?.slice(0, 6) || "..."})`;
+  const selfIdStr = typeof self.id === "string" ? self.id.slice(0, 6) : "...";
+  const idText = `ID: ${self.handle} (${selfIdStr})`;
   ink(150, 150, 255).write(idText, { x: netX, y: netY + (isSpectator ? 40 : 20) }, undefined, undefined, false, hudFont);
   
   // Note: Crosshair is now rendered via DOM element in bios.mjs when pointer lock is enabled
@@ -1103,18 +1684,102 @@ function act({ event: e, penLock, setShowClippedWireframes }) {
     showDebugPanel = !showDebugPanel;
   }
   
+  // Toggle gamepad panel with 'G' key
+  if (e.is("keyboard:down:g")) {
+    showGamepadPanel = !showGamepadPanel;
+    console.log(`🎮 Gamepad panel: ${showGamepadPanel ? "ON" : "OFF"}`);
+  }
+  
   // Log scene debug info with 'L' key
   if (e.is("keyboard:down:l")) {
     logSceneDebug();
   }
+  
+  // ⌨️ Track keyboard state for HUD display
+  if (e.is("keyboard:down:w")) pressedKeys.w = true;
+  if (e.is("keyboard:up:w")) pressedKeys.w = false;
+  if (e.is("keyboard:down:a")) pressedKeys.a = true;
+  if (e.is("keyboard:up:a")) pressedKeys.a = false;
+  if (e.is("keyboard:down:s")) pressedKeys.s = true;
+  if (e.is("keyboard:up:s")) pressedKeys.s = false;
+  if (e.is("keyboard:down:d")) pressedKeys.d = true;
+  if (e.is("keyboard:up:d")) pressedKeys.d = false;
+  if (e.is("keyboard:down:ArrowUp")) pressedKeys.arrowup = true;
+  if (e.is("keyboard:up:ArrowUp")) pressedKeys.arrowup = false;
+  if (e.is("keyboard:down:ArrowDown")) pressedKeys.arrowdown = true;
+  if (e.is("keyboard:up:ArrowDown")) pressedKeys.arrowdown = false;
+  if (e.is("keyboard:down:ArrowLeft")) pressedKeys.arrowleft = true;
+  if (e.is("keyboard:up:ArrowLeft")) pressedKeys.arrowleft = false;
+  if (e.is("keyboard:down:ArrowRight")) pressedKeys.arrowright = true;
+  if (e.is("keyboard:up:ArrowRight")) pressedKeys.arrowright = false;
+  if (e.is("keyboard:down: ")) pressedKeys.space = true;
+  if (e.is("keyboard:up: ")) pressedKeys.space = false;
+  if (e.is("keyboard:down:Shift")) pressedKeys.shift = true;
+  if (e.is("keyboard:up:Shift")) pressedKeys.shift = false;
+  if (e.is("draw")) pressedKeys.lmb = true;
+  if (e.is("lift")) pressedKeys.lmb = false;
+  
+  // 🎮 Track gamepad state for HUD display
+  if (e.is("gamepad")) {
+    const gpIndex = e.gamepad;
+    
+    // Initialize gamepad entry if needed
+    if (!connectedGamepads[gpIndex]) {
+      connectedGamepads[gpIndex] = {
+        id: e.gamepadId || null,
+        pressedButtons: [],
+        axes: {},
+        lastEvent: null,
+      };
+      console.log(`🎮 [1v1] Gamepad ${gpIndex} connected:`, e.gamepadId);
+      // Auto-show panel when gamepad connects
+      showGamepadPanel = true;
+    }
+    
+    const gp = connectedGamepads[gpIndex];
+    
+    // Update gamepad ID if available
+    if (e.gamepadId && !gp.id) {
+      gp.id = e.gamepadId;
+    }
+    
+    // Track last event
+    gp.lastEvent = e.name;
+    
+    // Track button state
+    if (e.button !== undefined) {
+      const buttonIndex = e.button;
+      if (e.action === "push") {
+        if (!gp.pressedButtons.includes(buttonIndex)) {
+          gp.pressedButtons.push(buttonIndex);
+        }
+      } else if (e.action === "release") {
+        gp.pressedButtons = gp.pressedButtons.filter(b => b !== buttonIndex);
+      }
+    }
+    
+    // Track axis state
+    if (e.axis !== undefined) {
+      const axisIndex = e.axis;
+      const value = e.value;
+      
+      if (Math.abs(value) > 0.1) {
+        gp.axes[axisIndex] = value.toFixed(2);
+      } else {
+        delete gp.axes[axisIndex];
+      }
+    }
+  }
 }
 
-// Raycast shooting - check if we hit another player
+// Raycast shooting - check if we hit another player or the bot
 function shoot() {
-  if (!graphInstance || !server) return;
+  if (!graphInstance) return;
   
   console.log("🔫 Shooting!");
-  server.send("1v1:shoot", { timestamp: performance.now() });
+  if (server) {
+    server.send("1v1:shoot", { timestamp: performance.now() });
+  }
   
   // Simple raycast from camera forward
   const camPos = { x: graphInstance.x, y: graphInstance.y, z: graphInstance.z };
@@ -1133,8 +1798,32 @@ function shoot() {
   // Check collision with other players (simple sphere test)
   const MAX_RANGE = 50;
   let hitPlayerId = null;
+  let hitBot = false;
   let minDist = MAX_RANGE;
   
+  // Check hit against bot first
+  if (bot.enabled && bot.state !== "dead") {
+    const dx = bot.pos.x - camPos.x;
+    const dy = bot.pos.y - camPos.y;
+    const dz = bot.pos.z - camPos.z;
+    const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+    
+    if (dist <= MAX_RANGE) {
+      const dot = dx * dir.x + dy * dir.y + dz * dir.z;
+      if (dot > 0) {
+        const hitRadius = 0.5;
+        const perpDist = Math.sqrt(dx * dx + dy * dy + dz * dz - dot * dot);
+        
+        if (perpDist < hitRadius && dist < minDist) {
+          minDist = dist;
+          hitBot = true;
+          hitPlayerId = null;
+        }
+      }
+    }
+  }
+  
+  // Check hit against other players
   for (const [id, other] of Object.entries(others)) {
     const dx = other.pos.x - camPos.x;
     const dy = other.pos.y - camPos.y;
@@ -1154,10 +1843,24 @@ function shoot() {
     if (perpDist < hitRadius && dist < minDist) {
       minDist = dist;
       hitPlayerId = id;
+      hitBot = false;
     }
   }
   
-  if (hitPlayerId) {
+  // Handle bot hit
+  if (hitBot) {
+    console.log("🤖💥 HIT BOT!");
+    bot.health -= DAMAGE_PER_HIT;
+    if (bot.health <= 0) {
+      bot.state = "dead";
+      bot.respawnTimer = 180; // 3 seconds at 60fps
+      self.kills++;
+      console.log("🤖💀 Bot killed! Kills:", self.kills);
+    }
+  }
+  
+  // Handle player hit
+  if (hitPlayerId && server) {
     console.log("💥 HIT player:", hitPlayerId);
     server.send("1v1:hit", {
       targetId: hitPlayerId,

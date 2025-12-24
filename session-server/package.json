@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node session.mjs",
     "start-do": "PORT=80 node session.mjs",
-    "dev": "kill-port 8889; PORT=8889 NODE_ENV=development nodemon -I --watch session.mjs --watch chat-manager.mjs session.mjs; env nogreet=true fish",
+    "dev": "kill-port 8889; PORT=8889 NODE_ENV=development TURN_HOST=192.168.1.127 nodemon -I --watch session.mjs --watch chat-manager.mjs session.mjs; env nogreet=true fish",
     "test": "node --experimental-vm-modules node_modules/vitest/vitest.mjs run",
     "test:watch": "node --experimental-vm-modules node_modules/vitest/vitest.mjs",
     "create": "npx jamsocket service create session-server",

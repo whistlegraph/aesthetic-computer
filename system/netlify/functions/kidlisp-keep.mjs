@@ -13,8 +13,8 @@ import { analyzeKidLisp, ANALYZER_VERSION } from "../../backend/kidlisp-analyzer
 const dev = process.env.CONTEXT === "dev";
 
 // Configuration
-const CONTRACT_ADDRESS = process.env.TEZOS_KEEPS_CONTRACT || "KT1Ah5m2kzU3GfN42hh57mVJ63kNi95XKBdM";
-const NETWORK = process.env.TEZOS_NETWORK || "ghostnet";
+const CONTRACT_ADDRESS = process.env.TEZOS_KEEPS_CONTRACT || "KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM";
+const NETWORK = process.env.TEZOS_NETWORK || "mainnet";
 
 // Convert string to hex bytes (for Tezos)
 function stringToBytes(str) {

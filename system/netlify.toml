@@ -290,6 +290,8 @@ NODE_ENV = "production"
 for = "/*" # Define which paths this specific [[headers]] block will cover.
 [headers.values]
 Access-Control-Allow-Origin = "*"
+Cache-Control = "no-cache, no-store, must-revalidate"
+Pragma = "no-cache"
 # These headers are required in order for SharedArrayBuffer to be enabled.
 # Currently used by ffmpeg.wasm. 22.08.06.11.01
 # Cross-Origin-Embedder-Policy = "require-corp"
@@ -299,6 +301,8 @@ Cross-Origin-Resource-Policy = "cross-origin"
 for = "/*.mjs|/*.js"
 [headers.values]
 Access-Control-Allow-Origin = "*"
+Cache-Control = "no-cache, no-store, must-revalidate"
+Pragma = "no-cache"
 Content-Security-Policy = "script-src 'self' https://www.gstatic.com https://cdn.jsdelivr.net https://aesthetic.computer https://assets.aesthetic.computer blob: 'unsafe-eval';"
 # Cross-Origin-Resource-Policy = "cross-origin"
 Vary = "*"

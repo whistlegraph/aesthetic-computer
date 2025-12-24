@@ -2529,7 +2529,7 @@ const $commonApi = {
       send({ type: "wallet:sign", content: { message } });
     },
     // Get pairing URI for mobile wallet QR code
-    getPairingUri: function (network = "ghostnet", callback) {
+    getPairingUri: function (network = "mainnet", callback) {
       if (callback) $commonApi.wallet._pairingCallback = callback;
       send({ type: "wallet:get-pairing-uri", content: { network } });
     },
@@ -3183,7 +3183,7 @@ const $commonApi = {
   // Tezos Wallet API
   tezos: {
     // Connect to a Tezos wallet (opens Beacon popup)
-    connect: (network = "ghostnet") => {
+    connect: (network = "mainnet") => {
       const p = new Promise((resolve, reject) => {
         tezosConnectResponse = { resolve, reject };
       });
@@ -3602,6 +3602,7 @@ const $commonApi = {
   ui: {
     Button: ui.Button,
     TextButton: ui.TextButton,
+    TextButtonSmall: ui.TextButtonSmall,
     TextInput: TextInput,
   },
   help: {
@@ -6430,9 +6431,9 @@ async function load(
     if (path.endsWith('.lisp')) {
       if (getPackMode()) {
         // In OBJKT mode, use absolute path from iframe origin
-        fullUrl = "/" + resolvedPath + "#" + Date.now();
+        fullUrl = "/" + resolvedPath + "?v=" + Date.now();
       } else {
-        fullUrl = baseUrl + "/" + resolvedPath + "#" + Date.now();
+        fullUrl = baseUrl + "/" + resolvedPath + "?v=" + Date.now();
       }
     } else {
       if (getPackMode()) {
@@ -6440,14 +6441,14 @@ async function load(
         const relativePath = resolvedPath.startsWith('aesthetic.computer/') 
           ? resolvedPath.substring('aesthetic.computer/'.length)
           : resolvedPath;
-        fullUrl = "../" + relativePath + ".mjs" + "#" + Date.now();
+        fullUrl = "../" + relativePath + ".mjs" + "?v=" + Date.now();
       } else {
-        fullUrl = baseUrl + "/" + resolvedPath + ".mjs" + "#" + Date.now();
+        fullUrl = baseUrl + "/" + resolvedPath + ".mjs" + "?v=" + Date.now();
       }
     }
-    // The hash `time` parameter busts the cache so that the environment is
+    // The query param `v` busts the cache so that the environment is
     // reset if a disk is re-entered while the system is running.
-    // Why a hash? See also: https://github.com/denoland/deno/issues/6946#issuecomment-668230727
+    // Note: Hash fragments (#) don't bust browser cache, only query strings (?) do.
     // if (debug) console.log("🕸", fullUrl);
   } else {
     // 📃 Loading with provided source code.
@@ -6564,7 +6565,8 @@ async function load(
           content: `fetching: ${path}`
         });
         
-        response = await fetch(fullUrl);
+        // Use cache: 'no-store' to force fresh fetch, especially important for LAN IP access
+        response = await fetch(fullUrl, { cache: 'no-store' });
         const fetchEndTime = performance.now();
         diskTimings.fetchComplete = Math.round(fetchEndTime - diskTimingStart);
         console.log(`⏱️ [DISK] fetch completed in ${Math.round(fetchEndTime - fetchStartTime)}ms for ${path}`);
@@ -6583,7 +6585,7 @@ async function load(
             Date.now();
           if (logs.loading)
             console.log("🧑‍🤝‍🧑 Attempting to load piece from anon url:", anonUrl);
-          response = await fetch(anonUrl);
+          response = await fetch(anonUrl, { cache: 'no-store' });
           if (response.status === 404 || response.status === 403)
             throw new Error(response.status);
         }
@@ -6730,7 +6732,7 @@ async function load(
         fullUrl = fullUrl.replace(".mjs", ".lisp");
         let response;
         if (logs.loading) console.log("📥 Loading lisp from url:", fullUrl);
-        response = await fetch(fullUrl);
+        response = await fetch(fullUrl, { cache: 'no-store' });
         console.log("🤖 Response:", response);
 
       if (response.status === 404 || response.status === 403) {
@@ -6746,7 +6748,7 @@ async function load(
           "#" +
           Date.now();
         console.log("🧑‍🤝‍🧑 Attempting to load piece from anon url:", anonUrl);
-        response = await fetch(anonUrl);
+        response = await fetch(anonUrl, { cache: 'no-store' });
 
         console.log("🚏 Response:", response);
 
