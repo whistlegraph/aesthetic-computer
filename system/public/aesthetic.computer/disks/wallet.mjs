@@ -50,6 +50,10 @@ const KIDLISP_REFRESH = 120000; // 2 minutes
 // Animation
 let frameCount = 0;
 
+// News ticker
+let tickerX = 0;
+let tickerText = "";
+
 // Falling data streams
 let dataStreams = [];
 
@@ -460,6 +464,39 @@ function sim({ wallet, jump, screen }) {
     }
   }
   
+  // Animate news ticker
+  tickerX -= 1;
+  
+  // Build ticker text with financial news style
+  const tickerParts = [];
+  if (tezPrice?.usd) {
+    const change = priceHistory.length > 1 ? 
+      ((tezPrice.usd - priceHistory[0]) / priceHistory[0] * 100).toFixed(2) : 0;
+    const arrow = change >= 0 ? "▲" : "▼";
+    tickerParts.push(`TEZOS (XTZ) $${tezPrice.usd.toFixed(3)} ${arrow}${Math.abs(change)}%`);
+  }
+  if (headBlock) {
+    tickerParts.push(`BLOCK #${headBlock.level.toLocaleString()}`);
+  }
+  if (walletState?.balance != null) {
+    tickerParts.push(`BALANCE ꜩ${walletState.balance.toFixed(2)}`);
+  }
+  if (nftCount > 0) {
+    tickerParts.push(`${nftCount} NFTs`);
+  }
+  // Add KidLisp source snippets to ticker
+  for (const piece of userKidlisps.slice(0, 3)) {
+    if (piece.preview) {
+      const snippet = piece.preview.slice(0, 40).replace(/\s+/g, ' ');
+      tickerParts.push(`$${piece.code}: ${snippet}...`);
+    }
+  }
+  tickerText = tickerParts.join("  ◆  ");
+  const tickerWidth = tickerText.length * 6;
+  if (tickerX < -tickerWidth) {
+    tickerX = screen.width;
+  }
+  
   // Animate streams
   for (const stream of dataStreams) {
     stream.y += stream.speed;
@@ -496,7 +533,15 @@ function paint($) {
   for (let x = 0; x < w; x += 24) line(x, 0, x, h);
   for (let y = 0; y < h; y += 24) line(0, y, w, y);
   
-  let y = top;
+  // === NEWS TICKER (top bar) ===
+  ink(0, 20, 40, 200).box(0, 0, w, 11, "fill");
+  ink(0, 80, 120, 100).box(0, 11, w, 1, "fill");
+  if (tickerText) {
+    // Clip to screen width
+    ink(...colors.primaryBright, 200).write(tickerText, { x: Math.floor(tickerX), y: 2 });
+  }
+  
+  let y = top + 2; // Shift down for ticker
   const topRowY = y;
   const priceRowY = y + 12;
   
@@ -637,12 +682,13 @@ function paint($) {
       // Build unified keeps: merge keptPieces with ownership info from ownedKeeps
       const unifiedKeeps = keptPieces.map(p => {
         const owned = ownedKeeps.find(o => o.tokenId === p.kept?.tokenId);
+        const tid = p.kept?.tokenId;
         return {
           code: p.code,
-          tokenId: p.kept?.tokenId,
+          tokenId: tid,
           owned: !!owned,
           balance: owned?.balance || 0,
-          objktUrl: owned?.objktUrl || `https://objkt.com/tokens/${KEEPS_CONTRACT}/${p.kept?.tokenId}`,
+          objktUrl: owned?.objktUrl || (tid ? `https://objkt.com/tokens/${KEEPS_CONTRACT}/${tid}` : `https://objkt.com/collection/${KEEPS_CONTRACT}`),
           authored: true
         };
       });
@@ -760,7 +806,7 @@ function paint($) {
         ink(...colors.secondary).write("YOUR KIDLISP", { x: m, y });
         const kidlispStartY = y + headerH;
         
-        // Draw unkept pieces with KEEP buttons
+        // Draw unkept pieces with KEEP buttons and source ticker
         const activeKeepCodes = new Set();
         for (let i = 0; i < Math.min(maxRows, unkeptPieces.length); i++) {
           const piece = unkeptPieces[i];
@@ -768,7 +814,23 @@ function paint($) {
           activeKeepCodes.add(piece.code);
           
           // Code name
+          const codeW = (piece.code.length + 1) * 4 + 4;
           ink(...colors.secondary).write(`$${piece.code}`, { x: m, y: rowY }, undefined, undefined, false, "MatrixChunky8");
+          
+          // Source preview ticker (scrolling) between code and KEEP button
+          if (piece.preview) {
+            const tickerStartX = m + codeW + 4;
+            const tickerEndX = w - m - 28;
+            const tickerW = tickerEndX - tickerStartX;
+            if (tickerW > 20) {
+              // Draw clipped scrolling source
+              const preview = piece.preview.replace(/\s+/g, ' ').slice(0, 100);
+              const offset = piece.marqueeX || 0;
+              const displayX = tickerStartX - offset;
+              // Only draw if visible
+              ink(...colors.textDim, 150).write(preview, { x: displayX, y: rowY }, undefined, undefined, false, "MatrixChunky8");
+            }
+          }
           
           // KEEP button
           const btnX = w - m - 20;
@@ -938,7 +1000,7 @@ function act({ event: e, wallet, jump, screen, net }) {
           connecting = true;
           connectError = null;
           try {
-            await wallet.connect({ network: "ghostnet", walletType: "temple" });
+            await wallet.connect({ network: KEEPS_NETWORK, walletType: "temple" });
           } catch (err) {
             connectError = err.message || "Connection failed";
             connecting = false;
@@ -954,7 +1016,7 @@ function act({ event: e, wallet, jump, screen, net }) {
           qrCells = null;
           pairingError = null;
           // Request pairing code from bios
-          wallet.getPairingUri("ghostnet", (response) => {
+          wallet.getPairingUri(KEEPS_NETWORK, (response) => {
             console.log("🔷 Mobile pairing response:", response);
             if (response.result === "success" && response.pairingInfo) {
               try {

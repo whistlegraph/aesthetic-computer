@@ -550,7 +550,7 @@ async function runProcess(forceRegenerate = false) {
     walletAddress = await _api.tezos.address();
     if (!walletAddress) {
       setStep("wallet", "active", "Opening Temple Wallet...");
-      walletAddress = await _api.tezos.connect("ghostnet");
+      walletAddress = await _api.tezos.connect(NETWORK);
     }
     if (!walletAddress) {
       setStep("wallet", "error", "Connection cancelled");
@@ -558,7 +558,8 @@ async function runProcess(forceRegenerate = false) {
     }
     // Show truncated address with network
     const shortAddr = walletAddress.slice(0, 6) + ".." + walletAddress.slice(-4);
-    setStep("wallet", "done", `${shortAddr} on Ghostnet`);
+    const netLabel = NETWORK === "mainnet" ? "Mainnet" : "Ghostnet";
+    setStep("wallet", "done", `${shortAddr} on ${netLabel}`);
   } catch (e) {
     setStep("wallet", "error", e.message);
     return;
@@ -583,7 +584,7 @@ async function runProcess(forceRegenerate = false) {
       body: JSON.stringify({ 
         piece, 
         walletAddress, 
-        network: "ghostnet",
+        network: NETWORK,
         screenWidth,
         screenHeight,
         regenerate: forceRegenerate,
@@ -721,17 +722,28 @@ async function signAndMint() {
     setStep("sign", "done", `TX: ${txHash}`);
     setStep("complete", "active", "Confirming on-chain...");
     
-    // Wait and fetch token ID
-    await new Promise(r => setTimeout(r, 3000));
-    
+    // Wait and fetch token ID with retries (indexer may take a moment)
     const networkPrefix = preparedData.network === "mainnet" ? "" : "ghostnet.";
-    try {
-      const res = await fetch(`https://api.${networkPrefix}tzkt.io/v1/tokens?contract=${preparedData.contractAddress}&sort.desc=id&limit=1`);
-      if (res.ok) {
-        const tokens = await res.json();
-        if (tokens.length > 0) tokenId = tokens[0].tokenId;
+    const apiBase = `https://api.${networkPrefix}tzkt.io`;
+    
+    for (let attempt = 0; attempt < 5 && !tokenId; attempt++) {
+      await new Promise(r => setTimeout(r, 3000));
+      try {
+        const res = await fetch(`${apiBase}/v1/tokens?contract=${preparedData.contractAddress}&sort.desc=id&limit=1`);
+        if (res.ok) {
+          const tokens = await res.json();
+          if (tokens.length > 0) {
+            tokenId = tokens[0].tokenId;
+            console.log(`🪙 KEEP: Found token #${tokenId} on attempt ${attempt + 1}`);
+          }
+        }
+      } catch (e) {
+        console.warn(`🪙 KEEP: Token fetch attempt ${attempt + 1} failed:`, e.message);
       }
-    } catch {}
+      if (!tokenId && attempt < 4) {
+        setStep("complete", "active", `Waiting for indexer... (${attempt + 2}/5)`);
+      }
+    }
     
     const tokenInfo = tokenId ? `Token #${tokenId}` : "Minted!";
     setStep("complete", "done", tokenInfo);
