@@ -1412,42 +1412,55 @@ function aesthetic
     if test "$argv[1]" = "--no-wait"
         echo "Skipping wait for .waiter file..."
     else
-        clear
-        set -l config_count 0
-        set -l last_log_hash ""
-        set -l entry_log /tmp/entry-fish.log
-        
-        while not test -f /home/me/.waiter
-            # Only redraw if log content changed (reduces flicker)
-            set -l current_log_hash ""
-            if test -f $entry_log
-                set current_log_hash (tail -n 8 $entry_log 2>/dev/null | md5sum 2>/dev/null | cut -d' ' -f1)
+        # Check if entry.fish already completed (container is ready)
+        # If dockerd is running and emacs daemon is responsive, we can skip waiting
+        set -l skip_wait 0
+        if pgrep -x dockerd >/dev/null 2>&1
+            if timeout 3 emacsclient -e t >/dev/null 2>&1
+                echo "✅ Container already configured, skipping wait..."
+                set skip_wait 1
             end
+        end
+        
+        if test $skip_wait -eq 0
+            # Docker not up or emacs not ready - wait for waiter file
+            clear
+            set -l config_count 0
+            set -l last_log_hash ""
+            set -l entry_log /tmp/entry-fish.log
             
-            if test "$current_log_hash" != "$last_log_hash" -o $config_count -eq 0
-                clear
-                
-                # Show banner (static, no animation to reduce flicker)
-                toilet "Configuring..." -f future | lolcat -f
-                
-                # Show entry.fish progress if log exists
+            while not test -f /home/me/.waiter
+                # Only redraw if log content changed (reduces flicker)
+                set -l current_log_hash ""
                 if test -f $entry_log
-                    set -l log_lines (wc -l < $entry_log 2>/dev/null | string trim)
-                    if test -n "$log_lines" -a "$log_lines" -gt 0
-                        echo ""
-                        echo "─────────────────────────────────────────"
-                        tail -n 8 $entry_log 2>/dev/null
-                        echo "─────────────────────────────────────────"
-                    end
+                    set current_log_hash (tail -n 8 $entry_log 2>/dev/null | md5sum 2>/dev/null | cut -d' ' -f1)
                 end
                 
-                set last_log_hash $current_log_hash
+                if test "$current_log_hash" != "$last_log_hash" -o $config_count -eq 0
+                    clear
+                    
+                    # Show banner (static, no animation to reduce flicker)
+                    toilet "Configuring..." -f future | lolcat -f
+                    
+                    # Show entry.fish progress if log exists
+                    if test -f $entry_log
+                        set -l log_lines (wc -l < $entry_log 2>/dev/null | string trim)
+                        if test -n "$log_lines" -a "$log_lines" -gt 0
+                            echo ""
+                            echo "─────────────────────────────────────────"
+                            tail -n 8 $entry_log 2>/dev/null
+                            echo "─────────────────────────────────────────"
+                        end
+                    end
+                    
+                    set last_log_hash $current_log_hash
+                end
+                
+                sleep 1
+                set config_count (math $config_count + 1)
             end
-            
-            sleep 1
-            set config_count (math $config_count + 1)
+            sudo rm /home/me/.waiter 2>/dev/null
         end
-        sudo rm /home/me/.waiter 2>/dev/null
     end
     
     echo "[DEBUG] About to call ensure-emacs-daemon-ready..."
@@ -1460,10 +1473,9 @@ function aesthetic
     echo "[DEBUG] TTY: "(tty 2>&1)
     echo "[DEBUG] TERM: $TERM"
     
-    # Connect to emacs - aesthetic-backend will be called via after-make-frame-functions
-    # which is set up in emacs.el to auto-run on first terminal frame
+    # Connect to emacs and run aesthetic-backend to create all tabs
     echo "🚀 Connecting to aesthetic platform..."
-    emacsclient -nw -c
+    emacsclient -nw -c --eval '(aesthetic-backend (quote "artery"))'
 end
 
 # Convenience alias for skipping the wait
