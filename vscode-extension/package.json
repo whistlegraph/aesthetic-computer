@@ -4,7 +4,7 @@
   "displayName": "Aesthetic Computer",
   "icon": "resources/icon.png",
   "author": "Jeffrey Alan Scudder",
-  "version": "1.208.0",
+  "version": "1.209.0",
   "description": "Code, run, and publish your pieces. Includes Aesthetic Computer themes and KidLisp syntax highlighting.",
   "engines": {
     "vscode": "^1.105.0"
@@ -36,12 +36,12 @@
   "contributes": {
     "themes": [
       {
-        "label": "Aesthetic Computer Dark",
+        "label": "Aesthetic Computer: Dark 🌑",
         "uiTheme": "vs-dark",
         "path": "./themes/aesthetic-dark-color-theme.json"
       },
       {
-        "label": "Aesthetic Computer Light",
+        "label": "Aesthetic Computer: Light 🌻",
         "uiTheme": "vs",
         "path": "./themes/aesthetic-light-color-theme.json"
       }
