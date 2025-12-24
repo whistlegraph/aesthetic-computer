@@ -526,6 +526,11 @@ class ArteryTUI {
     this.acAuth = null; // { user: { handle, email, name }, expires_at }
     this.loadAcAuth(); // Load on startup
     
+    // Copilot notification flash state
+    this.flashActive = false;
+    this.flashCount = 0;
+    this.flashInterval = null;
+    
     // KidLisp Cards state
     this.kidlispCardsMenu = [
       { key: 'n', label: 'Next Card', desc: 'Advance to next card' },
@@ -1022,11 +1027,55 @@ class ArteryTUI {
     // Start blood flow animation (also updates clock)
     this.startBloodAnimation();
     
+    // Start watching for Copilot notification signal
+    this.startNotifyWatcher();
+    
     // Try to connect
     await this.connect();
     
     // Main render
     this.render();
+  }
+  
+  // Copilot completion notification - flashes screen
+  triggerFlash() {
+    if (this.flashActive) return; // Already flashing
+    this.flashActive = true;
+    this.flashCount = 0;
+    
+    const doFlash = () => {
+      if (this.flashCount >= 6) { // 3 on/off cycles
+        this.flashActive = false;
+        this.forceFullRedraw = true;
+        this.render();
+        return;
+      }
+      
+      this.flashCount++;
+      this.forceFullRedraw = true;
+      this.render();
+      
+      setTimeout(doFlash, 100);
+    };
+    
+    doFlash();
+  }
+  
+  startNotifyWatcher() {
+    // Watch for /tmp/ac-notify signal file
+    const notifyFile = '/tmp/ac-copilot-done';
+    
+    // Check every 200ms for the signal file
+    this.notifyWatchInterval = setInterval(() => {
+      try {
+        if (fs.existsSync(notifyFile)) {
+          fs.unlinkSync(notifyFile); // Remove immediately
+          this.triggerFlash();
+        }
+      } catch (e) {
+        // Ignore errors
+      }
+    }, 200);
   }
   
   startBloodAnimation() {
@@ -5066,6 +5115,17 @@ class ArteryTUI {
 
   // Rendering - uses double buffering to prevent flicker
   render() {
+    // If flash is active on odd count, render inverted screen
+    if (this.flashActive && this.flashCount % 2 === 1) {
+      // Full screen flash - bright red background
+      this.write(CURSOR_HOME);
+      const flashLine = `\x1b[48;5;196m${' '.repeat(this.width)}\x1b[0m`;
+      for (let i = 0; i < this.height; i++) {
+        this.write(flashLine + '\n');
+      }
+      return;
+    }
+    
     // Build frame in buffer first
     this.frameBuffer = [];
     
