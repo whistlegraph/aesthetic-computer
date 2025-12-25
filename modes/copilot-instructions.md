@@ -91,6 +91,41 @@ If emacs MCP tools fail or the "💻 Aesthetic" task is frozen:
 - **MCP tools hang**: Emacs daemon frozen — watchdog should auto-recover, else manual restart
 - **Tabs not created**: `emacsclient` exited before timers completed — restart task
 
+## MCP State Awareness 🔍
+Before sending commands to emacs buffers, **always check state first** using these functions:
+
+### Get Full State (recommended first call)
+```elisp
+(ac-mcp-format-state)
+;; Returns: "Tab: artery | Buffer: 🩸-artery | Tabs: [artery, fishy, ...] | Terminals: 🐟-fishy(●), 🧪-kidlisp(○), ..."
+;; ● = process running, ○ = process exited/dead
+```
+
+### Check Specific Buffer/Terminal
+```elisp
+(ac-mcp-get-eat-status "🐟-fishy")  ;; Returns: 'running, 'exited, 'not-eat, or 'not-found
+
+(ac-mcp-get-buffer-state "🐟-fishy")
+;; Returns: ((exists . t) (mode . "eat-mode") (process . "run") (alive . t) ...)
+```
+
+### Workflow Pattern
+1. **Before sending keys**: Check `(ac-mcp-get-eat-status "buffer-name")` is `running`
+2. **If exited**: Either restart process or inform user buffer is dead
+3. **Common dead buffers**: `🧪-kidlisp`, `⚡-url`, `🚇-tunnel`, `🔖-bookmarks` often exit after tasks complete
+
+### Restart Dead Fishy
+```elisp
+(ac-restart-fishy)  ;; Restarts fish process in 🐟-fishy buffer
+```
+
+## Prompt Completion Notification 🔔
+**IMPORTANT**: At the END of every response, call this to flash the screen:
+```elisp
+(ac-notify-done)
+```
+This flashes the terminal 3 times so the user knows Copilot is done (useful when managing multiple machines).
+
 ## CDP Tunnel (VS Code on Windows Host)
 The CDP tunnel forwards localhost:9333 to host's VS Code for remote control:
 - **`ac-cdp-tunnel`** — start/restart the CDP SSH tunnel

@@ -120,6 +120,122 @@
 (global-set-key (kbd "C-c d x") 'ac-profile-stop)
 (global-set-key (kbd "C-c d r") 'ac-profile-report)
 
+;;; --- MCP State Awareness Functions ---
+;; These functions provide structured state info for MCP tools
+
+(defun ac-mcp-get-state ()
+  "Return comprehensive emacs state as JSON-friendly alist for MCP tools.
+Call this to get awareness of current buffers, tabs, and processes."
+  (let* ((current-buf (current-buffer))
+         (current-buf-name (buffer-name current-buf))
+         (current-tab (alist-get 'name (tab-bar--current-tab)))
+         (all-tabs (mapcar (lambda (tab) (alist-get 'name tab)) (tab-bar-tabs)))
+         (eat-buffers 
+          (seq-filter (lambda (b) 
+                        (with-current-buffer b (eq major-mode 'eat-mode)))
+                      (buffer-list)))
+         (eat-info
+          (mapcar (lambda (buf)
+                    (with-current-buffer buf
+                      (let* ((proc (get-buffer-process buf))
+                             (proc-status (if proc 
+                                              (symbol-name (process-status proc)) 
+                                            "no-process")))
+                        (list (cons 'name (buffer-name buf))
+                              (cons 'process proc-status)
+                              (cons 'alive (and proc (process-live-p proc)))))))
+                  eat-buffers)))
+    (list (cons 'currentBuffer current-buf-name)
+          (cons 'currentTab current-tab)
+          (cons 'allTabs all-tabs)
+          (cons 'eatBuffers eat-info))))
+
+(defun ac-mcp-get-buffer-state (buffer-name)
+  "Get detailed state of a specific buffer for MCP tools.
+Returns nil if buffer doesn't exist, otherwise returns alist with:
+- exists: always t
+- mode: major mode name  
+- process: process status or nil
+- alive: t if process is live
+- modified: t if buffer has unsaved changes
+- size: buffer character count"
+  (if-let ((buf (get-buffer buffer-name)))
+      (with-current-buffer buf
+        (let* ((proc (get-buffer-process buf))
+               (proc-status (when proc (symbol-name (process-status proc)))))
+          (list (cons 'exists t)
+                (cons 'mode (symbol-name major-mode))
+                (cons 'process proc-status)
+                (cons 'alive (and proc (process-live-p proc)))
+                (cons 'modified (buffer-modified-p))
+                (cons 'size (buffer-size)))))
+    nil))
+
+(defun ac-mcp-get-eat-status (buffer-name)
+  "Get status of an eat terminal buffer.
+Returns: 'running, 'exited, 'not-eat, or 'not-found"
+  (if-let ((buf (get-buffer buffer-name)))
+      (with-current-buffer buf
+        (if (eq major-mode 'eat-mode)
+            (let ((proc (get-buffer-process buf)))
+              (cond
+               ((not proc) 'exited)
+               ((process-live-p proc) 'running)
+               (t 'exited)))
+          'not-eat))
+    'not-found))
+
+(defun ac-mcp-format-state ()
+  "Return emacs state as formatted string for MCP tools."
+  (let* ((state (ac-mcp-get-state))
+         (current-buf (alist-get 'currentBuffer state))
+         (current-tab (alist-get 'currentTab state))
+         (tabs (alist-get 'allTabs state))
+         (eats (alist-get 'eatBuffers state)))
+    (format "Tab: %s | Buffer: %s | Tabs: [%s] | Terminals: %s"
+            current-tab
+            current-buf
+            (mapconcat #'identity tabs ", ")
+            (mapconcat (lambda (e) 
+                         (format "%s(%s)" 
+                                 (alist-get 'name e)
+                                 (if (alist-get 'alive e) "●" "○")))
+                       eats ", "))))
+
+(defun ac-mcp-ensure-buffer-ready (buffer-name &optional restart-fn)
+  "Ensure buffer exists and is usable. Returns status symbol.
+If buffer has dead process and RESTART-FN is provided, calls it.
+Returns: 'ready, 'restarted, 'dead, or 'not-found"
+  (if-let ((buf (get-buffer buffer-name)))
+      (with-current-buffer buf
+        (if (eq major-mode 'eat-mode)
+            (let ((proc (get-buffer-process buf)))
+              (cond
+               ((and proc (process-live-p proc)) 'ready)
+               (restart-fn 
+                (funcall restart-fn)
+                'restarted)
+               (t 'dead)))
+          'ready))
+    'not-found))
+
+;;; --- Copilot Completion Notification ---
+;; Flash artery-tui when Copilot response is done (called via MCP)
+
+(defun ac-notify-done (&optional message)
+  "Notify completion by signaling artery-tui to flash and switching to artery tab.
+Called by MCP tools at the end of each response."
+  (interactive)
+  (let ((msg (or message "Done")))
+    ;; Create signal file that artery-tui watches
+    (with-temp-file "/tmp/ac-copilot-done"
+      (insert "done"))
+    ;; Switch to artery tab so user sees the flash
+    (condition-case nil
+        (tab-bar-switch-to-tab "artery")
+      (error nil))
+    (message "🔔 %s" msg)))
+
 (ac-perf-session-start)
 (ac-debug-log "=== Starting Emacs Configuration Load ===")
 (ac-perf-log "Config load started")
