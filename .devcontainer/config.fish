@@ -917,37 +917,30 @@ end
 function ac-emacs-crash-monitor
     ac-emacs-init-logs
     set -l crash_log $AC_EMACS_LOG_DIR/crashes.log
-    set -l check_interval 10
+    set -l check_interval 5  # Check every 5 seconds
+    set -l max_restarts 5    # Max restarts before giving up
+    set -l restart_count 0
+    set -l restart_window 300  # Reset restart count after 5 mins of stability
+    set -l last_restart_time 0
     
     # Record that we started monitoring
-    echo "["(date -Iseconds)"] Crash monitor started" >> $crash_log
-    
-    # Get initial PID
-    set -l initial_pid (pgrep -f "emacs.*daemon" 2>/dev/null | head -1)
-    if test -z "$initial_pid"
-        echo "["(date -Iseconds)"] No emacs daemon to monitor" >> $crash_log
-        return 1
-    end
-    
-    echo "["(date -Iseconds)"] Monitoring emacs daemon PID: $initial_pid" >> $crash_log
+    echo "["(date -Iseconds)"] 🔍 Crash monitor started (auto-restart enabled)" >> $crash_log
     
     while true
-        sleep $check_interval
+        # Get current PID
+        set -l daemon_pid (pgrep -f "emacs.*daemon" 2>/dev/null | head -1)
         
-        set -l current_pid (pgrep -f "emacs.*daemon" 2>/dev/null | head -1)
-        
-        if test -z "$current_pid"
+        if test -z "$daemon_pid"
             # Daemon is gone - log the crash
             echo "" >> $crash_log
             echo "============================================" >> $crash_log
             echo "🔴 EMACS CRASH DETECTED" >> $crash_log
             echo "============================================" >> $crash_log
             echo "Time: "(date -Iseconds) >> $crash_log
-            echo "Previous PID: $initial_pid" >> $crash_log
             echo "" >> $crash_log
             
-            # Try to capture any useful system info
-            echo "--- System State at Crash ---" >> $crash_log
+            # Try to capture crash details
+            echo "--- System State ---" >> $crash_log
             echo "Memory:" >> $crash_log
             free -h 2>/dev/null >> $crash_log
             echo "" >> $crash_log
@@ -956,25 +949,76 @@ function ac-emacs-crash-monitor
             echo "" >> $crash_log
             
             # Check dmesg for OOM or signals
-            echo "--- Recent kernel messages ---" >> $crash_log
-            dmesg 2>/dev/null | tail -20 | grep -iE "oom|kill|emacs|signal" >> $crash_log
+            echo "--- Kernel messages (last 30s) ---" >> $crash_log
+            dmesg --time-format=iso 2>/dev/null | tail -30 | grep -iE "oom|kill|emacs|signal|memory|segfault" >> $crash_log
+            echo "" >> $crash_log
+            
+            # Check journalctl for emacs-related messages
+            echo "--- Journal (emacs) ---" >> $crash_log
+            journalctl --since "1 minute ago" 2>/dev/null | grep -i emacs >> $crash_log
             echo "" >> $crash_log
             
             # Check if there's a core dump
             echo "--- Core dumps ---" >> $crash_log
-            coredumpctl list 2>/dev/null | tail -5 >> $crash_log
+            coredumpctl list 2>/dev/null | grep -i emacs | tail -3 >> $crash_log
+            echo "" >> $crash_log
+            
+            # Check emacs daemon log if it exists
+            set -l latest_log (ls -t $AC_EMACS_LOG_DIR/daemon_*.log 2>/dev/null | head -1)
+            if test -n "$latest_log"
+                echo "--- Last daemon log (last 50 lines) ---" >> $crash_log
+                tail -50 "$latest_log" >> $crash_log
+            end
             echo "============================================" >> $crash_log
             
-            # Create a warning file for the next shell
-            echo "Emacs crashed at "(date -Iseconds) > /tmp/emacs-crash-warning
+            # Reset restart count if enough time has passed
+            set -l now (date +%s)
+            if test (math "$now - $last_restart_time") -gt $restart_window
+                set restart_count 0
+            end
             
-            # Exit the monitor since there's nothing to monitor
-            break
-        else if test "$current_pid" != "$initial_pid"
-            # PID changed - daemon was restarted
-            echo "["(date -Iseconds)"] Daemon PID changed: $initial_pid -> $current_pid (restart detected)" >> $crash_log
-            set initial_pid $current_pid
+            # Check if we should auto-restart
+            if test $restart_count -lt $max_restarts
+                set restart_count (math "$restart_count + 1")
+                set last_restart_time $now
+                
+                echo "["(date -Iseconds)"] 🔄 Auto-restarting emacs (attempt $restart_count/$max_restarts)..." >> $crash_log
+                
+                # Create warning file
+                echo "Emacs crashed at "(date -Iseconds)", auto-restart #$restart_count" > /tmp/emacs-crash-warning
+                
+                # Clean up any zombie processes
+                pkill -9 emacs 2>/dev/null
+                pkill -9 emacsclient 2>/dev/null
+                sleep 1
+                
+                # Restart daemon
+                emacs --daemon 2>&1 | tee -a $crash_log
+                
+                # Wait for it to come up
+                sleep 2
+                
+                set -l new_pid (pgrep -f "emacs.*daemon" 2>/dev/null | head -1)
+                if test -n "$new_pid"
+                    echo "["(date -Iseconds)"] ✅ Emacs daemon restarted (PID: $new_pid)" >> $crash_log
+                else
+                    echo "["(date -Iseconds)"] ❌ Failed to restart emacs daemon" >> $crash_log
+                end
+            else
+                echo "["(date -Iseconds)"] ⛔ Max restarts ($max_restarts) reached, stopping monitor" >> $crash_log
+                echo "Emacs crashed repeatedly - manual intervention needed" > /tmp/emacs-crash-warning
+                break
+            end
+        else
+            # Daemon is running - also check if it's responsive
+            if not timeout 5 emacsclient -e t >/dev/null 2>&1
+                echo "["(date -Iseconds)"] ⚠️ Daemon unresponsive (PID: $daemon_pid), forcing restart..." >> $crash_log
+                pkill -9 -f "emacs.*daemon" 2>/dev/null
+                # Loop will detect it's gone and restart
+            end
         end
+        
+        sleep $check_interval
     end
 end
 
@@ -1006,6 +1050,32 @@ function ac-emacs-status
             echo "⚠️  Last crash: "(cat /tmp/emacs-crash-warning)
         end
     end
+    
+    # Check crash monitor status
+    set -l monitor_pid (pgrep -f "ac-emacs-crash-monitor" 2>/dev/null)
+    if test -n "$monitor_pid"
+        echo "🔍 Crash monitor active (PID: $monitor_pid)"
+    else
+        echo "⚠️  Crash monitor not running"
+    end
+end
+
+# Start the crash monitor manually
+function ac-emacs-start-monitor
+    if pgrep -f "ac-emacs-crash-monitor" >/dev/null 2>&1
+        echo "Crash monitor already running"
+        return 0
+    end
+    
+    if not pgrep -f "emacs.*daemon" >/dev/null 2>&1
+        echo "❌ No emacs daemon to monitor"
+        return 1
+    end
+    
+    echo "🔍 Starting crash monitor..."
+    fish -c "ac-emacs-crash-monitor" &>/dev/null &
+    disown
+    echo "✅ Crash monitor started"
 end
 
 # View emacs crash logs
