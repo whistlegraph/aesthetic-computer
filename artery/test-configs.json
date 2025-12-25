@@ -65,6 +65,22 @@
       "name": "1v1-split",
       "icon": "🎮",
       "desc": "Split view for 1v1 dueling"
+    },
+    "test-1v1-udp.mjs": {
+      "name": "1v1-udp",
+      "icon": "📡",
+      "desc": "UDP/WebRTC diagnostic for 1v1",
+      "params": {
+        "verbose": { "type": "toggle", "default": false }
+      }
+    },
+    "test-1v1-interactive.mjs": {
+      "name": "1v1-interactive",
+      "icon": "🎭",
+      "desc": "Interactive UDP test with dual camdoll control",
+      "params": {
+        "duration": { "type": "range", "min": 5, "max": 60, "step": 5, "default": 20 }
+      }
     }
   },
   "legacy": {
