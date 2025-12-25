@@ -4194,7 +4194,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // which will pass messages to the disk runner.
     if (type === "udp:connect") {
       const udp = await loadUDP();
-      udp.connect(content.port, content.url, send);
+      udp.connect(content.port, content.url, send, content.turnHost);
       return;
     }
 
