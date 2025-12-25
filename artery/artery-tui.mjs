@@ -991,8 +991,8 @@ class ArteryTUI {
     process.stdin.resume();
     process.stdin.setEncoding('utf8');
     
-    // Handle resize with debouncing to prevent jank
-    process.stdout.on('resize', () => {
+    // Resize handler function (shared by both stdout.resize and SIGWINCH)
+    const handleResize = () => {
       // Clear any pending resize
       if (this.resizeTimeout) {
         clearTimeout(this.resizeTimeout);
@@ -1008,7 +1008,13 @@ class ArteryTUI {
         this.initMatrixRain();
         this.render();
       }, 50); // 50ms debounce - fast enough to feel responsive
-    });
+    };
+    
+    // Handle resize via stdout event (works in most terminals)
+    process.stdout.on('resize', handleResize);
+    
+    // Also handle SIGWINCH directly (critical for eat terminal in emacs)
+    process.on('SIGWINCH', handleResize);
     
     // Handle input
     process.stdin.on('data', (key) => this.handleInput(key));
@@ -1037,28 +1043,31 @@ class ArteryTUI {
     this.render();
   }
   
-  // Copilot completion notification - flashes screen
+  // Copilot completion notification - flashes screen until interaction
   triggerFlash() {
     if (this.flashActive) return; // Already flashing
     this.flashActive = true;
     this.flashCount = 0;
     
     const doFlash = () => {
-      if (this.flashCount >= 6) { // 3 on/off cycles
-        this.flashActive = false;
-        this.forceFullRedraw = true;
-        this.render();
-        return;
-      }
+      if (!this.flashActive) return; // Stopped by interaction
       
       this.flashCount++;
       this.forceFullRedraw = true;
       this.render();
       
-      setTimeout(doFlash, 100);
+      setTimeout(doFlash, 300); // Slower flash for readability
     };
     
     doFlash();
+  }
+  
+  stopFlash() {
+    if (this.flashActive) {
+      this.flashActive = false;
+      this.forceFullRedraw = true;
+      this.render();
+    }
   }
   
   startNotifyWatcher() {
@@ -1451,6 +1460,12 @@ class ArteryTUI {
   }
 
   handleInput(key) {
+    // Stop flash on any input
+    if (this.flashActive) {
+      this.stopFlash();
+      return; // Consume this input
+    }
+    
     // Ctrl+C to quit
     if (key === '\u0003') {
       this.quit();
@@ -5115,13 +5130,43 @@ class ArteryTUI {
 
   // Rendering - uses double buffering to prevent flicker
   render() {
-    // If flash is active on odd count, render inverted screen
-    if (this.flashActive && this.flashCount % 2 === 1) {
-      // Full screen flash - bright red background
+    // If flash is active, render big DONE screen
+    if (this.flashActive) {
+      const isOn = this.flashCount % 2 === 1;
       this.write(CURSOR_HOME);
-      const flashLine = `\x1b[48;5;196m${' '.repeat(this.width)}\x1b[0m`;
+      
+      // Big ASCII "DONE" text
+      const doneArt = [
+        '  ██████╗  ██████╗ ███╗   ██╗███████╗',
+        '  ██╔══██╗██╔═══██╗████╗  ██║██╔════╝',
+        '  ██║  ██║██║   ██║██╔██╗ ██║█████╗  ',
+        '  ██║  ██║██║   ██║██║╚██╗██║██╔══╝  ',
+        '  ██████╔╝╚██████╔╝██║ ╚████║███████╗',
+        '  ╚═════╝  ╚═════╝ ╚═╝  ╚═══╝╚══════╝',
+      ];
+      
+      const bg = isOn ? '\x1b[48;5;196m' : '\x1b[48;5;22m'; // Red / Dark green
+      const fg = isOn ? '\x1b[97m' : '\x1b[92m'; // White / Green
+      
+      // Calculate vertical centering
+      const artHeight = doneArt.length;
+      const topPad = Math.floor((this.height - artHeight - 2) / 2);
+      
       for (let i = 0; i < this.height; i++) {
-        this.write(flashLine + '\n');
+        let line = '';
+        if (i >= topPad && i < topPad + artHeight) {
+          const artLine = doneArt[i - topPad];
+          const leftPad = Math.floor((this.width - 38) / 2);
+          line = bg + ' '.repeat(Math.max(0, leftPad)) + fg + artLine + bg + ' '.repeat(Math.max(0, this.width - leftPad - 38)) + '\x1b[0m';
+        } else if (i === topPad + artHeight + 1) {
+          // Hint text
+          const hint = isOn ? '[ press any key or click ]' : '';
+          const leftPad = Math.floor((this.width - hint.length) / 2);
+          line = bg + ' '.repeat(Math.max(0, leftPad)) + fg + hint + bg + ' '.repeat(Math.max(0, this.width - leftPad - hint.length)) + '\x1b[0m';
+        } else {
+          line = bg + ' '.repeat(this.width) + '\x1b[0m';
+        }
+        this.write(line + '\n');
       }
       return;
     }
