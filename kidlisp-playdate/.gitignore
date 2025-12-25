@@ -1,0 +1,19 @@
+# Ignore build artifacts
+build/
+*.pdx
+*.elf
+*.bin
+*.map
+*.lst
+*.o
+*.so
+
+# Compiled binary output
+Source
+
+# SDK (downloaded on demand via install-sdk.fish)
+sdk/
+
+# OS files
+.DS_Store
+Thumbs.db
