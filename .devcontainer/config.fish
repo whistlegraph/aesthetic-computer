@@ -2343,6 +2343,64 @@ function tz-tokens --description "List minted tokens via tezbot"
     node $TEZBOT_SCRIPT cmd tokens
 end
 
+# 🎮 KidLisp Playdate Build and Simulate Functions
+
+# Build a KidLisp program for Playdate
+# Usage: ac-playdate-build examples/bop.lisp
+function ac-playdate-build
+    if test (count $argv) -lt 1
+        echo "Usage: ac-playdate-build <source.lisp>"
+        echo "Example: ac-playdate-build examples/bop.lisp"
+        return 1
+    end
+    
+    set -l source_file $argv[1]
+    cd /workspaces/aesthetic-computer/kidlisp-playdate
+    source build.fish $source_file
+end
+
+# Run the last built Playdate game on host simulator
+# Usage: ac-playdate-simulate [game-name]
+# If no game name provided, uses 'bop' as default
+function ac-playdate-simulate
+    set -l game_name (test (count $argv) -ge 1; and echo $argv[1]; or echo "bop")
+    set -l pdx_path "/workspaces/aesthetic-computer/kidlisp-playdate/build/$game_name.pdx"
+    
+    if not test -d $pdx_path
+        echo "❌ Game not found: $pdx_path"
+        echo "💡 Build it first with: ac-playdate-build examples/$game_name.lisp"
+        return 1
+    end
+    
+    echo "🎮 Deploying $game_name to host simulator..."
+    
+    # Kill existing simulator
+    ssh jas@172.17.0.1 "pkill -9 -f Playdate" 2>/dev/null
+    sleep 0.3
+    
+    # Copy and run
+    scp -r $pdx_path jas@172.17.0.1:~/
+    ssh jas@172.17.0.1 "DISPLAY=:0 nohup ~/PlaydateSDK/bin/PlaydateSimulator ~/$game_name.pdx >/dev/null 2>&1 &"
+    
+    echo "✅ $game_name running on host simulator"
+end
+
+# Build and immediately simulate
+# Usage: ac-playdate examples/bop.lisp
+function ac-playdate
+    if test (count $argv) -lt 1
+        echo "Usage: ac-playdate <source.lisp>"
+        echo "Example: ac-playdate examples/bop.lisp"
+        return 1
+    end
+    
+    set -l source_file $argv[1]
+    set -l game_name (basename $source_file .lisp)
+    
+    ac-playdate-build $source_file
+    and ac-playdate-simulate $game_name
+end
+
 # Auto-start aesthetic when fish runs in the VS Code task context
 # aesthetic-launch.sh sets AC_TASK_LAUNCH=1 before exec fish --login
 if set -q AC_TASK_LAUNCH
