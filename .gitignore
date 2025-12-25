@@ -262,6 +262,11 @@ session-server/session_server.pub
 aesthetic-computer-vault/session-server/session_server
 aesthetic-computer-vault/session-server/session_server.pub
 
+# Playdate development (build artifacts)
+kidlisp-playdate/build/
+kidlisp-playdate/KidLisp.pdx/
+kidlisp-playdate/sdk/
+
 # Secret directories
 secret/
 secrets/
