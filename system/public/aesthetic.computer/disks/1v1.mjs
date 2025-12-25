@@ -28,6 +28,9 @@ import {
   getGamepadMapping
 } from "../lib/gamepad-mappings.mjs";
 
+// 📱 QR code for join URL
+import { qrcode as qr } from "../dep/@akamfoad/qr/qr.mjs";
+
 // 🎮 Mini gamepad diagram for HUD (simplified from gamepad.mjs)
 function drawMiniControllerDiagram(ink, gp, x, y) {
   const baseX = x;
@@ -135,9 +138,9 @@ function drawMiniControllerDiagram(ink, gp, x, y) {
   }
 }
 
-// Draw mini keyboard controls display (WASD + Arrows + Mouse)
+// Draw mini keyboard controls display (WASD + Arrows + Mouse) - compact version
 function drawKeyboardControls(ink, baseX, baseY, pressedKeys = {}) {
-  const keySize = 9;
+  const keySize = 8;
   const keySpacing = 1;
   const hudFont = "MatrixChunky8";
   
@@ -150,72 +153,153 @@ function drawKeyboardControls(ink, baseX, baseY, pressedKeys = {}) {
     ink(...textColor).write(label, { x: x + 2, y: y + 1 }, undefined, undefined, false, hudFont);
   };
   
-  // WASD cluster (movement)
-  let wx = baseX;
-  let wy = baseY;
+  // Row 1: W and UP arrow (with labels inline)
+  let row1Y = baseY;
+  ink(100, 100, 100).write("W", { x: baseX, y: row1Y + 1 }, undefined, undefined, false, hudFont);
+  drawKey(baseX + 8, row1Y, "^", pressedKeys.w);
   
-  // Label
-  ink(150, 150, 150).write("MOVE", { x: wx, y: wy - 8 }, undefined, undefined, false, hudFont);
+  ink(100, 100, 100).write("^", { x: baseX + 35, y: row1Y + 1 }, undefined, undefined, false, hudFont);
+  drawKey(baseX + 43, row1Y, "^", pressedKeys.arrowup);
   
-  //     W
-  //   A S D
-  drawKey(wx + keySize + keySpacing, wy, "W", pressedKeys.w);
-  drawKey(wx, wy + keySize + keySpacing, "A", pressedKeys.a);
-  drawKey(wx + keySize + keySpacing, wy + keySize + keySpacing, "S", pressedKeys.s);
-  drawKey(wx + (keySize + keySpacing) * 2, wy + keySize + keySpacing, "D", pressedKeys.d);
+  // Row 2: ASD and arrow keys
+  let row2Y = baseY + keySize + keySpacing;
+  drawKey(baseX, row2Y, "A", pressedKeys.a);
+  drawKey(baseX + keySize + keySpacing, row2Y, "S", pressedKeys.s);
+  drawKey(baseX + (keySize + keySpacing) * 2, row2Y, "D", pressedKeys.d);
   
-  // Arrow keys cluster (look)
-  const arrowX = baseX + 50;
-  const arrowY = baseY;
+  drawKey(baseX + 35, row2Y, "<", pressedKeys.arrowleft);
+  drawKey(baseX + 35 + keySize + keySpacing, row2Y, "v", pressedKeys.arrowdown);
+  drawKey(baseX + 35 + (keySize + keySpacing) * 2, row2Y, ">", pressedKeys.arrowright);
   
-  // Label
-  ink(150, 150, 150).write("LOOK", { x: arrowX, y: arrowY - 8 }, undefined, undefined, false, hudFont);
-  
-  //     ↑
-  //   ← ↓ →
-  drawKey(arrowX + keySize + keySpacing, arrowY, "^", pressedKeys.arrowup);
-  drawKey(arrowX, arrowY + keySize + keySpacing, "<", pressedKeys.arrowleft);
-  drawKey(arrowX + keySize + keySpacing, arrowY + keySize + keySpacing, "v", pressedKeys.arrowdown);
-  drawKey(arrowX + (keySize + keySpacing) * 2, arrowY + keySize + keySpacing, ">", pressedKeys.arrowright);
-  
-  // Mouse indicator
-  const mouseX = baseX + 100;
-  const mouseY = baseY;
-  
-  ink(150, 150, 150).write("MOUSE", { x: mouseX, y: mouseY - 8 }, undefined, undefined, false, hudFont);
-  ink(80, 80, 80).box(mouseX, mouseY, 14, 20); // Mouse body
-  ink(100, 100, 100).box(mouseX, mouseY, 14, 20, "outline");
-  ink(pressedKeys.lmb ? "yellow" : "gray").box(mouseX + 1, mouseY + 1, 5, 6); // Left button
-  ink(pressedKeys.rmb ? "yellow" : "gray").box(mouseX + 8, mouseY + 1, 5, 6); // Right button
-  ink(200, 200, 200).box(mouseX + 6, mouseY + 2, 2, 4); // Scroll wheel
-  
-  // Labels below
-  ink(100, 100, 100).write("AIM", { x: mouseX + 2, y: mouseY + 22 }, undefined, undefined, false, hudFont);
-  
-  // Spacebar
-  const spaceX = baseX;
-  const spaceY = baseY + 28;
-  const spaceWidth = 35;
+  // Row 3: Space and Shift
+  let row3Y = baseY + (keySize + keySpacing) * 2 + 2;
   const spaceBg = pressedKeys.space ? [255, 255, 0, 220] : [40, 40, 40, 180];
   const spaceText = pressedKeys.space ? [0, 0, 0] : [200, 200, 200];
-  ink(...spaceBg).box(spaceX, spaceY, spaceWidth, keySize);
-  ink(100, 100, 100).box(spaceX, spaceY, spaceWidth, keySize, "outline");
-  ink(...spaceText).write("SPACE", { x: spaceX + 4, y: spaceY + 1 }, undefined, undefined, false, hudFont);
-  ink(100, 100, 100).write("JUMP", { x: spaceX + spaceWidth + 4, y: spaceY + 1 }, undefined, undefined, false, hudFont);
+  ink(...spaceBg).box(baseX, row3Y, 28, keySize);
+  ink(100, 100, 100).box(baseX, row3Y, 28, keySize, "outline");
+  ink(...spaceText).write("SPC", { x: baseX + 6, y: row3Y + 1 }, undefined, undefined, false, hudFont);
   
-  // Shift for sprint
-  const shiftX = baseX + 55;
-  const shiftY = spaceY;
   const shiftBg = pressedKeys.shift ? [255, 255, 0, 220] : [40, 40, 40, 180];
   const shiftText = pressedKeys.shift ? [0, 0, 0] : [200, 200, 200];
-  ink(...shiftBg).box(shiftX, shiftY, 20, keySize);
-  ink(100, 100, 100).box(shiftX, shiftY, 20, keySize, "outline");
-  ink(...shiftText).write("SH", { x: shiftX + 4, y: shiftY + 1 }, undefined, undefined, false, hudFont);
-  ink(100, 100, 100).write("RUN", { x: shiftX + 24, y: shiftY + 1 }, undefined, undefined, false, hudFont);
+  ink(...shiftBg).box(baseX + 32, row3Y, 20, keySize);
+  ink(100, 100, 100).box(baseX + 32, row3Y, 20, keySize, "outline");
+  ink(...shiftText).write("SH", { x: baseX + 36, y: row3Y + 1 }, undefined, undefined, false, hudFont);
+  
+  // Mouse icon (compact)
+  const mouseX = baseX + 58;
+  const mouseY = baseY;
+  ink(60, 60, 60).box(mouseX, mouseY, 10, 16);
+  ink(80, 80, 80).box(mouseX, mouseY, 10, 16, "outline");
+  ink(pressedKeys.lmb ? "yellow" : "gray").box(mouseX + 1, mouseY + 1, 4, 5);
+  ink(pressedKeys.rmb ? "yellow" : "gray").box(mouseX + 5, mouseY + 1, 4, 5);
+}
+
+// 📱 Draw join QR code and IP in bottom-right corner
+function drawJoinQR({ ink, box, write, screen }) {
+  if (!joinQRCells || !showJoinQR) return;
+  
+  const hudFont = "MatrixChunky8";
+  
+  // Calculate QR size - compact but still scannable
+  const scale = 1;  // Small scale for compact display
+  const qrSize = joinQRCells.length * scale;
+  const margin = 8;
+  const textHeight = 20; // Space for URL and host label
+  
+  // Position in bottom-right corner
+  const ox = screen.width - qrSize - margin;
+  const oy = screen.height - qrSize - margin - textHeight;
+  
+  // Semi-transparent background
+  ink(0, 0, 0, 180).box(ox - 4, oy - 4, qrSize + 8, qrSize + textHeight + 8);
+  
+  // Draw QR code cells
+  for (let y = 0; y < joinQRCells.length; y++) {
+    for (let x = 0; x < joinQRCells.length; x++) {
+      const isBlack = joinQRCells[y][x];
+      ink(isBlack ? 0 : 255).box(ox + x * scale, oy + y * scale, scale);
+    }
+  }
+  
+  // White border around QR
+  ink(255, 255, 255).box(ox - 1, oy - 1, qrSize + 2, qrSize + 2, "outline");
+  
+  // Display URL below QR (strip https:// for brevity)
+  const displayIP = joinURL?.replace('https://', '').replace('/1v1', '') || '';
+  ink(255, 255, 0).write(displayIP, { x: ox, y: oy + qrSize + 4 }, undefined, undefined, false, hudFont);
+  
+  // Show host machine label if available
+  if (hostMachineInfo?.hostLabel) {
+    ink(200, 200, 200).write(hostMachineInfo.hostLabel, 
+      { x: ox, y: oy + qrSize + 12 }, undefined, undefined, false, hudFont);
+  } else if (hostMachineInfo?.hostName) {
+    ink(180, 180, 180).write(hostMachineInfo.hostName, 
+      { x: ox, y: oy + qrSize + 12 }, undefined, undefined, false, hudFont);
+  }
 }
 
 // Track keyboard state for display
 let pressedKeys = {};
+
+// Helper function to create face geometry (eyes + mouth) for character visualization
+// Creates primitive lines that form a simple face on the front of the camera box
+function createFaceGeometry(boxSize, r, g, b) {
+  // Face is on the FRONT of the box (negative Z)
+  const frontZ = -boxSize - 0.01;  // Slightly in front of the box
+  
+  // Eye positions (two circles/diamonds made of lines)
+  const eyeY = boxSize * 0.3;     // Eyes above center
+  const eyeSpacing = boxSize * 0.5;  // Distance between eyes
+  const eyeSize = boxSize * 0.2;   // Size of each eye
+  
+  // Mouth position (curved line or simple smile)
+  const mouthY = -boxSize * 0.3;   // Below center
+  const mouthWidth = boxSize * 0.6;
+  const mouthCurve = boxSize * 0.15;
+  
+  const positions = [
+    // Left eye (diamond shape)
+    [-eyeSpacing, eyeY + eyeSize, frontZ, 1], [-eyeSpacing - eyeSize, eyeY, frontZ, 1],
+    [-eyeSpacing - eyeSize, eyeY, frontZ, 1], [-eyeSpacing, eyeY - eyeSize, frontZ, 1],
+    [-eyeSpacing, eyeY - eyeSize, frontZ, 1], [-eyeSpacing + eyeSize, eyeY, frontZ, 1],
+    [-eyeSpacing + eyeSize, eyeY, frontZ, 1], [-eyeSpacing, eyeY + eyeSize, frontZ, 1],
+    
+    // Right eye (diamond shape)
+    [eyeSpacing, eyeY + eyeSize, frontZ, 1], [eyeSpacing - eyeSize, eyeY, frontZ, 1],
+    [eyeSpacing - eyeSize, eyeY, frontZ, 1], [eyeSpacing, eyeY - eyeSize, frontZ, 1],
+    [eyeSpacing, eyeY - eyeSize, frontZ, 1], [eyeSpacing + eyeSize, eyeY, frontZ, 1],
+    [eyeSpacing + eyeSize, eyeY, frontZ, 1], [eyeSpacing, eyeY + eyeSize, frontZ, 1],
+    
+    // Pupils (small dots represented as tiny X)
+    [-eyeSpacing - eyeSize*0.2, eyeY - eyeSize*0.2, frontZ - 0.01, 1], [-eyeSpacing + eyeSize*0.2, eyeY + eyeSize*0.2, frontZ - 0.01, 1],
+    [-eyeSpacing + eyeSize*0.2, eyeY - eyeSize*0.2, frontZ - 0.01, 1], [-eyeSpacing - eyeSize*0.2, eyeY + eyeSize*0.2, frontZ - 0.01, 1],
+    [eyeSpacing - eyeSize*0.2, eyeY - eyeSize*0.2, frontZ - 0.01, 1], [eyeSpacing + eyeSize*0.2, eyeY + eyeSize*0.2, frontZ - 0.01, 1],
+    [eyeSpacing + eyeSize*0.2, eyeY - eyeSize*0.2, frontZ - 0.01, 1], [eyeSpacing - eyeSize*0.2, eyeY + eyeSize*0.2, frontZ - 0.01, 1],
+    
+    // Mouth (smile made of 3 line segments for curve)
+    [-mouthWidth, mouthY, frontZ, 1], [-mouthWidth * 0.3, mouthY - mouthCurve, frontZ, 1],
+    [-mouthWidth * 0.3, mouthY - mouthCurve, frontZ, 1], [mouthWidth * 0.3, mouthY - mouthCurve, frontZ, 1],
+    [mouthWidth * 0.3, mouthY - mouthCurve, frontZ, 1], [mouthWidth, mouthY, frontZ, 1],
+  ];
+  
+  // Colors: eyes in player color, pupils in white, mouth in player color
+  const eyeColor = [r, g, b, 1];
+  const pupilColor = [1, 1, 1, 1];  // White pupils
+  const mouthColor = [r, g, b, 1];
+  
+  const colors = [
+    // Left eye (8 vertices = 4 lines)
+    eyeColor, eyeColor, eyeColor, eyeColor, eyeColor, eyeColor, eyeColor, eyeColor,
+    // Right eye (8 vertices = 4 lines)
+    eyeColor, eyeColor, eyeColor, eyeColor, eyeColor, eyeColor, eyeColor, eyeColor,
+    // Pupils (8 vertices = 4 lines for 2 X's)
+    pupilColor, pupilColor, pupilColor, pupilColor, pupilColor, pupilColor, pupilColor, pupilColor,
+    // Mouth (6 vertices = 3 lines)
+    mouthColor, mouthColor, mouthColor, mouthColor, mouthColor, mouthColor,
+  ];
+  
+  return { positions, colors };
+}
 
 // Networking
 let server;
@@ -234,24 +318,27 @@ let others = {}; // Map of other players by ID
 let gameState = "connecting"; // connecting, lobby, playing, dead, gameover
 let frameCount = 0; // Global frame counter for throttling
 
-// 🤖 Bot system
+// 🤖 Bot system - runs around inside the main square for players to follow
 let bot = {
   enabled: true,
-  pos: { x: 3, y: 1.6, z: -5 },
+  pos: { x: 0, y: -0.5, z: 0 },  // Start at center, match player eye height (Y=-0.5)
   rot: { x: 0, y: 0, z: 0 },
   vel: { x: 0, y: 0, z: 0 },
   health: 100,
   state: "patrol", // patrol, chase, flee, dead
   targetPos: null,
+  // Patrol points inside the main square (ground is -3 to +3 on X/Z)
   patrolPoints: [
-    { x: 3, z: -5 },
-    { x: -3, z: -5 },
-    { x: -3, z: -8 },
-    { x: 3, z: -8 },
+    { x: 2, z: 2 },    // Front-right
+    { x: -2, z: 2 },   // Front-left  
+    { x: -2, z: -2 },  // Back-left
+    { x: 2, z: -2 },   // Back-right
+    { x: 0, z: 0 },    // Center (adds variety)
   ],
   patrolIndex: 0,
-  speed: 0.02,
-  turnSpeed: 2,
+  speed: 0.015,     // Slow, chill movement
+  turnSpeed: 1.5,   // Slow, smooth turning
+  pauseTimer: 0,    // Pause at waypoints
   lastStateChange: 0,
   respawnTimer: 0,
 };
@@ -274,6 +361,12 @@ const MAX_DEBUG_LOG = 20;
 // 🎮 Gamepad state tracking for HUD display
 let showGamepadPanel = true; // Toggle with 'G' key (default ON)
 const connectedGamepads = {};
+
+// 📱 Join QR code state
+let joinQRCells = null;  // QR code cell grid
+let joinURL = null;      // URL displayed below QR
+let showJoinQR = true;   // Toggle with 'Q' key (default ON)
+let hostMachineInfo = null; // Host machine identity (MacBook, Thinkpad, etc)
 
 // Action mappings - what each control does in FPS mode
 const FPS_ACTIONS = {
@@ -446,7 +539,7 @@ function logSceneDebug() {
 }
 
 
-function boot({ Form, CUBEL, QUAD, penLock, system, get, net: { socket, udp }, handle, help, sign, glyphs }) {
+function boot({ Form, CUBEL, QUAD, penLock, system, get, net: { socket, udp, host, lan, devIdentity }, handle, help, sign, glyphs }) {
   console.log("🎮 1v1 boot", { hasForm: !!Form, hasSocket: !!socket, hasHandle: !!handle, hasSign: !!sign, hasUdp: !!udp });
   
   // Store sign and glyphs for use in networking callbacks
@@ -459,8 +552,35 @@ function boot({ Form, CUBEL, QUAD, penLock, system, get, net: { socket, udp }, h
   systemInstance = system;
   graphInstance = system?.fps?.doll?.cam;
   
-  // Set player handle
-  self.handle = handle() || help.choose("red", "blue", "green", "yellow") + "_player";
+  // 📱 Generate join QR code
+  if (lan) {
+    joinURL = `${lan}/1v1`;
+  } else if (host?.startsWith("localhost")) {
+    joinURL = "https://local.aesthetic.computer/1v1";
+  } else if (host) {
+    joinURL = `https://${host}/1v1`;
+  }
+  
+  if (joinURL) {
+    try {
+      // Use low error correction (L) for smaller QR code
+      joinQRCells = qr(joinURL, { errorCorrectLevel: 1 }).modules; // 1 = L (7% recovery)
+      console.log("📱 Join QR generated:", joinURL, `(${joinQRCells?.length}x${joinQRCells?.length} low-EC)`);
+    } catch (e) {
+      console.warn("📱 Failed to generate QR:", e);
+    }
+  }
+  
+  // Store host machine identity if available
+  hostMachineInfo = devIdentity || null;
+  if (hostMachineInfo) {
+    console.log("🖥️ Host machine:", hostMachineInfo.hostLabel || hostMachineInfo.hostName);
+  }
+  
+  // Set player handle - use logged-in handle or generate unique guest handle
+  // Add random suffix to prevent collisions in split view (same browser, two tabs)
+  const randomSuffix = Math.floor(Math.random() * 1000);
+  self.handle = handle() || help.choose("red", "blue", "green", "yellow", "orange", "purple", "cyan", "pink") + "_" + randomSuffix;
   
   // 🩰 Initialize UDP for low-latency position updates
   udpChannel = udp((type, content) => {
@@ -643,6 +763,11 @@ function boot({ Form, CUBEL, QUAD, penLock, system, get, net: { socket, udp }, h
               ]},
               { pos: [content.pos.x, content.pos.y, content.pos.z], scale: 1 }
             ),
+            // Face (eyes + mouth on front of box)
+            face: new Form(
+              { type: "line", ...createFaceGeometry(boxSize, r, g, b) },
+              { pos: [content.pos.x, content.pos.y, content.pos.z], scale: 1 }
+            ),
             // Name sign above player (using 3D text)
             nameSign: globalSign ? globalSign(content.handle || id.slice(0, 6), {
               scale: 0.03,
@@ -717,6 +842,10 @@ function boot({ Form, CUBEL, QUAD, penLock, system, get, net: { socket, udp }, h
               ),
               groundLine: new Form(
                 { type: "line", positions: [[0, 0, 0, 1], [0, -2, 0, 1]], colors: [[r, g, b, 0.5], [r, g, b, 0.5]]},
+                { pos: [content.pos.x, content.pos.y, content.pos.z], scale: 1 }
+              ),
+              face: new Form(
+                { type: "line", ...createFaceGeometry(boxSize, r, g, b) },
                 { pos: [content.pos.x, content.pos.y, content.pos.z], scale: 1 }
               ),
               nameSign: globalSign ? globalSign(content.handle || id.slice(0, 6), {
@@ -983,6 +1112,11 @@ function boot({ Form, CUBEL, QUAD, penLock, system, get, net: { socket, udp }, h
         { type: "line", positions: [[0, 0, 0, 1], [0, -2, 0, 1]], colors: [[r, g, b, 0.5], [r, g, b, 0.5]]},
         { pos: [bot.pos.x, bot.pos.y, bot.pos.z], scale: 1 }
       ),
+      // Face (eyes + mouth)
+      face: new Form(
+        { type: "line", ...createFaceGeometry(boxSize, r, g, b) },
+        { pos: [bot.pos.x, bot.pos.y, bot.pos.z], scale: 1 }
+      ),
       // Name sign
       nameSign: sign ? sign("🤖 BOT", {
         scale: 0.03, color: [r, g, b], align: "center",
@@ -1062,7 +1196,7 @@ function sim() {
   // Rotate the textured quad
   texturedQuad.rotation[1] += 0.5; // Spin on Y axis
   
-  // 🤖 Bot AI simulation
+  // 🤖 Bot AI simulation - bot runs around for players to follow
   if (bot.enabled && botModel) {
     // Handle respawn timer
     if (bot.state === "dead") {
@@ -1070,58 +1204,55 @@ function sim() {
       if (bot.respawnTimer <= 0) {
         bot.state = "patrol";
         bot.health = 100;
-        bot.pos = { ...bot.patrolPoints[0], y: 1.6 };
+        bot.pos = { ...bot.patrolPoints[0], y: -0.5 };  // Match player eye height
         console.log("🤖 Bot respawned!");
       }
     } else {
-      // Calculate distance and direction to player
-      const dx = self.pos.x - bot.pos.x;
-      const dz = self.pos.z - bot.pos.z;
-      const distToPlayer = Math.sqrt(dx * dx + dz * dz);
-      const angleToPlayer = Math.atan2(dx, dz) * (180 / Math.PI);
+      // Bot just patrols freely - players follow it (chill behavior)
       
-      // State machine
-      if (bot.state === "patrol") {
+      // Check if bot is pausing at a waypoint
+      if (bot.pauseTimer > 0) {
+        bot.pauseTimer--;
+      } else {
         // Move toward current patrol point
         const target = bot.patrolPoints[bot.patrolIndex];
         const tdx = target.x - bot.pos.x;
         const tdz = target.z - bot.pos.z;
         const distToTarget = Math.sqrt(tdx * tdx + tdz * tdz);
         
-        if (distToTarget < 0.5) {
-          // Reached patrol point, go to next
-          bot.patrolIndex = (bot.patrolIndex + 1) % bot.patrolPoints.length;
+        if (distToTarget < 0.3) {
+          // Reached patrol point - pause for a bit, then pick next
+          bot.pauseTimer = 60 + Math.floor(Math.random() * 120); // 1-3 seconds pause
+          if (Math.random() < 0.3) {
+            // Occasionally skip to a random point for unpredictability
+            bot.patrolIndex = Math.floor(Math.random() * bot.patrolPoints.length);
+          } else {
+            bot.patrolIndex = (bot.patrolIndex + 1) % bot.patrolPoints.length;
+          }
         } else {
-          // Move toward patrol point
-          const angle = Math.atan2(tdx, tdz) * (180 / Math.PI);
-          bot.rot.y = angle;
-          bot.pos.x += Math.sin(angle * Math.PI / 180) * bot.speed;
-          bot.pos.z += Math.cos(angle * Math.PI / 180) * bot.speed;
-        }
-        
-        // Switch to chase if player is close
-        if (distToPlayer < 8) {
-          bot.state = "chase";
-          console.log("🤖 Bot spotted player!");
-        }
-      } else if (bot.state === "chase") {
-        // Turn toward player
-        const angleDiff = angleToPlayer - bot.rot.y;
-        let normalizedDiff = angleDiff;
-        while (normalizedDiff > 180) normalizedDiff -= 360;
-        while (normalizedDiff < -180) normalizedDiff += 360;
-        bot.rot.y += Math.sign(normalizedDiff) * Math.min(Math.abs(normalizedDiff), bot.turnSpeed);
-        
-        // Move toward player (but stop if too close)
-        if (distToPlayer > 2) {
-          bot.pos.x += Math.sin(bot.rot.y * Math.PI / 180) * bot.speed * 1.2;
-          bot.pos.z += Math.cos(bot.rot.y * Math.PI / 180) * bot.speed * 1.2;
-        }
-        
-        // Return to patrol if player is far
-        if (distToPlayer > 15) {
-          bot.state = "patrol";
-          console.log("🤖 Bot lost sight of player");
+          // Calculate target angle and smoothly turn toward it
+          const targetAngle = Math.atan2(tdx, tdz) * (180 / Math.PI);
+          let angleDiff = targetAngle - bot.rot.y;
+          // Normalize angle difference to -180 to 180
+          while (angleDiff > 180) angleDiff -= 360;
+          while (angleDiff < -180) angleDiff += 360;
+          
+          // Smooth turning - turn toward target
+          bot.rot.y += Math.sign(angleDiff) * Math.min(Math.abs(angleDiff), bot.turnSpeed);
+          // Normalize rotation
+          while (bot.rot.y > 180) bot.rot.y -= 360;
+          while (bot.rot.y < -180) bot.rot.y += 360;
+          
+          // Only move forward once mostly facing the target (within 30 degrees)
+          if (Math.abs(angleDiff) < 30) {
+            // Move in the direction bot is FACING (rot.y)
+            bot.pos.x += Math.sin(bot.rot.y * Math.PI / 180) * bot.speed;
+            bot.pos.z += Math.cos(bot.rot.y * Math.PI / 180) * bot.speed;
+          }
+          
+          // Keep bot inside arena bounds (-2.8 to 2.8 to stay safely inside)
+          bot.pos.x = Math.max(-2.8, Math.min(2.8, bot.pos.x));
+          bot.pos.z = Math.max(-2.8, Math.min(2.8, bot.pos.z));
         }
       }
       
@@ -1136,6 +1267,10 @@ function sim() {
       botModel.frustum.position = [px, py, pz];
       botModel.frustum.rotation = [pitch, yaw, 0];
       botModel.groundLine.position = [px, py, pz];
+      if (botModel.face) {
+        botModel.face.position = [px, py, pz];
+        botModel.face.rotation = [pitch, yaw, 0];
+      }
       if (botModel.nameSign) {
         botModel.nameSign.position = [px, py + 0.4, pz];
         botModel.nameSign.rotation = [0, (self.rot?.y || 0) + 180, 0];
@@ -1253,6 +1388,12 @@ function paint({ wipe, ink, painting, screen, line: drawLine, box: drawBox, clea
       // Ground line shows where they're standing
       playerModel.groundLine.position = [px, py, pz];
       
+      // Face follows camera box position and rotation (so it looks where they look)
+      if (playerModel.face) {
+        playerModel.face.position = [px, py, pz];
+        playerModel.face.rotation = [pitch, yaw, 0];  // Face looks where player looks
+      }
+      
       // Name sign above player (billboard - always face camera)
       if (playerModel.nameSign) {
         playerModel.nameSign.position = [px, py + 0.35, pz];  // Above the camera box
@@ -1264,6 +1405,11 @@ function paint({ wipe, ink, painting, screen, line: drawLine, box: drawBox, clea
       ink(255, 255, 255).form(playerModel.cameraBox);
       ink(255, 255, 255).form(playerModel.frustum);
       ink(255, 255, 255).form(playerModel.groundLine);
+      
+      // Render face (eyes + mouth)
+      if (playerModel.face) {
+        ink(255, 255, 255).form(playerModel.face);
+      }
       
       // Render name sign
       if (playerModel.nameSign) {
@@ -1277,6 +1423,9 @@ function paint({ wipe, ink, painting, screen, line: drawLine, box: drawBox, clea
     ink(255, 255, 255).form(botModel.cameraBox);
     ink(255, 255, 255).form(botModel.frustum);
     ink(255, 255, 255).form(botModel.groundLine);
+    if (botModel.face) {
+      ink(255, 255, 255).form(botModel.face);
+    }
     if (botModel.nameSign) {
       ink(255, 255, 255).form(botModel.nameSign);
     }
@@ -1305,80 +1454,120 @@ function paint({ wipe, ink, painting, screen, line: drawLine, box: drawBox, clea
     .line(centerX - crosshairSize, centerY, centerX + crosshairSize, centerY)
     .line(centerX, centerY - crosshairSize, centerX, centerY + crosshairSize);
   
-  // === TOP LEFT: Game state + handle (offset to avoid prompt label) ===
+  // === TOP LEFT: Network status + game state (offset to avoid prompt label) ===
   const hudStartY = 24; // Start below prompt HUD corner label
-  ink(255, 255, 255).write(gameState.toUpperCase(), { x: 6, y: hudStartY }, undefined, undefined, false, hudFont);
-  ink(200, 200, 200).write(self.handle, { x: 6, y: hudStartY + 10 }, undefined, undefined, false, hudFont);
+  const netNow = Date.now();
   
-  // DEBUG: Show camera Y position
-  const camYText = `CAM Y:${self.pos.y.toFixed(2)}`;
-  ink(255, 100, 255).write(camYText, { x: 6, y: hudStartY + 20 }, undefined, undefined, false, hudFont);
+  // UDP status
+  const udpStatus = udpChannel?.connected ? "UDP:ON" : "UDP:OFF";
+  const udpAge = lastUdpReceiveTime ? Math.floor((netNow - lastUdpReceiveTime) / 1000) : "?";
+  const udpColor = udpChannel?.connected ? (udpAge < 5 ? [0, 255, 0] : [255, 255, 0]) : [255, 0, 0];
+  ink(...udpColor).write(`${udpStatus} (${udpMessageCount}msg ${udpAge}s)`, { x: 6, y: hudStartY }, undefined, undefined, false, hudFont);
   
-  // Gamepad status indicator (small, always visible)
+  // WebSocket status  
+  const wsStatus = wsConnected ? "WS:ON" : "WS:OFF";
+  const wsAge = lastWsReceiveTime ? Math.floor((netNow - lastWsReceiveTime) / 1000) : "?";
+  const wsColor = wsConnected ? (wsAge < 10 ? [0, 255, 0] : [255, 255, 0]) : [255, 0, 0];
+  ink(...wsColor).write(`${wsStatus} (${wsMessageCount}msg ${wsAge}s)`, { x: 6, y: hudStartY + 10 }, undefined, undefined, false, hudFont);
+  
+  // Identity/handle
+  const selfIdStr = typeof self.id === "string" ? self.id.slice(0, 6) : "...";
+  ink(150, 150, 255).write(`${self.handle} (${selfIdStr})`, { x: 6, y: hudStartY + 20 }, undefined, undefined, false, hudFont);
+  
+  // Game state + spectator mode
+  const stateColor = isSpectator ? [255, 165, 0] : [255, 255, 255];
+  const stateText = isSpectator ? `${gameState.toUpperCase()} [SPECTATOR]` : gameState.toUpperCase();
+  ink(...stateColor).write(stateText, { x: 6, y: hudStartY + 30 }, undefined, undefined, false, hudFont);
+  
+  // Gamepad status indicator (small)
   const gpCount = Object.keys(connectedGamepads).length;
   if (gpCount > 0) {
-    const gpStatusX = 6 + camYText.length * 4 + 8;
     const gpIndicator = showGamepadPanel ? `🎮${gpCount}` : `🎮${gpCount} [G]`;
-    ink(0, 200, 200).write(gpIndicator, { x: gpStatusX, y: hudStartY + 20 }, undefined, undefined, false, hudFont);
+    ink(0, 200, 200).write(gpIndicator, { x: 6, y: hudStartY + 40 }, undefined, undefined, false, hudFont);
   }
   
-  // === TOP RIGHT: Player list (compact) ===
+  // === TOP RIGHT: MINIMAP ===
   const playerCount = Object.keys(others).length;
   const rightMargin = 6;
-  let rightY = 4;
   
-  // Player count
-  const countText = `${playerCount + 1}P`;
-  ink(255, 255, 0).write(countText, { x: screen.width - rightMargin - countText.length * 4, y: rightY }, undefined, undefined, false, hudFont);
-  rightY += 10;
+  // Minimap settings
+  const mapSize = 60;  // 60x60 pixel minimap
+  const mapX = screen.width - mapSize - rightMargin;
+  const mapY = 4;
+  const mapScale = mapSize / 6;  // Arena is 6 units (-3 to +3)
+  const mapCenterX = mapX + mapSize / 2;
+  const mapCenterY = mapY + mapSize / 2;
   
-  // Your position (compact) - now with Y
-  const selfPosText = `YOU ${self.pos.x.toFixed(0)},${self.pos.y.toFixed(1)},${self.pos.z.toFixed(0)}`;
-  ink(100, 255, 100).write(selfPosText, { x: screen.width - rightMargin - selfPosText.length * 4, y: rightY }, undefined, undefined, false, hudFont);
-  rightY += 10;
+  // Minimap background (semi-transparent)
+  ink(0, 0, 0, 180).box(mapX, mapY, mapSize, mapSize);
+  ink(40, 40, 40).box(mapX, mapY, mapSize, mapSize, "outline");
   
-  // Other players (compact) - use their assigned color, show Y and pitch
+  // Arena boundary outline (the ground plane is -3 to +3)
+  ink(60, 60, 60).box(mapX + 2, mapY + 2, mapSize - 4, mapSize - 4, "outline");
+  
+  // Helper to convert world coords to minimap coords
+  const worldToMap = (wx, wz) => ({
+    mx: mapCenterX + wx * mapScale,
+    my: mapCenterY - wz * mapScale  // Flip Z for top-down view (north = up)
+  });
+  
+  // Draw self (green triangle pointing in look direction)
+  const selfMap = worldToMap(self.pos.x, self.pos.z);
+  const selfAngle = (self.rot?.y || 0) * Math.PI / 180;
+  const triSize = 4;
+  // Triangle pointing in direction of rotation
+  const tipX = selfMap.mx + Math.sin(selfAngle) * triSize;
+  const tipY = selfMap.my - Math.cos(selfAngle) * triSize;
+  const baseAngle1 = selfAngle + 2.5;  // ~140 degrees back
+  const baseAngle2 = selfAngle - 2.5;
+  ink(0, 255, 0).line(tipX, tipY, selfMap.mx + Math.sin(baseAngle1) * triSize * 0.6, selfMap.my - Math.cos(baseAngle1) * triSize * 0.6);
+  ink(0, 255, 0).line(tipX, tipY, selfMap.mx + Math.sin(baseAngle2) * triSize * 0.6, selfMap.my - Math.cos(baseAngle2) * triSize * 0.6);
+  ink(0, 255, 0).box(selfMap.mx - 1, selfMap.my - 1, 2, 2);  // Center dot
+  
+  // Draw other players (colored dots)
   for (const [id, other] of Object.entries(others)) {
-    const name = (other.handle || id.slice(0, 4)).slice(0, 6);
-    const pitch = other.rot?.x?.toFixed(0) || "?";
-    const otherText = `${name} Y${other.pos.y.toFixed(1)} P${pitch}`;
-    // Get color from playerBoxes if available
+    const pMap = worldToMap(other.pos.x, other.pos.z);
     const pColor = playerBoxes[id]?.color;
     if (pColor) {
-      ink(pColor[0] * 255, pColor[1] * 255, pColor[2] * 255).write(otherText, { x: screen.width - rightMargin - otherText.length * 4, y: rightY }, undefined, undefined, false, hudFont);
+      ink(pColor[0] * 255, pColor[1] * 255, pColor[2] * 255).box(pMap.mx - 2, pMap.my - 2, 4, 4);
     } else {
-      ink(255, 150, 50).write(otherText, { x: screen.width - rightMargin - otherText.length * 4, y: rightY }, undefined, undefined, false, hudFont);
+      ink(255, 150, 50).box(pMap.mx - 2, pMap.my - 2, 4, 4);
     }
-    rightY += 10;
   }
   
-  // 🤖 Bot status in player list
-  if (bot.enabled) {
-    const botStateText = bot.state === "dead" ? "DEAD" : bot.state.toUpperCase();
-    const botHealthText = bot.state !== "dead" ? ` HP${bot.health}` : "";
-    const botText = `🤖BOT ${botStateText}${botHealthText}`;
-    const botColor = bot.state === "dead" ? [128, 128, 128] : 
-                     bot.state === "chase" ? [255, 100, 50] : [255, 150, 50];
-    ink(...botColor).write(botText, { x: screen.width - rightMargin - botText.length * 4, y: rightY }, undefined, undefined, false, hudFont);
-    rightY += 10;
+  // Draw bot (orange/yellow pulsing dot)
+  if (bot.enabled && bot.state !== "dead") {
+    const botMap = worldToMap(bot.pos.x, bot.pos.z);
+    const pulse = Math.sin(Date.now() / 200) * 0.3 + 0.7;  // Pulsing effect
+    ink(255 * pulse, 165 * pulse, 0).box(botMap.mx - 2, botMap.my - 2, 4, 4);
+    // Show bot facing direction
+    const botAngle = bot.rot.y * Math.PI / 180;
+    const botDirX = botMap.mx + Math.sin(botAngle) * 5;
+    const botDirY = botMap.my - Math.cos(botAngle) * 5;
+    ink(255, 165, 0, 150).line(botMap.mx, botMap.my, botDirX, botDirY);
   }
   
-  // === BOTTOM LEFT: Health bar (slim) ===
-  const healthBarX = 6;
-  const healthBarY = screen.height - 16;
-  const healthBarWidth = 80;
+  // Player count below minimap
+  const countText = `${playerCount + 1}P`;
+  ink(255, 255, 0).write(countText, { x: mapX + mapSize - countText.length * 4, y: mapY + mapSize + 2 }, undefined, undefined, false, hudFont);
+  
+  // === TOP CENTER: Health bar ===
+  const healthBarWidth = 100;
   const healthBarHeight = 10;
+  const healthBarX = centerX - healthBarWidth / 2;
+  const healthBarY = 4;  // Top of screen
   const healthPercent = self.health / 100;
   
   // Background
-  ink(30, 30, 30).box(healthBarX, healthBarY, healthBarWidth, healthBarHeight);
+  ink(30, 30, 30, 200).box(healthBarX, healthBarY, healthBarWidth, healthBarHeight);
   
   // Fill color based on health
   const healthColor = healthPercent > 0.5 ? [0, 220, 0] : healthPercent > 0.25 ? [220, 220, 0] : [220, 0, 0];
   ink(...healthColor).box(healthBarX + 1, healthBarY + 1, (healthBarWidth - 2) * healthPercent, healthBarHeight - 2);
   
-  // HP text to the right of bar
-  ink(255, 255, 255).write(`${Math.ceil(self.health)}`, { x: healthBarX + healthBarWidth + 4, y: healthBarY + 1 }, undefined, undefined, false, hudFont);
+  // HP text centered below bar
+  const hpText = `HP ${Math.ceil(self.health)}`;
+  ink(255, 255, 255).write(hpText, { x: centerX - hpText.length * 2, y: healthBarY + healthBarHeight + 2 }, undefined, undefined, false, hudFont);
   
   // === BOTTOM RIGHT: K/D ===
   const kdText = `K${self.kills} D${self.deaths}`;
@@ -1445,6 +1634,7 @@ function paint({ wipe, ink, painting, screen, line: drawLine, box: drawBox, clea
       { color: "gray", text: "V: Wireframe" },
       { color: "gray", text: "P: Panel" },
       { color: "gray", text: "G: Gamepad" },
+      { color: "gray", text: "Q: QR Code" },
       { color: "gray", text: "L: Log Debug" },
     ];
 
@@ -1479,10 +1669,12 @@ function paint({ wipe, ink, painting, screen, line: drawLine, box: drawBox, clea
     });
   }
   
-  // === GAMEPAD DEBUG PANEL (toggle with 'G' key) ===
+  // === GAMEPAD/KEYBOARD CONTROLS PANEL - VERY BOTTOM LEFT (toggle with 'G' key) ===
   if (showGamepadPanel) {
     const gpPanelX = 6;
-    const gpPanelY = 58; // Below game state info + debug text
+    const kbPanelHeight = 38;  // Compact height for new layout
+    const kbPanelWidth = 75;   // Compact width
+    const gpPanelY = screen.height - kbPanelHeight - 4; // Very bottom, small margin
     const gpCharWidth = 4;
     const gpLineHeight = 9;
     const gpPadding = 4;
@@ -1491,16 +1683,13 @@ function paint({ wipe, ink, painting, screen, line: drawLine, box: drawBox, clea
     
     if (gpIndices.length === 0) {
       // No gamepad - show keyboard controls instead
-      const kbPanelWidth = 130;
-      const kbPanelHeight = 55;
       ink(0, 0, 0, 180).box(gpPanelX, gpPanelY, kbPanelWidth, kbPanelHeight);
       ink(0, 200, 200, 255)
         .line(gpPanelX, gpPanelY, gpPanelX + kbPanelWidth, gpPanelY)
         .line(gpPanelX + kbPanelWidth, gpPanelY, gpPanelX + kbPanelWidth, gpPanelY + kbPanelHeight)
         .line(gpPanelX + kbPanelWidth, gpPanelY + kbPanelHeight, gpPanelX, gpPanelY + kbPanelHeight)
         .line(gpPanelX, gpPanelY + kbPanelHeight, gpPanelX, gpPanelY);
-      ink("cyan").write("⌨️ KEYBOARD", { x: gpPanelX + gpPadding, y: gpPanelY + gpPadding }, undefined, undefined, false, hudFont);
-      drawKeyboardControls(ink, gpPanelX + gpPadding, gpPanelY + gpPadding + 12, pressedKeys);
+      drawKeyboardControls(ink, gpPanelX + gpPadding, gpPanelY + gpPadding, pressedKeys);
     } else {
       // Draw gamepad info for each connected controller
       gpIndices.forEach((gpIndex, slotNum) => {
@@ -1625,33 +1814,10 @@ function paint({ wipe, ink, painting, screen, line: drawLine, box: drawBox, clea
     }
   }
   
-  // === NETWORK STATUS OVERLAY (always visible, bottom-left above health) ===
-  const netY = screen.height - 70;
-  const netX = 6;
-  const netNow = Date.now();
+  // Network status is now in top left - this section removed
   
-  // UDP status
-  const udpStatus = udpChannel?.connected ? "UDP:ON" : "UDP:OFF";
-  const udpAge = lastUdpReceiveTime ? Math.floor((netNow - lastUdpReceiveTime) / 1000) : "?";
-  const udpColor = udpChannel?.connected ? (udpAge < 5 ? [0, 255, 0] : [255, 255, 0]) : [255, 0, 0];
-  ink(...udpColor).write(`${udpStatus} (${udpMessageCount}msg ${udpAge}s)`, { x: netX, y: netY }, undefined, undefined, false, hudFont);
-  
-  // WebSocket status  
-  const wsStatus = wsConnected ? "WS:ON" : "WS:OFF";
-  const wsAge = lastWsReceiveTime ? Math.floor((netNow - lastWsReceiveTime) / 1000) : "?";
-  const wsColor = wsConnected ? (wsAge < 10 ? [0, 255, 0] : [255, 255, 0]) : [255, 0, 0];
-  ink(...wsColor).write(`${wsStatus} (${wsMessageCount}msg ${wsAge}s)`, { x: netX, y: netY + 10 }, undefined, undefined, false, hudFont);
-  
-  // Spectator mode indicator
-  if (isSpectator) {
-    ink(255, 165, 0).write("SPECTATOR MODE", { x: netX, y: netY + 20 }, undefined, undefined, false, hudFont);
-    ink(200, 200, 200).write(spectatorReason || "", { x: netX, y: netY + 30 }, undefined, undefined, false, hudFont);
-  }
-  
-  // Identity
-  const selfIdStr = typeof self.id === "string" ? self.id.slice(0, 6) : "...";
-  const idText = `ID: ${self.handle} (${selfIdStr})`;
-  ink(150, 150, 255).write(idText, { x: netX, y: netY + (isSpectator ? 40 : 20) }, undefined, undefined, false, hudFont);
+  // 📱 Draw join QR code in bottom-right corner
+  drawJoinQR({ ink, box: drawBox, write: (text, opts, ...rest) => ink(255).write(text, opts, ...rest), screen });
   
   // Note: Crosshair is now rendered via DOM element in bios.mjs when pointer lock is enabled
 }
@@ -1688,6 +1854,12 @@ function act({ event: e, penLock, setShowClippedWireframes }) {
   if (e.is("keyboard:down:g")) {
     showGamepadPanel = !showGamepadPanel;
     console.log(`🎮 Gamepad panel: ${showGamepadPanel ? "ON" : "OFF"}`);
+  }
+  
+  // Toggle join QR code with 'Q' key
+  if (e.is("keyboard:down:q")) {
+    showJoinQR = !showJoinQR;
+    console.log(`📱 Join QR: ${showJoinQR ? "ON" : "OFF"}`);
   }
   
   // Log scene debug info with 'L' key

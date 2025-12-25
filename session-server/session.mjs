@@ -197,6 +197,19 @@ if (dev) loadDeviceNames();
 import os from "os";
 const DEV_HOST_NAME = os.hostname();
 const DEV_LAN_IP = (() => {
+  // First, try to read from /tmp/host-lan-ip (written by entry.fish in devcontainer)
+  try {
+    const hostIpFile = '/tmp/host-lan-ip';
+    if (fs.existsSync(hostIpFile)) {
+      const ip = fs.readFileSync(hostIpFile, 'utf-8').trim();
+      if (ip && ip.match(/^\d+\.\d+\.\d+\.\d+$/)) {
+        console.log(`🖥️ Using host LAN IP from ${hostIpFile}: ${ip}`);
+        return ip;
+      }
+    }
+  } catch (e) { /* ignore */ }
+  
+  // Fallback: try to detect from network interfaces
   const interfaces = os.networkInterfaces();
   for (const name of Object.keys(interfaces)) {
     for (const iface of interfaces[name]) {
@@ -207,7 +220,7 @@ const DEV_LAN_IP = (() => {
   }
   return null;
 })();
-log(`🖥️ Dev host: ${DEV_HOST_NAME}, LAN IP: ${DEV_LAN_IP || 'N/A'}`);
+console.log(`🖥️ Dev host: ${DEV_HOST_NAME}, LAN IP: ${DEV_LAN_IP || 'N/A'}`);
 
 // Helper: Assign device letters (A, B, C...) based on connection order
 function getDeviceLetter(connectionId) {
@@ -411,7 +424,10 @@ if (dev) {
   });
   
   // GET /dev-info - Get dev host info for client overlay
-  fastify.get("/dev-info", async () => {
+  fastify.get("/dev-info", async (req, reply) => {
+    // Add CORS headers for cross-origin requests from main site
+    reply.header("Access-Control-Allow-Origin", "*");
+    reply.header("Access-Control-Allow-Methods", "GET");
     return {
       host: DEV_HOST_NAME,
       ip: DEV_LAN_IP,
@@ -543,8 +559,12 @@ const prodIceServers = [
   { urls: 'stun:stun.l.google.com:19302' },
   // TODO: Add production TURN server
 ];
+
 const io = geckos({
   iceServers: dev ? devIceServers : prodIceServers,
+  // Force relay-only mode in dev to work through container networking
+  // Direct UDP won't work from host browser to container internal IP
+  iceTransportPolicy: dev ? 'relay' : 'all',
   portRange: {
     min: 10000,
     max: 10007,
