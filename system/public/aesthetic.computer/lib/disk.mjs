@@ -6996,24 +6996,41 @@ async function load(
     // jamstack
 
     session(slug, forceProd, monolith)
-      .then((sesh) => {
+      .then(async (sesh) => {
         if (typeof sesh === "string") throw new Error(sesh); // Cancel if error.
         const url = new URL(sesh.url); // Parse the url.
         const udpUrl = new URL(sesh.udp); // Parse the udp url.
 
         // console.log("Session URL:", url);
 
+        // 🩰 Fetch dev-info to get TURN host (for local dev with Docker)
+        let turnHost = null;
+        try {
+          const devInfoRes = await fetch(`${sesh.url}/dev-info`);
+          if (devInfoRes.ok) {
+            const devInfo = await devInfoRes.json();
+            if (devInfo.ip) {
+              turnHost = devInfo.ip;
+              log.socket.debug("Got TURN host from dev-info:", turnHost);
+            }
+          }
+        } catch (e) {
+          log.socket.debug("Could not fetch dev-info for TURN host:", e.message);
+        }
+
         // 🩰 UDP... (via `bios`)
         // Use the protocol from the session response (http for localhost, https for prod)
         log.socket.debug("Sending udp:connect to BIOS:", {
           url: `${udpUrl.protocol}//${udpUrl.hostname}`,
           port: udpUrl.port || (udpUrl.protocol === 'https:' ? '443' : '80'),
+          turnHost,
         });
         send({
           type: "udp:connect",
           content: {
             url: `${udpUrl.protocol}//${udpUrl.hostname}`,
             port: udpUrl.port || (udpUrl.protocol === 'https:' ? '443' : '80'),
+            turnHost, // Pass TURN host separately for ICE servers
           },
         });
 

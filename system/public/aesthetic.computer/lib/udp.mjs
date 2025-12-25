@@ -20,13 +20,13 @@ let connected = false;
 let reconnect;
 let dontreconnect = false;
 
-function connect(port = 8889, url = undefined, send) {
+function connect(port = 8889, url = undefined, send, explicitTurnHost = null) {
   if (connected) {
     if (logs.udp) console.log("🩰 Connection already exists:", channel);
     return;
   }
 
-  if (logs.udp) console.log("🩰 Connecting to UDP:", url, "on:", port);
+  if (logs.udp) console.log("🩰 Connecting to UDP:", url, "on:", port, "turnHost:", explicitTurnHost);
 
   dontreconnect = false;
 
@@ -36,18 +36,26 @@ function connect(port = 8889, url = undefined, send) {
   // Detect if we're in local dev (localhost or LAN IP)
   const isLocalDev = url?.includes('localhost') || url?.includes('192.168.') || url?.includes('127.0.0.1');
   
-  // Get the hostname from URL for TURN server (use same host as session server)
-  const turnHost = url ? new URL(url).hostname : 'localhost';
+  // Get the hostname for TURN server:
+  // 1. Use explicitly passed turnHost (from /dev-info, contains host's LAN IP)
+  // 2. Fallback to session server hostname
+  const turnHost = explicitTurnHost || (url ? new URL(url).hostname : 'localhost');
   
   try {
-    if (logs.udp) console.log("🩰 Creating Geckos channel with:", { url, port: portNum, isLocalDev, turnHost });
+    if (logs.udp) console.log("🩰 Creating Geckos channel with:", { url, port: portNum, isLocalDev, turnHost, explicitTurnHost });
     // For local dev, use local TURN server for relay (required in Docker/devcontainer)
     // TURN server relays traffic when direct P2P isn't possible
-    // Use the same hostname as the session server for TURN
+    // Use turnHost which should be the host's LAN IP in devcontainer setup
+    // Include both UDP and TCP TURN for better connectivity in constrained environments
     const localIceServers = [
       { urls: `stun:${turnHost}:3478` },
       { 
         urls: `turn:${turnHost}:3478`,
+        username: 'aesthetic',
+        credential: 'computer123'
+      },
+      { 
+        urls: `turn:${turnHost}:3478?transport=tcp`,
         username: 'aesthetic',
         credential: 'computer123'
       },
@@ -62,6 +70,7 @@ function connect(port = 8889, url = undefined, send) {
     });
     if (logs.udp) console.log("🩰 Geckos channel created:", channel);
     if (logs.udp) console.log("🩰 Channel URL will be:", `${url}:${portNum}`);
+    if (logs.udp && isLocalDev) console.log("🩰 TURN server:", `turn:${turnHost}:3478`);
   } catch (e) {
     console.error("🩰 Failed to create Geckos channel:", e);
     return;
@@ -75,7 +84,7 @@ function connect(port = 8889, url = undefined, send) {
 
   reconnect = () => {
     reconnectingTimeout = setTimeout(() => {
-      connect(port, url, send);
+      connect(port, url, send, explicitTurnHost);
     }, reconnectTime);
     reconnectTime = Math.min(reconnectTime * 2, MAX_RECONNECT_TIME);
   };
