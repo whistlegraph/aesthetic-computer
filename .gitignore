@@ -267,6 +267,9 @@ kidlisp-playdate/build/
 kidlisp-playdate/KidLisp.pdx/
 kidlisp-playdate/sdk/
 
+# Root build directory (Playdate builds)
+/build/
+
 # Secret directories
 secret/
 secrets/
