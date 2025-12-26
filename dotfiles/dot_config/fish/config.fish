@@ -85,6 +85,8 @@ function vidinfo
 end
 
 function acd
+    set -l workspace ~/aesthetic-computer
+    
     ac
     
     set containers (docker ps -q)
@@ -92,19 +94,29 @@ function acd
         docker stop $containers >/dev/null 2>&1
     end
     
-    set container_id (pwd | tr -d '\n' | xxd -c 256 -p)
-    set workspace_name (basename (pwd))
-    
     # Kill any existing socat forwarder for CDP
     pkill -f "socat.*9224" 2>/dev/null
     sleep 0.5
     
-    # Forward CDP port from localhost:9222 (VS Code) to 0.0.0.0:9224 so container can reach it
-    socat TCP-LISTEN:9224,bind=0.0.0.0,fork,reuseaddr TCP:127.0.0.1:9222 &
-    
-    # Launch VS Code with Chrome DevTools Protocol enabled
-    code --remote-debugging-port=9222 --remote-allow-origins="*" --folder-uri="vscode-remote://dev-container+$container_id/workspaces/$workspace_name"
-    cd -
+    # Remove old container and start devcontainer via CLI
+    echo "🧹 Removing old container..."
+    docker rm -f aesthetic 2>/dev/null
+
+    echo "🚀 Starting devcontainer..."
+    cd $workspace
+    devcontainer up --workspace-folder .
+
+    if test $status -eq 0
+        echo "✅ Container ready!"
+        echo "🔗 Opening VS Code attached to container..."
+        
+        # attached-container needs hex-encoded JSON config, not just container name
+        set -l hex_config (printf '{"containerName":"/aesthetic"}' | xxd -p | tr -d '\n')
+        code --folder-uri "vscode-remote://attached-container+$hex_config/workspaces/aesthetic-computer" --remote-debugging-port=9222 --remote-allow-origins="*"
+    else
+        echo "❌ Failed to start container"
+        return 1
+    end
 end
 
 function ac-event-daemon
@@ -121,319 +133,83 @@ function ac-event-daemon
 end
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 🎰 AESTHETIC COMPUTER - VEGAS MODE LAUNCHER 🎰
+# 🩸 AESTHETIC COMPUTER - Start Script
 # ═══════════════════════════════════════════════════════════════════════════════
 
-# Color setup using fish's set_color (works great in foot)
+# AC color palette (matches prompt.mjs dark/light scheme + artery-tui)
 function __ac_colors
     set -g RST (set_color normal)
     set -g BOLD (set_color --bold)
     set -g DIM (set_color --dim)
-    # Foreground
-    set -g FG_PINK (set_color f7a)
-    set -g FG_PURPLE (set_color b9f)
-    set -g FG_CYAN (set_color 8ef)
-    set -g FG_GREEN (set_color 5fa)
-    set -g FG_YELLOW (set_color ff5)
-    set -g FG_ORANGE (set_color fa5)
-    set -g FG_RED (set_color f55)
-    set -g FG_WHITE (set_color fff)
-    set -g FG_GRAY (set_color 678)
-    set -g FG_MAGENTA (set_color f9d)
-    set -g FG_BLACK (set_color 000)
-    # Background (using printf escape for true color bg)
-    set -g BG_PINK (printf '\e[48;2;255;121;198m')
-    set -g BG_PURPLE (printf '\e[48;2;189;147;249m')
-    set -g BG_CYAN (printf '\e[48;2;139;233;253m')
-    set -g BG_GREEN (printf '\e[48;2;80;250;123m')
-    set -g BG_YELLOW (printf '\e[48;2;241;250;140m')
-    set -g BG_ORANGE (printf '\e[48;2;255;184;108m')
-    set -g BG_RED (printf '\e[48;2;255;85;85m')
-    set -g BG_MAGENTA (printf '\e[48;2;255;146;223m')
-    set -g BG_BLACK (printf '\e[48;2;30;30;46m')
-    set -g BG_RST (printf '\e[49m')
+    # Dark mode palette (from prompt.mjs scheme.dark)
+    set -g AC_MAGENTA (set_color --bold c81e64)  # [200, 30, 100] - prompt/block color
+    set -g AC_PURPLE (set_color 6432c8)           # purple accent
+    set -g AC_BLUE (set_color 387ade)             # [56, 122, 223] - light mode block
+    # Standard terminal colors
+    set -g FG_RED (set_color red)
+    set -g FG_GREEN (set_color green)
+    set -g FG_YELLOW (set_color yellow)
+    set -g FG_CYAN (set_color cyan)
+    set -g FG_WHITE (set_color white)
+    set -g FG_GRAY (set_color brblack)
 end
 
-# Get terminal size (portable)
-function __ac_size
-    set -g ROWS (tput lines 2>/dev/null; or echo 24)
-    set -g COLS (tput cols 2>/dev/null; or echo 80)
-end
-
-# Clear and reset
-function __ac_clear
-    printf '\e[2J\e[H'
-end
-
-# Move cursor
-function __ac_move
-    printf '\e[%d;%dH' $argv[1] $argv[2]
-end
-
-# Fill screen with bg color and multi-line centered block text
-function __ac_flash_frame
-    set -l bg $argv[1]
-    __ac_size
-    __ac_clear
-    
-    # Fill with background
-    printf '%s' "$bg"
-    for i in (seq 1 $ROWS)
-        printf '%*s' $COLS '' 
-        test $i -lt $ROWS; and printf '\n'
-    end
-    printf '%s\e[49m' "$RST"
-end
-
-# Display big block text centered on screen
-function __ac_big_text
-    set -l bg $argv[1]
-    set -l fg $argv[2]
-    set -l lines $argv[3..-1]
-    
-    __ac_size
-    __ac_clear
-    
-    # Fill bg
-    printf '%s' "$bg"
-    for i in (seq 1 $ROWS)
-        printf '%*s' $COLS ''
-        test $i -lt $ROWS; and printf '\n'
-    end
-    
-    # Calculate starting row to center the block
-    set -l num_lines (count $lines)
-    set -l start_row (math "floor(($ROWS - $num_lines) / 2)")
-    
-    # Print each line centered
-    for i in (seq 1 $num_lines)
-        set -l line $lines[$i]
-        set -l line_len (string length -- "$line")
-        set -l start_col (math "floor(($COLS - $line_len) / 2) + 1")
-        __ac_move (math "$start_row + $i") $start_col
-        printf '%s%s%s' "$fg" "$line" "$RST"
-    end
-    
-    printf '\e[49m'
-end
-
-# 🎰 VEGAS STROBE INTRO with BIG TEXT
-function __ac_vegas_intro
-    __ac_colors
-    __ac_size
-    
-    # Big block text for "aesthetic.computer"
-    set -l ac1 '                    █████╗  ██████╗'
-    set -l ac2 '                   ██╔══██╗██╔════╝'
-    set -l ac3 '         ▄█████▄   ███████║██║     '
-    set -l ac4 '         ▀▀▀▀▀▀▀   ██╔══██║██║     '
-    set -l ac5 '                   ██║  ██║╚██████╗'
-    set -l ac6 '                   ╚═╝  ╚═╝ ╚═════╝'
-    set -l ac7 '    a e s t h e t i c . c o m p u t e r'
-    
-    # Strobe with big text - 6 flashes
-    for i in (seq 1 6)
-        switch (math "$i % 3")
-            case 0
-                __ac_big_text "$BG_PINK" "$FG_BLACK$BOLD" $ac1 $ac2 $ac3 $ac4 $ac5 $ac6 "" $ac7
-            case 1
-                __ac_big_text "$BG_PURPLE" "$FG_WHITE$BOLD" $ac1 $ac2 $ac3 $ac4 $ac5 $ac6 "" $ac7
-            case 2
-                __ac_big_text "$BG_CYAN" "$FG_BLACK$BOLD" $ac1 $ac2 $ac3 $ac4 $ac5 $ac6 "" $ac7
-        end
-        sleep 0.1
-    end
-    
-    # Dramatic pause
-    __ac_flash_frame "$BG_BLACK"
-    sleep 0.2
-end
-
-# ASCII logo with gradient
-function __ac_show_logo
-    __ac_colors
-    __ac_size
-    __ac_clear
-    printf '%s' "$BG_BLACK"
-    
-    # Fill bg
-    for i in (seq 1 $ROWS)
-        printf '%*s\n' $COLS ''
-    end
-    
-    set -l logo \
-        '   █████╗ ███████╗███████╗████████╗██╗  ██╗███████╗████████╗██╗ ██████╗' \
-        '  ██╔══██╗██╔════╝██╔════╝╚══██╔══╝██║  ██║██╔════╝╚══██╔══╝██║██╔════╝' \
-        '  ███████║█████╗  ███████╗   ██║   ███████║█████╗     ██║   ██║██║     ' \
-        '  ██╔══██║██╔══╝  ╚════██║   ██║   ██╔══██║██╔══╝     ██║   ██║██║     ' \
-        '  ██║  ██║███████╗███████║   ██║   ██║  ██║███████╗   ██║   ██║╚██████╗' \
-        '  ╚═╝  ╚═╝╚══════╝╚══════╝   ╚═╝   ╚═╝  ╚═╝╚══════╝   ╚═╝   ╚═╝ ╚═════╝'
-    
-    set -l colors $FG_PINK $FG_PINK $FG_MAGENTA $FG_PURPLE $FG_CYAN $FG_CYAN
-    set -l start_row (math "floor($ROWS / 2) - 4")
-    set -l logo_width 72
-    set -l start_col (math "floor(($COLS - $logo_width) / 2) + 1")
-    
-    for i in (seq 1 6)
-        __ac_move (math "$start_row + $i") $start_col
-        printf '%s%s%s' "$colors[$i]" "$logo[$i]" "$RST"
-        sleep 0.04
-    end
-    
-    printf '\e[49m'
-end
-
-# System info panel
-function __ac_show_info
-    __ac_colors
-    __ac_size
-    
-    set -l node_ver (node --version 2>/dev/null; or echo "N/A")
-    set -l docker_ok (docker info >/dev/null 2>&1; and echo "$FG_GREEN●"; or echo "$FG_RED●")
-    set -l branch (git -C ~/aesthetic-computer branch --show-current 2>/dev/null; or echo "N/A")
-    set -l mem (free -h 2>/dev/null | awk '/^Mem:/ {print $3"/"$2}'; or echo "N/A")
-    
-    set -l info_row (math "floor($ROWS / 2) + 4")
-    set -l info_col (math "floor($COLS / 2) - 20")
-    
-    __ac_move $info_row $info_col
-    printf '%s┌────────────────────────────────────────┐%s' "$FG_GRAY" "$RST"
-    
-    __ac_move (math "$info_row + 1") $info_col
-    printf '%s│%s %s▌%s OS      %s%-26s %s│%s' "$FG_GRAY" "$RST" "$FG_PINK" "$RST" "$FG_WHITE" (uname -o) "$FG_GRAY" "$RST"
-    
-    __ac_move (math "$info_row + 2") $info_col
-    printf '%s│%s %s▌%s Node    %s%-26s %s│%s' "$FG_GRAY" "$RST" "$FG_PURPLE" "$RST" "$FG_WHITE" "$node_ver" "$FG_GRAY" "$RST"
-    
-    __ac_move (math "$info_row + 3") $info_col
-    printf '%s│%s %s▌%s Docker  %s %-25s %s│%s' "$FG_GRAY" "$RST" "$FG_CYAN" "$RST" "$docker_ok" "running" "$FG_GRAY" "$RST"
-    
-    __ac_move (math "$info_row + 4") $info_col
-    printf '%s│%s %s▌%s Branch  %s%-26s %s│%s' "$FG_GRAY" "$RST" "$FG_GREEN" "$RST" "$FG_GREEN" "$branch" "$FG_GRAY" "$RST"
-    
-    __ac_move (math "$info_row + 5") $info_col
-    printf '%s│%s %s▌%s Memory  %s%-26s %s│%s' "$FG_GRAY" "$RST" "$FG_YELLOW" "$RST" "$FG_WHITE" "$mem" "$FG_GRAY" "$RST"
-    
-    __ac_move (math "$info_row + 6") $info_col
-    printf '%s└────────────────────────────────────────┘%s' "$FG_GRAY" "$RST"
-end
-
-# Full-screen status flash with BIG TEXT
-function __ac_status
+# Log a step with AC styling (concatenative, artery-tui inspired)
+function __ac_log
     set -l icon $argv[1]
     set -l msg $argv[2]
-    set -l bg $argv[3]
-    
-    __ac_colors
-    __ac_size
-    
-    # Build big decorative frame around message
-    set -l border_top    '╔══════════════════════════════════════════════════════════╗'
-    set -l border_mid    '║                                                          ║'
-    set -l border_bot    '╚══════════════════════════════════════════════════════════╝'
-    set -l msg_line      "║            $icon   $msg   $icon            ║"
-    
-    # Flash twice
-    for i in (seq 1 2)
-        __ac_big_text "$bg" "$FG_WHITE$BOLD" "" $border_top $border_mid "$msg_line" $border_mid $border_bot ""
-        sleep 0.12
-        __ac_flash_frame "$BG_BLACK"
-        sleep 0.06
-    end
-    
-    # Hold
-    __ac_big_text "$bg" "$FG_WHITE$BOLD" "" $border_top $border_mid "$msg_line" $border_mid $border_bot ""
-    sleep 0.4
+    set -l color $argv[3]
+    test -z "$color"; and set color "$AC_MAGENTA"
+    printf "%s▌%s %s%s%s\n" "$color" "$RST" "$icon" " " "$msg"
 end
 
-# Sparkle celebration with BIG finale
-function __ac_celebrate
+function __ac_ok
+    __ac_log "✓" "$argv[1]" "$FG_GREEN"
+end
+
+function __ac_err
+    __ac_log "✗" "$argv[1]" "$FG_RED"
+end
+
+function __ac_info
+    __ac_log "›" "$argv[1]" "$AC_MAGENTA"
+end
+
+function __ac_warn
+    __ac_log "!" "$argv[1]" "$FG_YELLOW"
+end
+
+# Print the AC banner
+function __ac_banner
     __ac_colors
-    __ac_size
-    
-    set -l sparkles ✦ ✧ ★ ☆ ✶ ✷ ❋ ❊
-    set -l colors $FG_PINK $FG_MAGENTA $FG_PURPLE $FG_CYAN $FG_GREEN $FG_YELLOW
-    
-    # Big finale text
-    set -l fin1 '═══════════════════════════════════════════════════════════'
-    set -l fin2 '   ✨  a e s t h e t i c . c o m p u t e r  ✨'
-    set -l fin3 '═══════════════════════════════════════════════════════════'
-    set -l fin4 ''
-    set -l fin5 '              🚀  H A V E   F U N   C R E A T I N G !  🚀'
-    
-    for frame in (seq 1 6)
-        __ac_flash_frame "$BG_BLACK"
-        
-        # Random sparkles overlay
-        for s in (seq 1 25)
-            set -l r (random 1 $ROWS)
-            set -l c (random 1 $COLS)
-            set -l sp $sparkles[(random 1 8)]
-            set -l clr $colors[(random 1 6)]
-            __ac_move $r $c
-            printf '%s%s%s' "$clr" "$sp" "$RST"
-        end
-        
-        # Center message block
-        set -l mid (math "floor($ROWS / 2)")
-        set -l col (math "floor(($COLS - 59) / 2)")
-        
-        __ac_move (math "$mid - 2") $col
-        printf '%s%s%s' "$FG_GRAY" "$fin1" "$RST"
-        __ac_move (math "$mid - 1") $col
-        printf '%s%s%s' "$FG_PINK$BOLD" "$fin2" "$RST"
-        __ac_move $mid $col
-        printf '%s%s%s' "$FG_GRAY" "$fin3" "$RST"
-        __ac_move (math "$mid + 2") (math "floor(($COLS - 55) / 2)")
-        printf '%s%s%s' "$FG_CYAN$BOLD" "$fin5" "$RST"
-        
-        sleep 0.12
-    end
-    
-    # Final clean frame
-    __ac_flash_frame "$BG_BLACK"
-    
-    set -l mid (math "floor($ROWS / 2)")
-    set -l col (math "floor(($COLS - 59) / 2)")
-    
-    __ac_move (math "$mid - 2") $col
-    printf '%s%s%s' "$FG_GRAY" "$fin1" "$RST"
-    __ac_move (math "$mid - 1") $col
-    printf '%s%s%s' "$FG_PINK$BOLD" "$fin2" "$RST"
-    __ac_move $mid $col
-    printf '%s%s%s' "$FG_GRAY" "$fin3" "$RST"
-    __ac_move (math "$mid + 2") (math "floor(($COLS - 55) / 2)")
-    printf '%s%s%s' "$FG_CYAN$BOLD" "$fin5" "$RST"
-    __ac_move (math "$mid + 5") (math "floor(($COLS - 45) / 2)")
-    printf '%sCtrl+C to stop  •  reload to refresh config%s' "$FG_GRAY" "$RST"
-    
-    __ac_move $ROWS 1
-    printf '\e[49m\n'
+    echo
+    printf "%s" "$AC_MAGENTA"
+    echo '  ╔═══════════════════════════════════════════════════════════╗'
+    echo '  ║                                                           ║'
+    printf "  ║  %s█▀█ █▀▀ █▀ ▀█▀ █ █ █▀▀ ▀█▀ █ █▀▀   █▀▀ █▀█ █▄▀▄█ █▀█%s  ║\n" "$FG_WHITE$BOLD" "$RST$AC_MAGENTA"
+    printf "  ║  %s█▀█ ██▄ ▄█  █  █▀█ ██▄  █  █ █▄▄ ▄ █▄▄ █▄█ █ ▀ █ █▀▀%s  ║\n" "$FG_WHITE$BOLD" "$RST$AC_MAGENTA"
+    echo '  ║                                                           ║'
+    echo '  ╚═══════════════════════════════════════════════════════════╝'
+    printf "%s\n" "$RST"
 end
 
 # 🚀 MAIN START FUNCTION
 function start
     __ac_colors
+    __ac_banner
     
-    # IMMEDIATELY kill VS Code - no mercy!
+    # Kill VS Code gracefully first, then forcefully
+    __ac_info "Stopping VS Code..."
+    pkill code 2>/dev/null
+    pkill code-insiders 2>/dev/null
+    sleep 1
+    # Force kill any remaining
     pkill -9 code 2>/dev/null
     pkill -9 code-insiders 2>/dev/null
+    sleep 1
+    __ac_ok "VS Code stopped"
     
-    # 🎰 VEGAS INTRO!
-    __ac_vegas_intro
-    
-    # Show logo
-    __ac_show_logo
-    sleep 0.3
-    
-    # System info
-    __ac_show_info
-    sleep 0.8
-    
-    # Status: VS Code killed
-    __ac_status "💀" "VS CODE TERMINATED" "$BG_RED"
-    
-    # Prompts symlink
+    # Symlink prompts
     set -l ps "$HOME/aesthetic-computer/prompts"
     set -l pt "$HOME/.config/Code/User/prompts"
     if test -d "$ps"
@@ -441,29 +217,31 @@ function start
         test -L "$pt"; and rm "$pt"
         test -d "$pt"; and rm -rf "$pt"
         ln -s "$ps" "$pt"
+        __ac_ok "Prompts linked"
     end
     
-    __ac_status "🔗" "PROMPTS LINKED" "$BG_PURPLE"
-    
     # SSL
-    __ac_status "🔐" "STARTING SSL" "$BG_CYAN"
+    __ac_info "Starting SSL..."
     ac-ssl &
+    __ac_ok "SSL started"
     
     # Dev container
-    __ac_show_logo
-    __ac_size
-    __ac_move (math "floor($ROWS / 2) + 4") (math "floor(($COLS - 30) / 2)")
-    printf '%s📦 OPENING DEV CONTAINER...%s' "$FG_YELLOW$BOLD" "$RST"
-    
+    __ac_info "Opening dev container..."
     acd
     
-    __ac_status "✅" "DEV CONTAINER READY" "$BG_GREEN"
-    
-    # 🎉 CELEBRATE!
-    __ac_celebrate
+    if test $status -eq 0
+        __ac_ok "Dev container ready"
+    else
+        __ac_err "Dev container failed"
+    end
     
     # Event daemon
+    __ac_info "Starting event daemon..."
     ac-event-daemon $argv
+    
+    echo
+    printf "%s  ✨ aesthetic.computer ready%s\n" "$AC_MAGENTA$BOLD" "$RST"
+    echo
 end
 
 alias acw 'cd ~/aesthetic-computer/system; npm run watch'

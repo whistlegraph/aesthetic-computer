@@ -38,8 +38,7 @@ RUN dnf update -y && \
       libXi libXdamage libXrandr alsa-lib gtk3 \
       xorg-x11-server-Xvfb psmisc lsof chromium \
       sbcl zeromq-devel redhat-rpm-config \
-      coturn \
-      caddy \
+            caddy \
         && dnf clean all && rm -rf /var/cache/dnf
 
 # --- FFmpeg from RPM Fusion ---------------------------------------------------
