@@ -2,6 +2,9 @@
 // 
 // POST /api/keep-update - Update token metadata on Tezos (streaming SSE)
 // Requires authentication and admin privileges (for now)
+//
+// IMPORTANT: This updates BOTH on-chain token_info AND uploads new off-chain JSON
+// The "" key must point to updated IPFS JSON for objkt.com to display correctly
 
 import { authorize, handleFor, hasAdmin } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
@@ -31,6 +34,46 @@ function stringToBytes(str) {
 // SSE format helper
 function sse(event, data) {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+}
+
+// Get Pinata credentials from database
+async function getPinataCredentials() {
+  const { db } = await connect();
+  const secrets = await db.collection("secrets").findOne({ _id: "pinata" });
+  
+  if (!secrets) {
+    throw new Error("Pinata credentials not found in database");
+  }
+  
+  return {
+    apiKey: secrets.apiKey,
+    apiSecret: secrets.apiSecret,
+  };
+}
+
+// Upload JSON metadata to IPFS via Pinata
+async function uploadJsonToIPFS(data, name) {
+  const { apiKey, apiSecret } = await getPinataCredentials();
+  
+  const response = await fetch("https://api.pinata.cloud/pinning/pinJSONToIPFS", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      pinata_api_key: apiKey,
+      pinata_secret_api_key: apiSecret,
+    },
+    body: JSON.stringify({
+      pinataContent: data,
+      pinataMetadata: { name },
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Metadata upload failed: ${response.status}`);
+  }
+
+  const result = await response.json();
+  return `ipfs://${result.IpfsHash}`;
 }
 
 async function getTezosCredentials() {
@@ -246,19 +289,56 @@ export const handler = stream(async (event) => {
           console.warn(`🪙 KEEP-UPDATE: Failed to fetch metadataUri from TzKT: ${e.message}`);
         }
       }
+
+      // ═══════════════════════════════════════════════════════════════════
+      // BUILD AND UPLOAD NEW OFF-CHAIN JSON METADATA
+      // This is CRITICAL - objkt.com reads the "" key to get the full JSON
+      // We must upload updated JSON with new artifactUri/thumbnailUri
+      // ═══════════════════════════════════════════════════════════════════
       
-      if (!metadataUri) {
-        console.warn(`🪙 KEEP-UPDATE: No metadataUri found for $${pieceName} on ${CONTRACT_ADDRESS}, objkt attribution may break`);
-      }
+      await send("progress", { stage: "ipfs", message: "Uploading updated metadata to IPFS..." });
+      
+      // Build complete off-chain metadata JSON (TZIP-21 compliant)
+      const creatorsArray = [originalMinter];
+      
+      const metadataJson = {
+        name: tokenName,
+        description: description.replace(/\n+/g, ", "),
+        artifactUri: artifactUri,
+        displayUri: artifactUri,
+        thumbnailUri: thumbnailUri || artifactUri,
+        decimals: 0,
+        symbol: "KEEP",
+        isBooleanAmount: true,
+        shouldPreferSymbol: false,
+        minter: authorHandle, // Display handle for UI (objkt shows this)
+        creators: creatorsArray, // Wallet address for on-chain attribution
+        rights: "© All rights reserved",
+        mintingTool: "https://aesthetic.computer",
+        formats: [{
+          uri: artifactUri,
+          mimeType: "text/html",
+          dimensions: { value: "responsive", unit: "viewport" },
+        }],
+        tags,
+        attributes,
+      };
+      
+      // Upload new metadata JSON to IPFS
+      const newMetadataUri = await uploadJsonToIPFS(
+        metadataJson,
+        `$${pieceName}-metadata-updated.json`
+      );
+      console.log(`🪙 KEEP-UPDATE: Uploaded new metadata JSON: ${newMetadataUri}`);
+      
+      await send("progress", { stage: "ipfs", message: `✓ Metadata uploaded: ${newMetadataUri.slice(0, 30)}...` });
 
       // Build on-chain token_info using MichelsonMap (required by Taquito)
       const tokenInfo = new MichelsonMap();
       
       // TZIP-16: Empty string key "" points to off-chain JSON metadata
-      // This is REQUIRED for objkt to properly resolve artist attribution
-      if (metadataUri) {
-        tokenInfo.set("", stringToBytes(metadataUri));
-      }
+      // Use the NEW metadata URI we just uploaded (not the old one!)
+      tokenInfo.set("", stringToBytes(newMetadataUri));
       
       tokenInfo.set("name", stringToBytes(tokenName));
       tokenInfo.set("description", stringToBytes(description.replace(/\n+/g, ", ")));
@@ -269,8 +349,8 @@ export const handler = stream(async (event) => {
       tokenInfo.set("symbol", stringToBytes("KEEP"));
       tokenInfo.set("isBooleanAmount", stringToBytes("true"));
       tokenInfo.set("shouldPreferSymbol", stringToBytes("false"));
-      // NOTE: Don't set minter field - objkt uses creators array for artist attribution
-      // Setting minter to a display handle breaks objkt's profile resolution
+      // NOTE: Don't set minter field on-chain - objkt uses creators array for artist attribution
+      // The minter field in the JSON metadata is for display purposes
       tokenInfo.set("formats", stringToBytes(JSON.stringify([{
         uri: artifactUri,
         mimeType: "text/html",
@@ -278,7 +358,7 @@ export const handler = stream(async (event) => {
       }])));
       tokenInfo.set("tags", stringToBytes(JSON.stringify(tags)));
       tokenInfo.set("attributes", stringToBytes(JSON.stringify(attributes)));
-      tokenInfo.set("creators", stringToBytes(JSON.stringify([originalMinter])));
+      tokenInfo.set("creators", stringToBytes(JSON.stringify(creatorsArray)));
       tokenInfo.set("rights", stringToBytes("© All rights reserved"));
       tokenInfo.set("content_type", stringToBytes("KidLisp"));
       tokenInfo.set("content_hash", stringToBytes(pieceName));
@@ -310,6 +390,7 @@ export const handler = stream(async (event) => {
           $set: { 
             [`tezos.contracts.${CONTRACT_ADDRESS}.artifactUri`]: artifactUri,
             [`tezos.contracts.${CONTRACT_ADDRESS}.thumbnailUri`]: thumbnailUri,
+            [`tezos.contracts.${CONTRACT_ADDRESS}.metadataUri`]: newMetadataUri,
             [`tezos.contracts.${CONTRACT_ADDRESS}.lastUpdatedAt`]: new Date(),
             [`tezos.contracts.${CONTRACT_ADDRESS}.lastUpdateTxHash`]: op.hash,
           },
@@ -329,6 +410,7 @@ export const handler = stream(async (event) => {
         opHash: op.hash,
         artifactUri,
         thumbnailUri,
+        metadataUri: newMetadataUri,
         explorerUrl,
       });
 
