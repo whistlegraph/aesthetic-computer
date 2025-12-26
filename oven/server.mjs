@@ -553,6 +553,8 @@ app.get('/', (req, res) => {
           } else {
             links.push({ label: '🎫 Keep', url: 'https://objkt.com/collection/KT1WRvHWcF6rVjNGEVrQu86cKvTCRPapSaHG' });
           }
+        } else if (g.source === 'manual') {
+          links.push({ label: '✋ Manual', url: null });
         }
         if (ipfsCid) {
           links.push({ label: '📌 IPFS', url: 'https://ipfs.aesthetic.computer/ipfs/' + ipfsCid });
@@ -949,4 +951,33 @@ wss.on('connection', async (ws) => {
   });
 });
 
+// Graceful shutdown handling
+async function shutdown(signal) {
+  console.log(`\n🛑 Received ${signal}, shutting down gracefully...`);
+  
+  // Close WebSocket connections
+  wss.clients.forEach(ws => ws.close());
+  
+  // Close HTTP server
+  server.close(() => {
+    console.log('✅ HTTP server closed');
+  });
+  
+  // Close browser if open
+  try {
+    const { closeBrowser } = await import('./grabber.mjs');
+    await closeBrowser?.();
+    console.log('✅ Browser closed');
+  } catch (e) {
+    // Browser close is optional
+  }
+  
+  // Exit after a short delay
+  setTimeout(() => {
+    console.log('👋 Goodbye!');
+    process.exit(0);
+  }, 500);
+}
 
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
