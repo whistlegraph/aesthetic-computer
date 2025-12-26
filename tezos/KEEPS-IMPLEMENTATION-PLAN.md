@@ -114,6 +114,31 @@ keep $ceo → Preview bundle → Connect wallet → Upload to IPFS → Mint NFT
 
 ---
 
+## Pack Build Polish Issues (Dec 26, 2025)
+
+These are non-critical issues discovered when testing HTML bundles opened as local `file://` URLs:
+
+### 1. WebP Encoder Path Issue
+- **Error**: `Failed to load resource: net::ERR_FILE_NOT_FOUND` for `/C:/aesthetic.computer/dep/webpxmux/webpxmux.min.js`
+- **Impact**: Low - only affects GIF/WebP export functionality
+- **Cause**: Absolute path in bundle doesn't resolve correctly for local files
+- **Fix**: Consider embedding webpxmux or making path relative in pack mode
+
+### 2. Audio Worklet Fails on `file://` Protocol
+- **Error**: `Not allowed to load local resource: blob:null/...`
+- **Error**: `🎵 BIOS: Audio worklet setup failed: AbortError: Unable to load a worklet's module.`
+- **Impact**: Medium - audio doesn't work when bundle opened as local file
+- **Cause**: Browser security blocks blob URLs when origin is `null` (file:// protocol)
+- **Note**: Audio works correctly when bundle is served via HTTP/HTTPS (e.g., from IPFS on objkt.com)
+- **Fix**: Expected behavior for local files; consider adding graceful fallback message
+
+### Priority
+- These issues only affect local file testing, not production NFT display
+- Production bundles served from IPFS should work correctly
+- Low priority unless we want to support offline/local bundle usage
+
+---
+
 ## Contract Deployment Guide
 
 ### Contract Source

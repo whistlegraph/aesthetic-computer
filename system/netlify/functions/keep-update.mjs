@@ -187,13 +187,11 @@ export const handler = stream(async (event) => {
       // Use contract-keyed storage: tezos.contracts[CONTRACT_ADDRESS]
       const contractData = pieceDoc.tezos?.contracts?.[CONTRACT_ADDRESS] || {};
       
-      // Preserve the original minter/creator from the database record
-      // Try: contract-specific minter -> contract-specific owner -> legacy flat fields -> fetch from chain
-      let originalMinter = contractData.minter || contractData.owner || 
-                           pieceDoc.tezos?.minter || pieceDoc.tezos?.owner;
+      // ALWAYS fetch the original creator from TzKT firstMinter for THIS contract
+      // Don't rely on DB which might have data from a different contract/network
+      let originalMinter = null;
       
-      // If no minter in DB, try to fetch from TzKT
-      if (!originalMinter && tokenId) {
+      if (tokenId) {
         try {
           const tzktBase = NETWORK === "mainnet" ? "https://api.tzkt.io" : `https://api.${NETWORK}.tzkt.io`;
           const tokenUrl = `${tzktBase}/v1/tokens?contract=${CONTRACT_ADDRESS}&tokenId=${tokenId}`;
@@ -202,12 +200,18 @@ export const handler = stream(async (event) => {
             const tokens = await tokenResponse.json();
             if (tokens[0]?.firstMinter?.address) {
               originalMinter = tokens[0].firstMinter.address;
-              console.log(`🪙 KEEP-UPDATE: Found minter from TzKT: ${originalMinter}`);
+              console.log(`🪙 KEEP-UPDATE: Preserving original creator from TzKT: ${originalMinter}`);
             }
           }
         } catch (e) {
-          console.warn(`🪙 KEEP-UPDATE: Failed to fetch minter from TzKT: ${e.message}`);
+          console.warn(`🪙 KEEP-UPDATE: Failed to fetch firstMinter from TzKT: ${e.message}`);
         }
+      }
+      
+      // Fallback to DB if TzKT lookup failed
+      if (!originalMinter) {
+        originalMinter = contractData.minter || contractData.owner || 
+                         pieceDoc.tezos?.minter || pieceDoc.tezos?.owner;
       }
       
       // Last resort fallback
@@ -220,7 +224,29 @@ export const handler = stream(async (event) => {
       // This is critical - the empty string "" key must point to the metadata JSON
       // Otherwise objkt won't resolve artist attribution correctly
       // Try contract-specific first, then legacy flat field
-      const metadataUri = contractData.metadataUri || pieceDoc.tezos?.metadataUri;
+      let metadataUri = contractData.metadataUri || pieceDoc.tezos?.metadataUri;
+      
+      // If metadataUri not in DB, fetch from on-chain token_metadata bigmap
+      // This preserves the original "" key and prevents breaking objkt attribution
+      if (!metadataUri && tokenId) {
+        try {
+          const tzktBase = NETWORK === "mainnet" ? "https://api.tzkt.io" : `https://api.${NETWORK}.tzkt.io`;
+          const bigmapUrl = `${tzktBase}/v1/contracts/${CONTRACT_ADDRESS}/bigmaps/token_metadata/keys/${tokenId}`;
+          const bigmapResponse = await fetch(bigmapUrl);
+          if (bigmapResponse.ok) {
+            const bigmapData = await bigmapResponse.json();
+            const emptyKeyHex = bigmapData?.value?.token_info?.[""];
+            if (emptyKeyHex) {
+              // Decode hex to get the original IPFS URI
+              metadataUri = Buffer.from(emptyKeyHex, 'hex').toString('utf8');
+              console.log(`🪙 KEEP-UPDATE: Found metadataUri from on-chain: ${metadataUri}`);
+            }
+          }
+        } catch (e) {
+          console.warn(`🪙 KEEP-UPDATE: Failed to fetch metadataUri from TzKT: ${e.message}`);
+        }
+      }
+      
       if (!metadataUri) {
         console.warn(`🪙 KEEP-UPDATE: No metadataUri found for $${pieceName} on ${CONTRACT_ADDRESS}, objkt attribution may break`);
       }
