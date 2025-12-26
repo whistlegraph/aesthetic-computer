@@ -73,37 +73,11 @@
       "machine": "largePremiumLinux"
     },
     "vscode": {
-      "extensions": [
-        "aesthetic-computer.aesthetic-computer-code",
-        "esbenp.prettier-vscode",
-        "ms-azuretools.vscode-docker",
-        "mongodb.mongodb-vscode",
-        "bmalehorn.vscode-fish",
-        "ms-vsliveshare.vsliveshare",
-        "jsynowiec.vscode-insertdatestring",
-        "tootone.org-mode",
-        "bashmish.es6-string-css",
-        "zjcompt.es6-string-javascript",
-        "dbaeumer.vscode-eslint",
-        "bierner.lit-html",
-        "vscodevim.vim",
-        "GitHub.copilot",
-        "GitHub.copilot-chat",
-        "tamasfe.even-better-toml",
-        "matthewpi.caddyfile-support",
-        "ms-python.python",
-        "ms-toolsai.jupyter",
-        "ms-vscode.PowerShell",
-        "ms-vscode.powershell",
-        "ms-python.debugpy",
-        "ms-python.vscode-pylance",
-        "ms-toolsai.vscode-jupyter-cell-tags",
-        "ms-toolsai.jupyter-keymap",
-        "ms-toolsai.jupyter-renderers",
-        "jinxdash.prettier-rust",
-        "ms-python.black-formatter",
-        "openai.chatgpt"
-      ]
+      "extensions": [],
+      "settings": {
+        "settingsSync.ignoredExtensions": ["*"],
+        "extensions.ignoreRecommendations": true
+      }
     }
   },
   "runArgs": [
@@ -130,7 +104,7 @@
     "-p",
     "0.0.0.0:3478:3478/udp",
     "-p",
-    "0.0.0.0:49152-49159:49152-49159/udp",
+    "0.0.0.0:49160-49167:49160-49167/udp",
     "-p",
     "0.0.0.0:10000-10007:10000-10007/udp",
     "--ulimit",
@@ -139,6 +113,6 @@
     // "host"
   ],
   "initializeCommand": ["sh", "-c", ".devcontainer/scripts/prepare-host.sh"],
-  "postStartCommand": "fish .devcontainer/entry.fish"
+  "postStartCommand": "sh .devcontainer/scripts/poststart-wrapper.sh"
   // .waiter file is now created inside entry.fish to avoid terminal popup in Codespaces
 }

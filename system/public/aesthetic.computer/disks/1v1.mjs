@@ -441,6 +441,102 @@ const SHOOT_COOLDOWN = 200; // ms between shots
 const DAMAGE_PER_HIT = 20;
 let playerBoxes = {}; // Visual representation of other players
 
+// 🎯 Target tracking system - for looking at other players/bot
+let currentTarget = null;  // Current target to look at (player id, "bot", or null)
+let targetList = [];       // List of available targets
+let isAutoTracking = false; // Whether to continuously face the target
+const TURN_SPEED = 3;      // Degrees per frame when auto-tracking
+
+// Calculate yaw angle to face a target position from our position
+function getAngleToTarget(fromPos, toPos) {
+  const dx = toPos.x - fromPos.x;
+  const dz = toPos.z - fromPos.z;
+  // atan2 gives angle in radians, convert to degrees
+  // NEGATE because camera.rotY is internally negated in the transform matrix
+  // This makes rotY=0 look toward +Z, rotY=90 look toward -X
+  return -Math.atan2(dx, dz) * (180 / Math.PI);
+}
+
+// Get the position of the current target
+function getTargetPosition() {
+  if (!currentTarget) return null;
+  
+  if (currentTarget === "bot" && bot.enabled) {
+    return bot.pos;
+  }
+  
+  // Find player by id
+  const player = others[currentTarget];
+  if (player) {
+    return player.pos;
+  }
+  
+  return null;
+}
+
+// Update the list of available targets (other players + bot)
+function updateTargetList() {
+  targetList = [];
+  
+  // Add bot if enabled
+  if (bot.enabled && bot.state !== "dead") {
+    targetList.push("bot");
+  }
+  
+  // Add all other players
+  for (const id of Object.keys(others)) {
+    targetList.push(id);
+  }
+  
+  // If current target is no longer valid, clear it
+  if (currentTarget && !targetList.includes(currentTarget)) {
+    currentTarget = null;
+    isAutoTracking = false;
+  }
+}
+
+// Cycle to next target
+function cycleTarget() {
+  updateTargetList();
+  
+  if (targetList.length === 0) {
+    currentTarget = null;
+    logNetwork("No targets available");
+    return;
+  }
+  
+  const currentIndex = currentTarget ? targetList.indexOf(currentTarget) : -1;
+  const nextIndex = (currentIndex + 1) % targetList.length;
+  currentTarget = targetList[nextIndex];
+  
+  const targetName = currentTarget === "bot" ? "🤖 BOT" : (others[currentTarget]?.handle || currentTarget);
+  logNetwork(`🎯 Target: ${targetName}`);
+}
+
+// Snap camera to face current target instantly
+function snapToTarget() {
+  if (!currentTarget || !graphInstance) return;
+  
+  const targetPos = getTargetPosition();
+  if (!targetPos) return;
+  
+  const angle = getAngleToTarget(self.pos, targetPos);
+  graphInstance.rotY = angle;
+  
+  const targetName = currentTarget === "bot" ? "🤖 BOT" : (others[currentTarget]?.handle || currentTarget);
+  logNetwork(`👁️ Snapped to ${targetName}`);
+}
+
+// Toggle auto-tracking mode
+function toggleAutoTrack() {
+  if (!currentTarget) {
+    // If no target, select one first
+    cycleTarget();
+  }
+  isAutoTracking = !isAutoTracking;
+  logNetwork(`🎯 Auto-track: ${isAutoTracking ? "ON" : "OFF"}`);
+}
+
 // Function to log detailed scene debug info
 function logSceneDebug() {
   if (!graphInstance) {
@@ -586,7 +682,10 @@ function boot({ Form, CUBEL, QUAD, penLock, system, get, net: { socket, udp, hos
   udpChannel = udp((type, content) => {
     udpMessageCount++;
     lastUdpReceiveTime = Date.now();
-    logNetwork(`UDP recv: ${type} from ${content?.handle || 'unknown'}`);
+    // Log occasionally (~5%) to avoid spamming
+    if (Math.random() < 0.05) {
+      logNetwork(`UDP recv: ${type} from ${content?.handle || 'unknown'}`);
+    }
     if (type === "1v1:move") {
       // Parse content if it's a string
       const data = typeof content === 'string' ? JSON.parse(content) : content;
@@ -595,13 +694,13 @@ function boot({ Form, CUBEL, QUAD, penLock, system, get, net: { socket, udp, hos
       if (data.handle && data.handle !== self.handle) {
         const playerId = Object.keys(others).find(id => others[id].handle === data.handle);
         if (playerId && others[playerId]) {
+          // Update position and rotation - paint() will use these to move frustums
           others[playerId].pos = data.pos;
           others[playerId].rot = data.rot;
-          
-          // Update player box position
-          if (playerBoxes[playerId]) {
-            playerBoxes[playerId].position = [data.pos.x, data.pos.y, data.pos.z];
-          }
+        } else if (Math.random() < 0.01) {
+          // Log occasionally when we receive UDP for an unknown player
+          // This happens if UDP arrives before WebSocket join
+          logNetwork(`UDP move from unknown handle: ${data.handle} (known: ${Object.keys(others).map(id => others[id].handle).join(', ')})`, "warn");
         }
       }
     }
@@ -1138,6 +1237,34 @@ function boot({ Form, CUBEL, QUAD, penLock, system, get, net: { socket, udp, hos
 function sim() {
   frameCount++; // Increment global frame counter
   
+  // 🎯 Auto-tracking: smoothly turn toward current target
+  if (isAutoTracking && currentTarget && graphInstance) {
+    const targetPos = getTargetPosition();
+    if (targetPos) {
+      const targetAngle = getAngleToTarget(self.pos, targetPos);
+      let angleDiff = targetAngle - graphInstance.rotY;
+      
+      // Normalize angle difference to -180 to 180
+      while (angleDiff > 180) angleDiff -= 360;
+      while (angleDiff < -180) angleDiff += 360;
+      
+      // Smoothly turn toward target
+      if (Math.abs(angleDiff) > 1) {
+        const turnAmount = Math.sign(angleDiff) * Math.min(Math.abs(angleDiff), TURN_SPEED);
+        graphInstance.rotY += turnAmount;
+        
+        // Normalize rotation
+        while (graphInstance.rotY > 180) graphInstance.rotY -= 360;
+        while (graphInstance.rotY < -180) graphInstance.rotY += 360;
+      }
+    }
+  }
+  
+  // Update target list periodically (every 30 frames)
+  if (frameCount % 30 === 0) {
+    updateTargetList();
+  }
+  
   // Network update - send position via UDP for low latency
   // Send in both lobby and playing states so players can see each other
   if ((gameState === "playing" || gameState === "lobby") && graphInstance) {
@@ -1166,11 +1293,14 @@ function sim() {
       
       if (udpChannel?.connected) {
         // 🩰 Send position over UDP (low latency, unreliable but fast)
-        // Log every ~60 frames (roughly once per second at 60fps)
-        if (Math.random() < 0.016) {
-          logNetwork(`UDP send: pos=${moveData.pos.x.toFixed(1)},${moveData.pos.y.toFixed(1)},${moveData.pos.z.toFixed(1)}`);
+        // Throttle to every 2 frames (~30 updates/sec at 60fps) to reduce spam
+        if (frameCount % 2 === 0) {
+          // Log every ~60 frames (roughly once per second at 60fps)
+          if (frameCount % 60 === 0) {
+            logNetwork(`UDP send: pos=${moveData.pos.x.toFixed(1)},${moveData.pos.y.toFixed(1)},${moveData.pos.z.toFixed(1)}`);
+          }
+          udpChannel.send("1v1:move", moveData);
         }
-        udpChannel.send("1v1:move", moveData);
       } else if (server) {
         // 🕸️ Fallback: Send position over WebSocket (reliable but higher latency)
         // Only send every 3rd frame to reduce bandwidth (~20 updates/sec at 60fps)
@@ -1479,11 +1609,21 @@ function paint({ wipe, ink, painting, screen, line: drawLine, box: drawBox, clea
   const stateText = isSpectator ? `${gameState.toUpperCase()} [SPECTATOR]` : gameState.toUpperCase();
   ink(...stateColor).write(stateText, { x: 6, y: hudStartY + 30 }, undefined, undefined, false, hudFont);
   
+  // 🎯 Target tracking indicator
+  if (currentTarget || targetList.length > 0) {
+    const targetName = currentTarget 
+      ? (currentTarget === "bot" ? "🤖BOT" : (others[currentTarget]?.handle || "???"))
+      : "---";
+    const trackIcon = isAutoTracking ? "🎯" : "👁️";
+    const targetColor = isAutoTracking ? [0, 255, 255] : [200, 200, 200];
+    ink(...targetColor).write(`${trackIcon} ${targetName} [Tab/T/F]`, { x: 6, y: hudStartY + 40 }, undefined, undefined, false, hudFont);
+  }
+  
   // Gamepad status indicator (small)
   const gpCount = Object.keys(connectedGamepads).length;
   if (gpCount > 0) {
     const gpIndicator = showGamepadPanel ? `🎮${gpCount}` : `🎮${gpCount} [G]`;
-    ink(0, 200, 200).write(gpIndicator, { x: 6, y: hudStartY + 40 }, undefined, undefined, false, hudFont);
+    ink(0, 200, 200).write(gpIndicator, { x: 6, y: hudStartY + 50 }, undefined, undefined, false, hudFont);
   }
   
   // === TOP RIGHT: MINIMAP ===
@@ -1865,6 +2005,28 @@ function act({ event: e, penLock, setShowClippedWireframes }) {
   // Log scene debug info with 'L' key
   if (e.is("keyboard:down:l")) {
     logSceneDebug();
+  }
+  
+  // 🎯 Target tracking controls
+  // Tab - cycle through targets (other players + bot)
+  if (e.is("keyboard:down:Tab")) {
+    cycleTarget();
+  }
+  
+  // T - toggle auto-tracking (continuously face target)
+  if (e.is("keyboard:down:t")) {
+    toggleAutoTrack();
+  }
+  
+  // F - snap to face current target instantly
+  if (e.is("keyboard:down:f")) {
+    if (currentTarget) {
+      snapToTarget();
+    } else {
+      // If no target, select one first then snap
+      cycleTarget();
+      if (currentTarget) snapToTarget();
+    }
   }
   
   // ⌨️ Track keyboard state for HUD display

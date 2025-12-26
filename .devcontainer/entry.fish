@@ -2,14 +2,103 @@
 
 # Log file for aesthetic function to tail during wait
 set -g ENTRY_LOG /tmp/entry-fish.log
+set -g ENTRY_LOG_DIR /home/me/.entry-logs
+if test -d /workspaces/aesthetic-computer/.devcontainer
+    set -g ENTRY_LOG_DIR /workspaces/aesthetic-computer/.devcontainer/entry-logs
+end
+set -l entry_ts (date +%Y%m%d_%H%M%S)
+set -g ENTRY_LOG_REAL $ENTRY_LOG_DIR/entry-$entry_ts.log
+
+mkdir -p $ENTRY_LOG_DIR
+echo "" > $ENTRY_LOG_REAL
+ln -sf $ENTRY_LOG_REAL $ENTRY_LOG
+ln -sf $ENTRY_LOG_REAL $ENTRY_LOG_DIR/latest.log
 echo "" > $ENTRY_LOG
 
-# Simple wrapper: append each echo to log file too
+# Aggressive logging function - writes immediately with timestamp and syncs to disk
+function log
+    set -l timestamp (date '+%H:%M:%S.%3N')
+    set -l msg "[$timestamp] $argv"
+    builtin echo $msg
+    builtin echo $msg >> $ENTRY_LOG_REAL 2>/dev/null
+    # Force sync to disk immediately so we don't lose logs on crash
+    sync 2>/dev/null
+end
+
+# Log with specific level prefix
+function log_info
+    log "ℹ️  $argv"
+end
+
+function log_ok
+    log "✅ $argv"
+end
+
+function log_warn
+    log "⚠️  $argv"
+end
+
+function log_error
+    log "❌ $argv"
+end
+
+function log_step
+    log "🔹 $argv"
+end
+
+# Simple wrapper: append each echo to log file too (keep for backward compat)
 # We override echo within this script
 function echo
     builtin echo $argv
-    builtin echo $argv >> $ENTRY_LOG 2>/dev/null
+    builtin echo "[" (date '+%H:%M:%S') "] $argv" >> $ENTRY_LOG_REAL 2>/dev/null
 end
+
+# Run a command and capture output to the entry log.
+function log_cmd
+    set -l cmd_str (string join ' ' -- $argv)
+    log_step "Running: $cmd_str"
+    command $argv >> $ENTRY_LOG_REAL 2>&1
+    set -l cmd_status $status
+    if test $cmd_status -ne 0
+        log_error "Command failed ($cmd_status): $cmd_str"
+    else
+        log_ok "Command succeeded: $cmd_str"
+    end
+    sync 2>/dev/null
+    return $cmd_status
+end
+
+# Run a command with a timeout if available.
+function log_cmd_timeout
+    set -l seconds $argv[1]
+    set -l cmd $argv[2..-1]
+    log_step "Running with "$seconds"s timeout: "(string join ' ' -- $cmd)
+    if type -q timeout
+        log_cmd timeout $seconds $cmd
+    else
+        log_cmd $cmd
+    end
+    return $status
+end
+
+# Start CDP tunnel without blocking startup if SSH auth is missing.
+function start_cdp_tunnel
+    set -l ssh_args -f -N -o StrictHostKeyChecking=no -o BatchMode=yes -o ExitOnForwardFailure=yes -o ConnectTimeout=5 -o ConnectionAttempts=1 -L 9333:127.0.0.1:9333 me@host.docker.internal
+    log_cmd_timeout 8 ssh $ssh_args
+    return $status
+end
+
+log "════════════════════════════════════════════════════════════════"
+log "🚀 ENTRY.FISH STARTING"
+log "════════════════════════════════════════════════════════════════"
+log_info "Timestamp: "(date -Iseconds)
+log_info "Log file: $ENTRY_LOG_REAL"
+log_info "Log dir: $ENTRY_LOG_DIR"
+log_info "Hostname: "(cat /etc/hostname 2>/dev/null; or echo "unknown")
+log_info "User: "(whoami)
+log_info "PWD: "(pwd)
+
+log_step "PHASE 1: Environment sync"
 
 # --- Sync secrets from vault to devcontainer env ---
 # The vault stores the canonical secrets; copy them to devcontainer on startup
@@ -26,17 +115,21 @@ if test -f $vault_env
                 echo $line >> $devcontainer_env
             end
         end
-        echo "🔐 Synced secrets from vault to devcontainer.env"
+        log_ok "Synced secrets from vault to devcontainer.env"
     else
         # No devcontainer.env, just copy from vault
         cp $vault_env $devcontainer_env
-        echo "🔐 Copied secrets from vault to devcontainer.env"
+        log_ok "Copied secrets from vault to devcontainer.env"
     end
+else
+    log_warn "Vault env not found at $vault_env"
 end
+
+log_step "PHASE 2: Checking for fast reload path"
 
 # Fast path for VS Code "Reload Window" - if .waiter exists and key processes running, skip setup
 if test -f /home/me/.waiter
-    echo "🔄 Detected reload (found .waiter file)"
+    log_info "Detected reload (found .waiter file)"
     
     # Check if key processes are already running
     set -l dockerd_running (pgrep -x dockerd 2>/dev/null)
@@ -74,7 +167,7 @@ if test -f /home/me/.waiter
             echo "✅ CDP tunnel already running (PID: $cdp_tunnel)"
         else
             echo "🩸 Starting CDP tunnel..."
-            ssh -f -N -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=5 -L 9333:127.0.0.1:9333 me@host.docker.internal 2>/dev/null
+            start_cdp_tunnel
             if test $status -eq 0
                 echo "✅ CDP tunnel established (localhost:9333 → host:9333)"
             else
@@ -238,25 +331,25 @@ function ensure_ssl_dev_certs
         echo "🔐 Generating mkcert certificates for the dev container..."
         if not test -d /home/me/.local/share/mkcert
             echo "📥 Installing mkcert local CA..."
-            mkcert -install >/tmp/mkcert-install.log 2>&1
+            log_cmd_timeout 60 mkcert -install
             if test $status -ne 0
-                echo "⚠️ mkcert CA installation failed. See /tmp/mkcert-install.log for details."
+                echo "⚠️ mkcert CA installation failed. See entry.fish log for details."
             end
             if not type -q certutil
                 echo "📦 Installing nss-tools for certificate trust..."
-                sudo dnf install -y nss-tools >/tmp/nss-tools-install.log 2>&1
-                mkcert -install >/tmp/mkcert-install.log 2>&1
+                log_cmd_timeout 300 sudo dnf install -y nss-tools
+                log_cmd_timeout 60 mkcert -install
             end
         end
 
-        env nogreet=true fish ./ssl-install.fish
+        log_cmd_timeout 120 env nogreet=true fish ./ssl-install.fish
         if test $status -ne 0
             echo "⚠️ Automatic certificate generation failed using ssl-install.fish."
             cd $previous_dir
             return
         end
     else
-        env nogreet=true fish ./ssl-install.fish --install-only
+        log_cmd_timeout 120 env nogreet=true fish ./ssl-install.fish --install-only
     end
 
     mkdir -p $nanos_ssl_dir
@@ -271,32 +364,35 @@ function ensure_ssl_dev_certs
     cd $previous_dir
 end
 
+log_step "PHASE 3: Docker socket permissions"
 # Call the function to set up Docker socket permissions
 ensure_docker_socket_permissions
 
+log_step "PHASE 4: Starting daemons"
 # Start Docker daemon in the background if not already running
 if not pgrep -x dockerd >/dev/null
-    echo "Starting Docker daemon..."
+    log_info "Starting Docker daemon..."
     sudo dockerd >/tmp/dockerd.log 2>&1 &
 else
-    echo "Docker daemon already running."
+    log_ok "Docker daemon already running."
 end
 
 # Start Ollama daemon in the background if available and not already running
 if type -q ollama
     if not pgrep -x ollama >/dev/null
-        echo "Starting Ollama daemon..."
+        log_info "Starting Ollama daemon..."
         ollama serve >/tmp/ollama.log 2>&1 &
     else
-        echo "Ollama daemon already running."
+        log_ok "Ollama daemon already running."
     end
 else
-    echo "Ollama not found; skipping. Install via Dockerfile to enable." >&2
+    log_warn "Ollama not found; skipping."
 end
 
+log_step "PHASE 5: Environment setup"
 # Ensure the envs directory exists and is accessible (fallback if mount fails)
 if not test -d /home/me/envs
-    echo "Creating missing /home/me/envs directory and linking to .devcontainer/envs"
+    log_info "Creating missing /home/me/envs directory and linking to .devcontainer/envs"
     mkdir -p /home/me/envs
     ln -sf /workspaces/aesthetic-computer/.devcontainer/envs/* /home/me/envs/
 end
@@ -329,34 +425,39 @@ toilet "Aesthetic Computer" -f future | lolcat -x -r
 # Go to the user's directory.
 cd /home/me
 
+log_step "PHASE 6: SSL certificates"
 ensure_ssl_dev_certs
 
+log_step "PHASE 7: GitHub authentication"
 # Login to Github - use GH_TOKEN from vault if available
 if not gh auth status >/dev/null 2>&1
     if test -n "$GH_TOKEN"
-        echo "🔑 Authenticating to GitHub using GH_TOKEN..."
+        log_info "Authenticating to GitHub using GH_TOKEN..."
         echo $GH_TOKEN | gh auth login --with-token
         if gh auth status >/dev/null 2>&1
-            echo "✅ GitHub authentication successful"
+            log_ok "GitHub authentication successful"
         else
-            echo "❌ GitHub authentication failed"
-            echo "Not logged into GitHub, exiting to shell."
+            log_error "GitHub authentication failed"
+            log_error "Not logged into GitHub, exiting to shell."
             return
         end
     else
-        echo "Not logged into GitHub and no GH_TOKEN available, exiting to shell."
+        log_warn "Not logged into GitHub and no GH_TOKEN available, exiting to shell."
         return
     end
+else
+    log_ok "Already authenticated to GitHub"
 end
 
+log_step "PHASE 8: Git configuration"
 if test -n "$GIT_USER_EMAIL"
     git config --global user.email $GIT_USER_EMAIL
-    echo "Set git user email to: $GIT_USER_EMAIL"
+    log_info "Set git user email to: $GIT_USER_EMAIL"
 end
 
 if test -n "$GIT_USER_NAME"
     git config --global user.name $GIT_USER_NAME
-    echo "Set git user name to: $GIT_USER_NAME"
+    log_info "Set git user name to: $GIT_USER_NAME"
 end
 
 # Add aesthetic-computer as the "safe" directory.
@@ -391,31 +492,35 @@ if not grep -q "sotce.local" /etc/hosts
     echo "127.0.0.1 sotce.local" | sudo tee -a /etc/hosts
 end
 
+log_step "PHASE 9: Vault setup"
 # Apply the 'vault' credentials to the mounted aesthetic-computer volume, and make sure it exists.
 if test -d /home/me/aesthetic-computer
     if not test -d /home/me/aesthetic-computer/aesthetic-computer-vault
+        log_info "Cloning vault repository..."
         gh repo clone whistlegraph/aesthetic-computer-vault /home/me/aesthetic-computer/aesthetic-computer-vault
         cd /home/me/aesthetic-computer/aesthetic-computer-vault
+        log_info "Running devault.fish..."
         sudo fish devault.fish
         
         # Load environment variables after initial vault setup
         if test -d /home/me/envs
             source /home/me/envs/load_envs.fish
             load_envs # Load envs after initial vault setup
-            echo "🔧 Environment variables loaded after initial vault setup"
+            log_ok "Environment variables loaded after initial vault setup"
         end
     else
         cd /home/me/aesthetic-computer/aesthetic-computer-vault
+        log_info "Pulling latest vault..."
         git pull
         sudo fish devault.fish
-        echo "🔓 Vault mounted."
+        log_ok "Vault mounted."
     end
     
     # Reload environment variables after vault is mounted
     if test -d /home/me/envs
         source /home/me/envs/load_envs.fish
         load_envs # Reload envs after vault mount
-        echo "🔧 Environment variables reloaded after vault mount"
+        log_ok "Environment variables reloaded after vault mount"
     end
     
     # Setup SSH keys from vault
@@ -425,24 +530,26 @@ if test -d /home/me/aesthetic-computer
         chmod 700 /home/me/.ssh
         chmod 600 /home/me/.ssh/id_rsa 2>/dev/null
         chmod 644 /home/me/.ssh/id_rsa.pub 2>/dev/null
-        echo "🔑 SSH keys restored from vault"
+        log_ok "SSH keys restored from vault"
     end
 else
-    echo "⚠️🔒 Vault unmounted!"
+    log_error "Vault unmounted! /home/me/aesthetic-computer not found"
 end
 
+log_step "PHASE 10: Fixing permissions"
 # Fix all permissions AFTER vault setup (vault copies files as root with sudo)
-echo "🔧 Fixing permissions after vault setup..."
+log_info "Fixing permissions after vault setup..."
 
 # First, ensure the home directory itself is owned by me (critical for .emacs-logs etc)
 sudo chown me:me /home/me 2>/dev/null
-echo "✅ Fixed ownership of /home/me"
+log_ok "Fixed ownership of /home/me"
 
 # Create .emacs-logs directory if it doesn't exist
 mkdir -p /home/me/.emacs-logs 2>/dev/null
-echo "✅ Ensured /home/me/.emacs-logs exists"
+log_ok "Ensured /home/me/.emacs-logs exists"
 
 # Fix fish config permissions (vault may have overwritten with root-owned files)
+log_info "Fixing fish config permissions..."
 ensure_fish_config_permissions
 
 # Fix SSH directory permissions
@@ -479,16 +586,16 @@ function verify_npm_versions
         return
     end
 
-    node $NODE_DEPS_CHECK_SCRIPT $dir
+    log_cmd node $NODE_DEPS_CHECK_SCRIPT $dir
     set -l check_status $status
 
     if test $check_status -ne 0
         echo "♻️ Resyncing dependencies in $dir_name to match package.json versions..."
         cd $dir
-        npm ci --no-fund --no-audit --silent
+        log_cmd npm ci --no-fund --no-audit
         if test $status -ne 0
             echo "⚠️ npm ci failed in $dir_name, falling back to npm install"
-            npm install --no-fund --no-audit --silent
+            log_cmd npm install --no-fund --no-audit
         end
     end
 end
@@ -501,10 +608,10 @@ function install_npm_deps
         if not test -d $dir/node_modules || not count $dir/node_modules/* >/dev/null 2>/dev/null
             echo "📦 Installing dependencies in $dir_name..."
             cd $dir
-            npm ci --no-fund --no-audit --silent
+            log_cmd npm ci --no-fund --no-audit
             if test $status -ne 0
                 echo "⚠️  Failed to install dependencies in $dir_name, trying npm install..."
-                npm install --no-fund --no-audit --silent
+                log_cmd npm install --no-fund --no-audit
             end
         else
             echo "✅ $dir_name already has node_modules"
@@ -513,35 +620,40 @@ function install_npm_deps
     end
 end
 
+log_step "PHASE 11: NPM dependencies"
 # Check and install dependencies in key directories
 cd /home/me/aesthetic-computer
 
 # Install root dependencies first
 if not test -d /home/me/aesthetic-computer/node_modules || not count /home/me/aesthetic-computer/node_modules/* >/dev/null
-    echo "📦 Installing root dependencies..."
-    npm install -g npm@latest --no-fund --no-audit
-    npm ci --no-fund --no-audit
+    log_info "Installing root dependencies..."
+    log_cmd npm install -g npm@latest --no-fund --no-audit
+    log_cmd npm ci --no-fund --no-audit
 else
-    echo "✅ Root directory already has node_modules"
+    log_ok "Root directory already has node_modules"
 end
 
+log_info "Verifying npm versions..."
 verify_npm_versions /home/me/aesthetic-computer
 
 # Install dependencies in critical subdirectories (archive intentionally excluded)
 set -l critical_dirs system session-server vscode-extension nanos daemon utilities shared
 
+log_info "Installing dependencies in critical directories..."
 for dir in $critical_dirs
     if test -d /home/me/aesthetic-computer/$dir
+        log_info "Processing $dir..."
         install_npm_deps /home/me/aesthetic-computer/$dir
     end
 end
 
 # Run the comprehensive install script for any remaining directories
-echo "🔄 Running comprehensive install script for remaining directories..."
+log_info "Running comprehensive install script for remaining directories..."
 pushd /home/me/aesthetic-computer
-npm run install:everything-else
+log_cmd npm run install:everything-else
 popd
 
+log_step "PHASE 12: Final setup"
 # Make sure this user owns the emacs directory.
 sudo chown -R me:me ~/.emacs.d
 
@@ -549,34 +661,34 @@ sudo chown -R me:me ~/.emacs.d
 mkdir -p ~/.config/Code/User
 rm -rf ~/.config/Code/User/prompts
 ln -s /home/me/aesthetic-computer/prompts ~/.config/Code/User/prompts
-echo "✨ Prompts directory linked to VSCode User config"
+log_ok "Prompts directory linked to VSCode User config"
 
 # Link the modes directory to .github for VSCode chatmodes
 rm -rf /home/me/aesthetic-computer/.github
 ln -s /home/me/aesthetic-computer/modes /home/me/aesthetic-computer/.github
-echo "✨ Modes directory linked to .github for VSCode chatmodes"
+log_ok "Modes directory linked to .github for VSCode chatmodes"
 
 # Source the devcontainer config to load AC development functions
 source /workspaces/aesthetic-computer/.devcontainer/config.fish
-echo "✨ AC development functions loaded (ac-pack, ac-unpack, etc.)"
+log_ok "AC development functions loaded (ac-pack, ac-unpack, etc.)"
 
 # Copy feed secrets from vault to environment (if vault exists)
 if test -f /workspaces/aesthetic-computer/aesthetic-computer-vault/feed/.env
-    echo "🔐 Loading feed system environment variables from vault..."
+    log_info "Loading feed system environment variables from vault..."
     # Copy to devcontainer envs directory for persistence
     cp /workspaces/aesthetic-computer/aesthetic-computer-vault/feed/.env /home/me/envs/feed.env
     # Source it globally for the session
     for line in (cat /workspaces/aesthetic-computer/aesthetic-computer-vault/feed/.env | grep -v '^#' | grep '=')
         set -gx (string split '=' $line)
     end
-    echo "✅ Feed environment variables loaded"
+    log_ok "Feed environment variables loaded"
 else
     echo "⚠️  Feed vault not found - skipping feed environment setup"
 end
 
 # Set port 8888 to public in Codespaces (if applicable)
 if test -f /workspaces/aesthetic-computer/.devcontainer/scripts/set-port-public.fish
-    fish /workspaces/aesthetic-computer/.devcontainer/scripts/set-port-public.fish
+    log_cmd fish /workspaces/aesthetic-computer/.devcontainer/scripts/set-port-public.fish
 end
 
 # Create .waiter file to signal container is ready (moved from postAttachCommand to avoid terminal popup in Codespaces)
@@ -592,7 +704,7 @@ if test -n "$HOST_IP"; or test (uname -s) != "Linux"
     pkill -f "ssh.*9333.*host.docker.internal" 2>/dev/null
     
     # Create tunnel in background (port 9333 to avoid conflicts with svchost.exe on 9222)
-    ssh -f -N -o StrictHostKeyChecking=no -o ConnectTimeout=5 -L 9333:127.0.0.1:9333 me@host.docker.internal 2>/dev/null
+    start_cdp_tunnel
     if test $status -eq 0
         echo "🩸 CDP tunnel established (localhost:9333 → host:9333)"
     else
@@ -606,18 +718,21 @@ if which turnserver >/dev/null 2>&1
     sleep 0.5
     # Get host LAN IP from vault/machines.json or use default
     set -l HOST_LAN_IP "192.168.1.127"
+    set -l HOST_LAN_IP_SOURCE "default"
     if test -f /workspaces/aesthetic-computer/aesthetic-computer-vault/machines.json
         set -l detected_ip (cat /workspaces/aesthetic-computer/aesthetic-computer-vault/machines.json 2>/dev/null | jq -r '.["aesthetic-mac"].lan_ip // empty' 2>/dev/null)
         if test -n "$detected_ip"
             set HOST_LAN_IP $detected_ip
+            set HOST_LAN_IP_SOURCE "vault"
         end
     end
+    log_info "TURN host IP: $HOST_LAN_IP (source: $HOST_LAN_IP_SOURCE)"
     echo $HOST_LAN_IP > /tmp/host-lan-ip
-    turnserver -c /workspaces/aesthetic-computer/.devcontainer/turnserver.conf --external-ip=$HOST_LAN_IP >/dev/null 2>&1 &
+    turnserver -c /workspaces/aesthetic-computer/.devcontainer/turnserver.conf --external-ip=$HOST_LAN_IP >> $ENTRY_LOG_REAL 2>&1 &
     disown
-    echo "🧊 TURN server started (localhost:3478, external-ip: $HOST_LAN_IP)"
+    log_ok "TURN server started (localhost:3478, external-ip: $HOST_LAN_IP)"
 else
-    echo "⚠️  coturn not installed, UDP may not work across networks"
+    log_warn "coturn not installed, UDP may not work across networks"
 end
 
 # echo "Initializing 📋 Clipboard Service" | lolcat -x -r
@@ -631,3 +746,9 @@ end
 # ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $HOST_USER@172.17.0.1
 
 # ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $HOST_USER@172.17.0.1 "cdocker aesthetic"
+
+log "════════════════════════════════════════════════════════════════"
+log "🎉 ENTRY.FISH COMPLETED SUCCESSFULLY"
+log "════════════════════════════════════════════════════════════════"
+log_info "End time: "(date -Iseconds)
+log_info "Log file: $ENTRY_LOG_REAL"

@@ -1503,10 +1503,10 @@ function aesthetic
                 # Only redraw if log content changed (reduces flicker)
                 set -l current_log_hash ""
                 if test -f $entry_log
-                    set current_log_hash (tail -n 8 $entry_log 2>/dev/null | md5sum 2>/dev/null | cut -d' ' -f1)
+                    set current_log_hash (tail -n 12 $entry_log 2>/dev/null | md5sum 2>/dev/null | cut -d' ' -f1)
                 end
                 
-                if test "$current_log_hash" != "$last_log_hash" -o $config_count -eq 0
+                if test "$current_log_hash" != "$last_log_hash" -o $config_count -eq 0 -o (math "$config_count % 10") -eq 0
                     clear
                     
                     # Show banner (static, no animation to reduce flicker)
@@ -1518,10 +1518,16 @@ function aesthetic
                         if test -n "$log_lines" -a "$log_lines" -gt 0
                             echo ""
                             echo "─────────────────────────────────────────"
-                            tail -n 8 $entry_log 2>/dev/null
+                            tail -n 12 $entry_log 2>/dev/null
                             echo "─────────────────────────────────────────"
                         end
+                    else
+                        echo ""
+                        echo "📄 Waiting for entry log at $entry_log"
                     end
+                    
+                    echo "📄 Log: $entry_log (latest: /home/me/.entry-logs/latest.log)"
+                    echo "⏱️  Waited: $config_count s"
                     
                     set last_log_hash $current_log_hash
                 end
