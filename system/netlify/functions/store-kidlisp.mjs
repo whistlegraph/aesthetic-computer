@@ -437,7 +437,7 @@ export async function handler(event, context) {
           if (doc.kept) {
             result.kept = {
               tokenId: doc.kept.tokenId,
-              network: doc.kept.network || "mainnet",
+              network: doc.kept.network || "ghostnet",
               contractAddress: doc.kept.contractAddress || null,
               keptBy: doc.kept.keptBy || null,
               walletAddress: doc.kept.walletAddress || null,
@@ -448,7 +448,7 @@ export async function handler(event, context) {
           if (doc.tezos?.minted) {
             result.kept = result.kept || {};
             result.kept.tokenId = result.kept.tokenId || doc.tezos.tokenId;
-            result.kept.network = result.kept.network || doc.tezos.network || "mainnet";
+            result.kept.network = result.kept.network || doc.tezos.network || "ghostnet";
             result.kept.contractAddress = result.kept.contractAddress || doc.tezos.contractAddress || null;
           }
           
@@ -525,7 +525,7 @@ export async function handler(event, context) {
             if (doc.kept) {
               result.kept = {
                 tokenId: doc.kept.tokenId,
-                network: doc.kept.network || "mainnet",
+                network: doc.kept.network || "ghostnet",
                 txHash: doc.kept.txHash,
                 keptAt: doc.kept.keptAt,
                 keptBy: doc.kept.keptBy || null,
@@ -537,7 +537,7 @@ export async function handler(event, context) {
             if (doc.tezos?.minted) {
               result.kept = result.kept || {};
               result.kept.tokenId = result.kept.tokenId || doc.tezos.tokenId;
-              result.kept.network = result.kept.network || doc.tezos.network || "mainnet";
+              result.kept.network = result.kept.network || doc.tezos.network || "ghostnet";
               result.kept.txHash = result.kept.txHash || doc.tezos.txHash;
               result.kept.keptAt = result.kept.keptAt || doc.tezos.mintedAt;
             }
@@ -600,24 +600,11 @@ export async function handler(event, context) {
         user: doc.user || null,
       };
       
-      // Include cached IPFS media if present (from bundle generation)
-      if (doc.ipfsMedia) {
-        response.ipfsMedia = {
-          artifactUri: doc.ipfsMedia.artifactUri,
-          thumbnailUri: doc.ipfsMedia.thumbnailUri,
-          sourceHash: doc.ipfsMedia.sourceHash,
-          createdAt: doc.ipfsMedia.createdAt,
-          authorHandle: doc.ipfsMedia.authorHandle,
-          depCount: doc.ipfsMedia.depCount,
-          packDate: doc.ipfsMedia.packDate,
-        };
-      }
-      
       // Include kept status if the piece was minted as a KEEP NFT
       if (doc.kept) {
         response.kept = {
           tokenId: doc.kept.tokenId,
-          network: doc.kept.network || "mainnet",
+          network: doc.kept.network || "ghostnet",
           txHash: doc.kept.txHash,
           contractAddress: doc.kept.contractAddress,
           keptAt: doc.kept.keptAt,
@@ -630,22 +617,10 @@ export async function handler(event, context) {
       if (doc.tezos?.minted) {
         response.kept = response.kept || {};
         response.kept.tokenId = response.kept.tokenId || doc.tezos.tokenId;
-        response.kept.network = response.kept.network || doc.tezos.network || "mainnet";
+        response.kept.network = response.kept.network || doc.tezos.network || "ghostnet";
         response.kept.txHash = response.kept.txHash || doc.tezos.txHash;
         response.kept.contractAddress = response.kept.contractAddress || doc.tezos.contract;
         response.kept.keptAt = response.kept.keptAt || doc.tezos.mintedAt;
-        // Include on-chain artifact URIs
-        response.kept.artifactUri = doc.tezos.artifactUri;
-        response.kept.thumbnailUri = doc.tezos.thumbnailUri;
-      }
-      
-      // Include pending rebake info if present (rebaked but not yet updated on chain)
-      if (doc.pendingRebake) {
-        response.pendingRebake = {
-          artifactUri: doc.pendingRebake.artifactUri,
-          thumbnailUri: doc.pendingRebake.thumbnailUri,
-          createdAt: doc.pendingRebake.createdAt,
-        };
       }
       
       return respond(200, response);
