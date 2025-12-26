@@ -25,6 +25,9 @@ Oven (`oven.aesthetic.computer`) is a unified service for capturing screenshots/
 - [x] Uptime display (⏱️) in header
 - [x] Soft reboot banner when server recently restarted
 - [x] **Manual capture form** - enter piece name, format (PNG/WebP/GIF), duration
+- [x] **Resolution selector** - presets (128-1024) + custom dimensions
+- [x] **Duration limit** - max 12 seconds for animations
+- [x] **Single capture lock** - prevents multiple simultaneous UI captures
 - [x] **Back to prompt link** (← prompt)
 
 ### Capture Endpoints
@@ -40,10 +43,11 @@ Oven (`oven.aesthetic.computer`) is a unified service for capturing screenshots/
 - [x] Check existing captures before regenerating
 - [x] Return cached CDN URL if capture exists
 
-### Still Capture Improvements
+### Frame Quality
 - [x] **3 second settle time** for stills (vs 200ms for animations)
 - [x] Wait for canvas content to render before capturing
 - [x] Support for both 2D and WebGL canvases
+- [x] **Blank frame detection** - skips all-black/transparent frames during capture
 
 ### Metadata & Tracking
 - [x] Source tracking: `source` field ('keep', 'manual', 'api')
@@ -53,6 +57,7 @@ Oven (`oven.aesthetic.computer`) is a unified service for capturing screenshots/
 
 ### Links in Dashboard
 - [x] 🎫 Keep #N - Link to objkt.com token (when from keep minting)
+- [x] ✋ Manual - Badge for manual captures from UI
 - [x] 📌 IPFS - Link to IPFS gateway
 - [x] ☁️ CDN - Link to Spaces CDN URL
 - [x] 🏷️ abc1234 - Git commit link
@@ -63,6 +68,11 @@ Oven (`oven.aesthetic.computer`) is a unified service for capturing screenshots/
 - [x] Restore pending tapes on server restart
 - [x] Load recent bakes from database on startup
 - [x] Change stream watching for new tapes
+
+### Deployment & Operations
+- [x] **Graceful shutdown** - SIGTERM/SIGINT handlers for fast restarts (~3s vs ~90s)
+- [x] **Verbose deploy script** - `./deploy.sh` with timing and progress
+- [x] `closeBrowser()` export for controlled shutdown
 
 ### Integration
 - [x] `tezos/keeps.mjs` passes `source: 'keep'` to grab-ipfs
