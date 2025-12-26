@@ -3446,8 +3446,12 @@ class ArteryTUI {
         this.fetchOvenStatus();
         break;
       case 'o':
-        execSync('$BROWSER "https://oven.aesthetic.computer"', { stdio: 'ignore' });
-        this.ovenOutput = 'Opened dashboard in browser';
+        try {
+          execSync('"$BROWSER" "https://oven.aesthetic.computer" 2>/dev/null || xdg-open "https://oven.aesthetic.computer" 2>/dev/null &', { shell: true, timeout: 3000 });
+          this.ovenOutput = 'Opened dashboard in browser';
+        } catch (e) {
+          this.ovenOutput = '🔗 Dashboard: https://oven.aesthetic.computer';
+        }
         this.render();
         break;
     }
