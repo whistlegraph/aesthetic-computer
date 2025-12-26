@@ -5,22 +5,24 @@
 
 import { tokenize, KidLisp } from "../lib/kidlisp.mjs";
 import {
-  NETWORKS,
   KEEPS_STAGING,
   DEFAULT_NETWORK,
   getNetwork,
   getObjktUrl,
   getTzktTokenUrl,
-  getTzktContractUrl,
   getTzktApi,
 } from "../lib/keeps/constants.mjs";
+import {
+  checkIfMinted,
+  fetchTokenInfo,
+  findTokenByName,
+} from "../lib/keeps/tzkt-client.mjs";
 
 const { min, max, floor, sin, cos, PI, abs } = Math;
 
 // Get config from shared constants
 const NETWORK = DEFAULT_NETWORK;
 const KEEPS_CONTRACT = getNetwork(NETWORK).contract;
-const TZKT_API = getTzktApi(NETWORK);
 
 // 👻 Pac-Man Ghost Sprite (14x14, classic arcade bitmap)
 const GHOST_SPRITE = [
@@ -243,13 +245,6 @@ function boot({ api, net, hud, params, store, cursor, jump, needsPaint, ui, scre
   fetchPieceInfo();
 }
 
-// Convert piece name to hex bytes for TzKT lookup
-function stringToBytes(str) {
-  return Array.from(new TextEncoder().encode(str))
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('');
-}
-
 // Fetch piece info from database (author, hits, source)
 async function fetchPieceInfo() {
   console.log("🪙 KEEP: Fetching piece info for $" + piece);
@@ -342,20 +337,13 @@ async function checkIfAlreadyMinted() {
   _needsPaint?.();
   
   try {
-    const keyBytes = stringToBytes(piece);
-    const url = `${TZKT_API}/v1/contracts/${KEEPS_CONTRACT}/bigmaps/content_hashes/keys/${keyBytes}`;
+    const result = await checkIfMinted(piece, NETWORK);
     
-    const response = await fetch(url);
-    if (response.status === 200) {
-      const data = await response.json();
-      if (data.active) {
-        const existingTokenId = data.value;
-        console.log("🪙 KEEP: Already minted as token #" + existingTokenId);
-        
-        // Fetch token metadata from TzKT
-        await fetchExistingTokenInfo(existingTokenId);
-        return;
-      }
+    if (result) {
+      console.log("🪙 KEEP: Already minted as token #" + result.tokenId);
+      // Fetch token metadata from TzKT
+      await fetchExistingTokenInfo(result.tokenId);
+      return;
     }
     
     // Not minted - show confirmation button
@@ -375,59 +363,30 @@ async function checkIfAlreadyMinted() {
 // Fetch existing token info from TzKT
 async function fetchExistingTokenInfo(existingTokenId) {
   try {
-    // Get token metadata
-    const metaUrl = `${TZKT_API}/v1/tokens?contract=${KEEPS_CONTRACT}&tokenId=${existingTokenId}`;
-    const metaRes = await fetch(metaUrl);
-    
-    let tokenData = {};
-    if (metaRes.ok) {
-      const tokens = await metaRes.json();
-      if (tokens.length > 0) {
-        tokenData = tokens[0];
-      }
-    }
-    
-    // Get owner from ledger
-    const ledgerUrl = `${TZKT_API}/v1/contracts/${KEEPS_CONTRACT}/bigmaps/ledger/keys/${existingTokenId}`;
-    const ledgerRes = await fetch(ledgerUrl);
-    let ownerAddress = null;
-    if (ledgerRes.ok) {
-      const ledgerData = await ledgerRes.json();
-      if (ledgerData.active) {
-        ownerAddress = ledgerData.value;
-      }
-    }
-    
-    // Parse IPFS URIs from metadata (TzKT may use different field names)
-    const meta = tokenData.metadata || {};
-    
-    // TzKT might store URIs as thumbnailUri, thumbnail_uri, or displayUri
-    const thumbnailUri = meta.thumbnailUri || meta.thumbnail_uri || meta.displayUri || meta.display_uri;
-    const artifactUri = meta.artifactUri || meta.artifact_uri;
+    const tokenInfo = await fetchTokenInfo(existingTokenId, NETWORK);
     
     alreadyMinted = {
       tokenId: existingTokenId,
-      owner: ownerAddress,
-      name: meta.name || `$${piece}`,
-      description: meta.description,
-      artifactUri: artifactUri,
-      thumbnailUri: thumbnailUri,
-      creators: meta.creators,
-      mintedAt: tokenData.firstTime || tokenData.lastTime,
+      owner: tokenInfo.owner,
+      name: tokenInfo.name || `$${piece}`,
+      description: tokenInfo.description,
+      artifactUri: tokenInfo.artifactUri,
+      thumbnailUri: tokenInfo.thumbnailUri,
+      creators: tokenInfo.creators,
+      mintedAt: tokenInfo.mintedAt,
       network: NETWORK,
-      objktUrl: getObjktUrl(existingTokenId, NETWORK),
-      tzktUrl: getTzktTokenUrl(existingTokenId, NETWORK),
+      objktUrl: tokenInfo.objktUrl,
+      tzktUrl: tokenInfo.tzktUrl,
     };
     
     // Extract analyzer version from on-chain attributes
-    const attrs = meta.attributes || [];
+    const attrs = tokenInfo.attributes || [];
     const analyzerAttr = attrs.find(a => a.name === "Analyzer Version");
     onChainAnalyzerVersion = analyzerAttr?.value || null;
     console.log("🪙 KEEP: On-chain analyzer version:", onChainAnalyzerVersion);
     
     loadingExisting = false;
     console.log("🪙 KEEP: Loaded existing token info:", alreadyMinted);
-    console.log("🪙 KEEP: Raw metadata from TzKT:", meta);
     _needsPaint?.();
     
     // Load thumbnail image from IPFS
@@ -1067,20 +1026,15 @@ async function signAndMint() {
     setStep("complete", "active", "Confirming on-chain...");
     
     // Wait and fetch token ID with retries (indexer may take a moment)
-    const apiBase = getTzktApi(preparedData.network || NETWORK);
     const tokenName = `$${piece}`;
+    const mintNetwork = preparedData.network || NETWORK;
     
     for (let attempt = 0; attempt < 5 && !tokenId; attempt++) {
       await new Promise(r => setTimeout(r, 3000));
       try {
-        // Query for our specific token by name, with supply > 0, sorted by newest
-        const res = await fetch(`${apiBase}/v1/tokens?contract=${preparedData.contractAddress}&metadata.name=${encodeURIComponent(tokenName)}&totalSupply.gt=0&sort.desc=id&limit=1`);
-        if (res.ok) {
-          const tokens = await res.json();
-          if (tokens.length > 0) {
-            tokenId = tokens[0].tokenId;
-            console.log(`🪙 KEEP: Found token #${tokenId} for ${tokenName} on attempt ${attempt + 1}`);
-          }
+        tokenId = await findTokenByName(tokenName, mintNetwork, preparedData.contractAddress);
+        if (tokenId) {
+          console.log(`🪙 KEEP: Found token #${tokenId} for ${tokenName} on attempt ${attempt + 1}`);
         }
       } catch (e) {
         console.warn(`🪙 KEEP: Token fetch attempt ${attempt + 1} failed:`, e.message);
