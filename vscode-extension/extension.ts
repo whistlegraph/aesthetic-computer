@@ -375,7 +375,30 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
       "aestheticWelcome",
       "✦ Aesthetic Computer",
       vscode.ViewColumn.One,
-      { enableScripts: true }
+      { 
+        enableScripts: true,
+        localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, "resources")]
+      }
+    );
+
+    // Handle messages from the webview BEFORE setting HTML
+    welcomePanel.webview.onDidReceiveMessage(
+      message => {
+        console.log("Welcome panel received message:", message);
+        switch (message.command) {
+          case 'openKidLisp':
+            vscode.commands.executeCommand('aestheticComputer.openKidLispWindow');
+            return;
+          case 'openPane':
+            vscode.commands.executeCommand('aestheticComputer.openWindow');
+            return;
+          case 'newPiece':
+            vscode.commands.executeCommand('workbench.action.files.newUntitledFile');
+            return;
+        }
+      },
+      undefined,
+      context.subscriptions
     );
 
     welcomePanel.onDidDispose(() => {
@@ -518,37 +541,21 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
         <script nonce="${nonce}">
           const vscode = acquireVsCodeApi();
           function openKidLisp() {
+            console.log('openKidLisp clicked');
             vscode.postMessage({ command: 'openKidLisp' });
           }
           function openPane() {
+            console.log('openPane clicked');
             vscode.postMessage({ command: 'openPane' });
           }
           function newPiece() {
+            console.log('newPiece clicked');
             vscode.postMessage({ command: 'newPiece' });
           }
         </script>
       </body>
       </html>
     `.trim();
-    
-    // Handle messages from the webview
-    welcomePanel.webview.onDidReceiveMessage(
-      message => {
-        switch (message.command) {
-          case 'openKidLisp':
-            vscode.commands.executeCommand('aestheticComputer.openKidLispWindow');
-            return;
-          case 'openPane':
-            vscode.commands.executeCommand('aestheticComputer.openWindow');
-            return;
-          case 'newPiece':
-            vscode.commands.executeCommand('workbench.action.files.newUntitledFile');
-            return;
-        }
-      },
-      undefined,
-      context.subscriptions
-    );
   }
 
   context.subscriptions.push(
