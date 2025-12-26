@@ -1,25 +1,96 @@
 # Keeps Code Consolidation Plan
 
-**Created:** 2024-12-26  
-**Updated:** 2024-12-26  
+**Created:** 2025-12-26  
+**Updated:** 2025-12-26  
 **Status:** In Progress
 
 ---
 
-## Current Session Progress (Dec 26, 2024)
+## Change Log (Newest First)
 
-### Completed
+### December 26, 2025 - Session 2: Wallet & Contract Inventory
+
+#### Completed
+- ✅ **Fixed Ghostnet contract reference** - `contract-address-ghostnet.txt` now points to `KT1NeytR5BHDfGBjG9ZuLkPd7nmufmH1icVc` (aesthetic admin)
+- ✅ **Updated vault README** - Added mainnet contract, fixed staging wallet address
+- ✅ **Funded staging wallet** - Sent 50 XTZ from aesthetic to staging on Ghostnet
+- ✅ **Verified wallet inventory**:
+
+| Wallet | Address | Domain | Ghostnet XTZ |
+|--------|---------|--------|--------------|
+| **aesthetic** | `tz1gkf8EexComFBJvjtT1zdsisdah791KwBE` | aesthetic.tez | ~925 |
+| **kidlisp** | `tz1Lc2DzTjDPyWFj1iuAVGGZWNjK67Wun2dC` | keeps.tez | ~885 |
+| **staging** | `tz1dfoQDuxjwSgxdqJnisyKUxDHweade4Gzt` | — | 50 |
+
+#### Contract Inventory
+
+| Network | Contract | Admin Wallet | Status |
+|---------|----------|--------------|--------|
+| **Ghostnet** | `KT1NeytR5BHDfGBjG9ZuLkPd7nmufmH1icVc` | aesthetic | ✅ Active (empty) |
+| **Mainnet** | `KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM` | kidlisp | ✅ Active |
+
+#### Next Steps
+1. Run security tests on Ghostnet (now have funded wallets)
+2. Test full mint → edit → lock → burn cycle
+3. Verify transfer works between users
+
+---
+
+### December 26, 2025 - Session 1: Metadata & Security Audit
+
+#### Completed
 - ✅ Fixed `keep-update.mjs` to use `analyzeKidLisp` for rich traits (was using simplified attributes)
 - ✅ Fixed `keeps.mjs` lock status display (now checks for `true`, not just existence)
 - ✅ Verified objkt.com creator attribution preserved after metadata updates
-- ✅ The `creators` array correctly fetches `firstMinter` from TzKT before updates
+- ✅ Completed security audit of `keeps_fa2_v2.py` contract
 
-### Findings
+#### Findings
 - **objkt "No data" for artist** may be UI caching issue - GraphQL shows correct creator data
 - Token 4 ($berz) has correct `creators: ["tz1gkf8EexComFBJvjtT1zdsisdah791KwBE"]`
 - Both on-chain and off-chain (IPFS) JSON have correct creator attribution
 
-### Next Task: Security Audit of Staging Contract
+---
+
+## Upcoming Tasks (Priority Order)
+
+### 🔴 High Priority
+
+1. **Code Consolidation Phase 1** - Extract constants
+   - [ ] Create `lib/keeps/constants.mjs`
+   - [ ] Update `keep.mjs`, `kidlisp.com`, `keeps-client.mjs` to use it
+
+2. **Code Consolidation Phase 2** - Extract TzKT client
+   - [ ] Create `lib/keeps/tzkt-client.mjs`
+   - [ ] Migrate `keep.mjs` and `kidlisp.com` to use it
+
+3. **Code Consolidation Phase 3** - Unify keeps-client.mjs
+   - [ ] Make `keeps-client.mjs` the canonical browser client
+   - [ ] Have `keep.mjs` use `KeepsClient` internally
+   - [ ] Have `kidlisp.com` import and use `KeepsClient`
+
+4. **Add `send` command to keeps.mjs** - For easier wallet transfers
+
+### 🟡 Medium Priority
+
+5. **Ghostnet Security Testing** - Now that wallets are funded
+   - [ ] Mint as user (pay fee, verify firstMinter)
+   - [ ] Mint as admin to user address (verify attribution)
+   - [ ] Try duplicate content_hash (should fail)
+   - [ ] Edit metadata on unlocked token
+   - [ ] Try edit on locked token (should fail)
+   - [ ] Burn token, re-mint same piece
+   - [ ] Transfer token between users
+   - [ ] Set/update operators
+   - [ ] Withdraw fees
+   - [ ] Lock collection metadata
+
+6. **Add owner-can-burn option** - Security recommendation
+   - Currently only admin can burn (users can't burn their own tokens)
+
+### 🟢 Low Priority
+
+7. **Metadata size limits** - Add max bytes checks in SmartPy
+8. **Consider multisig** - For production admin key
 
 ---
 
