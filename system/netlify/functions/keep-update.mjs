@@ -8,6 +8,7 @@
 
 import { authorize, handleFor, hasAdmin } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
+import { analyzeKidLisp, ANALYZER_VERSION } from "../../backend/kidlisp-analyzer.mjs";
 import { stream } from "@netlify/functions";
 import { TezosToolkit, MichelsonMap } from "@taquito/taquito";
 import { InMemorySigner } from "@taquito/signer";
@@ -191,6 +192,12 @@ export const handler = stream(async (event) => {
       await send("progress", { stage: "auth", message: "✓ Authorized" });
       await send("progress", { stage: "load", message: `Loading $${pieceName}...` });
       await send("progress", { stage: "load", message: "✓ Piece loaded" });
+      await send("progress", { stage: "analyze", message: "Analyzing source..." });
+
+      // Analyze source for traits (same as keep-mint.mjs)
+      const analysis = analyzeKidLisp(pieceDoc.source);
+      await send("progress", { stage: "analyze", message: `✓ ${analysis.traits.length} traits detected` });
+      
       await send("progress", { stage: "metadata", message: "Building metadata..." });
 
       // Get author handle
@@ -205,13 +212,12 @@ export const handler = stream(async (event) => {
       const description = pieceDoc.source || `A KidLisp piece preserved on Tezos`;
       const tags = [`$${pieceName}`, "KidLisp", "Aesthetic.Computer", "interactive"];
       
+      // Use analyzer traits + add author/packed info as attributes (matches keep-mint.mjs)
       const attributes = [
-        { name: "Language", value: "KidLisp" },
-        { name: "Code", value: `$${pieceName}` },
+        ...analysis.traits,
         ...(authorHandle && authorHandle !== "@anon" ? [{ name: "Author", value: authorHandle }] : []),
-        { name: "Interactive", value: "Yes" },
-        { name: "Platform", value: "Aesthetic Computer" },
         { name: "Updated", value: new Date().toISOString().split('T')[0] },
+        { name: "Analyzer Version", value: ANALYZER_VERSION },
       ];
 
       await send("progress", { stage: "metadata", message: "✓ Metadata ready" });

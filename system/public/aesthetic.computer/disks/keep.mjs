@@ -1,5 +1,6 @@
 // keep, 2024.12.15
-// Mint a piece as a KEEP NFT on Tezos with live timeline feedback.
+// Preserve a KidLisp piece as a KEEP on Tezos.
+// A "keep" stores your code, artwork, and interaction forever on the blockchain.
 // Usage: `keep piece-name` or `keep $piece-name`
 
 import { tokenize, KidLisp } from "../lib/kidlisp.mjs";
@@ -56,14 +57,22 @@ let preparedData = null;
 let txHash = null;
 let tokenId = null;
 let userHandle = null;
+let userSub = null; // Current user's auth0 sub ID
 let sourceCode = null;
-let pieceAuthor = null;
+let pieceAuthor = null; // Author handle (e.g. "@jeffrey")
+let pieceAuthorSub = null; // Author's auth0 sub ID
 let pieceCreatedAt = null; // When piece was created
 let pieceSourceLength = null; // Character count
+let pieceHits = null; // Number of times piece was accessed
+let pieceSourceDisplay = null; // Source code for display (single line)
 
 let rotation = 0;
 let startTime = null;
 let particles = []; // Vegas-style particles
+
+// Ownership state
+let isAuthor = null; // true if current user is the author, false if not, null if unknown
+let loadingPieceInfo = false; // True while fetching piece info
 
 // Already minted state
 let alreadyMinted = null; // { tokenId, owner, artifactUri, thumbnailUri, metadataUri, mintedAt, name }
@@ -108,7 +117,7 @@ function resetTimeline() {
     { id: "metadata", label: "Build Metadata", status: "pending", detail: null, time: null, startedAt: null, duration: 2000 },
     { id: "review", label: "Pay Keep Toll", status: "pending", detail: null, time: null, startedAt: null, duration: null },
     { id: "sign", label: "Sign Transaction", status: "pending", detail: null, time: null, startedAt: null, duration: 30000 },
-    { id: "complete", label: "Mint Complete!", status: "pending", detail: null, time: null, startedAt: null, duration: 500 },
+    { id: "complete", label: "Keep Complete!", status: "pending", detail: null, time: null, startedAt: null, duration: 500 },
   ];
 }
 
@@ -149,9 +158,11 @@ let oldHtmlBtn, oldThumbBtn; // Buttons for original on-chain URIs
 let walletBtn; // Navigate to wallet piece
 let txBtn; // Transaction hash button after sync
 let contractBtn; // Link to contract on TzKT
+let loginBtn; // Login button for non-authors
+let previewBtn; // Preview piece button
 let _api, _net, _jump, _store, _needsPaint, _send, _ui, _screen, _preload, _preloadAnimatedWebp;
 
-function boot({ api, net, hud, params, store, cursor, jump, needsPaint, ui, screen, send }) {
+function boot({ api, net, hud, params, store, cursor, jump, needsPaint, ui, screen, send, user }) {
   cursor("native");
   _api = api;
   _net = net;
@@ -183,6 +194,8 @@ function boot({ api, net, hud, params, store, cursor, jump, needsPaint, ui, scre
   walletBtn = new ui.TextButton("Wallet", { x: 0, y: 0, screen });
   txBtn = new ui.TextButton("TX", { x: 0, y: 0, screen });
   contractBtn = new ui.TextButton("Contract", { x: 0, y: 0, screen });
+  loginBtn = new ui.TextButton("Login", { x: 0, y: 0, screen });
+  previewBtn = new ui.TextButton("Preview", { x: 0, y: 0, screen });
   htmlBtn.btn.stickyScrubbing = true;
   thumbBtn.btn.stickyScrubbing = true;
   metaBtn.btn.stickyScrubbing = true;
@@ -194,6 +207,8 @@ function boot({ api, net, hud, params, store, cursor, jump, needsPaint, ui, scre
   walletBtn.btn.stickyScrubbing = true;
   txBtn.btn.stickyScrubbing = true;
   contractBtn.btn.stickyScrubbing = true;
+  loginBtn.btn.stickyScrubbing = true;
+  previewBtn.btn.stickyScrubbing = true;
   
   let rawPiece = params[0] || store["keep:piece"];
   piece = rawPiece?.startsWith("$") ? rawPiece.slice(1) : rawPiece;
@@ -203,10 +218,20 @@ function boot({ api, net, hud, params, store, cursor, jump, needsPaint, ui, scre
     return;
   }
   
+  // Get current user's handle and sub from the passed user object
   _net?.getHandle?.().then(h => { userHandle = h; _needsPaint?.(); }).catch(() => {});
   
-  // First check if already minted
-  checkIfAlreadyMinted();
+  // Use the user object directly if available (much more reliable than token decoding)
+  if (user?.sub) {
+    userSub = user.sub;
+    console.log("🪙 KEEP: User sub from boot:", userSub);
+    checkOwnership();
+  } else {
+    console.log("🪙 KEEP: No user logged in (user object not available)");
+  }
+  
+  // Fetch piece info (author, hits, source) then check if already minted
+  fetchPieceInfo();
 }
 
 // Convert piece name to hex bytes for TzKT lookup
@@ -214,6 +239,91 @@ function stringToBytes(str) {
   return Array.from(new TextEncoder().encode(str))
     .map(b => b.toString(16).padStart(2, '0'))
     .join('');
+}
+
+// Fetch piece info from database (author, hits, source)
+async function fetchPieceInfo() {
+  console.log("🪙 KEEP: Fetching piece info for $" + piece);
+  loadingPieceInfo = true;
+  _needsPaint?.();
+  
+  try {
+    const response = await fetch(`/api/store-kidlisp?code=${piece}`);
+    if (response.ok) {
+      const data = await response.json();
+      
+      // Store source for display (single line)
+      if (data.source) {
+        pieceSourceDisplay = data.source.replace(/\n+/g, " ").replace(/\s+/g, " ").trim();
+        pieceSourceLength = data.source.length;
+      }
+      
+      // Store hits
+      pieceHits = data.hits || 0;
+      
+      // Store when created
+      if (data.when) {
+        pieceCreatedAt = new Date(data.when);
+      }
+      
+      // Store author sub ID
+      pieceAuthorSub = data.user || null;
+      
+      // Fetch author handle if we have a sub
+      if (pieceAuthorSub) {
+        try {
+          const handleRes = await fetch(`/user?from=${encodeURIComponent(pieceAuthorSub)}&withHandle=true`);
+          if (handleRes.ok) {
+            const handleData = await handleRes.json();
+            if (handleData.handle) {
+              pieceAuthor = "@" + handleData.handle;
+            }
+          }
+        } catch (e) {
+          console.warn("🪙 KEEP: Could not fetch author handle:", e);
+        }
+      }
+      
+      console.log("🪙 KEEP: Piece info:", { pieceAuthor, pieceHits, pieceAuthorSub, hasSource: !!pieceSourceDisplay });
+      
+      // Check ownership now that we have piece info
+      checkOwnership();
+    } else if (response.status === 404) {
+      console.log("🪙 KEEP: Piece not found in database");
+      pieceAuthor = null;
+      pieceAuthorSub = null;
+      isAuthor = null;
+    }
+  } catch (e) {
+    console.error("🪙 KEEP: Error fetching piece info:", e);
+  }
+  
+  loadingPieceInfo = false;
+  _needsPaint?.();
+  
+  // Now check if already minted
+  checkIfAlreadyMinted();
+}
+
+// Check if current user is the author
+function checkOwnership() {
+  if (!pieceAuthorSub) {
+    // No author recorded - could be anonymous or very old piece
+    isAuthor = null;
+    console.log("🪙 KEEP: No author recorded for this piece");
+  } else if (!userSub) {
+    // User not logged in YET - but don't set to false, keep as null until we know
+    // (They might still be loading their auth token)
+    // Only show "not logged in" if we've given auth time to load
+    console.log("🪙 KEEP: User sub not yet loaded, keeping isAuthor as null");
+    // Don't change isAuthor - leave it as null until we have userSub
+  } else {
+    // Compare user sub with author sub
+    isAuthor = userSub === pieceAuthorSub;
+    console.log("🪙 KEEP: Ownership check:", isAuthor ? "YOU are the author" : "You are NOT the author");
+    console.log("🪙 KEEP: userSub:", userSub, "pieceAuthorSub:", pieceAuthorSub);
+  }
+  _needsPaint?.();
 }
 
 // Check TzKT for existing mint
@@ -972,7 +1082,7 @@ async function signAndMint() {
       }
     }
     
-    const tokenInfo = tokenId ? `Token #${tokenId}` : "Minted!";
+    const tokenInfo = tokenId ? `Token #${tokenId}` : "Kept!";
     setStep("complete", "done", tokenInfo);
     
     // Record the mint in MongoDB so it shows up as "kept"
@@ -1592,73 +1702,242 @@ function paint({ wipe, ink, box, screen, paste }) {
   }
   
   // === LOADING VIEW ===
-  if (loadingExisting) {
+  if (loadingExisting || loadingPieceInfo) {
     wipe(30, 35, 45);
-    ink(100, 150, 180).write("Checking chain...", { x: w/2, y: h/2, center: "xy" }, undefined, undefined, false, "MatrixChunky8");
+    const msg = loadingPieceInfo ? "Loading piece..." : "Checking chain...";
+    ink(100, 150, 180).write(msg, { x: w/2, y: h/2, center: "xy" }, undefined, undefined, false, "MatrixChunky8");
     return;
   }
   
   // === CONFIRMATION VIEW ===
   if (waitingConfirmation) {
-    // Warm amber background
-    const pulse = sin(rotation * 1.5) * 5;
-    wipe(45 + pulse, 35 + pulse, 25);
+    // Dark gradient background
+    const pulse = sin(rotation * 1.2) * 3;
+    wipe(25 + pulse, 28 + pulse, 35 + pulse);
     
-    // Gold border shimmer
-    for (let i = 0; i < w; i += 3) {
-      const shimmer = sin(rotation * 2 + i * 0.2) * 0.5 + 0.5;
-      const alpha = floor(shimmer * 80);
-      ink(255, 200, 100, alpha).box(i, 0, 2, 1);
-      ink(255, 200, 100, alpha).box(i, h - 1, 2, 1);
+    // Subtle animated corner accents
+    const accentAlpha = floor(60 + sin(rotation * 2) * 20);
+    ink(255, 200, 100, accentAlpha).box(0, 0, 20, 2);
+    ink(255, 200, 100, accentAlpha).box(0, 0, 2, 20);
+    ink(255, 200, 100, accentAlpha).box(w - 20, 0, 20, 2);
+    ink(255, 200, 100, accentAlpha).box(w - 2, 0, 2, 20);
+    ink(255, 200, 100, accentAlpha).box(0, h - 2, 20, 2);
+    ink(255, 200, 100, accentAlpha).box(0, h - 20, 2, 20);
+    ink(255, 200, 100, accentAlpha).box(w - 20, h - 2, 20, 2);
+    ink(255, 200, 100, accentAlpha).box(w - 2, h - 20, 2, 20);
+    
+    // Check if anonymous (no author recorded and not loading)
+    const isAnonymous = !pieceAuthorSub && !loadingPieceInfo;
+    
+    // Responsive spacing based on screen height
+    const compact = h < 180;
+    const spacious = h > 280;
+    const gap = compact ? 10 : (spacious ? 20 : 14);
+    const smallGap = compact ? 6 : (spacious ? 12 : 8);
+    const tinyGap = compact ? 4 : (spacious ? 8 : 6);
+    
+    // Calculate total height for centering based on content
+    let totalH = 14 + gap + 16 + smallGap; // title + gap + piece name button + gap
+    if (pieceSourceDisplay) totalH += 10 + tinyGap; // source preview
+    totalH += 10 + gap; // author/hits info + gap before action area
+    if (isAnonymous) {
+      totalH += 14 + tinyGap + 9; // anonymous message (can't keep)
+    } else if (isAuthor === true) {
+      totalH += 10 + smallGap + 12 + smallGap + 10 + gap + 10 + smallGap + 12 + gap + 16; // ownership + gaps + keep it + prose + network + contract + button
+    } else if (pieceAuthorSub && !userSub) {
+      totalH += 9 + tinyGap + 9 + gap + 10 + smallGap + 16; // not logged in message + button
+    } else if (isAuthor === false) {
+      totalH += 10 + smallGap + 12 + tinyGap + 9 + tinyGap + 9 + smallGap + 10; // logged in + not author message
+    } else {
+      totalH += 10 + gap + 16; // loading message + button area
     }
     
-    let cy = h / 2 - 30;
+    let cy = floor((h - totalH) / 2);
+    if (cy < 12) cy = 12;
     
-    // Title
-    ink(255, 220, 100).write("MINT", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
-    cy += 12;
+    // Title with glow effect - show ANONYMOUS in red/orange if anonymous piece
+    const glowAlpha = floor(50 + sin(rotation * 2.5) * 30);
+    if (isAnonymous) {
+      ink(200, 120, 100, glowAlpha).write("ANONYMOUS", { x: w/2, y: cy - 1, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+      ink(200, 120, 100).write("ANONYMOUS", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+    } else {
+      ink(255, 220, 100, glowAlpha).write("KEEP", { x: w/2, y: cy - 1, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+      ink(255, 220, 100).write("KEEP", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+    }
+    cy += 14 + gap;
     
-    // Piece name
-    ink(100, 220, 180).write(`$${piece}`, { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
-    cy += 14;
-    
-    // Network + staging info
-    const netLabel = KEEPS_STAGING ? "STAGING" : NETWORK.toUpperCase();
-    const isMainnet = NETWORK === "mainnet";
-    const netColor = KEEPS_STAGING ? [255, 180, 100] : (isMainnet ? [100, 220, 100] : [220, 180, 100]);
-    ink(netColor[0], netColor[1], netColor[2]).write(netLabel, { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
-    cy += 10;
-    
-    // Contract button (clickable link to TzKT)
-    const contractScheme = {
-      normal: { bg: [35, 45, 55], outline: [100, 140, 180], outlineAlpha: 150, text: [140, 180, 220] },
-      hover: { bg: [45, 60, 75], outline: [140, 180, 220], outlineAlpha: 200, text: [180, 220, 255] },
-      disabled: { bg: [25, 30, 35], outline: [60, 80, 100], outlineAlpha: 100, text: [80, 100, 120] }
+    // Piece name as clickable button to preview - with subtle pulse
+    const btnPulsePreview = 1 + sin(rotation * 2) * 0.08;
+    const previewScheme = {
+      normal: { 
+        bg: [floor(25 * btnPulsePreview), floor(55 * btnPulsePreview), floor(50 * btnPulsePreview)], 
+        outline: [floor(80 * btnPulsePreview), floor(210 * btnPulsePreview), floor(190 * btnPulsePreview)], 
+        outlineAlpha: 180, 
+        text: [100, 220, 200] 
+      },
+      hover: { bg: [40, 80, 70], outline: [130, 255, 230], outlineAlpha: 220, text: [150, 255, 240] },
+      disabled: { bg: [20, 35, 32], outline: [50, 120, 100], outlineAlpha: 100, text: [50, 120, 100] }
     };
-    const shortContract = KEEPS_CONTRACT.slice(0, 8) + "..";
-    const contractSize = mc8ButtonSize(shortContract);
-    const contractX = floor((w - contractSize.w) / 2);
-    contractBtn.btn.box.x = contractX;
-    contractBtn.btn.box.y = cy;
-    contractBtn.btn.box.w = contractSize.w;
-    contractBtn.btn.box.h = contractSize.h;
-    paintMC8Btn(contractX, cy, shortContract, { ink, line: ink }, contractScheme, contractBtn.btn.down);
-    cy += 18;
+    const previewText = `$${piece}`;
+    const previewSize = mc8ButtonSize(previewText);
+    const previewX = floor((w - previewSize.w) / 2);
+    previewBtn.btn.box.x = previewX;
+    previewBtn.btn.box.y = cy;
+    previewBtn.btn.box.w = previewSize.w;
+    previewBtn.btn.box.h = previewSize.h;
+    paintMC8Btn(previewX, cy, previewText, { ink, line: ink }, previewScheme, previewBtn.btn.down);
+    cy += 16 + smallGap;
     
-    // Confirmation button
-    const confirmScheme = {
-      normal: { bg: [40, 70, 50], outline: [100, 200, 120], outlineAlpha: 200, text: [150, 255, 180] },
-      hover: { bg: [50, 90, 65], outline: [150, 255, 180], outlineAlpha: 255, text: [200, 255, 220] },
-      disabled: { bg: [30, 40, 35], outline: [60, 100, 80], outlineAlpha: 100, text: [80, 120, 100] }
-    };
-    const confirmText = "Start Minting";
-    const confirmSize = lgButtonSize(confirmText);
-    const confirmX = floor((w - confirmSize.w) / 2);
-    btn.btn.box.x = confirmX;
-    btn.btn.box.y = cy;
-    btn.btn.box.w = confirmSize.w;
-    btn.btn.box.h = confirmSize.h;
-    paintLgBtn(confirmX, cy, confirmText, { ink, line: ink }, confirmScheme, btn.btn.down);
+    // Source code preview with syntax highlighting (scrolling ticker if long)
+    if (pieceSourceDisplay) {
+      const maxSourceLen = floor(w / 6) - 4; // Responsive to screen width
+      let displaySource = pieceSourceDisplay;
+      if (displaySource.length > maxSourceLen) {
+        // Scroll the source
+        const scrollOffset = floor(rotation * 3) % (displaySource.length + 10);
+        const paddedSource = displaySource + "          " + displaySource;
+        displaySource = paddedSource.substring(scrollOffset, scrollOffset + maxSourceLen);
+      }
+      
+      // Use proper KidLisp syntax highlighting via buildColoredSourceString
+      const coloredSource = buildColoredSourceString(displaySource);
+      ink(200, 200, 200, 140).write(coloredSource, { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+      cy += 10 + tinyGap;
+    }
+    
+    // Author, hits, and date info
+    const authorStr = pieceAuthor || "anonymous";
+    const hitsStr = pieceHits !== null ? `${pieceHits} hits` : "";
+    // Format date as "Dec 26, 2025" or similar
+    let dateStr = "";
+    if (pieceCreatedAt) {
+      const d = pieceCreatedAt instanceof Date ? pieceCreatedAt : new Date(pieceCreatedAt);
+      if (!isNaN(d.getTime())) {
+        const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        dateStr = `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+      }
+    }
+    // Build info string with all available parts
+    let infoParts = [`by ${authorStr}`];
+    if (dateStr) infoParts.push(dateStr);
+    if (hitsStr) infoParts.push(hitsStr);
+    const infoStr = infoParts.join(" · ");
+    ink(100, 105, 115).write(infoStr, { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+    cy += 10 + gap;
+    
+    // Ownership status and action area
+    if (isAuthor === true) {
+      // User IS the author - show keep button
+      const checkmark = "✓";
+      const ownershipMsg = userHandle ? `${checkmark} Logged in as @${userHandle}` : `${checkmark} You wrote this code`;
+      ink(100, 200, 130).write(ownershipMsg, { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+      cy += 10 + smallGap;
+      
+      // "Keep It?" prompt in yellow with glow
+      const keepItGlow = floor(30 + sin(rotation * 3) * 15);
+      ink(255, 220, 100, keepItGlow).write("Keep It?", { x: w/2, y: cy - 1, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+      ink(255, 220, 100).write("Keep It?", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+      cy += 12 + smallGap;
+      
+      // Prose explanation (softer, elegant)
+      ink(150, 145, 135).write(`Keep $${piece} in your wallet.`, { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+      cy += 10 + gap;
+      
+      // Network badge
+      const netLabel = KEEPS_STAGING ? "STAGING" : NETWORK.toUpperCase();
+      const isMainnet = NETWORK === "mainnet";
+      const netColor = KEEPS_STAGING ? [255, 180, 100] : (isMainnet ? [100, 220, 100] : [220, 180, 100]);
+      ink(netColor[0], netColor[1], netColor[2], 200).write(netLabel, { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+      cy += 10 + smallGap;
+      
+      // Contract button (clickable link to TzKT)
+      const contractScheme = {
+        normal: { bg: [30, 38, 50], outline: [80, 115, 150], outlineAlpha: 140, text: [130, 160, 200] },
+        hover: { bg: [45, 55, 75], outline: [130, 175, 220], outlineAlpha: 200, text: [180, 210, 255] },
+        disabled: { bg: [25, 30, 35], outline: [60, 80, 100], outlineAlpha: 100, text: [80, 100, 120] }
+      };
+      const shortContract = KEEPS_CONTRACT.slice(0, 8) + "..";
+      const contractSize = mc8ButtonSize(shortContract);
+      const contractX = floor((w - contractSize.w) / 2);
+      contractBtn.btn.box.x = contractX;
+      contractBtn.btn.box.y = cy;
+      contractBtn.btn.box.w = contractSize.w;
+      contractBtn.btn.box.h = contractSize.h;
+      paintMC8Btn(contractX, cy, shortContract, { ink, line: ink }, contractScheme, contractBtn.btn.down);
+      cy += 12 + gap;
+      
+      // Main action button (prominent, glowing)
+      const btnPulse = sin(rotation * 2.5) * 0.15 + 1;
+      const confirmScheme = {
+        normal: { bg: [floor(40 * btnPulse), floor(75 * btnPulse), floor(55 * btnPulse)], outline: [floor(110 * btnPulse), floor(220 * btnPulse), floor(150 * btnPulse)], outlineAlpha: 230, text: [160, 255, 200] },
+        hover: { bg: [55, 105, 80], outline: [170, 255, 210], outlineAlpha: 255, text: [230, 255, 245] },
+        disabled: { bg: [30, 40, 35], outline: [60, 100, 80], outlineAlpha: 100, text: [80, 120, 100] }
+      };
+      const confirmText = "Keep It";
+      const confirmSize = lgButtonSize(confirmText);
+      const confirmX = floor((w - confirmSize.w) / 2);
+      btn.btn.box.x = confirmX;
+      btn.btn.box.y = cy;
+      btn.btn.box.w = confirmSize.w;
+      btn.btn.box.h = confirmSize.h;
+      paintLgBtn(confirmX, cy, confirmText, { ink, line: ink }, confirmScheme, btn.btn.down);
+      
+    } else if (pieceAuthorSub && !userSub) {
+      // Piece has an author, but user is NOT logged in yet
+      ink(210, 160, 110).write("You can only keep KidLisp", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+      cy += 9 + tinyGap;
+      ink(210, 160, 110).write("that you authored.", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+      cy += gap;
+      
+      ink(150, 150, 165).write("Login to verify ownership", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+      cy += 10 + smallGap;
+      
+      // Login button with pulse
+      const loginPulse = sin(rotation * 2) * 0.1 + 1;
+      const loginScheme = {
+        normal: { bg: [floor(50 * loginPulse), floor(55 * loginPulse), floor(80 * loginPulse)], outline: [floor(130 * loginPulse), floor(150 * loginPulse), floor(220 * loginPulse)], outlineAlpha: 200, text: [170, 190, 255] },
+        hover: { bg: [65, 75, 110], outline: [175, 195, 255], outlineAlpha: 240, text: [210, 220, 255] },
+        disabled: { bg: [30, 35, 45], outline: [70, 80, 100], outlineAlpha: 100, text: [90, 100, 120] }
+      };
+      const loginText = "Login";
+      const loginSize = lgButtonSize(loginText);
+      const loginX = floor((w - loginSize.w) / 2);
+      loginBtn.btn.box.x = loginX;
+      loginBtn.btn.box.y = cy;
+      loginBtn.btn.box.w = loginSize.w;
+      loginBtn.btn.box.h = loginSize.h;
+      paintLgBtn(loginX, cy, loginText, { ink, line: ink }, loginScheme, loginBtn.btn.down);
+      
+    } else if (isAuthor === false) {
+      // User IS logged in but NOT the author
+      const loggedInMsg = userHandle ? `Logged in as @${userHandle}` : "Logged in";
+      ink(110, 150, 195).write(loggedInMsg, { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+      cy += 10 + smallGap;
+      
+      ink(210, 110, 110).write("✗ Not your code", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+      cy += 12 + tinyGap;
+      
+      ink(180, 155, 145).write("You can only keep KidLisp", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+      cy += 9 + tinyGap;
+      ink(180, 155, 145).write("that you authored.", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+      cy += 10 + smallGap;
+      
+      ink(130, 130, 145).write(`Author: ${pieceAuthor || "unknown"}`, { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+      
+    } else if (isAnonymous) {
+      // Anonymous piece - can't be kept
+      ink(210, 130, 110).write("Anonymous piece", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+      cy += 14 + tinyGap;
+      
+      // Explanation
+      ink(150, 140, 130).write("Anonymous pieces cannot", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+      cy += 9 + tinyGap;
+      ink(150, 140, 130).write("be kept at this time.", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+    } else {
+      // Still loading - show animated dots
+      const dots = ".".repeat((floor(rotation * 3) % 3) + 1);
+      ink(180, 175, 150).write(`Loading${dots}`, { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+    }
     
     return;
   }
@@ -2104,16 +2383,52 @@ function act({ event: e, screen }) {
   
   // Confirmation button handler
   if (waitingConfirmation) {
-    btn.btn.act(e, { push: () => {
-      console.log("🪙 KEEP: User confirmed, starting mint process...");
-      waitingConfirmation = false;
-      resetTimeline();
-      startTime = Date.now();
-      runProcess();
+    // Only enable keep button if user is author - anonymous pieces cannot be kept
+    const isAnonymousClick = !pieceAuthorSub && !loadingPieceInfo;
+    const canKeep = isAuthor === true && !isAnonymousClick;
+    if (canKeep) {
+      btn.btn.act(e, { push: () => {
+        console.log("🪙 KEEP: User confirmed, starting mint process...");
+        waitingConfirmation = false;
+        resetTimeline();
+        startTime = Date.now();
+        runProcess();
+      }});
+    }
+    // Preview button - jump to the piece to preview it
+    previewBtn.btn.act(e, { push: () => {
+      console.log("🪙 KEEP: Jumping to preview piece $" + piece);
+      _jump?.(`$${piece}`);
     }});
     // Contract button - link to TzKT
     const tzktContractUrl = `https://${NETWORK}.tzkt.io/${KEEPS_CONTRACT}`;
     contractBtn.btn.act(e, { push: () => openUrl(tzktContractUrl) });
+    // Login button - trigger auth0 login (show when piece has author but user not logged in)
+    if (pieceAuthorSub && !userSub) {
+      loginBtn.btn.act(e, { push: async () => {
+        console.log("🪙 KEEP: User clicked login, triggering auth...");
+        try {
+          await _api?.authorize?.(true); // Force login
+          // After login, refetch user info
+          _net?.getHandle?.().then(h => { userHandle = h; _needsPaint?.(); }).catch(() => {});
+          _api?.authorize?.().then(async (token) => {
+            if (token) {
+              try {
+                const payload = JSON.parse(atob(token.split('.')[1]));
+                userSub = payload.sub;
+                console.log("🪙 KEEP: User logged in, sub:", userSub);
+                checkOwnership();
+              } catch (e) {
+                console.warn("🪙 KEEP: Could not decode token:", e);
+              }
+            }
+            _needsPaint?.();
+          }).catch(() => {});
+        } catch (e) {
+          console.error("🪙 KEEP: Login error:", e);
+        }
+      }});
+    }
     return;
   }
   
