@@ -1079,8 +1079,25 @@ async function updateMetadata(tokenId, piece, options = {}) {
     { name: 'Platform', value: 'Aesthetic Computer' },
   ];
   
-  // creators array contains just the wallet address for on-chain attribution
-  const creatorsArray = [credentials.address];
+  // Preserve the ORIGINAL creator from firstMinter on TzKT
+  // This ensures artist attribution is maintained on updates
+  let originalCreator = credentials.address; // fallback to current wallet
+  try {
+    const tzktBase = network === 'mainnet' ? 'https://api.tzkt.io' : `https://api.${network}.tzkt.io`;
+    const tokenUrl = `${tzktBase}/v1/tokens?contract=${contractAddress}&tokenId=${tokenId}`;
+    const tokenResponse = await fetch(tokenUrl);
+    if (tokenResponse.ok) {
+      const tokens = await tokenResponse.json();
+      if (tokens[0]?.firstMinter?.address) {
+        originalCreator = tokens[0].firstMinter.address;
+        console.log(`   ✓ Preserving original creator: ${originalCreator}`);
+      }
+    }
+  } catch (e) {
+    console.warn(`   ⚠ Could not fetch original creator, using current wallet`);
+  }
+  
+  const creatorsArray = [originalCreator];
   
   // Build metadata JSON for IPFS
   const tokenName = `$${pieceName}`;
