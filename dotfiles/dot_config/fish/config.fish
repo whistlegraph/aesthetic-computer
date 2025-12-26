@@ -89,8 +89,8 @@ function acd
     
     ac
     
-    # Stop other containers
-    set containers (docker ps -q)
+    # Stop other containers (but not aesthetic)
+    set containers (docker ps -q --filter "name!=aesthetic")
     if test -n "$containers"
         docker stop $containers >/dev/null 2>&1
     end
