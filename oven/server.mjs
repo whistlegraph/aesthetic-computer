@@ -331,12 +331,13 @@ app.get('/', (req, res) => {
       const recentGrabsHtml = recentGrabs.length === 0
         ? '<p class="empty">No recent grabs</p>'
         : recentGrabs.map(grab => {
-          // Check if we have an IPFS thumbnail for this piece
-          const ipfsThumb = ipfsThumbs[grab.piece];
-          const thumbUrl = ipfsThumb 
-            ? \`https://ipfs.aesthetic.computer/ipfs/\${ipfsThumb.ipfsCid}\`
+          // Use grab's own IPFS data first, then fall back to ipfsThumbs map
+          const ipfsCid = grab.ipfsCid || ipfsThumbs[grab.piece]?.ipfsCid;
+          const ipfsUri = grab.ipfsUri || ipfsThumbs[grab.piece]?.ipfsUri;
+          const thumbUrl = ipfsCid 
+            ? \`https://ipfs.aesthetic.computer/ipfs/\${ipfsCid}\`
             : \`https://grab.aesthetic.computer/preview/180x180/$\${grab.piece}.png\`;
-          const ipfsLink = ipfsThumb ? \`<a href="\${ipfsThumb.ipfsUri}" target="_blank" style="color: #66f;">IPFS</a>\` : '';
+          const ipfsLink = ipfsUri ? \`<a href="\${ipfsUri}" target="_blank" style="color: #66f;">IPFS</a>\` : '';
           return \`
           <div class="grab-card \${grab.status === 'failed' ? 'error' : ''}">
             <img class="grab-thumb" src="\${thumbUrl}" alt="$\${grab.piece}" loading="lazy" onerror="this.style.display='none'">
