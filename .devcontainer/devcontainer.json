@@ -77,7 +77,10 @@
       "extensions": [],
       "settings": {
         "settingsSync.ignoredExtensions": ["*"],
-        "extensions.ignoreRecommendations": true
+        "extensions.ignoreRecommendations": true,
+        "remote.extensionKind": {
+          "github.copilot-chat": ["ui"]
+        }
       }
     }
   },
@@ -114,6 +117,7 @@
     // "host"
   ],
   "initializeCommand": ["sh", "-c", ".devcontainer/scripts/prepare-host.sh"],
-  "postStartCommand": "sh .devcontainer/scripts/poststart-wrapper.sh"
+  "postStartCommand": "sh .devcontainer/scripts/poststart-wrapper.sh",
+  "postAttachCommand": "sh .devcontainer/scripts/post-attach.sh"
   // .waiter file is now created inside entry.fish to avoid terminal popup in Codespaces
 }
