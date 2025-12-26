@@ -26,60 +26,151 @@
 ## Contract Security Audit
 
 ### Contract: `KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM` (Mainnet Staging)
+### Source: `tezos/keeps_fa2_v2.py` (SmartPy)
 
-### Entrypoints to Audit
+---
 
-| Entrypoint | Purpose | Access Control | Risk Level |
-|------------|---------|----------------|------------|
-| `keep` | Mint new token | Anyone (pays fee) | Medium |
-| `edit_metadata` | Update token metadata | Admin only | High |
-| `lock_metadata` | Permanently lock token metadata | Admin only | Medium |
-| `burn` | Destroy token | Token owner | Medium |
-| `transfer` | FA2 standard transfer | Token owner/operator | Low |
-| `update_operators` | FA2 operator management | Token owner | Low |
-| `set_administrator` | Change admin wallet | Admin only | Critical |
-| `set_keep_fee` | Change minting fee | Admin only | Low |
-| `withdraw` | Withdraw collected fees | Admin only | Medium |
-| `lock_contract_metadata` | Lock collection metadata | Admin only | Medium |
-| `set_contract_metadata` | Update collection metadata | Admin only | Low |
+### Entrypoint Analysis
 
-### Security Questions
+#### 1. `keep` - Mint New Token
+**Access Control:** Two modes
+- **Admin mode:** Can mint to any `owner` address
+- **User mode:** Must pay `keep_fee`, can only mint to themselves (`MUST_MINT_TO_SELF`)
 
-1. **Admin Key Security**
-   - [ ] Where is admin key stored? (DB secrets? Hardware wallet?)
-   - [ ] Who has access to admin key?
-   - [ ] Is there a multisig option?
+**Security Features:**
+- ✅ `DUPLICATE_CONTENT_HASH` - Prevents re-minting same piece
+- ✅ `INSUFFICIENT_FEE` - Enforces payment for non-admin mints
+- ✅ User is `firstMinter` when minting to self (proper artist attribution)
 
-2. **Minting Protection**
-   - [ ] Can `content_hash` be duplicated? (Should be unique)
-   - [ ] Is fee correctly enforced?
-   - [ ] Can malicious metadata crash indexers?
+**Risks:**
+- ⚠️ No metadata validation - malformed bytes could cause indexer issues
+- ⚠️ No size limits on metadata fields - gas bombs possible
+- ⚠️ Admin can mint to any address (impersonate artist on objkt)
 
-3. **Metadata Updates**
-   - [ ] Can `edit_metadata` be called on locked tokens? (Should fail with METADATA_LOCKED)
-   - [ ] Are `creators` preserved correctly on updates?
-   - [ ] What happens if "" key (metadata URI) is malformed?
+---
 
-4. **Burn Protection**
-   - [ ] Can only owner burn?
-   - [ ] What happens to `content_hash` after burn? Can piece be re-minted?
+#### 2. `edit_metadata` - Update Token Metadata
+**Access Control:** Admin only (`FA2_NOT_ADMIN`)
 
-5. **Transfer Security**
-   - [ ] FA2 compliance verified?
-   - [ ] Operator permissions working?
+**Security Features:**
+- ✅ `METADATA_LOCKED` check - respects permanent lock
+- ✅ `FA2_TOKEN_UNDEFINED` - validates token exists
 
-6. **Fee Handling**
-   - [ ] Is collected fee tracked correctly?
-   - [ ] Withdraw only to admin?
+**Risks:**
+- ⚠️ Admin can change ANY unlocked token's metadata
+- ⚠️ Could change `creators` array (though firstMinter preserved on-chain)
+- ⚠️ No partial update - replaces entire `token_info` map
 
-### Audit Checklist
+---
 
-- [ ] Review SmartPy source (`keeps_fa2_final.py`)
-- [ ] Test each entrypoint on Ghostnet
-- [ ] Verify access control with non-admin wallet
-- [ ] Check edge cases (empty metadata, max values)
-- [ ] Verify token ID sequence
-- [ ] Check storage limits
+#### 3. `lock_metadata` - Permanently Lock Token
+**Access Control:** Admin only
+
+**Security Features:**
+- ✅ One-way lock (cannot unlock)
+- ✅ Validates token exists
+
+**Status:** ✅ Secure
+
+---
+
+#### 4. `burn_keep` - Destroy Token
+**Access Control:** Admin only (NOT token owner!)
+
+**Security Features:**
+- ✅ Clears `content_hash` - allows piece to be re-minted
+- ✅ Clears `ledger`, `token_metadata`, `metadata_locked`
+
+**Risks:**
+- ⚠️ Admin can burn ANY token (not just their own)
+- ⚠️ User cannot burn their own token (only admin can)
+- ⚠️ Consider: Should owner be able to burn?
+
+---
+
+#### 5. `set_keep_fee` - Change Minting Fee
+**Access Control:** Admin only
+**Status:** ✅ Secure - simple admin-controlled value
+
+---
+
+#### 6. `withdraw_fees` - Withdraw Collected Fees
+**Access Control:** Admin only
+
+**Security Features:**
+- ✅ Admin-only
+- ✅ Sends to specified destination (allows cold wallet withdrawal)
+
+**Status:** ✅ Secure
+
+---
+
+#### 7. `set_contract_metadata` - Update Collection Metadata
+**Access Control:** Admin only, if not locked
+
+**Security Features:**
+- ✅ `CONTRACT_METADATA_LOCKED` check
+
+**Status:** ✅ Secure
+
+---
+
+#### 8. `lock_contract_metadata` - Lock Collection
+**Access Control:** Admin only
+**Status:** ✅ Secure - one-way lock
+
+---
+
+#### 9. FA2 Standard Entrypoints (inherited)
+- `transfer` - Standard FA2, owner/operator only ✅
+- `update_operators` - Standard FA2, owner only ✅
+- `balance_of` - View, public ✅
+
+---
+
+### Security Concerns Summary
+
+| Priority | Issue | Recommendation |
+|----------|-------|----------------|
+| **High** | Admin can burn any token | Consider: Add owner-can-burn option |
+| **High** | Admin can mint to any address | Consider: Log original requestor in metadata |
+| **Medium** | No metadata size limits | Add max bytes checks in SmartPy |
+| **Medium** | edit_metadata replaces all | Consider: merge update vs replace |
+| **Low** | Admin key is hot wallet | Consider: Multisig for production |
+
+---
+
+### Storage Structure
+
+```python
+storage = {
+  administrator: address,           # Admin wallet
+  next_token_id: nat,               # Token ID counter
+  ledger: big_map[nat, address],    # Token ID -> Owner
+  token_metadata: big_map[nat, record],  # Token ID -> Metadata
+  metadata: big_map[string, bytes], # Contract metadata (TZIP-16)
+  metadata_locked: big_map[nat, bool],   # Token ID -> Locked?
+  content_hashes: big_map[bytes, nat],   # Hash -> Token ID (dedup)
+  contract_metadata_locked: bool,   # Collection lock flag
+  keep_fee: mutez,                  # Required fee for user mints
+  operators: big_map[...],          # FA2 operator permissions
+}
+```
+
+---
+
+### Recommended Tests
+
+- [ ] Mint as user (pay fee, verify firstMinter)
+- [ ] Mint as admin to user address (verify attribution)
+- [ ] Try duplicate content_hash (should fail)
+- [ ] Edit metadata on unlocked token
+- [ ] Try edit on locked token (should fail)
+- [ ] Burn token, re-mint same piece
+- [ ] Transfer token between users
+- [ ] Set/update operators
+- [ ] Withdraw fees
+- [ ] Lock collection metadata
 
 ---
 
