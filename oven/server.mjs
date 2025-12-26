@@ -9,7 +9,7 @@ import http from 'http';
 import fs from 'fs';
 import { WebSocketServer } from 'ws';
 import { healthHandler, bakeHandler, statusHandler, bakeCompleteHandler, bakeStatusHandler, getActiveBakes, getIncomingBakes, getRecentBakes, subscribeToUpdates, cleanupStaleBakes } from './baker.mjs';
-import { grabHandler, grabGetHandler, grabIPFSHandler, getActiveGrabs, getRecentGrabs, getLatestKeepThumbnail, getLatestIPFSUpload, getAllLatestIPFSUploads, IPFS_GATEWAY } from './grabber.mjs';
+import { grabHandler, grabGetHandler, grabIPFSHandler, getActiveGrabs, getRecentGrabs, getLatestKeepThumbnail, getLatestIPFSUpload, getAllLatestIPFSUploads, setNotifyCallback, IPFS_GATEWAY } from './grabber.mjs';
 
 const app = express();
 const PORT = process.env.PORT || 3002;
@@ -142,12 +142,67 @@ app.get('/', (req, res) => {
       margin-top: 1em;
     }
     
-    .media-preview video {
+    .media-preview video,
+    .media-preview img {
       width: 100%;
       max-width: 512px;
       image-rendering: pixelated;
       image-rendering: crisp-edges;
       border: 1px solid #333;
+    }
+    
+    /* Grid layout for grabs */
+    .grab-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 1em;
+    }
+    
+    .grab-card {
+      background: #111;
+      border: 1px solid #333;
+      padding: 0.5em;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .grab-card.active {
+      border-color: yellow;
+      background: rgba(255, 255, 0, 0.05);
+    }
+    
+    .grab-card .grab-thumb {
+      width: 100%;
+      aspect-ratio: 1;
+      object-fit: contain;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      background: #000;
+      border: 1px solid #222;
+    }
+    
+    .grab-card .grab-info {
+      padding: 0.5em 0 0 0;
+      font-size: 0.8em;
+    }
+    
+    .grab-card .slug {
+      color: yellow;
+      margin-bottom: 0.3em;
+    }
+    
+    .grab-card .meta {
+      opacity: 0.6;
+      font-size: 0.75em;
+    }
+    
+    .grab-card a {
+      color: yellow;
+      text-decoration: none;
+    }
+    
+    .grab-card a:hover {
+      text-decoration: underline;
     }
     
     .status-badge {
@@ -217,10 +272,10 @@ app.get('/', (req, res) => {
     </header>
   
   <h2>📸 Grabbing (<span id="grab-active-count">0</span>)</h2>
-  <div id="active-grabs"></div>
+  <div id="active-grabs" class="grab-grid"></div>
   
   <h2>🖼️ Recent Grabs (<span id="grab-recent-count">0</span>)</h2>
-  <div id="recent-grabs"></div>
+  <div id="recent-grabs" class="grab-grid"></div>
   
   <h2>📥 Incoming Bakes (<span id="incoming-count">0</span>)</h2>
   <div id="incoming-bakes"></div>
@@ -256,26 +311,42 @@ app.get('/', (req, res) => {
       const activeGrabsHtml = activeGrabs.length === 0
         ? '<p class="empty">No active grabs</p>'
         : activeGrabs.map(grab => \`
-          <div class="bake-card active">
-            <div class="slug">$\${grab.piece}</div>
-            <div class="status-badge status-\${grab.status}"><span class="spinner"></span>\${grab.status}</div>
-            <div class="meta">\${grab.format} · \${formatDuration(Date.now() - grab.startTime)}</div>
+          <div class="grab-card active">
+            <div class="grab-thumb" style="background: #111; display: flex; align-items: center; justify-content: center;">
+              <span class="spinner" style="width: 2em; height: 2em;"></span>
+            </div>
+            <div class="grab-info">
+              <div class="slug"><a href="https://aesthetic.computer/$\${grab.piece}" target="_blank">$\${grab.piece}</a></div>
+              <div class="meta">\${grab.format} · \${formatDuration(Date.now() - grab.startTime)}</div>
+            </div>
           </div>
         \`).join('');
       document.getElementById('active-grabs').innerHTML = activeGrabsHtml;
       
-      // Update recent grabs
+      // Update recent grabs with embedded images
       const recentGrabs = data.grabs?.recent || [];
+      // Also get IPFS thumbnails to match
+      const ipfsThumbs = data.grabs?.ipfsThumbs || {};
       document.getElementById('grab-recent-count').textContent = recentGrabs.length;
       const recentGrabsHtml = recentGrabs.length === 0
         ? '<p class="empty">No recent grabs</p>'
-        : recentGrabs.map(grab => \`
-          <div class="bake-card \${grab.status === 'failed' ? 'error' : ''}">
-            <div class="slug">$\${grab.piece}</div>
-            <div class="meta">\${grab.format} · \${grab.size ? (grab.size / 1024).toFixed(1) + ' KB' : grab.error || 'unknown'}</div>
-            \${grab.duration ? \`<div class="meta">Took \${formatDuration(grab.duration)}</div>\` : ''}
+        : recentGrabs.map(grab => {
+          // Check if we have an IPFS thumbnail for this piece
+          const ipfsThumb = ipfsThumbs[grab.piece];
+          const thumbUrl = ipfsThumb 
+            ? \`https://ipfs.aesthetic.computer/ipfs/\${ipfsThumb.ipfsCid}\`
+            : \`https://grab.aesthetic.computer/preview/180x180/$\${grab.piece}.png\`;
+          const ipfsLink = ipfsThumb ? \`<a href="\${ipfsThumb.ipfsUri}" target="_blank" style="color: #66f;">IPFS</a>\` : '';
+          return \`
+          <div class="grab-card \${grab.status === 'failed' ? 'error' : ''}">
+            <img class="grab-thumb" src="\${thumbUrl}" alt="$\${grab.piece}" loading="lazy" onerror="this.style.display='none'">
+            <div class="grab-info">
+              <div class="slug"><a href="https://aesthetic.computer/$\${grab.piece}" target="_blank">$\${grab.piece}</a> \${ipfsLink}</div>
+              <div class="meta">\${grab.format} · \${grab.size ? (grab.size / 1024).toFixed(1) + ' KB' : grab.error || ''}</div>
+            </div>
           </div>
-        \`).join('');
+        \`;
+        }).join('');
       document.getElementById('recent-grabs').innerHTML = recentGrabsHtml;
       
       // Update incoming bakes
@@ -457,6 +528,24 @@ if (dev) {
 // WebSocket server
 const wss = new WebSocketServer({ server, path: '/ws' });
 
+// Wire up grabber notifications to broadcast to all WebSocket clients
+setNotifyCallback(() => {
+  wss.clients.forEach((client) => {
+    if (client.readyState === 1) { // OPEN
+      client.send(JSON.stringify({
+        incoming: Array.from(getIncomingBakes().values()),
+        active: Array.from(getActiveBakes().values()),
+        recent: getRecentBakes(),
+        grabs: {
+          active: getActiveGrabs(),
+          recent: getRecentGrabs(),
+          ipfsThumbs: getAllLatestIPFSUploads()
+        }
+      }));
+    }
+  });
+});
+
 wss.on('connection', async (ws) => {
   console.log('📡 WebSocket client connected');
   
@@ -470,7 +559,8 @@ wss.on('connection', async (ws) => {
     recent: getRecentBakes(),
     grabs: {
       active: getActiveGrabs(),
-      recent: getRecentGrabs()
+      recent: getRecentGrabs(),
+      ipfsThumbs: getAllLatestIPFSUploads()
     }
   }));
   
@@ -483,7 +573,8 @@ wss.on('connection', async (ws) => {
         recent: getRecentBakes(),
         grabs: {
           active: getActiveGrabs(),
-          recent: getRecentGrabs()
+          recent: getRecentGrabs(),
+          ipfsThumbs: getAllLatestIPFSUploads()
         }
       }));
     }
