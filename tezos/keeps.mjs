@@ -208,12 +208,15 @@ async function deployContract(network = 'mainnet') {
   console.log('\n💾 Creating initial storage...');
   
   // Build contract metadata (TZIP-16)
+  // Include dynamic oven thumbnail that shows latest kept piece
   const contractMetadataJson = JSON.stringify({
     name: "KidLisp Keeps",
     version: "3.0.0",
     interfaces: ["TZIP-012", "TZIP-016", "TZIP-021"],
     authors: ["aesthetic.computer"],
-    homepage: "https://aesthetic.computer"
+    homepage: "https://aesthetic.computer",
+    imageUri: "https://oven.aesthetic.computer/keeps/latest",
+    description: "Self-contained generative art pieces created with KidLisp on aesthetic.computer"
   });
   const contractMetadataBytes = stringToBytes(contractMetadataJson);
   const tezosStoragePointer = stringToBytes("tezos-storage:content");
@@ -229,6 +232,7 @@ async function deployContract(network = 'mainnet') {
   console.log('   ✓ Initial token ID: 0');
   console.log('   ✓ Keep fee: 0 mutez (free)');
   console.log('   ✓ Contract metadata: TZIP-16 compliant');
+  console.log('   ✓ Collection image: https://oven.aesthetic.computer/keeps/latest');
   console.log('   ✓ Content hash uniqueness: enabled');
   console.log('   ✓ Contract metadata locked: false');
   
