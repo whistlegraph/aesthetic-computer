@@ -225,16 +225,23 @@ function drawJoinQR({ ink, box, write, screen }) {
   ink(255, 255, 255).box(ox - 1, oy - 1, qrSize + 2, qrSize + 2, "outline");
   
   // Display URL below QR (strip https:// for brevity)
+  // Right-align text to prevent cutoff (approx 6px per char)
   const displayIP = joinURL?.replace('https://', '').replace('/1v1', '') || '';
-  ink(255, 255, 0).write(displayIP, { x: ox, y: oy + qrSize + 4 }, undefined, undefined, false, hudFont);
+  const ipTextWidth = displayIP.length * 6;
+  const ipX = screen.width - margin - Math.max(ipTextWidth, qrSize);
+  ink(255, 255, 0).write(displayIP, { x: ipX, y: oy + qrSize + 4 }, undefined, undefined, false, hudFont);
   
-  // Show host machine label if available
+  // Show host machine label if available (also right-aligned)
   if (hostMachineInfo?.hostLabel) {
+    const labelWidth = hostMachineInfo.hostLabel.length * 6;
+    const labelX = screen.width - margin - Math.max(labelWidth, qrSize);
     ink(200, 200, 200).write(hostMachineInfo.hostLabel, 
-      { x: ox, y: oy + qrSize + 12 }, undefined, undefined, false, hudFont);
+      { x: labelX, y: oy + qrSize + 12 }, undefined, undefined, false, hudFont);
   } else if (hostMachineInfo?.hostName) {
+    const nameWidth = hostMachineInfo.hostName.length * 6;
+    const nameX = screen.width - margin - Math.max(nameWidth, qrSize);
     ink(180, 180, 180).write(hostMachineInfo.hostName, 
-      { x: ox, y: oy + qrSize + 12 }, undefined, undefined, false, hudFont);
+      { x: nameX, y: oy + qrSize + 12 }, undefined, undefined, false, hudFont);
   }
 }
 
@@ -1575,6 +1582,13 @@ function paint({ wipe, ink, painting, screen, line: drawLine, box: drawBox, clea
   const hudFont = "MatrixChunky8";
   
   // === 2D HUD OVERLAY ===
+  
+  // === TOP RIGHT: FPS counter (above minimap) ===
+  const fpsColor = currentFPS >= 55 ? [0, 255, 0] : currentFPS >= 30 ? [255, 255, 0] : [255, 0, 0];
+  const fpsText = `${currentFPS} FPS`;
+  // Right-align FPS text (approx 6px per char in MatrixChunky8)
+  const fpsTextWidth = fpsText.length * 6;
+  ink(...fpsColor).write(fpsText, { x: screen.width - fpsTextWidth - 8, y: 4 }, undefined, undefined, false, hudFont);
   
   // Draw crosshair FIRST (center of screen)
   const centerX = screen.width / 2;
