@@ -698,7 +698,7 @@ export async function grabPiece(piece, options = {}) {
     baseUrl = 'https://aesthetic.computer',
   } = options;
   
-  // For ID/display purposes, strip $ prefix if present
+  // For ID purposes, strip $ prefix; but keep original piece name for URL generation
   const pieceName = piece.replace(/^\$/, '');
   const grabId = `${pieceName}-${randomBytes(4).toString('hex')}`;
   
@@ -706,10 +706,10 @@ export async function grabPiece(piece, options = {}) {
   console.log(`   Piece: ${piece}`);
   console.log(`   Format: ${format}`);
   
-  // Track active grab
+  // Track active grab - store original piece name (with $ if KidLisp)
   activeGrabs.set(grabId, {
     id: grabId,
-    piece: pieceName,
+    piece: piece, // Keep original with $ prefix for URL generation
     format,
     status: 'capturing',
     startTime: Date.now(),
