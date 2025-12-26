@@ -8,6 +8,20 @@ import { join } from 'path';
 import { randomBytes, createHash } from 'crypto';
 import puppeteer from 'puppeteer';
 import { MongoClient } from 'mongodb';
+import { S3Client, PutObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
+
+// DigitalOcean Spaces (S3-compatible) for caching icons/previews
+const spacesClient = new S3Client({
+  endpoint: process.env.ART_SPACES_ENDPOINT || 'https://sfo3.digitaloceanspaces.com',
+  region: 'sfo3',
+  credentials: {
+    accessKeyId: process.env.ART_SPACES_KEY || '',
+    secretAccessKey: process.env.ART_SPACES_SECRET || '',
+  },
+});
+const SPACES_BUCKET = process.env.ART_SPACES_BUCKET || 'art-aesthetic-computer';
+const SPACES_CDN_BASE = `https://${SPACES_BUCKET}.sfo3.cdn.digitaloceanspaces.com`;
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 // MongoDB connection
 let mongoClient;
@@ -145,6 +159,112 @@ async function updateGrabInMongo(grabId, updates) {
 // Load recent grabs on startup
 loadRecentGrabs();
 
+/**
+ * Check if a cached image exists in Spaces and is still valid
+ * @returns {string|null} CDN URL if valid cache exists, null otherwise
+ */
+async function checkSpacesCache(cacheKey) {
+  if (!process.env.ART_SPACES_KEY) return null;
+  
+  const database = await connectMongo();
+  if (!database) return null;
+  
+  try {
+    const cache = database.collection('oven-cache');
+    const entry = await cache.findOne({ key: cacheKey });
+    
+    if (entry && entry.expiresAt > new Date()) {
+      // Cache hit - return CDN URL
+      return entry.cdnUrl;
+    }
+    
+    return null; // Cache miss or expired
+  } catch (error) {
+    console.error('❌ Cache check failed:', error.message);
+    return null;
+  }
+}
+
+/**
+ * Upload image to Spaces and save cache entry
+ * @returns {string} CDN URL
+ */
+async function uploadToSpaces(buffer, cacheKey, contentType = 'image/png') {
+  if (!process.env.ART_SPACES_KEY) {
+    throw new Error('Spaces not configured');
+  }
+  
+  const spacesKey = `oven/${cacheKey}`;
+  
+  // Upload to Spaces
+  await spacesClient.send(new PutObjectCommand({
+    Bucket: SPACES_BUCKET,
+    Key: spacesKey,
+    Body: buffer,
+    ContentType: contentType,
+    ACL: 'public-read',
+    CacheControl: 'public, max-age=86400', // 24h browser cache
+  }));
+  
+  const cdnUrl = `${SPACES_CDN_BASE}/${spacesKey}`;
+  
+  // Save cache entry to MongoDB
+  const database = await connectMongo();
+  if (database) {
+    try {
+      const cache = database.collection('oven-cache');
+      await cache.updateOne(
+        { key: cacheKey },
+        {
+          $set: {
+            key: cacheKey,
+            spacesKey,
+            cdnUrl,
+            contentType,
+            size: buffer.length,
+            generatedAt: new Date(),
+            expiresAt: new Date(Date.now() + CACHE_TTL_MS),
+          }
+        },
+        { upsert: true }
+      );
+    } catch (error) {
+      console.error('❌ Failed to save cache entry:', error.message);
+    }
+  }
+  
+  console.log(`📦 Cached to Spaces: ${cdnUrl}`);
+  return cdnUrl;
+}
+
+/**
+ * Get cached image or generate and cache
+ * @returns {{ cdnUrl: string, fromCache: boolean, buffer?: Buffer }}
+ */
+export async function getCachedOrGenerate(type, piece, width, height, generateFn) {
+  const cacheKey = `${type}/${piece}-${width}x${height}.png`;
+  
+  // Check cache first
+  const cachedUrl = await checkSpacesCache(cacheKey);
+  if (cachedUrl) {
+    console.log(`✅ Cache hit: ${cacheKey}`);
+    return { cdnUrl: cachedUrl, fromCache: true };
+  }
+  
+  // Generate fresh
+  console.log(`🔄 Cache miss: ${cacheKey}, generating...`);
+  const buffer = await generateFn();
+  
+  // Upload to Spaces (async, don't block response)
+  if (process.env.ART_SPACES_KEY) {
+    uploadToSpaces(buffer, cacheKey, 'image/png').catch(e => {
+      console.error('❌ Failed to cache to Spaces:', e.message);
+    });
+  }
+  
+  return { cdnUrl: null, fromCache: false, buffer };
+}
+
 // Subscriber notification (will be set by server.mjs)
 let notifyCallback = null;
 export function setNotifyCallback(cb) {
@@ -203,15 +323,15 @@ async function captureFrames(piece, options = {}) {
     fps = 7.5,
     density = 1,
     baseUrl = 'https://aesthetic.computer',
+    frames: explicitFrames, // Allow explicit frame count override
   } = options;
   
-  // Calculate frames from duration and fps
-  const frames = Math.ceil((duration / 1000) * fps);
+  // Calculate frames from duration and fps, or use explicit count
+  const frames = explicitFrames ?? Math.ceil((duration / 1000) * fps);
   
-  // Normalize piece name
-  const pieceName = piece.replace(/^\$/, '');
+  // Use piece name as-is (caller decides if $ prefix is needed for KidLisp)
   // tv=true (non-interactive), nolabel=true (no HUD label), nogap=true (no border)
-  const url = `${baseUrl}/$${pieceName}?density=${density}&tv=true&nolabel=true&nogap=true`;
+  const url = `${baseUrl}/${piece}?density=${density}&tv=true&nolabel=true&nogap=true`;
   
   console.log(`📸 Capturing ${frames} frames from ${url} (${fps} fps, ${duration}ms)`);
   console.log(`   Size: ${width}x${height}`);
@@ -578,11 +698,12 @@ export async function grabPiece(piece, options = {}) {
     baseUrl = 'https://aesthetic.computer',
   } = options;
   
+  // For ID/display purposes, strip $ prefix if present
   const pieceName = piece.replace(/^\$/, '');
   const grabId = `${pieceName}-${randomBytes(4).toString('hex')}`;
   
   console.log(`\n🎬 Starting grab: ${grabId}`);
-  console.log(`   Piece: $${pieceName}`);
+  console.log(`   Piece: ${piece}`);
   console.log(`   Format: ${format}`);
   
   // Track active grab
