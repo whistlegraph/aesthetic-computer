@@ -16,6 +16,9 @@ const app = express();
 const PORT = process.env.PORT || 3002;
 const dev = process.env.NODE_ENV === 'development';
 
+// Track server start time for uptime display
+const SERVER_START_TIME = Date.now();
+
 // Get git version at startup (from env var set during deploy, or try git)
 let GIT_VERSION = process.env.OVEN_VERSION || 'unknown';
 if (GIT_VERSION === 'unknown') {
@@ -26,6 +29,7 @@ if (GIT_VERSION === 'unknown') {
   }
 }
 console.log(`📦 Oven version: ${GIT_VERSION}`);
+console.log(`🕐 Server started at: ${new Date(SERVER_START_TIME).toISOString()}`);
 
 // Parse JSON bodies
 app.use(express.json());
@@ -282,9 +286,35 @@ app.get('/', (req, res) => {
     <div class="status">
       <div class="status-dot" id="ws-dot"></div>
       <span id="ws-text">Connecting...</span>
+      <span id="uptime" style="opacity:0.5"></span>
       <span class="version" id="version"></span>
     </div>
   </header>
+  
+  <div id="reboot-banner" style="display:none;background:rgba(255,200,0,0.15);color:#fa0;padding:0.4em 1em;text-align:center;font-size:0.85em;border-bottom:1px solid #333;">
+    ⚡ Server recently rebooted · queue restored from database
+  </div>
+  
+  <div class="manual-capture" style="padding:0.8em 1em;background:#0a0a0a;border-bottom:1px solid #222;">
+    <form id="capture-form" style="display:flex;gap:0.5em;align-items:center;flex-wrap:wrap;">
+      <input type="text" id="capture-piece" placeholder="piece (e.g. $roz or wiggle)" 
+        style="flex:1;min-width:150px;padding:0.4em 0.6em;background:#111;border:1px solid #333;color:#fff;font-family:monospace;border-radius:3px;">
+      <select id="capture-format" style="padding:0.4em;background:#111;border:1px solid #333;color:#fff;font-family:monospace;border-radius:3px;">
+        <option value="png">PNG (still)</option>
+        <option value="webp" selected>WebP (animated)</option>
+        <option value="gif">GIF (animated)</option>
+      </select>
+      <input type="number" id="capture-duration" value="12" min="1" max="60" step="1"
+        style="width:50px;padding:0.4em;background:#111;border:1px solid #333;color:#fff;font-family:monospace;border-radius:3px;text-align:center;"
+        title="Duration in seconds">
+      <span style="opacity:0.5;font-size:0.85em;">sec</span>
+      <button type="submit" style="padding:0.4em 1em;background:#fa0;color:#000;border:none;font-family:monospace;font-weight:bold;border-radius:3px;cursor:pointer;">
+        🔥 Bake
+      </button>
+      <a href="https://aesthetic.computer/prompt" style="margin-left:auto;color:#666;text-decoration:none;font-size:0.85em;" title="Back to prompt">← prompt</a>
+    </form>
+    <div id="capture-status" style="display:none;margin-top:0.5em;font-size:0.85em;"></div>
+  </div>
   
   <div class="stats">
     <div class="stat"><span class="stat-num" id="queue-count">0</span> queued</div>
@@ -305,6 +335,63 @@ app.get('/', (req, res) => {
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
     let ws, reconnectAttempts = 0, serverVersion = null;
     let allBakes = []; // Store all bakes for filtering
+    
+    // Manual capture form handler
+    document.getElementById('capture-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const piece = document.getElementById('capture-piece').value.trim();
+      const format = document.getElementById('capture-format').value;
+      const duration = parseInt(document.getElementById('capture-duration').value) || 12;
+      const statusEl = document.getElementById('capture-status');
+      
+      if (!piece) {
+        statusEl.style.display = 'block';
+        statusEl.style.color = '#f44';
+        statusEl.textContent = '❌ Please enter a piece name';
+        return;
+      }
+      
+      statusEl.style.display = 'block';
+      statusEl.style.color = '#fa0';
+      statusEl.textContent = '🔥 Starting capture...';
+      
+      try {
+        const width = 512, height = 512;
+        const url = '/grab/' + format + '/' + width + '/' + height + '/' + encodeURIComponent(piece) + 
+          '?duration=' + (duration * 1000);
+        
+        statusEl.textContent = '📸 Capturing ' + piece + ' (' + format + ', ' + duration + 's)...';
+        
+        const response = await fetch(url);
+        if (response.ok) {
+          statusEl.style.color = '#4f4';
+          statusEl.textContent = '✅ Capture complete! Check the grid below.';
+          setTimeout(() => { statusEl.style.display = 'none'; }, 3000);
+        } else {
+          const err = await response.json();
+          statusEl.style.color = '#f44';
+          statusEl.textContent = '❌ ' + (err.error || 'Capture failed');
+        }
+      } catch (err) {
+        statusEl.style.color = '#f44';
+        statusEl.textContent = '❌ ' + err.message;
+      }
+    });
+    
+    // Update duration field visibility based on format
+    document.getElementById('capture-format').addEventListener('change', (e) => {
+      const durationInput = document.getElementById('capture-duration');
+      const secLabel = durationInput.nextElementSibling;
+      if (e.target.value === 'png') {
+        durationInput.style.opacity = '0.3';
+        secLabel.style.opacity = '0.3';
+        durationInput.title = 'Duration not used for stills';
+      } else {
+        durationInput.style.opacity = '1';
+        secLabel.style.opacity = '0.5';
+        durationInput.title = 'Duration in seconds';
+      }
+    });
     
     function connect() {
       ws = new WebSocket(protocol + '//' + location.host + '/ws');
@@ -333,10 +420,34 @@ app.get('/', (req, res) => {
         }
         serverVersion = data.version;
         if (data.version) document.getElementById('version').textContent = 'v' + data.version;
+        
+        // Update uptime display
+        if (data.uptime) {
+          document.getElementById('uptime').textContent = '⏱️ ' + formatUptime(data.uptime);
+          // Show reboot banner if server started less than 2 minutes ago
+          const rebootBanner = document.getElementById('reboot-banner');
+          if (data.uptime < 120000) {
+            rebootBanner.style.display = 'block';
+          } else {
+            rebootBanner.style.display = 'none';
+          }
+        }
+        
         render(data);
       };
     }
     connect();
+    
+    function formatUptime(ms) {
+      const s = Math.floor(ms / 1000);
+      if (s < 60) return s + 's';
+      const m = Math.floor(s / 60);
+      if (m < 60) return m + 'm ' + (s % 60) + 's';
+      const h = Math.floor(m / 60);
+      if (h < 24) return h + 'h ' + (m % 60) + 'm';
+      const d = Math.floor(h / 24);
+      return d + 'd ' + (h % 24) + 'h';
+    }
     
     function render(data) {
       // Combine all bakes into unified list
@@ -371,13 +482,39 @@ app.get('/', (req, res) => {
         const previewUrl = ipfsCid 
           ? IPFS_GATEWAY + '/ipfs/' + ipfsCid 
           : g.cdnUrl || ('https://oven.aesthetic.computer/icon/128x128/' + g.piece + '.png');
+        
+        // Build links array
+        const links = [];
+        // Source indicator (keep, manual, etc)
+        if (g.source === 'keep') {
+          if (g.keepId) {
+            links.push({ label: '🎫 Keep #' + g.keepId, url: 'https://objkt.com/tokens/KT1WRvHWcF6rVjNGEVrQu86cKvTCRPapSaHG/' + g.keepId });
+          } else {
+            links.push({ label: '🎫 Keep', url: 'https://objkt.com/collection/KT1WRvHWcF6rVjNGEVrQu86cKvTCRPapSaHG' });
+          }
+        }
+        if (ipfsCid) {
+          links.push({ label: '📌 IPFS', url: 'https://ipfs.aesthetic.computer/ipfs/' + ipfsCid });
+        }
+        if (g.cdnUrl) {
+          links.push({ label: '☁️ CDN', url: g.cdnUrl });
+        }
+        // Show git version for dedup tracking
+        if (g.gitVersion) {
+          links.push({ label: '🏷️ ' + g.gitVersion.slice(0, 7), url: 'https://github.com/whistlegraph/aesthetic-computer/commit/' + g.gitVersion });
+        }
+        
         allBakes.push({
           type: 'grab', status: g.status === 'failed' ? 'error' : 'complete', id: g.id,
           title: g.piece, url: 'https://aesthetic.computer/' + g.piece,
           preview: previewUrl,
           size: g.size, format: g.format, error: g.error,
           completedAt: g.completedAt,
-          links: ipfsCid ? [{ label: 'IPFS', url: 'ipfs://' + ipfsCid }] : []
+          dimensions: g.dimensions,
+          captureKey: g.captureKey,
+          source: g.source,
+          keepId: g.keepId,
+          links
         });
       });
       
@@ -451,6 +588,7 @@ app.get('/', (req, res) => {
         html += '<span class="bake-type ' + bake.type + '">' + bake.type + '</span>';
         html += '</div>';
         html += '<div class="bake-meta">';
+        if (bake.dimensions) html += '<span>' + bake.dimensions.width + '×' + bake.dimensions.height + '</span>';
         if (bake.format) html += '<span>' + bake.format + '</span>';
         if (bake.size) html += '<span>' + (bake.size/1024).toFixed(1) + ' KB</span>';
         if (bake.startTime) html += '<span>' + formatDuration(Date.now() - bake.startTime) + '</span>';
@@ -504,6 +642,8 @@ app.get('/status', async (req, res) => {
   await cleanupStaleBakes();
   res.json({
     version: GIT_VERSION,
+    serverStartTime: SERVER_START_TIME,
+    uptime: Date.now() - SERVER_START_TIME,
     incoming: Array.from(getIncomingBakes().values()),
     active: Array.from(getActiveBakes().values()),
     recent: getRecentBakes(),
@@ -687,6 +827,8 @@ setNotifyCallback(() => {
     if (client.readyState === 1) { // OPEN
       client.send(JSON.stringify({
         version: GIT_VERSION,
+        serverStartTime: SERVER_START_TIME,
+        uptime: Date.now() - SERVER_START_TIME,
         incoming: Array.from(getIncomingBakes().values()),
         active: Array.from(getActiveBakes().values()),
         recent: getRecentBakes(),
@@ -709,6 +851,8 @@ wss.on('connection', async (ws) => {
   // Send initial state
   ws.send(JSON.stringify({
     version: GIT_VERSION,
+    serverStartTime: SERVER_START_TIME,
+    uptime: Date.now() - SERVER_START_TIME,
     incoming: Array.from(getIncomingBakes().values()),
     active: Array.from(getActiveBakes().values()),
     recent: getRecentBakes(),
@@ -724,6 +868,8 @@ wss.on('connection', async (ws) => {
     if (ws.readyState === 1) { // OPEN
       ws.send(JSON.stringify({
         version: GIT_VERSION,
+        serverStartTime: SERVER_START_TIME,
+        uptime: Date.now() - SERVER_START_TIME,
         incoming: Array.from(getIncomingBakes().values()),
         active: Array.from(getActiveBakes().values()),
         recent: getRecentBakes(),

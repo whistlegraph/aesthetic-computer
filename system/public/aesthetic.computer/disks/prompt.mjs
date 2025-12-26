@@ -1064,6 +1064,10 @@ async function halt($, text) {
     // Jump to ATProto user pages landing
     jump(`https://at.aesthetic.computer`);
     return true;
+  } else if (slug === "oven") {
+    // 🔥 Jump to Oven dashboard
+    jump(`https://oven.aesthetic.computer`);
+    return true;
   } else if (slug === "r8dio:web" || slug === "radio:web") {
     // 📻 Jump to R8dio.dk website
     jump(`https://r8dio.dk/lyt-live/`);
