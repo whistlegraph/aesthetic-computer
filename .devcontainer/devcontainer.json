@@ -76,11 +76,13 @@
     "vscode": {
       "extensions": [],
       "settings": {
-        "settingsSync.ignoredExtensions": ["*"],
+        "settingsSync.ignoredExtensions": ["github.copilot-chat"],
         "extensions.ignoreRecommendations": true,
         "remote.extensionKind": {
-          "github.copilot-chat": ["ui"]
-        }
+          "github.copilot-chat": ["ui"],
+          "github.copilot": ["ui"]
+        },
+        "extensions.autoUpdate": false
       }
     }
   },
