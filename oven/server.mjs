@@ -319,9 +319,9 @@ app.get('/', (req, res) => {
       <input type="number" id="capture-height" value="512" min="64" max="2048" step="1"
         style="display:none;width:60px;padding:0.4em;background:#111;border:1px solid #333;color:#fff;font-family:monospace;border-radius:3px;text-align:center;"
         title="Height">
-      <input type="number" id="capture-duration" value="12" min="1" max="60" step="1"
+      <input type="number" id="capture-duration" value="12" min="1" max="12" step="1"
         style="width:50px;padding:0.4em;background:#111;border:1px solid #333;color:#fff;font-family:monospace;border-radius:3px;text-align:center;"
-        title="Duration in seconds">
+        title="Duration in seconds (max 12)">
       <span style="opacity:0.5;font-size:0.85em;">sec</span>
       <button type="submit" style="padding:0.4em 1em;background:#fa0;color:#000;border:none;font-family:monospace;font-weight:bold;border-radius:3px;cursor:pointer;">
         🔥 Bake
