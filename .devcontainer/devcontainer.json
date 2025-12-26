@@ -76,13 +76,14 @@
     "vscode": {
       "extensions": [],
       "settings": {
-        "settingsSync.ignoredExtensions": ["github.copilot-chat"],
+        "settingsSync.ignoredExtensions": ["github.copilot-chat", "github.copilot"],
         "extensions.ignoreRecommendations": true,
         "remote.extensionKind": {
           "github.copilot-chat": ["ui"],
           "github.copilot": ["ui"]
         },
-        "extensions.autoUpdate": false
+        "extensions.autoUpdate": false,
+        "settingsSync.keybindingsPerPlatform": false
       }
     }
   },
