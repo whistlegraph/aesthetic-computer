@@ -383,13 +383,18 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     });
 
     const nonce = getNonce();
+    
+    // Get proper URI for the logo
+    const palsUri = welcomePanel.webview.asWebviewUri(
+      vscode.Uri.joinPath(context.extensionUri, "resources", "purple-pals.svg")
+    );
 
     welcomePanel.webview.html = `
       <!DOCTYPE html>
       <html lang="en">
       <head>
         <meta charset="UTF-8">
-        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'nonce-${nonce}'; img-src https: data:; font-src https:;">
+        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'nonce-${nonce}'; img-src ${welcomePanel.webview.cspSource} https: data:; script-src 'nonce-${nonce}';">
         <style nonce="${nonce}">
           * { margin: 0; padding: 0; box-sizing: border-box; }
           body {
@@ -405,10 +410,9 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
             padding: 2rem;
           }
           .logo {
-            width: 120px;
-            height: 120px;
-            margin-bottom: 2rem;
-            opacity: 0.9;
+            width: 80px;
+            height: 80px;
+            margin-bottom: 1.5rem;
           }
           h1 {
             font-size: 1.5rem;
@@ -422,51 +426,129 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
             color: #908088;
             margin-bottom: 2rem;
           }
-          .shortcuts {
+          .buttons {
             display: flex;
             flex-direction: column;
             gap: 0.75rem;
             margin-top: 1rem;
+            width: 100%;
+            max-width: 280px;
           }
-          .shortcut {
+          .btn {
+            background: #282028;
+            border: 1px solid #483848;
+            border-radius: 6px;
+            padding: 0.75rem 1rem;
+            font-size: 0.9rem;
+            color: #c0b8bc;
+            cursor: pointer;
             display: flex;
             align-items: center;
-            gap: 0.75rem;
-            font-size: 0.85rem;
-            color: #a09098;
+            justify-content: center;
+            gap: 0.5rem;
+            transition: all 0.15s ease;
           }
-          kbd {
-            background: #282028;
-            border: 1px solid #383038;
-            border-radius: 4px;
-            padding: 0.25rem 0.5rem;
-            font-family: monospace;
+          .btn:hover {
+            background: #382838;
+            border-color: #a87090;
+            color: #e0d8dc;
+          }
+          .btn-primary {
+            background: #a87090;
+            border-color: #a87090;
+            color: #fff;
+          }
+          .btn-primary:hover {
+            background: #c87090;
+            border-color: #c87090;
+          }
+          .info {
+            margin-top: 2rem;
+            padding: 1rem;
+            background: #201820;
+            border-radius: 8px;
             font-size: 0.8rem;
-            color: #c0b8bc;
+            color: #908088;
+            max-width: 320px;
           }
+          .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.25rem 0;
+          }
+          .info-label { color: #706068; }
+          .info-value { color: #a09098; }
           .hint {
-            margin-top: 3rem;
+            margin-top: 2rem;
             font-size: 0.75rem;
             color: #605860;
           }
         </style>
       </head>
       <body>
-        <svg class="logo" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="50" cy="50" r="45" fill="none" stroke="#a87090" stroke-width="2"/>
-          <circle cx="50" cy="50" r="30" fill="none" stroke="#a87090" stroke-width="1.5"/>
-          <circle cx="50" cy="50" r="15" fill="#a87090"/>
-        </svg>
+        <img class="logo" src="${palsUri}" alt="Aesthetic Computer" />
         <h1>Aesthetic Computer</h1>
         <p class="tagline">creative coding environment</p>
-        <div class="shortcuts">
-          <div class="shortcut"><kbd>⌘</kbd> + <kbd>Shift</kbd> + <kbd>P</kbd> <span>Command Palette</span></div>
-          <div class="shortcut"><kbd>⌘</kbd> + <kbd>P</kbd> <span>Quick Open</span></div>
+        
+        <div class="buttons">
+          <button class="btn btn-primary" onclick="openKidLisp()">
+            🎨 Open KidLisp Window
+          </button>
+          <button class="btn" onclick="openPane()">
+            📟 Open AC Pane
+          </button>
+          <button class="btn" onclick="newPiece()">
+            ✨ New Piece
+          </button>
         </div>
-        <p class="hint">Open a file to start coding</p>
+        
+        <div class="info">
+          <div class="info-row">
+            <span class="info-label">Dev Server</span>
+            <span class="info-value">https://localhost:8888</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Pieces</span>
+            <span class="info-value">system/public/.../disks/</span>
+          </div>
+        </div>
+        
+        <p class="hint">Open a .mjs or .lisp file to start coding</p>
+        
+        <script nonce="${nonce}">
+          const vscode = acquireVsCodeApi();
+          function openKidLisp() {
+            vscode.postMessage({ command: 'openKidLisp' });
+          }
+          function openPane() {
+            vscode.postMessage({ command: 'openPane' });
+          }
+          function newPiece() {
+            vscode.postMessage({ command: 'newPiece' });
+          }
+        </script>
       </body>
       </html>
     `.trim();
+    
+    // Handle messages from the webview
+    welcomePanel.webview.onDidReceiveMessage(
+      message => {
+        switch (message.command) {
+          case 'openKidLisp':
+            vscode.commands.executeCommand('aestheticComputer.openKidLispWindow');
+            return;
+          case 'openPane':
+            vscode.commands.executeCommand('aestheticComputer.openWindow');
+            return;
+          case 'newPiece':
+            vscode.commands.executeCommand('workbench.action.files.newUntitledFile');
+            return;
+        }
+      },
+      undefined,
+      context.subscriptions
+    );
   }
 
   context.subscriptions.push(
