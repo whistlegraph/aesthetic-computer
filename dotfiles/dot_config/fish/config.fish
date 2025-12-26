@@ -98,25 +98,15 @@ function acd
     pkill -f "socat.*9224" 2>/dev/null
     sleep 0.5
     
-    # Remove old container and start devcontainer via CLI
-    echo "🧹 Removing old container..."
-    docker rm -f aesthetic 2>/dev/null
-
-    echo "🚀 Starting devcontainer..."
+    # Forward CDP port from localhost:9222 (VS Code) to 0.0.0.0:9224 so container can reach it
+    socat TCP-LISTEN:9224,bind=0.0.0.0,fork,reuseaddr TCP:127.0.0.1:9222 &
+    
     cd $workspace
-    devcontainer up --workspace-folder .
-
-    if test $status -eq 0
-        echo "✅ Container ready!"
-        echo "🔗 Opening VS Code attached to container..."
-        
-        # attached-container needs hex-encoded JSON config, not just container name
-        set -l hex_config (printf '{"containerName":"/aesthetic"}' | xxd -p | tr -d '\n')
-        code --folder-uri "vscode-remote://attached-container+$hex_config/workspaces/aesthetic-computer" --remote-debugging-port=9222 --remote-allow-origins="*"
-    else
-        echo "❌ Failed to start container"
-        return 1
-    end
+    set container_id (pwd | tr -d '\n' | xxd -c 256 -p)
+    
+    # Launch VS Code with Chrome DevTools Protocol enabled - VS Code handles container startup
+    code --remote-debugging-port=9222 --remote-allow-origins="*" --folder-uri="vscode-remote://dev-container+$container_id/workspaces/aesthetic-computer"
+    cd -
 end
 
 function ac-event-daemon
