@@ -1,132 +1,100 @@
-# Keeps: Next Steps (December 2025)
+# Keeps: Current State Analysis (December 2025)
 
-**Current Status**: Mainnet Staging Active  
+**Status**: Mainnet Staging Active  
 **Contract**: `KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM`  
 **Last Updated**: December 26, 2025
 
 ---
 
-## Completed ✅
+## What's Already Implemented ✅
 
-### Core Minting
-- [x] Basic mint from `keep $code` command
-- [x] Timeline UI with 10-step progress
-- [x] Wallet connection (Temple/Kukai via Beacon)
+### Authentication & Authorization (keep-mint.mjs)
+- [x] JWT authentication via Auth0 (`authorize()`)
+- [x] Handle requirement - must have `@handle` to keep
+- [x] **Ownership verification** - `piece.user === user.sub` check
+- [x] Admin bypass for testing (`hasAdmin()`)
+- [x] Anonymous pieces blocked ("Log in and save it first")
+
+### Wallet Enforcement (keep-mint.mjs)
+- [x] Tezos wallet must be linked (`userDoc.tezos.address`)
+- [x] **Minting wallet MUST match linked wallet** - prevents impersonation
+- [x] Server-side minting with admin key for actual Tezos tx
+
+### Minting Flow (keep.mjs UI + keep-mint.mjs)
+- [x] 10-step timeline UI with progress feedback
+- [x] SSE streaming for real-time updates
 - [x] Bundle HTML generation (self-contained artifact)
-- [x] Thumbnail WebP generation via oven (256×256)
-- [x] IPFS pinning (Pinata)
+- [x] Thumbnail WebP via oven (256×256 @ 2x = 512×512)
+- [x] IPFS upload via Pinata
 - [x] Duplicate prevention (`content_hashes` bigmap)
-- [x] Already-minted UI with rebake option
+- [x] Already-minted detection with existing token info
+- [x] Confirmation step before minting
 
-### Metadata Editing
-- [x] `edit_metadata` entrypoint in contract
-- [x] `/api/keep-update` endpoint for on-chain updates
-- [x] Preserves original creator (`firstMinter`) during updates
-- [x] Rebake button in UI (regenerate bundle without new token)
-- [x] Update Chain button (push rebaked content to Tezos)
+### Rebake Flow (keep.mjs + keep-mint.mjs)
+- [x] Regenerate bundle for already-minted piece (`regenerate=true`)
+- [x] Cached IPFS media detection (skip if source unchanged)
+- [x] `ipfsMedia` tracking in MongoDB
+- [x] `pendingRebake` flag when bundle differs from on-chain
 
-### Oven Integration
-- [x] Oven service for thumbnail capture
-- [x] Source tracking (`source: 'keep'`, `keepId`)
-- [x] IPFS upload for thumbnails
-- [x] Manual capture form in oven dashboard
-- [x] Blank frame detection
+### Metadata Update (keep-update.mjs)
+- [x] `edit_metadata` entrypoint call
+- [x] **Preserves original artist** - fetches `firstMinter` from TzKT
+- [x] Updates `artifactUri`, `thumbnailUri`, `attributes` on-chain
+- [x] Admin-only (for now) - requires server signing key
 
----
-
-## In Progress 🔄
-
-### Phase 2: Creator Self-Service (Primary Goal)
-
-The goal is to let users mint their own pieces without admin intervention.
-
-#### 2.1 Ownership Verification
-
-**Already Have:**
-- `kidlisp-codes` MongoDB collection stores `{ code, source, user, when }`
-- `user` field is Auth0 `sub` ID of whoever saved the piece
-- `handleFor(userId)` resolves `@handle` from `sub`
-
-**Need to Implement:**
-- [ ] `GET /api/kidlisp-keep?piece=cow` - Check mint status + ownership
-  - Returns: `{ piece, canMint, owner, minted, tokenId? }`
-  - Checks `kidlisp-codes` for ownership
-  - Checks Tezos contract for existing mint
-
-- [ ] `POST /api/kidlisp-keep` - Self-service mint
-  - Validates JWT from Auth0
-  - Requires `@handle`
-  - Verifies `piece.user === user.sub`
-  - Signs transaction with admin key (server-side)
-  - Returns: `{ tokenId, txHash, objktUrl }`
-
-#### 2.2 UI Changes
-
-**In `keep.mjs`:**
-- [ ] Check ownership before showing mint button
-- [ ] Show "Not your piece" message if user doesn't own it
-- [ ] Show owner's `@handle` for pieces by others
-
-**In kidlisp.com:**
-- [ ] Add "Mint as Keep" button when viewing own saved piece
-- [ ] Show "Login to mint" for anonymous users
-- [ ] Add "My Keeps" section
-
-#### 2.3 Implementation Order
-
-1. **Create ownership check endpoint** (`GET /api/kidlisp-keep`)
-2. **Update keep.mjs** to use ownership check
-3. **Create self-service mint endpoint** (`POST /api/kidlisp-keep`)
-4. **Add rate limiting** (5 mints/day per user)
-5. **Test on mainnet staging**
-6. **Add to kidlisp.com**
+### Database Tracking (keep-confirm.mjs)
+- [x] Records successful mints in `kidlisp` collection
+- [x] Stores `kept` object: tokenId, txHash, wallet, URIs, timestamps
+- [x] Ownership verification before confirming
 
 ---
 
-## Future Phases 📋
+## What's Actually Next 🎯
 
-### Phase 3: Artist Edit Flow
-- [ ] Let original artist edit their own token metadata
-- [ ] Don't require admin for updates to owned tokens
-- [ ] Add `/api/keep-edit` for artist-controlled updates
+Looking at the code, the **self-service minting is already implemented**. The main gaps are:
 
-### Phase 4: Secondary Features
+### 1. Artist-Controlled Updates (Not Admin-Only)
+Currently `keep-update.mjs` is admin-only. We need to allow the **original artist** to update their own token metadata without admin intervention.
+
+**Changes needed:**
+- [ ] In `keep-update.mjs`: Allow update if `user.sub === piece.user` (not just admin)
+- [ ] Verify on-chain that caller is the firstMinter
+- [ ] UI: Show "Update Chain" button to original author (not just admin)
+
+### 2. Missing Features from Plan
 - [ ] `keeps` command to list user's minted tokens
 - [ ] `keep:status $code` to check if already minted
-- [ ] Collection thumbnail auto-update on each mint
-- [ ] Pass `keepId` from keeps.mjs to oven for tracking
+- [ ] Cancel ability during preparation
+- [ ] Show estimated gas/fees before signing
+- [ ] Copy share link after mint
 
-### Phase 5: kidlisp.com Gallery
-- [ ] Recent keeps feed
-- [ ] Trending keeps
-- [ ] User profile pages with their keeps
-- [ ] Fork/remix existing keeps
+### 3. kidlisp.com Integration
+- [ ] "Mint as Keep" button for logged-in users
+- [ ] "My Keeps" section
+- [ ] Gallery of recent keeps
 
 ---
 
-## Environment Variables
+## Environment Variables (Already Configured)
 
 ```env
-# Already configured
 KEEPS_NETWORK=mainnet
 KEEPS_CONTRACT=KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM
-KEEPS_RPC=https://mainnet.ecadinfra.com
-PINATA_API_KEY=...
-PINATA_API_SECRET=...
 OVEN_URL=https://oven.aesthetic.computer
-
-# Need for self-service (already have, just document)
-TEZOS_KIDLISP_KEY=edsk...  # Admin signing key
+# Secrets in MongoDB 'secrets' collection:
+#   pinata: { apiKey, apiSecret, jwt }
+#   tezos-kidlisp: { address, publicKey, privateKey }
 ```
 
 ---
 
-## Files
+## Files Reference
 
 | File | Purpose |
 |------|---------|
-| `system/public/aesthetic.computer/disks/keep.mjs` | Keep UI/flow |
+| `system/netlify/functions/keep-mint.mjs` | Streaming SSE mint endpoint |
+| `system/netlify/functions/keep-update.mjs` | On-chain metadata update |
+| `system/netlify/functions/keep-confirm.mjs` | Record successful mint |
+| `system/public/aesthetic.computer/disks/keep.mjs` | Keep UI/flow (2482 lines) |
 | `system/public/aesthetic.computer/lib/keep/tezos-wallet.mjs` | Beacon wallet |
-| `nanos/kidlisp-keep/index.mjs` | API endpoint (to create) |
-| `tezos/keeps.mjs` | CLI tool |
-| `tezos/KEEPS-SYSTEM.md` | Full documentation |
+| `tezos/keeps.mjs` | CLI tool for admin ops |
