@@ -1006,9 +1006,10 @@ async function mintToken(piece, options = {}) {
 // ============================================================================
 
 async function updateMetadata(tokenId, piece, options = {}) {
-  const { network = 'mainnet' } = options;
+  const { network = 'mainnet', generateThumbnail: shouldGenerateThumbnail = false } = options;
   
   const { tezos, credentials, config } = await createTezosClient(network);
+  const allCredentials = loadCredentials(); // For Pinata access
   
   // Load contract address (network-specific)
   const addressPath = getContractAddressPath(network);
@@ -1103,6 +1104,27 @@ async function updateMetadata(tokenId, piece, options = {}) {
   
   const creatorsArray = [originalCreator];
   
+  // Generate thumbnail via oven if requested, otherwise use HTTP fallback
+  let thumbnailUri = `https://grab.aesthetic.computer/preview/400x400/$${pieceName}.png`;
+  
+  if (shouldGenerateThumbnail) {
+    try {
+      const thumbnail = await generateThumbnail(pieceName, allCredentials, {
+        width: 256,
+        height: 256,
+        duration: 8000,
+        fps: 10,
+        playbackFps: 20,
+        density: 2,
+        quality: 70,
+      });
+      thumbnailUri = thumbnail.ipfsUri;
+      console.log(`   🖼️  Thumbnail: ${thumbnailUri}`);
+    } catch (err) {
+      console.warn(`   ⚠ Thumbnail generation failed, using HTTP fallback: ${err.message}`);
+    }
+  }
+  
   // Build metadata JSON for IPFS
   const tokenName = `$${pieceName}`;
   const metadataJson = {
@@ -1110,7 +1132,7 @@ async function updateMetadata(tokenId, piece, options = {}) {
     description: description,
     artifactUri: artifactUri,
     displayUri: artifactUri,
-    thumbnailUri: `https://grab.aesthetic.computer/preview/400x400/$${pieceName}.png`,
+    thumbnailUri: thumbnailUri,
     decimals: 0,
     symbol: 'KEEP',
     isBooleanAmount: true,
@@ -1130,7 +1152,6 @@ async function updateMetadata(tokenId, piece, options = {}) {
   
   // Upload JSON metadata to IPFS
   console.log('\n📤 Uploading JSON metadata to IPFS...');
-  const allCredentials = loadCredentials();
   const metadataUri = await uploadJsonToIPFS(
     metadataJson, 
     `aesthetic.computer-keep-${pieceName}-metadata-updated`,
@@ -1963,10 +1984,13 @@ async function main() {
       
       case 'update':
         if (!args[1] || !args[2]) {
-          console.error('Usage: node keeps.mjs update <token_id> <piece>');
+          console.error('Usage: node keeps.mjs update <token_id> <piece> [--thumbnail]');
           process.exit(1);
         }
-        await updateMetadata(parseInt(args[1]), args[2], { network: getNetwork(3) });
+        await updateMetadata(parseInt(args[1]), args[2], { 
+          network: getNetwork(3),
+          generateThumbnail: flags.includes('--thumbnail')
+        });
         break;
       
       case 'lock':
