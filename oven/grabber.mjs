@@ -7,6 +7,33 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { randomBytes, createHash } from 'crypto';
 import puppeteer from 'puppeteer';
+import { MongoClient } from 'mongodb';
+
+// MongoDB connection
+let mongoClient;
+let db;
+
+async function connectMongo() {
+  if (!mongoClient) {
+    const mongoUri = process.env.MONGODB_CONNECTION_STRING;
+    const dbName = process.env.MONGODB_NAME;
+    
+    if (!mongoUri || !dbName) {
+      console.warn('⚠️  MongoDB not configured, grab history will not persist');
+      return null;
+    }
+    
+    try {
+      mongoClient = await MongoClient.connect(mongoUri);
+      db = mongoClient.db(dbName);
+      console.log('✅ Connected to MongoDB for grab history');
+    } catch (error) {
+      console.error('❌ Failed to connect to MongoDB:', error.message);
+      return null;
+    }
+  }
+  return db;
+}
 
 // Pinata IPFS upload configuration
 const PINATA_API_URL = 'https://api.pinata.cloud';
@@ -25,6 +52,98 @@ const recentGrabs = [];
 // Track most recent IPFS uploads per piece (for live collection thumbnail)
 const latestIPFSUploads = new Map(); // piece -> { ipfsCid, ipfsUri, timestamp, ... }
 let latestKeepThumbnail = null; // Most recent across all pieces
+
+/**
+ * Load recent grabs from MongoDB on startup
+ */
+async function loadRecentGrabs() {
+  const database = await connectMongo();
+  if (!database) return;
+  
+  try {
+    const collection = database.collection('oven-grabs');
+    const grabs = await collection.find({}).sort({ completedAt: -1 }).limit(20).toArray();
+    
+    recentGrabs.length = 0;
+    recentGrabs.push(...grabs.map(g => ({
+      ...g,
+      completedAt: g.completedAt?.getTime?.() || g.completedAt,
+      startTime: g.startTime?.getTime?.() || g.startTime,
+    })));
+    
+    // Also restore latestIPFSUploads from grabs that have IPFS data
+    for (const grab of grabs) {
+      if (grab.ipfsCid && grab.piece) {
+        const existing = latestIPFSUploads.get(grab.piece);
+        const grabTime = grab.completedAt?.getTime?.() || grab.completedAt || 0;
+        if (!existing || grabTime > existing.timestamp) {
+          latestIPFSUploads.set(grab.piece, {
+            ipfsCid: grab.ipfsCid,
+            ipfsUri: grab.ipfsUri,
+            timestamp: grabTime,
+            piece: grab.piece,
+            format: grab.format,
+          });
+        }
+      }
+    }
+    
+    // Set latestKeepThumbnail to most recent IPFS upload
+    if (latestIPFSUploads.size > 0) {
+      let mostRecent = null;
+      for (const upload of latestIPFSUploads.values()) {
+        if (!mostRecent || upload.timestamp > mostRecent.timestamp) {
+          mostRecent = upload;
+        }
+      }
+      latestKeepThumbnail = mostRecent;
+    }
+    
+    console.log(`📂 Loaded ${recentGrabs.length} recent grabs from MongoDB (${latestIPFSUploads.size} with IPFS)`);
+  } catch (error) {
+    console.error('❌ Failed to load recent grabs:', error.message);
+  }
+}
+
+/**
+ * Save a grab to MongoDB
+ */
+async function saveGrab(grab) {
+  const database = await connectMongo();
+  if (!database) return;
+  
+  try {
+    const collection = database.collection('oven-grabs');
+    await collection.insertOne({
+      ...grab,
+      completedAt: new Date(grab.completedAt),
+      startTime: new Date(grab.startTime),
+    });
+  } catch (error) {
+    console.error('❌ Failed to save grab to MongoDB:', error.message);
+  }
+}
+
+/**
+ * Update a grab in MongoDB (e.g., after IPFS upload)
+ */
+async function updateGrabInMongo(grabId, updates) {
+  const database = await connectMongo();
+  if (!database) return;
+  
+  try {
+    const collection = database.collection('oven-grabs');
+    await collection.updateOne(
+      { grabId },
+      { $set: updates }
+    );
+  } catch (error) {
+    console.error('❌ Failed to update grab in MongoDB:', error.message);
+  }
+}
+
+// Load recent grabs on startup
+loadRecentGrabs();
 
 // Subscriber notification (will be set by server.mjs)
 let notifyCallback = null;
@@ -522,10 +641,11 @@ export async function grabPiece(piece, options = {}) {
     grab.duration = grab.completedAt - grab.startTime;
     grab.size = result.length;
     
-    // Move to recent
+    // Move to recent and save to MongoDB
     activeGrabs.delete(grabId);
     recentGrabs.unshift(grab);
     if (recentGrabs.length > 20) recentGrabs.pop();
+    saveGrab(grab); // Persist to MongoDB
     
     // Notify WebSocket subscribers
     notifySubscribers();
@@ -554,6 +674,7 @@ export async function grabPiece(piece, options = {}) {
       activeGrabs.delete(grabId);
       recentGrabs.unshift(grab);
       if (recentGrabs.length > 20) recentGrabs.pop();
+      saveGrab(grab); // Persist to MongoDB
       
       // Notify WebSocket subscribers
       notifySubscribers();
@@ -665,6 +786,17 @@ export async function grabAndUploadToIPFS(piece, credentials, options = {}) {
     };
     latestIPFSUploads.set(pieceName, uploadInfo);
     latestKeepThumbnail = uploadInfo;
+    
+    // Update grab in MongoDB with IPFS info
+    if (grabResult.grabId) {
+      updateGrabInMongo(grabResult.grabId, { ipfsCid, ipfsUri });
+      // Also update in-memory grab
+      const inMemoryGrab = recentGrabs.find(g => g.grabId === grabResult.grabId);
+      if (inMemoryGrab) {
+        inMemoryGrab.ipfsCid = ipfsCid;
+        inMemoryGrab.ipfsUri = ipfsUri;
+      }
+    }
     
     // Notify WebSocket subscribers about new IPFS upload
     notifySubscribers();
