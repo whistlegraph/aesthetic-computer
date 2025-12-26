@@ -55,9 +55,11 @@
 
 ### 🔴 High Priority
 
-1. **Code Consolidation Phase 1** - Extract constants
-   - [ ] Create `lib/keeps/constants.mjs`
-   - [ ] Update `keep.mjs`, `kidlisp.com`, `keeps-client.mjs` to use it
+1. ✅ **Code Consolidation Phase 1** - Extract constants (COMPLETED Dec 26)
+   - [x] Create `lib/keeps/constants.mjs`
+   - [x] Update `keeps-client.mjs` to use it
+   - [x] Update `keep.mjs` disk to use it
+   - [x] Update `kidlisp.com` to use it (dynamic import)
 
 2. **Code Consolidation Phase 2** - Extract TzKT client
    - [ ] Create `lib/keeps/tzkt-client.mjs`
