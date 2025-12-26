@@ -552,8 +552,12 @@ Called by MCP tools at the end of each response."
   :config 
   (global-yascroll-bar-mode 1))
 
+;; NOTE: origami.el has a defface bug that calls (face-attribute 'highlight :background)
+;; at load time, which returns 'unspecified' in daemon mode (no frame).
+;; Defer loading until after a frame exists.
 (use-package origami 
-  :hook (after-init . global-origami-mode))
+  :defer t
+  :hook (server-after-make-frame . global-origami-mode))
 
 (global-set-key (kbd "C-p") #'project-find-file)
 (global-set-key (kbd "C-x C-p") #'project-find-file)
