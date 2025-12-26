@@ -762,6 +762,29 @@ export async function grabPiece(piece, options = {}) {
     grab.duration = grab.completedAt - grab.startTime;
     grab.size = result.length;
     
+    // Upload to Spaces for dashboard preview
+    if (process.env.ART_SPACES_KEY) {
+      try {
+        const ext = format === 'webp' ? 'webp' : format === 'gif' ? 'gif' : 'png';
+        const contentType = format === 'webp' ? 'image/webp' : format === 'gif' ? 'image/gif' : 'image/png';
+        const spacesKey = `oven/grabs/${grabId}.${ext}`;
+        
+        await spacesClient.send(new PutObjectCommand({
+          Bucket: SPACES_BUCKET,
+          Key: spacesKey,
+          Body: result,
+          ContentType: contentType,
+          ACL: 'public-read',
+          CacheControl: 'public, max-age=604800', // 7 day cache
+        }));
+        
+        grab.cdnUrl = `${SPACES_CDN_BASE}/${spacesKey}`;
+        console.log(`📦 Stored grab in Spaces: ${grab.cdnUrl}`);
+      } catch (e) {
+        console.error('❌ Failed to store grab in Spaces:', e.message);
+      }
+    }
+    
     // Move to recent and save to MongoDB
     activeGrabs.delete(grabId);
     recentGrabs.unshift(grab);

@@ -367,10 +367,10 @@ app.get('/', (req, res) => {
       const ipfsThumbs = data.grabs?.ipfsThumbs || {};
       (data.grabs?.recent || []).forEach(g => {
         const ipfsCid = g.ipfsCid || ipfsThumbs[g.piece]?.ipfsCid;
-        // Use IPFS if available, otherwise generate preview via oven endpoint
+        // Priority: IPFS > Spaces CDN > fallback icon
         const previewUrl = ipfsCid 
           ? IPFS_GATEWAY + '/ipfs/' + ipfsCid 
-          : 'https://oven.aesthetic.computer/icon/128x128/' + g.piece + '.png';
+          : g.cdnUrl || ('https://oven.aesthetic.computer/icon/128x128/' + g.piece + '.png');
         allBakes.push({
           type: 'grab', status: g.status === 'failed' ? 'error' : 'complete', id: g.id,
           title: g.piece, url: 'https://aesthetic.computer/' + g.piece,
