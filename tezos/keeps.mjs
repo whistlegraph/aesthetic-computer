@@ -594,6 +594,7 @@ async function generateThumbnail(piece, credentials, options = {}) {
     playbackFps = 20,   // 20fps playback = 2x speed
     density = 2,        // 2x density for crisp pixels
     quality = 70,       // Lower quality for smaller files
+    keepId = null,      // Tezos keep token ID for tracking
   } = options;
   
   console.log('\n📸 Generating thumbnail...');
@@ -617,6 +618,8 @@ async function generateThumbnail(piece, credentials, options = {}) {
       quality,
       pinataKey: credentials.pinataKey,
       pinataSecret: credentials.pinataSecret,
+      source: 'keep',
+      keepId,
     }),
   };
   

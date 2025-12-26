@@ -204,8 +204,49 @@ export async function cleanupStaleBakes() {
   }
 }
 
-// Load recent bakes on startup
+/**
+ * Load pending (unprocessed) tapes on startup to restore queue
+ */
+async function loadPendingTapes() {
+  const database = await connectMongo();
+  if (!database) return;
+  
+  try {
+    const collection = database.collection('tapes');
+    
+    // Find tapes that need processing:
+    // - Have no mp4Url (not yet processed)
+    // - Were created in the last hour (not ancient)
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    
+    const pendingTapes = await collection.find({
+      mp4Url: { $exists: false },
+      createdAt: { $gte: oneHourAgo }
+    }).sort({ createdAt: 1 }).limit(10).toArray();
+    
+    if (pendingTapes.length > 0) {
+      console.log(`📥 Restoring ${pendingTapes.length} pending tapes to queue...`);
+      for (const tape of pendingTapes) {
+        if (tape.code && !incomingBakes.has(tape.code)) {
+          incomingBakes.set(tape.code, {
+            code: tape.code,
+            slug: tape.slug,
+            mongoId: tape._id.toString(),
+            detectedAt: new Date(tape.createdAt).getTime(),
+            status: 'incoming',
+            details: 'Restored after server restart'
+          });
+        }
+      }
+    }
+  } catch (error) {
+    console.error('❌ Failed to load pending tapes:', error.message);
+  }
+}
+
+// Load recent bakes and pending queue on startup
 loadRecentBakes();
+loadPendingTapes();
 
 function addRecentBake(bake) {
   recentBakes.unshift(bake);
