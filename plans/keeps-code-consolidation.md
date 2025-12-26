@@ -1,7 +1,87 @@
 # Keeps Code Consolidation Plan
 
 **Created:** 2024-12-26  
-**Status:** Draft
+**Updated:** 2024-12-26  
+**Status:** In Progress
+
+---
+
+## Current Session Progress (Dec 26, 2024)
+
+### Completed
+- ✅ Fixed `keep-update.mjs` to use `analyzeKidLisp` for rich traits (was using simplified attributes)
+- ✅ Fixed `keeps.mjs` lock status display (now checks for `true`, not just existence)
+- ✅ Verified objkt.com creator attribution preserved after metadata updates
+- ✅ The `creators` array correctly fetches `firstMinter` from TzKT before updates
+
+### Findings
+- **objkt "No data" for artist** may be UI caching issue - GraphQL shows correct creator data
+- Token 4 ($berz) has correct `creators: ["tz1gkf8EexComFBJvjtT1zdsisdah791KwBE"]`
+- Both on-chain and off-chain (IPFS) JSON have correct creator attribution
+
+### Next Task: Security Audit of Staging Contract
+
+---
+
+## Contract Security Audit
+
+### Contract: `KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM` (Mainnet Staging)
+
+### Entrypoints to Audit
+
+| Entrypoint | Purpose | Access Control | Risk Level |
+|------------|---------|----------------|------------|
+| `keep` | Mint new token | Anyone (pays fee) | Medium |
+| `edit_metadata` | Update token metadata | Admin only | High |
+| `lock_metadata` | Permanently lock token metadata | Admin only | Medium |
+| `burn` | Destroy token | Token owner | Medium |
+| `transfer` | FA2 standard transfer | Token owner/operator | Low |
+| `update_operators` | FA2 operator management | Token owner | Low |
+| `set_administrator` | Change admin wallet | Admin only | Critical |
+| `set_keep_fee` | Change minting fee | Admin only | Low |
+| `withdraw` | Withdraw collected fees | Admin only | Medium |
+| `lock_contract_metadata` | Lock collection metadata | Admin only | Medium |
+| `set_contract_metadata` | Update collection metadata | Admin only | Low |
+
+### Security Questions
+
+1. **Admin Key Security**
+   - [ ] Where is admin key stored? (DB secrets? Hardware wallet?)
+   - [ ] Who has access to admin key?
+   - [ ] Is there a multisig option?
+
+2. **Minting Protection**
+   - [ ] Can `content_hash` be duplicated? (Should be unique)
+   - [ ] Is fee correctly enforced?
+   - [ ] Can malicious metadata crash indexers?
+
+3. **Metadata Updates**
+   - [ ] Can `edit_metadata` be called on locked tokens? (Should fail with METADATA_LOCKED)
+   - [ ] Are `creators` preserved correctly on updates?
+   - [ ] What happens if "" key (metadata URI) is malformed?
+
+4. **Burn Protection**
+   - [ ] Can only owner burn?
+   - [ ] What happens to `content_hash` after burn? Can piece be re-minted?
+
+5. **Transfer Security**
+   - [ ] FA2 compliance verified?
+   - [ ] Operator permissions working?
+
+6. **Fee Handling**
+   - [ ] Is collected fee tracked correctly?
+   - [ ] Withdraw only to admin?
+
+### Audit Checklist
+
+- [ ] Review SmartPy source (`keeps_fa2_final.py`)
+- [ ] Test each entrypoint on Ghostnet
+- [ ] Verify access control with non-admin wallet
+- [ ] Check edge cases (empty metadata, max values)
+- [ ] Verify token ID sequence
+- [ ] Check storage limits
+
+---
 
 ## Problem Statement
 
