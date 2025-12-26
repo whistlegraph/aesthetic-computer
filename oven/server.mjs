@@ -304,6 +304,21 @@ app.get('/', (req, res) => {
         <option value="webp" selected>WebP (animated)</option>
         <option value="gif">GIF (animated)</option>
       </select>
+      <select id="capture-resolution" style="padding:0.4em;background:#111;border:1px solid #333;color:#fff;font-family:monospace;border-radius:3px;">
+        <option value="128">128×128</option>
+        <option value="256">256×256</option>
+        <option value="512" selected>512×512</option>
+        <option value="768">768×768</option>
+        <option value="1024">1024×1024</option>
+        <option value="custom">Custom...</option>
+      </select>
+      <input type="number" id="capture-width" value="512" min="64" max="2048" step="1"
+        style="display:none;width:60px;padding:0.4em;background:#111;border:1px solid #333;color:#fff;font-family:monospace;border-radius:3px;text-align:center;"
+        title="Width">
+      <span id="custom-x" style="display:none;opacity:0.5;">×</span>
+      <input type="number" id="capture-height" value="512" min="64" max="2048" step="1"
+        style="display:none;width:60px;padding:0.4em;background:#111;border:1px solid #333;color:#fff;font-family:monospace;border-radius:3px;text-align:center;"
+        title="Height">
       <input type="number" id="capture-duration" value="12" min="1" max="60" step="1"
         style="width:50px;padding:0.4em;background:#111;border:1px solid #333;color:#fff;font-family:monospace;border-radius:3px;text-align:center;"
         title="Duration in seconds">
@@ -336,12 +351,39 @@ app.get('/', (req, res) => {
     let ws, reconnectAttempts = 0, serverVersion = null;
     let allBakes = []; // Store all bakes for filtering
     
+    // Resolution selector handler
+    document.getElementById('capture-resolution').addEventListener('change', (e) => {
+      const widthInput = document.getElementById('capture-width');
+      const heightInput = document.getElementById('capture-height');
+      const customX = document.getElementById('custom-x');
+      
+      if (e.target.value === 'custom') {
+        widthInput.style.display = 'block';
+        heightInput.style.display = 'block';
+        customX.style.display = 'inline';
+      } else {
+        widthInput.style.display = 'none';
+        heightInput.style.display = 'none';
+        customX.style.display = 'none';
+        const size = parseInt(e.target.value);
+        widthInput.value = size;
+        heightInput.value = size;
+      }
+    });
+    
     // Manual capture form handler
     document.getElementById('capture-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const piece = document.getElementById('capture-piece').value.trim();
       const format = document.getElementById('capture-format').value;
       const duration = parseInt(document.getElementById('capture-duration').value) || 12;
+      const resolution = document.getElementById('capture-resolution').value;
+      const width = resolution === 'custom' 
+        ? parseInt(document.getElementById('capture-width').value) || 512
+        : parseInt(resolution);
+      const height = resolution === 'custom'
+        ? parseInt(document.getElementById('capture-height').value) || 512
+        : parseInt(resolution);
       const statusEl = document.getElementById('capture-status');
       
       if (!piece) {
@@ -356,11 +398,10 @@ app.get('/', (req, res) => {
       statusEl.textContent = '🔥 Starting capture...';
       
       try {
-        const width = 512, height = 512;
         const url = '/grab/' + format + '/' + width + '/' + height + '/' + encodeURIComponent(piece) + 
           '?duration=' + (duration * 1000);
         
-        statusEl.textContent = '📸 Capturing ' + piece + ' (' + format + ', ' + duration + 's)...';
+        statusEl.textContent = '📸 Capturing ' + piece + ' (' + width + '×' + height + ' ' + format + ', ' + duration + 's)...';
         
         const response = await fetch(url);
         if (response.ok) {
