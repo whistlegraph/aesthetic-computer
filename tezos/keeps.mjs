@@ -2,15 +2,15 @@
 /**
  * 🔮 Keeps - Tezos FA2 Contract Management with Taquito
  * 
- * A comprehensive Node.js module for deploying, minting, and managing
+ * A comprehensive Node.js module for deploying and managing
  * the Aesthetic Computer "Keeps" FA2 contract on Tezos.
  * 
  * Usage:
  *   node keeps.mjs deploy              - Deploy contract to Ghostnet
- *   node keeps.mjs mint <piece>        - Mint a new keep
+ *   node keeps.mjs keep <piece>        - Keep (preserve) a KidLisp piece
  *   node keeps.mjs status              - Check contract status
  *   node keeps.mjs balance             - Check wallet balance
- *   node keeps.mjs tokens              - List all minted tokens
+ *   node keeps.mjs tokens              - List all kept tokens
  *   node keeps.mjs upload <piece>      - Upload bundle to IPFS
  */
 
@@ -21,6 +21,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import crypto from 'crypto';
+import readline from 'readline';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -309,7 +310,7 @@ async function getContractStatus(network = 'mainnet') {
     console.log('📦 Storage:');
     console.log(`   Administrator: ${storage.administrator}`);
     console.log(`   Next Token ID: ${storage.next_token_id.toString()}`);
-    console.log(`   Tokens Minted: ${storage.next_token_id.toString()}`);
+    console.log(`   Total Keeps: ${storage.next_token_id.toString()}`);
     
     const totalTokens = storage.next_token_id.toNumber();
     
@@ -330,7 +331,9 @@ async function getContractStatus(network = 'mainnet') {
             const tokenId = token.key;
             const tokenInfo = token.value?.token_info || {};
             const name = tokenInfo.name ? Buffer.from(tokenInfo.name, 'hex').toString() : `#${tokenId}`;
-            const locked = storage.metadata_locked?.get?.(parseInt(tokenId)) ? ' 🔒' : '';
+            // Check if metadata is locked (bigmap entry must exist AND be true)
+            const lockValue = await storage.metadata_locked?.get?.(parseInt(tokenId));
+            const locked = lockValue === true ? ' 🔒' : '';
             const objktUrl = `${objktBase}/asset/${contractAddress}/${tokenId}`;
             console.log(`   [${tokenId}] ${name}${locked}`);
             console.log(`       🔗 ${objktUrl}`);
@@ -754,7 +757,7 @@ function stringToBytes(str) {
 }
 
 async function mintToken(piece, options = {}) {
-  const { network = 'mainnet', generateThumbnail: shouldGenerateThumbnail = false, recipient = null } = options;
+  const { network = 'mainnet', generateThumbnail: shouldGenerateThumbnail = false, recipient = null, skipConfirm = false } = options;
   
   const { tezos, credentials, config } = await createTezosClient(network);
   
@@ -771,23 +774,72 @@ async function mintToken(piece, options = {}) {
   const contractAddress = fs.readFileSync(addressPath, 'utf8').trim();
   const pieceName = piece.replace(/^\$/, '');
   
+  // Fetch contract storage for status info
+  const contract = await tezos.contract.at(contractAddress);
+  const storage = await contract.storage();
+  const nextTokenId = storage.next_token_id.toNumber();
+  const keepFee = storage.keep_fee ? storage.keep_fee.toNumber() / 1_000_000 : 0;
+  
+  // Fetch contract balance
+  const contractBalance = await tezos.tz.getBalance(contractAddress);
+  const contractBalanceXTZ = contractBalance.toNumber() / 1_000_000;
+  
+  // Get objkt base URL
+  const objktBase = network === 'mainnet' ? 'https://objkt.com' : 'https://ghostnet.objkt.com';
+  
   console.log('\n╔══════════════════════════════════════════════════════════════╗');
-  console.log('║  🎨 Minting New Keep                                         ║');
+  console.log('║  📜 Keeping a KidLisp Piece                                  ║');
   console.log('╚══════════════════════════════════════════════════════════════╝\n');
   
-  console.log(`📡 Network: ${config.name}`);
-  console.log(`📍 Contract: ${contractAddress}`);
-  console.log(`📦 Piece: ${pieceName}`);
+  console.log('Keep your KidLisp as a unique digital token.\n');
+  
+  console.log('─────────────────── Piece ───────────────────');
+  console.log(`   Code:        $${pieceName}`);
+  console.log(`   Preview:     https://aesthetic.computer/$${pieceName}`);
   if (ownerAddress !== credentials.address) {
-    console.log(`👤 Recipient: ${ownerAddress}`);
+    console.log(`   Recipient:   ${ownerAddress}`);
   }
-  console.log(`📸 Thumbnail: ${shouldGenerateThumbnail ? 'Generate via Oven' : 'HTTP fallback'}`);
+  console.log(`   Thumbnail:   ${shouldGenerateThumbnail ? 'Animated WebP (via Oven)' : 'Static PNG (HTTP grab)'}`);
+  
+  console.log('\n─────────────────── Contract ───────────────────');
+  console.log(`   Address:     ${contractAddress}`);
+  console.log(`   Network:     ${config.name}`);
+  console.log(`   Explorer:    ${config.explorer}/${contractAddress}`);
+  console.log(`   Collection:  ${objktBase}/collection/${contractAddress}`);
+  console.log(`   Admin:       ${storage.administrator}`);
+  console.log(`   Balance:     ${contractBalanceXTZ.toFixed(6)} XTZ`);
+  console.log(`   Keeps:       ${nextTokenId} total`);
+  console.log(`   Next ID:     #${nextTokenId}`);
+  if (keepFee > 0) {
+    console.log(`   Keep Fee:    ${keepFee} XTZ`);
+  }
+  
+  console.log('\n─────────────────── Wallet ───────────────────');
+  console.log(`   Address:     ${credentials.address}`);
+  console.log(`   Wallet:      ${credentials.wallet || 'default'}`);
+  const walletBalance = await tezos.tz.getBalance(credentials.address);
+  console.log(`   Balance:     ${(walletBalance.toNumber() / 1_000_000).toFixed(6)} XTZ\n`);
+  
+  // Confirmation prompt (unless skipped)
+  if (!skipConfirm) {
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    const answer = await new Promise(resolve => {
+      rl.question('Keep this piece? (y/N): ', resolve);
+    });
+    rl.close();
+    
+    if (answer.toLowerCase() !== 'y' && answer.toLowerCase() !== 'yes') {
+      console.log('\n❌ Cancelled.\n');
+      process.exit(0);
+    }
+    console.log('');
+  }
   
   // Check for duplicate BEFORE uploading to IPFS
   console.log('🔍 Checking for duplicates on-chain...');
   const duplicate = await checkDuplicatePiece(pieceName, contractAddress, network);
   if (duplicate.exists) {
-    throw new Error(`Duplicate! $${pieceName} was already minted as token #${duplicate.tokenId}`);
+    throw new Error(`Duplicate! $${pieceName} was already kept as token #${duplicate.tokenId}`);
   }
   console.log('   ✓ No duplicate found');
   
@@ -948,11 +1000,9 @@ async function mintToken(piece, options = {}) {
   };
   
   // Call keep entrypoint
-  console.log('\n📤 Calling keep entrypoint...');
+  console.log('\n📤 Preserving on Tezos blockchain...');
   
   try {
-    const contract = await tezos.contract.at(contractAddress);
-    
     const op = await contract.methodsObject.keep({
       artifactUri: onChainMetadata.artifactUri,
       attributes: onChainMetadata.attributes,
@@ -985,12 +1035,11 @@ async function mintToken(piece, options = {}) {
     const tokenId = updatedStorage.next_token_id.toNumber() - 1;
     
     console.log('\n╔══════════════════════════════════════════════════════════════╗');
-    console.log('║  ✅ Token Minted Successfully!                               ║');
+    console.log('║  ✅ Piece Kept Successfully!                                 ║');
     console.log('╚══════════════════════════════════════════════════════════════╝\n');
     
-    const objktBase = network === 'mainnet' ? 'https://objkt.com' : 'https://ghostnet.objkt.com';
-    console.log(`   🎨 Token ID: ${tokenId}`);
-    console.log(`   📦 Piece: ${pieceName}`);
+    console.log(`   🎨 Token ID: #${tokenId}`);
+    console.log(`   📦 Piece: $${pieceName}`);
     console.log(`   🔗 Artifact: ${artifactUri}`);
     console.log(`   📝 Operation: ${config.explorer}/${op.hash}`);
     console.log(`   🖼️  View on Objkt: ${objktBase}/asset/${contractAddress}/${tokenId}\n`);
@@ -998,7 +1047,7 @@ async function mintToken(piece, options = {}) {
     return { tokenId, hash: op.hash, artifactUri };
     
   } catch (error) {
-    console.error('\n❌ Minting failed!');
+    console.error('\n❌ Keep failed!');
     console.error(`   Error: ${error.message}`);
     throw error;
   }
@@ -1713,7 +1762,7 @@ async function burnToken(tokenId, options = {}) {
   console.log(`📍 Contract: ${contractAddress}`);
   console.log(`🎨 Token ID: ${tokenId}`);
   console.log('\n⚠️  WARNING: This action is PERMANENT. The token will be destroyed.\n');
-  console.log('   The piece name will become available for re-minting.\n');
+  console.log('   The piece name will become available for re-keeping.\n');
   
   try {
     const contract = await tezos.contract.at(contractAddress);
@@ -1970,9 +2019,10 @@ async function main() {
         await uploadToIPFS(args[1]);
         break;
         
-      case 'mint': {
+      case 'mint':
+      case 'keep': {
         if (!args[1]) {
-          console.error('Usage: node keeps.mjs mint <piece> [network] [--thumbnail] [--to=<address>]');
+          console.error('Usage: node keeps.mjs keep <piece> [network] [--thumbnail] [--to=<address>] [--yes]');
           process.exit(1);
         }
         const toFlag = flags.find(f => f.startsWith('--to='));
@@ -1980,7 +2030,8 @@ async function main() {
         await mintToken(args[1], { 
           network: getNetwork(2),
           generateThumbnail: flags.includes('--thumbnail'),
-          recipient: recipientAddr
+          recipient: recipientAddr,
+          skipConfirm: flags.includes('--yes') || flags.includes('-y')
         });
         break;
       }
@@ -2073,7 +2124,7 @@ async function main() {
           console.error('');
           console.error('Examples:');
           console.error('  node keeps.mjs set-fee 5       # Set fee to 5 XTZ');
-          console.error('  node keeps.mjs set-fee 0       # Free minting');
+          console.error('  node keeps.mjs set-fee 0       # Free keeping');
           console.error('  node keeps.mjs set-fee 0.5     # Set fee to 0.5 XTZ');
           process.exit(1);
         }
@@ -2128,7 +2179,7 @@ Commands:
   mint <piece> [network]        Mint a new keep
   update <token_id> <piece>     Update token metadata (re-upload bundle)
   lock <token_id>               Permanently lock token metadata
-  burn <token_id>               Burn token (allows re-minting piece)
+  burn <token_id>               Burn token (allows re-keeping piece)
   redact <token_id>             Censor token (replace with redacted content)
   set-collection-media          Set collection icon/description
   lock-collection               Permanently lock collection metadata

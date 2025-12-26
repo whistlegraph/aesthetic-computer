@@ -1426,10 +1426,10 @@ export async function handler(event, context) {
         ],
         done: true,
       },
-      // 🎨 KidLisp NFT Minting
+      // 🎨 KidLisp Keeping
       keep: {
         sig: "keep $code",
-        desc: "Mint KidLisp as NFT (5ꜩ).",
+        desc: "Keep $code in your wallet.",
         params: [
           { name: "code", type: "string", prefix: "$", required: true, desc: "KidLisp piece code" }
         ],
