@@ -10,11 +10,9 @@
 
 import { qrcode as qr } from "../dep/@akamfoad/qr/qr.mjs";
 
-// Current Keeps contract (mainnet staging)
-const KEEPS_CONTRACT = "KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM";
-const KEEPS_NETWORK = "mainnet";
-// TODO: Set to false when switching to production mainnet contract
-const KEEPS_STAGING = true;
+// Current Keeps contract (v3)
+const KEEPS_CONTRACT = "KT1StXrQNvRd9dNPpHdCGEstcGiBV6neq79K";
+const KEEPS_NETWORK = "ghostnet";
 
 // State
 let walletState = null;
@@ -30,7 +28,6 @@ let pairingUri = null; // Beacon pairing URI for mobile connection
 let pairingError = null; // Error if pairing fails
 let nftCount = 0; // Number of NFTs owned
 let userKidlisps = []; // User's KidLisp pieces
-let ownedKeeps = []; // Keeps tokens owned by wallet on current contract
 let userSub = null; // Current user's sub for KidLisp queries
 let userHandle = null; // Current user's AC handle
 
@@ -50,10 +47,6 @@ const KIDLISP_REFRESH = 120000; // 2 minutes
 // Animation
 let frameCount = 0;
 
-// News ticker
-let tickerX = 0;
-let tickerText = "";
-
 // Falling data streams
 let dataStreams = [];
 
@@ -64,9 +57,7 @@ let connectMobileBtn;
 let connectExtensionBtn;
 let keepsLoginBtn; // Login button for keeps section
 let keepsSignupBtn; // Signup button for keeps section
-let keepButtons = {}; // Map of code -> ui.TextButtonSmall for keeping unkept KidLisps
-let stagingLinkBtn; // Link to staging contract on objkt
-let ownedKeepBtns = {}; // Map of tokenId -> ui.TextButtonSmall for objkt links
+let keepButtons = {}; // Map of code -> ui.TextButton for keeping unkept KidLisps
 let showConnectOptions = false; // Show extension vs mobile choice
 let connectError = null;
 let connecting = false; // Connection in progress
@@ -96,26 +87,6 @@ const colors = {
 };
 
 const TEZ_Y_ADJUST = -2;
-
-// Section layout constants
-const SECTION_PAD = 6;
-const SECTION_MARGIN = 8;
-const SECTION_GAP = 8;
-
-// Relative time helper (e.g., "2h ago", "3d ago")
-function relativeTime(date) {
-  if (!date) return "";
-  const now = Date.now();
-  const diff = now - date.getTime();
-  const mins = Math.floor(diff / 60000);
-  const hours = Math.floor(diff / 3600000);
-  const days = Math.floor(diff / 86400000);
-  if (mins < 1) return "now";
-  if (mins < 60) return `${mins}m ago`;
-  if (hours < 24) return `${hours}h ago`;
-  if (days < 30) return `${days}d ago`;
-  return `${Math.floor(days / 30)}mo ago`;
-}
 
 // 👻 Pac-Man Ghost Sprite (14x14, classic arcade bitmap)
 // Each row is a binary pattern where 1 = body pixel
@@ -174,157 +145,12 @@ function getApiBase(network) {
     : "https://api.ghostnet.tzkt.io";
 }
 
-// KidLisp syntax highlighting colors
-const syntaxColors = {
-  paren: [100, 120, 160],      // Parentheses - dim blue
-  keyword: [180, 100, 255],    // Keywords like def, repeat, later - purple
-  builtin: [100, 200, 255],    // Builtins like ink, box, wipe - cyan
-  number: [255, 200, 100],     // Numbers - gold
-  string: [100, 255, 150],     // Strings - green
-  comment: [80, 90, 100],      // Comments - dim
-  variable: [255, 150, 200],   // $variables - pink
-  default: [180, 190, 200],    // Default text
-};
-
-// Color word mappings - these get colored with their actual color!
-const colorWords = {
-  red: [255, 80, 80],
-  green: [80, 255, 80],
-  blue: [80, 80, 255],
-  yellow: [255, 255, 80],
-  orange: [255, 165, 80],
-  purple: [180, 80, 255],
-  pink: [255, 150, 200],
-  cyan: [80, 255, 255],
-  magenta: [255, 80, 255],
-  white: [255, 255, 255],
-  black: [100, 100, 100],
-  gray: [160, 160, 160],
-  grey: [160, 160, 160],
-  brown: [180, 120, 80],
-  lime: [180, 255, 80],
-  navy: [80, 80, 180],
-  teal: [80, 180, 180],
-  maroon: [180, 80, 80],
-  olive: [180, 180, 80],
-  aqua: [80, 255, 255],
-  silver: [200, 200, 200],
-  gold: [255, 215, 80],
-  violet: [200, 80, 255],
-  indigo: [100, 80, 200],
-  coral: [255, 127, 80],
-  salmon: [250, 128, 114],
-  tan: [210, 180, 140],
-  crimson: [220, 20, 60],
-  turquoise: [64, 224, 208],
-};
-
-// KidLisp keywords and builtins for highlighting
-const kidlispKeywords = new Set(['def', 'later', 'repeat', 'if', 'when', 'else', 'and', 'or', 'not', 'let', 'set', 'do', 'fn', 'loop', 'bunch', 'range']);
-const kidlispBuiltins = new Set(['ink', 'wipe', 'box', 'line', 'write', 'draw', 'tap', 'wiggle', 'spin', 'smoothspin', 'zoom', 'pan', 'blur', 'contrast', 'rainbow', 'frame', 'width', 'height', 'now', 'noise', 'random', 'sin', 'cos', 'abs', 'floor', 'ceil', 'round', 'min', 'max', 'clamp', 'map', 'fade', 'speaker', 'melody', 'overtone', 'mic', 'amplitude']);
-
-// Tokenize and color KidLisp source for display
-function tokenizeKidlisp(source) {
-  const tokens = [];
-  let i = 0;
-  while (i < source.length) {
-    const c = source[i];
-    
-    // Parentheses
-    if (c === '(' || c === ')') {
-      tokens.push({ text: c, color: syntaxColors.paren });
-      i++;
-    }
-    // Numbers (including decimals and timing like 0.5s)
-    else if (/[0-9]/.test(c) || (c === '-' && /[0-9]/.test(source[i + 1]))) {
-      let num = '';
-      while (i < source.length && /[0-9.\-]/.test(source[i])) {
-        num += source[i++];
-      }
-      // Include trailing 's' for timing
-      if (source[i] === 's') num += source[i++];
-      tokens.push({ text: num, color: syntaxColors.number });
-    }
-    // Variables ($name)
-    else if (c === '$') {
-      let v = '$';
-      i++;
-      while (i < source.length && /[a-zA-Z0-9_-]/.test(source[i])) {
-        v += source[i++];
-      }
-      tokens.push({ text: v, color: syntaxColors.variable });
-    }
-    // Strings
-    else if (c === '"') {
-      let s = '"';
-      i++;
-      while (i < source.length && source[i] !== '"') {
-        s += source[i++];
-      }
-      if (i < source.length) s += source[i++];
-      tokens.push({ text: s, color: syntaxColors.string });
-    }
-    // Comments
-    else if (c === ';') {
-      let comment = '';
-      while (i < source.length && source[i] !== '\n') {
-        comment += source[i++];
-      }
-      tokens.push({ text: comment, color: syntaxColors.comment });
-    }
-    // Words (keywords, builtins, identifiers, color names)
-    else if (/[a-zA-Z_]/.test(c)) {
-      let word = '';
-      while (i < source.length && /[a-zA-Z0-9_\-:!?]/.test(source[i])) {
-        word += source[i++];
-      }
-      const lower = word.toLowerCase();
-      // Check for color words first - they get their actual color!
-      if (colorWords[lower]) {
-        tokens.push({ text: word, color: colorWords[lower] });
-      } else if (kidlispKeywords.has(lower)) {
-        tokens.push({ text: word, color: syntaxColors.keyword });
-      } else if (kidlispBuiltins.has(lower)) {
-        tokens.push({ text: word, color: syntaxColors.builtin });
-      } else {
-        tokens.push({ text: word, color: syntaxColors.default });
-      }
-    }
-    // Whitespace and other
-    else {
-      tokens.push({ text: c, color: syntaxColors.default });
-      i++;
-    }
-  }
-  return tokens;
-}
-
 async function boot({ wallet, wipe, hud, ui, screen, user, handle }) {
   wipe(colors.bg);
   hud.label("wallet");
   
   wallet.sync();
   walletState = wallet.get();
-  
-  // Log wallet state on entering wallet piece
-  if (walletState?.connected) {
-    const addr = walletState.address;
-    const shortAddr = addr ? `${addr.slice(0, 8)}...${addr.slice(-4)}` : "?";
-    const baseNetwork = (walletState.network || KEEPS_NETWORK).toUpperCase();
-    const network = KEEPS_STAGING && baseNetwork === "MAINNET" ? "MAINNET (STAGING)" : baseNetwork;
-    const balance = walletState.balance != null ? `ꜩ${walletState.balance.toFixed(2)}` : "ꜩ...";
-    const domain = walletState.domain;
-    const displayName = domain || shortAddr;
-    
-    console.log(
-      `%c 💼 Wallet %c ${displayName} %c ${balance} %c ${network} %c Contract: ${KEEPS_CONTRACT.slice(0, 10)}... `,
-      "background: #0066FF; color: white; font-weight: bold; padding: 2px 8px; border-radius: 4px 0 0 4px;",
-      "background: #1a1a2e; color: #00d4ff; font-weight: bold; padding: 2px 8px;",
-      "background: #1a1a2e; color: #00ff88; padding: 2px 8px;",
-      `background: ${baseNetwork === "MAINNET" ? (KEEPS_STAGING ? "#cc6600" : "#00aa44") : "#ff8800"}; color: white; font-weight: bold; padding: 2px 8px;`,
-      "background: #333; color: #888; padding: 2px 8px; border-radius: 0 4px 4px 0;"
-    );
-  }
   
   // Get logged-in user sub and handle
   userSub = user?.sub || null;
@@ -366,16 +192,13 @@ async function boot({ wallet, wipe, hud, ui, screen, user, handle }) {
   keepsSignupBtn = new ui.TextButton("I'm new", { center: "xy", screen });
   keepsSignupBtn.stickyScrubbing = true;
   
-  // Fire off data fetches in background (non-blocking)
-  // UI will render immediately and update as data arrives
-  Promise.all([
+  await Promise.all([
     fetchTezPrice(walletState?.network),
     fetchHeadBlock(walletState?.network),
     walletState?.address ? fetchTransactions(walletState.address, walletState.network) : Promise.resolve(),
     walletState?.address ? fetchNFTCount(walletState.address, walletState.network) : Promise.resolve(),
-    walletState?.address ? fetchOwnedKeeps(walletState.address, walletState.network) : Promise.resolve(),
     userSub ? fetchUserKidlisps(userSub) : Promise.resolve(),
-  ]).catch(err => console.warn("📜 [WALLET] Background fetch error:", err));
+  ]);
 }
 
 function initDataStreams(screen) {
@@ -406,7 +229,7 @@ function generateStreamChars() {
   return chars;
 }
 
-async function fetchTezPrice(network = "mainnet") {
+async function fetchTezPrice(network = "ghostnet") {
   try {
     const apiBase = getApiBase(network);
     const res = await fetch(`${apiBase}/v1/quotes/last`);
@@ -420,7 +243,7 @@ async function fetchTezPrice(network = "mainnet") {
   } catch (e) {}
 }
 
-async function fetchHeadBlock(network = "mainnet") {
+async function fetchHeadBlock(network = "ghostnet") {
   try {
     const apiBase = getApiBase(network);
     const res = await fetch(`${apiBase}/v1/head`);
@@ -435,7 +258,7 @@ async function fetchHeadBlock(network = "mainnet") {
   } catch (e) {}
 }
 
-async function fetchTransactions(address, network = "mainnet") {
+async function fetchTransactions(address, network = "ghostnet") {
   try {
     const apiBase = network === "mainnet" ? "https://api.tzkt.io" : "https://api.ghostnet.tzkt.io";
     const res = await fetch(`${apiBase}/v1/accounts/${address}/operations?limit=5&type=transaction`);
@@ -453,7 +276,7 @@ async function fetchTransactions(address, network = "mainnet") {
   } catch (e) {}
 }
 
-async function fetchNFTCount(address, network = "mainnet") {
+async function fetchNFTCount(address, network = "ghostnet") {
   try {
     const apiBase = network === "mainnet" ? "https://api.tzkt.io" : "https://api.ghostnet.tzkt.io";
     const res = await fetch(`${apiBase}/v1/tokens/balances?account=${address}&balance.gt=0&limit=1000`);
@@ -462,73 +285,6 @@ async function fetchNFTCount(address, network = "mainnet") {
       nftCount = data.length;
     }
   } catch (e) {}
-}
-
-// Fetch Keeps tokens owned by this wallet on the current contract
-async function fetchOwnedKeeps(address, network = "mainnet") {
-  if (!address) return;
-  
-  try {
-    const apiBase = network === "mainnet" ? "https://api.tzkt.io" : "https://api.ghostnet.tzkt.io";
-    // Query tokens owned by this address on the Keeps contract (include balance=0 for burned)
-    const res = await fetch(`${apiBase}/v1/tokens/balances?account=${address}&token.contract=${KEEPS_CONTRACT}`);
-    if (res.ok) {
-      const data = await res.json();
-      console.log(`📜 [WALLET] Found ${data.length} Keeps token records on contract ${KEEPS_CONTRACT.slice(0, 10)}...`);
-      
-      // Also fetch all tokens on the contract to get mint dates
-      const tokensRes = await fetch(`${apiBase}/v1/tokens?contract=${KEEPS_CONTRACT}&limit=100`);
-      const allTokens = tokensRes.ok ? await tokensRes.json() : [];
-      const tokenMintDates = {};
-      for (const t of allTokens) {
-        tokenMintDates[t.tokenId] = t.firstTime; // When token was first minted
-      }
-      
-      // Fetch burn transactions for this address on this contract
-      const burnRes = await fetch(`${apiBase}/v1/tokens/transfers?from=${address}&token.contract=${KEEPS_CONTRACT}&limit=100`);
-      const burnTransfers = burnRes.ok ? await burnRes.json() : [];
-      const burnInfo = {}; // tokenId -> { burnedBy, burnedAt }
-      for (const tx of burnTransfers) {
-        // A burn is a transfer to null address (burn address) or balance going to 0
-        if (tx.to?.address === null || tx.to?.address === "tz1burnburnburnburnburnburnburjAYjjX" || !tx.to) {
-          burnInfo[tx.token.tokenId] = {
-            burnedBy: tx.from?.alias || tx.from?.address?.slice(0, 8) + "..." || "unknown",
-            burnedAt: tx.timestamp ? new Date(tx.timestamp) : null,
-          };
-        }
-      }
-      
-      // TzKT returns token metadata directly in the response
-      ownedKeeps = data.map((tb) => {
-        const tokenId = tb.token.tokenId;
-        const meta = tb.token.metadata || {};
-        const name = meta.name || `#${tokenId}`;
-        const balance = parseInt(tb.balance) || 0;
-        const mintedAt = tokenMintDates[tokenId] || tb.token.firstTime;
-        const burned = balance === 0;
-        const burn = burnInfo[tokenId] || {};
-        
-        return {
-          tokenId,
-          name,
-          balance,
-          burned,
-          burnedBy: burned ? burn.burnedBy : null,
-          burnedAt: burned ? burn.burnedAt : null,
-          mintedAt: mintedAt ? new Date(mintedAt) : null,
-          lastActivity: burned ? burn.burnedAt : (mintedAt ? new Date(mintedAt) : null),
-          contract: KEEPS_CONTRACT,
-          objktUrl: `https://objkt.com/asset/${KEEPS_CONTRACT}/${tokenId}`,
-        };
-      });
-      
-      const activeKeeps = ownedKeeps.filter(k => !k.burned);
-      const burnedKeeps = ownedKeeps.filter(k => k.burned);
-      console.log(`📜 [WALLET] Owned Keeps: ${activeKeeps.length} active, ${burnedKeeps.length} burned`);
-    }
-  } catch (e) {
-    console.warn("📜 [WALLET] Failed to fetch owned keeps:", e);
-  }
 }
 
 async function fetchUserKidlisps(userSub) {
@@ -558,7 +314,7 @@ async function fetchUserKidlisps(userSub) {
       }
       
       userKidlisps = allUserPieces
-        .slice(0, 20) // Show more pieces
+        .slice(0, 12) // Show more pieces
         .map(p => {
           // Only mark as "kept" if it's on the current contract
           const isOnCurrentContract = p.kept?.contractAddress === KEEPS_CONTRACT;
@@ -630,48 +386,16 @@ function sim({ wallet, jump, screen }) {
     lastKidlispFetch = now;
   }
   
-  // Animate marquee for KidLisp source previews (slower, using source length)
-  if (frameCount % 4 === 0) {
+  // Animate marquee for KidLisp source previews
+  if (frameCount % 3 === 0) {
     for (const piece of userKidlisps) {
-      const rawSource = (piece.source || piece.preview || '').replace(/\s+/g, ' ').trim();
-      const separator = '  ◆  ';
-      const totalLen = (rawSource + separator).length;
-      if (totalLen > 10) {
+      if (piece.preview && piece.preview.length > 20) {
         piece.marqueeX = (piece.marqueeX || 0) + 1;
-        // Loop seamlessly when we've scrolled past one full cycle
-        const contentWidth = totalLen * 4;
-        if (piece.marqueeX >= contentWidth) {
-          piece.marqueeX = 0; // Seamless loop back
+        if (piece.marqueeX > piece.preview.length * 6) {
+          piece.marqueeX = -80; // Reset with gap
         }
       }
     }
-  }
-  
-  // Animate news ticker (smooth, slower)
-  if (frameCount % 4 === 0) {
-    tickerX -= 1;
-  }
-  
-  // Build ticker text - Tezos financial news only
-  const tickerParts = [];
-  if (tezPrice?.usd) {
-    const change = priceHistory.length > 1 ? 
-      ((tezPrice.usd - priceHistory[0]) / priceHistory[0] * 100).toFixed(2) : 0;
-    const arrow = change >= 0 ? "▲" : "▼";
-    tickerParts.push(`XTZ $${tezPrice.usd.toFixed(3)} ${arrow}${Math.abs(change)}%`);
-  }
-  if (headBlock) {
-    tickerParts.push(`BLOCK #${headBlock.level.toLocaleString()}`);
-    // Add block time info
-    if (lastBlockTime) {
-      const secAgo = Math.floor((Date.now() - lastBlockTime) / 1000);
-      tickerParts.push(`${secAgo}s ago`);
-    }
-  }
-  tickerText = tickerParts.join("  ◆  ");
-  const tickerWidth = tickerText.length * 6;
-  if (tickerX < -tickerWidth) {
-    tickerX = screen.width;
   }
   
   // Animate streams
@@ -684,114 +408,139 @@ function sim({ wallet, jump, screen }) {
   }
 }
 
-// HUD constants - matching notepat.mjs
-const TOP_BAR_BOTTOM = 21; // Standard HUD height
-const HUD_LABEL_WIDTH = 44; // "wallet" label width approx
-
 function paint($) {
   const { wipe, ink, screen, line, box, ui, write } = $;
   
   const w = screen.width;
   const h = screen.height;
   const m = 6;
+  const top = 16;
   
   wipe(colors.bg);
   
-  // Data streams background (dimmer)
+  // Data streams background
   for (const stream of dataStreams) {
     const [r, g, b, a] = stream.color;
     for (let i = 0; i < stream.chars.length; i++) {
       const cy = Math.floor(stream.y - i * 10);
       if (cy < 0 || cy > h) continue;
-      const fade = Math.max(6, (a - i * 3) * 0.6);
+      const fade = Math.max(10, a - i * 3);
       ink(r, g, b, fade).write(stream.chars[i], { x: stream.x, y: cy });
     }
   }
   
-  // Subtle grid (lighter)
-  ink(colors.primary[0], colors.primary[1], colors.primary[2], 8);
+  // Subtle grid
+  ink(colors.primary[0], colors.primary[1], colors.primary[2], 12);
   for (let x = 0; x < w; x += 24) line(x, 0, x, h);
   for (let y = 0; y < h; y += 24) line(0, y, w, y);
   
-  // Content starts below HUD bar
-  let y = TOP_BAR_BOTTOM + 4;
+  let y = top;
+  const topRowY = y;
+  const priceRowY = y + 12;
   
-  // === COMPACT TOP ROW: Network indicator only ===
+  // === NETWORK (top row) ===
+  const priceText = tezPrice?.usd ? `$${tezPrice.usd.toFixed(2)}` : null;
+  const priceX = priceText ? w - m - (priceText.length * 6) - 2 : null;
+
   if (walletState?.connected) {
     const netColor = walletState.network === "mainnet" ? colors.positive : colors.block;
     const isGhostnet = walletState.network !== "mainnet";
     
     if (isGhostnet) {
-      // Draw ghost and label on left
+      // Draw label near the ghost on the top-right
       const eyeShiftX = Math.max(0, Math.min(1, Math.round((Math.sin(frameCount / 12) + 1) / 2)));
       const eyeShiftY = Math.max(0, Math.min(1, Math.round((Math.cos(frameCount / 16) + 1) / 2)));
-      drawGhost(ink, box, m, y, netColor, 1, { x: eyeShiftX, y: eyeShiftY });
-      ink(...netColor).write("GHOSTNET", { x: m + 16, y: y + 3 }, undefined, undefined, false, "MatrixChunky8");
+      const ghostX = priceX !== null ? Math.max(m, priceX - 18) : w - m - 14;
+      const labelX = Math.max(m, ghostX - 44);
+      ink(...netColor).write("GHOSTNET", { x: labelX, y: topRowY + 1 }, undefined, undefined, false, "MatrixChunky8");
+      drawGhost(ink, box, ghostX, 2, netColor, 1, { x: eyeShiftX, y: eyeShiftY });
     } else {
-      ink(...netColor).write(walletState.network?.toUpperCase() || "MAINNET", { x: m, y });
+      ink(...netColor).write(walletState.network?.toUpperCase() || "MAINNET", { x: m, y: topRowY });
     }
   }
-  y += 16;
+  
+  if (tezPrice?.usd) {
+    // Mini price graph (24 values, ~40px wide)
+    if (priceHistory.length > 1) {
+      const graphW = 40;
+      const graphH = 8;
+      const graphX = w - m - graphW - 55;
+      const graphY = priceRowY - 1;
+      
+      const minP = Math.min(...priceHistory);
+      const maxP = Math.max(...priceHistory);
+      const range = maxP - minP || 1;
+      
+      // Trend color
+      const trendUp = priceHistory[priceHistory.length - 1] >= priceHistory[0];
+      const graphColor = trendUp ? colors.positive : colors.negative;
+      
+      for (let i = 1; i < priceHistory.length; i++) {
+        const x1 = graphX + ((i - 1) / (priceHistory.length - 1)) * graphW;
+        const x2 = graphX + (i / (priceHistory.length - 1)) * graphW;
+        const y1 = graphY + graphH - ((priceHistory[i - 1] - minP) / range) * graphH;
+        const y2 = graphY + graphH - ((priceHistory[i] - minP) / range) * graphH;
+        ink(...graphColor, 180).line(Math.floor(x1), Math.floor(y1), Math.floor(x2), Math.floor(y2));
+      }
+    }
+    
+    // Price text (right aligned) - move ꜩ up 3 more pixels
+    ink(...colors.primary).write("ꜩ", { x: priceX - 12, y: priceRowY + TEZ_Y_ADJUST - 4 }, undefined, undefined, false, "unifont");
+    ink(...colors.text).write(priceText, { x: priceX, y: priceRowY });
+  }
+  y = priceRowY + 14;
+  
+  // Divider
+  ink(...colors.primaryDim, 60).line(m, y, w - m, y);
+  y += 6;
   
   if (walletState?.connected) {
-    // === YOUR BALANCE section ===
-    const balBarH = 50;
-    const balBarTop = y;
-    const headerH = 14;
-    
-    // Background with left/right borders
-    ink(0, 30, 50, 150).box(SECTION_MARGIN, balBarTop, w - SECTION_MARGIN * 2, balBarH, "fill");
-    ink(0, 80, 120, 100).box(SECTION_MARGIN, balBarTop, w - SECTION_MARGIN * 2, balBarH, "outline");
-    
-    const innerM = SECTION_MARGIN + SECTION_PAD;
-    const headerY = balBarTop + SECTION_PAD;
-    const rightInner = w - SECTION_MARGIN - SECTION_PAD;
-    
-    // Section title (left)
-    ink(...colors.primary).write("YOUR BALANCE", { x: innerM, y: headerY });
-    
-    // Balance line: ꜩ X.XXXX (large unifont) - top right, same line as title
-    const bal = walletState.balance !== null ? walletState.balance.toFixed(4) : "...";
-    const balTextWidth = bal.length * 8 + 14; // unifont char width + ꜩ symbol
-    const balStartX = rightInner - balTextWidth;
-    ink(...colors.primary).write("ꜩ", { x: balStartX, y: headerY + TEZ_Y_ADJUST }, undefined, undefined, false, "unifont");
-    ink(...colors.primaryBright).write(bal, { x: balStartX + 14, y: headerY }, undefined, undefined, false, "unifont");
-    
-    // Left side: identity (domain / handle / address stacked)
-    const contentY = headerY + headerH;
-    let idY = contentY;
+    // === IDENTITY SECTION ===
     if (walletState.domain) {
-      ink(...colors.secondary).write(walletState.domain, { x: innerM, y: idY }, undefined, undefined, false, "MatrixChunky8");
-      idY += 9;
+      ink(...colors.secondary).write(walletState.domain, { x: m, y });
+      y += 12;
     }
+
     if (userHandle) {
       const displayHandle = userHandle.startsWith("@") ? userHandle : `@${userHandle}`;
-      ink(...colors.primaryBright).write(displayHandle, { x: innerM, y: idY }, undefined, undefined, false, "MatrixChunky8");
-      idY += 9;
+      ink(...colors.primaryBright).write(displayHandle, { x: m, y }, undefined, undefined, false, "MatrixChunky8");
+      y += 10;
     }
+    
+    // Address (compact)
     if (walletState.address) {
       const addr = walletState.address;
-      const shortAddr = `${addr.slice(0,6)}...${addr.slice(-4)}`;
-      ink(...colors.textDim).write(shortAddr, { x: innerM, y: idY }, undefined, undefined, false, "MatrixChunky8");
+      const shortAddr = w < 200 ? `${addr.slice(0,8)}...${addr.slice(-6)}` : addr;
+      ink(...colors.textDim).write(shortAddr, { x: m, y }, undefined, undefined, false, "MatrixChunky8");
+      y += 10;
     }
     
-    // Right side: USD value + XTZ price (below balance)
-    // USD value of wallet
+    y += 4;
+    
+    // === BALANCE (centered) ===
+    ink(...colors.textDim).write("BALANCE", { x: w/2, y, center: "x" });
+    y += 12;
+    
+    const bal = walletState.balance !== null ? walletState.balance.toFixed(4) : "...";
+    // Center the balance properly using unifont metrics
+    ink(...colors.primary).write("ꜩ", { x: w/2, y: y + TEZ_Y_ADJUST, center: "x" }, undefined, undefined, false, "unifont");
+    y += 14;
+    ink(...colors.primaryBright).write(bal, { x: w/2, y, center: "x" }, undefined, undefined, false, "unifont");
+    y += 16; // Extra spacing before USD
+    
+    // USD value centered below (moved down 2px more)
     if (walletState.balance !== null && tezPrice?.usd) {
       const usd = (walletState.balance * tezPrice.usd).toFixed(2);
-      const usdText = `$${usd} USD`;
-      const usdWidth = usdText.length * 6; // default font ~6px
-      ink(...colors.text).write(usdText, { x: rightInner - usdWidth, y: contentY });
+      ink(...colors.textDim).write(`($${usd} USD)`, { x: w/2, y, center: "x" });
     }
+    y += 14;
     
-    // 1 XTZ price (below USD)
-    if (tezPrice?.usd) {
-      const tezText = `1 tez = $${tezPrice.usd.toFixed(2)}`;
-      const tezWidth = tezText.length * 4; // MatrixChunky8 ~4px
-      ink(...colors.textDim).write(tezText, { x: rightInner - tezWidth, y: contentY + 12 }, undefined, undefined, false, "MatrixChunky8");
+    // NFT count
+    if (nftCount > 0) {
+      ink(...colors.textDim).write(`${nftCount} NFT${nftCount !== 1 ? 'S' : ''}`, { x: w/2, y, center: "x" });
+      y += 10;
     }
-    
-    y = balBarTop + balBarH + SECTION_GAP;
+    y += 4;
     
     // === KIDLISP PIECES (two columns: Kept / Unkept) ===
     // Show login/signup buttons if wallet connected but not logged in
@@ -813,8 +562,7 @@ function paint($) {
       // Subtitle below buttons
       ink(...colors.textDim).write("to see your keeps", { x: w/2, y, center: "x" });
       y += 16;
-    } else if (userKidlisps.length > 0 || ownedKeeps.length > 0) {
-      // Build unified keeps list: authored keeps + collected (owned but not authored)
+    } else if (userKidlisps.length > 0) {
       const isKeptByUser = p =>
         p.kept &&
         (p.kept.keptBy === userSub ||
@@ -822,235 +570,115 @@ function paint($) {
           (!p.kept.keptBy && !p.kept.walletAddress));
       const keptPieces = userKidlisps.filter(isKeptByUser);
       const unkeptPieces = userKidlisps.filter(p => !isKeptByUser(p));
+      const colW = Math.floor((w - m * 3) / 2);
+      const leftX = m;
+      const rightX = m + colW + m;
       
-      // Build unified keeps: merge keptPieces with ownership info from ownedKeeps
-      const unifiedKeeps = keptPieces.map(p => {
-        const owned = ownedKeeps.find(o => o.tokenId === p.kept?.tokenId);
-        const tid = p.kept?.tokenId;
-        const burned = owned?.burned || false;
-        return {
-          code: p.code,
-          tokenId: tid,
-          owned: !!owned && !burned,
-          burned,
-          burnedBy: owned?.burnedBy || null,
-          burnedAt: owned?.burnedAt || null,
-          mintedAt: owned?.mintedAt || (p.kept?.mintedAt ? new Date(p.kept.mintedAt) : null),
-          lastActivity: owned?.lastActivity || owned?.mintedAt || (p.kept?.mintedAt ? new Date(p.kept.mintedAt) : null),
-          balance: owned?.balance || 0,
-          objktUrl: owned?.objktUrl || (tid ? `https://objkt.com/tokens/${KEEPS_CONTRACT}/${tid}` : `https://objkt.com/collection/${KEEPS_CONTRACT}`),
-          authored: true,
-          source: p.source || '',
-        };
-      });
+      // Column headers
+      ink(...colors.positive).write(`KEPT (${keptPieces.length})`, { x: leftX, y });
+      ink(...colors.textDim).write(`UNKEPT (${unkeptPieces.length})`, { x: rightX, y });
+      y += 12;
       
-      // Add collected tokens (owned but not authored by user)
-      const authoredTokenIds = new Set(keptPieces.map(p => p.kept?.tokenId).filter(Boolean));
-      for (const owned of ownedKeeps) {
-        if (!authoredTokenIds.has(owned.tokenId)) {
-          unifiedKeeps.push({
-            code: owned.name?.replace('$', '') || `token${owned.tokenId}`,
-            tokenId: owned.tokenId,
-            owned: !owned.burned,
-            burned: owned.burned,
-            burnedBy: owned.burnedBy,
-            burnedAt: owned.burnedAt,
-            mintedAt: owned.mintedAt,
-            lastActivity: owned.lastActivity || owned.mintedAt,
-            balance: owned.balance,
-            objktUrl: owned.objktUrl,
-            authored: false,
-            collected: true
-          });
+      const maxRows = 4;
+      const rowH = 18;
+      
+      // Draw kept pieces (left column)
+      for (let i = 0; i < Math.min(maxRows, keptPieces.length); i++) {
+        const piece = keptPieces[i];
+        const rowY = y + i * rowH;
+        
+        // Token ID badge
+        if (piece.kept?.tokenId) {
+          ink(...colors.primaryBright).write(`#${piece.kept.tokenId}`, { x: leftX, y: rowY });
+        }
+        
+        // Code name
+        ink(...colors.positive).write(`$${piece.code}`, { x: leftX + 24, y: rowY }, undefined, undefined, false, "MatrixChunky8");
+        
+        // Scrolling source preview
+        const previewY = rowY + 9;
+        const scrollX = piece.marqueeX || 0;
+        const previewText = piece.preview || '';
+        // Simple scroll display
+        const startChar = Math.floor(scrollX / 5) % (previewText.length + 10);
+        for (let c = 0; c < 12; c++) {
+          const charIdx = (startChar + c) % previewText.length;
+          if (charIdx < previewText.length) {
+            ink(...colors.textDim).write(previewText[charIdx] || '', { x: leftX + c * 5, y: previewY }, undefined, undefined, false, "MatrixChunky8");
+          }
         }
       }
       
-      // Sort by recent activity (most recent first)
-      unifiedKeeps.sort((a, b) => {
-        const aTime = a.lastActivity?.getTime() || 0;
-        const bTime = b.lastActivity?.getTime() || 0;
-        return bTime - aTime;
-      });
-      
-      const rowH = 18; // Taller rows for buttons
-      const headerH = 14;
-      const innerPad = SECTION_PAD;
-      const fullW = w - SECTION_MARGIN * 2;
-      
-      // === YOUR KIDLISP KEEPS section (unified) ===
-      if (unifiedKeeps.length > 0) {
-        const maxKeepsRows = Math.min(8, Math.max(4, Math.floor((h - y - 60) / rowH / 2)));
-        const keepsH = innerPad + headerH + Math.min(maxKeepsRows, unifiedKeeps.length) * rowH + innerPad;
+      // Draw unkept pieces (right column) with KEEP buttons
+      const activeKeepCodes = new Set();
+      for (let i = 0; i < Math.min(maxRows, unkeptPieces.length); i++) {
+        const piece = unkeptPieces[i];
+        const rowY = y + i * rowH;
+        activeKeepCodes.add(piece.code);
         
-        // Background with left/right borders
-        ink(0, 40, 30, 180).box(SECTION_MARGIN, y, fullW, keepsH, "fill");
-        ink(0, 100, 60, 100).box(SECTION_MARGIN, y, fullW, keepsH, "outline");
+        // Code name
+        ink(...colors.secondary).write(`$${piece.code}`, { x: rightX, y: rowY }, undefined, undefined, false, "MatrixChunky8");
         
-        const innerX = SECTION_MARGIN + innerPad;
-        const headerY = y + innerPad;
-        
-        // Header
-        ink(...colors.positive).write(KEEPS_STAGING ? "YOUR KIDLISP KEEPS on" : "YOUR KIDLISP KEEPS", { x: innerX, y: headerY });
-        
-        // Staging button
-        if (KEEPS_STAGING) {
-          const stagingX = innerX + 132; // After "YOUR KIDLISP KEEPS on "
-          if (!stagingLinkBtn) {
-            stagingLinkBtn = new ui.TextButtonSmall("STAGING ", { x: stagingX, y: headerY - 1 });
-          } else {
-            stagingLinkBtn.reposition({ x: stagingX, y: headerY - 1 });
-          }
-          stagingLinkBtn.paint({ ink, box, write },
-            [[80, 60, 0], [140, 100, 0], [255, 200, 100], [80, 60, 0]],
-            [[100, 80, 0], [180, 140, 0], [255, 255, 200], [100, 80, 0]]
-          );
-        }
-        
-        const keepsStartY = headerY + headerH;
-        const activeOwnedIds = new Set();
-        
-        for (let i = 0; i < Math.min(maxKeepsRows, unifiedKeeps.length); i++) {
-          const keep = unifiedKeeps[i];
-          const rowY = keepsStartY + i * rowH;
-          const textY = rowY + 3; // Center text vertically in row
-          activeOwnedIds.add(keep.tokenId);
-          
-          // Token ID
-          ink(...colors.primaryBright).write(`#${keep.tokenId}`, { x: innerX, y: textY }, undefined, undefined, false, "MatrixChunky8");
-          
-          // Code name (color indicates status)
-          const isBurned = keep.burned;
-          const nameColor = isBurned ? colors.negative : (keep.owned ? colors.positive : colors.textDim);
-          ink(...nameColor).write(`$${keep.code}`, { x: innerX + 16, y: textY }, undefined, undefined, false, "MatrixChunky8");
-          
-          // Info section: mint date or burn info
-          let infoX = innerX + 16 + (keep.code.length + 1) * 4 + 6;
-          
-          if (isBurned) {
-            // Show burn info: "burned by X on Date"
-            ink(255, 100, 100).write("burned", { x: infoX, y: textY }, undefined, undefined, false, "MatrixChunky8");
-            infoX += 7 * 4; // "burned" length
-            if (keep.burnedBy) {
-              ink(...colors.textDim).write("by ", { x: infoX, y: textY }, undefined, undefined, false, "MatrixChunky8");
-              infoX += 3 * 4;
-              ink(255, 150, 150).write(keep.burnedBy, { x: infoX, y: textY }, undefined, undefined, false, "MatrixChunky8");
-              infoX += keep.burnedBy.length * 4 + 2;
-            }
-            if (keep.burnedAt) {
-              const burnDateStr = keep.burnedAt.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-              ink(...colors.textDim).write(burnDateStr, { x: infoX, y: textY }, undefined, undefined, false, "MatrixChunky8");
-            }
-          } else {
-            // Show mint date
-            if (keep.mintedAt) {
-              const dateStr = keep.mintedAt.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-              ink(...colors.textDim).write(dateStr, { x: infoX, y: textY }, undefined, undefined, false, "MatrixChunky8");
-              infoX += dateStr.length * 4 + 4;
-            }
-            
-            // Held by badge if collected (not authored)
-            if (keep.collected) {
-              const holder = walletState?.domain || (walletState?.address ? walletState.address.slice(0, 8) + "..." : "you");
-              ink(...colors.secondary).write("held ", { x: infoX, y: textY }, undefined, undefined, false, "MatrixChunky8");
-              ink(...colors.primaryBright).write(holder, { x: infoX + 5 * 4, y: textY }, undefined, undefined, false, "MatrixChunky8");
-            }
-          }
-          
-          // OBJKT.com button (flush right)
-          const btnRightEdge = w - SECTION_MARGIN - innerPad;
-          const objktBtnX = btnRightEdge - 42; // ~42px button width
-          const btnY = rowY + 2; // Center in row
-          if (!ownedKeepBtns[keep.tokenId]) {
-            ownedKeepBtns[keep.tokenId] = new ui.TextButtonSmall("OBJKT.com", { x: objktBtnX, y: btnY });
-          } else {
-            ownedKeepBtns[keep.tokenId].reposition({ x: objktBtnX, y: btnY });
-          }
-          ownedKeepBtns[keep.tokenId].paint({ ink, box, write },
-            isBurned ? [[60, 30, 30], [100, 50, 50], [180, 100, 100], [60, 30, 30]] : [[0, 40, 60], [0, 100, 140], [100, 200, 255], [0, 40, 60]],
-            isBurned ? [[80, 40, 40], [140, 70, 70], [220, 150, 150], [80, 40, 40]] : [[0, 60, 80], [0, 140, 180], [200, 255, 255], [0, 60, 80]]
-          );
-        }
-        
-        // Clean up buttons
-        for (const tokenId of Object.keys(ownedKeepBtns)) {
-          if (!activeOwnedIds.has(parseInt(tokenId))) {
-            delete ownedKeepBtns[tokenId];
+        // Scrolling source preview
+        const previewY = rowY + 9;
+        const scrollX = piece.marqueeX || 0;
+        const previewText = piece.preview || '';
+        const startChar = Math.floor(scrollX / 5) % (previewText.length + 10);
+        for (let c = 0; c < 10; c++) {
+          const charIdx = (startChar + c) % previewText.length;
+          if (charIdx < previewText.length) {
+            ink(...colors.textDim).write(previewText[charIdx] || '', { x: rightX + c * 5, y: previewY }, undefined, undefined, false, "MatrixChunky8");
           }
         }
         
-        y += keepsH + SECTION_GAP;
+        // Create or reposition KEEP button
+        const btnX = rightX + colW - 30;
+        const btnY = rowY - 2;
+        if (!keepButtons[piece.code]) {
+          keepButtons[piece.code] = new ui.TextButton("KEEP", { x: btnX, y: btnY });
+        } else {
+          keepButtons[piece.code].reposition({ x: btnX, y: btnY });
+        }
+        
+        // Paint KEEP button with hover/down states
+        const btn = keepButtons[piece.code];
+        btn.paint(
+          { ink, box, write },
+          [colors.primary[0], colors.primary[1], colors.primary[2], 180], // normal: fill, outline, text, alpha
+          [colors.primaryBright[0], colors.primaryBright[1], colors.primaryBright[2], 255], // hover/down
+          [colors.textDim[0], colors.textDim[1], colors.textDim[2], 100] // disabled
+        );
       }
       
-      // === YOUR KIDLISP section (unkept pieces) ===
-      if (unkeptPieces.length > 0) {
-        const maxRows = Math.min(6, Math.max(3, Math.floor((h - y - 30) / rowH)));
-        const kidlispH = innerPad + headerH + Math.min(maxRows, unkeptPieces.length) * rowH + innerPad;
-        
-        // Background with left/right borders
-        ink(40, 20, 60, 180).box(SECTION_MARGIN, y, fullW, kidlispH, "fill");
-        ink(100, 50, 120, 100).box(SECTION_MARGIN, y, fullW, kidlispH, "outline");
-        
-        const innerX = SECTION_MARGIN + innerPad;
-        const headerY = y + innerPad;
-        
-        // Header
-        ink(...colors.secondary).write("YOUR KIDLISP", { x: innerX, y: headerY });
-        const kidlispStartY = headerY + headerH;
-        
-        // Draw unkept pieces with KEEP buttons and syntax-highlighted source ticker
-        const activeKeepCodes = new Set();
-        for (let i = 0; i < Math.min(maxRows, unkeptPieces.length); i++) {
-          const piece = unkeptPieces[i];
-          const rowY = kidlispStartY + i * rowH;
-          const textY = rowY + 3; // Center text vertically
-          activeKeepCodes.add(piece.code);
-          
-          // Code name
-          const codeW = (piece.code.length + 1) * 4 + 4;
-          ink(...colors.secondary).write(`$${piece.code}`, { x: innerX, y: textY }, undefined, undefined, false, "MatrixChunky8");
-          
-          // Timestamp (relative time)
-          const timeStr = piece.when ? relativeTime(piece.when) : "";
-          if (timeStr) {
-            ink(...colors.textDim).write(timeStr, { x: innerX + codeW, y: textY }, undefined, undefined, false, "MatrixChunky8");
-          }
-          
-          // Keep button (flush right)
-          const btnRightEdge = w - SECTION_MARGIN - innerPad;
-          const btnX = btnRightEdge - 22; // ~22px button width
-          const btnY = rowY + 3;
-          if (!keepButtons[piece.code]) {
-            keepButtons[piece.code] = new ui.TextButtonSmall("Keep", { x: btnX, y: btnY });
-          } else {
-            keepButtons[piece.code].reposition({ x: btnX, y: btnY });
-          }
-          keepButtons[piece.code].paint({ ink, box, write });
+      
+      // Clean up buttons for pieces no longer visible
+      for (const code of Object.keys(keepButtons)) {
+        if (!activeKeepCodes.has(code)) {
+          delete keepButtons[code];
         }
-        
-        // Clean up buttons
-        for (const code of Object.keys(keepButtons)) {
-          if (!activeKeepCodes.has(code)) {
-            delete keepButtons[code];
-          }
-        }
-        
-        y += kidlispH + SECTION_GAP;
       }
+      
+      y += maxRows * rowH + 4;
+      
+      // Show overflow counts
+      if (keptPieces.length > maxRows || unkeptPieces.length > maxRows) {
+        if (keptPieces.length > maxRows) {
+          ink(...colors.textDim).write(`+${keptPieces.length - maxRows} more`, { x: leftX, y });
+        }
+        if (unkeptPieces.length > maxRows) {
+          ink(...colors.textDim).write(`+${unkeptPieces.length - maxRows} more`, { x: rightX, y });
+        }
+        y += 10;
+      }
+      y += 6;
     }
     
-    // Disconnect button (moved up, above ticker)
-    disconnectBtn?.reposition({ bottom: 18, right: 6, screen });
+    // Disconnect button (bottom right)
+    disconnectBtn?.reposition({ bottom: 6, right: 6, screen });
     disconnectBtn?.paint($, 
       [[50, 30, 40], [120, 70, 90], [180, 150, 170], [50, 30, 40]],
       [[80, 50, 60], [180, 100, 120], [255, 255, 255], [80, 50, 60]]
     );
-    
-    // === BOTTOM TICKER ===
-    if (tickerText) {
-      const tickerY = h - 10;
-      ink(0, 20, 40, 180).box(0, tickerY - 2, w, 12, "fill");
-      ink(...colors.primaryBright, 180).write(tickerText, { x: Math.floor(tickerX), y: tickerY });
-    }
   } else {
     // Not connected - show connection UI
     const cy = h / 2 - 30;
@@ -1186,7 +814,7 @@ function act({ event: e, wallet, jump, screen, net }) {
           connecting = true;
           connectError = null;
           try {
-            await wallet.connect({ network: KEEPS_NETWORK, walletType: "temple" });
+            await wallet.connect({ network: "ghostnet", walletType: "temple" });
           } catch (err) {
             connectError = err.message || "Connection failed";
             connecting = false;
@@ -1202,7 +830,7 @@ function act({ event: e, wallet, jump, screen, net }) {
           qrCells = null;
           pairingError = null;
           // Request pairing code from bios
-          wallet.getPairingUri(KEEPS_NETWORK, (response) => {
+          wallet.getPairingUri("ghostnet", (response) => {
             console.log("🔷 Mobile pairing response:", response);
             if (response.result === "success" && response.pairingInfo) {
               try {
@@ -1255,34 +883,12 @@ function act({ event: e, wallet, jump, screen, net }) {
       });
     }
     
-    // Handle KEEP button clicks (TextButtonSmall has .btn property)
+    // Handle KEEP button clicks using ui.TextButton
     for (const [code, btn] of Object.entries(keepButtons)) {
       btn.btn.act(e, {
         push: () => {
           console.log("🔷 Keep button clicked for:", code);
           jump(`keep~$${code}`);
-        }
-      });
-    }
-    
-    // Handle staging contract link click
-    if (KEEPS_STAGING && stagingLinkBtn) {
-      stagingLinkBtn.btn.act(e, {
-        push: () => {
-          const objktUrl = `https://objkt.com/collections/${KEEPS_CONTRACT}`;
-          console.log("🔗 Opening staging contract on objkt:", objktUrl);
-          net.web(objktUrl, true);
-        }
-      });
-    }
-    
-    // Handle owned keeps objkt link clicks
-    for (const [tokenId, btn] of Object.entries(ownedKeepBtns)) {
-      btn.btn.act(e, {
-        push: () => {
-          const objktUrl = `https://objkt.com/tokens/${KEEPS_CONTRACT}/${tokenId}`;
-          console.log("🔗 Opening token on objkt:", objktUrl);
-          net.web(objktUrl, true);
         }
       });
     }
