@@ -10,10 +10,11 @@ import {
   KEEPS_STAGING,
   DEFAULT_NETWORK,
   getNetwork,
-  getObjktUrl,
-  getTzktTokenUrl,
-  getTzktContractUrl,
 } from "./keeps/constants.mjs";
+import {
+  checkIfMinted,
+  fetchTokenInfo,
+} from "./keeps/tzkt-client.mjs";
 
 // Re-export constants for backward compatibility
 export { NETWORKS, MINT_STEPS, STEP_STATUS, KEEPS_STAGING };
@@ -178,67 +179,18 @@ export class KeepsClient {
   // Check if Already Minted
   // ═══════════════════════════════════════════════════════════════════════════
 
-  async checkIfMinted(piece) {
-    const keyBytes = this.stringToBytes(piece);
-    const url = `https://api.${this.network}.tzkt.io/v1/contracts/${this.config.contract}/bigmaps/content_hashes/keys/${keyBytes}`;
-
-    try {
-      const response = await fetch(url);
-      if (response.status === 200) {
-        const data = await response.json();
-        if (data.active) {
-          const tokenId = data.value;
-          const tokenInfo = await this.fetchTokenInfo(tokenId);
-          return tokenInfo;
-        }
-      }
-      return null;
-    } catch (e) {
-      console.warn("🔒 KEEP: Error checking mint status:", e);
-      return null;
+  async checkIfMintedPiece(piece) {
+    // Use shared tzkt-client
+    const result = await checkIfMinted(piece, this.network);
+    if (result) {
+      return await this.fetchTokenInfoById(result.tokenId);
     }
+    return null;
   }
 
-  async fetchTokenInfo(tokenId) {
-    try {
-      // Get token metadata
-      const metaUrl = `https://api.${this.network}.tzkt.io/v1/tokens?contract=${this.config.contract}&tokenId=${tokenId}`;
-      const metaRes = await fetch(metaUrl);
-      
-      let tokenData = {};
-      if (metaRes.ok) {
-        const tokens = await metaRes.json();
-        if (tokens.length > 0) tokenData = tokens[0];
-      }
-
-      // Get owner from ledger
-      const ledgerUrl = `https://api.${this.network}.tzkt.io/v1/contracts/${this.config.contract}/bigmaps/ledger/keys/${tokenId}`;
-      const ledgerRes = await fetch(ledgerUrl);
-      let ownerAddress = null;
-      if (ledgerRes.ok) {
-        const ledgerData = await ledgerRes.json();
-        if (ledgerData.active) ownerAddress = ledgerData.value;
-      }
-
-      const meta = tokenData.metadata || {};
-      
-      return {
-        tokenId,
-        owner: ownerAddress,
-        name: meta.name,
-        description: meta.description,
-        artifactUri: meta.artifactUri || meta.artifact_uri,
-        thumbnailUri: meta.thumbnailUri || meta.thumbnail_uri || meta.displayUri,
-        creators: meta.creators,
-        mintedAt: tokenData.firstTime || tokenData.lastTime,
-        network: this.network,
-        objktUrl: `https://${this.config.objkt}/asset/${this.config.contract}/${tokenId}`,
-        tzktUrl: `https://${this.config.explorer}/${this.config.contract}/tokens/${tokenId}`,
-      };
-    } catch (e) {
-      console.error("🔒 KEEP: Error fetching token info:", e);
-      return { tokenId, network: this.network };
-    }
+  async fetchTokenInfoById(tokenId) {
+    // Use shared tzkt-client
+    return await fetchTokenInfo(tokenId, this.network);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -274,7 +226,7 @@ export class KeepsClient {
       // === STEP 2: Check if already minted ===
       this.setStep("validate", STEP_STATUS.ACTIVE, `Checking $${piece}...`);
       
-      const existing = await this.checkIfMinted(piece);
+      const existing = await this.checkIfMintedPiece(piece);
       if (existing) {
         this.state.alreadyMinted = existing;
         this.setStep("validate", STEP_STATUS.DONE, `Already minted as #${existing.tokenId}`);
@@ -466,12 +418,6 @@ export class KeepsClient {
   // ═══════════════════════════════════════════════════════════════════════════
   // Utilities
   // ═══════════════════════════════════════════════════════════════════════════
-
-  stringToBytes(str) {
-    return Array.from(new TextEncoder().encode(str))
-      .map(b => b.toString(16).padStart(2, '0'))
-      .join('');
-  }
 
   formatAddress(address) {
     if (!address) return "";
