@@ -20,6 +20,8 @@ alias reload 'source ~/.config/fish/config.fish'
 
 # Run the Aesthetic Computer platform.
 function start
+  set -l workspace ~/Desktop/code/aesthetic-computer
+
   # Set up the ssl certificate.
   sudo ac-ssl
 
@@ -34,9 +36,23 @@ function start
   osascript -e 'tell application "Visual Studio Code" to quit'
   sleep 1
 
-  # Launch VS Code with Chrome DevTools Protocol enabled on port 9222
-  # Allow remote origins so dev container can connect via host.docker.internal
-  open -a "Visual Studio Code" --args --remote-debugging-port=9222 --remote-allow-origins="*"
+  # Remove old container and start devcontainer via CLI
+  echo "🧹 Removing old container..."
+  docker rm -f aesthetic 2>/dev/null
+
+  echo "🚀 Starting devcontainer..."
+  cd $workspace
+  devcontainer up --workspace-folder .
+
+  if test $status -eq 0
+    echo "✅ Container ready!"
+    echo "🔗 Opening VS Code attached to container..."
+    # Launch VS Code attached to container with Chrome DevTools Protocol
+    code --folder-uri "vscode-remote://attached-container+"(printf aesthetic | xxd -p)"/workspaces/aesthetic-computer" --remote-debugging-port=9222 --remote-allow-origins="*"
+  else
+    echo "❌ Failed to start container"
+    return 1
+  end
 end
 
 # empty greeting

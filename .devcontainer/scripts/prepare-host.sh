@@ -1,6 +1,9 @@
 #!/bin/sh
 set -eu
 
+# Remove any existing container named "aesthetic" to prevent rebuild conflicts
+docker rm -f aesthetic 2>/dev/null || true
+
 mkdir -p \
   .devcontainer/tezos-node \
   .devcontainer/tezos-data \
