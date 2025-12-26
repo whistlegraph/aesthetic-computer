@@ -421,9 +421,9 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
         <style nonce="${nonce}">
           * { margin: 0; padding: 0; box-sizing: border-box; }
           body {
-            background: #181318;
-            color: #d0c8cc;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--vscode-editor-background);
+            color: var(--vscode-foreground);
+            font-family: var(--vscode-font-family);
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -436,17 +436,18 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
             width: 80px;
             height: 80px;
             margin-bottom: 1.5rem;
+            opacity: 0.9;
           }
           h1 {
             font-size: 1.5rem;
             font-weight: 400;
-            color: #e0d8dc;
+            color: var(--vscode-editor-foreground);
             margin-bottom: 0.5rem;
             letter-spacing: 0.05em;
           }
           .tagline {
             font-size: 0.9rem;
-            color: #908088;
+            color: var(--vscode-descriptionForeground);
             margin-bottom: 2rem;
           }
           .buttons {
@@ -458,12 +459,12 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
             max-width: 280px;
           }
           .btn {
-            background: #282028;
-            border: 1px solid #483848;
+            background: var(--vscode-button-secondaryBackground);
+            border: 1px solid var(--vscode-button-border, transparent);
             border-radius: 6px;
             padding: 0.75rem 1rem;
             font-size: 0.9rem;
-            color: #c0b8bc;
+            color: var(--vscode-button-secondaryForeground);
             cursor: pointer;
             display: flex;
             align-items: center;
@@ -472,26 +473,26 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
             transition: all 0.15s ease;
           }
           .btn:hover {
-            background: #382838;
-            border-color: #a87090;
-            color: #e0d8dc;
+            background: var(--vscode-button-secondaryHoverBackground);
+            color: var(--vscode-button-foreground);
           }
           .btn-primary {
-            background: #a87090;
-            border-color: #a87090;
-            color: #fff;
+            background: var(--vscode-button-background);
+            border-color: var(--vscode-button-background);
+            color: var(--vscode-button-foreground);
           }
           .btn-primary:hover {
-            background: #c87090;
-            border-color: #c87090;
+            background: var(--vscode-button-hoverBackground);
+            border-color: var(--vscode-button-hoverBackground);
           }
           .info {
             margin-top: 2rem;
             padding: 1rem;
-            background: #201820;
+            background: var(--vscode-editorWidget-background);
+            border: 1px solid var(--vscode-editorWidget-border, transparent);
             border-radius: 8px;
             font-size: 0.8rem;
-            color: #908088;
+            color: var(--vscode-descriptionForeground);
             max-width: 320px;
           }
           .info-row {
@@ -499,12 +500,19 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
             justify-content: space-between;
             padding: 0.25rem 0;
           }
-          .info-label { color: #706068; }
-          .info-value { color: #a09098; }
+          .info-label { 
+            color: var(--vscode-descriptionForeground);
+            opacity: 0.7;
+          }
+          .info-value { 
+            color: var(--vscode-foreground);
+            opacity: 0.8;
+          }
           .hint {
             margin-top: 2rem;
             font-size: 0.75rem;
-            color: #605860;
+            color: var(--vscode-descriptionForeground);
+            opacity: 0.6;
           }
         </style>
       </head>
