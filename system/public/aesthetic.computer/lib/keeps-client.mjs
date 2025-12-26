@@ -3,58 +3,20 @@
 // Provides wallet connection, mint flow, and state management
 
 import TezosWallet from "./tezos-wallet.mjs";
+import {
+  NETWORKS,
+  MINT_STEPS,
+  STEP_STATUS,
+  KEEPS_STAGING,
+  DEFAULT_NETWORK,
+  getNetwork,
+  getObjktUrl,
+  getTzktTokenUrl,
+  getTzktContractUrl,
+} from "./keeps/constants.mjs";
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// Constants
-// ═══════════════════════════════════════════════════════════════════════════════
-
-// TODO: Set to false when switching to production mainnet contract
-export const KEEPS_STAGING = true;
-
-export const NETWORKS = {
-  mainnet: {
-    contract: "KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM", // Staging contract
-    name: "mainnet",
-    displayName: KEEPS_STAGING ? "Mainnet (Staging)" : "Mainnet",
-    explorer: "tzkt.io",
-    objkt: "objkt.com",
-    rpc: "https://mainnet.ecadinfra.com",
-  },
-  ghostnet: {
-    contract: "KT1StXrQNvRd9dNPpHdCGEstcGiBV6neq79K",
-    name: "ghostnet",
-    displayName: "Ghostnet",
-    explorer: "ghostnet.tzkt.io",
-    objkt: "ghostnet.objkt.com",
-    rpc: "https://ghostnet.ecadinfra.com",
-  },
-};
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// Mint Flow State Machine (JSON-serializable)
-// ═══════════════════════════════════════════════════════════════════════════════
-
-export const MINT_STEPS = [
-  { id: "wallet", label: "Connect Wallet", icon: "🔑" },
-  { id: "validate", label: "Validate Piece", icon: "✓" },
-  { id: "analyze", label: "Analyze Source", icon: "🔍" },
-  { id: "thumbnail", label: "Generate Preview", icon: "🖼️" },
-  { id: "bundle", label: "Bundle Assets", icon: "📦" },
-  { id: "ipfs", label: "Upload to IPFS", icon: "☁️" },
-  { id: "metadata", label: "Create Metadata", icon: "📋" },
-  { id: "review", label: "Review & Confirm", icon: "👁️" },
-  { id: "sign", label: "Sign Transaction", icon: "✍️" },
-  { id: "complete", label: "Mint Complete!", icon: "🎉" },
-];
-
-// Step status values
-export const STEP_STATUS = {
-  PENDING: "pending",
-  ACTIVE: "active",
-  DONE: "done",
-  ERROR: "error",
-  SKIPPED: "skipped",
-};
+// Re-export constants for backward compatibility
+export { NETWORKS, MINT_STEPS, STEP_STATUS, KEEPS_STAGING };
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // KeepsClient class - Main interface for minting
@@ -62,8 +24,8 @@ export const STEP_STATUS = {
 
 export class KeepsClient {
   constructor(options = {}) {
-    this.network = options.network || "mainnet";
-    this.config = NETWORKS[this.network];
+    this.network = options.network || DEFAULT_NETWORK;
+    this.config = getNetwork(this.network);
     this.walletAddress = null;
     this.state = this.createInitialState();
     this.listeners = new Set();
