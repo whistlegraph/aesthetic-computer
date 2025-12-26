@@ -61,9 +61,11 @@
    - [x] Update `keep.mjs` disk to use it
    - [x] Update `kidlisp.com` to use it (dynamic import)
 
-2. **Code Consolidation Phase 2** - Extract TzKT client
-   - [ ] Create `lib/keeps/tzkt-client.mjs`
-   - [ ] Migrate `keep.mjs` and `kidlisp.com` to use it
+2. ✅ **Code Consolidation Phase 2** - Extract TzKT client (COMPLETED Dec 26)
+   - [x] Create `lib/keeps/tzkt-client.mjs`
+   - [x] Migrate `keep.mjs` to use it
+   - [x] Migrate `keeps-client.mjs` to use it
+   - [x] Functions: `checkIfMinted`, `fetchTokenInfo`, `fetchLedgerOwner`, `findTokenByName`, `isMetadataLocked`, `fetchAllTokens`
 
 3. **Code Consolidation Phase 3** - Unify keeps-client.mjs
    - [ ] Make `keeps-client.mjs` the canonical browser client
