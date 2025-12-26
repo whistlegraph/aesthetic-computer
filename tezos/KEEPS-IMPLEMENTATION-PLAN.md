@@ -81,8 +81,22 @@ keep $ceo → Preview bundle → Connect wallet → Upload to IPFS → Mint NFT
 - ✅ **COMPLETED**: V3 contract deployed to ghostnet
   - Contract: `KT1StXrQNvRd9dNPpHdCGEstcGiBV6neq79K`
   - User-callable `keep()` with `MUST_MINT_TO_SELF` enforcement
-- 🔄 **CURRENT**: Testing v3 user-callable mint flow
-- 📋 **NEXT**: Verify objkt.com shows correct artist attribution
+
+**Recent Progress (Dec 26, 2025):**
+- ✅ **NFT bundle loading fix deployed**: Production bundles now work correctly
+  - Root cause: `boot.mjs` was using `./bios.mjs` instead of bare `bios.mjs` in PACK_MODE
+  - Fix: `const pathPrefix = window.acPACK_MODE ? '' : './'` logic added
+  - Orphaned git submodules (`feral-file/docs`, `feral-file/ffos-user`) were blocking Netlify deploys
+  - Removed orphaned submodule references, deploy succeeded
+  - Verified: Production bundles use bare specifiers correctly
+- ✅ **Mainnet token cleanup**: Burned duplicate `$mtz` token (ID 2)
+  - Contract: `KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM`
+  - Tokens 0 ($cow) and 1 ($mtz) were already burned previously
+  - Token 2 ($mtz) burned via `node keeps.mjs burn 2 mainnet --wallet=kidlisp`
+  - Remaining active token: Token 3 ($roz)
+  - Tx: `oox6babYtp1BR32C3xpLPUWJNjpCj9MByb6cisuZxmHJHJ6RvBR`
+- 🔄 **CURRENT**: Mainnet staging contract has 1 active token ($roz)
+- 📋 **NEXT**: Test bundle loading on objkt.com for $roz
 
 ### Phase A — Ghostnet hardening ✅ MOSTLY COMPLETE
 - **Status**: Contract v3 deployed and active
@@ -100,9 +114,17 @@ keep $ceo → Preview bundle → Connect wallet → Upload to IPFS → Mint NFT
   3. ⏳ Test user-callable mint flow in keep.mjs
   4. ⏳ Verify objkt.com artist attribution on v3 tokens
 
-### Phase B — Mainnet staging (real XTZ)
-- Use the `staging` wallet (mainnet) to deploy and test with a small set of keeps.
-- Success criteria: 3–5 keeps, confirmed on tzkt + discoverable on objkt.
+### Phase B — Mainnet staging (real XTZ) 🔄 IN PROGRESS
+- Using the `kidlisp` wallet (mainnet) for staging contract
+- **Contract**: `KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM`
+- **Admin**: `tz1Lc2DzTjDPyWFj1iuAVGGZWNjK67Wun2dC` (kidlisp wallet)
+- **Status**: 1 active token ($roz, ID 3), 3 burned (cow, mtz x2)
+- Success criteria:
+  - ✅ Contract deployed to mainnet
+  - ✅ Test tokens minted and viewable on tzkt
+  - ✅ Bundle loading fix deployed (Dec 26)
+  - ⏳ Verify bundles render correctly on objkt.com
+  - ⏳ Gas/storage costs documented
 - Verify:
   - Contract address + network routing are correct
   - Metadata renders correctly on marketplaces
@@ -115,6 +137,14 @@ keep $ceo → Preview bundle → Connect wallet → Upload to IPFS → Mint NFT
 ---
 
 ## Pack Build Polish Issues (Dec 26, 2025)
+
+### ✅ FIXED: Module Specifier Issue in PACK_MODE
+- **Error** (was): `Failed to resolve module specifier './bios.mjs?v=...'`
+- **Root Cause**: `boot.mjs` used relative `./` paths even when `window.acPACK_MODE` was true
+- **Fix**: Added `const pathPrefix = window.acPACK_MODE ? '' : './'` at lines 428-433
+- **Deployed**: Dec 26, 2025 - Verified bundles use bare specifiers correctly
+
+### Remaining Issues (local `file://` testing only)
 
 These are non-critical issues discovered when testing HTML bundles opened as local `file://` URLs:
 
