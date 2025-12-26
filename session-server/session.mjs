@@ -1642,6 +1642,11 @@ wss.on("connection", (ws, req) => {
         others(JSON.stringify(msg));
         return;
       }
+      
+      // 🎮 1v1 join/state messages - log and relay to everyone
+      if (msg.type === "1v1:join" || msg.type === "1v1:state") {
+        log(`🎮 ${msg.type}: ${msg.content?.handle || id} -> all ${wss.clients.size} clients`);
+      }
 
       everyone(JSON.stringify(msg)); // Relay any other message to every user.
     }

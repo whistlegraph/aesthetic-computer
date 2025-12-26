@@ -406,15 +406,31 @@ async function runInteractiveTest(duration = 30) {
                   '        player: typeof self !== "undefined" && self?.handle ? {' +
                   '          handle: self.handle,' +
                   '          pos: self.pos,' +
+                  '          rot: self.rot,' +
                   '          health: self.health,' +
                   '          othersCount: typeof others !== "undefined" ? Object.keys(others).length : 0,' +
+                  '          otherHandles: typeof others !== "undefined" ? Object.values(others).map(o => o.handle) : [],' +
                   '        } : null,' +
+                  '        targeting: {' +
+                  '          currentTarget: typeof currentTarget !== "undefined" ? currentTarget : null,' +
+                  '          isAutoTracking: typeof isAutoTracking !== "undefined" ? isAutoTracking : false,' +
+                  '          targetList: typeof targetList !== "undefined" ? targetList : [],' +
+                  '        },' +
                   '      };' +
                   '      window.parent.postMessage({' +
                   '        type: "camdoll-response",' +
                   '        frameIndex: window.__camdollFrameIndex,' +
                   '        state: state' +
                   '      }, "*");' +
+                  '    }' +
+                  '    else if (cmd === "cycleTarget") {' +
+                  '      if (typeof cycleTarget === "function") cycleTarget();' +
+                  '    }' +
+                  '    else if (cmd === "snapToTarget") {' +
+                  '      if (typeof snapToTarget === "function") snapToTarget();' +
+                  '    }' +
+                  '    else if (cmd === "toggleAutoTrack") {' +
+                  '      if (typeof toggleAutoTrack === "function") toggleAutoTrack();' +
                   '    }' +
                   '  }' +
                   '});' +
@@ -472,11 +488,28 @@ async function runInteractiveTest(duration = 30) {
     
     log('Starting movement test...');
     info('Player 1 will move forward, Player 2 should see position update');
+    info('Testing target tracking: players will cycle targets and snap to face each other');
     
     const testStartTime = Date.now();
     const testDuration = Math.min(duration, 20) * 1000; // Cap at 20 seconds for interactive
     
     let iterationCount = 0;
+    
+    // First, have both players cycle targets to find each other
+    log('Setting up target tracking...');
+    await cdp1.send('Runtime.evaluate', {
+      expression: `window.__camdolls.sendToFrame(0, 'cycleTarget', {});`
+    });
+    await cdp1.send('Runtime.evaluate', {
+      expression: `window.__camdolls.sendToFrame(1, 'cycleTarget', {});`
+    });
+    await sleep(500);
+    
+    // Enable auto-tracking on player 2
+    await cdp1.send('Runtime.evaluate', {
+      expression: `window.__camdolls.sendToFrame(1, 'toggleAutoTrack', {});`
+    });
+    await sleep(200);
     
     while (Date.now() - testStartTime < testDuration) {
       iterationCount++;
@@ -490,12 +523,14 @@ async function runInteractiveTest(duration = 30) {
         expression: `window.__camdolls.sendToFrame(0, 'pressKey', { key: 'w', type: 'keyup' });`
       });
       
-      // Player 1 looks around
-      await cdp1.send('Runtime.evaluate', {
-        expression: `window.__camdolls.sendToFrame(0, 'moveMouse', { dx: ${(Math.random() - 0.5) * 50}, dy: 0 });`
-      });
+      // Player 1 occasionally snaps to face their target (Tab then F)
+      if (iterationCount % 10 === 0) {
+        await cdp1.send('Runtime.evaluate', {
+          expression: `window.__camdolls.sendToFrame(0, 'snapToTarget', {});`
+        });
+      }
       
-      // Player 2 strafes
+      // Player 2 strafes (auto-tracking keeps them facing player 1)
       await cdp1.send('Runtime.evaluate', {
         expression: `window.__camdolls.sendToFrame(1, 'pressKey', { key: 'a', type: 'keydown' });`
       });
@@ -518,13 +553,18 @@ async function runInteractiveTest(duration = 30) {
         });
         const cs = JSON.parse(currentStates.result?.value || '[{},{}]');
         
-        // Log position and UDP stats
+        // Log position, rotation, and targeting state
         const p1Pos = cs[0]?.player?.pos;
         const p2Pos = cs[1]?.player?.pos;
+        const p1Rot = cs[0]?.player?.rot?.y?.toFixed(0) || '?';
+        const p2Rot = cs[1]?.player?.rot?.y?.toFixed(0) || '?';
         const p1Others = cs[0]?.player?.othersCount || 0;
         const p2Others = cs[1]?.player?.othersCount || 0;
+        const p1Target = cs[0]?.targeting?.currentTarget || 'none';
+        const p2Track = cs[1]?.targeting?.isAutoTracking ? '🎯' : '👁️';
         
-        debug(`[${iterationCount}] P1: (${p1Pos?.x?.toFixed(1)},${p1Pos?.z?.toFixed(1)}) sees ${p1Others} | P2: (${p2Pos?.x?.toFixed(1)},${p2Pos?.z?.toFixed(1)}) sees ${p2Others}`);
+        debug(`[${iterationCount}] P1: (${p1Pos?.x?.toFixed(1)},${p1Pos?.z?.toFixed(1)}) rot:${p1Rot}° sees:${p1Others} tgt:${p1Target}`);
+        debug(`[${iterationCount}] P2: (${p2Pos?.x?.toFixed(1)},${p2Pos?.z?.toFixed(1)}) rot:${p2Rot}° sees:${p2Others} ${p2Track}`);
         
         results.player1.messagesReceived = cs[0]?.udp?.messageCount || 0;
         results.player2.messagesReceived = cs[1]?.udp?.messageCount || 0;

@@ -283,3 +283,6 @@ ac-vst/vst3sdk/
 
 # Emacs performance logs (keep directory, ignore log files)
 .emacs-logs/*.log
+
+# Devcontainer entry logs
+.devcontainer/entry-logs/
