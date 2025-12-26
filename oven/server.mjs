@@ -147,7 +147,7 @@ app.get('/', (req, res) => {
     .bake-preview video {
       width: 100%;
       height: 100%;
-      object-fit: cover;
+      object-fit: contain;
     }
     
     .bake-preview .loading {
@@ -367,10 +367,14 @@ app.get('/', (req, res) => {
       const ipfsThumbs = data.grabs?.ipfsThumbs || {};
       (data.grabs?.recent || []).forEach(g => {
         const ipfsCid = g.ipfsCid || ipfsThumbs[g.piece]?.ipfsCid;
+        // Use IPFS if available, otherwise generate preview via oven endpoint
+        const previewUrl = ipfsCid 
+          ? IPFS_GATEWAY + '/ipfs/' + ipfsCid 
+          : 'https://oven.aesthetic.computer/icon/128x128/' + g.piece + '.png';
         allBakes.push({
           type: 'grab', status: g.status === 'failed' ? 'error' : 'complete', id: g.id,
           title: g.piece, url: 'https://aesthetic.computer/' + g.piece,
-          preview: ipfsCid ? IPFS_GATEWAY + '/ipfs/' + ipfsCid : null,
+          preview: previewUrl,
           size: g.size, format: g.format, error: g.error,
           completedAt: g.completedAt,
           links: ipfsCid ? [{ label: 'IPFS', url: 'ipfs://' + ipfsCid }] : []
