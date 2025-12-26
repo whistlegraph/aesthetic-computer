@@ -451,6 +451,7 @@ class ArteryTUI {
       { key: 'p', label: 'Toggle Panel', desc: 'Toggle AC sidebar in VS Code', action: () => this.togglePanel() },
       { key: 'k', label: 'KidLisp.com', desc: 'Open KidLisp editor window', action: () => this.openKidLisp() },
       { key: 'd', label: 'Deck Control', desc: 'Control KidLisp.com card deck via CDP', action: () => this.enterKidLispCardsMode() },
+      { key: 'o', label: 'Oven', desc: 'Bake thumbnails, previews, videos', action: () => this.enterOvenMode() },
       { key: 'v', label: 'Devices', desc: 'Connected devices (LAN)', action: () => this.enterDevicesMode() },
       { key: 'f', label: 'FF1 Scan', desc: 'Scan network for Feral File FF1', action: () => this.enterFF1Mode() },
       { key: 'e', label: 'Emacs', desc: 'Execute elisp in Emacs', action: () => this.enterEmacsMode() },
@@ -466,6 +467,26 @@ class ArteryTUI {
       { key: 'i', label: 'Login', desc: 'AC login/logout', action: () => this.toggleAcLogin() },
       { key: 'q', label: 'Quit', desc: 'Exit Artery TUI', action: () => this.quit() },
     ];
+    
+    // Oven state
+    this.ovenMenu = [
+      { key: 's', label: 'Status', desc: 'Server health & version' },
+      { key: 'g', label: 'Grab PNG', desc: 'Grab still image' },
+      { key: 'w', label: 'Grab WebP', desc: 'Grab animated WebP' },
+      { key: 'i', label: 'Icon', desc: 'Generate icon (128x128)' },
+      { key: 'p', label: 'Preview', desc: 'Generate OG preview (1200x630)' },
+      { key: 't', label: 'Test Suite', desc: 'Run full oven test' },
+      { key: 'b', label: 'Bakes', desc: 'View recent bakes' },
+      { key: 'r', label: 'Recent Grabs', desc: 'View recent grabs' },
+      { key: 'o', label: 'Open Dashboard', desc: 'Open oven.aesthetic.computer' },
+    ];
+    this.ovenSelectedIndex = 0;
+    this.ovenOutput = '';
+    this.ovenRunning = false;
+    this.ovenSubMode = 'menu'; // 'menu', 'piece-input', 'running', 'output'
+    this.ovenPieceInput = '';
+    this.ovenPendingAction = null;
+    this.ovenStatus = null;  // { version, grabs: { active, recent }, bakes: { active, recent } }
     
     // Keeps (Tezos) state - Enhanced Dashboard
     this.keepsMenu = [
@@ -1544,6 +1565,9 @@ class ArteryTUI {
         break;
       case 'keeps':
         this.handleKeepsInput(key);
+        break;
+      case 'oven':
+        this.handleOvenInput(key);
         break;
       case 'kidlisp-cards':
         this.handleKidLispCardsInput(key);
@@ -3296,6 +3320,270 @@ class ArteryTUI {
     this.inputBuffer = '';
     this.unreadLogs = 0; // Clear unread since REPL also shows logs
     this.render();
+  }
+
+  // 🔥 Oven Mode - Baking thumbnails, previews, videos
+  async enterOvenMode() {
+    this.mode = 'oven';
+    this.ovenSelectedIndex = 0;
+    this.ovenOutput = 'Fetching oven status...';
+    this.ovenRunning = false;
+    this.ovenPieceInput = '';
+    this.ovenSubMode = 'menu';
+    this.render();
+    
+    // Fetch initial status
+    await this.fetchOvenStatus();
+  }
+  
+  async fetchOvenStatus() {
+    try {
+      const res = await fetch('https://oven.aesthetic.computer/grab-status');
+      if (res.ok) {
+        const data = await res.json();
+        this.ovenStatus = data;
+        this.ovenOutput = `Active: ${data.active?.length || 0}, Recent: ${data.recent?.length || 0}`;
+      } else {
+        this.ovenOutput = `Error: ${res.status}`;
+      }
+    } catch (e) {
+      this.ovenOutput = `Connection error: ${e.message}`;
+    }
+    this.render();
+  }
+  
+  handleOvenInput(key) {
+    if (this.ovenRunning) return;
+    
+    if (this.ovenSubMode === 'piece-input') {
+      if (key === '\r') {
+        // Execute pending action with piece name
+        const piece = this.ovenPieceInput.trim() || 'prompt';
+        this.ovenSubMode = 'running';
+        this.executeOvenAction(this.ovenPendingAction, piece);
+      } else if (key === '\x7f' || key === '\b') {
+        this.ovenPieceInput = this.ovenPieceInput.slice(0, -1);
+        this.render();
+      } else if (key.length === 1 && key >= ' ') {
+        this.ovenPieceInput += key;
+        this.render();
+      }
+      return;
+    }
+    
+    // Arrow key navigation
+    if (key === '\x1b[A') { // Up
+      this.ovenSelectedIndex = Math.max(0, this.ovenSelectedIndex - 1);
+      this.render();
+      return;
+    } else if (key === '\x1b[B') { // Down
+      this.ovenSelectedIndex = Math.min(this.ovenMenu.length - 1, this.ovenSelectedIndex + 1);
+      this.render();
+      return;
+    } else if (key === '\r') {
+      // Enter: execute selected menu item
+      const item = this.ovenMenu[this.ovenSelectedIndex];
+      this.handleOvenMenuAction(item.key);
+      return;
+    }
+    
+    // Key shortcuts
+    const menuItem = this.ovenMenu.find(m => m.key === key);
+    if (menuItem) {
+      this.handleOvenMenuAction(key);
+    }
+  }
+  
+  handleOvenMenuAction(key) {
+    switch (key) {
+      case 's':
+        this.ovenOutput = 'Fetching status...';
+        this.render();
+        this.fetchOvenStatus();
+        break;
+      case 'g':
+        this.ovenPendingAction = 'grab-png';
+        this.ovenSubMode = 'piece-input';
+        this.ovenPieceInput = '';
+        this.ovenOutput = 'Enter piece name (default: prompt):';
+        this.render();
+        break;
+      case 'w':
+        this.ovenPendingAction = 'grab-webp';
+        this.ovenSubMode = 'piece-input';
+        this.ovenPieceInput = '';
+        this.ovenOutput = 'Enter piece name (default: prompt):';
+        this.render();
+        break;
+      case 'i':
+        this.ovenPendingAction = 'icon';
+        this.ovenSubMode = 'piece-input';
+        this.ovenPieceInput = '';
+        this.ovenOutput = 'Enter piece name (default: prompt):';
+        this.render();
+        break;
+      case 'p':
+        this.ovenPendingAction = 'preview';
+        this.ovenSubMode = 'piece-input';
+        this.ovenPieceInput = '';
+        this.ovenOutput = 'Enter piece name (default: prompt):';
+        this.render();
+        break;
+      case 't':
+        this.ovenOutput = 'Running test suite...';
+        this.ovenRunning = true;
+        this.render();
+        this.runOvenTests();
+        break;
+      case 'b':
+        this.ovenOutput = 'Recent bakes:\n' + (this.ovenStatus?.recent || [])
+          .slice(0, 10)
+          .map(b => `  ${b.piece} - ${b.format} - ${b.status}`)
+          .join('\n') || '  (none)';
+        this.render();
+        break;
+      case 'r':
+        this.fetchOvenStatus();
+        break;
+      case 'o':
+        execSync('$BROWSER "https://oven.aesthetic.computer"', { stdio: 'ignore' });
+        this.ovenOutput = 'Opened dashboard in browser';
+        this.render();
+        break;
+    }
+  }
+  
+  async executeOvenAction(action, piece) {
+    this.ovenRunning = true;
+    this.ovenOutput = `Baking ${piece}...`;
+    this.render();
+    
+    try {
+      let url;
+      switch (action) {
+        case 'grab-png':
+          url = `https://oven.aesthetic.computer/grab/png/512/512/${piece}`;
+          break;
+        case 'grab-webp':
+          url = `https://oven.aesthetic.computer/grab/webp/512/512/${piece}?duration=5000`;
+          break;
+        case 'icon':
+          url = `https://oven.aesthetic.computer/icon/128x128/${piece}.png`;
+          break;
+        case 'preview':
+          url = `https://oven.aesthetic.computer/preview/1200x630/${piece}.png`;
+          break;
+      }
+      
+      const start = Date.now();
+      const res = await fetch(url);
+      const duration = Date.now() - start;
+      
+      if (res.ok) {
+        const buffer = Buffer.from(await res.arrayBuffer());
+        const bakeId = res.headers.get('X-Bake-Id') || res.headers.get('X-Grab-Id');
+        this.ovenOutput = `✅ ${action} complete: ${buffer.length} bytes (${duration}ms)${bakeId ? ` [${bakeId}]` : ''}`;
+        
+        // Try to display with sixel
+        if (action.includes('png') || action === 'icon' || action === 'preview') {
+          const tmpFile = `/tmp/oven-${Date.now()}.png`;
+          fs.writeFileSync(tmpFile, buffer);
+          try {
+            const sixel = execSync(`img2sixel -w 200 "${tmpFile}"`, { encoding: 'buffer', maxBuffer: 1024 * 1024 });
+            writeSixelDirect(sixel);
+          } catch {
+            try {
+              execSync(`chafa -s 30x15 "${tmpFile}"`, { stdio: 'inherit' });
+            } catch {}
+          }
+          fs.unlinkSync(tmpFile);
+        }
+      } else {
+        const text = await res.text();
+        this.ovenOutput = `❌ ${action} failed: ${res.status} - ${text.slice(0, 100)}`;
+      }
+    } catch (e) {
+      this.ovenOutput = `❌ Error: ${e.message}`;
+    }
+    
+    this.ovenRunning = false;
+    this.ovenSubMode = 'menu';
+    this.render();
+  }
+  
+  async runOvenTests() {
+    this.ovenOutput = 'Running oven tests...\n';
+    this.render();
+    
+    try {
+      const proc = spawn('node', ['oven/test-oven.mjs', '--no-sixel'], {
+        cwd: '/workspaces/aesthetic-computer',
+        stdio: ['ignore', 'pipe', 'pipe']
+      });
+      
+      let output = '';
+      proc.stdout.on('data', (data) => {
+        output += data.toString();
+        this.ovenOutput = output.slice(-2000); // Keep last 2000 chars
+        this.render();
+      });
+      proc.stderr.on('data', (data) => {
+        output += data.toString();
+        this.ovenOutput = output.slice(-2000);
+        this.render();
+      });
+      
+      proc.on('close', (code) => {
+        this.ovenRunning = false;
+        this.ovenOutput = output + `\n\nTests ${code === 0 ? 'passed ✅' : 'failed ❌'}`;
+        this.render();
+      });
+    } catch (e) {
+      this.ovenRunning = false;
+      this.ovenOutput = `Test error: ${e.message}`;
+      this.render();
+    }
+  }
+  
+  renderOven() {
+    const w = this.width;
+    const marginX = this.marginX;
+    const innerW = w - marginX * 2;
+    
+    // Header
+    this.addLine(`${BG_BLUE}${FG_YELLOW}${'═'.repeat(w)}${RESET}`);
+    this.addLine(`${BG_BLUE}${FG_YELLOW}  🔥 OVEN - Bake thumbnails, previews, videos${' '.repeat(Math.max(0, w - 47))}${RESET}`);
+    this.addLine(`${BG_BLUE}${FG_WHITE}  oven.aesthetic.computer${' '.repeat(Math.max(0, w - 27))}${RESET}`);
+    this.addLine(`${BG_BLUE}${FG_YELLOW}${'═'.repeat(w)}${RESET}`);
+    this.addLine('');
+    
+    // Menu
+    this.ovenMenu.forEach((item, i) => {
+      const selected = i === this.ovenSelectedIndex;
+      const prefix = selected ? `${FG_YELLOW}▶ ` : '  ';
+      const keyStyle = selected ? `${FG_BLACK}${BG_YELLOW}` : FG_CYAN;
+      const labelStyle = selected ? FG_YELLOW : FG_WHITE;
+      const line = `${prefix}${keyStyle}[${item.key}]${RESET} ${labelStyle}${item.label}${RESET} ${FG_BRIGHT_BLACK}${item.desc}${RESET}`;
+      this.addLine(`${BG_BLUE}${line}${' '.repeat(Math.max(0, innerW - this.stripAnsi(line).length))}${RESET}`);
+    });
+    
+    this.addLine('');
+    this.addLine(`${BG_BLUE}${FG_YELLOW}${'─'.repeat(w)}${RESET}`);
+    
+    // Status / output area
+    if (this.ovenSubMode === 'piece-input') {
+      this.addLine(`${BG_BLUE}${FG_WHITE}  Piece: ${FG_YELLOW}${this.ovenPieceInput}█${RESET}${' '.repeat(Math.max(0, innerW - 10 - this.ovenPieceInput.length))}${RESET}`);
+    }
+    
+    // Output
+    const outputLines = (this.ovenOutput || '').split('\n');
+    for (const line of outputLines.slice(0, 15)) {
+      this.addLine(`${BG_BLUE}${FG_WHITE}  ${line}${' '.repeat(Math.max(0, innerW - 2 - line.length))}${RESET}`);
+    }
+    
+    // Footer
+    this.addLine('');
+    this.addLine(`${BG_BLUE}${FG_BRIGHT_BLACK}  [ESC] Back  [↑↓] Navigate  [Enter] Select${' '.repeat(Math.max(0, w - 46))}${RESET}`);
   }
 
   // 🔮 Keeps (Tezos FA2) Mode - SIMPLIFIED
@@ -5226,6 +5514,9 @@ class ArteryTUI {
             } catch {}
           }
         }
+        break;
+      case 'oven':
+        this.renderOven();
         break;
       case 'kidlisp-cards':
         this.renderKidLispCards();
