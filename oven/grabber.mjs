@@ -1,7 +1,7 @@
 // Grabber - KidLisp piece screenshot/GIF capture using Puppeteer
 // Captures frames from running KidLisp pieces for thumbnails
 
-import { spawn } from 'child_process';
+import { spawn, execSync } from 'child_process';
 import { promises as fs } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
@@ -9,6 +9,16 @@ import { randomBytes, createHash } from 'crypto';
 import puppeteer from 'puppeteer';
 import { MongoClient } from 'mongodb';
 import { S3Client, PutObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
+
+// Git version for cache invalidation (set by env or detected)
+let GIT_VERSION = process.env.OVEN_VERSION || 'unknown';
+if (GIT_VERSION === 'unknown') {
+  try {
+    GIT_VERSION = execSync('git rev-parse --short HEAD', { encoding: 'utf8', cwd: '/workspaces/aesthetic-computer' }).trim();
+  } catch {
+    // Not in a git repo
+  }
+}
 
 // DigitalOcean Spaces (S3-compatible) for caching icons/previews
 const spacesClient = new S3Client({
@@ -160,6 +170,48 @@ async function updateGrabInMongo(grabId, updates) {
 loadRecentGrabs();
 
 /**
+ * Generate a unique capture key for deduplication
+ * Format: {piece}_{width}x{height}_{format}_{animated}_{gitVersion}
+ */
+function getCaptureKey(piece, width, height, format, animated = false) {
+  const cleanPiece = piece.replace(/^\$/, ''); // Normalize piece name
+  const animFlag = animated ? 'anim' : 'still';
+  return `${cleanPiece}_${width}x${height}_${format}_${animFlag}_${GIT_VERSION}`;
+}
+
+/**
+ * Check if a capture already exists with the same key
+ * @returns {{ exists: boolean, cdnUrl?: string, grab?: object }}
+ */
+async function checkExistingCapture(captureKey) {
+  const database = await connectMongo();
+  if (!database) return { exists: false };
+  
+  try {
+    // Check oven-grabs collection for matching capture
+    const grab = await database.collection('oven-grabs').findOne({ captureKey });
+    if (grab && grab.cdnUrl) {
+      console.log(`✅ Found existing capture: ${captureKey}`);
+      return { exists: true, cdnUrl: grab.cdnUrl, grab };
+    }
+    
+    // Also check oven-cache for icons/previews
+    const cache = await database.collection('oven-cache').findOne({ 
+      key: { $regex: captureKey.replace(/_/g, '.*') }
+    });
+    if (cache && cache.cdnUrl && cache.expiresAt > new Date()) {
+      console.log(`✅ Found cached capture: ${captureKey}`);
+      return { exists: true, cdnUrl: cache.cdnUrl };
+    }
+    
+    return { exists: false };
+  } catch (error) {
+    console.error('❌ Failed to check existing capture:', error.message);
+    return { exists: false };
+  }
+}
+
+/**
  * Check if a cached image exists in Spaces and is still valid
  * @returns {string|null} CDN URL if valid cache exists, null otherwise
  */
@@ -239,10 +291,13 @@ async function uploadToSpaces(buffer, cacheKey, contentType = 'image/png') {
 
 /**
  * Get cached image or generate and cache
+ * Uses git version in cache key for automatic invalidation on code changes
  * @returns {{ cdnUrl: string, fromCache: boolean, buffer?: Buffer }}
  */
 export async function getCachedOrGenerate(type, piece, width, height, generateFn) {
-  const cacheKey = `${type}/${piece}-${width}x${height}.png`;
+  // Include git version in cache key for automatic invalidation
+  const shortVersion = GIT_VERSION.slice(0, 8);
+  const cacheKey = `${type}/${piece}-${width}x${height}-${shortVersion}.png`;
   
   // Check cache first
   const cachedUrl = await checkSpacesCache(cacheKey);
@@ -413,8 +468,13 @@ async function captureFrames(piece, options = {}) {
       console.log(`   ⚠️ No content detected after ${maxWaitTime}ms, proceeding anyway...`);
     }
     
-    // Small additional buffer for any final render passes
-    await new Promise(r => setTimeout(r, 200));
+    // Settle time: let the piece run before capturing
+    // For stills (single frame), wait longer (2.5-5s) to let animations stabilize
+    // For animations, just a small buffer
+    const isStill = frames === 1;
+    const settleTime = isStill ? 3000 : 200; // 3 seconds for stills, 200ms for animations
+    console.log(`   ${isStill ? '⏳ Settling for still capture' : '⏳ Brief settle'}... (${settleTime}ms)`);
+    await new Promise(r => setTimeout(r, settleTime));
     
     // Capture frames at intervals
     const frameInterval = duration / frames;
@@ -696,7 +756,30 @@ export async function grabPiece(piece, options = {}) {
     density = 1,
     quality = 90,
     baseUrl = 'https://aesthetic.computer',
+    skipCache = false, // Force regeneration
+    source = 'manual', // 'keep', 'manual', 'api', etc.
+    keepId = null, // Tezos keep token ID if source is 'keep'
   } = options;
+  
+  const animated = format !== 'png';
+  const captureKey = getCaptureKey(piece, width * density, height * density, format, animated);
+  
+  // Check for existing capture (deduplication)
+  if (!skipCache) {
+    const existing = await checkExistingCapture(captureKey);
+    if (existing.exists && existing.cdnUrl) {
+      console.log(`♻️  Returning cached capture: ${captureKey}`);
+      return {
+        success: true,
+        grabId: existing.grab?.id || captureKey,
+        piece,
+        format,
+        cdnUrl: existing.cdnUrl,
+        cached: true,
+        captureKey,
+      };
+    }
+  }
   
   // For ID purposes, strip $ prefix; but keep original piece name for URL generation
   const pieceName = piece.replace(/^\$/, '');
@@ -705,6 +788,8 @@ export async function grabPiece(piece, options = {}) {
   console.log(`\n🎬 Starting grab: ${grabId}`);
   console.log(`   Piece: ${piece}`);
   console.log(`   Format: ${format}`);
+  console.log(`   CaptureKey: ${captureKey}`);
+  if (source) console.log(`   Source: ${source}${keepId ? ' #' + keepId : ''}`);
   
   // Track active grab - store original piece name (with $ if KidLisp)
   activeGrabs.set(grabId, {
@@ -713,6 +798,11 @@ export async function grabPiece(piece, options = {}) {
     format,
     status: 'capturing',
     startTime: Date.now(),
+    captureKey, // For deduplication lookup
+    gitVersion: GIT_VERSION,
+    dimensions: { width: width * density, height: height * density },
+    source: source || 'manual',
+    keepId: keepId || null,
   });
   
   try {
@@ -804,6 +894,9 @@ export async function grabPiece(piece, options = {}) {
       buffer: result,
       size: result.length,
       duration: grab.duration,
+      cdnUrl: grab.cdnUrl,
+      captureKey,
+      cached: false,
     };
     
   } catch (error) {
@@ -884,8 +977,13 @@ export async function uploadToIPFS(buffer, filename, credentials) {
 export async function grabAndUploadToIPFS(piece, credentials, options = {}) {
   const pieceName = piece.replace(/^\$/, '');
   const format = options.format || 'webp';
+  const source = options.source || 'manual';
+  const keepId = options.keepId || null;
   
   console.log(`\n📸 Grabbing and uploading $${pieceName} to IPFS...`);
+  if (source === 'keep' && keepId) {
+    console.log(`   Source: Keep #${keepId}`);
+  }
   
   // Grab the piece
   const grabResult = await grabPiece(piece, {
@@ -898,6 +996,8 @@ export async function grabAndUploadToIPFS(piece, credentials, options = {}) {
     density: options.density || 1,
     quality: options.quality || 90,
     baseUrl: options.baseUrl || 'https://aesthetic.computer',
+    source,
+    keepId,
   });
   
   if (!grabResult.success) {
@@ -1064,12 +1164,20 @@ export async function grabGetHandler(req, res) {
     });
     
     if (result.success) {
+      // If cached, redirect to CDN URL
+      if (result.cached && result.cdnUrl) {
+        res.setHeader('X-Grab-Id', result.grabId || result.captureKey);
+        res.setHeader('X-Cache', 'HIT');
+        return res.redirect(301, result.cdnUrl);
+      }
+      
       const contentTypes = { webp: 'image/webp', gif: 'image/gif', png: 'image/png' };
       const contentType = contentTypes[format] || 'image/webp';
       res.setHeader('Content-Type', contentType);
       res.setHeader('Content-Length', result.buffer.length);
       res.setHeader('Cache-Control', 'public, max-age=3600');
       res.setHeader('X-Grab-Id', result.grabId);
+      res.setHeader('X-Cache', 'MISS');
       res.send(result.buffer);
     } else {
       res.status(500).json({ 
@@ -1101,6 +1209,8 @@ export async function grabIPFSHandler(req, res) {
     quality = 70,     // Lower quality for smaller files
     pinataKey,
     pinataSecret,
+    source,           // Optional: 'keep', 'manual', etc.
+    keepId,           // Optional: Tezos keep token ID
   } = req.body;
   
   if (!piece) {
@@ -1126,6 +1236,8 @@ export async function grabIPFSHandler(req, res) {
       playbackFps: parseFloat(playbackFps),
       density: parseFloat(density) || 1,
       quality: parseInt(quality) || 90,
+      source: source || 'manual',
+      keepId: keepId || null,
     });
     
     if (result.success) {
