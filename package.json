@@ -114,6 +114,7 @@
     "node-fetch": "^3.3.2",
     "ntp-client": "^0.5.3",
     "obscenity": "^0.4.5",
+    "qrcode": "^1.5.4",
     "react": "^19.2.1",
     "terser": "^5.36.0",
     "ws": "^8.18.3"

@@ -596,7 +596,7 @@ class ArteryTUI {
     this.cdpHost = null;
     this.cdpPort = null;
     
-    // QR code for LAN URL (cached as lines)
+    // QR code for LAN URL (ASCII art)
     this.qrCodeLines = null;
     this.qrCodeUrl = null;
     // Async - will update qrCodeLines when ready
@@ -912,7 +912,7 @@ class ArteryTUI {
     const url = `https://${hostIp}:8888`;
     this.qrCodeUrl = url;
     
-    // Generate QR code as string
+    // Generate QR code as ASCII string
     let qrOutput = '';
     const originalWrite = process.stdout.write.bind(process.stdout);
     process.stdout.write = (chunk) => { qrOutput += chunk; return true; };
@@ -5619,7 +5619,7 @@ class ArteryTUI {
       this.writeEmptyLine(boardBg);
     }
     
-    // === QR CODE SECTION (bottom right) ===
+    // === QR CODE SECTION (bottom right, ASCII art) ===
     if (this.qrCodeLines && this.qrCodeLines.length > 0 && !compact) {
       this.writeEmptyLine(boardBg);
       const qrWidth = this.qrCodeLines[0].length;
