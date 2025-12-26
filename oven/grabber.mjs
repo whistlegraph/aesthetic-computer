@@ -26,6 +26,15 @@ const recentGrabs = [];
 const latestIPFSUploads = new Map(); // piece -> { ipfsCid, ipfsUri, timestamp, ... }
 let latestKeepThumbnail = null; // Most recent across all pieces
 
+// Subscriber notification (will be set by server.mjs)
+let notifyCallback = null;
+export function setNotifyCallback(cb) {
+  notifyCallback = cb;
+}
+function notifySubscribers() {
+  if (notifyCallback) notifyCallback();
+}
+
 /**
  * Get or launch the shared browser instance
  */
@@ -518,6 +527,9 @@ export async function grabPiece(piece, options = {}) {
     recentGrabs.unshift(grab);
     if (recentGrabs.length > 20) recentGrabs.pop();
     
+    // Notify WebSocket subscribers
+    notifySubscribers();
+    
     console.log(`✅ Grab complete: ${grabId} (${(result.length / 1024).toFixed(2)} KB)`);
     
     return {
@@ -542,6 +554,9 @@ export async function grabPiece(piece, options = {}) {
       activeGrabs.delete(grabId);
       recentGrabs.unshift(grab);
       if (recentGrabs.length > 20) recentGrabs.pop();
+      
+      // Notify WebSocket subscribers
+      notifySubscribers();
     }
     
     return {
@@ -650,6 +665,9 @@ export async function grabAndUploadToIPFS(piece, credentials, options = {}) {
     };
     latestIPFSUploads.set(pieceName, uploadInfo);
     latestKeepThumbnail = uploadInfo;
+    
+    // Notify WebSocket subscribers about new IPFS upload
+    notifySubscribers();
     
     return {
       success: true,
