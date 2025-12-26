@@ -514,14 +514,14 @@ function metadata(host, slug, pieceMetadata, protocol = "https:", objktContext =
   if (pieceMetadata?.image_url) {
     ogImage = twitterImage = pieceMetadata.image_url;
   } else {
-    // Use Cloudflare Workers grab service for screenshot generation
-    ogImage = `https://grab.aesthetic.computer/preview/1200x630/${slug}.png`;
-    twitterImage = `https://grab.aesthetic.computer/preview/1800x900/${slug}.png`;
+    // Use oven service for screenshot generation
+    ogImage = `https://oven.aesthetic.computer/preview/1200x630/${slug}.png`;
+    twitterImage = `https://oven.aesthetic.computer/preview/1800x900/${slug}.png`;
   }
 
   // Extract just the piece name (before ~) for icon URL
   const pieceName = slug.split('~')[0];
-  icon = pieceMetadata?.icon_url || `https://grab.aesthetic.computer/icon/128x128/${pieceName}.png`;
+  icon = pieceMetadata?.icon_url || `https://oven.aesthetic.computer/icon/128x128/${pieceName}.png`;
 
   const manifest = `https://${host}/manifest.json`;
   return { title, desc, ogImage, twitterImage, icon, manifest };
