@@ -6,8 +6,8 @@
 // Feature Flags
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// TODO: Set to false when switching to production mainnet contract
-export const KEEPS_STAGING = true;
+// Staging flag - currently using ghostnet for testing
+export const KEEPS_STAGING = false;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Network Configuration
@@ -25,8 +25,8 @@ export const NETWORKS = {
   },
   ghostnet: {
     name: "ghostnet",
-    displayName: "Ghostnet (Testnet)",
-    contract: "KT1NeytR5BHDfGBjG9ZuLkPd7nmufmH1icVc",
+    displayName: "Ghostnet",
+    contract: "KT1StXrQNvRd9dNPpHdCGEstcGiBV6neq79K",
     rpc: "https://ghostnet.ecadinfra.com",
     tzktApi: "https://api.ghostnet.tzkt.io",
     explorer: "https://ghostnet.tzkt.io",
@@ -35,7 +35,7 @@ export const NETWORKS = {
 };
 
 // Default network for browser clients
-export const DEFAULT_NETWORK = "mainnet";
+export const DEFAULT_NETWORK = "ghostnet";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Mint Flow Steps
