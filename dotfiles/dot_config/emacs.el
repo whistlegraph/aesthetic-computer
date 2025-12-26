@@ -982,18 +982,20 @@ Skips creation if tab already exists."
       (redisplay t))  ; Yield to prevent freeze
 
     ;; Create fishy tab (plain fish shell for quick terminal access via LLM)
-    (tab-new)
-    (tab-rename "fishy")
-    (let ((default-directory ac--directory-path)
-          (buf (generate-new-buffer "🐟-fishy")))
-      (with-current-buffer buf
-        (eat-mode)
-        (eat-exec buf "🐟-fishy" "/usr/bin/fish" nil nil)
-        (eat-semi-char-mode)
-        (when (and (boundp 'evil-mode) evil-mode)
-          (evil-emacs-state)))
-      (switch-to-buffer buf)
-      (redisplay t))
+    ;; Only create if it doesn't already exist
+    (unless (get-buffer "🐟-fishy")
+      (tab-new)
+      (tab-rename "fishy")
+      (let ((default-directory ac--directory-path)
+            (buf (generate-new-buffer "🐟-fishy")))
+        (with-current-buffer buf
+          (eat-mode)
+          (eat-exec buf "🐟-fishy" "/usr/bin/fish" nil nil)
+          (eat-semi-char-mode)
+          (when (and (boundp 'evil-mode) evil-mode)
+            (evil-emacs-state)))
+        (switch-to-buffer buf)
+        (redisplay t)))
 
     ;; Create all the split tabs with tiny delays to let event loop breathe
     ;; This prevents emacs from getting overwhelmed by terminal output
@@ -1058,11 +1060,11 @@ Skips creation if tab already exists."
         (rename-buffer "🩸-artery" t)
         (eat-semi-char-mode))))
   
-  ;; Add fishy tab after 2 seconds
+  ;; Add fishy tab after 2 seconds (only if not already created)
   (run-with-timer 2 nil
     (lambda ()
       (condition-case nil
-          (progn
+          (unless (get-buffer "🐟-fishy")
             (tab-new)
             (tab-rename "fishy")
             (let ((default-directory ac--directory-path))
