@@ -166,6 +166,71 @@ async function updateGrabInMongo(grabId, updates) {
   }
 }
 
+/**
+ * Check if a frame is blank (all black, all transparent, or nearly uniform)
+ * Uses sharp to analyze the image efficiently
+ */
+async function isBlankFrame(buffer) {
+  try {
+    const sharp = (await import('sharp')).default;
+    
+    // Get image stats - sample a smaller version for speed
+    const { channels, width, height } = await sharp(buffer)
+      .resize(32, 32, { fit: 'fill' }) // Small sample for speed
+      .raw()
+      .toBuffer({ resolveWithObject: true })
+      .then(({ data, info }) => {
+        // Analyze pixel data
+        let totalR = 0, totalG = 0, totalB = 0, totalA = 0;
+        let nonTransparentPixels = 0;
+        let hasColor = false;
+        
+        const pixelCount = info.width * info.height;
+        const channels = info.channels;
+        
+        for (let i = 0; i < data.length; i += channels) {
+          const r = data[i];
+          const g = data[i + 1];
+          const b = data[i + 2];
+          const a = channels === 4 ? data[i + 3] : 255;
+          
+          if (a > 10) { // Not fully transparent
+            nonTransparentPixels++;
+            totalR += r;
+            totalG += g;
+            totalB += b;
+            
+            // Check if there's any meaningful color (not just black)
+            if (r > 5 || g > 5 || b > 5) {
+              hasColor = true;
+            }
+          }
+          totalA += a;
+        }
+        
+        // Blank if: all transparent OR all black (no color)
+        const avgAlpha = totalA / pixelCount;
+        const isAllTransparent = avgAlpha < 10;
+        const isAllBlack = nonTransparentPixels > 0 && !hasColor;
+        
+        return {
+          isBlank: isAllTransparent || isAllBlack,
+          avgAlpha,
+          nonTransparentPixels,
+          hasColor,
+          width: info.width,
+          height: info.height,
+          channels: info.channels
+        };
+      });
+    
+    return channels.isBlank;
+  } catch (error) {
+    console.error('⚠️ Failed to check if frame is blank:', error.message);
+    return false; // Assume not blank if check fails
+  }
+}
+
 // Load recent grabs on startup
 loadRecentGrabs();
 
@@ -538,7 +603,14 @@ async function captureFrames(piece, options = {}) {
       });
       
       if (frameBuffer) {
-        capturedFrames.push(Buffer.from(frameBuffer, 'base64'));
+        const buffer = Buffer.from(frameBuffer, 'base64');
+        // Check if frame is blank (all black or all transparent)
+        const isBlank = await isBlankFrame(buffer);
+        if (isBlank) {
+          console.log(`   ⚠️ Frame ${i + 1} is blank, skipping`);
+        } else {
+          capturedFrames.push(buffer);
+        }
       }
       
       // Wait for next frame
@@ -547,7 +619,7 @@ async function captureFrames(piece, options = {}) {
       }
     }
     
-    console.log(`   ✅ Captured ${capturedFrames.length} frames`);
+    console.log(`   ✅ Captured ${capturedFrames.length} non-blank frames`);
     return capturedFrames;
     
   } finally {
@@ -1134,7 +1206,7 @@ export async function grabHandler(req, res) {
  */
 export async function grabGetHandler(req, res) {
   const { format, width, height, piece } = req.params;
-  const { duration = 12000, fps = 7.5, density = 1, quality = 80 } = req.query;
+  const { duration = 12000, fps = 7.5, density = 1, quality = 80, source = 'manual' } = req.query;
   
   if (!piece) {
     return res.status(400).json({ error: 'Missing piece parameter' });
@@ -1161,6 +1233,7 @@ export async function grabGetHandler(req, res) {
       fps: parseInt(fps),
       density: parseFloat(density) || 1,
       quality: parseInt(quality) || 80,
+      source: source || 'manual',
     });
     
     if (result.success) {
@@ -1285,19 +1358,17 @@ export function getAllLatestIPFSUploads() {
   return Object.fromEntries(latestIPFSUploads);
 }
 
+/**
+ * Close the browser instance (for graceful shutdown)
+ */
+export async function closeBrowser() {
+  if (browser) {
+    console.log('🧹 Closing browser...');
+    await browser.close();
+    browser = null;
+    browserLaunchPromise = null;
+    console.log('✅ Browser closed');
+  }
+}
+
 export { IPFS_GATEWAY };
-
-// Cleanup on exit
-process.on('SIGTERM', async () => {
-  if (browser) {
-    console.log('🧹 Closing browser...');
-    await browser.close();
-  }
-});
-
-process.on('SIGINT', async () => {
-  if (browser) {
-    console.log('🧹 Closing browser...');
-    await browser.close();
-  }
-});
