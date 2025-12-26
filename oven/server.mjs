@@ -372,8 +372,16 @@ app.get('/', (req, res) => {
     });
     
     // Manual capture form handler
-    document.getElementById('capture-form').addEventListener('submit', async (e) => {
+    let captureInProgress = false;
+    const captureForm = document.getElementById('capture-form');
+    const captureBtn = captureForm.querySelector('button[type="submit"]');
+    
+    captureForm.addEventListener('submit', async (e) => {
       e.preventDefault();
+      
+      // Prevent multiple submissions
+      if (captureInProgress) return;
+      
       const piece = document.getElementById('capture-piece').value.trim();
       const format = document.getElementById('capture-format').value;
       const duration = parseInt(document.getElementById('capture-duration').value) || 12;
@@ -392,6 +400,12 @@ app.get('/', (req, res) => {
         statusEl.textContent = '❌ Please enter a piece name';
         return;
       }
+      
+      // Lock the form
+      captureInProgress = true;
+      captureBtn.disabled = true;
+      captureBtn.textContent = '⏳ Capturing...';
+      captureBtn.style.opacity = '0.5';
       
       statusEl.style.display = 'block';
       statusEl.style.color = '#fa0';
@@ -416,6 +430,12 @@ app.get('/', (req, res) => {
       } catch (err) {
         statusEl.style.color = '#f44';
         statusEl.textContent = '❌ ' + err.message;
+      } finally {
+        // Unlock the form
+        captureInProgress = false;
+        captureBtn.disabled = false;
+        captureBtn.textContent = '📸 Capture';
+        captureBtn.style.opacity = '1';
       }
     });
     
