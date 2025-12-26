@@ -8838,10 +8838,22 @@
     let keepsWallet = null;
     let keepsTezos = null;
     
-    // Mainnet staging contract
-    const KEEPS_CONTRACT = "KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM";
-    const KEEPS_NETWORK = "mainnet";
-    const KEEPS_RPC = "https://mainnet.ecadinfra.com";
+    // Keeps constants - loaded dynamically from shared module
+    let KEEPS_CONTRACT = null;
+    let KEEPS_NETWORK = null;
+    let KEEPS_RPC = null;
+    let keepsConstants = null;
+    
+    async function loadKeepsConstants() {
+      if (keepsConstants) return keepsConstants;
+      const base = (window.location.hostname === 'localhost' || window.location.hostname.includes('local.'))
+        ? 'https://localhost:8888' : 'https://aesthetic.computer';
+      keepsConstants = await import(`${base}/aesthetic.computer/lib/keeps/constants.mjs`);
+      KEEPS_CONTRACT = keepsConstants.getContract(keepsConstants.DEFAULT_NETWORK);
+      KEEPS_NETWORK = keepsConstants.DEFAULT_NETWORK;
+      KEEPS_RPC = keepsConstants.getRpc(keepsConstants.DEFAULT_NETWORK);
+      return keepsConstants;
+    }
     
     function loadScriptNoAMD(src) {
       return new Promise((resolve, reject) => {
@@ -8906,6 +8918,7 @@
     }
     
     async function initKeepsWallet() {
+      await loadKeepsConstants();
       await loadTezosSDK();
       
       if (!keepsTezos) {
@@ -9454,6 +9467,7 @@
     let pendingMintReject = null;
     
     async function startKeepsMint() {
+      await loadKeepsConstants(); // Ensure constants are loaded
       const mintBtn = document.getElementById('keeps-mint-btn');
       const statusEl = document.getElementById('keeps-status');
       

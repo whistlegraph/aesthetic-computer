@@ -4,14 +4,23 @@
 // Usage: `keep piece-name` or `keep $piece-name`
 
 import { tokenize, KidLisp } from "../lib/kidlisp.mjs";
+import {
+  NETWORKS,
+  KEEPS_STAGING,
+  DEFAULT_NETWORK,
+  getNetwork,
+  getObjktUrl,
+  getTzktTokenUrl,
+  getTzktContractUrl,
+  getTzktApi,
+} from "../lib/keeps/constants.mjs";
 
 const { min, max, floor, sin, cos, PI, abs } = Math;
 
-// Keeps contract (mainnet staging)
-const KEEPS_CONTRACT = "KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM";
-const NETWORK = "mainnet";
-// TODO: Set to false when switching to production mainnet contract
-const KEEPS_STAGING = true;
+// Get config from shared constants
+const NETWORK = DEFAULT_NETWORK;
+const KEEPS_CONTRACT = getNetwork(NETWORK).contract;
+const TZKT_API = getTzktApi(NETWORK);
 
 // 👻 Pac-Man Ghost Sprite (14x14, classic arcade bitmap)
 const GHOST_SPRITE = [
@@ -334,7 +343,7 @@ async function checkIfAlreadyMinted() {
   
   try {
     const keyBytes = stringToBytes(piece);
-    const url = `https://api.${NETWORK}.tzkt.io/v1/contracts/${KEEPS_CONTRACT}/bigmaps/content_hashes/keys/${keyBytes}`;
+    const url = `${TZKT_API}/v1/contracts/${KEEPS_CONTRACT}/bigmaps/content_hashes/keys/${keyBytes}`;
     
     const response = await fetch(url);
     if (response.status === 200) {
@@ -367,7 +376,7 @@ async function checkIfAlreadyMinted() {
 async function fetchExistingTokenInfo(existingTokenId) {
   try {
     // Get token metadata
-    const metaUrl = `https://api.${NETWORK}.tzkt.io/v1/tokens?contract=${KEEPS_CONTRACT}&tokenId=${existingTokenId}`;
+    const metaUrl = `${TZKT_API}/v1/tokens?contract=${KEEPS_CONTRACT}&tokenId=${existingTokenId}`;
     const metaRes = await fetch(metaUrl);
     
     let tokenData = {};
@@ -379,7 +388,7 @@ async function fetchExistingTokenInfo(existingTokenId) {
     }
     
     // Get owner from ledger
-    const ledgerUrl = `https://api.${NETWORK}.tzkt.io/v1/contracts/${KEEPS_CONTRACT}/bigmaps/ledger/keys/${existingTokenId}`;
+    const ledgerUrl = `${TZKT_API}/v1/contracts/${KEEPS_CONTRACT}/bigmaps/ledger/keys/${existingTokenId}`;
     const ledgerRes = await fetch(ledgerUrl);
     let ownerAddress = null;
     if (ledgerRes.ok) {
@@ -405,9 +414,9 @@ async function fetchExistingTokenInfo(existingTokenId) {
       thumbnailUri: thumbnailUri,
       creators: meta.creators,
       mintedAt: tokenData.firstTime || tokenData.lastTime,
-      network: NETWORK, // ghostnet or mainnet
-      objktUrl: `https://${NETWORK === "mainnet" ? "" : "ghostnet."}objkt.com/asset/${KEEPS_CONTRACT}/${existingTokenId}`,
-      tzktUrl: `https://${NETWORK}.tzkt.io/${KEEPS_CONTRACT}/tokens/${existingTokenId}`,
+      network: NETWORK,
+      objktUrl: getObjktUrl(existingTokenId, NETWORK),
+      tzktUrl: getTzktTokenUrl(existingTokenId, NETWORK),
     };
     
     // Extract analyzer version from on-chain attributes
@@ -436,9 +445,9 @@ async function fetchExistingTokenInfo(existingTokenId) {
       tokenId: existingTokenId,
       owner: null,
       name: `$${piece}`,
-      network: NETWORK, // ghostnet or mainnet
-      objktUrl: `https://${NETWORK === "mainnet" ? "" : "ghostnet."}objkt.com/asset/${KEEPS_CONTRACT}/${existingTokenId}`,
-      tzktUrl: `https://${NETWORK}.tzkt.io/${KEEPS_CONTRACT}/tokens/${existingTokenId}`,
+      network: NETWORK,
+      objktUrl: getObjktUrl(existingTokenId, NETWORK),
+      tzktUrl: getTzktTokenUrl(existingTokenId, NETWORK),
     };
     loadingExisting = false;
     _needsPaint?.();
@@ -1058,8 +1067,7 @@ async function signAndMint() {
     setStep("complete", "active", "Confirming on-chain...");
     
     // Wait and fetch token ID with retries (indexer may take a moment)
-    const networkPrefix = preparedData.network === "mainnet" ? "" : "ghostnet.";
-    const apiBase = `https://api.${networkPrefix}tzkt.io`;
+    const apiBase = getTzktApi(preparedData.network || NETWORK);
     const tokenName = `$${piece}`;
     
     for (let attempt = 0; attempt < 5 && !tokenId; attempt++) {
