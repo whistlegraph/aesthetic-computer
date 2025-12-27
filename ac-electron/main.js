@@ -56,10 +56,28 @@ let windowIdCounter = 0;
 let focusedWindowId = null;
 let shellWindowId = null; // Singleton tracking for shell window
 
+// Find docker binary path (needed for packaged app which may not have PATH set)
+function getDockerPath() {
+  if (process.platform === 'darwin') {
+    const dockerLocations = [
+      '/opt/homebrew/bin/docker',     // Apple Silicon Homebrew
+      '/usr/local/bin/docker',        // Intel Homebrew / Docker Desktop
+      '/Applications/Docker.app/Contents/Resources/bin/docker'
+    ];
+    for (const loc of dockerLocations) {
+      if (fs.existsSync(loc)) {
+        return loc;
+      }
+    }
+  }
+  return 'docker';
+}
+
 // Check if Docker is available
 async function checkDocker() {
+  const dockerPath = getDockerPath();
   return new Promise((resolve) => {
-    const docker = spawn('docker', ['info'], { stdio: 'pipe' });
+    const docker = spawn(dockerPath, ['info'], { stdio: 'pipe' });
     docker.on('close', (code) => resolve(code === 0));
     docker.on('error', () => resolve(false));
   });
@@ -67,8 +85,9 @@ async function checkDocker() {
 
 // Check if devcontainer is running
 async function checkDevcontainer() {
+  const dockerPath = getDockerPath();
   return new Promise((resolve) => {
-    const docker = spawn('docker', ['ps', '--filter', 'name=aesthetic', '--format', '{{.Names}}'], { stdio: 'pipe' });
+    const docker = spawn(dockerPath, ['ps', '--filter', 'name=aesthetic', '--format', '{{.Names}}'], { stdio: 'pipe' });
     let output = '';
     docker.stdout.on('data', (data) => output += data.toString());
     docker.on('close', () => resolve(output.includes('aesthetic')));
@@ -76,14 +95,75 @@ async function checkDevcontainer() {
   });
 }
 
+// Check if container exists (running or stopped)
+async function checkContainerExists() {
+  const dockerPath = getDockerPath();
+  return new Promise((resolve) => {
+    const docker = spawn(dockerPath, ['ps', '-a', '--filter', 'name=aesthetic', '--format', '{{.Names}}'], { stdio: 'pipe' });
+    let output = '';
+    docker.stdout.on('data', (data) => output += data.toString());
+    docker.on('close', () => resolve(output.includes('aesthetic')));
+    docker.on('error', () => resolve(false));
+  });
+}
+
+// Start an existing stopped container
+async function startExistingContainer() {
+  const dockerPath = getDockerPath();
+  return new Promise((resolve, reject) => {
+    console.log('Starting existing container...');
+    const docker = spawn(dockerPath, ['start', 'aesthetic'], { stdio: 'pipe' });
+    docker.on('close', (code) => {
+      if (code === 0) {
+        console.log('Container started successfully');
+        resolve(true);
+      } else {
+        reject(new Error(`docker start exited with code ${code}`));
+      }
+    });
+    docker.on('error', (err) => reject(err));
+  });
+}
+
 // Start the devcontainer
 async function startDevcontainer() {
   return new Promise((resolve, reject) => {
-    const workspaceFolder = path.resolve(__dirname, '..');
+    // For packaged app, the workspace is one level up from the app bundle's Resources folder
+    // When running in dev: __dirname is ac-electron, workspace is ..
+    // When packaged: __dirname is inside app.asar, need to find actual workspace
+    let workspaceFolder;
+    if (__dirname.includes('app.asar')) {
+      // Packaged app - assume workspace is at a known location or use env var
+      workspaceFolder = process.env.AC_WORKSPACE || path.join(process.env.HOME, 'Desktop/code/aesthetic-computer');
+    } else {
+      workspaceFolder = path.resolve(__dirname, '..');
+    }
     console.log('Starting devcontainer in:', workspaceFolder);
     
-    const devcontainer = spawn('devcontainer', ['up', '--workspace-folder', workspaceFolder], {
-      stdio: 'pipe'
+    // Find devcontainer CLI
+    let devcontainerPath = 'devcontainer';
+    if (process.platform === 'darwin') {
+      const locations = [
+        '/opt/homebrew/bin/devcontainer',
+        '/usr/local/bin/devcontainer',
+        path.join(process.env.HOME, '.npm-global/bin/devcontainer'),
+        path.join(process.env.HOME, 'node_modules/.bin/devcontainer')
+      ];
+      for (const loc of locations) {
+        if (fs.existsSync(loc)) {
+          devcontainerPath = loc;
+          break;
+        }
+      }
+    }
+    console.log('Using devcontainer CLI:', devcontainerPath);
+    
+    const devcontainer = spawn(devcontainerPath, ['up', '--workspace-folder', workspaceFolder], {
+      stdio: 'pipe',
+      env: {
+        ...process.env,
+        PATH: `${process.env.PATH}:/usr/local/bin:/opt/homebrew/bin`
+      }
     });
     
     let output = '';
@@ -288,21 +368,21 @@ function createWindow(mode = 'production') {
   let winWidth, winHeight, winX, winY;
   
   if (isDev) {
-    // Dev window: nearly full screen (has integrated terminal overlay)
-    winWidth = screenWidth - 100;
-    winHeight = screenHeight - 50;
-    winX = 50;
-    winY = 0;
+    // Dev window: compact, cute size - positioned center-right
+    winWidth = 900;
+    winHeight = 700;
+    winX = Math.floor((screenWidth - winWidth) / 2) + 100;
+    winY = Math.floor((screenHeight - winHeight) / 2);
   } else if (isShell) {
-    // Standalone shell: right side of screen
-    winWidth = Math.floor(screenWidth * 0.45);
-    winHeight = screenHeight - 50;
-    winX = Math.floor(screenWidth * 0.55);
-    winY = 0;
+    // Standalone shell: compact, right side of screen
+    winWidth = 800;
+    winHeight = 600;
+    winX = screenWidth - winWidth - 50;
+    winY = Math.floor((screenHeight - winHeight) / 2);
   } else {
-    // Production: centered
-    winWidth = 1280;
-    winHeight = 800;
+    // Production: centered, compact
+    winWidth = 1024;
+    winHeight = 768;
     winX = Math.floor((screenWidth - winWidth) / 2);
     winY = Math.floor((screenHeight - winHeight) / 2);
   }
@@ -334,6 +414,10 @@ function createWindow(mode = 'production') {
   // Show when ready
   win.once('ready-to-show', () => {
     win.show();
+    // Auto-open devtools in dev mode
+    if (isDev) {
+      win.webContents.openDevTools({ mode: 'detach' });
+    }
   });
 
   // Load appropriate HTML
@@ -418,6 +502,25 @@ ipcMain.handle('check-container', async () => {
   return result;
 });
 
+ipcMain.handle('check-container-exists', async () => {
+  console.log('[main] check-container-exists called');
+  const result = await checkContainerExists();
+  console.log('[main] check-container-exists result:', result);
+  return result;
+});
+
+ipcMain.handle('start-existing-container', async () => {
+  console.log('[main] start-existing-container called');
+  try {
+    await startExistingContainer();
+    console.log('[main] start-existing-container success');
+    return { success: true };
+  } catch (err) {
+    console.error('[main] start-existing-container error:', err);
+    return { success: false, error: err.message };
+  }
+});
+
 ipcMain.handle('start-container', async () => {
   console.log('[main] start-container called');
   try {
@@ -463,12 +566,13 @@ ipcMain.handle('connect-pty', async (event) => {
 
   try {
     // Spawn docker exec to get into the container with fish shell
-    // Use full path to docker in case PATH isn't set correctly in Electron
-    const dockerPath = process.platform === 'darwin' 
-      ? '/usr/local/bin/docker'  // Common Docker Desktop location
-      : 'docker';
+    const dockerPath = getDockerPath();
     
     console.log('[main] Spawning PTY with docker at:', dockerPath);
+    
+    // Ensure PATH includes common locations for packaged app
+    const extraPaths = '/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin';
+    const fullPath = process.env.PATH ? `${process.env.PATH}:${extraPaths}` : extraPaths;
     
     const shellProcess = pty.spawn(dockerPath, ['exec', '-it', 'aesthetic', 'fish'], {
       name: 'xterm-256color',
@@ -478,7 +582,7 @@ ipcMain.handle('connect-pty', async (event) => {
       env: { 
         ...process.env, 
         TERM: 'xterm-256color',
-        PATH: process.env.PATH + ':/usr/local/bin:/opt/homebrew/bin'
+        PATH: fullPath
       },
     });
 
@@ -486,8 +590,12 @@ ipcMain.handle('connect-pty', async (event) => {
 
     // Forward PTY output to renderer
     shellProcess.onData((data) => {
+      console.log('[main] PTY data received, length:', data.length, 'preview:', data.substring(0, 50).replace(/\n/g, '\\n'));
       if (!win.isDestroyed()) {
         win.webContents.send('pty-data', data);
+        console.log('[main] PTY data sent to renderer');
+      } else {
+        console.log('[main] Window destroyed, cannot send PTY data');
       }
     });
 
@@ -521,7 +629,12 @@ ipcMain.on('pty-resize', (event, cols, rows) => {
   const win = BrowserWindow.fromWebContents(event.sender);
   for (const [id, winData] of windows) {
     if (winData.window === win && winData.ptyProcess) {
-      winData.ptyProcess.resize(cols, rows);
+      try {
+        winData.ptyProcess.resize(cols, rows);
+      } catch (err) {
+        // PTY may not be ready yet or already exited
+        console.warn('[main] PTY resize failed:', err.message);
+      }
       break;
     }
   }
@@ -656,18 +769,20 @@ ipcMain.on('ac-reload', (event) => {
 app.whenReady().then(async () => {
   createMenu();
   
-  // Watch for reboot request file from devcontainer
+  // Watch for reboot request file from devcontainer (electric-snake-bite)
   const REBOOT_MARKER = path.join(__dirname, '.reboot-requested');
   const checkRebootMarker = () => {
     if (fs.existsSync(REBOOT_MARKER)) {
-      console.log('[main] Reboot marker detected, exiting with code 42...');
+      console.log('[main] ⚡🐍 Electric Snake Bite detected! Relaunching...');
       fs.unlinkSync(REBOOT_MARKER); // Clean up marker
-      // Exit with code 42 - wrapper script should restart us
-      app.exit(42);
+      // Relaunch the app then quit current instance
+      app.relaunch();
+      app.quit();
     }
   };
   
   // Check every 2 seconds for reboot marker
+  setInterval(checkRebootMarker, 2000);
   setInterval(checkRebootMarker, 2000);
   
   // Create initial window(s) based on CLI args
@@ -710,15 +825,12 @@ app.on('will-quit', () => {
     }
   }
   
-  // Stop the devcontainer when quitting
+  // Stop the devcontainer when the app quits
   try {
-    execSync('docker stop aesthetic 2>/dev/null || true', { 
-      timeout: 5000,
-      stdio: 'ignore' 
-    });
-    console.log('[main] Stopped devcontainer on quit');
+    require('child_process').execSync('docker stop aesthetic', { timeout: 5000 });
+    console.log('[main] Stopped devcontainer');
   } catch (e) {
-    // Ignore errors - container might not be running
+    console.log('[main] Could not stop devcontainer:', e.message);
   }
 });
 
@@ -743,15 +855,12 @@ function cleanup() {
     }
   }
   
-  // Stop the devcontainer
+  // Stop the devcontainer on cleanup
   try {
-    execSync('docker stop aesthetic 2>/dev/null || true', { 
-      timeout: 5000,
-      stdio: 'ignore' 
-    });
-    console.log('[main] Stopped devcontainer on cleanup');
+    require('child_process').execSync('docker stop aesthetic', { timeout: 5000 });
+    console.log('[main] Stopped devcontainer');
   } catch (e) {
-    // Ignore
+    console.log('[main] Could not stop devcontainer:', e.message);
   }
   
   process.exit(0);
