@@ -15,10 +15,12 @@
     }
     #terminal-container {
       width: 100%;
-      height: 100%;
+      height: calc(100% - 64px); /* Leave space at top */
+      margin-top: 64px; /* Push terminal down */
       padding: 8px;
     }
     .xterm { height: 100%; }
+    .xterm-viewport { padding-top: 0 !important; }
   </style>
 </head>
 <body>
@@ -96,11 +98,18 @@
           return;
         }
 
-        // Check container
-        const containerOk = await ipcRenderer.invoke('check-container');
-        if (!containerOk) {
-          term.writeln('\x1b[33mStarting devcontainer...\x1b[0m');
-          await ipcRenderer.invoke('start-container');
+        // Check if container is running
+        const containerRunning = await ipcRenderer.invoke('check-container');
+        if (!containerRunning) {
+          // Check if container exists but is stopped
+          const containerExists = await ipcRenderer.invoke('check-container-exists');
+          if (containerExists) {
+            term.writeln('\x1b[33mStarting existing container...\x1b[0m');
+            await ipcRenderer.invoke('start-existing-container');
+          } else {
+            term.writeln('\x1b[33mCreating devcontainer...\x1b[0m');
+            await ipcRenderer.invoke('start-container');
+          }
         }
 
         // Connect PTY

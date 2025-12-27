@@ -22,15 +22,9 @@
       "output": "dist",
       "buildResources": "build"
     },
-    "files": [
-      "main.js",
-      "preload.js",
-      "renderer/**/*",
-      "!node_modules/**/*",
-      "node_modules/xterm/**/*",
-      "node_modules/xterm-addon-fit/**/*",
-      "node_modules/xterm-addon-webgl/**/*"
-    ],
+    "extraMetadata": {
+      "name": "aesthetic-computer"
+    },
     "mac": {
       "category": "public.app-category.graphics-design",
       "target": [
@@ -41,9 +35,24 @@
           ]
         }
       ],
-      "hardenedRuntime": true,
-      "gatekeeperAssess": false
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "extendInfo": {
+        "NSDesktopFolderUsageDescription": "Aesthetic Computer needs access to your Desktop to manage the workspace.",
+        "NSDocumentsFolderUsageDescription": "Aesthetic Computer needs access to Documents for file operations.",
+        "NSDownloadsFolderUsageDescription": "Aesthetic Computer needs access to Downloads for file operations."
+      }
     },
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer/**/*",
+      "!node_modules/**/*",
+      "node_modules/@xterm/**/*",
+      "node_modules/node-pty/**/*"
+    ],
     "win": {
       "target": [
         {
