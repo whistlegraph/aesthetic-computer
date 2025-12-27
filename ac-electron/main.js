@@ -14,71 +14,49 @@ const { spawn, execSync } = require('child_process');
 
 // Auto-updater (only in production builds)
 let autoUpdater;
+let updateDownloaded = false;
+const UPDATE_CHECK_INTERVAL = 60 * 60 * 1000; // Check every hour
+
 try {
   autoUpdater = require('electron-updater').autoUpdater;
   
-  // Configure auto-updater
-  autoUpdater.autoDownload = false; // Ask user before downloading
-  autoUpdater.autoInstallOnAppQuit = true;
+  // Configure auto-updater for silent background downloads
+  autoUpdater.autoDownload = true;  // Download automatically in background
+  autoUpdater.autoInstallOnAppQuit = true; // Install on next launch
   
   autoUpdater.on('checking-for-update', () => {
     console.log('[updater] Checking for updates...');
   });
   
   autoUpdater.on('update-available', (info) => {
-    console.log('[updater] Update available:', info.version);
-    
-    // Show notification
-    if (Notification.isSupported()) {
-      const notification = new Notification({
-        title: 'Update Available',
-        body: `Aesthetic Computer v${info.version} is available. Click to download.`,
-        icon: path.join(__dirname, 'build', 'icon.png')
-      });
-      notification.on('click', () => {
-        autoUpdater.downloadUpdate();
-      });
-      notification.show();
-    }
-    
-    // Also show dialog
-    dialog.showMessageBox({
-      type: 'info',
-      title: 'Update Available',
-      message: `A new version (v${info.version}) is available.`,
-      detail: 'Would you like to download it now?',
-      buttons: ['Download', 'Later'],
-      defaultId: 0
-    }).then(({ response }) => {
-      if (response === 0) {
-        autoUpdater.downloadUpdate();
-      }
-    });
+    console.log('[updater] Update available:', info.version, '- downloading in background...');
   });
   
   autoUpdater.on('update-not-available', () => {
-    console.log('[updater] No updates available');
+    console.log('[updater] App is up to date');
   });
   
   autoUpdater.on('download-progress', (progress) => {
-    console.log(`[updater] Download progress: ${Math.round(progress.percent)}%`);
+    console.log(`[updater] Downloading: ${Math.round(progress.percent)}%`);
   });
   
   autoUpdater.on('update-downloaded', (info) => {
     console.log('[updater] Update downloaded:', info.version);
+    updateDownloaded = true;
     
-    dialog.showMessageBox({
-      type: 'info',
-      title: 'Update Ready',
-      message: `Version ${info.version} has been downloaded.`,
-      detail: 'Restart now to apply the update?',
-      buttons: ['Restart', 'Later'],
-      defaultId: 0
-    }).then(({ response }) => {
-      if (response === 0) {
-        autoUpdater.quitAndInstall();
-      }
-    });
+    // Show subtle notification - update will install on next launch
+    if (Notification.isSupported()) {
+      const notification = new Notification({
+        title: 'Update Ready',
+        body: `v${info.version} will install on next launch. Click to restart now.`,
+        icon: path.join(__dirname, 'build', 'icon.png'),
+        silent: true
+      });
+      notification.on('click', () => {
+        autoUpdater.quitAndInstall(false, true);
+      });
+      notification.show();
+    }
   });
   
   autoUpdater.on('error', (err) => {
@@ -87,6 +65,25 @@ try {
   
 } catch (e) {
   console.log('[updater] Auto-updater not available (dev mode):', e.message);
+}
+
+// Start periodic update checks
+function startUpdateChecks() {
+  if (!autoUpdater || !app.isPackaged) return;
+  
+  const checkForUpdates = () => {
+    if (!updateDownloaded) {
+      autoUpdater.checkForUpdates().catch(err => {
+        console.log('[updater] Check failed:', err.message);
+      });
+    }
+  };
+  
+  // Initial check after 5 seconds
+  setTimeout(checkForUpdates, 5000);
+  
+  // Then check every hour
+  setInterval(checkForUpdates, UPDATE_CHECK_INTERVAL);
 }
 
 // Set app name before anything else
@@ -304,24 +301,39 @@ function createMenu() {
           label: 'Check for Updates...',
           click: () => {
             if (autoUpdater) {
-              autoUpdater.checkForUpdates().then(result => {
-                if (!result || !result.updateInfo) {
+              if (updateDownloaded) {
+                dialog.showMessageBox({
+                  type: 'info',
+                  title: 'Update Ready',
+                  message: 'An update has already been downloaded.',
+                  detail: 'It will be installed when you restart the app.',
+                  buttons: ['Restart Now', 'Later'],
+                  defaultId: 0
+                }).then(({ response }) => {
+                  if (response === 0) {
+                    autoUpdater.quitAndInstall(false, true);
+                  }
+                });
+              } else {
+                autoUpdater.checkForUpdates().then(result => {
+                  if (!result || !result.updateInfo || result.updateInfo.version === app.getVersion()) {
+                    dialog.showMessageBox({
+                      type: 'info',
+                      title: 'No Updates',
+                      message: 'You are running the latest version.',
+                      buttons: ['OK']
+                    });
+                  }
+                }).catch(err => {
                   dialog.showMessageBox({
-                    type: 'info',
-                    title: 'No Updates',
-                    message: 'You are running the latest version.',
+                    type: 'error',
+                    title: 'Update Check Failed',
+                    message: 'Could not check for updates.',
+                    detail: err.message,
                     buttons: ['OK']
                   });
-                }
-              }).catch(err => {
-                dialog.showMessageBox({
-                  type: 'error',
-                  title: 'Update Check Failed',
-                  message: 'Could not check for updates.',
-                  detail: err.message,
-                  buttons: ['OK']
                 });
-              });
+              }
             } else {
               dialog.showMessageBox({
                 type: 'info',
