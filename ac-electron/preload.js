@@ -47,6 +47,9 @@ try {
       ipcRenderer.on('status', (event, message) => callback(message));
     },
     
+    // Window controls
+    moveWindow: (x, y) => ipcRenderer.send('move-window', { x, y }),
+    
     // Platform info
     platform: process.platform,
   });
