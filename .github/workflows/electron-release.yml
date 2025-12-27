@@ -75,3 +75,4 @@ jobs:
           path: |
             ac-electron/dist/*.AppImage
             ac-electron/dist/*.deb
+            ac-electron/dist/*.rpm
