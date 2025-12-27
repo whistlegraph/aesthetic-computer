@@ -2,8 +2,21 @@
 
 **Environment:** Devcontainer in `/workspaces/aesthetic-computer` monorepo (Fedora Linux).
 
+## Architecture Overview
+Copilot CLI runs inside a layered environment:
+1. **Electron app** (aesthetic-desktop) — hosts VS Code
+2. **Emacs daemon** — manages terminal buffers via `eat-mode`
+3. **Copilot CLI** — runs in terminal, can control Emacs via MCP
+
+The **Emacs MCP Server** (`artery/emacs-mcp.mjs`) bridges Copilot to Emacs, enabling:
+- Executing Elisp code
+- Sending keys to terminal buffers
+- Reading buffer contents
+- Switching between buffers/tabs
+
 ## Key Paths
 - **Vault:** `aesthetic-computer-vault/` — credentials, machine configs. **Never copy secrets.**
+- **Emacs MCP:** `artery/emacs-mcp.mjs` — bridges Copilot ↔ Emacs
 - **Artery TUI:** `artery/artery-tui.mjs` — main interactive interface, run via Emacs MCP
 - **KidLisp:** `kidlisp/` (interpreter), `system/public/aesthetic.computer/disks/` (pieces)
 - **Tezos:** `tezos/keeps.mjs` — NFT contract CLI

@@ -31,6 +31,19 @@ if test -d /workspaces/aesthetic-computer
     end
 end
 
+# Persist Copilot CLI sessions across container restarts
+# Store session state in vault so conversations survive reboots
+if test -d /workspaces/aesthetic-computer/aesthetic-computer-vault/home/.copilot
+    if test ! -L ~/.copilot
+        # Remove any existing directory (not symlink)
+        if test -d ~/.copilot
+            rm -rf ~/.copilot
+        end
+        ln -s /workspaces/aesthetic-computer/aesthetic-computer-vault/home/.copilot ~/.copilot
+        echo "✓ Copilot sessions will persist across reboots"
+    end
+end
+
 function fish_prompt
     # Show shell and directory for LLM context
     set_color cyan
@@ -2139,6 +2152,16 @@ alias ac-logger 'ac; cd system; npx netlify logs:function index'
 alias sotce-net 'ac; cd system; npx netlify logs:function sotce-net'
 alias acw 'cd ~/aesthetic-computer/system; npm run watch'
 
+# GitHub Copilot CLI (LLM agent in terminal)
+# Uses GH_TOKEN from vault for auth, runs interactively
+# Use --continue to resume last session after reboot
+alias ac-llm 'clear; ac; copilot'
+alias ac-llm-continue 'clear; ac; copilot --continue'
+alias ac-llm-resume 'clear; ac; copilot --resume'
+
+# Process viewer (htop for monitoring system resources)
+alias ac-top 'clear; htop'
+
 alias cat 'bat -p' # use bat for syntax highlighting instead of the `cat` default
 
 # 🧟 Zombie process monitor and cleanup
@@ -2475,6 +2498,43 @@ function ac-playdate
     
     ac-playdate-build $source_file
     and ac-playdate-simulate $game_name
+end
+
+# 🖥️ Electron App Management (SSH to Mac host)
+# Restarts the Aesthetic Computer Electron app on the host Mac
+
+function ac-electron-restart --description "Restart the Aesthetic Computer Electron app on host Mac"
+    set -l host "jas@host.docker.internal"
+    set -l ac_path "/Users/jas/Desktop/code/aesthetic-computer/ac-electron"
+    
+    echo "🔄 Restarting Aesthetic Computer Electron app..."
+    
+    # Kill existing Electron processes (our app only, not VS Code)
+    ssh -o StrictHostKeyChecking=no $host "pkill -f '$ac_path/node_modules/electron'" 2>/dev/null
+    sleep 1
+    
+    # Start the app again
+    ssh -o StrictHostKeyChecking=no $host "cd $ac_path && nohup npm start > /tmp/ac-electron.log 2>&1 &"
+    
+    echo "✅ Electron app restarting... check /tmp/ac-electron.log on host for output"
+end
+
+function ac-electron-stop --description "Stop the Aesthetic Computer Electron app on host Mac"
+    set -l host "jas@host.docker.internal"
+    set -l ac_path "/Users/jas/Desktop/code/aesthetic-computer/ac-electron"
+    
+    echo "🛑 Stopping Aesthetic Computer Electron app..."
+    ssh -o StrictHostKeyChecking=no $host "pkill -f '$ac_path/node_modules/electron'" 2>/dev/null
+    echo "✅ Electron app stopped"
+end
+
+function ac-electron-start --description "Start the Aesthetic Computer Electron app on host Mac"
+    set -l host "jas@host.docker.internal"
+    set -l ac_path "/Users/jas/Desktop/code/aesthetic-computer/ac-electron"
+    
+    echo "🚀 Starting Aesthetic Computer Electron app..."
+    ssh -o StrictHostKeyChecking=no $host "cd $ac_path && nohup npm start > /tmp/ac-electron.log 2>&1 &"
+    echo "✅ Electron app started"
 end
 
 # Auto-start aesthetic when fish runs in the VS Code task context

@@ -32,10 +32,6 @@ function start
   # Start clipboard listener in background
   fish -c 'while true; nc -l 12345 | pbcopy; end' &
 
-  # Quit VS Code if it's running
-  osascript -e 'tell application "Visual Studio Code" to quit'
-  sleep 1
-
   # Remove old container and start devcontainer via CLI
   echo "🧹 Removing old container..."
   docker rm -f aesthetic 2>/dev/null
@@ -45,10 +41,15 @@ function start
   devcontainer up --workspace-folder .
 
   if test $status -eq 0
+    echo ""
     echo "✅ Container ready!"
-    echo "🔗 Opening VS Code attached to container..."
-    # Launch VS Code attached to container with Chrome DevTools Protocol
-    code --folder-uri "vscode-remote://attached-container+"(printf aesthetic | xxd -p)"/workspaces/aesthetic-computer" --remote-debugging-port=9222 --remote-allow-origins="*"
+    echo "🔗 Opening VS Code..."
+    # Open VS Code, then user attaches manually - auto-attach via CLI is too flaky
+    open -a "Visual Studio Code"
+    sleep 2
+    echo ""
+    echo "📋 Press: Cmd+Shift+P → 'attach' → Enter → Enter"
+    echo ""
   else
     echo "❌ Failed to start container"
     return 1

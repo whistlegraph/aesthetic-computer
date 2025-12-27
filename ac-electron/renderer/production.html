@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; frame-src https://aesthetic.computer http://localhost:*;">
+  <title>Aesthetic Computer</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
+    webview { width: 100%; height: 100%; border: none; }
+  </style>
+</head>
+<body>
+  <webview id="ac-webview" src="https://aesthetic.computer/prompt" allowpopups></webview>
+  <script>
+    const webview = document.getElementById('ac-webview');
+    
+    // Update window title based on current piece
+    function updateTitle(url) {
+      try {
+        const u = new URL(url);
+        const piece = u.pathname.replace(/^\//, '').replace(/\/$/, '') || 'prompt';
+        document.title = `${piece} — Aesthetic Computer`;
+      } catch (e) {
+        document.title = 'Aesthetic Computer';
+      }
+    }
+    
+    webview.addEventListener('did-navigate', (e) => updateTitle(e.url));
+    webview.addEventListener('did-navigate-in-page', (e) => updateTitle(e.url));
+    
+    // Handle navigation from main process (menu)
+    window.ac?.onNavigate?.((url) => {
+      webview.src = url;
+      updateTitle(url);
+    });
+
+    // Handle menu commands
+    window.ac?.onGoBack?.(() => webview.goBack());
+    window.ac?.onGoForward?.(() => webview.goForward());
+    window.ac?.onToggleDevtools?.(() => {
+      if (webview.isDevToolsOpened()) {
+        webview.closeDevTools();
+      } else {
+        webview.openDevTools();
+      }
+    });
+  </script>
+</body>
+</html>

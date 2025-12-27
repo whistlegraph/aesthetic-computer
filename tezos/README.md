@@ -1,7 +1,7 @@
 # 🔮 Tezos Wallet Rolodex
 
 > Aesthetic Computer wallet credentials & contract registry.
-> **Last updated**: December 18, 2025
+> **Last updated**: December 26, 2025
 
 ---
 
@@ -10,8 +10,8 @@
 | Wallet | Address | Domain | Role | Network |
 |--------|---------|--------|------|---------|
 | **aesthetic** | `tz1gkf8EexComFBJvjtT1zdsisdah791KwBE` | aesthetic.tez | Personal identity, **Ghostnet contract admin** | Mainnet + Ghostnet |
-| **kidlisp** | `tz1Lc2DzTjDPyWFj1iuAVGGZWNjK67Wun2dC` | keeps.tez | Production NFT minting | Mainnet |
-| **staging** | `tz1TtAufdTNEP8uqAwswAmZHAZp38QEo8hFo` | — | Mainnet testing | Mainnet |
+| **kidlisp** | `tz1Lc2DzTjDPyWFj1iuAVGGZWNjK67Wun2dC` | keeps.tez | Production NFT minting, **Mainnet contract admin** | Mainnet |
+| **staging** | `tz1dfoQDuxjwSgxdqJnisyKUxDHweade4Gzt` | — | Mainnet testing | Mainnet |
 
 ---
 
@@ -32,7 +32,10 @@
 
 | Contract | Address | Admin | Status |
 |----------|---------|-------|--------|
-| **Keeps FA2 v2** | TBD | `kidlisp` | 🔜 Not deployed |
+| **Keeps FA2 v2** | `KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM` | `kidlisp` | ✅ Active |
+
+- Explorer: https://tzkt.io/KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM
+- Objkt: https://objkt.com/collection/KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM
 
 ---
 
@@ -69,8 +72,8 @@ Keys in:  kidlisp/.env (KIDLISP_ADDRESS, KIDLISP_KEY)
 ```
 
 **Roles:**
-- 🔜 Mainnet Keeps contract administrator
-- 🔜 Production NFT minting service
+- ✅ Mainnet Keeps contract administrator
+- ✅ Production NFT minting service
 - Default wallet for `keeps.mjs` commands
 
 **CLI Usage:**
@@ -84,7 +87,7 @@ node keeps.mjs mint $piece
 ### 3. staging (Testing)
 
 ```
-Address:  tz1TtAufdTNEP8uqAwswAmZHAZp38QEo8hFo
+Address:  tz1dfoQDuxjwSgxdqJnisyKUxDHweade4Gzt
 Domain:   —
 Keys in:  staging/.env (STAGING_ADDRESS, STAGING_KEY)
 ```
@@ -130,15 +133,10 @@ tezos/
      └── Admin: aesthetic wallet
      └── Status: Active, tested, all test tokens burned
 
-[ ] 2. Mainnet Staging  
-     └── Deploy with staging wallet
-     └── Test with real XTZ (~10 XTZ needed)
-     └── Verify Temple mobile flow
-
-[ ] 3. Mainnet Production
-     └── Deploy with kidlisp wallet  
-     └── Register keeps.tez domain
-     └── Set appropriate keep fee
+[✅] 2. Mainnet Production
+     └── Contract: KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM
+     └── Admin: kidlisp wallet (keeps.tez)
+     └── Status: Active
 ```
 
 ---
