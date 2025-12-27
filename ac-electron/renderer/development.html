@@ -12,25 +12,120 @@
       width: 100%; 
       height: 100%; 
       overflow: hidden; 
-      background: #0a0a12; 
+      background: #050508;
     }
     
-    /* Control bar - fixed at top, pushes content down */
+    /* Stacked layers - both always visible with opacity crossfade */
+    #device-wrapper {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #050508;
+      -webkit-app-region: drag;
+    }
+    
+    #flip-container {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      -webkit-app-region: no-drag;
+    }
+    
+    /* Both layers stacked - z-index swaps, opacity creates bleed-through */
+    #front-face, #back-face {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      transition: opacity 0.5s ease, z-index 0s;
+      -webkit-app-region: no-drag;
+    }
+    
+    /* Front face - AC App (default on top) */
+    #front-face {
+      background: transparent;
+      z-index: 2;
+      opacity: 1;
+    }
+    
+    /* Back face - Terminal (default behind with ghost) */
+    #back-face {
+      background: transparent;
+      display: flex;
+      flex-direction: column;
+      z-index: 1;
+      opacity: 0.08;
+    }
+    
+    /* Traffic lights area - keep space for window controls */
+    .traffic-lights-spacer {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 80px;
+      height: 40px;
+      -webkit-app-region: drag;
+      z-index: 1000;
+    }
+    
+    /* Flip glow effect during animation */
+    @keyframes flipGlow {
+      0% { box-shadow: none; }
+      50% { box-shadow: 0 0 40px rgba(255, 0, 255, 0.4); }
+      100% { box-shadow: none; }
+    }
+    
+    #flip-container.flipping #front-face,
+    #flip-container.flipping #back-face {
+      animation: flipGlow 0.8s ease-in-out;
+    }
+    
+    /* Webview - inherits parent opacity */
+    #ac-webview {
+      width: 100%;
+      height: 100%;
+      border: none;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    #ac-webview.connected { opacity: 1; }
+    
+    /* Terminal container - ensure transparency */
+    #terminal-container {
+      flex: 1;
+      padding: 15px;
+      overflow: hidden;
+      background: transparent;
+    }
+    .xterm { height: 100%; background: transparent !important; }
+    .xterm-viewport { background: transparent !important; }
+    .xterm-screen { background: transparent !important; }
+    .xterm canvas { background: transparent !important; }
+    
+    /* When control bar is hidden */
+    body.bar-hidden #device-wrapper {
+      top: 0;
+    }
+    
+    /* Control bar - frameless window, positioned after traffic lights */
     #control-bar {
       position: fixed;
-      top: 0; left: 0; right: 0;
-      height: 36px;
+      top: 8px; left: 80px; right: 15px;
+      height: 32px;
       display: flex;
       align-items: center;
       gap: 12px;
-      padding: 8px 15px;
-      background: rgba(0, 0, 0, 0.95);
-      border-bottom: 1px solid rgba(255, 0, 255, 0.3);
+      padding: 6px 12px;
+      background: rgba(0, 0, 0, 0.8);
+      border-radius: 8px;
+      border: 1px solid rgba(255, 0, 255, 0.2);
       font-family: 'SF Mono', monospace;
-      font-size: 12px;
+      font-size: 11px;
       color: #888;
       z-index: 300;
-      -webkit-app-region: drag;
+      -webkit-app-region: no-drag;
       transition: transform 0.2s ease, opacity 0.2s ease;
     }
     
@@ -43,18 +138,6 @@
     #control-bar > * {
       -webkit-app-region: no-drag;
     }
-    
-    /* Main AC webview - below control bar */
-    #ac-webview { 
-      position: absolute;
-      top: 36px; left: 0;
-      width: 100%; 
-      height: calc(100% - 36px); 
-      border: none;
-      opacity: 0;
-      transition: opacity 0.3s ease;
-    }
-    #ac-webview.connected { opacity: 1; }
     
     .title {
       color: #f0f;
@@ -93,7 +176,7 @@
       color: #0c6;
     }
     
-    /* Mode switch */
+    /* Mode switch - Front/Back flip */
     .mode-switch {
       display: flex;
       background: rgba(0, 0, 0, 0.3);
@@ -115,13 +198,40 @@
       color: #aaa;
       background: rgba(255, 255, 255, 0.05);
     }
-    .mode-btn.active.shell-mode {
+    .mode-btn.active.front-mode {
+      background: rgba(0, 255, 150, 0.2);
+      color: #0fa;
+    }
+    .mode-btn.active.back-mode {
       background: rgba(255, 0, 255, 0.2);
       color: #f0f;
     }
-    .mode-btn.active.app-mode {
-      background: rgba(0, 255, 150, 0.2);
-      color: #0fa;
+    
+    /* Flip button */
+    .flip-btn {
+      background: rgba(255, 0, 255, 0.1);
+      border: 1px solid rgba(255, 0, 255, 0.3);
+      color: #f0f;
+      padding: 5px 12px;
+      font-family: inherit;
+      font-size: 11px;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: all 0.2s ease;
+    }
+    .flip-btn:hover {
+      background: rgba(255, 0, 255, 0.2);
+      transform: scale(1.05);
+    }
+    .flip-btn:active {
+      transform: scale(0.95);
+    }
+    .flip-btn .flip-icon {
+      display: inline-block;
+      transition: transform 0.6s cubic-bezier(0.4, 0.0, 0.2, 1);
+    }
+    body.showing-back .flip-btn .flip-icon {
+      transform: rotateY(180deg);
     }
     
     /* Transparency slider */
@@ -171,89 +281,35 @@
       border-radius: 3px;
     }
     
-    /* Terminal overlay - below control bar */
-    #terminal-overlay {
-      position: absolute;
-      top: 36px; left: 0; right: 0; bottom: 0;
-      z-index: 100;
-      display: flex;
-      flex-direction: column;
-      transition: opacity 0.2s ease, top 0.2s ease;
-      background: rgb(10, 10, 18);
-      opacity: 0.7;
-    }
-    
-    /* When control bar is hidden, expand to full height */
-    body.bar-hidden #ac-webview {
-      top: 0;
-      height: 100%;
-    }
-    body.bar-hidden #terminal-overlay {
-      top: 0;
-    }
-    
-    /* Terminal background div no longer needed but kept for compatibility */
-    #terminal-bg {
-      display: none;
-    }
-    
-    /* Passthrough mode - terminal doesn't capture clicks */
-    #terminal-overlay.passthrough {
-      pointer-events: none;
-    }
-    #terminal-overlay.passthrough #terminal-container {
-      pointer-events: none;
-    }
-    
-    /* Shell mode - terminal captures all clicks */
-    #terminal-overlay:not(.passthrough) {
-      pointer-events: auto;
-    }
-    #terminal-overlay:not(.passthrough) #terminal-container {
-      pointer-events: auto;
-    }
-    #terminal-overlay:not(.passthrough) .xterm {
-      pointer-events: auto;
-    }
-    
-    /* Terminal container */
-    #terminal-container {
-      position: relative;
-      flex: 1;
-      padding: 10px;
-      overflow: hidden;
-      z-index: 1;
-    }
-    .xterm { height: 100%; background: transparent !important; }
-    .xterm-viewport { background: transparent !important; }
-    .xterm-screen { background: transparent !important; }
-    .xterm canvas { background: transparent !important; }
-    
     /* Mode indicator overlay */
     #mode-indicator {
-      position: absolute;
-      bottom: 20px;
-      right: 20px;
-      background: rgba(0, 0, 0, 0.8);
-      padding: 8px 15px;
-      border-radius: 6px;
+      position: fixed;
+      bottom: 40px;
+      right: 40px;
+      background: rgba(0, 0, 0, 0.9);
+      padding: 12px 20px;
+      border-radius: 8px;
       font-family: 'SF Mono', monospace;
-      font-size: 12px;
+      font-size: 16px;
       opacity: 0;
-      transition: opacity 0.3s ease;
+      transition: opacity 0.3s ease, transform 0.3s ease;
       pointer-events: none;
-      z-index: 200;
+      z-index: 500;
+      transform: translateY(10px);
     }
-    #mode-indicator.shell-active {
-      color: #f0f;
-      border: 1px solid rgba(255, 0, 255, 0.3);
-    }
-    #mode-indicator.app-active {
+    #mode-indicator.front-active {
       color: #0fa;
-      border: 1px solid rgba(0, 255, 150, 0.3);
+      border: 1px solid rgba(0, 255, 150, 0.4);
+      box-shadow: 0 0 20px rgba(0, 255, 150, 0.2);
+    }
+    #mode-indicator.back-active {
+      color: #f0f;
+      border: 1px solid rgba(255, 0, 255, 0.4);
+      box-shadow: 0 0 20px rgba(255, 0, 255, 0.2);
     }
     #mode-indicator.visible {
       opacity: 1;
+      transform: translateY(0);
     }
     
     /* Connection overlay (shown when server not ready) */
@@ -292,49 +348,50 @@
   </style>
 </head>
 <body>
-  <!-- Connection overlay -->
-  <div id="connection-overlay">
+  <!-- Traffic lights spacer for frameless window -->
+  <div class="traffic-lights-spacer"></div>
+  
+  <!-- Connection overlay (for local dev server) -->
+  <div id="connection-overlay" class="hidden">
     <div id="status-icon">⚡</div>
     <div id="status-message">Connecting to dev server...</div>
     <div id="status-detail">https://localhost:8888</div>
     <div id="retry-count">Attempt 1</div>
   </div>
   
-  <!-- AC webview underneath -->
-  <webview id="ac-webview" src="about:blank" allowpopups></webview>
+  <!-- Mode indicator (shows briefly on flip) -->
+  <div id="mode-indicator">Back</div>
   
-  <!-- Mode indicator (shows briefly on switch) -->
-  <div id="mode-indicator">Shell Mode</div>
-  
-  <!-- Control bar - separate from terminal, always visible -->
+  <!-- Control bar -->
   <div id="control-bar">
     <span class="title">🩸 AC</span>
     
-    <!-- Environment switch (Local/Prod) -->
-    <div class="env-switch">
+    <!-- Flip button -->
+    <button id="flip-btn" class="flip-btn"><span class="flip-icon">↻</span> Flip</button>
+    
+    <!-- Environment switch (only shown on front) -->
+    <div class="env-switch" id="env-switch">
       <button id="env-local" class="env-btn local">Local</button>
       <button id="env-prod" class="env-btn prod active">Prod</button>
     </div>
     
-    <!-- Mode switch (Shell/App) -->
-    <div class="mode-switch">
-      <button id="mode-shell" class="mode-btn shell-mode active">Shell</button>
-      <button id="mode-app" class="mode-btn app-mode">App</button>
-    </div>
-    
-    <div class="slider-group">
-      <span class="slider-label">Opacity</span>
-      <input type="range" id="opacity-slider" min="0" max="100" value="70">
-      <span id="opacity-value">70%</span>
-    </div>
-    
-    <span class="hint"><kbd>⌘`</kbd> toggle · <kbd>⌘H</kbd> hide bar</span>
+    <span class="hint"><kbd>⌘`</kbd> flip · <kbd>⌘H</kbd> hide bar</span>
   </div>
   
-  <!-- Terminal overlay below control bar -->
-  <div id="terminal-overlay">
-    <div id="terminal-bg"></div>
-    <div id="terminal-container"></div>
+  <!-- Device wrapper for 3D centering -->
+  <div id="device-wrapper">
+    <!-- 3D Flip Container - the "device" -->
+    <div id="flip-container">
+      <!-- Front Face - AC App -->
+      <div id="front-face">
+        <webview id="ac-webview" src="about:blank" allowpopups></webview>
+      </div>
+      
+      <!-- Back Face - Terminal -->
+      <div id="back-face">
+        <div id="terminal-container"></div>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -347,20 +404,19 @@
     // Elements
     const webview = document.getElementById('ac-webview');
     const controlBar = document.getElementById('control-bar');
-    const terminalOverlay = document.getElementById('terminal-overlay');
-    const terminalBg = document.getElementById('terminal-bg');
+    const flipContainer = document.getElementById('flip-container');
+    const frontFace = document.getElementById('front-face');
+    const backFace = document.getElementById('back-face');
     const terminalContainer = document.getElementById('terminal-container');
     const connectionOverlay = document.getElementById('connection-overlay');
     const statusMessage = document.getElementById('status-message');
     const statusDetail = document.getElementById('status-detail');
     const retryCount = document.getElementById('retry-count');
-    const modeShellBtn = document.getElementById('mode-shell');
-    const modeAppBtn = document.getElementById('mode-app');
+    const flipBtn = document.getElementById('flip-btn');
+    const envSwitch = document.getElementById('env-switch');
     const envLocalBtn = document.getElementById('env-local');
     const envProdBtn = document.getElementById('env-prod');
     const modeIndicator = document.getElementById('mode-indicator');
-    const opacitySlider = document.getElementById('opacity-slider');
-    const opacityValue = document.getElementById('opacity-value');
 
     // URLs
     const URLS = {
@@ -373,7 +429,7 @@
     let attempts = 0;
     let serverConnected = false;
     let checkInterval = null;
-    let currentMode = 'shell'; // 'shell' or 'app'
+    let showingBack = true; // Start showing back (terminal)
     let controlBarVisible = true;
     
     // Helper to build AC URL with electron-specific params
@@ -391,6 +447,8 @@
       scrollback: 5000,
       fastScrollModifier: 'alt',
       fastScrollSensitivity: 5,
+      // Disable OSC query responses - prevents ]11;rgb:... from being sent back
+      allowProposedApi: true,
       theme: {
         background: 'transparent',
         foreground: '#eee',
@@ -483,25 +541,54 @@
       setTimeout(() => fitAddon.fit(), 50);
     }
 
-    // ========== Mode Switching ==========
-    function setMode(mode) {
-      currentMode = mode;
+    // ========== Flip Animation ==========
+    function flip() {
+      showingBack = !showingBack;
       
-      if (mode === 'shell') {
-        terminalOverlay.classList.remove('passthrough');
-        modeShellBtn.classList.add('active');
-        modeAppBtn.classList.remove('active');
-        modeIndicator.textContent = '🩸 Shell Mode';
-        modeIndicator.className = 'shell-active visible';
-        term.focus();
+      const frontFace = document.getElementById('front-face');
+      const backFace = document.getElementById('back-face');
+      
+      if (showingBack) {
+        // Show back (terminal) - swap z-index, crossfade opacity
+        frontFace.style.zIndex = '1';
+        frontFace.style.opacity = '0.08';
+        backFace.style.zIndex = '2';
+        backFace.style.opacity = '1';
+        
+        // Webview ghost, terminal full
+        webview.style.opacity = '0.08';
+        webview.style.transition = 'opacity 0.5s ease';
+        terminalContainer.style.opacity = '1';
+        terminalContainer.style.transition = 'opacity 0.5s ease';
+        
+        document.body.classList.add('showing-back');
+        modeIndicator.textContent = '🩸 Back';
+        modeIndicator.className = 'back-active visible';
+        envSwitch.style.display = 'none';
+        
+        setTimeout(() => {
+          term.focus();
+          fitAddon.fit();
+        }, 200);
       } else {
-        terminalOverlay.classList.add('passthrough');
-        modeShellBtn.classList.remove('active');
-        modeAppBtn.classList.add('active');
-        modeIndicator.textContent = '⚡ App Mode';
-        modeIndicator.className = 'app-active visible';
-        // Focus the webview so it receives input
-        webview.focus();
+        // Show front (app) - swap z-index, crossfade opacity
+        frontFace.style.zIndex = '2';
+        frontFace.style.opacity = '1';
+        backFace.style.zIndex = '1';
+        backFace.style.opacity = '0.08';
+        
+        // Terminal ghost, webview full
+        webview.style.opacity = '1';
+        webview.style.transition = 'opacity 0.5s ease';
+        terminalContainer.style.opacity = '0.08';
+        terminalContainer.style.transition = 'opacity 0.5s ease';
+        
+        document.body.classList.remove('showing-back');
+        modeIndicator.textContent = '⚡ Front';
+        modeIndicator.className = 'front-active visible';
+        envSwitch.style.display = 'flex';
+        
+        setTimeout(() => webview.focus(), 200);
       }
       
       // Hide indicator after a moment
@@ -509,19 +596,22 @@
         modeIndicator.classList.remove('visible');
       }, 1000);
     }
+    
+    // Initialize - start with back showing (terminal)
+    flipContainer.classList.add('flipped');
+    document.body.classList.add('showing-back');
+    envSwitch.style.display = 'none';
+    // Set initial opacity states
+    webview.style.opacity = '0.08';
+    terminalContainer.style.opacity = '1';
 
-    function toggleMode() {
-      setMode(currentMode === 'shell' ? 'app' : 'shell');
-    }
-
-    // Mode button clicks
-    modeShellBtn.addEventListener('click', () => setMode('shell'));
-    modeAppBtn.addEventListener('click', () => setMode('app'));
+    // Flip button click
+    flipBtn.addEventListener('click', flip);
 
     // Keyboard shortcuts
     document.addEventListener('keydown', async (e) => {
-      // Cmd+C to copy selected text from terminal (when in shell mode)
-      if ((e.metaKey || e.ctrlKey) && e.key === 'c' && currentMode === 'shell') {
+      // Cmd+C to copy selected text from terminal (when showing back)
+      if ((e.metaKey || e.ctrlKey) && e.key === 'c' && showingBack) {
         if (term.hasSelection()) {
           e.preventDefault();
           const selection = term.getSelection();
@@ -530,7 +620,7 @@
         // If no selection, let Ctrl+C pass through to terminal (interrupt)
       }
       // Cmd+V to paste into terminal
-      if ((e.metaKey || e.ctrlKey) && e.key === 'v' && currentMode === 'shell') {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'v' && showingBack) {
         e.preventDefault();
         try {
           const text = await navigator.clipboard.readText();
@@ -541,48 +631,32 @@
           // Clipboard access denied
         }
       }
-      // Cmd+` to toggle shell/app mode
+      // Cmd+` to flip
       if ((e.metaKey || e.ctrlKey) && e.key === '`') {
         e.preventDefault();
-        toggleMode();
+        flip();
       }
       // Cmd+H to toggle control bar visibility
       if ((e.metaKey || e.ctrlKey) && e.key === 'h') {
         e.preventDefault();
         toggleControlBar();
       }
-      // Cmd+1 for local, Cmd+2 for prod
-      if ((e.metaKey || e.ctrlKey) && e.key === '1') {
+      // Cmd+1 for local, Cmd+2 for prod (only when showing front)
+      if ((e.metaKey || e.ctrlKey) && e.key === '1' && !showingBack) {
         e.preventDefault();
         setEnv('local');
       }
-      if ((e.metaKey || e.ctrlKey) && e.key === '2') {
+      if ((e.metaKey || e.ctrlKey) && e.key === '2' && !showingBack) {
         e.preventDefault();
         setEnv('prod');
       }
       // Cmd+Shift+R to trigger full app reboot (electric-snake-bite)
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'R') {
         e.preventDefault();
-        console.log('[dev] ⚡🐍 Electric Snake Bite - Rebooting app...');
         term.writeln('\r\n\x1b[95m⚡🐍 Electric Snake Bite - Rebooting Electron...\x1b[0m\r\n');
         await ipcRenderer.invoke('app-reboot');
       }
     });
-
-    // ========== Opacity Slider ==========
-    function updateOpacity(value) {
-      // Apply opacity to the entire terminal overlay (text + background)
-      const opacity = value / 100;
-      terminalOverlay.style.opacity = opacity;
-      opacityValue.textContent = value + '%';
-    }
-    
-    opacitySlider.addEventListener('input', (e) => {
-      updateOpacity(parseInt(e.target.value));
-    });
-    
-    // Initialize opacity
-    updateOpacity(parseInt(opacitySlider.value));
 
     // ========== Server Connection ==========
     async function checkServer() {
@@ -701,13 +775,14 @@
         ipcRenderer.on('pty-data', (event, data) => {
           dataCount++;
           
-          // Check for electric-snake-bite escape sequence
+          // Check for electric-snake-bite escape sequence (must be the FULL OSC sequence)
           escapeBuffer += data;
           if (escapeBuffer.length > 100) {
             escapeBuffer = escapeBuffer.slice(-50); // Keep buffer small
           }
           
-          if (escapeBuffer.includes('electric-snake-bite')) {
+          // Only trigger on the actual OSC 9999 escape sequence, not plain text
+          if (escapeBuffer.includes('\x1b]9999;electric-snake-bite')) {
             escapeBuffer = '';
             // Don't write the escape sequence to terminal
             const cleanData = data.replace(/\x1b\]9999;electric-snake-bite\x07/g, '');
@@ -721,12 +796,38 @@
         });
         // Filter out terminal query responses before sending to PTY
         // These are responses to OSC queries like ]11;rgb:... (background color)
+        // Buffer small inputs to catch responses that come character by character
+        let inputBuffer = '';
+        let inputTimeout = null;
+        
         term.onData((data) => {
-          // Filter out OSC responses (]10;..., ]11;..., etc) and DA responses
-          if (data.match(/^\x1b\]1[0-9];/) || data.match(/^\x1b\[\?/)) {
-            return;
-          }
-          ipcRenderer.send('pty-input', data);
+          // Accumulate data
+          inputBuffer += data;
+          
+          // Clear any pending flush
+          if (inputTimeout) clearTimeout(inputTimeout);
+          
+          // Flush after short delay or when buffer gets large enough
+          inputTimeout = setTimeout(() => {
+            const toSend = inputBuffer;
+            inputBuffer = '';
+            
+            // Filter out OSC responses
+            // Check for escape sequence form
+            if (toSend.match(/\x1b\]1[0-9];/) || toSend.match(/\x1b\[\?/)) {
+              return;
+            }
+            // Filter plain OSC responses without escape
+            if (toSend.match(/^\]1[0-9];/) || toSend.match(/\]1[0-9];rgb:/)) {
+              return;
+            }
+            // Filter responses that contain rgb: color data or OSC markers
+            if (toSend.includes(';rgb:') || toSend.includes(']11;') || toSend.includes(']10;')) {
+              return;
+            }
+            
+            ipcRenderer.send('pty-input', toSend);
+          }, 5); // 5ms buffer - enough to catch multi-char sequences
         });
         ipcRenderer.on('pty-exit', (event, code) => {
           term.writeln(`\r\n\x1b[33mShell exited with code ${code}\x1b[0m`);

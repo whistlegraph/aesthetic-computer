@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Terminal (Offscreen)</title>
+  <link rel="stylesheet" href="../node_modules/@xterm/xterm/css/xterm.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { 
+      width: 100%; 
+      height: 100%; 
+      overflow: hidden;
+      background: #0a0012;
+    }
+    
+    #terminal-container {
+      width: 100%;
+      height: 100%;
+      padding: 20px;
+    }
+    
+    .xterm {
+      height: 100%;
+    }
+    
+    /* Purple terminal theme - matching development.html */
+    .xterm-viewport {
+      background: transparent !important;
+    }
+    
+    .xterm-screen {
+      background: transparent !important;
+    }
+  </style>
+</head>
+<body>
+  <div id="terminal-container"></div>
+  
+  <script>
+    const { Terminal } = require('@xterm/xterm');
+    const { FitAddon } = require('@xterm/addon-fit');
+    const { ipcRenderer } = require('electron');
+    
+    // ========== Terminal Setup - Matching development.html ==========
+    const term = new Terminal({
+      fontFamily: '"Berkeley Mono", "SF Mono", "Fira Code", "Cascadia Code", Menlo, monospace',
+      fontSize: 15,
+      lineHeight: 1.3,
+      letterSpacing: 0,
+      cursorBlink: true,
+      cursorStyle: 'bar',
+      allowTransparency: true,
+      theme: {
+        background: 'rgba(10, 0, 18, 0.95)',
+        foreground: '#e0d0ff',
+        cursor: '#ff66ff',
+        cursorAccent: '#0a0012',
+        selectionBackground: 'rgba(180, 100, 255, 0.4)',
+        selectionForeground: '#ffffff',
+        black: '#1a0a2e',
+        red: '#ff5555',
+        green: '#50fa7b',
+        yellow: '#f1fa8c',
+        blue: '#6272a4',
+        magenta: '#ff79c6',
+        cyan: '#8be9fd',
+        white: '#f8f8f2',
+        brightBlack: '#4d4d4d',
+        brightRed: '#ff6e6e',
+        brightGreen: '#69ff94',
+        brightYellow: '#ffffa5',
+        brightBlue: '#d6acff',
+        brightMagenta: '#ff92df',
+        brightCyan: '#a4ffff',
+        brightWhite: '#ffffff'
+      }
+    });
+    
+    const fitAddon = new FitAddon();
+    term.loadAddon(fitAddon);
+    
+    const container = document.getElementById('terminal-container');
+    term.open(container);
+    
+    // NOTE: WebGL addon disabled for offscreen rendering compatibility
+    // The paint event capture doesn't work well with WebGL content
+    // Canvas2D rendering works better for texture capture
+    
+    fitAddon.fit();
+    
+    // Welcome message
+    term.writeln('\x1b[35m╔══════════════════════════════════════╗\x1b[0m');
+    term.writeln('\x1b[35m║\x1b[0m  \x1b[1;95mAesthetic Computer\x1b[0m - Terminal      \x1b[35m║\x1b[0m');
+    term.writeln('\x1b[35m║\x1b[0m  \x1b[90m3D Offscreen Renderer\x1b[0m              \x1b[35m║\x1b[0m');
+    term.writeln('\x1b[35m╚══════════════════════════════════════╝\x1b[0m');
+    term.writeln('');
+    term.writeln('\x1b[33mConnecting to devcontainer...\x1b[0m');
+    
+    // Listen for PTY data from main process
+    ipcRenderer.on('pty-data', (event, data) => {
+      term.write(data);
+    });
+    
+    // Send terminal input to PTY
+    term.onData((data) => {
+      ipcRenderer.send('offscreen-pty-input', data);
+    });
+    
+    // Handle resize
+    window.addEventListener('resize', () => {
+      fitAddon.fit();
+    });
+    
+    // Request PTY connection from main process
+    ipcRenderer.send('connect-offscreen-pty');
+  </script>
+</body>
+</html>

@@ -8,7 +8,9 @@
     "dev": "node -e \"require('child_process').spawn(require('path').join(__dirname, 'node_modules/electron/dist/Electron.app/Contents/MacOS/Electron'), ['.', '--dev'], {stdio: 'inherit', cwd: __dirname})\"",
     "electron": "./node_modules/electron/dist/Electron.app/Contents/MacOS/Electron",
     "icons": "node scripts/generate-icons.mjs",
-    "prebuild": "npm run icons",
+    "native:build": "cd native/osr-gpu && npm install && npm run build",
+    "native:rebuild": "electron-rebuild -f -w osr-gpu -o native/osr-gpu",
+    "prebuild": "npm run icons && npm run native:build || echo 'Native addon build skipped'",
     "build": "electron-builder --mac --win --linux",
     "build:mac": "electron-builder --mac --universal",
     "build:win": "electron-builder --win --x64",
@@ -48,10 +50,13 @@
     "files": [
       "main.js",
       "preload.js",
+      "offscreen-manager.js",
       "renderer/**/*",
+      "native/osr-gpu/build/Release/*.node",
       "!node_modules/**/*",
       "node_modules/@xterm/**/*",
-      "node_modules/node-pty/**/*"
+      "node_modules/node-pty/**/*",
+      "node_modules/three/**/*"
     ],
     "win": {
       "target": [
@@ -94,6 +99,7 @@
     "@xterm/addon-webgl": "^0.18.0",
     "@xterm/xterm": "^5.5.0",
     "electron-updater": "^6.3.9",
-    "node-pty": "^1.1.0"
+    "node-pty": "^1.1.0",
+    "three": "^0.182.0"
   }
 }
