@@ -176,7 +176,7 @@ const LEGITIMATE_PARAMS = [
   'icon', 'preview', 'signup', 'supportSignUp', 'success', 'code', 
   'supportForgotPassword', 'message', 'vscode', 'nogap', 'nolabel', 
   'density', 'zoom', 'duration', 'session-aesthetic', 'session-sotce', 'notice', 'tv', 'highlight',
-  'noauth', 'nocache', 'daw', 'width', 'height'
+  'noauth', 'nocache', 'daw', 'width', 'height', 'desktop'
 ];
 
 // Auth0 parameters that need to be temporarily processed but then removed
@@ -566,10 +566,13 @@ const params = extractLegitimateParams(window.location.href);
 if (params.has("noauth")) window.acNOAUTH = true;
 if (params.has("nocache")) window.acNOCACHE = true;
 
-const nogap = params.has("nogap") || location.search.includes("nogap") || location.host.includes("wipppps.world");
+const nogap = params.has("nogap") || params.has("desktop") || location.search.includes("nogap") || location.host.includes("wipppps.world");
 
 // Check for nolabel parameter (no localStorage persistence)
-const nolabel = params.has("nolabel") || location.search.includes("nolabel");
+const nolabel = params.has("nolabel") || params.has("desktop") || location.search.includes("nolabel");
+
+// Check for desktop mode (Electron app) - combines nogap + nolabel
+const desktop = params.has("desktop") || location.search.includes("desktop");
 
 // Check for density parameter with localStorage persistence
 const densityParam = params.get("density");
@@ -645,6 +648,11 @@ if (nogap) {
   document.body.classList.add("nogap");
 }
 
+// Apply desktop class for Electron-specific styling
+if (desktop) {
+  document.body.classList.add("desktop");
+}
+
 // Force dark background when in VSCode (like when not embedded)
 if (window.acVSCODE) {
   document.body.classList.add("vscode");
@@ -652,7 +660,7 @@ if (window.acVSCODE) {
 
 // Pass the parameters directly without stripping them
 bootLog(`booting: ${parsed?.text || 'prompt'}`);
-boot(parsed, bpm, { gap: nogap ? 0 : undefined, nolabel, density, zoom, duration, tv, highlight }, debug);
+boot(parsed, bpm, { gap: nogap ? 0 : undefined, nolabel, density, zoom, duration, tv, highlight, desktop }, debug);
 
 // Start processing any early kidlisp messages that arrived before boot completed
 processEarlyKidlispQueue();
