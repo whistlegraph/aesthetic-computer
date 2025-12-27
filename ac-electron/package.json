@@ -1,6 +1,6 @@
 {
   "name": "aesthetic-computer",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Aesthetic Computer - Creative coding platform",
   "homepage": "https://aesthetic.computer",
   "author": "Aesthetic Computer <hi@aesthetic.computer>",
@@ -98,8 +98,6 @@
     "art",
     "graphics"
   ],
-  "author": "Aesthetic Computer <hi@aesthetic.computer>",
-  "license": "MIT",
   "devDependencies": {
     "electron": "^33.4.11",
     "electron-builder": "^25.1.8",
