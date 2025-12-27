@@ -872,6 +872,14 @@ ipcMain.on('pty-resize', (event, cols, rows) => {
   }
 });
 
+// Global window move handler (for alt+scroll drag in any window)
+ipcMain.on('move-window', (event, position) => {
+  const senderWindow = BrowserWindow.fromWebContents(event.sender);
+  if (senderWindow) {
+    senderWindow.setPosition(Math.round(position.x), Math.round(position.y));
+  }
+});
+
 ipcMain.handle('switch-mode', async (event, mode) => {
   // In multi-window mode, we open a new window instead of switching
   if (mode === 'development') {
