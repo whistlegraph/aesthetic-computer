@@ -65,5 +65,7 @@
     "system/netlify/edge-functions"
   ],
   "deno.unstable": true,
-  "deno.importMap": ".netlify/edge-functions-import-map.json"
+  "deno.importMap": ".netlify/edge-functions-import-map.json",
+  "task.quickOpen.showAll": true,
+  "task.allowAutomaticTasks": "on"
 }
