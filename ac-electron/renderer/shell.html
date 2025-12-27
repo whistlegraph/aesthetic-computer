@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aesthetic Computer Shell</title>
+  <link rel="stylesheet" href="../node_modules/@xterm/xterm/css/xterm.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { 
+      width: 100%; 
+      height: 100%; 
+      overflow: hidden; 
+      background: #0a0a12; 
+    }
+    #terminal-container {
+      width: 100%;
+      height: 100%;
+      padding: 8px;
+    }
+    .xterm { height: 100%; }
+  </style>
+</head>
+<body>
+  <div id="terminal-container"></div>
+
+  <script>
+    // With nodeIntegration enabled, we can use require() directly
+    const { Terminal } = require('@xterm/xterm');
+    const { FitAddon } = require('@xterm/addon-fit');
+    const { WebglAddon } = require('@xterm/addon-webgl');
+    const { ipcRenderer } = require('electron');
+
+    const terminalContainer = document.getElementById('terminal-container');
+
+    // Initialize terminal with performance optimizations
+    const term = new Terminal({
+      cursorBlink: true,
+      cursorStyle: 'block',
+      fontSize: 14,
+      fontFamily: "'SF Mono', 'Fira Code', 'Cascadia Code', monospace",
+      theme: {
+        background: '#0a0a12',
+        foreground: '#eee',
+        cursor: '#f0f',
+        cursorAccent: '#0a0a12',
+        selectionBackground: 'rgba(255, 0, 255, 0.3)',
+        black: '#1a1a2e',
+        red: '#ff5555',
+        green: '#50fa7b',
+        yellow: '#f1fa8c',
+        blue: '#6272a4',
+        magenta: '#ff79c6',
+        cyan: '#8be9fd',
+        white: '#f8f8f2',
+      },
+      allowTransparency: false, // Disabled for WebGL performance
+      scrollback: 5000,
+      fastScrollModifier: 'alt',
+      fastScrollSensitivity: 5,
+    });
+
+    const fitAddon = new FitAddon();
+    term.loadAddon(fitAddon);
+    term.open(terminalContainer);
+    
+    // Load WebGL addon for GPU-accelerated rendering
+    try {
+      const webglAddon = new WebglAddon();
+      webglAddon.onContextLoss(() => {
+        webglAddon.dispose();
+      });
+      term.loadAddon(webglAddon);
+      console.log('[shell] WebGL renderer enabled');
+    } catch (e) {
+      console.warn('[shell] WebGL not available, using canvas renderer');
+    }
+    
+    // Fit after a short delay to ensure container is sized
+    setTimeout(() => fitAddon.fit(), 50);
+
+    // Resize handling
+    const resizeObserver = new ResizeObserver(() => {
+      fitAddon.fit();
+      ipcRenderer.send('pty-resize', term.cols, term.rows);
+    });
+    resizeObserver.observe(terminalContainer);
+
+    // Connect to PTY
+    async function initShell() {
+      try {
+        // Check Docker
+        const dockerOk = await ipcRenderer.invoke('check-docker');
+        if (!dockerOk) {
+          term.writeln('\x1b[31mError: Docker not running\x1b[0m');
+          return;
+        }
+
+        // Check container
+        const containerOk = await ipcRenderer.invoke('check-container');
+        if (!containerOk) {
+          term.writeln('\x1b[33mStarting devcontainer...\x1b[0m');
+          await ipcRenderer.invoke('start-container');
+        }
+
+        // Connect PTY
+        const connected = await ipcRenderer.invoke('connect-pty');
+        if (!connected) {
+          term.writeln('\x1b[31mFailed to connect to shell\x1b[0m');
+          return;
+        }
+
+        // PTY data → terminal
+        ipcRenderer.on('pty-data', (event, data) => {
+          term.write(data);
+        });
+
+        // Terminal input → PTY
+        term.onData((data) => {
+          ipcRenderer.send('pty-input', data);
+        });
+
+        // PTY exit
+        ipcRenderer.on('pty-exit', (event, code) => {
+          term.writeln(`\r\n\x1b[33mShell exited with code ${code}\x1b[0m`);
+        });
+
+        // Send initial resize
+        ipcRenderer.send('pty-resize', term.cols, term.rows);
+        
+        // Auto-start emacs after a brief delay for shell to initialize
+        setTimeout(() => {
+          ipcRenderer.send('pty-input', 'ac-aesthetic\n');
+        }, 500);
+
+      } catch (err) {
+        term.writeln(`\x1b[31mError: ${err.message}\x1b[0m`);
+      }
+    }
+
+    // Expose reboot function globally for easy access
+    window.rebootApp = async () => {
+      console.log('Requesting app reboot...');
+      try {
+        const result = await ipcRenderer.invoke('app-reboot');
+        console.log('Reboot initiated:', result);
+        return result;
+      } catch (err) {
+        console.error('Reboot failed:', err);
+        throw err;
+      }
+    };
+
+    initShell();
+  </script>
+</body>
+</html>

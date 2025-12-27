@@ -21,7 +21,7 @@ ENV MANPAGER=cat
 # --- Base toolchain & deps ----------------------------------------------------
 RUN dnf update -y && \
     dnf install -y \
-      awk which tree procps-ng coreutils unzip jq bat ripgrep \
+      awk which tree procps-ng htop coreutils unzip jq bat ripgrep \
       git gh gcc gcc-c++ clang make cmake \
       python3.11 python3.11-devel python3-pip python3-devel \
       emacs-nox fish util-linux-user util-linux-script sshpass \
@@ -208,7 +208,7 @@ RUN echo 'fnm env --use-on-cd --shell fish | source' > /home/me/.config/fish/con
     /home/me/.fnm/fnm install 20.5.0 && \
     /home/me/.fnm/fnm default lts-jod && \
     /home/me/.fnm/fnm use lts-jod && \
-    npm i -g prettier typescript typescript-language-server npm-check-updates @anthropic-ai/claude-code @openai/codex netlify-cli wrangler && \
+    npm i -g prettier typescript typescript-language-server npm-check-updates @anthropic-ai/claude-code @openai/codex netlify-cli wrangler @github/copilot && \
     echo 'fnm use lts-jod' >> /home/me/.config/fish/config.fish && \
     chown -R me:me /home/me/.config/fish
 
