@@ -319,15 +319,15 @@ function = "media"
 # Desktop app download shortcuts
 [[redirects]]
 from = "/desktop/mac"
-to = "https://github.com/whistlegraph/aesthetic-computer/releases/latest/download/Aesthetic-Computer-0.1.0-universal.dmg"
+to = "https://github.com/whistlegraph/aesthetic-computer/releases/latest/download/Aesthetic.Computer-0.1.0-universal.dmg"
 status = 302
 [[redirects]]
 from = "/desktop/win"
-to = "https://github.com/whistlegraph/aesthetic-computer/releases/latest/download/Aesthetic-Computer-Setup-0.1.0.exe"
+to = "https://github.com/whistlegraph/aesthetic-computer/releases/latest/download/Aesthetic.Computer.Setup.0.1.0.exe"
 status = 302
 [[redirects]]
 from = "/desktop/linux"
-to = "https://github.com/whistlegraph/aesthetic-computer/releases/latest/download/Aesthetic-Computer-0.1.0.AppImage"
+to = "https://github.com/whistlegraph/aesthetic-computer/releases/latest/download/Aesthetic.Computer-0.1.0.AppImage"
 status = 302
 [[redirects]]
 from = "/desktop/fedora"
