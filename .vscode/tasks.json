@@ -16,7 +16,8 @@
         "panel": "dedicated"
       },
       "runOptions": {
-        "runOn": "folderOpen"
+        "runOn": "folderOpen",
+        "instanceLimit": 1
       }
     }
   ]
