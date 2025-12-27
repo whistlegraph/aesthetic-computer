@@ -1093,13 +1093,16 @@ Skips creation if tab already exists."
                           tab-name commands)
           (setq delay (+ delay 0.3)))))  ; 300ms between each tab
 
-    ;; Switch to the requested tab (after all tabs created - 8 tabs * 0.3s = 2.4s + buffer)
-    (run-with-timer 3.0 nil
+    ;; Switch to the requested tab (after all tabs created - 10 tabs * 0.3s = 3s + buffer)
+    (run-with-timer 4.0 nil
                     (lambda (target)
                       (condition-case nil
                           (if (member target '("artery" "fishy" "status" "stripe" "chat" "web 1/2" "web 2/2" "tests" "llm" "top"))
                               (progn
                                 (tab-bar-switch-to-tab target)
+                                ;; Also refresh the buffer to ensure it's scrolled properly
+                                (when (eq major-mode 'eat-mode)
+                                  (goto-char (point-max)))
                                 (redisplay t))
                             (message "No such tab: %s" target))
                         (error nil)))
