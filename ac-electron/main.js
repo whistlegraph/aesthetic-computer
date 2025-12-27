@@ -118,10 +118,10 @@ const startWithShell = args.includes('--shell');
 const pieceArg = args.find(a => a.startsWith('--piece=')) || args[args.indexOf('--piece') + 1];
 const initialPiece = pieceArg?.replace('--piece=', '') || 'prompt';
 
-// URLs
+// URLs - nogap removes the aesthetic gap border for desktop mode
 const URLS = {
-  production: `https://aesthetic.computer/${initialPiece}`,
-  development: `http://localhost:8888/${initialPiece}`
+  production: `https://aesthetic.computer/${initialPiece}?nogap=true`,
+  development: `http://localhost:8888/${initialPiece}?nogap=true`
 };
 
 // Track all windows: windowId -> { window, mode, ptyProcess? }
@@ -468,7 +468,7 @@ function createMenu() {
 function navigateTo(piece) {
   const mode = getFocusedWindowMode();
   const baseUrl = mode === 'production' ? 'https://aesthetic.computer' : 'http://localhost:8888';
-  getFocusedWindow()?.webContents.send('navigate', `${baseUrl}/${piece}`);
+  getFocusedWindow()?.webContents.send('navigate', `${baseUrl}/${piece}?nogap=true`);
 }
 
 function createWindow(mode = 'production') {
