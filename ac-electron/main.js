@@ -664,9 +664,9 @@ function openKidLispWindow() {
 let ptyProcessFor3D = null;
 
 async function open3DWindow() {
-  // Start with a wide window
+  // Start with a wide window - extra height for mode tags at bottom
   const winWidth = 680;
-  const winHeight = 480;
+  const winHeight = 520;
   
   const win = new BrowserWindow({
     width: winWidth,
@@ -677,6 +677,7 @@ async function open3DWindow() {
     frame: false,
     transparent: true,
     hasShadow: false,
+    alwaysOnTop: true,
     backgroundColor: '#00000000',
     webPreferences: {
       nodeIntegration: true,
@@ -933,14 +934,15 @@ async function startContainerAndEmacs(dockerPath, webContents) {
   
   // Connect PTY - run aesthetic-backend to set up tabs
   ptyProcessFor3D = pty.spawn(dockerPath, [
-    'exec', '-it', 'aesthetic',
+    'exec', '-it', '-e', 'LANG=en_US.UTF-8', '-e', 'LC_ALL=en_US.UTF-8',
+    'aesthetic',
     'emacsclient', '-nw', '-c', '--eval', "(aesthetic-backend 'llm)"
   ], {
     name: 'xterm-256color',
     cols: 120,
     rows: 40,
     cwd: process.env.HOME,
-    env: { ...process.env, TERM: 'xterm-256color' }
+    env: { ...process.env, TERM: 'xterm-256color', LANG: 'en_US.UTF-8', LC_ALL: 'en_US.UTF-8' }
   });
   
   ptyProcessFor3D.onData((data) => {
@@ -978,6 +980,7 @@ function startLocalShellForFlip(webContents) {
     cols: 120,
     rows: 40,
     cwd: process.env.HOME,
+    env: { ...process.env, TERM: 'xterm-256color', LANG: 'en_US.UTF-8', LC_ALL: 'en_US.UTF-8' },
     env: { ...process.env, TERM: 'xterm-256color' }
   });
   
