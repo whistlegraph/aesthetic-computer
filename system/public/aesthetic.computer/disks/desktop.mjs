@@ -117,14 +117,22 @@ function paint({ wipe, ink, write, screen, box, line }) {
   }
   
   // Features list
-  const featY = btnY + btnH + 50;
+  const featY = btnY + btnH + 40;
   ink(100, 200, 255);
   write("✨ Features:", { x: cx - 80, y: featY });
   ink(180, 180, 200);
-  write("• Flip between web & terminal", { x: cx - 80, y: featY + 16 });
-  write("• Emacs with devcontainer", { x: cx - 80, y: featY + 30 });
-  write("• Independent zoom levels", { x: cx - 80, y: featY + 44 });
-  write("• Transparent, frameless window", { x: cx - 80, y: featY + 58 });
+  write("• Flip between web & terminal", { x: cx - 80, y: featY + 14 });
+  write("• Emacs with devcontainer", { x: cx - 80, y: featY + 26 });
+  write("• Alt+scroll to drag window", { x: cx - 80, y: featY + 38 });
+  
+  // macOS install note
+  if (platform === "mac") {
+    const noteY = featY + 58;
+    ink(255, 180, 100);
+    write("⚠️ First launch:", { x: cx, y: noteY, center: "x" });
+    ink(160, 160, 180);
+    write("Right-click app → Open → Open", { x: cx, y: noteY + 14, center: "x" });
+  }
   
   // Footer
   ink(80, 80, 120);
