@@ -727,6 +727,26 @@ async function open3DWindow() {
   });
   
   ipcMain.on('flip-pty-input', (event, data) => {
+    // Check if we're waiting for a prompt response
+    if (pendingContainerPrompt) {
+      // Collect input until Enter is pressed
+      if (data === '\r' || data === '\n') {
+        handleContainerPromptResponse(pendingInputBuffer || '');
+        pendingInputBuffer = '';
+      } else if (data === '\x7f' || data === '\b') {
+        // Backspace
+        if (pendingInputBuffer && pendingInputBuffer.length > 0) {
+          pendingInputBuffer = pendingInputBuffer.slice(0, -1);
+          event.sender.send('flip-pty-data', '\b \b');
+        }
+      } else if (data.length === 1 && data.charCodeAt(0) >= 32) {
+        // Printable character
+        pendingInputBuffer = (pendingInputBuffer || '') + data;
+        event.sender.send('flip-pty-data', data);
+      }
+      return;
+    }
+    
     if (ptyProcessFor3D) {
       ptyProcessFor3D.write(data);
     }
@@ -780,6 +800,10 @@ async function open3DWindow() {
   return win;
 }
 
+// State for interactive prompt
+let pendingContainerPrompt = null;
+let pendingInputBuffer = '';
+
 async function ensureContainerForFlip(dockerPath, webContents) {
   const { spawn } = require('child_process');
   
@@ -812,7 +836,38 @@ async function ensureContainerForFlip(dockerPath, webContents) {
     return;
   }
   
-  // Always restart container to ensure clean state
+  // Ask user if they want to start the devcontainer
+  webContents.send('flip-pty-data', '\x1b[36mStart devcontainer with emacs? [y/n]: \x1b[0m');
+  
+  // Wait for user input
+  pendingContainerPrompt = { dockerPath, webContents };
+}
+
+// Handle user response to container prompt
+function handleContainerPromptResponse(response) {
+  if (!pendingContainerPrompt) return false;
+  
+  const { dockerPath, webContents } = pendingContainerPrompt;
+  pendingContainerPrompt = null;
+  
+  const answer = response.trim().toLowerCase();
+  
+  if (answer === 'y' || answer === 'yes') {
+    webContents.send('flip-pty-data', 'y\r\n');
+    startContainerAndEmacs(dockerPath, webContents);
+    return true;
+  } else {
+    webContents.send('flip-pty-data', answer ? `${answer}\r\n` : 'n\r\n');
+    webContents.send('flip-pty-data', '\x1b[33mStarting local shell instead...\x1b[0m\r\n\r\n');
+    startLocalShellForFlip(webContents);
+    return true;
+  }
+}
+
+async function startContainerAndEmacs(dockerPath, webContents) {
+  const { spawn } = require('child_process');
+  
+  // Restart container to ensure clean state
   webContents.send('flip-pty-data', '\x1b[33mRestarting container...\x1b[0m\r\n');
   await new Promise((resolve) => {
     const restart = spawn(dockerPath, ['restart', 'aesthetic'], { stdio: 'pipe' });
@@ -823,21 +878,63 @@ async function ensureContainerForFlip(dockerPath, webContents) {
   // Wait for container to be ready
   await new Promise(r => setTimeout(r, 2000));
   
-  // Start emacs daemon fresh
-  webContents.send('flip-pty-data', '\x1b[33mStarting emacs daemon...\x1b[0m\r\n');
+  // Kill any existing emacs daemon first
   await new Promise((resolve) => {
-    const emacs = spawn(dockerPath, ['exec', 'aesthetic', 'emacs', '--daemon'], { stdio: 'pipe' });
-    emacs.on('close', () => resolve());
-    emacs.on('error', () => resolve());
+    const kill = spawn(dockerPath, ['exec', 'aesthetic', 'pkill', '-9', '-f', 'emacs.*daemon'], { stdio: 'pipe' });
+    kill.on('close', () => resolve());
+    kill.on('error', () => resolve());
   });
   
-  // Wait for emacs to be ready
-  await new Promise(r => setTimeout(r, 1000));
+  await new Promise(r => setTimeout(r, 500));
   
-  // Connect PTY
+  // Start emacs daemon with AC config
+  webContents.send('flip-pty-data', '\x1b[33mStarting emacs daemon with AC config...\x1b[0m\r\n');
+  const configPath = '/home/me/aesthetic-computer/dotfiles/dot_config/emacs.el';
+  
+  // Start daemon and capture output
+  const emacsStartResult = await new Promise((resolve) => {
+    let output = '';
+    const emacs = spawn(dockerPath, ['exec', 'aesthetic', 'emacs', '-q', '--daemon', '-l', configPath], { stdio: 'pipe' });
+    emacs.stdout.on('data', (d) => output += d.toString());
+    emacs.stderr.on('data', (d) => output += d.toString());
+    emacs.on('close', (code) => resolve({ code, output }));
+    emacs.on('error', (err) => resolve({ code: -1, output: err.message }));
+  });
+  
+  console.log('[main] Emacs daemon started, code:', emacsStartResult.code);
+  if (emacsStartResult.output) {
+    console.log('[main] Emacs output:', emacsStartResult.output.substring(0, 500));
+  }
+  
+  // Wait for emacs daemon to be responsive (poll with emacsclient -e t)
+  webContents.send('flip-pty-data', '\x1b[33mWaiting for emacs daemon...\x1b[0m\r\n');
+  let emacsReady = false;
+  for (let i = 0; i < 30; i++) { // Max 30 seconds
+    const ready = await new Promise((resolve) => {
+      const check = spawn(dockerPath, ['exec', 'aesthetic', 'emacsclient', '-e', 't'], { stdio: 'pipe' });
+      check.on('close', (code) => resolve(code === 0));
+      check.on('error', () => resolve(false));
+    });
+    if (ready) {
+      emacsReady = true;
+      break;
+    }
+    await new Promise(r => setTimeout(r, 1000));
+    webContents.send('flip-pty-data', '.');
+  }
+  
+  if (!emacsReady) {
+    webContents.send('flip-pty-data', '\r\n\x1b[31mEmacs daemon failed to start. Falling back to fish shell.\x1b[0m\r\n');
+    startLocalShellForFlip(webContents);
+    return;
+  }
+  
+  webContents.send('flip-pty-data', ' ready!\r\n');
+  
+  // Connect PTY - run aesthetic-backend to set up tabs
   ptyProcessFor3D = pty.spawn(dockerPath, [
     'exec', '-it', 'aesthetic',
-    'fish', '-c', 'emacsclient -nw -a "" || fish'
+    'emacsclient', '-nw', '-c', '--eval', "(aesthetic-backend 'llm)"
   ], {
     name: 'xterm-256color',
     cols: 120,

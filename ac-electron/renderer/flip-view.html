@@ -366,7 +366,7 @@
       cursorBlink: true,
       cursorStyle: 'block',
       fontSize: 10,
-      fontFamily: "'SF Mono', 'Fira Code', 'Cascadia Code', monospace",
+      fontFamily: "'Menlo', 'DejaVu Sans Mono', 'Consolas', 'Liberation Mono', monospace",
       theme: {
         background: 'rgba(10, 10, 18, 0.95)',
         foreground: '#eee',
@@ -386,14 +386,15 @@
       scrollback: 5000,
       fastScrollModifier: 'alt',
       fastScrollSensitivity: 5,
+      drawBoldTextInBrightColors: true,
     });
     
     const fitAddon = new FitAddon();
     term.loadAddon(fitAddon);
     term.open(terminalContainer);
     
-    // Skip WebGL when using transparency - use canvas renderer
-    console.log('[flip] Using canvas renderer for transparency support');
+    // Use canvas renderer (WebGL has issues with block characters and colors)
+    console.log('[flip] Using canvas renderer for better character support');
     
     // Fit terminal to container and send initial size to PTY
     function fitTerminal() {
