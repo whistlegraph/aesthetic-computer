@@ -44,7 +44,7 @@ You are playing a character who tries to help me find the command I'm searching 
 
 - The following is a data set of all possible options for commands:
   - 'bgm', 'bits', 'blank', 'bleep', 'bubble', 'camera',
-  'channel', 'decode', 'baktok', 'painting'
+  'channel', 'decode', 'baktok', 'painting', 'desktop',
   'download', 'encode', 'ff', 'freaky-flowers', 'gargoyle', 'handle',
   'happy-hands-assembler', 'hha', 'liar', 'line', 'login',
   'logout', 'm2w2', 'melody', 'metronome', 'microphone',
@@ -1067,6 +1067,10 @@ async function halt($, text) {
   } else if (slug === "oven") {
     // 🔥 Jump to Oven dashboard
     jump(`https://oven.aesthetic.computer`);
+    return true;
+  } else if (slug === "desktop" || slug === "app" || slug === "electron") {
+    // 💻 Jump to Desktop app download page
+    jump("desktop");
     return true;
   } else if (slug === "r8dio:web" || slug === "radio:web") {
     // 📻 Jump to R8dio.dk website
