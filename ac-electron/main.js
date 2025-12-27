@@ -783,6 +783,19 @@ async function open3DWindow() {
 async function ensureContainerForFlip(dockerPath, webContents) {
   const { spawn } = require('child_process');
   
+  // First check if Docker is available at all
+  const dockerAvailable = await new Promise((resolve) => {
+    const check = spawn(dockerPath, ['info'], { stdio: 'pipe' });
+    check.on('close', (code) => resolve(code === 0));
+    check.on('error', () => resolve(false));
+  });
+  
+  if (!dockerAvailable) {
+    webContents.send('flip-pty-data', '\x1b[33mDocker not available. Starting local shell...\x1b[0m\r\n\r\n');
+    startLocalShellForFlip(webContents);
+    return;
+  }
+  
   // Check if container exists
   const containerExists = await new Promise((resolve) => {
     const check = spawn(dockerPath, ['ps', '-a', '--filter', 'name=aesthetic', '--format', '{{.Names}}'], { stdio: 'pipe' });
@@ -793,7 +806,9 @@ async function ensureContainerForFlip(dockerPath, webContents) {
   });
   
   if (!containerExists) {
-    webContents.send('flip-pty-data', '\x1b[31mNo container found. Please run devcontainer first.\x1b[0m\r\n');
+    webContents.send('flip-pty-data', '\x1b[33mNo AC container found. Starting local shell...\x1b[0m\r\n');
+    webContents.send('flip-pty-data', '\x1b[90m(Run "npm run aesthetic" in the repo to start the devcontainer)\x1b[0m\r\n\r\n');
+    startLocalShellForFlip(webContents);
     return;
   }
   
@@ -824,6 +839,44 @@ async function ensureContainerForFlip(dockerPath, webContents) {
     'exec', '-it', 'aesthetic',
     'fish', '-c', 'emacsclient -nw -a "" || fish'
   ], {
+    name: 'xterm-256color',
+    cols: 120,
+    rows: 40,
+    cwd: process.env.HOME,
+    env: { ...process.env, TERM: 'xterm-256color' }
+  });
+  
+  ptyProcessFor3D.onData((data) => {
+    if (!webContents.isDestroyed()) {
+      webContents.send('flip-pty-data', data);
+    }
+  });
+  
+  ptyProcessFor3D.onExit(() => {
+    if (!webContents.isDestroyed()) {
+      webContents.send('flip-pty-data', '\r\n\x1b[33m[Session ended]\x1b[0m\r\n');
+    }
+  });
+}
+
+// Start a local shell when docker isn't available
+function startLocalShellForFlip(webContents) {
+  // Find the best available shell
+  const shellOptions = process.platform === 'darwin' 
+    ? ['/opt/homebrew/bin/fish', '/usr/local/bin/fish', '/bin/zsh', '/bin/bash']
+    : ['/usr/bin/fish', '/bin/bash', '/bin/sh'];
+  
+  let shellPath = '/bin/sh';
+  for (const s of shellOptions) {
+    if (fs.existsSync(s)) {
+      shellPath = s;
+      break;
+    }
+  }
+  
+  console.log('[main] Starting local shell:', shellPath);
+  
+  ptyProcessFor3D = pty.spawn(shellPath, [], {
     name: 'xterm-256color',
     cols: 120,
     rows: 40,
