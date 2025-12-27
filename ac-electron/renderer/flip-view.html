@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aesthetic Computer</title>
+  <link rel="stylesheet" href="../node_modules/@xterm/xterm/css/xterm.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { 
+      width: 100%; 
+      height: 100%; 
+      overflow: hidden;
+      background: transparent;
+      font-family: system-ui, sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    
+    /* Container for both views - padded to allow outer tabs */
+    .container {
+      width: calc(100% - 32px);
+      height: 100%;
+      position: relative;
+      margin-left: 16px;
+      margin-right: 16px;
+    }
+    
+    /* Both views stack on top of each other */
+    .view {
+      position: absolute;
+      inset: 0;
+      transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1), 
+                  filter 0.6s cubic-bezier(0.4, 0, 0.2, 1), 
+                  transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+      border-radius: 12px;
+      overflow: hidden;
+      will-change: opacity, filter, transform;
+    }
+    
+    /* Front view - webview */
+    #front-view {
+      z-index: 2;
+      opacity: 1;
+    }
+    
+    #front-view.hidden {
+      opacity: 0.2;
+      pointer-events: none;
+      z-index: 3;
+      filter: blur(4px) brightness(1.2) saturate(1.3);
+      transform: scaleX(-1);
+    }
+    
+    #front-view webview {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+    
+    /* Back view - terminal */
+    #back-view {
+      z-index: 3;
+      background: rgba(10, 10, 18, 0.95);
+      opacity: 0.2;
+      filter: blur(4px) brightness(1.2) saturate(1.3);
+      transform: scaleX(-1);
+      pointer-events: none;
+    }
+    
+    #back-view.active {
+      z-index: 2;
+      opacity: 1;
+      filter: none;
+      transform: none;
+      pointer-events: auto;
+    }
+    
+    #terminal-container {
+      width: 100%;
+      height: 100%;
+    }
+    
+    .xterm { height: 100%; }
+    .xterm-viewport { padding-top: 0 !important; }
+    
+    /* Outer flip tabs */
+    .flip-tab {
+      position: fixed;
+      z-index: 250;
+      width: 16px;
+      top: 50%;
+      height: 80px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(136, 68, 255, 0.15);
+      transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+      will-change: transform, opacity;
+    }
+    
+    .flip-tab::after {
+      content: '';
+      width: 3px;
+      height: 30px;
+      background: rgba(136, 68, 255, 0.4);
+      border-radius: 2px;
+      transition: all 0.2s ease;
+    }
+    
+    .flip-tab:hover {
+      background: rgba(136, 68, 255, 0.3);
+    }
+    
+    .flip-tab:hover::after {
+      background: rgba(136, 68, 255, 0.8);
+      height: 50px;
+      box-shadow: 0 0 12px rgba(136, 68, 255, 0.5);
+    }
+    
+    .flip-tab.left {
+      left: 0;
+      border-radius: 8px 0 0 8px;
+      transform: translateY(-50%);
+    }
+    
+    .flip-tab.right {
+      right: 0;
+      border-radius: 0 8px 8px 0;
+      transform: translateY(-50%);
+    }
+    
+    /* Tabs animate outward during flip */
+    .flip-tab.flipping.left {
+      transform: translateY(-50%) translateX(-20px);
+      opacity: 0;
+    }
+    
+    .flip-tab.flipping.right {
+      transform: translateY(-50%) translateX(20px);
+      opacity: 0;
+    }
+    
+    /* Skeuomorphic mode tag - peeking from behind at bottom */
+    .mode-tag {
+      position: fixed;
+      z-index: 1; /* Behind the main content */
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      padding: 6px 20px 10px 20px;
+      text-transform: uppercase;
+      pointer-events: none;
+      border-radius: 8px 8px 0 0;
+      box-shadow: 0 -2px 8px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2);
+      transition: all 0.3s ease;
+    }
+    
+    .mode-tag::before {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 8px;
+      right: 8px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    }
+    
+    .mode-tag.localhost {
+      background: linear-gradient(180deg, #ff9500 0%, #e08600 100%);
+      color: #000;
+      text-shadow: 0 1px 0 rgba(255,255,255,0.3);
+    }
+    
+    .mode-tag.production {
+      background: linear-gradient(180deg, #00d464 0%, #00b354 100%);
+      color: #000;
+      text-shadow: 0 1px 0 rgba(255,255,255,0.3);
+    }
+    
+    /* Resize handles on all edges */
+    .resize-handle {
+      position: absolute;
+      z-index: 200;
+    }
+    
+    .resize-handle.top {
+      top: 0; left: 24px; right: 24px; height: 8px;
+      cursor: n-resize;
+      -webkit-app-region: drag;
+    }
+    
+    .resize-handle.bottom {
+      bottom: 0; left: 24px; right: 24px; height: 8px;
+      cursor: s-resize;
+    }
+    
+    .resize-handle.left {
+      left: 0; top: 8px; bottom: 8px; width: 8px;
+      cursor: w-resize;
+    }
+    
+    .resize-handle.right {
+      right: 0; top: 8px; bottom: 8px; width: 8px;
+      cursor: e-resize;
+    }
+    
+    .resize-handle.top-left {
+      top: 0; left: 0; width: 24px; height: 8px;
+      cursor: nw-resize;
+    }
+    
+    .resize-handle.top-right {
+      top: 0; right: 0; width: 24px; height: 8px;
+      cursor: ne-resize;
+    }
+    
+    .resize-handle.bottom-left {
+      bottom: 0; left: 0; width: 24px; height: 8px;
+      cursor: sw-resize;
+    }
+    
+    .resize-handle.bottom-right {
+      bottom: 0; right: 0; width: 24px; height: 8px;
+      cursor: se-resize;
+    }
+    
+    /* Overlay to capture mouse during resize drag */
+    .resize-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      cursor: inherit;
+      display: none;
+    }
+    
+    .resize-overlay.active {
+      display: block;
+    }
+    
+    /* Disable pointer events on content during resize */
+    body.resizing .view,
+    body.resizing webview {
+      pointer-events: none !important;
+    }
+
+  </style>
+</head>
+<body>
+  <!-- Overlay to capture mouse during resize -->
+  <div class="resize-overlay" id="resize-overlay"></div>
+  
+  <!-- Outer flip tabs (outside container for proper fixed positioning) -->
+  <div class="flip-tab left" data-flip></div>
+  <div class="flip-tab right" data-flip></div>
+  
+  <!-- Skeuomorphic mode tag peeking from behind -->
+  <div class="mode-tag" id="mode-tag">PROD</div>
+  
+  <div class="container">
+    <!-- Resize handles -->
+    <div class="resize-handle top" data-resize="top"></div>
+    <div class="resize-handle bottom" data-resize="bottom"></div>
+    <div class="resize-handle left" data-resize="left"></div>
+    <div class="resize-handle right" data-resize="right"></div>
+    <div class="resize-handle top-left" data-resize="top-left"></div>
+    <div class="resize-handle top-right" data-resize="top-right"></div>
+    <div class="resize-handle bottom-left" data-resize="bottom-left"></div>
+    <div class="resize-handle bottom-right" data-resize="bottom-right"></div>
+    
+    <!-- Front: AC Webview -->
+    <div class="view" id="front-view">
+      <webview id="front-webview" src="https://aesthetic.computer/prompt" allowpopups></webview>
+    </div>
+    
+    <!-- Back: Terminal -->
+    <div class="view" id="back-view">
+      <div id="terminal-container"></div>
+    </div>
+  </div>
+
+  <script>
+    const { Terminal } = require('@xterm/xterm');
+    const { FitAddon } = require('@xterm/addon-fit');
+    const { WebglAddon } = require('@xterm/addon-webgl');
+    const { ipcRenderer } = require('electron');
+    
+    const frontView = document.getElementById('front-view');
+    const backView = document.getElementById('back-view');
+    const webviewEl = document.getElementById('front-webview');
+    const modeTag = document.getElementById('mode-tag');
+    const flipTabs = document.querySelectorAll('.flip-tab');
+    let showingTerminal = false;
+    
+    // Detect if we're in localhost or production mode
+    const webviewSrc = webviewEl.getAttribute('src') || '';
+    const isLocalhost = webviewSrc.includes('localhost');
+    const modeText = isLocalhost ? 'LOCAL' : 'PROD';
+    const modeClass = isLocalhost ? 'localhost' : 'production';
+    
+    modeTag.textContent = modeText;
+    modeTag.classList.add(modeClass);
+    
+    console.log('[flip] Mode:', modeText, 'URL:', webviewSrc);
+    
+    // Listen for global flip shortcut from main process
+    ipcRenderer.on('toggle-flip', () => {
+      toggle();
+    });
+    
+    // ========== Zoom Handling ==========
+    let frontZoom = 1.0;
+    let terminalFontSize = 10;
+    
+    ipcRenderer.on('zoom-in', () => {
+      if (showingTerminal) {
+        // Zoom terminal by increasing font size
+        terminalFontSize = Math.min(terminalFontSize + 2, 32);
+        term.options.fontSize = terminalFontSize;
+        fitTerminal();
+        console.log('[flip] Terminal font size:', terminalFontSize);
+      } else {
+        // Zoom webview
+        frontZoom = Math.min(frontZoom + 0.1, 3.0);
+        webviewEl.setZoomFactor(frontZoom);
+        console.log('[flip] Webview zoom:', frontZoom);
+      }
+    });
+    
+    ipcRenderer.on('zoom-out', () => {
+      if (showingTerminal) {
+        // Zoom terminal by decreasing font size
+        terminalFontSize = Math.max(terminalFontSize - 2, 6);
+        term.options.fontSize = terminalFontSize;
+        fitTerminal();
+        console.log('[flip] Terminal font size:', terminalFontSize);
+      } else {
+        // Zoom webview
+        frontZoom = Math.max(frontZoom - 0.1, 0.3);
+        webviewEl.setZoomFactor(frontZoom);
+        console.log('[flip] Webview zoom:', frontZoom);
+      }
+    });
+    
+    ipcRenderer.on('zoom-reset', () => {
+      if (showingTerminal) {
+        terminalFontSize = 10;
+        term.options.fontSize = terminalFontSize;
+        fitTerminal();
+        console.log('[flip] Terminal font size reset to:', terminalFontSize);
+      } else {
+        frontZoom = 1.0;
+        webviewEl.setZoomFactor(frontZoom);
+        console.log('[flip] Webview zoom reset to:', frontZoom);
+      }
+    });
+    
+    // ========== Terminal Setup ==========
+    const terminalContainer = document.getElementById('terminal-container');
+    
+    const term = new Terminal({
+      cursorBlink: true,
+      cursorStyle: 'block',
+      fontSize: 10,
+      fontFamily: "'SF Mono', 'Fira Code', 'Cascadia Code', monospace",
+      theme: {
+        background: 'rgba(10, 10, 18, 0.95)',
+        foreground: '#eee',
+        cursor: '#f0f',
+        cursorAccent: '#0a0a12',
+        selectionBackground: 'rgba(255, 0, 255, 0.3)',
+        black: '#1a1a2e',
+        red: '#ff5555',
+        green: '#50fa7b',
+        yellow: '#f1fa8c',
+        blue: '#6272a4',
+        magenta: '#ff79c6',
+        cyan: '#8be9fd',
+        white: '#f8f8f2',
+      },
+      allowTransparency: true,
+      scrollback: 5000,
+      fastScrollModifier: 'alt',
+      fastScrollSensitivity: 5,
+    });
+    
+    const fitAddon = new FitAddon();
+    term.loadAddon(fitAddon);
+    term.open(terminalContainer);
+    
+    // Skip WebGL when using transparency - use canvas renderer
+    console.log('[flip] Using canvas renderer for transparency support');
+    
+    // Fit terminal to container and send initial size to PTY
+    function fitTerminal() {
+      fitAddon.fit();
+      console.log('[flip] Terminal fit:', term.cols, 'x', term.rows);
+      ipcRenderer.send('flip-pty-resize', term.cols, term.rows);
+    }
+    
+    // Initial fit - use multiple attempts to ensure container is properly sized
+    requestAnimationFrame(() => {
+      fitTerminal();
+      // Second fit after a short delay for webview to settle
+      setTimeout(fitTerminal, 100);
+      setTimeout(fitTerminal, 500);
+    });
+    
+    // Resize handling
+    const resizeObserver = new ResizeObserver(() => {
+      fitTerminal();
+    });
+    resizeObserver.observe(terminalContainer);
+    
+    // PTY communication
+    ipcRenderer.on('flip-pty-data', (event, data) => {
+      term.write(data);
+    });
+    
+    term.onData((data) => {
+      ipcRenderer.send('flip-pty-input', data);
+    });
+    
+    // Connect PTY
+    ipcRenderer.send('connect-flip-pty');
+    
+    // ========== Toggle Logic ==========
+    function toggle() {
+      console.log('[flip] toggle() called, showingTerminal was:', showingTerminal);
+      
+      // Animate flip tabs outward
+      flipTabs.forEach(tab => tab.classList.add('flipping'));
+      
+      // Flip immediately - CSS handles the smooth transition
+      showingTerminal = !showingTerminal;
+      
+      if (showingTerminal) {
+        frontView.classList.add('hidden');
+        backView.classList.add('active');
+        console.log('[flip] Now showing terminal');
+        setTimeout(() => {
+          fitTerminal();
+          term.focus();
+        }, 400);
+      } else {
+        frontView.classList.remove('hidden');
+        backView.classList.remove('active');
+        console.log('[flip] Now showing webview');
+      }
+      
+      // Bring tabs back in after the main animation
+      setTimeout(() => {
+        flipTabs.forEach(tab => tab.classList.remove('flipping'));
+      }, 500);
+    }
+    
+    // Flip tab clicks
+    console.log('[flip] Found flip tabs:', flipTabs.length);
+    flipTabs.forEach(tab => {
+      tab.addEventListener('click', (e) => {
+        console.log('[flip] Flip tab clicked!');
+        toggle();
+      });
+    });
+    
+    // Keyboard shortcut
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Tab') {
+        console.log('[flip] Tab key pressed');
+        e.preventDefault();
+        toggle();
+      }
+    });
+    
+    // Window resize
+    window.addEventListener('resize', () => {
+      fitAddon.fit();
+      ipcRenderer.send('flip-pty-resize', term.cols, term.rows);
+    });
+    
+    // ========== Custom Resize Handles ==========
+    const resizeOverlay = document.getElementById('resize-overlay');
+    
+    document.querySelectorAll('[data-resize]').forEach(handle => {
+      handle.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const direction = handle.dataset.resize;
+        
+        // Get cursor style for this direction
+        const cursorStyle = window.getComputedStyle(handle).cursor;
+        
+        // Show overlay and set body class to disable pointer events on content
+        resizeOverlay.style.cursor = cursorStyle;
+        resizeOverlay.classList.add('active');
+        document.body.classList.add('resizing');
+        
+        const startX = e.screenX;
+        const startY = e.screenY;
+        const startBounds = {
+          x: window.screenX,
+          y: window.screenY,
+          width: window.outerWidth,
+          height: window.outerHeight
+        };
+        
+        const onMouseMove = (e) => {
+          const dx = e.screenX - startX;
+          const dy = e.screenY - startY;
+          
+          let newX = startBounds.x;
+          let newY = startBounds.y;
+          let newWidth = startBounds.width;
+          let newHeight = startBounds.height;
+          
+          if (direction.includes('left')) {
+            newX = startBounds.x + dx;
+            newWidth = startBounds.width - dx;
+          }
+          if (direction.includes('right')) {
+            newWidth = startBounds.width + dx;
+          }
+          if (direction.includes('top')) {
+            newY = startBounds.y + dy;
+            newHeight = startBounds.height - dy;
+          }
+          if (direction.includes('bottom')) {
+            newHeight = startBounds.height + dy;
+          }
+          
+          // Minimum size
+          if (newWidth < 400) { newWidth = 400; newX = startBounds.x + startBounds.width - 400; }
+          if (newHeight < 300) { newHeight = 300; newY = startBounds.y + startBounds.height - 300; }
+          
+          ipcRenderer.send('resize-window', { x: newX, y: newY, width: newWidth, height: newHeight });
+        };
+        
+        const onMouseUp = () => {
+          // Hide overlay and restore pointer events
+          resizeOverlay.classList.remove('active');
+          document.body.classList.remove('resizing');
+          
+          document.removeEventListener('mousemove', onMouseMove);
+          document.removeEventListener('mouseup', onMouseUp);
+        };
+        
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+      });
+    });
+  </script>
+</body>
+</html>

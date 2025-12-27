@@ -245,9 +245,20 @@ function createMenu() {
           click: () => openDevWindow()
         },
         {
+          label: 'New 3D View (Experimental)',
+          accelerator: 'CmdOrCtrl+Shift+3',
+          click: () => open3DWindow()
+        },
+        {
           label: 'New Shell',
           accelerator: 'CmdOrCtrl+Shift+T',
           click: () => openShellWindow()
+        },
+        { type: 'separator' },
+        {
+          label: 'KidLisp',
+          accelerator: 'CmdOrCtrl+K',
+          click: () => openKidLispWindow()
         },
         { type: 'separator' },
         isMac ? { role: 'close' } : { role: 'quit' }
@@ -394,7 +405,8 @@ function createWindow(mode = 'production') {
     y: winY,
     minWidth: 600,
     minHeight: 400,
-    // Use system chrome (default title bar)
+    // Frameless window for dev mode - just frame: false, no titleBarStyle
+    frame: !isDev,
     backgroundColor: bgColor,
     title: `Aesthetic Computer${titleSuffix}`,
     webPreferences,
@@ -444,9 +456,9 @@ function createWindow(mode = 'production') {
   return { window: win, windowId };
 }
 
-// Open a new dev window (with container check)
+// Open a new dev window - now uses 3D view
 async function openDevWindow() {
-  return createWindow('development');
+  return open3DWindow();
 }
 
 // Open a shell window (singleton - starts container and emacs)
@@ -474,6 +486,222 @@ async function openShellWindow() {
   const result = createWindow('shell');
   shellWindowId = result.windowId;
   return result;
+}
+
+// Open KidLisp window (kidlisp.com)
+function openKidLispWindow() {
+  const { width, height } = screen.getPrimaryDisplay().workAreaSize;
+  const winWidth = Math.min(1200, width * 0.8);
+  const winHeight = Math.min(800, height * 0.8);
+  
+  const win = new BrowserWindow({
+    width: winWidth,
+    height: winHeight,
+    title: 'KidLisp',
+    backgroundColor: '#0a0a12',
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+    },
+    titleBarStyle: 'hiddenInset',
+    trafficLightPosition: { x: 15, y: 12 },
+  });
+  
+  win.loadURL('https://kidlisp.com');
+  
+  // Track it
+  const windowId = windowIdCounter++;
+  windows.set(windowId, { window: win, mode: 'kidlisp' });
+  
+  win.on('closed', () => {
+    windows.delete(windowId);
+  });
+  
+  return win;
+}
+
+// ========== CSS 3D Flip View ==========
+let ptyProcessFor3D = null;
+
+async function open3DWindow() {
+  // Start with a wide window
+  const winWidth = 680;
+  const winHeight = 480;
+  
+  const win = new BrowserWindow({
+    width: winWidth,
+    height: winHeight,
+    minWidth: 320,
+    minHeight: 240,
+    title: 'Aesthetic Computer',
+    frame: false,
+    transparent: true,
+    hasShadow: false,
+    backgroundColor: '#00000000',
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false,
+      webviewTag: true, // Enable webview for front side
+    },
+  });
+  
+  win.loadFile(path.join(__dirname, 'renderer', 'flip-view.html'));
+  
+  // Track it
+  const windowId = windowIdCounter++;
+  windows.set(windowId, { window: win, mode: '3d' });
+  
+  // Register global shortcut Cmd+B (Mac) / Ctrl+B (Windows/Linux) to toggle flip
+  const flipShortcut = process.platform === 'darwin' ? 'CommandOrControl+B' : 'Ctrl+B';
+  globalShortcut.register(flipShortcut, () => {
+    // Send toggle to the flip view window
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('toggle-flip');
+    }
+  });
+  
+  win.on('closed', () => {
+    windows.delete(windowId);
+    globalShortcut.unregister(flipShortcut);
+    globalShortcut.unregister('CommandOrControl+Plus');
+    globalShortcut.unregister('CommandOrControl+=');
+    globalShortcut.unregister('CommandOrControl+-');
+    globalShortcut.unregister('CommandOrControl+0');
+    if (ptyProcessFor3D) {
+      ptyProcessFor3D.kill();
+      ptyProcessFor3D = null;
+    }
+  });
+  
+  // PTY for terminal side
+  ipcMain.on('connect-flip-pty', (event) => {
+    if (!pty) {
+      event.sender.send('flip-pty-data', '\r\n\x1b[31mError: node-pty not available\x1b[0m\r\n');
+      return;
+    }
+    
+    const dockerPath = getDockerPath();
+    
+    // Start container and emacs daemon if needed
+    ensureContainerForFlip(dockerPath, event.sender);
+  });
+  
+  ipcMain.on('flip-pty-input', (event, data) => {
+    if (ptyProcessFor3D) {
+      ptyProcessFor3D.write(data);
+    }
+  });
+  
+  ipcMain.on('flip-pty-resize', (event, cols, rows) => {
+    if (ptyProcessFor3D) {
+      try {
+        ptyProcessFor3D.resize(cols, rows);
+      } catch (err) {
+        console.warn('[main] Flip PTY resize failed:', err.message);
+      }
+    }
+  });
+  
+  // Register zoom shortcuts for flip view
+  globalShortcut.register('CommandOrControl+Plus', () => {
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('zoom-in');
+    }
+  });
+  globalShortcut.register('CommandOrControl+=', () => {
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('zoom-in');
+    }
+  });
+  globalShortcut.register('CommandOrControl+-', () => {
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('zoom-out');
+    }
+  });
+  globalShortcut.register('CommandOrControl+0', () => {
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('zoom-reset');
+    }
+  });
+  
+  // Custom window resize handler
+  ipcMain.on('resize-window', (event, bounds) => {
+    const senderWindow = BrowserWindow.fromWebContents(event.sender);
+    if (senderWindow) {
+      senderWindow.setBounds({
+        x: Math.round(bounds.x),
+        y: Math.round(bounds.y),
+        width: Math.round(bounds.width),
+        height: Math.round(bounds.height)
+      });
+    }
+  });
+  
+  return win;
+}
+
+async function ensureContainerForFlip(dockerPath, webContents) {
+  const { spawn } = require('child_process');
+  
+  // Check if container exists
+  const containerExists = await new Promise((resolve) => {
+    const check = spawn(dockerPath, ['ps', '-a', '--filter', 'name=aesthetic', '--format', '{{.Names}}'], { stdio: 'pipe' });
+    let output = '';
+    check.stdout.on('data', (data) => output += data.toString());
+    check.on('close', () => resolve(output.includes('aesthetic')));
+    check.on('error', () => resolve(false));
+  });
+  
+  if (!containerExists) {
+    webContents.send('flip-pty-data', '\x1b[31mNo container found. Please run devcontainer first.\x1b[0m\r\n');
+    return;
+  }
+  
+  // Always restart container to ensure clean state
+  webContents.send('flip-pty-data', '\x1b[33mRestarting container...\x1b[0m\r\n');
+  await new Promise((resolve) => {
+    const restart = spawn(dockerPath, ['restart', 'aesthetic'], { stdio: 'pipe' });
+    restart.on('close', () => resolve());
+    restart.on('error', () => resolve());
+  });
+  
+  // Wait for container to be ready
+  await new Promise(r => setTimeout(r, 2000));
+  
+  // Start emacs daemon fresh
+  webContents.send('flip-pty-data', '\x1b[33mStarting emacs daemon...\x1b[0m\r\n');
+  await new Promise((resolve) => {
+    const emacs = spawn(dockerPath, ['exec', 'aesthetic', 'emacs', '--daemon'], { stdio: 'pipe' });
+    emacs.on('close', () => resolve());
+    emacs.on('error', () => resolve());
+  });
+  
+  // Wait for emacs to be ready
+  await new Promise(r => setTimeout(r, 1000));
+  
+  // Connect PTY
+  ptyProcessFor3D = pty.spawn(dockerPath, [
+    'exec', '-it', 'aesthetic',
+    'fish', '-c', 'emacsclient -nw -a "" || fish'
+  ], {
+    name: 'xterm-256color',
+    cols: 120,
+    rows: 40,
+    cwd: process.env.HOME,
+    env: { ...process.env, TERM: 'xterm-256color' }
+  });
+  
+  ptyProcessFor3D.onData((data) => {
+    if (!webContents.isDestroyed()) {
+      webContents.send('flip-pty-data', data);
+    }
+  });
+  
+  ptyProcessFor3D.onExit(() => {
+    if (!webContents.isDestroyed()) {
+      webContents.send('flip-pty-data', '\r\n\x1b[33m[Session ended]\x1b[0m\r\n');
+    }
+  });
 }
 
 // IPC Handlers
@@ -582,6 +810,10 @@ ipcMain.handle('connect-pty', async (event) => {
       env: { 
         ...process.env, 
         TERM: 'xterm-256color',
+        // Tell programs not to query for colors (eat/vim/etc respect this)
+        COLORTERM: 'truecolor',
+        // Prevent OSC query responses by indicating we don't support them
+        VTE_VERSION: '',  // Empty signals no VTE terminal
         PATH: fullPath
       },
     });
@@ -805,14 +1037,8 @@ app.whenReady().then(async () => {
 });
 
 app.on('window-all-closed', () => {
-  // On macOS, apps typically stay open when all windows are closed
-  // On other platforms, quit unless we're intentionally relaunching
-  if (process.platform !== 'darwin' && !app.isReady()) {
-    return; // Don't quit during startup
-  }
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
+  // Quit when all windows are closed, even on macOS
+  app.quit();
 });
 
 app.on('will-quit', () => {
