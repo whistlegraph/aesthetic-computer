@@ -5,15 +5,12 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
-    inputs:
-      version:
-        description: 'Version to release (e.g., 0.1.1)'
-        required: true
-        default: '0.1.0'
 
 jobs:
   build-mac:
     runs-on: macos-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -24,6 +21,10 @@ jobs:
           python-version: '3.11'
       - name: Install Python setuptools
         run: pip install setuptools
+      - name: Get version from package.json
+        id: version
+        working-directory: ac-electron
+        run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
       - name: Install and build
         working-directory: ac-electron
         run: |
@@ -89,11 +90,11 @@ jobs:
       - name: List artifacts
         run: find artifacts -type f
       
-      - name: Create or update release
+      - name: Create release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: v${{ github.event.inputs.version || '0.1.0' }}
-          name: Aesthetic Computer Desktop v${{ github.event.inputs.version || '0.1.0' }}
+          tag_name: v${{ needs.build-mac.outputs.version }}
+          name: Aesthetic Computer Desktop v${{ needs.build-mac.outputs.version }}
           draft: false
           prerelease: false
           files: |
