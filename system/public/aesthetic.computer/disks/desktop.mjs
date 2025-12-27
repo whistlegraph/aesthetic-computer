@@ -1,15 +1,9 @@
 // Desktop, 2024.12.27
 // Download page for the Aesthetic Computer desktop app.
 
-/* #region 🏁 TODO
-  - [ ] Add auto-update info
-  - [ ] Show changelog / release notes
-#endregion */
-
 const APP_VERSION = "0.1.0";
-const GITHUB_RELEASES = "https://github.com/whistlegraph/aesthetic-computer/releases";
 
-// Download URLs for each platform
+// Download URLs
 const DOWNLOADS = {
   mac: `/desktop/mac`,
   win: `/desktop/win`,
@@ -18,21 +12,13 @@ const DOWNLOADS = {
   deb: `/desktop/deb`,
 };
 
-let btn; // Download button
-let altBtns = []; // Alternative download buttons
-let platform = "unknown";
-let downloadUrl = null;
-let downloadLabel = "";
-let statusLabel = "";
-let hoverBtn = false;
-let hoverAlt = -1;
-let pulsePhase = 0;
-let scrollY = 0;
-let maxScroll = 0;
+let platform, downloadUrl, platformLabel;
+let mainBtn, altBtns = [];
+let screenW, screenH;
 
 // 🥾 Boot
-function boot({ wipe, cursor, screen }) {
-  wipe(20, 10, 40); // Dark purple background
+function boot({ wipe, cursor, ui: { Button } }) {
+  wipe(20, 10, 40);
   cursor("native");
   
   // Detect platform
@@ -43,306 +29,156 @@ function boot({ wipe, cursor, screen }) {
     if (plat.includes("mac") || ua.includes("mac")) {
       platform = "mac";
       downloadUrl = DOWNLOADS.mac;
-      downloadLabel = "Download for macOS";
-      statusLabel = "Universal (Apple Silicon + Intel)";
+      platformLabel = "macOS";
     } else if (plat.includes("win") || ua.includes("win")) {
-      platform = "windows";
+      platform = "win";
       downloadUrl = DOWNLOADS.win;
-      downloadLabel = "Download for Windows";
-      statusLabel = "64-bit Installer";
+      platformLabel = "Windows";
     } else if (plat.includes("linux") || ua.includes("linux")) {
       platform = "linux";
-      // Check for Fedora/RHEL vs Debian/Ubuntu
-      if (ua.includes("fedora") || ua.includes("rhel") || ua.includes("centos")) {
-        downloadUrl = DOWNLOADS.fedora;
-        downloadLabel = "Download for Fedora";
-        statusLabel = "RPM Package";
-      } else {
-        downloadUrl = DOWNLOADS.linux;
-        downloadLabel = "Download for Linux";
-        statusLabel = "AppImage (Universal)";
-      }
+      downloadUrl = DOWNLOADS.linux;
+      platformLabel = "Linux";
     } else {
-      platform = "unknown";
-      downloadUrl = GITHUB_RELEASES;
-      downloadLabel = "View All Downloads";
-      statusLabel = "";
+      platform = "other";
+      downloadUrl = DOWNLOADS.mac;
+      platformLabel = "macOS";
     }
   }
   
-  // Calculate max scroll based on content height
-  maxScroll = Math.max(0, 520 - screen.height);
+  // Create main download button
+  mainBtn = new Button();
+  
+  // Create alt platform buttons
+  altBtns = [
+    { btn: new Button(), label: "🍎", url: DOWNLOADS.mac, name: "mac" },
+    { btn: new Button(), label: "🪟", url: DOWNLOADS.win, name: "win" },
+    { btn: new Button(), label: "🐧", url: DOWNLOADS.linux, name: "linux" },
+  ];
 }
 
 // 🎨 Paint
-function paint({ wipe, ink, write, screen, box }) {
+function paint({ wipe, ink, write, screen, box, line }) {
   wipe(20, 10, 40);
+  screenW = screen.width;
+  screenH = screen.height;
   
-  const cx = screen.width / 2;
-  const baseY = -scrollY;
+  const cx = screenW / 2;
+  const compact = screenH < 300;
   
-  altBtns = []; // Reset alt buttons each frame
+  // Layout calculations - responsive
+  let y = compact ? 12 : 24;
+  const spacing = compact ? 10 : 14;
   
   // Title
-  ink(255, 100, 255).write("AESTHETIC COMPUTER", { x: cx, y: baseY + 30, center: "x" });
-  ink(200, 200, 200).write("DESKTOP", { x: cx, y: baseY + 46, center: "x" });
+  ink(255, 100, 255).write("AESTHETIC COMPUTER", { x: cx, y, center: "x" });
+  y += spacing;
+  ink(180, 180, 200).write("DESKTOP", { x: cx, y, center: "x" });
+  y += spacing + 4;
   
   // Version
-  ink(100, 100, 150).write(`v${APP_VERSION}`, { x: cx, y: baseY + 62, center: "x" });
+  ink(80, 80, 120).write(`v${APP_VERSION}`, { x: cx, y, center: "x" });
+  y += spacing + 8;
   
-  // Description
-  ink(180, 180, 200).write("The creative coding environment", { x: cx, y: baseY + 86, center: "x" });
-  ink(180, 180, 200).write("on your desktop.", { x: cx, y: baseY + 100, center: "x" });
+  // Platform detected
+  const icon = platform === "mac" ? "🍎" : platform === "win" ? "🪟" : "🐧";
+  ink(120, 120, 160).write(`${icon} ${platformLabel} detected`, { x: cx, y, center: "x" });
+  y += spacing + 12;
   
-  // Platform indicator
-  const platformIcon = platform === "mac" ? "🍎" : platform === "windows" ? "🪟" : platform === "linux" ? "🐧" : "💻";
-  ink(150, 150, 180).write(`${platformIcon} Detected: ${platform.toUpperCase()}`, { x: cx, y: baseY + 124, center: "x" });
-  
-  // Download button area
-  const btnY = baseY + 150;
-  const btnW = 200;
-  const btnH = 32;
+  // Main download button
+  const btnW = Math.min(200, screenW - 40);
+  const btnH = compact ? 28 : 36;
   const btnX = cx - btnW / 2;
   
-  // Button background with pulse effect
-  const pulse = Math.sin(pulsePhase) * 0.15 + 0.85;
-  if (downloadUrl) {
-    if (hoverBtn) {
-      ink(180 * pulse, 80 * pulse, 255 * pulse);
-    } else {
-      ink(140 * pulse, 50 * pulse, 200 * pulse);
-    }
-  } else {
-    ink(60, 60, 80);
-  }
-  box(btnX, btnY, btnW, btnH, "fill");
+  mainBtn.paint(
+    ["Download", btnX, y, btnW, btnH, { 
+      bg: mainBtn.down ? [80, 40, 120] : (mainBtn.over ? [120, 60, 180] : [100, 50, 150]),
+      border: [200, 100, 255],
+      text: 255,
+      rounded: 4
+    }],
+    { ink, write, box, screen, line }
+  );
+  y += btnH + 8;
   
-  // Button border
-  ink(downloadUrl ? [255, 150, 255] : [100, 100, 120]);
-  box(btnX, btnY, btnW, btnH);
+  // Subtext
+  const subtext = platform === "mac" ? "Universal (Apple Silicon + Intel)" :
+                  platform === "win" ? "64-bit Installer" : "AppImage";
+  ink(100, 100, 140).write(subtext, { x: cx, y, center: "x" });
+  y += spacing + 10;
   
-  // Button text
-  ink(downloadUrl ? 255 : 150);
-  write(downloadLabel, { x: cx, y: btnY + 11, center: "x" });
+  // Alt platform buttons
+  const altBtnSize = compact ? 28 : 32;
+  const altSpacing = 8;
+  const altTotalW = altBtns.length * altBtnSize + (altBtns.length - 1) * altSpacing;
+  let altX = cx - altTotalW / 2;
   
-  // Status label under button
-  if (statusLabel) {
-    ink(120, 120, 150).write(statusLabel, { x: cx, y: btnY + btnH + 10, center: "x" });
-  }
+  ink(80, 80, 120).write("Other:", { x: altX - 40, y: y + (altBtnSize / 2) - 4 });
   
-  // Store button bounds
-  btn = { x: btnX, y: btnY, w: btnW, h: btnH };
-  
-  // ═══════════════════════════════════════════════════
-  // INSTALL INSTRUCTIONS
-  // ═══════════════════════════════════════════════════
-  
-  let instY = btnY + btnH + 36;
-  
-  // Section header
-  ink(100, 200, 255);
-  write("📦 Install Instructions", { x: cx, y: instY, center: "x" });
-  instY += 20;
-  
-  // Platform-specific instructions
-  if (platform === "mac") {
-    ink(255, 180, 100);
-    write("macOS:", { x: 20, y: instY });
-    instY += 14;
-    ink(180, 180, 200);
-    write("1. Download the .dmg file", { x: 20, y: instY }); instY += 12;
-    write("2. Open and drag to Applications", { x: 20, y: instY }); instY += 12;
-    write("3. First launch: Right-click → Open → Open", { x: 20, y: instY }); instY += 12;
-    ink(140, 140, 160);
-    write("   (bypasses Gatekeeper for unsigned apps)", { x: 20, y: instY }); instY += 16;
-    ink(120, 180, 120);
-    write("Or run: xattr -cr /Applications/Aesthetic\\ Computer.app", { x: 20, y: instY });
-    instY += 24;
-    
-  } else if (platform === "windows") {
-    ink(255, 180, 100);
-    write("Windows:", { x: 20, y: instY });
-    instY += 14;
-    ink(180, 180, 200);
-    write("1. Download the .exe installer", { x: 20, y: instY }); instY += 12;
-    write("2. Run and follow the prompts", { x: 20, y: instY }); instY += 12;
-    write("3. Launch from Start Menu", { x: 20, y: instY }); instY += 24;
-    
-  } else if (platform === "linux") {
-    ink(255, 180, 100);
-    write("Linux (AppImage):", { x: 20, y: instY });
-    instY += 14;
-    ink(120, 180, 120);
-    write("curl -L aesthetic.computer/desktop/linux \\", { x: 20, y: instY }); instY += 12;
-    write("  -o ~/AC.AppImage && chmod +x ~/AC.AppImage", { x: 20, y: instY }); instY += 20;
-    
-    ink(255, 180, 100);
-    write("Fedora/RHEL (RPM):", { x: 20, y: instY });
-    instY += 14;
-    ink(120, 180, 120);
-    write("curl -L aesthetic.computer/desktop/fedora \\", { x: 20, y: instY }); instY += 12;
-    write("  -o ac.rpm && sudo dnf install -y ac.rpm", { x: 20, y: instY }); instY += 20;
-    
-    ink(255, 180, 100);
-    write("Debian/Ubuntu (DEB):", { x: 20, y: instY });
-    instY += 14;
-    ink(120, 180, 120);
-    write("curl -L aesthetic.computer/desktop/deb \\", { x: 20, y: instY }); instY += 12;
-    write("  -o ac.deb && sudo dpkg -i ac.deb", { x: 20, y: instY }); instY += 24;
-  } else {
-    // Show all platforms
-    ink(255, 180, 100);
-    write("macOS:", { x: 20, y: instY }); instY += 12;
-    ink(120, 180, 120);
-    write("  Download .dmg → Drag to Applications", { x: 20, y: instY }); instY += 16;
-    
-    ink(255, 180, 100);
-    write("Windows:", { x: 20, y: instY }); instY += 12;
-    ink(120, 180, 120);
-    write("  Download .exe → Run installer", { x: 20, y: instY }); instY += 16;
-    
-    ink(255, 180, 100);
-    write("Linux:", { x: 20, y: instY }); instY += 12;
-    ink(120, 180, 120);
-    write("  curl -L aesthetic.computer/desktop/linux -o AC.AppImage", { x: 20, y: instY }); instY += 24;
-  }
-  
-  // Other platforms section
-  ink(100, 200, 255);
-  write("🔗 Other Platforms", { x: cx, y: instY, center: "x" });
-  instY += 18;
-  
-  // Draw platform buttons
-  const altPlatforms = [
-    { label: "macOS", url: DOWNLOADS.mac, icon: "🍎" },
-    { label: "Windows", url: DOWNLOADS.win, icon: "🪟" },
-    { label: "AppImage", url: DOWNLOADS.linux, icon: "🐧" },
-    { label: "Fedora", url: DOWNLOADS.fedora, icon: "📦" },
-    { label: "Debian", url: DOWNLOADS.deb, icon: "📦" },
-  ];
-  
-  const altBtnW = 70;
-  const altBtnH = 22;
-  const altSpacing = 6;
-  const totalW = altPlatforms.length * altBtnW + (altPlatforms.length - 1) * altSpacing;
-  let altX = cx - totalW / 2;
-  
-  altPlatforms.forEach((p, i) => {
-    const isHover = hoverAlt === i;
-    ink(isHover ? [100, 60, 140] : [50, 30, 70]);
-    box(altX, instY, altBtnW, altBtnH, "fill");
-    ink(isHover ? [255, 200, 255] : [180, 150, 200]);
-    box(altX, instY, altBtnW, altBtnH);
-    ink(isHover ? 255 : 200);
-    write(`${p.icon} ${p.label}`, { x: altX + altBtnW / 2, y: instY + 6, center: "x" });
-    
-    altBtns.push({ x: altX, y: instY, w: altBtnW, h: altBtnH, url: p.url });
-    altX += altBtnW + altSpacing;
+  altBtns.forEach((alt, i) => {
+    const isCurrentPlatform = alt.name === platform;
+    alt.btn.paint(
+      [alt.label, altX, y, altBtnSize, altBtnSize, {
+        bg: isCurrentPlatform ? [60, 30, 90] : 
+            (alt.btn.down ? [80, 40, 120] : (alt.btn.over ? [70, 40, 100] : [40, 20, 60])),
+        border: isCurrentPlatform ? [150, 80, 200] : [80, 60, 120],
+        text: isCurrentPlatform ? [150, 150, 180] : 255,
+        rounded: 4
+      }],
+      { ink, write, box, screen, line }
+    );
+    altX += altBtnSize + altSpacing;
   });
+  y += altBtnSize + spacing + 4;
   
-  instY += altBtnH + 20;
+  // Divider
+  ink(50, 30, 70);
+  line([20, y], [screenW - 20, y]);
+  y += spacing;
   
-  // Features list
-  ink(100, 200, 255);
-  write("✨ Features", { x: cx, y: instY, center: "x" });
-  instY += 18;
-  ink(180, 180, 200);
-  write("• Flip between web & terminal views", { x: cx - 90, y: instY }); instY += 12;
-  write("• Full Emacs with devcontainer", { x: cx - 90, y: instY }); instY += 12;
-  write("• Cmd+/- zoom front or back", { x: cx - 90, y: instY }); instY += 12;
-  write("• Alt+scroll to drag window", { x: cx - 90, y: instY }); instY += 20;
-  
-  // Requirements
-  ink(100, 200, 255);
-  write("📋 Requirements", { x: cx, y: instY, center: "x" });
-  instY += 18;
-  ink(180, 180, 200);
-  write("• Docker Desktop (for devcontainer)", { x: cx - 90, y: instY }); instY += 12;
-  write("• Internet connection", { x: cx - 90, y: instY }); instY += 24;
-  
-  // Footer / GitHub link
-  ink(100, 100, 180);
-  write("View all releases on GitHub →", { x: cx, y: instY, center: "x" });
-  
-  // Scroll indicator if needed
-  if (maxScroll > 0) {
-    ink(80, 80, 120);
-    const scrollPct = scrollY / maxScroll;
-    const indicatorH = 40;
-    const indicatorY = 10 + (screen.height - 30) * scrollPct;
-    box(screen.width - 6, indicatorY, 3, indicatorH, "fill");
+  // Install hint based on platform
+  if (!compact) {
+    ink(100, 180, 120);
+    if (platform === "mac") {
+      write("First run: Right-click → Open → Open", { x: cx, y, center: "x" });
+    } else if (platform === "linux") {
+      write("chmod +x *.AppImage && ./AC.AppImage", { x: cx, y, center: "x" });
+    } else {
+      write("Run installer and follow prompts", { x: cx, y, center: "x" });
+    }
+    y += spacing + 8;
   }
+  
+  // Features (only if space)
+  if (screenH > 280) {
+    ink(80, 80, 120);
+    write("✨ Web + Terminal • Cmd+/- Zoom • Alt+Scroll Drag", { x: cx, y, center: "x" });
+    y += spacing;
+  }
+  
+  // Footer
+  ink(60, 60, 100);
+  write("Requires Docker Desktop", { x: cx, y: screenH - (compact ? 12 : 18), center: "x" });
 }
 
 // 🎪 Act
 function act({ event: e, jump, net: { web } }) {
-  // Scroll handling
-  if (e.is("scroll")) {
-    scrollY = Math.max(0, Math.min(maxScroll, scrollY - e.delta));
-  }
+  // Main button
+  mainBtn.act(e, () => web(downloadUrl));
   
-  // Button hover detection
-  if (e.is("move")) {
-    if (btn) {
-      hoverBtn = e.x >= btn.x && e.x <= btn.x + btn.w && 
-                 e.y >= btn.y && e.y <= btn.y + btn.h;
-    }
-    // Alt button hover
-    hoverAlt = -1;
-    altBtns.forEach((b, i) => {
-      if (e.x >= b.x && e.x <= b.x + b.w && e.y >= b.y && e.y <= b.y + b.h) {
-        hoverAlt = i;
-      }
-    });
-  }
+  // Alt buttons
+  altBtns.forEach(alt => {
+    alt.btn.act(e, () => web(alt.url));
+  });
   
-  // Button click
-  if (e.is("touch")) {
-    // Main download button
-    if (btn && e.x >= btn.x && e.x <= btn.x + btn.w && 
-        e.y >= btn.y && e.y <= btn.y + btn.h) {
-      if (downloadUrl) {
-        web(downloadUrl);
-      }
-    }
-    
-    // Alt platform buttons
-    altBtns.forEach((b) => {
-      if (e.x >= b.x && e.x <= b.x + b.w && e.y >= b.y && e.y <= b.y + b.h) {
-        web(b.url);
-      }
-    });
-    
-    // GitHub link (if visible at bottom)
-    if (e.y > e.screen.height - 30 && scrollY >= maxScroll - 10) {
-      web(GITHUB_RELEASES);
-    }
-  }
-  
-  // Keyboard shortcuts
-  if (e.is("keyboard:down")) {
-    if (e.key === "Enter" && downloadUrl) {
-      web(downloadUrl);
-    }
-    if (e.key === "Escape") {
-      jump("prompt");
-    }
-    if (e.key === "ArrowDown") {
-      scrollY = Math.min(maxScroll, scrollY + 20);
-    }
-    if (e.key === "ArrowUp") {
-      scrollY = Math.max(0, scrollY - 20);
-    }
-  }
+  // Escape to go back
+  if (e.is("keyboard:down:escape")) jump("prompt");
 }
 
-// 🧮 Sim - Animation
-function sim({ simCount }) {
-  pulsePhase += 0.08;
+// 🧮 Sim
+function sim() {
+  // Nothing needed
 }
 
 export { boot, paint, act, sim };
-
 export const system = "nopaint";
-
 export const nohud = true;
