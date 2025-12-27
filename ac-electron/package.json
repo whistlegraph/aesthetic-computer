@@ -1,0 +1,90 @@
+{
+  "name": "aesthetic-computer",
+  "version": "0.1.0",
+  "description": "Aesthetic Computer - Creative coding platform",
+  "main": "main.js",
+  "scripts": {
+    "start": "node -e \"require('child_process').spawn(require('path').join(__dirname, 'node_modules/electron/dist/Electron.app/Contents/MacOS/Electron'), ['.'], {stdio: 'inherit', cwd: __dirname})\"",
+    "dev": "node -e \"require('child_process').spawn(require('path').join(__dirname, 'node_modules/electron/dist/Electron.app/Contents/MacOS/Electron'), ['.', '--dev'], {stdio: 'inherit', cwd: __dirname})\"",
+    "electron": "./node_modules/electron/dist/Electron.app/Contents/MacOS/Electron",
+    "icons": "node scripts/generate-icons.mjs",
+    "prebuild": "npm run icons",
+    "build": "electron-builder --mac --win --linux",
+    "build:mac": "electron-builder --mac --universal",
+    "build:win": "electron-builder --win --x64",
+    "build:linux": "electron-builder --linux"
+  },
+  "build": {
+    "appId": "computer.aesthetic.app",
+    "productName": "Aesthetic Computer",
+    "copyright": "Copyright © 2025 Aesthetic Computer",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer/**/*",
+      "!node_modules/**/*",
+      "node_modules/xterm/**/*",
+      "node_modules/xterm-addon-fit/**/*",
+      "node_modules/xterm-addon-webgl/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.graphics-design",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "universal"
+          ]
+        }
+      ],
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Graphics"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "aesthetic-computer",
+      "repo": "aesthetic-computer"
+    }
+  },
+  "keywords": [
+    "creative-coding",
+    "art",
+    "graphics"
+  ],
+  "author": "Aesthetic Computer <hi@aesthetic.computer>",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8",
+    "sharp": "^0.34.5"
+  },
+  "dependencies": {
+    "@electron/rebuild": "^4.0.2",
+    "@xterm/addon-fit": "^0.10.0",
+    "@xterm/addon-webgl": "^0.18.0",
+    "@xterm/xterm": "^5.5.0",
+    "electron-updater": "^6.3.9",
+    "node-pty": "^1.1.0"
+  }
+}
