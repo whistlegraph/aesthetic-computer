@@ -89,7 +89,8 @@ function acd
     
     ac
     
-    set containers (docker ps -q)
+    # Stop other containers (but not aesthetic)
+    set containers (docker ps -q --filter "name!=aesthetic")
     if test -n "$containers"
         docker stop $containers >/dev/null 2>&1
     end
@@ -98,25 +99,37 @@ function acd
     pkill -f "socat.*9224" 2>/dev/null
     sleep 0.5
     
-    # Remove old container and start devcontainer via CLI
-    echo "🧹 Removing old container..."
-    docker rm -f aesthetic 2>/dev/null
-
-    echo "🚀 Starting devcontainer..."
-    cd $workspace
-    devcontainer up --workspace-folder .
-
-    if test $status -eq 0
-        echo "✅ Container ready!"
-        echo "🔗 Opening VS Code attached to container..."
-        
-        # attached-container needs hex-encoded JSON config, not just container name
-        set -l hex_config (printf '{"containerName":"/aesthetic"}' | xxd -p | tr -d '\n')
-        code --folder-uri "vscode-remote://attached-container+$hex_config/workspaces/aesthetic-computer" --remote-debugging-port=9222 --remote-allow-origins="*"
-    else
-        echo "❌ Failed to start container"
-        return 1
+    # Forward CDP port from localhost:9222 (VS Code) to 0.0.0.0:9224 so container can reach it
+    socat TCP-LISTEN:9224,bind=0.0.0.0,fork,reuseaddr TCP:127.0.0.1:9222 &
+    
+    # Check if aesthetic container exists and start it if stopped
+    set -l container_status (docker inspect -f '{{.State.Status}}' aesthetic 2>/dev/null)
+    if test "$container_status" = "exited"
+        echo "🔄 Starting existing container..."
+        docker start aesthetic
+        sleep 2
+    else if test -z "$container_status"
+        # Container doesn't exist - need to build it first
+        echo "🚀 Building devcontainer (this may take a moment)..."
+        cd $workspace
+        devcontainer up --workspace-folder . &
+        set -l dc_pid $last_pid
+        # Wait up to 120 seconds for container to be running
+        set -l timeout 120
+        while test $timeout -gt 0
+            set container_status (docker inspect -f '{{.State.Status}}' aesthetic 2>/dev/null)
+            if test "$container_status" = "running"
+                break
+            end
+            sleep 2
+            set timeout (math "$timeout - 2")
+        end
+        cd -
     end
+    
+    # Use attached-container approach (connects to running container by name)
+    set -l hex_config (printf '{"containerName":"/aesthetic"}' | xxd -p | tr -d '\n')
+    code --folder-uri "vscode-remote://attached-container+$hex_config/workspaces/aesthetic-computer" --remote-debugging-port=9222 --remote-allow-origins="*"
 end
 
 function ac-event-daemon
