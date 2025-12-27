@@ -1080,6 +1080,19 @@
         webview.src = acUrl('starfield');
       }
     }, 100);
+    
+    // ========== Alt + Scroll to Drag Window ==========
+    document.addEventListener('wheel', (e) => {
+      // Alt + scroll (two-finger drag with alt) moves the window
+      if (e.altKey) {
+        e.preventDefault();
+        const currentX = window.screenX;
+        const currentY = window.screenY;
+        const newX = currentX - e.deltaX;
+        const newY = currentY - e.deltaY;
+        ipcRenderer.send('move-window', { x: Math.round(newX), y: Math.round(newY) });
+      }
+    }, { passive: false });
   </script>
 </body>
 </html>
