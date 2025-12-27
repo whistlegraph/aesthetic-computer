@@ -46,6 +46,19 @@
         webview.openDevTools();
       }
     });
+    
+    // ========== Alt + Scroll to Drag Window ==========
+    document.addEventListener('wheel', (e) => {
+      // Alt + scroll (two-finger drag with alt) moves the window
+      if (e.altKey && window.ac?.moveWindow) {
+        e.preventDefault();
+        const currentX = window.screenX;
+        const currentY = window.screenY;
+        const newX = currentX - e.deltaX;
+        const newY = currentY - e.deltaY;
+        window.ac.moveWindow(Math.round(newX), Math.round(newY));
+      }
+    }, { passive: false });
   </script>
 </body>
 </html>
