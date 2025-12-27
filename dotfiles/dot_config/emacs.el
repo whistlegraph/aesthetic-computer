@@ -869,7 +869,7 @@ Optional TARGET-TAB specifies which tab to land on (default: artery)."
     ("stripe-ticket" . "🎫") ("chat-system" . "🤖") ("chat-sotce" . "🧠")
     ("chat-clock" . "⏰") ("site" . "🌐") ("session" . "📋")
     ("redis" . "🔴") ("bookmarks" . "🔖") ("kidlisp" . "🧪")
-    ("oven" . "🔥") ("media" . "📦")))
+    ("oven" . "🔥") ("media" . "📦") ("llm" . "🤖") ("top" . "📊")))
 
 (defun ac--tab-exists-p (tab-name)
   "Check if a tab with TAB-NAME already exists."
@@ -917,7 +917,10 @@ Skips creation if tab already exists."
                       (progn (split-window-below) (other-window 1)))
                   (error nil)))
               
-              (let ((actual-cmd (if (string= cmd "bookmarks") "servers" cmd))
+              (let ((actual-cmd (cond
+                                  ((string= cmd "bookmarks") "servers")
+                                  ((string= cmd "llm") "llm-continue")  ; Auto-resume last session
+                                  (t cmd)))
                     (buf-name (format "%s-%s"
                                       (or (cdr (assoc cmd ac--emoji-for-command)) "🔧")
                                       cmd)))
@@ -971,19 +974,21 @@ Skips creation if tab already exists."
       (error nil))
 
     ;; Initialize the first tab as "artery" with artery CLI (dev mode with hot-reload)
-    (tab-rename "artery")
-    (let ((default-directory ac--directory-path)
-          (buf (generate-new-buffer "🩸-artery")))
-      (with-current-buffer buf
-        (eat-mode)
-        (eat-exec buf "🩸-artery" "/usr/bin/fish" nil '("-c" "ac-artery-dev"))
-        ;; Enable semi-char mode so TUI gets individual keypresses
-        (eat-semi-char-mode)
-        ;; Disable evil mode for artery - use emacs state
-        (when (and (boundp 'evil-mode) evil-mode)
-          (evil-emacs-state)))
-      (switch-to-buffer buf)
-      (redisplay t))  ; Yield to prevent freeze
+    ;; Only create if it doesn't already exist
+    (unless (get-buffer "🩸-artery")
+      (tab-rename "artery")
+      (let ((default-directory ac--directory-path)
+            (buf (generate-new-buffer "🩸-artery")))
+        (with-current-buffer buf
+          (eat-mode)
+          (eat-exec buf "🩸-artery" "/usr/bin/fish" nil '("-c" "ac-artery-dev"))
+          ;; Enable semi-char mode so TUI gets individual keypresses
+          (eat-semi-char-mode)
+          ;; Disable evil mode for artery - use emacs state
+          (when (and (boundp 'evil-mode) evil-mode)
+            (evil-emacs-state)))
+        (switch-to-buffer buf)
+        (redisplay t)))  ; Yield to prevent freeze
 
     ;; Create fishy tab (plain fish shell for quick terminal access via LLM)
     ;; Only create if it doesn't already exist
@@ -1001,25 +1006,24 @@ Skips creation if tab already exists."
         (switch-to-buffer buf)
         (redisplay t)))
 
-    ;; Create all the split tabs with tiny delays to let event loop breathe
-    ;; This prevents emacs from getting overwhelmed by terminal output
-    (let ((delay 2.0))  ; Start first tab after 2 seconds
-      (dolist (tab-spec '(("status"   ("url" "tunnel"))
-                          ("stripe"   ("stripe-print" "stripe-ticket"))
-                          ("chat"     ("chat-system" "chat-sotce" "chat-clock"))
-                          ("web 1/2"  ("site" "session"))
-                          ("web 2/2"  ("redis" "bookmarks" "oven" "media"))
-                          ("tests"    ("kidlisp"))))
-        (let ((tab-name (car tab-spec))
-              (commands (cadr tab-spec)))
-          (run-with-timer delay nil #'ac--create-split-tab tab-name commands))
-        (setq delay (+ delay 2.0))))  ; 2 seconds between each tab
+    ;; Create all the split tabs immediately (no delays)
+    (dolist (tab-spec '(("status"   ("url" "tunnel"))
+                        ("stripe"   ("stripe-print" "stripe-ticket"))
+                        ("chat"     ("chat-system" "chat-sotce" "chat-clock"))
+                        ("web 1/2"  ("site" "session"))
+                        ("web 2/2"  ("redis" "bookmarks" "oven" "media"))
+                        ("tests"    ("kidlisp"))
+                        ("llm"      ("llm"))
+                        ("top"      ("top"))))  ; Process viewer tab
+      (let ((tab-name (car tab-spec))
+            (commands (cadr tab-spec)))
+        (ac--create-split-tab tab-name commands)))
 
     ;; Switch to the requested tab
     (run-with-timer 0.5 nil
                     (lambda (target)
                       (condition-case nil
-                          (if (member target '("artery" "fishy" "status" "stripe" "chat" "web 1/2" "web 2/2" "tests"))
+                          (if (member target '("artery" "fishy" "status" "stripe" "chat" "web 1/2" "web 2/2" "tests" "llm" "top"))
                               (tab-bar-switch-to-tab target)
                             (message "No such tab: %s" target))
                         (error nil)))
@@ -1085,29 +1089,25 @@ Skips creation if tab already exists."
   (ac-debug-log "aesthetic-backend-minimal complete"))
 
 (defun aesthetic-backend-full ()
-  "Load all remaining tabs (status, stripe, chat, web, tests)."
+  "Load all remaining tabs (status, stripe, chat, web, tests, llm, top)."
   (interactive)
   (message "Loading additional tabs...")
-  (let ((delay 0))
-    (dolist (tab-spec '(("status"   ("url" "tunnel"))
-                        ("stripe"   ("stripe-print" "stripe-ticket"))
-                        ("chat"     ("chat-system" "chat-sotce" "chat-clock"))
-                        ("web 1/2"  ("site" "session"))
-                        ("web 2/2"  ("redis" "bookmarks" "oven" "media"))
-                        ("tests"    ("kidlisp"))))
-      (let ((tab-name (car tab-spec))
-            (commands (cadr tab-spec))
-            (current-delay delay))
-        (run-with-timer current-delay nil
-          (lambda (name cmds)
-            (condition-case err
-                (progn
-                  (ac--create-split-tab name cmds)
-                  (message "Created tab: %s" name))
-              (error (message "Error creating tab %s: %s" name err))))
-          tab-name commands))
-      (setq delay (+ delay 8))))  ; 8 seconds between tabs
-  (message "All tabs will be loaded over the next ~50 seconds"))
+  (dolist (tab-spec '(("status"   ("url" "tunnel"))
+                      ("stripe"   ("stripe-print" "stripe-ticket"))
+                      ("chat"     ("chat-system" "chat-sotce" "chat-clock"))
+                      ("web 1/2"  ("site" "session"))
+                      ("web 2/2"  ("redis" "bookmarks" "oven" "media"))
+                      ("tests"    ("kidlisp"))
+                      ("llm"      ("llm"))
+                      ("top"      ("top"))))
+    (let ((tab-name (car tab-spec))
+          (commands (cadr tab-spec)))
+      (condition-case err
+          (progn
+            (ac--create-split-tab tab-name commands)
+            (message "Created tab: %s" tab-name))
+        (error (message "Error creating tab %s: %s" tab-name err)))))
+  (message "All tabs loaded!"))
 
 ;;; ===================================================================
 ;;; END OF AESTHETIC COMPUTER EMACS CONFIGURATION

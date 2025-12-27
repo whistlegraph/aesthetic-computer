@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; frame-src https://localhost:* https://aesthetic.computer https://*.aesthetic.computer; connect-src 'self' https://localhost:* https://aesthetic.computer https://*.aesthetic.computer;">
+  <title>Aesthetic Computer</title>
+  <link rel="stylesheet" href="../node_modules/@xterm/xterm/css/xterm.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { 
+      width: 100%; 
+      height: 100%; 
+      overflow: hidden; 
+      background: #0a0a12; 
+    }
+    
+    /* Main AC webview - full screen */
+    #ac-webview { 
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; 
+      height: 100%; 
+      border: none;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    #ac-webview.connected { opacity: 1; }
+    
+    /* Control bar - always on top and fully visible */
+    #control-bar {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 15px;
+      background: rgba(0, 0, 0, 0.9);
+      border-bottom: 1px solid rgba(255, 0, 255, 0.3);
+      font-family: 'SF Mono', monospace;
+      font-size: 12px;
+      color: #888;
+      z-index: 300;
+      -webkit-app-region: drag;
+      transition: transform 0.2s ease, opacity 0.2s ease;
+    }
+    
+    #control-bar.hidden {
+      transform: translateY(-100%);
+      opacity: 0;
+      pointer-events: none;
+    }
+    
+    #control-bar > * {
+      -webkit-app-region: no-drag;
+    }
+    
+    .title {
+      color: #f0f;
+      cursor: default;
+      -webkit-app-region: drag;
+    }
+    
+    /* URL/Environment selector */
+    .env-switch {
+      display: flex;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 4px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .env-btn {
+      background: transparent;
+      border: none;
+      color: #666;
+      padding: 5px 10px;
+      font-family: inherit;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .env-btn:hover {
+      color: #aaa;
+      background: rgba(255, 255, 255, 0.05);
+    }
+    .env-btn.active.local {
+      background: rgba(255, 150, 0, 0.2);
+      color: #f90;
+    }
+    .env-btn.active.prod {
+      background: rgba(0, 200, 100, 0.2);
+      color: #0c6;
+    }
+    
+    /* Mode switch */
+    .mode-switch {
+      display: flex;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 4px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .mode-btn {
+      background: transparent;
+      border: none;
+      color: #666;
+      padding: 5px 12px;
+      font-family: inherit;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .mode-btn:hover {
+      color: #aaa;
+      background: rgba(255, 255, 255, 0.05);
+    }
+    .mode-btn.active.shell-mode {
+      background: rgba(255, 0, 255, 0.2);
+      color: #f0f;
+    }
+    .mode-btn.active.app-mode {
+      background: rgba(0, 255, 150, 0.2);
+      color: #0fa;
+    }
+    
+    /* Transparency slider */
+    .slider-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-left: auto;
+    }
+    .slider-label {
+      color: #666;
+      font-size: 11px;
+    }
+    #opacity-slider {
+      -webkit-appearance: none;
+      width: 100px;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 2px;
+      outline: none;
+    }
+    #opacity-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      background: #f0f;
+      border-radius: 50%;
+      cursor: pointer;
+      transition: transform 0.1s ease;
+    }
+    #opacity-slider::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+    #opacity-value {
+      color: #888;
+      font-size: 11px;
+      min-width: 35px;
+    }
+    
+    .hint {
+      color: #555;
+      font-size: 11px;
+    }
+    .hint kbd {
+      background: rgba(255, 255, 255, 0.1);
+      padding: 2px 5px;
+      border-radius: 3px;
+    }
+    
+    /* Terminal overlay - below control bar */
+    #terminal-overlay {
+      position: absolute;
+      top: 38px; left: 0; right: 0; bottom: 0;
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      transition: opacity 0.2s ease;
+    }
+    
+    /* Terminal background - this gets opacity */
+    #terminal-bg {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(10, 10, 18, 1);
+      pointer-events: none;
+    }
+    
+    /* Passthrough mode - terminal doesn't capture clicks */
+    #terminal-overlay.passthrough {
+      pointer-events: none;
+    }
+    #terminal-overlay.passthrough #terminal-container {
+      pointer-events: none;
+    }
+    
+    /* Terminal container */
+    #terminal-container {
+      position: relative;
+      flex: 1;
+      padding: 10px;
+      overflow: hidden;
+      z-index: 1;
+    }
+    .xterm { height: 100%; }
+    
+    /* Mode indicator overlay */
+    #mode-indicator {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      background: rgba(0, 0, 0, 0.8);
+      padding: 8px 15px;
+      border-radius: 6px;
+      font-family: 'SF Mono', monospace;
+      font-size: 12px;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      pointer-events: none;
+      z-index: 200;
+    }
+    #mode-indicator.shell-active {
+      color: #f0f;
+      border: 1px solid rgba(255, 0, 255, 0.3);
+    }
+    #mode-indicator.app-active {
+      color: #0fa;
+      border: 1px solid rgba(0, 255, 150, 0.3);
+    }
+    #mode-indicator.visible {
+      opacity: 1;
+    }
+    
+    /* Connection overlay (shown when server not ready) */
+    #connection-overlay {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #0a0a12;
+      color: #888;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 14px;
+      z-index: 50;
+      transition: opacity 0.3s ease;
+    }
+    #connection-overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+    
+    #status-icon {
+      font-size: 48px;
+      margin-bottom: 20px;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 0.4; }
+      50% { opacity: 1; }
+    }
+    
+    #status-message { color: #f90; margin-bottom: 8px; }
+    #status-detail { color: #666; font-size: 12px; margin-bottom: 20px; }
+    #retry-count { color: #444; font-size: 11px; }
+  </style>
+</head>
+<body>
+  <!-- Connection overlay -->
+  <div id="connection-overlay">
+    <div id="status-icon">⚡</div>
+    <div id="status-message">Connecting to dev server...</div>
+    <div id="status-detail">https://localhost:8888</div>
+    <div id="retry-count">Attempt 1</div>
+  </div>
+  
+  <!-- AC webview underneath -->
+  <webview id="ac-webview" src="about:blank" allowpopups></webview>
+  
+  <!-- Mode indicator (shows briefly on switch) -->
+  <div id="mode-indicator">Shell Mode</div>
+  
+  <!-- Control bar - separate from terminal, always visible -->
+  <div id="control-bar">
+    <span class="title">🩸 AC</span>
+    
+    <!-- Environment switch (Local/Prod) -->
+    <div class="env-switch">
+      <button id="env-local" class="env-btn local active">Local</button>
+      <button id="env-prod" class="env-btn prod">Prod</button>
+    </div>
+    
+    <!-- Mode switch (Shell/App) -->
+    <div class="mode-switch">
+      <button id="mode-shell" class="mode-btn shell-mode active">Shell</button>
+      <button id="mode-app" class="mode-btn app-mode">App</button>
+    </div>
+    
+    <div class="slider-group">
+      <span class="slider-label">Opacity</span>
+      <input type="range" id="opacity-slider" min="0" max="100" value="85">
+      <span id="opacity-value">85%</span>
+    </div>
+    
+    <span class="hint"><kbd>⌘`</kbd> toggle · <kbd>⌘H</kbd> hide bar</span>
+  </div>
+  
+  <!-- Terminal overlay below control bar -->
+  <div id="terminal-overlay">
+    <div id="terminal-bg"></div>
+    <div id="terminal-container"></div>
+  </div>
+
+  <script>
+    // With nodeIntegration, we can use require
+    const { Terminal } = require('@xterm/xterm');
+    const { FitAddon } = require('@xterm/addon-fit');
+    const { WebglAddon } = require('@xterm/addon-webgl');
+    const { ipcRenderer } = require('electron');
+
+    // Elements
+    const webview = document.getElementById('ac-webview');
+    const controlBar = document.getElementById('control-bar');
+    const terminalOverlay = document.getElementById('terminal-overlay');
+    const terminalBg = document.getElementById('terminal-bg');
+    const terminalContainer = document.getElementById('terminal-container');
+    const connectionOverlay = document.getElementById('connection-overlay');
+    const statusMessage = document.getElementById('status-message');
+    const statusDetail = document.getElementById('status-detail');
+    const retryCount = document.getElementById('retry-count');
+    const modeShellBtn = document.getElementById('mode-shell');
+    const modeAppBtn = document.getElementById('mode-app');
+    const envLocalBtn = document.getElementById('env-local');
+    const envProdBtn = document.getElementById('env-prod');
+    const modeIndicator = document.getElementById('mode-indicator');
+    const opacitySlider = document.getElementById('opacity-slider');
+    const opacityValue = document.getElementById('opacity-value');
+
+    // URLs
+    const URLS = {
+      local: 'https://localhost:8888',
+      prod: 'https://aesthetic.computer'
+    };
+    
+    let currentEnv = 'local'; // 'local' or 'prod'
+    let currentPiece = 'prompt';
+    let attempts = 0;
+    let serverConnected = false;
+    let checkInterval = null;
+    let currentMode = 'shell'; // 'shell' or 'app'
+    let controlBarVisible = true;
+
+    // ========== Terminal Setup ==========
+    const term = new Terminal({
+      cursorBlink: true,
+      cursorStyle: 'block',
+      fontSize: 13,
+      fontFamily: "'SF Mono', 'Fira Code', monospace",
+      scrollback: 5000,
+      fastScrollModifier: 'alt',
+      fastScrollSensitivity: 5,
+      theme: {
+        background: 'transparent',
+        foreground: '#eee',
+        cursor: '#f0f',
+        cursorAccent: '#0a0a12',
+        selectionBackground: 'rgba(255, 0, 255, 0.3)',
+        black: '#1a1a2e',
+        red: '#ff5555',
+        green: '#50fa7b',
+        yellow: '#f1fa8c',
+        blue: '#6272a4',
+        magenta: '#ff79c6',
+        cyan: '#8be9fd',
+        white: '#f8f8f2',
+      },
+      allowTransparency: true,
+    });
+
+    const fitAddon = new FitAddon();
+    term.loadAddon(fitAddon);
+    term.open(terminalContainer);
+    
+    // Load WebGL addon for GPU-accelerated rendering
+    try {
+      const webglAddon = new WebglAddon();
+      webglAddon.onContextLoss(() => {
+        webglAddon.dispose();
+      });
+      term.loadAddon(webglAddon);
+      console.log('[dev] WebGL renderer enabled');
+    } catch (e) {
+      console.warn('[dev] WebGL not available, using canvas renderer');
+    }
+    
+    setTimeout(() => fitAddon.fit(), 50);
+
+    // Resize handling
+    const resizeObserver = new ResizeObserver(() => {
+      fitAddon.fit();
+      ipcRenderer.send('pty-resize', term.cols, term.rows);
+    });
+    resizeObserver.observe(terminalContainer);
+
+    // ========== Environment Switching ==========
+    function setEnv(env) {
+      currentEnv = env;
+      const baseUrl = URLS[env];
+      
+      if (env === 'local') {
+        envLocalBtn.classList.add('active');
+        envProdBtn.classList.remove('active');
+        statusDetail.textContent = baseUrl;
+        // For local, check if server is running first
+        if (!serverConnected) {
+          connectionOverlay.classList.remove('hidden');
+          checkServer();
+        } else {
+          webview.src = `${baseUrl}/${currentPiece}`;
+        }
+      } else {
+        envLocalBtn.classList.remove('active');
+        envProdBtn.classList.add('active');
+        // Production is always available
+        connectionOverlay.classList.add('hidden');
+        webview.classList.add('connected');
+        webview.src = `${baseUrl}/${currentPiece}`;
+        if (checkInterval) {
+          clearInterval(checkInterval);
+          checkInterval = null;
+        }
+      }
+      
+      updateTitle();
+    }
+    
+    envLocalBtn.addEventListener('click', () => setEnv('local'));
+    envProdBtn.addEventListener('click', () => setEnv('prod'));
+    
+    // ========== Control Bar Visibility ==========
+    function toggleControlBar() {
+      controlBarVisible = !controlBarVisible;
+      if (controlBarVisible) {
+        controlBar.classList.remove('hidden');
+        terminalOverlay.style.top = '38px';
+      } else {
+        controlBar.classList.add('hidden');
+        terminalOverlay.style.top = '0';
+      }
+    }
+
+    // ========== Mode Switching ==========
+    function setMode(mode) {
+      currentMode = mode;
+      
+      if (mode === 'shell') {
+        terminalOverlay.classList.remove('passthrough');
+        modeShellBtn.classList.add('active');
+        modeAppBtn.classList.remove('active');
+        modeIndicator.textContent = '🩸 Shell Mode';
+        modeIndicator.className = 'shell-active visible';
+        term.focus();
+      } else {
+        terminalOverlay.classList.add('passthrough');
+        modeShellBtn.classList.remove('active');
+        modeAppBtn.classList.add('active');
+        modeIndicator.textContent = '⚡ App Mode';
+        modeIndicator.className = 'app-active visible';
+        // Focus the webview so it receives input
+        webview.focus();
+      }
+      
+      // Hide indicator after a moment
+      setTimeout(() => {
+        modeIndicator.classList.remove('visible');
+      }, 1000);
+    }
+
+    function toggleMode() {
+      setMode(currentMode === 'shell' ? 'app' : 'shell');
+    }
+
+    // Mode button clicks
+    modeShellBtn.addEventListener('click', () => setMode('shell'));
+    modeAppBtn.addEventListener('click', () => setMode('app'));
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      // Cmd+` to toggle shell/app mode
+      if ((e.metaKey || e.ctrlKey) && e.key === '`') {
+        e.preventDefault();
+        toggleMode();
+      }
+      // Cmd+H to toggle control bar visibility
+      if ((e.metaKey || e.ctrlKey) && e.key === 'h') {
+        e.preventDefault();
+        toggleControlBar();
+      }
+      // Cmd+1 for local, Cmd+2 for prod
+      if ((e.metaKey || e.ctrlKey) && e.key === '1') {
+        e.preventDefault();
+        setEnv('local');
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === '2') {
+        e.preventDefault();
+        setEnv('prod');
+      }
+    });
+
+    // ========== Opacity Slider ==========
+    function updateOpacity(value) {
+      // Apply opacity to the entire terminal overlay (control bar is separate)
+      terminalOverlay.style.opacity = value / 100;
+      opacityValue.textContent = value + '%';
+    }
+    
+    opacitySlider.addEventListener('input', (e) => {
+      updateOpacity(parseInt(e.target.value));
+    });
+    
+    // Initialize opacity
+    updateOpacity(parseInt(opacitySlider.value));
+
+    // ========== Server Connection ==========
+    async function checkServer() {
+      const baseUrl = URLS[currentEnv];
+      attempts++;
+      retryCount.textContent = `Attempt ${attempts}`;
+      
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 3000);
+        
+        await fetch(baseUrl, { 
+          method: 'HEAD',
+          mode: 'no-cors',
+          signal: controller.signal 
+        });
+        clearTimeout(timeout);
+        
+        statusMessage.textContent = 'Server found!';
+        serverConnected = true;
+        webview.src = `${baseUrl}/${currentPiece}`;
+        return true;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    // Webview load handlers
+    webview.addEventListener('did-finish-load', () => {
+      const baseUrl = URLS[currentEnv];
+      if (webview.src.startsWith(baseUrl) || webview.src.startsWith(URLS.prod)) {
+        serverConnected = true;
+        statusMessage.textContent = 'Connected!';
+        
+        setTimeout(() => {
+          connectionOverlay.classList.add('hidden');
+          webview.classList.add('connected');
+        }, 300);
+        
+        if (checkInterval) {
+          clearInterval(checkInterval);
+          checkInterval = null;
+        }
+      }
+    });
+
+    webview.addEventListener('did-fail-load', (e) => {
+      if (e.errorCode === -3) return;
+      webview.src = 'about:blank';
+      if (!checkInterval) {
+        checkInterval = setInterval(checkServer, 2000);
+      }
+    });
+
+    // Title updates
+    function updateTitle(url) {
+      try {
+        const u = new URL(url);
+        currentPiece = u.pathname.replace(/^\//, '').replace(/\/$/, '') || 'prompt';
+        const envLabel = currentEnv === 'prod' ? '' : ' [DEV]';
+        document.title = `${currentPiece} — Aesthetic Computer${envLabel}`;
+      } catch (e) {
+        document.title = 'Aesthetic Computer';
+      }
+    }
+
+    webview.addEventListener('did-navigate', (e) => updateTitle(e.url));
+    webview.addEventListener('did-navigate-in-page', (e) => updateTitle(e.url));
+
+    // Menu handlers
+    window.ac?.onNavigate?.((url) => {
+      webview.src = url;
+      updateTitle(url);
+    });
+    window.ac?.onGoBack?.(() => webview.goBack());
+    window.ac?.onGoForward?.(() => webview.goForward());
+    window.ac?.onToggleDevtools?.(() => {
+      if (webview.isDevToolsOpened()) webview.closeDevTools();
+      else webview.openDevTools();
+    });
+
+    // ========== PTY Connection ==========
+    async function initShell() {
+      try {
+        const dockerOk = await ipcRenderer.invoke('check-docker');
+        if (!dockerOk) {
+          term.writeln('\x1b[31mError: Docker not running\x1b[0m');
+          return;
+        }
+
+        const containerOk = await ipcRenderer.invoke('check-container');
+        if (!containerOk) {
+          term.writeln('\x1b[33mStarting devcontainer...\x1b[0m');
+          await ipcRenderer.invoke('start-container');
+        }
+
+        const connected = await ipcRenderer.invoke('connect-pty');
+        if (!connected) {
+          term.writeln('\x1b[31mFailed to connect to shell\x1b[0m');
+          return;
+        }
+
+        ipcRenderer.on('pty-data', (event, data) => term.write(data));
+        term.onData((data) => ipcRenderer.send('pty-input', data));
+        ipcRenderer.on('pty-exit', (event, code) => {
+          term.writeln(`\r\n\x1b[33mShell exited with code ${code}\x1b[0m`);
+        });
+
+        ipcRenderer.send('pty-resize', term.cols, term.rows);
+        
+        // Auto-start emacs
+        setTimeout(() => {
+          ipcRenderer.send('pty-input', 'ac-aesthetic\n');
+        }, 500);
+
+      } catch (err) {
+        term.writeln(`\x1b[31mError: ${err.message}\x1b[0m`);
+      }
+    }
+
+    // ========== IPC Bridge for Artery/Tests ==========
+    // These handlers allow artery-tui to control the webview for testing
+    
+    // Navigate to a piece
+    ipcRenderer.on('ac-navigate', (event, piece) => {
+      const baseUrl = URLS[currentEnv];
+      currentPiece = piece;
+      webview.src = `${baseUrl}/${piece}`;
+      updateTitle(webview.src);
+    });
+    
+    // Switch environment
+    ipcRenderer.on('ac-set-env', (event, env) => {
+      if (env === 'local' || env === 'prod') {
+        setEnv(env);
+      }
+    });
+    
+    // Execute JavaScript in the webview
+    ipcRenderer.on('ac-eval', async (event, code) => {
+      try {
+        const result = await webview.executeJavaScript(code);
+        ipcRenderer.send('ac-eval-result', { success: true, result });
+      } catch (e) {
+        ipcRenderer.send('ac-eval-result', { success: false, error: e.message });
+      }
+    });
+    
+    // Get current state
+    ipcRenderer.on('ac-get-state', (event) => {
+      ipcRenderer.send('ac-state', {
+        env: currentEnv,
+        piece: currentPiece,
+        url: webview.src,
+        mode: currentMode,
+        connected: serverConnected
+      });
+    });
+    
+    // Toggle shell/app mode
+    ipcRenderer.on('ac-set-mode', (event, mode) => {
+      if (mode === 'shell' || mode === 'app') {
+        setMode(mode);
+      }
+    });
+    
+    // Take screenshot of webview
+    ipcRenderer.on('ac-screenshot', async (event) => {
+      try {
+        const nativeImage = await webview.capturePage();
+        const dataUrl = nativeImage.toDataURL();
+        ipcRenderer.send('ac-screenshot-result', { success: true, dataUrl });
+      } catch (e) {
+        ipcRenderer.send('ac-screenshot-result', { success: false, error: e.message });
+      }
+    });
+    
+    // Reload webview
+    ipcRenderer.on('ac-reload', (event) => {
+      webview.reload();
+    });
+
+    // ========== Init ==========
+    checkServer();
+    checkInterval = setInterval(checkServer, 2000);
+    initShell();
+  </script>
+</body>
+</html>
