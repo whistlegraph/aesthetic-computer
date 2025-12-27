@@ -2,6 +2,9 @@
   "name": "aesthetic-computer",
   "version": "0.1.0",
   "description": "Aesthetic Computer - Creative coding platform",
+  "homepage": "https://aesthetic.computer",
+  "author": "Aesthetic Computer <hi@aesthetic.computer>",
+  "license": "MIT",
   "main": "main.js",
   "scripts": {
     "start": "node -e \"require('child_process').spawn(require('path').join(__dirname, 'node_modules/electron/dist/Electron.app/Contents/MacOS/Electron'), ['.'], {stdio: 'inherit', cwd: __dirname})\"",
