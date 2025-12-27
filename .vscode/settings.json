@@ -67,5 +67,8 @@
   "deno.unstable": true,
   "deno.importMap": ".netlify/edge-functions-import-map.json",
   "task.quickOpen.showAll": true,
-  "task.allowAutomaticTasks": "on"
+  "task.allowAutomaticTasks": "on",
+  "github.copilot.advanced": {
+    "defaultModel": "claude-opus-4.5"
+  }
 }

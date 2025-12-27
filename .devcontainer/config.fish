@@ -32,15 +32,13 @@ if test -d /workspaces/aesthetic-computer
 end
 
 # Persist Copilot CLI sessions across container restarts
-# Store session state in vault so conversations survive reboots
-if test -d /workspaces/aesthetic-computer/aesthetic-computer-vault/home/.copilot
-    if test ! -L ~/.copilot
-        # Remove any existing directory (not symlink)
-        if test -d ~/.copilot
-            rm -rf ~/.copilot
-        end
-        ln -s /workspaces/aesthetic-computer/aesthetic-computer-vault/home/.copilot ~/.copilot
-        echo "✓ Copilot sessions will persist across reboots"
+# Now handled by Docker volume mount (aesthetic-copilot-data)
+# The volume is mounted at /home/me/.copilot in devcontainer.json
+# No symlink needed - just ensure proper permissions
+if test -d ~/.copilot
+    # Fix permissions if needed (volume may have wrong owner after restart)
+    if not test -O ~/.copilot
+        sudo chown -R me:me ~/.copilot 2>/dev/null
     end
 end
 
@@ -1236,13 +1234,13 @@ function ac-pix
     echo "" # Add space after sixel in eat
 end
 
-# Full aesthetic platform restart (emacs + reconnect artery)
+# Full aesthetic platform restart (emacs + reconnect llm)
 function ac-restart
     echo "🔄 Full aesthetic platform restart..."
     ac-emacs-restart
     if test $status -eq 0
-        echo "🩸 Reconnecting to artery..."
-        emacsclient -nw -c --eval '(aesthetic-backend (quote "artery"))'
+        echo "🤖 Reconnecting to llm..."
+        emacsclient -nw -c --eval '(aesthetic-backend (quote "llm"))'
     end
 end
 
@@ -1362,7 +1360,7 @@ end
 
 # For fast config reloading - simple approach
 function platform
-    emacsclient -nw -c --eval '(aesthetic-backend (quote "artery"))'
+    emacsclient -nw -c --eval '(aesthetic-backend (quote "llm"))'
 end
 
 function ensure-emacs-daemon-ready
@@ -1564,7 +1562,7 @@ function aesthetic
     
     # Connect to emacs and run aesthetic-backend to create all tabs
     echo "🚀 Connecting to aesthetic platform..."
-    emacsclient -nw -c --eval '(aesthetic-backend (quote "artery"))'
+    emacsclient -nw -c --eval '(aesthetic-backend (quote "llm"))'
 end
 
 # Convenience alias for skipping the wait
@@ -1582,7 +1580,7 @@ function aesthetic-direct
     end
     
     # Connect to emacs with aesthetic-backend
-    emacsclient -nw -c --eval '(aesthetic-backend (quote "artery"))'
+    emacsclient -nw -c --eval '(aesthetic-backend (quote "llm"))'
 end
 
 # TODO: Automatically kill online mode and go to offline mode if necessary.
@@ -2154,10 +2152,11 @@ alias acw 'cd ~/aesthetic-computer/system; npm run watch'
 
 # GitHub Copilot CLI (LLM agent in terminal)
 # Uses GH_TOKEN from vault for auth, runs interactively
+# Default to Claude Opus 4.5 for best quality
 # Use --continue to resume last session after reboot
-alias ac-llm 'clear; ac; copilot'
-alias ac-llm-continue 'clear; ac; copilot --continue'
-alias ac-llm-resume 'clear; ac; copilot --resume'
+alias ac-llm 'clear; ac; copilot --model claude-opus-4.5'
+alias ac-llm-continue 'clear; ac; copilot --model claude-opus-4.5 --continue'
+alias ac-llm-resume 'clear; ac; copilot --model claude-opus-4.5 --resume'
 
 # Process viewer (htop for monitoring system resources)
 alias ac-top 'clear; htop'

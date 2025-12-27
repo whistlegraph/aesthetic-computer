@@ -220,20 +220,58 @@ Returns: 'ready, 'restarted, 'dead, or 'not-found"
     'not-found))
 
 ;;; --- Copilot Completion Notification ---
-;; Flash artery-tui when Copilot response is done (called via MCP)
+;; Flash current terminal when Copilot response is done (called via MCP)
+
+(defvar ac-notify-flash-active nil "Whether notification flash is currently active.")
+(defvar ac-notify-flash-timer nil "Timer for notification flashing.")
+(defvar ac-notify-flash-count 0 "Number of flash cycles completed.")
+(defvar ac-notify-original-bg nil "Original background color before flash.")
+
+(defun ac-notify-stop-flash ()
+  "Stop the notification flash and restore original background."
+  (interactive)
+  (when ac-notify-flash-timer
+    (cancel-timer ac-notify-flash-timer)
+    (setq ac-notify-flash-timer nil))
+  (setq ac-notify-flash-active nil)
+  (setq ac-notify-flash-count 0)
+  ;; Restore original background
+  (when ac-notify-original-bg
+    (set-face-background 'default ac-notify-original-bg)
+    (setq ac-notify-original-bg nil))
+  ;; Force redisplay
+  (redisplay t))
+
+(defun ac-notify-do-flash ()
+  "Perform one flash cycle."
+  (when ac-notify-flash-active
+    (setq ac-notify-flash-count (1+ ac-notify-flash-count))
+    ;; Alternate between flash color and original
+    (if (= (mod ac-notify-flash-count 2) 1)
+        (set-face-background 'default "#1a3a1a") ; Dark green flash
+      (set-face-background 'default ac-notify-original-bg))
+    (redisplay t)
+    ;; Continue flashing
+    (setq ac-notify-flash-timer
+          (run-at-time 0.25 nil #'ac-notify-do-flash))))
 
 (defun ac-notify-done (&optional message)
-  "Notify completion by signaling artery-tui to flash and switching to artery tab.
+  "Notify completion by flashing the current buffer background.
+Flash continues until user clicks or presses a key.
 Called by MCP tools at the end of each response."
   (interactive)
   (let ((msg (or message "Done")))
-    ;; Create signal file that artery-tui watches
+    ;; Also signal artery-tui (for when viewing that tab)
     (with-temp-file "/tmp/ac-copilot-done"
       (insert "done"))
-    ;; Switch to artery tab so user sees the flash
-    (condition-case nil
-        (tab-bar-switch-to-tab "artery")
-      (error nil))
+    ;; Start flashing in current buffer
+    (unless ac-notify-flash-active
+      (setq ac-notify-original-bg (face-background 'default nil t))
+      (setq ac-notify-flash-active t)
+      (setq ac-notify-flash-count 0)
+      (ac-notify-do-flash)
+      ;; Stop flash on any input (mouse or keyboard)
+      (add-hook 'pre-command-hook #'ac-notify-stop-flash))
     (message "🔔 %s" msg)))
 
 (ac-perf-session-start)
@@ -316,8 +354,26 @@ Called by MCP tools at the end of each response."
             (derived-mode-p 'eat-mode))
     (display-line-numbers-mode -1)))
 
+(defun ac-optimize-eat-terminal ()
+  "Disable heavy modes in eat terminal buffers for better performance."
+  ;; Disable line numbers
+  (display-line-numbers-mode -1)
+  ;; Disable evil-mode (use emacs keybindings in terminals)
+  (when (and (boundp 'evil-local-mode) (fboundp 'evil-local-mode))
+    (evil-local-mode -1))
+  ;; Disable origami (code folding not needed in terminal)
+  (when (and (boundp 'origami-mode) (fboundp 'origami-mode))
+    (origami-mode -1))
+  ;; Disable yascroll (scrollbar causes rendering overhead)
+  (when (and (boundp 'yascroll-bar-mode) (fboundp 'yascroll-bar-mode))
+    (yascroll-bar-mode -1))
+  ;; Disable fill column indicator
+  (when (fboundp 'display-fill-column-indicator-mode)
+    (display-fill-column-indicator-mode -1)))
+
 (add-hook 'eshell-mode-hook 'disable-line-numbers-in-modes)
 (add-hook 'eat-mode-hook 'disable-line-numbers-in-modes)
+(add-hook 'eat-mode-hook 'ac-optimize-eat-terminal)
 (add-hook 'image-mode-hook 'disable-line-numbers-in-modes)
 
 ;; Electric pairs
@@ -973,15 +1029,23 @@ Skips creation if tab already exists."
             (kill-buffer buf)))
       (error nil))
 
+    ;; Helper to check if a tab with a given name exists
+    (defun ac--tab-exists-p (name)
+      "Return t if a tab named NAME exists."
+      (seq-find (lambda (tab) (string= name (alist-get 'name tab)))
+                (tab-bar-tabs)))
+
     ;; Initialize the first tab as "artery" with artery CLI (dev mode with hot-reload)
-    ;; Only create if it doesn't already exist
-    (unless (get-buffer "🩸-artery")
+    ;; Only create if the tab doesn't already exist
+    (unless (ac--tab-exists-p "artery")
       (tab-rename "artery")
       (let ((default-directory ac--directory-path)
-            (buf (generate-new-buffer "🩸-artery")))
+            (buf (or (get-buffer "🩸-artery")
+                     (generate-new-buffer "🩸-artery"))))
         (with-current-buffer buf
-          (eat-mode)
-          (eat-exec buf "🩸-artery" "/usr/bin/fish" nil '("-c" "ac-artery-dev"))
+          (unless (eq major-mode 'eat-mode)
+            (eat-mode)
+            (eat-exec buf "🩸-artery" "/usr/bin/fish" nil '("-c" "ac-artery-dev")))
           ;; Enable semi-char mode so TUI gets individual keypresses
           (eat-semi-char-mode)
           ;; Disable evil mode for artery - use emacs state
@@ -991,40 +1055,52 @@ Skips creation if tab already exists."
         (redisplay t)))  ; Yield to prevent freeze
 
     ;; Create fishy tab (plain fish shell for quick terminal access via LLM)
-    ;; Only create if it doesn't already exist
-    (unless (get-buffer "🐟-fishy")
+    ;; Only create if the tab doesn't already exist
+    (unless (ac--tab-exists-p "fishy")
       (tab-new)
       (tab-rename "fishy")
       (let ((default-directory ac--directory-path)
-            (buf (generate-new-buffer "🐟-fishy")))
+            (buf (or (get-buffer "🐟-fishy")
+                     (generate-new-buffer "🐟-fishy"))))
         (with-current-buffer buf
-          (eat-mode)
-          (eat-exec buf "🐟-fishy" "/usr/bin/fish" nil nil)
+          (unless (eq major-mode 'eat-mode)
+            (eat-mode)
+            (eat-exec buf "🐟-fishy" "/usr/bin/fish" nil nil))
           (eat-semi-char-mode)
           (when (and (boundp 'evil-mode) evil-mode)
             (evil-emacs-state)))
         (switch-to-buffer buf)
         (redisplay t)))
 
-    ;; Create all the split tabs immediately (no delays)
-    (dolist (tab-spec '(("status"   ("url" "tunnel"))
-                        ("stripe"   ("stripe-print" "stripe-ticket"))
-                        ("chat"     ("chat-system" "chat-sotce" "chat-clock"))
-                        ("web 1/2"  ("site" "session"))
-                        ("web 2/2"  ("redis" "bookmarks" "oven" "media"))
-                        ("tests"    ("kidlisp"))
-                        ("llm"      ("llm"))
-                        ("top"      ("top"))))  ; Process viewer tab
-      (let ((tab-name (car tab-spec))
-            (commands (cadr tab-spec)))
-        (ac--create-split-tab tab-name commands)))
+    ;; Create all the split tabs with staggered delays to prevent terminal garbling
+    (let ((delay 0.3)
+          (tab-specs '(("status"   ("url" "tunnel"))
+                       ("stripe"   ("stripe-print" "stripe-ticket"))
+                       ("chat"     ("chat-system" "chat-sotce" "chat-clock"))
+                       ("web 1/2"  ("site" "session"))
+                       ("web 2/2"  ("redis" "bookmarks" "oven" "media"))
+                       ("tests"    ("kidlisp"))
+                       ("llm"      ("llm"))
+                       ("top"      ("top")))))  ; Process viewer tab
+      (dolist (tab-spec tab-specs)
+        (let ((tab-name (car tab-spec))
+              (commands (cadr tab-spec))
+              (current-delay delay))
+          (run-with-timer current-delay nil
+                          (lambda (name cmds)
+                            (ac--create-split-tab name cmds)
+                            (redisplay t))
+                          tab-name commands)
+          (setq delay (+ delay 0.3)))))  ; 300ms between each tab
 
-    ;; Switch to the requested tab
-    (run-with-timer 0.5 nil
+    ;; Switch to the requested tab (after all tabs created - 8 tabs * 0.3s = 2.4s + buffer)
+    (run-with-timer 3.0 nil
                     (lambda (target)
                       (condition-case nil
                           (if (member target '("artery" "fishy" "status" "stripe" "chat" "web 1/2" "web 2/2" "tests" "llm" "top"))
-                              (tab-bar-switch-to-tab target)
+                              (progn
+                                (tab-bar-switch-to-tab target)
+                                (redisplay t))
                             (message "No such tab: %s" target))
                         (error nil)))
                     target-tab))

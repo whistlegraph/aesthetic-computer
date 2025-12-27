@@ -523,14 +523,37 @@ if test -d /home/me/aesthetic-computer
         log_ok "Environment variables reloaded after vault mount"
     end
     
-    # Setup SSH keys from vault
-    if test -d /home/me/aesthetic-computer/aesthetic-computer-vault/home/.ssh
-        mkdir -p /home/me/.ssh
-        cp -f /home/me/aesthetic-computer/aesthetic-computer-vault/home/.ssh/* /home/me/.ssh/
-        chmod 700 /home/me/.ssh
-        chmod 600 /home/me/.ssh/id_rsa 2>/dev/null
-        chmod 644 /home/me/.ssh/id_rsa.pub 2>/dev/null
-        log_ok "SSH keys restored from vault"
+    # Setup SSH keys from vault (only if not already set up)
+    set -l vault_ssh /home/me/aesthetic-computer/aesthetic-computer-vault/home/.ssh
+    if test -d $vault_ssh
+        # Only copy if id_rsa doesn't exist yet (first time setup)
+        if not test -f /home/me/.ssh/id_rsa
+            mkdir -p /home/me/.ssh
+            cp -f $vault_ssh/* /home/me/.ssh/ 2>/dev/null
+            chown -R me:me /home/me/.ssh 2>/dev/null
+            chmod 700 /home/me/.ssh 2>/dev/null
+            chmod 600 /home/me/.ssh/id_rsa 2>/dev/null
+            chmod 644 /home/me/.ssh/id_rsa.pub 2>/dev/null
+            chmod 600 /home/me/.ssh/config 2>/dev/null
+            chmod 600 /home/me/.ssh/aesthetic_pds 2>/dev/null
+            chmod 644 /home/me/.ssh/aesthetic_pds.pub 2>/dev/null
+            log_ok "SSH keys restored from vault"
+        else
+            log_info "SSH keys already exist, skipping vault copy"
+        end
+    end
+    
+    # Setup Copilot CLI config from vault (if volume is empty but vault has backup)
+    set -l vault_copilot /home/me/aesthetic-computer/aesthetic-computer-vault/home/.copilot
+    if test -d $vault_copilot
+        # Only restore if volume mount is empty (no config.json)
+        if not test -f /home/me/.copilot/config.json
+            mkdir -p /home/me/.copilot
+            cp -f $vault_copilot/config.json /home/me/.copilot/ 2>/dev/null
+            log_ok "Copilot CLI config restored from vault"
+        else
+            log_info "Copilot CLI config already exists (using volume data)"
+        end
     end
 else
     log_error "Vault unmounted! /home/me/aesthetic-computer not found"
@@ -552,12 +575,27 @@ log_ok "Ensured /home/me/.emacs-logs exists"
 log_info "Fixing fish config permissions..."
 ensure_fish_config_permissions
 
-# Fix SSH directory permissions
+# Fix SSH directory permissions (only if we own it - don't use sudo which can fail)
 if test -d /home/me/.ssh
-    sudo chown -R me:me /home/me/.ssh 2>/dev/null
-    sudo chmod 700 /home/me/.ssh 2>/dev/null
-    sudo chmod 600 /home/me/.ssh/* 2>/dev/null
-    echo "✅ Fixed permissions for /home/me/.ssh (after vault setup)"
+    if test -O /home/me/.ssh
+        chmod 700 /home/me/.ssh 2>/dev/null
+        chmod 600 /home/me/.ssh/* 2>/dev/null
+        chmod 644 /home/me/.ssh/*.pub 2>/dev/null
+        echo "✅ Fixed permissions for /home/me/.ssh"
+    else
+        log_info "SSH dir not owned by me, skipping permission fix"
+    end
+end
+
+# Fix Copilot CLI directory permissions (volume mount may have root ownership)
+if test -d /home/me/.copilot
+    sudo chown -R me:me /home/me/.copilot 2>/dev/null
+    sudo chmod 700 /home/me/.copilot 2>/dev/null
+    # Ensure pkg directory exists and is writable for package extraction
+    mkdir -p /home/me/.copilot/pkg 2>/dev/null
+    chmod 755 /home/me/.copilot/pkg 2>/dev/null
+    sudo chmod 600 /home/me/.copilot/config.json 2>/dev/null
+    echo "✅ Fixed permissions for /home/me/.copilot (Copilot CLI config)"
 end
 
 if not test -d /home/me/aesthetic-computer/aesthetic-computer-code

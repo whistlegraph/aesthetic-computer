@@ -1,0 +1,11 @@
+{
+  "id": 12345,
+  "data": {
+    "env": "prod",
+    "piece": "starfield",
+    "url": "about:blank",
+    "mode": "shell",
+    "connected": false
+  },
+  "error": null
+}

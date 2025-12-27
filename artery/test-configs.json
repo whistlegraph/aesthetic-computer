@@ -13,6 +13,11 @@
     ]
   },
   "tests": {
+    "test-notepat-quick.mjs": {
+      "name": "notepat-quick",
+      "icon": "⚡",
+      "desc": "Quick notepat test (Electron compatible)"
+    },
     "test-notepat-stability.mjs": {
       "name": "stability",
       "icon": "🔬",
