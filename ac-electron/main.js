@@ -14,6 +14,7 @@ const { spawn, execSync } = require('child_process');
 
 // Auto-updater (only in production builds)
 let autoUpdater;
+let autoUpdaterError = null;
 let updateDownloaded = false;
 const UPDATE_CHECK_INTERVAL = 60 * 60 * 1000; // Check every hour
 
@@ -64,15 +65,25 @@ try {
   });
   
 } catch (e) {
-  console.log('[updater] Auto-updater not available (dev mode):', e.message);
+  autoUpdaterError = e.message;
+  console.log('[updater] Auto-updater not available:', e.message);
 }
 
 // Start periodic update checks
 function startUpdateChecks() {
-  if (!autoUpdater || !app.isPackaged) return;
+  console.log('[updater] startUpdateChecks called, autoUpdater:', !!autoUpdater, 'isPackaged:', app.isPackaged);
+  if (!autoUpdater) {
+    console.log('[updater] Skipping - autoUpdater not loaded, error:', autoUpdaterError);
+    return;
+  }
+  if (!app.isPackaged) {
+    console.log('[updater] Skipping - not a packaged build');
+    return;
+  }
   
   const checkForUpdates = () => {
     if (!updateDownloaded) {
+      console.log('[updater] Running update check...');
       autoUpdater.checkForUpdates().catch(err => {
         console.log('[updater] Check failed:', err.message);
       });
@@ -335,10 +346,17 @@ function createMenu() {
                 });
               }
             } else {
+              // Show why auto-updater isn't available
+              const reason = autoUpdaterError 
+                ? `Failed to load: ${autoUpdaterError}`
+                : app.isPackaged 
+                  ? 'Unknown error' 
+                  : 'Only available in packaged builds';
               dialog.showMessageBox({
                 type: 'info',
                 title: 'Updates',
-                message: 'Auto-updates are not available in development mode.',
+                message: 'Auto-updates are not available.',
+                detail: reason,
                 buttons: ['OK']
               });
             }
