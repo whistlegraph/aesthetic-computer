@@ -17,10 +17,10 @@
       -webkit-user-select: none;
     }
     
-    /* Container for both views - padded to allow outer tabs */
+    /* Container for both views - padded to allow outer tabs and bottom tag */
     .container {
       width: calc(100% - 32px);
-      height: 100%;
+      height: calc(100% - 14px); /* Leave room for mode tag at bottom */
       position: relative;
       margin-left: 16px;
       margin-right: 16px;
@@ -142,20 +142,20 @@
       opacity: 0;
     }
     
-    /* Skeuomorphic mode tag - peeking from behind at bottom */
+    /* Skeuomorphic mode tag - visible below the content */
     .mode-tag {
       position: fixed;
-      z-index: 1; /* Behind the main content */
-      bottom: 0;
+      z-index: 100; /* Above content to be visible */
+      bottom: -4px; /* Peek from bottom edge */
       left: 50%;
       transform: translateX(-50%);
-      font-size: 10px;
+      font-size: 9px;
       font-weight: 700;
       letter-spacing: 1px;
-      padding: 6px 20px 10px 20px;
+      padding: 3px 16px 6px 16px;
       text-transform: uppercase;
       pointer-events: none;
-      border-radius: 8px 8px 0 0;
+      border-radius: 6px 6px 0 0;
       box-shadow: 0 -2px 8px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2);
       transition: all 0.3s ease;
     }
