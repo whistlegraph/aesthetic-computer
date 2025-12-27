@@ -1262,12 +1262,18 @@ app.on('will-quit', () => {
     }
   }
   
-  // Stop the devcontainer when the app quits
+  // Stop the devcontainer when the app quits (only if docker is available)
   try {
-    require('child_process').execSync('docker stop aesthetic', { timeout: 5000 });
-    console.log('[main] Stopped devcontainer');
+    const dockerPath = getDockerPath();
+    if (fs.existsSync(dockerPath)) {
+      require('child_process').execSync(`${dockerPath} stop aesthetic`, { 
+        timeout: 5000,
+        stdio: 'ignore'  // Suppress output to avoid EPIPE
+      });
+      console.log('[main] Stopped devcontainer');
+    }
   } catch (e) {
-    console.log('[main] Could not stop devcontainer:', e.message);
+    // Silently ignore - docker may not be running or container may not exist
   }
 });
 

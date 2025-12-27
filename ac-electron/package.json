@@ -68,10 +68,21 @@
       "node_modules/node-pty/**/*",
       "node_modules/three/**/*",
       "node_modules/electron-updater/**/*",
+      "node_modules/fs-extra/**/*",
+      "node_modules/graceful-fs/**/*",
+      "node_modules/jsonfile/**/*",
+      "node_modules/universalify/**/*",
       "node_modules/builder-util-runtime/**/*",
       "node_modules/lazy-val/**/*",
       "node_modules/semver/**/*",
-      "node_modules/lodash.isequal/**/*"
+      "node_modules/lodash.isequal/**/*",
+      "node_modules/lodash.escaperegexp/**/*",
+      "node_modules/sax/**/*",
+      "node_modules/debug/**/*",
+      "node_modules/ms/**/*",
+      "node_modules/js-yaml/**/*",
+      "node_modules/argparse/**/*",
+      "node_modules/tiny-typed-emitter/**/*"
     ],
     "win": {
       "target": [
