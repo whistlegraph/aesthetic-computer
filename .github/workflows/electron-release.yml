@@ -76,3 +76,31 @@ jobs:
             ac-electron/dist/*.AppImage
             ac-electron/dist/*.deb
             ac-electron/dist/*.rpm
+
+  release:
+    needs: [build-mac, build-windows, build-linux]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      
+      - name: List artifacts
+        run: find artifacts -type f
+      
+      - name: Create or update release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ github.event.inputs.version || '0.1.0' }}
+          name: Aesthetic Computer Desktop v${{ github.event.inputs.version || '0.1.0' }}
+          draft: false
+          prerelease: false
+          files: |
+            artifacts/mac-build/*.dmg
+            artifacts/win-build/*.exe
+            artifacts/linux-build/*.AppImage
+            artifacts/linux-build/*.deb
+            artifacts/linux-build/*.rpm
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
