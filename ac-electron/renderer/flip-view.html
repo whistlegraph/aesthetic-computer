@@ -84,20 +84,24 @@
     .xterm { height: 100%; }
     .xterm-viewport { padding-top: 0 !important; }
     
-    /* Outer flip tabs */
+    /* Outer flip tabs - now draggable handles */
     .flip-tab {
       position: fixed;
       z-index: 250;
       width: 16px;
       top: 50%;
       height: 80px;
-      cursor: pointer;
+      cursor: grab;
       display: flex;
       align-items: center;
       justify-content: center;
       background: rgba(136, 68, 255, 0.15);
       transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
       will-change: transform, opacity;
+    }
+    
+    .flip-tab:active {
+      cursor: grabbing;
     }
     
     .flip-tab::after {
@@ -142,22 +146,36 @@
       opacity: 0;
     }
     
-    /* Skeuomorphic mode tag - visible below the content */
-    .mode-tag {
+    /* Mode tags container - sits below content */
+    .mode-tags {
       position: fixed;
-      z-index: 100; /* Above content to be visible */
-      bottom: -4px; /* Peek from bottom edge */
+      z-index: 100;
+      bottom: 0;
       left: 50%;
       transform: translateX(-50%) rotate(180deg);
+      display: flex;
+      gap: 4px;
+      transition: opacity 0.3s ease;
+    }
+    
+    /* Hide mode tags when showing terminal */
+    body.terminal-active .mode-tags {
+      opacity: 0;
+      pointer-events: none;
+    }
+    
+    /* Individual mode tag */
+    .mode-tag {
       font-size: 9px;
       font-weight: 700;
       letter-spacing: 1px;
-      padding: 3px 16px 6px 16px;
+      padding: 3px 12px 6px 12px;
       text-transform: uppercase;
-      pointer-events: none;
       border-radius: 6px 6px 0 0;
       box-shadow: 0 -2px 8px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2);
       transition: all 0.3s ease;
+      cursor: pointer;
+      user-select: none;
     }
     
     .mode-tag::before {
@@ -176,10 +194,33 @@
       text-shadow: 0 1px 0 rgba(255,255,255,0.3);
     }
     
+    .mode-tag.localhost.disabled {
+      background: linear-gradient(180deg, #555 0%, #444 100%);
+      color: #888;
+      text-shadow: none;
+      cursor: not-allowed;
+    }
+    
+    .mode-tag.localhost.disabled:hover {
+      background: linear-gradient(180deg, #555 0%, #444 100%);
+    }
+    
+    .mode-tag.localhost:not(.disabled):hover {
+      background: linear-gradient(180deg, #ffaa33 0%, #f09000 100%);
+    }
+    
     .mode-tag.production {
       background: linear-gradient(180deg, #00d464 0%, #00b354 100%);
       color: #000;
       text-shadow: 0 1px 0 rgba(255,255,255,0.3);
+    }
+    
+    .mode-tag.production:hover {
+      background: linear-gradient(180deg, #00e874 0%, #00c364 100%);
+    }
+    
+    .mode-tag.active {
+      box-shadow: 0 -2px 12px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.3), 0 0 8px currentColor;
     }
     
     /* Resize handles on all edges */
@@ -258,8 +299,11 @@
   <div class="flip-tab left" data-flip></div>
   <div class="flip-tab right" data-flip></div>
   
-  <!-- Skeuomorphic mode tag peeking from behind -->
-  <div class="mode-tag" id="mode-tag">PROD</div>
+  <!-- Skeuomorphic mode tags peeking from behind -->
+  <div class="mode-tags">
+    <div class="mode-tag production active" id="prod-tag">PROD</div>
+    <div class="mode-tag localhost disabled" id="local-tag">LOCAL</div>
+  </div>
   
   <div class="container">
     <!-- Resize handles -->
@@ -274,7 +318,7 @@
     
     <!-- Front: AC Webview -->
     <div class="view" id="front-view">
-      <webview id="front-webview" src="https://aesthetic.computer/prompt" allowpopups></webview>
+      <webview id="front-webview" src="https://aesthetic.computer/prompt?desktop" allowpopups></webview>
     </div>
     
     <!-- Back: Terminal -->
@@ -292,20 +336,81 @@
     const frontView = document.getElementById('front-view');
     const backView = document.getElementById('back-view');
     const webviewEl = document.getElementById('front-webview');
-    const modeTag = document.getElementById('mode-tag');
+    const prodTag = document.getElementById('prod-tag');
+    const localTag = document.getElementById('local-tag');
     const flipTabs = document.querySelectorAll('.flip-tab');
     let showingTerminal = false;
+    let localhostAvailable = false;
+    let currentMode = 'production'; // 'production' or 'localhost'
     
-    // Detect if we're in localhost or production mode
-    const webviewSrc = webviewEl.getAttribute('src') || '';
-    const isLocalhost = webviewSrc.includes('localhost');
-    const modeText = isLocalhost ? 'LOCAL' : 'PROD';
-    const modeClass = isLocalhost ? 'localhost' : 'production';
+    const PROD_URL = 'https://aesthetic.computer/prompt?desktop';
+    const LOCAL_URL = 'http://localhost:8888/prompt?desktop';
     
-    modeTag.textContent = modeText;
-    modeTag.classList.add(modeClass);
+    // Poll for localhost availability using an image load trick (works in webview)
+    async function checkLocalhost() {
+      return new Promise((resolve) => {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => {
+          controller.abort();
+          resolve(false);
+        }, 2000);
+        
+        // Try to fetch - in Electron webview, this should work
+        fetch('http://localhost:8888/', { signal: controller.signal })
+          .then(response => {
+            clearTimeout(timeout);
+            resolve(true);
+          })
+          .catch(e => {
+            clearTimeout(timeout);
+            resolve(false);
+          });
+      });
+    }
     
-    console.log('[flip] Mode:', modeText, 'URL:', webviewSrc);
+    async function updateLocalhostStatus() {
+      const wasAvailable = localhostAvailable;
+      localhostAvailable = await checkLocalhost();
+      
+      if (localhostAvailable !== wasAvailable) {
+        console.log('[flip] Localhost availability changed:', localhostAvailable);
+        if (localhostAvailable) {
+          localTag.classList.remove('disabled');
+        } else {
+          localTag.classList.add('disabled');
+          // If we were on localhost and it went down, switch to prod
+          if (currentMode === 'localhost') {
+            switchMode('production');
+          }
+        }
+      }
+    }
+    
+    function switchMode(mode) {
+      if (mode === 'localhost' && !localhostAvailable) return;
+      if (mode === currentMode) return;
+      
+      currentMode = mode;
+      const url = mode === 'localhost' ? LOCAL_URL : PROD_URL;
+      
+      console.log('[flip] Switching to', mode, url);
+      webviewEl.src = url;
+      
+      prodTag.classList.toggle('active', mode === 'production');
+      localTag.classList.toggle('active', mode === 'localhost');
+    }
+    
+    // Click handlers for mode tags
+    prodTag.addEventListener('click', () => switchMode('production'));
+    localTag.addEventListener('click', () => {
+      if (localhostAvailable) switchMode('localhost');
+    });
+    
+    // Start polling for localhost
+    updateLocalhostStatus();
+    setInterval(updateLocalhostStatus, 3000); // Poll every 3 seconds
+    
+    console.log('[flip] Mode system initialized, starting with production');
     
     // Listen for global flip shortcut from main process
     ipcRenderer.on('toggle-flip', () => {
@@ -442,6 +547,7 @@
       if (showingTerminal) {
         frontView.classList.add('hidden');
         backView.classList.add('active');
+        document.body.classList.add('terminal-active');
         console.log('[flip] Now showing terminal');
         setTimeout(() => {
           fitTerminal();
@@ -450,6 +556,7 @@
       } else {
         frontView.classList.remove('hidden');
         backView.classList.remove('active');
+        document.body.classList.remove('terminal-active');
         console.log('[flip] Now showing webview');
       }
       
@@ -459,12 +566,35 @@
       }, 500);
     }
     
-    // Flip tab clicks
+    // Flip tabs - drag to move window
     console.log('[flip] Found flip tabs:', flipTabs.length);
     flipTabs.forEach(tab => {
-      tab.addEventListener('click', (e) => {
-        console.log('[flip] Flip tab clicked!');
-        toggle();
+      let isDragging = false;
+      let startX, startY, startWinX, startWinY;
+      
+      tab.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        isDragging = true;
+        startX = e.screenX;
+        startY = e.screenY;
+        startWinX = window.screenX;
+        startWinY = window.screenY;
+        
+        const onMouseMove = (e) => {
+          if (!isDragging) return;
+          const dx = e.screenX - startX;
+          const dy = e.screenY - startY;
+          ipcRenderer.send('move-window', { x: startWinX + dx, y: startWinY + dy });
+        };
+        
+        const onMouseUp = () => {
+          isDragging = false;
+          document.removeEventListener('mousemove', onMouseMove);
+          document.removeEventListener('mouseup', onMouseUp);
+        };
+        
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
       });
     });
     
