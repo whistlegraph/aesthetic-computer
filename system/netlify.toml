@@ -315,6 +315,29 @@ Vary = "*"
 [[edge_functions]]
 path = "/media/*" 
 function = "media"
+
+# Desktop app download shortcuts
+[[redirects]]
+from = "/get/mac"
+to = "https://github.com/whistlegraph/aesthetic-computer/releases/latest/download/Aesthetic-Computer-0.1.0-universal.dmg"
+status = 302
+[[redirects]]
+from = "/get/win"
+to = "https://github.com/whistlegraph/aesthetic-computer/releases/latest/download/Aesthetic-Computer-Setup-0.1.0.exe"
+status = 302
+[[redirects]]
+from = "/get/linux"
+to = "https://github.com/whistlegraph/aesthetic-computer/releases/latest/download/Aesthetic-Computer-0.1.0.AppImage"
+status = 302
+[[redirects]]
+from = "/get/fedora"
+to = "https://github.com/whistlegraph/aesthetic-computer/releases/latest/download/aesthetic-computer-0.1.0.x86_64.rpm"
+status = 302
+[[redirects]]
+from = "/get/deb"
+to = "https://github.com/whistlegraph/aesthetic-computer/releases/latest/download/aesthetic-computer_0.1.0_amd64.deb"
+status = 302
+
 [[redirects]]
 from = "https://botce.ac"
 to = "https://aesthetic.computer/botce"
