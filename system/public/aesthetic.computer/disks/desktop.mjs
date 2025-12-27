@@ -8,16 +8,13 @@ const DOWNLOADS = {
   mac: `/desktop/mac`,
   win: `/desktop/win`,
   linux: `/desktop/linux`,
-  fedora: `/desktop/fedora`,
-  deb: `/desktop/deb`,
 };
 
 let platform, downloadUrl, platformLabel;
-let mainBtn, altBtns = [];
-let screenW, screenH;
+let mainBtn, altBtns;
 
 // 🥾 Boot
-function boot({ wipe, cursor, ui: { Button } }) {
+function boot({ wipe, cursor, screen, ui: { TextButton: TB } }) {
   wipe(20, 10, 40);
   cursor("native");
   
@@ -45,25 +42,33 @@ function boot({ wipe, cursor, ui: { Button } }) {
     }
   }
   
-  // Create main download button
-  mainBtn = new Button();
+  const cx = screen.width / 2;
+  const compact = screen.height < 300;
+  const btnY = compact ? 90 : 120;
+  
+  // Create main download button - centered
+  mainBtn = new TB("Download", { center: "x", y: btnY, screen });
   
   // Create alt platform buttons
+  const altY = btnY + 50;
+  const spacing = 60;
+  const startX = cx - spacing;
+  
   altBtns = [
-    { btn: new Button(), label: "🍎", url: DOWNLOADS.mac, name: "mac" },
-    { btn: new Button(), label: "🪟", url: DOWNLOADS.win, name: "win" },
-    { btn: new Button(), label: "🐧", url: DOWNLOADS.linux, name: "linux" },
+    { btn: new TB("Mac", { x: startX, y: altY }), url: DOWNLOADS.mac, name: "mac" },
+    { btn: new TB("Win", { x: startX + spacing, y: altY }), url: DOWNLOADS.win, name: "win" },
+    { btn: new TB("Linux", { x: startX + spacing * 2, y: altY }), url: DOWNLOADS.linux, name: "linux" },
   ];
 }
 
 // 🎨 Paint
-function paint({ wipe, ink, write, screen, box, line }) {
-  wipe(20, 10, 40);
-  screenW = screen.width;
-  screenH = screen.height;
+function paint($) {
+  const { wipe, ink, write, screen, line } = $;
   
-  const cx = screenW / 2;
-  const compact = screenH < 300;
+  wipe(20, 10, 40);
+  
+  const cx = screen.width / 2;
+  const compact = screen.height < 300;
   
   // Layout calculations - responsive
   let y = compact ? 12 : 24;
@@ -82,92 +87,72 @@ function paint({ wipe, ink, write, screen, box, line }) {
   // Platform detected
   const icon = platform === "mac" ? "🍎" : platform === "win" ? "🪟" : "🐧";
   ink(120, 120, 160).write(`${icon} ${platformLabel} detected`, { x: cx, y, center: "x" });
-  y += spacing + 12;
   
   // Main download button
-  const btnW = Math.min(200, screenW - 40);
-  const btnH = compact ? 28 : 36;
-  const btnX = cx - btnW / 2;
-  
-  mainBtn.paint(
-    ["Download", btnX, y, btnW, btnH, { 
-      bg: mainBtn.down ? [80, 40, 120] : (mainBtn.over ? [120, 60, 180] : [100, 50, 150]),
-      border: [200, 100, 255],
-      text: 255,
-      rounded: 4
-    }],
-    { ink, write, box, screen, line }
+  mainBtn.paint($, 
+    [[100, 50, 150], [200, 100, 255], 255, 255],  // normal: bg, border, text, textAlpha
+    [[140, 80, 200], [255, 150, 255], 255, 255],  // hover
+    [[60, 30, 90], [100, 50, 150], 150, 200]      // disabled
   );
-  y += btnH + 8;
   
-  // Subtext
+  // Subtext under main button
+  const subY = (compact ? 90 : 120) + 28;
   const subtext = platform === "mac" ? "Universal (Apple Silicon + Intel)" :
                   platform === "win" ? "64-bit Installer" : "AppImage";
-  ink(100, 100, 140).write(subtext, { x: cx, y, center: "x" });
-  y += spacing + 10;
+  ink(100, 100, 140).write(subtext, { x: cx, y: subY, center: "x" });
+  
+  // Alt buttons label
+  const altLabelY = (compact ? 90 : 120) + 46;
+  ink(80, 80, 120).write("Other platforms:", { x: cx, y: altLabelY, center: "x" });
   
   // Alt platform buttons
-  const altBtnSize = compact ? 28 : 32;
-  const altSpacing = 8;
-  const altTotalW = altBtns.length * altBtnSize + (altBtns.length - 1) * altSpacing;
-  let altX = cx - altTotalW / 2;
-  
-  ink(80, 80, 120).write("Other:", { x: altX - 40, y: y + (altBtnSize / 2) - 4 });
-  
-  altBtns.forEach((alt, i) => {
-    const isCurrentPlatform = alt.name === platform;
-    alt.btn.paint(
-      [alt.label, altX, y, altBtnSize, altBtnSize, {
-        bg: isCurrentPlatform ? [60, 30, 90] : 
-            (alt.btn.down ? [80, 40, 120] : (alt.btn.over ? [70, 40, 100] : [40, 20, 60])),
-        border: isCurrentPlatform ? [150, 80, 200] : [80, 60, 120],
-        text: isCurrentPlatform ? [150, 150, 180] : 255,
-        rounded: 4
-      }],
-      { ink, write, box, screen, line }
+  altBtns.forEach((alt) => {
+    const isActive = alt.name === platform;
+    alt.btn.paint($, 
+      isActive ? [[60, 30, 90], [100, 60, 140], 140, 180] : [[40, 20, 60], [80, 50, 120], 200, 255],
+      [[80, 50, 120], [140, 80, 180], 255, 255],
+      [[30, 15, 45], [60, 30, 90], 100, 150]
     );
-    altX += altBtnSize + altSpacing;
   });
-  y += altBtnSize + spacing + 4;
   
   // Divider
+  const divY = (compact ? 90 : 120) + 90;
   ink(50, 30, 70);
-  line([20, y], [screenW - 20, y]);
-  y += spacing;
+  line([20, divY], [screen.width - 20, divY]);
   
   // Install hint based on platform
   if (!compact) {
+    const hintY = divY + 14;
     ink(100, 180, 120);
     if (platform === "mac") {
-      write("First run: Right-click → Open → Open", { x: cx, y, center: "x" });
+      write("First run: Right-click → Open → Open", { x: cx, y: hintY, center: "x" });
     } else if (platform === "linux") {
-      write("chmod +x *.AppImage && ./AC.AppImage", { x: cx, y, center: "x" });
+      write("chmod +x *.AppImage && ./AC.AppImage", { x: cx, y: hintY, center: "x" });
     } else {
-      write("Run installer and follow prompts", { x: cx, y, center: "x" });
+      write("Run installer and follow prompts", { x: cx, y: hintY, center: "x" });
     }
-    y += spacing + 8;
   }
   
   // Features (only if space)
-  if (screenH > 280) {
+  if (screen.height > 280) {
+    const featY = divY + (compact ? 14 : 30);
     ink(80, 80, 120);
-    write("✨ Web + Terminal • Cmd+/- Zoom • Alt+Scroll Drag", { x: cx, y, center: "x" });
-    y += spacing;
+    write("✨ Web + Terminal • Cmd+/- Zoom • Alt+Scroll Drag", { x: cx, y: featY, center: "x" });
   }
   
   // Footer
   ink(60, 60, 100);
-  write("Requires Docker Desktop", { x: cx, y: screenH - (compact ? 12 : 18), center: "x" });
+  write("Requires Docker Desktop", { x: cx, y: screen.height - (compact ? 12 : 18), center: "x" });
 }
 
 // 🎪 Act
 function act({ event: e, jump, net: { web } }) {
   // Main button
-  mainBtn.act(e, () => web(downloadUrl));
+  mainBtn.btn.act(e, () => web(downloadUrl));
   
   // Alt buttons
   altBtns.forEach(alt => {
-    alt.btn.act(e, () => web(alt.url));
+    alt.btn.btn.act(e, () => web(alt.url));
   });
   
   // Escape to go back
