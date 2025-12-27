@@ -15,27 +15,16 @@
       background: #0a0a12; 
     }
     
-    /* Main AC webview - full screen */
-    #ac-webview { 
-      position: absolute;
-      top: 0; left: 0;
-      width: 100%; 
-      height: 100%; 
-      border: none;
-      opacity: 0;
-      transition: opacity 0.3s ease;
-    }
-    #ac-webview.connected { opacity: 1; }
-    
-    /* Control bar - always on top and fully visible */
+    /* Control bar - fixed at top, pushes content down */
     #control-bar {
-      position: absolute;
+      position: fixed;
       top: 0; left: 0; right: 0;
+      height: 36px;
       display: flex;
       align-items: center;
       gap: 12px;
       padding: 8px 15px;
-      background: rgba(0, 0, 0, 0.9);
+      background: rgba(0, 0, 0, 0.95);
       border-bottom: 1px solid rgba(255, 0, 255, 0.3);
       font-family: 'SF Mono', monospace;
       font-size: 12px;
@@ -54,6 +43,18 @@
     #control-bar > * {
       -webkit-app-region: no-drag;
     }
+    
+    /* Main AC webview - below control bar */
+    #ac-webview { 
+      position: absolute;
+      top: 36px; left: 0;
+      width: 100%; 
+      height: calc(100% - 36px); 
+      border: none;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    #ac-webview.connected { opacity: 1; }
     
     .title {
       color: #f0f;
@@ -173,19 +174,27 @@
     /* Terminal overlay - below control bar */
     #terminal-overlay {
       position: absolute;
-      top: 38px; left: 0; right: 0; bottom: 0;
+      top: 36px; left: 0; right: 0; bottom: 0;
       z-index: 100;
       display: flex;
       flex-direction: column;
-      transition: opacity 0.2s ease;
+      transition: opacity 0.2s ease, top 0.2s ease;
+      background: rgb(10, 10, 18);
+      opacity: 0.7;
     }
     
-    /* Terminal background - this gets opacity */
+    /* When control bar is hidden, expand to full height */
+    body.bar-hidden #ac-webview {
+      top: 0;
+      height: 100%;
+    }
+    body.bar-hidden #terminal-overlay {
+      top: 0;
+    }
+    
+    /* Terminal background div no longer needed but kept for compatibility */
     #terminal-bg {
-      position: absolute;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(10, 10, 18, 1);
-      pointer-events: none;
+      display: none;
     }
     
     /* Passthrough mode - terminal doesn't capture clicks */
@@ -196,6 +205,17 @@
       pointer-events: none;
     }
     
+    /* Shell mode - terminal captures all clicks */
+    #terminal-overlay:not(.passthrough) {
+      pointer-events: auto;
+    }
+    #terminal-overlay:not(.passthrough) #terminal-container {
+      pointer-events: auto;
+    }
+    #terminal-overlay:not(.passthrough) .xterm {
+      pointer-events: auto;
+    }
+    
     /* Terminal container */
     #terminal-container {
       position: relative;
@@ -204,7 +224,10 @@
       overflow: hidden;
       z-index: 1;
     }
-    .xterm { height: 100%; }
+    .xterm { height: 100%; background: transparent !important; }
+    .xterm-viewport { background: transparent !important; }
+    .xterm-screen { background: transparent !important; }
+    .xterm canvas { background: transparent !important; }
     
     /* Mode indicator overlay */
     #mode-indicator {
@@ -289,8 +312,8 @@
     
     <!-- Environment switch (Local/Prod) -->
     <div class="env-switch">
-      <button id="env-local" class="env-btn local active">Local</button>
-      <button id="env-prod" class="env-btn prod">Prod</button>
+      <button id="env-local" class="env-btn local">Local</button>
+      <button id="env-prod" class="env-btn prod active">Prod</button>
     </div>
     
     <!-- Mode switch (Shell/App) -->
@@ -301,8 +324,8 @@
     
     <div class="slider-group">
       <span class="slider-label">Opacity</span>
-      <input type="range" id="opacity-slider" min="0" max="100" value="85">
-      <span id="opacity-value">85%</span>
+      <input type="range" id="opacity-slider" min="0" max="100" value="70">
+      <span id="opacity-value">70%</span>
     </div>
     
     <span class="hint"><kbd>⌘`</kbd> toggle · <kbd>⌘H</kbd> hide bar</span>
@@ -345,13 +368,19 @@
       prod: 'https://aesthetic.computer'
     };
     
-    let currentEnv = 'local'; // 'local' or 'prod'
-    let currentPiece = 'prompt';
+    let currentEnv = 'prod'; // 'local' or 'prod' - start with prod
+    let currentPiece = 'starfield'; // default piece
     let attempts = 0;
     let serverConnected = false;
     let checkInterval = null;
     let currentMode = 'shell'; // 'shell' or 'app'
     let controlBarVisible = true;
+    
+    // Helper to build AC URL with electron-specific params
+    function acUrl(piece) {
+      const baseUrl = URLS[currentEnv];
+      return `${baseUrl}/${piece}?nogap`;
+    }
 
     // ========== Terminal Setup ==========
     const term = new Terminal({
@@ -419,7 +448,7 @@
           connectionOverlay.classList.remove('hidden');
           checkServer();
         } else {
-          webview.src = `${baseUrl}/${currentPiece}`;
+          webview.src = acUrl(currentPiece);
         }
       } else {
         envLocalBtn.classList.remove('active');
@@ -427,7 +456,7 @@
         // Production is always available
         connectionOverlay.classList.add('hidden');
         webview.classList.add('connected');
-        webview.src = `${baseUrl}/${currentPiece}`;
+        webview.src = acUrl(currentPiece);
         if (checkInterval) {
           clearInterval(checkInterval);
           checkInterval = null;
@@ -445,11 +474,13 @@
       controlBarVisible = !controlBarVisible;
       if (controlBarVisible) {
         controlBar.classList.remove('hidden');
-        terminalOverlay.style.top = '38px';
+        document.body.classList.remove('bar-hidden');
       } else {
         controlBar.classList.add('hidden');
-        terminalOverlay.style.top = '0';
+        document.body.classList.add('bar-hidden');
       }
+      // Refit terminal after layout change
+      setTimeout(() => fitAddon.fit(), 50);
     }
 
     // ========== Mode Switching ==========
@@ -488,7 +519,28 @@
     modeAppBtn.addEventListener('click', () => setMode('app'));
 
     // Keyboard shortcuts
-    document.addEventListener('keydown', (e) => {
+    document.addEventListener('keydown', async (e) => {
+      // Cmd+C to copy selected text from terminal (when in shell mode)
+      if ((e.metaKey || e.ctrlKey) && e.key === 'c' && currentMode === 'shell') {
+        if (term.hasSelection()) {
+          e.preventDefault();
+          const selection = term.getSelection();
+          await navigator.clipboard.writeText(selection);
+        }
+        // If no selection, let Ctrl+C pass through to terminal (interrupt)
+      }
+      // Cmd+V to paste into terminal
+      if ((e.metaKey || e.ctrlKey) && e.key === 'v' && currentMode === 'shell') {
+        e.preventDefault();
+        try {
+          const text = await navigator.clipboard.readText();
+          if (text) {
+            ipcRenderer.send('pty-input', text);
+          }
+        } catch (err) {
+          // Clipboard access denied
+        }
+      }
       // Cmd+` to toggle shell/app mode
       if ((e.metaKey || e.ctrlKey) && e.key === '`') {
         e.preventDefault();
@@ -508,12 +560,20 @@
         e.preventDefault();
         setEnv('prod');
       }
+      // Cmd+Shift+R to trigger full app reboot (electric-snake-bite)
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'R') {
+        e.preventDefault();
+        console.log('[dev] ⚡🐍 Electric Snake Bite - Rebooting app...');
+        term.writeln('\r\n\x1b[95m⚡🐍 Electric Snake Bite - Rebooting Electron...\x1b[0m\r\n');
+        await ipcRenderer.invoke('app-reboot');
+      }
     });
 
     // ========== Opacity Slider ==========
     function updateOpacity(value) {
-      // Apply opacity to the entire terminal overlay (control bar is separate)
-      terminalOverlay.style.opacity = value / 100;
+      // Apply opacity to the entire terminal overlay (text + background)
+      const opacity = value / 100;
+      terminalOverlay.style.opacity = opacity;
       opacityValue.textContent = value + '%';
     }
     
@@ -543,7 +603,7 @@
         
         statusMessage.textContent = 'Server found!';
         serverConnected = true;
-        webview.src = `${baseUrl}/${currentPiece}`;
+        webview.src = acUrl(currentPiece);
         return true;
       } catch (e) {
         return false;
@@ -613,10 +673,17 @@
           return;
         }
 
-        const containerOk = await ipcRenderer.invoke('check-container');
-        if (!containerOk) {
-          term.writeln('\x1b[33mStarting devcontainer...\x1b[0m');
-          await ipcRenderer.invoke('start-container');
+        const containerRunning = await ipcRenderer.invoke('check-container');
+        if (!containerRunning) {
+          // Check if container exists but is stopped
+          const containerExists = await ipcRenderer.invoke('check-container-exists');
+          if (containerExists) {
+            term.writeln('\x1b[33mStarting existing container...\x1b[0m');
+            await ipcRenderer.invoke('start-existing-container');
+          } else {
+            term.writeln('\x1b[33mCreating devcontainer...\x1b[0m');
+            await ipcRenderer.invoke('start-container');
+          }
         }
 
         const connected = await ipcRenderer.invoke('connect-pty');
@@ -625,18 +692,64 @@
           return;
         }
 
-        ipcRenderer.on('pty-data', (event, data) => term.write(data));
-        term.onData((data) => ipcRenderer.send('pty-input', data));
+        // ⚡🐍 Electric Snake Bite - Special escape sequence detection
+        // When the devcontainer outputs this magic string, reload the window
+        const ELECTRIC_SNAKE_BITE = '\x1b]9999;electric-snake-bite\x07';
+        let escapeBuffer = '';
+        let dataCount = 0;
+        
+        ipcRenderer.on('pty-data', (event, data) => {
+          dataCount++;
+          
+          // Check for electric-snake-bite escape sequence
+          escapeBuffer += data;
+          if (escapeBuffer.length > 100) {
+            escapeBuffer = escapeBuffer.slice(-50); // Keep buffer small
+          }
+          
+          if (escapeBuffer.includes('electric-snake-bite')) {
+            escapeBuffer = '';
+            // Don't write the escape sequence to terminal
+            const cleanData = data.replace(/\x1b\]9999;electric-snake-bite\x07/g, '');
+            if (cleanData) term.write(cleanData);
+            // Reload after a brief delay
+            setTimeout(() => location.reload(), 100);
+            return;
+          }
+          
+          term.write(data);
+        });
+        // Filter out terminal query responses before sending to PTY
+        // These are responses to OSC queries like ]11;rgb:... (background color)
+        term.onData((data) => {
+          // Filter out OSC responses (]10;..., ]11;..., etc) and DA responses
+          if (data.match(/^\x1b\]1[0-9];/) || data.match(/^\x1b\[\?/)) {
+            return;
+          }
+          ipcRenderer.send('pty-input', data);
+        });
         ipcRenderer.on('pty-exit', (event, code) => {
           term.writeln(`\r\n\x1b[33mShell exited with code ${code}\x1b[0m`);
         });
 
         ipcRenderer.send('pty-resize', term.cols, term.rows);
         
-        // Auto-start emacs
+        // Auto-start emacs with proper daemon wait
+        // The container may need time for emacs daemon to fully initialize
         setTimeout(() => {
-          ipcRenderer.send('pty-input', 'ac-aesthetic\n');
-        }, 500);
+          // First ensure emacs daemon is ready, then connect
+          // Use a retry-aware startup command
+          ipcRenderer.send('pty-input', 'ensure-emacs-daemon-ready --timeout=60 && ac-aesthetic\n');
+          // After emacs loads, send resize and refresh to sync terminal
+          setTimeout(() => {
+            // Fit terminal first
+            fitAddon.fit();
+            // Send resize to PTY
+            ipcRenderer.send('pty-resize', term.cols, term.rows);
+            // Redraw emacs
+            ipcRenderer.send('pty-input', '\x0c'); // Ctrl+L to redraw emacs
+          }, 3000); // Wait longer for daemon init
+        }, 500); // Give fish a moment to fully init
 
       } catch (err) {
         term.writeln(`\x1b[31mError: ${err.message}\x1b[0m`);
@@ -650,7 +763,7 @@
     ipcRenderer.on('ac-navigate', (event, piece) => {
       const baseUrl = URLS[currentEnv];
       currentPiece = piece;
-      webview.src = `${baseUrl}/${piece}`;
+      webview.src = acUrl(piece);
       updateTitle(webview.src);
     });
     
@@ -705,10 +818,167 @@
       webview.reload();
     });
 
+    // ========== File-Based Bridge for Devcontainer Tests ==========
+    // Watches for command files from artery-electron.mjs in the devcontainer
+    const { existsSync, readFileSync, writeFileSync, mkdirSync, unlinkSync } = require('fs');
+    const pathModule = require('path');
+    // @electron/remote is optional - don't crash if not available
+    let remote = null;
+    try { remote = require('@electron/remote'); } catch (e) { }
+    
+    // Get workspace root - the parent of ac-electron
+    // In dev mode, process.cwd() is usually the workspace root
+    // Or we can use the app path
+    let WORKSPACE_ROOT = process.cwd();
+    
+    // Verify we found the right place
+    if (!existsSync(pathModule.join(WORKSPACE_ROOT, '.electron-bridge')) && 
+        !existsSync(pathModule.join(WORKSPACE_ROOT, 'ac-electron'))) {
+      // Try going up from current directory
+      let testPath = WORKSPACE_ROOT;
+      for (let i = 0; i < 5; i++) {
+        if (existsSync(pathModule.join(testPath, 'ac-electron'))) {
+          WORKSPACE_ROOT = testPath;
+          break;
+        }
+        testPath = pathModule.dirname(testPath);
+      }
+    }
+    
+    const BRIDGE_DIR = pathModule.join(WORKSPACE_ROOT, '.electron-bridge');
+    const CMD_FILE = pathModule.join(BRIDGE_DIR, 'command.json');
+    const RESULT_FILE = pathModule.join(BRIDGE_DIR, 'result.json');
+    
+    let lastProcessedId = null;
+    let bridgeWatcher = null;
+    
+    async function processCommand(request) {
+      const { id, cmd, params } = request;
+      
+      // Skip if already processed
+      if (id === lastProcessedId) return;
+      lastProcessedId = id;
+      
+      let result = { id, data: null, error: null };
+      
+      try {
+        switch (cmd) {
+          case 'get-state':
+            result.data = {
+              env: currentEnv,
+              piece: currentPiece,
+              url: webview.src,
+              mode: currentMode,
+              connected: serverConnected
+            };
+            break;
+            
+          case 'navigate':
+            const baseUrl = URLS[currentEnv];
+            currentPiece = params.piece;
+            webview.src = acUrl(params.piece);
+            updateTitle(webview.src);
+            result.data = { success: true, piece: params.piece };
+            break;
+            
+          case 'eval':
+            try {
+              const evalResult = await webview.executeJavaScript(params.code);
+              result.data = { success: true, result: evalResult };
+            } catch (e) {
+              result.data = { success: false, error: e.message };
+            }
+            break;
+            
+          case 'reload':
+            webview.reload();
+            result.data = { success: true };
+            break;
+            
+          case 'screenshot':
+            try {
+              const nativeImage = await webview.capturePage();
+              result.data = { success: true, dataUrl: nativeImage.toDataURL() };
+            } catch (e) {
+              result.data = { success: false, error: e.message };
+            }
+            break;
+            
+          case 'set-env':
+            if (params.env === 'local' || params.env === 'prod') {
+              setEnv(params.env);
+              result.data = { success: true, env: params.env };
+            } else {
+              result.error = 'Invalid env';
+            }
+            break;
+            
+          case 'set-mode':
+            if (params.mode === 'shell' || params.mode === 'app') {
+              setMode(params.mode);
+              result.data = { success: true, mode: params.mode };
+            } else {
+              result.error = 'Invalid mode';
+            }
+            break;
+            
+          case 'enable-console':
+            // Console capture - could forward to a log file
+            result.data = { success: true };
+            break;
+            
+          default:
+            result.error = `Unknown command: ${cmd}`;
+        }
+      } catch (e) {
+        result.error = e.message;
+      }
+      
+      // Write result
+      writeFileSync(RESULT_FILE, JSON.stringify(result, null, 2));
+    }
+    
+    function checkBridgeCommand() {
+      try {
+        if (existsSync(CMD_FILE)) {
+          const content = readFileSync(CMD_FILE, 'utf8');
+          const request = JSON.parse(content);
+          if (request.id !== lastProcessedId) {
+            processCommand(request);
+          }
+        }
+      } catch (e) {
+        // Ignore read errors
+      }
+    }
+    
+    function initBridge() {
+      try {
+        // Ensure bridge directory exists
+        if (!existsSync(BRIDGE_DIR)) {
+          mkdirSync(BRIDGE_DIR, { recursive: true });
+        }
+        
+        // Poll for commands (file watching can be unreliable across Docker)
+        setInterval(checkBridgeCommand, 100);
+        
+        console.log('[dev] File bridge initialized at', BRIDGE_DIR);
+      } catch (e) {
+        console.warn('[dev] Could not init file bridge:', e.message);
+      }
+    }
+
     // ========== Init ==========
-    checkServer();
-    checkInterval = setInterval(checkServer, 2000);
+    setEnv('prod'); // Start with production - loads /starfield
     initShell();
+    initBridge();
+    
+    // Ensure webview loads immediately
+    setTimeout(() => {
+      if (webview.src === 'about:blank') {
+        webview.src = acUrl('starfield');
+      }
+    }, 100);
   </script>
 </body>
 </html>
