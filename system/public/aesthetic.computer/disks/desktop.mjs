@@ -10,7 +10,7 @@
 
 const APP_VERSION = "0.1.0";
 const GITHUB_RELEASES = "https://github.com/whistlegraph/aesthetic-computer/releases";
-const MAC_DOWNLOAD = `${GITHUB_RELEASES}/download/v${APP_VERSION}/Aesthetic.Computer-${APP_VERSION}-universal.dmg`;
+const MAC_DOWNLOAD = `${GITHUB_RELEASES}/download/v${APP_VERSION}/Aesthetic-Computer-${APP_VERSION}-universal.dmg`;
 
 let btn; // Download button
 let platform = "unknown";
