@@ -7,10 +7,87 @@
  * - Shell windows: Terminal with devcontainer + emacs (purple accent)
  */
 
-const { app, BrowserWindow, ipcMain, globalShortcut, Menu, dialog, shell, nativeImage, screen } = require('electron');
+const { app, BrowserWindow, ipcMain, globalShortcut, Menu, dialog, shell, nativeImage, screen, Notification } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { spawn, execSync } = require('child_process');
+
+// Auto-updater (only in production builds)
+let autoUpdater;
+try {
+  autoUpdater = require('electron-updater').autoUpdater;
+  
+  // Configure auto-updater
+  autoUpdater.autoDownload = false; // Ask user before downloading
+  autoUpdater.autoInstallOnAppQuit = true;
+  
+  autoUpdater.on('checking-for-update', () => {
+    console.log('[updater] Checking for updates...');
+  });
+  
+  autoUpdater.on('update-available', (info) => {
+    console.log('[updater] Update available:', info.version);
+    
+    // Show notification
+    if (Notification.isSupported()) {
+      const notification = new Notification({
+        title: 'Update Available',
+        body: `Aesthetic Computer v${info.version} is available. Click to download.`,
+        icon: path.join(__dirname, 'build', 'icon.png')
+      });
+      notification.on('click', () => {
+        autoUpdater.downloadUpdate();
+      });
+      notification.show();
+    }
+    
+    // Also show dialog
+    dialog.showMessageBox({
+      type: 'info',
+      title: 'Update Available',
+      message: `A new version (v${info.version}) is available.`,
+      detail: 'Would you like to download it now?',
+      buttons: ['Download', 'Later'],
+      defaultId: 0
+    }).then(({ response }) => {
+      if (response === 0) {
+        autoUpdater.downloadUpdate();
+      }
+    });
+  });
+  
+  autoUpdater.on('update-not-available', () => {
+    console.log('[updater] No updates available');
+  });
+  
+  autoUpdater.on('download-progress', (progress) => {
+    console.log(`[updater] Download progress: ${Math.round(progress.percent)}%`);
+  });
+  
+  autoUpdater.on('update-downloaded', (info) => {
+    console.log('[updater] Update downloaded:', info.version);
+    
+    dialog.showMessageBox({
+      type: 'info',
+      title: 'Update Ready',
+      message: `Version ${info.version} has been downloaded.`,
+      detail: 'Restart now to apply the update?',
+      buttons: ['Restart', 'Later'],
+      defaultId: 0
+    }).then(({ response }) => {
+      if (response === 0) {
+        autoUpdater.quitAndInstall();
+      }
+    });
+  });
+  
+  autoUpdater.on('error', (err) => {
+    console.error('[updater] Error:', err.message);
+  });
+  
+} catch (e) {
+  console.log('[updater] Auto-updater not available (dev mode):', e.message);
+}
 
 // Set app name before anything else
 app.setName('Aesthetic Computer');
@@ -217,9 +294,42 @@ function createMenu() {
               type: 'info',
               title: 'About Aesthetic Computer',
               message: 'Aesthetic Computer',
-              detail: 'Version 0.1.0\n\nA creative coding platform.',
+              detail: `Version ${app.getVersion()}\n\nA creative coding platform.`,
               buttons: ['OK']
             });
+          }
+        },
+        { type: 'separator' },
+        {
+          label: 'Check for Updates...',
+          click: () => {
+            if (autoUpdater) {
+              autoUpdater.checkForUpdates().then(result => {
+                if (!result || !result.updateInfo) {
+                  dialog.showMessageBox({
+                    type: 'info',
+                    title: 'No Updates',
+                    message: 'You are running the latest version.',
+                    buttons: ['OK']
+                  });
+                }
+              }).catch(err => {
+                dialog.showMessageBox({
+                  type: 'error',
+                  title: 'Update Check Failed',
+                  message: 'Could not check for updates.',
+                  detail: err.message,
+                  buttons: ['OK']
+                });
+              });
+            } else {
+              dialog.showMessageBox({
+                type: 'info',
+                title: 'Updates',
+                message: 'Auto-updates are not available in development mode.',
+                buttons: ['OK']
+              });
+            }
           }
         },
         { type: 'separator' },
@@ -1008,6 +1118,16 @@ ipcMain.on('ac-reload', (event) => {
 // App lifecycle
 app.whenReady().then(async () => {
   createMenu();
+  
+  // Check for updates on startup (production builds only)
+  if (autoUpdater && !startInDevMode && app.isPackaged) {
+    setTimeout(() => {
+      console.log('[updater] Checking for updates on startup...');
+      autoUpdater.checkForUpdates().catch(err => {
+        console.log('[updater] Update check failed:', err.message);
+      });
+    }, 3000); // Wait 3s after startup
+  }
   
   // Watch for reboot request file from devcontainer (electric-snake-bite)
   const REBOOT_MARKER = path.join(__dirname, '.reboot-requested');
