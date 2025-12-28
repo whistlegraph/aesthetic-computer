@@ -6,6 +6,48 @@
   <title>Aesthetic Computer</title>
   <link rel="stylesheet" href="../node_modules/@xterm/xterm/css/xterm.css">
   <style>
+    /* Theme color variables - changes based on system light/dark mode */
+    :root {
+      /* Dark mode (default) - purple theme */
+      --ac-border: rgba(136, 68, 255, 0.25);
+      --ac-border-solid: rgba(136, 68, 255, 0.4);
+      --ac-border-hover: rgba(136, 68, 255, 0.5);
+      --ac-border-active: rgba(136, 68, 255, 0.7);
+      --ac-accent: rgba(136, 68, 255, 0.6);
+      --ac-accent-glow: rgba(136, 68, 255, 0.5);
+      --ac-shadow-inner: rgba(136, 68, 255, 0.2);
+      --ac-tab-back: rgba(60, 40, 100, 0.6);
+      --ac-tab-back-hover: rgba(80, 50, 130, 0.8);
+      --ac-tab-back-accent: rgba(100, 60, 160, 0.6);
+      --ac-tab-back-accent-hover: rgba(140, 90, 200, 1);
+      --ac-front-bg: #111;
+      --ac-back-bg: #0a0a12;
+      --ac-text: #fff;
+      --ac-text-muted: #888;
+    }
+    
+    /* Light mode - golden/sand theme (matching legal pad yellow) */
+    @media (prefers-color-scheme: light) {
+      :root {
+        /* Using #c8a050 (200, 160, 80) as the base golden color */
+        --ac-border: rgba(200, 160, 80, 0.35);
+        --ac-border-solid: rgba(200, 160, 80, 0.5);
+        --ac-border-hover: rgba(200, 160, 80, 0.65);
+        --ac-border-active: rgba(200, 160, 80, 0.85);
+        --ac-accent: rgba(200, 160, 80, 0.6);
+        --ac-accent-glow: rgba(200, 160, 80, 0.5);
+        --ac-shadow-inner: rgba(200, 160, 80, 0.25);
+        --ac-tab-back: rgba(200, 160, 80, 0.4);
+        --ac-tab-back-hover: rgba(200, 160, 80, 0.6);
+        --ac-tab-back-accent: rgba(200, 160, 80, 0.5);
+        --ac-tab-back-accent-hover: rgba(200, 160, 80, 0.9);
+        --ac-front-bg: #fcf7c5;
+        --ac-back-bg: #f5f0c0;
+        --ac-text: #281e5a;
+        --ac-text-muted: #666;
+      }
+    }
+    
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { 
       width: 100%; 
@@ -50,11 +92,11 @@
     .card-face {
       position: absolute;
       inset: 0;
-      border: 6px solid rgba(136, 68, 255, 0.25);
+      border: 6px solid var(--ac-border);
       border-radius: 10px;
       overflow: hidden;
       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3),
-                  inset 0 0 0 1px rgba(136, 68, 255, 0.2);
+                  inset 0 0 0 1px var(--ac-shadow-inner);
       background: transparent;
       /* No transition - JS controls the swap at midpoint */
     }
@@ -64,7 +106,7 @@
       z-index: 1;
       opacity: 1;
       filter: none;
-      background: #111;
+      background: var(--ac-front-bg);
     }
     
     /* Midflip class applied by JS at exact midpoint */
@@ -88,7 +130,7 @@
       opacity: 0.15;
       filter: blur(2px);
       pointer-events: none;
-      background: #0a0a12;
+      background: var(--ac-back-bg);
     }
     
     /* Midflip class - back becomes active */
@@ -127,7 +169,7 @@
     .flip-tab .tab-front {
       position: absolute;
       inset: 0;
-      background: rgba(136, 68, 255, 0.3);
+      background: var(--ac-border-solid);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -137,26 +179,26 @@
       content: '';
       width: 3px;
       height: 30px;
-      background: rgba(136, 68, 255, 0.6);
+      background: var(--ac-accent);
       border-radius: 2px;
       transition: all 0.2s ease;
     }
     
     .flip-tab:hover .tab-front {
-      background: rgba(136, 68, 255, 0.5);
+      background: var(--ac-border-hover);
     }
     
     .flip-tab:hover .tab-front::after {
-      background: rgba(136, 68, 255, 1);
+      background: var(--ac-border-active);
       height: 50px;
-      box-shadow: 0 0 12px rgba(136, 68, 255, 0.5);
+      box-shadow: 0 0 12px var(--ac-accent-glow);
     }
     
     /* Tab back face - visible when flipped */
     .flip-tab .tab-back {
       position: absolute;
       inset: 0;
-      background: rgba(60, 40, 100, 0.6);
+      background: var(--ac-tab-back);
       opacity: 0;
       display: flex;
       align-items: center;
@@ -167,20 +209,20 @@
       content: '';
       width: 3px;
       height: 30px;
-      background: rgba(100, 60, 160, 0.6);
+      background: var(--ac-tab-back-accent);
       border-radius: 2px;
       transition: all 0.2s ease;
     }
     
     /* Hover effect for back tab */
     .flip-tab:hover .tab-back {
-      background: rgba(80, 50, 130, 0.8);
+      background: var(--ac-tab-back-hover);
     }
     
     .flip-tab:hover .tab-back::after {
-      background: rgba(140, 90, 200, 1);
+      background: var(--ac-tab-back-accent-hover);
       height: 50px;
-      box-shadow: 0 0 12px rgba(140, 90, 200, 0.5);
+      box-shadow: 0 0 12px var(--ac-accent-glow);
     }
     
     /* When midflip, swap front/back visibility */
@@ -247,7 +289,7 @@
     .mode-tag .tag-back {
       position: absolute;
       inset: 0;
-      background: rgba(136, 68, 255, 0.3);
+      background: var(--ac-border-solid);
       border-radius: 0 0 6px 6px;
       opacity: 0;
     }
@@ -261,26 +303,26 @@
       opacity: 1;
     }
     
-    /* Translucent magenta style for mode tags */
+    /* Translucent style for mode tags - uses theme colors */
     .mode-tag.localhost .tag-front {
-      background: rgba(136, 68, 255, 0.4);
-      color: #fff;
+      background: var(--ac-border-solid);
+      color: var(--ac-text);
     }
     
     .mode-tag.localhost.disabled .tag-front {
-      background: rgba(80, 60, 100, 0.3);
-      color: #888;
+      background: rgba(128, 128, 128, 0.3);
+      color: var(--ac-text-muted);
       cursor: not-allowed;
     }
     
     .mode-tag.production .tag-front {
-      background: rgba(136, 68, 255, 0.5);
-      color: #fff;
+      background: var(--ac-border-hover);
+      color: var(--ac-text);
     }
     
     .mode-tag.active .tag-front {
-      background: rgba(136, 68, 255, 0.7);
-      box-shadow: 0 2px 12px rgba(136, 68, 255, 0.4);
+      background: var(--ac-border-active);
+      box-shadow: 0 2px 12px var(--ac-accent-glow);
     }
 
     /* Backend controls - appears on backend side (counter-rotated to fix mirroring) */
@@ -313,34 +355,34 @@
     }
 
     .backend-controls button.start-btn {
-      background: rgba(136, 68, 255, 0.5);
-      color: #fff;
+      background: var(--ac-border-hover);
+      color: var(--ac-text);
     }
 
     .backend-controls button.start-btn:hover {
-      background: rgba(136, 68, 255, 0.8);
-      box-shadow: 0 2px 12px rgba(136, 68, 255, 0.4);
+      background: var(--ac-border-active);
+      box-shadow: 0 2px 12px var(--ac-accent-glow);
     }
 
     .backend-controls button.start-btn:disabled {
-      background: rgba(136, 68, 255, 0.2);
-      color: rgba(255, 255, 255, 0.4);
+      background: var(--ac-border);
+      color: var(--ac-text-muted);
       cursor: not-allowed;
     }
 
     .backend-controls button.stop-btn {
-      background: rgba(180, 100, 255, 0.5);
-      color: #fff;
+      background: var(--ac-accent);
+      color: var(--ac-text);
     }
 
     .backend-controls button.stop-btn:hover {
-      background: rgba(180, 100, 255, 0.8);
-      box-shadow: 0 2px 12px rgba(180, 100, 255, 0.4);
+      background: var(--ac-border-active);
+      box-shadow: 0 2px 12px var(--ac-accent-glow);
     }
 
     .backend-controls button.stop-btn:disabled {
-      background: rgba(180, 100, 255, 0.2);
-      color: rgba(255, 255, 255, 0.4);
+      background: var(--ac-border);
+      color: var(--ac-text-muted);
       cursor: not-allowed;
     }
 
@@ -747,6 +789,38 @@
       localTag.classList.toggle('active', mode === 'localhost');
     }
     
+    // Extract piece name from URL
+    function extractPieceName(url) {
+      try {
+        const parsed = new URL(url);
+        const pathname = parsed.pathname;
+        // Remove leading slash and get first segment
+        const piece = pathname.replace(/^\//, '').split('/')[0] || 'prompt';
+        return piece;
+      } catch (e) {
+        return 'prompt';
+      }
+    }
+    
+    // Track navigation and update tray title
+    webviewEl.addEventListener('did-navigate', (e) => {
+      const piece = extractPieceName(e.url);
+      console.log('[flip] Navigated to piece:', piece);
+      ipcRenderer.invoke('set-current-piece', piece);
+    });
+    
+    webviewEl.addEventListener('did-navigate-in-page', (e) => {
+      if (e.isMainFrame) {
+        const piece = extractPieceName(e.url);
+        console.log('[flip] In-page navigation to piece:', piece);
+        ipcRenderer.invoke('set-current-piece', piece);
+      }
+    });
+    
+    // Mark this as the main window and set initial piece
+    ipcRenderer.invoke('set-main-window');
+    ipcRenderer.invoke('set-current-piece', 'prompt');
+    
     // Click handlers for mode tags
     prodTag.addEventListener('click', () => switchMode('production'));
     localTag.addEventListener('click', () => {
@@ -887,31 +961,61 @@
     // ========== Terminal Setup ==========
     const terminalContainer = document.getElementById('terminal-container');
     
+    // Theme definitions for terminal
+    const darkTermTheme = {
+      background: '#0a0a12',
+      foreground: '#eee',
+      cursor: '#f0f',
+      cursorAccent: '#0a0a12',
+      selectionBackground: 'rgba(255, 0, 255, 0.3)',
+      black: '#1a1a2e',
+      red: '#ff5555',
+      green: '#50fa7b',
+      yellow: '#f1fa8c',
+      blue: '#6272a4',
+      magenta: '#ff79c6',
+      cyan: '#8be9fd',
+      white: '#f8f8f2',
+    };
+    
+    const lightTermTheme = {
+      background: '#f5f0c0',
+      foreground: '#281e5a',
+      cursor: '#387adf',
+      cursorAccent: '#f5f0c0',
+      selectionBackground: 'rgba(56, 122, 223, 0.3)',
+      black: '#281e5a',
+      red: '#cc0000',
+      green: '#006400',
+      yellow: '#996600',
+      blue: '#387adf',
+      magenta: '#8844ff',
+      cyan: '#0077aa',
+      white: '#fcf7c5',
+    };
+    
+    // Detect current color scheme
+    function isDarkMode() {
+      return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+    
     const term = new Terminal({
       cursorBlink: true,
       cursorStyle: 'block',
       fontSize: 10,
       fontFamily: "'Menlo', 'DejaVu Sans Mono', 'Consolas', 'Liberation Mono', monospace",
-      theme: {
-        background: '#0a0a12',
-        foreground: '#eee',
-        cursor: '#f0f',
-        cursorAccent: '#0a0a12',
-        selectionBackground: 'rgba(255, 0, 255, 0.3)',
-        black: '#1a1a2e',
-        red: '#ff5555',
-        green: '#50fa7b',
-        yellow: '#f1fa8c',
-        blue: '#6272a4',
-        magenta: '#ff79c6',
-        cyan: '#8be9fd',
-        white: '#f8f8f2',
-      },
+      theme: isDarkMode() ? darkTermTheme : lightTermTheme,
       allowTransparency: true,
       scrollback: 5000,
       fastScrollModifier: 'alt',
       fastScrollSensitivity: 5,
       drawBoldTextInBrightColors: true,
+    });
+    
+    // Listen for color scheme changes
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+      console.log('[flip] Color scheme changed to:', e.matches ? 'dark' : 'light');
+      term.options.theme = e.matches ? darkTermTheme : lightTermTheme;
     });
     
     const fitAddon = new FitAddon();
@@ -979,6 +1083,13 @@
     // PTY communication
     ipcRenderer.on('flip-pty-data', (event, data) => {
       term.write(data);
+    });
+    
+    // Respond to size requests from main process
+    ipcRenderer.on('request-terminal-size', () => {
+      // Force a fit and send current dimensions
+      fitAddon.fit();
+      ipcRenderer.send('flip-pty-resize', term.cols, term.rows);
     });
     
     term.onData((data) => {

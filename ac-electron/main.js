@@ -12,6 +12,47 @@ const path = require('path');
 const fs = require('fs');
 const { spawn, execSync } = require('child_process');
 
+// Workaround for crash on macOS 26 (Tahoe) with fontations (Rust font renderer)
+// The crash occurs in fontations_ffi when loading complex WebGL pieces (like 1v1)
+// NUCLEAR OPTION: Completely disable GPU to force software rendering
+// This bypasses the fontations Rust font renderer crash entirely
+app.commandLine.appendSwitch('disable-gpu');
+app.commandLine.appendSwitch('disable-software-rasterizer');
+// Disable ALL font-related Chromium features as backup
+app.commandLine.appendSwitch('disable-features', 'FontationsFontBackend,Fontations,UseSkiaFontManager,SkiaFontManager,HarfBuzzFontShaper,GpuRasterization');
+app.commandLine.appendSwitch('disable-font-subpixel-positioning');
+app.commandLine.appendSwitch('disable-lcd-text');
+// Disable GPU compositing - use CPU compositing
+app.commandLine.appendSwitch('disable-gpu-compositing');
+
+// Preferences storage
+const PREFS_PATH = path.join(app.getPath('userData'), 'preferences.json');
+let preferences = {
+  showTrayTitle: true,
+  trayTitleText: 'AC',  // Short text next to tray icon
+  launchAtLogin: false,
+  defaultMode: 'development'
+};
+
+function loadPreferences() {
+  try {
+    if (fs.existsSync(PREFS_PATH)) {
+      const data = fs.readFileSync(PREFS_PATH, 'utf8');
+      preferences = { ...preferences, ...JSON.parse(data) };
+    }
+  } catch (e) {
+    console.warn('[prefs] Failed to load preferences:', e.message);
+  }
+}
+
+function savePreferences() {
+  try {
+    fs.writeFileSync(PREFS_PATH, JSON.stringify(preferences, null, 2));
+  } catch (e) {
+    console.warn('[prefs] Failed to save preferences:', e.message);
+  }
+}
+
 // Auto-updater (only in production builds)
 let autoUpdater;
 let autoUpdaterError = null;
@@ -140,6 +181,8 @@ const windows = new Map();
 let windowIdCounter = 0;
 let focusedWindowId = null;
 let shellWindowId = null; // Singleton tracking for shell window
+let mainWindowId = null;  // Track the "main" window for tray title display
+let currentPiece = 'prompt'; // Current piece/prompt shown in main window
 
 // Find docker binary path (needed for packaged app which may not have PATH set)
 function getDockerPath() {
@@ -361,6 +404,12 @@ function createMenu() {
               });
             }
           }
+        },
+        { type: 'separator' },
+        {
+          label: 'Preferences...',
+          accelerator: 'Cmd+,',
+          click: () => openPreferencesWindow()
         },
         { type: 'separator' },
         { role: 'hide' },
@@ -600,9 +649,27 @@ function createWindow(mode = 'production') {
 let tray = null;
 
 function createSystemTray() {
-  // Use the 16x16 icon for the menu bar
-  const iconPath = path.join(__dirname, 'build', 'icons', '16x16.png');
+  // Use template icon for proper macOS menu bar appearance
+  // Template images should be black with transparency, macOS will invert for dark mode
+  let iconPath;
+  if (process.platform === 'darwin') {
+    // In production, icons are in Resources folder; in dev, in build/icons
+    if (app.isPackaged) {
+      iconPath = path.join(process.resourcesPath, 'trayTemplate.png');
+    } else {
+      iconPath = path.join(__dirname, 'build', 'icons', 'trayTemplate.png');
+    }
+  } else {
+    iconPath = path.join(__dirname, 'build', 'icons', '16x16.png');
+  }
+  
+  console.log('[main] Loading tray icon from:', iconPath);
   const icon = nativeImage.createFromPath(iconPath);
+  
+  if (icon.isEmpty()) {
+    console.warn('[main] Tray icon is empty! Path:', iconPath);
+    return;
+  }
   
   // Make it template on macOS for proper dark/light mode support
   if (process.platform === 'darwin') {
@@ -611,6 +678,7 @@ function createSystemTray() {
   
   tray = new Tray(icon);
   tray.setToolTip('Aesthetic Computer');
+  console.log('[main] System tray created successfully');
   
   // Build context menu
   const contextMenu = Menu.buildFromTemplate([
@@ -674,6 +742,57 @@ function createSystemTray() {
       }
     });
   }
+  
+  // Set initial tray title
+  updateTrayTitle();
+}
+
+// Update the tray title text (shown next to icon in menu bar)
+function updateTrayTitle(text) {
+  if (!tray) return;
+  if (process.platform === 'darwin') {
+    if (text !== undefined) {
+      // Explicit text provided
+      tray.setTitle(text);
+    } else if (preferences.showTrayTitle) {
+      // Show current piece name if available, otherwise use preference text
+      const displayText = currentPiece ? `/${currentPiece}` : (preferences.trayTitleText || '');
+      tray.setTitle(displayText);
+    } else {
+      tray.setTitle('');
+    }
+  }
+}
+
+// Preferences window
+let preferencesWindow = null;
+
+function openPreferencesWindow() {
+  if (preferencesWindow && !preferencesWindow.isDestroyed()) {
+    preferencesWindow.focus();
+    return;
+  }
+  
+  preferencesWindow = new BrowserWindow({
+    width: 480,
+    height: 400,
+    resizable: false,
+    minimizable: false,
+    maximizable: false,
+    title: 'Preferences',
+    titleBarStyle: 'hiddenInset',
+    backgroundColor: '#1a1a2e',
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false
+    }
+  });
+  
+  preferencesWindow.loadFile(path.join(__dirname, 'renderer', 'preferences.html'));
+  
+  preferencesWindow.on('closed', () => {
+    preferencesWindow = null;
+  });
 }
 
 // Open a new dev window - now uses 3D view
@@ -742,6 +861,8 @@ function openKidLispWindow() {
 
 // ========== CSS 3D Flip View ==========
 let ptyProcessFor3D = null;
+let lastKnownCols = 120;
+let lastKnownRows = 40;
 
 async function open3DWindow() {
   // Start with a wide window - extra height for mode tags at bottom
@@ -833,7 +954,10 @@ async function open3DWindow() {
     }
   });
   
+  // Update terminal dimensions from renderer
   ipcMain.on('flip-pty-resize', (event, cols, rows) => {
+    lastKnownCols = cols;
+    lastKnownRows = rows;
     if (ptyProcessFor3D) {
       try {
         ptyProcessFor3D.resize(cols, rows);
@@ -842,6 +966,9 @@ async function open3DWindow() {
       }
     }
   });
+  
+  // Allow renderer to query current dimensions
+  ipcMain.handle('get-terminal-size', () => ({ cols: lastKnownCols, rows: lastKnownRows }));
   
   // Register zoom shortcuts for flip view
   globalShortcut.register('CommandOrControl+Plus', () => {
@@ -945,11 +1072,45 @@ function handleContainerPromptResponse(response) {
   }
 }
 
+// Emacs log file path (inside container, but we'll also keep a local copy)
+const EMACS_LOG_PATH = '/tmp/ac-emacs-daemon.log';
+const LOCAL_EMACS_LOG_PATH = path.join(app.getPath('userData'), 'emacs-daemon.log');
+
+// Write to local emacs log
+function writeEmacsLog(content, append = true) {
+  try {
+    if (append) {
+      fs.appendFileSync(LOCAL_EMACS_LOG_PATH, content);
+    } else {
+      fs.writeFileSync(LOCAL_EMACS_LOG_PATH, content);
+    }
+  } catch (e) {
+    console.warn('[main] Failed to write emacs log:', e.message);
+  }
+}
+
+// Read local emacs log
+function readEmacsLog() {
+  try {
+    if (fs.existsSync(LOCAL_EMACS_LOG_PATH)) {
+      return fs.readFileSync(LOCAL_EMACS_LOG_PATH, 'utf-8');
+    }
+  } catch (e) {
+    console.warn('[main] Failed to read emacs log:', e.message);
+  }
+  return null;
+}
+
 async function startContainerAndEmacs(dockerPath, webContents) {
   const { spawn } = require('child_process');
   
+  // Start fresh log for this session
+  const timestamp = new Date().toISOString();
+  writeEmacsLog(`\n\n========== EMACS SESSION START: ${timestamp} ==========\n`, false);
+  
   // Restart container to ensure clean state
   webContents.send('flip-pty-data', '\x1b[33mRestarting container...\x1b[0m\r\n');
+  writeEmacsLog(`[${timestamp}] Restarting container...\n`);
   await new Promise((resolve) => {
     const restart = spawn(dockerPath, ['restart', 'aesthetic'], { stdio: 'pipe' });
     restart.on('close', () => resolve());
@@ -958,8 +1119,10 @@ async function startContainerAndEmacs(dockerPath, webContents) {
   
   // Wait for container to be ready
   await new Promise(r => setTimeout(r, 2000));
+  writeEmacsLog(`Container restarted, waiting for ready state...\n`);
   
   // Kill any existing emacs daemon first
+  writeEmacsLog(`Killing any existing emacs daemon...\n`);
   await new Promise((resolve) => {
     const kill = spawn(dockerPath, ['exec', 'aesthetic', 'pkill', '-9', '-f', 'emacs.*daemon'], { stdio: 'pipe' });
     kill.on('close', () => resolve());
@@ -971,17 +1134,26 @@ async function startContainerAndEmacs(dockerPath, webContents) {
   // Start emacs daemon with AC config
   webContents.send('flip-pty-data', '\x1b[33mStarting emacs daemon with AC config...\x1b[0m\r\n');
   const configPath = '/home/me/aesthetic-computer/dotfiles/dot_config/emacs.el';
+  writeEmacsLog(`Starting emacs daemon with config: ${configPath}\n`);
+  writeEmacsLog(`Command: emacs -q --daemon -l ${configPath}\n`);
   
   // Start daemon and capture output
   const emacsStartResult = await new Promise((resolve) => {
     let output = '';
     const emacs = spawn(dockerPath, ['exec', 'aesthetic', 'emacs', '-q', '--daemon', '-l', configPath], { stdio: 'pipe' });
-    emacs.stdout.on('data', (d) => output += d.toString());
-    emacs.stderr.on('data', (d) => output += d.toString());
+    emacs.stdout.on('data', (d) => {
+      output += d.toString();
+      writeEmacsLog(`[stdout] ${d.toString()}`);
+    });
+    emacs.stderr.on('data', (d) => {
+      output += d.toString();
+      writeEmacsLog(`[stderr] ${d.toString()}`);
+    });
     emacs.on('close', (code) => resolve({ code, output }));
     emacs.on('error', (err) => resolve({ code: -1, output: err.message }));
   });
   
+  writeEmacsLog(`\nEmacs daemon exit code: ${emacsStartResult.code}\n`);
   console.log('[main] Emacs daemon started, code:', emacsStartResult.code);
   if (emacsStartResult.output) {
     console.log('[main] Emacs output:', emacsStartResult.output.substring(0, 500));
@@ -989,6 +1161,7 @@ async function startContainerAndEmacs(dockerPath, webContents) {
   
   // Wait for emacs daemon to be responsive (poll with emacsclient -e t)
   webContents.send('flip-pty-data', '\x1b[33mWaiting for emacs daemon...\x1b[0m\r\n');
+  writeEmacsLog(`Waiting for emacs daemon to be responsive...\n`);
   let emacsReady = false;
   for (let i = 0; i < 30; i++) { // Max 30 seconds
     const ready = await new Promise((resolve) => {
@@ -1002,38 +1175,114 @@ async function startContainerAndEmacs(dockerPath, webContents) {
     }
     await new Promise(r => setTimeout(r, 1000));
     webContents.send('flip-pty-data', '.');
+    writeEmacsLog(`.`);
   }
   
   if (!emacsReady) {
-    webContents.send('flip-pty-data', '\r\n\x1b[31mEmacs daemon failed to start. Falling back to fish shell.\x1b[0m\r\n');
+    writeEmacsLog(`\nFAILED: Emacs daemon did not become responsive after 30 seconds\n`);
+    webContents.send('flip-pty-data', '\r\n\x1b[31mEmacs daemon failed to start.\x1b[0m\r\n');
+    // Show the log to the user
+    const log = readEmacsLog();
+    if (log) {
+      webContents.send('flip-pty-data', '\r\n\x1b[33m--- Emacs Startup Log ---\x1b[0m\r\n');
+      webContents.send('flip-pty-data', log.split('\n').slice(-30).join('\r\n') + '\r\n');
+      webContents.send('flip-pty-data', '\x1b[33m--- End Log ---\x1b[0m\r\n\r\n');
+    }
+    webContents.send('flip-pty-data', '\x1b[90mFalling back to fish shell...\x1b[0m\r\n');
     startLocalShellForFlip(webContents);
     return;
   }
   
+  writeEmacsLog(`\nEmacs daemon ready!\n`);
+  
   webContents.send('flip-pty-data', ' ready!\r\n');
+  
+  // Request current terminal size from renderer before spawning PTY
+  webContents.send('flip-pty-data', '\x1b[33mConnecting to emacs...\x1b[0m\r\n');
+  writeEmacsLog(`Connecting emacsclient...\n`);
+  
+  // Get the last known size (will be updated by renderer)
+  const { cols, rows } = await new Promise((resolve) => {
+    // Request size update from renderer
+    webContents.send('request-terminal-size');
+    // Wait a moment for any pending resize to arrive
+    setTimeout(() => {
+      resolve({ cols: lastKnownCols || 120, rows: lastKnownRows || 40 });
+    }, 100);
+  });
+  
+  console.log('[main] Starting PTY with size:', cols, 'x', rows);
+  writeEmacsLog(`PTY size: ${cols}x${rows}\n`);
+  writeEmacsLog(`Command: emacsclient -nw -c --eval "(aesthetic-backend 'llm)"\n`);
   
   // Connect PTY - run aesthetic-backend to set up tabs
   ptyProcessFor3D = pty.spawn(dockerPath, [
     'exec', '-it', '-e', 'LANG=en_US.UTF-8', '-e', 'LC_ALL=en_US.UTF-8',
+    '-e', `COLUMNS=${cols}`, '-e', `LINES=${rows}`,
     'aesthetic',
     'emacsclient', '-nw', '-c', '--eval', "(aesthetic-backend 'llm)"
   ], {
     name: 'xterm-256color',
-    cols: 120,
-    rows: 40,
+    cols: cols,
+    rows: rows,
     cwd: process.env.HOME,
     env: { ...process.env, TERM: 'xterm-256color', LANG: 'en_US.UTF-8', LC_ALL: 'en_US.UTF-8' }
   });
   
+  let firstDataReceived = false;
+  let sessionStartTime = Date.now();
+  
   ptyProcessFor3D.onData((data) => {
     if (!webContents.isDestroyed()) {
       webContents.send('flip-pty-data', data);
+      
+      // After first data, send a resize to ensure emacs picks it up
+      if (!firstDataReceived) {
+        firstDataReceived = true;
+        writeEmacsLog(`First data received, emacsclient connected.\n`);
+        // Give emacs a moment to initialize, then force resize
+        setTimeout(() => {
+          if (ptyProcessFor3D) {
+            console.log('[main] Sending post-connect resize:', lastKnownCols, 'x', lastKnownRows);
+            try {
+              ptyProcessFor3D.resize(lastKnownCols, lastKnownRows);
+            } catch (e) {
+              console.warn('[main] Post-connect resize failed:', e.message);
+            }
+            // Send another resize after a longer delay to catch any late initialization
+            setTimeout(() => {
+              if (ptyProcessFor3D) {
+                try {
+                  ptyProcessFor3D.resize(lastKnownCols, lastKnownRows);
+                } catch (e) {}
+              }
+            }, 1000);
+          }
+        }, 500);
+      }
     }
   });
   
-  ptyProcessFor3D.onExit(() => {
+  ptyProcessFor3D.onExit(({ exitCode, signal }) => {
+    const duration = Math.round((Date.now() - sessionStartTime) / 1000);
+    const exitInfo = `Session ended after ${duration}s - exit code: ${exitCode}, signal: ${signal}`;
+    writeEmacsLog(`\n${exitInfo}\n`);
+    console.log('[main]', exitInfo);
+    
     if (!webContents.isDestroyed()) {
       webContents.send('flip-pty-data', '\r\n\x1b[33m[Session ended]\x1b[0m\r\n');
+      
+      // If session was very short (< 5 seconds) or crashed, show the log
+      if (duration < 5 || exitCode !== 0) {
+        const log = readEmacsLog();
+        if (log) {
+          webContents.send('flip-pty-data', '\r\n\x1b[33m--- Session Log (last 40 lines) ---\x1b[0m\r\n');
+          const lines = log.split('\n').slice(-40);
+          webContents.send('flip-pty-data', lines.join('\r\n') + '\r\n');
+          webContents.send('flip-pty-data', '\x1b[33m--- End Log ---\x1b[0m\r\n');
+          webContents.send('flip-pty-data', `\x1b[90mFull log: ${LOCAL_EMACS_LOG_PATH}\x1b[0m\r\n`);
+        }
+      }
     }
   });
 }
@@ -1092,6 +1341,50 @@ function getRepoPath() {
   }
   return null;
 }
+
+// IPC Handlers for preferences
+ipcMain.handle('get-preferences', () => preferences);
+
+ipcMain.handle('set-preferences', (event, newPrefs) => {
+  preferences = { ...preferences, ...newPrefs };
+  savePreferences();
+  updateTrayTitle();
+  
+  // Handle launch at login
+  if (process.platform === 'darwin' || process.platform === 'win32') {
+    app.setLoginItemSettings({
+      openAtLogin: preferences.launchAtLogin,
+      openAsHidden: true
+    });
+  }
+  
+  return preferences;
+});
+
+ipcMain.handle('set-tray-title', (event, text) => {
+  updateTrayTitle(text);
+});
+
+// Update the current piece name (called when webview navigates)
+ipcMain.handle('set-current-piece', (event, pieceName) => {
+  currentPiece = pieceName || 'prompt';
+  console.log('[main] Current piece updated:', currentPiece);
+  updateTrayTitle();
+  return currentPiece;
+});
+
+// Mark a window as the "main" window
+ipcMain.handle('set-main-window', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  for (const [id, data] of windows) {
+    if (data.window === win) {
+      mainWindowId = id;
+      console.log('[main] Main window set to:', id);
+      return true;
+    }
+  }
+  return false;
+});
 
 // IPC Handlers for welcome screen
 ipcMain.handle('get-repo-path', () => {
@@ -1495,6 +1788,7 @@ ipcMain.on('ac-reload', (event) => {
 
 // App lifecycle
 app.whenReady().then(async () => {
+  loadPreferences();
   createMenu();
   createSystemTray();
   
