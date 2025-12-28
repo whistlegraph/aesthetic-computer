@@ -140,7 +140,12 @@ function acd
     # Use dev-container URI (respects devcontainer.json settings including extension exclusions)
     cd $workspace
     set -l container_id (pwd | tr -d '\n' | xxd -c 256 -p)
-    code --folder-uri "vscode-remote://dev-container+$container_id/workspaces/aesthetic-computer" --remote-debugging-port=9222 --remote-allow-origins="*"
+    # Disable problematic extensions that crash the remote extension host
+    code --folder-uri "vscode-remote://dev-container+$container_id/workspaces/aesthetic-computer" \
+         --remote-debugging-port=9222 \
+         --remote-allow-origins="*" \
+         --disable-extension github.copilot-chat \
+         --disable-extension github.copilot
     cd -
 end
 
