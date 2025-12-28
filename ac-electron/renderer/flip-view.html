@@ -216,7 +216,7 @@
     .mode-tags {
       position: absolute;
       z-index: 100;
-      bottom: -20px;  /* Flush against the border */
+      bottom: -19.5px;  /* Flush against the border */
       left: 50%;
       transform: translateX(-50%);
       display: flex;
@@ -287,7 +287,7 @@
     .backend-controls {
       position: absolute;
       z-index: 100;
-      bottom: -30px;
+      bottom: -32px;
       left: 50%;
       transform: translateX(-50%) rotateY(180deg);
       opacity: 0;
@@ -764,15 +764,30 @@
       stopContainerBtn.disabled = !isRunning;
     }
     
+    // Show a big centered message in the terminal
+    function showTerminalMessage(message, color = '\x1b[35m') {
+      term.clear();
+      const rows = term.rows;
+      const cols = term.cols;
+      const midRow = Math.floor(rows / 2);
+      const padding = Math.floor((cols - message.length) / 2);
+      
+      // Move to middle and print centered message
+      for (let i = 0; i < midRow - 1; i++) {
+        term.writeln('');
+      }
+      term.writeln(color + ' '.repeat(Math.max(0, padding)) + message + '\x1b[0m');
+    }
+    
     startContainerBtn.addEventListener('click', async () => {
       console.log('[flip] Start devcontainer requested');
       startContainerBtn.disabled = true;
       startContainerBtn.textContent = '⏳';
       
-      // Hide welcome screen and show terminal
+      // Clear terminal and show starting message immediately
       welcomeScreen.classList.add('hidden');
       fitTerminal();
-      term.focus();
+      showTerminalMessage('▶ STARTING...', '\x1b[35m\x1b[1m');
       
       try {
         await ipcRenderer.invoke('start-flip-devcontainer');
@@ -780,6 +795,7 @@
         await updateContainerButtons();
       } catch (err) {
         console.error('[flip] Failed to start devcontainer:', err);
+        showTerminalMessage('✗ START FAILED', '\x1b[31m\x1b[1m');
         startContainerBtn.textContent = '▶';
         startContainerBtn.disabled = false;
       }
@@ -789,12 +805,18 @@
       console.log('[flip] Stop container requested (aggressive)');
       stopContainerBtn.disabled = true;
       stopContainerBtn.textContent = '⏳';
+      
+      // Show stopping message immediately
+      showTerminalMessage('⏹ STOPPING...', '\x1b[35m\x1b[1m');
+      
       try {
         await ipcRenderer.invoke('stop-container-aggressive');
+        showTerminalMessage('⏹ STOPPED', '\x1b[90m');
         stopContainerBtn.textContent = '⏹';
         await updateContainerButtons();
       } catch (err) {
         console.error('[flip] Failed to stop container:', err);
+        showTerminalMessage('✗ STOP FAILED', '\x1b[31m\x1b[1m');
         stopContainerBtn.textContent = '⏹';
         stopContainerBtn.disabled = false;
       }
@@ -896,8 +918,18 @@
     term.loadAddon(fitAddon);
     term.open(terminalContainer);
     
-    // Use canvas renderer (WebGL has issues with block characters and colors)
-    console.log('[flip] Using canvas renderer for better character support');
+    // Load WebGL2 renderer for better performance
+    try {
+      const webglAddon = new WebglAddon();
+      webglAddon.onContextLoss(() => {
+        console.warn('[flip] WebGL context lost, disposing addon');
+        webglAddon.dispose();
+      });
+      term.loadAddon(webglAddon);
+      console.log('[flip] WebGL2 renderer loaded successfully');
+    } catch (e) {
+      console.warn('[flip] WebGL2 renderer failed to load, using canvas fallback:', e.message);
+    }
     
     // Fit terminal to container and send initial size to PTY
     function fitTerminal() {
@@ -906,13 +938,37 @@
       ipcRenderer.send('flip-pty-resize', term.cols, term.rows);
     }
     
-    // Initial fit - use multiple attempts to ensure container is properly sized
-    requestAnimationFrame(() => {
+    // Initial fit - wait for layout to stabilize, then fit multiple times
+    function initialFit() {
+      // Force container dimensions to be calculated
+      terminalContainer.style.display = 'block';
+      terminalContainer.offsetHeight; // Force reflow
+      
       fitTerminal();
-      // Second fit after a short delay for webview to settle
-      setTimeout(fitTerminal, 100);
+    }
+    
+    // Wait for window to fully load and layout to settle
+    if (document.readyState === 'complete') {
+      setTimeout(initialFit, 50);
+      setTimeout(fitTerminal, 200);
       setTimeout(fitTerminal, 500);
+    } else {
+      window.addEventListener('load', () => {
+        setTimeout(initialFit, 50);
+        setTimeout(fitTerminal, 200);
+        setTimeout(fitTerminal, 500);
+      });
+    }
+    
+    // Also fit when the flip card becomes visible (showing backend)
+    const flipObserver = new MutationObserver(() => {
+      if (showingTerminal) {
+        requestAnimationFrame(() => {
+          fitTerminal();
+        });
+      }
     });
+    flipObserver.observe(flipCard, { attributes: true, attributeFilter: ['style'] });
     
     // Resize handling
     const resizeObserver = new ResizeObserver(() => {
