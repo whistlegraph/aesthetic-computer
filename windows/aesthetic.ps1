@@ -1,61 +1,121 @@
 <#
-To run this script by just typing `aesthetic` in PowerShell:
+.SYNOPSIS
+    Aesthetic Computer Platform Launcher for Windows
 
-1. Open your PowerShell profile:
-   notepad $PROFILE
+.DESCRIPTION
+    Starts the Aesthetic Computer devcontainer with VS Code CDP debugging enabled.
+    Sets up HOST_IP for WebRTC, launches devcontainer, and starts clipboard listener.
 
-2. Add the following function:
+.NOTES
+    To run this script by just typing `aesthetic` in PowerShell:
 
-   function aesthetic {
-       powershell.exe -ExecutionPolicy Bypass -File "\\wsl.localhost\Ubuntu\home\me\aesthetic-computer\windows\aesthetic.ps1"
-   }
+    1. Open your PowerShell profile:
+       notepad $PROFILE
 
-3. Save the file, then restart your PowerShell session.
+    2. Add the following function:
 
-Now, you can just type `start` to launch the Aesthetic Computer Platform.
+       function aesthetic {
+           powershell.exe -ExecutionPolicy Bypass -File "\\wsl.localhost\Ubuntu\home\me\aesthetic-computer\windows\aesthetic.ps1"
+       }
+
+    3. Save the file, then restart your PowerShell session.
 #>
 
-Write-Host @"
-Aesthetic Computer Platform is starting...
-"@ -ForegroundColor Cyan
+$ErrorActionPreference = "Stop"
+$workspace = "\\wsl.localhost\Ubuntu\home\me\aesthetic-computer"
 
-# Detect and export HOST_IP
+# ═══════════════════════════════════════════════════════════════════════════════
+# Banner
+# ═══════════════════════════════════════════════════════════════════════════════
+Write-Host @"
+
+  ╔═══════════════════════════════════════════════════════════════╗
+  ║                                                               ║
+  ║   █▀█ █▀▀ █▀ ▀█▀ █ █ █▀▀ ▀█▀ █ █▀▀   █▀▀ █▀█ █▄▀▄█ █▀█       ║
+  ║   █▀█ ██▄ ▄█  █  █▀█ ██▄  █  █ █▄▄ ▄ █▄▄ █▄█ █ ▀ █ █▀▀       ║
+  ║                                                               ║
+  ╚═══════════════════════════════════════════════════════════════╝
+
+"@ -ForegroundColor Magenta
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Detect HOST_IP (for WebRTC TURN server)
+# ═══════════════════════════════════════════════════════════════════════════════
+Write-Host "› Detecting HOST_IP..." -ForegroundColor Magenta
 $hostIp = (Get-NetIPAddress -AddressFamily IPv4 `
-           | Where-Object { $_.InterfaceAlias -match 'Wi-Fi' -and $_.PrefixOrigin -eq 'Dhcp' }).IPAddress
+           | Where-Object { $_.InterfaceAlias -match 'Wi-Fi|Ethernet' -and $_.PrefixOrigin -eq 'Dhcp' }).IPAddress | Select-Object -First 1
 
 if ($hostIp) {
     $env:HOST_IP = $hostIp
-    "HOST_IP=$hostIp" | Out-File -FilePath "$PSScriptRoot\..\.devcontainer\envs\host.env" -Encoding ASCII -NoNewline
-    Write-Host "Local HOST_IP is $hostIp" -ForegroundColor Green
+    "HOST_IP=$hostIp" | Out-File -FilePath "$workspace\.devcontainer\envs\host.env" -Encoding ASCII -NoNewline
+    Write-Host "✓ HOST_IP is $hostIp" -ForegroundColor Green
 } else {
-    Write-Host "Could not detect HOST_IP" -ForegroundColor Yellow
+    Write-Host "! Could not detect HOST_IP (WebRTC may not work)" -ForegroundColor Yellow
 }
 
-
-# Kill all running VS Code instances
-Write-Host "Closing all running VS Code instances..." -ForegroundColor Magenta
+# ═══════════════════════════════════════════════════════════════════════════════
+# Kill existing VS Code instances
+# ═══════════════════════════════════════════════════════════════════════════════
+Write-Host "› Stopping VS Code..." -ForegroundColor Magenta
 Get-Process Code -ErrorAction SilentlyContinue | ForEach-Object {
-    if (!$_.HasExited) {
-        try {
-            $_.CloseMainWindow() | Out-Null
-            Start-Sleep -Milliseconds 500
-            if (!$_.HasExited) {
-                $_.Kill()
-            }
-        } catch {
-            Write-Host "  Could not close process $($_.Id): $($_.Exception.Message)" -ForegroundColor DarkYellow
-        }
-    }
+    try {
+        $_.CloseMainWindow() | Out-Null
+        Start-Sleep -Milliseconds 500
+        if (!$_.HasExited) { $_.Kill() }
+    } catch {}
+}
+Start-Sleep -Seconds 1
+Write-Host "✓ VS Code stopped" -ForegroundColor Green
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Remove old container and start devcontainer
+# ═══════════════════════════════════════════════════════════════════════════════
+Write-Host "› Starting devcontainer..." -ForegroundColor Magenta
+
+# Remove old container (in WSL)
+wsl -d Ubuntu -e docker rm -f aesthetic 2>$null
+
+# Start devcontainer via CLI (in WSL)
+$devcontainerResult = wsl -d Ubuntu -e bash -c "cd /home/me/aesthetic-computer && devcontainer up --workspace-folder . 2>&1 | tail -3"
+Write-Host $devcontainerResult
+
+if ($LASTEXITCODE -eq 0) {
+    Write-Host "✓ Devcontainer ready" -ForegroundColor Green
+} else {
+    Write-Host "✗ Devcontainer failed to start" -ForegroundColor Red
+    exit 1
 }
 
-# Launch new VS Code instance in current directory with Chrome debugging enabled
-# Using port 9333 to avoid conflicts with svchost.exe on 9222
-Write-Host "Launching fresh VS Code inside Dev Container with CDP on port 9333..."
-Start-Process -WindowStyle Hidden -FilePath "code" -ArgumentList "--remote-debugging-port=9333", "--folder", "\\wsl.localhost\Ubuntu\home\me\aesthetic-computer"
+# ═══════════════════════════════════════════════════════════════════════════════
+# Launch VS Code with CDP debugging
+# ═══════════════════════════════════════════════════════════════════════════════
+Write-Host "› Launching VS Code with CDP on port 9333..." -ForegroundColor Magenta
 
-# Clipboard loop
+# Use dev-container+ URI format (hex-encoded workspace path)
+$hexPath = [System.BitConverter]::ToString([System.Text.Encoding]::UTF8.GetBytes("/home/me/aesthetic-computer")).Replace("-","").ToLower()
+$uri = "vscode-remote://dev-container+$hexPath/workspaces/aesthetic-computer"
+
+Start-Process -WindowStyle Hidden -FilePath "code" -ArgumentList `
+    "--folder-uri", $uri, `
+    "--remote-debugging-port=9333", `
+    "--disable-extension", "github.copilot-chat", `
+    "--disable-extension", "github.copilot"
+
+Write-Host "✓ VS Code launched" -ForegroundColor Green
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Clipboard listener (receives from container via netcat)
+# ═══════════════════════════════════════════════════════════════════════════════
+Write-Host ""
+Write-Host "  ✨ aesthetic.computer ready" -ForegroundColor Magenta
+Write-Host ""
+Write-Host "› Starting clipboard listener on port 12345..." -ForegroundColor Gray
+
 while ($true) {
-    Write-Host "[clipboard] Waiting for input on port 12345..."
-    ncat -l -p 12345 | Set-Clipboard
-    Start-Sleep -Milliseconds 200
+    try {
+        ncat -l -p 12345 | Set-Clipboard
+        Start-Sleep -Milliseconds 200
+    } catch {
+        Start-Sleep -Seconds 1
+    }
 }
