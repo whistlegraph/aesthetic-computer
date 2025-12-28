@@ -1,38 +1,75 @@
-// For format details, see https://aka.ms/devcontainer.json. For config options, see the README at:
-// https://github.com/microsoft/vscode-dev-containers/tree/v0.241.1/containers/codespaces-linux
-// And for devcontainer cli usage check out: https://github.com/devcontainers/cli?tab=readme-ov-file
+// ═══════════════════════════════════════════════════════════════════════════════
+// AESTHETIC COMPUTER DEVCONTAINER
+// ═══════════════════════════════════════════════════════════════════════════════
+// This devcontainer powers a creative coding platform with:
+//   - Real-time collaborative pieces (WebRTC/WebSocket)
+//   - KidLisp interpreter (custom language for generative art)
+//   - Emacs daemon for terminal multiplexing (artery-tui)
+//   - Multi-service architecture (dev server, session server, edge services)
+//
+// Restored incrementally to isolate VS Code crash causes on Linux/Fedora host.
+// See: .devcontainer/devcontainer.json.backup for original full config
+// ═══════════════════════════════════════════════════════════════════════════════
 {
-  "name": "Default",
+  "name": "Aesthetic Computer",
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // BUILD CONFIGURATION
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Uses a custom Fedora-based Dockerfile (~13.6GB) with:
+  //   - Node.js (fnm), Deno, Python 3.11, Rust, SBCL (Common Lisp)
+  //   - Emacs-nox, Fish shell, Docker CLI
+  //   - Tezos tools (SmartPy, PyTezos) for NFT minting
+  //   - ffmpeg, imagemagick for media processing
   "build": {
-    "dockerfile": "Dockerfile",
-    "args": {
-      "BUILDKIT_INLINE_CACHE": "1",
-      "DOCKER_BUILDKIT": "1",
-      "FEDORA_IMAGE": "quay.io/fedora/fedora:latest"
-    }
+    "dockerfile": "Dockerfile"
   },
-  "containerEnv": {
-    "DISPLAY": "${localEnv:DISPLAY}",
-    "HOST_IP": "${localEnv:HOST_IP}",
-    "WSL_DISTRO_NAME": "${localEnv:WSL_DISTRO_NAME}",
-    "DOCKER_BUILDKIT": "1",
-    "COMPOSE_DOCKER_CLI_BUILD": "1"
-  },
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // VOLUME MOUNTS
+  // ─────────────────────────────────────────────────────────────────────────────
+  // These persist data across container rebuilds and share host resources:
+  //
+  // .emacs.d: Emacs configuration (init.el, packages, themes)
+  //           Persisted so emacs daemon doesn't re-download packages on rebuild
+  //           Contains artery-tui terminal layout config
+  //
+  // envs: Environment/secrets directory (API keys, credentials)
+  //       Sourced by entry.fish, kept separate from git-tracked config
+  //
+  // aesthetic-fish-data: Fish shell history, completions cache
+  //                      Named volume so shell history persists across rebuilds
+  //
+  // aesthetic-copilot-data: Claude/Copilot CLI session data
+  //                         Persists auth tokens and conversation history
+  //
+  // docker.sock: Host Docker socket for docker-in-docker
+  //              Allows running `docker build` inside container
+  //              Two mounts: one for VS Code's Docker extension, one for CLI
   "mounts": [
     "source=${localWorkspaceFolder}/.devcontainer/.emacs.d,target=/home/me/.emacs.d,type=bind,consistency=cached",
     "source=${localWorkspaceFolder}/.devcontainer/envs,target=/home/me/envs,type=bind,consistency=cached",
     "source=aesthetic-fish-data,target=/home/me/.local/share/fish,type=volume",
     "source=aesthetic-copilot-data,target=/home/me/.copilot,type=volume",
-    "source=codespaces-linux-var-lib-docker,target=/var/lib/docker,type=volume",
     "source=/var/run/docker.sock,target=/var/run/docker-host.sock,type=bind",
     "type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock"
-    // NOTE: /etc/localtime mount removed - it doesn't exist on macOS and breaks container start.
-    // Docker Desktop on macOS handles timezone sync automatically.
   ],
-  // "features": {
-  //   "ghcr.io/devcontainers/features/python:1": "none"
-  // },
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // PORT FORWARDING
+  // ─────────────────────────────────────────────────────────────────────────────
+  // VS Code automatically forwards these ports from container to host:
+  //
+  // 8888: Main Aesthetic Computer dev server (Vite + Netlify functions)
+  // 8889: Session server (Jamsocket) for multiplayer state sync
+  // 8111: Caddy reverse proxy (SSL termination for local HTTPS)
+  // 8083-8085: Chat system endpoints (system, SOTCE, clock)
+  // 4040: ngrok inspection UI (when tunnel is active)
+  // 12345: Misc dev/debug port
+  // 3478: TURN server for WebRTC NAT traversal (UDP)
+  // 10000-10007: WebRTC media ports for peer connections
   "forwardPorts": [8888, 8111, 8889, 8083, 8084, 8085, 4040, 12345, 3478, 10000, 10001, 10002, 10003, 10004, 10005, 10006, 10007],
+
   "portsAttributes": {
     "8888": {
       "label": "Aesthetic Computer",
@@ -44,93 +81,161 @@
       "protocol": "udp",
       "onAutoForward": "silent"
     },
-    "8111": {
-      "label": "Caddy",
-      "onAutoForward": "silent",
-      "visibility": "public"
-    },
-    "8889": {
-      "label": "Session Server",
-      "onAutoForward": "silent",
-      "visibility": "public"
-    },
-    "8083": {
-      "label": "Chat System",
-      "onAutoForward": "silent",
-      "visibility": "public"
-    },
-    "8084": {
-      "label": "Chat SOTCE",
-      "onAutoForward": "silent",
-      "visibility": "public"
-    },
-    "8085": {
-      "label": "Chat Clock",
-      "onAutoForward": "silent",
-      "visibility": "public"
-    }
+    "8111": { "label": "Caddy", "onAutoForward": "silent", "visibility": "public" },
+    "8889": { "label": "Session Server", "onAutoForward": "silent", "visibility": "public" },
+    "8083": { "label": "Chat System", "onAutoForward": "silent", "visibility": "public" },
+    "8084": { "label": "Chat SOTCE", "onAutoForward": "silent", "visibility": "public" },
+    "8085": { "label": "Chat Clock", "onAutoForward": "silent", "visibility": "public" }
   },
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // CONTAINER ENVIRONMENT VARIABLES
+  // ─────────────────────────────────────────────────────────────────────────────
+  // DISPLAY: X11 forwarding for clipboard sharing with host
+  //          Requires `xhost +local:docker` on Linux host
+  //          Used by: xclip/xsel for copy-paste in emacs terminals
+  //
+  // HOST_IP: Machine's LAN IP for WebRTC TURN server announcements
+  //          Multiplayer pieces need this for peer discovery
+  //
+  // WSL_DISTRO_NAME: Detect WSL environment for path translation
+  //
+  // DOCKER_BUILDKIT: Enable BuildKit for faster container builds
+  //                  Used when building nested containers (rare)
+  "containerEnv": {
+    "DISPLAY": "${localEnv:DISPLAY}",
+    "HOST_IP": "${localEnv:HOST_IP}",
+    "WSL_DISTRO_NAME": "${localEnv:WSL_DISTRO_NAME}",
+    "DOCKER_BUILDKIT": "1",
+    "COMPOSE_DOCKER_CLI_BUILD": "1"
+  },
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // VS CODE CUSTOMIZATIONS
+  // ─────────────────────────────────────────────────────────────────────────────
   "customizations": {
-    "codespaces": {
-      "machine": "largePremiumLinux"
-    },
     "vscode": {
+      // Extensions auto-installed in container - kept empty to prevent crashes
+      // Extensions run on UI side via remote.extensionKind settings
       "extensions": [],
+
       "settings": {
-        "settingsSync.ignoredExtensions": ["github.copilot-chat", "github.copilot"],
-        "extensions.ignoreRecommendations": true,
+        // ═══════════════════════════════════════════════════════════════════════
+        // CRITICAL: FILE WATCHER EXCLUSIONS
+        // ═══════════════════════════════════════════════════════════════════════
+        // The workspace has 86 top-level directories and massive folders like:
+        //   - kidlisp-n64 (19GB N64 SDK)
+        //   - feed/ (archived content)
+        //   - packed/, archive/, experiments/
+        //
+        // Without exclusions, VS Code's file watcher hits 99% CPU scanning
+        // millions of files, causing UI freezes and eventual crashes.
+        //
+        // Setting "**": true disables ALL file watching - aggressive but stable.
+        // Trade-off: Must manually refresh explorer, no auto-reload on file change
+        "files.watcherExclude": {
+          "**": true
+        },
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // GIT CONFIGURATION
+        // ═══════════════════════════════════════════════════════════════════════
+        // Disable git auto-refresh to reduce background I/O
+        // With 86 directories, git status polling compounds watcher issues
+        "git.autorefresh": false,
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // COPILOT EXTENSION HANDLING
+        // ═══════════════════════════════════════════════════════════════════════
+        // Force Copilot extensions to run on UI (host) side, not in container.
+        // Installing copilot-chat in container causes crashes - see commit aff03abf
+        // This also keeps API keys on host rather than in container
         "remote.extensionKind": {
           "github.copilot-chat": ["ui"],
           "github.copilot": ["ui"]
         },
+        "settingsSync.ignoredExtensions": [
+          "github.copilot-chat",
+          "github.copilot"
+        ],
+
+        // Don't auto-update extensions - prevents mid-session breakage
         "extensions.autoUpdate": false,
-        "settingsSync.keybindingsPerPlatform": false,
-        "git.autorefresh": false,
-        "files.watcherExclude": {
-          "**/node_modules/**": true,
-          "**/.git/objects/**": true,
-          "**/.git/subtree-cache/**": true,
-          "**/dist/**": true,
-          "**/packed/**": true,
-          "**/archive/**": true
-        }
+        "extensions.ignoreRecommendations": true,
+        "settingsSync.keybindingsPerPlatform": false
       }
     }
   },
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // DOCKER RUN ARGUMENTS
+  // ─────────────────────────────────────────────────────────────────────────────
+  // --name/--hostname: Fixed names for scripts (`docker exec aesthetic`)
+  //
+  // -v /tmp/.X11-unix: X11 socket mount for clipboard sharing
+  //                    Works with DISPLAY env var for xclip/xsel
+  //
+  // --cap-add=SYS_PTRACE: Allow ptrace for debugging (strace, gdb attach)
+  // --security-opt=apparmor=unconfined: Disable AppArmor for debug tools
+  //
+  // --init: Use tini as PID 1 to reap zombie processes
+  //
+  // --memory=12g: Cap container memory (prevents OOM killing host)
+  // --shm-size=2g: Shared memory for Chrome/Puppeteer headless rendering
+  //
+  // --tmpfs: In-memory /tmp for faster temp file operations
+  //
+  // --ulimit nofile: Raise open file limit for Vite's many watchers
+  //
+  // NOTE: Explicit -p port mappings removed - forwardPorts handles this
+  //       and avoids "port already in use" errors on restart
   "runArgs": [
-    // 📋 Clipboard also requires `xhost +local:docker` to be set on the host.
-    "-v",
-    "/tmp/.X11-unix:/tmp/.X11-unix",
+    "-v", "/tmp/.X11-unix:/tmp/.X11-unix",
     "-q",
     "--cap-add=SYS_PTRACE",
     "--security-opt=apparmor=unconfined",
-    "--name",
-    "aesthetic",
-    "--hostname",
-    "aesthetic",
+    "--name", "aesthetic",
+    "--hostname", "aesthetic",
     "--init",
     "--memory=12g",
     "--memory-swap=12g",
     "--shm-size=2g",
-    "--cgroupns=host",
-    "--tmpfs=/tmp:noexec,nosuid,size=2g",
-    "-p",
-    "0.0.0.0:8888:8888",
-    "-p",
-    "0.0.0.0:8889:8889",
-    "-p",
-    "0.0.0.0:3478:3478/udp",
-    "-p",
-    "0.0.0.0:49160-49167:49160-49167/udp",
-    "-p",
-    "0.0.0.0:10000-10007:10000-10007/udp",
-    "--ulimit",
-    "nofile=131072:131072"
-    // "--network",
-    // "host"
+    "--ulimit", "nofile=131072:131072"
   ],
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // LIFECYCLE COMMANDS
+  // ─────────────────────────────────────────────────────────────────────────────
+  //
+  // initializeCommand: Runs on HOST before container starts
+  //   - Removes stale "aesthetic" container (prevents rebuild conflicts)
+  //   - Creates required directories (.emacs.d, envs, tezos-data)
+  //   - Ensures fish_history exists (prevents volume mount failures)
+  //   Note: runs as array to avoid shell interpretation issues
   "initializeCommand": ["sh", "-c", ".devcontainer/scripts/prepare-host.sh"],
+
+  // postStartCommand: Runs INSIDE container after it starts
+  //   - Wrapper script that backgrounds entry.fish and returns quickly
+  //   - entry.fish sets up:
+  //     • Docker daemon (docker-in-docker)
+  //     • Emacs daemon with eat-mode terminals (artery, fishy, etc.)
+  //     • Fish shell environment (fnm, vault secrets)
+  //     • CDP tunnel for VS Code remote control
+  //     • Creates .waiter file when ready (for aesthetic-launch.sh)
   "postStartCommand": "sh .devcontainer/scripts/poststart-wrapper.sh",
+
+  // postAttachCommand: Runs when VS Code attaches to the container
+  //   - Lightweight confirmation message
+  //   - VS Code's "💻 Aesthetic" task handles actual emacsclient connection
   "postAttachCommand": "sh .devcontainer/scripts/post-attach.sh"
-  // .waiter file is now created inside entry.fish to avoid terminal popup in Codespaces
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // CONFIGURATION COMPLETE
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // All features restored except:
+  //   - --cgroupns=host (causes container exit on this Fedora host)
+  //   - --tmpfs=/tmp:noexec,nosuid,size=2g (causes container exit)
+  //   - Explicit -p port mappings (conflict with VS Code's forwardPorts)
+  //   - codespaces-linux-var-lib-docker volume (not needed for local Docker socket)
+  // ═══════════════════════════════════════════════════════════════════════════════
 }
