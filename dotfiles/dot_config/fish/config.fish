@@ -84,6 +84,24 @@ function vidinfo
     $argv
 end
 
+# Clean up stale VS Code server state in container
+function ac-cleanup-vscode-server
+    echo "🧹 Cleaning up stale VS Code server state..."
+    
+    # Kill orphaned vscode-server processes in container
+    docker exec aesthetic sh -c "pkill -9 -f 'vscode-server' 2>/dev/null" 2>/dev/null; or true
+    docker exec aesthetic sh -c "pkill -9 -f 'extensionHost' 2>/dev/null" 2>/dev/null; or true
+    
+    # Remove stale lock files
+    docker exec aesthetic sh -c "find /home/me/.vscode-server/data -name 'vscode.lock' -delete 2>/dev/null" 2>/dev/null; or true
+    
+    # Clear old logs to reduce clutter
+    docker exec aesthetic sh -c "rm -rf /home/me/.vscode-server/data/logs/* 2>/dev/null" 2>/dev/null; or true
+    
+    sleep 1
+    echo "✅ Cleanup complete"
+end
+
 function acd
     set -l workspace ~/aesthetic-computer
     
@@ -112,24 +130,18 @@ function acd
         # Container doesn't exist - need to build it first
         echo "🚀 Building devcontainer (this may take a moment)..."
         cd $workspace
-        devcontainer up --workspace-folder . &
-        set -l dc_pid $last_pid
-        # Wait up to 120 seconds for container to be running
-        set -l timeout 120
-        while test $timeout -gt 0
-            set container_status (docker inspect -f '{{.State.Status}}' aesthetic 2>/dev/null)
-            if test "$container_status" = "running"
-                break
-            end
-            sleep 2
-            set timeout (math "$timeout - 2")
-        end
+        devcontainer up --workspace-folder .
         cd -
+    else if test "$container_status" = "running"
+        # Container running - clean up stale VS Code server state first
+        ac-cleanup-vscode-server
     end
     
-    # Use attached-container approach (connects to running container by name)
-    set -l hex_config (printf '{"containerName":"/aesthetic"}' | xxd -p | tr -d '\n')
-    code --folder-uri "vscode-remote://attached-container+$hex_config/workspaces/aesthetic-computer" --remote-debugging-port=9222 --remote-allow-origins="*"
+    # Use dev-container URI (respects devcontainer.json settings including extension exclusions)
+    cd $workspace
+    set -l container_id (pwd | tr -d '\n' | xxd -c 256 -p)
+    code --folder-uri "vscode-remote://dev-container+$container_id/workspaces/aesthetic-computer" --remote-debugging-port=9222 --remote-allow-origins="*"
+    cd -
 end
 
 function ac-event-daemon
