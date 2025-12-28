@@ -84,7 +84,16 @@
           "github.copilot": ["ui"]
         },
         "extensions.autoUpdate": false,
-        "settingsSync.keybindingsPerPlatform": false
+        "settingsSync.keybindingsPerPlatform": false,
+        "git.autorefresh": false,
+        "files.watcherExclude": {
+          "**/node_modules/**": true,
+          "**/.git/objects/**": true,
+          "**/.git/subtree-cache/**": true,
+          "**/dist/**": true,
+          "**/packed/**": true,
+          "**/archive/**": true
+        }
       }
     }
   },
