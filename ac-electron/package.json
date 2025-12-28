@@ -1,6 +1,6 @@
 {
   "name": "aesthetic-computer",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Aesthetic Computer - Creative coding platform",
   "homepage": "https://aesthetic.computer",
   "author": "Aesthetic Computer <hi@aesthetic.computer>",
@@ -37,6 +37,16 @@
     "extraMetadata": {
       "name": "aesthetic-computer"
     },
+    "extraResources": [
+      {
+        "from": "build/icons/trayTemplate.png",
+        "to": "trayTemplate.png"
+      },
+      {
+        "from": "build/icons/trayTemplate@2x.png",
+        "to": "trayTemplate@2x.png"
+      }
+    ],
     "mac": {
       "category": "public.app-category.graphics-design",
       "target": [
@@ -62,6 +72,8 @@
       "preload.js",
       "offscreen-manager.js",
       "renderer/**/*",
+      "build/icons/trayTemplate.png",
+      "build/icons/trayTemplate@2x.png",
       "native/osr-gpu/build/Release/*.node",
       "!node_modules/**/*",
       "node_modules/@xterm/**/*",
