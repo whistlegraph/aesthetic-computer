@@ -7,7 +7,7 @@
  * - Shell windows: Terminal with devcontainer + emacs (purple accent)
  */
 
-const { app, BrowserWindow, ipcMain, globalShortcut, Menu, dialog, shell, nativeImage, screen, Notification } = require('electron');
+const { app, BrowserWindow, ipcMain, globalShortcut, Menu, Tray, dialog, shell, nativeImage, screen, Notification } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { spawn, execSync } = require('child_process');
@@ -596,6 +596,86 @@ function createWindow(mode = 'production') {
   return { window: win, windowId };
 }
 
+// ========== System Tray ==========
+let tray = null;
+
+function createSystemTray() {
+  // Use the 16x16 icon for the menu bar
+  const iconPath = path.join(__dirname, 'build', 'icons', '16x16.png');
+  const icon = nativeImage.createFromPath(iconPath);
+  
+  // Make it template on macOS for proper dark/light mode support
+  if (process.platform === 'darwin') {
+    icon.setTemplateImage(true);
+  }
+  
+  tray = new Tray(icon);
+  tray.setToolTip('Aesthetic Computer');
+  
+  // Build context menu
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: 'Show/Hide',
+      click: () => {
+        const allWindows = BrowserWindow.getAllWindows();
+        if (allWindows.length > 0) {
+          const win = allWindows[0];
+          if (win.isVisible()) {
+            allWindows.forEach(w => w.hide());
+          } else {
+            allWindows.forEach(w => w.show());
+          }
+        } else {
+          // No windows, open a new one
+          openDevWindow();
+        }
+      }
+    },
+    { type: 'separator' },
+    {
+      label: 'New Window',
+      submenu: [
+        {
+          label: 'Development (Flip View)',
+          click: () => openDevWindow()
+        },
+        {
+          label: 'Production',
+          click: () => createWindow('production')
+        },
+        {
+          label: 'Shell (Terminal)',
+          click: () => openShellWindow()
+        }
+      ]
+    },
+    { type: 'separator' },
+    {
+      label: 'Quit',
+      click: () => app.quit()
+    }
+  ]);
+  
+  tray.setContextMenu(contextMenu);
+  
+  // On macOS, single click shows menu, on Windows/Linux it toggles window
+  if (process.platform !== 'darwin') {
+    tray.on('click', () => {
+      const allWindows = BrowserWindow.getAllWindows();
+      if (allWindows.length > 0) {
+        const win = allWindows[0];
+        if (win.isVisible()) {
+          win.hide();
+        } else {
+          win.show();
+        }
+      } else {
+        openDevWindow();
+      }
+    });
+  }
+}
+
 // Open a new dev window - now uses 3D view
 async function openDevWindow() {
   return open3DWindow();
@@ -997,6 +1077,53 @@ function startLocalShellForFlip(webContents) {
   });
 }
 
+// Get the repo path (where this Electron app lives, which is inside aesthetic-computer repo)
+function getRepoPath() {
+  // In development, __dirname is ac-electron/, in packaged app it's inside Resources/app.asar
+  // The repo is the parent of ac-electron
+  const devRepoPath = path.resolve(__dirname, '..');
+  if (fs.existsSync(path.join(devRepoPath, '.git'))) {
+    return devRepoPath;
+  }
+  // For packaged app, try common locations
+  const homeRepoPath = path.join(process.env.HOME, 'Desktop', 'code', 'aesthetic-computer');
+  if (fs.existsSync(path.join(homeRepoPath, '.git'))) {
+    return homeRepoPath;
+  }
+  return null;
+}
+
+// IPC Handlers for welcome screen
+ipcMain.handle('get-repo-path', () => {
+  const repoPath = getRepoPath();
+  if (repoPath) {
+    // Return just the base name for cleaner display
+    return { path: repoPath, name: path.basename(repoPath) };
+  }
+  return null;
+});
+
+ipcMain.handle('get-git-user', async () => {
+  try {
+    const name = execSync('git config user.name', { encoding: 'utf8', timeout: 3000 }).trim();
+    const email = execSync('git config user.email', { encoding: 'utf8', timeout: 3000 }).trim();
+    return { name, email };
+  } catch (e) {
+    return null;
+  }
+});
+
+ipcMain.handle('start-flip-devcontainer', async (event) => {
+  const dockerPath = getDockerPath();
+  startContainerAndEmacs(dockerPath, event.sender);
+  return { success: true };
+});
+
+ipcMain.handle('start-flip-local-shell', async (event) => {
+  startLocalShellForFlip(event.sender);
+  return { success: true };
+});
+
 // IPC Handlers
 ipcMain.handle('get-mode', (event) => {
   // Find which window sent this
@@ -1050,6 +1177,74 @@ ipcMain.handle('start-container', async () => {
     return { success: true };
   } catch (err) {
     console.error('[main] start-container error:', err);
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('stop-container', async () => {
+  console.log('[main] stop-container called');
+  try {
+    const dockerPath = getDockerPath();
+    await new Promise((resolve, reject) => {
+      const docker = spawn(dockerPath, ['stop', 'aesthetic'], { stdio: 'pipe' });
+      docker.on('close', (code) => {
+        if (code === 0) {
+          console.log('[main] Container stopped successfully');
+          resolve(true);
+        } else {
+          reject(new Error(`docker stop exited with code ${code}`));
+        }
+      });
+      docker.on('error', (err) => reject(err));
+    });
+    return { success: true };
+  } catch (err) {
+    console.error('[main] stop-container error:', err);
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('stop-container-aggressive', async () => {
+  console.log('[main] stop-container-aggressive called');
+  try {
+    const dockerPath = getDockerPath();
+    
+    // Kill all processes in the container first
+    console.log('[main] Killing all processes in container...');
+    await new Promise((resolve) => {
+      const kill = spawn(dockerPath, ['exec', 'aesthetic', 'pkill', '-9', '-f', '.*'], { stdio: 'pipe' });
+      kill.on('close', () => resolve());
+      kill.on('error', () => resolve());
+    });
+    
+    // Give it a moment
+    await new Promise(r => setTimeout(r, 500));
+    
+    // Force stop with timeout
+    console.log('[main] Force stopping container...');
+    await new Promise((resolve, reject) => {
+      const docker = spawn(dockerPath, ['stop', '-t', '2', 'aesthetic'], { stdio: 'pipe' });
+      docker.on('close', (code) => {
+        console.log('[main] Container force stopped with code:', code);
+        resolve(true);
+      });
+      docker.on('error', (err) => {
+        console.error('[main] Error force stopping:', err);
+        resolve(true); // Resolve anyway
+      });
+    });
+    
+    // Kill it if still running
+    console.log('[main] Ensuring container is killed...');
+    await new Promise((resolve) => {
+      const kill = spawn(dockerPath, ['kill', 'aesthetic'], { stdio: 'pipe' });
+      kill.on('close', () => resolve());
+      kill.on('error', () => resolve());
+    });
+    
+    return { success: true };
+  } catch (err) {
+    console.error('[main] stop-container-aggressive error:', err);
     return { success: false, error: err.message };
   }
 });
@@ -1301,6 +1496,7 @@ ipcMain.on('ac-reload', (event) => {
 // App lifecycle
 app.whenReady().then(async () => {
   createMenu();
+  createSystemTray();
   
   // Check for updates on startup (production builds only)
   if (autoUpdater && !startInDevMode && app.isPackaged) {
