@@ -104,12 +104,18 @@ end
 
 function acd
     set -l workspace ~/aesthetic-computer
+    set -l log_file /tmp/acd-debug.log
+    
+    # Start logging
+    echo "=== ACD Debug Log ===" > $log_file
+    echo "Started: "(date) >> $log_file
     
     ac
     
-    # Stop other containers (but not aesthetic)
-    set containers (docker ps -q --filter "name!=aesthetic")
+    # Stop other containers (but not aesthetic) - use proper filter syntax
+    set containers (docker ps -q | xargs -r docker inspect --format '{{if ne .Name "/aesthetic"}}{{.Id}}{{end}}' 2>/dev/null | grep -v '^$')
     if test -n "$containers"
+        echo "Stopping other containers: $containers" >> $log_file
         docker stop $containers >/dev/null 2>&1
     end
     
@@ -119,20 +125,40 @@ function acd
     
     # Forward CDP port from localhost:9222 (VS Code) to 0.0.0.0:9224 so container can reach it
     socat TCP-LISTEN:9224,bind=0.0.0.0,fork,reuseaddr TCP:127.0.0.1:9222 &
+    echo "CDP forwarder started (pid $last_pid)" >> $log_file
     
     # Check if aesthetic container exists and start it if stopped
     set -l container_status (docker inspect -f '{{.State.Status}}' aesthetic 2>/dev/null)
+    echo "Container status: '$container_status'" >> $log_file
+    
     if test "$container_status" = "exited"
         echo "🔄 Starting existing container..."
         docker start aesthetic
+        set -l start_result $status
+        echo "Docker start result: $start_result" >> $log_file
         sleep 2
+        # Verify it actually started
+        set -l new_status (docker inspect -f '{{.State.Status}}' aesthetic 2>/dev/null)
+        echo "Container status after start: '$new_status'" >> $log_file
+        if test "$new_status" != "running"
+            echo "❌ Container failed to start!"
+            echo "FATAL: Container did not start" >> $log_file
+            return 1
+        end
     else if test -z "$container_status"
         # Container doesn't exist - need to build it first
         echo "🚀 Building devcontainer (this may take a moment)..."
         cd $workspace
-        devcontainer up --workspace-folder .
+        devcontainer up --workspace-folder . 2>&1 | tee -a $log_file
+        set -l build_result $pipestatus[1]
+        echo "Devcontainer build result: $build_result" >> $log_file
         cd -
+        if test $build_result -ne 0
+            echo "❌ Devcontainer build failed!"
+            return 1
+        end
     else if test "$container_status" = "running"
+        echo "✓ Container already running" >> $log_file
         # Container running - clean up stale VS Code server state first
         ac-cleanup-vscode-server
     end
@@ -140,25 +166,83 @@ function acd
     # Use dev-container URI (respects devcontainer.json settings including extension exclusions)
     cd $workspace
     set -l container_id (pwd | tr -d '\n' | xxd -c 256 -p)
-    # Disable problematic extensions that crash the remote extension host
-    code --folder-uri "vscode-remote://dev-container+$container_id/workspaces/aesthetic-computer" \
-         --remote-debugging-port=9222 \
-         --remote-allow-origins="*" \
+    set -l uri "vscode-remote://dev-container+$container_id/workspaces/aesthetic-computer"
+    echo "Opening URI: $uri" >> $log_file
+    
+    # Launch VS Code with CDP debugging enabled for artery-tui control
+    # Port 9333 avoids conflicts with svchost.exe on Windows (port 9222)
+    echo "Launching VS Code with CDP on port 9333..." >> $log_file
+    code --folder-uri "$uri" \
+         --remote-debugging-port=9333 \
          --disable-extension github.copilot-chat \
-         --disable-extension github.copilot
+         --disable-extension github.copilot 2>&1 | tee -a $log_file &
+    
+    set -l code_pid $last_pid
+    echo "VS Code launched (pid $code_pid)" >> $log_file
+    
+    # Wait briefly - if VS Code is already running, the CLI exits immediately after
+    # telling the existing instance to open the folder (this is normal behavior)
+    sleep 3
+    
+    # Check if the container is being connected to by looking for VS Code server processes
+    set -l server_procs (docker exec aesthetic pgrep -c node 2>/dev/null; or echo 0)
+    if test "$server_procs" -gt 0
+        echo "✓ VS Code server running in container ($server_procs node processes)" >> $log_file
+    else
+        echo "⚠ No VS Code server in container yet - may still be connecting" >> $log_file
+    end
+    
     cd -
+    echo "Completed: "(date) >> $log_file
 end
 
 function ac-event-daemon
     # Check if ac-event-daemon is already running (via cargo watch)
     if not pgrep -f "cargo watch -x run --release" > /dev/null
-        set daemon_dev_script "/home/jas/aesthetic-computer/ac-event-daemon/dev.fish"
+        set daemon_dev_script "$HOME/aesthetic-computer/ac-event-daemon/dev.fish"
 
         if test -f "$daemon_dev_script"
             sudo -E fish "$daemon_dev_script" "$HOME"
         else
-            echo "⚠ Event daemon script not found"
+            echo "⚠ Event daemon script not found at $daemon_dev_script"
         end
+    end
+end
+
+# View the acd debug log
+function acd-log
+    if test -f /tmp/acd-debug.log
+        cat /tmp/acd-debug.log
+    else
+        echo "No debug log found. Run 'start' or 'acd' first."
+    end
+end
+
+# Check VS Code container connection status
+function acd-status
+    echo "=== Container Status ==="
+    set -l status_info (docker inspect --format '{{.Name}} | {{.State.Status}} | PID {{.State.Pid}}' aesthetic 2>/dev/null)
+    if test -n "$status_info"
+        echo $status_info
+    else
+        echo "Container 'aesthetic' not found"
+    end
+    
+    echo ""
+    echo "=== VS Code Processes (host) ==="
+    pgrep -c code 2>/dev/null; and echo "(count) VS Code processes running"
+    
+    echo ""
+    echo "=== VS Code Server (container) ==="
+    set -l node_count (docker exec aesthetic pgrep -c node 2>/dev/null; or echo 0)
+    echo "$node_count node processes in container"
+    
+    echo ""
+    echo "=== Recent Log ==="
+    if test -f /tmp/acd-debug.log
+        tail -10 /tmp/acd-debug.log
+    else
+        echo "No debug log"
     end
 end
 
