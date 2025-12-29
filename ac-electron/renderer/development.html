@@ -208,6 +208,33 @@
     }
     
     /* Flip button */
+    /* CDP indicator */
+    .cdp-indicator {
+      display: none;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 8px;
+      background: rgba(0, 200, 255, 0.15);
+      border: 1px solid rgba(0, 200, 255, 0.4);
+      border-radius: 4px;
+      font-size: 10px;
+      color: #0cf;
+    }
+    .cdp-indicator.active {
+      display: flex;
+    }
+    .cdp-dot {
+      width: 6px;
+      height: 6px;
+      background: #0cf;
+      border-radius: 50%;
+      animation: cdpPulse 1.5s ease-in-out infinite;
+    }
+    @keyframes cdpPulse {
+      0%, 100% { opacity: 0.4; box-shadow: 0 0 2px #0cf; }
+      50% { opacity: 1; box-shadow: 0 0 8px #0cf; }
+    }
+    
     .flip-btn {
       background: rgba(255, 0, 255, 0.1);
       border: 1px solid rgba(255, 0, 255, 0.3);
@@ -366,6 +393,12 @@
   <div id="control-bar">
     <span class="title">🩸 AC</span>
     
+    <!-- CDP indicator -->
+    <div id="cdp-indicator" class="cdp-indicator">
+      <span class="cdp-dot"></span>
+      <span>CDP <span id="cdp-port"></span></span>
+    </div>
+    
     <!-- Flip button -->
     <button id="flip-btn" class="flip-btn"><span class="flip-icon">↻</span> Flip</button>
     
@@ -423,6 +456,18 @@
       local: 'https://localhost:8888',
       prod: 'https://aesthetic.computer'
     };
+    
+    // Check for CDP (Chrome DevTools Protocol) on startup
+    (async () => {
+      const cdpInfo = await ipcRenderer.invoke('get-cdp-info');
+      if (cdpInfo && cdpInfo.enabled) {
+        const indicator = document.getElementById('cdp-indicator');
+        const portSpan = document.getElementById('cdp-port');
+        indicator.classList.add('active');
+        portSpan.textContent = `:${cdpInfo.port}`;
+        indicator.title = `DevTools: ws://127.0.0.1:${cdpInfo.port}`;
+      }
+    })();
     
     let currentEnv = 'prod'; // 'local' or 'prod' - start with prod
     let currentPiece = 'starfield'; // default piece
