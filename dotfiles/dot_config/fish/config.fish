@@ -123,8 +123,8 @@ function acd
     pkill -f "socat.*9224" 2>/dev/null
     sleep 0.5
     
-    # Forward CDP port from localhost:9222 (VS Code) to 0.0.0.0:9224 so container can reach it
-    socat TCP-LISTEN:9224,bind=0.0.0.0,fork,reuseaddr TCP:127.0.0.1:9222 &
+    # Forward CDP port from localhost:9333 (VS Code) to 0.0.0.0:9224 so container can reach it
+    socat TCP-LISTEN:9224,bind=0.0.0.0,fork,reuseaddr TCP:127.0.0.1:9333 &
     echo "CDP forwarder started (pid $last_pid)" >> $log_file
     
     # Check if aesthetic container exists and start it if stopped
@@ -195,16 +195,10 @@ function acd
 end
 
 function ac-event-daemon
-    # Check if ac-event-daemon is already running (via cargo watch)
-    if not pgrep -f "cargo watch -x run --release" > /dev/null
-        set daemon_dev_script "$HOME/aesthetic-computer/ac-event-daemon/dev.fish"
-
-        if test -f "$daemon_dev_script"
-            sudo -E fish "$daemon_dev_script" "$HOME"
-        else
-            echo "⚠ Event daemon script not found at $daemon_dev_script"
-        end
-    end
+    # DISABLED: Requires cargo-watch which needs Rust 1.85+
+    # The event daemon provides desktop notifications for the aesthetic platform.
+    # To re-enable, install a compatible Rust toolchain and cargo-watch.
+    echo "Event daemon disabled (requires cargo-watch / Rust 1.85+)"
 end
 
 # View the acd debug log
