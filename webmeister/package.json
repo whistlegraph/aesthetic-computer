@@ -1,0 +1,1 @@
+{"name":"webmeister","type":"module","version":"1.0.0","description":"Browser automation tools for web development gigs using CDP in VS Code Simple Browser.","main":"index.js","scripts":{"test":"echo \"Error: no test specified\" && exit 1"},"keywords":[],"author":"","license":"ISC","dependencies":{"puppeteer-core":"^24.34.0"}}
