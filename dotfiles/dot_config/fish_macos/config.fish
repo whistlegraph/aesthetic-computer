@@ -100,7 +100,9 @@ function start
         
         # Open VS Code with remote debugging for artery-tui control
         code --folder-uri "$uri" \
-             --remote-debugging-port=9333 &
+             --remote-debugging-port=9333 \
+             --disable-extension github.copilot-chat \
+             --disable-extension github.copilot &
         
         __ac_ok "VS Code launched"
         echo
