@@ -117,8 +117,6 @@
     "vscode": {
       // Extensions auto-installed in container - kept empty to prevent crashes
       // Extensions run on UI side via remote.extensionKind settings
-      "extensions": [],
-
       "settings": {
         // ═══════════════════════════════════════════════════════════════════════
         // CRITICAL: FILE WATCHER EXCLUSIONS
