@@ -122,8 +122,9 @@ gcp-firebase-service-key.json
 # aider chat history and other potential state
 .aider*
 
-# Symlinked .github directory (real content is in modes/)
-.github
+# GitHub workflows directory - track workflows for CI/CD
+# Other .github content can be local-only
+!.github/workflows/
 
 __pycache__/
 
