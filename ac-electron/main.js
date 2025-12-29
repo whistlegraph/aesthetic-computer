@@ -7,23 +7,16 @@
  * - Shell windows: Terminal with devcontainer + emacs (purple accent)
  */
 
-const { app, BrowserWindow, ipcMain, globalShortcut, Menu, Tray, dialog, shell, nativeImage, screen, Notification } = require('electron');
+const { app, BrowserWindow, ipcMain, globalShortcut, Menu, Tray, dialog, shell, nativeImage, screen, Notification, net } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { spawn, execSync } = require('child_process');
 
-// Workaround for crash on macOS 26 (Tahoe) with fontations (Rust font renderer)
-// The crash occurs in fontations_ffi when loading complex WebGL pieces (like 1v1)
-// NUCLEAR OPTION: Completely disable GPU to force software rendering
-// This bypasses the fontations Rust font renderer crash entirely
-app.commandLine.appendSwitch('disable-gpu');
-app.commandLine.appendSwitch('disable-software-rasterizer');
-// Disable ALL font-related Chromium features as backup
-app.commandLine.appendSwitch('disable-features', 'FontationsFontBackend,Fontations,UseSkiaFontManager,SkiaFontManager,HarfBuzzFontShaper,GpuRasterization');
-app.commandLine.appendSwitch('disable-font-subpixel-positioning');
-app.commandLine.appendSwitch('disable-lcd-text');
-// Disable GPU compositing - use CPU compositing
-app.commandLine.appendSwitch('disable-gpu-compositing');
+// macOS Tahoe + Chromium fontations workaround (testing with Electron 39 / Chromium M142)
+// Disable problematic font features that may trigger fontations_ffi crash
+app.commandLine.appendSwitch('disable-features', 'FontationsFontBackend,Fontations');
+// Use Metal for GPU acceleration on macOS
+app.commandLine.appendSwitch('use-angle', 'metal');
 
 // Preferences storage
 const PREFS_PATH = path.join(app.getPath('userData'), 'preferences.json');
@@ -57,7 +50,14 @@ function savePreferences() {
 let autoUpdater;
 let autoUpdaterError = null;
 let updateDownloaded = false;
+let updateAvailable = null; // { version, url, releaseNotes }
+let trayBlinkInterval = null;
+let trayIconState = 'normal'; // 'normal', 'update', 'blink'
+let originalTrayIcon = null;
+let updateTrayIcon = null;
 const UPDATE_CHECK_INTERVAL = 60 * 60 * 1000; // Check every hour
+const GITHUB_REPO = 'whistlegraph/aesthetic-computer';
+const GITHUB_RELEASES_URL = `https://api.github.com/repos/${GITHUB_REPO}/releases/latest`;
 
 try {
   autoUpdater = require('electron-updater').autoUpdater;
@@ -136,6 +136,142 @@ function startUpdateChecks() {
   
   // Then check every hour
   setInterval(checkForUpdates, UPDATE_CHECK_INTERVAL);
+}
+
+// GitHub release checking (works in dev mode too)
+function checkGitHubForUpdates() {
+  const currentVersion = app.getVersion();
+  console.log('[github] Checking for updates, current version:', currentVersion);
+  
+  const request = net.request(GITHUB_RELEASES_URL);
+  request.setHeader('User-Agent', 'Aesthetic-Computer-Electron');
+  request.setHeader('Accept', 'application/vnd.github.v3+json');
+  
+  let responseData = '';
+  
+  request.on('response', (response) => {
+    response.on('data', (chunk) => {
+      responseData += chunk.toString();
+    });
+    
+    response.on('end', () => {
+      try {
+        const release = JSON.parse(responseData);
+        const latestVersion = release.tag_name?.replace(/^v/, '') || release.name?.replace(/^v/, '');
+        
+        if (latestVersion && isNewerVersion(latestVersion, currentVersion)) {
+          console.log('[github] Update available:', latestVersion);
+          updateAvailable = {
+            version: latestVersion,
+            url: release.html_url,
+            releaseNotes: release.body,
+            publishedAt: release.published_at
+          };
+          startTrayBlink();
+          rebuildTrayMenu();
+        } else {
+          console.log('[github] App is up to date');
+        }
+      } catch (e) {
+        console.warn('[github] Failed to parse release info:', e.message);
+      }
+    });
+  });
+  
+  request.on('error', (err) => {
+    console.warn('[github] Failed to check for updates:', err.message);
+  });
+  
+  request.end();
+}
+
+// Compare semantic versions
+function isNewerVersion(latest, current) {
+  const parseVersion = (v) => v.split('.').map(n => parseInt(n, 10) || 0);
+  const latestParts = parseVersion(latest);
+  const currentParts = parseVersion(current);
+  
+  for (let i = 0; i < 3; i++) {
+    const l = latestParts[i] || 0;
+    const c = currentParts[i] || 0;
+    if (l > c) return true;
+    if (l < c) return false;
+  }
+  return false;
+}
+
+// Start blinking tray icon
+function startTrayBlink() {
+  if (trayBlinkInterval || !tray) return;
+  
+  console.log('[tray] Starting update blink indicator');
+  let blinkOn = true;
+  
+  trayBlinkInterval = setInterval(() => {
+    if (!tray) {
+      stopTrayBlink();
+      return;
+    }
+    
+    if (blinkOn) {
+      // Show update indicator (colored dot or different icon)
+      if (updateTrayIcon) {
+        tray.setImage(updateTrayIcon);
+      }
+      // Also update title to show update available
+      if (process.platform === 'darwin') {
+        tray.setTitle('⬆️ Update');
+      }
+    } else {
+      // Show normal icon
+      if (originalTrayIcon) {
+        tray.setImage(originalTrayIcon);
+      }
+      if (process.platform === 'darwin') {
+        updateTrayTitle();
+      }
+    }
+    blinkOn = !blinkOn;
+  }, 1500); // Blink every 1.5 seconds
+}
+
+// Stop blinking
+function stopTrayBlink() {
+  if (trayBlinkInterval) {
+    clearInterval(trayBlinkInterval);
+    trayBlinkInterval = null;
+  }
+  if (tray && originalTrayIcon) {
+    tray.setImage(originalTrayIcon);
+    updateTrayTitle();
+  }
+}
+
+// Create update indicator icon (adds a colored badge)
+function createUpdateIcon(baseIcon) {
+  if (process.platform === 'darwin') {
+    // On macOS, we can't easily modify template images, so we'll use title instead
+    return baseIcon;
+  }
+  
+  // For Windows/Linux, create a modified icon with a badge
+  try {
+    const size = baseIcon.getSize();
+    const canvas = nativeImage.createEmpty();
+    // For now, just return the base icon - could enhance with badge overlay later
+    return baseIcon;
+  } catch (e) {
+    return baseIcon;
+  }
+}
+
+// Start GitHub update checks (works in both dev and production)
+function startGitHubUpdateChecks() {
+  // Initial check after 10 seconds
+  setTimeout(checkGitHubForUpdates, 10000);
+  
+  // Then check every hour
+  setInterval(checkGitHubForUpdates, UPDATE_CHECK_INTERVAL);
 }
 
 // Set app name before anything else
@@ -676,55 +812,16 @@ function createSystemTray() {
     icon.setTemplateImage(true);
   }
   
+  // Store original icon for blink toggling
+  originalTrayIcon = icon;
+  updateTrayIcon = createUpdateIcon(icon);
+  
   tray = new Tray(icon);
   tray.setToolTip('Aesthetic Computer');
   console.log('[main] System tray created successfully');
   
-  // Build context menu
-  const contextMenu = Menu.buildFromTemplate([
-    {
-      label: 'Show/Hide',
-      click: () => {
-        const allWindows = BrowserWindow.getAllWindows();
-        if (allWindows.length > 0) {
-          const win = allWindows[0];
-          if (win.isVisible()) {
-            allWindows.forEach(w => w.hide());
-          } else {
-            allWindows.forEach(w => w.show());
-          }
-        } else {
-          // No windows, open a new one
-          openDevWindow();
-        }
-      }
-    },
-    { type: 'separator' },
-    {
-      label: 'New Window',
-      submenu: [
-        {
-          label: 'Development (Flip View)',
-          click: () => openDevWindow()
-        },
-        {
-          label: 'Production',
-          click: () => createWindow('production')
-        },
-        {
-          label: 'Shell (Terminal)',
-          click: () => openShellWindow()
-        }
-      ]
-    },
-    { type: 'separator' },
-    {
-      label: 'Quit',
-      click: () => app.quit()
-    }
-  ]);
-  
-  tray.setContextMenu(contextMenu);
+  // Build and set the context menu
+  rebuildTrayMenu();
   
   // On macOS, single click shows menu, on Windows/Linux it toggles window
   if (process.platform !== 'darwin') {
@@ -746,6 +843,212 @@ function createSystemTray() {
   // Set initial tray title
   updateTrayTitle();
 }
+
+// Rebuild the tray context menu (called when update becomes available)
+function rebuildTrayMenu() {
+  if (!tray) return;
+  
+  const isMac = process.platform === 'darwin';
+  const menuItems = [];
+  
+  // Update available section (if applicable)
+  if (updateAvailable) {
+    menuItems.push({
+      label: `🆕 Update Available: v${updateAvailable.version}`,
+      click: () => {
+        shell.openExternal(updateAvailable.url);
+        stopTrayBlink();
+      }
+    });
+    menuItems.push({
+      label: 'Download Update',
+      click: () => {
+        shell.openExternal(updateAvailable.url);
+        stopTrayBlink();
+      }
+    });
+    menuItems.push({
+      label: 'Dismiss',
+      click: () => {
+        updateAvailable = null;
+        stopTrayBlink();
+        rebuildTrayMenu();
+      }
+    });
+    menuItems.push({ type: 'separator' });
+  }
+  
+  // File-like section
+  menuItems.push({
+    label: 'Show/Hide',
+    accelerator: isMac ? 'Cmd+H' : 'Ctrl+H',
+    click: () => {
+      const allWindows = BrowserWindow.getAllWindows();
+      if (allWindows.length > 0) {
+        const win = allWindows[0];
+        if (win.isVisible()) {
+          allWindows.forEach(w => w.hide());
+        } else {
+          allWindows.forEach(w => w.show());
+        }
+      } else {
+        openDevWindow();
+      }
+    }
+  });
+  
+  menuItems.push({ type: 'separator' });
+  
+  menuItems.push({
+    label: 'New Window',
+    submenu: [
+      {
+        label: 'Development (Flip View)',
+        accelerator: isMac ? 'Cmd+N' : 'Ctrl+N',
+        click: () => openDevWindow()
+      },
+      {
+        label: 'Production',
+        accelerator: isMac ? 'Cmd+Shift+N' : 'Ctrl+Shift+N',
+        click: () => createWindow('production')
+      },
+      {
+        label: 'Shell (Terminal)',
+        accelerator: isMac ? 'Cmd+T' : 'Ctrl+T',
+        click: () => openShellWindow()
+      }
+    ]
+  });
+  
+  menuItems.push({ type: 'separator' });
+  
+  // Edit section
+  menuItems.push({
+    label: 'Edit',
+    submenu: [
+      { role: 'undo' },
+      { role: 'redo' },
+      { type: 'separator' },
+      { role: 'cut' },
+      { role: 'copy' },
+      { role: 'paste' },
+      { role: 'selectAll' }
+    ]
+  });
+  
+  // View section  
+  menuItems.push({
+    label: 'View',
+    submenu: [
+      { role: 'reload' },
+      { role: 'forceReload' },
+      { role: 'toggleDevTools' },
+      { type: 'separator' },
+      { role: 'resetZoom' },
+      { role: 'zoomIn' },
+      { role: 'zoomOut' },
+      { type: 'separator' },
+      { role: 'togglefullscreen' }
+    ]
+  });
+  
+  // Navigate to pieces
+  menuItems.push({
+    label: 'Navigate',
+    submenu: [
+      {
+        label: 'Home (prompt)',
+        click: () => navigateToPiece('prompt')
+      },
+      {
+        label: 'Starfield',
+        click: () => navigateToPiece('starfield')
+      },
+      {
+        label: '1v1',
+        click: () => navigateToPiece('1v1')
+      },
+      { type: 'separator' },
+      {
+        label: 'Custom Piece...',
+        click: () => {
+          const win = getFocusedWindow();
+          if (win) {
+            win.webContents.executeJavaScript(`
+              const piece = prompt('Enter piece name:');
+              if (piece) window.location.href = window.location.origin + '/' + piece + '?nogap';
+            `);
+          }
+        }
+      }
+    ]
+  });
+  
+  menuItems.push({ type: 'separator' });
+  
+  // Settings
+  menuItems.push({
+    label: 'Preferences...',
+    accelerator: isMac ? 'Cmd+,' : 'Ctrl+,',
+    click: () => openPreferencesWindow()
+  });
+  
+  menuItems.push({ type: 'separator' });
+  
+  // Help section
+  menuItems.push({
+    label: 'Help',
+    submenu: [
+      {
+        label: 'Documentation',
+        click: () => shell.openExternal('https://aesthetic.computer/docs')
+      },
+      {
+        label: 'GitHub Repository',
+        click: () => shell.openExternal('https://github.com/whistlegraph/aesthetic-computer')
+      },
+      {
+        label: 'Check for Updates',
+        click: () => {
+          checkGitHubForUpdates();
+          if (!updateAvailable) {
+            dialog.showMessageBox({
+              type: 'info',
+              title: 'No Updates',
+              message: 'You\'re running the latest version!',
+              detail: `Current version: ${app.getVersion()}`
+            });
+          }
+        }
+      },
+      { type: 'separator' },
+      {
+        label: `About Aesthetic Computer`,
+        click: () => {
+          dialog.showMessageBox({
+            type: 'info',
+            title: 'About Aesthetic Computer',
+            message: 'Aesthetic Computer',
+            detail: `Version: ${app.getVersion()}\nElectron: ${process.versions.electron}\nChrome: ${process.versions.chrome}\nNode: ${process.versions.node}`
+          });
+        }
+      }
+    ]
+  });
+  
+  menuItems.push({ type: 'separator' });
+  
+  menuItems.push({
+    label: 'Quit',
+    accelerator: isMac ? 'Cmd+Q' : 'Alt+F4',
+    click: () => app.quit()
+  });
+  
+  const contextMenu = Menu.buildFromTemplate(menuItems);
+  tray.setContextMenu(contextMenu);
+}
+
+// ========== End System Tray ==========
 
 // Update the tray title text (shown next to icon in menu bar)
 function updateTrayTitle(text) {
@@ -793,6 +1096,35 @@ function openPreferencesWindow() {
   preferencesWindow.on('closed', () => {
     preferencesWindow = null;
   });
+}
+
+// Get the focused window or first available
+function getFocusedWindow() {
+  let win = BrowserWindow.getFocusedWindow();
+  if (!win) {
+    const allWindows = BrowserWindow.getAllWindows();
+    win = allWindows.find(w => w.isVisible() && !w.isDestroyed());
+  }
+  return win;
+}
+
+// Navigate a window to a specific piece
+function navigateToPiece(piece) {
+  const win = getFocusedWindow();
+  if (win) {
+    win.webContents.executeJavaScript(`
+      window.location.href = window.location.origin + '/${piece}?nogap';
+    `);
+  } else {
+    // No window open, create one and navigate
+    createWindow('development').then(result => {
+      result.window.webContents.once('did-finish-load', () => {
+        result.window.webContents.executeJavaScript(`
+          window.location.href = window.location.origin + '/${piece}?nogap';
+        `);
+      });
+    });
+  }
 }
 
 // Open a new dev window - now uses 3D view
@@ -1429,6 +1761,18 @@ ipcMain.handle('get-mode', (event) => {
 
 ipcMain.handle('get-urls', () => URLS);
 
+// CDP (Chrome DevTools Protocol) info
+ipcMain.handle('get-cdp-info', () => {
+  const args = process.argv.join(' ');
+  const cdpMatch = args.match(/--remote-debugging-port=(\d+)/);
+  const inspectMatch = args.match(/--inspect=(\d+)/);
+  return {
+    enabled: !!cdpMatch,
+    port: cdpMatch ? cdpMatch[1] : null,
+    inspectPort: inspectMatch ? inspectMatch[1] : null
+  };
+});
+
 ipcMain.handle('check-docker', async () => {
   console.log('[main] check-docker called');
   const result = await checkDocker();
@@ -1791,6 +2135,9 @@ app.whenReady().then(async () => {
   loadPreferences();
   createMenu();
   createSystemTray();
+  
+  // Start GitHub update checks (works in dev and production)
+  startGitHubUpdateChecks();
   
   // Check for updates on startup (production builds only)
   if (autoUpdater && !startInDevMode && app.isPackaged) {
