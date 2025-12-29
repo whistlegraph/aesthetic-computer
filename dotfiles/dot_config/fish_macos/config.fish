@@ -91,6 +91,11 @@ function start
     if test $status -eq 0
         __ac_ok "Container ready"
         
+        # Quit VS Code if running (needed for CDP flag to take effect)
+        __ac_info "Quitting any running VS Code..."
+        osascript -e 'quit app "Visual Studio Code"' 2>/dev/null
+        sleep 1
+        
         # Launch VS Code with CDP debugging enabled
         __ac_info "Launching VS Code with CDP on port 9333..."
         
@@ -99,8 +104,8 @@ function start
         set -l uri "vscode-remote://dev-container+$hex_path/workspaces/aesthetic-computer"
         
         # Open VS Code with remote debugging for artery-tui control
-        code --folder-uri "$uri" \
-             --remote-debugging-port=9333 &
+        # Must quit VS Code first for --remote-debugging-port to work
+        code --folder-uri "$uri" --remote-debugging-port=9333 &
         
         __ac_ok "VS Code launched"
         echo
