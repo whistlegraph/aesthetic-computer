@@ -33,6 +33,8 @@ The **Emacs MCP Server** (`artery/emacs-mcp.mjs`) bridges Copilot to Emacs, enab
 - Never expose or copy vault secrets
 - **NEVER** call `get_task_output` on the "💻 Aesthetic" task — it freezes the devcontainer
 
+- **NEVER** use heredoc/cat file creation in terminal (e.g., `cat > file << EOF`) — crashes devcontainer
+- **Scratch directory**: Use `scratch/` (gitignored) for temp files via `create_file` tool
 ## Fishy Terminal 🐟
 When user says **"tell the fishy"** or **"fishy run"**, execute commands in the `🐟-fishy` emacs buffer:
 ```elisp

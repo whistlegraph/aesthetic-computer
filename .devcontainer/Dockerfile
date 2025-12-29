@@ -38,7 +38,7 @@ RUN dnf update -y && \
       libXi libXdamage libXrandr alsa-lib gtk3 \
       xorg-x11-server-Xvfb psmisc lsof chromium \
       sbcl zeromq-devel redhat-rpm-config \
-            caddy \
+            caddy htop \
         && dnf clean all && rm -rf /var/cache/dnf
 
 # --- FFmpeg from RPM Fusion ---------------------------------------------------
@@ -208,7 +208,7 @@ RUN echo 'fnm env --use-on-cd --shell fish | source' > /home/me/.config/fish/con
     /home/me/.fnm/fnm install 20.5.0 && \
     /home/me/.fnm/fnm default lts-jod && \
     /home/me/.fnm/fnm use lts-jod && \
-    npm i -g prettier typescript typescript-language-server npm-check-updates @anthropic-ai/claude-code @openai/codex netlify-cli wrangler && \
+    npm i -g prettier typescript typescript-language-server npm-check-updates @anthropic-ai/claude-code @openai/codex netlify-cli wrangler @github/copilot && \
     echo 'fnm use lts-jod' >> /home/me/.config/fish/config.fish && \
     chown -R me:me /home/me/.config/fish
 
