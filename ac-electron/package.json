@@ -127,7 +127,7 @@
     "graphics"
   ],
   "devDependencies": {
-    "electron": "^33.4.11",
+    "electron": "^39.2.7",
     "electron-builder": "^25.1.8",
     "sharp": "^0.34.5"
   },
