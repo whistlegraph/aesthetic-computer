@@ -173,9 +173,7 @@ function acd
     # Port 9333 avoids conflicts with svchost.exe on Windows (port 9222)
     echo "Launching VS Code with CDP on port 9333..." >> $log_file
     code --folder-uri "$uri" \
-         --remote-debugging-port=9333 \
-         --disable-extension github.copilot-chat \
-         --disable-extension github.copilot 2>&1 | tee -a $log_file &
+         --remote-debugging-port=9333 2>&1 | tee -a $log_file &
     
     set -l code_pid $last_pid
     echo "VS Code launched (pid $code_pid)" >> $log_file
