@@ -1005,6 +1005,8 @@ Skips creation if tab already exists."
   ;; Set environment variable to tell fish it's running inside Emacs
   (setenv "AC_EMACS_MODE" "t")
   
+  ;; Prevent OSC color query responses from leaking (shows as "11;rgb:..." text)
+  (setenv "COLORFGBG" "15;0")
   ;; NOTE: Disabled the bash watchdog - it may contribute to instability
   ;; The fish-based crash monitor in config.fish handles recovery instead
   ;; (let ((watchdog-script (expand-file-name "monitor-emacs.sh" ac--directory-path)))
