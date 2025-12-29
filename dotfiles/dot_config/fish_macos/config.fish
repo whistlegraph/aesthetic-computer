@@ -105,7 +105,8 @@ function start
         
         # Open VS Code with remote debugging for artery-tui control
         # Must quit VS Code first for --remote-debugging-port to work
-        code --folder-uri "$uri" --remote-debugging-port=9333 &
+        code --folder-uri "$uri" \
+             --remote-debugging-port=9333 &
         
         __ac_ok "VS Code launched"
         echo
