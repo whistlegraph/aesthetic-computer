@@ -1,15 +1,13 @@
 #!/usr/bin/env bash
 
-# Start the Aesthetic Computer devcontainer using the devcontainer CLI
-# instead of relying on VSCode's devcontainer mode.
+# Start the Aesthetic Computer devcontainer and open VS Code connected to it.
 #
 # Prerequisites:
 #   npm install -g @devcontainers/cli
 #
 # This script:
-# 1. Brings up the devcontainer with `devcontainer up`
-# 2. Executes into it with `devcontainer exec`
-# 3. Runs entry.fish or artery-tui/emacs as needed
+# 1. Builds the devcontainer if needed
+# 2. Opens VS Code connected to the devcontainer
 
 set -e
 
@@ -46,43 +44,17 @@ fi
 
 echo -e "${GREEN}✅ Docker is running${NC}"
 
-# Build and start the devcontainer
-echo -e "${BLUE}🔨 Building and starting devcontainer...${NC}"
-echo -e "${YELLOW}   (This may take a while on first run)${NC}"
+# Open VS Code connected to the devcontainer (builds if needed)
+echo -e "${BLUE}🚀 Building and starting devcontainer...${NC}"
+echo -e "${YELLOW}   (This may take a while on first run to build the container)${NC}"
 
-# Use devcontainer up to build and start
-# --workspace-folder specifies where devcontainer.json lives
+# First bring up the container
 devcontainer up --workspace-folder "$SCRIPT_DIR"
 
 echo -e "${GREEN}✅ Devcontainer is up!${NC}"
 
-# Now exec into the container and run entry.fish or a shell
-echo -e "${BLUE}🚀 Connecting to devcontainer...${NC}"
+# Now open VS Code attached to it
+echo -e "${BLUE}🚀 Opening VS Code...${NC}"
+code --folder-uri "vscode-remote://dev-container+$(printf '%s' "$SCRIPT_DIR" | xxd -p | tr -d '\n')/workspaces/aesthetic-computer"
 
-# Check what mode to run in
-case "${1:-shell}" in
-    entry)
-        echo -e "${MAGENTA}Running entry.fish (full platform startup)...${NC}"
-        devcontainer exec --workspace-folder "$SCRIPT_DIR" /workspaces/aesthetic-computer/.devcontainer/entry.fish
-        ;;
-    artery)
-        echo -e "${MAGENTA}Starting artery-tui...${NC}"
-        devcontainer exec --workspace-folder "$SCRIPT_DIR" fish -c "cd /workspaces/aesthetic-computer && node artery/artery-tui.mjs"
-        ;;
-    emacs)
-        echo -e "${MAGENTA}Starting emacsclient...${NC}"
-        devcontainer exec --workspace-folder "$SCRIPT_DIR" fish -c "emacsclient -c"
-        ;;
-    fish|shell)
-        echo -e "${MAGENTA}Starting fish shell...${NC}"
-        devcontainer exec --workspace-folder "$SCRIPT_DIR" fish
-        ;;
-    *)
-        echo -e "${YELLOW}Usage: $0 [entry|artery|emacs|fish|shell]${NC}"
-        echo "  entry  - Run full entry.fish platform startup"
-        echo "  artery - Start artery-tui"
-        echo "  emacs  - Start emacsclient"
-        echo "  fish   - Start fish shell (default)"
-        exit 1
-        ;;
-esac
+echo -e "${GREEN}✅ VS Code launched with devcontainer!${NC}"
