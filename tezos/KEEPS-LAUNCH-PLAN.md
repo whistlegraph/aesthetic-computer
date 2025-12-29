@@ -1,9 +1,35 @@
 # Keeps Launch Plan 🔮
 
-**Status:** 🟢 Mainnet Staging (Testing on Mainnet)  
-**Ghostnet Contract:** `KT1NeytR5BHDfGBjG9ZuLkPd7nmufmH1icVc`  
-**Mainnet Staging Contract:** `KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM` ✅  
-**Tokens Minted:** 7+ (ghostnet), testing on mainnet
+**Status:** 🟢 Mainnet Staging (Soft Launch Testing)  
+**Last Updated:** December 28, 2025
+
+## Contract Status
+
+| Network | Contract | Status | Admin | Tokens | Purpose |
+|---------|----------|--------|-------|--------|---------|
+| Ghostnet | `KT1StXrQNvRd9dNPpHdCGEstcGiBV6neq79K` | Active | kidlisp | 15 | Development/Testing |
+| Ghostnet | `KT1NeytR5BHDfGBjG9ZuLkPd7nmufmH1icVc` | Test | aesthetic | 10 | Alt admin testing |
+| **Mainnet** | `KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM` | **Staging** | kidlisp | 5 | Soft launch |
+
+## Wallet Architecture
+
+| Wallet | Address | Domain | Role |
+|--------|---------|--------|------|
+| **kidlisp** | `tz1Lc2DzTjDPyWFj1iuAVGGZWNjK67Wun2dC` | keeps.tez | Current admin (staging + future production) |
+| aesthetic | `tz1gkf8EexComFBJvjtT1zdsisdah791KwBE` | aesthetic.tez | Test wallet only |
+
+## Launch Strategy
+
+**Current Phase: Mainnet Staging**
+- Using kidlisp wallet as admin (same wallet for production)
+- Staging contract for soft launch testing
+- 5 tokens minted so far
+- Focus: Complete staging tests before public launch
+
+**Future: Production Launch**
+- Option A: Continue using staging contract (KT1Ecs...) — it works fine
+- Option B: Deploy fresh contract if major changes needed
+- Either way, kidlisp wallet remains admin
 
 ---
 
