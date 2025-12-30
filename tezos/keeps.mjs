@@ -55,9 +55,11 @@ const CONFIG = {
   
   // Contract paths
   paths: {
-    // New SmartPy v2 contract (FA2 library based)
-    contract: path.join(__dirname, 'KeepsFA2v2/step_002_cont_0_contract.tz'),
-    storage: path.join(__dirname, 'KeepsFA2v2/step_002_cont_0_storage.tz'),
+    // SmartPy v3 contract (FA2 library based, owner-editable metadata)
+    contract: path.join(__dirname, 'KeepsFA2v3/step_002_cont_0_contract.tz'),
+    storage: path.join(__dirname, 'KeepsFA2v3/step_002_cont_0_storage.tz'),
+    // Legacy v2 contract path
+    v2Contract: path.join(__dirname, 'KeepsFA2v2/step_002_cont_0_contract.tz'),
     // Legacy contract path
     legacyContract: path.join(__dirname, 'michelson-lib/keeps-fa2-complete.tz'),
     // Network-specific contract addresses
@@ -163,7 +165,8 @@ async function createTezosClient(network = 'mainnet') {
 
 async function deployContract(network = 'mainnet') {
   console.log('\n╔══════════════════════════════════════════════════════════════╗');
-  console.log('║  🚀 Deploying Keeps FA2 v2 Contract                          ║');
+  console.log('║  🚀 Deploying Keeps FA2 v3 Contract                          ║');
+  console.log('║  (Owner-editable metadata)                                   ║');
   console.log('╚══════════════════════════════════════════════════════════════╝\n');
   
   const { tezos, credentials, config } = await createTezosClient(network);
@@ -189,23 +192,17 @@ async function deployContract(network = 'mainnet') {
   }
   
   const contractSource = fs.readFileSync(CONFIG.paths.contract, 'utf8');
-  console.log('   ✓ Contract loaded: KeepsFA2v2 (SmartPy FA2 library)');
+  console.log('   ✓ Contract loaded: KeepsFA2v3 (SmartPy FA2 library, owner-editable)');
   
   // Parse the contract using michel-codec
   const parser = new Parser();
   const parsedContract = parser.parseScript(contractSource);
   
   // Create initial storage
-  // Storage structure from SmartPy FA2 library:
-  // Storage layout from SmartPy:
-  // (pair %administrator address 
-  //   (pair %contract_metadata_locked bool
-  //     (pair %ledger (big_map nat address)
-  //       (pair %metadata (big_map string bytes)
-  //         (pair %metadata_locked (big_map nat bool)
-  //           (pair %next_token_id nat
-  //             (pair %operators (big_map (pair address address nat) unit)
-  //               %token_metadata (big_map nat (pair nat (map string bytes))))))))))
+  // Storage structure from SmartPy FA2 v3:
+  // Layout: ("administrator", ("content_hashes", ("contract_metadata_locked", ("keep_fee", 
+  //   ("ledger", ("metadata", ("metadata_locked", ("next_token_id", 
+  //   ("operators", ("token_creators", "token_metadata"))))))))))
   console.log('\n💾 Creating initial storage...');
   
   // Build contract metadata (TZIP-16)
@@ -217,15 +214,14 @@ async function deployContract(network = 'mainnet') {
     authors: ["aesthetic.computer"],
     homepage: "https://aesthetic.computer",
     imageUri: "https://oven.aesthetic.computer/keeps/latest",
-    description: "Self-contained generative art pieces created with KidLisp on aesthetic.computer"
+    description: "Self-contained generative art pieces created with KidLisp on aesthetic.computer (v3 - owner editable)"
   });
   const contractMetadataBytes = stringToBytes(contractMetadataJson);
   const tezosStoragePointer = stringToBytes("tezos-storage:content");
   
-  // Initial storage Michelson - matches SmartPy output
-  // Format: (Pair admin (Pair content_hashes (Pair contract_metadata_locked (Pair keep_fee (Pair ledger (Pair metadata (Pair metadata_locked (Pair next_token_id (Pair operators token_metadata)))))))))
-  // SmartPy example: (Pair "tz1..." (Pair {} (Pair False (Pair 0 (Pair {} (Pair {Elt "" 0x...} (Pair {} (Pair 0 (Pair {} {})))))))))
-  const initialStorageMichelson = `(Pair "${credentials.address}" (Pair {} (Pair False (Pair 0 (Pair {} (Pair {Elt "" 0x${tezosStoragePointer}; Elt "content" 0x${contractMetadataBytes}} (Pair {} (Pair 0 (Pair {} {})))))))))`;
+  // Initial storage Michelson - v3 format with token_creators bigmap
+  // Format: (Pair admin (Pair content_hashes (Pair contract_metadata_locked (Pair keep_fee (Pair ledger (Pair metadata (Pair metadata_locked (Pair next_token_id (Pair operators (Pair token_creators token_metadata))))))))))
+  const initialStorageMichelson = `(Pair "${credentials.address}" (Pair {} (Pair False (Pair 0 (Pair {} (Pair {Elt "" 0x${tezosStoragePointer}; Elt "content" 0x${contractMetadataBytes}} (Pair {} (Pair 0 (Pair {} (Pair {} {}))))))))))`;
   
   const parsedStorage = parser.parseMichelineExpression(initialStorageMichelson);
   
@@ -236,6 +232,7 @@ async function deployContract(network = 'mainnet') {
   console.log('   ✓ Collection image: https://oven.aesthetic.computer/keeps/latest');
   console.log('   ✓ Content hash uniqueness: enabled');
   console.log('   ✓ Contract metadata locked: false');
+  console.log('   ✓ Token creators tracking: enabled (v3)');
   
   // Deploy
   console.log('\n📤 Deploying contract...');
