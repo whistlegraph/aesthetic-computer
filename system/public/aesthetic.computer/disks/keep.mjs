@@ -28,14 +28,14 @@ export const scheme = {
     bgPanel: [30, 35, 45],
     bgCarousel: [25, 30, 40],
     bgProgress: [30, 35, 45],
-    text: pal.text,
+    text: [220, 225, 235],
     textDim: [100, 110, 130],
-    textMuted: pal.textMuted,
+    textMuted: [140, 150, 170],
     accent: [100, 200, 255],
-    positive: pal.positive,
-    warning: pal.gold,
+    positive: [100, 220, 150],
+    warning: [255, 200, 100],
     error: [255, 100, 120],
-    gold: pal.gold,
+    gold: [255, 200, 100],
     stripe: [40, 45, 55],
     divider: [50, 55, 65],
     arrow: [100, 110, 130],
@@ -124,7 +124,7 @@ export const scheme = {
     bgCarousel: [230, 233, 240],
     bgProgress: [220, 225, 235],
     text: [30, 35, 45],
-    textDim: pal.textMuted,
+    textDim: [120, 130, 150],
     textMuted: [120, 130, 150],
     accent: [0, 120, 180],
     positive: [30, 160, 80],
@@ -1503,7 +1503,7 @@ function paint($) {
 
     // Header with network/staging badge
     const baseNetLabel = (alreadyMinted.network || NETWORK).toUpperCase();
-    const netLabel = KEEPS_STAGING ? "STAGING" : baseNetLabel;
+    const netLabel = KEEPS_STAGING ? "STAGING V3" : baseNetLabel;
     const isMainnet = baseNetLabel === "MAINNET";
     const netColor = KEEPS_STAGING ? [255, 180, 100] : (isMainnet ? [100, 220, 100] : [220, 180, 100]);
 
@@ -1993,7 +1993,7 @@ function paint($) {
       cy += 10 + gap;
 
       // Network badge
-      const netLabel = KEEPS_STAGING ? "STAGING" : NETWORK.toUpperCase();
+      const netLabel = KEEPS_STAGING ? "STAGING V3" : NETWORK.toUpperCase();
       const isMainnet = NETWORK === "mainnet";
       const netColor = KEEPS_STAGING ? [255, 180, 100] : (isMainnet ? [100, 220, 100] : [220, 180, 100]);
       ink(netColor[0], netColor[1], netColor[2], 200).write(netLabel, { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
@@ -2299,7 +2299,7 @@ function paint($) {
 
     // Time (right aligned)
     if (item.time && (isDone || isActive || isItemError)) {
-      const timeColor = isItemError ? [180, 80, 80] : (isActive ? [200, 200, 140] : pal.textDim);
+      const timeColor = isItemError ? [180, 80, 80] : (isActive ? ($.dark ? [200, 200, 140] : [120, 120, 40]) : pal.textDim);
       ink(...timeColor).write(item.time, { x: w - margin - 20, y: y + 2 }, undefined, undefined, false, "MatrixChunky8");
     }
 
@@ -2307,13 +2307,14 @@ function paint($) {
     if (item.detail && !isPending && !(item.id === "review" && isActive && preparedData)) {
       let detailColor;
       if (isItemError) detailColor = [255, 120, 120];
-      else if (isActive) detailColor = [255, 255, 100]; // Bright yellow for active
-      else detailColor = pal.text; // Light gray for done
+      else if (isActive) detailColor = $.dark ? [255, 255, 100] : [140, 140, 20]; // Theme-aware yellow
+      else detailColor = pal.text; // Use theme text color for done
 
       const maxLen = floor((w - 20) / 4);
       const truncated = item.detail.length > maxLen ? item.detail.slice(0, maxLen - 2) + ".." : item.detail;
-      // Darker background strip for better readability
-      ink(0, 0, 0, 220).box(margin - 2, y + 10, truncated.length * 4 + 4, 10);
+      // Theme-aware background strip for better readability
+      const detailBg = $.dark ? [0, 0, 0, 220] : [50, 50, 40, 220];
+      ink(detailBg[0], detailBg[1], detailBg[2], detailBg[3]).box(margin - 2, y + 10, truncated.length * 4 + 4, 10);
       ink(...detailColor).write(truncated, { x: margin, y: y + 11 }, undefined, undefined, false, "MatrixChunky8");
     }
 
@@ -2322,7 +2323,8 @@ function paint($) {
     // === INLINE SOURCE MARQUEE (after analyze row) ===
     if (item.id === "analyze" && (isDone || isActive) && sourceCode) {
       const marqueeH = 12;
-      ink(35, 40, 50).box(0, y, w, marqueeH);
+      const marqueeBg = $.dark ? [35, 40, 50] : [60, 65, 75];
+      ink(marqueeBg[0], marqueeBg[1], marqueeBg[2]).box(0, y, w, marqueeH);
 
       // Build colored string with natural spacing preserved
       const coloredSource = buildColoredSourceString(sourceCode);
@@ -2347,7 +2349,8 @@ function paint($) {
       if (pieceAuthor || pieceSourceLength) {
         const statsStr = pieceAuthor ? `@${pieceAuthor}` : (pieceSourceLength ? `${pieceSourceLength}c` : "");
         const statsW = statsStr.length * 4;
-        ink(20, 25, 35).box(w - statsW - margin - 4, y, statsW + 8, marqueeH); // bg to cover ticker
+        const statsBg = $.dark ? [20, 25, 35] : [50, 55, 65];
+        ink(statsBg[0], statsBg[1], statsBg[2]).box(w - statsW - margin - 4, y, statsW + 8, marqueeH); // bg to cover ticker
         // Bright teal for @author handles
         const authorColor = pieceAuthor ? [100, 255, 200] : [100, 130, 150];
         ink(authorColor[0], authorColor[1], authorColor[2]).write(statsStr, { x: w - margin - statsW, y: y + 2 }, undefined, undefined, false, "MatrixChunky8");
@@ -2471,7 +2474,7 @@ function paint($) {
       if (KEEPS_STAGING) {
         const netName = preparedData.network || NETWORK || "mainnet";
         const prefix = "to keep on " + netName + " ";
-        const stagingLabel = "staging";
+        const stagingLabel = "staging v3";
         // MatrixChunky8 is ~4px per char
         const prefixW = prefix.length * 4;
         const stagingW = stagingLabel.length * 4 + 8; // padding
@@ -2479,8 +2482,9 @@ function paint($) {
         const infoX = floor((w - totalInfoW) / 2);
         const infoY = y;
 
-        // Draw prefix text in MatrixChunky8
-        ink(200, 220, 210).write(prefix, { x: infoX, y: infoY + 2 }, undefined, undefined, false, "MatrixChunky8");
+        // Draw prefix text in MatrixChunky8 (theme-aware)
+        const prefixColor = $.dark ? [200, 220, 210] : [60, 80, 70];
+        ink(prefixColor[0], prefixColor[1], prefixColor[2]).write(prefix, { x: infoX, y: infoY + 2 }, undefined, undefined, false, "MatrixChunky8");
 
         // Staging button with proper UI styling
         const stagingBtnX = infoX + prefixW;
@@ -2505,7 +2509,7 @@ function paint($) {
   const reviewStep = timeline.find(t => t.id === "review");
   if (reviewStep?.status === "active" && preparedData) {
     const baseNet = (preparedData.network || "mainnet").toUpperCase();
-    const netLabel = KEEPS_STAGING && baseNet === "MAINNET" ? "MAINNET (STAGING)" : baseNet;
+    const netLabel = KEEPS_STAGING && baseNet === "MAINNET" ? "MAINNET (STAGING V3)" : baseNet;
     const isGhostnet = baseNet === "GHOSTNET";
     const ghostW = isGhostnet ? 16 : 0; // Space for ghost icon
     const netW = netLabel.length * 4 + 8 + ghostW;
@@ -2890,6 +2894,8 @@ function act({ event: e, screen }) {
           }
 
           // Call the update-metadata endpoint (streaming SSE)
+          // NOTE: edit_metadata requires contract admin, so server-side signing is required.
+          // The contract would need to be updated to allow token owners to edit.
           const token = await _net?.getToken?.();
           const response = await fetch("/api/keep-update", {
             method: "POST",
@@ -2903,6 +2909,7 @@ function act({ event: e, screen }) {
               artifactUri: syncArtifact,
               thumbnailUri: syncThumb,
               walletAddress,
+              // Server-side signing required - contract admin only for edit_metadata
             }),
           });
 

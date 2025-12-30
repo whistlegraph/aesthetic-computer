@@ -6,7 +6,7 @@
 // Feature Flags
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// Staging flag - currently using ghostnet for testing
+// Staging v3 flag - uses mainnet staging contract with owner-editable metadata
 export const KEEPS_STAGING = true;
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -16,8 +16,8 @@ export const KEEPS_STAGING = true;
 export const NETWORKS = {
   mainnet: {
     name: "mainnet",
-    displayName: KEEPS_STAGING ? "Mainnet (Staging)" : "Mainnet",
-    contract: "KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM",
+    displayName: KEEPS_STAGING ? "Mainnet (Staging V3)" : "Mainnet",
+    contract: "KT1JEVyKjsMLts63e4CNaMUywWTPgeQ41Smi",
     rpc: "https://mainnet.ecadinfra.com",
     tzktApi: "https://api.tzkt.io",
     explorer: "https://tzkt.io",

@@ -10,8 +10,8 @@
 
 import { qrcode as qr } from "../dep/@akamfoad/qr/qr.mjs";
 
-// Current Keeps contract (mainnet staging)
-const KEEPS_CONTRACT = "KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM";
+// Current Keeps contract (mainnet staging v3)
+const KEEPS_CONTRACT = "KT1JEVyKjsMLts63e4CNaMUywWTPgeQ41Smi";
 const KEEPS_NETWORK = "mainnet";
 // TODO: Set to false when switching to production mainnet contract
 const KEEPS_STAGING = true;
@@ -336,7 +336,7 @@ async function boot({ wallet, wipe, hud, ui, screen, user, handle }) {
     const addr = walletState.address;
     const shortAddr = addr ? `${addr.slice(0, 8)}...${addr.slice(-4)}` : "?";
     const baseNetwork = (walletState.network || KEEPS_NETWORK).toUpperCase();
-    const network = KEEPS_STAGING && baseNetwork === "MAINNET" ? "MAINNET (STAGING)" : baseNetwork;
+    const network = KEEPS_STAGING && baseNetwork === "MAINNET" ? "MAINNET (STAGING V3)" : baseNetwork;
     const balance = walletState.balance != null ? `ꜩ${walletState.balance.toFixed(2)}` : "ꜩ...";
     const domain = walletState.domain;
     const displayName = domain || shortAddr;
@@ -924,7 +924,7 @@ function paint($) {
         if (KEEPS_STAGING) {
           const stagingX = innerX + 132; // After "YOUR KIDLISP KEEPS on "
           if (!stagingLinkBtn) {
-            stagingLinkBtn = new ui.TextButtonSmall("STAGING ", { x: stagingX, y: headerY - 1 });
+            stagingLinkBtn = new ui.TextButtonSmall("STAGING V3 ", { x: stagingX, y: headerY - 1 });
           } else {
             stagingLinkBtn.reposition({ x: stagingX, y: headerY - 1 });
           }
