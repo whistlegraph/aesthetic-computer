@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // godaddy-login.mjs - Automate GoDaddy login via CDP
 
-import Web from './web.mjs';
+import Web from '../web.mjs';
 
 async function login(domain) {
   const web = new Web({ verbose: true, port: 9222 });

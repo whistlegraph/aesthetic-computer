@@ -4,7 +4,7 @@
  * Adds/removes TXT records for Let's Encrypt DNS-01 challenge
  */
 
-import { PageController, listPages } from "./browser.mjs";
+import { PageController, listPages } from "../browser.mjs";
 
 const DOMAIN = "thomaslawson.com";
 
