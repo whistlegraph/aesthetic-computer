@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Aesthetic Computer Platform Launcher for Windows
 
@@ -68,38 +68,27 @@ Start-Sleep -Seconds 1
 Write-Host "✓ VS Code stopped" -ForegroundColor Green
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Remove old container and start devcontainer
+# Remove old container (optional cleanup)
 # ═══════════════════════════════════════════════════════════════════════════════
-Write-Host "› Starting devcontainer..." -ForegroundColor Magenta
-
-# Remove old container (in WSL)
-wsl -d Ubuntu -e docker rm -f aesthetic 2>$null
-
-# Start devcontainer via CLI (in WSL)
-$devcontainerResult = wsl -d Ubuntu -e bash -c "cd /home/me/aesthetic-computer && devcontainer up --workspace-folder . 2>&1 | tail -3"
-Write-Host $devcontainerResult
-
-if ($LASTEXITCODE -eq 0) {
-    Write-Host "✓ Devcontainer ready" -ForegroundColor Green
-} else {
-    Write-Host "✗ Devcontainer failed to start" -ForegroundColor Red
-    exit 1
-}
+Write-Host "› Cleaning up old container..." -ForegroundColor Magenta
+$ErrorActionPreference = "SilentlyContinue"
+docker rm -f aesthetic 2>&1 | Out-Null
+$ErrorActionPreference = "Stop"
+Write-Host "✓ Cleanup done" -ForegroundColor Green
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Launch VS Code with CDP debugging
 # ═══════════════════════════════════════════════════════════════════════════════
+# VS Code will automatically start the devcontainer when opening with dev-container+ URI
 Write-Host "› Launching VS Code with CDP on port 9333..." -ForegroundColor Magenta
 
 # Use dev-container+ URI format (hex-encoded workspace path)
 $hexPath = [System.BitConverter]::ToString([System.Text.Encoding]::UTF8.GetBytes("/home/me/aesthetic-computer")).Replace("-","").ToLower()
 $uri = "vscode-remote://dev-container+$hexPath/workspaces/aesthetic-computer"
+Write-Host "  URI: $uri" -ForegroundColor Gray
 
-Start-Process -WindowStyle Hidden -FilePath "code" -ArgumentList `
-    "--folder-uri", $uri, `
-    "--remote-debugging-port=9333", `
-    "--disable-extension", "github.copilot-chat", `
-    "--disable-extension", "github.copilot"
+# Launch VS Code (use & to invoke directly, which worked in testing)
+& code --folder-uri "$uri" --remote-debugging-port=9333 --disable-extension github.copilot-chat --disable-extension github.copilot
 
 Write-Host "✓ VS Code launched" -ForegroundColor Green
 
