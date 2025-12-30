@@ -693,6 +693,20 @@ Called by MCP tools at the end of each response."
 (setq-default eat-shell "/usr/bin/fish"
               eat-term-name "xterm-256color")
 
+;; Filter out unhandled OSC sequences (10/11/12 = fg/bg/cursor color)
+;; These are sent by apps like Copilot CLI but eat doesn't handle them
+(defun ac--strip-osc-color-sequences (string)
+  "Remove OSC 10/11/12 sequences that eat cannot process."
+  ;; Simple pattern: ]10/11/12;... until whitespace (Copilot CLI sends malformed OSC)
+  (replace-regexp-in-string "]1[012];[^[:space:]]+" "" string))
+
+
+(defun ac--filter-eat-output (orig-fn process string)
+  "Advice to filter unhandled OSC sequences before eat processes them."
+  (funcall orig-fn process (ac--strip-osc-color-sequences string)))
+
+(advice-add 'eat--filter :around #'ac--filter-eat-output)
+
 ;; Performance: Aggressively limit eat overhead for 16+ terminals
 (setq eat-enable-directory-tracking nil      ; Reduces overhead
       eat-enable-shell-command-history nil   ; We use fish history
@@ -1075,7 +1089,7 @@ Skips creation if tab already exists."
         (redisplay t)))
 
     ;; Create all the split tabs with staggered delays to prevent terminal garbling
-    (let ((delay 0.3)
+    (let ((delay 0.5)
           (tab-specs '(("status"   ("url" "tunnel"))
                        ("stripe"   ("stripe-print" "stripe-ticket"))
                        ("chat"     ("chat-system" "chat-sotce" "chat-clock"))
@@ -1093,10 +1107,10 @@ Skips creation if tab already exists."
                             (ac--create-split-tab name cmds)
                             (redisplay t))
                           tab-name commands)
-          (setq delay (+ delay 0.3)))))  ; 300ms between each tab
+          (setq delay (+ delay 0.5)))))  ; 300ms between each tab
 
     ;; Switch to the requested tab (after all tabs created - 10 tabs * 0.3s = 3s + buffer)
-    (run-with-timer 4.0 nil
+    (run-with-timer 6.0 nil
                     (lambda (target)
                       (condition-case nil
                           (if (member target '("artery" "fishy" "status" "stripe" "chat" "web 1/2" "web 2/2" "tests" "llm" "top"))
@@ -1108,7 +1122,24 @@ Skips creation if tab already exists."
                                 (redisplay t))
                             (message "No such tab: %s" target))
                         (error nil)))
-                    target-tab))
+                    target-tab)
+
+    ;; Start CDP tunnel in background after tabs are created
+    (run-with-timer 8.0 nil #'ac-start-cdp-tunnel-async))
+
+(defun ac-start-cdp-tunnel-async ()
+  "Start CDP tunnel to VS Code host in background (non-blocking)."
+  (ac-debug-log "Starting CDP tunnel to host...")
+  (let ((proc (start-process-shell-command 
+               "cdp-tunnel" nil
+               "fish -c 'ac-cdp-tunnel' >/dev/null 2>&1")))
+    (when proc
+      (set-process-sentinel 
+       proc
+       (lambda (p e)
+         (if (= 0 (process-exit-status p))
+             (ac-debug-log "CDP tunnel established")
+           (ac-debug-log (format "CDP tunnel failed: %s" e))))))))
 
 ;;; ===================================================================
 ;;; AUTO-START AESTHETIC-BACKEND ON FIRST TERMINAL FRAME
