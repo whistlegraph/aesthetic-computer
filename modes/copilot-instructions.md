@@ -27,6 +27,13 @@ The **Emacs MCP Server** (`artery/emacs-mcp.mjs`) bridges Copilot to Emacs, enab
 3. Check `vault/machines.json` to identify current machine context
 4. Dev server: `./aesthetic-launch.sh` (usually auto-running)
 
+## File Editing Preferences
+- **Prefer Emacs MCP** (`mcp_emacs_execute_emacs_lisp`) for file edits over `sed`, `awk`, or `run_in_terminal`
+- Use `find-file`, `search-forward`, `replace-match`, `insert`, `save-buffer` for reliable edits
+- For shell commands, use **fishy** buffer (`mcp_emacs_emacs_send_keys buffer="🐟-fishy"`) over VS Code terminal
+- Avoid `cat > file << EOF` heredocs — they crash the devcontainer
+- Use `node --check file.mjs` to verify syntax after edits
+
 ## Rules
 - Keep responses concise
 - Use existing tooling (artery, emacs-mcp) over raw terminal

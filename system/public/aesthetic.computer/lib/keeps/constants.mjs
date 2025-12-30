@@ -7,7 +7,7 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 
 // Staging flag - currently using ghostnet for testing
-export const KEEPS_STAGING = false;
+export const KEEPS_STAGING = true;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Network Configuration
@@ -35,7 +35,7 @@ export const NETWORKS = {
 };
 
 // Default network for browser clients
-export const DEFAULT_NETWORK = "ghostnet";
+export const DEFAULT_NETWORK = "mainnet";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Mint Flow Steps

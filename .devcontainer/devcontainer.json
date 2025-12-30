@@ -132,7 +132,19 @@
         // Setting "**": true disables ALL file watching - aggressive but stable.
         // Trade-off: Must manually refresh explorer, no auto-reload on file change
         "files.watcherExclude": {
-          "**": true
+          "**/node_modules/**": true,
+          "**/kidlisp-n64/**": true,
+          "**/kidlisp-gameboy/**": true,
+          "**/kidlisp-playdate/**": true,
+          "**/feed/**": true,
+          "**/packed/**": true,
+          "**/archive/**": true,
+          "**/experiments/**": true,
+          "**/builds/**": true,
+          "**/target/**": true,
+          "**/.git/objects/**": true,
+          "**/.git/subtree-cache/**": true,
+          "**/dump.rdb": true
         },
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -149,12 +161,12 @@
         // Installing copilot-chat in container causes crashes - see commit aff03abf
         // This also keeps API keys on host rather than in container
         "remote.extensionKind": {
-          "github.copilot-chat": ["ui"],
-          "github.copilot": ["ui"]
+          // "github.copilot-chat": ["ui"],
+          // "github.copilot": ["ui"]
         },
         "settingsSync.ignoredExtensions": [
-          "github.copilot-chat",
-          "github.copilot"
+          // "github.copilot-chat",
+          // "github.copilot"
         ],
 
         // Don't auto-update extensions - prevents mid-session breakage

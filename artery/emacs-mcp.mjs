@@ -2,7 +2,7 @@
 /**
  * 🧠 Emacs MCP Server - Simple MCP server for Emacs integration
  * Runs via stdio and provides tools to execute elisp via emacsclient
- * 
+ *
  * TODO: Add ability to highlight/color a buffer's background when being
  *       observed/watched by an AI agent. Could add tools like:
  *       - emacs_watch_buffer(buffer, color) - set background highlight
@@ -10,10 +10,10 @@
  *       This would give visual feedback when Copilot is monitoring logs.
  */
 
-import { spawn } from 'child_process';
-import * as readline from 'readline';
+import { spawn } from "child_process";
+import * as readline from "readline";
 
-const EMACSCLIENT = process.env.EMACSCLIENT || '/usr/sbin/emacsclient';
+const EMACSCLIENT = process.env.EMACSCLIENT || "/usr/sbin/emacsclient";
 
 // MCP Server state
 let messageId = 0;
@@ -21,22 +21,30 @@ let messageId = 0;
 // Execute elisp via emacsclient
 async function execEmacs(code) {
   return new Promise((resolve, reject) => {
-    const proc = spawn(EMACSCLIENT, ['--eval', code]);
-    let stdout = '';
-    let stderr = '';
-    
-    proc.stdout.on('data', (data) => { stdout += data.toString(); });
-    proc.stderr.on('data', (data) => { stderr += data.toString(); });
-    
-    proc.on('close', (exitCode) => {
+    const proc = spawn(EMACSCLIENT, ["--eval", code]);
+    let stdout = "";
+    let stderr = "";
+
+    proc.stdout.on("data", (data) => {
+      stdout += data.toString();
+    });
+    proc.stderr.on("data", (data) => {
+      stderr += data.toString();
+    });
+
+    proc.on("close", (exitCode) => {
       if (exitCode === 0) {
         resolve(stdout.trim());
       } else {
-        reject(new Error(stderr.trim() || `emacsclient exited with code ${exitCode}`));
+        reject(
+          new Error(
+            stderr.trim() || `emacsclient exited with code ${exitCode}`,
+          ),
+        );
       }
     });
-    
-    proc.on('error', (err) => {
+
+    proc.on("error", (err) => {
       reject(new Error(`Failed to start emacsclient: ${err.message}`));
     });
   });
@@ -45,131 +53,170 @@ async function execEmacs(code) {
 // Handle MCP JSON-RPC messages
 async function handleMessage(message) {
   const { id, method, params } = message;
-  
+
   try {
     switch (method) {
-      case 'initialize':
+      case "initialize":
         return {
-          jsonrpc: '2.0',
+          jsonrpc: "2.0",
           id,
           result: {
-            protocolVersion: '2024-11-05',
+            protocolVersion: "2024-11-05",
             capabilities: {
-              tools: {}
+              tools: {},
             },
             serverInfo: {
-              name: 'emacs-mcp',
-              version: '1.0.0'
-            }
-          }
+              name: "emacs-mcp",
+              version: "1.0.0",
+            },
+          },
         };
-        
-      case 'initialized':
+
+      case "initialized":
         // No response needed for notification
         return null;
-        
-      case 'tools/list':
+
+      case "tools/list":
         return {
-          jsonrpc: '2.0',
+          jsonrpc: "2.0",
           id,
           result: {
             tools: [
               {
-                name: 'execute_emacs_lisp',
-                description: 'Execute Emacs Lisp code in the running Emacs instance via emacsclient',
+                name: "execute_emacs_lisp",
+                description:
+                  "Execute Emacs Lisp code in the running Emacs instance via emacsclient",
                 inputSchema: {
-                  type: 'object',
+                  type: "object",
                   properties: {
                     code: {
-                      type: 'string',
-                      description: 'The Emacs Lisp code to execute'
-                    }
+                      type: "string",
+                      description: "The Emacs Lisp code to execute",
+                    },
                   },
-                  required: ['code']
-                }
+                  required: ["code"],
+                },
               },
               {
-                name: 'emacs_list_buffers',
-                description: 'List all open buffers in Emacs',
+                name: "emacs_list_buffers",
+                description: "List all open buffers in Emacs",
                 inputSchema: {
-                  type: 'object',
-                  properties: {}
-                }
+                  type: "object",
+                  properties: {},
+                },
               },
               {
-                name: 'emacs_switch_buffer',
-                description: 'Switch to a specific buffer in Emacs',
+                name: "emacs_switch_buffer",
+                description: "Switch to a specific buffer in Emacs",
                 inputSchema: {
-                  type: 'object',
+                  type: "object",
                   properties: {
                     buffer: {
-                      type: 'string',
-                      description: 'The name of the buffer to switch to'
-                    }
+                      type: "string",
+                      description: "The name of the buffer to switch to",
+                    },
                   },
-                  required: ['buffer']
-                }
+                  required: ["buffer"],
+                },
               },
               {
-                name: 'emacs_send_keys',
-                description: 'Send keystrokes to the current Emacs buffer (useful for eat terminals)',
+                name: "emacs_send_keys",
+                description:
+                  "Send keystrokes to the current Emacs buffer (useful for eat terminals)",
                 inputSchema: {
-                  type: 'object',
+                  type: "object",
                   properties: {
                     buffer: {
-                      type: 'string',
-                      description: 'The buffer name to send keys to'
+                      type: "string",
+                      description: "The buffer name to send keys to",
                     },
                     keys: {
-                      type: 'string',
-                      description: 'The keys/text to send'
-                    }
+                      type: "string",
+                      description: "The keys/text to send",
+                    },
                   },
-                  required: ['buffer', 'keys']
-                }
+                  required: ["buffer", "keys"],
+                },
               },
               {
-                name: 'emacs_get_buffer_content',
-                description: 'Get the content of an Emacs buffer',
+                name: "emacs_get_buffer_content",
+                description: "Get the content of an Emacs buffer",
                 inputSchema: {
-                  type: 'object',
+                  type: "object",
                   properties: {
                     buffer: {
-                      type: 'string',
-                      description: 'The buffer name'
+                      type: "string",
+                      description: "The buffer name",
                     },
                     maxChars: {
-                      type: 'number',
-                      description: 'Maximum characters to return (default 2000)'
-                    }
+                      type: "number",
+                      description:
+                        "Maximum characters to return (default 2000)",
+                    },
                   },
-                  required: ['buffer']
-                }
-              }
-            ]
-          }
+                  required: ["buffer"],
+                },
+              },
+              {
+                name: "lsp_diagnostics",
+                description:
+                  "Get LSP diagnostics (errors, warnings) for a file using cli-lsp-client",
+                inputSchema: {
+                  type: "object",
+                  properties: {
+                    file: {
+                      type: "string",
+                      description: "Absolute path to the file to check",
+                    },
+                  },
+                  required: ["file"],
+                },
+              },
+              {
+                name: "lsp_hover",
+                description:
+                  "Get hover information (type, docs) for a symbol in a file",
+                inputSchema: {
+                  type: "object",
+                  properties: {
+                    file: {
+                      type: "string",
+                      description: "Absolute path to the file",
+                    },
+                    symbol: {
+                      type: "string",
+                      description: "The symbol name to look up",
+                    },
+                  },
+                  required: ["file", "symbol"],
+                },
+              },
+            ],
+          },
         };
-        
-      case 'tools/call':
+
+      case "tools/call":
         const { name, arguments: args } = params;
         let result;
-        
+
         switch (name) {
-          case 'execute_emacs_lisp':
+          case "execute_emacs_lisp":
             result = await execEmacs(args.code);
             break;
-            
-          case 'emacs_list_buffers':
-            result = await execEmacs('(mapcar #\'buffer-name (buffer-list))');
+
+          case "emacs_list_buffers":
+            result = await execEmacs("(mapcar #'buffer-name (buffer-list))");
             break;
-            
-          case 'emacs_switch_buffer':
+
+          case "emacs_switch_buffer":
             result = await execEmacs(`(switch-to-buffer "${args.buffer}")`);
             break;
-            
-          case 'emacs_send_keys':
+
+          case "emacs_send_keys":
             // Send keys to an eat terminal buffer
-            const escapedKeys = args.keys.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+            const escapedKeys = args.keys
+              .replace(/\\/g, "\\\\")
+              .replace(/"/g, '\\"');
             result = await execEmacs(`
               (with-current-buffer "${args.buffer}"
                 (if (and (boundp 'eat-terminal) eat-terminal)
@@ -181,53 +228,90 @@ async function handleMessage(message) {
                     "Text inserted into buffer")))
             `);
             break;
-            
-          case 'emacs_get_buffer_content':
+
+          case "emacs_get_buffer_content":
             const maxChars = args.maxChars || 2000;
             result = await execEmacs(`
               (with-current-buffer "${args.buffer}"
-                (buffer-substring-no-properties 
-                  (point-min) 
+                (buffer-substring-no-properties
+                  (point-min)
                   (min (point-max) (+ (point-min) ${maxChars}))))
             `);
             break;
-            
+
+          case "lsp_diagnostics":
+            // Use cli-lsp-client for LSP diagnostics
+            try {
+              const { execSync } = await import("child_process");
+              result = execSync(
+                `bunx cli-lsp-client diagnostics "${args.file}"`,
+                {
+                  encoding: "utf8",
+                  timeout: 30000,
+                  cwd: "/workspaces/aesthetic-computer",
+                },
+              );
+              if (!result.trim()) result = "No diagnostics (file is clean)";
+            } catch (e) {
+              result = e.stdout || e.message || "LSP check failed";
+            }
+            break;
+
+          case "lsp_hover":
+            // Use cli-lsp-client for hover info
+            try {
+              const { execSync } = await import("child_process");
+              result = execSync(
+                `bunx cli-lsp-client hover "${args.file}" "${args.symbol}"`,
+                {
+                  encoding: "utf8",
+                  timeout: 30000,
+                  cwd: "/workspaces/aesthetic-computer",
+                },
+              );
+              if (!result.trim())
+                result = "No hover information found for symbol";
+            } catch (e) {
+              result = e.stdout || e.message || "LSP hover failed";
+            }
+            break;
+
           default:
             throw new Error(`Unknown tool: ${name}`);
         }
-        
+
         return {
-          jsonrpc: '2.0',
+          jsonrpc: "2.0",
           id,
           result: {
             content: [
               {
-                type: 'text',
-                text: result
-              }
-            ]
-          }
+                type: "text",
+                text: result,
+              },
+            ],
+          },
         };
-        
+
       default:
         // Unknown method
         return {
-          jsonrpc: '2.0',
+          jsonrpc: "2.0",
           id,
           error: {
             code: -32601,
-            message: `Method not found: ${method}`
-          }
+            message: `Method not found: ${method}`,
+          },
         };
     }
   } catch (error) {
     return {
-      jsonrpc: '2.0',
+      jsonrpc: "2.0",
       id,
       error: {
         code: -32000,
-        message: error.message
-      }
+        message: error.message,
+      },
     };
   }
 }
@@ -236,10 +320,10 @@ async function handleMessage(message) {
 const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout,
-  terminal: false
+  terminal: false,
 });
 
-rl.on('line', async (line) => {
+rl.on("line", async (line) => {
   try {
     const message = JSON.parse(line);
     const response = await handleMessage(message);
@@ -247,16 +331,18 @@ rl.on('line', async (line) => {
       console.log(JSON.stringify(response));
     }
   } catch (e) {
-    console.error(JSON.stringify({
-      jsonrpc: '2.0',
-      id: null,
-      error: {
-        code: -32700,
-        message: `Parse error: ${e.message}`
-      }
-    }));
+    console.error(
+      JSON.stringify({
+        jsonrpc: "2.0",
+        id: null,
+        error: {
+          code: -32700,
+          message: `Parse error: ${e.message}`,
+        },
+      }),
+    );
   }
 });
 
 // Log to stderr for debugging (won't interfere with JSON-RPC on stdout)
-console.error('🧠 Emacs MCP Server started');
+console.error("🧠 Emacs MCP Server started");
