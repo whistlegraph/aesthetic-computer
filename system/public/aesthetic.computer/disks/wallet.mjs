@@ -1,10 +1,10 @@
 // Wallet, 2024.12.09
 // Animated Tezos wallet display with live blockchain data.
 
-/* #region 📚 README 
+/* #region 📚 README
   A live wallet display showing real-time blockchain activity.
   All info on one dynamic screen with block progress visualization.
-  
+
   When not connected, shows an address input to manually enter a wallet address.
 #endregion */
 
@@ -73,27 +73,52 @@ let connecting = false; // Connection in progress
 let marqueeOffset = 0; // For scrolling source preview
 let selectedKidlisp = null; // Currently selected KidLisp for keeping
 
-// Color scheme - Tezos blue/cyan
-const colors = {
-  bg: [8, 12, 24],
-  primary: [0, 180, 255],
-  primaryDim: [0, 100, 150],
-  primaryBright: [100, 220, 255],
-  secondary: [180, 100, 255],
-  text: [200, 210, 230],
-  textDim: [80, 100, 130],
-  positive: [50, 220, 100],
-  negative: [255, 80, 100],
-  block: [255, 180, 50],
-  progressBg: [30, 40, 60],
-  progressFill: [0, 200, 255],
-  streamColors: [
-    [0, 180, 255, 40],
-    [180, 100, 255, 30],
-    [255, 180, 50, 25],
-    [50, 220, 100, 30],
-  ],
+// Theme scheme - Tezos blue/cyan
+export const scheme = {
+  dark: {
+    bg: [8, 12, 24],
+    primary: [0, 180, 255],
+    primaryDim: [0, 100, 150],
+    primaryBright: [100, 220, 255],
+    secondary: [180, 100, 255],
+    text: [200, 210, 230],
+    textDim: [80, 100, 130],
+    positive: [50, 220, 100],
+    negative: [255, 80, 100],
+    block: [255, 180, 50],
+    progressBg: [30, 40, 60],
+    progressFill: [0, 200, 255],
+    streamColors: [
+      [0, 180, 255, 40],
+      [180, 100, 255, 30],
+      [255, 180, 50, 25],
+      [50, 220, 100, 30],
+    ],
+  },
+  light: {
+    bg: [245, 243, 235],
+    primary: [0, 120, 180],
+    primaryDim: [60, 140, 180],
+    primaryBright: [0, 160, 220],
+    secondary: [140, 60, 200],
+    text: [30, 35, 50],
+    textDim: [100, 110, 130],
+    positive: [30, 160, 70],
+    negative: [200, 50, 70],
+    block: [220, 140, 30],
+    progressBg: [210, 215, 225],
+    progressFill: [0, 140, 200],
+    streamColors: [
+      [0, 120, 180, 25],
+      [140, 60, 200, 20],
+      [220, 140, 30, 18],
+      [30, 160, 70, 22],
+    ],
+  },
 };
+
+// Active colors - set dynamically based on $.dark
+let colors = scheme.dark;
 
 const TEZ_Y_ADJUST = -2;
 
@@ -141,7 +166,7 @@ const GHOST_SPRITE = [
 // Size is the pixel scale (1 = 14px tall, 2 = 28px tall, etc.)
 function drawGhost(ink, box, x, y, bodyColor = [255, 180, 50], size = 1, eyeOffset = { x: 0, y: 0 }) {
   const w = 14, h = 14;
-  
+
   // Draw body from sprite
   ink(...bodyColor);
   for (let row = 0; row < h; row++) {
@@ -151,14 +176,14 @@ function drawGhost(ink, box, x, y, bodyColor = [255, 180, 50], size = 1, eyeOffs
       }
     }
   }
-  
+
   // Eyes: white sclera (2x3 pixels each, at cols 3-4 and 8-9, rows 4-6)
   ink(255, 255, 255);
   // Left eye sclera
   box(x + 3 * size, y + 4 * size, 2 * size, 3 * size);
-  // Right eye sclera  
+  // Right eye sclera
   box(x + 8 * size, y + 4 * size, 2 * size, 3 * size);
-  
+
   // Pupils: blue (1x2 pixels, bottom-right of each eye)
   ink(50, 80, 200);
   // Left pupil
@@ -169,8 +194,8 @@ function drawGhost(ink, box, x, y, bodyColor = [255, 180, 50], size = 1, eyeOffs
 
 // Get API base URL based on network
 function getApiBase(network) {
-  return network === "mainnet" 
-    ? "https://api.tzkt.io" 
+  return network === "mainnet"
+    ? "https://api.tzkt.io"
     : "https://api.ghostnet.tzkt.io";
 }
 
@@ -229,7 +254,7 @@ function tokenizeKidlisp(source) {
   let i = 0;
   while (i < source.length) {
     const c = source[i];
-    
+
     // Parentheses
     if (c === '(' || c === ')') {
       tokens.push({ text: c, color: syntaxColors.paren });
@@ -302,10 +327,10 @@ function tokenizeKidlisp(source) {
 async function boot({ wallet, wipe, hud, ui, screen, user, handle }) {
   wipe(colors.bg);
   hud.label("wallet");
-  
+
   wallet.sync();
   walletState = wallet.get();
-  
+
   // Log wallet state on entering wallet piece
   if (walletState?.connected) {
     const addr = walletState.address;
@@ -315,7 +340,7 @@ async function boot({ wallet, wipe, hud, ui, screen, user, handle }) {
     const balance = walletState.balance != null ? `ꜩ${walletState.balance.toFixed(2)}` : "ꜩ...";
     const domain = walletState.domain;
     const displayName = domain || shortAddr;
-    
+
     console.log(
       `%c 💼 Wallet %c ${displayName} %c ${balance} %c ${network} %c Contract: ${KEEPS_CONTRACT.slice(0, 10)}... `,
       "background: #0066FF; color: white; font-weight: bold; padding: 2px 8px; border-radius: 4px 0 0 4px;",
@@ -325,47 +350,47 @@ async function boot({ wallet, wipe, hud, ui, screen, user, handle }) {
       "background: #333; color: #888; padding: 2px 8px; border-radius: 0 4px 4px 0;"
     );
   }
-  
+
   // Get logged-in user sub and handle
   userSub = user?.sub || null;
   userHandle = typeof handle === "function" ? handle() : user?.handle || null;
-  
+
   connectError = null;
   connecting = false;
-  
+
   initDataStreams(screen);
-  
-  disconnectBtn = new ui.TextButton("Disconnect", { 
+
+  disconnectBtn = new ui.TextButton("Disconnect", {
     bottom: 6,
     right: 6,
-    screen 
+    screen
   });
-  
+
   connectTempleBtn = new ui.TextButton("Connect Wallet", {
     center: "x",
     y: -30,
     screen
   });
-  
+
   // Sub-buttons for connect options
   connectMobileBtn = new ui.TextButton("📱 Mobile App", {
-    center: "x", 
+    center: "x",
     y: 30,
     screen
   });
-  
+
   connectExtensionBtn = new ui.TextButton("🔌 Browser Extension", {
     center: "x",
     y: 0,
     screen
   });
-  
+
   // Login & signup buttons for keeps section (shown when wallet connected but not logged in)
   keepsLoginBtn = new ui.TextButton("Log in", { center: "xy", screen });
   keepsLoginBtn.stickyScrubbing = true;
   keepsSignupBtn = new ui.TextButton("I'm new", { center: "xy", screen });
   keepsSignupBtn.stickyScrubbing = true;
-  
+
   // Fire off data fetches in background (non-blocking)
   // UI will render immediately and update as data arrives
   Promise.all([
@@ -467,7 +492,7 @@ async function fetchNFTCount(address, network = "mainnet") {
 // Fetch Keeps tokens owned by this wallet on the current contract
 async function fetchOwnedKeeps(address, network = "mainnet") {
   if (!address) return;
-  
+
   try {
     const apiBase = network === "mainnet" ? "https://api.tzkt.io" : "https://api.ghostnet.tzkt.io";
     // Query tokens owned by this address on the Keeps contract (include balance=0 for burned)
@@ -475,7 +500,7 @@ async function fetchOwnedKeeps(address, network = "mainnet") {
     if (res.ok) {
       const data = await res.json();
       console.log(`📜 [WALLET] Found ${data.length} Keeps token records on contract ${KEEPS_CONTRACT.slice(0, 10)}...`);
-      
+
       // Also fetch all tokens on the contract to get mint dates
       const tokensRes = await fetch(`${apiBase}/v1/tokens?contract=${KEEPS_CONTRACT}&limit=100`);
       const allTokens = tokensRes.ok ? await tokensRes.json() : [];
@@ -483,7 +508,7 @@ async function fetchOwnedKeeps(address, network = "mainnet") {
       for (const t of allTokens) {
         tokenMintDates[t.tokenId] = t.firstTime; // When token was first minted
       }
-      
+
       // Fetch burn transactions for this address on this contract
       const burnRes = await fetch(`${apiBase}/v1/tokens/transfers?from=${address}&token.contract=${KEEPS_CONTRACT}&limit=100`);
       const burnTransfers = burnRes.ok ? await burnRes.json() : [];
@@ -497,7 +522,7 @@ async function fetchOwnedKeeps(address, network = "mainnet") {
           };
         }
       }
-      
+
       // TzKT returns token metadata directly in the response
       ownedKeeps = data.map((tb) => {
         const tokenId = tb.token.tokenId;
@@ -507,7 +532,7 @@ async function fetchOwnedKeeps(address, network = "mainnet") {
         const mintedAt = tokenMintDates[tokenId] || tb.token.firstTime;
         const burned = balance === 0;
         const burn = burnInfo[tokenId] || {};
-        
+
         return {
           tokenId,
           name,
@@ -521,7 +546,7 @@ async function fetchOwnedKeeps(address, network = "mainnet") {
           objktUrl: `https://objkt.com/asset/${KEEPS_CONTRACT}/${tokenId}`,
         };
       });
-      
+
       const activeKeeps = ownedKeeps.filter(k => !k.burned);
       const burnedKeeps = ownedKeeps.filter(k => k.burned);
       console.log(`📜 [WALLET] Owned Keeps: ${activeKeeps.length} active, ${burnedKeeps.length} burned`);
@@ -533,9 +558,9 @@ async function fetchOwnedKeeps(address, network = "mainnet") {
 
 async function fetchUserKidlisps(userSub) {
   if (!userSub) return;
-  
+
   console.log(`📜 [WALLET] Fetching keeps for contract: ${KEEPS_CONTRACT} (${KEEPS_NETWORK})`);
-  
+
   try {
     // Fetch recent KidLisp pieces and filter by user
     const res = await fetch(`/api/store-kidlisp?recent=true&limit=200`);
@@ -543,11 +568,11 @@ async function fetchUserKidlisps(userSub) {
       const data = await res.json();
       // Filter pieces by this user's sub (stored in user field)
       const allUserPieces = (data.recent || []).filter(p => p.user === userSub);
-      
+
       // Log kept status details
       const keptPieces = allUserPieces.filter(p => p.kept);
       console.log(`📜 [WALLET] Found ${allUserPieces.length} total pieces, ${keptPieces.length} marked as kept`);
-      
+
       if (keptPieces.length > 0) {
         console.log(`📜 [WALLET] Kept pieces contract breakdown:`);
         keptPieces.forEach(p => {
@@ -556,7 +581,7 @@ async function fetchUserKidlisps(userSub) {
           console.log(`   - $${p.code}: ${contract.slice(0,10)}... ${isCurrentContract ? '✅ current' : '❌ old contract'}`);
         });
       }
-      
+
       userKidlisps = allUserPieces
         .slice(0, 20) // Show more pieces
         .map(p => {
@@ -573,7 +598,7 @@ async function fetchUserKidlisps(userSub) {
             marqueeX: 0, // Individual marquee offset
           };
         });
-        
+
       const currentKeptCount = userKidlisps.filter(p => p.kept).length;
       console.log(`📜 [WALLET] Displaying ${userKidlisps.length} pieces, ${currentKeptCount} kept on current contract`);
     }
@@ -584,35 +609,35 @@ async function fetchUserKidlisps(userSub) {
 
 function sim({ wallet, jump, screen }) {
   frameCount++;
-  
+
   const newState = wallet.get();
-  
+
   // If we just got connected, clear error
   if (newState?.connected && !walletState?.connected) {
     connectError = null;
     connecting = false;
   }
-  
+
   walletState = newState;
-  
+
   const now = Date.now();
-  
+
   // Update block progress
   if (lastBlockTime) {
     blockProgress = Math.min(1, (now - lastBlockTime) / BLOCK_TIME);
   }
-  
+
   // Data refresh
   if (now - lastPriceFetch > PRICE_REFRESH) {
     fetchTezPrice(walletState?.network);
     lastPriceFetch = now;
   }
-  
+
   if (now - lastBlockFetch > BLOCK_REFRESH) {
     fetchHeadBlock(walletState?.network);
     lastBlockFetch = now;
   }
-  
+
   if (walletState?.connected) {
     if (now - lastBalanceFetch > BALANCE_REFRESH) {
       wallet.refreshBalance();
@@ -623,13 +648,13 @@ function sim({ wallet, jump, screen }) {
       lastTxFetch = now;
     }
   }
-  
+
   // KidLisp refresh (uses userSub, not wallet connection)
   if (now - lastKidlispFetch > KIDLISP_REFRESH && userSub) {
     fetchUserKidlisps(userSub);
     lastKidlispFetch = now;
   }
-  
+
   // Animate marquee for KidLisp source previews (slower, using source length)
   if (frameCount % 4 === 0) {
     for (const piece of userKidlisps) {
@@ -646,16 +671,16 @@ function sim({ wallet, jump, screen }) {
       }
     }
   }
-  
+
   // Animate news ticker (smooth, slower)
   if (frameCount % 4 === 0) {
     tickerX -= 1;
   }
-  
+
   // Build ticker text - Tezos financial news only
   const tickerParts = [];
   if (tezPrice?.usd) {
-    const change = priceHistory.length > 1 ? 
+    const change = priceHistory.length > 1 ?
       ((tezPrice.usd - priceHistory[0]) / priceHistory[0] * 100).toFixed(2) : 0;
     const arrow = change >= 0 ? "▲" : "▼";
     tickerParts.push(`XTZ $${tezPrice.usd.toFixed(3)} ${arrow}${Math.abs(change)}%`);
@@ -673,7 +698,7 @@ function sim({ wallet, jump, screen }) {
   if (tickerX < -tickerWidth) {
     tickerX = screen.width;
   }
-  
+
   // Animate streams
   for (const stream of dataStreams) {
     stream.y += stream.speed;
@@ -689,14 +714,17 @@ const TOP_BAR_BOTTOM = 21; // Standard HUD height
 const HUD_LABEL_WIDTH = 44; // "wallet" label width approx
 
 function paint($) {
+  // Set theme colors based on dark mode
+  colors = $.dark ? scheme.dark : scheme.light;
+
   const { wipe, ink, screen, line, box, ui, write } = $;
-  
+
   const w = screen.width;
   const h = screen.height;
   const m = 6;
-  
+
   wipe(colors.bg);
-  
+
   // Data streams background (dimmer)
   for (const stream of dataStreams) {
     const [r, g, b, a] = stream.color;
@@ -707,20 +735,20 @@ function paint($) {
       ink(r, g, b, fade).write(stream.chars[i], { x: stream.x, y: cy });
     }
   }
-  
+
   // Subtle grid (lighter)
   ink(colors.primary[0], colors.primary[1], colors.primary[2], 8);
   for (let x = 0; x < w; x += 24) line(x, 0, x, h);
   for (let y = 0; y < h; y += 24) line(0, y, w, y);
-  
+
   // Content starts below HUD bar
   let y = TOP_BAR_BOTTOM + 4;
-  
+
   // === COMPACT TOP ROW: Network indicator only ===
   if (walletState?.connected) {
     const netColor = walletState.network === "mainnet" ? colors.positive : colors.block;
     const isGhostnet = walletState.network !== "mainnet";
-    
+
     if (isGhostnet) {
       // Draw ghost and label on left
       const eyeShiftX = Math.max(0, Math.min(1, Math.round((Math.sin(frameCount / 12) + 1) / 2)));
@@ -732,31 +760,31 @@ function paint($) {
     }
   }
   y += 16;
-  
+
   if (walletState?.connected) {
     // === YOUR BALANCE section ===
     const balBarH = 50;
     const balBarTop = y;
     const headerH = 14;
-    
+
     // Background with left/right borders
     ink(0, 30, 50, 150).box(SECTION_MARGIN, balBarTop, w - SECTION_MARGIN * 2, balBarH, "fill");
     ink(0, 80, 120, 100).box(SECTION_MARGIN, balBarTop, w - SECTION_MARGIN * 2, balBarH, "outline");
-    
+
     const innerM = SECTION_MARGIN + SECTION_PAD;
     const headerY = balBarTop + SECTION_PAD;
     const rightInner = w - SECTION_MARGIN - SECTION_PAD;
-    
+
     // Section title (left)
     ink(...colors.primary).write("YOUR BALANCE", { x: innerM, y: headerY });
-    
+
     // Balance line: ꜩ X.XXXX (large unifont) - top right, same line as title
     const bal = walletState.balance !== null ? walletState.balance.toFixed(4) : "...";
     const balTextWidth = bal.length * 8 + 14; // unifont char width + ꜩ symbol
     const balStartX = rightInner - balTextWidth;
     ink(...colors.primary).write("ꜩ", { x: balStartX, y: headerY + TEZ_Y_ADJUST }, undefined, undefined, false, "unifont");
     ink(...colors.primaryBright).write(bal, { x: balStartX + 14, y: headerY }, undefined, undefined, false, "unifont");
-    
+
     // Left side: identity (domain / handle / address stacked)
     const contentY = headerY + headerH;
     let idY = contentY;
@@ -774,7 +802,7 @@ function paint($) {
       const shortAddr = `${addr.slice(0,6)}...${addr.slice(-4)}`;
       ink(...colors.textDim).write(shortAddr, { x: innerM, y: idY }, undefined, undefined, false, "MatrixChunky8");
     }
-    
+
     // Right side: USD value + XTZ price (below balance)
     // USD value of wallet
     if (walletState.balance !== null && tezPrice?.usd) {
@@ -783,32 +811,32 @@ function paint($) {
       const usdWidth = usdText.length * 6; // default font ~6px
       ink(...colors.text).write(usdText, { x: rightInner - usdWidth, y: contentY });
     }
-    
+
     // 1 XTZ price (below USD)
     if (tezPrice?.usd) {
       const tezText = `1 tez = $${tezPrice.usd.toFixed(2)}`;
       const tezWidth = tezText.length * 4; // MatrixChunky8 ~4px
       ink(...colors.textDim).write(tezText, { x: rightInner - tezWidth, y: contentY + 12 }, undefined, undefined, false, "MatrixChunky8");
     }
-    
+
     y = balBarTop + balBarH + SECTION_GAP;
-    
+
     // === KIDLISP PIECES (two columns: Kept / Unkept) ===
     // Show login/signup buttons if wallet connected but not logged in
     if (!userSub && walletState?.connected) {
       y += 12;
-      
+
       // Position buttons side by side like prompt.mjs
       keepsLoginBtn.reposition({ center: "x", y, screen });
       keepsSignupBtn.reposition({ center: "x", y, screen });
       const offset = 5;
       keepsSignupBtn.btn.box.x += keepsSignupBtn.btn.box.w / 2 + offset;
       keepsLoginBtn.btn.box.x -= keepsLoginBtn.btn.box.w / 2 + offset;
-      
+
       // Paint with prompt.mjs style colors (dark mode)
       keepsLoginBtn.paint({ ink, box, write }, [[0, 0, 64], 255, 255, [0, 0, 64]]);
       keepsSignupBtn.paint({ ink, box, write }, [[0, 64, 0], 255, 255, [0, 64, 0]]);
-      
+
       y += 28;
       // Subtitle below buttons
       ink(...colors.textDim).write("to see your keeps", { x: w/2, y, center: "x" });
@@ -822,7 +850,7 @@ function paint($) {
           (!p.kept.keptBy && !p.kept.walletAddress));
       const keptPieces = userKidlisps.filter(isKeptByUser);
       const unkeptPieces = userKidlisps.filter(p => !isKeptByUser(p));
-      
+
       // Build unified keeps: merge keptPieces with ownership info from ownedKeeps
       const unifiedKeeps = keptPieces.map(p => {
         const owned = ownedKeeps.find(o => o.tokenId === p.kept?.tokenId);
@@ -843,7 +871,7 @@ function paint($) {
           source: p.source || '',
         };
       });
-      
+
       // Add collected tokens (owned but not authored by user)
       const authoredTokenIds = new Set(keptPieces.map(p => p.kept?.tokenId).filter(Boolean));
       for (const owned of ownedKeeps) {
@@ -864,34 +892,34 @@ function paint($) {
           });
         }
       }
-      
+
       // Sort by recent activity (most recent first)
       unifiedKeeps.sort((a, b) => {
         const aTime = a.lastActivity?.getTime() || 0;
         const bTime = b.lastActivity?.getTime() || 0;
         return bTime - aTime;
       });
-      
+
       const rowH = 18; // Taller rows for buttons
       const headerH = 14;
       const innerPad = SECTION_PAD;
       const fullW = w - SECTION_MARGIN * 2;
-      
+
       // === YOUR KIDLISP KEEPS section (unified) ===
       if (unifiedKeeps.length > 0) {
         const maxKeepsRows = Math.min(8, Math.max(4, Math.floor((h - y - 60) / rowH / 2)));
         const keepsH = innerPad + headerH + Math.min(maxKeepsRows, unifiedKeeps.length) * rowH + innerPad;
-        
+
         // Background with left/right borders
         ink(0, 40, 30, 180).box(SECTION_MARGIN, y, fullW, keepsH, "fill");
         ink(0, 100, 60, 100).box(SECTION_MARGIN, y, fullW, keepsH, "outline");
-        
+
         const innerX = SECTION_MARGIN + innerPad;
         const headerY = y + innerPad;
-        
+
         // Header
         ink(...colors.positive).write(KEEPS_STAGING ? "YOUR KIDLISP KEEPS on" : "YOUR KIDLISP KEEPS", { x: innerX, y: headerY });
-        
+
         // Staging button
         if (KEEPS_STAGING) {
           const stagingX = innerX + 132; // After "YOUR KIDLISP KEEPS on "
@@ -905,27 +933,27 @@ function paint($) {
             [[100, 80, 0], [180, 140, 0], [255, 255, 200], [100, 80, 0]]
           );
         }
-        
+
         const keepsStartY = headerY + headerH;
         const activeOwnedIds = new Set();
-        
+
         for (let i = 0; i < Math.min(maxKeepsRows, unifiedKeeps.length); i++) {
           const keep = unifiedKeeps[i];
           const rowY = keepsStartY + i * rowH;
           const textY = rowY + 3; // Center text vertically in row
           activeOwnedIds.add(keep.tokenId);
-          
+
           // Token ID
           ink(...colors.primaryBright).write(`#${keep.tokenId}`, { x: innerX, y: textY }, undefined, undefined, false, "MatrixChunky8");
-          
+
           // Code name (color indicates status)
           const isBurned = keep.burned;
           const nameColor = isBurned ? colors.negative : (keep.owned ? colors.positive : colors.textDim);
           ink(...nameColor).write(`$${keep.code}`, { x: innerX + 16, y: textY }, undefined, undefined, false, "MatrixChunky8");
-          
+
           // Info section: mint date or burn info
           let infoX = innerX + 16 + (keep.code.length + 1) * 4 + 6;
-          
+
           if (isBurned) {
             // Show burn info: "burned by X on Date"
             ink(255, 100, 100).write("burned", { x: infoX, y: textY }, undefined, undefined, false, "MatrixChunky8");
@@ -947,7 +975,7 @@ function paint($) {
               ink(...colors.textDim).write(dateStr, { x: infoX, y: textY }, undefined, undefined, false, "MatrixChunky8");
               infoX += dateStr.length * 4 + 4;
             }
-            
+
             // Held by badge if collected (not authored)
             if (keep.collected) {
               const holder = walletState?.domain || (walletState?.address ? walletState.address.slice(0, 8) + "..." : "you");
@@ -955,7 +983,7 @@ function paint($) {
               ink(...colors.primaryBright).write(holder, { x: infoX + 5 * 4, y: textY }, undefined, undefined, false, "MatrixChunky8");
             }
           }
-          
+
           // OBJKT.com button (flush right)
           const btnRightEdge = w - SECTION_MARGIN - innerPad;
           const objktBtnX = btnRightEdge - 42; // ~42px button width
@@ -970,33 +998,33 @@ function paint($) {
             isBurned ? [[80, 40, 40], [140, 70, 70], [220, 150, 150], [80, 40, 40]] : [[0, 60, 80], [0, 140, 180], [200, 255, 255], [0, 60, 80]]
           );
         }
-        
+
         // Clean up buttons
         for (const tokenId of Object.keys(ownedKeepBtns)) {
           if (!activeOwnedIds.has(parseInt(tokenId))) {
             delete ownedKeepBtns[tokenId];
           }
         }
-        
+
         y += keepsH + SECTION_GAP;
       }
-      
+
       // === YOUR KIDLISP section (unkept pieces) ===
       if (unkeptPieces.length > 0) {
         const maxRows = Math.min(6, Math.max(3, Math.floor((h - y - 30) / rowH)));
         const kidlispH = innerPad + headerH + Math.min(maxRows, unkeptPieces.length) * rowH + innerPad;
-        
+
         // Background with left/right borders
         ink(40, 20, 60, 180).box(SECTION_MARGIN, y, fullW, kidlispH, "fill");
         ink(100, 50, 120, 100).box(SECTION_MARGIN, y, fullW, kidlispH, "outline");
-        
+
         const innerX = SECTION_MARGIN + innerPad;
         const headerY = y + innerPad;
-        
+
         // Header
         ink(...colors.secondary).write("YOUR KIDLISP", { x: innerX, y: headerY });
         const kidlispStartY = headerY + headerH;
-        
+
         // Draw unkept pieces with KEEP buttons and syntax-highlighted source ticker
         const activeKeepCodes = new Set();
         for (let i = 0; i < Math.min(maxRows, unkeptPieces.length); i++) {
@@ -1004,17 +1032,17 @@ function paint($) {
           const rowY = kidlispStartY + i * rowH;
           const textY = rowY + 3; // Center text vertically
           activeKeepCodes.add(piece.code);
-          
+
           // Code name
           const codeW = (piece.code.length + 1) * 4 + 4;
           ink(...colors.secondary).write(`$${piece.code}`, { x: innerX, y: textY }, undefined, undefined, false, "MatrixChunky8");
-          
+
           // Timestamp (relative time)
           const timeStr = piece.when ? relativeTime(piece.when) : "";
           if (timeStr) {
             ink(...colors.textDim).write(timeStr, { x: innerX + codeW, y: textY }, undefined, undefined, false, "MatrixChunky8");
           }
-          
+
           // Keep button (flush right)
           const btnRightEdge = w - SECTION_MARGIN - innerPad;
           const btnX = btnRightEdge - 22; // ~22px button width
@@ -1026,25 +1054,25 @@ function paint($) {
           }
           keepButtons[piece.code].paint({ ink, box, write });
         }
-        
+
         // Clean up buttons
         for (const code of Object.keys(keepButtons)) {
           if (!activeKeepCodes.has(code)) {
             delete keepButtons[code];
           }
         }
-        
+
         y += kidlispH + SECTION_GAP;
       }
     }
-    
+
     // Disconnect button (moved up, above ticker)
     disconnectBtn?.reposition({ bottom: 18, right: 6, screen });
-    disconnectBtn?.paint($, 
+    disconnectBtn?.paint($,
       [[50, 30, 40], [120, 70, 90], [180, 150, 170], [50, 30, 40]],
       [[80, 50, 60], [180, 100, 120], [255, 255, 255], [80, 50, 60]]
     );
-    
+
     // === BOTTOM TICKER ===
     if (tickerText) {
       const tickerY = h - 10;
@@ -1054,7 +1082,7 @@ function paint($) {
   } else {
     // Not connected - show connection UI
     const cy = h / 2 - 30;
-    
+
     // Title
     ink(...colors.primary).write("ꜩ", { x: w/2, y: cy - 50 + TEZ_Y_ADJUST, center: "x" }, undefined, undefined, false, "unifont");
     ink(...colors.text).write("CONNECT WALLET", { x: w/2, y: cy - 20, center: "x" });
@@ -1062,7 +1090,7 @@ function paint($) {
       const displayHandle = userHandle.startsWith("@") ? userHandle : `@${userHandle}`;
       ink(...colors.primaryBright).write(displayHandle, { x: w/2, y: cy - 6, center: "x" }, undefined, undefined, false, "MatrixChunky8");
     }
-    
+
     if (showConnectOptions) {
       // Show two options: Browser Extension and Mobile App
       connectExtensionBtn?.reposition({ center: "x", y: cy + 5, screen });
@@ -1070,13 +1098,13 @@ function paint($) {
         [[0, 60, 100], [0, 140, 200], [200, 230, 255], [0, 60, 100]],
         [[0, 80, 130], [0, 180, 255], [255, 255, 255], [0, 80, 130]]
       );
-      
+
       connectMobileBtn?.reposition({ center: "x", y: cy + 35, screen });
       connectMobileBtn?.paint($,
         [[60, 40, 80], [120, 80, 160], [200, 160, 255], [60, 40, 80]],
         [[80, 60, 100], [160, 120, 200], [255, 255, 255], [80, 60, 100]]
       );
-      
+
       ink(...colors.textDim).write("Choose connection method", { x: w/2, y: cy + 70, center: "x" });
     } else {
       // Connect Wallet button
@@ -1086,28 +1114,28 @@ function paint($) {
         [[0, 80, 130], [0, 180, 255], [255, 255, 255], [0, 80, 130]]
       );
     }
-    
+
     // Show connecting state or error
     if (connecting) {
       ink(...colors.primaryBright).write("Connecting...", { x: w/2, y: cy + 90, center: "x" });
     } else if (connectError) {
       ink(...colors.negative).write(connectError, { x: w/2, y: cy + 90, center: "x" });
     }
-    
+
     // Hint
     ink(...colors.textDim).write("ESC to go back", { x: w/2, y: cy + 110, center: "x" });
-    
+
     if (tezPrice?.usd) {
       ink(...colors.primary).write("ꜩ", { x: w/2 - 30, y: h - 12 + TEZ_Y_ADJUST }, undefined, undefined, false, "unifont");
       ink(...colors.text).write(`$${tezPrice.usd.toFixed(4)}`, { x: w/2 - 18, y: h - 12 });
     }
   }
-  
+
   // === QR CODE OVERLAY (drawn last to overlay everything) ===
   if (showQR) {
     // Dark overlay
     ink(0, 0, 0, 220).box(0, 0, w, h);
-    
+
     if (pairingError) {
       // Show error
       ink(...colors.negative).write("QR Generation Failed", { x: w/2, y: h/2 - 20, center: "x" });
@@ -1123,10 +1151,10 @@ function paint($) {
       const qrW = cellSize * qrCells.length;
       const qrX = Math.floor((w - qrW) / 2);
       const qrY = Math.floor((h - qrW) / 2) - 30;
-      
+
       // White background
       ink(255, 255, 255).box(qrX - 8, qrY - 8, qrW + 16, qrW + 16);
-      
+
       // QR cells
       ink(0, 0, 0);
       for (let row = 0; row < qrCells.length; row++) {
@@ -1136,7 +1164,7 @@ function paint($) {
           }
         }
       }
-      
+
       // Labels
       ink(...colors.primaryBright).write("SCAN WITH TEMPLE APP", { x: w/2, y: qrY + qrW + 16, center: "x" });
       ink(...colors.textDim).write("Open Temple → Settings → Pair", { x: w/2, y: qrY + qrW + 30, center: "x" });
@@ -1163,19 +1191,19 @@ function act({ event: e, wallet, jump, screen, net }) {
     connectMobileBtn?.reposition({ center: "x", y: screen.height / 2 - 60 + 65, screen });
     initDataStreams(screen);
   }
-  
+
   // Close QR overlay on any tap when showing
   if (showQR && (e.is("touch") || e.is("keyboard:down:escape") || e.is("keyboard:down:enter"))) {
     showQR = false;
     return;
   }
-  
+
   // Close connect options on ESC
   if (showConnectOptions && e.is("keyboard:down:escape")) {
     showConnectOptions = false;
     return;
   }
-  
+
   // Handle wallet connect buttons when not connected
   if (!walletState?.connected && !connecting) {
     if (showConnectOptions) {
@@ -1193,7 +1221,7 @@ function act({ event: e, wallet, jump, screen, net }) {
           }
         }
       });
-      
+
       // Mobile app button - show our own QR code for P2P pairing
       connectMobileBtn?.btn.act(e, {
         push: () => {
@@ -1207,8 +1235,8 @@ function act({ event: e, wallet, jump, screen, net }) {
             if (response.result === "success" && response.pairingInfo) {
               try {
                 // pairingInfo is now the bs58check encoded string
-                const code = typeof response.pairingInfo === "string" 
-                  ? response.pairingInfo 
+                const code = typeof response.pairingInfo === "string"
+                  ? response.pairingInfo
                   : JSON.stringify(response.pairingInfo);
                 qrCells = qr(code).modules;
                 console.log("🔷 QR generated for mobile pairing, code length:", code.length);
@@ -1232,7 +1260,7 @@ function act({ event: e, wallet, jump, screen, net }) {
       });
     }
   }
-  
+
   if (walletState?.connected) {
     disconnectBtn?.btn.act(e, {
       push: () => {
@@ -1240,7 +1268,7 @@ function act({ event: e, wallet, jump, screen, net }) {
         showQR = false;
       }
     });
-    
+
     // Login/signup buttons for keeps (when not logged in)
     if (!userSub) {
       keepsLoginBtn?.btn.act(e, {
@@ -1254,7 +1282,7 @@ function act({ event: e, wallet, jump, screen, net }) {
         }
       });
     }
-    
+
     // Handle KEEP button clicks (TextButtonSmall has .btn property)
     for (const [code, btn] of Object.entries(keepButtons)) {
       btn.btn.act(e, {
@@ -1264,7 +1292,7 @@ function act({ event: e, wallet, jump, screen, net }) {
         }
       });
     }
-    
+
     // Handle staging contract link click
     if (KEEPS_STAGING && stagingLinkBtn) {
       stagingLinkBtn.btn.act(e, {
@@ -1275,7 +1303,7 @@ function act({ event: e, wallet, jump, screen, net }) {
         }
       });
     }
-    
+
     // Handle owned keeps objkt link clicks
     for (const [tokenId, btn] of Object.entries(ownedKeepBtns)) {
       btn.btn.act(e, {
@@ -1287,7 +1315,7 @@ function act({ event: e, wallet, jump, screen, net }) {
       });
     }
   }
-  
+
   if (e.is("keyboard:down:escape")) {
     if (showQR) {
       showQR = false;

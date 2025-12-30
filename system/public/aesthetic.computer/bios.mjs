@@ -620,6 +620,18 @@ window.acDISK_SEND = function (message) {
   !diskSendsConsumed ? diskSends.push(message) : window.acSEND(message);
 };
 
+// 🔍 CDP Debug State - Expose piece state for browser automation
+// Pieces can call `_send({ type: "debug:state", content: {...} })` to update this
+window.acPieceState = null;
+window.acGetState = () => ({
+  piece: window.acSTARTING_PIECE,
+  user: window.acUSER,
+  debug: window.acDEBUG,
+  pieceState: window.acPieceState,
+  paused: window.__acLoopPaused || false,
+  timestamp: Date.now(),
+});
+
 function consumeDiskSends(send) {
   if (diskSendsConsumed) return;
   diskSends.forEach((message) => send(message));
@@ -3879,6 +3891,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // 🎹 Debug messages from disk worker (DAW sync debugging)
     if (type === "disk:debug") {
       console.log("🎹 BIOS received disk:debug from worker:", content);
+      return;
+    }
+
+    // 🔍 Debug state from pieces for CDP automation
+    if (type === "debug:state") {
+      window.acPieceState = content;
       return;
     }
     
