@@ -415,7 +415,7 @@ class ArteryTUI {
     this.allPieces = []; // Loaded from disks directory
     this.filteredPieces = []; // Filtered by search
     this.maxLogs = 100;
-    this.width = process.stdout.columns || 80;
+    this.width = process.stdout.columns || parseInt(require("child_process").execSync("tput cols 2>/dev/null || echo 120").toString().trim()) || 120;
     this.height = process.stdout.rows || 24;
     this.inputBuffer = '';
     this.statusMessage = '';
@@ -1021,7 +1021,7 @@ class ArteryTUI {
       // Debounce resize events - wait for them to settle
       this.resizeTimeout = setTimeout(() => {
         this.resizeTimeout = null; // Clear the timeout reference so animation resumes
-        this.width = process.stdout.columns || 80;
+        this.width = process.stdout.columns || parseInt(require("child_process").execSync("tput cols 2>/dev/null || echo 120").toString().trim()) || 120;
         this.height = process.stdout.rows || 24;
         this.forceFullRedraw = true; // Force complete redraw on resize
         this.lastRenderedBuffer = []; // Clear buffer to force full redraw
@@ -1077,7 +1077,7 @@ class ArteryTUI {
       this.forceFullRedraw = true;
       this.render();
       
-      setTimeout(doFlash, 300); // Slower flash for readability
+      if (this.flashCount >= 6) { this.stopFlash(); return; } setTimeout(doFlash, 300);
     };
     
     doFlash();
@@ -1100,7 +1100,7 @@ class ArteryTUI {
       try {
         if (fs.existsSync(notifyFile)) {
           fs.unlinkSync(notifyFile); // Remove immediately
-          this.triggerFlash();
+          // this.triggerFlash(); // Disabled - using emacs ambient notify instead
         }
       } catch (e) {
         // Ignore errors
@@ -1503,7 +1503,7 @@ class ArteryTUI {
       
       // Only handle left click release (button 0)
       if (button === 0 && release) {
-        this.handleMouseClick(col, row);
+        if (this.flashActive) { this.stopFlash(); return; } this.handleMouseClick(col, row);
       }
       return;
     }
