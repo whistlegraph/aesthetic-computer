@@ -21,7 +21,7 @@ if (dev) {
 }
 
 // Configuration
-const CONTRACT_ADDRESS = process.env.TEZOS_KEEPS_CONTRACT || "KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM";
+const CONTRACT_ADDRESS = process.env.TEZOS_KEEPS_CONTRACT || "KT1JEVyKjsMLts63e4CNaMUywWTPgeQ41Smi";
 const NETWORK = process.env.TEZOS_NETWORK || "mainnet";
 const RPC_URL = NETWORK === "mainnet" 
   ? "https://mainnet.ecadinfra.com"
@@ -148,12 +148,16 @@ export const handler = stream(async (event) => {
         return;
       }
 
-      const { piece, tokenId, artifactUri, thumbnailUri, walletAddress } = body;
+      const { piece, tokenId, artifactUri, thumbnailUri, walletAddress, mode } = body;
 
       if (!piece || !tokenId || !artifactUri) {
         await send("error", { error: "Missing required fields: piece, tokenId, artifactUri" });
         return;
       }
+      
+      // mode: "prepare" returns params for client-side wallet signing (preserves artist attribution)
+      // mode: undefined = server-side signing (DEPRECATED - breaks objkt.com "Created" tab)
+      const isPrepareMode = mode === "prepare";
 
       const pieceName = piece.replace(/^\$/, "");
 
@@ -223,11 +227,16 @@ export const handler = stream(async (event) => {
       await send("progress", { stage: "metadata", message: "✓ Metadata ready" });
       await send("progress", { stage: "tezos", message: "Connecting to Tezos..." });
 
-      // Get Tezos credentials and set up client
-      const credentials = await getTezosCredentials();
+      // Set up Tezos client
       const tezos = new TezosToolkit(RPC_URL);
-      const signer = new InMemorySigner(credentials.privateKey);
-      tezos.setProvider({ signer });
+      
+      // Only use admin signer for non-prepare mode (deprecated path)
+      let credentials = null;
+      if (!isPrepareMode) {
+        credentials = await getTezosCredentials();
+        const signer = new InMemorySigner(credentials.privateKey);
+        tezos.setProvider({ signer });
+      }
 
       await send("progress", { stage: "tezos", message: `✓ Connected to ${NETWORK}` });
       await send("progress", { stage: "contract", message: "Loading contract..." });
@@ -372,6 +381,58 @@ export const handler = stream(async (event) => {
       const contract = await tezos.contract.at(CONTRACT_ADDRESS);
       
       await send("progress", { stage: "contract", message: "✓ Contract loaded" });
+
+      // ═══════════════════════════════════════════════════════════════════
+      // PREPARE MODE: Return Michelson params for client-side wallet signing
+      // This preserves artist attribution on objkt.com because the original
+      // creator's wallet signs the edit_metadata call, not the admin server.
+      // ═══════════════════════════════════════════════════════════════════
+      if (isPrepareMode) {
+        await send("progress", { stage: "ready", message: "Ready for wallet signature..." });
+        
+        // Generate the Michelson params for the contract call
+        const transferParams = contract.methodsObject.edit_metadata({
+          token_id: parseInt(tokenId),
+          token_info: tokenInfo,
+        }).toTransferParams();
+        
+        // Update database to clear pendingRebake and store the new metadata URI
+        // (the actual on-chain URIs will be updated after client confirms tx)
+        await collection.updateOne(
+          { code: pieceName },
+          { 
+            $set: { 
+              [`tezos.contracts.${CONTRACT_ADDRESS}.pendingMetadataUri`]: newMetadataUri,
+              [`tezos.contracts.${CONTRACT_ADDRESS}.pendingArtifactUri`]: artifactUri,
+              [`tezos.contracts.${CONTRACT_ADDRESS}.pendingThumbnailUri`]: thumbnailUri,
+            },
+          }
+        );
+        
+        await send("prepared", {
+          success: true,
+          piece: pieceName,
+          tokenId,
+          contractAddress: CONTRACT_ADDRESS,
+          network: NETWORK,
+          // Send the Michelson-encoded parameters for Beacon wallet
+          michelsonParams: transferParams.parameter,
+          entrypoint: "edit_metadata",
+          artifactUri,
+          thumbnailUri,
+          metadataUri: newMetadataUri,
+          rpcUrl: RPC_URL,
+        });
+        return;
+      }
+
+      // ═══════════════════════════════════════════════════════════════════
+      // SERVER-SIDE SIGNING (DEPRECATED)
+      // This path breaks artist attribution on objkt.com because the admin
+      // wallet signs the transaction instead of the original creator.
+      // TODO: Remove this once client-side signing is confirmed working.
+      // ═══════════════════════════════════════════════════════════════════
+      console.warn("🪙 KEEP-UPDATE: Using deprecated server-side signing - this will break objkt attribution!");
       await send("progress", { stage: "submit", message: "Submitting transaction..." });
 
       const op = await contract.methodsObject.edit_metadata({
