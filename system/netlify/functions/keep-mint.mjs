@@ -753,6 +753,11 @@ export const handler = stream(async (event, context) => {
         const tezos = new TezosToolkit(RPC_URL);
         const contract = await tezos.contract.at(CONTRACT_ADDRESS);
         
+        // Read the keep_fee from contract storage
+        const storage = await contract.storage();
+        const keepFeeMutez = storage.keep_fee?.toNumber?.() ?? 0;
+        const keepFeeXtz = keepFeeMutez / 1_000_000;
+        
         // Use the wallet address validated earlier
         const ownerAddress = creatorWalletAddress;
         
@@ -782,7 +787,7 @@ export const handler = stream(async (event, context) => {
           piece: pieceName,
           contractAddress: CONTRACT_ADDRESS,
           network: NETWORK,
-          mintFee: 0, // Contract keep_fee is 0 (free minting)
+          mintFee: keepFeeXtz, // Read from contract storage
           // Send the Michelson-encoded parameters for Beacon
           michelsonParams: transferParams.parameter,
           entrypoint: "keep",
@@ -817,6 +822,11 @@ export const handler = stream(async (event, context) => {
       }
 
       const contract = await tezos.contract.at(CONTRACT_ADDRESS);
+        
+        // Read the keep_fee from contract storage
+        const storage = await contract.storage();
+        const keepFeeMutez = storage.keep_fee?.toNumber?.() ?? 0;
+        const keepFeeXtz = keepFeeMutez / 1_000_000;
       
       const op = await contract.methodsObject.keep({
         artifactUri: onChainMetadata.artifactUri,

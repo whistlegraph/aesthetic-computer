@@ -20,6 +20,230 @@ import {
 
 const { min, max, floor, sin, cos, PI, abs } = Math;
 
+// Theme scheme for light/dark mode
+export const scheme = {
+  dark: {
+    bg: [25, 28, 35],
+    bgShimmer: [20, 35, 40],
+    bgPanel: [30, 35, 45],
+    bgCarousel: [25, 30, 40],
+    bgProgress: [30, 35, 45],
+    text: pal.text,
+    textDim: [100, 110, 130],
+    textMuted: pal.textMuted,
+    accent: [100, 200, 255],
+    positive: pal.positive,
+    warning: pal.gold,
+    error: [255, 100, 120],
+    gold: pal.gold,
+    stripe: [40, 45, 55],
+    divider: [50, 55, 65],
+    arrow: [100, 110, 130],
+    // Button color schemes
+    btnLink: {
+      normal: { bg: [30, 60, 70], outline: [100, 180, 220], outlineAlpha: 150, text: [100, 180, 220] },
+      hover: { bg: [50, 90, 110], outline: [180, 240, 255], outlineAlpha: 200, text: [180, 240, 255] },
+      disabled: { bg: [25, 35, 40], outline: [60, 80, 90], outlineAlpha: 100, text: [60, 80, 90] }
+    },
+    btnObjkt: {
+      normal: { bg: [40, 80, 70], outline: [100, 200, 160], outlineAlpha: 150, text: [255, 255, 255] },
+      hover: { bg: [60, 120, 100], outline: [150, 255, 200], outlineAlpha: 200, text: [255, 255, 255] },
+      disabled: { bg: [35, 50, 45], outline: [70, 130, 100], outlineAlpha: 100, text: [140, 160, 150] }
+    },
+    btnRebake: {
+      normal: { bg: [80, 60, 40], outline: [255, 180, 100], outlineAlpha: 150, text: [255, 200, 140] },
+      hover: { bg: [120, 90, 60], outline: [255, 220, 150], outlineAlpha: 200, text: [255, 240, 200] },
+      disabled: { bg: [50, 45, 40], outline: [120, 100, 80], outlineAlpha: 100, text: [140, 120, 100] }
+    },
+    btnSync: {
+      normal: { bg: [50, 30, 80], outline: [140, 100, 200], outlineAlpha: 150, text: [200, 150, 255] },
+      hover: { bg: [70, 50, 120], outline: [180, 140, 255], outlineAlpha: 200, text: [230, 200, 255] },
+      disabled: { bg: [30, 25, 40], outline: [80, 60, 100], outlineAlpha: 100, text: [100, 80, 120] }
+    },
+    btnWallet: {
+      normal: { bg: [40, 40, 55], outline: [100, 100, 140], outlineAlpha: 120, text: [140, 140, 180] },
+      hover: { bg: [55, 55, 75], outline: [140, 140, 200], outlineAlpha: 180, text: [180, 180, 220] },
+      disabled: { bg: [30, 30, 40], outline: [60, 60, 80], outlineAlpha: 80, text: [80, 80, 100] }
+    },
+    btnContract: {
+      normal: { bg: [35, 45, 55], outline: [100, 140, 180], outlineAlpha: 120, text: [140, 180, 220] },
+      hover: { bg: [45, 60, 75], outline: [140, 180, 220], outlineAlpha: 180, text: [180, 220, 255] },
+      disabled: { bg: [25, 30, 35], outline: [60, 80, 100], outlineAlpha: 80, text: [80, 100, 120] }
+    },
+    btnTx: {
+      normal: { bg: [40, 70, 60], outline: [100, 200, 150], outlineAlpha: 150, text: [150, 255, 200] },
+      hover: { bg: [50, 90, 75], outline: [150, 255, 200], outlineAlpha: 200, text: [200, 255, 230] },
+      disabled: { bg: [30, 40, 35], outline: [60, 100, 80], outlineAlpha: 100, text: [80, 120, 100] }
+    },
+    btnPreview: {
+      normalBase: { bg: [25, 55, 50], outline: [80, 210, 190], outlineAlpha: 180, text: [100, 220, 200] },
+      hover: { bg: [40, 80, 70], outline: [130, 255, 230], outlineAlpha: 220, text: [150, 255, 240] },
+      disabled: { bg: [20, 35, 32], outline: [50, 120, 100], outlineAlpha: 100, text: [50, 120, 100] }
+    },
+    btnConfirm: {
+      normalBase: { bg: [40, 75, 55], outline: [110, 220, 150], outlineAlpha: 230, text: [160, 255, 200] },
+      hover: { bg: [55, 105, 80], outline: [170, 255, 210], outlineAlpha: 255, text: [230, 255, 245] },
+      disabled: { bg: [30, 40, 35], outline: [60, 100, 80], outlineAlpha: 100, text: [80, 120, 100] }
+    },
+    btnLogin: {
+      normalBase: { bg: [50, 55, 80], outline: [130, 150, 220], outlineAlpha: 200, text: [170, 190, 255] },
+      hover: { bg: [65, 75, 110], outline: [175, 195, 255], outlineAlpha: 240, text: [210, 220, 255] },
+      disabled: { bg: [30, 35, 45], outline: [70, 80, 100], outlineAlpha: 100, text: [90, 100, 120] }
+    },
+    btnCached: {
+      normal: { bg: [50, 40, 30], outline: [160, 120, 80], outlineAlpha: 120, text: [160, 120, 80] },
+      hover: { bg: [70, 55, 40], outline: [200, 160, 100], outlineAlpha: 180, text: [200, 160, 100] },
+    },
+    btnNet: {
+      normal: { bg: [35, 50, 60], text: [100, 140, 160] },
+      hover: { bg: [50, 70, 80], text: [160, 200, 220] },
+    },
+    btnView: {
+      normal: { bg: [40, 80, 60], outline: [100, 220, 150], outlineAlpha: 150, text: [255, 255, 255] },
+      hover: { bg: [60, 120, 90], outline: [150, 255, 200], outlineAlpha: 200, text: [255, 255, 255] },
+      disabled: { bg: [35, 50, 45], outline: [70, 130, 100], outlineAlpha: 100, text: [140, 160, 150] }
+    },
+    btnToll: {
+      normal: { bg: [60, 120, 80], text: [200, 255, 220] },
+      hover: { bg: [80, 150, 100], text: [255, 255, 255] },
+    },
+    btnStaging: {
+      normal: { bg: [50, 100, 70], outline: [100, 180, 140], text: [180, 255, 200] },
+      hover: { bg: [80, 150, 100], outline: [150, 255, 200], text: [255, 255, 255] },
+    },
+    btnRetry: {
+      normal: { bg: [100, 50, 50], outline: [255, 120, 120], outlineAlpha: 150, text: [255, 255, 255] },
+      hover: { bg: [140, 70, 70], outline: [255, 160, 160], outlineAlpha: 200, text: [255, 255, 255] },
+      disabled: { bg: [60, 40, 40], outline: [120, 80, 80], outlineAlpha: 100, text: [140, 120, 120] }
+    },
+  },
+  light: {
+    bg: [245, 243, 238],
+    bgShimmer: [235, 240, 235],
+    bgPanel: [235, 238, 242],
+    bgCarousel: [230, 233, 240],
+    bgProgress: [220, 225, 235],
+    text: [30, 35, 45],
+    textDim: pal.textMuted,
+    textMuted: [120, 130, 150],
+    accent: [0, 120, 180],
+    positive: [30, 160, 80],
+    warning: [180, 120, 20],
+    error: [200, 60, 80],
+    gold: [180, 130, 30],
+    stripe: [220, 225, 235],
+    divider: [200, 205, 215],
+    arrow: [140, 150, 170],
+    // Button color schemes (light mode)
+    btnLink: {
+      normal: { bg: [220, 235, 240], outline: [40, 120, 160], outlineAlpha: 180, text: [40, 120, 160] },
+      hover: { bg: [200, 225, 235], outline: [20, 100, 140], outlineAlpha: 220, text: [20, 100, 140] },
+      disabled: { bg: [235, 240, 242], outline: [150, 170, 180], outlineAlpha: 120, text: [150, 170, 180] }
+    },
+    btnObjkt: {
+      normal: { bg: [210, 235, 225], outline: [60, 150, 110], outlineAlpha: 180, text: [40, 100, 70] },
+      hover: { bg: [195, 225, 210], outline: [40, 130, 90], outlineAlpha: 220, text: [30, 80, 50] },
+      disabled: { bg: [230, 240, 235], outline: [130, 170, 150], outlineAlpha: 120, text: [130, 150, 140] }
+    },
+    btnRebake: {
+      normal: { bg: [245, 235, 215], outline: [160, 120, 40], outlineAlpha: 180, text: [160, 120, 40] },
+      hover: { bg: [240, 225, 195], outline: [140, 100, 20], outlineAlpha: 220, text: [140, 100, 20] },
+      disabled: { bg: [242, 238, 230], outline: [180, 170, 150], outlineAlpha: 120, text: [180, 170, 150] }
+    },
+    btnSync: {
+      normal: { bg: [235, 225, 245], outline: [100, 70, 150], outlineAlpha: 180, text: [100, 70, 150] },
+      hover: { bg: [225, 212, 240], outline: [80, 50, 130], outlineAlpha: 220, text: [80, 50, 130] },
+      disabled: { bg: [240, 238, 245], outline: [160, 150, 175], outlineAlpha: 120, text: [160, 150, 175] }
+    },
+    btnWallet: {
+      normal: { bg: [235, 230, 245], outline: [100, 80, 140], outlineAlpha: 180, text: [100, 80, 140] },
+      hover: { bg: [225, 218, 240], outline: [80, 60, 120], outlineAlpha: 220, text: [80, 60, 120] },
+    },
+    btnContract: {
+      normal: { bg: [225, 235, 245], outline: [70, 110, 140], outlineAlpha: 150, text: [50, 90, 130] },
+      hover: { bg: [210, 225, 240], outline: [50, 90, 120], outlineAlpha: 200, text: [30, 70, 110] },
+      disabled: { bg: [245, 250, 252], outline: [150, 170, 190], outlineAlpha: 100, text: [150, 170, 190] }
+    },
+    btnTx: {
+      normal: { bg: [220, 245, 235], outline: [40, 150, 100], outlineAlpha: 180, text: [30, 130, 80] },
+      hover: { bg: [200, 235, 220], outline: [30, 130, 80], outlineAlpha: 220, text: [20, 110, 60] },
+      disabled: { bg: [245, 252, 248], outline: [170, 200, 185], outlineAlpha: 100, text: [170, 200, 185] }
+    },
+    btnPreview: {
+      normalBase: { bg: [220, 245, 240], outline: [60, 180, 160], outlineAlpha: 200, text: [40, 150, 130] },
+      hover: { bg: [200, 235, 228], outline: [40, 200, 180], outlineAlpha: 240, text: [30, 170, 150] },
+      disabled: { bg: [245, 252, 250], outline: [170, 210, 200], outlineAlpha: 120, text: [170, 210, 200] }
+    },
+    btnConfirm: {
+      normalBase: { bg: [215, 245, 225], outline: [50, 180, 100], outlineAlpha: 230, text: [30, 150, 70] },
+      hover: { bg: [195, 240, 210], outline: [40, 200, 110], outlineAlpha: 255, text: [20, 170, 80] },
+      disabled: { bg: [242, 250, 245], outline: [160, 200, 175], outlineAlpha: 120, text: [160, 200, 175] }
+    },
+    btnLogin: {
+      normalBase: { bg: [230, 232, 250], outline: [100, 110, 180], outlineAlpha: 220, text: [60, 70, 150] },
+      hover: { bg: [218, 222, 245], outline: [80, 90, 160], outlineAlpha: 250, text: [40, 50, 130] },
+      disabled: { bg: [248, 250, 255], outline: [170, 175, 200], outlineAlpha: 120, text: [170, 175, 200] }
+    },
+    btnCached: {
+      normal: { bg: [245, 238, 225], outline: [140, 100, 50], outlineAlpha: 150, text: [140, 100, 50] },
+      hover: { bg: [240, 230, 210], outline: [120, 80, 30], outlineAlpha: 200, text: [120, 80, 30] },
+    },
+    btnNet: {
+      normal: { bg: [228, 235, 242], text: [70, 110, 130] },
+      hover: { bg: [215, 225, 235], text: [50, 90, 110] },
+    },
+    btnView: {
+      normal: { bg: [220, 245, 235], outline: [50, 180, 110], outlineAlpha: 180, text: [30, 120, 70] },
+      hover: { bg: [200, 240, 220], outline: [40, 200, 130], outlineAlpha: 220, text: [20, 100, 50] },
+      disabled: { bg: [242, 252, 248], outline: [160, 210, 180], outlineAlpha: 120, text: [160, 210, 180] }
+    },
+    btnToll: {
+      normal: { bg: [215, 240, 225], text: [30, 100, 50] },
+      hover: { bg: [200, 235, 210], text: [20, 80, 40] },
+    },
+    btnStaging: {
+      normal: { bg: [210, 240, 220], outline: [60, 140, 90], text: [40, 100, 60] },
+      hover: { bg: [190, 235, 205], outline: [40, 120, 70], text: [30, 80, 50] },
+    },
+    btnRetry: {
+      normal: { bg: [245, 225, 225], outline: [180, 80, 80], outlineAlpha: 180, text: [140, 50, 50] },
+      hover: { bg: [240, 210, 210], outline: [160, 60, 60], outlineAlpha: 220, text: [120, 40, 40] },
+      disabled: { bg: [240, 235, 235], outline: [180, 160, 160], outlineAlpha: 120, text: [160, 140, 140] }
+    },
+  },
+};
+
+// Phase colors for dark/light modes
+const PHASE_COLORS_DARK = {
+  wallet: { stripe: [60, 40, 80], label: [180, 140, 220], detail: [140, 100, 180] },
+  validate: { stripe: [50, 50, 70], label: [150, 150, 200], detail: [110, 110, 160] },
+  analyze: { stripe: [50, 50, 70], label: [150, 150, 200], detail: [110, 110, 160] },
+  thumbnail: { stripe: [70, 50, 40], label: [220, 160, 120], detail: [180, 120, 80] },
+  bundle: { stripe: [70, 50, 40], label: [220, 160, 120], detail: [180, 120, 80] },
+  ipfs: { stripe: [40, 60, 60], label: [120, 200, 200], detail: [80, 160, 160] },
+  metadata: { stripe: [40, 60, 60], label: [120, 200, 200], detail: [80, 160, 160] },
+  review: { stripe: [60, 60, 40], label: [220, 220, 140], detail: [180, 180, 100] },
+  sign: { stripe: [50, 50, 35], label: [255, 255, 180], detail: [255, 255, 200] },
+  complete: { stripe: [40, 70, 50], label: [140, 255, 180], detail: [100, 200, 140] },
+};
+
+const PHASE_COLORS_LIGHT = {
+  wallet: { stripe: [230, 220, 240], label: [100, 60, 140], detail: [130, 90, 170] },
+  validate: { stripe: [225, 225, 240], label: [70, 70, 130], detail: [100, 100, 160] },
+  analyze: { stripe: [225, 225, 240], label: [70, 70, 130], detail: [100, 100, 160] },
+  thumbnail: { stripe: [240, 230, 220], label: [160, 100, 40], detail: [180, 120, 60] },
+  bundle: { stripe: [240, 230, 220], label: [160, 100, 40], detail: [180, 120, 60] },
+  ipfs: { stripe: [220, 235, 235], label: [40, 130, 130], detail: [60, 150, 150] },
+  metadata: { stripe: [220, 235, 235], label: [40, 130, 130], detail: [60, 150, 150] },
+  review: { stripe: [235, 235, 215], label: [140, 140, 40], detail: [160, 160, 60] },
+  sign: { stripe: [235, 235, 210], label: [160, 160, 40], detail: [180, 180, 60] },
+  complete: { stripe: [220, 240, 225], label: [40, 160, 80], detail: [60, 180, 100] },
+};
+
+// Active palette and phase colors - set dynamically based on $.dark
+let pal = scheme.dark;
+let PHASE_COLORS = PHASE_COLORS_DARK;
+
 // Get config from shared constants
 const NETWORK = DEFAULT_NETWORK;
 const KEEPS_CONTRACT = getNetwork(NETWORK).contract;
@@ -185,15 +409,15 @@ function boot({ api, net, hud, params, store, cursor, jump, needsPaint, ui, scre
   _screen = screen;
   _preload = net.preload;
   _preloadAnimatedWebp = net.preloadAnimatedWebp;
-  
+
   hud.labelBack();
   resetTimeline();
   startTime = Date.now();
   particles = [];
-  
+
   btn = new ui.TextButton("...", { center: "xy", screen });
   btn.btn.stickyScrubbing = true;
-  
+
   htmlBtn = new ui.TextButton("HTML", { x: 0, y: 0, screen });
   thumbBtn = new ui.TextButton("THUMB", { x: 0, y: 0, screen });
   metaBtn = new ui.TextButton("META", { x: 0, y: 0, screen });
@@ -220,18 +444,18 @@ function boot({ api, net, hud, params, store, cursor, jump, needsPaint, ui, scre
   contractBtn.btn.stickyScrubbing = true;
   loginBtn.btn.stickyScrubbing = true;
   previewBtn.btn.stickyScrubbing = true;
-  
+
   let rawPiece = params[0] || store["keep:piece"];
   piece = rawPiece?.startsWith("$") ? rawPiece.slice(1) : rawPiece;
-  
+
   if (!piece) {
     setStep("validate", "error", "No piece specified! Usage: keep $piece");
     return;
   }
-  
+
   // Get current user's handle and sub from the passed user object
   _net?.getHandle?.().then(h => { userHandle = h; _needsPaint?.(); }).catch(() => {});
-  
+
   // Use the user object directly if available (much more reliable than token decoding)
   if (user?.sub) {
     userSub = user.sub;
@@ -240,7 +464,7 @@ function boot({ api, net, hud, params, store, cursor, jump, needsPaint, ui, scre
   } else {
     console.log("🪙 KEEP: No user logged in (user object not available)");
   }
-  
+
   // Fetch piece info (author, hits, source) then check if already minted
   fetchPieceInfo();
 }
@@ -250,29 +474,29 @@ async function fetchPieceInfo() {
   console.log("🪙 KEEP: Fetching piece info for $" + piece);
   loadingPieceInfo = true;
   _needsPaint?.();
-  
+
   try {
     const response = await fetch(`/api/store-kidlisp?code=${piece}`);
     if (response.ok) {
       const data = await response.json();
-      
+
       // Store source for display (single line)
       if (data.source) {
         pieceSourceDisplay = data.source.replace(/\n+/g, " ").replace(/\s+/g, " ").trim();
         pieceSourceLength = data.source.length;
       }
-      
+
       // Store hits
       pieceHits = data.hits || 0;
-      
+
       // Store when created
       if (data.when) {
         pieceCreatedAt = new Date(data.when);
       }
-      
+
       // Store author sub ID
       pieceAuthorSub = data.user || null;
-      
+
       // Fetch author handle if we have a sub
       if (pieceAuthorSub) {
         try {
@@ -287,9 +511,9 @@ async function fetchPieceInfo() {
           console.warn("🪙 KEEP: Could not fetch author handle:", e);
         }
       }
-      
+
       console.log("🪙 KEEP: Piece info:", { pieceAuthor, pieceHits, pieceAuthorSub, hasSource: !!pieceSourceDisplay });
-      
+
       // Check ownership now that we have piece info
       checkOwnership();
     } else if (response.status === 404) {
@@ -301,10 +525,10 @@ async function fetchPieceInfo() {
   } catch (e) {
     console.error("🪙 KEEP: Error fetching piece info:", e);
   }
-  
+
   loadingPieceInfo = false;
   _needsPaint?.();
-  
+
   // Now check if already minted
   checkIfAlreadyMinted();
 }
@@ -335,23 +559,23 @@ async function checkIfAlreadyMinted() {
   console.log("🪙 KEEP: Checking if $" + piece + " is already minted...");
   loadingExisting = true;
   _needsPaint?.();
-  
+
   try {
     const result = await checkIfMinted(piece, NETWORK);
-    
+
     if (result) {
       console.log("🪙 KEEP: Already minted as token #" + result.tokenId);
       // Fetch token metadata from TzKT
       await fetchExistingTokenInfo(result.tokenId);
       return;
     }
-    
+
     // Not minted - show confirmation button
     console.log("🪙 KEEP: Not yet minted, waiting for confirmation...");
     loadingExisting = false;
     waitingConfirmation = true;
     _needsPaint?.();
-    
+
   } catch (e) {
     console.error("🪙 KEEP: Error checking mint status:", e);
     loadingExisting = false;
@@ -364,7 +588,7 @@ async function checkIfAlreadyMinted() {
 async function fetchExistingTokenInfo(existingTokenId) {
   try {
     const tokenInfo = await fetchTokenInfo(existingTokenId, NETWORK);
-    
+
     alreadyMinted = {
       tokenId: existingTokenId,
       owner: tokenInfo.owner,
@@ -378,25 +602,25 @@ async function fetchExistingTokenInfo(existingTokenId) {
       objktUrl: tokenInfo.objktUrl,
       tzktUrl: tokenInfo.tzktUrl,
     };
-    
+
     // Extract analyzer version from on-chain attributes
     const attrs = tokenInfo.attributes || [];
     const analyzerAttr = attrs.find(a => a.name === "Analyzer Version");
     onChainAnalyzerVersion = analyzerAttr?.value || null;
     console.log("🪙 KEEP: On-chain analyzer version:", onChainAnalyzerVersion);
-    
+
     loadingExisting = false;
     console.log("🪙 KEEP: Loaded existing token info:", alreadyMinted);
     _needsPaint?.();
-    
+
     // Load thumbnail image from IPFS
     if (alreadyMinted.thumbnailUri) {
       loadThumbnail(alreadyMinted.thumbnailUri);
     }
-    
+
     // Load KidLisp source code from database
     loadKidlispSource();
-    
+
   } catch (e) {
     console.error("🪙 KEEP: Error fetching token info:", e);
     // Still show basic info
@@ -417,7 +641,7 @@ async function fetchExistingTokenInfo(existingTokenId) {
 async function loadThumbnail(ipfsUri) {
   try {
     let url;
-    
+
     // Convert IPFS URI to gateway URL - use our own gateway which is faster
     if (ipfsUri && ipfsUri.startsWith("ipfs://")) {
       url = `https://ipfs.aesthetic.computer/ipfs/${ipfsUri.slice(7)}`;
@@ -427,14 +651,14 @@ async function loadThumbnail(ipfsUri) {
       // Fallback to local preview service
       url = `/api/grab?piece=$${piece}&width=256&height=256`;
     }
-    
+
     console.log("🪙 KEEP: Loading animated thumbnail from:", url);
-    
+
     // Request animated WebP decode from bios (runs in main thread with window access)
     const result = await _preloadAnimatedWebp?.(url);
-    
+
     console.log("🪙 KEEP: Received animated WebP:", result.frameCount, "frames,", result.width, "x", result.height);
-    
+
     if (result.frameCount > 1) {
       // Animated WebP - store frames for animation
       thumbnailFrames = {
@@ -446,7 +670,7 @@ async function loadThumbnail(ipfsUri) {
       };
       thumbnailFrameIndex = 0;
       thumbnailLastFrameTime = performance.now();
-      
+
       // Set first frame as current bitmap
       const firstFrame = result.frames[0];
       thumbnailBitmap = {
@@ -465,11 +689,11 @@ async function loadThumbnail(ipfsUri) {
       thumbnailFrames = null;
       console.log("🪙 KEEP: Static thumbnail loaded:", thumbnailBitmap.width, "x", thumbnailBitmap.height);
     }
-    
+
     _needsPaint?.();
   } catch (e) {
     console.warn("🪙 KEEP: Animated thumbnail load failed, trying standard preload:", e.message);
-    
+
     // Fallback to standard image preload (won't animate but will display)
     try {
       let url;
@@ -499,11 +723,11 @@ async function loadKidlispSource() {
         // Sanitize for ticker display - replace newlines with ", "
         kidlispSource = data.source.replace(/\n+/g, ", ").replace(/,\s*,/g, ",");
         console.log("🪙 KEEP: Loaded KidLisp source:", kidlispSource.slice(0, 100) + "...");
-        
+
         // Run local analysis on source (use original with newlines)
         analyzeSource(data.source);
       }
-      
+
       // Store cached media info (last generated bundle)
       if (data.ipfsMedia) {
         cachedMedia = {
@@ -516,7 +740,7 @@ async function loadKidlispSource() {
         };
         console.log("🪙 KEEP: Cached media:", cachedMedia);
       }
-      
+
       // Check for pending rebake (bundle regenerated but not updated on chain)
       if (data.pendingRebake) {
         pendingRebake = data.pendingRebake;
@@ -544,10 +768,10 @@ async function loadKidlispSource() {
 // Formal local analysis of KidLisp source (matches backend analyzer v2.0.0)
 function analyzeSource(source) {
   if (!source) return;
-  
+
   const lines = source.split('\n').filter(l => l.trim() && !l.trim().startsWith(';'));
   const lineCount = lines.length;
-  
+
   // S-expression analysis
   let depth = 0, maxDepth = 0, sexpCount = 0;
   for (const c of source) {
@@ -555,11 +779,11 @@ function analyzeSource(source) {
     else if (c === ')') depth = Math.max(0, depth - 1);
   }
   const density = Math.round((sexpCount / Math.max(lineCount, 1)) * 10) / 10;
-  
+
   // Form analysis
   const funcCalls = source.match(/\([a-zA-Z][a-zA-Z0-9_-]*/g) || [];
   const uniqueFuncs = [...new Set(funcCalls.map(f => f.slice(1)))];
-  
+
   // Behavior detection
   const behavior = {
     interactive: /\(\s*(tap|draw)\s/.test(source),
@@ -577,14 +801,14 @@ function analyzeSource(source) {
     hasGradient: /fade:/.test(source),
   };
   behavior.isPure = !behavior.hasAudio && !behavior.hasNetwork;
-  
+
   // Count definitions
   const varCount = (source.match(/\(\s*def\s+[a-zA-Z]/g) || []).length;
   const funcCount = (source.match(/\(\s*later\s+[a-zA-Z]/g) || []).length;
-  
+
   // Dependencies
   const deps = [...new Set((source.match(/\$([a-zA-Z][a-zA-Z0-9]*)/g) || []).map(d => d.slice(1)))];
-  
+
   // Size category (formal)
   let size;
   if (lineCount <= 1) size = 'Atom';
@@ -593,14 +817,14 @@ function analyzeSource(source) {
   else if (lineCount <= 20) size = 'Organism';
   else if (lineCount <= 50) size = 'Colony';
   else size = 'Ecosystem';
-  
+
   // Structure category
   let structure;
   if (maxDepth <= 2) structure = 'Flat';
   else if (maxDepth <= 4) structure = 'Nested';
   else if (maxDepth <= 6) structure = 'Deep';
   else structure = 'Recursive';
-  
+
   analysisData = {
     // Structural
     lines: lineCount,
@@ -621,10 +845,10 @@ function analyzeSource(source) {
     // Top forms
     topForms: uniqueFuncs.slice(0, 5),
   };
-  
+
   // Generate natural language description
   const descParts = [];
-  
+
   // Size description
   const sizeDesc = {
     'Atom': 'A minimal one-liner',
@@ -635,7 +859,7 @@ function analyzeSource(source) {
     'Ecosystem': 'A complex system'
   }[size] || 'A piece';
   descParts.push(sizeDesc);
-  
+
   // Behavior adjectives
   const adjectives = [];
   if (behavior.interactive) adjectives.push('interactive');
@@ -644,58 +868,58 @@ function analyzeSource(source) {
   if (behavior.hasRandomness) adjectives.push('generative');
   if (behavior.hasAudio) adjectives.push('sonic');
   if (behavior.isPure && !behavior.interactive && !behavior.animated) adjectives.push('static');
-  
+
   if (adjectives.length > 0) {
     descParts[0] = sizeDesc.replace('A ', 'A ' + adjectives.slice(0, 2).join(', ') + ' ').replace('An ', 'An ' + adjectives.slice(0, 2).join(', ') + ' ');
   }
-  
+
   // What it does
   const actions = [];
   if (behavior.drawable) actions.push('draws on touch');
   else if (behavior.interactive) actions.push('responds to touch');
   if (behavior.hasIteration) actions.push('repeats patterns');
   if (behavior.hasConditionals) actions.push('makes choices');
-  
+
   // Visual features
   const visuals = [];
   if (behavior.hasRainbow) visuals.push('rainbow colors');
   if (behavior.hasGradient) visuals.push('color gradients');
   if (behavior.hasEffects) visuals.push('visual effects');
-  
+
   // Build second part
   const features = [...actions, ...visuals];
   if (features.length > 0) {
     descParts.push('with ' + features.slice(0, 2).join(' and '));
   }
-  
+
   // Dependencies
   if (deps.length > 0) {
     descParts.push('embedding $' + deps.join(', $'));
   }
-  
+
   // Forms used (pick interesting ones)
-  const interestingForms = uniqueFuncs.filter(f => 
+  const interestingForms = uniqueFuncs.filter(f =>
     ['wiggle', 'spin', 'rainbow', 'repeat', 'tap', 'draw', 'melody', 'speaker', 'random', 'noise', 'blur'].includes(f)
   );
   if (interestingForms.length > 0 && descParts.length < 3) {
     descParts.push('using ' + interestingForms.slice(0, 3).join(', '));
   }
-  
+
   analysisData.description = descParts.join(' ') + '.';
-  
+
   console.log("🪙 KEEP: Formal analysis:", analysisData);
 }
 
 // Parse color name/string to RGB (like prompt.mjs)
 function parseColorName(colorName) {
   if (!colorName) return { r: 200, g: 200, b: 200 };
-  
+
   // Handle RGB format colors (like "192,192,192")
   if (colorName.includes(',')) {
     const parts = colorName.split(',').map(p => parseInt(p.trim()));
     return { r: parts[0] || 200, g: parts[1] || 200, b: parts[2] || 200 };
   }
-  
+
   // Handle named colors
   const colorMap = {
     'cyan': { r: 64, g: 224, b: 208 },
@@ -717,7 +941,7 @@ function parseColorName(colorName) {
     'gold': { r: 255, g: 215, b: 0 },
     'silver': { r: 192, g: 192, b: 192 },
   };
-  
+
   return colorMap[colorName.toLowerCase()] || { r: 200, g: 200, b: 200 };
 }
 
@@ -725,22 +949,22 @@ function parseColorName(colorName) {
 // This lets the write() function handle natural spacing
 function buildColoredSourceString(source) {
   if (!source) return "";
-  
+
   try {
     const tokens = tokenize(source);
     let result = "";
-    
+
     // Create KidLisp instance for proper color mapping
     const tempKidlisp = new KidLisp();
     tempKidlisp.syntaxHighlightSource = source;
     tempKidlisp.isEditMode = true;
-    
+
     // Track position in original source to preserve spacing
     let sourceIdx = 0;
-    
+
     for (let i = 0; i < tokens.length; i++) {
       const token = tokens[i];
-      
+
       // Find this token in the source to get any preceding whitespace
       const tokenPos = source.indexOf(token, sourceIdx);
       if (tokenPos > sourceIdx) {
@@ -749,7 +973,7 @@ function buildColoredSourceString(source) {
         result += `\\128,128,128\\${ws}`;
       }
       sourceIdx = tokenPos + token.length;
-      
+
       // Handle fade: expressions specially
       if (token.startsWith('fade:')) {
         const coloredFadeString = tempKidlisp.colorFadeExpression(token);
@@ -765,7 +989,7 @@ function buildColoredSourceString(source) {
         // Get color from KidLisp instance
         const colorName = tempKidlisp.getTokenColor(token, tokens, i);
         const rgb = parseColorName(colorName);
-        
+
         // Special override for @handles
         if (token.startsWith("@")) {
           result += `\\100,255,200\\${token}`; // Bright teal
@@ -774,7 +998,7 @@ function buildColoredSourceString(source) {
         }
       }
     }
-    
+
     return result;
   } catch (e) {
     console.error("🪙 KEEP: Color string build error:", e);
@@ -785,25 +1009,25 @@ function buildColoredSourceString(source) {
 // Legacy function for compatibility - returns token array
 function syntaxHighlightKidlisp(source) {
   if (!source) return [];
-  
+
   try {
     const tokens = tokenize(source);
     const highlighted = [];
-    
+
     // Create KidLisp instance for proper color mapping (like prompt.mjs)
     const tempKidlisp = new KidLisp();
     tempKidlisp.syntaxHighlightSource = source;
     tempKidlisp.isEditMode = true; // Enable edit mode to prevent transparent text
-    
+
     for (let i = 0; i < tokens.length; i++) {
       const token = tokens[i];
-      
+
       // Handle fade: expressions specially (like prompt.mjs)
       if (token.startsWith('fade:')) {
         const coloredFadeString = tempKidlisp.colorFadeExpression(token);
         // Parse the colored fade string format: \color1\text1\color2\text2...
         const segments = coloredFadeString.split('\\').filter(s => s);
-        
+
         for (let j = 0; j < segments.length; j += 2) {
           const segmentColor = segments[j];
           const segmentText = segments[j + 1] || '';
@@ -814,7 +1038,7 @@ function syntaxHighlightKidlisp(source) {
         // Get color from KidLisp instance
         const colorName = tempKidlisp.getTokenColor(token, tokens, i);
         const rgb = parseColorName(colorName);
-        
+
         // Special override for @handles
         if (token.startsWith("@")) {
           highlighted.push({ token, color: [100, 255, 200] }); // Bright teal
@@ -823,7 +1047,7 @@ function syntaxHighlightKidlisp(source) {
         }
       }
     }
-    
+
     return highlighted;
   } catch (e) {
     console.error("🪙 KEEP: Syntax highlight error:", e);
@@ -833,14 +1057,14 @@ function syntaxHighlightKidlisp(source) {
 
 async function runProcess(forceRegenerate = false) {
   console.log("🪙 KEEP: Starting mint process for $" + piece + (forceRegenerate ? " (force regenerate)" : ""));
-  
+
   // === STEP 1: Connect Wallet ===
   // Reset timer when process actually starts (not counting initial checks)
   startTime = Date.now();
-  
+
   // Start getting auth token in parallel (don't await yet)
   const tokenPromise = _net?.getToken?.();
-  
+
   setStep("wallet", "active", "Checking wallet...");
   try {
     walletAddress = await _api.tezos.address();
@@ -860,68 +1084,68 @@ async function runProcess(forceRegenerate = false) {
     setStep("wallet", "error", e.message);
     return;
   }
-  
+
   // === STEPS 2-7: Server Preparation ===
   setStep("validate", "active", `Validating $${piece}...`);
-  
+
   // Get current screen dimensions for thumbnail aspect ratio
   const screenWidth = _screen?.width || 128;
   const screenHeight = _screen?.height || 128;
-  
+
   try {
     // Await the token that was fetching in parallel
     const token = await tokenPromise;
     const response = await fetch("/api/keep-mint", {
       method: "POST",
-      headers: { 
+      headers: {
         "Content-Type": "application/json",
         ...(token ? { "Authorization": `Bearer ${token}` } : {}),
       },
-      body: JSON.stringify({ 
-        piece, 
-        walletAddress, 
+      body: JSON.stringify({
+        piece,
+        walletAddress,
         network: NETWORK,
         screenWidth,
         screenHeight,
         regenerate: forceRegenerate,
       }),
     });
-    
+
     if (!response.ok) {
       setStep("validate", "error", `Server error ${response.status}`);
       return;
     }
-    
+
     const text = await response.text();
     const events = text.split('\n\n').filter(e => e.trim());
-    
+
     // Process events with staggered delays so user sees each step
     const delay = (ms) => new Promise(r => setTimeout(r, ms));
     const STEP_DELAY = 350; // ms between each visual step
     let firstEvent = true;
-    
+
     for (const event of events) {
       const lines = event.split('\n');
       let eventType = null, eventData = null;
-      
+
       for (const line of lines) {
         if (line.startsWith('event: ')) eventType = line.slice(7);
         else if (line.startsWith('data: ')) {
           try { eventData = JSON.parse(line.slice(6)); } catch {}
         }
       }
-      
+
       if (eventType === "progress" && eventData?.stage) {
         const { stage, message, source, author } = eventData;
         console.log(`🪙 KEEP SSE: ${stage}`, eventData);
-        
+
         // No delay on first event - start immediately
         if (!firstEvent) await delay(STEP_DELAY);
         firstEvent = false;
-        
+
         // Check if message indicates cached/reused content
         const isCached = message?.includes("cached") || message?.includes("Cached");
-        
+
         // Handle each stage - server may send in any order when using cache
         if (stage === "validate") {
           // Only mark done on final validation message
@@ -979,7 +1203,7 @@ async function runProcess(forceRegenerate = false) {
           setStep("review", "active", null); // Button speaks for itself
         }
       }
-      
+
       if (eventType === "prepared" && eventData) {
         preparedData = eventData;
         await delay(STEP_DELAY);
@@ -999,11 +1223,11 @@ async function runProcess(forceRegenerate = false) {
         return;
       }
     }
-    
+
     if (!preparedData) {
       setStep("validate", "error", "Server did not return prepared data");
     }
-    
+
   } catch (e) {
     const active = getActiveStep();
     if (active) setStep(active.id, "error", e.message);
@@ -1013,7 +1237,7 @@ async function runProcess(forceRegenerate = false) {
 async function signAndMint() {
   setStep("review", "done", "Toll paid");
   setStep("sign", "active", "Check your wallet...");
-  
+
   try {
     txHash = await _api.tezos.call(
       preparedData.contractAddress,
@@ -1021,14 +1245,14 @@ async function signAndMint() {
       preparedData.michelsonParams.value,
       preparedData.mintFee
     );
-    
+
     setStep("sign", "done", `TX: ${txHash}`);
     setStep("complete", "active", "Confirming on-chain...");
-    
+
     // Wait and fetch token ID with retries (indexer may take a moment)
     const tokenName = `$${piece}`;
     const mintNetwork = preparedData.network || NETWORK;
-    
+
     for (let attempt = 0; attempt < 5 && !tokenId; attempt++) {
       await new Promise(r => setTimeout(r, 3000));
       try {
@@ -1043,15 +1267,15 @@ async function signAndMint() {
         setStep("complete", "active", `Waiting for indexer... (${attempt + 2}/5)`);
       }
     }
-    
+
     const tokenInfo = tokenId ? `Token #${tokenId}` : "Kept!";
     setStep("complete", "done", tokenInfo);
-    
+
     // Record the mint in MongoDB so it shows up as "kept"
     try {
       const confirmRes = await fetch("/api/keep-confirm", {
         method: "POST",
-        headers: { 
+        headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${await _api.authorize()}`,
         },
@@ -1075,7 +1299,7 @@ async function signAndMint() {
     } catch (e) {
       console.warn("🪙 KEEP: Error recording mint:", e.message);
     }
-    
+
   } catch (e) {
     setStep("sign", "error", e.message || "Transaction rejected");
   }
@@ -1106,7 +1330,7 @@ function spawnParticle(x, y, color) {
 
 function sim() {
   rotation += 0.03;
-  
+
   // Update particles
   for (let i = particles.length - 1; i >= 0; i--) {
     const p = particles[i];
@@ -1116,14 +1340,14 @@ function sim() {
     p.life--;
     if (p.life <= 0) particles.splice(i, 1);
   }
-  
+
   // Spawn particles based on progress
   const progress = getProgress();
   if (progress > 0 && Math.random() < 0.15 * progress) {
-    const colors = progress > 0.8 
-      ? [[100, 255, 150], [150, 255, 200], [200, 255, 100]] // Green success
-      : progress > 0.5 
-        ? [[255, 200, 100], [255, 180, 80], [255, 220, 150]] // Yellow/orange
+    const colors = progress > 0.8
+      ? [pal.positive, [150, 255, 200], [200, 255, 100]] // Green success
+      : progress > 0.5
+        ? [pal.gold, [255, 180, 80], [255, 220, 150]] // Yellow/orange
         : [[200, 100, 255], [255, 100, 200], [180, 80, 220]]; // Purple/pink
     spawnParticle(
       Math.random() * (_screen?.width || 200),
@@ -1131,12 +1355,12 @@ function sim() {
       colors[floor(Math.random() * colors.length)]
     );
   }
-  
+
   // Scroll ticker for already minted view
   if (alreadyMinted && kidlispSource) {
     tickerOffset += 0.5;
   }
-  
+
   // Carousel animation - smoothly slide to current step
   const activeIdx = timeline.findIndex(t => t.status === "active");
   if (activeIdx >= 0 && activeIdx !== lastActiveIndex) {
@@ -1146,17 +1370,17 @@ function sim() {
   // Smooth interpolation toward target
   const targetX = carouselTargetIndex * 100; // 100 units per step
   carouselCurrentX += (targetX - carouselCurrentX) * 0.08; // Ease toward target
-  
+
   // Animate thumbnail frames if we have an animated WebP
   if (thumbnailFrames && thumbnailFrames.frameCount > 1) {
     const now = performance.now();
     const currentFrame = thumbnailFrames.frames[thumbnailFrameIndex];
     const frameDuration = currentFrame?.duration || 100; // Default 100ms per frame
-    
+
     if (now - thumbnailLastFrameTime >= frameDuration) {
       thumbnailFrameIndex = (thumbnailFrameIndex + 1) % thumbnailFrames.frameCount;
       thumbnailLastFrameTime = now;
-      
+
       // Update the bitmap with the new frame
       // Note: pixels is already a Uint8ClampedArray transferred from bios
       const newFrame = thumbnailFrames.frames[thumbnailFrameIndex];
@@ -1167,7 +1391,7 @@ function sim() {
       };
     }
   }
-  
+
   // Always animate for already minted view, or when minting is active
   return alreadyMinted || (!hasError() && timeline.some(t => t.status === "active"));
 }
@@ -1206,10 +1430,10 @@ function lgButtonSize(text) {
 function paintLgBtn(x, y, text, $, scheme, isHover = false, isDisabled = false) {
   const { w, h } = lgButtonSize(text);
   const s = isDisabled ? scheme.disabled : (isHover ? scheme.hover : scheme.normal);
-  
+
   // Background
   $.ink(s.bg[0], s.bg[1], s.bg[2]).box(x, y, w, h);
-  
+
   // Outline (thicker, 2px effect)
   $.ink(s.outline[0], s.outline[1], s.outline[2], s.outlineAlpha || 180)
     .line(x, y, x + w, y)                    // Top
@@ -1220,10 +1444,10 @@ function paintLgBtn(x, y, text, $, scheme, isHover = false, isDisabled = false) 
     .line(x + 1, y, x + 1, y + h)            // Left inner
     .line(x + w - 1, y, x + w - 1, y + h)    // Right inner
     .line(x + w, y, x + w, y + h);           // Right
-  
+
   // Text (centered)
   $.ink(s.text[0], s.text[1], s.text[2]).write(text, { x: x + LG_PAD_X, y: y + LG_PAD_Y });
-  
+
   return { x, y, w, h };
 }
 
@@ -1232,46 +1456,40 @@ function paintLgBtn(x, y, text, $, scheme, isHover = false, isDisabled = false) 
 function paintMC8Btn(x, y, text, $, scheme, isHover = false, isDisabled = false) {
   const { w, h } = mc8ButtonSize(text);
   const s = isDisabled ? scheme.disabled : (isHover ? scheme.hover : scheme.normal);
-  
+
   // Background
   $.ink(s.bg[0], s.bg[1], s.bg[2]).box(x, y, w, h);
-  
+
   // Outline (draw all 4 edges like products.mjs)
   $.ink(s.outline[0], s.outline[1], s.outline[2], s.outlineAlpha || 150)
     .line(x, y, x + w, y)                    // Top
     .line(x, y + h, x + w, y + h)            // Bottom
     .line(x, y, x, y + h)                    // Left
     .line(x + w, y, x + w, y + h);           // Right
-  
+
   // Text
   $.ink(s.text[0], s.text[1], s.text[2]).write(text, { x: x + MC8_PAD_LEFT, y: y + MC8_PAD_TOP }, undefined, undefined, false, "MatrixChunky8");
-  
+
   return { x, y, w, h };
 }
 
 // Phase colors for different parts of the process
-const PHASE_COLORS = {
-  wallet: { stripe: [60, 40, 80], label: [180, 140, 220], detail: [140, 100, 180] },      // Purple - auth
-  validate: { stripe: [50, 50, 70], label: [150, 150, 200], detail: [110, 110, 160] },    // Blue-gray - verify
-  analyze: { stripe: [50, 50, 70], label: [150, 150, 200], detail: [110, 110, 160] },     // Blue-gray - verify
-  thumbnail: { stripe: [70, 50, 40], label: [220, 160, 120], detail: [180, 120, 80] },    // Orange - generate
-  bundle: { stripe: [70, 50, 40], label: [220, 160, 120], detail: [180, 120, 80] },       // Orange - generate
-  ipfs: { stripe: [40, 60, 60], label: [120, 200, 200], detail: [80, 160, 160] },         // Cyan - upload
-  metadata: { stripe: [40, 60, 60], label: [120, 200, 200], detail: [80, 160, 160] },     // Cyan - upload
-  review: { stripe: [60, 60, 40], label: [220, 220, 140], detail: [180, 180, 100] },      // Yellow - confirm
-  sign: { stripe: [60, 60, 40], label: [220, 220, 140], detail: [180, 180, 100] },        // Yellow - confirm
-  complete: { stripe: [40, 70, 50], label: [140, 255, 180], detail: [100, 200, 140] },    // Green - done
-};
 
-function paint({ wipe, ink, box, screen, paste }) {
+function paint($) {
+  const { wipe, ink, box, screen, paste } = $;
+  // Set theme palette based on dark mode
+  pal = $.dark ? scheme.dark : scheme.light;
+  PHASE_COLORS = $.dark ? PHASE_COLORS_DARK : PHASE_COLORS_LIGHT;
+  pal = $.dark ? scheme.dark : scheme.light;
+
   const w = screen.width, h = screen.height;
-  
+
   // === ALREADY MINTED VIEW ===
   if (alreadyMinted) {
     // Dark teal background with shimmer
     const pulse = sin(rotation * 1.5) * 5;
-    wipe(20 + pulse, 35 + pulse, 40 + pulse);
-    
+    wipe(pal.bgShimmer[0] + pulse, pal.bgShimmer[1] + pulse, pal.bgShimmer[2] + pulse);
+
     // Gold shimmer border
     for (let i = 0; i < w; i += 3) {
       const shimmer = sin(rotation * 2 + i * 0.2) * 0.5 + 0.5;
@@ -1279,16 +1497,16 @@ function paint({ wipe, ink, box, screen, paste }) {
       ink(255, 200, 100, alpha).box(i, 0, 2, 1);
       ink(255, 200, 100, alpha).box(i, h - 1, 2, 1);
     }
-    
+
     const margin = 6;
     let y = 4;
-    
+
     // Header with network/staging badge
     const baseNetLabel = (alreadyMinted.network || NETWORK).toUpperCase();
     const netLabel = KEEPS_STAGING ? "STAGING" : baseNetLabel;
     const isMainnet = baseNetLabel === "MAINNET";
     const netColor = KEEPS_STAGING ? [255, 180, 100] : (isMainnet ? [100, 220, 100] : [220, 180, 100]);
-    
+
     ink(255, 220, 100).write("KEPT", { x: w/2, y, center: "x" }, undefined, undefined, false, "MatrixChunky8");
     y += 10;
     // Network badge
@@ -1296,7 +1514,7 @@ function paint({ wipe, ink, box, screen, paste }) {
     y += 10;
     ink(100, 220, 180).write(`$${piece}`, { x: w/2, y, center: "x" }, undefined, undefined, false, "MatrixChunky8");
     y += 12;
-    
+
     // Thumbnail display (smaller)
     if (thumbnailBitmap) {
       const thumbSize = min(48, w - 20, h - 100);
@@ -1308,7 +1526,7 @@ function paint({ wipe, ink, box, screen, paste }) {
       ink(80, 100, 110).write("...", { x: w/2, y: y + 10, center: "x" }, undefined, undefined, false, "MatrixChunky8");
       y += 34;
     }
-    
+
     // === SYNC STATUS SECTION ===
     // Determine sync state by comparing on-chain URIs with latest generated
     const latestMedia = pendingRebake || cachedMedia;
@@ -1316,14 +1534,14 @@ function paint({ wipe, ink, box, screen, paste }) {
     const onChainThumb = alreadyMinted.thumbnailUri;
     const latestArtifact = latestMedia?.artifactUri;
     const latestThumb = latestMedia?.thumbnailUri;
-    
+
     const artifactMatches = onChainArtifact === latestArtifact;
     const thumbMatches = onChainThumb === latestThumb;
     const isSynced = latestArtifact && artifactMatches && thumbMatches;
     const hasPending = pendingRebake && (!artifactMatches || !thumbMatches);
     // If no cached bundle but on-chain exists, assume synced (legacy mint)
     const isLegacySynced = !latestMedia && onChainArtifact;
-    
+
     // Sync status indicator
     ink(35, 50, 55, 200).box(0, y, w, 12);
     if (isSynced || isLegacySynced) {
@@ -1336,7 +1554,7 @@ function paint({ wipe, ink, box, screen, paste }) {
       ink(180, 180, 120).write(">> Not bundled", { x: w/2, y: y + 2, center: "x" }, undefined, undefined, false, "MatrixChunky8");
     }
     y += 14;
-    
+
     // === ON-CHAIN SECTION ===
     // Format date for on-chain
     let onChainDateStr = "";
@@ -1346,13 +1564,9 @@ function paint({ wipe, ink, box, screen, paste }) {
     }
     ink(120, 180, 200).write("ON-CHAIN" + onChainDateStr, { x: margin, y }, undefined, undefined, false, "MatrixChunky8");
     y += 10;
-    
-    const linkScheme = {
-      normal: { bg: [30, 60, 70], outline: [100, 180, 220], outlineAlpha: 150, text: [100, 180, 220] },
-      hover: { bg: [50, 90, 110], outline: [180, 240, 255], outlineAlpha: 200, text: [180, 240, 255] },
-      disabled: { bg: [25, 35, 40], outline: [60, 80, 90], outlineAlpha: 100, text: [60, 80, 90] }
-    };
-    
+
+    const linkScheme = pal.btnLink;
+
     let linkX = margin;
     if (alreadyMinted.artifactUri) {
       const htmlSize = mc8ButtonSize("HTML");
@@ -1386,15 +1600,11 @@ function paint({ wipe, ink, box, screen, paste }) {
       ink(80, 120, 140).write(cid.slice(0, 8) + "...", { x: linkX + 2, y: y + 3 }, undefined, undefined, false, "MatrixChunky8");
     }
     y += mc8ButtonSize("X").h + 4;
-    
+
     // === CACHED/GENERATED SECTION (if different from on-chain) ===
     if (latestMedia && !isSynced) {
-      const cachedScheme = {
-        normal: { bg: [60, 50, 40], outline: [200, 160, 100], outlineAlpha: 150, text: [200, 160, 100] },
-        hover: { bg: [80, 70, 50], outline: [240, 200, 140], outlineAlpha: 200, text: [240, 200, 140] },
-        disabled: { bg: [40, 35, 30], outline: [100, 80, 60], outlineAlpha: 100, text: [100, 80, 60] }
-      };
-      
+      const cachedScheme = pal.btnCached;
+
       // Format rebaked date
       let rebakedDateStr = "";
       const rebakedDate = latestMedia.packDate || latestMedia.createdAt;
@@ -1406,7 +1616,7 @@ function paint({ wipe, ink, box, screen, paste }) {
       }
       ink(200, 160, 100).write("REBAKED" + rebakedDateStr, { x: margin, y }, undefined, undefined, false, "MatrixChunky8");
       y += 10;
-      
+
       linkX = margin;
       if (latestArtifact) {
         const oldHtmlSize = mc8ButtonSize("HTML");
@@ -1433,15 +1643,15 @@ function paint({ wipe, ink, box, screen, paste }) {
       }
       y += mc8ButtonSize("X").h + 4;
     }
-    
+
     // === ANALYSIS SECTION (Full Details) ===
     if (analysisData) {
       const isOutdated = onChainAnalyzerVersion && onChainAnalyzerVersion !== "2.0.0";
       const baseHeight = 72;
       const sectionHeight = isOutdated ? baseHeight + 12 : baseHeight;
-      
+
       ink(25, 35, 45, 220).box(0, y, w, sectionHeight);
-      
+
       // Row 1: Description ticker
       if (analysisData.description) {
         const desc = analysisData.description;
@@ -1456,7 +1666,7 @@ function paint({ wipe, ink, box, screen, paste }) {
           }
         }
       }
-      
+
       // Row 2: Structure info
       const r2Y = y + 14;
       ink(120, 160, 180).write(`${analysisData.lines} lines`, { x: margin, y: r2Y }, undefined, undefined, false, "MatrixChunky8");
@@ -1465,7 +1675,7 @@ function paint({ wipe, ink, box, screen, paste }) {
       // Size/Structure on right
       const sizeColor = { Atom: [100, 255, 200], Molecule: [150, 220, 180], Cell: [180, 200, 160], Organism: [200, 180, 140], Colony: [220, 150, 120], Ecosystem: [255, 120, 100] }[analysisData.size] || [150, 150, 150];
       ink(sizeColor[0], sizeColor[1], sizeColor[2]).write(analysisData.size, { x: w - margin, y: r2Y, right: true }, undefined, undefined, false, "MatrixChunky8");
-      
+
       // Row 3: Behavior tags
       const r3Y = y + 25;
       let tagX = margin;
@@ -1477,7 +1687,7 @@ function paint({ wipe, ink, box, screen, paste }) {
       if (analysisData.hasRandomness) { ink(255, 220, 100).write("●random", { x: tagX, y: r3Y }, undefined, undefined, false, "MatrixChunky8"); tagX += 44; }
       if (analysisData.hasNetwork) { ink(255, 100, 100).write("●network", { x: tagX, y: r3Y }, undefined, undefined, false, "MatrixChunky8"); tagX += 48; }
       if (analysisData.isPure && tagX === margin) { ink(200, 200, 200).write("●static", { x: tagX, y: r3Y }, undefined, undefined, false, "MatrixChunky8"); }
-      
+
       // Row 4: Logic and definitions
       const r4Y = y + 36;
       let logicX = margin;
@@ -1498,7 +1708,7 @@ function paint({ wipe, ink, box, screen, paste }) {
       } else if (analysisData.hasGradient) {
         ink(150, 150, 200).write("gradient", { x: colorX, y: r4Y, right: true }, undefined, undefined, false, "MatrixChunky8");
       }
-      
+
       // Row 5: Dependencies and top forms
       const r5Y = y + 47;
       if (analysisData.isComposite && analysisData.deps?.length > 0) {
@@ -1517,15 +1727,15 @@ function paint({ wipe, ink, box, screen, paste }) {
       }
       // Vocabulary count on right
       ink(120, 140, 160).write(`${analysisData.vocabulary} forms`, { x: w - margin, y: r5Y, right: true }, undefined, undefined, false, "MatrixChunky8");
-      
+
       // Row 6: Outdated warning
       if (isOutdated) {
         ink(255, 150, 100, 200).write(`!! Analyzer v${onChainAnalyzerVersion} outdated - Resync to update`, { x: margin, y: y + 60 }, undefined, undefined, false, "MatrixChunky8");
       }
-      
+
       y += sectionHeight + 4;
     }
-    
+
     // Syntax-highlighted source code ticker
     if (kidlispSource) {
       ink(25, 35, 40, 200).box(0, y, w, 14);
@@ -1542,16 +1752,12 @@ function paint({ wipe, ink, box, screen, paste }) {
       }
       y += 16;
     }
-    
+
     // === ACTION BUTTONS ===
     y += 2;
-    
+
     // View on objkt
-    const objktScheme = {
-      normal: { bg: [40, 80, 70], outline: [100, 200, 160], outlineAlpha: 150, text: [255, 255, 255] },
-      hover: { bg: [60, 120, 100], outline: [150, 255, 200], outlineAlpha: 200, text: [255, 255, 255] },
-      disabled: { bg: [35, 50, 45], outline: [70, 130, 100], outlineAlpha: 100, text: [140, 160, 150] }
-    };
+    const objktScheme = pal.btnObjkt;
     const objktSize = mc8ButtonSize("objkt");
     const rebakeSize = mc8ButtonSize("Rebake");
     // Button text changes based on sync state - also check if analyzer is outdated
@@ -1559,11 +1765,11 @@ function paint({ wipe, ink, box, screen, paste }) {
     const hasPendingSync = !isSynced && !isLegacySynced || rebakeResult || analyzerOutdated;
     const syncBtnText = hasPendingSync ? "Resync" : "Synced";
     const updateSize = mc8ButtonSize(syncBtnText);
-    
+
     // Calculate button layout - always show all 3 buttons
     const totalWidth = objktSize.w + 4 + rebakeSize.w + 4 + updateSize.w;
     let btnX = floor((w - totalWidth) / 2);
-    
+
     // objkt button
     btn.btn.box.x = btnX;
     btn.btn.box.y = y;
@@ -1571,27 +1777,19 @@ function paint({ wipe, ink, box, screen, paste }) {
     btn.btn.box.h = objktSize.h;
     paintMC8Btn(btnX, y, "objkt", { ink, line: ink }, objktScheme, btn.btn.down);
     btnX += objktSize.w + 4;
-    
+
     // Rebake button
-    const rebakeScheme = {
-      normal: { bg: [80, 50, 30], outline: [200, 140, 80], outlineAlpha: 150, text: [255, 200, 100] },
-      hover: { bg: [120, 70, 40], outline: [255, 180, 100], outlineAlpha: 200, text: [255, 220, 150] },
-      disabled: { bg: [40, 30, 25], outline: [100, 80, 60], outlineAlpha: 100, text: [120, 100, 80] }
-    };
+    const rebakeScheme = pal.btnRebake;
     rebakeBtn.btn.box.x = btnX;
     rebakeBtn.btn.box.y = y;
     rebakeBtn.btn.box.w = rebakeSize.w;
     rebakeBtn.btn.box.h = rebakeSize.h;
     paintMC8Btn(btnX, y, rebaking ? "..." : "Rebake", { ink, line: ink }, rebaking ? { normal: rebakeScheme.disabled, hover: rebakeScheme.disabled, disabled: rebakeScheme.disabled } : rebakeScheme, rebakeBtn.btn.down);
     btnX += rebakeSize.w + 4;
-    
+
     // Sync button - always visible, grayed out when synced
     const canSync = hasPending || rebakeResult || !isSynced && !isLegacySynced || analyzerOutdated;
-    const syncScheme = {
-      normal: { bg: [50, 30, 80], outline: [140, 100, 200], outlineAlpha: 150, text: [200, 150, 255] },
-      hover: { bg: [70, 50, 120], outline: [180, 140, 255], outlineAlpha: 200, text: [230, 200, 255] },
-      disabled: { bg: [30, 25, 40], outline: [80, 60, 100], outlineAlpha: 100, text: [100, 80, 120] }
-    };
+    const syncScheme = pal.btnSync;
     const syncDisabled = updatingChain || (isSynced || isLegacySynced) && !rebakeResult && !analyzerOutdated;
     updateChainBtn.btn.box.x = btnX;
     updateChainBtn.btn.box.y = y;
@@ -1599,26 +1797,18 @@ function paint({ wipe, ink, box, screen, paste }) {
     updateChainBtn.btn.box.h = updateSize.h;
     paintMC8Btn(btnX, y, updatingChain ? "..." : syncBtnText, { ink, line: ink }, syncDisabled ? { normal: syncScheme.disabled, hover: syncScheme.disabled, disabled: syncScheme.disabled } : syncScheme, updateChainBtn.btn.down);
     y += objktSize.h + 4;
-    
+
     // Wallet shortcut - bottom left corner
-    const walletScheme = {
-      normal: { bg: [40, 40, 55], outline: [100, 100, 140], outlineAlpha: 120, text: [140, 140, 180] },
-      hover: { bg: [55, 55, 75], outline: [140, 140, 200], outlineAlpha: 180, text: [180, 180, 220] },
-      disabled: { bg: [30, 30, 40], outline: [60, 60, 80], outlineAlpha: 80, text: [80, 80, 100] }
-    };
+    const walletScheme = pal.btnWallet;
     const walletSize = mc8ButtonSize("wallet");
     walletBtn.btn.box.x = margin;
     walletBtn.btn.box.y = h - walletSize.h - 4;
     walletBtn.btn.box.w = walletSize.w;
     walletBtn.btn.box.h = walletSize.h;
     paintMC8Btn(margin, h - walletSize.h - 4, "wallet", { ink, line: ink }, walletScheme, walletBtn.btn.down);
-    
+
     // Contract button - bottom right corner
-    const contractScheme = {
-      normal: { bg: [35, 45, 55], outline: [100, 140, 180], outlineAlpha: 120, text: [140, 180, 220] },
-      hover: { bg: [45, 60, 75], outline: [140, 180, 220], outlineAlpha: 180, text: [180, 220, 255] },
-      disabled: { bg: [25, 30, 35], outline: [60, 80, 100], outlineAlpha: 80, text: [80, 100, 120] }
-    };
+    const contractScheme = pal.btnContract;
     const shortContract = KEEPS_CONTRACT.slice(0, 8) + "..";
     const contractSize = mc8ButtonSize(shortContract);
     contractBtn.btn.box.x = w - margin - contractSize.w;
@@ -1626,7 +1816,7 @@ function paint({ wipe, ink, box, screen, paste }) {
     contractBtn.btn.box.w = contractSize.w;
     contractBtn.btn.box.h = contractSize.h;
     paintMC8Btn(w - margin - contractSize.w, h - contractSize.h - 4, shortContract, { ink, line: ink }, contractScheme, contractBtn.btn.down);
-    
+
     // Show streaming progress
     if (rebaking && rebakeProgress) {
       ink(200, 180, 120).write(rebakeProgress, { x: w/2, y, center: "x" }, undefined, undefined, false, "MatrixChunky8");
@@ -1636,18 +1826,14 @@ function paint({ wipe, ink, box, screen, paste }) {
       ink(150, 150, 200).write(updateChainProgress, { x: w/2, y, center: "x" }, undefined, undefined, false, "MatrixChunky8");
       y += 10;
     }
-    
+
     // Success messages with transaction link
     if (updateChainResult) {
       ink(100, 255, 150).write("[ok] Synced!", { x: margin, y }, undefined, undefined, false, "MatrixChunky8");
-      
+
       // TX button to view transaction on TzKT
       if (updateChainResult.opHash) {
-        const txScheme = {
-          normal: { bg: [40, 70, 60], outline: [100, 200, 150], outlineAlpha: 150, text: [150, 255, 200] },
-          hover: { bg: [50, 90, 75], outline: [150, 255, 200], outlineAlpha: 200, text: [200, 255, 230] },
-          disabled: { bg: [30, 40, 35], outline: [60, 100, 80], outlineAlpha: 100, text: [80, 120, 100] }
-        };
+        const txScheme = pal.btnTx;
         const shortHash = updateChainResult.opHash.slice(0, 8) + "..";
         const txSize = mc8ButtonSize(shortHash);
         const txX = margin + 52;
@@ -1659,24 +1845,24 @@ function paint({ wipe, ink, box, screen, paste }) {
       }
       y += 14;
     }
-    
+
     return;
   }
-  
+
   // === LOADING VIEW ===
   if (loadingExisting || loadingPieceInfo) {
-    wipe(30, 35, 45);
+    wipe(pal.bg[0], pal.bg[1], pal.bg[2]);
     const msg = loadingPieceInfo ? "Loading piece..." : "Checking chain...";
     ink(100, 150, 180).write(msg, { x: w/2, y: h/2, center: "xy" }, undefined, undefined, false, "MatrixChunky8");
     return;
   }
-  
+
   // === CONFIRMATION VIEW ===
   if (waitingConfirmation) {
     // Dark gradient background
     const pulse = sin(rotation * 1.2) * 3;
-    wipe(25 + pulse, 28 + pulse, 35 + pulse);
-    
+    wipe(pal.bg[0] + pulse, pal.bg[1] + pulse, pal.bg[2] + pulse);
+
     // Subtle animated corner accents
     const accentAlpha = floor(60 + sin(rotation * 2) * 20);
     ink(255, 200, 100, accentAlpha).box(0, 0, 20, 2);
@@ -1687,17 +1873,17 @@ function paint({ wipe, ink, box, screen, paste }) {
     ink(255, 200, 100, accentAlpha).box(0, h - 20, 2, 20);
     ink(255, 200, 100, accentAlpha).box(w - 20, h - 2, 20, 2);
     ink(255, 200, 100, accentAlpha).box(w - 2, h - 20, 2, 20);
-    
+
     // Check if anonymous (no author recorded and not loading)
     const isAnonymous = !pieceAuthorSub && !loadingPieceInfo;
-    
+
     // Responsive spacing based on screen height
     const compact = h < 180;
     const spacious = h > 280;
     const gap = compact ? 10 : (spacious ? 20 : 14);
     const smallGap = compact ? 6 : (spacious ? 12 : 8);
     const tinyGap = compact ? 4 : (spacious ? 8 : 6);
-    
+
     // Calculate total height for centering based on content
     let totalH = 14 + gap + 16 + smallGap; // title + gap + piece name button + gap
     if (pieceSourceDisplay) totalH += 10 + tinyGap; // source preview
@@ -1713,10 +1899,10 @@ function paint({ wipe, ink, box, screen, paste }) {
     } else {
       totalH += 10 + gap + 16; // loading message + button area
     }
-    
+
     let cy = floor((h - totalH) / 2);
     if (cy < 12) cy = 12;
-    
+
     // Title with glow effect - show ANONYMOUS in red/orange if anonymous piece
     const glowAlpha = floor(50 + sin(rotation * 2.5) * 30);
     if (isAnonymous) {
@@ -1727,18 +1913,19 @@ function paint({ wipe, ink, box, screen, paste }) {
       ink(255, 220, 100).write("KEEP", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
     }
     cy += 14 + gap;
-    
+
     // Piece name as clickable button to preview - with subtle pulse
     const btnPulsePreview = 1 + sin(rotation * 2) * 0.08;
+    const base = pal.btnPreview.normalBase;
     const previewScheme = {
-      normal: { 
-        bg: [floor(25 * btnPulsePreview), floor(55 * btnPulsePreview), floor(50 * btnPulsePreview)], 
-        outline: [floor(80 * btnPulsePreview), floor(210 * btnPulsePreview), floor(190 * btnPulsePreview)], 
-        outlineAlpha: 180, 
-        text: [100, 220, 200] 
+      normal: {
+        bg: [floor(base.bg[0] * btnPulsePreview), floor(base.bg[1] * btnPulsePreview), floor(base.bg[2] * btnPulsePreview)],
+        outline: [floor(base.outline[0] * btnPulsePreview), floor(base.outline[1] * btnPulsePreview), floor(base.outline[2] * btnPulsePreview)],
+        outlineAlpha: base.outlineAlpha,
+        text: base.text
       },
-      hover: { bg: [40, 80, 70], outline: [130, 255, 230], outlineAlpha: 220, text: [150, 255, 240] },
-      disabled: { bg: [20, 35, 32], outline: [50, 120, 100], outlineAlpha: 100, text: [50, 120, 100] }
+      hover: pal.btnPreview.hover,
+      disabled: pal.btnPreview.disabled
     };
     const previewText = `$${piece}`;
     const previewSize = mc8ButtonSize(previewText);
@@ -1749,7 +1936,7 @@ function paint({ wipe, ink, box, screen, paste }) {
     previewBtn.btn.box.h = previewSize.h;
     paintMC8Btn(previewX, cy, previewText, { ink, line: ink }, previewScheme, previewBtn.btn.down);
     cy += 16 + smallGap;
-    
+
     // Source code preview with syntax highlighting (scrolling ticker if long)
     if (pieceSourceDisplay) {
       const maxSourceLen = floor(w / 6) - 4; // Responsive to screen width
@@ -1760,13 +1947,13 @@ function paint({ wipe, ink, box, screen, paste }) {
         const paddedSource = displaySource + "          " + displaySource;
         displaySource = paddedSource.substring(scrollOffset, scrollOffset + maxSourceLen);
       }
-      
+
       // Use proper KidLisp syntax highlighting via buildColoredSourceString
       const coloredSource = buildColoredSourceString(displaySource);
       ink(200, 200, 200, 140).write(coloredSource, { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
       cy += 10 + tinyGap;
     }
-    
+
     // Author, hits, and date info
     const authorStr = pieceAuthor || "anonymous";
     const hitsStr = pieceHits !== null ? `${pieceHits} hits` : "";
@@ -1786,7 +1973,7 @@ function paint({ wipe, ink, box, screen, paste }) {
     const infoStr = infoParts.join(" · ");
     ink(100, 105, 115).write(infoStr, { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
     cy += 10 + gap;
-    
+
     // Ownership status and action area
     if (isAuthor === true) {
       // User IS the author - show keep button
@@ -1794,30 +1981,26 @@ function paint({ wipe, ink, box, screen, paste }) {
       const ownershipMsg = userHandle ? `${checkmark} Logged in as @${userHandle}` : `${checkmark} You wrote this code`;
       ink(100, 200, 130).write(ownershipMsg, { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
       cy += 10 + smallGap;
-      
+
       // "Keep It?" prompt in yellow with glow
       const keepItGlow = floor(30 + sin(rotation * 3) * 15);
       ink(255, 220, 100, keepItGlow).write("Keep It?", { x: w/2, y: cy - 1, center: "x" }, undefined, undefined, false, "MatrixChunky8");
       ink(255, 220, 100).write("Keep It?", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
       cy += 12 + smallGap;
-      
+
       // Prose explanation (softer, elegant)
       ink(150, 145, 135).write(`Keep $${piece} in your wallet.`, { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
       cy += 10 + gap;
-      
+
       // Network badge
       const netLabel = KEEPS_STAGING ? "STAGING" : NETWORK.toUpperCase();
       const isMainnet = NETWORK === "mainnet";
       const netColor = KEEPS_STAGING ? [255, 180, 100] : (isMainnet ? [100, 220, 100] : [220, 180, 100]);
       ink(netColor[0], netColor[1], netColor[2], 200).write(netLabel, { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
       cy += 10 + smallGap;
-      
+
       // Contract button (clickable link to TzKT)
-      const contractScheme = {
-        normal: { bg: [30, 38, 50], outline: [80, 115, 150], outlineAlpha: 140, text: [130, 160, 200] },
-        hover: { bg: [45, 55, 75], outline: [130, 175, 220], outlineAlpha: 200, text: [180, 210, 255] },
-        disabled: { bg: [25, 30, 35], outline: [60, 80, 100], outlineAlpha: 100, text: [80, 100, 120] }
-      };
+      const contractScheme = pal.btnContract;
       const shortContract = KEEPS_CONTRACT.slice(0, 8) + "..";
       const contractSize = mc8ButtonSize(shortContract);
       const contractX = floor((w - contractSize.w) / 2);
@@ -1827,13 +2010,14 @@ function paint({ wipe, ink, box, screen, paste }) {
       contractBtn.btn.box.h = contractSize.h;
       paintMC8Btn(contractX, cy, shortContract, { ink, line: ink }, contractScheme, contractBtn.btn.down);
       cy += 12 + gap;
-      
+
       // Main action button (prominent, glowing)
       const btnPulse = sin(rotation * 2.5) * 0.15 + 1;
+      const confirmBase = pal.btnConfirm.normalBase;
       const confirmScheme = {
-        normal: { bg: [floor(40 * btnPulse), floor(75 * btnPulse), floor(55 * btnPulse)], outline: [floor(110 * btnPulse), floor(220 * btnPulse), floor(150 * btnPulse)], outlineAlpha: 230, text: [160, 255, 200] },
-        hover: { bg: [55, 105, 80], outline: [170, 255, 210], outlineAlpha: 255, text: [230, 255, 245] },
-        disabled: { bg: [30, 40, 35], outline: [60, 100, 80], outlineAlpha: 100, text: [80, 120, 100] }
+        normal: { bg: [floor(confirmBase.bg[0] * btnPulse), floor(confirmBase.bg[1] * btnPulse), floor(confirmBase.bg[2] * btnPulse)], outline: [floor(confirmBase.outline[0] * btnPulse), floor(confirmBase.outline[1] * btnPulse), floor(confirmBase.outline[2] * btnPulse)], outlineAlpha: confirmBase.outlineAlpha, text: confirmBase.text },
+        hover: pal.btnConfirm.hover,
+        disabled: pal.btnConfirm.disabled
       };
       const confirmText = "Keep It";
       const confirmSize = lgButtonSize(confirmText);
@@ -1843,23 +2027,24 @@ function paint({ wipe, ink, box, screen, paste }) {
       btn.btn.box.w = confirmSize.w;
       btn.btn.box.h = confirmSize.h;
       paintLgBtn(confirmX, cy, confirmText, { ink, line: ink }, confirmScheme, btn.btn.down);
-      
+
     } else if (pieceAuthorSub && !userSub) {
       // Piece has an author, but user is NOT logged in yet
       ink(210, 160, 110).write("You can only keep KidLisp", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
       cy += 9 + tinyGap;
       ink(210, 160, 110).write("that you authored.", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
       cy += gap;
-      
+
       ink(150, 150, 165).write("Login to verify ownership", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
       cy += 10 + smallGap;
-      
+
       // Login button with pulse
       const loginPulse = sin(rotation * 2) * 0.1 + 1;
+      const loginBase = pal.btnLogin.normalBase;
       const loginScheme = {
-        normal: { bg: [floor(50 * loginPulse), floor(55 * loginPulse), floor(80 * loginPulse)], outline: [floor(130 * loginPulse), floor(150 * loginPulse), floor(220 * loginPulse)], outlineAlpha: 200, text: [170, 190, 255] },
-        hover: { bg: [65, 75, 110], outline: [175, 195, 255], outlineAlpha: 240, text: [210, 220, 255] },
-        disabled: { bg: [30, 35, 45], outline: [70, 80, 100], outlineAlpha: 100, text: [90, 100, 120] }
+        normal: { bg: [floor(loginBase.bg[0] * loginPulse), floor(loginBase.bg[1] * loginPulse), floor(loginBase.bg[2] * loginPulse)], outline: [floor(loginBase.outline[0] * loginPulse), floor(loginBase.outline[1] * loginPulse), floor(loginBase.outline[2] * loginPulse)], outlineAlpha: loginBase.outlineAlpha, text: loginBase.text },
+        hover: pal.btnLogin.hover,
+        disabled: pal.btnLogin.disabled
       };
       const loginText = "Login";
       const loginSize = lgButtonSize(loginText);
@@ -1869,28 +2054,28 @@ function paint({ wipe, ink, box, screen, paste }) {
       loginBtn.btn.box.w = loginSize.w;
       loginBtn.btn.box.h = loginSize.h;
       paintLgBtn(loginX, cy, loginText, { ink, line: ink }, loginScheme, loginBtn.btn.down);
-      
+
     } else if (isAuthor === false) {
       // User IS logged in but NOT the author
       const loggedInMsg = userHandle ? `Logged in as @${userHandle}` : "Logged in";
       ink(110, 150, 195).write(loggedInMsg, { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
       cy += 10 + smallGap;
-      
+
       ink(210, 110, 110).write("✗ Not your code", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
       cy += 12 + tinyGap;
-      
+
       ink(180, 155, 145).write("You can only keep KidLisp", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
       cy += 9 + tinyGap;
       ink(180, 155, 145).write("that you authored.", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
       cy += 10 + smallGap;
-      
+
       ink(130, 130, 145).write(`Author: ${pieceAuthor || "unknown"}`, { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
-      
+
     } else if (isAnonymous) {
       // Anonymous piece - can't be kept
       ink(210, 130, 110).write("Anonymous piece", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
       cy += 14 + tinyGap;
-      
+
       // Explanation
       ink(150, 140, 130).write("Anonymous pieces cannot", { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
       cy += 9 + tinyGap;
@@ -1900,66 +2085,77 @@ function paint({ wipe, ink, box, screen, paste }) {
       const dots = ".".repeat((floor(rotation * 3) % 3) + 1);
       ink(180, 175, 150).write(`Loading${dots}`, { x: w/2, y: cy, center: "x" }, undefined, undefined, false, "MatrixChunky8");
     }
-    
+
     return;
   }
-  
+
   // === MINTING VIEW (original) ===
-  
+
   // Animated background color based on progress
   const progress = getProgress();
   const isComplete = timeline.find(t => t.id === "complete")?.status === "done";
   const isError = hasError();
-  
+
+  // Animated background based on progress and theme
   let bgR, bgG, bgB;
   if (isError) {
-    bgR = 45; bgG = 20; bgB = 25;
+    // Error: reddish tint
+    bgR = $.dark ? 45 : 240; bgG = $.dark ? 20 : 220; bgB = $.dark ? 25 : 225;
   } else if (isComplete) {
+    // Complete: greenish shimmer
     const pulse = sin(rotation * 2) * 8;
-    bgR = 20 + pulse; bgG = 45 + pulse; bgB = 30 + pulse;
+    bgR = $.dark ? (20 + pulse) : (220 + pulse);
+    bgG = $.dark ? (45 + pulse) : (240 + pulse);
+    bgB = $.dark ? (30 + pulse) : (225 + pulse);
   } else {
+    // Progress gradient - blend from pal.bg toward accent
+    const base = pal.bg;
     if (progress < 0.5) {
       const t = progress * 2;
-      bgR = floor(35 + t * 25); bgG = floor(25 + t * 20); bgB = floor(40 - t * 15);
+      bgR = floor(base[0] + t * ($.dark ? 25 : -20));
+      bgG = floor(base[1] + t * ($.dark ? 20 : -15));
+      bgB = floor(base[2] + t * ($.dark ? -5 : -10));
     } else {
       const t = (progress - 0.5) * 2;
-      bgR = floor(60 - t * 35); bgG = floor(45 + t * 10); bgB = floor(25 + t * 10);
+      bgR = floor(($.dark ? 60 : 225) - t * ($.dark ? 35 : 10));
+      bgG = floor(($.dark ? 45 : 228) + t * ($.dark ? 10 : 5));
+      bgB = floor(($.dark ? 25 : 228) + t * ($.dark ? 10 : 5));
     }
   }
   wipe(bgR, bgG, bgB);
-  
+
   // Draw particles
   for (const p of particles) {
     const alpha = floor((p.life / 100) * 180);
     ink(p.color[0], p.color[1], p.color[2], alpha).box(floor(p.x), floor(p.y), floor(p.size), floor(p.size));
   }
-  
+
   // Border shimmer
   if (progress > 0.3 || isComplete) {
     const shimmerIntensity = isComplete ? 1 : (progress - 0.3) / 0.7;
     for (let i = 0; i < w; i += 4) {
       const shimmer = sin(rotation * 3 + i * 0.15) * 0.5 + 0.5;
       const alpha = floor(shimmer * 50 * shimmerIntensity);
-      const color = isComplete ? [100, 255, 150] : [255, 200, 100];
+      const color = isComplete ? pal.positive : pal.gold;
       ink(color[0], color[1], color[2], alpha).box(i, 0, 2, 1);
       ink(color[0], color[1], color[2], alpha).box(i, h - 1, 2, 1);
     }
   }
-  
+
   const margin = 6;
   const HUD_RESERVED = 21; // Space reserved for HUD label (matches notepat.mjs TOP_BAR_BOTTOM)
   let y = HUD_RESERVED;
-  
+
   // === Current Task & Progress Bar (below HUD) ===
   const activeStep = getActiveStep();
   const doneCount = timeline.filter(t => t.status === "done").length;
   const totalSteps = timeline.length;
-  
+
   // Progress bar - color-coded by phase segments
   const barY = y;
   const barH = 4;
-  ink(30, 35, 45).box(0, barY, w, barH);
-  
+  ink(pal.bgProgress[0], pal.bgProgress[1], pal.bgProgress[2]).box(0, barY, w, barH);
+
   // Draw each segment with its phase color
   for (let i = 0; i < totalSteps; i++) {
     const step = timeline[i];
@@ -1967,7 +2163,7 @@ function paint({ wipe, ink, box, screen, paste }) {
     const segmentStart = floor(w * (i / totalSteps));
     const segmentEnd = floor(w * ((i + 1) / totalSteps));
     const segmentW = segmentEnd - segmentStart;
-    
+
     if (step.status === "done") {
       // Done: use phase label color at full brightness
       ink(phase.label[0], phase.label[1], phase.label[2], 200).box(segmentStart, barY, segmentW, barH);
@@ -1980,36 +2176,36 @@ function paint({ wipe, ink, box, screen, paste }) {
       ink(255, 100, 100, 200).box(segmentStart, barY, segmentW, barH);
     }
     // Segment divider
-    ink(50, 55, 65).box(segmentEnd - 1, barY, 1, barH);
+    ink(pal.divider[0], pal.divider[1], pal.divider[2]).box(segmentEnd - 1, barY, 1, barH);
   }
   y += barH + 4;
-  
+
   // === STEP CAROUSEL (prev | CURRENT | next) ===
   const carouselH = 20;
   const carouselY = y;
-  ink(25, 30, 40).box(0, carouselY, w, carouselH); // Dark bg for carousel
-  
+  ink(pal.bgCarousel[0], pal.bgCarousel[1], pal.bgCarousel[2]).box(0, carouselY, w, carouselH); // Dark bg for carousel
+
   // Calculate which steps to show based on animated position
   const stepSpacing = 100; // Virtual spacing between steps
   const centerX = w / 2;
-  
+
   // Draw each step label, positioned based on carousel animation
   for (let i = 0; i < totalSteps; i++) {
     const step = timeline[i];
     const phase = PHASE_COLORS[step.id] || PHASE_COLORS.validate;
-    
+
     // Calculate X position relative to carousel scroll
     const stepVirtualX = i * stepSpacing;
     const offsetFromCurrent = stepVirtualX - carouselCurrentX;
     const screenX = centerX + offsetFromCurrent * 0.8; // Scale down for tighter spacing
-    
+
     // Skip if way off screen
     if (screenX < -80 || screenX > w + 80) continue;
-    
+
     // Calculate opacity based on distance from center
     const distFromCenter = abs(offsetFromCurrent);
     const opacity = max(0, 1 - distFromCenter / 150);
-    
+
     // Determine color and style
     let labelColor, labelAlpha;
     if (step.status === "active") {
@@ -2019,18 +2215,18 @@ function paint({ wipe, ink, box, screen, paste }) {
       labelColor = phase.label.map(c => floor(c * 0.6));
       labelAlpha = floor(180 * opacity);
     } else if (step.status === "error") {
-      labelColor = [255, 100, 100];
+      labelColor = pal.error;
       labelAlpha = floor(200 * opacity);
     } else {
-      labelColor = [80, 90, 110];
+      labelColor = pal.textMuted;
       labelAlpha = floor(120 * opacity);
     }
-    
+
     // Draw step label
     const label = step.status === "active" ? step.label.toUpperCase() : step.label;
     const labelW = label.length * (step.status === "active" ? 6 : 4);
     const textX = screenX - labelW / 2;
-    
+
     if (step.status === "active") {
       // Active step: larger, brighter, with glow
       const pulse = sin(rotation * 3) * 0.15 + 0.85;
@@ -2040,39 +2236,39 @@ function paint({ wipe, ink, box, screen, paste }) {
       ink(labelColor[0], labelColor[1], labelColor[2], labelAlpha).write(label, { x: textX, y: carouselY + 6 }, undefined, undefined, false, "MatrixChunky8");
     }
   }
-  
+
   // Arrows indicating more steps
   if (carouselTargetIndex > 0) {
-    ink(100, 110, 130, 150).write("<", { x: 4, y: carouselY + 6 }, undefined, undefined, false, "MatrixChunky8");
+    ink(pal.arrow[0], pal.arrow[1], pal.arrow[2], 150).write("<", { x: 4, y: carouselY + 6 }, undefined, undefined, false, "MatrixChunky8");
   }
   if (carouselTargetIndex < totalSteps - 1) {
-    ink(100, 110, 130, 150).write(">", { x: w - 8, y: carouselY + 6 }, undefined, undefined, false, "MatrixChunky8");
+    ink(pal.arrow[0], pal.arrow[1], pal.arrow[2], 150).write(">", { x: w - 8, y: carouselY + 6 }, undefined, undefined, false, "MatrixChunky8");
   }
-  
+
   y += carouselH + 2;
-  
+
   // Step counter (small, centered)
   const stepText = `${doneCount}/${totalSteps}`;
-  ink(100, 110, 130).write(stepText, { x: w/2, y, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+  ink(pal.arrow[0], pal.arrow[1], pal.arrow[2]).write(stepText, { x: w/2, y, center: "x" }, undefined, undefined, false, "MatrixChunky8");
   y += 10;
 
   // Timeline with striped sections
   let shownPending = false;
-  
+
   for (const item of timeline) {
     const isActive = item.status === "active";
     const isDone = item.status === "done";
     const isItemError = item.status === "error";
     const isPending = item.status === "pending";
-    
+
     if (isPending) {
       if (shownPending) continue;
       shownPending = true;
     }
-    
+
     const phase = PHASE_COLORS[item.id] || PHASE_COLORS.validate;
     const stripeH = item.detail ? 20 : 12;
-    
+
     // Draw stripe background
     if (isDone || isActive || isItemError) {
       let stripeColor;
@@ -2080,7 +2276,7 @@ function paint({ wipe, ink, box, screen, paste }) {
       else if (isActive) stripeColor = phase.stripe.map(c => c + 15);
       else stripeColor = phase.stripe;
       ink(stripeColor[0], stripeColor[1], stripeColor[2], isDone ? 60 : 100).box(0, y, w, stripeH);
-      
+
       // Progress bar for active items
       if (isActive && item.startedAt && item.duration) {
         const elapsed = Date.now() - item.startedAt;
@@ -2091,53 +2287,53 @@ function paint({ wipe, ink, box, screen, paste }) {
         ink(phase.label[0], phase.label[1], phase.label[2], 40 + glow).box(2, y + stripeH - 3, barW, 2);
       }
     }
-    
+
     // Label
     let labelColor;
-    if (isPending) labelColor = [45, 50, 60];
+    if (isPending) labelColor = pal.textMuted;
     else if (isItemError) labelColor = [255, 120, 120];
     else if (isActive) labelColor = phase.label;
     else labelColor = phase.label.map(c => floor(c * 0.7));
-    
+
     ink(...labelColor).write(item.label, { x: margin, y: y + 2 }, undefined, undefined, false, "MatrixChunky8");
-    
+
     // Time (right aligned)
     if (item.time && (isDone || isActive || isItemError)) {
-      const timeColor = isItemError ? [180, 80, 80] : (isActive ? [200, 200, 140] : [80, 90, 100]);
+      const timeColor = isItemError ? [180, 80, 80] : (isActive ? [200, 200, 140] : pal.textDim);
       ink(...timeColor).write(item.time, { x: w - margin - 20, y: y + 2 }, undefined, undefined, false, "MatrixChunky8");
     }
-    
+
     // Detail line (with better contrast) - skip for review step when active (has custom button UI)
     if (item.detail && !isPending && !(item.id === "review" && isActive && preparedData)) {
       let detailColor;
       if (isItemError) detailColor = [255, 120, 120];
-      else if (isActive) detailColor = [255, 255, 180]; // Bright white-yellow for active
-      else detailColor = [200, 210, 220]; // Light gray for done
-      
+      else if (isActive) detailColor = [255, 255, 100]; // Bright yellow for active
+      else detailColor = pal.text; // Light gray for done
+
       const maxLen = floor((w - 20) / 4);
       const truncated = item.detail.length > maxLen ? item.detail.slice(0, maxLen - 2) + ".." : item.detail;
       // Darker background strip for better readability
-      ink(0, 0, 0, 180).box(margin - 2, y + 10, truncated.length * 4 + 4, 10);
+      ink(0, 0, 0, 220).box(margin - 2, y + 10, truncated.length * 4 + 4, 10);
       ink(...detailColor).write(truncated, { x: margin, y: y + 11 }, undefined, undefined, false, "MatrixChunky8");
     }
-    
+
     y += stripeH + 2; // Gap between stripes
-    
+
     // === INLINE SOURCE MARQUEE (after analyze row) ===
     if (item.id === "analyze" && (isDone || isActive) && sourceCode) {
       const marqueeH = 12;
       ink(35, 40, 50).box(0, y, w, marqueeH);
-      
+
       // Build colored string with natural spacing preserved
       const coloredSource = buildColoredSourceString(sourceCode);
       const sourceLen = sourceCode.length * 4; // Approximate width
-      
+
       // Only scroll if content is wider than screen
       const needsScroll = sourceLen > w - margin * 2;
       const gap = 40;
       const repeatWidth = sourceLen + gap;
       let startX = needsScroll ? (margin - (tickerOffset % repeatWidth)) : margin;
-      
+
       // Draw colored source using write() for natural spacing
       const repeats = needsScroll ? 2 : 1;
       for (let repeat = 0; repeat < repeats; repeat++) {
@@ -2146,7 +2342,7 @@ function paint({ wipe, ink, box, screen, paste }) {
           ink(200, 200, 200).write(coloredSource, { x: tx, y: y + 2 }, undefined, undefined, false, "MatrixChunky8");
         }
       }
-      
+
       // Author/stats on right
       if (pieceAuthor || pieceSourceLength) {
         const statsStr = pieceAuthor ? `@${pieceAuthor}` : (pieceSourceLength ? `${pieceSourceLength}c` : "");
@@ -2156,18 +2352,18 @@ function paint({ wipe, ink, box, screen, paste }) {
         const authorColor = pieceAuthor ? [100, 255, 200] : [100, 130, 150];
         ink(authorColor[0], authorColor[1], authorColor[2]).write(statsStr, { x: w - margin - statsW, y: y + 2 }, undefined, undefined, false, "MatrixChunky8");
       }
-      
+
       y += marqueeH + 2;
     }
-    
+
     // === INLINE THUMBNAIL PREVIEW (only during review step) ===
     if (item.id === "review" && isActive && thumbnailBitmap) {
       const thumbH = 40;
       const thumbSize = min(36, w - 20);
-      ink(30, 35, 45).box(0, y, w, thumbH);
+      ink(pal.bgProgress[0], pal.bgProgress[1], pal.bgProgress[2]).box(0, y, w, thumbH);
       const thumbX = margin;
       paste(thumbnailBitmap, thumbX, y + 2, { scale: thumbSize / (thumbnailBitmap.width || 256) });
-      
+
       // Show cache info or IPFS hash + REBAKE button
       let infoLabel = "";
       const isCached = preparedData?.usedCachedMedia && preparedData.cacheGeneratedAt;
@@ -2186,11 +2382,7 @@ function paint({ wipe, ink, box, screen, paste }) {
       }
       // REBAKE button if using cached media
       if (isCached) {
-        const rebakeScheme = {
-          normal: { bg: [80, 60, 40], outline: [255, 180, 100], outlineAlpha: 150, text: [255, 200, 140] },
-          hover: { bg: [120, 90, 60], outline: [255, 220, 150], outlineAlpha: 200, text: [255, 240, 200] },
-          disabled: { bg: [50, 45, 40], outline: [120, 100, 80], outlineAlpha: 100, text: [140, 120, 100] }
-        };
+        const rebakeScheme = pal.btnRebake;
         const rebakeSize = mc8ButtonSize("REBAKE");
         const rebakeX = infoX;
         const rebakeY = y + 20;
@@ -2202,16 +2394,12 @@ function paint({ wipe, ink, box, screen, paste }) {
       }
       y += thumbH + 2;
     }
-    
+
     // IPFS links after metadata (inline text buttons)
     if (item.id === "metadata" && isDone && preparedData) {
       let linkX = margin;
-      const linkScheme = {
-        normal: { bg: [30, 60, 70], outline: [100, 180, 220], outlineAlpha: 150, text: [100, 180, 220] },
-        hover: { bg: [50, 90, 110], outline: [180, 240, 255], outlineAlpha: 200, text: [180, 240, 255] },
-        disabled: { bg: [25, 35, 40], outline: [60, 80, 90], outlineAlpha: 100, text: [60, 80, 90] }
-      };
-      
+      const linkScheme = pal.btnLink;
+
       if (preparedData.artifactUri) {
         const htmlSize = mc8ButtonSize("HTML");
         htmlBtn.btn.box.x = linkX;
@@ -2240,15 +2428,15 @@ function paint({ wipe, ink, box, screen, paste }) {
       }
       y += mc8ButtonSize("X").h + 4;
     }
-    
+
     // === INLINE KEEP TOLL BUTTON (in review row) ===
     if (item.id === "review" && isActive && preparedData) {
       // Skip the normal detail rendering for review - button is the UI
       const tollH = 24; // Bigger button
       ink(40, 60, 45).box(0, y, w, tollH); // Darker green-tinted bg
-      
+
       // Pay toll button centered (mixed font for ꜩ)
-      const tollText = `Pay ${preparedData.mintFee || 5}`;
+      const tollText = `Pay ${preparedData.mintFee ?? 0}`;
       const tezSymbol = "ꜩ";
       const tollSuffix = " Toll";
       const textW = tollText.length * 6; // default font
@@ -2256,19 +2444,19 @@ function paint({ wipe, ink, box, screen, paste }) {
       const suffixW = tollSuffix.length * 6; // default font
       const totalTollW = textW + symbolW + suffixW + 16; // padding
       const tollX = floor((w - totalTollW) / 2);
-      
+
       // Button background
-      const tollScheme = btn.btn.down ? { bg: [80, 150, 100], text: [255, 255, 255] } : { bg: [60, 120, 80], text: [200, 255, 220] };
+      const tollScheme = btn.btn.down ? pal.btnToll.hover : pal.btnToll.normal;
       ink(tollScheme.bg[0], tollScheme.bg[1], tollScheme.bg[2]).box(tollX, y + 3, totalTollW, tollH - 6);
       ink(100, 200, 140).box(tollX, y + 3, totalTollW, 1).box(tollX, y + tollH - 4, totalTollW, 1); // outline
-      
+
       // Update button hitbox
       btn.btn.box.x = tollX;
       btn.btn.box.y = y + 3;
       btn.btn.box.w = totalTollW;
       btn.btn.box.h = tollH - 6;
       btn.txt = tollText + tezSymbol + tollSuffix;
-      
+
       // Draw text in default font (bigger): "Pay 5" + ꜩ + " Toll"
       let textX = tollX + 8;
       ink(tollScheme.text[0], tollScheme.text[1], tollScheme.text[2]).write(tollText, { x: textX, y: y + 7 });
@@ -2276,11 +2464,43 @@ function paint({ wipe, ink, box, screen, paste }) {
       ink(tollScheme.text[0], tollScheme.text[1], tollScheme.text[2]).write(tezSymbol, { x: textX, y: y + 4 }, undefined, undefined, false, "unifont");
       textX += symbolW;
       ink(tollScheme.text[0], tollScheme.text[1], tollScheme.text[2]).write(tollSuffix, { x: textX, y: y + 7 });
-      
+
       y += tollH + 2;
+
+      // "to keep on mainnet staging" with clickable staging button
+      if (KEEPS_STAGING) {
+        const netName = preparedData.network || NETWORK || "mainnet";
+        const prefix = "to keep on " + netName + " ";
+        const stagingLabel = "staging";
+        // MatrixChunky8 is ~4px per char
+        const prefixW = prefix.length * 4;
+        const stagingW = stagingLabel.length * 4 + 8; // padding
+        const totalInfoW = prefixW + stagingW;
+        const infoX = floor((w - totalInfoW) / 2);
+        const infoY = y;
+
+        // Draw prefix text in MatrixChunky8
+        ink(200, 220, 210).write(prefix, { x: infoX, y: infoY + 2 }, undefined, undefined, false, "MatrixChunky8");
+
+        // Staging button with proper UI styling
+        const stagingBtnX = infoX + prefixW;
+        btn.staging = btn.staging || { box: { x: 0, y: 0, w: 0, h: 0 }, down: false };
+        btn.staging.box = { x: stagingBtnX, y: infoY, w: stagingW, h: 12 };
+
+        const stagingScheme = btn.staging.down ? pal.btnStaging.hover : pal.btnStaging.normal;
+
+        // Button background
+        ink(stagingScheme.bg[0], stagingScheme.bg[1], stagingScheme.bg[2]).box(stagingBtnX, infoY, stagingW, 12);
+        // Outline
+        ink(stagingScheme.outline[0], stagingScheme.outline[1], stagingScheme.outline[2]).box(stagingBtnX, infoY, stagingW, 1).box(stagingBtnX, infoY + 11, stagingW, 1);
+        // Text
+        ink(stagingScheme.text[0], stagingScheme.text[1], stagingScheme.text[2]).write(stagingLabel, { x: stagingBtnX + 4, y: infoY + 2 }, undefined, undefined, false, "MatrixChunky8");
+
+        y += 14;
+      }
     }
   }
-  
+
   // === Network badge in TOP RIGHT (when review active) ===
   const reviewStep = timeline.find(t => t.id === "review");
   if (reviewStep?.status === "active" && preparedData) {
@@ -2291,9 +2511,9 @@ function paint({ wipe, ink, box, screen, paste }) {
     const netW = netLabel.length * 4 + 8 + ghostW;
     const netX = w - margin - netW;
     const netY = 4; // Top of screen
-    const netScheme = networkBtn.btn.down ? { bg: [50, 70, 80], text: [160, 200, 220] } : { bg: [35, 50, 60], text: [100, 140, 160] };
+    const netScheme = networkBtn.btn.down ? pal.btnNet.hover : pal.btnNet.normal;
     ink(netScheme.bg[0], netScheme.bg[1], netScheme.bg[2]).box(netX, netY, netW, 14);
-    
+
     if (isGhostnet) {
       // Draw ghost icon first
       drawGhost(ink, box, netX + 2, netY, [255, 180, 50], 1);
@@ -2307,13 +2527,9 @@ function paint({ wipe, ink, box, screen, paste }) {
     networkBtn.btn.box.h = 14;
   }
   const completeStep = timeline.find(t => t.id === "complete");
-  
+
   if (completeStep?.status === "done") {
-    const viewScheme = {
-      normal: { bg: [40, 80, 60], outline: [100, 220, 150], outlineAlpha: 150, text: [255, 255, 255] },
-      hover: { bg: [60, 120, 90], outline: [150, 255, 200], outlineAlpha: 200, text: [255, 255, 255] },
-      disabled: { bg: [35, 50, 45], outline: [70, 130, 100], outlineAlpha: 100, text: [140, 160, 150] }
-    };
+    const viewScheme = pal.btnView;
     const viewSize = mc8ButtonSize("View on objkt");
     const viewX = floor((w - viewSize.w) / 2);
     btn.btn.box.x = viewX;
@@ -2322,13 +2538,9 @@ function paint({ wipe, ink, box, screen, paste }) {
     btn.btn.box.h = viewSize.h;
     btn.txt = "View on objkt";
     paintMC8Btn(viewX, y, "View on objkt", { ink, line: ink }, viewScheme, btn.btn.down);
-    
+
   } else if (isError) {
-    const retryScheme = {
-      normal: { bg: [100, 50, 50], outline: [255, 120, 120], outlineAlpha: 150, text: [255, 255, 255] },
-      hover: { bg: [140, 70, 70], outline: [255, 160, 160], outlineAlpha: 200, text: [255, 255, 255] },
-      disabled: { bg: [60, 40, 40], outline: [120, 80, 80], outlineAlpha: 100, text: [140, 120, 120] }
-    };
+    const retryScheme = pal.btnRetry;
     const retrySize = mc8ButtonSize("Retry");
     const retryX = floor((w - retrySize.w) / 2);
     btn.btn.box.x = retryX;
@@ -2342,7 +2554,7 @@ function paint({ wipe, ink, box, screen, paste }) {
 
 function act({ event: e, screen }) {
   if (e.is("reframed")) _needsPaint?.();
-  
+
   // Confirmation button handler
   if (waitingConfirmation) {
     // Only enable keep button if user is author - anonymous pieces cannot be kept
@@ -2393,16 +2605,16 @@ function act({ event: e, screen }) {
     }
     return;
   }
-  
+
   const reviewStep = timeline.find(t => t.id === "review");
   const completeStep = timeline.find(t => t.id === "complete");
-  
+
   // Asset link buttons + network button + rebake
   if (reviewStep?.status === "active" && preparedData) {
     if (preparedData.artifactUri) htmlBtn.btn.act(e, { push: () => openUrl(preparedData.artifactUri) });
     if (preparedData.thumbnailUri) thumbBtn.btn.act(e, { push: () => openUrl(preparedData.thumbnailUri) });
     if (preparedData.metadataUri) metaBtn.btn.act(e, { push: () => openUrl(preparedData.metadataUri) });
-    
+
     // REBAKE button - regenerate media without resetting timeline
     if (preparedData.usedCachedMedia && !rebaking) {
       rebakeBtn.btn.act(e, { push: async () => {
@@ -2410,7 +2622,7 @@ function act({ event: e, screen }) {
         rebaking = true;
         rebakeProgress = "Regenerating...";
         _needsPaint?.();
-        
+
         try {
           const token = await _net?.getToken?.();
           const response = await fetch("/api/keep-mint", {
@@ -2427,20 +2639,20 @@ function act({ event: e, screen }) {
               screenHeight: _screen?.height || 128,
             }),
           });
-          
+
           // Parse SSE stream
           const reader = response.body.getReader();
           const decoder = new TextDecoder();
           let buffer = "";
-          
+
           while (true) {
             const { done, value } = await reader.read();
             if (done) break;
-            
+
             buffer += decoder.decode(value, { stream: true });
             const lines = buffer.split("\n");
             buffer = lines.pop() || "";
-            
+
             let eventType = null;
             for (const line of lines) {
               if (line.startsWith("event: ")) {
@@ -2449,7 +2661,7 @@ function act({ event: e, screen }) {
                 try {
                   const eventData = JSON.parse(line.slice(6));
                   console.log("🪙 REBAKE:", eventType, eventData);
-                  
+
                   if (eventType === "progress") {
                     rebakeProgress = eventData.message;
                     _needsPaint?.();
@@ -2482,25 +2694,35 @@ function act({ event: e, screen }) {
         }
       }});
     }
-    
+
     // Network button links to contract collection on objkt
     const contractAddress = preparedData.contractAddress || KEEPS_CONTRACT;
     const networkPrefix = preparedData.network === "mainnet" ? "" : "ghostnet.";
     networkBtn.btn.act(e, { push: () => openUrl(`https://${networkPrefix}objkt.com/collection/${contractAddress}`) });
-    
+
+    // Staging contract link
+    if (KEEPS_STAGING && btn.staging) {
+      const tzktStagingUrl = `https://${NETWORK}.tzkt.io/${KEEPS_CONTRACT}`;
+      btn.staging.act = btn.staging.act || ((ev, opts) => {
+        if (ev.is("touch") && ev.button < 1) btn.staging.down = true;
+        if (ev.is("lift") && btn.staging.down) { btn.staging.down = false; opts.push?.(); }
+      });
+      btn.staging.act(e, { push: () => openUrl(tzktStagingUrl) });
+    }
+
     btn.btn.act(e, { push: () => signAndMint() });
   }
-  
+
   if (completeStep?.status === "done") {
     btn.btn.act(e, { push: () => {
       const networkPrefix = preparedData?.network === "mainnet" ? "" : "ghostnet.";
-      const url = tokenId 
+      const url = tokenId
         ? `https://${networkPrefix}objkt.com/tokens/${preparedData.contractAddress}/${tokenId}`
         : `https://${networkPrefix}objkt.com/collections/${preparedData.contractAddress}`;
       openUrl(url);
     }});
   }
-  
+
   if (hasError()) {
     btn.btn.act(e, { push: () => {
       resetTimeline();
@@ -2508,7 +2730,7 @@ function act({ event: e, screen }) {
       runProcess();
     }});
   }
-  
+
   // Already minted view interactions
   if (alreadyMinted) {
     if (alreadyMinted.artifactUri) htmlBtn.btn.act(e, { push: () => openUrl(alreadyMinted.artifactUri) });
@@ -2517,17 +2739,17 @@ function act({ event: e, screen }) {
     metaBtn.btn.act(e, { push: () => openUrl(alreadyMinted.tzktUrl) });
     btn.btn.act(e, { push: () => openUrl(alreadyMinted.objktUrl) });
     walletBtn.btn.act(e, { push: () => _jump("wallet") });
-    
+
     // Contract button - open contract on TzKT
     const tzktContractUrl = `https://${NETWORK}.tzkt.io/${KEEPS_CONTRACT}`;
     contractBtn.btn.act(e, { push: () => openUrl(tzktContractUrl) });
-    
+
     // TX button - open transaction on TzKT
     if (updateChainResult?.opHash) {
       const tzktTxUrl = `https://${NETWORK}.tzkt.io/${updateChainResult.opHash}`;
       txBtn.btn.act(e, { push: () => openUrl(tzktTxUrl) });
     }
-    
+
     // Cached/Pending URI buttons (show latest generated bundle, not yet on-chain)
     const latestMedia = pendingRebake || cachedMedia;
     if (latestMedia?.artifactUri) {
@@ -2536,12 +2758,12 @@ function act({ event: e, screen }) {
     if (latestMedia?.thumbnailUri) {
       oldThumbBtn.btn.act(e, { push: () => openUrl(latestMedia.thumbnailUri) });
     }
-    
+
     // Rebake button - regenerate bundle and thumbnail
     if (!rebaking) {
       rebakeBtn.btn.act(e, { push: async () => {
         console.log("🪙 KEEP: Starting rebake for already-minted piece $" + piece);
-        
+
         // Preserve original on-chain URIs before we overwrite them
         if (!originalOnChainUris && alreadyMinted.artifactUri) {
           originalOnChainUris = {
@@ -2550,16 +2772,16 @@ function act({ event: e, screen }) {
           };
           console.log("🪙 KEEP: Preserved original URIs:", originalOnChainUris);
         }
-        
+
         rebaking = true;
         rebakeResult = null;
         rebakeProgress = "Starting...";
         _needsPaint?.();
-        
+
         try {
           // Get auth token the same way as main process
           const token = await _net?.getToken?.();
-          
+
           const response = await fetch("/api/keep-mint", {
             method: "POST",
             headers: {
@@ -2574,20 +2796,20 @@ function act({ event: e, screen }) {
               screenHeight: _screen?.height || 128,
             }),
           });
-          
+
           // Parse SSE stream in real-time
           const reader = response.body.getReader();
           const decoder = new TextDecoder();
           let buffer = "";
-          
+
           while (true) {
             const { done, value } = await reader.read();
             if (done) break;
-            
+
             buffer += decoder.decode(value, { stream: true });
             const lines = buffer.split("\n");
             buffer = lines.pop() || "";
-            
+
             let eventType = null;
             for (const line of lines) {
               if (line.startsWith("event: ")) {
@@ -2596,7 +2818,7 @@ function act({ event: e, screen }) {
                 try {
                   const eventData = JSON.parse(line.slice(6));
                   console.log("🪙 REBAKE:", eventType, eventData);
-                  
+
                   if (eventType === "progress") {
                     rebakeProgress = eventData.message;
                     _needsPaint?.();
@@ -2633,7 +2855,7 @@ function act({ event: e, screen }) {
         }
       }});
     }
-    
+
     // Update Chain button - push new metadata on-chain (requires wallet)
     // Can sync if: rebakeResult exists, or pendingRebake exists, or we just want to force resync
     if (!updatingChain) {
@@ -2641,19 +2863,19 @@ function act({ event: e, screen }) {
         // Determine which URIs to sync - prefer rebake result, then pending, then current on-chain
         const syncArtifact = rebakeResult?.artifactUri || pendingRebake?.artifactUri || alreadyMinted.artifactUri;
         const syncThumb = rebakeResult?.thumbnailUri || pendingRebake?.thumbnailUri || alreadyMinted.thumbnailUri;
-        
+
         if (!syncArtifact) {
           console.error("🪙 UPDATE CHAIN: No artifact URI to sync");
           return;
         }
-        
+
         console.log("🪙 UPDATE CHAIN: Starting on-chain update for token #" + alreadyMinted.tokenId);
         updatingChain = true;
         updateChainResult = null;
         updateChainProgress = null;
         rebakeProgress = null; // Clear rebake progress when starting chain update
         _needsPaint?.();
-        
+
         try {
           // Connect wallet if not connected
           let walletAddress = await _api.tezos.address();
@@ -2666,7 +2888,7 @@ function act({ event: e, screen }) {
             _needsPaint?.();
             return;
           }
-          
+
           // Call the update-metadata endpoint (streaming SSE)
           const token = await _net?.getToken?.();
           const response = await fetch("/api/keep-update", {
@@ -2683,20 +2905,20 @@ function act({ event: e, screen }) {
               walletAddress,
             }),
           });
-          
+
           // Parse SSE stream
           const reader = response.body.getReader();
           const decoder = new TextDecoder();
           let buffer = "";
-          
+
           while (true) {
             const { done, value } = await reader.read();
             if (done) break;
-            
+
             buffer += decoder.decode(value, { stream: true });
             const lines = buffer.split("\n");
             buffer = lines.pop() || "";
-            
+
             let eventType = null;
             for (const line of lines) {
               if (line.startsWith("event: ")) {
@@ -2704,7 +2926,7 @@ function act({ event: e, screen }) {
               } else if (line.startsWith("data: ") && eventType) {
                 try {
                   const data = JSON.parse(line.slice(6));
-                  
+
                   if (eventType === "progress") {
                     updateChainProgress = data.message;
                     console.log("🪙 UPDATE CHAIN:", data.message);
@@ -2745,13 +2967,13 @@ function act({ event: e, screen }) {
       }});
     }
   }
-  
+
   if (e.is("keyboard:down:enter")) {
     if (alreadyMinted) openUrl(alreadyMinted.objktUrl);
     else if (reviewStep?.status === "active" && preparedData) signAndMint();
     else if (hasError()) { resetTimeline(); startTime = Date.now(); runProcess(); }
   }
-  
+
   if (e.is("keyboard:down:escape")) _jump?.("prompt");
 }
 
