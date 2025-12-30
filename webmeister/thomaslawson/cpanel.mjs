@@ -3,7 +3,7 @@
  * cPanel automation helpers for thomaslawson.com
  */
 
-import { PageController, listPages } from "./browser.mjs";
+import { PageController, listPages } from "../browser.mjs";
 
 const CPANEL_HOST = "p3plzcpnl502855.prod.phx3.secureserver.net:2083";
 

@@ -4,7 +4,7 @@
  * Usage: node dns-txt.mjs add <token>
  */
 
-import { PageController, listPages } from "./browser.mjs";
+import { PageController, listPages } from "../browser.mjs";
 
 const DOMAIN = "thomaslawson.com";
 
