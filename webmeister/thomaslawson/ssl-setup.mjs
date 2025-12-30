@@ -8,7 +8,7 @@ import { spawn } from "child_process";
 import { readFileSync, existsSync, mkdirSync } from "fs";
 import { join } from "path";
 import readline from "readline";
-import { PageController, listPages } from "./browser.mjs";
+import { PageController, listPages } from "../browser.mjs";
 
 const DOMAIN = "thomaslawson.com";
 const CERT_DIR = "/workspaces/aesthetic-computer/aesthetic-computer-vault/gigs/thomaslawson.com/ssl";
