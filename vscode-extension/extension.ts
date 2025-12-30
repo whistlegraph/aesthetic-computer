@@ -1498,26 +1498,37 @@ function getWebViewContent(webview: any, slug: string) {
             justify-content: center;
             height: 100vh;
             margin: 0;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            color: #fff;
+            background: #181318;
+            color: #ffffffcc;
             font-family: system-ui, -apple-system, sans-serif;
           }
           .waiting {
             text-align: center;
-            animation: pulse 2s ease-in-out infinite;
           }
-          .emoji {
-            font-size: 48px;
-            margin-bottom: 16px;
+          .plug {
+            font-size: 64px;
+            margin-bottom: 24px;
+            animation: wiggle 2s ease-in-out infinite;
           }
           .title {
-            font-size: 18px;
-            font-weight: 600;
-            margin-bottom: 8px;
+            font-size: 20px;
+            font-weight: 500;
+            color: #a87090;
+            margin-bottom: 12px;
+            letter-spacing: 0.5px;
           }
           .subtitle {
             font-size: 14px;
-            opacity: 0.7;
+            color: #b0a0a8;
+            font-family: monospace;
+            background: #101010;
+            padding: 8px 16px;
+            border-radius: 4px;
+            border: 1px solid #483848;
+          }
+          .subtitle code {
+            color: #70c070;
+            font-weight: 600;
           }
           .dots::after {
             content: '';
@@ -1529,17 +1540,17 @@ function getWebViewContent(webview: any, slug: string) {
             60% { content: '..'; }
             80%, 100% { content: '...'; }
           }
-          @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.7; }
+          @keyframes wiggle {
+            0%, 100% { transform: rotate(-5deg); }
+            50% { transform: rotate(5deg); }
           }
         </style>
       </head>
       <body>
         <div class="waiting">
-          <div class="emoji">🔌</div>
+          <div class="plug">🔌</div>
           <div class="title">Waiting for local server<span class="dots"></span></div>
-          <div class="subtitle">Run ac-site to start localhost:8888</div>
+          <div class="subtitle">Run <code>ac-site</code> to start localhost:8888</div>
         </div>
       </body>
       </html>`;
