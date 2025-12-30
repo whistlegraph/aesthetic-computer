@@ -21,7 +21,7 @@ ENV MANPAGER=cat
 # --- Base toolchain & deps ----------------------------------------------------
 RUN dnf update -y && \
     dnf install -y \
-      awk which tree procps-ng coreutils unzip jq bat ripgrep \
+      awk which tree procps-ng coreutils unzip jq bat ripgrep xxd \
       git gh gcc gcc-c++ clang make cmake \
       python3.11 python3.11-devel python3-pip python3-devel \
       emacs-nox fish util-linux-user util-linux-script sshpass \
@@ -218,6 +218,16 @@ RUN echo 'fnm env --use-on-cd --shell fish | source' > /home/me/.config/fish/con
 RUN export PATH="/home/me/.fnm:${PATH}" && \
     eval "$(/home/me/.fnm/fnm env --use-on-cd)" && \
     npm i -g @atproto/api@^0.17.0 @atproto/xrpc@^0.6.5 @atproto/lexicon@^0.4.2 @atproto/identity@^0.4.3 @atproto/syntax@^0.3.1 dotenv@^16.4.5
+
+# --- Bun runtime + cli-lsp-client (LSP diagnostics for Copilot) ---------------
+RUN export PATH="/home/me/.fnm:${PATH}" && \
+    eval "$(/home/me/.fnm/fnm env --use-on-cd)" && \
+    npm i -g bun && \
+    bun --version
+# Pre-install cli-lsp-client so LSP daemon starts faster
+RUN export PATH="/home/me/.fnm:${PATH}" && \
+    eval "$(/home/me/.fnm/fnm env --use-on-cd)" && \
+    bunx cli-lsp-client --version
 
 # --- SBCL / Quicklisp ---------------------------------------------------------
 RUN curl -fsSLO https://beta.quicklisp.org/quicklisp.lisp && \
