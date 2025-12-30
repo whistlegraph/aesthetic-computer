@@ -531,8 +531,9 @@ Called by MCP tools at the end of each response."
 
 ;; Only check for updates during daemon startup, not on every client connection
 ;; This prevents UI blocking when connecting emacsclient
-(when (daemonp)
-  (run-with-timer 60 nil #'ac-update-packages-async))
+;; DISABLED: Package auto-update was causing crashes after 60s
+;; (when (daemonp)
+  ;;   (run-with-timer 60 nil #'ac-update-packages-async))
 
 (ac-debug-log "Straight.el configured, starting package loads")
 (ac-perf-log "Straight.el configured")
