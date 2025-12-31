@@ -5954,15 +5954,35 @@ function paint($) {
         const shakeX = Math.sin(motdFrame * 0.3) * shakeIntensity;
         const shakeY = Math.cos(motdFrame * 0.4) * (shakeIntensity * 0.7);
         
-        // Cycle through angry/fiery colors
-        const angryColors = [
-          [255, 80, 80],   // Red
-          [255, 120, 50],  // Orange-red
-          [255, 50, 100],  // Hot pink
-          [255, 100, 100], // Lighter red
-        ];
-        const colorIndex = Math.floor(motdFrame * 0.08) % angryColors.length;
-        const faceColor = angryColors[colorIndex];
+        // Color palette based on emotion
+        let faceColors;
+        if (emotionPhase === 0) {
+          // Angry: red/orange colors
+          faceColors = [
+            [255, 80, 80],   // Red
+            [255, 120, 50],  // Orange-red
+            [255, 50, 100],  // Hot pink
+            [255, 100, 100], // Lighter red
+          ];
+        } else if (emotionPhase === 1) {
+          // Sad: blue colors
+          faceColors = [
+            [100, 150, 255], // Blue
+            [80, 120, 200],  // Darker blue
+            [150, 180, 255], // Light blue
+            [120, 140, 220], // Medium blue
+          ];
+        } else {
+          // Crying: cyan/teal colors
+          faceColors = [
+            [80, 200, 255],  // Cyan
+            [100, 220, 230], // Light cyan
+            [60, 180, 220],  // Teal
+            [120, 200, 255], // Sky blue
+          ];
+        }
+        const colorIndex = Math.floor(motdFrame * 0.08) % faceColors.length;
+        const faceColor = faceColors[colorIndex];
         const faceAlpha = 200 + Math.sin(motdFrame * 0.1) * 55; // 145-255 pulsing
         
         const faceX = Math.floor(symbolX + shakeX);
@@ -6015,19 +6035,43 @@ function paint($) {
           box2x(10, 12, 1, 1);  // Right slope
           box2x(11, 11, 1, 1);  // Right corner up
         } else {
-          // CRYING FACE 😭 - closed eyes (lines), tears, wailing mouth
+          // CRYING FACE 😭 - closed eyes (lines), tears falling to bottom, wailing mouth
           // Closed/squinting eyes (horizontal lines)
           box2x(3, 5, 3, 1);  // Left eye closed
           box2x(10, 5, 3, 1); // Right eye closed
-          // Tears falling from eyes
-          const tearOffset = Math.floor(motdFrame * 0.3) % 4;
-          // Left tears
-          ink(100, 200, 255, faceAlpha); // Blue tears
-          box2x(4, 7 + tearOffset, 1, 2);
-          if (tearOffset > 1) box2x(5, 6 + tearOffset, 1, 1);
-          // Right tears
-          box2x(11, 7 + tearOffset, 1, 2);
-          if (tearOffset > 1) box2x(10, 6 + tearOffset, 1, 1);
+          
+          // Multiple tear drops falling to bottom of screen
+          const tearSpeed = 2; // pixels per frame
+          const tearSpawnY = faceY + 14; // Start below eyes
+          const tearColors = [
+            [80, 180, 255],  // Light blue
+            [100, 200, 255], // Cyan
+            [120, 220, 255], // Brighter cyan
+          ];
+          
+          // Draw multiple tears at different phases
+          for (let t = 0; t < 6; t++) {
+            const tearPhase = (motdFrame * 0.15 + t * 1.2) % 8; // Staggered timing
+            const tearProgress = tearPhase / 8; // 0-1
+            const tearY = tearSpawnY + tearProgress * (screen.height - tearSpawnY + 10);
+            
+            // Left tears
+            const leftTearX = faceX + 8 + (t % 2) * 4 + Math.sin(tearPhase + t) * 2;
+            // Right tears
+            const rightTearX = faceX + 22 - (t % 2) * 4 + Math.sin(tearPhase + t + 1) * 2;
+            
+            const tearColor = tearColors[t % tearColors.length];
+            const tearAlpha = Math.floor((1 - tearProgress * 0.5) * 200); // Fade slightly
+            const tearSize = t % 2 === 0 ? 3 : 2; // Vary sizes
+            
+            if (tearY < screen.height) {
+              ink(...tearColor, tearAlpha);
+              // Teardrop shape (stretched vertically)
+              $.box(Math.floor(leftTearX), Math.floor(tearY), tearSize, tearSize + 1);
+              $.box(Math.floor(rightTearX), Math.floor(tearY), tearSize, tearSize + 1);
+            }
+          }
+          
           // Reset to face color for mouth
           ink(...faceColor, faceAlpha);
           // Wailing open mouth (big oval)
@@ -6037,7 +6081,7 @@ function paint($) {
           box2x(5, 14, 6, 1);   // Bottom of mouth
         }
         
-        // Red sparks flying off the head!
+        // Sparks flying off the head (color matches emotion)
         const sparkCount = 8;
         for (let i = 0; i < sparkCount; i++) {
           // Each spark has a phase offset for continuous emission
@@ -6056,13 +6100,15 @@ function paint($) {
           const sparkX = sparkStartX + Math.cos(sparkAngle) * sparkDist + Math.sin(motdFrame * 0.2 + i) * 3;
           const sparkY = sparkStartY + Math.sin(sparkAngle) * sparkDist - sparkLife * 8; // extra upward drift
           
-          // Spark color cycles through reds/oranges/yellows
-          const sparkColors = [
-            [255, 50, 50],   // Bright red
-            [255, 100, 30],  // Orange
-            [255, 200, 50],  // Yellow-orange
-            [255, 80, 80],   // Red
-          ];
+          // Spark colors match emotion
+          let sparkColors;
+          if (emotionPhase === 0) {
+            sparkColors = [[255, 50, 50], [255, 100, 30], [255, 200, 50], [255, 80, 80]];
+          } else if (emotionPhase === 1) {
+            sparkColors = [[80, 120, 255], [100, 150, 255], [150, 180, 255], [120, 160, 255]];
+          } else {
+            sparkColors = [[80, 200, 255], [100, 220, 255], [150, 230, 255], [120, 210, 255]];
+          }
           const sparkColorIdx = (i + Math.floor(motdFrame * 0.1)) % sparkColors.length;
           const sparkColor = sparkColors[sparkColorIdx];
           
