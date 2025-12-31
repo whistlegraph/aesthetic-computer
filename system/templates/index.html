@@ -110,84 +110,36 @@
       let logBurst = 0;
       const bootStartTime = performance.now();
       
-      // Syntax highlighting colors (VSCode-ish dark theme)
-      const SYN = {
-        keyword: [197, 134, 192],    // purple - const, let, function, if, for, return, export, import, async, await, class, new
-        function: [220, 220, 170],   // yellow - function names
-        string: [206, 145, 120],     // orange - strings
-        number: [181, 206, 168],     // green - numbers
-        comment: [106, 153, 85],     // dark green - comments
-        operator: [212, 212, 212],   // white - operators, punctuation
-        type: [78, 201, 176],        // teal - types, classes
-        variable: [156, 220, 254],   // light blue - variables
-        property: [156, 220, 254],   // light blue - properties
-      };
-      
-      // Tokenized code snippets with syntax info: [text, colorKey]
-      const codeTokens = [
-        [['const', 'keyword'], [' boot ', 'variable'], ['=', 'operator'], [' async ', 'keyword'], ['() => {', 'operator']],
-        [['await', 'keyword'], [' loadSystem', 'function'], ['();', 'operator']],
-        [['import', 'keyword'], [' { disk } ', 'variable'], ['from', 'keyword'], [' "./lib"', 'string'], [';', 'operator']],
-        [['export', 'keyword'], [' function', 'keyword'], [' paint', 'function'], ['(api) {', 'operator']],
-        [['wipe', 'function'], ['(', 'operator'], ['32', 'number'], [', ', 'operator'], ['0', 'number'], [', ', 'operator'], ['64', 'number'], [');', 'operator']],
-        [['ink', 'function'], ['(', 'operator'], ['255', 'number'], [', ', 'operator'], ['200', 'number'], [', ', 'operator'], ['100', 'number'], [').', 'operator'], ['box', 'function'], ['();', 'operator']],
-        [['if', 'keyword'], [' (event.', 'variable'], ['is', 'function'], ['(', 'operator'], ['"touch"', 'string'], [')) {', 'operator']],
-        [['const', 'keyword'], [' [x, y] = api.', 'variable'], ['pen', 'property'], [';', 'operator']],
-        [['return', 'keyword'], [' { meta, boot, act };', 'variable']],
-        [['async', 'keyword'], [' function', 'keyword'], [' connect', 'function'], ['(ws) {', 'operator']],
-        [['socket.', 'variable'], ['send', 'function'], ['(', 'operator'], ['JSON', 'type'], ['.stringify(d));', 'operator']],
-        [['class', 'keyword'], [' Aesthetic', 'type'], [' {', 'operator']],
-        [['constructor', 'function'], ['(ctx) { ', 'operator'], ['this', 'keyword'], ['.ctx = ctx; }', 'operator']],
-        [['render', 'function'], ['() { ', 'operator'], ['this', 'keyword'], ['.draw(); }', 'operator']],
-        [['} ', 'operator'], ['// end module', 'comment']],
-        [['const', 'keyword'], [' frame = ', 'variable'], ['requestAnimationFrame', 'function'], [';', 'operator']],
-        [['ctx.', 'variable'], ['fillStyle', 'property'], [' = ', 'operator'], ['rgb', 'function'], ['(r, g, b);', 'operator']],
-        [['gpu.', 'variable'], ['submit', 'function'], ['();', 'operator']],
-        [['for', 'keyword'], [' (', 'operator'], ['let', 'keyword'], [' i = ', 'variable'], ['0', 'number'], ['; i < n; i++) {', 'operator']],
-        [['pixels[i] = ', 'variable'], ['noise16', 'function'], ['() | ', 'operator'], ['0', 'number'], [';', 'operator']],
-        [['buffer.', 'variable'], ['set', 'function'], ['(data);', 'operator']],
-        [['export', 'keyword'], [' default', 'keyword'], [' function', 'keyword'], [' sim', 'function'], ['() {', 'operator']],
-        [['tick++; ', 'variable'], ['update', 'function'], ['(state);', 'operator']],
-        [['signal.', 'variable'], ['dispatch', 'function'], ['(evt);', 'operator']],
-        [['function', 'keyword'], [' act', 'function'], ['({ event }) {', 'operator']],
-        [['screen.', 'variable'], ['width', 'property'], [', screen.', 'variable'], ['height', 'property']],
-        [['const', 'keyword'], [' { pen, keyboard } = $;', 'variable']],
-        [['await', 'keyword'], [' fetch', 'function'], ['(', 'operator'], ['"/api/user"', 'string'], [');', 'operator']],
-        [['localStorage.', 'variable'], ['setItem', 'function'], ['(k, v);', 'operator']],
-        [['new', 'keyword'], [' WebSocket', 'type'], ['(url);', 'operator']],
-        [['ctx.', 'variable'], ['beginPath', 'function'], ['();', 'operator']],
-        [['ctx.', 'variable'], ['arc', 'function'], ['(x, y, r, ', 'operator'], ['0', 'number'], [', TAU);', 'variable']],
-        [['ctx.', 'variable'], ['stroke', 'function'], ['();', 'operator']],
-        [['ctx.', 'variable'], ['fill', 'function'], ['();', 'operator']],
-        [['Promise', 'type'], ['.all(tasks);', 'operator']],
-        [['// async/await pattern', 'comment']],
-        [['(() => { ', 'operator'], ['/* IIFE */', 'comment'], [' })();', 'operator']],
+      // Code stripe colors (VSCode-ish palette)
+      const STRIPE_COLORS = [
+        [197, 134, 192],  // purple
+        [220, 220, 170],  // yellow
+        [206, 145, 120],  // orange
+        [181, 206, 168],  // green
+        [78, 201, 176],   // teal
+        [156, 220, 254],  // light blue
       ];
       
-      // Multiple code columns - flush left, variable sizes
-      let codeColumns = [[], [], [], []]; // 4 columns for full width
-      const codeMaxLines = 60;
-      const codeScrollSpeed = 2.5; // Faster scroll
-      const fontSizes = [9, 10, 11, 12, 13, 14]; // Variable sizes
+      // Simple stripe system - just colored bars, no text measurement
+      let stripes = [];
+      const STRIPE_MAX = 80;
+      const STRIPE_SPEED = 3;
       
       let frame = 0;
       let running = true;
       
-      // Pre-populate columns IMMEDIATELY for instant visual feedback
-      const prePopulate = () => {
-        for (let col = 0; col < 4; col++) {
-          for (let i = 0; i < 25; i++) {
-            codeColumns[col].push({
-              tokens: codeTokens[Math.random() * codeTokens.length | 0],
-              y: H - i * 28 - Math.random() * 20,
-              alpha: 0.25 + Math.random() * 0.45,
-              speed: codeScrollSpeed + Math.random() * 1.5,
-              size: fontSizes[Math.random() * fontSizes.length | 0]
-            });
-          }
-        }
-      };
-      prePopulate();
+      // Pre-populate stripes for instant visual
+      for (let i = 0; i < 50; i++) {
+        stripes.push({
+          x: Math.random() * W,
+          y: H - i * 16 - Math.random() * 10,
+          w: 30 + Math.random() * 120,
+          h: 2 + Math.random() * 4,
+          color: STRIPE_COLORS[Math.random() * STRIPE_COLORS.length | 0],
+          alpha: 0.15 + Math.random() * 0.35,
+          speed: STRIPE_SPEED + Math.random() * 2
+        });
+      }
       
       const addLine = (msg) => {
         const now = performance.now();
@@ -225,60 +177,40 @@
         const shakeX = (Math.random() - 0.5) * shakeAmount;
         const shakeY = (Math.random() - 0.5) * shakeAmount;
         
-        // Update streaming code - add multiple lines every frame for density
-        const spawnCount = 2 + (chaos * 2) | 0; // More spawns as chaos increases
+        // Spawn new stripes continuously
+        const spawnCount = 1 + (chaos * 1.5) | 0;
         for (let s = 0; s < spawnCount; s++) {
-          const col = Math.random() * 4 | 0;
-          const tokens = codeTokens[Math.random() * codeTokens.length | 0];
-          const size = fontSizes[Math.random() * fontSizes.length | 0];
-          codeColumns[col].unshift({ 
-            tokens: tokens,
-            y: H + 5 + Math.random() * 15,
-            alpha: 0.25 + Math.random() * 0.5,
-            speed: codeScrollSpeed + Math.random() * 1.5,
-            size: size
+          stripes.push({
+            x: Math.random() * W * 0.9,
+            y: H + 5,
+            w: 40 + Math.random() * 150,
+            h: 2 + Math.random() * 5,
+            color: STRIPE_COLORS[Math.random() * STRIPE_COLORS.length | 0],
+            alpha: 0.2 + Math.random() * 0.4,
+            speed: STRIPE_SPEED + Math.random() * 2.5 + chaos
           });
-          if (codeColumns[col].length > codeMaxLines) codeColumns[col].pop();
+          if (stripes.length > STRIPE_MAX) stripes.shift();
         }
-        // Update positions
-        codeColumns.forEach(col => {
-          col.forEach(c => c.y -= c.speed + chaos * 1.2);
-        });
-        codeColumns = codeColumns.map(col => col.filter(c => c.y > -20));
+        
+        // Update stripe positions
+        stripes.forEach(s => s.y -= s.speed);
+        stripes = stripes.filter(s => s.y > -10);
         
         // === DRAW ===
         ctx.clearRect(0, 0, W, H);
         
-        // Draw streaming code - flush left, spread across full width
-        const codeStartX = 6; // Flush left
-        const codeWidth = W - 12;
-        const colWidth = codeWidth / 4;
-        
-        codeColumns.forEach((col, colIdx) => {
-          const baseX = codeStartX + colIdx * colWidth;
-          col.forEach(c => {
-            if (c.y < 5 || c.y > H - 5) return;
-            const codeAlpha = c.alpha * (0.35 + chaos * 0.4);
-            ctx.font = `${c.size}px "Courier New", monospace`;
-            
-            // Draw each token with syntax color
-            let xOffset = 0;
-            c.tokens.forEach(([text, colorKey]) => {
-              const [r, g, b] = SYN[colorKey] || SYN.operator;
-              // Modulate color slightly with chaos
-              const cr = Math.min(255, r + chaos * 20) | 0;
-              const cg = Math.max(0, g - chaos * 15) | 0;
-              const cb = Math.min(255, b + chaos * 10) | 0;
-              ctx.fillStyle = `rgb(${cr}, ${cg}, ${cb})`;
-              ctx.globalAlpha = codeAlpha;
-              
-              const codeShake = 0.3 + chaos * 2;
-              const tx = baseX + xOffset + (Math.random() - 0.5) * codeShake;
-              const ty = c.y + (Math.random() - 0.5) * codeShake;
-              ctx.fillText(text, tx, ty);
-              xOffset += ctx.measureText(text).width;
-            });
-          });
+        // Draw stripes - simple colored rectangles, very fast
+        stripes.forEach(s => {
+          if (s.y < 0 || s.y > H) return;
+          const [r, g, b] = s.color;
+          const shake = 0.5 + chaos * 2;
+          ctx.globalAlpha = s.alpha * (0.5 + chaos * 0.5);
+          ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+          ctx.fillRect(
+            s.x + (Math.random() - 0.5) * shake,
+            s.y + (Math.random() - 0.5) * shake,
+            s.w, s.h
+          );
         });
         ctx.globalAlpha = 1;
         
