@@ -143,8 +143,16 @@ let mediaPreviewBox; // Shared preview box renderer for all media types
 export const FUNDING_MODE = true;
 // Colorful funding messages for each ticker (using \\color\\ codes for rendering)
 // Uses ASCII-only characters compatible with font_1 (MatrixChunky8 loads from assets which has CORS issues)
-const FUNDING_MESSAGE_CHAT = "*** \\pink\\'chat'\\cyan\\, media storage, and multiplayer are offline due to server bill hardship -- Enter \\lime\\'give'\\cyan\\ to help support AC in the New Year! ***";
-const FUNDING_MESSAGE_CLOCK = "*** \\orange\\'laer-klokken'\\255,200,100\\ and other services are offline due to server bill hardship -- Enter \\lime\\'give'\\255,200,100\\ to help support AC in the New Year! ***";
+// English messages
+const FUNDING_MESSAGE_CHAT_EN = "*** \\pink\\'chat'\\cyan\\, media storage, and multiplayer are offline due to server bill hardship -- Enter \\lime\\'give'\\cyan\\ to help support AC in the New Year! ***";
+const FUNDING_MESSAGE_CLOCK_EN = "*** \\orange\\'laer-klokken'\\255,200,100\\ and other services are offline due to server bill hardship -- Enter \\lime\\'give'\\255,200,100\\ to help support AC in the New Year! ***";
+// Danish messages
+const FUNDING_MESSAGE_CHAT_DA = "*** \\pink\\'chat'\\cyan\\, medielagring og multiplayer er offline pga. serverregning -- Skriv \\lime\\'give'\\cyan\\ for at stoette AC i det nye aar! ***";
+const FUNDING_MESSAGE_CLOCK_DA = "*** \\orange\\'laer-klokken'\\255,200,100\\ og andre tjenester er offline pga. serverregning -- Skriv \\lime\\'give'\\255,200,100\\ for at stoette AC i det nye aar! ***";
+// Alternate between English and Danish every 10 seconds
+const getLangPhase = () => Math.floor(Date.now() / 10000) % 2;
+const FUNDING_MESSAGE_CHAT = getLangPhase() === 0 ? FUNDING_MESSAGE_CHAT_EN : FUNDING_MESSAGE_CHAT_DA;
+const FUNDING_MESSAGE_CLOCK = getLangPhase() === 0 ? FUNDING_MESSAGE_CLOCK_EN : FUNDING_MESSAGE_CLOCK_DA;
 
 const tinyTickers = !FUNDING_MODE; // Use MatrixChunky8 font for tighter, smaller tickers (disabled in funding mode - assets CORS)
 let contentItems = []; // Store fetched content: {type: 'kidlisp'|'painting'|'tape', code: string, source?: string}
@@ -5796,11 +5804,16 @@ function paint($) {
       
       // Add "ENTER 'give' TO HELP" line below MOTD in funding mode
       if (FUNDING_MODE) {
+        // Alternate English/Danish every 10 seconds
+        const langPhase = Math.floor(Date.now() / 10000) % 2;
+        const helpParts = langPhase === 0 
+          ? ["ENTER '", "give", "' TO HELP"]
+          : ["SKRIV '", "give", "' FOR HJAELP"];
+        
         // Build text with 'give' in cyan, rest in cycling red/yellow
-        const parts = ["ENTER '", "give", "' TO HELP"];
         let coloredHelpText = "";
         let charIndex = 0;
-        for (const part of parts) {
+        for (const part of helpParts) {
           const isGive = part === "give";
           for (let i = 0; i < part.length; i++) {
             if (isGive) {
@@ -5828,7 +5841,7 @@ function paint($) {
       $.needsPaint();
     }
     
-    // 😡 Sad face stamp - positioned above MOTD (funding mode vibes)
+    // 😡😢😭 Emotional face stamp - cycles through angry, sad, crying
     // Check if we're in December, January, or February for winter vibes
     const month = new Date().getMonth(); // 0-indexed: 0=Jan, 11=Dec
     const isWinter = month === 11 || month === 0 || month === 1; // Dec, Jan, Feb
@@ -5840,11 +5853,15 @@ function paint($) {
       // MOTD is at screen.height/2 - 48, so put symbol above that
       let symbolY = Math.floor(screen.height / 2 - 90); // a bit higher above CRITICAL SERVICES
       
+      // Cycle through emotions every 3 seconds: 0=angry, 1=sad, 2=crying
+      const emotionPhase = Math.floor(Date.now() / 3000) % 3;
+      
       // Only draw if there's enough space from top
       if (symbolY > 20) {
-        // Shake animation for angry effect
-        const shakeX = Math.sin(motdFrame * 0.3) * 3;
-        const shakeY = Math.cos(motdFrame * 0.4) * 2;
+        // Shake animation - more intense when angry
+        const shakeIntensity = emotionPhase === 0 ? 3 : 1;
+        const shakeX = Math.sin(motdFrame * 0.3) * shakeIntensity;
+        const shakeY = Math.cos(motdFrame * 0.4) * (shakeIntensity * 0.7);
         
         // Cycle through angry/fiery colors
         const angryColors = [
@@ -5860,7 +5877,7 @@ function paint($) {
         const faceX = Math.floor(symbolX + shakeX);
         const faceY = Math.floor(symbolY + shakeY);
         
-        // Draw custom sad face at 2x scale (manually scaled coordinates)
+        // Draw custom face at 2x scale (manually scaled coordinates)
         // Helper to draw a 2x scaled box
         const s = 2; // scale factor
         const box2x = (x, y, w, h) => $.box(faceX + x * s, faceY + y * s, w * s, h * s);
@@ -5880,17 +5897,54 @@ function paint($) {
         // Bottom edge
         box2x(4, 15, 8, 1);
         
-        // Eyes (2x2 pixels each, positioned in upper third)
-        box2x(4, 5, 2, 2);  // Left eye
-        box2x(10, 5, 2, 2); // Right eye
-        
-        // Sad frown (curved down) - at bottom third of face
-        // Frown shape: endpoints up, middle down
-        box2x(4, 11, 1, 1);   // Left corner up
-        box2x(5, 12, 1, 1);   // Left slope
-        box2x(6, 13, 4, 1);   // Bottom of frown
-        box2x(10, 12, 1, 1);  // Right slope
-        box2x(11, 11, 1, 1);  // Right corner up
+        // Draw eyes and expression based on emotion phase
+        if (emotionPhase === 0) {
+          // ANGRY FACE 😡 - angry eyebrows, gritted teeth
+          // Angry eyebrows (angled down toward center)
+          box2x(3, 4, 2, 1);  // Left eyebrow outer
+          box2x(5, 5, 1, 1);  // Left eyebrow inner (lower)
+          box2x(11, 4, 2, 1); // Right eyebrow outer
+          box2x(10, 5, 1, 1); // Right eyebrow inner (lower)
+          // Eyes (smaller, squinting)
+          box2x(4, 6, 2, 1);  // Left eye
+          box2x(10, 6, 2, 1); // Right eye
+          // Gritted teeth / angry mouth
+          box2x(5, 11, 6, 1);  // Top teeth line
+          box2x(5, 12, 1, 1); box2x(7, 12, 1, 1); box2x(9, 12, 1, 1); // Gaps
+          box2x(5, 13, 6, 1);  // Bottom teeth line
+        } else if (emotionPhase === 1) {
+          // SAD FACE 😢 - regular eyes, frown
+          // Eyes (2x2 pixels each)
+          box2x(4, 5, 2, 2);  // Left eye
+          box2x(10, 5, 2, 2); // Right eye
+          // Sad frown (curved down)
+          box2x(4, 11, 1, 1);   // Left corner up
+          box2x(5, 12, 1, 1);   // Left slope
+          box2x(6, 13, 4, 1);   // Bottom of frown
+          box2x(10, 12, 1, 1);  // Right slope
+          box2x(11, 11, 1, 1);  // Right corner up
+        } else {
+          // CRYING FACE 😭 - closed eyes (lines), tears, wailing mouth
+          // Closed/squinting eyes (horizontal lines)
+          box2x(3, 5, 3, 1);  // Left eye closed
+          box2x(10, 5, 3, 1); // Right eye closed
+          // Tears falling from eyes
+          const tearOffset = Math.floor(motdFrame * 0.3) % 4;
+          // Left tears
+          ink(100, 200, 255, faceAlpha); // Blue tears
+          box2x(4, 7 + tearOffset, 1, 2);
+          if (tearOffset > 1) box2x(5, 6 + tearOffset, 1, 1);
+          // Right tears
+          box2x(11, 7 + tearOffset, 1, 2);
+          if (tearOffset > 1) box2x(10, 6 + tearOffset, 1, 1);
+          // Reset to face color for mouth
+          ink(...faceColor, faceAlpha);
+          // Wailing open mouth (big oval)
+          box2x(5, 10, 6, 1);   // Top of mouth
+          box2x(4, 11, 1, 3);   // Left side
+          box2x(11, 11, 1, 3);  // Right side
+          box2x(5, 14, 6, 1);   // Bottom of mouth
+        }
         
         // Red sparks flying off the head!
         const sparkCount = 8;
@@ -6954,8 +7008,13 @@ export const scheme = {
 let motdController;
 
 async function makeMotd({ system, needsPaint, handle, user, net, api, notice }) {
-  // Use funding mode message or default
-  motd = FUNDING_MODE ? "CRITICAL SERVICES OFFLINE" : "aesthetic.computer";
+  // Use funding mode message or default (alternate EN/DA every 10 seconds)
+  if (FUNDING_MODE) {
+    const langPhase = Math.floor(Date.now() / 10000) % 2;
+    motd = langPhase === 0 ? "CRITICAL SERVICES OFFLINE" : "KRITISKE TJENESTER OFFLINE";
+  } else {
+    motd = "aesthetic.computer";
+  }
   motdController = new AbortController();
   
   // Skip fetching mood in funding mode - use the hardcoded message
