@@ -24,9 +24,10 @@ export async function handler(event, context) {
     return respond(405, { error: "Method not allowed" });
   }
 
+  // Use the correct Netlify env var names
   const stripeKey = dev
-    ? process.env.STRIPE_API_KEY
-    : process.env.STRIPE_API_KEY_LIVE;
+    ? process.env.STRIPE_API_TEST_PRIV_KEY
+    : process.env.STRIPE_API_PRIV_KEY;
 
   if (!stripeKey) {
     return respond(500, { error: "Stripe not configured" });

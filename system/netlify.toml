@@ -152,7 +152,7 @@ included_env_vars = ["CONTEXT", "DO_API_TOKEN", "DO_TOKEN", "CLOUDFLARE_EMAIL", 
 # Give/support payments via Stripe
 external_node_modules = ["stripe"]
 included_files = ["backend/**/*.mjs"]
-included_env_vars = ["CONTEXT", "STRIPE_API_KEY", "STRIPE_API_KEY_LIVE"]
+included_env_vars = ["CONTEXT", "STRIPE_API_TEST_PRIV_KEY", "STRIPE_API_PRIV_KEY"]
 
 [functions.bundle-html]
 # Generates KidLisp .lisp.html bundles on-demand via API
