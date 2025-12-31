@@ -138,13 +138,22 @@ let contentTicker; // Ticker instance for mixed $kidlisp, #painting, !tape conte
 let contentTickerButton; // Button for content ticker hover interaction
 let mediaPreviewBox; // Shared preview box renderer for all media types
 
-// 💸 FUNDING MODE: Show server bill alert in tickers and chat
-// Set to true to display funding message, false to show normal content
-export const FUNDING_MODE = true;
+// 💸 FUNDING SEVERITY: Controls funding mode features
+// "critical" = full lockdown (chat offline, all alerts)
+// "yikes" = chat works, but keep $ effect, GIVE button, emotional face
+// "off" = normal operation
+export const FUNDING_SEVERITY = "yikes";
+
+// Legacy export for backwards compatibility
+export const FUNDING_MODE = FUNDING_SEVERITY === "critical";
+
+// Helper flags
+const showFundingEffects = FUNDING_SEVERITY !== "off"; // $ replacement, GIVE button, face
+const isCriticalFunding = FUNDING_SEVERITY === "critical"; // Full lockdown mode
 
 // Set global flag so disk.mjs can apply $ filter to all text
 if (typeof globalThis !== "undefined") {
-  globalThis.AC_FUNDING_MODE = FUNDING_MODE;
+  globalThis.AC_FUNDING_MODE = showFundingEffects; // $ replacement active for both critical and yikes
 }
 
 // Colorful funding messages for each ticker (using \\color\\ codes for rendering)
@@ -160,7 +169,7 @@ const getLangPhase = () => Math.floor(Date.now() / 10000) % 2;
 const FUNDING_MESSAGE_CHAT = getLangPhase() === 0 ? FUNDING_MESSAGE_CHAT_EN : FUNDING_MESSAGE_CHAT_DA;
 const FUNDING_MESSAGE_CLOCK = getLangPhase() === 0 ? FUNDING_MESSAGE_CLOCK_EN : FUNDING_MESSAGE_CLOCK_DA;
 
-const tinyTickers = !FUNDING_MODE; // Use MatrixChunky8 font for tighter, smaller tickers (disabled in funding mode - assets CORS)
+const tinyTickers = !isCriticalFunding; // Use MatrixChunky8 font for tighter, smaller tickers (disabled in critical funding mode - assets CORS)
 let contentItems = []; // Store fetched content: {type: 'kidlisp'|'painting'|'tape', code: string, source?: string}
 let currentTooltipItem = null; // Current item being shown in tooltip (auto-cycles)
 let tooltipTimer = 0; // Timer for switching between items
@@ -3613,8 +3622,8 @@ function paint($) {
   // Calculate MOTD offset (do this before book rendering so it's always available)
   let motdXOffset = 0;
   
-  // 💸 GIVE button in top-right corner during FUNDING_MODE
-  if (FUNDING_MODE && showLoginCurtain) {
+  // 💸 GIVE button in top-right corner during funding effects (critical or yikes)
+  if (showFundingEffects && showLoginCurtain) {
     // Cycle through currencies every 2 seconds
     // Note: Use U$D instead of USD to avoid random $ replacement on the S
     const currencies = ["U$D", "TEZ", "DKK", "ETH"];
@@ -4292,13 +4301,13 @@ function paint($) {
   }
 
   // 🎰 Polychrome border effect pointing to top-left corner (on login curtain)
-  // In FUNDING_MODE: Red/yellow warning stripes around ALL edges
+  // In CRITICAL funding mode: Red/yellow warning stripes around ALL edges
   if (showLoginCurtain) {
     const activeProduct = products.getActiveProduct();
     const rotation = activeProduct ? activeProduct.rotation : 0;
     
-    if (FUNDING_MODE) {
-      // 🚨 FUNDING MODE: Animated glittering border with primary colors + BLINK
+    if (isCriticalFunding) {
+      // 🚨 CRITICAL FUNDING: Animated glittering border with primary colors + BLINK
       const stripeWidth = 3; // Slightly narrower stripes
       const borderThickness = 2; // 2px border for visibility
       const t = performance.now() / 1000;
@@ -4939,7 +4948,7 @@ function paint($) {
     if (screen.height >= 180) {
       let fullText;
       
-      if (FUNDING_MODE) {
+      if (isCriticalFunding) {
         // Show funding alert message instead of chat (colorful, specific to 'chat')
         fullText = ensureMinTickerLength(FUNDING_MESSAGE_CHAT, " · ");
       } else {
@@ -5023,7 +5032,7 @@ function paint($) {
         const tickerAlpha = chatTickerButton.down ? 255 : 220;
         const textY = chatTickerY;
         
-        if (FUNDING_MODE || hasChatMessages) {
+        if (isCriticalFunding || hasChatMessages) {
           // Use Ticker's built-in paint for scrolling (syntax highlighting TODO)
           chatTicker.paint($, 0, textY, {
             color: [0, 255, 255], // Bright cyan
@@ -5050,10 +5059,10 @@ function paint($) {
       const hasClockMessages = clockChatMessages && clockChatMessages.length > 0;
       const clockTickerY = currentTickerY;
       
-      if (FUNDING_MODE || hasClockMessages) {
+      if (isCriticalFunding || hasClockMessages) {
         let clockFullText;
         
-        if (FUNDING_MODE) {
+        if (isCriticalFunding) {
           // Show funding alert message (colorful, specific to 'laer-klokken')
           clockFullText = ensureMinTickerLength(FUNDING_MESSAGE_CLOCK, " · ");
         } else {
@@ -5096,7 +5105,7 @@ function paint($) {
         }
       }
 
-      if ((FUNDING_MODE || hasClockMessages) && clockChatTicker && !clockChatTicker.paused) {
+      if ((isCriticalFunding || hasClockMessages) && clockChatTicker && !clockChatTicker.paused) {
         clockChatTicker.update($);
       }
 
@@ -5130,7 +5139,7 @@ function paint($) {
         const tickerAlpha = clockChatTickerButton.down ? 255 : 220;
         const textY = clockTickerY;
         
-        if ((FUNDING_MODE || hasClockMessages) && clockChatTicker) {
+        if ((isCriticalFunding || hasClockMessages) && clockChatTicker) {
           clockChatTicker.paint($, 0, textY, {
             color: [255, 200, 100],
             alpha: tickerAlpha,
@@ -5815,13 +5824,13 @@ function paint($) {
     }
 
     // MOTD (Mood of the Day) - show above login/signup buttons with animation
-    // In FUNDING_MODE, always show regardless of screen height
-    if (motd && (FUNDING_MODE || screen.height >= 180)) {
+    // In CRITICAL funding mode, always show regardless of screen height
+    if (motd && (isCriticalFunding || screen.height >= 180)) {
       // Subtle sway (up and down)
       const swayY = Math.sin(motdFrame * 0.05) * 2; // 2 pixel sway range
       
       // Parse MOTD for interactive elements (handles, URLs, prompts, etc.)
-      // In FUNDING_MODE, toggle languages every 1.5 seconds
+      // In CRITICAL funding mode, toggle languages every 1.5 seconds
       let displayMotd = motd;
       const langPhase = Math.floor(Date.now() / 1500) % 2; // Toggle every 1.5s
       
@@ -5833,7 +5842,7 @@ function paint($) {
       const isSmallScreen = screen.width < 160;
       const lineSpacing = 10;
       
-      if (FUNDING_MODE && isSmallScreen) {
+      if (isCriticalFunding && isSmallScreen) {
         // 3-line layout for small screens
         const line1EN = "CRITICAL MEDIA";
         const line1DA = "KRITISKE";
@@ -5869,8 +5878,8 @@ function paint($) {
         }
         
         $.needsPaint();
-      } else if (FUNDING_MODE) {
-        // Normal 2-line layout for larger screens
+      } else if (isCriticalFunding) {
+        // CRITICAL funding mode: Normal 2-line layout for larger screens
         const motdY = screen.height / 2 - 48 + swayY;
         
         displayMotd = langPhase === 0 
@@ -5986,10 +5995,10 @@ function paint($) {
     }
     
     // 😡😢😭 Emotional face stamp - cycles through angry, sad, crying
-    // Check if we're in December, January, or February for winter vibes
+    // Show during funding effects (yikes/critical) or in winter (Dec, Jan, Feb)
     const month = new Date().getMonth(); // 0-indexed: 0=Jan, 11=Dec
     const isWinter = month === 11 || month === 0 || month === 1; // Dec, Jan, Feb
-    if (isWinter && screen.height >= 120) {
+    if ((showFundingEffects || isWinter) && screen.height >= 120) {
       // Face dimensions (will be scaled 2x)
       const faceSize = 16;
       const scaledSize = faceSize * 2;
@@ -7308,7 +7317,7 @@ let motdController;
 
 async function makeMotd({ system, needsPaint, handle, user, net, api, notice }) {
   // Use funding mode message or default (alternate EN/DA every 3 seconds)
-  if (FUNDING_MODE) {
+  if (isCriticalFunding) {
     const langPhase = Math.floor(Date.now() / 3000) % 2;
     motd = langPhase === 0 ? "CRITICAL MEDIA SERVICES OFFLINE" : "KRITISKE MEDIETJENESTER OFFLINE";
   } else {
@@ -7316,8 +7325,8 @@ async function makeMotd({ system, needsPaint, handle, user, net, api, notice }) 
   }
   motdController = new AbortController();
   
-  // Skip fetching mood in funding mode - use the hardcoded message
-  if (FUNDING_MODE) return;
+  // Skip fetching mood in critical funding mode - use the hardcoded message
+  if (isCriticalFunding) return;
   
   try {
     const res = await fetch("/api/mood/@jeffrey", {
