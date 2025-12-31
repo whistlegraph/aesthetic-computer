@@ -5949,7 +5949,7 @@ function paint($) {
       if (symbolY > 20) {
         // Shake animation - VERY intense when angry
         const shakeIntensity = emotionPhase === 0 ? 8 : 1; // Much more shake when angry!
-        const shakeSpeed = emotionPhase === 0 ? 0.8 : 0.3; // Faster shake when angry
+        const shakeSpeed = emotionPhase === 0 ? 0.4 : 0.3; // Slower but still intense when angry
         const shakeX = Math.sin(motdFrame * shakeSpeed) * shakeIntensity;
         const shakeY = Math.cos(motdFrame * (shakeSpeed * 1.3)) * (shakeIntensity * 0.7);
         
