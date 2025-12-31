@@ -4271,63 +4271,106 @@ function paint($) {
   }
 
   // 🎰 Polychrome border effect pointing to top-left corner (on login curtain)
+  // In FUNDING_MODE: Red/yellow warning stripes around ALL edges
   if (showLoginCurtain) {
     const activeProduct = products.getActiveProduct();
     const rotation = activeProduct ? activeProduct.rotation : 0;
     
-    // Cycle through pink, purple, green phases
-    const colorPhase = (rotation * 0.08) % 3;
-    let primaryColor, secondaryColor, tertiaryColor;
-    
-    if (colorPhase < 1) {
-      primaryColor = [255, 100, 200]; // Pink
-      secondaryColor = [200, 100, 255]; // Purple
-      tertiaryColor = [100, 255, 150]; // Green
-    } else if (colorPhase < 2) {
-      primaryColor = [200, 100, 255]; // Purple
-      secondaryColor = [100, 255, 150]; // Green
-      tertiaryColor = [255, 100, 200]; // Pink
-    } else {
-      primaryColor = [100, 255, 150]; // Green
-      secondaryColor = [255, 100, 200]; // Pink
-      tertiaryColor = [200, 100, 255]; // Purple
-    }
-    
-    // Pulsing effect for base intensity
-    const pulseBase = Math.sin(rotation * 0.15);
-    
-    // Border extends to 2/3rds of screen
-    const borderWidth = (screen.width / 3) * 2;
-    const borderHeight = (screen.height / 3) * 2;
-    const borderThickness = 1; // Fixed 1 pixel wide
-    
-    // Draw top border with dithered/striped pattern (1 pixel tall)
-    for (let x = 0; x < borderWidth; x++) {
-      // Intensity increases as we get closer to the corner (left edge)
-      const intensityRatio = 1 - (x / borderWidth); // 1.0 at corner, 0.0 at edge
-      const alpha = Math.floor(intensityRatio * 100 + 30 + pulseBase * 30); // 30-160 range
+    if (FUNDING_MODE) {
+      // 🚨 FUNDING MODE: Red/yellow warning stripes around entire border
+      const stripeWidth = 4; // Width of each stripe
+      const borderThickness = 2; // 2px thick border
+      const alertColors = [
+        [255, 60, 60],   // Red
+        [255, 200, 50],  // Yellow
+      ];
       
-      // Dither pattern: show pixels based on intensity ratio
-      const patternValue = (x + Math.floor(rotation / 4)) % 4; // 0-3 pattern
-      const threshold = (1 - intensityRatio) * 4; // 0-4 threshold
+      // Animate stripes scrolling
+      const stripeOffset = Math.floor(rotation * 0.3) % (stripeWidth * 2);
       
-      if (patternValue >= threshold) {
-        ink(...primaryColor, alpha).box(x, 0, 1, borderThickness);
+      // Top border (full width)
+      for (let x = 0; x < screen.width; x++) {
+        const stripeIndex = Math.floor((x + stripeOffset) / stripeWidth) % 2;
+        const color = alertColors[stripeIndex];
+        ink(...color, 220).box(x, 0, 1, borderThickness);
       }
-    }
-    
-    // Draw left border with dithered/striped pattern (1 pixel wide)
-    for (let y = 0; y < borderHeight; y++) {
-      // Intensity increases as we get closer to the corner (top edge)
-      const intensityRatio = 1 - (y / borderHeight); // 1.0 at corner, 0.0 at edge
-      const alpha = Math.floor(intensityRatio * 100 + 30 + pulseBase * 30); // 30-160 range
       
-      // Dither pattern: show pixels based on intensity ratio
-      const patternValue = (y + Math.floor(rotation / 4)) % 4; // 0-3 pattern
-      const threshold = (1 - intensityRatio) * 4; // 0-4 threshold
+      // Bottom border (full width)
+      for (let x = 0; x < screen.width; x++) {
+        const stripeIndex = Math.floor((x - stripeOffset) / stripeWidth) % 2; // Opposite direction
+        const color = alertColors[stripeIndex];
+        ink(...color, 220).box(x, screen.height - borderThickness, 1, borderThickness);
+      }
       
-      if (patternValue >= threshold) {
-        ink(...primaryColor, alpha).box(0, y, borderThickness, 1);
+      // Left border (full height, excluding corners already drawn)
+      for (let y = borderThickness; y < screen.height - borderThickness; y++) {
+        const stripeIndex = Math.floor((y + stripeOffset) / stripeWidth) % 2;
+        const color = alertColors[stripeIndex];
+        ink(...color, 220).box(0, y, borderThickness, 1);
+      }
+      
+      // Right border (full height, excluding corners already drawn)
+      for (let y = borderThickness; y < screen.height - borderThickness; y++) {
+        const stripeIndex = Math.floor((y - stripeOffset) / stripeWidth) % 2; // Opposite direction
+        const color = alertColors[stripeIndex];
+        ink(...color, 220).box(screen.width - borderThickness, y, borderThickness, 1);
+      }
+    } else {
+      // Normal mode: pink/purple/green gradient border
+      // Cycle through pink, purple, green phases
+      const colorPhase = (rotation * 0.08) % 3;
+      let primaryColor, secondaryColor, tertiaryColor;
+      
+      if (colorPhase < 1) {
+        primaryColor = [255, 100, 200]; // Pink
+        secondaryColor = [200, 100, 255]; // Purple
+        tertiaryColor = [100, 255, 150]; // Green
+      } else if (colorPhase < 2) {
+        primaryColor = [200, 100, 255]; // Purple
+        secondaryColor = [100, 255, 150]; // Green
+        tertiaryColor = [255, 100, 200]; // Pink
+      } else {
+        primaryColor = [100, 255, 150]; // Green
+        secondaryColor = [255, 100, 200]; // Pink
+        tertiaryColor = [200, 100, 255]; // Purple
+      }
+      
+      // Pulsing effect for base intensity
+      const pulseBase = Math.sin(rotation * 0.15);
+      
+      // Border extends to 2/3rds of screen
+      const borderWidth = (screen.width / 3) * 2;
+      const borderHeight = (screen.height / 3) * 2;
+      const borderThickness = 1; // Fixed 1 pixel wide
+      
+      // Draw top border with dithered/striped pattern (1 pixel tall)
+      for (let x = 0; x < borderWidth; x++) {
+        // Intensity increases as we get closer to the corner (left edge)
+        const intensityRatio = 1 - (x / borderWidth); // 1.0 at corner, 0.0 at edge
+        const alpha = Math.floor(intensityRatio * 100 + 30 + pulseBase * 30); // 30-160 range
+        
+        // Dither pattern: show pixels based on intensity ratio
+        const patternValue = (x + Math.floor(rotation / 4)) % 4; // 0-3 pattern
+        const threshold = (1 - intensityRatio) * 4; // 0-4 threshold
+        
+        if (patternValue >= threshold) {
+          ink(...primaryColor, alpha).box(x, 0, 1, borderThickness);
+        }
+      }
+      
+      // Draw left border with dithered/striped pattern (1 pixel wide)
+      for (let y = 0; y < borderHeight; y++) {
+        // Intensity increases as we get closer to the corner (top edge)
+        const intensityRatio = 1 - (y / borderHeight); // 1.0 at corner, 0.0 at edge
+        const alpha = Math.floor(intensityRatio * 100 + 30 + pulseBase * 30); // 30-160 range
+        
+        // Dither pattern: show pixels based on intensity ratio
+        const patternValue = (y + Math.floor(rotation / 4)) % 4; // 0-3 pattern
+        const threshold = (1 - intensityRatio) * 4; // 0-4 threshold
+        
+        if (patternValue >= threshold) {
+          ink(...primaryColor, alpha).box(0, y, borderThickness, 1);
+        }
       }
     }
     
