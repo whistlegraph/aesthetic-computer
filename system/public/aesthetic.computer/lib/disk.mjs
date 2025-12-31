@@ -4589,8 +4589,11 @@ const $paintApi = {
           if (hash < 0.25) {
             // Replace with lime green $ and restore original color after
             result += '\\lime\\$';
+            // Restore previous color, or reset to default if no color was set
             if (currentColor) {
               result += '\\' + currentColor + '\\';
+            } else {
+              result += '\\reset\\';
             }
             i++;
             continue;
