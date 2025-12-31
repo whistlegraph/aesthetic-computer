@@ -388,7 +388,11 @@ function paint(
         const shakeX = line !== "" ? Math.sin(shakeFrame * 0.3 + i) * 2 : 0;
         const shakeY = line !== "" ? Math.cos(shakeFrame * 0.25 + i * 0.5) * 1 : 0;
         
-        ink(color[0], color[1], color[2]).write(line, { center: "x", x: shakeX, y: startY + i * lineHeight + shakeY }, undefined, undefined, false, typefaceName);
+        // Calculate centered X manually, then add shake offset
+        const textWidth = line.length * 6; // Approximate character width
+        const centeredX = Math.floor((screen.width - textWidth) / 2) + shakeX;
+        
+        ink(color[0], color[1], color[2]).write(line, { x: centeredX, y: startY + i * lineHeight + shakeY }, undefined, undefined, false, typefaceName);
       });
     } else {
       // Normal connecting message
