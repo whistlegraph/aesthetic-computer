@@ -141,6 +141,12 @@ let mediaPreviewBox; // Shared preview box renderer for all media types
 // 💸 FUNDING MODE: Show server bill alert in tickers and chat
 // Set to true to display funding message, false to show normal content
 export const FUNDING_MODE = true;
+
+// Set global flag so disk.mjs can apply $ filter to all text
+if (typeof globalThis !== "undefined") {
+  globalThis.AC_FUNDING_MODE = FUNDING_MODE;
+}
+
 // Colorful funding messages for each ticker (using \\color\\ codes for rendering)
 // Uses ASCII-only characters compatible with font_1 (MatrixChunky8 loads from assets which has CORS issues)
 // English messages
@@ -3609,9 +3615,12 @@ function paint($) {
   
   // 💸 GIVE button in top-right corner during FUNDING_MODE
   if (FUNDING_MODE && showLoginCurtain) {
-    const giveBtnText = "GIVE";
+    // Cycle through currencies every 2 seconds
+    const currencies = ["USD", "TEZ", "DKK", "ETH"];
+    const currencyIndex = Math.floor(Date.now() / 2000) % currencies.length;
+    const giveBtnText = "GIVE " + currencies[currencyIndex];
     const btnPadding = 6; // Even padding on top and right
-    const btnWidth = 30; // Approximate button width
+    const btnWidth = 52; // Wider button for "GIVE XXX"
     const giveBtnY = btnPadding;
     const giveBtnX = screen.width - btnWidth - btnPadding; // Right-aligned with even padding
     

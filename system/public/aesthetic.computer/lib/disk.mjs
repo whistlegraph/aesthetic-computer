@@ -4560,6 +4560,21 @@ const $paintApi = {
         ? JSON.stringify(text)
         : text.toString();
     
+    // 💵 FUNDING MODE: Randomly replace S/s with $ for financial vibes
+    if (typeof globalThis !== "undefined" && globalThis.AC_FUNDING_MODE) {
+      // Use a seeded random based on text position to keep it stable per frame
+      // but change over time (every ~500ms)
+      const timeSlot = Math.floor(Date.now() / 500);
+      text = text.split('').map((char, i) => {
+        if (char === 'S' || char === 's') {
+          // Use a pseudo-random based on char position and time
+          const hash = ((i * 17 + timeSlot * 31) % 100) / 100;
+          if (hash < 0.25) return '$'; // 25% chance
+        }
+        return char;
+      }).join('');
+    }
+    
     // Assume: text, x, y, options, wordWrap, customTypeface
     if (typeof arguments[1] === "number") {
       pos = { x: arguments[1], y: arguments[2] };
