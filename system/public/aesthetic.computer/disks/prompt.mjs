@@ -6185,6 +6185,110 @@ function paint($) {
             );
           }
         }
+        
+        // Words floating laterally off BOTH sides - mood-dependent
+        // emotionPhase: 0 = ANGRY, 1 = SAD, 2 = CRYING
+        const moodWords = ["GRRR!", "sigh...", "HELP!"];
+        const moodWord = moodWords[emotionPhase] || "HELP!";
+        const numWordsPerSide = 3;
+        // Start from the face center, not screen center
+        const faceCenterX = faceX + scaledSize / 2;
+        const faceCenterY = faceY + scaledSize / 2;
+        
+        // Mood-based color palettes
+        const moodLeftColors = [
+          [[255, 80, 80], [255, 120, 60], [200, 50, 50], [255, 100, 100]],    // Angry: reds
+          [[140, 140, 180], [160, 160, 200], [120, 120, 160], [180, 180, 220]], // Sad: muted blues/grays
+          [[100, 200, 255], [150, 100, 255], [50, 255, 200], [180, 150, 255]] // Crying: cool blues
+        ];
+        const moodRightColors = [
+          [[255, 60, 60], [255, 100, 40], [220, 40, 40], [255, 80, 80]],      // Angry: reds
+          [[160, 160, 190], [140, 140, 170], [180, 180, 210], [130, 130, 160]], // Sad: muted blues/grays
+          [[255, 150, 100], [255, 200, 50], [255, 100, 150], [255, 180, 80]]  // Crying: warm oranges
+        ];
+        const leftColors = moodLeftColors[emotionPhase] || moodLeftColors[2];
+        const rightColors = moodRightColors[emotionPhase] || moodRightColors[2];
+        
+        // Mood-based motion parameters
+        const moodSpeed = [0.055, 0.025, 0.035][emotionPhase] || 0.035;       // Angry fast, sad slow
+        const moodWaveAmp = [2, 8, 5][emotionPhase] || 5;                      // Sad droopy, angry tight
+        const moodShake = [3, 0.5, 1][emotionPhase] || 1;                      // Angry shaky, sad still
+        const moodDrift = [2, 12, 6][emotionPhase] || 6;                       // Sad sinks more
+        
+        // RIGHT side words - start from face edge
+        for (let w = 0; w < numWordsPerSide; w++) {
+          const wordPhase = ((motdFrame * moodSpeed + w * 0.85) % 3) / 3;
+          
+          const startX = faceCenterX + scaledSize / 2 + 2; // Just off the right edge of face
+          const startY = faceCenterY - 2 + w * 3;
+          
+          const floatDist = wordPhase * 80;
+          // Sad: droop down; Angry: jitter; Crying: wave
+          const waveY = emotionPhase === 1 
+            ? wordPhase * moodWaveAmp + Math.sin(wordPhase * Math.PI) * 3  // Sad droops
+            : Math.sin(wordPhase * Math.PI * 2 + w) * moodWaveAmp;
+          
+          const wordX = startX + floatDist;
+          const wordY = startY + waveY + (emotionPhase === 1 ? wordPhase * moodDrift : -wordPhase * moodDrift);
+          
+          const alpha = Math.floor((1 - wordPhase * 0.85) * 255);
+          // Scale from 0.3 to 1.5 as it moves outward
+          const wordScale = 0.3 + wordPhase * 1.2;
+          
+          if (alpha > 20) {
+            let coloredWord = "";
+            for (let i = 0; i < moodWord.length; i++) {
+              const colorIdx = Math.floor((i + motdFrame * 0.12 + w * 2) % rightColors.length);
+              const c = rightColors[colorIdx];
+              coloredWord += `\\${c[0]},${c[1]},${c[2]},${alpha}\\${moodWord[i]}`;
+            }
+            
+            const shakeX = Math.sin(motdFrame * 0.2 + w) * moodShake;
+            const shakeY = Math.cos(motdFrame * 0.25 + w) * moodShake;
+            
+            ink(255, 255, 255).write(
+              coloredWord,
+              { x: Math.floor(wordX + shakeX), y: Math.floor(wordY + shakeY), size: wordScale }
+            );
+          }
+        }
+        
+        // LEFT side words (float leftward from face edge)
+        const wordWidth = moodWord.length * 6;
+        for (let w = 0; w < numWordsPerSide; w++) {
+          const wordPhase = ((motdFrame * (moodSpeed * 1.08) + w * 0.9 + 0.3) % 3) / 3;
+          
+          const startX = faceCenterX - scaledSize / 2 - 2 - wordWidth * 0.3; // Just off left edge of face
+          const startY = faceCenterY - 2 + w * 3;
+          
+          const floatDist = wordPhase * 80;
+          const waveY = emotionPhase === 1 
+            ? wordPhase * moodWaveAmp + Math.sin(wordPhase * Math.PI + 1) * 3
+            : Math.sin(wordPhase * Math.PI * 2 + w + 1) * moodWaveAmp;
+          
+          const wordX = startX - floatDist - wordPhase * wordWidth * 0.7; // Account for growing text width
+          const wordY = startY + waveY + (emotionPhase === 1 ? wordPhase * moodDrift : -wordPhase * moodDrift);
+          
+          const alpha = Math.floor((1 - wordPhase * 0.85) * 255);
+          const wordScale = 0.3 + wordPhase * 1.2;
+          
+          if (alpha > 20) {
+            let coloredWord = "";
+            for (let i = 0; i < moodWord.length; i++) {
+              const colorIdx = Math.floor((i + motdFrame * 0.12 + w * 2) % leftColors.length);
+              const c = leftColors[colorIdx];
+              coloredWord += `\\${c[0]},${c[1]},${c[2]},${alpha}\\${moodWord[i]}`;
+            }
+            
+            const shakeX = Math.sin(motdFrame * 0.22 + w) * moodShake;
+            const shakeY = Math.cos(motdFrame * 0.27 + w) * moodShake;
+            
+            ink(255, 255, 255).write(
+              coloredWord,
+              { x: Math.floor(wordX + shakeX), y: Math.floor(wordY + shakeY), size: wordScale }
+            );
+          }
+        }
       }
     }
   }
