@@ -1,6 +1,6 @@
-// Gift, 25.12.30
-// 🎁 Creates Stripe checkout sessions for gifting/supporting AC
-// Endpoint: /api/gift
+// Give, 25.12.30
+// 🎁 Creates Stripe checkout sessions for giving/supporting AC
+// Endpoint: /api/give
 
 import Stripe from "stripe";
 import { respond } from "../../backend/http.mjs";
@@ -25,8 +25,8 @@ export async function handler(event, context) {
   }
 
   const stripeKey = dev
-    ? process.env.STRIPE_API_TEST_PRIV_KEY
-    : process.env.STRIPE_API_PRIV_KEY;
+    ? process.env.STRIPE_API_KEY
+    : process.env.STRIPE_API_KEY_LIVE;
 
   if (!stripeKey) {
     return respond(500, { error: "Stripe not configured" });
@@ -51,8 +51,8 @@ export async function handler(event, context) {
 
     // Build session config
     const sessionConfig = {
-      success_url: `${getBaseUrl(event)}/gift.aesthetic.computer/thanks.html?amount=${amountDisplay}&currency=${currency}${recurring ? '&recurring=true' : ''}`,
-      cancel_url: `${getBaseUrl(event)}/gift.aesthetic.computer/`,
+      success_url: `${getBaseUrl(event)}/give.aesthetic.computer/thanks.html?amount=${amountDisplay}&currency=${currency}${recurring ? '&recurring=true' : ''}`,
+      cancel_url: `${getBaseUrl(event)}/give.aesthetic.computer/`,
       billing_address_collection: "auto",
       metadata: {
         type: recurring ? "subscription" : "gift",
@@ -69,10 +69,10 @@ export async function handler(event, context) {
           price_data: {
             currency: currency,
             product_data: {
-              name: `Monthly Support - Aesthetic Computer`,
+              name: `🎁 Monthly`,
               description: currency === 'dkk' 
-                ? `Månedlig støtte (${displayStr}/måned)`
-                : `Monthly support (${displayStr}/month)`,
+                ? `${displayStr}/måned til Aesthetic Computer ✨`
+                : `${displayStr}/month to Aesthetic Computer ✨`,
               images: ["https://aesthetic.computer/aesthetic.computer/icon/512x512.png"],
             },
             unit_amount: amountCents,
@@ -92,10 +92,10 @@ export async function handler(event, context) {
           price_data: {
             currency: currency,
             product_data: {
-              name: `Gift to Aesthetic Computer`,
+              name: `🎁 Give`,
               description: currency === 'dkk' 
-                ? `Tak for din støtte! (${displayStr})`
-                : `Thank you for supporting! (${displayStr})`,
+                ? `${displayStr} til Aesthetic Computer — tak! 💖`
+                : `${displayStr} to Aesthetic Computer — thank you! 💖`,
               images: ["https://aesthetic.computer/aesthetic.computer/icon/512x512.png"],
             },
             unit_amount: amountCents,
@@ -109,7 +109,7 @@ export async function handler(event, context) {
 
     return respond(200, { url: session.url, sessionId: session.id });
   } catch (error) {
-    console.error("Gift checkout error:", error);
+    console.error("Give checkout error:", error);
     return respond(500, { error: error.message });
   }
 }

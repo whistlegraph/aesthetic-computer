@@ -148,11 +148,11 @@ included_env_vars = ["CONTEXT", "ANTHROPIC_API_KEY", "OPENAI_API_KEY"]
 included_files = ["backend/**/*.mjs"]
 included_env_vars = ["CONTEXT", "DO_API_TOKEN", "DO_TOKEN", "CLOUDFLARE_EMAIL", "CLOUDFLARE_API_KEY", "CLOUDFLARE_ACCOUNT_ID", "PINATA_API_KEY", "PINATA_API_SECRET", "OPENAI_API_KEY"]
 
-[functions.gift]
-# Gift/support payments via Stripe
+[functions.give]
+# Give/support payments via Stripe
 external_node_modules = ["stripe"]
 included_files = ["backend/**/*.mjs"]
-included_env_vars = ["CONTEXT", "STRIPE_API_TEST_PRIV_KEY", "STRIPE_API_PRIV_KEY"]
+included_env_vars = ["CONTEXT", "STRIPE_API_KEY", "STRIPE_API_KEY_LIVE"]
 
 [functions.bundle-html]
 # Generates KidLisp .lisp.html bundles on-demand via API
@@ -539,25 +539,25 @@ to = "https://aesthetic.computer/aesthetic-direct"
 status = 200
 force = true
 
-# gift.aesthetic.computer - Support/donation page
+# give.aesthetic.computer - Support/donation page
 [[redirects]]
-from = "https://gift.aesthetic.computer/api/gift"
-to = "/.netlify/functions/gift"
+from = "https://give.aesthetic.computer/api/give"
+to = "/.netlify/functions/give"
 status = 200
 force = true
 [[redirects]]
-from = "https://gift.aesthetic.computer/api/billing"
+from = "https://give.aesthetic.computer/api/billing"
 to = "/.netlify/functions/billing"
 status = 200
 force = true
 [[redirects]]
-from = "https://gift.aesthetic.computer"
-to = "/gift.aesthetic.computer/index.html"
+from = "https://give.aesthetic.computer"
+to = "/give.aesthetic.computer/index.html"
 status = 200
 force = true
 [[redirects]]
-from = "https://gift.aesthetic.computer/*"
-to = "/gift.aesthetic.computer/:splat"
+from = "https://give.aesthetic.computer/*"
+to = "/give.aesthetic.computer/:splat"
 status = 200
 force = true
 
@@ -630,8 +630,12 @@ from = "/api/billing"
 to = "/.netlify/functions/billing"
 status = 200
 [[redirects]]
-from = "/api/gift"
-to = "/.netlify/functions/gift"
+from = "/api/give"
+to = "/.netlify/functions/give"
+status = 200
+[[redirects]]
+from = "/api/shop"
+to = "/.netlify/functions/shop"
 status = 200
 [[redirects]]
 from = "/api/ticket/*"

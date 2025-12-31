@@ -192,11 +192,15 @@ async function fetchKidlisp(db, { limit, sort }) {
 }
 
 async function fetchTapes(db, { limit }) {
+  const PDS_URL = "https://at.aesthetic.computer";
   const collection = db.collection("tapes");
+  const users = db.collection("users");
+  
+  // First get recent tapes from MongoDB
   const pipeline = [
     { $match: { nuked: { $ne: true } } },
     { $sort: { when: -1 } },
-    { $limit: limit },
+    { $limit: limit * 3 }, // Fetch more to filter for those with ATProto videos
     {
       $lookup: {
         from: "@handles",
@@ -224,29 +228,82 @@ async function fetchTapes(db, { limit }) {
   ];
 
   const records = await collection.aggregate(pipeline).toArray();
-
-  return records.map((record) => {
+  
+  // Build a map of user DID lookups (for ATProto blob URLs)
+  const userDids = new Map();
+  const uniqueUserIds = [...new Set(records.map(r => r.user).filter(Boolean))];
+  
+  if (uniqueUserIds.length > 0) {
+    const userRecords = await users.find({ _id: { $in: uniqueUserIds } }).toArray();
+    for (const u of userRecords) {
+      if (u.atproto?.did) {
+        userDids.set(u._id, u.atproto.did);
+      }
+    }
+  }
+  
+  // Also get the art-guest DID for anonymous tapes
+  const artGuest = await users.findOne({ _id: "art-guest" });
+  const artGuestDid = artGuest?.atproto?.did;
+  
+  // Fetch ATProto records for each unique DID (batch per user)
+  const atprotoTapesByCode = new Map(); // code -> { did, videoCid }
+  const uniqueDids = [...new Set([...userDids.values(), artGuestDid].filter(Boolean))];
+  
+  await Promise.all(uniqueDids.map(async (did) => {
+    try {
+      const atprotoUrl = `${PDS_URL}/xrpc/com.atproto.repo.listRecords?repo=${did}&collection=computer.aesthetic.tape&limit=100`;
+      const atRes = await fetch(atprotoUrl);
+      if (!atRes.ok) return;
+      
+      const atData = await atRes.json();
+      for (const atRecord of atData.records || []) {
+        if (atRecord.value?.video?.ref?.$link && atRecord.value?.code) {
+          atprotoTapesByCode.set(atRecord.value.code, {
+            did,
+            videoCid: atRecord.value.video.ref.$link,
+          });
+        }
+      }
+    } catch (err) {
+      console.error(`Error fetching ATProto tapes for ${did}:`, err);
+    }
+  }));
+  
+  // Build results - match MongoDB tapes with ATProto video URLs
+  const tapesWithVideos = [];
+  
+  for (const record of records) {
+    if (tapesWithVideos.length >= limit) break;
+    
+    const atInfo = atprotoTapesByCode.get(record.code);
+    if (!atInfo) continue;
+    
+    const videoUrl = `${PDS_URL}/xrpc/com.atproto.sync.getBlob?did=${atInfo.did}&cid=${atInfo.videoCid}`;
+    
     const handle = record.handle ? `@${record.handle}` : null;
     const ownerSegment = handle ?? record.user ?? "anonymous";
     
-    return {
+    tapesWithVideos.push({
       id: record._id?.toString?.() ?? `${ownerSegment}:${record.slug}`,
       type: "tape",
       code: record.code,
       slug: record.slug,
       owner: {
         handle,
-        userId: record.user ?? null, // null for anonymous tapes
+        userId: record.user ?? null,
       },
       when: record.when,
       acUrl: `https://aesthetic.computer/!${record.code}`,
       media: {
         bucket: record.bucket,
-        // Video URL pattern (MP4 is served from S3)
-        videoUrl: record.bucket ? `https://acrecordings.s3.us-east-1.amazonaws.com/${record.bucket}/${record.slug}.mp4` : null,
+        videoUrl,
+        source: "atproto",
       },
-    };
-  });
+    });
+  }
+  
+  return tapesWithVideos;
 }
 
 export async function handler(event) {
