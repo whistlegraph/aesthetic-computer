@@ -3869,22 +3869,25 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     // 📊 Receive disk worker timing data
     if (type === "disk-timings") {
-      console.log("⏱️ [BIOS] Received disk worker timings:", content);
       window.acDiskTimings = content;
-      // Print formatted report
-      console.log("📊 ═══════════════════════════════════════════════════════");
-      console.log("📊 DISK WORKER TIMING BREAKDOWN");
-      console.log("📊 ═══════════════════════════════════════════════════════");
-      if (content.sessionStarted) console.log(`📊   sessionStarted: +${content.sessionStarted}ms`);
-      if (content.preambleComplete) console.log(`📊   preambleComplete (9 frames): +${content.preambleComplete}ms`);
-      if (content.loadStarted) console.log(`📊   load() started: +${content.loadStarted}ms`);
-      if (content.fetchComplete) console.log(`📊   fetch complete: +${content.fetchComplete}ms`);
-      if (content.compileComplete) console.log(`📊   compile/import complete: +${content.compileComplete}ms`);
-      if (content.bootStarted) console.log(`📊   boot() started: +${content.bootStarted}ms`);
-      if (content.bootComplete) console.log(`📊   boot() complete: +${content.bootComplete}ms`);
-      if (content.firstPaint) console.log(`📊   first paint: +${content.firstPaint}ms`);
-      if (content.firstRenderSent) console.log(`📊   first render sent: +${content.firstRenderSent}ms`);
-      console.log("📊 ═══════════════════════════════════════════════════════");
+      // Only print timing report in development (not in PACK/NFT mode)
+      if (!window.acPACK_MODE) {
+        console.log("⏱️ [BIOS] Received disk worker timings:", content);
+        // Print formatted report
+        console.log("📊 ═══════════════════════════════════════════════════════");
+        console.log("📊 DISK WORKER TIMING BREAKDOWN");
+        console.log("📊 ═══════════════════════════════════════════════════════");
+        if (content.sessionStarted) console.log(`📊   sessionStarted: +${content.sessionStarted}ms`);
+        if (content.preambleComplete) console.log(`📊   preambleComplete (9 frames): +${content.preambleComplete}ms`);
+        if (content.loadStarted) console.log(`📊   load() started: +${content.loadStarted}ms`);
+        if (content.fetchComplete) console.log(`📊   fetch complete: +${content.fetchComplete}ms`);
+        if (content.compileComplete) console.log(`📊   compile/import complete: +${content.compileComplete}ms`);
+        if (content.bootStarted) console.log(`📊   boot() started: +${content.bootStarted}ms`);
+        if (content.bootComplete) console.log(`📊   boot() complete: +${content.bootComplete}ms`);
+        if (content.firstPaint) console.log(`📊   first paint: +${content.firstPaint}ms`);
+        if (content.firstRenderSent) console.log(`📊   first render sent: +${content.firstRenderSent}ms`);
+        console.log("📊 ═══════════════════════════════════════════════════════");
+      }
       return;
     }
 
@@ -4137,18 +4140,18 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     // Handle audio context resume request from video piece
     if (type === "audio-context:resume-request") {
-      console.log("🎵 BIOS received audio context resume request:", content);
+      if (!window.acPACK_MODE) console.log("🎵 BIOS received audio context resume request:", content);
       if (audioContext && audioContext.state === "suspended") {
-        console.log("🎵 BIOS resuming audio context from user gesture");
+        if (!window.acPACK_MODE) console.log("🎵 BIOS resuming audio context from user gesture");
         const resumeStartTime = performance.now();
         audioContext.resume().then(() => {
           const resumeEndTime = performance.now();
           window.audioContextResumeTimestamps.requestedAt = resumeStartTime;
           window.audioContextResumeTimestamps.completedAt = resumeEndTime;
-          console.log("🎵 BIOS audio context resumed, new state:", audioContext.state);
+          if (!window.acPACK_MODE) console.log("🎵 BIOS audio context resumed, new state:", audioContext.state);
           
           // Notify video piece of successful resume
-          console.log("🎵 BIOS sending updated AudioContext state after resume:", { state: audioContext.state, hasAudio: true });
+          if (!window.acPACK_MODE) console.log("🎵 BIOS sending updated AudioContext state after resume:", { state: audioContext.state, hasAudio: true });
           send({ 
             type: "tape:audio-context-state", 
             content: { 
@@ -4160,7 +4163,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           console.warn("🎵 BIOS audio context resume failed:", error.message);
         });
       } else if (audioContext) {
-        console.log("🎵 BIOS audio context already running:", audioContext.state);
+        if (!window.acPACK_MODE) console.log("🎵 BIOS audio context already running:", audioContext.state);
         // Send current state back to video piece
         send({ 
           type: "tape:audio-context-state", 
