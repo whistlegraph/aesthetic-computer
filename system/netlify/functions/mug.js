@@ -118,10 +118,15 @@ export async function handler(event, context) {
       let imageUrl;
 
       // Parse the input slug or url
+      // Note: apiDomain for client-side fallback images (can be localhost in dev)
+      // printfulDomain MUST be production URL - Printful can't access localhost
+      const apiDomain = dev ? "https://localhost:8888" : "https://aesthetic.computer";
+      const printfulDomain = "https://aesthetic.computer"; // Always production for Printful
       if (!event.queryStringParameters.pixels.startsWith("https://")) {
         // Use /api/pixel to resize painting for mug wrap dimensions
         // Use contain-clear to preserve transparency (mug color shows through)
-        imageUrl = `https://aesthetic.computer/api/pixel/${MUG_WIDTH}x${MUG_HEIGHT}:contain-clear/${event.queryStringParameters.pixels}`;
+        // Printful needs a publicly accessible URL
+        imageUrl = `${printfulDomain}/api/pixel/${MUG_WIDTH}x${MUG_HEIGHT}:contain-clear/${event.queryStringParameters.pixels}`;
       } else {
         return respond(500, {
           message: "No external image URLs allowed.",
@@ -227,12 +232,12 @@ export async function handler(event, context) {
         if (!mockupUrl) {
           // Fallback to simple scaled image if mockup generation fails/times out
           console.warn("☕ Mockup generation timed out, using fallback");
-          mockupUrl = `https://aesthetic.computer/api/pixel/400x150:contain/${event.queryStringParameters.pixels}`;
+          mockupUrl = `${apiDomain}/api/pixel/400x150:contain/${event.queryStringParameters.pixels}`;
         }
       } catch (error) {
         console.error("☕ Mockup generation error:", error.message);
         // Fallback to simple scaled image
-        mockupUrl = `https://aesthetic.computer/api/pixel/400x150:contain/${event.queryStringParameters.pixels}`;
+        mockupUrl = `${apiDomain}/api/pixel/400x150:contain/${event.queryStringParameters.pixels}`;
       }
 
       // 🔍 Preview mode: return mockup URLs without creating Stripe checkout
