@@ -362,11 +362,11 @@ function paint(
       ];
       
       const lineHeight = 12;
-      const startY = Math.floor(screen.height / 2 - (offlineMsg.length * lineHeight) / 2);
+      const totalHeight = offlineMsg.length * lineHeight;
       const shakeFrame = help.repeat ?? 0;
       
       offlineMsg.forEach((line, i) => {
-        // High contrast colors that cycle/shake
+        // High contrast colors that cycle
         let color = [200, 200, 200]; // Default fallback
         if (i === 0) {
           // Title line - cycles between bright colors
@@ -384,10 +384,15 @@ function paint(
           color = [100, 100, 100]; // Empty lines
         }
         
-        // Gentle vertical shake only (horizontal shake breaks centering)
+        // Calculate Y position: center of screen, offset by line index from center of block
+        const centerY = Math.floor(screen.height / 2);
+        const blockCenterOffset = Math.floor(totalHeight / 2);
+        const lineY = centerY - blockCenterOffset + (i * lineHeight);
+        
+        // Gentle vertical shake
         const shakeY = line !== "" ? Math.cos(shakeFrame * 0.25 + i * 0.5) * 1 : 0;
         
-        ink(color[0], color[1], color[2]).write(line, { center: "x", y: startY + i * lineHeight + shakeY }, undefined, undefined, false, typefaceName);
+        ink(color[0], color[1], color[2]).write(line, { center: "x", y: lineY + shakeY }, undefined, undefined, false, typefaceName);
       });
     } else {
       // Normal connecting message
