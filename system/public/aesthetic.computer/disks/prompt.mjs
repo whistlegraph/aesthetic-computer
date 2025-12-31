@@ -196,8 +196,9 @@ let fpsTimestamps = [];
 let currentFps = 0;
 let showFpsMeter = false; // Toggle with backtick key
 
-// 🚫 TV/content ticker disabled during funding mode
-const DISABLE_CONTENT_TICKER = true;
+// 🚫 Content ticker controls
+const DISABLE_CONTENT_TICKER = false;
+const DISABLE_CONTENT_PREVIEWS = true; // Disable live preview tooltips
 
 let startupSfx, keyboardSfx;
 
@@ -5366,7 +5367,7 @@ function paint($) {
     
     // 🎨 CONTENT TOOLTIP (ambient floating preview)
     // Automatically cycles through content items (KidLisp + Paintings), showing previews
-    if (showContentTicker && contentItems.length > 0) {
+    if (!DISABLE_CONTENT_PREVIEWS && showContentTicker && contentItems.length > 0) {
       // Filter to only items that are currently visible on screen (from the right side)
       const visibleItems = [];
       
