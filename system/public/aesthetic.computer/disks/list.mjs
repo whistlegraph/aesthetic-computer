@@ -23,6 +23,11 @@ const scheme = {
     scrollbarThumb: [100, 120, 180],
     highlight: [255, 255, 100],
     chevron: [80, 100, 140],
+    // Per-tab colors
+    tabPopular: [255, 120, 80],    // 🔥 orange/red
+    tabAll: [100, 180, 255],       // blue
+    tabPieces: [100, 220, 150],    // green (matches pieceName)
+    tabCommands: [255, 200, 100],  // yellow (matches commandName)
   },
   light: {
     background: [240, 240, 245],
@@ -40,6 +45,11 @@ const scheme = {
     scrollbarThumb: [140, 150, 180],
     highlight: [255, 220, 80],
     chevron: [120, 140, 180],
+    // Per-tab colors
+    tabPopular: [220, 80, 40],     // 🔥 orange/red
+    tabAll: [40, 100, 180],        // blue
+    tabPieces: [20, 120, 60],      // green (matches pieceName)
+    tabCommands: [160, 100, 20],   // yellow (matches commandName)
   },
 };
 
@@ -375,51 +385,15 @@ function paint({ wipe, ink, screen, dark, paintCount }) {
     return;
   }
   
-  // Header background
-  ink(pal.headerBg).box(0, 0, screen.width, HEADER_HEIGHT);
-  
-  // Item count
-  const countText = `${visibleItems.filter(i => i.type !== "category").length}`;
-  if (layoutMode !== "tiny") {
-    ink(pal.categoryCount).write(countText, { x: screen.width - countText.length * 6 - 4, y: 4 });
-  }
-  
-  // Tabs (not in tiny mode)
-  if (layoutMode !== "tiny") {
-    const tabY = HEADER_HEIGHT + 1;
-    ink(pal.tabBg).box(0, tabY - 1, screen.width, TAB_HEIGHT + 2);
-    
-    const tabs = layoutMode === "small" 
-      ? [["popular", "🔥"], ["all", "All"], ["pieces", "📦"], ["commands", "🎯"]]
-      : [["popular", "🔥 Hot"], ["all", "All"], ["pieces", "Pieces"], ["commands", "Commands"]];
-    
-    let tabX = LEFT_MARGIN;
-    tabButtons = []; // Reset
-    tabs.forEach(([id, label]) => {
-      const isActive = currentTab === id;
-      const tabWidth = label.length * 6 + 8;
-      
-      if (isActive) {
-        ink(pal.tabActive).box(tabX - 2, tabY, tabWidth, TAB_HEIGHT - 2);
-        ink(pal.background).write(label, { x: tabX + 2, y: tabY + 2 });
-      } else {
-        ink(pal.tabInactive).write(label, { x: tabX + 2, y: tabY + 2 });
-      }
-      
-      tabButtons.push({ id, x: tabX - 2, y: tabY, w: tabWidth, h: TAB_HEIGHT });
-      tabX += tabWidth + 6;
-    });
-  }
-  
-  // Content area
+  // Content area - draw FIRST so header/tabs mask it
   const maxDescLen = getMaxDescLength(screen);
   const contentBottom = screen.height - 2;
   
   visibleItems.forEach((item, i) => {
     const y = item.y + scroll;
     
-    // Skip if off-screen
-    if (y < CONTENT_TOP - ROW_HEIGHT || y > contentBottom) return;
+    // Skip if off-screen (including header/tab area)
+    if (y < CONTENT_TOP || y > contentBottom) return;
     
     if (item.type === "category") {
       // Category header
@@ -483,6 +457,57 @@ function paint({ wipe, ink, screen, dark, paintCount }) {
     
     ink(pal.scrollbar).box(screen.width - 3, CONTENT_TOP, 2, viewHeight);
     ink(pal.scrollbarThumb).box(screen.width - 3, scrollbarY, 2, scrollbarHeight);
+  }
+  
+  // === HEADER & TABS (drawn LAST to mask scrolling content) ===
+  
+  // Header background (masks content)
+  ink(pal.headerBg).box(0, 0, screen.width, HEADER_HEIGHT);
+  
+  // Item count in header
+  const countText = `${visibleItems.filter(i => i.type !== "category").length}`;
+  if (layoutMode !== "tiny") {
+    ink(pal.categoryCount).write(countText, { x: screen.width - countText.length * 6 - 4, y: 4 });
+  }
+  
+  // Tabs (not in tiny mode)
+  if (layoutMode !== "tiny") {
+    const tabY = HEADER_HEIGHT + 1;
+    
+    // Tab bar background (masks content)
+    ink(pal.tabBg).box(0, tabY - 1, screen.width, TAB_HEIGHT + 2);
+    
+    // Tab color map
+    const tabColors = {
+      popular: pal.tabPopular,
+      all: pal.tabAll,
+      pieces: pal.tabPieces,
+      commands: pal.tabCommands,
+    };
+    
+    const tabs = layoutMode === "small" 
+      ? [["popular", "🔥"], ["all", "All"], ["pieces", "📦"], ["commands", "🎯"]]
+      : [["popular", "🔥 Hot"], ["all", "All"], ["pieces", "Pieces"], ["commands", "Commands"]];
+    
+    let tabX = LEFT_MARGIN;
+    tabButtons = []; // Reset
+    tabs.forEach(([id, label]) => {
+      const isActive = currentTab === id;
+      const tabWidth = label.length * 6 + 8;
+      const tabColor = tabColors[id] || pal.tabActive;
+      
+      if (isActive) {
+        // Active tab: colored background, dark text
+        ink(tabColor).box(tabX - 2, tabY, tabWidth, TAB_HEIGHT - 2);
+        ink(pal.background).write(label, { x: tabX + 2, y: tabY + 2 });
+      } else {
+        // Inactive tab: colored text, no background
+        ink(tabColor, 180).write(label, { x: tabX + 2, y: tabY + 2 });
+      }
+      
+      tabButtons.push({ id, x: tabX - 2, y: tabY, w: tabWidth, h: TAB_HEIGHT });
+      tabX += tabWidth + 6;
+    });
   }
 }
 
