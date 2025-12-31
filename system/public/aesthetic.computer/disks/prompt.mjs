@@ -4791,7 +4791,7 @@ function paint($) {
     
     // Calculate dynamic positioning to prevent overlap
     const tickerHeight = tinyTickers ? 8 : 11; // MatrixChunky8 is 8px, font_1 is ~11px
-    const tickerSpacing = 0; // No space between tickers for tight stripes
+    const tickerSpacing = 2; // Small gap between tickers
     const tickerPadding = tinyTickers ? 5 : 2; // Less padding for font_1
     
     // Helper to ensure ticker text is long enough to fill screen without gaps
