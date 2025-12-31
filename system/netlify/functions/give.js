@@ -50,9 +50,10 @@ export async function handler(event, context) {
     const displayStr = currency === 'dkk' ? `${amountDisplay} kr` : `$${amountDisplay}`;
 
     // Build session config
+    const giveBaseUrl = dev ? `https://${event.headers.host}` : "https://give.aesthetic.computer";
     const sessionConfig = {
-      success_url: `${getBaseUrl(event)}/give.aesthetic.computer/thanks.html?amount=${amountDisplay}&currency=${currency}${recurring ? '&recurring=true' : ''}`,
-      cancel_url: `${getBaseUrl(event)}/give.aesthetic.computer/`,
+      success_url: `${giveBaseUrl}/thanks.html?amount=${amountDisplay}&currency=${currency}${recurring ? '&recurring=true' : ''}`,
+      cancel_url: `${giveBaseUrl}/`,
       billing_address_collection: "auto",
       metadata: {
         type: recurring ? "subscription" : "gift",

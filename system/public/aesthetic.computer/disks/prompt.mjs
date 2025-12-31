@@ -159,6 +159,11 @@ let showFpsMeter = false; // Toggle with backtick key
 // 🚫 DEBUG: Disable content ticker/TV preview while debugging carousel
 const DISABLE_CONTENT_TICKER = true;
 
+// 💸 FUNDING MODE: Show server bill alert in tickers and chat
+// Set to true to display funding message, false to show normal content
+export const FUNDING_MODE = true;
+const FUNDING_MESSAGE = "⚠️ Chats offline due to end-of-year server bill — Enter 'give' to help support AC! ⚠️";
+
 let startupSfx, keyboardSfx;
 
 // 🎆 Corner particles (for cursor effect)
@@ -1068,9 +1073,9 @@ async function halt($, text) {
     // 🔥 Jump to Oven dashboard
     jump(`https://oven.aesthetic.computer`);
     return true;
-  } else if (slug === "gift") {
-    // 🎁 Jump to Gift page
-    jump(`https://gift.aesthetic.computer`);
+  } else if (slug === "give") {
+    // 🎁 Jump to Give page
+    jump(`https://give.aesthetic.computer`);
     return true;
   } else if (slug === "desktop" || slug === "app" || slug === "electron") {
     // 💻 Jump to Desktop app download page
@@ -4660,30 +4665,37 @@ function paint($) {
     // Note: $.chat is the global chat system (automatically connected)
     const hasChatMessages = $.chat?.messages && $.chat.messages.length > 0;
     if (screen.height >= 180) {
-      // Show last 12 messages with syntax highlighting
-      const numMessages = Math.min(12, $.chat.messages.length);
-      const recentMessages = $.chat.messages.slice(-numMessages);
+      let fullText;
       
-      let fullText = recentMessages.map(msg => {
-        const sanitizedText = msg.text.replace(/[\r\n]+/g, ' ');
-        const fullMessage = msg.from + ": " + sanitizedText;
+      if (FUNDING_MODE) {
+        // Show funding alert message instead of chat
+        fullText = ensureMinTickerLength(FUNDING_MESSAGE, " · ");
+      } else {
+        // Show last 12 messages with syntax highlighting
+        const numMessages = Math.min(12, $.chat.messages.length);
+        const recentMessages = $.chat.messages.slice(-numMessages);
         
-        // Parse and apply color codes
-        const elements = parseMessageElements(fullMessage);
-        const colorMap = {
-          handle: "pink",
-          url: "cyan",
-          prompt: "lime",
-          promptcontent: "cyan",
-          painting: "orange",
-          kidlisp: "magenta",
-        };
+        fullText = recentMessages.map(msg => {
+          const sanitizedText = msg.text.replace(/[\r\n]+/g, ' ');
+          const fullMessage = msg.from + ": " + sanitizedText;
+          
+          // Parse and apply color codes
+          const elements = parseMessageElements(fullMessage);
+          const colorMap = {
+            handle: "pink",
+            url: "cyan",
+            prompt: "lime",
+            promptcontent: "cyan",
+            painting: "orange",
+            kidlisp: "magenta",
+          };
+          
+          return applyColorCodes(fullMessage, elements, colorMap, [0, 255, 255]);
+        }).join(" · ");
         
-        return applyColorCodes(fullMessage, elements, colorMap, [0, 255, 255]);
-      }).join(" · ");
-      
-      // Repeat content to fill screen without gaps
-      fullText = ensureMinTickerLength(fullText, " · ");
+        // Repeat content to fill screen without gaps
+        fullText = ensureMinTickerLength(fullText, " · ");
+      }
       const chatTickerY = currentTickerY;
       
       // Create or update ticker instance
@@ -4767,32 +4779,39 @@ function paint($) {
       const hasClockMessages = clockChatMessages && clockChatMessages.length > 0;
       const clockTickerY = currentTickerY;
       
-      if (hasClockMessages) {
-        const numClockMessages = Math.min(12, clockChatMessages.length);
-        const recentClockMessages = clockChatMessages.slice(-numClockMessages);
+      if (FUNDING_MODE || hasClockMessages) {
+        let clockFullText;
         
-        // Build ticker text with syntax highlighting for @handles, URLs, 'prompts', etc.
-        let clockFullText = recentClockMessages.map(msg => {
-          const sanitizedText = (msg.text || msg.message || '').replace(/[\r\n]+/g, ' ');
-          const from = msg.from || msg.handle || msg.author || 'anon';
-          const fullMessage = from + ": " + sanitizedText;
+        if (FUNDING_MODE) {
+          // Show funding alert message
+          clockFullText = ensureMinTickerLength(FUNDING_MESSAGE, " · ");
+        } else {
+          const numClockMessages = Math.min(12, clockChatMessages.length);
+          const recentClockMessages = clockChatMessages.slice(-numClockMessages);
           
-          // Parse and apply color codes
-          const elements = parseMessageElements(fullMessage);
-          const colorMap = {
-            handle: "pink",
-            url: "cyan",
-            prompt: "lime",
-            promptcontent: "cyan",
-            painting: "orange",
-            kidlisp: "magenta",
-          };
+          // Build ticker text with syntax highlighting for @handles, URLs, 'prompts', etc.
+          clockFullText = recentClockMessages.map(msg => {
+            const sanitizedText = (msg.text || msg.message || '').replace(/[\r\n]+/g, ' ');
+            const from = msg.from || msg.handle || msg.author || 'anon';
+            const fullMessage = from + ": " + sanitizedText;
+            
+            // Parse and apply color codes
+            const elements = parseMessageElements(fullMessage);
+            const colorMap = {
+              handle: "pink",
+              url: "cyan",
+              prompt: "lime",
+              promptcontent: "cyan",
+              painting: "orange",
+              kidlisp: "magenta",
+            };
+            
+            return applyColorCodes(fullMessage, elements, colorMap, [255, 200, 100]);
+          }).join(" · ");
           
-          return applyColorCodes(fullMessage, elements, colorMap, [255, 200, 100]);
-        }).join(" · ");
-        
-        // Repeat content to fill screen without gaps
-        clockFullText = ensureMinTickerLength(clockFullText, " · ");
+          // Repeat content to fill screen without gaps
+          clockFullText = ensureMinTickerLength(clockFullText, " · ");
+        }
         
         if (!clockChatTicker) {
           clockChatTicker = new $.gizmo.Ticker(clockFullText, {

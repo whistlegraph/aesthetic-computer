@@ -35,6 +35,7 @@ const { max, floor, ceil } = Math;
 import { isKidlispSource, tokenize, KidLisp } from "../lib/kidlisp.mjs";
 import { parseMessageElements as parseMessageElementsShared } from "../lib/chat-highlighting.mjs";
 import { getCommandDescription, isPromptOnlyCommand } from "../lib/prompt-commands.mjs";
+import { FUNDING_MODE } from "./prompt.mjs";
 
 let input, inputBtn, handleBtn, token;
 let messagesNeedLayout = true;
@@ -337,9 +338,29 @@ function paint(
   }
 
   if (client.connecting) {
-    ink("pink").write("Connecting" + ellipsisTicker?.text(help.repeat), {
-      center: "xy",
-    }, undefined, undefined, false, typefaceName);
+    if (FUNDING_MODE) {
+      // Show funding alert when in funding mode
+      const offlineMsg = [
+        "Connecting" + ellipsisTicker?.text(help.repeat),
+        "",
+        "Chats are offline due to",
+        "a large end-of-year server bill.",
+        "",
+        "Enter 'give' to help support AC",
+        "and services will return ASAP!",
+      ];
+      const lineHeight = 12;
+      const startY = Math.floor(screen.height / 2 - (offlineMsg.length * lineHeight) / 2);
+      offlineMsg.forEach((line, i) => {
+        const color = i === 0 ? "pink" : (i === 5 ? "lime" : "gray");
+        ink(color).write(line, { center: "x", y: startY + i * lineHeight }, undefined, undefined, false, typefaceName);
+      });
+    } else {
+      // Normal connecting message
+      ink("pink").write("Connecting" + ellipsisTicker?.text(help.repeat), {
+        center: "xy",
+      }, undefined, undefined, false, typefaceName);
+    }
     return;
   }
 
