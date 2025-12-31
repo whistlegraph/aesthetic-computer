@@ -452,6 +452,46 @@
         ctx.fillStyle = `rgb(${100 + colorLerp * 20}, ${25 + colorLerp * 10}, ${160 + colorLerp * 40})`;
         ctx.fillRect(0, 0, W, H);
         
+        // === DEGRADATION EFFECTS - blur & pixelation as noise16 intensifies ===
+        // Only apply when chaos is building (smoother timing)
+        const degradeStart = 0.3; // Start degrading at 30% chaos
+        const degradeAmount = Math.max(0, (chaos - degradeStart) / (1 - degradeStart));
+        
+        if (degradeAmount > 0.05) {
+          // Pixelation / mosaic effect - downscale then upscale
+          const pixelSize = 1 + (degradeAmount * degradeAmount * 8) | 0; // 1-9px blocks
+          if (pixelSize > 1) {
+            const smallW = Math.max(1, (W / pixelSize) | 0);
+            const smallH = Math.max(1, (H / pixelSize) | 0);
+            ctx.imageSmoothingEnabled = false;
+            // Draw current canvas to itself at smaller size, then scale back up
+            try {
+              const imgData = ctx.getImageData(0, 0, W, H);
+              ctx.clearRect(0, 0, W, H);
+              // Create temp canvas for pixelation
+              const tempCanvas = document.createElement('canvas');
+              tempCanvas.width = smallW;
+              tempCanvas.height = smallH;
+              const tempCtx = tempCanvas.getContext('2d');
+              tempCtx.drawImage(canvas, 0, 0, smallW, smallH);
+              ctx.drawImage(tempCanvas, 0, 0, W, H);
+            } catch(e) {}
+            ctx.imageSmoothingEnabled = true;
+          }
+          
+          // Global blur overlay - increases with degradation
+          const blurAmount = degradeAmount * degradeAmount * 4; // 0-4px blur
+          if (blurAmount > 0.5) {
+            ctx.filter = `blur(${blurAmount}px)`;
+            ctx.globalAlpha = 0.3 + degradeAmount * 0.5;
+            try {
+              ctx.drawImage(canvas, 0, 0);
+            } catch(e) {}
+            ctx.filter = 'none';
+            ctx.globalAlpha = 1;
+          }
+        }
+        
         ctx.globalAlpha = 1;
         
         requestAnimationFrame(animate);
