@@ -173,7 +173,10 @@
         "extensions.autoUpdate": false,
         "extensions.ignoreRecommendations": true,
         "settingsSync.keybindingsPerPlatform": false
-      }
+      },
+      "extensions": [
+        "mongodb.mongodb-vscode"
+      ]
     }
   },
 

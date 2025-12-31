@@ -1513,7 +1513,19 @@ function paint($) {
     ink(netColor[0], netColor[1], netColor[2]).write(`${netLabel} #${alreadyMinted.tokenId}`, { x: w/2, y, center: "x" }, undefined, undefined, false, "MatrixChunky8");
     y += 10;
     ink(100, 220, 180).write(`$${piece}`, { x: w/2, y, center: "x" }, undefined, undefined, false, "MatrixChunky8");
-    y += 12;
+    y += 10;
+
+    // Ownership indicator - show if connected wallet owns the token
+    const isTokenOwner = walletAddress && alreadyMinted.owner && walletAddress === alreadyMinted.owner;
+    if (isTokenOwner) {
+      ink(100, 255, 150).write("★ You own this", { x: w/2, y, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+      y += 10;
+    } else if (alreadyMinted.owner) {
+      const shortOwner = alreadyMinted.owner.slice(0, 8) + "..";
+      ink(150, 150, 170).write(`Owner: ${shortOwner}`, { x: w/2, y, center: "x" }, undefined, undefined, false, "MatrixChunky8");
+      y += 10;
+    }
+    y += 2;
 
     // Thumbnail display (smaller)
     if (thumbnailBitmap) {
@@ -2641,6 +2653,7 @@ function act({ event: e, screen }) {
               regenerate: true,
               screenWidth: _screen?.width || 128,
               screenHeight: _screen?.height || 128,
+              walletAddress, // Send for on-chain owner verification
             }),
           });
 
@@ -2768,6 +2781,15 @@ function act({ event: e, screen }) {
       rebakeBtn.btn.act(e, { push: async () => {
         console.log("🪙 KEEP: Starting rebake for already-minted piece $" + piece);
 
+        // Ensure wallet is connected (needed for on-chain ownership verification)
+        if (!walletAddress) {
+          walletAddress = await _api.tezos.address();
+          if (!walletAddress) {
+            walletAddress = await _api.tezos.connect(NETWORK);
+          }
+          console.log("🪙 KEEP: Connected wallet for rebake:", walletAddress);
+        }
+
         // Preserve original on-chain URIs before we overwrite them
         if (!originalOnChainUris && alreadyMinted.artifactUri) {
           originalOnChainUris = {
@@ -2798,6 +2820,7 @@ function act({ event: e, screen }) {
               regenerate: true,
               screenWidth: _screen?.width || 128,
               screenHeight: _screen?.height || 128,
+              walletAddress, // Send for on-chain owner verification
             }),
           });
 

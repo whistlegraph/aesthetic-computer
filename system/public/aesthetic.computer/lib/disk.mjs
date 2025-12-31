@@ -3682,7 +3682,8 @@ const $commonApi = {
       try {
         return await $commonApi.authorize();
       } catch (error) {
-        console.error("🚫 getToken error:", error);
+        // Only log actual errors, not null (which just means not logged in)
+        if (error) console.warn("🔑 getToken:", error);
         return null;
       }
     },
@@ -6298,7 +6299,7 @@ async function load(
 ) {
   const loadFunctionStartTime = performance.now();
   diskTimings.loadStarted = Math.round(loadFunctionStartTime - diskTimingStart);
-  console.log(`⏱️ [DISK] load() started at +${diskTimings.loadStarted}ms`);
+  if (!getPackMode()) console.log(`⏱️ [DISK] load() started at +${diskTimings.loadStarted}ms`);
   
   let fullUrl, source;
   let params,
@@ -6569,7 +6570,7 @@ async function load(
         response = await fetch(fullUrl, { cache: 'no-store' });
         const fetchEndTime = performance.now();
         diskTimings.fetchComplete = Math.round(fetchEndTime - diskTimingStart);
-        console.log(`⏱️ [DISK] fetch completed in ${Math.round(fetchEndTime - fetchStartTime)}ms for ${path}`);
+        if (!getPackMode()) console.log(`⏱️ [DISK] fetch completed in ${Math.round(fetchEndTime - fetchStartTime)}ms for ${path}`);
         if (response.status === 404 || response.status === 403) {
           const extension = path.endsWith('.lisp') ? '.lisp' : '.mjs';
           // Handle sandboxed environments for anon URL construction
@@ -6657,7 +6658,7 @@ async function load(
         const compileEndTime = performance.now();
         const compileElapsed = Math.round(compileEndTime - compileStartTime);
         diskTimings.compileComplete = Math.round(compileEndTime - diskTimingStart);
-        console.log(`⏱️ [DISK] KidLisp compiled in ${compileElapsed}ms`);
+        if (!getPackMode()) console.log(`⏱️ [DISK] KidLisp compiled in ${compileElapsed}ms`);
         log.lisp.success(`KidLisp module loaded (${compileElapsed}ms)`);
         
         // Notify boot progress
@@ -6714,7 +6715,7 @@ async function load(
         const importEndTime = performance.now();
         const importElapsed = Math.round(importEndTime - importStartTime);
         diskTimings.compileComplete = Math.round(importEndTime - diskTimingStart);
-        console.log(`⏱️ [DISK] JS module imported in ${importElapsed}ms`);
+        if (!getPackMode()) console.log(`⏱️ [DISK] JS module imported in ${importElapsed}ms`);
         if (logs.loading) console.log(`✅ Module imported (${importElapsed}ms)`);
         send({
           type: "boot-log",
@@ -8603,7 +8604,7 @@ async function makeFrame({ data: { type, content } }) {
     }
     sessionStarted = true;
     diskTimings.sessionStarted = Math.round(performance.now() - diskTimingStart);
-    console.log(`⏱️ [DISK] sessionStarted at +${diskTimings.sessionStarted}ms`);
+    if (!getPackMode()) console.log(`⏱️ [DISK] sessionStarted at +${diskTimings.sessionStarted}ms`);
     return;
   }
 
@@ -11317,7 +11318,7 @@ async function makeFrame({ data: { type, content } }) {
         try {
           const bootStartTime = performance.now();
           diskTimings.bootStarted = Math.round(bootStartTime - diskTimingStart);
-          console.log(`⏱️ [DISK] boot() starting at +${diskTimings.bootStarted}ms`);
+          if (!getPackMode()) console.log(`⏱️ [DISK] boot() starting at +${diskTimings.bootStarted}ms`);
           
           // Reset zebra cache at the beginning of boot to ensure consistent state
           $api.num.resetZebraCache();
@@ -11333,7 +11334,7 @@ async function makeFrame({ data: { type, content } }) {
           await boot($api);
           const bootEndTime = performance.now();
           diskTimings.bootComplete = Math.round(bootEndTime - diskTimingStart);
-          console.log(`⏱️ [DISK] boot() completed in ${Math.round(bootEndTime - bootStartTime)}ms`);
+          if (!getPackMode()) console.log(`⏱️ [DISK] boot() completed in ${Math.round(bootEndTime - bootStartTime)}ms`);
           booted = true;
           log.boot.success("Boot completed, booted =", booted, "pending events:", pendingExportEvents.length);
           
@@ -13594,10 +13595,10 @@ async function makeFrame({ data: { type, content } }) {
       if (!globalThis._firstRenderSent) {
         globalThis._firstRenderSent = true;
         diskTimings.firstRenderSent = Math.round(performance.now() - diskTimingStart);
-        console.log(`⏱️ [DISK] first render sent to main at +${diskTimings.firstRenderSent}ms`);
+        if (!getPackMode()) console.log(`⏱️ [DISK] first render sent to main at +${diskTimings.firstRenderSent}ms`);
         
-        // Send timing data to main thread
-        send({ type: "disk-timings", content: diskTimings });
+        // Send timing data to main thread (only in dev mode)
+        if (!getPackMode()) send({ type: "disk-timings", content: diskTimings });
       }
 
       send({ type: "render", content: sendData }, transferredObjects);

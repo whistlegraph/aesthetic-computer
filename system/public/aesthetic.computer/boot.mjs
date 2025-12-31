@@ -18,6 +18,9 @@ let lastBootMessage = ""; // Track last message to prevent duplicates
 window._bootTimings = window._bootTimings || [];
 
 function bootLog(message) {
+  // Skip logging in PACK mode (NFT bundles should be silent)
+  if (window.acPACK_MODE) return;
+  
   // Prevent duplicate messages
   if (message === lastBootMessage) return;
   lastBootMessage = message;

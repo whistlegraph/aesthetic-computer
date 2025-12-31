@@ -2162,16 +2162,18 @@ async function halt($, text) {
       return true;
     }
     
-    // Check if user is logged in (to AC)
-    if (!user) {
-      notice("Please log in first to mint keeps", ["yellow"]);
-      flashColor = [255, 200, 0];
-      makeFlash($);
-      return true;
-    }
-    
     // Normalize piece code (ensure it starts with $)
     const code = pieceCode.startsWith("$") ? pieceCode.slice(1) : pieceCode;
+    
+    // For new mints, require AC login
+    // For existing tokens, allow access (token owner can resync without AC account)
+    // The keep piece will handle authorization based on wallet ownership
+    if (!user) {
+      // Let them through - keep.mjs will show appropriate UI
+      // If token exists, they can view/resync with just wallet
+      // If token doesn't exist, keep.mjs will show login prompt
+      console.log("🪙 KEEP: User not logged in, allowing access to keep piece (will check wallet ownership)");
+    }
     
     // Jump to the dedicated keep piece for multi-step minting flow
     store["keep:piece"] = code;
