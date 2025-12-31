@@ -364,21 +364,25 @@ function paint(
       const lineHeight = 12;
       const totalLines = offlineMsg.length;
       const halfBlock = Math.floor((totalLines * lineHeight) / 2);
-      const shakeFrame = help.repeat ?? 0;
+      const shakeFrame = help?.repeat ?? 0;
       
-      // Debug logging
-      if (shakeFrame % 60 === 0) {
+      // Debug logging - log immediately then throttle
+      if (!globalThis._chatFundingDebugLogged) {
+        globalThis._chatFundingDebugLogged = true;
         console.log("📝 Chat funding message debug:", {
           screenHeight: screen.height,
           screenWidth: screen.width,
           totalLines,
           lineHeight,
           halfBlock,
-          centerY: Math.floor(screen.height / 2)
+          centerY: Math.floor(screen.height / 2),
+          helpRepeat: help?.repeat,
+          shakeFrame
         });
       }
       
-      offlineMsg.forEach((line, i) => {
+      for (let i = 0; i < offlineMsg.length; i++) {
+        const line = offlineMsg[i];
         // High contrast colors that cycle
         let color = [200, 200, 200]; // Default fallback
         if (i === 0) {
@@ -394,22 +398,13 @@ function paint(
           color = [100, 100, 100];
         }
         
-        // Calculate offset from center: line 0 is at top of block
-        const offsetFromCenter = (i * lineHeight) - halfBlock;
-        const shakeY = line !== "" ? Math.cos(shakeFrame * 0.25 + i * 0.5) * 1 : 0;
-        const finalY = Math.floor(screen.height / 2) + offsetFromCenter + shakeY;
+        // Calculate Y: center of screen minus half the block, plus line offset
+        const centerY = Math.floor(screen.height / 2);
+        const startY = centerY - halfBlock;
+        const finalY = startY + (i * lineHeight);
         
-        // Debug first line position
-        if (i === 0 && shakeFrame % 60 === 0) {
-          console.log("📝 Line 0 position:", { offsetFromCenter, finalY });
-        }
-        
-        // Use center:"xy" approach - y offset from screen center
-        ink(color[0], color[1], color[2]).write(line, { 
-          center: "x",
-          y: finalY
-        }, undefined, undefined, false, typefaceName);
-      });
+        ink(color[0], color[1], color[2]).write(line, { center: "x", y: finalY }, undefined, undefined, false, typefaceName);
+      }
     } else {
       // Normal connecting message
       ink("pink").write("Connecting" + ellipsisTicker?.text(help.repeat), {
