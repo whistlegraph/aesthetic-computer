@@ -162,7 +162,9 @@ const DISABLE_CONTENT_TICKER = true;
 // 💸 FUNDING MODE: Show server bill alert in tickers and chat
 // Set to true to display funding message, false to show normal content
 export const FUNDING_MODE = true;
-const FUNDING_MESSAGE = "⚠️ Chats offline due to end-of-year server bill — Enter 'give' to help support AC! ⚠️";
+// Colorful funding messages for each ticker (using \\color\\ codes for rendering)
+const FUNDING_MESSAGE_CHAT = "⚠️ \\pink\\'chat'\\cyan\\ is offline due to end-of-year server bill · Enter \\lime\\'give'\\cyan\\ to help support AC! ⚠️";
+const FUNDING_MESSAGE_CLOCK = "⚠️ \\orange\\'laer-klokken'\\255,200,100\\ is offline due to end-of-year server bill · Enter \\lime\\'give'\\255,200,100\\ to help support AC! ⚠️";
 
 let startupSfx, keyboardSfx;
 
@@ -4668,8 +4670,8 @@ function paint($) {
       let fullText;
       
       if (FUNDING_MODE) {
-        // Show funding alert message instead of chat
-        fullText = ensureMinTickerLength(FUNDING_MESSAGE, " · ");
+        // Show funding alert message instead of chat (colorful, specific to 'chat')
+        fullText = ensureMinTickerLength(FUNDING_MESSAGE_CHAT, " · ");
       } else {
         // Show last 12 messages with syntax highlighting
         const numMessages = Math.min(12, $.chat.messages.length);
@@ -4783,8 +4785,8 @@ function paint($) {
         let clockFullText;
         
         if (FUNDING_MODE) {
-          // Show funding alert message
-          clockFullText = ensureMinTickerLength(FUNDING_MESSAGE, " · ");
+          // Show funding alert message (colorful, specific to 'laer-klokken')
+          clockFullText = ensureMinTickerLength(FUNDING_MESSAGE_CLOCK, " · ");
         } else {
           const numClockMessages = Math.min(12, clockChatMessages.length);
           const recentClockMessages = clockChatMessages.slice(-numClockMessages);
