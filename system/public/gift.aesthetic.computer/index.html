@@ -4,17 +4,23 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Gift — Aesthetic Computer</title>
-  <meta name="description" content="Support Aesthetic Computer — a creative coding platform for everyone.">
+  <meta name="description" content="Support Aesthetic Computer — a creative coding platform and community for everyone.">
   <link rel="icon" href="https://aesthetic.computer/aesthetic.computer/favicon.ico">
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+    
     :root {
-      --bg: #111;
-      --fg: #eee;
+      --bg: #0a0a0a;
+      --fg: #f0f0f0;
+      --dim: #888;
       --accent: #ff6b6b;
-      --accent-dim: #cc5555;
-      --green: #6bff6b;
+      --accent-glow: rgba(255, 107, 107, 0.3);
       --blue: #6b9fff;
-      --yellow: #ffff6b;
+      --green: #6bff9f;
+      --yellow: #ffeb6b;
+      --purple: #b06bff;
+      --card: #151515;
+      --card-border: #2a2a2a;
     }
     
     * {
@@ -24,51 +30,207 @@
     }
     
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-family: 'IBM Plex Mono', monospace;
       background: var(--bg);
       color: var(--fg);
       min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 2rem;
-      line-height: 1.6;
+      line-height: 1.7;
+      font-size: 14px;
     }
     
-    .container {
-      max-width: 600px;
-      width: 100%;
+    .page {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 3rem 1.5rem;
     }
     
+    /* Header */
     header {
       text-align: center;
-      margin-bottom: 3rem;
+      margin-bottom: 4rem;
+      position: relative;
+    }
+    
+    .logo {
+      font-size: 0.9rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--dim);
+      margin-bottom: 1rem;
     }
     
     h1 {
       font-size: 2.5rem;
-      font-weight: 300;
-      margin-bottom: 0.5rem;
+      font-weight: 400;
+      margin-bottom: 0.75rem;
+      letter-spacing: -0.02em;
     }
     
-    h1 span {
+    h1 .highlight {
       color: var(--accent);
     }
     
     .tagline {
-      color: #888;
-      font-size: 1.1rem;
+      color: var(--dim);
+      font-size: 1rem;
     }
     
-    .section {
-      background: #1a1a1a;
+    /* Story Section */
+    .story {
+      margin-bottom: 3rem;
+      padding: 2rem;
+      background: linear-gradient(135deg, var(--card) 0%, transparent 100%);
+      border-left: 3px solid var(--accent);
+      border-radius: 0 8px 8px 0;
+    }
+    
+    .story h2 {
+      font-size: 1rem;
+      font-weight: 500;
+      color: var(--accent);
+      margin-bottom: 1rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+    
+    .story p {
+      margin-bottom: 1rem;
+      color: var(--fg);
+    }
+    
+    .story p:last-child {
+      margin-bottom: 0;
+    }
+    
+    .story a {
+      color: var(--blue);
+      text-decoration: none;
+    }
+    
+    .story a:hover {
+      text-decoration: underline;
+    }
+    
+    /* Stats Grid */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+      margin-bottom: 3rem;
+    }
+    
+    .stat {
+      text-align: center;
+      padding: 1.25rem 0.5rem;
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+    }
+    
+    .stat-num {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: var(--yellow);
+      display: block;
+    }
+    
+    .stat-label {
+      font-size: 0.7rem;
+      color: var(--dim);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    
+    /* Highlights */
+    .highlights {
+      margin-bottom: 3rem;
+    }
+    
+    .highlights h2 {
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--dim);
+      margin-bottom: 1rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+    
+    .highlight-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+    
+    .highlight-card {
+      padding: 1.25rem;
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      transition: border-color 0.2s;
+    }
+    
+    .highlight-card:hover {
+      border-color: var(--accent);
+    }
+    
+    .highlight-card h3 {
+      font-size: 1rem;
+      font-weight: 500;
+      margin-bottom: 0.5rem;
+    }
+    
+    .highlight-card h3 .emoji {
+      margin-right: 0.5rem;
+    }
+    
+    .highlight-card p {
+      font-size: 0.85rem;
+      color: var(--dim);
+      margin: 0;
+    }
+    
+    .highlight-card a {
+      color: var(--blue);
+      text-decoration: none;
+    }
+    
+    .highlight-card a:hover {
+      text-decoration: underline;
+    }
+    
+    .coming-soon {
+      border-color: var(--purple);
+      background: linear-gradient(135deg, rgba(176, 107, 255, 0.1) 0%, var(--card) 100%);
+    }
+    
+    .coming-soon h3 {
+      color: var(--purple);
+    }
+    
+    /* Gift Section */
+    .gift-section {
+      margin-bottom: 2rem;
+    }
+    
+    .gift-section h2 {
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--dim);
+      margin-bottom: 1rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+    
+    .gift-card {
+      background: var(--card);
+      border: 1px solid var(--card-border);
       border-radius: 12px;
       padding: 1.5rem;
-      margin-bottom: 1.5rem;
+      margin-bottom: 1rem;
     }
     
-    .section h2 {
-      font-size: 1.2rem;
+    .gift-card h3 {
+      font-size: 1rem;
       margin-bottom: 1rem;
       display: flex;
       align-items: center;
@@ -77,49 +239,51 @@
     
     .gift-options {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-      gap: 0.75rem;
-      margin-bottom: 1rem;
-    }
-    
-    .gift-btn {
-      background: #333;
-      border: 2px solid #444;
-      color: var(--fg);
-      padding: 1rem;
-      border-radius: 8px;
-      font-size: 1.1rem;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    
-    .gift-btn:hover {
-      background: #444;
-      border-color: var(--accent);
-    }
-    
-    .gift-btn.selected {
-      background: var(--accent-dim);
-      border-color: var(--accent);
-    }
-    
-    .custom-amount {
-      display: flex;
+      grid-template-columns: repeat(6, 1fr);
       gap: 0.5rem;
       margin-bottom: 1rem;
     }
     
-    .custom-amount input {
-      flex: 1;
+    .gift-btn {
       background: #222;
-      border: 2px solid #444;
+      border: 1px solid #333;
+      color: var(--fg);
+      padding: 0.75rem 0.5rem;
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    
+    .gift-btn:hover {
+      background: #333;
+      border-color: var(--accent);
+    }
+    
+    .gift-btn.selected {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: var(--bg);
+    }
+    
+    .custom-input {
+      display: none;
+      margin-bottom: 1rem;
+    }
+    
+    .custom-input input {
+      width: 100%;
+      background: #222;
+      border: 1px solid #333;
       color: var(--fg);
       padding: 0.75rem 1rem;
-      border-radius: 8px;
+      border-radius: 6px;
+      font-family: inherit;
       font-size: 1rem;
     }
     
-    .custom-amount input:focus {
+    .custom-input input:focus {
       outline: none;
       border-color: var(--accent);
     }
@@ -128,190 +292,252 @@
       width: 100%;
       background: var(--accent);
       border: none;
-      color: #111;
+      color: var(--bg);
       padding: 1rem;
       border-radius: 8px;
-      font-size: 1.1rem;
+      font-family: inherit;
+      font-size: 1rem;
       font-weight: 600;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: all 0.15s;
+      box-shadow: 0 0 20px var(--accent-glow);
     }
     
     .pay-btn:hover {
       background: var(--fg);
+      box-shadow: 0 0 30px rgba(255, 255, 255, 0.2);
     }
     
     .pay-btn:disabled {
-      background: #444;
-      color: #888;
+      background: #333;
+      color: #666;
       cursor: not-allowed;
+      box-shadow: none;
     }
     
-    .crypto-option {
+    .note {
+      font-size: 0.75rem;
+      color: #555;
+      margin-top: 0.75rem;
+    }
+    
+    /* Crypto */
+    .crypto-row {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 1rem;
+      padding: 0.75rem 1rem;
       background: #222;
-      border-radius: 8px;
+      border-radius: 6px;
       margin-bottom: 0.5rem;
     }
     
-    .crypto-option code {
+    .crypto-row strong {
+      color: var(--green);
+    }
+    
+    .crypto-row code {
       background: #333;
       padding: 0.25rem 0.5rem;
       border-radius: 4px;
-      font-size: 0.9rem;
+      font-size: 0.8rem;
+      margin-left: 0.5rem;
     }
     
     .copy-btn {
       background: #444;
       border: none;
       color: var(--fg);
-      padding: 0.5rem 0.75rem;
+      padding: 0.4rem 0.6rem;
       border-radius: 4px;
+      font-family: inherit;
+      font-size: 0.75rem;
       cursor: pointer;
-      font-size: 0.85rem;
     }
     
     .copy-btn:hover {
       background: #555;
     }
     
-    .bills-section {
-      border: 1px dashed #444;
-      background: transparent;
+    /* Shop link */
+    .shop-link {
+      display: block;
+      padding: 1rem 1.25rem;
+      background: linear-gradient(90deg, var(--card) 0%, rgba(107, 159, 255, 0.1) 100%);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      text-decoration: none;
+      color: var(--fg);
+      transition: border-color 0.2s;
     }
     
-    .bills-section h2 {
-      color: #888;
+    .shop-link:hover {
+      border-color: var(--blue);
     }
     
-    .bill-item {
-      display: flex;
-      justify-content: space-between;
-      padding: 0.5rem 0;
-      border-bottom: 1px solid #333;
+    .shop-link span {
+      color: var(--blue);
     }
     
-    .bill-item:last-child {
-      border-bottom: none;
-    }
-    
-    .bill-item .provider {
-      color: #aaa;
-    }
-    
-    .bill-item .amount {
-      color: var(--yellow);
-      font-family: monospace;
-    }
-    
-    .total {
-      margin-top: 1rem;
-      padding-top: 1rem;
-      border-top: 2px solid #444;
-      display: flex;
-      justify-content: space-between;
-      font-weight: 600;
-    }
-    
-    .total .amount {
-      color: var(--accent);
-      font-size: 1.2rem;
-    }
-    
+    /* Footer */
     footer {
-      margin-top: 2rem;
       text-align: center;
-      color: #666;
-      font-size: 0.9rem;
+      padding-top: 2rem;
+      border-top: 1px solid var(--card-border);
+      color: var(--dim);
+      font-size: 0.85rem;
     }
     
     footer a {
-      color: var(--blue);
+      color: var(--fg);
       text-decoration: none;
     }
     
     footer a:hover {
-      text-decoration: underline;
+      color: var(--accent);
     }
     
-    .loading {
-      color: #666;
-      font-style: italic;
+    footer .links {
+      margin-bottom: 1rem;
     }
     
-    .note {
-      font-size: 0.85rem;
-      color: #888;
-      margin-top: 0.5rem;
+    footer .links a {
+      margin: 0 0.5rem;
+    }
+    
+    /* Responsive */
+    @media (max-width: 600px) {
+      .page {
+        padding: 2rem 1rem;
+      }
+      
+      h1 {
+        font-size: 2rem;
+      }
+      
+      .stats {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      
+      .highlight-grid {
+        grid-template-columns: 1fr;
+      }
+      
+      .gift-options {
+        grid-template-columns: repeat(3, 1fr);
+      }
     }
   </style>
 </head>
 <body>
-  <div class="container">
+  <div class="page">
     <header>
-      <h1>gift <span>aesthetic.computer</span></h1>
-      <p class="tagline">support creative coding for everyone</p>
+      <div class="logo">aesthetic.computer</div>
+      <h1>help <span class="highlight">jeffrey</span> keep building</h1>
+      <p class="tagline">creative coding for everyone</p>
     </header>
 
-    <section class="section">
-      <h2>💳 Gift via Card</h2>
-      <div class="gift-options">
-        <button class="gift-btn" data-amount="5">$5</button>
-        <button class="gift-btn" data-amount="10">$10</button>
-        <button class="gift-btn selected" data-amount="25">$25</button>
-        <button class="gift-btn" data-amount="50">$50</button>
-        <button class="gift-btn" data-amount="100">$100</button>
-        <button class="gift-btn" data-amount="custom">other</button>
-      </div>
-      <div class="custom-amount" id="custom-input" style="display: none;">
-        <input type="number" id="custom-amount" placeholder="Enter amount" min="1">
-      </div>
-      <button class="pay-btn" id="pay-btn">Gift $25</button>
-      <p class="note">Secure payment via Stripe. Aesthetic Inc. is not a nonprofit—gifts are not tax-deductible.</p>
+    <section class="story">
+      <h2>Why AC Matters</h2>
+      <p>Aesthetic Computer started in 2021 as one person's answer to a problem: how do we make creative coding accessible to <em>everyone</em>—not just developers?</p>
+      <p>Since then, it's grown into a platform used by artists, teachers, kids, and curious people around the world. A community in Denmark uses it to <a href="https://aesthetic.computer/laer-klokken">teach children how to read clocks</a>. Musicians use <a href="https://aesthetic.computer/notepat">notepat</a> (featured on <a href="https://news.ycombinator.com/item?id=41526754">Hacker News</a>) to make melodies. And thousands of people have saved paintings, programs, and creative experiments to the platform.</p>
+      <p><strong>Your gift keeps the servers running and development moving.</strong> Every dollar helps pay for databases, hosting, and the time to make creative tools free for everyone.</p>
     </section>
 
-    <section class="section">
-      <h2>🔮 Gift via Tezos</h2>
-      <div class="crypto-option">
-        <div>
-          <strong>aesthetic.tez</strong>
-          <code id="tez-address">tz1...</code>
+    <div class="stats">
+      <div class="stat">
+        <span class="stat-num">4.2K</span>
+        <span class="stat-label">Users</span>
+      </div>
+      <div class="stat">
+        <span class="stat-num">27K</span>
+        <span class="stat-label">Messages</span>
+      </div>
+      <div class="stat">
+        <span class="stat-num">4.3K</span>
+        <span class="stat-label">Paintings</span>
+      </div>
+      <div class="stat">
+        <span class="stat-num">12.9K</span>
+        <span class="stat-label">Programs</span>
+      </div>
+    </div>
+
+    <section class="highlights">
+      <h2>Recent & Upcoming</h2>
+      <div class="highlight-grid">
+        <div class="highlight-card coming-soon">
+          <h3><span class="emoji">🧒</span>kidlisp.com</h3>
+          <p>A new visual programming language for kids launching soon. 118 functions. Zero friction. <a href="https://kidlisp.com">Preview →</a></p>
         </div>
-        <button class="copy-btn" onclick="copyAddress('tez')">copy</button>
+        <div class="highlight-card">
+          <h3><span class="emoji">🇩🇰</span>Danish Community</h3>
+          <p>9,400+ chat messages from teachers & kids in Denmark using AC to learn. Organic growth.</p>
+        </div>
+        <div class="highlight-card">
+          <h3><span class="emoji">🎹</span>Notepat</h3>
+          <p>Musical toy featured on Hacker News. Tap to make melodies. <a href="https://aesthetic.computer/notepat">Try it →</a></p>
+        </div>
+        <div class="highlight-card">
+          <h3><span class="emoji">🖼️</span>Painting Tools</h3>
+          <p>4,200+ paintings saved. Export, print, or mint as NFTs. <a href="https://aesthetic.computer/new">Make one →</a></p>
+        </div>
       </div>
-      <p class="note">Send XTZ or FA2 tokens to support the project.</p>
     </section>
 
-    <section class="section">
-      <h2>📚 Gift via Shop</h2>
-      <p>Buy a book, record, or artwork from <a href="https://shop.aesthetic.computer" target="_blank" style="color: var(--blue);">shop.aesthetic.computer</a> — proceeds directly support AC development.</p>
-    </section>
-
-    <section class="section bills-section">
-      <h2>📊 Current Monthly Costs</h2>
-      <div id="bills-list">
-        <p class="loading">Loading billing data...</p>
+    <section class="gift-section">
+      <h2>Ways to Give</h2>
+      
+      <div class="gift-card">
+        <h3>💳 Card Payment</h3>
+        <div class="gift-options">
+          <button class="gift-btn" data-amount="5">$5</button>
+          <button class="gift-btn" data-amount="10">$10</button>
+          <button class="gift-btn selected" data-amount="25">$25</button>
+          <button class="gift-btn" data-amount="50">$50</button>
+          <button class="gift-btn" data-amount="100">$100</button>
+          <button class="gift-btn" data-amount="custom">...</button>
+        </div>
+        <div class="custom-input" id="custom-input">
+          <input type="number" id="custom-amount" placeholder="Enter any amount" min="1">
+        </div>
+        <button class="pay-btn" id="pay-btn">Gift $25</button>
+        <p class="note">Secure payment via Stripe. Aesthetic Inc. is not a nonprofit—gifts are not tax-deductible.</p>
       </div>
+
+      <div class="gift-card">
+        <h3>🔮 Tezos</h3>
+        <div class="crypto-row">
+          <div>
+            <strong>aesthetic.tez</strong>
+            <code id="tez-address">tz1Wqv...NKPCT</code>
+          </div>
+          <button class="copy-btn" onclick="copyAddress()">copy</button>
+        </div>
+        <p class="note">Send XTZ or FA2 tokens directly.</p>
+      </div>
+
+      <a href="https://shop.aesthetic.computer" target="_blank" class="shop-link">
+        📚 <strong>Shop</strong> — Buy a book, record, or artwork. <span>shop.aesthetic.computer →</span>
+      </a>
     </section>
 
     <footer>
-      <p>
-        <a href="https://aesthetic.computer">aesthetic.computer</a> · 
-        made with care by <a href="https://jas.life">@jeffrey</a>
-      </p>
+      <div class="links">
+        <a href="https://aesthetic.computer">aesthetic.computer</a>
+        <a href="https://kidlisp.com">kidlisp.com</a>
+        <a href="https://github.com/whistlegraph/aesthetic-computer">github</a>
+      </div>
+      <p>made with care by <a href="https://jas.life">@jeffrey</a></p>
     </footer>
   </div>
 
   <script>
-    // Gift amount selection
     let selectedAmount = 25;
     const buttons = document.querySelectorAll('.gift-btn');
     const payBtn = document.getElementById('pay-btn');
     const customInput = document.getElementById('custom-input');
-    const customAmount = document.getElementById('custom-amount');
+    const customAmountInput = document.getElementById('custom-amount');
 
     buttons.forEach(btn => {
       btn.addEventListener('click', () => {
@@ -320,19 +546,19 @@
         
         const amount = btn.dataset.amount;
         if (amount === 'custom') {
-          customInput.style.display = 'flex';
-          customAmount.focus();
-          updatePayButton();
+          customInput.style.display = 'block';
+          customAmountInput.focus();
+          selectedAmount = parseInt(customAmountInput.value) || 0;
         } else {
           customInput.style.display = 'none';
           selectedAmount = parseInt(amount);
-          updatePayButton();
         }
+        updatePayButton();
       });
     });
 
-    customAmount.addEventListener('input', () => {
-      selectedAmount = parseInt(customAmount.value) || 0;
+    customAmountInput.addEventListener('input', () => {
+      selectedAmount = parseInt(customAmountInput.value) || 0;
       updatePayButton();
     });
 
@@ -346,7 +572,6 @@
       }
     }
 
-    // Payment handler (will connect to Stripe)
     payBtn.addEventListener('click', async () => {
       if (selectedAmount <= 0) return;
       
@@ -354,11 +579,10 @@
       payBtn.disabled = true;
 
       try {
-        // Create Stripe checkout session via API
         const res = await fetch('/api/gift', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ amount: selectedAmount * 100 }) // cents
+          body: JSON.stringify({ amount: selectedAmount * 100 })
         });
         
         const data = await res.json();
@@ -375,9 +599,8 @@
       }
     });
 
-    // Copy Tezos address
-    async function copyAddress(type) {
-      const address = type === 'tez' ? 'tz1WqvhbfEwfqAzMtEGxc7x6tpSqRMCNKPCT' : ''; // aesthetic.tez resolved
+    async function copyAddress() {
+      const address = 'tz1WqvhbfEwfqAzMtEGxc7x6tpSqRMCNKPCT';
       try {
         await navigator.clipboard.writeText(address);
         const btn = event.target;
@@ -387,56 +610,6 @@
         console.error('Copy failed:', err);
       }
     }
-
-    // Update displayed address
-    document.getElementById('tez-address').textContent = 'tz1Wqv...NKPCT';
-
-    // Fetch billing data
-    async function loadBilling() {
-      const container = document.getElementById('bills-list');
-      try {
-        const res = await fetch('/api/billing');
-        const data = await res.json();
-        
-        let html = '';
-        let total = 0;
-        
-        // Show providers with estimates
-        const displayProviders = data.providers.filter(p => 
-          p.monthlyEstimate !== undefined || p.balance?.monthToDateUsage
-        );
-        
-        displayProviders.forEach(p => {
-          let amount = 0;
-          if (p.monthlyEstimate) {
-            amount = p.monthlyEstimate;
-          } else if (p.balance?.monthToDateUsage) {
-            amount = parseFloat(p.balance.monthToDateUsage.replace('$', '')) || 0;
-          }
-          total += amount;
-          
-          html += `
-            <div class="bill-item">
-              <span class="provider">${p.name}</span>
-              <span class="amount">$${amount.toFixed(2)}</span>
-            </div>
-          `;
-        });
-        
-        html += `
-          <div class="total">
-            <span>Monthly Total (est.)</span>
-            <span class="amount">~$${total.toFixed(0)}/mo</span>
-          </div>
-        `;
-        
-        container.innerHTML = html;
-      } catch (err) {
-        container.innerHTML = '<p class="loading">Could not load billing data</p>';
-      }
-    }
-
-    loadBilling();
   </script>
 </body>
 </html>
