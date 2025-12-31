@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Gift — Aesthetic Computer</title>
+  <title>Give — Aesthetic Computer</title>
   <meta name="description" content="Support Aesthetic Computer / Støt Aesthetic Computer" />
-  <link rel="icon" href="https://aesthetic.computer/favicon.ico" />
+  <link rel="icon" href="https://assets.aesthetic.computer/images/purple-pals.svg" type="image/svg+xml" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     @font-face {
@@ -14,16 +14,6 @@
     @font-face {
       font-family: 'berkeley';
       src: url('https://aesthetic.computer/type/webfonts/BerkeleyMonoVariable-Regular.woff2') format('woff2');
-    }
-    @font-face {
-      font-family: 'Comic Relief';
-      src: url('https://aesthetic.computer/kidlisp.com/fonts/ComicRelief-Regular.woff2') format('woff2');
-      font-weight: normal;
-    }
-    @font-face {
-      font-family: 'Comic Relief';
-      src: url('https://aesthetic.computer/kidlisp.com/fonts/ComicRelief-Bold.woff2') format('woff2');
-      font-weight: bold;
     }
 
     :root {
@@ -433,7 +423,7 @@
       -webkit-appearance: none;
       width: 100%;
       height: 12px;
-      background: var(--pink);
+      background: var(--cyan);
       border-radius: 0;
       outline: none;
       cursor: pointer;
@@ -460,12 +450,13 @@
       box-shadow: 0 2px 6px rgba(0,0,0,0.3);
     }
 
-    /* Gift mode toggle (one-time vs monthly) */
+    /* Gift mode toggle (one-time vs monthly) - sits below button */
     .gift-mode-toggle {
       display: flex;
       background: var(--box-bg);
-      border-left: 1px solid var(--box-border);
-      border-right: 1px solid var(--box-border);
+      border: 1px solid var(--box-border);
+      border-top: none;
+      border-radius: 0 0 8px 8px;
     }
 
     .mode-btn {
@@ -497,7 +488,7 @@
       background: var(--pink);
       color: var(--bg);
       border: none;
-      border-radius: 0 0 8px 8px;
+      border-radius: 0;
       cursor: pointer;
       width: 100%;
       transition: background 0.15s;
@@ -769,14 +760,14 @@
       color: var(--cyan);
     }
 
-    /* Shop Section - light mode with single rotating product */
+    /* Shop Section - constrained width with distinct background */
     .shop-section {
-      grid-column: 1 / -1;
-      background: var(--box-bg);
+      background: linear-gradient(135deg, rgba(42, 157, 143, 0.08) 0%, rgba(205, 92, 155, 0.08) 100%);
       border: 1px solid var(--box-border);
       border-radius: 8px;
       padding: 1.2em;
       color: var(--text);
+      max-width: 320px;
     }
 
     .shop-header {
@@ -963,7 +954,7 @@
 
 <body>
   <div class="top-bar">
-    <div class="logo" onclick="window.location.href='https://aesthetic.computer'">gift<span class="logo-sep">—</span>Aesthetic<span class="bounce-dot">.</span>Computer</div>
+    <div class="logo" onclick="window.location.href='https://aesthetic.computer'">give<span class="logo-sep">—</span>Aesthetic<span class="bounce-dot">.</span>Computer</div>
     <div class="selector-group">
       <div class="dropdown-selector" id="langSelector">
         <span class="sel-flag">🇺🇸</span>
@@ -1004,7 +995,7 @@
     <div class="content-grid">
       <div class="fiat-section full-width">
         <div class="fiat-header">
-          <h2 data-lang="en">🎁 Gift</h2>
+          <h2 data-lang="en">🎁 Give</h2>
           <h2 data-lang="da">🎁 Giv</h2>
         </div>
         <div class="currency-pickers">
@@ -1017,12 +1008,12 @@
                 </div>
               </div>
               <div class="gift-controls">
+                <input type="range" min="5" max="100" step="5" value="25">
+                <button class="gift-btn" data-currency="usd">Give $25</button>
                 <div class="gift-mode-toggle">
                   <button class="mode-btn active" data-mode="once">One-time</button>
                   <button class="mode-btn" data-mode="monthly">Monthly</button>
                 </div>
-                <input type="range" min="5" max="100" step="5" value="25">
-                <button class="gift-btn" data-currency="usd">Gift $25</button>
               </div>
             </div>
           </div>
@@ -1132,7 +1123,7 @@
       </div>
 
       <a href="https://kidlisp.com" class="link-block" style="text-decoration: none;">
-        <strong class="kidlisp-logo" style="font-family: 'Comic Relief', 'Comic Sans MS', cursive; font-size: 1.1em;"><span style="color:#FF6B6B">K</span><span style="color:#4ECDC4">i</span><span style="color:#FFE66D">d</span><span style="color:#95E1D3">L</span><span style="color:#F38181">i</span><span style="color:#AA96DA">s</span><span style="color:#70D6FF">p</span><span style="color:var(--dim)">.</span><span style="color:#70D6FF">com</span></strong>
+        <strong class="kidlisp-logo" style="font-family: 'Comic Sans MS', cursive; font-size: 1.1em;"><span style="color:#FF6B6B">K</span><span style="color:#4ECDC4">i</span><span style="color:#FFE66D">d</span><span style="color:#95E1D3">L</span><span style="color:#F38181">i</span><span style="color:#AA96DA">s</span><span style="color:#70D6FF">p</span><span style="color:var(--dim)">.</span><span style="color:#70D6FF">com</span></strong>
         <span class="link-desc" data-lang="en">A creative coding language for all ages</span>
         <span class="link-desc" data-lang="da">Et kreativt kodesprog for alle aldre</span>
       </a>
@@ -1362,11 +1353,11 @@
         const btn = widget.querySelector('.gift-btn');
         const isMonthly = widget._isMonthly ? widget._isMonthly() : false;
         if (currency === 'dkk') {
-          btn.textContent = lang === 'da' ? `Giv ${value} kr` : `Gift ${value} kr`;
+          btn.textContent = lang === 'da' ? `Giv ${value} kr` : `Give ${value} kr`;
         } else if (isMonthly) {
-          btn.textContent = lang === 'da' ? `Giv $${value}/måned` : `Gift $${value}/month`;
+          btn.textContent = lang === 'da' ? `Giv $${value}/måned` : `Give $${value}/month`;
         } else {
-          btn.textContent = lang === 'da' ? `Giv $${value}` : `Gift $${value}`;
+          btn.textContent = lang === 'da' ? `Giv $${value}` : `Give $${value}`;
         }
       });
       
@@ -1431,11 +1422,11 @@
         amountEl.textContent = format(value) + suffix;
         const lang = document.body.classList.contains('lang-da') ? 'da' : 'en';
         if (currency === 'dkk') {
-          btn.textContent = lang === 'da' ? `Giv ${format(value)}` : `Gift ${format(value)}`;
+          btn.textContent = lang === 'da' ? `Giv ${format(value)}` : `Give ${format(value)}`;
         } else if (isMonthly) {
-          btn.textContent = lang === 'da' ? `Giv ${format(value)}/måned` : `Gift ${format(value)}/month`;
+          btn.textContent = lang === 'da' ? `Giv ${format(value)}/måned` : `Give ${format(value)}/month`;
         } else {
-          btn.textContent = lang === 'da' ? `Giv ${format(value)}` : `Gift ${format(value)}`;
+          btn.textContent = lang === 'da' ? `Giv ${format(value)}` : `Give ${format(value)}`;
         }
       }
 
@@ -1458,7 +1449,7 @@
         btn.disabled = true;
 
         try {
-          const res = await fetch('/api/gift', {
+          const res = await fetch('/api/give', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ amount: value * 100, currency, recurring: isMonthly })
@@ -1467,10 +1458,10 @@
           if (data.url) window.location.href = data.url;
           else throw new Error(data.error || 'No URL returned');
         } catch (err) {
-          console.error('Gift error:', err);
+          console.error('Give error:', err);
           const fmt = currency === 'dkk' ? `${value} kr` : `$${value}`;
           const suffix = isMonthly ? '/month' : '';
-          btn.textContent = currentLang === 'da' ? `Giv ${fmt}${isMonthly ? '/måned' : ''}` : `Gift ${fmt}${suffix}`;
+          btn.textContent = currentLang === 'da' ? `Giv ${fmt}${isMonthly ? '/måned' : ''}` : `Give ${fmt}${suffix}`;
           btn.disabled = false;
           alert(currentLang === 'da' ? 'Noget gik galt' : 'Something went wrong');
         }
@@ -1733,6 +1724,8 @@
     let tvTapes = [];
     let tvIndex = 0;
     let tvPlayer = null;
+    let tvErrorCount = 0;
+    const TV_MAX_ERRORS = 5; // Stop trying after too many consecutive errors
     
     async function loadTVFeed() {
       const container = document.getElementById('tvPlayer');
@@ -1740,8 +1733,17 @@
         const res = await fetch('/api/tv?types=tape&limit=20&filter=recent');
         const data = await res.json();
         
-        // Filter to only items with video URLs
-        tvTapes = (data.items || []).filter(item => item.media?.videoUrl);
+        // Get tapes from mixed array or media.tapes
+        const tapes = data.mixed || data.media?.tapes || [];
+        // Filter for tapes with completed MP4s (most reliable), then any with videoUrl
+        tvTapes = tapes.filter(item => 
+          item.media?.videoUrl && item.media?.mp4Status === "complete"
+        );
+        
+        // Fallback to any tape with videoUrl if no complete MP4s
+        if (!tvTapes.length) {
+          tvTapes = tapes.filter(item => item.media?.videoUrl);
+        }
         
         if (!tvTapes.length) {
           container.innerHTML = '<div class="tv-no-signal">No signal</div>';
@@ -1758,7 +1760,10 @@
     function playTVVideo(index) {
       const container = document.getElementById('tvPlayer');
       const tape = tvTapes[index];
-      if (!tape) return;
+      if (!tape) {
+        container.innerHTML = '<div class="tv-no-signal">No signal</div>';
+        return;
+      }
       
       container.innerHTML = `
         <video 
@@ -1772,10 +1777,19 @@
       
       tvPlayer = container.querySelector('video');
       tvPlayer.addEventListener('ended', () => {
+        tvErrorCount = 0; // Reset error count on successful play
         tvIndex = (tvIndex + 1) % tvTapes.length;
         playTVVideo(tvIndex);
       });
+      tvPlayer.addEventListener('canplay', () => {
+        tvErrorCount = 0; // Reset error count when video loads successfully
+      });
       tvPlayer.addEventListener('error', () => {
+        tvErrorCount++;
+        if (tvErrorCount >= TV_MAX_ERRORS) {
+          container.innerHTML = '<div class="tv-no-signal">No signal</div>';
+          return;
+        }
         // Skip broken videos
         tvIndex = (tvIndex + 1) % tvTapes.length;
         setTimeout(() => playTVVideo(tvIndex), 500);
