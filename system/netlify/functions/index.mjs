@@ -18,6 +18,25 @@ import { defaultTemplateStringProcessor as html } from "../../public/aesthetic.c
 import { networkInterfaces } from "os";
 const dev = process.env.CONTEXT === "dev" || process.env.NETLIFY_DEV === "true";
 
+// Fire-and-forget piece hit tracking (don't await, don't block page load)
+async function trackPieceHit(piece, type, headers) {
+  try {
+    const baseUrl = dev ? "https://localhost:8888" : "https://aesthetic.computer";
+    const { got } = await import("got");
+    await got.post(`${baseUrl}/api/piece-hit`, {
+      json: { piece, type },
+      headers: {
+        Authorization: headers.authorization || headers.Authorization || "",
+      },
+      https: { rejectUnauthorized: false },
+      timeout: { request: 3000 },
+    });
+  } catch (e) {
+    // Silent fail - don't let tracking break page loads
+    // console.log("📊 Hit tracking failed:", e.message);
+  }
+}
+
 async function fun(event, context) {
   const _startTime = Date.now();
   try {
@@ -818,6 +837,13 @@ async function fun(event, context) {
   const _ms = Date.now() - _startTime;
   const _path = event.path === "/" ? "🏠" : event.path.slice(0, 20);
   console.log(`✨ ${_path} ${meta?.title || "~"} ${_ms}ms`);
+
+  // 📊 Track piece hit (fire-and-forget, don't block response)
+  if (statusCode === 200 && parsed?.text && !previewOrIcon) {
+    const pieceType = parsed.path?.startsWith("@") ? "user" : "system";
+    trackPieceHit(parsed.text, pieceType, event.headers).catch(() => {});
+  }
+
   return {
     statusCode,
     headers: {
