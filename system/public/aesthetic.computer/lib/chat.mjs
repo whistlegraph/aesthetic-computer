@@ -27,7 +27,7 @@ export class Chat {
       // receiver: // A custom receiver that can be defined in a piece.
       //              like `chat` to get the events.
       disconnect, // A custom disconnection that triggers below.
-      connecting: FUNDING_MODE ? true : true, // Stay in "connecting" state if funding mode
+      connecting: true, // Start in connecting state, set to false when connected
     };
     this.#debug = debug;
   }
