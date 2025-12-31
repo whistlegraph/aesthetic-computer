@@ -19,9 +19,11 @@ import { networkInterfaces } from "os";
 const dev = process.env.CONTEXT === "dev" || process.env.NETLIFY_DEV === "true";
 
 // Fire-and-forget piece hit tracking (don't await, don't block page load)
+// Disabled in dev mode to avoid MongoDB connection noise
 async function trackPieceHit(piece, type, headers) {
+  if (dev) return; // Skip tracking in dev mode
   try {
-    const baseUrl = dev ? "https://localhost:8888" : "https://aesthetic.computer";
+    const baseUrl = "https://aesthetic.computer";
     const { got } = await import("got");
     await got.post(`${baseUrl}/api/piece-hit`, {
       json: { piece, type },
@@ -323,8 +325,12 @@ async function fun(event, context) {
         
         if (path.startsWith("@")) path = "profile";
 
+        // Skip API paths - these are handled by separate functions
+        if (path.startsWith("api/")) {
+          console.log("[index] Skipping API path:", path);
+          sourceCode = null;
         // Handle special kidlisp path case
-        if (path === "(...)" || path === "(...)") {
+        } else if (path === "(...)" || path === "(...)") {
           // This is inline kidlisp code, not a file to load
           console.log("[kidlisp] Detected inline kidlisp, skipping file load");
           sourceCode = null; // No source code to load
