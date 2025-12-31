@@ -73,30 +73,325 @@
     </script>
   </head>
   <body class="native-cursor"> <!-- Hides the 2D UI on first boot. -->
-  <!-- Boot Log Overlay -->
-  <div id="boot-log" style="position:fixed;top:1em;left:1em;font-family:'Courier New',Courier,monospace;font-size:clamp(14px,2.5vmin,18px);z-index:99999;line-height:1.4;">
-    <div id="boot-log-lines"><div class="boot-line-initial">initializing<span class="blink">_</span></div></div>
-  </div>
-  <style>
-    /* Dark mode (default) - pink on dark */
-    #boot-log { color: rgb(150, 60, 120); text-shadow: 0 0 4px rgba(0, 0, 0, 0.5); }
-    @keyframes boot-line-fade {
-      0% { color: rgb(255, 180, 255); text-shadow: 0 0 8px rgba(255, 100, 200, 0.8); }
-      100% { color: rgb(150, 60, 120); text-shadow: 0 0 4px rgba(0, 0, 0, 0.5); }
-    }
-    @keyframes boot-blink { 0%, 50% { opacity: 1; } 51%, 100% { opacity: 0; } }
-    .boot-line-initial { animation: boot-line-fade 0.8s ease-out forwards; }
-    .blink { animation: boot-blink 0.5s infinite; }
+  <!-- Boot Log Overlay - Single Canvas -->
+  <canvas id="boot-canvas" style="position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:99999;pointer-events:none;margin:0;padding:0;"></canvas>
+  <script>
+    // 📼 VHS Hacker Boot Screen - syntax highlighted code, variable sizes
+    window.acBootCanvas = (function() {
+      const canvas = document.getElementById('boot-canvas');
+      if (!canvas) return {};
+      const ctx = canvas.getContext('2d');
+      let W = window.innerWidth, H = window.innerHeight;
+      canvas.width = W; canvas.height = H;
+      window.addEventListener('resize', () => { W = window.innerWidth; H = window.innerHeight; canvas.width = W; canvas.height = H; });
+      const logoSize = 64;
+      const logoX = 8, logoY = 8;
+      const textX = logoX + logoSize + 14;
+      const textStartY = 18;
+      const lineHeight = 14;
+      const maxLines = 18;
+      
+      const img = new Image();
+      img.src = '/purple-pals.svg';
+      
+      // Boot state
+      let lines = [];
+      let lineCount = 0;
+      let bootProgress = 0;
+      let cursorVisible = true;
+      let cursorTimer = 0;
+      let lastLogTime = performance.now();
+      let logBurst = 0;
+      const bootStartTime = performance.now();
+      
+      // Syntax highlighting colors (VSCode-ish dark theme)
+      const SYN = {
+        keyword: [197, 134, 192],    // purple - const, let, function, if, for, return, export, import, async, await, class, new
+        function: [220, 220, 170],   // yellow - function names
+        string: [206, 145, 120],     // orange - strings
+        number: [181, 206, 168],     // green - numbers
+        comment: [106, 153, 85],     // dark green - comments
+        operator: [212, 212, 212],   // white - operators, punctuation
+        type: [78, 201, 176],        // teal - types, classes
+        variable: [156, 220, 254],   // light blue - variables
+        property: [156, 220, 254],   // light blue - properties
+      };
+      
+      // Tokenized code snippets with syntax info: [text, colorKey]
+      const codeTokens = [
+        [['const', 'keyword'], [' boot ', 'variable'], ['=', 'operator'], [' async ', 'keyword'], ['() => {', 'operator']],
+        [['await', 'keyword'], [' loadSystem', 'function'], ['();', 'operator']],
+        [['import', 'keyword'], [' { disk } ', 'variable'], ['from', 'keyword'], [' "./lib"', 'string'], [';', 'operator']],
+        [['export', 'keyword'], [' function', 'keyword'], [' paint', 'function'], ['(api) {', 'operator']],
+        [['wipe', 'function'], ['(', 'operator'], ['32', 'number'], [', ', 'operator'], ['0', 'number'], [', ', 'operator'], ['64', 'number'], [');', 'operator']],
+        [['ink', 'function'], ['(', 'operator'], ['255', 'number'], [', ', 'operator'], ['200', 'number'], [', ', 'operator'], ['100', 'number'], [').', 'operator'], ['box', 'function'], ['();', 'operator']],
+        [['if', 'keyword'], [' (event.', 'variable'], ['is', 'function'], ['(', 'operator'], ['"touch"', 'string'], [')) {', 'operator']],
+        [['const', 'keyword'], [' [x, y] = api.', 'variable'], ['pen', 'property'], [';', 'operator']],
+        [['return', 'keyword'], [' { meta, boot, act };', 'variable']],
+        [['async', 'keyword'], [' function', 'keyword'], [' connect', 'function'], ['(ws) {', 'operator']],
+        [['socket.', 'variable'], ['send', 'function'], ['(', 'operator'], ['JSON', 'type'], ['.stringify(d));', 'operator']],
+        [['class', 'keyword'], [' Aesthetic', 'type'], [' {', 'operator']],
+        [['constructor', 'function'], ['(ctx) { ', 'operator'], ['this', 'keyword'], ['.ctx = ctx; }', 'operator']],
+        [['render', 'function'], ['() { ', 'operator'], ['this', 'keyword'], ['.draw(); }', 'operator']],
+        [['} ', 'operator'], ['// end module', 'comment']],
+        [['const', 'keyword'], [' frame = ', 'variable'], ['requestAnimationFrame', 'function'], [';', 'operator']],
+        [['ctx.', 'variable'], ['fillStyle', 'property'], [' = ', 'operator'], ['rgb', 'function'], ['(r, g, b);', 'operator']],
+        [['gpu.', 'variable'], ['submit', 'function'], ['();', 'operator']],
+        [['for', 'keyword'], [' (', 'operator'], ['let', 'keyword'], [' i = ', 'variable'], ['0', 'number'], ['; i < n; i++) {', 'operator']],
+        [['pixels[i] = ', 'variable'], ['noise16', 'function'], ['() | ', 'operator'], ['0', 'number'], [';', 'operator']],
+        [['buffer.', 'variable'], ['set', 'function'], ['(data);', 'operator']],
+        [['export', 'keyword'], [' default', 'keyword'], [' function', 'keyword'], [' sim', 'function'], ['() {', 'operator']],
+        [['tick++; ', 'variable'], ['update', 'function'], ['(state);', 'operator']],
+        [['signal.', 'variable'], ['dispatch', 'function'], ['(evt);', 'operator']],
+        [['function', 'keyword'], [' act', 'function'], ['({ event }) {', 'operator']],
+        [['screen.', 'variable'], ['width', 'property'], [', screen.', 'variable'], ['height', 'property']],
+        [['const', 'keyword'], [' { pen, keyboard } = $;', 'variable']],
+        [['await', 'keyword'], [' fetch', 'function'], ['(', 'operator'], ['"/api/user"', 'string'], [');', 'operator']],
+        [['localStorage.', 'variable'], ['setItem', 'function'], ['(k, v);', 'operator']],
+        [['new', 'keyword'], [' WebSocket', 'type'], ['(url);', 'operator']],
+        [['ctx.', 'variable'], ['beginPath', 'function'], ['();', 'operator']],
+        [['ctx.', 'variable'], ['arc', 'function'], ['(x, y, r, ', 'operator'], ['0', 'number'], [', TAU);', 'variable']],
+        [['ctx.', 'variable'], ['stroke', 'function'], ['();', 'operator']],
+        [['ctx.', 'variable'], ['fill', 'function'], ['();', 'operator']],
+        [['Promise', 'type'], ['.all(tasks);', 'operator']],
+        [['// async/await pattern', 'comment']],
+        [['(() => { ', 'operator'], ['/* IIFE */', 'comment'], [' })();', 'operator']],
+      ];
+      
+      // Multiple code columns - flush left, variable sizes
+      let codeColumns = [[], [], [], []]; // 4 columns for full width
+      const codeMaxLines = 60;
+      const codeScrollSpeed = 2.5; // Faster scroll
+      const fontSizes = [9, 10, 11, 12, 13, 14]; // Variable sizes
+      
+      let frame = 0;
+      let running = true;
+      
+      // Pre-populate columns IMMEDIATELY for instant visual feedback
+      const prePopulate = () => {
+        for (let col = 0; col < 4; col++) {
+          for (let i = 0; i < 25; i++) {
+            codeColumns[col].push({
+              tokens: codeTokens[Math.random() * codeTokens.length | 0],
+              y: H - i * 28 - Math.random() * 20,
+              alpha: 0.25 + Math.random() * 0.45,
+              speed: codeScrollSpeed + Math.random() * 1.5,
+              size: fontSizes[Math.random() * fontSizes.length | 0]
+            });
+          }
+        }
+      };
+      prePopulate();
+      
+      const addLine = (msg) => {
+        const now = performance.now();
+        const deltaMs = now - lastLogTime;
+        lastLogTime = now;
+        
+        const speed = Math.min(1, 500 / Math.max(50, deltaMs));
+        logBurst = 0.5 + speed * 0.5;
+        
+        if (lines.length > 0) lines[0].text = lines[0].text.replace(/_$/, '');
+        lines.unshift({ text: msg + '_', time: now, burst: logBurst });
+        if (lines.length > maxLines) lines.pop();
+        
+        lineCount++;
+        bootProgress = Math.min(1, lineCount / 15);
+      };
+      
+      const animate = () => {
+        if (!running || !document.getElementById('boot-canvas')) return;
+        
+        const t = frame * 0.05;
+        frame++;
+        cursorTimer++;
+        if (cursorTimer % 15 === 0) cursorVisible = !cursorVisible;
+        
+        logBurst *= 0.9;
+        
+        // Chaos INCREASES with boot progress
+        const chaos = bootProgress + logBurst * 0.5;
+        const colorLerp = bootProgress;
+        
+        // Base shake from the start
+        const baseShake = 0.5 + Math.sin(t * 2) * 0.3;
+        const shakeAmount = baseShake + chaos * chaos * 5 + logBurst * 4;
+        const shakeX = (Math.random() - 0.5) * shakeAmount;
+        const shakeY = (Math.random() - 0.5) * shakeAmount;
+        
+        // Update streaming code - add multiple lines every frame for density
+        const spawnCount = 2 + (chaos * 2) | 0; // More spawns as chaos increases
+        for (let s = 0; s < spawnCount; s++) {
+          const col = Math.random() * 4 | 0;
+          const tokens = codeTokens[Math.random() * codeTokens.length | 0];
+          const size = fontSizes[Math.random() * fontSizes.length | 0];
+          codeColumns[col].unshift({ 
+            tokens: tokens,
+            y: H + 5 + Math.random() * 15,
+            alpha: 0.25 + Math.random() * 0.5,
+            speed: codeScrollSpeed + Math.random() * 1.5,
+            size: size
+          });
+          if (codeColumns[col].length > codeMaxLines) codeColumns[col].pop();
+        }
+        // Update positions
+        codeColumns.forEach(col => {
+          col.forEach(c => c.y -= c.speed + chaos * 1.2);
+        });
+        codeColumns = codeColumns.map(col => col.filter(c => c.y > -20));
+        
+        // === DRAW ===
+        ctx.clearRect(0, 0, W, H);
+        
+        // Draw streaming code - flush left, spread across full width
+        const codeStartX = 6; // Flush left
+        const codeWidth = W - 12;
+        const colWidth = codeWidth / 4;
+        
+        codeColumns.forEach((col, colIdx) => {
+          const baseX = codeStartX + colIdx * colWidth;
+          col.forEach(c => {
+            if (c.y < 5 || c.y > H - 5) return;
+            const codeAlpha = c.alpha * (0.35 + chaos * 0.4);
+            ctx.font = `${c.size}px "Courier New", monospace`;
+            
+            // Draw each token with syntax color
+            let xOffset = 0;
+            c.tokens.forEach(([text, colorKey]) => {
+              const [r, g, b] = SYN[colorKey] || SYN.operator;
+              // Modulate color slightly with chaos
+              const cr = Math.min(255, r + chaos * 20) | 0;
+              const cg = Math.max(0, g - chaos * 15) | 0;
+              const cb = Math.min(255, b + chaos * 10) | 0;
+              ctx.fillStyle = `rgb(${cr}, ${cg}, ${cb})`;
+              ctx.globalAlpha = codeAlpha;
+              
+              const codeShake = 0.3 + chaos * 2;
+              const tx = baseX + xOffset + (Math.random() - 0.5) * codeShake;
+              const ty = c.y + (Math.random() - 0.5) * codeShake;
+              ctx.fillText(text, tx, ty);
+              xOffset += ctx.measureText(text).width;
+            });
+          });
+        });
+        ctx.globalAlpha = 1;
+        
+        // Draw logo with wobble
+        if (img.complete) {
+          const logoShake = baseShake * 0.8 + chaos * chaos * 3;
+          ctx.drawImage(img, 
+            logoX + shakeX * 0.5 + (Math.random() - 0.5) * logoShake, 
+            logoY + shakeY * 0.5 + (Math.random() - 0.5) * logoShake, 
+            logoSize, logoSize);
+        }
+        
+        // Live ms timer under logo
+        const elapsedMs = performance.now() - bootStartTime;
+        ctx.font = 'bold 10px "Courier New", monospace';
+        const timerStr = (elapsedMs | 0).toString().padStart(5, '0') + 'ms';
+        const timerR = 80 + chaos * 120 | 0;
+        const timerG = 80 + chaos * 40 | 0;
+        const timerB = 100 + chaos * 100 | 0;
+        ctx.globalAlpha = 0.6 + chaos * 0.4;
+        ctx.fillStyle = `rgb(${timerR}, ${timerG}, ${timerB})`;
+        const timerShake = baseShake + chaos * 2;
+        ctx.fillText(timerStr, logoX + 4 + shakeX * 0.5 + (Math.random() - 0.5) * timerShake, logoY + logoSize + 14 + shakeY * 0.5 + (Math.random() - 0.5) * timerShake);
+        ctx.globalAlpha = 1;
+        
+        // Draw log text
+        ctx.font = '12px "Courier New", monospace';
+        const now = performance.now();
+        lines.forEach((line, i) => {
+          const y = textStartY + i * lineHeight;
+          if (y > H - 10) return;
+          
+          const age = i * 0.08;
+          const alpha = Math.max(0.25, 1 - age * 0.6);
+          const lineAge = (now - line.time) / 1000;
+          const lineBurst = Math.max(0, line.burst - lineAge * 2);
+          
+          let displayText = line.text;
+          if (i === 0 && !cursorVisible) displayText = displayText.replace(/_$/, ' ');
+          
+          // Shake from start, more with chaos
+          const lineShake = baseShake * 0.5 + lineBurst * 3 + chaos * 1.5;
+          const lx = textX + shakeX + (Math.random() - 0.5) * lineShake;
+          const ly = y + shakeY + (Math.random() - 0.5) * lineShake;
+          
+          // Colors: pink → noise16Aesthetic purple
+          const baseR = 200 - colorLerp * 100 - i * 5;
+          const baseG = 80 - colorLerp * 55 - i * 4;
+          const baseB = 140 + colorLerp * 60 - i * 2;
+          
+          // Subtle glow from start, stronger with chaos
+          ctx.globalAlpha = alpha * (0.15 + chaos * 0.25 + lineBurst * 0.3);
+          ctx.filter = `blur(${2 + chaos * 3}px)`;
+          ctx.fillStyle = `rgb(${Math.min(255, baseR + 40)}, ${Math.max(0, baseG + 20)}, ${Math.min(255, baseB + 30)})`;
+          ctx.fillText(displayText, lx, ly);
+          ctx.filter = 'none';
+          
+          // Main text
+          ctx.globalAlpha = alpha;
+          ctx.fillStyle = `rgb(${Math.max(0,Math.min(255,baseR + lineBurst * 25))}, ${Math.max(0,baseG)}, ${Math.min(255,baseB + lineBurst * 15)})`;
+          ctx.fillText(displayText, lx, ly);
+        });
+        ctx.globalAlpha = 1;
+        
+        // === VHS effects - subtle from start, intensify with chaos ===
+        
+        // Scanlines - always on, subtle
+        ctx.globalAlpha = 0.03 + chaos * 0.12;
+        ctx.fillStyle = '#000';
+        for (let y = 0; y < H; y += 3) ctx.fillRect(0, y, W, 1);
+        
+        // Occasional glitch from start, more frequent with chaos
+        if (Math.random() < 0.05 + chaos * 0.5) {
+          const sliceCount = 1 + (chaos * 6) | 0;
+          for (let i = 0; i < sliceCount; i++) {
+            const gy = Math.random() * H | 0;
+            const gh = 2 + Math.random() * 6 | 0;
+            const shift = ((Math.random() - 0.5) * (8 + chaos * 25)) | 0;
+            if (gy + gh < H && gy > 0) {
+              try {
+                const slice = ctx.getImageData(0, gy, W, gh);
+                ctx.putImageData(slice, shift, gy);
+              } catch(e) {}
+            }
+          }
+        }
+        
+        // VHS noise - light from start
+        const noiseAmount = 10 + chaos * 70 | 0;
+        ctx.globalAlpha = 0.03 + chaos * 0.1;
+        for (let i = 0; i < noiseAmount; i++) {
+          ctx.fillStyle = `rgb(${Math.random() * 100 | 0}, ${Math.random() * 40 | 0}, ${Math.random() * 200 | 0})`;
+          ctx.fillRect(Math.random() * W | 0, Math.random() * H | 0, 1 + Math.random() * 2, 1);
+        }
+        
+        // Flicker overlay - subtle from start
+        ctx.globalAlpha = 0.02 + chaos * 0.12 * (0.5 + Math.random() * 0.5);
+        ctx.fillStyle = `rgb(${100 + colorLerp * 20}, ${25 + colorLerp * 10}, ${160 + colorLerp * 40})`;
+        ctx.fillRect(0, 0, W, H);
+        
+        ctx.globalAlpha = 1;
+        
+        requestAnimationFrame(animate);
+      };
+      
+      // Start animation IMMEDIATELY - don't wait for image
+      animate();
+      img.onload = () => {}; // Image loads in background
+      
+      return {
+        log: addLine,
+        hide: () => { running = false; canvas.remove(); }
+      };
+    })();
     
-    /* Light mode - dark magenta on light */
-    @media (prefers-color-scheme: light) {
-      #boot-log { color: rgb(120, 40, 90); text-shadow: 0 0 4px rgba(255, 255, 255, 0.7); }
-      @keyframes boot-line-fade {
-        0% { color: rgb(180, 60, 140); text-shadow: 0 0 8px rgba(200, 100, 160, 0.6); }
-        100% { color: rgb(120, 40, 90); text-shadow: 0 0 4px rgba(255, 255, 255, 0.7); }
-      }
-    }
-  </style>
+    window.acBOOT_LOG_CANVAS = (msg) => {
+      if (window.acBootCanvas?.log) window.acBootCanvas.log(msg);
+    };
+  </script>
   <script>
     if (window.self !== window.top) document.body.classList.add("embed");
     // Apply nogap class immediately if parameter is present to prevent flash

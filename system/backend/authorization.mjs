@@ -275,6 +275,53 @@ export async function userIDFromHandle(
   return userID;
 }
 
+// Connects to MongoDB to find a user's handle from their permahandle (code).
+// Permahandle format: ac25xxxxx (9 characters)
+// Returns: { handle, sub } or undefined if not found
+export async function handleFromPermahandle(code, database) {
+  if (!code || typeof code !== "string") return undefined;
+  
+  // Permahandles are exactly 9 chars and start with "ac"
+  if (code.length !== 9 || !code.startsWith("ac")) return undefined;
+  
+  // Check redis cache first
+  await KeyValue.connect();
+  const cachedHandle = await KeyValue.get("permahandles", code);
+  if (cachedHandle) {
+    await KeyValue.disconnect();
+    return JSON.parse(cachedHandle);
+  }
+  
+  // Look in database
+  const keepOpen = database;
+  if (!database) database = await connect();
+  
+  const usersCollection = database.db.collection("users");
+  const user = await usersCollection.findOne({ code });
+  
+  if (!user) {
+    if (!keepOpen) await database.disconnect();
+    await KeyValue.disconnect();
+    return undefined;
+  }
+  
+  // Get the handle from @handles collection using the user's _id
+  const handlesCollection = database.db.collection("@handles");
+  const handleDoc = await handlesCollection.findOne({ _id: user._id });
+  
+  if (!keepOpen) await database.disconnect();
+  
+  const result = handleDoc ? { handle: handleDoc.handle, sub: user._id } : undefined;
+  
+  // Cache the result in redis
+  if (result) {
+    await KeyValue.set("permahandles", code, JSON.stringify(result));
+  }
+  await KeyValue.disconnect();
+  
+  return result;
+}
+
 // Assume prefixed handle.
 // ⚠️ TODO: Make sure we are knowing what id we want from what network... 24.08.31.01.21
 export async function userIDFromHandleOrEmail(handleOrEmail, database, tenant) {

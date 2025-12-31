@@ -14828,10 +14828,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       //if (debug && logs.loading)
       //  console.log("⏳ Preloaded:", window.preloaded ? "✅" : "❌");
       
-      // Hide the boot log overlay now that boot is complete
-      if (window.acHIDE_BOOT_LOG) {
-        window.acHIDE_BOOT_LOG();
-      }
+      // Note: Boot canvas is now hidden by "piece-paint-ready" signal instead
+      // This allows the noise16 default to show through the boot overlay
       
       // 🔷 Auto-restore Tezos wallet session (Beacon stores in localStorage)
       restoreWalletSession().catch(() => {}); // Fire and forget, errors logged inside
@@ -14848,6 +14846,20 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // Print perf report
       perf.printReport();
       
+      // Fallback: if piece uses default paint (no custom paint), still hide boot canvas after a short delay
+      // This handles edge cases where piece-paint-ready is never sent
+      setTimeout(() => {
+        if (window.acHIDE_BOOT_LOG) {
+          window.acHIDE_BOOT_LOG();
+        }
+      }, 500);
+    }
+    
+    // 🎨 Hide boot canvas when piece's paint function takes over from default noise16
+    if (type === "piece-paint-ready") {
+      if (window.acHIDE_BOOT_LOG) {
+        window.acHIDE_BOOT_LOG();
+      }
       consumeDiskSends(send);
       return;
     }
