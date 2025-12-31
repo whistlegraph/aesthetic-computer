@@ -3,7 +3,7 @@
 <head>
   <title>Give — Aesthetic Computer</title>
   <meta name="description" content="Support Aesthetic Computer / Støt Aesthetic Computer" />
-  <link rel="icon" href="https://assets.aesthetic.computer/images/purple-pals.svg" type="image/svg+xml" />
+  <link rel="icon" href="https://aesthetic.computer/purple-pals.svg" type="image/svg+xml" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     @font-face {
@@ -1003,7 +1003,7 @@
             <div class="gift-widget" data-currency="usd">
               <div class="gift-visual">
                 <div class="gift-logo-wrap">
-                  <img src="https://assets.aesthetic.computer/images/purple-pals.svg" class="gift-logo" alt="">
+                  <img src="https://aesthetic.computer/purple-pals.svg" class="gift-logo" alt="">
                   <div class="gift-amount">$25</div>
                 </div>
               </div>
@@ -1021,7 +1021,7 @@
             <div class="gift-widget" data-currency="dkk">
               <div class="gift-visual">
                 <div class="gift-logo-wrap">
-                  <img src="https://assets.aesthetic.computer/images/purple-pals.svg" class="gift-logo" alt="">
+                  <img src="https://aesthetic.computer/purple-pals.svg" class="gift-logo" alt="">
                   <div class="gift-amount">200 kr</div>
                 </div>
               </div>
@@ -1035,7 +1035,7 @@
             <div class="gift-widget crypto" data-currency="xtz">
               <div class="gift-visual">
                 <div class="gift-logo-wrap">
-                  <img src="https://assets.aesthetic.computer/images/purple-pals.svg" class="gift-logo" alt="">
+                  <img src="https://aesthetic.computer/purple-pals.svg" class="gift-logo" alt="">
                   <div class="gift-amount crypto-amount">🔮 10 ꜩ</div>
                 </div>
                 <div class="crypto-usd" data-currency="xtz">≈ $—</div>
@@ -1057,7 +1057,7 @@
             <div class="gift-widget crypto" data-currency="eth">
               <div class="gift-visual">
                 <div class="gift-logo-wrap">
-                  <img src="https://assets.aesthetic.computer/images/purple-pals.svg" class="gift-logo" alt="">
+                  <img src="https://aesthetic.computer/purple-pals.svg" class="gift-logo" alt="">
                   <div class="gift-amount crypto-amount">💎 0.05 Ξ</div>
                 </div>
                 <div class="crypto-usd" data-currency="eth">≈ $—</div>
@@ -1179,7 +1179,7 @@
       </div>
 
       <a id="pals" href="https://aesthetic.computer">
-        <img src="https://assets.aesthetic.computer/images/purple-pals.svg" alt="AC">
+        <img src="https://aesthetic.computer/purple-pals.svg" alt="AC">
       </a>
     </div>
   </main>
@@ -1449,7 +1449,7 @@
         btn.disabled = true;
 
         try {
-          const res = await fetch('/api/give', {
+          const res = await fetch('https://aesthetic.computer/api/give', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ amount: value * 100, currency, recurring: isMonthly })
@@ -1680,7 +1680,7 @@
     async function loadShopProducts() {
       const container = document.getElementById('shopProducts');
       try {
-        const res = await fetch('/api/shop');
+        const res = await fetch('https://aesthetic.computer/api/shop');
         const data = await res.json();
         
         if (!data.products?.length) {
@@ -1730,7 +1730,7 @@
     async function loadTVFeed() {
       const container = document.getElementById('tvPlayer');
       try {
-        const res = await fetch('/api/tv?types=tape&limit=20&filter=recent');
+        const res = await fetch('https://aesthetic.computer/api/tv?types=tape&limit=20&filter=recent');
         const data = await res.json();
         
         // Get tapes from mixed array or media.tapes
