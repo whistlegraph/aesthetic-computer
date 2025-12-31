@@ -5751,6 +5751,24 @@ function paint($) {
         motdMaxWidth,
       );
       
+      // Add "ENTER 'give' TO HELP" line below MOTD in funding mode
+      if (FUNDING_MODE) {
+        const helpText = "ENTER 'give' TO HELP";
+        // Cycle through alert colors for the help text too
+        let coloredHelpText = "";
+        for (let i = 0; i < helpText.length; i++) {
+          const colorIndex = Math.floor((i + motdFrame * 0.15 + 5) % alertColors.length);
+          const color = alertColors[colorIndex];
+          coloredHelpText += `\\${color}\\${helpText[i]}`;
+        }
+        ink(pal.handleColor).write(
+          coloredHelpText,
+          { center: "x", y: writePos.y ? writePos.y + 12 : Math.floor(motdY) + 12 },
+          [255, 50, 200, 24],
+          motdMaxWidth,
+        );
+      }
+      
       $.needsPaint();
     }
     
