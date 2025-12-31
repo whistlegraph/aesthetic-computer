@@ -137,7 +137,7 @@ let clockChatMessages = []; // Messages from clock chat (starts empty, shows Mat
 let contentTicker; // Ticker instance for mixed $kidlisp, #painting, !tape content
 let contentTickerButton; // Button for content ticker hover interaction
 let mediaPreviewBox; // Shared preview box renderer for all media types
-const tinyTickers = true; // Use MatrixChunky8 font for tighter, smaller tickers
+const tinyTickers = !FUNDING_MODE; // Use MatrixChunky8 font for tighter, smaller tickers (disabled in funding mode - assets CORS)
 let contentItems = []; // Store fetched content: {type: 'kidlisp'|'painting'|'tape', code: string, source?: string}
 let currentTooltipItem = null; // Current item being shown in tooltip (auto-cycles)
 let tooltipTimer = 0; // Timer for switching between items
@@ -4784,7 +4784,7 @@ function paint($) {
         const tickerAlpha = chatTickerButton.down ? 255 : 220;
         const textY = chatTickerY;
         
-        if (hasChatMessages) {
+        if (FUNDING_MODE || hasChatMessages) {
           // Use Ticker's built-in paint for scrolling (syntax highlighting TODO)
           chatTicker.paint($, 0, textY, {
             color: [0, 255, 255], // Bright cyan
