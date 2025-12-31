@@ -1136,14 +1136,14 @@ function paint(
   }
   
   // 💸 GIVE button + recovery ticker in yikes mode (when connected, not just connecting)
-  console.log("🎁 GIVE check:", { showFundingEffectsFlag, connecting: client.connecting });
   if (showFundingEffectsFlag && !client.connecting) {
-    const btn = paintGiveButton({ screen, ink, ui: api.ui }, { paddingTop: 8, paddingRight: 12 });
+    // Position just below the top bar line (topMargin = 22, so button at y=6 puts it above the line)
+    const btn = paintGiveButton({ screen, ink, ui: api.ui }, { paddingTop: 6, paddingRight: 6, theme });
     const btnBox = btn?.btn?.box;
     if (btnBox) {
-      paintRecoveryTicker({ ink }, getRecoveryTicker(), btnBox);
+      paintRecoveryTicker({ ink }, getRecoveryTicker(), btnBox, theme);
     }
-    needsPaint(); // Keep animations going
+    needsPaint();
   }
 }
 
