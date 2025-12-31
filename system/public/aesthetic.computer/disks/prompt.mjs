@@ -6191,9 +6191,9 @@ function paint($) {
         const moodWords = ["GRRR!", "sigh...", "HELP!"];
         const moodWord = moodWords[emotionPhase] || "HELP!";
         const numWordsPerSide = 3;
-        // Start from the face center, not screen center
-        const faceCenterX = faceX + scaledSize / 2;
-        const faceCenterY = faceY + scaledSize / 2;
+        // Fixed screen position - independent of head movement
+        const wordOriginX = screen.width / 2;
+        const wordOriginY = Math.min(screen.height * 0.22, 50);
         
         // Mood-based color palettes
         const moodLeftColors = [
@@ -6215,12 +6215,12 @@ function paint($) {
         const moodShake = [3, 0.5, 1][emotionPhase] || 1;                      // Angry shaky, sad still
         const moodDrift = [2, 12, 6][emotionPhase] || 6;                       // Sad sinks more
         
-        // RIGHT side words - start from face edge
+        // RIGHT side words - fixed origin, independent of head
         for (let w = 0; w < numWordsPerSide; w++) {
           const wordPhase = ((motdFrame * moodSpeed + w * 0.85) % 3) / 3;
           
-          const startX = faceCenterX + scaledSize / 2 + 2; // Just off the right edge of face
-          const startY = faceCenterY - 2 + w * 3;
+          const startX = wordOriginX + 15; // Fixed offset from center
+          const startY = wordOriginY + w * 4;
           
           const floatDist = wordPhase * 80;
           // Sad: droop down; Angry: jitter; Crying: wave
@@ -6253,13 +6253,13 @@ function paint($) {
           }
         }
         
-        // LEFT side words (float leftward from face edge)
+        // LEFT side words (float leftward, fixed origin)
         const wordWidth = moodWord.length * 6;
         for (let w = 0; w < numWordsPerSide; w++) {
           const wordPhase = ((motdFrame * (moodSpeed * 1.08) + w * 0.9 + 0.3) % 3) / 3;
           
-          const startX = faceCenterX - scaledSize / 2 - 2 - wordWidth * 0.3; // Just off left edge of face
-          const startY = faceCenterY - 2 + w * 3;
+          const startX = wordOriginX - 15 - wordWidth * 0.3; // Fixed offset from center
+          const startY = wordOriginY + w * 4;
           
           const floatDist = wordPhase * 80;
           const waveY = emotionPhase === 1 
