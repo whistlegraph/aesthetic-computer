@@ -35,7 +35,7 @@ function bootLog(message) {
     
     // Create new line with cursor
     const newLine = document.createElement('div');
-    newLine.innerHTML = `${message}<span class="blink" style="animation:boot-blink 0.5s infinite">_</span>`;
+    newLine.innerHTML = `${message}<span class="blink">_</span>`;
     bootLogLinesEl.insertBefore(newLine, bootLogLinesEl.firstChild);
     
     // Keep only the last N lines

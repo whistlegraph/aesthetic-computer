@@ -2865,11 +2865,21 @@ function act({ event: e, screen }) {
     if (!updatingChain) {
       updateChainBtn.btn.act(e, { push: async () => {
         // Determine which URIs to sync - prefer rebake result, then pending, then current on-chain
-        const syncArtifact = rebakeResult?.artifactUri || pendingRebake?.artifactUri || alreadyMinted.artifactUri;
-        const syncThumb = rebakeResult?.thumbnailUri || pendingRebake?.thumbnailUri || alreadyMinted.thumbnailUri;
+        console.log("🪙 UPDATE CHAIN: Checking URIs...");
+        console.log("  rebakeResult:", rebakeResult);
+        console.log("  pendingRebake:", pendingRebake);
+        console.log("  alreadyMinted:", alreadyMinted);
+        
+        const syncArtifact = rebakeResult?.artifactUri || pendingRebake?.artifactUri || alreadyMinted?.artifactUri;
+        const syncThumb = rebakeResult?.thumbnailUri || pendingRebake?.thumbnailUri || alreadyMinted?.thumbnailUri;
 
         if (!syncArtifact) {
-          console.error("🪙 UPDATE CHAIN: No artifact URI to sync");
+          console.error("🪙 UPDATE CHAIN: No artifact URI to sync - alreadyMinted.artifactUri:", alreadyMinted?.artifactUri);
+          return;
+        }
+
+        if (alreadyMinted?.tokenId == null) {
+          console.error("🪙 UPDATE CHAIN: No tokenId available");
           return;
         }
 
@@ -2894,29 +2904,32 @@ function act({ event: e, screen }) {
           }
 
           // Call the update-metadata endpoint (streaming SSE)
-          // NOTE: edit_metadata requires contract admin, so server-side signing is required.
-          // The contract would need to be updated to allow token owners to edit.
+          // V3 contract allows owner/creator to edit - use prepare mode for client-side signing
           const token = await _net?.getToken?.();
+          const requestBody = {
+            piece: "$" + piece,
+            tokenId: alreadyMinted?.tokenId,
+            artifactUri: syncArtifact,
+            thumbnailUri: syncThumb,
+            walletAddress,
+            mode: "prepare", // Client-side signing preserves artist attribution on objkt
+          };
+          console.log("🪙 UPDATE CHAIN: Sending request:", requestBody);
+          
           const response = await fetch("/api/keep-update", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
               ...(token ? { "Authorization": `Bearer ${token}` } : {}),
             },
-            body: JSON.stringify({
-              piece: "$" + piece,
-              tokenId: alreadyMinted.tokenId,
-              artifactUri: syncArtifact,
-              thumbnailUri: syncThumb,
-              walletAddress,
-              // Server-side signing required - contract admin only for edit_metadata
-            }),
+            body: JSON.stringify(requestBody),
           });
 
           // Parse SSE stream
           const reader = response.body.getReader();
           const decoder = new TextDecoder();
           let buffer = "";
+          let preparedParams = null;
 
           while (true) {
             const { done, value } = await reader.read();
@@ -2937,6 +2950,12 @@ function act({ event: e, screen }) {
                   if (eventType === "progress") {
                     updateChainProgress = data.message;
                     console.log("🪙 UPDATE CHAIN:", data.message);
+                    _needsPaint?.();
+                  } else if (eventType === "prepared") {
+                    // Server has prepared the params - now we sign with user's wallet
+                    preparedParams = data;
+                    console.log("🪙 UPDATE CHAIN: Params prepared, signing with wallet...");
+                    updateChainProgress = "Sign in your wallet...";
                     _needsPaint?.();
                   } else if (eventType === "complete") {
                     updateChainResult = data;
@@ -2962,6 +2981,49 @@ function act({ event: e, screen }) {
                 }
                 eventType = null;
               }
+            }
+          }
+
+          // If we got prepared params, sign and broadcast with user's wallet
+          if (preparedParams) {
+            console.log("🪙 UPDATE CHAIN: Calling contract with wallet...", preparedParams);
+            try {
+              // Use the same call signature as signAndMint: (address, entrypoint, params.value, amount)
+              const opHash = await _api.tezos.call(
+                preparedParams.contractAddress,
+                preparedParams.entrypoint,
+                preparedParams.michelsonParams.value, // Just the value, not the full {entrypoint, value}
+                0 // No tez transfer for edit_metadata
+              );
+              
+              console.log("🪙 UPDATE CHAIN: Transaction submitted:", opHash);
+              updateChainProgress = "Confirming...";
+              _needsPaint?.();
+              
+              // Wait a moment for confirmation
+              await new Promise(r => setTimeout(r, 3000));
+              
+              // Update local state
+              updateChainResult = {
+                success: true,
+                opHash,
+                artifactUri: preparedParams.artifactUri,
+                thumbnailUri: preparedParams.thumbnailUri,
+              };
+              alreadyMinted.artifactUri = preparedParams.artifactUri;
+              alreadyMinted.thumbnailUri = preparedParams.thumbnailUri;
+              if (cachedMedia) {
+                cachedMedia.artifactUri = preparedParams.artifactUri;
+                cachedMedia.thumbnailUri = preparedParams.thumbnailUri;
+              }
+              pendingRebake = null;
+              rebakeResult = null;
+              originalOnChainUris = null;
+              console.log("🪙 UPDATE CHAIN complete! Op hash:", opHash);
+              updateChainProgress = "✓ Updated on-chain!";
+            } catch (walletErr) {
+              console.error("🪙 UPDATE CHAIN wallet error:", walletErr);
+              updateChainProgress = "✗ " + (walletErr.message || "Wallet error");
             }
           }
         } catch (err) {
