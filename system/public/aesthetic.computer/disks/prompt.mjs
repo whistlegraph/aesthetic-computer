@@ -137,6 +137,15 @@ let clockChatMessages = []; // Messages from clock chat (starts empty, shows Mat
 let contentTicker; // Ticker instance for mixed $kidlisp, #painting, !tape content
 let contentTickerButton; // Button for content ticker hover interaction
 let mediaPreviewBox; // Shared preview box renderer for all media types
+
+// 💸 FUNDING MODE: Show server bill alert in tickers and chat
+// Set to true to display funding message, false to show normal content
+export const FUNDING_MODE = true;
+// Colorful funding messages for each ticker (using \\color\\ codes for rendering)
+// Uses ASCII-only characters compatible with font_1 (MatrixChunky8 loads from assets which has CORS issues)
+const FUNDING_MESSAGE_CHAT = "*** \\pink\\'chat'\\cyan\\ is offline due to server bill -- Enter \\lime\\'give'\\cyan\\ to help support AC in the New Year! ***";
+const FUNDING_MESSAGE_CLOCK = "*** \\orange\\'laer-klokken'\\255,200,100\\ is offline due to server bill -- Enter \\lime\\'give'\\255,200,100\\ to help support AC in the New Year! ***";
+
 const tinyTickers = !FUNDING_MODE; // Use MatrixChunky8 font for tighter, smaller tickers (disabled in funding mode - assets CORS)
 let contentItems = []; // Store fetched content: {type: 'kidlisp'|'painting'|'tape', code: string, source?: string}
 let currentTooltipItem = null; // Current item being shown in tooltip (auto-cycles)
@@ -159,14 +168,6 @@ let showFpsMeter = false; // Toggle with backtick key
 
 // 🚫 DEBUG: Disable content ticker/TV preview while debugging carousel
 const DISABLE_CONTENT_TICKER = true;
-
-// 💸 FUNDING MODE: Show server bill alert in tickers and chat
-// Set to true to display funding message, false to show normal content
-export const FUNDING_MODE = true;
-// Colorful funding messages for each ticker (using \\color\\ codes for rendering)
-// Uses ASCII-only characters compatible with MatrixChunky8 font
-const FUNDING_MESSAGE_CHAT = "*** \\pink\\'chat'\\cyan\\ is offline due to server bill -- Enter \\lime\\'give'\\cyan\\ to help support AC! ***";
-const FUNDING_MESSAGE_CLOCK = "*** \\orange\\'laer-klokken'\\255,200,100\\ is offline due to server bill -- Enter \\lime\\'give'\\255,200,100\\ to help support AC! ***";
 
 let startupSfx, keyboardSfx;
 
@@ -1078,8 +1079,8 @@ async function halt($, text) {
     jump(`https://oven.aesthetic.computer`);
     return true;
   } else if (slug === "give") {
-    // 🎁 Jump to Give page
-    jump(`https://give.aesthetic.computer`);
+    // 🎁 Jump to Give page (opens in new window)
+    jump(`out:https://give.aesthetic.computer`);
     return true;
   } else if (slug === "desktop" || slug === "app" || slug === "electron") {
     // 💻 Jump to Desktop app download page
@@ -3610,16 +3611,53 @@ function paint($) {
       giveBtn.reposition({ x: giveBtnX, y: giveBtnY }, giveBtnText);
     }
     
-    // Paint with lime/green colors to match funding message
-    const normalFill = [0, 80, 0, 200];
-    const hoverFill = [0, 150, 0, 255];
-    const normalText = [100, 255, 100];
-    const hoverText = [255, 255, 255];
+    // 🌈 Rainbow cycling colors for attention-seeking effect
+    const t = performance.now() / 1000;
+    const hue = (t * 80) % 360; // Cycle through hues faster
+    const pulse = Math.sin(t * 5) * 0.5 + 0.5; // Pulsing effect (0-1)
     
-    giveBtn?.paint($,
-      giveBtn.btn.down ? hoverFill : normalFill,
-      giveBtn.btn.down ? hoverText : normalText,
-    );
+    // Convert HSL to RGB for fill color
+    const hslToRgb = (h, s, l) => {
+      h /= 360; s /= 100; l /= 100;
+      let r, g, b;
+      if (s === 0) { r = g = b = l; }
+      else {
+        const hue2rgb = (p, q, t) => {
+          if (t < 0) t += 1;
+          if (t > 1) t -= 1;
+          if (t < 1/6) return p + (q - p) * 6 * t;
+          if (t < 1/2) return q;
+          if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+          return p;
+        };
+        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        const p = 2 * l - q;
+        r = hue2rgb(p, q, h + 1/3);
+        g = hue2rgb(p, q, h);
+        b = hue2rgb(p, q, h - 1/3);
+      }
+      return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+    };
+    
+    // Bright saturated fill that cycles through rainbow
+    const fillColor = hslToRgb(hue, 100, 45 + pulse * 15); // 45-60% lightness
+    
+    // Always white text for maximum contrast and readability
+    const textColor = [255, 255, 255];
+    
+    // Outline slightly darker than fill
+    const outlineColor = hslToRgb(hue, 100, 30);
+    
+    // Normal scheme: [fill, outline, text, textAlpha]
+    const normalScheme = [fillColor, outlineColor, textColor, 255];
+    
+    // Hover scheme: white fill with colored text
+    const hoverFill = [255, 255, 255];
+    const hoverOutline = hslToRgb(hue, 100, 50);
+    const hoverText = hslToRgb(hue, 100, 35);
+    const hoverScheme = [hoverFill, hoverOutline, hoverText, 255];
+    
+    giveBtn?.paint($, normalScheme, hoverScheme);
   } else {
     giveBtn = null;
   }
@@ -4858,7 +4896,7 @@ function paint($) {
         }
       }
 
-      if (hasClockMessages && clockChatTicker && !clockChatTicker.paused) {
+      if ((FUNDING_MODE || hasClockMessages) && clockChatTicker && !clockChatTicker.paused) {
         clockChatTicker.update($);
       }
 
@@ -4892,7 +4930,7 @@ function paint($) {
         const tickerAlpha = clockChatTickerButton.down ? 255 : 220;
         const textY = clockTickerY;
         
-        if (hasClockMessages && clockChatTicker) {
+        if ((FUNDING_MODE || hasClockMessages) && clockChatTicker) {
           clockChatTicker.paint($, 0, textY, {
             color: [255, 200, 100],
             alpha: tickerAlpha,
@@ -6438,7 +6476,7 @@ function act({
       down: () => downSound(),
       push: () => {
         pushSound();
-        jump("https://give.aesthetic.computer");
+        jump("out:https://give.aesthetic.computer");
       },
       cancel: () => cancelSound(),
     });
