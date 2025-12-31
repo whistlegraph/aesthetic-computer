@@ -173,7 +173,8 @@ const FUNDING_MESSAGE_CLOCK = getLangPhase() === 0 ? FUNDING_MESSAGE_CLOCK_EN : 
 // Recovery mode ticker messages (when severity is "yikes" - chat back online but still need support)
 const RECOVERY_TICKER_EN = "Chat was offline ~ AC needs support to stay healthy!";
 const RECOVERY_TICKER_DA = "Chat var offline ~ AC har brug for stoette!";
-const getRecoveryTicker = () => getLangPhase() === 0 ? RECOVERY_TICKER_EN : RECOVERY_TICKER_DA;
+export const getRecoveryTicker = () => getLangPhase() === 0 ? RECOVERY_TICKER_EN : RECOVERY_TICKER_DA;
+export const showFundingEffectsFlag = showFundingEffects; // Export for chat.mjs
 
 const tinyTickers = !isCriticalFunding; // Use MatrixChunky8 font for tighter, smaller tickers (disabled in critical funding mode - assets CORS)
 let contentItems = []; // Store fetched content: {type: 'kidlisp'|'painting'|'tape', code: string, source?: string}
@@ -3774,45 +3775,6 @@ function paint($) {
       
       return p.life > 0;
     });
-    
-    // 📜 Recovery ticker - small scrolling text to the left of GIVE button (yikes mode only)
-    if (!isCriticalFunding && btnBox) {
-      const recoveryText = getRecoveryTicker();
-      const tickerCharWidth = 4; // MatrixChunky8 char width
-      const tickerHeight = 8; // MatrixChunky8 height
-      const tickerPadding = 4;
-      const tickerGap = 8; // Gap between ticker and GIVE button
-      
-      // Position ticker to the left of the GIVE button
-      const tickerRight = btnBox.x - tickerGap;
-      const tickerMaxWidth = Math.min(180, tickerRight - 10); // Max width, leave some margin
-      const tickerY = btnBox.y + (btnBox.h - tickerHeight) / 2; // Vertically center with button
-      
-      // Scrolling animation
-      const scrollSpeed = 0.5;
-      const textFullWidth = recoveryText.length * tickerCharWidth;
-      const scrollOffset = (performance.now() * scrollSpeed / 16) % (textFullWidth + tickerMaxWidth);
-      
-      // Draw background for ticker
-      const tickerBgX = tickerRight - tickerMaxWidth;
-      ink(0, 0, 0, 150).box(tickerBgX - tickerPadding, tickerY - 2, tickerMaxWidth + tickerPadding * 2, tickerHeight + 4);
-      
-      // Clip and draw scrolling text
-      // Text starts from the right and scrolls left
-      const textX = tickerRight - scrollOffset;
-      
-      // Draw text character by character within bounds
-      for (let i = 0; i < recoveryText.length; i++) {
-        const charX = textX + i * tickerCharWidth;
-        // Only draw if character is within the ticker bounds
-        if (charX >= tickerBgX - tickerPadding && charX < tickerRight) {
-          // Alternate colors for visual interest
-          const charHue = (hue + i * 15) % 360;
-          const charColor = hslToRgb(charHue, 80, 70);
-          ink(...charColor).write(recoveryText[i], { x: Math.round(charX), y: Math.round(tickerY) }, undefined, undefined, false, "MatrixChunky8");
-        }
-      }
-    }
   } else {
     giveBtn = null;
     giveBtnParticles = []; // Clear particles when button hidden

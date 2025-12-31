@@ -35,8 +35,8 @@ const { max, floor, ceil } = Math;
 import { isKidlispSource, tokenize, KidLisp } from "../lib/kidlisp.mjs";
 import { parseMessageElements as parseMessageElementsShared } from "../lib/chat-highlighting.mjs";
 import { getCommandDescription, isPromptOnlyCommand } from "../lib/prompt-commands.mjs";
-import { FUNDING_MODE } from "./prompt.mjs";
-import { paintGiveButton, actGiveButton, clearGiveButton } from "../lib/give-button.mjs";
+import { FUNDING_MODE, showFundingEffectsFlag, getRecoveryTicker } from "./prompt.mjs";
+import { paintGiveButton, actGiveButton, clearGiveButton, paintRecoveryTicker } from "../lib/give-button.mjs";
 
 let input, inputBtn, handleBtn, token;
 let messagesNeedLayout = true;
@@ -1134,6 +1134,16 @@ function paint(
     
     needsPaint(); // Keep modal animating
   }
+  
+  // 💸 GIVE button + recovery ticker in yikes mode (when connected, not just connecting)
+  if (showFundingEffectsFlag && !client.connecting) {
+    const btn = paintGiveButton({ screen, ink, ui: api.ui }, { paddingTop: 8, paddingRight: 12 });
+    const btnBox = btn?.btn?.box;
+    if (btnBox) {
+      paintRecoveryTicker({ ink }, getRecoveryTicker(), btnBox);
+    }
+    needsPaint(); // Keep animations going
+  }
 }
 
 function act(
@@ -1161,8 +1171,8 @@ function act(
   // Calculate rowHeight based on the typeface being used
   const currentRowHeight = typefaceName === "unifont" ? 17 : (typeface.blockHeight + 1);
   
-  // � GIVE button interaction in funding mode
-  if (FUNDING_MODE && client.connecting) {
+  // 💸 GIVE button interaction in funding mode (both connecting and yikes connected mode)
+  if ((FUNDING_MODE && client.connecting) || (showFundingEffectsFlag && !client.connecting)) {
     actGiveButton(e, {
       downSound: () => beep(),
       pushSound: () => beep(),

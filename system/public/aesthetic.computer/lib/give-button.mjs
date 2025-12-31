@@ -173,3 +173,53 @@ export function clearGiveButton() {
 export function getGiveButton() {
   return giveBtn;
 }
+
+// 📜 Paint recovery ticker - scrolling text to the left of GIVE button
+// $: The paint API object
+// recoveryText: The text to display
+// btnBox: The GIVE button bounding box (from getGiveButton()?.btn?.box)
+export function paintRecoveryTicker($, recoveryText, btnBox) {
+  if (!btnBox || !recoveryText) return;
+  
+  const { ink } = $;
+  const tickerCharWidth = 4; // MatrixChunky8 char width
+  const tickerHeight = 8; // MatrixChunky8 height
+  const tickerPadding = 4;
+  const tickerGap = 8; // Gap between ticker and GIVE button
+  
+  // Position ticker to the left of the GIVE button
+  const tickerRight = btnBox.x - tickerGap;
+  const tickerMaxWidth = Math.min(180, tickerRight - 10); // Max width, leave some margin
+  if (tickerMaxWidth < 50) return; // Don't show if not enough room
+  
+  const tickerY = btnBox.y + (btnBox.h - tickerHeight) / 2; // Vertically center with button
+  
+  // Scrolling animation
+  const scrollSpeed = 0.5;
+  const textFullWidth = recoveryText.length * tickerCharWidth;
+  const scrollOffset = (performance.now() * scrollSpeed / 16) % (textFullWidth + tickerMaxWidth);
+  
+  // Draw background for ticker
+  const tickerBgX = tickerRight - tickerMaxWidth;
+  ink(0, 0, 0, 150).box(tickerBgX - tickerPadding, tickerY - 2, tickerMaxWidth + tickerPadding * 2, tickerHeight + 4);
+  
+  // Clip and draw scrolling text
+  // Text starts from the right and scrolls left
+  const textX = tickerRight - scrollOffset;
+  
+  // Calculate hue for rainbow effect
+  const t = performance.now() / 1000;
+  const hue = (t * 80) % 360;
+  
+  // Draw text character by character within bounds
+  for (let i = 0; i < recoveryText.length; i++) {
+    const charX = textX + i * tickerCharWidth;
+    // Only draw if character is within the ticker bounds
+    if (charX >= tickerBgX - tickerPadding && charX < tickerRight) {
+      // Alternate colors for visual interest
+      const charHue = (hue + i * 15) % 360;
+      const charColor = hslToRgb(charHue, 80, 70);
+      ink(...charColor).write(recoveryText[i], { x: Math.round(charX), y: Math.round(tickerY) }, undefined, undefined, false, "MatrixChunky8");
+    }
+  }
+}
