@@ -275,6 +275,7 @@ export const handler = stream(async (event, context) => {
       const pieceName = body.piece?.replace(/^\$/, "");
       const mode = body.mode || "prepare"; // "prepare" (default) or "mint" (server-side)
       const regenerate = body.regenerate === true; // Force regenerate IPFS media
+      const walletAddress = body.walletAddress; // For on-chain owner verification
       
       if (!pieceName) {
         await send("error", { error: "Missing 'piece' in request body" });
@@ -286,24 +287,7 @@ export const handler = stream(async (event, context) => {
       // ═══════════════════════════════════════════════════════════════════
       await send("progress", { stage: "validate", message: `Validating $${pieceName}...` });
 
-      // Check auth
-      const user = await authorize(event.headers);
-      if (!user) {
-        await send("error", { error: "Please log in first" });
-        return; // finally will close
-      }
-
-      const userHandle = await handleFor(user.sub);
-      if (!userHandle) {
-        await send("error", { error: "You need an @handle first. Enter 'handle' to claim one." });
-        return; // finally will close
-      }
-
-      await send("progress", { stage: "validate", message: `Authenticated as @${userHandle}` });
-
-      const isAdmin = await hasAdmin(user);
-
-      // Get piece from database
+      // Get piece from database first (needed for ownership checks)
       const database = await connect();
       const collection = database.db.collection("kidlisp");
       const piece = await collection.findOne({ code: pieceName });
@@ -314,6 +298,59 @@ export const handler = stream(async (event, context) => {
         return; // finally will close
       }
 
+      // Check if this is a regenerate request for an existing token
+      const mintStatus = await checkMintStatus(pieceName);
+      const isRebake = mintStatus.minted && regenerate;
+
+      // For rebake: check if wallet is on-chain token owner (allows update without AC login)
+      let isOnChainOwner = false;
+      if (isRebake && walletAddress && mintStatus.tokenId != null) {
+        try {
+          const tokenResponse = await fetch(
+            `https://api.tzkt.io/v1/tokens/balances?token.contract=${CONTRACT_ADDRESS}&token.tokenId=${mintStatus.tokenId}&balance.gt=0`
+          );
+          const balances = await tokenResponse.json();
+          const ownerBalance = balances.find(b => b.account?.address === walletAddress);
+          isOnChainOwner = !!ownerBalance;
+          console.log(`🪙 KEEP-MINT: Wallet ${walletAddress} is on-chain owner: ${isOnChainOwner}`);
+        } catch (e) {
+          console.warn("🪙 KEEP-MINT: Could not verify on-chain ownership:", e.message);
+        }
+      }
+
+      // Check AC auth - required for new mints, optional for rebake if wallet is token owner
+      const user = await authorize(event.headers);
+      
+      // For new mints, always require AC login
+      if (!isRebake && !user) {
+        await database.disconnect();
+        await send("error", { error: "Please log in first" });
+        return; // finally will close
+      }
+
+      // For rebake without AC login, must be on-chain owner
+      if (isRebake && !user && !isOnChainOwner) {
+        await database.disconnect();
+        await send("error", { error: "Please log in or connect a wallet that owns this token" });
+        return; // finally will close
+      }
+
+      let userHandle = null;
+      let isAdmin = false;
+      
+      if (user) {
+        userHandle = await handleFor(user.sub);
+        if (!userHandle && !isRebake) {
+          await database.disconnect();
+          await send("error", { error: "You need an @handle first. Enter 'handle' to claim one." });
+          return; // finally will close
+        }
+        await send("progress", { stage: "validate", message: userHandle ? `Authenticated as @${userHandle}` : "Authenticated" });
+        isAdmin = await hasAdmin(user);
+      } else if (isOnChainOwner) {
+        await send("progress", { stage: "validate", message: `Token owner: ${walletAddress.slice(0, 8)}...` });
+      }
+
       // Check ownership - anonymous pieces cannot be kept
       if (!piece.user) {
         await database.disconnect();
@@ -321,15 +358,23 @@ export const handler = stream(async (event, context) => {
         return; // finally will close
       }
       
-      if (!isAdmin && piece.user !== user.sub) {
+      // For new mints: require AC piece ownership
+      // For rebake: allow AC piece owner OR on-chain token owner
+      if (!isRebake && user && !isAdmin && piece.user !== user.sub) {
         const ownerHandle = await handleFor(piece.user);
         await database.disconnect();
         await send("error", { error: `This piece belongs to @${ownerHandle || "someone else"}` });
         return; // finally will close
       }
+      
+      if (isRebake && !isAdmin && !isOnChainOwner && (!user || piece.user !== user.sub)) {
+        const ownerHandle = await handleFor(piece.user);
+        await database.disconnect();
+        await send("error", { error: `Only the piece owner or token holder can rebake` });
+        return; // finally will close
+      }
 
       // Check not already kept (unless regenerating bundle for existing token)
-      const mintStatus = await checkMintStatus(pieceName);
       if (mintStatus.minted && !regenerate) {
         await database.disconnect();
         await send("error", { 
@@ -344,7 +389,6 @@ export const handler = stream(async (event, context) => {
       }
       
       // Rebake mode: regenerate bundle for already-minted piece
-      const isRebake = mintStatus.minted && regenerate;
       if (isRebake) {
         await send("progress", { stage: "validate", message: `Rebaking bundle for token #${mintStatus.tokenId}...` });
       }
@@ -354,7 +398,7 @@ export const handler = stream(async (event, context) => {
       // Get user's Tezos wallet address for creator attribution
       // RULE: The minting wallet MUST match the author's linked Tezos address
       const usersCollection = database.db.collection("users");
-      const userDoc = await usersCollection.findOne({ _id: user.sub });
+      const userDoc = user ? await usersCollection.findOne({ _id: user.sub }) : null;
       const linkedWalletAddress = userDoc?.tezos?.address;
       let creatorWalletAddress;
       

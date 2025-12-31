@@ -1,8 +1,38 @@
 # Keeps: Current State Analysis (December 2025)
 
 **Status**: Mainnet Staging Active  
-**Contract**: `KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM`  
-**Last Updated**: December 30, 2025
+**Contract**: `KT1JEVyKjsMLts63e4CNaMUywWTPgeQ41Smi` (v3)  
+**Last Updated**: December 31, 2025
+
+---
+
+## Recent Changes (December 31, 2025) 🆕
+
+### V3 Contract Deployed
+- [x] New contract `KT1JEVyKjsMLts63e4CNaMUywWTPgeQ41Smi` with owner-editable metadata
+- [x] Contract has `token_creators` bigmap to track original minters
+- [x] `edit_metadata` allows: admin, token owner, OR original creator
+
+### Client-Side Wallet Signing for Metadata Updates
+- [x] Server returns `mode: "prepare"` params for client to sign
+- [x] User's wallet signs `edit_metadata`, preserving objkt.com "Created by" attribution
+- [x] Fixed tokenId==0 bug (JS falsy check issue)
+
+### Token Owner Rebake Support
+- [x] Token owners (not just piece creators) can rebake bundles
+- [x] Wallet connected at rebake time for ownership verification via TzKT
+- [x] Ownership displayed in UI: "★ You own this" or "Owner: tz1abc..."
+
+### Metadata Sync Permissions
+- [x] **Admin**: Always allowed to sync
+- [x] **Original creator**: Always allowed (preserves objkt attribution)  
+- [x] **Token owner**: Blocked by default (would change objkt "Created by")
+- [x] Added `allowOwnerEdit` flag for future use (contract supports it)
+- [x] Error explains why token owners can't sync + shows original minter address
+
+### Environment Fixes
+- [x] Added `OVEN_URL=https://localhost:3002` to dev environment
+- [x] Fixed `TZKT_API` undefined in keep-update.mjs
 
 ---
 
@@ -94,49 +124,35 @@ Pulsing buttons (`btnPreview`, `btnConfirm`, `btnLogin`) use `normalBase` proper
 
 ## What's Actually Next 🎯
 
-Looking at the code, the **self-service minting is already implemented**. The main gaps are:
+### ✅ COMPLETED (December 31, 2025)
+- [x] V3 contract with owner/creator editable metadata
+- [x] Client-side signing for edit_metadata (preserves attribution)
+- [x] Token owner can rebake (regenerate bundle) 
+- [x] Sync restricted to original creator (protects objkt attribution)
+- [x] Ownership display in UI
 
-### 🔧 Artist Attribution Bug - FIXED (December 30, 2025)
+### 🚀 READY FOR PRODUCTION
+Before moving from staging to production contract:
+- [ ] Test full flow: mint → transfer → owner rebake → creator sync
+- [ ] Fix $roz attribution (sync with aesthetic.tez wallet)
+- [ ] Consider: Should we burn+remint test tokens or keep them?
 
-**Original Report**: After updating metadata on token #4 (`$berz`), the artist attribution appeared to disappear from objkt.com "Created" tab (still shows in "Owned").
-
-**ROOT CAUSE FOUND**: The `edit_metadata` entrypoint was being called by the **admin server wallet** (`tz1Lc2DzTjDPyWFj1iuAVGGZWNjK67Wun2dC`), not the original creator's wallet. objkt.com re-attributes tokens based on who calls `edit_metadata`, causing the token to disappear from the original creator's "Created" tab.
-
-**Evidence**: All `edit_metadata` calls in TzKT were from the admin wallet, while initial `keep` (mint) calls from different wallets worked correctly.
-
-**FIX IMPLEMENTED** (December 30, 2025):
-- ✅ Added `mode: "prepare"` to `keep-update.mjs` - returns Michelson params for client-side signing
-- ✅ Updated `keep.mjs` "Sync Chain" button to use prepare mode and sign with user's wallet  
-- ✅ Created `keep-update-confirm.mjs` to record successful updates in database
-- ✅ Server-side signing path deprecated (still works but logs warning)
-
-**How it works now**:
-1. Client calls `/api/keep-update` with `mode: "prepare"`
-2. Server prepares metadata, uploads to IPFS, generates Michelson params
-3. Server returns `prepared` event with contract call parameters
-4. Client uses `_api.tezos.call()` to have user's wallet sign the transaction
-5. After confirmation, client calls `/api/keep-update-confirm` to record in DB
-
-**Status**: ✅ FIX DEPLOYED - Original creator's wallet now signs `edit_metadata`, preserving objkt.com attribution.
-
----
-
-### 1. Artist-Controlled Updates ✅ DONE
-- [x] In `keep-update.mjs`: Allow update if `user.sub === piece.user` (already implemented)
-- [x] Client-side signing so user's wallet is the caller (just implemented!)
-- [x] UI: Show "Update Chain" button to original author (already implemented)
-
-### 2. Missing Features from Plan
+### 📋 Missing Features from Plan
 - [ ] `keeps` command to list user's minted tokens
-- [ ] `keep:status $code` to check if already minted
+- [ ] `keep:status $code` to check if already minted  
 - [ ] Cancel ability during preparation
 - [ ] Show estimated gas/fees before signing
 - [ ] Copy share link after mint
 
-### 3. kidlisp.com Integration
+### 🎨 kidlisp.com Integration
 - [ ] "Mint as Keep" button for logged-in users
 - [ ] "My Keeps" section
 - [ ] Gallery of recent keeps
+
+### 🔧 Developer Experience
+- [ ] Auto-restart site on Netlify function error
+- [ ] Better error messages in console
+- [ ] Site health monitoring in artery
 
 ---
 
