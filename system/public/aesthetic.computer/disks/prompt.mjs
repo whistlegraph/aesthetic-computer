@@ -5795,7 +5795,7 @@ function paint($) {
       const scaledSize = faceSize * 2;
       let symbolX = Math.floor((screen.width - scaledSize) / 2);
       // MOTD is at screen.height/2 - 48, so put symbol above that
-      let symbolY = Math.floor(screen.height / 2 - 84); // adjusted for larger size
+      let symbolY = Math.floor(screen.height / 2 - 100); // moved up more above CRITICAL SERVICES
       
       // Only draw if there's enough space from top
       if (symbolY > 20) {
