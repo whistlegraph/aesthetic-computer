@@ -366,6 +366,18 @@ function paint(
       const halfBlock = Math.floor((totalLines * lineHeight) / 2);
       const shakeFrame = help.repeat ?? 0;
       
+      // Debug logging
+      if (shakeFrame % 60 === 0) {
+        console.log("📝 Chat funding message debug:", {
+          screenHeight: screen.height,
+          screenWidth: screen.width,
+          totalLines,
+          lineHeight,
+          halfBlock,
+          centerY: Math.floor(screen.height / 2)
+        });
+      }
+      
       offlineMsg.forEach((line, i) => {
         // High contrast colors that cycle
         let color = [200, 200, 200]; // Default fallback
@@ -385,11 +397,17 @@ function paint(
         // Calculate offset from center: line 0 is at top of block
         const offsetFromCenter = (i * lineHeight) - halfBlock;
         const shakeY = line !== "" ? Math.cos(shakeFrame * 0.25 + i * 0.5) * 1 : 0;
+        const finalY = Math.floor(screen.height / 2) + offsetFromCenter + shakeY;
+        
+        // Debug first line position
+        if (i === 0 && shakeFrame % 60 === 0) {
+          console.log("📝 Line 0 position:", { offsetFromCenter, finalY });
+        }
         
         // Use center:"xy" approach - y offset from screen center
         ink(color[0], color[1], color[2]).write(line, { 
-          center: "xy",
-          y: Math.floor(screen.height / 2) + offsetFromCenter + shakeY
+          center: "x",
+          y: finalY
         }, undefined, undefined, false, typefaceName);
       });
     } else {
