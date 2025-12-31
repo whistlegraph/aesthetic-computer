@@ -4298,26 +4298,41 @@ function paint($) {
     const rotation = activeProduct ? activeProduct.rotation : 0;
     
     if (FUNDING_MODE) {
-      // 🚨 FUNDING MODE: Red/yellow barber shop warning stripes around entire border
+      // 🚨 FUNDING MODE: Animated glittering border with primary colors
       // Draw on layer 0 so tickers overlap them
       $.layer(0);
-      const stripeWidth = 4; // Width of each diagonal stripe
-      const borderThickness = 1; // 1px thin border
+      const stripeWidth = 3; // Slightly narrower stripes
+      const borderThickness = 2; // 2px border for visibility
+      const t = performance.now() / 1000;
+      
+      // Primary colors - pure RGB
       const alertColors = [
-        [255, 20, 20],   // Pure saturated red
-        [255, 230, 0],   // Pure saturated yellow
+        [255, 0, 0],     // Pure red
+        [255, 255, 0],   // Pure yellow
+        [0, 255, 0],     // Pure green (occasional)
       ];
       
-      // Animate stripes scrolling (barber shop style - diagonal movement) - faster speed!
-      const stripeOffset = Math.floor(rotation * 2) % (stripeWidth * 2);
+      // Animate stripes scrolling much faster!
+      const stripeOffset = Math.floor(rotation * 4) % (stripeWidth * 2);
+      
+      // Glitter effect - random white sparkles
+      const glitterChance = 0.08; // 8% chance per pixel to sparkle
+      const glitterSeed = Math.floor(t * 10); // Changes 10x per second for sparkle effect
       
       // Top border - diagonal stripes moving right
       for (let x = -stripeWidth * 2; x < screen.width + stripeWidth * 2; x++) {
         for (let y = 0; y < borderThickness; y++) {
-          const diagonalPos = x + y + stripeOffset;
-          const stripeIndex = Math.floor(diagonalPos / stripeWidth) % 2;
-          const color = alertColors[stripeIndex];
           if (x >= 0 && x < screen.width) {
+            const diagonalPos = x + y + stripeOffset;
+            const stripeIndex = Math.floor(diagonalPos / stripeWidth) % 2;
+            // Use red/yellow primarily, occasional green
+            const colorIdx = ((x + glitterSeed) % 20 === 0) ? 2 : stripeIndex;
+            let color = alertColors[colorIdx];
+            // Sparkle effect - random white flashes
+            const sparkleHash = ((x * 7 + y * 13 + glitterSeed) % 100) / 100;
+            if (sparkleHash < glitterChance) {
+              color = [255, 255, 255]; // White sparkle
+            }
             ink(...color, 255).box(x, y, 1, 1);
           }
         }
@@ -4326,10 +4341,15 @@ function paint($) {
       // Bottom border - diagonal stripes moving left
       for (let x = -stripeWidth * 2; x < screen.width + stripeWidth * 2; x++) {
         for (let y = 0; y < borderThickness; y++) {
-          const diagonalPos = x - y - stripeOffset;
-          const stripeIndex = Math.floor(diagonalPos / stripeWidth) % 2;
-          const color = alertColors[(stripeIndex + 1) % 2]; // Offset color for variety
           if (x >= 0 && x < screen.width) {
+            const diagonalPos = x - y - stripeOffset;
+            const stripeIndex = Math.floor(diagonalPos / stripeWidth) % 2;
+            const colorIdx = ((x + glitterSeed + 10) % 20 === 0) ? 2 : (stripeIndex + 1) % 2;
+            let color = alertColors[colorIdx];
+            const sparkleHash = ((x * 11 + y * 17 + glitterSeed) % 100) / 100;
+            if (sparkleHash < glitterChance) {
+              color = [255, 255, 255];
+            }
             ink(...color, 255).box(x, screen.height - borderThickness + y, 1, 1);
           }
         }
@@ -4338,10 +4358,15 @@ function paint($) {
       // Left border - diagonal stripes moving down
       for (let y = -stripeWidth * 2; y < screen.height + stripeWidth * 2; y++) {
         for (let x = 0; x < borderThickness; x++) {
-          const diagonalPos = y + x + stripeOffset;
-          const stripeIndex = Math.floor(diagonalPos / stripeWidth) % 2;
-          const color = alertColors[stripeIndex];
           if (y >= 0 && y < screen.height) {
+            const diagonalPos = y + x + stripeOffset;
+            const stripeIndex = Math.floor(diagonalPos / stripeWidth) % 2;
+            const colorIdx = ((y + glitterSeed + 5) % 20 === 0) ? 2 : stripeIndex;
+            let color = alertColors[colorIdx];
+            const sparkleHash = ((x * 19 + y * 23 + glitterSeed) % 100) / 100;
+            if (sparkleHash < glitterChance) {
+              color = [255, 255, 255];
+            }
             ink(...color, 255).box(x, y, 1, 1);
           }
         }
@@ -4350,10 +4375,15 @@ function paint($) {
       // Right border - diagonal stripes moving up
       for (let y = -stripeWidth * 2; y < screen.height + stripeWidth * 2; y++) {
         for (let x = 0; x < borderThickness; x++) {
-          const diagonalPos = y - x - stripeOffset;
-          const stripeIndex = Math.floor(diagonalPos / stripeWidth) % 2;
-          const color = alertColors[(stripeIndex + 1) % 2];
           if (y >= 0 && y < screen.height) {
+            const diagonalPos = y - x - stripeOffset;
+            const stripeIndex = Math.floor(diagonalPos / stripeWidth) % 2;
+            const colorIdx = ((y + glitterSeed + 15) % 20 === 0) ? 2 : (stripeIndex + 1) % 2;
+            let color = alertColors[colorIdx];
+            const sparkleHash = ((x * 29 + y * 31 + glitterSeed) % 100) / 100;
+            if (sparkleHash < glitterChance) {
+              color = [255, 255, 255];
+            }
             ink(...color, 255).box(screen.width - borderThickness + x, y, 1, 1);
           }
         }
@@ -5864,9 +5894,13 @@ function paint($) {
             coloredHelpText += `\\${color}\\${helpText[i]}`;
           }
         }
+        // Use same positioning logic as MOTD
+        const helpWritePos = writePos.x !== undefined 
+          ? { x: writePos.x, y: (writePos.y || Math.floor(motdY)) + 12 }
+          : { center: "x", y: (writePos.y || Math.floor(motdY)) + 12 };
         ink(pal.handleColor).write(
           coloredHelpText,
-          { center: "x", y: writePos.y ? writePos.y + 12 : Math.floor(motdY) + 12 },
+          helpWritePos,
           [255, 50, 200, 24],
           motdMaxWidth,
         );
