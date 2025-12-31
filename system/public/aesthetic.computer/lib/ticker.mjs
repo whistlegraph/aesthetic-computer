@@ -107,9 +107,14 @@ export class Ticker {
       this.#offset += this.#speed * framesPassed;
       this.#lastUpdateTime = timeMs;
       
-      // Reset when one complete cycle has passed (only if cycleWidth is valid)
-      if (this.#cycleWidth > 0 && this.#offset >= this.#cycleWidth) {
-        this.#offset = this.#offset % this.#cycleWidth;
+      // Handle wrapping for both directions (only if cycleWidth is valid)
+      if (this.#cycleWidth > 0) {
+        if (this.#offset >= this.#cycleWidth) {
+          this.#offset = this.#offset % this.#cycleWidth;
+        } else if (this.#offset < 0) {
+          // Wrap around for negative offset (reverse scrolling)
+          this.#offset = this.#cycleWidth + (this.#offset % this.#cycleWidth);
+        }
       }
     }
   }
