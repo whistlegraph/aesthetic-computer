@@ -7,6 +7,12 @@ import { respond } from "../../backend/http.mjs";
 
 const dev = process.env.CONTEXT === "dev";
 
+// Supported currencies and their configs
+const currencies = {
+  usd: { symbol: "$", min: 100, max: 100000 },
+  dkk: { symbol: "kr", min: 500, max: 700000 },
+};
+
 export async function handler(event, context) {
   // Handle CORS preflight
   if (event.httpMethod === "OPTIONS") {
@@ -30,42 +36,76 @@ export async function handler(event, context) {
 
   try {
     const body = JSON.parse(event.body || "{}");
-    const amountCents = parseInt(body.amount) || 2500; // Default $25
+    const currency = (body.currency || "usd").toLowerCase();
+    const currencyConfig = currencies[currency] || currencies.usd;
+    const amountCents = parseInt(body.amount) || 2500;
+    const recurring = body.recurring === true;
 
-    // Minimum $1, maximum $10,000
-    if (amountCents < 100 || amountCents > 1000000) {
-      return respond(400, { error: "Invalid amount (min $1, max $10,000)" });
+    // Validate amount for currency
+    if (amountCents < currencyConfig.min || amountCents > currencyConfig.max) {
+      return respond(400, { error: `Invalid amount for ${currency.toUpperCase()}` });
     }
 
-    const amountDollars = (amountCents / 100).toFixed(2);
+    const amountDisplay = (amountCents / 100).toFixed(currency === 'dkk' ? 0 : 2);
+    const displayStr = currency === 'dkk' ? `${amountDisplay} kr` : `$${amountDisplay}`;
 
-    // Create checkout session
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ["card"],
-      line_items: [
+    // Build session config
+    const sessionConfig = {
+      success_url: `${getBaseUrl(event)}/gift.aesthetic.computer/thanks.html?amount=${amountDisplay}&currency=${currency}${recurring ? '&recurring=true' : ''}`,
+      cancel_url: `${getBaseUrl(event)}/gift.aesthetic.computer/`,
+      billing_address_collection: "auto",
+      metadata: {
+        type: recurring ? "subscription" : "gift",
+        amount: amountDisplay,
+        currency: currency,
+      },
+    };
+
+    if (recurring) {
+      // Monthly subscription
+      sessionConfig.mode = "subscription";
+      sessionConfig.line_items = [
         {
           price_data: {
-            currency: "usd",
+            currency: currency,
+            product_data: {
+              name: `Monthly Support - Aesthetic Computer`,
+              description: currency === 'dkk' 
+                ? `Månedlig støtte (${displayStr}/måned)`
+                : `Monthly support (${displayStr}/month)`,
+              images: ["https://aesthetic.computer/aesthetic.computer/icon/512x512.png"],
+            },
+            unit_amount: amountCents,
+            recurring: {
+              interval: "month",
+            },
+          },
+          quantity: 1,
+        },
+      ];
+    } else {
+      // One-time payment
+      sessionConfig.mode = "payment";
+      sessionConfig.submit_type = "donate";
+      sessionConfig.line_items = [
+        {
+          price_data: {
+            currency: currency,
             product_data: {
               name: `Gift to Aesthetic Computer`,
-              description: `Thank you for supporting creative coding! ($${amountDollars})`,
+              description: currency === 'dkk' 
+                ? `Tak for din støtte! (${displayStr})`
+                : `Thank you for supporting! (${displayStr})`,
               images: ["https://aesthetic.computer/aesthetic.computer/icon/512x512.png"],
             },
             unit_amount: amountCents,
           },
           quantity: 1,
         },
-      ],
-      mode: "payment",
-      success_url: `${getBaseUrl(event)}/gift.aesthetic.computer/thanks.html?amount=${amountDollars}`,
-      cancel_url: `${getBaseUrl(event)}/gift.aesthetic.computer/`,
-      submit_type: "donate",
-      billing_address_collection: "auto",
-      metadata: {
-        type: "gift",
-        amount: amountDollars,
-      },
-    });
+      ];
+    }
+
+    const session = await stripe.checkout.sessions.create(sessionConfig);
 
     return respond(200, { url: session.url, sessionId: session.id });
   } catch (error) {
