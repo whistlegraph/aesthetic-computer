@@ -90,6 +90,10 @@ let selectedItem = null;
 let anyDown = false;
 let layoutMode = "large"; // "tiny" | "small" | "medium" | "large"
 
+// 🔗 Confirmation modal for navigation
+// { name: string, type: "piece"|"command", desc: string, yesBtn, noBtn, hoverYes, hoverNo }
+let confirmModal = null;
+
 // UI elements
 let tabButtons = [];
 let itemButtons = [];
@@ -509,11 +513,121 @@ function paint({ wipe, ink, screen, dark, paintCount }) {
       tabX += tabWidth + 6;
     });
   }
+  
+  // === CONFIRMATION MODAL (overlay over everything) ===
+  if (confirmModal) {
+    const { name, type, desc } = confirmModal;
+    
+    // Semi-transparent dark backdrop
+    ink(12, 12, 20, 220).box(0, 0, screen.width, screen.height);
+    
+    // Calculate modal dimensions
+    const hasDesc = desc && desc.length > 0;
+    const modalW = min(screen.width - 16, 160);
+    const modalH = hasDesc ? 68 : 54;
+    const modalX = floor((screen.width - modalW) / 2);
+    const modalY = floor((screen.height - modalH) / 2);
+    
+    // Modal background
+    ink(pal.headerBg).box(modalX, modalY, modalW, modalH);
+    ink(pal.categoryHeader).box(modalX, modalY, modalW, modalH, "outline");
+    ink(pal.categoryHeader, 120).box(modalX + 1, modalY, modalW - 2, 1); // Top highlight
+    
+    // Action label
+    const actionLabel = type === "piece" ? "Open piece?" : "Run command?";
+    const labelColor = type === "piece" ? pal.pieceName : pal.commandName;
+    ink(labelColor).write(actionLabel, { x: modalX + 6, y: modalY + 4 });
+    
+    // Name
+    const maxNameLen = floor((modalW - 12) / 6);
+    const truncName = name.length > maxNameLen ? name.slice(0, maxNameLen - 1) + "…" : name;
+    ink(255, 255, 255).write(truncName, { x: modalX + 6, y: modalY + 16 });
+    
+    // Description (if available)
+    if (hasDesc) {
+      const maxDescLen = floor((modalW - 12) / 6);
+      const truncDesc = desc.length > maxDescLen ? desc.slice(0, maxDescLen - 1) + "…" : desc;
+      ink(pal.description).write(truncDesc, { x: modalX + 6, y: modalY + 28 });
+    }
+    
+    // Buttons
+    const btnW = 32;
+    const btnH = 14;
+    const btnY = modalY + modalH - btnH - 6;
+    const btnGap = 10;
+    const totalBtnW = btnW * 2 + btnGap;
+    const btnStartX = modalX + floor((modalW - totalBtnW) / 2);
+    
+    // Store button positions for hit detection
+    confirmModal.yesBtn = { x: btnStartX, y: btnY, w: btnW, h: btnH };
+    confirmModal.noBtn = { x: btnStartX + btnW + btnGap, y: btnY, w: btnW, h: btnH };
+    
+    // Yes button - green theme
+    const yesHover = confirmModal.hoverYes;
+    ink(yesHover ? [60, 140, 60] : [40, 90, 40]).box(btnStartX, btnY, btnW, btnH);
+    ink(yesHover ? [100, 200, 100] : [70, 130, 70]).box(btnStartX, btnY, btnW, btnH, "outline");
+    ink(yesHover ? [180, 255, 180] : [150, 220, 150]).write("yes", { x: btnStartX + 7, y: btnY + 3 });
+    
+    // No button - red theme
+    const noHover = confirmModal.hoverNo;
+    ink(noHover ? [140, 50, 50] : [90, 35, 35]).box(btnStartX + btnW + btnGap, btnY, btnW, btnH);
+    ink(noHover ? [200, 90, 90] : [130, 60, 60]).box(btnStartX + btnW + btnGap, btnY, btnW, btnH, "outline");
+    ink(noHover ? [255, 180, 180] : [220, 150, 150]).write("no", { x: btnStartX + btnW + btnGap + 9, y: btnY + 3 });
+  }
 }
 
 // 🎪 Act
-function act({ event: e, screen, hud, piece, jump, needsPaint, geo }) {
+function act({ event: e, screen, hud, piece, jump, needsPaint, geo, beep }) {
   updateLayoutMode(screen);
+  
+  // === CONFIRMATION MODAL intercepts all events ===
+  if (confirmModal) {
+    const { yesBtn, noBtn, name } = confirmModal;
+    
+    // Handle hover states
+    if (e.is("move") || e.is("draw")) {
+      if (yesBtn && noBtn) {
+        confirmModal.hoverYes = e.x >= yesBtn.x && e.x < yesBtn.x + yesBtn.w &&
+                                 e.y >= yesBtn.y && e.y < yesBtn.y + yesBtn.h;
+        confirmModal.hoverNo = e.x >= noBtn.x && e.x < noBtn.x + noBtn.w &&
+                                e.y >= noBtn.y && e.y < noBtn.y + noBtn.h;
+        needsPaint();
+      }
+    }
+    
+    // Handle clicks
+    if (e.is("lift") || e.is("touch")) {
+      if (yesBtn && noBtn) {
+        const clickedYes = e.x >= yesBtn.x && e.x < yesBtn.x + yesBtn.w &&
+                           e.y >= yesBtn.y && e.y < yesBtn.y + yesBtn.h;
+        const clickedNo = e.x >= noBtn.x && e.x < noBtn.x + noBtn.w &&
+                          e.y >= noBtn.y && e.y < noBtn.y + noBtn.h;
+        
+        if (clickedYes) {
+          beep?.();
+          hud.label(piece);
+          jump("prompt~" + name);
+          confirmModal = null;
+        } else if (clickedNo || true) {
+          // Clicking No or anywhere else closes modal
+          beep?.();
+          confirmModal = null;
+          hud.label(piece);
+          needsPaint();
+        }
+      }
+    }
+    
+    // Escape key closes modal
+    if (e.is("keyboard:down:escape")) {
+      beep?.();
+      confirmModal = null;
+      hud.label(piece);
+      needsPaint();
+    }
+    
+    return; // Block all other interactions when modal is open
+  }
   
   // Scroll handling
   if (e.is("scroll")) {
@@ -580,8 +694,19 @@ function act({ event: e, screen, hud, piece, jump, needsPaint, geo }) {
     if (e.is("lift") && btn.down) {
       btn.down = false;
       anyDown = false;
-      // Jump to the piece/command
-      jump("prompt~" + btn.name);
+      // Show confirmation modal instead of jumping directly
+      const item = visibleItems.find(i => i.name === btn.name);
+      confirmModal = {
+        name: btn.name,
+        type: item?.type || "piece",
+        desc: item?.data?.desc || "",
+        yesBtn: null,
+        noBtn: null,
+        hoverYes: false,
+        hoverNo: false,
+      };
+      beep?.();
+      needsPaint();
     }
     
     if (e.is("draw:1") && anyDown && inBounds && !btn.down) {
