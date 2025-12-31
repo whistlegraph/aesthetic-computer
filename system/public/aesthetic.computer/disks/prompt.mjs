@@ -5843,8 +5843,11 @@ function paint($) {
         }
       }
       
-      // Use more aggressive text wrapping (max 150px) to keep MOTD compact
-      const motdMaxWidth = Math.min(screen.width - 18, 150);
+      // Use wider text wrapping to prevent overlap
+      // "CRITICAL MEDIA SERVICES OFFLINE" = 31 chars * ~4px = 124px
+      // "KRITISKE MEDIETJENESTER OFFLINE" = 31 chars * ~4px = 124px
+      // Allow enough width to prevent wrapping on most screens
+      const motdMaxWidth = Math.min(screen.width - 18, 200);
       
       // Determine alignment: left-align when book needs room on narrow screens
       let writePos;
@@ -5891,10 +5894,11 @@ function paint($) {
             coloredHelpText += `\\${color}\\${helpText[i]}`;
           }
         }
-        // Use same positioning logic as MOTD
+        // Use same positioning logic as MOTD, but further down to avoid overlap
+        // Add extra spacing (24px instead of 12px) to account for potential text wrapping
         const helpWritePos = writePos.x !== undefined 
-          ? { x: writePos.x, y: (writePos.y || Math.floor(motdY)) + 12 }
-          : { center: "x", y: (writePos.y || Math.floor(motdY)) + 12 };
+          ? { x: writePos.x, y: (writePos.y || Math.floor(motdY)) + 24 }
+          : { center: "x", y: (writePos.y || Math.floor(motdY)) + 24 };
         ink(pal.handleColor).write(
           coloredHelpText,
           helpWritePos,
