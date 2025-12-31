@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="utf-8">
-  <title>KidLisp - friendly coding for everyone</title>
+  <title>KidLisp.com</title>
   <meta name="description" content="KidLisp is a simple, expressive language for creating visual patterns and animations. Try it on aesthetic.computer." />
   <link rel="icon" type="image/png"
     href="https://pals-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/painting-2023.7.29.20.39.png" />
@@ -6357,7 +6357,7 @@
       // Metadata column
       const meta = document.createElement('div');
       meta.className = 'console-image-meta';
-      meta.style.cssText = 'font-size: 11px; font-family: monospace; color: #888;';
+      meta.style.cssText = 'font-size: 11px; font-family: monospace; color: #888; flex: 1;';
       
       // Build display with $code and optionally @user
       const userDisplay = userHandle ? ` <span style="color: #9370DB;">${userHandle}</span>` : '';
@@ -6368,8 +6368,31 @@
         <span style="color: #888;">[${dimensions?.width || '?'}×${dimensions?.height || '?'}]</span>
       `;
       
+      // ☕ Mug button - turn screenshot into buyable mug
+      const mugBtn = document.createElement('button');
+      mugBtn.textContent = '☕';
+      mugBtn.title = 'Turn into a mug!';
+      mugBtn.style.cssText = `
+        background: rgba(139, 90, 43, 0.8);
+        border: none;
+        border-radius: 4px;
+        padding: 6px 10px;
+        cursor: pointer;
+        font-size: 16px;
+        opacity: 0.7;
+        transition: opacity 0.2s, transform 0.1s;
+        align-self: flex-start;
+      `;
+      mugBtn.addEventListener('mouseenter', () => { mugBtn.style.opacity = '1'; mugBtn.style.transform = 'scale(1.1)'; });
+      mugBtn.addEventListener('mouseleave', () => { mugBtn.style.opacity = '0.7'; mugBtn.style.transform = 'scale(1)'; });
+      mugBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openMugFromScreenshot(imageDataUrl, mugBtn);
+      });
+      
       entry.appendChild(img);
       entry.appendChild(meta);
+      entry.appendChild(mugBtn);
       
       consoleOutput.insertBefore(entry, consoleOutput.firstChild);
       consoleOutput.scrollTop = 0;
@@ -6401,6 +6424,92 @@
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+    }
+    
+    // ☕ Open mug preview from screenshot
+    async function openMugFromScreenshot(dataUrl, mugBtn) {
+      if (!dataUrl) return;
+      
+      const originalText = mugBtn?.textContent;
+      if (mugBtn) {
+        mugBtn.disabled = true;
+        mugBtn.textContent = '⏳';
+      }
+      
+      try {
+        // Convert data URL to blob
+        const response = await fetch(dataUrl);
+        const arrayBuffer = await response.arrayBuffer();
+        
+        // Upload to guest art bucket via presigned URL
+        // Path format: /presigned-upload-url/{extension}
+        // Use current origin if on localhost, otherwise aesthetic.computer
+        const isLocal = window.location.hostname === 'localhost' || window.location.hostname.includes('local');
+        const baseUrl = isLocal ? `${window.location.protocol}//${window.location.host}` : 'https://aesthetic.computer';
+        
+        // Get a presigned URL for guest bucket (no bucket suffix = guest "art" bucket)
+        const presignRes = await fetch(`${baseUrl}/presigned-upload-url/png`);
+        
+        if (!presignRes.ok) {
+          const errText = await presignRes.text();
+          console.error('☕ Presigned URL error:', presignRes.status, errText);
+          throw new Error(`Failed to get upload URL: ${presignRes.status}`);
+        }
+        const presignData = await presignRes.json();
+        console.log('☕ Got presigned URL:', presignData);
+        
+        // Note: API returns uploadURL (capital URL)
+        const uploadUrl = presignData.uploadURL;
+        const slug = presignData.slug;
+        
+        // Upload using XHR (like bios.mjs does) - more reliable for S3 presigned URLs
+        await new Promise((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open('PUT', uploadUrl, true);
+          
+          // Set headers that match the presigned URL signature
+          xhr.setRequestHeader('Content-Type', 'image/png');
+          xhr.setRequestHeader('Content-Disposition', 'inline');
+          xhr.setRequestHeader('x-amz-acl', 'public-read');
+          
+          xhr.onerror = () => reject(new Error('XHR error'));
+          xhr.onreadystatechange = function() {
+            if (xhr.readyState === XMLHttpRequest.DONE) {
+              if (xhr.status === 200) {
+                resolve();
+              } else {
+                reject(new Error(`Upload failed: ${xhr.status}`));
+              }
+            }
+          };
+          
+          // Create blob without MIME type (like bios.mjs)
+          const blob = new Blob([arrayBuffer]);
+          xhr.send(blob);
+        });
+        
+        // Extract the code from slug (filename without extension)
+        const code = slug.replace(/\.png$/, '');
+        console.log('☕ Uploaded as code:', code);
+        
+        // Open mug piece with the uploaded painting code
+        const mugUrl = `${baseUrl}/mug~${code}~white`;
+        window.open(mugUrl, '_blank');
+        
+        if (mugBtn) {
+          mugBtn.textContent = '☕';
+          mugBtn.disabled = false;
+        }
+      } catch (e) {
+        console.error('☕ Mug upload failed:', e);
+        if (mugBtn) {
+          mugBtn.textContent = '❌';
+          setTimeout(() => {
+            mugBtn.textContent = originalText || '☕';
+            mugBtn.disabled = false;
+          }, 2000);
+        }
+      }
     }
     
     // Show console image in fullscreen popup
@@ -6439,11 +6548,18 @@
       // Use provided filename or generate one (format: $code-@user-timestamp.png)
       const filename = providedFilename || generateConsoleImageFilename(pieceCode);
       
+      // Button container for download and mug
+      const btnContainer = document.createElement('div');
+      btnContainer.style.cssText = `
+        display: flex;
+        gap: 12px;
+        margin-top: 16px;
+      `;
+      
       // Download button - shows the filename
       const downloadBtn = document.createElement('button');
       downloadBtn.textContent = filename;
       downloadBtn.style.cssText = `
-        margin-top: 16px;
         padding: 10px 18px;
         background: #4ecdc4;
         color: #1e1e2e;
@@ -6467,11 +6583,36 @@
       downloadBtn.addEventListener('mouseenter', () => { downloadBtn.style.transform = 'scale(1.05)'; });
       downloadBtn.addEventListener('mouseleave', () => { downloadBtn.style.transform = 'scale(1)'; });
       
+      // ☕ Mug button
+      const mugBtn = document.createElement('button');
+      mugBtn.textContent = '☕ Mug';
+      mugBtn.title = 'Turn into a buyable mug!';
+      mugBtn.style.cssText = `
+        padding: 10px 18px;
+        background: #8b5a2b;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        font-size: 13px;
+        font-family: monospace;
+        cursor: pointer;
+        transition: transform 0.1s, background 0.2s;
+      `;
+      mugBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openMugFromScreenshot(dataUrl, mugBtn);
+      });
+      mugBtn.addEventListener('mouseenter', () => { mugBtn.style.transform = 'scale(1.05)'; mugBtn.style.background = '#a0673a'; });
+      mugBtn.addEventListener('mouseleave', () => { mugBtn.style.transform = 'scale(1)'; mugBtn.style.background = '#8b5a2b'; });
+      
+      btnContainer.appendChild(downloadBtn);
+      btnContainer.appendChild(mugBtn);
+      
       backdrop.appendChild(img);
-      backdrop.appendChild(downloadBtn);
+      backdrop.appendChild(btnContainer);
       document.body.appendChild(backdrop);
       
-      // Click anywhere on backdrop (but not on download button) to close
+      // Click anywhere on backdrop (but not on buttons) to close
       backdrop.addEventListener('click', (e) => {
         if (e.target === backdrop || e.target === img) backdrop.remove();
       });

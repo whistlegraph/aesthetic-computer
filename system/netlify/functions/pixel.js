@@ -51,33 +51,35 @@ async function fun(event, context) {
         const database = await connect();
         const painting = await database.db.collection('paintings').findOne({ code });
         
-        if (!painting) {
-          await database.disconnect();
-          console.error(`❌ Painting not found for code: ${code}`);
-          return respond(404, { message: `Painting not found for code: ${code}` });
+        if (painting) {
+          // Build slug from painting data
+          // Handle combined slugs (split to get image slug only)
+          let imageSlug = painting.slug;
+          if (imageSlug.includes(':')) {
+            [imageSlug] = imageSlug.split(':');
+          }
+          
+          // Construct DO Spaces URL directly (same logic as media.js edge function)
+          const bucket = painting.user 
+            ? "user-aesthetic-computer" 
+            : "art-aesthetic-computer";
+          const key = painting.user 
+            ? `${encodeURIComponent(painting.user)}/painting/${imageSlug}.png`
+            : `${imageSlug}.png`;
+          imageUrl = `https://${bucket}.sfo3.digitaloceanspaces.com/${key}`;
+          console.log(`✅ Resolved code ${code} to DO Spaces URL: ${imageUrl}`);
+        } else {
+          // No DB record - try guest art bucket directly (anonymous uploads)
+          imageUrl = `https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/${code}.png`;
+          console.log(`📦 No DB record for ${code}, trying guest bucket: ${imageUrl}`);
         }
-        
-        // Build slug from painting data
-        // Handle combined slugs (split to get image slug only)
-        let imageSlug = painting.slug;
-        if (imageSlug.includes(':')) {
-          [imageSlug] = imageSlug.split(':');
-        }
-        
-        // Construct DO Spaces URL directly (same logic as media.js edge function)
-        const bucket = painting.user 
-          ? "user-aesthetic-computer" 
-          : "art-aesthetic-computer";
-        const key = painting.user 
-          ? `${encodeURIComponent(painting.user)}/painting/${imageSlug}.png`
-          : `${imageSlug}.png`;
-        imageUrl = `https://${bucket}.sfo3.digitaloceanspaces.com/${key}`;
         
         await database.disconnect();
-        console.log(`✅ Resolved code ${code} to DO Spaces URL: ${imageUrl}`);
       } catch (error) {
         console.error(`❌ Error looking up painting code: ${error.message}`);
-        return respond(500, { message: "Error looking up painting", error: error.message });
+        // Fall back to guest bucket on DB error too
+        imageUrl = `https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/${code}.png`;
+        console.log(`📦 DB error, trying guest bucket: ${imageUrl}`);
       }
     }
     
