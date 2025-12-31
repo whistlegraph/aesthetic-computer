@@ -6810,7 +6810,7 @@ let motdController;
 
 async function makeMotd({ system, needsPaint, handle, user, net, api, notice }) {
   // Use funding mode message or default
-  motd = FUNDING_MODE ? "critical services offline, pls help ac today :)" : "aesthetic.computer";
+  motd = FUNDING_MODE ? "CRITICAL SERVICES OFFLINE" : "aesthetic.computer";
   motdController = new AbortController();
   
   // Skip fetching mood in funding mode - use the hardcoded message
