@@ -1068,6 +1068,10 @@ async function halt($, text) {
     // 🔥 Jump to Oven dashboard
     jump(`https://oven.aesthetic.computer`);
     return true;
+  } else if (slug === "gift") {
+    // 🎁 Jump to Gift page
+    jump(`https://gift.aesthetic.computer`);
+    return true;
   } else if (slug === "desktop" || slug === "app" || slug === "electron") {
     // 💻 Jump to Desktop app download page
     jump("desktop");
