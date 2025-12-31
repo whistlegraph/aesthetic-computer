@@ -333,13 +333,6 @@ function paint({ wipe, ink, screen, dark, paintCount }) {
   // Header background
   ink(pal.headerBg).box(0, 0, screen.width, HEADER_HEIGHT);
   
-  // Title
-  if (layoutMode !== "tiny") {
-    ink(pal.categoryHeader).write("📚 LIST", { x: LEFT_MARGIN, y: 4 });
-  } else {
-    ink(pal.categoryHeader).write("LIST", { x: 2, y: 2 });
-  }
-  
   // Item count
   const countText = `${visibleItems.filter(i => i.type !== "category").length}`;
   if (layoutMode !== "tiny") {
