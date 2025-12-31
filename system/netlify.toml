@@ -541,16 +541,6 @@ force = true
 
 # gift.aesthetic.computer - Support/donation page
 [[redirects]]
-from = "https://gift.aesthetic.computer"
-to = "https://aesthetic.computer/gift.aesthetic.computer/"
-status = 200
-force = true
-[[redirects]]
-from = "https://gift.aesthetic.computer/*"
-to = "https://aesthetic.computer/gift.aesthetic.computer/:splat"
-status = 200
-force = true
-[[redirects]]
 from = "https://gift.aesthetic.computer/api/gift"
 to = "/.netlify/functions/gift"
 status = 200
@@ -558,6 +548,16 @@ force = true
 [[redirects]]
 from = "https://gift.aesthetic.computer/api/billing"
 to = "/.netlify/functions/billing"
+status = 200
+force = true
+[[redirects]]
+from = "https://gift.aesthetic.computer"
+to = "/gift.aesthetic.computer/index.html"
+status = 200
+force = true
+[[redirects]]
+from = "https://gift.aesthetic.computer/*"
+to = "/gift.aesthetic.computer/:splat"
 status = 200
 force = true
 
