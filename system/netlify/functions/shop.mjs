@@ -30,6 +30,11 @@ async function getShopifyCredentials() {
 }
 
 export async function handler(event, context) {
+  // Handle CORS preflight
+  if (event.httpMethod === "OPTIONS") {
+    return respond(200, {});
+  }
+
   if (event.httpMethod !== "GET") {
     return respond(405, { message: "Method Not Allowed" });
   }
