@@ -252,6 +252,9 @@ function getTypefaceForMeasurement(typefaceName) {
   return resolved || tf;
 }
 
+// Flag to skip $ replacement during shadow rendering
+let _isRenderingShadow = false;
+
 function writeHudLabelText(
   $, 
   text,
@@ -494,6 +497,7 @@ function drawHudLabelText(
   );
 
   if (shouldRenderShadow) {
+    _isRenderingShadow = true;
     // If the text has color codes and we're preserving colors, use dynamic shadows
     if (shouldPreserveColors && containsColorCodes) {
       // Replace color codes with appropriate shadow colors
@@ -519,6 +523,7 @@ function drawHudLabelText(
         wordWrap: shouldWrap,
       });
     }
+    _isRenderingShadow = false;
   }
 
   if (textColor) {
@@ -4561,7 +4566,8 @@ const $paintApi = {
         : text.toString();
     
     // 💵 FUNDING MODE: Randomly replace S/s with green $ for financial vibes
-    if (typeof globalThis !== "undefined" && globalThis.AC_FUNDING_MODE) {
+    // Skip for shadow text to avoid double-replacement
+    if (typeof globalThis !== "undefined" && globalThis.AC_FUNDING_MODE && !_isRenderingShadow) {
       // Use a seeded random based on text position to keep it stable per frame
       // but change over time (every ~500ms)
       const timeSlot = Math.floor(Date.now() / 500);

@@ -150,11 +150,11 @@ if (typeof globalThis !== "undefined") {
 // Colorful funding messages for each ticker (using \\color\\ codes for rendering)
 // Uses ASCII-only characters compatible with font_1 (MatrixChunky8 loads from assets which has CORS issues)
 // English messages
-const FUNDING_MESSAGE_CHAT_EN = "*** \\pink\\'chat'\\cyan\\, media storage, and multiplayer are offline due to server bill hardship -- Enter \\lime\\'give'\\cyan\\ to help support AC in the New Year! ***";
-const FUNDING_MESSAGE_CLOCK_EN = "*** \\orange\\'laer-klokken'\\255,200,100\\ and other services are offline due to server bill hardship -- Enter \\lime\\'give'\\255,200,100\\ to help support AC in the New Year! ***";
+const FUNDING_MESSAGE_CHAT_EN = "*** \\pink\\'chat'\\cyan\\, media storage, and multiplayer are offline due to server bill hardship -- Enter 'give' to help support AC in the New Year! ***";
+const FUNDING_MESSAGE_CLOCK_EN = "*** \\orange\\'laer-klokken'\\255,200,100\\ and other services are offline due to server bill hardship -- Enter 'give' to help support AC in the New Year! ***";
 // Danish messages
-const FUNDING_MESSAGE_CHAT_DA = "*** \\pink\\'chat'\\cyan\\, medielagring og multiplayer er offline pga. serverregning -- Skriv \\lime\\'give'\\cyan\\ for at stoette AC i det nye aar! ***";
-const FUNDING_MESSAGE_CLOCK_DA = "*** \\orange\\'laer-klokken'\\255,200,100\\ og andre tjenester er offline pga. serverregning -- Skriv \\lime\\'give'\\255,200,100\\ for at stoette AC i det nye aar! ***";
+const FUNDING_MESSAGE_CHAT_DA = "*** \\pink\\'chat'\\cyan\\, medielagring og multiplayer er offline pga. serverregning -- Skriv 'give' for at stoette AC i det nye aar! ***";
+const FUNDING_MESSAGE_CLOCK_DA = "*** \\orange\\'laer-klokken'\\255,200,100\\ og andre tjenester er offline pga. serverregning -- Skriv 'give' for at stoette AC i det nye aar! ***";
 // Alternate between English and Danish every 10 seconds
 const getLangPhase = () => Math.floor(Date.now() / 10000) % 2;
 const FUNDING_MESSAGE_CHAT = getLangPhase() === 0 ? FUNDING_MESSAGE_CHAT_EN : FUNDING_MESSAGE_CHAT_DA;
