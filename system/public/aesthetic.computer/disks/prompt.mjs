@@ -3619,10 +3619,11 @@ function paint($) {
     const currencies = ["USD", "TEZ", "DKK", "ETH"];
     const currencyIndex = Math.floor(Date.now() / 2000) % currencies.length;
     const giveBtnText = "GIVE " + currencies[currencyIndex];
-    const btnPadding = 6; // Even padding on top and right
+    const btnPaddingTop = 6;
+    const btnPaddingRight = 12; // More padding from right edge
     const btnWidth = 52; // Wider button for "GIVE XXX"
-    const giveBtnY = btnPadding;
-    const giveBtnX = screen.width - btnWidth - btnPadding; // Right-aligned with even padding
+    const giveBtnY = btnPaddingTop;
+    const giveBtnX = screen.width - btnWidth - btnPaddingRight; // Right-aligned with padding
     
     if (!giveBtn) {
       giveBtn = new $.ui.TextButton(giveBtnText, {
@@ -4299,11 +4300,11 @@ function paint($) {
       // 🚨 FUNDING MODE: Red/yellow barber shop warning stripes around entire border
       // Draw on layer 0 so tickers overlap them
       $.layer(0);
-      const stripeWidth = 6; // Width of each diagonal stripe
-      const borderThickness = 3; // 3px thick border for visibility
+      const stripeWidth = 4; // Width of each diagonal stripe
+      const borderThickness = 1; // 1px thin border
       const alertColors = [
-        [255, 60, 60],   // Red
-        [255, 200, 50],  // Yellow
+        [255, 80, 80],   // Bright red
+        [255, 220, 60],  // Bright yellow
       ];
       
       // Animate stripes scrolling (barber shop style - diagonal movement)
