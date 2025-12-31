@@ -5824,7 +5824,12 @@ function paint($) {
       const motdY = screen.height / 2 - 48 + swayY; // Moved up 12px closer to top (changed from -36 back to -48)
       
       // Parse MOTD for interactive elements (handles, URLs, prompts, etc.)
-      const motdElements = parseMessageElements(motd);
+      // In FUNDING_MODE, dynamically set the MOTD text (line 1 = English)
+      let displayMotd = motd;
+      if (FUNDING_MODE) {
+        displayMotd = "CRITICAL MEDIA SERVICES OFFLINE"; // Line 1 is always English
+      }
+      const motdElements = parseMessageElements(displayMotd);
       const hasLinks = motdElements.length > 0;
       
       let coloredText = "";
@@ -5833,18 +5838,14 @@ function paint($) {
       
       if (hasLinks) {
         // Use syntax highlighting for interactive elements
-        coloredText = colorizeText(motd, "white");
+        coloredText = colorizeText(displayMotd, "white");
       } else if (FUNDING_MODE) {
-        // Funding mode - alternate EN/DA every 3 seconds with different color schemes
-        const langPhase = Math.floor(Date.now() / 3000) % 2;
-        // English = red/orange, Danish = cyan/blue
+        // Funding mode - English in red/orange colors
         const enColors = ["red", "255,100,50", "yellow", "orange"];
-        const daColors = ["cyan", "0,150,255", "white", "lime"];
-        const currentColors = langPhase === 0 ? enColors : daColors;
-        for (let i = 0; i < motd.length; i++) {
-          const colorIndex = Math.floor((i + motdFrame * 0.15) % currentColors.length);
-          const color = currentColors[colorIndex];
-          coloredText += `\\${color}\\${motd[i]}`;
+        for (let i = 0; i < displayMotd.length; i++) {
+          const colorIndex = Math.floor((i + motdFrame * 0.15) % enColors.length);
+          const color = enColors[colorIndex];
+          coloredText += `\\${color}\\${displayMotd[i]}`;
         }
       } else {
         // No links - use rainbow animation
@@ -5881,22 +5882,17 @@ function paint($) {
         motdMaxWidth,
       );
       
-      // Add "ENTER 'give' TO HELP" line below MOTD in funding mode
+      // Add Danish help line below MOTD in funding mode (Line 2 = Danish always)
       if (FUNDING_MODE) {
-        // Alternate English/Danish every 3 seconds (synced with MOTD)
-        const langPhase = Math.floor(Date.now() / 3000) % 2;
-        const helpTextEN = "ENTER 'give' TO HELP";
-        const helpTextDA = "SKRIV 'give' FOR HJAELP";
-        const helpText = langPhase === 0 ? helpTextEN : helpTextDA;
+        // Line 2 is always Danish
+        const helpText = "SKRIV 'give' FOR HJAELP";
         const giveStart = helpText.indexOf("'give'");
         const giveEnd = giveStart + 6; // length of 'give'
         
-        // Color scheme matches language: EN = red/orange, DA = cyan/blue
-        const enColors = ["red", "255,100,50", "yellow", "orange"];
+        // Danish uses cyan/blue color scheme
         const daColors = ["cyan", "0,150,255", "white", "lime"];
-        const currentColors = langPhase === 0 ? enColors : daColors;
         
-        // Build text with 'give' highlighted, rest in language-specific colors
+        // Build text with 'give' highlighted, rest in Danish colors
         let coloredHelpText = "";
         for (let i = 0; i < helpText.length; i++) {
           const isGive = i >= giveStart && i < giveEnd;
@@ -5906,9 +5902,9 @@ function paint($) {
             const colorIndex = Math.floor(((i - giveStart) + motdFrame * 0.2) % giveColors.length);
             coloredHelpText += `\\${giveColors[colorIndex]}\\${helpText[i]}`;
           } else {
-            // Rest uses language-specific color scheme
-            const colorIndex = Math.floor((i + motdFrame * 0.15 + 5) % currentColors.length);
-            const color = currentColors[colorIndex];
+            // Rest uses Danish cyan/blue color scheme
+            const colorIndex = Math.floor((i + motdFrame * 0.15 + 5) % daColors.length);
+            const color = daColors[colorIndex];
             coloredHelpText += `\\${color}\\${helpText[i]}`;
           }
         }
