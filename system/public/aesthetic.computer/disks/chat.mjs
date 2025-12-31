@@ -339,8 +339,19 @@ function paint(
 
   if (client.connecting) {
     if (FUNDING_MODE) {
-      // Show funding alert when in funding mode
-      const offlineMsg = [
+      // Detect if this is laer-klokken (clock chat) or main chat
+      const isClockChat = piece === "laer-klokken";
+      
+      // Danish for laer-klokken, English for main chat
+      const offlineMsg = isClockChat ? [
+        "Forbinder" + ellipsisTicker?.text(help.repeat),
+        "",
+        "Chats er offline pga.",
+        "en stor serverregning.",
+        "",
+        "Skriv 'give' for at stoette AC",
+        "og vi er tilbage snart!",
+      ] : [
         "Connecting" + ellipsisTicker?.text(help.repeat),
         "",
         "Chats are offline due to",
@@ -349,11 +360,35 @@ function paint(
         "Enter 'give' to help support AC",
         "and services will return ASAP!",
       ];
+      
       const lineHeight = 12;
       const startY = Math.floor(screen.height / 2 - (offlineMsg.length * lineHeight) / 2);
+      const shakeFrame = help.repeat || 0;
+      
       offlineMsg.forEach((line, i) => {
-        const color = i === 0 ? "pink" : (i === 5 ? "lime" : "gray");
-        ink(color).write(line, { center: "x", y: startY + i * lineHeight }, undefined, undefined, false, typefaceName);
+        // High contrast colors that cycle/shake
+        let color;
+        if (i === 0) {
+          // Title line - cycles between bright colors
+          const titleColors = [[255, 100, 150], [255, 150, 100], [255, 200, 100]];
+          color = titleColors[Math.floor(shakeFrame * 0.15) % titleColors.length];
+        } else if (i === 5) {
+          // "give" line - bright lime/yellow cycling
+          const giveColors = [[100, 255, 100], [150, 255, 50], [200, 255, 100]];
+          color = giveColors[Math.floor(shakeFrame * 0.2) % giveColors.length];
+        } else if (line !== "") {
+          // Other text lines - cycle through contrasting colors
+          const textColors = [[255, 220, 150], [200, 220, 255], [255, 200, 200]];
+          color = textColors[(i + Math.floor(shakeFrame * 0.1)) % textColors.length];
+        } else {
+          color = [100, 100, 100]; // Empty lines
+        }
+        
+        // Add shake to non-empty lines
+        const shakeX = line !== "" ? Math.sin(shakeFrame * 0.3 + i) * 2 : 0;
+        const shakeY = line !== "" ? Math.cos(shakeFrame * 0.25 + i * 0.5) * 1 : 0;
+        
+        ink(...color).write(line, { center: "x", x: shakeX, y: startY + i * lineHeight + shakeY }, undefined, undefined, false, typefaceName);
       });
     } else {
       // Normal connecting message
