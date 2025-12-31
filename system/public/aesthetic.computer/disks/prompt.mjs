@@ -4973,9 +4973,8 @@ function paint($) {
       // Create or update ticker instance
       if (!chatTicker) {
         chatTicker = new $.gizmo.Ticker(fullText, {
-          speed: 1, // 1px per frame
+          speed: 1, // Positive = scroll left (text moves left, appears from right)
           separator: "", // No extra separator - text already has · between messages
-          reverse: false, // Left to right
         });
         chatTicker.paused = false;
         chatTicker.offset = 0; // No offset for chat
@@ -5087,9 +5086,8 @@ function paint($) {
         
         if (!clockChatTicker) {
           clockChatTicker = new $.gizmo.Ticker(clockFullText, {
-            speed: 1,
+            speed: -1, // Negative = scroll opposite direction (right to left)
             separator: "", // No extra separator - text already has · between messages
-            reverse: false,
           });
           clockChatTicker.paused = false;
           clockChatTicker.offset = 0;
