@@ -25,10 +25,15 @@ async function boot({ ui, typeface, store, net, params }) {
     // console.log("Total:", listKeys.length);
 
     // Build buttons here.
+    // Use default 6x10 glyph size if typeface not loaded yet
+    const glyph = typeface?.glyphs?.[0];
+    const gw = glyph?.resolution?.[0] || 6;
+    const gh = glyph?.resolution?.[1] || 10;
+    
+    prompts = []; // Reset prompts array
     keys(list)
       .sort()
       .forEach((key, i) => {
-        const [gw, gh] = typeface.glyphs[0].resolution;
         const w = gw * key.length;
         const h = gh + 1;
         prompts.push({
@@ -68,7 +73,7 @@ const { keys } = Object;
 
 function paint({ wipe, ink, ui, hud, screen, paintCount }) {
   wipe("black");
-  if (!list) {
+  if (!list || prompts.length === 0) {
     if (paintCount > 8n) {
       ink("green").write("Fetching...", { center: "xy" });
     }
@@ -77,6 +82,7 @@ function paint({ wipe, ink, ui, hud, screen, paintCount }) {
   keys(list)
     .sort()
     .forEach((key, i) => {
+      if (!prompts[i]?.button) return; // Guard against missing button
       prompts[i].button.paint((b) => {
         ink(b.down ? "yellow" : "white").write(key, {
           x: 6,
