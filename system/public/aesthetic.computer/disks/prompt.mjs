@@ -3616,7 +3616,8 @@ function paint($) {
   // 💸 GIVE button in top-right corner during FUNDING_MODE
   if (FUNDING_MODE && showLoginCurtain) {
     // Cycle through currencies every 2 seconds
-    const currencies = ["USD", "TEZ", "DKK", "ETH"];
+    // Note: Use U$D instead of USD to avoid random $ replacement on the S
+    const currencies = ["U$D", "TEZ", "DKK", "ETH"];
     const currencyIndex = Math.floor(Date.now() / 2000) % currencies.length;
     const giveBtnText = "GIVE " + currencies[currencyIndex];
     const btnPaddingTop = 6;
@@ -4303,12 +4304,12 @@ function paint($) {
       const stripeWidth = 4; // Width of each diagonal stripe
       const borderThickness = 1; // 1px thin border
       const alertColors = [
-        [255, 80, 80],   // Bright red
-        [255, 220, 60],  // Bright yellow
+        [255, 20, 20],   // Pure saturated red
+        [255, 230, 0],   // Pure saturated yellow
       ];
       
-      // Animate stripes scrolling (barber shop style - diagonal movement)
-      const stripeOffset = Math.floor(rotation * 0.5) % (stripeWidth * 2);
+      // Animate stripes scrolling (barber shop style - diagonal movement) - faster speed!
+      const stripeOffset = Math.floor(rotation * 2) % (stripeWidth * 2);
       
       // Top border - diagonal stripes moving right
       for (let x = -stripeWidth * 2; x < screen.width + stripeWidth * 2; x++) {
