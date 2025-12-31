@@ -2932,6 +2932,35 @@ async function halt($, text) {
 
       return true;
     }
+  } else if (/^ac[0-9]{2}[a-z]{5}$/.test(slug)) {
+    // Handle permahandle codes like ac25namuc → @jeffrey's profile
+    console.log(`🔑 Looking up permahandle: ${slug}`);
+    
+    const promptInput = system?.prompt?.input;
+    if (promptInput) promptInput.lock = true;
+    
+    fetch(`/api/permahandle/${slug}`)
+      .then((response) => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.json();
+      })
+      .then((data) => {
+        if (data?.handle) {
+          console.log(`✅ Found user: ${slug} → @${data.handle}`);
+          if (promptInput) promptInput.lock = false;
+          jump(`@${data.handle}`);
+        } else {
+          throw new Error("No handle found");
+        }
+      })
+      .catch((err) => {
+        console.error(`❌ Permahandle not found: ${slug}`, err);
+        notice(`Unknown code: ${slug}`, ["red"]);
+        if (promptInput) promptInput.lock = false;
+        needsPaint();
+      });
+    
+    return true;
   } else {
     // console.log("🟢 Attempting a load!");    // 🟠 Local and remote pieces...
 
