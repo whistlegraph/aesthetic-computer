@@ -3610,8 +3610,10 @@ function paint($) {
   // 💸 GIVE button in top-right corner during FUNDING_MODE
   if (FUNDING_MODE && showLoginCurtain) {
     const giveBtnText = "GIVE";
-    const giveBtnY = 10;
-    const giveBtnX = screen.width - 38; // Right-aligned with padding
+    const btnPadding = 6; // Even padding on top and right
+    const btnWidth = 30; // Approximate button width
+    const giveBtnY = btnPadding;
+    const giveBtnX = screen.width - btnWidth - btnPadding; // Right-aligned with even padding
     
     if (!giveBtn) {
       giveBtn = new $.ui.TextButton(giveBtnText, {
@@ -4285,44 +4287,67 @@ function paint($) {
     const rotation = activeProduct ? activeProduct.rotation : 0;
     
     if (FUNDING_MODE) {
-      // 🚨 FUNDING MODE: Red/yellow warning stripes around entire border
-      const stripeWidth = 4; // Width of each stripe
-      const borderThickness = 2; // 2px thick border
+      // 🚨 FUNDING MODE: Red/yellow barber shop warning stripes around entire border
+      // Draw on layer 0 so tickers overlap them
+      $.layer(0);
+      const stripeWidth = 6; // Width of each diagonal stripe
+      const borderThickness = 3; // 3px thick border for visibility
       const alertColors = [
         [255, 60, 60],   // Red
         [255, 200, 50],  // Yellow
       ];
       
-      // Animate stripes scrolling
-      const stripeOffset = Math.floor(rotation * 0.3) % (stripeWidth * 2);
+      // Animate stripes scrolling (barber shop style - diagonal movement)
+      const stripeOffset = Math.floor(rotation * 0.5) % (stripeWidth * 2);
       
-      // Top border (full width)
-      for (let x = 0; x < screen.width; x++) {
-        const stripeIndex = Math.floor((x + stripeOffset) / stripeWidth) % 2;
-        const color = alertColors[stripeIndex];
-        ink(...color, 220).box(x, 0, 1, borderThickness);
+      // Top border - diagonal stripes moving right
+      for (let x = -stripeWidth * 2; x < screen.width + stripeWidth * 2; x++) {
+        for (let y = 0; y < borderThickness; y++) {
+          const diagonalPos = x + y + stripeOffset;
+          const stripeIndex = Math.floor(diagonalPos / stripeWidth) % 2;
+          const color = alertColors[stripeIndex];
+          if (x >= 0 && x < screen.width) {
+            ink(...color, 255).box(x, y, 1, 1);
+          }
+        }
       }
       
-      // Bottom border (full width)
-      for (let x = 0; x < screen.width; x++) {
-        const stripeIndex = Math.floor((x - stripeOffset) / stripeWidth) % 2; // Opposite direction
-        const color = alertColors[stripeIndex];
-        ink(...color, 220).box(x, screen.height - borderThickness, 1, borderThickness);
+      // Bottom border - diagonal stripes moving left
+      for (let x = -stripeWidth * 2; x < screen.width + stripeWidth * 2; x++) {
+        for (let y = 0; y < borderThickness; y++) {
+          const diagonalPos = x - y - stripeOffset;
+          const stripeIndex = Math.floor(diagonalPos / stripeWidth) % 2;
+          const color = alertColors[(stripeIndex + 1) % 2]; // Offset color for variety
+          if (x >= 0 && x < screen.width) {
+            ink(...color, 255).box(x, screen.height - borderThickness + y, 1, 1);
+          }
+        }
       }
       
-      // Left border (full height, excluding corners already drawn)
-      for (let y = borderThickness; y < screen.height - borderThickness; y++) {
-        const stripeIndex = Math.floor((y + stripeOffset) / stripeWidth) % 2;
-        const color = alertColors[stripeIndex];
-        ink(...color, 220).box(0, y, borderThickness, 1);
+      // Left border - diagonal stripes moving down
+      for (let y = -stripeWidth * 2; y < screen.height + stripeWidth * 2; y++) {
+        for (let x = 0; x < borderThickness; x++) {
+          const diagonalPos = y + x + stripeOffset;
+          const stripeIndex = Math.floor(diagonalPos / stripeWidth) % 2;
+          const color = alertColors[stripeIndex];
+          if (y >= 0 && y < screen.height) {
+            ink(...color, 255).box(x, y, 1, 1);
+          }
+        }
       }
       
-      // Right border (full height, excluding corners already drawn)
-      for (let y = borderThickness; y < screen.height - borderThickness; y++) {
-        const stripeIndex = Math.floor((y - stripeOffset) / stripeWidth) % 2; // Opposite direction
-        const color = alertColors[stripeIndex];
-        ink(...color, 220).box(screen.width - borderThickness, y, borderThickness, 1);
+      // Right border - diagonal stripes moving up
+      for (let y = -stripeWidth * 2; y < screen.height + stripeWidth * 2; y++) {
+        for (let x = 0; x < borderThickness; x++) {
+          const diagonalPos = y - x - stripeOffset;
+          const stripeIndex = Math.floor(diagonalPos / stripeWidth) % 2;
+          const color = alertColors[(stripeIndex + 1) % 2];
+          if (y >= 0 && y < screen.height) {
+            ink(...color, 255).box(screen.width - borderThickness + x, y, 1, 1);
+          }
+        }
       }
+      $.layer(1); // Return to normal layer
     } else {
       // Normal mode: pink/purple/green gradient border
       // Cycle through pink, purple, green phases
@@ -5806,28 +5831,26 @@ function paint($) {
       if (FUNDING_MODE) {
         // Alternate English/Danish every 10 seconds
         const langPhase = Math.floor(Date.now() / 10000) % 2;
-        const helpParts = langPhase === 0 
-          ? ["ENTER '", "give", "' TO HELP"]
-          : ["SKRIV '", "give", "' FOR HJAELP"];
+        const helpTextEN = "ENTER 'give' TO HELP";
+        const helpTextDA = "SKRIV 'give' FOR HJAELP";
+        const helpText = langPhase === 0 ? helpTextEN : helpTextDA;
+        const giveStart = helpText.indexOf("'give'");
+        const giveEnd = giveStart + 6; // length of 'give'
         
         // Build text with 'give' in cyan, rest in cycling red/yellow
         let coloredHelpText = "";
-        let charIndex = 0;
-        for (const part of helpParts) {
-          const isGive = part === "give";
-          for (let i = 0; i < part.length; i++) {
-            if (isGive) {
-              // 'give' in bright cyan/white cycling
-              const giveColors = ["cyan", "white", "lime"];
-              const colorIndex = Math.floor((i + motdFrame * 0.2) % giveColors.length);
-              coloredHelpText += `\\${giveColors[colorIndex]}\\${part[i]}`;
-            } else {
-              // Rest in red/yellow cycling
-              const colorIndex = Math.floor((charIndex + motdFrame * 0.15 + 5) % alertColors.length);
-              const color = alertColors[colorIndex];
-              coloredHelpText += `\\${color}\\${part[i]}`;
-            }
-            charIndex++;
+        for (let i = 0; i < helpText.length; i++) {
+          const isGive = i >= giveStart && i < giveEnd;
+          if (isGive) {
+            // 'give' in bright cyan/white cycling
+            const giveColors = ["cyan", "white", "lime"];
+            const colorIndex = Math.floor(((i - giveStart) + motdFrame * 0.2) % giveColors.length);
+            coloredHelpText += `\\${giveColors[colorIndex]}\\${helpText[i]}`;
+          } else {
+            // Rest in red/yellow cycling
+            const colorIndex = Math.floor((i + motdFrame * 0.15 + 5) % alertColors.length);
+            const color = alertColors[colorIndex];
+            coloredHelpText += `\\${color}\\${helpText[i]}`;
           }
         }
         ink(pal.handleColor).write(
