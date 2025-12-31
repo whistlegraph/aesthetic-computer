@@ -5819,32 +5819,74 @@ function paint($) {
     if (motd && (FUNDING_MODE || screen.height >= 180)) {
       // Subtle sway (up and down)
       const swayY = Math.sin(motdFrame * 0.05) * 2; // 2 pixel sway range
-      const motdY = screen.height / 2 - 48 + swayY; // Moved up 12px closer to top (changed from -36 back to -48)
       
       // Parse MOTD for interactive elements (handles, URLs, prompts, etc.)
       // In FUNDING_MODE, toggle languages every 1.5 seconds
       let displayMotd = motd;
       const langPhase = Math.floor(Date.now() / 1500) % 2; // Toggle every 1.5s
-      if (FUNDING_MODE) {
-        // Line 1: EN when phase=0, DA when phase=1
+      
+      // Color schemes: EN = red/orange, DA = cyan/blue
+      const enColors = ["red", "255,100,50", "yellow", "orange"];
+      const daColors = ["cyan", "0,150,255", "white", "lime"];
+      
+      // Small screen mode: 3 lines, moved up
+      const isSmallScreen = screen.width < 160;
+      const lineSpacing = 10;
+      
+      if (FUNDING_MODE && isSmallScreen) {
+        // 3-line layout for small screens
+        const line1EN = "CRITICAL MEDIA";
+        const line1DA = "KRITISKE";
+        const line2EN = "SERVICES OFFLINE";
+        const line2DA = "MEDIETJENESTER OFFLINE";
+        const line3EN = "ENTER 'give' TO HELP";
+        const line3DA = "SKRIV 'give' FOR HJAELP";
+        
+        const lines = langPhase === 0 
+          ? [line1EN, line2EN, line3EN]
+          : [line1DA, line2DA, line3DA];
+        
+        const colors = langPhase === 0 ? enColors : daColors;
+        
+        // Move up more for 3 lines
+        const baseY = screen.height / 2 - 58 + swayY;
+        
+        for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
+          const line = lines[lineIdx];
+          let coloredLine = "";
+          for (let i = 0; i < line.length; i++) {
+            const colorIndex = Math.floor((i + motdFrame * 0.15 + lineIdx * 3) % colors.length);
+            const color = colors[colorIndex];
+            coloredLine += `\\${color}\\${line[i]}`;
+          }
+          
+          ink(pal.handleColor).write(
+            coloredLine,
+            { center: "x", y: Math.floor(baseY + lineIdx * lineSpacing) },
+            [255, 50, 200, 24],
+            screen.width - 8,
+          );
+        }
+        
+        $.needsPaint();
+      } else if (FUNDING_MODE) {
+        // Normal 2-line layout for larger screens
+        const motdY = screen.height / 2 - 48 + swayY;
+        
         displayMotd = langPhase === 0 
           ? "CRITICAL MEDIA SERVICES OFFLINE" 
           : "KRITISKE MEDIETJENESTER OFFLINE";
-      }
+      
       const motdElements = parseMessageElements(displayMotd);
       const hasLinks = motdElements.length > 0;
       
       let coloredText = "";
       const rainbowColors = ["pink", "cyan", "yellow", "lime", "orange", "magenta"];
       
-      // Color schemes: EN = red/orange, DA = cyan/blue
-      const enColors = ["red", "255,100,50", "yellow", "orange"];
-      const daColors = ["cyan", "0,150,255", "white", "lime"];
-      
       if (hasLinks) {
         // Use syntax highlighting for interactive elements
         coloredText = colorizeText(displayMotd, "white");
-      } else if (FUNDING_MODE) {
+      } else {
         // Use color scheme matching the current language
         const line1Colors = langPhase === 0 ? enColors : daColors;
         for (let i = 0; i < displayMotd.length; i++) {
@@ -5852,20 +5894,9 @@ function paint($) {
           const color = line1Colors[colorIndex];
           coloredText += `\\${color}\\${displayMotd[i]}`;
         }
-      } else {
-        // No links - use rainbow animation
-        for (let i = 0; i < motd.length; i++) {
-          // Each letter gets a color that changes over time based on its position
-          const colorIndex = Math.floor((i + motdFrame * 0.1) % rainbowColors.length);
-          const color = rainbowColors[colorIndex];
-          coloredText += `\\${color}\\${motd[i]}`;
-        }
       }
       
       // Use wider text wrapping to prevent overlap
-      // "CRITICAL MEDIA SERVICES OFFLINE" = 31 chars * ~4px = 124px
-      // "KRITISKE MEDIETJENESTER OFFLINE" = 31 chars * ~4px = 124px
-      // Allow enough width to prevent wrapping on most screens
       const motdMaxWidth = Math.min(screen.width - 18, 200);
       
       // Determine alignment: left-align when book needs room on narrow screens
@@ -5887,33 +5918,20 @@ function paint($) {
         motdMaxWidth,
       );
       
-      // Add help line below MOTD in funding mode (opposite language from line 1)
-      if (FUNDING_MODE) {
-        // Line 2: DA when phase=0, EN when phase=1 (opposite of line 1)
+      // Add help line below MOTD (opposite language from line 1)
         const helpTextEN = "ENTER 'give' TO HELP";
         const helpTextDA = "SKRIV 'give' FOR HJAELP";
         const helpText = langPhase === 0 ? helpTextDA : helpTextEN;
-        const giveStart = helpText.indexOf("'give'");
-        const giveEnd = giveStart + 6; // length of 'give'
         
         // Use opposite color scheme from line 1
         const line2Colors = langPhase === 0 ? daColors : enColors;
         
-        // Build text with 'give' highlighted, rest in language colors
+        // Build text with consistent language colors
         let coloredHelpText = "";
         for (let i = 0; i < helpText.length; i++) {
-          const isGive = i >= giveStart && i < giveEnd;
-          if (isGive) {
-            // 'give' always bright and attention-grabbing
-            const giveColors = ["white", "lime", "yellow"];
-            const colorIndex = Math.floor(((i - giveStart) + motdFrame * 0.2) % giveColors.length);
-            coloredHelpText += `\\${giveColors[colorIndex]}\\${helpText[i]}`;
-          } else {
-            // Rest uses language-specific color scheme
-            const colorIndex = Math.floor((i + motdFrame * 0.15 + 5) % line2Colors.length);
-            const color = line2Colors[colorIndex];
-            coloredHelpText += `\\${color}\\${helpText[i]}`;
-          }
+          const colorIndex = Math.floor((i + motdFrame * 0.15 + 5) % line2Colors.length);
+          const color = line2Colors[colorIndex];
+          coloredHelpText += `\\${color}\\${helpText[i]}`;
         }
         // Use same positioning logic as MOTD, but directly below (10px spacing)
         const helpWritePos = writePos.x !== undefined 
@@ -5925,9 +5943,46 @@ function paint($) {
           [255, 50, 200, 24],
           motdMaxWidth,
         );
-      }
       
       $.needsPaint();
+      } else if (motd) {
+        // Non-funding mode: normal MOTD display
+        const motdY = screen.height / 2 - 48 + swayY;
+        const motdElements = parseMessageElements(motd);
+        const hasLinks = motdElements.length > 0;
+        
+        let coloredText = "";
+        const rainbowColors = ["pink", "cyan", "yellow", "lime", "orange", "magenta"];
+        
+        if (hasLinks) {
+          coloredText = colorizeText(motd, "white");
+        } else {
+          for (let i = 0; i < motd.length; i++) {
+            const colorIndex = Math.floor((i + motdFrame * 0.1) % rainbowColors.length);
+            const color = rainbowColors[colorIndex];
+            coloredText += `\\${color}\\${motd[i]}`;
+          }
+        }
+        
+        const motdMaxWidth = Math.min(screen.width - 18, 200);
+        let writePos;
+        const leftMargin = 9;
+        
+        if (motdXOffset < 0 && screen.width < 400) {
+          writePos = { x: leftMargin, y: Math.floor(motdY) };
+        } else {
+          writePos = { center: "x", y: Math.floor(motdY) };
+        }
+        
+        ink(pal.handleColor).write(
+          coloredText,
+          writePos,
+          [255, 50, 200, 24],
+          motdMaxWidth,
+        );
+        
+        $.needsPaint();
+      }
     }
     
     // 😡😢😭 Emotional face stamp - cycles through angry, sad, crying
