@@ -565,7 +565,8 @@ function act({ event: e, screen, hud, piece, jump, needsPaint, geo }) {
   // Item interactions
   itemButtons.forEach((btn, i) => {
     const y = btn.box.y + scroll;
-    const inBounds = e.x >= btn.box.x && e.x <= screen.width &&
+    // Only respond to clicks on the name itself, not the full row
+    const inBounds = e.x >= btn.box.x && e.x <= btn.box.x + btn.box.w &&
                      e.y >= y && e.y <= y + btn.box.h;
     
     if (e.is("touch") && inBounds) {
