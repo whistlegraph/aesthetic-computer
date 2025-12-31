@@ -5947,28 +5947,29 @@ function paint($) {
       
       // Only draw if there's enough space from top
       if (symbolY > 20) {
-        // Shake animation - more intense when angry
-        const shakeIntensity = emotionPhase === 0 ? 3 : 1;
-        const shakeX = Math.sin(motdFrame * 0.3) * shakeIntensity;
-        const shakeY = Math.cos(motdFrame * 0.4) * (shakeIntensity * 0.7);
+        // Shake animation - VERY intense when angry
+        const shakeIntensity = emotionPhase === 0 ? 8 : 1; // Much more shake when angry!
+        const shakeSpeed = emotionPhase === 0 ? 0.8 : 0.3; // Faster shake when angry
+        const shakeX = Math.sin(motdFrame * shakeSpeed) * shakeIntensity;
+        const shakeY = Math.cos(motdFrame * (shakeSpeed * 1.3)) * (shakeIntensity * 0.7);
         
         // Color palette based on emotion
         let faceColors;
         if (emotionPhase === 0) {
-          // Angry: red/orange colors
+          // Angry: VERY RED - pure saturated reds
           faceColors = [
-            [255, 80, 80],   // Red
-            [255, 120, 50],  // Orange-red
-            [255, 50, 100],  // Hot pink
-            [255, 100, 100], // Lighter red
+            [255, 0, 0],     // Pure red
+            [255, 30, 0],    // Slightly orange red
+            [255, 0, 30],    // Slightly pink red
+            [220, 0, 0],     // Dark red
           ];
         } else if (emotionPhase === 1) {
-          // Sad: blue colors
+          // Sad: yellow colors (not blue!)
           faceColors = [
-            [100, 150, 255], // Blue
-            [80, 120, 200],  // Darker blue
-            [150, 180, 255], // Light blue
-            [120, 140, 220], // Medium blue
+            [255, 220, 80],  // Golden yellow
+            [255, 200, 50],  // Bright yellow
+            [255, 240, 100], // Light yellow
+            [230, 180, 40],  // Darker yellow
           ];
         } else {
           // Crying: cyan/teal colors
@@ -6080,15 +6081,17 @@ function paint($) {
         }
         
         // Sparks flying off the head (color matches emotion)
-        const sparkCount = 8;
+        // WAY more particles when angry!
+        const sparkCount = emotionPhase === 0 ? 24 : 8;
         for (let i = 0; i < sparkCount; i++) {
           // Each spark has a phase offset for continuous emission
           const sparkPhase = (motdFrame * 0.15 + i * 0.7) % 3; // 0-3 lifecycle
           const sparkLife = sparkPhase / 3; // 0-1 normalized
           
-          // Sparks fly upward and outward
-          const sparkAngle = -Math.PI / 2 + (i - sparkCount / 2) * 0.25 + Math.sin(motdFrame * 0.1 + i) * 0.1;
-          const sparkSpeed = 15 + i * 3;
+          // Sparks fly upward and outward - more spread when angry
+          const spreadFactor = emotionPhase === 0 ? 0.4 : 0.25;
+          const sparkAngle = -Math.PI / 2 + (i - sparkCount / 2) * spreadFactor + Math.sin(motdFrame * 0.1 + i) * 0.15;
+          const sparkSpeed = emotionPhase === 0 ? (20 + i * 2) : (15 + i * 3);
           const sparkDist = sparkLife * sparkSpeed;
           
           // Start from top of head (center-top of face)
@@ -6101,9 +6104,11 @@ function paint($) {
           // Spark colors match emotion
           let sparkColors;
           if (emotionPhase === 0) {
-            sparkColors = [[255, 50, 50], [255, 100, 30], [255, 200, 50], [255, 80, 80]];
+            // VERY RED sparks for angry
+            sparkColors = [[255, 0, 0], [255, 50, 0], [255, 100, 0], [255, 30, 30]];
           } else if (emotionPhase === 1) {
-            sparkColors = [[80, 120, 255], [100, 150, 255], [150, 180, 255], [120, 160, 255]];
+            // Yellow sparks for sad
+            sparkColors = [[255, 220, 50], [255, 200, 80], [255, 240, 100], [230, 180, 40]];
           } else {
             sparkColors = [[80, 200, 255], [100, 220, 255], [150, 230, 255], [120, 210, 255]];
           }
