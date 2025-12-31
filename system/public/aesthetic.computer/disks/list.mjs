@@ -23,6 +23,11 @@ const scheme = {
     scrollbarThumb: [100, 120, 180],
     highlight: [255, 255, 100],
     chevron: [80, 100, 140],
+    // Per-tab colors
+    tabPopular: [255, 120, 80],    // 🔥 orange/red
+    tabAll: [100, 180, 255],       // blue
+    tabPieces: [100, 220, 150],    // green (matches pieceName)
+    tabCommands: [255, 200, 100],  // yellow (matches commandName)
   },
   light: {
     background: [240, 240, 245],
@@ -40,6 +45,11 @@ const scheme = {
     scrollbarThumb: [140, 150, 180],
     highlight: [255, 220, 80],
     chevron: [120, 140, 180],
+    // Per-tab colors
+    tabPopular: [220, 80, 40],     // 🔥 orange/red
+    tabAll: [40, 100, 180],        // blue
+    tabPieces: [20, 120, 60],      // green (matches pieceName)
+    tabCommands: [160, 100, 20],   // yellow (matches commandName)
   },
 };
 
@@ -72,12 +82,17 @@ const COMMAND_CATEGORIES = {
 let docs = null;
 let pieces = {};
 let commands = {};
-let currentTab = "all"; // "all" | "pieces" | "commands"
+let hitStats = {};       // { pieceName: hitCount }
+let currentTab = "all"; // "all" | "pieces" | "commands" | "popular"
 let expandedCategories = new Set();
 let scroll = 0;
 let selectedItem = null;
 let anyDown = false;
 let layoutMode = "large"; // "tiny" | "small" | "medium" | "large"
+
+// 🔗 Confirmation modal for navigation
+// { name: string, type: "piece"|"command", desc: string, yesBtn, noBtn, hoverYes, hoverNo }
+let confirmModal = null;
 
 // UI elements
 let tabButtons = [];
@@ -88,6 +103,7 @@ let categoryButtons = [];
 let allItems = [];      // Flat list for "all" tab
 let pieceItems = [];    // Categorized pieces
 let commandItems = [];  // Categorized commands
+let popularItems = [];  // Popular pieces sorted by hits
 let visibleItems = [];  // Currently visible items based on tab + expanded categories
 
 // Layout constants (adjusted per mode)
@@ -102,9 +118,23 @@ async function boot({ ui, net, store, params, screen }) {
   // Determine layout mode
   updateLayoutMode(screen);
   
-  // Fetch docs
+  // Fetch docs and hit stats in parallel
   if (!params[0]) {
-    docs = await net.requestDocs();
+    const [docsResult, hitsResult] = await Promise.all([
+      net.requestDocs(),
+      fetch("/api/piece-hit?top=100").then(r => r.json()).catch(() => ({ pieces: [] })),
+    ]);
+    
+    docs = docsResult;
+    
+    // Build hit stats map
+    hitStats = {};
+    if (hitsResult?.pieces) {
+      hitsResult.pieces.forEach(p => {
+        hitStats[p.piece] = p.hits;
+      });
+    }
+    
     if (docs) {
       // Separate pieces and commands, filter hidden
       pieces = {};
@@ -126,6 +156,9 @@ async function boot({ ui, net, store, params, screen }) {
       
       // Build flat "all" list
       buildAllList(ui);
+      
+      // Build popular list
+      buildPopularList(ui);
       
       // Restore state
       currentTab = (await store.retrieve("list:tab")) || "all";
@@ -230,6 +263,28 @@ function buildAllList(ui) {
   }));
 }
 
+// Build popular list sorted by hit count
+function buildPopularList(ui) {
+  // Combine pieces and commands with their hit counts
+  const combined = {
+    ...Object.fromEntries(keys(pieces).map(k => [k, { ...pieces[k], _type: "piece" }])),
+    ...Object.fromEntries(keys(commands).map(k => [k, { ...commands[k], _type: "command" }])),
+  };
+  
+  // Sort by hits (descending), then alphabetically for ties
+  popularItems = keys(combined)
+    .map(name => ({
+      name,
+      data: combined[name],
+      type: combined[name]._type,
+      hits: hitStats[name] || 0,
+    }))
+    .sort((a, b) => {
+      if (b.hits !== a.hits) return b.hits - a.hits;
+      return a.name.localeCompare(b.name);
+    });
+}
+
 // Rebuild visible items based on current tab and expanded categories
 function rebuildVisibleItems(ui) {
   visibleItems = [];
@@ -241,8 +296,12 @@ function rebuildVisibleItems(ui) {
     // Flat list, no categories
     sourceItems = allItems;
     visibleItems = sourceItems.map((item, i) => ({ ...item, y: CONTENT_TOP + i * ROW_HEIGHT }));
+  } else if (currentTab === "popular") {
+    // Popular list sorted by hits (flat, no categories)
+    sourceItems = popularItems;
+    visibleItems = sourceItems.map((item, i) => ({ ...item, y: CONTENT_TOP + i * ROW_HEIGHT }));
   } else {
-    // Categorized list
+    // Categorized list (pieces or commands)
     sourceItems = currentTab === "pieces" ? pieceItems : commandItems;
     let y = CONTENT_TOP;
     let currentCategory = null;
@@ -330,58 +389,15 @@ function paint({ wipe, ink, screen, dark, paintCount }) {
     return;
   }
   
-  // Header background
-  ink(pal.headerBg).box(0, 0, screen.width, HEADER_HEIGHT);
-  
-  // Title
-  if (layoutMode !== "tiny") {
-    ink(pal.categoryHeader).write("📚 LIST", { x: LEFT_MARGIN, y: 4 });
-  } else {
-    ink(pal.categoryHeader).write("LIST", { x: 2, y: 2 });
-  }
-  
-  // Item count
-  const countText = `${visibleItems.filter(i => i.type !== "category").length}`;
-  if (layoutMode !== "tiny") {
-    ink(pal.categoryCount).write(countText, { x: screen.width - countText.length * 6 - 4, y: 4 });
-  }
-  
-  // Tabs (not in tiny mode)
-  if (layoutMode !== "tiny") {
-    const tabY = HEADER_HEIGHT + 1;
-    ink(pal.tabBg).box(0, tabY - 1, screen.width, TAB_HEIGHT + 2);
-    
-    const tabs = layoutMode === "small" 
-      ? [["all", "All"], ["pieces", "📦"], ["commands", "🎯"]]
-      : [["all", "All"], ["pieces", "Pieces"], ["commands", "Commands"]];
-    
-    let tabX = LEFT_MARGIN;
-    tabButtons = []; // Reset
-    tabs.forEach(([id, label]) => {
-      const isActive = currentTab === id;
-      const tabWidth = label.length * 6 + 8;
-      
-      if (isActive) {
-        ink(pal.tabActive).box(tabX - 2, tabY, tabWidth, TAB_HEIGHT - 2);
-        ink(pal.background).write(label, { x: tabX + 2, y: tabY + 2 });
-      } else {
-        ink(pal.tabInactive).write(label, { x: tabX + 2, y: tabY + 2 });
-      }
-      
-      tabButtons.push({ id, x: tabX - 2, y: tabY, w: tabWidth, h: TAB_HEIGHT });
-      tabX += tabWidth + 6;
-    });
-  }
-  
-  // Content area
+  // Content area - draw FIRST so header/tabs mask it
   const maxDescLen = getMaxDescLength(screen);
   const contentBottom = screen.height - 2;
   
   visibleItems.forEach((item, i) => {
     const y = item.y + scroll;
     
-    // Skip if off-screen
-    if (y < CONTENT_TOP - ROW_HEIGHT || y > contentBottom) return;
+    // Skip if off-screen (including header/tab area)
+    if (y < CONTENT_TOP || y > contentBottom) return;
     
     if (item.type === "category") {
       // Category header
@@ -414,14 +430,21 @@ function paint({ wipe, ink, screen, dark, paintCount }) {
       
       // Item name (colored by type)
       const nameColor = item.type === "piece" ? pal.pieceName : pal.commandName;
+      const indent = layoutMode === "tiny" ? 0 : (currentTab === "all" || currentTab === "popular" ? 0 : 8);
       ink(isHighlighted ? pal.highlight : nameColor).write(item.name, { 
-        x: LEFT_MARGIN + (layoutMode === "tiny" ? 0 : (currentTab === "all" ? 0 : 8)), 
+        x: LEFT_MARGIN + indent, 
         y: y + 1 
       });
       
-      // Description (if space allows)
-      if (maxDescLen > 0 && item.data?.desc) {
-        const descX = LEFT_MARGIN + item.name.length * 6 + 8 + (currentTab === "all" ? 0 : 8);
+      // Show hit count in popular tab
+      if (currentTab === "popular" && item.hits > 0 && layoutMode !== "tiny") {
+        const hitText = item.hits >= 1000 ? `${(item.hits / 1000).toFixed(1)}k` : `${item.hits}`;
+        const hitX = LEFT_MARGIN + indent + item.name.length * 6 + 6;
+        ink(pal.categoryCount).write(hitText, { x: hitX, y: y + 1 });
+      }
+      // Description (if space allows and not in popular tab)
+      else if (maxDescLen > 0 && item.data?.desc && currentTab !== "popular") {
+        const descX = LEFT_MARGIN + item.name.length * 6 + 8 + indent;
         const remainingSpace = floor((screen.width - descX - 4) / 6);
         const desc = truncate(item.data.desc, min(maxDescLen, remainingSpace));
         ink(pal.description).write(desc, { x: descX, y: y + 1 });
@@ -439,11 +462,172 @@ function paint({ wipe, ink, screen, dark, paintCount }) {
     ink(pal.scrollbar).box(screen.width - 3, CONTENT_TOP, 2, viewHeight);
     ink(pal.scrollbarThumb).box(screen.width - 3, scrollbarY, 2, scrollbarHeight);
   }
+  
+  // === HEADER & TABS (drawn LAST to mask scrolling content) ===
+  
+  // Header background (masks content)
+  ink(pal.headerBg).box(0, 0, screen.width, HEADER_HEIGHT);
+  
+  // Item count in header
+  const countText = `${visibleItems.filter(i => i.type !== "category").length}`;
+  if (layoutMode !== "tiny") {
+    ink(pal.categoryCount).write(countText, { x: screen.width - countText.length * 6 - 4, y: 4 });
+  }
+  
+  // Tabs (not in tiny mode)
+  if (layoutMode !== "tiny") {
+    const tabY = HEADER_HEIGHT + 1;
+    
+    // Tab bar background (masks content)
+    ink(pal.tabBg).box(0, tabY - 1, screen.width, TAB_HEIGHT + 2);
+    
+    // Tab color map
+    const tabColors = {
+      popular: pal.tabPopular,
+      all: pal.tabAll,
+      pieces: pal.tabPieces,
+      commands: pal.tabCommands,
+    };
+    
+    const tabs = layoutMode === "small" 
+      ? [["popular", "🔥"], ["all", "All"], ["pieces", "📦"], ["commands", "🎯"]]
+      : [["popular", "🔥 Hot"], ["all", "All"], ["pieces", "Pieces"], ["commands", "Commands"]];
+    
+    let tabX = LEFT_MARGIN;
+    tabButtons = []; // Reset
+    tabs.forEach(([id, label]) => {
+      const isActive = currentTab === id;
+      const tabWidth = label.length * 6 + 8;
+      const tabColor = tabColors[id] || pal.tabActive;
+      
+      if (isActive) {
+        // Active tab: colored background, dark text
+        ink(tabColor).box(tabX - 2, tabY, tabWidth, TAB_HEIGHT - 2);
+        ink(pal.background).write(label, { x: tabX + 2, y: tabY + 2 });
+      } else {
+        // Inactive tab: colored text, no background
+        ink(tabColor, 180).write(label, { x: tabX + 2, y: tabY + 2 });
+      }
+      
+      tabButtons.push({ id, x: tabX - 2, y: tabY, w: tabWidth, h: TAB_HEIGHT });
+      tabX += tabWidth + 6;
+    });
+  }
+  
+  // === CONFIRMATION MODAL (overlay over everything) ===
+  if (confirmModal) {
+    const { name, type, desc } = confirmModal;
+    
+    // Semi-transparent dark backdrop
+    ink(12, 12, 20, 220).box(0, 0, screen.width, screen.height);
+    
+    // Calculate modal dimensions
+    const hasDesc = desc && desc.length > 0;
+    const modalW = min(screen.width - 16, 160);
+    const modalH = hasDesc ? 68 : 54;
+    const modalX = floor((screen.width - modalW) / 2);
+    const modalY = floor((screen.height - modalH) / 2);
+    
+    // Modal background
+    ink(pal.headerBg).box(modalX, modalY, modalW, modalH);
+    ink(pal.categoryHeader).box(modalX, modalY, modalW, modalH, "outline");
+    ink(pal.categoryHeader, 120).box(modalX + 1, modalY, modalW - 2, 1); // Top highlight
+    
+    // Action label
+    const actionLabel = type === "piece" ? "Open piece?" : "Run command?";
+    const labelColor = type === "piece" ? pal.pieceName : pal.commandName;
+    ink(labelColor).write(actionLabel, { x: modalX + 6, y: modalY + 4 });
+    
+    // Name
+    const maxNameLen = floor((modalW - 12) / 6);
+    const truncName = name.length > maxNameLen ? name.slice(0, maxNameLen - 1) + "…" : name;
+    ink(255, 255, 255).write(truncName, { x: modalX + 6, y: modalY + 16 });
+    
+    // Description (if available)
+    if (hasDesc) {
+      const maxDescLen = floor((modalW - 12) / 6);
+      const truncDesc = desc.length > maxDescLen ? desc.slice(0, maxDescLen - 1) + "…" : desc;
+      ink(pal.description).write(truncDesc, { x: modalX + 6, y: modalY + 28 });
+    }
+    
+    // Buttons
+    const btnW = 32;
+    const btnH = 14;
+    const btnY = modalY + modalH - btnH - 6;
+    const btnGap = 10;
+    const totalBtnW = btnW * 2 + btnGap;
+    const btnStartX = modalX + floor((modalW - totalBtnW) / 2);
+    
+    // Store button positions for hit detection
+    confirmModal.yesBtn = { x: btnStartX, y: btnY, w: btnW, h: btnH };
+    confirmModal.noBtn = { x: btnStartX + btnW + btnGap, y: btnY, w: btnW, h: btnH };
+    
+    // Yes button - green theme
+    const yesHover = confirmModal.hoverYes;
+    ink(yesHover ? [60, 140, 60] : [40, 90, 40]).box(btnStartX, btnY, btnW, btnH);
+    ink(yesHover ? [100, 200, 100] : [70, 130, 70]).box(btnStartX, btnY, btnW, btnH, "outline");
+    ink(yesHover ? [180, 255, 180] : [150, 220, 150]).write("yes", { x: btnStartX + 7, y: btnY + 3 });
+    
+    // No button - red theme
+    const noHover = confirmModal.hoverNo;
+    ink(noHover ? [140, 50, 50] : [90, 35, 35]).box(btnStartX + btnW + btnGap, btnY, btnW, btnH);
+    ink(noHover ? [200, 90, 90] : [130, 60, 60]).box(btnStartX + btnW + btnGap, btnY, btnW, btnH, "outline");
+    ink(noHover ? [255, 180, 180] : [220, 150, 150]).write("no", { x: btnStartX + btnW + btnGap + 9, y: btnY + 3 });
+  }
 }
 
 // 🎪 Act
-function act({ event: e, screen, hud, piece, jump, needsPaint, geo }) {
+function act({ event: e, screen, hud, piece, jump, needsPaint, geo, beep }) {
   updateLayoutMode(screen);
+  
+  // === CONFIRMATION MODAL intercepts all events ===
+  if (confirmModal) {
+    const { yesBtn, noBtn, name } = confirmModal;
+    
+    // Handle hover states
+    if (e.is("move") || e.is("draw")) {
+      if (yesBtn && noBtn) {
+        confirmModal.hoverYes = e.x >= yesBtn.x && e.x < yesBtn.x + yesBtn.w &&
+                                 e.y >= yesBtn.y && e.y < yesBtn.y + yesBtn.h;
+        confirmModal.hoverNo = e.x >= noBtn.x && e.x < noBtn.x + noBtn.w &&
+                                e.y >= noBtn.y && e.y < noBtn.y + noBtn.h;
+        needsPaint();
+      }
+    }
+    
+    // Handle clicks
+    if (e.is("lift") || e.is("touch")) {
+      if (yesBtn && noBtn) {
+        const clickedYes = e.x >= yesBtn.x && e.x < yesBtn.x + yesBtn.w &&
+                           e.y >= yesBtn.y && e.y < yesBtn.y + yesBtn.h;
+        const clickedNo = e.x >= noBtn.x && e.x < noBtn.x + noBtn.w &&
+                          e.y >= noBtn.y && e.y < noBtn.y + noBtn.h;
+        
+        if (clickedYes) {
+          beep?.();
+          hud.label(piece);
+          jump("prompt~" + name);
+          confirmModal = null;
+        } else if (clickedNo || true) {
+          // Clicking No or anywhere else closes modal
+          beep?.();
+          confirmModal = null;
+          hud.label(piece);
+          needsPaint();
+        }
+      }
+    }
+    
+    // Escape key closes modal
+    if (e.is("keyboard:down:escape")) {
+      beep?.();
+      confirmModal = null;
+      hud.label(piece);
+      needsPaint();
+    }
+    
+    return; // Block all other interactions when modal is open
+  }
   
   // Scroll handling
   if (e.is("scroll")) {
@@ -495,7 +679,8 @@ function act({ event: e, screen, hud, piece, jump, needsPaint, geo }) {
   // Item interactions
   itemButtons.forEach((btn, i) => {
     const y = btn.box.y + scroll;
-    const inBounds = e.x >= btn.box.x && e.x <= screen.width &&
+    // Only respond to clicks on the name itself, not the full row
+    const inBounds = e.x >= btn.box.x && e.x <= btn.box.x + btn.box.w &&
                      e.y >= y && e.y <= y + btn.box.h;
     
     if (e.is("touch") && inBounds) {
@@ -509,8 +694,19 @@ function act({ event: e, screen, hud, piece, jump, needsPaint, geo }) {
     if (e.is("lift") && btn.down) {
       btn.down = false;
       anyDown = false;
-      // Jump to the piece/command
-      jump("prompt~" + btn.name);
+      // Show confirmation modal instead of jumping directly
+      const item = visibleItems.find(i => i.name === btn.name);
+      confirmModal = {
+        name: btn.name,
+        type: item?.type || "piece",
+        desc: item?.data?.desc || "",
+        yesBtn: null,
+        noBtn: null,
+        hoverYes: false,
+        hoverNo: false,
+      };
+      beep?.();
+      needsPaint();
     }
     
     if (e.is("draw:1") && anyDown && inBounds && !btn.down) {

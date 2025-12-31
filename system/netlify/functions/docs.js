@@ -1524,8 +1524,8 @@ export async function handler(event, context) {
         done: false,
         hidden: true,
       },
-      "@maya/sparkle": {
-        sig: "@maya/sparkle",
+      sparkle: {
+        sig: "sparkle",
         desc: "Paint with Maya's really fun brush.",
         done: false,
       },
