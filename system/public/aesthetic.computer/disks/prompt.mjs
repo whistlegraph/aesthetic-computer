@@ -5947,10 +5947,10 @@ function paint($) {
       
       // Only draw if there's enough space from top
       if (symbolY > 20) {
-        // Shake animation - VERY intense when angry
+        // Shake animation - VERY intense when angry (vertical only)
         const shakeIntensity = emotionPhase === 0 ? 8 : 1; // Much more shake when angry!
         const shakeSpeed = emotionPhase === 0 ? 0.4 : 0.3; // Slower but still intense when angry
-        const shakeX = Math.sin(motdFrame * shakeSpeed) * shakeIntensity;
+        const shakeX = emotionPhase === 0 ? 0 : Math.sin(motdFrame * shakeSpeed) * shakeIntensity; // No horizontal shake when angry
         const shakeY = Math.cos(motdFrame * (shakeSpeed * 1.3)) * (shakeIntensity * 0.7);
         
         // Color palette based on emotion
