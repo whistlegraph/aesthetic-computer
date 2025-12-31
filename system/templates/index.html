@@ -91,21 +91,12 @@
       const lineHeight = 14;
       const maxLines = 18;
       
-      // Load SVG asynchronously to avoid blocking and keep bundle small
+      // Inline tiny SVG as base64 data URI for instant load (tiny, non-blocking)
       const img = new Image();
       let imgLoaded = false;
-      (async () => {
-        try {
-          const r = await fetch('/purple-pals.svg');
-          const svg = await r.text();
-          const blob = new Blob([svg], { type: 'image/svg+xml' });
-          const url = URL.createObjectURL(blob);
-          img.onload = () => { imgLoaded = true; URL.revokeObjectURL(url); };
-          img.src = url;
-        } catch (e) {
-          // silent fail — placeholder will be used
-        }
-      })();
+      // data:image/svg+xml;base64, tiny 2-circle logo
+      img.onload = () => { imgLoaded = true; };
+      img.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0Ij48Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIxMCIgZmlsbD0iI2NkNWM5YiIvPjxjaXJjbGUgY3g9IjgiIGN5PSI4IiByPSIyIiBmaWxsPSIjZmZmZmZmIiBvcGFjaXR5PSIwLjYiLz48L3N2Zz4=';
       
       // Boot state
       let lines = [];
