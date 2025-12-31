@@ -7043,7 +7043,7 @@ async function makeMotd({ system, needsPaint, handle, user, net, api, notice }) 
   // Use funding mode message or default (alternate EN/DA every 10 seconds)
   if (FUNDING_MODE) {
     const langPhase = Math.floor(Date.now() / 10000) % 2;
-    motd = langPhase === 0 ? "CRITICAL SERVICES OFFLINE" : "KRITISKE TJENESTER OFFLINE";
+    motd = langPhase === 0 ? "CRITICAL MEDIA SERVICES OFFLINE" : "KRITISKE MEDIETJENESTER OFFLINE";
   } else {
     motd = "aesthetic.computer";
   }
