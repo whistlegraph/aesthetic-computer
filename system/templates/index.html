@@ -110,6 +110,10 @@
       let logBurst = 0;
       const bootStartTime = performance.now();
       
+      // User handle display
+      let userHandle = null;
+      let handleShowTime = 0;
+      
       // Syntax highlighting colors (VSCode dark theme)
       const SYN = {
         kw: [197, 134, 192],   // purple - keywords
@@ -122,44 +126,74 @@
         vr: [156, 220, 254],   // light blue - variables
       };
       
-      // Code snippets with syntax tokens [text, colorKey]
-      const codeSnippets = [
-        [[' const ', 'kw'], ['boot', 'vr'], [' = ', 'op'], ['async', 'kw'], [' () => {', 'op']],
-        [['  await ', 'kw'], ['loadSystem', 'fn'], ['();', 'op']],
-        [[' import ', 'kw'], ['{ disk }', 'vr'], [' from ', 'kw'], ['"./lib"', 'str'], [';', 'op']],
-        [[' function ', 'kw'], ['paint', 'fn'], ['(api) {', 'op']],
-        [['  ', 'op'], ['wipe', 'fn'], ['(', 'op'], ['32', 'num'], [');', 'op']],
-        [['  ', 'op'], ['ink', 'fn'], ['(', 'op'], ['255', 'num'], [').', 'op'], ['box', 'fn'], ['();', 'op']],
-        [[' if ', 'kw'], ['(event.', 'vr'], ['is', 'fn'], ['(', 'op'], ['"touch"', 'str'], ['))', 'op']],
-        [[' return ', 'kw'], ['{ boot, act };', 'vr']],
-        [[' class ', 'kw'], ['Aesthetic', 'tp'], [' {', 'op']],
-        [['  ', 'op'], ['constructor', 'fn'], ['() {}', 'op']],
-        [[' }', 'op']],
-        [[' // boot sequence', 'cmt']],
-        [[' ctx.', 'vr'], ['fillRect', 'fn'], ['(x, y);', 'op']],
-        [[' for ', 'kw'], ['(let i=', 'vr'], ['0', 'num'], ['; i<n; i++)', 'op']],
-        [[' Promise', 'tp'], ['.all(tasks);', 'op']],
-        [[' /* render */', 'cmt']],
+      // Full source file simulation - coherent line-by-line code
+      const sourceFile = [
+        [['// aesthetic.computer boot sequence', 'cmt']],
+        [['', 'op']],
+        [['import', 'kw'], [' { disk, bios } ', 'vr'], ['from', 'kw'], [' ', 'op'], ['"./lib"', 'str'], [';', 'op']],
+        [['import', 'kw'], [' { paint, act } ', 'vr'], ['from', 'kw'], [' ', 'op'], ['"./piece"', 'str'], [';', 'op']],
+        [['', 'op']],
+        [['const', 'kw'], [' canvas ', 'vr'], ['=', 'op'], [' document.', 'vr'], ['getElementById', 'fn'], ['(', 'op'], ['"screen"', 'str'], [');', 'op']],
+        [['const', 'kw'], [' ctx ', 'vr'], ['=', 'op'], [' canvas.', 'vr'], ['getContext', 'fn'], ['(', 'op'], ['"2d"', 'str'], [');', 'op']],
+        [['', 'op']],
+        [['async', 'kw'], [' function', 'kw'], [' boot', 'fn'], ['() {', 'op']],
+        [['  ', 'op'], ['await', 'kw'], [' bios.', 'vr'], ['init', 'fn'], ['();', 'op']],
+        [['  ', 'op'], ['const', 'kw'], [' user ', 'vr'], ['=', 'op'], [' await', 'kw'], [' auth', 'fn'], ['();', 'op']],
+        [['  ', 'op'], ['console.', 'vr'], ['log', 'fn'], ['(', 'op'], ['"🚀 booting..."', 'str'], [');', 'op']],
+        [['  ', 'op'], ['return', 'kw'], [' { user, disk };', 'vr']],
+        [['}', 'op']],
+        [['', 'op']],
+        [['function', 'kw'], [' render', 'fn'], ['(t) {', 'op']],
+        [['  ', 'op'], ['wipe', 'fn'], ['(', 'op'], ['32', 'num'], [', ', 'op'], ['0', 'num'], [', ', 'op'], ['64', 'num'], [');', 'op']],
+        [['  ', 'op'], ['ink', 'fn'], ['(', 'op'], ['255', 'num'], [', ', 'op'], ['200', 'num'], [', ', 'op'], ['100', 'num'], [');', 'op']],
+        [['  ', 'op'], ['box', 'fn'], ['(x, y, w, h);', 'op']],
+        [['  ', 'op'], ['requestAnimationFrame', 'fn'], ['(render);', 'op']],
+        [['}', 'op']],
+        [['', 'op']],
+        [['class', 'kw'], [' Aesthetic', 'tp'], [' {', 'op']],
+        [['  ', 'op'], ['constructor', 'fn'], ['(config) {', 'op']],
+        [['    ', 'op'], ['this', 'kw'], ['.config ', 'vr'], ['=', 'op'], [' config;', 'op']],
+        [['    ', 'op'], ['this', 'kw'], ['.ready ', 'vr'], ['=', 'op'], [' false', 'kw'], [';', 'op']],
+        [['  }', 'op']],
+        [['', 'op']],
+        [['  ', 'op'], ['async', 'kw'], [' init', 'fn'], ['() {', 'op']],
+        [['    ', 'op'], ['await', 'kw'], [' this', 'kw'], ['.', 'op'], ['loadAssets', 'fn'], ['();', 'op']],
+        [['    ', 'op'], ['this', 'kw'], ['.ready ', 'vr'], ['=', 'op'], [' true', 'kw'], [';', 'op']],
+        [['  }', 'op']],
+        [['}', 'op']],
+        [['', 'op']],
+        [['// event handlers', 'cmt']],
+        [['function', 'kw'], [' act', 'fn'], ['({ event }) {', 'op']],
+        [['  ', 'op'], ['if', 'kw'], [' (event.', 'vr'], ['is', 'fn'], ['(', 'op'], ['"touch"', 'str'], [')) {', 'op']],
+        [['    ', 'op'], ['const', 'kw'], [' { x, y } ', 'vr'], ['=', 'op'], [' event;', 'op']],
+        [['    ', 'op'], ['ink', 'fn'], ['(', 'op'], ['"red"', 'str'], [').', 'op'], ['circle', 'fn'], ['(x, y, ', 'op'], ['10', 'num'], [');', 'op']],
+        [['  }', 'op']],
+        [['}', 'op']],
+        [['', 'op']],
+        [['export', 'kw'], [' { boot, render, act };', 'vr']],
       ];
       
-      // Single column of code lines
+      // Streaming code state
       let codeLines = [];
-      const CODE_MAX = 40;
-      const CODE_SPEED = 2.5;
+      let sourceIndex = 0;
+      const CODE_MAX = 35;
+      const CODE_SPEED = 2.2;
       
       let frame = 0;
       let running = true;
       
-      // Pre-populate code for instant visual
-      for (let i = 0; i < 30; i++) {
+      // Pre-populate code for instant visual - use sequential lines
+      for (let i = 0; i < 25; i++) {
+        const idx = i % sourceFile.length;
         codeLines.push({
-          tokens: codeSnippets[Math.random() * codeSnippets.length | 0],
-          y: H - i * 18 - Math.random() * 10,
-          alpha: 0.2 + Math.random() * 0.4,
-          speed: CODE_SPEED + Math.random() * 1.5,
-          size: 10 + (Math.random() * 4 | 0)
+          tokens: sourceFile[idx],
+          y: H - i * 18 - Math.random() * 5,
+          alpha: 0.25 + Math.random() * 0.35,
+          speed: CODE_SPEED + Math.random() * 0.8,
+          size: 11
         });
       }
+      sourceIndex = 25 % sourceFile.length;
       
       const addLine = (msg) => {
         const now = performance.now();
@@ -175,6 +209,11 @@
         
         lineCount++;
         bootProgress = Math.min(1, lineCount / 15);
+      };
+      
+      const setHandle = (h) => {
+        userHandle = h;
+        handleShowTime = performance.now();
       };
       
       const animate = () => {
@@ -197,16 +236,16 @@
         const shakeX = (Math.random() - 0.5) * shakeAmount;
         const shakeY = (Math.random() - 0.5) * shakeAmount;
         
-        // Spawn new code lines
-        const spawnCount = 1 + (chaos * 1.5) | 0;
-        for (let s = 0; s < spawnCount; s++) {
+        // Spawn new code lines - sequential from source file
+        if (frame % 3 === 0) { // Slower spawn rate for readability
           codeLines.push({
-            tokens: codeSnippets[Math.random() * codeSnippets.length | 0],
+            tokens: sourceFile[sourceIndex],
             y: H + 5,
-            alpha: 0.25 + Math.random() * 0.45,
-            speed: CODE_SPEED + Math.random() * 1.5 + chaos,
-            size: 10 + (Math.random() * 4 | 0)
+            alpha: 0.3 + Math.random() * 0.3,
+            speed: CODE_SPEED + Math.random() * 0.5 + chaos * 0.5,
+            size: 11
           });
+          sourceIndex = (sourceIndex + 1) % sourceFile.length;
           if (codeLines.length > CODE_MAX) codeLines.shift();
         }
         
@@ -292,6 +331,39 @@
         const timerShake = baseShake + chaos * 2;
         ctx.fillText(timerStr, logoX + 4 + shakeX * 0.5 + (Math.random() - 0.5) * timerShake, logoY + logoSize + 14 + shakeY * 0.5 + (Math.random() - 0.5) * timerShake);
         ctx.globalAlpha = 1;
+        
+        // User handle display - appears prominently when discovered
+        if (userHandle) {
+          const handleAge = (performance.now() - handleShowTime) / 1000;
+          const handleFade = Math.min(1, handleAge * 2); // Fade in over 0.5s
+          const handlePulse = 0.8 + 0.2 * Math.sin(handleAge * 3);
+          
+          ctx.save();
+          ctx.font = 'bold 18px "Courier New", monospace';
+          const handleY = logoY + logoSize + 32;
+          const handleX = logoX + 4;
+          
+          // Glowing background
+          ctx.globalAlpha = handleFade * handlePulse * 0.4;
+          ctx.filter = 'blur(8px)';
+          ctx.fillStyle = '#a855f7';
+          ctx.fillText(userHandle, handleX, handleY);
+          ctx.filter = 'none';
+          
+          // Chromatic aberration on handle
+          const hAberr = 1.5 + chaos * 2;
+          ctx.globalAlpha = handleFade * handlePulse * 0.3;
+          ctx.fillStyle = '#ff6b9d';
+          ctx.fillText(userHandle, handleX - hAberr, handleY);
+          ctx.fillStyle = '#6bffb8';
+          ctx.fillText(userHandle, handleX + hAberr * 0.5, handleY - hAberr * 0.3);
+          
+          // Main handle text - bright purple/pink
+          ctx.globalAlpha = handleFade * handlePulse;
+          ctx.fillStyle = '#e879f9';
+          ctx.fillText(userHandle, handleX + shakeX * 0.3, handleY + shakeY * 0.3);
+          ctx.restore();
+        }
         
         // Draw log text
         ctx.font = '12px "Courier New", monospace';
@@ -391,7 +463,8 @@
       
       return {
         log: addLine,
-        hide: () => { running = false; canvas.remove(); }
+        hide: () => { running = false; canvas.remove(); },
+        setHandle: setHandle
       };
     })();
     
