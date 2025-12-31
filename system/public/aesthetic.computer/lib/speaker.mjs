@@ -570,7 +570,7 @@ class SpeakerProcessor extends AudioWorkletProcessor {
 
     if (this.#ticks >= this.#bpmInSec) {
       // 🎵 BEAT SYNC LOGGING - Critical for timeline sync
-      console.log(`🎵 BEAT: ${time.toFixed(6)}s, bpm=${this.#bpm}, interval=${this.#bpmInSec.toFixed(3)}s, tick_overflow=${(this.#ticks - this.#bpmInSec).toFixed(6)}s`);
+      // console.log(`🎵 BEAT: ${time.toFixed(6)}s, bpm=${this.#bpm}, interval=${this.#bpmInSec.toFixed(3)}s, tick_overflow=${(this.#ticks - this.#bpmInSec).toFixed(6)}s`);
       this.#ticks = 0;
       this.#report("metronome", time);
     }
