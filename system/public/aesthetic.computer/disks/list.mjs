@@ -101,7 +101,7 @@ function paint({ wipe, ink, ui, hud, screen, paintCount }) {
 
 let anyDown = false;
 
-function act({ event: e, hud, piece, geo, jump, send }) {
+function act({ event: e, hud, piece, geo, jump, send, needsPaint }) {
   if (!anyDown && e.is("draw:1")) {
     scroll += e.delta.y;
     checkScroll();

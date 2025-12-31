@@ -290,6 +290,9 @@ targetPort = 8111
 autoLaunch = false
 # No [dev.https] in base config - it's context-specific
 
+[dev.environment]
+OVEN_URL = "https://localhost:3002"
+
 # Context for local development: uses HTTPS with local SSL certificates
 [context.local.dev]
 [context.local.dev.https]

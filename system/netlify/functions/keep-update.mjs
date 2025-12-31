@@ -23,6 +23,7 @@ if (dev) {
 // Configuration
 const CONTRACT_ADDRESS = process.env.TEZOS_KEEPS_CONTRACT || "KT1JEVyKjsMLts63e4CNaMUywWTPgeQ41Smi";
 const NETWORK = process.env.TEZOS_NETWORK || "mainnet";
+const TZKT_API = NETWORK === "mainnet" ? "https://api.tzkt.io/v1" : `https://api.${NETWORK}.tzkt.io/v1`;
 const RPC_URL = NETWORK === "mainnet" 
   ? "https://mainnet.ecadinfra.com"
   : "https://ghostnet.ecadinfra.com";
@@ -158,19 +159,16 @@ export const handler = stream(async (event) => {
       // mode: "prepare" returns params for client-side wallet signing (preserves artist attribution)
       // mode: undefined = server-side signing (DEPRECATED - breaks objkt.com "Created" tab)
       const isPrepareMode = mode === "prepare";
+      
+      // allowOwnerEdit: Future flag to let token owners sync (with attribution warning)
+      // Contract supports this, but we default to blocking to preserve objkt.com "Created by"
+      const allowOwnerEdit = body.allowOwnerEdit === true;
 
       const pieceName = piece.replace(/^\$/, "");
 
       await send("progress", { stage: "auth", message: "Checking authorization..." });
 
-      // Check auth - require logged in user
-      const user = await authorize(event.headers);
-      if (!user) {
-        await send("error", { error: "Please log in first" });
-        return;
-      }
-
-      // Get piece data from database first to check ownership
+      // Get piece data from database first
       database = await connect();
       const collection = database.db.collection("kidlisp");
       const pieceDoc = await collection.findOne({ code: pieceName });
@@ -180,17 +178,77 @@ export const handler = stream(async (event) => {
         return;
       }
 
+      // Check if wallet is the current on-chain token owner
+      let isOnChainOwner = false;
+      if (walletAddress && tokenId != null) {
+        try {
+          const tokenResponse = await fetch(
+            `${TZKT_API}/tokens/balances?token.contract=${CONTRACT_ADDRESS}&token.tokenId=${tokenId}&balance.gt=0`
+          );
+          const balances = await tokenResponse.json();
+          const ownerBalance = balances.find(b => b.account?.address === walletAddress);
+          isOnChainOwner = !!ownerBalance;
+          console.log(`🪙 KEEP-UPDATE: Wallet ${walletAddress} is on-chain owner: ${isOnChainOwner}`);
+        } catch (e) {
+          console.warn("🪙 KEEP-UPDATE: Could not verify on-chain ownership:", e.message);
+        }
+      }
+
+      // Fetch the original minter EARLY - we need this for authorization
+      let originalMinter = null;
+      if (tokenId != null) {
+        try {
+          const tzktBase = NETWORK === "mainnet" ? "https://api.tzkt.io" : `https://api.${NETWORK}.tzkt.io`;
+          const tokenUrl = `${tzktBase}/v1/tokens?contract=${CONTRACT_ADDRESS}&tokenId=${tokenId}`;
+          const tokenResponse = await fetch(tokenUrl);
+          if (tokenResponse.ok) {
+            const tokens = await tokenResponse.json();
+            if (tokens[0]?.firstMinter?.address) {
+              originalMinter = tokens[0].firstMinter.address;
+              console.log(`🪙 KEEP-UPDATE: Original minter from TzKT: ${originalMinter}`);
+            }
+          }
+        } catch (e) {
+          console.warn(`🪙 KEEP-UPDATE: Failed to fetch firstMinter: ${e.message}`);
+        }
+      }
+
+      // Check AC auth
+      const user = await authorize(event.headers);
+      
       // Check if user is the piece owner/creator OR an admin
-      const isAdmin = await hasAdmin(user);
-      const isPieceOwner = pieceDoc.user === user;
+      const isAdmin = user ? await hasAdmin(user) : false;
+      const isPieceOwner = user && pieceDoc.user === user.sub;
       
-      // Also check if walletAddress matches the original minter (for cases where user field might differ)
-      const storedMinter = pieceDoc.tezos?.minter || pieceDoc.tezos?.owner;
-      const isOriginalMinter = walletAddress && storedMinter && walletAddress === storedMinter;
+      // Check if wallet matches the original minter (CRITICAL for attribution)
+      const isOriginalMinter = walletAddress && originalMinter && walletAddress === originalMinter;
       
-      if (!isAdmin && !isPieceOwner && !isOriginalMinter) {
-        await send("error", { error: "Only the piece owner or creator can update metadata" });
+      // Authorization rules for metadata sync:
+      // 1. Admin: Always allowed (server-side or via AC account)
+      // 2. Original creator/minter: Always allowed (preserves objkt "Created by")
+      // 3. Token owner: Only if allowOwnerEdit flag is set (changes objkt "Created by")
+      //    The contract supports owner edits (v3), but we default-block to preserve attribution
+      const canEdit = isAdmin || isOriginalMinter || (isOnChainOwner && allowOwnerEdit);
+      
+      if (!canEdit) {
+        if (isOnChainOwner && !allowOwnerEdit) {
+          await send("error", { 
+            error: "Token owners cannot sync metadata (would change objkt.com 'Created by'). Only the original creator can sync. Pass allowOwnerEdit:true to override.",
+            originalMinter: originalMinter,
+            hint: "The contract supports owner edits, but this would reassign the 'Created by' attribution on objkt.com."
+          });
+        } else if (!user) {
+          await send("error", { error: "Please connect the original creator's wallet to sync metadata" });
+        } else {
+          await send("error", { error: "Only the original creator can sync metadata to preserve attribution" });
+        }
         return;
+      }
+      
+      // Warn if owner is editing (will change attribution)
+      if (isOnChainOwner && !isOriginalMinter && allowOwnerEdit) {
+        console.warn(`🪙 KEEP-UPDATE: Owner ${walletAddress} editing token ${tokenId} - will change objkt attribution!`);
+        await send("progress", { stage: "auth", message: "⚠️ Warning: Owner edit will change objkt.com 'Created by'" });
       }
 
       await send("progress", { stage: "auth", message: "✓ Authorized" });
@@ -245,28 +303,8 @@ export const handler = stream(async (event) => {
       // Use contract-keyed storage: tezos.contracts[CONTRACT_ADDRESS]
       const contractData = pieceDoc.tezos?.contracts?.[CONTRACT_ADDRESS] || {};
       
-      // ALWAYS fetch the original creator from TzKT firstMinter for THIS contract
-      // Don't rely on DB which might have data from a different contract/network
-      let originalMinter = null;
-      
-      if (tokenId) {
-        try {
-          const tzktBase = NETWORK === "mainnet" ? "https://api.tzkt.io" : `https://api.${NETWORK}.tzkt.io`;
-          const tokenUrl = `${tzktBase}/v1/tokens?contract=${CONTRACT_ADDRESS}&tokenId=${tokenId}`;
-          const tokenResponse = await fetch(tokenUrl);
-          if (tokenResponse.ok) {
-            const tokens = await tokenResponse.json();
-            if (tokens[0]?.firstMinter?.address) {
-              originalMinter = tokens[0].firstMinter.address;
-              console.log(`🪙 KEEP-UPDATE: Preserving original creator from TzKT: ${originalMinter}`);
-            }
-          }
-        } catch (e) {
-          console.warn(`🪙 KEEP-UPDATE: Failed to fetch firstMinter from TzKT: ${e.message}`);
-        }
-      }
-      
-      // Fallback to DB if TzKT lookup failed
+      // originalMinter was already fetched during auth check above
+      // Fallback to DB if TzKT lookup failed earlier
       if (!originalMinter) {
         originalMinter = contractData.minter || contractData.owner || 
                          pieceDoc.tezos?.minter || pieceDoc.tezos?.owner;
@@ -274,7 +312,7 @@ export const handler = stream(async (event) => {
       
       // Last resort fallback
       if (!originalMinter) {
-        originalMinter = credentials.address;
+        originalMinter = credentials?.address;
         console.warn(`🪙 KEEP-UPDATE: Using kidlisp wallet as fallback minter`);
       }
 
