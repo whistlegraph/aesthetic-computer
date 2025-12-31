@@ -3620,7 +3620,7 @@ function paint($) {
     const currencies = ["U$D", "TEZ", "DKK", "ETH"];
     const currencyIndex = Math.floor(Date.now() / 2000) % currencies.length;
     const giveBtnText = "GIVE " + currencies[currencyIndex];
-    const btnPaddingTop = 6;
+    const btnPaddingTop = 8; // Moved down 2px
     const btnPaddingRight = 12; // More padding from right edge
     const btnWidth = 52; // Wider button for "GIVE XXX"
     const giveBtnY = btnPaddingTop;
@@ -4299,13 +4299,11 @@ function paint($) {
     
     if (FUNDING_MODE) {
       // 🚨 FUNDING MODE: Animated glittering border with primary colors
-      // Draw on layer 0 so tickers overlap them
-      $.layer(0);
       const stripeWidth = 3; // Slightly narrower stripes
       const borderThickness = 2; // 2px border for visibility
       const t = performance.now() / 1000;
       
-      // Primary colors - pure RGB
+      // Primary colors - pure RGB (fully saturated)
       const alertColors = [
         [255, 0, 0],     // Pure red
         [255, 255, 0],   // Pure yellow
@@ -4333,7 +4331,7 @@ function paint($) {
             if (sparkleHash < glitterChance) {
               color = [255, 255, 255]; // White sparkle
             }
-            ink(...color, 255).box(x, y, 1, 1);
+            ink(...color).box(x, y, 1, 1);
           }
         }
       }
@@ -4350,7 +4348,7 @@ function paint($) {
             if (sparkleHash < glitterChance) {
               color = [255, 255, 255];
             }
-            ink(...color, 255).box(x, screen.height - borderThickness + y, 1, 1);
+            ink(...color).box(x, screen.height - borderThickness + y, 1, 1);
           }
         }
       }
@@ -4367,7 +4365,7 @@ function paint($) {
             if (sparkleHash < glitterChance) {
               color = [255, 255, 255];
             }
-            ink(...color, 255).box(x, y, 1, 1);
+            ink(...color).box(x, y, 1, 1);
           }
         }
       }
@@ -4384,11 +4382,10 @@ function paint($) {
             if (sparkleHash < glitterChance) {
               color = [255, 255, 255];
             }
-            ink(...color, 255).box(screen.width - borderThickness + x, y, 1, 1);
+            ink(...color).box(screen.width - borderThickness + x, y, 1, 1);
           }
         }
       }
-      $.layer(1); // Return to normal layer
     } else {
       // Normal mode: pink/purple/green gradient border
       // Cycle through pink, purple, green phases
