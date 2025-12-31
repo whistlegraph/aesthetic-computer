@@ -5707,10 +5707,18 @@ function paint($) {
       
       let coloredText = "";
       const rainbowColors = ["pink", "cyan", "yellow", "lime", "orange", "magenta"];
+      const alertColors = ["red", "yellow", "orange", "255,100,50"]; // Red/yellow for funding mode
       
       if (hasLinks) {
         // Use syntax highlighting for interactive elements
         coloredText = colorizeText(motd, "white");
+      } else if (FUNDING_MODE) {
+        // Funding mode - use red/yellow alert colors
+        for (let i = 0; i < motd.length; i++) {
+          const colorIndex = Math.floor((i + motdFrame * 0.15) % alertColors.length);
+          const color = alertColors[colorIndex];
+          coloredText += `\\${color}\\${motd[i]}`;
+        }
       } else {
         // No links - use rainbow animation
         for (let i = 0; i < motd.length; i++) {

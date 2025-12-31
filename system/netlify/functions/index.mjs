@@ -824,7 +824,7 @@ async function fun(event, context) {
         <canvas id="boot-canvas" style="position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:99999;pointer-events:none;margin:0;padding:0;image-rendering:pixelated;image-rendering:crisp-edges;"></canvas>
         <script>
           window.acBootCanvas=(function(){var c=document.getElementById('boot-canvas');if(!c)return{};var x=c.getContext('2d');x.imageSmoothingEnabled=false;
-          var SCL=1,targetSCL=2,W=Math.ceil(window.innerWidth/SCL),H=Math.ceil(window.innerHeight/SCL);c.width=W;c.height=H;
+          var SCL=1,targetSCL=3,W=Math.ceil(window.innerWidth/SCL),H=Math.ceil(window.innerHeight/SCL);c.width=W;c.height=H;
           function updateScale(newSCL){SCL=newSCL;W=Math.ceil(window.innerWidth/SCL);H=Math.ceil(window.innerHeight/SCL);c.width=W;c.height=H;x.imageSmoothingEnabled=false;for(var k in scrollYs)scrollYs[k]=0;}
           window.addEventListener('resize',function(){W=Math.ceil(window.innerWidth/SCL);H=Math.ceil(window.innerHeight/SCL);c.width=W;c.height=H;x.imageSmoothingEnabled=false;});
           var PM=7,HH=8,CW=80,CHW=1.8,LH=4,FNT=3;
