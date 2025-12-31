@@ -38,8 +38,8 @@ async function fun(event, context) {
     let imageUrl; // Declare imageUrl at function scope
     
     // Check if slug is a code (short alphanumeric without path separators)
-    // Examples: "mgy.png", "abc", "t84.png"
-    const codePattern = /^([a-zA-Z0-9]{2,6})(\.png)?$/;
+    // Examples: "mgy.png", "abc", "t84.png", "8BzEwZGt.png"
+    const codePattern = /^([a-zA-Z0-9]{2,10})(\.png)?$/;
     const codeMatch = slug.match(codePattern);
     
     if (codeMatch) {

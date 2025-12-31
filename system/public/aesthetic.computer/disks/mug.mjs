@@ -21,6 +21,7 @@ let previewLoading = true; // Only blocks the preview area, not the whole UI
 let error = null;
 let btn = null;
 let preloadAnimatedWebp = null;
+let preloadBitmap = null;
 
 // Checkout state
 let checkoutUrl = null;
@@ -52,6 +53,7 @@ async function boot({ params, store, net, ui, screen, cursor, system, hud, api, 
   cursor("native");
   hud.labelBack();
   preloadAnimatedWebp = net.preloadAnimatedWebp;
+  preloadBitmap = net.preload; // For static PNG fallback
   apiRef = api;
 
   // Parse params: mug #CODE color OR mug color (uses current painting)
@@ -66,9 +68,9 @@ async function boot({ params, store, net, ui, screen, cursor, system, hud, api, 
     color = params[1] || "white";
   }
   
-  // Store with # for display, without # for API calls
-  sourceCode = rawCode.startsWith("#") ? rawCode : (rawCode ? `#${rawCode}` : "");
-  let apiCode = sourceCode.replace(/^#/, "");
+  // Store code without # for display and API calls
+  sourceCode = rawCode.replace(/^#/, "");
+  let apiCode = sourceCode;
 
   // If no code but we have a current painting, upload it first
   if (!apiCode && system.painting?.pixels) {
@@ -146,10 +148,13 @@ async function fetchPreview(apiCode) {
 
     const data = await res.json();
     productCode = data.productCode;
-    previewUrl = data.animatedWebpUrl;
+    const animatedUrl = data.animatedWebpUrl;
+    const staticUrl = data.mockupUrl;
+    previewUrl = animatedUrl || staticUrl;
 
-    if (previewUrl && preloadAnimatedWebp) {
-      const result = await preloadAnimatedWebp(previewUrl);
+    // Only use animated WebP decoder for actual WebP URLs
+    if (animatedUrl && preloadAnimatedWebp) {
+      const result = await preloadAnimatedWebp(animatedUrl);
       if (result.frameCount > 1) {
         previewFrames = {
           width: result.width,
@@ -168,11 +173,14 @@ async function fetchPreview(apiCode) {
           pixels: result.frames[0].pixels,
         };
       }
+    } else if (staticUrl && preloadBitmap) {
+      // Fall back to loading static PNG
+      previewBitmap = await preloadBitmap(staticUrl);
     }
 
     previewLoading = false;
   } catch (e) {
-    error = e.message;
+    error = e?.message || "Preview failed";
     previewLoading = false;
   }
 }
@@ -197,6 +205,11 @@ async function fetchCheckout(apiCode, api) {
       },
     );
 
+    if (!res.ok) {
+      checkoutError = `Checkout failed: ${res.status}`;
+      return;
+    }
+
     const data = await res.json();
     if (data?.location) {
       checkoutUrl = data.location;
@@ -205,7 +218,7 @@ async function fetchCheckout(apiCode, api) {
       checkoutError = data?.message || "Checkout failed";
     }
   } catch (e) {
-    checkoutError = e.message;
+    checkoutError = e?.message || "Checkout error";
   }
 }
 
@@ -254,7 +267,7 @@ function paint({ wipe, ink, box, paste, screen, pen, write }) {
     ink(100).write(loadingText, { center: "x", y: centerY + 10, screen }, undefined, undefined, false, "unifont");
   }
 
-  // Title: "COLOR MUG of #CODE" with colored color name and clickable code
+  // Title: "COLOR MUG of CODE" with colored color name and clickable code
   const colorName = color.toUpperCase();
   const titleParts = [colorName, " MUG of "];
   const colorRgb = colorMap[color.toLowerCase()] || [200, 200, 200];
