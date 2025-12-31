@@ -384,15 +384,10 @@ function paint(
           color = [100, 100, 100]; // Empty lines
         }
         
-        // Add shake to non-empty lines
-        const shakeX = line !== "" ? Math.sin(shakeFrame * 0.3 + i) * 2 : 0;
+        // Gentle vertical shake only (horizontal shake breaks centering)
         const shakeY = line !== "" ? Math.cos(shakeFrame * 0.25 + i * 0.5) * 1 : 0;
         
-        // Calculate centered X manually, then add shake offset
-        const textWidth = line.length * 6; // Approximate character width
-        const centeredX = Math.floor((screen.width - textWidth) / 2) + shakeX;
-        
-        ink(color[0], color[1], color[2]).write(line, { x: centeredX, y: startY + i * lineHeight + shakeY }, undefined, undefined, false, typefaceName);
+        ink(color[0], color[1], color[2]).write(line, { center: "x", y: startY + i * lineHeight + shakeY }, undefined, undefined, false, typefaceName);
       });
     } else {
       // Normal connecting message
