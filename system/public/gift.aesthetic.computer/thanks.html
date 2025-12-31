@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Thank You! — Aesthetic Computer</title>
+  <link rel="icon" href="https://aesthetic.computer/aesthetic.computer/favicon.ico">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #111;
+      color: #eee;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      text-align: center;
+    }
+    h1 { font-size: 3rem; margin-bottom: 1rem; }
+    p { font-size: 1.2rem; color: #aaa; margin-bottom: 2rem; max-width: 400px; }
+    .amount { color: #6bff6b; font-weight: bold; }
+    a {
+      color: #6b9fff;
+      text-decoration: none;
+      padding: 1rem 2rem;
+      border: 2px solid #6b9fff;
+      border-radius: 8px;
+      transition: all 0.2s;
+    }
+    a:hover { background: #6b9fff; color: #111; }
+    .hearts {
+      font-size: 2rem;
+      margin-bottom: 2rem;
+      animation: pulse 1s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+    }
+  </style>
+</head>
+<body>
+  <div class="hearts">💖</div>
+  <h1>Thank you!</h1>
+  <p>
+    Your gift of <span class="amount" id="amount">$25</span> helps keep Aesthetic Computer running and free for everyone.
+  </p>
+  <a href="https://aesthetic.computer">back to aesthetic.computer</a>
+  
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const amount = params.get('amount');
+    if (amount) {
+      document.getElementById('amount').textContent = `$${amount}`;
+    }
+  </script>
+</body>
+</html>

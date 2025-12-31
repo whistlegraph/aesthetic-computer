@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gift — Aesthetic Computer</title>
+  <meta name="description" content="Support Aesthetic Computer — a creative coding platform for everyone.">
+  <link rel="icon" href="https://aesthetic.computer/aesthetic.computer/favicon.ico">
+  <style>
+    :root {
+      --bg: #111;
+      --fg: #eee;
+      --accent: #ff6b6b;
+      --accent-dim: #cc5555;
+      --green: #6bff6b;
+      --blue: #6b9fff;
+      --yellow: #ffff6b;
+    }
+    
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem;
+      line-height: 1.6;
+    }
+    
+    .container {
+      max-width: 600px;
+      width: 100%;
+    }
+    
+    header {
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+    
+    h1 {
+      font-size: 2.5rem;
+      font-weight: 300;
+      margin-bottom: 0.5rem;
+    }
+    
+    h1 span {
+      color: var(--accent);
+    }
+    
+    .tagline {
+      color: #888;
+      font-size: 1.1rem;
+    }
+    
+    .section {
+      background: #1a1a1a;
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    
+    .section h2 {
+      font-size: 1.2rem;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .gift-options {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+    
+    .gift-btn {
+      background: #333;
+      border: 2px solid #444;
+      color: var(--fg);
+      padding: 1rem;
+      border-radius: 8px;
+      font-size: 1.1rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .gift-btn:hover {
+      background: #444;
+      border-color: var(--accent);
+    }
+    
+    .gift-btn.selected {
+      background: var(--accent-dim);
+      border-color: var(--accent);
+    }
+    
+    .custom-amount {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+    
+    .custom-amount input {
+      flex: 1;
+      background: #222;
+      border: 2px solid #444;
+      color: var(--fg);
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      font-size: 1rem;
+    }
+    
+    .custom-amount input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    
+    .pay-btn {
+      width: 100%;
+      background: var(--accent);
+      border: none;
+      color: #111;
+      padding: 1rem;
+      border-radius: 8px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .pay-btn:hover {
+      background: var(--fg);
+    }
+    
+    .pay-btn:disabled {
+      background: #444;
+      color: #888;
+      cursor: not-allowed;
+    }
+    
+    .crypto-option {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem;
+      background: #222;
+      border-radius: 8px;
+      margin-bottom: 0.5rem;
+    }
+    
+    .crypto-option code {
+      background: #333;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.9rem;
+    }
+    
+    .copy-btn {
+      background: #444;
+      border: none;
+      color: var(--fg);
+      padding: 0.5rem 0.75rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.85rem;
+    }
+    
+    .copy-btn:hover {
+      background: #555;
+    }
+    
+    .bills-section {
+      border: 1px dashed #444;
+      background: transparent;
+    }
+    
+    .bills-section h2 {
+      color: #888;
+    }
+    
+    .bill-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid #333;
+    }
+    
+    .bill-item:last-child {
+      border-bottom: none;
+    }
+    
+    .bill-item .provider {
+      color: #aaa;
+    }
+    
+    .bill-item .amount {
+      color: var(--yellow);
+      font-family: monospace;
+    }
+    
+    .total {
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 2px solid #444;
+      display: flex;
+      justify-content: space-between;
+      font-weight: 600;
+    }
+    
+    .total .amount {
+      color: var(--accent);
+      font-size: 1.2rem;
+    }
+    
+    footer {
+      margin-top: 2rem;
+      text-align: center;
+      color: #666;
+      font-size: 0.9rem;
+    }
+    
+    footer a {
+      color: var(--blue);
+      text-decoration: none;
+    }
+    
+    footer a:hover {
+      text-decoration: underline;
+    }
+    
+    .loading {
+      color: #666;
+      font-style: italic;
+    }
+    
+    .note {
+      font-size: 0.85rem;
+      color: #888;
+      margin-top: 0.5rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>gift <span>aesthetic.computer</span></h1>
+      <p class="tagline">support creative coding for everyone</p>
+    </header>
+
+    <section class="section">
+      <h2>💳 Gift via Card</h2>
+      <div class="gift-options">
+        <button class="gift-btn" data-amount="5">$5</button>
+        <button class="gift-btn" data-amount="10">$10</button>
+        <button class="gift-btn selected" data-amount="25">$25</button>
+        <button class="gift-btn" data-amount="50">$50</button>
+        <button class="gift-btn" data-amount="100">$100</button>
+        <button class="gift-btn" data-amount="custom">other</button>
+      </div>
+      <div class="custom-amount" id="custom-input" style="display: none;">
+        <input type="number" id="custom-amount" placeholder="Enter amount" min="1">
+      </div>
+      <button class="pay-btn" id="pay-btn">Gift $25</button>
+      <p class="note">Secure payment via Stripe. Aesthetic Inc. is not a nonprofit—gifts are not tax-deductible.</p>
+    </section>
+
+    <section class="section">
+      <h2>🔮 Gift via Tezos</h2>
+      <div class="crypto-option">
+        <div>
+          <strong>aesthetic.tez</strong>
+          <code id="tez-address">tz1...</code>
+        </div>
+        <button class="copy-btn" onclick="copyAddress('tez')">copy</button>
+      </div>
+      <p class="note">Send XTZ or FA2 tokens to support the project.</p>
+    </section>
+
+    <section class="section">
+      <h2>📚 Gift via Shop</h2>
+      <p>Buy a book, record, or artwork from <a href="https://shop.aesthetic.computer" target="_blank" style="color: var(--blue);">shop.aesthetic.computer</a> — proceeds directly support AC development.</p>
+    </section>
+
+    <section class="section bills-section">
+      <h2>📊 Current Monthly Costs</h2>
+      <div id="bills-list">
+        <p class="loading">Loading billing data...</p>
+      </div>
+    </section>
+
+    <footer>
+      <p>
+        <a href="https://aesthetic.computer">aesthetic.computer</a> · 
+        made with care by <a href="https://jas.life">@jeffrey</a>
+      </p>
+    </footer>
+  </div>
+
+  <script>
+    // Gift amount selection
+    let selectedAmount = 25;
+    const buttons = document.querySelectorAll('.gift-btn');
+    const payBtn = document.getElementById('pay-btn');
+    const customInput = document.getElementById('custom-input');
+    const customAmount = document.getElementById('custom-amount');
+
+    buttons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        buttons.forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        
+        const amount = btn.dataset.amount;
+        if (amount === 'custom') {
+          customInput.style.display = 'flex';
+          customAmount.focus();
+          updatePayButton();
+        } else {
+          customInput.style.display = 'none';
+          selectedAmount = parseInt(amount);
+          updatePayButton();
+        }
+      });
+    });
+
+    customAmount.addEventListener('input', () => {
+      selectedAmount = parseInt(customAmount.value) || 0;
+      updatePayButton();
+    });
+
+    function updatePayButton() {
+      if (selectedAmount > 0) {
+        payBtn.textContent = `Gift $${selectedAmount}`;
+        payBtn.disabled = false;
+      } else {
+        payBtn.textContent = 'Enter an amount';
+        payBtn.disabled = true;
+      }
+    }
+
+    // Payment handler (will connect to Stripe)
+    payBtn.addEventListener('click', async () => {
+      if (selectedAmount <= 0) return;
+      
+      payBtn.textContent = 'Redirecting...';
+      payBtn.disabled = true;
+
+      try {
+        // Create Stripe checkout session via API
+        const res = await fetch('/api/gift', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ amount: selectedAmount * 100 }) // cents
+        });
+        
+        const data = await res.json();
+        if (data.url) {
+          window.location.href = data.url;
+        } else {
+          throw new Error(data.error || 'Failed to create checkout');
+        }
+      } catch (err) {
+        console.error(err);
+        payBtn.textContent = `Gift $${selectedAmount}`;
+        payBtn.disabled = false;
+        alert('Something went wrong. Please try again.');
+      }
+    });
+
+    // Copy Tezos address
+    async function copyAddress(type) {
+      const address = type === 'tez' ? 'tz1WqvhbfEwfqAzMtEGxc7x6tpSqRMCNKPCT' : ''; // aesthetic.tez resolved
+      try {
+        await navigator.clipboard.writeText(address);
+        const btn = event.target;
+        btn.textContent = 'copied!';
+        setTimeout(() => btn.textContent = 'copy', 2000);
+      } catch (err) {
+        console.error('Copy failed:', err);
+      }
+    }
+
+    // Update displayed address
+    document.getElementById('tez-address').textContent = 'tz1Wqv...NKPCT';
+
+    // Fetch billing data
+    async function loadBilling() {
+      const container = document.getElementById('bills-list');
+      try {
+        const res = await fetch('/api/billing');
+        const data = await res.json();
+        
+        let html = '';
+        let total = 0;
+        
+        // Show providers with estimates
+        const displayProviders = data.providers.filter(p => 
+          p.monthlyEstimate !== undefined || p.balance?.monthToDateUsage
+        );
+        
+        displayProviders.forEach(p => {
+          let amount = 0;
+          if (p.monthlyEstimate) {
+            amount = p.monthlyEstimate;
+          } else if (p.balance?.monthToDateUsage) {
+            amount = parseFloat(p.balance.monthToDateUsage.replace('$', '')) || 0;
+          }
+          total += amount;
+          
+          html += `
+            <div class="bill-item">
+              <span class="provider">${p.name}</span>
+              <span class="amount">$${amount.toFixed(2)}</span>
+            </div>
+          `;
+        });
+        
+        html += `
+          <div class="total">
+            <span>Monthly Total (est.)</span>
+            <span class="amount">~$${total.toFixed(0)}/mo</span>
+          </div>
+        `;
+        
+        container.innerHTML = html;
+      } catch (err) {
+        container.innerHTML = '<p class="loading">Could not load billing data</p>';
+      }
+    }
+
+    loadBilling();
+  </script>
+</body>
+</html>
