@@ -125,7 +125,8 @@ let login, // A login button in the center of the display.
   signup, // A Sign-up button.
   profile, // A profile page button.
   profileAction,
-  walletBtn; // Tezos wallet button (shown when connected)
+  walletBtn, // Tezos wallet button (shown when connected)
+  giveBtn; // GIVE button for funding mode (top-right)
 let resendVerificationText;
 let ellipsisTicker;
 let chatTicker; // Ticker instance for chat messages
@@ -163,8 +164,9 @@ const DISABLE_CONTENT_TICKER = true;
 // Set to true to display funding message, false to show normal content
 export const FUNDING_MODE = true;
 // Colorful funding messages for each ticker (using \\color\\ codes for rendering)
-const FUNDING_MESSAGE_CHAT = "⚠️ \\pink\\'chat'\\cyan\\ is offline due to end-of-year server bill · Enter \\lime\\'give'\\cyan\\ to help support AC! ⚠️";
-const FUNDING_MESSAGE_CLOCK = "⚠️ \\orange\\'laer-klokken'\\255,200,100\\ is offline due to end-of-year server bill · Enter \\lime\\'give'\\255,200,100\\ to help support AC! ⚠️";
+// Uses ASCII-only characters compatible with MatrixChunky8 font
+const FUNDING_MESSAGE_CHAT = "*** \\pink\\'chat'\\cyan\\ is offline due to server bill -- Enter \\lime\\'give'\\cyan\\ to help support AC! ***";
+const FUNDING_MESSAGE_CLOCK = "*** \\orange\\'laer-klokken'\\255,200,100\\ is offline due to server bill -- Enter \\lime\\'give'\\255,200,100\\ to help support AC! ***";
 
 let startupSfx, keyboardSfx;
 
@@ -3593,7 +3595,35 @@ function paint($) {
   // Calculate MOTD offset (do this before book rendering so it's always available)
   let motdXOffset = 0;
   
-  // � Paint product (book or record) in top-right corner (only on login curtain)
+  // 💸 GIVE button in top-right corner during FUNDING_MODE
+  if (FUNDING_MODE && showLoginCurtain) {
+    const giveBtnText = "GIVE";
+    const giveBtnY = 10;
+    const giveBtnX = screen.width - 38; // Right-aligned with padding
+    
+    if (!giveBtn) {
+      giveBtn = new $.ui.TextButton(giveBtnText, {
+        x: giveBtnX,
+        y: giveBtnY,
+      });
+    } else {
+      giveBtn.reposition({ x: giveBtnX, y: giveBtnY }, giveBtnText);
+    }
+    
+    // Paint with lime/green colors to match funding message
+    const normalFill = [0, 80, 0, 200];
+    const hoverFill = [0, 150, 0, 255];
+    const normalText = [100, 255, 100];
+    const hoverText = [255, 255, 255];
+    
+    giveBtn?.paint($,
+      giveBtn.btn.down ? hoverFill : normalFill,
+      giveBtn.btn.down ? hoverText : normalText,
+    );
+  } else {
+    giveBtn = null;
+  }
+  
   // 📦 Paint product (book or record) in top-right corner (only on login curtain)
   // Hide carousel when prompt is editable or has text
   // DISABLED: products carousel
@@ -6332,6 +6362,7 @@ function act({
     (e.is("touch") || e.is("lift")) &&
     ((login?.btn.disabled === false && login?.btn.box.contains(e)) ||
       (signup?.btn.disabled === false && signup?.btn.box.contains(e)) ||
+      (giveBtn?.btn.disabled === false && giveBtn?.btn.box.contains(e)) ||
       (products.getActiveProduct()?.button?.disabled === false && products.getActiveProduct()?.button?.box.contains(e)) ||
       (products.getActiveProduct()?.buyButton?.disabled === false && products.getActiveProduct()?.buyButton?.box.contains(e)) ||
       (chatTickerButton?.disabled === false && chatTickerButton?.box.contains(e)) ||
@@ -6401,7 +6432,19 @@ function act({
   });
   }
 
-  // 🔷 Tezos wallet button - navigate to wallet piece
+  // � GIVE button - navigate to give.aesthetic.computer
+  if (giveBtn && !giveBtn.btn.disabled) {
+    giveBtn.btn.act(e, {
+      down: () => downSound(),
+      push: () => {
+        pushSound();
+        jump("https://give.aesthetic.computer");
+      },
+      cancel: () => cancelSound(),
+    });
+  }
+
+  // �🔷 Tezos wallet button - navigate to wallet piece
   if (walletBtn && !walletBtn.btn.disabled) {
     walletBtn.btn.act(e, {
       down: () => downSound(),
