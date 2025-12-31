@@ -143,6 +143,17 @@ included_env_vars = ["MONGODB_CONNECTION_STRING", "MONGODB_NAME", "NETLIFY_DEV",
 [functions.ask]
 included_env_vars = ["CONTEXT", "ANTHROPIC_API_KEY", "OPENAI_API_KEY"]
 
+[functions.billing]
+# Billing aggregation - pulls costs from SaaS providers
+included_files = ["backend/**/*.mjs"]
+included_env_vars = ["CONTEXT", "DO_API_TOKEN", "DO_TOKEN", "CLOUDFLARE_EMAIL", "CLOUDFLARE_API_KEY", "CLOUDFLARE_ACCOUNT_ID", "PINATA_API_KEY", "PINATA_API_SECRET", "OPENAI_API_KEY"]
+
+[functions.gift]
+# Gift/support payments via Stripe
+external_node_modules = ["stripe"]
+included_files = ["backend/**/*.mjs"]
+included_env_vars = ["CONTEXT", "STRIPE_API_TEST_PRIV_KEY", "STRIPE_API_PRIV_KEY"]
+
 [functions.bundle-html]
 # Generates KidLisp .lisp.html bundles on-demand via API
 # Migrated from tezos/bundle-keep-html.mjs CLI tool
@@ -527,6 +538,29 @@ from = "https://aesthetic.direct"
 to = "https://aesthetic.computer/aesthetic-direct"
 status = 200
 force = true
+
+# gift.aesthetic.computer - Support/donation page
+[[redirects]]
+from = "https://gift.aesthetic.computer"
+to = "https://aesthetic.computer/gift.aesthetic.computer/"
+status = 200
+force = true
+[[redirects]]
+from = "https://gift.aesthetic.computer/*"
+to = "https://aesthetic.computer/gift.aesthetic.computer/:splat"
+status = 200
+force = true
+[[redirects]]
+from = "https://gift.aesthetic.computer/api/gift"
+to = "/.netlify/functions/gift"
+status = 200
+force = true
+[[redirects]]
+from = "https://gift.aesthetic.computer/api/billing"
+to = "/.netlify/functions/billing"
+status = 200
+force = true
+
 [[redirects]]
 from = "https://kidlisp.com"
 to = "https://aesthetic.computer/kidlisp.com/"
@@ -590,6 +624,14 @@ status = 200
 [[redirects]]
 from = "/api/metrics"
 to = "/.netlify/functions/metrics"
+status = 200
+[[redirects]]
+from = "/api/billing"
+to = "/.netlify/functions/billing"
+status = 200
+[[redirects]]
+from = "/api/gift"
+to = "/.netlify/functions/gift"
 status = 200
 [[redirects]]
 from = "/api/ticket/*"
