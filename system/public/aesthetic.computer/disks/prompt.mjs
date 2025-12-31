@@ -151,9 +151,10 @@ export const FUNDING_MODE = FUNDING_SEVERITY === "critical";
 const showFundingEffects = FUNDING_SEVERITY !== "off"; // $ replacement, GIVE button, face
 const isCriticalFunding = FUNDING_SEVERITY === "critical"; // Full lockdown mode
 
-// Set global flag so disk.mjs can apply $ filter to all text
+// Set global flags for disk.mjs
 if (typeof globalThis !== "undefined") {
   globalThis.AC_FUNDING_MODE = showFundingEffects; // $ replacement active for both critical and yikes
+  globalThis.AC_CHAT_DISABLED = isCriticalFunding; // Only block chat in critical mode
 }
 
 // Colorful funding messages for each ticker (using \\color\\ codes for rendering)
