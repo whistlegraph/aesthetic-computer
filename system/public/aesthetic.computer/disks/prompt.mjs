@@ -180,7 +180,7 @@ let fpsTimestamps = [];
 let currentFps = 0;
 let showFpsMeter = false; // Toggle with backtick key
 
-// 🚫 DEBUG: Disable content ticker/TV preview while debugging carousel
+// 🚫 TV/content ticker disabled during funding mode
 const DISABLE_CONTENT_TICKER = true;
 
 let startupSfx, keyboardSfx;
