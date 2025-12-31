@@ -518,48 +518,10 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
       </head>
       <body>
         <img class="logo" src="${palsUri}" alt="Aesthetic Computer" />
-        <h1>Aesthetic Computer</h1>
-        <p class="tagline">creative coding environment</p>
-        
-        <div class="buttons">
-          <button class="btn btn-primary" onclick="openKidLisp()">
-            🎨 Open KidLisp Window
-          </button>
-          <button class="btn" onclick="openPane()">
-            📟 Open AC Pane
-          </button>
-          <button class="btn" onclick="newPiece()">
-            ✨ New Piece
-          </button>
-        </div>
-        
-        <div class="info">
-          <div class="info-row">
-            <span class="info-label">Dev Server</span>
-            <span class="info-value">https://localhost:8888</span>
-          </div>
-          <div class="info-row">
-            <span class="info-label">Pieces</span>
-            <span class="info-value">system/public/.../disks/</span>
-          </div>
-        </div>
-        
-        <p class="hint">Open a .mjs or .lisp file to start coding</p>
+        <h1>Aesthetic <span style="color: #ff69b4;">•</span> Computer</h1>
         
         <script nonce="${nonce}">
           const vscode = acquireVsCodeApi();
-          function openKidLisp() {
-            console.log('openKidLisp clicked');
-            vscode.postMessage({ command: 'openKidLisp' });
-          }
-          function openPane() {
-            console.log('openPane clicked');
-            vscode.postMessage({ command: 'openPane' });
-          }
-          function newPiece() {
-            console.log('newPiece clicked');
-            vscode.postMessage({ command: 'newPiece' });
-          }
         </script>
       </body>
       </html>
@@ -1568,11 +1530,6 @@ function getWebViewContent(webview: any, slug: string) {
 				<link href="${resetStyleUri}" rel="stylesheet">
 				<link href="${vscodeStyleUri}" rel="stylesheet">
 				<title>aesthetic.computer</title>
-        <style>
-          iframe#aesthetic {
-            background-image: url('${purplePalsUri}');
-          }
-        </style>
 			</head>
 			<body>
         <iframe id="aesthetic" credentialless sandbox="allow-scripts allow-same-origin allow-modals allow-popups allow-popups-to-escape-sandbox" allow="clipboard-write; clipboard-read" src="${iframeProtocol}${iframeUrl}/${param}${hashFragment}" border="none"></iframe>
