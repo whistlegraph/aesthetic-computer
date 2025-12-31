@@ -143,8 +143,8 @@ let mediaPreviewBox; // Shared preview box renderer for all media types
 export const FUNDING_MODE = true;
 // Colorful funding messages for each ticker (using \\color\\ codes for rendering)
 // Uses ASCII-only characters compatible with font_1 (MatrixChunky8 loads from assets which has CORS issues)
-const FUNDING_MESSAGE_CHAT = "*** \\pink\\'chat'\\cyan\\ is offline due to server bill -- Enter \\lime\\'give'\\cyan\\ to help support AC in the New Year! ***";
-const FUNDING_MESSAGE_CLOCK = "*** \\orange\\'laer-klokken'\\255,200,100\\ is offline due to server bill -- Enter \\lime\\'give'\\255,200,100\\ to help support AC in the New Year! ***";
+const FUNDING_MESSAGE_CHAT = "*** \\pink\\'chat'\\cyan\\, media storage, and multiplayer are offline due to server bill hardship -- Enter \\lime\\'give'\\cyan\\ to help support AC in the New Year! ***";
+const FUNDING_MESSAGE_CLOCK = "*** \\orange\\'laer-klokken'\\255,200,100\\ and other services are offline due to server bill hardship -- Enter \\lime\\'give'\\255,200,100\\ to help support AC in the New Year! ***";
 
 const tinyTickers = !FUNDING_MODE; // Use MatrixChunky8 font for tighter, smaller tickers (disabled in funding mode - assets CORS)
 let contentItems = []; // Store fetched content: {type: 'kidlisp'|'painting'|'tape', code: string, source?: string}
@@ -3644,19 +3644,39 @@ function paint($) {
     
     // Bright saturated fill that cycles through rainbow
     const fillColor = hslToRgb(hue, 100, 50 + pulse * 10); // 50-60% lightness
+    const btnBox = giveBtn?.btn?.box;
     
-    // Scheme format: [fill, outline, textInk, textParam] - match login button format
-    // Using 255 for outline and text makes them white
-    const normalScheme = [fillColor, 255, 255, fillColor];
-    
-    // Hover scheme: brighter fill
-    const hoverFill = hslToRgb(hue, 100, 70);
-    const hoverScheme = [hoverFill, 255, 255, hoverFill];
-    
-    giveBtn?.paint($, normalScheme, hoverScheme);
+    if (btnBox) {
+      // Draw button background and outline manually
+      const isDown = giveBtn.btn.down;
+      const bgColor = isDown ? hslToRgb(hue, 100, 70) : fillColor;
+      
+      ink(...bgColor).box(btnBox, "fill");
+      ink(255, 255, 255).box(btnBox, "outline");
+      
+      // 💥 Draw each letter with individual shake and color!
+      const chars = giveBtnText.split('');
+      const charWidth = 6; // font_1 char width
+      const textStartX = btnBox.x + 4; // padding
+      const textY = btnBox.y + 4; // padding
+      
+      chars.forEach((char, i) => {
+        // Each letter gets different hue offset
+        const letterHue = (hue + i * 90) % 360;
+        const letterColor = hslToRgb(letterHue, 100, isDown ? 40 : 75);
+        
+        // Shake offset - each letter shakes independently
+        const shakeX = Math.sin(t * 20 + i * 2) * 1;
+        const shakeY = Math.cos(t * 25 + i * 3) * 1;
+        
+        const x = textStartX + i * charWidth + shakeX;
+        const y = textY + shakeY;
+        
+        ink(...letterColor).write(char, { x: Math.round(x), y: Math.round(y) });
+      });
+    }
     
     // ✨ Spawn sparkle particles around the button
-    const btnBox = giveBtn?.btn?.box;
     if (btnBox && Math.random() < 0.4) { // 40% chance per frame to spawn
       const sparkleHue = (hue + Math.random() * 60 - 30) % 360; // Vary hue slightly
       const sparkleColor = hslToRgb(sparkleHue, 100, 70);
@@ -4770,9 +4790,9 @@ function paint($) {
     const loginY = screen.height / 2;
     
     // Calculate dynamic positioning to prevent overlap
-    const tickerHeight = tinyTickers ? 8 : 14; // MatrixChunky8 is 8px, default is ~14px
+    const tickerHeight = tinyTickers ? 8 : 11; // MatrixChunky8 is 8px, font_1 is ~11px
     const tickerSpacing = 0; // No space between tickers for tight stripes
-    const tickerPadding = tinyTickers ? 5 : 3; // 5px padding for tiny font (more breathing room)
+    const tickerPadding = tinyTickers ? 5 : 2; // Less padding for font_1
     
     // Helper to ensure ticker text is long enough to fill screen without gaps
     // Repeats the content until it's at least 4x screen width for seamless looping
@@ -5726,37 +5746,38 @@ function paint($) {
       $.needsPaint();
     }
     
-    // ☃️ Winter vibes snowman stamp - positioned above MOTD
+    // 😡 Angry face stamp - positioned above MOTD (funding mode vibes)
     // Check if we're in December, January, or February for winter vibes
     const month = new Date().getMonth(); // 0-indexed: 0=Jan, 11=Dec
     const isWinter = month === 11 || month === 0 || month === 1; // Dec, Jan, Feb
     if (isWinter && screen.height >= 120) {
-      // Position snowman centered horizontally, above the MOTD area
-      const snowmanWidth = 16; // unifont character width
-      let snowmanX = Math.floor((screen.width - snowmanWidth) / 2);
-      // MOTD is at screen.height/2 - 48, so put snowman above that
-      let snowmanY = Math.floor(screen.height / 2 - 72); // 24px above MOTD baseline
+      // Position symbol centered horizontally, above the MOTD area
+      const symbolWidth = 16; // unifont character width
+      let symbolX = Math.floor((screen.width - symbolWidth) / 2);
+      // MOTD is at screen.height/2 - 48, so put symbol above that
+      let symbolY = Math.floor(screen.height / 2 - 72); // 24px above MOTD baseline
       
       // Only draw if there's enough space from top
-      if (snowmanY > 20) {
-        // Gentle bobbing animation
-        const bobOffset = Math.sin(motdFrame * 0.03) * 1.5;
+      if (symbolY > 20) {
+        // Shake animation for angry effect
+        const shakeX = Math.sin(motdFrame * 0.3) * 2;
+        const shakeY = Math.cos(motdFrame * 0.4) * 1;
         
-        // Draw snowman using unifont (☃ = U+2603)
-        // Cycle through cool winter colors
-        const winterColors = [
-          [200, 230, 255], // Ice blue
-          [255, 255, 255], // White
-          [180, 220, 255], // Light blue
-          [220, 240, 255], // Pale blue
+        // Draw angry face using unifont (😡 or ಠ_ಠ alternative: ☹ frowning face)
+        // Cycle through angry/fiery colors
+        const angryColors = [
+          [255, 80, 80],   // Red
+          [255, 120, 50],  // Orange-red
+          [255, 50, 100],  // Hot pink
+          [255, 100, 100], // Lighter red
         ];
-        const colorIndex = Math.floor(motdFrame * 0.02) % winterColors.length;
-        const snowmanColor = winterColors[colorIndex];
-        const snowmanAlpha = 180 + Math.sin(motdFrame * 0.05) * 40; // 140-220 pulsing
+        const colorIndex = Math.floor(motdFrame * 0.08) % angryColors.length;
+        const symbolColor = angryColors[colorIndex];
+        const symbolAlpha = 200 + Math.sin(motdFrame * 0.1) * 55; // 145-255 pulsing
         
-        ink(...snowmanColor, snowmanAlpha).write(
-          "☃",
-          { x: snowmanX, y: Math.floor(snowmanY + bobOffset) },
+        ink(...symbolColor, symbolAlpha).write(
+          "☹", // Frowning face (U+2639) - works in unifont
+          { x: Math.floor(symbolX + shakeX), y: Math.floor(symbolY + shakeY) },
           undefined,
           undefined,
           false,
@@ -6780,8 +6801,13 @@ export const scheme = {
 let motdController;
 
 async function makeMotd({ system, needsPaint, handle, user, net, api, notice }) {
-  motd = "aesthetic.computer"; // Fallback motd.
+  // Use funding mode message or default
+  motd = FUNDING_MODE ? "critical services offline, pls help ac today :)" : "aesthetic.computer";
   motdController = new AbortController();
+  
+  // Skip fetching mood in funding mode - use the hardcoded message
+  if (FUNDING_MODE) return;
+  
   try {
     const res = await fetch("/api/mood/@jeffrey", {
       signal: motdController.signal,
