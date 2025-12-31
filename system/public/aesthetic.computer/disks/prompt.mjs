@@ -6105,24 +6105,30 @@ function paint($) {
           box2x(10, 5, 3, 1); // Right eye closed
           
           // Multiple tear drops falling to bottom of screen
-          const tearSpeed = 2; // pixels per frame
-          const tearSpawnY = faceY + 14; // Start below eyes
+          // Tears spawn from the face but drift independently (use symbolX/Y not faceX/Y)
+          const tearSpawnY = symbolY + 14; // Start below eyes (base position, no shake)
           const tearColors = [
             [80, 180, 255],  // Light blue
             [100, 200, 255], // Cyan
             [120, 220, 255], // Brighter cyan
           ];
           
-          // Draw multiple tears at different phases
+          // Draw multiple tears at different phases - they fall on their own paths
           for (let t = 0; t < 6; t++) {
             const tearPhase = (motdFrame * 0.15 + t * 1.2) % 8; // Staggered timing
             const tearProgress = tearPhase / 8; // 0-1
             const tearY = tearSpawnY + tearProgress * (screen.height - tearSpawnY + 10);
             
-            // Left tears
-            const leftTearX = faceX + 8 + (t % 2) * 4 + Math.sin(tearPhase + t) * 2;
-            // Right tears
-            const rightTearX = faceX + 22 - (t % 2) * 4 + Math.sin(tearPhase + t + 1) * 2;
+            // Tears drift independently with their own sine wave (based on their index, not face shake)
+            const tearDriftX = Math.sin(tearPhase * 0.8 + t * 2.1) * (3 + tearProgress * 8); // Wider drift as they fall
+            const tearDriftY = Math.cos(tearPhase * 0.5 + t) * 2; // Slight vertical wobble
+            
+            // Left tears - spawn from left eye area (base position)
+            const leftTearBaseX = symbolX + 8 + (t % 2) * 4;
+            const leftTearX = leftTearBaseX + tearDriftX;
+            // Right tears - spawn from right eye area (base position)
+            const rightTearBaseX = symbolX + 22 - (t % 2) * 4;
+            const rightTearX = rightTearBaseX - tearDriftX; // Mirror the drift
             
             const tearColor = tearColors[t % tearColors.length];
             const tearAlpha = Math.floor((1 - tearProgress * 0.5) * 200); // Fade slightly
@@ -6131,8 +6137,8 @@ function paint($) {
             if (tearY < screen.height) {
               ink(...tearColor, tearAlpha);
               // Teardrop shape (stretched vertically)
-              $.box(Math.floor(leftTearX), Math.floor(tearY), tearSize, tearSize + 1);
-              $.box(Math.floor(rightTearX), Math.floor(tearY), tearSize, tearSize + 1);
+              $.box(Math.floor(leftTearX), Math.floor(tearY + tearDriftY), tearSize, tearSize + 1);
+              $.box(Math.floor(rightTearX), Math.floor(tearY + tearDriftY), tearSize, tearSize + 1);
             }
           }
           
