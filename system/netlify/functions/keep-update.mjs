@@ -150,7 +150,7 @@ export const handler = stream(async (event) => {
 
       const { piece, tokenId, artifactUri, thumbnailUri, walletAddress, mode } = body;
 
-      if (!piece || !tokenId || !artifactUri) {
+      if (!piece || tokenId == null || !artifactUri) {
         await send("error", { error: "Missing required fields: piece, tokenId, artifactUri" });
         return;
       }

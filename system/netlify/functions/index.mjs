@@ -774,10 +774,22 @@ async function fun(event, context) {
       </head>
       <body class="native-cursor" ${lanHost ? " data-lan-host=" + lanHost : ""}>
         <!-- Boot Log Overlay -->
-        <div id="boot-log" style="position:fixed;top:1em;left:1em;font-family:'Courier New',Courier,monospace;font-size:clamp(14px,2.5vmin,18px);color:rgb(150,60,120);z-index:99999;text-shadow:0 0 4px rgba(0,0,0,0.5);line-height:1.4;">
-          <div id="boot-log-lines"><div style="animation:boot-line-fade 0.8s ease-out forwards">initializing<span class="blink" style="animation:boot-blink 0.5s infinite">_</span></div></div>
+        <div id="boot-log" style="position:fixed;top:1em;left:1em;font-family:'Courier New',Courier,monospace;font-size:clamp(14px,2.5vmin,18px);z-index:99999;line-height:1.4;">
+          <div id="boot-log-lines"><div class="boot-line-initial">initializing<span class="blink">_</span></div></div>
         </div>
-        <style>@keyframes boot-blink{0%,49%{opacity:1}50%,100%{opacity:0}}@keyframes boot-line-fade{0%{color:rgb(255,180,255);text-shadow:0 0 8px rgba(255,100,200,0.8)}100%{color:rgb(150,60,120);text-shadow:0 0 4px rgba(0,0,0,0.5)}}</style>
+        <style>
+          /* Dark mode (default) - pink on dark */
+          #boot-log{color:rgb(150,60,120);text-shadow:0 0 4px rgba(0,0,0,0.5)}
+          @keyframes boot-blink{0%,49%{opacity:1}50%,100%{opacity:0}}
+          @keyframes boot-line-fade{0%{color:rgb(255,180,255);text-shadow:0 0 8px rgba(255,100,200,0.8)}100%{color:rgb(150,60,120);text-shadow:0 0 4px rgba(0,0,0,0.5)}}
+          .boot-line-initial{animation:boot-line-fade 0.8s ease-out forwards}
+          .blink{animation:boot-blink 0.5s infinite}
+          /* Light mode - dark magenta on light */
+          @media(prefers-color-scheme:light){
+            #boot-log{color:rgb(120,40,90);text-shadow:0 0 4px rgba(255,255,255,0.7)}
+            @keyframes boot-line-fade{0%{color:rgb(180,60,140);text-shadow:0 0 8px rgba(200,100,160,0.6)}100%{color:rgb(120,40,90);text-shadow:0 0 4px rgba(255,255,255,0.7)}}
+          }
+        </style>
         <div id="console" class="hidden">booting...</div>
         <script>
           if (window.self !== window.top) document.body.classList.add("embed");
