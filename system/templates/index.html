@@ -214,25 +214,45 @@
         });
         ctx.globalAlpha = 1;
         
-        // Draw logo with wobble; use tiny pixelated PNG until full SVG loads
+        // Draw logo with ghosting trails and color tinting
         const logoShake = baseShake * 0.8 + chaos * chaos * 3;
-        ctx.imageSmoothingEnabled = !imgFullLoaded; // Pixelated for tiny, smooth for full
-        if (!imgFullLoaded) ctx.imageSmoothingEnabled = false; // Nearest neighbor scaling
+        ctx.imageSmoothingEnabled = imgFullLoaded;
         const logoImg = imgFullLoaded ? imgFull : img;
-        ctx.drawImage(logoImg, 
-          logoX + shakeX * 0.5 + (Math.random() - 0.5) * logoShake, 
-          logoY + shakeY * 0.5 + (Math.random() - 0.5) * logoShake, 
-          logoSize, logoSize);
-        ctx.imageSmoothingEnabled = true;
-        if (false) { // Placeholder circle disabled - using tiny PNG instead
-          ctx.save();
-          ctx.globalAlpha = 0.95;
-          ctx.fillStyle = `rgb(${140 + (Math.random()*80|0)}, ${60 + (Math.random()*40|0)}, ${150 + (Math.random()*80|0)})`;
-          ctx.beginPath();
-          ctx.arc(logoX + logoSize/2, logoY + logoSize/2, logoSize/2, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.restore();
+        const lx = logoX + shakeX * 0.5;
+        const ly = logoY + shakeY * 0.5;
+        
+        // Ghost trails - draw multiple offset copies with decreasing alpha
+        const trailCount = 3 + (chaos * 4) | 0;
+        for (let tr = trailCount; tr >= 0; tr--) {
+          const trailAlpha = tr === 0 ? 1 : (0.15 + chaos * 0.2) * (1 - tr / trailCount);
+          const trailOffset = tr * (2 + chaos * 4);
+          const trailShake = logoShake * (1 + tr * 0.5);
+          
+          ctx.globalAlpha = trailAlpha;
+          
+          // Color tint overlay for trails
+          if (tr > 0) {
+            // Draw tinted version - use hue shift for chromatic aberration
+            const hueShift = tr * 15 * (Math.random() > 0.5 ? 1 : -1);
+            ctx.filter = `hue-rotate(${hueShift}deg) saturate(${1.5 + chaos})`;
+          }
+          
+          ctx.drawImage(logoImg,
+            lx + (Math.random() - 0.5) * trailShake - trailOffset * 0.3,
+            ly + (Math.random() - 0.5) * trailShake + trailOffset * 0.2,
+            logoSize, logoSize);
+          
+          ctx.filter = 'none';
         }
+        
+        // Main logo with purple/magenta tint overlay
+        ctx.globalAlpha = 0.3 + chaos * 0.4;
+        ctx.globalCompositeOperation = 'multiply';
+        ctx.fillStyle = `rgb(${180 + chaos * 40 | 0}, ${80 + chaos * 30 | 0}, ${200 + chaos * 30 | 0})`;
+        ctx.fillRect(lx - 2, ly - 2, logoSize + 4, logoSize + 4);
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.globalAlpha = 1;
+        ctx.imageSmoothingEnabled = true;
         
         // Live ms timer under logo
         const elapsedMs = performance.now() - bootStartTime;
@@ -271,6 +291,18 @@
           const baseR = 200 - colorLerp * 100 - i * 5;
           const baseG = 80 - colorLerp * 55 - i * 4;
           const baseB = 140 + colorLerp * 60 - i * 2;
+          
+          // Chromatic aberration / RGB split ghost trails
+          const aberration = 1 + chaos * 3 + lineBurst * 2;
+          if (aberration > 1.5) {
+            ctx.globalAlpha = alpha * 0.4;
+            ctx.fillStyle = `rgb(255, 50, 100)`; // Red channel
+            ctx.fillText(displayText, lx - aberration, ly);
+            ctx.fillStyle = `rgb(50, 255, 150)`; // Green channel  
+            ctx.fillText(displayText, lx + aberration * 0.5, ly - aberration * 0.3);
+            ctx.fillStyle = `rgb(100, 100, 255)`; // Blue channel
+            ctx.fillText(displayText, lx + aberration * 0.3, ly + aberration * 0.5);
+          }
           
           // Subtle glow from start, stronger with chaos
           ctx.globalAlpha = alpha * (0.15 + chaos * 0.25 + lineBurst * 0.3);
