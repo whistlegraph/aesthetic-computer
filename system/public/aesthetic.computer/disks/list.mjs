@@ -72,7 +72,8 @@ const COMMAND_CATEGORIES = {
 let docs = null;
 let pieces = {};
 let commands = {};
-let currentTab = "all"; // "all" | "pieces" | "commands"
+let hitStats = {};       // { pieceName: hitCount }
+let currentTab = "all"; // "all" | "pieces" | "commands" | "popular"
 let expandedCategories = new Set();
 let scroll = 0;
 let selectedItem = null;
@@ -88,6 +89,7 @@ let categoryButtons = [];
 let allItems = [];      // Flat list for "all" tab
 let pieceItems = [];    // Categorized pieces
 let commandItems = [];  // Categorized commands
+let popularItems = [];  // Popular pieces sorted by hits
 let visibleItems = [];  // Currently visible items based on tab + expanded categories
 
 // Layout constants (adjusted per mode)
@@ -102,9 +104,23 @@ async function boot({ ui, net, store, params, screen }) {
   // Determine layout mode
   updateLayoutMode(screen);
   
-  // Fetch docs
+  // Fetch docs and hit stats in parallel
   if (!params[0]) {
-    docs = await net.requestDocs();
+    const [docsResult, hitsResult] = await Promise.all([
+      net.requestDocs(),
+      fetch("/api/piece-hit?top=100").then(r => r.json()).catch(() => ({ pieces: [] })),
+    ]);
+    
+    docs = docsResult;
+    
+    // Build hit stats map
+    hitStats = {};
+    if (hitsResult?.pieces) {
+      hitsResult.pieces.forEach(p => {
+        hitStats[p.piece] = p.hits;
+      });
+    }
+    
     if (docs) {
       // Separate pieces and commands, filter hidden
       pieces = {};
@@ -126,6 +142,9 @@ async function boot({ ui, net, store, params, screen }) {
       
       // Build flat "all" list
       buildAllList(ui);
+      
+      // Build popular list
+      buildPopularList(ui);
       
       // Restore state
       currentTab = (await store.retrieve("list:tab")) || "all";
@@ -230,6 +249,28 @@ function buildAllList(ui) {
   }));
 }
 
+// Build popular list sorted by hit count
+function buildPopularList(ui) {
+  // Combine pieces and commands with their hit counts
+  const combined = {
+    ...Object.fromEntries(keys(pieces).map(k => [k, { ...pieces[k], _type: "piece" }])),
+    ...Object.fromEntries(keys(commands).map(k => [k, { ...commands[k], _type: "command" }])),
+  };
+  
+  // Sort by hits (descending), then alphabetically for ties
+  popularItems = keys(combined)
+    .map(name => ({
+      name,
+      data: combined[name],
+      type: combined[name]._type,
+      hits: hitStats[name] || 0,
+    }))
+    .sort((a, b) => {
+      if (b.hits !== a.hits) return b.hits - a.hits;
+      return a.name.localeCompare(b.name);
+    });
+}
+
 // Rebuild visible items based on current tab and expanded categories
 function rebuildVisibleItems(ui) {
   visibleItems = [];
@@ -241,8 +282,12 @@ function rebuildVisibleItems(ui) {
     // Flat list, no categories
     sourceItems = allItems;
     visibleItems = sourceItems.map((item, i) => ({ ...item, y: CONTENT_TOP + i * ROW_HEIGHT }));
+  } else if (currentTab === "popular") {
+    // Popular list sorted by hits (flat, no categories)
+    sourceItems = popularItems;
+    visibleItems = sourceItems.map((item, i) => ({ ...item, y: CONTENT_TOP + i * ROW_HEIGHT }));
   } else {
-    // Categorized list
+    // Categorized list (pieces or commands)
     sourceItems = currentTab === "pieces" ? pieceItems : commandItems;
     let y = CONTENT_TOP;
     let currentCategory = null;
@@ -345,8 +390,8 @@ function paint({ wipe, ink, screen, dark, paintCount }) {
     ink(pal.tabBg).box(0, tabY - 1, screen.width, TAB_HEIGHT + 2);
     
     const tabs = layoutMode === "small" 
-      ? [["all", "All"], ["pieces", "📦"], ["commands", "🎯"]]
-      : [["all", "All"], ["pieces", "Pieces"], ["commands", "Commands"]];
+      ? [["popular", "🔥"], ["all", "All"], ["pieces", "📦"], ["commands", "🎯"]]
+      : [["popular", "🔥 Hot"], ["all", "All"], ["pieces", "Pieces"], ["commands", "Commands"]];
     
     let tabX = LEFT_MARGIN;
     tabButtons = []; // Reset
@@ -407,14 +452,21 @@ function paint({ wipe, ink, screen, dark, paintCount }) {
       
       // Item name (colored by type)
       const nameColor = item.type === "piece" ? pal.pieceName : pal.commandName;
+      const indent = layoutMode === "tiny" ? 0 : (currentTab === "all" || currentTab === "popular" ? 0 : 8);
       ink(isHighlighted ? pal.highlight : nameColor).write(item.name, { 
-        x: LEFT_MARGIN + (layoutMode === "tiny" ? 0 : (currentTab === "all" ? 0 : 8)), 
+        x: LEFT_MARGIN + indent, 
         y: y + 1 
       });
       
-      // Description (if space allows)
-      if (maxDescLen > 0 && item.data?.desc) {
-        const descX = LEFT_MARGIN + item.name.length * 6 + 8 + (currentTab === "all" ? 0 : 8);
+      // Show hit count in popular tab
+      if (currentTab === "popular" && item.hits > 0 && layoutMode !== "tiny") {
+        const hitText = item.hits >= 1000 ? `${(item.hits / 1000).toFixed(1)}k` : `${item.hits}`;
+        const hitX = LEFT_MARGIN + indent + item.name.length * 6 + 6;
+        ink(pal.categoryCount).write(hitText, { x: hitX, y: y + 1 });
+      }
+      // Description (if space allows and not in popular tab)
+      else if (maxDescLen > 0 && item.data?.desc && currentTab !== "popular") {
+        const descX = LEFT_MARGIN + item.name.length * 6 + 8 + indent;
         const remainingSpace = floor((screen.width - descX - 4) / 6);
         const desc = truncate(item.data.desc, min(maxDescLen, remainingSpace));
         ink(pal.description).write(desc, { x: descX, y: y + 1 });
