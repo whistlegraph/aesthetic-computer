@@ -5753,13 +5753,26 @@ function paint($) {
       
       // Add "ENTER 'give' TO HELP" line below MOTD in funding mode
       if (FUNDING_MODE) {
-        const helpText = "ENTER 'give' TO HELP";
-        // Cycle through alert colors for the help text too
+        // Build text with 'give' in cyan, rest in cycling red/yellow
+        const parts = ["ENTER '", "give", "' TO HELP"];
         let coloredHelpText = "";
-        for (let i = 0; i < helpText.length; i++) {
-          const colorIndex = Math.floor((i + motdFrame * 0.15 + 5) % alertColors.length);
-          const color = alertColors[colorIndex];
-          coloredHelpText += `\\${color}\\${helpText[i]}`;
+        let charIndex = 0;
+        for (const part of parts) {
+          const isGive = part === "give";
+          for (let i = 0; i < part.length; i++) {
+            if (isGive) {
+              // 'give' in bright cyan/white cycling
+              const giveColors = ["cyan", "white", "lime"];
+              const colorIndex = Math.floor((i + motdFrame * 0.2) % giveColors.length);
+              coloredHelpText += `\\${giveColors[colorIndex]}\\${part[i]}`;
+            } else {
+              // Rest in red/yellow cycling
+              const colorIndex = Math.floor((charIndex + motdFrame * 0.15 + 5) % alertColors.length);
+              const color = alertColors[colorIndex];
+              coloredHelpText += `\\${color}\\${part[i]}`;
+            }
+            charIndex++;
+          }
         }
         ink(pal.handleColor).write(
           coloredHelpText,
@@ -5804,38 +5817,37 @@ function paint($) {
         const faceX = Math.floor(symbolX + shakeX);
         const faceY = Math.floor(symbolY + shakeY);
         
-        // Draw custom sad face at 2x scale using pan transformation
-        // Face is drawn at base size then scaled up
-        pan({ x: faceX, y: faceY, scale: 2 });
+        // Draw custom sad face at 2x scale (manually scaled coordinates)
+        // Helper to draw a 2x scaled box
+        const s = 2; // scale factor
+        const box2x = (x, y, w, h) => $.box(faceX + x * s, faceY + y * s, w * s, h * s);
         
         // Face outline (circle approximation - rounded square)
         ink(...faceColor, faceAlpha);
         // Top edge
-        box(4, 0, 8, 1);
+        box2x(4, 0, 8, 1);
         // Upper sides
-        box(2, 1, 2, 1); box(12, 1, 2, 1);
+        box2x(2, 1, 2, 1); box2x(12, 1, 2, 1);
         // Side edges
-        box(1, 2, 1, 2); box(14, 2, 1, 2);
-        box(0, 4, 1, 8); box(15, 4, 1, 8);
-        box(1, 12, 1, 2); box(14, 12, 1, 2);
+        box2x(1, 2, 1, 2); box2x(14, 2, 1, 2);
+        box2x(0, 4, 1, 8); box2x(15, 4, 1, 8);
+        box2x(1, 12, 1, 2); box2x(14, 12, 1, 2);
         // Lower sides
-        box(2, 14, 2, 1); box(12, 14, 2, 1);
+        box2x(2, 14, 2, 1); box2x(12, 14, 2, 1);
         // Bottom edge
-        box(4, 15, 8, 1);
+        box2x(4, 15, 8, 1);
         
         // Eyes (2x2 pixels each, positioned in upper third)
-        box(4, 5, 2, 2);  // Left eye
-        box(10, 5, 2, 2); // Right eye
+        box2x(4, 5, 2, 2);  // Left eye
+        box2x(10, 5, 2, 2); // Right eye
         
         // Sad frown (curved down) - at bottom third of face
         // Frown shape: endpoints up, middle down
-        box(4, 11, 1, 1);   // Left corner up
-        box(5, 12, 1, 1);   // Left slope
-        box(6, 13, 4, 1);   // Bottom of frown
-        box(10, 12, 1, 1);  // Right slope
-        box(11, 11, 1, 1);  // Right corner up
-        
-        unpan();
+        box2x(4, 11, 1, 1);   // Left corner up
+        box2x(5, 12, 1, 1);   // Left slope
+        box2x(6, 13, 4, 1);   // Bottom of frown
+        box2x(10, 12, 1, 1);  // Right slope
+        box2x(11, 11, 1, 1);  // Right corner up
         
         // Red sparks flying off the head!
         const sparkCount = 8;
